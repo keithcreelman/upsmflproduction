@@ -42,6 +42,8 @@
   .trq-age.stale { color: var(--warn); font-weight: 700; }
   .trq-movs { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
   .trq-ledger { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
+  .trq-steps { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--fg); }
+  .trq-steps li { margin: 2px 0; }
   .trq-ledger b { color: var(--fg); }
   .trq-toggle { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 4px 0; font-size: 13px; }
   .trq-detail { display: none; margin-top: 10px; }
@@ -153,7 +155,25 @@
     if (ledger.failed_step) parts.push("failed step " + T.esc(ledger.failed_step));
     if (ledger.failure_detail) parts.push(T.esc(ledger.failure_detail));
     if (ledger.mfl_executed) parts.push("MFL executed");
-    return '<div class="trq-ledger">' + parts.join(" · ") + '</div>';
+    var h = '<div class="trq-ledger">' + parts.join(" · ") + '</div>';
+    // Keith's ruling (2026-09-29): "a failed or uncertain step must stop the sequence and
+    // remain visible in the queue." Each drop-first step (recorded via steps_json, §2.4.3b) is
+    // shown individually -- never collapsed into just the row's own overall state -- so the
+    // commissioner can see exactly which of several drops confirmed, which failed, and which
+    // never ran, without cross-referencing raw JSON.
+    var steps = ledger.steps || {};
+    var names = Object.keys(steps).filter(function (n) { return /^drop:|^trade$/.test(n); }).sort();
+    if (names.length) {
+      var rows = names.map(function (n) {
+        var s = steps[n];
+        var badge = s.status === "confirmed" ? "✅ confirmed" : s.status === "failed" ? "🛑 failed" : s.status === "unconfirmed" ? "⚠️ unconfirmed" : T.esc(s.status || "unknown");
+        var label = n === "trade" ? "the trade itself" : "drop " + T.esc(n.replace(/^drop:/, ""));
+        var reason = s.reason ? " — " + T.esc(s.reason) : "";
+        return '<li>' + label + ": " + badge + reason + '</li>';
+      }).join("");
+      h += '<ul class="trq-steps" aria-label="Per-step execution detail">' + rows + '</ul>';
+    }
+    return h;
   }
 
   function renderCapAckSummary(capAck) {

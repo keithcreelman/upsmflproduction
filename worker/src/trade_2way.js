@@ -44,6 +44,7 @@ import { EXEC, makeLedger } from "./trade_execution.js";
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
+import { resolveLoadedStatus } from "./contract_classification.js";
 import {
   executeCommishTwoPartyTrade, movementsForCompliance, injectCapTokens,
   fetchRosterSalaryMap, movementCapMaxK, unavailableCompliance, ledgerFor, capAckStoreFor,
@@ -67,6 +68,12 @@ async function enabled(env) {
   return await getFeatureFlag(env, "TRADE_2WAY_STAGING_ENABLED");
 }
 async function liveExecute(env) { return await getFeatureFlag(env, "TRADE_2WAY_STAGING_EXECUTE"); }
+// Keith's ruling (2026-09-29): "Proceed with the separate execution PR... Keep real execution
+// disabled throughout development." A SEPARATE, more specific kill switch from
+// TRADE_2WAY_STAGING_EXECUTE (which only ever ran the no-drops-required trade path) -- the
+// drop-first orchestrator below is materially more dangerous (real, irreversible roster drops,
+// not just a trade) and deserves its own, independently-off default. Unset = OFF.
+async function dropExecuteEnabled(env) { return await getFeatureFlag(env, "TRADE_2WAY_DROP_EXECUTE_ENABLED"); }
 function allowlist(env) { return safeStr(env.TRADE_2WAY_STAGING_TEST_FRANCHISES).split(",").map(padFid).filter(Boolean); }
 function franchiseAllowed(env, fid) { const a = allowlist(env); return a.length === 0 || a.includes(padFid(fid)); }
 
@@ -126,6 +133,33 @@ function canView2Way(row, viewer) {
   if (!inScope(row, viewer)) return false;
   const myFid = padFid(viewer && viewer.fid);
   return !!(viewer.isCommish || myFid === padFid(row.from_fid) || myFid === padFid(row.to_fid));
+}
+
+// ── PER-FRANCHISE HOLD (Keith's ruling, 2026-09-29, §2.4.3a row 5/§2.4.3b step 6) ──
+// A franchise with an unresolved drop-first sequence (some steps confirmed -- real, irreversible
+// facts -- the rest not yet) has a KNOWN, BOUNDED uncertainty in its true roster/compliance
+// state; a fresh, unrelated deal must never be built or accepted on top of that uncertainty.
+// `partial_executed`/`executed_needs_review` are NEVER produced for a staged 2-way trade's
+// ledger row by any path other than the drop-first orchestrator below (execute2Way's own
+// failure path only ever moves to not_executed -- see its own code, unchanged) -- so finding
+// either state here is unambiguous, not a guess.
+async function franchiseHasUnresolvedDropSequence(env, leagueId, season, fid) {
+  try {
+    const db = ledgerDbFor(env);
+    const row = await db.prepare(
+      `SELECT t.id FROM ups_2way_trades t
+        JOIN ups_trade_executions e ON e.exec_key = t.id AND e.league_id = t.league_id AND e.season = t.season
+       WHERE t.league_id=? AND t.season=? AND (t.from_fid=? OR t.to_fid=?)
+         AND e.state IN (?, ?)
+       LIMIT 1`
+    ).bind(safeStr(leagueId), safeStr(season), padFid(fid), padFid(fid), EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW).first();
+    return !!row;
+  } catch (e) {
+    // NO FAIL-OPEN: if we can't tell, refuse to assume it's safe. The caller treats a thrown
+    // hold-check the same as "held" -- see callers below.
+    console.error(`[2way-staged] hold-check failed for ${fid}: ${e?.message || e}`);
+    throw e;
+  }
 }
 
 // ─────────────────────────────────── capGate2Way ───────────────────────────────────
@@ -250,6 +284,18 @@ export async function createStaged2WayTrade(env, ctx, spec) {
         new_aav_future: e.new_aav_future != null ? safeInt(e.new_aav_future, 0) : null,
       }));
     if (![from, to].every((f) => franchiseAllowed(env, f))) return { ok: false, error: "not_in_allowlist" };
+
+    // Per-franchise hold (Keith's ruling, 2026-09-29): refuse staging a NEW offer touching
+    // either franchise while either has an unresolved drop-first sequence in flight.
+    try {
+      for (const fid of [from, to]) {
+        if (await franchiseHasUnresolvedDropSequence(env, leagueId, season, fid)) {
+          return { ok: false, error: "franchise_has_unresolved_drop_sequence", franchise_id: fid };
+        }
+      }
+    } catch (e) {
+      return { ok: false, error: "hold_check_unavailable" };
+    }
 
     // A satisfied conditional-drop selection made by the SENDER at create time (mirrors the
     // existing direct-MFL create route's own CREATE-time loaded-contract gate) is persisted
@@ -497,6 +543,19 @@ export async function accept2WayTrade(env, ctx, id, viewer, body) {
   if (row.status !== "collecting") return { ok: false, http: 409, code: "not_open", message: "This trade is no longer open." };
   if (row.to_state !== "pending") return { ok: false, http: 409, code: "already_responded", message: "You've already responded to this trade." };
 
+  // Per-franchise hold (Keith's ruling, 2026-09-29): refuse an accept touching EITHER
+  // franchise while either has an unresolved drop-first sequence in flight -- accepting would
+  // build a fresh deal's compliance math on a roster whose true state is a known uncertainty.
+  try {
+    for (const fid of [row.from_fid, row.to_fid]) {
+      if (await franchiseHasUnresolvedDropSequence(env, row.league_id, row.season, fid)) {
+        return { ok: false, http: 409, code: "franchise_has_unresolved_drop_sequence", message: "One of the teams in this trade has another deal still being untangled by the commissioner — this can't be accepted until that resolves.", franchise_id: padFid(fid) };
+      }
+    }
+  } catch (e) {
+    return { ok: false, http: 503, code: "unavailable", message: "Couldn't confirm it's safe to accept this right now. Try again in a moment." };
+  }
+
   // The recipient may supply their OWN conditional-drop selection inline, in this same
   // request -- the fresh recompute inside capGate2Way IS the validation, so there is
   // nothing to forge (mirrors the existing direct-MFL accept route's identical pattern).
@@ -699,5 +758,268 @@ export async function execute2Way(env, id) {
   await ledger.move(key, { from: EXEC.MFL_EXECUTED, to: EXEC.COMPLETED, token }).catch(() => {});
   await finish("completed", { executed_at_utc: nowIso() });
   await dmBoth(`✅ This trade went through on MFL (trade ${r.tradeId}).`);
+  return { ok: true, tradeId: r.tradeId };
+}
+
+// ═══════════════════ DROP-FIRST EXECUTION (Keith's ruling, 2026-09-29, §2.4.3b) ═══════════════════
+// Behind TRADE_2WAY_DROP_EXECUTE_ENABLED, its own kill switch, separate from
+// TRADE_2WAY_STAGING_EXECUTE above -- "keep real execution disabled throughout development."
+// The sequence: every required conditional drop, one at a time (verify -> MANDATORY snapshot
+// -> write -> verify -> record -> notify), stop the WHOLE sequence on any failure/uncertainty;
+// only once every drop across every franchise is confirmed does the trade itself run, via
+// execute2Way() UNCHANGED above (its own compliance gate naturally reads "ok" once the drops
+// are truly reflected in the live roster count -- no bypass, no re-derivation, no drift risk).
+
+function commishDiscordIds(env) {
+  return safeStr(env.COMMISH_DISCORD_USER_ID).split(",").map(digits).filter((x) => /^\d{15,20}$/.test(x));
+}
+async function notifyCommish(env, content) {
+  const ids = commishDiscordIds(env);
+  if (!ids.length) return { sent: 0 };
+  return await dmAll(env, ids.join(","), { content: safeStr(content).slice(0, 1990) });
+}
+const stepName = (playerId) => `drop:${digits(playerId)}`;
+
+// One live rosters read serves BOTH the "still valid" re-check and the mandatory snapshot --
+// never trusted from an earlier read (§2.4.3b step 1/2).
+async function fetchLiveRosterRow(env, leagueId, season, franchiseId, playerId) {
+  try {
+    const apiKey = safeStr(env.MFL_APIKEY);
+    if (!apiKey) return { ok: false, reason: "no_mfl_apikey" };
+    const u = `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = await r.json().catch(() => null);
+    let franchises = j?.rosters?.franchise || [];
+    if (!Array.isArray(franchises)) franchises = franchises ? [franchises] : [];
+    const fr = franchises.find((f) => padFid(f?.id) === padFid(franchiseId));
+    if (!fr) return { ok: false, reason: "franchise_not_found" };
+    let players = fr?.player || [];
+    if (!Array.isArray(players)) players = players ? [players] : [];
+    const p = players.find((x) => digits(x?.id) === digits(playerId));
+    if (!p) return { ok: false, reason: "player_not_on_roster" };
+    return { ok: true, row: { salary: safeStr(p.salary), contractStatus: safeStr(p.contractStatus), contractYear: safeStr(p.contractYear), contractInfo: safeStr(p.contractInfo) } };
+  } catch (e) {
+    return { ok: false, reason: `rosters_fetch_failed: ${e?.message || e}` };
+  }
+}
+
+// Keith's ruling (2026-09-29): "The exact pre-drop snapshot is mandatory. If the player's
+// contract terms or roster state cannot be captured and verified, stop before any drop." This
+// is the ONLY gate on whether a drop write is attempted at all -- no default/guessed snapshot,
+// ever (mirrors this whole codebase's "don't substitute defaults for MFL fields" rule).
+async function captureAndVerifyPreDropSnapshot(env, row, franchiseId, playerId, excludeTokens) {
+  if (excludeTokens && excludeTokens.has(digits(playerId))) return { ok: false, reason: "also_being_sent" };
+  const live = await fetchLiveRosterRow(env, row.league_id, row.season, franchiseId, playerId);
+  if (!live.ok) return { ok: false, reason: live.reason };
+  const lst = resolveLoadedStatus(live.row.contractStatus, live.row.contractInfo);
+  if (!lst.resolved) return { ok: false, reason: "contract_unresolved" };
+  if (!lst.loaded) return { ok: false, reason: "not_a_loaded_contract_anymore" };
+  return { ok: true, snapshot: live.row };
+}
+
+// Classifies the REAL /roster-workbench/action {unload_player} response (worker/src/index.js,
+// the same route the ERA auto-drop sweep already uses, unchanged, ERA-gated) into exactly
+// three outcomes -- confirmed / failed / unconfirmed -- never conflating "we know it didn't
+// happen" with "we don't know what happened" (§2.1's rule, reused here for the drop leg).
+function classifyDropActionResponse(status, data) {
+  if (data && data.ok === true && data.verification && data.verification.ok) {
+    return { status: "confirmed", verification: data.verification };
+  }
+  const detailErr = safeStr(data && data.details && data.details.error);
+  const preview = safeStr(data && data.details && data.details.preview).toLowerCase();
+  const lockoutLike = detailErr === "commissioner_access_required" || preview.includes("commissioner access required") || preview.includes("not authorized");
+  if (lockoutLike) return { status: "failed", reason: `lockout: ${safeStr((data && data.error) || "commissioner access required")}`, verification: (data && data.verification) || null };
+  const verifReason = safeStr(data && data.verification && data.verification.reason);
+  if (verifReason === "player_still_found_on_roster") {
+    return { status: "failed", reason: "mfl_did_not_remove_player", verification: data.verification };
+  }
+  if (!data || data.ok == null || verifReason === "post_membership_rosters_export_failed") {
+    return { status: "unconfirmed", reason: safeStr(data && data.error) || `status_${status}`, verification: (data && data.verification) || null };
+  }
+  if (data.ok === false) return { status: "failed", reason: safeStr(data.error) || `status_${status}`, verification: data.verification || null };
+  return { status: "unconfirmed", reason: `unexpected_response_status_${status}` };
+}
+
+async function performConditionalDrop(env, { leagueId, season, franchiseId, playerId }) {
+  if (!env.SELF) return { status: "unconfirmed", reason: "no_self_binding" };
+  const apiKey = safeStr(env.COMMISH_API_KEY);
+  if (!apiKey) return { status: "unconfirmed", reason: "no_commish_key" };
+  try {
+    const u = `https://self.invalid/roster-workbench/action?APIKEY=${encodeURIComponent(apiKey)}`;
+    const r = await env.SELF.fetch(u, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unload_player", league_id: leagueId, season, franchise_id: franchiseId, player_id: playerId }),
+    });
+    const data = await r.json().catch(() => null);
+    return classifyDropActionResponse(r.status, data);
+  } catch (e) {
+    return { status: "unconfirmed", reason: `call_failed: ${e?.message || e}` };
+  }
+}
+
+// Flattens EVERY franchise's SATISFIED, valid drop selection (from a fresh capGate2Way's
+// compliance.loaded_contracts.drop_requirements -- never re-derived, never trusted from a
+// stale read) into an ordered list of {franchiseId, playerId} steps. Order between different
+// franchises' drops doesn't matter to each other (§2.3.1) -- what matters is EVERY one of them
+// runs before the trade.
+function flattenRequiredDropSteps(gate) {
+  const reqs = (gate && gate.drop_requirements) || [];
+  const steps = [];
+  for (const r of reqs) {
+    const players = (r.selected || []).filter((x) => x.valid).map((x) => digits(x.player_id));
+    for (const pid of players) steps.push({ franchiseId: padFid(r.franchise_id), franchiseName: safeStr(r.franchise_name), playerId: pid });
+  }
+  return steps;
+}
+
+// Never fabricates a name -- the drop-first orchestrator has no player-name lookup wired in
+// yet (see docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §12.3's still-open items), so every
+// notification identifies the player by id rather than guessing or leaving it blank.
+function playerLabelFor(playerId) { return `player ${digits(playerId)}`; }
+
+/**
+ * The drop-first orchestrator. Never throws; every path returns a plain status object.
+ * Safe to call repeatedly (idempotent) -- a retry skips any step already `confirmed` in
+ * steps_json (§2.4.3b: "retries must never repeat a confirmed drop"), and picks up exactly
+ * where a prior attempt stopped.
+ */
+export async function executeDropFirstDeal(env, ctx, id) {
+  if (!(await dropExecuteEnabled(env))) return { ok: false, error: "drop_execute_disabled" };
+  const row = await getRow(env, id);
+  if (!row) return { ok: false, error: "not_found" };
+  if (row.to_state !== "accepted") return { ok: false, error: "not_accepted" };
+  if (!(row.status === "collecting" || row.status === "executing")) return { ok: false, error: "not_active", status: row.status };
+
+  const fromFid = padFid(row.from_fid), toFid = padFid(row.to_fid);
+  const dmBoth = async (content) => { for (const c of [row.from_discord_ids, row.to_discord_ids]) await dmAll(env, c, { content: safeStr(content).slice(0, 1990) }); };
+  const dmOne = async (discordIds, content) => { await dmAll(env, discordIds, { content: safeStr(content).slice(0, 1990) }); };
+
+  // STEP 0 (§2.4.3b): verify the trade can proceed BEFORE the first drop. A fresh compliance
+  // gate -- the SAME one execute2Way itself will re-run at the end, never a second
+  // implementation. If it's already fully "ok" (no drops needed, or already resolved), this
+  // isn't this orchestrator's job at all -- the ordinary execute2Way path handles it.
+  const gate0 = await capGate2Way(env, row);
+  if (gate0.ok) return { ok: true, no_drops_needed: true, delegate: "execute2Way" };
+  if (gate0.kind !== "loaded_contract_drops_required") {
+    // cap_ack_required / extension / unavailable -- not this orchestrator's job; leave it held
+    // exactly as the ordinary path already does.
+    await enterBlockedCap2Way(env, row, gate0, dmBoth);
+    return { ok: false, blocked: true, kind: gate0.kind };
+  }
+  const reqs = gate0.drop_requirements || [];
+  if (reqs.some((r) => !r.satisfied)) {
+    await enterBlockedCap2Way(env, row, gate0, dmBoth);
+    return { ok: false, blocked: true, kind: "not_all_satisfied" };
+  }
+  const steps = flattenRequiredDropSteps(gate0);
+  if (!steps.length) {
+    // Every franchise reads "satisfied" with zero actual valid picks -- can't happen from a
+    // real capGate2Way (satisfied implies validCount >= required > 0), but never assume; treat
+    // as held rather than silently doing nothing.
+    return { ok: false, blocked: true, kind: "no_drop_steps_derived" };
+  }
+
+  const ledger = ledgerFor(env);
+  const key = lkey(row);
+  const claim = await ledger.resumeDropSequence(key, new Date(Date.now() - 120000).toISOString(), {
+    kind: "two_way_staged_drop_first", actorFid: fromFid, participants: [fromFid, toFid].join(","),
+    payload: { movements: parseMovements(row), extension_requests: parseExtReqs(row), steps: steps.map((s) => ({ franchise_id: s.franchiseId, player_id: s.playerId })) },
+  });
+  if (!claim.acquired) return { skipped: "execution_not_acquirable", state: claim.row && claim.row.state };
+  const token = claim.token;
+  const excludeTokens = new Set(injectCapTokens(parseMovements(row)).flatMap((m) => (m.asset_tokens || []).map(digits)));
+
+  for (const step of steps) {
+    const name = stepName(step.playerId);
+    const cur = await ledger.read(key);
+    const already = cur && cur.steps && cur.steps[name];
+    if (already && already.status === "confirmed") continue; // never repeat a confirmed drop
+
+    const revalidation = await captureAndVerifyPreDropSnapshot(env, row, step.franchiseId, step.playerId, excludeTokens);
+    if (!revalidation.ok) {
+      await ledger.recordStep(key, name, { status: "failed", reason: `snapshot_failed: ${revalidation.reason}`, franchise_id: step.franchiseId, player_id: step.playerId });
+      await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: name, failure_detail: `snapshot_failed: ${revalidation.reason}` } });
+      const label = playerLabelFor(step.playerId);
+      await dmOne(row.from_discord_ids + "," + row.to_discord_ids, `🛑 This trade's conditional drop (${label}, ${step.franchiseName}) could not be safely verified before dropping, so **nothing was dropped**. The commissioner will look into it — this deal is on hold.`);
+      await notifyCommish(env, `🛑 2-way trade ${id}: drop step for ${label} (${step.franchiseName}) stopped BEFORE any write — snapshot/verification failed (${revalidation.reason}). Mandatory per Keith's ruling: no drop is attempted without a verified pre-drop snapshot.`);
+      return { ok: false, stopped_at: name, reason: `snapshot_failed: ${revalidation.reason}` };
+    }
+
+    const result = await performConditionalDrop(env, { leagueId: row.league_id, season: row.season, franchiseId: step.franchiseId, playerId: step.playerId });
+    if (result.status !== "confirmed") {
+      await ledger.recordStep(key, name, { status: result.status, reason: result.reason, franchise_id: step.franchiseId, player_id: step.playerId, pre_drop_snapshot: revalidation.snapshot, mfl_verification: result.verification || null });
+      await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: name, failure_detail: result.reason } });
+      const label = playerLabelFor(step.playerId);
+      const unknown = result.status === "unconfirmed";
+      await dmOne(row.from_discord_ids + "," + row.to_discord_ids, unknown
+        ? `⚠️ This trade's conditional drop (${label}, ${step.franchiseName}) came back **unconfirmed** — we could not verify whether it happened. Nothing else in this deal proceeds until the commissioner checks the live roster. Do not assume either outcome.`
+        : `🛑 This trade's conditional drop (${label}, ${step.franchiseName}) was **not confirmed** (${result.reason}). Nothing else in this deal proceeds until the commissioner resolves it.`);
+      await notifyCommish(env, `${unknown ? "⚠️ UNCONFIRMED" : "🛑 FAILED"} 2-way trade ${id}: drop step for ${label} (${step.franchiseName}) — ${result.reason}. Sequence stopped here; remaining steps (if any) never ran.`);
+      return { ok: false, stopped_at: name, status: result.status, reason: result.reason };
+    }
+
+    await ledger.recordStep(key, name, { status: "confirmed", franchise_id: step.franchiseId, player_id: step.playerId, pre_drop_snapshot: revalidation.snapshot, mfl_verification: result.verification, confirmed_at_utc: nowIso() });
+    await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.PARTIAL_EXECUTED, token });
+    const label = playerLabelFor(step.playerId);
+    // Distinct, per Keith's explicit instruction, from the eventual "trade completed" DM below.
+    await dmOne(row[`${step.franchiseId === fromFid ? "from" : "to"}_discord_ids`], `✅ **${label} has been dropped from your roster** as part of this trade. The trade itself has **not** gone through yet — you'll get a separate message once it does (or if anything stops it).`);
+    await notifyCommish(env, `✅ 2-way trade ${id}: drop confirmed for ${label} (${step.franchiseName}). Trade still pending.`);
+  }
+
+  // Every required drop confirmed -- the row is now `partial_executed`. Delegate the trade
+  // leg itself to execute2Way UNCHANGED: its own capGate2Way will read "ok" because the drops
+  // are already reflected in the live roster count, and resumeDropSequence above already moved
+  // the row to `executing` under OUR token, which is exactly the state execute2Way expects to
+  // find when IT tries to acquire -- except execute2Way calls ledger.acquire() itself, which
+  // only matches FROM not_executed/blocked_cap. To avoid a second, subtly different
+  // acquire path, release nothing here: call execute2Way with the SAME row id; its internal
+  // acquire() will see state=executing (ours) and correctly refuse to re-acquire (acquired:
+  // false) UNLESS we hand off cleanly. Handing off cleanly means: run the trade leg HERE,
+  // using the identical mechanism execute2Way uses internally, under the token we already hold
+  // -- not by calling execute2Way() as a black box (its own acquire() cannot resume our lock).
+  return await runTradeLegAfterDrops(env, row, key, token, dmBoth);
+}
+
+// The trade leg of a drop-first sequence, run under the SAME lock token the drop loop already
+// holds (never execute2Way's own acquire(), which cannot resume a lock -- see the comment
+// above). Deliberately SEPARATE from execute2Way's body, not a shared helper: execute2Way's own
+// failure path moves EXECUTING -> NOT_EXECUTED, which would be a LIE here (real drops already
+// happened -- see trade_execution.js's PARTIAL_EXECUTED comment). Every failure here moves to
+// NEEDS_REVIEW instead, and the DM is explicit that drops are confirmed but the trade is not.
+async function runTradeLegAfterDrops(env, row, key, token, dmBoth) {
+  const fromFid = padFid(row.from_fid), toFid = padFid(row.to_fid);
+  const movement = injectCapTokens(parseMovements(row)).find((m) => padFid(m.from) === fromFid) || { asset_tokens: [] };
+  const reverseMovement = injectCapTokens(parseMovements(row)).find((m) => padFid(m.from) === toFid) || { asset_tokens: [] };
+  const give = movement.asset_tokens || [], receive = reverseMovement.asset_tokens || [];
+  const ledger = ledgerFor(env);
+
+  if (!(await liveExecute(env))) {
+    console.log(`[2way-staged][DRY-RUN] ${row.id} (drop-first) would execute trade: ${fromFid} gives [${give.join(",")}]  <->  ${toFid} gives [${receive.join(",")}]`);
+    await ledgerDbFor(env).prepare(`UPDATE ups_2way_trades SET status='completed', failure_reason='dry_run', executed_at_utc=?, updated_at_utc=? WHERE id=?`).bind(nowIso(), nowIso(), row.id).run();
+    await ledger.move(key, { from: EXEC.PARTIAL_EXECUTED, to: EXEC.MFL_EXECUTED, token, set: { mfl_executed_at_utc: nowIso() } }).catch(() => {});
+    await ledger.move(key, { from: EXEC.MFL_EXECUTED, to: EXEC.COMPLETED, token }).catch(() => {});
+    await dmBoth(`✅ Every required drop for this trade is confirmed, and the trade itself cleared. _(Dry-run: staging execution isn't live yet — the commish will finalize.)_`);
+    return { ok: true, dry_run: true };
+  }
+
+  const r = await executeCommishTwoPartyTrade(env, { leagueId: safeStr(row.league_id), year: safeStr(row.season), fromFid, toFid, give, receive, comments: `staged 2-way drop-first ${row.id}` });
+  if (!r.ok) {
+    const lockout = r.step === "lockout";
+    await ledgerDbFor(env).prepare(`UPDATE ups_2way_trades SET failure_reason=?, updated_at_utc=? WHERE id=?`).bind(`${lockout ? "lockout" : r.step}: ${safeStr(r.error).slice(0, 200)}`, nowIso(), row.id).run();
+    await ledger.move(key, { from: EXEC.PARTIAL_EXECUTED, to: EXEC.NEEDS_REVIEW, token, set: { failed_step: "trade", failure_detail: safeStr(r.error).slice(0, 300) } }).catch(() => {});
+    // The single most safety-critical notification in this whole feature: drops are REAL and
+    // PERMANENT; the trade is NOT. Never conflated with "the trade completed," never implying
+    // restoration is guaranteed (Keith: "do not describe restoration as guaranteed unless MFL
+    // behavior proves it").
+    await dmBoth(`🚨 **Every required drop for this trade is confirmed and permanent — but the trade itself did NOT go through** (${lockout ? "MFL's commissioner lockout is on" : "MFL refused it"}). This means a player was given up and nothing has been received in return yet. The commissioner has been alerted. Restoration, if attempted, is a manual process and is **not guaranteed** — especially if the player is claimed by someone else first. Do not assume you'll get the player or an equivalent back automatically.`);
+    await notifyCommish(env, `🚨 2-way trade ${row.id}: EVERY required drop confirmed, but the TRADE LEG FAILED (${r.step}/${safeStr(r.error).slice(0, 200)}). This is the player-loss scenario — see docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §2.4.3b's restoration section before doing anything. Act quickly if restoration is to be attempted at all.`);
+    return { ok: false, error: r.error, drops_confirmed_trade_failed: true };
+  }
+
+  await ledgerDbFor(env).prepare(`UPDATE ups_2way_trades SET status='completed', mfl_trade_id=?, executed_at_utc=?, updated_at_utc=? WHERE id=?`).bind(r.tradeId, nowIso(), nowIso(), row.id).run();
+  await ledger.move(key, { from: EXEC.PARTIAL_EXECUTED, to: EXEC.MFL_EXECUTED, token, set: { mfl_evidence_json: { trade_id: r.tradeId }, mfl_executed_at_utc: nowIso() } }).catch(() => {});
+  await ledger.move(key, { from: EXEC.MFL_EXECUTED, to: EXEC.COMPLETED, token }).catch(() => {});
+  await dmBoth(`✅ This trade went through on MFL (trade ${r.tradeId}) — every required drop and the trade itself are now complete.`);
+  await notifyCommish(env, `✅ 2-way trade ${row.id} fully completed (trade ${r.tradeId}) after its required drop(s).`);
   return { ok: true, tradeId: r.tradeId };
 }

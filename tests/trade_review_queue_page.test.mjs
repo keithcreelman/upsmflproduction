@@ -210,5 +210,25 @@ test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows
   t.doesNotMatch(HTML, /Neither write order is decided/);
 });
 
+test("PER-STEP EXECUTION DETAIL: a drop-first sequence's individual step outcomes (confirmed/failed/unconfirmed) render distinctly in the queue, per Keith's ruling that a failed/uncertain step must remain visible", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const now = new Date().toISOString();
+  env.UPS_MFL_DB.raw.prepare(
+    `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, failed_step, failure_detail, steps_json, created_at_utc, updated_at_utc)
+     VALUES ('74598', '2026', ?, 'two_way_staged_drop_first', 'executed_needs_review', 'drop:80001', 'lockout: MFL commissioner lockout on', ?, ?, ?)`
+  ).run(id, JSON.stringify({
+    "drop:80000": { status: "confirmed", reason: null },
+    "drop:80001": { status: "failed", reason: "lockout: MFL commissioner lockout on" },
+  }), now, now);
+  const p = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p.els.trqList.innerHTML;
+  t.match(html, /drop 80000: ✅ confirmed/);
+  t.match(html, /drop 80001: 🛑 failed — lockout: MFL commissioner lockout on/);
+});
+
 await run("trade_review_queue_page");
 restoreConsole();

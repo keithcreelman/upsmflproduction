@@ -8193,6 +8193,7 @@ export default {
         path !== "/api/trades/2way/recheck" &&
         path !== "/api/trades/2way/select-drops" &&
         path !== "/api/trades/2way/queue" &&
+        path !== "/api/trades/2way/execute" &&
         // The pre-send compliance preview (2026-09-29) reads league_id from its own body first,
         // exactly like the routes just above -- same exemption, same reason.
         path !== "/api/trades/compliance-preview" &&

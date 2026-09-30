@@ -599,6 +599,79 @@ precisely, not softened:
   because every minute of delay is a minute another owner could claim the player. It is not a
   reason to treat the irreversible-loss risk in §2.2/§2.3 as smaller than it is.
 
+### 2.4.3c The player-loss resolution — a concrete proposal, RELEASE BLOCKER (Keith's ruling, 2026-09-29)
+
+**Keith: "The unresolved player-loss policy is a release blocker. If another owner claims a
+dropped player before restoration, do not assume the original owner can be made whole or
+silently substitute cap money. Document the possible outcomes and bring me a concrete
+commissioner resolution proposal before enabling writes."** This section is that proposal.
+**Nothing below is decided or implemented — it is a menu for Keith's ruling, exactly as
+requested.** Until he rules, `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off regardless of every
+other gate in this document being satisfied (§2.4.3b already says this; repeated here because
+this is the specific reason).
+
+**Every possible outcome, stated exhaustively, not just the ones with a proposal attached:**
+
+1. **Every drop confirms, the trade confirms.** Success. No resolution needed — this is the
+   ordinary case §2.4.3b's happy path already covers.
+2. **A drop fails or comes back uncertain before it (or any other drop) confirms.** Nothing
+   irreversible has happened for THAT step; §2.4.3b's stop-and-hold procedure applies. No asset
+   is lost — this is not a player-loss case.
+3. **Every required drop confirms, the trade then fails, and the dropped player is STILL a free
+   agent when the commissioner notices.** §2.4.3b's manual workaround (native free-agent re-add +
+   `POST /admin/import-salaries` restore from the captured `pre_drop_snapshot`) can be attempted.
+   Even here, restoration is not instant or guaranteed to succeed cleanly (§2.4.3b's own honesty:
+   the workaround is itself two more non-atomic writes) — but the ASSET is at least still
+   available to attempt it on.
+4. **Every required drop confirms, the trade then fails, and the dropped player has ALREADY BEEN
+   CLAIMED by someone else (a waiver, an FCFS add, a direct free-agent pickup) by the time the
+   commissioner notices.** **This is the case with no restoration path at all** — the player is
+   gone, on another roster, under a contract the affected owner has no claim to. This is the case
+   Keith's instruction specifically addresses: no default assumption of being "made whole," no
+   silent cap-money substitution.
+
+**For outcome 4 specifically — the menu, none chosen:**
+
+- **Option A — commissioner-facilitated replacement trade, using existing mechanisms only.**
+  The ORIGINAL trade never executed, which means the counterparty never gave up their own side
+  of it either — they still hold whatever they'd agreed to send. The commissioner brokers a
+  **new, ordinary trade** between the same two parties (or, if the counterparty won't cooperate,
+  between the affected owner and any willing third party) to approximate the original deal's
+  value, using the League's completely normal trade mechanism — no new code, no special
+  authority, exactly like any owner-negotiated trade today. Real limits: it depends on the
+  counterparty's willingness (nothing compels them), and "approximate value" is inherently a
+  judgment call with no formula.
+- **Option B — a formal draft-pick or cap-relief grant, sized and approved by the commissioner
+  per incident.** Unlike Option A, this requires the commissioner to give the affected owner
+  something new (a pick, cap space) rather than facilitating an exchange between owners. Keith's
+  instruction is explicit that this must never be a SILENT default — if chosen at all, it would
+  need its own sizing rule (how much is a lost loaded-contract player "worth"?) and would need to
+  be visibly logged as a discretionary commissioner action, not something this design automates
+  or triggers on its own. Real limits: no formula for "how much," and it introduces real value
+  into the league from outside any trade (a pick or cap space nobody else gave up).
+- **Option C — route through the league's existing dispute mechanism, not a bespoke one.** This
+  codebase already has a rule-proposal/dispute architecture (see the rule-proposals system) for
+  exactly this kind of "something went wrong, the league needs to decide what's fair" situation.
+  Rather than this design inventing a NEW resolution process, outcome-4 cases could simply become
+  a rule-proposal/commissioner-ruling case through the existing channel, decided with the same
+  legitimacy as any other league dispute. Real limits: slower than an automatic rule, and every
+  incident is litigated fresh rather than following a precedent this document would otherwise
+  need to set.
+- **Option D — no compensation; the disclosed risk stands as accepted.** Since the owner-facing
+  consent copy (§3 item 4, shipped 2026-09-29) now explicitly warns of exactly this outcome
+  *before* the owner confirms their drop selection, one legitimate policy stance is that informed
+  consent to a disclosed risk is the league's whole obligation, and no further compensation is
+  owed. Real limits: this is the coldest option for the affected owner, and "the copy warned you"
+  may not feel sufficient after a real loss — but it is the only option that requires building or
+  deciding nothing further.
+
+**These are not mutually exclusive as a standing policy** — Keith could, for instance, decide
+Option A is tried first and Option C is the fallback if the counterparty won't cooperate. What
+this document will NOT do on its own: pick one, blend them into an automatic formula, or treat
+Option B's cap-money path as anything but an explicit, visible, per-incident commissioner
+decision if it is used at all. **`TRADE_2WAY_DROP_EXECUTE_ENABLED` does not flip on until Keith
+rules on this section**, independent of every other implementation gate in §12.3 being satisfied.
+
 **2.4.4 Non-atomic risks specific to a HUMAN performing this manually** (in addition to, not
 instead of, the underlying MFL non-atomicity in §2.5, which no model here removes):
 
@@ -1299,10 +1372,13 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
   reversing the drop's own dead-money cap penalty upon a successful restoration should ever be
   automated, and whether the commissioner needs an urgency signal (the free-agent race is real and
   time-sensitive) rather than relying on them to already know to act immediately.
-- **The compensating-resolution mechanism for a deal that cannot be restored** (§2.4.3 state *k*,
-  §2.4.3b's restoration section) — once a lost asset cannot be recovered (someone else claimed the
-  player), what the commissioner offers the affected owner — nothing is prescribed here, and
-  §2.4.3b is explicit that none exists today beyond a case-by-case negotiation.
+- **The compensating-resolution mechanism for a deal that cannot be restored** (§2.4.3 state *k*)
+  — §2.4.3c is now a CONCRETE PROPOSAL (a four-option menu: facilitated replacement trade, a
+  formal commissioner-sized grant, routing through the existing rule-proposal/dispute process, or
+  no compensation beyond the disclosed risk), per Keith's explicit release-blocker instruction
+  (2026-09-29) not to assume the owner can be made whole or to silently substitute cap money. It
+  is a menu, not a decision — Keith has not yet ruled between the four options, and
+  `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off until he does, independent of every other gate here.
 - The exact commissioner-facing and owner-facing notification copy for every outcome in §2.4.3
   (state 0 / state *k* `partial_executed` / state *N* success).
 - Whether a queued deal sitting unreviewed, or a stuck `partial_executed` deal, needs its own
@@ -1443,9 +1519,9 @@ drop confirmed, the next drop or the trade not yet resolved), recovery is NOT "j
 something real already happened on MFL's side — and follows §2.4.3b's own step 7 ("commissioner
 must first understand why before deciding whether to retry the remaining writes or negotiate a
 compensating resolution"), unchanged. If the loss cannot be recovered at all (the player was
-claimed by someone else before the commissioner could act), §11's open item — the
-compensating-resolution mechanism for an owner whose loss cannot be restored — remains exactly as
-open as it was; this document still does not prescribe one.
+claimed by someone else before the commissioner could act), §2.4.3c is the concrete four-option
+proposal for this exact case (a release blocker per Keith's ruling) — still a menu, not a
+decision, until he rules between them.
 
 ### 12.3 What remains a decision before ANY real write path is enabled
 
@@ -1463,8 +1539,11 @@ inferred from "well, the design already covers it":
 - **Whether reversing a drop's dead-money cap penalty upon a successful manual restoration is ever
   automated**, and whether the commissioner needs an urgency signal for the free-agent race
   (§2.4.3b's restoration section, §11) — not prescribed.
-- **The compensating-resolution mechanism** for an owner whose loss cannot be restored at all —
-  the player was claimed by someone else first (§6, §11, §2.4.3b) — not prescribed.
+- **Which of §2.4.3c's four options** (facilitated replacement trade, formal commissioner grant,
+  route through the existing dispute process, or no compensation) applies when an owner's loss
+  cannot be restored at all — a RELEASE BLOCKER per Keith's explicit ruling, not a normal open
+  item: `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off until this is decided, regardless of whether
+  every other item on this list is resolved first.
 - **The exact commissioner-facing and owner-facing notification copy** for every outcome named in
   §12.2 (§11, unchanged).
 - **Whether an owner can themselves re-trigger their own failed drop step**, or whether this is

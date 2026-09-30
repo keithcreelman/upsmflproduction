@@ -29,21 +29,35 @@ export const EXEC = Object.freeze({
   COMPLETED: "completed",
   NEEDS_REVIEW: "executed_needs_review",
   BLOCKED_CAP: "blocked_cap",
+  // Keith's ruling (2026-09-29, drop-first): a multi-write deal (one or more conditional
+  // drops, then the trade) in which at least one write has ALREADY been confirmed on MFL —
+  // an irreversible fact — but the full sequence has not yet completed. Distinct from
+  // MFL_EXECUTED (which this module has always meant as "the TRADE specifically executed")
+  // because a drop confirming is its own, earlier, independently-irreversible fact. See
+  // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §2.4.3b. Only ever written by
+  // worker/src/trade_2way.js's drop-first orchestrator; no other caller produces it.
+  PARTIAL_EXECUTED: "partial_executed",
 });
 
-/** States in which MFL HAS executed the trade — permanent facts. */
-export const MFL_DONE_STATES = Object.freeze([EXEC.MFL_EXECUTED, EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW]);
+/** States in which MFL HAS executed something for this deal — permanent facts. */
+export const MFL_DONE_STATES = Object.freeze([EXEC.MFL_EXECUTED, EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW, EXEC.PARTIAL_EXECUTED]);
 export const isMflExecuted = (state) => MFL_DONE_STATES.includes(state);
 
 /** The only legal moves. Nothing leaves an MFL-executed state except forward. */
 export const TRANSITIONS = Object.freeze({
   [EXEC.NOT_EXECUTED]: [EXEC.EXECUTING],
   [EXEC.BLOCKED_CAP]: [EXEC.EXECUTING],
-  [EXEC.EXECUTING]: [EXEC.MFL_EXECUTED, EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP, EXEC.NEEDS_REVIEW],
+  [EXEC.EXECUTING]: [EXEC.MFL_EXECUTED, EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP, EXEC.NEEDS_REVIEW, EXEC.PARTIAL_EXECUTED],
   [EXEC.MFL_EXECUTED]: [EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW],
   [EXEC.POSTPROCESSING]: [EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW],   // (re-entry = a stale, crashed post-processing run being resumed)
   [EXEC.NEEDS_REVIEW]: [EXEC.POSTPROCESSING, EXEC.COMPLETED],
   [EXEC.COMPLETED]: [],
+  // Forward-only, exactly like MFL_EXECUTED: NEVER back to NOT_EXECUTED/BLOCKED_CAP/EXECUTING
+  // via a plain move() — a drop already happened and must never be treated as "nothing
+  // happened yet." Resuming to attempt the NEXT step goes through resumeDropSequence() below,
+  // which takes a fresh lock token exactly like claimResume() does for postprocessing, never
+  // through a bare move().
+  [EXEC.PARTIAL_EXECUTED]: [EXEC.PARTIAL_EXECUTED, EXEC.MFL_EXECUTED, EXEC.NEEDS_REVIEW],
 });
 export const canTransition = (from, to) => (TRANSITIONS[from] || []).includes(to);
 
@@ -148,6 +162,35 @@ export function makeLedger(db) {
   };
 
   /**
+   * Claim (or resume) a drop-first multi-write sequence (§2.4.3b) — the SAME shape as
+   * acquire(), except it ALSO resumes a row already `partial_executed` (some drops already
+   * confirmed, the sequence isn't done), a row `executed_needs_review` from a prior stopped
+   * attempt (an EXPLICIT retry — every caller of this orchestrator is itself an explicit
+   * commissioner action, never an automatic background resume, exactly the same "explicit
+   * retry" framing claimResume() above already uses for executed_needs_review), or a stale
+   * `executing` row (a crashed mid-step attempt). Never resumes mfl_executed/postprocessing/
+   * completed — those are terminal or belong to a different lifecycle stage entirely. A fresh
+   * lock token every time, so two concurrent callers can never both act on the same step.
+   */
+  const resumeDropSequence = async (k, staleBeforeIso, seed) => {
+    await ensure();
+    const token = newToken(), at = nowIso();
+    const ins = await db.prepare(
+      `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, lock_token, actor_fid, participants, payload_hash, payload_json, created_at_utc, updated_at_utc)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(league_id, season, exec_key) DO NOTHING`
+    ).bind(...keyOf(k), s(seed && seed.kind) || "two_way_drop_first", EXEC.EXECUTING, token, s(seed && seed.actorFid), s(seed && seed.participants), s(seed && seed.payloadHash),
+      seed && seed.payload ? JSON.stringify(seed.payload) : null, at, at).run();
+    if (changes(ins) === 1) return { acquired: true, token, row: await read(k) };
+    const upd = await db.prepare(
+      `UPDATE ups_trade_executions SET state=?, lock_token=?, updated_at_utc=?
+        WHERE league_id=? AND season=? AND exec_key=?
+          AND (state IN (?, ?, ?, ?) OR (state=? AND updated_at_utc <= ?))`
+    ).bind(EXEC.EXECUTING, token, at, ...keyOf(k), EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP, EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW, EXEC.EXECUTING, s(staleBeforeIso)).run();
+    if (changes(upd) === 1) return { acquired: true, token, row: await read(k) };
+    return { acquired: false, row: await read(k) };
+  };
+
+  /**
    * Record that a trade is BLOCKED BEFORE any MFL write (3-way cap gate). Only a row that never executed can become / stay `blocked_cap`
    * (no row yet, `not_executed`, or already `blocked_cap`); it can never overwrite an executing or executed trade. Returns the previous block
    * (so a caller can tell a NEW problem from the same one it already announced).
@@ -186,7 +229,7 @@ export function makeLedger(db) {
     return steps;
   };
 
-  return { ensure, read, readMany, acquire, block, move, claimResume, recordStep };
+  return { ensure, read, readMany, acquire, block, move, claimResume, resumeDropSequence, recordStep };
 }
 
 function hydrate(row) {
