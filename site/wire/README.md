@@ -172,6 +172,7 @@ same audit as body copy:
 | `desk` | section | `[{speaker, text}]` instead of `paragraphs` -- the anchor-desk format. `speaker` is `stuart`, `rich`, or (2026-09-29+) `boomer` for an occasional guest-host segment tossed to and from inside a section's own desk; the renderer prints the label with its own badge color. `wire_render.py`'s `ANCHORS` is the whitelist -- a typo there is a hard build failure, not a silently-dropped line. `placeAt`/`quoteAt` index desk lines |
 | `pots` | section | Pot ids to place, exactly the pack section's `potIds` in order (2026+ regular season). One page per division pot replaces one page per game |
 | `potNotes` | section | `{potId: [{speaker, text}]}` -- required for every placed pot. Division-audited both ways: intra pots may say "division game", inter pots may not |
+| `potQuoteAt` | section | `{potId: {quoteId: n}}` -- select only substantiated quotes and place each after desk line `n`; unselected pack quotes stay out of the article |
 
 Team reviews get all of this from `pipelines/etl/wire/team_review_layout.py`,
 run after `write` and before `render`.

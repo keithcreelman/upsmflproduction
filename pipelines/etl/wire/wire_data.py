@@ -1008,7 +1008,11 @@ def pregame_projections(season, week, player_ids):
         r, team = rows.get(pid), teams.get(pid, "")
         k = kick.get(team)
         cap = (frozen or {}).get("captures", {}).get(pid)
-        if r is not None and cap and r.get("projected_score") is not None \
+        if cap and frozen.get("authoritative"):
+            # A direct pre-overwrite D1 snapshot: its value AND time are the
+            # pregame record, whatever D1 holds now (see frozen_projection_evidence).
+            r = {"player_id": pid, "projected_score": cap[0], "updated_at": cap[1]}
+        elif r is not None and cap and r.get("projected_score") is not None \
                 and float(r["projected_score"]) == cap[0]:
             # The stored value is unchanged; its pregame timestamp survives only
             # in the frozen record (see frozen_projection_evidence).
@@ -1098,6 +1102,15 @@ def frozen_projection_evidence(season, week):
     `exports` are whole MFL projectedScores responses saved before the games
     (see the file's "pregameExports.why"); unlike `captures` they ARE the
     pregame number and need no match against D1.
+
+    `authoritative` (captures.authoritative in the file): the captures are a
+    DIRECT D1 snapshot taken after every game of the week and before any
+    re-capture (2026 week 3, frozen 2026-09-30 12:20 UTC ahead of the
+    Wednesday ingest). Then each capture IS the stored pregame value and time,
+    and pregame_projections uses it outright -- a D1 value that differs later
+    can only be a post-game revision, which kickoff-strict grading must ignore
+    anyway. Without the flag (week 1's reconstructed record) a capture is used
+    only while D1 still holds the same value.
     """
     rel = "site/wire/data/projection_evidence_%d_wk%02d.json" % (int(season), int(week))
     if not os.path.exists(os.path.join(REPO, rel)):
@@ -1108,6 +1121,7 @@ def frozen_projection_evidence(season, week):
     from datetime import datetime, timezone
     ts = lambda x: int(datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp())
     return {"overwriteAt": ts(doc["overwrite"]["at"]), "path": rel,
+            "authoritative": bool(doc["captures"].get("authoritative")),
             "inTime": dict((p["player_id"], float(p["projected_score"]))
                            for p in doc["starterProjectionsInTime"]["players"]),
             "captures": dict((p["player_id"], (float(p["projected_score"]), ts(p["captured_at"])))

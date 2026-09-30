@@ -1,0 +1,5611 @@
+{
+ "season": 2026,
+ "week": 3,
+ "why": "PREEMPTIVE freeze, written 2026-09-30T12:20:14Z before the scheduled Wednesday run of .github/workflows/ingest-projections.yml (cron 0 12 * * 3). ingest_projections.py --current resolves Wednesday to the week just played (Thursday-to-Thursday window), so that run re-captures week 3 after the games and resets updated_at on every row -- the same loss as week 1 (see projection_evidence_2026_wk01.json). No overwrite had happened when this was written: every week-3 row still carried its original capture time.",
+ "overwrite": {
+  "at": "2026-09-30T12:20:14Z",
+  "note": "Freeze time, not an observed overwrite. No stored row was within 120 s of it when written, so it marks nothing as lost; the captures below restore each row's original timestamp for as long as D1 still holds the same value."
+ },
+ "starterProjectionsInTime": {
+  "source": "not used for this freeze; captures cover every week-3 row",
+  "players": []
+ },
+ "captures": {
+  "source": "ups_player_projections (D1) season 2026 week 3, read 2026-09-30T12:20:14Z: 1118 rows, capture times 2026-09-25T17:02:27Z, 2026-09-27T18:52:39Z",
+  "players": [
+   {
+    "player_id": "10266",
+    "projected_score": 5.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10267",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10292",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10313",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10413",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10700",
+    "projected_score": 11.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10814",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10816",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "10948",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11150",
+    "projected_score": 12.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11222",
+    "projected_score": 8.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11244",
+    "projected_score": 13.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11247",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11286",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11317",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11327",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11367",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11383",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11671",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11675",
+    "projected_score": 17.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11679",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11706",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "11721",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11757",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11769",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11872",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11936",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11945",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "11985",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12140",
+    "projected_score": 13.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12141",
+    "projected_score": 14.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12155",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12186",
+    "projected_score": 13.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12217",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12218",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12221",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12225",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12229",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12234",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12263",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12301",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12305",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12323",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12325",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12437",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12610",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12611",
+    "projected_score": 18.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12616",
+    "projected_score": 15.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12620",
+    "projected_score": 17.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12626",
+    "projected_score": 20.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12645",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12676",
+    "projected_score": 8.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12677",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12678",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12688",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12697",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12698",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12699",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12711",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12735",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12739",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12741",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12752",
+    "projected_score": 7.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12754",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12764",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12772",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12802",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12842",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12860",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12955",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12956",
+    "projected_score": 5.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "12988",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13066",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13113",
+    "projected_score": 13.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13116",
+    "projected_score": 17.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13130",
+    "projected_score": 22.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13132",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13133",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13163",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13164",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13189",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13193",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13199",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13201",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13208",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13214",
+    "projected_score": 8.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13223",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13227",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13246",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13251",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13260",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "13263",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13268",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13281",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13284",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13288",
+    "projected_score": 9.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13289",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13296",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13298",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13299",
+    "projected_score": 20.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13303",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13315",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13317",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13319",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13322",
+    "projected_score": 10.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13325",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13330",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13332",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13354",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13418",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13427",
+    "projected_score": 0.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13431",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13447",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13448",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13589",
+    "projected_score": 24.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13590",
+    "projected_score": 14.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13592",
+    "projected_score": 14.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13593",
+    "projected_score": 17.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13595",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13604",
+    "projected_score": 11.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13629",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13630",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13635",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13671",
+    "projected_score": 8.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13672",
+    "projected_score": 8.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13675",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13676",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13678",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13681",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13682",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13690",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13692",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13693",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13694",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13696",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13697",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13700",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13704",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13707",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13710",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13713",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "13714",
+    "projected_score": 8.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13717",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13718",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13719",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13723",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13731",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13736",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13737",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13738",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13742",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13743",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13750",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13759",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13764",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13769",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13770",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13772",
+    "projected_score": 12.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13774",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13782",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13802",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13813",
+    "projected_score": 7.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13832",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13837",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13839",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13844",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13848",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13869",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13888",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13920",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13933",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13940",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13952",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "13963",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "13987",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14037",
+    "projected_score": 4.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14056",
+    "projected_score": 12.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14057",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14059",
+    "projected_score": 14.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14067",
+    "projected_score": -0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14071",
+    "projected_score": 13.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14080",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14085",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14086",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14095",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14102",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14105",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14109",
+    "projected_score": 8.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14118",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14127",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14136",
+    "projected_score": 9.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14137",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14138",
+    "projected_score": 10.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14143",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14146",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14147",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14148",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14149",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14153",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14154",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14157",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14158",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14159",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14161",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14163",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14164",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14167",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14168",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14169",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14170",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14171",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14179",
+    "projected_score": 9.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14180",
+    "projected_score": 8.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14182",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14199",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14200",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14209",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14217",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14218",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14219",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14221",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14224",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14225",
+    "projected_score": 8.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14235",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14239",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14244",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14247",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14249",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14251",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14252",
+    "projected_score": 4.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14256",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14257",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14260",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14270",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14302",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14303",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14315",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14319",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14322",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14328",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14405",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14412",
+    "projected_score": 7.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14414",
+    "projected_score": 0.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14420",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14434",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14467",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14495",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14503",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14518",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14590",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14592",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14600",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14630",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14669",
+    "projected_score": 8.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14717",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14777",
+    "projected_score": 15.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14778",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14779",
+    "projected_score": 16.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14782",
+    "projected_score": 15.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14783",
+    "projected_score": 16.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14789",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14797",
+    "projected_score": 16.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14800",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14802",
+    "projected_score": 17.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14805",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14815",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14823",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "14832",
+    "projected_score": 22.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14833",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14835",
+    "projected_score": 16.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14836",
+    "projected_score": 11.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14840",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14842",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14845",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14847",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14860",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14861",
+    "projected_score": 10.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14867",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14870",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14871",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14877",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14882",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14888",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14892",
+    "projected_score": 7.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14893",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14894",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14896",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14897",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14899",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14900",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14901",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14902",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14904",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14905",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14907",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14908",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14909",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14910",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14921",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14924",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14925",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14926",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14927",
+    "projected_score": 10.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14930",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14933",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14934",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14940",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14943",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14947",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14953",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14954",
+    "projected_score": 9.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14956",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14957",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14962",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14974",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14979",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14982",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14983",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14984",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14985",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14995",
+    "projected_score": 8.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15001",
+    "projected_score": 7.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15032",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15051",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15076",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15081",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15089",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15103",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15124",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15129",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15140",
+    "projected_score": 6.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15173",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15237",
+    "projected_score": 14.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15238",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15240",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "15241",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15252",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15253",
+    "projected_score": 8.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15254",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15255",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15256",
+    "projected_score": 14.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15259",
+    "projected_score": 8.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15261",
+    "projected_score": 9.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15281",
+    "projected_score": 21.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15282",
+    "projected_score": 14.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15284",
+    "projected_score": 14.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15285",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15287",
+    "projected_score": 23.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15288",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15290",
+    "projected_score": 13.2,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "15292",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15293",
+    "projected_score": 7.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15301",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15319",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15329",
+    "projected_score": 9.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15331",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15332",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15334",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15335",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15337",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15344",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15345",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15346",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15349",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15351",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15352",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15355",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15356",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15357",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15358",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15361",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15362",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15364",
+    "projected_score": 8.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15365",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15366",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15368",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15369",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15375",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15377",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15378",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15380",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15384",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15387",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15388",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15390",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15391",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15392",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15393",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15395",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15396",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15397",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15398",
+    "projected_score": 5.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15401",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15402",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "15404",
+    "projected_score": 7.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15405",
+    "projected_score": 6.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15409",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15412",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15414",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "15418",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15419",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15428",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15445",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15448",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15452",
+    "projected_score": 9.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15461",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15464",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15469",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15473",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15484",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15491",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15492",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15498",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15499",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15527",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15565",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15589",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15595",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15618",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15626",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15676",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15681",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15684",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15692",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15693",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15694",
+    "projected_score": 13.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15698",
+    "projected_score": 16.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15702",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15708",
+    "projected_score": 11.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15710",
+    "projected_score": 15.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15711",
+    "projected_score": 13.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15712",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15713",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15715",
+    "projected_score": 15.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15716",
+    "projected_score": 4.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15718",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15721",
+    "projected_score": 5.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15727",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15730",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15742",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15751",
+    "projected_score": 13.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15752",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15753",
+    "projected_score": 19.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15754",
+    "projected_score": 13.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15755",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15756",
+    "projected_score": 10.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15757",
+    "projected_score": 8.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15759",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15761",
+    "projected_score": 10.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15762",
+    "projected_score": 12.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15766",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15771",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15779",
+    "projected_score": 9.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15785",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15786",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15787",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15788",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15789",
+    "projected_score": 18.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15794",
+    "projected_score": 24.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15796",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15797",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15798",
+    "projected_score": 9.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15799",
+    "projected_score": 8.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15800",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15802",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15805",
+    "projected_score": 8.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15806",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15808",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15809",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15812",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15813",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15814",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15815",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15817",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15819",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15821",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15822",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "15823",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15831",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15832",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15833",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15834",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15835",
+    "projected_score": 8.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15836",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15845",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15846",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15849",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15850",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15851",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15852",
+    "projected_score": 4.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15853",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15856",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15859",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15860",
+    "projected_score": 7.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15861",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15862",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15863",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15866",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15867",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15868",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15869",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15871",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15873",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15874",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15875",
+    "projected_score": 4.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15879",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15881",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15884",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15889",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "15890",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15892",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15893",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15894",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15895",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15898",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15899",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15904",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15910",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15911",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15913",
+    "projected_score": 6.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15914",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15916",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15921",
+    "projected_score": 8.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15923",
+    "projected_score": 10.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15933",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15941",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15944",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15950",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15956",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15959",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15965",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15979",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15981",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15985",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15989",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16009",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16010",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16012",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16013",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16014",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16017",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16018",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16019",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16045",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16054",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16072",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16080",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16102",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16139",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16145",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16148",
+    "projected_score": 15.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16150",
+    "projected_score": 16.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16152",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16156",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16159",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16161",
+    "projected_score": 23.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16162",
+    "projected_score": 23.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16164",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16165",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16166",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16167",
+    "projected_score": 13.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16169",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16171",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16174",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16175",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16178",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16181",
+    "projected_score": 12.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16185",
+    "projected_score": 26.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16186",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16187",
+    "projected_score": 16.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16188",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16189",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16190",
+    "projected_score": 13.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16192",
+    "projected_score": 10.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16193",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16194",
+    "projected_score": 17.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16195",
+    "projected_score": 8.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16197",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16201",
+    "projected_score": 18.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16206",
+    "projected_score": 8.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16211",
+    "projected_score": 13.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16212",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16213",
+    "projected_score": 10.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16214",
+    "projected_score": 11.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16215",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16216",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16218",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16221",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16222",
+    "projected_score": 8.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16223",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16224",
+    "projected_score": 5.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16228",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16230",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16233",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16234",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16235",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16238",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16239",
+    "projected_score": 8.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16240",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16241",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16242",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16244",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16245",
+    "projected_score": 8.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16246",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16247",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16251",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16252",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16253",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16255",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16257",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16261",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16262",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16263",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16265",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16266",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16267",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16268",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16269",
+    "projected_score": 7.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16271",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16274",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16276",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16278",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16279",
+    "projected_score": 8.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16280",
+    "projected_score": 6.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16281",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16282",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16284",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16287",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16288",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16292",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16294",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16295",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16296",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16298",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16299",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16300",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16302",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16303",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16304",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16311",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16312",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16314",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16322",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16324",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16328",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16333",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16336",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16342",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16344",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16346",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16351",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16352",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16356",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16363",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16364",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16369",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16376",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16383",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16384",
+    "projected_score": 14.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16385",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16387",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16390",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16391",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16414",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16419",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16422",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16428",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16432",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16441",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16443",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16444",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16450",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16451",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16452",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16455",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16460",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16474",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16486",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16492",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16499",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16513",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16520",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16572",
+    "projected_score": 8.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16579",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16580",
+    "projected_score": 15.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16582",
+    "projected_score": 16.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16583",
+    "projected_score": 13.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16584",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16586",
+    "projected_score": 9.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16593",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16596",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16598",
+    "projected_score": 10.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16601",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16603",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16604",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16608",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16610",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16613",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16614",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16615",
+    "projected_score": 12.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16616",
+    "projected_score": 7.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16617",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16618",
+    "projected_score": 8.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16619",
+    "projected_score": 6.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16620",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16621",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16626",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16627",
+    "projected_score": 9.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16628",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16629",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16630",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16633",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16635",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16636",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16639",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16640",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16641",
+    "projected_score": 12.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16642",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16643",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16644",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16645",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16647",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16648",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16649",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16650",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16651",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16653",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16654",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16655",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16657",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16660",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16661",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16664",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16666",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16667",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16670",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16671",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16672",
+    "projected_score": 7.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16673",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16675",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16676",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16677",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16678",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16679",
+    "projected_score": 5.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16680",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16681",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16684",
+    "projected_score": 9.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16688",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16689",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16690",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16693",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16694",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16695",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16696",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16697",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16698",
+    "projected_score": 7.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16700",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16702",
+    "projected_score": 5.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16703",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16704",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16705",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16706",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16708",
+    "projected_score": 7.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16710",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16712",
+    "projected_score": 5.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16714",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16716",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16717",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16719",
+    "projected_score": 9.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16722",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16723",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16724",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16725",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16727",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16728",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16729",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16731",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16734",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16735",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16736",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16738",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16741",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16746",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16747",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16750",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16752",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16753",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16757",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16759",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16778",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16784",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16786",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16787",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16788",
+    "projected_score": 10.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16793",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16799",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16809",
+    "projected_score": 11.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16816",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16817",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16831",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16843",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16846",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16850",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16858",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16869",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16870",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16872",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16880",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16883",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16887",
+    "projected_score": 7.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16889",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16894",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16896",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16898",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16911",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16912",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16923",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16926",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16927",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16928",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "16940",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16949",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16954",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "16958",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17010",
+    "projected_score": 0.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17011",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17030",
+    "projected_score": 12.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17031",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17033",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17034",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17035",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17039",
+    "projected_score": 16.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17042",
+    "projected_score": 11.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17043",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17044",
+    "projected_score": 14.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17045",
+    "projected_score": 9.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17048",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17049",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17051",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17052",
+    "projected_score": 14.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17053",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17055",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17058",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17059",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17060",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17061",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17062",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17066",
+    "projected_score": 6.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17068",
+    "projected_score": 7.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17070",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17071",
+    "projected_score": 11.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17072",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17073",
+    "projected_score": 6.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17074",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17075",
+    "projected_score": 8.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17076",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17078",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17079",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17080",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17081",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17082",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17086",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17097",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17098",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17099",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17102",
+    "projected_score": 9.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17103",
+    "projected_score": 9.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17104",
+    "projected_score": 8.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17105",
+    "projected_score": 7.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17106",
+    "projected_score": 4.2,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17107",
+    "projected_score": 14.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17108",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17109",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17112",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17113",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17114",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17116",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17120",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17121",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17123",
+    "projected_score": 8.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17124",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17125",
+    "projected_score": 7.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17126",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17129",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17131",
+    "projected_score": 7.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17132",
+    "projected_score": 6.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17134",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17135",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17136",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17137",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17139",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17140",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17141",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17143",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17144",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17145",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17146",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17147",
+    "projected_score": 6.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17149",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17151",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17152",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17153",
+    "projected_score": 7.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17154",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17155",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17156",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17157",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17158",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17160",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17162",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17163",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17164",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17165",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17166",
+    "projected_score": 0.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17167",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17168",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17169",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17171",
+    "projected_score": 6.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17172",
+    "projected_score": 6.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17174",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17178",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17179",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17181",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17182",
+    "projected_score": 8.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17185",
+    "projected_score": 4.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17187",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17190",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17192",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17193",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17196",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17200",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17201",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17202",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17203",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17204",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17207",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17208",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17209",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17213",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17214",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17216",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17217",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17220",
+    "projected_score": 5.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17221",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17222",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17229",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17232",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17233",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17234",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17241",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17244",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17247",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17250",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17254",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17256",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17261",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17265",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17269",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17274",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17277",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17286",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17319",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17333",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17339",
+    "projected_score": 7.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17343",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17348",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17352",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17353",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17354",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17360",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17361",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17362",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17369",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17379",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17396",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17398",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17408",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17410",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17419",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17423",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17462",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17467",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17472",
+    "projected_score": 9.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17473",
+    "projected_score": 14.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17474",
+    "projected_score": 5.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17475",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17476",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17477",
+    "projected_score": 3.3,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17478",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17481",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17482",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17485",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17491",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17497",
+    "projected_score": 9.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17499",
+    "projected_score": 2.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17500",
+    "projected_score": 16.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17501",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17503",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17504",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17505",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17506",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17507",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17508",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17510",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17511",
+    "projected_score": 4.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17512",
+    "projected_score": 3.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17518",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17519",
+    "projected_score": 3.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17520",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17521",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17526",
+    "projected_score": 0.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17527",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17528",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17529",
+    "projected_score": 2.4,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17541",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17542",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17543",
+    "projected_score": 7.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17545",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17547",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17549",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17550",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17551",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17552",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17553",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17554",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17555",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17556",
+    "projected_score": 4.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17557",
+    "projected_score": 6.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17558",
+    "projected_score": 8.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17560",
+    "projected_score": 0.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17562",
+    "projected_score": 5.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17563",
+    "projected_score": 4.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17564",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17567",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17568",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17570",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17571",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17572",
+    "projected_score": 3.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17573",
+    "projected_score": 3.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17575",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17576",
+    "projected_score": 10.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17577",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17579",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17580",
+    "projected_score": 1.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17581",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17582",
+    "projected_score": 2.0,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17583",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17584",
+    "projected_score": 2.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17586",
+    "projected_score": 3.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17587",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17588",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17589",
+    "projected_score": 8.6,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17591",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17592",
+    "projected_score": 2.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17593",
+    "projected_score": 0.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17598",
+    "projected_score": 1.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17599",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17601",
+    "projected_score": 7.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17602",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17604",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17605",
+    "projected_score": 2.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17606",
+    "projected_score": 4.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17607",
+    "projected_score": 3.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17609",
+    "projected_score": 3.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17613",
+    "projected_score": 2.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17614",
+    "projected_score": 3.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17617",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17618",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17620",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17621",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17623",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17624",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17626",
+    "projected_score": 2.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17627",
+    "projected_score": 1.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17628",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17629",
+    "projected_score": 5.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17633",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17639",
+    "projected_score": 6.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17640",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17641",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17643",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17644",
+    "projected_score": 0.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17646",
+    "projected_score": 0.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17648",
+    "projected_score": 4.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17649",
+    "projected_score": 2.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17653",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17655",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17664",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17666",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17667",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17668",
+    "projected_score": 5.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17672",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17679",
+    "projected_score": 1.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17680",
+    "projected_score": 4.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17683",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17685",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17689",
+    "projected_score": 4.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17695",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17696",
+    "projected_score": 0.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17706",
+    "projected_score": 1.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17707",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17726",
+    "projected_score": 5.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17736",
+    "projected_score": 5.2,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17752",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17753",
+    "projected_score": 1.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17754",
+    "projected_score": 0.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17755",
+    "projected_score": 1.1,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17761",
+    "projected_score": 6.1,
+    "captured_at": "2026-09-25T17:02:27Z"
+   },
+   {
+    "player_id": "17762",
+    "projected_score": 1.9,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "7836",
+    "projected_score": 13.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "8851",
+    "projected_score": 4.6,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "9051",
+    "projected_score": 2.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "9064",
+    "projected_score": 1.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "9431",
+    "projected_score": 16.3,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "14151",
+    "projected_score": 1.7,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "15840",
+    "projected_score": 0.5,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17186",
+    "projected_score": 6.0,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17590",
+    "projected_score": 3.4,
+    "captured_at": "2026-09-27T18:52:39Z"
+   },
+   {
+    "player_id": "17635",
+    "projected_score": 0.8,
+    "captured_at": "2026-09-27T18:52:39Z"
+   }
+  ],
+  "authoritative": true,
+  "authoritativeWhy": "Read straight from D1 (ups_player_projections, season 2026 week 3) after every week-3 game had finished and before any re-capture: every row's projected_score and updated_at are exactly what the Tuesday recap graded. wire_data.pregame_projections uses these values and times outright, so a later post-game revision in D1 cannot change or drop a bust/bargain comparison."
+ },
+ "writtenAtUtc": "2026-09-30T12:20:14Z"
+}

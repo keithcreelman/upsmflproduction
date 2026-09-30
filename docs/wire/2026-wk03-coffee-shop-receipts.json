@@ -1,0 +1,346 @@
+{
+ "_note": "Receipts behind 'Coffee Shop Talk with Kenny Mayne' in site/wire/articles/2026/2026-wk03-ups-center.html. Every quotation in that segment links to one of these messages and was emitted from the archived text (ups_discord_messages), never retyped. A pack quotes.json is not used because weekly_recap.py's editor-picks path refuses messages from other weeks, and this segment deliberately calls back to May-Week 2 posts. Re-verify with the checks listed in docs/wire/2026-wk03-editorial-audit.md.",
+ "archiveCheckedEt": "Wed Sep 30, 9:23 AM ET",
+ "archiveCheck": "ingest_discord_chat.py --incremental --dry-run found nothing new in any archived channel, and a direct Discord API read of #the-coffee-shop and #on-the-sofa showed the same newest owner post (Shawn Blake, Tue Sep 29, 10:42 AM ET).",
+ "week3Window": "Thu Sep 24 00:00 UTC through the check; owner posts Thu Sep 24 6:10 AM ET - Tue Sep 29 10:42 AM ET",
+ "boxScore": {
+  "totalOwnerPosts": 270,
+  "postsAndGifPosts": {
+   "Eric Martel": [
+    68,
+    7
+   ],
+   "Shawn Blake": [
+    55,
+    20
+   ],
+   "Josh Martel": [
+    48,
+    1
+   ],
+   "Keith Creelman": [
+    42,
+    7
+   ],
+   "Ryan Bousquet": [
+    36,
+    7
+   ],
+   "Brian Cutting": [
+    11,
+    0
+   ],
+   "Brian Cross": [
+    10,
+    0
+   ],
+   "Bear Dunn": [
+    0,
+    0
+   ],
+   "Derrick Whitman": [
+    0,
+    0
+   ],
+   "Chris Klingenberg": [
+    0,
+    0
+   ],
+   "Eric Mannila": [
+    0,
+    0
+   ],
+   "Matt Gerardi": [
+    0,
+    0
+   ]
+  },
+  "lastOwnerPostEt": {
+   "Bear Dunn": "Mon Sep 21, 6:45 PM ET",
+   "Chris Klingenberg": "Thu Sep 10, 10:13 AM ET",
+   "Derrick Whitman": "Fri Jul 31, 10:35 AM ET",
+   "Matt Gerardi": "Thu Aug 27, 6:52 PM ET",
+   "Eric Mannila": "Tue Jun 23, 2:54 PM ET"
+  }
+ },
+ "mfl": {
+  "lamarTrade": {
+   "source": "MFL transactions export, data/mfl-snapshots/2026-09-29/transactions.json",
+   "timestampUnix": 1790679568,
+   "postedAtEt": "Tue Sep 29, 6:59 AM ET",
+   "franchise": "0007 Josh Martel",
+   "franchise2": "0004 Brian Cutting",
+   "comment": "What do they say…? Fuck Hammer",
+   "commentNote": "stored double-encoded by MFL (UTF-8 read as Latin-1); decoded here"
+  },
+  "futureFirstRoundPicks2027": {
+   "source": "MFL export TYPE=futureDraftPicks, fetched Wed Sep 30",
+   "longHaulers0006OwnedBy": "0005 Eric Martel",
+   "joshMartel0007Holds": [
+    "0007 own",
+    "0010 Shawn Blake",
+    "0004 Brian Cutting"
+   ],
+   "hammer0005OwnedBy": "0008 Keith Creelman"
+  },
+  "captainDraft2026": {
+   "source": "Keith's draft-night post (receipt keith_divdraft)",
+   "order": "1 Hammer takes Cross; 2 Whitman takes Gerardi; 3 Bear takes Klingenberg; 4 Martel takes Creelman; 5 Bousquet (Martel); 6 Cleon (Bear); 7 Blake (Whitman); 8 PG (Hammer)"
+  },
+  "champions": {
+   "titles": [
+    {
+     "season": 2024,
+     "owner": "Eric Martel"
+    },
+    {
+     "season": 2025,
+     "owner": "Brian Cutting"
+    }
+   ],
+   "source": "src_final_standings + src_franchises"
+  }
+ },
+ "intervals": {
+  "crossQuestionToDraft": "May 8 -> May 24 = 16 days",
+  "hammer101ToCrossToiletBowl": "3:14:46 PM -> 3:22:35 PM ET = 7 min 49 s",
+  "cuttingConfessionToSuperBowlLine": "9:16:24 -> 9:19:14 AM ET",
+  "superBowlLineToLamarTrade": "Mon 9:19 AM -> Tue 6:59 AM ET"
+ },
+ "receipts": [
+  {
+   "key": "cross_coffee",
+   "messageId": "1552841903786041405",
+   "owner": "Brian Cross",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Thu Sep 24, 8:39 PM ET",
+   "message": "Great coffee shop talk today boys !",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1552841903786041405"
+  },
+  {
+   "key": "bear_sucks",
+   "messageId": "1551351885225533616",
+   "owner": "Bear Dunn",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Sun Sep 20, 5:58 PM ET",
+   "message": "Football sucks",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1551351885225533616"
+  },
+  {
+   "key": "cross_blows",
+   "messageId": "1502272057226952735",
+   "owner": "Brian Cross",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Fri May 8, 7:32 AM ET",
+   "message": "That’s like a message from Ryan ! I do not understand at first pass ? Are you saying the Captain picking first is going to pick the Long Haulers because he thinks my Team blows ..",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1502272057226952735"
+  },
+  {
+   "key": "keith_divdraft",
+   "messageId": "1508237934632108214",
+   "owner": "Keith Creelman",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Sun May 24, 6:39 PM ET",
+   "message": "https://www48.myfantasyleague.com/2026/ajax_ld?L=74598 Rookie draft starting now Divisional draft. Hammer Cross Pick 1 PG Pick 8 Whitman Gerardi Pick 2 Blake Pick 7 Bear Klingenberg 3 Cleon Pick 6 Martel Creelman Pick 4 Bousqo Pick 5 Eric Mannila - on the clock",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1508237934632108214"
+  },
+  {
+   "key": "cross_charity",
+   "messageId": "1508321086863835186",
+   "owner": "Brian Cross",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Mon May 25, 12:09 AM ET",
+   "message": "Hi Everyone, been quite the night hosting the rookie draft . I was told the first team chosen which we now all know was the Long Haulers whether one agree’s or disagree’s . Knowing this is now my 3 year home our division name should be “ The Champions and the Charity Case “ How appropriate Captain Hammer , considering you chose me let me at least go with my Division name choice !",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1508321086863835186"
+  },
+  {
+   "key": "cross_first",
+   "messageId": "1520488200458473643",
+   "owner": "Brian Cross",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Sat Jun 27, 1:57 PM ET",
+   "message": "It’s been quiet since the draft ! How about our Division name Captain Hammer ? * “Not Feeling the Love” Division . * “Two Recent Champs & a Problem” Division . * “ The Awkward Third Member “ Division. I believe I have choice being picked as first member of our division, actually of all 4 divisions as I recall ..",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1520488200458473643"
+  },
+  {
+   "key": "em_101",
+   "messageId": "1552397838493679761",
+   "owner": "Eric Martel",
+   "channel": "#on-the-sofa",
+   "postedAtEt": "Wed Sep 23, 3:14 PM ET",
+   "message": "Rooting for you to get 1.01 THIS season 😉",
+   "permalink": "https://discord.com/channels/1057655884475531324/1291737646665699420/1552397838493679761"
+  },
+  {
+   "key": "cross_toilet",
+   "messageId": "1552399802761871454",
+   "owner": "Brian Cross",
+   "channel": "#on-the-sofa",
+   "postedAtEt": "Wed Sep 23, 3:22 PM ET",
+   "message": "Can we not think of the Toilet Bowl now after 2 weeks ?!",
+   "permalink": "https://discord.com/channels/1057655884475531324/1291737646665699420/1552399802761871454"
+  },
+  {
+   "key": "em_more",
+   "messageId": "1554449487425183908",
+   "owner": "Eric Martel",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Tue Sep 29, 7:07 AM ET",
+   "message": "I offered him more.... 🫏",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1554449487425183908"
+  },
+  {
+   "key": "em_why",
+   "messageId": "1554457640724070555",
+   "owner": "Eric Martel",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Tue Sep 29, 7:39 AM ET",
+   "message": "You told me who you were trading with and that you weren't taking on any $ next year. I compared what we had discussed to what he could possibly offer you. Why would I offer penix, Burden, 27 early 1st, 27 early 2nd etc etc when the other offer isn't even close to that. You were being greedy AF and ended up with the worse deal. Nice work 👏",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1554457640724070555"
+  },
+  {
+   "key": "em_dumb",
+   "messageId": "1554458375105024001",
+   "owner": "Eric Martel",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Tue Sep 29, 7:42 AM ET",
+   "message": "I still love you even tho you're the dumb Martel",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1554458375105024001"
+  },
+  {
+   "key": "jm_there",
+   "messageId": "1552399891827920907",
+   "owner": "Josh Martel",
+   "channel": "#on-the-sofa",
+   "postedAtEt": "Wed Sep 23, 3:22 PM ET",
+   "message": "Oh I’ll be there",
+   "permalink": "https://discord.com/channels/1057655884475531324/1291737646665699420/1552399891827920907"
+  },
+  {
+   "key": "jm_tank",
+   "messageId": "1552745527970504775",
+   "owner": "Josh Martel",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Thu Sep 24, 2:16 PM ET",
+   "message": "Not tanking good sir. The rules blocked me from tanking. You’re stuck with me battling you week to week now",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1552745527970504775"
+  },
+  {
+   "key": "bc_wrong",
+   "messageId": "1554119591267926077",
+   "owner": "Brian Cutting",
+   "channel": "#on-the-sofa",
+   "postedAtEt": "Mon Sep 28, 9:16 AM ET",
+   "message": "I start the wrong guys every week",
+   "permalink": "https://discord.com/channels/1057655884475531324/1291737646665699420/1554119591267926077"
+  },
+  {
+   "key": "bc_sb",
+   "messageId": "1554120305382002819",
+   "owner": "Brian Cutting",
+   "channel": "#on-the-sofa",
+   "postedAtEt": "Mon Sep 28, 9:19 AM ET",
+   "message": "Still been to more superbowls than Allen and Lamar",
+   "permalink": "https://discord.com/channels/1057655884475531324/1291737646665699420/1554120305382002819"
+  },
+  {
+   "key": "kc_pray",
+   "messageId": "1507367208823685181",
+   "owner": "Keith Creelman",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Fri May 22, 8:59 AM ET",
+   "message": "Boosq, I pray we're in the same division this year. Martel is sitting there at the 1/2 turn with a chance to make it a reality.",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1507367208823685181"
+  },
+  {
+   "key": "rb_rebuild",
+   "messageId": "1552986929358708780",
+   "owner": "Ryan Bousquet",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Fri Sep 25, 6:15 AM ET",
+   "message": "Yes but at least I get to taste a little victory somewhere this year while I rebuild in the league that matters.",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1552986929358708780"
+  },
+  {
+   "key": "sb_shattered",
+   "messageId": "1548862274863763578",
+   "owner": "Shawn Blake",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Sun Sep 13, 9:05 PM ET",
+   "message": "1 week, plans are shattered.",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1548862274863763578"
+  },
+  {
+   "key": "sb_pennies",
+   "messageId": "1548865716256509973",
+   "owner": "Shawn Blake",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Sun Sep 13, 9:19 PM ET",
+   "message": "Too big a hole. Everything must go. Pennies on the dollar.",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1548865716256509973"
+  },
+  {
+   "key": "sb_regret",
+   "messageId": "1553888673584652289",
+   "owner": "Shawn Blake",
+   "channel": "#on-the-sofa",
+   "postedAtEt": "Sun Sep 27, 5:58 PM ET",
+   "message": "I didn’t look at my scores but I still was upset about my mcclaurin and golden decisions",
+   "permalink": "https://discord.com/channels/1057655884475531324/1291737646665699420/1553888673584652289"
+  },
+  {
+   "key": "rb_reaper2",
+   "messageId": "1551752898793181185",
+   "owner": "Ryan Bousquet",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Mon Sep 21, 8:32 PM ET",
+   "message": "Can’t help but giddily report the death and destruction.",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1551752898793181185"
+  },
+  {
+   "key": "dw_tiger",
+   "messageId": "1532047532895768830",
+   "owner": "Derrick Whitman",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Wed Jul 29, 11:29 AM ET",
+   "message": "I like being the underdog tho expectations low got a lot of younger guys then I strike like a tiger in the tall grass",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1532047532895768830"
+  },
+  {
+   "key": "mg_war",
+   "messageId": "1532074067945849095",
+   "owner": "Matt Gerardi",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Wed Jul 29, 1:15 PM ET",
+   "message": "It’s war now…lol",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1532074067945849095"
+  },
+  {
+   "key": "bd_cleon",
+   "messageId": "1531647676330934302",
+   "owner": "Bear Dunn",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Tue Jul 28, 9:01 AM ET",
+   "message": "Players might as well be dead on Cleon’s roster",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1531647676330934302"
+  },
+  {
+   "key": "ck_lfg",
+   "messageId": "1547610984791806044",
+   "owner": "Chris Klingenberg",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Thu Sep 10, 10:13 AM ET",
+   "message": "LFG",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1547610984791806044"
+  },
+  {
+   "key": "ck_thinking",
+   "messageId": "1547037121880006657",
+   "owner": "Chris Klingenberg",
+   "channel": "#the-coffee-shop",
+   "postedAtEt": "Tue Sep 8, 8:13 PM ET",
+   "message": "Thinking dude sorry",
+   "permalink": "https://discord.com/channels/1057655884475531324/1087157907419840644/1547037121880006657"
+  }
+ ]
+}
