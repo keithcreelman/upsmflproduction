@@ -1,15 +1,15 @@
 {
  "meta": {
-  "engine": "hand-authored (claude-sonnet-5, wire.py write refuses pots-format packs)",
+  "engine": "hand-authored (UPS Center editorial revision; wire.py write refuses pots-format packs)",
   "inputTokens": 0,
   "outputTokens": 0,
   "packId": "2026-wk03-recap",
   "packGeneratedAtUtc": "2026-09-29T20:47:39Z"
  },
  "prose": {
-  "kicker": "Week three, from the desk",
-  "title": "Bear Dunn Beat the Entire Field. The Preseason {{f.pre.0003.power_rank}} Beat No One.",
-  "dek": "Derrick Whitman's own bench cost him a game he was going to win anyway, Brock Purdy scored {{f.star.score}} points for a team that still lost a game, and {{f.week.self_inflicted}} of this week's losing teams had a winning lineup sitting on the bench the whole time.",
+  "kicker": "Week three, from the UPS Center desk",
+  "title": "Bear Swept the Field; Cutting Won Two and Lost a Close One",
+  "dek": "Purdy outscored his projection in a losing effort, Gibbs delivered for Cutting, and a quiet quarterback day left a narrow loss on the board.",
   "heroImage": "images/hero_2026_forecast.jpg",
   "sections": [
    {
@@ -19,51 +19,35 @@
     "desk": [
      {
       "speaker": "stuart",
-      "text": "Week three is in the books, Rich, and there is too much here for the two of us to get through alone tonight."
+      "text": "Bear Dunn swept his three opponents, while Brian Cutting won two of his three games and lost a close one to Keith Creelman."
      },
      {
       "speaker": "rich",
-      "text": "Then let's not try it alone, Stu. Boomer, the mic is yours -- give the league the fast version."
+      "text": "Cutting got a huge day from Jahmyr Gibbs, but Drake Maye scored far below the opportunity he received. XFP estimates points from passes, carries and targets; it is separate from actual points."
+     },
+     {
+      "speaker": "stuart",
+      "text": "Shawn Blake got the best individual player score of the week from Brock Purdy and still lost to Bear. Boomer, take us through the highlights."
      },
      {
       "speaker": "boomer",
-      "text": "Thank you, Rich! Brock Purdy: {{f.star.line}}. {{f.star.score}} points. For {{f.star.owner}}, the single best day anybody had in this league all week!"
+      "text": "Bear Dunn beat the whole field. Brock Purdy lit up the scoreboard for Shawn Blake, and Bear still had enough to beat him."
      },
      {
       "speaker": "boomer",
-      "text": "And the man who needed no help at all: {{f.week.perfect}} did not just win this week -- he beat every single team in the league. Nobody else in this whole league can say that!"
+      "text": "Jahmyr Gibbs for Brian Cutting: cuts back left, whoop, and he could go all the way! Rumblin’, bumblin’, stumblin’ through a three-touchdown day."
      },
      {
       "speaker": "boomer",
-      "text": "And do not sleep on the upsets either -- {{f.week.upsets}}. Preseason rankings meant nothing to any of them this week!"
+      "text": "Keith Creelman’s defensive edge over Cutting supplied the swing in their close game; every unit’s points still counted."
      },
      {
       "speaker": "boomer",
-      "text": "Meanwhile Jahmyr Gibbs was rumblin', bumblin', stumblin' all over the box score for Brian Cutting -- {{f.player.jahmyr-gibbs.score}} points. And on that very same roster, {{f.bb.idp.bargain.1}}. A complete week, top to bottom!"
+      "text": "Derrick Whitman started Kyle Pitts over Kenyon Sadiq. A straight tight-end swap would have changed two of his losses, with all other scores fixed."
      },
      {
       "speaker": "boomer",
-      "text": "Now the other end of it, and it is not pretty. {{f.week.winless}} lost to the entire field this week -- every single opponent. Rough Sunday to be holding that lineup card."
-     },
-     {
-      "speaker": "boomer",
-      "text": "Busts do not get much colder than this one -- {{f.bb.off.bust.1}}. When your best receiver goes that quiet on you, there is nowhere else to hide."
-     },
-     {
-      "speaker": "boomer",
-      "text": "And Eric Mannila -- folks, he started {{f.dnp.0011}} in a starting lineup slot. Never took the field all day! You cannot get outplayed by a man who is not even suited up, but you sure can bench yourself right out of the points."
-     },
-     {
-      "speaker": "boomer",
-      "text": "Whoop! {{f.week.won_on_defense}} -- outscored on offense, and it did not matter one bit. Defense wins ballgames in this league too, same as it does on Sundays."
-     },
-     {
-      "speaker": "boomer",
-      "text": "One more before I hand it back to the professionals. {{f.wire.best_add}}, same week he grabbed him right off the wire. Could he go all the way for Ryan Bousquet this season? Too early to say -- but that is exactly how you find out."
-     },
-     {
-      "speaker": "boomer",
-      "text": "That is the fast version, Stuart! Back to you two for the long one -- the divisions are next."
+      "text": "Matt Gerardi took the three biggest defeats of the week, each to a different opponent. Stu, Rich, the division desk is yours."
      }
     ],
     "place": [
@@ -78,31 +62,24 @@
      "t.pickups"
     ],
     "placeAt": {
-     "t.offidp": 11,
-     "t.performers": 11,
-     "t.bb.off.bust": 11,
-     "t.bb.off.bargain": 11,
-     "t.bb.idp.bust": 11,
-     "t.bb.idp.bargain": 11,
-     "t.xfp.over": 11,
-     "t.xfp.under": 11,
-     "t.pickups": 11
+     "t.offidp": 7,
+     "t.performers": 7,
+     "t.bb.off.bust": 7,
+     "t.bb.off.bargain": 7,
+     "t.bb.idp.bust": 7,
+     "t.bb.idp.bargain": 7,
+     "t.xfp.over": 7,
+     "t.xfp.under": 7,
+     "t.pickups": 7
     },
-    "quotes": [
-     "q3",
-     "q4"
-    ],
+    "quotes": [],
     "cards": [],
     "games": [],
     "gameNotes": {},
     "captions": {
-     "t.offidp": "Shawn Blake's week, broken down -- the most IDP points in the league sitting on top of a league-leading quarterback game, and still a losing week.",
+     "t.offidp": "Shawn Blake’s offense and defense both produced, yet Bear Dunn outscored him.",
      "t.performers": "Running backs and quarterbacks crowd the top of the board; only one receiver breaks through.",
      "t.pickups": "This week's top waiver-wire adds by points scored."
-    },
-    "quoteAt": {
-     "q3": 11,
-     "q4": 11
     },
     "views": {
      "t.bb.off.bust": {
@@ -138,11 +115,11 @@
     "desk": [
      {
       "speaker": "stuart",
-      "text": "Two divisions crossed over against each other this week, Rich -- every owner in one played all three in the other. Let's go crossover by crossover, because they broke completely differently."
+      "text": "The division crossover produced a sweep for Bear Dunn and another for Eric Martel, but the close games tell more of the story."
      },
      {
       "speaker": "rich",
-      "text": "They did, Stu. One preseason favorite swept his crossover. The other one won his too, just nowhere near as cleanly."
+      "text": "Let’s start with Bear’s side, then look at the narrow games decided elsewhere."
      }
     ],
     "place": [],
@@ -158,75 +135,33 @@
      "p.1": [
       {
        "speaker": "stuart",
-       "text": "DOG POUND 4 LIFE against LEGION OF BOOM, and the preseason favorite held every game of it. {{f.pot.dog-pound-4-life-v-legion-of-boom.favorite}}, and {{f.pot.dog-pound-4-life-v-legion-of-boom.favorite_result}} -- {{f.pot.dog-pound-4-life-v-legion-of-boom.sweeper}}."
+       "text": "Bear Dunn swept. Matt Gerardi lost every game, and his three opponents handed him the three largest defeats of the week."
       },
       {
        "speaker": "rich",
-       "text": "And he did not just win, Stu -- every one of those wins ranks among the largest margins of the entire week, across every crossover. {{f.game.01.margin_rank}}, then {{f.game.06.margin_rank}}, then {{f.game.08.margin_rank}}."
+       "text": "Derrick Whitman also went winless. He started Kyle Pitts over Kenyon Sadiq; that decision cost enough points to flip two of his losses if every other score stays fixed."
       },
       {
        "speaker": "stuart",
-       "text": "The preseason longshot on this side is the common thread running through every one of those. {{f.pot.dog-pound-4-life-v-legion-of-boom.longshot}}, and {{f.pot.dog-pound-4-life-v-legion-of-boom.longshot_result}}."
-      },
-      {
-       "speaker": "rich",
-       "text": "The other loser here is the one we already flagged in the burn column, Stu. {{f.burn.owner}} went winless in this crossover too -- {{f.game.07.upset}}, and {{f.game.09.upset}}. Both underdogs."
-      },
-      {
-       "speaker": "stuart",
-       "text": "And that Kenyon Sadiq-for-Kyle Pitts call from the top of the show made one of those losses a should-have-been-a-win, Rich. {{f.burn.covers_margin}}."
-      },
-      {
-       "speaker": "rich",
-       "text": "Between the two, this crossover put up {{f.pot.dog-pound-4-life-v-legion-of-boom.idp_pts}} combined defensive points -- {{f.pot.dog-pound-4-life-v-legion-of-boom.points_rank}} of the two crossovers this week."
-      },
-      {
-       "speaker": "stuart",
-       "text": "The preseason favorite sweeps it, the preseason longshot gets swept by it, and both of the upsets along the way went to the team ranked worse. That is a crossover that went almost exactly backwards from the board."
+       "text": "Shawn Blake had the week’s top player performance from Brock Purdy but lost only to Bear. The week was strong for Shawn and punishing for Matt."
       }
      ],
      "p.2": [
       {
        "speaker": "rich",
-       "text": "Maddie Mondays against Outlast PG Time, and this one belonged to Eric Martel. {{f.pot.maddie-mondays-v-outlast-pg-time.favorite}}, and {{f.pot.maddie-mondays-v-outlast-pg-time.sweeper}}."
+       "text": "Eric Martel swept his three opponents. Juwan Johnson beat his pre-kickoff projection by a wide margin and mattered especially in Eric’s closest win."
       },
       {
        "speaker": "stuart",
-       "text": "His best player: {{f.pot.maddie-mondays-v-outlast-pg-time.best_player}}. That is a full week from a team the board already liked."
+       "text": "Brian Cutting won two of three and got a three-touchdown day from Jahmyr Gibbs. Keith Creelman beat him in the other game: Cutting led on offense and kicking, but Keith’s IDP edge was larger."
       },
       {
        "speaker": "rich",
-       "text": "But the result that actually stands out on this side is {{f.week.won_on_defense}} -- outscored on offense, and it did not matter. {{f.pot.maddie-mondays-v-outlast-pg-time.best_idp}} carried the difference."
-      },
-      {
-       "speaker": "stuart",
-       "text": "A defense-first win over the preseason runner-up, Rich. Not the way anybody drew that one up in August."
-      },
-      {
-       "speaker": "rich",
-       "text": "The preseason longshot here, {{f.pot.maddie-mondays-v-outlast-pg-time.longshot}}, {{f.pot.maddie-mondays-v-outlast-pg-time.longshot_result}} -- one better than his ranking would suggest, and nowhere near the bottom of this same crossover."
-      },
-      {
-       "speaker": "stuart",
-       "text": "Because at the very bottom, {{f.pot.maddie-mondays-v-outlast-pg-time.winless}}. The league's fewest offensive points this week, by a wide margin, and none of them were ever really in doubt."
-      },
-      {
-       "speaker": "rich",
-       "text": "Two crossovers, two different shapes -- one blown open by a run of blowouts at the top, one decided by a defense nobody drafted for that. Rich Eisen, Stuart Scott, back after this."
+       "text": "Ryan Bousquet beat Brian Cross in a close game, lost narrowly to Cutting and then lost to Eric. Josh Martel went winless."
       }
      ]
     },
-    "captions": {},
-    "potQuoteAt": {
-     "p.1": {
-      "q6": 1,
-      "q7": 6
-     },
-     "p.2": {
-      "q2": 2,
-      "q1": 5
-     }
-    }
+    "captions": {}
    },
    {
     "id": "s3",
@@ -235,67 +170,36 @@
     "desk": [
      {
       "speaker": "stuart",
-      "text": "Four divisions, four leaders after three weeks: {{f.div.dog-pound-4-life.leader}}, {{f.div.legion-of-boom.leader}}, {{f.div.maddie-mondays.leader}} and {{f.div.outlast-pg-time.leader}}."
+      "text": "The playoff board has a surprise, Rich. Brian Cutting has a losing record, yet the current forecast puts him close to Bear Dunn at the top."
      },
      {
       "speaker": "rich",
-      "text": "Check the preseason board against that, Stu. Bear Dunn was the preseason {{f.pre.0009.power_rank}} -- that one held. But Keith Creelman was {{f.pre.0008.power_rank}} and leads his own division outright."
+      "text": "Cutting won two games this week, and the model gives his remaining legal lineup its highest weekly projection. The current forecast also includes his recent trade with Josh Martel."
      },
      {
       "speaker": "stuart",
-      "text": "The forecast is moving with him too, Rich. His playoff odds sit at {{f.pv.sit.0008}}."
+      "text": "Eric Martel swept and Keith Creelman took two of three. Those results are in the forecast, but the saved preview cannot separate a banked result from a trade, injury or changed player projection."
      },
      {
       "speaker": "rich",
-      "text": "Nobody's forecast moved more than Brian Cutting's, though. Preseason {{f.pre.0004.power_rank}}, and the model calls his week a {{f.live.0004.signal}} -- his title odds alone are up {{f.live.0004.title_odds_change}} since the preseason."
-     },
-     {
-      "speaker": "stuart",
-      "text": "And on the other side of that same coin, Brian Cross. {{f.live.0006.signal}}"
-     },
-     {
-      "speaker": "rich",
-      "text": "That is not one bad week talking, Stu, that is the model actually updating. A.J. Brown does not fix itself by Sunday."
-     },
-     {
-      "speaker": "stuart",
-      "text": "So here is where everybody sits entering next week, Rich. Up top: {{f.pv.sit.top}}."
-     },
-     {
-      "speaker": "rich",
-      "text": "At the bottom: {{f.pv.sit.bottom}}."
-     },
-     {
-      "speaker": "stuart",
-      "text": "Biggest climbers since the preseason: {{f.pv.sit.risers}}."
-     },
-     {
-      "speaker": "rich",
-      "text": "Biggest drops: {{f.pv.sit.fallers}}. That slide is measured since the preseason, Stu, not since Sunday -- the model has been souring on that group for a while."
-     },
-     {
-      "speaker": "stuart",
-      "text": "Three weeks is still not a verdict, Rich, but it is not nothing either. Take us to the preview."
+      "text": "Josh Martel went winless, while Brian Cross won once. Their current odds are low, but we cannot responsibly assign a precise share of either movement to a single cause."
      }
     ],
     "place": [
      "t.standings",
-     "t.preseason",
      "t.burns",
      "t.pv.movement"
     ],
     "placeAt": {
      "t.standings": 0,
-     "t.preseason": 1,
-     "t.burns": 6,
-     "t.pv.movement": 6
+     "t.burns": 3,
+     "t.pv.movement": 3
     },
     "quotes": [],
     "cards": [],
     "games": [],
     "gameNotes": {},
     "captions": {
-     "t.preseason": "The preseason order against three weeks of football. Read it for fun, not for betting.",
      "t.standings": "Division winners take the top two seeds; every other seed goes by all-play, not record."
     },
     "views": {
@@ -325,7 +229,7 @@
      },
      {
       "speaker": "stuart",
-      "text": "The biggest swing on the board is {{f.pv.g1.matchup}}. The model makes {{f.pv.g1.favorite}} a {{f.pv.g1.fav_chance}} favorite, which is a coin flip with better odds attached to it."
+      "text": "The biggest swing on the board is {{f.pv.g1.matchup}}. The model makes {{f.pv.g1.favorite}} a {{f.pv.g1.fav_chance}} favorite, but it is still a close game."
      },
      {
       "speaker": "rich",
