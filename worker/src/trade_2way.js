@@ -184,6 +184,14 @@ async function enterBlockedCap2Way(env, row, gate, dmBoth) {
       ? `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use "Re-check."`
       : gate.kind === "loaded_contract_drops_required"
       ? `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to select their conditional drops on the trade page, then use "Re-check."`
+      // Distinct from every kind above: this is not something either owner did or can fix --
+      // it's a pure ops sequencing state (the commissioner hasn't turned live execution on
+      // yet). Never tells the owner to "Re-check" here -- re-checking while the switch is
+      // still off does nothing, and saying so would be misleading busywork. Keith's ruling
+      // (2026-09-30): never call this completed or automatically actionable; say plainly it's
+      // awaiting the commissioner.
+      : gate.kind === "execution_disabled"
+      ? `⏸️ This 2-way trade is accepted by both sides and fully cleared — it's waiting on the commissioner to turn on live trade execution. Nothing has moved. No action is needed from you; it will go through once that's done.`
       : `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved and both accepts are saved. It will go through once that's fixed (use "Re-check" on the trade).`);
   }
   return info;
@@ -323,8 +331,14 @@ export async function get2WayTrade(env, id, viewer, deps) {
       } catch (e) { console.warn(`[2way-staged] ${row.id}: cap-ack read failed (detail view): ${e?.message || e}`); }
     }
   }
+  // The ledger's own block reason -- same plain GET rationale as compliance/capAck above: a
+  // reload must keep showing "awaiting the commissioner" (execution_disabled), not silently
+  // fall back to the generic "still reviewing compliance" copy the instant the accept/recheck
+  // response itself is gone.
+  let ledger = null;
+  try { ledger = await makeLedger(ledgerDbFor(env)).read(lkey(row)); } catch (e) { console.warn(`[2way-staged] ${row.id}: ledger read failed (detail view): ${e?.message || e}`); }
   const { names, players } = await enrich(deps, [row]);
-  return { ok: true, trade: buildCanonical2Way(row, viewer, { names, players, compliance, capAck }) };
+  return { ok: true, trade: buildCanonical2Way(row, viewer, { names, players, compliance, capAck, ledger }) };
 }
 
 export async function list2WayForFranchise(env, leagueId, fid, opts) {
@@ -339,7 +353,13 @@ export async function list2WayForFranchise(env, leagueId, fid, opts) {
     const { results } = await env.UPS_MFL_DB.prepare(sql).bind(safeStr(leagueId), safeStr(opts && opts.season), f, f).all();
     const rows = results || [];
     const { names, players } = await enrich(opts && opts.deps, rows);
-    return { ok: true, trades: rows.map((r) => buildCanonical2Way(r, { leagueId: safeStr(leagueId), season: safeStr(opts && opts.season), fid: f }, { names, players })) };
+    // Batched, one read for every row on this page -- same ledger data get2WayTrade fetches
+    // per-trade, here so the inbox LIST also says "awaiting the commissioner" rather than the
+    // generic "still reviewing compliance" label for an execution_disabled hold.
+    let ledgers = {};
+    try { ledgers = await makeLedger(ledgerDbFor(env)).readMany(safeStr(leagueId), safeStr(opts && opts.season), rows.map((r) => r.id)); }
+    catch (e) { console.warn(`[2way-staged] list2WayForFranchise: ledger batch read failed: ${e?.message || e}`); }
+    return { ok: true, trades: rows.map((r) => buildCanonical2Way(r, { leagueId: safeStr(leagueId), season: safeStr(opts && opts.season), fid: f }, { names, players, ledger: ledgers[r.id] || null })) };
   } catch (e) { return dbDown(e); }
 }
 
@@ -386,7 +406,6 @@ export async function listCommish2WayQueue(env, leagueId, season, opts) {
   const trades = [];
   for (const row of rows) {
     const viewer = { fid: "0000", leagueId: safeStr(row.league_id), season: safeStr(row.season), isCommish: true };
-    const canonical = buildCanonical2Way(row, viewer, { names, players });
     let compliance = null, capAck = null, ledger = null;
     if (row.status === "collecting" || row.status === "executing" || row.status === "failed") {
       compliance = await complianceViaSelf2Way(env, row);
@@ -398,6 +417,10 @@ export async function listCommish2WayQueue(env, leagueId, season, opts) {
       }
     }
     try { ledger = await makeLedger(ledgerDbFor(env)).read(lkey(row)); } catch (e) { console.warn(`[2way-staged] commish queue: ledger read failed for ${row.id}: ${e?.message || e}`); }
+    // Built AFTER the ledger read (not before, as it used to be) so state_view can distinguish
+    // "awaiting the commissioner" (execution_disabled) from the generic compliance hold --
+    // exactly what the queue itself is for.
+    const canonical = buildCanonical2Way(row, viewer, { names, players, ledger });
     // §12.1 -- read-only "ready to complete" + a dry-run preview, byte-identical to what
     // execute2Way would attempt (deriveExecute2WayPlan, shared, not re-derived). Never touches
     // the ledger or MFL -- see previewExecute2Way's own header for the guarantee.
@@ -436,15 +459,38 @@ function buildCanonical2Way(row, viewer, extra) {
   const myFid = padFid(viewer && viewer.fid);
   const isFrom = myFid === padFid(row.from_fid), isTo = myFid === padFid(row.to_fid);
   const compliance = extra && extra.compliance;
+  // The ledger's own block reason, when a caller supplies one (get2WayTrade, list2WayForFranchise,
+  // listCommish2WayQueue all now read it) -- this is what lets a "collecting"+"accepted" hold say
+  // WHY, instead of always showing the generic "still clearing compliance checks" copy even for a
+  // deal that's already fully cleared and is only waiting on TRADE_2WAY_STAGING_EXECUTE.
+  const ledger = extra && extra.ledger;
+  const ledgerState = ledger && ledger.state;
+  const blockKind = ledger && ledger.block && ledger.block.kind;
   let stateCode = row.status, stateLabel = row.status, stateMessage = "";
   if (row.status === "collecting") {
     if (row.to_state === "declined") { stateCode = "declined"; stateLabel = "Declined"; }
-    else if (row.to_state === "accepted") { stateCode = "awaiting_review"; stateLabel = "Accepted — awaiting compliance review"; stateMessage = "Both sides have agreed. This stays held, server-side, until it clears the loaded-contract, cap, and lineup checks — never a native MFL trade until then."; }
+    else if (row.to_state === "accepted") {
+      // Keith's ruling (2026-09-30): a fully-cleared deal held only because live execution
+      // isn't turned on yet must say so plainly -- never "still reviewing compliance" (that's
+      // no longer true) and never anything read as completed or automatically actionable.
+      if (blockKind === "execution_disabled") {
+        stateCode = "awaiting_commissioner"; stateLabel = "Accepted — awaiting the commissioner";
+        stateMessage = "Both sides have agreed and this trade is fully cleared. It's waiting on the commissioner to turn on live trade execution — no action is needed from you.";
+      } else {
+        stateCode = "awaiting_review"; stateLabel = "Accepted — awaiting compliance review"; stateMessage = "Both sides have agreed. This stays held, server-side, until it clears the loaded-contract, cap, and lineup checks — never a native MFL trade until then.";
+      }
+    }
     else { stateCode = "pending_response"; stateLabel = "Awaiting response"; }
   } else if (row.status === "executing") { stateCode = "executing"; stateLabel = "Clearing final checks"; }
   else if (row.status === "completed") { stateCode = "completed"; stateLabel = "Completed"; }
   else if (row.status === "failed") { stateCode = "failed"; stateLabel = "Needs commissioner review"; stateMessage = safeStr(row.failure_reason); }
   else if (row.status === "cancelled") { stateCode = "cancelled"; stateLabel = "Cancelled"; }
+  // can_recheck must match recheck2WayExecution's OWN gate exactly (row.status==='collecting'
+  // && to_state==='accepted', AND the ledger isn't already past a resumable point) -- not
+  // row.status==='failed', which recheck2WayExecution refuses outright ("not_recheckable") and
+  // which meant the Re-check button never rendered for any cap/loaded-contract/execution-
+  // disabled hold at all, contradicting the DM's own "use Re-check" instruction.
+  const recheckableLedgerState = !ledgerState || ledgerState === EXEC.NOT_EXECUTED || ledgerState === EXEC.BLOCKED_CAP;
   return {
     id: row.id, league_id: row.league_id, season: row.season, status: row.status,
     from_fid: padFid(row.from_fid), to_fid: padFid(row.to_fid),
@@ -455,7 +501,11 @@ function buildCanonical2Way(row, viewer, extra) {
     notes: safeStr(row.notes),
     mfl_trade_id: row.mfl_trade_id || null,
     created_at_utc: row.created_at_utc, updated_at_utc: row.updated_at_utc, executed_at_utc: row.executed_at_utc,
-    permissions: { can_view: canView2Way(row, viewer), can_accept: isTo && row.status === "collecting" && row.to_state === "pending", can_cancel: (isFrom || isTo || !!(viewer && viewer.isCommish)) && (row.status === "collecting" || row.status === "executing"), can_recheck: row.status === "failed" },
+    permissions: {
+      can_view: canView2Way(row, viewer), can_accept: isTo && row.status === "collecting" && row.to_state === "pending",
+      can_cancel: (isFrom || isTo || !!(viewer && viewer.isCommish)) && (row.status === "collecting" || row.status === "executing"),
+      can_recheck: row.status === "collecting" && row.to_state === "accepted" && recheckableLedgerState,
+    },
     state_view: { code: stateCode, label: stateLabel, message: stateMessage },
     compliance: compliance || null,
     cap_ack: (extra && extra.capAck) || null,
@@ -655,11 +705,24 @@ export async function execute2Way(env, id) {
     return { ok: false, blocked: true, error: "cap_gate", kind: gate.kind, message: gate.message, compliance: gate.compliance };
   }
 
+  // Keith's ruling (2026-09-30): "with execution disabled, an accepted staged deal must NEVER
+  // enter a terminal `completed` state or send copy implying completion. It must remain held
+  // and resumable." The OLD behavior here marked status='completed' and DMed a checkmark
+  // ("cleared") message with the caveat buried in a parenthetical -- a real deal an owner would
+  // reasonably read as done, when nothing was ever sent to MFL. This is reached BEFORE
+  // ledger.acquire() below (no lock taken, nothing attempted), so the ledger is still at
+  // NOT_EXECUTED/BLOCKED_CAP -- exactly the same resumable shape a cap/compliance hold already
+  // uses. Reusing enterBlockedCap2Way (not a new mechanism): reverts status to 'collecting',
+  // dedupes the DM by signature, and "Re-check" (now correctly resumable once the flag flips on
+  // -- see buildCanonical2Way's can_recheck fix) picks it straight back up.
   if (!(await liveExecute(env))) {
-    console.log(`[2way-staged][DRY-RUN] ${id} would execute: ${fromFid} gives [${give.join(",")}]  <->  ${toFid} gives [${receive.join(",")}]`);
-    await finish("completed", { failure_reason: "dry_run", executed_at_utc: nowIso() });
-    await dmBoth(`✅ Both sides agreed and every check cleared. _(Dry-run: staging execution isn't live yet — the commish will finalize.)_`);
-    return { ok: true, dry_run: true };
+    console.log(`[2way-staged][HELD] ${id}: compliance is fully clear but live execution is disabled (TRADE_2WAY_STAGING_EXECUTE=0) -- held, resumable, never marked completed`);
+    await enterBlockedCap2Way(env, row, {
+      kind: "execution_disabled",
+      message: "This trade is fully cleared and ready to go through. It's waiting on the commissioner to turn on live trade execution -- no action is needed from you.",
+      compliance: null,
+    }, dmBoth);
+    return { ok: false, blocked: true, kind: "execution_disabled" };
   }
 
   const ledger = (() => { try { return ledgerFor(env); } catch (_) { return null; } })();

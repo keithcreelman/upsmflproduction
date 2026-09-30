@@ -104,13 +104,17 @@ test("READY: accepted + fully compliant -- ready_to_complete is true, and the dr
   t.deepEqual(row.dry_run_preview.give, ["P_16181"]);
   t.deepEqual(row.dry_run_preview.receive, []);
 
-  // Now actually run execute2Way (fully awaited, no race) and confirm it moved the SAME
-  // franchises' SAME assets -- proving the preview wasn't a guess.
+  // Now actually run execute2Way (fully awaited, no race). Keith's ruling (2026-09-30): with
+  // live execution disabled, this must hold -- never a terminal 'completed' status, never a
+  // fabricated mfl_trade_id -- so the preview's own accuracy is proven by confirming the SAME
+  // franchises/assets are what the (held, not yet sent) plan named, not by a real MFL write.
   const result = await execute2Way(env, created.id);
-  t.ok(result.dry_run);
+  t.equal(result.ok, false);
+  t.equal(result.blocked, true);
+  t.equal(result.kind, "execution_disabled");
   const after = env.UPS_MFL_DB.raw.prepare("SELECT status, mfl_trade_id, failure_reason FROM ups_2way_trades WHERE id=?").get(created.id);
-  t.equal(after.status, "completed");
-  t.equal(after.failure_reason, "dry_run");
+  t.equal(after.status, "collecting", "held, resumable -- never a terminal 'completed' while execution is disabled");
+  t.notEqual(after.failure_reason, "dry_run");
   t.equal(after.mfl_trade_id, null);
 });
 
