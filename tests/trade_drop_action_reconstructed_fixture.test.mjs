@@ -17,29 +17,42 @@
 // LOADROST page, and the POST to whatever action URL that page declares) are stubbed, at the
 // global fetch() layer index.js itself calls through.
 //
-// ═══ STATUS: UNVERIFIED against a real MFL page -- read this before trusting the fixture below ═══
-// This session was checked for an authorized, READ-ONLY MFL session (the one thing Keith
-// explicitly said would be safe to use here: a GET of the LOADROST page is a page view, not a
-// drop -- only the POST would be a write, and this file never sends one to real MFL). None was
-// available: no .dev.vars, no MFL_COOKIE/MFL_APIKEY in this shell's environment, and this
-// session has no browser session logged into MFL. Per Keith's own instruction, that means this
-// specific check -- "does MFL's real LOADROST page actually parse the way parseLoadRostForm
-// expects" -- is marked UNVERIFIED, not proven, and the HTML below MUST NOT be called a recorded
-// or captured MFL response anywhere (code, commit messages, or reports). It is a RECONSTRUCTION,
-// built only from the parser's own real, already-shipped knowledge of the page: the two field
-// names it deliberately excludes (`sel_pid`, `picker_filt_name` -- worker/src/index.js's
-// parseLoadRostForm), the `ROSTER` <select> it reads options from, and the `PLAYER_NAMES` field
-// it defaults when absent. Every OTHER hidden field on the real page is structurally plausible
-// filler, not independently verified.
+// ═══ STATUS (2026-09-30, fifth pass): READ/parse path verified against a REAL MFL page; the
+// WRITE/POST path below remains an unverified reconstruction -- read this before trusting either
+// half of this file ═══
+// Keith supplied the sanitized HTML source of a genuine commissioner LOADROST GET (franchise 0011
+// "Cleon Ca$h", league 74598, season 2026, captured 2026-09-30 ~11:25 ET; credentials/session
+// tokens stripped by him before pasting it here). The real, unmodified parseHtmlAttributes /
+// parseLoadRostForm from worker/src/index.js were run against that real page in a standalone node
+// harness (not this test file, and not re-implemented -- copied verbatim) and confirmed:
+//   - The <form action="..."> resolves to a real, absolute MFL endpoint
+//     (https://www48.myfantasyleague.com/2026/load_rosters).
+//   - baseFields extracts exactly {L, FRANCHISE_ID, C} plus the PLAYER_NAMES default -- 4 fields,
+//     no crash, no null return.
+//   - The <select name="ROSTER"> block parses cleanly: all 40 option values extracted as digit-only
+//     player ids, in document order.
+//   - sel_pid is present on the real page with a real name="sel_pid" attribute and IS correctly
+//     excluded by the parser's explicit name check.
+// Two real, previously-unverified details the reconstruction below had guessed at turned out to
+// differ from the actual page, though neither breaks anything:
+//   - picker_filt_name exists on the real page only as id="picker_filt_name" -- it has NO name
+//     attribute at all. The parser's explicit `name === "picker_filt_name"` exclusion is therefore
+//     dead code for this specific field (the earlier `if (!name) continue` already drops it) --
+//     harmless, but the reconstruction's assumption that this field carries a name was wrong.
+//   - PLAYER_NAMES is a <textarea name="PLAYER_NAMES">, not an <input>. parseLoadRostForm's
+//     inputRe only matches <input> tags, so it never actually sees this field on the real page --
+//     the "" it ends up with comes entirely from the `if (!seen.has("PLAYER_NAMES"))` fallback,
+//     not from reading the real value. On this page that fallback happens to be correct (the real
+//     textarea is empty), but this is a latent gap: if MFL ever pre-fills that textarea, the parser
+//     would silently submit "" instead of the real default. Not exercised or fixed here -- flagged
+//     for awareness.
 //
-// TO CLOSE THIS FOR REAL: either (a) Keith supplies an actual saved copy of MFL's own roster-edit
-// page (View Source on a real league, with credentials/personal tokens stripped), which should
-// replace the fixture below and let this file's own tests prove the parser against it directly,
-// or (b) a future session with an authorized, read-only MFL session performs the SAME GET this
-// file's own comments describe, strips credentials, and does the same. Until either happens, what
-// this file DOES prove is real: the parsing/posting/classification CODE is correct against a page
-// shaped the way the parser itself requires. What it does NOT prove: that MFL's actual page is
-// shaped that way. Those are two different claims, and only the first one is tested here.
+// WHAT REMAINS UNVERIFIED: the POST side. No POST was sent to real MFL -- Keith was explicit that
+// only a GET is a safe read, and this was a read. classifyDropActionResponse's behavior against a
+// genuine MFL success/failure response body (worker/src/index.js's postLoadRostFormForCookie) is
+// still exercised only against the reconstructed fixture below, which is structurally plausible but
+// independently unverified for the POST response shape specifically. That gap is accepted, not
+// closed, and will only close the first time a real trade-drop event happens in production.
 //   node tests/trade_drop_action_reconstructed_fixture.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, bindSelf, quiet } from "./fixtures/worker_harness.mjs";
