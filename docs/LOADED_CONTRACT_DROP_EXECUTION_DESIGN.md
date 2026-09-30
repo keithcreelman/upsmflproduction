@@ -599,7 +599,7 @@ precisely, not softened:
   because every minute of delay is a minute another owner could claim the player. It is not a
   reason to treat the irreversible-loss risk in §2.2/§2.3 as smaller than it is.
 
-### 2.4.3c The player-loss resolution — a concrete proposal, RELEASE BLOCKER (Keith's ruling, 2026-09-29)
+### 2.4.3c The player-loss resolution — a ranked recommendation, RELEASE BLOCKER (Keith, 2026-09-29/2026-09-30)
 
 **Keith: "The unresolved player-loss policy is a release blocker. If another owner claims a
 dropped player before restoration, do not assume the original owner can be made whole or
@@ -630,47 +630,56 @@ this is the specific reason).
    Keith's instruction specifically addresses: no default assumption of being "made whole," no
    silent cap-money substitution.
 
-**For outcome 4 specifically — the menu, none chosen:**
+**For outcome 4 specifically — Keith asked for a recommended procedure and its consequences for
+the owner, not an unranked menu.** Below is that recommendation: a sequence, not four
+independent choices. **It is still a recommendation, not a decision** — `TRADE_2WAY_DROP_
+EXECUTE_ENABLED` does not flip on until Keith rules on it.
 
-- **Option A — commissioner-facilitated replacement trade, using existing mechanisms only.**
-  The ORIGINAL trade never executed, which means the counterparty never gave up their own side
-  of it either — they still hold whatever they'd agreed to send. The commissioner brokers a
-  **new, ordinary trade** between the same two parties (or, if the counterparty won't cooperate,
-  between the affected owner and any willing third party) to approximate the original deal's
-  value, using the League's completely normal trade mechanism — no new code, no special
-  authority, exactly like any owner-negotiated trade today. Real limits: it depends on the
-  counterparty's willingness (nothing compels them), and "approximate value" is inherently a
-  judgment call with no formula.
-- **Option B — a formal draft-pick or cap-relief grant, sized and approved by the commissioner
-  per incident.** Unlike Option A, this requires the commissioner to give the affected owner
-  something new (a pick, cap space) rather than facilitating an exchange between owners. Keith's
-  instruction is explicit that this must never be a SILENT default — if chosen at all, it would
-  need its own sizing rule (how much is a lost loaded-contract player "worth"?) and would need to
-  be visibly logged as a discretionary commissioner action, not something this design automates
-  or triggers on its own. Real limits: no formula for "how much," and it introduces real value
-  into the league from outside any trade (a pick or cap space nobody else gave up).
-- **Option C — route through the league's existing dispute mechanism, not a bespoke one.** This
-  codebase already has a rule-proposal/dispute architecture (see the rule-proposals system) for
-  exactly this kind of "something went wrong, the league needs to decide what's fair" situation.
-  Rather than this design inventing a NEW resolution process, outcome-4 cases could simply become
-  a rule-proposal/commissioner-ruling case through the existing channel, decided with the same
-  legitimacy as any other league dispute. Real limits: slower than an automatic rule, and every
-  incident is litigated fresh rather than following a precedent this document would otherwise
-  need to set.
-- **Option D — no compensation; the disclosed risk stands as accepted.** Since the owner-facing
-  consent copy (§3 item 4, shipped 2026-09-29) now explicitly warns of exactly this outcome
-  *before* the owner confirms their drop selection, one legitimate policy stance is that informed
-  consent to a disclosed risk is the league's whole obligation, and no further compensation is
-  owed. Real limits: this is the coldest option for the affected owner, and "the copy warned you"
-  may not feel sufficient after a real loss — but it is the only option that requires building or
-  deciding nothing further.
+**The recommended procedure, in order:**
 
-**These are not mutually exclusive as a standing policy** — Keith could, for instance, decide
-Option A is tried first and Option C is the fallback if the counterparty won't cooperate. What
-this document will NOT do on its own: pick one, blend them into an automatic formula, or treat
-Option B's cap-money path as anything but an explicit, visible, per-incident commissioner
-decision if it is used at all. **`TRADE_2WAY_DROP_EXECUTE_ENABLED` does not flip on until Keith
-rules on this section**, independent of every other implementation gate in §12.3 being satisfied.
+1. **First, always: the restoration attempt itself (§2.4.3b, already built).** This isn't one of
+   the "outcome 4" options — it's outcome 3, and it's tried automatically as part of the
+   commissioner's own immediate response, before anything below is ever reached. Outcome 4 only
+   exists when this has already failed (the player was claimed by someone else first).
+2. **If restoration is impossible: the commissioner facilitates a replacement trade between the
+   same two parties (formerly "Option A") — tried FIRST, not as one equal option among several.**
+   Reasoning for ranking it first: the original counterparty never gave up their own side either
+   (the trade failed entirely), so they still hold exactly what they'd agreed to send — nothing
+   new has to be manufactured, no value is injected into the league from outside a trade, and it
+   uses a mechanism every owner already trusts (an ordinary negotiated trade), not a new
+   commissioner power. It is also the only option that can, in the best case, leave the affected
+   owner close to whole rather than merely compensated.
+3. **If that fails — the counterparty won't cooperate, or no fair replacement can be found —
+   escalate to the league's existing rule-proposal/dispute process (formerly "Option C"), not a
+   unilateral commissioner grant (formerly "Option B").** Reasoning: a loss of this weight
+   deserves the same due process as any other league dispute, and routing it through the
+   league's own existing mechanism avoids the commissioner unilaterally deciding how much a lost
+   player was "worth" and unilaterally injecting value into the league to cover it — both of
+   which Keith's instruction specifically warns against ("do not assume... or silently substitute
+   cap money"). If the league's own process concludes a grant (draft pick, cap relief) is the
+   right remedy, that is a decision BY the process, with the same legitimacy as any other league
+   ruling — not this design defaulting to it.
+4. **No compensation (formerly "Option D") is not a first-class option in this ranking — it is
+   the outcome only if step 3's own process concludes that no compensation is warranted.** The
+   disclosed-risk consent copy (§3 item 4) means the owner was not misled, but it does not, on
+   its own, settle the question of what's owed after a real loss; that is exactly the kind of
+   question step 3's process exists to answer.
+
+**What the affected owner experiences under this recommendation, stated plainly, not softened:**
+immediate notification that the drop is real and permanent and the trade did not go through
+(§2.4.3b's player-loss DM, already built); a same-day commissioner-led restoration attempt with
+no promise it succeeds; if it fails, an offer to negotiate a replacement trade — which could
+resolve in hours or could stall if the counterparty is unwilling; if THAT stalls, a real,
+possibly multi-day, formal dispute process before any resolution at all. **This recommendation
+does not shrink the core risk §2.2/§2.3 already document — a real asset can still be gone with
+no fast, guaranteed remedy — it only commits to the most legitimate, least ad hoc ORDER of
+response once that risk materializes.**
+
+**This is a recommendation for Keith's ruling, not a decision this document makes on its own.**
+He could rule differently — skip straight to the dispute process, decide no-compensation is the
+standing default, or set an explicit sizing rule for a commissioner grant instead of routing
+through the dispute process. Whatever he rules, `TRADE_2WAY_DROP_EXECUTE_ENABLED` does not flip
+on until he does, independent of every other implementation gate in §12.3 being satisfied.
 
 **2.4.4 Non-atomic risks specific to a HUMAN performing this manually** (in addition to, not
 instead of, the underlying MFL non-atomicity in §2.5, which no model here removes):
@@ -1258,6 +1267,77 @@ the commissioner/War Room only) — a commissioner/league-configuration decision
 this app's code can enforce, and outside this document's scope to recommend one way or the
 other.**
 
+### 8.6 Per-franchise hold coverage audit (Keith, 2026-09-30): every in-app path, and what it cannot reach
+
+**Keith: "verify that the per-franchise hold covers every in-app creation, counter, acceptance,
+and execution path for either affected team, and report any native MFL path it cannot control."**
+
+**In scope: the staged 2-way engine (PR #1163). Covered, verified by test:**
+
+- **Creation** (`createStaged2WayTrade`) — refuses to stage a NEW offer touching either
+  franchise. Tested.
+- **Counter** — the staged 2-way engine has **no separate counter action or route at all**
+  (verified: no "counter" concept anywhere in `trade_2way.js`/`trade_2way_http.js`, and no
+  client-side path in `trade_workbench.js` builds one against the staged endpoints). A
+  "counter" here is just a fresh new offer, built through the same Send flow as any other offer
+  — it reduces entirely to Creation, above, already covered.
+- **Acceptance** (`accept2WayTrade`) — refuses to record an accept touching either franchise.
+  Tested.
+- **Execution, against a DIFFERENT deal** (`executeDropFirstDeal` itself) — a franchise cannot
+  have two drop-first sequences in flight; starting execution on deal B while deal A (same
+  franchise) is unresolved is refused. A deal can always resume **itself**. Tested.
+- **Two gaps this specific audit FOUND and CLOSED, not merely reported** (Keith's request to
+  verify surfaced real, previously-unnoticed defects, not just confirm what was already there):
+  - **`cancel2WayTrade`** allowed cancelling a trade whose `ups_2way_trades.status` was still
+    `'collecting'` — which it stays throughout the ENTIRE drop-first sequence (only
+    `runTradeLegAfterDrops` ever sets `'completed'`; the drop loop itself never touches
+    `status`). A deal with a real, already-confirmed drop could have been cancelled away,
+    misrepresenting an irreversible fact as though nothing happened, and — because the
+    commissioner queue's default view excludes `cancelled` trades — vanishing from the review
+    queue entirely. **Fixed**: cancellation now refuses once the execution ledger shows any
+    attempt has started (any state other than `not_executed`/`blocked_cap`). Tested.
+  - **`select2WayLoadedContractDrops`** allowed an owner to change their conditional-drop
+    selection at ANY time, with no execution-state check. Once one selected player is already
+    confirmed dropped for real, changing the selection to a different player would make the
+    orchestrator chase the NEW selection too on its next run — dropping an ADDITIONAL player the
+    deal never actually required. **Fixed**: the selection is now frozen once execution has
+    started, for the same reason and the same guard as cancellation. Tested.
+- **`recheck2WayExecution`** — audited, no fix needed. It calls the ordinary `execute2Way`
+  (never `executeDropFirstDeal`), and `execute2Way`'s own `ledger.acquire()` only matches
+  `not_executed`/`blocked_cap` — it cannot acquire a lock already held by a drop-first sequence
+  (`partial_executed`/`executed_needs_review`), so it safely no-ops rather than interfering. A
+  `needs_drops` deal re-checked by its owner still correctly reports "held," exactly as before
+  this feature existed — the drop-first executor is reachable only through the dedicated,
+  commissioner-only `/api/trades/2way/execute` route, never through this owner-facing action.
+
+**Out of scope for this hold, reported per Keith's instruction, not fixed here:**
+
+- **The legacy direct-to-MFL 2-way create route** (`/trade-offers`, `worker/src/index.js`) —
+  when `TRADE_2WAY_CUTOVER_ENABLED` is OFF (staging merely available, not exclusive — §8.4a's
+  "off/on" cell), this route can still create a brand-new, real, NATIVE MFL trade proposal
+  touching a franchise with an unresolved drop-first sequence, entirely bypassing this hold. This
+  is the same class of gap §8's own native-bypass analysis already documents for staging in
+  general — cutover (when turned on) already closes this specific hole by refusing ALL new
+  legacy creates outright, independent of any per-franchise state; the hold's own gap here exists
+  only in the pre-cutover window, and shrinks to nothing once cutover is on.
+- **The 3-way engine** (`trade_3way.js`/`ups_3way_trades`) — entirely separate creation/accept
+  functions, not wired to `franchiseHasUnresolvedDropSequence` at all. A franchise with an
+  unresolved 2-way drop-first sequence can still be added to a brand-new 3-way deal today. Its
+  OWN compliance calculation is still always computed fresh (so it would correctly reflect that
+  franchise's true, current roster state) — the gap is specifically that nothing stops an owner
+  from CONSENTING to a new 3-way deal while their compliance picture is mid-resolution, not that
+  the resulting numbers would be wrong.
+- **MFL's own native site** — an owner (or the commissioner, impersonating) can always create or
+  accept a trade directly on MFL's website, entirely outside this app's routes. This is the same
+  permanent, unclosable architectural boundary §8.0/§8.1 already document — no code in this app
+  can ever prevent a native MFL action by design, only detect and react to it after the fact (the
+  trade-sentinel, §8.4, with its own already-documented limits).
+
+**Net:** the hold is complete for every path this app's own staged-2-way engine offers, including
+two real defects this specific audit found and closed. It cannot, and never could, reach a native
+MFL action or the separate 3-way/legacy-2-way engines — those remain open, exactly as reported,
+not silently assumed closed.
+
 ---
 
 ## 9. Hammer Times, L.A. Looks, and plain `Vet-Ext1`/`Vet-Ext2` — RULED ON, fix shipped separately
@@ -1364,21 +1444,33 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
   explicitly framed as "not yet" ("Do not choose automatic trade-first or drop-first **yet**"),
   not a permanent rejection of automation itself; the ORDER (drop-first) is now fixed for whenever
   automation, if ever approved, is built.
-- **The restoration workaround's own extent is a decision, not fully specified.** §2.4.3b states
-  what a commissioner CAN and CANNOT do manually if a drop succeeds and the trade then fails, and
-  is explicit that none of it is guaranteed. Not yet decided: whether the pre-drop contract
-  snapshot §2.4.3b proposes capturing should be built as a prerequisite for enabling ANY real
-  drop write (so restoration is never attempted from a worse position than it has to be), whether
-  reversing the drop's own dead-money cap penalty upon a successful restoration should ever be
-  automated, and whether the commissioner needs an urgency signal (the free-agent race is real and
-  time-sensitive) rather than relying on them to already know to act immediately.
+- **The restoration workaround's own extent — two items DECIDED by Keith, 2026-09-30, and one
+  still open.** §2.4.3b states what a commissioner CAN and CANNOT do manually if a drop succeeds
+  and the trade then fails, and is explicit that none of it is guaranteed.
+  - **DECIDED: the pre-drop contract snapshot is mandatory.** *"The exact pre-drop snapshot is
+    mandatory. If the player's contract terms or roster state cannot be captured and verified,
+    stop before any drop."* Not a nice-to-have, not conditional on anything else — built exactly
+    this way in `worker/src/trade_2way.js`'s `captureAndVerifyPreDropSnapshot` (PR #1163), which
+    is the ONLY gate on whether a drop write is attempted at all; failing it stops the whole
+    sequence before any write, unconditionally.
+  - **DECIDED: dead-money-penalty reversal is never automated.** *"Do not automate dead-money-
+    penalty reversal. Any adjustment after a failed trade requires a separate commissioner review
+    and an auditable manual action."* No code anywhere in this design (or PR #1163) reverses a
+    drop's cap penalty; §2.4.3b's restoration section already says reversing it "is a distinct,
+    unaddressed manual correction," and that framing is now the decided policy, not a placeholder
+    for future automation.
+  - **Still open:** whether the commissioner needs an urgency signal for the free-agent race (the
+    window is real and time-sensitive; nothing here alerts them beyond the ordinary player-loss
+    DM) — not decided, and PR #1163 does not build one.
 - **The compensating-resolution mechanism for a deal that cannot be restored** (§2.4.3 state *k*)
-  — §2.4.3c is now a CONCRETE PROPOSAL (a four-option menu: facilitated replacement trade, a
-  formal commissioner-sized grant, routing through the existing rule-proposal/dispute process, or
-  no compensation beyond the disclosed risk), per Keith's explicit release-blocker instruction
-  (2026-09-29) not to assume the owner can be made whole or to silently substitute cap money. It
-  is a menu, not a decision — Keith has not yet ruled between the four options, and
-  `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off until he does, independent of every other gate here.
+  — §2.4.3c now carries a RANKED RECOMMENDATION (facilitated replacement trade first, the
+  league's existing dispute process as the fallback, no-compensation only as that process's own
+  conclusion — never a default), per Keith's explicit release-blocker instruction (2026-09-29,
+  refined 2026-09-30: "give me your recommended procedure and its consequences for the owner,
+  rather than leaving four unranked options") not to assume the owner can be made whole or to
+  silently substitute cap money. It is a recommendation, not a decision — Keith has not yet
+  ruled on it, and `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off until he does, independent of
+  every other gate here.
 - The exact commissioner-facing and owner-facing notification copy for every outcome in §2.4.3
   (state 0 / state *k* `partial_executed` / state *N* success).
 - Whether a queued deal sitting unreviewed, or a stuck `partial_executed` deal, needs its own
@@ -1519,38 +1611,58 @@ drop confirmed, the next drop or the trade not yet resolved), recovery is NOT "j
 something real already happened on MFL's side — and follows §2.4.3b's own step 7 ("commissioner
 must first understand why before deciding whether to retry the remaining writes or negotiate a
 compensating resolution"), unchanged. If the loss cannot be recovered at all (the player was
-claimed by someone else before the commissioner could act), §2.4.3c is the concrete four-option
-proposal for this exact case (a release blocker per Keith's ruling) — still a menu, not a
-decision, until he rules between them.
+claimed by someone else before the commissioner could act), §2.4.3c is the concrete, ranked
+recommendation for this exact case (a release blocker per Keith's ruling) — still a
+recommendation, not a decision, until he rules on it.
 
-### 12.3 What remains a decision before ANY real write path is enabled
+### 12.3 Release checklist — decided vs. still blocking, before `TRADE_2WAY_DROP_EXECUTE_ENABLED` can flip on
 
-Every item below is a genuine decision, not an implementation detail — none of it should be
-inferred from "well, the design already covers it":
+**Decided (do not re-litigate):**
 
-- **Sequence is now decided (§11): drop(s) first, trade after.** No longer open — listed here only
-  to state plainly that this section does not re-open it.
-- **The exact new `steps_json` shape and the real (not proposed) `partial_executed` ledger state**
-  (§2.4.3/§2.4.3b, §11) — sketched concretely in prose (the per-drop shape now includes
-  `pre_drop_snapshot`), not written as code.
-- **Whether the pre-drop contract snapshot (§2.4.3b step 2) is built as a hard prerequisite for
-  enabling any real drop write**, or is treated as a nice-to-have — §11 lists this as newly open,
-  not yet decided.
-- **Whether reversing a drop's dead-money cap penalty upon a successful manual restoration is ever
-  automated**, and whether the commissioner needs an urgency signal for the free-agent race
-  (§2.4.3b's restoration section, §11) — not prescribed.
-- **Which of §2.4.3c's four options** (facilitated replacement trade, formal commissioner grant,
-  route through the existing dispute process, or no compensation) applies when an owner's loss
-  cannot be restored at all — a RELEASE BLOCKER per Keith's explicit ruling, not a normal open
-  item: `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off until this is decided, regardless of whether
-  every other item on this list is resolved first.
+- **Sequence: drop(s) first, trade after** (§2.2/§2.4.3b, Keith's ruling 2026-09-29).
+- **The pre-drop contract snapshot is MANDATORY, unconditionally** (Keith's ruling 2026-09-30) —
+  built exactly this way in PR #1163's `captureAndVerifyPreDropSnapshot`: if the player's
+  contract terms or roster state cannot be captured and verified, the sequence stops before that
+  drop, full stop, not a configurable or skippable check.
+- **Dead-money-penalty reversal is NEVER automated** (Keith's ruling 2026-09-30) — any adjustment
+  after a failed trade requires a separate commissioner review and an auditable manual action; no
+  code in this design or PR #1163 does this automatically.
+- **The reconciliation discipline for a missing/ambiguous ledger step** (Keith's ruling
+  2026-09-30, §2.4.3b's addendum) — built and tested in PR #1163 (`tests/trade_2way_drop_first_
+  execute.test.mjs`'s five reconciliation tests): a retry never infers "never happened" from a
+  missing ledger entry; it reconciles against MFL's live roster and the stored pre-drop snapshot,
+  and holds for commissioner review whenever it cannot prove the outcome either way.
+
+**Still blocking release — genuine decisions, not implementation details:**
+
+- **Which of §2.4.3c's options for the player-loss case applies** — a RELEASE BLOCKER per Keith's
+  explicit ruling: `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off until this is decided, independent
+  of every other item here. §2.4.3c now carries a ranked RECOMMENDATION (facilitated replacement
+  trade first, the league's existing dispute process as the fallback, no compensation only as
+  that process's own conclusion — never a default), not just an unranked menu; it is still
+  Keith's call to make, not decided by this document.
+- **The exact new `steps_json` shape and the real (not proposed) `partial_executed` ledger
+  state** — PR #1163 has ALREADY built and shipped (behind the flag) the concrete shape used
+  throughout this section (`{status, franchise_id, player_id, pre_drop_snapshot, mfl_
+  verification, reconciled?, reason, confirmed_at_utc | attempted_at_utc}`) — this item is
+  effectively resolved by PR #1163's own code, listed here only until that PR itself is reviewed
+  and the shape is considered final.
 - **The exact commissioner-facing and owner-facing notification copy** for every outcome named in
-  §12.2 (§11, unchanged).
+  §12.2 — PR #1163 ships real, distinct copy for every case this document names (drop confirmed/
+  trade pending, drop failed, drop unconfirmed, reconciled, trade completed, the player-loss
+  case) — listed here only pending Keith's review of the actual wording.
 - **Whether an owner can themselves re-trigger their own failed drop step**, or whether this is
-  strictly commissioner-only (§6, unchanged).
+  strictly commissioner-only (§6, unchanged) — PR #1163's `/api/trades/2way/execute` is
+  commissioner-only today; not yet decided whether that should ever change.
 - **Whether a stuck deal needs its own aging alert**, and whether a backup-commissioner path is
-  needed (§2.4.4, §11, unchanged).
+  needed (§2.4.4, §11, unchanged) — not built.
+- **Whether the commissioner needs an urgency signal for the free-agent race** (§11) — not built;
+  the player-loss DM tells the commissioner to act, but nothing pages or escalates if they don't.
+- **The per-franchise hold's own coverage audit** (§8.6, new) — confirmed to cover every in-app
+  creation/accept/execute path; the native-MFL gap it cannot close is documented there, not
+  newly introduced by this checklist.
 
-**Until every item above is explicitly decided, `TRADE_2WAY_STAGING_EXECUTE` stays off and no
-commissioner-facing "complete this trade" action is built.** §12.1's read-only/dry-run surface is
+**Until every "still blocking" item above is explicitly resolved, `TRADE_2WAY_DROP_EXECUTE_
+ENABLED` stays off and no commissioner-facing "complete this trade" action runs for real.** §12.1's
+read-only/dry-run surface (and now PR #1163's real, flag-gated engine, still never enabled) is
 the full extent of what ships in this pass.
