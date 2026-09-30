@@ -997,6 +997,70 @@
     });
   }
 
+  // ---- 🔒 CUTOVER (2026-09-29) for COUNTER ----
+  // Keith's ruling (2026-09-30): "A bare 409 is not an acceptable release experience" -- the
+  // counter path must give the owner a clear route to revise and submit a staged offer, same
+  // as Send already does. Staging has no "counter" primitive (TWO_WAY_STAGED_ROUTES is only
+  // create/accept/cancel/recheck/select-drops/queue/execute) -- a legacy COUNTER means "reject
+  // the original AND propose a new one" as ONE atomic native-MFL action, and staging cannot
+  // replicate that atomically. The honest thing this fallback does, without taking an action
+  // the owner never asked for, is exactly what desktop's own counter UI already does today
+  // (trade_workbench.js's submitOfferToQueue reuses the plain CREATE path regardless of
+  // counterMode, so it inherits this same behavior by construction): stage the REVISED terms
+  // as a brand-new offer, and say PLAINLY that the original offer is untouched -- never
+  // silently decline it as a side effect of what the owner thought was "submit my counter."
+  function submitTradeCounterWithGatesMobile(url, initialBody, fromFranchiseId) {
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(initialBody)
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: parsed };
+      });
+    }).then(function (resp) {
+      if (resp.status === 409 && resp.body && resp.body.code === "staging_required") {
+        return submitCounterViaStagingFallbackMobile(initialBody, fromFranchiseId);
+      }
+      return resp;
+    });
+  }
+
+  // The counter's revised terms, staged as a brand-new offer -- reuses the SAME staged-create
+  // mechanism submitViaStagingFallbackMobile uses for CREATE (including the real pre-send
+  // loaded-contract popup via runPreSendPreview), just reading the counter's own payload shape
+  // (initialBody.counter_offer.*) instead of the plain-create body's. Never touches the
+  // original offer being countered. Resolves { ok:true, status:201, body:{ok:true, staged:true,
+  // id, counter_staged:true} } on success (submitOffer's .then must check body.staged before
+  // reading any direct-MFL-only field, exactly like the CREATE fallback), { ok:true, status:0,
+  // body:{ok:false, code:"staging_declined_by_owner"} } if the owner chose "Don't send" on the
+  // pre-send popup, or a normal failed-response shape otherwise.
+  function submitCounterViaStagingFallbackMobile(counterBody, fromFranchiseId) {
+    var counter = (counterBody && counterBody.counter_offer) || {};
+    var payload = counter.payload || {};
+    var movements = tw2sMovementsFromPayload(payload);
+    if (!movements.length) return Promise.resolve({ ok: false, status: 400, body: { ok: false, code: "no_assets", error: "Add at least one asset to stage." } });
+    var toFid = U.pad4(counter.to_franchise_id);
+    return runPreSendPreview(fromFranchiseId, movements, payload.extension_requests).then(function (pre) {
+      if (!pre.proceed) return { ok: true, status: 0, body: { ok: false, code: "staging_declined_by_owner" } };
+      var url2 = M.api.workerUrl("/api/trades/2way?L=" + encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+      var stored2 = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+      if (stored2) url2 += "&MFL_USER_ID=" + encodeURIComponent(stored2);
+      var body2 = {
+        from: { fid: fromFranchiseId, name: franchiseName(fromFranchiseId) },
+        to: { fid: toFid, name: franchiseName(toFid) },
+        movements: movements, extension_requests: payload.extension_requests || [],
+        loaded_contract_drops: pre.drops, notes: counterBody.message || ""
+      };
+      return tw2sFetch(url2, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body2) }).then(function (res) {
+        if (res && res.networkError) return { ok: false, status: 0, body: { ok: false, error: "Couldn't reach the server." } };
+        if (res.ok && res.body && res.body.ok) return { ok: true, status: res.status, body: { ok: true, staged: true, id: res.body.id, counter_staged: true } };
+        return { ok: false, status: res.status, body: res.body || { ok: false, error: "Couldn't stage this offer." } };
+      });
+    });
+  }
+
   function submitOffer() {
     builderState.submitting = true; builderState.error = ""; renderBuilder();
     var myFid = U.pad4(M.state.viewerFranchiseId);
@@ -1041,17 +1105,10 @@
     // COUNTER goes through a different worker route/response shape that doesn't implement the
     // create-time loaded-contract or cap gates (those are re-checked at accept regardless) --
     // exactly the same scope this cap-ack gate already had before this change (`!counterMode`).
+    // It DOES need the cutover staging_required fallback though (submitTradeCounterWithGatesMobile),
+    // same as CREATE -- a bare 409 here would be a dead end once cutover is on.
     var submitPromise = builderState.counterMode
-      ? fetch(url, {
-          method: "POST", mode: "cors", credentials: "omit",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        }).then(function (r) {
-          return r.text().then(function (txt) {
-            var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
-            return { ok: r.ok, status: r.status, body: parsed };
-          });
-        })
+      ? submitTradeCounterWithGatesMobile(url, body, myFid)
       : submitTradeCreateWithGatesMobile(url, body, myFid);
     submitPromise.then(function (resp) {
       if (!resp) { builderState.submitting = false; renderBuilder(); return; }   // the owner declined to acknowledge/select -- already repainted above
@@ -1064,7 +1121,9 @@
         return;
       }
       if (resp.ok && resp.body && resp.body.ok !== false && resp.body.staged) {
-        M.ui.showToast("Staged — awaiting review. Held server-side; not sent to MFL. ✓", "ok");
+        M.ui.showToast(resp.body.counter_staged
+          ? "Staged as a new offer — awaiting review. The original offer was NOT declined; decline it separately if you want it gone."
+          : "Staged — awaiting review. Held server-side; not sent to MFL. ✓", "ok");
         closeBuilder();
         refreshStaged2WayList().then(function () { M.route.renderRoute(); });
         return;
