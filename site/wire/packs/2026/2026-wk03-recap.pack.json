@@ -106,7 +106,8 @@
   "coverage": {},
   "warnings": [
     "Signal labelling does not attempt \"Schedule-assisted\" yet -- that needs the move traced to opponent strength, not just its size. The largest real, sourced cause IS now named per row (an absence, or a still-rostered player whose own projection genuinely fell) when it clears biggest_absences()/biggest_decliners()'s materiality bar, netted against the team's own bench/replacement value -- not the player's raw number, which overstates it. A smaller or unpriced cause still reads as plain Strong/Moderate/Neutral.",
-    "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page."
+    "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page.",
+    "2026-09-29: head-to-head series re-derived from src_schedule after the 2012 Week 13 playoff-flag correction (PR #1162) (refresh_pack_h2h.py). Changed: t.pv.games Bear Dunn vs Chris Klingenberg Bear Dunn leads 16-5 -> Bear Dunn leads 17-5; t.pv.games Ryan Bousquet vs Josh Martel Ryan Bousquet leads 11-10 -> tied 11-11. Nothing else was re-fetched; every other figure keeps this pack's original build (2026-09-29T22:08:31Z) and preview cutoff."
   ],
   "entities": {
     "owners": [
@@ -7836,7 +7837,7 @@
           "96% / 87%",
           "52% / 30%",
           "+5 / +5 pts",
-          "Bear Dunn leads 16-5"
+          "Bear Dunn leads 17-5"
         ],
         [
           "Shawn Blake vs Matt Gerardi",
@@ -7868,7 +7869,7 @@
           "23% / 9%",
           "17% / 6%",
           "+6 / +5 pts",
-          "Ryan Bousquet leads 11-10"
+          "tied 11-11"
         ],
         [
           "Eric Martel vs Brian Cross",

@@ -287,6 +287,43 @@ def load_live_forecast(season, week):
     return None
 
 
+def series_phrases(s, fav_name, dog_name):
+    """(desk text, table cell) for one owner-vs-owner series from
+    wire_data.HeadToHead.series(fav_name, dog_name). Module level so
+    refresh_pack_h2h.py re-derives a built pack's series with the exact same
+    wording after a history correction, without rebuilding the pack."""
+    reg, post, last = s["reg"], s["post"], s["last"]
+    if not s["games"]:
+        return "they have never met", "first meeting"
+    if reg["a"] > reg["b"]:
+        lead = "%s leads the regular-season series %d-%d" % (fav_name, reg["a"], reg["b"])
+        cell = "%s leads %d-%d" % (fav_name, reg["a"], reg["b"])
+    elif reg["b"] > reg["a"]:
+        lead = "%s leads the regular-season series %d-%d" % (dog_name, reg["b"], reg["a"])
+        cell = "%s leads %d-%d" % (dog_name, reg["b"], reg["a"])
+    elif reg["a"] + reg["b"]:
+        lead = "the regular-season series is tied %d-%d" % (reg["a"], reg["b"])
+        cell = "tied %d-%d" % (reg["a"], reg["b"])
+    else:
+        lead, cell = "they have never met in a regular-season game", "never in the regular season"
+    if reg["t"]:
+        lead += " with %d tie%s" % (reg["t"], "" if reg["t"] == 1 else "s")
+        cell += "-%d" % reg["t"]
+    bits = [lead]
+    if post["a"] + post["b"] + post["t"]:
+        if post["a"] >= post["b"]:
+            bits.append("%s is %d-%d against him in postseason weeks" % (fav_name, post["a"], post["b"]))
+        else:
+            bits.append("%s is %d-%d against him in postseason weeks" % (dog_name, post["b"], post["a"]))
+    if last:
+        winner = fav_name if last["result"] == "W" else dog_name if last["result"] == "L" else None
+        hi, lo = max(last["aScore"], last["bScore"]), min(last["aScore"], last["bScore"])
+        bits.append("they last met in %d week %d%s, %s" % (
+            last["season"], last["week"], " (postseason)" if last["playoff"] else "",
+            ("a %.1f-%.1f %s win" % (hi, lo, winner)) if winner else ("a %.1f-%.1f tie" % (hi, lo))))
+    return "; ".join(bits), cell
+
+
 def forecast_signal(title_change, repeatable_index, weeks_played, is_top_mover):
     """One label for how to read a team's title-odds movement -- Keith
     2026-09-15: "whether the change was driven by repeatable strength or
@@ -2541,36 +2578,8 @@ def build(pack_id):
 
         def _series(fav, dog):
             s = h2h.series(who(fav), who(dog))
-            reg, post, last = s["reg"], s["post"], s["last"]
-            if not s["games"]:
-                return s, "they have never met", "first meeting"
-            if reg["a"] > reg["b"]:
-                lead = "%s leads the regular-season series %d-%d" % (who(fav), reg["a"], reg["b"])
-                cell = "%s leads %d-%d" % (who(fav), reg["a"], reg["b"])
-            elif reg["b"] > reg["a"]:
-                lead = "%s leads the regular-season series %d-%d" % (who(dog), reg["b"], reg["a"])
-                cell = "%s leads %d-%d" % (who(dog), reg["b"], reg["a"])
-            elif reg["a"] + reg["b"]:
-                lead = "the regular-season series is tied %d-%d" % (reg["a"], reg["b"])
-                cell = "tied %d-%d" % (reg["a"], reg["b"])
-            else:
-                lead, cell = "they have never met in a regular-season game", "never in the regular season"
-            if reg["t"]:
-                lead += " with %d tie%s" % (reg["t"], "" if reg["t"] == 1 else "s")
-                cell += "-%d" % reg["t"]
-            bits = [lead]
-            if post["a"] + post["b"] + post["t"]:
-                if post["a"] >= post["b"]:
-                    bits.append("%s is %d-%d against him in postseason weeks" % (who(fav), post["a"], post["b"]))
-                else:
-                    bits.append("%s is %d-%d against him in postseason weeks" % (who(dog), post["b"], post["a"]))
-            if last:
-                winner = who(fav) if last["result"] == "W" else who(dog) if last["result"] == "L" else None
-                hi, lo = max(last["aScore"], last["bScore"]), min(last["aScore"], last["bScore"])
-                bits.append("they last met in %d week %d%s, %s" % (
-                    last["season"], last["week"], " (postseason)" if last["playoff"] else "",
-                    ("a %.1f-%.1f %s win" % (hi, lo, winner)) if winner else ("a %.1f-%.1f tie" % (hi, lo))))
-            return s, "; ".join(bits), cell
+            text, cell = series_phrases(s, who(fav), who(dog))
+            return s, text, cell
 
         for i, g in enumerate(featured, 1):
             fav, dog = g["favorite"], g["underdog"]

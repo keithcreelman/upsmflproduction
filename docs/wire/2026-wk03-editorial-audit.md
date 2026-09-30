@@ -204,12 +204,17 @@ starts in Week 14 or later. The flag comes from the local
 copies into `src_schedule`. Corrected in the article from the MFL ledger:
 Bear Dunn leads Chris Klingenberg **17–5** (not 16–5), and Ryan Bousquet and
 Josh Martel are **tied 11–11** (not 11–10). Keith–Ryan is unaffected (their
-2012 meetings were Weeks 2, 9 and 15). The D1/local data fix is prepared but
-**not applied**: it changes 2012 regular-season records wherever the site
-reads those tables, and a D1-only fix would be undone by the next
-`load_local_to_d1.py` upsert unless the local row is fixed first. The pack's
-`t.pv.games` still carries the two stale cells until the data is corrected and
-the pack rebuilt. (2010 also looks mismatched against MFL's settings, which say
+2012 meetings were Weeks 2, 9 and 15). **Update (September 29, later):** the
+data fix is applied, local source first, then D1. PR #1162 carries the record
+and a loader guard that refuses misflagged weeks. The pack was then brought in
+line **without a rebuild**, so no newer projections or injuries entered it:
+`pipelines/etl/wire/refresh_pack_h2h.py` re-derived only the head-to-head
+fields from `src_schedule`, with the builder's own wording (now the shared
+`weekly_recap.series_phrases`). Exactly two `t.pv.games` cells changed (to
+17–5 and tied 11–11). The three featured-game `f.pv.g*.h2h` facts and the
+other ten cells reproduced unchanged. The pack's `generatedAtUtc` and
+preview cutoff are untouched, and a warning line records the change. No other
+fact in the article changed. (2010 also looks mismatched against MFL's settings, which say
 `lastRegularSeasonWeek = 16`, but 2010's brackets start in Week 14; that is a
 2010 settings artifact, and D1's flags are right.)
 
