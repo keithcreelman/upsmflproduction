@@ -184,12 +184,13 @@ test("DESKTOP: SENDER over five -- the sender's OWN detail view shows their own 
   t.match(html, /too many loaded contracts/i);
   t.match(html, /data-t3w-drop-fid="0001"/);
   t.match(html, /Confirm drop selection/);
-  // Keith's ruling (2026-09-29): the owner-facing consent copy must show that neither write
-  // order can guarantee both "the limit is never exceeded" and "nothing is lost if the other
-  // half fails" -- shown to the interactive picker's own owner, before they confirm.
-  t.match(html, /two separate, irreversible steps a commissioner performs by hand/);
-  t.match(html, /you lose the player\(s\) you selected with nothing in return/);
-  t.match(html, /your roster stays over the 5-loaded-contract limit until the commissioner resolves it/);
+  // Keith's ruling (2026-09-29, sequence): drops are confirmed FIRST, always, before the trade
+  // is ever attempted -- the owner-facing consent copy must say so, and must not overstate
+  // restoration as guaranteed if the trade then fails.
+  t.match(html, /the drop is confirmed FIRST, before the trade is ever attempted/);
+  t.match(html, /your roster never ends up over the 5-loaded-contract limit because of this deal/);
+  t.match(html, /restoration is not guaranteed/);
+  t.match(html, /only if nobody else has claimed them as a free agent in the meantime/);
 });
 
 test("DESKTOP: the ordering-risk disclosure never renders for a viewer who ISN'T the affected franchise's own owner -- it's part of the interactive picker only", async () => {
@@ -202,7 +203,7 @@ test("DESKTOP: the ordering-risk disclosure never renders for a viewer who ISN'T
   await settle();
   const html = recipient.detail().innerHTML;
   t.match(html, /too many loaded contracts/i, "the requirement is still visible to the other side");
-  t.doesNotMatch(html, /two separate, irreversible steps a commissioner performs by hand/, "the disclosure is scoped to the affected owner's own interactive picker, not shown to a viewer with no picker");
+  t.doesNotMatch(html, /the drop is confirmed FIRST/, "the disclosure is scoped to the affected owner's own interactive picker, not shown to a viewer with no picker");
 });
 
 test("DESKTOP: ROSTER CHANGES AFTER CREATION -- a trade staged when everyone was fine now shows blocked once a roster changes underneath it, on a plain re-open (no cached number)", async () => {

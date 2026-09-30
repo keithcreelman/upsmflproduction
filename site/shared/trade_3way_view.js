@@ -293,13 +293,17 @@
         }).join("");
         h += '<div class="t3w-drop-picker" data-t3w-drop-fid="' + esc(f.franchise_id) + '">' + boxes + '</div>' +
           // Keith's ruling (2026-09-29): "show that limitation in the owner-facing consent
-          // copy." Neither write order can guarantee BOTH "the limit is never exceeded" AND
-          // "nothing is lost if the other half fails" (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md
-          // §2.3.1) -- a commissioner performs the drop and the trade as two separate, non-atomic
-          // MFL calls (§2.4.3), and this is true regardless of which happens first. Shown here,
-          // before the confirm click, because this risk is real under the CURRENTLY DECIDED
-          // manual-review model (§2.4) -- it does not wait on execution code being built.
-          '<p class="t3w-small">⚠️ This drop and the trade itself are two separate, irreversible steps a commissioner performs by hand — they are not guaranteed to happen together. If the drop happens first and the trade then falls through, you lose the player(s) you selected with nothing in return. If the trade happens first and this drop then falls through, your roster stays over the 5-loaded-contract limit until the commissioner resolves it. Confirming this selection does not mean either one has happened yet.</p>' +
+          // copy." Updated same day for Keith's SEQUENCE ruling: required drops are confirmed
+          // BEFORE the trade is attempted, always (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md
+          // §2.2/§2.4.3b) -- never the reverse. That removes the "if the trade happens first"
+          // branch this copy used to show (drop-first is no longer one of two live
+          // possibilities), but does NOT remove the real risk on the other side: if this drop
+          // is confirmed and the trade THEN fails, restoration is a manual, non-atomic, never-
+          // guaranteed workaround (§2.4.3b's own "what can and cannot be restored" section),
+          // not a promise this copy may overstate. Shown here, before the confirm click,
+          // because the risk is real under the CURRENTLY DECIDED manual-review model (§2.4) --
+          // it does not wait on execution code being built.
+          '<p class="t3w-small">⚠️ If this trade needs your drop, the drop is confirmed FIRST, before the trade is ever attempted — so your roster never ends up over the 5-loaded-contract limit because of this deal. But if this drop is confirmed and the trade then fails for any reason, restoration is not guaranteed: the commissioner can attempt to get the player back only if nobody else has claimed them as a free agent in the meantime, and even then it is a manual, multi-step process, not automatic. Confirming this selection does not mean the drop has happened yet.</p>' +
           '<button type="button" class="t3w-btn t3w-btn-primary t3w-drop-confirm" data-t3w-act="select-drops" data-t3w-drop-fid="' + esc(f.franchise_id) + '"' +
           (opts.dropBusy ? " disabled" : "") + '>' + (opts.dropBusy ? "Saving…" : "Confirm drop selection") + '</button>';
       } else {

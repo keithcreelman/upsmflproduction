@@ -203,8 +203,11 @@ test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows
   // it must state plainly that neither write order can guarantee both "never exceeds five" and
   // "nothing lost if the other half fails."
   t.doesNotMatch(HTML, /is <b>ready to complete<\/b>/);
-  t.match(HTML, /Neither write order is decided, and neither can guarantee both safety properties at once/);
-  t.match(HTML, /guarantees the roster never exceeds the 5-loaded-contract limit, but if the trade then fails, the loss is real and largely irreversible/);
+  // Keith's ruling (2026-09-29, sequence): drop-first is decided, not left open or per-deal.
+  t.match(HTML, /Sequence is decided \(Keith's ruling, 2026-09-29\): required drops confirm FIRST/);
+  t.match(HTML, /does <b>not<\/b> make the trade safe/, "must not overstate the guarantee -- the trade side can still fail after every drop confirms");
+  t.match(HTML, /restoration is a manual, race-prone workaround/);
+  t.doesNotMatch(HTML, /Neither write order is decided/);
 });
 
 await run("trade_review_queue_page");
