@@ -1,0 +1,707 @@
+{
+ "when": "2026-09-30T01:54:28+00:00",
+ "localDb": "/Users/keithcreelman/Library/Mobile Documents/com~apple~CloudDocs/Desktop/MFL_Scripts/Datastorage/mfl_database.db",
+ "before": {
+  "local": {
+   "weeklyresults_2012_wk13": [
+    [
+     1,
+     301
+    ]
+   ],
+   "metadata_leaguedetails_2012_last_regular_season_week": 13
+  },
+  "d1": {
+   "src_schedule": [
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0001",
+     "opponent_franchise_id": "0003",
+     "result": "L",
+     "team_score": 109.6,
+     "opponent_score": 169.5,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0001",
+     "opponent_franchise_id": "0007",
+     "result": "L",
+     "team_score": 109.6,
+     "opponent_score": 197.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0002",
+     "opponent_franchise_id": "0006",
+     "result": "W",
+     "team_score": 211.4,
+     "opponent_score": 156.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0002",
+     "opponent_franchise_id": "0011",
+     "result": "W",
+     "team_score": 211.4,
+     "opponent_score": 166.2,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0001",
+     "result": "W",
+     "team_score": 169.5,
+     "opponent_score": 109.6,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0005",
+     "result": "W",
+     "team_score": 169.5,
+     "opponent_score": 158.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0010",
+     "result": "W",
+     "team_score": 173.9,
+     "opponent_score": 169.9,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0012",
+     "result": "W",
+     "team_score": 173.9,
+     "opponent_score": 131.7,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0005",
+     "opponent_franchise_id": "0003",
+     "result": "L",
+     "team_score": 158.1,
+     "opponent_score": 169.5,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0005",
+     "opponent_franchise_id": "0010",
+     "result": "L",
+     "team_score": 158.1,
+     "opponent_score": 169.9,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0006",
+     "opponent_franchise_id": "0002",
+     "result": "L",
+     "team_score": 156.1,
+     "opponent_score": 211.4,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0006",
+     "opponent_franchise_id": "0008",
+     "result": "L",
+     "team_score": 156.1,
+     "opponent_score": 156.3,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0007",
+     "opponent_franchise_id": "0001",
+     "result": "W",
+     "team_score": 197.1,
+     "opponent_score": 109.6,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0007",
+     "opponent_franchise_id": "0009",
+     "result": "W",
+     "team_score": 197.1,
+     "opponent_score": 165.5,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0006",
+     "result": "W",
+     "team_score": 156.3,
+     "opponent_score": 156.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "result": "L",
+     "team_score": 156.3,
+     "opponent_score": 166.2,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0009",
+     "opponent_franchise_id": "0007",
+     "result": "L",
+     "team_score": 165.5,
+     "opponent_score": 197.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0009",
+     "opponent_franchise_id": "0012",
+     "result": "W",
+     "team_score": 165.5,
+     "opponent_score": 131.7,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0004",
+     "result": "L",
+     "team_score": 169.9,
+     "opponent_score": 173.9,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0005",
+     "result": "W",
+     "team_score": 169.9,
+     "opponent_score": 158.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0002",
+     "result": "L",
+     "team_score": 166.2,
+     "opponent_score": 211.4,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "result": "W",
+     "team_score": 166.2,
+     "opponent_score": 156.3,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0004",
+     "result": "L",
+     "team_score": 131.7,
+     "opponent_score": 173.9,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0009",
+     "result": "L",
+     "team_score": 131.7,
+     "opponent_score": 165.5,
+     "is_playoff": 1
+    }
+   ],
+   "src_franchise_weekly_score": [
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0001",
+     "team_score": 109.6,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0002",
+     "team_score": 211.4,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0003",
+     "team_score": 169.5,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0004",
+     "team_score": 173.9,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0005",
+     "team_score": 158.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0006",
+     "team_score": 156.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0007",
+     "team_score": 197.1,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0008",
+     "team_score": 156.3,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0009",
+     "team_score": 165.5,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0010",
+     "team_score": 169.9,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0011",
+     "team_score": 166.2,
+     "is_playoff": 1
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0012",
+     "team_score": 131.7,
+     "is_playoff": 1
+    }
+   ],
+   "src_league_season_meta": [
+    {
+     "season": 2012,
+     "last_regular_season_week": 12,
+     "total_weeks": 16,
+     "reg_weeks": 12,
+     "playoff_weeks": 4
+    }
+   ]
+  }
+ },
+ "localBackup": "/Users/keithcreelman/Library/Mobile Documents/com~apple~CloudDocs/Desktop/MFL_Scripts/Datastorage/mfl_database.pre_2012wk13_playoff_fix_20260929_215428.db",
+ "d1TimeTravelBookmark": "0000e083-00000024-000050f6-3a9afd34187a39be18b157fc0782be25",
+ "after": {
+  "local": {
+   "weeklyresults_2012_wk13": [
+    [
+     0,
+     301
+    ]
+   ],
+   "metadata_leaguedetails_2012_last_regular_season_week": 13
+  },
+  "d1": {
+   "src_schedule": [
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0001",
+     "opponent_franchise_id": "0003",
+     "result": "L",
+     "team_score": 109.6,
+     "opponent_score": 169.5,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0001",
+     "opponent_franchise_id": "0007",
+     "result": "L",
+     "team_score": 109.6,
+     "opponent_score": 197.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0002",
+     "opponent_franchise_id": "0006",
+     "result": "W",
+     "team_score": 211.4,
+     "opponent_score": 156.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0002",
+     "opponent_franchise_id": "0011",
+     "result": "W",
+     "team_score": 211.4,
+     "opponent_score": 166.2,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0001",
+     "result": "W",
+     "team_score": 169.5,
+     "opponent_score": 109.6,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0005",
+     "result": "W",
+     "team_score": 169.5,
+     "opponent_score": 158.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0010",
+     "result": "W",
+     "team_score": 173.9,
+     "opponent_score": 169.9,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0012",
+     "result": "W",
+     "team_score": 173.9,
+     "opponent_score": 131.7,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0005",
+     "opponent_franchise_id": "0003",
+     "result": "L",
+     "team_score": 158.1,
+     "opponent_score": 169.5,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0005",
+     "opponent_franchise_id": "0010",
+     "result": "L",
+     "team_score": 158.1,
+     "opponent_score": 169.9,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0006",
+     "opponent_franchise_id": "0002",
+     "result": "L",
+     "team_score": 156.1,
+     "opponent_score": 211.4,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0006",
+     "opponent_franchise_id": "0008",
+     "result": "L",
+     "team_score": 156.1,
+     "opponent_score": 156.3,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0007",
+     "opponent_franchise_id": "0001",
+     "result": "W",
+     "team_score": 197.1,
+     "opponent_score": 109.6,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0007",
+     "opponent_franchise_id": "0009",
+     "result": "W",
+     "team_score": 197.1,
+     "opponent_score": 165.5,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0006",
+     "result": "W",
+     "team_score": 156.3,
+     "opponent_score": 156.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "result": "L",
+     "team_score": 156.3,
+     "opponent_score": 166.2,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0009",
+     "opponent_franchise_id": "0007",
+     "result": "L",
+     "team_score": 165.5,
+     "opponent_score": 197.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0009",
+     "opponent_franchise_id": "0012",
+     "result": "W",
+     "team_score": 165.5,
+     "opponent_score": 131.7,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0004",
+     "result": "L",
+     "team_score": 169.9,
+     "opponent_score": 173.9,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0005",
+     "result": "W",
+     "team_score": 169.9,
+     "opponent_score": 158.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0002",
+     "result": "L",
+     "team_score": 166.2,
+     "opponent_score": 211.4,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "result": "W",
+     "team_score": 166.2,
+     "opponent_score": 156.3,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0004",
+     "result": "L",
+     "team_score": 131.7,
+     "opponent_score": 173.9,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0009",
+     "result": "L",
+     "team_score": 131.7,
+     "opponent_score": 165.5,
+     "is_playoff": 0
+    }
+   ],
+   "src_franchise_weekly_score": [
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0001",
+     "team_score": 109.6,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0002",
+     "team_score": 211.4,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0003",
+     "team_score": 169.5,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0004",
+     "team_score": 173.9,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0005",
+     "team_score": 158.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0006",
+     "team_score": 156.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0007",
+     "team_score": 197.1,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0008",
+     "team_score": 156.3,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0009",
+     "team_score": 165.5,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0010",
+     "team_score": 169.9,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0011",
+     "team_score": 166.2,
+     "is_playoff": 0
+    },
+    {
+     "season": 2012,
+     "week": 13,
+     "franchise_id": "0012",
+     "team_score": 131.7,
+     "is_playoff": 0
+    }
+   ],
+   "src_league_season_meta": [
+    {
+     "season": 2012,
+     "last_regular_season_week": 13,
+     "total_weeks": 16,
+     "reg_weeks": 13,
+     "playoff_weeks": 3
+    }
+   ]
+  }
+ },
+ "verified": true
+}
