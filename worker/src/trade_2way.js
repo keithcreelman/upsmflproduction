@@ -40,7 +40,7 @@
 
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
-import { EXEC, makeLedger } from "./trade_execution.js";
+import { EXEC, makeLedger, LEDGER_DDL, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
@@ -135,36 +135,10 @@ function canView2Way(row, viewer) {
   return !!(viewer.isCommish || myFid === padFid(row.from_fid) || myFid === padFid(row.to_fid));
 }
 
-// ── PER-FRANCHISE HOLD (Keith's ruling, 2026-09-29, §2.4.3a row 5/§2.4.3b step 6) ──
-// A franchise with an unresolved drop-first sequence (some steps confirmed -- real, irreversible
-// facts -- the rest not yet) has a KNOWN, BOUNDED uncertainty in its true roster/compliance
-// state; a fresh, unrelated deal must never be built or accepted on top of that uncertainty.
-// `partial_executed`/`executed_needs_review` are NEVER produced for a staged 2-way trade's
-// ledger row by any path other than the drop-first orchestrator below (execute2Way's own
-// failure path only ever moves to not_executed -- see its own code, unchanged) -- so finding
-// either state here is unambiguous, not a guess.
-// `excludeTradeId` lets the drop-first EXECUTOR itself call this (checking whether either
-// franchise has an unresolved sequence on a DIFFERENT deal) without the check finding its own
-// in-progress row and refusing to let a stuck deal ever resume itself.
-async function franchiseHasUnresolvedDropSequence(env, leagueId, season, fid, excludeTradeId) {
-  try {
-    const db = ledgerDbFor(env);
-    const row = await db.prepare(
-      `SELECT t.id FROM ups_2way_trades t
-        JOIN ups_trade_executions e ON e.exec_key = t.id AND e.league_id = t.league_id AND e.season = t.season
-       WHERE t.league_id=? AND t.season=? AND (t.from_fid=? OR t.to_fid=?)
-         AND e.state IN (?, ?)
-         AND t.id != ?
-       LIMIT 1`
-    ).bind(safeStr(leagueId), safeStr(season), padFid(fid), padFid(fid), EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW, safeStr(excludeTradeId) || "\0impossible\0").first();
-    return !!row;
-  } catch (e) {
-    // NO FAIL-OPEN: if we can't tell, refuse to assume it's safe. The caller treats a thrown
-    // hold-check the same as "held" -- see callers below.
-    console.error(`[2way-staged] hold-check failed for ${fid}: ${e?.message || e}`);
-    throw e;
-  }
-}
+// franchiseHasUnresolvedDropSequence moved to trade_execution.js (Keith, 2026-09-30, §8.6) so
+// index.js's legacy 2-way path AND trade_3way.js can both reuse it without a circular import
+// (trade_3way.js is imported BY this file; it cannot import back from here). Re-exported here
+// only for this module's own internal use.
 
 // ─────────────────────────────────── capGate2Way ───────────────────────────────────
 // Direct mirror of trade_3way.js's capGate(), for the 2-party row shape. Same priority
@@ -849,6 +823,71 @@ async function captureAndVerifyPreDropSnapshot(env, row, franchiseId, playerId, 
   return { ok: true, snapshot: live.row };
 }
 
+// Minimal, deliberate re-implementation of index.js's own proven FREE_AGENT-drop transaction
+// parser (`_dropPidsFromTx`) -- duplicated rather than imported (trade_dm.js's own stated
+// pattern: "re-implements the few it needs so it has no host dependency," avoiding a circular
+// import since index.js imports FROM this file). Shape confirmed live 2026-08-16 against every
+// real drop transaction this league has ever produced: "added,|dropped," -- dropped ids are
+// field 1.
+function dropPidsFromFreeAgentTx(blob) {
+  const field = safeStr(blob).split("|")[1];
+  return (safeStr(field).match(/\d{3,6}/g) || []).map(digits);
+}
+
+// Keith's ruling (2026-09-30): "roster presence alone does not prove what happened. A player
+// could disappear for another reason, or be dropped and re-added before reconciliation. Use a
+// matching MFL transaction record or other authoritative evidence tied to the franchise, player,
+// and attempt." This queries MFL's OWN transaction log directly -- the actual recorded event,
+// not an inference from a roster snapshot. `sinceUnix` scopes the search to AT OR AFTER this
+// specific attempt (with a small backward pad for clock skew), so a match can only be evidence
+// of THIS attempt's own drop, never an unrelated historical one.
+async function findFreeAgentDropTransaction(env, { leagueId, season, franchiseId, playerId, sinceUnix }) {
+  try {
+    const apiKey = safeStr(env.MFL_APIKEY);
+    if (!apiKey) return { ok: false, reason: "no_mfl_apikey" };
+    const u = `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&TRANS_TYPE=FREE_AGENT&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = await r.json().catch(() => null);
+    let rows = j && j.transactions && j.transactions.transaction;
+    if (!Array.isArray(rows)) rows = rows ? [rows] : [];
+    const fid = padFid(franchiseId), pid = digits(playerId), since = safeInt(sinceUnix, 0);
+    const match = rows.find((rowTx) => {
+      if (padFid(rowTx && rowTx.franchise) !== fid) return false;
+      const ts = safeInt(rowTx && rowTx.timestamp, 0);
+      if (ts && since && ts < since) return false;
+      return dropPidsFromFreeAgentTx(rowTx && rowTx.transaction).includes(pid);
+    });
+    return { ok: true, found: !!match, evidence: match ? { timestamp: safeStr(match.timestamp), franchise: fid, raw_transaction: safeStr(match.transaction) } : null };
+  } catch (e) {
+    return { ok: false, reason: `transactions_fetch_failed: ${e?.message || e}` };
+  }
+}
+
+// The full reconciliation decision (Keith, 2026-09-30) for a step whose prior attempt's outcome
+// is unknown (`attempting`/`unconfirmed`). NEVER presence-alone in either direction:
+//   - a matching FREE_AGENT transaction record for THIS franchise+player at/after the attempt
+//     is authoritative proof it happened -- confirmed regardless of current roster presence
+//     (handles "dropped, then re-added before reconciliation": the transaction record still
+//     proves the original drop was real, even though presence alone would now say otherwise).
+//   - no matching transaction record AND the player is still genuinely present -- both signals
+//     agree nothing happened -- safe to retry.
+//   - no matching transaction record but the player is ABSENT -- an unrelated event could have
+//     moved them (a waiver claim, a different drop, a data lag) -- never assumed to be OUR OWN
+//     doing. Held for commissioner review, not guessed.
+//   - the transaction log itself can't be read -- held; evidence is unavailable, never guessed.
+async function reconcilePriorAttempt(env, row, step, prior) {
+  const attemptedIso = safeStr(prior.attempted_at_utc) || safeStr(prior.confirmed_at_utc) || "";
+  const attemptedMs = Date.parse(attemptedIso);
+  const sinceUnix = Number.isFinite(attemptedMs) ? Math.floor(attemptedMs / 1000) - 60 : 0;
+  const tx = await findFreeAgentDropTransaction(env, { leagueId: row.league_id, season: row.season, franchiseId: step.franchiseId, playerId: step.playerId, sinceUnix });
+  if (!tx.ok) return { outcome: "hold", reason: `transaction_log_unavailable: ${tx.reason}` };
+  if (tx.found) return { outcome: "confirmed", evidence: tx.evidence };
+  const live = await fetchLiveRosterRow(env, row.league_id, row.season, step.franchiseId, step.playerId);
+  if (!live.ok && live.reason === "player_not_on_roster") return { outcome: "hold", reason: "absent_without_matching_transaction" };
+  if (!live.ok) return { outcome: "hold", reason: `roster_check_failed: ${live.reason}` };
+  return { outcome: "retry" };
+}
+
 // Classifies the REAL /roster-workbench/action {unload_player} response (worker/src/index.js,
 // the same route the ERA auto-drop sweep already uses, unchanged, ERA-gated) into exactly
 // three outcomes -- confirmed / failed / unconfirmed -- never conflating "we know it didn't
@@ -988,18 +1027,31 @@ export async function executeDropFirstDeal(env, ctx, id) {
     if (existingVal.status !== "attempting" && existingVal.status !== "unconfirmed") continue;
     if (steps.some((s) => stepName(s.playerId) === existingName)) continue; // the main loop below reconciles it in place
     const orphanFid = padFid(existingVal.franchise_id), orphanPid = digits(existingVal.player_id);
-    const orphanCheck = await fetchLiveRosterRow(env, row.league_id, row.season, orphanFid, orphanPid);
-    if (!orphanCheck.ok && orphanCheck.reason === "player_not_on_roster") {
-      await ledger.recordStep(key, existingName, { status: "confirmed", reconciled: true, reason: "reconciled_absent_after_prior_attempt_no_longer_required", franchise_id: orphanFid, player_id: orphanPid, pre_drop_snapshot: existingVal.pre_drop_snapshot || null, confirmed_at_utc: nowIso() });
+    const orphanRecon = await reconcilePriorAttempt(env, row, { franchiseId: orphanFid, playerId: orphanPid }, existingVal);
+    if (orphanRecon.outcome === "confirmed") {
+      await ledger.recordStep(key, existingName, { status: "confirmed", reconciled: true, reason: "reconciled_via_transaction_log_no_longer_required", mfl_evidence: orphanRecon.evidence, franchise_id: orphanFid, player_id: orphanPid, pre_drop_snapshot: existingVal.pre_drop_snapshot || null, confirmed_at_utc: nowIso() });
       const orphanLabel = playerLabelFor(orphanPid);
       await dmOne(row[`${orphanFid === fromFid ? "from" : "to"}_discord_ids`], `✅ **${orphanLabel} has been dropped from your roster** as part of this trade (confirmed on a re-check). The trade itself has **not** gone through yet.`);
-      await notifyCommish(env, `✅ 2-way trade ${id}: drop for ${orphanLabel} (${orphanFid}) RECONCILED as confirmed, and is no longer part of the required set (the requirement recomputed once it landed).`);
+      await notifyCommish(env, `✅ 2-way trade ${id}: drop for ${orphanLabel} (${orphanFid}) RECONCILED as confirmed via MFL's own transaction record, and is no longer part of the required set (the requirement recomputed once it landed).`);
+      continue;
     }
-    // Still present, or the reconciliation read itself failed: this step isn't blocking the
-    // CURRENT required sequence (it fell out of `steps` above), so leave its existing
-    // attempting/unconfirmed record exactly as-is for the commissioner to review — escalating
-    // the whole sequence over a step that isn't even required right now would be reacting to
-    // something nobody is waiting on.
+    if (orphanRecon.outcome === "hold") {
+      // Unlike `retry` below, an unresolved AMBIGUITY on ANY step of this deal -- even one no
+      // longer required -- stops the WHOLE sequence. "No longer required" only means the
+      // compliance math doesn't currently need a NEW drop of this player; it says nothing about
+      // whether something concerning already happened to them that the commissioner needs to
+      // see before anything else proceeds (Keith's "no fail-open guards" principle, applied
+      // here: silently completing the rest of the deal while a real ambiguity sits unresolved
+      // for the SAME deal is exactly the kind of quiet pass-through this codebase refuses).
+      await ledger.recordStep(key, existingName, { status: "unconfirmed", reason: `reconciliation_${orphanRecon.reason}`, franchise_id: orphanFid, player_id: orphanPid });
+      await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: existingName, failure_detail: `reconciliation_${orphanRecon.reason}` } });
+      const orphanLabel = playerLabelFor(orphanPid);
+      await dmOne(row.from_discord_ids + "," + row.to_discord_ids, `⚠️ We could not confirm what happened with an earlier conditional-drop attempt on this trade (${orphanLabel}) — ${orphanRecon.reason === "absent_without_matching_transaction" ? "the player is gone from that roster, but MFL's own transaction log shows no record of us dropping them" : "the evidence we need to check couldn't be read right now"}. Nothing else in this deal proceeds until the commissioner reviews it directly.`);
+      await notifyCommish(env, `⚠️ 2-way trade ${id}: an earlier drop attempt (${orphanLabel}) could not be reconciled (${orphanRecon.reason}), even though it's no longer part of the current required set. Held for manual review before anything else in this deal proceeds.`);
+      return { ok: false, stopped_at: existingName, status: "unconfirmed", reason: `reconciliation_${orphanRecon.reason}` };
+    }
+    // `retry`: genuinely safe -- present, no transaction evidence, and not currently required.
+    // Left exactly as-is; nothing to reconcile and nothing blocking.
   }
 
   for (const step of steps) {
@@ -1009,33 +1061,47 @@ export async function executeDropFirstDeal(env, ctx, id) {
     if (prior && prior.status === "confirmed") continue; // never repeat a confirmed drop
 
     // §2.4.3b addendum (Keith, 2026-09-30): "A retry cannot safely infer from a missing ledger
-    // step that the drop never happened... show how the executor reconciles MFL's live roster
-    // and the stored pre-drop snapshot after a timeout, process crash, or ambiguous response."
+    // step that the drop never happened... roster presence alone does not prove what happened.
+    // A player could disappear for another reason, or be dropped and re-added before
+    // reconciliation. Use a matching MFL transaction record or other authoritative evidence."
     // `attempting`/`unconfirmed` are the ONLY two prior statuses that mean "we know we tried,
     // but we don't know what happened" -- a step that was never touched, or one already proven
     // `failed` with direct evidence (a genuine MFL refusal, verified), does NOT get this
     // treatment: reconciliation exists to resolve OUR OWN uncertainty, never to guess at a
-    // situation we have no reason to think we caused.
-    const mightAlreadyBeDone = !!(prior && (prior.status === "attempting" || prior.status === "unconfirmed"));
+    // situation we have no reason to think we caused. Runs BEFORE any fresh snapshot/write
+    // attempt, and its verdict is FINAL for this pass -- never overridden by a subsequent
+    // presence check.
+    if (prior && (prior.status === "attempting" || prior.status === "unconfirmed")) {
+      const recon = await reconcilePriorAttempt(env, row, step, prior);
+      if (recon.outcome === "confirmed") {
+        // Authoritative: a matching MFL transaction record proves this happened, regardless of
+        // current roster presence (this is exactly what makes "dropped, then re-added before
+        // reconciliation" safe -- the transaction record survives a later re-add).
+        await ledger.recordStep(key, name, { status: "confirmed", reconciled: true, reason: "reconciled_via_transaction_log", mfl_evidence: recon.evidence, franchise_id: step.franchiseId, player_id: step.playerId, pre_drop_snapshot: prior.pre_drop_snapshot || null, confirmed_at_utc: nowIso() });
+        await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.PARTIAL_EXECUTED, token });
+        const label0 = playerLabelFor(step.playerId);
+        await dmOne(row[`${step.franchiseId === fromFid ? "from" : "to"}_discord_ids`], `✅ **${label0} has been dropped from your roster** as part of this trade (confirmed on a re-check against MFL's own transaction record — an earlier attempt's own result was lost, but MFL's log proves it happened). The trade itself has **not** gone through yet.`);
+        await notifyCommish(env, `✅ 2-way trade ${id}: drop for ${label0} (${step.franchiseName}) RECONCILED as confirmed — MFL's own FREE_AGENT transaction log shows this exact drop (timestamp ${recon.evidence && recon.evidence.timestamp}). Trade still pending.`);
+        continue;
+      }
+      if (recon.outcome === "hold") {
+        // Never guessed: either the evidence source itself is unavailable, or the player is
+        // absent with NO matching transaction record -- which could mean an UNRELATED event
+        // moved them, never assumed to be our own doing.
+        await ledger.recordStep(key, name, { status: "unconfirmed", reason: `reconciliation_${recon.reason}`, franchise_id: step.franchiseId, player_id: step.playerId });
+        await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: name, failure_detail: `reconciliation_${recon.reason}` } });
+        const label0 = playerLabelFor(step.playerId);
+        await dmOne(row.from_discord_ids + "," + row.to_discord_ids, `⚠️ We could not confirm what happened with this trade's conditional drop (${label0}, ${step.franchiseName}) from an earlier attempt — ${recon.reason === "absent_without_matching_transaction" ? "the player is gone from that roster, but MFL's own transaction log shows no record of us dropping them, so we cannot assume that was us" : "the evidence we need to check couldn't be read right now"}. Nothing else in this deal proceeds until the commissioner reviews it directly.`);
+        await notifyCommish(env, `⚠️ 2-way trade ${id}: drop step for ${label0} (${step.franchiseName}) — reconciliation could not confirm the outcome (${recon.reason}). Held for manual review — check MFL's own roster and transaction log before doing anything else.`);
+        return { ok: false, stopped_at: name, status: "unconfirmed", reason: `reconciliation_${recon.reason}` };
+      }
+      // outcome === "retry": no matching transaction record AND the player is still genuinely
+      // present -- both signals agree nothing happened. Falls through to the ordinary fresh
+      // snapshot + write attempt below, exactly as if this were a never-attempted step.
+    }
 
     const revalidation = await captureAndVerifyPreDropSnapshot(env, row, step.franchiseId, step.playerId, excludeTokens);
     if (!revalidation.ok) {
-      if (revalidation.reason === "player_not_on_roster" && mightAlreadyBeDone) {
-        // RECONCILE, never assume by default: the player is gone from the franchise WE
-        // recorded our own attempt against, and we have direct evidence (the `attempting`/
-        // `unconfirmed` record itself) that WE were the one who tried. The parsimonious,
-        // evidenced conclusion is that write actually landed and only its RESULT was lost
-        // (a crash or timeout between MFL confirming and this code recording it) -- not that
-        // some unrelated event moved them. Recorded as `reconciled: true`, never silently
-        // merged into an ordinary direct confirmation, so a commissioner auditing the ledger
-        // can always tell the two apart and cross-check MFL's own transaction log if in doubt.
-        await ledger.recordStep(key, name, { status: "confirmed", reconciled: true, reason: "reconciled_absent_after_prior_attempt", franchise_id: step.franchiseId, player_id: step.playerId, pre_drop_snapshot: prior.pre_drop_snapshot || null, confirmed_at_utc: nowIso() });
-        await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.PARTIAL_EXECUTED, token });
-        const label0 = playerLabelFor(step.playerId);
-        await dmOne(row[`${step.franchiseId === fromFid ? "from" : "to"}_discord_ids`], `✅ **${label0} has been dropped from your roster** as part of this trade (confirmed on a re-check — an earlier attempt's own result was lost, but the player is now confirmed gone). The trade itself has **not** gone through yet.`);
-        await notifyCommish(env, `✅ 2-way trade ${id}: drop for ${label0} (${step.franchiseName}) RECONCILED as confirmed — an earlier attempt's result was never recorded (crash/timeout), but the player is now confirmed absent from that roster, consistent with our own recorded attempt. Cross-check MFL's transaction log if in doubt.`);
-        continue;
-      }
       await ledger.recordStep(key, name, { status: "failed", reason: `snapshot_failed: ${revalidation.reason}`, franchise_id: step.franchiseId, player_id: step.playerId });
       await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: name, failure_detail: `snapshot_failed: ${revalidation.reason}` } });
       const label = playerLabelFor(step.playerId);

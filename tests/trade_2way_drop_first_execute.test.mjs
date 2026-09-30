@@ -26,6 +26,7 @@ import { THREE_WAY_MIGRATIONS } from "./fixtures/d1_sqlite.mjs";
 const restoreConsole = quiet();
 await import("./fixtures/register_md_loader.mjs");
 const { createStaged2WayTrade, accept2WayTrade, select2WayLoadedContractDrops, executeDropFirstDeal, cancel2WayTrade } = await import("../worker/src/trade_2way.js");
+const { create3WayTrade, execute3Way } = await import("../worker/src/trade_3way.js");
 
 const Q = "L=74598&YEAR=2026";
 const MIGRATIONS = [...THREE_WAY_MIGRATIONS, "0162_ups_trade_cap_acknowledgments.sql", "0163_ups_trade_conditional_drops.sql", "0164_ups_2way_trades.sql"];
@@ -360,6 +361,154 @@ test("COVERAGE GAP FOUND AND CLOSED: select2WayLoadedContractDrops must refuse t
   t.equal(steps["drop:80000"].status, "confirmed", "the already-real drop stays exactly as recorded -- unaffected by the refused selection change attempt");
 });
 
+// ═══════ HOLD CLOSED ON THE LEGACY DIRECT-MFL PATH (§8.6, Keith 2026-09-30) ═══════
+// "The hold also needs to cover the legacy in-app 2-way path when cutover is off... Close those
+// gaps before any execution flag can be enabled." These three tests exercise the REAL
+// worker/src/index.js /trade-offers and /api/trades/proposals/action handlers directly --
+// cutover deliberately left OFF, which is exactly the window §8.6 originally reported as open.
+const legacyAsset = (pid, salary) => ({ asset_id: `player:${pid}`, type: "PLAYER", player_id: String(pid), player_name: `P${pid}`, salary, taxi: false });
+const legacyBody = (from, to, pidFrom, pidTo) => ({
+  league_id: "74598", season: "2026", from_franchise_id: from, to_franchise_id: to,
+  from_franchise_name: "x", to_franchise_name: "y", message: "",
+  payload: {
+    schema_version: 1, source: "test", league_id: "74598", season: "2026",
+    teams: [
+      { role: "left", franchise_id: from, selected_assets: [legacyAsset(pidFrom, 5000)], traded_salary_adjustment_dollars: 0, traded_salary_adjustment_k: 0, selected_non_taxi_salary_dollars: 5000 },
+      { role: "right", franchise_id: to, selected_assets: [legacyAsset(pidTo, 5000)], traded_salary_adjustment_dollars: 0, traded_salary_adjustment_k: 0, selected_non_taxi_salary_dollars: 5000 },
+    ],
+    extension_requests: [], ui: { left_team_id: from, right_team_id: to }, validation: { status: "ready" },
+  },
+});
+async function getFranchiseStuck(env, mfl) {
+  const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
+  installFakeUnloadPlayer(env, lockoutResp);
+  await executeDropFirstDeal(env, {}, id);
+  return id;
+}
+
+test("HOLD CLOSED — LEGACY CREATE: with cutover OFF, the legacy /trade-offers route refuses to propose a real native MFL trade touching a franchise with an unresolved drop-first sequence", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  await getFranchiseStuck(env, mfl);
+  mfl.st.imports.length = 0;
+  mfl.st.rosters[FR.A].push(legacyAsset("70000", 5000));
+  mfl.st.rosters["0003"] = [legacyAsset("70001", 5000)];
+  const r = await callWorker(env, "POST", `/trade-offers?${Q}&MFL_USER_ID=tok-A`, { body: legacyBody(FR.A, "0003", "70000", "70001") });
+  t.equal(r.status, 409);
+  t.equal(r.json.code, "franchise_has_unresolved_drop_sequence");
+  t.equal(mfl.st.imports.length, 0, "no native MFL trade proposal must have been sent");
+});
+
+test("HOLD CLOSED — LEGACY COUNTER: with cutover OFF, countering a pending native offer touching the held franchise is refused, and the ORIGINAL offer is never rejected first", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  await getFranchiseStuck(env, mfl);
+  mfl.st.rosters["0003"] = [legacyAsset("70001", 5000)];
+  mfl.st.rosters[FR.A].push(legacyAsset("70000", 5000));
+  const tid = mfl.addPending({ offeringteam: "0003", offeredto: FR.A, will_give_up: "70001,", will_receive: "70000," });
+  const r = await callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-A`, {
+    body: { action: "COUNTER", trade_id: tid, league_id: "74598", season: "2026", franchise_id: FR.A, acting_franchise_id: FR.A,
+      counter_offer: { from_franchise_id: FR.A, to_franchise_id: "0003", payload: legacyBody(FR.A, "0003", "70000", "70001").payload, message: "" } },
+  });
+  t.equal(r.status, 409);
+  t.equal(r.json.code, "franchise_has_unresolved_drop_sequence");
+  const stillPending = mfl.st.pending.find((p) => p.trade_id === tid);
+  t.ok(stillPending, "the original native offer must be untouched -- the hold is checked before any side effect, same discipline as the cutover gate");
+});
+
+test("HOLD CLOSED — LEGACY ACCEPT: an offer created BEFORE the franchise got stuck, then accepted AFTER, is refused -- ACCEPT is this engine's own 'execute', and it must not complete a real trade for a franchise mid-drop-first-sequence", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
+  mfl.st.rosters[FR.A] = [flat("70000")];
+  mfl.st.rosters["0003"] = [flat("70001")];
+  // A REAL offer, created through the real endpoint (so its stored trailer/asset-list metadata
+  // is fully valid for the later ownership re-check ACCEPT itself performs) -- BEFORE FR.A gets
+  // stuck, exactly the real-world order this closes a gap for.
+  const created = await callWorker(env, "POST", `/trade-offers?${Q}&MFL_USER_ID=tok-A`, { body: legacyBody(FR.A, "0003", "70000", "70001") });
+  t.equal(created.status, 201, JSON.stringify(created.json));
+  const tid = String(mfl.st.pending[mfl.st.pending.length - 1].trade_id);
+
+  // Get FR.A stuck via the PLAYER-LOSS shape (drop confirms, trade leg fails) rather than
+  // getFranchiseStuck's lockout-on-drop shape -- this leaves FR.A's loaded-contract count back
+  // at the limit (compliant), so THIS test isolates the per-franchise HOLD specifically, not the
+  // separate (and also-real, also-correct) pre-existing loaded-contract gate that would
+  // otherwise ALSO independently refuse the same accept for an unrelated reason.
+  const stuckId = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
+  installFakeUnloadPlayer(env, confirmedResp);
+  mfl.st.failNext = { type: "tradeProposal", status: 500, message: "MFL internal error" };
+  await executeDropFirstDeal(env, {}, stuckId);
+  t.equal(ledgerRow(env, stuckId).state, "executed_needs_review", "sanity: FR.A is genuinely stuck (drop confirmed, trade leg failed)");
+  // The fake unload_player stub doesn't itself mutate the roster -- reflect the real-world
+  // effect of the CONFIRMED drop by hand, so FR.A's live loaded-contract count is genuinely back
+  // at the limit (5) by the time ACCEPT re-checks it, isolating the hold from that other gate.
+  mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000");
+
+  mfl.st.rosters[FR.A].push(flat("70000")); // restore the asset this pending offer still needs to own for the ACCEPT-time ownership re-check
+  mfl.st.done.length = 0;
+
+  const r = await callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-O`, {
+    body: { action: "ACCEPT", trade_id: tid, league_id: "74598", season: "2026", franchise_id: "0003", acting_franchise_id: "0003" },
+  });
+  t.equal(r.status, 409, JSON.stringify(r.json));
+  t.equal(r.json.code, "franchise_has_unresolved_drop_sequence");
+  t.equal(mfl.st.done.length, 0, "no accept/response was ever sent to MFL");
+  const stillPending = mfl.st.pending.find((p) => String(p.trade_id) === tid);
+  t.ok(stillPending, "the pending native offer is untouched");
+});
+
+// ═══════ HOLD CLOSED ON THE 3-WAY ENGINE (§8.6, Keith 2026-09-30) ═══════
+// "...and the 3-way engine wherever either affected franchise can create, counter, accept, or
+// execute a trade." The 3-way engine has no separate "counter" concept either (verified: no
+// counter-offer route or client path exists for it, same as staged 2-way) -- create/accept/
+// execute are the full surface. accept3Way is Discord-button-driven (handle3WayButton) and its
+// OWN fixture ecosystem (interaction objects, trade_3way_fixture.mjs) is a genuinely separate
+// harness from the one this whole file is built on; its hold check is in place (mirrors
+// accept2WayTrade's own check exactly, reviewed by inspection) but is not independently
+// exercised by a test in THIS file -- stated plainly, not silently skipped.
+
+test("HOLD CLOSED — 3-WAY CREATE: a franchise with an unresolved 2-way drop-first sequence cannot be added to a brand-new 3-way deal", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  await getFranchiseStuck(env, mfl);
+  mfl.st.rosters[FR.A].push(flat("70000"));
+  mfl.st.rosters["0003"] = [flat("70001")];
+  mfl.st.rosters["0004"] = [flat("70002")];
+  const r = await create3WayTrade(env, {}, {
+    leagueId: "74598", season: "2026",
+    initiator: { fid: FR.A, name: "x" }, teamB: { fid: "0003", name: "y" }, teamC: { fid: "0004", name: "z" },
+    movements: [{ from: FR.A, to: "0003", asset_tokens: ["70000"], cap_k: 0 }, { from: "0003", to: "0004", asset_tokens: ["70001"], cap_k: 0 }, { from: "0004", to: FR.A, asset_tokens: ["70002"], cap_k: 0 }],
+  });
+  t.equal(r.ok, false);
+  t.equal(r.error, "franchise_has_unresolved_drop_sequence");
+  t.equal(r.franchise_id, FR.A);
+  t.equal(mfl.st.imports.length, 0);
+});
+
+test("HOLD CLOSED — 3-WAY EXECUTE: a deal all three already approved is blocked (reverted to collecting, never stuck at 'executing') if any participant develops an unresolved 2-way drop-first sequence before it runs", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_ENABLED: "1" });
+  mfl.st.rosters[FR.A] = [flat("70000")];
+  mfl.st.rosters["0003"] = [flat("70001")];
+  mfl.st.rosters["0004"] = [flat("70002")];
+  const created = await create3WayTrade(env, {}, {
+    leagueId: "74598", season: "2026",
+    initiator: { fid: FR.A, name: "x" }, teamB: { fid: "0003", name: "y" }, teamC: { fid: "0004", name: "z" },
+    movements: [{ from: FR.A, to: "0003", asset_tokens: ["70000"], cap_k: 0 }, { from: "0003", to: "0004", asset_tokens: ["70001"], cap_k: 0 }, { from: "0004", to: FR.A, asset_tokens: ["70002"], cap_k: 0 }],
+  });
+  t.equal(created.ok, true, JSON.stringify(created));
+  // All three approved (bypassing the Discord-button flow -- this test targets execute3Way's
+  // own hold, not accept's) and the row moved to 'executing', exactly as handle3WayButton does
+  // once the third accept lands.
+  env.UPS_MFL_DB.raw.prepare(`UPDATE ups_3way_trades SET team_b_state='accepted', team_c_state='accepted', status='executing', updated_at_utc=? WHERE id=?`).run(new Date().toISOString(), created.id);
+
+  // FR.A gets stuck on a SEPARATE 2-way deal AFTER this 3-way was already fully approved.
+  await getFranchiseStuck(env, mfl);
+  mfl.st.imports.length = 0;
+
+  const r = await execute3Way(env, created.id);
+  t.equal(r.ok, false);
+  t.equal(r.blocked, true);
+  t.equal(r.kind, "franchise_has_unresolved_drop_sequence");
+  t.equal(mfl.st.imports.length, 0, "no MFL trade leg was ever sent");
+  const row = env.UPS_MFL_DB.raw.prepare("SELECT status FROM ups_3way_trades WHERE id=?").get(created.id);
+  t.equal(row.status, "collecting", "reverted, exactly like every other pre-execution block -- never left stuck at status='executing'");
+});
+
 test("HTTP: POST /api/trades/2way/execute is commissioner-only -- an ordinary owner session is refused (403), never dispatched", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
@@ -386,6 +535,11 @@ test("HTTP: the admin key can start execution -- 202, dispatched via waitUntil, 
 // review whenever it cannot prove the outcome." Two required drops each time, per his
 // instruction, with failure after the first confirmed drop and uncertainty around the second.
 const SNAP_80000 = { salary: "5000", contractStatus: "Vet-BL", contractYear: "2", contractInfo: "CL 2|TCV 20K|AAV 10K|Y1-5K|Y2-15K" };
+// MFL's own real FREE_AGENT transaction shape ("added,|dropped,"), the authoritative evidence
+// Keith requires (2026-09-30) -- reconciliation must never rely on roster presence alone.
+function freeAgentDropTx(franchiseId, playerId, unixTs) {
+  return { type: "FREE_AGENT", franchise: franchiseId, timestamp: String(unixTs), transaction: `|${playerId},` };
+}
 function seedCrashedAttempt(env, id, stepsJson, state) {
   const stale = new Date(Date.now() - 5 * 60000).toISOString(); // well past resumeDropSequence's 2-minute staleness threshold
   env.UPS_MFL_DB.raw.prepare(
@@ -403,12 +557,15 @@ async function stageTwoDropDeal(env, mfl) {
   return created.id;
 }
 
-test("RECONCILIATION — CRASH BETWEEN MFL CONFIRMING AND THE LEDGER RECORDING IT: drop 80000 already landed on MFL (roster reflects it), but its own step was only ever recorded 'attempting' (simulating the exact window Keith flagged) -- a resume RECONCILES it as confirmed WITHOUT calling unload_player again, then proceeds to drop 80001 and the trade", async () => {
+test("RECONCILIATION — CRASH BETWEEN MFL CONFIRMING AND THE LEDGER RECORDING IT: drop 80000 already landed on MFL (a matching FREE_AGENT transaction record exists), but its own step was only ever recorded 'attempting' (simulating the exact window Keith flagged) -- a resume RECONCILES it as confirmed via the transaction record, WITHOUT calling unload_player again, then proceeds to drop 80001 and the trade", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageTwoDropDeal(env, mfl);
-  // The write actually happened (roster reflects it) -- only its RESULT was never recorded.
+  const attemptIso = new Date(Date.now() - 6 * 60000).toISOString();
+  // The write actually happened -- both signals agree: the roster reflects it AND MFL's own
+  // transaction log has a matching record (the authoritative evidence Keith requires).
   mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000");
-  seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: new Date(Date.now() - 6 * 60000).toISOString() } });
+  mfl.st.transactions = [freeAgentDropTx(FR.A, "80000", Math.floor(Date.parse(attemptIso) / 1000) + 5)];
+  seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: attemptIso } });
   const calls = installFakeUnloadPlayer(env, confirmedResp);
   const r = await executeDropFirstDeal(env, {}, id);
   t.equal(r.ok, true, JSON.stringify(r));
@@ -418,53 +575,59 @@ test("RECONCILIATION — CRASH BETWEEN MFL CONFIRMING AND THE LEDGER RECORDING I
   const steps = JSON.parse(led.steps_json);
   t.equal(steps["drop:80000"].status, "confirmed");
   t.equal(steps["drop:80000"].reconciled, true, "must be flagged as a RECONCILED confirmation, never silently indistinguishable from a direct one");
+  t.ok(steps["drop:80000"].mfl_evidence, "must record the ACTUAL transaction evidence used, not just an inference from presence");
   t.equal(steps["drop:80000"].pre_drop_snapshot.contractStatus, "Vet-BL", "the ORIGINAL pre-drop snapshot survives the reconciliation, not a fresh (impossible, since the player is gone) or blank one");
   t.equal(steps["drop:80001"].status, "confirmed");
   t.equal(led.state, "completed");
 });
 
-test("RECONCILIATION — UNCONFIRMED THEN RETRIED, PLAYER STILL PRESENT: the earlier write genuinely never landed -- a resume safely RE-ATTEMPTS the same step (calls unload_player again) rather than assuming it already happened", async () => {
+test("RECONCILIATION — UNCONFIRMED THEN RETRIED, PLAYER STILL PRESENT AND NO MATCHING TRANSACTION: the earlier write genuinely never landed -- BOTH signals agree (present + no transaction record) -- a resume safely RE-ATTEMPTS the same step (calls unload_player again) rather than assuming it already happened", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageTwoDropDeal(env, mfl);
-  // 80001 is STILL on the roster -- the earlier ambiguous attempt did NOT actually drop them.
+  // 80001 is STILL on the roster, and MFL's transaction log has NO record of it being dropped --
+  // the earlier ambiguous attempt did NOT actually drop them.
   seedCrashedAttempt(env, id, {
     "drop:80000": { status: "confirmed", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, confirmed_at_utc: new Date(Date.now() - 6 * 60000).toISOString() },
-    "drop:80001": { status: "unconfirmed", franchise_id: FR.A, player_id: "80001", reason: "call_failed: network timeout", pre_drop_snapshot: SNAP_80000 },
+    "drop:80001": { status: "unconfirmed", franchise_id: FR.A, player_id: "80001", reason: "call_failed: network timeout", pre_drop_snapshot: SNAP_80000, attempted_at_utc: new Date(Date.now() - 6 * 60000).toISOString() },
   }, "executed_needs_review");
   mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000"); // 80000's drop DID really happen
+  mfl.st.transactions = []; // no record of 80001 anywhere
   const calls = installFakeUnloadPlayer(env, confirmedResp);
   const r = await executeDropFirstDeal(env, {}, id);
   t.equal(r.ok, true, JSON.stringify(r));
-  t.equal(calls.length, 1, "80000 is skipped (already confirmed); 80001 is RE-ATTEMPTED for real, since reconciliation found them still present");
+  t.equal(calls.length, 1, "80000 is skipped (already confirmed); 80001 is RE-ATTEMPTED for real, since reconciliation found them still present with no transaction evidence");
   t.equal(calls[0].player_id, "80001");
   t.equal(ledgerRow(env, id).state, "completed");
 });
 
-test("RECONCILIATION READ ITSELF FAILS: never guesses either outcome -- holds for commissioner review exactly like the original mandatory-snapshot stop", async () => {
+test("RECONCILIATION EVIDENCE SOURCE ITSELF FAILS: never guesses either outcome -- holds for commissioner review rather than falling back to a weaker signal", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageTwoDropDeal(env, mfl);
   seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: new Date(Date.now() - 6 * 60000).toISOString() } });
-  // Break the reconciliation read itself (not the drop-write route) -- no MFL_APIKEY means
-  // fetchLiveRosterRow (the same read used for both the original snapshot AND reconciliation)
-  // cannot even ask MFL what's true.
+  // Break the evidence sources themselves (not the drop-write route) -- no MFL_APIKEY means
+  // BOTH findFreeAgentDropTransaction (the primary, authoritative evidence) and
+  // fetchLiveRosterRow (the secondary corroborating check) cannot ask MFL anything.
   env.MFL_APIKEY = "";
   const calls = installFakeUnloadPlayer(env, confirmedResp);
   const r = await executeDropFirstDeal(env, {}, id);
   t.equal(r.ok, false);
-  t.equal(calls.length, 0, "when we can't even READ the live state, we never guess by writing OR by assuming a prior success");
+  t.equal(calls.length, 0, "when we can't even READ the evidence, we never guess by writing OR by assuming a prior success");
   const led = ledgerRow(env, id);
   t.equal(led.state, "executed_needs_review");
-  t.match(led.failure_detail, /snapshot_failed/);
+  t.match(led.failure_detail, /reconciliation_transaction_log_unavailable/);
 });
 
-test("RECONCILIATION — AN ORPHANED ATTEMPTING STEP (no longer part of the recomputed required set) is reconciled for auditability WITHOUT re-attempting a write or blocking the still-required step", async () => {
+test("RECONCILIATION — AN ORPHANED ATTEMPTING STEP (no longer part of the recomputed required set) is reconciled via the transaction record for auditability WITHOUT re-attempting a write or blocking the still-required step", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageTwoDropDeal(env, mfl);
-  // 80000 truly landed (roster reflects it) -- which ALSO means the fresh required-drops count
-  // recomputes down to 1 (80001 only), so 80000 falls OUT of the main loop's `steps` entirely.
-  // This is the exact scenario the orphan pre-pass exists for.
+  const attemptIso = new Date(Date.now() - 6 * 60000).toISOString();
+  // 80000 truly landed (roster reflects it, AND MFL's transaction log has the matching record)
+  // -- which ALSO means the fresh required-drops count recomputes down to 1 (80001 only), so
+  // 80000 falls OUT of the main loop's `steps` entirely. This is the exact scenario the orphan
+  // pre-pass exists for.
   mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000");
-  seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: new Date(Date.now() - 6 * 60000).toISOString() } });
+  mfl.st.transactions = [freeAgentDropTx(FR.A, "80000", Math.floor(Date.parse(attemptIso) / 1000) + 5)];
+  seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: attemptIso } });
   const calls = installFakeUnloadPlayer(env, confirmedResp);
   const r = await executeDropFirstDeal(env, {}, id);
   t.equal(r.ok, true, JSON.stringify(r));
@@ -472,6 +635,7 @@ test("RECONCILIATION — AN ORPHANED ATTEMPTING STEP (no longer part of the reco
   const steps = JSON.parse(ledgerRow(env, id).steps_json);
   t.equal(steps["drop:80000"].status, "confirmed");
   t.equal(steps["drop:80000"].reconciled, true);
+  t.ok(steps["drop:80000"].mfl_evidence, "reconciled via the transaction record, not presence alone");
   t.match(steps["drop:80000"].reason, /no_longer_required/);
 });
 
@@ -489,6 +653,59 @@ test("RECONCILIATION — AN ORPHANED step that is STILL genuinely present (never
   t.equal(calls[0].player_id, "80000");
   const steps = JSON.parse(ledgerRow(env, id).steps_json);
   t.equal(steps["drop:99999"].status, "attempting", "left exactly as it was -- never silently marked confirmed for a player who is demonstrably still there");
+});
+
+// ═══════ THE TWO INTERVENING-CHANGE CASES (Keith, 2026-09-30) ═══════
+// "Roster presence alone does not prove what happened. A player could disappear for another
+// reason, or be dropped and re-added before reconciliation." Both cases below would have been
+// misjudged by the PRIOR (presence-only) reconciliation logic -- this is exactly why it was
+// replaced with evidence tied to the franchise, player, and attempt (findFreeAgentDropTransaction).
+
+test("INTERVENING CHANGE, CASE A — player absent for an UNRELATED reason (no matching transaction record for OUR attempt): must NOT be assumed to be our own drop -- holds for commissioner review instead of silently marking confirmed", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  const attemptIso = new Date(Date.now() - 6 * 60000).toISOString();
+  seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: attemptIso } });
+  // 80000 IS gone from the roster -- but for a reason that has NOTHING to do with our attempt
+  // (an unrelated waiver claim, a different owner's own action, etc.). Represented here as: no
+  // matching FREE_AGENT transaction for FR.A/80000 exists at all -- the PRIOR (presence-only)
+  // logic would have wrongly reconciled this as "our own drop succeeded."
+  mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000");
+  mfl.st.transactions = [freeAgentDropTx("0003", "70000", Math.floor(Date.parse(attemptIso) / 1000) + 10)]; // a real transaction, but for someone else entirely
+  const calls = installFakeUnloadPlayer(env, confirmedResp);
+  const r = await executeDropFirstDeal(env, {}, id);
+  t.equal(r.ok, false);
+  t.equal(calls.length, 0, "MUST NOT re-attempt a write for a step reconciliation could not confirm either way");
+  const led = ledgerRow(env, id);
+  t.equal(led.state, "executed_needs_review");
+  t.match(led.failure_detail, /reconciliation_absent_without_matching_transaction/);
+  const steps = JSON.parse(led.steps_json);
+  t.notEqual(steps["drop:80000"].status, "confirmed", "must NEVER be marked confirmed on absence alone, with no evidence tying the disappearance to OUR OWN attempt");
+  t.equal(steps["drop:80000"].status, "unconfirmed");
+});
+
+test("INTERVENING CHANGE, CASE B — player dropped for real, then RE-ADDED to the same roster before reconciliation runs: presence alone would wrongly say 'never happened, retry' -- the matching transaction record must win, confirming without a second write", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  const attemptIso = new Date(Date.now() - 6 * 60000).toISOString();
+  seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: attemptIso } });
+  // The drop genuinely happened (a real transaction exists) -- but the player was RE-ADDED to
+  // the SAME franchise's roster before this reconciliation run (a commissioner's own manual
+  // reinstatement, an automated re-add, whatever the cause). Presence-only logic would see them
+  // back on the roster and conclude "the original attempt never landed -- safe to retry," which
+  // would misrepresent a real, already-charged drop as never having happened.
+  mfl.st.transactions = [freeAgentDropTx(FR.A, "80000", Math.floor(Date.parse(attemptIso) / 1000) + 5)];
+  // (roster left untouched by the test -- 80000 is still present in mfl.st.rosters[FR.A], simulating the re-add)
+  const calls = installFakeUnloadPlayer(env, confirmedResp);
+  const r = await executeDropFirstDeal(env, {}, id);
+  t.equal(r.ok, true, JSON.stringify(r));
+  t.equal(calls.length, 1, "80000 must NOT be re-attempted -- only 80001 (the genuinely still-outstanding drop) is written");
+  t.equal(calls[0].player_id, "80001");
+  const steps = JSON.parse(ledgerRow(env, id).steps_json);
+  t.equal(steps["drop:80000"].status, "confirmed");
+  t.equal(steps["drop:80000"].reconciled, true);
+  t.ok(steps["drop:80000"].mfl_evidence, "confirmed via the transaction record even though presence alone would have said otherwise");
+  t.equal(ledgerRow(env, id).state, "completed");
 });
 
 // Idempotency scope, stated precisely rather than claimed in general (Keith: "Do not describe

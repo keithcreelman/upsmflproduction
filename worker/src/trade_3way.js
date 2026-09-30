@@ -30,7 +30,7 @@
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS, canView } from "./trade_3way_model.js";
-import { makeLedger, EXEC, findExecutedTrade, isMflExecuted } from "./trade_execution.js";
+import { makeLedger, EXEC, findExecutedTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
@@ -572,6 +572,18 @@ export async function create3WayTrade(env, ctx, spec) {
     const A = padFid(spec?.initiator?.fid), B = padFid(spec?.teamB?.fid), C = padFid(spec?.teamC?.fid);
     if (!leagueId || !season || !A || !B || !C) return { ok: false, error: "missing_fields" };
     if (A === B || B === C || A === C) return { ok: false, error: "teams_must_be_distinct" };
+    // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) --------------------
+    // A franchise with an unresolved 2-way drop-first sequence must not be added to a brand
+    // new 3-way deal either -- its true compliance state is a known, bounded uncertainty.
+    try {
+      for (const fid of [A, B, C]) {
+        if (await franchiseHasUnresolvedDropSequence(env, leagueId, season, fid)) {
+          return { ok: false, error: "franchise_has_unresolved_drop_sequence", franchise_id: fid };
+        }
+      }
+    } catch (e) {
+      return { ok: false, error: "hold_check_unavailable" };
+    }
     // Free-form movements ({from, to, asset_tokens}); `legs` accepted as a
     // back-compat alias. Every from/to must be one of the three teams.
     const movements = Array.isArray(spec?.movements) ? spec.movements : (Array.isArray(spec?.legs) ? spec.legs : []);
@@ -904,6 +916,20 @@ export async function handle3WayButton(interaction, env, ctx) {
   if (action !== "accept") return ephemeral("Button not recognized.");
   if (myState === "accepted") return ephemeral("You're already in — waiting on the other team.");
 
+  // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -----------------------
+  // Refuse to RECORD this team's own consent while THEY (specifically -- not the other two)
+  // have an unresolved 2-way drop-first sequence -- the same "don't consent on top of a known,
+  // bounded uncertainty" reasoning accept2WayTrade already applies. execute3Way's own hold
+  // (checking all three) is the backstop once everyone is in; this catches it earlier, at the
+  // specific responding party, exactly like the 2-way engine's own accept does.
+  try {
+    if (await franchiseHasUnresolvedDropSequence(env, safeStr(row.league_id), safeStr(row.season), myFid)) {
+      return ephemeral("Your team has another deal still being untangled by the commissioner — this can't be accepted until that resolves.");
+    }
+  } catch (e) {
+    return ephemeral("Couldn't confirm it's safe to accept this right now. Try again in a moment.");
+  }
+
   // Salary cap: recomputed NOW from live MFL data, and REPORTED. Consent is recorded either way (a partner's accept is preserved, never
   // discarded because someone else is over the cap); what the cap blocks is EXECUTION — enforced again, freshly, when everyone is in.
   const gate = await capGate(env, row);
@@ -1151,6 +1177,24 @@ export async function execute3Way(env, id) {
   const dmAllThree = async (content) => {
     for (const c of [row.initiator_discord_ids, row.team_b_discord_ids, row.team_c_discord_ids]) await dmAll(env, c, { content: safeStr(content).slice(0, 1990) });
   };
+  // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -----------------------
+  // A 3-way trade id can never itself appear in ups_2way_trades (disjoint id namespaces), so
+  // no exclude-self parameter is needed here -- unlike the 2-way executor's own cross-deal
+  // check. Reuses enterBlockedCap's exact revert-to-collecting + dedup'd-DM mechanism, the
+  // same one every other pre-execution block already uses, so this failure mode is never
+  // "stuck at status=executing forever."
+  try {
+    for (const fid of [A, B, C]) {
+      if (await franchiseHasUnresolvedDropSequence(env, leagueId, year, fid)) {
+        const holdGate = { kind: "franchise_has_unresolved_drop_sequence", message: "One of the teams in this trade has another deal still being untangled by the commissioner.", compliance: null };
+        console.warn(`[3way] ${id} blocked by per-franchise hold: ${fid} has an unresolved 2-way drop-first sequence`);
+        await enterBlockedCap(env, row, holdGate, dmAllThree);
+        return { ok: false, blocked: true, kind: "franchise_has_unresolved_drop_sequence", franchise_id: fid };
+      }
+    }
+  } catch (e) {
+    return { ok: false, blocked: true, error: "hold_check_unavailable" };
+  }
   // Persist executed trade ids into the legacy two id columns + the CSV column.
   const progressFields = (done) => {
     const f = { mfl_trade_ids: done.join(",") };

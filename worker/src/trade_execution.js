@@ -257,6 +257,51 @@ const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4
  * MFL gives a trade no id there, so the identity is the two franchises + the exact asset sets each gave up, at or after `sinceUnix`.
  * @param spec { from, to, give, receive, sinceUnix }  give = what `from` gave up, receive = what `to` gave up (CSV or arrays)
  */
+// ── PER-FRANCHISE HOLD (Keith's ruling, 2026-09-29, §2.4.3a row 5/§2.4.3b step 6; moved here
+// and made a shared export 2026-09-30, §8.6) ──
+// A franchise with an unresolved drop-first sequence (some steps confirmed -- real, irreversible
+// facts -- the rest not yet) has a KNOWN, BOUNDED uncertainty in its true roster/compliance
+// state; a fresh, unrelated deal must never be built or accepted on top of that uncertainty.
+// `partial_executed`/`executed_needs_review` are NEVER produced for a staged 2-way trade's
+// ledger row by any path other than trade_2way.js's drop-first orchestrator (execute2Way's own
+// failure path only ever moves to not_executed) -- so finding either state here is unambiguous,
+// not a guess. Lives HERE, not in trade_2way.js, so the legacy direct-MFL 2-way path (index.js)
+// and the 3-way engine (trade_3way.js, which trade_2way.js itself imports FROM) can both call it
+// without a circular import. `excludeTradeId` lets the drop-first EXECUTOR itself call this
+// (checking whether either franchise has an unresolved sequence on a DIFFERENT deal) without the
+// check finding its own in-progress row and refusing to let a stuck deal ever resume itself.
+export async function franchiseHasUnresolvedDropSequence(env, leagueId, season, fid, excludeTradeId) {
+  try {
+    const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+    if (!db) throw new Error("no D1 binding");
+    // The ledger table is created on demand -- a league/season where nothing has ever executed
+    // yet legitimately has no ups_trade_executions table at all, and this query must not treat
+    // that as an error.
+    await db.prepare(LEDGER_DDL).run();
+    const padFid = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; };
+    const row = await db.prepare(
+      `SELECT t.id FROM ups_2way_trades t
+        JOIN ups_trade_executions e ON e.exec_key = t.id AND e.league_id = t.league_id AND e.season = t.season
+       WHERE t.league_id=? AND t.season=? AND (t.from_fid=? OR t.to_fid=?)
+         AND e.state IN (?, ?)
+         AND t.id != ?
+       LIMIT 1`
+    ).bind(s(leagueId), s(season), padFid(fid), padFid(fid), EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW, s(excludeTradeId) || "\0impossible\0").first();
+    return !!row;
+  } catch (e) {
+    // ups_2way_trades itself is ALSO created on demand (never migration-gated, same convention
+    // as every other outbox/ledger/store table in this codebase) -- a league/season where no
+    // 2-way trade has EVER been staged genuinely has no such table, which is a PROVABLE "no
+    // unresolved sequence exists" (not a guess: the only table that could hold one doesn't
+    // exist), not the kind of ambiguity the NO-FAIL-OPEN rule below is protecting against.
+    if (/no such table:\s*ups_2way_trades\b/i.test(s(e?.message))) return false;
+    // NO FAIL-OPEN for every OTHER failure: if we can't tell, refuse to assume it's safe. Every
+    // caller treats a thrown hold-check the same as "held."
+    console.error(`[hold-check] failed for ${fid}: ${e?.message || e}`);
+    throw e;
+  }
+}
+
 export function findExecutedTrade(txData, spec) {
   let rows = txData && txData.transactions && txData.transactions.transaction;
   if (!Array.isArray(rows)) rows = rows ? [rows] : [];
