@@ -2,7 +2,7 @@
   "schema": 1,
   "season": 2026,
   "week": 4,
-  "previewGeneratedAtUtc": "2026-09-29T20:47:39Z",
+  "previewGeneratedAtUtc": "2026-09-30T12:22:34Z",
   "tradeTimestampUnix": "1790679568",
   "franchises": [
     "0007",
@@ -27,337 +27,337 @@
   "regress": 0.7,
   "noise": {
     "withTrade": {
-      "weekly": 30.071,
-      "season": 10.825
+      "weekly": 29.992,
+      "season": 11.13
     },
     "withoutTrade": {
-      "weekly": 30.118,
-      "season": 12.232
+      "weekly": 30.043,
+      "season": 12.431
     }
   },
   "teams": {
     "0001": {
       "owner": "Ryan Bousquet",
       "withTrade": {
-        "playoff": 0.1679,
-        "title": 0.0103,
-        "division": 0.122
+        "playoff": 0.1593,
+        "title": 0.009,
+        "division": 0.1131
       },
       "withoutTrade": {
-        "playoff": 0.1745,
-        "title": 0.0132,
-        "division": 0.12
+        "playoff": 0.1598,
+        "title": 0.0112,
+        "division": 0.1084
       },
       "fullRerunEffectPoints": {
-        "playoff": -0.66,
-        "title": -0.3,
-        "division": 0.2
+        "playoff": -0.05,
+        "title": -0.23,
+        "division": 0.48
       },
       "fixedNoiseEffectPoints": {
-        "playoff": 1.09,
-        "title": -0.11,
-        "division": 1.4
+        "playoff": 1.15,
+        "title": -0.01,
+        "division": 1.37
       },
       "lineupPerWeek": {
-        "withTrade": 200.23,
-        "withoutTrade": 200.23
+        "withTrade": 200.1,
+        "withoutTrade": 200.1
       }
     },
     "0002": {
       "owner": "Derrick Whitman",
       "withTrade": {
-        "playoff": 0.584,
-        "title": 0.0622,
-        "division": 0.3885
+        "playoff": 0.5441,
+        "title": 0.0519,
+        "division": 0.3604
       },
       "withoutTrade": {
-        "playoff": 0.5766,
-        "title": 0.0668,
-        "division": 0.3885
+        "playoff": 0.5396,
+        "title": 0.0579,
+        "division": 0.3601
       },
       "fullRerunEffectPoints": {
-        "playoff": 0.74,
-        "title": -0.45,
-        "division": 0.0
+        "playoff": 0.45,
+        "title": -0.6,
+        "division": 0.03
       },
       "fixedNoiseEffectPoints": {
-        "playoff": 0.11,
-        "title": -0.38,
-        "division": 0.29
+        "playoff": 0.06,
+        "title": -0.44,
+        "division": 0.25
       },
       "lineupPerWeek": {
-        "withTrade": 208.56,
-        "withoutTrade": 208.56
+        "withTrade": 207.11,
+        "withoutTrade": 207.11
       }
     },
     "0003": {
       "owner": "Matt Gerardi",
       "withTrade": {
-        "playoff": 0.1295,
-        "title": 0.0046,
-        "division": 0.0766
+        "playoff": 0.137,
+        "title": 0.0056,
+        "division": 0.0833
       },
       "withoutTrade": {
-        "playoff": 0.1462,
-        "title": 0.0095,
-        "division": 0.0859
+        "playoff": 0.1521,
+        "title": 0.0116,
+        "division": 0.0909
       },
       "fullRerunEffectPoints": {
-        "playoff": -1.67,
-        "title": -0.49,
-        "division": -0.93
+        "playoff": -1.51,
+        "title": -0.6,
+        "division": -0.76
       },
       "fixedNoiseEffectPoints": {
-        "playoff": 0.04,
-        "title": -0.21,
-        "division": 0.06
+        "playoff": 0.13,
+        "title": -0.19,
+        "division": 0.05
       },
       "lineupPerWeek": {
-        "withTrade": 193.02,
-        "withoutTrade": 193.02
+        "withTrade": 194.08,
+        "withoutTrade": 194.08
       }
     },
     "0004": {
       "owner": "Brian Cutting",
       "withTrade": {
-        "playoff": 0.9346,
-        "title": 0.3196,
-        "division": 0.4935
+        "playoff": 0.927,
+        "title": 0.3192,
+        "division": 0.4925
       },
       "withoutTrade": {
-        "playoff": 0.8438,
-        "title": 0.218,
-        "division": 0.3795
+        "playoff": 0.8281,
+        "title": 0.2144,
+        "division": 0.3736
       },
       "fullRerunEffectPoints": {
-        "playoff": 9.09,
-        "title": 10.16,
-        "division": 11.4
+        "playoff": 9.89,
+        "title": 10.49,
+        "division": 11.89
       },
       "fixedNoiseEffectPoints": {
-        "playoff": 7.11,
-        "title": 9.05,
-        "division": 11.97
+        "playoff": 8.06,
+        "title": 9.71,
+        "division": 12.29
       },
       "lineupPerWeek": {
-        "withTrade": 244.26,
-        "withoutTrade": 235.11
+        "withTrade": 243.98,
+        "withoutTrade": 234.47
       }
     },
     "0005": {
       "owner": "Eric Martel",
       "withTrade": {
-        "playoff": 0.8989,
-        "title": 0.1551,
-        "division": 0.4955
+        "playoff": 0.8854,
+        "title": 0.1441,
+        "division": 0.4921
       },
       "withoutTrade": {
-        "playoff": 0.8834,
-        "title": 0.1737,
-        "division": 0.5972
+        "playoff": 0.8739,
+        "title": 0.1609,
+        "division": 0.5995
       },
       "fullRerunEffectPoints": {
-        "playoff": 1.55,
-        "title": -1.86,
-        "division": -10.17
+        "playoff": 1.15,
+        "title": -1.67,
+        "division": -10.74
       },
       "fixedNoiseEffectPoints": {
-        "playoff": -0.11,
-        "title": -1.81,
-        "division": -11.33
+        "playoff": -0.42,
+        "title": -1.84,
+        "division": -11.59
       },
       "lineupPerWeek": {
-        "withTrade": 228.7,
-        "withoutTrade": 228.7
+        "withTrade": 228.37,
+        "withoutTrade": 228.37
       }
     },
     "0006": {
       "owner": "Brian Cross",
       "withTrade": {
-        "playoff": 0.1108,
-        "title": 0.0105,
-        "division": 0.011
+        "playoff": 0.1189,
+        "title": 0.0119,
+        "division": 0.0154
       },
       "withoutTrade": {
-        "playoff": 0.128,
-        "title": 0.0144,
-        "division": 0.0232
+        "playoff": 0.1331,
+        "title": 0.0159,
+        "division": 0.0269
       },
       "fullRerunEffectPoints": {
-        "playoff": -1.73,
-        "title": -0.39,
-        "division": -1.23
+        "playoff": -1.42,
+        "title": -0.4,
+        "division": -1.15
       },
       "fixedNoiseEffectPoints": {
-        "playoff": -0.53,
-        "title": -0.2,
-        "division": -0.65
+        "playoff": -0.14,
+        "title": -0.3,
+        "division": -0.7
       },
       "lineupPerWeek": {
-        "withTrade": 200.81,
-        "withoutTrade": 200.81
+        "withTrade": 201.94,
+        "withoutTrade": 201.94
       }
     },
     "0007": {
       "owner": "Josh Martel",
       "withTrade": {
-        "playoff": 0.1084,
-        "title": 0.0046,
-        "division": 0.0759
+        "playoff": 0.1239,
+        "title": 0.0071,
+        "division": 0.0866
       },
       "withoutTrade": {
-        "playoff": 0.2276,
-        "title": 0.0169,
-        "division": 0.1515
+        "playoff": 0.2599,
+        "title": 0.0236,
+        "division": 0.1704
       },
       "fullRerunEffectPoints": {
-        "playoff": -11.92,
-        "title": -1.23,
-        "division": -7.56
+        "playoff": -13.6,
+        "title": -1.65,
+        "division": -8.38
       },
       "fixedNoiseEffectPoints": {
-        "playoff": -10.48,
-        "title": -1.05,
-        "division": -6.74
+        "playoff": -11.55,
+        "title": -1.39,
+        "division": -7.02
       },
       "lineupPerWeek": {
-        "withTrade": 193.69,
-        "withoutTrade": 203.86
+        "withTrade": 196.13,
+        "withoutTrade": 206.73
       }
     },
     "0008": {
       "owner": "Keith Creelman",
       "withTrade": {
-        "playoff": 0.8343,
-        "title": 0.0924,
-        "division": 0.8021
+        "playoff": 0.8353,
+        "title": 0.1006,
+        "division": 0.8003
       },
       "withoutTrade": {
-        "playoff": 0.785,
-        "title": 0.1044,
-        "division": 0.7285
+        "playoff": 0.784,
+        "title": 0.1126,
+        "division": 0.7212
       },
       "fullRerunEffectPoints": {
-        "playoff": 4.93,
+        "playoff": 5.13,
         "title": -1.2,
-        "division": 7.36
+        "division": 7.9
       },
       "fixedNoiseEffectPoints": {
-        "playoff": 3.35,
-        "title": -1.11,
-        "division": 5.34
+        "playoff": 3.41,
+        "title": -1.24,
+        "division": 5.65
       },
       "lineupPerWeek": {
-        "withTrade": 218.74,
-        "withoutTrade": 218.74
+        "withTrade": 219.99,
+        "withoutTrade": 219.99
       }
     },
     "0009": {
       "owner": "Bear Dunn",
       "withTrade": {
-        "playoff": 0.9407,
-        "title": 0.2141,
-        "division": 0.8539
+        "playoff": 0.9341,
+        "title": 0.2114,
+        "division": 0.8317
       },
       "withoutTrade": {
-        "playoff": 0.9294,
-        "title": 0.226,
-        "division": 0.8307
+        "playoff": 0.9199,
+        "title": 0.2239,
+        "division": 0.8083
       },
       "fullRerunEffectPoints": {
-        "playoff": 1.14,
-        "title": -1.19,
-        "division": 2.31
+        "playoff": 1.42,
+        "title": -1.25,
+        "division": 2.35
       },
       "fixedNoiseEffectPoints": {
-        "playoff": -0.08,
-        "title": -2.3,
-        "division": 0.01
+        "playoff": 0.01,
+        "title": -2.14,
+        "division": 0.06
       },
       "lineupPerWeek": {
-        "withTrade": 235.24,
-        "withoutTrade": 235.24
+        "withTrade": 234.71,
+        "withoutTrade": 234.71
       }
     },
     "0010": {
       "owner": "Shawn Blake",
       "withTrade": {
-        "playoff": 0.7249,
-        "title": 0.0819,
-        "division": 0.5349
+        "playoff": 0.7262,
+        "title": 0.0875,
+        "division": 0.5564
       },
       "withoutTrade": {
-        "playoff": 0.7136,
-        "title": 0.0936,
-        "division": 0.5256
+        "playoff": 0.7192,
+        "title": 0.0994,
+        "division": 0.549
       },
       "fullRerunEffectPoints": {
-        "playoff": 1.13,
-        "title": -1.17,
-        "division": 0.92
+        "playoff": 0.7,
+        "title": -1.19,
+        "division": 0.74
       },
       "fixedNoiseEffectPoints": {
         "playoff": -0.25,
-        "title": -1.21,
-        "division": -0.35
+        "title": -1.3,
+        "division": -0.3
       },
       "lineupPerWeek": {
-        "withTrade": 216.22,
-        "withoutTrade": 216.22
+        "withTrade": 217.08,
+        "withoutTrade": 217.08
       }
     },
     "0011": {
       "owner": "Eric Mannila",
       "withTrade": {
-        "playoff": 0.2062,
-        "title": 0.0205,
-        "division": 0.0612
+        "playoff": 0.2003,
+        "title": 0.0203,
+        "division": 0.0616
       },
       "withoutTrade": {
-        "playoff": 0.2233,
-        "title": 0.0288,
-        "division": 0.072
+        "playoff": 0.2179,
+        "title": 0.0271,
+        "division": 0.0726
       },
       "fullRerunEffectPoints": {
-        "playoff": -1.7,
-        "title": -0.83,
-        "division": -1.07
+        "playoff": -1.76,
+        "title": -0.69,
+        "division": -1.1
       },
       "fixedNoiseEffectPoints": {
-        "playoff": -0.11,
+        "playoff": -0.42,
         "title": -0.26,
-        "division": 0.01
+        "division": -0.21
       },
       "lineupPerWeek": {
-        "withTrade": 204.6,
-        "withoutTrade": 204.6
+        "withTrade": 204.66,
+        "withoutTrade": 204.66
       }
     },
     "0012": {
       "owner": "Chris Klingenberg",
       "withTrade": {
-        "playoff": 0.3599,
-        "title": 0.0241,
-        "division": 0.0849
+        "playoff": 0.4086,
+        "title": 0.0314,
+        "division": 0.1066
       },
       "withoutTrade": {
-        "playoff": 0.3686,
-        "title": 0.0348,
-        "division": 0.0973
+        "playoff": 0.4125,
+        "title": 0.0415,
+        "division": 0.1191
       },
       "fullRerunEffectPoints": {
-        "playoff": -0.87,
-        "title": -1.06,
-        "division": -1.24
+        "playoff": -0.39,
+        "title": -1.01,
+        "division": -1.25
       },
       "fixedNoiseEffectPoints": {
-        "playoff": -0.15,
-        "title": -0.4,
-        "division": -0.03
+        "playoff": -0.04,
+        "title": -0.61,
+        "division": 0.15
       },
       "lineupPerWeek": {
-        "withTrade": 206.02,
-        "withoutTrade": 206.02
+        "withTrade": 209.06,
+        "withoutTrade": 209.06
       }
     }
   },
@@ -366,126 +366,126 @@
     "seed": 20260911,
     "fullRerunEffectPoints": {
       "0001": {
-        "playoff": -0.45,
-        "title": -0.28,
-        "division": 0.28
+        "playoff": -0.14,
+        "title": -0.24,
+        "division": 0.47
       },
       "0002": {
-        "playoff": 0.43,
-        "title": -0.91,
-        "division": -0.01
+        "playoff": 0.04,
+        "title": -0.86,
+        "division": 0.0
       },
       "0003": {
-        "playoff": -1.6,
-        "title": -0.34,
-        "division": -0.88
+        "playoff": -1.59,
+        "title": -0.48,
+        "division": -0.9
       },
       "0004": {
-        "playoff": 8.94,
-        "title": 10.11,
-        "division": 11.01
+        "playoff": 9.83,
+        "title": 10.37,
+        "division": 11.25
       },
       "0005": {
-        "playoff": 1.5,
-        "title": -1.53,
-        "division": -9.95
+        "playoff": 1.26,
+        "title": -1.44,
+        "division": -10.07
       },
       "0006": {
-        "playoff": -1.86,
+        "playoff": -1.48,
         "title": -0.5,
-        "division": -1.06
+        "division": -1.18
       },
       "0007": {
-        "playoff": -11.49,
-        "title": -1.4,
-        "division": -7.32
+        "playoff": -12.81,
+        "title": -1.81,
+        "division": -8.14
       },
       "0008": {
-        "playoff": 4.91,
-        "title": -1.29,
-        "division": 7.05
+        "playoff": 4.97,
+        "title": -1.12,
+        "division": 7.67
       },
       "0009": {
-        "playoff": 1.13,
-        "title": -1.26,
-        "division": 2.13
+        "playoff": 1.14,
+        "title": -1.44,
+        "division": 1.95
       },
       "0010": {
-        "playoff": 1.08,
-        "title": -1.21,
+        "playoff": 0.76,
+        "title": -1.22,
         "division": 0.9
       },
       "0011": {
-        "playoff": -1.67,
-        "title": -0.65,
-        "division": -0.9
+        "playoff": -1.61,
+        "title": -0.56,
+        "division": -0.81
       },
       "0012": {
-        "playoff": -0.92,
-        "title": -0.74,
-        "division": -1.23
+        "playoff": -0.38,
+        "title": -0.7,
+        "division": -1.13
       }
     },
     "fixedNoiseEffectPoints": {
       "0001": {
-        "playoff": 1.07,
-        "title": -0.1,
-        "division": 1.26
+        "playoff": 1.24,
+        "title": -0.05,
+        "division": 1.33
       },
       "0002": {
-        "playoff": -0.1,
-        "title": -0.76,
-        "division": 0.17
+        "playoff": 0.01,
+        "title": -0.64,
+        "division": 0.25
       },
       "0003": {
-        "playoff": -0.17,
-        "title": -0.14,
-        "division": -0.02
+        "playoff": -0.16,
+        "title": -0.21,
+        "division": -0.08
       },
       "0004": {
-        "playoff": 7.19,
-        "title": 9.38,
-        "division": 11.39
+        "playoff": 8.11,
+        "title": 9.71,
+        "division": 11.57
       },
       "0005": {
-        "playoff": -0.16,
-        "title": -1.95,
-        "division": -10.81
+        "playoff": -0.29,
+        "title": -1.79,
+        "division": -10.88
       },
       "0006": {
-        "playoff": -0.48,
-        "title": -0.22,
-        "division": -0.57
+        "playoff": -0.25,
+        "title": -0.28,
+        "division": -0.7
       },
       "0007": {
-        "playoff": -10.11,
-        "title": -1.19,
-        "division": -6.4
+        "playoff": -11.46,
+        "title": -1.61,
+        "division": -7.11
       },
       "0008": {
-        "playoff": 3.39,
-        "title": -1.22,
-        "division": 5.14
+        "playoff": 3.57,
+        "title": -1.2,
+        "division": 5.78
       },
       "0009": {
-        "playoff": -0.06,
-        "title": -2.07,
-        "division": -0.09
+        "playoff": -0.1,
+        "title": -2.09,
+        "division": 0.06
       },
       "0010": {
-        "playoff": -0.15,
-        "title": -1.18,
-        "division": -0.15
+        "playoff": -0.2,
+        "title": -1.06,
+        "division": -0.16
       },
       "0011": {
-        "playoff": -0.2,
-        "title": -0.26,
-        "division": 0.05
+        "playoff": -0.34,
+        "title": -0.31,
+        "division": -0.03
       },
       "0012": {
-        "playoff": -0.22,
-        "title": -0.3,
-        "division": 0.03
+        "playoff": -0.11,
+        "title": -0.48,
+        "division": -0.03
       }
     }
   },
@@ -497,22 +497,22 @@
         "effects": {
           "0007": {
             "fullRerun": {
-              "playoff": -11.72,
-              "title": -1.4
+              "playoff": -13.15,
+              "title": -1.89
             },
             "fixedNoise": {
-              "playoff": -10.45,
-              "title": -1.24
+              "playoff": -11.74,
+              "title": -1.74
             }
           },
           "0004": {
             "fullRerun": {
-              "playoff": 9.1,
-              "title": 10.51
+              "playoff": 9.85,
+              "title": 10.71
             },
             "fixedNoise": {
-              "playoff": 7.49,
-              "title": 9.96
+              "playoff": 8.06,
+              "title": 10.27
             }
           }
         }
@@ -522,22 +522,22 @@
         "effects": {
           "0007": {
             "fullRerun": {
-              "playoff": -11.97,
-              "title": -1.55
+              "playoff": -13.12,
+              "title": -2.16
             },
             "fixedNoise": {
-              "playoff": -10.85,
-              "title": -1.4
+              "playoff": -11.84,
+              "title": -1.96
             }
           },
           "0004": {
             "fullRerun": {
-              "playoff": 8.8,
-              "title": 10.36
+              "playoff": 9.4,
+              "title": 10.54
             },
             "fixedNoise": {
-              "playoff": 7.02,
-              "title": 9.49
+              "playoff": 7.8,
+              "title": 9.89
             }
           }
         }
@@ -547,22 +547,22 @@
         "effects": {
           "0007": {
             "fullRerun": {
-              "playoff": -11.79,
-              "title": -1.26
+              "playoff": -13.01,
+              "title": -1.89
             },
             "fixedNoise": {
-              "playoff": -10.4,
-              "title": -0.95
+              "playoff": -11.44,
+              "title": -1.43
             }
           },
           "0004": {
             "fullRerun": {
-              "playoff": 8.46,
-              "title": 9.73
+              "playoff": 9.5,
+              "title": 10.12
             },
             "fixedNoise": {
-              "playoff": 7.0,
-              "title": 8.68
+              "playoff": 7.75,
+              "title": 9.25
             }
           }
         }
@@ -572,22 +572,22 @@
         "effects": {
           "0007": {
             "fullRerun": {
-              "playoff": -10.99,
-              "title": -0.99
+              "playoff": -12.35,
+              "title": -1.59
             },
             "fixedNoise": {
-              "playoff": -9.54,
-              "title": -0.72
+              "playoff": -11.19,
+              "title": -1.25
             }
           },
           "0004": {
             "fullRerun": {
-              "playoff": 9.34,
-              "title": 10.34
+              "playoff": 10.16,
+              "title": 10.41
             },
             "fixedNoise": {
-              "playoff": 7.15,
-              "title": 10.08
+              "playoff": 8.05,
+              "title": 9.83
             }
           }
         }
@@ -597,22 +597,22 @@
         "effects": {
           "0007": {
             "fullRerun": {
-              "playoff": -11.46,
-              "title": -1.55
+              "playoff": -12.35,
+              "title": -1.96
             },
             "fixedNoise": {
-              "playoff": -10.11,
-              "title": -1.29
+              "playoff": -11.1,
+              "title": -1.81
             }
           },
           "0004": {
             "fullRerun": {
-              "playoff": 9.35,
-              "title": 10.54
+              "playoff": 10.1,
+              "title": 10.51
             },
             "fixedNoise": {
-              "playoff": 7.63,
-              "title": 9.74
+              "playoff": 8.54,
+              "title": 10.26
             }
           }
         }

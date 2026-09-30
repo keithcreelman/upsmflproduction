@@ -2521,9 +2521,17 @@ def build(pack_id):
     preview = None
     pv_facts, pv_tables = [], []
     if use_pots:
+        # THE WORKING COPY WINS, same rule as load_live_forecast(): a preview is
+        # produced by hand (week_preview.py) in the checkout that builds the recap,
+        # and a refreshed preview differs from origin/main by design.
+        # tracked_data_file() would treat that difference as "behind" and silently
+        # serve main's older cutoff (found 2026-09-30 refreshing week 4).
+        pv_rel = "site/wire/data/week_preview_%d_wk%02d.json" % (season, week + 1)
         try:
-            preview, pv_prov = D.tracked_data_file(
-                "site/wire/data/week_preview_%d_wk%02d.json" % (season, week + 1))
+            if os.path.exists(os.path.join(D.REPO, pv_rel)):
+                preview, pv_prov = json.load(open(os.path.join(D.REPO, pv_rel), encoding="utf-8")), "working copy"
+            else:
+                preview, pv_prov = D.tracked_data_file(pv_rel)
         except D.DataError:
             pack.warn("No week_preview_%d_wk%02d.json, so this recap carries no next-week preview."
                       % (season, week + 1))

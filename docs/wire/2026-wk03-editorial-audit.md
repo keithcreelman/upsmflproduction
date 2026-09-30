@@ -261,3 +261,66 @@ fact in the article changed. (2010 also looks mismatched against MFL's settings,
   ("with the trade … without it"), stated as a model comparison and not an
   observed odds move. The picks are now named, with the note that the
   simulator gives them no value.
+
+## Refresh (Wednesday, September 30)
+
+Keith asked for the Week 3 results to be refreshed before Thursday's Elias
+check. New data cutoffs:
+
+| Input | Tuesday draft | Refreshed | Result |
+|---|---|---|---|
+| Week 3 team and player scores (MFL `weeklyResults` W=3) | D1 sync 2026-09-29 10:01 UTC | MFL live 2026-09-30 12:21 UTC | **Unchanged**: 12/12 team scores, 359/359 player rows equal `scores_published_2026_wk03.json`; D1 equal too. Not Elias-final. |
+| Expected points (`xfp_2026_wk03.json`) | 2026-09-29 20:09 UTC | 2026-09-30 12:21 UTC | **Unchanged**: all 318 players identical; only `fetchedAtUtc` moved. |
+| Week 4 preview (`week_preview_2026_wk04.json`) | 2026-09-29 20:47:39 UTC | **2026-09-30 12:22:34 UTC** (Sleeper/RotoWire projections updated 12:10 UTC) | Changed; see below. Same 8,000 runs and seed 20260911. |
+| Pack `2026-wk03-recap` | built 2026-09-29 22:08:31 UTC | rebuilt 2026-09-30 12:28:30 UTC | Only 50 `f.pv.*` facts and the four `t.pv.*` tables changed (plus a timestamp in the `t.xfp.under` note). No result, bust/bargain, XFP, player, play-card, quote or H2H fact changed; 17–5 and tied 11–11 are intact. |
+
+**Preview changes.** Playoff odds moved 1.6 points or less for ten teams.
+Derrick Whitman fell 58.4% → 54.4% (projected lineup −1.5 a week, mainly Nico
+Collins). Chris Klingenberg rose 36.0% → 40.9% (projected lineup +3.1 a week).
+No matchup changed favorite. Featured-game win chances: Whitman 59 → 58%,
+Mannila 53 → 52%, Keith 52 → 54%. Division odds: DOG POUND Bear 85 → 83%,
+Klingenberg 8 → 11%; LEGION Blake 53 → 56%, Whitman 39 → 36%; Outlast is now
+Cutting 49%, Eric Martel 49% (was 49/50), Cross 2%. Injury watch: Jaylen Waddle
+(Josh Martel, Questionable — Leg) added; Devin Lloyd (Shawn Blake) no longer
+tagged; Caleb Williams is still the costliest (Doubtful, 15.7).
+
+**Trade test re-run at the new cutoff.** A new input snapshot was extracted
+from the refreshed preview's own cache; it reproduces all 36 published
+probabilities. Brian Cutting: 82.8% without the trade, 92.7% with it (full
+rerun +9.9, fixed noise +8.1; six seeds and 40,000 runs span +7.8 to +10.2);
+title 21.4% → 31.9%. Josh Martel: 26.0% without, 12.4% with (−13.6 / −11.6;
+range −11.1 to −13.6). Re-tuned season noise is 11.13 with the trade and
+12.43 without it. Keith Creelman gains +3.4 with noise held fixed. Restoring
+Tommy DeVito still changes nothing. The article now says "about eight to ten
+points" and "about eleven to fourteen points". These supersede the Tuesday
+figures quoted earlier in this document.
+
+**Safeguards added.**
+- `projection_evidence_2026_wk03.json` freezes all 1,118 Week 3 projection
+  capture times (Sep 25 17:02 and Sep 27 18:52 UTC). It was written before the
+  scheduled Wednesday ingest, which still resolves Wednesday to the week just
+  played and would re-stamp them. A later rebuild (Thursday) keeps the pregame
+  evidence behind bust/bargain.
+- `weekly_recap.py` now reads the preview from the working copy, as
+  `load_live_forecast()` already did. `tracked_data_file()` treats any local
+  difference as "behind" and would have silently built from `origin/main`'s
+  Tuesday preview.
+
+**Checks run.**
+- **Unchanged sections:** the opening desk, Boomer, division desk, play
+  cards, and above/below expectations are byte-identical to the Tuesday
+  article.
+- **Tables:** the games and injury tables equal `t.pv.games` /
+  `t.pv.injuries` cell for cell. The landscape table equals the preview's
+  one-decimal odds, is sorted by playoff odds, and its records match
+  `t.standings`.
+- **Numbers:** a sweep traced all 659 numbers in the body to refreshed
+  sources, with nothing left only in Tuesday's. Its positive control flagged
+  Tuesday's values in the old article.
+- **Named players:** 33 player–owner claims were checked, Week 3 against the
+  Sep 27 roster and Week 4 against today's rosters, with 0 mismatches. A
+  planted wrong owner was caught. Four players named without an owner match
+  their context.
+- **Pipeline checks:** `wire.py verify` 22/22, `check-pack` on all packs,
+  inline-JS, and the in-memory generic render all pass.
+- **Provenance:** updated to the new pack build.
