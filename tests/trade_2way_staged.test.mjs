@@ -123,15 +123,16 @@ test("ACCEPT with execution disabled (TRADE_2WAY_STAGING_EXECUTE off, the defaul
   for (const dm of owner) {
     const content = dm.body && dm.body.content;
     t.doesNotMatch(content, /✅/, "no checkmark -- this never reads as success");
-    t.doesNotMatch(content, /trade itself cleared|is complete\b/i, "no wording implying the trade itself went through");
-    t.match(content, /waiting on the commissioner to turn on live trade execution/, "says plainly what it's actually waiting on");
-    t.match(content, /no action is needed from you/i, "tells the owner there's nothing for them to do");
+    t.doesNotMatch(content, /trade itself cleared|is complete\b|fully cleared|turn on live/i, "no wording implying the trade itself went through, or naming an internal flag mechanism that goes stale once flags are on");
+    t.match(content, /awaiting commissioner review/i, "says plainly what it's actually waiting on");
+    t.match(content, /rosters and contract limits will be checked again/i, "tells the owner what still happens before anything moves");
   }
   // Resumable: the detail view says so too, distinctly from the generic "still reviewing
   // compliance" copy, and offers Re-check now that can_recheck matches this held shape.
   const detail = await get2WayTrade(env, created.id, viewer(FR.A, { leagueId: "74598", season: "2026" }), {});
   t.equal(detail.trade.state_view.code, "awaiting_commissioner");
-  t.match(detail.trade.state_view.message, /waiting on the commissioner to turn on live trade execution/);
+  t.equal(detail.trade.state_view.label, "Accepted — awaiting commissioner review");
+  t.match(detail.trade.state_view.message, /Rosters and contract limits will be checked again before any drop or trade/);
   t.equal(detail.trade.permissions.can_recheck, true, "Re-check is available (harmless/idempotent while the flag stays off, and what actually resumes it once the flag flips on)");
 });
 

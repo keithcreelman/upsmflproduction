@@ -107,8 +107,9 @@ test("NO-DROPS-REQUIRED, FLAG OFF: accept holds the deal -- never completed, nev
 
   const detail = await get2WayTrade(env, created.id, { fid: SENDER, leagueId: "74598", season: "2026" }, {});
   t.equal(detail.trade.state_view.code, "awaiting_commissioner");
-  t.doesNotMatch(detail.trade.state_view.message, /✅|completed/i);
-  t.match(detail.trade.state_view.message, /waiting on the commissioner to turn on live trade execution/);
+  t.equal(detail.trade.state_view.label, "Accepted — awaiting commissioner review");
+  t.doesNotMatch(detail.trade.state_view.message, /✅|completed|fully cleared|turn on live/i, "never stale/completion-implying copy");
+  t.match(detail.trade.state_view.message, /Rosters and contract limits will be checked again before any drop or trade/);
   t.equal(detail.trade.permissions.can_recheck, true, "Re-check is now reachable for this hold (fixed can_recheck)");
 });
 
@@ -220,11 +221,11 @@ test("HAMMER/CHIG, DROPS ON BUT TRADE EXECUTION OFF: the conditional drop happen
 
   // Both owners were told plainly, not with completion language.
   const owner = dmsTo(mfl, "100000000000000001").concat(dmsTo(mfl, "100000000000000005"));
-  const held = owner.filter((d) => /waiting on the commissioner to turn on live trade execution/.test(d.content || ""));
-  t.ok(held.length >= 1, "at least one DM says plainly it's awaiting the commissioner");
+  const held = owner.filter((d) => /awaiting commissioner review/.test(d.content || ""));
+  t.ok(held.length >= 1, "at least one DM says plainly it's awaiting commissioner review");
   for (const d of held) {
-    t.doesNotMatch(d.content, /✅/);
-    t.match(d.content, /no action is needed from you/i);
+    t.doesNotMatch(d.content, /✅|fully cleared|turn on live/i);
+    t.match(d.content, /rosters and contract limits will be checked again/i);
   }
 });
 

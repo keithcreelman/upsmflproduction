@@ -209,7 +209,7 @@ async function enterBlockedCap2Way(env, row, gate, dmBoth) {
       // (2026-09-30): never call this completed or automatically actionable; say plainly it's
       // awaiting the commissioner.
       : gate.kind === "execution_disabled"
-      ? `⏸️ This 2-way trade is accepted by both sides and fully cleared — it's waiting on the commissioner to turn on live trade execution. Nothing has moved. No action is needed from you; it will go through once that's done.`
+      ? `⏸️ This 2-way trade is accepted and awaiting commissioner review. Nothing has moved. Rosters and contract limits will be checked again before any drop or trade.`
       : `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved and both accepts are saved. It will go through once that's fixed (use "Re-check" on the trade).`);
   }
   return info;
@@ -504,8 +504,8 @@ function buildCanonical2Way(row, viewer, extra) {
       // isn't turned on yet must say so plainly -- never "still reviewing compliance" (that's
       // no longer true) and never anything read as completed or automatically actionable.
       if (blockKind === "execution_disabled") {
-        stateCode = "awaiting_commissioner"; stateLabel = "Accepted — awaiting the commissioner";
-        stateMessage = "Both sides have agreed and this trade is fully cleared. It's waiting on the commissioner to turn on live trade execution — no action is needed from you.";
+        stateCode = "awaiting_commissioner"; stateLabel = "Accepted — awaiting commissioner review";
+        stateMessage = "Rosters and contract limits will be checked again before any drop or trade.";
       } else {
         stateCode = "awaiting_review"; stateLabel = "Accepted — awaiting compliance review"; stateMessage = "Both sides have agreed. This stays held, server-side, until it clears the loaded-contract, cap, and lineup checks — never a native MFL trade until then.";
       }
@@ -810,7 +810,7 @@ export async function execute2Way(env, id) {
     console.log(`[2way-staged][HELD] ${id}: compliance is fully clear but live execution is disabled (TRADE_2WAY_STAGING_EXECUTE=0) -- held, resumable, never marked completed`);
     await enterBlockedCap2Way(env, row, {
       kind: "execution_disabled",
-      message: "This trade is fully cleared and ready to go through. It's waiting on the commissioner to turn on live trade execution -- no action is needed from you.",
+      message: "Accepted — awaiting commissioner review. Rosters and contract limits will be checked again before any drop or trade.",
       compliance: null,
     }, dmBoth);
     return { ok: false, blocked: true, kind: "execution_disabled" };
@@ -1155,7 +1155,6 @@ function playerLabelFor(playerId) { return `player ${digits(playerId)}`; }
  * where a prior attempt stopped.
  */
 export async function executeDropFirstDeal(env, ctx, id) {
-  if (!(await dropExecuteEnabled(env))) return { ok: false, error: "drop_execute_disabled" };
   const row = await getRow(env, id);
   if (!row) return { ok: false, error: "not_found" };
   if (row.to_state !== "accepted") return { ok: false, error: "not_accepted" };
@@ -1181,24 +1180,25 @@ export async function executeDropFirstDeal(env, ctx, id) {
   // STEP 0 (§2.4.3b): verify the trade can proceed BEFORE the first drop. A fresh compliance
   // gate -- the SAME one execute2Way itself will re-run at the end, never a second
   // implementation. If it's already fully "ok", this is ONE of two situations:
-  //  (a) a genuinely fresh call where nothing was ever required of this orchestrator (the
-  //      ordinary accept2WayTrade/execute2Way path already handles that case on its own) -- not
-  //      this function's job, so it just says so.
+  //  (a) a genuinely fresh call where nothing was ever required of this orchestrator (a
+  //      no-drops-required deal, e.g. one the commissioner's own Execute button in the review
+  //      queue is trying on directly -- see trade_2way_http.js) -- actually run execute2Way
+  //      itself rather than a "delegate" hint nothing ever honored; execute2Way's own entry is
+  //      safe and idempotent to call from here regardless of who else might also reach it.
   //  (b) a RESUMPTION: an earlier pass through THIS function already confirmed every required
   //      drop for real (the ledger is at PARTIAL_EXECUTED/NEEDS_REVIEW), compliance now reads
   //      clean as a direct result, but the TRADE ITSELF never ran -- most commonly because it
   //      held for TRADE_2WAY_STAGING_EXECUTE being off at the time. Keith's ruling (2026-09-30):
   //      "it must remain held and resumable" -- resuming here, the same way the main loop below
-  //      already would once every drop step reads confirmed, is what makes that true. Bailing
-  //      out with the old "delegate: execute2Way" hint left this case permanently stuck: nothing
-  //      external ever actually calls execute2Way in response to that hint, and execute2Way's
-  //      OWN entry point is never invoked by anything but accept2WayTrade/recheck2WayExecution,
-  //      neither of which this commissioner-only orchestrator's caller (POST
-  //      /api/trades/2way/execute) ever triggers.
+  //      already would once every drop step reads confirmed, is what makes that true.
   const gate0 = await capGate2Way(env, row);
   if (gate0.ok) {
     const priorLedger = await ledgerFor(env).read(lkey(row)).catch(() => null);
     if (priorLedger && (priorLedger.state === EXEC.PARTIAL_EXECUTED || priorLedger.state === EXEC.NEEDS_REVIEW)) {
+      // Resuming a drop-first sequence's trade leg -- still gated by the SAME kill switch that
+      // gated the drops that got it here (real drops already happened under it; the trade leg
+      // that finishes the same sequence stays under it too, never racing ahead of it).
+      if (!(await dropExecuteEnabled(env))) return { ok: false, error: "drop_execute_disabled" };
       const resumeClaim = await ledgerFor(env).resumeDropSequence(lkey(row), new Date(Date.now() - 120000).toISOString(), {
         kind: "two_way_staged_drop_first", actorFid: fromFid, participants: [fromFid, toFid].join(","),
         payload: { movements: parseMovements(row), extension_requests: parseExtReqs(row) },
@@ -1206,7 +1206,20 @@ export async function executeDropFirstDeal(env, ctx, id) {
       if (!resumeClaim.acquired) return { skipped: "execution_not_acquirable", state: resumeClaim.row && resumeClaim.row.state };
       return await runTradeLegAfterDrops(env, row, lkey(row), resumeClaim.token, dmBoth);
     }
-    return { ok: true, no_drops_needed: true, delegate: "execute2Way" };
+    // A genuinely fresh, no-drops-required trade -- never touches a real drop, so it is NOT
+    // gated by TRADE_2WAY_DROP_EXECUTE_ENABLED (a separate, more specific kill switch scoped to
+    // real, irreversible roster drops -- see that flag's own header comment). Gating it here
+    // too would silently refuse the commissioner's Execute button (trade_2way_http.js) for
+    // every ordinary no-drops deal whenever drop-first itself happens to still be off, which
+    // is not what that flag is for -- TRADE_2WAY_STAGING_EXECUTE alone governs this path
+    // (execute2Way's own entry checks it). execute2Way's OWN first line refuses anything not
+    // already at status='executing' -- accept2WayTrade/recheck2WayExecution both make that
+    // transition themselves before calling it; this caller must do the identical
+    // compare-and-set (never an unconditional UPDATE, which could race a concurrent
+    // accept/recheck) or execute2Way no-ops with {skipped:"not_executing"} and nothing happens.
+    const { success: movedToExecuting } = await env.UPS_MFL_DB.prepare(`UPDATE ups_2way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
+    if (!movedToExecuting) return { skipped: "execution_not_acquirable", state: "already_executing_or_terminal" };
+    return await execute2Way(env, id);
   }
   if (gate0.kind !== "loaded_contract_drops_required") {
     // cap_ack_required / extension / unavailable -- not this orchestrator's job; leave it held
@@ -1219,6 +1232,10 @@ export async function executeDropFirstDeal(env, ctx, id) {
     await enterBlockedCap2Way(env, row, gate0, dmBoth);
     return { ok: false, blocked: true, kind: "not_all_satisfied" };
   }
+  // From here on a REAL drop is about to be attempted -- exactly what
+  // TRADE_2WAY_DROP_EXECUTE_ENABLED exists to gate. Checked here, not at the top of this
+  // function, so it never also refuses the no-drops-required delegate path above.
+  if (!(await dropExecuteEnabled(env))) return { ok: false, error: "drop_execute_disabled" };
   const steps = flattenRequiredDropSteps(gate0);
   if (!steps.length) {
     // Every franchise reads "satisfied" with zero actual valid picks -- can't happen from a
@@ -1498,8 +1515,8 @@ async function runTradeLegAfterDrops(env, row, key, token, dmBoth) {
   if (!(await liveExecute(env))) {
     console.log(`[2way-staged][HELD] ${row.id} (drop-first): every required drop confirmed (${dropsSummary}) but live execution is disabled (TRADE_2WAY_STAGING_EXECUTE=0) -- the trade leg is held, never marked completed; re-run /api/trades/2way/execute once the flag is on`);
     await ledger.move(key, { from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED], to: EXEC.PARTIAL_EXECUTED, token }).catch(() => {});
-    await dmBoth(`⏸️ Every required drop for this trade is confirmed (${dropsSummary}). The trade itself is fully cleared and ready — it's waiting on the commissioner to turn on live trade execution. No action is needed from you; it will go through once that's done.`);
-    await notifyCommish(env, `⏸️ 2-way trade ${row.id}: every required drop is confirmed (${dropsSummary}) and the trade itself is ready, but live execution (TRADE_2WAY_STAGING_EXECUTE) is off. Re-run POST /api/trades/2way/execute once it's turned on -- the drop loop will skip the already-confirmed steps and go straight to the trade leg.`);
+    await dmBoth(`⏸️ Every required drop for this trade is confirmed (${dropsSummary}). This trade is now awaiting commissioner review before the trade itself runs — rosters and contract limits will be checked again first.`);
+    await notifyCommish(env, `⏸️ 2-way trade ${row.id}: every required drop is confirmed (${dropsSummary}) and the trade itself is ready, but live execution (TRADE_2WAY_STAGING_EXECUTE) is off. Use Execute on the Trade Review Queue once it's turned on -- it will skip the already-confirmed steps and go straight to the trade leg.`);
     return { ok: true, held: true, reason: "execution_disabled" };
   }
 
