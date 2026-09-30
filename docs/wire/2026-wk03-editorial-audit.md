@@ -346,7 +346,78 @@ figures quoted earlier in this document.
   changes through the article as on September 30.
 - Not a blocker: Thursday's Elias check. It is a post-publication update, and
   any moved Week 3 score gets posted as a correction.
+- If publication slips: re-check the chat archive (`ingest_discord_chat.py
+  --incremental`), recount the Coffee Shop box score, and update its "no newer
+  posts as of" caption.
 
 Also verified September 30: the Lions' own Week 3 report describes Gibbs's
 first touchdown as "a cutback left" on the Jets on the way to the end zone,
 the play Boomer's "whoop!" and "go all the way" calls.
+
+## Coffee Shop Talk (added Wednesday, September 30)
+
+Keith asked for a segment on the week's Discord trash talk, with at least one
+line on every team. It is segment 7, between the league landscape (whose odds
+it leans on) and the Week 4 preview (whose games it sets up). Kenny Mayne hosts:
+a 1990s SportsCenter anchor like the rest of the desk, and a deadpan read fits
+a roast built on the owners' own words. The method note marks him, like
+Boomer, as an on-page bit, not an ESPN appearance.
+
+**Sources.** `ups_discord_messages` for 2026, the league chat archive, was
+current: `ingest_discord_chat.py --incremental --dry-run` found nothing new at
+Wed Sep 30, 9:23 AM ET. A direct Discord API read showed the same newest owner
+post (Shawn Blake, Tue Sep 29, 10:42 AM ET). Week 3 has 270 owner posts.
+Receipts, counts, last-post times, MFL facts and intervals are recorded in
+`docs/wire/2026-wk03-coffee-shop-receipts.json`.
+
+**Owner dossier.** The segment follows each owner's form, device and
+sensitivities in the roast bot's local dossier (`owner_profiles.json`). That
+cut several first-draft lines:
+- a Keith career line (his numbers and ring count are excluded on purpose);
+- a joke about Cross's "Let's GO" count (pointing at his punctuation is a
+  retired gag);
+- a "where is Whitman" ghost-owner bit (retired);
+- post counts as a punchline for Gerardi and Mannila (silence is not the joke).
+
+Family, health, recovery language, slurs, and the Jacobs case are not used in
+any form.
+
+**Quotes.** Every quotation is emitted from the archived message, never
+retyped, and links to that message. 26 messages are quoted: 25 inline, plus
+one chat card. The pack's editor-picks path (`<pack>.quotes.json`) was not
+used, because it refuses messages from other weeks and this segment
+deliberately calls back to May through Week 2.
+
+**MFL facts.**
+- The Lamar trade comment ("What do they say…? Fuck Hammer") and its time
+  (Tue Sep 29, 6:59 AM ET) come from MFL's transaction record.
+- Pick ownership comes from MFL's futureDraftPicks export, fetched Sep 30. Eric
+  Martel holds the Long Haulers' 2027 first. Josh holds three 2027 firsts: his
+  own, Blake's and Cutting's.
+- The captain-draft order is from Keith's draft-night post (May 24).
+- 2024 and 2025 champions come from `src_final_standings`.
+
+**Checks.**
+- **Quote audit.** A separate script re-reads every linked message from D1 by
+  the id in its href. It verifies:
+  - the text is verbatim (whitespace collapsed; apostrophes must match);
+  - the author is a league owner, named in the same line;
+  - the permalink is correct;
+  - each stated date or time is right, including "sixteen days" (May 8 to
+    May 24) and "seven minutes and forty-nine seconds" (3:14:46 to
+    3:22:35 PM).
+
+  It also recounts the box score from D1 and re-derives the trade comment, pick
+  ownership and champions. Result: 26 receipts, 0 failures. A positive control
+  with one altered quote and one altered count failed on both.
+- **Numbers.** All 799 numbers in the article body trace to a source; nothing
+  is stale and nothing is untraced. Digits inside quotations are left out,
+  because the quote audit covers those.
+- **Players.** The segment's seven player–owner claims (Allen, Cousins, Wilson,
+  Sadiq, Pitts, Maye, and Lamar after the trade) match the Week 3 or current
+  rosters. The existing 33-claim check is unchanged at 0 mismatches.
+- **Pipeline.** The shared stylesheet gained the Kenny chip and receipt-link
+  rules, so `restyle` touched every article's inline CSS (additive only).
+  `wire.py verify` 22/22, `check-pack` on all 23 packs and inline-JS all pass,
+  and restyle plus index are idempotent. Desktop and 375px views were checked,
+  with no horizontal scroll.
