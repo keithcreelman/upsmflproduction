@@ -223,6 +223,51 @@ def load_table(
 PLAYER_ID_TEXT_JOIN_TABLES = ("src_players", "src_contracts")
 
 
+# First postseason week of each UPS season -- the earliest startWeek in MFL's
+# own TYPE=playoffBrackets export for that season's league id (verified
+# 2026-09-29 for every season). Embedded here, not in a config file, because
+# the nightly job runs an installed COPY of this script with no repo beside it.
+#
+# Why it exists: the local weeklyresults table flagged 2012 Week 13 as a
+# playoff week, and the loaders below copy that flag into src_schedule,
+# src_franchise_weekly_score and src_league_season_meta. MFL says 2012 Week 13
+# was the last regular-season week (lastRegularSeasonWeek = 13, brackets start
+# Week 14). The bad flag moved one game per matchup out of every 2012 regular
+# season and put a regular-season week into the 2012 playoff bracket.
+# 2010 is not an exception despite MFL's 2010 settings saying
+# lastRegularSeasonWeek = 16: its brackets start Week 14, so 14 is right.
+FIRST_POSTSEASON_WEEK = {
+    **{season: 14 for season in range(2010, 2021)},
+    **{season: 15 for season in range(2021, 2027)},
+}
+
+# Plan entries whose is_playoff / playoff-week columns come from weeklyresults.
+PLAYOFF_FLAG_FLAGS = ("schedule", "franchise_weekly_score", "league_season_meta")
+
+
+def assert_playoff_flags(conn: sqlite3.Connection) -> None:
+    """Refuse to load playoff flags that disagree with FIRST_POSTSEASON_WEEK.
+
+    Every (season, week) in weeklyresults must be uniformly flagged: 0 before
+    the season's first postseason week, 1 from it on. A season missing from the
+    table is refused too -- add it (from MFL's playoffBrackets export) rather
+    than guess. Fails CLOSED so an old backup or a re-ingest can never restore
+    a misfiled playoff week in D1.
+    """
+    rows = conn.execute(
+        "SELECT season, week, MIN(COALESCE(is_playoff, 0)), MAX(COALESCE(is_playoff, 0)) "
+        "FROM weeklyresults GROUP BY season, week ORDER BY season, week").fetchall()
+    unknown = sorted({int(r[0]) for r in rows if int(r[0]) not in FIRST_POSTSEASON_WEEK})
+    wrong = [(int(season), int(week), lo, hi) for season, week, lo, hi in rows
+             if int(season) in FIRST_POSTSEASON_WEEK
+             and not (lo == hi == (1 if int(week) >= FIRST_POSTSEASON_WEEK[int(season)] else 0))]
+    if unknown or wrong:
+        sys.exit("REFUSE playoff-flagged tables: local weeklyresults.is_playoff disagrees with "
+                 "FIRST_POSTSEASON_WEEK. Unknown seasons: %s. Misflagged (season, week, min, max): %s. "
+                 "Fix the local rows (or add the season from MFL's playoffBrackets export) first."
+                 % (unknown or "none", wrong or "none"))
+
+
 def assert_player_id_join_safe(conn: sqlite3.Connection, label: str, src_sql: str) -> None:
     """Refuse to load a player_id the leaderboard's join would silently miss.
 
@@ -737,6 +782,9 @@ def main():
     if skipped:
         print(f"Skipping {', '.join(skipped)}: written directly by the nflverse-stats-refresh workflow")
     plan = [p for p in plan if p[0] not in ci_owned]
+
+    if any(f in PLAYOFF_FLAG_FLAGS and (not selected or f in selected) for f, _, _, _ in plan):
+        assert_playoff_flags(conn)
 
     if args.dry_run:
         for flag, _, src_sql, _ in plan:
