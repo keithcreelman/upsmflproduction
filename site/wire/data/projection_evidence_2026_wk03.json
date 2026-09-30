@@ -5603,7 +5603,9 @@
     "projected_score": 0.8,
     "captured_at": "2026-09-27T18:52:39Z"
    }
-  ]
+  ],
+  "authoritative": true,
+  "authoritativeWhy": "Read straight from D1 (ups_player_projections, season 2026 week 3) after every week-3 game had finished and before any re-capture: every row's projected_score and updated_at are exactly what the Tuesday recap graded. wire_data.pregame_projections uses these values and times outright, so a later post-game revision in D1 cannot change or drop a bust/bargain comparison."
  },
  "writtenAtUtc": "2026-09-30T12:20:14Z"
 }

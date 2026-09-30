@@ -2,7 +2,8 @@
 
 The revised article is `site/wire/articles/2026/2026-wk03-ups-center.html`.
 It remains `status: draft`. This audit describes the evidence available at the
-Tuesday cutoff; Thursday's Elias check remains outstanding.
+Tuesday cutoff, updated by the Wednesday refresh below. Thursday's Elias check is a
+post-publication update, not a publication blocker (Keith, September 30).
 
 ## Corrections
 
@@ -126,8 +127,9 @@ read-only on September 29 to map player names to MFL IDs; no downloaded export
 is committed. The compact prepared-input snapshot and trade-test results are
 committed so the new odds attribution can be reproduced without live feeds.
 The Week 4 injury-watch owners were also checked against the
-September 29 roster (12 of 12 matched). The article's preview remains
-provisional until the Thursday Elias/stat and injury refresh.
+September 29 roster (12 of 12 matched). The Week 4 preview was refreshed on
+Wednesday (below); if publication slips beyond Thursday, refresh the injury
+and forecast cutoff again before publishing.
 
 The complete article check also reconciled all twelve odds-table rows (owner,
 record, playoff odds and title odds) to the current preview, all twenty
@@ -297,10 +299,21 @@ figures quoted earlier in this document.
 
 **Safeguards added.**
 - `projection_evidence_2026_wk03.json` freezes all 1,118 Week 3 projection
-  capture times (Sep 25 17:02 and Sep 27 18:52 UTC). It was written before the
-  scheduled Wednesday ingest, which still resolves Wednesday to the week just
-  played and would re-stamp them. A later rebuild (Thursday) keeps the pregame
-  evidence behind bust/bargain.
+  VALUES and capture times (Sep 25 17:02 and Sep 27 18:52 UTC), read straight
+  from D1 before the scheduled Wednesday ingest (which still resolves Wednesday
+  to the week just played and re-stamps every row). The file is marked
+  `captures.authoritative`, and `wire_data.pregame_projections` now uses those
+  frozen values and times outright. Without that change the reader used a
+  frozen entry only while D1 still held the same value, so a post-game MFL
+  revision would silently drop that player from the grading (or, if every
+  value moved, switch bust/bargain to the earliest-capture fallback).
+  Verified by rebuilding the pack in process against a simulated overwrite:
+  before the fix, revising four listed players (Purdy, Juwan Johnson, Nakobe
+  Dean, Waddle) changed 34 facts and 3 bust/bargain tables; after it, all four
+  scenarios (D1 as-is, timestamps re-stamped, four players revised, every
+  value changed) reproduce the committed pack exactly (0 facts, 0 tables
+  differ). Week 1's reconstructed record is not marked authoritative and
+  keeps the old match-D1 rule.
 - `weekly_recap.py` now reads the preview from the working copy, as
   `load_live_forecast()` already did. `tracked_data_file()` treats any local
   difference as "behind" and would have silently built from `origin/main`'s
@@ -324,3 +337,16 @@ figures quoted earlier in this document.
 - **Pipeline checks:** `wire.py verify` 22/22, `check-pack` on all packs,
   inline-JS, and the in-memory generic render all pass.
 - **Provenance:** updated to the new pack build.
+
+**Pre-publication checklist (September 30).**
+- Keith's final read and explicit approval. The article stays `status: draft`
+  until then.
+- If publication slips beyond Thursday: re-run the Week 4 preview at a new
+  cutoff (and the trade test on its new input snapshot), then carry the
+  changes through the article as on September 30.
+- Not a blocker: Thursday's Elias check. It is a post-publication update, and
+  any moved Week 3 score gets posted as a correction.
+
+Also verified September 30: the Lions' own Week 3 report describes Gibbs's
+first touchdown as "a cutback left" on the Jets on the way to the end zone,
+the play Boomer's "whoop!" and "go all the way" calls.
