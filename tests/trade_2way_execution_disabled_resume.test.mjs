@@ -58,8 +58,9 @@ test("NO-DROPS-REQUIRED, FLAG OFF: accept holds the deal -- never completed, nev
 
   const detail = await get2WayTrade(env, created.id, { fid: SENDER, leagueId: "74598", season: "2026" }, {});
   t.equal(detail.trade.state_view.code, "awaiting_commissioner");
-  t.doesNotMatch(detail.trade.state_view.message, /✅|completed/i);
-  t.match(detail.trade.state_view.message, /waiting on the commissioner to turn on live trade execution/);
+  t.equal(detail.trade.state_view.label, "Accepted — awaiting commissioner review");
+  t.doesNotMatch(detail.trade.state_view.message, /✅|completed|fully cleared|turn on live/i, "never stale/completion-implying copy");
+  t.match(detail.trade.state_view.message, /Rosters and contract limits will be checked again before any drop or trade/);
   t.equal(detail.trade.permissions.can_recheck, true, "Re-check is now reachable for this hold (fixed can_recheck)");
 });
 

@@ -191,7 +191,7 @@ async function enterBlockedCap2Way(env, row, gate, dmBoth) {
       // (2026-09-30): never call this completed or automatically actionable; say plainly it's
       // awaiting the commissioner.
       : gate.kind === "execution_disabled"
-      ? `⏸️ This 2-way trade is accepted by both sides and fully cleared — it's waiting on the commissioner to turn on live trade execution. Nothing has moved. No action is needed from you; it will go through once that's done.`
+      ? `⏸️ This 2-way trade is accepted and awaiting commissioner review. Nothing has moved. Rosters and contract limits will be checked again before any drop or trade.`
       : `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved and both accepts are saved. It will go through once that's fixed (use "Re-check" on the trade).`);
   }
   return info;
@@ -474,8 +474,8 @@ function buildCanonical2Way(row, viewer, extra) {
       // isn't turned on yet must say so plainly -- never "still reviewing compliance" (that's
       // no longer true) and never anything read as completed or automatically actionable.
       if (blockKind === "execution_disabled") {
-        stateCode = "awaiting_commissioner"; stateLabel = "Accepted — awaiting the commissioner";
-        stateMessage = "Both sides have agreed and this trade is fully cleared. It's waiting on the commissioner to turn on live trade execution — no action is needed from you.";
+        stateCode = "awaiting_commissioner"; stateLabel = "Accepted — awaiting commissioner review";
+        stateMessage = "Rosters and contract limits will be checked again before any drop or trade.";
       } else {
         stateCode = "awaiting_review"; stateLabel = "Accepted — awaiting compliance review"; stateMessage = "Both sides have agreed. This stays held, server-side, until it clears the loaded-contract, cap, and lineup checks — never a native MFL trade until then.";
       }
@@ -719,7 +719,7 @@ export async function execute2Way(env, id) {
     console.log(`[2way-staged][HELD] ${id}: compliance is fully clear but live execution is disabled (TRADE_2WAY_STAGING_EXECUTE=0) -- held, resumable, never marked completed`);
     await enterBlockedCap2Way(env, row, {
       kind: "execution_disabled",
-      message: "This trade is fully cleared and ready to go through. It's waiting on the commissioner to turn on live trade execution -- no action is needed from you.",
+      message: "Accepted — awaiting commissioner review. Rosters and contract limits will be checked again before any drop or trade.",
       compliance: null,
     }, dmBoth);
     return { ok: false, blocked: true, kind: "execution_disabled" };
