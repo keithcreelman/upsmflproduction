@@ -272,7 +272,19 @@ const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4
 // check finding its own in-progress row and refusing to let a stuck deal ever resume itself.
 export async function franchiseHasUnresolvedDropSequence(env, leagueId, season, fid, excludeTradeId) {
   try {
-    const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+    // Keith's ruling (2026-09-30, second pass): "Fix the D1 binding fallback now, with a test
+    // that proves an outbox DB failure cannot bypass or falsely satisfy the hold." UPS_MFL_DB is
+    // where ups_2way_trades and ups_trade_executions actually live -- confirmed by every OTHER
+    // read/write to these same tables throughout trade_2way.js, which requires env.UPS_MFL_DB
+    // directly, never this fallback chain. The other names are legacy bindings from the outbox
+    // subsystem (see wrangler.toml's TWB_OUTBOX_DB comment) that happen to point at the SAME
+    // physical D1 in production today -- but preferring them here meant an outbox-only failure
+    // (a different binding, degraded for a reason having nothing to do with this hold) could
+    // make the hold check throw and fail closed, or -- worse, if a stale/mispointed binding ever
+    // existed -- silently query the WRONG database and falsely report "no unresolved sequence."
+    // UPS_MFL_DB first, unconditionally; the others are kept only as a last-resort fallback for
+    // an environment that somehow never defines it at all.
+    const db = env.UPS_MFL_DB || env.TWB_OUTBOX_DB || env.TWB_DB || env.DB;
     if (!db) throw new Error("no D1 binding");
     // The ledger table is created on demand -- a league/season where nothing has ever executed
     // yet legitimately has no ups_trade_executions table at all, and this query must not treat

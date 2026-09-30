@@ -65,7 +65,7 @@ function franchiseAllowed(env, fid) {
 // Mirror of _toMflAsset in index.js (/api/trade/process): builder tokens ->
 // MFL import tokens. P_<id>-> bare id; FP_<yr>_<rd>_<orig> -> FP_<orig>_<yr>_<rd>;
 // DP_<yr>_<rd>_<slot> -> DP_<rd-1>_<slot-1> (0-indexed); BB_<amt> unchanged.
-function toMflAsset(a) {
+export function toMflAsset(a) {
   a = safeStr(a);
   if (a.startsWith("P_")) return a.slice(2);
   if (a.startsWith("BB_")) return `BB_${a.slice(3)}`;
@@ -318,9 +318,20 @@ async function complianceViaSelf(env, row) {
     return unavailableCompliance("call_failed");
   }
 }
+// Keith's ruling (2026-09-30, second pass): "Fix the D1 binding fallback now, with a test that
+// proves an outbox DB failure cannot bypass or falsely satisfy the hold." These three stores
+// back the execution ledger, the cap-acknowledgment store, and the conditional-drop store --
+// UPS_MFL_DB is where every one of their tables actually lives (every other direct read/write in
+// trade_2way.js/trade_3way.js requires env.UPS_MFL_DB, never the outbox-named bindings). The
+// other names are legacy outbox bindings that happen to point at the SAME physical D1 in
+// production today (wrangler.toml), but preferring them here meant a failure in a DIFFERENT,
+// unrelated binding could break or falsely satisfy the drop-first hold, the ledger itself, or
+// either store. UPS_MFL_DB first, unconditionally; the others are a last-resort fallback only
+// for an environment that somehow never defines it.
+function tradeDb(env) { return env.UPS_MFL_DB || env.TWB_OUTBOX_DB || env.TWB_DB || env.DB; }
 // The execution ledger (worker/src/trade_execution.js) — one row per 3-way, keyed by the trade id.
 export function ledgerFor(env) {
-  const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+  const db = tradeDb(env);
   if (!db) throw new Error("no D1 binding for the execution ledger");
   return makeLedger(db);
 }
@@ -329,7 +340,7 @@ export function ledgerFor(env) {
 // uuid from creation through execution, unlike a 2-way trade which has no id until MFL
 // assigns one -- see trade_cap_ack.js's module doc for why 2-way instead keys by payload_hash).
 export function capAckStoreFor(env) {
-  const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+  const db = tradeDb(env);
   if (!db) throw new Error("no D1 binding for the cap-acknowledgment store");
   return makeCapAckStore(db);
 }
@@ -338,7 +349,7 @@ const capAckKey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(
 // loaded-contract conditional-drop selection store. Keyed the SAME way as capAckKey (the 3-way
 // trade's own stable id).
 export function conditionalDropStoreFor(env) {
-  const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+  const db = tradeDb(env);
   if (!db) throw new Error("no D1 binding for the conditional-drop store");
   return makeConditionalDropStore(db);
 }
@@ -916,15 +927,22 @@ export async function handle3WayButton(interaction, env, ctx) {
   if (action !== "accept") return ephemeral("Button not recognized.");
   if (myState === "accepted") return ephemeral("You're already in — waiting on the other team.");
 
-  // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -----------------------
-  // Refuse to RECORD this team's own consent while THEY (specifically -- not the other two)
-  // have an unresolved 2-way drop-first sequence -- the same "don't consent on top of a known,
-  // bounded uncertainty" reasoning accept2WayTrade already applies. execute3Way's own hold
-  // (checking all three) is the backstop once everyone is in; this catches it earlier, at the
-  // specific responding party, exactly like the 2-way engine's own accept does.
+  // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith's ruling 2026-09-30, corrected
+  // 2026-09-30 second pass) -----------------------------------------------------------
+  // Checks ALL THREE participants, not just the responding party. Keith's correction: "If
+  // that participant is part of the proposed trade, it must block; an unrelated franchise
+  // should not." The earlier version of this check scoped itself to `myFid` alone, reasoning
+  // execute3Way's own all-three check was a sufficient backstop once everyone was in -- but
+  // that let TWO of three teams record real consent on a deal whose third participant's true
+  // compliance state was already a known, bounded uncertainty, deferring the refusal to
+  // execution time instead of catching it here, at the first accept. Mirrors create3WayTrade's
+  // and execute3Way's own identical [A, B, C] loop exactly -- an UNRELATED franchise (never one
+  // of this trade's own three teams) is never checked and never blocks anything.
   try {
-    if (await franchiseHasUnresolvedDropSequence(env, safeStr(row.league_id), safeStr(row.season), myFid)) {
-      return ephemeral("Your team has another deal still being untangled by the commissioner — this can't be accepted until that resolves.");
+    for (const fid of [padFid(row.initiator_fid), padFid(row.team_b_fid), padFid(row.team_c_fid)]) {
+      if (await franchiseHasUnresolvedDropSequence(env, safeStr(row.league_id), safeStr(row.season), fid)) {
+        return ephemeral("One of the teams in this trade has another deal still being untangled by the commissioner — this can't be accepted until that resolves.");
+      }
     }
   } catch (e) {
     return ephemeral("Couldn't confirm it's safe to accept this right now. Try again in a moment.");

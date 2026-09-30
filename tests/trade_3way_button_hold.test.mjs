@@ -85,11 +85,34 @@ test("HELD: the RESPONDING team's own unresolved drop-first sequence (executed_n
   t.equal(F.readRow(env).team_b_state, "pending");
 });
 
-test("NOT HELD: a DIFFERENT participant's unresolved sequence does not block THIS team's own accept -- the button's own check is scoped to the responding franchise, not all three (execute3Way's own hold is the later backstop for the other two)", async () => {
+// Keith's correction (2026-09-30, second pass): "Check every participant before 3-way acceptance
+// and execution. Your test says a different participant's unresolved drop sequence does not
+// block acceptance. If that participant is part of the proposed trade, it must block; an
+// unrelated franchise should not. Test both cases." The ORIGINAL version of this test asserted
+// the WRONG thing (that team A's own stuck sequence never blocks team B's accept) -- the button's
+// hold check now covers all three of THIS trade's own participants, mirroring create3WayTrade's
+// and execute3Way's own identical [A, B, C] loop exactly.
+test("HELD: a DIFFERENT PARTICIPANT of THIS SAME trade (the initiator, team A) having an unresolved sequence ALSO blocks team B's own accept -- not just team B's own state", async () => {
   const { env } = world();
-  seedStuckDropFirst(env, "0008", "executed_needs_review"); // the INITIATOR (team A), not team B
+  seedStuckDropFirst(env, "0008", "executed_needs_review"); // the INITIATOR (team A) -- one of this trade's own three teams
   const msg = await say(await handle3WayButton(press(F.DISCORD.B), env, { waitUntil() {} }));
-  t.match(msg, /You're in/, "team B's own accept must still go through -- only ITS OWN hold state matters here");
+  t.match(msg, /another deal still being untangled by the commissioner/, "team A is part of THIS trade -- its own unresolved sequence must block team B's accept too");
+  t.equal(F.readRow(env).team_b_state, "pending", "must NOT have been recorded");
+});
+
+test("HELD: the THIRD participant (team C, not yet responding) having an unresolved sequence ALSO blocks team B's own accept", async () => {
+  const { env } = world();
+  seedStuckDropFirst(env, "0012", "partial_executed"); // team C -- the OTHER partner, not the one pressing the button
+  const msg = await say(await handle3WayButton(press(F.DISCORD.B), env, { waitUntil() {} }));
+  t.match(msg, /another deal still being untangled by the commissioner/);
+  t.equal(F.readRow(env).team_b_state, "pending");
+});
+
+test("NOT HELD: a genuinely UNRELATED franchise (not one of this trade's own three teams) having an unresolved sequence does NOT block team B's own accept", async () => {
+  const { env } = world();
+  seedStuckDropFirst(env, F.FR.OTHER, "executed_needs_review"); // 0003 -- not the initiator, not team B, not team C
+  const msg = await say(await handle3WayButton(press(F.DISCORD.B), env, { waitUntil() {} }));
+  t.match(msg, /You're in/, "an unrelated franchise's own trouble must never block a trade it isn't part of");
   t.equal(F.readRow(env).team_b_state, "accepted");
 });
 
