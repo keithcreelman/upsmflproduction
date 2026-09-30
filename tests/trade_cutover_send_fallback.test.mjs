@@ -86,7 +86,12 @@ function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
 // ══════════════════════ harness: the REAL mobile cutover-fallback functions ══════════════════════
 function loadMobileFallback(env, { token, fid, previewResult } = {}) {
   const lines = MOBILE_SRC.split("\n");
-  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 916, "function submitOffer()", 1000);
+  // End anchor moved 916->1000->1064 (2026-09-30: submitTradeCounterWithGatesMobile /
+  // submitCounterViaStagingFallbackMobile inserted between submitViaStagingFallbackMobile and
+  // submitOffer -- the counter path's own cutover fallback, same shape as this file already
+  // covers for CREATE. Harmless to include in this slice: hoisted function declarations this
+  // test never calls.
+  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 916, "function submitOffer()", 1064);
   const code = gates;
   const bridge = bridgeFetch(env);
   const U = { pad4: (v) => { const d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }, safeInt: (v, d) => { const n = parseInt(v, 10); return isFinite(n) ? n : (d == null ? 0 : d); } };
