@@ -6,11 +6,14 @@
 //
 // The warning + server-side refusal of an illegal native offer is proven in
 // tests/trade_loaded_contract_clients.test.mjs and tests/trade_loaded_contracts.test.mjs
-// (the "HAMMER TIMES / CHIG OKONKWO" tests there). The real MFL drop-action integration is
-// proven in tests/trade_drop_action_recorded_response.test.mjs. THIS file is the one place that
-// walks every step of the SAME scenario, back to back, through the REAL staged 2-way engine and
-// the REAL drop-first execution engine (never the old JSON-stub shortcut), on the real worker,
-// real D1, and -- for the drop write specifically -- the real HTML-form parse/POST pipeline.
+// (the "HAMMER TIMES / CHIG OKONKWO" tests there). The real drop-action CODE (parsing, posting,
+// classification) is proven in tests/trade_drop_action_reconstructed_fixture.test.mjs -- against
+// a RECONSTRUCTED fixture, not a captured MFL response; see that file's own header for exactly
+// what is and isn't verified (no authorized read-only MFL session was available in that session
+// either). THIS file reuses the identical stub and is bound by the identical caveat: it proves
+// the same real code against the same unverified-shape fixture, walking every step of the
+// Hammer/Chig scenario back to back through the REAL staged 2-way engine and the REAL
+// drop-first execution engine (never the old JSON-stub shortcut), on the real worker and real D1.
 //   node tests/trade_hammer_chig_end_to_end.test.mjs
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -50,8 +53,9 @@ function fresh(over) {
 const ledgerRow = (env, id) => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_trade_executions WHERE exec_key=?").get(id);
 const tradeRow = (env, id) => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(id);
 
-// ═══════ THE REAL MFL drop-action fetch stub (from tests/trade_drop_action_recorded_response.
-// test.mjs -- see that file's header for what this does and does not prove). ═══════
+// ═══════ THE drop-action fetch stub, against a RECONSTRUCTED (not captured) fixture -- from
+// tests/trade_drop_action_reconstructed_fixture.test.mjs; see that file's header for exactly
+// what this does and does not prove. ═══════
 const ACTION_URL = "https://www48.myfantasyleague.com/2026/csetup";
 function loadRostPageHtml(leagueId, franchiseId, rosterIds) {
   const options = rosterIds.map((pid) => `<option value="${pid}">Player ${pid}</option>`).join("\n        ");

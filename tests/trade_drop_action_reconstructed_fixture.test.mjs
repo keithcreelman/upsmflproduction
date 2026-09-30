@@ -1,11 +1,13 @@
-// RECORDED-RESPONSE INTEGRATION TEST for the actual MFL drop action (Keith, 2026-09-30, third
-// pass): "Finish the recorded-response integration test for the actual MFL drop action." Every
-// OTHER test in this feature (trade_2way_drop_first_execute.test.mjs and friends) stubs
-// /roster-workbench/action at the OUTER JSON-response layer (installFakeUnloadPlayer,
-// intercepting env.SELF.fetch directly) -- proven, deliberate, and stated plainly as a boundary
-// since the very first pass: MFL's own real roster-edit HTML-form page
-// (fetchLoadRostFormForCookie / postLoadRostFormForCookie, worker/src/index.js) has never been
-// exercised by any test in this repo.
+// RECONSTRUCTED-FIXTURE INTEGRATION TEST for the actual MFL drop action (Keith, 2026-09-30,
+// fourth pass -- naming corrected from an earlier "recorded-response" title, which overstated
+// what this is): "Obtaining the real roster-edit form HTML should require an authenticated GET,
+// not a drop... If no session is available, mark that specific production-form check unverified;
+// do not call the reconstructed fixture a recorded MFL response." Every OTHER test in this
+// feature (trade_2way_drop_first_execute.test.mjs and friends) stubs /roster-workbench/action at
+// the OUTER JSON-response layer (installFakeUnloadPlayer, intercepting env.SELF.fetch directly)
+// -- proven, deliberate, and stated plainly as a boundary since the very first pass: MFL's own
+// real roster-edit HTML-form page (fetchLoadRostFormForCookie / postLoadRostFormForCookie,
+// worker/src/index.js) has never been exercised by any test in this repo.
 //
 // THIS file closes that gap differently: it does NOT stub /roster-workbench/action at all. It
 // lets the REAL route handler run end to end -- the real HTML-form GET, the real field-parsing
@@ -15,19 +17,30 @@
 // LOADROST page, and the POST to whatever action URL that page declares) are stubbed, at the
 // global fetch() layer index.js itself calls through.
 //
-// HONESTY ABOUT WHAT THIS DOES NOT PROVE: this session has no live, credentialed MFL access, and
-// performing a real drop to capture a real response is exactly what Keith's standing instruction
-// forbids ("Do not perform a live trade or drop as a test"). The HTML fixture below is NOT an
-// actual captured page -- it is reconstructed from the parser's own real, already-shipped
-// knowledge of the page: the two field names it deliberately excludes (`sel_pid`,
-// `picker_filt_name` -- worker/src/index.js's parseLoadRostForm), the `ROSTER` <select> it reads
-// options from, and the `PLAYER_NAMES` field it defaults when absent. Every OTHER hidden field on
-// the real page is structurally plausible filler, not independently verified. If Keith can supply
-// an actual saved copy of MFL's own roster-edit page (View Source on a real league), it should
-// replace this fixture; until then, this proves the REAL PARSING AND POSTING CODE works correctly
-// against a page shaped the way the parser itself says a real page must be, which is real coverage
-// this route never had -- not a claim that MFL's actual page is proven byte-for-byte.
-//   node tests/trade_drop_action_recorded_response.test.mjs
+// ═══ STATUS: UNVERIFIED against a real MFL page -- read this before trusting the fixture below ═══
+// This session was checked for an authorized, READ-ONLY MFL session (the one thing Keith
+// explicitly said would be safe to use here: a GET of the LOADROST page is a page view, not a
+// drop -- only the POST would be a write, and this file never sends one to real MFL). None was
+// available: no .dev.vars, no MFL_COOKIE/MFL_APIKEY in this shell's environment, and this
+// session has no browser session logged into MFL. Per Keith's own instruction, that means this
+// specific check -- "does MFL's real LOADROST page actually parse the way parseLoadRostForm
+// expects" -- is marked UNVERIFIED, not proven, and the HTML below MUST NOT be called a recorded
+// or captured MFL response anywhere (code, commit messages, or reports). It is a RECONSTRUCTION,
+// built only from the parser's own real, already-shipped knowledge of the page: the two field
+// names it deliberately excludes (`sel_pid`, `picker_filt_name` -- worker/src/index.js's
+// parseLoadRostForm), the `ROSTER` <select> it reads options from, and the `PLAYER_NAMES` field
+// it defaults when absent. Every OTHER hidden field on the real page is structurally plausible
+// filler, not independently verified.
+//
+// TO CLOSE THIS FOR REAL: either (a) Keith supplies an actual saved copy of MFL's own roster-edit
+// page (View Source on a real league, with credentials/personal tokens stripped), which should
+// replace the fixture below and let this file's own tests prove the parser against it directly,
+// or (b) a future session with an authorized, read-only MFL session performs the SAME GET this
+// file's own comments describe, strips credentials, and does the same. Until either happens, what
+// this file DOES prove is real: the parsing/posting/classification CODE is correct against a page
+// shaped the way the parser itself requires. What it does NOT prove: that MFL's actual page is
+// shaped that way. Those are two different claims, and only the first one is tested here.
+//   node tests/trade_drop_action_reconstructed_fixture.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, bindSelf, quiet } from "./fixtures/worker_harness.mjs";
 import { THREE_WAY_MIGRATIONS } from "./fixtures/d1_sqlite.mjs";
@@ -130,7 +143,7 @@ function installRealDropActionFetchStub(env, mfl, { pageResponder, postResponder
   return { postedCalls, restore: () => { globalThis.fetch = delegate; } };
 }
 
-test("RECORDED-RESPONSE: the REAL parse -> POST -> verify pipeline confirms a drop -- real HTML parsed, real form fields extracted, the desired ROSTER list correctly omits the dropped player, and the SAME already-proven rosters-export verification (mfl.st.rosters) sees the player genuinely gone", async () => {
+test("RECONSTRUCTED-FIXTURE: the REAL parse -> POST -> verify pipeline confirms a drop -- real HTML parsed, real form fields extracted, the desired ROSTER list correctly omits the dropped player, and the SAME already-proven rosters-export verification (mfl.st.rosters) sees the player genuinely gone", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   const stub = installRealDropActionFetchStub(env, mfl);
@@ -149,7 +162,7 @@ test("RECORDED-RESPONSE: the REAL parse -> POST -> verify pipeline confirms a dr
   }
 });
 
-test("RECORDED-RESPONSE: the REAL page reports 'Commissioner Access Required' -- fetchLoadRostFormForCookie's own real detection classifies this as a lockout-shaped failure, exactly as every other test in this feature has always assumed but never proven against real parsing code", async () => {
+test("RECONSTRUCTED-FIXTURE: the REAL page reports 'Commissioner Access Required' -- fetchLoadRostFormForCookie's own real detection classifies this as a lockout-shaped failure, exactly as every other test in this feature has always assumed but never proven against real parsing code", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   const stub = installRealDropActionFetchStub(env, mfl, { pageResponder: () => ({ status: 200, body: LOCKOUT_PAGE_HTML }) });
@@ -166,7 +179,7 @@ test("RECORDED-RESPONSE: the REAL page reports 'Commissioner Access Required' --
   }
 });
 
-test("RECORDED-RESPONSE: the REAL POST succeeds, but the REAL post-write verification (mfl.st.rosters) still shows the player present -- classified as a genuine, proven failure, not an ambiguity, exactly matching classifyDropActionResponse's own real branch for this case", async () => {
+test("RECONSTRUCTED-FIXTURE: the REAL POST succeeds, but the REAL post-write verification (mfl.st.rosters) still shows the player present -- classified as a genuine, proven failure, not an ambiguity, exactly matching classifyDropActionResponse's own real branch for this case", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   // applyToRoster:false -- the real POST returns success, but (exactly like a real MFL request
@@ -186,7 +199,7 @@ test("RECORDED-RESPONSE: the REAL POST succeeds, but the REAL post-write verific
   }
 });
 
-test("RECORDED-RESPONSE: a page with no parseable <form> at all is classified FAILED, not unconfirmed -- a genuine finding from running the real code, corrected from this test's own first guess", async () => {
+test("RECONSTRUCTED-FIXTURE: a page with no parseable <form> at all is classified FAILED, not unconfirmed -- a genuine finding from running the real code, corrected from this test's own first guess", async () => {
   // First draft of this test expected "unconfirmed" here, assuming an unparseable page is a pure
   // unknown. Running it against the REAL classifyDropActionResponse proved that wrong: when
   // fetchLoadRostFormForCookie can't even find a <form> on the page, index.js's own route
@@ -213,5 +226,5 @@ test("RECORDED-RESPONSE: a page with no parseable <form> at all is classified FA
   }
 });
 
-await run("trade_drop_action_recorded_response");
+await run("trade_drop_action_reconstructed_fixture");
 restoreConsole();
