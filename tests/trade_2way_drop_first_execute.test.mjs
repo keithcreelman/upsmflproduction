@@ -25,7 +25,7 @@ import { THREE_WAY_MIGRATIONS } from "./fixtures/d1_sqlite.mjs";
 
 const restoreConsole = quiet();
 await import("./fixtures/register_md_loader.mjs");
-const { createStaged2WayTrade, accept2WayTrade, select2WayLoadedContractDrops, executeDropFirstDeal, cancel2WayTrade } = await import("../worker/src/trade_2way.js");
+const { createStaged2WayTrade, accept2WayTrade, select2WayLoadedContractDrops, executeDropFirstDeal, cancel2WayTrade, recheck2WayExecution, checkAgingDropFirstSequences } = await import("../worker/src/trade_2way.js");
 const { create3WayTrade, execute3Way } = await import("../worker/src/trade_3way.js");
 
 const Q = "L=74598&YEAR=2026";
@@ -361,6 +361,30 @@ test("COVERAGE GAP FOUND AND CLOSED: select2WayLoadedContractDrops must refuse t
   t.equal(steps["drop:80000"].status, "confirmed", "the already-real drop stays exactly as recorded -- unaffected by the refused selection change attempt");
 });
 
+// ═══════ AN OWNER MUST NEVER RETRIGGER A STUCK DROP-FIRST SEQUENCE (Keith, 2026-09-30) ═══════
+// "an owner must never retrigger a failed or uncertain execution step. Only a commissioner may
+// resume it after reviewing the ledger and MFL evidence." recheck2WayExecution is the one
+// owner-facing route whose own guard (`row.status === 'collecting'`) does NOT exclude a stuck
+// drop-first sequence, since ups_2way_trades.status stays 'collecting' throughout the whole
+// sequence (§8.6, same fact the cancel/select-drops tests above already exploit). Found and
+// closed as a real coverage gap alongside those two, using the identical ledger-read pattern.
+test("COVERAGE GAP FOUND AND CLOSED: recheck2WayExecution must refuse once a drop-first sequence has started -- an owner's re-check must not flip status to 'executing' or hand back a false 'rechecking: true' while the deal is actually stuck awaiting commissioner review", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  installFakeUnloadPlayer(env, (body, n) => (n === 1 ? confirmedResp(body) : lockoutResp()));
+  await executeDropFirstDeal(env, {}, id); // drop:80000 confirms for real, drop:80001 fails -- stuck, unresolved
+  t.equal(tradeRow(env, id).status, "collecting", "sanity: the dangerous state recheck2WayExecution's own guard alone would not catch");
+  t.equal(ledgerRow(env, id).state, "executed_needs_review");
+
+  const calls = installFakeUnloadPlayer(env, confirmedResp);
+  const r = await recheck2WayExecution(env, {}, id, { fid: FR.A, leagueId: "74598", season: "2026" });
+  t.equal(r.ok, false);
+  t.equal(r.code, "execution_in_progress");
+  t.equal(tradeRow(env, id).status, "collecting", "must NOT have been flipped to 'executing' -- that would misrepresent a commissioner-owned stuck deal as 'clearing final checks'");
+  t.equal(ledgerRow(env, id).state, "executed_needs_review", "unchanged -- no new execution attempt was ever acquired");
+  t.equal(calls.length, 0, "unload_player must never be called by an owner's recheck against a stuck sequence");
+});
+
 // ═══════ HOLD CLOSED ON THE LEGACY DIRECT-MFL PATH (§8.6, Keith 2026-09-30) ═══════
 // "The hold also needs to cover the legacy in-app 2-way path when cutover is off... Close those
 // gaps before any execution flag can be enabled." These three tests exercise the REAL
@@ -600,6 +624,50 @@ test("RECONCILIATION — UNCONFIRMED THEN RETRIED, PLAYER STILL PRESENT AND NO M
   t.equal(ledgerRow(env, id).state, "completed");
 });
 
+// ═══════ THE EXPORT-LAG CASE (Keith, 2026-09-30): "'no matching transaction + player present'
+// is safe to retry only if the MFL export is complete through the attempt time. If the export
+// can lag, truncate, or omit that transaction, absence of a match proves nothing." A "no match"
+// result is NEVER trusted for the retry decision until MIN_RECONCILE_AGE_MS (5 minutes) has
+// passed since the attempt -- long enough that ordinary processing lag would have resolved.
+test("RECONCILIATION — DELAYED TRANSACTION (export hasn't caught up yet): an attempt from moments ago, with no matching transaction visible AND the player still present, must HOLD rather than retry -- 'no match' this soon proves nothing about a lagging export", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  seedCrashedAttempt(env, id, {
+    "drop:80000": { status: "confirmed", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, confirmed_at_utc: new Date(Date.now() - 6 * 60000).toISOString() },
+    // Only 30 SECONDS ago -- well inside the 5-minute buffer -- simulating a reconciliation
+    // attempt that fires before MFL's own transaction export could plausibly have caught up.
+    "drop:80001": { status: "unconfirmed", franchise_id: FR.A, player_id: "80001", reason: "call_failed: network timeout", pre_drop_snapshot: SNAP_80000, attempted_at_utc: new Date(Date.now() - 30000).toISOString() },
+  }, "executed_needs_review");
+  mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000");
+  mfl.st.transactions = []; // the export shows nothing for 80001 yet -- exactly the lag scenario
+  const calls = installFakeUnloadPlayer(env, confirmedResp);
+  const r = await executeDropFirstDeal(env, {}, id);
+  t.equal(r.ok, false, "must NOT proceed as if retry were safe");
+  t.equal(calls.length, 0, "unload_player must NEVER be called on an unproven 'no match' this soon after the attempt");
+  const led = ledgerRow(env, id);
+  t.equal(led.state, "executed_needs_review");
+  t.match(led.failure_detail, /reconciliation_too_soon_to_trust_export_completeness/);
+});
+
+test("RECONCILIATION — THE SAME 'no match + present' RESULT IS TRUSTED once enough time has passed: proves the buffer is a delay, not a permanent block", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  seedCrashedAttempt(env, id, {
+    "drop:80000": { status: "confirmed", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, confirmed_at_utc: new Date(Date.now() - 10 * 60000).toISOString() },
+    // 10 minutes ago -- past the 5-minute buffer -- same underlying facts as the "too soon" test
+    // above, differing only in elapsed time.
+    "drop:80001": { status: "unconfirmed", franchise_id: FR.A, player_id: "80001", reason: "call_failed: network timeout", pre_drop_snapshot: SNAP_80000, attempted_at_utc: new Date(Date.now() - 10 * 60000).toISOString() },
+  }, "executed_needs_review");
+  mfl.st.rosters[FR.A] = mfl.st.rosters[FR.A].filter((p) => p.id !== "80000");
+  mfl.st.transactions = []; // still no record -- now old enough to trust that absence
+  const calls = installFakeUnloadPlayer(env, confirmedResp);
+  const r = await executeDropFirstDeal(env, {}, id);
+  t.equal(r.ok, true, JSON.stringify(r));
+  t.equal(calls.length, 1, "now safely re-attempted -- enough time has passed to trust the export's 'no match'");
+  t.equal(calls[0].player_id, "80001");
+  t.equal(ledgerRow(env, id).state, "completed");
+});
+
 test("RECONCILIATION EVIDENCE SOURCE ITSELF FAILS: never guesses either outcome -- holds for commissioner review rather than falling back to a weaker signal", async () => {
   const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
   const id = await stageTwoDropDeal(env, mfl);
@@ -718,6 +786,76 @@ test("INTERVENING CHANGE, CASE B — player dropped for real, then RE-ADDED to t
 // or MFL's response to an literal identical double-POST, has been independently verified here --
 // only that THIS orchestrator never blindly re-issues a write for a step it has reason to think
 // already succeeded.
+
+// ═══════ AGING ALERT (Keith, 2026-09-30): "Add an aging alert for unresolved partial
+// sequences; route it to the existing commissioner channel and show the age prominently." ═══════
+function ageLedgerRow(env, id, minutesAgo) {
+  const iso = new Date(Date.now() - minutesAgo * 60000).toISOString();
+  env.UPS_MFL_DB.raw.prepare(`UPDATE ups_trade_executions SET updated_at_utc=? WHERE exec_key=?`).run(iso, id);
+}
+const heartbeatRow = (env, bot) => env.UPS_MFL_DB.raw.prepare(`SELECT * FROM ups_bot_heartbeat WHERE bot=?`).get(bot);
+
+test("AGING ALERT: a drop-first sequence stuck under the threshold is NOT alerted", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  installFakeUnloadPlayer(env, (body, n) => (n === 1 ? confirmedResp(body) : lockoutResp()));
+  await executeDropFirstDeal(env, {}, id); // stuck at executed_needs_review
+  ageLedgerRow(env, id, 10); // only 10 minutes -- under the 30-minute threshold
+  const discord = mfl.st.discord; discord.length = 0;
+  const r = await checkAgingDropFirstSequences(env);
+  t.equal(r.ok, true);
+  t.equal(r.found, 0);
+  t.equal(r.alerted, 0);
+  t.equal(discord.length, 0, "no commissioner DM this early");
+});
+
+test("AGING ALERT: a drop-first sequence stuck PAST the threshold is alerted to the commissioner channel, with its age stated prominently", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  installFakeUnloadPlayer(env, (body, n) => (n === 1 ? confirmedResp(body) : lockoutResp()));
+  await executeDropFirstDeal(env, {}, id); // stuck at executed_needs_review
+  ageLedgerRow(env, id, 95); // 1h 35m -- well past the 30-minute threshold
+  const discord = mfl.st.discord; discord.length = 0;
+  const r = await checkAgingDropFirstSequences(env);
+  t.equal(r.ok, true);
+  t.equal(r.found, 1);
+  t.equal(r.alerted, 1);
+  const texts = discord.map((d) => String((d.body && d.body.content) || ""));
+  const aged = texts.find((c) => /AGING/.test(c));
+  t.ok(aged, "must send a distinct AGING alert to the commissioner channel");
+  t.match(aged, /1h 35m/, "the age must be stated prominently, not buried");
+  t.match(aged, new RegExp(id), "must identify which trade");
+  t.match(aged, /NEEDS REVIEW/);
+  t.match(aged, /[Oo]nly the commissioner/, "must restate that an owner cannot resolve this");
+});
+
+test("AGING ALERT: dedup -- the SAME unresolved state is not re-alerted inside the recheck cooldown, but a real state CHANGE re-alerts immediately", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const id = await stageTwoDropDeal(env, mfl);
+  installFakeUnloadPlayer(env, (body, n) => (n === 1 ? confirmedResp(body) : lockoutResp()));
+  await executeDropFirstDeal(env, {}, id);
+  ageLedgerRow(env, id, 45);
+  const discord = mfl.st.discord; discord.length = 0;
+
+  const first = await checkAgingDropFirstSequences(env);
+  t.equal(first.alerted, 1, "first pass alerts");
+  const hb = heartbeatRow(env, `drop_first_aging:74598:2026:${id}`);
+  t.ok(hb, "a dedupe marker must be recorded");
+  t.equal(hb.status, "executed_needs_review");
+
+  discord.length = 0;
+  const second = await checkAgingDropFirstSequences(env); // still the same state, no time passed
+  t.equal(second.alerted, 0, "a second immediate pass must not re-DM for the same unresolved state");
+  t.equal(discord.length, 0);
+
+  // Simulate the ledger state genuinely changing (e.g. a commissioner action moved it, or a
+  // fresh attempt re-entered PARTIAL_EXECUTED) -- a real change must escalate again right away,
+  // never wait out the cooldown meant only for "still the same stuck thing."
+  env.UPS_MFL_DB.raw.prepare(`UPDATE ups_trade_executions SET state=? WHERE exec_key=?`).run("partial_executed", id);
+  ageLedgerRow(env, id, 45);
+  const third = await checkAgingDropFirstSequences(env);
+  t.equal(third.alerted, 1, "a genuine state change re-alerts even inside the cooldown window");
+});
 
 await run("trade_2way_drop_first_execute");
 restoreConsole();

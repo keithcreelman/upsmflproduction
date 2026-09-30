@@ -16,6 +16,7 @@ const TWR_FEATURES = Object.freeze({ admin_front_door: true, execution_ledger: t
 import { handle3WayHttp } from "./trade_3way_http.js";
 import { handle2WayStagedHttp } from "./trade_2way_http.js";
 import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
+import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
@@ -6787,6 +6788,23 @@ export default {
           console.log(`[auction-watchdog] ALERTED: auction_poll stale ${mins}m (${dmSent} DM(s) delivered)`);
         } catch (e) {
           console.log("[auction-watchdog] failed:", String(e?.message || e));
+        }
+      })());
+
+      // ── DROP-FIRST AGING WATCHDOG (Keith, 2026-09-30) ──
+      // "Add an aging alert for unresolved partial sequences; route it to the existing
+      // commissioner channel." Rides the same */2 tick as the auction-poll watchdog above --
+      // cheap, read-mostly, and this is exactly the kind of thing that must never depend on a
+      // dead poll to notice it (the same lesson the auction watchdog itself encodes). NOT gated
+      // on TRADE_2WAY_DROP_EXECUTE_ENABLED -- see checkAgingDropFirstSequences's own header for
+      // why a stuck row's visibility must outlive the flag that created it.
+      ctx.waitUntil((async () => {
+        try {
+          if (!env.UPS_MFL_DB) return;
+          const r = await checkAgingDropFirstSequences(env);
+          if (r && r.alerted) console.log(`[drop-first-aging] ${r.alerted} of ${r.found} aging sequence(s) alerted`);
+        } catch (e) {
+          console.log("[drop-first-aging] failed:", String(e?.message || e));
         }
       })());
     }

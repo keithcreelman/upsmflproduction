@@ -40,6 +40,13 @@
   .trq-route { font-weight: 700; font-size: 15px; }
   .trq-age { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .trq-age.stale { color: var(--warn); font-weight: 700; }
+  /* Keith (2026-09-30): "show the age prominently in the queue" for an unresolved drop-first
+     sequence — distinct from, and louder than, the generic 48-HOUR staleness marker above: this
+     fires at 30 MINUTES (matching the same threshold the commissioner-DM aging alert uses,
+     worker/src/trade_2way.js's checkAgingDropFirstSequences) because a real, irreversible drop
+     is already sitting exposed, not merely an old offer nobody answered yet. */
+  .trq-card-aging { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+  .trq-aging-banner { font-size: 13px; font-weight: 700; color: var(--danger); background: rgba(248, 113, 113, 0.12); border: 1px solid var(--danger); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
   .trq-movs { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
   .trq-ledger { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 8px; }
   .trq-steps { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--fg); }
@@ -149,6 +156,29 @@
     return Math.round(hours / 24) + "d";
   }
 
+  // §2.4.3b aging alert, client mirror. AGING_MIN must match worker/src/trade_2way.js's own
+  // AGING_ALERT_THRESHOLD_MIN exactly -- this is a DISPLAY threshold, not a second source of
+  // truth: the commissioner DM already fired server-side on this same 30-minute bar, and this
+  // banner exists so opening the queue shows the identical fact, not a differently-timed one.
+  var AGING_MIN = 30;
+  function unresolvedDropFirst(ledger) {
+    return !!(ledger && (ledger.state === "partial_executed" || ledger.state === "executed_needs_review"));
+  }
+  function fmtStuckAge(ms) {
+    var mins = Math.floor(ms / 60000);
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return h > 0 ? (h + "h " + m + "m") : (m + "m");
+  }
+  function agingBanner(ledger) {
+    if (!unresolvedDropFirst(ledger) || !ledger.updated_at_utc) return "";
+    var updMs = Date.parse(ledger.updated_at_utc);
+    if (!isFinite(updMs)) return "";
+    var stuckMs = Date.now() - updMs;
+    if (stuckMs < AGING_MIN * 60000) return "";
+    var label = ledger.state === "executed_needs_review" ? "NEEDS REVIEW" : "PARTIAL — still resolving";
+    return '<div class="trq-aging-banner">🚨 STUCK ' + fmtStuckAge(stuckMs) + ' (' + T.esc(label) + ') — at least one real drop has already happened on this deal. Only the commissioner can resume it, after reviewing the ledger and MFL’s own evidence.</div>';
+  }
+
   function renderLedger(ledger) {
     if (!ledger) return '<div class="trq-ledger"><b>Execution ledger:</b> no row yet — nothing has ever attempted to execute this trade.</div>';
     var parts = ['<b>Execution ledger:</b> state <code>' + T.esc(ledger.state) + '</code>'];
@@ -223,10 +253,12 @@
       return T.esc(m.from) + ' → ' + T.esc(m.to) + ': ' + (m.asset_tokens || []).map(T.esc).join(", ");
     }).join(" · ");
     var open = !!openIds[trade.id];
-    var h = '<div class="trq-card" data-trq-id="' + T.esc(trade.id) + '">';
+    var aging = unresolvedDropFirst(trade.ledger) ? agingBanner(trade.ledger) : "";
+    var h = '<div class="trq-card' + (aging ? " trq-card-aging" : "") + '" data-trq-id="' + T.esc(trade.id) + '">';
     h += '<div class="trq-card-head"><span class="trq-route">' + T.esc(trade.from_name) + ' → ' + T.esc(trade.to_name) + '</span>';
     h += '<span class="t3w-pill t3w-tone-' + (({ pending_response: "wait", awaiting_review: "warn", executing: "busy", completed: "ok", failed: "bad", cancelled: "off", declined: "off" })[sv.code] || "off") + '">' + T.esc(sv.label) + '</span>';
     h += '<span class="trq-age' + (stale ? " stale" : "") + '">' + fmtAge(ageH) + (stale ? " — stale" : "") + '</span></div>';
+    if (aging) h += aging;
     h += '<div class="trq-movs">' + movLines + '</div>';
     h += renderLedger(trade.ledger);
     h += renderCapAckSummary(trade.cap_ack);

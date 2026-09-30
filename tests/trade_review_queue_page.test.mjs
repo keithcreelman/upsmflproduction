@@ -230,5 +230,42 @@ test("PER-STEP EXECUTION DETAIL: a drop-first sequence's individual step outcome
   t.match(html, /drop 80001: 🛑 failed — lockout: MFL commissioner lockout on/);
 });
 
+// ═══════ AGING BANNER (Keith, 2026-09-30): "show the age prominently in the queue." ═══════
+test("AGING BANNER: a drop-first sequence stuck past the 30-minute threshold gets a loud, distinct banner and card styling -- not just the generic 48-hour staleness marker", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const stuckIso = new Date(Date.now() - 95 * 60000).toISOString(); // 1h 35m
+  env.UPS_MFL_DB.raw.prepare(
+    `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, failed_step, failure_detail, steps_json, created_at_utc, updated_at_utc)
+     VALUES ('74598', '2026', ?, 'two_way_staged_drop_first', 'executed_needs_review', 'drop:80001', 'lockout: MFL commissioner lockout on', ?, ?, ?)`
+  ).run(id, JSON.stringify({ "drop:80000": { status: "confirmed", reason: null }, "drop:80001": { status: "failed", reason: "lockout: MFL commissioner lockout on" } }), stuckIso, stuckIso);
+  const p = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p.els.trqList.innerHTML;
+  t.match(html, /trq-card-aging/, "the card itself must carry the louder aging style, not just the ledger text");
+  t.match(html, /STUCK 1h 35m/, "the age must be stated prominently and match the same threshold/wording as the commissioner DM alert");
+  t.match(html, /NEEDS REVIEW/);
+  t.match(html, /[Oo]nly the commissioner can resume/);
+});
+
+test("AGING BANNER: a drop-first sequence stuck UNDER the threshold gets no banner -- the immediate per-step detail is enough this early", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const freshIso = new Date(Date.now() - 5 * 60000).toISOString();
+  env.UPS_MFL_DB.raw.prepare(
+    `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, failed_step, failure_detail, steps_json, created_at_utc, updated_at_utc)
+     VALUES ('74598', '2026', ?, 'two_way_staged_drop_first', 'executed_needs_review', 'drop:80001', 'lockout: MFL commissioner lockout on', ?, ?, ?)`
+  ).run(id, JSON.stringify({ "drop:80000": { status: "confirmed", reason: null }, "drop:80001": { status: "failed", reason: "lockout: MFL commissioner lockout on" } }), freshIso, freshIso);
+  const p = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p.els.trqList.innerHTML;
+  t.doesNotMatch(html, /trq-card-aging/);
+  t.doesNotMatch(html, /STUCK/);
+});
+
 await run("trade_review_queue_page");
 restoreConsole();

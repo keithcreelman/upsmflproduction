@@ -577,6 +577,32 @@ rather than imported to avoid a circular dependency). Three outcomes, never a fo
   like the mandatory pre-drop snapshot's own failure mode — evidence unavailable is never treated
   as evidence of either outcome.
 
+**Export-coverage proof, or the lack of it — Keith's follow-up (2026-09-30): "'no matching
+transaction + player present' is safe to retry only if the MFL export is complete through the
+attempt time. If the export can lag, truncate, or omit that transaction, absence of a match
+proves nothing. Verify the export's coverage and test a delayed transaction."** Checked directly,
+honestly: this codebase has **no proof either way** of how current MFL's own `TYPE=transactions`
+export is relative to a just-made write. The one existing precedent for using this same export to
+reconcile an ambiguous MFL write (`trade_3way.js`'s `legExecuted`/`findExecutedTrade`) only ever
+uses it as SECONDARY corroboration of an ALREADY-positive signal (a `tradeId` returned alongside
+an error) — never as the sole proof of "nothing happened" the way the "retry" branch above does.
+That absence of precedent is itself the answer to "has this been proven instantaneous": no. Two
+concrete, separate mitigations, neither a proof, both shipped in PR #1163:
+- **Cloudflare edge-caching, ruled out entirely.** `findFreeAgentDropTransaction`'s fetch now
+  carries `cf: { cacheTtl: 0, cacheEverything: false }` — one proven, fixable class of staleness
+  closed completely.
+- **MFL's own possible backend processing lag — NOT provably closed, conservatively buffered.** A
+  "no match + present" result is only trusted for the retry decision once `MIN_RECONCILE_AGE_MS`
+  (5 minutes) has passed since the attempt — long enough that ordinary processing lag would have
+  resolved, but explicitly a buffer, not a proof. Tested directly
+  (`tests/trade_2way_drop_first_execute.test.mjs`'s "RECONCILIATION — DELAYED TRANSACTION" and its
+  companion "…TRUSTED once enough time has passed" test): an attempt from 30 seconds ago, present,
+  no match, correctly HOLDS (`reconciliation_too_soon_to_trust_export_completeness`); the
+  IDENTICAL facts 10 minutes later correctly retry — proving the buffer delays the decision
+  rather than blocking it forever. **If real evidence about the export's actual latency ever
+  surfaces, this constant should be revisited as data, not treated as already settled by this
+  buffer's existence.**
+
 A step recorded `attempting`/`unconfirmed` but no longer part of the freshly-recomputed required
 list (the requirement itself recomputes from the live roster every time, §2.3.1 — once a drop
 genuinely lands, the very next read may already show one fewer drop required) goes through the
@@ -760,14 +786,76 @@ instead of, the underlying MFL non-atomicity in §2.5, which no model here remov
   (wrongly) trust the numbers they reviewed earlier without re-pulling them.
 - **The commissioner is a single point of both authority and failure.** Every write in this
   model requires a human to act — if the commissioner is unavailable, every queued deal simply
-  waits, with no automated fallback and no second authorized executor documented here. Whether a
-  backup-commissioner path is needed is not decided in this document.
+  waits, with no automated fallback and no second authorized executor documented here. **Keith's
+  ruling (2026-09-30): no new backup-commissioner authority is granted as part of this PR.** The
+  aging alert below (§2.4.3b) is the mitigation this PR ships instead — it makes an unresolved
+  wait visible and escalating, rather than silent, but it does not create a second person who can
+  act. Whether a backup-commissioner path is ever built is left for a separate decision, not a
+  gap in this one.
 
 This procedure supersedes any assumption in §8.2 that staging leads directly to an AUTOMATED
 final write — §8.2's step 5 ("the worker executes the real MFL trade... executes any confirmed
 drop(s)") describes what happens ONLY if and when Keith later approves automating one of §2.1/
 §2.2's orderings. Until then, §8.2's step 5 is this section: a human, not the worker, performs
 every write the deal requires, through the review queue, following §2.4.3 exactly.
+
+**2.4.5 An owner can never retrigger a stuck sequence — Keith's ruling (2026-09-30): "an owner
+must never retrigger a failed or uncertain execution step. Only a commissioner may resume it
+after reviewing the ledger and MFL evidence."** DECIDED, and — checked directly against the code,
+not assumed — already structurally true almost everywhere, with one real gap found and closed:
+- **`POST /api/trades/2way/execute`**, the drop-first orchestrator's own HTTP entry point, is
+  commissioner-only (`isAdminCaller`) — an ordinary owner session is refused 403, server-side,
+  tested directly.
+- **The ledger lock itself is the deeper enforcement, independent of any route's own authz.**
+  `execute2Way`'s ordinary `ledger.acquire()` only succeeds from `NOT_EXECUTED`/`BLOCKED_CAP`; a
+  drop-first sequence stuck at `PARTIAL_EXECUTED` or `NEEDS_REVIEW` is in neither state, so even a
+  path that reaches `execute2Way` cannot acquire the lock a second time — it safely no-ops
+  (`{skipped: "execution_not_acquirable"}`). This is the same lock substrate `resumeDropSequence`
+  itself uses, so the two paths can never race into a double execution.
+- **The one real gap found while verifying this: `recheck2WayExecution`.** This owner-reachable
+  route's own guard (`row.status === 'collecting' && row.to_state === 'accepted'`) does NOT
+  exclude a stuck drop-first sequence, because `ups_2way_trades.status` stays `'collecting'`
+  throughout the ENTIRE sequence (§8.6's own documented fact, exploited by the cancel/select-drops
+  fixes there). The ledger-lock protection above meant this could never cause a SECOND MFL write —
+  but it WOULD flip `row.status` to `'executing'` (display: "Clearing final checks," actively
+  misrepresenting a deal that is actually stuck awaiting commissioner review) and hand the owner a
+  false `{ok:true, rechecking:true}`, silently discarding their action instead of saying it was
+  held. Fixed in PR #1163 with the identical ledger-read guard the cancel/select-drops paths
+  already use; tested directly (`tests/trade_2way_drop_first_execute.test.mjs`'s "recheck2WayExecution
+  must refuse once a drop-first sequence has started").
+- **Net:** an owner cannot advance, retrigger, or even cosmetically disturb a stuck sequence
+  through any route this app exposes. Only a commissioner (`isAdminCaller`) can call the execute
+  route that resumes it.
+
+**2.4.6 Aging alert for unresolved partial sequences — Keith's ruling (2026-09-30): "Add an aging
+alert for unresolved partial sequences; route it to the existing commissioner channel and show
+the age prominently in the queue."** BUILT in PR #1163, in two parts:
+- **Worker-side DM escalation** (`checkAgingDropFirstSequences`, `worker/src/trade_2way.js`):
+  scans `ups_trade_executions` for `two_way_staged_drop_first` rows stuck at `PARTIAL_EXECUTED`/
+  `NEEDS_REVIEW` for at least 30 minutes since the ledger's own last update, and DMs "the existing
+  commissioner channel" — the same `COMMISH_DISCORD_USER_ID` DM mechanism `notifyCommish` already
+  uses for every other alert in this feature, not a new or different channel. Rides the same
+  `*/2 * * * *` cron tick as the pre-existing auction-poll watchdog (`worker/src/index.js`) —
+  deliberately NOT gated on `TRADE_2WAY_DROP_EXECUTE_ENABLED`, since a stuck row's visibility must
+  outlive the flag that created it (e.g. the flag gets turned off BECAUSE something got stuck).
+  De-duplicated per-trade via the existing `ups_bot_heartbeat` convention (same pattern as
+  `dmCommishOncePerBatch`): re-alerts on a 60-minute cadence while the SAME state persists
+  unresolved, but re-alerts immediately on any genuine state change (e.g. `PARTIAL_EXECUTED` →
+  `NEEDS_REVIEW`), never waiting out the cooldown for a fact that actually changed. Tested
+  directly: under-threshold silence, over-threshold alert with the age stated in the DM text,
+  same-state dedup, and immediate re-alert on a real state change.
+- **Queue UI** (`site/commish/trade_review_queue.html`): a distinct, loud banner — separate from,
+  and louder than, the pre-existing generic 48-HOUR staleness marker on every trade — appears on
+  any card whose ledger is `PARTIAL_EXECUTED`/`NEEDS_REVIEW` and stuck past the SAME 30-minute
+  threshold the DM uses (one number, not two independently-tuned ones), stating the exact stuck
+  duration ("STUCK 1h 35m") and restating that only the commissioner can resume it. The card
+  itself also gets a distinct danger-colored border, so a stuck deal is visually distinguishable
+  from the rest of the queue at a glance, not just in its text. Tested directly
+  (`tests/trade_review_queue_page.test.mjs`'s two "AGING BANNER" tests).
+- **What this does NOT do:** it does not create a second authorized executor (§2.4.4's
+  backup-commissioner question is explicitly declined for this PR, not answered by this alert),
+  and it does not resume or retry anything itself — it only makes an existing wait visible and
+  escalating instead of silent.
 
 ### 2.5 Residual risk, stated plainly
 
@@ -1729,6 +1817,24 @@ recommendation, not a decision, until he rules on it.
   legacy direct-MFL 2-way route (create/counter/accept) and the 3-way engine (create/accept/
   execute) are now wired to the same hold staged 2-way already had. MFL's own native site remains
   outside any in-app hold's reach, by design, documented as such in §8.6.
+- **An owner can never retrigger a failed/uncertain step; only a commissioner may resume it**
+  (§2.4.5, Keith's ruling 2026-09-30) — DECIDED and enforced: the execute route is
+  commissioner-only, the ledger lock itself independently blocks a second acquisition regardless
+  of route, and the one real gap found while verifying this (`recheck2WayExecution` could flip
+  `row.status` and hand back a false "rechecking" without ever causing a second write) is now
+  closed and tested.
+- **The aging-alert question is resolved: built, not merely "needed"** (§2.4.6, Keith's ruling
+  2026-09-30) — a commissioner-DM escalation plus a distinct queue-UI banner for any drop-first
+  sequence stuck past 30 minutes, both shipped and tested in PR #1163.
+- **No new backup-commissioner authority is granted as part of this PR** (§2.4.4, Keith's ruling
+  2026-09-30) — explicitly declined here, not left open; the aging alert above is the mitigation
+  this PR ships instead of a second authorized executor.
+- **The MFL transactions-export timing assumption is now hardened, not assumed** (§2.4.3b's
+  export-coverage addendum, Keith's ruling 2026-09-30) — edge-caching ruled out via an explicit
+  cache-bypass header, and MFL's own possible backend lag conservatively buffered (5-minute
+  minimum age before trusting a "no match" result), tested directly with a delayed-transaction
+  case. Stated as a buffer, not a proof — this codebase still has no independent evidence of the
+  export's actual latency.
 
 **Still blocking release — genuine decisions, not implementation details:**
 
@@ -1742,17 +1848,15 @@ recommendation, not a decision, until he rules on it.
   §12.2 — PR #1163 ships real, distinct copy for every case this document names (drop confirmed/
   trade pending, drop failed, drop unconfirmed, reconciled via transaction log, trade completed,
   the player-loss case) — listed here only pending Keith's review of the actual wording.
-- **Whether an owner can themselves re-trigger their own failed drop step**, or whether this is
-  strictly commissioner-only (§6, unchanged) — PR #1163's `/api/trades/2way/execute` is
-  commissioner-only today; not yet decided whether that should ever change.
-- **Whether a stuck deal needs its own aging alert**, and whether a backup-commissioner path is
-  needed (§2.4.4, §11, unchanged) — not built.
 - **Whether the commissioner needs an urgency signal for the free-agent race** (§11) — not built;
   the player-loss DM tells the commissioner to act, but nothing pages or escalates if they don't.
-- **`handle3WayButton`'s own accept-time hold check is not independently unit-tested** (§8.6) —
-  the code mirrors `accept2WayTrade`'s exact, tested pattern and was reviewed by inspection, but
-  its own Discord-interaction fixture ecosystem is genuinely separate from this pass's test
-  harness; extending it was out of scope here.
+  Distinct from §2.4.6's aging alert, which escalates an unresolved LEDGER state, not the
+  separate, faster free-agent-reclaim race a restoration attempt runs against.
+- **`handle3WayButton`'s own accept-time hold check** (§8.6) — the code mirrors
+  `accept2WayTrade`'s exact, tested pattern and was reviewed by inspection; now independently
+  unit-tested too (`tests/trade_3way_button_hold.test.mjs`, using the same Discord-interaction
+  fixture ecosystem `extension_eligibility.test.mjs` already establishes), closing what was
+  previously an inspection-only gap.
 
 **Until every "still blocking" item above is explicitly resolved, `TRADE_2WAY_DROP_EXECUTE_
 ENABLED` stays off and no commissioner-facing "complete this trade" action runs for real.** §12.1's

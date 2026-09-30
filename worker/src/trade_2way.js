@@ -638,6 +638,24 @@ export async function recheck2WayExecution(env, ctx, id, viewer) {
   if (!row || !inScope(row, viewer)) return { ok: false, http: 404, code: "not_found", message: "This trade doesn't exist." };
   if (!canView2Way(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
   if (row.status !== "collecting" || row.to_state !== "accepted") return { ok: false, http: 409, code: "not_recheckable", message: "This trade isn't waiting on a re-check right now." };
+  // Keith's ruling (2026-09-30): "an owner must never retrigger a failed or uncertain execution
+  // step. Only a commissioner may resume it." `ups_2way_trades.status` stays 'collecting'
+  // throughout an ENTIRE drop-first sequence (only runTradeLegAfterDrops ever moves it off
+  // 'collecting', on success) -- so without this check, THIS is the one owner-facing route that
+  // could still be called mid-sequence. It was never actually able to cause a SECOND MFL write
+  // (execute2Way's own ledger.acquire() only succeeds from NOT_EXECUTED/BLOCKED_CAP, so it would
+  // safely no-op against a ledger already at EXECUTING/PARTIAL_EXECUTED/NEEDS_REVIEW) -- but it
+  // WOULD flip row.status to 'executing' (misrepresenting a stuck, commissioner-owned deal as
+  // "clearing final checks") and hand the owner a falsely-optimistic `rechecking: true`, silently
+  // discarding their action instead of saying it's held. Refuse explicitly instead.
+  try {
+    const led = await ledgerFor(env).read(lkey(row));
+    if (led && led.state && led.state !== EXEC.NOT_EXECUTED && led.state !== EXEC.BLOCKED_CAP) {
+      return { ok: false, http: 409, code: "execution_in_progress", message: "This trade has already started executing (at least one step has been attempted) — it's waiting on the commissioner, not a re-check. The commissioner must resume it after reviewing the ledger and MFL evidence." };
+    }
+  } catch (e) {
+    return { ok: false, http: 503, code: "unavailable", message: "Couldn't confirm it's safe to re-check this right now. Try again in a moment." };
+  }
   const { success } = await env.UPS_MFL_DB.prepare(`UPDATE ups_2way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), tid).run();
   if (!success) return { ok: false, http: 409, code: "race", message: "This trade just changed state — refresh and try again." };
   const run = () => execute2Way(env, tid);
@@ -786,6 +804,85 @@ async function notifyCommish(env, content) {
 }
 const stepName = (playerId) => `drop:${digits(playerId)}`;
 
+// ═══════════════════ AGING ALERT (Keith, 2026-09-30) ═══════════════════
+// "Add an aging alert for unresolved partial sequences; route it to the existing commissioner
+// channel and show the age prominently in the queue." An unresolved PARTIAL_EXECUTED/
+// NEEDS_REVIEW row means at least one real, irreversible drop already happened and the deal is
+// waiting on commissioner action (Keith's retry ruling above: an owner can never advance it).
+// The immediate per-step DMs above fire once, at the moment something goes uncertain -- this is
+// the separate, later escalation for "nobody has resolved it yet." Deliberately NOT gated on
+// TRADE_2WAY_DROP_EXECUTE_ENABLED: a stuck row can outlive the flag being turned back off (e.g.
+// turned off BECAUSE something got stuck), and visibility into already-irreversible state must
+// never depend on the switch that created it.
+const AGING_ALERT_THRESHOLD_MIN = 30; // first alert once stuck this long since the last ledger update
+const AGING_ALERT_RECHECK_SEC = 60 * 60; // re-alert cadence while still unresolved and unchanged
+// On-demand, exactly like LEDGER_DDL above -- this table is shipped as migration 0093, but this
+// check must never depend on migration ordering any more than the ledger itself does.
+const HEARTBEAT_DDL = `CREATE TABLE IF NOT EXISTS ups_bot_heartbeat (bot TEXT PRIMARY KEY, last_ts INTEGER NOT NULL, status TEXT DEFAULT 'ok', env TEXT DEFAULT '')`;
+async function findAgingDropFirstSequences(env) {
+  const db = ledgerDbFor(env);
+  await db.prepare(LEDGER_DDL).run().catch(() => {});
+  let rows;
+  try {
+    const res = await db.prepare(
+      `SELECT league_id, season, exec_key, state, participants, failed_step, failure_detail, created_at_utc, updated_at_utc
+         FROM ups_trade_executions
+        WHERE kind = 'two_way_staged_drop_first' AND state IN (?, ?)`
+    ).bind(EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW).all();
+    rows = res.results || [];
+  } catch (e) {
+    if (/no such table:\s*ups_trade_executions\b/i.test(safeStr(e?.message))) return [];
+    console.error(`[drop-first-aging] query failed: ${e?.message || e}`);
+    return [];
+  }
+  const nowMs = Date.now();
+  return rows.map((r) => {
+    const updatedMs = Date.parse(safeStr(r.updated_at_utc));
+    const ageMin = Number.isFinite(updatedMs) ? Math.floor((nowMs - updatedMs) / 60000) : null;
+    return { ...r, age_min: ageMin };
+  }).filter((r) => r.age_min != null && r.age_min >= AGING_ALERT_THRESHOLD_MIN);
+}
+/**
+ * Scans for unresolved drop-first sequences that have sat stuck long enough to escalate, and DMs
+ * the commissioner channel for each one not already alerted (or whose state changed since the
+ * last alert). Safe to call on any cron tick -- cheap, read-mostly, and every write is a
+ * best-effort heartbeat dedup row, never a ledger mutation. Returns a plain summary, never throws.
+ */
+export async function checkAgingDropFirstSequences(env) {
+  const db = ledgerDbFor(env);
+  await db.prepare(HEARTBEAT_DDL).run().catch(() => {});
+  let aging;
+  try { aging = await findAgingDropFirstSequences(env); } catch (e) { return { ok: false, error: e?.message || String(e) }; }
+  let alerted = 0;
+  for (const row of aging) {
+    const alertKey = `drop_first_aging:${row.league_id}:${row.season}:${row.exec_key}`;
+    const nowSec = Math.floor(Date.now() / 1000);
+    try {
+      const seen = await db.prepare(`SELECT last_ts, status FROM ups_bot_heartbeat WHERE bot = ?`).bind(alertKey).first();
+      const lastTs = Number(seen?.last_ts || 0);
+      const sameState = seen && safeStr(seen.status) === safeStr(row.state);
+      if (sameState && nowSec - lastTs < AGING_ALERT_RECHECK_SEC) continue; // already alerted this state recently
+    } catch (e) {
+      console.log(`[drop-first-aging] dedupe read failed for ${row.exec_key}, alerting anyway: ${e?.message || e}`);
+    }
+    const stateLabel = row.state === EXEC.NEEDS_REVIEW ? "NEEDS REVIEW" : "PARTIAL — still resolving";
+    const hours = Math.floor(row.age_min / 60), mins = row.age_min % 60;
+    const ageLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    const detail = row.failed_step ? ` Stuck at step \`${safeStr(row.failed_step)}\`${row.failure_detail ? ` (${safeStr(row.failure_detail).slice(0, 200)})` : ""}.` : "";
+    await notifyCommish(env, `⏰ **AGING — 2-way trade ${row.exec_key} has been ${stateLabel} for ${ageLabel}** (teams ${safeStr(row.participants)}).${detail} At least one real drop has already happened on this deal. Only the commissioner can resume it, after reviewing the ledger and MFL's own evidence — review it in the trade queue.`);
+    alerted += 1;
+    try {
+      await db.prepare(
+        `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES (?, ?, ?, '')
+         ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status`
+      ).bind(alertKey, nowSec, safeStr(row.state)).run();
+    } catch (e) {
+      console.log(`[drop-first-aging] dedupe write failed for ${row.exec_key} (alert already sent): ${e?.message || e}`);
+    }
+  }
+  return { ok: true, found: aging.length, alerted };
+}
+
 // One live rosters read serves BOTH the "still valid" re-check and the mandatory snapshot --
 // never trusted from an earlier read (§2.4.3b step 1/2).
 async function fetchLiveRosterRow(env, leagueId, season, franchiseId, playerId) {
@@ -846,7 +943,11 @@ async function findFreeAgentDropTransaction(env, { leagueId, season, franchiseId
     const apiKey = safeStr(env.MFL_APIKEY);
     if (!apiKey) return { ok: false, reason: "no_mfl_apikey" };
     const u = `https://www48.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&TRANS_TYPE=FREE_AGENT&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
-    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    // Reconciliation evidence must never read a CACHED answer -- explicit cache-bypass closes
+    // that one class of staleness completely (Keith, 2026-09-30: "verify the export's
+    // coverage"). This does NOT prove MFL's own backend has no independent processing lag --
+    // see MIN_RECONCILE_AGE_MS below for how that separate, unverified risk is handled.
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" }, cf: { cacheTtl: 0, cacheEverything: false } });
     const j = await r.json().catch(() => null);
     let rows = j && j.transactions && j.transactions.transaction;
     if (!Array.isArray(rows)) rows = rows ? [rows] : [];
@@ -875,6 +976,20 @@ async function findFreeAgentDropTransaction(env, { leagueId, season, franchiseId
 //     moved them (a waiver claim, a different drop, a data lag) -- never assumed to be OUR OWN
 //     doing. Held for commissioner review, not guessed.
 //   - the transaction log itself can't be read -- held; evidence is unavailable, never guessed.
+// Keith's ruling (2026-09-30): "'no matching transaction + player present' is safe to retry
+// only if the MFL export is complete through the attempt time. If the export can lag, truncate,
+// or omit that transaction, absence of a match proves nothing." This codebase has NO proven
+// evidence MFL's transactions export is instantaneous -- the one existing precedent for using
+// this same export to reconcile an ambiguous write (trade_3way.js's legExecuted/findExecutedTrade)
+// only ever uses it as SECONDARY corroboration of an ALREADY-positive signal (a tradeId in a bad
+// response), never as the sole source of truth for "nothing happened" the way this function's
+// own "retry" branch does. Absent proof either way, a "no match" result is trusted for the RETRY
+// decision only once this much real time has passed since the attempt -- long enough that any
+// ordinary processing lag would have resolved. This is a conservative BUFFER, not a proven-
+// sufficient one; if real evidence about the export's actual latency ever surfaces, this constant
+// should be revisited, not treated as settled.
+const MIN_RECONCILE_AGE_MS = 5 * 60000; // 5 minutes
+
 async function reconcilePriorAttempt(env, row, step, prior) {
   const attemptedIso = safeStr(prior.attempted_at_utc) || safeStr(prior.confirmed_at_utc) || "";
   const attemptedMs = Date.parse(attemptedIso);
@@ -885,6 +1000,10 @@ async function reconcilePriorAttempt(env, row, step, prior) {
   const live = await fetchLiveRosterRow(env, row.league_id, row.season, step.franchiseId, step.playerId);
   if (!live.ok && live.reason === "player_not_on_roster") return { outcome: "hold", reason: "absent_without_matching_transaction" };
   if (!live.ok) return { outcome: "hold", reason: `roster_check_failed: ${live.reason}` };
+  // Present + no transaction match -- but do NOT trust "no match" as proof of "never happened"
+  // until enough time has passed for the export to plausibly have caught up.
+  const ageMs = Number.isFinite(attemptedMs) ? Date.now() - attemptedMs : Infinity;
+  if (ageMs < MIN_RECONCILE_AGE_MS) return { outcome: "hold", reason: "too_soon_to_trust_export_completeness" };
   return { outcome: "retry" };
 }
 
