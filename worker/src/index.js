@@ -38698,6 +38698,30 @@ const mflToSleeper = {};
                   });
                 }
               }
+              // THE RECIPIENT's own requirement (Keith's ruling, 2026-09-30: "If Hammer has 5
+              // loaded contracts... and I offer him Chig Okonkwo as a sixth, show me before Send").
+              // The block above only ever checked the SENDER's own side -- by design, since only
+              // the sender is present to supply a selection at create time. But the recipient
+              // cannot be over the limit here EITHER: sending would still create a real,
+              // natively-acceptable MFL trade proposal for a franchise this deal would put over 5,
+              // and the recipient has had no chance to pick anything yet (they haven't even seen
+              // the offer). Refused here, naming the RECIPIENT's own team and count, exactly like
+              // the sender's own case -- never deferred to "the recipient's concern at accept,"
+              // which was the cap-acknowledgment precedent this block's own comment above
+              // originally borrowed from, but cap and loaded-contracts are not the same shape:
+              // cap needs the AFFECTED owner's personal acknowledgment (which only they can give),
+              // while a loaded-contract violation is a hard block regardless of who acknowledges
+              // it, and the sender is fully able to see it and revise the offer before sending.
+              const theirDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === toFranchiseId);
+              if (theirDropReq && !theirDropReq.satisfied) {
+                const heldMsg = theirDropReq.franchise_name + " would move from " + theirDropReq.loaded_before + " to " + theirDropReq.projected + " loaded contracts. The maximum is 5, so " + theirDropReq.required_drops + " conditional drop" + (theirDropReq.required_drops === 1 ? "" : "s") + " of " + theirDropReq.franchise_name + "'s own loaded-contract player" + (theirDropReq.required_drops === 1 ? "" : "s") + " " + (theirDropReq.required_drops === 1 ? "is" : "are") + " required if " + theirDropReq.franchise_name + " accepts this trade -- only " + theirDropReq.franchise_name + " can select it, when they review the offer. Revise this trade, or stage it instead of sending it directly.";
+                return jsonOut(409, {
+                  ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required", who: "recipient",
+                  error: heldMsg,
+                  compliance: createDropCompliance,
+                  loaded_contract_drops_needed: { franchise_id: toFranchiseId, loaded_before: theirDropReq.loaded_before, projected: theirDropReq.projected, required_drops: theirDropReq.required_drops, selected: theirDropReq.selected, valid_count: theirDropReq.valid_count, satisfied: theirDropReq.satisfied, executable: false },
+                });
+              }
             }
           }
 

@@ -927,6 +927,19 @@
     }).then(function (resp) {
       if (attempt > 5) return resp;
       if (resp.status === 409 && resp.body && resp.body.code === "loaded_contract_drops_required") {
+        // Keith's ruling (2026-09-30): the RECIPIENT can also be the one over the limit (e.g.
+        // "I offer Hammer Times a loaded 6th") -- that requirement is never the sender's own to
+        // pick here (only the recipient can, at their own review), so no picker sheet applies.
+        // openCreateLoadedContractDropsSheet already resolves null for this case (matching its
+        // "resolves null on cancel/close" convention) -- but treating that null identically to
+        // "the owner cancelled" would silently swallow the refusal on mobile with NO feedback at
+        // all (desktop instead re-throws the original error either way, so it never had this
+        // gap). Check applicability BEFORE opening anything, so a genuine cancel (picker WAS
+        // shown, owner closed it) still resolves null quietly, but "not my requirement" instead
+        // surfaces the real 409 response, matching desktop's behavior exactly.
+        var reqs409 = (resp.body.compliance && resp.body.compliance.loaded_contracts && resp.body.compliance.loaded_contracts.drop_requirements) || [];
+        var appliesToMe = reqs409.some(function (d) { return U.pad4(d.franchise_id) === fromFranchiseId; });
+        if (!appliesToMe) return resp;
         return openCreateLoadedContractDropsSheet(resp.body, fromFranchiseId).then(function (picked) {
           if (!picked) return null;
           var nextBody = Object.assign({}, initialBody, { loaded_contract_drops: picked });
