@@ -100,14 +100,16 @@ Live worker responses were captured before and after and diffed.
 - D1: `npx wrangler d1 time-travel restore ups-mfl-db --bookmark 0000e083-00000024-000050f6-3a9afd34187a39be18b157fc0782be25` (restores the whole DB to
   that point), or set the three values back with the inverse UPDATEs.
 
-## Follow-ups not done here
+## Follow-ups
 
-- The nightly D1 job is not installed (no `com.upsmfl.d1-sync` LaunchAgent). The installed copy
-  `~/Library/Scripts/upsmfl-load-local-to-d1.py` predates this guard and the nflverse guard. It
-  would still load the corrected flag (it reads the fixed DB), but only the repo copy refuses a
-  restored old backup. After merge, `scripts/install_d1_sync_cron.sh` refreshes the copy — and
-  also installs the launchd job, so run it only if that is wanted.
-- Older local backups (`mfl_database.pre_*.db`, including the one made here) still carry the bad
-  flag; the guard refuses them.
-- Week 3 article PR #1161 already shows the corrected series; its pack's `t.pv.games` still holds
-  the two stale cells until that pack is rebuilt.
+- **Nightly D1 job stays disabled** (Keith, September 29): `scripts/install_d1_sync_cron.sh`
+  was not run, because it would load the 03:45 launchd job. The installed copy
+  `~/Library/Scripts/upsmfl-load-local-to-d1.py` still predates this guard. It would load the
+  corrected flag anyway, since it reads the fixed DB, but only the repo copy refuses a restored
+  old backup. [docs/runbooks/d1_local_loader.md](../runbooks/d1_local_loader.md) has the
+  files-only refresh (no schedule) and how to verify it. Run that after this PR merges.
+- **Old local backups:** `mfl_database.pre_*.db`, including the one made here, still carry the
+  bad flag; the guard refuses them.
+- **Week 3 pack: done in #1161.** `refresh_pack_h2h.py` re-derived only the head-to-head fields
+  after this fix, with no rebuild, so the Tuesday cutoff is preserved. Two `t.pv.games` cells
+  changed (17–5, tied 11–11). The article, pack, D1 and MFL's export agree on all twelve series.
