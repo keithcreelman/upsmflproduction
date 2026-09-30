@@ -165,7 +165,7 @@ function installRealDropActionFetchStub(env, mfl, { pageResponder, postResponder
 }
 
 test("RECONSTRUCTED-FIXTURE: the REAL parse -> POST -> verify pipeline confirms a drop -- real HTML parsed, real form fields extracted, the desired ROSTER list correctly omits the dropped player, and the SAME already-proven rosters-export verification (mfl.st.rosters) sees the player genuinely gone", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   const stub = installRealDropActionFetchStub(env, mfl);
   try {

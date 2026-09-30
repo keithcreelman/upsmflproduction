@@ -103,20 +103,43 @@ test("ACCEPT: only the recipient can accept -- the sender attempting to accept t
   t.equal(x.http, 403);
 });
 
-test("ACCEPT: both sides ok -> accepted AND released to execution (dry-run, so no real MFL write -- confirmed by the row landing 'completed' with failure_reason 'dry_run', never a real mfl_trade_id)", async () => {
-  const env = makeEnv(); // default healthy compliance for both sides
+test("ACCEPT with execution disabled (TRADE_2WAY_STAGING_EXECUTE off, the default): both sides ok -> accepted, but HELD -- never 'completed', never a real mfl_trade_id, never copy implying completion (Keith's ruling, 2026-09-30)", async () => {
+  const env = makeEnv(); // default healthy compliance for both sides, TRADE_2WAY_STAGING_EXECUTE unset
   const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  discord.reset(); // isolate to just the accept's own DMs, not the earlier "invite" DM from create
   const ctx = ctxWait();
   const x = await accept2WayTrade(env, ctx, created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
   t.ok(x.ok, JSON.stringify(x));
   t.equal(x.accepted, true);
   t.equal(x.executing, true);
-  await ctx.flush(); // the dry-run execution itself runs inside the waitUntil promise
+  await ctx.flush(); // the held-for-execution-disabled path runs inside the waitUntil promise
   const row = env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(created.id);
-  t.equal(row.status, "completed");
-  t.equal(row.failure_reason, "dry_run");
-  t.equal(row.mfl_trade_id, null, "dry-run must never fabricate an MFL trade id");
+  t.equal(row.status, "collecting", "never a terminal status -- resumable, not done");
+  t.equal(row.to_state, "accepted", "the accept itself is still recorded");
+  t.equal(row.mfl_trade_id, null, "nothing was ever sent to MFL");
+  t.notEqual(row.failure_reason, "dry_run", "no longer marked as a finished dry run");
+  const owner = discord.to("100000000000000001").concat(discord.to("100000000000000002"));
+  t.ok(owner.length >= 2, "both sides were notified");
+  for (const dm of owner) {
+    const content = dm.body && dm.body.content;
+    t.doesNotMatch(content, /✅/, "no checkmark -- this never reads as success");
+    t.doesNotMatch(content, /trade itself cleared|is complete\b/i, "no wording implying the trade itself went through");
+    t.match(content, /waiting on the commissioner to turn on live trade execution/, "says plainly what it's actually waiting on");
+    t.match(content, /no action is needed from you/i, "tells the owner there's nothing for them to do");
+  }
+  // Resumable: the detail view says so too, distinctly from the generic "still reviewing
+  // compliance" copy, and offers Re-check now that can_recheck matches this held shape.
+  const detail = await get2WayTrade(env, created.id, viewer(FR.A, { leagueId: "74598", season: "2026" }), {});
+  t.equal(detail.trade.state_view.code, "awaiting_commissioner");
+  t.match(detail.trade.state_view.message, /waiting on the commissioner to turn on live trade execution/);
+  t.equal(detail.trade.permissions.can_recheck, true, "Re-check is available (harmless/idempotent while the flag stays off, and what actually resumes it once the flag flips on)");
 });
+
+// LATER FLAG-ON RESUMPTION and ROLLBACK-WITH-AN-IN-FLIGHT-DEAL need a REAL (non-throwing) fake
+// MFL to execute against once TRADE_2WAY_STAGING_EXECUTE flips on -- this file's own
+// installDiscordRecorder() deliberately throws on any non-discord.com fetch (see this file's
+// header), so those scenarios live in tests/trade_2way_execution_disabled_resume.test.mjs
+// instead, which uses worker_harness.mjs's makeMfl() stateful fake MFL.
 
 test("BOTH PARTIES' LOADED LIMITS: the RECIPIENT (not just the sender/initiator) being over the loaded-contract limit holds the trade at accept -- proves the recheck covers both sides, not only whoever created the offer", async () => {
   const env = makeEnv({

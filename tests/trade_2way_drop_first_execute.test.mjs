@@ -135,7 +135,7 @@ test("MANDATORY SNAPSHOT: a SECOND required drop's player leaves the roster in t
 });
 
 test("HAPPY PATH: two required drops across the SAME franchise, both confirmed, then the trade -- distinct notifications at each stage, ledger records both pre-drop snapshots", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   mfl.st.rosters[FR.A] = [...fiveLoaded(80000), flat("90000")]; // 5 loaded + the traded asset -> needs 2 drops after sending 0 loaded away, receiving 0 loaded (projected stays 5... use 6 loaded to force required=1)
   // Force exactly ONE required drop deterministically: 5 loaded is AT the limit (not over) with
   // no net change from this trade, so bump to 6 loaded pre-existing to require exactly 1 drop.
@@ -218,7 +218,7 @@ test("MFL PROVABLY DID NOT DROP THE PLAYER (verification says still on roster): 
 });
 
 test("RETRY NEVER REPEATS A CONFIRMED DROP: first attempt confirms drop A then fails on drop B; a second attempt (retry) does NOT re-call unload_player for A, and resumes at B", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   // Two required drops: 6 pre-existing loaded (over by 1)... force required=2 by starting at 7.
   mfl.st.rosters[FR.A] = [...fiveLoaded(80000), loaded("80005"), loaded("80006"), flat("90000")];
   mfl.st.rosters[FR.B] = [flat("13100")];
@@ -305,7 +305,7 @@ test("PER-FRANCHISE HOLD: an unresolved drop-first sequence blocks ACCEPTING a d
 });
 
 test("PER-FRANCHISE HOLD, EXECUTOR ITSELF: a franchise cannot have two drop-first sequences in flight -- executeDropFirstDeal refuses to START a DIFFERENT deal while one is unresolved, but a stuck deal can always resume ITSELF", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const stuckId = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   installFakeUnloadPlayer(env, lockoutResp);
   await executeDropFirstDeal(env, {}, stuckId);
@@ -327,7 +327,7 @@ test("PER-FRANCHISE HOLD, EXECUTOR ITSELF: a franchise cannot have two drop-firs
 });
 
 test("COVERAGE GAP FOUND AND CLOSED: cancel2WayTrade must refuse once ANY drop-first step has been attempted -- ups_2way_trades.status stays 'collecting' throughout the whole sequence, so without this the deal could be cancelled away while a real, confirmed drop sits unrepresented (and the commissioner queue's default view excludes cancelled trades entirely)", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   installFakeUnloadPlayer(env, confirmedResp);
   const exec = await executeDropFirstDeal(env, {}, id);
@@ -576,7 +576,7 @@ test("HTTP: POST /api/trades/2way/execute is commissioner-only -- an ordinary ow
 });
 
 test("HTTP: the admin key can start execution -- 202, dispatched via waitUntil, real ledger state afterward", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   installFakeUnloadPlayer(env, confirmedResp);
   const r = await callWorker(env, "POST", `/api/trades/2way/execute?${Q}&APIKEY=${ADMIN_KEY}`, { body: { id } });
@@ -615,7 +615,7 @@ async function stageTwoDropDeal(env, mfl) {
 }
 
 test("RECONCILIATION — CRASH BETWEEN MFL CONFIRMING AND THE LEDGER RECORDING IT: drop 80000 already landed on MFL (a matching FREE_AGENT transaction record exists), but its own step was only ever recorded 'attempting' (simulating the exact window Keith flagged) -- a resume RECONCILES it as confirmed via the transaction record, WITHOUT calling unload_player again, then proceeds to drop 80001 and the trade", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const id = await stageTwoDropDeal(env, mfl);
   const attemptIso = new Date(Date.now() - 6 * 60000).toISOString();
   // The write actually happened -- both signals agree: the roster reflects it AND MFL's own
@@ -769,7 +769,7 @@ test("INTERVENING CHANGE, CASE A — player absent for an UNRELATED reason (no m
 });
 
 test("INTERVENING CHANGE, CASE B — player dropped for real, then RE-ADDED to the same roster before reconciliation runs: presence alone would wrongly say 'never happened, retry' -- the matching transaction record must win, confirming without a second write", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const id = await stageTwoDropDeal(env, mfl);
   const attemptIso = new Date(Date.now() - 6 * 60000).toISOString();
   seedCrashedAttempt(env, id, { "drop:80000": { status: "attempting", franchise_id: FR.A, player_id: "80000", pre_drop_snapshot: SNAP_80000, attempted_at_utc: attemptIso } });
@@ -888,15 +888,39 @@ test("TRADE LEG — the FIRST call's own response is ambiguous (MFL's propose en
 });
 
 test("TRADE LEG — steps_json now records a real `trade` step on the ordinary happy path too, distinct from the drop steps", async () => {
-  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1" });
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "1" });
   const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
   installFakeUnloadPlayer(env, confirmedResp);
-  const r = await executeDropFirstDeal(env, {}, id); // dry-run (TRADE_2WAY_STAGING_EXECUTE unset)
+  const r = await executeDropFirstDeal(env, {}, id);
   t.equal(r.ok, true, JSON.stringify(r));
   const steps = JSON.parse(ledgerRow(env, id).steps_json);
   t.ok(steps.trade, "a 'trade' step must exist in steps_json, not just drop:* steps");
   t.equal(steps.trade.status, "confirmed");
-  t.equal(steps.trade.reason, "dry_run");
+  t.notEqual(steps.trade.reason, "dry_run", "a real completion, not the old dry-run shortcut");
+  t.ok(steps.trade.mfl_trade_id, "a real MFL trade id was recorded for the trade step");
+});
+
+// Keith's ruling (2026-09-30): with execution disabled, an accepted staged deal -- including one
+// whose required drop(s) already confirmed for real -- must NEVER enter a terminal 'completed'
+// state or record a fabricated 'trade' step. It must stay held and resumable. This is the
+// drop-first path's OWN version of that fix (see tests/trade_2way_execution_disabled_resume.test.mjs
+// for the full flag-off/later-flag-on/rollback story, including the real Hammer/Chig scenario);
+// this one just confirms steps_json specifically never gets a fake 'trade' step out of it.
+test("TRADE LEG, EXECUTION DISABLED: the drop confirms for real, but NO 'trade' step is ever recorded, and the ledger/row never read completed", async () => {
+  const { env, mfl } = fresh({ TRADE_2WAY_DROP_EXECUTE_ENABLED: "1", TRADE_2WAY_STAGING_EXECUTE: "0" });
+  const id = await stageAcceptWithDrop(env, mfl, { senderLoadedIds: ["80000", "80001", "80002", "80003", "80004", "80005"], dropPlayerId: "80000" });
+  installFakeUnloadPlayer(env, confirmedResp);
+  const r = await executeDropFirstDeal(env, {}, id);
+  t.equal(r.ok, true, JSON.stringify(r));
+  t.equal(r.held, true);
+  t.equal(r.reason, "execution_disabled");
+  const led = ledgerRow(env, id);
+  t.equal(led.state, "partial_executed");
+  const steps = JSON.parse(led.steps_json);
+  t.equal(steps["drop:80000"].status, "confirmed", "the drop itself is real and recorded");
+  t.ok(!steps.trade, "no 'trade' step at all -- never fabricated, unlike the old dry-run behavior");
+  t.equal(tradeRow(env, id).status, "collecting");
+  t.equal(tradeRow(env, id).mfl_trade_id, null);
 });
 
 // ═══════ AGING ALERT (Keith, 2026-09-30): "Add an aging alert for unresolved partial
