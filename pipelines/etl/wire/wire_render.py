@@ -284,9 +284,14 @@ def audit_pot_note(text, where, pot):
 
 
 # The desk. Keith 2026-09-15: "Stuart: line passes it to Rich." The speaker is
-# a whitelisted KEY, never typed text, so a typo cannot invent a third voice and
-# the label never passes through the digit or typed-quote audits.
-ANCHORS = {"stuart": "Stuart", "rich": "Rich"}
+# a whitelisted KEY, never typed text, so a typo cannot invent an unknown voice
+# and the label never passes through the digit or typed-quote audits.
+#
+# "boomer" added 2026-09-29 for the Week 3 pilot ("Boomer's Three-Minute
+# Rundown", tossed to and from inside a section's own desk -- see
+# packs/weekly_recap.py's s1). A guest voice is still just another whitelisted
+# key: nothing else about desk_lines()/desk_html() needed to change for it.
+ANCHORS = {"stuart": "Stuart", "rich": "Rich", "boomer": "Boomer"}
 
 
 def desk_lines(lines, where):
@@ -990,8 +995,8 @@ def render_sections(pack, prose):
         # an anchor sets it up, the message runs, an anchor reacts. Keith
         # 2026-09-16: "Don't just throw the message out there without
         # incorporating into the dialogue." potQuoteAt = {pot id: {quote id:
-        # desk line it follows}}, and a pot quote with no position fails the
-        # render instead of dropping to the bottom of the page.
+        # desk line it follows}}. Only selected quotes render; a pack quote
+        # without enough context can be omitted from the prose entirely.
         pot_quote_at = s.get("potQuoteAt") or {}
         unknown = sorted(k for k in pot_notes if k not in pids)
         if unknown:
@@ -1031,17 +1036,14 @@ def render_sections(pack, prose):
                 if stray:
                     raise RenderError("%s pot %s places quote(s) the pot does not carry: %s"
                                       % (where, pid, ", ".join(stray)))
-                for qid in carried:
+                for qid in q_at:
                     if qid not in quotes:
-                        raise RenderError("pot %s carries unknown quote %s" % (pid, qid))
-                    if qid not in q_at:
-                        raise RenderError("%s pot %s carries quote %s but no desk line sets it up -- "
-                                          "place it with potQuoteAt" % (where, pid, qid))
+                        raise RenderError("pot %s places unknown quote %s" % (pid, qid))
                 woven = []
                 for i, line in enumerate(lines_html):
                     woven.append(line)
-                    woven.extend(render_quote(quotes[q]) for q in carried if int(q_at[q]) == i)
-                bad = [q for q in carried if not 0 <= int(q_at[q]) < len(lines_html)]
+                    woven.extend(render_quote(quotes[q]) for q in carried if q in q_at and int(q_at[q]) == i)
+                bad = [q for q in q_at if not 0 <= int(q_at[q]) < len(lines_html)]
                 if bad:
                     raise RenderError("%s pot %s places %s after a desk line that does not exist (it has %d)"
                                       % (where, pid, ", ".join(bad), len(lines_html)))

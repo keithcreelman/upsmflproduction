@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # One-shot installer for the nightly D1 sync job.
 #
+# WARNING: this ENABLES the 03:45 nightly load (writes + launchctl-loads
+# com.upsmfl.d1-sync). The job is intentionally disabled as of 2026-09-29.
+# To refresh the installed files WITHOUT a schedule, follow
+# docs/runbooks/d1_local_loader.md instead of running this.
+#
 # Stages everything needed to run the loader as a standalone launchd
 # job — no git checkout dependency. Copies:
 #   * sync_d1.sh               → ~/Library/Scripts/upsmfl-sync-d1.sh
