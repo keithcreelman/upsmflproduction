@@ -173,11 +173,27 @@
     // leaderboard map; we preload all three at app boot.
     var pid = (window.UPS_MOBILE.state && window.UPS_MOBILE.state._sheetPid) || "";
     var getStats = window.UPS_MOBILE.data.getAdvancedStatsFor;
+    // CURRENT season: MFL's own league scoring through the last COMPLETED week
+    // (site/m/season_scoring.js) — the exact numbers the Players market shows
+    // on the row that opened this sheet. career_summary is built from D1
+    // src_weekly, which lags MFL by a sync and on 2026-09-29 held no free-agent
+    // or taxi weeks at all (Chase McLaughlin: no 2026 row vs MFL's 42.1; Lukas
+    // Van Ness: 1 G / 3.5 vs MFL's 3 G / 37.5). Earlier seasons are unchanged.
+    var live = liveSeasonRow(pid);
+    // A completed week of MFL scoring IS real current-season data, even on the
+    // days before the stats leaderboard has rebuilt with any rows for it.
+    if (live && live.season > years[0]) {
+      years = [live.season, live.season - 1, live.season - 2];
+      ctx.curYearForLeaderboard = live.season;
+    }
     var rows = years.map(function (y) {
       var c = careerByYear[y] || {};
       var s = seasonsByYear[y] || {};
       var stats = getStats ? getStats(pid, y) : null;
       var games, pts, ppg, ppgRank;
+      if (live && y === live.season) {
+        return statRowHtml(y, live.games, live.pts, live.ppg, live.rank);
+      }
       // Prefer career_summary — the SAME source the desktop master profile
       // uses (site/shared/player_profile_master.js). It carries games_played,
       // season_points, avg_ppg AND pos_ppg_rank and is internally consistent,
@@ -200,20 +216,54 @@
         ppg = games > 0 ? (pts / games) : 0;
         ppgRank = Number(s.pos_ppg_rank || 0) || 0;
       }
-      return '<tr>' +
-        '<td>' + y + '</td>' +
-        '<td>' + games + '</td>' +
-        '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
-        '<td>' + (Math.round(ppg * 10) / 10).toFixed(1) + '</td>' +
-        '<td>' + (ppgRank > 0 ? ppgRank : 0) + '</td>' +
-      '</tr>';
+      return statRowHtml(y, games, pts, ppg, ppgRank);
     }).join("");
 
     return '' +
       '<table class="ups-m-stat-table">' +
         '<thead><tr><th>Year</th><th>G</th><th>Pts</th><th>PPG</th><th>PPG Rk</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
-      '</table>';
+      '</table>' +
+      (live ? '<div class="ups-m-stat-basis">' + U.escapeHtml(live.season + ": " + live.basis) + '</div>' : '');
+  }
+
+  function statRowHtml(y, games, pts, ppg, ppgRank) {
+    return '<tr>' +
+      '<td>' + y + '</td>' +
+      '<td>' + games + '</td>' +
+      '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
+      '<td>' + (Math.round(ppg * 10) / 10).toFixed(1) + '</td>' +
+      '<td>' + (ppgRank > 0 ? ppgRank : 0) + '</td>' +
+    '</tr>';
+  }
+
+  // { season, games, pts, ppg, rank, basis } for the current season from MFL's
+  // league scoring, or null when there is no completed week to show (then the
+  // table falls back to career_summary exactly as before).
+  function liveSeasonRow(pid) {
+    var D = window.UPS_MOBILE.data;
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = D && D.getSeasonScoring ? D.getSeasonScoring() : null;
+    if (!pid || !SSMOD || !ss || !ss.known || !(ss.throughWeek > 0) || !ss.season) return null;
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    if (!ss._sheetRank) {
+      ss._sheetRank = SSMOD.rankMap(ss.byPid, function (id) {
+        var pl = D.playerById(id);
+        var g = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
+        return (g && g !== "OTH") ? g : "";
+      });
+    }
+    var st = ss.byPid[String(pid)];
+    var rk = ss._sheetRank[String(pid)];
+    return {
+      season: Number(ss.season),
+      games: st ? st.games : 0,
+      pts: st ? st.pts : 0,
+      ppg: st && st.ppg != null ? st.ppg : 0,
+      rank: rk ? rk.rank : 0,
+      basis: "MFL league scoring, " + SSMOD.weeksLabel(ss.includedWeeks) +
+        (ss.finalized ? " (final)" : " (latest posted)")
+    };
   }
 
   function loadBundle(pid) {

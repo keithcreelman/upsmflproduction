@@ -31,16 +31,27 @@ from the legacy local `standings` table, whose own origin is outside this
 repo). Left NULL here rather than invented.
 
 PER-PLAYER TABLES (added 2026-09-15 for the Wire's weekly recap): src_players,
-src_weekly, src_adddrop and src_trades for the season, from TYPE=players,
-the weeklyResults payloads already fetched above, and TYPE=transactions.
-src_weekly carries the ACTIVE roster only (starter/nonstarter) -- weeklyResults
-does not list taxi-squad or injured-reserve players, and free-agent rows,
-pos_rank, overall_rank and win_chunks came from the legacy fetcher's APIKEY
-playerScores pull. So 2026 "nonstarter" means active bench, not every rostered
-man, and anything counting nonstarter games sees fewer rows than 2025 did.
-Every franchise-week's starters must match MFL's own starters list and sum to
-MFL's team score, or none of the per-player tables is written. A per-player
-problem never blocks the four standings tables above.
+src_adddrop and src_trades for the season, from TYPE=players and
+TYPE=transactions. Every franchise-week's starters must match MFL's own
+starters list and sum to MFL's team score (checked from the weeklyResults
+payloads already fetched above), or none of the per-player tables is written.
+A per-player problem never blocks the four standings tables above.
+
+src_weekly IS NOT WRITTEN HERE (2026-10-01). Its one writer is
+sync_live_weekly_scores_to_d1.py, which writes MFL's whole TYPE=playerScores
+universe -- starters, bench, taxi AND free agents. This script used to write it
+too, from weeklyResults, which lists only ACTIVE-roster players, and build_sql
+starts with `DELETE FROM src_weekly WHERE season = N`. scripts/
+sync_live_season_weekly.sh runs both, and they retry independently, so on
+2026-09-29 the weekly sync wrote 3,631 rows at 05:00Z and this script -- whose
+D1 auth failed until 10:01Z -- then deleted the season and left 1,073. Every
+free agent's and taxi player's 2026 weeks were gone, and every reader of
+src_weekly saw it: /api/advanced-stats-leaderboard mfl_points (the mobile
+Players market showed Chase McLaughlin 0.0 vs MFL 42.1, 241 of 481 players
+wrong), player-bundle career_summary, the Wire. Whichever script finished last
+decided what the table held. The rows are still BUILT here, because the
+starter-sum check above is what gates the other per-player tables; they are
+just never written. See per_player_write_plan().
 
 Usage:
   python3 sync_live_season_from_mfl_to_d1.py --season 2026 --dry-run
@@ -513,6 +524,21 @@ def build_sql(table, cols, rows, pk_cols):
     return "\n".join(parts) + "\n"
 
 
+def per_player_write_plan(season, player_rows, adddrop_rows, trade_rows):
+    """[(label, sql)] for the per-player tables THIS script owns, in write
+    order. src_weekly is deliberately absent -- it belongs to
+    sync_live_weekly_scores_to_d1.py, and build_sql's season DELETE here
+    would wipe that script's free-agent and taxi rows (see module docstring).
+    Players first: every per-player reader joins src_players on season."""
+    return [
+        ("src_players", build_sql("src_players", PLAYERS_COLS, player_rows, ["season", "player_id"])),
+        ("src_adddrop", build_sql("src_adddrop", ADDDROP_COLS, adddrop_rows,
+                                  ["season", "txn_index", "player_id", "move_type"])
+                        or f"DELETE FROM src_adddrop WHERE season = {season};\n"),
+        ("src_trades", build_insert_sql("src_trades", TRADES_COLS, trade_rows, season=season)),
+    ]
+
+
 def d1_execute_file(sql_text, label):
     import subprocess
     import tempfile
@@ -635,7 +661,8 @@ def main():
     player_rows = [players[pid] for pid in sorted(players)]
     from collections import Counter
     print(f"  {len(player_rows)} players ({len(rostered)} rostered in played weeks), "
-          f"{len(weekly_rows)} src_weekly, {len(adddrop_rows)} src_adddrop, {len(trade_rows)} src_trades rows")
+          f"{len(weekly_rows)} active-roster player-weeks checked (NOT written -- src_weekly belongs to "
+          f"sync_live_weekly_scores_to_d1.py), {len(adddrop_rows)} src_adddrop, {len(trade_rows)} src_trades rows")
     print("  pos_group counts (rostered):", dict(Counter(r["pos_group"] for r in weekly_rows)))
     print("  status counts:", dict(Counter(r["status"] for r in weekly_rows)),
           "| NULL scores:", sum(1 for r in weekly_rows if r["score"] is None))
@@ -650,8 +677,8 @@ def main():
         print(f"\nDRY RUN -- would write: {len(franchises_rows)} src_franchises, "
               f"{len(schedule_rows)} src_schedule, {len(weekly_score_rows)} src_franchise_weekly_score, "
               f"{len(standings_rows)} src_standings, {len(player_rows)} src_players, "
-              f"{len(weekly_rows)} src_weekly, {len(adddrop_rows)} src_adddrop, "
-              f"{len(trade_rows)} src_trades rows for season {args.season}.")
+              f"{len(adddrop_rows)} src_adddrop, "
+              f"{len(trade_rows)} src_trades rows for season {args.season} (src_weekly: never -- see docstring).")
         print("NOTE: pwr left NULL for every row -- no source exists for it (see module docstring).")
         print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
         return 0
@@ -665,18 +692,14 @@ def main():
         print(f"\nStandings tables written; per-player tables skipped ({len(problems)} problem(s) above).")
         print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
         return 1
-    # Players before src_weekly: every per-player reader joins src_players on season.
-    d1_execute_file(build_sql("src_players", PLAYERS_COLS, player_rows, ["season", "player_id"]), "src_players")
-    d1_execute_file(build_sql("src_weekly", WEEKLY_COLS, weekly_rows, ["season", "week", "player_id"]), "src_weekly")
-    d1_execute_file(build_sql("src_adddrop", ADDDROP_COLS, adddrop_rows,
-                              ["season", "txn_index", "player_id", "move_type"])
-                    or f"DELETE FROM src_adddrop WHERE season = {args.season};\n", "src_adddrop")
-    d1_execute_file(build_insert_sql("src_trades", TRADES_COLS, trade_rows, season=args.season), "src_trades")
+    for label, sql in per_player_write_plan(args.season, player_rows, adddrop_rows, trade_rows):
+        d1_execute_file(sql, label)
     print(f"\nD1 sync complete for season {args.season}: "
           f"{len(franchises_rows)} franchises, {len(schedule_rows)} schedule rows, "
           f"{len(weekly_score_rows)} weekly-score rows, {len(standings_rows)} standings rows, "
-          f"{len(player_rows)} players, {len(weekly_rows)} weekly player rows, "
-          f"{len(adddrop_rows)} add/drop rows, {len(trade_rows)} trade rows.")
+          f"{len(player_rows)} players, "
+          f"{len(adddrop_rows)} add/drop rows, {len(trade_rows)} trade rows "
+          f"(src_weekly is written by sync_live_weekly_scores_to_d1.py, not here).")
     print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
     return 0
 

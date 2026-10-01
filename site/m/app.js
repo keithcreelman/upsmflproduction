@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.09.30.1";
+  var BUILD = "2026.10.01.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -281,6 +281,8 @@
     tradeBaitNotes: null,     // { [pid]: "note text" } for viewer's franchise
     tradeOffers: null,        // { incoming: [], outgoing: [] } for viewer's franchise
     playerScoresYtd: null,    // MFL playerScores W=YTD export
+    playerScoresAll: null,    // MFL playerScores W=ALL export — every week, league scoring (season_scoring.js)
+    lineupWeekResolution: null, // /api/current-lineup-week { week, source } — which weeks are COMPLETE
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
     optimisticTagSubmissions: null, // pending tag/untag pushes that survive reloadData() until ETL JSON confirms them
@@ -1189,7 +1191,16 @@
       // which is exactly the population whose contract window we have to get
       // right. Fail-soft to {}: the lookup + the pre-Week-1 inference still
       // answer, and an unresolvable window is refused, never widened.
-      fetchWaiverAcquisitionIndex(state.ctx.year)
+      fetchWaiverAcquisitionIndex(state.ctx.year),
+      // [23] every player's per-week score under THIS league's scoring, straight
+      // from MFL, and [24] the worker's "which week is being played" — together
+      // the Players market's actual-points source (season_scoring.js). Fail-soft
+      // to null: the market then says points are unavailable rather than
+      // falling back to a number it can't stand behind.
+      fetchJson(mflExportUrl("playerScores", { W: "ALL" })).catch(function () { return null; }),
+      fetch(workerUrl("/api/current-lineup-week"), { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
     ]).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
@@ -1250,6 +1261,9 @@
       state.contractDeadline = state.contractLadder.contractDeadline || "";
       state.acquisitionByKey = results[18] || {};
       state.acquisitionFromTxByKey = results[22] || {};
+      state.playerScoresAll = results[23] || null;
+      state.lineupWeekResolution = (results[24] && results[24].ok) ? results[24] : null;
+      state._seasonScoringCache = null;
       // results[19] is { byPid, ok, rows } — the readable/empty/unknown split.
       // No `|| {}` shortcut on the envelope: a missing envelope is unknown, and
       // unknown must NOT land in state as ok:true with an empty map.
@@ -1313,6 +1327,7 @@
     state.loaded = false;
     state._rosteredCache = null;
     state._ytdScoresCache = null;
+    state._seasonScoringCache = null;
     // Invalidate the player sheet's bundleCache so stats reflect any
     // contract changes that just happened. The sheet module exposes
     // clearCache() once player_sheet.js has loaded.
@@ -1625,6 +1640,26 @@
     }
     state._ytdScoresCache = map;
     return map;
+  }
+
+  // MFL's own league-scored season totals through the last COMPLETED week —
+  // the Players market's actual-points source. See site/m/season_scoring.js
+  // for the rules (completed weeks only, MFL's games denominator, zero and
+  // negative weeks count). known:false when either input is missing: callers
+  // show "unavailable", never a substitute number.
+  function getSeasonScoring() {
+    if (state._seasonScoringCache) return state._seasonScoringCache;
+    var SS = window.UPS_MOBILE_SEASON_SCORING;
+    var out;
+    if (!SS) {
+      out = { known: false, reason: "module_missing", throughWeek: 0, finalized: false,
+              includedWeeks: [], excludedWeeks: [], byPid: {}, windowFor: function () { return {}; } };
+    } else {
+      out = SS.build(state.playerScoresAll, { completedWeek: SS.completedWeekFrom(state.lineupWeekResolution) });
+    }
+    out.season = safeInt(state.ctx && state.ctx.year, 0);
+    state._seasonScoringCache = out;
+    return out;
   }
 
   function getMyTradeBaitNoteFor(pid) {
@@ -3490,6 +3525,7 @@
       getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
       getAllRosteredPids: getAllRosteredPids,
       getYtdScoresMap: getYtdScoresMap,
+      getSeasonScoring: getSeasonScoring,
       getAdvancedStatsFor: function (pid, year) {
         // year-specific lookup. Defaults to current year.
         var byYear = state.advancedStatsByYear || {};

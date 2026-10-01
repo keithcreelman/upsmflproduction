@@ -1,4 +1,4 @@
 {
-  "build": "2026.09.30.1",
-  "label": "Trade War Room: closed a real gap -- offering a loaded-contract player was only ever checked against YOUR OWN limit before Send. Now the recipient's own projected loaded-contract count is checked too, before anything is sent, naming their team and how many drops they'd need if they accept -- an offer that would leave the recipient over the limit can no longer go out as a real MFL trade at all."
+  "build": "2026.10.01.1",
+  "label": "Players market: actual points now come straight from MFL's own league scoring (completed weeks only), so free agents no longer read 0.0 and the PPG sort is real. Every number is labelled (YTD pts / L4 pts / Wk N proj / PPG with games), the bid sheet takes a typed $K amount that snaps by the same rule the server enforces, and the player sheet's current-season row matches the market."
 }
