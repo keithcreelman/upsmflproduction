@@ -15,6 +15,8 @@ const TWR_RELEASE = "trade-war-room-2026-09-25.3";
 const TWR_FEATURES = Object.freeze({ admin_front_door: true, execution_ledger: true, recoverable_cap_block: true, shared_cap_authority: true, extension_revalidation: true, canonical_extension_pricing: true });
 import { handle3WayHttp } from "./trade_3way_http.js";
 import { handle2WayStagedHttp } from "./trade_2way_http.js";
+import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
+import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
@@ -6788,6 +6790,23 @@ export default {
           console.log("[auction-watchdog] failed:", String(e?.message || e));
         }
       })());
+
+      // ── DROP-FIRST AGING WATCHDOG (Keith, 2026-09-30) ──
+      // "Add an aging alert for unresolved partial sequences; route it to the existing
+      // commissioner channel." Rides the same */2 tick as the auction-poll watchdog above --
+      // cheap, read-mostly, and this is exactly the kind of thing that must never depend on a
+      // dead poll to notice it (the same lesson the auction watchdog itself encodes). NOT gated
+      // on TRADE_2WAY_DROP_EXECUTE_ENABLED -- see checkAgingDropFirstSequences's own header for
+      // why a stuck row's visibility must outlive the flag that created it.
+      ctx.waitUntil((async () => {
+        try {
+          if (!env.UPS_MFL_DB) return;
+          const r = await checkAgingDropFirstSequences(env);
+          if (r && r.alerted) console.log(`[drop-first-aging] ${r.alerted} of ${r.found} aging sequence(s) alerted`);
+        } catch (e) {
+          console.log("[drop-first-aging] failed:", String(e?.message || e));
+        }
+      })());
     }
 
     const isHallSummarySweep = cronTrigger === "*/2 * * * *";
@@ -8193,6 +8212,7 @@ export default {
         path !== "/api/trades/2way/recheck" &&
         path !== "/api/trades/2way/select-drops" &&
         path !== "/api/trades/2way/queue" &&
+        path !== "/api/trades/2way/execute" &&
         // The pre-send compliance preview (2026-09-29) reads league_id from its own body first,
         // exactly like the routes just above -- same exemption, same reason.
         path !== "/api/trades/compliance-preview" &&
@@ -38451,6 +38471,24 @@ const mflToSleeper = {};
             message: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
           });
         }
+        // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -------------------
+        // Closes the gap the coverage audit reported rather than leaving it merely reported:
+        // when cutover is OFF, this legacy route can still create a real, native MFL trade
+        // proposal touching a franchise mid-drop-first-sequence, entirely outside trade_2way.js's
+        // own hold. Checked here too, independent of cutover state.
+        try {
+          for (const fid of [fromFranchiseId, toFranchiseId]) {
+            if (await franchiseHasUnresolvedDropSequence(env, leagueId, season, fid)) {
+              return jsonOut(409, {
+                ok: false, code: "franchise_has_unresolved_drop_sequence", error_type: "franchise_has_unresolved_drop_sequence",
+                error: "One of these teams has another deal still being untangled by the commissioner — this can't be offered until that resolves.",
+                message: "One of these teams has another deal still being untangled by the commissioner — this can't be offered until that resolves.",
+              });
+            }
+          }
+        } catch (e) {
+          return jsonOut(503, { ok: false, code: "unavailable", error: "Couldn't confirm it's safe to send this right now. Try again in a moment." });
+        }
         if (validationStatus && validationStatus !== "ready") {
           const diagnostics = buildValidationFailureDiagnostics({
             reason: "trade_payload_not_ready",
@@ -39719,6 +39757,22 @@ const mflToSleeper = {};
                 message: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
               });
             }
+            // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -----------------
+            // A COUNTER creates a new native offer exactly like CREATE does -- same hold, same
+            // reason, checked before the original offer is rejected.
+            try {
+              for (const fid of [counterFromId, counterToId]) {
+                if (await franchiseHasUnresolvedDropSequence(env, leagueId, season, fid)) {
+                  return jsonOut(409, {
+                    ok: false, code: "franchise_has_unresolved_drop_sequence", error_type: "franchise_has_unresolved_drop_sequence",
+                    error: "One of these teams has another deal still being untangled by the commissioner — this can't be countered until that resolves.",
+                    message: "One of these teams has another deal still being untangled by the commissioner — this can't be countered until that resolves.",
+                  });
+                }
+              }
+            } catch (e) {
+              return jsonOut(503, { ok: false, code: "unavailable", error: "Couldn't confirm it's safe to send this right now. Try again in a moment." });
+            }
             // A counter that promises an extension is priced from the current contract BEFORE the original offer is rejected — a refusal here must
             // never leave the sender with their offer rejected and no counter sent.
             if (Array.isArray(counterPayload?.extension_requests) && counterPayload.extension_requests.length) {
@@ -40061,6 +40115,20 @@ const mflToSleeper = {};
               if (!loadedContractsPermitsWrite(acceptCompliance.loaded_contracts.status) && action === "ACCEPT") {
                 console.warn("[trade-accept] waiting on conditional loaded-contract drops:", JSON.stringify({ trade_id: mflTradeId, status: acceptCompliance.loaded_contracts.status, requirements: (acceptCompliance.loaded_contracts.drop_requirements || []).map((d) => ({ franchise_id: d.franchise_id, required: d.required_drops, valid: d.valid_count, satisfied: d.satisfied })) }));
                 return integrityFail(409, "loaded_contract_drops_required", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_drop_requirements: acceptCompliance.loaded_contracts.drop_requirements });
+              }
+              // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -------------
+              // ACCEPT is this legacy engine's own "execute" -- it posts straight to MFL for
+              // real, so it gets the same hold as staged-2-way's own accept/executor.
+              if (action === "ACCEPT") {
+                try {
+                  for (const fid of [partyCheck.from, partyCheck.to]) {
+                    if (await franchiseHasUnresolvedDropSequence(env, leagueId, season, fid)) {
+                      return integrityFail(409, "franchise_has_unresolved_drop_sequence", "One of these teams has another deal still being untangled by the commissioner — this can't be accepted until that resolves. Nothing was changed.");
+                    }
+                  }
+                } catch (e) {
+                  return integrityFail(503, "unavailable", "Couldn't confirm it's safe to accept this right now. Try again in a moment.");
+                }
               }
             }
             if (action === "ACK_CAP") {

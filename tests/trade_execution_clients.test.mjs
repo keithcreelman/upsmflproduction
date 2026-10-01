@@ -107,11 +107,12 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // popup, and then the controlled cutover switch's automatic Send-flow fallback) while
   // site/shared/trade_3way_view.js itself was NOT touched again -- so the two legitimately
   // diverge (2026.09.29.3 vs .1). Then, 2026-09-30 (the recipient-side loaded-contract
-  // create-time gap + the mobile silent-failure fix), views/trade.js changed AGAIN and bumped
-  // to 2026.09.30.1 -- shared/trade_3way_view.js still untouched since 2026.09.29.1. That's the
-  // "two files diverging in general is expected, not a bug" case this comment already named;
-  // this assertion tracks the CURRENT true pairing, not a fixed pin -- update it again whenever
-  // either file's own real content changes and bumps its stamp.
+  // create-time gap + the mobile silent-failure fix, then the mobile Counter staging-fallback
+  // fix), views/trade.js changed AGAIN and bumped to 2026.09.30.1 -- shared/trade_3way_view.js
+  // still untouched since 2026.09.29.1. That's the "two files diverging in general is expected,
+  // not a bug" case this comment already named; this assertion tracks the CURRENT true pairing,
+  // not a fixed pin -- update it again whenever either file's own real content changes and
+  // bumps its stamp.
   t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.29.1", "2026.09.30.1"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");

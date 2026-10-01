@@ -540,18 +540,135 @@ each drop, in turn (order between different franchises' drops does not matter to
    be offered or accept a NEW trade until this deal resolves — its true loaded-contract count is a
    known, bounded uncertainty (some drops confirmed, the rest pending) that a fresh, unrelated deal
    must not be built on top of (§2.4.3a row 5, unchanged).
-7. **Commissioner resolves or escalates a failed/uncertain drop step:** re-pull the live `rosters`
-   export directly for ground truth, independent of what the ledger last recorded. If the reason
-   was MFL's commissioner-lockout text (the same exact-string detection §1.2/§4 already use),
-   toggle lockout off and retry ONLY this drop — `unload_player` is idempotent (retrying when the
-   player is already gone is a confirmed-safe no-op, by its own pre-write roster read). If MFL
-   refused for another reason, do not retry blind — resolve with the owner first. If verification
-   was inconclusive, re-check before assuming either outcome (§6's "ask MFL, never retry blindly"
-   rule, unchanged).
+7. **Commissioner resolves or escalates a failed/uncertain drop step:** if MFL's response itself
+   was an explicit, verified refusal (lockout text, or the write's own post-check proving the
+   player is still there), the outcome is already known — fix the cause (toggle lockout off,
+   etc.) and retry. If instead the step is `attempting` or `unconfirmed` — this code doesn't
+   itself know what happened — a RESUME first RECONCILES before doing anything else (below);
+   only once reconciliation resolves the ambiguity does step 1 (a fresh write) or a hold happen.
+
+**Reconciliation evidence — Keith's correction (2026-09-30): "roster presence alone does not
+prove what happened. A player could disappear for another reason, or be dropped and re-added
+before reconciliation. Use a matching MFL transaction record or other authoritative evidence
+tied to the franchise, player, and attempt."** The exact evidence used, precisely, not
+summarized: before either writing OR retrying a step recorded `attempting`/`unconfirmed`, the
+executor queries MFL's own `TYPE=transactions&TRANS_TYPE=FREE_AGENT` export directly — the real,
+authoritative record of what MFL's transaction log shows happened — and looks for a row matching
+**this exact franchise, this exact player id, at or after this exact attempt's own timestamp**
+(parsed via the same positional field-1 rule this codebase's existing drop-tracker already uses
+and has proven live against real data — `_dropPidsFromTx`/`dropPidsFromFreeAgentTx`, duplicated
+rather than imported to avoid a circular dependency). Three outcomes, never a fourth:
+- **A matching transaction record exists** → CONFIRMED, authoritative, regardless of current
+  roster presence — this is exactly what makes "dropped for real, then re-added to the same
+  roster before reconciliation runs" safe: presence alone would say "never happened, retry,"
+  wrongly attempting a second write; the transaction record instead proves the first one
+  already, permanently, happened. Recorded with `reconciled: true` and the transaction's own
+  evidence (`{timestamp, franchise, raw_transaction}`), never merged indistinguishably into an
+  ordinary direct confirmation, so a commissioner auditing the ledger can always tell the two
+  apart and cross-check MFL's own log independently if in doubt.
+- **No matching transaction record, and the player is still genuinely present** on that
+  franchise's roster → **held for commissioner review — NEVER automatically retried, at any
+  elapsed time** (see the export-coverage correction immediately below; this bullet described an
+  automatic retry in an earlier revision of this document, now superseded).
+- **No matching transaction record, and the player is ABSENT** → an UNRELATED event could have
+  moved them (a waiver claim, a different owner's own action, a data lag) — never assumed to be
+  this attempt's own doing. Held for commissioner review, not guessed either way. This is exactly
+  the case a presence-only check would have gotten wrong: "gone" was never proof it was THIS
+  drop that made them gone.
+- **The transaction log itself cannot be read** (no API key, a fetch failure) → held, exactly
+  like the mandatory pre-drop snapshot's own failure mode — evidence unavailable is never treated
+  as evidence of either outcome.
+
+**Export-coverage proof, or the lack of it — Keith's follow-up (2026-09-30), CORRECTED a second
+time the same day: "Remove automatic retry based on five minutes passing. Cache bypass and a time
+buffer do not establish that MFL's transaction export is complete. A missing matching transaction
+must leave the attempt unconfirmed for commissioner review unless you can prove authoritative
+coverage through that attempt."** An earlier revision of this fix (same day) introduced a
+5-minute buffer (`MIN_RECONCILE_AGE_MS`) that trusted a "no match" result once enough time had
+passed since the attempt. Keith's correction: a time buffer is still a guess dressed up as a
+rule, not a proof — this codebase has **no proof, at any elapsed time**, that MFL's own
+`TYPE=transactions` export is complete through a given moment. The one existing precedent for
+using this export to reconcile an ambiguous MFL write (`trade_3way.js`'s
+`legExecuted`/`findExecutedTrade`) only ever uses it as SECONDARY corroboration of an
+ALREADY-positive signal, never as sole proof of "nothing happened."
+- **The buffer was REMOVED.** "No matching transaction record, and the player is still genuinely
+  present" now ALWAYS holds for commissioner review — never retried automatically, regardless of
+  how much time has passed since the attempt. The ONLY way this specific ambiguity resolves
+  within this automated system is if MFL's own export LATER shows the matching transaction on a
+  subsequent reconciliation pass (moving straight to `confirmed`, never through a time-based
+  "retry" branch).
+- **Cloudflare edge-caching is still ruled out.** `findFreeAgentDropTransaction`'s fetch still
+  carries `cf: { cacheTtl: 0, cacheEverything: false }` — one proven, fixable class of staleness,
+  kept even though the time buffer it was originally paired with was removed; it remains a
+  legitimate, separate improvement.
+- Tested directly (`tests/trade_2way_drop_first_execute.test.mjs`'s two "no auto-retry" tests):
+  the SAME "present, no matching transaction" facts hold identically whether the original attempt
+  was 30 seconds ago or 10 days ago — elapsed time makes no difference at all, proving no
+  time-based path back to "retry" survives anywhere in this code.
+
+A step recorded `attempting`/`unconfirmed` but no longer part of the freshly-recomputed required
+list (the requirement itself recomputes from the live roster every time, §2.3.1 — once a drop
+genuinely lands, the very next read may already show one fewer drop required) goes through the
+SAME reconciliation, in its own pass, before the main sequence even starts — otherwise that
+step's record would sit stuck forever, never revisited because it's no longer "required." An
+ambiguous result here still stops the WHOLE sequence, even though the specific step is no longer
+required — an unresolved ambiguity anywhere in this deal is reason enough to hold the rest of it,
+not something to quietly complete around.
+
+**Idempotency, stated to its actual scope, not claimed beyond it (Keith: "Do not describe
+retries as idempotent beyond what those tests and MFL's actual behavior establish"):** what is
+proven, by the tests in `tests/trade_2way_drop_first_execute.test.mjs`, is that this
+orchestrator's own retry logic never repeats a write already recorded `confirmed`, and never
+attempts or re-attempts a write for a step whose outcome reconciliation cannot positively
+resolve. This is NOT a claim that `/roster-workbench/action`'s own internal handling of a
+literal duplicate POST has been independently verified, nor that MFL's own systems are
+idempotent to a repeated identical request — only that this orchestrator's own decision of
+whether to issue a write at all is now evidence-based, never a guess from roster state alone.
 
 **Only once EVERY required drop, for every franchise in this deal, is confirmed** does the
-sequence proceed to the trade itself — steps 1-7 above repeat, applied to the ONE trade write
-(`executeCommishTwoPartyTrade`, §1.2), with `steps_json` recording the trade leg the same way.
+sequence proceed to the trade itself.
+
+**The trade write gets the SAME write-ahead + reconciliation discipline as a drop — Keith's
+ruling (2026-09-30): "Track the trade write as a step too. A crash after MFL executes the trade
+but before the ledger records it needs the same write-ahead and reconciliation discipline as a
+drop. Show how duplicate trade execution is prevented when the response is lost."** Built exactly
+that way in PR #1163 (`runTradeLegAfterDrops`, `reconcileTradeLeg`, `completeTradeLeg`):
+- A `trade` step is recorded `{status:"attempting", from_fid, to_fid, attempted_at_utc}` in
+  `steps_json` BEFORE `executeCommishTwoPartyTrade` is ever called — the identical fix Keith
+  required for drops, applied here for the first time.
+- If `executeCommishTwoPartyTrade` itself reports `!ok` (a lockout, a genuine MFL refusal, a
+  network-level exception with zero information, or anything in between), the code does **not**
+  immediately declare the player-loss outcome. It ALWAYS reconciles first — querying MFL's own
+  `TYPE=transactions&TRANS_TYPE=TRADE` export directly (`findExecutedTrade`/`toMflAsset`, the
+  SAME functions the 3-way engine's own `legExecuted` already uses, not a second implementation)
+  for a record matching this exact from/to/give/receive since the attempt. A match means the
+  write actually reached MFL despite the bad response — completed in the SAME pass, never
+  conflated with a plain retry. No match (or the evidence source itself unreadable) means HELD —
+  symmetric with the drop-side fix above, **never auto-retried at any elapsed time either**.
+- **This is what makes duplicate trade execution structurally impossible when the response is
+  lost**, not merely handled by convention: once a `trade` step is recorded `attempting` or
+  `unconfirmed`, EVERY subsequent pass (a resume, or the tail of the same pass) reconciles FIRST
+  and unconditionally — `executeCommishTwoPartyTrade` is never called a second time once any
+  uncertainty is already on record for this deal's trade step. The only two ways this code ever
+  calls MFL's propose/accept endpoints for a given deal are: no `trade` step exists yet at all, or
+  (defensively) one exists and already reads `confirmed`, in which case it's skipped entirely.
+- **Owner-facing copy now names which players and teams were actually dropped** in a partial
+  multi-team deal (Keith, 2026-09-30) — `summarizeConfirmedDrops` reads straight from the ledger's
+  own recorded `drop:*` steps (never re-derived from the original requirement, which could differ
+  from what actually landed) and is threaded into every trade-leg notification, including the
+  player-loss DM.
+- A REAL, pre-existing state-machine bug was found and fixed while testing this: the trade leg's
+  own ledger-state transitions only accepted `from: EXEC.PARTIAL_EXECUTED`, but a RESUME where
+  every required drop was already `confirmed` from a prior pass leaves the row at `EXEC.EXECUTING`
+  (`resumeDropSequence`'s own claim always moves there; the drop loop's "already confirmed, skip"
+  branch never moves it back) — so the trade leg's own completion/hold transitions silently failed
+  (swallowed by their own `.catch(() => {})`) in exactly that resume scenario, leaving the ledger
+  stuck at `executing` forever even though `ups_2way_trades.status` correctly reached `completed`.
+  Fixed by accepting `from: [EXEC.EXECUTING, EXEC.PARTIAL_EXECUTED]` everywhere the trade leg
+  transitions the ledger, matching the pattern every OTHER multi-state transition in this file
+  already uses. This bug existed in the ORIGINAL (pre-this-pass) code too, silently, because no
+  test previously exercised "resume with every drop already confirmed, nothing left to attempt
+  except the trade leg" — exactly the scenario this pass's own new tests were built to cover.
 
 **What can and cannot be restored if a drop succeeds but the trade then fails.** Keith: *"Do not
 describe restoration as guaranteed unless MFL behavior proves it."* It is not guaranteed. Stated
@@ -599,6 +716,91 @@ precisely, not softened:
   because every minute of delay is a minute another owner could claim the player. It is not a
   reason to treat the irreversible-loss risk in §2.2/§2.3 as smaller than it is.
 
+### 2.4.3c The player-loss resolution — APPROVED AS POLICY (Keith, 2026-09-30)
+
+**Keith's ruling: "The ranked player-loss procedure is approved as the proposed commissioner
+policy: attempt restoration, then seek a facilitated replacement trade, then use the league
+dispute process. 'No compensation' must never be the automatic result. This does not authorize
+live execution."** The sequenced procedure below (§2.4.3c, as ranked 2026-09-30) is now DECIDED
+POLICY, not a pending recommendation — but this is a policy decision only. **It does not flip
+`TRADE_2WAY_DROP_EXECUTE_ENABLED` on**, and no code in this design or PR #1163 currently enforces
+or automates any step of it (the commissioner still carries out each step by hand, using
+ordinary MFL/league mechanisms — §2.4.3b's restoration attempt is the one piece already built,
+read-only/dry-run per §12.1, no real write). The remaining release blockers are listed in §12.3.
+
+**Every possible outcome, stated exhaustively, not just the ones with a proposal attached:**
+
+1. **Every drop confirms, the trade confirms.** Success. No resolution needed — this is the
+   ordinary case §2.4.3b's happy path already covers.
+2. **A drop fails or comes back uncertain before it (or any other drop) confirms.** Nothing
+   irreversible has happened for THAT step; §2.4.3b's stop-and-hold procedure applies. No asset
+   is lost — this is not a player-loss case.
+3. **Every required drop confirms, the trade then fails, and the dropped player is STILL a free
+   agent when the commissioner notices.** §2.4.3b's manual workaround (native free-agent re-add +
+   `POST /admin/import-salaries` restore from the captured `pre_drop_snapshot`) can be attempted.
+   Even here, restoration is not instant or guaranteed to succeed cleanly (§2.4.3b's own honesty:
+   the workaround is itself two more non-atomic writes) — but the ASSET is at least still
+   available to attempt it on.
+4. **Every required drop confirms, the trade then fails, and the dropped player has ALREADY BEEN
+   CLAIMED by someone else (a waiver, an FCFS add, a direct free-agent pickup) by the time the
+   commissioner notices.** **This is the case with no restoration path at all** — the player is
+   gone, on another roster, under a contract the affected owner has no claim to. This is the case
+   Keith's instruction specifically addresses: no default assumption of being "made whole," no
+   silent cap-money substitution.
+
+**For outcome 4 specifically — Keith asked for a recommended procedure and its consequences for
+the owner, not an unranked menu, and then APPROVED it as policy (2026-09-30).** Below is the
+decided sequence, not four independent choices. **This is now policy, but policy alone does not
+authorize a real write** — `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off; nothing here is
+automated, and every step is still carried out by the commissioner directly through ordinary
+means (MFL's own site for a restoration attempt or a replacement trade, the league's existing
+dispute process for step 3).
+
+**The approved procedure, in order:**
+
+1. **First, always: the restoration attempt itself (§2.4.3b, already built).** This isn't one of
+   the "outcome 4" options — it's outcome 3, and it's tried automatically as part of the
+   commissioner's own immediate response, before anything below is ever reached. Outcome 4 only
+   exists when this has already failed (the player was claimed by someone else first).
+2. **If restoration is impossible: the commissioner facilitates a replacement trade between the
+   same two parties (formerly "Option A") — tried FIRST, not as one equal option among several.**
+   Reasoning for ranking it first: the original counterparty never gave up their own side either
+   (the trade failed entirely), so they still hold exactly what they'd agreed to send — nothing
+   new has to be manufactured, no value is injected into the league from outside a trade, and it
+   uses a mechanism every owner already trusts (an ordinary negotiated trade), not a new
+   commissioner power. It is also the only option that can, in the best case, leave the affected
+   owner close to whole rather than merely compensated.
+3. **If that fails — the counterparty won't cooperate, or no fair replacement can be found —
+   escalate to the league's existing rule-proposal/dispute process (formerly "Option C"), not a
+   unilateral commissioner grant (formerly "Option B").** Reasoning: a loss of this weight
+   deserves the same due process as any other league dispute, and routing it through the
+   league's own existing mechanism avoids the commissioner unilaterally deciding how much a lost
+   player was "worth" and unilaterally injecting value into the league to cover it — both of
+   which Keith's instruction specifically warns against ("do not assume... or silently substitute
+   cap money"). If the league's own process concludes a grant (draft pick, cap relief) is the
+   right remedy, that is a decision BY the process, with the same legitimacy as any other league
+   ruling — not this design defaulting to it.
+4. **No compensation (formerly "Option D") is not a first-class option in this ranking — it is
+   the outcome only if step 3's own process concludes that no compensation is warranted.** The
+   disclosed-risk consent copy (§3 item 4) means the owner was not misled, but it does not, on
+   its own, settle the question of what's owed after a real loss; that is exactly the kind of
+   question step 3's process exists to answer.
+
+**What the affected owner experiences under this policy, stated plainly, not softened:**
+immediate notification that the drop is real and permanent and the trade did not go through
+(§2.4.3b's player-loss DM, already built); a same-day commissioner-led restoration attempt with
+no promise it succeeds; if it fails, an offer to negotiate a replacement trade — which could
+resolve in hours or could stall if the counterparty is unwilling; if THAT stalls, a real,
+possibly multi-day, formal dispute process before any resolution at all. **This policy does not
+shrink the core risk §2.2/§2.3 already document — a real asset can still be gone with no fast,
+guaranteed remedy — it commits to the most legitimate, least ad hoc ORDER of response once that
+risk materializes, and it rules out "no compensation" as anything but that process's own
+considered conclusion.**
+
+**Decided policy; still not a green light to build or enable real writes.** `TRADE_2WAY_DROP_
+EXECUTE_ENABLED` does not flip on from this ruling alone — §12.3 lists what remains before real
+writes are enabled, independent of this policy now being settled.
+
 **2.4.4 Non-atomic risks specific to a HUMAN performing this manually** (in addition to, not
 instead of, the underlying MFL non-atomicity in §2.5, which no model here removes):
 
@@ -628,14 +830,76 @@ instead of, the underlying MFL non-atomicity in §2.5, which no model here remov
   (wrongly) trust the numbers they reviewed earlier without re-pulling them.
 - **The commissioner is a single point of both authority and failure.** Every write in this
   model requires a human to act — if the commissioner is unavailable, every queued deal simply
-  waits, with no automated fallback and no second authorized executor documented here. Whether a
-  backup-commissioner path is needed is not decided in this document.
+  waits, with no automated fallback and no second authorized executor documented here. **Keith's
+  ruling (2026-09-30): no new backup-commissioner authority is granted as part of this PR.** The
+  aging alert below (§2.4.3b) is the mitigation this PR ships instead — it makes an unresolved
+  wait visible and escalating, rather than silent, but it does not create a second person who can
+  act. Whether a backup-commissioner path is ever built is left for a separate decision, not a
+  gap in this one.
 
 This procedure supersedes any assumption in §8.2 that staging leads directly to an AUTOMATED
 final write — §8.2's step 5 ("the worker executes the real MFL trade... executes any confirmed
 drop(s)") describes what happens ONLY if and when Keith later approves automating one of §2.1/
 §2.2's orderings. Until then, §8.2's step 5 is this section: a human, not the worker, performs
 every write the deal requires, through the review queue, following §2.4.3 exactly.
+
+**2.4.5 An owner can never retrigger a stuck sequence — Keith's ruling (2026-09-30): "an owner
+must never retrigger a failed or uncertain execution step. Only a commissioner may resume it
+after reviewing the ledger and MFL evidence."** DECIDED, and — checked directly against the code,
+not assumed — already structurally true almost everywhere, with one real gap found and closed:
+- **`POST /api/trades/2way/execute`**, the drop-first orchestrator's own HTTP entry point, is
+  commissioner-only (`isAdminCaller`) — an ordinary owner session is refused 403, server-side,
+  tested directly.
+- **The ledger lock itself is the deeper enforcement, independent of any route's own authz.**
+  `execute2Way`'s ordinary `ledger.acquire()` only succeeds from `NOT_EXECUTED`/`BLOCKED_CAP`; a
+  drop-first sequence stuck at `PARTIAL_EXECUTED` or `NEEDS_REVIEW` is in neither state, so even a
+  path that reaches `execute2Way` cannot acquire the lock a second time — it safely no-ops
+  (`{skipped: "execution_not_acquirable"}`). This is the same lock substrate `resumeDropSequence`
+  itself uses, so the two paths can never race into a double execution.
+- **The one real gap found while verifying this: `recheck2WayExecution`.** This owner-reachable
+  route's own guard (`row.status === 'collecting' && row.to_state === 'accepted'`) does NOT
+  exclude a stuck drop-first sequence, because `ups_2way_trades.status` stays `'collecting'`
+  throughout the ENTIRE sequence (§8.6's own documented fact, exploited by the cancel/select-drops
+  fixes there). The ledger-lock protection above meant this could never cause a SECOND MFL write —
+  but it WOULD flip `row.status` to `'executing'` (display: "Clearing final checks," actively
+  misrepresenting a deal that is actually stuck awaiting commissioner review) and hand the owner a
+  false `{ok:true, rechecking:true}`, silently discarding their action instead of saying it was
+  held. Fixed in PR #1163 with the identical ledger-read guard the cancel/select-drops paths
+  already use; tested directly (`tests/trade_2way_drop_first_execute.test.mjs`'s "recheck2WayExecution
+  must refuse once a drop-first sequence has started").
+- **Net:** an owner cannot advance, retrigger, or even cosmetically disturb a stuck sequence
+  through any route this app exposes. Only a commissioner (`isAdminCaller`) can call the execute
+  route that resumes it.
+
+**2.4.6 Aging alert for unresolved partial sequences — Keith's ruling (2026-09-30): "Add an aging
+alert for unresolved partial sequences; route it to the existing commissioner channel and show
+the age prominently in the queue."** BUILT in PR #1163, in two parts:
+- **Worker-side DM escalation** (`checkAgingDropFirstSequences`, `worker/src/trade_2way.js`):
+  scans `ups_trade_executions` for `two_way_staged_drop_first` rows stuck at `PARTIAL_EXECUTED`/
+  `NEEDS_REVIEW` for at least 30 minutes since the ledger's own last update, and DMs "the existing
+  commissioner channel" — the same `COMMISH_DISCORD_USER_ID` DM mechanism `notifyCommish` already
+  uses for every other alert in this feature, not a new or different channel. Rides the same
+  `*/2 * * * *` cron tick as the pre-existing auction-poll watchdog (`worker/src/index.js`) —
+  deliberately NOT gated on `TRADE_2WAY_DROP_EXECUTE_ENABLED`, since a stuck row's visibility must
+  outlive the flag that created it (e.g. the flag gets turned off BECAUSE something got stuck).
+  De-duplicated per-trade via the existing `ups_bot_heartbeat` convention (same pattern as
+  `dmCommishOncePerBatch`): re-alerts on a 60-minute cadence while the SAME state persists
+  unresolved, but re-alerts immediately on any genuine state change (e.g. `PARTIAL_EXECUTED` →
+  `NEEDS_REVIEW`), never waiting out the cooldown for a fact that actually changed. Tested
+  directly: under-threshold silence, over-threshold alert with the age stated in the DM text,
+  same-state dedup, and immediate re-alert on a real state change.
+- **Queue UI** (`site/commish/trade_review_queue.html`): a distinct, loud banner — separate from,
+  and louder than, the pre-existing generic 48-HOUR staleness marker on every trade — appears on
+  any card whose ledger is `PARTIAL_EXECUTED`/`NEEDS_REVIEW` and stuck past the SAME 30-minute
+  threshold the DM uses (one number, not two independently-tuned ones), stating the exact stuck
+  duration ("STUCK 1h 35m") and restating that only the commissioner can resume it. The card
+  itself also gets a distinct danger-colored border, so a stuck deal is visually distinguishable
+  from the rest of the queue at a glance, not just in its text. Tested directly
+  (`tests/trade_review_queue_page.test.mjs`'s two "AGING BANNER" tests).
+- **What this does NOT do:** it does not create a second authorized executor (§2.4.4's
+  backup-commissioner question is explicitly declined for this PR, not answered by this alert),
+  and it does not resume or retry anything itself — it only makes an existing wait visible and
+  escalating instead of silent.
 
 ### 2.5 Residual risk, stated plainly
 
@@ -1185,6 +1449,133 @@ the commissioner/War Room only) — a commissioner/league-configuration decision
 this app's code can enforce, and outside this document's scope to recommend one way or the
 other.**
 
+### 8.6 Per-franchise hold coverage audit (Keith, 2026-09-30): every in-app path, and what it cannot reach
+
+**Keith: "verify that the per-franchise hold covers every in-app creation, counter, acceptance,
+and execution path for either affected team, and report any native MFL path it cannot control."**
+
+**In scope: the staged 2-way engine (PR #1163). Covered, verified by test:**
+
+- **Creation** (`createStaged2WayTrade`) — refuses to stage a NEW offer touching either
+  franchise. Tested.
+- **Counter** — the staged 2-way engine has **no separate counter action or route at all**
+  (verified: no "counter" concept anywhere in `trade_2way.js`/`trade_2way_http.js`, and no
+  client-side path in `trade_workbench.js` builds one against the staged endpoints). A
+  "counter" here is just a fresh new offer, built through the same Send flow as any other offer
+  — it reduces entirely to Creation, above, already covered.
+- **Acceptance** (`accept2WayTrade`) — refuses to record an accept touching either franchise.
+  Tested.
+- **Execution, against a DIFFERENT deal** (`executeDropFirstDeal` itself) — a franchise cannot
+  have two drop-first sequences in flight; starting execution on deal B while deal A (same
+  franchise) is unresolved is refused. A deal can always resume **itself**. Tested.
+- **Two gaps this specific audit FOUND and CLOSED, not merely reported** (Keith's request to
+  verify surfaced real, previously-unnoticed defects, not just confirm what was already there):
+  - **`cancel2WayTrade`** allowed cancelling a trade whose `ups_2way_trades.status` was still
+    `'collecting'` — which it stays throughout the ENTIRE drop-first sequence (only
+    `runTradeLegAfterDrops` ever sets `'completed'`; the drop loop itself never touches
+    `status`). A deal with a real, already-confirmed drop could have been cancelled away,
+    misrepresenting an irreversible fact as though nothing happened, and — because the
+    commissioner queue's default view excludes `cancelled` trades — vanishing from the review
+    queue entirely. **Fixed**: cancellation now refuses once the execution ledger shows any
+    attempt has started (any state other than `not_executed`/`blocked_cap`). Tested.
+  - **`select2WayLoadedContractDrops`** allowed an owner to change their conditional-drop
+    selection at ANY time, with no execution-state check. Once one selected player is already
+    confirmed dropped for real, changing the selection to a different player would make the
+    orchestrator chase the NEW selection too on its next run — dropping an ADDITIONAL player the
+    deal never actually required. **Fixed**: the selection is now frozen once execution has
+    started, for the same reason and the same guard as cancellation. Tested.
+- **`recheck2WayExecution`** — audited, no fix needed. It calls the ordinary `execute2Way`
+  (never `executeDropFirstDeal`), and `execute2Way`'s own `ledger.acquire()` only matches
+  `not_executed`/`blocked_cap` — it cannot acquire a lock already held by a drop-first sequence
+  (`partial_executed`/`executed_needs_review`), so it safely no-ops rather than interfering. A
+  `needs_drops` deal re-checked by its owner still correctly reports "held," exactly as before
+  this feature existed — the drop-first executor is reachable only through the dedicated,
+  commissioner-only `/api/trades/2way/execute` route, never through this owner-facing action.
+
+**CLOSED, not merely reported (Keith, 2026-09-30 follow-up: "Close those gaps before any
+execution flag can be enabled, or make the execution endpoint refuse while they remain"):**
+`franchiseHasUnresolvedDropSequence` was moved from `trade_2way.js` to `trade_execution.js`
+(the one module both `trade_2way.js` and `trade_3way.js` already import from, avoiding a
+circular import) and is now called from every remaining surface:
+
+- **The legacy direct-to-MFL 2-way route** (`worker/src/index.js`) — the hold is checked,
+  independent of `TRADE_2WAY_CUTOVER_ENABLED`'s state, at:
+  - **Create** (`/trade-offers`) — before any MFL call, right after the existing cutover gate.
+  - **Counter** (`/api/trades/proposals/action`, `action:"COUNTER"`) — before the original
+    offer is rejected, same discipline the cutover gate already uses there.
+  - **Accept** (`action:"ACCEPT"`) — this engine's own "execute" (there is no separate execute
+    step; ACCEPT posts straight to MFL) — checked right after the existing loaded-contracts
+    gate, before any write.
+  - All three tested against the REAL worker + real D1 + a stateful fake MFL
+    (`tests/trade_2way_drop_first_execute.test.mjs`).
+- **The 3-way engine** (`trade_3way.js`) — "counter" does not exist as a separate concept here
+  either (verified: no counter route or client path), so create/accept/execute is the full
+  surface:
+  - **Create** (`create3WayTrade`) — checked right after the existing "teams must be distinct"
+    validation, before any franchise is even asked to consent.
+  - **Accept** (`handle3WayButton`'s `accept` action, the Discord-button flow) — checked before
+    RECORDING that team's own consent, mirroring `accept2WayTrade`'s exact placement. **Checks
+    ALL THREE participants (`[A, B, C]`), not just the responding party** — corrected 2026-09-30,
+    second pass, per Keith's own review: *"Check every participant before 3-way acceptance and
+    execution. Your test says a different participant's unresolved drop sequence does not block
+    acceptance. If that participant is part of the proposed trade, it must block; an unrelated
+    franchise should not."* An earlier revision of this check scoped itself to the responding
+    franchise alone, reasoning `execute3Way`'s own all-three check was a sufficient backstop once
+    everyone was in — Keith's correction is that this let two of three teams record real consent
+    on a deal whose third participant's true compliance state was already known-unresolved,
+    deferring the refusal to execution time instead of catching it at the first accept. Now
+    mirrors `create3WayTrade`'s and `execute3Way`'s own identical `[A, B, C]` loop exactly. Now
+    independently exercised by its own dedicated test file
+    (`tests/trade_3way_button_hold.test.mjs`, 7/7), using the same real-worker + Discord-fixture
+    harness `extension_eligibility.test.mjs`'s own "WORKER (3-way)" section established —
+    previously reviewed by inspection only; extending the harness to cover it was out of scope in
+    the prior pass, done in this one. Covers: the responding team's own unresolved sequence, a
+    DIFFERENT participant of the SAME trade (both the initiator and the un-responded third team),
+    and — proving the boundary the other direction — a genuinely UNRELATED franchise that must
+    NOT block a trade it isn't part of.
+  - **Execute** (`execute3Way`) — checked for all three participants, reusing the EXACT same
+    `enterBlockedCap` revert-to-`collecting` + deduplicated-DM mechanism every other
+    pre-execution block (cap, loaded-contracts) already uses, so a held 3-way deal is never left
+    stuck at `status='executing'`. Tested (create + execute; both against the real worker/D1).
+
+**Still genuinely out of reach — reported, not something any code change here can close:**
+
+- **MFL's own native site** — an owner (or the commissioner, impersonating) can always create or
+  accept a trade directly on MFL's website, entirely outside this app's routes. This is the same
+  permanent, unclosable architectural boundary §8.0/§8.1 already document — no code in this app
+  can ever prevent a native MFL action by design, only detect and react to it after the fact (the
+  trade-sentinel, §8.4, with its own already-documented limits).
+
+**The hold's own D1 binding, fixed — Keith's ruling (2026-09-30, second pass): "Fix the D1
+binding fallback now, with a test that proves an outbox DB failure cannot bypass or falsely
+satisfy the hold. Do not defer this to a background task."** Found while regression-testing this
+pass: `franchiseHasUnresolvedDropSequence`, and (tracing the same pattern to its real extent)
+`ledgerFor`/`capAckStoreFor`/`conditionalDropStoreFor` (`trade_3way.js`) and `ledgerDbFor`
+(`trade_2way.js`) all resolved their D1 binding as `env.TWB_OUTBOX_DB || env.TWB_DB || env.DB ||
+env.UPS_MFL_DB` — a legacy ordering from the outbox subsystem (wrangler.toml: both names are
+separate bindings to the SAME physical D1 in production today) that meant an UNRELATED
+`TWB_OUTBOX_DB` failure could make the hold check throw, or — the more concerning half of Keith's
+concern — silently query a stale/mispointed binding and falsely report "no unresolved sequence"
+if one ever existed. `ups_2way_trades`/`ups_trade_executions` live in `UPS_MFL_DB` — confirmed by
+every OTHER direct read/write in these two files, which require it directly, never this fallback.
+Fixed by putting `UPS_MFL_DB` first everywhere this pattern appeared across the drop-first hold,
+the execution ledger, and the cap-ack/conditional-drop stores it shares a D1 binding with — the
+other names kept only as a last-resort fallback for an environment that somehow never defines
+`UPS_MFL_DB` at all. Fixed directly in this pass, not deferred: two dedicated tests
+(`tests/trade_2way_drop_first_execute.test.mjs`) prove a broken `TWB_OUTBOX_DB` neither bypasses a
+real hold nor falsely blocks a healthy franchise's own ordinary trade. This also, incidentally,
+fixed a genuinely pre-existing, previously-failing test
+(`trade_2way_authz.test.mjs`'s "a failed D1 audit write is reported honestly") that had been
+broken by exactly this bug since the hold was first wired into the legacy create route.
+
+**Net:** the hold now covers every in-app creation, counter, acceptance, and execution path for
+both the staged 2-way engine and its two siblings (legacy direct-MFL 2-way, 3-way) — closed, not
+just reported, per Keith's explicit instruction. Two real defects (`cancel2WayTrade`,
+`select2WayLoadedContractDrops`) were found and fixed along the way, plus the D1-binding fix
+above and the 3-way accept-time all-three-participants correction. The one boundary that
+remains — MFL's own native website — is not something any in-app hold can ever reach, and is
+labeled here as exactly that: outside the app's control, not a gap this design failed to close.
+
 ---
 
 ## 9. Hammer Times, L.A. Looks, and plain `Vet-Ext1`/`Vet-Ext2` — RULED ON, fix shipped separately
@@ -1264,6 +1655,26 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
 - **Ext1/Ext2 loaded-contract classification and the IR ruling** (§9) — shipped as PR #1152,
   separate from this branch, not yet merged.
 
+**Decided by Keith, 2026-09-30:**
+- **The pre-drop contract snapshot is unconditionally mandatory** (§2.4.3b) — built exactly this
+  way in PR #1163.
+- **Dead-money-penalty reversal is never automated** — any adjustment after a failed trade
+  requires a separate commissioner review and an auditable manual action; no code anywhere does
+  this automatically.
+- **The player-loss resolution policy** (§2.4.3c) — attempt restoration, then a facilitated
+  replacement trade, then the league's existing dispute process; "no compensation" is never the
+  automatic result. Policy only — does not authorize live execution.
+- **The reconciliation discipline for a missing or ambiguous ledger step** (§2.4.3b's addendum)
+  — never presence-alone; a matching MFL FREE_AGENT transaction record (or other authoritative
+  evidence tied to the franchise, player, and attempt) is required to mark a step confirmed;
+  absent evidence holds for commissioner review rather than guessing either outcome. Built and
+  tested in PR #1163.
+- **The per-franchise hold covers every in-app creation, counter, acceptance, and execution
+  path for either affected team** (§8.6) — the legacy direct-MFL 2-way route (create, counter,
+  accept) and the 3-way engine (create, accept, execute) are all wired to the same hold as
+  staged 2-way. What it cannot reach — MFL's own native site — is documented in §8.6, not
+  silently assumed closed.
+
 **Still open, and needing review before ANY execution code is written:**
 - **Cutover for already-pending native offers** (§8.5.1, concrete procedure added §8.5.1a
   2026-09-29) — **recommendation: Option C**, which requires zero new engineering since the
@@ -1291,18 +1702,30 @@ moment it runs, whichever way #1152 eventually lands. Nothing in this document d
   explicitly framed as "not yet" ("Do not choose automatic trade-first or drop-first **yet**"),
   not a permanent rejection of automation itself; the ORDER (drop-first) is now fixed for whenever
   automation, if ever approved, is built.
-- **The restoration workaround's own extent is a decision, not fully specified.** §2.4.3b states
-  what a commissioner CAN and CANNOT do manually if a drop succeeds and the trade then fails, and
-  is explicit that none of it is guaranteed. Not yet decided: whether the pre-drop contract
-  snapshot §2.4.3b proposes capturing should be built as a prerequisite for enabling ANY real
-  drop write (so restoration is never attempted from a worse position than it has to be), whether
-  reversing the drop's own dead-money cap penalty upon a successful restoration should ever be
-  automated, and whether the commissioner needs an urgency signal (the free-agent race is real and
-  time-sensitive) rather than relying on them to already know to act immediately.
-- **The compensating-resolution mechanism for a deal that cannot be restored** (§2.4.3 state *k*,
-  §2.4.3b's restoration section) — once a lost asset cannot be recovered (someone else claimed the
-  player), what the commissioner offers the affected owner — nothing is prescribed here, and
-  §2.4.3b is explicit that none exists today beyond a case-by-case negotiation.
+- **The restoration workaround's own extent — two items DECIDED by Keith, 2026-09-30, and one
+  still open.** §2.4.3b states what a commissioner CAN and CANNOT do manually if a drop succeeds
+  and the trade then fails, and is explicit that none of it is guaranteed.
+  - **DECIDED: the pre-drop contract snapshot is mandatory.** *"The exact pre-drop snapshot is
+    mandatory. If the player's contract terms or roster state cannot be captured and verified,
+    stop before any drop."* Not a nice-to-have, not conditional on anything else — built exactly
+    this way in `worker/src/trade_2way.js`'s `captureAndVerifyPreDropSnapshot` (PR #1163), which
+    is the ONLY gate on whether a drop write is attempted at all; failing it stops the whole
+    sequence before any write, unconditionally.
+  - **DECIDED: dead-money-penalty reversal is never automated.** *"Do not automate dead-money-
+    penalty reversal. Any adjustment after a failed trade requires a separate commissioner review
+    and an auditable manual action."* No code anywhere in this design (or PR #1163) reverses a
+    drop's cap penalty; §2.4.3b's restoration section already says reversing it "is a distinct,
+    unaddressed manual correction," and that framing is now the decided policy, not a placeholder
+    for future automation.
+  - **Still open:** whether the commissioner needs an urgency signal for the free-agent race (the
+    window is real and time-sensitive; nothing here alerts them beyond the ordinary player-loss
+    DM) — not decided, and PR #1163 does not build one.
+- **DECIDED (moved from "still open," Keith 2026-09-30): the compensating-resolution POLICY for
+  a deal that cannot be restored** (§2.4.3 state *k*) — §2.4.3c's approved, ranked sequence:
+  facilitated replacement trade first, the league's existing dispute process as the fallback,
+  no-compensation only as that process's own conclusion, never a default. **Policy only — no
+  code automates or enforces any step, and `TRADE_2WAY_DROP_EXECUTE_ENABLED` stays off**; §12.3
+  lists what remains before real writes are enabled.
 - The exact commissioner-facing and owner-facing notification copy for every outcome in §2.4.3
   (state 0 / state *k* `partial_executed` / state *N* success).
 - Whether a queued deal sitting unreviewed, or a stuck `partial_executed` deal, needs its own
@@ -1443,35 +1866,108 @@ drop confirmed, the next drop or the trade not yet resolved), recovery is NOT "j
 something real already happened on MFL's side — and follows §2.4.3b's own step 7 ("commissioner
 must first understand why before deciding whether to retry the remaining writes or negotiate a
 compensating resolution"), unchanged. If the loss cannot be recovered at all (the player was
-claimed by someone else before the commissioner could act), §11's open item — the
-compensating-resolution mechanism for an owner whose loss cannot be restored — remains exactly as
-open as it was; this document still does not prescribe one.
+claimed by someone else before the commissioner could act), §2.4.3c is the concrete, ranked
+recommendation for this exact case (a release blocker per Keith's ruling) — still a
+recommendation, not a decision, until he rules on it.
 
-### 12.3 What remains a decision before ANY real write path is enabled
+### 12.3 Release checklist — decided vs. still blocking, before `TRADE_2WAY_DROP_EXECUTE_ENABLED` can flip on
 
-Every item below is a genuine decision, not an implementation detail — none of it should be
-inferred from "well, the design already covers it":
+**Decided (do not re-litigate):**
 
-- **Sequence is now decided (§11): drop(s) first, trade after.** No longer open — listed here only
-  to state plainly that this section does not re-open it.
-- **The exact new `steps_json` shape and the real (not proposed) `partial_executed` ledger state**
-  (§2.4.3/§2.4.3b, §11) — sketched concretely in prose (the per-drop shape now includes
-  `pre_drop_snapshot`), not written as code.
-- **Whether the pre-drop contract snapshot (§2.4.3b step 2) is built as a hard prerequisite for
-  enabling any real drop write**, or is treated as a nice-to-have — §11 lists this as newly open,
-  not yet decided.
-- **Whether reversing a drop's dead-money cap penalty upon a successful manual restoration is ever
-  automated**, and whether the commissioner needs an urgency signal for the free-agent race
-  (§2.4.3b's restoration section, §11) — not prescribed.
-- **The compensating-resolution mechanism** for an owner whose loss cannot be restored at all —
-  the player was claimed by someone else first (§6, §11, §2.4.3b) — not prescribed.
+- **Sequence: drop(s) first, trade after** (§2.2/§2.4.3b, Keith's ruling 2026-09-29).
+- **The pre-drop contract snapshot is MANDATORY, unconditionally** (Keith's ruling 2026-09-30) —
+  built exactly this way in PR #1163's `captureAndVerifyPreDropSnapshot`: if the player's
+  contract terms or roster state cannot be captured and verified, the sequence stops before that
+  drop, full stop, not a configurable or skippable check.
+- **Dead-money-penalty reversal is NEVER automated** (Keith's ruling 2026-09-30) — any adjustment
+  after a failed trade requires a separate commissioner review and an auditable manual action; no
+  code in this design or PR #1163 does this automatically.
+- **The player-loss resolution policy** (§2.4.3c, Keith's ruling 2026-09-30) — restoration
+  attempt, then a facilitated replacement trade, then the league's existing dispute process;
+  "no compensation" is never the automatic result. **Policy decided; still not a green light for
+  real writes** — nothing automates or enforces any step of it.
+- **The reconciliation discipline for a missing/ambiguous ledger step, INCLUDING the trade write
+  itself** (Keith's ruling 2026-09-30, two passes the same day, §2.4.3b's addendum) — built and
+  tested in PR #1163: never presence-alone, never a matching-transaction requirement satisfied by
+  a time buffer, and (second pass) never limited to drops — the trade leg's own write now gets
+  the identical write-ahead + reconciliation discipline, closing the "duplicate trade execution
+  when the response is lost" risk structurally, not by convention. `tests/trade_2way_drop_first_
+  execute.test.mjs` covers both: the drop-side reconciliation suite (including both named
+  intervening-change cases and two tests proving elapsed time alone never triggers a retry) and a
+  dedicated trade-leg reconciliation suite (a crash-then-resume that reconciles via MFL's own
+  TRADE transaction record with zero duplicate MFL calls, a resume that correctly holds when no
+  matching record exists, and same-pass reconciliation when the original call's own response was
+  ambiguous). A matching MFL transaction record (queried directly, matched to franchise/player or
+  franchise/franchise+give/receive, and the attempt timestamp) is the ONLY authoritative evidence
+  for a confirmed reconciliation, for either a drop or the trade; absent that record, the step
+  holds for commissioner review — permanently, not until some elapsed time passes.
+- **The per-franchise hold covers every in-app creation, counter, acceptance, and execution path
+  for either affected team, AND checks every participant of a 3-way trade, not just the
+  responder** (§8.6, Keith's ruling 2026-09-30, two passes) — CLOSED: the legacy direct-MFL 2-way
+  route (create/counter/accept) and the 3-way engine (create/accept/execute) are wired to the
+  same hold staged 2-way already had; `handle3WayButton`'s own accept-time check was corrected
+  (second pass) to check all three of a 3-way trade's own participants, not the responding
+  franchise alone, and is now independently unit-tested
+  (`tests/trade_3way_button_hold.test.mjs`, 7/7). MFL's own native site remains outside any
+  in-app hold's reach, by design, documented as such in §8.6.
+- **The hold's own D1 binding is now correct** (§8.6, Keith's ruling 2026-09-30, second pass) —
+  fixed directly, not deferred: `UPS_MFL_DB` is preferred everywhere the drop-first hold, the
+  execution ledger, and the cap-ack/conditional-drop stores resolve their D1 binding, so an
+  unrelated outbox-DB failure can never bypass or falsely satisfy the hold. Tested directly, and
+  this also fixed a genuinely pre-existing, previously-failing test in `trade_2way_authz.test.mjs`
+  that had been broken by this exact bug.
+- **An owner can never retrigger a failed/uncertain step; only a commissioner may resume it**
+  (§2.4.5, Keith's ruling 2026-09-30) — DECIDED and enforced: the execute route is
+  commissioner-only, the ledger lock itself independently blocks a second acquisition regardless
+  of route, and the one real gap found while verifying this (`recheck2WayExecution` could flip
+  `row.status` and hand back a false "rechecking" without ever causing a second write) is now
+  closed and tested.
+- **The aging-alert question is resolved: built, not merely "needed"** (§2.4.6, Keith's ruling
+  2026-09-30) — a commissioner-DM escalation plus a distinct queue-UI banner for any drop-first
+  sequence stuck past 30 minutes, both shipped and tested in PR #1163. The immediate,
+  higher-urgency alert for the specific player-loss scenario (a confirmed drop followed by a
+  failed/unconfirmed trade) fires synchronously the moment it happens (`runTradeLegAfterDrops`'s
+  own `notifyCommish` call); the 30-minute aging alert is the FOLLOW-UP if that first alert goes
+  unresolved, and (second pass) its own copy now says so explicitly ("PLAYER-LOSS FOLLOW-UP")
+  rather than reading as a generic staleness ping when that's what's actually stuck.
+- **No new backup-commissioner authority is granted as part of this PR** (§2.4.4, Keith's ruling
+  2026-09-30) — explicitly declined here, not left open; the aging alert above is the mitigation
+  this PR ships instead of a second authorized executor.
+- **No automatic retry from a missing MFL transaction record, at any elapsed time, for either a
+  drop or the trade** (§2.4.3b's export-coverage addendum, Keith's ruling 2026-09-30, SECOND
+  correction the same day) — an earlier revision of this fix used a 5-minute time buffer before
+  trusting a "no match" result; Keith's correction is that a buffer is still a guess, not a proof,
+  and this codebase has no independent evidence of the export's actual latency at any elapsed
+  time. The buffer was removed entirely. Cloudflare edge-caching is still ruled out via an
+  explicit cache-bypass header (a genuinely separate, still-valid fix). Tested directly: the same
+  "present, no match" facts hold identically at 30 seconds and at 10 days.
+
+**Still blocking release — genuine decisions, not implementation details:**
+
+- **The exact new `steps_json` shape (drop AND trade steps) and the real `partial_executed`
+  ledger state** — PR #1163 has ALREADY built and shipped (behind the flag) the concrete shape
+  used throughout this section: a drop step is `{status, franchise_id, player_id,
+  pre_drop_snapshot, mfl_verification?, mfl_evidence?, reconciled?, reason?, attempted_at_utc? |
+  confirmed_at_utc?}`; the trade step (new, second pass) is `{status, from_fid, to_fid,
+  mfl_trade_id?, mfl_evidence?, reconciled?, reason?, attempted_at_utc? | confirmed_at_utc?}` —
+  this item is effectively resolved by PR #1163's own code, listed here only until that PR itself
+  is reviewed and the shape is considered final.
 - **The exact commissioner-facing and owner-facing notification copy** for every outcome named in
-  §12.2 (§11, unchanged).
-- **Whether an owner can themselves re-trigger their own failed drop step**, or whether this is
-  strictly commissioner-only (§6, unchanged).
-- **Whether a stuck deal needs its own aging alert**, and whether a backup-commissioner path is
-  needed (§2.4.4, §11, unchanged).
+  §12.2 — PR #1163 ships real, distinct copy for every case this document names (drop confirmed/
+  trade pending, drop failed, drop unconfirmed, reconciled via transaction log, trade completed,
+  the player-loss case — now naming which players/teams were actually dropped), plus the aging
+  alert's own copy — listed here only pending Keith's review of the actual wording.
+- **Whether the commissioner needs an urgency signal for the free-agent race** (§11) — not built;
+  the player-loss DM tells the commissioner to act, but nothing pages or escalates if they don't.
+  Distinct from §2.4.6's aging alert, which escalates an unresolved LEDGER state (including,
+  second pass, an immediate high-urgency variant for the player-loss case specifically), not the
+  separate, faster free-agent-reclaim race a restoration attempt runs against.
+- **`/roster-workbench/action`'s own real MFL-HTML-form scraping has no test coverage anywhere in
+  this repo** (§2.4.3b's test-infrastructure boundary, called out since the first pass, not
+  introduced by this one) — a genuine gap before the flag ever flips on for real; every test in
+  this feature stubs only that route's JSON response contract, traced exactly from its source.
 
-**Until every item above is explicitly decided, `TRADE_2WAY_STAGING_EXECUTE` stays off and no
-commissioner-facing "complete this trade" action is built.** §12.1's read-only/dry-run surface is
+**Until every "still blocking" item above is explicitly resolved, `TRADE_2WAY_DROP_EXECUTE_
+ENABLED` stays off and no commissioner-facing "complete this trade" action runs for real.** §12.1's
+read-only/dry-run surface (and now PR #1163's real, flag-gated engine, still never enabled) is
 the full extent of what ships in this pass.

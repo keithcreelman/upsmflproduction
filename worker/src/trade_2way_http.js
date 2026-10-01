@@ -21,6 +21,7 @@
 import {
   createStaged2WayTrade, get2WayTrade, list2WayForFranchise, cancel2WayTrade,
   accept2WayTrade, recheck2WayExecution, select2WayLoadedContractDrops, listCommish2WayQueue,
+  executeDropFirstDeal,
 } from "./trade_2way.js";
 import { padFid } from "./trade_3way_model.js";
 import { resolveTradeCaller, callerFailureBody, isAdminCaller } from "./trade_authz.js";
@@ -39,7 +40,7 @@ const CREATE_MESSAGES = {
 };
 
 // The route family this module owns — exact matches only (the global L-guard exempts exactly these).
-export const TWO_WAY_STAGED_ROUTES = ["/api/trades/2way", "/api/trades/2way/accept", "/api/trades/2way/cancel", "/api/trades/2way/recheck", "/api/trades/2way/select-drops", "/api/trades/2way/queue"];
+export const TWO_WAY_STAGED_ROUTES = ["/api/trades/2way", "/api/trades/2way/accept", "/api/trades/2way/cancel", "/api/trades/2way/recheck", "/api/trades/2way/select-drops", "/api/trades/2way/queue", "/api/trades/2way/execute"];
 
 export async function handle2WayStagedHttp(a) {
   const { request, url, path, env, ctx, deps, corsHeaders } = a;
@@ -60,6 +61,30 @@ export async function handle2WayStagedHttp(a) {
     const q = await listCommish2WayQueue(env, r.caller.leagueId, r.caller.season, { includeAll, deps: { franchiseNames: deps.franchiseNames, playersByIds: deps.playersByIds } });
     if (!q.ok) return out(q.http || 503, { ok: false, code: q.code || "unavailable", error: q.message || "Couldn't load the queue.", message: q.message || "Couldn't load the queue." });
     return out(200, { ok: true, league_id: q.league_id, season: q.season, trades: q.trades });
+  }
+
+  // ── COMMISSIONER EXECUTE (drop-first, Keith's ruling 2026-09-29, §2.4.3b) — its own identity ──
+  // rule, exactly like the queue above: isAdminCaller only, never the owner-scoped "acting as"
+  // rule. Behind TRADE_2WAY_DROP_EXECUTE_ENABLED (default OFF) — executeDropFirstDeal itself
+  // refuses when the flag is off, this route never bypasses that. Runs via ctx.waitUntil so the
+  // response returns promptly; the real outcome is read back from the queue/detail endpoints,
+  // never from this response alone (mirrors accept2WayTrade's own fire-and-continue shape).
+  if (path === "/api/trades/2way/execute" && request.method === "POST") {
+    const out2 = (status, payload) => new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json", ...(corsHeaders || {}) } });
+    let execBody = null;
+    try { execBody = await request.json(); } catch (_) { return out2(400, { ok: false, code: "bad_request", error: "That request wasn't valid JSON." }); }
+    const id = safeStr(execBody && execBody.id);
+    if (!id) return out2(400, { ok: false, code: "bad_request", error: "Missing trade id." });
+    const r = await resolveTradeCaller({
+      url, body: execBody, env, deps,
+      defaultLeagueId: a.defaultLeagueId, defaultSeason: a.defaultSeason,
+      queryToken: a.browserMflUserId, cookieToken: a.cookieMflUserId, allowCookieToken: true,
+    });
+    if (!r.ok) return out2(r.http, callerFailureBody(r));
+    if (!isAdminCaller(r.caller)) return out2(403, { ok: false, code: "forbidden", error: "Commissioner only.", message: "Commissioner only." });
+    const run = () => executeDropFirstDeal(env, ctx, id);
+    if (ctx?.waitUntil) ctx.waitUntil(run()); else await run();
+    return out2(202, { ok: true, id, started: true });
   }
 
   const isBase = path === "/api/trades/2way";

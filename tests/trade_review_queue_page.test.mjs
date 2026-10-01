@@ -1,7 +1,13 @@
-// The commissioner Trade Review Queue page (site/commish/trade_review_queue.html) -- a
+// The commissioner Trade Review Queue page (site/commish/trade_review_queue.html). Was a
 // READ-ONLY hold/review surface (Keith's ruling, 2026-09-29: "do not add a drop or trade
-// execution button yet"). Runs the page's REAL inline script in a vm sandbox against a fake
-// DOM, with fetch() bridged to the real worker + real D1 + a stateful fake MFL, mirroring the
+// execution button yet") -- superseded 2026-09-30 by a real, confirmed Execute action (see
+// tests/trade_review_queue_execute_action.test.mjs for that action's own thorough coverage:
+// what it shows, when it's disabled, and that it calls the real route with zero live MFL
+// writes in every scenario tested). This file keeps the surrounding read-only-page behavior
+// that is STILL true today (auth, zero writes from merely loading the page, per-step ledger
+// detail, aging banners) and updates the two tests whose premise the new Execute action
+// deliberately changed. Runs the page's REAL inline script in a vm sandbox against a fake DOM,
+// with fetch() bridged to the real worker + real D1 + a stateful fake MFL, mirroring the
 // established slice-and-stub technique.
 //   node tests/trade_review_queue_page.test.mjs
 import fs from "node:fs";
@@ -141,20 +147,24 @@ test("WRONG OWNER: an ordinary owner's real session is refused by the server (40
   t.equal(p.els.trqAuthBanner.className, "trq-auth-banner show");
 });
 
-test("NO EXECUTE/DROP AFFORDANCE: nothing in the rendered page, for any trade or state, offers to execute a trade or drop a player", async () => {
+test("EXECUTE AFFORDANCE IS GATED, NEVER A BARE DROP AFFORDANCE: a not-yet-accepted trade offers only a disabled Execute with a plain reason; the drop picker's own interactive checkbox markup never appears anywhere on this page", async () => {
   const { env, mfl } = fresh();
   mfl.st.rosters["0001"] = [flat("14056")];
   mfl.st.rosters["0002"] = [flat("13100")];
-  await stageViaHttp(env);
+  await stageViaHttp(env); // not yet accepted -- to_state stays 'pending'
   const p = loadPage(env, { session: "tok-commish" });
   await settle();
   const html = p.els.trqList.innerHTML;
-  t.doesNotMatch(html, /data-t3w-act="select-drops"/, "the drop picker's own confirm button must never appear on this read-only page -- renderCompliance is called with no viewerFid, so its interactive picker never renders");
-  t.doesNotMatch(html, /<button[^>]*>\s*[Ee]xecute/, "no button anywhere offers to execute a trade");
-  t.doesNotMatch(html, /<button[^>]*>\s*(Drop this player|Confirm drop)/i, "no button anywhere offers to drop a player");
-  // Every actionable element on the page is exactly the read-only toggle -- nothing else.
-  const buttonActs = [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1].trim());
-  for (const label of buttonActs) t.match(label, /^(Show full compliance|Hide detail)/, `unexpected button on a read-only page: "${label}"`);
+  // Keith's ruling (2026-09-30) added a real, confirmed Execute action -- but never a bare
+  // one-click drop affordance of any kind: renderCompliance is still called with no viewerFid,
+  // so its own interactive drop-selection picker (a DIFFERENT control from Execute) never
+  // renders here, on this or any other page state.
+  t.doesNotMatch(html, /data-t3w-act="select-drops"/, "the drop picker's own confirm button must never appear -- conditional-drop SELECTION stays the owner's own action elsewhere, never a commissioner-side control on this page");
+  t.doesNotMatch(html, /<button[^>]*>\s*(Drop this player|Confirm drop)/i, "no button anywhere offers to drop a player directly");
+  const execBtn = /<button type="button" class="trq-exec-btn"( disabled)?>([^<]*)<\/button>/.exec(html);
+  t.ok(execBtn, "the Execute control is present (gated, not bare)");
+  t.ok(execBtn[1], "disabled -- this trade hasn't been accepted yet");
+  t.match(html, /Waiting on the recipient&#39;s own accept/);
 });
 
 test("ZERO WRITES: loading the queue page never calls anything but a GET on /api/trades/2way/queue -- no MFL import, no other worker route", async () => {
@@ -171,15 +181,16 @@ test("ZERO WRITES: loading the queue page never calls anything but a GET on /api
   t.equal(paths.size, 0, "the page must never call any route other than the read-only queue endpoint");
 });
 
-test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows the dry-run preview -- both purely descriptive text, no action anywhere -- and the page carries its own prominent 'cannot be completed yet' banner", async () => {
+test("§12.1 COMPLETION STATUS: a not-ready trade shows why (and still offers only a disabled Execute), a ready trade shows the fresh-preview text AND a real, enabled Execute -- and the page still carries its own prominent drop-first-sequencing banner", async () => {
   const { env, mfl } = fresh();
   mfl.st.rosters["0001"] = [flat("14056")];
   mfl.st.rosters["0002"] = [flat("13100")];
   const id = await stageViaHttp(env);
   const p1 = loadPage(env, { session: "tok-commish" });
   await settle();
-  t.match(p1.els.trqList.innerHTML, /Not ready to complete — waiting on the recipient/);
-  t.doesNotMatch(p1.els.trqList.innerHTML, /Would send to MFL/);
+  t.match(p1.els.trqList.innerHTML, /As of this refresh: waiting on the recipient&#39;s own accept/);
+  t.doesNotMatch(p1.els.trqList.innerHTML, /What Execute would send/);
+  t.match(p1.els.trqList.innerHTML, /<button type="button" class="trq-exec-btn" disabled>Execute<\/button>/, "disabled -- not yet accepted");
 
   // Move straight to the ready state via direct SQL -- same technique
   // tests/trade_2way_completion_preview.test.mjs uses, avoiding a race against the real accept
@@ -188,26 +199,78 @@ test("§12.1 COMPLETION STATUS: a not-ready trade shows why, a ready trade shows
   const p2 = loadPage(env, { session: "tok-commish" });
   await settle();
   const html = p2.els.trqList.innerHTML;
-  t.match(html, /Compliance clear — completion unavailable/, "must not say 'ready to complete' -- compliance passing is not the same fact as being executable");
-  t.doesNotMatch(html, /Ready to complete/i, "no wording anywhere may imply this trade can be executed right now");
-  t.match(html, /Dry-run preview only, if this were completed today:.*0001 gives \[14056\].*0002 gives \[\(nothing\)\].*Would send to MFL/s);
-  t.match(html, /Nothing here executes anything, and there is no completion action anywhere in this app yet/);
-  // Still no button anywhere, and zero MFL writes just from loading this ready state.
-  const buttonActs = [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1].trim());
-  for (const label of buttonActs) t.match(label, /^(Show full compliance|Hide detail)/);
-  t.equal(mfl.st.imports.length, 0);
+  t.match(html, /Compliance clear as of this refresh/);
+  t.match(html, /What Execute would send right now:.*0001 gives \[14056\].*0002 gives \[\(nothing\)\]/s);
+  t.match(html, /Re-checked fresh at the moment you actually confirm, not assumed from this snapshot/);
+  // A real, ENABLED Execute control now appears (Keith's ruling, 2026-09-30) -- never
+  // auto-clickable; it only opens the confirm panel, never executes on its own from a page load.
+  t.match(html, /<button type="button" class="trq-exec-btn" data-trq-exec-open="[^"]+">Execute…<\/button>/);
+  t.equal(mfl.st.imports.length, 0, "zero MFL writes just from loading this ready state -- Execute was never clicked");
 
-  // The page's own blocker banner is present regardless of any trade's state.
-  t.match(HTML, /A staged trade cannot be completed yet/);
-  // Keith's ruling (2026-09-29): the banner itself must not say "ready to complete" either --
-  // it must state plainly that neither write order can guarantee both "never exceeds five" and
-  // "nothing lost if the other half fails."
-  t.doesNotMatch(HTML, /is <b>ready to complete<\/b>/);
-  // Keith's ruling (2026-09-29, sequence): drop-first is decided, not left open or per-deal.
-  t.match(HTML, /Sequence is decided \(Keith's ruling, 2026-09-29\): required drops confirm FIRST/);
+  // The page's own sequencing banner is present regardless of any trade's state.
+  t.match(HTML, /Required drops confirm FIRST, one at a time, before the trade is ever attempted/);
   t.match(HTML, /does <b>not<\/b> make the trade safe/, "must not overstate the guarantee -- the trade side can still fail after every drop confirms");
   t.match(HTML, /restoration is a manual, race-prone workaround/);
-  t.doesNotMatch(HTML, /Neither write order is decided/);
+  // Keith's ruling (2026-09-30): the banner must warn that a snapshot goes stale, now that a
+  // real action exists that reads it.
+  t.match(HTML, /re-derives compliance fresh at that exact moment and fails closed/);
+});
+
+test("PER-STEP EXECUTION DETAIL: a drop-first sequence's individual step outcomes (confirmed/failed/unconfirmed) render distinctly in the queue, per Keith's ruling that a failed/uncertain step must remain visible", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const now = new Date().toISOString();
+  env.UPS_MFL_DB.raw.prepare(
+    `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, failed_step, failure_detail, steps_json, created_at_utc, updated_at_utc)
+     VALUES ('74598', '2026', ?, 'two_way_staged_drop_first', 'executed_needs_review', 'drop:80001', 'lockout: MFL commissioner lockout on', ?, ?, ?)`
+  ).run(id, JSON.stringify({
+    "drop:80000": { status: "confirmed", reason: null },
+    "drop:80001": { status: "failed", reason: "lockout: MFL commissioner lockout on" },
+  }), now, now);
+  const p = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p.els.trqList.innerHTML;
+  t.match(html, /drop 80000: ✅ confirmed/);
+  t.match(html, /drop 80001: 🛑 failed — lockout: MFL commissioner lockout on/);
+});
+
+// ═══════ AGING BANNER (Keith, 2026-09-30): "show the age prominently in the queue." ═══════
+test("AGING BANNER: a drop-first sequence stuck past the 30-minute threshold gets a loud, distinct banner and card styling -- not just the generic 48-hour staleness marker", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const stuckIso = new Date(Date.now() - 95 * 60000).toISOString(); // 1h 35m
+  env.UPS_MFL_DB.raw.prepare(
+    `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, failed_step, failure_detail, steps_json, created_at_utc, updated_at_utc)
+     VALUES ('74598', '2026', ?, 'two_way_staged_drop_first', 'executed_needs_review', 'drop:80001', 'lockout: MFL commissioner lockout on', ?, ?, ?)`
+  ).run(id, JSON.stringify({ "drop:80000": { status: "confirmed", reason: null }, "drop:80001": { status: "failed", reason: "lockout: MFL commissioner lockout on" } }), stuckIso, stuckIso);
+  const p = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p.els.trqList.innerHTML;
+  t.match(html, /trq-card-aging/, "the card itself must carry the louder aging style, not just the ledger text");
+  t.match(html, /STUCK 1h 35m/, "the age must be stated prominently and match the same threshold/wording as the commissioner DM alert");
+  t.match(html, /NEEDS REVIEW/);
+  t.match(html, /[Oo]nly the commissioner can resume/);
+});
+
+test("AGING BANNER: a drop-first sequence stuck UNDER the threshold gets no banner -- the immediate per-step detail is enough this early", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  const id = await stageViaHttp(env);
+  const freshIso = new Date(Date.now() - 5 * 60000).toISOString();
+  env.UPS_MFL_DB.raw.prepare(
+    `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, failed_step, failure_detail, steps_json, created_at_utc, updated_at_utc)
+     VALUES ('74598', '2026', ?, 'two_way_staged_drop_first', 'executed_needs_review', 'drop:80001', 'lockout: MFL commissioner lockout on', ?, ?, ?)`
+  ).run(id, JSON.stringify({ "drop:80000": { status: "confirmed", reason: null }, "drop:80001": { status: "failed", reason: "lockout: MFL commissioner lockout on" } }), freshIso, freshIso);
+  const p = loadPage(env, { session: "tok-commish" });
+  await settle();
+  const html = p.els.trqList.innerHTML;
+  t.doesNotMatch(html, /trq-card-aging/);
+  t.doesNotMatch(html, /STUCK/);
 });
 
 await run("trade_review_queue_page");

@@ -29,21 +29,35 @@ export const EXEC = Object.freeze({
   COMPLETED: "completed",
   NEEDS_REVIEW: "executed_needs_review",
   BLOCKED_CAP: "blocked_cap",
+  // Keith's ruling (2026-09-29, drop-first): a multi-write deal (one or more conditional
+  // drops, then the trade) in which at least one write has ALREADY been confirmed on MFL —
+  // an irreversible fact — but the full sequence has not yet completed. Distinct from
+  // MFL_EXECUTED (which this module has always meant as "the TRADE specifically executed")
+  // because a drop confirming is its own, earlier, independently-irreversible fact. See
+  // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §2.4.3b. Only ever written by
+  // worker/src/trade_2way.js's drop-first orchestrator; no other caller produces it.
+  PARTIAL_EXECUTED: "partial_executed",
 });
 
-/** States in which MFL HAS executed the trade — permanent facts. */
-export const MFL_DONE_STATES = Object.freeze([EXEC.MFL_EXECUTED, EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW]);
+/** States in which MFL HAS executed something for this deal — permanent facts. */
+export const MFL_DONE_STATES = Object.freeze([EXEC.MFL_EXECUTED, EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW, EXEC.PARTIAL_EXECUTED]);
 export const isMflExecuted = (state) => MFL_DONE_STATES.includes(state);
 
 /** The only legal moves. Nothing leaves an MFL-executed state except forward. */
 export const TRANSITIONS = Object.freeze({
   [EXEC.NOT_EXECUTED]: [EXEC.EXECUTING],
   [EXEC.BLOCKED_CAP]: [EXEC.EXECUTING],
-  [EXEC.EXECUTING]: [EXEC.MFL_EXECUTED, EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP, EXEC.NEEDS_REVIEW],
+  [EXEC.EXECUTING]: [EXEC.MFL_EXECUTED, EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP, EXEC.NEEDS_REVIEW, EXEC.PARTIAL_EXECUTED],
   [EXEC.MFL_EXECUTED]: [EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW],
   [EXEC.POSTPROCESSING]: [EXEC.POSTPROCESSING, EXEC.COMPLETED, EXEC.NEEDS_REVIEW],   // (re-entry = a stale, crashed post-processing run being resumed)
   [EXEC.NEEDS_REVIEW]: [EXEC.POSTPROCESSING, EXEC.COMPLETED],
   [EXEC.COMPLETED]: [],
+  // Forward-only, exactly like MFL_EXECUTED: NEVER back to NOT_EXECUTED/BLOCKED_CAP/EXECUTING
+  // via a plain move() — a drop already happened and must never be treated as "nothing
+  // happened yet." Resuming to attempt the NEXT step goes through resumeDropSequence() below,
+  // which takes a fresh lock token exactly like claimResume() does for postprocessing, never
+  // through a bare move().
+  [EXEC.PARTIAL_EXECUTED]: [EXEC.PARTIAL_EXECUTED, EXEC.MFL_EXECUTED, EXEC.NEEDS_REVIEW],
 });
 export const canTransition = (from, to) => (TRANSITIONS[from] || []).includes(to);
 
@@ -148,6 +162,35 @@ export function makeLedger(db) {
   };
 
   /**
+   * Claim (or resume) a drop-first multi-write sequence (§2.4.3b) — the SAME shape as
+   * acquire(), except it ALSO resumes a row already `partial_executed` (some drops already
+   * confirmed, the sequence isn't done), a row `executed_needs_review` from a prior stopped
+   * attempt (an EXPLICIT retry — every caller of this orchestrator is itself an explicit
+   * commissioner action, never an automatic background resume, exactly the same "explicit
+   * retry" framing claimResume() above already uses for executed_needs_review), or a stale
+   * `executing` row (a crashed mid-step attempt). Never resumes mfl_executed/postprocessing/
+   * completed — those are terminal or belong to a different lifecycle stage entirely. A fresh
+   * lock token every time, so two concurrent callers can never both act on the same step.
+   */
+  const resumeDropSequence = async (k, staleBeforeIso, seed) => {
+    await ensure();
+    const token = newToken(), at = nowIso();
+    const ins = await db.prepare(
+      `INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, lock_token, actor_fid, participants, payload_hash, payload_json, created_at_utc, updated_at_utc)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(league_id, season, exec_key) DO NOTHING`
+    ).bind(...keyOf(k), s(seed && seed.kind) || "two_way_drop_first", EXEC.EXECUTING, token, s(seed && seed.actorFid), s(seed && seed.participants), s(seed && seed.payloadHash),
+      seed && seed.payload ? JSON.stringify(seed.payload) : null, at, at).run();
+    if (changes(ins) === 1) return { acquired: true, token, row: await read(k) };
+    const upd = await db.prepare(
+      `UPDATE ups_trade_executions SET state=?, lock_token=?, updated_at_utc=?
+        WHERE league_id=? AND season=? AND exec_key=?
+          AND (state IN (?, ?, ?, ?) OR (state=? AND updated_at_utc <= ?))`
+    ).bind(EXEC.EXECUTING, token, at, ...keyOf(k), EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP, EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW, EXEC.EXECUTING, s(staleBeforeIso)).run();
+    if (changes(upd) === 1) return { acquired: true, token, row: await read(k) };
+    return { acquired: false, row: await read(k) };
+  };
+
+  /**
    * Record that a trade is BLOCKED BEFORE any MFL write (3-way cap gate). Only a row that never executed can become / stay `blocked_cap`
    * (no row yet, `not_executed`, or already `blocked_cap`); it can never overwrite an executing or executed trade. Returns the previous block
    * (so a caller can tell a NEW problem from the same one it already announced).
@@ -186,7 +229,7 @@ export function makeLedger(db) {
     return steps;
   };
 
-  return { ensure, read, readMany, acquire, block, move, claimResume, recordStep };
+  return { ensure, read, readMany, acquire, block, move, claimResume, resumeDropSequence, recordStep };
 }
 
 function hydrate(row) {
@@ -214,6 +257,63 @@ const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4
  * MFL gives a trade no id there, so the identity is the two franchises + the exact asset sets each gave up, at or after `sinceUnix`.
  * @param spec { from, to, give, receive, sinceUnix }  give = what `from` gave up, receive = what `to` gave up (CSV or arrays)
  */
+// ── PER-FRANCHISE HOLD (Keith's ruling, 2026-09-29, §2.4.3a row 5/§2.4.3b step 6; moved here
+// and made a shared export 2026-09-30, §8.6) ──
+// A franchise with an unresolved drop-first sequence (some steps confirmed -- real, irreversible
+// facts -- the rest not yet) has a KNOWN, BOUNDED uncertainty in its true roster/compliance
+// state; a fresh, unrelated deal must never be built or accepted on top of that uncertainty.
+// `partial_executed`/`executed_needs_review` are NEVER produced for a staged 2-way trade's
+// ledger row by any path other than trade_2way.js's drop-first orchestrator (execute2Way's own
+// failure path only ever moves to not_executed) -- so finding either state here is unambiguous,
+// not a guess. Lives HERE, not in trade_2way.js, so the legacy direct-MFL 2-way path (index.js)
+// and the 3-way engine (trade_3way.js, which trade_2way.js itself imports FROM) can both call it
+// without a circular import. `excludeTradeId` lets the drop-first EXECUTOR itself call this
+// (checking whether either franchise has an unresolved sequence on a DIFFERENT deal) without the
+// check finding its own in-progress row and refusing to let a stuck deal ever resume itself.
+export async function franchiseHasUnresolvedDropSequence(env, leagueId, season, fid, excludeTradeId) {
+  try {
+    // Keith's ruling (2026-09-30, second pass): "Fix the D1 binding fallback now, with a test
+    // that proves an outbox DB failure cannot bypass or falsely satisfy the hold." UPS_MFL_DB is
+    // where ups_2way_trades and ups_trade_executions actually live -- confirmed by every OTHER
+    // read/write to these same tables throughout trade_2way.js, which requires env.UPS_MFL_DB
+    // directly, never this fallback chain. The other names are legacy bindings from the outbox
+    // subsystem (see wrangler.toml's TWB_OUTBOX_DB comment) that happen to point at the SAME
+    // physical D1 in production today -- but preferring them here meant an outbox-only failure
+    // (a different binding, degraded for a reason having nothing to do with this hold) could
+    // make the hold check throw and fail closed, or -- worse, if a stale/mispointed binding ever
+    // existed -- silently query the WRONG database and falsely report "no unresolved sequence."
+    // UPS_MFL_DB first, unconditionally; the others are kept only as a last-resort fallback for
+    // an environment that somehow never defines it at all.
+    const db = env.UPS_MFL_DB || env.TWB_OUTBOX_DB || env.TWB_DB || env.DB;
+    if (!db) throw new Error("no D1 binding");
+    // The ledger table is created on demand -- a league/season where nothing has ever executed
+    // yet legitimately has no ups_trade_executions table at all, and this query must not treat
+    // that as an error.
+    await db.prepare(LEDGER_DDL).run();
+    const padFid = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; };
+    const row = await db.prepare(
+      `SELECT t.id FROM ups_2way_trades t
+        JOIN ups_trade_executions e ON e.exec_key = t.id AND e.league_id = t.league_id AND e.season = t.season
+       WHERE t.league_id=? AND t.season=? AND (t.from_fid=? OR t.to_fid=?)
+         AND e.state IN (?, ?)
+         AND t.id != ?
+       LIMIT 1`
+    ).bind(s(leagueId), s(season), padFid(fid), padFid(fid), EXEC.PARTIAL_EXECUTED, EXEC.NEEDS_REVIEW, s(excludeTradeId) || "\0impossible\0").first();
+    return !!row;
+  } catch (e) {
+    // ups_2way_trades itself is ALSO created on demand (never migration-gated, same convention
+    // as every other outbox/ledger/store table in this codebase) -- a league/season where no
+    // 2-way trade has EVER been staged genuinely has no such table, which is a PROVABLE "no
+    // unresolved sequence exists" (not a guess: the only table that could hold one doesn't
+    // exist), not the kind of ambiguity the NO-FAIL-OPEN rule below is protecting against.
+    if (/no such table:\s*ups_2way_trades\b/i.test(s(e?.message))) return false;
+    // NO FAIL-OPEN for every OTHER failure: if we can't tell, refuse to assume it's safe. Every
+    // caller treats a thrown hold-check the same as "held."
+    console.error(`[hold-check] failed for ${fid}: ${e?.message || e}`);
+    throw e;
+  }
+}
+
 export function findExecutedTrade(txData, spec) {
   let rows = txData && txData.transactions && txData.transactions.transaction;
   if (!Array.isArray(rows)) rows = rows ? [rows] : [];
