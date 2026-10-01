@@ -509,6 +509,57 @@ test("LC 2-WAY CREATE: 5 -> 7 (receiving TWO loaded contracts at once) is a hard
   t.equal(mfl.st.pending.length, 0, "zero MFL writes -- even a would-be-fully-satisfied selection changes nothing");
 });
 
+// COUNTER (Keith's ruling, 2026-10-01): previously had NO loaded-contract gate at all (the
+// legacy route's COUNTER branch only ever checked cutover + the drop-first hold) -- a real,
+// confirmed gap, not a hypothetical one (see worker/src/index.js's COUNTER block). This proves
+// the new gate: a counter that would push the RECIPIENT of the counter over the limit is
+// refused BEFORE the original offer is even rejected (the ORIGINAL offer must survive
+// untouched), and a compliant counter still goes through to a real, fresh MFL proposal.
+test("LC 2-WAY COUNTER: a counter that would push the recipient 5 -> 6 loaded is refused BEFORE the original offer is rejected -- zero MFL writes of any kind, original offer untouched", async () => {
+  const { env, mfl } = fresh2();
+  // The ORIGINAL offer: 0001 -> 0002, a simple flat-for-flat swap, fully compliant.
+  mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, { id: "20000", salary: 5000, contractStatus: "Vet-Ext2-BL" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  t.equal(mfl.st.pending.length, 1, "the original offer was created cleanly");
+  const importsBeforeCounter = mfl.st.imports.length;   // the original CREATE's own import -- not zero
+
+  // 0002 counters: sends the loaded "20000" (instead of 13100) to 0001, who already has 5
+  // loaded fillers -- this would push 0001 to 6.
+  const counterBody = {
+    action: "COUNTER", trade_id: id, league_id: "74598", season: "2026", franchise_id: "0002", acting_franchise_id: "0002",
+    counter_offer: { from_franchise_id: "0002", to_franchise_id: "0001", payload: payloadOf("0002", "0001", [player(20000)], [player(14056)]), message: "" },
+  };
+  const r = await callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, { body: counterBody });
+  t.equal(r.status, 409, r.text.slice(0, 300));
+  t.equal(r.json.code, "loaded_contract_limit_exceeded");
+  t.match(r.json.error, /L\.A\. Looks would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  t.equal(r.json.teams[0].franchise_id, "0001");
+  // The ORIGINAL offer must survive -- a refused counter never rejects it first.
+  const stillPending = mfl.st.pending.find((p) => p.trade_id === id);
+  t.ok(stillPending, "the original offer is untouched by a refused counter");
+  t.equal(mfl.writes("tradeResponse").length, 0, "zero reject/accept calls of any kind");
+  t.equal(mfl.st.imports.length, importsBeforeCounter, "zero NEW imports from the counter attempt -- it never reached MFL");
+});
+
+test("LC 2-WAY COUNTER: a compliant counter still goes through -- original offer rejected, a real new proposal created", async () => {
+  const { env, mfl } = fresh2();
+  mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, { id: "13101", salary: 5000, contractStatus: "Vet-FAA" }];
+  const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
+  t.equal(mfl.st.pending.length, 1);
+
+  const counterBody = {
+    action: "COUNTER", trade_id: id, league_id: "74598", season: "2026", franchise_id: "0002", acting_franchise_id: "0002",
+    counter_offer: { from_franchise_id: "0002", to_franchise_id: "0001", payload: payloadOf("0002", "0001", [player(13101)], [player(14056)]), message: "" },
+  };
+  const r = await callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, { body: counterBody });
+  t.ok(r.status < 300, `a compliant counter must go through: ${r.status} ${r.text.slice(0, 300)}`);
+  t.equal(mfl.writes("tradeResponse").length, 1, "the original offer WAS rejected (compliant counter)");
+  t.equal(mfl.st.pending.length, 1, "exactly one pending offer afterward -- the new counter");
+  t.notEqual(mfl.st.pending[0].trade_id, id, "it's a genuinely NEW proposal, not the old one mutated");
+});
+
 test("LC 2-WAY CREATE: false client-supplied loaded-contract totals (AND a loaded_contract_drops selection) cannot bypass the hold -- nothing the client sends changes the server's own recompute", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
