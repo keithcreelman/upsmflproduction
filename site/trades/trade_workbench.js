@@ -3340,7 +3340,6 @@
       var token = 0;
       var lastReview = null;
       var ack = { busy: false, message: "", ok: false };
-      var drops = { busy: false, message: "", ok: false, selections: {} };   // { franchise_id -> [player_id,...] }, LOCAL until "Confirm drop selection" submits it
       function done(v) {
         if (settled) return;
         settled = true;
@@ -3349,9 +3348,7 @@
       }
       function paint(review) {
         lastReview = review;
-        var sel = {}; sel[viewerFid] = drops.selections[viewerFid] || [];
-        body.innerHTML = T.renderAcceptReview(review, { viewerFid: viewerFid, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok,
-          selections: sel, dropBusy: drops.busy, dropMessage: drops.message, dropOk: drops.ok });
+        body.innerHTML = T.renderAcceptReview(review, { viewerFid: viewerFid, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
       }
       function load() {
         var mine = ++token;
@@ -3377,42 +3374,11 @@
             load();
           });
       }
-      // The loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29): the
-      // RECIPIENT's own requirement, picked and confirmed right here before Accept, mirroring
-      // acknowledgeCap's pattern exactly -- POST …/action, action SELECT_DROPS (the SAME worker
-      // route), then re-load the preview, which is what actually flips canAccept once satisfied.
-      function selectDrops(id, el) {
-        if (drops.busy) return;
-        var fid = el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : "";
-        if (!fid) return;
-        var picked = drops.selections[fid] || [];
-        drops.busy = true; drops.message = ""; paint(lastReview);
-        fetchAcceptPreview(actionUrl, { league_id: previewBody.league_id, season: previewBody.season, trade_id: previewBody.trade_id, action: "SELECT_DROPS", acting_franchise_id: previewBody.acting_franchise_id, offer_id: previewBody.offer_id, loaded_contract_drops: picked })
-          .then(function (res) {
-            if (settled) return;
-            var out = T.interpretSelectDrops(res);
-            drops.busy = false; drops.message = out.message; drops.ok = !!out.ok;
-            load();
-          });
-      }
-      // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind
-      // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated
-      // listener on the stable body container (survives every repaint's innerHTML reset).
-      if (!body.__t3wDropsBound) {
-        body.__t3wDropsBound = true;
-        body.addEventListener("change", function (ev) {
-          var box = ev.target;
-          if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
-          var fid = box.getAttribute("data-t3w-drop-fid");
-          var pid = box.getAttribute("data-t3w-drop-pid");
-          var cur = drops.selections[fid] || [];
-          if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
-          else { cur = cur.filter(function (x) { return x !== pid; }); }
-          drops.selections[fid] = cur;
-          paint(lastReview);
-        });
-      }
-      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); }, "ack-cap": acknowledgeCap, "select-drops": selectDrops });
+      // RULING (Keith, 2026-10-01): the conditional-drop SELECTION that used to live here is
+      // REMOVED -- a franchise over the loaded-contract limit is a hard stop (rendered by
+      // T.renderCompliance via T.renderAcceptReview above, no picker); Accept simply stays
+      // disabled (canAccept false) until the offer is revised or a separate roster move is made.
+      T.bind(dlg, { "accept-close": function () { done(false); }, "accept-retry": load, "accept-confirm": function () { done(true); }, "ack-cap": acknowledgeCap });
       dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(false); };
       load();
       if (typeof dlg.showModal === "function") {
@@ -4177,36 +4143,15 @@
     });
   }
 
-  // Resolve names/positions for a set of candidate player ids on ONE franchise's own roster,
-  // from data the builder already has loaded (team.assets) -- never guessed, never re-derived.
-  function buildPlayerNamesFor(franchiseId, playerIds) {
-    var team = getTeamById(franchiseId);
-    var out = {};
-    if (!team) return out;
-    var byId = {};
-    (team.assets || []).forEach(function (a) { if (a && a.player_id) byId[safeStr(a.player_id)] = a; });
-    (playerIds || []).forEach(function (pid) {
-      var a = byId[safeStr(pid)];
-      if (a) out[pid] = { name: a.player_name || ("Player " + pid), position: a.position || "" };
-    });
-    return out;
-  }
-
-  // The INITIATOR's own loaded-contract requirement, shown at offer CREATION (Keith's ruling,
-  // 2026-09-26/29 -- the fix for the Hammer Times gap: building/reviewing an offer as the sender
-  // showed no warning at all). `errData` is the 409 refusal's body ({error, compliance,
-  // loaded_contract_drops_needed}); `compliance.loaded_contracts.drop_requirements` carries the
-  // full picture, including this franchise's `candidates` menu (worker/src/trade_cap_authority.js)
-  // -- this dialog never re-derives loaded-contract classification itself. Resolves the selected
-  // player-id array once the owner has picked enough and confirmed, or null on cancel.
-  function confirmOfferLoadedContractDrops(errData, fromFranchiseId) {
+  // The loaded-contract HARD BLOCK, shown at offer CREATE/COUNTER (Keith's ruling, 2026-10-01,
+  // REPLACING the conditional-drop-picker flow of 2026-09-26/29): `errData` is the 409 refusal's
+  // body ({error, message, teams: [{franchise_id, franchise_name, projected, max}]}). This is a
+  // plain, honest notice -- team(s), projected count, limit -- with only a Close button. There is
+  // no picker, no selection, no retry: the caller always treats this as a refusal and must revise
+  // the offer or make a separate roster move before trying again.
+  function showLoadedContractBlock(errData) {
     var T = window.UPS_TRADE_3WAY;
-    if (typeof document === "undefined" || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve(null);
-    var dropReqs = (errData && errData.compliance && errData.compliance.loaded_contracts && errData.compliance.loaded_contracts.drop_requirements) || [];
-    var myReq = dropReqs.filter(function (d) { return safeStr(d.franchise_id) === fromFranchiseId; });
-    if (!myReq.length) return Promise.resolve(null);
-    var required = myReq[0].required_drops;
-    var playerNames = buildPlayerNamesFor(fromFranchiseId, myReq[0].candidates || []);
+    if (typeof document === "undefined" || !T) return Promise.resolve();
     T.ensureStyles();
     var dlg = document.getElementById("twbDropsDialog");
     if (!dlg) {
@@ -4221,62 +4166,23 @@
       document.body.appendChild(dlg);
     }
     var body = document.getElementById("twbDropsDialogBody");
-    // Keith's ruling, 2026-09-29: a SATISFIED selection (the owner already picked enough valid
-    // players) is not the same thing as an EXECUTED drop -- no code anywhere drops a real player
-    // yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). If the server is refusing DESPITE a
-    // satisfied selection, that is a TERMINAL state for this dialog: showing the interactive
-    // picker again and inviting another "Confirm and send" would misrepresent this warning as
-    // something the owner can act their way past, when they already have. Show a plain, honest
-    // notice instead, with only a Close button -- never loop back into the picker.
-    var alreadySatisfied = !!(myReq[0] && myReq[0].satisfied);
+    var teams = (errData && errData.teams) || [];
+    var rows = teams.map(function (t) {
+      return '<li><span class="t3w-cr-name">' + T.esc(t.franchise_name || t.franchise_id) + '</span>' +
+        '<span class="t3w-cr-flag">' + T.esc(t.projected) + ' of ' + T.esc(t.max) + ' max</span></li>';
+    }).join("");
     return new Promise(function (resolve) {
       var settled = false;
-      var selected = [];
-      function done(v) { if (settled) return; settled = true; try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); } resolve(v); }
-      function draw(message, ok) {
-        if (alreadySatisfied) {
-          body.innerHTML = '<p>' + T.esc(errData && errData.error) + '</p>' +
-            '<p style="color:#9fb4d6;font-size:13px">Your selection is valid and covers the requirement -- this is held for a different reason: conditional-drop execution isn\'t built yet, so no offer that needs one can be sent right now.</p>' +
-            '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px"><button type="button" data-drops-act="cancel" class="twb-btn twb-btn-primary">Close</button></div>';
-          return;
-        }
-        var sel = {}; sel[fromFranchiseId] = selected;
-        var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
-          playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
-        });
-        body.innerHTML = '<p>' + T.esc(errData && errData.error) + '</p>' + picker +
-          '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px">' +
-          '<button type="button" data-drops-act="cancel" class="twb-btn">Cancel</button>' +
-          '<button type="button" data-drops-act="confirm" class="twb-btn twb-btn-primary">Confirm and send</button></div>';
-      }
-      draw();
+      function done() { if (settled) return; settled = true; try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); } resolve(); }
+      body.innerHTML = '<p>' + T.esc((errData && (errData.message || errData.error)) || "This trade would leave a team over the loaded-contract limit.") + '</p>' +
+        (rows ? '<ul class="t3w-crows" aria-label="Teams over the loaded-contract limit">' + rows + '</ul>' : '') +
+        '<p style="color:#9fb4d6;font-size:13px">Revise the offer, or make a separate roster move first, then try again.</p>' +
+        '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px"><button type="button" data-drops-act="close" class="twb-btn twb-btn-primary">Close</button></div>';
       body.onclick = function (ev) {
-        if (alreadySatisfied) {
-          var closeEl = ev.target && ev.target.closest ? ev.target.closest("[data-drops-act]") : null;
-          if (closeEl) done(null);
-          return;
-        }
-        var box = ev.target && ev.target.closest ? ev.target.closest("input[data-t3w-drop-pid]") : null;
-        if (box) {
-          var pid = box.getAttribute("data-t3w-drop-pid");
-          if (box.checked) { if (selected.indexOf(pid) === -1) selected.push(pid); }
-          else { selected = selected.filter(function (x) { return x !== pid; }); }
-          draw();
-          return;
-        }
         var el = ev.target && ev.target.closest ? ev.target.closest("[data-drops-act]") : null;
-        if (!el) return;
-        var act = el.getAttribute("data-drops-act");
-        if (act === "cancel") { done(null); return; }
-        if (act === "confirm") {
-          if (selected.length < required) {
-            draw("Select " + required + " player" + (required === 1 ? "" : "s") + " to drop before confirming.", false);
-            return;
-          }
-          done(selected);
-        }
+        if (el) done();
       };
-      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(null); };
+      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done(); };
       if (typeof dlg.showModal === "function") { try { dlg.showModal(); return; } catch (e) { /* fall through */ } }
       dlg.setAttribute("open", "open");
     });
@@ -4302,11 +4208,11 @@
         });
       } catch (err) {
         var data = err && err.data && typeof err.data === "object" ? err.data : null;
-        if (err && err.status === 409 && data && data.code === "loaded_contract_drops_required") {
-          var picked = await confirmOfferLoadedContractDrops(data, fromFranchiseId);
-          if (!picked) throw err;
-          currentBody = Object.assign({}, currentBody, { loaded_contract_drops: picked });
-          continue;
+        // RULING (Keith, 2026-10-01): a hard block, never an in-trade fix -- show it, then
+        // always re-throw so the caller's existing "offer wasn't sent" handling takes over.
+        if (err && err.status === 409 && data && data.code === "loaded_contract_limit_exceeded") {
+          await showLoadedContractBlock(data);
+          throw err;
         }
         if (err && err.status === 409 && data && data.code === "cap_overage_ack_required" && data.cap_ack_needed) {
           var acknowledged = await confirmOfferCapOverage(data);
@@ -7983,8 +7889,7 @@
   // "acting as" request that the worker honors for the commissioner alone.
   var T3 = window.UPS_TRADE_3WAY || null;
   var twx = { listStatus: "idle", list: [], listProblem: null, seq: 0, openSeq: 0,
-              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {}, ack: {},
-              drops: { selections: {} } };   // { franchise_id -> [player_id,...] } -- LOCAL until "Confirm drop selection" submits it
+              detail: null, detailStatus: "idle", detailProblem: null, detailId: "", cancel: {}, ack: {} };
 
   function twxUrl(suffix, params) {
     var u = new URL(resolve3WayApiUrl(), window.location.href);
@@ -8072,36 +7977,20 @@
     var html;
     if (twx.detailStatus === "loading" && !twx.detail) html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     else if (twx.detailStatus === "error" && twx.detailProblem) html = T3.renderProblem(twx.detailProblem);
-    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {}, ackBusy: twx.ack.busy, ackMessage: twx.ack.message, ackOk: twx.ack.ok,
-      selections: twx.drops.selections, dropBusy: twx.drops.busy, dropMessage: twx.drops.message, dropOk: twx.drops.ok });
+    else if (twx.detail) html = T3.renderDetail(twx.detail, { cancel: twx.cancel, recheck: twx.recheck || {}, ackBusy: twx.ack.busy, ackMessage: twx.ack.message, ackOk: twx.ack.ok });
     else html = '<div class="twb-banner-offers-empty" role="status">Loading trade…</div>';
     body.innerHTML = html;
+    // RULING (Keith, 2026-10-01): the conditional-drop SELECTION binding that used to live here
+    // is REMOVED -- a franchise over the loaded-contract limit is a hard stop (rendered by
+    // T3.renderCompliance/renderBlock, no picker); Re-check is the only recovery action.
     T3.bind(body, {
       cancel: function () { twx.cancel = { confirming: true }; render3WayDetail(); },
       keep: function () { twx.cancel = {}; render3WayDetail(); },
       "confirm-cancel": function () { doCancel3Way(twx.detailId); },
       recheck: function () { doRecheck3Way(twx.detailId); },
       "ack-cap": function () { doAckCap3Way(twx.detailId); },
-      "select-drops": function (id, el) { doSelectDrops3Way(twx.detailId, el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : ""); },
       retry: function () { open3WayDetail(twx.detailId); }
     });
-    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T3.bind
-    // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated listener
-    // on the stable body container (survives every repaint's innerHTML reset).
-    if (!body.__t3wDropsBound) {
-      body.__t3wDropsBound = true;
-      body.addEventListener("change", function (ev) {
-        var box = ev.target;
-        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
-        var fid = box.getAttribute("data-t3w-drop-fid");
-        var pid = box.getAttribute("data-t3w-drop-pid");
-        var cur = twx.drops.selections[fid] || [];
-        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
-        else { cur = cur.filter(function (x) { return x !== pid; }); }
-        twx.drops.selections[fid] = cur;
-        render3WayDetail();
-      });
-    }
     if (twx.detail && twx.cancel.confirming && !twx.cancel.busy) T3.revealConfirm(body);
     tw3Reflow();
   }
@@ -8152,26 +8041,6 @@
     twx.ack = { ok: out.ok, message: out.message };
     await open3WayDetail(id);
     twx.ack = { ok: out.ok, message: out.message };          // (open3WayDetail resets per-open state; keep the answer visible)
-    render3WayDetail();
-  }
-
-  // Select (and, by submitting, confirm) THIS caller's own conditional loaded-contract drops on
-  // a 3-way trade (Keith's ruling, 2026-09-29) -- never writes to MFL, drops no player; mirrors
-  // doAckCap3Way's exact shape. `fid` is which franchise's own picker was confirmed (from the
-  // clicked button's own data-t3w-drop-fid, always the caller's own per select3WayLoadedContractDrops's
-  // server-side identity check -- never trusted client-side, just used to read the right local selection).
-  async function doSelectDrops3Way(id, fid) {
-    if (!id || (twx.drops && twx.drops.busy)) return;
-    var picked = (fid && twx.drops.selections[fid]) || [];
-    twx.drops = { busy: true, selections: twx.drops.selections };
-    render3WayDetail();
-    var out = T3.interpretSelectDrops(await twxFetch(twxUrl("/select-drops", {}), {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, player_ids: picked })
-    }));
-    if (twx.detailId !== id) return;
-    twx.drops = { ok: out.ok, message: out.message, selections: twx.drops.selections };
-    await open3WayDetail(id);
-    twx.drops = { ok: out.ok, message: out.message, selections: twx.drops.selections };   // (open3WayDetail resets per-open state; keep the answer visible)
     render3WayDetail();
   }
 
@@ -8592,20 +8461,18 @@
     doRecheck2WayStaged(id);
   }
 
-  // ── pre-send popup: "before an owner sends a two-team offer that would put either franchise
-  // over five loaded contracts, show a clear popup" (Keith's ruling, 2026-09-29). Uses
+  // ── pre-send notice: a franchise over the loaded-contract limit is a hard stop (Keith's
+  // ruling, 2026-10-01, REPLACING the pre-send picker of 2026-09-29). Uses
   // /api/trades/compliance-preview -- a trade that hasn't been created yet -- so the sender
-  // sees BOTH teams' projected counts before committing, not just their own side. Purely
-  // informational: it never blocks Stage/Send itself (the real gates are unchanged -- create
-  // for direct-MFL, accept/execute for staged 2-way and 3-way); it only ever lets the SENDER
-  // pick their OWN conditional drops (T3.renderLoadedContractDrops already restricts the
-  // interactive picker to opts.viewerFid === the row's own franchise_id -- the recipient's own
-  // row, if any, renders read-only with "Waiting on <them>", so a sender can never select the
-  // recipient's players here).
-  function showPreSendLoadedContractPopup(compliance, mySenderFid, playerNames) {
-    if (typeof document === "undefined" || !T3) return Promise.resolve({ proceed: true, drops: [] });
+  // finds out BEFORE wasting a round trip to the real gate (create/accept, which refuses it
+  // either way). Purely informational and never itself the enforcement point: it offers no
+  // picker and no in-trade fix, just the team(s), projected count, limit, and the instruction
+  // to revise the offer or make a separate roster move first -- with the choice to go back and
+  // fix it now, or send anyway and let the real gate refuse it.
+  function showPreSendLoadedContractPopup(compliance) {
+    if (typeof document === "undefined" || !T3) return Promise.resolve({ proceed: true });
     var lc = compliance && compliance.loaded_contracts;
-    if (!lc || lc.status === "ok" || !(lc.drop_requirements || []).length) return Promise.resolve({ proceed: true, drops: [] });
+    if (!lc || lc.status !== "blocked") return Promise.resolve({ proceed: true });
     T3.ensureStyles();
     var dlg = document.getElementById("twbPreSendDialog");
     if (!dlg) {
@@ -8619,38 +8486,27 @@
       document.body.appendChild(dlg);
     }
     var body = document.getElementById("twbPreSendDialogBody");
+    var rows = (lc.violations || []).map(function (v) {
+      return '<li><span class="t3w-cr-name">' + T3.esc(v.franchise_name || v.franchise_id) + '</span>' +
+        '<span class="t3w-cr-flag">' + T3.esc(v.projected) + ' of ' + T3.esc(v.max) + ' max</span></li>';
+    }).join("");
     return new Promise(function (resolve) {
       var settled = false;
-      var mySel = [];
       function done(v) { if (settled) return; settled = true; try { dlg.close(); } catch (e) { dlg.removeAttribute("open"); } resolve(v); }
-      function draw() {
-        var sel = {}; sel[mySenderFid] = mySel;
-        var picker = T3.renderLoadedContractDrops(lc.drop_requirements, mySenderFid, { playerNames: playerNames || {}, interactive: true, selections: sel });
-        var myReq = lc.drop_requirements.filter(function (d) { return safeStr(d.franchise_id) === mySenderFid; })[0];
-        var otherOver = lc.drop_requirements.some(function (d) { return safeStr(d.franchise_id) !== mySenderFid; });
-        body.innerHTML = '<p>This trade would push at least one team over the 5-loaded-contract limit. Each affected owner must select their own conditional drops — you can only pick your own.</p>' +
-          picker +
-          (otherOver ? '<p style="color:#9fb4d6;font-size:13px">The other affected team will see this same requirement and pick their own drops on their own side. Sending or staging this offer does not select anything for them.</p>' : '') +
-          '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px">' +
-          '<button type="button" data-presend-act="cancel" class="twb-btn">Don\'t send</button>' +
-          '<button type="button" data-presend-act="continue" class="twb-btn twb-btn-primary">' + (myReq ? "Continue with my selection" : "Continue") + '</button></div>';
-      }
-      draw();
+      body.innerHTML = '<p>' + T3.esc(lc.message || "This trade would leave a team over the loaded-contract limit.") + '</p>' +
+        (rows ? '<ul class="t3w-crows" aria-label="Teams over the loaded-contract limit">' + rows + '</ul>' : '') +
+        '<p style="color:#9fb4d6;font-size:13px">Revise the offer, or make a separate roster move first, then try again.</p>' +
+        '<div class="twb-btns" style="display:flex;gap:8px;margin-top:10px">' +
+        '<button type="button" data-presend-act="cancel" class="twb-btn twb-btn-primary">Go back</button>' +
+        '<button type="button" data-presend-act="continue" class="twb-btn">Send anyway</button></div>';
       body.onclick = function (ev) {
-        var box = ev.target && ev.target.closest ? ev.target.closest("input[data-t3w-drop-pid]") : null;
-        if (box) {
-          var pid = box.getAttribute("data-t3w-drop-pid");
-          if (box.checked) { if (mySel.indexOf(pid) === -1) mySel.push(pid); } else { mySel = mySel.filter(function (x) { return x !== pid; }); }
-          draw();
-          return;
-        }
         var el = ev.target && ev.target.closest ? ev.target.closest("[data-presend-act]") : null;
         if (!el) return;
         var act = el.getAttribute("data-presend-act");
-        if (act === "cancel") { done({ proceed: false, drops: [] }); return; }
-        if (act === "continue") { done({ proceed: true, drops: mySel }); }
+        if (act === "cancel") { done({ proceed: false }); return; }
+        if (act === "continue") { done({ proceed: true }); }
       };
-      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done({ proceed: false, drops: [] }); };
+      dlg.oncancel = function (evt) { if (evt && evt.preventDefault) evt.preventDefault(); done({ proceed: false }); };
       if (typeof dlg.showModal === "function") { try { dlg.showModal(); return; } catch (e) {} }
       dlg.setAttribute("open", "open");
     });
@@ -8658,24 +8514,18 @@
 
   // Runs the pre-send preview against /api/trades/compliance-preview for a not-yet-created
   // trade's movements, and shows showPreSendLoadedContractPopup when warranted. Returns
-  // { proceed, drops } -- proceed:false means the sender chose not to send; drops is the
-  // sender's own conditional-drop selection (only ever populated for their OWN franchise).
-  // A preview failure (network, unavailable) never itself blocks sending -- this is
-  // informational, same as the existing create-time gates' own "unavailable never blocks
-  // creation" rule -- it just means the popup can't be shown right now.
+  // { proceed } -- proceed:false means the sender chose to go back. A preview failure (network,
+  // unavailable) never itself blocks sending -- this is informational, same as the existing
+  // create-time gates' own "unavailable never blocks creation" rule -- it just means the popup
+  // can't be shown right now.
   async function tw2sRunPreSendPreview(fromFid, movements, extensionRequests) {
     try {
       var ctx = getLeagueContext();
       var body = { league_id: ctx.leagueId, season: ctx.season, from_franchise_id: pad4(fromFid), movements: movements, extension_requests: extensionRequests || [] };
       var res = await tw2sFetch(resolveCompliancePreviewApiUrl(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!res || res.networkError || !res.ok || !res.body || res.body.ok === false || !res.body.compliance) return { proceed: true, drops: [] };
-      var names = {};
-      (movements || []).forEach(function (m) { (m.asset_tokens || []).forEach(function (tok) {
-        var mm = /^P_(\d+)$/.exec(tok);
-        if (mm) { var asset = findTeamAssetByTradeToken ? (findTeamAssetByTradeToken(m.from, tok) || findTeamAssetByTradeToken(m.to, tok)) : null; if (asset) names[mm[1]] = { name: asset.player_name, position: asset.position }; }
-      }); });
-      return await showPreSendLoadedContractPopup(res.body.compliance, pad4(fromFid), names);
-    } catch (e) { return { proceed: true, drops: [] }; }
+      if (!res || res.networkError || !res.ok || !res.body || res.body.ok === false || !res.body.compliance) return { proceed: true };
+      return await showPreSendLoadedContractPopup(res.body.compliance);
+    } catch (e) { return { proceed: true }; }
   }
 
   // Stages a new 2-team offer via the War Room (/api/trades/2way) instead of the direct-to-MFL
@@ -8708,7 +8558,6 @@
         to: { fid: toTeam.franchise_id, name: toTeam.franchise_name },
         movements: movements,
         extension_requests: payload.extension_requests,
-        loaded_contract_drops: pre.drops,
         notes: ""
       };
       setSubmitStatus("Staging via the War Room…", "");
