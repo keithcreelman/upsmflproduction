@@ -139,7 +139,8 @@
   //                (preseason, or Week 1 still being played) → last season's
   //                final board, labelled with ITS year, never as "YTD".
   //   none         nothing to show for either season.
-  //   unavailable  MFL's scoring didn't load → say so; no substitute number.
+  //   unavailable  MFL's scoring or the completed-week check didn't load →
+  //                say so; no substitute number.
   var SSMOD = window.UPS_MOBILE_SEASON_SCORING || null;
   function seasonScoring() { return DATA.getSeasonScoring ? DATA.getSeasonScoring() : null; }
   function pointsBasis() {
@@ -153,7 +154,7 @@
       }
       return { kind: "none", ss: ss };
     }
-    return { kind: "unavailable" };
+    return { kind: "unavailable", reason: ss && ss.reason || "unavailable" };
   }
   // Canonical group for a pid, for ranking ("" = not a fantasy position).
   function groupOfPid(pid) {
@@ -726,7 +727,9 @@
     } else if (b.kind === "none") {
       txt = "No completed " + cur + " week yet — no points to show";
     } else {
-      txt = "Couldn't load MFL's scoring — points are hidden rather than guessed. Tap refresh to retry.";
+      txt = b.reason === "week_unresolved"
+        ? "Couldn't confirm the last completed week — points are hidden until that check succeeds. Tap refresh to retry."
+        : "Couldn't load MFL's scoring — points are hidden rather than guessed. Tap refresh to retry.";
       warn = true;
     }
     if (projReady()) txt += " · " + projLabel() + " = MFL projection";
@@ -1091,9 +1094,12 @@
   // gets dollars: 1,000+ "thousand" would be a $1M+ bid against a $300K cap,
   // so that reading can only be a mistake. null = nothing usable typed.
   function parseBidK(raw) {
-    var s = String(raw == null ? "" : raw).replace(/[^0-9.]/g, "");
-    if (!s || s === ".") return null;
-    var n = parseFloat(s);
+    var s = String(raw == null ? "" : raw).trim();
+    // Refuse malformed text rather than stripping it into a different bid:
+    // "-12" must not become +$12K and a cleared box must not stage the old
+    // amount. A pasted whole-dollar amount may use a $ and commas.
+    if (!/^\$?(?:\d+(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/.test(s)) return null;
+    var n = Number(s.replace(/[$,]/g, ""));
     if (!isFinite(n)) return null;
     return Math.round(n >= 1000 ? n : n * 1000);
   }
@@ -1117,7 +1123,9 @@
       var pr = b.map[String(pid)];
       if (pr) bits.push("<b>" + fmt1(pr.mfl_points) + "</b> " + b.year + " pts · " + fmt1(pr.mfl_ppg) + " PPG");
     } else if (b.kind === "unavailable") {
-      bits.push("Points unavailable — MFL's scoring didn't load");
+      bits.push(b.reason === "week_unresolved"
+        ? "Points unavailable — completed week unconfirmed"
+        : "Points unavailable — MFL's scoring didn't load");
     }
     var I = intel();
     var pj = I ? I.projFor(pid) : null;
@@ -1284,12 +1292,18 @@
       var lim = waiverLimits();
       if (!lim || !bidView) return;
       var typed = parseBidK(input.value);
-      var legal = legalBid(typed == null ? lim.min : typed, lim);
+      var tot = document.getElementById("ups-m-bid-total");
+      if (typed == null) {
+        input.setAttribute("aria-invalid", "true");
+        if (tot) tot.textContent = "Enter a valid bid amount";
+        return;
+      }
+      input.removeAttribute("aria-invalid");
+      var legal = legalBid(typed, lim);
       bidView.amount = legal;
       bidView.snapNote = (typed != null && typed !== legal)
         ? (typed < legal && legal === legalBid(lim.min, lim) ? "raised to the minimum" : "rounded to a " + U.fmtUsd(lim.step) + " step")
-        : (typed == null ? "enter an amount" : "");
-      var tot = document.getElementById("ups-m-bid-total");
+        : "";
       if (tot) {
         tot.innerHTML = U.fmtUsd(legal) +
           (bidView.snapNote ? ' <span class="snap">' + U.escapeHtml(bidView.snapNote) + '</span>' : '');
@@ -1372,7 +1386,12 @@
     // event on some keyboards. Same legal-amount rule as the worker.
     var box = document.getElementById("ups-m-bid-amt");
     var typed = box ? parseBidK(box.value) : null;
-    var amt = legalBid(typed != null ? typed : bidView.amount, lim);
+    if (box && typed == null) {
+      M.ui.showToast("Enter a valid bid amount in $K.", "err");
+      box.focus();
+      return;
+    }
+    var amt = legalBid(box ? typed : bidView.amount, lim);
 
     var plan = clonePlan();
     // Editing: pull the old pick out first so the round move is a real move.

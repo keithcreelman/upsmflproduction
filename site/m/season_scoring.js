@@ -29,8 +29,9 @@
      a live_scoring* source means `week - 1` is done; anything else is null,
      never a guess. Scores already posted for a later, in-progress week are
      left OUT of every total and reported in excludedWeeks so the UI can say so.
-   - When the completed week can't be resolved, all weeks MFL has scored are
-     used and finalized:false says the latest one may still be in progress.
+   - When the completed week can't be resolved, points are unavailable. A
+     posted score may belong to a game still being played, so we cannot call
+     it YTD through the last completed week.
    - games = weeks MFL posted a score row for the player (0.0 included) — MFL's
      own AVG denominator (W=AVG == W=YTD / rows, verified on all 1,371 players
      2026-10-01). A week with no row (bye, not active) is not a game.
@@ -90,6 +91,9 @@
     opts = opts || {};
     var root = payload && payload.playerScoresAllWeeks;
     if (!root) return unknown(payload && payload.error ? "mfl_error" : "unavailable");
+    var completed = (typeof opts.completedWeek === "number" && isFinite(opts.completedWeek) && opts.completedWeek >= 0)
+      ? opts.completedWeek : null;
+    if (completed === null) return unknown("week_unresolved");
     var perWeek = {}, scored = [], duplicateRows = 0;
     asArray(root.playerScores).forEach(function (block) {
       var w = parseInt(block && block.week, 10);
@@ -108,10 +112,7 @@
     });
     scored.sort(function (a, b) { return a - b; });
     var maxScored = scored.length ? scored[scored.length - 1] : 0;
-    var completed = (typeof opts.completedWeek === "number" && isFinite(opts.completedWeek))
-      ? opts.completedWeek : null;
-    var finalized = completed !== null;
-    var through = finalized ? Math.min(completed, maxScored) : maxScored;
+    var through = Math.min(completed, maxScored);
     var included = scored.filter(function (w) { return w <= through; });
     var excluded = scored.filter(function (w) { return w > through; });
     var byPid = aggregate(perWeek, included);
@@ -120,7 +121,7 @@
       known: true,
       reason: "",
       throughWeek: through,
-      finalized: finalized,
+      finalized: true,
       includedWeeks: included,
       excludedWeeks: excluded,
       duplicateRows: duplicateRows,

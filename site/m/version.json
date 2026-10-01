@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.01.2",
-  "label": "Players market: actual points now come straight from MFL's own league scoring (completed weeks only), so free agents no longer read 0.0 and the PPG sort is real. Every number is labelled (YTD pts / L4 pts / Wk N proj / PPG with games), the bid sheet takes a typed $K amount that snaps by the same rule the server enforces, and the player sheet's current-season row matches the market. (Also carries 2026.10.01.1: Trade War Room loaded-contract hard stop.)"
+  "build": "2026.10.01.3",
+  "label": "Players market: actual points now come from MFL league scoring through the last confirmed completed week. YTD, PPG, recent points and projections are labelled separately; the bid sheet accepts a typed $K amount and shows the staged amount. If scoring or the completed week cannot be confirmed, points show as unavailable."
 }

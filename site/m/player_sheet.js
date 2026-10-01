@@ -130,8 +130,8 @@
   }
 
   function renderStatsBlock(bundle) {
-    // Always show 3 rows: current season + last 2. Fill missing data with
-    // zeros (Keith 2026-05-15). Columns: Games Played, Points, PPG, PPG Rank.
+    // Show 3 seasons, anchored to the latest one whose points can be trusted.
+    // Fill missing historical data with zeros (Keith 2026-05-15).
     //
     // Sources from /api/player-bundle:
     //   bundle.career_summary  → [{ season, season_points }, ...]   (worker-built)
@@ -149,6 +149,14 @@
     // year whose leaderboard returned rows.
     var getLatest = window.UPS_MOBILE.data.getAdvancedStatsLatestYear;
     var anchor = (getLatest && getLatest()) || curYear;
+    var seasonScoring = window.UPS_MOBILE.data.getSeasonScoring
+      ? window.UPS_MOBILE.data.getSeasonScoring() : null;
+    // An in-progress week can populate the leaderboard or D1 career_summary
+    // before it is final. If MFL scoring or the completed-week check failed,
+    // those copies cannot stand in for current-season actual points.
+    if (!seasonScoring || !seasonScoring.known || !(seasonScoring.throughWeek > 0)) {
+      anchor = Math.min(anchor, curYear - 1);
+    }
     var years = [anchor, anchor - 1, anchor - 2];
     ctx.curYearForLeaderboard = anchor;
 
@@ -224,7 +232,11 @@
         '<thead><tr><th>Year</th><th>G</th><th>Pts</th><th>PPG</th><th>PPG Rk</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table>' +
-      (live ? '<div class="ups-m-stat-basis">' + U.escapeHtml(live.season + ": " + live.basis) + '</div>' : '');
+      '<div class="ups-m-stat-basis">' + U.escapeHtml(live
+        ? live.season + ": " + live.basis
+        : (!seasonScoring || !seasonScoring.known)
+          ? curYear + ": points unavailable — MFL scoring or completed week could not be confirmed"
+          : curYear + ": no completed week yet; current-season points are not shown") + '</div>';
   }
 
   function statRowHtml(y, games, pts, ppg, ppgRank) {
@@ -238,8 +250,7 @@
   }
 
   // { season, games, pts, ppg, rank, basis } for the current season from MFL's
-  // league scoring, or null when there is no completed week to show (then the
-  // table falls back to career_summary exactly as before).
+  // league scoring, or null when there is no confirmed completed week to show.
   function liveSeasonRow(pid) {
     var D = window.UPS_MOBILE.data;
     var SSMOD = window.UPS_MOBILE_SEASON_SCORING;

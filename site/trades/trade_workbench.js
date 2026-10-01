@@ -3861,7 +3861,8 @@
     state.offers.errorKind = "";
     renderBannerOffers();
     refresh3WayList();   // 3-way outbox rides the same triggers (boot, team switch, post-action)
-    refresh2WayStagedList();   // staged 2-way outbox rides the same triggers too
+    // Staged-2-way list fetch removed from the normal UI, Keith's ruling 2026-10-01 -- see the
+    // header dropdown removal comment in trade_workbench.html.
 
     try {
       var offerUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
@@ -8577,15 +8578,6 @@
     }
   }
 
-  function init2WayStagedTrade() {
-    var closeDetail = document.getElementById("twb2sDetailCloseBtn");
-    if (closeDetail && !closeDetail.__tw2sWired) { closeDetail.__tw2sWired = true; closeDetail.addEventListener("click", close2WayStagedDetail); }
-    var dl = safeStr(getUrlParam("twb_2s"));
-    if (dl) open2WayStagedDetail(dl);
-    var stageBtn = document.getElementById("twbStageOfferBtn");
-    if (stageBtn && !stageBtn.__tw2sWired) { stageBtn.__tw2sWired = true; stageBtn.addEventListener("click", submitStagedOfferToQueue); }
-  }
-
   function init3WayTrade() {
     var closeDetail = document.getElementById("twb3wDetailCloseBtn");
     if (closeDetail && !closeDetail.__tw3Wired) { closeDetail.__tw3Wired = true; closeDetail.addEventListener("click", close3WayDetail); }
@@ -8630,7 +8622,6 @@
       initializeControlsFromState();
       bindEvents();
       init3WayTrade();
-      init2WayStagedTrade();
       state.uiReady = true;
       rerender();
       await refreshBannerOffers(true);

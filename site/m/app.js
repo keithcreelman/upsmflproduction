@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.01.2";
+  var BUILD = "2026.10.01.3";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1645,8 +1645,8 @@
   // MFL's own league-scored season totals through the last COMPLETED week —
   // the Players market's actual-points source. See site/m/season_scoring.js
   // for the rules (completed weeks only, MFL's games denominator, zero and
-  // negative weeks count). known:false when either input is missing: callers
-  // show "unavailable", never a substitute number.
+  // negative weeks count). known:false when either input is missing or the
+  // completed week cannot be confirmed: callers show "unavailable".
   function getSeasonScoring() {
     if (state._seasonScoringCache) return state._seasonScoringCache;
     var SS = window.UPS_MOBILE_SEASON_SCORING;

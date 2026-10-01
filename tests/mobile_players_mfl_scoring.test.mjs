@@ -185,14 +185,15 @@ test("a week still being played is NOT counted, and the basis line says so", () 
   t.match(h.html(), /Wk 4 in progress, not counted/, "basis says Wk 4 is excluded");
 });
 
-test("an unresolvable week is labelled as possibly in progress, never as final", () => {
+test("an unresolvable completed week hides points instead of including provisional scores", () => {
   const fx = deepClone(FX);
   fx.playerScoresAll.playerScoresAllWeeks.playerScores.find((b) => b.week === "4").playerScore =
     [{ id: "17075", week: "4", score: "12.0", isAvailable: "0" }];
   const h = harness({ fx, lineupWeek: null });
-  t.equal(rows(h.html())["17075"].pts, 62.7, "falls back to every week MFL has posted");
-  t.match(h.html(), /latest posted — may still be in progress/, "and says it may be in progress");
-  t.doesNotMatch(h.html(), /\(final\)/, "never claims final");
+  t.equal(rows(h.html())["17075"].pts, null, "does not include Week 4's provisional points");
+  t.ok(rows(h.html())["17075"].unavailable, "row says unavailable");
+  t.match(h.html(), /confirm the last completed week/, "basis explains the missing authority");
+  t.doesNotMatch(h.html(), /62\.7/, "provisional total never appears");
 });
 
 test("MFL scoring unavailable → points hidden, NOT the leaderboard number", () => {
@@ -201,6 +202,33 @@ test("MFL scoring unavailable → points hidden, NOT the leaderboard number", ()
   t.ok(r["14717"].unavailable, "row says pts unavailable");
   t.equal(r["14717"].pts, null, "no number printed");
   t.match(h.html(), /points are hidden rather than guessed/, "basis line explains");
+});
+
+test("player sheet hides stale current-season bundle points when scoring authority fails", () => {
+  const c = vm.createContext({});
+  c.window = c;
+  vm.runInContext(UTIL_SRC + "\nthis.U = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", c);
+  const sheet = read("site/m/player_sheet.js");
+  vm.runInContext(["function renderStatsBlock(", "function statRowHtml(", "function liveSeasonRow("].map((s) => sliceFn(sheet, s)).join("\n") +
+    "\nthis.renderStatsBlock = renderStatsBlock;", c);
+  const staleBundle = { career_summary: [
+    { season: 2026, games_played: 3, season_points: 0, avg_ppg: 0 },
+    { season: 2025, games_played: 16, season_points: 152.8, avg_ppg: 9.55 },
+  ] };
+  const scoring = { known: false, reason: "week_unresolved", throughWeek: 0 };
+  c.UPS_MOBILE = { state: { ctx: { year: 2026 }, _sheetPid: "14717" }, data: {
+    getAdvancedStatsLatestYear: () => 2026,
+    getSeasonScoring: () => scoring,
+    getAdvancedStatsFor: () => null,
+  } };
+  const html = c.renderStatsBlock(staleBundle);
+  t.doesNotMatch(html, /<td>2026<\/td>/, "no current-season row sourced from stale D1");
+  t.match(html, /2026: points unavailable/, "sheet explains why current points are absent");
+  t.match(html, /<td>2025<\/td>/, "prior season remains available");
+  scoring.known = true;
+  const noWeek = c.renderStatsBlock(staleBundle);
+  t.doesNotMatch(noWeek, /<td>2026<\/td>/, "no current-season row before a week completes");
+  t.match(noWeek, /no completed week yet/, "preseason reason is distinct");
 });
 
 test("no completed week yet → last season's totals, labelled with the year (never 'YTD')", () => {
@@ -269,6 +297,31 @@ test("bid amounts snap by the WORKER's rule (>= minimum AND a multiple of the in
   t.equal(bctx.parseBidK("$12,000"), 12000, "whole dollars typed anyway are read as dollars, not $12M");
   t.equal(bctx.parseBidK("300"), 300000, "'300' = $300K");
   t.equal(bctx.parseBidK(""), null);
+  t.equal(bctx.parseBidK("-12"), null, "a negative sign is never stripped into a positive $12K bid");
+  t.equal(bctx.parseBidK("12oops"), null, "trailing text is not silently stripped");
+  t.equal(bctx.parseBidK("12,3"), null, "malformed commas are rejected");
+});
+
+test("empty or malformed bid amount cannot stage a prior amount", () => {
+  const src = read(PLAYERS_JS);
+  const c = vm.createContext({});
+  vm.runInContext("var U = { safeInt: function (v, d) { var n = parseInt(v, 10); return isFinite(n) ? n : d; } };\n" +
+    sliceFn(src, "function legalBid(") + "\n" + sliceFn(src, "function parseBidK(") + "\n" +
+    sliceFn(src, "function confirmBid(") + "\n" +
+    "var bidView = { amount: 12000 }; var waiverLimits = function () { return { min: 1000, step: 1000 }; };" +
+    "var box = { value: '', focus: function () { this.focused = true; } };" +
+    "var document = { getElementById: function () { return box; } };" +
+    "var M = { ui: { showToast: function (s) { this.message = s; } } };" +
+    "var clonePlan = function () { throw new Error('invalid bid got as far as staging'); };" +
+    "this.tryBid = function (v) { box.value = v; box.focused = false; M.ui.message = ''; confirmBid(); return { message: M.ui.message, focused: box.focused }; };", c);
+  for (const value of ["", "-12", "12oops"]) {
+    const out = c.tryBid(value);
+    t.match(out.message, /Enter a valid bid amount/, `${JSON.stringify(value)} is refused`);
+    t.ok(out.focused, "focus stays on the amount box");
+  }
 });
 
 await run("mobile players MFL scoring");
+
+// Also lets a read-only browser layout check render these exact shipped rows.
+export { harness };

@@ -59,9 +59,9 @@ function sliceByAnchors(lines, startText, startLine, endText, endLine) {
 // ══════════════════════ harness: the REAL desktop cutover-fallback functions ══════════════════════
 function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const lines = DESK_SRC.split("\n");
-  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3906, "async function replayOutbox(criteria)", 3940);
-  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4197, "async function submitOfferToQueue()", 4270);
-  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8137, "var tw2s = { listStatus:", 8165);
+  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3907, "async function replayOutbox(criteria)", 3941);
+  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4198, "async function submitOfferToQueue()", 4271);
+  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8138, "var tw2s = { listStatus:", 8166);
   const code = fjr + "\n" + gates + "\n" + movs;
   const bridge = bridgeFetch(env);
   const resolveStaged2WayApiUrl = () => `https://worker.test/api/trades/2way?MFL_USER_ID=${token}&L=74598&YEAR=2026`;
@@ -91,7 +91,7 @@ function loadMobileFallback(env, { token, fid, previewResult } = {}) {
   // submitOffer -- the counter path's own cutover fallback, same shape as this file already
   // covers for CREATE. Harmless to include in this slice: hoisted function declarations this
   // test never calls.
-  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 861, "function submitOffer()", 1000);
+  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 854, "function submitOffer()", 993);
   const code = gates;
   const bridge = bridgeFetch(env);
   const U = { pad4: (v) => { const d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }, safeInt: (v, d) => { const n = parseInt(v, 10); return isFinite(n) ? n : (d == null ? 0 : d); } };
