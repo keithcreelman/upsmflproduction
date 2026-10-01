@@ -147,10 +147,14 @@
     var ss = seasonScoring();
     if (ss && ss.known && ss.throughWeek > 0) return { kind: "season", ss: ss };
     if (ss && ss.known) {
-      var ly = DATA.getAdvancedStatsLatestYear ? U.safeInt(DATA.getAdvancedStatsLatestYear(), 0) : 0;
       var cur = U.safeInt(M.state.ctx && M.state.ctx.year, 0);
-      if (ly && ly < cur && DATA.getAdvancedStatsMap) {
-        return { kind: "prior", year: ly, map: DATA.getAdvancedStatsMap(ly) || {} };
+      var priorYear = cur - 1;
+      var priorMap = DATA.getAdvancedStatsMap ? DATA.getAdvancedStatsMap(priorYear) : null;
+      // A current-year leaderboard can contain preseason rows even before MFL
+      // posts a score. Read the previous year explicitly, never infer it from
+      // whichever leaderboard happened to be the latest nonempty one.
+      if (priorYear > 0 && priorMap && Object.keys(priorMap).length) {
+        return { kind: "prior", year: priorYear, map: priorMap, ss: ss };
       }
       return { kind: "none", ss: ss };
     }
@@ -723,7 +727,9 @@
       }
       if (winKey()) txt += " · L" + winKey() + " = last " + winKey() + " of those weeks";
     } else if (b.kind === "prior") {
-      txt = "No " + cur + " week is final yet — points are " + b.year + " season totals";
+      txt = b.ss && b.ss.reason === "no_scores_posted"
+        ? "No " + cur + " scores posted yet — points are " + b.year + " season totals"
+        : "No " + cur + " week is final yet — points are " + b.year + " season totals";
     } else if (b.kind === "none") {
       txt = "No completed " + cur + " week yet — no points to show";
     } else {

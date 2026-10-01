@@ -29,9 +29,10 @@
      a live_scoring* source means `week - 1` is done; anything else is null,
      never a guess. Scores already posted for a later, in-progress week are
      left OUT of every total and reported in excludedWeeks so the UI can say so.
-   - When the completed week can't be resolved, points are unavailable. A
-     posted score may belong to a game still being played, so we cannot call
-     it YTD through the last completed week.
+   - When the completed week can't be resolved, posted current-season scores
+     are unavailable: a posted score may belong to a game still being played.
+     If the MFL export loaded but has no posted score at all, throughWeek=0
+     lets the market show the previous season with its year clearly labelled.
    - games = weeks MFL posted a score row for the player (0.0 included) — MFL's
      own AVG denominator (W=AVG == W=YTD / rows, verified on all 1,371 players
      2026-10-01). A week with no row (bye, not active) is not a game.
@@ -89,18 +90,23 @@
   // payload: the playerScores&W=ALL JSON. opts: { completedWeek: number|null }.
   function build(payload, opts) {
     opts = opts || {};
+    if (payload && payload.error) return unknown("mfl_error");
     var root = payload && payload.playerScoresAllWeeks;
-    if (!root) return unknown(payload && payload.error ? "mfl_error" : "unavailable");
+    if (!root || typeof root !== "object" || Array.isArray(root)) return unknown("unavailable");
     var completed = (typeof opts.completedWeek === "number" && isFinite(opts.completedWeek) && opts.completedWeek >= 0)
       ? opts.completedWeek : null;
-    if (completed === null) return unknown("week_unresolved");
-    var perWeek = {}, scored = [], duplicateRows = 0;
+    var perWeek = {}, scored = [], duplicateRows = 0, hasPostedScore = false;
     asArray(root.playerScores).forEach(function (block) {
       var w = parseInt(block && block.week, 10);
       if (!(w >= 1)) return;
       var m = perWeek[w] || {}, any = false;
       asArray(block.playerScore).forEach(function (s) {
-        if (!s || !s.id) return;
+        if (!s) return;
+        // A nonblank value is evidence that THIS season has started scoring,
+        // even if MFL sent a value we cannot parse or a row without an ID.
+        // With no completed-week authority, fail closed on that evidence.
+        if (s.score != null && String(s.score).trim() !== "") hasPostedScore = true;
+        if (!s.id) return;
         var n = num(s.score);
         if (n === null) return;
         var pid = String(s.id);
@@ -111,17 +117,18 @@
       if (any) { perWeek[w] = m; if (scored.indexOf(w) === -1) scored.push(w); }
     });
     scored.sort(function (a, b) { return a - b; });
+    if (completed === null && hasPostedScore) return unknown("week_unresolved");
     var maxScored = scored.length ? scored[scored.length - 1] : 0;
-    var through = Math.min(completed, maxScored);
+    var through = completed === null ? 0 : Math.min(completed, maxScored);
     var included = scored.filter(function (w) { return w <= through; });
     var excluded = scored.filter(function (w) { return w > through; });
     var byPid = aggregate(perWeek, included);
     var windows = {};
     return {
       known: true,
-      reason: "",
+      reason: completed === null ? "no_scores_posted" : "",
       throughWeek: through,
-      finalized: true,
+      finalized: completed !== null,
       includedWeeks: included,
       excludedWeeks: excluded,
       duplicateRows: duplicateRows,

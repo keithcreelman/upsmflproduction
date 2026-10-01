@@ -196,6 +196,37 @@ test("an unresolvable completed week hides points instead of including provision
   t.doesNotMatch(h.html(), /62\.7/, "provisional total never appears");
 });
 
+test("offseason with a readable, empty MFL scoring export shows the prior season by year", () => {
+  const prior = { "14717": { mfl_points: 152.8, mfl_ppg: 9.55, games: 16, pos: "PK", posRank: 13 } };
+  const empty = { playerScoresAllWeeks: { year: "2026", playerScores: [] } };
+  // Even if nflverse has preseason rows for 2026, the market must select
+  // 2025 explicitly; latestYearWithData is not proof of MFL scoring.
+  const h = harness({ seasonPayload: empty, lineupWeek: null, latestYear: 2026, priorMap: prior });
+  t.equal(h.ctx.__getSeasonScoring().reason, "no_scores_posted");
+  t.ok(rows(h.html())["14717"], "McLaughlin remains listed");
+  t.match(h.html(), /<b>152\.8<\/b> 2025 pts/, "row uses the prior year, never YTD");
+  t.match(h.html(), /No 2026 scores posted yet — points are 2025 season totals/, "basis explains the offseason source");
+  t.doesNotMatch(h.html(), /YTD pts/, "no current-season label on prior-season points");
+});
+
+test("a posted zero or malformed current-season score still fails closed without a completed week", () => {
+  const SS = harness().ctx.UPS_MOBILE_SEASON_SCORING;
+  for (const score of ["0.0", "-2.0", "not-a-number"]) {
+    const out = SS.build({ playerScoresAllWeeks: { playerScores: [
+      { week: "1", playerScore: [{ id: "14717", score }] },
+    ] } }, { completedWeek: null });
+    t.equal(out.known, false, `${score} cannot become an offseason fallback`);
+    t.equal(out.reason, "week_unresolved");
+  }
+  const blank = SS.build({ playerScoresAllWeeks: { playerScores: [
+    { week: "1", playerScore: [{ id: "14717", score: "" }] },
+  ] } }, { completedWeek: null });
+  t.equal(blank.known, true, "a blank score is not a posted score");
+  t.equal(blank.throughWeek, 0);
+  t.equal(SS.build({ error: "upstream failed", playerScoresAllWeeks: {} }, { completedWeek: null }).known,
+    false, "an error envelope is never mistaken for an empty season");
+});
+
 test("MFL scoring unavailable → points hidden, NOT the leaderboard number", () => {
   const h = harness({ seasonPayload: null });
   const r = rows(h.html());
