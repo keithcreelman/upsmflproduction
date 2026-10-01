@@ -45,6 +45,31 @@ import { evaluateLineupFeasibility, posGroup } from "./trade_lineup_feasibility.
 export const ROSTER_MIN = 27;   // canon B1: MFL-enforced minimum (not exposed by the API)
 export const LOADED_CONTRACT_MAX = 5;   // canon §2.G/§6.G: max 5 loaded (FL+BL combined) contracts per roster
 
+// RULING (Keith, 2026-09-29, reviewing the FIRST conditional-drop PR): "needs_drops must not
+// allow a two-team MFL acceptance or a three-team execution while no conditional-drop executor
+// exists." No code anywhere calls MFL to actually drop a player yet -- see
+// docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md for the traced write sequence and why it is not
+// built. A franchise validly SELECTING enough drops to cover its requirement ("needs_drops") is
+// NOT the same thing as those drops having actually happened, so it must not by itself permit a
+// real, irreversible MFL write -- including, for a 2-way trade, even PROPOSING it to MFL, since
+// a proposed offer becomes a real, natively-acceptable pending trade the instant it exists (see
+// the design doc's native-MFL-bypass section). Flip this to true ONLY once that executor is
+// built AND separately reviewed/approved; until then it stays false everywhere in this file.
+export const LOADED_CONTRACT_DROP_EXECUTION_LIVE = false;
+
+// The ONE function every enforcement point (2-way create/accept, 3-way create/capGate) must call
+// before treating a loaded-contract verdict as safe to act on for a REAL write. "ok" (nobody
+// over) always permits it. "needs_drops" (over, but a currently-valid selection covers it) only
+// permits it once LOADED_CONTRACT_DROP_EXECUTION_LIVE is true -- never based on `satisfied`
+// alone. "blocked" and "unavailable" never permit it. Centralized here, rather than duplicated
+// as an inline `status === "ok" || status === "needs_drops"` at each call site, specifically
+// because that exact duplication is what let a satisfied-but-unexecuted selection slip through
+// in the first PR (the client's own interpretPreview had it, index.js's create/accept gates did
+// not check it at all).
+export function loadedContractsPermitsWrite(status) {
+  return status === "ok" || (LOADED_CONTRACT_DROP_EXECUTION_LIVE && status === "needs_drops");
+}
+
 const s = (v) => String(v == null ? "" : v).trim();
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
 const arr = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
@@ -154,8 +179,19 @@ function readPlayerPositions(res) {
  *                   extensions in THIS deal (canon §C4); a player being extended lands on the acquiring
  *                   franchise (to_franchise_id) with the EXTENSION's loaded status, never their
  *                   about-to-be-replaced current one -- see the movements loop below.
+ * @param conditionalDrops  { franchiseId -> [playerId, ...] } -- players THAT franchise has selected to
+ *                   drop, conditional on this trade going through (Keith's ruling, 2026-09-29: a team
+ *                   whose projected loaded-contract count would exceed 5 may still trade, but only with
+ *                   enough valid conditional drops of ITS OWN loaded-contract players to bring it back to
+ *                   5 or fewer -- required = max(0, projected − 5), never assumed equal to the number of
+ *                   loaded players received). A selected player counts toward the requirement ONLY when it
+ *                   is (a) currently on THAT franchise's own roster, (b) a genuinely loaded contract by the
+ *                   SAME resolveLoadedStatus() this module already runs for everyone, and (c) not ALSO a
+ *                   player being sent away in this same trade (a player can't be both sent and dropped).
+ *                   Every selected id is reported back with why it did or didn't count -- nothing here
+ *                   silently drops (pun intended) an invalid selection without saying so.
  */
-export function evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests }) {
+export function evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops }) {
   const empty = (why) => ({
     participants: [],
     cap: { status: "unavailable", reason: why.reason, cap_dollars: null, rows: [], violations: [],
@@ -290,6 +326,11 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     if (!alreadyHandled && extendedPidLoaded[pid]) state[to].loadedAfter += 1;
   }
 
+  // Which tokens each franchise is SENDING in this trade (a player can't be both sent and dropped).
+  const sentTokensByFranchise = {};
+  for (const fid of parts) sentTokensByFranchise[fid] = new Set();
+  for (const m of mv) for (const tok of m.tokens) if (tokenKind(tok) === "player") sentTokensByFranchise[m.from].add(tok);
+
   const name = (fid) => L.names[fid] || fid;
   const capRows = [], violations = [];
   for (const fid of [...parts].sort()) {
@@ -312,20 +353,70 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   }
   const rosterStatus = !maxKnown ? "unavailable" : warnings.length ? "warn" : "ok";
 
-  const loadedRows = [], loadedViolations = [];
+  // Conditional drops (Keith's ruling, 2026-09-29): a franchise projected over the limit may still
+  // trade if it validly selects enough of its OWN loaded-contract players to drop. `dropReqs` is
+  // built for EVERY over-limit franchise regardless of whether any drops were supplied, so the
+  // caller always sees "how many are required" even before anyone has picked anything.
+  const loadedRows = [], loadedViolations = [], dropReqs = [];
+  const drops = isObj(conditionalDrops) ? conditionalDrops : {};
   if (!loadedUnresolved) {
     for (const fid of [...parts].sort()) {
       const st = state[fid];
-      const over = st.loadedAfter > LOADED_CONTRACT_MAX;
-      const row = { franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, loaded_after: st.loadedAfter, max: LOADED_CONTRACT_MAX };
+      const projected = st.loadedAfter;   // BEFORE any conditional drop -- the figure the requirement is computed from
+      const over = projected > LOADED_CONTRACT_MAX;
+      const row = { franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, loaded_after: projected, max: LOADED_CONTRACT_MAX };
       loadedRows.push(row);
-      if (over) loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected: st.loadedAfter, max: LOADED_CONTRACT_MAX,
-        message: `${name(fid)} would move from ${st.loadedBefore} to ${st.loadedAfter} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}. Revise the trade or open a loaded-contract slot before continuing.` });
+      if (!over) continue;
+      const required = projected - LOADED_CONTRACT_MAX;   // max(0, projected - 5), and projected > 5 here so this IS positive
+      const selected = arr(drops[fid]).map(s).filter(Boolean);
+      const seen = new Set();
+      const picks = selected.map((pid) => {
+        if (seen.has(pid)) return { player_id: pid, valid: false, reason: "duplicate_selection" };
+        seen.add(pid);
+        const p = R.byFranchise[fid] && R.byFranchise[fid][pid];
+        if (!p) return { player_id: pid, valid: false, reason: "not_on_roster" };
+        if (sentTokensByFranchise[fid].has(pid)) return { player_id: pid, valid: false, reason: "also_being_sent" };
+        const lst = resolveLoadedStatus(p.contractStatus, p.contractInfo);
+        if (!lst.resolved) return { player_id: pid, valid: false, reason: "contract_unresolved" };
+        if (!lst.loaded) return { player_id: pid, valid: false, reason: "not_a_loaded_contract" };
+        return { player_id: pid, valid: true, reason: "" };
+      });
+      const validCount = picks.filter((x) => x.valid).length;
+      const satisfied = validCount >= required;
+      // The full menu the owner can pick FROM: every one of the franchise's OWN roster players
+      // that is currently a loaded contract and isn't already being sent away in this trade --
+      // the same two checks `picks` validates a selection against, just run over the whole
+      // roster instead of just what was selected. Lets a client render a real picker without
+      // re-deriving loaded-contract classification itself (which is exactly the eyeballing gap
+      // that caused the Hammer Times miss -- see Addison/Montgomery in the investigation).
+      const roster = R.byFranchise[fid] || {};
+      const candidates = Object.keys(roster).filter((pid) => {
+        if (sentTokensByFranchise[fid].has(pid)) return false;
+        const lst = resolveLoadedStatus(roster[pid].contractStatus, roster[pid].contractInfo);
+        return lst.resolved && lst.loaded;
+      }).sort();
+      dropReqs.push({ franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, projected, required_drops: required, selected: picks, valid_count: validCount, satisfied, candidates });
+      if (!satisfied) {
+        loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected, max: LOADED_CONTRACT_MAX, required_drops: required, valid_drops: validCount,
+          message: `${name(fid)} would move from ${st.loadedBefore} to ${projected} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}, so ${required} conditional drop${required === 1 ? "" : "s"} of ${name(fid)}'s own loaded-contract player${required === 1 ? "" : "s"} ${required === 1 ? "is" : "are"} required before this trade can go through` +
+            (validCount > 0 ? ` (${validCount} of ${required} currently selected and valid).` : ".") });
+      }
     }
   }
 
+  // A VALID, currently-selected conditional drop is also gone from the roster the lineup check
+  // sees -- "Show ... an updated structural lineup warning before that owner confirms" (Keith's
+  // ruling, 2026-09-29). Only a genuinely valid selection counts (an invalid one never removes
+  // the player -- the drop hasn't actually happened, and won't, until it's valid).
+  const postTradeRosterAfterDrops = postTradeRoster;
+  if (positions && dropReqs.length) {
+    for (const req of dropReqs) {
+      const dropIds = new Set(req.selected.filter((x) => x.valid).map((x) => x.player_id));
+      if (dropIds.size) postTradeRosterAfterDrops[req.franchise_id] = postTradeRosterAfterDrops[req.franchise_id].filter((r) => !dropIds.has(r.id));
+    }
+  }
   const lineup = evaluateLineupFeasibility({
-    franchises: Object.fromEntries([...parts].map((fid) => [fid, { name: name(fid), roster: positions ? postTradeRoster[fid] : null }])),
+    franchises: Object.fromEntries([...parts].map((fid) => [fid, { name: name(fid), roster: positions ? postTradeRosterAfterDrops[fid] : null }])),
     expectedFids: [...parts],
   });
 
@@ -340,11 +431,24 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         : warnings.length ? warnings.map((w) => w.message).join(" ") + " This is a heads-up, not a ruling on whether the trade is allowed — MFL decides when it processes the trade."
         : "Every team stays within its roster limits.",
     },
+    // status: "ok" (nobody over, before any drop) | "needs_drops" (someone's over, but every
+    // over-limit franchise has a VALID, SUFFICIENT drop selection -- the trade is conditional but
+    // may proceed) | "blocked" (someone's over and does NOT yet have a satisfied selection -- a
+    // hard stop, exactly like before this ruling, just now escapable via drops rather than
+    // permanent) | "unavailable".
+    // `executable` (Keith's ruling, 2026-09-29): whether this verdict permits a REAL MFL write
+    // right now -- see loadedContractsPermitsWrite() above. Exposed directly on the object (not
+    // just as a function callers must remember to call) so a client can trust it without
+    // re-deriving the rule, and so a future server-side call site that only checks `status` the
+    // way the first PR's did can't silently regress -- every enforcement point in this codebase
+    // is expected to gate on `.executable`, not on `status !== "blocked"`.
     loaded_contracts: loadedUnresolved
-      ? { status: "unavailable", max: LOADED_CONTRACT_MAX, rows: [], violations: [], message: "We couldn't verify the loaded-contract count for this trade right now (at least one contract's structure isn't resolvable from live data)." }
+      ? { status: "unavailable", max: LOADED_CONTRACT_MAX, rows: [], violations: [], drop_requirements: [], executable: false, message: "We couldn't verify the loaded-contract count for this trade right now (at least one contract's structure isn't resolvable from live data)." }
       : loadedViolations.length
-      ? { status: "blocked", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: loadedViolations, message: loadedViolations.map((v) => v.message).join(" ") }
-      : { status: "ok", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], message: "Every team stays at or under the 5 loaded-contract limit." },
+      ? { status: "blocked", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: loadedViolations, drop_requirements: dropReqs, executable: false, message: loadedViolations.map((v) => v.message).join(" ") }
+      : dropReqs.length
+      ? { status: "needs_drops", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], drop_requirements: dropReqs, executable: loadedContractsPermitsWrite("needs_drops"), message: dropReqs.map((d) => `${d.franchise_name}: ${d.required_drops} conditional drop${d.required_drops === 1 ? "" : "s"} selected and valid — but conditional-drop execution isn't available yet, so this can't proceed while ${d.franchise_name} would still be over.`).join(" ") }
+      : { status: "ok", max: LOADED_CONTRACT_MAX, rows: loadedRows, violations: [], drop_requirements: [], executable: true, message: "Every team stays at or under the 5 loaded-contract limit." },
     lineup,
   };
 }

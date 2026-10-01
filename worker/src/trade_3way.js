@@ -32,6 +32,8 @@ import { getFeatureFlag } from "./feature_flags.js";
 import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS, canView } from "./trade_3way_model.js";
 import { makeLedger, EXEC, findExecutedTrade, isMflExecuted } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
+import { makeConditionalDropStore } from "./trade_conditional_drops.js";
+import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -88,7 +90,12 @@ function toMflAsset(a) {
 // can do both sides). Standalone parallel of /api/trade/process (index.js:11878)
 // so it's callable from the ctx.waitUntil execution context (no request-scoped
 // closures). Returns { ok, tradeId, step, error }.
-async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments }) {
+// Exported (2026-09-29) so worker/src/trade_2way.js can reuse this exact primitive for staged
+// 2-way trade execution -- it is already a pure 2-party helper with zero 3-way-specific
+// knowledge; the caller owns all state-machine/ledger bookkeeping around it. See that
+// module's own execute2Way for the (much simpler, single-leg, no ring/pairwise decomposition)
+// caller.
+export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments }) {
   const apiKey = safeStr(env.MFL_APIKEY);
   if (!apiKey) return { ok: false, step: "config", error: "MFL_APIKEY missing" };
   const giveMfl = (give || []).map(toMflAsset).filter(Boolean).join(",");
@@ -205,7 +212,7 @@ async function rosterOwnsPlayers(env, leagueId, year, fid, tokens) {
 // Append each movement's cap money as a BlindBid$ token on its giving side, so
 // the from→to leg gives `to` that cap. Players already ride asset_tokens, so a
 // cap-bearing movement is never dropped by the decomposition.
-function injectCapTokens(movements) {
+export function injectCapTokens(movements) {
   return (movements || []).map((m) => {
     const capK = Math.max(0, safeInt(m?.cap_k, 0));
     const toks = Array.isArray(m?.asset_tokens) ? m.asset_tokens.slice() : [];
@@ -214,8 +221,20 @@ function injectCapTokens(movements) {
   });
 }
 
+// The SAME {from, to, tokens} shape every compliance call needs (a bare numeric id per player,
+// `BB_<dollars>` for cap money) -- built from raw {from, to, asset_tokens, cap_k} movements,
+// whether they come from a STORED row (via parseMovements) or a not-yet-created spec's own
+// `body.movements` (the loaded-contract CREATE-time gate below, before create3WayTrade exists).
+// Exported so trade_3way_http.js's create handler can build this identically to get3WayTrade.
+export function movementsForCompliance(movements) {
+  return (Array.isArray(movements) ? movements : []).map((m) => ({
+    from: padFid(m?.from), to: padFid(m?.to),
+    tokens: injectCapTokens([m])[0].asset_tokens.map((t) => safeStr(t).replace(/^P_/, "")),
+  }));
+}
+
 // Live non-taxi salary + taxi flag per `franchise|player`, for the §A6 cap check.
-async function fetchRosterSalaryMap(env, leagueId, year) {
+export async function fetchRosterSalaryMap(env, leagueId, year) {
   try {
     const apiKey = safeStr(env.MFL_APIKEY);
     const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
@@ -243,7 +262,7 @@ async function fetchRosterSalaryMap(env, leagueId, year) {
 // §A6: cap money a side may attach ≤ 50% of the summed salary of the NON-TAXI
 // players it trades away → floor(sumNonTaxiSalary / 2000) in $K. Picks + taxi
 // players don't unlock cap. `from` is the giving franchise of the movement.
-function movementCapMaxK(movement, salaryByFp, taxiByFp) {
+export function movementCapMaxK(movement, salaryByFp, taxiByFp) {
   const from = padFid(movement?.from);
   let sum = 0;
   for (const tok of (movement?.asset_tokens || [])) {
@@ -264,7 +283,7 @@ function movementCapMaxK(movement, salaryByFp, taxiByFp) {
 // (worker/src/trade_cap_authority.js), reached through the worker's own /admin/3way/compliance route so this engine
 // (which runs from Discord buttons and waitUntil, with no request closures) shares it instead of copying it.
 const UNAVAILABLE_MSG = "We couldn't verify the salary cap for this trade right now.";
-function unavailableCompliance(reason) {
+export function unavailableCompliance(reason) {
   return {
     participants: [],
     cap: { status: "unavailable", reason, cap_dollars: null, rows: [], violations: [], message: UNAVAILABLE_MSG },
@@ -280,10 +299,15 @@ async function complianceViaSelf(env, row) {
   if (!apiKey) return unavailableCompliance("no_commish_key");
   try {
     const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
+    // Whatever conditional loaded-contract drops any participant has already selected for THIS
+    // trade (worker/src/trade_conditional_drops.js) -- validity is re-derived fresh from live
+    // data on the far side of this call, never trusted here.
+    let conditionalDrops = {};
+    try { conditionalDrops = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row)); } catch (_) { conditionalDrops = {}; }
     const u = `https://self.invalid/admin/3way/compliance?L=${encodeURIComponent(safeStr(row.league_id))}&YEAR=${encodeURIComponent(safeStr(row.season))}&APIKEY=${encodeURIComponent(apiKey)}`;
     const r = await env.SELF.fetch(u, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc) }),
+      body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc), conditional_drops: conditionalDrops }),
     });
     const j = await r.json().catch(() => null);
     const c = j && j.ok && j.compliance;
@@ -295,7 +319,7 @@ async function complianceViaSelf(env, row) {
   }
 }
 // The execution ledger (worker/src/trade_execution.js) — one row per 3-way, keyed by the trade id.
-function ledgerFor(env) {
+export function ledgerFor(env) {
   const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
   if (!db) throw new Error("no D1 binding for the execution ledger");
   return makeLedger(db);
@@ -304,12 +328,21 @@ function ledgerFor(env) {
 // salary-cap overage acknowledgment store. Keyed by the 3-way trade's own `id` (a stable
 // uuid from creation through execution, unlike a 2-way trade which has no id until MFL
 // assigns one -- see trade_cap_ack.js's module doc for why 2-way instead keys by payload_hash).
-function capAckStoreFor(env) {
+export function capAckStoreFor(env) {
   const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
   if (!db) throw new Error("no D1 binding for the cap-acknowledgment store");
   return makeCapAckStore(db);
 }
 const capAckKey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), tradeKey: safeStr(row.id) });
+// The SAME D1 binding, a separate on-demand table (worker/src/trade_conditional_drops.js) -- the
+// loaded-contract conditional-drop selection store. Keyed the SAME way as capAckKey (the 3-way
+// trade's own stable id).
+export function conditionalDropStoreFor(env) {
+  const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+  if (!db) throw new Error("no D1 binding for the conditional-drop store");
+  return makeConditionalDropStore(db);
+}
+const conditionalDropKey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), tradeKey: safeStr(row.id) });
 const lkey = (row) => ({ leagueId: safeStr(row.league_id), season: safeStr(row.season), execKey: safeStr(row.id) });
 const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
 
@@ -324,8 +357,8 @@ const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
  * are still good and a fix + re-check (or, for cap, an acknowledgment + re-check) can heal
  * it" in exactly the same way. */
 async function enterBlockedCap(env, row, gate, dmAllThree) {
-  const violations = gate.kind === "loaded_contracts"
-    ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }))
+  const violations = gate.kind === "loaded_contract_drops_required"
+    ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max, required_drops: v.required_drops, valid_drops: v.valid_drops }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
   let prev = null;
@@ -341,6 +374,8 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
       ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
       : gate.kind === "cap_ack_required"
       ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use “Re-check.”`
+      : gate.kind === "loaded_contract_drops_required"
+      ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to select their conditional drops on the trade page, then use “Re-check.”`
       : `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved and everyone's accept is saved. It will go through once that's fixed (use “Re-check” on the trade).`);
   }
   return info;
@@ -361,9 +396,23 @@ async function capGate(env, row) {
     if (reasons.every(unavailable)) return { ok: false, kind: "unavailable", message: "We couldn't verify a pre-trade extension in this trade right now. Try again in a moment.", compliance };
     return { ok: false, kind: "extension", message: "A pre-trade extension in this trade is no longer allowed, so it can't go through. Ask the initiator to build it again.", compliance };
   }
-  // The loaded-contract limit is a genuine hard block (PR #1135, 2026-09-28): checked FIRST,
-  // and never satisfied by any cap acknowledgment -- independent of everything below.
-  if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") return { ok: false, kind: "loaded_contracts", message: safeStr(compliance.loaded_contracts.message), compliance };
+  // The loaded-contract limit (PR #1135) is checked FIRST, independent of the cap acknowledgment
+  // below -- a cap acknowledgment never satisfies it and vice versa. Keith's ruling (2026-09-25):
+  // a franchise projected over 5 may still trade once its OWN owner has validly selected enough
+  // of its OWN loaded-contract players to drop (worker/src/trade_conditional_drops.js) -- BUT
+  // (Keith's ruling, 2026-09-29, reviewing the first PR): a valid, SATISFIED selection
+  // ("needs_drops") is NOT the same thing as an EXECUTED drop, and must not itself unblock a
+  // real 3-way EXECUTION -- no code anywhere calls MFL to actually drop a player yet (see
+  // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). loadedContractsPermitsWrite() is the ONE
+  // gate for this, covering "blocked" (unsatisfied) AND "needs_drops" (satisfied but
+  // unexecuted) identically until a real executor is built and separately reviewed/approved.
+  if (compliance.loaded_contracts && !loadedContractsPermitsWrite(compliance.loaded_contracts.status)) {
+    const waiting = (compliance.loaded_contracts.drop_requirements || []).filter((d) => !d.satisfied).map((d) => d.franchise_name || d.franchise_id).join(", ");
+    const heldMsg = compliance.loaded_contracts.status === "needs_drops"
+      ? `${safeStr(compliance.loaded_contracts.message)} Conditional-drop execution isn't built yet, so this trade stays held until it is.`
+      : `${safeStr(compliance.loaded_contracts.message)}${waiting ? ` Waiting on ${waiting} to select conditional drops.` : ""}`;
+    return { ok: false, kind: "loaded_contract_drops_required", message: heldMsg, compliance, drop_requirements: compliance.loaded_contracts.drop_requirements || [] };
+  }
   // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR): a proven cap overage
   // never itself refuses the trade -- it requires each AFFECTED franchise's own owner to have
   // explicitly acknowledged the exact current projected figure (see worker/src/trade_cap_ack.js
@@ -655,22 +704,29 @@ export async function get3WayTrade(env, id, viewer, deps) {
   // surface can show it BEFORE the partners accept. Fail-soft: an unavailable calculation is shown as unavailable.
   if (deps && typeof deps.compliance === "function" && ["collecting", "executing"].includes(safeStr(row.status))) {
     try {
-      const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
-      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements: movements.map((m) => ({ ...m, tokens: m.tokens.map((t) => safeStr(t).replace(/^P_/, "")) })), extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc) });
+      const movements = movementsForCompliance(parseMovements(row));
+      let storedDropsForDetail = {}; try { storedDropsForDetail = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row)); } catch (_) { storedDropsForDetail = {}; }
+      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements, extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc), conditionalDrops: storedDropsForDetail });
     } catch (e) {
       console.warn(`[3way] compliance lookup failed: ${e?.message || e}`);
       trade.compliance = unavailableCompliance("lookup_failed");
     }
-    // A blocked-on-cap trade's `execution.block` is a SNAPSHOT from whenever it was recorded
-    // (worker/src/trade_3way.js's enterBlockedCap) -- it does not move as owners acknowledge.
-    // Fold in the CURRENT acknowledgment picture here so the detail view (and "Re-check") show
-    // who still needs to acknowledge without requiring a re-check to see it change.
+    // A blocked trade's `execution.block` is a SNAPSHOT from whenever it was recorded
+    // (worker/src/trade_3way.js's enterBlockedCap) -- it does not move as owners act. Fold in
+    // the CURRENT acknowledgment / drop-selection picture here so the detail view (and
+    // "Re-check") show who still needs to act without requiring a re-check to see it change.
     if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.cap && trade.compliance.cap.status === "blocked") {
       try {
         const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
         const ackEval = evaluateCapAcknowledgment({ violations: trade.compliance.cap.violations, tradeKey: safeStr(row.id), acks });
         trade.execution.block.cap_ack = ackEval.perFranchise;
       } catch (e) { console.warn(`[3way] cap-ack lookup failed (block shown without it): ${e?.message || e}`); }
+    }
+    // Also refreshes for "needs_drops" (satisfied but not yet -- and not yet ABLE to be --
+    // executed), not just "blocked", so the detail view keeps reflecting a completed selection
+    // instead of going stale the moment everyone finishes picking (Keith's ruling, 2026-09-29).
+    if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.loaded_contracts && !loadedContractsPermitsWrite(trade.compliance.loaded_contracts.status)) {
+      trade.execution.block.drop_requirements = trade.compliance.loaded_contracts.drop_requirements || [];
     }
   }
   return { ok: true, trade };
@@ -962,7 +1018,7 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
     return {
       ok: false, http: 409,
-      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contracts" ? "loaded_contract_limit" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
+      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_drops_required" ? "loaded_contract_drops_required" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
       message: gate.message, compliance: gate.compliance, cap_ack: gate.cap_ack || null,
     };
   }
@@ -1007,6 +1063,70 @@ export async function ack3WayCapOverage(env, id, viewer) {
     amountOverDollars: myViolation.amount_over, usedAfterDollars: myViolation.projected_used, capDollars: compliance.cap.cap_dollars, tradeKind: "three_way",
   });
   return { ok: true, http: 200, code: "acknowledged", message: `Acknowledged: ${safeStr(myViolation.franchise_name)} would be $${Math.round(myViolation.amount_over).toLocaleString("en-US")} over the $${Math.round(compliance.cap.cap_dollars).toLocaleString("en-US")} salary cap.`, compliance, cap_ack: { franchise_id: myFid, amount_over: myViolation.amount_over, signature: sig } };
+}
+
+/**
+ * Select (and, by submitting, confirm) THIS caller's OWN conditional loaded-contract drops on
+ * this 3-way trade (Keith's ruling, 2026-09-29: "for a three-way trade, handle each affected
+ * franchise separately", the SAME principle ack3WayCapOverage above already applies to cap).
+ * `viewer` must be a proven session for the franchise being selected for -- never a body-supplied
+ * claim (mirrors ack3WayCapOverage and every other 3-way owner action's identity check).
+ * `playerIds` REPLACES this franchise's whole selection (an empty array clears it). Recomputes
+ * compliance FRESH, WITH this exact selection applied, so the response reports this selection's
+ * own validity, not a stale picture; an unreadable calculation fails closed. Writes nothing to
+ * MFL, drops no player, and never itself flips the trade out of `collecting`/`blocked_cap` -- the
+ * owner (or anyone) still needs to hit Re-check afterward, exactly like fixing any other
+ * blocked-gate condition.
+ */
+export async function select3WayLoadedContractDrops(env, id, viewer, playerIds) {
+  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
+  const tid = safeStr(id);
+  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
+  let row; try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
+  if (!row || !inScope(row, viewer)) return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
+  if (!canView(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
+  const myFid = padFid(viewer && viewer.fid);
+  const participantFids = [row.initiator_fid, row.team_b_fid, row.team_c_fid].map(padFid);
+  if (!myFid || !participantFids.includes(myFid)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
+  const selectedIds = (Array.isArray(playerIds) ? playerIds : []).map(safeStr).filter(Boolean);
+  // Recompute WITH this exact selection layered onto whatever's already stored for the OTHER
+  // participants, so the response reflects this selection's own validity together with theirs.
+  const priorDrops = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row));
+  const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
+  const apiKey = safeStr(env.COMMISH_API_KEY);
+  let compliance;
+  if (!env.SELF || !apiKey) { compliance = unavailableCompliance(!env.SELF ? "no_self_binding" : "no_commish_key"); }
+  else {
+    try {
+      const u = `https://self.invalid/admin/3way/compliance?L=${encodeURIComponent(safeStr(row.league_id))}&YEAR=${encodeURIComponent(safeStr(row.season))}&APIKEY=${encodeURIComponent(apiKey)}`;
+      const r = await env.SELF.fetch(u, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc), conditional_drops: { ...priorDrops, [myFid]: selectedIds } }),
+      });
+      const j = await r.json().catch(() => null);
+      const c = j && j.ok && j.compliance;
+      compliance = (!r.ok || !c || !c.loaded_contracts) ? unavailableCompliance("bad_response") : c;
+    } catch (e) { console.error(`[3way] ${row.id}: compliance call failed: ${e?.message || e}`); compliance = unavailableCompliance("call_failed"); }
+  }
+  if (compliance.loaded_contracts.status === "unavailable") {
+    return { ok: false, http: 503, code: "loaded_contract_check_unavailable", message: "We couldn't verify the loaded-contract count for this trade right now, so nothing was selected. Try again in a moment.", compliance };
+  }
+  const myReq = (compliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === myFid);
+  if (!myReq) {
+    return { ok: true, http: 200, code: "nothing_required", message: "Your team isn't projected to need a conditional drop on this trade right now.", compliance };
+  }
+  await conditionalDropStoreFor(env).setForFranchise(conditionalDropKey(row), { franchiseId: myFid, playerIds: selectedIds, selectedByFid: myFid });
+  // Satisfied is a real, useful state (it's what lets the OTHER participants stop waiting on
+  // THIS franchise) -- but never worded as if execution is now unblocked: capGate() above still
+  // refuses EXECUTE regardless, until a real executor exists (Keith's ruling, 2026-09-29).
+  const selectDropsExecutable = loadedContractsPermitsWrite(compliance.loaded_contracts.status);
+  return {
+    ok: true, http: 200, code: myReq.satisfied ? "selected" : "selected_insufficient",
+    message: myReq.satisfied
+      ? `Selected: ${myReq.valid_count} of ${myReq.required_drops} required conditional drop${myReq.required_drops === 1 ? "" : "s"}.` + (selectDropsExecutable ? "" : " Conditional-drop execution isn't built yet, so this trade stays held until it is.")
+      : `${myReq.valid_count} of ${myReq.required_drops} required conditional drops are valid so far -- ${myReq.required_drops - myReq.valid_count} more needed.`,
+    compliance, drop_requirement: myReq,
+  };
 }
 
 // ───────────────────── execute the chained 2-party trades ───────────────────

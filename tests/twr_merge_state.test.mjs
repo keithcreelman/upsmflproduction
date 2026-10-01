@@ -55,11 +55,18 @@ test("MOBILE BUILD: the accepted build 2026.09.25.2 was kept or moved FORWARD â€
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) stamp");
   // Both shared/trade_3way_view.js and views/trade.js genuinely changed again on this
   // COMBINED branch (loaded-contract/lineup compliance, PR #1135, + the cap-overage
-  // acknowledgment ruling, this PR) and correctly carry the combined release's stamp
-  // (2026.09.28.4); per-file ?v= only needs to be >= that file's own last real change,
-  // not pinned to a single shared value in general -- here they happen to agree because
-  // both files were touched by this release.
-  for (const f of ["shared/trade_3way_view.js", "views/trade.js"]) t.equal(stampOf(f), "2026.09.28.4", `${f} stamp`);
+  // acknowledgment ruling; then again for the loaded-contract CONDITIONAL-DROP builder
+  // popup, Keith's ruling 2026-09-29) and correctly carried the combined release's stamp
+  // (2026.09.29.1, the latest release to touch either at that point). Per-file ?v= only
+  // needs to be >= that file's own last real change, not pinned to a single shared value in
+  // general -- this test's own name says "kept or moved FORWARD", so the check itself was
+  // always meant to be a floor, not an exact pin (a prior version of this line used t.equal
+  // against a single hardcoded string, which broke the moment either file legitimately
+  // advanced again -- e.g. views/trade.js moved to 2026.09.30.1 on 2026-09-30 for the
+  // recipient-side loaded-contract gap fix, while shared/trade_3way_view.js stayed at
+  // 2026.09.29.1 -- exactly the "diverge, not a bug" case already documented above). Fixed to
+  // match its own stated intent: never older than the last confirmed-good stamp for either.
+  for (const f of ["shared/trade_3way_view.js", "views/trade.js"]) t.ok(cmp(num(stampOf(f)), num("2026.09.29.1")) >= 0, `${f} stamp not older than 2026.09.29.1`);
 });
 test("BRANCH CONTENT: the Trade War Room's own work survived the merge (the ruling, the admin door, the ledger, the shared cap authority)", () => {
   const w = read("worker/src/index.js");

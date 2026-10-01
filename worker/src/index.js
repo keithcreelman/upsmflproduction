@@ -14,6 +14,7 @@ import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./tr
 const TWR_RELEASE = "trade-war-room-2026-09-25.3";
 const TWR_FEATURES = Object.freeze({ admin_front_door: true, execution_ledger: true, recoverable_cap_block: true, shared_cap_authority: true, extension_revalidation: true, canonical_extension_pricing: true });
 import { handle3WayHttp } from "./trade_3way_http.js";
+import { handle2WayStagedHttp } from "./trade_2way_http.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
@@ -48,8 +49,9 @@ import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
-import { evaluateTradeCompliance } from "./trade_cap_authority.js";
+import { evaluateTradeCompliance, loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
+import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
@@ -8182,6 +8184,18 @@ export default {
         path !== "/api/trades/3way/cancel" &&
         path !== "/api/trades/3way/recheck" &&
         path !== "/api/trades/3way/ack-cap" &&
+        path !== "/api/trades/3way/select-drops" &&
+        // Staged 2-way routes (2026-09-29) derive the league from the request/row exactly
+        // like the 3-way owner routes above -- same exemption, same reason.
+        path !== "/api/trades/2way" &&
+        path !== "/api/trades/2way/accept" &&
+        path !== "/api/trades/2way/cancel" &&
+        path !== "/api/trades/2way/recheck" &&
+        path !== "/api/trades/2way/select-drops" &&
+        path !== "/api/trades/2way/queue" &&
+        // The pre-send compliance preview (2026-09-29) reads league_id from its own body first,
+        // exactly like the routes just above -- same exemption, same reason.
+        path !== "/api/trades/compliance-preview" &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
         !path.startsWith("/api/trades/refresh-after-trade")
@@ -29081,6 +29095,19 @@ const mflToSleeper = {};
         return attrs;
       };
 
+      // Small local entity-decode -- deliberately NOT sharing the `htmlDecode` const defined
+      // earlier in this same handler (~line 24673): that one lives far enough away that
+      // reusing it here would add a silent cross-section dependency for no real benefit,
+      // when the entity set needed for a player-names textarea is tiny and stable.
+      const decodeTextareaEntities = (s) =>
+        safeStr(s)
+          .replace(/&nbsp;/gi, " ")
+          .replace(/&amp;/gi, "&")
+          .replace(/&quot;/gi, '"')
+          .replace(/&#39;/gi, "'")
+          .replace(/&lt;/gi, "<")
+          .replace(/&gt;/gi, ">");
+
       const parseLoadRostForm = (html, pageUrl) => {
         const text = String(html || "");
         const formMatch = text.match(/<form\b[^>]*action\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/i);
@@ -29101,7 +29128,21 @@ const mflToSleeper = {};
           seen.add(name);
           baseFields.push([name, safeStr(attrs.value)]);
         }
-        if (!seen.has("PLAYER_NAMES")) baseFields.push(["PLAYER_NAMES", ""]);
+        // PLAYER_NAMES is MFL's own <textarea name="PLAYER_NAMES">, never an <input> -- the
+        // loop above can never see it (2026-09-30 finding, checked against a real LOADROST
+        // page: the field genuinely is a textarea there). Read its REAL content instead of
+        // assuming empty: a page that arrives with this textarea already pre-filled (a
+        // stale/queued add MFL is already tracking for this franchise, entered by the owner
+        // in a separate tab, etc.) must not have that content silently discarded and replaced
+        // with "" -- submitting "" there would submit a DIFFERENT form than the one MFL
+        // actually rendered, an unannounced data loss. The caller (fetchLoadRostFormForCookie)
+        // refuses to proceed to a write at all when this comes back non-empty -- see there.
+        const textareaMatch = text.match(/<textarea\b[^>]*name\s*=\s*("PLAYER_NAMES"|'PLAYER_NAMES'|PLAYER_NAMES)[^>]*>([\s\S]*?)<\/textarea>/i);
+        const playerNamesRaw = decodeTextareaEntities(textareaMatch ? textareaMatch[2] : "").trim();
+        if (!seen.has("PLAYER_NAMES")) {
+          seen.add("PLAYER_NAMES");
+          baseFields.push(["PLAYER_NAMES", playerNamesRaw]);
+        }
         const selectMatch = text.match(/<select\b[^>]*name\s*=\s*("ROSTER"|'ROSTER'|ROSTER)[^>]*>([\s\S]*?)<\/select>/i);
         const rosterIds = [];
         if (selectMatch) {
@@ -29112,7 +29153,7 @@ const mflToSleeper = {};
             if (value) rosterIds.push(value);
           }
         }
-        return { actionUrl, baseFields, currentRosterIds: rosterIds };
+        return { actionUrl, baseFields, currentRosterIds: rosterIds, playerNamesRaw };
       };
 
       const fetchLoadRostFormForCookie = async (cookieHeaderOverride, season, leagueId, franchiseId) => {
@@ -29131,6 +29172,23 @@ const mflToSleeper = {};
         // substring match was rejecting valid responses).
         const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
         if (parsed) {
+          // Fail closed, BEFORE any write is attempted (rule_no_fail_open_guards.md): this
+          // code has never been verified against a real page whose PLAYER_NAMES textarea
+          // arrives pre-filled, and a drop-only automation has no basis for guessing whether
+          // forwarding that text back unchanged is safe to combine with our own ROSTER write.
+          // Every caller already gates on `formRes.ok` before ever calling
+          // postLoadRostFormForCookie (confirmed at all three call sites), so returning
+          // ok:false here stops the write everywhere this helper is used, not just here.
+          if (parsed.playerNamesRaw) {
+            return {
+              ok: false,
+              status: resp.status,
+              error: "player_names_prefilled_refusing_write",
+              pageUrl,
+              preview: resp.text.slice(0, 800),
+              player_names_raw: parsed.playerNamesRaw.slice(0, 500),
+            };
+          }
           return { ok: true, status: resp.status, pageUrl, ...parsed };
         }
         // No form found — now distinguish access-denied from generic
@@ -36941,6 +36999,82 @@ const mflToSleeper = {};
         return jsonOut(200, { ok: true, league_id: leagueId, season, pending_trade_ids: ids });
       }
 
+      // ---- 🔎 Live MFL pending-trade inventory (2026-09-29, read-only) -----
+      // Answers "what does MFL itself say is pending, right now" directly —
+      // NOT a read of ups_trade_offer_watch (whose 4 all-'gone' rows and lack
+      // of a sentinel heartbeat can't by themselves prove today's count is
+      // zero). This is a PURE READ: it enumerates pendingTrades for every
+      // franchise via the same commissioner-impersonated GET the sentinel
+      // tick uses (STEP A, above), but performs NONE of the tick's other
+      // work — no D1 mirror insert/update, no act_log, no lifecycle='gone'
+      // sweep, no MFL write of any kind. Safe to call at any time, as often
+      // as wanted, with zero side effects, including while
+      // TRADE_SENTINEL_ACT_ENABLED is on (this route never reaches any of
+      // that code).
+      if (path === "/admin/trade-offers/live-mfl-inventory" && request.method === "GET") {
+        const commishKey = String(env.COMMISH_API_KEY || "").trim();
+        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
+        if (!commishKey || browserKey !== commishKey) {
+          return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || url.searchParams.get("season") || YEAR || "");
+        if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing L/YEAR" });
+        const namesByFid = {};
+        let lg;
+        try {
+          lg = await mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true });
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `league fetch failed: ${e?.message || e}` });
+        }
+        if (!lg?.ok) return jsonOut(502, { ok: false, error: `league fetch failed: ${lg?.error || `HTTP ${lg?.status}`}` });
+        const fl = lg?.data?.league?.franchises?.franchise || [];
+        for (const f of (Array.isArray(fl) ? fl : [fl])) {
+          const id = padFranchiseId(f?.id);
+          if (id) namesByFid[id] = safeStr(f?.name) || id;
+        }
+        const fids = Object.keys(namesByFid);
+        if (!fids.length) return jsonOut(502, { ok: false, error: "league export returned no franchises" });
+        const pending = new Map();
+        const perFranchiseErrors = [];
+        for (const fid of fids) {
+          try {
+            const res = await mflExportJson(season, leagueId, "pendingTrades", { FRANCHISE_ID: fid }, { includeApiKey: true, useCookie: true });
+            if (!res?.ok) { perFranchiseErrors.push(`${fid}: ${res?.error || `HTTP ${res?.status}`}`); continue; }
+            const raw = res?.data?.pendingTrades?.pendingTrade ?? res?.data?.pendingtrades?.pendingtrade ?? [];
+            for (const r of (Array.isArray(raw) ? raw : [raw]).filter(Boolean)) {
+              const n = normalizePendingTradeRow(r);
+              const tid = safeStr(n?.trade_id).replace(/\D/g, "");
+              if (tid) pending.set(tid, n);
+            }
+          } catch (e) { perFranchiseErrors.push(`${fid}: ${e?.message || e}`); }
+        }
+        const rows = Array.from(pending.values()).map((n) => ({
+          trade_id: safeStr(n.trade_id),
+          from_franchise_id: padFranchiseId(n.from_franchise_id),
+          from_franchise_name: namesByFid[padFranchiseId(n.from_franchise_id)] || null,
+          to_franchise_id: padFranchiseId(n.to_franchise_id),
+          to_franchise_name: namesByFid[padFranchiseId(n.to_franchise_id)] || null,
+          will_give_up: safeStr(n.will_give_up) || null,
+          will_receive: safeStr(n.will_receive) || null,
+          comments: safeStr(n.comments) || null,
+          mfl_timestamp: Number(n.timestamp) || null,
+          expires_unix: n.expires || null,
+        }));
+        return jsonOut(200, {
+          ok: perFranchiseErrors.length === 0,
+          league_id: leagueId, season,
+          franchises_checked: fids.length,
+          franchises_failed: perFranchiseErrors,
+          complete: perFranchiseErrors.length === 0,
+          pending_count: rows.length,
+          pending: rows,
+          note: perFranchiseErrors.length
+            ? "One or more franchises' pendingTrades could not be read — this count is a LOWER BOUND, not proven complete."
+            : "Every franchise answered — this is MFL's live pendingTrades state for every franchise, right now.",
+        });
+      }
+
       // ---- 🛡️ Trade-offer sentinel tick (2026-07-15) -----------------------
       // Watches EVERY pending MFL offer (in-app + native-desktop), mirrors it
       // into ups_trade_offer_watch, detects offers whose assets moved in some
@@ -37557,7 +37691,7 @@ const mflToSleeper = {};
       // 2-way preview, the 3-way accept/execute gates and the 3-way detail view. Reads live MFL exports
       // (rosters, salaryAdjustments, league); any failure comes back as status "unavailable" (fail closed).
       // Client-supplied cap totals are never an input. See worker/src/trade_cap_authority.js.
-      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests }) => {
+      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops }) => {
         try {
           const opts = { includeApiKey: true, useCookie: true };
           const [rosters, league, adjustments, salaries, players] = await Promise.all([
@@ -37571,7 +37705,7 @@ const mflToSleeper = {};
             // loaded_contracts closed, since none of those read position at all.
             mflExportJson(season, leagueId, "players", { DETAILS: 1 }, opts),
           ]);
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests });
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -37919,9 +38053,9 @@ const mflToSleeper = {};
           }
         },
         // Live cap/roster projection for a 3-way row (used by the accept + execute gates and the detail view).
-        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc }) => {
+        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc, conditionalDrops }) => {
           const ext = await planExtensionSalaries(season, leagueId, extensionRequests, { offerCreatedAtUtc });
-          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests });
+          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops });
           out.extension_skipped = (ext.skipped || []).map((x) => ({ player_id: safeStr(x && x.player_id), reason: safeStr(x && x.reason) }));
           if (!ext.ok && out.cap.status !== "unavailable") { out.cap = { ...out.cap, status: "unavailable", reason: "extension_salaries_unavailable", message: "We couldn't verify the salary cap for this trade right now." }; }
           return out;
@@ -37959,6 +38093,66 @@ const mflToSleeper = {};
           deps: threeWayDeps,
         });
         if (resp3w) return resp3w;
+      }
+
+      // STAGED 2-way trades (universal server-side staging, Keith's ruling 2026-09-29,
+      // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §8) -- entirely additive, changes
+      // nothing about the existing direct-to-MFL /trade-offers route above. `threeWayDeps`
+      // is already fully generic (compliance/validateExtensions/franchiseNames/playersByIds
+      // carry no 3-way-specific assumption), so it's reused here rather than duplicated.
+      if (path === "/api/trades/2way" || path.startsWith("/api/trades/2way/")) {
+        const cookieMatch2ws = (request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i);
+        const resp2ws = await handle2WayStagedHttp({
+          request, url, path, env, ctx, corsHeaders,
+          defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR,
+          browserMflUserId, cookieMflUserId: (cookieMatch2ws && cookieMatch2ws[1]) || "",
+          deps: threeWayDeps,
+        });
+        if (resp2ws) return resp2ws;
+      }
+
+      // ---- 🪪 Pre-send compliance preview, kind-agnostic (2026-09-29) ----------
+      // Keith's ruling: "before an owner sends a two-team or three-team offer that would put
+      // EITHER franchise over five loaded contracts, show a clear popup... the projected count
+      // for EACH affected team." The existing create-time gate above (the /trade-offers 409
+      // check, ~line 38566) only ever checked the SENDER's own side -- by design, the
+      // recipient's side was always deferred to their own accept. This route is additive and
+      // changes nothing about that existing gate: it answers "what would this trade do to
+      // EVERY affected team, right now" for a trade that has not been created yet (2-way
+      // direct, staged 2-way, or 3-way alike -- `movements` alone decides the shape, nothing
+      // here assumes a party count), so the client can show the full picture to the sender
+      // before anything is sent or staged. It is informational only -- it never blocks
+      // anything itself; the real hard gates remain exactly where they already are (create for
+      // direct-MFL 2-way, accept/execute for staged 2-way and 3-way).
+      if (path === "/api/trades/compliance-preview" && request.method === "POST") {
+        let body = null;
+        try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
+        const leagueId = safeStr(body?.league_id || L || "");
+        const season = safeStr(body?.season || YEAR || "");
+        if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing league_id/season." });
+        const declaredFid = padFranchiseId(body?.from_franchise_id || "");
+        const previewAuth = await tradeCaller(body, declaredFid);
+        if (!previewAuth.ok) return tradeDeny(previewAuth);
+        if (declaredFid && previewAuth.caller.fid !== declaredFid) return tradeForbidden("You can only preview a trade as your own team.");
+        const movementsIn = Array.isArray(body?.movements) ? body.movements : [];
+        if (!movementsIn.length) return jsonOut(400, { ok: false, error: "movements is required" });
+        const partyFids = new Set();
+        const movements = [];
+        for (const m of movementsIn) {
+          const mf = padFranchiseId(m?.from), mt = padFranchiseId(m?.to);
+          if (!mf || !mt || mf === mt) return jsonOut(400, { ok: false, error: "Every movement needs two different real teams." });
+          partyFids.add(mf); partyFids.add(mt);
+          const rawTokens = Array.isArray(m?.asset_tokens) ? m.asset_tokens : (Array.isArray(m?.tokens) ? m.tokens : []);
+          const capK = Math.max(0, safeInt(m?.cap_k, 0));
+          const tokens = rawTokens.map(normalizeToken).filter(Boolean);
+          if (capK > 0) tokens.push(`BB_${capK * 1000}`);
+          movements.push({ from: mf, to: mt, tokens });
+        }
+        // The caller must be one of the trade's own parties (or the commissioner) -- never lets
+        // an unrelated owner probe another two teams' cap/roster situation.
+        if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
+        return jsonOut(200, { ok: true, compliance: out });
       }
 
       // Commissioner ADMINISTRATIVE cancel of a 3-way (RULING, Keith 2026-09-25). A distinct action: it
@@ -38185,7 +38379,7 @@ const mflToSleeper = {};
       // Internal (commish/self) — the post-trade cap + roster picture for a 3-way's movements, from the SAME
       // authority the 2-way accept uses. Called by the 3-way engine (Discord accept + execute gates) via
       // env.SELF.fetch; not an owner route. Body: { league_id, season, movements:[{from,to,tokens[]}],
-      // extension_requests[] }. Read-only.
+      // extension_requests[], conditional_drops:{franchiseId:[playerId,...]} }. Read-only.
       if (path === "/admin/3way/compliance" && request.method === "POST") {
         const commishKey = String(env.COMMISH_API_KEY || "").trim();
         const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
@@ -38199,7 +38393,7 @@ const mflToSleeper = {};
           from: m && m.from, to: m && m.to,
           tokens: (Array.isArray(m && m.tokens) ? m.tokens : []).map(normalizeToken).filter(Boolean),
         }));
-        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: safeStr(body?.offer_created_at_utc) });
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: safeStr(body?.offer_created_at_utc), conditionalDrops: body?.conditional_drops });
         return jsonOut(200, { ok: true, compliance: out });
       }
 
@@ -38237,6 +38431,26 @@ const mflToSleeper = {};
         if (proposeAuth.caller.fid !== fromFranchiseId) return tradeForbidden("You can only send an offer as your own team.");
         if (proposeAuth.caller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
         if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
+        // ---- 🔒 CUTOVER GATE (2026-09-29) ------------------------------------------------
+        // Keith's ruling: "the legacy creation endpoint must also refuse direct creation
+        // server-side while staging is enabled... hiding a button alone is insufficient."
+        // While TRADE_2WAY_CUTOVER_ENABLED is on, this route refuses to CREATE a new native
+        // 2-way tradeProposal at all -- no client (updated, cached, or a stale tab that never
+        // reloaded) can create one this way, whatever button it clicked. This is checked BEFORE
+        // any MFL call (nothing has been proposed or rejected yet), and it changes NOTHING about
+        // this route's other behavior: reading existing offers (GET, above) and every action on
+        // an ALREADY-EXISTING offer (accept/reject/revoke/ack-cap/select-drops via
+        // /trade-offers/action) are untouched -- an owner can still finish out a native offer
+        // that already existed before cutover. The client-side response to this refusal is to
+        // fall through to POST /api/trades/2way (staged creation) with the identical payload --
+        // see trade_workbench.js's submitOfferToQueue / trade.js's submitOffer.
+        if (await getFeatureFlag(env, "TRADE_2WAY_CUTOVER_ENABLED")) {
+          return jsonOut(409, {
+            ok: false, code: "staging_required", error_type: "staging_required",
+            error: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+            message: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+          });
+        }
         if (validationStatus && validationStatus !== "ready") {
           const diagnostics = buildValidationFailureDiagnostics({
             reason: "trade_payload_not_ready",
@@ -38459,6 +38673,100 @@ const mflToSleeper = {};
           if (Array.isArray(payload?.extension_requests) && payload.extension_requests.length && (intentBundle.extension_skipped || []).length) {
             const refusal = extensionRefusal(intentBundle.extension_skipped);
             return jsonOut(refusal.http, { ok: false, code: refusal.code, error_type: "extension_pricing", error: refusal.message, message: refusal.message, skipped: refusal.skipped });
+          }
+
+          // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29, correcting a real gap:
+          // building/reviewing an offer as the SENDER never showed this at all -- PR #1135's check
+          // only ever ran at the RECIPIENT's accept). Checked BEFORE cap (a genuine hard block,
+          // never satisfied by a cap acknowledgment or vice versa -- they are fully independent).
+          // At OFFER CREATION this is the INITIATOR's own side, exactly like the cap check below:
+          // the recipient's own requirement (if any) is the recipient's own concern at accept.
+          // `body.loaded_contract_drops` (optional array of player ids) is the sender's proposed
+          // conditional-drop selection for THEIR OWN franchise; validated fresh against live data
+          // in THIS SAME request -- there is nothing to forge, so unlike cap there is no signature.
+          // An unresolvable loaded-contract calculation does NOT gate creation, for the identical
+          // reason the cap check below doesn't: it can be unresolvable because of a completely
+          // unrelated player elsewhere on either roster, and an unrelated data problem must not
+          // block a sender from simply proposing a trade. The fail-closed guarantee is enforced at
+          // PREVIEW/ACCEPT, exactly like cap. Only a PROVEN, unsatisfied requirement for the
+          // sender's own franchise gates creation.
+          {
+            const createDropCapFids = Object.keys(tokensByFranchise(proposalAssets));
+            const createDropSelections = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
+            const createDropCompliance = await computeTradeComplianceLive({
+              season, leagueId,
+              movements: createDropCapFids.map((f) => ({ from: f, to: createDropCapFids.find((x) => x !== f), tokens: tokensByFranchise(proposalAssets)[f] })),
+              extensionRequests: Array.isArray(payload?.extension_requests) ? payload.extension_requests : [],
+              conditionalDrops: { [fromFranchiseId]: createDropSelections },
+            });
+            if (createDropCompliance.loaded_contracts.status !== "unavailable") {
+              const myDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === fromFranchiseId);
+              if (myDropReq) {
+                // Persist whatever selection was submitted -- informational (lets the picker show
+                // "your pick would satisfy this" and survives to a later retry once execution
+                // ships), and itself NEVER an MFL write -- before deciding whether SENDING is
+                // currently permitted at all.
+                if (createDropSelections.length) {
+                  const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+                  if (!dropDb) {
+                    return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                  }
+                  const createDropTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(proposalAssets), extensionRequests: payload?.extension_requests })}`;
+                  try {
+                    await makeConditionalDropStore(dropDb).setForFranchise(
+                      { leagueId, season, tradeKey: createDropTradeKey, tradeKind: "two_way" },
+                      { franchiseId: fromFranchiseId, playerIds: createDropSelections, selectedByFid: fromFranchiseId }
+                    );
+                  } catch (e) {
+                    console.error("[loaded-contract-drops] couldn't persist the initiator's selection -- refusing the offer (not sent to MFL):", e?.message || String(e));
+                    return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
+                  }
+                }
+                // Keith's ruling, 2026-09-29 (reviewing the first PR): a valid, SATISFIED
+                // selection is not the same thing as an EXECUTED drop -- no code anywhere calls
+                // MFL to actually drop a player yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
+                // Proposing this trade to MFL right now would create a REAL, natively-acceptable
+                // pending trade for a franchise that is still, in fact, over the limit -- so
+                // creation is refused whenever loadedContractsPermitsWrite() says no, REGARDLESS
+                // of `myDropReq.satisfied`. This is the single gate that flips once a real
+                // executor is built and separately reviewed/approved.
+                if (!loadedContractsPermitsWrite(createDropCompliance.loaded_contracts.status)) {
+                  const heldMsg = myDropReq.satisfied
+                    ? myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. Your selected drop" + (myDropReq.required_drops === 1 ? "" : "s") + " would satisfy the limit, but conditional-drop execution isn't built yet, so this offer can't be sent while " + myDropReq.franchise_name + " would still be over. Remove the loaded asset(s) from this trade, or wait until conditional drops can actually execute."
+                    : myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. The maximum is 5, so " + myDropReq.required_drops + " conditional drop" + (myDropReq.required_drops === 1 ? "" : "s") + " of " + myDropReq.franchise_name + "'s own loaded-contract player" + (myDropReq.required_drops === 1 ? "" : "s") + " " + (myDropReq.required_drops === 1 ? "is" : "are") + " required -- and conditional-drop execution isn't built yet, so this offer can't be sent while " + myDropReq.franchise_name + " would be over the limit.";
+                  return jsonOut(409, {
+                    ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required",
+                    error: heldMsg,
+                    compliance: createDropCompliance,
+                    loaded_contract_drops_needed: { franchise_id: fromFranchiseId, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count, satisfied: myDropReq.satisfied, executable: false },
+                  });
+                }
+              }
+              // THE RECIPIENT's own requirement (Keith's ruling, 2026-09-30: "If Hammer has 5
+              // loaded contracts... and I offer him Chig Okonkwo as a sixth, show me before Send").
+              // The block above only ever checked the SENDER's own side -- by design, since only
+              // the sender is present to supply a selection at create time. But the recipient
+              // cannot be over the limit here EITHER: sending would still create a real,
+              // natively-acceptable MFL trade proposal for a franchise this deal would put over 5,
+              // and the recipient has had no chance to pick anything yet (they haven't even seen
+              // the offer). Refused here, naming the RECIPIENT's own team and count, exactly like
+              // the sender's own case -- never deferred to "the recipient's concern at accept,"
+              // which was the cap-acknowledgment precedent this block's own comment above
+              // originally borrowed from, but cap and loaded-contracts are not the same shape:
+              // cap needs the AFFECTED owner's personal acknowledgment (which only they can give),
+              // while a loaded-contract violation is a hard block regardless of who acknowledges
+              // it, and the sender is fully able to see it and revise the offer before sending.
+              const theirDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === toFranchiseId);
+              if (theirDropReq && !theirDropReq.satisfied) {
+                const heldMsg = theirDropReq.franchise_name + " would move from " + theirDropReq.loaded_before + " to " + theirDropReq.projected + " loaded contracts. The maximum is 5, so " + theirDropReq.required_drops + " conditional drop" + (theirDropReq.required_drops === 1 ? "" : "s") + " of " + theirDropReq.franchise_name + "'s own loaded-contract player" + (theirDropReq.required_drops === 1 ? "" : "s") + " " + (theirDropReq.required_drops === 1 ? "is" : "are") + " required if " + theirDropReq.franchise_name + " accepts this trade -- only " + theirDropReq.franchise_name + " can select it, when they review the offer. Revise this trade, or stage it instead of sending it directly.";
+                return jsonOut(409, {
+                  ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required", who: "recipient",
+                  error: heldMsg,
+                  compliance: createDropCompliance,
+                  loaded_contract_drops_needed: { franchise_id: toFranchiseId, loaded_before: theirDropReq.loaded_before, projected: theirDropReq.projected, required_drops: theirDropReq.required_drops, selected: theirDropReq.selected, valid_count: theirDropReq.valid_count, satisfied: theirDropReq.satisfied, executable: false },
+                });
+              }
+            }
           }
 
           // SALARY-CAP OVERAGE ACKNOWLEDGMENT (Keith's ruling, 2026-09-28, separate PR from the
@@ -39323,7 +39631,7 @@ const mflToSleeper = {};
             if (!hit) {
               // Not pending in MFL. If the ledger says WE executed it, that is the truth to report (never a bare "not pending"), and only
               // one of its two teams may hear it.
-              if (["ACCEPT", "PREVIEW", "ACK_CAP"].includes(action)) {
+              if (["ACCEPT", "PREVIEW", "ACK_CAP", "SELECT_DROPS"].includes(action)) {
                 let led = null;
                 try { led = await execLedger().read(execKey(leagueId, season, mflTradeId)); } catch (_) { led = null; }
                 if (led && Array.isArray(led.participants) && led.participants.includes(actFid)) return { ok: false, ledger: led };
@@ -39342,7 +39650,9 @@ const mflToSleeper = {};
             // (refreshing a stale one, since only the sender could have made it at creation) or
             // the recipient might be acknowledging their own ahead of accepting. Never the other
             // team's franchise id, and never a stranger to this offer.
-            if (action === "ACK_CAP" && actFid !== from && actFid !== to) {
+            // SELECT_DROPS (loaded-contract conditional-drop selection) is the SAME shape as
+            // ACK_CAP -- either side may call it for their OWN franchise's own requirement.
+            if ((action === "ACK_CAP" || action === "SELECT_DROPS") && actFid !== from && actFid !== to) {
               return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this offer." };
             }
             return { ok: true, from, to };
@@ -39395,6 +39705,19 @@ const mflToSleeper = {};
             // enforced here, before the original offer is rejected, so no side effect precedes it.
             if (counterFromId !== actionCaller.fid || counterToId !== partyCheck.from) {
               return jsonOut(400, { ok: false, code: "bad_counter_parties", error: "A counter has to go from your team back to the team that made the offer." });
+            }
+            // ---- 🔒 CUTOVER GATE (2026-09-29) --------------------------------------------
+            // A COUNTER creates a NEW native MFL tradeProposal (after rejecting the
+            // original) -- exactly the same bypass a direct CREATE would be, so it gets the
+            // identical refusal, checked BEFORE the original offer is rejected (the same "never
+            // leave the sender with their offer rejected and nothing sent" care the
+            // extension-pricing check just below already applies).
+            if (await getFeatureFlag(env, "TRADE_2WAY_CUTOVER_ENABLED")) {
+              return jsonOut(409, {
+                ok: false, code: "staging_required", error_type: "staging_required",
+                error: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+                message: "New two-team offers now go through the Trade War Room's staged flow, not directly to MFL.",
+              });
             }
             // A counter that promises an extension is priced from the current contract BEFORE the original offer is rejected — a refusal here must
             // never leave the sender with their offer rejected and no counter sent.
@@ -39480,8 +39803,8 @@ const mflToSleeper = {};
             });
           }
 
-          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE", "ACK_CAP"].includes(action)) {
-            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, COUNTER, or ACK_CAP in direct mode" });
+          if (!["ACCEPT", "PREVIEW", "REJECT", "REVOKE", "ACK_CAP", "SELECT_DROPS"].includes(action)) {
+            return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, REVOKE, COUNTER, ACK_CAP, or SELECT_DROPS in direct mode" });
           }
           if (!mflTradeId) {
             return jsonOut(400, { ok: false, error: "trade_id is required for direct MFL actions" });
@@ -39500,7 +39823,7 @@ const mflToSleeper = {};
           // BEFORE anything is written. Live legality is re-checked here (fail closed). See
           // worker/src/trade_accept_integrity.js.
           let acceptCompliance = null;
-          if (action === "ACCEPT" || action === "PREVIEW" || action === "ACK_CAP") {
+          if (action === "ACCEPT" || action === "PREVIEW" || action === "ACK_CAP" || action === "SELECT_DROPS") {
             const integrityFail = (http, code, message, extra) =>
               jsonOut(http, { ok: false, mode: "direct_mfl", action: "ACCEPT", code, error: message, message, ...(extra || {}) });
             const clientClaims = collectClientClaims(body);
@@ -39637,6 +39960,20 @@ const mflToSleeper = {};
                   if (pid && parseBoolFlag(a?.taxi)) taxiFlags[pid] = true;
                 }
               }
+              // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29): the RECIPIENT
+              // (this accept/preview's own caller) may supply their OWN drop selection inline, in
+              // this same request (`body.loaded_contract_drops`, an array of player ids) -- the
+              // fresh recompute IS the validation, so there is nothing to forge. The SENDER's own
+              // selection, if any, can only have been made EARLIER at offer creation (persisted
+              // under the SAME trade key cap-ack uses); a third franchise never enters here in a
+              // 2-way trade. Computed BEFORE acceptCompliance so the SAME single compliance call
+              // sees both sides' selections together.
+              const dropTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(authLists), extensionRequests: authExtRows })}`;
+              const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+              const storedDrops = dropDb ? await makeConditionalDropStore(dropDb).readAllForTrade({ leagueId, season, tradeKey: dropTradeKey }) : {};
+              const inlineRecipientDrops = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : null;
+              const conditionalDropsForAccept = { ...storedDrops };
+              if (inlineRecipientDrops) conditionalDropsForAccept[resolvedOfferToFranchiseId] = inlineRecipientDrops;
               acceptCompliance = await computeTradeComplianceLive({
                 season, leagueId, rostersRes: acceptRostersRes, extensionSalary: acceptExtSalary, taxiFlags,
                 movements: capFids.map((f) => ({ from: f, to: capFids.find((x) => x !== f), tokens: byFranchise[f] })),
@@ -39649,7 +39986,24 @@ const mflToSleeper = {};
                 // client). Execution still re-derives the extension's real terms from
                 // preview_contract_info_string before anything is applied to MFL.
                 extensionRequests: authExtRows,
+                conditionalDrops: conditionalDropsForAccept,
               });
+              // The recipient's own supplied selection is persisted whenever it's actually THEIRS
+              // to give (even if the trade is still blocked on someone else's side) -- so a fresh
+              // valid pick is never lost between this attempt and a later retry once the other
+              // side also acts. Never persisted merely because it was SENT; only when it resolves
+              // against live data as this franchise's own, on-roster, genuinely loaded selection.
+              if (inlineRecipientDrops && dropDb) {
+                const myRecipientDropReq = (acceptCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === resolvedOfferToFranchiseId);
+                if (myRecipientDropReq) {
+                  try {
+                    await makeConditionalDropStore(dropDb).setForFranchise(
+                      { leagueId, season, tradeKey: dropTradeKey, tradeKind: "two_way" },
+                      { franchiseId: resolvedOfferToFranchiseId, playerIds: inlineRecipientDrops, selectedByFid: resolvedOfferToFranchiseId }
+                    );
+                  } catch (e) { console.warn("[loaded-contract-drops] couldn't persist the recipient's selection (accept still gated on the fresh check just performed):", e?.message || String(e)); }
+                }
+              }
               if (acceptCompliance.cap.status === "unavailable") {
                 return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
@@ -39696,9 +40050,17 @@ const mflToSleeper = {};
               if (acceptCompliance.loaded_contracts.status === "unavailable") {
                 return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
-              if (acceptCompliance.loaded_contracts.status === "blocked" && action === "ACCEPT") {
-                console.warn("[trade-accept] blocked by the loaded-contract limit:", JSON.stringify({ trade_id: mflTradeId, violations: acceptCompliance.loaded_contracts.violations.map((v) => ({ franchise_id: v.franchise_id, projected: v.projected })) }));
-                return integrityFail(409, "loaded_contract_limit", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_violations: acceptCompliance.loaded_contracts.violations });
+              // Keith's ruling, 2026-09-29 (reviewing the first PR): a "needs_drops" verdict --
+              // every over-limit franchise has a VALID, SUFFICIENT selection -- is still not
+              // enough to accept for real. Selecting a drop is not the same thing as executing
+              // one, and no code anywhere calls MFL to actually drop a player yet (see
+              // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). loadedContractsPermitsWrite() is
+              // the ONE gate: today it is false for "needs_drops" exactly like "blocked", so this
+              // still refuses the accept -- flips only once a real executor is built and
+              // separately reviewed/approved.
+              if (!loadedContractsPermitsWrite(acceptCompliance.loaded_contracts.status) && action === "ACCEPT") {
+                console.warn("[trade-accept] waiting on conditional loaded-contract drops:", JSON.stringify({ trade_id: mflTradeId, status: acceptCompliance.loaded_contracts.status, requirements: (acceptCompliance.loaded_contracts.drop_requirements || []).map((d) => ({ franchise_id: d.franchise_id, required: d.required_drops, valid: d.valid_count, satisfied: d.satisfied })) }));
+                return integrityFail(409, "loaded_contract_drops_required", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_drop_requirements: acceptCompliance.loaded_contracts.drop_requirements });
               }
             }
             if (action === "ACK_CAP") {
@@ -39730,6 +40092,79 @@ const mflToSleeper = {};
                 compliance: acceptCompliance, cap_ack: { franchise_id: ackCapMyFid, amount_over: ackCapMyViolation.amount_over, signature: ackCapSig },
               });
             }
+            if (action === "SELECT_DROPS") {
+              // Select (and, by submitting, confirm) THIS caller's OWN conditional loaded-contract
+              // drops on this pending offer -- callable by either side, same shape as ACK_CAP: the
+              // sender revising a selection made at creation, or the recipient picking ahead of
+              // accepting. Never writes to MFL, never drops a player -- only records the selection
+              // (or reports there's nothing required). `body.loaded_contract_drops` (array of
+              // player ids) REPLACES this franchise's whole selection -- an empty array clears it.
+              if (acceptCompliance.loaded_contracts.status === "unavailable") {
+                return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so nothing was selected. Try again in a moment.", { compliance: acceptCompliance });
+              }
+              const selectDropsMyFid = actingFranchiseId;
+              const selectDropsIds = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
+              const selectDropsDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
+              if (!selectDropsDb) return integrityFail(503, "unavailable", "Couldn't save that selection right now. Try again in a moment.");
+              // byFranchise/taxiFlags/acceptExtSalary are scoped to the ACCEPT-only block above
+              // (out of reach here) -- rebuilt locally, the SAME way, since SELECT_DROPS is its
+              // own sibling action.
+              const selectDropsByFranchise = tokensByFranchise(authLists);
+              const selectDropsTaxiFlags = {};
+              for (const team of Array.isArray(payload?.teams) ? payload.teams : []) {
+                for (const a of Array.isArray(team?.selected_assets) ? team.selected_assets : []) {
+                  const pid = safeStr(a?.player_id).replace(/\D/g, "");
+                  if (pid && parseBoolFlag(a?.taxi)) selectDropsTaxiFlags[pid] = true;
+                }
+              }
+              let selectDropsExtSalary = {};
+              if (authExtRows.length) {
+                const selectDropsExtPlan = await planExtensionSalaries(season, leagueId, authExtRows, { offerCreatedAtUtc: safeStr(candidate && candidate.created_ts) });
+                if (!selectDropsExtPlan.skipped.length) selectDropsExtSalary = selectDropsExtPlan.salary;
+                // (a stale/unpriceable extension here just leaves selectDropsExtSalary empty --
+                // the SAME condition already refuses via the ACCEPT-time check above on any real
+                // accept; SELECT_DROPS itself never blocks a trade, so it degrades gracefully.)
+              }
+              const selectDropsTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: selectDropsByFranchise, extensionRequests: authExtRows })}`;
+              // Recompute compliance WITH this exact selection applied (not the pre-fetched
+              // acceptCompliance, which reflects only what was already stored) so the response
+              // reports THIS selection's own validity, not a stale picture.
+              const selectDropsCapFids = Object.keys(selectDropsByFranchise);
+              const priorDrops = await makeConditionalDropStore(selectDropsDb).readAllForTrade({ leagueId, season, tradeKey: selectDropsTradeKey });
+              const selectDropsCompliance = await computeTradeComplianceLive({
+                season, leagueId, extensionSalary: selectDropsExtSalary, taxiFlags: selectDropsTaxiFlags,
+                movements: selectDropsCapFids.map((f) => ({ from: f, to: selectDropsCapFids.find((x) => x !== f), tokens: selectDropsByFranchise[f] })),
+                extensionRequests: authExtRows,
+                conditionalDrops: { ...priorDrops, [selectDropsMyFid]: selectDropsIds },
+              });
+              const selectDropsMyReq = (selectDropsCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === selectDropsMyFid);
+              if (!selectDropsMyReq) {
+                return jsonOut(200, { ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId, code: "nothing_required", message: "Your team isn't projected to need a conditional drop on this trade right now.", compliance: selectDropsCompliance });
+              }
+              try {
+                await makeConditionalDropStore(selectDropsDb).setForFranchise(
+                  { leagueId, season, tradeKey: selectDropsTradeKey, tradeKind: "two_way" },
+                  { franchiseId: selectDropsMyFid, playerIds: selectDropsIds, selectedByFid: selectDropsMyFid }
+                );
+              } catch (e) {
+                console.error("[loaded-contract-drops] couldn't persist SELECT_DROPS:", e?.message || String(e));
+                return integrityFail(503, "loaded_contract_drops_unavailable", "Couldn't save that selection right now. Try again in a moment.");
+              }
+              // A "satisfied" selection is a real, useful state (it's what lets the OTHER
+              // affected party stop waiting, once everyone has picked) -- but it is NOT the same
+              // thing as this drop having executed, and must never be worded as if sending/
+              // accepting is now unblocked (loadedContractsPermitsWrite() still refuses ACCEPT
+              // regardless -- see above). Keith's ruling, 2026-09-29.
+              const selectDropsExecutable = loadedContractsPermitsWrite(selectDropsCompliance.loaded_contracts.status);
+              return jsonOut(200, {
+                ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId,
+                code: selectDropsMyReq.satisfied ? "selected" : "selected_insufficient",
+                message: selectDropsMyReq.satisfied
+                  ? `Selected: ${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drop${selectDropsMyReq.required_drops === 1 ? "" : "s"}.` + (selectDropsExecutable ? "" : " Conditional-drop execution isn't built yet, so this trade stays held until it is.")
+                  : `${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drops are valid so far -- ${selectDropsMyReq.required_drops - selectDropsMyReq.valid_count} more needed.`,
+                compliance: selectDropsCompliance, drop_requirement: selectDropsMyReq,
+              });
+            }
             if (action === "PREVIEW") {
               // Read-only review for the accept confirmation: no MFL write, no outbox row, no completed state.
               if (!authLists.isValid) {
@@ -39752,7 +40187,11 @@ const mflToSleeper = {};
                   })),
                 };
               }
-              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview });
+              // loaded_contract_drops: the CURRENT drop-requirement picture is already part of
+              // acceptCompliance.loaded_contracts.drop_requirements (computed above WITH whatever
+              // selections are stored/inline) -- surfaced here under its own key so the client
+              // doesn't have to reach into the compliance object's internals to render it.
+              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_drops: acceptCompliance.loaded_contracts.drop_requirements || [] });
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {

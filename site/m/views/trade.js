@@ -25,7 +25,8 @@
     listStatus: "idle", list: [], listProblem: null,           // idle | loading | ok | error
     wantConfirm: "", openSeq: 0,
     detailStatus: "idle", detail: null, detailProblem: null, detailId: "",
-    lastRoute: "list", cancel: {}, ack: {}, seq: 0
+    lastRoute: "list", cancel: {}, ack: {}, seq: 0,
+    drops: { selections: {} }   // { franchise_id -> [player_id,...] } -- LOCAL until "Confirm drop selection" submits it
   };
 
   function subTabs(active) {
@@ -642,10 +643,12 @@
       '<textarea class="ups-m-tb-comment" id="ups-m-tb-comment" rows="2" maxlength="2000" placeholder="Optional message to ' + U.escapeHtml(franchiseName(theirFid)) + '…">' + U.escapeHtml(builderState.comment) + '</textarea>' +
       (builderState.error ? '<div class="ups-m-rstr-err">' + U.escapeHtml(builderState.error) + '</div>' : '') +
       '<div class="ups-m-tb-warn">Submitting creates a real pending offer in MFL (' + U.escapeHtml(franchiseName(theirFid)) + ' can accept it). You can cancel it from the offers list.</div>' +
+      (!builderState.counterMode ? '<div class="ups-m-tb-warn" style="border-color:var(--warn,#f4c369);color:var(--warn,#f4c369)">Or stage it instead: held server-side for ' + U.escapeHtml(franchiseName(theirFid)) + ' to review and accept, never sent to MFL until it clears the loaded-contract, cap, and lineup checks.</div>' : '') +
       '<div class="ups-m-tb-nav">' +
         '<button class="btn-act" id="ups-m-tb-back"' + (builderState.submitting ? ' disabled' : '') + '>Back</button>' +
         '<button class="btn-act otb on" id="ups-m-tb-submit"' + (canSubmit && !builderState.submitting ? '' : ' disabled') + '>' +
           (builderState.submitting ? "Submitting…" : (builderState.counterMode ? "Send counter" : "Send offer")) + '</button>' +
+        (!builderState.counterMode ? '<button class="btn-act" id="ups-m-tb-stage"' + (canSubmit && !builderState.submitting ? '' : ' disabled') + '>' + (builderState.submitting ? "Working…" : "Stage via War Room") + '</button>' : '') +
       '</div>';
     var c = document.getElementById("ups-m-tb-comment");
     if (c) c.addEventListener("input", function () { builderState.comment = this.value; });
@@ -667,6 +670,11 @@
     if (submit) submit.addEventListener("click", function () {
       if (!canSubmit || builderState.submitting) return;
       submitOffer();
+    });
+    var stage = document.getElementById("ups-m-tb-stage");
+    if (stage) stage.addEventListener("click", function () {
+      if (!canSubmit || builderState.submitting) return;
+      submitStagedOffer();
     });
   }
 
@@ -798,6 +806,261 @@
     });
   }
 
+  // Resolve names/positions for a set of candidate player ids on ONE franchise's own roster,
+  // from data the builder already has loaded (builderState.inv) -- never guessed, never
+  // re-derived client-side (that reasoning -- a schedule-based BL can look flat by suffix alone
+  // -- is exactly the Hammer Times gap this whole feature exists to close).
+  function buildPlayerNamesForFid(fid, playerIds) {
+    var inv = builderState.inv[U.pad4(fid)] || { players: [] };
+    var byId = {};
+    (inv.players || []).forEach(function (p) { byId[String(p.player_id)] = p; });
+    var out = {};
+    (playerIds || []).forEach(function (pid) {
+      var p = byId[pid];
+      if (p) out[pid] = { name: p.display || ("Player " + pid), position: p.position || "" };
+    });
+    return out;
+  }
+
+  // The INITIATOR's own loaded-contract requirement, shown at offer CREATION (Keith's ruling,
+  // 2026-09-29 -- the fix for the Hammer Times gap: building/reviewing an offer as the sender
+  // showed no warning at all). `errData` is the 409 refusal's body ({error, compliance}) --
+  // `compliance.loaded_contracts.drop_requirements` carries this franchise's `candidates` menu
+  // (worker/src/trade_cap_authority.js). Resolves the selected player-id array once the owner
+  // has picked enough and confirmed, or null on cancel/close.
+  function openCreateLoadedContractDropsSheet(errData, fromFranchiseId) {
+    var dropReqs = (errData && errData.compliance && errData.compliance.loaded_contracts && errData.compliance.loaded_contracts.drop_requirements) || [];
+    var myReq = dropReqs.filter(function (d) { return U.pad4(d.franchise_id) === fromFranchiseId; });
+    if (!myReq.length || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve(null);
+    var required = myReq[0].required_drops;
+    var playerNames = buildPlayerNamesForFid(fromFranchiseId, myReq[0].candidates || []);
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return Promise.resolve(null);
+    var existing = document.getElementById("ups-m-drops-overlay");
+    if (existing) existing.remove();
+    // Keith's ruling, 2026-09-29: a SATISFIED selection (the owner already picked enough valid
+    // players) is not the same thing as an EXECUTED drop -- no code anywhere drops a real player
+    // yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). If the server refuses DESPITE a
+    // satisfied selection, this is a TERMINAL state for the sheet: showing the picker again and
+    // inviting another "Confirm and send" would misrepresent this warning as something the owner
+    // can act their way past, when they already have. Show a plain, honest notice instead.
+    var alreadySatisfied = !!(myReq[0] && myReq[0].satisfied);
+    return new Promise(function (resolve) {
+      var settled = false;
+      var selected = [];
+      function close(v) {
+        if (settled) return; settled = true;
+        var ov = document.getElementById("ups-m-drops-overlay");
+        if (ov) ov.remove();
+        document.body.style.overflow = "";
+        resolve(v);
+      }
+      function draw(message, ok) {
+        var bodyHtml;
+        var navHtml;
+        if (alreadySatisfied) {
+          bodyHtml = '<p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' +
+            '<p class="sub">Your selection is valid and covers the requirement -- this is held for a different reason: conditional-drop execution isn\'t built yet, so no offer that needs one can be sent right now.</p>';
+          navHtml = '<div class="ups-m-tb-nav"><button class="btn-act otb on" id="ups-m-drops-close-terminal">Close</button></div>';
+        } else {
+          var sel = {}; sel[fromFranchiseId] = selected;
+          var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
+            playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
+          });
+          bodyHtml = '<p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' + picker;
+          navHtml = '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-drops-cancel">Cancel</button><button class="btn-act otb on" id="ups-m-drops-go">Confirm and send</button></div>';
+        }
+        var html =
+          '<div class="ups-m-drop-overlay" id="ups-m-drops-overlay">' +
+            '<div class="ups-m-drop-sheet">' +
+              '<div class="ups-m-drop-head">' +
+                '<button class="ups-m-drop-close" id="ups-m-drops-close" aria-label="Close">×</button>' +
+                '<div class="grip"></div>' +
+                '<div class="title">Loaded-contract limit</div>' +
+              '</div>' +
+              '<div class="ups-m-drop-body">' + bodyHtml + navHtml + '</div>' +
+            '</div>' +
+          '</div>';
+        var prior = document.getElementById("ups-m-drops-overlay");
+        if (prior) prior.outerHTML = html; else mount.insertAdjacentHTML("beforeend", html);
+        document.body.style.overflow = "hidden";
+        document.getElementById("ups-m-drops-close").addEventListener("click", function () { close(null); });
+        if (alreadySatisfied) {
+          document.getElementById("ups-m-drops-close-terminal").addEventListener("click", function () { close(null); });
+          return;
+        }
+        document.getElementById("ups-m-drops-cancel").addEventListener("click", function () { close(null); });
+        document.getElementById("ups-m-drops-go").addEventListener("click", function () {
+          if (selected.length < required) { draw("Select " + required + " player" + (required === 1 ? "" : "s") + " to drop before confirming.", false); return; }
+          close(selected);
+        });
+        var body = document.querySelector("#ups-m-drops-overlay .ups-m-drop-body");
+        if (body) {
+          body.addEventListener("change", function (ev) {
+            var box = ev.target;
+            if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+            var pid = box.getAttribute("data-t3w-drop-pid");
+            if (box.checked) { if (selected.indexOf(pid) === -1) selected.push(pid); }
+            else { selected = selected.filter(function (x) { return x !== pid; }); }
+          });
+        }
+      }
+      draw();
+    });
+  }
+
+  // Attempts a trade-offer CREATE, resolving the loaded-contract-drops gate and/or the cap-
+  // overage-acknowledgment gate in whichever order the worker raises them. Returns the FINAL
+  // {ok, status, body} response, or null if the owner cancelled a dialog (matching the existing
+  // "the owner declined to acknowledge" no-op convention in submitOffer's .then chain).
+  function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt) {
+    attempt = attempt || 1;
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(initialBody)
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: parsed };
+      });
+    }).then(function (resp) {
+      if (attempt > 5) return resp;
+      if (resp.status === 409 && resp.body && resp.body.code === "loaded_contract_drops_required") {
+        // Keith's ruling (2026-09-30): the RECIPIENT can also be the one over the limit (e.g.
+        // "I offer Hammer Times a loaded 6th") -- that requirement is never the sender's own to
+        // pick here (only the recipient can, at their own review), so no picker sheet applies.
+        // openCreateLoadedContractDropsSheet already resolves null for this case (matching its
+        // "resolves null on cancel/close" convention) -- but treating that null identically to
+        // "the owner cancelled" would silently swallow the refusal on mobile with NO feedback at
+        // all (desktop instead re-throws the original error either way, so it never had this
+        // gap). Check applicability BEFORE opening anything, so a genuine cancel (picker WAS
+        // shown, owner closed it) still resolves null quietly, but "not my requirement" instead
+        // surfaces the real 409 response, matching desktop's behavior exactly.
+        var reqs409 = (resp.body.compliance && resp.body.compliance.loaded_contracts && resp.body.compliance.loaded_contracts.drop_requirements) || [];
+        var appliesToMe = reqs409.some(function (d) { return U.pad4(d.franchise_id) === fromFranchiseId; });
+        if (!appliesToMe) return resp;
+        return openCreateLoadedContractDropsSheet(resp.body, fromFranchiseId).then(function (picked) {
+          if (!picked) return null;
+          var nextBody = Object.assign({}, initialBody, { loaded_contract_drops: picked });
+          return submitTradeCreateWithGatesMobile(url, nextBody, fromFranchiseId, attempt + 1);
+        });
+      }
+      if (resp.status === 409 && resp.body && resp.body.code === "cap_overage_ack_required" && resp.body.cap_ack_needed) {
+        return openCreateCapAckSheet(resp.body).then(function (acknowledged) {
+          if (!acknowledged) return null;
+          var nextBody = Object.assign({}, initialBody, { cap_ack: { signature: resp.body.cap_ack_needed.signature } });
+          return submitTradeCreateWithGatesMobile(url, nextBody, fromFranchiseId, attempt + 1);
+        });
+      }
+      // ---- 🔒 CUTOVER (2026-09-29): the legacy endpoint refused to CREATE ----
+      // Keith's ruling: the NORMAL Send button must itself stage once cutover is on, with the
+      // compliance popup shown as part of THIS SAME flow. submitOffer() calls this same
+      // function unchanged, so a stale/cached client ends up staged automatically the moment
+      // the server says so -- never a silent native-MFL send.
+      if (resp.status === 409 && resp.body && resp.body.code === "staging_required") {
+        return submitViaStagingFallbackMobile(initialBody, fromFranchiseId);
+      }
+      return resp;
+    });
+  }
+
+  // The SAME payload the direct-MFL create already built (initialBody.payload), staged
+  // instead -- runs the SAME pre-send popup (runPreSendPreview) the dedicated "Stage via War
+  // Room" button uses. Resolves { ok:true, status:201, body:{ok:true, staged:true, id} } on
+  // success (submitOffer's .then must check body.staged before reading any direct-MFL-only
+  // field), { ok:true, status:0, body:{ok:false, code:"staging_declined_by_owner"} } if the
+  // owner chose "Don't send" on the popup (not a network/server failure -- a deliberate,
+  // calm no-op), or a normal failed-response shape otherwise. Never throws (matches every
+  // other branch of this function).
+  function submitViaStagingFallbackMobile(directBody, fromFranchiseId) {
+    var payload = directBody.payload || {};
+    var movements = tw2sMovementsFromPayload(payload);
+    if (!movements.length) return Promise.resolve({ ok: false, status: 400, body: { ok: false, code: "no_assets", error: "Add at least one asset to stage." } });
+    var toFid = U.pad4(directBody.to_franchise_id);
+    return runPreSendPreview(fromFranchiseId, movements, payload.extension_requests).then(function (pre) {
+      if (!pre.proceed) return { ok: true, status: 0, body: { ok: false, code: "staging_declined_by_owner" } };
+      var url2 = M.api.workerUrl("/api/trades/2way?L=" + encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+      var stored2 = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+      if (stored2) url2 += "&MFL_USER_ID=" + encodeURIComponent(stored2);
+      var body2 = {
+        from: { fid: fromFranchiseId, name: directBody.from_franchise_name },
+        to: { fid: toFid, name: directBody.to_franchise_name },
+        movements: movements, extension_requests: payload.extension_requests || [],
+        loaded_contract_drops: pre.drops, notes: directBody.message || ""
+      };
+      return tw2sFetch(url2, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body2) }).then(function (res) {
+        if (res && res.networkError) return { ok: false, status: 0, body: { ok: false, error: "Couldn't reach the server." } };
+        if (res.ok && res.body && res.body.ok) return { ok: true, status: res.status, body: { ok: true, staged: true, id: res.body.id } };
+        return { ok: false, status: res.status, body: res.body || { ok: false, error: "Couldn't stage this offer." } };
+      });
+    });
+  }
+
+  // ---- 🔒 CUTOVER (2026-09-29) for COUNTER ----
+  // Keith's ruling (2026-09-30): "A bare 409 is not an acceptable release experience" -- the
+  // counter path must give the owner a clear route to revise and submit a staged offer, same
+  // as Send already does. Staging has no "counter" primitive (TWO_WAY_STAGED_ROUTES is only
+  // create/accept/cancel/recheck/select-drops/queue/execute) -- a legacy COUNTER means "reject
+  // the original AND propose a new one" as ONE atomic native-MFL action, and staging cannot
+  // replicate that atomically. The honest thing this fallback does, without taking an action
+  // the owner never asked for, is exactly what desktop's own counter UI already does today
+  // (trade_workbench.js's submitOfferToQueue reuses the plain CREATE path regardless of
+  // counterMode, so it inherits this same behavior by construction): stage the REVISED terms
+  // as a brand-new offer, and say PLAINLY that the original offer is untouched -- never
+  // silently decline it as a side effect of what the owner thought was "submit my counter."
+  function submitTradeCounterWithGatesMobile(url, initialBody, fromFranchiseId) {
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(initialBody)
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: parsed };
+      });
+    }).then(function (resp) {
+      if (resp.status === 409 && resp.body && resp.body.code === "staging_required") {
+        return submitCounterViaStagingFallbackMobile(initialBody, fromFranchiseId);
+      }
+      return resp;
+    });
+  }
+
+  // The counter's revised terms, staged as a brand-new offer -- reuses the SAME staged-create
+  // mechanism submitViaStagingFallbackMobile uses for CREATE (including the real pre-send
+  // loaded-contract popup via runPreSendPreview), just reading the counter's own payload shape
+  // (initialBody.counter_offer.*) instead of the plain-create body's. Never touches the
+  // original offer being countered. Resolves { ok:true, status:201, body:{ok:true, staged:true,
+  // id, counter_staged:true} } on success (submitOffer's .then must check body.staged before
+  // reading any direct-MFL-only field, exactly like the CREATE fallback), { ok:true, status:0,
+  // body:{ok:false, code:"staging_declined_by_owner"} } if the owner chose "Don't send" on the
+  // pre-send popup, or a normal failed-response shape otherwise.
+  function submitCounterViaStagingFallbackMobile(counterBody, fromFranchiseId) {
+    var counter = (counterBody && counterBody.counter_offer) || {};
+    var payload = counter.payload || {};
+    var movements = tw2sMovementsFromPayload(payload);
+    if (!movements.length) return Promise.resolve({ ok: false, status: 400, body: { ok: false, code: "no_assets", error: "Add at least one asset to stage." } });
+    var toFid = U.pad4(counter.to_franchise_id);
+    return runPreSendPreview(fromFranchiseId, movements, payload.extension_requests).then(function (pre) {
+      if (!pre.proceed) return { ok: true, status: 0, body: { ok: false, code: "staging_declined_by_owner" } };
+      var url2 = M.api.workerUrl("/api/trades/2way?L=" + encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+      var stored2 = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+      if (stored2) url2 += "&MFL_USER_ID=" + encodeURIComponent(stored2);
+      var body2 = {
+        from: { fid: fromFranchiseId, name: franchiseName(fromFranchiseId) },
+        to: { fid: toFid, name: franchiseName(toFid) },
+        movements: movements, extension_requests: payload.extension_requests || [],
+        loaded_contract_drops: pre.drops, notes: counterBody.message || ""
+      };
+      return tw2sFetch(url2, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body2) }).then(function (res) {
+        if (res && res.networkError) return { ok: false, status: 0, body: { ok: false, error: "Couldn't reach the server." } };
+        if (res.ok && res.body && res.body.ok) return { ok: true, status: res.status, body: { ok: true, staged: true, id: res.body.id, counter_staged: true } };
+        return { ok: false, status: res.status, body: res.body || { ok: false, error: "Couldn't stage this offer." } };
+      });
+    });
+  }
+
   function submitOffer() {
     builderState.submitting = true; builderState.error = ""; renderBuilder();
     var myFid = U.pad4(M.state.viewerFranchiseId);
@@ -839,36 +1102,32 @@
     }
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
     if (stored) url += (url.indexOf("?") >= 0 ? "&" : "?") + "MFL_USER_ID=" + encodeURIComponent(stored);
-    fetch(url, {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    }).then(function (r) {
-      return r.text().then(function (txt) {
-        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
-        return { ok: r.ok, status: r.status, body: parsed };
-      });
-    }).then(function (resp) {
-      if (!builderState.counterMode && resp.status === 409 && resp.body && resp.body.code === "cap_overage_ack_required" && resp.body.cap_ack_needed) {
-        return openCreateCapAckSheet(resp.body).then(function (acknowledged) {
-          if (!acknowledged) { builderState.submitting = false; renderBuilder(); return null; }
-          var ackedBody = Object.assign({}, body, { cap_ack: { signature: resp.body.cap_ack_needed.signature } });
-          return fetch(url, {
-            method: "POST", mode: "cors", credentials: "omit",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(ackedBody)
-          }).then(function (r2) {
-            return r2.text().then(function (txt2) {
-              var parsed2 = null; try { parsed2 = txt2 ? JSON.parse(txt2) : null; } catch (e) {}
-              return { ok: r2.ok, status: r2.status, body: parsed2 };
-            });
-          });
-        });
-      }
-      return resp;
-    }).then(function (resp) {
-      if (!resp) return;   // the owner declined to acknowledge -- already repainted above
+    // COUNTER goes through a different worker route/response shape that doesn't implement the
+    // create-time loaded-contract or cap gates (those are re-checked at accept regardless) --
+    // exactly the same scope this cap-ack gate already had before this change (`!counterMode`).
+    // It DOES need the cutover staging_required fallback though (submitTradeCounterWithGatesMobile),
+    // same as CREATE -- a bare 409 here would be a dead end once cutover is on.
+    var submitPromise = builderState.counterMode
+      ? submitTradeCounterWithGatesMobile(url, body, myFid)
+      : submitTradeCreateWithGatesMobile(url, body, myFid);
+    submitPromise.then(function (resp) {
+      if (!resp) { builderState.submitting = false; renderBuilder(); return; }   // the owner declined to acknowledge/select -- already repainted above
       builderState.submitting = false;
+      if (resp.body && resp.body.code === "staging_declined_by_owner") {
+        // A deliberate "Don't send" on the cutover-fallback popup -- calm, not an error.
+        builderState.error = "";
+        M.ui.showToast("Not sent.", "info");
+        renderBuilder();
+        return;
+      }
+      if (resp.ok && resp.body && resp.body.ok !== false && resp.body.staged) {
+        M.ui.showToast(resp.body.counter_staged
+          ? "Staged as a new offer — awaiting review. The original offer was NOT declined; decline it separately if you want it gone."
+          : "Staged — awaiting review. Held server-side; not sent to MFL. ✓", "ok");
+        closeBuilder();
+        refreshStaged2WayList().then(function () { M.route.renderRoute(); });
+        return;
+      }
       if (resp.ok && resp.body && resp.body.ok !== false) {
         M.ui.showToast(builderState.counterMode ? "Counter sent ✓" : "Offer sent ✓", "ok");
         closeBuilder();
@@ -1016,6 +1275,29 @@
       return T.interpretAckCap({ ok: resp.ok, status: resp.status, body: resp.body });
     }).catch(function () { return T.interpretAckCap({ networkError: true }); });
   }
+  // The caller's own loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29):
+  // never writes to MFL, drops no player, never itself accepts -- it just records which of the
+  // owner's own loaded-contract players are picked, conditional on the trade going through.
+  // Needs its own request (not postTradeAction) because it carries an extra field.
+  function selectDropsAccept(tradeId, playerIds) {
+    var url = M.api.workerUrl("/api/trades/proposals/action");
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
+    return fetch(url, {
+      method: "POST", mode: "cors", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "select_drops", trade_id: tradeId, league_id: M.state.ctx.leagueId,
+        franchise_id: M.state.viewerFranchiseId, year: M.state.ctx.year,
+        loaded_contract_drops: Array.isArray(playerIds) ? playerIds : []
+      })
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return T.interpretSelectDrops({ ok: r.ok, status: r.status, body: parsed });
+      });
+    }).catch(function () { return T.interpretSelectDrops({ networkError: true }); });
+  }
   function openAcceptReview(tradeId) {
     var mount = document.getElementById("ups-m-app");
     if (!mount) return;
@@ -1031,27 +1313,62 @@
     var body = document.getElementById("ups-m-accept-body");
     var overlay = document.getElementById("ups-m-accept-overlay");
     var ack = { busy: false, message: "", ok: false };
+    var drops = { busy: false, message: "", ok: false, selections: {} };   // { franchise_id -> [player_id,...] }, LOCAL until "Confirm drop selection" submits it
     function close() { var ov = document.getElementById("ups-m-accept-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; }
     function paint(review, busy) {
-      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
+      var sel = {}; sel[M.state.viewerFranchiseId] = drops.selections[M.state.viewerFranchiseId] || [];
+      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok,
+        selections: sel, dropBusy: drops.busy, dropMessage: drops.message, dropOk: drops.ok });
     }
+    var lastReview = null;
     function load() {
       paint(null);
-      previewAccept(tradeId).then(function (review) { if (document.getElementById("ups-m-accept-overlay") === overlay) paint(review); });
+      previewAccept(tradeId).then(function (review) { lastReview = review; if (document.getElementById("ups-m-accept-overlay") === overlay) paint(review); });
     }
     function acknowledgeCap() {
       if (ack.busy) return;
-      ack.busy = true; ack.message = ""; paint(null, false);
+      ack.busy = true; ack.message = ""; paint(lastReview, false);
       ackCapAccept(tradeId).then(function (out) {
         ack.busy = false; ack.message = out.message; ack.ok = !!out.ok;
         load();
+      });
+    }
+    // The loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29): the
+    // RECIPIENT's own requirement, picked and confirmed right here before Accept.
+    function selectDrops(id, el) {
+      if (drops.busy) return;
+      var fid = el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : "";
+      if (!fid) return;
+      var picked = drops.selections[fid] || [];
+      drops.busy = true; drops.message = ""; paint(lastReview, false);
+      selectDropsAccept(tradeId, picked).then(function (out) {
+        drops.busy = false; drops.message = out.message; drops.ok = !!out.ok;
+        load();
+      });
+    }
+    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind
+    // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated
+    // listener on the stable overlay container (survives every repaint's innerHTML reset).
+    if (!overlay.__t3wDropsBound) {
+      overlay.__t3wDropsBound = true;
+      overlay.addEventListener("change", function (ev) {
+        var box = ev.target;
+        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+        var fid = box.getAttribute("data-t3w-drop-fid");
+        var pid = box.getAttribute("data-t3w-drop-pid");
+        var cur = drops.selections[fid] || [];
+        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
+        else { cur = cur.filter(function (x) { return x !== pid; }); }
+        drops.selections[fid] = cur;
+        paint(lastReview, false);
       });
     }
     T.bind(overlay, {
       "accept-close": close,
       "accept-retry": load,
       "accept-confirm": function () { close(); runTradeAction("accept", tradeId, ""); },
-      "ack-cap": acknowledgeCap
+      "ack-cap": acknowledgeCap,
+      "select-drops": selectDrops
     });
     load();
   }
@@ -1534,26 +1851,34 @@
     var url = M.api.workerUrl("/api/trades/3way?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
     var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
     if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
-    fetch(url, {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bodyObj)
-    }).then(function (r) {
-      return r.text().then(function (txt) {
-        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
-        return { ok: r.ok, status: r.status, body: parsed };
+    // "Before an owner sends a two-team OR three-team offer that would put either franchise
+    // over five loaded contracts, show a clear popup" (Keith's ruling, 2026-09-29) -- purely
+    // informational; 3-way creation itself is unchanged (it never took a create-time
+    // loaded-contract selection and still doesn't -- the real gate stays post-creation, via
+    // the existing accept-review/detail flows).
+    runPreSendPreview(A, movements, extension_requests).then(function (pre) {
+      if (!pre.proceed) { b3.submitting = false; render3(); return; }
+      return fetch(url, {
+        method: "POST", mode: "cors", credentials: "omit",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyObj)
+      }).then(function (r) {
+        return r.text().then(function (txt) {
+          var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+          return { ok: r.ok, status: r.status, body: parsed };
+        });
+      }).then(function (resp) {
+        b3.submitting = false;
+        if (resp.ok && resp.body && resp.body.ok !== false) {
+          M.ui.showToast("3-way sent — partners notified ✓", "ok");
+          close3Way();
+          tw.listStatus = "idle"; // refresh the outbox so the new 3-way shows
+          loadThreeWays().then(function () { M.route.renderRoute(); });
+        } else {
+          b3.error = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
+          render3();
+        }
       });
-    }).then(function (resp) {
-      b3.submitting = false;
-      if (resp.ok && resp.body && resp.body.ok !== false) {
-        M.ui.showToast("3-way sent — partners notified ✓", "ok");
-        close3Way();
-        tw.listStatus = "idle"; // refresh the outbox so the new 3-way shows
-        loadThreeWays().then(function () { M.route.renderRoute(); });
-      } else {
-        b3.error = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
-        render3();
-      }
     }).catch(function (err) {
       b3.submitting = false;
       b3.error = (err && err.message) || String(err);
@@ -1662,6 +1987,25 @@
     }).then(function () { M.route.renderRoute(); });
   }
 
+  // Select (and, by submitting, confirm) THIS caller's own conditional loaded-contract drops on
+  // a 3-way trade (Keith's ruling, 2026-09-29) -- never writes to MFL, drops no player; mirrors
+  // doAckCapThreeWay's exact shape. `fid` is which franchise's own picker was confirmed (from the
+  // clicked button's own data-t3w-drop-fid).
+  function doSelectDropsThreeWay(id, fid) {
+    if (tw.drops && tw.drops.busy) return;
+    var picked = (fid && tw.drops.selections[fid]) || [];
+    tw.drops = { busy: true, selections: tw.drops.selections };
+    M.route.renderRoute();
+    tw3Fetch(tw3Url("/api/trades/3way/select-drops"), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, player_ids: picked })
+    }).then(function (res) {
+      var out = T.interpretSelectDrops(res);
+      tw.drops = { ok: out.ok, message: out.message, selections: tw.drops.selections };
+      M.ui.showToast(out.message, out.ok ? "ok" : "err");
+      return loadThreeWayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+
   function doCancelThreeWay(id) {
     if (tw.cancel.busy) return;
     tw.cancel = { busy: true, confirming: true };
@@ -1708,7 +2052,8 @@
     var body;
     if (tw.detailStatus === "loading" && !tw.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     else if (tw.detailStatus === "error" && tw.detailProblem) body = T.renderProblem(tw.detailProblem);
-    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok });
+    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok,
+      selections: tw.drops.selections, dropBusy: tw.drops.busy, dropMessage: tw.drops.message, dropOk: tw.drops.ok });
     else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';
     T.ensureStyles();
@@ -1718,12 +2063,394 @@
       "confirm-cancel": function () { doCancelThreeWay(id); },
       recheck: function () { doRecheckThreeWay(id); },
       "ack-cap": function () { doAckCapThreeWay(id); },
+      "select-drops": function (bid, el) { doSelectDropsThreeWay(id, el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : ""); },
       retry: function () { tw.lastRoute = "list"; M.route.renderRoute(); }
     });
+    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind only
+    // delegates [data-t3w-act] clicks, so this is a separate, once-only delegated listener on
+    // the stable mount container (survives every repaint's innerHTML reset).
+    if (!mount.__t3wDropsBound) {
+      mount.__t3wDropsBound = true;
+      mount.addEventListener("change", function (ev) {
+        var box = ev.target;
+        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+        var pfid = box.getAttribute("data-t3w-drop-fid");
+        var pid = box.getAttribute("data-t3w-drop-pid");
+        var cur = tw.drops.selections[pfid] || [];
+        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
+        else { cur = cur.filter(function (x) { return x !== pid; }); }
+        tw.drops.selections[pfid] = cur;
+        M.route.renderRoute();
+      });
+    }
     if (tw.detail && tw.cancel.confirming && !tw.cancel.busy) T.revealConfirm(mount);
   }
 
+  // ── STAGED 2-way trades (worker/src/trade_2way.js / trade_2way_http.js) ──
+  // Keith's ruling (2026-09-29, docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md §8): a staged
+  // 2-way trade is held server-side (D1 only) and never becomes a native MFL tradeProposal
+  // while pending -- accepting it is an HTTP action through this app, not a Discord button like
+  // 3-way, and every gate is re-checked at each acceptance. This is ADDITIVE: submitOffer()
+  // above (the existing direct-to-MFL path, POST /api/trades/proposals) is completely
+  // untouched -- this block only ever calls /api/trades/2way* and
+  // /api/trades/compliance-preview, so the two paths never cross. "Stage via War Room" is its
+  // own CTA next to "+ Build offer", mirroring how 3-way already has its own separate entry
+  // point rather than a toggle bolted onto the 2-team builder.
+  var tw2s = {
+    listStatus: "idle", list: [], listProblem: null, wantConfirm: "", openSeq: 0,
+    detailStatus: "idle", detail: null, detailProblem: null, detailId: "",
+    lastRoute: "list", cancel: {}, accept: {}, ack: {}, recheck: {}, seq: 0,
+    drops: { selections: {} }
+  };
+  function tw2sUrl(pathAndQuery) {
+    var ctx = M.state.ctx;
+    var url = M.api.workerUrl(pathAndQuery + (pathAndQuery.indexOf("?") >= 0 ? "&" : "?") +
+      "L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
+    var fid = U.pad4(M.state.viewerFranchiseId);
+    if (fid) url += "&acting_franchise_id=" + encodeURIComponent(fid);
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    return url;
+  }
+  function tw2sFetch(url, init) {
+    init = init || {};
+    init.mode = "cors"; init.credentials = "omit";
+    return fetch(url, init).then(function (r) {
+      return r.text().then(function (txt) {
+        var body = null; try { body = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { status: r.status, ok: r.ok, body: body };
+      });
+    }).catch(function () { return { networkError: true }; });
+  }
+  function tw2sTone(trade) {
+    var code = trade && trade.state_view && trade.state_view.code;
+    return ({ pending_response: "wait", awaiting_review: "warn", declined: "off", executing: "busy", completed: "ok", failed: "bad", cancelled: "off" })[code] || "off";
+  }
+  function tw2sTokenLabel(tok) {
+    var mm = /^P_(\d+)$/.exec(tok);
+    if (mm) return "Player " + mm[1];
+    if (/^(FP|DP)_/.test(tok)) return tok.replace(/^FP_/, "Pick ").replace(/^DP_/, "Pick ");
+    var bb = /^BB_(\d+)$/.exec(tok);
+    if (bb) return "$" + Number(bb[1]).toLocaleString("en-US") + " cap money";
+    return tok;
+  }
+  function tw2sMovementLines(trade) {
+    return (trade.movements || []).map(function (m) {
+      var names = (m.asset_tokens || []).map(tw2sTokenLabel);
+      return '<div class="t3w-mov"><span class="t3w-route">' + U.escapeHtml(franchiseName(m.from)) + ' → ' + U.escapeHtml(franchiseName(m.to)) + '</span>' +
+        '<span class="t3w-what">' + names.map(U.escapeHtml).join(", ") + '</span></div>';
+    }).join("");
+  }
+  function loadStaged2Way() {
+    if (tw2s.listStatus === "loading") return Promise.resolve();
+    if (!T || !M.state.viewerFranchiseId) { tw2s.listStatus = "ok"; tw2s.list = []; return Promise.resolve(); }
+    tw2s.listStatus = "loading";
+    var mySeq = ++tw2s.seq;
+    var url = tw2sUrl("/api/trades/2way?franchise_id=" + encodeURIComponent(U.pad4(M.state.viewerFranchiseId)));
+    return tw2sFetch(url).then(function (res) {
+      if (mySeq !== tw2s.seq) return;
+      if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && Array.isArray(res.body.trades)) {
+        tw2s.list = res.body.trades; tw2s.listProblem = null; tw2s.listStatus = "ok";
+      } else { tw2s.listProblem = { kind: "error", message: "Couldn't load your staged trades.", retryable: true }; tw2s.listStatus = "error"; }
+    });
+  }
+  function loadStaged2WayDetail(id) {
+    var my = ++tw2s.openSeq;
+    tw2s.detailStatus = "loading"; tw2s.detailId = id; tw2s.detailProblem = null;
+    return tw2sFetch(tw2sUrl("/api/trades/2way?id=" + encodeURIComponent(id))).then(function (res) {
+      if (my !== tw2s.openSeq) return;
+      if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.trade) { tw2s.detail = res.body.trade; tw2s.detailStatus = "ok"; }
+      else { tw2s.detail = null; tw2s.detailProblem = { kind: "error", message: (res && res.body && (res.body.message || res.body.error)) || "Couldn't load this trade.", retryable: true }; tw2s.detailStatus = "error"; }
+    });
+  }
+  function renderStaged2WaySection() {
+    if (!T) return "";
+    var h = "";
+    if (tw2s.listStatus === "error" && tw2s.listProblem) {
+      h += '<div class="ups-m-pos-group">Staged Trades</div><div style="padding:0 12px">' + T.renderProblem(tw2s.listProblem, { title: "Couldn't load your staged trades" }) + '</div>';
+    }
+    if (tw2s.list.length) {
+      h += '<div class="ups-m-pos-group">Staged Trades · ' + tw2s.list.length + '</div><div style="padding:0 12px">' + tw2s.list.map(function (trade) {
+        var sv = trade.state_view || {};
+        var mine = U.pad4(M.state.viewerFranchiseId) === U.pad4(trade.from_fid);
+        return '<div class="t3w-card" data-tw2s-id="' + U.escapeHtml(trade.id) + '">' +
+          '<div class="t3w-head"><span class="t3w-pill t3w-tone-' + tw2sTone(trade) + '">' + U.escapeHtml(sv.label) + '</span>' +
+          '<span class="t3w-role">' + (mine ? "You sent this" : "Sent to you") + '</span></div>' +
+          '<div class="t3w-movs">' + tw2sMovementLines(trade) + '</div>' +
+          '<div class="t3w-btns"><button type="button" class="t3w-btn" data-tw2s-act="open" data-tw2s-id="' + U.escapeHtml(trade.id) + '">Details</button></div></div>';
+      }).join("") + '</div>';
+    }
+    return h;
+  }
+  function refreshStaged2WayList() { tw2s.listStatus = "idle"; tw2s.seq++; return loadStaged2Way().then(function () { M.route.renderRoute(); }); }
+
+  function doAccept2WayStaged(id) {
+    if (tw2s.accept.busy) return;
+    tw2s.accept = { busy: true };
+    M.route.renderRoute();
+    tw2sFetch(tw2sUrl("/api/trades/2way/accept"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function (res) {
+      var ok = !!(res && !res.networkError && res.ok && res.body && res.body.ok);
+      var msg = (res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "Couldn't reach the server." : "Couldn't accept this trade.");
+      tw2s.accept = { ok: ok, message: ok ? (res.body.executing ? "Accepted — clearing final checks…" : msg) : msg };
+      M.ui.showToast(tw2s.accept.message, ok ? "ok" : "err");
+      return loadStaged2WayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+  function doCancel2WayStaged(id) {
+    if (tw2s.cancel.busy) return;
+    tw2s.cancel = { busy: true, confirming: true };
+    M.route.renderRoute();
+    tw2sFetch(tw2sUrl("/api/trades/2way/cancel"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, reason: "cancelled from mobile" }) }).then(function (res) {
+      var ok = !!(res && !res.networkError && res.ok && res.body && res.body.ok);
+      if (ok) { tw2s.cancel = { success: "Cancelled." }; tw2s.listStatus = "idle"; M.ui.showToast("Cancelled.", "ok"); }
+      else { var msg = (res && res.body && (res.body.message || res.body.error)) || "Couldn't cancel this trade."; tw2s.cancel = { error: msg }; M.ui.showToast(msg, "err"); }
+      return loadStaged2WayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+  function doRecheck2WayStaged(id) {
+    if (tw2s.recheck.busy) return;
+    tw2s.recheck = { busy: true };
+    M.route.renderRoute();
+    tw2sFetch(tw2sUrl("/api/trades/2way/recheck"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function (res) {
+      var ok = !!(res && !res.networkError && res.ok && res.body && res.body.ok);
+      var msg = (res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "Couldn't reach the server." : "");
+      tw2s.recheck = { ok: ok, message: msg };
+      M.ui.showToast(msg || (ok ? "Rechecking…" : "Couldn't re-check."), ok ? "ok" : "err");
+      return loadStaged2WayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+  function doSelectDrops2WayStaged(id, fid) {
+    if (tw2s.ack.dropBusy) return;
+    var picked = (fid && tw2s.drops.selections[fid]) || [];
+    tw2s.ack = Object.assign({}, tw2s.ack, { dropBusy: true });
+    M.route.renderRoute();
+    tw2sFetch(tw2sUrl("/api/trades/2way/select-drops"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, player_ids: picked }) }).then(function (res) {
+      var ok = !!(res && !res.networkError && res.ok && res.body && res.body.ok);
+      var msg = (res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "Couldn't reach the server." : "");
+      tw2s.ack = { dropOk: ok, dropMessage: msg, selections: tw2s.drops.selections };
+      M.ui.showToast(msg || (ok ? "Selection saved." : "Couldn't save."), ok ? "ok" : "err");
+      return loadStaged2WayDetail(id);
+    }).then(function () { M.route.renderRoute(); });
+  }
+
+  function renderStaged2WayDetailHtml(trade) {
+    var sv = trade.state_view || {};
+    var perms = trade.permissions || {};
+    var cs = tw2s.cancel || {}, ac = tw2s.accept || {};
+    var myFid = U.pad4(M.state.viewerFranchiseId);
+    var role = myFid === U.pad4(trade.from_fid) ? "You sent this" : myFid === U.pad4(trade.to_fid) ? "Sent to you" : "Commissioner view";
+    var h = '<section class="t3w" data-tw2s-id="' + U.escapeHtml(trade.id) + '">';
+    h += '<header class="t3w-head"><span class="t3w-pill t3w-tone-' + tw2sTone(trade) + '">' + U.escapeHtml(sv.label) + '</span><span class="t3w-role">' + role + '</span></header>';
+    h += '<p class="t3w-msg"><b>Staged — held server-side.</b> This has never been proposed to MFL and will not be, unless and until it clears every check below.</p>';
+    if (sv.message) h += '<p class="t3w-msg">' + U.escapeHtml(sv.message) + '</p>';
+    h += '<div class="t3w-sides"><article class="t3w-side"><h4 class="t3w-team">' + U.escapeHtml(trade.from_name) + ' <span class="t3w-tag">Sender</span></h4></article>' +
+      '<article class="t3w-side"><h4 class="t3w-team">' + U.escapeHtml(trade.to_name) +
+      ' <span class="t3w-tag t3w-tag-' + (trade.to_state === "accepted" ? "accepted" : trade.to_state === "declined" ? "declined" : "") + '">' +
+      (trade.to_state === "accepted" ? "Accepted" : trade.to_state === "declined" ? "Declined" : "Waiting") + '</span></h4></article></div>';
+    h += '<div class="t3w-movs">' + tw2sMovementLines(trade) + '</div>';
+    if (trade.compliance) h += T.renderCompliance(trade.compliance, { gate: sv.code === "pending_response" || sv.code === "awaiting_review", capAck: trade.cap_ack, viewerFid: myFid, dropBusy: tw2s.ack.dropBusy, dropMessage: tw2s.ack.dropMessage, dropOk: tw2s.ack.dropOk, selections: tw2s.drops.selections });
+    if (trade.notes) h += '<div class="t3w-note"><b>Note:</b> ' + U.escapeHtml(trade.notes) + '</div>';
+    if (perms.can_accept) {
+      h += '<div class="t3w-btns"><button type="button" class="t3w-btn t3w-btn-primary" data-tw2s-act="accept"' + (ac.busy ? " disabled" : "") + '>' + (ac.busy ? "Accepting…" : "Accept") + '</button>' +
+        '<button type="button" class="t3w-btn" data-tw2s-act="decline"' + (ac.busy ? " disabled" : "") + '>Decline</button></div>';
+    }
+    if (perms.can_recheck) h += '<div class="t3w-btns"><button type="button" class="t3w-btn t3w-btn-primary" data-tw2s-act="recheck"' + (tw2s.recheck.busy ? " disabled" : "") + '>' + (tw2s.recheck.busy ? "Checking…" : "Re-check now") + '</button></div>';
+    if (perms.can_cancel) {
+      if (cs.confirming) {
+        h += '<div class="t3w-confirm"><p><b>Cancel this staged trade?</b> The other team will be told it\'s off.</p><div class="t3w-btns">' +
+          '<button type="button" class="t3w-btn" data-tw2s-act="keep"' + (cs.busy ? " disabled" : "") + '>Keep it</button>' +
+          '<button type="button" class="t3w-btn t3w-btn-danger" data-tw2s-act="confirm-cancel"' + (cs.busy ? " disabled" : "") + '>' + (cs.busy ? "Cancelling…" : "Yes, cancel it") + '</button></div></div>';
+      } else {
+        h += '<div class="t3w-btns"><button type="button" class="t3w-btn t3w-btn-danger" data-tw2s-act="cancel"' + (cs.busy ? " disabled" : "") + '>Cancel</button></div>';
+      }
+    }
+    h += '</section>';
+    return h;
+  }
+  function renderStaged2WayDetail(mount, id) {
+    var head = subTabs("trade") + '<a class="ups-m-subtab" href="#league/trade" style="display:inline-block;margin:0 0 10px">← All trades</a>';
+    if (!T) { mount.innerHTML = head + '<div class="ups-m-error">Trade view failed to load. Reload the app.</div>'; return; }
+    if (tw2s.lastRoute !== "detail" || tw2s.detailId !== id) {
+      tw2s.lastRoute = "detail";
+      if (tw2s.detailId !== id) tw2s.detail = null;
+      var wantConfirm = tw2s.wantConfirm === id; tw2s.wantConfirm = "";
+      tw2s.cancel = {};
+      loadStaged2WayDetail(id).then(function () {
+        if (wantConfirm && tw2s.detail && tw2s.detail.permissions && tw2s.detail.permissions.can_cancel) tw2s.cancel = { confirming: true };
+        M.route.renderRoute();
+      });
+    }
+    var body;
+    if (tw2s.detailStatus === "loading" && !tw2s.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
+    else if (tw2s.detailStatus === "error" && tw2s.detailProblem) body = T.renderProblem(tw2s.detailProblem, { title: "Couldn't load this staged trade" });
+    else if (tw2s.detail) body = renderStaged2WayDetailHtml(tw2s.detail);
+    else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
+    mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';
+    T.ensureStyles();
+    var clickHandlers = {
+      cancel: function () { tw2s.cancel = { confirming: true }; M.route.renderRoute(); },
+      keep: function () { tw2s.cancel = {}; M.route.renderRoute(); },
+      "confirm-cancel": function () { doCancel2WayStaged(id); },
+      accept: function () { doAccept2WayStaged(id); },
+      decline: function () { doCancel2WayStaged(id); },
+      recheck: function () { doRecheck2WayStaged(id); },
+      "select-drops": function (bid, el) { doSelectDrops2WayStaged(id, el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : ""); }
+    };
+    if (!mount.__tw2sBound) {
+      mount.__tw2sBound = true;
+      mount.addEventListener("click", function (ev) {
+        var el = ev.target && ev.target.closest ? ev.target.closest("[data-tw2s-act]") : null;
+        if (!el || el.disabled) return;
+        var fn = clickHandlers[el.getAttribute("data-tw2s-act")];
+        if (typeof fn === "function") { ev.preventDefault(); fn(el.getAttribute("data-tw2s-id") || "", el); }
+      });
+      mount.addEventListener("change", function (ev) {
+        var box = ev.target;
+        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+        var pfid = box.getAttribute("data-t3w-drop-fid");
+        var pid = box.getAttribute("data-t3w-drop-pid");
+        var cur = tw2s.drops.selections[pfid] || [];
+        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); } else { cur = cur.filter(function (x) { return x !== pid; }); }
+        tw2s.drops.selections[pfid] = cur;
+        M.route.renderRoute();
+      });
+    }
+    if (tw2s.detail && tw2s.cancel.confirming && !tw2s.cancel.busy) T.revealConfirm(mount);
+  }
+
+  // ── pre-send popup (mobile), mirrors desktop's showPreSendLoadedContractPopup exactly:
+  // "before an owner sends a two-team or three-team offer that would put either franchise over
+  // five loaded contracts, show a clear popup ... Show the projected count for each affected
+  // team ... require the affected owner to select their own conditional drops. The sender must
+  // not select the recipient's players." Uses the SAME sheet idiom as
+  // openCreateLoadedContractDropsSheet, but shows EVERY affected team's row (not filtered to
+  // the sender's own), and never blocks Stage/Send itself -- purely informational, since the
+  // real gates are unchanged (create for direct-MFL 2-way, accept/execute for staged 2-way and
+  // 3-way). T.renderLoadedContractDrops already restricts the interactive picker to
+  // opts.viewerFid === the row's own franchise_id, so a recipient's row renders read-only with
+  // "Waiting on <them>" -- the sender structurally cannot select the recipient's players here.
+  function showPreSendLoadedContractSheet(compliance, mySenderFid) {
+    var lc = compliance && compliance.loaded_contracts;
+    if (!lc || lc.status === "ok" || !(lc.drop_requirements || []).length || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve({ proceed: true, drops: [] });
+    var playerNames = buildPlayerNamesForFid(mySenderFid, (lc.drop_requirements.filter(function (d) { return U.pad4(d.franchise_id) === mySenderFid; })[0] || {}).candidates || []);
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return Promise.resolve({ proceed: true, drops: [] });
+    var existing = document.getElementById("ups-m-presend-overlay");
+    if (existing) existing.remove();
+    return new Promise(function (resolve) {
+      var settled = false;
+      var mySel = [];
+      function close(v) { if (settled) return; settled = true; var ov = document.getElementById("ups-m-presend-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; resolve(v); }
+      function draw() {
+        var sel = {}; sel[mySenderFid] = mySel;
+        var picker = T.renderLoadedContractDrops(lc.drop_requirements, mySenderFid, { playerNames: playerNames, interactive: true, selections: sel });
+        var otherOver = lc.drop_requirements.some(function (d) { return U.pad4(d.franchise_id) !== mySenderFid; });
+        var html =
+          '<div class="ups-m-drop-overlay" id="ups-m-presend-overlay"><div class="ups-m-drop-sheet">' +
+            '<div class="ups-m-drop-head"><button class="ups-m-drop-close" id="ups-m-presend-close" aria-label="Close">×</button><div class="grip"></div>' +
+            '<div class="title">Loaded-contract limit — before you send</div></div>' +
+            '<div class="ups-m-drop-body">' +
+              '<p class="sub">This trade would push at least one team over the 5-loaded-contract limit. Each affected owner must select their own conditional drops — you can only pick your own.</p>' +
+              picker +
+              (otherOver ? '<p class="sub">The other affected team will see this same requirement and pick their own drops on their own side. Sending or staging this offer does not select anything for them.</p>' : '') +
+              '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-presend-cancel">Don\'t send</button><button class="btn-act otb on" id="ups-m-presend-go">Continue</button></div>' +
+            '</div></div></div>';
+        var prior = document.getElementById("ups-m-presend-overlay");
+        if (prior) prior.outerHTML = html; else mount.insertAdjacentHTML("beforeend", html);
+        document.body.style.overflow = "hidden";
+        document.getElementById("ups-m-presend-close").addEventListener("click", function () { close({ proceed: false, drops: [] }); });
+        document.getElementById("ups-m-presend-cancel").addEventListener("click", function () { close({ proceed: false, drops: [] }); });
+        document.getElementById("ups-m-presend-go").addEventListener("click", function () { close({ proceed: true, drops: mySel }); });
+        var body = document.querySelector("#ups-m-presend-overlay .ups-m-drop-body");
+        if (body) body.addEventListener("change", function (ev) {
+          var box = ev.target;
+          if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
+          var pid = box.getAttribute("data-t3w-drop-pid");
+          if (box.checked) { if (mySel.indexOf(pid) === -1) mySel.push(pid); } else { mySel = mySel.filter(function (x) { return x !== pid; }); }
+          draw();
+        });
+      }
+      draw();
+    });
+  }
+  function runPreSendPreview(fromFid, movements, extensionRequests) {
+    var ctx = M.state.ctx;
+    var url = M.api.workerUrl("/api/trades/compliance-preview?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
+    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+    if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+    var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: U.pad4(fromFid), movements: movements, extension_requests: extensionRequests || [] };
+    return tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (res) {
+      if (!res || res.networkError || !res.ok || !res.body || res.body.ok === false || !res.body.compliance) return { proceed: true, drops: [] };
+      return showPreSendLoadedContractSheet(res.body.compliance, U.pad4(fromFid));
+    }).catch(function () { return { proceed: true, drops: [] }; });
+  }
+
+  // Stages a new 2-team offer via the War Room instead of direct-to-MFL. Reuses the EXISTING
+  // builder's own payload (buildOfferPayload) -- a separate CTA/function from submitOffer, so
+  // there is no shared decision point where the two paths could cross.
+  function tw2sAssetToken(a) {
+    if (!a) return "";
+    if (String(a.type || "").toUpperCase() === "PLAYER") return "P_" + String(a.player_id || "").replace(/\D/g, "");
+    if (String(a.type || "").toUpperCase() === "PICK") return String(a.pick_key || a.asset_id || "");
+    return "";
+  }
+  function tw2sMovementsFromPayload(payload) {
+    var teams = (payload && payload.teams) || [];
+    var left = teams[0], right = teams[1];
+    if (!left || !right || !left.franchise_id || !right.franchise_id) return [];
+    var out = [];
+    function push(from, to, side) {
+      var tokens = (side.selected_assets || []).map(tw2sAssetToken).filter(Boolean);
+      var capK = U.safeInt(side.traded_salary_adjustment_k, 0);
+      if (!tokens.length && capK <= 0) return;
+      out.push({ from: U.pad4(from), to: U.pad4(to), asset_tokens: tokens, cap_k: capK });
+    }
+    push(left.franchise_id, right.franchise_id, left);
+    push(right.franchise_id, left.franchise_id, right);
+    return out;
+  }
+  function submitStagedOffer() {
+    builderState.submitting = true; builderState.error = ""; renderBuilder();
+    var myFid = U.pad4(M.state.viewerFranchiseId);
+    var theirFid = U.pad4(builderState.counterpartyFid);
+    var payload = buildOfferPayload();
+    var movements = tw2sMovementsFromPayload(payload);
+    if (!movements.length) { builderState.submitting = false; builderState.error = "Add at least one asset to stage."; renderBuilder(); return; }
+    runPreSendPreview(myFid, movements, payload.extension_requests).then(function (pre) {
+      if (!pre.proceed) { builderState.submitting = false; renderBuilder(); return; }
+      var url = M.api.workerUrl("/api/trades/2way?L=" + encodeURIComponent(M.state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(M.state.ctx.year));
+      var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+      if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+      var body = {
+        from: { fid: myFid, name: franchiseName(myFid) },
+        to: { fid: theirFid, name: franchiseName(theirFid) },
+        movements: movements,
+        extension_requests: payload.extension_requests,
+        loaded_contract_drops: pre.drops,
+        notes: builderState.comment || ""
+      };
+      return tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (res) {
+        builderState.submitting = false;
+        if (res && !res.networkError && res.ok && res.body && res.body.ok) {
+          M.ui.showToast("Staged — awaiting review. Held server-side; not sent to MFL. ✓", "ok");
+          closeBuilder();
+          refreshStaged2WayList();
+        } else {
+          builderState.error = (res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "Couldn't reach the server." : "Couldn't stage this offer.");
+          renderBuilder();
+        }
+      });
+    }).catch(function (err) {
+      builderState.submitting = false;
+      builderState.error = (err && err.message) || String(err);
+      renderBuilder();
+    });
+  }
+
   function render(mount, parts) {
+    // #league/trade/2s/<id> — a single staged 2-way trade, deep-linkable and refresh-safe.
+    if (parts && parts[0] === "2s" && parts[1]) return renderStaged2WayDetail(mount, parts[1]);
+    if (tw2s.lastRoute === "detail") { tw2s.lastRoute = "list"; tw2s.listStatus = "idle"; }
     // #league/trade/3w/<id> — a single 3-way trade, deep-linkable and refresh-safe.
     if (parts && parts[0] === "3w" && parts[1]) return renderThreeWayDetail(mount, parts[1]);
     // Back on the list: any earlier detail is stale by definition; refetch the outbox.
@@ -1736,6 +2463,9 @@
     // it re-renders when done so the outbox section appears.
     if (tw.listStatus === "idle") {
       loadThreeWays().then(function () { M.route.renderRoute(); });
+    }
+    if (tw2s.listStatus === "idle") {
+      loadStaged2Way().then(function () { M.route.renderRoute(); });
     }
     if (M.state.tradeOffers) {
       state.offers = M.state.tradeOffers;
@@ -1791,6 +2521,9 @@
     // Active 3-way trades the viewer is part of (initiator or partner).
     html += renderThreeWaySection();
 
+    // Active staged 2-way trades (held server-side, awaiting review).
+    html += renderStaged2WaySection();
+
     html += '<div class="ups-m-pos-group" style="margin-top:18px">Incoming · ' + incoming.length + '</div>';
     html += renderOffersList(incoming, "incoming");
     html += '<div class="ups-m-pos-group" style="margin-top:18px">Outgoing · ' + outgoing.length + '</div>';
@@ -1808,6 +2541,14 @@
         open: function (id) { M.route.navigate("#league/trade/3w/" + encodeURIComponent(id)); },
         "open-cancel": function (id) { tw.wantConfirm = id; M.route.navigate("#league/trade/3w/" + encodeURIComponent(id)); },
         retry: function () { refreshThreeWayList(); }
+      });
+      mount.addEventListener("click", function (ev) {
+        var el = ev.target && ev.target.closest ? ev.target.closest("[data-tw2s-act]") : null;
+        if (!el) return;
+        var act = el.getAttribute("data-tw2s-act");
+        var id = el.getAttribute("data-tw2s-id") || "";
+        if (act === "open") { M.route.navigate("#league/trade/2s/" + encodeURIComponent(id)); }
+        else if (act === "open-cancel") { tw2s.wantConfirm = id; M.route.navigate("#league/trade/2s/" + encodeURIComponent(id)); }
       });
     }
 

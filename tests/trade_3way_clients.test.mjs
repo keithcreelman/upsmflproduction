@@ -470,7 +470,7 @@ test("SHARED CARD: interpretPreview still enables Accept when BOTH cap and loade
   const res = { ok: true, networkError: false, body: { ok: true, compliance: {
     cap: { status: "ok", rows: [], message: "x" },
     roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "x" },
-    loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], message: "x" },
+    loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], executable: true, message: "x" },
   } } };
   t.equal(T.interpretPreview(res).canAccept, true);
 });
