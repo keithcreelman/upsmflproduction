@@ -70,6 +70,17 @@
       teamId: "",
       assetId: "",
       optionKey: ""
+    },
+    // LIVE loaded-contract compliance for the Offer Review panel (Keith's ruling, 2026-10-02:
+    // "Ready" must reflect the SAME authoritative, live check the server's create/accept gate
+    // runs -- never a purely local/structural validation). status: "idle" (no valid 2-team
+    // composition yet) | "loading" | "ok" | "blocked" | "unavailable". Fails closed: every
+    // status except "ok" withholds readiness. See refreshOfferComplianceIfNeeded/offerIsReady.
+    offerCompliance: {
+      signature: "",
+      status: "idle",
+      loadedContracts: null,
+      seq: 0
     }
   };
 
@@ -2760,7 +2771,7 @@
   }
 
   function getPrimarySubmitIntent(payload) {
-    var ready = !!(payload && payload.validation && payload.validation.status === "ready");
+    var ready = offerIsReady(payload);
     var ctx = state.reviewContext || {};
     var kind = safeStr(ctx.kind) || (state.counterMode ? "counter" : "draft");
     var intent = {
@@ -5833,6 +5844,84 @@
     };
   }
 
+  // ── LIVE loaded-contract compliance for the Offer Review panel (Keith's ruling, 2026-10-02:
+  // reproducing Real Deal Creel -> HammerTime, Chig Okonkwo for a 2027 1st -- HammerTime starts
+  // at 5 loaded contracts, this receive makes 6, and the panel said "Ready" with no warning).
+  // buildValidationSummary() above is a PURELY LOCAL, structural check (both sides non-empty,
+  // salary within max, no ineligible assets) -- it has never called the server and has no idea
+  // what the loaded-contract count is. This calls the SAME /api/trades/compliance-preview
+  // endpoint, running the SAME evaluateTradeCompliance() against the SAME live roster snapshot,
+  // that the server's own create/counter/accept gate uses -- never a second, independently
+  // re-derived classifier. Fails closed: "loading" and "unavailable" both withhold readiness
+  // exactly like "blocked" does, until a fresh "ok" comes back for the CURRENT composition.
+  function offerComplianceSignature(payload) {
+    var teams = (payload && payload.teams) || [];
+    if (teams.length !== 2 || !teams[0].franchise_id || !teams[1].franchise_id) return "";
+    function sideSig(t) {
+      var tokens = (t.selected_assets || []).map(tw2sAssetToken).filter(Boolean).sort();
+      return safeStr(t.franchise_id) + ":" + tokens.join(",") + ":" + safeInt(t.traded_salary_adjustment_k, 0);
+    }
+    var extSig = (payload.extension_requests || []).map(function (e) {
+      return safeStr(e.player_id) + "|" + safeStr(e.to_franchise_id) + "|" + safeStr(e.option_key);
+    }).sort().join(",");
+    return sideSig(teams[0]) + "||" + sideSig(teams[1]) + "||" + extSig;
+  }
+  function refreshOfferComplianceIfNeeded(payload) {
+    var sig = offerComplianceSignature(payload);
+    if (!sig) {
+      state.offerCompliance.signature = "";
+      state.offerCompliance.status = "idle";
+      state.offerCompliance.loadedContracts = null;
+      return;
+    }
+    if (sig === state.offerCompliance.signature && state.offerCompliance.status !== "idle") return;
+    var mySeq = ++state.offerCompliance.seq;
+    state.offerCompliance.signature = sig;
+    state.offerCompliance.status = "loading";
+    state.offerCompliance.loadedContracts = null;
+    var movements = tw2sMovementsFromPayload(payload);
+    var fromFid = pad4(payload.teams[0].franchise_id);
+    var extensionRequests = payload.extension_requests || [];
+    (async function () {
+      var status = "unavailable", loadedContracts = null;
+      try {
+        var ctx = getLeagueContext();
+        var body = { league_id: ctx.leagueId, season: ctx.season, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests };
+        var res = await tw2sFetch(resolveCompliancePreviewApiUrl(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
+          var lc = res.body.compliance.loaded_contracts;
+          status = lc.status === "blocked" ? "blocked" : lc.status === "ok" ? "ok" : "unavailable";
+          loadedContracts = lc;
+        }
+      } catch (e) { /* status stays "unavailable" -- fail closed */ }
+      if (mySeq !== state.offerCompliance.seq) return; // a newer composition superseded this request
+      state.offerCompliance.status = status;
+      state.offerCompliance.loadedContracts = loadedContracts;
+      renderSummary();
+    })();
+  }
+  // The ONE place "is this offer actually sendable" is decided -- combines the local structural
+  // check with the live loaded-contract result. Every call site that used to read
+  // `payload.validation.status === "ready"` directly now goes through this instead.
+  function offerIsReady(payload) {
+    if (!payload || !payload.validation || payload.validation.status !== "ready") return false;
+    var cs = state.offerCompliance.status;
+    return cs === "ok";
+  }
+  // The status-pill label/tone for the Offer Review panel. Structurally incomplete (empty side,
+  // over-max salary, etc.) still reads "Draft" -- that is the owner's own unfinished state. Once
+  // the trade is structurally complete but the live loaded-contract check says no (or can't be
+  // verified), it reads "Not Ready" -- Keith's exact wording -- a materially different signal
+  // from "you haven't finished building this yet."
+  function offerStatusLabel(payload) {
+    var structurallyReady = !!(payload && payload.validation && payload.validation.status === "ready");
+    if (!structurallyReady) return { text: state.counterMode ? "Counter Offer Draft" : "Draft", tone: "draft" };
+    var cs = state.offerCompliance.status;
+    if (cs === "loading") return { text: "Checking…", tone: "draft" };
+    if (cs === "blocked" || cs === "unavailable") return { text: "Not Ready", tone: "draft" };
+    return { text: state.counterMode ? "Counter Ready" : "Ready", tone: "ready" };
+  }
+
   function formatSignedK(v) {
     var n = safeInt(v, 0);
     if (n > 0) return "+" + n + "K";
@@ -6239,13 +6328,9 @@
     renderOfferCartSide(state.rightTeamId, els.offerCartRightList);
 
     if (els.offerCartStatus) {
-      var ready = payload.validation.status === "ready";
-      if (ready) {
-        els.offerCartStatus.textContent = state.counterMode ? "Counter Ready" : "Ready";
-      } else {
-        els.offerCartStatus.textContent = state.counterMode ? "Counter Offer Draft" : "Draft";
-      }
-      els.offerCartStatus.className = "twb-status-pill " + (ready ? "is-ready" : "is-draft");
+      var statusLabel = offerStatusLabel(payload);
+      els.offerCartStatus.textContent = statusLabel.text;
+      els.offerCartStatus.className = "twb-status-pill " + (statusLabel.tone === "ready" ? "is-ready" : "is-draft");
     }
   }
 
@@ -6279,7 +6364,7 @@
         var rightTotals = getTeamTotals(state.rightTeamId);
         var leftEnteredK = safeInt(state.tradeSalaryK[state.leftTeamId], 0);
         var rightEnteredK = safeInt(state.tradeSalaryK[state.rightTeamId], 0);
-        var readyLabel = payload && payload.validation && payload.validation.status === "ready" ? "Ready" : "Draft";
+        var readyLabel = offerStatusLabel(payload).text;
         els.offerCartMobileTray.hidden = false;
         els.offerCartMobileTray.textContent =
           "Review Offer · " +
@@ -6593,6 +6678,21 @@
     els.offerAlerts.innerHTML = "";
     var alerts = [];
     var i;
+    // The live loaded-contract result -- shown here, in the Offer Review panel itself, before
+    // the owner ever clicks Send (Keith's ruling, 2026-10-02). Exact wording Keith specified:
+    // "{Team}: N loaded contracts; maximum M. Revise the trade or make a separate roster move
+    // first." One line per over-limit team, built from the server's own violations array (the
+    // SAME authoritative classifier/roster snapshot the create/accept gate uses).
+    if (state.offerCompliance.status === "blocked" && state.offerCompliance.loadedContracts) {
+      var violations = state.offerCompliance.loadedContracts.violations || [];
+      for (i = 0; i < violations.length; i += 1) {
+        var v = violations[i];
+        alerts.push(safeStr(v.franchise_name || v.franchise_id) + ": " + safeInt(v.projected, 0) + " loaded contracts; maximum " + safeInt(v.max, 5) + ". Revise the trade or make a separate roster move first.");
+      }
+      if (!violations.length) alerts.push("This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first.");
+    } else if (state.offerCompliance.status === "unavailable") {
+      alerts.push("Cannot verify loaded-contract limit. Try again in a moment.");
+    }
     for (i = 0; i < alerts.length; i += 1) {
       var alert = document.createElement("div");
       alert.className = "twb-offer-alert twb-offer-alert-bad";
@@ -6662,14 +6762,11 @@
     summaryEl.innerHTML = "";
 
     var payload = buildTradePayload();
+    refreshOfferComplianceIfNeeded(payload);
     var statusPill = els.summaryStatus;
-    var ready = payload.validation.status === "ready";
-    if (ready) {
-      statusPill.textContent = state.counterMode ? "Counter Ready" : "Ready";
-    } else {
-      statusPill.textContent = state.counterMode ? "Counter Offer Draft" : "Draft";
-    }
-    statusPill.className = "twb-status-pill " + (ready ? "is-ready" : "is-draft");
+    var statusLabel = offerStatusLabel(payload);
+    statusPill.textContent = statusLabel.text;
+    statusPill.className = "twb-status-pill " + (statusLabel.tone === "ready" ? "is-ready" : "is-draft");
 
     var recon = payload.salary_reconciliation || {};
     var salaryGrid = document.createElement("div");

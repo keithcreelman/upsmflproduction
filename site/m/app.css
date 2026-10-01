@@ -3239,21 +3239,31 @@ button.ups-m-busy::before,
 .ups-m-tb-nav { display: flex; gap: 10px; margin-top: 14px; }
 .ups-m-tb-nav .btn-act { flex: 1 1 0; }
 /* review */
-.ups-m-tb-review { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+/* Keith's ruling, 2026-10-02: grid-template-columns: 1fr 1fr (without minmax(0, ...))
+   lets a track's min-width default to its content's min-content size, so a long
+   player/pick name or contract-status string can force the review step's two
+   columns wider than the sheet's actual width instead of wrapping within it --
+   matches the same narrow-column squeeze fixed on desktop (trade_workbench.html's
+   .twb-offer-cart-item-head/.twb-offer-player-metric). minmax(0, 1fr) + min-width: 0
+   let the column shrink to the sheet's real width; overflow-wrap lets long names
+   wrap at a real word/character boundary instead of overflowing past the card edge. */
+.ups-m-tb-review { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
 .ups-m-tb-review .col {
   background: var(--bg-elev);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px 12px;
+  min-width: 0;
 }
 .ups-m-tb-review .lbl {
   font-size: 11px;
   font-weight: 700;
   color: var(--fg-muted);
   margin-bottom: 6px;
+  overflow-wrap: break-word;
 }
 .ups-m-tb-review ul { list-style: none; margin: 0; padding: 0; }
-.ups-m-tb-review li { font-size: 13px; color: var(--fg); padding: 3px 0; line-height: 1.35; }
+.ups-m-tb-review li { font-size: 13px; color: var(--fg); padding: 3px 0; line-height: 1.35; overflow-wrap: break-word; }
 .ups-m-tb-review li .sal { color: var(--fg-muted); font-size: 11px; }
 .ups-m-tb-review li.cap { color: var(--warn); font-weight: 600; }
 .ups-m-tb-review li.muted { color: var(--line-soft); }

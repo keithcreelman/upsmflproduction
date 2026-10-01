@@ -274,7 +274,10 @@
       myCapK: 0, theirCapK: 0,
       comment: "", submitting: false, error: "",
       // Pre-trade extensions on give-side players: { asset_id: { enabled, option_key } }.
-      extensions: {}
+      extensions: {},
+      // LIVE loaded-contract compliance for the review step (Keith's ruling, 2026-10-02) --
+      // see refreshBuilderComplianceIfNeeded/builderCanSubmit in renderStepReview below.
+      compliance: { signature: "", status: "idle", loadedContracts: null, seq: 0 }
     };
   }
 
@@ -630,7 +633,14 @@
       return '<div class="ups-m-tb-extwrap"><div class="ups-m-tb-extlbl">Pre-trade extension</div>' +
         '<div class="ups-m-tb-extctl">' + segs + '</div>' + preview + '</div>';
     }
-    var canSubmit = (give.length || myCapK > 0) && (get.length || theirCapK > 0);
+    var structurallyReady = !!((give.length || myCapK > 0) && (get.length || theirCapK > 0));
+    // LIVE loaded-contract check (Keith's ruling, 2026-10-02) -- fires off the real
+    // compliance-preview call when the composition changes; re-renders this step once it lands.
+    var payload = buildOfferPayload();
+    refreshBuilderComplianceIfNeeded(payload);
+    var cs = builderState.compliance;
+    var canSubmit = structurallyReady && cs.status === "ok";
+    var complianceHtml = structurallyReady ? builderComplianceAlertHtml(cs) : "";
     body.innerHTML =
       '<div class="ups-m-tb-steptitle">Review offer</div>' +
       '<div class="ups-m-tb-review">' +
@@ -641,6 +651,7 @@
       '</div>' +
       '<textarea class="ups-m-tb-comment" id="ups-m-tb-comment" rows="2" maxlength="2000" placeholder="Optional message to ' + U.escapeHtml(franchiseName(theirFid)) + '…">' + U.escapeHtml(builderState.comment) + '</textarea>' +
       (builderState.error ? '<div class="ups-m-rstr-err">' + U.escapeHtml(builderState.error) + '</div>' : '') +
+      complianceHtml +
       '<div class="ups-m-tb-warn">Submitting creates a real pending offer in MFL (' + U.escapeHtml(franchiseName(theirFid)) + ' can accept it). You can cancel it from the offers list.</div>' +
       '<div class="ups-m-tb-nav">' +
         '<button class="btn-act" id="ups-m-tb-back"' + (builderState.submitting ? ' disabled' : '') + '>Back</button>' +
@@ -748,6 +759,81 @@
       filters: { search: "" },
       ui: { left_team_id: myFid, right_team_id: theirFid }
     };
+  }
+
+  // ── LIVE loaded-contract compliance for the review step (Keith's ruling, 2026-10-02:
+  // reproducing Real Deal Creel -> HammerTime, Chig Okonkwo for a 2027 1st -- HammerTime starts
+  // at 5 loaded contracts, this receive makes 6, and the review step said nothing). The OLD
+  // `canSubmit` in renderStepReview was a PURELY LOCAL, structural check (either side has
+  // something selected) -- it never called the server and has no idea what the loaded-contract
+  // count is. This calls the SAME /api/trades/compliance-preview endpoint, running the SAME
+  // evaluateTradeCompliance() against the SAME live roster snapshot, that the server's own
+  // create/counter/accept gate uses -- never a second, independently re-derived classifier.
+  // Fails closed: "loading" and "unavailable" both withhold readiness exactly like "blocked"
+  // does, until a fresh "ok" comes back for the CURRENT composition. Mirrors desktop's
+  // offerComplianceSignature/refreshOfferComplianceIfNeeded in trade_workbench.js exactly.
+  function builderComplianceSignature(payload) {
+    var teams = (payload && payload.teams) || [];
+    if (teams.length !== 2 || !teams[0].franchise_id || !teams[1].franchise_id) return "";
+    function sideSig(t) {
+      var tokens = (t.selected_assets || []).map(tw2sAssetToken).filter(Boolean).sort();
+      return U.safeStr(t.franchise_id) + ":" + tokens.join(",") + ":" + U.safeInt(t.traded_salary_adjustment_k, 0);
+    }
+    var extSig = (payload.extension_requests || []).map(function (e) {
+      return U.safeStr(e.player_id) + "|" + U.safeStr(e.to_franchise_id) + "|" + U.safeStr(e.option_key);
+    }).sort().join(",");
+    return sideSig(teams[0]) + "||" + sideSig(teams[1]) + "||" + extSig;
+  }
+  function refreshBuilderComplianceIfNeeded(payload) {
+    var cs = builderState.compliance;
+    var sig = builderComplianceSignature(payload);
+    if (!sig) { cs.signature = ""; cs.status = "idle"; cs.loadedContracts = null; return; }
+    if (sig === cs.signature && cs.status !== "idle") return;
+    var mySeq = ++cs.seq;
+    cs.signature = sig;
+    cs.status = "loading";
+    cs.loadedContracts = null;
+    var movements = tw2sMovementsFromPayload(payload);
+    var fromFid = U.pad4(payload.teams[0].franchise_id);
+    var extensionRequests = payload.extension_requests || [];
+    (async function () {
+      var status = "unavailable", loadedContracts = null;
+      try {
+        var ctx = M.state.ctx;
+        var url = M.api.workerUrl("/api/trades/compliance-preview?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
+        var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
+        if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
+        var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests };
+        var res = await tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
+          var lc = res.body.compliance.loaded_contracts;
+          status = lc.status === "blocked" ? "blocked" : lc.status === "ok" ? "ok" : "unavailable";
+          loadedContracts = lc;
+        }
+      } catch (e) { /* status stays "unavailable" -- fail closed */ }
+      if (mySeq !== cs.seq || !builderState) return; // superseded, or the builder was closed
+      cs.status = status;
+      cs.loadedContracts = loadedContracts;
+      renderBuilder();
+    })();
+  }
+  // The review step's loaded-contract alert markup, pulled out as its own function (mirrors
+  // desktop's renderOfferAlerts) so it's testable in isolation against a real compliance
+  // result, not just inline string-building inside renderStepReview. Exact wording Keith
+  // specified: "{Team}: N loaded contracts; maximum M. Revise the trade or make a separate
+  // roster move first."
+  function builderComplianceAlertHtml(cs) {
+    if (cs.status === "blocked" && cs.loadedContracts) {
+      var violations = cs.loadedContracts.violations || [];
+      var lines = violations.map(function (v) {
+        return U.escapeHtml(U.safeStr(v.franchise_name || v.franchise_id) + ": " + U.safeInt(v.projected, 0) + " loaded contracts; maximum " + U.safeInt(v.max, 5) + ". Revise the trade or make a separate roster move first.");
+      });
+      if (!lines.length) lines = ["This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first."];
+      return '<div class="ups-m-rstr-err">' + lines.join('</div><div class="ups-m-rstr-err">') + '</div>';
+    }
+    if (cs.status === "unavailable") return '<div class="ups-m-rstr-err">Cannot verify loaded-contract limit. Try again in a moment.</div>';
+    if (cs.status === "loading") return '<div class="ups-m-tb-warn">Checking the loaded-contract limit…</div>';
+    return "";
   }
 
   // The INITIATOR's own overage, shown at offer CREATION: the worker refuses to create the
