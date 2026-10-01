@@ -103,12 +103,14 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // 2026-10-01, the loaded-contract conditional-drop PICKER was replaced with a hard block
   // (Keith's ruling, REPLACING the 2026-09-29 picker ruling) -- BOTH files genuinely changed
   // together, landing them on the same stamp (2026.10.01.1). Then, later the SAME day, the
-  // Staged Trades UI was removed from the normal owner experience entirely -- that touched
-  // views/trade.js AGAIN (2026.10.01.2) but NOT site/shared/trade_3way_view.js (generic,
-  // no staged-specific markup of its own -- see that file's own removal-era comments), so the
-  // two diverge again. This assertion tracks the CURRENT true pairing, not a fixed pin --
-  // update it again whenever either file's own real content changes and bumps its stamp.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.01.2"],
+  // Staged Trades UI was removed from the normal owner experience entirely, the Offer Review
+  // panel got a live loaded-contract compliance check (2026.10.01.2), and then that check's
+  // own empty-draft false-positive was fixed (2026.10.01.3) -- all touching views/trade.js
+  // AGAIN but NOT site/shared/trade_3way_view.js (generic, no staged-specific markup of its
+  // own -- see that file's own removal-era comments), so the two diverge further. This
+  // assertion tracks the CURRENT true pairing, not a fixed pin -- update it again whenever
+  // either file's own real content changes and bumps its stamp.
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.01.3"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   // Numeric, component-by-component comparison -- a lexicographic string compare (the
