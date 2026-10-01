@@ -98,25 +98,32 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   const idx = read("site/m/index.html");
   const stampOf = (f) => (idx.match(new RegExp(f.replace(/[.\/]/g, "\\$&") + "\\?v=([0-9.]+)")) || [])[1];
   // Per-file ?v= only needs to be >= that file's own last real change, not equal to
-  // whatever the live overall build is. On this combined branch (loaded-contract/lineup
-  // compliance, PR #1135, + the cap-overage acknowledgment ruling; then the loaded-contract
-  // CONDITIONAL-DROP builder popup, Keith's ruling 2026-09-29) BOTH files genuinely changed
-  // again together, landing on the same stamp (2026.09.29.1). Then, staged 2-way trades
-  // (2026-09-29, worker/src/trade_2way.js) genuinely changed views/trade.js AGAIN (the new
-  // #league/trade/2s/<id> route, list/detail/accept/cancel/recheck/select-drops, the pre-send
-  // popup, and then the controlled cutover switch's automatic Send-flow fallback) while
-  // site/shared/trade_3way_view.js itself was NOT touched again -- so the two legitimately
-  // diverge (2026.09.29.3 vs .1). Then, 2026-09-30 (the recipient-side loaded-contract
-  // create-time gap + the mobile silent-failure fix, then the mobile Counter staging-fallback
-  // fix), views/trade.js changed AGAIN and bumped to 2026.09.30.1 -- shared/trade_3way_view.js
-  // still untouched since 2026.09.29.1. That's the "two files diverging in general is expected,
-  // not a bug" case this comment already named; this assertion tracks the CURRENT true pairing,
-  // not a fixed pin -- update it again whenever either file's own real content changes and
-  // bumps its stamp.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.09.29.1", "2026.09.30.1"],
+  // whatever the live overall build is -- the two diverging over time is expected, not a bug
+  // (see git history for the earlier .29/.30 divergence this comment used to document). On
+  // 2026-10-01, the loaded-contract conditional-drop PICKER was replaced with a hard block
+  // (Keith's ruling, REPLACING the 2026-09-29 picker ruling) -- BOTH files genuinely changed
+  // together, landing them on the same stamp (2026.10.01.1). Then, later the SAME day, the
+  // Staged Trades UI was removed from the normal owner experience entirely -- that touched
+  // views/trade.js AGAIN (2026.10.01.2) but NOT site/shared/trade_3way_view.js (generic,
+  // no staged-specific markup of its own -- see that file's own removal-era comments), so the
+  // two diverge again. This assertion tracks the CURRENT true pairing, not a fixed pin --
+  // update it again whenever either file's own real content changes and bumps its stamp.
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.01.2"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
-  t.ok(v.split(".").map(Number).join(".") >= "2026.9.25.2" && v.split(".").length === 4, "the build did not go backwards from the accepted 2026.09.25.2");
+  // Numeric, component-by-component comparison -- a lexicographic string compare (the
+  // original form of this check) silently breaks the first time a month or day rolls from a
+  // single digit to double digits (e.g. "2026.10.01.1" < "2026.9.25.2" as STRINGS, since "1"
+  // sorts before "9"), which is exactly what happened crossing from September into October.
+  const vParts = v.split(".").map(Number);
+  const floorParts = [2026, 9, 25, 2];
+  let notBackwards = false;
+  for (let i = 0; i < 4; i++) {
+    if (vParts[i] > floorParts[i]) { notBackwards = true; break; }
+    if (vParts[i] < floorParts[i]) { notBackwards = false; break; }
+    notBackwards = true; // equal so far; keep checking remaining components
+  }
+  t.ok(vParts.length === 4 && notBackwards, "the build did not go backwards from the accepted 2026.09.25.2");
   const html = read("site/trades/trade_workbench.html");
   t.equal((html.match(/trade_workbench\.js\?v=(\w+)/) || [])[1], (html.match(/trade_3way_view\.js\?v=(\w+)/) || [])[1], "desktop shared-view and workbench stamps agree");
 });

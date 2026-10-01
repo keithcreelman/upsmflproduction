@@ -642,12 +642,10 @@
       '<textarea class="ups-m-tb-comment" id="ups-m-tb-comment" rows="2" maxlength="2000" placeholder="Optional message to ' + U.escapeHtml(franchiseName(theirFid)) + '…">' + U.escapeHtml(builderState.comment) + '</textarea>' +
       (builderState.error ? '<div class="ups-m-rstr-err">' + U.escapeHtml(builderState.error) + '</div>' : '') +
       '<div class="ups-m-tb-warn">Submitting creates a real pending offer in MFL (' + U.escapeHtml(franchiseName(theirFid)) + ' can accept it). You can cancel it from the offers list.</div>' +
-      (!builderState.counterMode ? '<div class="ups-m-tb-warn" style="border-color:var(--warn,#f4c369);color:var(--warn,#f4c369)">Or stage it instead: held server-side for ' + U.escapeHtml(franchiseName(theirFid)) + ' to review and accept, never sent to MFL until it clears the loaded-contract, cap, and lineup checks.</div>' : '') +
       '<div class="ups-m-tb-nav">' +
         '<button class="btn-act" id="ups-m-tb-back"' + (builderState.submitting ? ' disabled' : '') + '>Back</button>' +
         '<button class="btn-act otb on" id="ups-m-tb-submit"' + (canSubmit && !builderState.submitting ? '' : ' disabled') + '>' +
           (builderState.submitting ? "Submitting…" : (builderState.counterMode ? "Send counter" : "Send offer")) + '</button>' +
-        (!builderState.counterMode ? '<button class="btn-act" id="ups-m-tb-stage"' + (canSubmit && !builderState.submitting ? '' : ' disabled') + '>' + (builderState.submitting ? "Working…" : "Stage via War Room") + '</button>' : '') +
       '</div>';
     var c = document.getElementById("ups-m-tb-comment");
     if (c) c.addEventListener("input", function () { builderState.comment = this.value; });
@@ -669,11 +667,6 @@
     if (submit) submit.addEventListener("click", function () {
       if (!canSubmit || builderState.submitting) return;
       submitOffer();
-    });
-    var stage = document.getElementById("ups-m-tb-stage");
-    if (stage) stage.addEventListener("click", function () {
-      if (!canSubmit || builderState.submitting) return;
-      submitStagedOffer();
     });
   }
 
@@ -2275,9 +2268,10 @@
   }
 
   function render(mount, parts) {
-    // #league/trade/2s/<id> — a single staged 2-way trade, deep-linkable and refresh-safe.
-    if (parts && parts[0] === "2s" && parts[1]) return renderStaged2WayDetail(mount, parts[1]);
-    if (tw2s.lastRoute === "detail") { tw2s.lastRoute = "list"; tw2s.listStatus = "idle"; }
+    // Staged Trades removed from the normal UI, Keith's ruling 2026-10-01 -- see
+    // trade_workbench.html's matching removal comment on desktop. A stale #league/trade/2s/<id>
+    // link (old bookmark, old chat link) now just falls through to the normal trade list below,
+    // same as any other unrecognized route, rather than opening a staged-trade detail.
     // #league/trade/3w/<id> — a single 3-way trade, deep-linkable and refresh-safe.
     if (parts && parts[0] === "3w" && parts[1]) return renderThreeWayDetail(mount, parts[1]);
     // Back on the list: any earlier detail is stale by definition; refetch the outbox.
@@ -2290,9 +2284,6 @@
     // it re-renders when done so the outbox section appears.
     if (tw.listStatus === "idle") {
       loadThreeWays().then(function () { M.route.renderRoute(); });
-    }
-    if (tw2s.listStatus === "idle") {
-      loadStaged2Way().then(function () { M.route.renderRoute(); });
     }
     if (M.state.tradeOffers) {
       state.offers = M.state.tradeOffers;
@@ -2348,8 +2339,8 @@
     // Active 3-way trades the viewer is part of (initiator or partner).
     html += renderThreeWaySection();
 
-    // Active staged 2-way trades (held server-side, awaiting review).
-    html += renderStaged2WaySection();
+    // Staged Trades section removed from the normal UI, Keith's ruling 2026-10-01 -- see
+    // trade_workbench.html's matching removal comment on desktop.
 
     html += '<div class="ups-m-pos-group" style="margin-top:18px">Incoming · ' + incoming.length + '</div>';
     html += renderOffersList(incoming, "incoming");
