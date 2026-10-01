@@ -5857,6 +5857,16 @@
   function offerComplianceSignature(payload) {
     var teams = (payload && payload.teams) || [];
     if (teams.length !== 2 || !teams[0].franchise_id || !teams[1].franchise_id) return "";
+    // Keith's ruling, 2026-10-02 (second pass): an EMPTY draft -- a partner picked but
+    // nothing selected on either side yet -- was still producing a non-empty signature
+    // (sideSig doesn't require any tokens), so this fired a real compliance-preview call
+    // before there was anything to check. The server itself requires movements to be
+    // non-empty (worker/src/index.js's compliance-preview route 400s otherwise), so an
+    // empty composition would always come back non-"ok" -- which read as "unavailable"
+    // and showed "Cannot verify loaded-contract limit" on a blank page. Mirror the
+    // server's own precondition exactly: nothing to send on EITHER side means nothing to
+    // check yet, full stop.
+    if (!tw2sMovementsFromPayload(payload).length) return "";
     function sideSig(t) {
       var tokens = (t.selected_assets || []).map(tw2sAssetToken).filter(Boolean).sort();
       return safeStr(t.franchise_id) + ":" + tokens.join(",") + ":" + safeInt(t.traded_salary_adjustment_k, 0);
@@ -6676,31 +6686,42 @@
   function renderOfferAlerts(payload) {
     if (!els.offerAlerts) return;
     els.offerAlerts.innerHTML = "";
-    var alerts = [];
     var i;
-    // The live loaded-contract result -- shown here, in the Offer Review panel itself, before
-    // the owner ever clicks Send (Keith's ruling, 2026-10-02). Exact wording Keith specified:
-    // "{Team}: N loaded contracts; maximum M. Revise the trade or make a separate roster move
-    // first." One line per over-limit team, built from the server's own violations array (the
-    // SAME authoritative classifier/roster snapshot the create/accept gate uses).
-    if (state.offerCompliance.status === "blocked" && state.offerCompliance.loadedContracts) {
+    var entries = []; // { text, bad }
+    // Keith's ruling, 2026-10-02 (second pass): "before there is a meaningful offer" --
+    // nothing selected on either side -- showing "Cannot verify loaded-contract limit" on
+    // a blank page read as a network error on an empty draft. Mirrors the same
+    // tw2sMovementsFromPayload() check offerComplianceSignature uses to decide whether the
+    // live check even ran; when it's empty, nothing from the compliance machinery below is
+    // consulted at all, and the structural-issues fallback never gets a chance to bury this
+    // under granular "no assets selected" bullets either.
+    if (!tw2sMovementsFromPayload(payload).length) {
+      entries.push({ text: "Add assets to build an offer.", bad: false });
+    } else if (state.offerCompliance.status === "blocked" && state.offerCompliance.loadedContracts) {
+      // The live loaded-contract result -- shown here, in the Offer Review panel itself,
+      // before the owner ever clicks Send. Exact wording Keith specified: "{Team}: N loaded
+      // contracts; maximum M. Revise the trade or make a separate roster move first." One
+      // line per over-limit team, built from the server's own violations array (the SAME
+      // authoritative classifier/roster snapshot the create/accept gate uses).
       var violations = state.offerCompliance.loadedContracts.violations || [];
       for (i = 0; i < violations.length; i += 1) {
         var v = violations[i];
-        alerts.push(safeStr(v.franchise_name || v.franchise_id) + ": " + safeInt(v.projected, 0) + " loaded contracts; maximum " + safeInt(v.max, 5) + ". Revise the trade or make a separate roster move first.");
+        entries.push({ text: safeStr(v.franchise_name || v.franchise_id) + ": " + safeInt(v.projected, 0) + " loaded contracts; maximum " + safeInt(v.max, 5) + ". Revise the trade or make a separate roster move first.", bad: true });
       }
-      if (!violations.length) alerts.push("This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first.");
+      if (!violations.length) entries.push({ text: "This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first.", bad: true });
     } else if (state.offerCompliance.status === "unavailable") {
-      alerts.push("Cannot verify loaded-contract limit. Try again in a moment.");
+      entries.push({ text: "Cannot verify loaded-contract limit. Try again in a moment.", bad: true });
+    } else if (state.offerCompliance.status === "loading") {
+      entries.push({ text: "Checking the loaded-contract limit…", bad: false });
     }
-    for (i = 0; i < alerts.length; i += 1) {
+    for (i = 0; i < entries.length; i += 1) {
       var alert = document.createElement("div");
-      alert.className = "twb-offer-alert twb-offer-alert-bad";
-      alert.textContent = alerts[i];
+      alert.className = "twb-offer-alert" + (entries[i].bad ? " twb-offer-alert-bad" : "");
+      alert.textContent = entries[i].text;
       els.offerAlerts.appendChild(alert);
     }
 
-    if (!alerts.length && payload.validation && Array.isArray(payload.validation.issues) && payload.validation.issues.length) {
+    if (!entries.length && payload.validation && Array.isArray(payload.validation.issues) && payload.validation.issues.length) {
       for (i = 0; i < payload.validation.issues.length && i < 2; i += 1) {
         var note = document.createElement("div");
         note.className = "twb-offer-alert";

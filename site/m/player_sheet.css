@@ -255,6 +255,19 @@
   border-color: var(--teal);
   color: var(--teal);
 }
+/* Keith's ruling, 2026-10-02 (second pass): "Submit Offer still looks enabled" -- the trade
+   review step's Send button always carries .otb.on (3 classes), which outranks the plain
+   .btn-act[disabled] rule above (1 class + 1 attribute) on specificity, so a genuinely
+   disabled Send button kept its bright teal look under the dimming. Matches .btn-act[disabled]
+   exactly, at matching specificity. */
+.btn-act.otb.on.disabled,
+.btn-act.otb.on[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--fg-muted);
+}
 .btn-act.drop { border-color: rgba(255, 107, 107, 0.45); color: var(--danger); }
 /* ERA forced-retention note — replaces the Drop button for a player won in the
    current Expired Rookie Auction (§A3) until the FA Auction closes. */

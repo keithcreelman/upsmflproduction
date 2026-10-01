@@ -289,6 +289,21 @@ summary:focus-visible {
   transform: translateY(-1px);
 }
 
+/* Keith's ruling, 2026-10-02 (second pass): "Submit Offer still looks enabled" on an
+   empty/blocked draft -- the button WAS functionally disabled (getPrimarySubmitIntent's
+   own disabled flag was already correct), but .twb-btn's unconditional cursor: pointer
+   and .twb-btn-primary's full-strength gradient gave zero visual signal either way. */
+.twb-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+
+.twb-btn:disabled:hover {
+  transform: none;
+}
+
 .twb-btn-primary {
   background: linear-gradient(180deg, #ee4f1f, #c83607);
   color: white;

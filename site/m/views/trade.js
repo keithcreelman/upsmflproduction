@@ -636,11 +636,16 @@
     var structurallyReady = !!((give.length || myCapK > 0) && (get.length || theirCapK > 0));
     // LIVE loaded-contract check (Keith's ruling, 2026-10-02) -- fires off the real
     // compliance-preview call when the composition changes; re-renders this step once it lands.
+    // Second pass, same date: an EMPTY draft (nothing on either side yet) must never call
+    // compliance-preview or show its result -- builderComplianceSignature already returns ""
+    // in that case (no fetch fires at all), and isEmpty here swaps in one neutral nudge
+    // instead of leaving the slot blank.
     var payload = buildOfferPayload();
     refreshBuilderComplianceIfNeeded(payload);
     var cs = builderState.compliance;
+    var isEmpty = !tw2sMovementsFromPayload(payload).length;
     var canSubmit = structurallyReady && cs.status === "ok";
-    var complianceHtml = structurallyReady ? builderComplianceAlertHtml(cs) : "";
+    var complianceHtml = isEmpty ? '<div class="ups-m-tb-warn">Add assets to build an offer.</div>' : (structurallyReady ? builderComplianceAlertHtml(cs) : "");
     body.innerHTML =
       '<div class="ups-m-tb-steptitle">Review offer</div>' +
       '<div class="ups-m-tb-review">' +
@@ -775,6 +780,13 @@
   function builderComplianceSignature(payload) {
     var teams = (payload && payload.teams) || [];
     if (teams.length !== 2 || !teams[0].franchise_id || !teams[1].franchise_id) return "";
+    // Keith's ruling, 2026-10-02 (second pass): an EMPTY draft -- a partner picked but
+    // nothing selected on either side yet -- was still producing a non-empty signature, so
+    // this fired a real compliance-preview call before there was anything to check. The
+    // server requires movements to be non-empty, so an empty composition always came back
+    // non-"ok" -- which read as "unavailable" and showed "Cannot verify loaded-contract
+    // limit" on a blank review step. Mirrors desktop's offerComplianceSignature exactly.
+    if (!tw2sMovementsFromPayload(payload).length) return "";
     function sideSig(t) {
       var tokens = (t.selected_assets || []).map(tw2sAssetToken).filter(Boolean).sort();
       return U.safeStr(t.franchise_id) + ":" + tokens.join(",") + ":" + U.safeInt(t.traded_salary_adjustment_k, 0);
