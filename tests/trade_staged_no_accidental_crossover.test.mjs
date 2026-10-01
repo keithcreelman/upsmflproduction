@@ -36,13 +36,13 @@ function sliceByAnchors(lines, startLineText, startLineNum, endLineText, endLine
 }
 
 test("DESKTOP: submitStagedOfferToQueue's own body never references the direct-MFL endpoint family, and never calls submitOfferToQueue/submitTradeCreateWithGates", () => {
-  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8537, "function init2WayStagedTrade()", 8580);
+  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8538, "function init3WayTrade()", 8581);
   t.doesNotMatch(body, /resolveTradeOffersApiUrl|\/trade-offers|submitTradeCreateWithGates\(|submitOfferToQueue\(/);
   t.match(body, /tw2sUrl\(/, "it must go through the staged 2-way URL builder");
 });
 
 test("DESKTOP: submitOfferToQueue's own body never references the staged endpoint family, and never calls submitStagedOfferToQueue", () => {
-  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4270, "async function retryLastSubmitRequest()", 4416);
+  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4271, "async function retryLastSubmitRequest()", 4417);
   t.doesNotMatch(body, /resolveStaged2WayApiUrl|\/api\/trades\/2way|submitStagedOfferToQueue\(/);
 });
 
@@ -53,29 +53,31 @@ test("DESKTOP: the staged URL builder resolves to the staged endpoint (it legiti
 });
 
 test("MOBILE: submitStagedOffer's own body never references the direct-MFL proposals endpoint, and never calls submitOffer/submitTradeCreateWithGatesMobile", () => {
-  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2239, "function render(mount, parts)", 2277);
+  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2232, "function render(mount, parts)", 2270);
   t.doesNotMatch(body, /\/api\/trades\/proposals|submitTradeCreateWithGatesMobile\(|[^d]submitOffer\(/);
   t.match(body, /\/api\/trades\/2way/, "it must post to the staged endpoint");
 });
 
 test("MOBILE: submitOffer's own body never references the staged endpoint, and never calls submitStagedOffer", () => {
-  const body = sliceByAnchors(mobileLines, "function submitOffer()", 1000, "function mflActionVerb(action)", 1089);
+  const body = sliceByAnchors(mobileLines, "function submitOffer()", 993, "function mflActionVerb(action)", 1082);
   t.doesNotMatch(body, /\/api\/trades\/2way(?!-)|submitStagedOffer\(/);
 });
 
-// Both surfaces expose the two as genuinely separate UI entry points (a button each), never
-// one button whose behavior is chosen by a runtime flag -- the "no shared decision point"
-// property that makes accidental crossover structurally impossible, not just untested.
-test("DESKTOP: the new Stage button is its own distinct DOM element, directly and unconditionally wired to submitStagedOfferToQueue -- not a branch inside the existing Submit button's own (pre-existing, intent-based) click dispatch", () => {
-  t.match(DESK, /var stageBtn = document\.getElementById\("twbStageOfferBtn"\);\s*\n\s*if \(stageBtn[^)]*\) \{ stageBtn\.__tw2sWired = true; stageBtn\.addEventListener\("click", submitStagedOfferToQueue\); \}/);
-  // The existing Submit button's own id string never appears inside that new wiring block,
-  // and vice versa -- two independent listeners, not one shared handler branching on state.
-  t.doesNotMatch(DESK, /getElementById\("twbSubmitOfferBtn"\)[\s\S]{0,120}submitStagedOfferToQueue/);
-  t.doesNotMatch(DESK, /getElementById\("twbStageOfferBtn"\)[\s\S]{0,300}(?<!Staged)submitOfferToQueue\(\)/);
+// RULING (Keith, 2026-10-01): "That is not the experience I requested... this section should
+// not appear to owners." The Stage button/dropdown/detail panel are REMOVED from the normal
+// UI (site/trades/trade_workbench.html, site/m/views/trade.js) -- submitStagedOfferToQueue/
+// submitStagedOffer and the staged list/detail render functions above still exist (the D1
+// engine itself is untouched, per Keith's own instruction to keep it, not delete it), but
+// nothing in the normal page wires a click to them anymore. See
+// tests/trade_staged_ui_hidden_from_owners.test.mjs for the dedicated "cannot regress" coverage
+// of this (asserts against the REAL rendered page output, not just source-level absence).
+test("DESKTOP: no 'Stage via War Room' button exists anywhere in the page source, and submitStagedOfferToQueue is wired to nothing", () => {
+  t.doesNotMatch(DESK, /twbStageOfferBtn/, "the button's own id string is gone, not just unwired");
+  t.doesNotMatch(DESK, /addEventListener\("click",\s*submitStagedOfferToQueue\)/, "nothing attaches a click listener to it");
 });
-test("MOBILE: two distinct buttons wired to the two distinct functions", () => {
-  t.match(MOBILE, /ups-m-tb-submit"\)[\s\S]{0,200}submitOffer\(\)/);
-  t.match(MOBILE, /ups-m-tb-stage"\)[\s\S]{0,200}submitStagedOffer\(\)/);
+test("MOBILE: no 'Stage via War Room' button exists anywhere in the page source, and submitStagedOffer is wired to nothing", () => {
+  t.doesNotMatch(MOBILE, /ups-m-tb-stage/, "the button's own id string is gone, not just unwired");
+  t.doesNotMatch(MOBILE, /addEventListener\("click",\s*function\s*\(\)\s*\{[^}]*submitStagedOffer\(\);/, "nothing attaches a click listener to it");
 });
 
 await run("trade_staged_no_accidental_crossover");

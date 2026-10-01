@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.01.1",
-  "label": "Trade War Room: the loaded-contract limit is now a hard stop. A trade that would leave either team with more than 5 loaded contracts (including IR) is refused before anything is sent -- no picker, no staged-trade workaround. Revise the offer or make a separate roster move first."
+  "build": "2026.10.01.2",
+  "label": "Trade War Room: the Staged Trades section is gone from the normal trade view -- no list, no 'Stage via War Room' button, no staged-trade detail. You get the normal trade flow with a hard loaded-contract block: a trade that would leave either team over 5 loaded contracts (including IR) is refused before anything is sent."
 }

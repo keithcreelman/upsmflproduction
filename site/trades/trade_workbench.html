@@ -2416,12 +2416,10 @@ summary:focus-visible {
           </summary>
           <div id="twb3wList" class="twb-banner-offers-list"></div>
         </details>
-        <details class="twb-banner-offers" id="twb2sDropdown">
-          <summary class="twb-banner-offers-summary">
-            Staged Trades <span id="twb2sCount" class="twb-banner-offers-count">0</span>
-          </summary>
-          <div id="twb2sList" class="twb-banner-offers-list"></div>
-        </details>
+        <!-- The staged-2-way dropdown (worker/src/trade_2way.js) is removed from the normal
+             UI, Keith's ruling 2026-10-01: owners get the normal trade flow with a hard
+             loaded-contract block, never a staging choice. The engine and its D1 table are
+             untouched. -->
       </div>
     </header>
 
@@ -2526,7 +2524,6 @@ summary:focus-visible {
           </label>
           <div class="twb-offers-submit-row">
             <button type="button" id="twbSubmitOfferBtn" class="twb-btn twb-btn-primary">Submit Offer</button>
-            <button type="button" id="twbStageOfferBtn" class="twb-btn twb-btn-ghost" title="Hold this offer server-side for the other owner to review and accept, instead of sending it to MFL directly">Stage via War Room</button>
             <button type="button" id="twbSubmitRetryBtn" class="twb-btn twb-btn-ghost" hidden>Try Again</button>
           </div>
           <div id="twbSubmitSecondaryRow" class="twb-offers-submit-row twb-offers-submit-row-secondary" hidden>
@@ -2564,16 +2561,8 @@ summary:focus-visible {
       <div class="twb-3w-body" id="twb3wDetailBody"></div>
     </section>
 
-    <section id="twb2sDetailPanel" class="twb-3w-panel" aria-label="Staged trade details" hidden>
-      <header class="twb-3w-head">
-        <div class="twb-3w-head-copy">
-          <h2 id="twb2sDetailTitle">Staged Trade</h2>
-          <p class="twb-3w-sub">Held server-side &mdash; never proposed to MFL until it clears every check.</p>
-        </div>
-        <button type="button" class="twb-3w-close" id="twb2sDetailCloseBtn" aria-label="Close staged trade details">&times;</button>
-      </header>
-      <div class="twb-3w-body" id="twb2sDetailBody"></div>
-    </section>
+    <!-- Staged trade detail panel (#twb2sDetailPanel) removed from the normal UI, Keith's
+         ruling 2026-10-01 -- see the header dropdown's removal comment above. -->
 
     <button type="button" id="twbOfferCartMobileTray" class="twb-offer-cart-mobile-tray" hidden>
       Review Offer
@@ -2678,7 +2667,7 @@ summary:focus-visible {
     </form>
   </dialog>
 
-  <script src="../shared/trade_3way_view.js?v=20261001a"></script>
-  <script src="./trade_workbench.js?v=20261001a" defer></script>
+  <script src="../shared/trade_3way_view.js?v=20261001b"></script>
+  <script src="./trade_workbench.js?v=20261001b" defer></script>
 </body>
 </html>
