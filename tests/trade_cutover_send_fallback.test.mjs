@@ -59,9 +59,9 @@ function sliceByAnchors(lines, startText, startLine, endText, endLine) {
 // ══════════════════════ harness: the REAL desktop cutover-fallback functions ══════════════════════
 function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const lines = DESK_SRC.split("\n");
-  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3940, "async function replayOutbox(criteria)", 3974);
-  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4291, "async function submitOfferToQueue()", 4364);
-  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8268, "var tw2s = { listStatus:", 8296);
+  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3906, "async function replayOutbox(criteria)", 3940);
+  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4197, "async function submitOfferToQueue()", 4270);
+  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8137, "var tw2s = { listStatus:", 8165);
   const code = fjr + "\n" + gates + "\n" + movs;
   const bridge = bridgeFetch(env);
   const resolveStaged2WayApiUrl = () => `https://worker.test/api/trades/2way?MFL_USER_ID=${token}&L=74598&YEAR=2026`;
@@ -71,15 +71,15 @@ function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   // Never actually exercised in these scenarios (no create-time 409 for loaded-contract/cap on
   // the legacy path in this test's fixtures) -- present only so the real gates code parses and
   // runs; their own correctness is covered by tests/trade_loaded_contract_clients.test.mjs.
-  const confirmOfferLoadedContractDrops = async () => null;
+  const showLoadedContractBlock = async () => null;
   const confirmOfferCapOverage = async () => null;
   const previewCalls = [];
-  const tw2sRunPreSendPreview = async (fromFid, movements, extReqs) => { previewCalls.push({ fromFid, movements, extReqs }); return previewResult || { proceed: true, drops: [] }; };
+  const tw2sRunPreSendPreview = async (fromFid, movements, extReqs) => { previewCalls.push({ fromFid, movements, extReqs }); return previewResult || { proceed: true }; };
   const tw2sUrl = (suffix) => resolveStaged2WayApiUrl() + suffix;
   const tw2sFetch = (url, init) => bridge(url, init).then((r) => r.text().then((txt) => { let body = null; try { body = txt ? JSON.parse(txt) : null; } catch (e) {} return { status: r.status, ok: r.ok, body }; })).catch(() => ({ networkError: true }));
-  const factory = new Function("fetch", "pad4", "safeStr", "safeInt", "confirmOfferLoadedContractDrops", "confirmOfferCapOverage", "tw2sRunPreSendPreview", "tw2sUrl", "tw2sFetch",
+  const factory = new Function("fetch", "pad4", "safeStr", "safeInt", "showLoadedContractBlock", "confirmOfferCapOverage", "tw2sRunPreSendPreview", "tw2sUrl", "tw2sFetch",
     code + "\nreturn { submitTradeCreateWithGates, submitViaStagingFallback };");
-  const api = factory(bridge, pad4, safeStr, safeInt, confirmOfferLoadedContractDrops, confirmOfferCapOverage, tw2sRunPreSendPreview, tw2sUrl, tw2sFetch);
+  const api = factory(bridge, pad4, safeStr, safeInt, showLoadedContractBlock, confirmOfferCapOverage, tw2sRunPreSendPreview, tw2sUrl, tw2sFetch);
   return { api, calls: bridge.calls, previewCalls };
 }
 
@@ -91,24 +91,24 @@ function loadMobileFallback(env, { token, fid, previewResult } = {}) {
   // submitOffer -- the counter path's own cutover fallback, same shape as this file already
   // covers for CREATE. Harmless to include in this slice: hoisted function declarations this
   // test never calls.
-  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 916, "function submitOffer()", 1064);
+  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 861, "function submitOffer()", 1000);
   const code = gates;
   const bridge = bridgeFetch(env);
   const U = { pad4: (v) => { const d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }, safeInt: (v, d) => { const n = parseInt(v, 10); return isFinite(n) ? n : (d == null ? 0 : d); } };
   const M = { state: { ctx: { leagueId: "74598", year: "2026" } }, api: { workerUrl: (p) => "https://worker.test" + p, getStoredMflUserId: () => token } };
-  const openCreateLoadedContractDropsSheet = async () => null;
+  const showLoadedContractBlockSheet = async () => null;
   const openCreateCapAckSheet = async () => null;
   const previewCalls = [];
-  const runPreSendPreview = async (fromFid, movements, extReqs) => { previewCalls.push({ fromFid, movements, extReqs }); return previewResult || { proceed: true, drops: [] }; };
+  const runPreSendPreview = async (fromFid, movements, extReqs) => { previewCalls.push({ fromFid, movements, extReqs }); return previewResult || { proceed: true }; };
   const tw2sFetch = (url, init) => bridge(url, init).then((r) => r.text().then((txt) => { let body = null; try { body = txt ? JSON.parse(txt) : null; } catch (e) {} return { status: r.status, ok: r.ok, body }; })).catch(() => ({ networkError: true }));
   // tw2sMovementsFromPayload (mobile's own copy) needed by submitViaStagingFallbackMobile -- a
   // small, separately-defined mirror of desktop's; extract it too, same technique.
   const movStart = MOBILE_SRC.indexOf("  function tw2sAssetToken(a) {");
   const movEnd = MOBILE_SRC.indexOf("  function submitStagedOffer()");
   const movCode = MOBILE_SRC.slice(movStart, movEnd);
-  const factory = new Function("fetch", "U", "M", "openCreateLoadedContractDropsSheet", "openCreateCapAckSheet", "runPreSendPreview", "tw2sFetch",
+  const factory = new Function("fetch", "U", "M", "showLoadedContractBlockSheet", "openCreateCapAckSheet", "runPreSendPreview", "tw2sFetch",
     movCode + "\n" + code + "\nreturn { submitTradeCreateWithGatesMobile };");
-  const api = factory(bridge, U, M, openCreateLoadedContractDropsSheet, openCreateCapAckSheet, runPreSendPreview, tw2sFetch);
+  const api = factory(bridge, U, M, showLoadedContractBlockSheet, openCreateCapAckSheet, runPreSendPreview, tw2sFetch);
   return { api, calls: bridge.calls, previewCalls };
 }
 

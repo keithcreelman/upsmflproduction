@@ -246,82 +246,12 @@
     return h + '</div>';
   };
 
-  // ── loaded-contract CONDITIONAL DROPS (Keith's ruling, 2026-09-29, the fix for the Hammer
-  // Times gap: building/reviewing an offer as the sender showed NO warning at all). A franchise
-  // projected over the 5-loaded-contract limit may still trade once its OWN owner has selected
-  // enough of ITS OWN loaded-contract players to drop. `dropReqs` is `loaded_contracts.drop_
-  // requirements` from the server's compliance object -- ALWAYS present for every over-limit
-  // franchise, whether or not anyone has picked anything yet, so "who still owes a pick" is
-  // always visible to every viewer, not just the affected owner.
-  //   opts.viewerFid      whose own picker (if any) is interactive
-  //   opts.playerNames    { player_id -> {name, position} } -- the CALLER's own roster/player
-  //                       data; this module has none of its own and never re-derives loaded-
-  //                       contract classification client-side (that reasoning -- a schedule-based
-  //                       BL can look flat by suffix alone -- is exactly the Hammer Times gap).
-  //   opts.selections     { franchise_id -> Set/array of currently-checked-but-not-yet-submitted
-  //                       player ids } -- lets a picker keep the owner's in-progress checks across
-  //                       re-renders (e.g. while other UI state updates) without losing them.
-  //   opts.dropBusy / opts.dropMessage / opts.dropOk   the same busy/status pattern as cap-ack.
-  //   opts.interactive     false -> render the summary + already-selected list only, no checkboxes
-  //                       or confirm button (the offer-DETAIL view: everyone sees the requirement
-  //                       and what's picked, but only the picker context is where a pick is made).
-  function dropCandidateLabel(pid, playerNames) {
-    var nm = playerNames && playerNames[pid];
-    if (!nm) return "Player " + pid;
-    return str(nm.name || ("Player " + pid)) + (nm.position ? " · " + str(nm.position) : "");
-  }
-  function dropRow(f, viewerFid, opts) {
-    var mine = !!viewerFid && f.franchise_id === viewerFid;
-    var badge = f.satisfied ? '<span class="t3w-ack-badge t3w-ack-badge-ok">Selected</span>'
-      : mine ? '<span class="t3w-ack-badge t3w-ack-badge-you">Needs your pick</span>'
-      : '<span class="t3w-ack-badge t3w-ack-badge-wait">Waiting on ' + esc(f.franchise_name || f.franchise_id) + '</span>';
-    var validSelected = (f.selected || []).filter(function (x) { return x.valid; }).map(function (x) { return x.player_id; });
-    var h = '<li class="t3w-ack-row t3w-drop-row"><span class="t3w-cr-name">' + esc(f.franchise_name || f.franchise_id) + '</span>' +
-      '<span class="t3w-cr-num">' + esc(f.loaded_before) + ' → ' + esc(f.projected) + '</span>' +
-      '<span class="t3w-cr-flag">' + esc(f.required_drops) + ' drop' + (f.required_drops === 1 ? "" : "s") + ' required</span>' + badge;
-    if (validSelected.length) {
-      h += '<p class="t3w-small">Selected: ' + validSelected.map(function (pid) { return esc(dropCandidateLabel(pid, opts.playerNames)); }).join(", ") + '</p>';
-    }
-    if (mine && opts.interactive !== false) {
-      var cands = f.candidates || [];
-      var checkedSet = (opts.selections && opts.selections[f.franchise_id]) || null;
-      if (cands.length) {
-        var boxes = cands.map(function (pid) {
-          var checked = checkedSet ? (checkedSet.indexOf ? checkedSet.indexOf(pid) !== -1 : !!checkedSet[pid]) : validSelected.indexOf(pid) !== -1;
-          return '<label class="t3w-drop-cand"><input type="checkbox" data-t3w-drop-fid="' + esc(f.franchise_id) + '" data-t3w-drop-pid="' + esc(pid) + '"' +
-            (checked ? " checked" : "") + (opts.dropBusy ? " disabled" : "") + '/> ' + esc(dropCandidateLabel(pid, opts.playerNames)) + '</label>';
-        }).join("");
-        h += '<div class="t3w-drop-picker" data-t3w-drop-fid="' + esc(f.franchise_id) + '">' + boxes + '</div>' +
-          // Keith's ruling (2026-09-29): "show that limitation in the owner-facing consent
-          // copy." Updated same day for Keith's SEQUENCE ruling: required drops are confirmed
-          // BEFORE the trade is attempted, always (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md
-          // §2.2/§2.4.3b) -- never the reverse. That removes the "if the trade happens first"
-          // branch this copy used to show (drop-first is no longer one of two live
-          // possibilities), but does NOT remove the real risk on the other side: if this drop
-          // is confirmed and the trade THEN fails, restoration is a manual, non-atomic, never-
-          // guaranteed workaround (§2.4.3b's own "what can and cannot be restored" section),
-          // not a promise this copy may overstate. Shown here, before the confirm click,
-          // because the risk is real under the CURRENTLY DECIDED manual-review model (§2.4) --
-          // it does not wait on execution code being built.
-          '<p class="t3w-small">⚠️ If this trade needs your drop, the drop is confirmed FIRST, before the trade is ever attempted — so your roster never ends up over the 5-loaded-contract limit because of this deal. But if this drop is confirmed and the trade then fails for any reason, restoration is not guaranteed: the commissioner can attempt to get the player back only if nobody else has claimed them as a free agent in the meantime, and even then it is a manual, multi-step process, not automatic. Confirming this selection does not mean the drop has happened yet.</p>' +
-          '<button type="button" class="t3w-btn t3w-btn-primary t3w-drop-confirm" data-t3w-act="select-drops" data-t3w-drop-fid="' + esc(f.franchise_id) + '"' +
-          (opts.dropBusy ? " disabled" : "") + '>' + (opts.dropBusy ? "Saving…" : "Confirm drop selection") + '</button>';
-      } else {
-        h += '<p class="t3w-small">No eligible loaded-contract player was found on your roster to select — contact the commissioner.</p>';
-      }
-    }
-    return h + '</li>';
-  }
-  api.renderLoadedContractDrops = function (dropReqs, viewerFid, opts) {
-    opts = opts || {};
-    if (!Array.isArray(dropReqs) || !dropReqs.length) return "";
-    var rows = dropReqs.map(function (f) { return dropRow(f, viewerFid, opts); }).join("");
-    var allSatisfied = dropReqs.every(function (f) { return f.satisfied; });
-    var h = '<div class="t3w-ack t3w-drops" role="status"><b>' + (allSatisfied ? "Conditional drops selected" : "Conditional drops needed before this can go through") + '</b>' +
-      '<ul class="t3w-crows t3w-ack-list" aria-label="Conditional loaded-contract drops">' + rows + '</ul>';
-    if (opts.dropMessage) h += '<p class="t3w-status t3w-status-' + (opts.dropOk ? "ok" : "bad") + '" role="status" aria-live="polite">' + esc(opts.dropMessage) + '</p>';
-    return h + '</div>';
-  };
+  // RULING (Keith, 2026-10-01): "I do not want owners using... a conditional-drop picker...
+  // for this rule." The picker that used to live here (`renderLoadedContractDrops`/`dropRow`/
+  // `dropCandidateLabel` -- select-your-own-drop checkboxes, a confirm button, a POST to
+  // select-drops) is REMOVED, not merely unused: a franchise over the loaded-contract limit is
+  // a hard stop everywhere this module renders it (see renderCompliance's loaded_contracts
+  // section and renderBlock below) -- there is nothing to pick.
 
   api.renderCompliance = function (c, opts) {
     opts = opts || {};
@@ -361,14 +291,17 @@
     // only) still renders correctly without this section.
     var lc = c.loaded_contracts;
     if (lc) {
-      // "needs_drops" reads as an ALERT tier, not a calm status, whenever it isn\'t yet
-      // executable (today, always -- Keith\'s ruling, 2026-09-29: a valid selection is not an
-      // executed drop) -- a satisfied requirement that still can\'t go through must never look
-      // like a green light.
-      var lcHeld = lc.status === "needs_drops" && lc.executable !== true;
+      // RULING (Keith, 2026-10-01): replaces the conditional-drop picker -- a franchise over
+      // the limit is a hard stop shown here as a plain block, never an in-trade fix to offer.
+      // "needs_drops" is no longer reachable from any native create/counter/accept path (no
+      // caller passes a conditionalDrops selection anymore), but the STILL-LIVE staged-2way
+      // engine (worker/src/trade_2way.js, deliberately untouched -- its own UI removal is a
+      // separate follow-up release) can still produce it from a selection stored before this
+      // ruling, so it is held here as its own non-"unavailable" state, never conflated with a
+      // failed calculation.
+      var lcHeld = lc.status === "needs_drops";
       var lcTitle = lc.status === "blocked" ? "Can\'t be accepted \u2014 too many loaded contracts"
-        : lcHeld ? "Held \u2014 conditional-drop execution isn\'t available yet"
-        : lc.status === "needs_drops" ? "Loaded contracts \u2014 conditional on a drop"
+        : lcHeld ? "Held \u2014 can\'t be accepted yet"
         : lc.status === "ok" ? "Loaded contracts \u2014 every team stays at or under 5" : "Loaded contracts \u2014 couldn\'t be verified";
       var lcMsg = lc.status === "unavailable"
         ? "We couldn\'t verify the loaded-contract count for this trade right now." + (opts.gate ? " It can\'t be accepted until we can \u2014 try again in a moment." : "")
@@ -380,17 +313,9 @@
           (over ? '<span class="t3w-cr-flag">max ' + esc(lc.max || 5) + '</span>' : '<span class="t3w-cr-room">of ' + esc(lc.max || 5) + ' max</span>') + '</li>';
       }).join("");
       h = h.replace('data-t3w-roster="' + esc(ro.status) + '">', 'data-t3w-roster="' + esc(ro.status) + '" data-t3w-loaded-contracts="' + esc(lc.status) + '">');
-      h += '<div class="t3w-cap t3w-cap-' + esc(lcHeld ? "blocked" : lc.status === "needs_drops" ? "warn" : lc.status) + '" role="' + (lcHeld ? "alert" : (lc.status === "ok" || lc.status === "needs_drops") ? "status" : "alert") + '"><b>' + lcTitle + '</b>' +
+      h += '<div class="t3w-cap t3w-cap-' + esc(lcHeld ? "blocked" : lc.status) + '" role="' + (lc.status === "ok" ? "status" : "alert") + '"><b>' + lcTitle + '</b>' +
         (lcMsg ? '<p>' + esc(lcMsg) + '</p>' : '') + (lcRows ? '<ul class="t3w-crows" aria-label="Loaded contracts after the trade">' + lcRows + '</ul>' : '') +
-        // "Every party must see the drop requirement and selected players when viewing the
-        // offer" (Keith's ruling, 2026-09-29). Interactivity is NOT forced off here -- it
-        // follows the SAME rule cap-ack already uses one section up (api.renderCapAck): a
-        // picker only ever renders for a franchise matching `opts.viewerFid`, so renderDetail's
-        // own call (which passes no viewerFid at all) stays read-only naturally, while
-        // renderAcceptReview's call (which DOES pass the viewer's own fid) lets the affected
-        // owner pick their own drops right there in the accept-review dialog, exactly like it
-        // already lets them acknowledge a cap overage there.
-        ((lc.drop_requirements || []).length ? api.renderLoadedContractDrops(lc.drop_requirements, opts.viewerFid, opts) : '') +
+        (lc.status === "blocked" ? '<p class="t3w-small">Revise the offer, or make a separate roster move first, then try again.</p>' : '') +
         '</div>';
     }
     // ── lineup feasibility (ADVISORY, never blocks) — reuses the .t3w-rost visual tier,
@@ -475,26 +400,27 @@
     opts = opts || {};
     var b = ex.block || {};
     var isAck = b.kind === "cap_ack_required";
-    var isDrops = b.kind === "loaded_contract_drops_required";
+    // Two kind strings: 3-way (and every native path) now emits "loaded_contract_limit_exceeded"
+    // (Keith's ruling, 2026-10-01); the still-live staged-2way engine (worker/src/trade_2way.js,
+    // deliberately untouched -- its own UI removal is a separate follow-up release) still emits
+    // the older "loaded_contract_drops_required". Both render identically here -- a hard stop,
+    // no picker -- so neither is treated differently.
+    var isLoadedLimit = b.kind === "loaded_contract_limit_exceeded" || b.kind === "loaded_contract_drops_required";
     var rows = (b.violations || []).map(function (v) {
-      return '<li class="t3w-over"><span class="t3w-cr-name">' + esc(v.franchise_name || v.franchise_id) + '</span><span class="t3w-cr-flag">over by ' + esc(money(v.amount_over)) + '</span></li>';
+      return '<li class="t3w-over"><span class="t3w-cr-name">' + esc(v.franchise_name || v.franchise_id) + '</span><span class="t3w-cr-flag">' +
+        (isLoadedLimit ? esc(v.projected) + ' of ' + esc(v.max) + ' max' : 'over by ' + esc(money(v.amount_over))) + '</span></li>';
     }).join("");
-    var title = isAck ? "Waiting on an acknowledgment" : isDrops ? "Waiting on conditional drops" : "Waiting on the salary cap";
+    var title = isAck ? "Waiting on an acknowledgment" : isLoadedLimit ? "Over the loaded-contract limit" : "Waiting on the salary cap";
     var h = '<section class="t3w-comp" data-t3w-cap="blocked" data-t3w-block="1"><div class="t3w-cap t3w-cap-blocked" role="alert"><b>' + esc(title) + '</b>' +
       '<p>' + esc(b.message || "The salary cap can\'t be confirmed for this trade right now.") + '</p>' +
-      (rows && !b.cap_ack && !isDrops ? '<ul class="t3w-crows" aria-label="Teams over the salary cap">' + rows + '</ul>' : '') +
+      (rows && !b.cap_ack ? '<ul class="t3w-crows" aria-label="Teams over the limit">' + rows + '</ul>' : '') +
       (b.cap_ack ? api.renderCapAck(b.cap_ack, opts.viewerFid, opts) : '') +
-      // "Each affected franchise owner must select and confirm their own loaded-contract
-      // players to drop ... Apply this to each affected franchise in a three-way trade" (Keith's
-      // ruling, 2026-09-29). `b.drop_requirements` was folded onto this block fresh by
-      // get3WayTrade/enterBlockedCap (worker/src/trade_3way.js) so it reflects the CURRENT
-      // selection state, not a stale snapshot from whenever the block was first recorded.
-      (isDrops && (b.drop_requirements || []).length ? api.renderLoadedContractDrops(b.drop_requirements, opts.viewerFid, Object.assign({}, opts, {
-        interactive: true, dropBusy: opts.dropBusy, dropMessage: opts.dropMessage, dropOk: opts.dropOk,
-      })) : '') +
+      // RULING (Keith, 2026-10-01): a loaded-contract block is a hard stop -- no picker is
+      // offered here. The affected owner revises the deal or makes a separate roster move.
+      (isLoadedLimit ? '<p class="t3w-small">Revise the deal, or make a separate roster move first, then try again.</p>' : '') +
       '<p class="t3w-small">Everyone has already accepted and those accepts are saved. Nothing has moved.' +
       (isAck ? ' Once every affected team has acknowledged, use \u201cRe-check\u201d to run it.'
-        : isDrops ? ' Once every affected team has selected and confirmed its own drops, use \u201cRe-check\u201d to run it.'
+        : isLoadedLimit ? ' Once that\'s resolved, use \u201cRe-check\u201d to run it.'
         : ' The cap is worked out again from scratch each time you re-check, and the trade goes through as soon as it allows.') + '</p></div>';
     if (perms.can_recheck) {
       h += '<div class="t3w-btns"><button type="button" class="t3w-btn t3w-btn-primary" data-t3w-act="recheck"' + (rc.busy ? " disabled" : "") + '>' + (rc.busy ? "Checking\u2026" : "Re-check now") + '</button></div>';
