@@ -692,21 +692,30 @@ summary:focus-visible {
 }
 
 .twb-offer-cart-item-head {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  /* Keith's ruling, 2026-10-02: at the Trade War Room's default 3-column desktop
+     width, each offer-cart card is only ~200px wide -- a rigid grid (1fr auto)
+     forced the Remove button to keep its full width and squeezed the name/pick-name
+     column down to ~100px, wrapping "Chig Okonkwo" to "Chig"/"Okonkwo" and "2027
+     1st Round Pick" to four single-word lines. flex-wrap lets Remove drop to its
+     own line instead, once the name no longer fits beside it. */
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 0.3rem 0.5rem;
 }
 
 .twb-offer-cart-item-copy {
-  min-width: 0;
+  min-width: 140px;
+  flex: 1 1 140px;
 }
 
 .twb-offer-cart-item-name {
   font-size: 1.02rem;
   font-weight: 800;
   color: #0f172a;
-  min-width: 0;
+  min-width: 140px;
+  flex: 1 1 140px;
   word-break: break-word;
 }
 
@@ -717,6 +726,7 @@ summary:focus-visible {
 }
 
 .twb-offer-cart-item-remove {
+  flex: 0 0 auto;
   border: 1px solid #f0b4b4;
   background: #fff5f5;
   color: #7f1d1d;
@@ -738,9 +748,14 @@ summary:focus-visible {
 }
 
 .twb-offer-player-metric {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6rem;
+  /* Same narrow-card issue as .twb-offer-cart-item-head above: minmax(0, 1fr) let
+     the label shrink without limit while the auto value column kept its full
+     width, wrapping "Contract Type" to "Contract"/"Type" at ~200px card widths. */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
   border-bottom: 1px solid #e2e8f0;
   padding-bottom: 0.26rem;
 }
@@ -755,6 +770,8 @@ summary:focus-visible {
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  flex: 1 1 auto;
+  min-width: 90px;
 }
 
 .twb-offer-player-metric-value {
@@ -762,6 +779,7 @@ summary:focus-visible {
   font-size: 0.86rem;
   font-weight: 800;
   text-align: right;
+  flex: 0 0 auto;
 }
 
 .twb-offer-player-note {
