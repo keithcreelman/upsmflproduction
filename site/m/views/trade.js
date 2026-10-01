@@ -25,8 +25,7 @@
     listStatus: "idle", list: [], listProblem: null,           // idle | loading | ok | error
     wantConfirm: "", openSeq: 0,
     detailStatus: "idle", detail: null, detailProblem: null, detailId: "",
-    lastRoute: "list", cancel: {}, ack: {}, seq: 0,
-    drops: { selections: {} }   // { franchise_id -> [player_id,...] } -- LOCAL until "Confirm drop selection" submits it
+    lastRoute: "list", cancel: {}, ack: {}, seq: 0
   };
 
   function subTabs(active) {
@@ -806,111 +805,57 @@
     });
   }
 
-  // Resolve names/positions for a set of candidate player ids on ONE franchise's own roster,
-  // from data the builder already has loaded (builderState.inv) -- never guessed, never
-  // re-derived client-side (that reasoning -- a schedule-based BL can look flat by suffix alone
-  // -- is exactly the Hammer Times gap this whole feature exists to close).
-  function buildPlayerNamesForFid(fid, playerIds) {
-    var inv = builderState.inv[U.pad4(fid)] || { players: [] };
-    var byId = {};
-    (inv.players || []).forEach(function (p) { byId[String(p.player_id)] = p; });
-    var out = {};
-    (playerIds || []).forEach(function (pid) {
-      var p = byId[pid];
-      if (p) out[pid] = { name: p.display || ("Player " + pid), position: p.position || "" };
-    });
-    return out;
-  }
-
-  // The INITIATOR's own loaded-contract requirement, shown at offer CREATION (Keith's ruling,
-  // 2026-09-29 -- the fix for the Hammer Times gap: building/reviewing an offer as the sender
-  // showed no warning at all). `errData` is the 409 refusal's body ({error, compliance}) --
-  // `compliance.loaded_contracts.drop_requirements` carries this franchise's `candidates` menu
-  // (worker/src/trade_cap_authority.js). Resolves the selected player-id array once the owner
-  // has picked enough and confirmed, or null on cancel/close.
-  function openCreateLoadedContractDropsSheet(errData, fromFranchiseId) {
-    var dropReqs = (errData && errData.compliance && errData.compliance.loaded_contracts && errData.compliance.loaded_contracts.drop_requirements) || [];
-    var myReq = dropReqs.filter(function (d) { return U.pad4(d.franchise_id) === fromFranchiseId; });
-    if (!myReq.length || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve(null);
-    var required = myReq[0].required_drops;
-    var playerNames = buildPlayerNamesForFid(fromFranchiseId, myReq[0].candidates || []);
+  // The loaded-contract HARD BLOCK, shown at offer CREATE/COUNTER (Keith's ruling, 2026-10-01,
+  // REPLACING the conditional-drop-picker flow of 2026-09-29/30 -- mirrors desktop's
+  // showLoadedContractBlock exactly). `errData` is the 409 refusal's body ({error, message,
+  // teams: [{franchise_id, franchise_name, projected, max}]}). A plain, honest notice -- team(s),
+  // projected count, limit -- with only a Close button. No picker, no selection, no retry: the
+  // caller always treats this as a refusal and must revise the offer or make a separate roster
+  // move before trying again.
+  function showLoadedContractBlockSheet(errData) {
     var mount = document.getElementById("ups-m-app");
-    if (!mount) return Promise.resolve(null);
+    if (!mount) return Promise.resolve();
     var existing = document.getElementById("ups-m-drops-overlay");
     if (existing) existing.remove();
-    // Keith's ruling, 2026-09-29: a SATISFIED selection (the owner already picked enough valid
-    // players) is not the same thing as an EXECUTED drop -- no code anywhere drops a real player
-    // yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). If the server refuses DESPITE a
-    // satisfied selection, this is a TERMINAL state for the sheet: showing the picker again and
-    // inviting another "Confirm and send" would misrepresent this warning as something the owner
-    // can act their way past, when they already have. Show a plain, honest notice instead.
-    var alreadySatisfied = !!(myReq[0] && myReq[0].satisfied);
+    var teams = (errData && errData.teams) || [];
+    var rows = teams.map(function (t) {
+      return '<li><span class="t3w-cr-name">' + U.escapeHtml(t.franchise_name || t.franchise_id) + '</span>' +
+        '<span class="t3w-cr-flag">' + U.escapeHtml(t.projected) + ' of ' + U.escapeHtml(t.max) + ' max</span></li>';
+    }).join("");
     return new Promise(function (resolve) {
       var settled = false;
-      var selected = [];
-      function close(v) {
+      function close() {
         if (settled) return; settled = true;
         var ov = document.getElementById("ups-m-drops-overlay");
         if (ov) ov.remove();
         document.body.style.overflow = "";
-        resolve(v);
+        resolve();
       }
-      function draw(message, ok) {
-        var bodyHtml;
-        var navHtml;
-        if (alreadySatisfied) {
-          bodyHtml = '<p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' +
-            '<p class="sub">Your selection is valid and covers the requirement -- this is held for a different reason: conditional-drop execution isn\'t built yet, so no offer that needs one can be sent right now.</p>';
-          navHtml = '<div class="ups-m-tb-nav"><button class="btn-act otb on" id="ups-m-drops-close-terminal">Close</button></div>';
-        } else {
-          var sel = {}; sel[fromFranchiseId] = selected;
-          var picker = T.renderLoadedContractDrops(myReq, fromFranchiseId, {
-            playerNames: playerNames, interactive: true, selections: sel, dropMessage: message || "", dropOk: ok !== false
-          });
-          bodyHtml = '<p class="sub">' + U.escapeHtml(errData && errData.error) + '</p>' + picker;
-          navHtml = '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-drops-cancel">Cancel</button><button class="btn-act otb on" id="ups-m-drops-go">Confirm and send</button></div>';
-        }
-        var html =
-          '<div class="ups-m-drop-overlay" id="ups-m-drops-overlay">' +
-            '<div class="ups-m-drop-sheet">' +
-              '<div class="ups-m-drop-head">' +
-                '<button class="ups-m-drop-close" id="ups-m-drops-close" aria-label="Close">×</button>' +
-                '<div class="grip"></div>' +
-                '<div class="title">Loaded-contract limit</div>' +
-              '</div>' +
-              '<div class="ups-m-drop-body">' + bodyHtml + navHtml + '</div>' +
+      var html =
+        '<div class="ups-m-drop-overlay" id="ups-m-drops-overlay">' +
+          '<div class="ups-m-drop-sheet">' +
+            '<div class="ups-m-drop-head">' +
+              '<button class="ups-m-drop-close" id="ups-m-drops-close" aria-label="Close">×</button>' +
+              '<div class="grip"></div>' +
+              '<div class="title">Loaded-contract limit</div>' +
             '</div>' +
-          '</div>';
-        var prior = document.getElementById("ups-m-drops-overlay");
-        if (prior) prior.outerHTML = html; else mount.insertAdjacentHTML("beforeend", html);
-        document.body.style.overflow = "hidden";
-        document.getElementById("ups-m-drops-close").addEventListener("click", function () { close(null); });
-        if (alreadySatisfied) {
-          document.getElementById("ups-m-drops-close-terminal").addEventListener("click", function () { close(null); });
-          return;
-        }
-        document.getElementById("ups-m-drops-cancel").addEventListener("click", function () { close(null); });
-        document.getElementById("ups-m-drops-go").addEventListener("click", function () {
-          if (selected.length < required) { draw("Select " + required + " player" + (required === 1 ? "" : "s") + " to drop before confirming.", false); return; }
-          close(selected);
-        });
-        var body = document.querySelector("#ups-m-drops-overlay .ups-m-drop-body");
-        if (body) {
-          body.addEventListener("change", function (ev) {
-            var box = ev.target;
-            if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
-            var pid = box.getAttribute("data-t3w-drop-pid");
-            if (box.checked) { if (selected.indexOf(pid) === -1) selected.push(pid); }
-            else { selected = selected.filter(function (x) { return x !== pid; }); }
-          });
-        }
-      }
-      draw();
+            '<div class="ups-m-drop-body">' +
+              '<p class="sub">' + U.escapeHtml((errData && (errData.message || errData.error)) || "This trade would leave a team over the loaded-contract limit.") + '</p>' +
+              (rows ? '<ul class="t3w-crows" aria-label="Teams over the loaded-contract limit">' + rows + '</ul>' : '') +
+              '<p class="sub">Revise the offer, or make a separate roster move first, then try again.</p>' +
+              '<div class="ups-m-tb-nav"><button class="btn-act otb on" id="ups-m-drops-close-ok">Close</button></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      mount.insertAdjacentHTML("beforeend", html);
+      document.body.style.overflow = "hidden";
+      document.getElementById("ups-m-drops-close").addEventListener("click", close);
+      document.getElementById("ups-m-drops-close-ok").addEventListener("click", close);
     });
   }
 
-  // Attempts a trade-offer CREATE, resolving the loaded-contract-drops gate and/or the cap-
-  // overage-acknowledgment gate in whichever order the worker raises them. Returns the FINAL
+  // Attempts a trade-offer CREATE, showing the loaded-contract hard block and/or resolving the
+  // cap-overage-acknowledgment gate in whichever order the worker raises them. Returns the FINAL
   // {ok, status, body} response, or null if the owner cancelled a dialog (matching the existing
   // "the owner declined to acknowledge" no-op convention in submitOffer's .then chain).
   function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt) {
@@ -926,25 +871,11 @@
       });
     }).then(function (resp) {
       if (attempt > 5) return resp;
-      if (resp.status === 409 && resp.body && resp.body.code === "loaded_contract_drops_required") {
-        // Keith's ruling (2026-09-30): the RECIPIENT can also be the one over the limit (e.g.
-        // "I offer Hammer Times a loaded 6th") -- that requirement is never the sender's own to
-        // pick here (only the recipient can, at their own review), so no picker sheet applies.
-        // openCreateLoadedContractDropsSheet already resolves null for this case (matching its
-        // "resolves null on cancel/close" convention) -- but treating that null identically to
-        // "the owner cancelled" would silently swallow the refusal on mobile with NO feedback at
-        // all (desktop instead re-throws the original error either way, so it never had this
-        // gap). Check applicability BEFORE opening anything, so a genuine cancel (picker WAS
-        // shown, owner closed it) still resolves null quietly, but "not my requirement" instead
-        // surfaces the real 409 response, matching desktop's behavior exactly.
-        var reqs409 = (resp.body.compliance && resp.body.compliance.loaded_contracts && resp.body.compliance.loaded_contracts.drop_requirements) || [];
-        var appliesToMe = reqs409.some(function (d) { return U.pad4(d.franchise_id) === fromFranchiseId; });
-        if (!appliesToMe) return resp;
-        return openCreateLoadedContractDropsSheet(resp.body, fromFranchiseId).then(function (picked) {
-          if (!picked) return null;
-          var nextBody = Object.assign({}, initialBody, { loaded_contract_drops: picked });
-          return submitTradeCreateWithGatesMobile(url, nextBody, fromFranchiseId, attempt + 1);
-        });
+      // RULING (Keith, 2026-10-01): a hard block, never an in-trade fix -- show it, then always
+      // return the refusal unchanged so submitOffer's existing "offer wasn't sent" handling
+      // takes over. Mirrors desktop's submitTradeCreateWithGates exactly.
+      if (resp.status === 409 && resp.body && resp.body.code === "loaded_contract_limit_exceeded") {
+        return showLoadedContractBlockSheet(resp.body).then(function () { return resp; });
       }
       if (resp.status === 409 && resp.body && resp.body.code === "cap_overage_ack_required" && resp.body.cap_ack_needed) {
         return openCreateCapAckSheet(resp.body).then(function (acknowledged) {
@@ -1020,6 +951,11 @@
         return { ok: r.ok, status: r.status, body: parsed };
       });
     }).then(function (resp) {
+      // RULING (Keith, 2026-10-01): COUNTER is now gated identically to CREATE (it previously
+      // had no loaded-contract check at all) -- same 409 shape, same hard-block treatment.
+      if (resp.status === 409 && resp.body && resp.body.code === "loaded_contract_limit_exceeded") {
+        return showLoadedContractBlockSheet(resp.body).then(function () { return resp; });
+      }
       if (resp.status === 409 && resp.body && resp.body.code === "staging_required") {
         return submitCounterViaStagingFallbackMobile(initialBody, fromFranchiseId);
       }
@@ -1275,29 +1211,6 @@
       return T.interpretAckCap({ ok: resp.ok, status: resp.status, body: resp.body });
     }).catch(function () { return T.interpretAckCap({ networkError: true }); });
   }
-  // The caller's own loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29):
-  // never writes to MFL, drops no player, never itself accepts -- it just records which of the
-  // owner's own loaded-contract players are picked, conditional on the trade going through.
-  // Needs its own request (not postTradeAction) because it carries an extra field.
-  function selectDropsAccept(tradeId, playerIds) {
-    var url = M.api.workerUrl("/api/trades/proposals/action");
-    var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
-    if (stored) url += "?MFL_USER_ID=" + encodeURIComponent(stored);
-    return fetch(url, {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "select_drops", trade_id: tradeId, league_id: M.state.ctx.leagueId,
-        franchise_id: M.state.viewerFranchiseId, year: M.state.ctx.year,
-        loaded_contract_drops: Array.isArray(playerIds) ? playerIds : []
-      })
-    }).then(function (r) {
-      return r.text().then(function (txt) {
-        var parsed = null; try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
-        return T.interpretSelectDrops({ ok: r.ok, status: r.status, body: parsed });
-      });
-    }).catch(function () { return T.interpretSelectDrops({ networkError: true }); });
-  }
   function openAcceptReview(tradeId) {
     var mount = document.getElementById("ups-m-app");
     if (!mount) return;
@@ -1313,12 +1226,9 @@
     var body = document.getElementById("ups-m-accept-body");
     var overlay = document.getElementById("ups-m-accept-overlay");
     var ack = { busy: false, message: "", ok: false };
-    var drops = { busy: false, message: "", ok: false, selections: {} };   // { franchise_id -> [player_id,...] }, LOCAL until "Confirm drop selection" submits it
     function close() { var ov = document.getElementById("ups-m-accept-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; }
     function paint(review, busy) {
-      var sel = {}; sel[M.state.viewerFranchiseId] = drops.selections[M.state.viewerFranchiseId] || [];
-      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok,
-        selections: sel, dropBusy: drops.busy, dropMessage: drops.message, dropOk: drops.ok });
+      body.innerHTML = T.renderAcceptReview(review, { busy: busy, viewerFid: M.state.viewerFranchiseId, ackBusy: ack.busy, ackMessage: ack.message, ackOk: ack.ok });
     }
     var lastReview = null;
     function load() {
@@ -1333,42 +1243,11 @@
         load();
       });
     }
-    // The loaded-contract conditional-drop SELECTION (Keith's ruling, 2026-09-29): the
-    // RECIPIENT's own requirement, picked and confirmed right here before Accept.
-    function selectDrops(id, el) {
-      if (drops.busy) return;
-      var fid = el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : "";
-      if (!fid) return;
-      var picked = drops.selections[fid] || [];
-      drops.busy = true; drops.message = ""; paint(lastReview, false);
-      selectDropsAccept(tradeId, picked).then(function (out) {
-        drops.busy = false; drops.message = out.message; drops.ok = !!out.ok;
-        load();
-      });
-    }
-    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind
-    // only delegates [data-t3w-act] clicks, so this is a separate, once-only delegated
-    // listener on the stable overlay container (survives every repaint's innerHTML reset).
-    if (!overlay.__t3wDropsBound) {
-      overlay.__t3wDropsBound = true;
-      overlay.addEventListener("change", function (ev) {
-        var box = ev.target;
-        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
-        var fid = box.getAttribute("data-t3w-drop-fid");
-        var pid = box.getAttribute("data-t3w-drop-pid");
-        var cur = drops.selections[fid] || [];
-        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
-        else { cur = cur.filter(function (x) { return x !== pid; }); }
-        drops.selections[fid] = cur;
-        paint(lastReview, false);
-      });
-    }
     T.bind(overlay, {
       "accept-close": close,
       "accept-retry": load,
       "accept-confirm": function () { close(); runTradeAction("accept", tradeId, ""); },
-      "ack-cap": acknowledgeCap,
-      "select-drops": selectDrops
+      "ack-cap": acknowledgeCap
     });
     load();
   }
@@ -1987,24 +1866,6 @@
     }).then(function () { M.route.renderRoute(); });
   }
 
-  // Select (and, by submitting, confirm) THIS caller's own conditional loaded-contract drops on
-  // a 3-way trade (Keith's ruling, 2026-09-29) -- never writes to MFL, drops no player; mirrors
-  // doAckCapThreeWay's exact shape. `fid` is which franchise's own picker was confirmed (from the
-  // clicked button's own data-t3w-drop-fid).
-  function doSelectDropsThreeWay(id, fid) {
-    if (tw.drops && tw.drops.busy) return;
-    var picked = (fid && tw.drops.selections[fid]) || [];
-    tw.drops = { busy: true, selections: tw.drops.selections };
-    M.route.renderRoute();
-    tw3Fetch(tw3Url("/api/trades/3way/select-drops"), {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, player_ids: picked })
-    }).then(function (res) {
-      var out = T.interpretSelectDrops(res);
-      tw.drops = { ok: out.ok, message: out.message, selections: tw.drops.selections };
-      M.ui.showToast(out.message, out.ok ? "ok" : "err");
-      return loadThreeWayDetail(id);
-    }).then(function () { M.route.renderRoute(); });
-  }
 
   function doCancelThreeWay(id) {
     if (tw.cancel.busy) return;
@@ -2052,8 +1913,7 @@
     var body;
     if (tw.detailStatus === "loading" && !tw.detail) body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     else if (tw.detailStatus === "error" && tw.detailProblem) body = T.renderProblem(tw.detailProblem);
-    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok,
-      selections: tw.drops.selections, dropBusy: tw.drops.busy, dropMessage: tw.drops.message, dropOk: tw.drops.ok });
+    else if (tw.detail) body = T.renderDetail(tw.detail, { cancel: tw.cancel, recheck: tw.recheck || {}, ackBusy: tw.ack && tw.ack.busy, ackMessage: tw.ack && tw.ack.message, ackOk: tw.ack && tw.ack.ok });
     else body = '<div class="ups-m-loading" role="status">Loading trade…</div>';
     mount.innerHTML = head + '<div style="padding:0 12px">' + body + '</div>';
     T.ensureStyles();
@@ -2063,26 +1923,8 @@
       "confirm-cancel": function () { doCancelThreeWay(id); },
       recheck: function () { doRecheckThreeWay(id); },
       "ack-cap": function () { doAckCapThreeWay(id); },
-      "select-drops": function (bid, el) { doSelectDropsThreeWay(id, el && el.getAttribute ? el.getAttribute("data-t3w-drop-fid") : ""); },
       retry: function () { tw.lastRoute = "list"; M.route.renderRoute(); }
     });
-    // Checkbox changes are LOCAL (never submitted until "Confirm drop selection") -- T.bind only
-    // delegates [data-t3w-act] clicks, so this is a separate, once-only delegated listener on
-    // the stable mount container (survives every repaint's innerHTML reset).
-    if (!mount.__t3wDropsBound) {
-      mount.__t3wDropsBound = true;
-      mount.addEventListener("change", function (ev) {
-        var box = ev.target;
-        if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
-        var pfid = box.getAttribute("data-t3w-drop-fid");
-        var pid = box.getAttribute("data-t3w-drop-pid");
-        var cur = tw.drops.selections[pfid] || [];
-        if (box.checked) { if (cur.indexOf(pid) === -1) cur = cur.concat([pid]); }
-        else { cur = cur.filter(function (x) { return x !== pid; }); }
-        tw.drops.selections[pfid] = cur;
-        M.route.renderRoute();
-      });
-    }
     if (tw.detail && tw.cancel.confirming && !tw.cancel.busy) T.revealConfirm(mount);
   }
 
@@ -2318,59 +2160,44 @@
     if (tw2s.detail && tw2s.cancel.confirming && !tw2s.cancel.busy) T.revealConfirm(mount);
   }
 
-  // ── pre-send popup (mobile), mirrors desktop's showPreSendLoadedContractPopup exactly:
-  // "before an owner sends a two-team or three-team offer that would put either franchise over
-  // five loaded contracts, show a clear popup ... Show the projected count for each affected
-  // team ... require the affected owner to select their own conditional drops. The sender must
-  // not select the recipient's players." Uses the SAME sheet idiom as
-  // openCreateLoadedContractDropsSheet, but shows EVERY affected team's row (not filtered to
-  // the sender's own), and never blocks Stage/Send itself -- purely informational, since the
-  // real gates are unchanged (create for direct-MFL 2-way, accept/execute for staged 2-way and
-  // 3-way). T.renderLoadedContractDrops already restricts the interactive picker to
-  // opts.viewerFid === the row's own franchise_id, so a recipient's row renders read-only with
-  // "Waiting on <them>" -- the sender structurally cannot select the recipient's players here.
-  function showPreSendLoadedContractSheet(compliance, mySenderFid) {
+  // ── pre-send notice (mobile), mirrors desktop's showPreSendLoadedContractPopup exactly
+  // (Keith's ruling, 2026-10-01, REPLACING the pre-send picker of 2026-09-29): a franchise over
+  // the loaded-contract limit is a hard stop. Uses /api/trades/compliance-preview -- a trade
+  // that hasn't been created yet -- so the sender finds out BEFORE wasting a round trip to the
+  // real gate (create/accept, which refuses it either way). Purely informational and never
+  // itself the enforcement point: it offers no picker and no in-trade fix, just the team(s),
+  // projected count, limit, and the instruction to revise the offer or make a separate roster
+  // move first -- with the choice to go back and fix it now, or send anyway and let the real
+  // gate refuse it.
+  function showPreSendLoadedContractSheet(compliance) {
     var lc = compliance && compliance.loaded_contracts;
-    if (!lc || lc.status === "ok" || !(lc.drop_requirements || []).length || !T || typeof T.renderLoadedContractDrops !== "function") return Promise.resolve({ proceed: true, drops: [] });
-    var playerNames = buildPlayerNamesForFid(mySenderFid, (lc.drop_requirements.filter(function (d) { return U.pad4(d.franchise_id) === mySenderFid; })[0] || {}).candidates || []);
+    if (!lc || lc.status !== "blocked") return Promise.resolve({ proceed: true });
     var mount = document.getElementById("ups-m-app");
-    if (!mount) return Promise.resolve({ proceed: true, drops: [] });
+    if (!mount) return Promise.resolve({ proceed: true });
     var existing = document.getElementById("ups-m-presend-overlay");
     if (existing) existing.remove();
+    var rows = (lc.violations || []).map(function (v) {
+      return '<li><span class="t3w-cr-name">' + U.escapeHtml(v.franchise_name || v.franchise_id) + '</span>' +
+        '<span class="t3w-cr-flag">' + U.escapeHtml(v.projected) + ' of ' + U.escapeHtml(v.max) + ' max</span></li>';
+    }).join("");
     return new Promise(function (resolve) {
       var settled = false;
-      var mySel = [];
       function close(v) { if (settled) return; settled = true; var ov = document.getElementById("ups-m-presend-overlay"); if (ov) ov.remove(); document.body.style.overflow = ""; resolve(v); }
-      function draw() {
-        var sel = {}; sel[mySenderFid] = mySel;
-        var picker = T.renderLoadedContractDrops(lc.drop_requirements, mySenderFid, { playerNames: playerNames, interactive: true, selections: sel });
-        var otherOver = lc.drop_requirements.some(function (d) { return U.pad4(d.franchise_id) !== mySenderFid; });
-        var html =
-          '<div class="ups-m-drop-overlay" id="ups-m-presend-overlay"><div class="ups-m-drop-sheet">' +
-            '<div class="ups-m-drop-head"><button class="ups-m-drop-close" id="ups-m-presend-close" aria-label="Close">×</button><div class="grip"></div>' +
-            '<div class="title">Loaded-contract limit — before you send</div></div>' +
-            '<div class="ups-m-drop-body">' +
-              '<p class="sub">This trade would push at least one team over the 5-loaded-contract limit. Each affected owner must select their own conditional drops — you can only pick your own.</p>' +
-              picker +
-              (otherOver ? '<p class="sub">The other affected team will see this same requirement and pick their own drops on their own side. Sending or staging this offer does not select anything for them.</p>' : '') +
-              '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-presend-cancel">Don\'t send</button><button class="btn-act otb on" id="ups-m-presend-go">Continue</button></div>' +
-            '</div></div></div>';
-        var prior = document.getElementById("ups-m-presend-overlay");
-        if (prior) prior.outerHTML = html; else mount.insertAdjacentHTML("beforeend", html);
-        document.body.style.overflow = "hidden";
-        document.getElementById("ups-m-presend-close").addEventListener("click", function () { close({ proceed: false, drops: [] }); });
-        document.getElementById("ups-m-presend-cancel").addEventListener("click", function () { close({ proceed: false, drops: [] }); });
-        document.getElementById("ups-m-presend-go").addEventListener("click", function () { close({ proceed: true, drops: mySel }); });
-        var body = document.querySelector("#ups-m-presend-overlay .ups-m-drop-body");
-        if (body) body.addEventListener("change", function (ev) {
-          var box = ev.target;
-          if (!box || !box.matches || !box.matches("input[data-t3w-drop-pid]")) return;
-          var pid = box.getAttribute("data-t3w-drop-pid");
-          if (box.checked) { if (mySel.indexOf(pid) === -1) mySel.push(pid); } else { mySel = mySel.filter(function (x) { return x !== pid; }); }
-          draw();
-        });
-      }
-      draw();
+      var html =
+        '<div class="ups-m-drop-overlay" id="ups-m-presend-overlay"><div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head"><button class="ups-m-drop-close" id="ups-m-presend-close" aria-label="Close">×</button><div class="grip"></div>' +
+          '<div class="title">Loaded-contract limit — before you send</div></div>' +
+          '<div class="ups-m-drop-body">' +
+            '<p class="sub">' + U.escapeHtml(lc.message || "This trade would leave a team over the loaded-contract limit.") + '</p>' +
+            (rows ? '<ul class="t3w-crows" aria-label="Teams over the loaded-contract limit">' + rows + '</ul>' : '') +
+            '<p class="sub">Revise the offer, or make a separate roster move first, then try again.</p>' +
+            '<div class="ups-m-tb-nav"><button class="btn-act" id="ups-m-presend-cancel">Go back</button><button class="btn-act otb on" id="ups-m-presend-go">Send anyway</button></div>' +
+          '</div></div></div>';
+      mount.insertAdjacentHTML("beforeend", html);
+      document.body.style.overflow = "hidden";
+      document.getElementById("ups-m-presend-close").addEventListener("click", function () { close({ proceed: false }); });
+      document.getElementById("ups-m-presend-cancel").addEventListener("click", function () { close({ proceed: false }); });
+      document.getElementById("ups-m-presend-go").addEventListener("click", function () { close({ proceed: true }); });
     });
   }
   function runPreSendPreview(fromFid, movements, extensionRequests) {
@@ -2380,9 +2207,9 @@
     if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
     var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: U.pad4(fromFid), movements: movements, extension_requests: extensionRequests || [] };
     return tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (res) {
-      if (!res || res.networkError || !res.ok || !res.body || res.body.ok === false || !res.body.compliance) return { proceed: true, drops: [] };
-      return showPreSendLoadedContractSheet(res.body.compliance, U.pad4(fromFid));
-    }).catch(function () { return { proceed: true, drops: [] }; });
+      if (!res || res.networkError || !res.ok || !res.body || res.body.ok === false || !res.body.compliance) return { proceed: true };
+      return showPreSendLoadedContractSheet(res.body.compliance);
+    }).catch(function () { return { proceed: true }; });
   }
 
   // Stages a new 2-team offer via the War Room instead of direct-to-MFL. Reuses the EXISTING

@@ -66,7 +66,7 @@ function bridgeFetch(env) {
 function loadDesktop(env, { token, fid } = {}) {
   const bridge = bridgeFetch(env);
   const start = DESK_SRC.indexOf('  var tw2s = { listStatus: "idle"');
-  const end = DESK_SRC.indexOf("  // ── pre-send popup:");
+  const end = DESK_SRC.indexOf("  // ── pre-send notice:");
   if (start < 0 || end < 0 || end < start) throw new Error("could not locate the desktop staged-2way block in trade_workbench.js");
   const code = DESK_SRC.slice(start, end);
   const registry = {};
@@ -92,7 +92,7 @@ function loadDesktop(env, { token, fid } = {}) {
 function loadMobile(env, { token, fid } = {}) {
   const bridge = bridgeFetch(env);
   const start = MOBILE_SRC.indexOf("  var tw2s = {");
-  const end = MOBILE_SRC.indexOf("  // ── pre-send popup (mobile)");
+  const end = MOBILE_SRC.indexOf("  // ── pre-send notice (mobile)");
   if (start < 0 || end < 0 || end < start) throw new Error("could not locate the mobile staged-2way block in trade.js");
   const code = MOBILE_SRC.slice(start, end);
   const toasts = [];
@@ -172,7 +172,7 @@ test("DESKTOP: RECIPIENT over five -- the projected count and required drops sho
   t.doesNotMatch(html, /data-t3w-drop-fid="0002"[^>]*>\s*<input/);
 });
 
-test("DESKTOP: SENDER over five -- the sender's OWN detail view shows their own interactive picker", async () => {
+test("DESKTOP: SENDER over five -- the sender's OWN detail view shows the SAME hard-block message as every other surface, with no picker (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29)", async () => {
   const { env, mfl } = fresh();
   mfl.st.rosters["0001"] = [...fiveLoaded(40000), flat("14056")]; // sender already at 5
   mfl.st.rosters["0002"] = [loaded("50000")];
@@ -182,18 +182,11 @@ test("DESKTOP: SENDER over five -- the sender's OWN detail view shows their own 
   await settle();
   const html = sender.detail().innerHTML;
   t.match(html, /too many loaded contracts/i);
-  t.match(html, /data-t3w-drop-fid="0001"/);
-  t.match(html, /Confirm drop selection/);
-  // Keith's ruling (2026-09-29, sequence): drops are confirmed FIRST, always, before the trade
-  // is ever attempted -- the owner-facing consent copy must say so, and must not overstate
-  // restoration as guaranteed if the trade then fails.
-  t.match(html, /the drop is confirmed FIRST, before the trade is ever attempted/);
-  t.match(html, /your roster never ends up over the 5-loaded-contract limit because of this deal/);
-  t.match(html, /restoration is not guaranteed/);
-  t.match(html, /only if nobody else has claimed them as a free agent in the meantime/);
+  t.doesNotMatch(html, /data-t3w-drop-fid/, "no picker -- nothing for the sender to pick");
+  t.doesNotMatch(html, /Confirm drop selection/);
 });
 
-test("DESKTOP: the ordering-risk disclosure never renders for a viewer who ISN'T the affected franchise's own owner -- it's part of the interactive picker only", async () => {
+test("DESKTOP: the SAME hard-block message renders identically for a viewer who ISN'T the affected franchise's own owner -- there was never anything exclusive to pick", async () => {
   const { env, mfl } = fresh();
   mfl.st.rosters["0001"] = [...fiveLoaded(40000), flat("14056")];
   mfl.st.rosters["0002"] = [loaded("50000")];
@@ -203,7 +196,7 @@ test("DESKTOP: the ordering-risk disclosure never renders for a viewer who ISN'T
   await settle();
   const html = recipient.detail().innerHTML;
   t.match(html, /too many loaded contracts/i, "the requirement is still visible to the other side");
-  t.doesNotMatch(html, /the drop is confirmed FIRST/, "the disclosure is scoped to the affected owner's own interactive picker, not shown to a viewer with no picker");
+  t.doesNotMatch(html, /data-t3w-drop-fid/, "no picker for anyone, affected owner or not");
 });
 
 test("DESKTOP: ROSTER CHANGES AFTER CREATION -- a trade staged when everyone was fine now shows blocked once a roster changes underneath it, on a plain re-open (no cached number)", async () => {
@@ -224,7 +217,12 @@ test("DESKTOP: ROSTER CHANGES AFTER CREATION -- a trade staged when everyone was
   t.match(d.detail().innerHTML, /Loaded contracts/);
 });
 
-test("DESKTOP: CHANGED SELECTIONS -- selecting a conditional drop persists via the real select-drops endpoint and re-renders the detail with the fresh answer", async () => {
+// RULING (Keith, 2026-10-01): there is no UI path left to call doSelectDrops2WayStaged through
+// -- no picker renders it a selection to submit. The underlying worker route
+// (worker/src/trade_2way.js, deliberately untouched) is covered directly at the worker layer
+// elsewhere; this client-level test now just confirms the detail view itself never re-renders
+// the OLD "Selected: ..." picker-confirmation copy, matching every other surface.
+test("DESKTOP: the detail view never renders picker-confirmation copy ('Selected: ...') -- that affordance is gone, not just unused", async () => {
   const { env, mfl } = fresh();
   mfl.st.rosters["0001"] = [...fiveLoaded(40000), flat("14056")];
   mfl.st.rosters["0002"] = [loaded("50000")];
@@ -232,14 +230,8 @@ test("DESKTOP: CHANGED SELECTIONS -- selecting a conditional drop persists via t
   const d = loadDesktop(env, { token: "tok-B", fid: "0001" });
   await d.api.open2WayStagedDetail(id);
   await settle();
-  // Select one of the sender's own 5 already-loaded players as the conditional drop.
-  d.api.tw2s.drops.selections["0001"] = ["40000"];
-  await d.api.doSelectDrops2WayStaged(id, "0001");
-  await settle();
-  t.match(d.detail().innerHTML, /Selected: /);
-  const selectReq = d.calls.find((c) => c.path === "/api/trades/2way/select-drops");
-  t.ok(selectReq);
-  t.deepEqual(selectReq.body.player_ids, ["40000"]);
+  t.doesNotMatch(d.detail().innerHTML, /Selected: /);
+  t.doesNotMatch(d.detail().innerHTML, /data-t3w-drop-pid/);
 });
 
 test("DESKTOP: SIGNED-OUT access -- opening a real trade with no session is refused by the REAL server, and the client shows the server's problem, not a fake empty state", async () => {

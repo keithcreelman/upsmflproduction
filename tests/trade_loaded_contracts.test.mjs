@@ -51,9 +51,12 @@ test("LC 2: 5 -> 6 blocks", () => {
   t.equal(c.loaded_contracts.status, "blocked");
   t.equal(c.loaded_contracts.violations.length, 1);
   t.equal(c.loaded_contracts.violations[0].franchise_id, "0001");
-  t.match(c.loaded_contracts.violations[0].message, /L\.A\. Looks would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/);
-  // Keith's ruling (2026-09-29): the limit is now escapable via a valid conditional drop, not a
-  // permanent block -- the requirement itself is reported even before anyone has picked anything.
+  // RULING (2026-10-01): replaces the conditional-drop-picker wording -- a hard block, never a
+  // "pick these to fix it" prompt. `drop_requirements`/`candidates` are still computed (Part 1's
+  // pure calculation is unchanged; only the message text and the enforcement points changed) but
+  // no call site passes a conditionalDrops selection anymore, so this is now always the terminal
+  // state for an over-limit franchise.
+  t.match(c.loaded_contracts.violations[0].message, /L\.A\. Looks would have 6 loaded contracts \(including IR\) after this trade — the limit is 5\. Revise the offer, or make a separate roster move first/);
   t.equal(c.loaded_contracts.drop_requirements.length, 1);
   t.equal(c.loaded_contracts.drop_requirements[0].franchise_id, "0001");
   t.equal(c.loaded_contracts.drop_requirements[0].required_drops, 1);
@@ -191,8 +194,8 @@ test("LC 9b: a loaded contract on IR still counts (no IR carve-out) -- the exact
   t.equal(c.loaded_contracts.status, "blocked");
   t.equal(c.loaded_contracts.violations.length, 1);
   t.equal(c.loaded_contracts.violations[0].franchise_id, "0002");
-  t.match(c.loaded_contracts.violations[0].message, /Hammer Times would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/,
-    "names the affected team and the exact required-drop count, before anything is sent");
+  t.match(c.loaded_contracts.violations[0].message, /Hammer Times would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/,
+    "names the affected team and the projected count, before anything is sent");
   const req = c.loaded_contracts.drop_requirements[0];
   t.equal(req.franchise_id, "0002");
   t.equal(req.required_drops, 1);
@@ -390,18 +393,15 @@ function fresh2(o) {
   mfl.install();
   return { env, mfl };
 }
-// Attempts the create; if refused because the SENDER (the initiator, 0001) needs conditional
-// drops, retries ONCE with the given (possibly empty/invalid) `dropIds` -- the real client flow
-// (create -> shown the requirement -> pick drops -> retry). Pass {dropsOk:false} to see the
-// FIRST, unsatisfied response instead (for tests proving the create-time gate itself).
+// RULING (2026-10-01): REPLACES the picker-driven retry flow -- there is no in-trade fix
+// anymore, so a create attempt either goes through or is hard-refused, full stop. `dropIds`
+// (when passed) is sent as `loaded_contract_drops` in the SAME request purely to prove the
+// server ignores it -- it is never a retry, and it never changes the outcome.
 async function createOffer(env, mfl, payload, opts) {
   opts = opts || {};
   const body0 = { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "", payload };
-  const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: body0 });
-  if (opts.dropsOk === false || r0.status < 300 || !(r0.json && r0.json.code === "loaded_contract_drops_required")) return r0;
-  const r1 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: { ...body0, loaded_contract_drops: opts.dropIds || [] } });
-  r1.firstResponse = r0;
-  return r1;
+  if (opts.dropIds) body0.loaded_contract_drops = opts.dropIds;
+  return callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: body0 });
 }
 async function sendOffer(env, mfl, payload, opts) {
   const r = await createOffer(env, mfl, payload, opts);
@@ -411,39 +411,38 @@ async function sendOffer(env, mfl, payload, opts) {
 const mobileBody = (id, action) => ({ action: action || "ACCEPT", trade_id: id, league_id: "74598", franchise_id: "0002", year: "2026", message: "" });
 const act = (env, body) => callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, { body });
 
-test("LC 2-WAY CREATE: 5 -> 6 loaded requires the SENDER's own conditional drop, but even a fully VALID, SATISFIED selection still holds the offer -- no conditional-drop EXECUTOR exists (Keith's ruling, 2026-09-29)", async () => {
+test("LC 2-WAY CREATE: 5 -> 6 loaded is a HARD BLOCK -- a client-supplied loaded_contract_drops selection (valid or not) is completely ignored, never retried, never persisted, never changes the outcome (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29)", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
   const payload = payloadOf("0001", "0002", [player(14056)], [player(13100)]);
-  const r0 = await createOffer(env, mfl, payload, { dropsOk: false });
-  t.equal(r0.status, 409); t.equal(r0.json.code, "loaded_contract_drops_required");
-  t.match(r0.json.error, /would move from 5 to 6 loaded contracts/); t.match(r0.json.error, /1 conditional drop/);
-  t.equal(r0.json.loaded_contract_drops_needed.required_drops, 1);
+  const r0 = await createOffer(env, mfl, payload);
+  t.equal(r0.status, 409); t.equal(r0.json.code, "loaded_contract_limit_exceeded");
+  t.match(r0.json.error, /would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  t.match(r0.json.error, /Revise the offer, or make a separate roster move first/);
+  t.equal(r0.json.teams[0].franchise_id, "0001");
+  t.equal(r0.json.teams[0].projected, 6);
   t.equal(mfl.st.pending.length, 0, "no offer was ever sent to MFL");
-  // a selection that is NOT actually loaded, or not on the roster, or is the SAME player being
-  // sent, is never valid -- the requirement stays unsatisfied
-  const bad1 = await createOffer(env, mfl, payload, { dropsOk: false, dropIds: ["14056"] });   // the player being SENT
-  t.equal(bad1.status, 409); t.equal(bad1.json.code, "loaded_contract_drops_required");
-  const bad2 = await createOffer(env, mfl, payload, { dropsOk: false, dropIds: ["99999"] });   // not on the roster
+  // Not read at all: an invalid selection (the player being SENT; a player not on the roster)
+  // changes nothing -- same 409, same message.
+  const bad1 = await createOffer(env, mfl, payload, { dropIds: ["14056"] });
+  t.equal(bad1.status, 409); t.equal(bad1.json.code, "loaded_contract_limit_exceeded");
+  const bad2 = await createOffer(env, mfl, payload, { dropIds: ["99999"] });
   t.equal(bad2.status, 409);
   t.equal(mfl.st.pending.length, 0, "still nothing sent");
-  // A genuinely valid drop (one of 0001's OWN loaded contracts, not being sent) SATISFIES the
-  // requirement -- but satisfying it is not the same as EXECUTING it, and no code anywhere
-  // drops a real player yet. The offer stays held, with ZERO MFL writes, even though the
-  // selection is completely valid.
-  const r1 = await createOffer(env, mfl, payload, { dropIds: ["9000"] });   // retries WITH the selection, since dropsOk defaults to true
+  // Nor does a selection that would have been genuinely VALID under the old picker (one of
+  // 0001's OWN loaded contracts, not being sent) -- there is no in-trade fix anymore, so this
+  // makes zero difference: identical 409, identical message, nothing persisted anywhere.
+  const r1 = await createOffer(env, mfl, payload, { dropIds: ["9000"] });
   t.equal(r1.status, 409, r1.text.slice(0, 400));
-  t.equal(r1.json.code, "loaded_contract_drops_required");
-  t.equal(r1.json.loaded_contract_drops_needed.satisfied, true, "the selection genuinely IS valid and sufficient");
-  t.equal(r1.json.loaded_contract_drops_needed.executable, false);
-  t.match(r1.json.error, /conditional-drop execution isn't built yet/i);
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a SATISFIED selection still never sends a pending trade to MFL");
-  // The selection WAS persisted despite the refusal (informational, never an MFL write) -- a
-  // second identical request still reports it as satisfied, proving nothing was lost, only held.
+  t.equal(r1.json.code, "loaded_contract_limit_exceeded");
+  t.match(r1.json.error, /would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a would-be-valid selection changes nothing");
+  // Repeating the identical request changes nothing either -- there is no persisted state to
+  // accumulate toward (no conditional-drop row is ever written at create time anymore).
   const r2 = await createOffer(env, mfl, payload, { dropIds: ["9000"] });
   t.equal(r2.status, 409);
-  t.equal(r2.json.loaded_contract_drops_needed.satisfied, true);
+  t.equal(r2.json.code, "loaded_contract_limit_exceeded");
   t.equal(mfl.st.pending.length, 0);
 });
 
@@ -459,18 +458,23 @@ test("LC 2-WAY CREATE — HAMMER TIMES / CHIG OKONKWO, END TO END: sends to fran
     payload: payloadOf("0001", "0005", [player(14056)], [player(13100)]) };
   const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: body0 });
   t.equal(r0.status, 409);
-  t.equal(r0.json.code, "loaded_contract_drops_required");
-  t.match(r0.json.error, /HammerTime would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/);
-  t.equal(r0.json.loaded_contract_drops_needed.required_drops, 1);
-  t.equal(r0.json.loaded_contract_drops_needed.franchise_id, "0005", "identifies HammerTime, not the sender, as the affected team");
-  const theirReq = r0.json.compliance.loaded_contracts.drop_requirements.find((d) => d.franchise_id === "0005");
-  t.deepEqual(theirReq.candidates.sort(), ["9000", "9001", "9002", "9003", "9004"], "the IR player (9004) is offered as a candidate, not excluded");
+  t.equal(r0.json.code, "loaded_contract_limit_exceeded");
+  t.match(r0.json.error, /HammerTime would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  t.equal(r0.json.who, "recipient");
+  t.equal(r0.json.teams[0].franchise_id, "0005", "identifies HammerTime, not the sender, as the affected team");
+  t.equal(r0.json.teams[0].projected, 6);
+  // No picker-enabling data crosses the wire at all anymore -- the IR player's candidacy is
+  // still proven at the pure-calculation level by "LC 9b" above; the HTTP response carries only
+  // the team, the projected count, and the limit (worker/src/trade_cap_authority.js's
+  // loadedContractBlockPayload).
+  t.equal(r0.json.compliance, undefined);
+  t.equal(r0.json.drop_requirements, undefined);
   t.equal(mfl.st.pending.length, 0, "no native MFL offer was sent -- the sender never gets to Send an illegal offer that would leave HammerTime over the limit");
   t.equal(mfl.st.imports.length, 0, "not even an attempted MFL write of any kind");
-  // The recipient's own requirement can only ever be satisfied by the recipient THEMSELVES, at
-  // their own accept-time review (they haven't seen this offer yet, and nothing here lets the
-  // sender pick on their behalf) -- exactly proven end to end, both platforms, by
-  // tests/trade_loaded_contract_clients.test.mjs's "DESKTOP ACCEPT"/"MOBILE ACCEPT" tests.
+  // The recipient's own requirement can only ever be relieved by the SENDER revising the offer
+  // (there is no accept-time fix for the recipient to apply either, anymore) -- exactly proven
+  // end to end, both platforms, by tests/trade_loaded_contract_clients.test.mjs's "DESKTOP
+  // ACCEPT"/"MOBILE ACCEPT" tests.
 
   // The SENDER revises the offer (Keith: "The sender can revise or cancel the offer") -- Chig
   // stays home, a flat player goes instead. HammerTime's own count is now untouched, and the
@@ -482,67 +486,61 @@ test("LC 2-WAY CREATE — HAMMER TIMES / CHIG OKONKWO, END TO END: sends to fran
   t.equal(mfl.st.pending.length, 1, "the revised offer was actually sent this time");
 });
 
-test("LC 2-WAY CREATE: 5 -> 7 (receiving TWO loaded contracts at once) requires exactly 2 drops -- one alone is refused, and even two (fully satisfied) still holds -- no executor exists", async () => {
+test("LC 2-WAY CREATE: 5 -> 7 (receiving TWO loaded contracts at once) is a hard block regardless of any selection supplied", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA" }, ...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }, { id: "13101", salary: 5000, contractStatus: "Vet-FAA-BL" }];
   const payload = payloadOf("0001", "0002", [player(14056)], [player(13100), player(13101)]);
-  // Nothing selected at all: refused, naming exactly 2 required.
-  const r0 = await createOffer(env, mfl, payload, { dropsOk: false });
+  // Nothing selected at all: refused, naming the projected count.
+  const r0 = await createOffer(env, mfl, payload);
   t.equal(r0.status, 409);
-  t.equal(r0.json.loaded_contract_drops_needed.required_drops, 2);
-  t.match(r0.json.error, /L\.A\. Looks would move from 5 to 7 loaded contracts\. The maximum is 5, so 2 conditional drops/);
-  // Exactly ONE selected: still refused -- one drop is not enough to satisfy a 2-drop requirement.
+  t.equal(r0.json.teams[0].projected, 7);
+  t.match(r0.json.error, /L\.A\. Looks would have 7 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  // A single selection: makes no difference -- identical refusal.
   const r1 = await createOffer(env, mfl, payload, { dropIds: ["9000"] });
   t.equal(r1.status, 409, r1.text.slice(0, 300));
-  t.equal(r1.json.loaded_contract_drops_needed.required_drops, 2);
-  t.equal(r1.json.loaded_contract_drops_needed.valid_count, 1);
-  t.equal(r1.json.loaded_contract_drops_needed.satisfied, false);
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- one drop never silently passes a two-drop requirement");
-  // Exactly TWO selected: genuinely satisfies the REQUIREMENT -- but still never sends, since
-  // satisfying a selection is not executing it (Keith's ruling, 2026-09-29).
+  t.equal(r1.json.code, "loaded_contract_limit_exceeded");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a selection is never read, let alone counted");
+  // A selection that would have been a fully-satisfying 2-of-2 under the old picker: STILL makes
+  // no difference -- there is no in-trade fix anymore, satisfied or not.
   const r2 = await createOffer(env, mfl, payload, { dropIds: ["9000", "9001"] });
   t.equal(r2.status, 409, r2.text.slice(0, 400));
-  t.equal(r2.json.loaded_contract_drops_needed.valid_count, 2);
-  t.equal(r2.json.loaded_contract_drops_needed.satisfied, true);
-  t.equal(r2.json.loaded_contract_drops_needed.executable, false);
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- even a fully-satisfied 2-of-2 selection still holds");
+  t.equal(r2.json.code, "loaded_contract_limit_exceeded");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- even a would-be-fully-satisfied selection changes nothing");
 });
 
-test("LC 2-WAY CREATE: false client-supplied loaded-contract totals (AND a genuinely valid, satisfied drop selection) cannot bypass the hold, at creation or at accept -- no executor exists", async () => {
+test("LC 2-WAY CREATE: false client-supplied loaded-contract totals (AND a loaded_contract_drops selection) cannot bypass the hold -- nothing the client sends changes the server's own recompute", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus })), { id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
   const payload = payloadOf("0001", "0002", [player(14056)], [player(13100)]);
   // 0001 is ALREADY at 6 loaded contracts before this trade (14056 is itself loaded) -- a
-  // loaded-for-loaded swap doesn't change the count, but a pre-existing violation still requires
-  // a drop; a client claiming otherwise is ignored.
+  // loaded-for-loaded swap doesn't change the count, but a pre-existing violation still refuses;
+  // a client claiming otherwise is ignored.
   const r0 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
     body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "",
       payload, compliance: { loaded_contracts: { status: "ok", executable: true } }, force: true, override: true, ignore_limit: true },
   });
-  t.equal(r0.status, 409); t.equal(r0.json.code, "loaded_contract_drops_required", "client-supplied compliance/force/override/ignore_limit/executable fields must be completely ignored");
+  t.equal(r0.status, 409); t.equal(r0.json.code, "loaded_contract_limit_exceeded", "client-supplied compliance/force/override/ignore_limit/executable fields must be completely ignored");
   t.equal(mfl.st.pending.length, 0);
-  // A genuinely valid, SATISFIED drop selection is ALSO not enough by itself (Keith's ruling,
-  // 2026-09-29) -- creation stays refused, with zero MFL writes, regardless.
+  // A loaded_contract_drops selection is not read at all anymore -- identical refusal.
   const r1 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
     body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "",
       payload, loaded_contract_drops: ["9000"] },
   });
-  t.equal(r1.status, 409); t.equal(r1.json.code, "loaded_contract_drops_required");
-  t.equal(r1.json.loaded_contract_drops_needed.satisfied, true, "the selection genuinely is valid and sufficient");
-  t.equal(mfl.st.pending.length, 0, "still zero MFL writes -- satisfied alone is not enough");
-  // Stacking every bypass attempt AT ONCE (fake compliance fields + a genuinely valid selection)
-  // still refuses -- there is no combination of client-supplied fields that gets this created.
+  t.equal(r1.status, 409); t.equal(r1.json.code, "loaded_contract_limit_exceeded");
+  t.equal(mfl.st.pending.length, 0, "still zero MFL writes");
+  // Stacking every bypass attempt AT ONCE still refuses -- there is no combination of
+  // client-supplied fields that gets this created.
   const r2 = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, {
     body: { league_id: "74598", season: "2026", from_franchise_id: "0001", to_franchise_id: "0002", from_franchise_name: "x", to_franchise_name: "y", message: "",
       payload, loaded_contract_drops: ["9000"], compliance: { loaded_contracts: { status: "ok", executable: true } }, force: true, override: true, ignore_limit: true },
   });
-  t.equal(r2.status, 409); t.equal(r2.json.code, "loaded_contract_drops_required");
+  t.equal(r2.status, 409); t.equal(r2.json.code, "loaded_contract_limit_exceeded");
   t.equal(mfl.st.pending.length, 0);
 });
 
-test("LC 2-WAY: an offer that was FINE when created becomes noncompliant before the recipient accepts -- held with a clear explanation, zero writes, and STAYS held even with a fully valid drop plan (no executor exists)", async () => {
+test("LC 2-WAY: an offer that was FINE when created becomes noncompliant before the recipient accepts -- held with a clear explanation, zero writes, and a loaded_contract_drops selection makes no difference", async () => {
   const { env, mfl } = fresh2();
   // At CREATION, 0002 has only 4 loaded -- receiving one more lands it at exactly 5, fine.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
@@ -557,24 +555,21 @@ test("LC 2-WAY: an offer that was FINE when created becomes noncompliant before 
   const preview = await act(env, mobileBody(id, "PREVIEW"));
   t.equal(preview.status, 200, preview.text.slice(0, 300));
   t.equal(preview.json.compliance.loaded_contracts.status, "blocked");
-  t.match(preview.json.compliance.loaded_contracts.message, /CBP would move from 5 to 6 loaded contracts/, "a clear, specific, recipient-facing explanation -- not a generic refusal");
+  t.match(preview.json.compliance.loaded_contracts.message, /CBP would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "a clear, specific, recipient-facing explanation -- not a generic refusal");
+  t.equal(preview.json.loaded_contract_block.code, "loaded_contract_limit_exceeded");
+  t.equal(preview.json.loaded_contract_block.teams[0].franchise_id, "0002");
 
   const acceptRefused = await act(env, mobileBody(id));
   t.equal(acceptRefused.status, 409);
-  t.equal(acceptRefused.json.code, "loaded_contract_drops_required");
+  t.equal(acceptRefused.json.code, "loaded_contract_limit_exceeded");
   t.equal(mfl.st.done.length, 0, "zero MFL writes -- the now-noncompliant offer does not execute");
 
-  // A valid conditional-drop plan SATISFIES the requirement -- CBP's own drop_requirements
-  // entry now shows satisfied:true -- but satisfying a selection is not the same as EXECUTING
-  // it, and no code anywhere drops a real player yet (Keith's ruling, 2026-09-29). The SAME
-  // offer stays held, with zero MFL writes, even with a fully valid plan.
+  // A loaded_contract_drops selection is not read at accept either -- the SAME offer stays held,
+  // identical refusal, zero MFL writes.
   const acceptedWithDrop = await act(env, { ...mobileBody(id), loaded_contract_drops: ["9000"] });
   t.equal(acceptedWithDrop.status, 409, acceptedWithDrop.text.slice(0, 400));
-  t.equal(acceptedWithDrop.json.code, "loaded_contract_drops_required");
-  const myReq = (acceptedWithDrop.json.compliance.loaded_contracts.drop_requirements || []).find((d) => d.franchise_id === "0002");
-  t.ok(myReq && myReq.satisfied, "the selection genuinely satisfies CBP's own requirement");
-  t.equal(acceptedWithDrop.json.compliance.loaded_contracts.executable, false);
-  t.equal(mfl.writes("tradeResponse").length, 0, "still zero MFL writes -- satisfied is not executed, so this trade can never accept while over the limit");
+  t.equal(acceptedWithDrop.json.code, "loaded_contract_limit_exceeded");
+  t.equal(mfl.writes("tradeResponse").length, 0, "still zero MFL writes -- this trade can never accept while CBP is over the limit");
 });
 
 test("LC 2-WAY: at exactly 5 (not 6), the accept proceeds and MFL is called once", async () => {
@@ -620,7 +615,7 @@ test("LC 3-WAY: the third participant would exceed the loaded-contract limit -> 
   const ctx = ctxWait();
   const msg = await say(await handle3WayButton(press("accept", DISCORD.B), env, ctx));
   await ctx.flush();
-  t.match(msg, /would move from 5 to 6 loaded contracts/);
+  t.match(msg, /would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
   const row = F.readRow(env);
   t.equal(row.team_b_state, "accepted", "the accept WAS recorded — consent is never discarded because someone would exceed the loaded-contract limit");
   t.equal(row.status, "collecting");
@@ -633,13 +628,13 @@ test("LC 3-WAY: RECOVERABLE block when both accept over the limit -- collecting,
   const ctx = ctxWait();
   const msg = await say(await handle3WayButton(press("accept", DISCORD.C), env, ctx));
   await ctx.flush();
-  t.match(msg, /would move from 5 to 6 loaded contracts/);
+  t.match(msg, /would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
   const row = F.readRow(env);
   t.equal(row.status, "collecting", "NOT failed, NOT executing");
   t.equal(row.team_b_state, "accepted"); t.equal(row.team_c_state, "accepted");
   t.equal(row.failure_reason, null); t.equal(row.mfl_trade_ids, null); t.equal(row.executed_at_utc, null);
   const led = ledgerRow(env); t.equal(led.state, "blocked_cap");
-  const blk = JSON.parse(led.block_json); t.equal(blk.kind, "loaded_contract_drops_required");
+  const blk = JSON.parse(led.block_json); t.equal(blk.kind, "loaded_contract_limit_exceeded");
   t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
 });
 
@@ -647,12 +642,12 @@ test("LC 3-WAY: recheck recomputes from FRESH authority -- fixing the roster let
   const { env, mfl } = threeWayWorld({ loadedC: 5, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
   mfl.st.rosters["0001"][0].contractStatus = "Vet-FAA-FL";
   const r1 = await execute3Way(env, F.TRADE_ID);
-  t.equal(r1.blocked, true); t.equal(r1.kind, "loaded_contract_drops_required");
+  t.equal(r1.blocked, true); t.equal(r1.kind, "loaded_contract_limit_exceeded");
   t.equal(F.readRow(env).status, "collecting", "recoverable -- never failed");
   t.equal(ledgerRow(env).state, "blocked_cap");
   // a re-check while STILL over the limit: refused, recomputed, nothing changes
   const still = await recheck(env);
-  t.equal(still.status, 409); t.equal(still.json.code, "loaded_contract_drops_required");
+  t.equal(still.status, 409); t.equal(still.json.code, "loaded_contract_limit_exceeded");
   t.equal(F.readRow(env).status, "collecting"); t.equal(mfl.writes().length, 0);
   // Fix: 0012 drops one of its 5 loaded contracts, opening a slot -- a fresh read must pick this up.
   // (index 0 is the real trade asset 16650 -- keep it; drop one of the loaded filler players.)
@@ -1239,61 +1234,39 @@ test("LC 3-WAY CREATE: 5 -> 6 for the INITIATOR refuses the offer before it's ev
   const { env, mfl } = threeWayCreateWorld();
   const r = await create3Way(env, "tok-A", create3WayBody());
   t.equal(r.status, 409, r.text.slice(0, 300));
-  t.equal(r.json.code, "loaded_contract_drops_required");
-  t.match(r.json.error, /Real Deal Creel would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/);
-  t.equal(r.json.loaded_contract_drops_needed.franchise_id, "0008");
-  t.equal(r.json.loaded_contract_drops_needed.required_drops, 1);
+  t.equal(r.json.code, "loaded_contract_limit_exceeded");
+  t.match(r.json.error, /Real Deal Creel would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  t.equal(r.json.teams[0].franchise_id, "0008");
+  t.equal(r.json.teams[0].projected, 6);
   const list = await callWorker(env, "GET", `/api/trades/3way?franchise_id=0008&MFL_USER_ID=tok-A`);
   t.equal(list.json.three_way.length, 0, "nothing was stored");
   t.equal(dmsSent(mfl), 0, "no partner DMs went out for a refused create");
 });
 
-test("LC 3-WAY CREATE: a player also being SENT in this same trade can't double as the initiator's conditional drop", async () => {
-  const { env } = threeWayCreateWorld();
-  // 16614 is the asset 0008 is SENDING to 0001 in this very trade -- not a loaded contract
-  // anyway, but proves the also_being_sent guard is live on the 3-way creation path too.
+test("LC 3-WAY CREATE: a loaded_contract_drops field in the body is read nowhere -- identical refusal whether or not one is supplied, valid or not (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling)", async () => {
+  const { env, mfl } = threeWayCreateWorld();
+  // 16614 is the asset 0008 is SENDING to 0001 in this very trade -- a selection naming it would
+  // have been rejected as also_being_sent under the old picker; now it's simply never read.
   const r = await create3Way(env, "tok-A", create3WayBody({ loaded_contract_drops: ["16614"] }));
   t.equal(r.status, 409);
-  t.equal(r.json.code, "loaded_contract_drops_required");
-  const sel = r.json.loaded_contract_drops_needed.selected.find((s) => s.player_id === "16614");
-  t.ok(sel, "the rejected selection is echoed back");
-  t.equal(sel.valid, false);
+  t.equal(r.json.code, "loaded_contract_limit_exceeded");
+  t.equal(r.json.teams[0].franchise_id, "0008");
+  const list = await callWorker(env, "GET", `/api/trades/3way?franchise_id=0008&MFL_USER_ID=tok-A`);
+  t.equal(list.json.three_way.length, 0, "still nothing stored");
+  t.equal(dmsSent(mfl), 0);
 });
 
-test("LC 3-WAY CREATE: a VALID drop from the initiator's own roster is accepted at CREATION (3-way is already 100% held server-side, never a native MFL trade) -- but EXECUTION still holds, with zero MFL writes, since no conditional-drop executor exists", async () => {
+test("LC 3-WAY CREATE: a selection that would have been VALID under the old picker makes zero difference -- CREATE still refuses, nothing is persisted, no executor exists to make it matter", async () => {
   const { env, mfl } = threeWayCreateWorld();
   const r = await create3Way(env, "tok-A", create3WayBody({ loaded_contract_drops: ["90000"] }));
-  t.equal(r.status, 201, r.text.slice(0, 300));
-  const id = r.json.id;
-  t.ok(id);
-  t.equal(dmsSent(mfl), 2, "both partners were DMed -- the trade really was created");
-
-  // The detail view already reflects the persisted selection as satisfied, without any further action.
-  const g = await callWorker(env, "GET", `/api/trades/3way?id=${id}&MFL_USER_ID=tok-A`);
-  t.equal(g.status, 200);
-  const myReq = g.json.trade.compliance.loaded_contracts.drop_requirements.find((d) => d.franchise_id === "0008");
-  t.ok(myReq, "the requirement is still reported even though it's satisfied");
-  t.equal(myReq.satisfied, true);
-  t.equal(myReq.selected.find((s) => s.player_id === "90000").valid, true);
-  t.equal(g.json.trade.compliance.loaded_contracts.executable, false, "satisfied, but not (yet) executable -- no executor exists");
-
-  // Every accept recomputes and PROACTIVELY reports the live compliance picture (not just the
-  // one that completes consent) -- "every party must see the drop requirement... when viewing
-  // the offer" (Keith's ruling, 2026-09-29). So BOTH B's and C's accept responses correctly
-  // surface the held state; what matters is that NEITHER ever produces a real MFL write.
-  const ctx = ctxWait();
-  const b = await say(await handle3WayButton({ data: { custom_id: `tr3:accept:${id}` }, member: { user: { id: DISCORD.B } } }, env, ctx));
-  await ctx.flush();
-  t.match(b, /conditional.drop|held|isn.t (built|available)/i, `B's accept correctly surfaces the live held state, proactively, before consent is even complete: ${b}`);
+  t.equal(r.status, 409, r.text.slice(0, 300));
+  t.equal(r.json.code, "loaded_contract_limit_exceeded");
+  t.equal(r.json.teams[0].franchise_id, "0008");
+  const list = await callWorker(env, "GET", `/api/trades/3way?franchise_id=0008&MFL_USER_ID=tok-A`);
+  t.equal(list.json.three_way.length, 0, "nothing was stored");
+  t.equal(dmsSent(mfl), 0, "no partner DMs -- the trade was never created, so there is nothing for B/C to accept");
   t.equal(mfl.st.done.length, 0);
-  t.equal(F.readRow(env, id).status, "collecting", "B's accept is recorded -- never blocked, never failed");
-  const c = await say(await handle3WayButton({ data: { custom_id: `tr3:accept:${id}` }, member: { user: { id: DISCORD.C } } }, env, ctx));
-  await ctx.flush();
-  t.match(c, /conditional.drop|held|isn.t (built|available)/i, `C's accept is the 3rd consent -- it correctly reports the trade is HELD pending real drop execution, not silently allowed through: ${c}`);
-  t.equal(mfl.st.done.length, 0, "zero MFL trade writes");
-  t.equal(mfl.st.pending.length, 0, "zero MFL pending-trade writes -- a 3-way never becomes a native MFL trade until it actually executes");
-  const row = F.readRow(env, id);
-  t.equal(row.status, "collecting", "recoverable -- never executed, never failed");
+  t.equal(mfl.st.pending.length, 0);
 });
 
 test("LC 3-WAY CREATE: exactly five (no drops needed) sends straight through with no gate at all", async () => {
@@ -1355,7 +1328,7 @@ test("LC EXEC-GATE: evaluateTradeCompliance's own `executable` field agrees with
   t.equal(needsDropsC.loaded_contracts.executable, false, "satisfied is NOT executable -- no executor exists");
 });
 
-test("LC EXEC-GATE 2-WAY: a franchise's OWN fully-satisfied selection is persisted, but REPEATED creation attempts never succeed and never write to MFL, no matter how many times it's retried", async () => {
+test("LC EXEC-GATE 2-WAY: a loaded_contract_drops selection, repeated across multiple attempts, never succeeds and never writes to MFL -- there is no in-trade fix to retry toward (Keith's ruling, 2026-10-01)", async () => {
   const { env, mfl } = fresh2();
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA" }, ...loadedIds(9000, 5).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA-FL" }];
@@ -1363,18 +1336,17 @@ test("LC EXEC-GATE 2-WAY: a franchise's OWN fully-satisfied selection is persist
   for (let i = 0; i < 3; i++) {
     const r = await createOffer(env, mfl, payload, { dropIds: ["9000"] });
     t.equal(r.status, 409, `attempt ${i}: ${r.text.slice(0, 300)}`);
-    t.equal(r.json.loaded_contract_drops_needed.satisfied, true, `attempt ${i}: the selection genuinely is valid and sufficient every time`);
-    t.equal(r.json.loaded_contract_drops_needed.executable, false, `attempt ${i}`);
+    t.equal(r.json.code, "loaded_contract_limit_exceeded", `attempt ${i}`);
   }
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes across every retry -- satisfied never becomes sent");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes across every retry");
   t.equal(mfl.writes("tradeResponse").length, 0);
   t.equal(mfl.st.done.length, 0);
 });
 
-test("LC EXEC-GATE 2-WAY: SELECT_DROPS on an ALREADY-PENDING offer persists a satisfied selection but NEVER itself writes to MFL, and the offer remains un-acceptable", async () => {
+test("LC EXEC-GATE 2-WAY: SELECT_DROPS is REMOVED -- always 410 regardless of franchise/state, never writes to MFL, and the offer remains un-acceptable on its own merits", async () => {
   const { env, mfl } = fresh2();
   // 0002 (the RECIPIENT) starts fine, then goes over between creation and accept (mirrors the
-  // "becomes noncompliant" scenario) so its OWN SELECT_DROPS path is the one under test here.
+  // "becomes noncompliant" scenario) -- SELECT_DROPS is now dead regardless of this state.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractStatus: "Vet-FAA-FL" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, ...loadedIds(9000, 4).map((p) => ({ id: p.id, salary: 1000, contractStatus: p.contractStatus }))];
   const { id } = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056)], [player(13100)]));
@@ -1383,40 +1355,37 @@ test("LC EXEC-GATE 2-WAY: SELECT_DROPS on an ALREADY-PENDING offer persists a sa
   const select = await callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, {
     body: { league_id: "74598", season: "2026", trade_id: id, action: "SELECT_DROPS", acting_franchise_id: "0002", offer_id: id, loaded_contract_drops: ["9000"] },
   });
-  t.equal(select.status, 200, select.text.slice(0, 300));
-  t.equal(select.json.code, "selected");
-  t.equal(select.json.compliance.loaded_contracts.executable, false);
-  t.match(select.json.message, /isn't built yet/i);
-  t.equal(mfl.st.done.length, 0, "SELECT_DROPS itself never writes to MFL -- it only persists a D1 selection");
+  t.equal(select.status, 410, select.text.slice(0, 300));
+  t.equal(select.json.code, "loaded_contract_drops_removed");
+  t.match(select.json.message, /no longer available/i);
+  t.equal(mfl.st.done.length, 0, "SELECT_DROPS never writes to MFL -- it's dead, not just inert");
 
-  // Accept STILL refuses -- the persisted, satisfied selection changes nothing about acceptability.
+  // Accept STILL refuses -- the SELECT_DROPS attempt (even though it 410'd) changed nothing.
   const accept = await act(env, mobileBody(id));
   t.equal(accept.status, 409);
-  t.equal(accept.json.code, "loaded_contract_drops_required");
+  t.equal(accept.json.code, "loaded_contract_limit_exceeded");
   t.equal(mfl.st.done.length, 0);
 });
 
-test("LC EXEC-GATE 3-WAY: execute3Way itself refuses and writes ZERO MFL calls (no pairwise trade, no drop) when a satisfied conditional-drop selection is the ONLY thing standing between 'blocked' and 'ok'", async () => {
+test("LC EXEC-GATE 3-WAY: select-drops is REMOVED (always 410) and execute3Way refuses regardless -- zero MFL calls of any kind (no pairwise trade, no drop)", async () => {
   const { env, mfl } = threeWayWorld({ loadedC: 5, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
   mfl.st.rosters["0001"][0].contractStatus = "Vet-FAA-FL";   // the asset 0001 sends to 0012 (16181) is now loaded -> 0012 goes 5 -> 6
-  // 0012 (tok-H) selects a genuinely valid drop of its own -- one of its OWN 5 loaded fillers,
-  // not the incoming asset, not anything it's sending away.
+  // 0012 (tok-H) attempts to select a drop of its own -- the route is dead now.
   const select = await callWorker(env, "POST", `/api/trades/3way/select-drops?${Q}&MFL_USER_ID=tok-H`, { body: { id: F.TRADE_ID, player_ids: ["90200"] } });
-  t.equal(select.status, 200, select.text.slice(0, 300));
-  t.equal(select.json.code, "selected");
-  t.equal(select.json.compliance.loaded_contracts.executable, false);
+  t.equal(select.status, 410, select.text.slice(0, 300));
+  t.equal(select.json.code, "loaded_contract_drops_removed");
 
   const r1 = await execute3Way(env, F.TRADE_ID);
-  t.equal(r1.blocked, true); t.equal(r1.kind, "loaded_contract_drops_required");
-  t.equal(r1.compliance.loaded_contracts.status, "needs_drops", "the selection genuinely satisfies the requirement");
+  t.equal(r1.blocked, true); t.equal(r1.kind, "loaded_contract_limit_exceeded");
+  t.equal(r1.compliance.loaded_contracts.status, "blocked", "no selection was ever recorded -- straight to blocked, never needs_drops");
   t.equal(F.readRow(env).status, "collecting", "recoverable -- never executed, never failed");
   t.equal(ledgerRow(env).state, "blocked_cap");
   t.equal(mfl.writes().length, 0, "zero MFL writes of ANY kind -- no pairwise trade, no drop");
   t.equal(mfl.st.done.length, 0, "zero MFL trades executed");
 
-  // Re-check, still satisfied-but-not-executable: refused again, recomputed, still zero writes.
+  // Re-check: refused again, recomputed, still zero writes.
   const still = await recheck(env);
-  t.equal(still.status, 409); t.equal(still.json.code, "loaded_contract_drops_required");
+  t.equal(still.status, 409); t.equal(still.json.code, "loaded_contract_limit_exceeded");
   t.equal(F.readRow(env).status, "collecting");
   t.equal(mfl.writes().length, 0, "zero MFL writes on the re-check too");
   t.equal(mfl.st.done.length, 0);

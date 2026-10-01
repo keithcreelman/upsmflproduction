@@ -92,59 +92,32 @@ function loadDesktop(env) {
     loadedFillers(90000, 5).map((p, i) => `{ player_id: "${p.id}", player_name: "Filler ${i}", position: "WR" }`).join(",") +
     `] } ] } };\n  function getTeamById(teamId) { var teams = (state.data && state.data.teams) || []; for (var i = 0; i < teams.length; i++) { if (teams[i].franchise_id === teamId) return teams[i]; } return null; }\n`;
   const factory = new Function("window", "document", "fetch",
-    stateCode + code + "\n  return { confirmOfferLoadedContractDrops, submitTradeCreateWithGates, confirmOfferCapOverage };");
+    stateCode + code + "\n  return { showLoadedContractBlock, submitTradeCreateWithGates, confirmOfferCapOverage };");
   const api = factory(win, document, workerFetch(env, log));
   return { api, dlg, log };
 }
 
-test("DESKTOP: a 5->6 create is refused BEFORE anything is sent, the picker shows the right franchise/count/candidates from the REAL 409, and even a fully VALID pick still HOLDS -- no conditional-drop executor exists (Keith's ruling, 2026-09-29)", async () => {
+test("DESKTOP: a 5->6 create is refused BEFORE anything is sent, the dialog shows the REAL server message/team/count with NO picker, and the promise always rejects -- there is no in-trade fix (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29)", async () => {
   const { env, mfl } = world();
   const d = loadDesktop(env);
   const apiUrl = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
   const p = d.api.submitTradeCreateWithGates(apiUrl, offerBody(), "0001");
   await settle(40);
-  t.ok(d.dlg.hasAttribute("open"), "the picker dialog opened BEFORE anything was sent");
-  t.match(d.dlg.innerHTML, /L\.A\. Looks would move from 5 to 6 loaded contracts/, "the REAL server message, not a client guess");
-  t.match(d.dlg.innerHTML, /1 drop.{0,3}required/);
-  for (const pid of ["90000", "90001", "90002", "90003", "90004"]) t.match(d.dlg.innerHTML, new RegExp(`data-t3w-drop-pid="${pid}"`), `candidate ${pid} is offered`);
-  t.match(d.dlg.innerHTML, /Filler 0/, "the desktop picker resolves candidate NAMES from the builder's own already-loaded roster data, not the worker");
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes while the picker is open");
+  t.ok(d.dlg.hasAttribute("open"), "the block dialog opened BEFORE anything was sent");
+  t.match(d.dlg.innerHTML, /L\.A\. Looks would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the REAL server message, not a client guess");
+  t.match(d.dlg.innerHTML, /Revise the offer, or make a separate roster move first/);
+  // No picker-enabling markup of any kind -- no checkboxes, no candidate list, no "Confirm and send".
+  t.doesNotMatch(d.dlg.innerHTML, /data-t3w-drop-pid/, "no checkboxes -- there is nothing to pick");
+  t.doesNotMatch(d.dlg.innerHTML, /Confirm and send/, "no retry affordance");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes while the dialog is open");
 
-  dialogClick(d.dlg, "data-drops-act", "confirm");
-  await settle(20);
-  t.match(d.dlg.innerHTML, /Select 1 player/, "confirming with nothing checked is refused client-side too, before any retry");
-  t.equal(mfl.st.pending.length, 0);
-
-  // A genuinely valid, sufficient pick is retried against the REAL worker -- which refuses it
-  // too, since satisfying a selection is not executing it. The dialog must show this as a
-  // TERMINAL, honest notice (never loop back into the interactive picker, never imply the owner
-  // can act their way past it), and the promise must still ultimately reject -- nothing was sent.
-  dialogCheck(d.dlg, "90000", true);
-  dialogClick(d.dlg, "data-drops-act", "confirm");
-  await settle(40);
-  t.match(d.dlg.innerHTML, /conditional-drop execution isn't built yet/i, "the dialog now shows the TERMINAL held notice, not the picker again");
-  t.doesNotMatch(d.dlg.innerHTML, /data-t3w-drop-pid/, "no checkboxes -- nothing left for the owner to do here");
-  t.doesNotMatch(d.dlg.innerHTML, /Confirm and send/, "no retry loop -- only a Close button");
   let threw = null;
-  dialogClick(d.dlg, "data-drops-act", "cancel");   // the terminal notice's only button, labeled "Close"
+  dialogClick(d.dlg, "data-drops-act", "close");   // the dialog's only button
   try { await p; } catch (e) { threw = e; }
-  t.ok(threw, "the promise still rejects -- a satisfied-but-unexecutable selection never resolves as success");
+  t.ok(threw, "the promise rejects -- Close always re-throws the original refusal");
   t.equal(threw.status, 409);
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a fully valid, satisfied selection STILL never sends the offer");
-});
-
-test("DESKTOP: cancelling the picker throws the ORIGINAL 409 back to the caller — nothing is sent", async () => {
-  const { env, mfl } = world();
-  const d = loadDesktop(env);
-  const apiUrl = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
-  const p = d.api.submitTradeCreateWithGates(apiUrl, offerBody(), "0001");
-  await settle(40);
-  dialogClick(d.dlg, "data-drops-act", "cancel");
-  let threw = null;
-  try { await p; } catch (e) { threw = e; }
-  t.ok(threw, "the promise rejects rather than silently resolving");
-  t.equal(threw.status, 409); t.equal(threw.data.code, "loaded_contract_drops_required");
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes when the owner cancels");
+  t.equal(threw.data.code, "loaded_contract_limit_exceeded");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- the offer was never sent");
 });
 
 // ───────────────────────────────── MOBILE (the real submitTradeCreateWithGatesMobile + its sheet) ─────────────────────────────────
@@ -167,7 +140,7 @@ function loadMobile(env) {
     getElementById: (id) => {
       if (id === "ups-m-app") return app;
       if (id === "ups-m-drops-overlay") return registry["ups-m-drops-overlay"] || null;
-      if (id === "ups-m-drops-close" || id === "ups-m-drops-cancel" || id === "ups-m-drops-go" || id === "ups-m-drops-close-terminal") return freshButton(id);
+      if (id === "ups-m-drops-close" || id === "ups-m-drops-close-ok") return freshButton(id);
       return null;
     },
     querySelector: (sel) => (sel === "#ups-m-drops-overlay .ups-m-drop-body" ? bodyChangeTarget : null),
@@ -183,14 +156,14 @@ function loadMobile(env) {
     { player_id: "90002", display: "Filler 2", position: "WR" }, { player_id: "90003", display: "Filler 3", position: "WR" },
     { player_id: "90004", display: "Filler 4", position: "WR" },
   ] } } };
-  const start = MOBILE_SRC.indexOf("  function buildPlayerNamesForFid(fid, playerIds) {");
+  const start = MOBILE_SRC.indexOf("  function showLoadedContractBlockSheet(errData) {");
   const end = MOBILE_SRC.indexOf("  function submitOffer() {");
   if (start < 0 || end < 0 || end < start) throw new Error("could not locate the mobile drop-gate helpers in views/trade.js");
   const code = MOBILE_SRC.slice(start, end);
   const win = { UPS_TRADE_3WAY: T };
   const openCreateCapAckStub = "function openCreateCapAckSheet() { throw new Error('cap-ack path not exercised in this test'); }\n";
   const factory = new Function("window", "document", "fetch", "U", "builderState", "T",
-    openCreateCapAckStub + code + "\n  return { openCreateLoadedContractDropsSheet, submitTradeCreateWithGatesMobile };");
+    openCreateCapAckStub + code + "\n  return { showLoadedContractBlockSheet, submitTradeCreateWithGatesMobile };");
   const api = factory(win, doc, workerFetch(env, log), U, builderState, T);
   return { api, app, registry, log, bodyChangeTarget, sheet: () => registry["ups-m-drops-overlay"] };
 }
@@ -199,54 +172,27 @@ function mobileClick(m, id) {
   if (!btn) throw new Error(`no #${id} is rendered`);
   (btn.__listeners.click || []).forEach((fn) => fn({}));
 }
-function mobileCheck(m, pid, checked) {
-  const box = { checked, matches: (sel) => sel.indexOf("data-t3w-drop-pid") !== -1, getAttribute: (a) => (a === "data-t3w-drop-pid" ? pid : null) };
-  (m.bodyChangeTarget.__listeners.change || []).forEach((fn) => fn({ target: box }));
-}
 
-test("MOBILE: a 5->6 create is refused BEFORE anything is sent, the picker shows the right franchise/count/candidates from the REAL 409, and even a fully VALID pick still HOLDS -- no conditional-drop executor exists (Keith's ruling, 2026-09-29)", async () => {
+test("MOBILE: a 5->6 create is refused BEFORE anything is sent, the sheet shows the REAL server message/team/count with NO picker, and the final result is always the original 409 -- there is no in-trade fix (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29)", async () => {
   const { env, mfl } = world();
   const m = loadMobile(env);
   const url = `https://worker.test/api/trades/proposals?L=74598&YEAR=2026&MFL_USER_ID=tok-B`;
   const p = m.api.submitTradeCreateWithGatesMobile(url, offerBody(), "0001");
   await settle(40);
-  t.ok(m.sheet(), "the picker sheet opened BEFORE anything was sent");
+  t.ok(m.sheet(), "the block sheet opened BEFORE anything was sent");
   const html1 = m.sheet().innerHTML;
-  t.match(html1, /L\.A\. Looks would move from 5 to 6 loaded contracts/, "the REAL server message");
-  for (const pid of ["90000", "90001", "90002", "90003", "90004"]) t.match(html1, new RegExp(`data-t3w-drop-pid="${pid}"`), `candidate ${pid} is offered`);
-  t.match(html1, /Filler 2/, "the mobile picker resolves candidate names from builderState.inv, not the worker");
+  t.match(html1, /L\.A\. Looks would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the REAL server message");
+  t.match(html1, /Revise the offer, or make a separate roster move first/);
+  t.doesNotMatch(html1, /data-t3w-drop-pid/, "no checkboxes -- there is nothing to pick");
+  t.doesNotMatch(html1, /Confirm and send/, "no retry affordance");
   t.equal(mfl.st.pending.length, 0);
 
-  mobileClick(m, "ups-m-drops-go");
-  await settle(20);
-  t.match(m.sheet().innerHTML, /Select 1 player/, "confirming with nothing checked is refused client-side too");
-  t.equal(mfl.st.pending.length, 0);
-
-  // A genuinely valid, sufficient pick is retried against the REAL worker -- which refuses it
-  // too, since satisfying a selection is not executing it. The sheet must show a TERMINAL,
-  // honest notice, never loop back into the picker, and the promise must still resolve null.
-  mobileCheck(m, "90002", true);
-  mobileClick(m, "ups-m-drops-go");
-  await settle(40);
-  t.match(m.sheet().innerHTML, /conditional-drop execution isn't built yet/i, "the sheet now shows the TERMINAL held notice, not the picker again");
-  t.doesNotMatch(m.sheet().innerHTML, /data-t3w-drop-pid/, "no checkboxes -- nothing left for the owner to do here");
-  t.doesNotMatch(m.sheet().innerHTML, /Confirm and send/, "no retry loop -- only a Close button");
-  mobileClick(m, "ups-m-drops-close-terminal");
+  mobileClick(m, "ups-m-drops-close-ok");
   const res = await p;
-  t.equal(res, null, "a satisfied-but-unexecutable selection resolves null, matching the 'declined' convention -- never a success");
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- a fully valid, satisfied selection STILL never sends the offer");
-});
-
-test("MOBILE: closing the picker resolves null -- submitTradeCreateWithGatesMobile returns null, matching the existing 'declined' no-op convention", async () => {
-  const { env, mfl } = world();
-  const m = loadMobile(env);
-  const url = `https://worker.test/api/trades/proposals?L=74598&YEAR=2026&MFL_USER_ID=tok-B`;
-  const p = m.api.submitTradeCreateWithGatesMobile(url, offerBody(), "0001");
-  await settle(40);
-  mobileClick(m, "ups-m-drops-cancel");
-  const res = await p;
-  t.equal(res, null);
-  t.equal(mfl.st.pending.length, 0, "zero MFL writes when the owner cancels");
+  t.ok(res, "the original 409 response is returned, not null -- submitOffer's own error handling renders it");
+  t.equal(res.status, 409);
+  t.equal(res.body.code, "loaded_contract_limit_exceeded");
+  t.equal(mfl.st.pending.length, 0, "zero MFL writes -- the offer was never sent");
 });
 
 // ───────── CREATE-TIME: the RECIPIENT (not the sender) is over the limit -- Keith's exact
@@ -273,28 +219,37 @@ function hammerWorld() {
   return { env, mfl };
 }
 
-test("DESKTOP CREATE — HAMMER TIMES / CHIG OKONKWO: the RECIPIENT (not the sender) would go over the limit -- no picker opens (nothing for the sender to pick), but the exact warning surfaces before anything is sent, and nothing is", async () => {
+test("DESKTOP CREATE — HAMMER TIMES / CHIG OKONKWO: the RECIPIENT (not the sender) would go over the limit -- the SAME hard-block dialog opens (no picker, just the warning), naming HammerTime, and nothing is sent", async () => {
   const { env, mfl } = hammerWorld();
   const d = loadDesktop(env);
   const apiUrl = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
+  const p = d.api.submitTradeCreateWithGates(apiUrl, hammerOfferBody(), "0001");
+  await settle(40);
+  t.ok(d.dlg.hasAttribute("open"), "the block dialog opens even though it's the RECIPIENT's own requirement -- the sender still needs to see it");
+  t.match(d.dlg.innerHTML, /HammerTime would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the sender sees the exact warning, naming HammerTime, before anything is sent");
+  t.doesNotMatch(d.dlg.innerHTML, /data-t3w-drop-pid/, "no picker -- nothing for the sender to pick on HammerTime's behalf");
+  t.equal(mfl.st.pending.length, 0, "no native MFL offer was sent while the dialog is open");
   let threw = null;
-  try { await d.api.submitTradeCreateWithGates(apiUrl, hammerOfferBody(), "0001"); } catch (e) { threw = e; }
-  t.ok(threw, "the send must be refused");
+  dialogClick(d.dlg, "data-drops-act", "close");
+  try { await p; } catch (e) { threw = e; }
+  t.ok(threw, "the send is still refused");
   t.equal(threw.status, 409);
-  t.match(threw.message, /HammerTime would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/, "the sender sees the exact warning, naming HammerTime, before anything is sent");
-  t.ok(!d.dlg.hasAttribute("open"), "no interactive picker opens -- this is HammerTime's own requirement, not the sender's to pick");
   t.equal(mfl.st.pending.length, 0, "no native MFL offer was ever sent");
 });
 
-test("MOBILE CREATE — HAMMER TIMES / CHIG OKONKWO: the SAME scenario surfaces the SAME warning to the sender, with the SAME zero-picker/zero-send behavior as desktop", async () => {
+test("MOBILE CREATE — HAMMER TIMES / CHIG OKONKWO: the SAME scenario surfaces the SAME hard-block sheet to the sender, naming HammerTime, and nothing is sent", async () => {
   const { env, mfl } = hammerWorld();
   const m = loadMobile(env);
   const url = `https://worker.test/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`;
-  const resp = await m.api.submitTradeCreateWithGatesMobile(url, hammerOfferBody(), "0001");
-  t.ok(resp, "must NOT silently resolve as if the owner had simply declined a picker -- there was no picker to decline");
+  const p = m.api.submitTradeCreateWithGatesMobile(url, hammerOfferBody(), "0001");
+  await settle(40);
+  t.ok(m.sheet(), "the block sheet opens even though it's the RECIPIENT's own requirement");
+  t.match(m.sheet().innerHTML, /HammerTime would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the SAME exact warning as desktop, naming HammerTime");
+  t.doesNotMatch(m.sheet().innerHTML, /data-t3w-drop-pid/, "no picker on mobile either");
+  mobileClick(m, "ups-m-drops-close-ok");
+  const resp = await p;
+  t.ok(resp, "the original 409 response is returned");
   t.equal(resp.status, 409);
-  t.match(resp.body && resp.body.error, /HammerTime would move from 5 to 6 loaded contracts\. The maximum is 5, so 1 conditional drop/, "the SAME exact warning as desktop, naming HammerTime");
-  t.ok(!m.sheet(), "no picker sheet opens on mobile either -- consistent with desktop");
   t.equal(mfl.st.pending.length, 0, "no native MFL offer was ever sent");
 });
 
@@ -323,16 +278,13 @@ function loadDesktopAccept(env) {
 }
 const previewBody2 = (id) => ({ league_id: "74598", season: "2026", trade_id: id, action: "PREVIEW", acting_franchise_id: "0002", offer_id: id });
 
-test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, and STAYS withheld even after a fully valid pick + Confirm selection -- satisfied is not executed, so Accept never becomes available (Keith's ruling, 2026-09-29)", async () => {
+test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 is a hard block on review -- Accept is withheld, no picker is offered, and the owner's only path is Not now (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29)", async () => {
   const { env, mfl } = world();
   // Flip the direction: 0002 is now the one who will RECEIVE a loaded player. At 4 loaded
-  // (under the limit), creation succeeds -- the create-time gate now also checks the
-  // RECIPIENT's own side (Keith, 2026-09-30: "show me before Send" must never depend on the
-  // recipient reviewing first, so a recipient ALREADY over the limit is refused right here too;
-  // see the dedicated create-time test below). This test's own job is the case create-time
-  // cannot catch: 0002's roster changes AFTER this offer is created but BEFORE they review it --
-  // exactly the "recalculate immediately before completion" principle -- so the picker must
-  // still appear at accept, from a live re-check, never trusted from create time.
+  // (under the limit), creation succeeds -- the create-time gate also checks the RECIPIENT's own
+  // side, but 0002's roster changes AFTER this offer is created and BEFORE they review it --
+  // exactly the "recalculate immediately before completion" principle -- so the block must still
+  // appear at accept, from a live re-check, never trusted from create time.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 4)];
   const createRes = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: offerBody() });
@@ -343,28 +295,17 @@ test("DESKTOP ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accep
   const d = loadDesktopAccept(env);
   const p = d.api.reviewBeforeAccept(d.url, previewBody2(id));
   await settle(40);
-  t.match(d.dlg.innerHTML, /CBP would move from 5 to 6 loaded contracts/, "the REAL server message for the RECIPIENT's own franchise");
-  t.ok(!d.dlg.has("accept-confirm"), "Accept is withheld until the requirement is satisfied");
-  for (const pid of ["90000", "90001", "90002", "90003", "90004"]) t.match(d.dlg.innerHTML, new RegExp(`data-t3w-drop-pid="${pid}"`));
+  t.match(d.dlg.innerHTML, /CBP would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the REAL server message for the RECIPIENT's own franchise");
+  t.match(d.dlg.innerHTML, /Revise the offer, or make a separate roster move first/);
+  t.ok(!d.dlg.has("accept-confirm"), "Accept is withheld -- there is no in-trade fix to satisfy it with");
+  t.doesNotMatch(d.dlg.innerHTML, /data-t3w-drop-pid/, "no picker is offered");
   t.equal(mfl.st.done.length, 0, "zero MFL writes while the review is open");
-
-  d.dlg.check("90000", true);
-  d.dlg.click("select-drops");
-  await settle(40);
-  // The selection IS recorded and reported as satisfied -- SELECT_DROPS itself never writes to
-  // MFL, and satisfying a selection is real, useful progress -- but it is NOT the same thing as
-  // an EXECUTED drop, and Accept must stay withheld regardless (no code anywhere drops a real
-  // player yet -- docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
-  t.ok(!d.dlg.has("accept-confirm"), "Accept is STILL withheld -- a satisfied selection never unblocks it while no executor exists");
-  t.match(d.dlg.innerHTML, /Selected: Player 90000/, "the confirmed selection is shown back, by id (this dialog has no full roster data to resolve a name)");
-  t.match(d.dlg.innerHTML, /isn't (built|available) yet/i, "the review honestly explains WHY it's still held");
-  t.equal(mfl.st.done.length, 0, "SELECT_DROPS never itself writes to MFL");
 
   // With no accept-confirm button rendered, the owner's only path is Not now -- the review
   // resolves false, exactly like any other un-acceptable state.
   d.dlg.click("accept-close");
   t.equal(await p, false);
-  t.equal(mfl.st.done.length, 0, "zero MFL writes across the entire review, satisfied selection included");
+  t.equal(mfl.st.done.length, 0, "zero MFL writes across the entire review");
 });
 
 // The real openAcceptReview() is module-internal (not on M.tradeView's public surface) --
@@ -415,12 +356,11 @@ function loadMobileForAccept(env, tradeId) {
   return { M, mount, registry, log, sheet: () => registry["ups-m-accept-overlay"], click: async (act) => { const b = buttons.find((x) => x.getAttribute("data-act") === act); if (!b) throw new Error("no " + act + " button"); b.handlers.forEach((fn) => fn.call(b)); await settle(30); } };
 }
 
-test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept is withheld, and STAYS withheld even after a fully valid pick + Confirm selection -- satisfied is not executed, so Accept never becomes available (Keith's ruling, 2026-09-29)", async () => {
+test("MOBILE ACCEPT: the RECIPIENT's own 5->6 is a hard block on review -- Accept is withheld, no picker is offered (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29)", async () => {
   const { env, mfl } = world();
-  // Same setup as the DESKTOP ACCEPT test above: 0002 is under the limit at create time (the
-  // create-time gate now also checks the recipient -- see the dedicated create-time test below),
-  // and gains its 5th loaded contract AFTER creation, before this review -- proving the
-  // accept-time re-check is live, not trusted from create time.
+  // Same setup as the DESKTOP ACCEPT test above: 0002 is under the limit at create time, and
+  // gains its 5th loaded contract AFTER creation, before this review -- proving the accept-time
+  // re-check is live, not trusted from create time.
   mfl.st.rosters["0001"] = [{ id: "14056", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA-FL" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: 5000, contractYear: 3, contractStatus: "Vet-FAA" }, ...loadedFillers(90000, 4)];
   const createRes = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: offerBody() });
@@ -432,20 +372,11 @@ test("MOBILE ACCEPT: the RECIPIENT's own 5->6 shows the picker on review, Accept
   await app.click("accept");
   const sheet = app.sheet;
   t.ok(sheet(), "the review sheet opened");
-  t.match(sheet().innerHTML, /CBP would move from 5 to 6 loaded contracts/, "the REAL server message");
-  t.ok(!sheet().has("accept-confirm"), "Accept is withheld until the requirement is satisfied");
+  t.match(sheet().innerHTML, /CBP would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the REAL server message");
+  t.match(sheet().innerHTML, /Revise the offer, or make a separate roster move first/);
+  t.ok(!sheet().has("accept-confirm"), "Accept is withheld -- there is no in-trade fix to satisfy it with");
+  t.doesNotMatch(sheet().innerHTML, /data-t3w-drop-pid/, "no picker is offered");
   t.equal(mfl.st.done.length, 0);
-
-  sheet().check("90001", true);
-  sheet().click("select-drops");
-  await settle(40);
-  // Selected and reported satisfied (SELECT_DROPS itself never writes to MFL) -- but satisfying
-  // a selection is not the same thing as an EXECUTED drop, so Accept must stay withheld
-  // regardless (Keith's ruling, 2026-09-29; docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
-  t.ok(!sheet().has("accept-confirm"), "Accept is STILL withheld -- a satisfied selection never unblocks it while no executor exists");
-  t.match(sheet().innerHTML, /Selected: Player 90001/);
-  t.match(sheet().innerHTML, /isn't (built|available) yet/i, "the review honestly explains WHY it's still held");
-  t.equal(mfl.st.done.length, 0, "zero MFL writes across the entire review, satisfied selection included");
 });
 
 await run("trade_loaded_contract_clients");

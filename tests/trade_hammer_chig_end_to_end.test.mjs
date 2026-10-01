@@ -259,7 +259,7 @@ function bridgeFetch(env) {
 function loadDesktopStaged(env, { token, fid }) {
   const bridge = bridgeFetch(env);
   const start = DESK_SRC.indexOf('  var tw2s = { listStatus: "idle"');
-  const end = DESK_SRC.indexOf("  // ── pre-send popup:");
+  const end = DESK_SRC.indexOf("  // ── pre-send notice:");
   const code = DESK_SRC.slice(start, end);
   const registry = {};
   const get = (id) => (registry[id] = registry[id] || makeEl(id));
@@ -277,7 +277,7 @@ function loadDesktopStaged(env, { token, fid }) {
 function loadMobileStaged(env, { token, fid }) {
   const bridge = bridgeFetch(env);
   const start = MOBILE_SRC.indexOf("  var tw2s = {");
-  const end = MOBILE_SRC.indexOf("  // ── pre-send popup (mobile)");
+  const end = MOBILE_SRC.indexOf("  // ── pre-send notice (mobile)");
   const code = MOBILE_SRC.slice(start, end);
   const franchiseName = (fidArg) => NAMES[fidArg] || ("Franchise " + fidArg);
   const U = { pad4: (v) => { const d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }, safeStr: (v) => (v == null ? "" : String(v).trim()), safeInt: (v, d) => { const n = parseInt(v, 10); return isFinite(n) ? n : (d == null ? 0 : d); }, escapeHtml: (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) };
@@ -297,7 +297,16 @@ function seedHammerTwoDropScenario(env, mfl) {
   return { from: SENDER, to: HAMMER, asset_tokens: ["14056", "14057"] };
 }
 
-test("DESKTOP: HAMMER'S OWN session on the staged detail view sees HIS OWN interactive picker (IR candidate included, 2 drops required) and the selection persists via the real select-drops endpoint", async () => {
+// RULING (Keith, 2026-10-01, REPLACING the conditional-drop-picker ruling of 2026-09-29):
+// "I do not want owners using... a conditional-drop picker... for this rule." The shared
+// renderer's picker (site/shared/trade_3way_view.js's old renderLoadedContractDrops) is
+// deleted, so the staged detail view -- unchanged code, but now rendering through the fixed
+// shared renderer -- shows the SAME plain hard-block message as every other surface, with no
+// checkboxes and no select-drops affordance for Hammer to click. The staged engine's own
+// server-side select-drops mechanics (worker/src/trade_2way.js) are untouched and still
+// covered directly at the worker layer above (this file's own WORKER FLOW tests); there is no
+// UI path left to exercise it through anymore, so these two tests no longer try.
+test("DESKTOP: HAMMER'S OWN session on the staged detail view shows the SAME hard-block message as every other surface -- no picker, no select-drops affordance", async () => {
   const { env, mfl } = fresh();
   const movement = seedHammerTwoDropScenario(env, mfl);
   const created = await createStaged2WayTrade(env, {}, { leagueId: "74598", season: "2026", from: { fid: SENDER, name: "Sender Squad" }, to: { fid: HAMMER, name: "HammerTime" }, movements: [{ ...movement, cap_k: 0 }] });
@@ -305,21 +314,13 @@ test("DESKTOP: HAMMER'S OWN session on the staged detail view sees HIS OWN inter
   await hammer.api.open2WayStagedDetail(created.id);
   await settle();
   const html1 = hammer.detail().innerHTML;
-  t.match(html1, /too many loaded contracts|2 drops? required/i);
-  t.match(html1, new RegExp(`data-t3w-drop-fid="${HAMMER}"[^]*?data-t3w-drop-pid="9004"`), "HIS OWN interactive picker includes the IR player as a real candidate");
-  t.match(html1, /data-t3w-drop-pid="9000"/);
-
-  hammer.api.tw2s.drops.selections[HAMMER] = ["9004", "9000"];
-  await hammer.api.doSelectDrops2WayStaged(created.id, HAMMER);
-  await settle();
-  t.match(hammer.detail().innerHTML, /Selected: /);
-  const selectReq = hammer.calls.find((c) => c.path === "/api/trades/2way/select-drops");
-  t.ok(selectReq);
-  t.deepEqual(selectReq.body.player_ids.sort(), ["9000", "9004"]);
-  t.equal(mfl.st.imports.length, 0, "selecting drops never itself writes to MFL");
+  t.match(html1, /too many loaded contracts/i);
+  t.match(html1, /would have 7 loaded contracts \(including IR\) after this trade — the limit is 5/, "names HammerTime's own projected count");
+  t.doesNotMatch(html1, /data-t3w-drop-pid/, "no picker -- nothing for Hammer to check");
+  t.equal(mfl.st.imports.length, 0);
 });
 
-test("MOBILE: the SAME HammerTime scenario -- his own session, his own picker, IR included, 2 drops -- persists identically on mobile", async () => {
+test("MOBILE: the SAME HammerTime scenario shows the SAME hard-block message, no picker", async () => {
   const { env, mfl } = fresh();
   const movement = seedHammerTwoDropScenario(env, mfl);
   const created = await createStaged2WayTrade(env, {}, { leagueId: "74598", season: "2026", from: { fid: SENDER, name: "Sender Squad" }, to: { fid: HAMMER, name: "HammerTime" }, movements: [{ ...movement, cap_k: 0 }] });
@@ -327,18 +328,9 @@ test("MOBILE: the SAME HammerTime scenario -- his own session, his own picker, I
   await hammer.api.loadStaged2WayDetail(created.id);
   await settle();
   const html1 = hammer.api.renderStaged2WayDetailHtml(hammer.api.tw2s.detail);
-  t.match(html1, /too many loaded contracts|2 drops? required/i);
-  t.match(html1, new RegExp(`data-t3w-drop-fid="${HAMMER}"[^]*?data-t3w-drop-pid="9004"`));
-  t.match(html1, /data-t3w-drop-pid="9000"/);
-
-  hammer.api.tw2s.drops.selections[HAMMER] = ["9004", "9000"];
-  await hammer.api.doSelectDrops2WayStaged(created.id, HAMMER);
-  await settle();
-  const html2 = hammer.api.renderStaged2WayDetailHtml(hammer.api.tw2s.detail);
-  t.match(html2, /Selected: /);
-  const selectReq = hammer.calls.find((c) => c.path === "/api/trades/2way/select-drops");
-  t.ok(selectReq);
-  t.deepEqual(selectReq.body.player_ids.sort(), ["9000", "9004"]);
+  t.match(html1, /too many loaded contracts/i);
+  t.match(html1, /would have 7 loaded contracts \(including IR\) after this trade — the limit is 5/);
+  t.doesNotMatch(html1, /data-t3w-drop-pid/, "no picker on mobile either");
   t.equal(mfl.st.imports.length, 0);
 });
 

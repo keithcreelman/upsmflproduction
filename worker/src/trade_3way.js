@@ -33,7 +33,6 @@ import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS
 import { makeLedger, EXEC, findExecutedTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
-import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -299,15 +298,12 @@ async function complianceViaSelf(env, row) {
   if (!apiKey) return unavailableCompliance("no_commish_key");
   try {
     const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
-    // Whatever conditional loaded-contract drops any participant has already selected for THIS
-    // trade (worker/src/trade_conditional_drops.js) -- validity is re-derived fresh from live
-    // data on the far side of this call, never trusted here.
-    let conditionalDrops = {};
-    try { conditionalDrops = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row)); } catch (_) { conditionalDrops = {}; }
+    // No conditional-drop selection is read here anymore (Keith's ruling, 2026-10-01: no
+    // in-trade fix exists) -- any selection stored before that ruling is simply ignored.
     const u = `https://self.invalid/admin/3way/compliance?L=${encodeURIComponent(safeStr(row.league_id))}&YEAR=${encodeURIComponent(safeStr(row.season))}&APIKEY=${encodeURIComponent(apiKey)}`;
     const r = await env.SELF.fetch(u, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc), conditional_drops: conditionalDrops }),
+      body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc) }),
     });
     const j = await r.json().catch(() => null);
     const c = j && j.ok && j.compliance;
@@ -368,8 +364,8 @@ const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
  * are still good and a fix + re-check (or, for cap, an acknowledgment + re-check) can heal
  * it" in exactly the same way. */
 async function enterBlockedCap(env, row, gate, dmAllThree) {
-  const violations = gate.kind === "loaded_contract_drops_required"
-    ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max, required_drops: v.required_drops, valid_drops: v.valid_drops }))
+  const violations = gate.kind === "loaded_contract_limit_exceeded"
+    ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
   let prev = null;
@@ -381,12 +377,15 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
   await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='collecting', failure_reason=NULL, updated_at_utc=? WHERE id=? AND status='executing'`).bind(nowIso(), row.id).run();
   const same = prev && prev.state === EXEC.BLOCKED_CAP && prev.block && prev.block.signature === info.signature;
   if (!same && dmAllThree) {
+    // RULING (Keith, 2026-10-01): a loaded-contract block is a hard stop, not a "go pick
+    // something" prompt -- there is no in-trade fix. The affected owner revises the deal or
+    // makes a separate roster move, then the commissioner or any participant uses "Re-check."
     await dmAllThree(String(gate.kind).startsWith("extension")
       ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
       : gate.kind === "cap_ack_required"
       ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use “Re-check.”`
-      : gate.kind === "loaded_contract_drops_required"
-      ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to select their conditional drops on the trade page, then use “Re-check.”`
+      : gate.kind === "loaded_contract_limit_exceeded"
+      ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. Revise the deal, or make a separate roster move first, then use “Re-check.”`
       : `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved and everyone's accept is saved. It will go through once that's fixed (use “Re-check” on the trade).`);
   }
   return info;
@@ -407,22 +406,13 @@ async function capGate(env, row) {
     if (reasons.every(unavailable)) return { ok: false, kind: "unavailable", message: "We couldn't verify a pre-trade extension in this trade right now. Try again in a moment.", compliance };
     return { ok: false, kind: "extension", message: "A pre-trade extension in this trade is no longer allowed, so it can't go through. Ask the initiator to build it again.", compliance };
   }
-  // The loaded-contract limit (PR #1135) is checked FIRST, independent of the cap acknowledgment
-  // below -- a cap acknowledgment never satisfies it and vice versa. Keith's ruling (2026-09-25):
-  // a franchise projected over 5 may still trade once its OWN owner has validly selected enough
-  // of its OWN loaded-contract players to drop (worker/src/trade_conditional_drops.js) -- BUT
-  // (Keith's ruling, 2026-09-29, reviewing the first PR): a valid, SATISFIED selection
-  // ("needs_drops") is NOT the same thing as an EXECUTED drop, and must not itself unblock a
-  // real 3-way EXECUTION -- no code anywhere calls MFL to actually drop a player yet (see
-  // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). loadedContractsPermitsWrite() is the ONE
-  // gate for this, covering "blocked" (unsatisfied) AND "needs_drops" (satisfied but
-  // unexecuted) identically until a real executor is built and separately reviewed/approved.
-  if (compliance.loaded_contracts && !loadedContractsPermitsWrite(compliance.loaded_contracts.status)) {
-    const waiting = (compliance.loaded_contracts.drop_requirements || []).filter((d) => !d.satisfied).map((d) => d.franchise_name || d.franchise_id).join(", ");
-    const heldMsg = compliance.loaded_contracts.status === "needs_drops"
-      ? `${safeStr(compliance.loaded_contracts.message)} Conditional-drop execution isn't built yet, so this trade stays held until it is.`
-      : `${safeStr(compliance.loaded_contracts.message)}${waiting ? ` Waiting on ${waiting} to select conditional drops.` : ""}`;
-    return { ok: false, kind: "loaded_contract_drops_required", message: heldMsg, compliance, drop_requirements: compliance.loaded_contracts.drop_requirements || [] };
+  // The loaded-contract limit is checked FIRST, independent of the cap acknowledgment below -- a
+  // cap acknowledgment never satisfies it and vice versa. RULING (Keith, 2026-10-01, REPLACING
+  // the conditional-drop-picker ruling of 2026-09-25/09-29): a franchise projected over 5 is a
+  // hard stop, full stop -- no in-trade conditional-drop selection can unblock it anymore. The
+  // affected owner must revise the deal or make a separate roster move, then re-check.
+  if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") {
+    return { ok: false, kind: "loaded_contract_limit_exceeded", message: safeStr(compliance.loaded_contracts.message), compliance };
   }
   // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR): a proven cap overage
   // never itself refuses the trade -- it requires each AFFECTED franchise's own owner to have
@@ -727,9 +717,10 @@ export async function get3WayTrade(env, id, viewer, deps) {
   // surface can show it BEFORE the partners accept. Fail-soft: an unavailable calculation is shown as unavailable.
   if (deps && typeof deps.compliance === "function" && ["collecting", "executing"].includes(safeStr(row.status))) {
     try {
+      // No conditional-drop selection is read here anymore (Keith's ruling, 2026-10-01: no
+      // in-trade fix exists) -- any selection stored before that ruling is simply ignored.
       const movements = movementsForCompliance(parseMovements(row));
-      let storedDropsForDetail = {}; try { storedDropsForDetail = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row)); } catch (_) { storedDropsForDetail = {}; }
-      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements, extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc), conditionalDrops: storedDropsForDetail });
+      trade.compliance = await deps.compliance({ leagueId: safeStr(row.league_id), season: safeStr(row.season), movements, extensionRequests: parseExtReqs(row), offerCreatedAtUtc: safeStr(row.created_at_utc) });
     } catch (e) {
       console.warn(`[3way] compliance lookup failed: ${e?.message || e}`);
       trade.compliance = unavailableCompliance("lookup_failed");
@@ -744,12 +735,6 @@ export async function get3WayTrade(env, id, viewer, deps) {
         const ackEval = evaluateCapAcknowledgment({ violations: trade.compliance.cap.violations, tradeKey: safeStr(row.id), acks });
         trade.execution.block.cap_ack = ackEval.perFranchise;
       } catch (e) { console.warn(`[3way] cap-ack lookup failed (block shown without it): ${e?.message || e}`); }
-    }
-    // Also refreshes for "needs_drops" (satisfied but not yet -- and not yet ABLE to be --
-    // executed), not just "blocked", so the detail view keeps reflecting a completed selection
-    // instead of going stale the moment everyone finishes picking (Keith's ruling, 2026-09-29).
-    if (trade.execution && trade.execution.blocked && trade.execution.block && trade.compliance && trade.compliance.loaded_contracts && !loadedContractsPermitsWrite(trade.compliance.loaded_contracts.status)) {
-      trade.execution.block.drop_requirements = trade.compliance.loaded_contracts.drop_requirements || [];
     }
   }
   return { ok: true, trade };
@@ -1062,7 +1047,7 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
     return {
       ok: false, http: 409,
-      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_drops_required" ? "loaded_contract_drops_required" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
+      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
       message: gate.message, compliance: gate.compliance, cap_ack: gate.cap_ack || null,
     };
   }
@@ -1123,54 +1108,13 @@ export async function ack3WayCapOverage(env, id, viewer) {
  * blocked-gate condition.
  */
 export async function select3WayLoadedContractDrops(env, id, viewer, playerIds) {
-  if (!env.UPS_MFL_DB) return dbDown(new Error("no_db"));
-  const tid = safeStr(id);
-  if (!ID_RE.test(tid)) return { ok: false, http: 400, code: "bad_request", message: "That isn't a valid trade id." };
-  let row; try { row = await getRowStrict(env, tid); } catch (e) { return dbDown(e); }
-  if (!row || !inScope(row, viewer)) return { ok: false, http: 404, code: "not_found", message: "This 3-way trade doesn't exist." };
-  if (!canView(row, viewer)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
-  const myFid = padFid(viewer && viewer.fid);
-  const participantFids = [row.initiator_fid, row.team_b_fid, row.team_c_fid].map(padFid);
-  if (!myFid || !participantFids.includes(myFid)) return { ok: false, http: 403, code: "forbidden", message: "You aren't part of this trade." };
-  const selectedIds = (Array.isArray(playerIds) ? playerIds : []).map(safeStr).filter(Boolean);
-  // Recompute WITH this exact selection layered onto whatever's already stored for the OTHER
-  // participants, so the response reflects this selection's own validity together with theirs.
-  const priorDrops = await conditionalDropStoreFor(env).readAllForTrade(conditionalDropKey(row));
-  const movements = parseMovements(row).map((m) => ({ from: padFid(m.from), to: padFid(m.to), tokens: injectCapTokens([m])[0].asset_tokens }));
-  const apiKey = safeStr(env.COMMISH_API_KEY);
-  let compliance;
-  if (!env.SELF || !apiKey) { compliance = unavailableCompliance(!env.SELF ? "no_self_binding" : "no_commish_key"); }
-  else {
-    try {
-      const u = `https://self.invalid/admin/3way/compliance?L=${encodeURIComponent(safeStr(row.league_id))}&YEAR=${encodeURIComponent(safeStr(row.season))}&APIKEY=${encodeURIComponent(apiKey)}`;
-      const r = await env.SELF.fetch(u, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ league_id: safeStr(row.league_id), season: safeStr(row.season), movements, extension_requests: parseExtReqs(row), offer_created_at_utc: safeStr(row.created_at_utc), conditional_drops: { ...priorDrops, [myFid]: selectedIds } }),
-      });
-      const j = await r.json().catch(() => null);
-      const c = j && j.ok && j.compliance;
-      compliance = (!r.ok || !c || !c.loaded_contracts) ? unavailableCompliance("bad_response") : c;
-    } catch (e) { console.error(`[3way] ${row.id}: compliance call failed: ${e?.message || e}`); compliance = unavailableCompliance("call_failed"); }
-  }
-  if (compliance.loaded_contracts.status === "unavailable") {
-    return { ok: false, http: 503, code: "loaded_contract_check_unavailable", message: "We couldn't verify the loaded-contract count for this trade right now, so nothing was selected. Try again in a moment.", compliance };
-  }
-  const myReq = (compliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === myFid);
-  if (!myReq) {
-    return { ok: true, http: 200, code: "nothing_required", message: "Your team isn't projected to need a conditional drop on this trade right now.", compliance };
-  }
-  await conditionalDropStoreFor(env).setForFranchise(conditionalDropKey(row), { franchiseId: myFid, playerIds: selectedIds, selectedByFid: myFid });
-  // Satisfied is a real, useful state (it's what lets the OTHER participants stop waiting on
-  // THIS franchise) -- but never worded as if execution is now unblocked: capGate() above still
-  // refuses EXECUTE regardless, until a real executor exists (Keith's ruling, 2026-09-29).
-  const selectDropsExecutable = loadedContractsPermitsWrite(compliance.loaded_contracts.status);
-  return {
-    ok: true, http: 200, code: myReq.satisfied ? "selected" : "selected_insufficient",
-    message: myReq.satisfied
-      ? `Selected: ${myReq.valid_count} of ${myReq.required_drops} required conditional drop${myReq.required_drops === 1 ? "" : "s"}.` + (selectDropsExecutable ? "" : " Conditional-drop execution isn't built yet, so this trade stays held until it is.")
-      : `${myReq.valid_count} of ${myReq.required_drops} required conditional drops are valid so far -- ${myReq.required_drops - myReq.valid_count} more needed.`,
-    compliance, drop_requirement: myReq,
-  };
+  // REMOVED (Keith's ruling, 2026-10-01): "Do not offer to select a conditional drop within the
+  // trade." There is no in-trade fix for an over-limit 3-way anymore -- revise the deal or make
+  // a separate roster move first, then re-check. Kept as a named, clearly-dead action (rather
+  // than deleted outright) so a stale/cached client that still calls this gets an honest
+  // explanation instead of a generic failure -- never picker-enabling data. `id`/`viewer`/
+  // `playerIds` are intentionally unused now.
+  return { ok: false, http: 410, code: "loaded_contract_drops_removed", message: "Selecting a conditional drop inside a trade is no longer available. Revise the deal, or make a separate roster move first, then try again." };
 }
 
 // ───────────────────── execute the chained 2-party trades ───────────────────

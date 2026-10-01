@@ -70,6 +70,20 @@ export function loadedContractsPermitsWrite(status) {
   return status === "ok" || (LOADED_CONTRACT_DROP_EXECUTION_LIVE && status === "needs_drops");
 }
 
+// RULING (Keith, 2026-10-01): "I do not want owners using... a conditional-drop picker... for
+// this rule." Replaces every call site's own ad-hoc "pick drops to fix it" response-building
+// with ONE shared shape: which team(s), their projected count, the limit, and nothing
+// resembling an in-trade fix. Callers pass `loaded_contracts.violations` (only meaningful once
+// `status === "blocked"` -- "unavailable"/"ok" are each handled separately, per call site, the
+// same way they already were before this ruling). No `drop_requirements`/`candidates` here --
+// there is nothing to pick.
+export function loadedContractBlockPayload(loadedContracts) {
+  const violations = Array.isArray(loadedContracts && loadedContracts.violations) ? loadedContracts.violations : [];
+  const message = violations.length ? violations.map((v) => v.message).join(" ") : "This trade would leave a team over the loaded-contract limit.";
+  const teams = violations.map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }));
+  return { code: "loaded_contract_limit_exceeded", message, teams };
+}
+
 const s = (v) => String(v == null ? "" : v).trim();
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
 const arr = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
@@ -397,9 +411,14 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
       }).sort();
       dropReqs.push({ franchise_id: fid, franchise_name: name(fid), loaded_before: st.loadedBefore, projected, required_drops: required, selected: picks, valid_count: validCount, satisfied, candidates });
       if (!satisfied) {
+        // RULING (Keith, 2026-10-01): REPLACES the conditional-drop-picker wording from the
+        // 2026-09-29 ruling -- no call site passes a conditionalDrops selection anymore (the
+        // picker UI is gone), so this is now always a hard block, never a "pick these to fix
+        // it" prompt. The message names the team, the projected count, and the limit, and
+        // tells the owner to revise the offer or make a separate roster move first -- it never
+        // mentions selecting or dropping a specific player.
         loadedViolations.push({ franchise_id: fid, franchise_name: name(fid), projected, max: LOADED_CONTRACT_MAX, required_drops: required, valid_drops: validCount,
-          message: `${name(fid)} would move from ${st.loadedBefore} to ${projected} loaded contracts. The maximum is ${LOADED_CONTRACT_MAX}, so ${required} conditional drop${required === 1 ? "" : "s"} of ${name(fid)}'s own loaded-contract player${required === 1 ? "" : "s"} ${required === 1 ? "is" : "are"} required before this trade can go through` +
-            (validCount > 0 ? ` (${validCount} of ${required} currently selected and valid).` : ".") });
+          message: `${name(fid)} would have ${projected} loaded contracts (including IR) after this trade — the limit is ${LOADED_CONTRACT_MAX}. Revise the offer, or make a separate roster move first, then try again.` });
       }
     }
   }

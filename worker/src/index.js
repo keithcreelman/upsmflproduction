@@ -51,9 +51,8 @@ import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
-import { evaluateTradeCompliance, loadedContractsPermitsWrite } from "./trade_cap_authority.js";
+import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap_authority.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
-import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
@@ -38713,97 +38712,39 @@ const mflToSleeper = {};
             return jsonOut(refusal.http, { ok: false, code: refusal.code, error_type: "extension_pricing", error: refusal.message, message: refusal.message, skipped: refusal.skipped });
           }
 
-          // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29, correcting a real gap:
-          // building/reviewing an offer as the SENDER never showed this at all -- PR #1135's check
-          // only ever ran at the RECIPIENT's accept). Checked BEFORE cap (a genuine hard block,
-          // never satisfied by a cap acknowledgment or vice versa -- they are fully independent).
-          // At OFFER CREATION this is the INITIATOR's own side, exactly like the cap check below:
-          // the recipient's own requirement (if any) is the recipient's own concern at accept.
-          // `body.loaded_contract_drops` (optional array of player ids) is the sender's proposed
-          // conditional-drop selection for THEIR OWN franchise; validated fresh against live data
-          // in THIS SAME request -- there is nothing to forge, so unlike cap there is no signature.
-          // An unresolvable loaded-contract calculation does NOT gate creation, for the identical
-          // reason the cap check below doesn't: it can be unresolvable because of a completely
-          // unrelated player elsewhere on either roster, and an unrelated data problem must not
-          // block a sender from simply proposing a trade. The fail-closed guarantee is enforced at
-          // PREVIEW/ACCEPT, exactly like cap. Only a PROVEN, unsatisfied requirement for the
-          // sender's own franchise gates creation.
+          // LOADED-CONTRACT HARD BLOCK (Keith's ruling, 2026-10-01, REPLACING the conditional-
+          // drop-picker flow from the 2026-09-29 ruling: "I do not want owners using... a
+          // conditional-drop picker... for this rule... block Send before any MFL offer is
+          // created... Do not offer to select a conditional drop within the trade."). Checked
+          // BEFORE cap (a genuine hard block, never satisfied by a cap acknowledgment or vice
+          // versa -- fully independent). Checks BOTH sides at creation -- the sender (who is here
+          // to see and revise it) and the recipient (who would otherwise have a real, natively-
+          // acceptable MFL trade proposal land on them while already over the limit, with no
+          // chance to have seen it coming). No `body.loaded_contract_drops` or any other
+          // client-supplied selection is read or honored anywhere in this block -- there is no
+          // in-trade path to fix an over-limit trade; the owner revises the offer or makes a
+          // separate roster move first, then tries again. An unresolvable loaded-contract
+          // calculation does NOT gate creation, for the identical reason the cap check below
+          // doesn't: it can be unresolvable because of a completely unrelated player elsewhere on
+          // either roster, and an unrelated data problem must not block a sender from simply
+          // proposing a trade. The fail-closed guarantee is enforced at PREVIEW/ACCEPT, exactly
+          // like cap.
           {
-            const createDropCapFids = Object.keys(tokensByFranchise(proposalAssets));
-            const createDropSelections = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
-            const createDropCompliance = await computeTradeComplianceLive({
+            const createLoadedFids = Object.keys(tokensByFranchise(proposalAssets));
+            const createLoadedCompliance = await computeTradeComplianceLive({
               season, leagueId,
-              movements: createDropCapFids.map((f) => ({ from: f, to: createDropCapFids.find((x) => x !== f), tokens: tokensByFranchise(proposalAssets)[f] })),
+              movements: createLoadedFids.map((f) => ({ from: f, to: createLoadedFids.find((x) => x !== f), tokens: tokensByFranchise(proposalAssets)[f] })),
               extensionRequests: Array.isArray(payload?.extension_requests) ? payload.extension_requests : [],
-              conditionalDrops: { [fromFranchiseId]: createDropSelections },
             });
-            if (createDropCompliance.loaded_contracts.status !== "unavailable") {
-              const myDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === fromFranchiseId);
-              if (myDropReq) {
-                // Persist whatever selection was submitted -- informational (lets the picker show
-                // "your pick would satisfy this" and survives to a later retry once execution
-                // ships), and itself NEVER an MFL write -- before deciding whether SENDING is
-                // currently permitted at all.
-                if (createDropSelections.length) {
-                  const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
-                  if (!dropDb) {
-                    return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
-                  }
-                  const createDropTradeKey = `${leagueId}|${season}|${fromFranchiseId}|${toFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(proposalAssets), extensionRequests: payload?.extension_requests })}`;
-                  try {
-                    await makeConditionalDropStore(dropDb).setForFranchise(
-                      { leagueId, season, tradeKey: createDropTradeKey, tradeKind: "two_way" },
-                      { franchiseId: fromFranchiseId, playerIds: createDropSelections, selectedByFid: fromFranchiseId }
-                    );
-                  } catch (e) {
-                    console.error("[loaded-contract-drops] couldn't persist the initiator's selection -- refusing the offer (not sent to MFL):", e?.message || String(e));
-                    return jsonOut(503, { ok: false, code: "loaded_contract_drops_unavailable", error_type: "loaded_contract_drops_unavailable", error: "Couldn't save your conditional-drop selection right now, so the offer wasn't sent. Try again in a moment." });
-                  }
-                }
-                // Keith's ruling, 2026-09-29 (reviewing the first PR): a valid, SATISFIED
-                // selection is not the same thing as an EXECUTED drop -- no code anywhere calls
-                // MFL to actually drop a player yet (docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md).
-                // Proposing this trade to MFL right now would create a REAL, natively-acceptable
-                // pending trade for a franchise that is still, in fact, over the limit -- so
-                // creation is refused whenever loadedContractsPermitsWrite() says no, REGARDLESS
-                // of `myDropReq.satisfied`. This is the single gate that flips once a real
-                // executor is built and separately reviewed/approved.
-                if (!loadedContractsPermitsWrite(createDropCompliance.loaded_contracts.status)) {
-                  const heldMsg = myDropReq.satisfied
-                    ? myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. Your selected drop" + (myDropReq.required_drops === 1 ? "" : "s") + " would satisfy the limit, but conditional-drop execution isn't built yet, so this offer can't be sent while " + myDropReq.franchise_name + " would still be over. Remove the loaded asset(s) from this trade, or wait until conditional drops can actually execute."
-                    : myDropReq.franchise_name + " would move from " + myDropReq.loaded_before + " to " + myDropReq.projected + " loaded contracts. The maximum is 5, so " + myDropReq.required_drops + " conditional drop" + (myDropReq.required_drops === 1 ? "" : "s") + " of " + myDropReq.franchise_name + "'s own loaded-contract player" + (myDropReq.required_drops === 1 ? "" : "s") + " " + (myDropReq.required_drops === 1 ? "is" : "are") + " required -- and conditional-drop execution isn't built yet, so this offer can't be sent while " + myDropReq.franchise_name + " would be over the limit.";
-                  return jsonOut(409, {
-                    ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required",
-                    error: heldMsg,
-                    compliance: createDropCompliance,
-                    loaded_contract_drops_needed: { franchise_id: fromFranchiseId, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count, satisfied: myDropReq.satisfied, executable: false },
-                  });
-                }
-              }
-              // THE RECIPIENT's own requirement (Keith's ruling, 2026-09-30: "If Hammer has 5
-              // loaded contracts... and I offer him Chig Okonkwo as a sixth, show me before Send").
-              // The block above only ever checked the SENDER's own side -- by design, since only
-              // the sender is present to supply a selection at create time. But the recipient
-              // cannot be over the limit here EITHER: sending would still create a real,
-              // natively-acceptable MFL trade proposal for a franchise this deal would put over 5,
-              // and the recipient has had no chance to pick anything yet (they haven't even seen
-              // the offer). Refused here, naming the RECIPIENT's own team and count, exactly like
-              // the sender's own case -- never deferred to "the recipient's concern at accept,"
-              // which was the cap-acknowledgment precedent this block's own comment above
-              // originally borrowed from, but cap and loaded-contracts are not the same shape:
-              // cap needs the AFFECTED owner's personal acknowledgment (which only they can give),
-              // while a loaded-contract violation is a hard block regardless of who acknowledges
-              // it, and the sender is fully able to see it and revise the offer before sending.
-              const theirDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === toFranchiseId);
-              if (theirDropReq && !theirDropReq.satisfied) {
-                const heldMsg = theirDropReq.franchise_name + " would move from " + theirDropReq.loaded_before + " to " + theirDropReq.projected + " loaded contracts. The maximum is 5, so " + theirDropReq.required_drops + " conditional drop" + (theirDropReq.required_drops === 1 ? "" : "s") + " of " + theirDropReq.franchise_name + "'s own loaded-contract player" + (theirDropReq.required_drops === 1 ? "" : "s") + " " + (theirDropReq.required_drops === 1 ? "is" : "are") + " required if " + theirDropReq.franchise_name + " accepts this trade -- only " + theirDropReq.franchise_name + " can select it, when they review the offer. Revise this trade, or stage it instead of sending it directly.";
-                return jsonOut(409, {
-                  ok: false, code: "loaded_contract_drops_required", error_type: "loaded_contract_drops_required", who: "recipient",
-                  error: heldMsg,
-                  compliance: createDropCompliance,
-                  loaded_contract_drops_needed: { franchise_id: toFranchiseId, loaded_before: theirDropReq.loaded_before, projected: theirDropReq.projected, required_drops: theirDropReq.required_drops, selected: theirDropReq.selected, valid_count: theirDropReq.valid_count, satisfied: theirDropReq.satisfied, executable: false },
-                });
-              }
+            if (createLoadedCompliance.loaded_contracts.status === "blocked") {
+              const blocked = loadedContractBlockPayload(createLoadedCompliance.loaded_contracts);
+              const affectsSender = blocked.teams.some((t) => t.franchise_id === fromFranchiseId);
+              return jsonOut(409, {
+                ok: false, code: blocked.code, error_type: blocked.code,
+                who: affectsSender ? "sender" : "recipient",
+                error: blocked.message, message: blocked.message,
+                teams: blocked.teams,
+              });
             }
           }
 
@@ -39773,6 +39714,31 @@ const mflToSleeper = {};
             } catch (e) {
               return jsonOut(503, { ok: false, code: "unavailable", error: "Couldn't confirm it's safe to send this right now. Try again in a moment." });
             }
+            // ---- 🔒 LOADED-CONTRACT HARD BLOCK (Keith's ruling, 2026-10-01) ----------------
+            // A COUNTER creates a NEW native MFL tradeProposal exactly like CREATE does -- the
+            // identical hard block (see the CREATE gate above for the full ruling), checked
+            // before the original offer is rejected (same "never leave the sender with nothing
+            // sent" care as every other gate in this block). Checks both the counter's sender
+            // and recipient, matching CREATE.
+            {
+              const counterLoadedAssets = buildTradeProposalAssetLists(counterPayload);
+              const counterLoadedFids = Object.keys(tokensByFranchise(counterLoadedAssets));
+              const counterLoadedCompliance = await computeTradeComplianceLive({
+                season, leagueId,
+                movements: counterLoadedFids.map((f) => ({ from: f, to: counterLoadedFids.find((x) => x !== f), tokens: tokensByFranchise(counterLoadedAssets)[f] })),
+                extensionRequests: Array.isArray(counterPayload?.extension_requests) ? counterPayload.extension_requests : [],
+              });
+              if (counterLoadedCompliance.loaded_contracts.status === "blocked") {
+                const blocked = loadedContractBlockPayload(counterLoadedCompliance.loaded_contracts);
+                const affectsSender = blocked.teams.some((t) => t.franchise_id === counterFromId);
+                return jsonOut(409, {
+                  ok: false, code: blocked.code, error_type: blocked.code,
+                  who: affectsSender ? "sender" : "recipient",
+                  error: blocked.message, message: blocked.message,
+                  teams: blocked.teams,
+                });
+              }
+            }
             // A counter that promises an extension is priced from the current contract BEFORE the original offer is rejected — a refusal here must
             // never leave the sender with their offer rejected and no counter sent.
             if (Array.isArray(counterPayload?.extension_requests) && counterPayload.extension_requests.length) {
@@ -40014,20 +39980,11 @@ const mflToSleeper = {};
                   if (pid && parseBoolFlag(a?.taxi)) taxiFlags[pid] = true;
                 }
               }
-              // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29): the RECIPIENT
-              // (this accept/preview's own caller) may supply their OWN drop selection inline, in
-              // this same request (`body.loaded_contract_drops`, an array of player ids) -- the
-              // fresh recompute IS the validation, so there is nothing to forge. The SENDER's own
-              // selection, if any, can only have been made EARLIER at offer creation (persisted
-              // under the SAME trade key cap-ack uses); a third franchise never enters here in a
-              // 2-way trade. Computed BEFORE acceptCompliance so the SAME single compliance call
-              // sees both sides' selections together.
-              const dropTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: tokensByFranchise(authLists), extensionRequests: authExtRows })}`;
-              const dropDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
-              const storedDrops = dropDb ? await makeConditionalDropStore(dropDb).readAllForTrade({ leagueId, season, tradeKey: dropTradeKey }) : {};
-              const inlineRecipientDrops = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : null;
-              const conditionalDropsForAccept = { ...storedDrops };
-              if (inlineRecipientDrops) conditionalDropsForAccept[resolvedOfferToFranchiseId] = inlineRecipientDrops;
+              // LOADED-CONTRACT HARD BLOCK (Keith's ruling, 2026-10-01, replacing the 2026-09-29
+              // conditional-drop-picker ruling): no `body.loaded_contract_drops` or any other
+              // client-supplied selection is read here anymore -- there is no in-trade fix for
+              // an over-limit trade. The compliance check below is the single gate; see the
+              // CREATE gate above for the full ruling text.
               acceptCompliance = await computeTradeComplianceLive({
                 season, leagueId, rostersRes: acceptRostersRes, extensionSalary: acceptExtSalary, taxiFlags,
                 movements: capFids.map((f) => ({ from: f, to: capFids.find((x) => x !== f), tokens: byFranchise[f] })),
@@ -40040,24 +39997,7 @@ const mflToSleeper = {};
                 // client). Execution still re-derives the extension's real terms from
                 // preview_contract_info_string before anything is applied to MFL.
                 extensionRequests: authExtRows,
-                conditionalDrops: conditionalDropsForAccept,
               });
-              // The recipient's own supplied selection is persisted whenever it's actually THEIRS
-              // to give (even if the trade is still blocked on someone else's side) -- so a fresh
-              // valid pick is never lost between this attempt and a later retry once the other
-              // side also acts. Never persisted merely because it was SENT; only when it resolves
-              // against live data as this franchise's own, on-roster, genuinely loaded selection.
-              if (inlineRecipientDrops && dropDb) {
-                const myRecipientDropReq = (acceptCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === resolvedOfferToFranchiseId);
-                if (myRecipientDropReq) {
-                  try {
-                    await makeConditionalDropStore(dropDb).setForFranchise(
-                      { leagueId, season, tradeKey: dropTradeKey, tradeKind: "two_way" },
-                      { franchiseId: resolvedOfferToFranchiseId, playerIds: inlineRecipientDrops, selectedByFid: resolvedOfferToFranchiseId }
-                    );
-                  } catch (e) { console.warn("[loaded-contract-drops] couldn't persist the recipient's selection (accept still gated on the fresh check just performed):", e?.message || String(e)); }
-                }
-              }
               if (acceptCompliance.cap.status === "unavailable") {
                 return integrityFail(503, "cap_check_unavailable", "We couldn't verify the salary cap for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
@@ -40104,17 +40044,13 @@ const mflToSleeper = {};
               if (acceptCompliance.loaded_contracts.status === "unavailable") {
                 return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so it wasn't accepted. Try again in a moment.", { compliance: acceptCompliance });
               }
-              // Keith's ruling, 2026-09-29 (reviewing the first PR): a "needs_drops" verdict --
-              // every over-limit franchise has a VALID, SUFFICIENT selection -- is still not
-              // enough to accept for real. Selecting a drop is not the same thing as executing
-              // one, and no code anywhere calls MFL to actually drop a player yet (see
-              // docs/LOADED_CONTRACT_DROP_EXECUTION_DESIGN.md). loadedContractsPermitsWrite() is
-              // the ONE gate: today it is false for "needs_drops" exactly like "blocked", so this
-              // still refuses the accept -- flips only once a real executor is built and
-              // separately reviewed/approved.
-              if (!loadedContractsPermitsWrite(acceptCompliance.loaded_contracts.status) && action === "ACCEPT") {
-                console.warn("[trade-accept] waiting on conditional loaded-contract drops:", JSON.stringify({ trade_id: mflTradeId, status: acceptCompliance.loaded_contracts.status, requirements: (acceptCompliance.loaded_contracts.drop_requirements || []).map((d) => ({ franchise_id: d.franchise_id, required: d.required_drops, valid: d.valid_count, satisfied: d.satisfied })) }));
-                return integrityFail(409, "loaded_contract_drops_required", acceptCompliance.loaded_contracts.message + " Nothing was changed.", { compliance: acceptCompliance, loaded_contract_drop_requirements: acceptCompliance.loaded_contracts.drop_requirements });
+              // Keith's ruling, 2026-10-01: a trade that would leave either team over the
+              // loaded-contract limit refuses outright at accept -- there is no in-trade fix
+              // (see the CREATE gate above for the full ruling).
+              if (acceptCompliance.loaded_contracts.status === "blocked" && action === "ACCEPT") {
+                const blocked = loadedContractBlockPayload(acceptCompliance.loaded_contracts);
+                console.warn("[trade-accept] loaded-contract limit exceeded:", JSON.stringify({ trade_id: mflTradeId, teams: blocked.teams }));
+                return integrityFail(409, blocked.code, blocked.message + " Nothing was changed.", { teams: blocked.teams });
               }
               // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -------------
               // ACCEPT is this legacy engine's own "execute" -- it posts straight to MFL for
@@ -40161,77 +40097,13 @@ const mflToSleeper = {};
               });
             }
             if (action === "SELECT_DROPS") {
-              // Select (and, by submitting, confirm) THIS caller's OWN conditional loaded-contract
-              // drops on this pending offer -- callable by either side, same shape as ACK_CAP: the
-              // sender revising a selection made at creation, or the recipient picking ahead of
-              // accepting. Never writes to MFL, never drops a player -- only records the selection
-              // (or reports there's nothing required). `body.loaded_contract_drops` (array of
-              // player ids) REPLACES this franchise's whole selection -- an empty array clears it.
-              if (acceptCompliance.loaded_contracts.status === "unavailable") {
-                return integrityFail(503, "loaded_contract_check_unavailable", "We couldn't verify the loaded-contract count for this trade right now, so nothing was selected. Try again in a moment.", { compliance: acceptCompliance });
-              }
-              const selectDropsMyFid = actingFranchiseId;
-              const selectDropsIds = Array.isArray(body?.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
-              const selectDropsDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || env.UPS_MFL_DB;
-              if (!selectDropsDb) return integrityFail(503, "unavailable", "Couldn't save that selection right now. Try again in a moment.");
-              // byFranchise/taxiFlags/acceptExtSalary are scoped to the ACCEPT-only block above
-              // (out of reach here) -- rebuilt locally, the SAME way, since SELECT_DROPS is its
-              // own sibling action.
-              const selectDropsByFranchise = tokensByFranchise(authLists);
-              const selectDropsTaxiFlags = {};
-              for (const team of Array.isArray(payload?.teams) ? payload.teams : []) {
-                for (const a of Array.isArray(team?.selected_assets) ? team.selected_assets : []) {
-                  const pid = safeStr(a?.player_id).replace(/\D/g, "");
-                  if (pid && parseBoolFlag(a?.taxi)) selectDropsTaxiFlags[pid] = true;
-                }
-              }
-              let selectDropsExtSalary = {};
-              if (authExtRows.length) {
-                const selectDropsExtPlan = await planExtensionSalaries(season, leagueId, authExtRows, { offerCreatedAtUtc: safeStr(candidate && candidate.created_ts) });
-                if (!selectDropsExtPlan.skipped.length) selectDropsExtSalary = selectDropsExtPlan.salary;
-                // (a stale/unpriceable extension here just leaves selectDropsExtSalary empty --
-                // the SAME condition already refuses via the ACCEPT-time check above on any real
-                // accept; SELECT_DROPS itself never blocks a trade, so it degrades gracefully.)
-              }
-              const selectDropsTradeKey = `${leagueId}|${season}|${resolvedOfferFromFranchiseId}|${resolvedOfferToFranchiseId}|${capAckTermsKey({ tokensByFranchise: selectDropsByFranchise, extensionRequests: authExtRows })}`;
-              // Recompute compliance WITH this exact selection applied (not the pre-fetched
-              // acceptCompliance, which reflects only what was already stored) so the response
-              // reports THIS selection's own validity, not a stale picture.
-              const selectDropsCapFids = Object.keys(selectDropsByFranchise);
-              const priorDrops = await makeConditionalDropStore(selectDropsDb).readAllForTrade({ leagueId, season, tradeKey: selectDropsTradeKey });
-              const selectDropsCompliance = await computeTradeComplianceLive({
-                season, leagueId, extensionSalary: selectDropsExtSalary, taxiFlags: selectDropsTaxiFlags,
-                movements: selectDropsCapFids.map((f) => ({ from: f, to: selectDropsCapFids.find((x) => x !== f), tokens: selectDropsByFranchise[f] })),
-                extensionRequests: authExtRows,
-                conditionalDrops: { ...priorDrops, [selectDropsMyFid]: selectDropsIds },
-              });
-              const selectDropsMyReq = (selectDropsCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === selectDropsMyFid);
-              if (!selectDropsMyReq) {
-                return jsonOut(200, { ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId, code: "nothing_required", message: "Your team isn't projected to need a conditional drop on this trade right now.", compliance: selectDropsCompliance });
-              }
-              try {
-                await makeConditionalDropStore(selectDropsDb).setForFranchise(
-                  { leagueId, season, tradeKey: selectDropsTradeKey, tradeKind: "two_way" },
-                  { franchiseId: selectDropsMyFid, playerIds: selectDropsIds, selectedByFid: selectDropsMyFid }
-                );
-              } catch (e) {
-                console.error("[loaded-contract-drops] couldn't persist SELECT_DROPS:", e?.message || String(e));
-                return integrityFail(503, "loaded_contract_drops_unavailable", "Couldn't save that selection right now. Try again in a moment.");
-              }
-              // A "satisfied" selection is a real, useful state (it's what lets the OTHER
-              // affected party stop waiting, once everyone has picked) -- but it is NOT the same
-              // thing as this drop having executed, and must never be worded as if sending/
-              // accepting is now unblocked (loadedContractsPermitsWrite() still refuses ACCEPT
-              // regardless -- see above). Keith's ruling, 2026-09-29.
-              const selectDropsExecutable = loadedContractsPermitsWrite(selectDropsCompliance.loaded_contracts.status);
-              return jsonOut(200, {
-                ok: true, mode: "direct_mfl", action: "SELECT_DROPS", trade_id: mflTradeId,
-                code: selectDropsMyReq.satisfied ? "selected" : "selected_insufficient",
-                message: selectDropsMyReq.satisfied
-                  ? `Selected: ${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drop${selectDropsMyReq.required_drops === 1 ? "" : "s"}.` + (selectDropsExecutable ? "" : " Conditional-drop execution isn't built yet, so this trade stays held until it is.")
-                  : `${selectDropsMyReq.valid_count} of ${selectDropsMyReq.required_drops} required conditional drops are valid so far -- ${selectDropsMyReq.required_drops - selectDropsMyReq.valid_count} more needed.`,
-                compliance: selectDropsCompliance, drop_requirement: selectDropsMyReq,
-              });
+              // REMOVED (Keith's ruling, 2026-10-01): "Do not offer to select a conditional drop
+              // within the trade." There is no in-trade fix for an over-limit trade anymore --
+              // revise the offer or make a separate roster move first, then try again. Kept as a
+              // named, clearly-dead action (rather than deleted outright) so a stale/cached
+              // client that still posts this action gets an honest explanation instead of a
+              // generic 400 -- never a picker-enabling response.
+              return integrityFail(410, "loaded_contract_drops_removed", "Selecting a conditional drop inside a trade is no longer available. Revise the offer, or make a separate roster move first, then try again.");
             }
             if (action === "PREVIEW") {
               // Read-only review for the accept confirmation: no MFL write, no outbox row, no completed state.
@@ -40255,11 +40127,14 @@ const mflToSleeper = {};
                   })),
                 };
               }
-              // loaded_contract_drops: the CURRENT drop-requirement picture is already part of
-              // acceptCompliance.loaded_contracts.drop_requirements (computed above WITH whatever
-              // selections are stored/inline) -- surfaced here under its own key so the client
-              // doesn't have to reach into the compliance object's internals to render it.
-              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_drops: acceptCompliance.loaded_contracts.drop_requirements || [] });
+              // loaded_contract_block: present only when this trade is hard-blocked (Keith's
+              // ruling, 2026-10-01) -- team, projected count, limit, nothing resembling an
+              // in-trade fix. `compliance` (already returned) still carries the full picture for
+              // anything else the client needs.
+              const loadedContractBlock = acceptCompliance.loaded_contracts.status === "blocked"
+                ? loadedContractBlockPayload(acceptCompliance.loaded_contracts)
+                : null;
+              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_block: loadedContractBlock });
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {

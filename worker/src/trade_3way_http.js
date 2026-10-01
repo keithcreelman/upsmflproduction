@@ -14,8 +14,7 @@
 // worker's configured league) and MUST agree with any league_id in the body; every trade is
 // scoped to that (league, season).
 
-import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance, conditionalDropStoreFor } from "./trade_3way.js";
-import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
+import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
 
@@ -158,75 +157,37 @@ export async function handle3WayHttp(a) {
     const v = await deps.validateExtensions({ leagueId, season, extensionRequests: body.extension_requests });
     if (!v.ok) return out(v.http || 409, { ok: false, code: v.code, error: v.message, message: v.message, skipped: v.skipped });
   }
-  // LOADED-CONTRACT CONDITIONAL DROPS (Keith's ruling, 2026-09-29 -- the same gap and the same
-  // fix as the 2-way creation path in index.js: building/reviewing an offer as the initiator
-  // never showed this at all, since PR #1135's check only ever ran at accept-time compliance).
-  // Checked here, before create3WayTrade, for the INITIATOR's own requirement only -- exactly
-  // the 2-way division of responsibility: each OTHER participant's own requirement is THEIR own
-  // concern, surfaced when they view/accept the trade (capGate() hard-blocks execution either
-  // way, so a participant with an unsatisfied requirement can never be silently skipped -- this
-  // is only about giving the BUILDER a server round-trip to warn the initiator before Send
-  // 3-Way, mirroring the 2-way creation gate). `body.loaded_contract_drops` (optional array of
-  // player ids) is the initiator's proposed selection for their OWN franchise; validated fresh
-  // against live data in THIS SAME request. An unresolvable calculation does NOT gate creation
-  // (same reasoning as cap/2-way: an unrelated data problem must not block proposing a trade) --
-  // the fail-closed guarantee still lives at capGate()/execution, unchanged. A `deps` without a
-  // `compliance` function (a lighter test double, or any future caller that only needs the
-  // identity/routing surface) skips this block entirely rather than throwing -- the same
-  // "no compliance -> don't gate" treatment as an unavailable calculation, matching
-  // get3WayTrade's own deps.compliance guard.
-  let pendingDropPersist = null;
+  // LOADED-CONTRACT HARD BLOCK (Keith's ruling, 2026-10-01, REPLACING the conditional-drop-
+  // picker ruling of 2026-09-29): a 3-way whose initiator would be left over the loaded-contract
+  // limit refuses outright at creation -- there is no in-trade fix (no `loaded_contract_drops`
+  // body field is read or honored). Each OTHER participant's own requirement is THEIR own
+  // concern, surfaced when they view/accept the trade -- capGate() hard-blocks execution either
+  // way, so a participant over the limit can never be silently skipped. An unresolvable
+  // calculation does NOT gate creation (same reasoning as cap: an unrelated data problem must
+  // not block proposing a trade) -- the fail-closed guarantee still lives at capGate()/execution,
+  // unchanged. A `deps` without a `compliance` function (a lighter test double, or any future
+  // caller that only needs the identity/routing surface) skips this block entirely rather than
+  // throwing -- the same "no compliance -> don't gate" treatment as an unavailable calculation,
+  // matching get3WayTrade's own deps.compliance guard.
   if ((Array.isArray(body.movements) || Array.isArray(body.legs)) && typeof deps.compliance === "function") {
-    const createDropSelections = Array.isArray(body.loaded_contract_drops) ? body.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
-    const createDropMovements = movementsForCompliance(Array.isArray(body.movements) ? body.movements : body.legs);
-    const createDropCompliance = await deps.compliance({
-      leagueId, season, movements: createDropMovements,
+    const createMovements = movementsForCompliance(Array.isArray(body.movements) ? body.movements : body.legs);
+    const createCompliance = await deps.compliance({
+      leagueId, season, movements: createMovements,
       extensionRequests: Array.isArray(body.extension_requests) ? body.extension_requests : [],
-      conditionalDrops: { [initiatorFid]: createDropSelections },
     });
-    if (createDropCompliance.loaded_contracts && createDropCompliance.loaded_contracts.status !== "unavailable") {
-      const myDropReq = (createDropCompliance.loaded_contracts.drop_requirements || []).find((d) => safeStr(d.franchise_id) === initiatorFid);
-      if (myDropReq && !myDropReq.satisfied) {
-        return fail(409, "loaded_contract_drops_required",
-          `${myDropReq.franchise_name} would move from ${myDropReq.loaded_before} to ${myDropReq.projected} loaded contracts. The maximum is 5, so ${myDropReq.required_drops} conditional drop${myDropReq.required_drops === 1 ? "" : "s"} of your own loaded-contract player${myDropReq.required_drops === 1 ? "" : "s"} ${myDropReq.required_drops === 1 ? "is" : "are"} required before this 3-way can be sent.`,
-          { compliance: createDropCompliance, loaded_contract_drops_needed: { franchise_id: initiatorFid, loaded_before: myDropReq.loaded_before, projected: myDropReq.projected, required_drops: myDropReq.required_drops, selected: myDropReq.selected, valid_count: myDropReq.valid_count } });
-      }
-      // Creation itself is safe to allow through even when SATISFIED -- unlike 2-way, a 3-way
-      // trade is 100% held server-side (D1 only, never proposed to MFL) until BOTH partners
-      // accept AND capGate() passes, and capGate() ALREADY refuses EXECUTE for "needs_drops"
-      // (loadedContractsPermitsWrite(), Keith's ruling 2026-09-29) -- so there is nothing here
-      // for a native-MFL accept to bypass. Still, the initiator deserves an honest heads-up
-      // rather than silence, since this 3-way can never actually execute until an executor
-      // exists, no matter how everyone accepts.
-      if (myDropReq && myDropReq.satisfied && !loadedContractsPermitsWrite(createDropCompliance.loaded_contracts.status)) {
-        console.warn(`[3way] create: ${initiatorFid}'s selection satisfies its own requirement, but conditional-drop execution isn't built yet -- this 3-way will be created and can be accepted, but capGate() will hold it at execution.`);
+    if (createCompliance.loaded_contracts && createCompliance.loaded_contracts.status === "blocked") {
+      const myViolation = (createCompliance.loaded_contracts.violations || []).find((v) => safeStr(v.franchise_id) === initiatorFid);
+      if (myViolation) {
+        return fail(409, "loaded_contract_limit_exceeded", myViolation.message,
+          { teams: [{ franchise_id: myViolation.franchise_id, franchise_name: myViolation.franchise_name, projected: myViolation.projected, max: myViolation.max }] });
       }
     }
-    pendingDropPersist = (createDropCompliance.loaded_contracts && createDropCompliance.loaded_contracts.status !== "unavailable" && createDropSelections.length) ? createDropSelections : null;
   }
   const created = await create3WayTrade(env, ctx, {
     leagueId, season,
     initiator: body.initiator, teamB: body.team_b, teamC: body.team_c,
     movements: body.movements, legs: body.legs, notes: body.notes, extension_requests: body.extension_requests,
   });
-  // A 3-way trade gets its stable `id` only once create3WayTrade inserts the row -- the
-  // conditional-drop store keys on that id (worker/src/trade_3way.js's conditionalDropKey),
-  // unlike 2-way's pre-computed payload-hash key, so the initiator's validated selection (above)
-  // can only be persisted AFTER creation succeeds. Best-effort: create3WayTrade already committed
-  // the row and DMed the partners by this point (the same "don't undo a real create over a
-  // secondary write" precedent as its own DM-failure handling below it), so a persist failure
-  // here doesn't refuse the trade -- it just means the initiator's pick didn't save and they'll
-  // see the requirement again (via /select-drops) the next time the trade is viewed or rechecked.
-  if (created.ok && pendingDropPersist) {
-    try {
-      await conditionalDropStoreFor(env).setForFranchise(
-        { leagueId, season, tradeKey: created.id, tradeKind: "three_way" },
-        { franchiseId: initiatorFid, playerIds: pendingDropPersist, selectedByFid: initiatorFid }
-      );
-    } catch (e) {
-      console.error(`[3way] ${created.id}: couldn't persist the initiator's conditional-drop selection at creation (recoverable via /select-drops): ${e?.message || e}`);
-    }
-  }
   if (created.ok) return out(201, { ok: true, id: created.id });
   const known = CREATE_MESSAGES[created.error];
   // create3WayTrade's catch-all returns the raw exception text — never show that to an owner.

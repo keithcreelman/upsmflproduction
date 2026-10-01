@@ -36,13 +36,13 @@ function sliceByAnchors(lines, startLineText, startLineNum, endLineText, endLine
 }
 
 test("DESKTOP: submitStagedOfferToQueue's own body never references the direct-MFL endpoint family, and never calls submitOfferToQueue/submitTradeCreateWithGates", () => {
-  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8687, "function init2WayStagedTrade()", 8731);
+  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8537, "function init2WayStagedTrade()", 8580);
   t.doesNotMatch(body, /resolveTradeOffersApiUrl|\/trade-offers|submitTradeCreateWithGates\(|submitOfferToQueue\(/);
   t.match(body, /tw2sUrl\(/, "it must go through the staged 2-way URL builder");
 });
 
 test("DESKTOP: submitOfferToQueue's own body never references the staged endpoint family, and never calls submitStagedOfferToQueue", () => {
-  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4364, "async function retryLastSubmitRequest()", 4510);
+  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4270, "async function retryLastSubmitRequest()", 4416);
   t.doesNotMatch(body, /resolveStaged2WayApiUrl|\/api\/trades\/2way|submitStagedOfferToQueue\(/);
 });
 
@@ -53,16 +53,13 @@ test("DESKTOP: the staged URL builder resolves to the staged endpoint (it legiti
 });
 
 test("MOBILE: submitStagedOffer's own body never references the direct-MFL proposals endpoint, and never calls submitOffer/submitTradeCreateWithGatesMobile", () => {
-  // Anchors moved 2353/2391 -> 2412/2450 (2026-09-30: submitTradeCounterWithGatesMobile /
-  // submitCounterViaStagingFallbackMobile inserted earlier in the file, before submitOffer).
-  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2412, "function render(mount, parts)", 2450);
+  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2239, "function render(mount, parts)", 2277);
   t.doesNotMatch(body, /\/api\/trades\/proposals|submitTradeCreateWithGatesMobile\(|[^d]submitOffer\(/);
   t.match(body, /\/api\/trades\/2way/, "it must post to the staged endpoint");
 });
 
 test("MOBILE: submitOffer's own body never references the staged endpoint, and never calls submitStagedOffer", () => {
-  // Anchors moved 1000/1094 -> 1064/1153, same insertion.
-  const body = sliceByAnchors(mobileLines, "function submitOffer()", 1064, "function mflActionVerb(action)", 1153);
+  const body = sliceByAnchors(mobileLines, "function submitOffer()", 1000, "function mflActionVerb(action)", 1089);
   t.doesNotMatch(body, /\/api\/trades\/2way(?!-)|submitStagedOffer\(/);
 });
 

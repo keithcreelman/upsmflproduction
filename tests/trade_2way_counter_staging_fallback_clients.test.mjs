@@ -104,13 +104,13 @@ function loadMobile(env, { token = "tok-B" } = {}) {
     api: { workerUrl: (p) => "https://worker.test" + p, getStoredMflUserId: () => token },
     state: { ctx: { leagueId: "74598", year: "2026" } },
   };
-  const start1 = MOBILE_SRC.indexOf("  function buildPlayerNamesForFid(fid, playerIds) {");
+  const start1 = MOBILE_SRC.indexOf("  function showLoadedContractBlockSheet(errData) {");
   const end1 = MOBILE_SRC.indexOf("  function submitOffer() {");
   if (start1 < 0 || end1 < 0 || end1 < start1) throw new Error("could not locate the mobile create/counter-gate block in trade.js");
   const start2a = MOBILE_SRC.indexOf("  function tw2sFetch(url, init) {");
   const end2a = MOBILE_SRC.indexOf("  function tw2sTone(trade) {");
   if (start2a < 0 || end2a < 0 || end2a < start2a) throw new Error("could not locate tw2sFetch in trade.js");
-  const start2b = MOBILE_SRC.indexOf("  function showPreSendLoadedContractSheet(compliance, mySenderFid) {");
+  const start2b = MOBILE_SRC.indexOf("  function showPreSendLoadedContractSheet(compliance) {");
   const end2b = MOBILE_SRC.indexOf("  function submitStagedOffer() {");
   if (start2b < 0 || end2b < 0 || end2b < start2b) throw new Error("could not locate the mobile pre-send-popup block in trade.js");
   const code = MOBILE_SRC.slice(start1, end1) + "\n" + MOBILE_SRC.slice(start2a, end2a) + "\n" + MOBILE_SRC.slice(start2b, end2b);
@@ -192,8 +192,9 @@ test("COUNTER + CUTOVER: the REAL pre-send loaded-contract popup fires for the c
   t.ok(m.sheet(), "the REAL pre-send sheet opened for the counter's own revised terms, before anything was sent");
   const sheetHtml = m.sheet().innerHTML;
   t.match(sheetHtml, /L\.A\. Looks/, "the real compliance-preview franchise name, not a client guess");
-  t.match(sheetHtml, /5.{0,3}6/, "the real 5 -> 6 projected count from the server");
-  t.match(sheetHtml, /1 drop.{0,3}required/);
+  t.match(sheetHtml, /would have 6 loaded contracts \(including IR\) after this trade — the limit is 5/, "the real projected count from the server");
+  t.match(sheetHtml, /Revise the offer, or make a separate roster move first/);
+  t.doesNotMatch(sheetHtml, /data-t3w-drop-pid/, "no picker -- nothing to pick");
   t.equal(mfl.st.imports.length, 0, "zero MFL writes while the popup is open");
 
   mobileClick(m, "ups-m-presend-cancel");
