@@ -1,0 +1,1412 @@
+{
+ "_about": "Real captures, read-only, 2026-10-01 ~12:47Z (before Wk 4 kickoff). playerScoresAllWeeks = MFL export TYPE=playerScores&L=74598&W=ALL (trimmed to these players). mfl_ytd / mfl_avg = MFL W=YTD and W=AVG exports — INDEPENDENT of W=ALL, used as the expected values. leaderboard = what /api/advanced-stats-leaderboard?season=2026&pos=<alias>&min_games=1 served (precompute built 2026-09-30T16:42Z from the clobbered src_weekly). rosters = MFL TYPE=rosters. lineup_week = /api/current-lineup-week.",
+ "lineup_week": {
+  "ok": true,
+  "week": 4,
+  "source": "live_scoring"
+ },
+ "playerScoresAll": {
+  "playerScoresAllWeeks": {
+   "year": "2026",
+   "playerScores": [
+    {
+     "week": "1",
+     "playerScore": [
+      {
+       "score": "42.6",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "13589"
+      },
+      {
+       "isAvailable": "0",
+       "score": "37.6",
+       "week": "1",
+       "id": "16162"
+      },
+      {
+       "isAvailable": "0",
+       "score": "30.2",
+       "week": "1",
+       "id": "15794"
+      },
+      {
+       "id": "16185",
+       "week": "1",
+       "score": "29.2",
+       "isAvailable": "0"
+      },
+      {
+       "week": "1",
+       "id": "15346",
+       "isAvailable": "0",
+       "score": "23.0"
+      },
+      {
+       "score": "20.5",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "15368"
+      },
+      {
+       "score": "20.0",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "15923"
+      },
+      {
+       "week": "1",
+       "id": "13066",
+       "isAvailable": "0",
+       "score": "18.6"
+      },
+      {
+       "id": "14137",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "16.7"
+      },
+      {
+       "id": "17075",
+       "week": "1",
+       "score": "16.3",
+       "isAvailable": "0"
+      },
+      {
+       "id": "15409",
+       "week": "1",
+       "score": "16.0",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "0",
+       "score": "15.7",
+       "week": "1",
+       "id": "14057"
+      },
+      {
+       "id": "13832",
+       "week": "1",
+       "score": "15.6",
+       "isAvailable": "1"
+      },
+      {
+       "id": "17167",
+       "week": "1",
+       "score": "13.0",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "0",
+       "score": "12.0",
+       "week": "1",
+       "id": "17121"
+      },
+      {
+       "isAvailable": "1",
+       "score": "12.0",
+       "week": "1",
+       "id": "17624"
+      },
+      {
+       "score": "11.5",
+       "isAvailable": "1",
+       "week": "1",
+       "id": "14717"
+      },
+      {
+       "isAvailable": "0",
+       "score": "11.5",
+       "id": "13743",
+       "week": "1"
+      },
+      {
+       "isAvailable": "0",
+       "score": "11.0",
+       "week": "1",
+       "id": "15822"
+      },
+      {
+       "week": "1",
+       "id": "16230",
+       "score": "11.0",
+       "isAvailable": "0"
+      },
+      {
+       "week": "1",
+       "id": "17052",
+       "isAvailable": "0",
+       "score": "10.6"
+      },
+      {
+       "id": "16450",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "10.5"
+      },
+      {
+       "isAvailable": "1",
+       "score": "9.3",
+       "week": "1",
+       "id": "13289"
+      },
+      {
+       "id": "17062",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "8.5"
+      },
+      {
+       "score": "8.1",
+       "isAvailable": "0",
+       "id": "15366",
+       "week": "1"
+      },
+      {
+       "score": "7.3",
+       "isAvailable": "0",
+       "id": "16896",
+       "week": "1"
+      },
+      {
+       "isAvailable": "1",
+       "score": "7.0",
+       "week": "1",
+       "id": "12688"
+      },
+      {
+       "week": "1",
+       "id": "14943",
+       "score": "6.5",
+       "isAvailable": "1"
+      },
+      {
+       "score": "6.2",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "12263"
+      },
+      {
+       "isAvailable": "1",
+       "score": "5.3",
+       "week": "1",
+       "id": "15452"
+      },
+      {
+       "score": "4.5",
+       "isAvailable": "1",
+       "week": "1",
+       "id": "15352"
+      },
+      {
+       "score": "2.2",
+       "isAvailable": "1",
+       "id": "12678",
+       "week": "1"
+      },
+      {
+       "score": "2.0",
+       "isAvailable": "1",
+       "id": "15589",
+       "week": "1"
+      },
+      {
+       "score": "1.0",
+       "isAvailable": "1",
+       "id": "16474",
+       "week": "1"
+      },
+      {
+       "id": "17233",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "1.0"
+      },
+      {
+       "week": "1",
+       "id": "11367",
+       "score": "0.0",
+       "isAvailable": "1"
+      }
+     ]
+    },
+    {
+     "week": "2",
+     "playerScore": [
+      {
+       "score": "50.7",
+       "isAvailable": "0",
+       "id": "13589",
+       "week": "2"
+      },
+      {
+       "week": "2",
+       "id": "16185",
+       "isAvailable": "0",
+       "score": "48.1"
+      },
+      {
+       "week": "2",
+       "id": "15822",
+       "isAvailable": "0",
+       "score": "32.0"
+      },
+      {
+       "isAvailable": "0",
+       "score": "29.2",
+       "id": "14057",
+       "week": "2"
+      },
+      {
+       "score": "23.5",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "16162"
+      },
+      {
+       "week": "2",
+       "id": "16230",
+       "isAvailable": "0",
+       "score": "23.0"
+      },
+      {
+       "score": "22.7",
+       "isAvailable": "0",
+       "id": "15794",
+       "week": "2"
+      },
+      {
+       "id": "15366",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "22.4"
+      },
+      {
+       "isAvailable": "0",
+       "score": "20.4",
+       "id": "12263",
+       "week": "2"
+      },
+      {
+       "week": "2",
+       "id": "14717",
+       "score": "17.6",
+       "isAvailable": "1"
+      },
+      {
+       "score": "17.5",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "15346"
+      },
+      {
+       "id": "15589",
+       "week": "2",
+       "score": "16.8",
+       "isAvailable": "1"
+      },
+      {
+       "id": "16896",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "15.9"
+      },
+      {
+       "id": "15923",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "15.1"
+      },
+      {
+       "id": "16474",
+       "week": "2",
+       "score": "14.9",
+       "isAvailable": "1"
+      },
+      {
+       "score": "14.6",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "17052"
+      },
+      {
+       "week": "2",
+       "id": "15368",
+       "isAvailable": "0",
+       "score": "12.8"
+      },
+      {
+       "week": "2",
+       "id": "15352",
+       "score": "12.0",
+       "isAvailable": "1"
+      },
+      {
+       "score": "11.5",
+       "isAvailable": "1",
+       "id": "14943",
+       "week": "2"
+      },
+      {
+       "week": "2",
+       "id": "13066",
+       "score": "10.9",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "1",
+       "score": "10.7",
+       "week": "2",
+       "id": "11367"
+      },
+      {
+       "id": "17075",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "10.6"
+      },
+      {
+       "score": "10.5",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "15409"
+      },
+      {
+       "id": "12688",
+       "week": "2",
+       "score": "10.0",
+       "isAvailable": "1"
+      },
+      {
+       "week": "2",
+       "id": "15452",
+       "score": "8.8",
+       "isAvailable": "1"
+      },
+      {
+       "week": "2",
+       "id": "17121",
+       "score": "8.0",
+       "isAvailable": "0"
+      },
+      {
+       "id": "16450",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "7.5"
+      },
+      {
+       "isAvailable": "0",
+       "score": "7.0",
+       "id": "13743",
+       "week": "2"
+      },
+      {
+       "id": "13832",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "5.7"
+      },
+      {
+       "id": "17624",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "5.1"
+      },
+      {
+       "score": "4.0",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "13289"
+      },
+      {
+       "id": "17167",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "3.9"
+      },
+      {
+       "week": "2",
+       "id": "17062",
+       "score": "3.2",
+       "isAvailable": "1"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "id": "14137",
+       "week": "2"
+      },
+      {
+       "id": "12678",
+       "week": "2",
+       "score": "0.0",
+       "isAvailable": "1"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "id": "17233",
+       "week": "2"
+      }
+     ]
+    },
+    {
+     "week": "3",
+     "playerScore": [
+      {
+       "week": "3",
+       "id": "16162",
+       "isAvailable": "0",
+       "score": "42.2"
+      },
+      {
+       "score": "39.4",
+       "isAvailable": "0",
+       "id": "16185",
+       "week": "3"
+      },
+      {
+       "isAvailable": "1",
+       "score": "31.5",
+       "week": "3",
+       "id": "10948"
+      },
+      {
+       "isAvailable": "1",
+       "score": "29.5",
+       "id": "15452",
+       "week": "3"
+      },
+      {
+       "score": "25.4",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "12678"
+      },
+      {
+       "id": "17075",
+       "week": "3",
+       "score": "23.8",
+       "isAvailable": "0"
+      },
+      {
+       "id": "13066",
+       "week": "3",
+       "score": "22.6",
+       "isAvailable": "0"
+      },
+      {
+       "score": "22.5",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "15346"
+      },
+      {
+       "score": "21.7",
+       "isAvailable": "1",
+       "id": "14137",
+       "week": "3"
+      },
+      {
+       "id": "15794",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "21.6"
+      },
+      {
+       "id": "16896",
+       "week": "3",
+       "score": "19.7",
+       "isAvailable": "0"
+      },
+      {
+       "week": "3",
+       "id": "17121",
+       "score": "19.0",
+       "isAvailable": "0"
+      },
+      {
+       "id": "17052",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "17.8"
+      },
+      {
+       "id": "13589",
+       "week": "3",
+       "score": "17.1",
+       "isAvailable": "0"
+      },
+      {
+       "week": "3",
+       "id": "17233",
+       "score": "17.0",
+       "isAvailable": "1"
+      },
+      {
+       "week": "3",
+       "id": "13289",
+       "isAvailable": "1",
+       "score": "15.3"
+      },
+      {
+       "week": "3",
+       "id": "13743",
+       "isAvailable": "0",
+       "score": "13.5"
+      },
+      {
+       "id": "12263",
+       "week": "3",
+       "score": "13.2",
+       "isAvailable": "0"
+      },
+      {
+       "score": "13.0",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "14717"
+      },
+      {
+       "id": "12688",
+       "week": "3",
+       "score": "12.5",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "0",
+       "score": "11.8",
+       "id": "15368",
+       "week": "3"
+      },
+      {
+       "score": "9.9",
+       "isAvailable": "1",
+       "id": "17062",
+       "week": "3"
+      },
+      {
+       "id": "15589",
+       "week": "3",
+       "score": "8.6",
+       "isAvailable": "1"
+      },
+      {
+       "week": "3",
+       "id": "15366",
+       "score": "8.6",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "1",
+       "score": "8.5",
+       "id": "16474",
+       "week": "3"
+      },
+      {
+       "score": "8.0",
+       "isAvailable": "1",
+       "id": "16450",
+       "week": "3"
+      },
+      {
+       "id": "15923",
+       "week": "3",
+       "score": "7.8",
+       "isAvailable": "0"
+      },
+      {
+       "week": "3",
+       "id": "17624",
+       "score": "7.8",
+       "isAvailable": "1"
+      },
+      {
+       "score": "7.5",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "15352"
+      },
+      {
+       "id": "15409",
+       "week": "3",
+       "score": "7.5",
+       "isAvailable": "0"
+      },
+      {
+       "week": "3",
+       "id": "17167",
+       "score": "7.1",
+       "isAvailable": "1"
+      },
+      {
+       "id": "14943",
+       "week": "3",
+       "score": "6.5",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "1",
+       "score": "5.2",
+       "week": "3",
+       "id": "13832"
+      },
+      {
+       "score": "3.5",
+       "isAvailable": "0",
+       "id": "16230",
+       "week": "3"
+      },
+      {
+       "week": "3",
+       "id": "17034",
+       "isAvailable": "1",
+       "score": "0.0"
+      },
+      {
+       "id": "11367",
+       "week": "3",
+       "score": "0.0",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "1",
+       "score": "-1.1",
+       "week": "3",
+       "id": "17469"
+      },
+      {
+       "score": "-2.0",
+       "isAvailable": "1",
+       "id": "10313",
+       "week": "3"
+      }
+     ]
+    },
+    {
+     "week": "4",
+     "playerScore": [
+      {
+       "id": "",
+       "week": "4",
+       "isAvailable": "1",
+       "score": ""
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "players": [
+  {
+   "id": "10313",
+   "name": "Dalton, Andy",
+   "position": "QB",
+   "team": "PHI"
+  },
+  {
+   "id": "10948",
+   "name": "Keenum, Case",
+   "position": "QB",
+   "team": "CHI"
+  },
+  {
+   "id": "11367",
+   "name": "Juszczyk, Kyle",
+   "position": "RB",
+   "team": "SFO"
+  },
+  {
+   "id": "12263",
+   "name": "Waller, Darren",
+   "position": "TE",
+   "team": "CAR"
+  },
+  {
+   "id": "12678",
+   "name": "Higbee, Tyler",
+   "position": "TE",
+   "team": "LAR"
+  },
+  {
+   "id": "12688",
+   "name": "Buckner, DeForest",
+   "position": "DT",
+   "team": "IND"
+  },
+  {
+   "id": "13066",
+   "name": "Raymond, Kalif",
+   "position": "WR",
+   "team": "CHI"
+  },
+  {
+   "id": "13289",
+   "name": "Hollins, Mack",
+   "position": "WR",
+   "team": "NEP"
+  },
+  {
+   "id": "13589",
+   "name": "Allen, Josh",
+   "position": "QB",
+   "team": "BUF"
+  },
+  {
+   "id": "13743",
+   "name": "Warner, Fred",
+   "position": "LB",
+   "team": "SFO"
+  },
+  {
+   "id": "13832",
+   "name": "Sanders, Jason",
+   "position": "PK",
+   "team": "NYJ"
+  },
+  {
+   "id": "14057",
+   "name": "Lock, Drew",
+   "position": "QB",
+   "team": "SEA"
+  },
+  {
+   "id": "14137",
+   "name": "Fant, Noah",
+   "position": "TE",
+   "team": "NOS"
+  },
+  {
+   "id": "14717",
+   "name": "McLaughlin, Chase",
+   "position": "PK",
+   "team": "TBB"
+  },
+  {
+   "id": "14943",
+   "name": "Davis-Gaither, Akeem",
+   "position": "LB",
+   "team": "IND"
+  },
+  {
+   "id": "15346",
+   "name": "Rousseau, Gregory",
+   "position": "DE",
+   "team": "BUF"
+  },
+  {
+   "id": "15352",
+   "name": "Collins, Zaven",
+   "position": "DE",
+   "team": "ARI"
+  },
+  {
+   "id": "15366",
+   "name": "Holland, Jevon",
+   "position": "S",
+   "team": "NYG"
+  },
+  {
+   "id": "15368",
+   "name": "McPherson, Evan",
+   "position": "PK",
+   "team": "CIN"
+  },
+  {
+   "id": "15409",
+   "name": "Barnes, Derrick",
+   "position": "LB",
+   "team": "DET"
+  },
+  {
+   "id": "15452",
+   "name": "Hufanga, Talanoa",
+   "position": "S",
+   "team": "DEN"
+  },
+  {
+   "id": "15589",
+   "name": "White, Cody",
+   "position": "WR",
+   "team": "LVR"
+  },
+  {
+   "id": "15794",
+   "name": "McBride, Trey",
+   "position": "TE",
+   "team": "ARI"
+  },
+  {
+   "id": "15822",
+   "name": "Lloyd, Devin",
+   "position": "LB",
+   "team": "CAR"
+  },
+  {
+   "id": "15923",
+   "name": "Lake, Quentin",
+   "position": "S",
+   "team": "LAR"
+  },
+  {
+   "id": "16162",
+   "name": "Gibbs, Jahmyr",
+   "position": "RB",
+   "team": "DET"
+  },
+  {
+   "id": "16185",
+   "name": "Smith-Njigba, Jaxon",
+   "position": "WR",
+   "team": "SEA"
+  },
+  {
+   "id": "16230",
+   "name": "Van Ness, Lukas",
+   "position": "DE",
+   "team": "GBP"
+  },
+  {
+   "id": "16450",
+   "name": "Thomas, Drake",
+   "position": "LB",
+   "team": "SEA"
+  },
+  {
+   "id": "16474",
+   "name": "Adkins, Nate",
+   "position": "TE",
+   "team": "DEN"
+  },
+  {
+   "id": "16896",
+   "name": "Shrader, Spencer",
+   "position": "PK",
+   "team": "IND"
+  },
+  {
+   "id": "17034",
+   "name": "Ewers, Quinn",
+   "position": "QB",
+   "team": "JAC"
+  },
+  {
+   "id": "17052",
+   "name": "Tuten, Bhayshul",
+   "position": "RB",
+   "team": "JAC"
+  },
+  {
+   "id": "17062",
+   "name": "Sanders, Raheim",
+   "position": "RB",
+   "team": "CLE"
+  },
+  {
+   "id": "17075",
+   "name": "Golden, Matthew",
+   "position": "WR",
+   "team": "GBP"
+  },
+  {
+   "id": "17121",
+   "name": "Graham, Mason",
+   "position": "DT",
+   "team": "CLE"
+  },
+  {
+   "id": "17167",
+   "name": "Sanker, Jonas",
+   "position": "S",
+   "team": "NOS"
+  },
+  {
+   "id": "17233",
+   "name": "Medrano, Kain",
+   "position": "LB",
+   "team": "WAS"
+  },
+  {
+   "id": "17469",
+   "name": "Daniels, Jalon",
+   "position": "QB",
+   "team": "TBB"
+  },
+  {
+   "id": "17624",
+   "name": "Lee, Will",
+   "position": "CB",
+   "team": "CAR"
+  }
+ ],
+ "rosters": {
+  "12263": {
+   "fid": "0001",
+   "status": "ROSTER"
+  },
+  "13066": {
+   "fid": "0008",
+   "status": "ROSTER"
+  },
+  "13589": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "13743": {
+   "fid": "0012",
+   "status": "ROSTER"
+  },
+  "14057": {
+   "fid": "0006",
+   "status": "ROSTER"
+  },
+  "15346": {
+   "fid": "0008",
+   "status": "ROSTER"
+  },
+  "15366": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "15368": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "15409": {
+   "fid": "0003",
+   "status": "ROSTER"
+  },
+  "15794": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "15822": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "15923": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "16162": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "16185": {
+   "fid": "0009",
+   "status": "ROSTER"
+  },
+  "16230": {
+   "fid": "0007",
+   "status": "ROSTER"
+  },
+  "16896": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "17052": {
+   "fid": "0010",
+   "status": "TAXI_SQUAD"
+  },
+  "17075": {
+   "fid": "0010",
+   "status": "TAXI_SQUAD"
+  },
+  "17121": {
+   "fid": "0003",
+   "status": "ROSTER"
+  }
+ },
+ "leaderboard": {
+  "qb": [
+   {
+    "mfl_pid": "13589",
+    "player_name": "Josh Allen",
+    "position": "QB",
+    "pos_group": "QB",
+    "games": 3,
+    "mfl_points": 110.4,
+    "mfl_ppg": 36.800000000000004
+   },
+   {
+    "mfl_pid": "14057",
+    "player_name": "Drew Lock",
+    "position": "QB",
+    "pos_group": "QB",
+    "games": 2,
+    "mfl_points": 29.2,
+    "mfl_ppg": 29.2
+   },
+   {
+    "mfl_pid": "10948",
+    "player_name": "Case Keenum",
+    "position": "QB",
+    "pos_group": "QB",
+    "games": 1,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "17469",
+    "player_name": "Jalon Daniels",
+    "position": "QB",
+    "pos_group": "QB",
+    "games": 1,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "10313",
+    "player_name": "Andy Dalton",
+    "position": "QB",
+    "pos_group": "QB",
+    "games": 1,
+    "mfl_points": null,
+    "mfl_ppg": null
+   }
+  ],
+  "skill": [
+   {
+    "mfl_pid": "16162",
+    "player_name": "Jahmyr Gibbs",
+    "position": "RB",
+    "pos_group": "RB",
+    "games": 3,
+    "mfl_points": 103.30000000000001,
+    "mfl_ppg": 34.43333333333334
+   },
+   {
+    "mfl_pid": "16185",
+    "player_name": "Jaxon Smith-Njigba",
+    "position": "WR",
+    "pos_group": "WR",
+    "games": 3,
+    "mfl_points": 116.7,
+    "mfl_ppg": 38.9
+   },
+   {
+    "mfl_pid": "17075",
+    "player_name": "Matthew Golden",
+    "position": "WR",
+    "pos_group": "WR",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "17052",
+    "player_name": "Bhayshul Tuten",
+    "position": "RB",
+    "pos_group": "RB",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "13066",
+    "player_name": "Kalif Raymond",
+    "position": "WR",
+    "pos_group": "WR",
+    "games": 3,
+    "mfl_points": 33.5,
+    "mfl_ppg": 16.75
+   },
+   {
+    "mfl_pid": "15794",
+    "player_name": "Trey McBride",
+    "position": "TE",
+    "pos_group": "TE",
+    "games": 3,
+    "mfl_points": 74.5,
+    "mfl_ppg": 24.833333333333332
+   },
+   {
+    "mfl_pid": "13289",
+    "player_name": "Mack Hollins",
+    "position": "WR",
+    "pos_group": "WR",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "12263",
+    "player_name": "Darren Waller",
+    "position": "TE",
+    "pos_group": "TE",
+    "games": 3,
+    "mfl_points": 13.2,
+    "mfl_ppg": 13.2
+   },
+   {
+    "mfl_pid": "17062",
+    "player_name": "Raheim Sanders",
+    "position": "RB",
+    "pos_group": "RB",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "12678",
+    "player_name": "Tyler Higbee",
+    "position": "TE",
+    "pos_group": "TE",
+    "games": 2,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "14137",
+    "player_name": "Noah Fant",
+    "position": "TE",
+    "pos_group": "TE",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   }
+  ],
+  "idp": [
+   {
+    "mfl_pid": "13743",
+    "player_name": "Fred Warner",
+    "position": "MLB",
+    "pos_group": "LB",
+    "games": 3,
+    "mfl_points": 32.5,
+    "mfl_ppg": 10.833333333333334
+   },
+   {
+    "mfl_pid": "15346",
+    "player_name": "Gregory Rousseau",
+    "position": "LB",
+    "pos_group": "LB",
+    "games": 3,
+    "mfl_points": 63,
+    "mfl_ppg": 21
+   },
+   {
+    "mfl_pid": "14943",
+    "player_name": "Akeem Davis-Gaither",
+    "position": "LB",
+    "pos_group": "LB",
+    "games": 3,
+    "mfl_points": 11.5,
+    "mfl_ppg": 11.5
+   },
+   {
+    "mfl_pid": "15409",
+    "player_name": "Derrick Barnes",
+    "position": "LB",
+    "pos_group": "LB",
+    "games": 3,
+    "mfl_points": 18,
+    "mfl_ppg": 9
+   },
+   {
+    "mfl_pid": "16450",
+    "player_name": "Drake Thomas",
+    "position": "LB",
+    "pos_group": "LB",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "15822",
+    "player_name": "Devin Lloyd",
+    "position": "LB",
+    "pos_group": "LB",
+    "games": 2,
+    "mfl_points": 43,
+    "mfl_ppg": 21.5
+   },
+   {
+    "mfl_pid": "17121",
+    "player_name": "Mason Graham",
+    "position": "DT",
+    "pos_group": "DL",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "15452",
+    "player_name": "Talanoa Hufanga",
+    "position": "SAF",
+    "pos_group": "DB",
+    "games": 3,
+    "mfl_points": 14.100000000000001,
+    "mfl_ppg": 7.050000000000001
+   },
+   {
+    "mfl_pid": "15923",
+    "player_name": "Quentin Lake",
+    "position": "SAF",
+    "pos_group": "DB",
+    "games": 3,
+    "mfl_points": 42.9,
+    "mfl_ppg": 14.299999999999999
+   },
+   {
+    "mfl_pid": "16230",
+    "player_name": "Lukas Van Ness",
+    "position": "LB",
+    "pos_group": "LB",
+    "games": 3,
+    "mfl_points": 3.5,
+    "mfl_ppg": 3.5
+   },
+   {
+    "mfl_pid": "12688",
+    "player_name": "DeForest Buckner",
+    "position": "DT",
+    "pos_group": "DL",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "17167",
+    "player_name": "Jonas Sanker",
+    "position": "SAF",
+    "pos_group": "DB",
+    "games": 3,
+    "mfl_points": 13,
+    "mfl_ppg": 13
+   },
+   {
+    "mfl_pid": "15366",
+    "player_name": "Jevon Holland",
+    "position": "SAF",
+    "pos_group": "DB",
+    "games": 3,
+    "mfl_points": 8.6,
+    "mfl_ppg": 8.6
+   }
+  ],
+  "kicker": [
+   {
+    "mfl_pid": "13832",
+    "player_name": "Jason Sanders",
+    "position": "K",
+    "pos_group": "PK",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "14717",
+    "player_name": "Chase McLaughlin",
+    "position": "K",
+    "pos_group": "PK",
+    "games": 3,
+    "mfl_points": null,
+    "mfl_ppg": null
+   },
+   {
+    "mfl_pid": "15368",
+    "player_name": "Evan McPherson",
+    "position": "K",
+    "pos_group": "PK",
+    "games": 3,
+    "mfl_points": 24.6,
+    "mfl_ppg": 12.3
+   },
+   {
+    "mfl_pid": "16896",
+    "player_name": "Spencer Shrader",
+    "position": "K",
+    "pos_group": "PK",
+    "games": 3,
+    "mfl_points": 42.9,
+    "mfl_ppg": 14.299999999999999
+   }
+  ]
+ },
+ "mfl_ytd": {
+  "10313": "-2.0",
+  "10948": "31.5",
+  "11367": "10.7",
+  "12263": "39.8",
+  "12678": "27.6",
+  "12688": "29.5",
+  "13066": "52.1",
+  "13289": "28.6",
+  "13589": "110.4",
+  "13743": "32.0",
+  "13832": "26.5",
+  "14057": "44.9",
+  "14137": "38.4",
+  "14717": "42.1",
+  "14943": "24.5",
+  "15346": "63.0",
+  "15352": "24.0",
+  "15366": "39.1",
+  "15368": "45.1",
+  "15409": "34.0",
+  "15452": "43.6",
+  "15589": "27.4",
+  "15794": "74.5",
+  "15822": "43.0",
+  "15923": "42.9",
+  "16162": "103.3",
+  "16185": "116.7",
+  "16230": "37.5",
+  "16450": "26.0",
+  "16474": "24.4",
+  "16896": "42.9",
+  "17034": "0.0",
+  "17052": "43.0",
+  "17062": "21.6",
+  "17075": "50.7",
+  "17121": "39.0",
+  "17167": "24.0",
+  "17233": "18.0",
+  "17469": "-1.1",
+  "17624": "24.9"
+ },
+ "mfl_avg": {
+  "10313": "-2.00",
+  "10948": "31.50",
+  "11367": "3.57",
+  "12263": "13.27",
+  "12678": "9.20",
+  "12688": "9.83",
+  "13066": "17.37",
+  "13289": "9.53",
+  "13589": "36.80",
+  "13743": "10.67",
+  "13832": "8.83",
+  "14057": "22.45",
+  "14137": "12.80",
+  "14717": "14.03",
+  "14943": "8.17",
+  "15346": "21.00",
+  "15352": "8.00",
+  "15366": "13.03",
+  "15368": "15.03",
+  "15409": "11.33",
+  "15452": "14.53",
+  "15589": "9.13",
+  "15794": "24.83",
+  "15822": "21.50",
+  "15923": "14.30",
+  "16162": "34.43",
+  "16185": "38.90",
+  "16230": "12.50",
+  "16450": "8.67",
+  "16474": "8.13",
+  "16896": "14.30",
+  "17034": "0.00",
+  "17052": "14.33",
+  "17062": "7.20",
+  "17075": "16.90",
+  "17121": "13.00",
+  "17167": "8.00",
+  "17233": "6.00",
+  "17469": "-1.10",
+  "17624": "8.30"
+ }
+}

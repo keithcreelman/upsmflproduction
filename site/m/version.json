@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.01.2",
-  "label": "Trade War Room: the Staged Trades section is gone from the normal trade view -- no list, no 'Stage via War Room' button, no staged-trade detail. You get the normal trade flow with a hard loaded-contract block: a trade that would leave either team over 5 loaded contracts (including IR) is refused before anything is sent."
+  "build": "2026.10.01.3",
+  "label": "Players market: actual points now come from MFL league scoring through the last confirmed completed week. YTD, PPG, recent points and projections are labelled separately; the bid sheet accepts a typed $K amount and shows the staged amount. An empty current season shows last season by year; if current scores exist but the completed week cannot be confirmed, points show as unavailable."
 }

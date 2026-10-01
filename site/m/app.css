@@ -4638,3 +4638,70 @@ a.ups-m-bid-btn {
 .ups-m-standings-table td { white-space: nowrap; }
 .ups-m-standings-table td.team,
 .ups-m-standings-table th.team { white-space: normal; }
+
+/* ── Players market: actual points + bid entry (2026-10-01) ─────────────────
+   Every points number on the market now comes from MFL's own league scoring
+   (views/players.js pointsBasis). These rules give that number a fixed place
+   and a label, and pull the filter + sort into one row so more of the list
+   is on screen at 375px. */
+.ups-m-players-selects { display: flex; gap: 8px; }
+.ups-m-players-selects .ups-m-players-filter { flex: 1 1 0; min-width: 0; }
+.ups-m-fa-basis {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--fg-muted);
+  margin: 6px 0 4px;
+}
+.ups-m-fa-basis.warn { color: var(--warn); }
+.ups-m-fa-row .name .tm {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  letter-spacing: 0.03em;
+}
+.ups-m-fa-row .sub { gap: 4px 10px; align-items: baseline; }
+.ups-m-fa-stat { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ups-m-fa-stat.pts b { font-size: 13px; font-weight: 800; color: var(--fg); }
+.ups-m-fa-stat.na { font-style: italic; }
+.ups-m-bid-context {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+.ups-m-bid-context b { color: var(--fg); font-weight: 800; }
+.ups-m-bid-stepper .amt-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+.ups-m-bid-stepper .amt-wrap .cur { font-size: 18px; font-weight: 700; color: var(--fg-muted); }
+.ups-m-bid-stepper input.amt {
+  width: 100%;
+  max-width: 120px;
+  min-width: 0;
+  height: 48px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ups-m-bid-stepper input.amt:focus { outline: none; border-color: var(--accent); }
+.ups-m-bid-stepper input.amt[aria-invalid="true"] { border-color: var(--danger); }
+.ups-m-bid-total {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-bid-total .snap { font-weight: 600; font-size: 11px; color: var(--warn); }
+.ups-m-stat-basis { margin-top: 6px; font-size: 11px; color: var(--fg-muted); }

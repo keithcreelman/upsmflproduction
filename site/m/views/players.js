@@ -1,7 +1,8 @@
 /* Players tab — Free-agent browser + in-app waiver acquisition.
    Free agents = anyone in players export NOT on any roster (exempts taxi/IR
-   since those ARE on rosters). Rows show Name / POS / NFL team / YTD Pts /
-   PPG. Tap row opens player sheet.
+   since those ARE on rosters). Rows show Name / POS / NFL team / actual pts
+   (MFL league scoring, completed weeks — see pointsBasis) / PPG · games / rank,
+   then next week's projection + matchup. Tap row opens player sheet.
 
    ACQUISITION (2026-07-30 — in-app waivers, Phase 3):
    This file used to deep-link out to MFL's native /add_drop form because no
@@ -62,7 +63,6 @@
     var p = U.safeStr(pos).toUpperCase();
     return FO ? FO.posGroup(p) : (POS_GROUP[p] || p);
   }
-  var REGULAR_SEASON_WEEKS = 17;
 
   // Volatile UI state — survives between renders within one session.
   var view = {
@@ -120,26 +120,62 @@
     return pos + (team ? " · " + team : "");
   }
 
-  // Approximate games played in the current season = completed NFL weeks.
-  // Bench/IR weeks count, but for FA browsing this is good enough as a
-  // common denominator. League_context §6.B uses regular-season weeks.
-  function approxGamesPlayed() {
-    var ctx = M.state.ctx;
-    var seasonNum = parseInt(ctx.year, 10) || (new Date().getUTCFullYear());
-    // NFL_WEEK1_KICKOFF table lives in app.js; mirror it minimally here.
-    var KICKOFF = {
-      2024: new Date(2024, 8, 5),
-      2025: new Date(2025, 8, 4),
-      2026: new Date(2026, 8, 10),
-      2027: new Date(2027, 8, 9)
-    };
-    var kickoff = KICKOFF[seasonNum];
-    if (!kickoff) return 0;
-    var now = new Date();
-    var diffMs = now.getTime() - kickoff.getTime();
-    if (diffMs < 0) return 0;
-    return Math.max(0, Math.min(REGULAR_SEASON_WEEKS,
-      Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))));
+  // ══ Actual points (MFL league scoring) ═════════════════════════════════
+  // EVERY points number on this screen — YTD, L2/L4/L6, PPG, positional rank —
+  // comes from ONE source: DATA.getSeasonScoring(), i.e. MFL's own per-week
+  // playerScores for THIS league, completed weeks only (site/m/season_scoring.js
+  // has the rules). Keith 2026-10-01: "YTD Points do not appear to match the
+  // points players actually scored in our MFL league" — they didn't. YTD came
+  // from /api/advanced-stats-leaderboard's mfl_points, a D1 copy of src_weekly
+  // that the standings sync had cut down to ACTIVE-roster rows, so every free
+  // agent read 0.0 and the PPG sort put one-week wonders on top; L2/L4/L6 came
+  // from a third source again (/api/lineup-matchups). Players the board didn't
+  // return got MFL's YTD divided by CALENDAR weeks, which ignored byes and ran
+  // a week behind every Tuesday/Wednesday — exactly when bids are placed.
+  //
+  // Basis, in order:
+  //   season       the current season has a completed week → MFL's numbers.
+  //   prior        the read worked but no current-season week is complete yet
+  //                (preseason, or Week 1 still being played) → last season's
+  //                final board, labelled with ITS year, never as "YTD".
+  //   none         nothing to show for either season.
+  //   unavailable  MFL's scoring or the completed-week check didn't load →
+  //                say so; no substitute number.
+  var SSMOD = window.UPS_MOBILE_SEASON_SCORING || null;
+  function seasonScoring() { return DATA.getSeasonScoring ? DATA.getSeasonScoring() : null; }
+  function pointsBasis() {
+    var ss = seasonScoring();
+    if (ss && ss.known && ss.throughWeek > 0) return { kind: "season", ss: ss };
+    if (ss && ss.known) {
+      var cur = U.safeInt(M.state.ctx && M.state.ctx.year, 0);
+      var priorYear = cur - 1;
+      var priorMap = DATA.getAdvancedStatsMap ? DATA.getAdvancedStatsMap(priorYear) : null;
+      // A current-year leaderboard can contain preseason rows even before MFL
+      // posts a score. Read the previous year explicitly, never infer it from
+      // whichever leaderboard happened to be the latest nonempty one.
+      if (priorYear > 0 && priorMap && Object.keys(priorMap).length) {
+        return { kind: "prior", year: priorYear, map: priorMap, ss: ss };
+      }
+      return { kind: "none", ss: ss };
+    }
+    return { kind: "unavailable", reason: ss && ss.reason || "unavailable" };
+  }
+  // Canonical group for a pid, for ranking ("" = not a fantasy position).
+  function groupOfPid(pid) {
+    var pl = DATA.playerById(pid);
+    var g = posGrp(pl && pl.position);
+    return (g && g !== "OTH") ? g : "";
+  }
+  // Positional PPG rank for the season or a last-N window, cached per
+  // (scoring object, window) so the search box doesn't re-sort ~1,300 players
+  // on every keystroke.
+  var rankCache = { ss: null, key: null, map: null };
+  function rankMapFor(ss, k) {
+    if (!ss || !SSMOD) return {};
+    if (rankCache.ss === ss && rankCache.key === k && rankCache.map) return rankCache.map;
+    var map = SSMOD.rankMap(ss.windowFor(k), groupOfPid);
+    rankCache = { ss: ss, key: k, map: map };
+    return map;
   }
 
   function buildFreeAgents() {
@@ -148,12 +184,10 @@
     // the list + their owner mapping.
     var showAll = (view.scope === "all") || !!view.teamFilter;
     var fidByPid = showAll ? rosteredFidByPid() : null;
-    // Canonical UPS-scored stats — from Advanced Stats Workbench leaderboard.
-    // Falls back to MFL YTD playerScores if the leaderboard didn't return
-    // a row for this pid (rare; usually means the player didn't play this season).
-    var advStats = DATA.getAdvancedStatsMap ? DATA.getAdvancedStatsMap() : {};
-    var ytdScores = DATA.getYtdScoresMap();
-    var fallbackGames = Math.max(1, approxGamesPlayed());
+    var basis = pointsBasis();
+    var seasonMap = basis.kind === "season" ? basis.ss.byPid : null;
+    var seasonRank = seasonMap ? rankMapFor(basis.ss, 0) : null;
+    var priorMap = basis.kind === "prior" ? basis.map : null;
     var players = (M.state.players && M.state.players.players) || null;
     if (!players) return [];
     var list = U.asArray(players.player);
@@ -167,49 +201,67 @@
       var pos = U.safeStr(p.position).toUpperCase();
       if (!pos) continue;
       var group = POS_GROUP[pos] || pos;
-      var stats = advStats[pid] || null;
-      var pts = stats ? stats.mfl_points : Number(ytdScores[pid] || 0);
-      var ppg = stats ? stats.mfl_ppg : (fallbackGames > 0 ? pts / fallbackGames : 0);
-      var rank = stats ? stats.posRank : 0;
-      var keep = pts > 0 || ["QB", "RB", "WR", "TE", "PK", "PN"].indexOf(group) !== -1
+      var grp = posGrp(pos);
+      // pts/games/ppg are null when UNKNOWN. A player MFL has no completed-week
+      // row for really did score nothing yet: 0 points, 0 games, no PPG.
+      var pts = null, games = null, ppg = null, rank = 0, rankGroup = grp;
+      if (seasonMap) {
+        var st = seasonMap[pid];
+        pts = st ? st.pts : 0;
+        games = st ? st.games : 0;
+        ppg = st ? st.ppg : null;
+        var rk = seasonRank[pid];
+        if (rk) { rank = rk.rank; rankGroup = rk.group; }
+      } else if (priorMap && priorMap[pid]) {
+        var pr = priorMap[pid];
+        pts = Number(pr.mfl_points || 0);
+        games = U.safeInt(pr.games, 0);
+        ppg = Number(pr.mfl_ppg || 0);
+        rank = U.safeInt(pr.posRank, 0);
+        rankGroup = U.safeStr(pr.pos) || grp;
+      }
+      var keep = (pts || 0) > 0 || ["QB", "RB", "WR", "TE", "PK", "PN"].indexOf(group) !== -1
                  || ["DL", "LB", "DB"].indexOf(group) !== -1;
       if (!keep) continue;
       out.push({
         id: pid,
         name: nameFor(p) || ("Player " + pid),
         pos: pos,
+        // `group` drives the position chips. `grp` is the canonical group the
+        // worker's defRatings and every rank here are keyed by — see posGrp().
         group: group,
-        // `group` drives the position chips + the YTD rank label (unchanged).
-        // `grp` is the canonical group the worker's defRatings / window ranks
-        // are keyed by — see posGrp().
-        grp: posGrp(pos),
+        grp: grp,
         team: U.safeStr(p.team),
         ytdPts: pts,
+        ytdGames: games,
         ppg: ppg,
         posRank: rank,
+        rankGroup: rankGroup,
         rosteredFid: (isRostered && fidByPid) ? (fidByPid[pid] || "") : ""
       });
     }
     return out;
   }
 
-  // ══ Decision-support intel (window stats + upcoming matchup) ═══════════
-  // Everything here is READ from views/lineup.js's M.lineupIntel — the same
-  // /api/lineup-matchups call, the same per-window cache, the same join. This
-  // file adds no endpoint and re-implements no lookup. If the intel module or
-  // its data is missing, every helper below returns "nothing" and the list
-  // renders exactly as it did before this feature existed.
+  // ══ Decision-support intel (projection + upcoming matchup) ═════════════
+  // The projection and the opponent / defense-rank line are READ from
+  // views/lineup.js's M.lineupIntel — the same /api/lineup-matchups call, the
+  // same per-window cache, the same join. Window POINTS no longer come from
+  // its playerWindow (2026-10-01): that dropped any week the player's CURRENT
+  // NFL team didn't play, and it was a second points source beside YTD. They
+  // come from pointsBasis() above, like every other points number here. If the
+  // intel module or its data is missing, the matchup line simply isn't drawn.
   function intel() { return M.lineupIntel || null; }
   function winKey() { return view.window || 0; }
-  function winData() { var I = intel(); return I ? I.muData(winKey()) : null; }
 
   // Which window toggles are meaningful. A last-N window can only differ from
-  // season-to-date once MORE than N weeks have been played — before that it IS
-  // the season, so offering it is a dead control (same rule as the Lineup
-  // view's availWindows()). Preseason ⇒ weeksAvailable 0 ⇒ YTD only ⇒ the
-  // toggle row doesn't render at all.
+  // season-to-date once MORE than N weeks are complete — before that it IS the
+  // season, so offering it is a dead control (same rule as the Lineup view's
+  // availWindows()). Counted off the SAME completed weeks the totals use, so a
+  // window can never cover a week the YTD number doesn't. Preseason / prior-
+  // season basis ⇒ 0 ⇒ YTD only ⇒ the toggle row doesn't render at all.
   function availWindows() {
-    var I = intel(), wa = I ? I.weeksAvailable() : 0, out = [[0, "YTD"]];
+    var b = pointsBasis(), wa = b.kind === "season" ? b.ss.includedWeeks.length : 0, out = [[0, "YTD"]];
     if (wa > 2) out.push([2, "L2"]);
     if (wa > 4) out.push([4, "L4"]);
     if (wa > 6) out.push([6, "L6"]);
@@ -229,46 +281,29 @@
     if ((view.sort === "hot" || view.sort === "cold") && !faScopeActive()) view.sort = "ppg";
   }
 
-  // Positional rank INSIDE the selected window: bucket by position group,
-  // sort by average, assign rank — the same approach buildLeaderboardMap
-  // (app.js) uses for the YTD ranks. Cached per window so it isn't rebuilt on
-  // every keystroke of the search box.
-  var winRankCache = { key: null, map: null };
-  function winRankMap() {
-    var k = winKey(), d = winData();
-    if (!k || !d || !d.playerWindow) return {};
-    if (winRankCache.key === k && winRankCache.map) return winRankCache.map;
-    var pw = d.playerWindow, buckets = {};
-    Object.keys(pw).forEach(function (pid) {
-      var f = pw[pid];
-      if (!f || !f.games) return;
-      var pl = DATA.playerById(pid);
-      var g = posGrp(pl && pl.position);
-      if (!g || g === "OTH") return;
-      (buckets[g] = buckets[g] || []).push({ pid: pid, avg: Number(f.avg) || 0 });
-    });
-    var map = {};
-    Object.keys(buckets).forEach(function (g) {
-      buckets[g].sort(function (a, b) { return b.avg - a.avg; });
-      buckets[g].forEach(function (x, i) { map[x.pid] = { rank: i + 1, group: g }; });
-    });
-    winRankCache = { key: k, map: map };
-    return map;
-  }
-
-  // Total / PPG / positional rank for the selected window. YTD keeps today's
-  // source verbatim (advanced-stats map + its posRank). A last-N window with
-  // no row for this player is NOT zero — it's unknown, so `have:false` and the
-  // row prints nothing rather than a fake 0.0.
+  // Total / PPG / games / positional rank for the selected window, from the
+  // one MFL source (see pointsBasis). `pts` null = we have no number (show
+  // nothing, sort last); `ppg` null = no games in the window (0 G, not 0.0 PPG).
+  // A player with no MFL row in a completed window genuinely scored nothing in
+  // it, so that is 0 pts / 0 G — a real answer, unlike an unloaded source.
   function statsFor(r) {
-    if (!winKey()) {
-      return { have: true, label: "YTD", pts: r.ytdPts, ppg: r.ppg, rank: r.posRank, group: r.group };
+    var b = pointsBasis();
+    if (b.kind === "unavailable") return { have: false, unavailable: true, label: "YTD" };
+    if (b.kind === "prior") {
+      return r.ytdPts === null
+        ? { have: false, label: String(b.year) }
+        : { have: true, label: String(b.year), pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
+            rank: r.posRank, group: r.rankGroup };
     }
-    var d = winData();
-    var f = (d && d.playerWindow) ? d.playerWindow[String(r.id)] : null;
-    if (!f || !f.games) return { have: false, label: "L" + winKey() };
-    var rk = winRankMap()[String(r.id)];
-    return { have: true, label: "L" + winKey(), pts: Number(f.total) || 0, ppg: Number(f.avg) || 0,
+    if (b.kind !== "season") return { have: false, label: "YTD" };
+    var k = winKey();
+    if (!k) {
+      return { have: true, label: "YTD", pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
+               rank: r.posRank, group: r.rankGroup };
+    }
+    var f = b.ss.windowFor(k)[String(r.id)];
+    var rk = rankMapFor(b.ss, k)[String(r.id)];
+    return { have: true, label: "L" + k, pts: f ? f.pts : 0, ppg: f ? f.ppg : null, games: f ? f.games : 0,
       rank: rk ? rk.rank : 0, group: rk ? rk.group : r.grp };
   }
   function projFor(pid) { var I = intel(); return I ? I.projFor(pid) : null; }
@@ -350,7 +385,10 @@
         return valOf(b) - valOf(a);
       };
     }
-    function winHave(r) { return !!r.win.have; }
+    // PPG has its own predicate: a player with no games has no average, and
+    // sorting him as 0.0 would rank him above every real negative average.
+    function ptsHave(r) { return !!r.win.have && r.win.pts != null; }
+    function ppgHave(r) { return !!r.win.have && r.win.ppg != null; }
     if (view.sort === "proj" && projReady()) {
       filtered.sort(by(function (r) { return projFor(r.id); },
                       function (r) { return projFor(r.id) != null; }));
@@ -361,9 +399,9 @@
       filtered.sort(by(function (r) { return hotColdPercent("cold", r.id); },
                       function (r) { return hotColdPercent("cold", r.id) !== undefined; }));
     } else if (view.sort === "pts") {
-      filtered.sort(by(function (r) { return r.win.pts; }, winHave));
+      filtered.sort(by(function (r) { return r.win.pts; }, ptsHave));
     } else {
-      filtered.sort(by(function (r) { return r.win.ppg; }, winHave));
+      filtered.sort(by(function (r) { return r.win.ppg; }, ppgHave));
     }
     return filtered;
   }
@@ -623,26 +661,25 @@
             o[1] + '</button>';
         }).join("") + '</div>'
       : '';
-    // The Pts sort follows the window, so its label has to as well.
-    var ptsLabel = winKey() ? ("L" + winKey() + " Pts") : "YTD Pts";
-    var projBtn = projReady()
-      ? '<button class="ups-m-sort-btn' + (view.sort === "proj" ? " on" : "") +
-          '" data-sort="proj" title="Projected points for the upcoming week">Proj</button>'
-      : '';
+    // ONE sort control instead of a five-button row whose labels wrapped onto
+    // two lines and pushed the list below the fold on a phone. Every option
+    // names its basis: points follow the window ("L4 pts"), the projection
+    // names its week, Hot/Cold say they are MFL-wide, not our league.
+    var hcLoading = hotColdLoading();
+    var sortOpts = [["ppg", "PPG"], ["pts", windowPtsLabel() + " pts"]];
+    if (projReady()) sortOpts.push(["proj", projLabel()]);
     // Hot/Cold — MFL's own platform-wide topAdds/topDrops, free agents only.
     // FA scope only (see faScopeActive); STATUS=FA data structurally can't
     // rank most rows in "All Players" or a single team's roster.
-    var hcLoading = hotColdLoading();
-    var hotColdBtns = faScopeActive()
-      ? '<button class="ups-m-sort-btn' + (view.sort === "hot" ? " on" : "") +
-          '" data-sort="hot" title="MFL’s most-added free agents this week, platform-wide"' +
-          (hcLoading ? ' disabled' : '') + '>' +
-          (hcLoading && view.sort === "hot" ? "🔥 Loading…" : "🔥 Most Added") + '</button>' +
-        '<button class="ups-m-sort-btn' + (view.sort === "cold" ? " on" : "") +
-          '" data-sort="cold" title="MFL’s most-dropped free agents this week, platform-wide"' +
-          (hcLoading ? ' disabled' : '') + '>' +
-          (hcLoading && view.sort === "cold" ? "❄️ Loading…" : "❄️ Most Dropped") + '</button>'
-      : '';
+    if (faScopeActive()) {
+      sortOpts.push(["hot", "Most added (all MFL)"]);
+      sortOpts.push(["cold", "Most dropped (all MFL)"]);
+    }
+    var sortSel = '<select class="ups-m-players-filter ups-m-players-sort" id="ups-m-players-sort" aria-label="Sort players">' +
+      sortOpts.map(function (o) {
+        return '<option value="' + o[0] + '"' + (view.sort === o[0] ? ' selected' : '') + '>Sort: ' +
+          U.escapeHtml(o[1]) + '</option>';
+      }).join("") + '</select>';
     // Inline "couldn't read MFL" notice — only once the fetch has actually
     // settled (not mid-flight) and the tapped side came back known:false.
     // Reuses the existing warn-banner styling (.ups-m-waiver-flash.warn)
@@ -654,32 +691,72 @@
       ? '<div class="ups-m-waiver-flash warn">' + U.escapeHtml(hotColdNoticeText) + '</div>'
       : '';
     return '<div class="ups-m-players-toolbar">' +
-      scopeToggle +
+      '<div class="ups-m-players-selects">' + scopeToggle + sortSel + '</div>' +
       '<input type="search" class="ups-m-players-search" id="ups-m-players-search" ' +
         'placeholder="' + (view.scope === "all" ? "Search all players…" : "Search free agents…") + '" autocomplete="off" autocorrect="off" ' +
         'value="' + U.escapeHtml(view.query) + '" />' +
       '<div class="ups-m-pos-chips">' + chips + '</div>' +
       winRow +
-      '<div class="ups-m-sort-row">' +
-        '<button class="ups-m-sort-btn' + (view.sort === "ppg" ? " on" : "") + '" data-sort="ppg">PPG</button>' +
-        '<button class="ups-m-sort-btn' + (view.sort === "pts" ? " on" : "") + '" data-sort="pts">' + U.escapeHtml(ptsLabel) + '</button>' +
-        projBtn +
-        hotColdBtns +
-      '</div>' +
+      basisHtml(hcLoading) +
     '</div>' + hotColdNotice + renderWaiverStrip();
+  }
+
+  // The week MFL's projections on this screen are for (the week being played,
+  // or the next one) — from the same resolver the Lineup view uses.
+  function projWeek() { return U.safeInt(M.state.lineupWeek || M.state.lineupProjWeek, 0); }
+  function projLabel() { var w = projWeek(); return w ? ("Wk " + w + " proj") : "Proj"; }
+  // "YTD" / "L4" / "2025" — what the points number on a row covers.
+  function windowPtsLabel() {
+    var b = pointsBasis();
+    if (b.kind === "prior") return String(b.year);
+    return winKey() ? ("L" + winKey()) : "YTD";
+  }
+
+  // One line under the controls that says exactly what the numbers ARE and
+  // how fresh they are. Keith 2026-10-01: labels for actual points,
+  // projections, PPG and freshness must not be confusable.
+  function basisHtml(hcLoading) {
+    var b = pointsBasis();
+    var cur = U.safeStr(M.state.ctx && M.state.ctx.year);
+    var txt, warn = false;
+    if (b.kind === "season") {
+      var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : ("through Wk " + b.ss.throughWeek);
+      txt = "Actual points: MFL league scoring, " + span + (b.ss.finalized ? " (final)" : " (latest posted — may still be in progress)");
+      if (b.ss.finalized && b.ss.excludedWeeks.length) {
+        txt += " · Wk " + b.ss.excludedWeeks.join(", ") + " in progress, not counted";
+      }
+      if (winKey()) txt += " · L" + winKey() + " = last " + winKey() + " of those weeks";
+    } else if (b.kind === "prior") {
+      txt = b.ss && b.ss.reason === "no_scores_posted"
+        ? "No " + cur + " scores posted yet — points are " + b.year + " season totals"
+        : "No " + cur + " week is final yet — points are " + b.year + " season totals";
+    } else if (b.kind === "none") {
+      txt = "No completed " + cur + " week yet — no points to show";
+    } else {
+      txt = b.reason === "week_unresolved"
+        ? "Couldn't confirm the last completed week — points are hidden until that check succeeds. Tap refresh to retry."
+        : "Couldn't load MFL's scoring — points are hidden rather than guessed. Tap refresh to retry.";
+      warn = true;
+    }
+    if (projReady()) txt += " · " + projLabel() + " = MFL projection";
+    if (hcLoading && (view.sort === "hot" || view.sort === "cold")) txt += " · Loading MFL's " + (view.sort === "hot" ? "most-added" : "most-dropped") + " list…";
+    return '<div class="ups-m-fa-basis' + (warn ? " warn" : "") + '">' + U.escapeHtml(txt) + '</div>';
   }
 
   function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
 
-  // Total / PPG / positional rank, scoped to the selected window. When the
-  // window has no row for this player we say so instead of printing 0.0 —
-  // "he scored nothing" and "we have no number" are different claims.
+  // Points / PPG / games / positional rank, scoped to the selected window. The
+  // points number leads and is labelled with what it covers; PPG carries its
+  // games so "16.9 PPG" can't be mistaken for a total or for a projection.
   function statChipsHtml(r) {
     var w = r.win || statsFor(r);
-    if (!w.have) return '<span>no ' + U.escapeHtml(w.label) + ' data</span>';
-    return '<span>' + U.escapeHtml(w.label) + ' ' + fmt1(w.pts) + '</span>' +
-      '<span>PPG ' + fmt1(w.ppg) + '</span>' +
-      (w.rank > 0 ? '<span>#' + w.rank + ' ' + U.escapeHtml(w.group) + '</span>' : '');
+    if (w.unavailable) return '<span class="ups-m-fa-stat na">pts unavailable</span>';
+    if (!w.have) return '<span class="ups-m-fa-stat na">no ' + U.escapeHtml(w.label) + ' pts</span>';
+    return '<span class="ups-m-fa-stat pts"><b>' + fmt1(w.pts) + '</b> ' + U.escapeHtml(w.label) + ' pts</span>' +
+      (w.games > 0
+        ? '<span class="ups-m-fa-stat">' + fmt1(w.ppg) + ' PPG · ' + w.games + ' G</span>'
+        : '<span class="ups-m-fa-stat">0 G</span>') +
+      (w.rank > 0 ? '<span class="ups-m-fa-stat">#' + w.rank + ' ' + U.escapeHtml(w.group) + '</span>' : '');
   }
 
   // The decision line: projected points for the upcoming week · who they play ·
@@ -694,7 +771,7 @@
     if (!I) return "";
     var bits = [];
     var p = I.projFor(r.id);
-    if (p != null) bits.push(U.escapeHtml(I.fmtProj(p)) + " proj");
+    if (p != null) bits.push(U.escapeHtml(projLabel()) + " " + U.escapeHtml(I.fmtProj(p)));
     var mu = I.matchupFor(r.id, winKey());
     if (mu && mu.opp) {
       bits.push(U.escapeHtml((mu.isHome ? "vs " : "@ ") + mu.opp));
@@ -737,11 +814,15 @@
       html += '<div class="ups-m-fa-row' + (actionBtn ? ' has-act' : '') + '" data-pid="' + U.escapeHtml(r.id) + '">' +
         '<div class="rank">' + (idx + 1) + '</div>' +
         '<div class="pos ' + posClass + '">' + U.escapeHtml(r.pos) + '</div>' +
+        // Three lines, always in this order so a column of rows scans:
+        //   name · NFL team
+        //   [owner]  actual points · PPG · games · rank  [trend]
+        //   Wk N proj · opponent · opponent rank
         '<div class="body">' +
-          '<div class="name">' + U.escapeHtml(r.name) + '</div>' +
+          '<div class="name">' + U.escapeHtml(r.name) +
+            (r.team ? '<span class="tm">' + U.escapeHtml(r.team) + '</span>' : '') + '</div>' +
           '<div class="sub">' +
             ownerTag +
-            (r.team ? '<span>' + U.escapeHtml(r.team) + '</span>' : '') +
             statChipsHtml(r) +
             hotColdBadgeHtml(r) +
           '</div>' +
@@ -991,12 +1072,71 @@
     }
     bidView = {
       addPid: String(addPid),
-      amount: existing ? U.safeInt(existing.bid_dollars, lim.min) : lim.min,
+      amount: legalBid(existing ? U.safeInt(existing.bid_dollars, lim.min) : lim.min, lim),
       round: editRef ? editRef.round : 1,
       dropPid: existing && existing.drop_pid ? String(existing.drop_pid) : "",
-      editRef: editRef || null
+      editRef: editRef || null,
+      snapNote: ""
     };
     renderBidSheet();
+  }
+
+  // The worker's OWN rule (POST /api/waivers/bbid-plan): a bid must be at least
+  // bbid_minimum AND an exact multiple of bbid_increment. This used to snap to
+  // min + k·step, which is the same thing only while the minimum happens to be
+  // a multiple of the step ($1K/$1K today) — a $1,500 minimum with $1K steps
+  // would have staged $2,500 and been refused as BID_NOT_MULTIPLE at submit.
+  // Rounds to the nearest legal step, never below the smallest legal bid.
+  function legalBid(amount, lim) {
+    var step = U.safeInt(lim && lim.step, 0), min = U.safeInt(lim && lim.min, 0);
+    if (step <= 0) return Math.max(min, Math.round(Number(amount) || 0));
+    var floor = Math.ceil(min / step) * step;
+    var snapped = Math.round((Number(amount) || 0) / step) * step;
+    return Math.max(floor, snapped);
+  }
+  // The amount box takes thousands ("12" = $12K, "12.5" = $12,500) — the way
+  // every UPS price is already written — so a $25K bid is two keystrokes, not
+  // 24 taps of +. Anyone who types whole dollars anyway ("12000", "$12,000")
+  // gets dollars: 1,000+ "thousand" would be a $1M+ bid against a $300K cap,
+  // so that reading can only be a mistake. null = nothing usable typed.
+  function parseBidK(raw) {
+    var s = String(raw == null ? "" : raw).trim();
+    // Refuse malformed text rather than stripping it into a different bid:
+    // "-12" must not become +$12K and a cleared box must not stage the old
+    // amount. A pasted whole-dollar amount may use a $ and commas.
+    if (!/^\$?(?:\d+(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/.test(s)) return null;
+    var n = Number(s.replace(/[$,]/g, ""));
+    if (!isFinite(n)) return null;
+    return Math.round(n >= 1000 ? n : n * 1000);
+  }
+  function fmtK(dollars) {
+    var k = (Number(dollars) || 0) / 1000;
+    return String(Math.round(k * 1000) / 1000);
+  }
+  // One line of real context where the bid is decided: the player's ACTUAL
+  // points (same source and labels as the Market row) and next week's
+  // projection, so nobody prices a claim off a number they can't see.
+  function bidContextHtml(pid) {
+    var b = pointsBasis();
+    var bits = [];
+    if (b.kind === "season") {
+      var st = b.ss.byPid[String(pid)];
+      var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : "";
+      bits.push("<b>" + fmt1(st ? st.pts : 0) + "</b> YTD pts" +
+        (st && st.games > 0 ? " · " + fmt1(st.ppg) + " PPG · " + st.games + " G" : " · 0 G") +
+        (span ? " (" + U.escapeHtml(span) + (b.ss.finalized ? ", final" : "") + ")" : ""));
+    } else if (b.kind === "prior") {
+      var pr = b.map[String(pid)];
+      if (pr) bits.push("<b>" + fmt1(pr.mfl_points) + "</b> " + b.year + " pts · " + fmt1(pr.mfl_ppg) + " PPG");
+    } else if (b.kind === "unavailable") {
+      bits.push(b.reason === "week_unresolved"
+        ? "Points unavailable — completed week unconfirmed"
+        : "Points unavailable — MFL's scoring didn't load");
+    }
+    var I = intel();
+    var pj = I ? I.projFor(pid) : null;
+    if (pj != null) bits.push(U.escapeHtml(projLabel()) + " " + U.escapeHtml(I.fmtProj(pj)));
+    return bits.length ? '<div class="ups-m-bid-context">' + bits.join(" · ") + '</div>' : "";
   }
 
   function closeBidSheet() {
@@ -1006,13 +1146,9 @@
     if (!document.getElementById("ups-m-claims-overlay")) document.body.style.overflow = "";
   }
 
-  function bidSheetHtml() {
-    var lim = waiverLimits();
-    if (!lim || !bidView) return "";
-    var info = waiverModeInfo();
+  function bidAdvisoryHtml() {
     var fid = M.state.viewerFranchiseId;
     var cap = fid ? DATA.computeCap(fid) : null;
-
     // Cap room is ADVISORY ONLY. MFL enforces the real $300K cap at award
     // time; we never block a bid on our own arithmetic.
     var advisory = "";
@@ -1038,6 +1174,16 @@
           : '') +
         '. MFL enforces the roster limit when a claim is awarded.</div>';
     }
+    return advisory;
+  }
+
+  function bidSheetHtml() {
+    var lim = waiverLimits();
+    if (!lim || !bidView) return "";
+    var info = waiverModeInfo();
+    // Wrapped so typing in the amount box can refresh the cap line in place
+    // (see bindBidAmount) without rebuilding the sheet under the keyboard.
+    var advisory = '<div id="ups-m-bid-advisory-wrap">' + bidAdvisoryHtml() + '</div>';
 
     var groupChips = "";
     var plan = stagedPlan();
@@ -1065,15 +1211,22 @@
             U.escapeHtml(posTeamForPid(bidView.addPid)) +
             (bidView.editRef ? ' · currently group ' + U.safeInt(bidView.editRef.round, 0) : '') +
             (info.detail ? ' · ' + U.escapeHtml(info.detail) : '') + '</div>' +
+          bidContextHtml(bidView.addPid) +
         '</div>' +
         '<div class="ups-m-bid-body">' +
-          '<div class="ups-m-bid-label">Bid amount</div>' +
+          '<div class="ups-m-bid-label"><label for="ups-m-bid-amt">Bid amount ($K)</label></div>' +
           '<div class="ups-m-bid-stepper">' +
-            '<button class="step" data-act="bid-minus" aria-label="Lower bid">−</button>' +
-            '<div class="amt" id="ups-m-bid-amt">' + U.fmtUsd(bidView.amount) + '</div>' +
-            '<button class="step" data-act="bid-plus" aria-label="Raise bid">+</button>' +
+            '<button class="step" data-act="bid-minus" aria-label="Lower bid by ' + U.escapeHtml(U.fmtUsd(lim.step)) + '">−</button>' +
+            '<div class="amt-wrap"><span class="cur">$</span>' +
+              '<input class="amt" id="ups-m-bid-amt" type="text" inputmode="decimal" autocomplete="off" aria-describedby="ups-m-bid-total" ' +
+                'enterkeyhint="done" value="' + U.escapeHtml(fmtK(bidView.amount)) + '" />' +
+              '<span class="cur">K</span></div>' +
+            '<button class="step" data-act="bid-plus" aria-label="Raise bid by ' + U.escapeHtml(U.fmtUsd(lim.step)) + '">+</button>' +
           '</div>' +
-          '<div class="ups-m-bid-hint">Minimum ' + U.fmtUsd(lim.min) + ', in ' + U.fmtUsd(lim.step) + ' steps. ' +
+          '<div class="ups-m-bid-total" id="ups-m-bid-total" aria-live="polite">' + U.fmtUsd(bidView.amount) +
+            (bidView.snapNote ? ' <span class="snap">' + U.escapeHtml(bidView.snapNote) + '</span>' : '') + '</div>' +
+          '<div class="ups-m-bid-hint">Minimum ' + U.fmtUsd(legalBid(lim.min, lim)) + ', in ' + U.fmtUsd(lim.step) + ' steps — ' +
+            'other amounts round to the nearest step. ' +
             'A winning bid becomes this season’s salary on a 1-year WW contract.</div>' +
           advisory +
           '<div class="ups-m-bid-label">Priority group</div>' +
@@ -1130,6 +1283,49 @@
     var closeBtn = document.getElementById("ups-m-bid-close");
     if (closeBtn) closeBtn.addEventListener("click", closeBidSheet);
     overlay.addEventListener("click", onBidSheetClick);
+    bindBidAmount();
+  }
+
+  // Typed amounts. While typing: snap a COPY to the legal step and refresh the
+  // dollar line + cap advisory in place — never rebuild the sheet (that would
+  // drop the keyboard) and never rewrite the box mid-keystroke. On commit
+  // (blur / Done): write the legal value back into the box. So what the owner
+  // sees on the dollar line is always exactly what "Add to claims" stages.
+  function bindBidAmount() {
+    var input = document.getElementById("ups-m-bid-amt");
+    if (!input) return;
+    function apply(commit) {
+      var lim = waiverLimits();
+      if (!lim || !bidView) return;
+      var typed = parseBidK(input.value);
+      var tot = document.getElementById("ups-m-bid-total");
+      if (typed == null) {
+        input.setAttribute("aria-invalid", "true");
+        if (tot) tot.textContent = "Enter a valid bid amount";
+        var staleAdvisory = document.getElementById("ups-m-bid-advisory-wrap");
+        if (staleAdvisory) staleAdvisory.innerHTML = "";
+        return;
+      }
+      input.removeAttribute("aria-invalid");
+      var legal = legalBid(typed, lim);
+      bidView.amount = legal;
+      bidView.snapNote = (typed != null && typed !== legal)
+        ? (typed < legal && legal === legalBid(lim.min, lim) ? "raised to the minimum" : "rounded to a " + U.fmtUsd(lim.step) + " step")
+        : "";
+      if (tot) {
+        tot.innerHTML = U.fmtUsd(legal) +
+          (bidView.snapNote ? ' <span class="snap">' + U.escapeHtml(bidView.snapNote) + '</span>' : '');
+      }
+      var adv = document.getElementById("ups-m-bid-advisory-wrap");
+      if (adv) adv.innerHTML = bidAdvisoryHtml();
+      if (commit) input.value = fmtK(legal);
+    }
+    input.addEventListener("input", function () { apply(false); });
+    input.addEventListener("change", function () { apply(true); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { apply(true); input.blur(); }
+    });
+    input.addEventListener("focus", function () { try { input.select(); } catch (e) {} });
   }
 
   function onBidSheetClick(e) {
@@ -1145,14 +1341,16 @@
     }
     var act = t.getAttribute("data-act");
     if (act === "bid-minus") {
-      bidView.amount = Math.max(lim.min, bidView.amount - lim.step);
+      bidView.amount = legalBid(bidView.amount - lim.step, lim);
+      bidView.snapNote = "";
       renderBidSheet();
     } else if (act === "bid-plus") {
-      bidView.amount = bidView.amount + lim.step;
+      bidView.amount = legalBid(bidView.amount + lim.step, lim);
+      bidView.snapNote = "";
       renderBidSheet();
     } else if (act === "pick-drop") {
       var keep = { addPid: bidView.addPid, amount: bidView.amount, round: bidView.round,
-                   dropPid: bidView.dropPid, editRef: bidView.editRef };
+                   dropPid: bidView.dropPid, editRef: bidView.editRef, snapNote: "" };
       // "No drop" only when a claim carrying none could actually be awarded
       // (Keith 2026-08-08 — see rosterHeadroom()). Unknown headroom keeps it.
       // This changes what can be STAGED from here; it never edits what is
@@ -1192,9 +1390,16 @@
   function confirmBid() {
     var lim = waiverLimits();
     if (!lim || !bidView) return;
-    // Snap to a legal amount: at/above minimum and on an increment boundary.
-    var amt = Math.max(lim.min, bidView.amount);
-    amt = lim.min + Math.round((amt - lim.min) / lim.step) * lim.step;
+    // Re-read the box: a tap on "Add to claims" can land before its change
+    // event on some keyboards. Same legal-amount rule as the worker.
+    var box = document.getElementById("ups-m-bid-amt");
+    var typed = box ? parseBidK(box.value) : null;
+    if (box && typed == null) {
+      M.ui.showToast("Enter a valid bid amount in $K.", "err");
+      box.focus();
+      return;
+    }
+    var amt = legalBid(box ? typed : bidView.amount, lim);
 
     var plan = clonePlan();
     // Editing: pull the old pick out first so the round move is a real move.
@@ -1229,7 +1434,10 @@
     commitPlan(plan);
     var wasEdit = !!bidView.editRef;
     closeBidSheet();
-    M.ui.showToast(wasEdit ? "Claim updated — not submitted yet." : "Staged in group " + group.round + " — not submitted yet.", "ok");
+    // The toast repeats the amount actually staged, so a rounded bid is never
+    // a surprise on the Claims screen.
+    M.ui.showToast((wasEdit ? "Claim updated: " : "Staged ") + U.fmtUsd(amt) + " in group " + group.round +
+      " — not submitted yet.", "ok");
     // Follow the claim to its group. Staging or moving into a group you aren't
     // looking at otherwise leaves you on the group it LEFT, watching it vanish
     // — and if it was that group's last pick, staring at a red "withdrawing"
@@ -2734,18 +2942,15 @@
         renderRoute();
       });
     }
-    // NOTE: the window row reuses .ups-m-sort-btn for its styling, so both
-    // selectors below must stay attribute-scoped or one steals the other's
-    // clicks (and sets view.sort to null).
-    var sortBtns = mount.querySelectorAll(".ups-m-sort-btn[data-sort]");
-    for (var j = 0; j < sortBtns.length; j++) {
-      sortBtns[j].addEventListener("click", function () {
-        var s = this.getAttribute("data-sort");
+    var sortSel = document.getElementById("ups-m-players-sort");
+    if (sortSel) {
+      sortSel.addEventListener("change", function () {
+        var s = this.value;
         view.sort = s;
         // Lazy-fetch: /api/hot-cold is only ever hit once the owner actually
-        // taps Hot or Cold — never from this view's default render/boot path.
-        // fetchHotCold's own TTL + in-flight guard (app.js) makes repeat taps
-        // within a few minutes free, so it's safe to call on every tap.
+        // picks Most added / Most dropped — never from this view's default
+        // render/boot path. fetchHotCold's own TTL + in-flight guard (app.js)
+        // makes repeat picks within a few minutes free.
         if ((s === "hot" || s === "cold") && M.hotCold && M.hotCold.fetch) {
           M.hotCold.fetch().then(function () { renderRoute(); }).catch(function () {});
         }
