@@ -45,7 +45,7 @@ import {
 import { runLineupDmSweep, runLineupBooking, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
-import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild } from "./leaderboard_coverage.js";
+import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, MFL_SCORES_FINGERPRINT_SQL, mflScoresFingerprint } from "./leaderboard_coverage.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
@@ -14034,7 +14034,17 @@ export default {
                           ON ps.season = w.season AND ps.player_id = w.player_id
                    LEFT JOIN player_season_wc_rank wcr
                           ON wcr.season = w.season AND wcr.player_id = w.player_id
-                  WHERE w.player_id = ? AND w.score > 0
+                  -- A week counts when MFL POSTED a score for it, whatever the value
+                  -- (2026-10-01). This was w.score > 0, which dropped every 0.0 and
+                  -- negative week: Andy Dalton's whole 2026 (-2.0, one game) had no
+                  -- season row at all, 1,054 player-seasons had totals missing their
+                  -- negative weeks, and games/avg_ppg skipped real scored weeks —
+                  -- 15,623 of 26,057 player-seasons in src_weekly (measured 10-01).
+                  -- IS NOT NULL is the same rule as the leaderboard's
+                  -- mfl_games_scored (fixed 09-29) and MFL's own W=AVG, so this card,
+                  -- the Stats leaderboard and the WW market agree on G and PPG.
+                  -- NULL (rostered, MFL posted nothing) is still not a game.
+                  WHERE w.player_id = ? AND w.score IS NOT NULL
                   GROUP BY w.season
                   ORDER BY w.season DESC`
               ).bind(pid).all(),
@@ -14081,7 +14091,10 @@ export default {
                    FROM src_weekly w
                    LEFT JOIN src_baselines b
                           ON b.season = w.season AND b.pos_group = w.pos_group
-                  WHERE w.player_id = ? AND w.score > 0
+                  -- Same rule as the career row above (was w.score > 0), so a
+                  -- season's game log still sums to its career total — now
+                  -- including its 0.0 and negative weeks.
+                  WHERE w.player_id = ? AND w.score IS NOT NULL
                   ORDER BY w.season DESC, w.week DESC
                   LIMIT 300`
               ).bind(pid).all(),
@@ -14432,8 +14445,15 @@ export default {
               const j = await res.json();
               let ps = j?.playerScores?.playerScore;
               if (ps && Array.isArray(ps)) ps = ps[0];
-              const pts = ps ? Number(ps.score) : 0;
-              return { season: Number(y), season_points: Number.isFinite(pts) ? Math.round(pts * 10) / 10 : 0 };
+              // MFL answers a season with no games with score "" (blank) and a
+              // real season with its total — which can be 0.0 or negative
+              // (Dalton 2026: "-2.0"). `scored` keeps that distinction; the old
+              // season_points > 0 filter below dropped real 0/negative seasons
+              // along with the blank ones.
+              const rawScore = ps && ps.score != null ? String(ps.score).trim() : "";
+              const pts = rawScore === "" ? NaN : Number(rawScore);
+              const scored = Number.isFinite(pts);
+              return { season: Number(y), scored, season_points: scored ? Math.round(pts * 10) / 10 : 0 };
             }).catch((e) => ({ season: Number(y), error: String(e && e.message ? e.message : e) }))
           );
 
@@ -14456,7 +14476,8 @@ export default {
           ]);
 
           bundle.career_summary = careerSettled
-            .filter((r) => !r.error && r.season_points > 0)
+            .filter((r) => !r.error && r.scored)
+            .map((r) => ({ season: r.season, season_points: r.season_points }))
             .sort((a, b) => b.season - a.season);
 
           const trades = [];
@@ -53730,6 +53751,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return jsonOut(400, { ok: false, error: `only_pos must be one of ${ALL_ALIASES.join(", ")} (or "all")` });
         }
         const aliases = (onlyPos && onlyPos !== "all") ? [onlyPos] : ALL_ALIASES;
+        // The MFL half of the board's inputs (mfl_points = SUM(src_weekly.score))
+        // — see shouldSkipRebuild. Read once for all aliases. A failed read is
+        // null, and null never permits a skip.
+        const fpRow = await db.prepare(MFL_SCORES_FINGERPRINT_SQL).bind(season).first().catch(() => null);
+        const mflFingerprint = mflScoresFingerprint(fpRow);
         const built = [];
         for (const alias of aliases) {
           // IDEMPOTENT: skip the (expensive) self-fetch + rebuild entirely when
@@ -53740,10 +53766,13 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // morning, after Monday's game, plus the existing correction passes)
           // without re-scanning/re-writing an unchanged board every time one
           // of those fires and upstream simply hasn't moved yet.
+          // mfl_scores_fingerprint arrives with migration 0165. Before it is
+          // applied this SELECT errors, existingMeta is null and every alias
+          // rebuilds — the safe direction (it costs reads, never staleness).
           const existingMeta = await db.prepare(
-            "SELECT data_max_week, data_row_count, teams_reported FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
+            "SELECT data_max_week, data_row_count, teams_reported, mfl_scores_fingerprint FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
           ).bind(season, alias).first().catch(() => null);
-          if (shouldSkipRebuild(existingMeta, { covWeek, covRows, teamsReported })) {
+          if (shouldSkipRebuild(existingMeta, { covWeek, covRows, teamsReported, mflFingerprint })) {
             built.push({ pos: alias, ok: true, skipped: true, reason: "no_change" });
             continue;
           }
@@ -53787,6 +53816,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             continue;
           }
           const now = new Date().toISOString();
+          // The fingerprint is written OUTSIDE the board batch, on purpose: the
+          // column is new (migration 0165), and folding it into the batch would
+          // make a not-yet-migrated D1 refuse to store any board at all. Clear
+          // it first so a board half-written below can never be paired with a
+          // fingerprint from the build before it (that pairing is the one way
+          // a skip could later be wrong); set it only once the batch landed.
+          let fingerprintStored = false;
+          await db.prepare(
+            "UPDATE nfl_leaderboard_precompute_meta SET mfl_scores_fingerprint = NULL WHERE season = ? AND pos_alias = ?"
+          ).bind(season, alias).run().catch(() => null);
           const stmts = [
             db.prepare("DELETE FROM nfl_leaderboard_precompute WHERE season = ? AND pos_alias = ?").bind(season, alias),
           ];
@@ -53825,13 +53864,19 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           for (let i = 0; i < stmts.length; i += 50) {
             await db.batch(stmts.slice(i, i + 50));
           }
-          built.push({ pos: alias, ok: true, rows: rows.length });
+          if (mflFingerprint) {
+            fingerprintStored = await db.prepare(
+              "UPDATE nfl_leaderboard_precompute_meta SET mfl_scores_fingerprint = ? WHERE season = ? AND pos_alias = ?"
+            ).bind(mflFingerprint, season, alias).run().then(() => true).catch(() => false);
+          }
+          built.push({ pos: alias, ok: true, rows: rows.length, mfl_fingerprint_stored: fingerprintStored });
         }
         const okCount = built.filter((b) => b.ok).length;
         const skippedCount = built.filter((b) => b.skipped).length;
         return jsonOut(okCount ? 200 : 500, {
           ok: okCount > 0, season, built,
           rebuilt: okCount - skippedCount, skipped_unchanged: skippedCount,
+          mfl_scores_fingerprint: mflFingerprint,
         });
       }
 

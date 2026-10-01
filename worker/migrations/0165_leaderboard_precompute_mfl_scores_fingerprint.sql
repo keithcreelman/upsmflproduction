@@ -1,0 +1,20 @@
+-- 0165: the leaderboard precompute remembers WHICH MFL scores it was built from.
+--
+-- The board's mfl_points / mfl_ppg are SUM(src_weekly.score), but the rebuild's
+-- "nothing changed, skip" check (worker/src/leaderboard_coverage.js
+-- shouldSkipRebuild) compared only nflverse coverage (data_max_week,
+-- data_row_count, teams_reported). On 2026-10-01 src_weekly was restored from a
+-- clobbered 1,073 rows to MFL's full 3,632 while nflverse sat still at week 3 /
+-- 3,376 rows / 32 teams: the rebuild skipped all five aliases, reported success,
+-- and kept serving 241 wrong totals out of 481. Tuesday's stat-correction sync
+-- has the same shape — same week, same row count, different scores.
+--
+-- mfl_scores_fingerprint = mflScoresFingerprint() of MFL_SCORES_FINGERPRINT_SQL
+-- at build time ("v1:rows:scored:max_week:pts10:weighted"). NULL means unknown
+-- and never permits a skip, so:
+--   * every existing row starts NULL -> the first build after this lands rebuilds;
+--   * the worker tolerates this column being absent (it only ever rebuilds then),
+--     so applying this before or after the worker deploy is safe either way.
+--
+-- No index: read by primary key (season, pos_alias), five rows per season.
+ALTER TABLE nfl_leaderboard_precompute_meta ADD COLUMN mfl_scores_fingerprint TEXT;
