@@ -1212,12 +1212,12 @@
           '<div class="ups-m-bid-stepper">' +
             '<button class="step" data-act="bid-minus" aria-label="Lower bid by ' + U.escapeHtml(U.fmtUsd(lim.step)) + '">−</button>' +
             '<div class="amt-wrap"><span class="cur">$</span>' +
-              '<input class="amt" id="ups-m-bid-amt" type="text" inputmode="decimal" autocomplete="off" ' +
+              '<input class="amt" id="ups-m-bid-amt" type="text" inputmode="decimal" autocomplete="off" aria-describedby="ups-m-bid-total" ' +
                 'enterkeyhint="done" value="' + U.escapeHtml(fmtK(bidView.amount)) + '" />' +
               '<span class="cur">K</span></div>' +
             '<button class="step" data-act="bid-plus" aria-label="Raise bid by ' + U.escapeHtml(U.fmtUsd(lim.step)) + '">+</button>' +
           '</div>' +
-          '<div class="ups-m-bid-total" id="ups-m-bid-total">' + U.fmtUsd(bidView.amount) +
+          '<div class="ups-m-bid-total" id="ups-m-bid-total" aria-live="polite">' + U.fmtUsd(bidView.amount) +
             (bidView.snapNote ? ' <span class="snap">' + U.escapeHtml(bidView.snapNote) + '</span>' : '') + '</div>' +
           '<div class="ups-m-bid-hint">Minimum ' + U.fmtUsd(legalBid(lim.min, lim)) + ', in ' + U.fmtUsd(lim.step) + ' steps — ' +
             'other amounts round to the nearest step. ' +
@@ -1296,6 +1296,8 @@
       if (typed == null) {
         input.setAttribute("aria-invalid", "true");
         if (tot) tot.textContent = "Enter a valid bid amount";
+        var staleAdvisory = document.getElementById("ups-m-bid-advisory-wrap");
+        if (staleAdvisory) staleAdvisory.innerHTML = "";
         return;
       }
       input.removeAttribute("aria-invalid");
