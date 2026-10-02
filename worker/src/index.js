@@ -45,7 +45,7 @@ import {
 import { runLineupDmSweep, runLineupBooking, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
-import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, MFL_SCORES_FINGERPRINT_SQL, mflScoresFingerprint } from "./leaderboard_coverage.js";
+import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
@@ -53752,10 +53752,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         }
         const aliases = (onlyPos && onlyPos !== "all") ? [onlyPos] : ALL_ALIASES;
         // The MFL half of the board's inputs (mfl_points = SUM(src_weekly.score))
-        // — see shouldSkipRebuild. Read once for all aliases. A failed read is
-        // null, and null never permits a skip.
-        const fpRow = await db.prepare(MFL_SCORES_FINGERPRINT_SQL).bind(season).first().catch(() => null);
-        const mflFingerprint = mflScoresFingerprint(fpRow);
+        // — an exact SHA-256 of the season's weeks 1-17 rows; see
+        // computeMflScoresFingerprint / shouldSkipRebuild. Read once for all
+        // aliases. A failed read is null, and null never permits a skip.
+        const mflFingerprint = await computeMflScoresFingerprint(db, season);
         const built = [];
         for (const alias of aliases) {
           // IDEMPOTENT: skip the (expensive) self-fetch + rebuild entirely when

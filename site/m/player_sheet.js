@@ -214,22 +214,32 @@
         ppg = Number(c.avg_ppg != null ? c.avg_ppg : (games > 0 ? pts / games : 0));
         ppgRank = Number(c.pos_ppg_rank || 0);
       } else if (stats) {
-        games = Number(stats.games || 0);
+        // The column is MFL SCORED WEEKS (0.0 included), like career_summary's
+        // games_played and MFL's own AVG. The leaderboard's `games` is nflverse
+        // NFL games played — a different count — so derive the MFL count from
+        // its own pts/PPG instead (exact: mfl_ppg = mfl_points / weeks scored).
+        // A 0.0-PPG season can't be divided back out, so it shows "—".
         pts = Number(stats.mfl_points || 0);
         ppg = Number(stats.mfl_ppg || 0);
+        games = ppg ? Math.round(pts / ppg) : null;
         ppgRank = Number(stats.posRank || 0);
-      } else {
-        games = Number(s.games || s.gamesPlayed || 0) || 0;
+      } else if (s.games != null || s.gamesPlayed != null || s.fantasyPoints != null || s.points != null) {
+        // MFL's playerProfile counts NFL games, not MFL scored weeks, so its
+        // count (and any PPG divided by it) can't sit under this header.
         pts = Number(s.fantasyPoints || s.points || s.total || 0) || 0;
-        ppg = games > 0 ? (pts / games) : 0;
+        games = null;
+        ppg = null;
         ppgRank = Number(s.pos_ppg_rank || 0) || 0;
+      } else {
+        games = 0; pts = 0; ppg = 0; ppgRank = 0;   // no data at all: zeros (Keith 2026-05-15)
       }
       return statRowHtml(y, games, pts, ppg, ppgRank);
     }).join("");
 
     return '' +
       '<table class="ups-m-stat-table">' +
-        '<thead><tr><th>Year</th><th>G</th><th>Pts</th><th>PPG</th><th>PPG Rk</th></tr></thead>' +
+        '<thead><tr><th>Year</th><th title="MFL scored weeks: weeks MFL posted a score, 0.0 included. Not NFL games played.">MFL Wks</th>' +
+          '<th>Pts</th><th title="Points per MFL scored week">PPG</th><th>PPG Rk</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table>' +
       '<div class="ups-m-stat-basis">' + U.escapeHtml(live
@@ -242,9 +252,9 @@
   function statRowHtml(y, games, pts, ppg, ppgRank) {
     return '<tr>' +
       '<td>' + y + '</td>' +
-      '<td>' + games + '</td>' +
+      '<td>' + (games == null ? "—" : games) + '</td>' +
       '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
-      '<td>' + (Math.round(ppg * 10) / 10).toFixed(1) + '</td>' +
+      '<td>' + (ppg == null ? "—" : (Math.round(ppg * 10) / 10).toFixed(1)) + '</td>' +
       '<td>' + (ppgRank > 0 ? ppgRank : 0) + '</td>' +
     '</tr>';
   }

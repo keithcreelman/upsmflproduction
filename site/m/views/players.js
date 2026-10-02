@@ -283,9 +283,9 @@
 
   // Total / PPG / games / positional rank for the selected window, from the
   // one MFL source (see pointsBasis). `pts` null = we have no number (show
-  // nothing, sort last); `ppg` null = no games in the window (0 G, not 0.0 PPG).
+  // nothing, sort last); `ppg` null = no scored weeks in the window (0 MFL wks, not 0.0 PPG).
   // A player with no MFL row in a completed window genuinely scored nothing in
-  // it, so that is 0 pts / 0 G — a real answer, unlike an unloaded source.
+  // it, so that is 0 pts / 0 MFL wks — a real answer, unlike an unloaded source.
   function statsFor(r) {
     var b = pointsBasis();
     if (b.kind === "unavailable") return { have: false, unavailable: true, label: "YTD" };
@@ -754,8 +754,9 @@
     if (!w.have) return '<span class="ups-m-fa-stat na">no ' + U.escapeHtml(w.label) + ' pts</span>';
     return '<span class="ups-m-fa-stat pts"><b>' + fmt1(w.pts) + '</b> ' + U.escapeHtml(w.label) + ' pts</span>' +
       (w.games > 0
-        ? '<span class="ups-m-fa-stat">' + fmt1(w.ppg) + ' PPG · ' + w.games + ' G</span>'
-        : '<span class="ups-m-fa-stat">0 G</span>') +
+        ? '<span class="ups-m-fa-stat" title="Points per MFL scored week; MFL wks = weeks MFL posted a score (0.0 counts), not NFL games">' +
+            fmt1(w.ppg) + ' PPG · ' + w.games + ' MFL wk' + (w.games === 1 ? '' : 's') + '</span>'
+        : '<span class="ups-m-fa-stat">0 MFL wks</span>') +
       (w.rank > 0 ? '<span class="ups-m-fa-stat">#' + w.rank + ' ' + U.escapeHtml(w.group) + '</span>' : '');
   }
 
@@ -1123,7 +1124,7 @@
       var st = b.ss.byPid[String(pid)];
       var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : "";
       bits.push("<b>" + fmt1(st ? st.pts : 0) + "</b> YTD pts" +
-        (st && st.games > 0 ? " · " + fmt1(st.ppg) + " PPG · " + st.games + " G" : " · 0 G") +
+        (st && st.games > 0 ? " · " + fmt1(st.ppg) + " PPG · " + st.games + " MFL wk" + (st.games === 1 ? "" : "s") : " · 0 MFL wks") +
         (span ? " (" + U.escapeHtml(span) + (b.ss.finalized ? ", final" : "") + ")" : ""));
     } else if (b.kind === "prior") {
       var pr = b.map[String(pid)];

@@ -9,9 +9,11 @@
 -- and kept serving 241 wrong totals out of 481. Tuesday's stat-correction sync
 -- has the same shape — same week, same row count, different scores.
 --
--- mfl_scores_fingerprint = mflScoresFingerprint() of MFL_SCORES_FINGERPRINT_SQL
--- at build time ("v1:rows:scored:max_week:pts10:weighted"). NULL means unknown
--- and never permits a skip, so:
+-- mfl_scores_fingerprint = computeMflScoresFingerprint() at build time:
+-- "v2:<rows>:<sha256>" over every src_weekly row of the season in weeks <= 17
+-- (week, player_id, exact score; blank for NULL), sorted — an exact content
+-- fingerprint, so offsetting corrections cannot collide the way sums do.
+-- NULL means unknown and never permits a skip, so:
 --   * every existing row starts NULL -> the first build after this lands rebuilds;
 --   * the worker tolerates this column being absent (it only ever rebuilds then),
 --     so applying this before or after the worker deploy is safe either way.

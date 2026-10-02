@@ -119,12 +119,12 @@ function rows(html) {
     const pid = (/data-pid="(\d+)"/.exec(chunk) || [])[1];
     if (!pid) return;
     const pts = /<b>(-?[\d.]+)<\/b> YTD pts/.exec(chunk) || /<span>YTD (-?[\d.]+)<\/span>/.exec(chunk);
-    const ppg = /(-?[\d.]+) PPG · (\d+) G/.exec(chunk) || /<span>PPG (-?[\d.]+)<\/span>/.exec(chunk);
+    const ppg = /(-?[\d.]+) PPG · (\d+) (?:G|MFL wks?)\b/.exec(chunk) || /<span>PPG (-?[\d.]+)<\/span>/.exec(chunk);
     out[pid] = {
       order,
       pts: pts ? Number(pts[1]) : null,
       ppg: ppg ? Number(ppg[1]) : null,
-      games: ppg && ppg[2] != null ? Number(ppg[2]) : (/>0 G</.test(chunk) ? 0 : null),
+      games: ppg && ppg[2] != null ? Number(ppg[2]) : (/>0 (?:G|MFL wks)</.test(chunk) ? 0 : null),
       unavailable: /pts unavailable/.test(chunk),
       chunk,
     };

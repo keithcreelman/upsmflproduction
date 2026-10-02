@@ -16,7 +16,7 @@
 // scheduled for week 3 (the NFL schedule is known before kickoff), so
 // teams_expected=32 is real, not assumed.
 import assert from "assert";
-import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, MFL_SCORES_FINGERPRINT_SQL, mflScoresFingerprint } from "../worker/src/leaderboard_coverage.js";
+import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "../worker/src/leaderboard_coverage.js";
 
 let fails = 0;
 const check = (n, fn) => { try { fn(); console.log("  ok   " + n); }
@@ -125,8 +125,9 @@ check("week advanced (3 -> 4) even with the same row count by coincidence -> do 
 });
 
 // The fingerprint itself, on REAL SQLite with src_weekly's real schema
-// (migration 0002) — a skip rule is only as good as the value it compares.
-console.log("\nMFL_SCORES_FINGERPRINT_SQL / mflScoresFingerprint (real SQLite)");
+// (migration 0002), through a D1-shaped adapter — a skip rule is only as good
+// as the value it compares.
+console.log("\ncomputeMflScoresFingerprint (real SQLite, exact SHA-256 content fingerprint)");
 {
   const { DatabaseSync } = await import("node:sqlite");
   const fs = await import("node:fs");
@@ -134,68 +135,102 @@ console.log("\nMFL_SCORES_FINGERPRINT_SQL / mflScoresFingerprint (real SQLite)")
   const ddl = mig.slice(mig.indexOf("CREATE TABLE IF NOT EXISTS src_weekly"), mig.indexOf("CREATE TABLE IF NOT EXISTS src_draft_picks"));
   const db = new DatabaseSync(":memory:");
   db.exec(ddl);
+  const d1 = { prepare: (sql) => ({ bind: (...a) => ({ all: async () => ({ results: db.prepare(sql).all(...a) }) }) }) };
+  const checkA = async (n, fn) => { try { await fn(); console.log("  ok   " + n); }
+    catch (e) { fails++; console.log("  FAIL " + n + "\n         " + e.message); } };
   // Real 2026 rows (MFL league 74598, captured 2026-10-01): Fred Warner (13743),
   // Darren Waller (12263), Andy Dalton (10313, a -2.0 week), Tyler Higbee
-  // (12678, a 0.0 week), and a rostered player MFL posted nothing for (NULL).
+  // (12678, a 0.0 week), a rostered player MFL posted nothing for (NULL), a
+  // week-18 row outside the board's window, and pid 3770 — 13743 - 9973, the
+  // pair that shares a weight in the old v1 sums.
   const rows = [
     [1, "13743", 11.5], [2, "13743", 7.0], [3, "13743", 14.0],
     [1, "12263", 6.2], [2, "12263", 20.4], [3, "12263", 13.2],
     [3, "10313", -2.0], [1, "12678", 2.2], [2, "12678", 0.0], [3, "12678", 25.4],
-    [3, "14057", null], [18, "13743", 9.0],
+    [3, "14057", null], [3, "3770", 8.0], [18, "13743", 9.0],
   ];
   const ins = db.prepare("INSERT INTO src_weekly (season, week, player_id, score) VALUES (2026, ?, ?, ?)");
   for (const r of rows) ins.run(...r);
-  const fp = () => mflScoresFingerprint(db.prepare(MFL_SCORES_FINGERPRINT_SQL).get(2026));
-  const base = fp();
-  check("a well-formed, versioned fingerprint for the season", () => {
-    assert.match(base, /^v1:\d+:\d+:\d+:-?\d+:-?\d+$/);
-    assert.strictEqual(base.split(":")[1], "11", "rows counted inside the week<=17 window only");
-    assert.strictEqual(base.split(":")[2], "10", "the NULL-score row is not a scored row");
+  const set = (wk, pid, score) => db.prepare("UPDATE src_weekly SET score = ? WHERE season = 2026 AND week = ? AND player_id = ?").run(score, wk, pid);
+  const fp = () => computeMflScoresFingerprint(d1, 2026);
+  // The v1 draft of this fix (two integer sums), kept HERE only as the
+  // reference that proves the collisions below are real.
+  const v1 = () => db.prepare(`SELECT COUNT(*) AS n, SUM(score IS NOT NULL) AS s, MAX(week) AS w,
+      SUM(CAST(ROUND(COALESCE(score,0)*10) AS INTEGER)) AS p,
+      SUM(CAST(ROUND(COALESCE(score,0)*10) AS INTEGER) * ((CAST(player_id AS INTEGER) % 9973) + 1) * (week + 1)) AS x
+      FROM src_weekly WHERE season = 2026 AND week <= 17`).get();
+  const base = await fp();
+  const baseV1 = JSON.stringify(v1());
+
+  await checkA("a well-formed fingerprint: version, row count in the week<=17 window, SHA-256", async () => {
+    assert.match(base, /^v2:12:[0-9a-f]{64}$/);
   });
-  check("recomputed with nothing changed -> identical (so an unchanged board still skips)", () => {
-    assert.strictEqual(fp(), base);
+  await checkA("recomputed with nothing changed -> identical (so an unchanged board still skips)", async () => {
+    assert.strictEqual(await fp(), base);
   });
-  check("SCORING CORRECTION: Warner Wk 3 14.0 -> 13.5 (the real 2026-10-01 Elias change) -> different, same row count and week", () => {
-    db.prepare("UPDATE src_weekly SET score = 13.5 WHERE season = 2026 AND week = 3 AND player_id = '13743'").run();
-    const after = fp();
-    assert.notStrictEqual(after, base);
-    assert.deepStrictEqual(after.split(":").slice(1, 4), base.split(":").slice(1, 4), "rows / scored / max_week unchanged — only the scores moved");
-    db.prepare("UPDATE src_weekly SET score = 14.0 WHERE season = 2026 AND week = 3 AND player_id = '13743'").run();
-    assert.strictEqual(fp(), base, "reverting restores the original value");
+  await checkA("SCORING CORRECTION: Warner Wk 3 14.0 -> 13.5 (the real 2026-10-01 Elias change) -> different", async () => {
+    set(3, "13743", 13.5);
+    assert.notStrictEqual(await fp(), base);
+    set(3, "13743", 14.0);
+    assert.strictEqual(await fp(), base, "reverting restores the original value");
   });
-  check("two corrections that CANCEL in the plain sum (+0.5 / -0.5) still change it", () => {
-    db.prepare("UPDATE src_weekly SET score = score + 0.5 WHERE season = 2026 AND week = 2 AND player_id = '12263'").run();
-    db.prepare("UPDATE src_weekly SET score = score - 0.5 WHERE season = 2026 AND week = 3 AND player_id = '13743'").run();
-    const after = fp();
-    assert.strictEqual(after.split(":")[4], base.split(":")[4], "plain point sum is unchanged");
-    assert.notStrictEqual(after, base, "the weighted term catches it");
-    db.prepare("UPDATE src_weekly SET score = score - 0.5 WHERE season = 2026 AND week = 2 AND player_id = '12263'").run();
-    db.prepare("UPDATE src_weekly SET score = score + 0.5 WHERE season = 2026 AND week = 3 AND player_id = '13743'").run();
-    assert.strictEqual(fp(), base);
+  await checkA("MULTIPLE OFFSETTING CORRECTIONS that the old sums could not see (equal-weight pair) -> different", async () => {
+    // 13743 and 3770 carry the same v1 weight in the same week: +0.5 / -0.5
+    // leaves both v1 sums exactly where they were.
+    set(3, "13743", 14.5); set(3, "3770", 7.5);
+    assert.strictEqual(JSON.stringify(v1()), baseV1, "the v1 sums really are unchanged (the collision is real)");
+    assert.notStrictEqual(await fp(), base, "the content fingerprint is not fooled");
+    set(3, "13743", 14.0); set(3, "3770", 8.0);
+    assert.strictEqual(await fp(), base);
   });
-  check("a score blanked to NULL, or a negative week corrected, changes it", () => {
-    db.prepare("UPDATE src_weekly SET score = NULL WHERE season = 2026 AND week = 2 AND player_id = '12678'").run();
-    assert.notStrictEqual(fp(), base, "0.0 -> NULL");
-    db.prepare("UPDATE src_weekly SET score = 0.0 WHERE season = 2026 AND week = 2 AND player_id = '12678'").run();
-    db.prepare("UPDATE src_weekly SET score = -1.0 WHERE season = 2026 AND week = 3 AND player_id = '10313'").run();
-    assert.notStrictEqual(fp(), base, "-2.0 -> -1.0");
-    db.prepare("UPDATE src_weekly SET score = -2.0 WHERE season = 2026 AND week = 3 AND player_id = '10313'").run();
-    assert.strictEqual(fp(), base);
+  await checkA("MULTIPLE OFFSETTING CORRECTIONS across three players and weeks (a(b-c), b(c-a), c(a-b)) -> different", async () => {
+    // v1 weights w = (pid % 9973 + 1) * (week + 1); deltas in tenths chosen so
+    // both v1 sums cancel: sum(d) = 0 and sum(d * w) = 0.
+    const W = (pid, wk) => ((Number(pid) % 9973) + 1) * (wk + 1);
+    const a = W("13743", 1), b = W("12263", 2), c = W("12678", 3);
+    const g = (x, y) => (y ? g(y, x % y) : Math.abs(x));
+    const k = g(g(b - c, c - a), a - b);
+    const d = [(b - c) / k, (c - a) / k, (a - b) / k];       // smallest integer solution, in tenths
+    const before = { w1: 11.5, w2: 20.4, w3: 25.4 };
+    set(1, "13743", Math.round((before.w1 * 10 + d[0])) / 10);
+    set(2, "12263", Math.round((before.w2 * 10 + d[1])) / 10);
+    set(3, "12678", Math.round((before.w3 * 10 + d[2])) / 10);
+    assert.strictEqual(JSON.stringify(v1()), baseV1, "the v1 sums really are unchanged (the collision is real)");
+    assert.notStrictEqual(await fp(), base, "the content fingerprint is not fooled");
+    set(1, "13743", before.w1); set(2, "12263", before.w2); set(3, "12678", before.w3);
+    assert.strictEqual(await fp(), base);
   });
-  check("the 2026-10-01 restore shape (free-agent rows ADDED to a clobbered table) changes it", () => {
-    db.prepare("INSERT INTO src_weekly (season, week, player_id, score) VALUES (2026, 3, '14717', 13.0)").run();
-    assert.notStrictEqual(fp(), base);
+  await checkA("a swap of two players' scores in one week -> different", async () => {
+    set(1, "13743", 6.2); set(1, "12263", 11.5);
+    assert.notStrictEqual(await fp(), base);
+    set(1, "13743", 11.5); set(1, "12263", 6.2);
+    assert.strictEqual(await fp(), base);
+  });
+  await checkA("a score blanked to NULL, a 0.0 week, and a negative week each count as content", async () => {
+    set(2, "12678", null);
+    assert.notStrictEqual(await fp(), base, "0.0 -> NULL");
+    set(2, "12678", 0.0);
+    set(3, "10313", -1.0);
+    assert.notStrictEqual(await fp(), base, "-2.0 -> -1.0");
+    set(3, "10313", -2.0);
+    assert.strictEqual(await fp(), base);
+  });
+  await checkA("the 2026-10-01 restore shape (free-agent rows ADDED to a clobbered table) -> different", async () => {
+    ins.run(3, "14717", 13.0);
+    assert.notStrictEqual(await fp(), base);
     db.prepare("DELETE FROM src_weekly WHERE season = 2026 AND week = 3 AND player_id = '14717'").run();
-    assert.strictEqual(fp(), base);
+    assert.strictEqual(await fp(), base);
   });
-  check("a week-18 (playoff) change does NOT — the stored board is weeks 1-17 only", () => {
-    db.prepare("UPDATE src_weekly SET score = 30.0 WHERE season = 2026 AND week = 18").run();
-    assert.strictEqual(fp(), base);
+  await checkA("a week-18 (playoff) change does NOT — the stored board is weeks 1-17 only", async () => {
+    set(18, "13743", 30.0);
+    assert.strictEqual(await fp(), base);
   });
-  check("an empty season is a real, known value; a failed read is null (unknown)", () => {
-    assert.strictEqual(mflScoresFingerprint(db.prepare(MFL_SCORES_FINGERPRINT_SQL).get(2031)), "v1:0:0:0:0:0");
-    assert.strictEqual(mflScoresFingerprint(null), null);
-    assert.strictEqual(mflScoresFingerprint({ rows_n: "x" }), null);
+  await checkA("an empty season is a real, known value; a failed read is null (unknown)", async () => {
+    assert.match(await computeMflScoresFingerprint(d1, 2031), /^v2:0:[0-9a-f]{64}$/);
+    const broken = { prepare: () => ({ bind: () => ({ all: async () => { throw new Error("D1_ERROR"); } }) }) };
+    assert.strictEqual(await computeMflScoresFingerprint(broken, 2026), null);
+    const odd = { prepare: (sql) => ({ bind: () => ({ all: async () => (/DISTINCT/.test(sql) ? { results: [{ week: 1 }] } : {}) }) }) };
+    assert.strictEqual(await computeMflScoresFingerprint(odd, 2026), null, "a malformed result is unknown, not empty");
   });
 }
 

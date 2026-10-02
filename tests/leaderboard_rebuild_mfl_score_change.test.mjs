@@ -102,13 +102,27 @@ test("the build reports the fingerprint it stored, and it moves with the scores"
   const h = setup({ withFingerprintColumn: true });
   const first = await h.build();
   t.ok(first.json.built.every((b) => b.mfl_fingerprint_stored === true), "fingerprint stored for every alias");
-  t.match(String(first.json.mfl_scores_fingerprint), /^v1:/);
+  t.match(String(first.json.mfl_scores_fingerprint), /^v2:\d+:[0-9a-f]{64}$/);
   const fp = h.db.prepare("SELECT DISTINCT mfl_scores_fingerprint AS f FROM nfl_leaderboard_precompute_meta WHERE season = 2026").all();
   t.equal(fp.length, 1, "one fingerprint across the five meta rows");
   t.equal(fp[0].f, first.json.mfl_scores_fingerprint, "and it is the one the response reported");
   h.db.prepare("UPDATE src_weekly SET score = 13.5 WHERE season = 2026 AND week = 3 AND player_id = '13743'").run();
   const again = await h.build();
   t.notEqual(again.json.mfl_scores_fingerprint, first.json.mfl_scores_fingerprint, "fingerprint moved");
+});
+
+test("multiple OFFSETTING corrections (a +0.5 / -0.5 pair) still rebuild — the fingerprint is exact, not a sum", async () => {
+  const h = setup({ withFingerprintColumn: true });
+  // pid 3770 = 13743 - 9973: the pair the first (sum-based) draft could not tell apart.
+  h.db.prepare("INSERT INTO src_weekly (season, week, player_id, score, status) VALUES (2026, 3, '3770', 8.0, 'fa')").run();
+  await h.build();
+  t.equal((await h.build()).json.rebuilt, 0, "unchanged -> skipped");
+  h.db.prepare("UPDATE src_weekly SET score = 14.5 WHERE season = 2026 AND week = 3 AND player_id = '13743'").run();
+  h.db.prepare("UPDATE src_weekly SET score = 7.5 WHERE season = 2026 AND week = 3 AND player_id = '3770'").run();
+  const r = await h.build();
+  t.equal(r.json.skipped_unchanged, 0, "offsetting corrections are not 'no_change'");
+  t.equal(r.json.rebuilt, 5);
+  t.equal(h.stored("idp").mfl_points, 33.0, "Warner's stored total follows the corrected rows");
 });
 
 test("the 2026-10-01 restore shape (free-agent rows added back) rebuilds too", async () => {
