@@ -1,0 +1,3611 @@
+{
+ "_about": "Real captures, read-only, 2026-10-02 13:38Z — the Friday after Week 4's Thursday game (PIT 24 @ CLE 27, final), before any other Week 4 game. playerScoresAllWeeks = MFL export TYPE=playerScores&L=74598&YEAR=2026&W=ALL, trimmed to these players (every player with a Week 4 score — all 76 from PIT/CLE — plus the 40 players of the _wk3 fixture). The worker proxy /api/mfl-export served the identical payload. mfl_ytd / mfl_avg = MFL W=YTD and W=AVG exports — INDEPENDENT of W=ALL, used as the expected values. players = MFL TYPE=players; rosters = MFL TYPE=rosters; lineup_week = /api/current-lineup-week (week 4, live_scoring ⇒ Wks 1–3 final, Wk 4 in progress).",
+ "fetched_at_utc": "2026-10-02T13:38:10Z",
+ "lineup_week": {
+  "ok": true,
+  "week": 4,
+  "source": "live_scoring"
+ },
+ "playerScoresAll": {
+  "playerScoresAllWeeks": {
+   "year": "2026",
+   "playerScores": [
+    {
+     "week": "1",
+     "playerScore": [
+      {
+       "id": "13589",
+       "week": "1",
+       "isAvailable": "0",
+       "score": "42.6"
+      },
+      {
+       "isAvailable": "0",
+       "week": "1",
+       "score": "37.6",
+       "id": "16162"
+      },
+      {
+       "id": "15794",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "30.2"
+      },
+      {
+       "isAvailable": "0",
+       "week": "1",
+       "score": "29.2",
+       "id": "16185"
+      },
+      {
+       "id": "13214",
+       "score": "29.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "15346",
+       "score": "23.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "15368",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "20.5"
+      },
+      {
+       "id": "15923",
+       "week": "1",
+       "isAvailable": "0",
+       "score": "20.0"
+      },
+      {
+       "id": "15331",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "18.7"
+      },
+      {
+       "id": "13066",
+       "score": "18.6",
+       "isAvailable": "0",
+       "week": "1"
+      },
+      {
+       "score": "16.7",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "14137"
+      },
+      {
+       "isAvailable": "0",
+       "week": "1",
+       "score": "16.4",
+       "id": "13113"
+      },
+      {
+       "id": "17075",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "16.3"
+      },
+      {
+       "score": "16.0",
+       "week": "1",
+       "isAvailable": "0",
+       "id": "15409"
+      },
+      {
+       "score": "15.7",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "14057"
+      },
+      {
+       "id": "13832",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "15.6"
+      },
+      {
+       "id": "7836",
+       "score": "15.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "17500",
+       "score": "14.3",
+       "isAvailable": "0",
+       "week": "1"
+      },
+      {
+       "week": "1",
+       "isAvailable": "0",
+       "score": "13.5",
+       "id": "14940"
+      },
+      {
+       "id": "17167",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "13.0"
+      },
+      {
+       "id": "15835",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "12.3"
+      },
+      {
+       "id": "17624",
+       "isAvailable": "1",
+       "week": "1",
+       "score": "12.0"
+      },
+      {
+       "id": "17121",
+       "score": "12.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "13743",
+       "score": "11.5",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "14717",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "11.5"
+      },
+      {
+       "score": "11.0",
+       "week": "1",
+       "isAvailable": "0",
+       "id": "16230"
+      },
+      {
+       "id": "15822",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "11.0"
+      },
+      {
+       "score": "10.6",
+       "week": "1",
+       "isAvailable": "0",
+       "id": "17052"
+      },
+      {
+       "id": "16716",
+       "week": "1",
+       "isAvailable": "0",
+       "score": "10.5"
+      },
+      {
+       "id": "16450",
+       "isAvailable": "1",
+       "week": "1",
+       "score": "10.5"
+      },
+      {
+       "id": "15742",
+       "week": "1",
+       "isAvailable": "0",
+       "score": "10.1"
+      },
+      {
+       "id": "13289",
+       "isAvailable": "1",
+       "week": "1",
+       "score": "9.3"
+      },
+      {
+       "score": "9.2",
+       "week": "1",
+       "isAvailable": "0",
+       "id": "14842"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "9.1",
+       "id": "11936"
+      },
+      {
+       "id": "13848",
+       "score": "9.0",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "0",
+       "week": "1",
+       "score": "8.9",
+       "id": "17501"
+      },
+      {
+       "id": "17062",
+       "score": "8.5",
+       "isAvailable": "0",
+       "week": "1"
+      },
+      {
+       "isAvailable": "0",
+       "week": "1",
+       "score": "8.4",
+       "id": "14102"
+      },
+      {
+       "id": "12711",
+       "score": "8.2",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "score": "8.1",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "15366"
+      },
+      {
+       "id": "17147",
+       "score": "8.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "0",
+       "week": "1",
+       "score": "8.0",
+       "id": "10266"
+      },
+      {
+       "score": "7.9",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "16460"
+      },
+      {
+       "id": "14219",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "7.5"
+      },
+      {
+       "week": "1",
+       "isAvailable": "0",
+       "score": "7.3",
+       "id": "16896"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "7.1",
+       "id": "15380"
+      },
+      {
+       "id": "12688",
+       "score": "7.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "17051",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "7.0"
+      },
+      {
+       "id": "16653",
+       "isAvailable": "0",
+       "week": "1",
+       "score": "6.5"
+      },
+      {
+       "id": "13707",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "6.5"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "6.5",
+       "id": "14943"
+      },
+      {
+       "score": "6.2",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "12263"
+      },
+      {
+       "score": "5.8",
+       "week": "1",
+       "isAvailable": "0",
+       "id": "16629"
+      },
+      {
+       "score": "5.3",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "15452"
+      },
+      {
+       "id": "17103",
+       "score": "5.3",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "16216",
+       "score": "5.0",
+       "isAvailable": "1",
+       "week": "1"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "5.0",
+       "id": "14896"
+      },
+      {
+       "id": "14833",
+       "score": "4.8",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "id": "15352",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "4.5"
+      },
+      {
+       "id": "14907",
+       "score": "4.4",
+       "isAvailable": "0",
+       "week": "1"
+      },
+      {
+       "id": "13869",
+       "score": "4.0",
+       "week": "1",
+       "isAvailable": "0"
+      },
+      {
+       "score": "3.6",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "16419"
+      },
+      {
+       "score": "3.5",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "16264"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "3.5",
+       "id": "14221"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "3.1",
+       "id": "16940"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "3.0",
+       "id": "15857"
+      },
+      {
+       "score": "3.0",
+       "isAvailable": "1",
+       "week": "1",
+       "id": "17116"
+      },
+      {
+       "id": "17680",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "2.9"
+      },
+      {
+       "id": "17575",
+       "week": "1",
+       "isAvailable": "0",
+       "score": "2.9"
+      },
+      {
+       "score": "2.5",
+       "week": "1",
+       "isAvailable": "0",
+       "id": "16303"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "2.5",
+       "id": "17137"
+      },
+      {
+       "id": "12678",
+       "score": "2.2",
+       "isAvailable": "1",
+       "week": "1"
+      },
+      {
+       "id": "13288",
+       "score": "2.1",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "2.1",
+       "id": "16784"
+      },
+      {
+       "score": "2.0",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "13810"
+      },
+      {
+       "score": "2.0",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "15589"
+      },
+      {
+       "week": "1",
+       "isAvailable": "0",
+       "score": "1.9",
+       "id": "16636"
+      },
+      {
+       "id": "17365",
+       "score": "1.6",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "id": "17379",
+       "score": "1.5",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "score": "1.5",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "17247"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "1.5",
+       "id": "17648"
+      },
+      {
+       "id": "17620",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "1.4"
+      },
+      {
+       "id": "17604",
+       "score": "1.3",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "id": "15384",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "1.3"
+      },
+      {
+       "id": "17350",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "1.0"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "1.0",
+       "id": "16474"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "1.0",
+       "id": "16300"
+      },
+      {
+       "id": "17233",
+       "week": "1",
+       "isAvailable": "1",
+       "score": "1.0"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "0.5",
+       "id": "17696"
+      },
+      {
+       "isAvailable": "1",
+       "week": "1",
+       "score": "0.5",
+       "id": "12754"
+      },
+      {
+       "id": "14260",
+       "score": "0.5",
+       "week": "1",
+       "isAvailable": "1"
+      },
+      {
+       "score": "0.0",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "15491"
+      },
+      {
+       "score": "0.0",
+       "week": "1",
+       "isAvailable": "1",
+       "id": "13201"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "14442"
+      },
+      {
+       "id": "16288",
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "1"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "17209"
+      },
+      {
+       "id": "17076",
+       "score": "0.0",
+       "isAvailable": "0",
+       "week": "1"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "0",
+       "week": "1",
+       "id": "17503"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "11367"
+      },
+      {
+       "id": "12325",
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "1"
+      },
+      {
+       "id": "15464",
+       "isAvailable": "1",
+       "week": "1",
+       "score": "0.0"
+      },
+      {
+       "id": "16661",
+       "isAvailable": "1",
+       "week": "1",
+       "score": "0.0"
+      },
+      {
+       "id": "13427",
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "1"
+      },
+      {
+       "week": "1",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "16926"
+      }
+     ]
+    },
+    {
+     "week": "2",
+     "playerScore": [
+      {
+       "score": "50.7",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "13589"
+      },
+      {
+       "id": "16185",
+       "score": "48.1",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "score": "32.0",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "15822"
+      },
+      {
+       "score": "29.2",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "14057"
+      },
+      {
+       "id": "13113",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "25.6"
+      },
+      {
+       "score": "23.5",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "16162"
+      },
+      {
+       "id": "16230",
+       "isAvailable": "0",
+       "week": "2",
+       "score": "23.0"
+      },
+      {
+       "id": "15794",
+       "score": "22.7",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "id": "15366",
+       "isAvailable": "0",
+       "week": "2",
+       "score": "22.4"
+      },
+      {
+       "id": "17500",
+       "score": "22.1",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "id": "12263",
+       "score": "20.4",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "id": "14717",
+       "score": "17.6",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "score": "17.5",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "15346"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "16.8",
+       "id": "15589"
+      },
+      {
+       "isAvailable": "0",
+       "week": "2",
+       "score": "15.9",
+       "id": "16896"
+      },
+      {
+       "id": "15923",
+       "score": "15.1",
+       "week": "2",
+       "isAvailable": "0"
+      },
+      {
+       "score": "14.9",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "16474"
+      },
+      {
+       "id": "17052",
+       "score": "14.6",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "score": "14.0",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "16303"
+      },
+      {
+       "id": "16419",
+       "score": "13.8",
+       "isAvailable": "1",
+       "week": "2"
+      },
+      {
+       "id": "17103",
+       "score": "13.5",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "13.0",
+       "id": "13848"
+      },
+      {
+       "id": "15368",
+       "score": "12.8",
+       "week": "2",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "0",
+       "week": "2",
+       "score": "12.5",
+       "id": "14940"
+      },
+      {
+       "id": "15352",
+       "score": "12.0",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "id": "16784",
+       "score": "12.0",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "id": "14943",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "11.5"
+      },
+      {
+       "score": "11.0",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "13214"
+      },
+      {
+       "id": "13066",
+       "score": "10.9",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "id": "11367",
+       "score": "10.7",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "week": "2",
+       "isAvailable": "0",
+       "score": "10.6",
+       "id": "17075"
+      },
+      {
+       "id": "15409",
+       "score": "10.5",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "isAvailable": "0",
+       "week": "2",
+       "score": "10.0",
+       "id": "16716"
+      },
+      {
+       "score": "10.0",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "12688"
+      },
+      {
+       "score": "10.0",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "14907"
+      },
+      {
+       "score": "9.8",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "15331"
+      },
+      {
+       "id": "15742",
+       "score": "9.7",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "id": "16940",
+       "score": "9.4",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "week": "2",
+       "isAvailable": "0",
+       "score": "9.2",
+       "id": "17051"
+      },
+      {
+       "id": "13869",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "9.0"
+      },
+      {
+       "week": "2",
+       "isAvailable": "0",
+       "score": "8.8",
+       "id": "15452"
+      },
+      {
+       "score": "8.5",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "17147"
+      },
+      {
+       "id": "16629",
+       "isAvailable": "0",
+       "week": "2",
+       "score": "8.4"
+      },
+      {
+       "week": "2",
+       "isAvailable": "0",
+       "score": "8.4",
+       "id": "17501"
+      },
+      {
+       "id": "17121",
+       "isAvailable": "0",
+       "week": "2",
+       "score": "8.0"
+      },
+      {
+       "id": "13707",
+       "score": "8.0",
+       "isAvailable": "1",
+       "week": "2"
+      },
+      {
+       "score": "7.9",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "17503"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "7.5",
+       "id": "16450"
+      },
+      {
+       "score": "7.5",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "15380"
+      },
+      {
+       "id": "13743",
+       "score": "7.0",
+       "isAvailable": "0",
+       "week": "2"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "7.0",
+       "id": "15384"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "7.0",
+       "id": "17137"
+      },
+      {
+       "isAvailable": "0",
+       "week": "2",
+       "score": "6.9",
+       "id": "14102"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "6.5",
+       "id": "14896"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "6.5",
+       "id": "16300"
+      },
+      {
+       "id": "16460",
+       "score": "6.4",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "6.0",
+       "id": "13288"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "6.0",
+       "id": "14221"
+      },
+      {
+       "id": "13832",
+       "score": "5.7",
+       "isAvailable": "1",
+       "week": "2"
+      },
+      {
+       "id": "11936",
+       "score": "5.6",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "5.4",
+       "id": "14219"
+      },
+      {
+       "id": "15835",
+       "isAvailable": "0",
+       "week": "2",
+       "score": "5.3"
+      },
+      {
+       "id": "17624",
+       "score": "5.1",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "id": "12711",
+       "isAvailable": "1",
+       "week": "2",
+       "score": "5.0"
+      },
+      {
+       "id": "17680",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "4.7"
+      },
+      {
+       "id": "13201",
+       "score": "4.5",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "score": "4.1",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "16288"
+      },
+      {
+       "score": "4.0",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "13289"
+      },
+      {
+       "id": "17167",
+       "score": "3.9",
+       "isAvailable": "1",
+       "week": "2"
+      },
+      {
+       "id": "17575",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "3.9"
+      },
+      {
+       "score": "3.5",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "15857"
+      },
+      {
+       "id": "16653",
+       "isAvailable": "0",
+       "week": "2",
+       "score": "3.5"
+      },
+      {
+       "id": "10266",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "3.5"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "3.4",
+       "id": "17620"
+      },
+      {
+       "id": "17062",
+       "score": "3.2",
+       "week": "2",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "3.0",
+       "id": "13810"
+      },
+      {
+       "id": "16636",
+       "score": "2.3",
+       "week": "2",
+       "isAvailable": "0"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "2.2",
+       "id": "16216"
+      },
+      {
+       "id": "17076",
+       "week": "2",
+       "isAvailable": "0",
+       "score": "2.2"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "2.0",
+       "id": "12754"
+      },
+      {
+       "score": "1.8",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "14083"
+      },
+      {
+       "score": "1.5",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "16264"
+      },
+      {
+       "id": "17365",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "1.3"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "1.2",
+       "id": "15491"
+      },
+      {
+       "id": "14260",
+       "score": "1.0",
+       "isAvailable": "1",
+       "week": "2"
+      },
+      {
+       "id": "16926",
+       "isAvailable": "1",
+       "week": "2",
+       "score": "1.0"
+      },
+      {
+       "id": "17350",
+       "score": "0.5",
+       "isAvailable": "1",
+       "week": "2"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "0.3",
+       "id": "16390"
+      },
+      {
+       "id": "14442",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "0.0"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "17209"
+      },
+      {
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "14137"
+      },
+      {
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "0",
+       "id": "14833"
+      },
+      {
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "12678"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "17604"
+      },
+      {
+       "id": "15464",
+       "week": "2",
+       "isAvailable": "1",
+       "score": "0.0"
+      },
+      {
+       "week": "2",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "16661"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "17247"
+      },
+      {
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "13427"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "0.0",
+       "id": "17648"
+      },
+      {
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "17696"
+      },
+      {
+       "isAvailable": "1",
+       "week": "2",
+       "score": "0.0",
+       "id": "17379"
+      },
+      {
+       "id": "17116",
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "1"
+      },
+      {
+       "score": "0.0",
+       "week": "2",
+       "isAvailable": "1",
+       "id": "12325"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "2",
+       "id": "17233"
+      },
+      {
+       "score": "-1.3",
+       "isAvailable": "0",
+       "week": "2",
+       "id": "7836"
+      }
+     ]
+    },
+    {
+     "week": "3",
+     "playerScore": [
+      {
+       "id": "16162",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "42.2"
+      },
+      {
+       "id": "16185",
+       "score": "39.4",
+       "week": "3",
+       "isAvailable": "0"
+      },
+      {
+       "score": "31.5",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "10948"
+      },
+      {
+       "id": "7836",
+       "score": "29.6",
+       "isAvailable": "0",
+       "week": "3"
+      },
+      {
+       "score": "29.5",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "15452"
+      },
+      {
+       "id": "17103",
+       "score": "28.2",
+       "week": "3",
+       "isAvailable": "0"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "25.4",
+       "id": "12678"
+      },
+      {
+       "id": "13113",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "24.8"
+      },
+      {
+       "id": "17075",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "23.8"
+      },
+      {
+       "id": "13066",
+       "score": "22.6",
+       "isAvailable": "0",
+       "week": "3"
+      },
+      {
+       "score": "22.5",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "15346"
+      },
+      {
+       "week": "3",
+       "isAvailable": "0",
+       "score": "22.4",
+       "id": "15742"
+      },
+      {
+       "week": "3",
+       "isAvailable": "0",
+       "score": "21.7",
+       "id": "14137"
+      },
+      {
+       "score": "21.6",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "15794"
+      },
+      {
+       "id": "16896",
+       "score": "19.7",
+       "isAvailable": "0",
+       "week": "3"
+      },
+      {
+       "score": "19.0",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "17121"
+      },
+      {
+       "isAvailable": "0",
+       "week": "3",
+       "score": "17.8",
+       "id": "17052"
+      },
+      {
+       "id": "13589",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "17.1"
+      },
+      {
+       "id": "17233",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "17.0"
+      },
+      {
+       "score": "15.4",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "16629"
+      },
+      {
+       "id": "13289",
+       "score": "15.3",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "14.3",
+       "id": "11936"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "13.5",
+       "id": "15491"
+      },
+      {
+       "week": "3",
+       "isAvailable": "0",
+       "score": "13.5",
+       "id": "13743"
+      },
+      {
+       "isAvailable": "1",
+       "week": "3",
+       "score": "13.4",
+       "id": "16460"
+      },
+      {
+       "isAvailable": "0",
+       "week": "3",
+       "score": "13.2",
+       "id": "12263"
+      },
+      {
+       "week": "3",
+       "isAvailable": "0",
+       "score": "13.0",
+       "id": "13869"
+      },
+      {
+       "id": "14717",
+       "score": "13.0",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "id": "14102",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "12.7"
+      },
+      {
+       "id": "12688",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "12.5"
+      },
+      {
+       "isAvailable": "0",
+       "week": "3",
+       "score": "11.8",
+       "id": "15368"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "11.6",
+       "id": "16216"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "11.0",
+       "id": "14896"
+      },
+      {
+       "id": "16288",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "10.9"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "10.3",
+       "id": "16419"
+      },
+      {
+       "id": "16300",
+       "score": "10.0",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "score": "9.9",
+       "week": "3",
+       "isAvailable": "1",
+       "id": "12711"
+      },
+      {
+       "score": "9.9",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "17062"
+      },
+      {
+       "id": "17051",
+       "score": "9.9",
+       "week": "3",
+       "isAvailable": "0"
+      },
+      {
+       "id": "13288",
+       "score": "9.7",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "id": "15366",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "8.6"
+      },
+      {
+       "id": "15589",
+       "score": "8.6",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "score": "8.5",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "16474"
+      },
+      {
+       "isAvailable": "1",
+       "week": "3",
+       "score": "8.5",
+       "id": "14221"
+      },
+      {
+       "id": "17137",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "8.5"
+      },
+      {
+       "id": "17500",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "8.5"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "8.0",
+       "id": "16450"
+      },
+      {
+       "id": "15835",
+       "score": "7.9",
+       "isAvailable": "0",
+       "week": "3"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "7.8",
+       "id": "17624"
+      },
+      {
+       "score": "7.8",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "15923"
+      },
+      {
+       "id": "15409",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "7.5"
+      },
+      {
+       "id": "15352",
+       "score": "7.5",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "id": "17167",
+       "week": "3",
+       "isAvailable": "1",
+       "score": "7.1"
+      },
+      {
+       "id": "13848",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "7.0"
+      },
+      {
+       "id": "14219",
+       "score": "7.0",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "id": "15331",
+       "score": "6.5",
+       "week": "3",
+       "isAvailable": "0"
+      },
+      {
+       "id": "14943",
+       "score": "6.5",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "id": "13832",
+       "score": "5.2",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "score": "4.9",
+       "week": "3",
+       "isAvailable": "1",
+       "id": "16784"
+      },
+      {
+       "id": "16716",
+       "score": "4.5",
+       "week": "3",
+       "isAvailable": "0"
+      },
+      {
+       "id": "13810",
+       "score": "4.5",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "id": "14907",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "4.2"
+      },
+      {
+       "id": "16653",
+       "score": "4.0",
+       "isAvailable": "0",
+       "week": "3"
+      },
+      {
+       "score": "4.0",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "17575"
+      },
+      {
+       "score": "3.9",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "13707"
+      },
+      {
+       "score": "3.8",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "14842"
+      },
+      {
+       "id": "15384",
+       "week": "3",
+       "isAvailable": "1",
+       "score": "3.6"
+      },
+      {
+       "id": "16661",
+       "score": "3.5",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "score": "3.5",
+       "week": "3",
+       "isAvailable": "0",
+       "id": "17147"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "3.5",
+       "id": "13201"
+      },
+      {
+       "isAvailable": "0",
+       "week": "3",
+       "score": "3.5",
+       "id": "16230"
+      },
+      {
+       "week": "3",
+       "isAvailable": "0",
+       "score": "3.2",
+       "id": "17501"
+      },
+      {
+       "id": "16636",
+       "week": "3",
+       "isAvailable": "0",
+       "score": "3.1"
+      },
+      {
+       "score": "3.0",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "17116"
+      },
+      {
+       "id": "17209",
+       "score": "3.0",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "score": "2.9",
+       "week": "3",
+       "isAvailable": "1",
+       "id": "17620"
+      },
+      {
+       "id": "17604",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "2.8"
+      },
+      {
+       "score": "2.6",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "17503"
+      },
+      {
+       "id": "15464",
+       "score": "2.6",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "0",
+       "week": "3",
+       "score": "2.5",
+       "id": "10266"
+      },
+      {
+       "id": "12754",
+       "week": "3",
+       "isAvailable": "1",
+       "score": "2.5"
+      },
+      {
+       "score": "2.1",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "17793"
+      },
+      {
+       "id": "13427",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "1.7"
+      },
+      {
+       "id": "17379",
+       "score": "1.5",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "1.5",
+       "id": "17247"
+      },
+      {
+       "score": "1.5",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "16303"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "1.3",
+       "id": "14963"
+      },
+      {
+       "id": "13214",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "1.0"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "1.0",
+       "id": "14260"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "1.0",
+       "id": "17350"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "1.0",
+       "id": "15857"
+      },
+      {
+       "week": "3",
+       "isAvailable": "1",
+       "score": "0.8",
+       "id": "17680"
+      },
+      {
+       "score": "0.5",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "14083"
+      },
+      {
+       "id": "16264",
+       "week": "3",
+       "isAvailable": "1",
+       "score": "0.5"
+      },
+      {
+       "id": "11367",
+       "score": "0.0",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "isAvailable": "1",
+       "week": "3",
+       "score": "0.0",
+       "id": "12325"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "16359"
+      },
+      {
+       "id": "17076",
+       "score": "0.0",
+       "week": "3",
+       "isAvailable": "0"
+      },
+      {
+       "id": "17696",
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "id": "17648",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "0.0"
+      },
+      {
+       "id": "16926",
+       "score": "0.0",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "16940"
+      },
+      {
+       "id": "16390",
+       "score": "0.0",
+       "week": "3",
+       "isAvailable": "1"
+      },
+      {
+       "id": "17365",
+       "isAvailable": "1",
+       "week": "3",
+       "score": "0.0"
+      },
+      {
+       "id": "17677",
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "3"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "0",
+       "week": "3",
+       "id": "14833"
+      },
+      {
+       "id": "14940",
+       "isAvailable": "0",
+       "week": "3",
+       "score": "0.0"
+      },
+      {
+       "isAvailable": "1",
+       "week": "3",
+       "score": "0.0",
+       "id": "17034"
+      },
+      {
+       "score": "0.0",
+       "week": "3",
+       "isAvailable": "1",
+       "id": "14442"
+      },
+      {
+       "score": "-1.1",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "17469"
+      },
+      {
+       "score": "-2.0",
+       "isAvailable": "1",
+       "week": "3",
+       "id": "10313"
+      }
+     ]
+    },
+    {
+     "week": "4",
+     "playerScore": [
+      {
+       "score": "27.2",
+       "isAvailable": "0",
+       "week": "4",
+       "id": "7836"
+      },
+      {
+       "id": "17051",
+       "score": "21.8",
+       "week": "4",
+       "isAvailable": "0"
+      },
+      {
+       "id": "13214",
+       "week": "4",
+       "isAvailable": "0",
+       "score": "20.5"
+      },
+      {
+       "score": "19.3",
+       "week": "4",
+       "isAvailable": "0",
+       "id": "14102"
+      },
+      {
+       "id": "16629",
+       "isAvailable": "0",
+       "week": "4",
+       "score": "18.0"
+      },
+      {
+       "id": "13113",
+       "week": "4",
+       "isAvailable": "0",
+       "score": "17.1"
+      },
+      {
+       "id": "15742",
+       "week": "4",
+       "isAvailable": "0",
+       "score": "16.6"
+      },
+      {
+       "id": "17680",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "15.6"
+      },
+      {
+       "id": "13848",
+       "week": "4",
+       "isAvailable": "1",
+       "score": "15.0"
+      },
+      {
+       "id": "17500",
+       "isAvailable": "0",
+       "week": "4",
+       "score": "14.5"
+      },
+      {
+       "isAvailable": "0",
+       "week": "4",
+       "score": "13.6",
+       "id": "17103"
+      },
+      {
+       "id": "16216",
+       "score": "13.4",
+       "week": "4",
+       "isAvailable": "1"
+      },
+      {
+       "id": "16419",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "13.0"
+      },
+      {
+       "week": "4",
+       "isAvailable": "0",
+       "score": "12.5",
+       "id": "16716"
+      },
+      {
+       "id": "15331",
+       "isAvailable": "0",
+       "week": "4",
+       "score": "12.4"
+      },
+      {
+       "id": "17501",
+       "score": "12.3",
+       "week": "4",
+       "isAvailable": "0"
+      },
+      {
+       "id": "14907",
+       "week": "4",
+       "isAvailable": "0",
+       "score": "12.3"
+      },
+      {
+       "score": "10.7",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "13707"
+      },
+      {
+       "id": "12754",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "10.5"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "10.1",
+       "id": "15380"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "9.0",
+       "id": "16390"
+      },
+      {
+       "week": "4",
+       "isAvailable": "0",
+       "score": "9.0",
+       "id": "10266"
+      },
+      {
+       "score": "9.0",
+       "isAvailable": "0",
+       "week": "4",
+       "id": "13869"
+      },
+      {
+       "id": "17350",
+       "score": "9.0",
+       "isAvailable": "1",
+       "week": "4"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "9.0",
+       "id": "15857"
+      },
+      {
+       "id": "16300",
+       "score": "8.5",
+       "isAvailable": "1",
+       "week": "4"
+      },
+      {
+       "id": "15835",
+       "score": "7.6",
+       "week": "4",
+       "isAvailable": "0"
+      },
+      {
+       "week": "4",
+       "isAvailable": "0",
+       "score": "7.2",
+       "id": "14833"
+      },
+      {
+       "isAvailable": "0",
+       "week": "4",
+       "score": "6.7",
+       "id": "17575"
+      },
+      {
+       "id": "16661",
+       "score": "6.5",
+       "week": "4",
+       "isAvailable": "1"
+      },
+      {
+       "id": "17147",
+       "score": "6.0",
+       "isAvailable": "0",
+       "week": "4"
+      },
+      {
+       "score": "6.0",
+       "isAvailable": "1",
+       "week": "4",
+       "id": "16460"
+      },
+      {
+       "score": "5.4",
+       "isAvailable": "1",
+       "week": "4",
+       "id": "17604"
+      },
+      {
+       "isAvailable": "0",
+       "week": "4",
+       "score": "5.1",
+       "id": "17062"
+      },
+      {
+       "score": "4.9",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "15384"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "4.5",
+       "id": "17209"
+      },
+      {
+       "id": "14842",
+       "isAvailable": "0",
+       "week": "4",
+       "score": "4.5"
+      },
+      {
+       "id": "11936",
+       "score": "4.1",
+       "isAvailable": "1",
+       "week": "4"
+      },
+      {
+       "score": "4.0",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "14896"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "3.9",
+       "id": "17620"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "3.5",
+       "id": "14221"
+      },
+      {
+       "id": "16264",
+       "score": "3.5",
+       "week": "4",
+       "isAvailable": "1"
+      },
+      {
+       "week": "4",
+       "isAvailable": "0",
+       "score": "3.5",
+       "id": "16653"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "3.4",
+       "id": "16784"
+      },
+      {
+       "id": "17503",
+       "isAvailable": "0",
+       "week": "4",
+       "score": "3.1"
+      },
+      {
+       "id": "17116",
+       "score": "3.0",
+       "isAvailable": "1",
+       "week": "4"
+      },
+      {
+       "score": "3.0",
+       "week": "4",
+       "isAvailable": "0",
+       "id": "14940"
+      },
+      {
+       "id": "14219",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "2.3"
+      },
+      {
+       "score": "2.1",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "14963"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "2.1",
+       "id": "17365"
+      },
+      {
+       "id": "14260",
+       "score": "2.0",
+       "isAvailable": "1",
+       "week": "4"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "2.0",
+       "id": "16359"
+      },
+      {
+       "id": "16303",
+       "week": "4",
+       "isAvailable": "0",
+       "score": "2.0"
+      },
+      {
+       "id": "16636",
+       "week": "4",
+       "isAvailable": "0",
+       "score": "1.8"
+      },
+      {
+       "id": "15491",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "1.7"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "1.3",
+       "id": "12711"
+      },
+      {
+       "score": "1.3",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "16288"
+      },
+      {
+       "id": "17076",
+       "isAvailable": "0",
+       "week": "4",
+       "score": "1.2"
+      },
+      {
+       "score": "1.0",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "16940"
+      },
+      {
+       "score": "1.0",
+       "isAvailable": "1",
+       "week": "4",
+       "id": "17379"
+      },
+      {
+       "id": "13810",
+       "score": "1.0",
+       "week": "4",
+       "isAvailable": "1"
+      },
+      {
+       "id": "13201",
+       "score": "0.5",
+       "week": "4",
+       "isAvailable": "1"
+      },
+      {
+       "id": "14083",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "0.1"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "0",
+       "week": "4",
+       "id": "17121"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "0.0",
+       "id": "17137"
+      },
+      {
+       "id": "13427",
+       "week": "4",
+       "isAvailable": "1",
+       "score": "0.0"
+      },
+      {
+       "score": "0.0",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "17648"
+      },
+      {
+       "score": "0.0",
+       "week": "4",
+       "isAvailable": "1",
+       "id": "16926"
+      },
+      {
+       "isAvailable": "1",
+       "week": "4",
+       "score": "0.0",
+       "id": "15464"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "17247"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "12325"
+      },
+      {
+       "id": "17696",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "0.0"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "17793"
+      },
+      {
+       "id": "14442",
+       "isAvailable": "1",
+       "week": "4",
+       "score": "0.0"
+      },
+      {
+       "score": "0.0",
+       "isAvailable": "1",
+       "week": "4",
+       "id": "17677"
+      },
+      {
+       "week": "4",
+       "isAvailable": "1",
+       "score": "0.0",
+       "id": "13288"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "players": [
+  {
+   "id": "7836",
+   "name": "Rodgers, Aaron",
+   "position": "QB",
+   "team": "PIT"
+  },
+  {
+   "id": "10266",
+   "name": "Heyward, Cameron",
+   "position": "DT",
+   "team": "PIT"
+  },
+  {
+   "id": "10313",
+   "name": "Dalton, Andy",
+   "position": "QB",
+   "team": "PHI"
+  },
+  {
+   "id": "10948",
+   "name": "Keenum, Case",
+   "position": "QB",
+   "team": "CHI"
+  },
+  {
+   "id": "11367",
+   "name": "Juszczyk, Kyle",
+   "position": "RB",
+   "team": "SFO"
+  },
+  {
+   "id": "11936",
+   "name": "Boswell, Chris",
+   "position": "PK",
+   "team": "PIT"
+  },
+  {
+   "id": "12263",
+   "name": "Waller, Darren",
+   "position": "TE",
+   "team": "CAR"
+  },
+  {
+   "id": "12325",
+   "name": "Burton, Michael",
+   "position": "RB",
+   "team": "CLE"
+  },
+  {
+   "id": "12678",
+   "name": "Higbee, Tyler",
+   "position": "TE",
+   "team": "LAR"
+  },
+  {
+   "id": "12688",
+   "name": "Buckner, DeForest",
+   "position": "DT",
+   "team": "IND"
+  },
+  {
+   "id": "12711",
+   "name": "Ramsey, Jalen",
+   "position": "CB",
+   "team": "PIT"
+  },
+  {
+   "id": "12754",
+   "name": "Collins, Maliek",
+   "position": "DT",
+   "team": "CLE"
+  },
+  {
+   "id": "13066",
+   "name": "Raymond, Kalif",
+   "position": "WR",
+   "team": "CHI"
+  },
+  {
+   "id": "13113",
+   "name": "Watson, Deshaun",
+   "position": "QB",
+   "team": "CLE"
+  },
+  {
+   "id": "13201",
+   "name": "Barnett, Derek",
+   "position": "DE",
+   "team": "CLE"
+  },
+  {
+   "id": "13214",
+   "name": "Watt, T.J.",
+   "position": "DE",
+   "team": "PIT"
+  },
+  {
+   "id": "13288",
+   "name": "Jenkins, Rayshawn",
+   "position": "S",
+   "team": "PIT"
+  },
+  {
+   "id": "13289",
+   "name": "Hollins, Mack",
+   "position": "WR",
+   "team": "NEP"
+  },
+  {
+   "id": "13427",
+   "name": "Tonyan, Robert",
+   "position": "TE",
+   "team": "PIT"
+  },
+  {
+   "id": "13589",
+   "name": "Allen, Josh",
+   "position": "QB",
+   "team": "BUF"
+  },
+  {
+   "id": "13707",
+   "name": "Ward, Denzel",
+   "position": "CB",
+   "team": "CLE"
+  },
+  {
+   "id": "13743",
+   "name": "Warner, Fred",
+   "position": "LB",
+   "team": "SFO"
+  },
+  {
+   "id": "13810",
+   "name": "Joseph-Day, Sebastian",
+   "position": "DT",
+   "team": "PIT"
+  },
+  {
+   "id": "13832",
+   "name": "Sanders, Jason",
+   "position": "PK",
+   "team": "NYJ"
+  },
+  {
+   "id": "13848",
+   "name": "Johnston, Cam",
+   "position": "PN",
+   "team": "PIT"
+  },
+  {
+   "id": "13869",
+   "name": "Bojorquez, Corey",
+   "position": "PN",
+   "team": "CLE"
+  },
+  {
+   "id": "14057",
+   "name": "Lock, Drew",
+   "position": "QB",
+   "team": "SEA"
+  },
+  {
+   "id": "14083",
+   "name": "Homer, Travis",
+   "position": "RB",
+   "team": "PIT"
+  },
+  {
+   "id": "14102",
+   "name": "Metcalf, DK",
+   "position": "WR",
+   "team": "PIT"
+  },
+  {
+   "id": "14137",
+   "name": "Fant, Noah",
+   "position": "TE",
+   "team": "NOS"
+  },
+  {
+   "id": "14219",
+   "name": "Dean, Jamel",
+   "position": "CB",
+   "team": "PIT"
+  },
+  {
+   "id": "14221",
+   "name": "Williams, Quincy",
+   "position": "LB",
+   "team": "CLE"
+  },
+  {
+   "id": "14260",
+   "name": "Holcomb, Cole",
+   "position": "LB",
+   "team": "PIT"
+  },
+  {
+   "id": "14442",
+   "name": "Kuntz, Christian",
+   "position": "LB",
+   "team": "PIT"
+  },
+  {
+   "id": "14717",
+   "name": "McLaughlin, Chase",
+   "position": "PK",
+   "team": "TBB"
+  },
+  {
+   "id": "14833",
+   "name": "Jeudy, Jerry",
+   "position": "WR",
+   "team": "CLE"
+  },
+  {
+   "id": "14842",
+   "name": "Pittman, Michael",
+   "position": "WR",
+   "team": "PIT"
+  },
+  {
+   "id": "14896",
+   "name": "Queen, Patrick",
+   "position": "LB",
+   "team": "PIT"
+  },
+  {
+   "id": "14907",
+   "name": "Delpit, Grant",
+   "position": "S",
+   "team": "CLE"
+  },
+  {
+   "id": "14940",
+   "name": "Highsmith, Alex",
+   "position": "DE",
+   "team": "PIT"
+  },
+  {
+   "id": "14943",
+   "name": "Davis-Gaither, Akeem",
+   "position": "LB",
+   "team": "IND"
+  },
+  {
+   "id": "14963",
+   "name": "Thomas, Daniel",
+   "position": "S",
+   "team": "CLE"
+  },
+  {
+   "id": "15331",
+   "name": "Freiermuth, Pat",
+   "position": "TE",
+   "team": "PIT"
+  },
+  {
+   "id": "15346",
+   "name": "Rousseau, Gregory",
+   "position": "DE",
+   "team": "BUF"
+  },
+  {
+   "id": "15352",
+   "name": "Collins, Zaven",
+   "position": "DE",
+   "team": "ARI"
+  },
+  {
+   "id": "15366",
+   "name": "Holland, Jevon",
+   "position": "S",
+   "team": "NYG"
+  },
+  {
+   "id": "15368",
+   "name": "McPherson, Evan",
+   "position": "PK",
+   "team": "CIN"
+  },
+  {
+   "id": "15380",
+   "name": "Campbell, Tyson",
+   "position": "CB",
+   "team": "CLE"
+  },
+  {
+   "id": "15384",
+   "name": "Samuel, Asante",
+   "position": "CB",
+   "team": "PIT"
+  },
+  {
+   "id": "15409",
+   "name": "Barnes, Derrick",
+   "position": "LB",
+   "team": "DET"
+  },
+  {
+   "id": "15452",
+   "name": "Hufanga, Talanoa",
+   "position": "S",
+   "team": "DEN"
+  },
+  {
+   "id": "15464",
+   "name": "Echols, Brandin",
+   "position": "CB",
+   "team": "PIT"
+  },
+  {
+   "id": "15491",
+   "name": "Skowronek, Ben",
+   "position": "WR",
+   "team": "PIT"
+  },
+  {
+   "id": "15589",
+   "name": "White, Cody",
+   "position": "WR",
+   "team": "LVR"
+  },
+  {
+   "id": "15742",
+   "name": "Warren, Jaylen",
+   "position": "RB",
+   "team": "PIT"
+  },
+  {
+   "id": "15794",
+   "name": "McBride, Trey",
+   "position": "TE",
+   "team": "ARI"
+  },
+  {
+   "id": "15822",
+   "name": "Lloyd, Devin",
+   "position": "LB",
+   "team": "CAR"
+  },
+  {
+   "id": "15835",
+   "name": "Brisker, Jaquan",
+   "position": "S",
+   "team": "PIT"
+  },
+  {
+   "id": "15857",
+   "name": "Williams, Sam",
+   "position": "DE",
+   "team": "CLE"
+  },
+  {
+   "id": "15923",
+   "name": "Lake, Quentin",
+   "position": "S",
+   "team": "LAR"
+  },
+  {
+   "id": "16162",
+   "name": "Gibbs, Jahmyr",
+   "position": "RB",
+   "team": "DET"
+  },
+  {
+   "id": "16185",
+   "name": "Smith-Njigba, Jaxon",
+   "position": "WR",
+   "team": "SEA"
+  },
+  {
+   "id": "16216",
+   "name": "Washington, Darnell",
+   "position": "TE",
+   "team": "PIT"
+  },
+  {
+   "id": "16230",
+   "name": "Van Ness, Lukas",
+   "position": "DE",
+   "team": "GBP"
+  },
+  {
+   "id": "16264",
+   "name": "Benton, Keeanu",
+   "position": "DT",
+   "team": "PIT"
+  },
+  {
+   "id": "16288",
+   "name": "Blackmon, Mekhi",
+   "position": "CB",
+   "team": "CLE"
+  },
+  {
+   "id": "16300",
+   "name": "McGuire, Isaiah",
+   "position": "DE",
+   "team": "CLE"
+  },
+  {
+   "id": "16303",
+   "name": "Herbig, Nick",
+   "position": "DE",
+   "team": "PIT"
+  },
+  {
+   "id": "16359",
+   "name": "Nichols, Lew",
+   "position": "RB",
+   "team": "PIT"
+  },
+  {
+   "id": "16390",
+   "name": "McLaughlin, Jaleel",
+   "position": "RB",
+   "team": "CLE"
+  },
+  {
+   "id": "16419",
+   "name": "Szmyt, Andre",
+   "position": "PK",
+   "team": "CLE"
+  },
+  {
+   "id": "16450",
+   "name": "Thomas, Drake",
+   "position": "LB",
+   "team": "SEA"
+  },
+  {
+   "id": "16460",
+   "name": "Hickman, Ronnie",
+   "position": "S",
+   "team": "CLE"
+  },
+  {
+   "id": "16474",
+   "name": "Adkins, Nate",
+   "position": "TE",
+   "team": "DEN"
+  },
+  {
+   "id": "16629",
+   "name": "Wilson, Roman",
+   "position": "WR",
+   "team": "PIT"
+  },
+  {
+   "id": "16636",
+   "name": "Corley, Malachi",
+   "position": "WR",
+   "team": "CLE"
+  },
+  {
+   "id": "16653",
+   "name": "Verse, Jared",
+   "position": "DE",
+   "team": "CLE"
+  },
+  {
+   "id": "16661",
+   "name": "Hall Jr., Michael",
+   "position": "DT",
+   "team": "CLE"
+  },
+  {
+   "id": "16716",
+   "name": "Wilson, Payton",
+   "position": "LB",
+   "team": "PIT"
+  },
+  {
+   "id": "16784",
+   "name": "Harden, Myles",
+   "position": "CB",
+   "team": "CLE"
+  },
+  {
+   "id": "16896",
+   "name": "Shrader, Spencer",
+   "position": "PK",
+   "team": "IND"
+  },
+  {
+   "id": "16926",
+   "name": "Reid, Winston",
+   "position": "LB",
+   "team": "CLE"
+  },
+  {
+   "id": "16940",
+   "name": "Whiteheart, Blake",
+   "position": "TE",
+   "team": "CLE"
+  },
+  {
+   "id": "17034",
+   "name": "Ewers, Quinn",
+   "position": "QB",
+   "team": "JAC"
+  },
+  {
+   "id": "17051",
+   "name": "Judkins, Quinshon",
+   "position": "RB",
+   "team": "CLE"
+  },
+  {
+   "id": "17052",
+   "name": "Tuten, Bhayshul",
+   "position": "RB",
+   "team": "JAC"
+  },
+  {
+   "id": "17062",
+   "name": "Sanders, Raheim",
+   "position": "RB",
+   "team": "CLE"
+  },
+  {
+   "id": "17075",
+   "name": "Golden, Matthew",
+   "position": "WR",
+   "team": "GBP"
+  },
+  {
+   "id": "17076",
+   "name": "Bond, Isaiah",
+   "position": "WR",
+   "team": "CLE"
+  },
+  {
+   "id": "17103",
+   "name": "Fannin, Harold",
+   "position": "TE",
+   "team": "CLE"
+  },
+  {
+   "id": "17116",
+   "name": "Sawyer, Jack",
+   "position": "DE",
+   "team": "PIT"
+  },
+  {
+   "id": "17121",
+   "name": "Graham, Mason",
+   "position": "DT",
+   "team": "CLE"
+  },
+  {
+   "id": "17137",
+   "name": "Harmon, Derrick",
+   "position": "DT",
+   "team": "PIT"
+  },
+  {
+   "id": "17147",
+   "name": "Schwesinger, Carson",
+   "position": "LB",
+   "team": "CLE"
+  },
+  {
+   "id": "17167",
+   "name": "Sanker, Jonas",
+   "position": "S",
+   "team": "NOS"
+  },
+  {
+   "id": "17209",
+   "name": "Black, Yahya",
+   "position": "DT",
+   "team": "PIT"
+  },
+  {
+   "id": "17233",
+   "name": "Medrano, Kain",
+   "position": "LB",
+   "team": "WAS"
+  },
+  {
+   "id": "17247",
+   "name": "Bruener, Carson",
+   "position": "LB",
+   "team": "PIT"
+  },
+  {
+   "id": "17350",
+   "name": "Huntington, Adin",
+   "position": "DE",
+   "team": "CLE"
+  },
+  {
+   "id": "17365",
+   "name": "McMillon, Donovan",
+   "position": "S",
+   "team": "CLE"
+  },
+  {
+   "id": "17379",
+   "name": "Mascarenas-Arnold, Easton",
+   "position": "LB",
+   "team": "CLE"
+  },
+  {
+   "id": "17469",
+   "name": "Daniels, Jalon",
+   "position": "QB",
+   "team": "TBB"
+  },
+  {
+   "id": "17500",
+   "name": "Boston, Denzel",
+   "position": "WR",
+   "team": "CLE"
+  },
+  {
+   "id": "17501",
+   "name": "Concepcion, KC",
+   "position": "WR",
+   "team": "CLE"
+  },
+  {
+   "id": "17503",
+   "name": "Bernard, Germie",
+   "position": "WR",
+   "team": "PIT"
+  },
+  {
+   "id": "17575",
+   "name": "McNeil-Warren, Emmanuel",
+   "position": "S",
+   "team": "CLE"
+  },
+  {
+   "id": "17604",
+   "name": "Everette, Daylen",
+   "position": "CB",
+   "team": "PIT"
+  },
+  {
+   "id": "17620",
+   "name": "Wetjen, Kaden",
+   "position": "WR",
+   "team": "PIT"
+  },
+  {
+   "id": "17624",
+   "name": "Lee, Will",
+   "position": "CB",
+   "team": "CAR"
+  },
+  {
+   "id": "17648",
+   "name": "Nowakowski, Riley",
+   "position": "TE",
+   "team": "PIT"
+  },
+  {
+   "id": "17677",
+   "name": "Pride, Toriano",
+   "position": "CB",
+   "team": "CLE"
+  },
+  {
+   "id": "17680",
+   "name": "Spears-Jennings, Robert",
+   "position": "S",
+   "team": "PIT"
+  },
+  {
+   "id": "17696",
+   "name": "Ryan, Carsen",
+   "position": "TE",
+   "team": "CLE"
+  },
+  {
+   "id": "17793",
+   "name": "Slaughter, Doneiko",
+   "position": "CB",
+   "team": "PIT"
+  }
+ ],
+ "rosters": {
+  "7836": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "10266": {
+   "fid": "0009",
+   "status": "ROSTER"
+  },
+  "10948": {
+   "fid": "0007",
+   "status": "ROSTER"
+  },
+  "12263": {
+   "fid": "0001",
+   "status": "ROSTER"
+  },
+  "12688": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "13066": {
+   "fid": "0008",
+   "status": "ROSTER"
+  },
+  "13113": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "13214": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "13589": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "13743": {
+   "fid": "0012",
+   "status": "ROSTER"
+  },
+  "13869": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "14057": {
+   "fid": "0006",
+   "status": "ROSTER"
+  },
+  "14102": {
+   "fid": "0009",
+   "status": "ROSTER"
+  },
+  "14137": {
+   "fid": "0001",
+   "status": "ROSTER"
+  },
+  "14833": {
+   "fid": "0011",
+   "status": "ROSTER"
+  },
+  "14842": {
+   "fid": "0002",
+   "status": "ROSTER"
+  },
+  "14907": {
+   "fid": "0002",
+   "status": "ROSTER"
+  },
+  "14940": {
+   "fid": "0009",
+   "status": "ROSTER"
+  },
+  "15331": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "15346": {
+   "fid": "0008",
+   "status": "ROSTER"
+  },
+  "15366": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "15368": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "15409": {
+   "fid": "0003",
+   "status": "ROSTER"
+  },
+  "15452": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "15742": {
+   "fid": "0001",
+   "status": "ROSTER"
+  },
+  "15794": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "15822": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "15835": {
+   "fid": "0002",
+   "status": "ROSTER"
+  },
+  "15923": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "16162": {
+   "fid": "0004",
+   "status": "ROSTER"
+  },
+  "16185": {
+   "fid": "0009",
+   "status": "ROSTER"
+  },
+  "16230": {
+   "fid": "0007",
+   "status": "ROSTER"
+  },
+  "16303": {
+   "fid": "0006",
+   "status": "ROSTER"
+  },
+  "16629": {
+   "fid": "0002",
+   "status": "TAXI_SQUAD"
+  },
+  "16636": {
+   "fid": "0012",
+   "status": "TAXI_SQUAD"
+  },
+  "16653": {
+   "fid": "0002",
+   "status": "ROSTER"
+  },
+  "16716": {
+   "fid": "0003",
+   "status": "ROSTER"
+  },
+  "16896": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "17051": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "17052": {
+   "fid": "0010",
+   "status": "TAXI_SQUAD"
+  },
+  "17062": {
+   "fid": "0005",
+   "status": "ROSTER"
+  },
+  "17075": {
+   "fid": "0010",
+   "status": "TAXI_SQUAD"
+  },
+  "17076": {
+   "fid": "0001",
+   "status": "ROSTER"
+  },
+  "17103": {
+   "fid": "0007",
+   "status": "ROSTER"
+  },
+  "17121": {
+   "fid": "0003",
+   "status": "ROSTER"
+  },
+  "17147": {
+   "fid": "0007",
+   "status": "ROSTER"
+  },
+  "17500": {
+   "fid": "0010",
+   "status": "ROSTER"
+  },
+  "17501": {
+   "fid": "0008",
+   "status": "ROSTER"
+  },
+  "17503": {
+   "fid": "0006",
+   "status": "TAXI_SQUAD"
+  },
+  "17575": {
+   "fid": "0001",
+   "status": "TAXI_SQUAD"
+  }
+ },
+ "leaderboard": {},
+ "mfl_ytd": {
+  "16185": "116.7",
+  "13589": "110.4",
+  "16162": "103.3",
+  "13113": "83.9",
+  "15794": "74.5",
+  "7836": "70.5",
+  "15346": "63.0",
+  "13214": "61.5",
+  "17103": "60.6",
+  "17500": "59.4",
+  "15742": "58.8",
+  "13066": "52.1",
+  "17075": "50.7",
+  "17051": "47.9",
+  "16629": "47.6",
+  "15331": "47.4",
+  "14102": "47.3",
+  "15368": "45.1",
+  "14057": "44.9",
+  "13848": "44.0",
+  "15452": "43.6",
+  "17052": "43.0",
+  "15822": "43.0",
+  "15923": "42.9",
+  "16896": "42.9",
+  "14717": "42.1",
+  "16419": "40.7",
+  "12263": "39.8",
+  "15366": "39.1",
+  "17121": "39.0",
+  "14137": "38.4",
+  "16716": "37.5",
+  "16230": "37.5",
+  "13869": "35.0",
+  "15409": "34.0",
+  "16460": "33.7",
+  "15835": "33.1",
+  "11936": "33.1",
+  "17501": "32.8",
+  "16216": "32.2",
+  "13743": "32.0",
+  "10948": "31.5",
+  "14907": "30.9",
+  "12688": "29.5",
+  "13707": "29.1",
+  "14940": "29.0",
+  "13289": "28.6",
+  "12678": "27.6",
+  "15589": "27.4",
+  "17062": "26.7",
+  "14896": "26.5",
+  "13832": "26.5",
+  "17147": "26.0",
+  "16450": "26.0",
+  "16300": "26.0",
+  "17624": "24.9",
+  "15380": "24.7",
+  "14943": "24.5",
+  "16474": "24.4",
+  "12711": "24.4",
+  "17680": "24.0",
+  "15352": "24.0",
+  "17167": "24.0",
+  "10266": "23.0",
+  "16784": "22.4",
+  "14219": "22.2",
+  "14221": "21.5",
+  "16303": "20.0",
+  "17233": "18.0",
+  "17137": "18.0",
+  "13288": "17.8",
+  "14842": "17.5",
+  "16653": "17.5",
+  "17575": "17.5",
+  "15384": "16.8",
+  "15857": "16.5",
+  "15491": "16.4",
+  "16288": "16.3",
+  "12754": "15.5",
+  "17503": "13.6",
+  "16940": "13.5",
+  "14833": "12.0",
+  "17620": "11.6",
+  "17350": "11.5",
+  "11367": "10.7",
+  "13810": "10.5",
+  "16661": "10.0",
+  "17604": "9.5",
+  "16390": "9.3",
+  "16636": "9.1",
+  "17116": "9.0",
+  "16264": "9.0",
+  "13201": "8.5",
+  "17209": "7.5",
+  "17365": "5.0",
+  "14260": "4.5",
+  "17379": "4.0",
+  "14963": "3.4",
+  "17076": "3.4",
+  "17247": "3.0",
+  "15464": "2.6",
+  "14083": "2.4",
+  "17793": "2.1",
+  "16359": "2.0",
+  "13427": "1.7",
+  "17648": "1.5",
+  "16926": "1.0",
+  "17696": "0.5",
+  "17677": "0.0",
+  "17034": "0.0",
+  "14442": "0.0",
+  "12325": "0.0",
+  "17469": "-1.1",
+  "10313": "-2.0"
+ },
+ "mfl_avg": {
+  "16185": "38.90",
+  "13589": "36.80",
+  "16162": "34.43",
+  "10948": "31.50",
+  "15794": "24.83",
+  "14057": "22.45",
+  "15822": "21.50",
+  "15346": "21.00",
+  "13113": "20.98",
+  "7836": "17.62",
+  "13066": "17.37",
+  "17075": "16.90",
+  "13214": "15.38",
+  "17103": "15.15",
+  "15368": "15.03",
+  "17500": "14.85",
+  "15742": "14.70",
+  "15452": "14.53",
+  "17052": "14.33",
+  "15923": "14.30",
+  "16896": "14.30",
+  "14717": "14.03",
+  "12263": "13.27",
+  "15366": "13.03",
+  "14137": "12.80",
+  "16230": "12.50",
+  "17051": "11.98",
+  "16629": "11.90",
+  "15331": "11.85",
+  "14102": "11.82",
+  "15409": "11.33",
+  "13848": "11.00",
+  "13743": "10.67",
+  "16419": "10.18",
+  "12688": "9.83",
+  "17121": "9.75",
+  "13289": "9.53",
+  "16716": "9.38",
+  "12678": "9.20",
+  "15589": "9.13",
+  "13832": "8.83",
+  "13869": "8.75",
+  "16450": "8.67",
+  "16460": "8.42",
+  "17624": "8.30",
+  "15835": "8.28",
+  "11936": "8.28",
+  "15380": "8.23",
+  "17501": "8.20",
+  "14943": "8.17",
+  "16474": "8.13",
+  "16216": "8.05",
+  "15352": "8.00",
+  "17167": "8.00",
+  "14907": "7.72",
+  "13707": "7.28",
+  "14940": "7.25",
+  "17062": "6.67",
+  "14896": "6.62",
+  "17147": "6.50",
+  "16300": "6.50",
+  "12711": "6.10",
+  "17680": "6.00",
+  "17233": "6.00",
+  "14842": "5.83",
+  "10266": "5.75",
+  "16784": "5.60",
+  "14219": "5.55",
+  "14221": "5.38",
+  "16303": "5.00",
+  "17137": "4.50",
+  "13288": "4.45",
+  "17575": "4.38",
+  "16653": "4.38",
+  "15384": "4.20",
+  "15857": "4.12",
+  "15491": "4.10",
+  "16288": "4.08",
+  "12754": "3.88",
+  "11367": "3.57",
+  "17503": "3.40",
+  "16940": "3.38",
+  "16390": "3.10",
+  "14833": "3.00",
+  "17620": "2.90",
+  "17350": "2.88",
+  "13810": "2.62",
+  "16661": "2.50",
+  "17604": "2.38",
+  "16636": "2.27",
+  "16264": "2.25",
+  "17116": "2.25",
+  "13201": "2.12",
+  "17209": "1.88",
+  "14963": "1.70",
+  "17365": "1.25",
+  "14260": "1.12",
+  "17793": "1.05",
+  "17379": "1.00",
+  "16359": "1.00",
+  "17076": "0.85",
+  "14083": "0.80",
+  "17247": "0.75",
+  "15464": "0.65",
+  "13427": "0.42",
+  "17648": "0.38",
+  "16926": "0.25",
+  "17696": "0.12",
+  "14442": "0.00",
+  "17034": "0.00",
+  "17677": "0.00",
+  "12325": "0.00",
+  "17469": "-1.10",
+  "10313": "-2.00"
+ },
+ "week4_player_ids": [
+  "7836",
+  "10266",
+  "11936",
+  "12325",
+  "12711",
+  "12754",
+  "13113",
+  "13201",
+  "13214",
+  "13288",
+  "13427",
+  "13707",
+  "13810",
+  "13848",
+  "13869",
+  "14083",
+  "14102",
+  "14219",
+  "14221",
+  "14260",
+  "14442",
+  "14833",
+  "14842",
+  "14896",
+  "14907",
+  "14940",
+  "14963",
+  "15331",
+  "15380",
+  "15384",
+  "15464",
+  "15491",
+  "15742",
+  "15835",
+  "15857",
+  "16216",
+  "16264",
+  "16288",
+  "16300",
+  "16303",
+  "16359",
+  "16390",
+  "16419",
+  "16460",
+  "16629",
+  "16636",
+  "16653",
+  "16661",
+  "16716",
+  "16784",
+  "16926",
+  "16940",
+  "17051",
+  "17062",
+  "17076",
+  "17103",
+  "17116",
+  "17121",
+  "17137",
+  "17147",
+  "17209",
+  "17247",
+  "17350",
+  "17365",
+  "17379",
+  "17500",
+  "17501",
+  "17503",
+  "17575",
+  "17604",
+  "17620",
+  "17648",
+  "17677",
+  "17680",
+  "17696",
+  "17793"
+ ]
+}

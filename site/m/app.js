@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.02.1";
+  var BUILD = "2026.10.02.3";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -283,6 +283,7 @@
     playerScoresYtd: null,    // MFL playerScores W=YTD export
     playerScoresAll: null,    // MFL playerScores W=ALL export — every week, league scoring (season_scoring.js)
     lineupWeekResolution: null, // /api/current-lineup-week { week, source } — which weeks are COMPLETE
+    playerScoresAllAt: 0,     // ms epoch the W=ALL read above landed (0 = never) — the "MFL as of" time
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
     optimisticTagSubmissions: null, // pending tag/untag pushes that survive reloadData() until ETL JSON confirms them
@@ -1262,6 +1263,7 @@
       state.acquisitionByKey = results[18] || {};
       state.acquisitionFromTxByKey = results[22] || {};
       state.playerScoresAll = results[23] || null;
+      state.playerScoresAllAt = results[23] ? Date.now() : 0;
       state.lineupWeekResolution = (results[24] && results[24].ok) ? results[24] : null;
       state._seasonScoringCache = null;
       // results[19] is { byPid, ok, rows } — the readable/empty/unknown split.
@@ -1642,24 +1644,66 @@
     return map;
   }
 
-  // MFL's own league-scored season totals through the last COMPLETED week —
-  // the Players market's actual-points source. See site/m/season_scoring.js
-  // for the rules (completed weeks only, MFL's games denominator, zero and
-  // negative weeks count). known:false when either input is missing or the
-  // completed week cannot be confirmed: callers show "unavailable".
+  // MFL's own league-scored season totals — the Players market's actual-points
+  // source. See site/m/season_scoring.js for the rules: "Season" is MFL's
+  // W=YTD with a week in progress included; only the last-N windows are
+  // limited to final weeks. known:false when MFL's scoring didn't load:
+  // callers show "unavailable".
   function getSeasonScoring() {
     if (state._seasonScoringCache) return state._seasonScoringCache;
     var SS = window.UPS_MOBILE_SEASON_SCORING;
     var out;
     if (!SS) {
-      out = { known: false, reason: "module_missing", throughWeek: 0, finalized: false,
-              includedWeeks: [], excludedWeeks: [], byPid: {}, windowFor: function () { return {}; } };
+      out = { known: false, reason: "module_missing", latestWeek: 0, seasonWeeks: [],
+              finalKnown: false, finalThrough: 0, finalWeeks: [], liveWeeks: [], byPid: {},
+              windowFor: function () { return {}; } };
     } else {
       out = SS.build(state.playerScoresAll, { completedWeek: SS.completedWeekFrom(state.lineupWeekResolution) });
     }
     out.season = safeInt(state.ctx && state.ctx.year, 0);
+    out.fetchedAt = state.playerScoresAllAt || 0;
     state._seasonScoringCache = out;
     return out;
+  }
+
+  // Re-read the two season-scoring inputs once they are older than maxAgeMs.
+  // MFL's YTD moves while games are being played, and the boot read is the
+  // only other one — a Players screen left open since the morning would keep
+  // the morning's totals all afternoon. Resolves true only when the numbers
+  // actually changed (the caller re-renders), false otherwise.
+  //   - A failed or error-envelope W=ALL read changes NOTHING: the numbers on
+  //     screen and their older "as of" time both stay, so staleness shows.
+  //   - The week check is replaced together with the scores, failure included:
+  //     a stale "Week 4 is live" must not label scores read after it ended.
+  //   - At most one attempt a minute (the worker caches MFL for 60s anyway),
+  //     so a search box re-rendering per keystroke can't hammer a dead MFL.
+  var seasonScoringRefresh = null, seasonScoringTriedAt = 0;
+  function refreshSeasonScoringIfStale(maxAgeMs) {
+    if (seasonScoringRefresh) return seasonScoringRefresh;
+    var now = Date.now();
+    if (!state.loaded) return Promise.resolve(false);
+    if (state.playerScoresAllAt && now - state.playerScoresAllAt < maxAgeMs) return Promise.resolve(false);
+    if (now - seasonScoringTriedAt < 60000) return Promise.resolve(false);
+    seasonScoringTriedAt = now;
+    seasonScoringRefresh = Promise.all([
+      fetchJson(mflExportUrl("playerScores", { W: "ALL" })).catch(function () { return null; }),
+      fetch(workerUrl("/api/current-lineup-week"), { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+    ]).then(function (res) {
+      seasonScoringRefresh = null;
+      var payload = res[0];
+      if (!payload || payload.error || !payload.playerScoresAllWeeks) return false;
+      var wk = (res[1] && res[1].ok) ? res[1] : null;
+      var changed = JSON.stringify(payload) !== JSON.stringify(state.playerScoresAll) ||
+        JSON.stringify(wk) !== JSON.stringify(state.lineupWeekResolution);
+      state.playerScoresAll = payload;
+      state.playerScoresAllAt = Date.now();
+      state.lineupWeekResolution = wk;
+      state._seasonScoringCache = null;
+      return changed;
+    }, function () { seasonScoringRefresh = null; return false; });
+    return seasonScoringRefresh;
   }
 
   function getMyTradeBaitNoteFor(pid) {
@@ -3526,6 +3570,7 @@
       getAllRosteredPids: getAllRosteredPids,
       getYtdScoresMap: getYtdScoresMap,
       getSeasonScoring: getSeasonScoring,
+      refreshSeasonScoringIfStale: refreshSeasonScoringIfStale,
       getAdvancedStatsFor: function (pid, year) {
         // year-specific lookup. Defaults to current year.
         var byYear = state.advancedStatsByYear || {};

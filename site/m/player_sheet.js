@@ -151,10 +151,10 @@
     var anchor = (getLatest && getLatest()) || curYear;
     var seasonScoring = window.UPS_MOBILE.data.getSeasonScoring
       ? window.UPS_MOBILE.data.getSeasonScoring() : null;
-    // An in-progress week can populate the leaderboard or D1 career_summary
-    // before it is final. If MFL scoring or the completed-week check failed,
-    // those copies cannot stand in for current-season actual points.
-    if (!seasonScoring || !seasonScoring.known || !(seasonScoring.throughWeek > 0)) {
+    // The leaderboard / D1 career_summary copies lag MFL by a sync. If MFL's
+    // own scoring failed, or MFL has posted no current-season score yet, those
+    // copies cannot stand in for current-season actual points.
+    if (!seasonScoring || !seasonScoring.known || !seasonScoring.seasonWeeks || !seasonScoring.seasonWeeks.length) {
       anchor = Math.min(anchor, curYear - 1);
     }
     var years = [anchor, anchor - 1, anchor - 2];
@@ -181,14 +181,14 @@
     // leaderboard map; we preload all three at app boot.
     var pid = (window.UPS_MOBILE.state && window.UPS_MOBILE.state._sheetPid) || "";
     var getStats = window.UPS_MOBILE.data.getAdvancedStatsFor;
-    // CURRENT season: MFL's own league scoring through the last COMPLETED week
+    // CURRENT season: MFL's own YTD, a week in progress included
     // (site/m/season_scoring.js) — the exact numbers the Players market shows
     // on the row that opened this sheet. career_summary is built from D1
     // src_weekly, which lags MFL by a sync and on 2026-09-29 held no free-agent
     // or taxi weeks at all (Chase McLaughlin: no 2026 row vs MFL's 42.1; Lukas
     // Van Ness: 1 G / 3.5 vs MFL's 3 G / 37.5). Earlier seasons are unchanged.
     var live = liveSeasonRow(pid);
-    // A completed week of MFL scoring IS real current-season data, even on the
+    // A posted week of MFL scoring IS real current-season data, even on the
     // days before the stats leaderboard has rebuilt with any rows for it.
     if (live && live.season > years[0]) {
       years = [live.season, live.season - 1, live.season - 2];
@@ -245,8 +245,8 @@
       '<div class="ups-m-stat-basis">' + U.escapeHtml(live
         ? live.season + ": " + live.basis
         : (!seasonScoring || !seasonScoring.known)
-          ? curYear + ": points unavailable — MFL scoring or completed week could not be confirmed"
-          : curYear + ": no completed week yet; current-season points are not shown") + '</div>';
+          ? curYear + ": points unavailable — MFL's scoring could not be read"
+          : curYear + ": no scores posted yet; current-season points are not shown") + '</div>';
   }
 
   function statRowHtml(y, games, pts, ppg, ppgRank) {
@@ -260,12 +260,12 @@
   }
 
   // { season, games, pts, ppg, rank, basis } for the current season from MFL's
-  // league scoring, or null when there is no confirmed completed week to show.
+  // league scoring (its YTD), or null when MFL has posted nothing to show.
   function liveSeasonRow(pid) {
     var D = window.UPS_MOBILE.data;
     var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
     var ss = D && D.getSeasonScoring ? D.getSeasonScoring() : null;
-    if (!pid || !SSMOD || !ss || !ss.known || !(ss.throughWeek > 0) || !ss.season) return null;
+    if (!pid || !SSMOD || !ss || !ss.known || !ss.seasonWeeks || !ss.seasonWeeks.length || !ss.season) return null;
     var FOL = window.UPS_FRONT_OFFICE_LINEUP;
     if (!ss._sheetRank) {
       ss._sheetRank = SSMOD.rankMap(ss.byPid, function (id) {
@@ -282,8 +282,9 @@
       pts: st ? st.pts : 0,
       ppg: st && st.ppg != null ? st.ppg : 0,
       rank: rk ? rk.rank : 0,
-      basis: "MFL league scoring, " + SSMOD.weeksLabel(ss.includedWeeks) +
-        (ss.finalized ? " (final)" : " (latest posted)")
+      basis: "MFL's YTD, league scoring, " + SSMOD.weeksLabel(ss.seasonWeeks) +
+        (ss.liveWeeks.length ? " — Wk " + ss.liveWeeks.join(", ") + " in progress, games already played count"
+          : ss.finalKnown ? " (final)" : "")
     };
   }
 

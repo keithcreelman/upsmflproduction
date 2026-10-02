@@ -121,11 +121,15 @@
   }
 
   // ══ Actual points (MFL league scoring) ═════════════════════════════════
-  // EVERY points number on this screen — YTD, L2/L4/L6, PPG, positional rank —
+  // EVERY points number on this screen — Season, L2/L4/L6, PPG, positional rank —
   // comes from ONE source: DATA.getSeasonScoring(), i.e. MFL's own per-week
-  // playerScores for THIS league, completed weeks only (site/m/season_scoring.js
-  // has the rules). Keith 2026-10-01: "YTD Points do not appear to match the
-  // points players actually scored in our MFL league" — they didn't. YTD came
+  // playerScores for THIS league (site/m/season_scoring.js has the rules).
+  // "Season" is MFL's own YTD, a week still being played included (Keith
+  // 2026-10-02: after Thursday night of Week 4 the screen still showed Wk 1–3
+  // totals while MFL's YTD had the game — Andre Szmyt 27.7 here, 40.7 on MFL).
+  // Only the last-N windows are FINAL weeks, and they say so on their label.
+  // Keith 2026-10-01: "YTD Points do not appear to match the points players
+  // actually scored in our MFL league" — they didn't. YTD came
   // from /api/advanced-stats-leaderboard's mfl_points, a D1 copy of src_weekly
   // that the standings sync had cut down to ACTIVE-roster rows, so every free
   // agent read 0.0 and the PPG sort put one-week wonders on top; L2/L4/L6 came
@@ -134,18 +138,18 @@
   // a week behind every Tuesday/Wednesday — exactly when bids are placed.
   //
   // Basis, in order:
-  //   season       the current season has a completed week → MFL's numbers.
-  //   prior        the read worked but no current-season week is complete yet
-  //                (preseason, or Week 1 still being played) → last season's
-  //                final board, labelled with ITS year, never as "YTD".
+  //   season       MFL has posted a current-season score → MFL's numbers.
+  //   prior        the read worked but MFL has posted no current-season score
+  //                yet (preseason) → last season's final board, labelled with
+  //                ITS year, never as "YTD".
   //   none         nothing to show for either season.
-  //   unavailable  MFL's scoring or the completed-week check didn't load →
-  //                say so; no substitute number.
+  //   unavailable  MFL's scoring didn't load (or came back unreadable) → say
+  //                so; no substitute number.
   var SSMOD = window.UPS_MOBILE_SEASON_SCORING || null;
   function seasonScoring() { return DATA.getSeasonScoring ? DATA.getSeasonScoring() : null; }
   function pointsBasis() {
     var ss = seasonScoring();
-    if (ss && ss.known && ss.throughWeek > 0) return { kind: "season", ss: ss };
+    if (ss && ss.known && ss.seasonWeeks.length) return { kind: "season", ss: ss };
     if (ss && ss.known) {
       var cur = U.safeInt(M.state.ctx && M.state.ctx.year, 0);
       var priorYear = cur - 1;
@@ -252,58 +256,108 @@
   // come from pointsBasis() above, like every other points number here. If the
   // intel module or its data is missing, the matchup line simply isn't drawn.
   function intel() { return M.lineupIntel || null; }
-  function winKey() { return view.window || 0; }
+  // CHOSEN vs EFFECTIVE (2026-10-02). view.window / view.sort hold what the
+  // owner picked, and no render ever rewrites them. A choice that can't apply
+  // right now — "Last 2 wks" before three weeks are final, Most added /
+  // Most dropped outside Free agents, a projection sort before projections
+  // load — falls back for THIS render only (eff.*) and comes back by itself.
+  // clampControls used to overwrite the choice: pick Most added, peek at All
+  // players, come back, and the list had quietly become PPG.
+  var eff = { window: 0, sort: "ppg", sortNote: "" };
+  function winKey() { return eff.window; }
 
-  // Which window toggles are meaningful. A last-N window can only differ from
-  // season-to-date once MORE than N weeks are complete — before that it IS the
-  // season, so offering it is a dead control (same rule as the Lineup view's
-  // availWindows()). Counted off the SAME completed weeks the totals use, so a
-  // window can never cover a week the YTD number doesn't. Preseason / prior-
-  // season basis ⇒ 0 ⇒ YTD only ⇒ the toggle row doesn't render at all.
+  // Which window toggles are meaningful. A last-N window is FINAL weeks only,
+  // and it is offered once MORE than N weeks are final — before that it is
+  // just "every final week", a dead control (same rule as the Lineup view's
+  // availWindows()). No week known to be final (the week check failed) ⇒ no
+  // windows at all, never a guess. Preseason / prior-season basis ⇒ Season
+  // only ⇒ the toggle row doesn't render at all.
   function availWindows() {
-    var b = pointsBasis(), wa = b.kind === "season" ? b.ss.includedWeeks.length : 0, out = [[0, "YTD"]];
+    var b = pointsBasis(), wa = b.kind === "season" ? b.ss.finalWeeks.length : 0, out = [[0, "YTD"]];
     if (wa > 2) out.push([2, "L2"]);
     if (wa > 4) out.push([4, "L4"]);
     if (wa > 6) out.push([6, "L6"]);
     return out;
   }
-  // Keep the selected controls inside what's actually offerable, so we never
-  // sort by (or label with) a basis whose buttons aren't on screen.
+  // Resolve this render's EFFECTIVE period and sort from the owner's choices
+  // (see eff above). Never writes view.*.
   function clampControls() {
-    var ok = availWindows().some(function (o) { return o[0] === winKey(); });
-    if (!ok) view.window = 0;
-    if (view.sort === "proj" && !projReady()) view.sort = "ppg";
-    // Hot/Cold only make sense in FA scope — the buttons that offer them
-    // aren't even on screen otherwise (see renderToolbar). Do NOT clamp on
-    // "not loaded yet" / "MFL unreadable" — those are real, active states
-    // (a loading button / an inline notice) the owner just triggered by
-    // tapping, not a stale control that needs resetting.
-    if ((view.sort === "hot" || view.sort === "cold") && !faScopeActive()) view.sort = "ppg";
+    var wk = view.window || 0;
+    eff.window = availWindows().some(function (o) { return o[0] === wk; }) ? wk : 0;
+    var s = view.sort || "ppg", note = "";
+    if (s === "proj" && !projReady()) {
+      note = "the " + projLabel().toLowerCase() + " isn't loaded yet";
+      s = "ppg";
+    } else if ((s === "hot" || s === "cold") && !faScopeActive()) {
+      // Hot/Cold only make sense in FA scope: MFL's topAdds/topDrops are free
+      // agents only. Do NOT fall back on "not loaded yet" / "MFL unreadable" —
+      // those are real, active states (a loading note / an inline notice).
+      note = (s === "hot" ? "Most added" : "Most dropped") + " covers free agents only";
+      s = "ppg";
+    }
+    eff.sort = s;
+    eff.sortNote = note ? (note + " — sorted by PPG here") : "";
+    // What every row's points chip names: "Wks 1–4" (Season = MFL YTD) /
+    // "Wks 2–3 final" (a last-N window) / "2025 season".
+    var b = pointsBasis();
+    eff.span = b.kind === "season"
+      ? (SSMOD ? SSMOD.weeksLabel(windowWeeks(eff.window)) : "") + (eff.window ? " final" : "")
+      : (b.kind === "prior" ? (b.year + " season") : "");
+  }
+
+  // The weeks a period covers, and its name. Same weeks season_scoring sums:
+  //   Season      every posted week — "Wks 1–4 · live" while Week 4 is being
+  //               played, "Wks 1–4 · final" once it isn't, bare "Wks 1–4"
+  //               when the week check failed and finality is unknown.
+  //   Last N wks  the last N FINAL weeks — always "· final".
+  // Short on purpose: four of these share a 320px row late in the season.
+  function windowWeeks(k) {
+    var b = pointsBasis();
+    if (b.kind !== "season") return [];
+    if (!k) return b.ss.seasonWeeks;
+    var lo = b.ss.finalThrough - k + 1;
+    return b.ss.finalWeeks.filter(function (w) { return w >= lo; });
+  }
+  function periodName(k) { return k ? ("Last " + k + " wks") : "Season"; }
+  // { weeks: "Wks 1–4", status: "live" | "final" | "" }
+  function periodParts(k) {
+    var b = pointsBasis();
+    var weeks = SSMOD ? SSMOD.weeksLabel(windowWeeks(k)) : "";
+    if (!weeks || b.kind !== "season") return { weeks: weeks, status: "" };
+    if (k) return { weeks: weeks, status: "final" };
+    if (b.ss.liveWeeks.length) return { weeks: weeks, status: "live" };
+    return { weeks: weeks, status: b.ss.finalKnown ? "final" : "" };
+  }
+  function periodSpan(k) {
+    var pp = periodParts(k);
+    return pp.weeks + (pp.status ? " · " + pp.status : "");
   }
 
   // Total / PPG / games / positional rank for the selected window, from the
   // one MFL source (see pointsBasis). `pts` null = we have no number (show
   // nothing, sort last); `ppg` null = no scored weeks in the window (0 MFL wks, not 0.0 PPG).
-  // A player with no MFL row in a completed window genuinely scored nothing in
-  // it, so that is 0 pts / 0 MFL wks — a real answer, unlike an unloaded source.
+  // A player with no MFL row in the window (season or final weeks) genuinely
+  // scored nothing in it yet, so that is 0 pts / 0 MFL wks — a real answer,
+  // unlike an unloaded source.
   function statsFor(r) {
     var b = pointsBasis();
-    if (b.kind === "unavailable") return { have: false, unavailable: true, label: "YTD" };
+    // `label` is the span the numbers cover, shown on the row's points chip.
+    if (b.kind === "unavailable") return { have: false, unavailable: true, label: "season" };
     if (b.kind === "prior") {
       return r.ytdPts === null
-        ? { have: false, label: String(b.year) }
-        : { have: true, label: String(b.year), pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
+        ? { have: false, label: eff.span }
+        : { have: true, label: eff.span, pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
             rank: r.posRank, group: r.rankGroup };
     }
-    if (b.kind !== "season") return { have: false, label: "YTD" };
+    if (b.kind !== "season") return { have: false, label: "season" };
     var k = winKey();
     if (!k) {
-      return { have: true, label: "YTD", pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
+      return { have: true, label: eff.span, pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
                rank: r.posRank, group: r.rankGroup };
     }
     var f = b.ss.windowFor(k)[String(r.id)];
     var rk = rankMapFor(b.ss, k)[String(r.id)];
-    return { have: true, label: "L" + k, pts: f ? f.pts : 0, ppg: f ? f.ppg : null, games: f ? f.games : 0,
+    return { have: true, label: eff.span, pts: f ? f.pts : 0, ppg: f ? f.ppg : null, games: f ? f.games : 0,
       rank: rk ? rk.rank : 0, group: rk ? rk.group : r.grp };
   }
   function projFor(pid) { var I = intel(); return I ? I.projFor(pid) : null; }
@@ -352,10 +406,10 @@
     return typeof v === "number" ? v : undefined;
   }
   function hotColdBadgeHtml(r) {
-    if (view.sort !== "hot" && view.sort !== "cold") return "";
-    var pct = hotColdPercent(view.sort, r.id);
+    if (eff.sort !== "hot" && eff.sort !== "cold") return "";
+    var pct = hotColdPercent(eff.sort, r.id);
     if (pct === undefined) return "";
-    var icon = view.sort === "hot" ? "🔥" : "❄️";
+    var icon = eff.sort === "hot" ? "🔥" : "❄️";
     return '<span>' + icon + ' ' + pct.toFixed(1) + '%</span>';
   }
 
@@ -389,16 +443,16 @@
     // sorting him as 0.0 would rank him above every real negative average.
     function ptsHave(r) { return !!r.win.have && r.win.pts != null; }
     function ppgHave(r) { return !!r.win.have && r.win.ppg != null; }
-    if (view.sort === "proj" && projReady()) {
+    if (eff.sort === "proj") {
       filtered.sort(by(function (r) { return projFor(r.id); },
                       function (r) { return projFor(r.id) != null; }));
-    } else if (view.sort === "hot") {
+    } else if (eff.sort === "hot") {
       filtered.sort(by(function (r) { return hotColdPercent("hot", r.id); },
                       function (r) { return hotColdPercent("hot", r.id) !== undefined; }));
-    } else if (view.sort === "cold") {
+    } else if (eff.sort === "cold") {
       filtered.sort(by(function (r) { return hotColdPercent("cold", r.id); },
                       function (r) { return hotColdPercent("cold", r.id) !== undefined; }));
-    } else if (view.sort === "pts") {
+    } else if (eff.sort === "pts") {
       filtered.sort(by(function (r) { return r.win.pts; }, ptsHave));
     } else {
       filtered.sort(by(function (r) { return r.win.ppg; }, ppgHave));
@@ -650,42 +704,53 @@
       '<option value="all"' + (view.scope === "all" && !view.teamFilter ? ' selected' : '') + '>All Players</option>' +
       '<optgroup label="By team">' + teamOpts + '</optgroup>' +
     '</select>';
-    // Stat window — YTD · L2 · L4 · L6. Only rendered when a last-N window can
-    // actually differ from season-to-date (availWindows), so in the preseason
-    // this row is absent and the list is YTD exactly as before.
+    // THE points-period control (Keith 2026-10-02: "YTD" and "L2" looked like
+    // a second sort, and "Sort: L2 pts" in the dropdown looked like a second
+    // period control). It is the ONLY control that picks which weeks the
+    // points, PPG, MFL wks and rank on every row cover — and it names them:
+    // "Season · Wks 1–4 · live" (MFL's YTD), "Last 2 wks · Wks 2–3 · final".
+    // It changes nothing else: the sort keeps its own choice, and the matchup line always uses
+    // season-to-date defense ranks. Shown whenever current-season points are,
+    // even with one option, because the week span is the point of it.
+    // "live" / "final" is its own element: with three or four periods on a
+    // phone it drops to its own line instead of being cut to "Wks 10–11 · fi…".
     var wins = availWindows();
-    var winRow = wins.length > 1
-      ? '<div class="ups-m-sort-row" role="group" aria-label="Stat window">' + wins.map(function (o) {
-          return '<button class="ups-m-sort-btn' + (winKey() === o[0] ? " on" : "") +
-            '" data-win="' + o[0] + '" title="' + (o[0] ? "Last " + o[0] + " weeks" : "Season to date") + '">' +
-            o[1] + '</button>';
-        }).join("") + '</div>'
+    var winRow = pointsBasis().kind === "season"
+      ? '<div class="ups-m-period' + (wins.length > 2 ? " crowd" : "") + '" role="radiogroup" aria-label="Points period">' +
+          '<span class="lbl">Points</span>' + wins.map(function (o) {
+            var on = winKey() === o[0], pp = periodParts(o[0]);
+            return '<button class="ups-m-period-btn' + (on ? " on" : "") + '" data-win="' + o[0] +
+              '" role="radio" aria-checked="' + (on ? "true" : "false") + '">' +
+              '<span class="nm">' + U.escapeHtml(periodName(o[0])) + '</span>' +
+              '<span class="wk">' + U.escapeHtml(pp.weeks) +
+                (pp.status ? '<span class="st"><span class="sep"> · </span>' + U.escapeHtml(pp.status) + '</span>' : '') +
+              '</span></button>';
+          }).join("") + '</div>'
       : '';
-    // ONE sort control instead of a five-button row whose labels wrapped onto
-    // two lines and pushed the list below the fold on a phone. Every option
-    // names its basis: points follow the window ("L4 pts"), the projection
-    // names its week, Hot/Cold say they are MFL-wide, not our league.
+    // The ONE sort control. Its options name WHAT is ranked, never the period
+    // (that is the control above): PPG and Total pts rank the selected
+    // period; the projection names its week; Hot/Cold say they are MFL-wide.
     var hcLoading = hotColdLoading();
-    var sortOpts = [["ppg", "PPG"], ["pts", windowPtsLabel() + " pts"]];
-    if (projReady()) sortOpts.push(["proj", projLabel()]);
+    var sortOpts = [["ppg", "PPG"], ["pts", "Total pts"]];
+    if (projReady()) sortOpts.push(["proj", projLabel().replace(/ proj$/, " projection")]);
     // Hot/Cold — MFL's own platform-wide topAdds/topDrops, free agents only.
     // FA scope only (see faScopeActive); STATUS=FA data structurally can't
     // rank most rows in "All Players" or a single team's roster.
     if (faScopeActive()) {
-      sortOpts.push(["hot", "Most added (all MFL)"]);
-      sortOpts.push(["cold", "Most dropped (all MFL)"]);
+      sortOpts.push(["hot", "Most added, all MFL"]);
+      sortOpts.push(["cold", "Most dropped, all MFL"]);
     }
     var sortSel = '<select class="ups-m-players-filter ups-m-players-sort" id="ups-m-players-sort" aria-label="Sort players">' +
       sortOpts.map(function (o) {
-        return '<option value="' + o[0] + '"' + (view.sort === o[0] ? ' selected' : '') + '>Sort: ' +
+        return '<option value="' + o[0] + '"' + (eff.sort === o[0] ? ' selected' : '') + '>Sort: ' +
           U.escapeHtml(o[1]) + '</option>';
       }).join("") + '</select>';
     // Inline "couldn't read MFL" notice — only once the fetch has actually
     // settled (not mid-flight) and the tapped side came back known:false.
     // Reuses the existing warn-banner styling (.ups-m-waiver-flash.warn)
     // rather than inventing a new notice component.
-    var hotColdNoticeText = (!hcLoading && (view.sort === "hot" || view.sort === "cold"))
-      ? hotColdErrorFor(view.sort)
+    var hotColdNoticeText = (!hcLoading && (eff.sort === "hot" || eff.sort === "cold"))
+      ? hotColdErrorFor(eff.sort)
       : "";
     var hotColdNotice = hotColdNoticeText
       ? '<div class="ups-m-waiver-flash warn">' + U.escapeHtml(hotColdNoticeText) + '</div>'
@@ -705,12 +770,6 @@
   // or the next one) — from the same resolver the Lineup view uses.
   function projWeek() { return U.safeInt(M.state.lineupWeek || M.state.lineupProjWeek, 0); }
   function projLabel() { var w = projWeek(); return w ? ("Wk " + w + " proj") : "Proj"; }
-  // "YTD" / "L4" / "2025" — what the points number on a row covers.
-  function windowPtsLabel() {
-    var b = pointsBasis();
-    if (b.kind === "prior") return String(b.year);
-    return winKey() ? ("L" + winKey()) : "YTD";
-  }
 
   // One line under the controls that says exactly what the numbers ARE and
   // how fresh they are. Keith 2026-10-01: labels for actual points,
@@ -720,30 +779,42 @@
     var cur = U.safeStr(M.state.ctx && M.state.ctx.year);
     var txt, warn = false;
     if (b.kind === "season") {
-      var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : ("through Wk " + b.ss.throughWeek);
-      txt = "Actual points: MFL league scoring, " + span + (b.ss.finalized ? " (final)" : " (latest posted — may still be in progress)");
-      if (b.ss.finalized && b.ss.excludedWeeks.length) {
-        txt += " · Wk " + b.ss.excludedWeeks.join(", ") + " in progress, not counted";
+      var ss = b.ss, span = SSMOD ? SSMOD.weeksLabel(ss.seasonWeeks) : "";
+      txt = "Season = MFL's YTD, league scoring, " + span;
+      if (ss.liveWeeks.length) {
+        txt += " — Wk " + ss.liveWeeks.join(", ") + " in progress: games already played count, the rest aren't in yet";
+      } else if (ss.finalKnown) {
+        txt += " (final)";
+      } else {
+        txt += " · couldn't confirm which weeks are final, so last-weeks totals are hidden";
       }
-      if (winKey()) txt += " · L" + winKey() + " = last " + winKey() + " of those weeks";
+      var lastN = availWindows().slice(1).map(function (o) { return o[0]; });
+      if (lastN.length) txt += " · Last " + lastN.join("/") + " wks = final weeks only";
+      var asOf = clockLabel(ss.fetchedAt);
+      if (asOf) txt += " · MFL as of " + asOf;
     } else if (b.kind === "prior") {
-      txt = b.ss && b.ss.reason === "no_scores_posted"
-        ? "No " + cur + " scores posted yet — points are " + b.year + " season totals"
-        : "No " + cur + " week is final yet — points are " + b.year + " season totals";
+      txt = "No " + cur + " scores posted yet — points are " + b.year + " season totals";
     } else if (b.kind === "none") {
-      txt = "No completed " + cur + " week yet — no points to show";
+      txt = "No " + cur + " scores posted yet — no points to show";
     } else {
-      txt = b.reason === "week_unresolved"
-        ? "Couldn't confirm the last completed week — points are hidden until that check succeeds. Tap refresh to retry."
+      txt = b.reason === "unreadable_scores"
+        ? "MFL's " + cur + " scores came back unreadable — points are hidden rather than guessed. Tap refresh to retry."
         : "Couldn't load MFL's scoring — points are hidden rather than guessed. Tap refresh to retry.";
       warn = true;
     }
     if (projReady()) txt += " · " + projLabel() + " = MFL projection";
-    if (hcLoading && (view.sort === "hot" || view.sort === "cold")) txt += " · Loading MFL's " + (view.sort === "hot" ? "most-added" : "most-dropped") + " list…";
+    if (eff.sortNote) txt += " · " + eff.sortNote;
+    if (hcLoading && (eff.sort === "hot" || eff.sort === "cold")) txt += " · Loading MFL's " + (eff.sort === "hot" ? "most-added" : "most-dropped") + " list…";
     return '<div class="ups-m-fa-basis' + (warn ? " warn" : "") + '">' + U.escapeHtml(txt) + '</div>';
   }
 
   function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
+  // "9:38 AM" for the time MFL's scores were read; "" when unknown.
+  function clockLabel(ms) {
+    if (!(ms > 0)) return "";
+    try { return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+    catch (e) { return ""; }
+  }
 
   // Points / PPG / games / positional rank, scoped to the selected window. The
   // points number leads and is labelled with what it covers; PPG carries its
@@ -751,8 +822,8 @@
   function statChipsHtml(r) {
     var w = r.win || statsFor(r);
     if (w.unavailable) return '<span class="ups-m-fa-stat na">pts unavailable</span>';
-    if (!w.have) return '<span class="ups-m-fa-stat na">no ' + U.escapeHtml(w.label) + ' pts</span>';
-    return '<span class="ups-m-fa-stat pts"><b>' + fmt1(w.pts) + '</b> ' + U.escapeHtml(w.label) + ' pts</span>' +
+    if (!w.have) return '<span class="ups-m-fa-stat na">no pts · ' + U.escapeHtml(w.label) + '</span>';
+    return '<span class="ups-m-fa-stat pts"><b>' + fmt1(w.pts) + '</b> pts · ' + U.escapeHtml(w.label) + '</span>' +
       (w.games > 0
         ? '<span class="ups-m-fa-stat" title="Points per MFL scored week; MFL wks = weeks MFL posted a score (0.0 counts), not NFL games">' +
             fmt1(w.ppg) + ' PPG · ' + w.games + ' MFL wk' + (w.games === 1 ? '' : 's') + '</span>'
@@ -773,12 +844,14 @@
     var bits = [];
     var p = I.projFor(r.id);
     if (p != null) bits.push(U.escapeHtml(projLabel()) + " " + U.escapeHtml(I.fmtProj(p)));
-    var mu = I.matchupFor(r.id, winKey());
+    // Always the SEASON window (key 0): the points-period control changes
+    // player points only. It used to re-rank the opponent's defense too —
+    // tapping "L2" moved GBP from #22 to #7 vs PK with no label saying why.
+    var mu = I.matchupFor(r.id, 0);
     if (mu && mu.opp) {
       bits.push(U.escapeHtml((mu.isHome ? "vs " : "@ ") + mu.opp));
       if (mu.rank != null) {
-        var basis = I.priorSeason() ? "last season"
-          : (winKey() ? "last " + winKey() + " weeks" : "season to date");
+        var basis = I.priorSeason() ? "last season" : "season to date";
         bits.push('<span class="ups-m-mu-rank ' + I.rankCls(mu.rank) +
           '" title="Opponent-adjusted defense vs ' + U.escapeHtml(mu.grp) +
           ', rank 1 = most generous (' + U.escapeHtml(basis) + ')">' +
@@ -1122,17 +1195,18 @@
     var bits = [];
     if (b.kind === "season") {
       var st = b.ss.byPid[String(pid)];
-      var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : "";
-      bits.push("<b>" + fmt1(st ? st.pts : 0) + "</b> YTD pts" +
-        (st && st.games > 0 ? " · " + fmt1(st.ppg) + " PPG · " + st.games + " MFL wk" + (st.games === 1 ? "" : "s") : " · 0 MFL wks") +
-        (span ? " (" + U.escapeHtml(span) + (b.ss.finalized ? ", final" : "") + ")" : ""));
+      var span = periodSpan(0);
+      // Always the SEASON (MFL's YTD), whatever period the list is showing:
+      // this is the line the bid amount is decided against, so it never
+      // changes under it.
+      bits.push("Season" + (span ? " · " + U.escapeHtml(span) : "") + ": <b>" +
+        fmt1(st ? st.pts : 0) + "</b> pts" +
+        (st && st.games > 0 ? " · " + fmt1(st.ppg) + " PPG · " + st.games + " MFL wk" + (st.games === 1 ? "" : "s") : " · 0 MFL wks"));
     } else if (b.kind === "prior") {
       var pr = b.map[String(pid)];
       if (pr) bits.push("<b>" + fmt1(pr.mfl_points) + "</b> " + b.year + " pts · " + fmt1(pr.mfl_ppg) + " PPG");
     } else if (b.kind === "unavailable") {
-      bits.push(b.reason === "week_unresolved"
-        ? "Points unavailable — completed week unconfirmed"
-        : "Points unavailable — MFL's scoring didn't load");
+      bits.push("Points unavailable — MFL's scoring didn't load");
     }
     var I = intel();
     var pj = I ? I.projFor(pid) : null;
@@ -1194,9 +1268,11 @@
         '" data-round="' + rd + '">' + rd + (cnt ? '<span class="n">' + cnt + '</span>' : '') + '</button>';
     }
 
+    var needDrop = dropRequired();
     var dropLabel = bidView.dropPid
       ? (nameForPid(bidView.dropPid) + " · " + U.fmtUsd(dropPenalty(bidView.dropPid)) + " penalty")
-      : "No conditional drop";
+      : (needDrop ? "Choose who this replaces — roster full (" + needDrop.active + "/" + needDrop.max + ")"
+                  : "No conditional drop");
 
     return '<div class="ups-m-bid-overlay" id="ups-m-bid-overlay">' +
       '<div class="ups-m-bid-sheet">' +
@@ -1241,7 +1317,7 @@
           // it on an unread setting would remove a capability the league uses.
           (lim.conditional || !lim.conditionalKnown
             ? '<div class="ups-m-bid-label">Conditional drop</div>' +
-              '<button class="ups-m-bid-droppick" data-act="pick-drop">' + U.escapeHtml(dropLabel) + '</button>' +
+              '<button class="ups-m-bid-droppick' + (needDrop && !bidView.dropPid ? " need" : "") + '" data-act="pick-drop">' + U.escapeHtml(dropLabel) + '</button>' +
               '<div class="ups-m-bid-hint">Only dropped if this claim is awarded.</div>'
             : '') +
         '</div>' +
@@ -1388,9 +1464,51 @@
     }
   }
 
+  // Keith 2026-08-08: "No drop" is never offered when the active roster is
+  // KNOWN full — a claim with no drop could only be refused. The drop picker
+  // already withheld it, but the sheet itself starts at "no drop" and could be
+  // confirmed without the picker ever opening. Same carve-out, same numbers
+  // (rosterHeadroom); unknown headroom still allows no drop. Only applies when
+  // MFL takes a conditional drop at all.
+  function dropRequired() {
+    var lim = waiverLimits();
+    if (!lim || !(lim.conditional || !lim.conditionalKnown)) return null;
+    var hr = rosterHeadroom();
+    return (hr.known && hr.full) ? hr : null;
+  }
+
+  // Where the claim being EDITED sits in `plan` right now. editRef is a slot
+  // captured when the sheet opened, and a background reconcile (a run
+  // processing, a resolved claim swept when the app comes back to the
+  // foreground) can shift the group under an open sheet. Trusting the stale
+  // slot spliced out whichever claim had slid into it — on a group move that
+  // deleted a different player's claim and left this one in both groups.
+  // -1 = the claim is no longer there.
+  function resolveEditIndex(plan, ref, addPid) {
+    if (!ref) return -1;
+    var g = plan.filter(function (x) { return x.round === ref.round; })[0];
+    if (!g || !g.picks) return -1;
+    var at = g.picks[ref.index];
+    if (at && String(at.add_pid) === String(addPid)) return ref.index;
+    for (var i = 0; i < g.picks.length; i++) {
+      if (String(g.picks[i].add_pid) === String(addPid)) return i;
+    }
+    return -1;
+  }
+
   function confirmBid() {
     var lim = waiverLimits();
     if (!lim || !bidView) return;
+    var needDrop = dropRequired();
+    if (needDrop && !bidView.dropPid) {
+      M.ui.showToast("Your active roster is full (" + needDrop.active + "/" + needDrop.max +
+        ") — choose the player this claim replaces.", "err");
+      // The drop control sits below the fold on a small phone — bring it up.
+      var ovl = document.getElementById("ups-m-bid-overlay");
+      var dp = ovl && ovl.querySelector ? ovl.querySelector('[data-act="pick-drop"]') : null;
+      if (dp && dp.scrollIntoView) { try { dp.scrollIntoView({ block: "center" }); } catch (e) {} }
+      return;
+    }
     // Re-read the box: a tap on "Add to claims" can land before its change
     // event on some keyboards. Same legal-amount rule as the worker.
     var box = document.getElementById("ups-m-bid-amt");
@@ -1403,10 +1521,22 @@
     var amt = legalBid(box ? typed : bidView.amount, lim);
 
     var plan = clonePlan();
-    // Editing: pull the old pick out first so the round move is a real move.
+    // Editing: pull the old pick out first so the round move is a real move —
+    // by PLAYER, re-found now (resolveEditIndex), never by the stale slot.
+    var editIdx = -1;
     if (bidView.editRef) {
+      editIdx = resolveEditIndex(plan, bidView.editRef, bidView.addPid);
+      if (editIdx < 0) {
+        var gone = nameForPid(bidView.addPid);
+        closeBidSheet();
+        M.ui.showToast(gone + "'s claim changed while you were editing (a waiver run may have processed it). " +
+          "Nothing was saved — check your claims.", "err");
+        if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen({ keepScroll: true });
+        else renderRoute();
+        return;
+      }
       plan.forEach(function (g) {
-        if (g.round === bidView.editRef.round) g.picks.splice(bidView.editRef.index, 1);
+        if (g.round === bidView.editRef.round) g.picks.splice(editIdx, 1);
       });
     }
     var group = plan.filter(function (g) { return g.round === bidView.round; })[0];
@@ -1430,7 +1560,7 @@
     // even see it happen. A genuine group MOVE still lands at the end of the
     // destination group, which is the only sane default there.
     var sameRound = !!bidView.editRef && bidView.editRef.round === bidView.round;
-    if (sameRound) group.picks.splice(Math.min(bidView.editRef.index, group.picks.length), 0, newPick);
+    if (sameRound) group.picks.splice(Math.min(editIdx, group.picks.length), 0, newPick);
     else group.picks.push(newPick);
     commitPlan(plan);
     var wasEdit = !!bidView.editRef;
@@ -2526,6 +2656,19 @@
       lines.push(total
         ? ("Submit " + total + (total === 1 ? " claim" : " claims") + " to MFL?")
         : "Withdraw your claims?");
+      // The last screen before MFL: every claim exactly as it will be sent —
+      // group, player, amount, drop — plus when MFL processes them.
+      if (total) {
+        lines.push("");
+        plan.forEach(function (g) {
+          (g.picks || []).forEach(function (pk, i) {
+            lines.push("Group " + g.round + " #" + (i + 1) + ": " + nameForPid(pk.add_pid) + " — " +
+              U.fmtUsd(pk.bid_dollars) + (pk.drop_pid ? " — drop " + nameForPid(pk.drop_pid) : " — no drop"));
+          });
+        });
+      }
+      var when = U.safeStr(waiverModeInfo().detail);
+      if (when) lines.push("", when.replace(/\.?$/, "."));
       if (clears) {
         lines.push("", clears + (clears === 1 ? " group" : " groups") +
           " will be sent empty, cancelling whatever MFL holds for " +
@@ -2958,7 +3101,7 @@
         renderRoute();
       });
     }
-    var winBtns = mount.querySelectorAll(".ups-m-sort-btn[data-win]");
+    var winBtns = mount.querySelectorAll(".ups-m-period-btn[data-win]");
     for (var wj = 0; wj < winBtns.length; wj++) {
       winBtns[wj].addEventListener("click", function () {
         view.window = parseInt(this.getAttribute("data-win"), 10) || 0;
@@ -3008,13 +3151,40 @@
 
   function renderRoute() { M.route.renderRoute(); }
 
+  // MFL's YTD moves while games are being played; the copy on hand is read at
+  // boot. Re-read it once it is over 5 minutes old, on entering this screen or
+  // returning to the app. Re-render only when the numbers actually changed,
+  // and never under an open sheet — the bid sheet, drop picker and claims
+  // screen keep what they opened with, and a staged claim is never touched.
+  var SCORES_MAX_AGE_MS = 5 * 60 * 1000;
+  function onPlayersRoute() {
+    return !!(M.route.currentRoute && String(M.route.currentRoute()).split("/")[0] === "players");
+  }
+  var scoresRefreshPending = false;
+  function refreshScoresIfStale() {
+    if (scoresRefreshPending || !DATA.refreshSeasonScoringIfStale || !onPlayersRoute()) return;
+    scoresRefreshPending = true;
+    DATA.refreshSeasonScoringIfStale(SCORES_MAX_AGE_MS).then(function (changed) {
+      scoresRefreshPending = false;
+      if (!changed || !onPlayersRoute()) return;
+      if (document.getElementById("ups-m-bid-overlay") || document.getElementById("ups-m-drop-overlay") ||
+          document.getElementById("ups-m-claims-overlay")) return;
+      renderRoute();
+    });
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") refreshScoresIfStale();
+  });
+
   function render(mount, parts) {
     // Lazy + cached: projections and the season/selected windows are fetched
     // once each and re-render when they land. Both fetches carry their own
     // .catch inside M.lineupIntel, so nothing here is gated on them — a dead
     // worker just means no extra line and no window toggles.
-    clampControls();   // a window/sort that lost its data (or was never available) → YTD/PPG
-    if (M.lineupIntel) M.lineupIntel.load(winKey());
+    clampControls();   // this render's effective period + sort; the owner's choices are kept
+    refreshScoresIfStale();
+    // Season window only: the matchup line no longer follows the points period.
+    if (M.lineupIntel) M.lineupIntel.load(0);
     var all = buildFreeAgents();
     var filtered = filterAndSort(all);
     // Those fetches re-render this view when they land, which can be mid-typing
