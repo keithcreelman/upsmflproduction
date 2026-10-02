@@ -255,7 +255,8 @@
       '<td>' + (games == null ? "—" : games) + '</td>' +
       '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
       '<td>' + (ppg == null ? "—" : (Math.round(ppg * 10) / 10).toFixed(1)) + '</td>' +
-      '<td>' + (ppgRank > 0 ? ppgRank : 0) + '</td>' +
+      // A string is a word in place of a number ("unranked", current season).
+      '<td>' + (typeof ppgRank === "string" ? U.escapeHtml(ppgRank) : (ppgRank > 0 ? ppgRank : 0)) + '</td>' +
     '</tr>';
   }
 
@@ -267,12 +268,15 @@
     var ss = D && D.getSeasonScoring ? D.getSeasonScoring() : null;
     if (!pid || !SSMOD || !ss || !ss.known || !ss.seasonWeeks || !ss.seasonWeeks.length || !ss.season) return null;
     var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    // Same rank minimum as the Players market (season_scoring rankMinimum):
+    // below it the PPG stays and the rank cell says "unranked".
+    var min = ss.rankMinimum ? ss.rankMinimum(0) : 1;
     if (!ss._sheetRank) {
       ss._sheetRank = SSMOD.rankMap(ss.byPid, function (id) {
         var pl = D.playerById(id);
         var g = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
         return (g && g !== "OTH") ? g : "";
-      });
+      }, min);
     }
     var st = ss.byPid[String(pid)];
     var rk = ss._sheetRank[String(pid)];
@@ -281,10 +285,11 @@
       games: st ? st.games : 0,
       pts: st ? st.pts : 0,
       ppg: st && st.ppg != null ? st.ppg : 0,
-      rank: rk ? rk.rank : 0,
+      rank: rk ? rk.rank : (st && st.games > 0 ? "unranked" : 0),
       basis: "MFL's YTD, league scoring, " + SSMOD.weeksLabel(ss.seasonWeeks) +
         (ss.liveWeeks.length ? " — Wk " + ss.liveWeeks.join(", ") + " in progress, games already played count"
-          : ss.finalKnown ? " (final)" : "")
+          : ss.finalKnown ? " (final)" : "") +
+        " · PPG rank needs " + min + "+ MFL wk" + (min === 1 ? "" : "s")
     };
   }
 

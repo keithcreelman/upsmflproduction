@@ -4674,6 +4674,8 @@ a.ups-m-bid-btn {
 .ups-m-fa-stat { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ups-m-fa-stat.pts b { font-size: 13px; font-weight: 800; color: var(--fg); }
 .ups-m-fa-stat.na { font-style: italic; }
+/* Below the PPG-rank minimum: the real PPG stays, the rank slot says why. */
+.ups-m-fa-stat.unranked { color: var(--fg-muted); font-style: italic; }
 .ups-m-bid-context {
   margin-top: 6px;
   font-size: 12px;

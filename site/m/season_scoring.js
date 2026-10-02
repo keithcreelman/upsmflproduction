@@ -52,6 +52,8 @@
      yet this week) is not a game.
    - Zero and negative weeks are real scores and count, in points AND games.
    - A blank score is "no score", never 0.
+   - A PPG RANK needs a minimum of MFL wks — rankMinimum(), below. Every
+     player's actual PPG is still reported; only the "#N" is withheld.
 */
 (function () {
   "use strict";
@@ -150,6 +152,22 @@
       finalWeeks: finalWeeks,
       liveWeeks: liveWeeks,
       duplicateRows: duplicateRows,
+      // MINIMUM MFL WKS FOR A PPG RANK (Keith 2026-10-02). A PPG built on one
+      // week is a real number but not a rank: Case Keenum read "#3 QB" off a
+      // single 31.5-point start, Brock Bowers "#1 TE" off one game.
+      //   n <= 0 (Season): half the FINAL weeks, rounded up. A week still
+      //          being played counts toward a player's MFL wks but not toward
+      //          the bar, so Thursday night can't raise it for everyone.
+      //   n > 0  (Last n wks): half the window — L2 1, L4 2, L6 3.
+      // MFL's posted 0.0 weeks count, as in its own AVG; a bye is a week with
+      // no row, so it counts against the player like any other missed week.
+      // Never below 1. No week confirmed final → every posted week is the
+      // base instead: stricter, never looser.
+      rankMinimum: function (n) {
+        n = parseInt(n, 10) || 0;
+        var base = n > 0 ? n : (finalKnown ? finalWeeks.length : scored.length);
+        return Math.max(1, Math.ceil(base / 2));
+      },
       // MFL's W=YTD / W=AVG: every posted week, a week in progress included.
       byPid: byPid,
       // n <= 0: the season (byPid). n > 0: the last n FINAL weeks ending at
@@ -168,13 +186,17 @@
   }
 
   // Positional rank by PPG inside each group (groupOf(pid) → "QB"|"RB"|…|"" to
-  // skip). Only players with at least one game are ranked; ties break on total
-  // points, then id, so the order is stable between renders.
-  function rankMap(stats, groupOf) {
+  // skip). Only players with at least minGames MFL wks are ranked (default 1;
+  // callers pass the scoring's rankMinimum() for the period). A player below
+  // it is left out entirely, so he neither holds a rank nor pushes anyone
+  // else's down. Ties break on total points, then id, so the order is stable
+  // between renders.
+  function rankMap(stats, groupOf, minGames) {
+    var min = Math.max(1, parseInt(minGames, 10) || 1);
     var buckets = {};
     Object.keys(stats || {}).forEach(function (pid) {
       var r = stats[pid];
-      if (!r || !(r.games > 0)) return;
+      if (!r || !(r.games >= min)) return;
       var g = groupOf ? groupOf(pid) : "";
       if (!g) return;
       (buckets[g] = buckets[g] || []).push({ pid: pid, ppg: r.ppg, pts: r.pts });

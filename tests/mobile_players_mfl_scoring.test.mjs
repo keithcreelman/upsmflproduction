@@ -134,12 +134,19 @@ function rows(html) {
     const pid = (/data-pid="(\d+)"/.exec(chunk) || [])[1];
     if (!pid) return;
     const pts = /<b>(-?[\d.]+)<\/b> (?:YTD )?pts(?! ·\s*\d{4} season)/.exec(chunk) || /<span>YTD (-?[\d.]+)<\/span>/.exec(chunk);
-    const ppg = /(-?[\d.]+) PPG · (\d+) (?:G|MFL wks?)\b/.exec(chunk) || /<span>PPG (-?[\d.]+)<\/span>/.exec(chunk);
+    // PPG chip: "14.0 PPG · 3 MFL wks" (ranked) or "31.5 PPG" + "unranked · 1 MFL wk"
+    // (below the rank minimum, 2026-10-02), or the pre-fix "PPG 0.0".
+    const ppg = /(-?[\d.]+) PPG(?: · (\d+) (?:G|MFL wks?)\b)?/.exec(chunk) || /<span>PPG (-?[\d.]+)<\/span>/.exec(chunk);
+    const unr = /unranked · (\d+) MFL wks?/.exec(chunk);
+    const rk = /<span class="ups-m-fa-stat">#(\d+) (\w+)<\/span>/.exec(chunk);
     out[pid] = {
       order,
       pts: pts ? Number(pts[1]) : null,
       ppg: ppg ? Number(ppg[1]) : null,
-      games: ppg && ppg[2] != null ? Number(ppg[2]) : (/>0 (?:G|MFL wks)</.test(chunk) ? 0 : null),
+      games: ppg && ppg[2] != null ? Number(ppg[2]) : (unr ? Number(unr[1]) : (/>0 (?:G|MFL wks)</.test(chunk) ? 0 : null)),
+      unranked: !!unr,
+      rank: rk ? Number(rk[1]) : null,
+      rankGroup: rk ? rk[2] : null,
       unavailable: /pts unavailable/.test(chunk),
       chunk,
     };
