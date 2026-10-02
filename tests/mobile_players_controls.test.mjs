@@ -14,7 +14,9 @@
 // Drives the REAL views/players.js render + bind under Node: a fake mount whose
 // period / position buttons and filter / sort / search controls fire the real
 // listeners. Data = tests/fixtures/mobile_players_mfl_scoring_2026_wk3.json
-// (real MFL captures, Wks 1-3). The bid-sheet flows that need a real DOM
+// (real MFL captures, Wks 1-3) and, for the live-week cases,
+// mobile_players_mfl_scoring_2026_wk4_tnf.json (2026-10-02: Wks 1-3 final,
+// Week 4's Thursday game posted). The bid-sheet flows that need a real DOM
 // (staging, the roster-full drop rule, the final review) are driven in a real
 // browser against the same files — see the PR — and their pure helpers are
 // checked here.
@@ -27,6 +29,7 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.isAbsolute(p) ? p : path.join(ROOT, p), "utf8");
 const FX = JSON.parse(read("tests/fixtures/mobile_players_mfl_scoring_2026_wk3.json"));
+const FX4 = JSON.parse(read("tests/fixtures/mobile_players_mfl_scoring_2026_wk4_tnf.json"));
 const PLAYERS_JS = process.env.PLAYERS_JS || "site/m/views/players.js";
 const APP = read("site/m/app.js");
 
@@ -43,22 +46,22 @@ function sliceFn(src, sig) {
 const UTIL_SRC = ["function safeStr(", "function safeInt(", "function pad4(", "function escapeHtml(",
   "function fmtUsd(", "function asArray("].map((s) => sliceFn(APP, s)).join("\n");
 
-function harness() {
+function harness({ fx = FX } = {}) {
   const ctx = vm.createContext({ console, setTimeout, clearTimeout });
   ctx.window = ctx;
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
   vm.runInContext(read("site/m/season_scoring.js"), ctx);
   const state = {
     ctx: { year: "2026", leagueId: "74598" },
-    players: { players: { player: FX.players } },
+    players: { players: { player: fx.players } },
     viewerFranchiseId: "", franchises: [{ id: "0008", name: "Real Deal Creel" }],
-    playerScoresAll: FX.playerScoresAll, lineupWeekResolution: FX.lineup_week, lineupWeek: 4,
+    playerScoresAll: fx.playerScoresAll, lineupWeekResolution: fx.lineup_week, lineupWeek: 4,
   };
   ctx.state = state;
   vm.runInContext("var safeInt = this.__util.safeInt;\n" + sliceFn(APP, "function getSeasonScoring(") +
     "\nthis.__getSeasonScoring = getSeasonScoring;", ctx);
-  const byId = Object.fromEntries(FX.players.map((p) => [p.id, p]));
-  const rostered = new Set(Object.keys(FX.rosters));
+  const byId = Object.fromEntries(fx.players.map((p) => [p.id, p]));
+  const rostered = new Set(Object.keys(fx.rosters));
   // MFL-wide most-added list (free agents only) — two real FAs from the fixture.
   const HOT = { "17167": 9.5, "14717": 4.1 };
   const calls = { load: [], matchupFor: [] };
@@ -120,21 +123,41 @@ function harness() {
   const sortOptions = () => Array.from(html().matchAll(/<option value="(\w+)"( selected)?>(Sort: [^<]+)<\/option>/g))
     .map((m) => ({ value: m[1], selected: !!m[2], text: m[3] }));
   const selectedSort = () => (sortOptions().find((o) => o.selected) || {}).value;
-  const periodButtons = () => Array.from(html().matchAll(/data-win="(\d+)"[^>]*>(?:<span class="nm">([^<]*)<\/span><span class="wk">([^<]*)<\/span>|([^<]*))<\/button>/g))
-    .map((m) => ({ win: m[1], text: (m[2] != null ? m[2] + " · " + m[3] : m[4]).trim(), on: new RegExp('class="[^"]*\\bon\\b[^"]*" data-win="' + m[1] + '"').test(html()) }));
+  // Button text as a screen reader gets it: name · weeks · status ("live"/"final").
+  const periodButtons = () => Array.from(html().matchAll(/data-win="(\d+)"[^>]*>(.*?)<\/button>/g))
+    .map((m) => ({ win: m[1],
+      text: m[2].replace(/<span class="wk">/, " · ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim(),
+      on: new RegExp('class="[^"]*\\bon\\b[^"]*" data-win="' + m[1] + '"').test(html()) }));
   const rowOrder = () => Array.from(html().matchAll(/class="ups-m-fa-row[^"]*" data-pid="(\d+)"/g)).map((m) => m[1]);
   const chipFor = (pid) => { const c = html().split('data-pid="' + pid + '"')[1] || ""; return (c.match(/<span class="ups-m-fa-stat pts">(.*?)<\/span>/) || [])[1] || ""; };
   return { ctx, calls, click, select, html, sortOptions, selectedSort, periodButtons, rowOrder, chipFor };
 }
 
-test("the points-period control names the completed weeks it covers", () => {
+test("the points-period control names its weeks and whether they are final", () => {
   const h = harness();
   const pb = h.periodButtons();
-  t.equal(pb.length, 2, "Season + Last 2 (three weeks are complete)");
-  t.equal(pb[0].text, "Season · Wks 1–3");
-  t.equal(pb[1].text, "Last 2 wks · Wks 2–3");
+  t.equal(pb.length, 2, "Season + Last 2 (three weeks are final)");
+  t.equal(pb[0].text, "Season · Wks 1–3 · final", "Tuesday-style: nothing in progress");
+  t.equal(pb[1].text, "Last 2 wks · Wks 2–3 · final");
   t.ok(pb[0].on && !pb[1].on, "Season is the default");
   t.doesNotMatch(h.html(), />YTD<|>L2</, "no bare YTD / L2 buttons");
+  // 2026-10-02, after Thursday night: Season is MFL's YTD with the live week in
+  // it; Last 2 stays on the two FINAL weeks and says so.
+  const live = harness({ fx: FX4 }).periodButtons();
+  t.equal(live[0].text, "Season · Wks 1–4 · live", "Season covers Week 4 and says it is in progress");
+  t.equal(live[1].text, "Last 2 wks · Wks 2–3 · final", "Last 2 is final weeks only");
+});
+
+test("Season vs Last 2 on a live week: Szmyt's Thursday counts in Season, never in Last 2", () => {
+  const h = harness({ fx: FX4 });
+  t.match(h.chipFor("16419"), /<b>40\.7<\/b> pts · Wks 1–4/, "Season = MFL YTD 40.7 (27.7 + Thursday's 13.0)");
+  h.click("data-win", 2);
+  const wk = (w) => Number(FX4.playerScoresAll.playerScoresAllWeeks.playerScores.find((b) => b.week === String(w))
+    .playerScore.find((s) => s.id === "16419").score);
+  const l2 = Math.round((wk(2) + wk(3)) * 10) / 10;
+  t.match(h.chipFor("16419"), new RegExp("<b>" + l2.toFixed(1).replace(".", "\\.") + "</b> pts · Wks 2–3 final"),
+    `Last 2 = Wk 2 + Wk 3 = ${l2}, labelled final — Week 4 left out`);
+  t.match(h.html(), /Last 2 wks = final weeks only/, "the basis line says what Last 2 is");
 });
 
 test("the sort never repeats the period: one sort control, one period control", () => {
@@ -212,22 +235,22 @@ test("an edit re-finds its claim by PLAYER, not by the slot it was opened at", (
 // #ups-m-app, getElementById over the inserted HTML, and clicks dispatched to the
 // overlay's own [data-act] / [data-round] listener. window.confirm ALWAYS cancels
 // and every write path records itself, so nothing here can submit anything.
-function bidHarness({ full = false, players = PLAYERS_JS } = {}) {
+function bidHarness({ full = false, players = PLAYERS_JS, fx = FX } = {}) {
   const ctx = vm.createContext({ console, setTimeout, clearTimeout });
   ctx.window = ctx;
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
   vm.runInContext(read("site/m/season_scoring.js"), ctx);
   const state = {
-    ctx: { year: "2026", leagueId: "74598" }, players: { players: { player: FX.players } },
+    ctx: { year: "2026", leagueId: "74598" }, players: { players: { player: fx.players } },
     viewerFranchiseId: "0008", franchises: [{ id: "0008", name: "Real Deal Creel" }],
-    playerScoresAll: FX.playerScoresAll, lineupWeekResolution: FX.lineup_week, lineupWeek: 4,
+    playerScoresAll: fx.playerScoresAll, lineupWeekResolution: fx.lineup_week, lineupWeek: 4,
     waiverState: { window: { mode: "bbid" } },
   };
   ctx.state = state;
   vm.runInContext("var safeInt = this.__util.safeInt;\n" + sliceFn(APP, "function getSeasonScoring(") +
     "\nthis.__getSeasonScoring = getSeasonScoring;", ctx);
-  const byId = Object.fromEntries(FX.players.map((p) => [p.id, p]));
-  const rostered = new Set(Object.keys(FX.rosters));
+  const byId = Object.fromEntries(fx.players.map((p) => [p.id, p]));
+  const rostered = new Set(Object.keys(fx.rosters));
   // Two real players to drop from (any rostered fixture players will do).
   const myRoster = [{ id: "13743", salary: 5000 }, { id: "12263", salary: 3000 }];
   let plan = [];
@@ -276,7 +299,28 @@ function bidHarness({ full = false, players = PLAYERS_JS } = {}) {
     ov.els[id] = el;
     return el;
   };
-  const mount = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [] };
+  // The list under the sheet: period / position buttons rebuilt from the
+  // rendered HTML, so a test can switch the period while a claim is staged.
+  let listButtons = {};
+  const mount = {
+    innerHTML: "", querySelector: () => null,
+    querySelectorAll(sel) {
+      const attr = /data-win/.test(sel) ? "data-win" : (/ups-m-pos-chip/.test(sel) ? "data-pos" : null);
+      if (!attr) return [];
+      const out = [];
+      for (const m of mount.innerHTML.matchAll(new RegExp('<button class="[^"]*"[^>]*' + attr + '="([^"]+)"', "g"))) {
+        out.push({ listeners: [], getAttribute: (a) => (a === attr ? m[1] : null),
+          addEventListener(type, fn) { if (type === "click") this.listeners.push(fn); } });
+      }
+      listButtons[attr] = out;
+      return out;
+    },
+  };
+  const listClick = (attr, v) => {
+    const el = (listButtons[attr] || []).find((b) => b.getAttribute(attr) === String(v));
+    if (!el) throw new Error(`no ${attr}=${v} button is rendered`);
+    el.listeners.forEach((fn) => fn.call(el, { stopPropagation() {} }));
+  };
   ctx.document = {
     body: { style: {} }, activeElement: null, addEventListener() {},
     getElementById(id) {
@@ -301,7 +345,8 @@ function bidHarness({ full = false, players = PLAYERS_JS } = {}) {
   };
   const typeAmount = (v) => { const el = ctx.document.getElementById("ups-m-bid-amt"); el.value = v; el.fire("input"); el.fire("change"); };
   return { ctx, rec, ui: ctx.UPS_MOBILE.waiverUI, plan: () => plan, setPlan: (p) => { plan = JSON.parse(JSON.stringify(p)); },
-           click, typeAmount, top, overlays, control, sheetOpen: () => !!ctx.document.getElementById("ups-m-bid-overlay") };
+           click, typeAmount, top, overlays, control, listClick, list: () => mount.innerHTML,
+           sheetOpen: () => !!ctx.document.getElementById("ups-m-bid-overlay") };
 }
 const pick = (pid, bid, drop) => ({ add_pid: pid, bid_dollars: bid, drop_pid: drop || null });
 
@@ -310,7 +355,7 @@ test("the staged claim is the player, amount and group in the sheet — whatever
   h.ui.openBid("14717");
   t.ok(h.sheetOpen(), "bid sheet open");
   t.match(h.top().html, /Bid on Chase McLaughlin/, "for McLaughlin");
-  t.match(h.top().html, /Season · Wks 1–3 \(final\): <b>42\.1<\/b> pts/, "with his SEASON points, whatever the list period");
+  t.match(h.top().html, /Season · Wks 1–3 · final: <b>42\.1<\/b> pts/, "with his SEASON points, whatever the list period");
   h.typeAmount("12");
   // The list re-renders and changes under the open sheet (async loads do this).
   h.control("ups-m-players-filter").value = "all"; h.control("ups-m-players-filter").fire("change");
@@ -362,6 +407,42 @@ test("an edit shifted by a background sweep cannot delete another player's claim
   h2.click('data-act="bid-confirm"');
   t.deepEqual(h2.plan(), [{ round: 1, picks: [] }], "a vanished claim is not re-created");
   t.ok(h2.rec.toasts.some((m) => /changed while you were editing/.test(m)), "and the owner is told");
+});
+
+test("switching Season / Last 2 wks and every sort cannot change a staged claim's player, amount or drop", () => {
+  // Live week (2026-10-02): Szmyt's numbers really differ between the periods
+  // (Season 40.7 with Thursday, Last 2 = final Wks 2–3 only), and the sorts
+  // reorder the list under him — the claim must not move with any of it.
+  const h = bidHarness({ fx: FX4 });
+  // One claim already staged with a drop (Cam Johnston, $4K, dropping Fred
+  // Warner) and one staged here through the real sheet (Szmyt, $7K). The
+  // drop-picker taps themselves are covered by the real-browser check.
+  h.setPlan([{ round: 1, clear: false, picks: [pick("13848", 4000, "13743")] }]);
+  h.ui.openBid("16419");
+  t.match(h.top().html, /Bid on Andre Szmyt/, "for Szmyt");
+  t.match(h.top().html, /Season · Wks 1–4 · live: <b>40\.7<\/b> pts · 10\.2 PPG · 4 MFL wks/,
+    "the sheet prices him on MFL's YTD, Thursday included");
+  h.typeAmount("7");
+  h.click('data-act="bid-confirm"');
+  const staged = [{ round: 1, clear: false, picks: [pick("13848", 4000, "13743"), pick("16419", 7000)] }];
+  t.deepEqual(h.plan(), staged, "staged: Johnston $4K dropping Warner, then Szmyt $7K");
+  const orders = new Set();
+  for (const win of [2, 0, 2]) {
+    h.listClick("data-win", win);
+    for (const sort of ["pts", "proj", "hot", "cold", "ppg"]) {
+      h.control("ups-m-players-sort").value = sort; h.control("ups-m-players-sort").fire("change");
+      orders.add(Array.from(h.list().matchAll(/class="ups-m-fa-row[^"]*" data-pid="(\d+)"/g)).map((m) => m[1]).slice(0, 5).join(","));
+      t.deepEqual(h.plan(), staged, `period ${win || "Season"}, sort ${sort}: claim unchanged`);
+    }
+  }
+  t.ok(orders.size > 1, `the list really did reorder underneath (${orders.size} different orders)`);
+  t.match(h.list(), /pts · Wks 2–3 final/, "and the list really was on Last 2 at one point");
+  h.ui.openClaims();
+  h.click('data-act="claims-submit"');
+  const review = h.rec.confirms[0] || "";
+  t.match(review, /Group 1 #1: Cam Johnston — \$4K — drop Fred Warner/, "the final review: the same first claim");
+  t.match(review, /Group 1 #2: Andre Szmyt — \$7K — no drop/, "and the same second claim");
+  t.equal(h.rec.writes.length, 0, "cancelled -> nothing sent");
 });
 
 test("Submit shows every claim, amount, drop and the waiver timing — and sends nothing when cancelled", () => {

@@ -1,14 +1,17 @@
-/* Season scoring — MFL's OWN league-scored player points, through the last
-   COMPLETED week. Pure: no fetch, no DOM. app.js feeds it two reads it makes at
-   boot and the Players market / player sheet read the result.
+/* Season scoring — MFL's OWN league-scored player points. Pure: no fetch, no
+   DOM. app.js feeds it two reads it makes at boot and the Players market /
+   player sheet read the result.
 
      playerScores&W=ALL    every player's score for every week, under THIS
                            league's scoring rules, in one MFL export
                            (playerScoresAllWeeks.playerScores[] = one block per
-                           week). The same numbers MFL's own W=YTD sums.
+                           week). Summed over every posted week it IS MFL's
+                           W=YTD, and YTD ÷ posted rows IS MFL's W=AVG —
+                           verified on all 1,371 players 2026-10-02, Week 4
+                           Thursday included.
      /api/current-lineup-week   { week, source } from the worker's
-                           resolveCurrentLineupWeek() — the one definition of
-                           "which week is being played" the whole app uses.
+                           resolveCurrentLineupWeek() — which weeks are FINAL.
+                           Only the last-N windows depend on it.
 
    WHY THIS EXISTS (2026-10-01). The market's "YTD" came from the worker's
    /api/advanced-stats-leaderboard `mfl_points`, which is SUM(D1 src_weekly.score).
@@ -23,19 +26,30 @@
    separately (pipelines/etl/scripts/sync_live_season_from_mfl_to_d1.py); this
    reads the primary source so the bid screen can't lag MFL by an ETL hop.
 
+   SEASON = MFL's YTD, LIVE WEEK INCLUDED (Keith 2026-10-02). The first version
+   counted completed weeks only, so after Thursday night of Week 4 the 76
+   players from PIT–CLE showed their Wk 1–3 total while MFL's own YTD already
+   had the game in it (Andre Szmyt 27.7 vs MFL 40.7). "Season" now sums every
+   week MFL has posted a score for, exactly like W=YTD, and says when a week is
+   still being played. Finalized-week data is a separate thing with its own
+   label: the last-N windows ("Last 2 wks · Wks 2–3 · final").
+
    RULES (each one is a decision, not an accident):
-   - A week counts only once it is COMPLETE. completedWeekFrom() mirrors the
-     worker's deriveCompletedWeekFromLineupResolution (worker/src/index.js) —
-     a live_scoring* source means `week - 1` is done; anything else is null,
-     never a guess. Scores already posted for a later, in-progress week are
-     left OUT of every total and reported in excludedWeeks so the UI can say so.
-   - When the completed week can't be resolved, posted current-season scores
-     are unavailable: a posted score may belong to a game still being played.
-     If the MFL export loaded but has no posted score at all, throughWeek=0
-     lets the market show the previous season with its year clearly labelled.
+   - byPid / seasonWeeks: every week with a posted score, the live one too.
+     Needs no completed-week authority — it is MFL's number either way.
+   - finalWeeks / windowFor(n>0): completed weeks only. completedWeekFrom()
+     mirrors the worker's deriveCompletedWeekFromLineupResolution
+     (worker/src/index.js) — a live_scoring* source means `week - 1` is done;
+     anything else is null, never a guess. When it is null, finalKnown is
+     false and the windows are empty: no week is called final on a guess.
+   - liveWeeks: posted weeks after the last final one (a week in progress).
+   - If the MFL export loaded but has no posted score at all, seasonWeeks is
+     empty and reason "no_scores_posted" lets the market show the previous
+     season with its year clearly labelled. Posted values that can't be read
+     are NOT "no scores": that fails closed (reason "unreadable_scores").
    - games = weeks MFL posted a score row for the player (0.0 included) — MFL's
-     own AVG denominator (W=AVG == W=YTD / rows, verified on all 1,371 players
-     2026-10-01). A week with no row (bye, not active) is not a game.
+     own AVG denominator. A week with no row (bye, not active, hasn't played
+     yet this week) is not a game.
    - Zero and negative weeks are real scores and count, in points AND games.
    - A blank score is "no score", never 0.
 */
@@ -82,8 +96,8 @@
   }
 
   function unknown(reason) {
-    return { known: false, reason: reason, throughWeek: 0, finalized: false,
-             includedWeeks: [], excludedWeeks: [], byPid: {},
+    return { known: false, reason: reason, latestWeek: 0, seasonWeeks: [],
+             finalKnown: false, finalThrough: 0, finalWeeks: [], liveWeeks: [], byPid: {},
              windowFor: function () { return {}; } };
   }
 
@@ -104,7 +118,6 @@
         if (!s) return;
         // A nonblank value is evidence that THIS season has started scoring,
         // even if MFL sent a value we cannot parse or a row without an ID.
-        // With no completed-week authority, fail closed on that evidence.
         if (s.score != null && String(s.score).trim() !== "") hasPostedScore = true;
         if (!s.id) return;
         var n = num(s.score);
@@ -117,31 +130,38 @@
       if (any) { perWeek[w] = m; if (scored.indexOf(w) === -1) scored.push(w); }
     });
     scored.sort(function (a, b) { return a - b; });
-    if (completed === null && hasPostedScore) return unknown("week_unresolved");
-    var maxScored = scored.length ? scored[scored.length - 1] : 0;
-    var through = completed === null ? 0 : Math.min(completed, maxScored);
-    var included = scored.filter(function (w) { return w <= through; });
-    var excluded = scored.filter(function (w) { return w > through; });
-    var byPid = aggregate(perWeek, included);
+    // Scores were posted but none could be read: the season HAS started, so
+    // falling back to last season would be a wrong answer, not a missing one.
+    if (hasPostedScore && !scored.length) return unknown("unreadable_scores");
+    var latest = scored.length ? scored[scored.length - 1] : 0;
+    var finalKnown = completed !== null;
+    var finalThrough = finalKnown ? Math.min(completed, latest) : 0;
+    var finalWeeks = finalKnown ? scored.filter(function (w) { return w <= finalThrough; }) : [];
+    var liveWeeks = finalKnown ? scored.filter(function (w) { return w > finalThrough; }) : [];
+    var byPid = aggregate(perWeek, scored);
     var windows = {};
     return {
       known: true,
-      reason: completed === null ? "no_scores_posted" : "",
-      throughWeek: through,
-      finalized: completed !== null,
-      includedWeeks: included,
-      excludedWeeks: excluded,
+      reason: !scored.length ? "no_scores_posted" : (finalKnown ? "" : "week_unresolved"),
+      latestWeek: latest,
+      seasonWeeks: scored,
+      finalKnown: finalKnown,
+      finalThrough: finalThrough,
+      finalWeeks: finalWeeks,
+      liveWeeks: liveWeeks,
       duplicateRows: duplicateRows,
+      // MFL's W=YTD / W=AVG: every posted week, a week in progress included.
       byPid: byPid,
-      // Last-N COMPLETED weeks ending at throughWeek — same weeks, same rules,
-      // same source as the season total, so YTD and L4 can never disagree on
-      // what a week was worth.
+      // n <= 0: the season (byPid). n > 0: the last n FINAL weeks ending at
+      // finalThrough — same rows, same rules, same source as the season, minus
+      // any week still being played. Empty when no week is known to be final.
       windowFor: function (n) {
         n = parseInt(n, 10) || 0;
         if (n <= 0) return byPid;
+        if (!finalKnown) return {};
         if (windows[n]) return windows[n];
-        var lo = through - n + 1;
-        windows[n] = aggregate(perWeek, included.filter(function (w) { return w >= lo; }));
+        var lo = finalThrough - n + 1;
+        windows[n] = aggregate(perWeek, finalWeeks.filter(function (w) { return w >= lo; }));
         return windows[n];
       }
     };

@@ -121,11 +121,15 @@
   }
 
   // ══ Actual points (MFL league scoring) ═════════════════════════════════
-  // EVERY points number on this screen — YTD, L2/L4/L6, PPG, positional rank —
+  // EVERY points number on this screen — Season, L2/L4/L6, PPG, positional rank —
   // comes from ONE source: DATA.getSeasonScoring(), i.e. MFL's own per-week
-  // playerScores for THIS league, completed weeks only (site/m/season_scoring.js
-  // has the rules). Keith 2026-10-01: "YTD Points do not appear to match the
-  // points players actually scored in our MFL league" — they didn't. YTD came
+  // playerScores for THIS league (site/m/season_scoring.js has the rules).
+  // "Season" is MFL's own YTD, a week still being played included (Keith
+  // 2026-10-02: after Thursday night of Week 4 the screen still showed Wk 1–3
+  // totals while MFL's YTD had the game — Andre Szmyt 27.7 here, 40.7 on MFL).
+  // Only the last-N windows are FINAL weeks, and they say so on their label.
+  // Keith 2026-10-01: "YTD Points do not appear to match the points players
+  // actually scored in our MFL league" — they didn't. YTD came
   // from /api/advanced-stats-leaderboard's mfl_points, a D1 copy of src_weekly
   // that the standings sync had cut down to ACTIVE-roster rows, so every free
   // agent read 0.0 and the PPG sort put one-week wonders on top; L2/L4/L6 came
@@ -134,18 +138,18 @@
   // a week behind every Tuesday/Wednesday — exactly when bids are placed.
   //
   // Basis, in order:
-  //   season       the current season has a completed week → MFL's numbers.
-  //   prior        the read worked but no current-season week is complete yet
-  //                (preseason, or Week 1 still being played) → last season's
-  //                final board, labelled with ITS year, never as "YTD".
+  //   season       MFL has posted a current-season score → MFL's numbers.
+  //   prior        the read worked but MFL has posted no current-season score
+  //                yet (preseason) → last season's final board, labelled with
+  //                ITS year, never as "YTD".
   //   none         nothing to show for either season.
-  //   unavailable  MFL's scoring or the completed-week check didn't load →
-  //                say so; no substitute number.
+  //   unavailable  MFL's scoring didn't load (or came back unreadable) → say
+  //                so; no substitute number.
   var SSMOD = window.UPS_MOBILE_SEASON_SCORING || null;
   function seasonScoring() { return DATA.getSeasonScoring ? DATA.getSeasonScoring() : null; }
   function pointsBasis() {
     var ss = seasonScoring();
-    if (ss && ss.known && ss.throughWeek > 0) return { kind: "season", ss: ss };
+    if (ss && ss.known && ss.seasonWeeks.length) return { kind: "season", ss: ss };
     if (ss && ss.known) {
       var cur = U.safeInt(M.state.ctx && M.state.ctx.year, 0);
       var priorYear = cur - 1;
@@ -254,7 +258,7 @@
   function intel() { return M.lineupIntel || null; }
   // CHOSEN vs EFFECTIVE (2026-10-02). view.window / view.sort hold what the
   // owner picked, and no render ever rewrites them. A choice that can't apply
-  // right now — "Last 2 wks" before three weeks are complete, Most added /
+  // right now — "Last 2 wks" before three weeks are final, Most added /
   // Most dropped outside Free agents, a projection sort before projections
   // load — falls back for THIS render only (eff.*) and comes back by itself.
   // clampControls used to overwrite the choice: pick Most added, peek at All
@@ -262,14 +266,14 @@
   var eff = { window: 0, sort: "ppg", sortNote: "" };
   function winKey() { return eff.window; }
 
-  // Which window toggles are meaningful. A last-N window can only differ from
-  // season-to-date once MORE than N weeks are complete — before that it IS the
-  // season, so offering it is a dead control (same rule as the Lineup view's
-  // availWindows()). Counted off the SAME completed weeks the totals use, so a
-  // window can never cover a week the YTD number doesn't. Preseason / prior-
-  // season basis ⇒ 0 ⇒ YTD only ⇒ the toggle row doesn't render at all.
+  // Which window toggles are meaningful. A last-N window is FINAL weeks only,
+  // and it is offered once MORE than N weeks are final — before that it is
+  // just "every final week", a dead control (same rule as the Lineup view's
+  // availWindows()). No week known to be final (the week check failed) ⇒ no
+  // windows at all, never a guess. Preseason / prior-season basis ⇒ Season
+  // only ⇒ the toggle row doesn't render at all.
   function availWindows() {
-    var b = pointsBasis(), wa = b.kind === "season" ? b.ss.includedWeeks.length : 0, out = [[0, "YTD"]];
+    var b = pointsBasis(), wa = b.kind === "season" ? b.ss.finalWeeks.length : 0, out = [[0, "YTD"]];
     if (wa > 2) out.push([2, "L2"]);
     if (wa > 4) out.push([4, "L4"]);
     if (wa > 6) out.push([6, "L6"]);
@@ -293,28 +297,48 @@
     }
     eff.sort = s;
     eff.sortNote = note ? (note + " — sorted by PPG here") : "";
-    // What every row's points chip names: "Wks 1–3" / "Wks 2–3" / "2025 season".
+    // What every row's points chip names: "Wks 1–4" (Season = MFL YTD) /
+    // "Wks 2–3 final" (a last-N window) / "2025 season".
     var b = pointsBasis();
-    eff.span = b.kind === "season" ? periodSpan(eff.window) : (b.kind === "prior" ? (b.year + " season") : "");
+    eff.span = b.kind === "season"
+      ? (SSMOD ? SSMOD.weeksLabel(windowWeeks(eff.window)) : "") + (eff.window ? " final" : "")
+      : (b.kind === "prior" ? (b.year + " season") : "");
   }
 
-  // The completed weeks a period covers, and its name — "Season · Wks 1–3",
-  // "Last 2 wks · Wks 2–3". Same weeks season_scoring.windowFor() sums.
+  // The weeks a period covers, and its name. Same weeks season_scoring sums:
+  //   Season      every posted week — "Wks 1–4 · live" while Week 4 is being
+  //               played, "Wks 1–4 · final" once it isn't, bare "Wks 1–4"
+  //               when the week check failed and finality is unknown.
+  //   Last N wks  the last N FINAL weeks — always "· final".
+  // Short on purpose: four of these share a 320px row late in the season.
   function windowWeeks(k) {
     var b = pointsBasis();
     if (b.kind !== "season") return [];
-    if (!k) return b.ss.includedWeeks;
-    var lo = b.ss.throughWeek - k + 1;
-    return b.ss.includedWeeks.filter(function (w) { return w >= lo; });
+    if (!k) return b.ss.seasonWeeks;
+    var lo = b.ss.finalThrough - k + 1;
+    return b.ss.finalWeeks.filter(function (w) { return w >= lo; });
   }
   function periodName(k) { return k ? ("Last " + k + " wks") : "Season"; }
-  function periodSpan(k) { return SSMOD ? SSMOD.weeksLabel(windowWeeks(k)) : ""; }
+  // { weeks: "Wks 1–4", status: "live" | "final" | "" }
+  function periodParts(k) {
+    var b = pointsBasis();
+    var weeks = SSMOD ? SSMOD.weeksLabel(windowWeeks(k)) : "";
+    if (!weeks || b.kind !== "season") return { weeks: weeks, status: "" };
+    if (k) return { weeks: weeks, status: "final" };
+    if (b.ss.liveWeeks.length) return { weeks: weeks, status: "live" };
+    return { weeks: weeks, status: b.ss.finalKnown ? "final" : "" };
+  }
+  function periodSpan(k) {
+    var pp = periodParts(k);
+    return pp.weeks + (pp.status ? " · " + pp.status : "");
+  }
 
   // Total / PPG / games / positional rank for the selected window, from the
   // one MFL source (see pointsBasis). `pts` null = we have no number (show
   // nothing, sort last); `ppg` null = no scored weeks in the window (0 MFL wks, not 0.0 PPG).
-  // A player with no MFL row in a completed window genuinely scored nothing in
-  // it, so that is 0 pts / 0 MFL wks — a real answer, unlike an unloaded source.
+  // A player with no MFL row in the window (season or final weeks) genuinely
+  // scored nothing in it yet, so that is 0 pts / 0 MFL wks — a real answer,
+  // unlike an unloaded source.
   function statsFor(r) {
     var b = pointsBasis();
     // `label` is the span the numbers cover, shown on the row's points chip.
@@ -682,21 +706,25 @@
     '</select>';
     // THE points-period control (Keith 2026-10-02: "YTD" and "L2" looked like
     // a second sort, and "Sort: L2 pts" in the dropdown looked like a second
-    // period control). It is the ONLY control that picks which completed weeks
-    // the points, PPG, MFL wks and rank on every row cover — and it names
-    // them: "Season · Wks 1–3", "Last 2 wks · Wks 2–3". It changes nothing
-    // else: the sort keeps its own choice, and the matchup line always uses
+    // period control). It is the ONLY control that picks which weeks the
+    // points, PPG, MFL wks and rank on every row cover — and it names them:
+    // "Season · Wks 1–4 · live" (MFL's YTD), "Last 2 wks · Wks 2–3 · final".
+    // It changes nothing else: the sort keeps its own choice, and the matchup line always uses
     // season-to-date defense ranks. Shown whenever current-season points are,
     // even with one option, because the week span is the point of it.
+    // "live" / "final" is its own element: with three or four periods on a
+    // phone it drops to its own line instead of being cut to "Wks 10–11 · fi…".
     var wins = availWindows();
     var winRow = pointsBasis().kind === "season"
-      ? '<div class="ups-m-period" role="radiogroup" aria-label="Points period">' +
+      ? '<div class="ups-m-period' + (wins.length > 2 ? " crowd" : "") + '" role="radiogroup" aria-label="Points period">' +
           '<span class="lbl">Points</span>' + wins.map(function (o) {
-            var on = winKey() === o[0];
+            var on = winKey() === o[0], pp = periodParts(o[0]);
             return '<button class="ups-m-period-btn' + (on ? " on" : "") + '" data-win="' + o[0] +
               '" role="radio" aria-checked="' + (on ? "true" : "false") + '">' +
               '<span class="nm">' + U.escapeHtml(periodName(o[0])) + '</span>' +
-              '<span class="wk">' + U.escapeHtml(periodSpan(o[0])) + '</span></button>';
+              '<span class="wk">' + U.escapeHtml(pp.weeks) +
+                (pp.status ? '<span class="st"><span class="sep"> · </span>' + U.escapeHtml(pp.status) + '</span>' : '') +
+              '</span></button>';
           }).join("") + '</div>'
       : '';
     // The ONE sort control. Its options name WHAT is ranked, never the period
@@ -751,20 +779,26 @@
     var cur = U.safeStr(M.state.ctx && M.state.ctx.year);
     var txt, warn = false;
     if (b.kind === "season") {
-      var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : ("through Wk " + b.ss.throughWeek);
-      txt = "Actual points: MFL league scoring, completed weeks only (" + span + (b.ss.finalized ? ", final)" : ", latest posted — may still be in progress)");
-      if (b.ss.finalized && b.ss.excludedWeeks.length) {
-        txt += " · Wk " + b.ss.excludedWeeks.join(", ") + " in progress, not counted";
+      var ss = b.ss, span = SSMOD ? SSMOD.weeksLabel(ss.seasonWeeks) : "";
+      txt = "Season = MFL's YTD, league scoring, " + span;
+      if (ss.liveWeeks.length) {
+        txt += " — Wk " + ss.liveWeeks.join(", ") + " in progress: games already played count, the rest aren't in yet";
+      } else if (ss.finalKnown) {
+        txt += " (final)";
+      } else {
+        txt += " · couldn't confirm which weeks are final, so last-weeks totals are hidden";
       }
+      var lastN = availWindows().slice(1).map(function (o) { return o[0]; });
+      if (lastN.length) txt += " · Last " + lastN.join("/") + " wks = final weeks only";
+      var asOf = clockLabel(ss.fetchedAt);
+      if (asOf) txt += " · MFL as of " + asOf;
     } else if (b.kind === "prior") {
-      txt = b.ss && b.ss.reason === "no_scores_posted"
-        ? "No " + cur + " scores posted yet — points are " + b.year + " season totals"
-        : "No " + cur + " week is final yet — points are " + b.year + " season totals";
+      txt = "No " + cur + " scores posted yet — points are " + b.year + " season totals";
     } else if (b.kind === "none") {
-      txt = "No completed " + cur + " week yet — no points to show";
+      txt = "No " + cur + " scores posted yet — no points to show";
     } else {
-      txt = b.reason === "week_unresolved"
-        ? "Couldn't confirm the last completed week — points are hidden until that check succeeds. Tap refresh to retry."
+      txt = b.reason === "unreadable_scores"
+        ? "MFL's " + cur + " scores came back unreadable — points are hidden rather than guessed. Tap refresh to retry."
         : "Couldn't load MFL's scoring — points are hidden rather than guessed. Tap refresh to retry.";
       warn = true;
     }
@@ -775,6 +809,12 @@
   }
 
   function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
+  // "9:38 AM" for the time MFL's scores were read; "" when unknown.
+  function clockLabel(ms) {
+    if (!(ms > 0)) return "";
+    try { return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+    catch (e) { return ""; }
+  }
 
   // Points / PPG / games / positional rank, scoped to the selected window. The
   // points number leads and is labelled with what it covers; PPG carries its
@@ -1155,19 +1195,18 @@
     var bits = [];
     if (b.kind === "season") {
       var st = b.ss.byPid[String(pid)];
-      var span = SSMOD ? SSMOD.weeksLabel(b.ss.includedWeeks) : "";
-      // Always the SEASON, whatever period the list is showing: this is the
-      // line the bid amount is decided against, so it never changes under it.
-      bits.push("Season" + (span ? " · " + U.escapeHtml(span) + (b.ss.finalized ? " (final)" : "") : "") + ": <b>" +
+      var span = periodSpan(0);
+      // Always the SEASON (MFL's YTD), whatever period the list is showing:
+      // this is the line the bid amount is decided against, so it never
+      // changes under it.
+      bits.push("Season" + (span ? " · " + U.escapeHtml(span) : "") + ": <b>" +
         fmt1(st ? st.pts : 0) + "</b> pts" +
         (st && st.games > 0 ? " · " + fmt1(st.ppg) + " PPG · " + st.games + " MFL wk" + (st.games === 1 ? "" : "s") : " · 0 MFL wks"));
     } else if (b.kind === "prior") {
       var pr = b.map[String(pid)];
       if (pr) bits.push("<b>" + fmt1(pr.mfl_points) + "</b> " + b.year + " pts · " + fmt1(pr.mfl_ppg) + " PPG");
     } else if (b.kind === "unavailable") {
-      bits.push(b.reason === "week_unresolved"
-        ? "Points unavailable — completed week unconfirmed"
-        : "Points unavailable — MFL's scoring didn't load");
+      bits.push("Points unavailable — MFL's scoring didn't load");
     }
     var I = intel();
     var pj = I ? I.projFor(pid) : null;
@@ -3112,12 +3151,38 @@
 
   function renderRoute() { M.route.renderRoute(); }
 
+  // MFL's YTD moves while games are being played; the copy on hand is read at
+  // boot. Re-read it once it is over 5 minutes old, on entering this screen or
+  // returning to the app. Re-render only when the numbers actually changed,
+  // and never under an open sheet — the bid sheet, drop picker and claims
+  // screen keep what they opened with, and a staged claim is never touched.
+  var SCORES_MAX_AGE_MS = 5 * 60 * 1000;
+  function onPlayersRoute() {
+    return !!(M.route.currentRoute && String(M.route.currentRoute()).split("/")[0] === "players");
+  }
+  var scoresRefreshPending = false;
+  function refreshScoresIfStale() {
+    if (scoresRefreshPending || !DATA.refreshSeasonScoringIfStale || !onPlayersRoute()) return;
+    scoresRefreshPending = true;
+    DATA.refreshSeasonScoringIfStale(SCORES_MAX_AGE_MS).then(function (changed) {
+      scoresRefreshPending = false;
+      if (!changed || !onPlayersRoute()) return;
+      if (document.getElementById("ups-m-bid-overlay") || document.getElementById("ups-m-drop-overlay") ||
+          document.getElementById("ups-m-claims-overlay")) return;
+      renderRoute();
+    });
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") refreshScoresIfStale();
+  });
+
   function render(mount, parts) {
     // Lazy + cached: projections and the season/selected windows are fetched
     // once each and re-render when they land. Both fetches carry their own
     // .catch inside M.lineupIntel, so nothing here is gated on them — a dead
     // worker just means no extra line and no window toggles.
     clampControls();   // this render's effective period + sort; the owner's choices are kept
+    refreshScoresIfStale();
     // Season window only: the matchup line no longer follows the points period.
     if (M.lineupIntel) M.lineupIntel.load(0);
     var all = buildFreeAgents();

@@ -4762,6 +4762,18 @@ a.ups-m-bid-btn {
 }
 .ups-m-bid-droppick.need { border-color: var(--warn); color: var(--warn); }
 .ups-m-period-btn .nm, .ups-m-period-btn .wk { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+/* Three or four periods on a phone (late season): "Wks 10–11 · final" no
+   longer fits one line of a quarter-width button, so the status takes its own
+   line, and (as at 320px above) the "Points" caption goes and the type
+   tightens so "Last 6 wks" isn't cut either. Found by the 2026-10-02
+   Playwright check at 320 and 375. */
+@media (max-width: 480px) {
+  .ups-m-period.crowd .lbl { display: none; }
+  .ups-m-period.crowd .ups-m-period-btn { padding: 4px 3px; }
+  .ups-m-period.crowd .ups-m-period-btn .nm { font-size: 11px; }
+  .ups-m-period.crowd .ups-m-period-btn .st { display: block; }
+  .ups-m-period.crowd .ups-m-period-btn .sep { display: none; }
+}
 /* Up to four periods late in the season (Season / Last 2 / 4 / 6 wks): on the
    narrowest phones drop the "Points" caption (the buttons name themselves) and
    tighten the type so each button keeps its full label at 320px. */
