@@ -170,14 +170,19 @@
     var g = posGrp(pl && pl.position);
     return (g && g !== "OTH") ? g : "";
   }
+  // MFL wks a player needs for a PPG rank in period k (season_scoring's
+  // rankMinimum: half the final weeks for Season, half the window for Last N).
+  // Below it the player keeps his real PPG but shows "unranked · 1 MFL wk"
+  // and sorts after every ranked player under Sort: PPG (Keith 2026-10-02).
+  function rankMinFor(ss, k) { return ss && ss.rankMinimum ? ss.rankMinimum(k) : 1; }
   // Positional PPG rank for the season or a last-N window, cached per
   // (scoring object, window) so the search box doesn't re-sort ~1,300 players
-  // on every keystroke.
+  // on every keystroke. Players below the minimum aren't in it at all.
   var rankCache = { ss: null, key: null, map: null };
   function rankMapFor(ss, k) {
     if (!ss || !SSMOD) return {};
     if (rankCache.ss === ss && rankCache.key === k && rankCache.map) return rankCache.map;
-    var map = SSMOD.rankMap(ss.windowFor(k), groupOfPid);
+    var map = SSMOD.rankMap(ss.windowFor(k), groupOfPid, rankMinFor(ss, k));
     rankCache = { ss: ss, key: k, map: map };
     return map;
   }
@@ -342,23 +347,27 @@
   function statsFor(r) {
     var b = pointsBasis();
     // `label` is the span the numbers cover, shown on the row's points chip.
+    // `ranked` false = has a PPG but fewer than `minGames` MFL wks this period.
     if (b.kind === "unavailable") return { have: false, unavailable: true, label: "season" };
     if (b.kind === "prior") {
+      // Last season's final board, ranked as it was served — the minimum is a
+      // current-season rule (its base is this season's final weeks).
       return r.ytdPts === null
         ? { have: false, label: eff.span }
         : { have: true, label: eff.span, pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
-            rank: r.posRank, group: r.rankGroup };
+            rank: r.posRank, group: r.rankGroup, ranked: true };
     }
     if (b.kind !== "season") return { have: false, label: "season" };
-    var k = winKey();
+    var k = winKey(), min = rankMinFor(b.ss, k);
     if (!k) {
       return { have: true, label: eff.span, pts: r.ytdPts, ppg: r.ppg, games: r.ytdGames,
-               rank: r.posRank, group: r.rankGroup };
+               rank: r.posRank, group: r.rankGroup, minGames: min, ranked: r.ytdGames >= min };
     }
     var f = b.ss.windowFor(k)[String(r.id)];
     var rk = rankMapFor(b.ss, k)[String(r.id)];
-    return { have: true, label: eff.span, pts: f ? f.pts : 0, ppg: f ? f.ppg : null, games: f ? f.games : 0,
-      rank: rk ? rk.rank : 0, group: rk ? rk.group : r.grp };
+    var g = f ? f.games : 0;
+    return { have: true, label: eff.span, pts: f ? f.pts : 0, ppg: f ? f.ppg : null, games: g,
+      rank: rk ? rk.rank : 0, group: rk ? rk.group : r.grp, minGames: min, ranked: g >= min };
   }
   function projFor(pid) { var I = intel(); return I ? I.projFor(pid) : null; }
   // Projections only exist once MFL publishes them for the upcoming week —
@@ -455,7 +464,15 @@
     } else if (eff.sort === "pts") {
       filtered.sort(by(function (r) { return r.win.pts; }, ptsHave));
     } else {
-      filtered.sort(by(function (r) { return r.win.ppg; }, ppgHave));
+      // Sort: PPG — ranked players first, then those below the rank minimum
+      // (each group by PPG), then no PPG at all. A one-week 31.5 no longer
+      // sits above every real three-week average (Keith 2026-10-02).
+      var byPpg = by(function (r) { return r.win.ppg; }, ppgHave);
+      filtered.sort(function (a, b) {
+        var ha = ppgHave(a), hb = ppgHave(b);
+        if (ha && hb && (a.win.ranked !== false) !== (b.win.ranked !== false)) return a.win.ranked !== false ? -1 : 1;
+        return byPpg(a, b);
+      });
     }
     return filtered;
   }
@@ -790,6 +807,11 @@
       }
       var lastN = availWindows().slice(1).map(function (o) { return o[0]; });
       if (lastN.length) txt += " · Last " + lastN.join("/") + " wks = final weeks only";
+      var need = rankMinFor(ss, eff.window);
+      txt += " · PPG rank needs " + need + "+ MFL wk" + (need === 1 ? "" : "s") +
+        (eff.window ? " in the last " + eff.window : (ss.finalKnown
+          ? " (half the " + ss.finalWeeks.length + " final week" + (ss.finalWeeks.length === 1 ? "" : "s") + ", rounded up)"
+          : " (half of every posted week — finality unconfirmed)"));
       var asOf = clockLabel(ss.fetchedAt);
       if (asOf) txt += " · MFL as of " + asOf;
     } else if (b.kind === "prior") {
@@ -823,11 +845,18 @@
     var w = r.win || statsFor(r);
     if (w.unavailable) return '<span class="ups-m-fa-stat na">pts unavailable</span>';
     if (!w.have) return '<span class="ups-m-fa-stat na">no pts · ' + U.escapeHtml(w.label) + '</span>';
-    return '<span class="ups-m-fa-stat pts"><b>' + fmt1(w.pts) + '</b> pts · ' + U.escapeHtml(w.label) + '</span>' +
-      (w.games > 0
-        ? '<span class="ups-m-fa-stat" title="Points per MFL scored week; MFL wks = weeks MFL posted a score (0.0 counts), not NFL games">' +
-            fmt1(w.ppg) + ' PPG · ' + w.games + ' MFL wk' + (w.games === 1 ? '' : 's') + '</span>'
-        : '<span class="ups-m-fa-stat">0 MFL wks</span>') +
+    var wks = w.games + ' MFL wk' + (w.games === 1 ? '' : 's');
+    var ppgTitle = "Points per MFL scored week; MFL wks = weeks MFL posted a score (0.0 counts), not NFL games";
+    var chips = '<span class="ups-m-fa-stat pts"><b>' + fmt1(w.pts) + '</b> pts · ' + U.escapeHtml(w.label) + '</span>';
+    if (!(w.games > 0)) return chips + '<span class="ups-m-fa-stat">0 MFL wks</span>';
+    // Below the rank minimum: the real PPG stays, the "#N" becomes
+    // "unranked · 1 MFL wk" (the count moves there so it isn't said twice).
+    if (w.ranked === false) {
+      return chips + '<span class="ups-m-fa-stat" title="' + ppgTitle + '">' + fmt1(w.ppg) + ' PPG</span>' +
+        '<span class="ups-m-fa-stat unranked" title="A PPG rank needs ' + w.minGames + '+ MFL wks' +
+          (winKey() ? ' in the last ' + winKey() + ' weeks' : ' (half the final weeks, rounded up)') + '">unranked · ' + wks + '</span>';
+    }
+    return chips + '<span class="ups-m-fa-stat" title="' + ppgTitle + '">' + fmt1(w.ppg) + ' PPG · ' + wks + '</span>' +
       (w.rank > 0 ? '<span class="ups-m-fa-stat">#' + w.rank + ' ' + U.escapeHtml(w.group) + '</span>' : '');
   }
 

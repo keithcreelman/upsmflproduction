@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.02.3",
-  "label": "Waiver claims: Season points now match MFL's own YTD, including games already played in a week that isn't final yet (Thursday night counts on Friday), with the time MFL was read; Last 2/4/6 wks are labelled final weeks only. Also: one Points control that names its weeks, a Sort that no longer repeats the period, a sort you pick survives filter changes, a full roster requires a drop, edits can't hit the wrong claim, and Submit lists every claim, amount, drop and the waiver timing."
+  "build": "2026.10.02.4",
+  "label": "Players: a PPG rank now needs MFL scored weeks in at least half the final weeks, rounded up (0.0 weeks count; Last 2/4/6 need half the window). Below that, the real PPG stays and the rank reads \"unranked · 1 MFL wk\", and Sort: PPG lists ranked players first. The player card's PPG Rk follows the same rule."
 }
