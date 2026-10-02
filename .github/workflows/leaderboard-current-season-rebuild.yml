@@ -134,8 +134,17 @@ jobs:
           import json, sys
           d = json.load(open(sys.argv[1]))
           print("  ok:", d.get("ok"), "season:", d.get("season"))
+          # A SKIPPED alias is "ok" but rebuilt nothing — say so in words. On
+          # 2026-10-01 five skips printed as "ok=True rows=0" under a green run
+          # while the board kept serving stale MFL points.
+          print("  rebuilt:", d.get("rebuilt"), "skipped_unchanged:", d.get("skipped_unchanged"),
+                "mfl_scores_fingerprint:", d.get("mfl_scores_fingerprint"))
           for b in d.get("built") or []:
-              print(f"    {b.get('pos'):<8} ok={b.get('ok')} rows={b.get('rows', 0)} {b.get('error','')}")
+              if b.get("skipped"):
+                  print(f"    {b.get('pos'):<8} SKIPPED ({b.get('reason', '')}) - board NOT rebuilt")
+              else:
+                  print(f"    {b.get('pos'):<8} ok={b.get('ok')} rows={b.get('rows', 0)} "
+                        f"fingerprint_stored={b.get('mfl_fingerprint_stored')} {b.get('error','')}")
           bad = [b for b in (d.get("built") or []) if not b.get("ok")]
           if not d.get("ok") or bad:
               # A build that "succeeded" with zero rows, or that was served the

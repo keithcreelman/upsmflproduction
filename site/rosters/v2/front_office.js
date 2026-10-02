@@ -4491,10 +4491,10 @@
         '<span class="fo-stat-sub">' + sub + "</span></div>";
     }
     return '<div class="fo-stat-cards">' +
-      card("Career Pts", foNumComma(tot.pts), tot.g + " G · " + career.length + " season" + (career.length === 1 ? "" : "s")) +
-      card("Career PPG", ppg.toFixed(1), "Average per game") +
+      card("Career Pts", foNumComma(tot.pts), tot.g + " MFL scored wks · " + career.length + " season" + (career.length === 1 ? "" : "s")) +
+      card("Career PPG", ppg.toFixed(1), "Per MFL scored week") +
       card("Best Season", (bestYr || "—"), (bestPts >= 0 ? foNumComma(bestPts) + " pts · " + bestPPG.toFixed(1) + " PPG" : "")) +
-      card("Career APW", (wcOk ? tot.apw.toFixed(1) : "—"), (wcOk ? apwPerG.toFixed(2) + " / game" : "data pending"),
+      card("Career APW", (wcOk ? tot.apw.toFixed(1) : "—"), (wcOk ? apwPerG.toFixed(2) + " / MFL wk" : "data pending"),
            "Adjusted All-Play Wins — the all-play wins this player produced, weighted by how hard it is to win at the position.") +
       "</div>";
   }
@@ -4527,9 +4527,9 @@
     var el = tot.el_den ? tot.el_num / tot.el_den : 0;
     return '<div style="overflow-x:auto;">' +
       '<table class="fo-table"><thead><tr>' +
-      "<th>Yr</th><th class=\"num\">G</th><th class=\"num\">Pts</th>" +
+      "<th>Yr</th><th class=\"num\" title=\"MFL scored weeks: weeks MFL posted a score for this player, 0.0 included. Not NFL games played.\">MFL Wks</th><th class=\"num\">Pts</th>" +
       '<th class="num" title="Positional rank by total points">Pts Rk</th>' +
-      '<th class="num">PPG</th><th class="num" title="Positional rank by PPG">PPG Rk</th>' +
+      '<th class="num" title="Points per MFL scored week, the same average MFL reports">PPG</th><th class="num" title="Positional rank by PPG">PPG Rk</th>' +
       '<th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>' +
       '<th class="num" title="Adjusted All-Play Wins — all-play wins produced, weighted by positional difficulty">APW</th>' +
       "</tr></thead><tbody>" + rows +

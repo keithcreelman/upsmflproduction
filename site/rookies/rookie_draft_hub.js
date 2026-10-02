@@ -2411,19 +2411,19 @@
         <table class="rdh-table">
           <thead><tr>
             <th>Yr</th>
-            <th class="num">G</th>
+            <th class="num" title="MFL scored weeks: weeks MFL posted a score for this player, 0.0 included. Not NFL games played.">MFL Wks</th>
             <th class="num" title="Weeks in an MFL starting lineup">MFL Starts</th>
             <th class="num">Pts</th>
             <th class="num" title="Positional rank by total points that season">Pts Rk</th>
-            <th class="num">PPG</th>
+            <th class="num" title="Points per MFL scored week, the same average MFL reports">PPG</th>
             <th class="num" title="Positional rank by PPG that season">PPG Rk</th>
             <th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>
             <th class="num" title="Plus weeks (0.25 ≤ z &lt; 1.0) %">Plus%</th>
             <th class="num" title="Dud weeks (z &lt; −0.5) %">Dud%</th>
             <th class="num" title="Adjusted All-Play Wins: how many All-Play wins this player would be responsible for if every other lineup slot turned in median output. win_chunks × positional leverage β (QB≈0.88, WR≈0.82, DB≈0.39, LB≈0.38).">APW</th>
             <th class="num" title="Positional rank by APW that season">APW Rk</th>
-            <th class="num" title="APW divided by games played — per-game contribution">APW/G</th>
-            <th class="num" title="Positional rank by APW per game that season">APW/G Rk</th>
+            <th class="num" title="APW divided by MFL scored weeks. Note: the APW/Wk Rk beside it is ranked on STARTED weeks only (player_season_wc_rank), so the two can disagree.">APW/Wk</th>
+            <th class="num" title="Positional rank by APW per started week that season">APW/Wk Rk</th>
           </tr></thead>
           <tbody>${rows.map(c => {
             const wcβ = leverageCoefs[c.pos_group] || 0;
