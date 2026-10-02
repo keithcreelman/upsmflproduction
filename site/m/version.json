@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.02.1",
-  "label": "Points labels: the games count next to PPG now says what it is — MFL scored weeks (weeks MFL posted a score, 0.0 included), not NFL games played — on the Players market, the bid sheet and the player card. The player card's season table now matches MFL's own averages, including 0.0 and negative weeks."
+  "build": "2026.10.02.2",
+  "label": "Waiver claims: one Points control that names its weeks (Season · Wks 1–3 / Last 2 wks · Wks 2–3) and a Sort that no longer repeats the period; a sort you pick is no longer lost when you switch filters; a claim can't be staged without a drop when your roster is full; editing a claim can't hit the wrong player; and the final Submit lists every claim, amount, drop and the waiver timing."
 }

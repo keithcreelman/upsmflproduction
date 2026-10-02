@@ -118,7 +118,7 @@ function rows(html) {
   parts.forEach((chunk, order) => {
     const pid = (/data-pid="(\d+)"/.exec(chunk) || [])[1];
     if (!pid) return;
-    const pts = /<b>(-?[\d.]+)<\/b> YTD pts/.exec(chunk) || /<span>YTD (-?[\d.]+)<\/span>/.exec(chunk);
+    const pts = /<b>(-?[\d.]+)<\/b> (?:YTD )?pts(?! ·\s*\d{4} season)/.exec(chunk) || /<span>YTD (-?[\d.]+)<\/span>/.exec(chunk);
     const ppg = /(-?[\d.]+) PPG · (\d+) (?:G|MFL wks?)\b/.exec(chunk) || /<span>PPG (-?[\d.]+)<\/span>/.exec(chunk);
     out[pid] = {
       order,
@@ -181,7 +181,7 @@ test("a week still being played is NOT counted, and the basis line says so", () 
   const h = harness({ fx });
   const r = rows(h.html());
   t.equal(r["17075"].pts, 50.7, "Golden stays at the Wk 1–3 total");
-  t.match(h.html(), /Wks 1–3 \(final\)/, "basis names the weeks and says final");
+  t.match(h.html(), /completed weeks only \(Wks 1–3, final\)/, "basis names the weeks and says final");
   t.match(h.html(), /Wk 4 in progress, not counted/, "basis says Wk 4 is excluded");
 });
 
@@ -204,7 +204,7 @@ test("offseason with a readable, empty MFL scoring export shows the prior season
   const h = harness({ seasonPayload: empty, lineupWeek: null, latestYear: 2026, priorMap: prior });
   t.equal(h.ctx.__getSeasonScoring().reason, "no_scores_posted");
   t.ok(rows(h.html())["14717"], "McLaughlin remains listed");
-  t.match(h.html(), /<b>152\.8<\/b> 2025 pts/, "row uses the prior year, never YTD");
+  t.match(h.html(), /<b>152\.8<\/b> pts · 2025 season/, "row uses the prior year, never YTD");
   t.match(h.html(), /No 2026 scores posted yet — points are 2025 season totals/, "basis explains the offseason source");
   t.doesNotMatch(h.html(), /YTD pts/, "no current-season label on prior-season points");
 });
@@ -265,7 +265,7 @@ test("player sheet hides stale current-season bundle points when scoring authori
 test("no completed week yet → last season's totals, labelled with the year (never 'YTD')", () => {
   const prior = { "14717": { mfl_points: 152.8, mfl_ppg: 9.55, games: 16, pos: "PK", posRank: 13 } };
   const h = harness({ lineupWeek: { ok: true, week: 1, source: "live_scoring" }, latestYear: 2025, priorMap: prior });
-  t.match(h.html(), /<b>152\.8<\/b> 2025 pts/, "labelled 2025");
+  t.match(h.html(), /<b>152\.8<\/b> pts · 2025 season/, "labelled 2025");
   t.doesNotMatch(h.html(), /YTD pts/, "no row claims YTD");
   t.match(h.html(), /points are 2025 season totals/, "basis says so");
 });
@@ -340,6 +340,7 @@ test("empty or malformed bid amount cannot stage a prior amount", () => {
     sliceFn(src, "function legalBid(") + "\n" + sliceFn(src, "function parseBidK(") + "\n" +
     sliceFn(src, "function confirmBid(") + "\n" +
     "var bidView = { amount: 12000 }; var waiverLimits = function () { return { min: 1000, step: 1000 }; };" +
+    "var dropRequired = function () { return null; };" +
     "var box = { value: '', focus: function () { this.focused = true; } };" +
     "var document = { getElementById: function () { return box; } };" +
     "var M = { ui: { showToast: function (s) { this.message = s; } } };" +
