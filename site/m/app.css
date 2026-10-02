@@ -4770,3 +4770,13 @@ a.ups-m-bid-btn {
   .ups-m-period-btn { padding: 4px 3px; }
   .ups-m-period-btn .nm { font-size: 11px; }
 }
+/* Claims footer at 320px (found by the 2026-10-02 Playwright check): "Reload
+   from MFL" + "Preview" are fixed-width ghosts and left the primary Submit
+   ~40px, so "Submit 1 claim" ran off the right edge. On narrow phones the two
+   ghosts share a row and Submit — the one that matters — gets a full-width
+   row of its own, still at the bottom under the thumb. */
+@media (max-width: 360px) {
+  .ups-m-claims-foot { flex-wrap: wrap; }
+  .ups-m-claims-foot .ups-m-bid-btn.ghost { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .ups-m-claims-foot .ups-m-bid-btn.primary { flex: 1 0 100%; }
+}

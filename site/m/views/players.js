@@ -1464,6 +1464,10 @@
     if (needDrop && !bidView.dropPid) {
       M.ui.showToast("Your active roster is full (" + needDrop.active + "/" + needDrop.max +
         ") — choose the player this claim replaces.", "err");
+      // The drop control sits below the fold on a small phone — bring it up.
+      var ovl = document.getElementById("ups-m-bid-overlay");
+      var dp = ovl && ovl.querySelector ? ovl.querySelector('[data-act="pick-drop"]') : null;
+      if (dp && dp.scrollIntoView) { try { dp.scrollIntoView({ block: "center" }); } catch (e) {} }
       return;
     }
     // Re-read the box: a tap on "Add to claims" can land before its change
