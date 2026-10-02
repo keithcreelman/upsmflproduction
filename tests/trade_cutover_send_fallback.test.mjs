@@ -61,7 +61,7 @@ function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const lines = DESK_SRC.split("\n");
   const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3918, "async function replayOutbox(criteria)", 3952);
   const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4209, "async function submitOfferToQueue()", 4282);
-  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8235, "var tw2s = { listStatus:", 8263);
+  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8256, "var tw2s = { listStatus:", 8284);
   const code = fjr + "\n" + gates + "\n" + movs;
   const bridge = bridgeFetch(env);
   const resolveStaged2WayApiUrl = () => `https://worker.test/api/trades/2way?MFL_USER_ID=${token}&L=74598&YEAR=2026`;
@@ -91,7 +91,7 @@ function loadMobileFallback(env, { token, fid, previewResult } = {}) {
   // submitOffer -- the counter path's own cutover fallback, same shape as this file already
   // covers for CREATE. Harmless to include in this slice: hoisted function declarations this
   // test never calls.
-  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 940, "function submitOffer()", 1079);
+  const gates = sliceByAnchors(lines, "function submitTradeCreateWithGatesMobile(url, initialBody, fromFranchiseId, attempt)", 952, "function submitOffer()", 1091);
   const code = gates;
   const bridge = bridgeFetch(env);
   const U = { pad4: (v) => { const d = String(v || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }, safeInt: (v, d) => { const n = parseInt(v, 10); return isFinite(n) ? n : (d == null ? 0 : d); } };
