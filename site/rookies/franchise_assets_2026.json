@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-02T15:58:07.671504+00:00",
+    "generated_at_utc": "2026-10-03T14:25:18.154891+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2503,18 +2503,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14590",
-          "display": "Azeez Al-Shaair",
-          "player_id": "14590",
-          "position": "LB",
-          "nfl_team": "HOU",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15499",
           "display": "Blake Gillikin",
           "player_id": "15499",
@@ -2559,6 +2547,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15850",
+          "display": "Jalen Pitre",
+          "player_id": "15850",
+          "position": "S",
+          "nfl_team": "HOU",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3006,7 +3006,7 @@
         },
         {
           "asset_id": "P_17059",
-          "display": "Ollie Gordon",
+          "display": "Ollie Gordon II",
           "player_id": "17059",
           "position": "RB",
           "nfl_team": "MIA",
@@ -3525,18 +3525,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17664",
-          "display": "Ryan Eckley",
-          "player_id": "17664",
-          "position": "PN",
-          "nfl_team": "BAL",
-          "salary": 3000,
-          "contract_year": 1,
-          "contract_status": "Rookie-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17576",
           "display": "Dillon Thieneman",
           "player_id": "17576",
@@ -3642,6 +3630,18 @@
           "contract_year": 1,
           "contract_status": "Vet-WW",
           "roster_status": "INJURED_RESERVE",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15884",
+          "display": "Jordan Stout",
+          "player_id": "15884",
+          "position": "PN",
+          "nfl_team": "NYG",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
@@ -4071,6 +4071,18 @@
           "salary": 5000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17469",
+          "display": "Jalon Daniels",
+          "player_id": "17469",
+          "position": "QB",
+          "nfl_team": "TBB",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5046,6 +5058,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17075",
+          "display": "Matthew Golden",
+          "player_id": "17075",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16622",
           "display": "Ricky Pearsall",
           "player_id": "16622",
@@ -5142,6 +5166,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16174",
+          "display": "Chris Rodriguez",
+          "player_id": "16174",
+          "position": "RB",
+          "nfl_team": "JAC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16452",
           "display": "Daniel Whelan",
           "player_id": "16452",
@@ -5198,18 +5234,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17623",
-          "display": "Kaleb Elarms-Orr",
-          "player_id": "17623",
-          "position": "LB",
-          "nfl_team": "BUF",
-          "salary": 1000,
-          "contract_year": 3,
-          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5293,18 +5317,6 @@
           "nfl_team": "WAS",
           "salary": 5000,
           "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
-          "asset_id": "P_17075",
-          "display": "Matthew Golden",
-          "player_id": "17075",
-          "position": "WR",
-          "nfl_team": "GBP",
-          "salary": 5000,
-          "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
