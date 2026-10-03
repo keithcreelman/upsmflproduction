@@ -1695,108 +1695,49 @@
   // processing-derived and real, and it is true whoever caused it — the run,
   // another device, or the commish.
   //
-  // Set only in the dirty case: MFL's copy differs and we refuse to swap the
-  // plan out from under unsent edits, so the screen says so instead.
+  // No longer set by the read below (2026-10-03): a known read is reconciled
+  // group by group instead of warning (see checkMflHoldingsChanged). Kept so
+  // the banner still renders if anything else ever sets it.
   var claimsMflChanged = false;
   // One check in flight at a time. The screen can be reopened, or the app
   // foregrounded twice, faster than a round trip completes.
   var claimsCheckInFlight = false;
 
-  // Re-read MFL's pending claims and compare them against the basis this plan
-  // was hydrated from. Makes NO writes — one extra GET, the same read the
-  // manual "Reload from MFL" performs.
-  //
-  // Every uncertain outcome falls through to "leave the screen exactly as it
-  // is". No basis (a plan stored before this existed, or one never hydrated
-  // from MFL) and an unreadable /pending both mean UNKNOWN. Unknown is never
-  // reported as changed — that would offer to replace a clean draft on the
-  // strength of a dead endpoint — and never as unchanged, which would require
-  // asserting something we did not read.
+  // Re-read MFL's pending claims and reconcile the plan on screen with them
+  // (M.waivers.reconcile — the same reconcile the Market badge and Home tile
+  // get at every waiver-state load). Makes NO writes — one GET, the same read
+  // the manual "Reload from MFL" performs. An unreadable read changes nothing.
   function checkMflHoldingsChanged() {
-    if (!M.waivers || !M.waivers.fetchPending || !M.waivers.mflBasis ||
-        !M.waivers.mflSignature) return;
+    if (!M.waivers || !M.waivers.fetchPending || !M.waivers.reconcile) return;
     if (claimsCheckInFlight) return;
-    var basis = M.waivers.mflBasis();
-    // null = we have never seen MFL's copy for this plan. Nothing to compare.
-    if (typeof basis !== "string") return;
+    // Snapshot the plan this read is about: if it moves while the read is in
+    // flight (a submit lands, the owner edits), the answer is about a plan
+    // that's gone and the reconcile refuses it.
+    var expect = M.waivers.planSignature ? { plan: M.waivers.planSignature(stagedPlan()), verified: M.waivers.verifiedSignature() } : null;
     claimsCheckInFlight = true;
     M.waivers.fetchPending().then(function (resp) {
       claimsCheckInFlight = false;
-      // Screen was dismissed, or something re-hydrated the plan while this was
-      // in flight — either way this answer is about a screen that's gone.
       if (!claimsOpen) return;
-      if (M.waivers.mflBasis() !== basis) return;
-      var now = M.waivers.mflSignature(resp);
-      if (typeof now !== "string") return;   // unreadable → assert nothing
-      if (now === basis) return;             // MFL still holds what we think
-      // MFL's copy has moved. Unsent work on screen is never swapped out from
-      // under the owner — reloadClaimsFromServer is a whole-plan replace, and
-      // the manual control confirms first for exactly this reason. State what
-      // changed and let them press Reload themselves.
-      if (planIsDirty() && (stagedCount() || clearCount())) {
-        // …UNLESS the unsent work is already what MFL holds. Keith 2026-10-03:
-        // a "clear group 1" staged before Saturday's run was still on screen
-        // after it, under this warning — but the run had already emptied
-        // group 1 at MFL, so submitting the plan would change nothing and
-        // replacing it loses nothing. Adopt MFL's copy and say why.
-        var moot = editsAlreadyAtMfl(stagedPlan(), resp);
-        if (moot) {
-          adoptClaimsFrom(resp, mootEditsNotice(moot));
-          return;
-        }
-        claimsMflChanged = true;
-        // keepScroll: an owner reading group 3 stays in group 3.
-        renderClaimsScreen({ keepScroll: true });
+      // Reconcile against what MFL holds right now (2026-10-03, replacing the
+      // "MFL is holding different claims — Reload" warning): processed claims
+      // and moot withdrawals go, MFL's own groups come in, and every unsent
+      // bid or edit that doesn't match MFL stays, still unsent. An unreadable
+      // read (known !== true) changes nothing.
+      var res = M.waivers.reconcile(resp, expect ? { expect: expect } : undefined);
+      if (!res) {
+        // Unreadable read: fall back to the no-read clear (run-passed only).
+        if (!(resp && resp.known === true)) applyRunProcessedClear();
         return;
       }
-      // Clean plan: nothing unsent can be lost, so adopt MFL's copy. The
-      // response is already in hand, so this costs no second round trip.
-      adoptClaimsFrom(resp);
+      claimsMflChanged = false;
+      if (res.changed && !(claimsNotice && claimsNotice.tone === "warn")) claimsNotice = runProcessedNotice(res);
+      applyResolvedSweep();
+      renderClaimsScreen({ keepScroll: true });
     }).catch(function () {
-      claimsCheckInFlight = false;           // unreadable → leave the screen alone
+      claimsCheckInFlight = false;
+      // Couldn't read MFL: only the no-read clear (run-passed only) applies.
+      if (claimsOpen) applyRunProcessedClear();
     });
-  }
-
-  // Would submitting `plan` change anything at MFL right now? Under contract
-  // v2 a submit rewrites ONLY the rounds the plan names (a round it doesn't
-  // name is left alone), so the plan is moot when every round it names is
-  // already exactly that at MFL: a staged clear where MFL holds nothing, or
-  // staged picks identical — same players, bids, drops, order — to MFL's.
-  // Then adopting MFL's copy is lossless. Returns { cleared:[rounds] } when
-  // moot, null otherwise — including an unreadable read (known !== true),
-  // which proves nothing.
-  function editsAlreadyAtMfl(plan, resp) {
-    if (!resp || resp.known !== true || !Array.isArray(resp.rounds) || !plan.length) return null;
-    var key = function (picks) {
-      return JSON.stringify((picks || []).map(function (p) {
-        return [String(p.add_pid || ""), U.safeInt(p.bid_dollars, 0), p.drop_pid ? String(p.drop_pid) : ""];
-      }));
-    };
-    var atMfl = {};
-    resp.rounds.forEach(function (g) {
-      var r = U.safeInt(g && g.round, 0);
-      if (r > 0) atMfl[r] = key(g.picks);
-    });
-    var cleared = [];
-    for (var i = 0; i < plan.length; i++) {
-      var g = plan[i], r = U.safeInt(g && g.round, 0);
-      if (!(r > 0)) return null;
-      if (key(g.picks) !== (atMfl[r] || "[]")) return null;
-      if (!(g.picks || []).length) cleared.push(r);
-    }
-    return { cleared: cleared };
-  }
-  function mootEditsNotice(moot) {
-    var lr = (M.waivers && M.waivers.lastRun) ? M.waivers.lastRun() : null;
-    var when = U.safeStr(lr && lr.known === true && lr.label);
-    var lead = when ? ("Waivers ran " + when + ". ") : "";
-    var rds = moot.cleared || [];
-    if (rds.length) {
-      return lead + "MFL has already processed " +
-        (rds.length === 1 ? "group " + rds[0] : "groups " + rds.join(", ")) +
-        ", so the withdrawal staged here no longer applies.";
-    }
-    return lead + "Your unsent changes already match what MFL is holding — nothing left to submit.";
   }
 
   // ── "Already on my roster" sweep (Keith 2026-08-09) ─────────────────────
@@ -1997,70 +1938,22 @@
   // run also satisfies it, so a claim the owner stages tomorrow — aimed at a
   // later run entirely — would be wiped the moment it was staged.
   //
-  // Returns { ran_unix, removed:[{round, add_pid}], cleared_rounds:[n] } when
-  // it acted, false otherwise.
+  // 2026-10-03: the clear itself now lives in app.js (reconcileWaiverPlanWithMfl,
+  // exposed as M.waivers.reconcile) so the Market badge, Home tile and this
+  // screen all reconcile the same way. This is its NO-READ form: allowed only
+  // once the run the plan was aimed at has passed, it clears what MFL had
+  // confirmed (processed by that run) and the withdrawals of it — and keeps
+  // every unsent bid or edit, which the old whole-board clear used to wipe.
+  // Local only, no network. Returns the reconcile result when it changed the
+  // plan, false otherwise.
   function runProcessedClear() {
-    if (!M.waivers || !M.waivers.lastRun || !M.waivers.targetRun || !M.waivers.setPlan) return false;
-    var lr = M.waivers.lastRun();
-    // known !== true is UNREADABLE (or a worker without the field), never
-    // "no run happened".
-    if (!lr || lr.known !== true) return false;
-    var ranAt = lr.unix;
-    // known:true + unix:null is a legitimately readable answer — the calendar
-    // was read and no BBID run is scheduled at or before now. Nothing to act on.
-    if (typeof ranAt !== "number" || !isFinite(ranAt) || ranAt <= 0) return false;
-    var target = M.waivers.targetRun();
-    // null = we do not know which run this plan was aimed at (a record written
-    // before the field existed, or staged while the calendar had no upcoming
-    // run). Unknown, so we do nothing.
-    if (typeof target !== "number" || !isFinite(target) || target <= 0) return false;
-    // >=, not >: `target` IS a run instant, so the run it names counts as
-    // having happened the moment last_run reaches it. Both sides are the same
-    // kind of value from the same MFL calendar, which is the whole point —
-    // there is no "now", no device clock, and nothing to skew.
-    if (!(ranAt >= target)) return false;
-
-    var plan = stagedPlan();
-    if (!plan.length) {
-      // Nothing on the board to clear — but the spent TARGET still has to go.
-      //
-      // It names a run that has now happened, so it describes nothing. Leaving
-      // it on disk is how a genuinely-live plan gets wiped later: the target
-      // stays satisfied forever, so the next plan written without a fresh
-      // target (a record restored mid-flight, an adopt whose read-back failed)
-      // would be cleared on sight while its claims are live at MFL and
-      // spending cap.
-      //
-      // Local-only, same as every other write in this function: setPlan with
-      // the plan we already have is a no-op on the plan itself and cannot
-      // reach MFL.
-      M.waivers.setPlan(plan, { targetRun: null });
-      return false;
-    }
-    var removed = [];
-    var clearedRounds = [];
-    plan.forEach(function (g) {
-      var round = U.safeInt(g.round, 0);
-      var picks = g.picks || [];
-      if (picks.length) {
-        picks.forEach(function (p) {
-          if (p) removed.push({ round: round, add_pid: p.add_pid });
-        });
-      } else if (g.clear === true) {
-        // An unsubmitted explicit withdrawal. sweepResolvedPicks passes these
-        // through untouched because it has no evidence about them — but here we
-        // DO: the run processed that round at MFL, so there is no longer a live
-        // claim for this withdrawal to cancel. Keeping it would leave the round
-        // rendering as "withdrawing" forever, which is the same stale-pending
-        // bug wearing a different label. Dropping it is local-only and cannot
-        // reach MFL (see the block comment above).
-        clearedRounds.push(round);
-      }
-    });
-    if (!removed.length && !clearedRounds.length) return false;
-    // Everything staged predates the run, so the whole board is stale.
-    M.waivers.setPlan([], { targetRun: null });
-    return { ran_unix: ranAt, removed: removed, cleared_rounds: clearedRounds };
+    if (!M.waivers || !M.waivers.reconcile) return false;
+    // A read of MFL is in flight and will reconcile with real data; clearing
+    // on assumption first would only make that read's answer stale (its plan
+    // snapshot no longer matches) and lose what it would have brought in.
+    if (claimsCheckInFlight) return false;
+    var res = M.waivers.reconcile(null);
+    return (res && res.changed) ? res : false;
   }
 
   // Notice text for runProcessedClear() — same claimsNotice { tone, text }
@@ -2076,33 +1969,31 @@
     // PREFER THE SERVER'S ET LABEL. This is a league-wide 9:00 AM ET event, so
     // rendering it with the device's timezone would tell a Pacific owner
     // "Waivers ran 6:00 AM" — wrong, and stated as fact. M.waivers.when() is
-    // only the fallback for a worker that didn't send a label (it owns ET
-    // formatting; we don't guess a timezone).
-    var lr = (M.waivers && M.waivers.lastRun) ? M.waivers.lastRun() : null;
-    var when = U.safeStr(lr && lr.label) ||
-      ((M.waivers && M.waivers.when) ? M.waivers.when(res.ran_unix) : "");
+    // only the fallback for a worker that didn't send a label.
+    var when = U.safeStr(res && res.ran_label) ||
+      ((res && res.ran_unix && M.waivers && M.waivers.when) ? M.waivers.when(res.ran_unix) : "");
     var lead = when ? ("Waivers ran " + when + ". ") : "Waivers have run since these were staged. ";
     var names = [];
-    (res.removed || []).forEach(function (r) {
+    ((res && res.cleared_claims) || []).forEach(function (r) {
       var n = nameForPid(r.add_pid);
       if (n && names.indexOf(n) === -1) names.push(n);
     });
-    var body;
+    var groups = function (rds) { return rds.length === 1 ? "group " + rds[0] : "groups " + rds.join(", "); };
+    var bits = [];
     if (names.length === 1) {
-      body = "MFL has processed your claim on " + names[0] +
-        " — check your roster to see whether you won it.";
+      bits.push("MFL has processed your claim on " + names[0] + " — check your roster to see whether you won it.");
     } else if (names.length > 1) {
-      body = "MFL has processed these claims (" + names.join(", ") +
-        ") — check your roster to see which, if any, you won.";
-    } else if ((res.cleared_rounds || []).length) {
-      var rds = res.cleared_rounds;
-      body = "MFL has already processed " +
-        (rds.length === 1 ? "group " + rds[0] : "groups " + rds.join(", ")) +
-        ", so the withdrawal staged here no longer applies.";
-    } else {
-      body = "MFL has processed what was staged here — check your roster to see which, if any, you won.";
+      bits.push("MFL has processed these claims (" + names.join(", ") + ") — check your roster to see which, if any, you won.");
     }
-    return { tone: "ok", text: lead + body };
+    var wd = (res && res.cleared_withdrawals) || [];
+    if (wd.length) bits.push("MFL has already processed " + groups(wd) + ", so the withdrawal staged here no longer applies.");
+    var kept = (res && res.kept_unsent) || [];
+    if (kept.length) bits.push("Your unsent changes in " + groups(kept) + " are still here — submit or remove them.");
+    var ad = (res && res.adopted) || [];
+    if (ad.length) bits.push("Loaded what MFL is holding in " + groups(ad) + ".");
+    if (!bits.length) bits.push("MFL has processed what was staged here — check your roster to see which, if any, you won.");
+    // HONESTY RULE: a run proves MFL processed the claims, never who won.
+    return { tone: "ok", text: lead + bits.join(" ") };
   }
 
   // Wrapper mirroring applyResolvedSweep: run the check and, if it acted, set
@@ -2634,9 +2525,7 @@
   // out of reloadClaimsFromServer so checkMflHoldingsChanged — which has just
   // read /pending to make its comparison — can adopt without a second GET.
   // §1 still governs: a `known:false` envelope adopts nothing and says so.
-  // `okText` (optional) replaces the default "Loaded N claims" line when the
-  // adopt succeeds — e.g. why moot unsent edits were dropped.
-  function adoptClaimsFrom(resp, okText) {
+  function adoptClaimsFrom(resp) {
     claimsPreview = null;
     if (M.waivers.adoptVerified(resp)) {
       // On screen == MFL's copy again, so the "MFL's copy differs" banner is
@@ -2644,9 +2533,9 @@
       // behind it.
       claimsMflChanged = false;
       var n = stagedCount();
-      claimsNotice = { tone: "ok", text: okText || (n
+      claimsNotice = { tone: "ok", text: n
         ? ("Loaded " + n + (n === 1 ? " claim" : " claims") + " from MFL.")
-        : "MFL is holding no claims for you.") };
+        : "MFL is holding no claims for you." };
     } else {
       claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
     }
@@ -3013,6 +2902,23 @@
     isDirty: planIsDirty
   };
 
+  // The waiver-state-load reconcile (app.js) can change the plan while this
+  // screen is up, or before it was opened. Say what it did, once per change.
+  var shownReconcile = null;
+  function noteLoadReconcile(res) {
+    if (!res || !res.changed || res === shownReconcile) return;
+    shownReconcile = res;
+    if (!(claimsNotice && claimsNotice.tone === "warn")) claimsNotice = runProcessedNotice(res);
+  }
+  if (window.addEventListener) {
+    window.addEventListener("ups-waiver-plan-reconciled", function (e) {
+      if (!claimsOpen) return;
+      noteLoadReconcile(e && e.detail);
+      claimsMflChanged = false;
+      renderClaimsScreen({ keepScroll: true });
+    });
+  }
+
   function openClaimsScreen() {
     claimsOpen = true;
     claimsPreview = null;
@@ -3023,6 +2929,7 @@
     // them and a duplicate, cap-spending write (§B). It survives until an edit
     // supersedes it (commitPlan) or a fresh read replaces it.
     if (claimsNotice && claimsNotice.tone === "ok") claimsNotice = null;
+    if (M.waivers && M.waivers.lastReconcile) noteLoadReconcile(M.waivers.lastReconcile());
     // Nothing staged locally? Seed from the server so an owner who bid on
     // desktop (or last week) sees their real claims, not an empty screen.
     // §1 again: only a `known:true` envelope may seed anything. A failed read
@@ -3080,12 +2987,11 @@
     // on the next cold start.
     if (!willFetch) {
       checkMflHoldingsChanged();
-      // THE path that produced Keith's bug report: a plan restored from
-      // localStorage, so `willFetch` is false (guard 1) and
-      // checkMflHoldingsChanged bails on a null basis (guard 2) — see the
-      // block comment on sweepResolvedPicks. Both checks below are
-      // independent of that, and both run against state already in hand: no
-      // network round trip, no writes anywhere.
+      // A plan restored from localStorage: checkMflHoldingsChanged above reads
+      // MFL and reconciles it (falling back to the no-read clear only if that
+      // read fails). The two calls below run against state already in hand —
+      // no network, no writes; the run-based one stands aside while that read
+      // is in flight.
       //
       // ORDER: run-based clear first, roster sweep second. Same reasoning as
       // the fetch branch above — the run signal covers wins AND losses, so it

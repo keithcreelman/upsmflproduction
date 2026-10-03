@@ -1,4 +1,4 @@
 {
   "build": "2026.10.03.1",
-  "label": "Waiver claims clear themselves after every run again. In-season run times now come from the league's Thu/Fri/Sat/Sun 9:00 AM ET schedule (MFL's calendar export omits them), so a claim or withdrawal staged before a run is cleared once that run processes. A withdrawal of a group the run already emptied is dropped instead of showing \"MFL is holding different claims\"."
+  "label": "Waiver claims reconcile themselves with MFL after every run — no \"Reload from MFL\". Run times now follow the league's Thu/Fri/Sat/Sun 9:00 AM ET schedule (MFL's calendar export omits in-season runs). After a run, claims and withdrawals MFL already processed clear on the Market badge, Home tile and Claims screen; any unsent bid or change that doesn't match MFL is kept."
 }
