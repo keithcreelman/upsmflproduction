@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.02.4";
+  var BUILD = "2026.10.03.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -334,6 +334,12 @@
                                 // "now". Paired with /api/waivers/state's
                                 // last_run to notice that a real waiver run has
                                 // since processed this plan.
+    waiverReconcileResult: null, // last change reconcileWaiverPlanAfterRun made (notice text)
+    waiverCheckedRun: null,     // unix SECONDS of the newest waiver run this plan
+                                // has been reconciled against MFL after (or was
+                                // adopted from MFL after). PERSISTED with the
+                                // plan; null = never — so a plan saved before
+                                // this existed is reconciled once.
     capPenaltyByPid: null,      // /api/cap-penalty/preview BATCH — authoritative drop penalties
     // ── Hot/Cold (MFL platform-wide add/drop trend, Market screen sort) ────
     // GET /api/hot-cold — MFL's own topAdds ("Who's Hot?") / topDrops
@@ -1289,7 +1295,7 @@
       try { window.dispatchEvent(new Event("ups-cap-penalty-ready")); } catch (_) {}
       parseLeague();
       resolveViewerFranchise(results[14]);
-      // reconcileWaiverPlanAgainstRun() also runs the instant fetchWaiverState
+      // reconcileWaiverPlanAfterRun() also runs the instant fetchWaiverState
       // resolves (see that function) — but at COLD BOOT that fetch is one of
       // ~20 fired in parallel above, so it typically resolves BEFORE this line,
       // while state.viewerFranchiseId is still whatever it was before this
@@ -1299,7 +1305,7 @@
       // read/write key changes under it the instant the line above runs. Re-run
       // it now that the fid is actually known, so cold boot gets the same
       // correct behavior the foreground-resume path already had for free.
-      reconcileWaiverPlanAgainstRun();
+      reconcileWaiverPlanAfterRun();
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -1954,7 +1960,7 @@
         if (j && j.ok) {
           state.waiverState = j;
           state.waiverStateAt = Date.now();
-          // See reconcileWaiverPlanAgainstRun below. This covers the
+          // See reconcileWaiverPlanAfterRun below. This covers the
           // foreground-resume path (viewerFranchiseId is already resolved by
           // then, this app instance was already running) and any other
           // fetchState(true) caller. At COLD BOOT, viewerFranchiseId is not
@@ -1962,7 +1968,7 @@
           // call, right after resolveViewerFranchise() in loadAllData — so
           // this one is a harmless no-op there (wrong/empty localStorage key)
           // rather than the fix for that path.
-          reconcileWaiverPlanAgainstRun();
+          reconcileWaiverPlanAfterRun();
         }
         return state.waiverState;
       })
@@ -1971,47 +1977,161 @@
     return p;
   }
 
-  // ── Auto-clear a plan a waiver run has already processed (Keith 2026-09-01) ──
-  // "waiver claims get hung up from days ago... red notification... I need to
-  // reload" — the Home tile's badge reads getWaiverPlan()'s STAGED count, but
-  // until this function existed, that local plan was only ever reconciled
-  // against a processed run inside players.js's Claims screen
-  // (runProcessedClear, see its own long comment for the full mechanism this
-  // mirrors). An owner who never opened Claims — just glanced at Home and
-  // reloaded — kept seeing a stale badge indefinitely: reloading re-fetches
-  // waiver STATE, but nothing had ever told the local PLAN a run already
-  // happened, so the same stale count came right back.
+  // ── Reconcile the saved plan with MFL after a waiver run ─────────────────
+  // Keith 2026-10-03: "Owners should not need to use 'Reload from MFL' after a
+  // waiver run." After Saturday's 9:00 AM run his Claims screen still showed
+  // "Clear every claim in group 1 — withdrawing" and the Market "Finalize
+  // claims 1": the local plan is persisted, so it outlives the run that
+  // processed it. (Before 2026-10-03 this was a whole-board clear keyed on the
+  // plan's target run — which never fired in season, because MFL's calendar
+  // export lists no in-season runs, and which also wiped unsent bids.)
   //
-  // Same fail-closed comparison as runProcessedClear, minus the notice-
-  // building (a Claims-screen-only concern): known:false, a missing/zero
-  // last-run, or a missing/zero target all change NOTHING (rule_no_fail_open_
-  // guards — leaving a stale claim on screen one more cycle beats clearing a
-  // live one on a guess). `ranAt >= target` — not > — because target IS a run
-  // instant, and both sides come from the same MFL calendar, so there is no
-  // clock to skew.
+  // ONE reconcile, used by every surface: the waiver-state load (Market badge,
+  // Home tile — reconcileWaiverPlanAfterRun below) and the Claims screen
+  // (players.js, via M.waivers.reconcile). Group by group, against MFL's
+  // current holdings (`block`, a known:true /api/waivers/pending read):
+  //   plan == MFL                         → in sync: MFL's copy. A staged
+  //                                         withdrawal of a group MFL holds
+  //                                         nothing in is moot → gone.
+  //   plan unchanged since MFL last       → MFL processed or replaced it →
+  //   confirmed it, MFL now differs         MFL's copy (a processed claim
+  //                                         clears).
+  //   staged withdrawal, MFL still holds  → kept: it still means something.
+  //   anything else (an unsent bid or     → KEPT, still unsent. Never dropped
+  //   edit that doesn't match MFL)          on a guess.
+  //   a group MFL holds the plan omits    → MFL's copy.
   //
-  // Deliberately independent of players.js: this only ever makes
-  // openClaimsScreen()'s own guards see a CORRECTLY empty local plan sooner
-  // (which un-suppresses its "nothing staged → seed from /pending" fetch),
-  // it never replaces that screen's richer reconciliation.
-  function reconcileWaiverPlanAgainstRun() {
+  // block === null is the no-read fallback (signed out, MFL unreadable). It is
+  // allowed ONLY when the run this plan was aimed at (target_run, stamped when
+  // MFL last echoed it back) has passed: a run processes every claim MFL was
+  // holding (a /pending read hours after a run returns {} — see players.js
+  // sweepResolvedPicks), so MFL is treated as holding nothing for the groups
+  // it had confirmed. Unsent changes are still kept. No target, or a target
+  // still ahead → null, nothing changes (rule_no_fail_open_guards).
+  //
+  // opts.expect = { plan, verified } signatures taken when the read STARTED:
+  // if the plan moved while the read was in flight (a submit landed, the owner
+  // edited), the answer describes a plan that's gone → null, nothing changes.
+  //
+  // Local only: this never writes to MFL. Returns null when it did nothing,
+  // else { changed, ran_unix, ran_label, cleared_claims:[{round, add_pid}],
+  // cleared_withdrawals:[round], kept_unsent:[round], adopted:[round] }.
+  function waiverPicksKey(picks) {
+    return JSON.stringify((picks || []).map(function (p) {
+      return [String(p.add_pid || ""), safeInt(p.bid_dollars, 0), String(p.drop_pid || "")];
+    }));
+  }
+  function reconcileWaiverPlanWithMfl(block, opts) {
+    opts = opts || {};
     var lr = waiverLastRun();
-    if (!lr || lr.known !== true) return false;
-    var ranAt = lr.unix;
-    if (typeof ranAt !== "number" || !isFinite(ranAt) || ranAt <= 0) return false;
+    var ranUnix = (lr && lr.known === true && lr.unix > 0) ? lr.unix : null;
     var plan = getWaiverPlan();
-    var target = state.waiverTargetRun;
-    if (typeof target !== "number" || !isFinite(target) || target <= 0) return false;
-    if (!(ranAt >= target)) return false;
-    if (!plan.length) {
-      // Nothing to clear, but the spent target still has to go — see
-      // runProcessedClear's identical note: leaving it would wipe a
-      // genuinely live plan staged tomorrow against a later run.
-      setWaiverPlan(plan, { targetRun: null });
-      return false;
+    if (opts.expect && (planSignature(plan) !== opts.expect.plan ||
+        (state.waiverPlanVerified || "") !== opts.expect.verified)) return null;
+    var read = !!(block && block.known === true && Array.isArray(block.rounds));
+    if (!read) {
+      var target = state.waiverTargetRun;
+      if (!(ranUnix && typeof target === "number" && target > 0 && ranUnix >= target)) return null;
     }
-    setWaiverPlan([], { targetRun: null });
-    return true;
+    // MFL's groups, normalized exactly as adoptVerifiedPlan does.
+    var atMfl = {};
+    (read ? block.rounds : []).forEach(function (g) {
+      var r = safeInt(g && g.round, 0);
+      var picks = ((g && g.picks) || []).map(function (p) {
+        return { add_pid: String(p.add_pid || ""), bid_dollars: safeInt(p.bid_dollars, 0), drop_pid: p.drop_pid ? String(p.drop_pid) : null };
+      });
+      if (r > 0 && picks.length) atMfl[r] = picks;
+    });
+    // What MFL last confirmed, from the persisted verified signature
+    // (planSignature's own JSON: [[round, clear, [[add, bid, drop], …]], …]).
+    var confirmed = {};
+    try {
+      (JSON.parse(state.waiverPlanVerified || "[]") || []).forEach(function (g) {
+        if (Array.isArray(g) && safeInt(g[0], 0) > 0 && !g[1]) confirmed[safeInt(g[0], 0)] = JSON.stringify(g[2] || []);
+      });
+    } catch (e) { confirmed = {}; }
+    var out = [], res = { changed: false, ran_unix: ranUnix, ran_label: (lr && lr.label) || "",
+      cleared_claims: [], cleared_withdrawals: [], kept_unsent: [], adopted: [] };
+    var seen = {};
+    plan.forEach(function (g) {
+      var r = safeInt(g.round, 0);
+      if (!(r > 0)) return;
+      seen[r] = true;
+      var picks = g.picks || [];
+      var mfl = atMfl[r] || [];
+      var pk = waiverPicksKey(picks), mk = waiverPicksKey(mfl);
+      if (pk === mk) {                                   // in sync (incl. a moot withdrawal)
+        if (mfl.length) out.push({ round: r, picks: mfl, clear: false });
+        else if (!picks.length) res.cleared_withdrawals.push(r);
+        return;
+      }
+      if (!picks.length) {                               // withdrawal; MFL still holds claims here
+        out.push({ round: r, picks: [], clear: true });
+        return;
+      }
+      if (confirmed[r] === pk) {                         // MFL processed / replaced it
+        picks.forEach(function (p) { res.cleared_claims.push({ round: r, add_pid: String(p.add_pid || "") }); });
+        if (mfl.length) { out.push({ round: r, picks: mfl, clear: false }); res.adopted.push(r); }
+        return;
+      }
+      out.push({ round: r, picks: picks, clear: false }); // unsent — kept
+      res.kept_unsent.push(r);
+    });
+    Object.keys(atMfl).forEach(function (k) {             // live at MFL, not on screen
+      var r = safeInt(k, 0);
+      if (!seen[r]) { out.push({ round: r, picks: atMfl[r], clear: false }); res.adopted.push(r); }
+    });
+    out.sort(function (a, b) { return a.round - b.round; });
+    res.changed = planSignature(out) !== planSignature(plan);
+    // The new clean baseline is MFL's own copy, so every kept unsent change
+    // still reads "edited — not submitted" and nothing else does.
+    var mflPlan = Object.keys(atMfl).map(function (k) { return { round: safeInt(k, 0), picks: atMfl[k], clear: false }; })
+      .sort(function (a, b) { return a.round - b.round; });
+    if (read) {
+      state.waiverMflSig = mflHoldingsSignature(block);
+      if (ranUnix) state.waiverCheckedRun = ranUnix;
+    } else {
+      state.waiverMflSig = null;                         // we did not read MFL
+    }
+    state.waiverPlanVerified = planSignature(mflPlan);
+    // MFL's groups now wait for the next run; with nothing confirmed left (the
+    // fallback, or MFL holding nothing) there is no run to aim at.
+    setWaiverPlan(out, { targetRun: (read && mflPlan.length) ? waiverNextRunUnix() : null });
+    return res;
+  }
+
+  // The waiver-state-load trigger (boot, foreground, every fetchWaiverState).
+  // Reads MFL once per run: only when a run has passed since this plan was
+  // last reconciled or adopted (checked_run), and only when something is
+  // staged. Repaints the current screen (Market badge, Home tile) and tells
+  // an open Claims screen when the plan changed.
+  var waiverReconcilePromise = null;
+  function reconcileWaiverPlanAfterRun() {
+    if (waiverReconcilePromise) return waiverReconcilePromise;
+    if (!state.viewerFranchiseId) return Promise.resolve(null);
+    var lr = waiverLastRun();
+    if (!lr || lr.known !== true || !(lr.unix > 0)) return Promise.resolve(null);
+    var plan = getWaiverPlan();
+    if (!plan.length) return Promise.resolve(null);
+    var checked = state.waiverCheckedRun;
+    if (typeof checked === "number" && checked >= lr.unix) return Promise.resolve(null);
+    var key = waiverPlanKey();
+    var expect = { plan: planSignature(plan), verified: state.waiverPlanVerified || "" };
+    var finish = function (block) {
+      if (waiverPlanKey() !== key) return null;          // team switched mid-read
+      var res = reconcileWaiverPlanWithMfl(block, { expect: expect });
+      if (res && res.changed) {
+        state.waiverReconcileResult = res;
+        try { window.dispatchEvent(new CustomEvent("ups-waiver-plan-reconciled", { detail: res })); } catch (_) {}
+        try { renderRoute(); } catch (_) {}
+      }
+      return res;
+    };
+    waiverReconcilePromise = fetchPendingClaims()
+      .then(finish, function () { return finish(null); })
+      .then(function (res) { waiverReconcilePromise = null; return res; },
+            function () { waiverReconcilePromise = null; return null; });
+    return waiverReconcilePromise;
   }
 
   // GET /api/waivers/pending — the claims MFL currently holds for this owner.
@@ -2457,11 +2577,15 @@
         (typeof stored.target_run === "number" && isFinite(stored.target_run) && stored.target_run > 0)
           ? stored.target_run : null;
       state.waiverPlanVerified = (typeof stored.verified === "string") ? stored.verified : "";
+      state.waiverCheckedRun =
+        (typeof stored.checked_run === "number" && isFinite(stored.checked_run) && stored.checked_run > 0)
+          ? stored.checked_run : null;
     } else {
       state.waiverPlan = Array.isArray(stored) ? stored : [];
       state.waiverMflSig = null;
       state.waiverTargetRun = null;
       state.waiverPlanVerified = "";
+      state.waiverCheckedRun = null;
     }
     _waiverPlanCacheKey = key;
     return state.waiverPlan;
@@ -2517,7 +2641,11 @@
             (typeof state.waiverTargetRun === "number" && isFinite(state.waiverTargetRun) &&
              state.waiverTargetRun > 0)
               ? state.waiverTargetRun : null,
-          verified: (typeof state.waiverPlanVerified === "string") ? state.waiverPlanVerified : ""
+          verified: (typeof state.waiverPlanVerified === "string") ? state.waiverPlanVerified : "",
+          checked_run:
+            (typeof state.waiverCheckedRun === "number" && isFinite(state.waiverCheckedRun) &&
+             state.waiverCheckedRun > 0)
+              ? state.waiverCheckedRun : null
         }));
       }
     } catch (e) {}
@@ -2611,6 +2739,10 @@
     // last_run.unix) then come from the same MFL calendar, so a skewed phone
     // clock cannot make a live plan look processed. There is no arithmetic on
     // "now" anywhere in the comparison.
+    // MFL's own copy, read now, is current through the newest run so far — so
+    // the after-run reconcile has nothing to do until the NEXT run passes.
+    var lrNow = waiverLastRun();
+    if (lrNow && lrNow.known === true && lrNow.unix > 0) state.waiverCheckedRun = lrNow.unix;
     setWaiverPlan(normalized, { targetRun: waiverNextRunUnix() });
     state.waiverPlanVerified = planSignature(state.waiverPlan);
     // setWaiverPlan already wrote plan+mfl+target_run to storage, but that
@@ -3283,7 +3415,7 @@
     // while the PWA sat backgrounded (last_run advances, but the NEXT
     // scheduled run in `window` is often unchanged) never repainted at all.
     // fetchWaiverState's success path now also runs
-    // reconcileWaiverPlanAgainstRun(), which can silently clear a staged
+    // reconcileWaiverPlanAfterRun(), which can clear a processed claim from a staged
     // plan the instant fresh state lands — so `plan` has to be in this
     // comparison too, or the Home badge stays showing the pre-clear count
     // until something else happens to repaint the screen (Keith 2026-09-01:
@@ -3646,6 +3778,14 @@
       lastRun: waiverLastRun,
       mflSignature: mflHoldingsSignature,
       adoptVerified: adoptVerifiedPlan,
+      // After-run reconcile against a /pending block (or null = the no-read
+      // fallback, run-passed-only). See reconcileWaiverPlanWithMfl.
+      reconcile: function (block, opts) { return reconcileWaiverPlanWithMfl(block, opts); },
+      planSignature: planSignature,
+      verifiedSignature: function () { getWaiverPlan(); return state.waiverPlanVerified || ""; },
+      // The last change the waiver-state-load reconcile made, for the Claims
+      // screen's notice ({cleared_claims, cleared_withdrawals, kept_unsent, …}).
+      lastReconcile: function () { return state.waiverReconcileResult || null; },
       errorMessage: waiverErrorMessage,
       // Ground-truth roster-membership check (contract v2's "already resolved"
       // signal) — the viewer's own rostered pids, independent of MFL's

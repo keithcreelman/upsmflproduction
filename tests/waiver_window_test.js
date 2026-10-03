@@ -65,10 +65,17 @@ const _wvEtLabel = (unixSec) => {
 };
 
 const WV_WINDOW_MARKER = "const _wvWaiverWindow = (calendarRows, nowUnix, opts = {}) => {";
+// The league-schedule helpers (_WV_LEAGUE_BBID_WEEKDAYS … _wvLeagueScheduleRuns),
+// sliced verbatim as one block.
+const SCHED_START = "const _WV_LEAGUE_BBID_WEEKDAYS";
+const SCHED_END = "// Bid floor / step / round cap read LIVE from MFL.";
+if (SRC.indexOf(SCHED_START) === -1 || SRC.indexOf(SCHED_END) === -1) throw new Error("league schedule helpers not found");
+const SCHED_SRC = SRC.slice(SRC.indexOf(SCHED_START), SRC.indexOf(SCHED_END));
 const body =
   extract("const _wvIsSundayEt = (unixSec) => {") + ";\n" +
+  SCHED_SRC + "\n" +
   extract(WV_WINDOW_MARKER, WV_WINDOW_MARKER.length - 1) + ";\n" +
-  "return { _wvIsSundayEt, _wvWaiverWindow };";
+  "return { _wvIsSundayEt, _wvWaiverWindow, _wvLeagueScheduleRuns };";
 // eslint-disable-next-line no-new-func
 const { _wvWaiverWindow } = new Function("safeStr", "_wvEtLabel", body)(safeStr, _wvEtLabel);
 
@@ -155,6 +162,93 @@ function win(events, nowUnix, week1 = WEEK1_KICKOFF_UNIX) {
   const events = [{ event_type: "WAIVER_UNLOCK", start_unix: thuUnlock, end_unix: null }];
   const w = win(events, thuUnlock + 60);
   check("WAIVER_UNLOCK on a Thursday -> fcfs unconditionally", w.mode === "fcfs", w.mode);
+}
+
+// ══ RUN TIMES: the league schedule fills what MFL's calendar export omits ══
+// Keith 2026-10-03: a withdrawal staged before Saturday's 9 AM run was still on
+// the Claims screen after it. Live /api/waivers/state that morning reported
+// last_run = Thu Aug 13 and next_bbid_run_unix = null — the calendar export
+// (REAL_EVENTS, unchanged since August) lists no in-season runs at all, so the
+// mobile run-based clear never had a run to compare against.
+const et = (iso) => Math.floor(Date.parse(iso) / 1000);
+
+// MFL's own BBID_WAIVER award instants for L=74598, 2026 (transactions export,
+// read 2026-10-03). Every one must be a run the window knows about.
+const AWARDS_2026 = [1786107600, 1786194000, 1786280400, 1786626000, 1786712400, 1786798800,
+  1787230800, 1787317200, 1787403600, 1787490000, 1787835600, 1787922000, 1788008400,
+  1788094800, 1788440400, 1788699600, 1789045200, 1789218000, 1789304400, 1789650000,
+  1789736400, 1789822800, 1790254800, 1790341200, 1790427600, 1790514000, 1790859600,
+  1790946000, 1791032400];
+
+{
+  const now = et("2026-10-03T09:52:27-04:00");   // the morning of the report, 52 min after Saturday's run
+  const w = win(REAL_EVENTS, now);
+  check("Sat Oct 3 (live): last run = Sat Oct 3 9:00 AM ET, not Aug 13",
+    w.last_bbid_run_unix === et("2026-10-03T09:00:00-04:00"), w.last_bbid_run_label + " / " + w.last_bbid_run_source);
+  check("…sourced from the league schedule", w.last_bbid_run_source === "league_schedule", w.last_bbid_run_source);
+  check("Sat Oct 3 (live): next run = Sun Oct 4 9:00 AM ET (was null)",
+    w.next_bbid_run_unix === et("2026-10-04T09:00:00-04:00"), w.next_bbid_run_label);
+  check("…upcoming = Sun Oct 4, Thu Oct 8, Fri Oct 9, Sat Oct 10",
+    JSON.stringify(w.bbid_runs_upcoming) === JSON.stringify(["2026-10-04", "2026-10-08", "2026-10-09", "2026-10-10"].map((d) => et(d + "T09:00:00-04:00"))),
+    JSON.stringify(w.bbid_runs_upcoming));
+  check("…window.mode untouched: still bbid / after_waiver_lock, exactly what the live API said",
+    w.mode === "bbid" && w.mode_reason === "after_waiver_lock", w.mode + " / " + w.mode_reason);
+}
+
+{
+  let missing = [];
+  for (const a of AWARDS_2026) {
+    const at = win(REAL_EVENTS, a + 60);
+    const before = win(REAL_EVENTS, a - 60);
+    if (at.last_bbid_run_unix !== a || !(before.last_bbid_run_unix < a)) missing.push(a);
+  }
+  check("every 2026 MFL award instant (29 runs, Aug 7 → Oct 3) is a run the window knows", missing.length === 0,
+    missing.length ? "missing " + missing.join(",") : AWARDS_2026.length + " of " + AWARDS_2026.length);
+}
+
+{
+  // 2025: waivers opened Thu Aug 14; DST ended Sun Nov 2. MFL's real award
+  // instants on either side: Sat Nov 1 = 13:00Z (EDT), Thu Nov 6 = 14:00Z (EST).
+  const ev2025 = [{ event_type: "WAIVER_BBID", start_unix: et("2025-08-14T09:00:00-04:00"), end_unix: null }];
+  const sat = win(ev2025, 1762002000 + 60), thu = win(ev2025, 1762437600 + 60);
+  check("2025 Sat Nov 1 run = 13:00 UTC (9:00 EDT), MFL award 1762002000", sat.last_bbid_run_unix === 1762002000, String(sat.last_bbid_run_unix));
+  check("2025 Thu Nov 6 run = 14:00 UTC (9:00 EST), MFL award 1762437600", thu.last_bbid_run_unix === 1762437600, String(thu.last_bbid_run_unix));
+  check("…and the Sun Nov 2 run in between is 9:00 EST", sat.next_bbid_run_unix === et("2025-11-02T09:00:00-05:00"), sat.next_bbid_run_label);
+}
+
+{
+  const w = win(REAL_EVENTS, et("2026-08-05T12:00:00-04:00"));   // before waivers open (first run Fri Aug 7)
+  check("before waivers open: no last run invented", w.last_bbid_run_unix === null, String(w.last_bbid_run_unix));
+  check("…next run = the calendar's own first run, Fri Aug 7", w.next_bbid_run_unix === 1786107600 && w.next_bbid_run_source === "calendar", w.next_bbid_run_label);
+}
+
+{
+  const events = REAL_EVENTS.concat([{ event_type: "WAIVER_NONE", start_unix: et("2026-10-07T00:00:00-04:00"), end_unix: et("2026-10-11T00:00:00-04:00") }]);
+  const w = win(events, et("2026-10-05T12:00:00-04:00"));
+  check("a WAIVER_NONE blackout span removes its runs: next after Sun Oct 4 is Sun Oct 11",
+    w.next_bbid_run_unix === et("2026-10-11T09:00:00-04:00"), w.next_bbid_run_label);
+}
+
+{
+  // REAL_EVENTS ends with an open-ended WAIVER_NONE at 1799114400 (Mon Jan 4 2027, 8 PM ET): the season shut-off.
+  const w = win(REAL_EVENTS, 1799114400 + 2 * 86400);
+  check("season shut-off: last run = Sun Jan 3 2027 9:00 AM EST, none after",
+    w.last_bbid_run_unix === et("2027-01-03T09:00:00-05:00") && w.next_bbid_run_unix === null,
+    w.last_bbid_run_label + " / next " + w.next_bbid_run_unix);
+}
+
+{
+  const w = win([], et("2026-10-03T09:52:27-04:00"));
+  check("no calendar events at all: no run times invented", w.last_bbid_run_unix === null && w.next_bbid_run_unix === null, JSON.stringify([w.last_bbid_run_unix, w.next_bbid_run_unix]));
+}
+
+{
+  // The schedule must not open FCFS: Sunday Oct 4 after the run, the calendar
+  // has no Sunday event, so the mode stays whatever MFL's own events say.
+  const w = win(REAL_EVENTS, et("2026-10-04T09:14:00-04:00"));
+  check("schedule runs never change window.mode (Sun Oct 4 09:14 ET stays bbid / after_waiver_lock)",
+    w.mode === "bbid" && w.mode_reason === "after_waiver_lock" && w.last_bbid_run_unix === et("2026-10-04T09:00:00-04:00"),
+    w.mode + " / " + w.mode_reason);
 }
 
 console.log(ok ? "\nALL PASS" : "\nSOME FAILED");

@@ -42262,6 +42262,88 @@ const mflToSleeper = {};
         } catch (_) { return ""; }
       };
 
+      // ── THE LEAGUE'S BLIND-BID RUN SCHEDULE: Thu/Fri/Sat/Sun 9:00 AM ET ──
+      // (canon league_context_v1.md §A4; the 2021-08-17 9-0 vote.) Used ONLY to
+      // supply run TIMES that MFL's calendar export leaves out — last run, next
+      // run, upcoming runs. It never decides window.mode: that stays the walk
+      // over MFL's own WAIVER_* events in _wvWaiverWindow, untouched.
+      //
+      // Why (Keith 2026-10-03): a withdrawal staged before Saturday's run was
+      // still on the Claims screen after it, under "MFL is holding different
+      // claims". MFL schedules the in-season runs as a recurring series that its
+      // calendar EXPORT does not return. The export's last 2026 WAIVER_BBID is
+      // Thu Aug 13, so /api/waivers/state reported last_run = Aug 13 and
+      // next_bbid_run_unix = null all season. Every plan adopted in-season was
+      // therefore stamped with no target run, and the mobile run-based clear
+      // (runProcessedClear) had nothing to act on.
+      //
+      // Evidence this IS what MFL runs: every BBID_WAIVER award in MFL's own
+      // transaction log lands exactly on one of these instants and on no other
+      // — 2025: 77 of 77, including the post-DST runs at 14:00 UTC; 2026
+      // through Sat Oct 3: 119 of 119.
+      //
+      // Bounded by MFL's calendar, so it never invents a season:
+      //   - nothing before the calendar's FIRST WAIVER_BBID (waivers open);
+      //   - nothing inside a WAIVER_NONE blackout span (start → end);
+      //   - nothing at/after an open-ended WAIVER_NONE that starts after
+      //     waivers open (the season's add/drop shut-off).
+      // DST-correct by construction: each date's 9:00 is found by asking
+      // America/New_York, never by a fixed UTC offset.
+      const _WV_LEAGUE_BBID_WEEKDAYS = [4, 5, 6, 0];   // Thu, Fri, Sat, Sun (getUTCDay of the ET calendar date)
+      const _wvEtHhmm = (unixSec) => {
+        try {
+          return new Date(unixSec * 1000).toLocaleString("en-US", {
+            timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+          });
+        } catch (_) { return ""; }
+      };
+      const _wvEtYmd = (unixSec) => {
+        try {
+          const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric",
+          }).formatToParts(new Date(unixSec * 1000));
+          const get = (t) => Number((parts.find((x) => x.type === t) || {}).value);
+          return { y: get("year"), m: get("month"), d: get("day") };
+        } catch (_) { return null; }
+      };
+      // 09:00 America/New_York on calendar date (y, m 1-12, d) as unix seconds.
+      const _wvEtNineAm = (y, m, d) => {
+        for (const utcHour of [13, 14]) {          // 09:00 EDT = 13:00Z, 09:00 EST = 14:00Z
+          const t = Date.UTC(y, m - 1, d, utcHour, 0, 0) / 1000;
+          if (_wvEtHhmm(t) === "09:00") return t;
+        }
+        return null;
+      };
+      // Scheduled run instants in [fromUnix, toUnix], within the calendar's bounds.
+      // `events` is _wvWaiverWindow's normalized, ascending event list.
+      const _wvLeagueScheduleRuns = (events, fromUnix, toUnix) => {
+        const bbid = (events || []).filter((e) => e.type === "WAIVER_BBID");
+        if (!bbid.length) return [];
+        const openAt = bbid[0].start_unix;
+        const spans = events.filter((e) => e.type === "WAIVER_NONE" && e.end_unix);
+        let shutoff = null;
+        for (const e of events) {
+          if (e.type === "WAIVER_NONE" && !e.end_unix && e.start_unix > openAt &&
+              (shutoff == null || e.start_unix < shutoff)) shutoff = e.start_unix;
+        }
+        const lo = Math.max(openAt, fromUnix);
+        const hi = shutoff != null ? Math.min(toUnix, shutoff - 1) : toUnix;
+        if (!(hi >= lo)) return [];
+        const start = _wvEtYmd(lo - 86400);
+        if (!start) return [];
+        const out = [];
+        const days = Math.ceil((hi - lo) / 86400) + 3;
+        for (let k = 0; k <= days; k += 1) {
+          const date = new Date(Date.UTC(start.y, start.m - 1, start.d + k));
+          if (_WV_LEAGUE_BBID_WEEKDAYS.indexOf(date.getUTCDay()) === -1) continue;
+          const t = _wvEtNineAm(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+          if (t == null || t < lo || t > hi) continue;
+          if (spans.some((e) => t >= e.start_unix && t < e.end_unix)) continue;
+          out.push(t);
+        }
+        return out;
+      };
+
       // Bid floor / step / round cap read LIVE from MFL. NOT hardcoded and NOT
       // defaulted: the commish can change any of these in MFL's setup, and a
       // silent fallback lets our validation drift out from under him — which in
@@ -42380,15 +42462,24 @@ const mflToSleeper = {};
           }
         }
         const runs = events.filter((e) => e.type === "WAIVER_BBID").map((e) => e.start_unix);
-        const upcoming = runs.filter((t) => t > nowUnix);
         const firstRun = runs.length ? runs[0] : null;
+        // Run TIMES = MFL's calendar runs plus the league schedule's runs for the
+        // stretch the export leaves out (see _wvLeagueScheduleRuns). A week each
+        // side of now covers the last run (at most 4 days back, Sun → Thu) and
+        // the next four. These feed last/next/upcoming ONLY — window.mode below
+        // is still decided from MFL's own events and nothing else.
+        const scheduled = _wvLeagueScheduleRuns(events, nowUnix - 8 * 86400, nowUnix + 8 * 86400);
+        const allRuns = Array.from(new Set(runs.concat(scheduled))).sort((a, b) => a - b);
+        const runSource = (t) => (t == null ? "" : (runs.indexOf(t) !== -1 ? "calendar" : "league_schedule"));
+        const upcoming = allRuns.filter((t) => t > nowUnix);
         // The most recent run instant that has already passed — the same
         // sorted `runs` array `upcoming` comes from, walked the other way.
         //
         // Keith 2026-08-09: "just read the previously processed waivers report
         // OR read the API to see when waivers ran...or read my schedule."
-        // This IS the schedule, and it is authoritative: MFL runs waivers off
-        // these very WAIVER_BBID events. Cross-checked against MFL's own
+        // This IS the schedule: MFL's WAIVER_BBID events plus, where the export
+        // stops listing them (in season), the league's Thu/Fri/Sat/Sun 9:00 AM
+        // ET runs from _wvLeagueScheduleRuns. Cross-checked against MFL's own
         // BBID_WAIVER transaction log for this league on 2026-08-09 — the
         // calendar's Fri/Sat/Sun 09:00 ET events matched the award timestamps
         // 1786107600 / 1786194000 / 1786280400 exactly, all three.
@@ -42400,7 +42491,7 @@ const mflToSleeper = {};
         // inferred "a run happened" from AWARDS, so a run in which nobody won
         // anything left no trace and read as no run at all. The calendar says
         // when the run is scheduled whether or not anyone won.
-        const past = runs.filter((t) => t <= nowUnix);
+        const past = allRuns.filter((t) => t <= nowUnix);
         const lastRun = past.length ? past[past.length - 1] : null;
 
         // ── window.mode ──
@@ -42525,6 +42616,9 @@ const mflToSleeper = {};
           blackout,
           next_bbid_run_unix: upcoming.length ? upcoming[0] : null,
           next_bbid_run_label: upcoming.length ? _wvEtLabel(upcoming[0]) : "",
+          // "calendar" (an MFL WAIVER_BBID event) | "league_schedule" (the
+          // Thu/Fri/Sat/Sun 9:00 AM ET run the export left out) | "".
+          next_bbid_run_source: runSource(upcoming.length ? upcoming[0] : null),
           bbid_runs_upcoming: upcoming.slice(0, 4),
           waivers_open: !!(firstRun && nowUnix >= firstRun),
           waivers_open_at_unix: firstRun,
@@ -42533,6 +42627,7 @@ const mflToSleeper = {};
           // client must not guess a timezone (a device in PT would otherwise
           // render this league-wide 9:00 AM ET event as 6:00 AM).
           last_bbid_run_label: lastRun ? _wvEtLabel(lastRun) : "",
+          last_bbid_run_source: runSource(lastRun),
         };
       };
 
@@ -43420,6 +43515,7 @@ const mflToSleeper = {};
             blackout: win.blackout,
             next_bbid_run_unix: win.next_bbid_run_unix,
             next_bbid_run_label: win.next_bbid_run_label,
+            next_bbid_run_source: win.next_bbid_run_source,
             bbid_runs_upcoming: win.bbid_runs_upcoming,
             waivers_open: win.waivers_open,
             waivers_open_at_unix: win.waivers_open_at_unix,
@@ -43455,6 +43551,8 @@ const mflToSleeper = {};
             known: calOk,
             unix: calOk ? win.last_bbid_run_unix : null,
             label: calOk ? win.last_bbid_run_label : "",
+            // "calendar" | "league_schedule" — see _wvLeagueScheduleRuns.
+            source: calOk ? win.last_bbid_run_source : "",
             unknown_reason: calOk ? "" : "calendar_unavailable",
           },
           viewer: null,
