@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.03.1",
-  "label": "Waiver claims reconcile themselves with MFL after every run — no \"Reload from MFL\". Run times now follow the league's Thu/Fri/Sat/Sun 9:00 AM ET schedule (MFL's calendar export omits in-season runs). After a run, claims and withdrawals MFL already processed clear on the Market badge, Home tile and Claims screen; any unsent bid or change that doesn't match MFL is kept."
+  "build": "2026.10.03.2",
+  "label": "Sunday free agency in the app: from the Sunday 9:00 AM ET waiver run until the Monday 9:00 PM ET re-lock, free agents show Add now (immediate, first come first served), matching MFL's own league calendar. A player locks when his game kicks off; outside the window players show Bid; during a blackout, before waivers open or after the season they show Locked — and the server enforces the same rules."
 }
