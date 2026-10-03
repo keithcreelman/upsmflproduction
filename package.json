@@ -1,0 +1,28 @@
+{
+  "name": "upsmflproduction",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UPS MFL league platform. This root manifest exists ONLY to provide npm aliases for the fantasy ingestion CLI and the test suite — the repo's real code lives in worker/ (its own package.json), pipelines/ (Python) and site/ (static).",
+  "//type": "⚠️ There is deliberately NO \"type\" field. Adding \"type\": \"module\" here would break tests/lineup_parser_test.js, which is CommonJS and relies on require()/__dirname working because no root package.json existed. New test files use .mjs so they can import ESM without needing one.",
+  "//deps": "⚠️ Deliberately NO dependencies and NO devDependencies. Every script below is stdlib-only (python3 / node 22). Adding a package here would introduce the repo's first root node_modules and its first npm install step in CI, which no existing workflow has.",
+  "scripts": {
+    "yahoo:auth": "python3 pipelines/fantasy/cli.py auth",
+    "yahoo:auth:status": "python3 pipelines/fantasy/cli.py auth --status",
+    "yahoo:discover": "python3 pipelines/fantasy/cli.py discover",
+    "yahoo:backfill": "python3 pipelines/fantasy/cli.py backfill",
+    "yahoo:sync": "python3 pipelines/fantasy/cli.py sync",
+    "yahoo:report": "python3 pipelines/fantasy/cli.py report",
+    "yahoo:verify": "python3 pipelines/fantasy/cli.py verify",
+    "espn:auth:status": "python3 pipelines/fantasy/cli.py --platform espn auth --status",
+    "espn:discover": "python3 pipelines/fantasy/cli.py --platform espn discover",
+    "espn:backfill": "python3 pipelines/fantasy/cli.py --platform espn backfill",
+    "espn:sync": "python3 pipelines/fantasy/cli.py --platform espn sync",
+    "espn:report": "python3 pipelines/fantasy/cli.py --platform espn report",
+    "test": "npm run test:node && npm run test:python && npm run test:espn && npm run test:isolation",
+    "test:node": "node --test \"tests/*_test.js\" \"tests/*_test.mjs\"",
+    "test:python": "python3 tests/test_fantasy_pipeline.py",
+    "test:espn": "python3 tests/test_espn_pipeline.py",
+    "test:isolation": "python3 scripts/check_fantasy_isolation.py",
+    "test:fantasy": "node --test \"tests/fantasy_*_test.mjs\" && python3 tests/test_fantasy_pipeline.py"
+  }
+}

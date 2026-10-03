@@ -1,0 +1,124 @@
+name: Test fantasy pipeline
+
+# The Yahoo ingestion pipeline writes into a database that also holds every live
+# UPS contract and cap ledger. Three classes of bug in it are silent — they
+# produce plausible rows, raise nothing, and are only discovered months later by
+# someone who trusts the numbers:
+#
+#   1. AN UNREADABLE READ TREATED AS EMPTY DATA. Yahoo answers throttling with
+#      HTTP 999 and an HTML page, and an expired token with a JSON body that has
+#      no fantasy_content envelope. A parser that turns either into "this season
+#      had no transactions" writes a permanent lie. Every data-destruction
+#      incident recorded in this repo traces back to that one conflation.
+#   2. NULL COLLAPSED INTO ZERO. An auction pick with no stated price and one
+#      that genuinely went for $0 are different facts, as are an unexposed FAAB
+#      budget and a $0 bid. Nothing downstream can tell them apart afterwards.
+#   3. A SHAPE THE PARSER DOES NOT HANDLE. Yahoo's JSON is a mechanical XML
+#      transform: collections are objects keyed "0","1",… with a sibling count,
+#      resources are heterogeneous arrays at shifting indices, single-element
+#      collections collapse to bare objects, and sub-resources hide one level
+#      down under a numeric wrapper key. Getting any of these wrong returns
+#      FEWER ROWS, not an error. Writing this suite found exactly that: three
+#      fixtures parsed to zero rows without raising.
+#
+# WHAT A RED RUN MEANS. Something in that list is now true again, or the schema
+# and the loader's PRIMARY_KEYS have drifted apart (which makes every upsert
+# insert duplicates instead of updating), or a secret can now reach a log. The
+# Python suite prints one line per named case and one human-readable verdict —
+# read the FAIL lines, they say what broke and why the assertion exists. Do NOT
+# weaken an assertion to get green; the NULL-vs-zero and no-fail-open cases were
+# written precisely to fail.
+#
+# The isolation check is the third leg: it proves nothing under pipelines/fantasy/
+# writes to a ups_/mfl_/src_ table, commits a credential, or defaults to a
+# production D1 target.
+#
+# Everything here is stdlib-only — python3 and node 22, no install step, no
+# node_modules, no secrets. It runs in seconds and needs no Yahoo access (every
+# fixture is SYNTHETIC and says so in its own header).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
+      - "tests/**"
+      # Matched by NAME, not by number — see the same fix and its full
+      # rationale in lint-fantasy-isolation.yml and check_fantasy_isolation.py's
+      # SCAN_KINDS. The old 012*/013* globs were broader than the true fantasy
+      # migration set (0132-0139) and collided with two real, unrelated UPS
+      # migrations (0130, 0131) — this job's failure mode from that collision
+      # was wasted CI runs rather than a coverage gap, but it is the identical
+      # root cause and the identical fix.
+      - "worker/migrations/*_fantasy_*.sql"
+      - "worker/src/yahoo_oauth.js"
+      - "scripts/check_fantasy_isolation.py"
+      - ".github/workflows/test-fantasy.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pipelines/fantasy/**"
+      - "scripts/cbs_*.py"
+      - "scripts/espn_*.py"
+      - "tests/**"
+      - "worker/migrations/*_fantasy_*.sql"
+      - "worker/src/yahoo_oauth.js"
+      - "scripts/check_fantasy_isolation.py"
+      - ".github/workflows/test-fantasy.yml"
+
+jobs:
+  fantasy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Shape, parsers, idempotency, redaction, crosswalk, completeness, sink.
+      # Exit code is the contract: 0 pass, 1 fail, one final verdict line.
+      - name: Python — Yahoo pipeline suite
+        run: python3 tests/test_fantasy_pipeline.py
+
+      # ESPN's lighter first pass: constants, parsers, cookie handling, and —
+      # critically — that every resource this adapter has NOT built yet
+      # (drafts, transactions, player-universe pagination) RAISES rather than
+      # silently returning an empty "not offered" result. Separate file from
+      # the Yahoo suite on purpose; ESPN's scope is deliberately smaller.
+      - name: Python — ESPN pipeline suite
+        run: python3 tests/test_espn_pipeline.py
+
+      # scripts/espn_solve_scoring.py (outside pipelines/fantasy/, so the
+      # isolation check above never sees it) once read 4,501,580 D1 rows per
+      # run — an unindexed name join, made worse by a plain JOIN that let
+      # SQLite reorder away from the fix even after the index existed.
+      # Fixed 2026-08-28: n.display_name_lower (indexed, migration 0144 on
+      # the UPS/MFL side) + CROSS JOIN to pin join order. 305x cheaper,
+      # output verified row-for-row identical against the unfixed query.
+      - name: Python — ESPN scoring-fit query shape
+        run: python3 tests/test_espn_solve_scoring_query_shape.py
+
+      # AES-GCM round trip + redaction in the Worker OAuth module. SKIPS with an
+      # explanation (and still exits 0) if worker/src/yahoo_oauth.js is absent —
+      # "not written yet" and "broken" need different people to do different
+      # things, so they must not look the same here.
+      - name: Node — worker OAuth helpers
+        run: node --test tests/fantasy_worker_oauth_test.mjs
+
+      # A 2026-08-28 review found real holes in the checker below itself: 18
+      # CBS/ESPN scripts it never scanned, two exemption regexes that cleared
+      # a real protected table and real executing code, and the dead
+      # check_cross_contamination(). Pins all four fixes plus the matching CI
+      # path-filter fix, each against the exact case the review verified live.
+      - name: Fantasy isolation checker regression guard
+        run: python3 tests/test_fantasy_isolation_checker.py
+
+      # Nothing in the fantasy pipeline may write a UPS/MFL table, carry a
+      # committed credential, or default to a remote D1 target.
+      - name: Fantasy isolation check
+        run: python3 scripts/check_fantasy_isolation.py

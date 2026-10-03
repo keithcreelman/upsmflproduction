@@ -1,0 +1,184 @@
+{
+  "_comment": [
+    "SYNTHETIC — hand-built from the documented response shapes in Yahoo's official",
+    "Fantasy Sports API guide and from published wrapper-library samples (yfpy,",
+    "yahoo_fantasy_api). NOT a live capture. Yahoo API access is gated behind an",
+    "approval application and NO live call has ever been made from this repo.",
+    "Replace with a real redacted capture once API access is approved.",
+    "",
+    "AUTHORED 2026-08-11 (not captured on any date).",
+    "MODELS: GET /fantasy/v2/league/449.l.529351/draftresults?format=json",
+    "        (2024 season, game key 449 — pairs with the 2025 auction fixture)",
+    "",
+    "REDACTION: all identifiers invented. Player names are real NFL players; the",
+    "numeric ids attached to them are PLAUSIBLE BUT UNVERIFIED.",
+    "",
+    "WHY THIS IS COMMITTED: in a snake draft the `cost` key is ABSENT FROM EVERY",
+    "PICK, and that absence means something different from the absence in",
+    "yahoo_draft_auction.json pick 6. Here it means 'this league has no prices at",
+    "all'; there it means 'this league has prices and Yahoo did not give one for",
+    "this pick'. The parser cannot tell those apart from the picks alone — which",
+    "is precisely why is_price_bearing is recorded on the parent fantasy_drafts",
+    "row from the league SETTINGS (is_auction_draft), not inferred from the picks.",
+    "Call parse_draft_results(..., is_auction=0) against this file and",
+    "draft_kind must be 'snake', is_price_bearing 0, and every auction_cost NULL.",
+    "Calling it with is_auction=None must give draft_kind 'unknown' — an honest",
+    "'we did not fetch settings first', not a guess.",
+    "",
+    "SHAPE HAZARDS DELIBERATELY PRESENT:",
+    "  1. draft_results is a numeric-key COLLECTION with a sibling 'count'.",
+    "  2. Snake ORDER is the data: round 1 runs t.1 → t.12 and round 2 runs",
+    "     t.12 → t.1. If iter_collection sorted keys lexically, \"10\",\"11\",\"12\"",
+    "     would land before \"2\" and the reversal — the only evidence the draft was",
+    "     a snake — would be destroyed.",
+    "  3. `round` arrives as an int on some picks and a string on others.",
+    "  4. No player_id, no editorial_player_key: player_uid is reconstructed from",
+    "     the season-scoped player_key using the game CODE ('nfl.p.31056'), so the",
+    "     same player in the 2024 and 2025 fixtures resolves to ONE uid.",
+    "",
+    "TRUNCATED to 14 of ~180 picks: the first full round plus the start of the",
+    "reversed second round. Reason: the round-1/round-2 boundary is the only part",
+    "of a snake draft that carries information a later round would not repeat."
+  ],
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/449.l.529351/draftresults",
+    "league": [
+      {
+        "league_key": "449.l.529351",
+        "league_id": "529351",
+        "name": "Autumn Wind Dynasty",
+        "url": "https://football.fantasysports.yahoo.com/f1/529351",
+        "draft_status": "postdraft",
+        "num_teams": 12,
+        "scoring_type": "head",
+        "league_type": "private",
+        "current_week": "17",
+        "start_week": "1",
+        "end_week": "17",
+        "game_code": "nfl",
+        "season": "2024"
+      },
+      {
+        "draft_results": {
+          "0": {
+            "draft_result": {
+              "pick": 1,
+              "round": 1,
+              "team_key": "449.l.529351.t.1",
+              "player_key": "449.p.31883"
+            }
+          },
+          "1": {
+            "draft_result": {
+              "pick": 2,
+              "round": 1,
+              "team_key": "449.l.529351.t.2",
+              "player_key": "449.p.32671"
+            }
+          },
+          "2": {
+            "draft_result": {
+              "pick": 3,
+              "round": 1,
+              "team_key": "449.l.529351.t.3",
+              "player_key": "449.p.33413"
+            }
+          },
+          "3": {
+            "draft_result": {
+              "pick": 4,
+              "round": 1,
+              "team_key": "449.l.529351.t.4",
+              "player_key": "449.p.31056"
+            }
+          },
+          "4": {
+            "draft_result": {
+              "pick": 5,
+              "round": 1,
+              "team_key": "449.l.529351.t.5",
+              "player_key": "449.p.33967"
+            }
+          },
+          "5": {
+            "draft_result": {
+              "pick": 6,
+              "round": 1,
+              "team_key": "449.l.529351.t.6",
+              "player_key": "449.p.34063"
+            }
+          },
+          "6": {
+            "draft_result": {
+              "pick": 7,
+              "round": "1",
+              "team_key": "449.l.529351.t.7",
+              "player_key": "449.p.32687"
+            }
+          },
+          "7": {
+            "draft_result": {
+              "pick": 8,
+              "round": "1",
+              "team_key": "449.l.529351.t.8",
+              "player_key": "449.p.30977"
+            }
+          },
+          "8": {
+            "draft_result": {
+              "pick": 9,
+              "round": "1",
+              "team_key": "449.l.529351.t.9",
+              "player_key": "449.p.33396"
+            }
+          },
+          "9": {
+            "draft_result": {
+              "pick": 10,
+              "round": "1",
+              "team_key": "449.l.529351.t.10",
+              "player_key": "449.p.31002"
+            }
+          },
+          "10": {
+            "draft_result": {
+              "pick": 11,
+              "round": "1",
+              "team_key": "449.l.529351.t.11",
+              "player_key": "449.p.29369"
+            }
+          },
+          "11": {
+            "draft_result": {
+              "pick": 12,
+              "round": "1",
+              "team_key": "449.l.529351.t.12",
+              "player_key": "449.p.33991"
+            }
+          },
+          "12": {
+            "draft_result": {
+              "pick": 13,
+              "round": 2,
+              "team_key": "449.l.529351.t.12",
+              "player_key": "449.p.31017"
+            }
+          },
+          "13": {
+            "draft_result": {
+              "pick": 14,
+              "round": 2,
+              "team_key": "449.l.529351.t.11",
+              "player_key": "449.p.33507"
+            }
+          },
+          "count": 14
+        }
+      }
+    ],
+    "time": "88.20ms",
+    "copyright": "Data provided by Yahoo! and STATS, LLC",
+    "refresh_rate": "60"
+  }
+}
