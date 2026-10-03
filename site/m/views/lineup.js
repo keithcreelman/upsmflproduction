@@ -809,6 +809,17 @@
   //   matchupFor(pid,k) the join. Null when there's no data / no game.
   //   muData(k)         raw cached window ({ playerWindow, defRatings, … }).
   M.lineupIntel = {
+    // This week's per-team kickoffs, shared with the Players market so its
+    // FCFS "Add now" locks at the same instant a lineup slot does.
+    kickoffs: {
+      load: loadKickoffs,
+      loaded: function () { return !!M.state.lineupKickoffs && M.state.lineupKickoffsFor === M.state.lineupWeek; },
+      kickedOff: isKickedOff,
+      kickoffFor: function (team) {
+        var ko = M.state.lineupKickoffs && M.state.lineupKickoffs[U.safeStr(team).toUpperCase()];
+        return ko || null;
+      }
+    },
     load: function (winKey) {
       loadProjections();
       loadMatchups(winKey == null ? [] : [winKey]);

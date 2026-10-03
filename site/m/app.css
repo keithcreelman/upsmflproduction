@@ -4674,6 +4674,9 @@ a.ups-m-bid-btn {
 .ups-m-fa-stat { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ups-m-fa-stat.pts b { font-size: 13px; font-weight: 800; color: var(--fg); }
 .ups-m-fa-stat.na { font-style: italic; }
+/* FCFS: a free agent whose game has kicked off can't be added this week. */
+.ups-m-fa-add.locked { background: transparent; color: var(--fg-muted); border: 1px dashed var(--line-soft); cursor: default; font-weight: 600; text-align: center; line-height: 1.2; padding: 6px 10px; }
+.ups-m-fa-add.locked .why { display: block; font-size: 11px; font-weight: 500; white-space: nowrap; }
 /* Below the PPG-rank minimum: the real PPG stays, the rank slot says why. */
 .ups-m-fa-stat.unranked { color: var(--fg-muted); font-style: italic; }
 .ups-m-bid-context {

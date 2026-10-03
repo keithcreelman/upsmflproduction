@@ -628,11 +628,27 @@
       };
     }
     if (info.mode === "fcfs") {
+      // Inside the FCFS window a player is addable only until HIS game kicks
+      // off (league setting lockout = Yes; MFL refuses him after that, and the
+      // worker's /api/waivers/fcfs says so too). Same per-team kickoffs the
+      // Lineup view locks slots by. Until they load, the button shows — MFL
+      // and the worker still refuse a locked player — rather than wrongly
+      // locking everyone.
+      var KO = M.lineupIntel && M.lineupIntel.kickoffs;
+      var pl = DATA.playerById(pid);
+      if (KO && KO.kickedOff(pl && pl.team)) {
+        var reopen = (M.state.waiverState && M.state.waiverState.window && M.state.waiverState.window.fcfs_closes_label) || "";
+        return {
+          mode: "fcfs", locked: true,
+          html: '<span class="ups-m-fa-add locked" title="His game has kicked off — MFL locks him for the rest of this week' +
+            (reopen ? '. He goes back on waivers ' + U.escapeHtml(reopen) + ' — bid then' : '') + '.">Locked <span class="why">game started</span></span>'
+        };
+      }
       return {
         mode: "fcfs",
         html: '<button class="ups-m-fa-add" data-act="waiver-add" data-pid="' +
           U.escapeHtml(String(pid)) + '">' +
-          (opts.longLabel ? "Add now — $1K, 1-yr WW" : "Add") + '</button>'
+          (opts.longLabel ? "Add now — $1K, 1-yr WW" : "Add now") + '</button>'
       };
     }
     return { mode: info.mode, html: "" };
@@ -3172,6 +3188,8 @@
     // .catch inside M.lineupIntel, so nothing here is gated on them — a dead
     // worker just means no extra line and no window toggles.
     clampControls();   // this render's effective period + sort; the owner's choices are kept
+    // FCFS: this week's kickoffs decide Add now vs Locked (lineup.js caches them).
+    if (waiverModeInfo().mode === "fcfs" && M.lineupIntel && M.lineupIntel.kickoffs) M.lineupIntel.kickoffs.load();
     refreshScoresIfStale();
     // Season window only: the matchup line no longer follows the points period.
     if (M.lineupIntel) M.lineupIntel.load(0);

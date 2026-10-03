@@ -2418,6 +2418,58 @@ async function nflWeekLastKickoffUnix(season, week) {
   return latest;
 }
 
+// Kickoff unix per NFL team code for a week ({ PIT: 1790900100, … }) from
+// MFL's own nflSchedule — the same export and team codes the mobile Lineup /
+// Game Day lock uses (LS.parseKickoffs). {} = unresolved (never a guess);
+// only a real answer is cached.
+const _nflWeekTeamKickoffCache = new Map();
+async function nflWeekKickoffsByTeam(season, week) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const w = parseInt(week, 10);
+  if (!yr || !(w >= 1)) return {};
+  const key = `${yr}|${w}`;
+  const memo = _nflWeekTeamKickoffCache.get(key);
+  if (memo && Date.now() - memo.at < _NFL_KICKOFF_TTL_MS) return memo.map;
+  const map = {};
+  try {
+    const res = await fetch(
+      `https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=nflSchedule&W=${encodeURIComponent(String(w))}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } }
+    );
+    const data = res.ok ? await res.json().catch(() => null) : null;
+    const matchups = data && data.nflSchedule && data.nflSchedule.matchup;
+    for (const m of (Array.isArray(matchups) ? matchups : matchups ? [matchups] : [])) {
+      const ko = parseInt(m && m.kickoff, 10);
+      if (!(ko > 0)) continue;
+      const teams = m && m.team;
+      for (const t of (Array.isArray(teams) ? teams : teams ? [teams] : [])) {
+        const id = String((t && t.id) || "").toUpperCase();
+        if (id) map[id] = ko;
+      }
+    }
+  } catch (_) { /* unresolved */ }
+  if (Object.keys(map).length) _nflWeekTeamKickoffCache.set(key, { map, at: Date.now() });
+  return map;
+}
+
+// Is a player locked by his game's kickoff? (league setting lockout = Yes:
+// MFL refuses to add or drop a player once his NFL game has started, for the
+// rest of that week.) Pure, so the boundary is testable:
+//   "locked"  — his team's kickoff this week is at or before now
+//   "open"    — his team plays later this week, or has no game (bye / NFL free agent)
+//   "unknown" — no schedule or no team to judge by; MFL still enforces the lock
+// Verified 2024–26: of 117 FCFS adds, none was of a player whose game had
+// already kicked off (Thursday-night players included); bye-week and unsigned
+// players were added throughout the window.
+function wvPlayerKickoffLock(kickoffByTeam, team, nowUnix) {
+  const map = kickoffByTeam || {};
+  const t = String(team || "").toUpperCase();
+  if (!Object.keys(map).length || !t) return { state: "unknown", kickoff_unix: null };
+  const ko = Number(map[t]) || 0;
+  if (!ko) return { state: "open", kickoff_unix: null };
+  return { state: nowUnix >= ko ? "locked" : "open", kickoff_unix: ko };
+}
+
 // Which week should an owner be setting a LINEUP for, right now?
 //
 // Ground truth starts from liveScoring.week (the week MFL is actively
@@ -42306,13 +42358,46 @@ const mflToSleeper = {};
           return { y: get("year"), m: get("month"), d: get("day") };
         } catch (_) { return null; }
       };
-      // 09:00 America/New_York on calendar date (y, m 1-12, d) as unix seconds.
-      const _wvEtNineAm = (y, m, d) => {
-        for (const utcHour of [13, 14]) {          // 09:00 EDT = 13:00Z, 09:00 EST = 14:00Z
-          const t = Date.UTC(y, m - 1, d, utcHour, 0, 0) / 1000;
-          if (_wvEtHhmm(t) === "09:00") return t;
+      // hh:mm America/New_York on calendar date (y, m 1-12, d) as unix seconds.
+      // EDT is UTC-4, EST is UTC-5: try both and keep the one New York agrees with.
+      const _wvEtWallClock = (y, m, d, hh, mm) => {
+        const want = String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+        for (const off of [4, 5]) {
+          const t = Date.UTC(y, m - 1, d, hh + off, mm, 0) / 1000;
+          if (_wvEtHhmm(t) === want) return t;
         }
         return null;
+      };
+      const _wvEtNineAm = (y, m, d) => _wvEtWallClock(y, m, d, 9, 0);
+      // MFL recurring events (normalizeMflCalendar `happens` = total weekly
+      // occurrences) → one row per occurrence, each at the SAME New York wall
+      // clock time: a "Mon 9:00 PM ET" series stays 9:00 PM across the November
+      // DST change, exactly as MFL ran the 2025 Sat 9:00 EDT / Sun 9:00 EST
+      // blind-bid runs either side of it. Spans keep their length.
+      const _wvExpandRecurring = (events) => {
+        const out = [];
+        for (const e of events) {
+          out.push(e);
+          const n = parseInt(e && e.happens, 10) || 0;
+          if (!(n > 1) || !e.start_unix) continue;
+          let parts = null;
+          try {
+            parts = new Intl.DateTimeFormat("en-US", {
+              timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric",
+              hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+            }).formatToParts(new Date(e.start_unix * 1000));
+          } catch (_) { parts = null; }
+          if (!parts) continue;
+          const get = (t) => Number((parts.find((x) => x.type === t) || {}).value);
+          const span = e.end_unix ? e.end_unix - e.start_unix : null;
+          for (let k = 1; k < Math.min(n, 60); k += 1) {
+            const dt = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + 7 * k));
+            const t = _wvEtWallClock(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate(), get("hour"), get("minute"));
+            if (t == null) continue;
+            out.push(Object.assign({}, e, { start_unix: t, end_unix: span != null ? t + span : null, occurrence: k + 1 }));
+          }
+        }
+        return out;
       };
       // Scheduled run instants in [fromUnix, toUnix], within the calendar's bounds.
       // `events` is _wvWaiverWindow's normalized, ascending event list.
@@ -42440,13 +42525,18 @@ const mflToSleeper = {};
       // Thu-lock → Sun 9 AM run → FCFS-until-Thu, and that cycle falls straight
       // out of the walk instead of being hardcoded here.
       const _wvWaiverWindow = (calendarRows, nowUnix, opts = {}) => {
-        const events = (calendarRows || [])
+        // Every occurrence of every recurring series (see _wvExpandRecurring).
+        // Before 2026-10-03 only each series' FIRST row was read, so in season
+        // the calendar looked empty: last run Aug 13, no Sunday FCFS, no Monday
+        // re-lock.
+        const events = _wvExpandRecurring((calendarRows || [])
           .map((e) => ({
             type: safeStr(e && e.event_type).toUpperCase(),
             start_unix: Number(e && e.start_unix) || null,
             end_unix: Number(e && e.end_unix) || null,
+            happens: parseInt(e && e.happens, 10) || 0,
           }))
-          .filter((e) => e.type.indexOf("WAIVER_") === 0 && e.start_unix)
+          .filter((e) => e.type.indexOf("WAIVER_") === 0 && e.start_unix))
           .sort((a, b) => a.start_unix - b.start_unix);
         // WAIVER_NONE is a blackout SPAN (start_time + end_time) — MFL uses it to
         // shut off add/drops over e.g. the FA Auction. A WAIVER_NONE with no
@@ -42459,6 +42549,19 @@ const mflToSleeper = {};
           if (nowUnix >= e.start_unix && nowUnix < e.end_unix) {
             blackout = { active: true, start_unix: e.start_unix, end_unix: e.end_unix };
             break;
+          }
+        }
+        // An OPEN-ENDED WAIVER_NONE after waivers have opened is the season's
+        // add/drop shut-off (2026: Mon Jan 4 2027 9:00 PM ET, the instant of
+        // the last Monday re-lock). MFL allows no add/drops from it on; no end
+        // is invented — it simply never ends this season.
+        const firstBbid = events.find((e) => e.type === "WAIVER_BBID");
+        if (!blackout && firstBbid) {
+          for (const e of events) {
+            if (e.type === "WAIVER_NONE" && !e.end_unix && e.start_unix > firstBbid.start_unix && nowUnix >= e.start_unix) {
+              blackout = { active: true, start_unix: e.start_unix, end_unix: null, season_end: true };
+              break;
+            }
           }
         }
         const runs = events.filter((e) => e.type === "WAIVER_BBID").map((e) => e.start_unix);
@@ -42608,6 +42711,11 @@ const mflToSleeper = {};
             modeReason = `after_${current.type.toLowerCase()}${current.type === "WAIVER_BBID" ? (mode === "fcfs" ? "_sunday_wk1" : "_non_sunday_relock") : ""}`;
           }
         }
+        let fcfsCloses = null;
+        if (mode === "fcfs") {
+          const next = events.find((e) => e.start_unix > nowUnix && (e.type === "WAIVER_LOCK" || e.type === "WAIVER_NONE"));
+          fcfsCloses = next ? next.start_unix : null;
+        }
         return {
           events,
           mode,
@@ -42619,6 +42727,10 @@ const mflToSleeper = {};
           // "calendar" (an MFL WAIVER_BBID event) | "league_schedule" (the
           // Thu/Fri/Sat/Sun 9:00 AM ET run the export left out) | "".
           next_bbid_run_source: runSource(upcoming.length ? upcoming[0] : null),
+          // While FCFS is open: when it closes — the next WAIVER_LOCK or
+          // WAIVER_NONE (in season, the Monday 9:00 PM ET re-lock). null otherwise.
+          fcfs_closes_unix: fcfsCloses,
+          fcfs_closes_label: fcfsCloses ? _wvEtLabel(fcfsCloses) : "",
           bbid_runs_upcoming: upcoming.slice(0, 4),
           waivers_open: !!(firstRun && nowUnix >= firstRun),
           waivers_open_at_unix: firstRun,
@@ -43516,6 +43628,8 @@ const mflToSleeper = {};
             next_bbid_run_unix: win.next_bbid_run_unix,
             next_bbid_run_label: win.next_bbid_run_label,
             next_bbid_run_source: win.next_bbid_run_source,
+            fcfs_closes_unix: win.fcfs_closes_unix,
+            fcfs_closes_label: win.fcfs_closes_label,
             bbid_runs_upcoming: win.bbid_runs_upcoming,
             waivers_open: win.waivers_open,
             waivers_open_at_unix: win.waivers_open_at_unix,
@@ -44420,7 +44534,7 @@ const mflToSleeper = {};
           // whenever the next run landed on a Thu/Fri/Sat.
           const fcfsWindowMessage = fcfsWindow.mode === "blackout"
             ? "Free agent adds are closed right now — MFL has an add/drop blackout in effect."
-            : "Free agents are not first-come-first-served right now — waivers are locked. FCFS only opens after the Sunday blind-bid run, and only from NFL Week 1 onward.";
+            : "Free agents are not first-come-first-served right now — waivers are locked. FCFS opens after the Sunday blind-bid run (from NFL Week 1) and lasts until the weekly Monday-night re-lock.";
           return jsonNoStore(409, {
             ok: false,
             error: "not_fcfs_window",
@@ -44439,6 +44553,37 @@ const mflToSleeper = {};
         const dropPids = (Array.isArray(fbody.drop_pids) ? fbody.drop_pids : (Array.isArray(fbody.dropPids) ? fbody.dropPids : []))
           .map((x) => String(x || "").replace(/\D/g, ""))
           .filter(Boolean);
+
+        // ── Player kickoff lock (league setting lockout = Yes) ──────────────
+        // Inside the FCFS window a player is addable only until HIS game kicks
+        // off; after that MFL refuses him for the rest of the week (he goes
+        // back on waivers at the Monday 9:00 PM ET re-lock). The app shows
+        // "Locked · game started" off the same nflSchedule; checked here too so
+        // the answer never depends on the client. "unknown" (schedule or team
+        // unreadable) falls through to MFL, which enforces the lock itself — a
+        // clearer message, never a looser rule.
+        let fcfsKickoff = { state: "unknown", kickoff_unix: null };
+        if (addPid && fcfsWindowOpen) {
+          try {
+            const [wk, pmap] = await Promise.all([
+              resolveCurrentLineupWeek(wvSeason, wvLeagueId),
+              fetchPlayersByIdsChunked(wvSeason, wvLeagueId, [addPid]),
+            ]);
+            const kmap = wk && wk.week > 0 ? await nflWeekKickoffsByTeam(wvSeason, wk.week) : {};
+            fcfsKickoff = wvPlayerKickoffLock(kmap, pmap && pmap[addPid] && pmap[addPid].nfl_team, Math.floor(Date.now() / 1000));
+          } catch (_) { fcfsKickoff = { state: "unknown", kickoff_unix: null }; }
+          if (fcfsKickoff.state === "locked" && !fcfsDryRun) {
+            return jsonNoStore(409, {
+              ok: false,
+              error: "player_locked",
+              message: "That player's game has already kicked off — MFL locks him for the rest of this week. " +
+                (fcfsWindow.fcfs_closes_label ? `He goes back on waivers at ${fcfsWindow.fcfs_closes_label}; bid on him then.` : "Bid on him once waivers re-lock."),
+              add_pid: addPid,
+              kickoff_unix: fcfsKickoff.kickoff_unix,
+              native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+            });
+          }
+        }
 
         const fcfsDetails = [];
         if (!addPid) fcfsDetails.push({ code: "MISSING_ADD_PID", message: "add_pid is required." });
