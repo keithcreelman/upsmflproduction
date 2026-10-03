@@ -336,7 +336,12 @@ export function deadlineOverridesFromCalendar(cfg, season) {
   return out;
 }
 
-// Normalize an MFL calendar export into [{event_type, title, start_unix, end_unix, id}].
+// Normalize an MFL calendar export into [{event_type, title, start_unix, end_unix, id, happens}].
+// `happens` is MFL's weekly repeat COUNT for a recurring event (total
+// occurrences, the first included; 0/1 = once). The league's whole in-season
+// waiver cycle is stored this way — e.g. "WAIVER_LOCK Mon Sep 14 9:00 PM ET,
+// happens 17" is the weekly re-lock through Jan 4 — so a reader that ignores
+// it sees only the first week of every series. Expand with _wvExpandRecurring.
 export function normalizeMflCalendar(cal) {
   const root = (cal && cal.calendar) || cal || {};
   let evs = root && root.event;
@@ -348,5 +353,6 @@ export function normalizeMflCalendar(cal) {
     title: safeStr(e && (e.title || e.name)),
     start_unix: Number(e && (e.start_time || e.start)) || null,
     end_unix: Number(e && (e.end_time || e.end)) || null,
+    happens: parseInt(e && e.happens, 10) || 0,
   })).filter((e) => e.event_type);
 }

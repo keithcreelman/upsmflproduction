@@ -76,6 +76,9 @@ const body =
   SCHED_SRC + "\n" +
   extract(WV_WINDOW_MARKER, WV_WINDOW_MARKER.length - 1) + ";\n" +
   "return { _wvIsSundayEt, _wvWaiverWindow, _wvLeagueScheduleRuns };";
+// Module-level pure helper (player kickoff lock), sliced verbatim too.
+// eslint-disable-next-line no-new-func
+const wvPlayerKickoffLock = new Function(extract("function wvPlayerKickoffLock(") + "\nreturn wvPlayerKickoffLock;")();
 // eslint-disable-next-line no-new-func
 const { _wvWaiverWindow } = new Function("safeStr", "_wvEtLabel", body)(safeStr, _wvEtLabel);
 
@@ -249,6 +252,89 @@ const AWARDS_2026 = [1786107600, 1786194000, 1786280400, 1786626000, 1786712400,
   check("schedule runs never change window.mode (Sun Oct 4 09:14 ET stays bbid / after_waiver_lock)",
     w.mode === "bbid" && w.mode_reason === "after_waiver_lock" && w.last_bbid_run_unix === et("2026-10-04T09:00:00-04:00"),
     w.mode + " / " + w.mode_reason);
+}
+
+// ══ SUNDAY FCFS: the league calendar's RECURRING rows (Keith 2026-10-03) ══
+// MFL stores the in-season cycle as recurring events — `happens` = total weekly
+// occurrences — and the worker used to read only each series' first row. The
+// real 2026 rows (read with the commish key 2026-10-03), repeat counts intact:
+//   Thu 9:00 AM LOCK ×22 (from Aug 6), Thu 9:00 AM BBID ×21 (from Aug 13)
+//   Fri / Sat 9:00 AM BBID + LOCK ×22
+//   Sun 9:00 AM BBID ×22, but the Sunday LOCK only ×4 (Aug 9–30)
+//   Mon 9:00 PM LOCK ×17 (Sep 14 → Jan 4)          ← the weekly re-lock
+//   WAIVER_NONE from Mon Jan 4 2027 9:00 PM, no end ← the season shut-off
+const RAW_2026 = [
+  { event_type: "WAIVER_NONE", start_unix: 1784779200, end_unix: 1785902400, happens: 0 },
+  { event_type: "WAIVER_LOCK", start_unix: 1785902400, end_unix: null, happens: 0 },
+  { event_type: "WAIVER_LOCK", start_unix: 1786021200, end_unix: null, happens: 22 },
+  { event_type: "WAIVER_LOCK", start_unix: 1786107600, end_unix: null, happens: 22 },
+  { event_type: "WAIVER_BBID", start_unix: 1786107600, end_unix: null, happens: 22 },
+  { event_type: "WAIVER_LOCK", start_unix: 1786194000, end_unix: null, happens: 22 },
+  { event_type: "WAIVER_BBID", start_unix: 1786194000, end_unix: null, happens: 22 },
+  { event_type: "WAIVER_LOCK", start_unix: 1786280400, end_unix: null, happens: 4 },
+  { event_type: "WAIVER_BBID", start_unix: 1786280400, end_unix: null, happens: 22 },
+  { event_type: "WAIVER_BBID", start_unix: 1786626000, end_unix: null, happens: 21 },
+  { event_type: "WAIVER_LOCK", start_unix: 1789434000, end_unix: null, happens: 17 },
+  { event_type: "WAIVER_NONE", start_unix: 1799114400, end_unix: null, happens: 0 },
+];
+const at = (iso) => win(RAW_2026, et(iso));
+const modeAt = (iso) => { const w = at(iso); return w.mode + (w.blackout && w.blackout.season_end ? "(season_end)" : ""); };
+const boundary = (label, iso, want) => check(label + " — " + iso, modeAt(iso) === want, modeAt(iso));
+
+// Opening: the Sunday 9:00 AM ET run.
+boundary("Sunday, 1s before the run", "2026-10-04T08:59:59-04:00", "bbid");
+boundary("Sunday, the run instant", "2026-10-04T09:00:00-04:00", "fcfs");
+boundary("Sunday, 1s after the run", "2026-10-04T09:00:01-04:00", "fcfs");
+check("FCFS closes Mon Oct 5, 9:00 PM ET", at("2026-10-04T10:00:00-04:00").fcfs_closes_unix === et("2026-10-05T21:00:00-04:00"), at("2026-10-04T10:00:00-04:00").fcfs_closes_label);
+// Re-lock: Monday 9:00 PM ET.
+boundary("Monday, 1s before the re-lock", "2026-10-05T20:59:59-04:00", "fcfs");
+boundary("Monday, the re-lock instant", "2026-10-05T21:00:00-04:00", "bbid");
+boundary("Tuesday", "2026-10-06T12:00:00-04:00", "bbid");
+// Thu/Fri/Sat runs re-lock at the same instant.
+boundary("Thursday run instant (run + lock)", "2026-10-08T09:00:00-04:00", "bbid");
+boundary("Saturday after the run", "2026-10-10T09:01:00-04:00", "bbid");
+// DST ends 2:00 AM Sun Nov 1 2026: the window keeps New York wall-clock time.
+boundary("DST Sunday, 08:59:59 EST", "2026-11-01T08:59:59-05:00", "bbid");
+check("DST Sunday, 13:00 UTC (the old 9:00 EDT instant = 8:00 EST) is NOT open", win(RAW_2026, Date.parse("2026-11-01T13:00:00Z") / 1000).mode === "bbid", win(RAW_2026, Date.parse("2026-11-01T13:00:00Z") / 1000).mode);
+boundary("DST Sunday, 09:00:00 EST (14:00 UTC)", "2026-11-01T09:00:00-05:00", "fcfs");
+boundary("DST Monday, 20:59:59 EST", "2026-11-02T20:59:59-05:00", "fcfs");
+check("DST Monday, Tue 01:00 UTC (the old 9:00 PM EDT instant = 8:00 PM EST) is still open", win(RAW_2026, Date.parse("2026-11-03T01:00:00Z") / 1000).mode === "fcfs", win(RAW_2026, Date.parse("2026-11-03T01:00:00Z") / 1000).mode);
+boundary("DST Monday, 21:00:00 EST (Tue 02:00 UTC)", "2026-11-02T21:00:00-05:00", "bbid");
+boundary("week before DST: Monday 20:59:59 EDT", "2026-10-26T20:59:59-04:00", "fcfs");
+boundary("week before DST: Monday 21:00 EDT (Tue 01:00 UTC)", "2026-10-26T21:00:00-04:00", "bbid");
+// Preseason / Week 1.
+boundary("preseason Sunday Aug 16 after the run (paired Sunday lock)", "2026-08-16T09:01:00-04:00", "bbid");
+boundary("pre-Week-1 Sunday Sep 6 after the run (MFL has no lock; Keith's Week 1 rule)", "2026-09-06T09:01:00-04:00", "bbid");
+boundary("first in-season Sunday, Sep 13 09:00", "2026-09-13T09:00:00-04:00", "fcfs");
+boundary("first Monday re-lock, Sep 14 20:59:59", "2026-09-14T20:59:59-04:00", "fcfs");
+boundary("first Monday re-lock, Sep 14 21:00", "2026-09-14T21:00:00-04:00", "bbid");
+// League final week and the season shut-off.
+boundary("last Sunday, Jan 3 2027 09:00 EST", "2027-01-03T09:00:00-05:00", "fcfs");
+boundary("last Monday, Jan 4 2027 20:59:59 EST", "2027-01-04T20:59:59-05:00", "fcfs");
+boundary("season shut-off, Jan 4 2027 21:00 EST", "2027-01-04T21:00:00-05:00", "blackout(season_end)");
+boundary("after the season", "2027-01-07T09:00:00-05:00", "blackout(season_end)");
+// League-wide blackout span (the FA Auction).
+boundary("FA Auction blackout span", "2026-07-30T12:00:00-04:00", "blackout");
+boundary("blackout end instant (Aug 5 00:00 lock)", "2026-08-05T00:00:00-04:00", "bbid");
+{
+  const w = at("2026-10-03T09:52:00-04:00");
+  check("run times now come straight from MFL's calendar (Sat Oct 3 run, source calendar)",
+    w.last_bbid_run_unix === et("2026-10-03T09:00:00-04:00") && w.last_bbid_run_source === "calendar", w.last_bbid_run_label + " / " + w.last_bbid_run_source);
+}
+
+// ══ Player kickoff lock inside the window (lockout = Yes) ══
+// Real Week 4 2026 kickoffs: IND @ WAS in London Sun Oct 4 9:30 AM ET; PIT @ CLE Thu Oct 1 8:15 PM ET.
+{
+  const K = { IND: 1791120600, WAS: 1791120600, PIT: 1790900100, CLE: 1790900100, TBB: 1791133200 };
+  const lk = (team, iso) => wvPlayerKickoffLock(K, team, et(iso)).state;
+  check("London game: IND player at 09:29:59 (FCFS open 29m) → open", lk("IND", "2026-10-04T09:29:59-04:00") === "open");
+  check("London game: IND player at kickoff 09:30:00 → locked", lk("IND", "2026-10-04T09:30:00-04:00") === "locked");
+  check("Thursday-night PIT player on Sunday → locked all window", lk("PIT", "2026-10-04T09:00:00-04:00") === "locked");
+  check("1:00 PM TBB player at 12:59:59 → open", lk("TBB", "2026-10-04T12:59:59-04:00") === "open");
+  check("1:00 PM TBB player at 13:00:00 → locked", lk("TBB", "2026-10-04T13:00:00-04:00") === "locked");
+  check("bye-week / unsigned player (no game) → open", lk("KCC", "2026-10-04T15:00:00-04:00") === "open");
+  check("schedule unreadable → unknown (MFL still enforces)", wvPlayerKickoffLock({}, "TBB", et("2026-10-04T15:00:00-04:00")).state === "unknown");
+  check("no team → unknown", wvPlayerKickoffLock(K, "", et("2026-10-04T15:00:00-04:00")).state === "unknown");
 }
 
 console.log(ok ? "\nALL PASS" : "\nSOME FAILED");

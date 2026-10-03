@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.03.1";
+  var BUILD = "2026.10.03.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -2343,12 +2343,18 @@
         (w.next_bbid_run_label || waiverWhen(w.next_bbid_run_unix) || "at MFL's next scheduled run");
     } else if (mode === "fcfs") {
       out.mode = "fcfs";
-      out.label = "Add";
-      out.detail = "First come, first served — adds are immediate.";
+      out.label = "Add now";
+      // The window MFL itself allows (worker: the Sunday 9:00 AM ET run →
+      // the Monday 9:00 PM ET re-lock), and the per-player rule inside it.
+      var closes = w.fcfs_closes_label || (w.fcfs_closes_unix ? waiverWhen(w.fcfs_closes_unix) : "");
+      out.detail = "First come, first served" + (closes ? " until " + closes : "") +
+        " — adds are immediate; a player locks when his game kicks off.";
     } else if (mode === "blackout") {
       out.mode = "blackout";
       var until = (w.blackout && w.blackout.end_unix) ? waiverWhen(w.blackout.end_unix) : "";
-      out.detail = "No add/drops right now" + (until ? " — league blackout until " + until : "") + ".";
+      out.detail = (w.blackout && w.blackout.season_end)
+        ? "No add/drops — the season's add/drop window has closed."
+        : "No add/drops right now" + (until ? " — league blackout until " + until : "") + ".";
     } else if (mode === "closed") {
       out.mode = "closed";
       var opensAt = w.next_bbid_run_label ||
