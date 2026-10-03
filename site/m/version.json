@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.02.4",
-  "label": "Players: a PPG rank now needs MFL scored weeks in at least half the final weeks, rounded up (0.0 weeks count; Last 2/4/6 need half the window). Below that, the real PPG stays and the rank reads \"unranked · 1 MFL wk\", and Sort: PPG lists ranked players first. The player card's PPG Rk follows the same rule."
+  "build": "2026.10.03.1",
+  "label": "Waiver claims clear themselves after every run again. In-season run times now come from the league's Thu/Fri/Sat/Sun 9:00 AM ET schedule (MFL's calendar export omits them), so a claim or withdrawal staged before a run is cleared once that run processes. A withdrawal of a group the run already emptied is dropped instead of showing \"MFL is holding different claims\"."
 }

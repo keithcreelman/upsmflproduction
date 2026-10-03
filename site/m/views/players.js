@@ -1734,6 +1734,16 @@
       // the manual control confirms first for exactly this reason. State what
       // changed and let them press Reload themselves.
       if (planIsDirty() && (stagedCount() || clearCount())) {
+        // …UNLESS the unsent work is already what MFL holds. Keith 2026-10-03:
+        // a "clear group 1" staged before Saturday's run was still on screen
+        // after it, under this warning — but the run had already emptied
+        // group 1 at MFL, so submitting the plan would change nothing and
+        // replacing it loses nothing. Adopt MFL's copy and say why.
+        var moot = editsAlreadyAtMfl(stagedPlan(), resp);
+        if (moot) {
+          adoptClaimsFrom(resp, mootEditsNotice(moot));
+          return;
+        }
         claimsMflChanged = true;
         // keepScroll: an owner reading group 3 stays in group 3.
         renderClaimsScreen({ keepScroll: true });
@@ -1745,6 +1755,48 @@
     }).catch(function () {
       claimsCheckInFlight = false;           // unreadable → leave the screen alone
     });
+  }
+
+  // Would submitting `plan` change anything at MFL right now? Under contract
+  // v2 a submit rewrites ONLY the rounds the plan names (a round it doesn't
+  // name is left alone), so the plan is moot when every round it names is
+  // already exactly that at MFL: a staged clear where MFL holds nothing, or
+  // staged picks identical — same players, bids, drops, order — to MFL's.
+  // Then adopting MFL's copy is lossless. Returns { cleared:[rounds] } when
+  // moot, null otherwise — including an unreadable read (known !== true),
+  // which proves nothing.
+  function editsAlreadyAtMfl(plan, resp) {
+    if (!resp || resp.known !== true || !Array.isArray(resp.rounds) || !plan.length) return null;
+    var key = function (picks) {
+      return JSON.stringify((picks || []).map(function (p) {
+        return [String(p.add_pid || ""), U.safeInt(p.bid_dollars, 0), p.drop_pid ? String(p.drop_pid) : ""];
+      }));
+    };
+    var atMfl = {};
+    resp.rounds.forEach(function (g) {
+      var r = U.safeInt(g && g.round, 0);
+      if (r > 0) atMfl[r] = key(g.picks);
+    });
+    var cleared = [];
+    for (var i = 0; i < plan.length; i++) {
+      var g = plan[i], r = U.safeInt(g && g.round, 0);
+      if (!(r > 0)) return null;
+      if (key(g.picks) !== (atMfl[r] || "[]")) return null;
+      if (!(g.picks || []).length) cleared.push(r);
+    }
+    return { cleared: cleared };
+  }
+  function mootEditsNotice(moot) {
+    var lr = (M.waivers && M.waivers.lastRun) ? M.waivers.lastRun() : null;
+    var when = U.safeStr(lr && lr.known === true && lr.label);
+    var lead = when ? ("Waivers ran " + when + ". ") : "";
+    var rds = moot.cleared || [];
+    if (rds.length) {
+      return lead + "MFL has already processed " +
+        (rds.length === 1 ? "group " + rds[0] : "groups " + rds.join(", ")) +
+        ", so the withdrawal staged here no longer applies.";
+    }
+    return lead + "Your unsent changes already match what MFL is holding — nothing left to submit.";
   }
 
   // ── "Already on my roster" sweep (Keith 2026-08-09) ─────────────────────
@@ -2582,7 +2634,9 @@
   // out of reloadClaimsFromServer so checkMflHoldingsChanged — which has just
   // read /pending to make its comparison — can adopt without a second GET.
   // §1 still governs: a `known:false` envelope adopts nothing and says so.
-  function adoptClaimsFrom(resp) {
+  // `okText` (optional) replaces the default "Loaded N claims" line when the
+  // adopt succeeds — e.g. why moot unsent edits were dropped.
+  function adoptClaimsFrom(resp, okText) {
     claimsPreview = null;
     if (M.waivers.adoptVerified(resp)) {
       // On screen == MFL's copy again, so the "MFL's copy differs" banner is
@@ -2590,9 +2644,9 @@
       // behind it.
       claimsMflChanged = false;
       var n = stagedCount();
-      claimsNotice = { tone: "ok", text: n
+      claimsNotice = { tone: "ok", text: okText || (n
         ? ("Loaded " + n + (n === 1 ? " claim" : " claims") + " from MFL.")
-        : "MFL is holding no claims for you." };
+        : "MFL is holding no claims for you.") };
     } else {
       claimsNotice = { tone: "warn", text: unknownClaimsText(resp) };
     }
@@ -2609,8 +2663,9 @@
     // (known:false, MFL unreadable) nothing was adopted and no target was
     // written, so the older stamp still describes the plan on screen and a run
     // since then is still proof it was processed. The run signal comes from the
-    // transactions log, which is independent of the /pending read that just
-    // failed.
+    // waiver schedule (/api/waivers/state last_run: MFL's calendar plus the
+    // league's Thu/Fri/Sat/Sun 9 AM ET runs), which is independent of the
+    // /pending read that just failed.
     //
     // Same warn-preserving notice rule on both (a "couldn't read" warning above
     // must never lose to a good-news "cleared" line).
