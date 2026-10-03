@@ -44019,6 +44019,40 @@ const mflToSleeper = {};
         }
         const wvFid = detFid;
 
+        // ── Transactions closed (Keith 2026-10-03: "Add now only when an
+        // immediate addition is legal, Bid during waiver periods, and Locked
+        // … when transactions are closed") ──────────────────────────────────
+        // A WAIVER_NONE blackout (the FA Auction span, or the season shut-off
+        // from Mon Jan 4 2027 9:00 PM ET) or waivers not yet open: MFL allows
+        // no add/drops, the app shows "Locked · no add/drops", and this route
+        // takes no new claim either. Only plans that ADD claims are refused — a
+        // withdrawal is never blocked. An unreadable calendar is not "closed":
+        // MFL still adjudicates the write, exactly as before.
+        if (!wvDryRun && Array.isArray(wbody.rounds) && wbody.rounds.some((r) => Array.isArray(r && r.picks) && r.picks.length)) {
+          const [bpCalRes, bpWeek1] = await Promise.all([
+            mflExportJson(wvSeason, wvLeagueId, "calendar", {}, { useCookie: true }),
+            nflWeekFirstKickoffUnix(wvSeason, 1),
+          ]);
+          if (bpCalRes && bpCalRes.ok) {
+            const bpWin = _wvWaiverWindow(normalizeMflCalendar(bpCalRes.data), Math.floor(Date.now() / 1000),
+              { calendar_unavailable: false, week1_kickoff_unix: bpWeek1 || 0 });
+            if (bpWin.mode === "blackout" || (bpWin.mode === "closed" && bpWin.mode_reason === "before_first_waiver_event")) {
+              return jsonNoStore(409, {
+                ok: false,
+                error: "transactions_closed",
+                message: bpWin.mode === "blackout"
+                  ? (bpWin.blackout && bpWin.blackout.season_end
+                    ? "No add/drops — the season's add/drop window has closed."
+                    : "No add/drops right now — MFL has an add/drop blackout in effect.")
+                  : "Waivers haven't opened yet.",
+                mode: bpWin.mode,
+                mode_reason: bpWin.mode_reason,
+                native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+              });
+            }
+          }
+        }
+
         if (!Array.isArray(wbody.rounds)) {
           return jsonNoStore(400, {
             ok: false,

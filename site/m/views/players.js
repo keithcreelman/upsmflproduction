@@ -606,10 +606,30 @@
   // control renders at all — the surfaces show the read-only view plus the
   // MFL native link instead. `info.writeEnabled` already folds the kill
   // switch together with the window, so this is the whole check.
+  // "Locked" chip: an immediate add isn't legal right now (his game has kicked
+  // off) or transactions are closed. Two short lines so it fits at 320px.
+  function lockedChipHtml(why, title) {
+    return '<span class="ups-m-fa-add locked" title="' + U.escapeHtml(title) + '">Locked <span class="why">' +
+      U.escapeHtml(why) + '</span></span>';
+  }
   function acquisitionCta(pid, opts) {
     opts = opts || {};
     var info = waiverModeInfo();
     if (!M.state.viewerFranchiseId) return { mode: "unknown", html: "" };
+    // Transactions closed (Keith 2026-10-03): a league-wide blackout — the FA
+    // Auction span or the season shut-off — or waivers not yet open. The
+    // worker refuses both an add and a new bid then, so the label says Locked
+    // rather than showing nothing. An UNREADABLE calendar ("closed" for
+    // calendar_unavailable) is unknown, not closed: no label.
+    var wwin = M.state.waiverState && M.state.waiverState.window;
+    if (info.mode === "blackout" || (info.mode === "closed" && wwin && wwin.mode_reason === "before_first_waiver_event")) {
+      return {
+        mode: info.mode, locked: true,
+        html: info.mode === "blackout"
+          ? lockedChipHtml("no add/drops", info.detail || "No add/drops right now.")
+          : lockedChipHtml("waivers not open", info.detail || "Waivers haven't opened yet.")
+      };
+    }
     if (!info.writeEnabled) return { mode: info.mode, html: "", readOnly: true };
     if (info.mode === "bbid") {
       if (!waiverLimits()) return { mode: "unknown", html: "" };
@@ -640,8 +660,8 @@
         var reopen = (M.state.waiverState && M.state.waiverState.window && M.state.waiverState.window.fcfs_closes_label) || "";
         return {
           mode: "fcfs", locked: true,
-          html: '<span class="ups-m-fa-add locked" title="His game has kicked off — MFL locks him for the rest of this week' +
-            (reopen ? '. He goes back on waivers ' + U.escapeHtml(reopen) + ' — bid then' : '') + '.">Locked <span class="why">game started</span></span>'
+          html: lockedChipHtml("game started", "His game has kicked off — MFL locks him for the rest of this week" +
+            (reopen ? ". He goes back on waivers " + reopen + " — bid then" : "") + ".")
         };
       }
       return {

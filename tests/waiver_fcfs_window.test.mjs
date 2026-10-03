@@ -187,14 +187,17 @@ test("preseason, Week 1, and the season shut-off", () => {
   t.equal(harness(et("2027-01-04T20:59:59-05:00"), { kickoffs: {} }).btn("4"), "Add now", "last Monday 20:59:59: Add now");
   const shut = harness(et("2027-01-04T21:00:00-05:00"), { kickoffs: {} });
   t.equal(shut.mode(), "blackout", "Jan 4 2027 9:00 PM: blackout");
-  t.equal(shut.btn("4"), "(none)", "no Add now and no Bid");
+  t.equal(shut.btn("4"), "Locked no add/drops", "Locked — neither Add now nor Bid");
   t.match(shut.strip(), /the season's add\/drop window has closed/);
 });
 
-test("the FA Auction blackout: no Add now, no Bid", () => {
+test("transactions closed → Locked: the FA Auction blackout, and before waivers open", () => {
   const h = harness(et("2026-07-30T12:00:00-04:00"), { kickoffs: {} });
   t.equal(h.mode(), "blackout");
-  t.equal(h.btn("4"), "(none)");
+  t.equal(h.btn("4"), "Locked no add/drops", "FA Auction blackout");
+  const pre = harness(et("2026-07-20T12:00:00-04:00"), { kickoffs: {} });
+  t.equal(pre.mode(), "closed");
+  t.equal(pre.btn("4"), "Locked waivers not open", "before the league's first waiver event");
 });
 
 await run("waiver_fcfs_window");

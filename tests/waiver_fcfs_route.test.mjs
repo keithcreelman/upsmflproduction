@@ -120,4 +120,32 @@ test("every call went to the fake MFL — the only adds attempted were inside th
   }
 });
 
+async function bidAt(iso, rounds) {
+  NOW = et(iso);
+  Date.now = () => NOW;
+  calls.length = 0;
+  try {
+    const req = new Request(`https://w.test/api/waivers/bbid-plan?L=${LEAGUE}&YEAR=2026&MFL_USER_ID=tok-owner`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ rounds }),
+    });
+    const res = await worker.fetch(req, env, { waitUntil() {}, passThroughOnException() {} });
+    const body = await res.json().catch(() => ({}));
+    return { status: res.status, error: body.error || "", message: body.message || "", calls: calls.slice() };
+  } finally { Date.now = realNow; }
+}
+const addClaim = [{ round: 1, picks: [{ add_pid: "9002", bid_dollars: 1000 }] }];
+
+test("bids while transactions are closed are refused (matches the 'Locked' label); withdrawals never are", async () => {
+  const shut = await bidAt("2027-01-05T12:00:00-05:00", addClaim);
+  t.equal(shut.status, 409); t.equal(shut.error, "transactions_closed", "after the season shut-off");
+  t.match(shut.message, /season's add\/drop window has closed/);
+  t.ok(!shut.calls.some((c) => / league$/.test(c)), "refused before any league/limits read");
+  const auction = await bidAt("2026-07-30T12:00:00-04:00", addClaim);
+  t.equal(auction.error, "transactions_closed", "during the FA Auction blackout");
+  const clearOnly = await bidAt("2027-01-05T12:00:00-05:00", [{ round: 1, picks: [] }]);
+  t.ok(clearOnly.error !== "transactions_closed", "a pure withdrawal is not blocked");
+  const tuesday = await bidAt("2026-10-06T12:00:00-04:00", addClaim);
+  t.ok(tuesday.error !== "transactions_closed" && tuesday.calls.some((c) => / league$/.test(c)), "a normal waiver period: the bid goes on through the route");
+});
+
 await run("waiver_fcfs_route");

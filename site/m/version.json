@@ -1,4 +1,4 @@
 {
   "build": "2026.10.03.2",
-  "label": "Sunday free agency in the app: from the Sunday 9:00 AM ET waiver run until the Monday 9:00 PM ET re-lock, free agents show Add now (immediate, first come first served), matching MFL's own league calendar. A player locks when his game kicks off (shown as \"Locked · game started\"); outside the window players show Bid. After the season's last Monday the app shows no add/drops, as MFL does."
+  "label": "Sunday free agency in the app: from the Sunday 9:00 AM ET waiver run until the Monday 9:00 PM ET re-lock, free agents show Add now (immediate, first come first served), matching MFL's own league calendar. A player locks when his game kicks off; outside the window players show Bid; during a blackout, before waivers open or after the season they show Locked — and the server enforces the same rules."
 }
