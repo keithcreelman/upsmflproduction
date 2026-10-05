@@ -1,0 +1,67 @@
+<!--
+  SYNTHETIC — hand-built to match the documented behaviour of Yahoo's throttle
+  response. NOT a live capture: Yahoo API access is gated behind an approval
+  application and NO live call has ever been made from this repo, so no real 999
+  body has ever been seen here. Replace with a real captured body once access is
+  approved and a throttle is actually hit. The wording below is representative,
+  not verbatim.
+
+  AUTHORED 2026-08-11 (not captured on any date).
+  MODELS: the body returned with HTTP status 999 on any /fantasy/v2/ request
+          once the client_id is throttled.
+
+  ⚠️ THIS FILE IS NOT JSON, AND THAT IS THE ENTIRE POINT.
+
+  Yahoo's throttle does not arrive as a clean 429 with a JSON error object. It
+  arrives as HTTP 999 — a status in no RFC, a Yahoo-ism — carrying an HTML page.
+  A client that parses the body before checking the status turns a clean "we are
+  being throttled, back off" into an opaque JSON decode error, and a client that
+  catches decode errors broadly turns it into "this league has no transactions".
+  Both have happened to other people's Yahoo clients; the second is the one that
+  writes wrong data.
+
+  WHAT THE CODE MUST DO WITH IT (client.py::_raise_for_status):
+    1. Check the STATUS FIRST, always. 999 → RateLimitError, retryable, long
+       backoff. The body is never parsed.
+    2. A 2xx whose body starts with anything other than '{' or '[' is ALSO
+       unreadable — Yahoo has been observed serving HTML with a 200 during
+       incidents — and raises UnreadableResponseError rather than being treated
+       as empty data.
+    3. Blocks are applied PER client_id and last minutes to hours. There is no
+       Retry-After header to read; the backoff is ours to choose.
+
+  HOW TO USE IT IN A TEST: feed the raw text to whatever handles a response
+  body and assert the typed error, then assert that json.loads() on it raises —
+  i.e. that anything reaching a parser would have blown up, which is why the
+  status check has to come first.
+
+  ⚠️ NEVER let this path fall through to "empty result". An unreadable response
+  is not an empty one. That conflation is the single root cause behind every
+  data-destruction incident recorded in this repo.
+
+  This leading comment is our own annotation and would not appear in a real
+  captured body; the markup below it is the part being modelled.
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>Yahoo</title>
+<style>
+  html { background: #fff; color: #000; font: 13px/1.4 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  #main { margin: 60px auto; width: 600px; }
+  h1 { font-size: 24px; font-weight: 300; }
+  .err { color: #6e7780; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="main">
+<h1>Will be right back...</h1>
+<p>Thank you for your patience.</p>
+<p>Our engineers are working quickly to resolve the issue.</p>
+<p class="err">Request denied. Unusual traffic from your account has triggered a
+temporary block. Please reduce your request rate and try again later.</p>
+<p class="err">ERROR: 999 &mdash; reference 0000000000-000000</p>
+</div>
+</body>
+</html>

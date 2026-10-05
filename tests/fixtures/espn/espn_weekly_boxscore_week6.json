@@ -1,0 +1,121 @@
+{
+  "_comment": [
+    "SYNTHETIC — same provenance as espn_league_teams_standings.json.",
+    "Models: GET .../leagues/999001?view=mBoxscore&view=mMatchup&scoringPeriodId=6",
+    "Shape hazards exercised:",
+    "  - a normal 2-team matchup (home=team1, away=team2) with full rosters",
+    "  - a BYE (team3, no opponent) — one 'schedule' entry with only 'away'",
+    "    present, matchupPeriodId still 6, home ABSENT (not null: absent)",
+    "  - roster entries covering: a starter (lineupSlotId 4=WR), a BENCH",
+    "    entry (20), an IR entry (21), and one entry with NO appliedStatTotal",
+    "    at all (must yield points_provider=None, never 0)",
+    "  - one entry missing eligibleSlots entirely (must not crash; eligible",
+    "    list must come back empty/None, not a KeyError)",
+    "  - playoffTierType present as a raw string this parser does NOT",
+    "    interpret (is_playoffs must stay NULL per the parser's own docstring)",
+    "  - totalPointsLive present on one side, absent (falls back to",
+    "    totalPoints) on the other — exercises the live/final fallback"
+  ],
+  "schedule": [
+    {
+      "matchupPeriodId": 6,
+      "playoffTierType": "NONE",
+      "home": {
+        "teamId": 1,
+        "totalPointsLive": 118.4,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 4001,
+              "lineupSlotId": 4,
+              "playerPoolEntry": {
+                "appliedStatTotal": 21.3,
+                "player": {
+                  "firstName": "Sample",
+                  "lastName": "Wideout",
+                  "defaultPositionId": 3,
+                  "proTeamId": 9,
+                  "eligibleSlots": [4, 3, 5, 23, 20]
+                }
+              }
+            },
+            {
+              "playerId": 4002,
+              "lineupSlotId": 20,
+              "playerPoolEntry": {
+                "appliedStatTotal": 0.0,
+                "player": {
+                  "firstName": "Bench",
+                  "lastName": "Guy",
+                  "defaultPositionId": 2,
+                  "proTeamId": 12,
+                  "eligibleSlots": [2, 3, 23, 20]
+                }
+              }
+            },
+            {
+              "playerId": 4003,
+              "lineupSlotId": 21,
+              "playerPoolEntry": {
+                "player": {
+                  "firstName": "Hurt",
+                  "lastName": "Player",
+                  "defaultPositionId": 4,
+                  "proTeamId": 21
+                }
+              }
+            }
+          ]
+        }
+      },
+      "away": {
+        "teamId": 2,
+        "totalPoints": 102.9,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 4004,
+              "lineupSlotId": 0,
+              "playerPoolEntry": {
+                "appliedStatTotal": 24.6,
+                "player": {
+                  "firstName": "Signal",
+                  "lastName": "Caller",
+                  "defaultPositionId": 1,
+                  "proTeamId": 6,
+                  "eligibleSlots": [0, 7]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "matchupPeriodId": 6,
+      "playoffTierType": "NONE",
+      "away": {
+        "teamId": 3,
+        "totalPoints": 88.1,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 4005,
+              "lineupSlotId": 16,
+              "playerPoolEntry": {
+                "appliedStatTotal": 7.0,
+                "player": {
+                  "firstName": "",
+                  "lastName": "Defense/ST",
+                  "defaultPositionId": 16,
+                  "proTeamId": 26,
+                  "eligibleSlots": [16, 20]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

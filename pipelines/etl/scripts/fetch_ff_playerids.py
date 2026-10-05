@@ -29,19 +29,54 @@ from lib.d1_io import D1Writer  # noqa: E402
 LOCAL_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
 CSV_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
 
+# yahoo_id added 2026-08-11 for the multi-platform fantasy pipeline (migration
+# 0132). It was ALWAYS present in the upstream CSV — this fetcher just never
+# selected it. Verified against the live header on 2026-08-11: `yahoo_id` is
+# column 9 of db_playerids.csv.
+#
+# ⚠️ THE HEADER NAME MATTERS MORE THAN IT LOOKS. Every run rewrites all non-PK
+# columns via ON CONFLICT DO UPDATE, so if this name did not match the upstream
+# header, `r.get("yahoo_id")` would return None and the next Wednesday cron
+# would silently wipe yahoo_id for all 12,468 rows. Re-verify the header before
+# ever renaming this entry.
 COLS = ["mfl_id", "gsis_id", "sleeper_id", "ktc_id", "fantasypros_id",
-        "pfr_id", "espn_id", "name", "merge_name", "position", "team", "birthdate"]
+        "pfr_id", "espn_id", "yahoo_id", "name", "merge_name", "position",
+        "team", "birthdate"]
 
+# ⚠️ This DDL is for the LOCAL SQLite mirror only and uses CREATE TABLE IF NOT
+# EXISTS, which is a NO-OP on an already-existing table. Adding a column to
+# COLS therefore does NOT add it locally — the local INSERT would fail with
+# "no such column" while the D1 write succeeded. main() reconciles the local
+# schema explicitly below for exactly this reason. (D1 got the column from
+# migration 0132.)
 DDL = """
 CREATE TABLE IF NOT EXISTS ff_player_ids (
   mfl_id TEXT PRIMARY KEY, gsis_id TEXT, sleeper_id TEXT, ktc_id TEXT,
-  fantasypros_id TEXT, pfr_id TEXT, espn_id TEXT, name TEXT, merge_name TEXT,
-  position TEXT, team TEXT, birthdate TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  fantasypros_id TEXT, pfr_id TEXT, espn_id TEXT, yahoo_id TEXT, name TEXT,
+  merge_name TEXT, position TEXT, team TEXT, birthdate TEXT,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_ff_player_ids_gsis    ON ff_player_ids(gsis_id);
 CREATE INDEX IF NOT EXISTS idx_ff_player_ids_sleeper ON ff_player_ids(sleeper_id);
 CREATE INDEX IF NOT EXISTS idx_ff_player_ids_ktc     ON ff_player_ids(ktc_id);
+CREATE INDEX IF NOT EXISTS idx_ff_player_ids_yahoo   ON ff_player_ids(yahoo_id);
 """
+
+
+def ensure_local_columns(conn) -> None:
+    """Add any COLS column the local mirror is missing.
+
+    CREATE TABLE IF NOT EXISTS silently does nothing when the table already
+    exists, so a new entry in COLS needs an explicit ALTER on the local side or
+    the dual-write breaks with "no such column" — while D1, which got the column
+    from a migration, keeps working. That asymmetry is easy to miss and hard to
+    diagnose, so it is handled here rather than left to whoever edits COLS next.
+    """
+    have = {r[1] for r in conn.execute("PRAGMA table_info(ff_player_ids)")}
+    for col in COLS:
+        if col not in have:
+            conn.execute(f"ALTER TABLE ff_player_ids ADD COLUMN {col} TEXT")
+            print(f"  local mirror: added missing column {col}", file=sys.stderr)
 
 
 def fetch_rows() -> list[tuple]:
@@ -68,9 +103,27 @@ def main() -> None:
     if not rows:
         sys.exit("no rows")
 
+    # A shrink guard, in the spirit of fetch_fantasypros_adp.py: this fetcher
+    # rewrites every non-PK column on every run, so an upstream CSV that came
+    # back truncated would quietly blank real ids across the whole table.
+    yahoo_present = sum(1 for t in rows if t[COLS.index("yahoo_id")])
+    print(f"  {yahoo_present}/{len(rows)} rows carry a yahoo_id "
+          f"({100.0 * yahoo_present / len(rows):.1f}%)", file=sys.stderr)
+    if yahoo_present == 0:
+        # ⚠️ REFUSE. Zero yahoo_id values means the upstream header changed and
+        # every row is about to be overwritten with NULL. An unreadable input is
+        # never an empty one.
+        sys.exit(
+            "REFUSING TO WRITE: not one row carried a yahoo_id. The upstream "
+            "CSV header has almost certainly changed. Re-check column names at "
+            f"{CSV_URL} before running again — writing now would blank yahoo_id "
+            "for every row."
+        )
+
     if LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB))
         db.executescript(DDL)
+        ensure_local_columns(db)
         ph = ",".join("?" * len(COLS))
         sets = ",".join(f"{c}=excluded.{c}" for c in COLS if c != "mfl_id")
         db.executemany(
