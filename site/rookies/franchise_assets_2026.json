@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-04T14:58:29.202719+00:00",
+    "generated_at_utc": "2026-10-05T18:49:51.668119+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -357,6 +357,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16630",
+          "display": "Isaiah Williams",
+          "player_id": "16630",
+          "position": "WR",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16809",
           "display": "Jalen Coker",
           "player_id": "16809",
@@ -365,18 +377,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Vet-Ext1",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16189",
-          "display": "Marvin Mims",
-          "player_id": "16189",
-          "position": "WR",
-          "nfl_team": "DEN",
-          "salary": 1000,
-          "contract_year": 2,
-          "contract_status": "Vet-ERA",
           "roster_status": "ROSTER",
           "taxi": false
         },
