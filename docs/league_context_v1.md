@@ -397,6 +397,7 @@ for 2022-2025.
 - **Eligibility:**
   - NFL Injured Reserve (or any IR designation MFL recognizes)
   - COVID-19 IR (legacy)
+    - **2020 COVID opt-outs were FULLY relieved — correct as posted (Keith 2026-10-06).** An NFL opt-out placed on IR got MFL's 50% IR discount plus a manual credit for the other 50%, so his 2020 salary cost $0: Marqise Lee, Run CMC (0005) and Geronimo Allison, #BLM (0008) — both $9K in their final contract year, moved to IR 2020-08-14, credited −$4,500 each ("COVID OPTOUT") that evening. Do not re-price or flag them.
   - **Holdouts**
     - **Legacy holdout credits are correct as posted (Keith 2026-10-06).** Before holdouts were handled through IR, holdout relief was a manual commissioner credit of **25% of salary**: Le'Veon Bell, Gride 2018 (−$12,000 = 25% × $48K) and Chris Jones, Blake Bombers 2023 (−$500 = 25% × $2K). They are the legacy manual rule, not a misapplied 50% IR — do not re-price or flag them.
   - **Suspended players** (special handling, see below)

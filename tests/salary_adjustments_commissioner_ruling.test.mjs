@@ -65,7 +65,8 @@ test("the published 2026 report row is resolved, in the ruling's words, and stil
   t.match(UI, /if \(value === "resolved"\) return "Resolved";/, "the report page labels it");
 });
 
-test("canon records the Cooper ruling and the legacy holdout credits", () => {
+test("canon records the Cooper ruling, the legacy holdout credits and the 2020 COVID opt-outs", () => {
+  t.match(CANON, /\*\*2020 COVID opt-outs were FULLY relieved — correct as posted \(Keith 2026-10-06\)\.\*\* .*Marqise Lee, Run CMC \(0005\) and Geronimo Allison, #BLM \(0008\).*credited −\$4,500 each/);
   t.match(CANON, /\*\*Commissioner ruling — Amari Cooper, Gride, retired 2025 \(Keith 2026-10-06\): CLOSED\.\*\*/);
   t.match(CANON, /It is \*\*not\*\* a precedent: §D2a applies to every future retirement or Jail Bird exit on a loaded contract\./);
   t.match(CANON, /Legacy holdout credits are correct as posted \(Keith 2026-10-06\)\.\*\* .*Le'Veon Bell, Gride 2018 \(−\$12,000 = 25% × \$48K\) and Chris Jones, Blake Bombers 2023 \(−\$500 = 25% × \$2K\)/);
