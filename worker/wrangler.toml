@@ -69,6 +69,12 @@ TRADE_SENTINEL_ENABLED = "1"
 TRADE_SENTINEL_ACT_ENABLED = "0"
 TRADE_SENTINEL_ADOPT_NATIVE = "0"
 TRADE_SENTINEL_TEST_FRANCHISES = ""
+# Traded-salary settlement sweep (2026-10-06): posts the settlement for trades
+# accepted on MFL's own site (the War Room only settles its own accepts).
+# Trades before SINCE are history (cap_adjustment_audit_log.json), never swept.
+TRADE_SETTLEMENT_SWEEP_ENABLED = "1"
+TRADE_SETTLEMENT_SWEEP_SINCE = "2026-10-06T00:00:00Z"
+TRADE_SETTLEMENT_SWEEP_GRACE_SEC = "1800"
 DROP_TRACKER_ENABLED = "1"
 DROP_TRACKER_AUTO_POST = "1"
 DROP_TRACKER_POST_MFL = "1"

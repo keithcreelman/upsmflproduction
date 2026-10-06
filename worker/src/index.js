@@ -2590,6 +2590,128 @@ function saladjMatchOneSided(fid, amount, trades, used) {
   return fits.length === 1 ? fits[0] : null;
 }
 
+// Every posted settlement row → the MFL trade it settles. Shared by the FO
+// Salary Adjustments ledger and the settlement sweep, so the two can never
+// disagree about what is settled. `posted` rows carry { franchise_id, amount,
+// unix, cls } (cls = saladjClassify). Two-sided refs are matched first (by
+// time + BB_ amount), then one-sided halves (by money alone), so a trade
+// already claimed by a pair is never claimed again.
+function saladjMatchSettlements(posted, trades) {
+  const byRef = {};
+  for (const r of posted || []) {
+    if (!r || !r.cls || r.cls.type !== "trade" || !r.cls.ref) continue;
+    (byRef[r.cls.ref] = byRef[r.cls.ref] || []).push(r);
+  }
+  const matched = {};
+  const used = new Set();
+  const pairSize = (ref) => new Set(byRef[ref].map((r) => r.franchise_id)).size;
+  const order = Object.keys(byRef).sort((x, y) => (pairSize(y) === 2) - (pairSize(x) === 2));
+  for (const ref of order) {
+    const rows = byRef[ref];
+    const fids = Array.from(new Set(rows.map((x) => x.franchise_id)));
+    if (fids.length === 1 && rows.length === 1) {
+      const one = rows[0];
+      const t1 = saladjMatchOneSided(one.franchise_id, one.amount, trades, used);
+      if (!t1) { matched[ref] = { trade: null, fids }; continue; }
+      const other = t1.a === one.franchise_id ? t1.b : t1.a;
+      used.add(t1);
+      matched[ref] = { trade: t1, fids: [one.franchise_id, other], legs: [t1],
+        partial: { posted_fid: one.franchise_id, posted_amount: one.amount, pending_fid: other, pending_amount: -one.amount } };
+      continue;
+    }
+    if (fids.length !== 2) { matched[ref] = { trade: null, fids }; continue; }
+    const t = saladjMatchTrade(fids[0], fids[1], rows[0].unix, Math.abs(rows[0].amount), ref, trades);
+    matched[ref] = { trade: t, fids };
+    if (t) {
+      used.add(t);
+      const threeWay = ref.match(/^3-way\s+([0-9a-f]+)/i);
+      matched[ref].legs = threeWay
+        ? (trades || []).filter((x) => x.comments.toLowerCase().indexOf(threeWay[1].toLowerCase()) !== -1)
+        : [t];
+    }
+  }
+  return { byRef, matched, used };
+}
+
+// ── TRADE SETTLEMENT SWEEP (Keith 2026-10-06: "make the worker auto-post
+//    settlements for trades accepted on MFL") ─────────────────────────────
+// The War Room posts a trade's traded-salary settlement only when the trade
+// is ACCEPTED THROUGH THE WAR ROOM. Accept it on MFL's own site and the money
+// never moves: the 2026-07-22 L.A. Looks ↔ Gride trade (BB_10000) sat
+// unsettled for 2½ months while the Discord Trade Alert announced "$10K Cap
+// Credit" (cap-adjustment audit log A01; five earlier seasons had the same
+// miss, A02–A06). These helpers decide, from MFL's own TRADE ledger and its
+// own salaryAdjustments feed, which executed trades still owe a settlement.
+
+// A trade's BB_ cap money → who pays (+, takes on cap) and who is relieved
+// (−). Both sides may send money; the settlement is the NET.
+function settlementFromTradeBB(t) {
+  const sumBB = (list) => (list || []).filter((x) => /^BB_/.test(x)).reduce((a, x) => a + Number(x.slice(3)), 0);
+  const aBB = sumBB(t && t.a_gave), bBB = sumBB(t && t.b_gave);
+  if (!Number.isFinite(aBB) || !Number.isFinite(bBB)) return { ok: false, reason: "unreadable_cap_money" };
+  if (!aBB && !bBB) return { ok: false, reason: "no_traded_salary" };
+  const net = Math.round(aBB - bBB);
+  if (!net) return { ok: false, reason: "nets_to_zero" };
+  if (net % 1000 !== 0) return { ok: false, reason: "not_whole_thousands", net };   // UPS trades whole $K — anything else is a human's call
+  return net > 0 ? { ok: true, payer: t.a, payee: t.b, amount: net } : { ok: true, payer: t.b, payee: t.a, amount: -net };
+}
+
+// Which executed trades need a settlement posted now. Never: one already
+// settled (any posted pair or half), one before the cutoff (history belongs
+// to the audit log, not to a robot), a 3-way leg (the 3-way engine settles
+// those), or one still inside the grace window (a War Room accept settles its
+// own trade within seconds — the sweep must never race it). A half-posted
+// settlement (A01) is the commissioner's to finish, never the sweep's.
+function planTradeSettlements({ trades, posted, sinceUnix, nowUnix, graceSec }) {
+  const { matched, used } = saladjMatchSettlements(posted, trades);
+  const partialTrades = new Set(Object.values(matched).filter((m) => m.partial && m.trade).map((m) => m.trade));
+  const plans = [], skipped = [];
+  for (const t of trades || []) {
+    const s = settlementFromTradeBB(t);
+    if (!s.ok && s.reason === "no_traded_salary") continue;
+    const base = { trade: t, unix: t.unix, teams: [t.a, t.b] };
+    if (partialTrades.has(t)) { skipped.push({ ...base, reason: "partially_settled_commish_hold" }); continue; }
+    if (used.has(t)) { skipped.push({ ...base, reason: "already_settled" }); continue; }
+    if (!(Number(t.unix) >= Number(sinceUnix))) { skipped.push({ ...base, reason: "before_cutoff" }); continue; }
+    if (/3-way/i.test(t.comments || "")) { skipped.push({ ...base, reason: "three_way_engine" }); continue; }
+    if (!s.ok) { skipped.push({ ...base, reason: s.reason, net: s.net }); continue; }
+    if (Number(nowUnix) - Number(t.unix) < Number(graceSec)) { skipped.push({ ...base, reason: "in_grace" }); continue; }
+    plans.push({ ...base, payer: s.payer, payee: s.payee, amount: s.amount });
+  }
+  return { plans, skipped };
+}
+
+// The War Room offer an executed trade came from, if any — so the sweep
+// labels the settlement with the SAME ref the War Room would have used
+// (trade_<season><mflTradeId>). That matters: the War Room's own
+// post-processing retry checks for exactly that ref before posting, so a
+// sweep-posted settlement and a later retry can never both land. Matched on
+// both franchises, each side's players, and each side's cap money, from the
+// twb_trade_outbox payload the War Room stored at submit time.
+function matchOutboxTradeId(trade, outboxRows) {
+  const players = (list) => (list || []).filter((x) => /^\d+$/.test(x)).sort().join(",");
+  const bb = (list) => (list || []).filter((x) => /^BB_/.test(x)).reduce((a, x) => a + Math.round(Number(x.slice(3)) || 0), 0);
+  const want = { [trade.a]: { p: players(trade.a_gave), bb: bb(trade.a_gave) }, [trade.b]: { p: players(trade.b_gave), bb: bb(trade.b_gave) } };
+  let best = null;
+  for (const row of outboxRows || []) {
+    let payload = row && row.payload;
+    if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch (_) { continue; } }
+    const teams = payload && Array.isArray(payload.teams) ? payload.teams : [];
+    if (teams.length !== 2) continue;
+    const ok = teams.every((tm) => {
+      const fid = String(tm && tm.franchise_id || "").padStart(4, "0");
+      const w = want[fid];
+      if (!w) return false;
+      const p = (Array.isArray(tm.selected_assets) ? tm.selected_assets : [])
+        .filter((x) => String(x && x.type || "").toUpperCase() === "PLAYER").map((x) => String(x.player_id || "").replace(/\D/g, "")).filter(Boolean).sort().join(",");
+      return p === w.p && Math.round(Number(tm.traded_salary_adjustment_dollars) || 0) === w.bb;
+    });
+    const tid = String(row.trade_id || "").replace(/\D/g, "");
+    if (ok && tid && (!best || String(row.created_ts) > String(best.created_ts))) best = { trade_id: tid, created_ts: String(row.created_ts) };
+  }
+  return best ? best.trade_id : "";
+}
+
 // The MFL trade a settlement pair belongs to: the same two franchises, within
 // 3 days of the settlement (2-way settlements post in the same second; a 3-way
 // leg ran ~1.8h ahead). A BB_<|amount|> asset — the traded dollars themselves —
@@ -7532,6 +7654,30 @@ export default {
       console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
       return;
     }
+
+    // ── TRADED-SALARY SETTLEMENT SWEEP (Keith 2026-10-06) ──────────────────
+    // Settles the cap money on trades accepted on MFL's own site (the War Room
+    // only settles its own accepts). The route is idempotent (a D1 claim per
+    // trade) and fails closed; with the flag off it answers flag_off and does
+    // nothing. Hourly is enough: the route waits out a 30-minute grace so a
+    // War Room accept always settles its own trade first.
+    try {
+      const tsSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const tsLeague = String(env.LEAGUE_ID || "74598");
+      const tsKey = String(env.COMMISH_API_KEY || "").trim();
+      if (tsKey && env.SELF && env.UPS_MFL_DB) {
+        ctx.waitUntil((async () => {
+          try {
+            if (!(await getFeatureFlag(env, "TRADE_SETTLEMENT_SWEEP_ENABLED"))) return;
+            const r = await env.SELF.fetch(`https://self.invalid/admin/trades/settlement-sweep?L=${tsLeague}&YEAR=${tsSeason}&APIKEY=${encodeURIComponent(tsKey)}`, {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: tsSeason, league_id: tsLeague }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d && (d.posted || (d.results && d.results.length) || d.ok === false)) console.log("[settlement-sweep]", JSON.stringify(d).slice(0, 600));
+          } catch (e) { console.log("[settlement-sweep] failed:", String(e?.message || e)); }
+        })());
+      }
+    } catch (_) { /* a sweep fault must never break the hourly cron */ }
 
     // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
     // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
@@ -51553,45 +51699,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           details_source: `report_salary_adjustments_${sjSeason}`,
         });
 
-        // Settlement pairs → their MFL trade. A ref posts one +row and one
-        // -row; the counterparty is the other franchise on the same ref.
-        const sjByRef = {};
-        for (const r of sjPosted) {
-          if (r.cls.type !== "trade" || !r.cls.ref) continue;
-          (sjByRef[r.cls.ref] = sjByRef[r.cls.ref] || []).push(r);
-        }
+        // Settlement rows → their MFL trade (shared with the settlement sweep).
+        const { byRef: sjByRef, matched: sjMatched, used: sjUsedTrades } = saladjMatchSettlements(sjPosted, sjTrades);
         const sjPlayerIds = new Set();
-        const sjMatched = {};
-        const sjUsedTrades = new Set();
-        const sjRefOrder = Object.keys(sjByRef).sort((x, y) =>
-          (new Set(sjByRef[y].map((r) => r.franchise_id)).size === 2) - (new Set(sjByRef[x].map((r) => r.franchise_id)).size === 2));
-        for (const ref of sjRefOrder) {
-          const legsRows = sjByRef[ref];
-          const fids = Array.from(new Set(legsRows.map((x) => x.franchise_id)));
-          if (fids.length === 1 && legsRows.length === 1) {
-            const one = legsRows[0];
-            const t1 = saladjMatchOneSided(one.franchise_id, one.amount, sjTrades, sjUsedTrades);
-            if (!t1) { sjMatched[ref] = { trade: null, fids }; continue; }
-            const other = t1.a === one.franchise_id ? t1.b : t1.a;
-            sjUsedTrades.add(t1);
-            sjMatched[ref] = { trade: t1, fids: [one.franchise_id, other], legs: [t1],
-              partial: { posted_fid: one.franchise_id, posted_amount: one.amount, pending_fid: other, pending_amount: -one.amount } };
-            for (const tok of t1.a_gave.concat(t1.b_gave)) if (/^\d+$/.test(tok)) sjPlayerIds.add(tok);
-            continue;
-          }
-          if (fids.length !== 2) { sjMatched[ref] = { trade: null, fids }; continue; }
-          const absAmt = Math.abs(legsRows[0].amount);
-          const t = saladjMatchTrade(fids[0], fids[1], legsRows[0].unix, absAmt, ref, sjTrades);
-          sjMatched[ref] = { trade: t, fids };
-          if (t) {
-            sjUsedTrades.add(t);
-            const threeWay = ref.match(/^3-way\s+([0-9a-f]+)/i);
-            const legs = threeWay
-              ? sjTrades.filter((x) => x.comments.toLowerCase().indexOf(threeWay[1].toLowerCase()) !== -1)
-              : [t];
-            sjMatched[ref].legs = legs;
-            for (const lg of legs) for (const tok of lg.a_gave.concat(lg.b_gave)) if (/^\d+$/.test(tok)) sjPlayerIds.add(tok);
-          }
+        for (const m of Object.values(sjMatched)) {
+          for (const lg of (m.legs || [])) for (const tok of lg.a_gave.concat(lg.b_gave)) if (/^\d+$/.test(tok)) sjPlayerIds.add(tok);
         }
         const sjPlayersById = sjPlayerIds.size
           ? await fetchPlayersByIdsChunked(sjSeason, sjLeague, Array.from(sjPlayerIds))
@@ -52001,6 +52113,170 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // traded cap the same way a normal 2-party trade does (the 3-way engine
       // wrongly moved it as blind-bid dollars instead of a salary settlement).
       // Requires the commish MFL_COOKIE (salaryAdj import is cookie-gated).
+      // POST /admin/trades/settlement-sweep?L=&YEAR=&APIKEY=   body { dry_run? }
+      // Posts the traded-salary settlement for any executed MFL trade that
+      // moved cap money (BB_) but has no settlement on MFL — the case where a
+      // War Room offer was ACCEPTED ON MFL'S OWN SITE, or a trade was made
+      // natively on MFL (Keith 2026-10-06: "make the worker auto-post
+      // settlements for trades accepted on MFL"). Run hourly by the cron when
+      // TRADE_SETTLEMENT_SWEEP_ENABLED is on; dry_run works with the flag off.
+      //   - What is owed comes from MFL's TRADE ledger (the executed BB_ net);
+      //     what is settled from MFL's own salaryAdjustments
+      //     (saladjMatchSettlements — the same matcher the FO ledger uses).
+      //   - Only trades on/after TRADE_SETTLEMENT_SWEEP_SINCE (history is the
+      //     audit log's), older than the grace window (a War Room accept
+      //     settles itself within seconds), not 3-way legs, not half-posted.
+      //   - FAIL CLOSED: any unreadable source → nothing posted.
+      //   - Each trade is CLAIMED in D1 before the MFL write (UNIQUE key), so
+      //     a trade is posted at most once even if two sweeps overlap or MFL's
+      //     feed lags; the claim records the outcome. A claimed trade is never
+      //     re-posted automatically — a failure DMs the commissioner.
+      //   - Labelled with the War Room's own ref when the offer is found in
+      //     twb_trade_outbox, so a later War Room retry sees "already posted".
+      //   - No league Discord post (Keith: settle quietly); the commissioner
+      //     gets one DM per settled or problem trade.
+      if (path === "/admin/trades/settlement-sweep" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let tsBody = {};
+        try { tsBody = (await request.json()) || {}; } catch (_) { tsBody = {}; }
+        const tsSeason = safeStr(tsBody.season || url.searchParams.get("YEAR") || YEAR || "");
+        const tsLeague = safeStr(tsBody.league_id || url.searchParams.get("L") || L || "74598");
+        const tsDry = _wvTruthy(tsBody.dry_run);
+        if (!tsSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        const tsEnabled = await getFeatureFlag(env, "TRADE_SETTLEMENT_SWEEP_ENABLED");
+        if (!tsDry && !tsEnabled) return jsonOut(200, { ok: true, skipped: "flag_off" });
+        const tsSinceRaw = safeStr(env.TRADE_SETTLEMENT_SWEEP_SINCE || "2026-10-06T00:00:00Z");
+        const tsSince = /^\d+$/.test(tsSinceRaw) ? Number(tsSinceRaw) : Math.floor(Date.parse(tsSinceRaw) / 1000);
+        if (!Number.isFinite(tsSince) || tsSince <= 0) return jsonOut(500, { ok: false, error: "TRADE_SETTLEMENT_SWEEP_SINCE unreadable", value: tsSinceRaw });
+        const tsGrace = Math.max(300, safeInt(env.TRADE_SETTLEMENT_SWEEP_GRACE_SEC, 1800));
+        const tsNow = Math.floor(Date.now() / 1000);
+
+        const [tsTxRes, tsAdjRes, tsLeagueRes] = await Promise.all([
+          mflExportJson(tsSeason, tsLeague, "transactions", { TRANS_TYPE: "TRADE" }, { useCookie: true }),
+          mflExportJson(tsSeason, tsLeague, "salaryAdjustments", {}, { useCookie: true }),
+          mflExportJson(tsSeason, tsLeague, "league", {}, { useCookie: true }),
+        ]);
+        // An unreadable feed is not an empty one: "no settlement found" read off
+        // a failed export would post money twice.
+        if (!tsTxRes.ok || !tsAdjRes.ok) {
+          return jsonOut(200, { ok: false, error: "mfl_unreadable", transactions_ok: !!tsTxRes.ok, salary_adjustments_ok: !!tsAdjRes.ok, posted: 0 });
+        }
+        const tsNames = {};
+        let tsFl = tsLeagueRes.ok && tsLeagueRes.data?.league?.franchises?.franchise;
+        tsFl = Array.isArray(tsFl) ? tsFl : (tsFl ? [tsFl] : []);
+        for (const f of tsFl) { const fid = padFranchiseId(f && f.id); if (fid) tsNames[fid] = safeStr(f && f.name) || `Team ${fid}`; }
+        const tsName = (fid) => tsNames[fid] || `Team ${fid}`;
+        const tsReadAdj = (res) => {
+          const root = res.data?.salaryAdjustments || res.data?.salaryadjustments || {};
+          let rows = root.salaryAdjustment || root.salary_adjustment;
+          rows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+          return rows.map((r) => ({
+            franchise_id: padFranchiseId(r && r.franchise_id), amount: Math.round(Number(r && r.amount) || 0),
+            unix: Number(r && r.timestamp) || 0, description: safeStr(r && r.description), cls: saladjClassify(r && r.description),
+          })).filter((r) => r.franchise_id);
+        };
+        const tsTrades = saladjNormalizeTrades(tsTxRes.data);
+        const tsPosted = tsReadAdj(tsAdjRes);
+        const { plans: tsPlans, skipped: tsSkipped } = planTradeSettlements({
+          trades: tsTrades, posted: tsPosted, sinceUnix: tsSince, nowUnix: tsNow, graceSec: tsGrace,
+        });
+
+        // War Room refs for the plans (best-effort; a native trade has none).
+        let tsOutbox = [];
+        if (tsPlans.length) {
+          try {
+            const ob = await env.UPS_MFL_DB.prepare(
+              `SELECT trade_id, created_ts, payload_json AS payload FROM twb_trade_outbox
+                WHERE season = ? AND league_id = ? AND action_type IN ('SUBMIT','ACCEPT') AND COALESCE(trade_id,'') <> ''`
+            ).bind(tsSeason, tsLeague).all();
+            tsOutbox = (ob && ob.results) || [];
+          } catch (_) { tsOutbox = []; }
+        }
+        const tsIso = (u) => new Date(u * 1000).toISOString();
+        const tsEt = (u) => new Date(u * 1000).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+        const tsK = (n) => String(Math.round(n / 1000));
+        const tsPlanOut = tsPlans.map((pl) => {
+          const tradeId = matchOutboxTradeId(pl.trade, tsOutbox);
+          const ref = tradeId ? buildTradeAdjustmentRef(tsSeason, tradeId) : `mfl_${pl.unix}`;
+          return {
+            trade_key: `${pl.unix}:${[pl.trade.a, pl.trade.b].sort().join("-")}`,
+            traded_at_unix: pl.unix, traded_at_iso: tsIso(pl.unix), mfl_trade_id: tradeId || null, ref,
+            payer: { franchise_id: pl.payer, franchise_name: tsName(pl.payer) },
+            payee: { franchise_id: pl.payee, franchise_name: tsName(pl.payee) },
+            amount: pl.amount,
+            rows: [
+              { franchise_id: pl.payer, amount: pl.amount, explanation: `UPS traded salary settlement (${ref}): net +${tsK(pl.amount)}K` },
+              { franchise_id: pl.payee, amount: -pl.amount, explanation: `UPS traded salary settlement (${ref}): net -${tsK(pl.amount)}K` },
+            ],
+          };
+        });
+        // Skips a human must look at (vs. routine: settled / grace / cutoff / 3-way).
+        const tsAttention = tsSkipped.filter((x) => !["already_settled", "in_grace", "before_cutoff", "three_way_engine", "partially_settled_commish_hold"].includes(x.reason))
+          .filter((x) => Number(x.unix) >= tsSince)
+          .map((x) => ({ trade_key: `${x.unix}:${[x.trade.a, x.trade.b].sort().join("-")}`, traded_at_iso: tsIso(x.unix), teams: x.teams.map((f) => ({ franchise_id: f, franchise_name: tsName(f) })), reason: x.reason, net: x.net == null ? null : x.net }));
+        const tsSkipCounts = {};
+        for (const x of tsSkipped) tsSkipCounts[x.reason] = (tsSkipCounts[x.reason] || 0) + 1;
+        if (tsDry) {
+          return jsonOut(200, { ok: true, dry_run: true, flag_enabled: tsEnabled, since_unix: tsSince, grace_sec: tsGrace,
+            would_post: tsPlanOut, needs_attention: tsAttention, skipped_counts: tsSkipCounts });
+        }
+
+        await env.UPS_MFL_DB.prepare(
+          `CREATE TABLE IF NOT EXISTS ups_trade_settlement_sweep (
+             id INTEGER PRIMARY KEY AUTOINCREMENT, league_id TEXT NOT NULL, season TEXT NOT NULL, trade_key TEXT NOT NULL,
+             traded_at_unix INTEGER, mfl_trade_id TEXT, payer_fid TEXT, payee_fid TEXT, amount INTEGER, ref TEXT,
+             status TEXT NOT NULL, detail TEXT, created_at_utc TEXT NOT NULL, updated_at_utc TEXT NOT NULL,
+             UNIQUE (league_id, season, trade_key))`
+        ).run();
+        const tsStamp = () => new Date().toISOString();
+        const results = [];
+
+        // Problems: DM once per trade (the claim row is the "already told" marker).
+        for (const a of tsAttention) {
+          const ins = await env.UPS_MFL_DB.prepare(
+            `INSERT OR IGNORE INTO ups_trade_settlement_sweep (league_id, season, trade_key, traded_at_unix, status, detail, created_at_utc, updated_at_utc)
+             VALUES (?, ?, ?, ?, 'needs_review', ?, ?, ?)`
+          ).bind(tsLeague, tsSeason, a.trade_key, Math.floor(Date.parse(a.traded_at_iso) / 1000), a.reason, tsStamp(), tsStamp()).run();
+          if (ins?.meta?.changes === 1) {
+            await dmCommish(env, `⚠️ **Traded salary NOT auto-settled** — ${a.teams.map((x) => x.franchise_name).join(" ↔ ")} (${tsEt(Math.floor(Date.parse(a.traded_at_iso) / 1000))}): ${a.reason}${a.net != null ? ` (net $${a.net})` : ""}. Settle it by hand if it's owed.`).catch(() => 0);
+          }
+          results.push({ trade_key: a.trade_key, result: "needs_review", reason: a.reason });
+        }
+
+        if (tsPlanOut.length) {
+          const tsAdmin = await getLeagueAdminState(tsLeague, tsSeason);
+          if (!tsAdmin.ok || !tsAdmin.isAdmin) {
+            return jsonOut(200, { ok: false, error: "mfl_cookie_not_commish", would_post: tsPlanOut, results });
+          }
+        }
+        for (const pl of tsPlanOut) {
+          // CLAIM before the MFL write — at most one post per trade, ever.
+          const claim = await env.UPS_MFL_DB.prepare(
+            `INSERT OR IGNORE INTO ups_trade_settlement_sweep
+               (league_id, season, trade_key, traded_at_unix, mfl_trade_id, payer_fid, payee_fid, amount, ref, status, created_at_utc, updated_at_utc)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'claimed', ?, ?)`
+          ).bind(tsLeague, tsSeason, pl.trade_key, pl.traded_at_unix, pl.mfl_trade_id, pl.payer.franchise_id, pl.payee.franchise_id, pl.amount, pl.ref, tsStamp(), tsStamp()).run();
+          if (!(claim?.meta?.changes === 1)) { results.push({ trade_key: pl.trade_key, result: "already_claimed" }); continue; }
+          const imp = await postMflImportForm(tsSeason, { TYPE: "salaryAdj", L: tsLeague, DATA: buildSalaryAdjXml(pl.rows) }, { TYPE: "salaryAdj", L: tsLeague });
+          // Verify against MFL's own feed: both rows, right teams, right amounts, our ref.
+          const after = await mflExportJson(tsSeason, tsLeague, "salaryAdjustments", {}, { useCookie: true });
+          const afterRows = after.ok ? tsReadAdj(after) : [];
+          const landed = after.ok && pl.rows.every((w) => afterRows.some((r) => r.franchise_id === w.franchise_id && r.amount === w.amount && r.description.includes(`(${pl.ref})`)));
+          const status = landed ? "posted" : (imp && imp.ok ? "unverified" : "post_failed");
+          await env.UPS_MFL_DB.prepare(
+            `UPDATE ups_trade_settlement_sweep SET status = ?, detail = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND trade_key = ?`
+          ).bind(status, landed ? null : safeStr(imp && (imp.error || imp.upstreamPreview) || "").slice(0, 400), tsStamp(), tsLeague, tsSeason, pl.trade_key).run();
+          const teams = `${pl.payer.franchise_name} ↔ ${pl.payee.franchise_name}`;
+          const msg = landed
+            ? `💸 **Traded salary settled automatically** — ${teams} (trade ${tsEt(pl.traded_at_unix)}, accepted on MFL): ${pl.payer.franchise_name} +$${pl.amount.toLocaleString("en-US")}, ${pl.payee.franchise_name} −$${pl.amount.toLocaleString("en-US")}.`
+            : `🚨 **Traded salary settlement ${status === "unverified" ? "UNVERIFIED" : "FAILED"}** — ${teams} (trade ${tsEt(pl.traded_at_unix)}), $${pl.amount.toLocaleString("en-US")}. It will NOT be retried automatically; check MFL's salary adjustments and post it by hand if missing.`;
+          await dmCommish(env, msg).catch(() => 0);
+          results.push({ trade_key: pl.trade_key, result: status, ref: pl.ref, amount: pl.amount, payer: pl.payer.franchise_id, payee: pl.payee.franchise_id });
+        }
+        return jsonOut(200, { ok: true, dry_run: false, posted: results.filter((r) => r.result === "posted").length, results, skipped_counts: tsSkipCounts });
+      }
+
       if (path === "/admin/add-salary-adjustment" && request.method === "POST") {
         if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         let asBody = {};
