@@ -2839,6 +2839,51 @@ const _nflWeekForUnix = (unixSec, year) => {
 // Fails CLOSED: any DB error yields {} and every player is priced normally.
 // A wrong $0 is far worse than a wrong charge, which is at least visible and
 // reversible by the commissioner.
+// ── A CONTRACT CHANGE THE DAILY SNAPSHOT CANNOT HAVE SEEN ────────────────
+// /admin/drops/scan-and-record prices a drop from the R2 roster snapshot
+// (taken once a day, 09:05 UTC) on or before the drop. A MYAC, extension, MYM
+// or restructure that lands AFTER that snapshot and BEFORE the drop is invisible
+// to it. Colbie Young (Gride, drop 96) is the proof:
+//   - Gride MYAC'd him 1 → 3 years at 2026-09-06 22:28Z (ups_extension_submissions 727).
+//   - He was dropped at 2026-09-07 11:51Z.
+//   - No 2026-09-07 snapshot was ever written, so the scanner read 2026-09-06
+//     (09:05Z) and stored a 1-year deal, exempt.
+//   - A $1K, 3-years-left drop. Keith 2026-10-06: "lets make it so it doesnt
+//     happen again".
+// Returns the NEWEST real (dry_run=0, not voided) submission for this player
+// AND franchise strictly between the snapshot and the drop, or null when there
+// is none. Returns { error } when a source cannot be read, so the caller can
+// refuse to price the drop (rule_no_fail_open_guards): an unreadable source
+// is not the same fact as "no change".
+const _CONTRACT_SUBMISSION_SOURCES = [
+  { table: "ups_extension_submissions", where: "" },          // extensions + MYACs
+  { table: "ups_mym_submissions", where: "" },
+  { table: "ups_restructure_submissions", where: " AND voided_at_utc IS NULL" },
+];
+const _contractSubmittedBetween = async (env, { season, leagueId, playerId, franchiseId, afterIso, beforeIso }) => {
+  if (!env || !env.UPS_MFL_DB) return { error: "d1_unbound" };
+  if (!afterIso || !beforeIso || !(String(afterIso) < String(beforeIso))) return null;
+  let best = null;
+  for (const src of _CONTRACT_SUBMISSION_SOURCES) {
+    let row = null;
+    try {
+      row = await env.UPS_MFL_DB.prepare(
+        `SELECT id, new_contract_status, new_salary, new_contract_year, new_contract_info, submitted_at_utc
+           FROM ${src.table}
+          WHERE season = ? AND league_id = ? AND player_id = ? AND franchise_id = ?
+            AND COALESCE(dry_run, 0) = 0
+            AND submitted_at_utc > ? AND submitted_at_utc < ?${src.where}
+          ORDER BY submitted_at_utc DESC LIMIT 1`
+      ).bind(String(season), String(leagueId), String(playerId), String(franchiseId), String(afterIso), String(beforeIso)).first();
+    } catch (e) {
+      return { error: `${src.table}: ${String(e && e.message || e).slice(0, 160)}` };
+    }
+    if (!row || !String(row.new_contract_info || "").trim()) continue;
+    if (!best || String(row.submitted_at_utc) > String(best.submitted_at_utc)) best = { ...row, table: src.table };
+  }
+  return best;
+};
+
 const _taxiNeverPromotedMap = async (env, playerIds) => {
   const out = {};
   if (!env || !env.UPS_MFL_DB) return out;
@@ -52115,19 +52160,27 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // ── R2 snapshot reader ──
         const r2Bucket = env.UPS_MFL_BACKUPS;
         const snapshotRostersByDate = new Map(); // dateStr → parsed rosters JSON
+        const snapshotTakenAtByDate = new Map(); // dateStr → ISO instant R2 stored it
         const loadSnapshotRosters = async (dateStr) => {
           if (snapshotRostersByDate.has(dateStr)) return snapshotRostersByDate.get(dateStr);
           let data = null;
+          let takenAt = "";
           if (r2Bucket) {
             try {
               const obj = await r2Bucket.get(`snapshots/${dateStr}/rosters.json`);
               if (obj) {
                 const text = await obj.text();
                 data = JSON.parse(text);
+                // R2's own upload time. Unknown → the START of the snapshot's
+                // day, so every same-day submission counts as possibly newer
+                // (re-applying one the snapshot already holds is a no-op).
+                const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
+                takenAt = up && Number.isFinite(up.getTime()) ? up.toISOString() : `${dateStr}T00:00:00.000Z`;
               }
             } catch (_) {}
           }
           snapshotRostersByDate.set(dateStr, data);
+          snapshotTakenAtByDate.set(dateStr, takenAt);
           return data;
         };
 
@@ -52153,6 +52206,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                     contract_info: safeStr(p?.contractInfo),
                     is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
                     snapshot_source: dateStr,
+                    snapshot_taken_at: snapshotTakenAtByDate.get(dateStr) || `${dateStr}T00:00:00.000Z`,
                   };
                 }
               }
@@ -52274,8 +52328,33 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             if (existing) { skipped.push({ ...drop, reason: "already_recorded" }); continue; }
 
             const meta = pidMeta.get(drop.pid) || {};
-            const preDrop = await findPreDropContract(drop.pid, drop.ts);
             const dropIso = new Date(drop.ts * 1000).toISOString();
+            let preDrop = await findPreDropContract(drop.pid, drop.ts);
+            if (preDrop) {
+              // The snapshot is a once-a-day picture. A contract submitted after
+              // it and before the drop IS the contract that was dropped.
+              const newer = await _contractSubmittedBetween(env, {
+                season: targetSeason, leagueId, playerId: drop.pid, franchiseId: drop.fid,
+                afterIso: preDrop.snapshot_taken_at, beforeIso: dropIso,
+              });
+              if (newer && newer.error) {
+                // Cannot tell whether the snapshot is current → do not price it.
+                // Not recorded, so the next hourly scan retries it.
+                skipped.push({ ...drop, reason: "contract_submission_check_failed", detail: newer.error });
+                continue;
+              }
+              if (newer) {
+                preDrop = {
+                  ...preDrop,
+                  contract_status: safeStr(newer.new_contract_status) || preDrop.contract_status,
+                  salary: Number(newer.new_salary) || preDrop.salary,
+                  contract_year: Number(newer.new_contract_year) || preDrop.contract_year,
+                  contract_info: safeStr(newer.new_contract_info),
+                  snapshot_source: `${newer.table}:${newer.id}`,
+                  superseded_snapshot: preDrop.snapshot_source,
+                };
+              }
+            }
             let penaltyInfo = {
               tcv: null, cl: null, aav: null, cy: null,
               yearsRemaining: null, yearsPlayed: null, earned: null,
