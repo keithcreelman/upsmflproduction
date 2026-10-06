@@ -10274,6 +10274,10 @@
   // GET /api/salary-adjustments/ledger (worker/src/index.js).
   const SALADJ_TYPE_ORDER = ["drop", "trade", "misc"];
   const SALADJ_TYPE_LABEL = { drop: "Dropped player", trade: "Traded salary", misc: "Misc" };
+  // Every cell sets its own color: inside MFL's HPM embed the page's table
+  // styles otherwise win and the text goes near-black on the dark panel
+  // (Keith 2026-10-06: "hard to read the black font").
+  const SALADJ_TYPE_COLOR = { drop: "var(--warn)", trade: "var(--accent)", misc: "var(--text)" };
   function saladjEtDate(v) {
     // A unix second, an ISO instant, or MFL's ET wall-clock "YYYY-MM-DD HH:MM:SS".
     if (v == null || v === "") return "—";
@@ -10297,7 +10301,7 @@
       const d = r.drop;
       const who = [d.position, d.nfl_team].filter(Boolean).join(" ");
       const dropped = d.dropped_at_iso || d.dropped_at_et;
-      const line1 = "<strong>" + escapeHtml(d.player_name || "Unknown player") + "</strong>" + (who ? " " + escapeHtml(who) : "") +
+      const line1 = '<strong style="color:var(--text);">' + escapeHtml(d.player_name || "Unknown player") + "</strong>" + (who ? " " + escapeHtml(who) : "") +
         (dropped ? ' <span ' + muted + ">· dropped " + escapeHtml(saladjEtDate(dropped)) + "</span>" : "");
       if (!d.details_source) {
         return line1 + '<div ' + muted + ">Pre-drop contract not on file for this row.</div>";
@@ -10317,7 +10321,7 @@
       const others = tr.three_way
         ? (tr.three_way_teams || []).filter(function (x) { return x.franchise_id !== r.franchise_id; }).map(function (x) { return x.franchise_name; })
         : [tr.counterparty_name].filter(Boolean);
-      const head = (tr.three_way ? "3-way trade with " : "Traded salary with ") + "<strong>" + escapeHtml(others.join(" and ") || "—") + "</strong>" +
+      const head = (tr.three_way ? "3-way trade with " : "Traded salary with ") + '<strong style="color:var(--text);">' + escapeHtml(others.join(" and ") || "—") + "</strong>" +
         (tr.three_way && tr.counterparty_name ? ' <span ' + muted + ">(settled against " + escapeHtml(tr.counterparty_name) + ")</span>" : "") +
         (tr.traded_at_iso ? ' <span ' + muted + ">· trade " + escapeHtml(saladjEtDate(tr.traded_at_iso)) + "</span>" : "");
       if (!tr.matched) {
@@ -10336,7 +10340,7 @@
   async function renderSalaryAdjustmentsTab() {
     const body = $("#fo-saladj-body");
     if (!body) return;
-    STATE.saladjFilter = STATE.saladjFilter || { year: String(safeInt(SEASON, 2026)), team: "", type: "" };
+    STATE.saladjFilter = STATE.saladjFilter || { year: "", team: "", type: "" };
     const f = STATE.saladjFilter;
     if (!STATE.saladjData) {
       body.innerHTML = '<div class="fo-table-loading">Loading salary adjustments…</div>';
@@ -10350,14 +10354,14 @@
     const data = STATE.saladjData || {};
     const years = Array.isArray(data.years) ? data.years : [];
     if (!years.length) { body.innerHTML = '<div class="fo-table-loading">No salary adjustment data.</div>'; return; }
+    // Year is a filter like Team and Type; it opens on the newest season —
+    // the newest year MFL has POSTED (the route's own season). Next season's
+    // booked penalties are one pick away.
+    const newestPosted = years.filter(function (y) { return y.source === "mfl_salary_adjustments"; })
+      .map(function (y) { return safeInt(y.season, 0); }).sort(function (a, b) { return b - a; })[0];
+    if (!f.year) f.year = String(newestPosted || data.season || years[0].season);
     let yr = years.find(function (y) { return String(y.season) === String(f.year); }) || years[0];
     f.year = String(yr.season);
-
-    const chips = '<div class="fo-subview-chips" role="tablist" aria-label="Salary adjustment year" style="margin-bottom:10px;">' +
-      years.map(function (y) {
-        const lbl = y.source === "mfl_salary_adjustments" ? y.season + " · posted on MFL" : y.season + " · booked for next season";
-        return '<button type="button" class="fo-subview-chip' + (String(y.season) === f.year ? " active" : "") + '" data-saladj-year="' + escapeHtml(String(y.season)) + '">' + escapeHtml(lbl) + "</button>";
-      }).join("") + "</div>";
 
     const all = Array.isArray(yr.rows) ? yr.rows : [];
     const rows = all.filter(function (r) {
@@ -10375,13 +10379,18 @@
       fids.map(function (fid) { return opt(fid, teamName(fid), f.team === fid); }).join("") + "</select>";
     const typeSel = '<select id="fo-saladj-type" style="' + sel + '">' + opt("", "All types", !f.type) +
       SALADJ_TYPE_ORDER.map(function (k) { return opt(k, SALADJ_TYPE_LABEL[k], f.type === k); }).join("") + "</select>";
+    const yearSel = '<select id="fo-saladj-year" style="' + sel + '">' +
+      years.slice().sort(function (a, b) { return safeInt(b.season, 0) - safeInt(a.season, 0); }).map(function (y) {
+        const lbl = y.source === "mfl_salary_adjustments" ? y.season + " · posted on MFL" : y.season + " · booked for next season";
+        return opt(String(y.season), lbl, String(y.season) === f.year);
+      }).join("") + "</select>";
     const clr = (f.team || f.type) ? ' <button type="button" id="fo-saladj-clear" class="btn small secondary">Clear</button>' : "";
 
     const sum = function (list, type) {
       return list.reduce(function (a, r) { return a + (!type || r.type === type ? safeInt(r.amount, 0) : 0); }, 0);
     };
     const signed = function (n) { return (n > 0 ? "+" : "") + money(n); };
-    const amtStyle = function (n) { return n < 0 ? "color:var(--ok);" : ""; };
+    const amtStyle = function (n) { return n < 0 ? "color:var(--ok);" : "color:var(--text);"; };
 
     // Grouped by team: a header with the team's totals, then its rows by date.
     const byFid = {};
@@ -10397,15 +10406,18 @@
         const v = sum(list, k);
         return v ? SALADJ_TYPE_LABEL[k] + " " + signed(v) : "";
       }).filter(Boolean).join(" · ");
-      const head = '<tr class="fo-saladj-team"><td colspan="4" style="background:var(--panel-alt);font-weight:600;">' +
+      const head = '<tr class="fo-saladj-team" style="cursor:default;"><td colspan="4" style="background:var(--panel-alt);color:var(--text);font-weight:600;">' +
         escapeHtml(teamName(fid)) + ' <span style="' + amtStyle(sum(list)) + 'margin-left:6px;">' + escapeHtml(signed(sum(list))) + "</span>" +
         ' <span class="small" style="color:var(--muted);font-weight:400;margin-left:8px;">' + escapeHtml(list.length + " adjustment" + (list.length === 1 ? "" : "s") + (split ? " · " + split : "")) + "</span></td></tr>";
       const trs = list.map(function (r) {
         const flag = r.in_mfl === false ? ' <span class="small" style="color:var(--muted);">ledger</span>' : "";
-        return '<tr data-saladj-id="' + escapeHtml(r.id) + '"><td class="small" style="white-space:nowrap;vertical-align:top;">' + escapeHtml(saladjEtDate(r.assessed_unix || r.assessed_iso)) + "</td>" +
-          '<td style="white-space:nowrap;vertical-align:top;">' + escapeHtml(r.type_label || SALADJ_TYPE_LABEL[r.type] || r.type) + flag + "</td>" +
-          '<td style="white-space:nowrap;vertical-align:top;text-align:right;' + amtStyle(r.amount) + '">' + escapeHtml(signed(safeInt(r.amount, 0))) + "</td>" +
-          '<td class="small" style="vertical-align:top;">' + saladjDetailHtml(r) + "</td></tr>";
+        const tc = SALADJ_TYPE_COLOR[r.type] || "var(--text)";
+        return '<tr data-saladj-id="' + escapeHtml(r.id) + '" style="cursor:default;">' +
+          '<td style="white-space:nowrap;vertical-align:top;color:var(--text);font-size:11px;">' + escapeHtml(saladjEtDate(r.assessed_unix || r.assessed_iso)) + "</td>" +
+          '<td style="white-space:nowrap;vertical-align:top;color:var(--text);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid ' + tc + ";color:" + tc + ';font-size:11px;font-weight:600;">' +
+            escapeHtml(r.type_label || SALADJ_TYPE_LABEL[r.type] || r.type) + "</span>" + flag + "</td>" +
+          '<td style="white-space:nowrap;vertical-align:top;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;' + amtStyle(r.amount) + '">' + escapeHtml(signed(safeInt(r.amount, 0))) + "</td>" +
+          '<td style="vertical-align:top;color:var(--text);font-size:11px;">' + saladjDetailHtml(r) + "</td></tr>";
       }).join("");
       return head + trs;
     }).join("");
@@ -10429,18 +10441,16 @@
 
     body.innerHTML =
       '<div class="fo-card-head"><h2>Salary Adjustments</h2><span class="small" style="color:var(--muted);">Every cap adjustment by team — traded salary, dropped players, misc.</span></div>' +
-      chips + yearNote + review +
       '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap;"><span class="small" style="color:var(--muted);">Filter</span>' +
-        teamSel + typeSel + clr +
+        yearSel + teamSel + typeSel + clr +
         '<span class="small" style="color:var(--muted);margin-left:auto;">' + escapeHtml(rows.length + (rows.length === all.length ? "" : " of " + all.length) +
           " adjustments · " + f.year + " total " + signed(sum(rows)) + " (" + totals + ")") + "</span></div>" +
-      '<div class="fo-table-scroll"><table class="fo-table fo-saladj-table"><thead><tr>' +
+      yearNote + review +
+      '<div class="fo-table-scroll"><table class="fo-table fo-saladj-table" style="color:var(--text);"><thead><tr>' +
         '<th style="white-space:nowrap;">Assessed</th><th>Type</th><th style="text-align:right;">Amount</th><th>Details</th>' +
         "</tr></thead><tbody>" + (groups || '<tr><td colspan="4" class="fo-table-empty">No salary adjustments match.</td></tr>') + "</tbody></table></div>";
 
-    $$("[data-saladj-year]", body).forEach(function (b) {
-      b.addEventListener("click", function () { f.year = this.getAttribute("data-saladj-year"); renderSalaryAdjustmentsTab(); });
-    });
+    const ye = $("#fo-saladj-year"); if (ye) ye.addEventListener("change", function () { f.year = this.value; renderSalaryAdjustmentsTab(); });
     const te = $("#fo-saladj-team"); if (te) te.addEventListener("change", function () { f.team = this.value; renderSalaryAdjustmentsTab(); });
     const ty = $("#fo-saladj-type"); if (ty) ty.addEventListener("change", function () { f.type = this.value; renderSalaryAdjustmentsTab(); });
     const cl = $("#fo-saladj-clear"); if (cl) cl.addEventListener("click", function () { f.team = ""; f.type = ""; renderSalaryAdjustmentsTab(); });

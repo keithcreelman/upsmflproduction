@@ -81,32 +81,49 @@ test("wired: a 'Salary Adjustments' tab, its section, the dispatcher, and a new 
   t.equal(fo.fetched.length, 1); t.match(fo.fetched[0], /\/api\/salary-adjustments\/ledger\?L=74598&YEAR=2026$/);
 });
 
-test("2026: every team grouped with its total; year chips for '26 (posted) and '27 (booked)", () => {
-  t.match(H26, /data-saladj-year="2026">2026 · posted on MFL</);
-  t.match(H26, /data-saladj-year="2027">2027 · booked for next season</);
+test("2026: every team grouped with its total; Year is a filter, newest first, opening on the newest season", () => {
+  t.match(H26, /<span class="small"[^>]*>Filter<\/span><select id="fo-saladj-year"[^>]*><option value="2027">2027 · booked for next season<\/option><option value="2026" selected>2026 · posted on MFL<\/option><\/select><select id="fo-saladj-team"/,
+    "Year sits in the Filter row beside Team and Type; 2026 (the newest posted season) is selected");
+  t.ok(!/data-saladj-year=/.test(H26), "the old year chips are gone");
   t.equal((H26.match(/class="fo-saladj-team"/g) || []).length, 12, "12 team headers");
   t.equal((H26.match(/data-saladj-id="/g) || []).length, 58, "58 rows");
-  t.match(H26, /Sex Manther <span style="margin-left:6px;">\+\$41,000<\/span>[^<]*<span[^>]*>6 adjustments · Dropped player \+\$36,000 · Traded salary \+\$5,000</, "team header: net total + split by type");
+  t.match(H26, /Sex Manther <span style="color:var\(--text\);margin-left:6px;">\+\$41,000<\/span>[^<]*<span[^>]*>6 adjustments · Dropped player \+\$36,000 · Traded salary \+\$5,000</, "team header: net total + split by type");
   t.match(H26, /Blake Bombers <span style="color:var\(--ok\);margin-left:6px;">-\$7,000/, "a net-relief team reads as relief");
 });
 
 test("a dropped player: date assessed, amount, and the pre-drop contract", () => {
   const row = H26.split('data-saladj-id="').find((x) => x.includes("Fitzpatrick, Minkah"));
   t.ok(row, "Minkah's row");
-  t.match(row, /Apr 17, 2026<\/td><td[^>]*>Dropped player<\/td><td[^>]*>\+\$1,000</);
+  t.match(row, /Apr 17, 2026<\/td><td[^>]*><span[^>]*color:var\(--warn\)[^>]*>Dropped player<\/span><\/td><td[^>]*color:var\(--text\);">\+\$1,000</);
   t.match(row, /dropped Aug 13, 2025/);
   t.match(row, /Original 3 yrs · TCV \$12,000 · GTD \$9,000 · Earned \$8,000 · Veteran/);
 });
 
 test("traded salary: the other team, the trade date and what moved each way", () => {
-  const row = H26.split('data-saladj-id="').find((x) => x.includes("Traded salary with <strong>Blake Bombers</strong>") && x.includes("-$12,000"));
+  const row = H26.split('data-saladj-id="').find((x) => x.includes('Traded salary with <strong style="color:var(--text);">Blake Bombers</strong>') && x.includes("-$12,000"));
   t.ok(row, "CBP's -$12K settlement");
   t.match(row, /· trade Aug 23, 2026/, "the MFL trade (02:31 UTC Aug 24 = Aug 23 ET)");
   t.match(row, /Sent:<\/span> [^<]*2027 Rd 4 pick \(CBP\)/);
   t.match(row, /Received:<\/span> [^<]*\$12K traded salary/);
   t.match(row, /color:var\(--ok\);">-\$12,000/, "relief shows as relief");
   const tw = H26.split('data-saladj-id="').find((x) => x.includes("3-way trade with") && x.includes("+$19,000"));
-  t.ok(tw, "the 3-way row"); t.match(tw, /3-way trade with <strong>[^<]+ and [^<]+<\/strong>/);
+  t.ok(tw, "the 3-way row"); t.match(tw, /3-way trade with <strong[^>]*>[^<]+ and [^<]+<\/strong>/);
+});
+
+test("readable in MFL's embed: every cell, header and amount sets its own text color", () => {
+  const cells = H26.match(/<td[^>]*>/g) || [];
+  t.ok(cells.length > 200, cells.length + " cells");
+  const bare = cells.filter((c) => !/color:/.test(c));
+  t.equal(bare.length, 0, "cells without an explicit color: " + bare.slice(0, 3).join(" "));
+  t.match(H26, /<table class="fo-table fo-saladj-table" style="color:var\(--text\);">/);
+  t.ok(!/<strong>/.test(H26), "every bold name carries its color too");
+});
+
+test("the default is the newest POSTED season, whatever the page's YEAR said", async () => {
+  const other = makeFo(null);
+  other.c.SEASON = "2027";              // e.g. a link opened with YEAR=2027
+  await other.c.render();
+  t.match(other.body(), /<option value="2026" selected>/, "still opens on 2026 — the newest season MFL has posted");
 });
 
 test("misc says what it was for", () => {
@@ -134,7 +151,7 @@ test("filters: Team and Type narrow the list; 2027 shows the booked penalties", 
   t.equal(fo.fetched.length, 1, "one fetch serves both years and every filter");
   if (process.env.SNAPSHOT_OUT) {
     const css = fs.readFileSync(path.join(ROOT, "site/rosters/v2/front_office.css"), "utf8");
-    fs.writeFileSync(process.env.SNAPSHOT_OUT, `<!doctype html><meta charset="utf-8"><title>Salary Adjustments snapshot</title><style>${css}</style><body style="padding:16px"><div class="fo-card">${H26}</div><div class="fo-card" style="margin-top:24px">${h27}</div></body>`);
+    fs.writeFileSync(process.env.SNAPSHOT_OUT, `<!doctype html><meta charset="utf-8"><title>Salary Adjustments snapshot</title><style>${css}</style><body class="fo-root" style="padding:16px"><div class="fo-card">${H26}</div><div class="fo-card" style="margin-top:24px">${h27}</div></body>`);
   }
 });
 
