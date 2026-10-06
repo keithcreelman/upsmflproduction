@@ -456,6 +456,23 @@
     } catch (e) {}
     return out;
   }
+  // MFL export?TYPE=nflByeWeeks&W=<week> -> { TEAM: week } for the teams on a
+  // bye THAT week (2026 Week 5: { CAR: 5, KCC: 5 }). This is the list MFL's own
+  // lineup rule checks ("League rules forbid starting players on a Bye week"),
+  // so a lineup editor that reads it can stop a bye starter before MFL rejects
+  // the whole submission (Keith 2026-10-06: Nick Bolton, KCC, Week 5). Only
+  // teams whose bye_week equals `week` (when given) are kept; {} = unknown,
+  // never "nobody is on bye" — callers then simply show no BYE tag.
+  function parseByeTeams(json, week) {
+    var out = {}, w = parseInt(week, 10) || 0;
+    try {
+      asArray(json && json.nflByeWeeks && json.nflByeWeeks.team).forEach(function (t) {
+        var id = t && String(t.id || "").toUpperCase(), bw = parseInt(t && t.bye_week, 10) || 0;
+        if (id && bw > 0 && (!w || bw === w)) out[id] = bw;
+      });
+    } catch (e) {}
+    return out;
+  }
   // "Sun 1:00 PM" in the VIEWER's own time zone; "" when unknown so the caller
   // keeps its old label rather than printing something wrong.
   function kickoffLabel(unix) {
@@ -494,6 +511,6 @@
     matchupState: matchupState, outcome: outcome, h2hRecord: h2hRecord,
     projectionNote: projectionNote, resolveViewFid: resolveViewFid,
     posGroup: posGroup, groupStarters: groupStarters, POS_ORDER: POS_ORDER,
-    parseKickoffs: parseKickoffs, kickoffLabel: kickoffLabel
+    parseKickoffs: parseKickoffs, kickoffLabel: kickoffLabel, parseByeTeams: parseByeTeams
   };
 })(typeof window !== "undefined" ? window : this);

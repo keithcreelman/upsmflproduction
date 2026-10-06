@@ -2470,6 +2470,25 @@ function wvPlayerKickoffLock(kickoffByTeam, team, nowUnix) {
   return { state: nowUnix >= ko ? "locked" : "open", kickoff_unix: ko };
 }
 
+// MFL's lineup-import rejection, as a sentence an owner can read. MFL answers
+// with XML whose text is itself HTML-escaped, e.g.
+//   <?xml version="1.0" encoding="utf-8"?> <error>Error(s) submitting lineup:
+//   &lt;br/&gt;League rules forbid starting players on a Bye week - Bolton,
+//   Nick KCC LB is on a bye on week 5</error>
+// which Game Day showed verbatim (Keith 2026-10-06). Keeps MFL's own words —
+// only the XML wrapper, the escaping, the <br/> and the generic "Error(s)
+// submitting lineup:" lead are removed. "" when nothing readable remains.
+function mflReadableError(raw) {
+  let t = String(raw == null ? "" : raw);
+  t = t.replace(/<\?xml[^>]*\?>/gi, "");
+  const m = t.match(/<error[^>]*>([\s\S]*?)<\/error>/i);
+  if (m) t = m[1];
+  t = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&");
+  t = t.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ");
+  t = t.replace(/^\s*Error\(s\) submitting lineup:\s*/i, "");
+  return t.split(/\n+/).map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(" · ");
+}
+
 // Which week should an owner be setting a LINEUP for, right now?
 //
 // Ground truth starts from liveScoring.week (the week MFL is actively
@@ -16026,7 +16045,8 @@ export default {
             const errMsg = (parsed && (parsed.error?.$t || parsed.error)) || mflResp.slice(0, 400);
             return jsonOut(mflStatus || 502, {
               ok: false,
-              error: String(errMsg || "MFL rejected lineup"),
+              // Readable (see mflReadableError); MFL's raw reply stays in mfl_response.
+              error: mflReadableError(errMsg) || String(errMsg || "MFL rejected lineup"),
               mfl_status: mflStatus,
               mfl_response: parsed || mflResp,
               ...weekDiag,

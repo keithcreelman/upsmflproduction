@@ -294,6 +294,26 @@
       .then(function (r) { return r.json(); })
       .then(function (j) { M.state.lineupKickoffs = (LS && LS.parseKickoffs(j)) || {}; renderRoute(); })
       .catch(function () { /* leave undefined -- rows stay unlocked, not wrongly locked */ });
+    loadByes();
+  }
+  // Teams on a BYE in the lineup week, from MFL's own nflByeWeeks — the list
+  // MFL's "League rules forbid starting players on a Bye week" check uses
+  // (Keith 2026-10-06: Nick Bolton, KCC, Week 5, rejected with no cue on
+  // screen). League-agnostic export: the worker proxy sends it to api.*
+  // without L=. Unread = {} = no BYE tags, never "nobody is on bye".
+  function loadByes() {
+    var wk = M.state.lineupWeek;
+    if (!wk || M.state.lineupByesFor === wk || !(LS && LS.parseByeTeams)) return;
+    M.state.lineupByesFor = wk;
+    fetch(API.mflExportUrl("nflByeWeeks", { W: wk }), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { M.state.lineupByes = LS.parseByeTeams(j, wk); renderRoute(); })
+      .catch(function () { /* no BYE tags rather than a wrong one */ });
+  }
+  // The bye week number for this team (0 = plays this week / unknown).
+  function byeWeekFor(team) {
+    var b = M.state.lineupByes && M.state.lineupByes[U.safeStr(team).toUpperCase()];
+    return b || 0;
   }
   // Locked = his NFL team's kickoff for this week has passed. See Game Day's
   // isKickedOff() for the full rationale (canon §B4, added 2026-08-15; Keith
@@ -321,6 +341,7 @@
         isIr: /ir|injured/i.test(r.status || ""),
         isExpired: cy === 0
       };
+      row.bye = byeWeekFor(team);
       row.eligible = FO.lineupEligibleRow(row);
       row.locked = isKickedOff(team);
       return row;
@@ -470,7 +491,7 @@
   function optText(r) {
     // Player · Team · proj · POS#rank — the rank already carries the position,
     // so the standalone position token is dropped (Keith 2026-06-21).
-    var line = r.name + (r.team ? "  ·  " + r.team : "");
+    var line = r.name + (r.team ? "  ·  " + r.team : "") + (r.bye ? "  ·  BYE" : "");
     var p = projFor(r.id);
     if (p != null) {
       line += "  ·  " + fmtProj(p) + " pts";
@@ -488,10 +509,12 @@
     // itself goes read-only -- canon §B4. He's also excluded below from every
     // OTHER slot's candidates, so he can't be swapped in elsewhere either.
     var isLocked = !!(currentRow && currentRow.locked);
+    var isBye = !!(currentRow && currentRow.bye);
     // Candidates: eligible, group accepted, and either unused elsewhere or
-    // the player already in THIS slot (so the select can show them).
+    // the player already in THIS slot (so the select can show them). A saved
+    // starter on a bye stays visible in HIS slot, flagged, and nowhere else.
     var cands = rows.filter(function (r) {
-      if (!r.eligible) return false;
+      if (!(r.eligible || (r.bye && r.id === current))) return false;
       if (!FO.slotAccepts(slot, r.group)) return false;
       if (r.locked && r.id !== current) return false;
       return !used[r.id] || r.id === current;
@@ -523,9 +546,10 @@
       : "";
     var lockBadge = isLocked
       ? '<div class="ups-m-slot-lock-row"><span class="ups-m-lock-badge">🔒 Locked — kickoff passed</span></div>'
-      : "";
+      : (isBye ? '<div class="ups-m-slot-lock-row"><span class="ups-m-bye-badge">BYE · Week ' + U.escapeHtml(String(currentRow.bye)) +
+          ' — bench him; MFL won’t accept a bye-week starter</span></div>' : "");
 
-    return '<div class="ups-m-slot' + (filled ? " filled" : "") + (isLocked ? " locked" : "") + '" data-slot="' + slot.id + '"' + emptyHint + '>' +
+    return '<div class="ups-m-slot' + (filled ? " filled" : "") + (isLocked ? " locked" : "") + (isBye ? " bye" : "") + '" data-slot="' + slot.id + '"' + emptyHint + '>' +
       '<div class="ups-m-slot-tag">' +
         '<span class="' + labelCls + '">' + U.escapeHtml(slot.label) + '</span>' + note +
       '</div>' +
@@ -696,6 +720,7 @@
     if (r.isTaxi) return { cls: "taxi", label: "TAXI" };
     if (r.isIr) return { cls: "ir", label: "IR" };
     if (r.isExpired) return { cls: "exp", label: "EXPIRED" };
+    if (r.bye) return { cls: "bye", label: "BYE · WK " + r.bye };
     if (!r.eligible) return { cls: "exp", label: "INELIGIBLE" };
     // Kicked off already: he's real and eligible, just no longer startable
     // this week (canon §B4) -- same reason he's absent from every slot's

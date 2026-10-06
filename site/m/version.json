@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.03.2",
-  "label": "Sunday free agency in the app: from the Sunday 9:00 AM ET waiver run until the Monday 9:00 PM ET re-lock, free agents show Add now (immediate, first come first served), matching MFL's own league calendar. A player locks when his game kicks off; outside the window players show Bid; during a blackout, before waivers open or after the season they show Locked — and the server enforces the same rules."
+  "build": "2026.10.06.1",
+  "label": "Lineup: players whose NFL team is on a bye show BYE (bench tag, and a 'bench him' badge if a saved lineup still starts him), can't be picked for a slot, and a lineup that starts one can't be submitted — MFL rejects it. MFL's rejection messages now read as plain sentences."
 }

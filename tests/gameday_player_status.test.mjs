@@ -337,8 +337,12 @@ check("the mobile release is stamped consistently and cache-busts every changed 
   // touching these three files — correct per-file hygiene, not a regression
   // of this fix.
   assert.ok(idx.indexOf("./app.js?v=" + build) >= 0, "app.js must carry ?v=" + build);
+  // ">=" per the rule above: a later fix that changes one of these files
+  // (2026-10-06: live_scoring.js gained parseByeTeams) moves its stamp forward.
+  const stampNum = (v) => v.split(".").map((x) => x.padStart(4, "0")).join("");
   ["../shared/live_scoring.js", "../shared/injury_overrides.js", "./views/scores.js"].forEach((f) => {
-    assert.ok(idx.indexOf(f + "?v=2026.09.27.2") >= 0, f + " must carry the build it shipped in (2026.09.27.2)");
+    const m = idx.match(new RegExp(f.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&") + "\\?v=([0-9.]+)"));
+    assert.ok(m && stampNum(m[1]) >= stampNum("2026.09.27.2"), f + " must carry the build it shipped in (2026.09.27.2) or later");
   });
 });
 
