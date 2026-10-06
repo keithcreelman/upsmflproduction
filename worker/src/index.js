@@ -23584,7 +23584,7 @@ const mflToSleeper = {};
             // (scripts/cron_liveness_tick.sh) can see a scheduled report that
             // never posted — the 9 AM no-show that day was invisible because
             // nothing recorded, or looked at, whether it had run.
-            "SELECT bot, last_ts, status, env FROM ups_bot_heartbeat WHERE bot IN ('auction_poll','trade_roast','cron_cf','fa_report_morning','fa_report_evening')"
+            "SELECT bot, last_ts, status, env FROM ups_bot_heartbeat WHERE bot IN ('auction_poll','trade_roast','cron_cf','fa_report_morning','fa_report_evening','trade_sentinel')"
           ).all();
           for (const r of hbRows || []) {
             const ts = Number(r.last_ts || 0) || null;
@@ -37526,6 +37526,16 @@ const mflToSleeper = {};
         const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
         const db = env.UPS_MFL_DB;
         const out = { ok: true, mode, act: ACT, seen: 0, new_rows: 0, gone: 0, violations: 0, revoked: 0, reoffer_due: 0, mfl_writes: 0, errors: [] };
+        // Proof of life. The sentinel never stamped one, which is how it could
+        // sit blind for 2½ months without anyone seeing it (2026-10-06).
+        const sentinelHeartbeat = async (status) => {
+          try {
+            await db.prepare(
+              `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES ('trade_sentinel', ?, ?, '')
+               ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = excluded.status`
+            ).bind(Math.floor(Date.now() / 1000), String(status).slice(0, 120)).run();
+          } catch (_) { /* observability only */ }
+        };
 
         // Franchise names (death-DM copy) — one league export.
         const namesByFid = {};
@@ -37551,6 +37561,23 @@ const mflToSleeper = {};
           for (const fid of fids) {
             try {
               const res = await mflExportJson(season, leagueId, "pendingTrades", { FRANCHISE_ID: fid }, { includeApiKey: true, useCookie: true });
+              // FAIL CLOSED (2026-10-06). This read used to fall through to []
+              // on ANY error, so MFL REFUSING it read as "this franchise has no
+              // pending offers". The league runs lockout=Yes, which makes MFL
+              // refuse every commissioner FRANCHISE_ID impersonation ("Commissioner
+              // can not impersonate another franchise with lockout on.") — so
+              // from 2026-07-22 19:05Z the sentinel saw zero offers every tick,
+              // marked its whole mirror 'gone', and recorded nothing again. A
+              // refused read is "unknown", never "empty"; a lockout refusal is
+              // the same for every franchise, so stop at the first one.
+              if (!res || !res.ok) {
+                enumOk = false;
+                const why = safeStr((res && (res.error || res.status)) || "unreadable");
+                out.errors.push(`pending ${fid}: ${why.slice(0, 160)}`);
+                if (/impersonate/i.test(why) && /lockout/i.test(why)) { out.blind = "lockout"; break; }
+                await sleep(500);
+                continue;
+              }
               const raw = res?.data?.pendingTrades?.pendingTrade ?? res?.data?.pendingtrades?.pendingtrade ?? [];
               for (const r of (Array.isArray(raw) ? raw : [raw]).filter(Boolean)) {
                 const n = normalizePendingTradeRow(r);
@@ -37561,6 +37588,15 @@ const mflToSleeper = {};
             await sleep(500);
           }
           out.seen = pending.size;
+
+          // Blind (MFL lockout): the picture is unknown, so touch nothing that
+          // depends on it — no mirror write, no 'gone' sweep, no invalidation,
+          // no re-offer — and say so in the heartbeat instead of going quiet.
+          if (out.blind) {
+            out.ok = false;
+            await sentinelHeartbeat(`blind:${out.blind}`);
+            return jsonOut(200, out);
+          }
 
           // ── STEP B: mirror ──
           for (const [tid, n] of pending) {
@@ -37732,6 +37768,7 @@ const mflToSleeper = {};
             await sentinelActLog(env, w.trade_id, { would: "reoffer", anchor: w.anchor_utc, dry: true });
           }
         }
+        await sentinelHeartbeat(`${enumOk ? "ok" : "partial"}:${mode}:seen=${out.seen},gone=${out.gone},errors=${out.errors.length}`);
         return jsonOut(200, out);
       }
 
