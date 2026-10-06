@@ -9,7 +9,10 @@
       "player_name": "Cooper, Amari",
       "exemption_type": "retired",
       "cap_penalty_exempt": true,
-      "note": "Manual retired-player exemption review. This drop should stay visible but should not generate an importable cap-penalty charge."
+      "note": "Manual retired-player exemption review. This drop should stay visible but should not generate an importable cap-penalty charge.",
+      "commissioner_ruling": "Closed. Amari Cooper's 2025 retirement was handled as a cap-free cut and no §D2a loaded-contract settlement is assessed for it. This ruling is final for this case; §D2a continues to apply to future retirements.",
+      "ruled_at": "2026-10-06",
+      "ruled_by": "Commissioner (Keith Creelman)"
     }
   ]
 }

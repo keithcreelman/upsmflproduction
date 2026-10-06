@@ -4,13 +4,15 @@
     "report_id": "salary-adjustments",
     "status_values": [
       "recorded",
+      "resolved",
       "review_required",
       "candidate"
     ],
     "direction_values": [
       "charge",
       "relief",
-      "review"
+      "review",
+      "resolved"
     ],
     "adjustment_types": [
       "TRADED_SALARY",
@@ -49,7 +51,8 @@
       "relief_total": 0,
       "net_total": 63400.0,
       "recorded_count": 0,
-      "review_required_count": 1,
+      "review_required_count": 0,
+      "resolved_count": 1,
       "candidate_count": 31,
       "import_eligible_count": 31
     },
