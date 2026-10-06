@@ -90,9 +90,19 @@ test("the cap-adjustment audit log: well-formed, and the trade rulings are recor
   t.match(a01.mfl_action, /Gride -\$10,000 posted 2026-10-06 \(2026 salaryAdjustment id 61/);
   t.match(a01.mfl_action, /L\.A\. Looks \+\$10,000 PENDING/);
   t.equal(LOG.entries.find((e) => e.id === "R01").status, "closed", "Cooper closed");
-  const stillOpen = LOG.entries.filter((e) => e.status === "open");
-  t.equal(stillOpen.map((e) => e.id).join(), "A11,A12", "every pre-2026 item is ruled; only the two 2026-cap items remain");
-  t.ok(stillOpen.every((e) => e.cap_season === 2026));
+  t.equal(LOG.entries.filter((e) => e.status === "open").length, 0, "every audit item is ruled");
+  for (const id of ["A11", "A12"]) {
+    const e = LOG.entries.find((x) => x.id === id);
+    t.equal(e.status, "missed_recorded", id); t.equal(e.mfl_action, "none", id + ": recorded only");
+    t.match(e.ruling.text, /^Just record them\./);
+  }
+  // A12's figures re-add each drop to the team's JULY sum and round once (Keith: "we don't round individual penalties")
+  const rhu = (x) => Math.floor((x + 500) / 1000) * 1000;
+  for (const d of LOG.entries.find((x) => x.id === "A12").detail.drops) {
+    t.equal(d.july_sum_corrected, d.july_sum_posted + d.amount, d.player);
+    t.equal(d.rounded_total_corrected, rhu(d.july_sum_corrected), d.player + " rounds once, on the sum");
+    t.equal(d.net_change, d.rounded_total_corrected - d.rounded_total_posted, d.player);
+  }
   t.ok(LOG.entries.filter((e) => e.cap_season != null && e.cap_season < 2026).every((e) => e.mfl_action === "none"), "nothing pre-2026 touches MFL");
   t.match(CANON, /A missed settlement in a pre-2026 season is recorded, not corrected \(Keith 2026-10-06\)\.\*\* .*cap_adjustment_audit_log\.json/);
 });
