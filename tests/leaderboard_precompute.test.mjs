@@ -33,12 +33,24 @@ const buildRoute = (() => {
 })();
 
 console.log('the read path');
-check('only serves a COMPLETED season', () => {
-  assert.ok(/lbPreSeason < \(_preNum\(YEAR\)/.test(readPath),
-    'the live season must never be served from a frozen snapshot');
+// PR #988 (2026-08-27) deliberately made the CURRENT season eligible too, gated on
+// proof the stored board still matches the data (tests/leaderboard_current_season_
+// precompute.test.mjs covers the behaviour). These checks pin the new rules; the old
+// "completed season only" / "no week params at all" assertions described pre-#988 code.
+check('serves completed seasons and the current one — never a future season', () => {
+  assert.ok(/lbPreSeason <= lbCurSeason/.test(readPath), 'a season that has not started must never be served');
+  assert.ok(/const lbPreIsCurrent = lbPreSeason > 0 && lbPreSeason === lbCurSeason/.test(readPath));
 });
-check('only serves an unfiltered week window', () => {
-  assert.ok(/!weeksParam && !weekMinParam && !weekMaxParam/.test(readPath));
+check('the CURRENT season is served only with proof the stored board is fresh', () => {
+  assert.ok(/lbPreStale = builtWeek < 0 \|\| builtWeek !== lbPreLiveWeek/.test(readPath),
+    'built week must equal the live data week; a NULL data_max_week (-1) can never prove fresh');
+  assert.ok(/if \(lbPreAuthWeek === null \|\| lbPreAuthWeek > builtWeek\) lbPreStale = true/.test(readPath),
+    "MFL's completed week moving past the build marks it stale");
+});
+check('only serves the window the stored board IS (weeks 1-17, no explicit week list)', () => {
+  assert.ok(/lbWindowMatchesBoard =\s*!weeksParam && \(lbHasWeekRange \? \(lbLo === 1 && lbHi === 17\) : !includePost\)/.test(readPath),
+    'include_post or any other range must run live; week_min=1&week_max=17 is the stored board');
+  assert.ok(/lbPreEligible =[\s\S]*?lbWindowMatchesBoard;/.test(readPath));
 });
 check('requires a meta row with a POSITIVE row_count', () => {
   assert.ok(/_preNum\(meta\.row_count\) > 0/.test(readPath),
@@ -68,8 +80,9 @@ check('no invented identifier (commishOk) in code', () => {
   const code = buildRoute.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
   assert.ok(!/commishOk/.test(code), 'commishOk exists nowhere — it would ReferenceError');
 });
-check('REFUSES to freeze the current season', () => {
-  assert.ok(/season >= currentSeason/.test(buildRoute));
+check('REFUSES a season that has not started, and the current one before it has data', () => {
+  assert.ok(/if \(season > currentSeason\)/.test(buildRoute), 'a future season must never be built');
+  assert.ok(/season === currentSeason && covWeek < 1/.test(buildRoute), 'no week of data yet → nothing to store');
 });
 check('does NOT store a zero-row result', () => {
   assert.ok(/if \(!rows\.length\)/.test(buildRoute) && /not stored/.test(buildRoute),
@@ -104,7 +117,7 @@ check('build route is declared AFTER sessionByApiKey', () => {
 });
 check('read path is declared AFTER its `db`', () => {
   const h = SRC.indexOf('path === "/api/advanced-stats-leaderboard" && request.method === "GET"');
-  const blk = SRC.slice(h, h + 42000);
+  const blk = SRC.slice(h, SRC.indexOf('\n      if (path === "', h + 100));   // the handler's own extent, not a fixed window
   const dbAt = blk.search(/\n\s*const db = /);
   const mine = blk.indexOf('const lbPreSeason');
   assert.ok(dbAt > 0 && mine > dbAt, 'the precompute read must come after `const db =`');

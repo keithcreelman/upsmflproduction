@@ -17,7 +17,13 @@ const check = (n, fn) => { try { fn(); console.log('  ok   '+n); }
 const handler = (() => {
   const i = SRC.indexOf('path === "/api/advanced-stats-leaderboard" && request.method === "GET"');
   assert.ok(i > 0, 'leaderboard handler not found');
-  return SRC.slice(i, i + 40000);
+  // The handler's OWN extent (to the next route), not a fixed 40,000 chars: the
+  // handler outgrew that window (≈66,800 chars by 2026-10-06, after the
+  // current-season precompute, #988), the TTL block slid past it, and five
+  // checks failed against code that was still there.
+  const j = SRC.indexOf('\n      if (path === "', i + 100);
+  assert.ok(j > i, 'could not bound the leaderboard handler');
+  return SRC.slice(i, j);
 })();
 
 console.log('the TTL depends on whether the data can change');
