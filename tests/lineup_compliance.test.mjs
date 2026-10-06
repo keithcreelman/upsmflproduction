@@ -85,12 +85,17 @@ t('IR with notice -> violation', evaluateStarter(P, ctx({ history: hist(['IR', M
 // "unless it's a late IR submission" — the anchor already handles that.
 t('late IR -> advisory', evaluateStarter(P, ctx({ history: hist(['IR', SUN1 - H(3)]) })).verdict, 'advisory');
 
-console.log('\n-- §9a no eligible replacement, no penalty (Keith) --');
-t('Out but nobody to sub in -> advisory',
-  evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), replacementAvailable: false })).verdict, 'advisory');
-t('reason', evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), replacementAvailable: false })).reason, 'no_replacement');
-t('Doubtful-no-play with nobody to sub in -> advisory',
-  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(20)], ['OUT', SUN1 - H(1)]), replacementAvailable: false })).verdict, 'advisory');
+// Keith REVERSED this 2026-09-19: "it doesn't matter if there's nobody eligible it would be a
+// violation" (canon §G3). The 2026-08-17 "no eligible replacement = no penalty" exception is gone,
+// and so is the replacementAvailable() resolver; a caller that still passes the old flag changes nothing.
+console.log('\n-- §9a no eligible replacement is STILL a violation (Keith 2026-09-19) --');
+t('Out but nobody to sub in -> violation',
+  evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), replacementAvailable: false })).verdict, 'violation');
+t('reason is the injury, not the roster', evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), replacementAvailable: false })).reason, 'out');
+t('Doubtful-no-play with nobody to sub in -> violation',
+  evaluateStarter(P, ctx({ history: hist(['DOUBTFUL', MARK - H(20)], ['OUT', SUN1 - H(1)]), replacementAvailable: false })).verdict, 'violation');
+t('the stale flag changes nothing: same verdict with or without it',
+  evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]) })).verdict, 'violation');
 // Unchecked is NOT the same as "there was none" — it must not silently excuse.
 t('undefined does not excuse',
   evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]) })).verdict, 'violation');
