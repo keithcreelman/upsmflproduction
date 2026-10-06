@@ -72,10 +72,14 @@
     return !!slot && slot.accepts.indexOf(group) !== -1;
   }
 
-  // Candidate is startable: real position group + not taxi / IR / expired.
+  // Candidate is startable: real position group + not taxi / IR / expired, and
+  // his NFL team is not on a BYE this week (r.bye = the bye week number, set
+  // by the view from MFL's nflByeWeeks). MFL rejects a lineup that starts a
+  // bye-week player — "League rules forbid starting players on a Bye week"
+  // (Keith 2026-10-06, Nick Bolton KCC, Week 5) — so he is no slot's candidate.
   function lineupEligibleRow(r) {
     if (!r) return false;
-    if (r.isTaxi || r.isIr || r.isExpired) return false;
+    if (r.isTaxi || r.isIr || r.isExpired || r.bye) return false;
     return posGroup(r.pos) !== "OTH";
   }
 
@@ -168,7 +172,7 @@
   function validateSlots(draft, rowsByPid) {
     draft = draft || {};
     rowsByPid = rowsByPid || {};
-    var filled = 0, dupes = 0, ineligible = 0, mismatch = 0, seen = {};
+    var filled = 0, dupes = 0, ineligible = 0, mismatch = 0, seen = {}, byes = [], byeWeek = 0;
     var bySide = { O: 0, D: 0 };
     LINEUP_SLOTS.forEach(function (s) {
       var pid = draft[s.id];
@@ -177,10 +181,17 @@
       bySide[s.side] += 1;
       if (seen[pid]) dupes += 1; else seen[pid] = 1;
       var r = rowsByPid[pid];
+      if (r && r.bye) { byes.push(r.name + (r.team ? " (" + r.team + ")" : "")); byeWeek = r.bye; return; }
       if (!r || r.isTaxi || r.isIr || r.isExpired) { ineligible += 1; return; }
       if (!slotAccepts(s, posGroup(r.pos))) mismatch += 1;
     });
     var errors = [];
+    // A bye-week starter BLOCKS the save: MFL rejects the whole lineup for it.
+    if (byes.length) {
+      errors.push(byes.join(", ") + (byes.length === 1 ? " is" : " are") + " on a bye" +
+        (byeWeek > 0 ? " in Week " + byeWeek : "") + " — bench " + (byes.length === 1 ? "him" : "them") +
+        "; MFL won't accept a bye-week starter");
+    }
     if (filled < TOTAL_STARTERS) {
       var need = TOTAL_STARTERS - filled;
       errors.push("Fill " + need + " more slot" + (need === 1 ? "" : "s"));
@@ -191,7 +202,7 @@
     // `problems` = blocking issues (must fix before any save). An incomplete
     // lineup is NOT a problem — MFL accepts a valid partial save (bye/injury
     // weeks may leave a slot unfillable), so we allow it.
-    var problems = dupes + ineligible + mismatch;
+    var problems = dupes + ineligible + mismatch + byes.length;
     return {
       ok: problems === 0 && filled === TOTAL_STARTERS,
       complete: filled === TOTAL_STARTERS,

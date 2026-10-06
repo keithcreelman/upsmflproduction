@@ -76,6 +76,8 @@
      the injury badges above) -- a lock is often GOOD news (he already went
      off for you), it's just no longer editable. */
   .gd-lock-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; color: var(--fg); background: var(--line-soft); }
+  .gd-bye-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; color: #fff; background: var(--danger); }
+  .gd-slot.bye { border-color: var(--danger); }
   .gd-slot-mu { font-size: 11px; color: var(--muted); padding: 1px 14px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.3; cursor: pointer; display: flex; align-items: center; gap: 5px; }
   .gd-slot-mu:hover { color: var(--fg); }
   .gd-mu-exp { color: var(--muted); font-size: 10px; margin-left: auto; }
@@ -451,6 +453,20 @@
           render();
         });
       }
+      // Teams on a BYE in the lineup week (Keith 2026-10-06: Nick Bolton, KCC,
+      // sat in a Week 5 slot with no cue, and MFL rejected the whole lineup —
+      // "League rules forbid starting players on a Bye week"). MFL's own
+      // nflByeWeeks export is the list that rule checks. It is a GLOBAL NFL
+      // export that MFL refuses on the league shard, so it always goes through
+      // the worker proxy (which sends it to api.* without L=).
+      if (STATE.lineupWeek && LS.parseByeTeams) {
+        fetchJson(workerUrl("/api/mfl-export?TYPE=nflByeWeeks&L=" + encodeURIComponent(CTX.leagueId) +
+          "&YEAR=" + encodeURIComponent(CTX.year) + "&W=" + encodeURIComponent(STATE.lineupWeek) + "&JSON=1")).then(function (byeJson) {
+          STATE.byes = LS.parseByeTeams(byeJson, STATE.lineupWeek);
+          STATE.byesWeek = STATE.lineupWeek;
+          render();
+        });
+      }
       parseLeague(); resolveViewer();
     });
   }
@@ -565,7 +581,12 @@
   ];
   var TOTAL = 18, OFF = 11, DEF = 7;
   function slotAccepts(slot, g) { return slot.accepts.indexOf(g) !== -1; }
-  function eligibleRow(r) { if (!r) return false; if (r.isTaxi || r.isIr || r.isExpired) return false; return posGroup(r.pos) !== "OTH"; }
+  // A bye-week player can't be STARTED — MFL rejects the whole lineup — so he
+  // is no slot's candidate (Optimal never picks him either). He still shows on
+  // the bench, tagged BYE, and a saved lineup that already starts him keeps
+  // him visible in his slot with a "bench him" badge and a blocking error.
+  function eligibleRow(r) { if (!r) return false; if (r.isTaxi || r.isIr || r.isExpired || r.bye) return false; return posGroup(r.pos) !== "OTH"; }
+  function isOnBye(team) { return !!(STATE.byes && STATE.byes[String(team || "").toUpperCase()]); }
   // Locked = his NFL team's kickoff for STATE.liveWeek has passed. A bye-week
   // player (no kickoff entry at all this week) is never locked by this rule --
   // he never "begins", he's just a bad start, already flagged separately by
@@ -612,6 +633,7 @@
         team: s(p.team), salary: r.salary, group: posGroup(p.position),
         isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
         injStatus: LS.injuryStatusFor(lineupInjOpts(), r.id), injLabel: LS.injuryLabelFor(lineupInjOpts(), r.id) };
+      row.bye = isOnBye(row.team);
       row.eligible = eligibleRow(row);
       row.locked = isKickedOff(row.team);
       return row;
@@ -654,22 +676,25 @@
   }
   function validate(draft, byId) {
     draft = draft || {};
-    var filled = 0, dupes = 0, ineligible = 0, mismatch = 0, seen = {}, bySide = { O: 0, D: 0 };
+    var filled = 0, dupes = 0, ineligible = 0, mismatch = 0, seen = {}, bySide = { O: 0, D: 0 }, byes = [];
     SLOTS.forEach(function (sl) {
       var pid = draft[sl.id]; if (!pid) return;
       filled++; bySide[sl.side]++;
       if (seen[pid]) dupes++; else seen[pid] = 1;
       var r = byId[pid];
+      if (r && r.bye) { byes.push(r.name + " (" + r.team + ")"); return; }
       if (!r || r.isTaxi || r.isIr || r.isExpired) { ineligible++; return; }
       if (!slotAccepts(sl, posGroup(r.pos))) mismatch++;
     });
     var errors = [];
+    if (byes.length) errors.push(byes.join(", ") + (byes.length === 1 ? " is" : " are") + " on a bye in Week " + (STATE.byesWeek || STATE.lineupWeek) +
+      " — bench " + (byes.length === 1 ? "him" : "them") + "; MFL won't accept a bye-week starter");
     if (filled < TOTAL) { var n = TOTAL - filled; errors.push("Fill " + n + " more slot" + (n === 1 ? "" : "s")); }
     if (dupes) errors.push(dupes + " player" + (dupes === 1 ? "" : "s") + " used in two slots");
     if (ineligible) errors.push(ineligible + " ineligible (taxi/IR/expired) selected");
     if (mismatch) errors.push(mismatch + " player" + (mismatch === 1 ? "" : "s") + " in the wrong slot");
-    var problems = dupes + ineligible + mismatch;
-    return { ok: problems === 0 && filled === TOTAL, complete: filled === TOTAL, problems: problems, filled: filled, bySide: bySide, errors: errors };
+    var problems = dupes + ineligible + mismatch + byes.length;
+    return { ok: problems === 0 && filled === TOTAL, complete: filled === TOTAL, problems: problems, filled: filled, bySide: bySide, errors: errors, byes: byes };
   }
 
   // ---------- render ----------
@@ -711,7 +736,7 @@
   function optText(r) {
     // Player · Team · proj · POS#rank — the rank already carries the position,
     // so the standalone position token is dropped (Keith 2026-06-21).
-    var line = r.name + (r.team ? "  ·  " + r.team : "");
+    var line = r.name + (r.team ? "  ·  " + r.team : "") + (r.bye ? "  ·  BYE" : "");
     var p = projFor(r.id);
     if (p != null) {
       line += "  ·  " + fmtProj(p) + " pts";
@@ -729,8 +754,11 @@
     // ALSO dropped from every OTHER slot's candidate list a few lines down,
     // so he can't be swapped in elsewhere either.
     var isLocked = !!(currentRow && currentRow.locked);
+    var isBye = !!(currentRow && currentRow.bye);
     var cands = rows.filter(function (r) {
-      if (!r.eligible || !slotAccepts(slot, r.group)) return false;
+      // A saved starter who turns out to be on a bye stays selectable in HIS
+      // slot (so the screen shows what MFL is holding) but nowhere else.
+      if (!(r.eligible || (r.bye && r.id === current)) || !slotAccepts(slot, r.group)) return false;
       if (r.locked && r.id !== current) return false;
       return !used[r.id] || r.id === current;
     }).sort(function (a, b) {
@@ -744,7 +772,7 @@
     cands.forEach(function (r) { opts += '<option value="' + esc(r.id) + '"' + (r.id === current ? " selected" : "") + '>' + esc(optText(r)) + '</option>'; });
     var note = slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "";
     var cur = current ? projFor(current) : null;
-    return '<div class="gd-slot' + (current ? " filled" : "") + (isLocked ? " locked" : "") + '">' +
+    return '<div class="gd-slot' + (current ? " filled" : "") + (isLocked ? " locked" : "") + (isBye ? " bye" : "") + '">' +
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
       '<select class="gd-slot-sel' + (current ? "" : " empty") + '" data-slot="' + esc(slot.id) + '"' +
         (isLocked ? ' disabled title="Locked — his game has started; league rule says he can’t be swapped once kickoff passes."' : "") +
@@ -752,6 +780,7 @@
       '<div class="gd-slot-proj' + (cur != null ? "" : " none") + '" title="Projected points">' + esc(fmtProj(cur)) + '</div>' +
     '</div>' +
     (isLocked ? '<div class="gd-slot-inj-row"><span class="gd-lock-badge">🔒 Locked — kickoff passed</span></div>' : "") +
+    (isBye ? '<div class="gd-slot-inj-row"><span class="gd-bye-badge">BYE · Week ' + esc(STATE.byesWeek || STATE.lineupWeek) + ' — bench him; MFL won’t accept a bye-week starter</span></div>' : "") +
     (current ? injBadgeHtml(currentRow) : "") +
     (current ? slotMatchupHtml(current) : "");
   }
@@ -1056,7 +1085,8 @@
           // A benched player already kicked off can never be started now --
           // say so here too, since he's simply absent from every slot's
           // dropdown (no other cue would explain why he doesn't show up there).
-          (r.locked ? ' <span class="gd-lock-badge">🔒 Locked</span>' : '') + '</div>' +
+          (r.locked ? ' <span class="gd-lock-badge">🔒 Locked</span>' : '') +
+          (r.bye ? ' <span class="gd-bye-badge" title="His NFL team is on a bye in Week ' + esc(STATE.byesWeek || STATE.lineupWeek) + ' — MFL won’t accept him as a starter.">BYE</span>' : '') + '</div>' +
           '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
       }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
 
