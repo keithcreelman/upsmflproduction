@@ -2,7 +2,8 @@
   "_about": "Cap-adjustment audit log — every finding from the 2026-10-06 historical audit (2017–2026), with its status and the commissioner's ruling. For our own records: an entry here changes NO MFL data unless its mfl_action says so. Add new findings with the next free id; never delete an entry, close it.",
   "status_legend": {
     "open": "Not yet ruled on.",
-    "missed_recorded": "Confirmed missed. Recorded for our records only; MFL left as-is (pre-2026 seasons were run manually).",
+    "missed_recorded": "Confirmed missed: a charge, credit or settlement that never posted. Recorded for our own records only; MFL left as-is (pre-2026 seasons were run manually).",
+    "error_recorded": "Confirmed or likely wrong posting (duplicate, overcharge, inconsistent rule) in a pre-2026 manual season. Recorded for our own records only; MFL left as-is.",
     "partially_posted": "Part of the correction is on MFL; the rest is pending (see mfl_action).",
     "closed": "Ruled on; nothing further to do (see ruling)."
   },
@@ -315,8 +316,12 @@
       "finding": "52 MFL native drop rows left on the 2017 cap, never offset after 2017-11-27. 50 are one-year or sub-$5K drops that should be $0 ($15,200). Kenny Vaccaro ($1,600) and Terrance West ($10,800), both 0012, were also re-charged in 2018, so they were charged twice.",
       "impact": "$27,600 overstated on the 2017 ledger",
       "audit_confidence": "high",
-      "status": "open",
-      "ruling": null,
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -329,8 +334,12 @@
       "finding": "Ty Montgomery drop ($22,000 salary) posted twice on 2019-06-09 (17:16 and 17:27) for one drop.",
       "impact": "$4,400 overcharge",
       "audit_confidence": "high",
-      "status": "open",
-      "ruling": null,
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -344,8 +353,12 @@
       "finding": "Ian Thomas (0004, dropped 2019-08-29) charged the old 20% ($1,200); Jerick McKinnon (0012, dropped 2019-08-30) charged the new 75% ($7,500).",
       "impact": "Thomas undercharged $3,300 under canon",
       "audit_confidence": "medium-high",
-      "status": "open",
-      "ruling": null,
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -358,8 +371,12 @@
       "finding": "No 2025_Cap_Penalties row for 0006. Cross's own 2024 in-season drops: Tyler Boyd $18,000, Will Anderson $2,500.",
       "impact": ">= $2,500 (or $20,500 if Boyd was not Cross's free new-owner cut)",
       "audit_confidence": "medium",
-      "status": "open",
-      "ruling": null,
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -404,8 +421,12 @@
       "finding": "DeShone Kizer BL got no back-load settlement (rule $5,000, posted $2,000); Teddy Bridgewater FL got no front-load credit (rule -$800, posted $1,200).",
       "impact": "net $1,000 undercharge",
       "audit_confidence": "medium",
-      "status": "open",
-      "ruling": null,
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -419,8 +440,12 @@
       "finding": "In-season 2018 drops not re-posted to 2019: Mike Wallace (0009) $1,400; Demario Davis (0010) $2,000.",
       "impact": "$3,400",
       "audit_confidence": "medium",
-      "status": "open",
-      "ruling": null,
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -433,8 +458,12 @@
       "finding": "Jared Cook (dropped 2016-11-20) charged and offset in 2016 but never re-posted to 2017.",
       "impact": "$1,200",
       "audit_confidence": "medium",
-      "status": "open",
-      "ruling": null,
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -448,8 +477,12 @@
       "finding": "Brissett trade settlement (2022-11-20) posted twice (11:31 and 12:03).",
       "impact": "$1,000 extra each way",
       "audit_confidence": "high",
-      "status": "open",
-      "ruling": null,
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -462,8 +495,12 @@
       "finding": "'Offset Stills & Ryan Griffin' -$4,000 against native charges of $1,800 + $1,200.",
       "impact": "$1,000 extra credit",
       "audit_confidence": "high",
-      "status": "open",
-      "ruling": null,
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -477,8 +514,12 @@
       "finding": "The lumps reconcile only if Mike Gesicki (GF, rule $2,000) and Byron Murphy (rule $1,000) were charged $0.",
       "impact": "$2,000 / $1,000 undercharge",
       "audit_confidence": "low-medium",
-      "status": "open",
-      "ruling": null,
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {
@@ -507,8 +548,12 @@
         "0002"
       ],
       "finding": "Pre-2019 back-loaded drops re-keyed on 2019-06-09 count the drop year twice: Case Keenum (0012, posted $8,200; consistent $4,200 or $6,800), Allen Hurns (0006, posted $4,400; consistent $2,400 or $3,200). Jake Elliott (0002) and Jason Pierre-Paul (0006) each charged $1,000 despite TCV under $5K.",
-      "status": "open",
-      "ruling": null,
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
       "mfl_action": "none"
     },
     {

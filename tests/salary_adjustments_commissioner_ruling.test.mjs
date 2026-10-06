@@ -90,6 +90,10 @@ test("the cap-adjustment audit log: well-formed, and the trade rulings are recor
   t.match(a01.mfl_action, /Gride -\$10,000 posted 2026-10-06 \(2026 salaryAdjustment id 61/);
   t.match(a01.mfl_action, /L\.A\. Looks \+\$10,000 PENDING/);
   t.equal(LOG.entries.find((e) => e.id === "R01").status, "closed", "Cooper closed");
+  const stillOpen = LOG.entries.filter((e) => e.status === "open");
+  t.equal(stillOpen.map((e) => e.id).join(), "A11,A12", "every pre-2026 item is ruled; only the two 2026-cap items remain");
+  t.ok(stillOpen.every((e) => e.cap_season === 2026));
+  t.ok(LOG.entries.filter((e) => e.cap_season != null && e.cap_season < 2026).every((e) => e.mfl_action === "none"), "nothing pre-2026 touches MFL");
   t.match(CANON, /A missed settlement in a pre-2026 season is recorded, not corrected \(Keith 2026-10-06\)\.\*\* .*cap_adjustment_audit_log\.json/);
 });
 
