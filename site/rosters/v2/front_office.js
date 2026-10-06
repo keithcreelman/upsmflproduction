@@ -10438,6 +10438,18 @@
           return escapeHtml((u.teams || []).map(function (x) { return x.franchise_name; }).join(" ↔ ") + " (" + saladjEtDate(u.traded_at_iso) + ", " + (u.traded_salary || []).join(", ") + ")");
         }).join("; ") + ".</p>";
     }
+    // A settlement posted for ONE team only, the other half held by the commish
+    // (Keith 2026-10-06: Gride's −$10K posted, L.A. Looks' +$10K held until it
+    // has the room). Owners just see the posted row; the held half is commish-only.
+    const partial = (data.review && data.review.partially_settled_traded_salary) || [];
+    if (STATE.me && STATE.me.isAdmin && partial.length && String(yr.season) === String(data.season)) {
+      review += '<p class="fo-row-hint" style="color:var(--warn);">👑 Commish: ' + escapeHtml(partial.length + " trade settlement" + (partial.length === 1 ? " is" : "s are") + " half-posted — ") +
+        partial.map(function (u) {
+          const signedAmt = function (n) { return (n > 0 ? "+" : "") + money(n); };
+          return escapeHtml((u.teams || []).map(function (x) { return x.franchise_name; }).join(" ↔ ") + " (" + saladjEtDate(u.traded_at_iso) + "): " +
+            u.posted.franchise_name + " " + signedAmt(u.posted.amount) + " posted; " + u.pending.franchise_name + " " + signedAmt(u.pending.amount) + " pending");
+        }).join("; ") + ".</p>";
+    }
 
     body.innerHTML =
       '<div class="fo-card-head"><h2>Salary Adjustments</h2><span class="small" style="color:var(--muted);">Every cap adjustment by team — traded salary, dropped players, misc.</span></div>' +

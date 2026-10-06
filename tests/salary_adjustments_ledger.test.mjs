@@ -38,7 +38,7 @@ globalThis.fetch = async (input) => {
   }
   if (u.pathname.endsWith("/export")) {
     const type = u.searchParams.get("TYPE");
-    if (type === "salaryAdjustments") return json(FX.salaryAdjustments);
+    if (type === "salaryAdjustments") return json(ADJ_PAYLOAD);
     if (type === "league") return json({ league: { franchises: { franchise: FX.franchises } } });
     if (type === "transactions" && u.searchParams.get("TRANS_TYPE") === "TRADE") return json(FX.trades);
     if (type === "players") {
@@ -60,6 +60,16 @@ function makeDb() {
   for (const r of FX.faa_nom_penalties) r2.run(r.penalty_id, r.season, r.league_id, r.fid, r.et_day, r.offense_no, r.amount_k, r.applies_to_season, r.posted_to_mfl, r.voided);
   return db;
 }
+
+// MFL's salaryAdjustments as served; a test may swap in a later state.
+let ADJ_PAYLOAD = FX.salaryAdjustments;
+// The real row MFL recorded 2026-10-06 when Gride's half of the L.A. Looks
+// settlement was posted on its own (Keith: "We can post Gride's … we'll add
+// Ryan's later when he's under the threshold").
+const GRIDE_HALF = { id: "61", franchise_id: "0003", amount: "-10000", timestamp: "1791309783",
+  description: "UPS traded salary settlement (trade_20261116): net -10K" };
+const withGrideHalf = () => ({ ...FX.salaryAdjustments, salaryAdjustments: { ...FX.salaryAdjustments.salaryAdjustments,
+  salaryAdjustment: FX.salaryAdjustments.salaryAdjustments.salaryAdjustment.concat([GRIDE_HALF]) } });
 
 let DB = null;
 async function ledger() {
@@ -172,6 +182,29 @@ test("review: a trade that moved cap dollars with no settlement on MFL is report
   t.equal(u[0].traded_salary.join(), "$10K traded salary");
 });
 
+test("a half-posted settlement (Gride's −$10K, L.A. Looks' +$10K held) finds its trade and names the held half", async () => {
+  ADJ_PAYLOAD = withGrideHalf();
+  try {
+    const { body: b2 } = await ledger();
+    const y = b2.years[0];
+    t.equal(y.rows.length, 59);
+    const g = y.rows.find((r) => r.id === "mfl:61");
+    t.equal(g.type, "trade"); t.equal(g.amount, -10000); t.equal(g.franchise_id, "0003");
+    t.equal(g.trade.matched, true, "found by the money (BB_10000) — its posting date is October, not the July trade");
+    t.equal(g.trade.counterparty_name, "L.A. Looks");
+    t.equal(g.trade.traded_at_iso, "2026-07-22T18:52:47.000Z");
+    t.ok(g.trade.legs.find((l) => l.to_fid === "0003").assets.some((a) => a.label === "$10K traded salary"), "Gride received the $10K");
+    t.equal(JSON.stringify(g.trade.partial), JSON.stringify({ pending_fid: "0001", pending_name: "L.A. Looks", pending_amount: 10000 }));
+    t.equal(b2.review.unsettled_traded_salary.length, 0, "no longer 'never settled'");
+    const p = b2.review.partially_settled_traded_salary;
+    t.equal(p.length, 1);
+    t.equal(p[0].posted.franchise_name, "Gride"); t.equal(p[0].posted.amount, -10000);
+    t.equal(p[0].pending.franchise_name, "L.A. Looks"); t.equal(p[0].pending.amount, 10000);
+    const others = y.rows.filter((r) => r.type === "trade" && r.id !== "mfl:61");
+    t.ok(others.every((r) => r.trade.matched && !r.trade.partial), "the 8 two-sided settlements are untouched");
+  } finally { ADJ_PAYLOAD = FX.salaryAdjustments; }
+});
+
 test("read-only: no MFL import, no D1 write", () => {
   t.ok(!calls.some((c) => /\/import\b/.test(c)), calls.join(" | "));
   t.ok(!DB.log.some((x) => /^\s*(INSERT|UPDATE|DELETE|CREATE)/i.test(x.sql)), "only SELECTs");
@@ -185,7 +218,7 @@ test("pure helpers: picks are zero-indexed DP / owner-named FP; BB_ is traded sa
     for (; i < WORKER_SRC.length; i++) { if (WORKER_SRC[i] === "{") depth++; else if (WORKER_SRC[i] === "}" && --depth === 0) return WORKER_SRC.slice(at, i + 1); }
     throw new Error(sig);
   };
-  vm.runInContext(fns.map(slice).join("\n") + "\nthis.api = { saladjClassify, saladjAssetLabel, saladjMatchTrade };", c);
+  vm.runInContext(fns.map(slice).join("\n") + "\n" + slice("function saladjMatchOneSided(") + "\nthis.api = { saladjClassify, saladjAssetLabel, saladjMatchTrade, saladjMatchOneSided };", c);
   const A = c.api;
   t.equal(A.saladjAssetLabel("DP_0_3", { season: "2026" }).label, "2026 pick 1.04");
   t.equal(A.saladjAssetLabel("FP_0004_2027_1", { fidName: { "0004": "Pure Greatness" } }).label, "2027 Rd 1 pick (Pure Greatness)");
@@ -197,6 +230,12 @@ test("pure helpers: picks are zero-indexed DP / owner-named FP; BB_ is traded sa
     { a: "0002", b: "0001", unix: 1001, a_gave: [], b_gave: [], comments: "" }];
   t.equal(A.saladjMatchTrade("0001", "0002", 1001, 5000, "trade_20261", trades), trades[0], "the BB_ amount outranks a closer timestamp");
   t.equal(A.saladjMatchTrade("0001", "0002", 1000 + 4 * 86400, 5000, "trade_20261", trades), null, "nothing more than 3 days away");
+  t.equal(A.saladjMatchOneSided("0002", -5000, trades, new Set()), trades[0], "−$5K: 0002 received the BB_5000 that 0001 gave");
+  t.equal(A.saladjMatchOneSided("0001", 5000, trades, new Set()), trades[0], "+$5K: 0001 gave it");
+  t.equal(A.saladjMatchOneSided("0001", -5000, trades, new Set()), null, "the wrong direction matches nothing");
+  t.equal(A.saladjMatchOneSided("0002", -5000, trades, new Set([trades[0]])), null, "a trade already settled two-sided is never claimed again");
+  const twin = [trades[0], { ...trades[0], unix: 9000 }];
+  t.equal(A.saladjMatchOneSided("0002", -5000, twin, new Set()), null, "two candidate trades → ambiguous → null, never a guess");
 });
 
 await run("salary_adjustments_ledger");

@@ -162,4 +162,16 @@ test("the unsettled-trade note is commish-only", async () => {
   t.match(admin.body(), /👑 Commish: 1 trade moved traded salary with no settlement row on MFL — L\.A\. Looks ↔ Gride \(Jul 22, 2026, \$10K traded salary\)/);
 });
 
+test("a half-posted settlement: owners see the posted row; the held half is a commish-only note", async () => {
+  const halfLedger = JSON.parse(JSON.stringify(LEDGER));
+  halfLedger.review.unsettled_traded_salary = [];
+  halfLedger.review.partially_settled_traded_salary = [{ traded_at_iso: "2026-07-22T18:52:47.000Z",
+    teams: [{ franchise_id: "0001", franchise_name: "L.A. Looks" }, { franchise_id: "0003", franchise_name: "Gride" }],
+    posted: { franchise_id: "0003", franchise_name: "Gride", amount: -10000 }, pending: { franchise_id: "0001", franchise_name: "L.A. Looks", amount: 10000 } }];
+  const owner = makeFo(null); owner.c.STATE.saladjData = halfLedger; await owner.c.render();
+  t.ok(!/pending|half-posted|Commish/.test(owner.body()), "an owner sees no held-half note");
+  const admin = makeFo({ isAdmin: true, configured: true, franchise_id: "0000" }); admin.c.STATE.saladjData = halfLedger; await admin.c.render();
+  t.match(admin.body(), /👑 Commish: 1 trade settlement is half-posted — L\.A\. Looks ↔ Gride \(Jul 22, 2026\): Gride -\$10,000 posted; L\.A\. Looks \+\$10,000 pending\./);
+});
+
 await run("front_office_salary_adjustments_tab");

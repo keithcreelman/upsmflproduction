@@ -2570,6 +2570,26 @@ function saladjNormalizeTrades(txPayload) {
     }));
 }
 
+// The MFL trade a ONE-SIDED settlement belongs to: one team's half was posted
+// on its own, the other half held back (Keith 2026-10-06: Gride's −$10K for the
+// 2026-07-22 L.A. Looks trade posted, L.A. Looks' +$10K held until it has the
+// room). There is no partner row to pair with and the row is dated when it was
+// posted, not when the trade happened, so match on the money instead. A
+// −amount means this team RECEIVED BB_<amount> (the other side gave it); a
+// +amount means this team GAVE it. Exactly one unclaimed trade must fit, or null.
+function saladjMatchOneSided(fid, amount, trades, used) {
+  const f = String(fid);
+  const tok = `BB_${Math.abs(Number(amount) || 0)}`;
+  const fits = (trades || []).filter((t) => {
+    if (used && used.has(t)) return false;
+    if (t.a !== f && t.b !== f) return false;
+    const mine = t.a === f ? t.a_gave : t.b_gave;
+    const theirs = t.a === f ? t.b_gave : t.a_gave;
+    return (Number(amount) < 0 ? theirs : mine).includes(tok);
+  });
+  return fits.length === 1 ? fits[0] : null;
+}
+
 // The MFL trade a settlement pair belongs to: the same two franchises, within
 // 3 days of the settlement (2-way settlements post in the same second; a 3-way
 // leg ran ~1.8h ahead). A BB_<|amount|> asset — the traded dollars themselves —
@@ -51498,9 +51518,22 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const sjPlayerIds = new Set();
         const sjMatched = {};
         const sjUsedTrades = new Set();
-        for (const ref of Object.keys(sjByRef)) {
+        const sjRefOrder = Object.keys(sjByRef).sort((x, y) =>
+          (new Set(sjByRef[y].map((r) => r.franchise_id)).size === 2) - (new Set(sjByRef[x].map((r) => r.franchise_id)).size === 2));
+        for (const ref of sjRefOrder) {
           const legsRows = sjByRef[ref];
           const fids = Array.from(new Set(legsRows.map((x) => x.franchise_id)));
+          if (fids.length === 1 && legsRows.length === 1) {
+            const one = legsRows[0];
+            const t1 = saladjMatchOneSided(one.franchise_id, one.amount, sjTrades, sjUsedTrades);
+            if (!t1) { sjMatched[ref] = { trade: null, fids }; continue; }
+            const other = t1.a === one.franchise_id ? t1.b : t1.a;
+            sjUsedTrades.add(t1);
+            sjMatched[ref] = { trade: t1, fids: [one.franchise_id, other], legs: [t1],
+              partial: { posted_fid: one.franchise_id, posted_amount: one.amount, pending_fid: other, pending_amount: -one.amount } };
+            for (const tok of t1.a_gave.concat(t1.b_gave)) if (/^\d+$/.test(tok)) sjPlayerIds.add(tok);
+            continue;
+          }
           if (fids.length !== 2) { sjMatched[ref] = { trade: null, fids }; continue; }
           const absAmt = Math.abs(legsRows[0].amount);
           const t = saladjMatchTrade(fids[0], fids[1], legsRows[0].unix, absAmt, ref, sjTrades);
@@ -51549,6 +51582,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               counterparty_fid: other, counterparty_name: other ? sjName(other) : "",
               traded_at_unix: m.trade ? m.trade.unix : null, traded_at_iso: m.trade ? sjIso(m.trade.unix) : "",
               three_way: /^3-way\b/i.test(r.cls.ref),
+              // Only ONE team's half is on MFL; the other is held (commish-facing detail).
+              partial: m.partial ? { pending_fid: m.partial.pending_fid, pending_name: sjName(m.partial.pending_fid), pending_amount: m.partial.pending_amount } : null,
               three_way_teams: /^3-way\b/i.test(r.cls.ref)
                 ? Array.from(new Set((m.legs || []).flatMap((lg) => [lg.a, lg.b]))).map((f) => ({ franchise_id: f, franchise_name: sjName(f) }))
                 : [],
@@ -51629,6 +51664,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
           return out;
         };
+        const sjPartial = Object.values(sjMatched).filter((m) => m.partial && m.trade).map((m) => ({
+          traded_at_unix: m.trade.unix, traded_at_iso: sjIso(m.trade.unix),
+          teams: [m.trade.a, m.trade.b].map((f) => ({ franchise_id: f, franchise_name: sjName(f) })),
+          posted: { franchise_id: m.partial.posted_fid, franchise_name: sjName(m.partial.posted_fid), amount: m.partial.posted_amount },
+          pending: { franchise_id: m.partial.pending_fid, franchise_name: sjName(m.partial.pending_fid), amount: m.partial.pending_amount },
+        }));
         return jsonNoStore(200, {
           ok: true, league_id: sjLeague, season: sjSeasonNum, next_season: sjNext,
           franchises: Object.keys(sjFidName).sort().map((fid) => ({ franchise_id: fid, franchise_name: sjFidName[fid] })),
@@ -51646,7 +51687,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               rows: sjNextRows, ...sjTotals(sjNextRows), needs_review: sjNextReview,
             },
           ],
-          review: { unsettled_traded_salary: sjUnsettled },
+          review: { unsettled_traded_salary: sjUnsettled, partially_settled_traded_salary: sjPartial },
           sources: {
             mfl_salary_adjustments: !!sjAdjRes.ok, mfl_trades: !!sjTxRes.ok, d1_drop_events: sjDropsOk,
             static_report: sjReportStatus, auction_start_source: sjStart.source || "",
