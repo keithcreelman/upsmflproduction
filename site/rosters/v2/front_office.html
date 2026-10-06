@@ -32,6 +32,7 @@
   <button data-tab="roster" class="active">Rosters</button>
   <button data-tab="cap">Cap Planning</button>
   <button data-tab="contracts">Contracts</button>
+  <button data-tab="saladj">Salary Adjustments</button>
   <button data-tab="contractlog">Misc</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
 </nav>
@@ -236,6 +237,13 @@
     </div>
   </section>
 
+  <!-- ── SALARY ADJUSTMENTS TAB (read-only; /api/salary-adjustments/ledger) ── -->
+  <section class="fo-section" data-section="saladj">
+    <div class="fo-card">
+      <div id="fo-saladj-body"></div>
+    </div>
+  </section>
+
   <!-- ── CONTRACT LOG TAB (read-only, D1-sourced) ──────────────────── -->
   <section class="fo-section" data-section="contractlog">
     <div class="fo-subview-chips" role="tablist" aria-label="Misc view" style="margin-bottom:14px;">
@@ -284,6 +292,6 @@
 
 <script src="../../shared/contract_windows.js?v=2026.09.28.1"></script>
 <script src="../../shared/loaded_contract_classification.js?v=2026.09.30.1"></script>
-<script src="front_office.js?v=2026.10.02.v1.39.1"></script>
+<script src="front_office.js?v=2026.10.06.v1.40.0"></script>
 </body>
 </html>

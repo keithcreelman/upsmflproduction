@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.0.17",
-  "released": "2026-08-25",
-  "checkpoint": 14,
-  "scope": "Restructure segment preservation extended to the other two writers. #947 fixed only front_office.js; roster_workbench.js and the mobile submitter kept a single-token Ext: extractor whose regex was greedy and anchored to end-of-string, assuming Ext: was the last segment. With the token mid-string it captured the whole tail, and Drake London lost Ext: PG in a restructure on 2026-08-24 \u2014 two days after the class of bug was diagnosed and fixed in one place. All three writers now preserve every segment they do not own.",
+  "version": "2.1.0",
+  "released": "2026-10-06",
+  "checkpoint": 15,
+  "scope": "New Salary Adjustments tab: every cap adjustment by team and year, typed traded salary / dropped player / misc, with the assessment date, the amount and its story (the dropped player's pre-drop contract: original years, TCV, GTD, earned; the other team and the MFL trade for traded salary; what a misc row was for). 2026 = what MFL has posted; 2027 = the next-season ledger booked for the rollover. One read-only worker route: GET /api/salary-adjustments/ledger.",
   "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

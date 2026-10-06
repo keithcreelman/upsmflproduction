@@ -1,0 +1,1624 @@
+{
+ "_source": "Read-only pulls 2026-10-06: MFL 2026 salaryAdjustments + TRADE transactions + league + players (L=74598); D1 ups_drop_events (season 2026, penalty>0) + ups_faa_nom_penalties; FA Auction start 1784995200 (auction_calendar.faa_open_at).",
+ "auction_start_unix": 1784995200,
+ "salaryAdjustments": {
+  "encoding": "utf-8",
+  "salaryAdjustments": {
+   "salaryAdjustment": [
+    {
+     "franchise_id": "0006",
+     "description": "UPS traded salary settlement (trade_20261018): net -20K",
+     "timestamp": "1775772927",
+     "amount": "-20000",
+     "id": "0"
+    },
+    {
+     "id": "1",
+     "timestamp": "1775772927",
+     "amount": "20000",
+     "description": "UPS traded salary settlement (trade_20261018): net +20K",
+     "franchise_id": "0005"
+    },
+    {
+     "id": "10",
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Felton, Tai 1000 id:adddrop2025_266.2",
+     "franchise_id": "0001"
+    },
+    {
+     "description": "UPS drop penalty Helm, Gunnar 1000 id:adddrop2025_298.2",
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "id": "11",
+     "franchise_id": "0010"
+    },
+    {
+     "franchise_id": "0006",
+     "description": "UPS drop penalty Martinez, Damien 2500 id:adddrop2025_333.2",
+     "amount": "2500",
+     "timestamp": "1776441058",
+     "id": "12"
+    },
+    {
+     "franchise_id": "0001",
+     "id": "13",
+     "description": "UPS drop penalty Browning, Jake 6300 id:adddrop2025_336.1",
+     "amount": "6300",
+     "timestamp": "1776441058"
+    },
+    {
+     "id": "14",
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Elliss, Kaden 1000 id:adddrop2025_364.2",
+     "franchise_id": "0007"
+    },
+    {
+     "id": "15",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "description": "UPS drop penalty Bates, Jessie 1000 id:adddrop2025_370.2",
+     "franchise_id": "0008"
+    },
+    {
+     "franchise_id": "0008",
+     "id": "16",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "description": "UPS drop penalty Allen, Zach 1000 id:adddrop2025_371.2"
+    },
+    {
+     "franchise_id": "0008",
+     "id": "17",
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Gray, Noah 1000 id:adddrop2025_369.2"
+    },
+    {
+     "id": "18",
+     "amount": "4000",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty White, Keion 4000 id:adddrop2025_380.1",
+     "franchise_id": "0007"
+    },
+    {
+     "description": "UPS drop penalty Guerendo, Isaac 2000 id:adddrop2025_382.1",
+     "amount": "2000",
+     "timestamp": "1776441058",
+     "id": "19",
+     "franchise_id": "0003"
+    },
+    {
+     "description": "UPS drop penalty Sanders, Ja'Tavion 2000 id:adddrop2025_391.2",
+     "amount": "2000",
+     "timestamp": "1776441058",
+     "id": "20",
+     "franchise_id": "0003"
+    },
+    {
+     "id": "21",
+     "amount": "2500",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Franklin, Zaire 2500 id:adddrop2025_399.2",
+     "franchise_id": "0005"
+    },
+    {
+     "timestamp": "1776441058",
+     "amount": "2000",
+     "description": "UPS drop penalty Thibodeaux, Kayvon 2000 id:adddrop2025_427.2",
+     "id": "22",
+     "franchise_id": "0010"
+    },
+    {
+     "franchise_id": "0010",
+     "id": "23",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "description": "UPS drop penalty Chism, Efton 1000 id:adddrop2025_426.2"
+    },
+    {
+     "franchise_id": "0001",
+     "id": "24",
+     "timestamp": "1776441058",
+     "amount": "750",
+     "description": "UPS drop penalty Chubb, Bradley 750 id:adddrop2025_425.2"
+    },
+    {
+     "id": "25",
+     "timestamp": "1776441058",
+     "amount": "3000",
+     "description": "UPS drop penalty Lockett, Tyler 3000 id:adddrop2025_490.1",
+     "franchise_id": "0012"
+    },
+    {
+     "franchise_id": "0004",
+     "description": "UPS drop penalty Nubin, Tyler 1000 id:adddrop2025_549.2",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "id": "26"
+    },
+    {
+     "franchise_id": "0005",
+     "id": "27",
+     "description": "UPS drop penalty Harris, Najee 3250 id:adddrop2025_594.1",
+     "amount": "3250",
+     "timestamp": "1776441058"
+    },
+    {
+     "description": "UPS drop penalty Engram, Evan 2500 id:adddrop2025_595.1",
+     "amount": "2500",
+     "timestamp": "1776441058",
+     "id": "28",
+     "franchise_id": "0001"
+    },
+    {
+     "franchise_id": "0005",
+     "description": "UPS drop penalty Winfield, Antoine 1000 id:adddrop2025_596.2",
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "id": "29"
+    },
+    {
+     "franchise_id": "0012",
+     "id": "30",
+     "description": "UPS drop penalty Winston, Jameis 3500 id:adddrop2025_634.1",
+     "amount": "3500",
+     "timestamp": "1776441058"
+    },
+    {
+     "amount": "2450",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Musgrave, Luke 2450 id:adddrop2025_657.2",
+     "id": "31",
+     "franchise_id": "0008"
+    },
+    {
+     "franchise_id": "0001",
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Greenard, Jonathan 1000 id:adddrop2025_651.2",
+     "id": "32"
+    },
+    {
+     "franchise_id": "0005",
+     "id": "33",
+     "amount": "2800",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Engram, Evan 2800 id:adddrop2025_692.2"
+    },
+    {
+     "id": "34",
+     "timestamp": "1776441058",
+     "amount": "2100",
+     "description": "UPS drop penalty Lance, Trey 2100 id:adddrop2025_698.1",
+     "franchise_id": "0011"
+    },
+    {
+     "franchise_id": "0009",
+     "id": "36",
+     "timestamp": "1780491018",
+     "amount": "1000",
+     "description": "UPS drop penalty Dyami Brown 1000 id:15292_1779459271"
+    },
+    {
+     "id": "37",
+     "timestamp": "1783770746",
+     "amount": "5000",
+     "description": "UPS traded salary settlement (trade_20261097): net +5K",
+     "franchise_id": "0007"
+    },
+    {
+     "franchise_id": "0010",
+     "timestamp": "1783770746",
+     "amount": "-5000",
+     "description": "UPS traded salary settlement (trade_20261097): net -5K",
+     "id": "38"
+    },
+    {
+     "amount": "1000",
+     "timestamp": "1784395866",
+     "description": "UPS drop penalty Noah Fant 1000 id:14137_1784395782",
+     "id": "39",
+     "franchise_id": "0008"
+    },
+    {
+     "amount": "1000",
+     "timestamp": "1776441058",
+     "description": "UPS drop penalty Fitzpatrick, Minkah 1000 id:adddrop2025_114.1",
+     "id": "4",
+     "franchise_id": "0010"
+    },
+    {
+     "franchise_id": "0005",
+     "timestamp": "1784583058",
+     "amount": "1250",
+     "description": "UPS drop penalty Troy Franklin 1250 id:16619_1784582888",
+     "id": "40"
+    },
+    {
+     "franchise_id": "0008",
+     "id": "41",
+     "description": "UPS drop penalty Trey Benson 1500 id:16594_1784584049",
+     "amount": "1500",
+     "timestamp": "1784584261"
+    },
+    {
+     "description": "UPS drop penalty Theo Johnson 1250 id:16649_1784668888",
+     "timestamp": "1784669158",
+     "amount": "1250",
+     "id": "42",
+     "franchise_id": "0006"
+    },
+    {
+     "description": "UPS drop penalty Tyreek Hill 26500 id:12801_1784717601",
+     "amount": "26500",
+     "timestamp": "1784718058",
+     "id": "43",
+     "franchise_id": "0007"
+    },
+    {
+     "franchise_id": "0007",
+     "id": "44",
+     "description": "UPS drop penalty Tanner McKee 1000 id:15702_1784719239",
+     "timestamp": "1784744734",
+     "amount": "1000"
+    },
+    {
+     "timestamp": "1784749519",
+     "amount": "19000",
+     "description": "UPS traded salary settlement (3-way 72cea017): net +19K",
+     "id": "45",
+     "franchise_id": "0009"
+    },
+    {
+     "timestamp": "1784749519",
+     "amount": "-19000",
+     "description": "UPS traded salary settlement (3-way 72cea017): net -19K",
+     "id": "46",
+     "franchise_id": "0010"
+    },
+    {
+     "id": "47",
+     "timestamp": "1784751939",
+     "amount": "1250",
+     "description": "UPS drop penalty Keon Coleman 1250 id:16617_1784751709",
+     "franchise_id": "0008"
+    },
+    {
+     "amount": "450",
+     "timestamp": "1784768440",
+     "description": "UPS drop penalty rounding L.A. Looks 450 id:ups_drop_rounding_0001_2026",
+     "id": "48",
+     "franchise_id": "0001"
+    },
+    {
+     "franchise_id": "0005",
+     "amount": "200",
+     "timestamp": "1784768440",
+     "description": "UPS drop penalty rounding HammerTime   200 id:ups_drop_rounding_0005_2026",
+     "id": "49"
+    },
+    {
+     "description": "UPS drop penalty Chark, D.J. 1000 id:adddrop2025_129.1",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "id": "5",
+     "franchise_id": "0009"
+    },
+    {
+     "franchise_id": "0006",
+     "id": "50",
+     "description": "UPS drop penalty rounding The Long Haulers 250 id:ups_drop_rounding_0006_2026",
+     "timestamp": "1784768440",
+     "amount": "250"
+    },
+    {
+     "timestamp": "1784768440",
+     "amount": "-200",
+     "description": "UPS drop penalty rounding Real Deal Creel -200 id:ups_drop_rounding_0008_2026",
+     "id": "51",
+     "franchise_id": "0008"
+    },
+    {
+     "franchise_id": "0011",
+     "description": "UPS drop penalty rounding Cleon Cah -100 id:ups_drop_rounding_0011_2026",
+     "timestamp": "1784768440",
+     "amount": "-100",
+     "id": "52"
+    },
+    {
+     "franchise_id": "0012",
+     "description": "UPS drop penalty rounding Hawks 500 id:ups_drop_rounding_0012_2026",
+     "amount": "500",
+     "timestamp": "1784768440",
+     "id": "53"
+    },
+    {
+     "franchise_id": "0009",
+     "amount": "13500",
+     "timestamp": "1784770239",
+     "description": "UPS drop penalty Tony Pollard 13500 id:14085_1784770121",
+     "id": "54"
+    },
+    {
+     "amount": "16250",
+     "timestamp": "1784775668",
+     "description": "UPS drop penalty Michael Pittman 16250 id:14842_1784775644",
+     "id": "55",
+     "franchise_id": "0003"
+    },
+    {
+     "franchise_id": "0003",
+     "amount": "-250",
+     "timestamp": "1784807462",
+     "description": "UPS drop penalty rounding Gride -250 id:ups_drop_rounding_0003_2026",
+     "id": "56"
+    },
+    {
+     "franchise_id": "0009",
+     "description": "UPS drop penalty rounding C-Town Chivalry 500 id:ups_drop_rounding_0009_2026",
+     "timestamp": "1784807462",
+     "amount": "500",
+     "id": "57"
+    },
+    {
+     "franchise_id": "0012",
+     "id": "58",
+     "description": "UPS RULE 2 missed nomination 2026-07-28 offense 1 id:ups_rule2_2026.74598.0012.2026-07-28.2026",
+     "timestamp": "1785401317",
+     "amount": "3000"
+    },
+    {
+     "franchise_id": "0002",
+     "id": "59",
+     "amount": "-12000",
+     "timestamp": "1787538682",
+     "description": "UPS traded salary settlement (trade_20261174): net -12K"
+    },
+    {
+     "franchise_id": "0007",
+     "timestamp": "1776441058",
+     "amount": "3500",
+     "description": "UPS drop penalty Richardson, Anthony 3500 id:adddrop2025_141.2",
+     "id": "6"
+    },
+    {
+     "timestamp": "1787538682",
+     "amount": "12000",
+     "description": "UPS traded salary settlement (trade_20261174): net +12K",
+     "id": "60",
+     "franchise_id": "0010"
+    },
+    {
+     "id": "7",
+     "description": "UPS drop penalty Sweat, T'Vondre 1000 id:adddrop2025_192.2",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "franchise_id": "0006"
+    },
+    {
+     "franchise_id": "0001",
+     "timestamp": "1776441058",
+     "amount": "1000",
+     "description": "UPS drop penalty Pratt, Germaine 1000 id:adddrop2025_231.2",
+     "id": "8"
+    },
+    {
+     "franchise_id": "0002",
+     "description": "UPS drop penalty Edwards, T.J. 4000 id:adddrop2025_276.2",
+     "timestamp": "1776441058",
+     "amount": "4000",
+     "id": "9"
+    }
+   ]
+  },
+  "version": "1.0"
+ },
+ "trades": {
+  "transactions": {
+   "transaction": [
+    {
+     "franchise2": "0004",
+     "franchise2_gave_up": "13590,16618,13208,FP_0004_2027_1,FP_0004_2027_2,FP_0003_2027_2,",
+     "expires": "1791219909",
+     "type": "TRADE",
+     "comments": "",
+     "timestamp": "1790679568",
+     "franchise1_gave_up": "13593,14249,14789,FP_0007_2027_4,",
+     "franchise": "0007"
+    },
+    {
+     "franchise": "0010",
+     "comments": "",
+     "timestamp": "1790126825",
+     "franchise1_gave_up": "17518,FP_0010_2027_5,",
+     "franchise2_gave_up": "FP_0011_2027_4,",
+     "franchise2": "0011",
+     "expires": "1790688608",
+     "type": "TRADE"
+    },
+    {
+     "type": "TRADE",
+     "franchise2_gave_up": "FP_0006_2027_5,",
+     "franchise2": "0006",
+     "expires": "1788908348",
+     "franchise": "0007",
+     "comments": "",
+     "timestamp": "1788305827",
+     "franchise1_gave_up": "17105,"
+    },
+    {
+     "type": "TRADE",
+     "expires": "1788143318",
+     "franchise2": "0010",
+     "franchise2_gave_up": "16184,17685,17502,17064,BB_12000,",
+     "comments": "",
+     "franchise1_gave_up": "16622,17477,FP_0002_2027_4,",
+     "timestamp": "1787538681",
+     "franchise": "0002"
+    },
+    {
+     "timestamp": "1786072948",
+     "franchise1_gave_up": "15808,FP_0008_2027_5,",
+     "comments": "",
+     "franchise": "0008",
+     "type": "TRADE",
+     "franchise2_gave_up": "FP_0012_2027_4,",
+     "expires": "1786624041",
+     "franchise2": "0012"
+    },
+    {
+     "comments": "",
+     "franchise1_gave_up": "15287,17031,BB_10000,",
+     "timestamp": "1784746367",
+     "franchise": "0001",
+     "type": "TRADE",
+     "franchise2_gave_up": "13592,16809,17474,",
+     "expires": "1785277115",
+     "franchise2": "0003"
+    },
+    {
+     "franchise": "0009",
+     "timestamp": "1784743077",
+     "franchise1_gave_up": "15751,BB_19000,",
+     "comments": "[Commish-processed: 3-way] 3-way 72cea017-d8ca-485b-8089-4122e5dc117a pair-3 (pairwise)",
+     "by_commish": "1",
+     "franchise2": "0010",
+     "franchise2_gave_up": ",",
+     "expires": "1785347877",
+     "type": "TRADE"
+    },
+    {
+     "franchise2_gave_up": "16211,",
+     "expires": "1785347876",
+     "franchise2": "0010",
+     "type": "TRADE",
+     "by_commish": "1",
+     "timestamp": "1784743077",
+     "franchise1_gave_up": "FP_0008_2027_1,16174,17502,",
+     "comments": "[Commish-processed: 3-way] 3-way 72cea017-d8ca-485b-8089-4122e5dc117a pair-2 (pairwise)",
+     "franchise": "0008"
+    },
+    {
+     "type": "TRADE",
+     "franchise2": "0009",
+     "expires": "1785346026",
+     "franchise2_gave_up": ",",
+     "by_commish": "1",
+     "timestamp": "1784743076",
+     "franchise1_gave_up": "17071,",
+     "comments": "[Commish-processed: 3-way] 3-way 72cea017-d8ca-485b-8089-4122e5dc117a pair-1 (pairwise)",
+     "franchise": "0008"
+    },
+    {
+     "franchise": "0007",
+     "franchise1_gave_up": "17269,",
+     "timestamp": "1784472018",
+     "comments": "",
+     "type": "TRADE",
+     "expires": "1785076362",
+     "franchise2": "0011",
+     "franchise2_gave_up": "FP_0011_2027_5,"
+    },
+    {
+     "franchise": "0006",
+     "timestamp": "1784340660",
+     "franchise1_gave_up": "17076,FP_0006_2027_4,",
+     "comments": "",
+     "franchise2": "0001",
+     "franchise2_gave_up": "16245,16626,FP_0001_2027_5,",
+     "expires": "1784913051",
+     "type": "TRADE"
+    },
+    {
+     "franchise2_gave_up": "FP_0010_2027_2,",
+     "franchise2": "0010",
+     "expires": "1784220038",
+     "type": "TRADE",
+     "franchise1_gave_up": "13299,BB_5000,",
+     "timestamp": "1783770745",
+     "comments": "",
+     "franchise": "0007"
+    },
+    {
+     "franchise2": "0005",
+     "franchise2_gave_up": "DP_3_7,DP_4_0,FP_0005_2027_4,",
+     "expires": "1780276138",
+     "type": "TRADE",
+     "by_commish": "1",
+     "timestamp": "1779671397",
+     "franchise1_gave_up": "DP_2_7,",
+     "comments": "",
+     "franchise": "0001"
+    },
+    {
+     "by_commish": "1",
+     "franchise2": "0003",
+     "expires": "1780275641",
+     "franchise2_gave_up": "DP_2_5,",
+     "type": "TRADE",
+     "franchise": "0008",
+     "comments": "",
+     "timestamp": "1779670862",
+     "franchise1_gave_up": "DP_2_8,DP_2_11,"
+    },
+    {
+     "timestamp": "1779669427",
+     "franchise1_gave_up": "DP_3_0,FP_0005_2027_3,",
+     "comments": "",
+     "franchise": "0005",
+     "type": "TRADE",
+     "franchise2": "0004",
+     "expires": "1780274161",
+     "franchise2_gave_up": "DP_1_11,"
+    },
+    {
+     "franchise": "0004",
+     "comments": "",
+     "franchise1_gave_up": "DP_1_8,DP_3_11,",
+     "timestamp": "1779668813",
+     "by_commish": "1",
+     "type": "TRADE",
+     "franchise2": "0003",
+     "expires": "1780273544",
+     "franchise2_gave_up": "FP_0003_2027_2,"
+    },
+    {
+     "by_commish": "1",
+     "franchise2": "0004",
+     "expires": "1780272795",
+     "franchise2_gave_up": "DP_1_5,",
+     "type": "TRADE",
+     "franchise": "0008",
+     "comments": "",
+     "franchise1_gave_up": "DP_1_8,FP_0008_2027_3,",
+     "timestamp": "1779668012"
+    },
+    {
+     "franchise1_gave_up": "DP_1_2,DP_2_5,",
+     "timestamp": "1779667183",
+     "comments": "",
+     "franchise": "0006",
+     "expires": "1780271967",
+     "franchise2_gave_up": "DP_1_4,DP_1_9,",
+     "franchise2": "0003",
+     "type": "TRADE",
+     "by_commish": "1"
+    },
+    {
+     "by_commish": "1",
+     "expires": "1780268490",
+     "franchise2": "0003",
+     "franchise2_gave_up": "15253,DP_0_6,",
+     "type": "TRADE",
+     "franchise": "0008",
+     "timestamp": "1779663725",
+     "franchise1_gave_up": "DP_0_3,",
+     "comments": ""
+    },
+    {
+     "type": "TRADE",
+     "franchise2": "0007",
+     "franchise2_gave_up": "DP_2_3,DP_2_5,",
+     "expires": "1779151333",
+     "comments": "",
+     "timestamp": "1778546756",
+     "franchise1_gave_up": "DP_2_10,DP_3_3,DP_3_4,DP_3_6,DP_4_6,",
+     "franchise": "0006"
+    },
+    {
+     "expires": "1778707072",
+     "franchise2": "0006",
+     "franchise2_gave_up": "FP_0006_2027_3,",
+     "type": "TRADE",
+     "comments": "",
+     "franchise1_gave_up": "16188,",
+     "timestamp": "1778117113",
+     "franchise": "0004"
+    },
+    {
+     "franchise": "0005",
+     "comments": "",
+     "franchise1_gave_up": "FP_0005_2027_2,",
+     "timestamp": "1776396348",
+     "type": "TRADE",
+     "franchise2": "0001",
+     "franchise2_gave_up": "14071,",
+     "expires": "1776693201"
+    },
+    {
+     "franchise2": "0008",
+     "franchise2_gave_up": "15711,",
+     "expires": "1776693472",
+     "type": "TRADE",
+     "timestamp": "1776092645",
+     "franchise1_gave_up": "FP_0005_2027_1,",
+     "comments": "",
+     "franchise": "0005"
+    },
+    {
+     "type": "TRADE",
+     "expires": "1776371712",
+     "franchise2": "0005",
+     "franchise2_gave_up": "14783,BB_20000,",
+     "timestamp": "1775772921",
+     "franchise1_gave_up": "FP_0006_2027_1,FP_0006_2027_2,",
+     "comments": "",
+     "franchise": "0006"
+    },
+    {
+     "franchise": "0007",
+     "comments": "",
+     "franchise1_gave_up": "DP_0_9,",
+     "timestamp": "1774623376",
+     "type": "TRADE",
+     "franchise2_gave_up": "FP_0010_2027_1,",
+     "expires": "1775228054",
+     "franchise2": "0010"
+    }
+   ]
+  },
+  "encoding": "utf-8",
+  "version": "1.0"
+ },
+ "franchises": [
+  {
+   "id": "0001",
+   "name": "L.A. Looks"
+  },
+  {
+   "id": "0002",
+   "name": "CBP"
+  },
+  {
+   "id": "0003",
+   "name": "Gride"
+  },
+  {
+   "id": "0004",
+   "name": "Pure Greatness"
+  },
+  {
+   "id": "0005",
+   "name": "HammerTime 🔨 ⏰"
+  },
+  {
+   "id": "0006",
+   "name": "The Long Haulers"
+  },
+  {
+   "id": "0007",
+   "name": "Sex Manther"
+  },
+  {
+   "id": "0008",
+   "name": "Real Deal Creel"
+  },
+  {
+   "id": "0009",
+   "name": "C-Town Chivalry"
+  },
+  {
+   "id": "0010",
+   "name": "Blake Bombers"
+  },
+  {
+   "id": "0011",
+   "name": "Cleon Ca$h"
+  },
+  {
+   "id": "0012",
+   "name": "Hawks"
+  }
+ ],
+ "players": [
+  {
+   "id": "13208",
+   "name": "Allen, Jonathan",
+   "team": "CIN",
+   "position": "DT"
+  },
+  {
+   "team": "SFO",
+   "position": "TE",
+   "id": "13299",
+   "name": "Kittle, George"
+  },
+  {
+   "id": "13590",
+   "name": "Mayfield, Baker",
+   "team": "TBB",
+   "position": "QB"
+  },
+  {
+   "name": "Darnold, Sam",
+   "id": "13592",
+   "team": "SEA",
+   "position": "QB"
+  },
+  {
+   "position": "QB",
+   "team": "BAL",
+   "name": "Jackson, Lamar",
+   "id": "13593"
+  },
+  {
+   "position": "RB",
+   "team": "HOU",
+   "name": "Montgomery, David",
+   "id": "14071"
+  },
+  {
+   "name": "Van Ginkel, Andrew",
+   "id": "14249",
+   "team": "MIN",
+   "position": "DE"
+  },
+  {
+   "id": "14783",
+   "name": "Hurts, Jalen",
+   "team": "PHI",
+   "position": "QB"
+  },
+  {
+   "id": "14789",
+   "name": "Huntley, Tyler",
+   "position": "QB",
+   "team": "BAL"
+  },
+  {
+   "position": "RB",
+   "team": "NOS",
+   "name": "Etienne, Travis",
+   "id": "15253"
+  },
+  {
+   "name": "St. Brown, Amon-Ra",
+   "id": "15287",
+   "team": "DET",
+   "position": "WR"
+  },
+  {
+   "position": "RB",
+   "team": "KCC",
+   "name": "Walker III, Kenneth",
+   "id": "15711"
+  },
+  {
+   "name": "London, Drake",
+   "id": "15751",
+   "team": "ATL",
+   "position": "WR"
+  },
+  {
+   "team": "KCC",
+   "position": "DE",
+   "id": "15808",
+   "name": "Karlaftis, George"
+  },
+  {
+   "name": "Rodriguez, Chris",
+   "id": "16174",
+   "team": "JAC",
+   "position": "RB"
+  },
+  {
+   "id": "16184",
+   "name": "Reed, Jayden",
+   "position": "WR",
+   "team": "GBP"
+  },
+  {
+   "position": "WR",
+   "team": "LAC",
+   "name": "Johnston, Quentin",
+   "id": "16188"
+  },
+  {
+   "name": "Nacua, Puka",
+   "id": "16211",
+   "position": "WR",
+   "team": "LAR"
+  },
+  {
+   "team": "CIN",
+   "position": "S",
+   "name": "Battle, Jordan",
+   "id": "16245"
+  },
+  {
+   "id": "16618",
+   "name": "Thomas Jr., Brian",
+   "team": "JAC",
+   "position": "WR"
+  },
+  {
+   "id": "16622",
+   "name": "Pearsall, Ricky",
+   "position": "WR",
+   "team": "SFO"
+  },
+  {
+   "team": "NYJ",
+   "position": "WR",
+   "id": "16626",
+   "name": "Mitchell, Adonai"
+  },
+  {
+   "id": "16809",
+   "name": "Coker, Jalen",
+   "position": "WR",
+   "team": "CAR"
+  },
+  {
+   "position": "QB",
+   "team": "CLE",
+   "name": "Sanders, Shedeur",
+   "id": "17031"
+  },
+  {
+   "name": "Hunter, Jarquez",
+   "id": "17064",
+   "position": "RB",
+   "team": "MIA"
+  },
+  {
+   "team": "CAR",
+   "position": "WR",
+   "name": "McMillan, Tetairoa",
+   "id": "17071"
+  },
+  {
+   "id": "17076",
+   "name": "Bond, Isaiah",
+   "position": "WR",
+   "team": "CLE"
+  },
+  {
+   "position": "TE",
+   "team": "TEN",
+   "name": "Helm, Gunnar",
+   "id": "17105"
+  },
+  {
+   "position": "WR",
+   "team": "NEP",
+   "id": "17269",
+   "name": "Chism, Efton"
+  },
+  {
+   "team": "KCC",
+   "status": "R",
+   "position": "RB",
+   "name": "Johnson, Emmett",
+   "id": "17474"
+  },
+  {
+   "position": "RB",
+   "team": "DEN",
+   "status": "R",
+   "id": "17477",
+   "name": "Coleman, Jonah"
+  },
+  {
+   "name": "Cooper Jr., Omar",
+   "id": "17502",
+   "team": "NYJ",
+   "status": "R",
+   "position": "WR"
+  },
+  {
+   "id": "17518",
+   "name": "Allen, Cyrus",
+   "position": "WR",
+   "status": "R",
+   "team": "KCC"
+  },
+  {
+   "position": "RB",
+   "status": "R",
+   "team": "PIT",
+   "name": "Heidenreich, Eli",
+   "id": "17685"
+  }
+ ],
+ "drop_events": [
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "15292",
+   "player_name": "Dyami Brown",
+   "position": "WR",
+   "nfl_team": "WAS",
+   "franchise_id": "0009",
+   "franchise_name": "C-Town Chivalry",
+   "dropped_at_unix": 1779459271,
+   "dropped_at_iso": "2026-05-22T14:14:31.000Z",
+   "pre_drop_contract_status": "Veteran",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 2250,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_fixed_1k",
+   "penalty_exempt": 0,
+   "ledger_key": "15292_1779459271",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "14137",
+   "player_name": "Noah Fant",
+   "position": "TE",
+   "nfl_team": "NOS",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1784395782,
+   "dropped_at_iso": "2026-07-18T17:29:42.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 4000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4| GTD: 9K",
+   "pre_drop_tcv": 12000,
+   "pre_drop_aav": 4000,
+   "earned_to_date": 8000,
+   "guaranteed_amount": 9000,
+   "penalty_amount": 1000,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "14137_1784395782",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16619",
+   "player_name": "Troy Franklin",
+   "position": "WR",
+   "nfl_team": "DEN",
+   "franchise_id": "0005",
+   "franchise_name": "HammerTime 🔨 ⏰",
+   "dropped_at_unix": 1784582888,
+   "dropped_at_iso": "2026-07-20T21:28:08.000Z",
+   "pre_drop_contract_status": "Rookie-Draft",
+   "pre_drop_salary": 5000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+   "pre_drop_tcv": 15000,
+   "pre_drop_aav": 5000,
+   "earned_to_date": 10000,
+   "guaranteed_amount": 11250,
+   "penalty_amount": 1250,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "16619_1784582888",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16594",
+   "player_name": "Trey Benson",
+   "position": "RB",
+   "nfl_team": "ARI",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1784584049,
+   "dropped_at_iso": "2026-07-20T21:47:29.000Z",
+   "pre_drop_contract_status": "Rookie-Draft",
+   "pre_drop_salary": 6000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 18K| AAV 6K| Y1-6K, Y2-6K, Y3-6K| GTD: 13.5K",
+   "pre_drop_tcv": 18000,
+   "pre_drop_aav": 6000,
+   "earned_to_date": 12000,
+   "guaranteed_amount": 13500,
+   "penalty_amount": 1500,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "16594_1784584049",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16649",
+   "player_name": "Theo Johnson",
+   "position": "TE",
+   "nfl_team": "NYG",
+   "franchise_id": "0006",
+   "franchise_name": "The Long Haulers",
+   "dropped_at_unix": 1784668888,
+   "dropped_at_iso": "2026-07-21T21:21:28.000Z",
+   "pre_drop_contract_status": "Rookie-Draft",
+   "pre_drop_salary": 5000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5, Y2-5, Y3-5| GTD: 11.3K",
+   "pre_drop_tcv": 15000,
+   "pre_drop_aav": 5000,
+   "earned_to_date": 10000,
+   "guaranteed_amount": 11250,
+   "penalty_amount": 1250,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "16649_1784668888",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "12801",
+   "player_name": "Tyreek Hill",
+   "position": "WR",
+   "nfl_team": "FA",
+   "franchise_id": "0007",
+   "franchise_name": "Sex Manther",
+   "dropped_at_unix": 1784717601,
+   "dropped_at_iso": "2026-07-22T10:53:21.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 62000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 2,
+   "pre_drop_contract_info": "CL 2| TCV 142K| AAV 62K| Y1-80K, Y2-62K| GTD: 106.5K",
+   "pre_drop_tcv": 142000,
+   "pre_drop_aav": 62000,
+   "earned_to_date": 80000,
+   "guaranteed_amount": 106500,
+   "penalty_amount": 26500,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "12801_1784717601",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "15702",
+   "player_name": "Tanner McKee",
+   "position": "QB",
+   "nfl_team": "PHI",
+   "franchise_id": "0007",
+   "franchise_name": "Sex Manther",
+   "dropped_at_unix": 1784719239,
+   "dropped_at_iso": "2026-07-22T11:20:39.000Z",
+   "pre_drop_contract_status": "Vet-WW",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 2250,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_fixed_1k",
+   "penalty_exempt": 0,
+   "ledger_key": "15702_1784719239",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16617",
+   "player_name": "Keon Coleman",
+   "position": "WR",
+   "nfl_team": "BUF",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1784751709,
+   "dropped_at_iso": "2026-07-22T20:21:49.000Z",
+   "pre_drop_contract_status": "Rookie-Draft",
+   "pre_drop_salary": 5000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K",
+   "pre_drop_tcv": 15000,
+   "pre_drop_aav": 5000,
+   "earned_to_date": 10000,
+   "guaranteed_amount": 11250,
+   "penalty_amount": 1250,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "16617_1784751709",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "14085",
+   "player_name": "Tony Pollard",
+   "position": "RB",
+   "nfl_team": "TEN",
+   "franchise_id": "0009",
+   "franchise_name": "C-Town Chivalry",
+   "dropped_at_unix": 1784770121,
+   "dropped_at_iso": "2026-07-23T01:28:41.000Z",
+   "pre_drop_contract_status": "Vet-Ext1",
+   "pre_drop_salary": 27000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 2,
+   "pre_drop_contract_info": "CL 2| TCV 54K| AAV 27K| Y1-27K, Y2-27K| GTD: 40.5K| Ext: C-Town",
+   "pre_drop_tcv": 54000,
+   "pre_drop_aav": 27000,
+   "earned_to_date": 27000,
+   "guaranteed_amount": 40500,
+   "penalty_amount": 13500,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "14085_1784770121",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "14842",
+   "player_name": "Michael Pittman",
+   "position": "WR",
+   "nfl_team": "PIT",
+   "franchise_id": "0003",
+   "franchise_name": "Gride",
+   "dropped_at_unix": 1784775644,
+   "dropped_at_iso": "2026-07-23T03:00:44.000Z",
+   "pre_drop_contract_status": "Vet-Ext2",
+   "pre_drop_salary": 45000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 115K| AAV 45K| Y1-25K Y2-45K Y3-45K| GTD: 86.3K| Ext: PG",
+   "pre_drop_tcv": 115000,
+   "pre_drop_aav": 45000,
+   "earned_to_date": 70000,
+   "guaranteed_amount": 86250,
+   "penalty_amount": 16250,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "14842_1784775644",
+   "posted_to_mfl": 1
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "17254",
+   "player_name": "Konata Mumpfield",
+   "position": "WR",
+   "nfl_team": "LAR",
+   "franchise_id": "0006",
+   "franchise_name": "The Long Haulers",
+   "dropped_at_unix": 1786195613,
+   "dropped_at_iso": "2026-08-08T13:26:53.000Z",
+   "pre_drop_contract_status": "Rookie-MYM",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 2000,
+   "penalty_amount": 1000,
+   "penalty_basis": "full_year_1k_contract",
+   "penalty_exempt": 0,
+   "ledger_key": "17254_1786195613",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "17205",
+   "player_name": "KeAndre Lambert-Smith",
+   "position": "WR",
+   "nfl_team": "LAC",
+   "franchise_id": "0006",
+   "franchise_name": "The Long Haulers",
+   "dropped_at_unix": 1786195656,
+   "dropped_at_iso": "2026-08-08T13:27:36.000Z",
+   "pre_drop_contract_status": "Rookie-MYM",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 2000,
+   "penalty_amount": 1000,
+   "penalty_basis": "full_year_1k_contract",
+   "penalty_exempt": 0,
+   "ledger_key": "17205_1786195656",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16643",
+   "player_name": "Ja'Tavion Sanders",
+   "position": "TE",
+   "nfl_team": "CAR",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1786626000,
+   "dropped_at_iso": "2026-08-13T13:00:00.000Z",
+   "pre_drop_contract_status": "Vet-MYM",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 2000,
+   "penalty_amount": 1000,
+   "penalty_basis": "full_year_1k_contract",
+   "penalty_exempt": 0,
+   "ledger_key": "16643_1786626000",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "14105",
+   "player_name": "Marquise Brown",
+   "position": "WR",
+   "nfl_team": "PHI",
+   "franchise_id": "0012",
+   "franchise_name": "Hawks",
+   "dropped_at_unix": 1786851331,
+   "dropped_at_iso": "2026-08-16T03:35:31.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 8000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 24K| AAV 8K| Y1-8, Y2-8, Y3-8| GTD: 18K",
+   "pre_drop_tcv": 24000,
+   "pre_drop_aav": 8000,
+   "earned_to_date": 16000,
+   "guaranteed_amount": 18000,
+   "penalty_amount": 2000,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "14105_1786851331",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "13193",
+   "player_name": "Jonnu Smith",
+   "position": "TE",
+   "nfl_team": "GBP",
+   "franchise_id": "0005",
+   "franchise_name": "HammerTime 🔨 ⏰",
+   "dropped_at_unix": 1787928504,
+   "dropped_at_iso": "2026-08-28T14:48:24.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 6000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 18K| AAV 6K| Y1-6K, Y2-6K, Y3-6K| GTD: 13.5K",
+   "pre_drop_tcv": 18000,
+   "pre_drop_aav": 6000,
+   "earned_to_date": 6000,
+   "guaranteed_amount": 13500,
+   "penalty_amount": 7500,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "13193_1787928504",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16149",
+   "player_name": "Will Levis",
+   "position": "QB",
+   "nfl_team": "TEN",
+   "franchise_id": "0006",
+   "franchise_name": "The Long Haulers",
+   "dropped_at_unix": 1788090281,
+   "dropped_at_iso": "2026-08-30T11:44:41.000Z",
+   "pre_drop_contract_status": "Vet-ERA",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 3,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 0,
+   "ledger_key": "16149_1788090281",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "13113",
+   "player_name": "Deshaun Watson",
+   "position": "QB",
+   "nfl_team": "CLE",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1788740430,
+   "dropped_at_iso": "2026-09-07T00:20:30.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 0,
+   "ledger_key": "13113_1788740430",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "17542",
+   "player_name": "Colbie Young",
+   "position": "WR",
+   "nfl_team": "CIN",
+   "franchise_id": "0003",
+   "franchise_name": "Gride",
+   "dropped_at_unix": 1788781910,
+   "dropped_at_iso": "2026-09-07T11:51:50.000Z",
+   "pre_drop_contract_status": "Rookie-FAA",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 1,
+   "pre_drop_contract_info": "CL 1| TCV 1K| AAV 1K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": 0,
+   "guaranteed_amount": null,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 1,
+   "ledger_key": "17542_1788781910",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "15787",
+   "player_name": "Tyquan Thornton",
+   "position": "WR",
+   "nfl_team": "KCC",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1789650000,
+   "dropped_at_iso": "2026-09-17T13:00:00.000Z",
+   "pre_drop_contract_status": "Vet-MYM",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 0,
+   "ledger_key": "15787_1789650000",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "15839",
+   "player_name": "Nick Cross",
+   "position": "S",
+   "nfl_team": "WAS",
+   "franchise_id": "0010",
+   "franchise_name": "Blake Bombers",
+   "dropped_at_unix": 1790254800,
+   "dropped_at_iso": "2026-09-24T13:00:00.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 2,
+   "pre_drop_contract_info": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
+   "pre_drop_tcv": 2000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 0,
+   "ledger_key": "15839_1790254800",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "15795",
+   "player_name": "Charlie Kolar",
+   "position": "TE",
+   "nfl_team": "LAC",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1790427600,
+   "dropped_at_iso": "2026-09-26T13:00:00.000Z",
+   "pre_drop_contract_status": "Vet-WW",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 2,
+   "pre_drop_contract_info": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
+   "pre_drop_tcv": 2000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 0,
+   "ledger_key": "15795_1790427600",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16850",
+   "player_name": "Jacob Saylors",
+   "position": "RB",
+   "nfl_team": "DET",
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "dropped_at_unix": 1790519957,
+   "dropped_at_iso": "2026-09-27T14:39:17.000Z",
+   "pre_drop_contract_status": "Vet-WW",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 3,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "tcv_under_5k_flat",
+   "penalty_exempt": 0,
+   "ledger_key": "16850_1790519957",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "13284",
+   "player_name": "Trey Hendrickson",
+   "position": "DE",
+   "nfl_team": "BAL",
+   "franchise_id": "0010",
+   "franchise_name": "Blake Bombers",
+   "dropped_at_unix": 1790946000,
+   "dropped_at_iso": "2026-10-02T13:00:00.000Z",
+   "pre_drop_contract_status": "Vet-FAA",
+   "pre_drop_salary": 3000,
+   "pre_drop_contract_year": 1,
+   "pre_drop_contract_length": 2,
+   "pre_drop_contract_info": "CL 2| TCV 6K| AAV 3K| Y1-3K, Y2-3K| GTD: 4.5K",
+   "pre_drop_tcv": 6000,
+   "pre_drop_aav": 3000,
+   "earned_to_date": 3529,
+   "guaranteed_amount": 4500,
+   "penalty_amount": 971,
+   "penalty_basis": "guarantee_minus_earned",
+   "penalty_exempt": 0,
+   "ledger_key": "13284_1790946000",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "17623",
+   "player_name": "Kaleb Elarms-Orr",
+   "position": "LB",
+   "nfl_team": "BUF",
+   "franchise_id": "0010",
+   "franchise_name": "Blake Bombers",
+   "dropped_at_unix": 1791032400,
+   "dropped_at_iso": "2026-10-03T13:00:00.000Z",
+   "pre_drop_contract_status": "Rookie-WW",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 3,
+   "pre_drop_contract_length": 3,
+   "pre_drop_contract_info": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
+   "pre_drop_tcv": 3000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "full_year_1k_contract",
+   "penalty_exempt": 0,
+   "ledger_key": "17623_1791032400",
+   "posted_to_mfl": 0
+  },
+  {
+   "season": "2026",
+   "league_id": "74598",
+   "player_id": "16189",
+   "player_name": "Marvin Mims",
+   "position": "WR",
+   "nfl_team": "DEN",
+   "franchise_id": "0001",
+   "franchise_name": "L.A. Looks",
+   "dropped_at_unix": 1791131754,
+   "dropped_at_iso": "2026-10-04T16:35:54.000Z",
+   "pre_drop_contract_status": "Vet-ERA",
+   "pre_drop_salary": 1000,
+   "pre_drop_contract_year": 2,
+   "pre_drop_contract_length": 2,
+   "pre_drop_contract_info": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
+   "pre_drop_tcv": 2000,
+   "pre_drop_aav": 1000,
+   "earned_to_date": null,
+   "guaranteed_amount": 1000,
+   "penalty_amount": 1000,
+   "penalty_basis": "full_year_1k_contract",
+   "penalty_exempt": 0,
+   "ledger_key": "16189_1791131754",
+   "posted_to_mfl": 0
+  }
+ ],
+ "faa_nom_penalties": [
+  {
+   "penalty_id": "2026|74598|0012|2026-07-28|2026",
+   "season": 2026,
+   "league_id": "74598",
+   "fid": "0012",
+   "et_day": "2026-07-28",
+   "offense_no": 1,
+   "amount_k": 3,
+   "applies_to_season": 2026,
+   "posted_to_mfl": 1,
+   "voided": 0
+  },
+  {
+   "penalty_id": "2026|74598|0012|2026-07-28|2027",
+   "season": 2026,
+   "league_id": "74598",
+   "fid": "0012",
+   "et_day": "2026-07-28",
+   "offense_no": 1,
+   "amount_k": 3,
+   "applies_to_season": 2027,
+   "posted_to_mfl": 0,
+   "voided": 0
+  }
+ ]
+}

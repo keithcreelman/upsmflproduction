@@ -2489,6 +2489,108 @@ function mflReadableError(raw) {
   return t.split(/\n+/).map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean).join(" · ");
 }
 
+// ── Salary Adjustments ledger (Front Office "Salary Adjustments" tab) ──────
+// Pure helpers for GET /api/salary-adjustments/ledger. Every UPS-posted MFL
+// salaryAdjustment carries a machine-written description; these read it back.
+//   trade : "UPS traded salary settlement (trade_20261018): net +20K"
+//           "UPS traded salary settlement (3-way 72cea017): net +19K"
+//   drop  : "UPS drop penalty Felton, Tai 1000 id:adddrop2025_266.2"
+//           "UPS drop penalty Tyreek Hill 26500 id:12801_1784717601"
+//   misc  : "UPS drop penalty rounding Hawks 500 id:ups_drop_rounding_0012_2026"
+//           "UPS RULE 2 missed nomination 2026-07-28 offense 1 id:ups_rule2_…"
+// Anything else (a hand-entered commish row) falls back to keywords, then misc.
+function saladjClassify(desc) {
+  const d = String(desc == null ? "" : desc).trim();
+  let m = d.match(/traded salary settlement \(([^)]+)\)/i);
+  if (m) return { type: "trade", ref: m[1].trim() };
+  if (/^UPS drop penalty rounding\b/i.test(d)) {
+    return { type: "misc", misc_kind: "drop_rounding",
+      reason: "Drop-penalty rounding — the team's season drop-penalty total trued to the nearest $1K (penalties round on the season sum, not per drop)" };
+  }
+  m = d.match(/RULE 2 missed nomination (\d{4}-\d{2}-\d{2}) offense (\d+)/i);
+  if (m) {
+    return { type: "misc", misc_kind: "rule2",
+      reason: `RULE 2 fine — missed FA Auction nomination on ${m[1]} (offense ${m[2]})` };
+  }
+  m = d.match(/^UPS drop penalty (.+?) (-?\d+(?:\.\d+)?) id:(\S+)/i);
+  if (m) return { type: "drop", player_text: m[1].trim(), key: m[3].trim() };
+  const t = d.toLowerCase();
+  if (t.indexOf("trade") !== -1) return { type: "trade", ref: "" };
+  if (t.indexOf("drop") !== -1 || t.indexOf("cut") !== -1 || t.indexOf("waiv") !== -1) return { type: "drop", player_text: "", key: "" };
+  return { type: "misc", misc_kind: "other", reason: d || "No description on MFL" };
+}
+
+// One MFL TRADE asset token → a readable label. Tokens (MFL transactions):
+//   <pid>                  a player
+//   FP_<fid>_<year>_<rd>   a future draft pick, originally <fid>'s
+//   DP_<rd>_<slot>         a current-year pick, ZERO-indexed (DP_0_3 = 1.04)
+//   BB_<dollars>           traded cap dollars — what the settlement row posts
+function saladjAssetLabel(token, ctx) {
+  const tok = String(token == null ? "" : token).trim();
+  const c = ctx || {};
+  const fidName = c.fidName || {};
+  let m = tok.match(/^FP_(\d+)_(\d{4})_(\d+)$/);
+  if (m) {
+    const owner = fidName[String(m[1]).padStart(4, "0")] || `Team ${m[1]}`;
+    return { token: tok, kind: "pick", label: `${m[2]} Rd ${m[3]} pick (${owner})` };
+  }
+  m = tok.match(/^DP_(\d+)_(\d+)$/);
+  if (m) {
+    const rd = Number(m[1]) + 1, slot = Number(m[2]) + 1;
+    return { token: tok, kind: "pick", label: `${c.season || ""} pick ${rd}.${String(slot).padStart(2, "0")}`.trim() };
+  }
+  m = tok.match(/^BB_(\d+(?:\.\d+)?)$/);
+  if (m) {
+    const k = Math.round(Number(m[1]) / 100) / 10;
+    return { token: tok, kind: "salary", dollars: Math.round(Number(m[1])), label: `$${String(k).replace(/\.0$/, "")}K traded salary` };
+  }
+  if (/^\d+$/.test(tok)) {
+    const p = (c.playersById || {})[tok] || null;
+    const name = p && p.player_name ? p.player_name : `Player ${tok}`;
+    const tail = p ? [p.position, p.nfl_team].filter(Boolean).join(" ") : "";
+    return { token: tok, kind: "player", player_id: tok, label: tail ? `${name} ${tail}` : name };
+  }
+  return { token: tok, kind: "other", label: tok };
+}
+
+// MFL TRADE transactions → { a, b, unix, a_gave[], b_gave[], comments }.
+function saladjNormalizeTrades(txPayload) {
+  let list = txPayload && txPayload.transactions && txPayload.transactions.transaction;
+  list = Array.isArray(list) ? list : (list ? [list] : []);
+  const toks = (csv) => String(csv || "").split(",").map((x) => x.trim()).filter(Boolean);
+  return list
+    .filter((t) => String(t && t.type || "").toUpperCase() === "TRADE")
+    .map((t) => ({
+      a: String(t.franchise || "").padStart(4, "0"),
+      b: String(t.franchise2 || "").padStart(4, "0"),
+      unix: Number(t.timestamp) || 0,
+      a_gave: toks(t.franchise1_gave_up),
+      b_gave: toks(t.franchise2_gave_up),
+      comments: String(t.comments || ""),
+    }));
+}
+
+// The MFL trade a settlement pair belongs to: the same two franchises, within
+// 3 days of the settlement (2-way settlements post in the same second; a 3-way
+// leg ran ~1.8h ahead). A BB_<|amount|> asset — the traded dollars themselves —
+// outranks timing; a 3-way ref must name the leg's 3-way id in the comments.
+function saladjMatchTrade(fidA, fidB, unix, absAmount, ref, trades) {
+  const pair = [String(fidA), String(fidB)].sort().join("|");
+  const threeWay = String(ref || "").match(/^3-way\s+([0-9a-f]+)/i);
+  const MAX = 3 * 86400;
+  let best = null, bestScore = Infinity;
+  for (const t of trades || []) {
+    if ([t.a, t.b].sort().join("|") !== pair) continue;
+    const dt = Math.abs((Number(t.unix) || 0) - (Number(unix) || 0));
+    if (dt > MAX) continue;
+    if (threeWay && t.comments.toLowerCase().indexOf(threeWay[1].toLowerCase()) === -1) continue;
+    const bbHit = t.a_gave.concat(t.b_gave).some((x) => x === `BB_${absAmount}`);
+    const score = (bbHit ? 0 : MAX + 1) + dt;
+    if (score < bestScore) { bestScore = score; best = t; }
+  }
+  return best;
+}
+
 // Which week should an owner be setting a LINEUP for, right now?
 //
 // Ground truth starts from liveScoring.week (the week MFL is actively
@@ -51257,6 +51359,298 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           auction_start_unix: nsStart.unix, auction_start_source: nsStart.source,
           by_fid: byFid, rows: nsRows, needs_review: nsReview,
           grand_total: nsRows.reduce((a, r) => a + r.amount, 0),
+        });
+      }
+
+      // GET /api/salary-adjustments/ledger?L=&YEAR=
+      // The Front Office "Salary Adjustments" tab (Keith 2026-10-06): every cap
+      // adjustment, by team and year, typed traded salary / dropped player /
+      // misc, with the assessment date and amount, and its story —
+      //   drop  → the player and his pre-drop contract (original years, TCV,
+      //           GTD, earned): D1 ups_drop_events by ledger key, or the
+      //           season's static salary_adjustments report by adddrop id
+      //           (the 2025 drops that became 2026 penalties pre-date D1);
+      //   trade → the other team and the MFL trade the settlement belongs to;
+      //   misc  → what it was for.
+      // YEAR = what MFL has POSTED (salaryAdjustments — the ground truth);
+      // YEAR+1 = the next-season ledger, booked but not on MFL until the
+      // rollover (exactly the rows /api/cap-adjustments/next-season returns).
+      // Read-only: nothing here writes to MFL or D1. Amounts are MFL's posted
+      // dollars; the source's own computed figure rides along as
+      // drop.ledger_amount so a disagreement is visible, never silently fixed.
+      if (path === "/api/salary-adjustments/ledger" && request.method === "GET") {
+        const sjSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "2026");
+        const sjLeague = safeStr(url.searchParams.get("L") || L || "");
+        if (!sjLeague) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const sjSeasonNum = Number(sjSeason) || 0;
+        const sjNext = sjSeasonNum + 1;
+        const sjIso = (unix) => (Number(unix) > 0 ? new Date(Number(unix) * 1000).toISOString() : "");
+
+        const [sjAdjRes, sjLeagueRes, sjTxRes] = await Promise.all([
+          mflExportJson(sjSeason, sjLeague, "salaryAdjustments", {}, { useCookie: true }),
+          mflExportJson(sjSeason, sjLeague, "league", {}, { useCookie: true }),
+          mflExportJson(sjSeason, sjLeague, "transactions", { TRANS_TYPE: "TRADE" }, { useCookie: true }),
+        ]);
+        const sjFidName = {};
+        let sjFl = sjLeagueRes.ok && sjLeagueRes.data?.league?.franchises?.franchise;
+        sjFl = Array.isArray(sjFl) ? sjFl : (sjFl ? [sjFl] : []);
+        for (const f of sjFl) {
+          const fid = padFranchiseId(f && f.id);
+          if (fid) sjFidName[fid] = safeStr(f && f.name) || `Team ${fid}`;
+        }
+        const sjName = (fid) => sjFidName[fid] || `Team ${fid}`;
+        const sjTrades = sjTxRes.ok ? saladjNormalizeTrades(sjTxRes.data) : [];
+
+        // D1 drop ledger — the pre-drop contract for this season's drops, and
+        // the source of next season's rows.
+        let sjDrops = [];
+        let sjDropsOk = false;
+        if (env.UPS_MFL_DB) {
+          try {
+            const sel = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, player_name, position, nfl_team, franchise_id, franchise_name,
+                      dropped_at_unix, dropped_at_iso, pre_drop_contract_status, pre_drop_salary,
+                      pre_drop_contract_year, pre_drop_contract_length, pre_drop_contract_info,
+                      pre_drop_tcv, pre_drop_aav, earned_to_date, guaranteed_amount, penalty_amount,
+                      penalty_basis, penalty_exempt, ledger_key, posted_to_mfl
+                 FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND penalty_amount > 0
+                ORDER BY dropped_at_unix ASC`
+            ).bind(sjSeason, sjLeague).all();
+            sjDrops = (sel && sel.results) || [];
+            sjDropsOk = true;
+          } catch (_) { sjDrops = []; }
+        }
+        const sjDropByKey = {};
+        for (const r of sjDrops) if (safeStr(r.ledger_key)) sjDropByKey[safeStr(r.ledger_key)] = r;
+        const sjDropFromD1 = (r) => ({
+          player_id: safeStr(r.player_id), player_name: safeStr(r.player_name),
+          position: safeStr(r.position), nfl_team: safeStr(r.nfl_team),
+          dropped_at_iso: safeStr(r.dropped_at_iso), dropped_at_et: "",
+          contract_status: safeStr(r.pre_drop_contract_status), contract_info: safeStr(r.pre_drop_contract_info),
+          original_years: r.pre_drop_contract_length == null ? null : safeInt(r.pre_drop_contract_length, 0),
+          years_remaining: r.pre_drop_contract_year == null ? null : safeInt(r.pre_drop_contract_year, 0),
+          salary: r.pre_drop_salary == null ? null : safeInt(r.pre_drop_salary, 0),
+          tcv: r.pre_drop_tcv == null ? null : safeInt(r.pre_drop_tcv, 0),
+          gtd: r.guaranteed_amount == null ? null : safeInt(r.guaranteed_amount, 0),
+          earned: r.earned_to_date == null ? null : safeInt(r.earned_to_date, 0),
+          penalty_basis: safeStr(r.penalty_basis),
+          ledger_amount: r.penalty_amount == null ? null : safeInt(r.penalty_amount, 0),
+          penalty_exempt: Number(r.penalty_exempt) === 1,
+          details_source: "d1_ups_drop_events",
+        });
+
+        // MFL's posted rows for YEAR.
+        const sjAdjRoot = sjAdjRes.ok ? (sjAdjRes.data?.salaryAdjustments || sjAdjRes.data?.salaryadjustments || {}) : {};
+        let sjAdjRows = sjAdjRoot.salaryAdjustment || sjAdjRoot.salary_adjustment;
+        sjAdjRows = Array.isArray(sjAdjRows) ? sjAdjRows : (sjAdjRows ? [sjAdjRows] : []);
+        const sjPosted = sjAdjRows.map((r) => ({
+          mfl_id: safeStr(r && r.id),
+          franchise_id: padFranchiseId(r && r.franchise_id),
+          // Direct dollars — collectSalaryAdjustmentExportRows' <$1K
+          // K-multiplier would turn a $450 rounding row into $450K.
+          amount: Math.round(Number(r && r.amount) || 0),
+          unix: Number(r && r.timestamp) || 0,
+          description: safeStr(r && r.description),
+          cls: saladjClassify(r && r.description),
+        })).filter((r) => r.franchise_id);
+
+        // The static report — only when a 2025-era adddrop id needs it.
+        let sjReportById = null;
+        let sjReportStatus = "not_needed";
+        if (sjPosted.some((r) => r.cls.type === "drop" && /^adddrop/i.test(r.cls.key || ""))) {
+          const repUrl = `https://keithcreelman.github.io/upsmflproduction/reports/salary_adjustments/salary_adjustments_${encodeURIComponent(sjSeason)}.json`;
+          try {
+            const rr = await fetch(repUrl, { cf: { cacheTtl: 300, cacheEverything: true } });
+            if (rr.ok) {
+              const rep = await rr.json();
+              sjReportById = {};
+              for (const x of (Array.isArray(rep && rep.rows) ? rep.rows : [])) {
+                if (safeStr(x && x.source_id)) sjReportById[safeStr(x.source_id)] = x;
+              }
+              sjReportStatus = "ok";
+            } else sjReportStatus = `http_${rr.status}`;
+          } catch (e) { sjReportStatus = "fetch_failed"; }
+        }
+        const sjDropFromReport = (x) => ({
+          player_id: safeStr(x.player_id), player_name: safeStr(x.player_name), position: "", nfl_team: "",
+          dropped_at_iso: "", dropped_at_et: safeStr(x.transaction_datetime_et),
+          contract_status: safeStr(x.pre_drop_contract_status), contract_info: safeStr(x.pre_drop_contract_info),
+          original_years: x.pre_drop_contract_length == null ? null : safeInt(x.pre_drop_contract_length, 0),
+          years_remaining: x.pre_drop_contract_year == null ? null : safeInt(x.pre_drop_contract_year, 0),
+          salary: x.pre_drop_salary == null ? null : safeInt(x.pre_drop_salary, 0),
+          tcv: x.pre_drop_tcv == null ? null : safeInt(x.pre_drop_tcv, 0),
+          gtd: x.original_guarantee == null ? null : safeInt(x.original_guarantee, 0),
+          earned: x.total_salary_earned == null ? null : safeInt(x.total_salary_earned, 0),
+          penalty_basis: safeStr(x.penalty_rule),
+          ledger_amount: x.penalty_amount == null ? null : safeInt(x.penalty_amount, 0),
+          penalty_exempt: !!x.cap_free_exemption_flag,
+          details_source: `report_salary_adjustments_${sjSeason}`,
+        });
+
+        // Settlement pairs → their MFL trade. A ref posts one +row and one
+        // -row; the counterparty is the other franchise on the same ref.
+        const sjByRef = {};
+        for (const r of sjPosted) {
+          if (r.cls.type !== "trade" || !r.cls.ref) continue;
+          (sjByRef[r.cls.ref] = sjByRef[r.cls.ref] || []).push(r);
+        }
+        const sjPlayerIds = new Set();
+        const sjMatched = {};
+        const sjUsedTrades = new Set();
+        for (const ref of Object.keys(sjByRef)) {
+          const legsRows = sjByRef[ref];
+          const fids = Array.from(new Set(legsRows.map((x) => x.franchise_id)));
+          if (fids.length !== 2) { sjMatched[ref] = { trade: null, fids }; continue; }
+          const absAmt = Math.abs(legsRows[0].amount);
+          const t = saladjMatchTrade(fids[0], fids[1], legsRows[0].unix, absAmt, ref, sjTrades);
+          sjMatched[ref] = { trade: t, fids };
+          if (t) {
+            sjUsedTrades.add(t);
+            const threeWay = ref.match(/^3-way\s+([0-9a-f]+)/i);
+            const legs = threeWay
+              ? sjTrades.filter((x) => x.comments.toLowerCase().indexOf(threeWay[1].toLowerCase()) !== -1)
+              : [t];
+            sjMatched[ref].legs = legs;
+            for (const lg of legs) for (const tok of lg.a_gave.concat(lg.b_gave)) if (/^\d+$/.test(tok)) sjPlayerIds.add(tok);
+          }
+        }
+        const sjPlayersById = sjPlayerIds.size
+          ? await fetchPlayersByIdsChunked(sjSeason, sjLeague, Array.from(sjPlayerIds))
+          : {};
+        const sjLabelCtx = { season: sjSeason, fidName: sjFidName, playersById: sjPlayersById };
+        const sjLegView = (lg) => ([
+          { from_fid: lg.a, from_name: sjName(lg.a), to_fid: lg.b, to_name: sjName(lg.b), assets: lg.a_gave.map((x) => saladjAssetLabel(x, sjLabelCtx)) },
+          { from_fid: lg.b, from_name: sjName(lg.b), to_fid: lg.a, to_name: sjName(lg.a), assets: lg.b_gave.map((x) => saladjAssetLabel(x, sjLabelCtx)) },
+        ]);
+
+        const sjTypeLabel = { trade: "Traded salary", drop: "Dropped player", misc: "Misc" };
+        const sjCurRows = sjPosted.map((r) => {
+          const row = {
+            id: `mfl:${r.mfl_id}`, season: sjSeasonNum, franchise_id: r.franchise_id, franchise_name: sjName(r.franchise_id),
+            type: r.cls.type, type_label: sjTypeLabel[r.cls.type], amount: r.amount,
+            assessed_unix: r.unix, assessed_iso: sjIso(r.unix), description: r.description,
+            source: "mfl_salary_adjustments", in_mfl: true, drop: null, trade: null, misc: null,
+          };
+          if (r.cls.type === "drop") {
+            const key = r.cls.key || "";
+            const d1 = sjDropByKey[key];
+            const rep = sjReportById && sjReportById[key];
+            row.drop = d1 ? sjDropFromD1(d1)
+              : rep ? sjDropFromReport(rep)
+              : { player_id: (key.match(/^(\d+)_\d+$/) || [])[1] || "", player_name: r.cls.player_text, details_source: null };
+          } else if (r.cls.type === "trade") {
+            const m = sjMatched[r.cls.ref] || { trade: null, fids: [] };
+            const other = (m.fids || []).find((f) => f !== r.franchise_id) || "";
+            const legs = (m.legs || []).flatMap(sjLegView)
+              .filter((x) => x.from_fid === r.franchise_id || x.to_fid === r.franchise_id);
+            row.trade = {
+              ref: r.cls.ref, matched: !!m.trade,
+              counterparty_fid: other, counterparty_name: other ? sjName(other) : "",
+              traded_at_unix: m.trade ? m.trade.unix : null, traded_at_iso: m.trade ? sjIso(m.trade.unix) : "",
+              three_way: /^3-way\b/i.test(r.cls.ref),
+              three_way_teams: /^3-way\b/i.test(r.cls.ref)
+                ? Array.from(new Set((m.legs || []).flatMap((lg) => [lg.a, lg.b]))).map((f) => ({ franchise_id: f, franchise_name: sjName(f) }))
+                : [],
+              legs,
+            };
+          } else {
+            row.misc = { kind: r.cls.misc_kind || "other", reason: r.cls.reason || r.description };
+          }
+          return row;
+        });
+
+        // A trade that moved cap dollars (BB_) but has no settlement row on MFL.
+        // Surfaced for the commissioner only — never auto-posted from here.
+        const sjUnsettled = sjTrades
+          .filter((t) => !sjUsedTrades.has(t) && t.a_gave.concat(t.b_gave).some((x) => /^BB_\d/.test(x)))
+          .filter((t) => !/3-way/i.test(t.comments) || !Object.keys(sjByRef).some((ref) => {
+            const h = ref.match(/^3-way\s+([0-9a-f]+)/i);
+            return h && t.comments.toLowerCase().indexOf(h[1].toLowerCase()) !== -1;
+          }))
+          .map((t) => ({
+            traded_at_unix: t.unix, traded_at_iso: sjIso(t.unix),
+            teams: [{ franchise_id: t.a, franchise_name: sjName(t.a) }, { franchise_id: t.b, franchise_name: sjName(t.b) }],
+            traded_salary: t.a_gave.concat(t.b_gave).filter((x) => /^BB_\d/.test(x)).map((x) => saladjAssetLabel(x, sjLabelCtx).label),
+            legs: sjLegView(t),
+          }));
+
+        // YEAR+1 — the next-season ledger, same selection as
+        // /api/cap-adjustments/next-season (bucketed by the FA Auction start).
+        const sjStart = sjDropsOk ? await _faaAuctionStartUnix(env, sjSeason) : { unix: null, source: "d1_unavailable" };
+        const sjNextRows = [];
+        const sjNextReview = [];
+        if (sjStart.unix) {
+          for (const r of sjDrops) {
+            const b = _bucketDropRow(r, sjSeasonNum, sjStart.unix);
+            const fid = padFranchiseId(r.franchise_id);
+            if (!b.ok) {
+              sjNextReview.push({ player_id: safeStr(r.player_id), player_name: safeStr(r.player_name), franchise_id: fid, reason: b.reason, amount: safeInt(r.penalty_amount, 0) });
+              continue;
+            }
+            if (b.applies_to_season !== sjNext) continue;
+            sjNextRows.push({
+              id: `d1:${safeStr(r.ledger_key)}`, season: sjNext, franchise_id: fid, franchise_name: sjName(fid),
+              type: "drop", type_label: sjTypeLabel.drop, amount: safeInt(r.penalty_amount, 0),
+              assessed_unix: Number(r.dropped_at_unix) || 0, assessed_iso: safeStr(r.dropped_at_iso),
+              description: "", source: "d1_ups_drop_events", in_mfl: Number(r.posted_to_mfl) === 1,
+              drop: sjDropFromD1(r), trade: null, misc: null,
+            });
+          }
+          try {
+            const r2Sel = await env.UPS_MFL_DB.prepare(
+              `SELECT penalty_id, fid, et_day, offense_no, amount_k, posted_to_mfl
+                 FROM ups_faa_nom_penalties
+                WHERE season = ? AND league_id = ? AND applies_to_season = ? AND voided = 0`
+            ).bind(sjSeasonNum, sjLeague, sjNext).all();
+            for (const r of ((r2Sel && r2Sel.results) || [])) {
+              const fid = padFranchiseId(r.fid);
+              const day = safeStr(r.et_day);
+              sjNextRows.push({
+                id: `rule2:${safeStr(r.penalty_id)}`, season: sjNext, franchise_id: fid, franchise_name: sjName(fid),
+                type: "misc", type_label: sjTypeLabel.misc, amount: safeInt(r.amount_k, 0) * 1000,
+                assessed_unix: day ? Math.floor(Date.parse(`${day}T12:00:00-04:00`) / 1000) || 0 : 0, assessed_iso: day,
+                description: "", source: "d1_ups_faa_nom_penalties", in_mfl: Number(r.posted_to_mfl) === 1,
+                drop: null, trade: null,
+                misc: { kind: "rule2", reason: `RULE 2 fine — missed FA Auction nomination on ${day} (offense ${safeInt(r.offense_no, 0)}), carried into ${sjNext}` },
+              });
+            }
+          } catch (_) {}
+        }
+        sjNextRows.sort((a, b) => (a.assessed_unix || 0) - (b.assessed_unix || 0));
+
+        const sjTotals = (rows) => {
+          const out = { total: 0, by_type: { trade: 0, drop: 0, misc: 0 }, by_fid: {} };
+          for (const r of rows) {
+            out.total += r.amount;
+            out.by_type[r.type] = (out.by_type[r.type] || 0) + r.amount;
+            const b = out.by_fid[r.franchise_id] = out.by_fid[r.franchise_id] || { total: 0, trade: 0, drop: 0, misc: 0, count: 0 };
+            b.total += r.amount; b[r.type] += r.amount; b.count += 1;
+          }
+          return out;
+        };
+        return jsonNoStore(200, {
+          ok: true, league_id: sjLeague, season: sjSeasonNum, next_season: sjNext,
+          franchises: Object.keys(sjFidName).sort().map((fid) => ({ franchise_id: fid, franchise_name: sjFidName[fid] })),
+          years: [
+            {
+              season: sjSeasonNum, source: "mfl_salary_adjustments", ok: !!sjAdjRes.ok,
+              error: sjAdjRes.ok ? "" : "mfl_salary_adjustments_unreadable",
+              note: `Posted on MFL — counts against the ${sjSeasonNum} cap now.`,
+              rows: sjCurRows, ...sjTotals(sjCurRows),
+            },
+            {
+              season: sjNext, source: "ups_next_season_ledger", ok: !!sjStart.unix,
+              error: sjStart.unix ? "" : "auction_start_unresolved",
+              note: `Booked for ${sjNext} — owed now, posts to MFL at the ${sjNext} rollover.`,
+              rows: sjNextRows, ...sjTotals(sjNextRows), needs_review: sjNextReview,
+            },
+          ],
+          review: { unsettled_traded_salary: sjUnsettled },
+          sources: {
+            mfl_salary_adjustments: !!sjAdjRes.ok, mfl_trades: !!sjTxRes.ok, d1_drop_events: sjDropsOk,
+            static_report: sjReportStatus, auction_start_source: sjStart.source || "",
+          },
         });
       }
 
