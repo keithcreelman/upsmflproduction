@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-05T18:49:51.668119+00:00",
+    "generated_at_utc": "2026-10-06T16:16:02.024994+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3125,18 +3125,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15254",
-          "display": "Najee Harris",
-          "player_id": "15254",
-          "position": "RB",
-          "nfl_team": "NYG",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16303",
           "display": "Nick Herbig",
           "player_id": "16303",
@@ -3573,30 +3561,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15836",
-          "display": "Daxton Hill",
-          "player_id": "15836",
-          "position": "CB",
-          "nfl_team": "CIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17125",
-          "display": "Demetrius Knight",
-          "player_id": "17125",
-          "position": "LB",
-          "nfl_team": "CIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_13719",
           "display": "Eddy Pineiro",
           "player_id": "13719",
@@ -3605,18 +3569,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13208",
-          "display": "Jonathan Allen",
-          "player_id": "13208",
-          "position": "DT",
-          "nfl_team": "CIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4224,18 +4176,6 @@
           "player_id": "15875",
           "position": "S",
           "nfl_team": "NYJ",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15797",
-          "display": "Greg Dulcich",
-          "player_id": "15797",
-          "position": "TE",
-          "nfl_team": "MIA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -5082,18 +5022,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17075",
-          "display": "Matthew Golden",
-          "player_id": "17075",
-          "position": "WR",
-          "nfl_team": "GBP",
-          "salary": 5000,
-          "contract_year": 2,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16622",
           "display": "Ricky Pearsall",
           "player_id": "16622",
@@ -5317,6 +5245,18 @@
           "nfl_team": "WAS",
           "salary": 5000,
           "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
+        },
+        {
+          "asset_id": "P_17075",
+          "display": "Matthew Golden",
+          "player_id": "17075",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 5000,
+          "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
