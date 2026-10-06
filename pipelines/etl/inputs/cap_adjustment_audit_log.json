@@ -1,0 +1,698 @@
+{
+  "_about": "Cap-adjustment audit log — every finding from the 2026-10-06 historical audit (2017–2026), with its status and the commissioner's ruling. For our own records: an entry here changes NO MFL data unless its mfl_action says so. Add new findings with the next free id; never delete an entry, close it.",
+  "status_legend": {
+    "open": "Not yet ruled on.",
+    "missed_recorded": "Confirmed missed: a charge, credit or settlement that never posted. Recorded for our own records only; MFL left as-is (pre-2026 seasons were run manually).",
+    "error_recorded": "Confirmed or likely wrong posting (duplicate, overcharge, inconsistent rule) in a pre-2026 manual season. Recorded for our own records only; MFL left as-is.",
+    "partially_posted": "Part of the correction is on MFL; the rest is pending (see mfl_action).",
+    "closed": "Ruled on; nothing further to do (see ruling)."
+  },
+  "source": "Read-only audit, 2026-10-06: MFL salaryAdjustments + transactions 2012–2026, D1 ups_drop_events, the static salary_adjustments reports. Trades A01–A06 re-verified against MFL by hand the same day.",
+  "entries": [
+    {
+      "id": "A01",
+      "category": "traded_salary_not_settled",
+      "cap_season": 2026,
+      "event_date_et": "2026-07-22 14:52",
+      "teams": [
+        {
+          "franchise_id": "0001",
+          "name_then": "L.A. Looks"
+        },
+        {
+          "franchise_id": "0003",
+          "name_then": "Gride"
+        }
+      ],
+      "amount": 10000,
+      "should_have_posted": [
+        {
+          "franchise_id": "0001",
+          "amount": 10000
+        },
+        {
+          "franchise_id": "0003",
+          "amount": -10000
+        }
+      ],
+      "trade": {
+        "sender_gave": [
+          "Amon-Ra St. Brown",
+          "Shedeur Sanders",
+          "BB_10000 ($10K cap money)"
+        ],
+        "receiver_gave": [
+          "Sam Darnold",
+          "Jalen Coker",
+          "Emmett Johnson"
+        ]
+      },
+      "evidence": "MFL trade 1116 (War Room offer MFL-1026). The War Room staged the settlement (twb_trade_outbox id 48), but Gride accepted on MFL directly, so it never posted. The Discord Trade Alert still announced the $10K (trade_announcement.py reads MFL's BB_ token).",
+      "audit_confidence": "high",
+      "status": "partially_posted",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "Post Gride's half now, with no Discord post. Add L.A. Looks' half later, once natural transactions put them under the threshold. Keith is speaking to both owners."
+      },
+      "mfl_action": "Gride -$10,000 posted 2026-10-06 (2026 salaryAdjustment id 61, 'UPS traded salary settlement (trade_20261116): net -10K'). L.A. Looks +$10,000 PENDING — post when L.A. Looks has at least $10K of cap room."
+    },
+    {
+      "id": "A02",
+      "category": "traded_salary_not_settled",
+      "cap_season": 2025,
+      "event_date_et": "2025-11-12 09:15",
+      "teams": [
+        {
+          "franchise_id": "0012",
+          "name_then": "Hawks"
+        },
+        {
+          "franchise_id": "0004",
+          "name_then": "Pure Greatness"
+        }
+      ],
+      "amount": 12000,
+      "should_have_posted": [
+        {
+          "franchise_id": "0012",
+          "amount": 12000
+        },
+        {
+          "franchise_id": "0004",
+          "amount": -12000
+        }
+      ],
+      "trade": {
+        "sender_gave": [
+          "Davante Adams",
+          "Dalton Schultz",
+          "Hawks 2026 5th",
+          "BB_12000 ($12K cap money)"
+        ],
+        "receiver_gave": [
+          "Jakobi Meyers",
+          "Dalton Kincaid",
+          "CBP 2026 1st"
+        ]
+      },
+      "evidence": "No 2025 settlement row. The only Pure Greatness -$12,000 row (2025-11-11) belongs to its trade with Real Deal Creel. At 2025 season end Pure Greatness was at $0 cap room; the Hawks were at $13K.",
+      "audit_confidence": "high",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Missed — recorded here for our own records. MFL data is not changed."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A03",
+      "category": "traded_salary_not_settled",
+      "cap_season": 2023,
+      "event_date_et": "2023-10-06 09:52",
+      "teams": [
+        {
+          "franchise_id": "0004",
+          "name_then": "Pure Greatness"
+        },
+        {
+          "franchise_id": "0010",
+          "name_then": "Blake Bombers"
+        }
+      ],
+      "amount": 8000,
+      "should_have_posted": [
+        {
+          "franchise_id": "0004",
+          "amount": 8000
+        },
+        {
+          "franchise_id": "0010",
+          "amount": -8000
+        }
+      ],
+      "trade": {
+        "sender_gave": [
+          "James Conner",
+          "BB_8000 ($8K cap money)"
+        ],
+        "receiver_gave": [
+          "Kareem Hunt",
+          "Michael Pittman",
+          "2024 3rd (0008)"
+        ]
+      },
+      "evidence": "No 2023 settlement row. Blake Bombers' +$8,000 that day ('Mafia| D.Watson', 07:31) belongs to the separate 07:30 Deshaun Watson trade with Main Event Mafia.",
+      "audit_confidence": "high",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Missed — recorded here for our own records. MFL data is not changed."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A04",
+      "category": "traded_salary_not_settled",
+      "cap_season": 2022,
+      "event_date_et": "2022-10-20 09:22",
+      "teams": [
+        {
+          "franchise_id": "0010",
+          "name_then": "Blake Bombers"
+        },
+        {
+          "franchise_id": "0001",
+          "name_then": "Ulterior Warrior"
+        }
+      ],
+      "amount": 8000,
+      "should_have_posted": [
+        {
+          "franchise_id": "0010",
+          "amount": 8000
+        },
+        {
+          "franchise_id": "0001",
+          "amount": -8000
+        }
+      ],
+      "trade": {
+        "sender_gave": [
+          "Tyler Badie",
+          "Miles Sanders",
+          "Pete Werner",
+          "BB_8000 ($8K cap money)"
+        ],
+        "receiver_gave": [
+          "Chuck Clark",
+          "2023 1st (0001)"
+        ]
+      },
+      "evidence": "No 2022 settlement row. Ulterior Warrior's only -$8,000 is 'Trade AJ - Boyd' (2022-08-04), a different trade.",
+      "audit_confidence": "high",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Missed — recorded here for our own records. MFL data is not changed."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A05",
+      "category": "traded_salary_not_settled",
+      "cap_season": 2023,
+      "event_date_et": "2023-09-27 09:03",
+      "teams": [
+        {
+          "franchise_id": "0007",
+          "name_then": "Sex Manther"
+        },
+        {
+          "franchise_id": "0004",
+          "name_then": "Pure Greatness"
+        }
+      ],
+      "amount": 4000,
+      "should_have_posted": [
+        {
+          "franchise_id": "0007",
+          "amount": 4000
+        },
+        {
+          "franchise_id": "0004",
+          "amount": -4000
+        }
+      ],
+      "trade": {
+        "sender_gave": [
+          "Darren Waller",
+          "BB_4000 ($4K cap money)"
+        ],
+        "receiver_gave": [
+          "D'Onta Foreman",
+          "2024 4th (0010)",
+          "2024 5th (0004)"
+        ]
+      },
+      "evidence": "No 2023 settlement row, and no trade-labelled row at all for either team in 2023.",
+      "audit_confidence": "high",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Missed — recorded here for our own records. MFL data is not changed."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A06",
+      "category": "traded_salary_not_settled",
+      "cap_season": 2020,
+      "event_date_et": "2020-10-25 12:54",
+      "teams": [
+        {
+          "franchise_id": "0003",
+          "name_then": "Gride"
+        },
+        {
+          "franchise_id": "0001",
+          "name_then": "Ulterior Warrior"
+        }
+      ],
+      "amount": 2000,
+      "should_have_posted": [
+        {
+          "franchise_id": "0003",
+          "amount": 2000
+        },
+        {
+          "franchise_id": "0001",
+          "amount": -2000
+        }
+      ],
+      "trade": {
+        "sender_gave": [
+          "Jerick McKinnon",
+          "Trey Burton",
+          "BB_2000 ($2K cap money)"
+        ],
+        "receiver_gave": [
+          "Justin Jackson",
+          "Jamaal Williams",
+          "2021 4th (0001)",
+          "2021 4th (0011)"
+        ]
+      },
+      "evidence": "No 2020 settlement row. Ulterior Warrior's -$2,000 'Traded Salary with Martel' (2020-09-20) is an earlier, different trade.",
+      "audit_confidence": "medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Missed — recorded here for our own records. MFL data is not changed."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A07",
+      "category": "native_drop_rows_not_offset",
+      "cap_season": 2017,
+      "teams": [
+        "0001",
+        "0002",
+        "0003",
+        "0005",
+        "0006",
+        "0007",
+        "0008",
+        "0009",
+        "0010",
+        "0012"
+      ],
+      "finding": "52 MFL native drop rows left on the 2017 cap, never offset after 2017-11-27. 50 are one-year or sub-$5K drops that should be $0 ($15,200). Kenny Vaccaro ($1,600) and Terrance West ($10,800), both 0012, were also re-charged in 2018, so they were charged twice.",
+      "impact": "$27,600 overstated on the 2017 ledger",
+      "audit_confidence": "high",
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A08",
+      "category": "duplicate_charge",
+      "cap_season": 2019,
+      "teams": [
+        "0008"
+      ],
+      "finding": "Ty Montgomery drop ($22,000 salary) posted twice on 2019-06-09 (17:16 and 17:27) for one drop.",
+      "impact": "$4,400 overcharge",
+      "audit_confidence": "high",
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A09",
+      "category": "inconsistent_rule",
+      "cap_season": 2020,
+      "teams": [
+        "0004",
+        "0012"
+      ],
+      "finding": "Ian Thomas (0004, dropped 2019-08-29) charged the old 20% ($1,200); Jerick McKinnon (0012, dropped 2019-08-30) charged the new 75% ($7,500).",
+      "impact": "Thomas undercharged $3,300 under canon",
+      "audit_confidence": "medium-high",
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A10",
+      "category": "missing_penalty",
+      "cap_season": 2025,
+      "teams": [
+        "0006"
+      ],
+      "finding": "No 2025_Cap_Penalties row for 0006. Cross's own 2024 in-season drops: Tyler Boyd $18,000, Will Anderson $2,500.",
+      "impact": ">= $2,500 (or $20,500 if Boyd was not Cross's free new-owner cut)",
+      "audit_confidence": "medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A11",
+      "category": "missing_fine_carryover",
+      "cap_season": 2026,
+      "teams": [
+        "0002"
+      ],
+      "finding": "The next-season half of CBP's 2025 missed-nomination fine (posted 2025-08-04) is not in the 2026 feed.",
+      "impact": "$3,000",
+      "audit_confidence": "medium-high",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "Just record them. Recorded here for our own records; MFL data is not changed."
+      },
+      "mfl_action": "none",
+      "detail": {
+        "franchise_id": "0002",
+        "fine": "2025 RULE 2 missed nomination, offense 1, $3,000 — 2025 half posted 2025-08-04 ('Auction Penalty - Missed nomination penalty 2025')",
+        "owed_on_2026_cap": 3000,
+        "precedent": "Every earlier fine's next-season half was posted: Hawks 2018→2019, Hawks and Cleon 2021→2022, Hawks 2022→2023, Pure Greatness and Long Haulers 2023→2024.",
+        "cap_room_2026_10_06": 7500
+      }
+    },
+    {
+      "id": "A12",
+      "category": "missing_penalty",
+      "cap_season": 2026,
+      "teams": [
+        "0004",
+        "0006",
+        "0007",
+        "0010",
+        "0011"
+      ],
+      "finding": "Five 2025 post-auction drops (2026 cap) never posted. Contracts confirmed from MFL's native 2025 drop markers; none was a taxi cut (Dell promoted 2023-10-08, Wilson promoted 2024-10-08, Ezeiruaku never on taxi).",
+      "impact": "$4,000 raw (+$1,000 per team after rounding)",
+      "audit_confidence": "medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "Just record them. Recorded here for our own records; MFL data is not changed."
+      },
+      "mfl_action": "none",
+      "detail": {
+        "rounding_note": "Penalties are summed per team and rounded half-up ONCE at the July FA Auction cut deadline (Keith 2026-10-06: 'we don't round individual penalties'). Each drop below is re-added to that team's July sum.",
+        "drops": [
+          {
+            "franchise_id": "0004",
+            "player": "Zack Moss",
+            "dropped_et": "2025-08-13 17:51",
+            "contract": "CL 3| TCV 3K| AAV 1K, 2 yrs left",
+            "rule": "TCV ≤ $4K, 2+ yrs left: flat $1K",
+            "amount": 1000,
+            "july_sum_posted": 1000,
+            "july_sum_corrected": 2000,
+            "rounded_total_posted": 1000,
+            "rounded_total_corrected": 2000,
+            "net_change": 1000
+          },
+          {
+            "franchise_id": "0006",
+            "player": "Matthew Hayball",
+            "dropped_et": "2025-08-13 22:11",
+            "contract": "CL 3| TCV 3K| AAV 1K, 3 yrs left",
+            "rule": "TCV ≤ $4K, 2+ yrs left: flat $1K",
+            "amount": 1000,
+            "july_sum_posted": 4750,
+            "july_sum_corrected": 5750,
+            "rounded_total_posted": 5000,
+            "rounded_total_corrected": 6000,
+            "net_change": 1000
+          },
+          {
+            "franchise_id": "0007",
+            "player": "Tank Dell",
+            "dropped_et": "2025-09-09 10:21",
+            "contract": "CL 3| TCV 6K| AAV 2K rookie, final year",
+            "rule": "75% × $6K − $4K earned = $500",
+            "amount": 500,
+            "july_sum_posted": 36000,
+            "july_sum_corrected": 36500,
+            "rounded_total_posted": 36000,
+            "rounded_total_corrected": 37000,
+            "net_change": 1000
+          },
+          {
+            "franchise_id": "0010",
+            "player": "Michael Wilson",
+            "dropped_et": "2025-09-13 21:31",
+            "contract": "CL 3| TCV 6K| AAV 2K rookie, final year",
+            "rule": "75% × $6K − $4K earned = $500",
+            "amount": 500,
+            "july_sum_posted": 5000,
+            "july_sum_corrected": 5500,
+            "rounded_total_posted": 5000,
+            "rounded_total_corrected": 6000,
+            "net_change": 1000
+          },
+          {
+            "franchise_id": "0011",
+            "player": "Donovan Ezeiruaku",
+            "dropped_et": "2025-09-23 07:16",
+            "contract": "CL 3| TCV 3K| AAV 1K rookie (R6), 3 yrs left",
+            "rule": "TCV ≤ $4K, 2+ yrs left: flat $1K",
+            "amount": 1000,
+            "july_sum_posted": 2100,
+            "july_sum_corrected": 3100,
+            "rounded_total_posted": 2000,
+            "rounded_total_corrected": 3000,
+            "net_change": 1000
+          }
+        ],
+        "why_missed": "The April 2026 batch of 2025-season drops came from the salary-adjustments report generator, which skipped these five."
+      }
+    },
+    {
+      "id": "A13",
+      "category": "missing_loaded_settlement",
+      "cap_season": 2018,
+      "teams": [
+        "0010"
+      ],
+      "finding": "DeShone Kizer BL got no back-load settlement (rule $5,000, posted $2,000); Teddy Bridgewater FL got no front-load credit (rule -$800, posted $1,200).",
+      "impact": "net $1,000 undercharge",
+      "audit_confidence": "medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A14",
+      "category": "carryover_not_reposted",
+      "cap_season": 2019,
+      "teams": [
+        "0009",
+        "0010"
+      ],
+      "finding": "In-season 2018 drops not re-posted to 2019: Mike Wallace (0009) $1,400; Demario Davis (0010) $2,000.",
+      "impact": "$3,400",
+      "audit_confidence": "medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A15",
+      "category": "carryover_not_reposted",
+      "cap_season": 2017,
+      "teams": [
+        "0003"
+      ],
+      "finding": "Jared Cook (dropped 2016-11-20) charged and offset in 2016 but never re-posted to 2017.",
+      "impact": "$1,200",
+      "audit_confidence": "medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A16",
+      "category": "duplicate_charge",
+      "cap_season": 2022,
+      "teams": [
+        "0001",
+        "0003"
+      ],
+      "finding": "Brissett trade settlement (2022-11-20) posted twice (11:31 and 12:03).",
+      "impact": "$1,000 extra each way",
+      "audit_confidence": "high",
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A17",
+      "category": "over_offset",
+      "cap_season": 2017,
+      "teams": [
+        "0001"
+      ],
+      "finding": "'Offset Stills & Ryan Griffin' -$4,000 against native charges of $1,800 + $1,200.",
+      "impact": "$1,000 extra credit",
+      "audit_confidence": "high",
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "A18",
+      "category": "unattributed_residual",
+      "cap_season": 2020,
+      "teams": [
+        "0009",
+        "0001"
+      ],
+      "finding": "The lumps reconcile only if Mike Gesicki (GF, rule $2,000) and Byron Murphy (rule $1,000) were charged $0.",
+      "impact": "$2,000 / $1,000 undercharge",
+      "audit_confidence": "low-medium",
+      "status": "missed_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "R01",
+      "category": "ruling_question",
+      "cap_season": 2026,
+      "teams": [
+        "0003"
+      ],
+      "finding": "Amari Cooper's 2025 retirement (loaded CL 2 / AAV 47K / Y1 $20K): §D2a settlement never assessed.",
+      "status": "closed",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "Closed by commissioner ruling: no §D2a settlement; final for this case; not a precedent. Recorded in canon §D2a and the special-cases file."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "R02",
+      "category": "ruling_question",
+      "cap_season": 2019,
+      "teams": [
+        "0012",
+        "0006",
+        "0002"
+      ],
+      "finding": "Pre-2019 back-loaded drops re-keyed on 2019-06-09 count the drop year twice: Case Keenum (0012, posted $8,200; consistent $4,200 or $6,800), Allen Hurns (0006, posted $4,400; consistent $2,400 or $3,200). Jake Elliott (0002) and Jason Pierre-Paul (0006) each charged $1,000 despite TCV under $5K.",
+      "status": "error_recorded",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "2025 and before was all manual. Recorded here for our own records; MFL data is not changed. (Applied to the remaining pre-2026 audit items: \"yes apply it to the 11\".)"
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "R03",
+      "category": "ruling_question",
+      "cap_season": 2020,
+      "teams": [
+        "0005",
+        "0008"
+      ],
+      "finding": "COVID opt-outs Marqise Lee and Geronimo Allison: -$4,500 credits on top of MFL's 50% IR discount = 100% relief.",
+      "status": "closed",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "Full relief was intended — correct as posted. Recorded in canon §B3."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "R04",
+      "category": "ruling_question",
+      "cap_season": null,
+      "teams": [
+        "0003",
+        "0010"
+      ],
+      "finding": "Holdout credits at 25%: Le'Veon Bell 2018 (-$12,000), Chris Jones 2023 (-$500).",
+      "status": "closed",
+      "ruling": {
+        "by": "Commissioner (Keith Creelman)",
+        "at": "2026-10-06",
+        "text": "Legacy manual rule from before holdouts went through IR — correct as posted. Recorded in canon §B3."
+      },
+      "mfl_action": "none"
+    },
+    {
+      "id": "R05",
+      "category": "ruling_question",
+      "cap_season": 2027,
+      "teams": [
+        "0003",
+        "0010",
+        "0001"
+      ],
+      "finding": "2027 ledger: Colbie Young, Nick Cross and Marvin Mims at $1,000 each — possibly $0 under canon.",
+      "status": "closed",
+      "ruling": {
+        "by": "Claude, reviewed with Keith",
+        "at": "2026-10-06",
+        "text": "All three $1,000 are correct: each was extended to 2–3 years before the drop. Colbie Young's D1 row (ups_drop_events 96) had a stale pre-drop contract and was corrected (audit id 120). Prevention: PR #1180."
+      },
+      "mfl_action": "none"
+    }
+  ]
+}

@@ -102,6 +102,7 @@
 
     function statusLabel(value) {
       if (value === "recorded") return "Recorded";
+      if (value === "resolved") return "Resolved";
       if (value === "review_required") return "Review";
       if (value === "candidate") return "Candidate";
       return common.titleCase(value);

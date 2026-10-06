@@ -68,6 +68,7 @@ A separate audit script can also write read-only comparison artifacts:
 - `status`
   Current values:
   - `recorded`
+  - `resolved` — a manual cap-free special case closed by a commissioner ruling (the ruling is in `reconciliation_note`)
   - `review_required`
   - `candidate`
 
@@ -209,6 +210,7 @@ Supporting definitions:
 - Rolled-next-season drops require event-level marker reconciliation to remain importable.
 - Team/season reconciliation compares computed drop totals to posted `YYYY_Cap_Penalties` rows when the live feed exposes those rows for the same season.
 - Manual cap-free special cases stay visible as `review_required` rows with `amount = 0`, preserving the computed pre-exemption amount for audit while suppressing XML import output.
+- A special case that carries `commissioner_ruling` (+ `ruled_at`, `ruled_by`) in `pipelines/etl/inputs/salary_adjustments_special_cases.json` is CLOSED: its row reads `status = resolved`, `direction = resolved`, `reconciliation_status = commissioner_ruled`, and the ruling replaces the "pending commissioner review" text. It is still never importable.
 
 ## Export Notes
 

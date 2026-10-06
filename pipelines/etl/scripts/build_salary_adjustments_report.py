@@ -51,8 +51,9 @@ REQUIRED_SOURCE_TABLES = (
 )
 STATUS_ORDER = {
     "recorded": 0,
-    "review_required": 1,
-    "candidate": 2,
+    "resolved": 1,
+    "review_required": 2,
+    "candidate": 3,
 }
 
 
@@ -656,6 +657,12 @@ def load_salary_adjustments_special_cases(path_text: str) -> tuple[List[Dict[str
             "note": safe_str(raw_row.get("note")),
             "cap_penalty_exempt": safe_bool(raw_row.get("cap_penalty_exempt"), True),
             "source": safe_str(raw_row.get("source")) or str(path),
+            # A commissioner ruling CLOSES the special case: the row reads
+            # "resolved" with the ruling's own words instead of "pending
+            # commissioner review" (Keith 2026-10-06, Amari Cooper's 2025 retirement).
+            "commissioner_ruling": safe_str(raw_row.get("commissioner_ruling")),
+            "ruled_at": safe_str(raw_row.get("ruled_at")),
+            "ruled_by": safe_str(raw_row.get("ruled_by")),
         }
         match_key_count = sum(
             1
@@ -1296,6 +1303,8 @@ def build_drop_candidate_rows(
         cap_free_exemption_type = ""
         cap_free_exemption_note = ""
         cap_free_exemption_source = ""
+        commissioner_ruling = ""
+        ruled_at = ""
 
         feed_applicable = source_season in feed_export_seasons or 0 in feed_export_seasons
         matched_marker = None
@@ -1479,6 +1488,8 @@ def build_drop_candidate_rows(
             cap_free_exemption_type = safe_str(special_case.get("exemption_type"))
             cap_free_exemption_note = safe_str(special_case.get("note"))
             cap_free_exemption_source = safe_str(special_case.get("source"))
+            commissioner_ruling = safe_str(special_case.get("commissioner_ruling"))
+            ruled_at = safe_str(special_case.get("ruled_at"))
             penalty = 0
 
         if penalty <= 0 and not cap_free_exemption_flag:
@@ -1511,7 +1522,14 @@ def build_drop_candidate_rows(
             reconciliation_status = "feed_unavailable"
             reconciliation_note = "No live salaryAdjustments feed was provided, and this rolled-next-season drop still relies on snapshot fallback."
 
-        if cap_free_exemption_flag:
+        if cap_free_exemption_flag and commissioner_ruling:
+            status = "resolved"
+            reconciliation_status = "commissioner_ruled"
+            reconciliation_note = f"Commissioner ruling {ruled_at}: {commissioner_ruling}".replace("  ", " ")
+            status_detail = (
+                f"Cap-free {cap_free_exemption_type or 'special-case'} exit, closed by commissioner ruling {ruled_at}."
+            )
+        elif cap_free_exemption_flag:
             status = "review_required"
             reconciliation_status = "special_case_flagged"
             reconciliation_note = (
@@ -1551,7 +1569,9 @@ def build_drop_candidate_rows(
 
         if context_note:
             description_parts.append(context_note)
-        if cap_free_exemption_flag:
+        if cap_free_exemption_flag and commissioner_ruling:
+            description_parts.append(f"Commissioner ruling {ruled_at}: {commissioner_ruling}")
+        elif cap_free_exemption_flag:
             description_parts.append(
                 "Flagged manual cap-free exemption; import suppressed pending commissioner review."
             )
@@ -1570,7 +1590,7 @@ def build_drop_candidate_rows(
                 "player_name": safe_str(row["player_name"]),
                 "transaction_datetime_et": safe_str(row["transaction_datetime_et"]),
                 "amount": penalty,
-                "direction": "review" if cap_free_exemption_flag else "charge",
+                "direction": ("resolved" if commissioner_ruling else "review") if cap_free_exemption_flag else "charge",
                 "description": " ".join(part for part in description_parts if part),
                 "status": status,
                 "status_detail": status_detail,
@@ -1713,6 +1733,7 @@ def build_season_payload(rows: List[Dict[str, Any]], season: int) -> Dict[str, A
             "net_total": net_total,
             "recorded_count": sum(1 for row in season_rows if safe_str(row["status"]) == "recorded"),
             "review_required_count": sum(1 for row in season_rows if safe_str(row["status"]) == "review_required"),
+            "resolved_count": sum(1 for row in season_rows if safe_str(row["status"]) == "resolved"),
             "candidate_count": sum(1 for row in season_rows if safe_str(row["status"]) == "candidate"),
             "import_eligible_count": sum(1 for row in season_rows if row.get("import_eligible")),
         },
@@ -1792,6 +1813,7 @@ def main() -> int:
                 "net_total": meta["net_total"],
                 "recorded_count": meta["recorded_count"],
                 "review_required_count": meta["review_required_count"],
+                "resolved_count": meta["resolved_count"],
                 "candidate_count": meta["candidate_count"],
                 "import_eligible_count": meta["import_eligible_count"],
             }
@@ -1802,8 +1824,8 @@ def main() -> int:
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "meta": {
             "report_id": "salary-adjustments",
-            "status_values": ["recorded", "review_required", "candidate"],
-            "direction_values": ["charge", "relief", "review"],
+            "status_values": ["recorded", "resolved", "review_required", "candidate"],
+            "direction_values": ["charge", "relief", "review", "resolved"],
             "adjustment_types": ["TRADED_SALARY", "DROP_PENALTY_CANDIDATE"],
             "notes": [
                 "Traded salary rows are pulled directly from normalized accepted trade history.",

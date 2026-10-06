@@ -397,7 +397,9 @@ for 2022-2025.
 - **Eligibility:**
   - NFL Injured Reserve (or any IR designation MFL recognizes)
   - COVID-19 IR (legacy)
+    - **2020 COVID opt-outs were FULLY relieved — correct as posted (Keith 2026-10-06).** An NFL opt-out placed on IR got MFL's 50% IR discount plus a manual credit for the other 50%, so his 2020 salary cost $0: Marqise Lee, Run CMC (0005) and Geronimo Allison, #BLM (0008) — both $9K in their final contract year, moved to IR 2020-08-14, credited −$4,500 each ("COVID OPTOUT") that evening. Do not re-price or flag them.
   - **Holdouts**
+    - **Legacy holdout credits are correct as posted (Keith 2026-10-06).** Before holdouts were handled through IR, holdout relief was a manual commissioner credit of **25% of salary**: Le'Veon Bell, Gride 2018 (−$12,000 = 25% × $48K) and Chris Jones, Blake Bombers 2023 (−$500 = 25% × $2K). They are the legacy manual rule, not a misapplied 50% IR — do not re-price or flag them.
   - **Suspended players** (special handling, see below)
 - **Cap relief:** **50%** of salary refunded while on IR. (E.g., a player at $20K salary becomes a $10K cap hit while on IR.) **Live verification deferred (Keith, 2026-05-16 review session):** no player is currently on IR, so the worker + client code paths haven't been live-traced against this rule. Follow-up tracker filed in `AUDIT_FOLLOWUP_TRACKERS.md` (Q5) — verify the next time a UPS player IRs.
 - **Roster impact:** IR players do NOT count against active roster max — **and do NOT count toward the 27 minimum either (Keith 2026-08-18).**
@@ -720,6 +722,8 @@ settlement = (AAV × years served) − (salary actually paid over those years)
 > **The 2026-08-15 note claiming "NOT YET IMPLEMENTED ANYWHERE" was wrong** and is retracted. `_d2aSettlement()` exists at `worker/src/index.js:43932-43962`, is wired into `/admin/drops/capfree-decide` (`:44740`, where it *replaces* `penalty_amount` rather than stacking), and applies automatically on the `auto` retirement route (`:46229`). Verified against this section's own worked example: AAV $20K × 1 year served − $10K paid = $10K owed. The front-load credit works by the same formula. The earlier note was written from a stale grep and repeated into the member rulebook; both are corrected.
 
 **The credit direction is CONFIRMED symmetric (Keith 2026-08-15):** *"yes give them a credit if they paid more than they should...if they FL Gonzo then it would be a 10K credit."* Worked: front-load the same Gonzalez deal so Y1 pays $35K against a $25K AAV, and retirement after Y1 settles to $25,000 − $35,000 = **−$10,000, a credit to the owner.** The rule is one formula run in both directions — an owner is made whole for overpayment exactly as they are held to underpayment.
+
+**Commissioner ruling — Amari Cooper, Gride, retired 2025 (Keith 2026-10-06): CLOSED.** Cooper (contract `CL 2| TCV 84K| AAV 47K |Y1-20 Y2-64`) was cut cap-free as a retirement on 2025-09-04. No §D2a settlement is assessed for it. The ruling is final for this case and is recorded on the drop's special case (`pipelines/etl/inputs/salary_adjustments_special_cases.json`, status `resolved` in the 2026 salary-adjustments report). It is **not** a precedent: §D2a applies to every future retirement or Jail Bird exit on a loaded contract.
 
 > **One open question before this is coded — scope.** The 2013 text names *retirement / jail bird* immunity. Does the settlement also apply to the other §D2 cap-free categories (taxi-squad cuts, sub-$5K 1-year deals)? Those are structurally different — a taxi player has no meaningful AAV story — so canon reads them as **out of scope** until stated otherwise.
 
@@ -2279,6 +2283,7 @@ All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYP
 - **Multi-player trade:** max cap-money sent = 50% of the SUM of all traded-away player salaries (Keith v10 confirmed).
 - Cannot send only money — must include at least one non-salary asset (player or pick).
 - Recorded as paired `salary_adjustment` rows: NEGATIVE for the team shedding cap, POSITIVE for the team acquiring cap.
+- **A missed settlement in a pre-2026 season is recorded, not corrected (Keith 2026-10-06).** *"2025 and before was all manual so if this was missed mark it as such but add it to the log tracker. We don't need to change MFL data but we should keep it for our own records."* Every known miss and every commissioner ruling on one is in `pipelines/etl/inputs/cap_adjustment_audit_log.json`, the cap-adjustment audit log. The War Room only posts its staged settlement when the trade is ACCEPTED through the War Room, so a trade accepted directly on MFL skips it (log entry A01, 2026).
 - **Enforcement (UPS-owned — Keith, 2026-05-16 review session):** this is NOT an MFL-enforced rule. UPS owns the enforcement. **The Trade War Room enforces it client-side today:**
   - Max calculation: `site/trades/trade_workbench.js:4220` — `getTradeSalaryMaxK(teamId)` returns `floor(selectedNonTaxiSalary / 2000)` (i.e., half the sum of selected non-taxi traded-away player salaries, in $K).
   - Validation: `site/trades/trade_workbench.js:5237-5238` — flags "Left/Right traded salary exceeds max" if either side's cap-money slider exceeds its computed max.
