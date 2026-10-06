@@ -72,4 +72,25 @@ test("canon records the Cooper ruling, the legacy holdout credits and the 2020 C
   t.match(CANON, /Legacy holdout credits are correct as posted \(Keith 2026-10-06\)\.\*\* .*Le'Veon Bell, Gride 2018 \(−\$12,000 = 25% × \$48K\) and Chris Jones, Blake Bombers 2023 \(−\$500 = 25% × \$2K\)/);
 });
 
+test("the cap-adjustment audit log: well-formed, and the trade rulings are recorded as made", () => {
+  const LOG = JSON.parse(read("pipelines/etl/inputs/cap_adjustment_audit_log.json"));
+  const ids = LOG.entries.map((e) => e.id);
+  t.equal(new Set(ids).size, ids.length, "ids are unique");
+  t.ok(LOG.entries.every((e) => e.status in LOG.status_legend), "every status is in the legend");
+  t.ok(LOG.entries.every((e) => e.status === "open" ? e.ruling === null : !!(e.ruling && e.ruling.at && e.ruling.text)), "ruled entries carry their ruling; open ones none");
+  const trades = LOG.entries.filter((e) => e.category === "traded_salary_not_settled");
+  t.equal(trades.map((e) => e.id).join(), "A01,A02,A03,A04,A05,A06");
+  t.ok(trades.every((e) => e.should_have_posted.reduce((a, r) => a + r.amount, 0) === 0), "each settlement nets to zero");
+  const pre2026 = trades.filter((e) => e.cap_season < 2026);
+  t.equal(pre2026.length, 5);
+  t.ok(pre2026.every((e) => e.status === "missed_recorded" && e.mfl_action === "none"), "2025 and before: recorded, MFL unchanged");
+  t.ok(pre2026.every((e) => /2025 and before was all manual/.test(e.ruling.text)));
+  const a01 = LOG.entries.find((e) => e.id === "A01");
+  t.equal(a01.status, "partially_posted");
+  t.match(a01.mfl_action, /Gride -\$10,000 posted 2026-10-06 \(2026 salaryAdjustment id 61/);
+  t.match(a01.mfl_action, /L\.A\. Looks \+\$10,000 PENDING/);
+  t.equal(LOG.entries.find((e) => e.id === "R01").status, "closed", "Cooper closed");
+  t.match(CANON, /A missed settlement in a pre-2026 season is recorded, not corrected \(Keith 2026-10-06\)\.\*\* .*cap_adjustment_audit_log\.json/);
+});
+
 await run("salary_adjustments_commissioner_ruling");

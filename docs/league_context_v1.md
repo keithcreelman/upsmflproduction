@@ -2283,6 +2283,7 @@ All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYP
 - **Multi-player trade:** max cap-money sent = 50% of the SUM of all traded-away player salaries (Keith v10 confirmed).
 - Cannot send only money — must include at least one non-salary asset (player or pick).
 - Recorded as paired `salary_adjustment` rows: NEGATIVE for the team shedding cap, POSITIVE for the team acquiring cap.
+- **A missed settlement in a pre-2026 season is recorded, not corrected (Keith 2026-10-06).** *"2025 and before was all manual so if this was missed mark it as such but add it to the log tracker. We don't need to change MFL data but we should keep it for our own records."* Every known miss and every commissioner ruling on one is in `pipelines/etl/inputs/cap_adjustment_audit_log.json`, the cap-adjustment audit log. The War Room only posts its staged settlement when the trade is ACCEPTED through the War Room, so a trade accepted directly on MFL skips it (log entry A01, 2026).
 - **Enforcement (UPS-owned — Keith, 2026-05-16 review session):** this is NOT an MFL-enforced rule. UPS owns the enforcement. **The Trade War Room enforces it client-side today:**
   - Max calculation: `site/trades/trade_workbench.js:4220` — `getTradeSalaryMaxK(teamId)` returns `floor(selectedNonTaxiSalary / 2000)` (i.e., half the sum of selected non-taxi traded-away player salaries, in $K).
   - Validation: `site/trades/trade_workbench.js:5237-5238` — flags "Left/Right traded salary exceeds max" if either side's cap-money slider exceeds its computed max.
