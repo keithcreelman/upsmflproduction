@@ -77,7 +77,9 @@ test("wired: a 'Salary Adjustments' tab, its section, the dispatcher, and a new 
   t.match(FO_HTML, /<button data-tab="saladj">Salary Adjustments<\/button>/);
   t.match(FO_HTML, /<section class="fo-section" data-section="saladj">[\s\S]*?<div id="fo-saladj-body"><\/div>/);
   t.match(FO_SRC, /else if \(key === "saladj"\) renderSalaryAdjustmentsTab\(\);/);
-  t.match(FO_HTML, /front_office\.js\?v=2026\.10\.06\.v1\.40\.0/);
+  // the tab shipped in v1.40.0; any later FO stamp still carries it
+  const stamp = /front_office\.js\?v=(\d{4})\.(\d\d)\.(\d\d)\.v1\.(\d+)\.(\d+)/.exec(FO_HTML);
+  t.ok(stamp && (Number(stamp[4]) > 40 || (Number(stamp[4]) === 40 && Number(stamp[5]) >= 0)) && `${stamp[1]}${stamp[2]}${stamp[3]}` >= "20261006", "FO stamp at or after 2026.10.06.v1.40.0");
   t.equal(fo.fetched.length, 1); t.match(fo.fetched[0], /\/api\/salary-adjustments\/ledger\?L=74598&YEAR=2026$/);
 });
 

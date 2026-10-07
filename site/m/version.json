@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.06.1",
-  "label": "Lineup: players whose NFL team is on a bye show BYE (bench tag, and a 'bench him' badge if a saved lineup still starts him), can't be picked for a slot, and a lineup that starts one can't be submitted — MFL rejects it. MFL's rejection messages now read as plain sentences."
+  "build": "2026.10.07.1",
+  "label": "Security: contract submits (extend, MYM, MYAC, restructure, tag/untag) now send your MFL sign-in so the server can confirm the team is yours."
 }

@@ -11464,6 +11464,7 @@
   }
 
   function postContractUpdate(url, payload) {
+    url = appendViewerSessionQuery(url).toString();
     function readResult(res) {
       return res.text().then(function (text) {
         var parsed = parseMutationResult(text);
