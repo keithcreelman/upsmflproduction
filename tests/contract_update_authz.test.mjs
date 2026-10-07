@@ -37,6 +37,7 @@ for (const path of ["/commish-contract-update", "/offer-mym", "/offer-restructur
     const r = await rewrite(env, path, "");
     t.equal(r.status, 401, r.text.slice(0, 200));
     t.equal(r.json.ok, false); t.ok(r.json.error, "a readable error for the clients");
+    t.match(r.json.error, /Reload it/, "a stale page is told to reload, not to sign in");
     t.ok(untouched(mfl), "Gride's contract is untouched");
   });
 }

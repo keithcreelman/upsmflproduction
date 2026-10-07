@@ -59263,7 +59263,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           );
           if (!franchiseId) return authFail(400, "bad_request", "That request didn't name a team.");
           const contractCallerRes = await tradeCaller(body, franchiseId, { allowAdminKey: false });
-          if (!contractCallerRes.ok) return authFail(contractCallerRes.http, contractCallerRes.code, contractCallerRes.message);
+          // No session at all is almost always a page or app opened before the clients started sending it
+          // (2026-10-07): say so plainly instead of "sign in".
+          if (!contractCallerRes.ok) return authFail(contractCallerRes.http, contractCallerRes.code, contractCallerRes.code === "unauthenticated"
+            ? "This page didn't send your MFL sign-in. Reload it (on the app: tap Reload when it offers the new version) and try again — nothing was changed."
+            : contractCallerRes.message);
           contractCaller = contractCallerRes.caller;
         }
         const contractCallerIsCommish = sessionByApiKey || !!(contractCaller && contractCaller.isCommish);
