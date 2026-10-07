@@ -57632,6 +57632,25 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
         }
 
+        // MEMBERSHIP AUTHORIZATION (2026-10-07). load_player / unload_player are not owner-scoped
+        // MFL imports: they post MFL's COMMISSIONER Load Rosters form (BECOME=0000, csetup
+        // C=LOADROST) for whatever franchise_id the body names, so MFL never checks who asked.
+        // The gate above only proves that SOME MFL_USER_ID string was sent, which let a made-up
+        // value, or one owner's real session, add or remove players on any team with commissioner
+        // authority. Now the caller must be the commissioner key, or an MFL session PROVEN against
+        // MFL `myleagues` whose franchise is franchise_id (a proven commissioner session may act
+        // for any team). Unprovable → refused before the commissioner identity is ever assumed.
+        // Runs before the ERA gate and the dry-run short-circuit, so neither can be used to probe.
+        // Owner-scoped imports (drop / taxi / IR) are unchanged: MFL scopes those to the session's
+        // own team.
+        if (isMembershipRosterAction && !sessionByApiKey) {
+          if (!franchiseId) return jsonOut(400, { ok: false, error: "Missing franchise_id" });
+          const membershipCaller = await tradeCaller(body, franchiseId, { allowAdminKey: false });
+          if (!membershipCaller.ok) {
+            return jsonOut(membershipCaller.http, { ...callerFailureBody(membershipCaller), action, player_id: playerId, franchise_id: franchiseId });
+          }
+        }
+
         // ERA forced-retention guard (league_context_v1.md §A3): a player won in
         // the current cycle's Expired Rookie Auction cannot be cut until the FA
         // Auction closes ("you bid, you hold through auction"). Runs before the
