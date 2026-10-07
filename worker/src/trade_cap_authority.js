@@ -188,7 +188,11 @@ function readPlayerPositions(res) {
  * @param movements  [{from, to, tokens:[…MFL tokens: player id | FP_ | DP_ | BB_<dollars>], capDollars?}]
  *                   (cap money is read from BB_ tokens; `capDollars` adds to it, used by builders that carry cap apart)
  * @param extensionSalary  { playerId → current-year salary (dollars) AFTER an accepted pre-trade extension }
- * @param taxiFlags        { playerId → true } for players the offer says stay on taxi after the trade
+ * @param taxiFlags        IGNORED (kept for callers). It once let a player the offer flagged "taxi" arrive on the
+ *                   receiver's taxi squad here ($0, not active). MFL never does that: every traded player arrives on
+ *                   the ACTIVE roster (7 of 7 taxi players traded in 2026), and under lockout nothing moves him back at
+ *                   that moment (#1249, 2026-10-07: Matthew Golden was counted taxi/$0 and arrived active at $5,000).
+ *                   An arriving player now always counts as active and at full salary; see taxi_arrivals.
  * @param extensionRequests  [{player_id, to_franchise_id, loaded_indicator:"FL"|"BL"|"NONE"}] -- pre-trade
  *                   extensions in THIS deal (canon §C4); a player being extended lands on the acquiring
  *                   franchise (to_franchise_id) with the EXTENSION's loaded status, never their
@@ -225,7 +229,8 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   const O = readSalaryOverlay(salaries); if (!O.ok) return empty(O);
   const R = readRosters(rosters, O, parts); if (!R.ok) return empty(R);
 
-  const ext = isObj(extensionSalary) ? extensionSalary : {}, taxi = isObj(taxiFlags) ? taxiFlags : {};
+  const ext = isObj(extensionSalary) ? extensionSalary : {};
+  void taxiFlags;   // ignored: see the @param note above
   // Scoped to loaded_contracts ONLY -- see resolveLoadedStatus's header for the priority
   // order; only a genuinely unresolvable contract (or, here, an unresolvable/mismatched
   // extension) sets this.
@@ -288,7 +293,7 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
       used += currentCapHit(p);
       if (!p.ir) active += 1;
     }
-    state[fid] = { before: used, after: used, activeBefore: active, activeAfter: active, sends: 0, receives: 0, capOut: 0, capIn: 0, loadedBefore, loadedAfter: loadedBefore };
+    state[fid] = { before: used, after: used, activeBefore: active, activeAfter: active, sends: 0, receives: 0, capOut: 0, capIn: 0, loadedBefore, loadedAfter: loadedBefore, taxiArrivals: [] };
   }
   for (const m of mv) {
     let capDollars = m.extraCap;
@@ -312,12 +317,15 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
         if (sentLoaded.resolved && sentLoaded.loaded) send.loadedAfter -= 1;
         postTradeRoster[m.from] = postTradeRoster[m.from].filter((r) => r.id !== tok);
 
-        const carriesTaxi = p.taxi && taxi[tok] === true;
+        // Every traded player ARRIVES on the receiver's active roster -- MFL never carries taxi (or IR)
+        // status through a trade -- so he counts as active and at his full salary until a later move
+        // is CONFIRMED on MFL. Nothing here may assume that move will happen (2026-10-07, #1249).
         const recvSalary = Number.isFinite(num(ext[tok])) ? Math.round(num(ext[tok])) : p.salary;
         if (!Number.isFinite(recvSalary)) return empty(unavailable("roster_salary_unresolved", m.from));
-        const land = { ...p, salary: recvSalary, ir: false, taxi: carriesTaxi };
+        const land = { ...p, salary: recvSalary, ir: false, taxi: false };
         const recv = state[m.to];
-        recv.after += currentCapHit(land); if (!carriesTaxi) recv.activeAfter += 1; recv.receives += 1;
+        recv.after += currentCapHit(land); recv.activeAfter += 1; recv.receives += 1;
+        if (p.taxi) recv.taxiArrivals.push(tok);
         // Loaded-contract landing: if this token is ALSO being extended in this same
         // deal (to this exact receiver), the extension's own loaded_indicator decides
         // what lands -- never the pre-extension status (avoids double counting the same
@@ -360,9 +368,12 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     const st = state[fid];
     let status = "within";
     if (st.activeAfter < ROSTER_MIN) status = "below_min"; else if (maxKnown && st.activeAfter > L.rosterMax) status = "above_max";
-    const row = { franchise_id: fid, franchise_name: name(fid), active_before: st.activeBefore, active_after: st.activeAfter, min: ROSTER_MIN, max: L.rosterMax, status };
+    const row = { franchise_id: fid, franchise_name: name(fid), active_before: st.activeBefore, active_after: st.activeAfter, min: ROSTER_MIN, max: L.rosterMax, status, taxi_arrivals: st.taxiArrivals.slice() };
     rosterRows.push(row);
-    if (status === "above_max") warnings.push({ ...row, message: `${name(fid)} would have ${st.activeAfter} active players after this trade (limit ${L.rosterMax}), so a cut may be needed afterward.` });
+    const taxiNote = st.taxiArrivals.length
+      ? ` That includes ${st.taxiArrivals.length === 1 ? "1 player" : `${st.taxiArrivals.length} players`} coming off the other team's taxi squad: MFL puts every traded player on the active roster, so ${st.taxiArrivals.length === 1 ? "he counts" : "they count"} as active, and against the cap, until confirmed on ${name(fid)}'s taxi squad.`
+      : "";
+    if (status === "above_max") warnings.push({ ...row, message: `${name(fid)} would have ${st.activeAfter} active players after this trade (limit ${L.rosterMax}), so a cut may be needed afterward.${taxiNote}` });
     if (status === "below_min") warnings.push({ ...row, message: `${name(fid)} would have ${st.activeAfter} active players after this trade (minimum ${ROSTER_MIN}), so an add may be needed afterward.` });
   }
   const rosterStatus = !maxKnown ? "unavailable" : warnings.length ? "warn" : "ok";

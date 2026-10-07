@@ -4768,6 +4768,17 @@
     return getAssetCurrentCapHitDollars(asset);
   }
 
+  // What a player costs the team RECEIVING him. MFL puts every traded player on the active roster — it never
+  // carries taxi status through a trade — so a player coming off the other team's taxi squad arrives at his full
+  // salary, and stays there until he is confirmed on the new team's taxi squad. This preview must not assume that
+  // later move (2026-10-07, MFL #1249: Matthew Golden was shown at $0 and arrived on Gride's active roster at $5,000).
+  function arrivingAsActive(asset) {
+    return asset && asset.taxi ? Object.assign({}, asset, { taxi: false }) : asset;
+  }
+  function getAssetArrivalCapSalaryDollars(asset) {
+    return getAssetCurrentCapHitDollars(arrivingAsActive(asset));
+  }
+
   function getTeamTotals(teamId) {
     ensureSelectionMaps(teamId);
     var team = getTeamById(teamId);
@@ -4778,6 +4789,7 @@
       selectedTaxiPlayers: 0,
       selectedNonTaxiSalary: 0,
       selectedCapSalary: 0,
+      selectedArrivalCapSalary: 0,
       selectedVisibleCount: 0
     };
     if (!team) return out;
@@ -4803,6 +4815,7 @@
       }
       out.selectedNonTaxiSalary += getAssetTradeSalaryBasisDollars(a);
       out.selectedCapSalary += getAssetCapSalaryDollars(a);
+      out.selectedArrivalCapSalary += getAssetArrivalCapSalaryDollars(a);
     }
     return out;
   }
@@ -5496,8 +5509,9 @@
     var salaryCap = safeInt(state.data && state.data.meta ? state.data.meta.salary_cap_dollars : 0, 0);
     var leftOutgoing = safeInt(leftTotals.selectedCapSalary, 0);
     var rightOutgoing = safeInt(rightTotals.selectedCapSalary, 0);
-    var leftIncoming = rightOutgoing;
-    var rightIncoming = leftOutgoing;
+    // incoming ≠ the other side's outgoing for a taxi player: he cost the sender $0, he costs the receiver his salary
+    var leftIncoming = safeInt(rightTotals.selectedArrivalCapSalary, 0);
+    var rightIncoming = safeInt(leftTotals.selectedArrivalCapSalary, 0);
     var leftSalaryTradeAdjustmentDollars = (leftTradeK - rightTradeK) * 1000;
     var rightSalaryTradeAdjustmentDollars = (rightTradeK - leftTradeK) * 1000;
     var leftStartingSalary = sumTeamCommittedSalary(state.leftTeamId);
@@ -5663,7 +5677,8 @@
       if (asset && asset.type === "PLAYER" && extIndex && toTeamId) {
         extReq = extIndex[[safeStr(toTeamId), safeStr(asset.player_id).replace(/\D/g, "")].join("|")] || null;
       }
-      total += resolveAssetSeasonSalaryDollars(asset, season, currentSeason, extReq);
+      // toTeamId set = these assets are ARRIVING there: a taxi player counts as active (see arrivingAsActive)
+      total += resolveAssetSeasonSalaryDollars(toTeamId ? arrivingAsActive(asset) : asset, season, currentSeason, extReq);
     }
     return total;
   }
