@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-09-26 13:21:07",
+    "generated_at": "2026-10-07 20:14:10",
     "source": "contract-activity-log",
-    "count": 159,
+    "count": 160,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "7dd5f6c5410b1de19e05a6b2",
+      "submission_id": "7dd5f6c5410b1de19e05a6b2",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0003",
+      "franchise_name": "",
+      "player_id": "99999999",
+      "player_name": "",
+      "position": "",
+      "salary": 1000,
+      "contract_year": 1,
+      "contract_status": "Vet-FAA",
+      "contract_info": "CL 1| TCV 1K| AAV 1K",
+      "tcv": 1000,
+      "aav": 1000,
+      "guaranteed": 0,
+      "submitted_at_utc": "2026-10-07T20:13:51.946Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1557486147171647600",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "1dc1467e996525254c3f7bda",
       "submission_id": "1dc1467e996525254c3f7bda",
