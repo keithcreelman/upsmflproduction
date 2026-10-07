@@ -39,12 +39,33 @@ test("CALC: used = Σ roster salaries + Σ adjustments; taxi = 0, injured reserv
   t.equal(row(c, "0001").used_before, 15000); t.equal(row(c, "0001").used_after, 16000);
   t.equal(c.cap.status, "ok");
 });
-test("CALC: a received player lands as ROSTER at full salary; only a taxi player flagged taxi in the offer is re-demoted", () => {
+test("CALC: a received player lands as ROSTER at full salary — a taxi player too, even when the offer flags him taxi", () => {
+  // 2026-10-07 (#1249): MFL never carries taxi status through a trade (7 of 7 taxi players traded in 2026
+  // landed ACTIVE), and under lockout nothing moves him back at that moment. Matthew Golden was counted
+  // taxi/$0 here and arrived on Gride's active roster at $5,000. The preview must not assume the move.
   const rosters = rosterOf({ "0001": [{ id: "1", salary: 4000, status: "TAXI_SQUAD" }, { id: "2", salary: 3000 }], "0002": [{ id: "9", salary: 100 }] });
-  const plain = calc({ rosters, movements: [{ from: "0001", to: "0002", tokens: ["1"] }, { from: "0002", to: "0001", tokens: ["9"] }] });
+  const mv = [{ from: "0001", to: "0002", tokens: ["1"] }, { from: "0002", to: "0001", tokens: ["9"] }];
+  const plain = calc({ rosters, movements: mv });
   t.equal(row(plain, "0002").used_after, 4000, "no taxi flag → MFL lands him as ROSTER → full salary");
-  const flagged = calc({ rosters, taxiFlags: { "1": true }, movements: [{ from: "0001", to: "0002", tokens: ["1"] }, { from: "0002", to: "0001", tokens: ["9"] }] });
-  t.equal(row(flagged, "0002").used_after, 0, "taxi in MFL AND flagged taxi → demoted after the trade → 0");
+  const flagged = calc({ rosters, taxiFlags: { "1": true }, movements: mv });
+  t.equal(row(flagged, "0002").used_after, 4000, "flagged taxi → STILL full salary: he arrives active");
+  t.equal(row(flagged, "0001").used_after, 3100, "the sender saves nothing: his taxi salary was never on its cap");
+  const r2 = flagged.roster.rows.find((r) => r.franchise_id === "0002");
+  t.equal(r2.active_after, r2.active_before, "he counts as an active arrival (one in, one out)");
+  t.equal(JSON.stringify(r2.taxi_arrivals), JSON.stringify(["1"]), "and is named as a taxi arrival");
+});
+test("CALC: an over-limit warning says the taxi arrival counts as active until confirmed on taxi", () => {
+  // Gride's real shape: 30 active (maximum 30) and a player arriving from the other team's taxi squad.
+  const thirty = Array.from({ length: 30 }, (_, i) => ({ id: String(100 + i), salary: 1000 }));
+  const rosters = rosterOf({ "0001": [{ id: "1", salary: 5000, status: "TAXI_SQUAD" }, ...Array.from({ length: 28 }, (_, i) => ({ id: String(200 + i), salary: 1000 }))], "0003": thirty });
+  const c = evaluateTradeCompliance({ league: league({ rosterSize: "30" }), salaries: noSalaries, adjustments: adjOf([]), rosters, taxiFlags: { "1": true },
+    movements: [{ from: "0001", to: "0003", tokens: ["1"] }] });
+  const w = c.roster.warnings.find((x) => x.franchise_id === "0003");
+  t.ok(w, JSON.stringify(c.roster));
+  t.equal(w.active_after, 31);
+  t.equal(row(c, "0003").used_after, 35000, "and his $5,000 is on Gride's cap");
+  t.match(w.message, /coming off the other team's taxi squad/);
+  t.match(w.message, /until confirmed on .*taxi squad/);
 });
 test("CALC: an injured-reserve player sent away frees only the half he was costing; he lands at full salary", () => {
   const rosters = rosterOf({ "0001": [{ id: "1", salary: 10000, status: "INJURED_RESERVE" }], "0002": [{ id: "9", salary: 100 }] });

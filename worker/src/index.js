@@ -7,7 +7,7 @@ import {
   sendDm as sendDiscordDm,
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
-import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours } from "./trade_dm.js";
+import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours, resolveDiscordUserIds, dmAll } from "./trade_dm.js";
 import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./trade_3way.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
@@ -32130,6 +32130,9 @@ const mflToSleeper = {};
         return rows;
       };
 
+      // Where each traded taxi player is NOW, read from an MFL rosters export: on the receiver's taxi squad (matched), or
+      // still on its active roster, or somewhere else. Also each player's salary and every franchise's ACTIVE count
+      // (status ROSTER), so a failure can say exactly what it costs the receiver.
       const verifyTaxiDemotionsInRosters = (rows, rostersPayload) => {
         const franchiseRows = asArray(
           rostersPayload?.rosters?.franchise ||
@@ -32137,17 +32140,19 @@ const mflToSleeper = {};
             rostersPayload?.rosters?.teams
         ).filter(Boolean);
         const locatedByPlayer = {};
+        const activeByFranchise = {};
         for (const franchise of franchiseRows) {
           const franchiseId = padFranchiseId(franchise?.id || franchise?.franchise_id);
           const playerRows = asArray(franchise?.player || franchise?.players).filter(Boolean);
+          let active = 0;
           for (const playerRow of playerRows) {
+            const status = safeStr(playerRow?.status).toUpperCase();
+            if (status === "ROSTER") active += 1;
             const playerId = String(playerRow?.id || playerRow?.player_id || "").replace(/\D/g, "");
             if (!playerId || locatedByPlayer[playerId]) continue;
-            locatedByPlayer[playerId] = {
-              franchise_id: franchiseId,
-              status: safeStr(playerRow?.status).toUpperCase(),
-            };
+            locatedByPlayer[playerId] = { franchise_id: franchiseId, status, salary: safeInt(playerRow?.salary, 0) };
           }
+          if (franchiseId) activeByFranchise[franchiseId] = active;
         }
 
         const resultRows = [];
@@ -32165,6 +32170,7 @@ const mflToSleeper = {};
             matched: isMatch,
             actual_franchise_id: actualFranchiseId,
             actual_status: actualStatus,
+            salary: located ? located.salary : null,
             reason: isMatch
               ? ""
               : (!located
@@ -32179,9 +32185,15 @@ const mflToSleeper = {};
           matched_count: matched,
           mismatched_count: Math.max(0, rows.length - matched),
           rows: resultRows,
+          active_by_franchise: activeByFranchise,
         };
       };
 
+      // Commissioner taxi demote for ONE receiving franchise (TYPE=taxi_squad&DEMOTE=…&FRANCHISE_ID=<receiver>).
+      // MFL refuses every commissioner impersonation while league lockout is on — the normal state all season — so
+      // this usually fails; the caller then reports it. There is deliberately NO retry without FRANCHISE_ID: without
+      // it MFL acts on the commissioner's OWN franchise, answers "OK" and moves nobody (the 2026-10-06 #1247 / #1249
+      // false OK).
       const postTaxiSquadDemotionGroup = async (season, leagueId, franchiseId, playerIds) => {
         const cleanFranchiseId = padFranchiseId(franchiseId);
         const players = Array.from(
@@ -32195,41 +32207,70 @@ const mflToSleeper = {};
           TYPE: "taxi_squad",
           L: leagueId,
           DEMOTE: players.join(","),
+          FRANCHISE_ID: cleanFranchiseId,
         };
-        if (cleanFranchiseId) importFields.FRANCHISE_ID = cleanFranchiseId;
 
         let importRes = await postMflImportForm(season, importFields, importFields);
-        if (!importRes.requestOk) {
+        if (!importRes.requestOk && !importRes.definite_reject) {
           const getRes = await postMflImportForm(season, importFields, importFields, { method: "GET" });
-          if (getRes.requestOk) importRes = getRes;
-        }
-
-        let usedFranchiseId = !!safeStr(importFields.FRANCHISE_ID);
-        if (!importRes.requestOk && usedFranchiseId) {
-          const retryFields = { ...importFields };
-          delete retryFields.FRANCHISE_ID;
-          let retryRes = await postMflImportForm(season, retryFields, retryFields);
-          if (!retryRes.requestOk) {
-            const retryGetRes = await postMflImportForm(season, retryFields, retryFields, { method: "GET" });
-            if (retryGetRes.requestOk) retryRes = retryGetRes;
-          }
-          if (retryRes.requestOk) {
-            importRes = retryRes;
-            usedFranchiseId = false;
-          }
+          if (getRes.requestOk || getRes.definite_reject) importRes = getRes;
         }
 
         return {
           request_ok: !!importRes.requestOk,
+          definite_reject: !!importRes.definite_reject,
+          lockout_refused: isImpersonationLockoutImportError(importRes),
           franchise_id: cleanFranchiseId,
           player_ids: players,
-          used_franchise_id: usedFranchiseId,
+          used_franchise_id: true,
           upstream_status: importRes.status,
           upstream_preview: importRes.upstreamPreview,
           target_import_url: importRes.targetImportUrl,
           form_fields: importRes.formFields,
           error: importRes.error || "",
         };
+      };
+
+      // The sentence an owner (and the commissioner) reads when a promised taxi move is NOT confirmed on MFL: who
+      // the player is, where he actually is, and what that costs the receiver until it's fixed — his active
+      // roster count and his salary on the cap. Names come from MFL (best effort; ids if MFL can't answer).
+      const describeUnconfirmedTaxiMoves = async (leagueId, season, unresolved, verification, lockoutRefused) => {
+        const pids = unresolved.map((r) => r.player_id).filter(Boolean);
+        const [playersRes, leagueRes] = await Promise.all([
+          pids.length ? mflExportJson(season, leagueId, "players", { PLAYERS: pids.join(",") }, { useCookie: true }).catch(() => null) : null,
+          mflExportJson(season, leagueId, "league", {}, { useCookie: true }).catch(() => null),
+        ]);
+        const playerName = {};
+        for (const p of asArray(playersRes?.data?.players?.player).filter(Boolean)) {
+          const raw = safeStr(p?.name);
+          const m = raw.match(/^([^,]+),\s*(.+)$/);
+          playerName[String(p?.id || "").replace(/\D/g, "")] = m ? `${m[2]} ${m[1]}` : raw;
+        }
+        const leagueRoot = leagueRes?.data?.league || {};
+        const teamName = {};
+        for (const f of asArray(leagueRoot?.franchises?.franchise).filter(Boolean)) teamName[padFranchiseId(f?.id)] = safeStr(f?.name);
+        const rosterMax = safeInt(leagueRoot?.rosterSize, 0);
+        const activeBy = (verification && verification.active_by_franchise) || {};
+        const money = (n) => "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
+        const lines = [];
+        const byReceiver = {};
+        for (const r of unresolved) (byReceiver[r.to_franchise_id] = byReceiver[r.to_franchise_id] || []).push(r);
+        for (const [fid, list] of Object.entries(byReceiver)) {
+          const team = teamName[fid] || fid;
+          const who = list.map((r) => playerName[r.player_id] || safeStr(r.player_name) || `player ${r.player_id}`);
+          const onActive = list.filter((r) => r.actual_franchise_id === fid && r.actual_status === "ROSTER");
+          const salary = onActive.reduce((sum, r) => sum + (Number(r.salary) || 0), 0);
+          const active = activeBy[fid];
+          const countText = Number.isFinite(active) ? `${team}: ${active} active${rosterMax ? `, maximum ${rosterMax}` : ""}` : "";
+          if (onActive.length) {
+            lines.push(`${who.join(" and ")} ${onActive.length === 1 ? "is" : "are"} on ${team}'s ACTIVE roster, not the taxi squad${lockoutRefused ? " — MFL refused the move (the commissioner can't act for a team while lockout is on)" : " — MFL didn't confirm the move"}. ` +
+              `Until ${onActive.length === 1 ? "he's" : "they're"} confirmed on the taxi squad, ${onActive.length === 1 ? "he counts" : "they count"} as an active player${countText ? ` (${countText})` : ""} and ${money(salary)} of salary counts against ${team}'s cap. ` +
+              `If ${onActive.length === 1 ? "he's" : "they're"} taxi-eligible and there's an open spot, ${team}'s owner can move ${onActive.length === 1 ? "him" : "them"} to the taxi squad from the Front Office or on MFL.`);
+          } else {
+            lines.push(`${who.join(" and ")} could not be confirmed on ${team}'s taxi squad (MFL shows ${list.map((r) => r.actual_franchise_id ? `${teamName[r.actual_franchise_id] || r.actual_franchise_id} ${r.actual_status || "?"}` : "not on any roster").join("; ")}).`);
+          }
+        }
+        return `The trade went through in MFL. ${lines.join(" ")}`;
       };
 
       const applyTaxiDemotionsFromPayload = async (leagueId, season, payload, options = {}) => {
@@ -32244,8 +32285,18 @@ const mflToSleeper = {};
           };
         }
 
+        const readRosters = () => mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
+        const sleepMs = (ms) => new Promise((resolve) => { setTimeout(resolve, Math.max(0, safeInt(ms, 0))); });
+
+        // 1. Where is each player NOW? One already on its receiver's taxi squad needs no move (a retry after the
+        //    owner moved him, or a move that already landed). Only players MFL shows on the receiver's ACTIVE
+        //    roster are sent; anything else (unreadable roster, player elsewhere) is attempted as before.
+        const pre = await readRosters();
+        const preVer = pre && pre.ok ? verifyTaxiDemotionsInRosters(rows, pre.data) : null;
+        const toMove = rows.filter((row, i) => !(preVer && preVer.rows[i] && preVer.rows[i].matched));
+
         const grouped = {};
-        for (const row of rows) {
+        for (const row of toMove) {
           const franchiseId = padFranchiseId(row?.to_franchise_id);
           if (!franchiseId) continue;
           if (!grouped[franchiseId]) grouped[franchiseId] = [];
@@ -32253,111 +32304,58 @@ const mflToSleeper = {};
         }
 
         try {
-          console.log(
-            "[TWB][taxiSync][prepare]",
-            JSON.stringify({
-              timestamp_utc: new Date().toISOString(),
-              league_id: safeStr(leagueId),
-              season: safeStr(season),
-              trade_id: tradeId,
-              rows,
-            })
-          );
-        } catch (_) {
-          // noop
-        }
+          console.log("[TWB][taxiSync][prepare]", JSON.stringify({ timestamp_utc: new Date().toISOString(), league_id: safeStr(leagueId), season: safeStr(season), trade_id: tradeId, rows, to_move: toMove.map((r) => r.player_id) }));
+        } catch (_) { /* noop */ }
 
         const imports = [];
-        const franchiseIds = Object.keys(grouped);
-        for (const franchiseId of franchiseIds) {
-          const playerIds = grouped[franchiseId].map((row) => row.player_id);
-          imports.push(await postTaxiSquadDemotionGroup(season, leagueId, franchiseId, playerIds));
+        for (const franchiseId of Object.keys(grouped)) {
+          imports.push(await postTaxiSquadDemotionGroup(season, leagueId, franchiseId, grouped[franchiseId].map((row) => row.player_id)));
         }
-
         const requestOk = imports.every((entry) => !!entry.request_ok);
-        let verification = {
-          ok: requestOk,
-          reason: requestOk ? "verification_not_run" : "import_failed",
-          expected_count: rows.length,
-          matched_count: 0,
-          mismatched_count: rows.length,
-          rows: rows.map((row) => ({ ...row, matched: false })),
-        };
-        let verifyRostersRes = null;
+        const lockoutRefused = imports.some((entry) => entry.lockout_refused);
 
-        if (requestOk) {
-          const verifyDelays = [0, 1300, 2600];
-          const sleepMs = (ms) =>
-            new Promise((resolve) => {
-              setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
-            });
+        // 2. The roster export decides, never MFL's answer: an "OK" that moved nobody is still a failure.
+        let verification = preVer && !toMove.length ? preVer : null;
+        if (!verification) {
+          const verifyDelays = imports.length ? [0, 1300, 2600] : [0];
           for (let i = 0; i < verifyDelays.length; i += 1) {
-            if (verifyDelays[i] > 0) {
-              await sleepMs(verifyDelays[i]);
-            }
-            verifyRostersRes = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
-            if (!verifyRostersRes.ok) {
-              verification = {
-                ok: false,
-                reason: "failed_post_import_rosters_export",
-                expected_count: rows.length,
-                matched_count: 0,
-                mismatched_count: rows.length,
-                rows: rows.map((row) => ({ ...row, matched: false })),
-                attempt: i + 1,
-                upstream: {
-                  status: verifyRostersRes.status,
-                  error: verifyRostersRes.error,
-                  url: verifyRostersRes.url,
-                  preview: verifyRostersRes.textPreview,
-                },
-              };
+            if (verifyDelays[i] > 0) await sleepMs(verifyDelays[i]);
+            const res = await readRosters();
+            if (!res.ok) {
+              verification = { ok: false, reason: "failed_post_import_rosters_export", expected_count: rows.length, matched_count: 0, mismatched_count: rows.length, rows: rows.map((row) => ({ ...row, matched: false })), active_by_franchise: {}, attempt: i + 1 };
               continue;
             }
-            verification = verifyTaxiDemotionsInRosters(rows, verifyRostersRes.data);
-            verification.reason = verification.ok ? "" : "expected_taxi_status_missing_from_rosters_export";
+            verification = verifyTaxiDemotionsInRosters(rows, res.data);
             verification.attempt = i + 1;
             if (verification.ok) break;
           }
         }
+        const verified = !!(verification && verification.ok);
+        const unresolved = verified ? [] : asArray(verification && verification.rows).filter((r) => !r.matched);
+        const reason = verified ? ""
+          : lockoutRefused ? "lockout_impersonation_refused"
+          : !requestOk ? "taxi_sync_import_failed"
+          : (verification && verification.reason === "failed_post_import_rosters_export") ? "taxi_sync_unverifiable"
+          : "taxi_sync_verification_failed";
+        const message = verified ? "" : await describeUnconfirmedTaxiMoves(leagueId, season, unresolved, verification, lockoutRefused).catch(() => "");
 
         try {
-          console.log(
-            "[TWB][taxiSync][verify]",
-            JSON.stringify({
-              timestamp_utc: new Date().toISOString(),
-              league_id: safeStr(leagueId),
-              season: safeStr(season),
-              trade_id: tradeId,
-              imports,
-              verification,
-            })
-          );
-        } catch (_) {
-          // noop
-        }
+          console.log("[TWB][taxiSync][verify]", JSON.stringify({ timestamp_utc: new Date().toISOString(), league_id: safeStr(leagueId), season: safeStr(season), trade_id: tradeId, imports, verification, reason }));
+        } catch (_) { /* noop */ }
 
         return {
-          ok: requestOk && !!verification.ok,
+          ok: verified,
           request_ok: requestOk,
-          verification_ok: !!verification.ok,
+          verification_ok: verified,
           skipped: false,
-          reason: requestOk
-            ? (verification.ok ? "" : "taxi_sync_verification_failed")
-            : "taxi_sync_import_failed",
-          error: requestOk ? "" : "taxi_squad import failed",
+          reason,
+          error: verified ? "" : (message || reason),
+          message,
           rows,
+          unresolved,
+          already_on_taxi: preVer ? preVer.rows.filter((r) => r.matched).map((r) => r.player_id) : [],
           imports,
           verification,
-          post_import_rosters_export: verifyRostersRes
-            ? {
-                ok: !!verifyRostersRes.ok,
-                status: verifyRostersRes.status,
-                url: verifyRostersRes.url,
-                error: verifyRostersRes.error,
-                preview: verifyRostersRes.textPreview,
-              }
-            : null,
         };
       };
 
@@ -38439,19 +38437,45 @@ const mflToSleeper = {};
         const steps = {
           salary_adjustments: { ok: salaryOk, ...(salaryOk ? {} : { detail: trimEvidence(salaryAdjOut?.error || salaryAdjOut?.reason || "salary adjustment import failed") }) },
           extensions: { ok: extOk, request_ok: !!(extensionsOut && extensionsOut.request_ok), ...(extOk ? {} : { detail: trimEvidence(extensionsOut?.error || extensionsOut?.reason || "extension import failed") }) },
-          taxi: { ok: taxiOk, ...(taxiOk ? {} : { detail: trimEvidence(taxiSyncOut?.error || taxiSyncOut?.reason || "taxi sync failed") }) },
+          taxi: { ok: taxiOk, ...(taxiOk ? {} : { detail: trimEvidence(taxiSyncOut?.message || taxiSyncOut?.error || taxiSyncOut?.reason || "taxi sync failed"), reason: safeStr(taxiSyncOut?.reason) }) },
         };
-        // the first failing step; taxi is best-effort (it never blocked completion before and still doesn't)
-        const failed = !salaryOk ? "salary_adjustments" : !extOk ? "extensions" : "";
+        // The first failing step. A promised taxi move that MFL did not CONFIRM is a real failure (2026-10-07): it
+        // used to be "best-effort", so #1247 and #1249 were recorded `completed` while the player sat on the
+        // receiver's ACTIVE roster, counting against its roster limit and cap, and nobody was told.
+        const failed = !salaryOk ? "salary_adjustments" : !extOk ? "extensions" : !taxiOk ? "taxi" : "";
         return { steps, failed, detail: failed ? steps[failed].detail : "" };
       };
 
       // Record a post-processing outcome on the ledger (best effort — a D1 fault must never change what we tell the owner) and return the final state.
+      // A promised taxi move MFL did not confirm: DM the commissioner and the RECEIVING team's owner (who may not be
+      // the one who clicked Accept — on #1249 it was the offering team) ONCE per trade. The ledger's taxi step
+      // remembers it (notified_at), so a retry or a repeat accept never re-sends; nothing is marked until a DM lands,
+      // so a Discord hiccup can't swallow the alert.
+      const notifyUnconfirmedTaxiMove = async (key, taxiSyncOut) => {
+        const ledger = execLedger();
+        const row = await ledger.read(key).catch(() => null);
+        if (row && row.steps && row.steps.taxi && row.steps.taxi.notified_at) return { sent: 0, already: true };
+        const msg = `🚕 Trade #${safeStr(key && key.execKey)}: ${safeStr(taxiSyncOut && taxiSyncOut.message) || "a traded taxi player's move to the taxi squad was not confirmed on MFL, so he counts as active and against the cap."}`;
+        let sent = 0;
+        try { sent += await dmCommish(env, msg); } catch (_) { /* counted below */ }
+        const receivers = [...new Set(asArray(taxiSyncOut && taxiSyncOut.unresolved).map((r) => padFranchiseId(r && r.to_franchise_id)).filter(Boolean))];
+        let owners = 0;
+        for (const fid of receivers) {
+          try {
+            const ids = await resolveDiscordUserIds(env, fid);
+            if (ids.length) owners += (await dmAll(env, ids, { content: msg, allowed_mentions: { parse: [] } })).sent || 0;
+          } catch (_) { /* best effort per owner */ }
+        }
+        if (sent + owners > 0) await ledger.recordStep(key, "taxi", { notified_at: new Date().toISOString(), notified_commish: sent, notified_owners: owners }).catch(() => {});
+        return { sent, owners };
+      };
+
       const settleExecution = async ({ key, token, outcome }) => {
         const sum = summarizeSteps(outcome);
         try {
           const ledger = execLedger();
           for (const [name, r] of Object.entries(sum.steps)) await ledger.recordStep(key, name, r);
+          if (!sum.steps.taxi.ok) await notifyUnconfirmedTaxiMove(key, outcome && outcome.taxiSyncOut).catch((e) => console.error("[trade-exec] taxi alert failed:", safeStr(e && e.message)));
           const done = await ledger.move(key, sum.failed
             ? { from: [EXEC.POSTPROCESSING, EXEC.MFL_EXECUTED, EXEC.EXECUTING, EXEC.NEEDS_REVIEW], to: EXEC.NEEDS_REVIEW, token, set: { failed_step: sum.failed, failure_detail: sum.detail } }
             : { from: [EXEC.POSTPROCESSING, EXEC.MFL_EXECUTED, EXEC.NEEDS_REVIEW], to: EXEC.COMPLETED, token, set: { completed_at_utc: new Date().toISOString(), failed_step: null, failure_detail: null } });
@@ -38492,7 +38516,7 @@ const mflToSleeper = {};
         executed: isMflExecuted(led.state), execution_state: led.state,
         needs_review: led.state === EXEC.NEEDS_REVIEW, failed_step: led.failed_step || "",
         message: led.state === EXEC.NEEDS_REVIEW
-          ? "This trade WAS executed in MFL, but its contract/extension processing needs commissioner review."
+          ? (led.failed_step === "taxi" && led.failure_detail ? safeStr(led.failure_detail) : "This trade WAS executed in MFL, but its contract/extension processing needs commissioner review.")
           : isMflExecuted(led.state) ? "This trade was already executed in MFL." : "This trade is being processed.",
         ...(extra || {}),
       });
@@ -41113,7 +41137,9 @@ const mflToSleeper = {};
             } catch (_) {
               console.error("[TWB][postAcceptImport][error]", diagnostics);
             }
-            const reviewMsg = "Your trade WAS executed in MFL. Its contract/extension processing did not finish and needs commissioner review (no action needed from you).";
+            const reviewMsg = execSettled.failed === "taxi"
+              ? (safeStr(taxiSyncOut && taxiSyncOut.message) || "Your trade WAS executed in MFL, but the traded taxi player's move to the taxi squad was not confirmed: he counts as active and against the cap until he's moved.")
+              : "Your trade WAS executed in MFL. Its contract/extension processing did not finish and needs commissioner review (no action needed from you).";
             return jsonOut(200, {
               ok: true,
               executed: true,
