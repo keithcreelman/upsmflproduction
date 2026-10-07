@@ -8698,6 +8698,7 @@
   // fallback live FO uses when JSON POST returns non-OK (some worker
   // routes parse form bodies differently than JSON).
   async function postContractUpdate(url, payload) {
+    url = appendViewerSessionQuery(url);
     const body = payload || {};
     let r;
     try {

@@ -365,7 +365,19 @@
       });
     });
   }
+  // The worker proves who is asking before it writes a contract (2026-10-07):
+  // forward the owner's MFL session, the same way the roster moves do.
+  function withViewerSession(url) {
+    var tok = "";
+    try {
+      var api = window.UPS_MOBILE && window.UPS_MOBILE.api;
+      tok = api && typeof api.getStoredMflUserId === "function" ? String(api.getStoredMflUserId() || "") : "";
+    } catch (e) { tok = ""; }
+    if (!tok || /[?&]MFL_USER_ID=/.test(url)) return url;
+    return url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(tok);
+  }
   function postContractUpdate(url, payload) {
+    url = withViewerSession(url);
     return postJson(url, payload).then(function (resp) {
       if (resp.ok) return resp;
       return postForm(url, payload);
