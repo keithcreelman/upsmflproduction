@@ -38,6 +38,8 @@ export function makeEnv(opts) {
   const healthy = { participants: [], cap: { status: "ok", reason: "", cap_dollars: 300000, rows: [], violations: [], message: "Every team stays under the salary cap." },
     roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team stays within its roster limits." },
     loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], message: "Every team stays at or under the 5 loaded-contract limit." },
+    roster_limit: { status: "ok", max: 30, rows: [], violations: [], executable: true, message: "Every team stays at or under the roster maximum." },
+    qb_limit: { status: "ok", max: 5, rows: [], violations: [], executable: true, message: "Every team stays at or under 5 active QBs." },
     lineup: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team can still field a complete legal lineup after this trade." },
     extension_skipped: [] };
   const self = opts.self === false ? undefined : { fetch: async (u, init) => {

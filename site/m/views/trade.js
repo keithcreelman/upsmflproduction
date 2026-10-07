@@ -805,11 +805,13 @@
     cs.signature = sig;
     cs.status = "loading";
     cs.loadedContracts = null;
+    cs.qbLimit = null;
+    cs.rosterLimit = null;
     var movements = tw2sMovementsFromPayload(payload);
     var fromFid = U.pad4(payload.teams[0].franchise_id);
     var extensionRequests = payload.extension_requests || [];
     (async function () {
-      var status = "unavailable", loadedContracts = null;
+      var status = "unavailable", loadedContracts = null, qbLimit = null, rosterLimit = null;
       try {
         var ctx = M.state.ctx;
         var url = M.api.workerUrl("/api/trades/compliance-preview?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
@@ -819,13 +821,20 @@
         var res = await tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
           var lc = res.body.compliance.loaded_contracts;
-          status = lc.status === "blocked" ? "blocked" : lc.status === "ok" ? "ok" : "unavailable";
-          loadedContracts = lc;
+          // Five active QBs (Keith 2026-10-07) blocks Send like the loaded-contract limit; the roster
+          // maximum is required before ACCEPT, so it's a notice here, not a Send block.
+          var qb = res.body.compliance.qb_limit || null;
+          // a server that doesn't send the QB block yet isn't a failure: its own Send gate is the authority
+          var qbStatus = !qb ? "ok" : qb.status;
+          status = (lc.status === "blocked" || qbStatus === "blocked") ? "blocked" : (lc.status === "ok" && qbStatus === "ok") ? "ok" : "unavailable";
+          loadedContracts = lc; qbLimit = qb; rosterLimit = res.body.compliance.roster_limit || null;
         }
       } catch (e) { /* status stays "unavailable" -- fail closed */ }
       if (mySeq !== cs.seq || !builderState) return; // superseded, or the builder was closed
       cs.status = status;
       cs.loadedContracts = loadedContracts;
+      cs.qbLimit = qbLimit;
+      cs.rosterLimit = rosterLimit;
       renderBuilder();
     })();
   }
@@ -835,6 +844,16 @@
   // specified: "{Team}: N loaded contracts; maximum M. Revise the trade or make a separate
   // roster move first."
   function builderComplianceAlertHtml(cs) {
+    var rosterNotice = "";
+    var rlv = cs.rosterLimit && cs.rosterLimit.status === "blocked" ? (cs.rosterLimit.violations || []) : [];
+    if (rlv.length) rosterNotice = rlv.map(function (v) { return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(v.message) + " It can't be accepted until then.") + '</div>'; }).join("");
+    if (cs.status === "blocked" && cs.qbLimit && cs.qbLimit.status === "blocked") {
+      var qbv = cs.qbLimit.violations || [];
+      var qbLines = qbv.map(function (v) { return U.escapeHtml(U.safeStr(v.message)); });
+      if (!qbLines.length) qbLines = ["This trade would leave a team over 5 active QBs. Revise the offer, or that team makes a legal QB move first."];
+      return '<div class="ups-m-rstr-err">' + qbLines.join('</div><div class="ups-m-rstr-err">') + '</div>' + rosterNotice;
+    }
+    if (rosterNotice && cs.status === "ok") return rosterNotice;
     if (cs.status === "blocked" && cs.loadedContracts) {
       var violations = cs.loadedContracts.violations || [];
       var lines = violations.map(function (v) {

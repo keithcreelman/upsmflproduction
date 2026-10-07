@@ -115,7 +115,7 @@ export function makeMfl(opts) {
         { const yr = (/\/(\d{4})\/export/.exec(url.pathname) || [])[1]; if (yr && st.exportFailByYear && st.exportFailByYear[yr] && st.exportFailByYear[yr][type]) return json({ error: "MFL boom" }, st.exportFailByYear[yr][type]); }
         if (st.exportFail && st.exportFail[type]) return json({ error: "MFL boom" }, st.exportFail[type]);
         if (st.exportBody && Object.prototype.hasOwnProperty.call(st.exportBody, type)) return json(st.exportBody[type]);
-        if (type === "league") { const seeEmail = /COMMISH-COOKIE/.test(cookie) || /tok-commish/.test(cookie); return json({ league: { salaryCapAmount: "300000", ...(st.league || {}), franchises: { franchise: Object.entries(NAMES).map(([id, name]) => ({ id, name, abbrev: ABBREVS[id] || name, ...(seeEmail ? { email: `${id}@ups.test` } : {}) })) } } }); }
+        if (type === "league") { const seeEmail = /COMMISH-COOKIE/.test(cookie) || /tok-commish/.test(cookie); return json({ league: { salaryCapAmount: "300000", rosterSize: "30", taxiSquad: "10", ...(st.league || {}), franchises: { franchise: Object.entries(NAMES).map(([id, name]) => ({ id, name, abbrev: ABBREVS[id] || name, ...(seeEmail ? { email: `${id}@ups.test` } : {}) })) } } }); }
         if (type === "salaries") return json({ salaries: { leagueUnit: { player: st.salaries || [] } } });
         if (type === "pendingTrades") {
           const who = franchiseOf(cookie, params);

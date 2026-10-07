@@ -289,6 +289,8 @@ export function unavailableCompliance(reason) {
     roster: { status: "unavailable", advisory: true, rows: [], warnings: [], message: "We couldn't check the roster counts for this trade right now." },
     loaded_contracts: { status: "unavailable", max: 5, rows: [], violations: [], message: "We couldn't verify the loaded-contract count for this trade right now." },
     lineup: { status: "unavailable", advisory: true, rows: [], warnings: [], message: "We couldn't check lineup feasibility for this trade right now." },
+    roster_limit: { status: "unavailable", max: null, rows: [], violations: [], executable: false, message: "We couldn't verify the roster maximum for this trade right now." },
+    qb_limit: { status: "unavailable", max: 5, rows: [], violations: [], executable: false, message: "We couldn't verify the active-QB count for this trade right now." },
     extension_skipped: [],
   };
 }
@@ -366,6 +368,10 @@ const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
 async function enterBlockedCap(env, row, gate, dmAllThree) {
   const violations = gate.kind === "loaded_contract_limit_exceeded"
     ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }))
+    : gate.kind === "roster_room_required"
+    ? ((gate.compliance && gate.compliance.roster_limit && gate.compliance.roster_limit.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, active_after: v.active_after, active_after_taxi: v.active_after_taxi, max: v.max }))
+    : gate.kind === "qb_limit_exceeded"
+    ? ((gate.compliance && gate.compliance.qb_limit && gate.compliance.qb_limit.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, active_qbs_after_taxi: v.active_qbs_after_taxi, max: v.max }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
   let prev = null;
@@ -384,7 +390,7 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
       ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
       : gate.kind === "cap_ack_required"
       ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use “Re-check.”`
-      : gate.kind === "loaded_contract_limit_exceeded"
+      : gate.kind === "loaded_contract_limit_exceeded" || gate.kind === "roster_room_required" || gate.kind === "qb_limit_exceeded"
       ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. Revise the deal, or make a separate roster move first, then use “Re-check.”`
       : `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved and everyone's accept is saved. It will go through once that's fixed (use “Re-check” on the trade).`);
   }
@@ -414,6 +420,12 @@ async function capGate(env, row) {
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") {
     return { ok: false, kind: "loaded_contract_limit_exceeded", message: safeStr(compliance.loaded_contracts.message), compliance };
   }
+  // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07): the same hard gates as a two-team accept. A
+  // team over either after its VALID arriving-taxi moves makes its own legal move first, then "Re-check".
+  if (!compliance.roster_limit || compliance.roster_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the roster maximum for this trade right now. Try again in a moment.", compliance };
+  if (!compliance.qb_limit || compliance.qb_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the active-QB count for this trade right now. Try again in a moment.", compliance };
+  if (compliance.roster_limit.status === "blocked") return { ok: false, kind: "roster_room_required", message: safeStr(compliance.roster_limit.message), compliance };
+  if (compliance.qb_limit.status === "blocked") return { ok: false, kind: "qb_limit_exceeded", message: safeStr(compliance.qb_limit.message), compliance };
   // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR): a proven cap overage
   // never itself refuses the trade -- it requires each AFFECTED franchise's own owner to have
   // explicitly acknowledged the exact current projected figure (see worker/src/trade_cap_ack.js
@@ -433,9 +445,15 @@ async function capGate(env, row) {
 function rosterNote(compliance) {
   const r = compliance && compliance.roster;
   if (!r) return "";
-  if (r.status === "warn") return `\n⚠️ Heads-up: ${r.warnings.map((w) => w.message).join(" ")} (Advisory only — MFL decides when the trade is processed.)`;
-  if (r.status === "unavailable") return "\nℹ️ We couldn't check roster counts right now.";
-  return "";
+  const notes = [];
+  // Roster maximum and five active QBs are HARD (Keith 2026-10-07): the accept is still recorded, but the
+  // trade can't run until the team makes its move — say so plainly. The 27 minimum stays a heads-up.
+  const rl = compliance.roster_limit, qb = compliance.qb_limit;
+  if (rl && rl.status === "blocked") notes.push(`\n⛔ ${rl.message} The trade can't run until then.`);
+  if (qb && qb.status === "blocked") notes.push(`\n⛔ ${qb.message} The trade can't run until then.`);
+  if (r.status === "warn") notes.push(`\n⚠️ Heads-up: ${r.warnings.map((w) => w.message).join(" ")} (The 27-player minimum is a heads-up only.)`);
+  if (r.status === "unavailable") notes.push("\nℹ️ We couldn't check roster counts right now.");
+  return notes.join("");
 }
 
 // ─────────────────────────── message builders ──────────────────────────────

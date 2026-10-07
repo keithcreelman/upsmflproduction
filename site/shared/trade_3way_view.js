@@ -275,16 +275,45 @@
     h += '<div class="t3w-cap t3w-cap-' + esc(acked ? "ok" : cap.status) + '" role="' + (cap.status === "ok" || acked ? "status" : "alert") + '"><b>' + capTitle + '</b>' +
       (capMsg ? '<p>' + esc(capMsg) + '</p>' : '') + (capRows ? '<ul class="t3w-crows" aria-label="Salary cap after the trade">' + capRows + '</ul>' : '') +
       (cap.status === "blocked" && opts.capAck ? api.renderCapAck(opts.capAck, opts.viewerFid, opts) : '') + '</div>';
-    var roTitle = ro.status === "warn" ? "Roster counts \u2014 heads-up" : ro.status === "ok" ? "Roster counts \u2014 within limits" : "Roster counts \u2014 couldn\'t be checked";
+    // Roster counts (Keith 2026-10-07): the MAXIMUM is a hard gate (compliance.roster_limit), judged after an
+    // arriving taxi player's VALID taxi move; both numbers are always shown, the ACTUAL count first, because
+    // that is what MFL shows until it confirms the move. The 27 minimum stays a heads-up.
+    var rl = c.roster_limit || null;
+    var anyTaxiMove = (ro.rows || []).some(function (r) { return (r.taxi_moves || []).length; });
+    var roTitle = rl && rl.status === "blocked" ? "Can\'t be accepted \u2014 roster maximum"
+      : rl && rl.status === "unavailable" ? "Roster counts \u2014 couldn\'t be checked"
+      : ro.status === "warn" ? "Roster counts \u2014 heads-up"
+      : ro.status === "unavailable" ? "Roster counts \u2014 couldn\'t be checked"
+      : anyTaxiMove ? "Roster counts \u2014 fits once the taxi move is made" : "Roster counts \u2014 within limits";
     var roRows = (ro.rows || []).map(function (r) {
       var lim = r.max ? r.min + "\u2013" + r.max : "min " + r.min;
-      return '<li class="' + (r.status === "within" ? "" : "t3w-flag") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
-        '<span class="t3w-cr-num">' + esc(r.active_before) + ' \u2192 ' + esc(r.active_after) + ' active</span><span class="t3w-cr-room">limit ' + esc(lim) + '</span></li>';
+      var moves = r.taxi_moves || [];
+      var after = esc(r.active_before) + ' \u2192 ' + esc(r.active_after) + ' active';
+      if (moves.length) after += ' \u00b7 ' + esc(r.active_after_taxi) + ' once ' + esc(moves.map(function (m) { return m.player_name || m.player_id; }).join(" and ")) + ' ' + (moves.length === 1 ? 'is' : 'are') + ' on taxi';
+      var flag = r.status !== "within";
+      return '<li class="' + (flag ? "t3w-flag" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
+        '<span class="t3w-cr-num">' + after + '</span><span class="t3w-cr-room">limit ' + esc(lim) + '</span></li>';
     }).join("");
-    h += '<div class="t3w-rost t3w-rost-' + esc(ro.status) + '" role="status"><b>' + roTitle + '</b>' +
-      (ro.status !== "ok" ? '<p>' + esc(ro.message) + '</p>' : '') +
+    var roMsg = rl && (rl.status === "blocked" || rl.status === "unavailable") ? str(rl.message)
+      : ro.status !== "ok" ? str(ro.message) : (anyTaxiMove && rl ? str(rl.message) : "");
+    var roBlocked = rl && rl.status === "blocked";
+    h += '<div class="' + (roBlocked ? "t3w-cap t3w-cap-blocked" : "t3w-rost t3w-rost-" + esc(rl && rl.status === "unavailable" ? "unavailable" : ro.status)) + '" role="' + (roBlocked ? "alert" : "status") + '" data-t3w-roster-limit="' + esc(rl ? rl.status : "") + '"><b>' + roTitle + '</b>' +
+      (roMsg ? '<p>' + esc(roMsg) + '</p>' : '') +
       (ro.status !== "unavailable" && roRows ? '<ul class="t3w-crows" aria-label="Active roster counts after the trade">' + roRows + '</ul>' : '') +
-      (ro.status === "warn" ? '<p class="t3w-small">Advisory only \u2014 this doesn\'t block the trade and isn\'t a ruling on whether it\'s allowed. MFL decides when the trade is processed.</p>' : '') + '</div>';
+      (ro.status === "warn" && !roBlocked ? '<p class="t3w-small">The 27-player minimum is a heads-up \u2014 it doesn\'t block the trade.</p>' : '') + '</div>';
+    // Five ACTIVE QBs (Keith 2026-10-07): hard gate; taxi and IR QBs don't count.
+    var qb = c.qb_limit || null;
+    if (qb) {
+      var qbTitle = qb.status === "blocked" ? "Can\'t be accepted \u2014 too many active QBs" : qb.status === "ok" ? "Active QBs \u2014 every team stays at or under " + esc(qb.max || 5) : "Active QBs \u2014 couldn\'t be verified";
+      var qbRows = (qb.rows || []).map(function (r) {
+        var over = r.active_qbs_after_taxi > (qb.max || 5);
+        var txt = esc(r.active_qbs_before) + ' \u2192 ' + esc(r.active_qbs_after) + (r.active_qbs_after_taxi !== r.active_qbs_after ? ' (' + esc(r.active_qbs_after_taxi) + ' once on taxi)' : '');
+        return '<li class="' + (over ? "t3w-over" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span><span class="t3w-cr-num">' + txt + ' active QBs</span>' +
+          (over ? '<span class="t3w-cr-flag">max ' + esc(qb.max || 5) + '</span>' : '<span class="t3w-cr-room">of ' + esc(qb.max || 5) + ' max</span>') + '</li>';
+      }).join("");
+      h += '<div class="t3w-cap t3w-cap-' + esc(qb.status) + '" role="' + (qb.status === "ok" ? "status" : "alert") + '" data-t3w-qb-limit="' + esc(qb.status) + '"><b>' + qbTitle + '</b>' +
+        (qb.status !== "ok" ? '<p>' + esc(qb.message) + '</p>' : '') + (qbRows ? '<ul class="t3w-crows" aria-label="Active QBs after the trade">' + qbRows + '</ul>' : '') + '</div>';
+    }
     // ── loaded-contract limit (HARD, canon §2.G/§6.G: max 5) — same severity tier as the
     // salary cap, so it reuses the identical .t3w-cap classes rather than inventing a new
     // visual language. Optional on `c` so an older cached compliance object (cap+roster
@@ -370,7 +399,10 @@
       // this client-side from `status` -- exactly duplicating that decision here, out of step
       // with the server, is what let a satisfied-but-unexecuted selection through the first time.
       var lcOk = !b.compliance.loaded_contracts || b.compliance.loaded_contracts.executable === true;
-      return { kind: "ok", compliance: b.compliance, capAck: capAck, canAccept: capOk && lcOk,
+      // Roster maximum and five active QBs (Keith 2026-10-07): the server's own `executable` decides, like loaded contracts.
+      var rlOk = !b.compliance.roster_limit || b.compliance.roster_limit.executable === true;
+      var qbOk = !b.compliance.qb_limit || b.compliance.qb_limit.executable === true;
+      return { kind: "ok", compliance: b.compliance, capAck: capAck, canAccept: capOk && lcOk && rlOk && qbOk,
         message: cap === "blocked" ? b.compliance.cap.message : cap === "unavailable" ? "We couldn\'t verify the salary cap for this trade right now." : "" };
     }
     if (res && !res.networkError && b && b.code === "cap_check_unavailable") {

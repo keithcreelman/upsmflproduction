@@ -669,5 +669,41 @@ test("AGREEMENT: the compliance-preview endpoint (what the Offer Review panel no
   t.equal(mfl.st.imports.length, 0, "and the preview itself never touched MFL either -- zero writes across both calls");
 });
 
+// ═══════════════ FIVE ACTIVE QBs at SEND (Keith 2026-10-07) — the same live check blocks Send, both surfaces ═══════════════
+const QB_POS = { 13593: "QB", 9101: "QB", 9102: "QB", 9103: "QB", 9104: "QB", 9105: "QB", 9106: "QB", 13100: "WR" };
+const fiveActiveQbs = () => [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, ...[9101, 9102, 9103, 9104, 9105].map((id) => ({ id: String(id), salary: 1000, contractStatus: "Vet-FAA" })),
+  { id: "9106", salary: 1000, contractStatus: "Rookie-Draft", status: "TAXI_SQUAD" }];
+const qbAsset = { type: "PLAYER", player_id: "13593" };
+test("DESKTOP: a trade that would give HammerTime 6 ACTIVE QBs (the taxi QB doesn't count) blocks Send with the server's own wording", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.positions = QB_POS;
+  mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters[HAMMER] = fiveActiveQbs();
+  const { api, state, els } = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+  const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+  api.refreshOfferComplianceIfNeeded(payload);
+  await settle();
+  t.equal(state.offerCompliance.status, "blocked"); t.equal(api.offerIsReady(payload), false); t.equal(api.offerStatusLabel(payload).text, "Not Ready");
+  api.renderOfferAlerts(payload);
+  t.match(els.offerAlerts.children[0].textContent, /^HammerTime would have 6 QBs on the active roster after this trade — the maximum is 5 \(taxi and IR QBs don't count\)\. HammerTime must first make a legal QB move/);
+  api.renderSubmitArea(payload);
+  t.equal(els.submitOfferBtn.disabled, true);
+  t.equal(mfl.st.imports.length, 0, "a preview never writes to MFL");
+});
+test("MOBILE: the same 6-QB trade — blocked, Send disabled, the QB move named", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.positions = QB_POS;
+  mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters[HAMMER] = fiveActiveQbs();
+  const { api, builderState } = loadMobileOfferReview(env, { token: "tok-A" });
+  const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+  api.refreshBuilderComplianceIfNeeded(payload);
+  await settle();
+  t.equal(builderState.compliance.status, "blocked");
+  const html = api.builderComplianceAlertHtml(builderState.compliance);
+  t.match(html, /HammerTime would have 6 QBs on the active roster after this trade — the maximum is 5/);
+  t.equal(true && builderState.compliance.status === "ok", false, "canSubmit is false");
+});
+
 await run("trade_offer_review_loaded_contract_preview");
 restoreConsole();

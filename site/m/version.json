@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.07.1",
-  "label": "Security: contract submits (extend, MYM, MYAC, restructure, tag/untag) now send your MFL sign-in so the server can confirm the team is yours."
+  "build": "2026.10.07.2",
+  "label": "Trades: a trade can't be accepted while a team would be over 30 active players (an arriving taxi-eligible player with an open taxi spot counts once he's on taxi) or over 5 active QBs — both counts are shown, and the team makes its own move first."
 }

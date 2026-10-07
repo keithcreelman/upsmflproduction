@@ -111,6 +111,7 @@ export const ADMIN_ROUTES = {
   "/admin/trade/extension-review": ["*"],
   "/admin/trade/postprocess-retry": ["*"],
   "/admin/trade/reconcile-execution": ["*"],
+  "/admin/trades/roster-check": ["POST"],
   "/admin/trades/settlement-sweep": ["POST"],
   "/admin/transactions/scan-and-record": ["POST"],
   "/admin/waivers/processed": ["GET"],

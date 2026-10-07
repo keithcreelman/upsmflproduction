@@ -51,7 +51,9 @@ import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
-import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap_authority.js";
+import { evaluateTradeCompliance, loadedContractBlockPayload, tradeLimitBlockPayload } from "./trade_cap_authority.js";
+import { evaluateTaxiDestinations } from "./trade_taxi_destination.js";
+import { planRosterChecks, cureDeadline, rosterCheckMessage } from "./trade_roster_check.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
@@ -7197,6 +7199,18 @@ export default {
             console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} purged_lots=${r.purged_lots || 0} purged_bids=${r.purged_bids || 0} active_lots=${r.active_lots}`);
           }
         }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
+        // Roster / five-QB check after trades accepted on MFL's own site (Keith 2026-10-07). Read-only on MFL;
+        // DMs only; flag-gated (ships OFF). Every 5 minutes so the owner hears within minutes of the trade.
+        ctx.waitUntil((async () => {
+          try {
+            if (!env.SELF || !env.UPS_MFL_DB || !(await getFeatureFlag(env, "TRADE_ROSTER_CHECK_ENABLED"))) return;
+            const rk = String(env.COMMISH_API_KEY || "").trim(); if (!rk) return;
+            const rs = String(env.YEAR || new Date().getUTCFullYear()), rl = String(env.LEAGUE_ID || "74598");
+            const r = await env.SELF.fetch(`https://self.invalid/admin/trades/roster-check?L=${rl}&YEAR=${rs}&APIKEY=${encodeURIComponent(rk)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: rs, league_id: rl }) });
+            const d = await r.json().catch(() => ({}));
+            if (d && (d.ok === false || (d.findings && d.findings.length))) console.log("[roster-check]", JSON.stringify(d).slice(0, 600));
+          } catch (e) { console.log("[roster-check] failed:", String(e?.message || e)); }
+        })());
       } catch (e) {
         console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
       }
@@ -38151,6 +38165,66 @@ const mflToSleeper = {};
       // 2-way preview, the 3-way accept/execute gates and the 3-way detail view. Reads live MFL exports
       // (rosters, salaryAdjustments, league); any failure comes back as status "unavailable" (fail closed).
       // Client-supplied cap totals are never an input. See worker/src/trade_cap_authority.js.
+      // Valid taxi destinations for players arriving from the other team's TAXI squad (Keith 2026-10-07):
+      // the facts trade_taxi_destination.js judges, read live. Every source that can't be read is passed as
+      // null, so that player is NOT credited (fail closed) — he simply counts as active, as MFL will show.
+      const loadTaxiDestinations = async ({ season, leagueId, movements, rosters, players }) => {
+        const statusOf = {}, contractOf = {}, teamOf = {};
+        for (const fr of asArray(rosters?.data?.rosters?.franchise).filter(Boolean)) {
+          const fid = padFranchiseId(fr?.id);
+          for (const p of asArray(fr?.player).filter(Boolean)) {
+            const pid = String(p?.id || "").replace(/\D/g, "");
+            statusOf[`${fid}|${pid}`] = safeStr(p?.status).toUpperCase(); contractOf[pid] = safeStr(p?.contractStatus);
+          }
+        }
+        for (const p of asArray(players?.data?.players?.player).filter(Boolean)) teamOf[String(p?.id || "").replace(/\D/g, "")] = safeStr(p?.team);
+        const arrivals = [];
+        for (const m of asArray(movements)) for (const tok of asArray(m && m.tokens)) {
+          const pid = String(tok || "");
+          if (/^\d+$/.test(pid) && /TAXI/.test(statusOf[`${padFranchiseId(m.from)}|${pid}`] || "")) arrivals.push({ player_id: pid, contract_status: contractOf[pid] || "", nfl_team: teamOf[pid] || "" });
+        }
+        if (!arrivals.length) return {};
+        const pids = arrivals.map((x) => x.player_id);
+        const yr = parseInt(season, 10);
+        const [draftPicks, callupCounts, priorSeasonActive, kickoffByTeam] = await Promise.all([
+          (async () => {
+            const out = {};
+            for (const y of [yr, yr - 1, yr - 2]) {
+              const r = await mflExportJson(String(y), leagueId, "draftResults", {}, { useCookie: true });
+              if (!r || !r.ok) return null;
+              for (const u of asArray(r.data?.draftResults?.draftUnit).filter(Boolean)) for (const dp of asArray(u?.draftPick).filter(Boolean)) {
+                const pid = safeStr(dp?.player);
+                if (pids.includes(pid) && !out[pid]) out[pid] = { round: parseInt(dp?.round, 10) || 0, year: y };
+              }
+            }
+            return out;
+          })().catch(() => null),
+          (async () => {
+            const { results } = await env.UPS_MFL_DB.prepare(`SELECT player_id, COUNT(*) AS n FROM ups_taxi_callups WHERE league_id = ? AND pending = 0 AND player_id IN (${pids.map(() => "?").join(",")}) GROUP BY player_id`).bind(String(leagueId), ...pids).all();
+            const out = {}; for (const r of results || []) out[safeStr(r.player_id)] = Number(r.n) || 0; return out;
+          })().catch(() => null),
+          (async () => {
+            const set = new Set();
+            for (const y of [yr - 1, yr - 2]) {
+              const r = await mflExportJson(String(y), leagueId, "rosters", {}, { useCookie: true });
+              if (!r || !r.ok) return null;
+              for (const fr of asArray(r.data?.rosters?.franchise).filter(Boolean)) for (const p of asArray(fr?.player).filter(Boolean)) {
+                const pid = String(p?.id || "").replace(/\D/g, "");
+                if (pids.includes(pid) && !/TAXI/i.test(safeStr(p?.status))) set.add(pid);
+              }
+            }
+            return set;
+          })().catch(() => null),
+          (async () => {
+            const wk = await resolveCurrentLineupWeek(season, leagueId);
+            if (!wk || !(wk.week > 0)) return null;
+            const map = await nflWeekKickoffsByTeam(season, wk.week);
+            return Object.keys(map || {}).length ? map : null;
+          })().catch(() => null),
+        ]);
+        return evaluateTaxiDestinations({ season, arrivals, draftPicks, callupCounts, priorSeasonActive, kickoffByTeam, nowUnix: Math.floor(Date.now() / 1000) });
+      };
+
       const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops }) => {
         try {
           const opts = { includeApiKey: true, useCookie: true };
@@ -38165,7 +38239,8 @@ const mflToSleeper = {};
             // loaded_contracts closed, since none of those read position at all.
             mflExportJson(season, leagueId, "players", { DETAILS: 1 }, opts),
           ]);
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops });
+          const taxiDestinations = await loadTaxiDestinations({ season, leagueId, movements, rosters, players }).catch(() => ({}));
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -39213,6 +39288,16 @@ const mflToSleeper = {};
                 teams: blocked.teams,
               });
             }
+            // FIVE ACTIVE QBs (Keith 2026-10-07): at Send, neither team may end up over 5. Refused before
+            // any MFL write. (Like the checks above, an UNREADABLE count doesn't stop a send; Accept fails closed.)
+            if (createLoadedCompliance.qb_limit && createLoadedCompliance.qb_limit.status === "blocked") {
+              const blocked = tradeLimitBlockPayload(createLoadedCompliance.qb_limit, "qb_limit_exceeded");
+              return jsonOut(409, {
+                ok: false, code: blocked.code, error_type: blocked.code,
+                who: blocked.teams.some((t) => t.franchise_id === fromFranchiseId) ? "sender" : "recipient",
+                error: blocked.message, message: blocked.message, teams: blocked.teams,
+              });
+            }
           }
 
           // SALARY-CAP OVERAGE ACKNOWLEDGMENT (Keith's ruling, 2026-09-28, separate PR from the
@@ -40205,6 +40290,14 @@ const mflToSleeper = {};
                   teams: blocked.teams,
                 });
               }
+              if (counterLoadedCompliance.qb_limit && counterLoadedCompliance.qb_limit.status === "blocked") {
+                const blocked = tradeLimitBlockPayload(counterLoadedCompliance.qb_limit, "qb_limit_exceeded");
+                return jsonOut(409, {
+                  ok: false, code: blocked.code, error_type: blocked.code,
+                  who: blocked.teams.some((t) => t.franchise_id === counterFromId) ? "sender" : "recipient",
+                  error: blocked.message, message: blocked.message, teams: blocked.teams,
+                });
+              }
             }
             // A counter that promises an extension is priced from the current contract BEFORE the original offer is rejected — a refusal here must
             // never leave the sender with their offer rejected and no counter sent.
@@ -40519,6 +40612,22 @@ const mflToSleeper = {};
                 console.warn("[trade-accept] loaded-contract limit exceeded:", JSON.stringify({ trade_id: mflTradeId, teams: blocked.teams }));
                 return integrityFail(409, blocked.code, blocked.message + " Nothing was changed.", { teams: blocked.teams });
               }
+              // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07): refused before MFL unless every team ends
+              // at or under the limit after its VALID arriving-taxi moves; any extra move must be made first.
+              // Unreadable → fail closed. The 27 minimum stays a heads-up.
+              if (action === "ACCEPT") {
+                for (const [blockKey, code, label] of [["roster_limit", "roster_room_required", "roster maximum"], ["qb_limit", "qb_limit_exceeded", "active-QB count"]]) {
+                  const gate = acceptCompliance[blockKey];
+                  if (!gate || gate.status === "unavailable") {
+                    return integrityFail(503, `${blockKey}_check_unavailable`, `We couldn't verify the ${label} for this trade right now, so it wasn't accepted. Try again in a moment.`, { compliance: acceptCompliance });
+                  }
+                  if (gate.status === "blocked") {
+                    const blocked = tradeLimitBlockPayload(gate, code);
+                    console.warn(`[trade-accept] ${blockKey} exceeded:`, JSON.stringify({ trade_id: mflTradeId, teams: blocked.teams }));
+                    return integrityFail(409, blocked.code, blocked.message + " Nothing was changed.", { teams: blocked.teams, compliance: acceptCompliance });
+                  }
+                }
+              }
               // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -------------
               // ACCEPT is this legacy engine's own "execute" -- it posts straight to MFL for
               // real, so it gets the same hold as staged-2-way's own accept/executor.
@@ -40601,7 +40710,9 @@ const mflToSleeper = {};
               const loadedContractBlock = acceptCompliance.loaded_contracts.status === "blocked"
                 ? loadedContractBlockPayload(acceptCompliance.loaded_contracts)
                 : null;
-              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_block: loadedContractBlock });
+              const rosterLimitBlock = acceptCompliance.roster_limit && acceptCompliance.roster_limit.status === "blocked" ? tradeLimitBlockPayload(acceptCompliance.roster_limit, "roster_room_required") : null;
+              const qbLimitBlock = acceptCompliance.qb_limit && acceptCompliance.qb_limit.status === "blocked" ? tradeLimitBlockPayload(acceptCompliance.qb_limit, "qb_limit_exceeded") : null;
+              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_block: loadedContractBlock, roster_limit_block: rosterLimitBlock, qb_limit_block: qbLimitBlock });
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {
@@ -52176,6 +52287,114 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // traded cap the same way a normal 2-party trade does (the 3-way engine
       // wrongly moved it as blind-bid dollars instead of a salary settlement).
       // Requires the commish MFL_COOKIE (salaryAdj import is cookie-gated).
+      // POST /admin/trades/roster-check?L=&YEAR=&APIKEY=   body { dry_run? }
+      // After a trade accepted ENTIRELY on MFL's own site — which the War Room cannot intercept — any team
+      // left over the roster maximum or over five active QBs gets ONE DM (and the commissioner a copy) with
+      // the actual counts, the required move and the deadline (worker/src/trade_roster_check.js). Runs every
+      // 5 minutes from the cron when TRADE_ROSTER_CHECK_ENABLED is on. READ-ONLY on MFL: it never drops,
+      // voids or penalizes. A D1 claim is written before the DM and removed again if none lands, so a Discord
+      // hiccup retries instead of swallowing the alert; after the deadline, a team still over gets ONE
+      // commissioner escalation. War Room trades are skipped (their gates and #1187 cover them).
+      if (path === "/admin/trades/roster-check" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let rcBody = {};
+        try { rcBody = (await request.json()) || {}; } catch (_) { rcBody = {}; }
+        const rcSeason = safeStr(rcBody.season || url.searchParams.get("YEAR") || YEAR || "");
+        const rcLeague = safeStr(rcBody.league_id || url.searchParams.get("L") || L || "74598");
+        const rcDry = _wvTruthy(rcBody.dry_run);
+        if (!rcSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!rcDry && !(await getFeatureFlag(env, "TRADE_ROSTER_CHECK_ENABLED"))) return jsonOut(200, { ok: true, skipped: "flag_off" });
+        const rcSinceRaw = safeStr(env.TRADE_ROSTER_CHECK_SINCE || "2026-10-08T00:00:00Z");
+        const rcSince = /^\d+$/.test(rcSinceRaw) ? Number(rcSinceRaw) : Math.floor(Date.parse(rcSinceRaw) / 1000);
+        if (!Number.isFinite(rcSince) || rcSince <= 0) return jsonOut(500, { ok: false, error: "TRADE_ROSTER_CHECK_SINCE unreadable", value: rcSinceRaw });
+        const rcNow = Math.floor(Date.now() / 1000);
+        const rcBeat = async (status) => { try { await env.UPS_MFL_DB.prepare("INSERT INTO ups_bot_heartbeat (bot, last_ts, status) VALUES ('trade_roster_check', ?, ?) ON CONFLICT(bot) DO UPDATE SET last_ts=excluded.last_ts, status=excluded.status").bind(rcNow, status).run(); } catch (_) {} };
+        const [rcTx, rcRos, rcLg] = await Promise.all([
+          mflExportJson(rcSeason, rcLeague, "transactions", { TRANS_TYPE: "TRADE", DAYS: "3" }, { useCookie: true }),
+          mflExportJson(rcSeason, rcLeague, "rosters", {}, { useCookie: true }),
+          mflExportJson(rcSeason, rcLeague, "league", {}, { useCookie: true }),
+        ]);
+        if (!rcTx.ok || !rcRos.ok || !rcLg.ok) { await rcBeat("blind:mfl_unreadable"); return jsonOut(200, { ok: false, error: "mfl_unreadable" }); }
+        const rcTrades = asArray(rcTx.data?.transactions?.transaction).filter(Boolean);
+        const rcRecent = rcTrades.filter((t) => (parseInt(t.timestamp, 10) || 0) >= Math.max(rcSince, rcNow - 36 * 3600));
+        if (!rcRecent.length) { await rcBeat("ok:no_recent_trades"); return jsonOut(200, { ok: true, findings: [], notified: 0 }); }
+        const rcRoot = rcLg.data?.league || {};
+        const rcMax = parseInt(rcRoot.rosterSize, 10);
+        if (!(rcMax > 0)) { await rcBeat("blind:roster_max_unreadable"); return jsonOut(200, { ok: false, error: "roster_max_unreadable" }); }
+        const rcNames = {};
+        for (const f of asArray(rcRoot.franchises?.franchise).filter(Boolean)) rcNames[padFranchiseId(f.id)] = safeStr(f.name);
+        const rcRosters = {}, rcPids = new Set();
+        for (const fr of asArray(rcRos.data?.rosters?.franchise).filter(Boolean)) {
+          const fid = padFranchiseId(fr.id);
+          rcRosters[fid] = asArray(fr.player).filter(Boolean).map((p) => ({ id: String(p.id || "").replace(/\D/g, ""), status: safeStr(p.status) }));
+        }
+        for (const t of rcRecent) for (const fid of [padFranchiseId(t.franchise), padFranchiseId(t.franchise2)]) for (const p of rcRosters[fid] || []) rcPids.add(p.id);
+        const rcPl = await mflExportJson(rcSeason, rcLeague, "players", { PLAYERS: [...rcPids].join(","), DETAILS: "1" }, { useCookie: true });
+        if (!rcPl.ok) { await rcBeat("blind:players_unreadable"); return jsonOut(200, { ok: false, error: "players_unreadable" }); }
+        const rcPos = {}, rcTeam = {};
+        for (const p of asArray(rcPl.data?.players?.player).filter(Boolean)) { const pid = String(p.id || "").replace(/\D/g, ""); rcPos[pid] = safeStr(p.position); rcTeam[pid] = safeStr(p.team); }
+        let rcWar = [];
+        try {
+          const { results } = await env.UPS_MFL_DB.prepare("SELECT participants, mfl_executed_at_utc FROM ups_trade_executions WHERE league_id = ? AND season = ? AND mfl_executed_at_utc IS NOT NULL AND mfl_executed_at_utc >= ?")
+            .bind(rcLeague, rcSeason, new Date((rcNow - 40 * 3600) * 1000).toISOString()).all();
+          rcWar = (results || []).map((r) => ({ participants: safeStr(r.participants), mfl_executed_at_unix: Math.floor(Date.parse(r.mfl_executed_at_utc) / 1000) }));
+        } catch (e) {
+          // the War Room ledger couldn't be read: rather than mistake a War Room trade for a native one, wait
+          if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:ledger_unreadable"); return jsonOut(200, { ok: false, error: "ledger_unreadable" }); }
+        }
+        const rcFindings = planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow });
+        let rcKick = null;
+        const rcKickoffs = async () => {
+          if (rcKick) return rcKick;
+          try {
+            const wk = await resolveCurrentLineupWeek(rcSeason, rcLeague);
+            rcKick = wk && wk.week > 0 ? [await nflWeekKickoffsByTeam(rcSeason, wk.week), await nflWeekKickoffsByTeam(rcSeason, wk.week + 1)] : [];
+          } catch (_) { rcKick = []; }
+          return rcKick;
+        };
+        const rcEt = (unix) => new Date(unix * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+        if (!rcDry) {
+          await env.UPS_MFL_DB.prepare(`CREATE TABLE IF NOT EXISTS ups_trade_roster_check (league_id TEXT NOT NULL, season TEXT NOT NULL, check_key TEXT NOT NULL, franchise_id TEXT NOT NULL, kind TEXT NOT NULL,
+            trade_ts INTEGER NOT NULL, deadline_unix INTEGER, status TEXT NOT NULL, message TEXT, notified_owner INTEGER DEFAULT 0, notified_commish INTEGER DEFAULT 0, escalated_at_utc TEXT,
+            created_at_utc TEXT NOT NULL, updated_at_utc TEXT NOT NULL, PRIMARY KEY (league_id, season, check_key))`).run();
+        }
+        const rcOut = [];
+        for (const f of rcFindings) {
+          const teams = (rcRosters[f.franchise_id] || []).filter((p) => p.status.toUpperCase() === "ROSTER").map((p) => rcTeam[p.id]);
+          const dl = cureDeadline({ tradeTs: f.trade_ts, nflTeams: teams, kickoffs: await rcKickoffs(), nowUnix: rcNow });
+          const msg = rosterCheckMessage({ finding: f, teamName: rcNames[f.franchise_id], otherName: rcNames[f.other_id], tradeWhenEt: rcEt(f.trade_ts), deadlineEt: rcEt(dl.deadline_unix), basis: dl.basis });
+          const checkKey = `${f.trade_key}|${f.franchise_id}|${f.kind}`;
+          const rec = { ...f, check_key: checkKey, deadline_unix: dl.deadline_unix, deadline_basis: dl.basis, message: msg };
+          if (rcDry) { rcOut.push({ ...rec, action: "would_notify" }); continue; }
+          const ts = new Date().toISOString();
+          const claim = await env.UPS_MFL_DB.prepare(`INSERT OR IGNORE INTO ups_trade_roster_check (league_id, season, check_key, franchise_id, kind, trade_ts, deadline_unix, status, message, created_at_utc, updated_at_utc)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'sending', ?, ?, ?)`).bind(rcLeague, rcSeason, checkKey, f.franchise_id, f.kind, f.trade_ts, dl.deadline_unix, msg, ts, ts).run();
+          if (!(claim && claim.meta && claim.meta.changes)) {
+            // Already told. Past the deadline and STILL over → one commissioner escalation (never an automatic penalty).
+            const row = await env.UPS_MFL_DB.prepare("SELECT status, deadline_unix, escalated_at_utc FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ?").bind(rcLeague, rcSeason, checkKey).first();
+            if (row && row.status === "notified" && !row.escalated_at_utc && rcNow >= (Number(row.deadline_unix) || 0)) {
+              const esc = await dmCommish(env, `⏰ Commissioner review: the deadline has passed and ${rcNames[f.franchise_id] || f.franchise_id} is still over — ${f.kind === "qb" ? `${f.active_qbs} active QBs (maximum 5)` : `${f.active} active players (maximum ${f.max})`}. Nothing has been dropped, voided or penalized.`).catch(() => 0);
+              if (esc) await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ?").bind(ts, ts, rcLeague, rcSeason, checkKey).run();
+              rcOut.push({ ...rec, action: esc ? "escalated" : "escalation_failed" });
+            } else rcOut.push({ ...rec, action: "already_notified" });
+            continue;
+          }
+          let owner = 0, commish = 0;
+          try { const ids = await resolveDiscordUserIds(env, f.franchise_id); if (ids.length) owner = (await dmAll(env, ids, { content: msg, allowed_mentions: { parse: [] } })).sent || 0; } catch (_) {}
+          try { commish = await dmCommish(env, `🧾 Copy of what ${rcNames[f.franchise_id] || f.franchise_id} was sent — ${msg}`); } catch (_) {}
+          if (owner + commish > 0) {
+            await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET status = 'notified', notified_owner = ?, notified_commish = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ?").bind(owner, commish, ts, rcLeague, rcSeason, checkKey).run();
+            rcOut.push({ ...rec, action: "notified", notified_owner: owner, notified_commish: commish });
+          } else {
+            await env.UPS_MFL_DB.prepare("DELETE FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending'").bind(rcLeague, rcSeason, checkKey).run();
+            rcOut.push({ ...rec, action: "dm_failed_will_retry" });
+          }
+        }
+        await rcBeat(`ok:findings=${rcFindings.length}`);
+        return jsonOut(200, { ok: true, dry_run: rcDry, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
+      }
+
       // POST /admin/trades/settlement-sweep?L=&YEAR=&APIKEY=   body { dry_run? }
       // Posts the traded-salary settlement for any executed MFL trade that
       // moved cap money (BB_) but has no settlement on MFL — the case where a

@@ -54,18 +54,20 @@ test("CALC: a received player lands as ROSTER at full salary — a taxi player t
   t.equal(r2.active_after, r2.active_before, "he counts as an active arrival (one in, one out)");
   t.equal(JSON.stringify(r2.taxi_arrivals), JSON.stringify(["1"]), "and is named as a taxi arrival");
 });
-test("CALC: an over-limit warning says the taxi arrival counts as active until confirmed on taxi", () => {
+test("CALC: a taxi arrival with no proven taxi destination counts as active — the roster maximum blocks, and says why", () => {
   // Gride's real shape: 30 active (maximum 30) and a player arriving from the other team's taxi squad.
   const thirty = Array.from({ length: 30 }, (_, i) => ({ id: String(100 + i), salary: 1000 }));
   const rosters = rosterOf({ "0001": [{ id: "1", salary: 5000, status: "TAXI_SQUAD" }, ...Array.from({ length: 28 }, (_, i) => ({ id: String(200 + i), salary: 1000 }))], "0003": thirty });
   const c = evaluateTradeCompliance({ league: league({ rosterSize: "30" }), salaries: noSalaries, adjustments: adjOf([]), rosters, taxiFlags: { "1": true },
     movements: [{ from: "0001", to: "0003", tokens: ["1"] }] });
-  const w = c.roster.warnings.find((x) => x.franchise_id === "0003");
-  t.ok(w, JSON.stringify(c.roster));
-  t.equal(w.active_after, 31);
+  // (taxiDestinations not supplied → his taxi move can't be credited; see tests/trade_roster_qb_gates.test.mjs for the credited case)
+  t.equal(c.roster_limit.status, "blocked"); t.equal(c.roster_limit.executable, false);
+  const w = c.roster_limit.violations.find((x) => x.franchise_id === "0003");
+  t.ok(w, JSON.stringify(c.roster_limit));
+  t.equal(w.active_after, 31); t.equal(w.active_after_taxi, 31); t.equal(w.moves_needed, 1);
   t.equal(row(c, "0003").used_after, 35000, "and his $5,000 is on Gride's cap");
-  t.match(w.message, /coming off the other team's taxi squad/);
-  t.match(w.message, /until confirmed on .*taxi squad/);
+  t.match(w.message, /Gride would have 31 active players right after this trade — the maximum is 30\. Gride must first make 1 legal roster move/);
+  t.match(w.message, /player 1 can't count toward that: his taxi eligibility couldn't be checked\./);
 });
 test("CALC: an injured-reserve player sent away frees only the half he was costing; he lands at full salary", () => {
   const rosters = rosterOf({ "0001": [{ id: "1", salary: 10000, status: "INJURED_RESERVE" }], "0002": [{ id: "9", salary: 100 }] });
@@ -138,11 +140,14 @@ test("CALC: roster projection — counts exclude taxi and IR, the max comes from
   t.equal(a.active_before, 35); t.equal(a.active_after, 36); t.equal(a.status, "above_max");
   // 0002 active: 28 − 1 sent + 2 received (taxi #2 lands as ROSTER; IR #3 lands as ROSTER) = 29
   t.equal(b.active_before, 28); t.equal(b.active_after, 29); t.equal(b.status, "within");
-  t.equal(c.roster.status, "warn"); t.equal(c.roster.advisory, true); t.equal(ROSTER_MIN, 27);
+  t.equal(c.roster_limit.status, "blocked", "over the maximum is now a HARD gate (Keith 2026-10-07)"); t.equal(c.roster_limit.executable, false);
+  t.equal(c.roster.status, "ok", "the advisory block now only carries the 27 minimum"); t.equal(c.roster.advisory, true); t.equal(ROSTER_MIN, 27);
   t.equal(c.cap.status, "ok", "an over-limit roster never affects the cap verdict");
   const low = calc({ rosters: rosterOf({ "0001": many(100, 25, [{ id: "1", salary: 100 }, { id: "2", salary: 100 }]), "0002": many(500, 27, [{ id: "9", salary: 100 }]) }), movements: [{ from: "0001", to: "0002", tokens: ["1", "2"] }, { from: "0002", to: "0001", tokens: ["9"] }] });
   t.equal(low.roster.rows.find((r) => r.franchise_id === "0001").status, "below_min");
-  t.equal(calc({ league: league({ rosterSize: "" }), rosters, movements: swap("1", "9") }).roster.status, "unavailable", "no roster max from MFL → unavailable, not compliant");
+  const noMax = calc({ league: league({ rosterSize: "" }), rosters, movements: swap("1", "9") });
+  t.equal(noMax.roster.status, "unavailable", "no roster max from MFL → unavailable, not compliant");
+  t.equal(noMax.roster_limit.status, "unavailable"); t.equal(noMax.roster_limit.executable, false, "and the hard gate fails CLOSED");
 });
 test("CALC: capHit mirrors the Front Office rule (contract unknown still counts its salary)", () => {
   t.equal(capHit({ salary: 5000, years: 0, unknown: true, taxi: false, ir: false }), 5000);
@@ -615,16 +620,17 @@ test("CAP 17: two-team and three-team calculations use the SAME authority — id
   t.equal(mfl.writes().length, 0);
 });
 
-// ───────────────────────────────── Part 4 — roster counts (advisory) ─────────────────────────────────
+// ─────────────── Part 4 — roster counts: the MAXIMUM is a hard gate, the 27 minimum a heads-up (Keith 2026-10-07) ───────────────
 const SEATS = (start, n) => bulk(start, n, 100);
 test("ROSTER: a balanced trade between legal rosters is clean (status ok, no warnings)", async () => {
   const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 28), league: { rosterSize: "35" } });
   const o = await sendOffer(env, mfl, SWAP());
   const p = await act(env, mobileBody(o.id, "PREVIEW"));
   t.equal(p.json.compliance.roster.status, "ok"); t.deepEqual(p.json.compliance.roster.warnings, []);
-  t.match(p.json.compliance.roster.message, /within its roster limits/);
+  t.equal(p.json.compliance.roster_limit.status, "ok"); t.equal(p.json.compliance.roster_limit.executable, true);
+  t.match(p.json.compliance.roster_limit.message, /Every team stays at or under the roster maximum/);
 });
-test("ROSTER: an uneven trade that pushes one team over the limit is FLAGGED, never blocked; the message is a heads-up, not a verdict", async () => {
+test("ROSTER: an uneven trade that pushes one team over the maximum is REFUSED at accept — nothing sent to MFL, the team and the move it needs are named", async () => {
   const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 33), league: { rosterSize: "35" } });    // 0002: 36 active (13100+90002+33+... )
   const two = payloadOf("0001", "0002", [player(14056), player(90001)], [player(13100)]);       // 0002 receives two, sends one → +1
   const o = await sendOffer(env, mfl, two);
@@ -632,16 +638,16 @@ test("ROSTER: an uneven trade that pushes one team over the limit is FLAGGED, ne
   const rows = Object.fromEntries(p.json.compliance.roster.rows.map((r) => [r.franchise_id, r]));
   t.equal(rows["0002"].status, "above_max"); t.equal(rows["0002"].active_after, rows["0002"].active_before + 1); t.equal(rows["0002"].max, 35);
   t.equal(rows["0001"].status, "within");
-  t.equal(p.json.compliance.roster.status, "warn"); t.equal(p.json.compliance.roster.advisory, true);
-  t.match(p.json.compliance.roster.message, /CBP would have 36 active players after this trade \(limit 35\)/);
-  t.match(p.json.compliance.roster.message, /heads-up/i); t.doesNotMatch(p.json.compliance.roster.message, /illegal|not allowed|invalid|violat|certif/i);
-  // the accept itself is NOT blocked by it
+  t.equal(p.json.compliance.roster_limit.status, "blocked");
+  t.match(p.json.compliance.roster_limit.message, /CBP would have 36 active players right after this trade — the maximum is 35\. CBP must first make 1 legal roster move/);
+  t.ok(p.json.roster_limit_block && p.json.roster_limit_block.code === "roster_room_required", "the preview names the block");
+  // the accept itself IS refused, before MFL
   const r = await act(env, mobileBody(o.id));
-  t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(mfl.st.done.length, 1); t.equal(r.json.compliance.roster.status, "warn");
-  t.equal(r.json.compliance.cap.status, "ok");
+  t.equal(r.status, 409, r.text.slice(0, 200)); t.equal(r.json.code, "roster_room_required"); t.match(r.json.message, /Nothing was changed/);
+  t.equal(mfl.st.done.length, 0, "MFL was never asked to accept"); t.equal(mfl.st.pending.length, 1, "the offer is still pending");
 });
 test("ROSTER: an MFL rejection is still surfaced, in MFL's own words, alongside the advisory (never swallowed)", async () => {
-  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 33), league: { rosterSize: "35" } });
+  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 28), league: { rosterSize: "35" } });
   const o = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056), player(90001)], [player(13100)]));
   mfl.st.failNext = { type: "tradeResponse", status: 200, message: "Roster limit exceeded: CBP would have 36 players (maximum 35)." };
   const r = await act(env, mobileBody(o.id));
@@ -655,9 +661,12 @@ test("ROSTER: roster-count authority missing is shown as UNAVAILABLE, not as com
   const o = await sendOffer(env, mfl, SWAP());
   const p = await act(env, mobileBody(o.id, "PREVIEW"));
   t.equal(p.status, 200); t.equal(p.json.compliance.roster.status, "unavailable"); t.doesNotMatch(p.json.compliance.roster.message, /within its roster limits/);
-  t.equal(p.json.compliance.cap.status, "ok", "the (hard) cap verdict is independent of the advisory");
+  t.equal(p.json.compliance.roster_limit.status, "unavailable"); t.equal(p.json.compliance.roster_limit.executable, false);
+  t.equal(p.json.compliance.cap.status, "ok", "the cap verdict is independent of the roster check");
+  const r = await act(env, mobileBody(o.id));
+  t.equal(r.status, 503, "an unreadable maximum refuses the accept (fail closed)"); t.equal(r.json.code, "roster_limit_check_unavailable"); t.equal(mfl.st.done.length, 0);
 });
-test("ROSTER (3-way): only ONE participant has an overage; the warning is in the canonical detail and on the Discord accept, and nothing is blocked", async () => {
+test("ROSTER (3-way): only ONE participant is over the maximum; the detail and the Discord accept say it can't run until that team makes its move (the accept itself is recorded)", async () => {
   const { env, mfl } = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 });
   // give B and C legal-size rosters; A sits at the limit and receives one player without sending an equivalent
   mfl.st.rosters["0008"].push(...SEATS(100, 34)); mfl.st.rosters["0001"].push(...SEATS(200, 28)); mfl.st.rosters["0012"].push(...SEATS(300, 28));
@@ -668,12 +677,12 @@ test("ROSTER (3-way): only ONE participant has an overage; the warning is in the
   ]));
   const d = await callWorker(env, "GET", `/api/trades/3way?id=${F.TRADE_ID}&${Q}&MFL_USER_ID=tok-A`);
   t.equal(d.status, 200, d.text.slice(0, 200));
-  const r = d.json.trade.compliance.roster;
-  t.equal(r.status, "warn"); t.deepEqual(r.warnings.map((w) => w.franchise_id), ["0008"], "exactly one participant is flagged");
+  const rl = d.json.trade.compliance.roster_limit;
+  t.equal(rl.status, "blocked"); t.deepEqual(rl.violations.map((w) => w.franchise_id), ["0008"], "exactly one participant is over");
   t.equal(d.json.trade.compliance.cap.status, "ok");
   const msg = await say(await handle3WayButton(press("accept", DISCORD.B), env, ctxWait()));
-  t.match(msg, /You're in/); t.match(msg, /Heads-up: Real Deal Creel would have 38 active players/); t.match(msg, /Advisory only/);
-  t.equal(F.readRow(env).team_b_state, "accepted", "the advisory does not block the accept");
+  t.match(msg, /You're in/); t.match(msg, /Real Deal Creel would have 38 active players right after this trade — the maximum is 35/); t.match(msg, /can't run until that's resolved — your accept is saved and nothing has moved/);
+  t.equal(F.readRow(env).team_b_state, "accepted", "a partner's accept is still recorded; the trade runs only once the over-limit team has made its move");
 });
 test("3-WAY detail: a live trade carries its cap + roster picture; an unavailable calculation is shown as unavailable", async () => {
   const { env, mfl } = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 });
