@@ -59247,6 +59247,27 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           body.submission_kind || body.submissionKind || ""
         ).trim().toLowerCase();
 
+        // CALLER AUTHORIZATION (2026-10-07). These three routes write contracts to MFL with the
+        // COMMISSIONER's cookie (TYPE=salaries) for whatever franchise_id the body names, and until
+        // now they checked no caller at all: an anonymous POST rewrote another team's contract
+        // (reproduced locally, tests/contract_update_authz.test.mjs). The caller must now be the
+        // commissioner key (the worker's own self-calls), or an MFL session PROVEN against MFL
+        // `myleagues` whose franchise is franchise_id; a proven commissioner session may act for any
+        // team. Unprovable → refused before anything is read or written, dry runs included. The
+        // body's commissioner-override flag is honoured only for a proven commissioner.
+        let contractCaller = null;
+        if (!sessionByApiKey) {
+          const authFail = (http, code, message) => new Response(
+            JSON.stringify({ ok: false, status: "unauthorized", code, error: message, message, submission_id: "", details: { reason: message, code } }),
+            { status: http, headers: { "content-type": "application/json", ...corsHeaders } }
+          );
+          if (!franchiseId) return authFail(400, "bad_request", "That request didn't name a team.");
+          const contractCallerRes = await tradeCaller(body, franchiseId, { allowAdminKey: false });
+          if (!contractCallerRes.ok) return authFail(contractCallerRes.http, contractCallerRes.code, contractCallerRes.message);
+          contractCaller = contractCallerRes.caller;
+        }
+        const contractCallerIsCommish = sessionByApiKey || !!(contractCaller && contractCaller.isCommish);
+
         // Untag lock (Keith 2026-06-01): the TAG label locks at the tag deadline
         // (canon §C8.2 + processTagDeadlineMidnightLock). An untag submission past
         // that deadline is rejected — the tag is locked for the season — unless the
@@ -59319,7 +59340,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           )
             .trim()
             .toLowerCase();
-          return raw === "1" || raw === "true" || raw === "yes" ? 1 : 0;
+          // An owner's request can't grant itself the commissioner's override.
+          return (raw === "1" || raw === "true" || raw === "yes") && contractCallerIsCommish ? 1 : 0;
         })();
 
         // Dry-run mode — when truthy, the worker simulates a successful
