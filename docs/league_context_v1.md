@@ -1742,9 +1742,9 @@ There are **three distinct ranking sites** in UPS standings code. Owner-facing n
 **Code separation in the worker** (`worker/src/index.js`):
 - Fetches `lg.standingsSort` from MFL `TYPE=league` and stores on the league record.
 - `sortFnFromStandingsSort()` parses MFL `standingsSort` and applies it to **division-leader selection only**.
-- `/api/standings` and `/api/playoff-bracket` take every seed and the full standings-page order from `worker/src/seeding.js` (2026-10-08): canon §F.1, `AP% → Overall → Points For (season total) → H2H`. Before that, `/api/standings` broke ties on a per-game PF average before Overall, and the bracket skipped Overall for division winners and seeds 3–12.
+- Wild-card pool sort and the full standings-page `ORDER BY` both use canon §F.1: `AP% → Overall → PF`.
 
-**Schema note — `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` represent each team's overall regular-season record, NOT pairwise head-to-head. The "h2h" prefix predates the §F.1 Overall/H2H split. The H2H step in §F.1's chain needs schedule data: `seeding.js` reads the season's played regular-season `src_schedule` rows and ranks a group tied on the first three steps by each team's record against the others in the group, with franchise name as the last, deterministic fallback.
+**Schema note — `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` represent each team's overall regular-season record, NOT pairwise head-to-head. The "h2h" prefix predates the §F.1 Overall/H2H split. The pairwise H2H step in §F.1's chain isn't computable from `src_standings` alone (needs schedule data) and is dropped from in-memory comparators in favor of the franchise-name fallback.
 
 **Bot guidance:** when asked "who wins division X tiebreaker", read MFL `standingsSort` for the year in question and apply that chain. When asked "who gets the #N seed" or "who's #N on the standings page", apply §F.1 (UPS canon).
 
