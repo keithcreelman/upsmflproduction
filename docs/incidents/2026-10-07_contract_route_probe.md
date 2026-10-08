@@ -1,6 +1,6 @@
 # Incident: a production auth check of `/commish-contract-update` wrote to production (2026-10-07)
 
-**Status:** closed for code. The data correction is prepared and awaiting Keith's approval.
+**Status:** closed. Code fixed (#1192, live 2026-10-08 14:09Z); data corrected 2026-10-08 on Keith's approval ([results](2026-10-08_salary_change_log_dry_run_relabel/RESULTS.md)).
 
 ## What happened
 
@@ -12,7 +12,7 @@ The request carried `dry_run=1`, a made-up session and a nonexistent player (999
 
 | Where | What | State now |
 |---|---|---|
-| **Production D1, `salary_change_log`** | **Row 1876**: `endpoint /commish-contract-update`, `player_id 99999999`, mislabeled `dry_run = 0, landed = 1, notes = import_ok_log_dispatched` by the audit-writer bug below (`import_status 0`) | **Still present, unchanged.** The guarded relabel, together with the 26 older rows with the same false label, is prepared in [`2026-10-08_salary_change_log_dry_run_relabel/`](2026-10-08_salary_change_log_dry_run_relabel/README.md) and runs only on approval. The row is not deleted. |
+| **Production D1, `salary_change_log`** | **Row 1876**: `endpoint /commish-contract-update`, `player_id 99999999`, mislabeled `dry_run = 0, landed = 1, notes = import_ok_log_dispatched` by the audit-writer bug below (`import_status 0`) | **Kept, relabeled 2026-10-08 14:14Z** to `dry_run 1, landed 0`, together with the 26 older rows with the same false label. Its complete original values are in `ups_contract_gate_audit` id 142 ([results](2026-10-08_salary_change_log_dry_run_relabel/RESULTS.md)). Not deleted. |
 | Test Discord channel `1089538054236160010` | A "[DRY RUN]" contract card (message `1557486147171647600`) | Left for Keith to delete. I don't delete messages. |
 | GitHub `main` (via `repository_dispatch` → `log-contract-activity`) | github-actions commit `38b2bc4e` added an activity row for player 99999999 to `site/rosters/contract_submissions/contract_activity_2026.json` | Reverted by `21a78025` ([keithcreelman/upsmflproduction#1188](https://github.com/keithcreelman/upsmflproduction/pull/1188)). Confirmed live on 2026-10-07: GitHub Pages and raw `main` both serve 159 rows and none for 99999999. |
 

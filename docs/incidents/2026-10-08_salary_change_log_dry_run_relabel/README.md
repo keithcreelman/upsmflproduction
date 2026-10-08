@@ -1,6 +1,6 @@
 # Relabel of 27 mislabeled dry-run rows in `salary_change_log`: prepared, NOT applied
 
-**Status:** prepared and tested against the exact production rows (`tests/salary_change_log_relabel_plan.test.mjs`). **Nothing has been run in production.** Each step below runs only after Keith approves it. No row is deleted.
+**Status: APPLIED 2026-10-08 on Keith's approval** (all 27 rows, Tier B included, and the 20 timeline entries). Exact steps, restore point and per-row before/after: [`RESULTS.md`](RESULTS.md). It was prepared and tested against the exact production rows (`tests/salary_change_log_relabel_plan.test.mjs`). No row was deleted.
 
 **Why:** until the audit-writer fix, `/commish-contract-update`, `/offer-mym` and `/offer-restructure` logged every **dry run** as a landed change. The row read `dry_run = 0`, `landed = 1`, `notes = import_ok_log_dispatched`, with `import_status = 0` (no MFL request) and the after-fields copied from before. There are 27 such rows, ids 1233–1876; 1876 is the 2026-10-07 auth-check probe. See `../2026-10-07_contract_route_probe.md`.
 
