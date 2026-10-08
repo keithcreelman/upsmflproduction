@@ -77,6 +77,17 @@ export function seedLadder(rows, games) {
     pad4(a.franchise_id).localeCompare(pad4(b.franchise_id));
 }
 
+// The order /api/standings used before 2026-10-08 (AP%, per-game PF average,
+// Overall, name), kept ONLY for seasons with recorded final standings: Keith
+// 2026-10-08, "Keep any proposed changes to historical seed records separate
+// from this Week 4 release." Applying the ladder to 2010-2025 would move 2013's
+// seeds 3/4 and 2022's seeds 1/2; that is a separate proposal.
+export function legacyStandingsTiebreak(a, b) {
+  const desc = (x, y) => Number(y || 0) - Number(x || 0);
+  return desc(a.allplay_pct, b.allplay_pct) || desc(a.pf, b.pf) || desc(a.h2h_pct, b.h2h_pct) ||
+    String(a.franchise_name || "").localeCompare(String(b.franchise_name || ""));
+}
+
 // The modern field (4 division winners + 2 wild cards; §F.1): seeds 1-2 are the
 // two best division winners; seeds 3-6 are the other division winners and the
 // two best non-winners, interleaved; everyone else is outside the field. Every

@@ -9,7 +9,7 @@
 //                    AP%, PF, name (no Overall at all).
 import fs from "fs";
 import assert from "assert";
-import { seedLadder, modernField } from "../worker/src/seeding.js";
+import { seedLadder, modernField, legacyStandingsTiebreak } from "../worker/src/seeding.js";
 
 let fails = 0;
 const check = (name, fn) => {
@@ -102,6 +102,14 @@ check("full 12-team order", () => assert.deepStrictEqual(owners(order), [
   "Eric Mannila", "Brian Cutting", "Matt Gerardi", "Ryan Bousquet", "Josh Martel", "Brian Cross"]));
 check("fixture sanity: 12 teams, 4 division leaders, 60 games seen from both sides", () => {
   assert.strictEqual(rows.length, 12); assert.strictEqual(dw.size, 4); assert.strictEqual(fx.games.length, 120);
+});
+
+console.log("5. seasons with recorded final standings keep their previous order");
+check("legacyStandingsTiebreak is the pre-fix /api/standings comparator (2026 rows sort identically)", () =>
+  assert.deepStrictEqual(owners(rows.slice().sort(legacyStandingsTiebreak)), owners(rows.slice().sort(OLD_STANDINGS))));
+check("and it still puts Cutting over Mannila, i.e. it is only for recorded seasons", () => {
+  const trio = rows.filter((r) => ["Brian Cutting", "Eric Mannila"].includes(r.owner_name)).sort(legacyStandingsTiebreak);
+  assert.deepStrictEqual(owners(trio), ["Brian Cutting", "Eric Mannila"]);
 });
 
 console.log("\n" + (fails ? fails + " FAILURE(S)" : "ALL PASS"));

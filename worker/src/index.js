@@ -1,5 +1,5 @@
 import { handleHallRequest } from "./hall.js";
-import { seedLadder, modernField } from "./seeding.js";
+import { seedLadder, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -20367,18 +20367,29 @@ export default {
           // seeds 3-6 = the other division winners + 2 wild cards; everyone
           // else follows. Every list is ordered All-Play % → Overall → season
           // Points For → head-to-head (2026-10-08: this used to break ties on
-          // the per-game PF average before Overall).
-          let regGames = [];
+          // the per-game PF average before Overall). Seasons with recorded final
+          // standings keep their previous order (legacyStandingsTiebreak): a
+          // change to historical seed records is a separate decision.
+          let recordedSeason = false;
           try {
-            const gRs = await db.prepare(
-              `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
-                 FROM src_schedule
-                WHERE season = ? AND COALESCE(is_playoff, 0) = 0
-                  AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
-            ).bind(yr).all();
-            regGames = gRs.results || [];
+            const fr = await db.prepare(
+              "SELECT 1 AS x FROM src_final_standings WHERE season = ? LIMIT 1"
+            ).bind(yr).first();
+            recordedSeason = !!(fr && fr.x);
           } catch (_) {}
-          const seedTiebreak = seedLadder(rows, regGames);
+          let regGames = [];
+          if (!recordedSeason) {
+            try {
+              const gRs = await db.prepare(
+                `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
+                   FROM src_schedule
+                  WHERE season = ? AND COALESCE(is_playoff, 0) = 0
+                    AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
+              ).bind(yr).all();
+              regGames = gRs.results || [];
+            } catch (_) {}
+          }
+          const seedTiebreak = recordedSeason ? legacyStandingsTiebreak : seedLadder(rows, regGames);
           const field = modernField(rows, divisionWinnerIds, seedTiebreak);
           const topTwoDW = field.byes;
           const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
