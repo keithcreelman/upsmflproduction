@@ -58,13 +58,22 @@ Left NULL rather than invented. If it's needed, that is a separate,
 follow-up task requiring Keith to either supply the formula or approve a
 reconstruction from real historical score distributions.
 
+SCORE CORRECTIONS (2026-10-08): every run prints SYNC_FINGERPRINT, a hash of
+exactly the rows it would write, so scripts/sync_live_season_weekly.sh can tell
+an Elias correction inside an already-synced week from "no change", and
+--skip-if-fingerprint lets the Thursday/Friday runs exit without writing when
+nothing moved. See sync_live_season_from_mfl_to_d1.py's docstring for the
+incident.
+
 Usage:
   python3 sync_live_weekly_scores_to_d1.py --season 2026 --dry-run
   python3 sync_live_weekly_scores_to_d1.py --season 2026
+  python3 sync_live_weekly_scores_to_d1.py --season 2026 --weeks 4
   python3 sync_live_weekly_scores_to_d1.py --season 2025 --weeks 1 --dry-run --verify-against-d1
 """
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -257,6 +266,14 @@ COLS = ["season", "week", "player_id", "pos_group", "status", "score", "is_reg",
         "roster_franchise_id", "roster_franchise_name", "pos_rank", "overall_rank"]
 
 
+def rows_fingerprint(weeks, rows):
+    """Exact fingerprint of the rows this run would write (every column, sorted).
+    The week list is part of it, so a --weeks subset never matches a full run."""
+    items = sorted("|".join(repr(r.get(c)) for c in COLS) for r in rows)
+    return "v1:w%s:%d:%s" % (",".join(str(w) for w in weeks), len(items),
+                             hashlib.sha256("\n".join(items).encode("utf-8")).hexdigest())
+
+
 def verify_against_d1(rows, season, week):
     """Re-derive from raw D1 and diff, for --verify-against-d1 on a past week.
     Uses --command (not --file): --file's upload-progress banner goes to
@@ -304,6 +321,8 @@ def main():
     parser.add_argument("--weeks", default=None, help="Comma list, e.g. '1,2'. Default: auto-detect played weeks.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--verify-against-d1", action="store_true", help="Diff computed rows against real stored D1 rows (for a past week).")
+    parser.add_argument("--skip-if-fingerprint", default=None,
+                        help="exit 0 without writing when the rows still match this SYNC_FINGERPRINT")
     args = parser.parse_args()
 
     print(f"Fetching position map + team names for {args.season}...")
@@ -338,6 +357,12 @@ def main():
 
     print(f"\nTotal: {len(all_rows)} rows across {len(weeks)} week(s).")
     print("NOTE: win_chunks left NULL for every row -- no source exists for it (see module docstring).")
+    fingerprint = rows_fingerprint(weeks, all_rows)
+    print(f"SYNC_FINGERPRINT={fingerprint}")
+    if args.skip_if_fingerprint and args.skip_if_fingerprint == fingerprint:
+        print("MFL's player scores match the last recorded sync exactly -- nothing written.")
+        print(f"SYNC_RESULT week_nums={weeks} max_week={max(weeks)}")
+        return 0
 
     if args.dry_run:
         print("\nSample row:", json.dumps(all_rows[0], indent=2) if all_rows else None)
