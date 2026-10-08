@@ -108,12 +108,19 @@ def alert_issue(run, aid, reasons, cwd, dry=False):
     return {"action": "alert-created"}
 
 
+CODE_PATHS = ("pipelines/etl/wire", "pipelines/etl/scripts", "site/wire/data/chat_exclusions.json")
+
+
 def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since=None, log=print, sandbox=False,
-             missed=()):
+             missed=(), code_ref=None):
     """One idempotent pass for one week. Returns a status dict (also written to STATE_DIR).
     sandbox: build under a DEMO id in site/wire/articles/_sandbox/ (wire.py never indexes,
     verifies or publishes a "_" folder) so draft-PR creation and update can be shown on
-    GitHub without a second real issue. A sandbox PR commits only its own files."""
+    GitHub without a second real issue. A sandbox PR commits only its own files.
+    code_ref (sandbox only): run the build steps with a branch's pipeline code -- overlaid
+    on the work tree, never staged -- to demonstrate a change before it merges."""
+    if code_ref and not sandbox:
+        raise ValueError("--code-ref is for the sandbox demo only; a real draft is built from origin/main")
     aid = "%d-wk%02d-ups-center%s" % (season, week, "-sandbox" if sandbox else "")
     article_rel = ("articles/_sandbox/%s.html" if sandbox else "articles/%d/" % season + "%s.html") % aid
     article_path = os.path.join(workdir, "site/wire", article_rel)
@@ -154,7 +161,11 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     # clean, automation-owned tree at origin/main on the week's branch
     sh(["git", "checkout", "-q", "-B", PR.branch_for(aid), "origin/main"], workdir, check=True)
     sh(["git", "reset", "-q", "--hard", "origin/main"], workdir, check=True)
-    sh(["git", "clean", "-qfd", "site/wire", "docs/wire/auto"], workdir)
+    sh(["git", "clean", "-qfd", "site/wire", "docs/wire/auto"] + list(CODE_PATHS[:2]), workdir)   # incl. a past overlay
+    if code_ref:
+        sh(["git", "fetch", "-q", "origin", code_ref], workdir, check=True)
+        sh(["git", "restore", "--source", "origin/" + code_ref, "--worktree", "--"] + list(CODE_PATHS), workdir, check=True)
+        st["codeRef"] = code_ref
 
     # 2. evidence + Elias
     data = os.path.join(workdir, "site/wire/data")
@@ -318,6 +329,7 @@ def main():
     r.add_argument("--no-ingest", action="store_true")
     r.add_argument("--chat-since", type=int, help="unix start of the Coffee Shop window")
     r.add_argument("--sandbox", action="store_true", help="demo id under site/wire/articles/_sandbox (never published)")
+    r.add_argument("--code-ref", help="sandbox only: overlay this branch's pipeline code (unstaged) for a pre-merge demo")
     a = ap.parse_args()
     now = int(datetime.now(timezone.utc).timestamp())
     os.makedirs(STATE_DIR, exist_ok=True)
@@ -333,7 +345,7 @@ def main():
     rc = 0
     for wk in weeks:
         st = run_week(a.season, wk, a.workdir, now, pr_mode=a.pr_mode, ingest=not a.no_ingest, chat_since=a.chat_since,
-                      sandbox=a.sandbox, missed=missed)
+                      sandbox=a.sandbox, missed=missed, code_ref=a.code_ref)
         if st["status"] not in ("ready", "ready-with-gaps", "already-published", "not-final"):
             rc = 1
     json.dump({"at": now, "weeks": weeks, "missedSlots": missed}, open(last_path, "w"))

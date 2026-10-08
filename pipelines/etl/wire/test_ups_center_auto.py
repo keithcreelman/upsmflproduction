@@ -333,6 +333,12 @@ sb = DUE.preflight_findings(2026, 4, {"articles": [{"id": AID, "status": "live",
 real = DUE.preflight_findings(2026, 4, {"articles": [{"id": AID, "status": "live", "path": "articles/2026/%s.html" % AID}]},
                               None, None, [], [], stage="publish")
 check("the duplicate check still stops the real week (live) but not its sandbox twin", real and not sb, (real, sb))
+try:
+    AUTO.run_week(2026, 4, "/nonexistent", now, code_ref="feat/x")
+    refused = False
+except ValueError:
+    refused = True
+check("a branch-code overlay is refused for a real draft (real drafts build from origin/main only)", refused)
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

@@ -68,7 +68,7 @@ Ids and private names cannot be cleared.
 
 ## Sandbox demo
 
-`ups_center_auto.py run --sandbox --week N` builds under a demo id at `site/wire/articles/_sandbox/` (`wire.py` never indexes, verifies or publishes a `_` folder). It opens a `[SANDBOX demo -- will be closed]` draft PR that commits only its own article and claims, and never opens a GitHub alert. This shows draft-PR creation and update on GitHub without a second copy of a live issue.
+`ups_center_auto.py run --sandbox --week N` builds under a demo id at `site/wire/articles/_sandbox/` (`wire.py` never indexes, verifies or publishes a `_` folder). It opens a `[SANDBOX demo -- will be closed]` draft PR that commits only its own article and claims, and never opens a GitHub alert. This shows draft-PR creation and update on GitHub without a second copy of a live issue. Before a change merges, `--code-ref <branch>` (sandbox only) overlays that branch's pipeline code on the work tree, without staging it, so the demo runs the code under review.
 
 ## What the draft contains
 
@@ -113,4 +113,4 @@ A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft
 
 ## Tests
 
-`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (64 checks), with synthetic chat. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.
+`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (65 checks), with synthetic chat. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.
