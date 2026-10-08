@@ -38225,7 +38225,10 @@ const mflToSleeper = {};
         return evaluateTaxiDestinations({ season, arrivals, draftPicks, callupCounts, priorSeasonActive, kickoffByTeam, nowUnix: Math.floor(Date.now() / 1000) });
       };
 
-      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops }) => {
+      // `taxiStep` (Keith 2026-10-07): pass `{ pids }` ONLY from the two-team War Room path, whose accept runs the
+      // verified taxi step for exactly those players (applyTaxiDemotionsFromPayload: moves, checks MFL's rosters,
+      // needs-review + owner/commissioner DM on failure). Omitted = no taxi step (3-way): nothing is credited.
+      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops, taxiStep }) => {
         try {
           const opts = { includeApiKey: true, useCookie: true };
           const [rosters, league, adjustments, salaries, players] = await Promise.all([
@@ -38239,8 +38242,9 @@ const mflToSleeper = {};
             // loaded_contracts closed, since none of those read position at all.
             mflExportJson(season, leagueId, "players", { DETAILS: 1 }, opts),
           ]);
-          const taxiDestinations = await loadTaxiDestinations({ season, leagueId, movements, rosters, players }).catch(() => ({}));
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations });
+          const stepPids = taxiStep && Array.isArray(taxiStep.pids) ? taxiStep.pids : [];
+          const taxiDestinations = stepPids.length ? await loadTaxiDestinations({ season, leagueId, movements, rosters, players }).catch(() => ({})) : {};
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep: taxiStep || null });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -38614,9 +38618,10 @@ const mflToSleeper = {};
           }
         },
         // Live cap/roster projection for a 3-way row (used by the accept + execute gates and the detail view).
-        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc, conditionalDrops }) => {
+        // `taxiStep` is passed only by the two-team Send preview; the 3-way engine's /admin/3way/compliance call never does.
+        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc, conditionalDrops, taxiStep }) => {
           const ext = await planExtensionSalaries(season, leagueId, extensionRequests, { offerCreatedAtUtc });
-          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops });
+          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops, taxiStep });
           out.extension_skipped = (ext.skipped || []).map((x) => ({ player_id: safeStr(x && x.player_id), reason: safeStr(x && x.reason) }));
           if (!ext.ok && out.cap.status !== "unavailable") { out.cap = { ...out.cap, status: "unavailable", reason: "extension_salaries_unavailable", message: "We couldn't verify the salary cap for this trade right now." }; }
           return out;
@@ -38712,7 +38717,11 @@ const mflToSleeper = {};
         // The caller must be one of the trade's own parties (or the commissioner) -- never lets
         // an unrelated owner probe another two teams' cap/roster situation.
         if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
-        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
+        // The Send-time warning for a TWO-team offer may count the taxi moves its accept will make (the offer's
+        // taxi-flagged players); the accept recomputes from the stored offer and live data. A 3-way never does.
+        const taxiStep = partyFids.size === 2 && Array.isArray(body?.taxi_step_player_ids)
+          ? { pids: body.taxi_step_player_ids.map((x) => safeStr(x).replace(/\D/g, "")).filter(Boolean) } : null;
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops, taxiStep });
         return jsonOut(200, { ok: true, compliance: out });
       }
 
@@ -40547,6 +40556,9 @@ const mflToSleeper = {};
               // CREATE gate above for the full ruling text.
               acceptCompliance = await computeTradeComplianceLive({
                 season, leagueId, rostersRes: acceptRostersRes, extensionSalary: acceptExtSalary, taxiFlags,
+                // this accept's own taxi step (runTradePostProcessing → applyTaxiDemotionsFromPayload) moves exactly
+                // the same payload's taxi-flagged players, so only they may be credited against the roster maximum
+                taxiStep: { pids: Object.keys(taxiFlags) },
                 movements: capFids.map((f) => ({ from: f, to: capFids.find((x) => x !== f), tokens: byFranchise[f] })),
                 // loaded_indicator here is read from the SAME extension_requests field the
                 // existing 3-way extension preview/DM code already reads at this identical
@@ -40613,7 +40625,8 @@ const mflToSleeper = {};
                 return integrityFail(409, blocked.code, blocked.message + " Nothing was changed.", { teams: blocked.teams });
               }
               // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07): refused before MFL unless every team ends
-              // at or under the limit after its VALID arriving-taxi moves; any extra move must be made first.
+              // at or under the roster maximum after the VALID taxi moves this accept's own taxi step will make,
+              // and at or under 5 ACTUAL active QBs (no taxi credit). Any other move must be made first.
               // Unreadable → fail closed. The 27 minimum stays a heads-up.
               if (action === "ACCEPT") {
                 for (const [blockKey, code, label] of [["roster_limit", "roster_room_required", "roster maximum"], ["qb_limit", "qb_limit_exceeded", "active-QB count"]]) {

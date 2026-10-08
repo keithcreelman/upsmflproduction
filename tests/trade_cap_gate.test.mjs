@@ -60,14 +60,14 @@ test("CALC: a taxi arrival with no proven taxi destination counts as active — 
   const rosters = rosterOf({ "0001": [{ id: "1", salary: 5000, status: "TAXI_SQUAD" }, ...Array.from({ length: 28 }, (_, i) => ({ id: String(200 + i), salary: 1000 }))], "0003": thirty });
   const c = evaluateTradeCompliance({ league: league({ rosterSize: "30" }), salaries: noSalaries, adjustments: adjOf([]), rosters, taxiFlags: { "1": true },
     movements: [{ from: "0001", to: "0003", tokens: ["1"] }] });
-  // (taxiDestinations not supplied → his taxi move can't be credited; see tests/trade_roster_qb_gates.test.mjs for the credited case)
+  // (no taxiStep → nothing will move him to taxi, so his move can't be credited; see tests/trade_roster_qb_gates.test.mjs for the credited case)
   t.equal(c.roster_limit.status, "blocked"); t.equal(c.roster_limit.executable, false);
   const w = c.roster_limit.violations.find((x) => x.franchise_id === "0003");
   t.ok(w, JSON.stringify(c.roster_limit));
   t.equal(w.active_after, 31); t.equal(w.active_after_taxi, 31); t.equal(w.moves_needed, 1);
   t.equal(row(c, "0003").used_after, 35000, "and his $5,000 is on Gride's cap");
-  t.match(w.message, /Gride would have 31 active players right after this trade — the maximum is 30\. Gride must first make 1 legal roster move/);
-  t.match(w.message, /player 1 can't count toward that: his taxi eligibility couldn't be checked\./);
+  t.match(w.message, /Gride would have 31 active players right after this trade — the maximum is 30\. Gride needs 1 more roster spot: make 1 legal roster move first/);
+  t.match(w.message, /player 1 can't count as a taxi move: nothing in this trade moves him to the taxi squad afterward\./);
 });
 test("CALC: an injured-reserve player sent away frees only the half he was costing; he lands at full salary", () => {
   const rosters = rosterOf({ "0001": [{ id: "1", salary: 10000, status: "INJURED_RESERVE" }], "0002": [{ id: "9", salary: 100 }] });
@@ -639,7 +639,7 @@ test("ROSTER: an uneven trade that pushes one team over the maximum is REFUSED a
   t.equal(rows["0002"].status, "above_max"); t.equal(rows["0002"].active_after, rows["0002"].active_before + 1); t.equal(rows["0002"].max, 35);
   t.equal(rows["0001"].status, "within");
   t.equal(p.json.compliance.roster_limit.status, "blocked");
-  t.match(p.json.compliance.roster_limit.message, /CBP would have 36 active players right after this trade — the maximum is 35\. CBP must first make 1 legal roster move/);
+  t.match(p.json.compliance.roster_limit.message, /CBP would have 36 active players right after this trade — the maximum is 35\. CBP needs 1 more roster spot: make 1 legal roster move/);
   t.ok(p.json.roster_limit_block && p.json.roster_limit_block.code === "roster_room_required", "the preview names the block");
   // the accept itself IS refused, before MFL
   const r = await act(env, mobileBody(o.id));
@@ -683,6 +683,49 @@ test("ROSTER (3-way): only ONE participant is over the maximum; the detail and t
   const msg = await say(await handle3WayButton(press("accept", DISCORD.B), env, ctxWait()));
   t.match(msg, /You're in/); t.match(msg, /Real Deal Creel would have 38 active players right after this trade — the maximum is 35/); t.match(msg, /can't run until that's resolved — your accept is saved and nothing has moved/);
   t.equal(F.readRow(env).team_b_state, "accepted", "a partner's accept is still recorded; the trade runs only once the over-limit team has made its move");
+});
+test("ROSTER (3-way, Keith 2026-10-07): a leg sends a TAXI player to a team already at 30 → judged on the ACTUAL count (31), never credited as a taxi move — the 3-way engine has no taxi step; the execute gate refuses before any MFL write", async () => {
+  const { env, mfl } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  // A(0008) → B: 16614 ; B(0001) → C: 16181, on B's TAXI squad and as taxi-eligible as a player can be (UPS R2 pick this
+  // season, Rookie-Draft contract, no call-ups, game days away) ; C(0012) → A: a pick only. Hawks (C) sit at exactly 30 active.
+  mfl.st.rosters["0001"][0] = { id: "16181", salary: 5000, status: "TAXI_SQUAD", contractYear: 3, contractStatus: "Rookie-Draft" };
+  mfl.st.rosters["0008"].push(...SEATS(100, 26)); mfl.st.rosters["0001"].push(...SEATS(200, 26)); mfl.st.rosters["0012"].push(...SEATS(300, 28));
+  mfl.st.league = { rosterSize: "30", taxiSquad: "10" };
+  mfl.st.draftPicks = [{ round: "2", pick: "5", franchise: "0001", player: "16181" }];
+  mfl.st.futurePicks["0012"] = [{ year: 2027, round: 3 }];
+  env.UPS_MFL_DB.raw.prepare("UPDATE ups_3way_trades SET legs_json=?").run(JSON.stringify([
+    { from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0, summary: "P16614" },
+    { from: "0001", to: "0012", asset_tokens: ["P_16181"], cap_k: 0, summary: "P16181 (taxi)" },
+    { from: "0012", to: "0008", asset_tokens: ["FP_0012_2027_3"], cap_k: 0, summary: "2027 R3" },
+  ]));
+  const d = await callWorker(env, "GET", `/api/trades/3way?id=${F.TRADE_ID}&${Q}&MFL_USER_ID=tok-A`);
+  t.equal(d.status, 200, d.text.slice(0, 200));
+  const rl = d.json.trade.compliance.roster_limit;
+  const hawks = rl.rows.find((r) => r.franchise_id === "0012");
+  t.equal(hawks.active_before, 30); t.equal(hawks.active_after, 31, "MFL lands him ACTIVE");
+  t.equal(hawks.active_after_taxi, 31, "and nothing moves him afterward in a 3-way, so no taxi credit"); t.equal(hawks.moves_needed, 1);
+  t.deepEqual(hawks.taxi_moves, []); t.deepEqual(hawks.taxi_not_credited.map((x) => x.reason), ["no_taxi_step"]);
+  t.equal(rl.status, "blocked"); t.equal(rl.executable, false); t.deepEqual(rl.violations.map((w) => w.franchise_id), ["0012"]);
+  t.equal(rl.violations[0].message, "Hawks would have 31 active players right after this trade — the maximum is 30. Hawks needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer. Test P16181 can't count as a taxi move: a 3-way trade has no step that moves him to the taxi squad afterward.");
+  // all three have accepted: the execute gate refuses RECOVERABLY before any MFL write
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.equal(out.blocked, true);
+  const led = ledgerRow(env); t.equal(led.state, "blocked_cap"); t.equal(JSON.parse(led.block_json).kind, "roster_room_required");
+  t.deepEqual(JSON.parse(led.block_json).violations.map((v) => [v.franchise_id, v.active_after, v.active_after_taxi]), [["0012", 31, 31]]);
+  t.equal(F.readRow(env).status, "collecting", "approvals kept; never `failed`"); t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
+  t.match(JSON.stringify(blockDms(mfl).map((x) => x.body)), /Hawks needs 1 more roster spot/);
+  // a caller can't buy a credit for a 3-way: a taxi list sent to either compliance route is ignored for three teams
+  const mv3 = [{ from: "0008", to: "0001", tokens: ["16614"] }, { from: "0001", to: "0012", tokens: ["16181"] }, { from: "0012", to: "0008", tokens: ["FP_0012_2027_3"] }];
+  const adm = await callWorker(env, "POST", `/admin/3way/compliance?${Q}&APIKEY=admin-key-secret`, { body: { league_id: "74598", season: "2026", movements: mv3, taxi_step_player_ids: ["16181"] } });
+  t.equal(adm.json.compliance.roster_limit.rows.find((r) => r.franchise_id === "0012").active_after_taxi, 31);
+  const pre = await callWorker(env, "POST", `/api/trades/compliance-preview?${Q}&MFL_USER_ID=tok-A`, { body: { league_id: "74598", season: "2026", from_franchise_id: "0008", movements: mv3.map((m) => ({ from: m.from, to: m.to, asset_tokens: m.tokens })), taxi_step_player_ids: ["16181"] } });
+  t.equal(pre.status, 200, pre.text.slice(0, 200));
+  t.equal(pre.json.compliance.roster_limit.status, "blocked"); t.equal(pre.json.compliance.roster_limit.rows.find((r) => r.franchise_id === "0012").active_after_taxi, 31);
+  t.equal(mfl.writes().length, 0);
+  // the same arrival with Hawks one under (29) fits on the ACTUAL count: 29 + 1 = 30
+  mfl.st.rosters["0012"].pop();
+  const ok2 = await callWorker(env, "GET", `/api/trades/3way?id=${F.TRADE_ID}&${Q}&MFL_USER_ID=tok-A`);
+  t.equal(ok2.json.trade.compliance.roster_limit.status, "ok"); t.equal(ok2.json.trade.compliance.roster_limit.rows.find((r) => r.franchise_id === "0012").active_after, 30);
 });
 test("3-WAY detail: a live trade carries its cap + roster picture; an unavailable calculation is shown as unavailable", async () => {
   const { env, mfl } = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 });

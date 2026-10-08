@@ -817,7 +817,11 @@
         var url = M.api.workerUrl("/api/trades/compliance-preview?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
         var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
         if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
-        var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests };
+        // The players this offer sends to the receiver's taxi squad: the accept's taxi step moves exactly these,
+        // so the roster-maximum warning may count those moves (the server checks each is eligible).
+        var taxiStepIds = [];
+        (payload.teams || []).forEach(function (team) { (team.selected_assets || []).forEach(function (a) { if (a && a.taxi && a.player_id) taxiStepIds.push(String(a.player_id)); }); });
+        var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests, taxi_step_player_ids: taxiStepIds };
         var res = await tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
           var lc = res.body.compliance.loaded_contracts;
@@ -846,7 +850,8 @@
   function builderComplianceAlertHtml(cs) {
     var rosterNotice = "";
     var rlv = cs.rosterLimit && cs.rosterLimit.status === "blocked" ? (cs.rosterLimit.violations || []) : [];
-    if (rlv.length) rosterNotice = rlv.map(function (v) { return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(v.message) + " It can't be accepted until then.") + '</div>'; }).join("");
+    // Roster maximum: a warning at Send, the hard stop is at Accept (Keith 2026-10-07).
+    if (rlv.length) rosterNotice = rlv.map(function (v) { return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(v.message) + " The offer can still be sent, but it can't be accepted until that's done.") + '</div>'; }).join("");
     if (cs.status === "blocked" && cs.qbLimit && cs.qbLimit.status === "blocked") {
       var qbv = cs.qbLimit.violations || [];
       var qbLines = qbv.map(function (v) { return U.escapeHtml(U.safeStr(v.message)); });
@@ -860,7 +865,7 @@
         return U.escapeHtml(U.safeStr(v.franchise_name || v.franchise_id) + ": " + U.safeInt(v.projected, 0) + " loaded contracts; maximum " + U.safeInt(v.max, 5) + ". Revise the trade or make a separate roster move first.");
       });
       if (!lines.length) lines = ["This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first."];
-      return '<div class="ups-m-rstr-err">' + lines.join('</div><div class="ups-m-rstr-err">') + '</div>';
+      return '<div class="ups-m-rstr-err">' + lines.join('</div><div class="ups-m-rstr-err">') + '</div>' + rosterNotice;
     }
     if (cs.status === "unavailable") return '<div class="ups-m-rstr-err">Cannot verify loaded-contract limit. Try again in a moment.</div>';
     if (cs.status === "loading") return '<div class="ups-m-tb-warn">Checking the loaded-contract limit…</div>';

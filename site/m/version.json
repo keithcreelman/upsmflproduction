@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.07.2",
-  "label": "Trades: a trade can't be accepted while a team would be over 30 active players (an arriving taxi-eligible player with an open taxi spot counts once he's on taxi) or over 5 active QBs — both counts are shown, and the team makes its own move first."
+  "build": "2026.10.07.3",
+  "label": "Trades: a trade can't be accepted while a team would be over 30 active players or over 5 active QBs. QBs are counted as MFL shows them right after the trade; in a two-team trade an arriving taxi-eligible player with an open taxi spot counts once he's on taxi (never in a 3-way). Over 30 warns at Send; the team makes its own move first."
 }

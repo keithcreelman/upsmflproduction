@@ -30,8 +30,8 @@ const UNAVAIL = { participants: [], cap: { status: "unavailable", reason: "x", c
 // Over the roster MAXIMUM is a hard gate since 2026-10-07 (compliance.roster_limit); the 27 minimum stays a heads-up.
 const OVER_ROW = { franchise_id: "0002", franchise_name: "CBP", active_before: 35, active_after: 36, active_after_taxi: 36, taxi_moves: [], taxi_not_credited: [], min: 27, max: 35, status: "above_max", moves_needed: 1 };
 const WARN = { ...OK, roster: { status: "ok", advisory: true, rows: [OVER_ROW], warnings: [], message: "Every team stays at or above the roster minimum." },
-  roster_limit: { status: "blocked", max: 35, rows: [OVER_ROW], executable: false, violations: [{ ...OVER_ROW, message: "CBP would have 36 active players right after this trade — the maximum is 35. CBP must first make 1 legal roster move (for example, move an eligible injured player to IR), or the offer must be revised." }],
-    message: "CBP would have 36 active players right after this trade — the maximum is 35. CBP must first make 1 legal roster move (for example, move an eligible injured player to IR), or the offer must be revised." } };
+  roster_limit: { status: "blocked", max: 35, rows: [OVER_ROW], executable: false, violations: [{ ...OVER_ROW, message: "CBP would have 36 active players right after this trade — the maximum is 35. CBP needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer." }],
+    message: "CBP would have 36 active players right after this trade — the maximum is 35. CBP needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer." } };
 const MIN_ROW = { franchise_id: "0002", franchise_name: "CBP", active_before: 27, active_after: 26, active_after_taxi: 26, taxi_moves: [], taxi_not_credited: [], min: 27, max: 35, status: "below_min", moves_needed: 0 };
 const MINWARN = { ...OK, roster: { status: "warn", advisory: true, rows: [MIN_ROW], warnings: [{ ...MIN_ROW }], message: "CBP would have 26 active players after this trade (minimum 27), so an add may be needed afterward. The minimum is a heads-up, not a block." },
   roster_limit: { status: "ok", max: 35, rows: [MIN_ROW], violations: [], executable: true, message: "Every team stays at or under the roster maximum." } };
@@ -51,7 +51,7 @@ test("SHARED: cap ok → the Accept button is offered; cap BLOCKED or UNAVAILABL
 test("SHARED: over the roster MAXIMUM can't be accepted (both counts shown, the move named); under the 27 minimum is only a heads-up", () => {
   const h = view(WARN);
   t.ok(!has(h, "accept-confirm"), "an over-maximum roster removes Accept"); t.match(h, /Can't be accepted — roster maximum/); t.match(h, /CBP would have 36 active players right after this trade — the maximum is 35/);
-  t.match(h, /35 → 36 active/); t.match(h, /must first make 1 legal roster move/);
+  t.match(h, /35 → 36 active/); t.match(h, /CBP needs 1 more roster spot: make 1 legal roster move first/);
   const m = view(MINWARN);
   t.ok(has(m, "accept-confirm"), "the 27 minimum never blocks"); t.match(m, /Roster counts — heads-up/); t.match(m, /minimum is a heads-up/);
   const un = view({ ...OK, roster: UNAVAIL.roster });

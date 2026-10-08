@@ -371,7 +371,7 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
     : gate.kind === "roster_room_required"
     ? ((gate.compliance && gate.compliance.roster_limit && gate.compliance.roster_limit.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, active_after: v.active_after, active_after_taxi: v.active_after_taxi, max: v.max }))
     : gate.kind === "qb_limit_exceeded"
-    ? ((gate.compliance && gate.compliance.qb_limit && gate.compliance.qb_limit.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, active_qbs_after_taxi: v.active_qbs_after_taxi, max: v.max }))
+    ? ((gate.compliance && gate.compliance.qb_limit && gate.compliance.qb_limit.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, active_qbs_after: v.active_qbs_after, max: v.max }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
   let prev = null;
@@ -420,8 +420,10 @@ async function capGate(env, row) {
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "blocked") {
     return { ok: false, kind: "loaded_contract_limit_exceeded", message: safeStr(compliance.loaded_contracts.message), compliance };
   }
-  // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07): the same hard gates as a two-team accept. A
-  // team over either after its VALID arriving-taxi moves makes its own legal move first, then "Re-check".
+  // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07): hard gates, judged on the ACTUAL post-trade
+  // active count. This engine has NO post-execution taxi step (executeCommishTwoPartyTrade only moves the
+  // trade), so no arriving taxi player is ever credited as moving to taxi here — the compliance route is
+  // called without a taxiStep. A team over either makes its own legal move first, then "Re-check".
   if (!compliance.roster_limit || compliance.roster_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the roster maximum for this trade right now. Try again in a moment.", compliance };
   if (!compliance.qb_limit || compliance.qb_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the active-QB count for this trade right now. Try again in a moment.", compliance };
   if (compliance.roster_limit.status === "blocked") return { ok: false, kind: "roster_room_required", message: safeStr(compliance.roster_limit.message), compliance };

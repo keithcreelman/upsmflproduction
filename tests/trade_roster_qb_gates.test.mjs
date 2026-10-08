@@ -2,11 +2,13 @@
 //   node tests/trade_roster_qb_gates.test.mjs
 //
 // Rules under test:
-//   • A War Room trade isn't blocked merely because an arriving, taxi-eligible player lands active, PROVIDED he
-//     has a valid taxi destination (eligible now, open taxi spot, game not started) and the count AFTER that move
-//     is at most the maximum. Any other move must be made BEFORE acceptance. Both counts are shown.
+//   • A TWO-TEAM War Room trade isn't blocked merely because an arriving, taxi-eligible player lands active,
+//     PROVIDED the accept's own taxi step will move him (taxiStep), he has a valid taxi destination (eligible now,
+//     open taxi spot, game not started) and the count AFTER that move is at most the maximum. A 3-way has no taxi
+//     step: every arrival counts active. Any other move must be made BEFORE acceptance. Both counts are shown.
 //   • The cap and the ACTUAL count never credit an unverified taxi move.
-//   • At Send and at Accept no team may end up with more than 5 ACTIVE QBs (taxi and IR excluded).
+//   • At Send and at Accept no team may have more than 5 ACTIVE QBs right after MFL executes — the ACTUAL count,
+//     no taxi credit for an arriving QB (Keith 2026-10-07); QBs MFL already shows on taxi or IR are excluded.
 //   • Trades accepted on MFL's own site can't be stopped: the after-trade check notifies with a deadline of
 //     24 hours or the team's next player lock, whichever is first.
 // Pure functions only (the routes are exercised in tests/trade_roster_qb_routes.test.mjs).
@@ -36,8 +38,10 @@ const gride = (priceOnIr) => [
 const blake = () => [P("17044", 13000), P("17075", 5000, "TAXI_SQUAD"), ...fill(2000, 28), ...fill(2100, 1, "INJURED_RESERVE"), ...fill(2200, 8, "TAXI_SQUAD", 2000)];
 const MV_1249 = [{ from: "0003", to: "0010", tokens: ["FP_0003_2027_1", "FP_0003_2027_3"] }, { from: "0010", to: "0003", tokens: ["17044", "17075", "FP_0010_2027_4"] }];
 const GOLDEN_OK = { "17075": { eligible: true, reason: "", text: "" } };
+// The two-team accept's taxi step moves the offer's taxi-flagged players — here Golden.
+const STEP_1249 = { pids: ["17075"] };
 const c1249 = (o) => evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(POS_1249), movements: MV_1249,
-  rosters: rostersOf({ "0003": gride(o && o.priceOnIr), "0010": blake() }), taxiDestinations: o && "dest" in o ? o.dest : GOLDEN_OK });
+  rosters: rostersOf({ "0003": gride(o && o.priceOnIr), "0010": blake() }), taxiDestinations: o && "dest" in o ? o.dest : GOLDEN_OK, taxiStep: o && "step" in o ? o.step : STEP_1249 });
 const rowOf = (c, fid) => c.roster_limit.rows.find((r) => r.franchise_id === fid);
 
 test("#1249 BEFORE: 30 + Hampton + Golden − Golden-to-taxi = 31 > 30 → refused; both counts shown; Gride must make 1 legal move first", () => {
@@ -47,7 +51,7 @@ test("#1249 BEFORE: 30 + Hampton + Golden − Golden-to-taxi = 31 > 30 → refus
   t.equal(JSON.stringify(g.taxi_moves), JSON.stringify([{ player_id: "17075", player_name: "Matthew Golden" }])); t.equal(g.moves_needed, 1);
   t.equal(c.roster_limit.status, "blocked"); t.equal(c.roster_limit.executable, false);
   t.equal(c.roster_limit.violations[0].message,
-    "Gride would have 32 active players right after this trade and 31 once Matthew Golden is moved to its taxi squad — the maximum is 30. Gride must first make 1 legal roster move (for example, move an eligible injured player to IR), or the offer must be revised.");
+    "Gride would have 32 active players right after this trade and 31 once Matthew Golden is moved to its taxi squad — the maximum is 30. Gride needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer.");
   const cap = c.cap.rows.find((r) => r.franchise_id === "0003");
   t.equal(cap.used_after - cap.used_before, 18000, "the cap carries Hampton's $13K AND Golden's $5K — no credit for an unverified taxi move");
   const blocked = tradeLimitBlockPayload(c.roster_limit, "roster_room_required");
@@ -64,18 +68,21 @@ test("#1249 AFTER Price moves to IR first (29 active): 29 + 2 − Golden = 30 �
 });
 
 test("#1249 with Golden NOT creditable: each reason is named and counts him active", () => {
-  for (const [dest, re] of [[{}, /his taxi eligibility couldn't be checked/], [{ "17075": { eligible: false, reason: "game_started", text: "his game has already started this week, so MFL won't move him until the week is over" } }, /game has already started/]]) {
-    const c = c1249({ priceOnIr: true, dest });
+  for (const [o, re] of [[{ dest: {} }, /his taxi eligibility couldn't be checked/],
+    [{ dest: { "17075": { eligible: false, reason: "game_started", text: "his game has already started this week, so MFL won't move him until the week is over" } } }, /game has already started/],
+    [{ step: null }, /Matthew Golden can't count as a taxi move: nothing in this trade moves him to the taxi squad afterward\./],
+    [{ step: { pids: [] } }, /Matthew Golden can't count as a taxi move: the offer doesn't send him to the taxi squad\./]]) {
+    const c = c1249({ priceOnIr: true, ...o });
     const g = rowOf(c, "0003");
     t.equal(g.active_after_taxi, 31, "not credited → still 31"); t.equal(c.roster_limit.status, "blocked");
     t.match(c.roster_limit.violations[0].message, re);
   }
   // a full taxi squad is no valid destination either
-  const full = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(POS_1249), movements: MV_1249, taxiDestinations: GOLDEN_OK,
+  const full = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(POS_1249), movements: MV_1249, taxiDestinations: GOLDEN_OK, taxiStep: STEP_1249,
     rosters: rostersOf({ "0003": [...gride(true).filter((p) => p.status !== "TAXI_SQUAD"), ...fill(1300, 10, "TAXI_SQUAD", 2000)], "0010": blake() }) });
   t.equal(rowOf(full, "0003").active_after_taxi, 31); t.match(full.roster_limit.violations[0].message, /taxi squad would be full \(10 of 10\)/);
   // an unknown taxi limit is not assumed
-  const noTaxi = evaluateTradeCompliance({ league: league({ taxiSquad: "" }), salaries: noSalaries, adjustments: adj, players: players(POS_1249), movements: MV_1249, taxiDestinations: GOLDEN_OK,
+  const noTaxi = evaluateTradeCompliance({ league: league({ taxiSquad: "" }), salaries: noSalaries, adjustments: adj, players: players(POS_1249), movements: MV_1249, taxiDestinations: GOLDEN_OK, taxiStep: STEP_1249,
     rosters: rostersOf({ "0003": gride(true), "0010": blake() }) });
   t.match(noTaxi.roster_limit.violations[0].message, /couldn't read the taxi squad limit/);
 });
@@ -89,18 +96,19 @@ const haulers = (lockDropped) => [P("12626", 44000), P("9101", 30000), P("9102",
 const blake47 = () => [P("17030", 4000), P("13163", 10000), P("17607", 2000, "TAXI_SQUAD"), ...fill(4000, 27), ...fill(4200, 8, "TAXI_SQUAD", 2000)];
 const MV_1247 = [{ from: "0006", to: "0010", tokens: ["12626", "BB_20000"] }, { from: "0010", to: "0006", tokens: ["17030", "13163", "17607", "FP_0008_2027_1"] }];
 const c1247 = (lockDropped) => evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(POS_1247), movements: MV_1247,
-  rosters: rostersOf({ "0006": haulers(lockDropped), "0010": blake47() }), taxiDestinations: { "17607": { eligible: true, reason: "", text: "" } } });
+  rosters: rostersOf({ "0006": haulers(lockDropped), "0010": blake47() }), taxiDestinations: { "17607": { eligible: true, reason: "", text: "" } }, taxiStep: { pids: ["17607"] } });
 
 test("#1247 BEFORE: the Long Haulers would have 6 active QBs → refused (QB move named); the roster fits once Raridon is on taxi (31 → 30)", () => {
   const c = c1247(false);
   const h = rowOf(c, "0006");
   t.equal(h.active_before, 29); t.equal(h.active_after, 31); t.equal(h.active_after_taxi, 30); t.equal(c.roster_limit.status, "ok");
   const q = c.qb_limit.rows.find((r) => r.franchise_id === "0006");
-  t.equal(q.active_qbs_before, 5); t.equal(q.active_qbs_after, 6); t.equal(q.active_qbs_after_taxi, 6, "Shedeur Sanders on their taxi squad doesn't count");
+  t.equal(q.active_qbs_before, 5, "Shedeur Sanders on their taxi squad doesn't count"); t.equal(q.active_qbs_after, 6, "Cam Ward lands active");
+  t.equal("active_qbs_after_taxi" in q, false, "no taxi-adjusted QB figure exists any more");
   t.equal(c.qb_limit.status, "blocked"); t.equal(c.qb_limit.executable, false);
   t.equal(c.qb_limit.violations[0].message,
-    "The Long Haulers would have 6 QBs on the active roster after this trade — the maximum is 5 (taxi and IR QBs don't count). The Long Haulers must first make a legal QB move — move a QB to IR if MFL lists him on IR, move an eligible QB to the taxi squad, or drop one — or the offer must be revised. A move made for this stands whether or not the trade happens.");
-  t.equal(tradeLimitBlockPayload(c.qb_limit, "qb_limit_exceeded").teams[0].active_qbs_after_taxi, 6);
+    "The Long Haulers would have 6 QBs on the active roster right after this trade — the maximum is 5. QBs MFL already shows on taxi or IR don't count; an arriving QB counts as active. The Long Haulers must first make a legal QB move — move one of its current QBs to IR if MFL lists him on IR, move an eligible current QB to the taxi squad, or drop one — or the offer must be revised. A move made for this stands whether or not the trade happens.");
+  t.equal(JSON.stringify(tradeLimitBlockPayload(c.qb_limit, "qb_limit_exceeded").teams[0]), JSON.stringify({ franchise_id: "0006", franchise_name: "The Long Haulers", active_qbs_after: 6, max: 5 }));
   t.equal(c.qb_limit.rows.find((r) => r.franchise_id === "0010").active_qbs_after, 0);
 });
 
@@ -108,22 +116,41 @@ test("#1247 AFTER Drew Lock is dropped first: 5 active QBs → allowed; roster 2
   const c = c1247(true);
   const h = rowOf(c, "0006");
   t.equal(h.active_after, 30); t.equal(h.active_after_taxi, 29);
-  t.equal(c.qb_limit.status, "ok"); t.equal(c.qb_limit.rows.find((r) => r.franchise_id === "0006").active_qbs_after_taxi, ACTIVE_QB_MAX);
+  t.equal(c.qb_limit.status, "ok"); t.equal(c.qb_limit.rows.find((r) => r.franchise_id === "0006").active_qbs_after, ACTIVE_QB_MAX);
   t.equal(c.roster_limit.status, "ok");
 });
 
-test("QB counting: taxi and IR QBs excluded; an arriving taxi QB with a valid destination ends on taxi; no positions → fails CLOSED", () => {
-  const pos = { 801: ["QB", "A"], 802: ["QB", "B"], 803: ["QB", "C"], 804: ["QB", "D"], 805: ["QB", "E"], 806: ["QB", "Hurt"], 807: ["QB", "Rookie"], 808: ["WR", "X"] };
-  const base = { "0003": [P("801", 1000), P("802", 1000), P("803", 1000), P("804", 1000), P("805", 1000), P("806", 1000, "INJURED_RESERVE"), P("808", 1000)], "0010": [P("807", 1000, "TAXI_SQUAD"), P("809", 1000)] };
+test("QB counting is ACTUAL (Keith 2026-10-07): an arriving taxi-eligible rookie QB is NOT subtracted for a taxi move that hasn't happened — 6/5 is refused; moving a CURRENT QB to taxi first clears it; taxi and IR QBs excluded; no positions → fails CLOSED", () => {
+  const pos = { 801: ["QB", "A"], 802: ["QB", "B"], 803: ["QB", "C"], 804: ["QB", "D"], 805: ["QB", "E"], 806: ["QB", "Hurt"], 807: ["QB", "Rookie"], 808: ["WR", "X"], 810: ["QB", "Rookie2"] };
+  const base = (o) => ({ "0003": [P("801", 1000), P("802", 1000), P("803", 1000), P("804", 1000), P("805", 1000, o && o.eOnTaxi ? "TAXI_SQUAD" : "ROSTER"), P("806", 1000, "INJURED_RESERVE"), P("808", 1000)],
+    "0010": [P("807", 1000, "TAXI_SQUAD"), P("809", 1000)] });
   const mv = [{ from: "0010", to: "0003", tokens: ["807"] }, { from: "0003", to: "0010", tokens: ["808"] }];
-  const credited = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(pos), movements: mv, rosters: rostersOf(base), taxiDestinations: { 807: { eligible: true } } });
-  const r = credited.qb_limit.rows.find((x) => x.franchise_id === "0003");
-  t.equal(r.active_qbs_before, 5, "the IR QB doesn't count"); t.equal(r.active_qbs_after, 6, "actual: the rookie lands active"); t.equal(r.active_qbs_after_taxi, 5);
-  t.equal(credited.qb_limit.status, "ok", "a valid taxi destination means he ends on taxi");
-  const notCredited = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(pos), movements: mv, rosters: rostersOf(base), taxiDestinations: {} });
-  t.equal(notCredited.qb_limit.status, "blocked");
-  const noPos = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: { ok: false }, movements: mv, rosters: rostersOf(base), taxiDestinations: {} });
+  const run = (o) => evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(pos), movements: mv, rosters: rostersOf(base(o)),
+    taxiDestinations: { 807: { eligible: true } }, taxiStep: { pids: ["807"] } });
+  const c = run();
+  const r = c.qb_limit.rows.find((x) => x.franchise_id === "0003");
+  t.equal(r.active_qbs_before, 5, "the IR QB doesn't count"); t.equal(r.active_qbs_after, 6, "the rookie lands active — and that is the count");
+  t.equal(c.qb_limit.status, "blocked", "even with a valid taxi destination AND the two-team taxi step, the QB gate gives no credit");
+  t.match(c.qb_limit.violations[0].message, /^Gride would have 6 QBs on the active roster right after this trade — the maximum is 5\./);
+  const rr = c.roster_limit.rows.find((x) => x.franchise_id === "0003");
+  t.equal(rr.active_after, 6); t.equal(rr.active_after_taxi, 5, "(the roster MAXIMUM, in a two-team trade, may still count his taxi move: 6 − 1)");
+  const cleared = run({ eOnTaxi: true });
+  t.equal(cleared.qb_limit.rows.find((x) => x.franchise_id === "0003").active_qbs_before, 4, "a current QB MFL already shows on taxi doesn't count");
+  t.equal(cleared.qb_limit.status, "ok", "4 + the arriving rookie = 5");
+  const noPos = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: { ok: false }, movements: mv, rosters: rostersOf(base()), taxiDestinations: {} });
   t.equal(noPos.qb_limit.status, "unavailable"); t.equal(noPos.qb_limit.executable, false);
+});
+
+test("3-way (Keith 2026-10-07): no taxi step → an arriving taxi player is never credited, even when eligible; a team at 30 receiving him is refused at 31", () => {
+  const thirty = fill(3000, 30);
+  const c = evaluateTradeCompliance({ league: league(), salaries: noSalaries, adjustments: adj, players: players(POS_1249),
+    rosters: rostersOf({ "0003": thirty, "0010": blake(), "0006": fill(4000, 28) }), taxiDestinations: GOLDEN_OK,
+    movements: [{ from: "0010", to: "0003", tokens: ["17075"] }, { from: "0003", to: "0006", tokens: ["FP_0003_2027_1"] }, { from: "0006", to: "0010", tokens: ["FP_0006_2027_2"] }] });
+  const g = rowOf(c, "0003");
+  t.equal(g.active_after, 31); t.equal(g.active_after_taxi, 31); t.deepEqual(g.taxi_moves, []);
+  t.deepEqual(g.taxi_not_credited.map((x) => [x.player_id, x.reason]), [["17075", "no_taxi_step"]]);
+  t.equal(c.roster_limit.status, "blocked");
+  t.equal(c.roster_limit.violations[0].message, "Gride would have 31 active players right after this trade — the maximum is 30. Gride needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer. Matthew Golden can't count as a taxi move: a 3-way trade has no step that moves him to the taxi squad afterward.");
 });
 
 test("the 27 minimum stays a heads-up: never part of the hard gate", () => {

@@ -47,7 +47,7 @@ test("ROSTER: 30 active + 2 in, 1 out = 31 → the War Room accept is refused BE
   t.equal(pv.json.compliance.roster_limit.status, "blocked"); t.equal(pv.json.roster_limit_block.code, "roster_room_required");
   const a = await act(env, id);
   t.equal(a.status, 409, a.text.slice(0, 200)); t.equal(a.json.code, "roster_room_required");
-  t.match(a.json.message, /CBP would have 31 active players right after this trade — the maximum is 30\. CBP must first make 1 legal roster move/);
+  t.match(a.json.message, /CBP would have 31 active players right after this trade — the maximum is 30\. CBP needs 1 more roster spot: make 1 legal roster move first/);
   t.equal(accepts(mfl), 0, "MFL was never asked to accept"); t.equal(mfl.st.pending.length, 1, "the offer stays pending");
 });
 
@@ -89,8 +89,40 @@ test("QB: at SEND, a trade that would give a team 6 active QBs is refused before
   const proposals = mfl.writes("tradeProposal").length;
   const { r } = await send(env, mfl, payload([asset(9001)], [asset(13100)]));
   t.equal(r.status, 409, r.text.slice(0, 200)); t.equal(r.json.code, "qb_limit_exceeded"); t.equal(r.json.who, "recipient");
-  t.match(r.json.message, /CBP would have 6 QBs on the active roster after this trade — the maximum is 5 \(taxi and IR QBs don't count\)/);
+  t.match(r.json.message, /CBP would have 6 QBs on the active roster right after this trade — the maximum is 5\. QBs MFL already shows on taxi or IR don't count; an arriving QB counts as active\./);
   t.equal(mfl.writes("tradeProposal").length, proposals, "nothing was proposed to MFL");
+});
+
+test("QB (Keith 2026-10-07): an arriving rookie QB off the sender's TAXI squad — taxi-eligible and flagged taxi — still counts ACTIVE: 5 + 1 = 6 → Send refused", async () => {
+  const { env, mfl } = fresh({ positions: { 9002: "QB", 9003: "QB", 9004: "QB", 9005: "QB", 9006: "QB", 17030: "QB", 13100: "WR" } });
+  mfl.st.rosters = { "0001": [P(17030, "TAXI_SQUAD"), ...fill(5000, 28)], "0002": [P(9002), P(9003), P(9004), P(9005), P(9006), P(13100), ...fill(6000, 22)] };
+  mfl.st.draftPicks = [{ round: "2", pick: "3", franchise: "0001", player: "17030" }];
+  const proposals = mfl.writes("tradeProposal").length;
+  const { r } = await send(env, mfl, payload([asset(17030, true)], [asset(13100)]));
+  t.equal(r.status, 409, r.text.slice(0, 200)); t.equal(r.json.code, "qb_limit_exceeded"); t.equal(r.json.who, "recipient");
+  t.equal(JSON.stringify(r.json.teams), JSON.stringify([{ franchise_id: "0002", franchise_name: "CBP", active_qbs_after: 6, max: 5 }]));
+  t.equal(mfl.writes("tradeProposal").length, proposals, "nothing was proposed to MFL");
+  // after CBP moves one of its CURRENT QBs to taxi (a legal move MFL already shows), the same offer can be sent
+  mfl.st.rosters["0002"][4].status = "TAXI_SQUAD";
+  const again = await send(env, mfl, payload([asset(17030, true)], [asset(13100)]));
+  t.ok(again.r.status < 300, again.r.text.slice(0, 200));
+});
+
+test("SEND warning (Keith 2026-10-07): the two-team preview shows the actual count, the count after the accept's taxi move, and the spots still needed; only players the offer sends to taxi are counted", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters = { "0001": [P(14056), P(14057), P(17075, "TAXI_SQUAD"), ...fill(5000, 27)], "0002": [...fill(6000, 30)] };
+  mfl.st.draftPicks = [{ round: "2", pick: "5", franchise: "0001", player: "17075" }];
+  const mv = [{ from: "0001", to: "0002", asset_tokens: ["14056", "14057", "17075"], cap_k: 0 }];
+  const preview = (ids) => callWorker(env, "POST", `/api/trades/compliance-preview?${Q}&MFL_USER_ID=tok-B`, { body: { league_id: "74598", season: "2026", from_franchise_id: "0001", movements: mv, ...(ids ? { taxi_step_player_ids: ids } : {}) } });
+  const withStep = await preview(["17075"]);
+  t.equal(withStep.status, 200, withStep.text.slice(0, 200));
+  const row = withStep.json.compliance.roster_limit.rows.find((x) => x.franchise_id === "0002");
+  t.equal(row.active_after, 33, "actual"); t.equal(row.active_after_taxi, 32, "after the taxi move the accept will make"); t.equal(row.moves_needed, 2);
+  t.equal(withStep.json.compliance.roster_limit.violations[0].message,
+    "CBP would have 33 active players right after this trade and 32 once player 17075 is moved to its taxi squad — the maximum is 30. CBP needs 2 more roster spots: make 2 legal roster moves first (for example, move an eligible injured player to IR), or revise the offer.");
+  const noStep = await preview(null);
+  t.equal(noStep.json.compliance.roster_limit.rows.find((x) => x.franchise_id === "0002").active_after_taxi, 33, "an offer that doesn't send him to taxi gets no credit");
+  t.equal(mfl.writes().length, 0, "a preview never writes");
 });
 
 test("QB: an offer sent at 5 is refused at ACCEPT if the team has added a QB since — rechecked live", async () => {

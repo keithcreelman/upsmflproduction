@@ -275,9 +275,10 @@
     h += '<div class="t3w-cap t3w-cap-' + esc(acked ? "ok" : cap.status) + '" role="' + (cap.status === "ok" || acked ? "status" : "alert") + '"><b>' + capTitle + '</b>' +
       (capMsg ? '<p>' + esc(capMsg) + '</p>' : '') + (capRows ? '<ul class="t3w-crows" aria-label="Salary cap after the trade">' + capRows + '</ul>' : '') +
       (cap.status === "blocked" && opts.capAck ? api.renderCapAck(opts.capAck, opts.viewerFid, opts) : '') + '</div>';
-    // Roster counts (Keith 2026-10-07): the MAXIMUM is a hard gate (compliance.roster_limit), judged after an
-    // arriving taxi player's VALID taxi move; both numbers are always shown, the ACTUAL count first, because
-    // that is what MFL shows until it confirms the move. The 27 minimum stays a heads-up.
+    // Roster counts (Keith 2026-10-07): the MAXIMUM is a hard gate (compliance.roster_limit). Only a two-team
+    // accept, whose own taxi step moves and verifies the player, may count an arriving taxi player's VALID taxi
+    // move; a 3-way counts every arrival active. Both numbers are shown, the ACTUAL count first, because that
+    // is what MFL shows until it confirms the move. The 27 minimum stays a heads-up.
     var rl = c.roster_limit || null;
     var anyTaxiMove = (ro.rows || []).some(function (r) { return (r.taxi_moves || []).length; });
     var roTitle = rl && rl.status === "blocked" ? "Can\'t be accepted \u2014 roster maximum"
@@ -301,13 +302,14 @@
       (roMsg ? '<p>' + esc(roMsg) + '</p>' : '') +
       (ro.status !== "unavailable" && roRows ? '<ul class="t3w-crows" aria-label="Active roster counts after the trade">' + roRows + '</ul>' : '') +
       (ro.status === "warn" && !roBlocked ? '<p class="t3w-small">The 27-player minimum is a heads-up \u2014 it doesn\'t block the trade.</p>' : '') + '</div>';
-    // Five ACTIVE QBs (Keith 2026-10-07): hard gate; taxi and IR QBs don't count.
+    // Five ACTIVE QBs (Keith 2026-10-07): hard gate on the ACTUAL count right after the trade — an arriving QB
+    // is active; QBs MFL already shows on taxi or IR don't count.
     var qb = c.qb_limit || null;
     if (qb) {
       var qbTitle = qb.status === "blocked" ? "Can\'t be accepted \u2014 too many active QBs" : qb.status === "ok" ? "Active QBs \u2014 every team stays at or under " + esc(qb.max || 5) : "Active QBs \u2014 couldn\'t be verified";
       var qbRows = (qb.rows || []).map(function (r) {
-        var over = r.active_qbs_after_taxi > (qb.max || 5);
-        var txt = esc(r.active_qbs_before) + ' \u2192 ' + esc(r.active_qbs_after) + (r.active_qbs_after_taxi !== r.active_qbs_after ? ' (' + esc(r.active_qbs_after_taxi) + ' once on taxi)' : '');
+        var over = r.active_qbs_after > (qb.max || 5);
+        var txt = esc(r.active_qbs_before) + ' \u2192 ' + esc(r.active_qbs_after);
         return '<li class="' + (over ? "t3w-over" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span><span class="t3w-cr-num">' + txt + ' active QBs</span>' +
           (over ? '<span class="t3w-cr-flag">max ' + esc(qb.max || 5) + '</span>' : '<span class="t3w-cr-room">of ' + esc(qb.max || 5) + ' max</span>') + '</li>';
       }).join("");

@@ -685,7 +685,7 @@ test("DESKTOP: a trade that would give HammerTime 6 ACTIVE QBs (the taxi QB does
   await settle();
   t.equal(state.offerCompliance.status, "blocked"); t.equal(api.offerIsReady(payload), false); t.equal(api.offerStatusLabel(payload).text, "Not Ready");
   api.renderOfferAlerts(payload);
-  t.match(els.offerAlerts.children[0].textContent, /^HammerTime would have 6 QBs on the active roster after this trade — the maximum is 5 \(taxi and IR QBs don't count\)\. HammerTime must first make a legal QB move/);
+  t.match(els.offerAlerts.children[0].textContent, /^HammerTime would have 6 QBs on the active roster right after this trade — the maximum is 5\. QBs MFL already shows on taxi or IR don't count; an arriving QB counts as active\. HammerTime must first make a legal QB move/);
   api.renderSubmitArea(payload);
   t.equal(els.submitOfferBtn.disabled, true);
   t.equal(mfl.st.imports.length, 0, "a preview never writes to MFL");
@@ -701,8 +701,45 @@ test("MOBILE: the same 6-QB trade — blocked, Send disabled, the QB move named"
   await settle();
   t.equal(builderState.compliance.status, "blocked");
   const html = api.builderComplianceAlertHtml(builderState.compliance);
-  t.match(html, /HammerTime would have 6 QBs on the active roster after this trade — the maximum is 5/);
+  t.match(html, /HammerTime would have 6 QBs on the active roster right after this trade — the maximum is 5/);
   t.equal(true && builderState.compliance.status === "ok", false, "canSubmit is false");
+});
+
+// ═══════════════ ROSTER MAXIMUM at SEND (Keith 2026-10-07): a visible warning, never a Send block ═══════════════
+const thirtyActive = () => Array.from({ length: 30 }, (_, i) => ({ id: String(8000 + i), salary: 1000, contractStatus: "Vet-FAA" }));
+const rosterSender = () => [{ id: "7000", salary: 1000, contractStatus: "Vet-FAA" }, { id: "7001", salary: 1000, contractStatus: "Rookie-Draft", status: "TAXI_SQUAD" }];
+const rosterAssets = [{ type: "PLAYER", player_id: "7000" }, { type: "PLAYER", player_id: "7001", taxi: true }];
+const SEND_WARNING = /^HammerTime would have 32 active players right after this trade.* — the maximum is 30\. HammerTime needs \d more roster spots?: .* The offer can still be sent, but it can't be accepted until that's done\.$/;
+test("DESKTOP: HammerTime at 30 receiving 2 → the roster maximum WARNS at Send (actual count, spots needed) and Send stays enabled; the offer's taxi-flagged player is sent for the taxi-move count", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters[SENDER] = rosterSender();
+  mfl.st.rosters[HAMMER] = thirtyActive();
+  const { api, state, els, calls } = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+  const payload = payloadOf(SENDER, HAMMER, rosterAssets, [pickAsset]);
+  api.refreshOfferComplianceIfNeeded(payload);
+  await settle();
+  t.deepEqual(calls[0].body.taxi_step_player_ids, ["7001"], "only the player the offer sends to taxi");
+  t.equal(state.offerCompliance.status, "ok", "the maximum doesn't block Send"); t.equal(api.offerIsReady(payload), true);
+  t.equal(state.offerCompliance.rosterLimit.status, "blocked", "but it would refuse an Accept right now");
+  api.renderOfferAlerts(payload);
+  t.match(els.offerAlerts.children[0].textContent, SEND_WARNING);
+  api.renderSubmitArea(payload);
+  t.equal(els.submitOfferBtn.disabled, false);
+  t.equal(mfl.st.imports.length, 0, "a preview never writes to MFL");
+});
+test("MOBILE: the same offer — the roster warning shows (actual count, spots needed, can still be sent) and Send stays enabled", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters[SENDER] = rosterSender();
+  mfl.st.rosters[HAMMER] = thirtyActive();
+  const { api, builderState, calls } = loadMobileOfferReview(env, { token: "tok-A" });
+  const payload = payloadOf(SENDER, HAMMER, rosterAssets, [pickAsset]);
+  api.refreshBuilderComplianceIfNeeded(payload);
+  await settle();
+  t.deepEqual(calls[0].body.taxi_step_player_ids, ["7001"]);
+  t.equal(builderState.compliance.status, "ok", "canSubmit");
+  const html = api.builderComplianceAlertHtml(builderState.compliance);
+  t.match(html.replace(/<[^>]+>/g, "").replace(/&#39;/g, "'"), SEND_WARNING);
+  t.equal(mfl.st.imports.length, 0);
 });
 
 await run("trade_offer_review_loaded_contract_preview");

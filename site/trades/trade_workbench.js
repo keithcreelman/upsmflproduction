@@ -5915,7 +5915,11 @@
       var status = "unavailable", loadedContracts = null, qbLimit = null, rosterLimit = null;
       try {
         var ctx = getLeagueContext();
-        var body = { league_id: ctx.leagueId, season: ctx.season, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests };
+        // The players this offer sends to the receiver's taxi squad: the accept's taxi step moves exactly these,
+        // so the roster-maximum warning may count those moves (the server checks each is eligible).
+        var taxiStepIds = [];
+        (payload.teams || []).forEach(function (team) { (team.selected_assets || []).forEach(function (a) { if (a && a.taxi && a.player_id) taxiStepIds.push(String(a.player_id)); }); });
+        var body = { league_id: ctx.leagueId, season: ctx.season, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests, taxi_step_player_ids: taxiStepIds };
         var res = await tw2sFetch(resolveCompliancePreviewApiUrl(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
           var lc = res.body.compliance.loaded_contracts;
@@ -6745,9 +6749,11 @@
     } else if (state.offerCompliance.status === "loading") {
       entries.push({ text: "Checking the loaded-contract limit…", bad: false });
     }
-    // The roster maximum doesn't stop Send, but the offer can't be ACCEPTED until the team over it makes its move.
+    // The roster maximum doesn't stop Send (Keith 2026-10-07: a team may legally make room while the offer is
+    // pending), but it can't be ACCEPTED until the team over it makes its move. The message carries the actual
+    // count, the count after any taxi move the accept will make, and the spots still needed.
     var rlv = state.offerCompliance.rosterLimit && state.offerCompliance.rosterLimit.status === "blocked" ? (state.offerCompliance.rosterLimit.violations || []) : [];
-    for (i = 0; i < rlv.length; i += 1) entries.push({ text: safeStr(rlv[i].message) + " It can't be accepted until then.", bad: true });
+    for (i = 0; i < rlv.length; i += 1) entries.push({ text: safeStr(rlv[i].message) + " The offer can still be sent, but it can't be accepted until that's done.", bad: true });
     for (i = 0; i < entries.length; i += 1) {
       var alert = document.createElement("div");
       alert.className = "twb-offer-alert" + (entries[i].bad ? " twb-offer-alert-bad" : "");
