@@ -339,6 +339,19 @@ try:
 except ValueError:
     refused = True
 check("a branch-code overlay is refused for a real draft (real drafts build from origin/main only)", refused)
+calls = []
+real_week_timing, real_sh = AUTO.SRC.week_timing, AUTO.sh
+AUTO.SRC.week_timing = lambda s, w: {"deadline": now - 3600, "finalAt": now - 86400}
+AUTO.sh = lambda cmd, cwd=None, check=False: (calls.append(cmd), (0, ""))[1]
+real_state = AUTO.STATE_DIR
+AUTO.STATE_DIR = tempfile.mkdtemp()
+try:
+    cst = AUTO.crashed(2026, 5, now, FileNotFoundError("no such file: x.html"), "/w", True, False, [], log=lambda *a: None)
+finally:
+    AUTO.SRC.week_timing, AUTO.sh, AUTO.STATE_DIR = real_week_timing, real_sh, real_state
+check("a crash becomes a FAILED status with a plain reason, and alerts past the deadline (never silent)",
+      cst["status"] == "failed" and "FileNotFoundError" in cst["reasons"][0] and cst.get("alert")
+      and "Nothing was published or posted" in cst["alert"]["text"], cst)
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

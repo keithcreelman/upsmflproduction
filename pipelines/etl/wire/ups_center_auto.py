@@ -209,6 +209,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
         report = dict(report, ok=False, errors=report["errors"] + ["review copy: " + e for e in local_report["errors"]])
     out_dir = os.path.join(workdir, "docs/wire/auto", aid)
     os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(article_path), exist_ok=True)
     open(article_path, "w").write(res["html"])
     json.dump(res["claims"], open(os.path.join(out_dir, "claims.json"), "w"), indent=1, sort_keys=True, default=str)
     json.dump(report, open(os.path.join(out_dir, "validation.json"), "w"), indent=1, default=str)
@@ -255,6 +256,21 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
         return finish(st, runner, aid, timing, now, dry, log)
     st.update(status="ready" if not res["gaps"] else "ready-with-gaps", pr=outcome)
     return finish(st, runner, aid, timing, now, dry, log)
+
+
+def crashed(season, week, now, exc, workdir, dry, sandbox, missed, log=print):
+    import traceback
+    aid = "%d-wk%02d-ups-center%s" % (season, week, "-sandbox" if sandbox else "")
+    where = traceback.extract_tb(exc.__traceback__)[-1]
+    st = {"id": aid, "season": season, "week": week, "at": SRC.iso(now), "status": "failed", "sandbox": sandbox,
+          "missedSlots": list(missed), "reasons": ["the builder stopped with an error: %s: %s (%s line %d)" % (
+              type(exc).__name__, str(exc)[:300], os.path.basename(where.filename), where.lineno)]}
+    try:
+        timing = SRC.week_timing(season, week)
+    except Exception as exc2:                         # cannot even read the schedule: alert now, not never
+        timing = {"deadline": now}
+        st["reasons"].append("could not read the week's schedule either: %s" % str(exc2)[:200])
+    return finish(st, lambda cmd, cwd=None: sh(cmd, cwd=cwd or workdir), aid, timing, now, dry, log)
 
 
 def finish(st, runner, aid, timing, now, dry, log):
@@ -344,8 +360,11 @@ def main():
         return 0
     rc = 0
     for wk in weeks:
-        st = run_week(a.season, wk, a.workdir, now, pr_mode=a.pr_mode, ingest=not a.no_ingest, chat_since=a.chat_since,
-                      sandbox=a.sandbox, missed=missed, code_ref=a.code_ref)
+        try:
+            st = run_week(a.season, wk, a.workdir, now, pr_mode=a.pr_mode, ingest=not a.no_ingest,
+                          chat_since=a.chat_since, sandbox=a.sandbox, missed=missed, code_ref=a.code_ref)
+        except Exception as exc:                      # a crash is a failed draft: same readable alert path
+            st = crashed(a.season, wk, now, exc, a.workdir, a.pr_mode != "live", a.sandbox, missed)
         if st["status"] not in ("ready", "ready-with-gaps", "already-published", "not-final"):
             rc = 1
     json.dump({"at": now, "weeks": weeks, "missedSlots": missed}, open(last_path, "w"))
