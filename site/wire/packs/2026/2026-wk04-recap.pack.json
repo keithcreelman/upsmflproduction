@@ -120,7 +120,8 @@
     "Signal labelling does not attempt \"Schedule-assisted\" yet -- that needs the move traced to opponent strength, not just its size. The largest real, sourced cause IS now named per row (an absence, or a still-rostered player whose own projection genuinely fell) when it clears biggest_absences()/biggest_decliners()'s materiality bar, netted against the team's own bench/replacement value -- not the player's raw number, which overstates it. A smaller or unpriced cause still reads as plain Strong/Moderate/Neutral.",
     "Week 4 Bust & Bargain and boom/bust facts use the earliest preserved pregame projection, not the usual last-before-kickoff one: 203 starters graded, 0 more excluded from grading for injury context (raw evidence kept, shown separately), 11 excluded entirely for want of valid pre-kickoff evidence (11 whose first capture landed after their own kickoff, 0 with no capture at all) -- 214 offense/IDP starters were relevant in total.",
     "Double/triple-header week -- an owner plays two or three opponents at once, so the same name appears on more than one game page.",
-    "No week_preview_2026_wk05.json, so this recap carries no next-week preview."
+    "No week_preview_2026_wk05.json, so this recap carries no next-week preview.",
+    "Two auto-picked chat quotes were removed after the build (Keith 2026-10-08): one names an owner's family member, one is a crude injury post. Neither is used in the issue."
   ],
   "entities": {
     "owners": [
@@ -8130,16 +8131,6 @@
       "permalink": null
     },
     {
-      "id": "q4",
-      "text": "I was talking to Becky about my trade. I told her I was already out in 2026 . Her first reply was all the trash taking draft night was what I deserved !!",
-      "author": "Brian Cross",
-      "when": "Tue Oct 06",
-      "ownerKey": "owner:brian-cross",
-      "context": "#the-coffee-shop",
-      "source": "discord",
-      "permalink": null
-    },
-    {
       "id": "q5",
       "text": "Back to back picks to start the LAC vs Seattle 😂",
       "author": "Keith Creelman",
@@ -8154,16 +8145,6 @@
       "text": "Blake out playing 4D chess",
       "author": "Keith Creelman",
       "when": "Tue Oct 06",
-      "ownerKey": "owner:keith-creelman",
-      "context": "#the-coffee-shop",
-      "source": "discord",
-      "permalink": null
-    },
-    {
-      "id": "q7",
-      "text": "Concussion meh, I need SHREDDED ACL/PCL/MCL/ Vaginal lips making him impossible to trade next offseason.",
-      "author": "Keith Creelman",
-      "when": "Sun Oct 04",
       "ownerKey": "owner:keith-creelman",
       "context": "#the-coffee-shop",
       "source": "discord",
@@ -8480,8 +8461,7 @@
       ],
       "chartIds": [],
       "quoteIds": [
-        "q6",
-        "q7"
+        "q6"
       ],
       "cardIds": [],
       "gameIds": []
@@ -9287,9 +9267,7 @@
       "billing": 0.5253,
       "billingBasis": "incoming all-play",
       "cardId": "pc.kenneth-walker-iii",
-      "quoteIds": [
-        "q4"
-      ],
+      "quoteIds": [],
       "factIds": [
         "f.game.07.ceiling",
         "f.game.07.margin",

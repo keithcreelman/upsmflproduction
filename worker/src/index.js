@@ -1,4 +1,5 @@
 import { handleHallRequest } from "./hall.js";
+import { seedLadder, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -20220,6 +20221,7 @@ export default {
                     COALESCE(s.allplay_historical_l, s.allplay_l)   AS allplay_historical_l,
                     COALESCE(s.allplay_historical_t, s.allplay_t)   AS allplay_historical_t,
                     s.allplay_pct,
+                    s.pf AS pf_total,
                     s.pp, s.pwr, s.eff,
                     -- PF = AVERAGE points for per played matchup (symmetric with pa
                     -- below) so PF and PA read on the same per-game scale.
@@ -20359,36 +20361,40 @@ export default {
             });
           }
 
-          // Playoff-seed annotation (canon §F.1 + revised standings-sort
-          // direction Keith 2026-05-17): the standings page mirrors the
-          // playoff bracket — division winners always make the field;
-          // seeds 1-2 = top 2 DW by AP%; seeds 3-6 = remaining 2 DW + 2
-          // wild cards interleaved by AP%; non-playoff teams sort by AP%
-          // among themselves. Mirrors the seeding chain in /api/playoff-bracket.
-          const cmpDesc3 = (a, b) => (Number(b || 0) - Number(a || 0));
-          const cmpName3 = (a, b) => String(a || "").localeCompare(String(b || ""));
-          const seedTiebreak = (a, b) =>
-            cmpDesc3(a.allplay_pct, b.allplay_pct) ||
-            cmpDesc3(a.pf, b.pf) ||
-            cmpDesc3(a.h2h_pct, b.h2h_pct) ||
-            cmpName3(a.franchise_name, b.franchise_name);
-
-          const divWinners = rows
-            .filter((r) => divisionWinnerIds.has(String(r.franchise_id)))
-            .slice()
-            .sort(seedTiebreak);
-          const topTwoDW = divWinners.slice(0, 2);
-          const remainingDW = divWinners.slice(2);
-
-          const wildCardPool = rows
-            .filter((r) => !divisionWinnerIds.has(String(r.franchise_id)))
-            .slice()
-            .sort(seedTiebreak);
-          const wildCards = wildCardPool.slice(0, 2);
-          const wildCardIds = new Set(wildCards.map((r) => String(r.franchise_id)));
-
-          const seeds3to6 = [...remainingDW, ...wildCards].sort(seedTiebreak);
-          const nonPlayoff = wildCardPool.slice(2);
+          // Playoff-seed annotation (canon §F.1/§F.2, worker/src/seeding.js):
+          // the standings page mirrors the playoff bracket. Division winners
+          // always make the field; seeds 1-2 = the two best division winners;
+          // seeds 3-6 = the other division winners + 2 wild cards; everyone
+          // else follows. Every list is ordered All-Play % → Overall → season
+          // Points For → head-to-head (2026-10-08: this used to break ties on
+          // the per-game PF average before Overall). Seasons with recorded final
+          // standings keep their previous order (legacyStandingsTiebreak): a
+          // change to historical seed records is a separate decision.
+          let recordedSeason = false;
+          try {
+            const fr = await db.prepare(
+              "SELECT 1 AS x FROM src_final_standings WHERE season = ? LIMIT 1"
+            ).bind(yr).first();
+            recordedSeason = !!(fr && fr.x);
+          } catch (_) {}
+          let regGames = [];
+          if (!recordedSeason) {
+            try {
+              const gRs = await db.prepare(
+                `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
+                   FROM src_schedule
+                  WHERE season = ? AND COALESCE(is_playoff, 0) = 0
+                    AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
+              ).bind(yr).all();
+              regGames = gRs.results || [];
+            } catch (_) {}
+          }
+          const seedTiebreak = recordedSeason ? legacyStandingsTiebreak : seedLadder(rows, regGames);
+          const field = modernField(rows, divisionWinnerIds, seedTiebreak);
+          const topTwoDW = field.byes;
+          const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
+          const seeds3to6 = field.seeds3to6;
+          const nonPlayoff = field.outside;
 
           topTwoDW.forEach((r, i) => {
             r.playoff_seed = i + 1;
@@ -20407,7 +20413,7 @@ export default {
           });
 
           // Final sort for the standings page: playoff seeds 1-6 in order,
-          // then non-playoff teams by AP% → PF → H2H. Matches what the
+          // then non-playoff teams by the same ladder. Matches what the
           // bracket renders so the standings page is self-consistent.
           rows.sort((a, b) => {
             const sa = a.playoff_seed;
@@ -20513,7 +20519,8 @@ export default {
                     s.allplay_pct,
                     s.h2h_pct,
                     s.div_pct,
-                    s.pf
+                    s.pf,
+                    s.pf AS pf_total
                FROM src_standings s
                LEFT JOIN src_franchises f
                  ON f.season = s.season AND f.franchise_id = s.franchise_id
@@ -20628,23 +20635,24 @@ export default {
             }
           }
 
-          // 2) Wild card pool: non-division-winners sorted by canon §F.1
-          //    playoff-seeding tiebreaker: AP% → Overall → PF → (pairwise
-          //    H2H not computable here). `h2h_pct` in src_standings is the
-          //    overall regular-season record despite the column name —
-          //    the schema's "h2h" prefix predates the Overall/H2H split
-          //    introduced in §F.1. Aligned with the standings-page sort
-          //    above so all three §F-related sites use the same ladder.
-          const wcPool = rawRows
-            .filter((r) => !divisionWinnerIds.has(String(r.franchise_id)))
-            .slice()
-            .sort((a, b) =>
-              cmpDesc(a.allplay_pct, b.allplay_pct) ||
-              cmpDesc(a.h2h_pct, b.h2h_pct) ||
-              cmpDesc(a.pf, b.pf) ||
-              cmpText(a.franchise_name, b.franchise_name)
-            );
-          const wildCards = wcPool.slice(0, 2);
+          // 2) Wild card pool: non-division-winners ranked by the canon §F.1
+          //    ladder, All-Play % → Overall → Points For → head-to-head
+          //    (worker/src/seeding.js, shared with /api/standings). `h2h_pct`
+          //    in src_standings is the overall regular-season record despite
+          //    the column name.
+          let regGames = [];
+          try {
+            const gRs = await db.prepare(
+              `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
+                 FROM src_schedule
+                WHERE season = ? AND COALESCE(is_playoff, 0) = 0
+                  AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
+            ).bind(yr).all();
+            regGames = gRs.results || [];
+          } catch (_) {}
+          const seedCmp = seedLadder(rawRows, regGames);
+          const modern = modernField(rawRows, divisionWinnerIds, seedCmp);
+          const wildCards = modern.wildCards;
           const wildCardIds = new Set(wildCards.map((r) => String(r.franchise_id)));
 
           // 3) Determine playoff field. Two paths:
@@ -20734,32 +20742,11 @@ export default {
             champSeeds = championshipTeams.slice().sort(standingsCmp);
             hawkSeeds  = consolationTeams.slice().sort(standingsCmp);
           } else {
-            // Modern era without canonical: 4 DW + 2 WC.
-            const allDivWinners = rawRows
-              .filter((r) => divisionWinnerIds.has(String(r.franchise_id)))
-              .slice()
-              .sort((a, b) =>
-                cmpDesc(a.allplay_pct, b.allplay_pct) ||
-                cmpDesc(a.pf, b.pf) ||
-                cmpText(a.franchise_name, b.franchise_name)
-              );
-            const top2DW = allDivWinners.slice(0, 2);
-            const restDW = allDivWinners.slice(2);
-            const rest = restDW.concat(wildCards).sort((a, b) =>
-              cmpDesc(a.allplay_pct, b.allplay_pct) ||
-              cmpDesc(a.pf, b.pf) ||
-              cmpText(a.franchise_name, b.franchise_name)
-            );
-            champSeeds = top2DW.concat(rest);
-            const champIds = new Set(champSeeds.map((r) => String(r.franchise_id)));
-            hawkSeeds = rawRows
-              .filter((r) => !champIds.has(String(r.franchise_id)))
-              .slice()
-              .sort((a, b) =>
-                cmpDesc(a.allplay_pct, b.allplay_pct) ||
-                cmpDesc(a.pf, b.pf) ||
-                cmpText(a.franchise_name, b.franchise_name)
-              );
+            // Modern era without canonical: 4 DW + 2 WC, every list on the
+            // §F.1 ladder (it used to skip Overall here). Seeds 7-12 follow the
+            // same ladder so the Hawktuah side matches the standings page.
+            champSeeds = modern.byes.concat(modern.seeds3to6);
+            hawkSeeds = modern.outside;
           }
 
           // 4) Assemble the final seed list with metadata.
