@@ -112,15 +112,16 @@ def due_findings(season, kickoffs_by_week, index, elias_posted_weeks, elias_chec
 
 
 def preflight_findings(season, week, repo_index, live_index, live_page_status, wire_thread_article_ids,
-                       discord_messages, stage="publish", candidate=False):
+                       discord_messages, stage="publish", candidate=False, aid=None, path=None, title=None):
     """Reasons NOT to proceed. Empty list = safe.
     stage "publish": the issue must exist nowhere yet.
     stage "announce": the page must be live, and no announcement may exist yet.
     candidate: the working copy is the catch-up branch, so a single DRAFT entry
     for this issue in the repo index is the candidate itself (wire.py index
     lists drafts). Anything live, or a second entry, still blocks."""
-    aid, title = article_id(season, week), article_title(week)
-    path = "articles/%d/%s.html" % (int(season), aid)
+    aid = aid or article_id(season, week)                 # overrides: the automation's sandbox demo id
+    title = title or article_title(week)
+    path = path or "articles/%d/%s.html" % (int(season), aid)
     found = []
     if stage == "announce":
         if live_page_status != 200 or aid not in live_ids(live_index):

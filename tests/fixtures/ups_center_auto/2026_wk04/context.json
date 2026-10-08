@@ -1,0 +1,7476 @@
+{
+"_fixture": "Recorded 2026-10-08 from live sources by ups_center_sources.gather(2026, 4, pack=...), trimmed to referenced players. Chat text replaced with synthetic lines (ids, owners and times kept): raw league chat stays off the public repo.",
+"chatWindow": {
+"since": 1790862360,
+"until": 1791473708
+},
+"d1": {
+"adds": [
+{
+"datetime_et": "2026-10-02 09:00:00",
+"franchise_id": "0007",
+"method": "BBID",
+"name": "Keenum, Case",
+"player_id": "10948",
+"salary": 4000,
+"unix_timestamp": 1790946000
+},
+{
+"datetime_et": "2026-10-02 09:00:00",
+"franchise_id": "0004",
+"method": "BBID",
+"name": "Henley, Daiyan",
+"player_id": "16280",
+"salary": 1000,
+"unix_timestamp": 1790946000
+},
+{
+"datetime_et": "2026-10-02 09:00:00",
+"franchise_id": "0008",
+"method": "BBID",
+"name": "Jones, Brandon",
+"player_id": "14910",
+"salary": 1000,
+"unix_timestamp": 1790946000
+},
+{
+"datetime_et": "2026-10-02 09:00:00",
+"franchise_id": "0010",
+"method": "BBID",
+"name": "Hines-Allen, Josh",
+"player_id": "14167",
+"salary": 1000,
+"unix_timestamp": 1790946000
+},
+{
+"datetime_et": "2026-10-02 09:00:00",
+"franchise_id": "0005",
+"method": "BBID",
+"name": "Gillikin, Blake",
+"player_id": "15499",
+"salary": 1000,
+"unix_timestamp": 1790946000
+},
+{
+"datetime_et": "2026-10-03 09:00:00",
+"franchise_id": "0008",
+"method": "BBID",
+"name": "Daniels, Jalon",
+"player_id": "17469",
+"salary": 4000,
+"unix_timestamp": 1791032400
+},
+{
+"datetime_et": "2026-10-03 09:00:00",
+"franchise_id": "0007",
+"method": "BBID",
+"name": "Stout, Jordan",
+"player_id": "15884",
+"salary": 1000,
+"unix_timestamp": 1791032400
+},
+{
+"datetime_et": "2026-10-03 09:00:00",
+"franchise_id": "0010",
+"method": "BBID",
+"name": "Rodriguez, Chris",
+"player_id": "16174",
+"salary": 1000,
+"unix_timestamp": 1791032400
+},
+{
+"datetime_et": "2026-10-03 09:00:00",
+"franchise_id": "0005",
+"method": "BBID",
+"name": "Pitre, Jalen",
+"player_id": "15850",
+"salary": 1000,
+"unix_timestamp": 1791032400
+},
+{
+"datetime_et": "2026-10-04 09:00:00",
+"franchise_id": "0001",
+"method": "BBID",
+"name": "Araiza, Matt",
+"player_id": "15911",
+"salary": 1000,
+"unix_timestamp": 1791118800
+},
+{
+"datetime_et": "2026-10-04 09:00:00",
+"franchise_id": "0005",
+"method": "BBID",
+"name": "Winston, Kevin",
+"player_id": "17145",
+"salary": 1000,
+"unix_timestamp": 1791118800
+},
+{
+"datetime_et": "2026-10-04 09:07:50",
+"franchise_id": "0002",
+"method": "FREE_AGENT",
+"name": "Blankenship, Reed",
+"player_id": "16018",
+"salary": 1000,
+"unix_timestamp": 1791119270
+},
+{
+"datetime_et": "2026-10-04 09:10:16",
+"franchise_id": "0002",
+"method": "FREE_AGENT",
+"name": "Ezeiruaku, Donovan",
+"player_id": "17135",
+"salary": 1000,
+"unix_timestamp": 1791119416
+},
+{
+"datetime_et": "2026-10-04 09:12:19",
+"franchise_id": "0011",
+"method": "FREE_AGENT",
+"name": "Collins, Zaven",
+"player_id": "15352",
+"salary": 1000,
+"unix_timestamp": 1791119539
+},
+{
+"datetime_et": "2026-10-04 09:19:24",
+"franchise_id": "0007",
+"method": "FREE_AGENT",
+"name": "Higbee, Tyler",
+"player_id": "12678",
+"salary": 1000,
+"unix_timestamp": 1791119964
+},
+{
+"datetime_et": "2026-10-04 12:35:54",
+"franchise_id": "0001",
+"method": "FREE_AGENT",
+"name": "Williams, Isaiah",
+"player_id": "16630",
+"salary": 1000,
+"unix_timestamp": 1791131754
+}
+],
+"chat": [
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 1 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1555387047706107918",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1790903569
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 2 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1556355899906326539",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791134562
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 3 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1556356034396819588",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791134594
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 4 from Brian about week four",
+"franchise_id": "0004",
+"message_id": "1556358855976296611",
+"owner_name": "Brian Cutting",
+"posted_at_unix": 1791135267
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 5 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1556360435098460342",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791135643
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 6 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1556363131712704562",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791136286
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 7 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1556369890321899692",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791137897
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 8 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1556370305319047259",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791137996
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 9 from Ryan about week four",
+"franchise_id": "0001",
+"message_id": "1556394823660081174",
+"owner_name": "Ryan Bousquet",
+"posted_at_unix": 1791143842
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 10 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1556402983187644570",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791145787
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 11 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1556406969609494600",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791146738
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 12 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1556424948048732203",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791151024
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 13 from Brian about week four",
+"franchise_id": "0004",
+"message_id": "1556426470144876639",
+"owner_name": "Brian Cutting",
+"posted_at_unix": 1791151387
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 14 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1556428803562274900",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791151943
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 15 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1556459710960504954",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791159312
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 16 from Ryan about week four",
+"franchise_id": "0001",
+"message_id": "1556464614462595214",
+"owner_name": "Ryan Bousquet",
+"posted_at_unix": 1791160481
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 17 from Ryan about week four",
+"franchise_id": "0001",
+"message_id": "1556464666874748999",
+"owner_name": "Ryan Bousquet",
+"posted_at_unix": 1791160494
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 18 from Ryan about week four",
+"franchise_id": "0001",
+"message_id": "1556511077892628501",
+"owner_name": "Ryan Bousquet",
+"posted_at_unix": 1791171559
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 19 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1556619399719555094",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791197385
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 20 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1556619548151775345",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791197420
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 21 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1556621775226404956",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791197951
+},
+{
+"channel_id": "1059111651846131833",
+"channel_name": "transactions",
+"content": "Synthetic fixture line 22 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557073006797525003",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791305533
+},
+{
+"channel_id": "1059111651846131833",
+"channel_name": "transactions",
+"content": "Synthetic fixture line 23 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557074139599347765",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791305803
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 24 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557135043061612748",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791320324
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 25 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557135203917496351",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791320362
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 26 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1557136310756704257",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791320626
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 27 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1557136345825280064",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791320635
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 28 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557136679331176520",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791320714
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 29 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557137060513456129",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791320805
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 30 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1557139985696563251",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791321502
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 31 from Keith about week four",
+"franchise_id": "0008",
+"message_id": "1557140083868565686",
+"owner_name": "Keith Creelman",
+"posted_at_unix": 1791321526
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 32 from Josh about week four",
+"franchise_id": "0007",
+"message_id": "1557140129812975617",
+"owner_name": "Josh Martel",
+"posted_at_unix": 1791321537
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 33 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1557140493375377468",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791321623
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 34 from Brian about week four",
+"franchise_id": "0006",
+"message_id": "1557163194651254845",
+"owner_name": "Brian Cross",
+"posted_at_unix": 1791327036
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 35 from Brian about week four",
+"franchise_id": "0006",
+"message_id": "1557163310565302353",
+"owner_name": "Brian Cross",
+"posted_at_unix": 1791327063
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 36 from Ryan about week four",
+"franchise_id": "0001",
+"message_id": "1557163914922557491",
+"owner_name": "Ryan Bousquet",
+"posted_at_unix": 1791327208
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 37 from Brian about week four",
+"franchise_id": "0006",
+"message_id": "1557164341294530622",
+"owner_name": "Brian Cross",
+"posted_at_unix": 1791327309
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 38 from Ryan about week four",
+"franchise_id": "0001",
+"message_id": "1557206929237872742",
+"owner_name": "Ryan Bousquet",
+"posted_at_unix": 1791337463
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 39 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1557703821440847954",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791455931
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 40 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1557703908854333440",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791455952
+},
+{
+"channel_id": "1087157907419840644",
+"channel_name": "the-coffee-shop",
+"content": "Synthetic fixture line 41 from Shawn about week four",
+"franchise_id": "0010",
+"message_id": "1557718557981155330",
+"owner_name": "Shawn Blake",
+"posted_at_unix": 1791459445
+}
+],
+"franchises": {
+"0001": {
+"division": "02",
+"franchise_id": "0001",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0001.png",
+"owner_name": "Ryan Bousquet",
+"team_name": "L.A. Looks"
+},
+"0002": {
+"division": "01",
+"franchise_id": "0002",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0002.png",
+"owner_name": "Derrick Whitman",
+"team_name": "CBP"
+},
+"0003": {
+"division": "01",
+"franchise_id": "0003",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0003.png",
+"owner_name": "Matt Gerardi",
+"team_name": "Gride"
+},
+"0004": {
+"division": "00",
+"franchise_id": "0004",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0004.png",
+"owner_name": "Brian Cutting",
+"team_name": "Pure Greatness"
+},
+"0005": {
+"division": "00",
+"franchise_id": "0005",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg",
+"owner_name": "Eric Martel",
+"team_name": "HammerTime \ud83d\udd28 \u23f0"
+},
+"0006": {
+"division": "00",
+"franchise_id": "0006",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg",
+"owner_name": "Brian Cross",
+"team_name": "The Long Haulers"
+},
+"0007": {
+"division": "02",
+"franchise_id": "0007",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0007.png",
+"owner_name": "Josh Martel",
+"team_name": "Sex Manther"
+},
+"0008": {
+"division": "02",
+"franchise_id": "0008",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0008.png",
+"owner_name": "Keith Creelman",
+"team_name": "Real Deal Creel"
+},
+"0009": {
+"division": "03",
+"franchise_id": "0009",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png",
+"owner_name": "Bear Dunn",
+"team_name": "C-Town Chivalry"
+},
+"0010": {
+"division": "01",
+"franchise_id": "0010",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0010.png",
+"owner_name": "Shawn Blake",
+"team_name": "Blake Bombers"
+},
+"0011": {
+"division": "03",
+"franchise_id": "0011",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png",
+"owner_name": "Eric Mannila",
+"team_name": "Cleon Ca$h"
+},
+"0012": {
+"division": "03",
+"franchise_id": "0012",
+"logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png",
+"owner_name": "Chris Klingenberg",
+"team_name": "Hawks"
+}
+},
+"players": {
+"10700": {
+"name": "Cousins, Kirk",
+"nfl_team": "LVR",
+"player_id": "10700",
+"position": "QB"
+},
+"11244": {
+"name": "Kelce, Travis",
+"nfl_team": "KCC",
+"player_id": "11244",
+"position": "TE"
+},
+"11383": {
+"name": "Martin, Sam",
+"nfl_team": "CAR",
+"player_id": "11383",
+"position": "PN"
+},
+"11675": {
+"name": "Adams, Davante",
+"nfl_team": "LAR",
+"player_id": "11675",
+"position": "WR"
+},
+"11945": {
+"name": "Santos, Cairo",
+"nfl_team": "CHI",
+"player_id": "11945",
+"position": "PK"
+},
+"12140": {
+"name": "Winston, Jameis",
+"nfl_team": "NYG",
+"player_id": "12140",
+"position": "QB"
+},
+"12141": {
+"name": "Mariota, Marcus",
+"nfl_team": "WAS",
+"player_id": "12141",
+"position": "QB"
+},
+"12186": {
+"name": "Diggs, Stefon",
+"nfl_team": "WAS",
+"player_id": "12186",
+"position": "WR"
+},
+"12225": {
+"name": "Williams, Leonard",
+"nfl_team": "SEA",
+"player_id": "12225",
+"position": "DT"
+},
+"12263": {
+"name": "Waller, Darren",
+"nfl_team": "CAR",
+"player_id": "12263",
+"position": "TE"
+},
+"12437": {
+"name": "Myers, Jason",
+"nfl_team": "SEA",
+"player_id": "12437",
+"position": "PK"
+},
+"12611": {
+"name": "Goff, Jared",
+"nfl_team": "DET",
+"player_id": "12611",
+"position": "QB"
+},
+"12616": {
+"name": "Brissett, Jacoby",
+"nfl_team": "ARI",
+"player_id": "12616",
+"position": "QB"
+},
+"12620": {
+"name": "Prescott, Dak",
+"nfl_team": "DAL",
+"player_id": "12620",
+"position": "QB"
+},
+"12626": {
+"name": "Henry, Derrick",
+"nfl_team": "BAL",
+"player_id": "12626",
+"position": "RB"
+},
+"12676": {
+"name": "Henry, Hunter",
+"nfl_team": "NEP",
+"player_id": "12676",
+"position": "TE"
+},
+"12688": {
+"name": "Buckner, DeForest",
+"nfl_team": "IND",
+"player_id": "12688",
+"position": "DT"
+},
+"12860": {
+"name": "Fairbairn, Ka'imi",
+"nfl_team": "HOU",
+"player_id": "12860",
+"position": "PK"
+},
+"13116": {
+"name": "Mahomes, Patrick",
+"nfl_team": "KCC",
+"player_id": "13116",
+"position": "QB"
+},
+"13130": {
+"name": "McCaffrey, Christian",
+"nfl_team": "SFO",
+"player_id": "13130",
+"position": "RB"
+},
+"13132": {
+"name": "Kamara, Alvin",
+"nfl_team": "NOS",
+"player_id": "13132",
+"position": "RB"
+},
+"13214": {
+"name": "Watt, T.J.",
+"nfl_team": "PIT",
+"player_id": "13214",
+"position": "DE"
+},
+"13251": {
+"name": "Baker, Budda",
+"nfl_team": "ARI",
+"player_id": "13251",
+"position": "S"
+},
+"13268": {
+"name": "Anzalone, Alex",
+"nfl_team": "TBB",
+"player_id": "13268",
+"position": "LB"
+},
+"13298": {
+"name": "Stewart, Grover",
+"nfl_team": "IND",
+"player_id": "13298",
+"position": "DT"
+},
+"13299": {
+"name": "Kittle, George",
+"nfl_team": "SFO",
+"player_id": "13299",
+"position": "TE"
+},
+"13322": {
+"name": "Clark, Chuck",
+"nfl_team": "DET",
+"player_id": "13322",
+"position": "S"
+},
+"13354": {
+"name": "Butker, Harrison",
+"nfl_team": "KCC",
+"player_id": "13354",
+"position": "PK"
+},
+"13447": {
+"name": "Wilson, Eric",
+"nfl_team": "MIN",
+"player_id": "13447",
+"position": "LB"
+},
+"13589": {
+"name": "Allen, Josh",
+"nfl_team": "BUF",
+"player_id": "13589",
+"position": "QB"
+},
+"13592": {
+"name": "Darnold, Sam",
+"nfl_team": "SEA",
+"player_id": "13592",
+"position": "QB"
+},
+"13593": {
+"name": "Jackson, Lamar",
+"nfl_team": "BAL",
+"player_id": "13593",
+"position": "QB"
+},
+"13604": {
+"name": "Barkley, Saquon",
+"nfl_team": "PHI",
+"player_id": "13604",
+"position": "RB"
+},
+"13635": {
+"name": "Moore, D.J.",
+"nfl_team": "BUF",
+"player_id": "13635",
+"position": "WR"
+},
+"13696": {
+"name": "Smith, Roquan",
+"nfl_team": "BAL",
+"player_id": "13696",
+"position": "LB"
+},
+"13697": {
+"name": "Edmunds, Tremaine",
+"nfl_team": "NYG",
+"player_id": "13697",
+"position": "LB"
+},
+"13719": {
+"name": "Pineiro, Eddy",
+"nfl_team": "SFO",
+"player_id": "13719",
+"position": "PK"
+},
+"13737": {
+"name": "Bates, Jessie",
+"nfl_team": "ATL",
+"player_id": "13737",
+"position": "S"
+},
+"13743": {
+"name": "Warner, Fred",
+"nfl_team": "SFO",
+"player_id": "13743",
+"position": "LB"
+},
+"13772": {
+"name": "Schultz, Dalton",
+"nfl_team": "HOU",
+"player_id": "13772",
+"position": "TE"
+},
+"13813": {
+"name": "Oluokun, Foyesade",
+"nfl_team": "JAC",
+"player_id": "13813",
+"position": "LB"
+},
+"13844": {
+"name": "Cooke, Logan",
+"nfl_team": "JAC",
+"player_id": "13844",
+"position": "PN"
+},
+"13869": {
+"name": "Bojorquez, Corey",
+"nfl_team": "CLE",
+"player_id": "13869",
+"position": "PN"
+},
+"14071": {
+"name": "Montgomery, David",
+"nfl_team": "HOU",
+"player_id": "14071",
+"position": "RB"
+},
+"14085": {
+"name": "Pollard, Tony",
+"nfl_team": "TEN",
+"player_id": "14085",
+"position": "RB"
+},
+"14136": {
+"name": "Samuel, Deebo",
+"nfl_team": "SFO",
+"player_id": "14136",
+"position": "WR"
+},
+"14153": {
+"name": "Allen, Zach",
+"nfl_team": "DEN",
+"player_id": "14153",
+"position": "DT"
+},
+"14163": {
+"name": "Simmons, Jeffery",
+"nfl_team": "TEN",
+"player_id": "14163",
+"position": "DT"
+},
+"14179": {
+"name": "Love, Julian",
+"nfl_team": "SEA",
+"player_id": "14179",
+"position": "S"
+},
+"14182": {
+"name": "Hooker, Amani",
+"nfl_team": "TEN",
+"player_id": "14182",
+"position": "S"
+},
+"14218": {
+"name": "Okereke, Bobby",
+"nfl_team": "CAR",
+"player_id": "14218",
+"position": "LB"
+},
+"14225": {
+"name": "Crosby, Maxx",
+"nfl_team": "LVR",
+"player_id": "14225",
+"position": "DE"
+},
+"14249": {
+"name": "Van Ginkel, Andrew",
+"nfl_team": "MIN",
+"player_id": "14249",
+"position": "DE"
+},
+"14251": {
+"name": "Cashman, Blake",
+"nfl_team": "MIN",
+"player_id": "14251",
+"position": "LB"
+},
+"14256": {
+"name": "Bailey, Jake",
+"nfl_team": "ATL",
+"player_id": "14256",
+"position": "PN"
+},
+"14328": {
+"name": "Wingard, Andrew",
+"nfl_team": "ARI",
+"player_id": "14328",
+"position": "S"
+},
+"14412": {
+"name": "Singleton, Alex",
+"nfl_team": "DEN",
+"player_id": "14412",
+"position": "LB"
+},
+"14630": {
+"name": "Cole, A.J.",
+"nfl_team": "LVR",
+"player_id": "14630",
+"position": "PN"
+},
+"14777": {
+"name": "Burrow, Joe",
+"nfl_team": "CIN",
+"player_id": "14777",
+"position": "QB"
+},
+"14779": {
+"name": "Herbert, Justin",
+"nfl_team": "LAC",
+"player_id": "14779",
+"position": "QB"
+},
+"14782": {
+"name": "Love, Jordan",
+"nfl_team": "GBP",
+"player_id": "14782",
+"position": "QB"
+},
+"14783": {
+"name": "Hurts, Jalen",
+"nfl_team": "PHI",
+"player_id": "14783",
+"position": "QB"
+},
+"14797": {
+"name": "Swift, D'Andre",
+"nfl_team": "CHI",
+"player_id": "14797",
+"position": "RB"
+},
+"14802": {
+"name": "Taylor, Jonathan",
+"nfl_team": "IND",
+"player_id": "14802",
+"position": "RB"
+},
+"14832": {
+"name": "Lamb, CeeDee",
+"nfl_team": "DAL",
+"player_id": "14832",
+"position": "WR"
+},
+"14835": {
+"name": "Higgins, Tee",
+"nfl_team": "CIN",
+"player_id": "14835",
+"position": "WR"
+},
+"14861": {
+"name": "Johnson, Juwan",
+"nfl_team": "NOS",
+"player_id": "14861",
+"position": "TE"
+},
+"14877": {
+"name": "Young, Chase",
+"nfl_team": "NOS",
+"player_id": "14877",
+"position": "DE"
+},
+"14892": {
+"name": "Brooks, Jordyn",
+"nfl_team": "MIA",
+"player_id": "14892",
+"position": "LB"
+},
+"14909": {
+"name": "Winfield, Antoine",
+"nfl_team": "TBB",
+"player_id": "14909",
+"position": "S"
+},
+"14910": {
+"name": "Jones, Brandon",
+"nfl_team": "DEN",
+"player_id": "14910",
+"position": "S"
+},
+"14927": {
+"name": "Chinn, Jeremy",
+"nfl_team": "LVR",
+"player_id": "14927",
+"position": "S"
+},
+"14940": {
+"name": "Highsmith, Alex",
+"nfl_team": "PIT",
+"player_id": "14940",
+"position": "DE"
+},
+"14985": {
+"name": "Mann, Braden",
+"nfl_team": "PHI",
+"player_id": "14985",
+"position": "PN"
+},
+"15001": {
+"name": "Curl, Kamren",
+"nfl_team": "LAR",
+"player_id": "15001",
+"position": "S"
+},
+"15051": {
+"name": "Townsend, Tommy",
+"nfl_team": "TEN",
+"player_id": "15051",
+"position": "PN"
+},
+"15237": {
+"name": "Lawrence, Trevor",
+"nfl_team": "JAC",
+"player_id": "15237",
+"position": "QB"
+},
+"15256": {
+"name": "Williams, Javonte",
+"nfl_team": "DAL",
+"player_id": "15256",
+"position": "RB"
+},
+"15259": {
+"name": "Stevenson, Rhamondre",
+"nfl_team": "NEP",
+"player_id": "15259",
+"position": "RB"
+},
+"15261": {
+"name": "Hubbard, Chuba",
+"nfl_team": "CAR",
+"player_id": "15261",
+"position": "RB"
+},
+"15281": {
+"name": "Chase, Ja'Marr",
+"nfl_team": "CIN",
+"player_id": "15281",
+"position": "WR"
+},
+"15284": {
+"name": "Waddle, Jaylen",
+"nfl_team": "DEN",
+"player_id": "15284",
+"position": "WR"
+},
+"15287": {
+"name": "St. Brown, Amon-Ra",
+"nfl_team": "DET",
+"player_id": "15287",
+"position": "WR"
+},
+"15290": {
+"name": "Collins, Nico",
+"nfl_team": "HOU",
+"player_id": "15290",
+"position": "WR"
+},
+"15329": {
+"name": "Pitts, Kyle",
+"nfl_team": "ATL",
+"player_id": "15329",
+"position": "TE"
+},
+"15346": {
+"name": "Rousseau, Gregory",
+"nfl_team": "BUF",
+"player_id": "15346",
+"position": "DE"
+},
+"15349": {
+"name": "Phillips, Jaelan",
+"nfl_team": "CAR",
+"player_id": "15349",
+"position": "DE"
+},
+"15352": {
+"name": "Collins, Zaven",
+"nfl_team": "ARI",
+"player_id": "15352",
+"position": "DE"
+},
+"15355": {
+"name": "Bolton, Nick",
+"nfl_team": "KCC",
+"player_id": "15355",
+"position": "LB"
+},
+"15365": {
+"name": "Moehrig, Trevon",
+"nfl_team": "CAR",
+"player_id": "15365",
+"position": "S"
+},
+"15366": {
+"name": "Holland, Jevon",
+"nfl_team": "NYG",
+"player_id": "15366",
+"position": "S"
+},
+"15368": {
+"name": "McPherson, Evan",
+"nfl_team": "CIN",
+"player_id": "15368",
+"position": "PK"
+},
+"15404": {
+"name": "Jones, Ernest",
+"nfl_team": "SEA",
+"player_id": "15404",
+"position": "LB"
+},
+"15409": {
+"name": "Barnes, Derrick",
+"nfl_team": "DET",
+"player_id": "15409",
+"position": "LB"
+},
+"15452": {
+"name": "Hufanga, Talanoa",
+"nfl_team": "DEN",
+"player_id": "15452",
+"position": "S"
+},
+"15499": {
+"name": "Gillikin, Blake",
+"nfl_team": "ARI",
+"player_id": "15499",
+"position": "PN"
+},
+"15698": {
+"name": "Purdy, Brock",
+"nfl_team": "SFO",
+"player_id": "15698",
+"position": "QB"
+},
+"15710": {
+"name": "Williams, Kyren",
+"nfl_team": "LAR",
+"player_id": "15710",
+"position": "RB"
+},
+"15711": {
+"name": "Walker III, Kenneth",
+"nfl_team": "KCC",
+"player_id": "15711",
+"position": "RB"
+},
+"15715": {
+"name": "Cook, James",
+"nfl_team": "BUF",
+"player_id": "15715",
+"position": "RB"
+},
+"15716": {
+"name": "Robinson, Brian",
+"nfl_team": "ATL",
+"player_id": "15716",
+"position": "RB"
+},
+"15742": {
+"name": "Warren, Jaylen",
+"nfl_team": "PIT",
+"player_id": "15742",
+"position": "RB"
+},
+"15751": {
+"name": "London, Drake",
+"nfl_team": "ATL",
+"player_id": "15751",
+"position": "WR"
+},
+"15753": {
+"name": "Wilson, Garrett",
+"nfl_team": "NYJ",
+"player_id": "15753",
+"position": "WR"
+},
+"15754": {
+"name": "Olave, Chris",
+"nfl_team": "NOS",
+"player_id": "15754",
+"position": "WR"
+},
+"15756": {
+"name": "Williams, Jameson",
+"nfl_team": "DET",
+"player_id": "15756",
+"position": "WR"
+},
+"15761": {
+"name": "Shakir, Khalil",
+"nfl_team": "BUF",
+"player_id": "15761",
+"position": "WR"
+},
+"15762": {
+"name": "Pickens, George",
+"nfl_team": "DAL",
+"player_id": "15762",
+"position": "WR"
+},
+"15779": {
+"name": "Doubs, Romeo",
+"nfl_team": "NEP",
+"player_id": "15779",
+"position": "WR"
+},
+"15789": {
+"name": "Watson, Christian",
+"nfl_team": "GBP",
+"player_id": "15789",
+"position": "WR"
+},
+"15794": {
+"name": "McBride, Trey",
+"nfl_team": "ARI",
+"player_id": "15794",
+"position": "TE"
+},
+"15797": {
+"name": "Dulcich, Greg",
+"nfl_team": "MIA",
+"player_id": "15797",
+"position": "TE"
+},
+"15799": {
+"name": "Ferguson, Jake",
+"nfl_team": "DAL",
+"player_id": "15799",
+"position": "TE"
+},
+"15805": {
+"name": "Hutchinson, Aidan",
+"nfl_team": "DET",
+"player_id": "15805",
+"position": "DE"
+},
+"15808": {
+"name": "Karlaftis, George",
+"nfl_team": "KCC",
+"player_id": "15808",
+"position": "DE"
+},
+"15815": {
+"name": "Walker, Travon",
+"nfl_team": "JAC",
+"player_id": "15815",
+"position": "DE"
+},
+"15821": {
+"name": "Dean, Nakobe",
+"nfl_team": "LVR",
+"player_id": "15821",
+"position": "LB"
+},
+"15822": {
+"name": "Lloyd, Devin",
+"nfl_team": "CAR",
+"player_id": "15822",
+"position": "LB"
+},
+"15834": {
+"name": "Hamilton, Kyle",
+"nfl_team": "BAL",
+"player_id": "15834",
+"position": "S"
+},
+"15835": {
+"name": "Brisker, Jaquan",
+"nfl_team": "PIT",
+"player_id": "15835",
+"position": "S"
+},
+"15836": {
+"name": "Hill, Daxton",
+"nfl_team": "CIN",
+"player_id": "15836",
+"position": "CB"
+},
+"15861": {
+"name": "Bonitto, Nik",
+"nfl_team": "DEN",
+"player_id": "15861",
+"position": "DE"
+},
+"15868": {
+"name": "Jones, Marcus",
+"nfl_team": "NEP",
+"player_id": "15868",
+"position": "CB"
+},
+"15875": {
+"name": "Belton, Dane",
+"nfl_team": "NYJ",
+"player_id": "15875",
+"position": "S"
+},
+"15884": {
+"name": "Stout, Jordan",
+"nfl_team": "NYG",
+"player_id": "15884",
+"position": "PN"
+},
+"15911": {
+"name": "Araiza, Matt",
+"nfl_team": "KCC",
+"player_id": "15911",
+"position": "PN"
+},
+"15923": {
+"name": "Lake, Quentin",
+"nfl_team": "LAR",
+"player_id": "15923",
+"position": "S"
+},
+"15979": {
+"name": "Dicker, Cameron",
+"nfl_team": "LAC",
+"player_id": "15979",
+"position": "PK"
+},
+"16013": {
+"name": "Landman, Nate",
+"nfl_team": "LAR",
+"player_id": "16013",
+"position": "LB"
+},
+"16018": {
+"name": "Blankenship, Reed",
+"nfl_team": "HOU",
+"player_id": "16018",
+"position": "S"
+},
+"16148": {
+"name": "Young, Bryce",
+"nfl_team": "CAR",
+"player_id": "16148",
+"position": "QB"
+},
+"16150": {
+"name": "Stroud, C.J.",
+"nfl_team": "HOU",
+"player_id": "16150",
+"position": "QB"
+},
+"16161": {
+"name": "Robinson, Bijan",
+"nfl_team": "ATL",
+"player_id": "16161",
+"position": "RB"
+},
+"16162": {
+"name": "Gibbs, Jahmyr",
+"nfl_team": "DET",
+"player_id": "16162",
+"position": "RB"
+},
+"16181": {
+"name": "Brown, Chase",
+"nfl_team": "CIN",
+"player_id": "16181",
+"position": "RB"
+},
+"16185": {
+"name": "Smith-Njigba, Jaxon",
+"nfl_team": "SEA",
+"player_id": "16185",
+"position": "WR"
+},
+"16187": {
+"name": "Downs, Josh",
+"nfl_team": "IND",
+"player_id": "16187",
+"position": "WR"
+},
+"16188": {
+"name": "Johnston, Quentin",
+"nfl_team": "LAC",
+"player_id": "16188",
+"position": "WR"
+},
+"16190": {
+"name": "Flowers, Zay",
+"nfl_team": "BAL",
+"player_id": "16190",
+"position": "WR"
+},
+"16192": {
+"name": "Washington, Parker",
+"nfl_team": "JAC",
+"player_id": "16192",
+"position": "WR"
+},
+"16194": {
+"name": "Rice, Rashee",
+"nfl_team": "KCC",
+"player_id": "16194",
+"position": "WR"
+},
+"16195": {
+"name": "Wicks, Dontayvion",
+"nfl_team": "PHI",
+"player_id": "16195",
+"position": "WR"
+},
+"16206": {
+"name": "Wilson, Michael",
+"nfl_team": "ARI",
+"player_id": "16206",
+"position": "WR"
+},
+"16211": {
+"name": "Nacua, Puka",
+"nfl_team": "LAR",
+"player_id": "16211",
+"position": "WR"
+},
+"16213": {
+"name": "Kincaid, Dalton",
+"nfl_team": "BUF",
+"player_id": "16213",
+"position": "TE"
+},
+"16214": {
+"name": "LaPorta, Sam",
+"nfl_team": "DET",
+"player_id": "16214",
+"position": "TE"
+},
+"16222": {
+"name": "Kraft, Tucker",
+"nfl_team": "GBP",
+"player_id": "16222",
+"position": "TE"
+},
+"16223": {
+"name": "Anderson, Will",
+"nfl_team": "HOU",
+"player_id": "16223",
+"position": "DE"
+},
+"16230": {
+"name": "Van Ness, Lukas",
+"nfl_team": "GBP",
+"player_id": "16230",
+"position": "DE"
+},
+"16239": {
+"name": "Campbell, Jack",
+"nfl_team": "DET",
+"player_id": "16239",
+"position": "LB"
+},
+"16241": {
+"name": "Witherspoon, Devon",
+"nfl_team": "SEA",
+"player_id": "16241",
+"position": "CB"
+},
+"16245": {
+"name": "Battle, Jordan",
+"nfl_team": "CIN",
+"player_id": "16245",
+"position": "S"
+},
+"16246": {
+"name": "Johnson, Antonio",
+"nfl_team": "JAC",
+"player_id": "16246",
+"position": "S"
+},
+"16266": {
+"name": "Tuipulotu, Tuli",
+"nfl_team": "LAC",
+"player_id": "16266",
+"position": "DE"
+},
+"16280": {
+"name": "Henley, Daiyan",
+"nfl_team": "LAC",
+"player_id": "16280",
+"position": "LB"
+},
+"16287": {
+"name": "Tucker, Tre",
+"nfl_team": "LVR",
+"player_id": "16287",
+"position": "WR"
+},
+"16296": {
+"name": "Miller, Ventrell",
+"nfl_team": "JAC",
+"player_id": "16296",
+"position": "LB"
+},
+"16303": {
+"name": "Herbig, Nick",
+"nfl_team": "PIT",
+"player_id": "16303",
+"position": "DE"
+},
+"16384": {
+"name": "Bagent, Tyson",
+"nfl_team": "CHI",
+"player_id": "16384",
+"position": "QB"
+},
+"16414": {
+"name": "Aubrey, Brandon",
+"nfl_team": "DAL",
+"player_id": "16414",
+"position": "PK"
+},
+"16452": {
+"name": "Whelan, Daniel",
+"nfl_team": "GBP",
+"player_id": "16452",
+"position": "PN"
+},
+"16582": {
+"name": "Nix, Bo",
+"nfl_team": "DEN",
+"player_id": "16582",
+"position": "QB"
+},
+"16583": {
+"name": "Penix Jr., Michael",
+"nfl_team": "ATL",
+"player_id": "16583",
+"position": "QB"
+},
+"16596": {
+"name": "Allen, Braelon",
+"nfl_team": "NYJ",
+"player_id": "16596",
+"position": "RB"
+},
+"16598": {
+"name": "Irving, Bucky",
+"nfl_team": "TBB",
+"player_id": "16598",
+"position": "RB"
+},
+"16615": {
+"name": "Nabers, Malik",
+"nfl_team": "NYG",
+"player_id": "16615",
+"position": "WR"
+},
+"16616": {
+"name": "Odunze, Rome",
+"nfl_team": "CHI",
+"player_id": "16616",
+"position": "WR"
+},
+"16630": {
+"name": "Williams, Isaiah",
+"nfl_team": "NYJ",
+"player_id": "16630",
+"position": "WR"
+},
+"16641": {
+"name": "Bowers, Brock",
+"nfl_team": "LVR",
+"player_id": "16641",
+"position": "TE"
+},
+"16650": {
+"name": "Turner, Dallas",
+"nfl_team": "MIN",
+"player_id": "16650",
+"position": "DE"
+},
+"16653": {
+"name": "Verse, Jared",
+"nfl_team": "CLE",
+"player_id": "16653",
+"position": "DE"
+},
+"16672": {
+"name": "Lassiter, Kamari",
+"nfl_team": "HOU",
+"player_id": "16672",
+"position": "CB"
+},
+"16677": {
+"name": "Bullard, Javon",
+"nfl_team": "GBP",
+"player_id": "16677",
+"position": "S"
+},
+"16680": {
+"name": "Little, Cam",
+"nfl_team": "JAC",
+"player_id": "16680",
+"position": "PK"
+},
+"16681": {
+"name": "Reichard, Will",
+"nfl_team": "MIN",
+"player_id": "16681",
+"position": "PK"
+},
+"16696": {
+"name": "Cooper, Edgerrin",
+"nfl_team": "GBP",
+"player_id": "16696",
+"position": "LB"
+},
+"16708": {
+"name": "Smith, Tykee",
+"nfl_team": "TBB",
+"player_id": "16708",
+"position": "S"
+},
+"16716": {
+"name": "Wilson, Payton",
+"nfl_team": "PIT",
+"player_id": "16716",
+"position": "LB"
+},
+"16719": {
+"name": "Williams, Evan",
+"nfl_team": "GBP",
+"player_id": "16719",
+"position": "S"
+},
+"16788": {
+"name": "Vele, Devaughn",
+"nfl_team": "NOS",
+"player_id": "16788",
+"position": "WR"
+},
+"16896": {
+"name": "Shrader, Spencer",
+"nfl_team": "IND",
+"player_id": "16896",
+"position": "PK"
+},
+"17039": {
+"name": "Shough, Tyler",
+"nfl_team": "NOS",
+"player_id": "17039",
+"position": "QB"
+},
+"17042": {
+"name": "Jeanty, Ashton",
+"nfl_team": "LVR",
+"player_id": "17042",
+"position": "RB"
+},
+"17044": {
+"name": "Hampton, Omarion",
+"nfl_team": "LAC",
+"player_id": "17044",
+"position": "RB"
+},
+"17045": {
+"name": "Skattebo, Cam",
+"nfl_team": "NYG",
+"player_id": "17045",
+"position": "RB"
+},
+"17051": {
+"name": "Judkins, Quinshon",
+"nfl_team": "CLE",
+"player_id": "17051",
+"position": "RB"
+},
+"17052": {
+"name": "Tuten, Bhayshul",
+"nfl_team": "JAC",
+"player_id": "17052",
+"position": "RB"
+},
+"17059": {
+"name": "Gordon II, Ollie",
+"nfl_team": "MIA",
+"player_id": "17059",
+"position": "RB"
+},
+"17066": {
+"name": "Monangai, Kyle",
+"nfl_team": "CHI",
+"player_id": "17066",
+"position": "RB"
+},
+"17070": {
+"name": "Burden, Luther",
+"nfl_team": "CHI",
+"player_id": "17070",
+"position": "WR"
+},
+"17071": {
+"name": "McMillan, Tetairoa",
+"nfl_team": "CAR",
+"player_id": "17071",
+"position": "WR"
+},
+"17075": {
+"name": "Golden, Matthew",
+"nfl_team": "GBP",
+"player_id": "17075",
+"position": "WR"
+},
+"17081": {
+"name": "Egbuka, Emeka",
+"nfl_team": "TBB",
+"player_id": "17081",
+"position": "WR"
+},
+"17102": {
+"name": "Warren, Tyler",
+"nfl_team": "IND",
+"player_id": "17102",
+"position": "TE"
+},
+"17103": {
+"name": "Fannin, Harold",
+"nfl_team": "CLE",
+"player_id": "17103",
+"position": "TE"
+},
+"17112": {
+"name": "Carter, Abdul",
+"nfl_team": "NYG",
+"player_id": "17112",
+"position": "DE"
+},
+"17121": {
+"name": "Graham, Mason",
+"nfl_team": "CLE",
+"player_id": "17121",
+"position": "DT"
+},
+"17124": {
+"name": "Carter, Barrett",
+"nfl_team": "CIN",
+"player_id": "17124",
+"position": "LB"
+},
+"17125": {
+"name": "Knight, Demetrius",
+"nfl_team": "CIN",
+"player_id": "17125",
+"position": "LB"
+},
+"17131": {
+"name": "Watts, Xavier",
+"nfl_team": "ATL",
+"player_id": "17131",
+"position": "S"
+},
+"17132": {
+"name": "Starks, Malaki",
+"nfl_team": "BAL",
+"player_id": "17132",
+"position": "S"
+},
+"17144": {
+"name": "Emmanwori, Nick",
+"nfl_team": "SEA",
+"player_id": "17144",
+"position": "S"
+},
+"17147": {
+"name": "Schwesinger, Carson",
+"nfl_team": "CLE",
+"player_id": "17147",
+"position": "LB"
+},
+"17256": {
+"name": "Croskey-Merritt, Jacory",
+"nfl_team": "WAS",
+"player_id": "17256",
+"position": "RB"
+},
+"17472": {
+"name": "Love, Jeremiyah",
+"nfl_team": "ARI",
+"player_id": "17472",
+"position": "RB"
+},
+"17497": {
+"name": "Tate, Carnell",
+"nfl_team": "TEN",
+"player_id": "17497",
+"position": "WR"
+},
+"17499": {
+"name": "Lemon, Makai",
+"nfl_team": "PHI",
+"player_id": "17499",
+"position": "WR"
+},
+"17512": {
+"name": "Williams, Antonio",
+"nfl_team": "WAS",
+"player_id": "17512",
+"position": "WR"
+},
+"17556": {
+"name": "Reese, Arvell",
+"nfl_team": "NYG",
+"player_id": "17556",
+"position": "LB"
+},
+"17560": {
+"name": "Hill Jr., Anthony",
+"nfl_team": "TEN",
+"player_id": "17560",
+"position": "LB"
+},
+"17562": {
+"name": "Delane, Mansoor",
+"nfl_team": "KCC",
+"player_id": "17562",
+"position": "CB"
+},
+"17576": {
+"name": "Thieneman, Dillon",
+"nfl_team": "CHI",
+"player_id": "17576",
+"position": "S"
+},
+"17640": {
+"name": "Taaffe, Michael",
+"nfl_team": "MIA",
+"player_id": "17640",
+"position": "S"
+},
+"17668": {
+"name": "Smack, Trey",
+"nfl_team": "GBP",
+"player_id": "17668",
+"position": "PK"
+},
+"9431": {
+"name": "Stafford, Matthew",
+"nfl_team": "LAR",
+"player_id": "9431",
+"position": "QB"
+}
+},
+"projections": {
+"10700": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.7,
+"player_id": "10700",
+"projected_score": 12.7,
+"updated_at": 1791396679
+},
+"11244": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.8,
+"player_id": "11244",
+"projected_score": 12.8,
+"updated_at": 1791396679
+},
+"11383": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.7,
+"player_id": "11383",
+"projected_score": 6.7,
+"updated_at": 1791396679
+},
+"11675": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17.2,
+"player_id": "11675",
+"projected_score": 17.2,
+"updated_at": 1791396679
+},
+"11945": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.9,
+"player_id": "11945",
+"projected_score": 5.9,
+"updated_at": 1791396679
+},
+"12140": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.1,
+"player_id": "12140",
+"projected_score": 15.1,
+"updated_at": 1791396679
+},
+"12141": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.2,
+"player_id": "12141",
+"projected_score": 14.1,
+"updated_at": 1791396679
+},
+"12186": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.3,
+"player_id": "12186",
+"projected_score": 16.5,
+"updated_at": 1791396679
+},
+"12225": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.1,
+"player_id": "12225",
+"projected_score": 6.1,
+"updated_at": 1791396679
+},
+"12263": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 13.5,
+"player_id": "12263",
+"projected_score": 13.5,
+"updated_at": 1791396679
+},
+"12437": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.2,
+"player_id": "12437",
+"projected_score": 6.2,
+"updated_at": 1791396679
+},
+"12611": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.5,
+"player_id": "12611",
+"projected_score": 16.5,
+"updated_at": 1791396679
+},
+"12616": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.4,
+"player_id": "12616",
+"projected_score": 15.4,
+"updated_at": 1791396679
+},
+"12620": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17,
+"player_id": "12620",
+"projected_score": 17,
+"updated_at": 1791396679
+},
+"12626": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17,
+"player_id": "12626",
+"projected_score": 17,
+"updated_at": 1791396679
+},
+"12676": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.1,
+"player_id": "12676",
+"projected_score": 8.1,
+"updated_at": 1791396679
+},
+"12688": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.9,
+"player_id": "12688",
+"projected_score": 5.9,
+"updated_at": 1791396679
+},
+"12860": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.3,
+"player_id": "12860",
+"projected_score": 5.3,
+"updated_at": 1791396679
+},
+"13116": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.9,
+"player_id": "13116",
+"projected_score": 16.9,
+"updated_at": 1791396679
+},
+"13130": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 19.8,
+"player_id": "13130",
+"projected_score": 19.8,
+"updated_at": 1791396679
+},
+"13132": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.3,
+"player_id": "13132",
+"projected_score": 7.3,
+"updated_at": 1791396679
+},
+"13214": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.3,
+"player_id": "13214",
+"projected_score": 9.3,
+"updated_at": 1791396679
+},
+"13251": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.2,
+"player_id": "13251",
+"projected_score": 9.2,
+"updated_at": 1791396679
+},
+"13268": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.9,
+"player_id": "13268",
+"projected_score": 4.9,
+"updated_at": 1791396679
+},
+"13298": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 3.4,
+"player_id": "13298",
+"projected_score": 3.4,
+"updated_at": 1791396679
+},
+"13299": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 19.1,
+"player_id": "13299",
+"projected_score": 19.1,
+"updated_at": 1791396679
+},
+"13322": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.4,
+"player_id": "13322",
+"projected_score": 9.4,
+"updated_at": 1791396679
+},
+"13354": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.4,
+"player_id": "13354",
+"projected_score": 5.4,
+"updated_at": 1791396679
+},
+"13447": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7,
+"player_id": "13447",
+"projected_score": 7,
+"updated_at": 1791396679
+},
+"13589": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 22.5,
+"player_id": "13589",
+"projected_score": 22.5,
+"updated_at": 1791396679
+},
+"13592": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 14.5,
+"player_id": "13592",
+"projected_score": 14.5,
+"updated_at": 1791396679
+},
+"13593": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17.5,
+"player_id": "13593",
+"projected_score": 17.5,
+"updated_at": 1791396679
+},
+"13604": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.5,
+"player_id": "13604",
+"projected_score": 11.5,
+"updated_at": 1791396679
+},
+"13635": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.7,
+"player_id": "13635",
+"projected_score": 10.7,
+"updated_at": 1791396679
+},
+"13696": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.3,
+"player_id": "13696",
+"projected_score": 8.3,
+"updated_at": 1791396679
+},
+"13697": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.6,
+"player_id": "13697",
+"projected_score": 7.6,
+"updated_at": 1791396679
+},
+"13719": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.8,
+"player_id": "13719",
+"projected_score": 5.8,
+"updated_at": 1791396679
+},
+"13737": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.4,
+"player_id": "13737",
+"projected_score": 8.4,
+"updated_at": 1791396679
+},
+"13743": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.7,
+"player_id": "13743",
+"projected_score": 8.7,
+"updated_at": 1791396679
+},
+"13772": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.4,
+"player_id": "13772",
+"projected_score": 11.4,
+"updated_at": 1791396679
+},
+"13813": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.6,
+"player_id": "13813",
+"projected_score": 7.6,
+"updated_at": 1791396679
+},
+"13844": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.2,
+"player_id": "13844",
+"projected_score": 6.2,
+"updated_at": 1791396679
+},
+"13869": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.2,
+"player_id": "13869",
+"projected_score": 6.2,
+"updated_at": 1791396679
+},
+"14071": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.8,
+"player_id": "14071",
+"projected_score": 7.8,
+"updated_at": 1791396679
+},
+"14085": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.2,
+"player_id": "14085",
+"projected_score": 8.2,
+"updated_at": 1791396679
+},
+"14136": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.4,
+"player_id": "14136",
+"projected_score": 10.4,
+"updated_at": 1791396679
+},
+"14153": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.3,
+"player_id": "14153",
+"projected_score": 5.3,
+"updated_at": 1791396679
+},
+"14163": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.4,
+"player_id": "14163",
+"projected_score": 8.4,
+"updated_at": 1791396679
+},
+"14179": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11,
+"player_id": "14179",
+"projected_score": 11,
+"updated_at": 1791396679
+},
+"14182": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "14182",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"14218": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.2,
+"player_id": "14218",
+"projected_score": 6.2,
+"updated_at": 1791396679
+},
+"14225": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.5,
+"player_id": "14225",
+"projected_score": 9.5,
+"updated_at": 1791396679
+},
+"14249": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.2,
+"player_id": "14249",
+"projected_score": 8.2,
+"updated_at": 1791396679
+},
+"14251": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.5,
+"player_id": "14251",
+"projected_score": 9.5,
+"updated_at": 1791396679
+},
+"14256": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "14256",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"14328": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8,
+"player_id": "14328",
+"projected_score": 8,
+"updated_at": 1791396679
+},
+"14412": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.3,
+"player_id": "14412",
+"projected_score": 7.3,
+"updated_at": 1791396679
+},
+"14630": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.3,
+"player_id": "14630",
+"projected_score": 6.3,
+"updated_at": 1791396679
+},
+"14777": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 14.7,
+"player_id": "14777",
+"projected_score": 14.7,
+"updated_at": 1791396679
+},
+"14779": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.8,
+"player_id": "14779",
+"projected_score": 15.8,
+"updated_at": 1791396679
+},
+"14782": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.7,
+"player_id": "14782",
+"projected_score": 15.7,
+"updated_at": 1791396679
+},
+"14783": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.2,
+"player_id": "14783",
+"projected_score": 16.2,
+"updated_at": 1791396679
+},
+"14797": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17.6,
+"player_id": "14797",
+"projected_score": 17.6,
+"updated_at": 1791396679
+},
+"14802": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 18.8,
+"player_id": "14802",
+"projected_score": 18.8,
+"updated_at": 1791396679
+},
+"14832": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.3,
+"player_id": "14832",
+"projected_score": 16.3,
+"updated_at": 1791396679
+},
+"14835": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.7,
+"player_id": "14835",
+"projected_score": 16.7,
+"updated_at": 1791396679
+},
+"14861": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.9,
+"player_id": "14861",
+"projected_score": 11.9,
+"updated_at": 1791396679
+},
+"14877": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "14877",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"14892": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.4,
+"player_id": "14892",
+"projected_score": 7.4,
+"updated_at": 1791396679
+},
+"14909": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.9,
+"player_id": "14909",
+"projected_score": 7.9,
+"updated_at": 1791396679
+},
+"14910": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.2,
+"player_id": "14910",
+"projected_score": 8.2,
+"updated_at": 1791396679
+},
+"14927": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.1,
+"player_id": "14927",
+"projected_score": 8.1,
+"updated_at": 1791396679
+},
+"14940": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.1,
+"player_id": "14940",
+"projected_score": 8.1,
+"updated_at": 1791396679
+},
+"14985": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.3,
+"player_id": "14985",
+"projected_score": 6.3,
+"updated_at": 1791396679
+},
+"15001": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.9,
+"player_id": "15001",
+"projected_score": 6.9,
+"updated_at": 1791396679
+},
+"15051": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "15051",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"15237": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.4,
+"player_id": "15237",
+"projected_score": 15.4,
+"updated_at": 1791396679
+},
+"15256": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 14.3,
+"player_id": "15256",
+"projected_score": 14.3,
+"updated_at": 1791396679
+},
+"15259": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.1,
+"player_id": "15259",
+"projected_score": 9.1,
+"updated_at": 1791396679
+},
+"15261": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.9,
+"player_id": "15261",
+"projected_score": 9.9,
+"updated_at": 1791396679
+},
+"15281": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 21.4,
+"player_id": "15281",
+"projected_score": 21.4,
+"updated_at": 1791396679
+},
+"15284": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11,
+"player_id": "15284",
+"projected_score": 11,
+"updated_at": 1791396679
+},
+"15287": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 19.2,
+"player_id": "15287",
+"projected_score": 19.2,
+"updated_at": 1791396679
+},
+"15290": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.2,
+"player_id": "15290",
+"projected_score": 12.2,
+"updated_at": 1791396679
+},
+"15329": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.9,
+"player_id": "15329",
+"projected_score": 8.9,
+"updated_at": 1791396679
+},
+"15346": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.7,
+"player_id": "15346",
+"projected_score": 7.7,
+"updated_at": 1791396679
+},
+"15349": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.1,
+"player_id": "15349",
+"projected_score": 6.1,
+"updated_at": 1791396679
+},
+"15352": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.9,
+"player_id": "15352",
+"projected_score": 5.1,
+"updated_at": 1791396679
+},
+"15355": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.7,
+"player_id": "15355",
+"projected_score": 7.7,
+"updated_at": 1791396679
+},
+"15365": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7,
+"player_id": "15365",
+"projected_score": 7,
+"updated_at": 1791396679
+},
+"15366": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.1,
+"player_id": "15366",
+"projected_score": 10.1,
+"updated_at": 1791396679
+},
+"15368": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.9,
+"player_id": "15368",
+"projected_score": 5.9,
+"updated_at": 1791396679
+},
+"15404": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.7,
+"player_id": "15404",
+"projected_score": 8.7,
+"updated_at": 1791396679
+},
+"15409": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.4,
+"player_id": "15409",
+"projected_score": 4.4,
+"updated_at": 1791396679
+},
+"15452": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.7,
+"player_id": "15452",
+"projected_score": 8.7,
+"updated_at": 1791396679
+},
+"15499": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.4,
+"player_id": "15499",
+"projected_score": 5.4,
+"updated_at": 1791396679
+},
+"15698": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.5,
+"player_id": "15698",
+"projected_score": 16.5,
+"updated_at": 1791396679
+},
+"15710": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.7,
+"player_id": "15710",
+"projected_score": 16.7,
+"updated_at": 1791396679
+},
+"15711": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.1,
+"player_id": "15711",
+"projected_score": 11.1,
+"updated_at": 1791396679
+},
+"15715": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 18,
+"player_id": "15715",
+"projected_score": 18,
+"updated_at": 1791396679
+},
+"15716": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.6,
+"player_id": "15716",
+"projected_score": 4.6,
+"updated_at": 1791396679
+},
+"15742": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.5,
+"player_id": "15742",
+"projected_score": 11.5,
+"updated_at": 1791396679
+},
+"15751": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 13.5,
+"player_id": "15751",
+"projected_score": 13.5,
+"updated_at": 1791396679
+},
+"15753": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 18.9,
+"player_id": "15753",
+"projected_score": 18.9,
+"updated_at": 1791396679
+},
+"15754": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 23.3,
+"player_id": "15754",
+"projected_score": 23.3,
+"updated_at": 1791396679
+},
+"15756": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "15756",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"15761": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.6,
+"player_id": "15761",
+"projected_score": 8.6,
+"updated_at": 1791396679
+},
+"15762": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.3,
+"player_id": "15762",
+"projected_score": 12.3,
+"updated_at": 1791396679
+},
+"15779": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.6,
+"player_id": "15779",
+"projected_score": 9.6,
+"updated_at": 1791396679
+},
+"15789": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17.2,
+"player_id": "15789",
+"projected_score": 17.2,
+"updated_at": 1791396679
+},
+"15794": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 18.2,
+"player_id": "15794",
+"projected_score": 18.2,
+"updated_at": 1791396679
+},
+"15797": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "15797",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"15799": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "15799",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"15805": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.2,
+"player_id": "15805",
+"projected_score": 7.2,
+"updated_at": 1791396679
+},
+"15808": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.5,
+"player_id": "15808",
+"projected_score": 5.5,
+"updated_at": 1791396679
+},
+"15815": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.5,
+"player_id": "15815",
+"projected_score": 4.5,
+"updated_at": 1791396679
+},
+"15821": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.4,
+"player_id": "15821",
+"projected_score": 7.4,
+"updated_at": 1791396679
+},
+"15822": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.9,
+"player_id": "15822",
+"projected_score": 7.9,
+"updated_at": 1791396679
+},
+"15834": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.8,
+"player_id": "15834",
+"projected_score": 7.8,
+"updated_at": 1791396679
+},
+"15835": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.7,
+"player_id": "15835",
+"projected_score": 6.7,
+"updated_at": 1791396679
+},
+"15836": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9,
+"player_id": "15836",
+"projected_score": 6,
+"updated_at": 1791396679
+},
+"15861": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.2,
+"player_id": "15861",
+"projected_score": 6.2,
+"updated_at": 1791396679
+},
+"15868": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.4,
+"player_id": "15868",
+"projected_score": 6.9,
+"updated_at": 1791396679
+},
+"15875": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.6,
+"player_id": "15875",
+"projected_score": 4.5,
+"updated_at": 1791396679
+},
+"15884": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "15884",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"15911": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.8,
+"player_id": "15911",
+"projected_score": 5.8,
+"updated_at": 1791396679
+},
+"15923": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10,
+"player_id": "15923",
+"projected_score": 6.6,
+"updated_at": 1791396679
+},
+"15979": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.1,
+"player_id": "15979",
+"projected_score": 5.1,
+"updated_at": 1791396679
+},
+"16013": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.9,
+"player_id": "16013",
+"projected_score": 6.9,
+"updated_at": 1791396679
+},
+"16018": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "16018",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"16148": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.6,
+"player_id": "16148",
+"projected_score": 15.6,
+"updated_at": 1791396679
+},
+"16150": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.1,
+"player_id": "16150",
+"projected_score": 16.1,
+"updated_at": 1791396679
+},
+"16161": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 22,
+"player_id": "16161",
+"projected_score": 22,
+"updated_at": 1791396679
+},
+"16162": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 22.2,
+"player_id": "16162",
+"projected_score": 22.2,
+"updated_at": 1791396679
+},
+"16181": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.4,
+"player_id": "16181",
+"projected_score": 11.4,
+"updated_at": 1791396679
+},
+"16185": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 26.7,
+"player_id": "16185",
+"projected_score": 26.7,
+"updated_at": 1791396679
+},
+"16187": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.2,
+"player_id": "16187",
+"projected_score": 11.2,
+"updated_at": 1791396679
+},
+"16188": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.5,
+"player_id": "16188",
+"projected_score": 6.5,
+"updated_at": 1791396679
+},
+"16190": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 13.3,
+"player_id": "16190",
+"projected_score": 13.3,
+"updated_at": 1791396679
+},
+"16192": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 18.8,
+"player_id": "16192",
+"projected_score": 18.8,
+"updated_at": 1791396679
+},
+"16194": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.2,
+"player_id": "16194",
+"projected_score": 10.2,
+"updated_at": 1791396679
+},
+"16195": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.6,
+"player_id": "16195",
+"projected_score": 11.2,
+"updated_at": 1791396679
+},
+"16206": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.1,
+"player_id": "16206",
+"projected_score": 12.1,
+"updated_at": 1791396679
+},
+"16211": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.1,
+"player_id": "16211",
+"projected_score": 12.1,
+"updated_at": 1791396679
+},
+"16213": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.6,
+"player_id": "16213",
+"projected_score": 9.6,
+"updated_at": 1791396679
+},
+"16214": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11,
+"player_id": "16214",
+"projected_score": 11,
+"updated_at": 1791396679
+},
+"16222": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.4,
+"player_id": "16222",
+"projected_score": 9.4,
+"updated_at": 1791396679
+},
+"16223": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "16223",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"16230": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.6,
+"player_id": "16230",
+"projected_score": 5.6,
+"updated_at": 1791396679
+},
+"16239": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.4,
+"player_id": "16239",
+"projected_score": 6.4,
+"updated_at": 1791396679
+},
+"16241": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.2,
+"player_id": "16241",
+"projected_score": 7.8,
+"updated_at": 1791396679
+},
+"16245": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "16245",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"16246": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.1,
+"player_id": "16246",
+"projected_score": 7.1,
+"updated_at": 1791396679
+},
+"16266": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.7,
+"player_id": "16266",
+"projected_score": 8.7,
+"updated_at": 1791396679
+},
+"16280": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.9,
+"player_id": "16280",
+"projected_score": 6.9,
+"updated_at": 1791396679
+},
+"16287": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.2,
+"player_id": "16287",
+"projected_score": 7.2,
+"updated_at": 1791396679
+},
+"16296": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.5,
+"player_id": "16296",
+"projected_score": 6.5,
+"updated_at": 1791396679
+},
+"16303": {
+"capture_count": 1,
+"first_captured_at": 1790963255,
+"first_projected": 5.3,
+"player_id": "16303",
+"projected_score": 5.3,
+"updated_at": 1790963255
+},
+"16384": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 0.1,
+"player_id": "16384",
+"projected_score": 16.5,
+"updated_at": 1791396679
+},
+"16414": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.7,
+"player_id": "16414",
+"projected_score": 5.7,
+"updated_at": 1791396679
+},
+"16452": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "16452",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"16582": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 15.7,
+"player_id": "16582",
+"projected_score": 15.7,
+"updated_at": 1791396679
+},
+"16583": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 14,
+"player_id": "16583",
+"projected_score": 14,
+"updated_at": 1791396679
+},
+"16596": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 3.3,
+"player_id": "16596",
+"projected_score": 7.1,
+"updated_at": 1791396679
+},
+"16598": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.2,
+"player_id": "16598",
+"projected_score": 12.2,
+"updated_at": 1791396679
+},
+"16615": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 13,
+"player_id": "16615",
+"projected_score": 13,
+"updated_at": 1791396679
+},
+"16616": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.4,
+"player_id": "16616",
+"projected_score": 9.4,
+"updated_at": 1791396679
+},
+"16630": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.5,
+"player_id": "16630",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"16641": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 14.8,
+"player_id": "16641",
+"projected_score": 14.8,
+"updated_at": 1791396679
+},
+"16650": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.4,
+"player_id": "16650",
+"projected_score": 7.4,
+"updated_at": 1791396679
+},
+"16653": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.2,
+"player_id": "16653",
+"projected_score": 4.2,
+"updated_at": 1791396679
+},
+"16672": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "16672",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"16677": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6,
+"player_id": "16677",
+"projected_score": 6,
+"updated_at": 1791396679
+},
+"16680": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6,
+"player_id": "16680",
+"projected_score": 6,
+"updated_at": 1791396679
+},
+"16681": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.2,
+"player_id": "16681",
+"projected_score": 5.2,
+"updated_at": 1791396679
+},
+"16696": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.5,
+"player_id": "16696",
+"projected_score": 6.5,
+"updated_at": 1791396679
+},
+"16708": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.8,
+"player_id": "16708",
+"projected_score": 7.8,
+"updated_at": 1791396679
+},
+"16716": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.8,
+"player_id": "16716",
+"projected_score": 4.8,
+"updated_at": 1791396679
+},
+"16719": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10,
+"player_id": "16719",
+"projected_score": 10,
+"updated_at": 1791396679
+},
+"16788": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.9,
+"player_id": "16788",
+"projected_score": 9.9,
+"updated_at": 1791396679
+},
+"16896": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.3,
+"player_id": "16896",
+"projected_score": 5.3,
+"updated_at": 1791396679
+},
+"17039": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.5,
+"player_id": "17039",
+"projected_score": 16.5,
+"updated_at": 1791396679
+},
+"17042": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11,
+"player_id": "17042",
+"projected_score": 11,
+"updated_at": 1791396679
+},
+"17044": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.8,
+"player_id": "17044",
+"projected_score": 6.8,
+"updated_at": 1791396679
+},
+"17045": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.4,
+"player_id": "17045",
+"projected_score": 11.4,
+"updated_at": 1791396679
+},
+"17051": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.5,
+"player_id": "17051",
+"projected_score": 8.5,
+"updated_at": 1791396679
+},
+"17052": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 14.4,
+"player_id": "17052",
+"projected_score": 14.4,
+"updated_at": 1791396679
+},
+"17059": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 2.1,
+"player_id": "17059",
+"projected_score": 2.1,
+"updated_at": 1791396679
+},
+"17066": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.3,
+"player_id": "17066",
+"projected_score": 8.3,
+"updated_at": 1791396679
+},
+"17070": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.5,
+"player_id": "17070",
+"projected_score": 9.5,
+"updated_at": 1791396679
+},
+"17071": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11,
+"player_id": "17071",
+"projected_score": 11,
+"updated_at": 1791396679
+},
+"17075": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.9,
+"player_id": "17075",
+"projected_score": 8.9,
+"updated_at": 1791396679
+},
+"17081": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 17.1,
+"player_id": "17081",
+"projected_score": 17.1,
+"updated_at": 1791396679
+},
+"17102": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 11.8,
+"player_id": "17102",
+"projected_score": 11.8,
+"updated_at": 1791396679
+},
+"17103": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.7,
+"player_id": "17103",
+"projected_score": 10.7,
+"updated_at": 1791396679
+},
+"17112": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.3,
+"player_id": "17112",
+"projected_score": 5.3,
+"updated_at": 1791396679
+},
+"17121": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.3,
+"player_id": "17121",
+"projected_score": 4.3,
+"updated_at": 1791396679
+},
+"17124": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.5,
+"player_id": "17124",
+"projected_score": 5.5,
+"updated_at": 1791396679
+},
+"17125": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.7,
+"player_id": "17125",
+"projected_score": 5.7,
+"updated_at": 1791396679
+},
+"17131": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 9.7,
+"player_id": "17131",
+"projected_score": 9.7,
+"updated_at": 1791396679
+},
+"17132": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6,
+"player_id": "17132",
+"projected_score": 6,
+"updated_at": 1791396679
+},
+"17144": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.1,
+"player_id": "17144",
+"projected_score": 6.5,
+"updated_at": 1791396679
+},
+"17147": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8,
+"player_id": "17147",
+"projected_score": 8,
+"updated_at": 1791396679
+},
+"17256": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.9,
+"player_id": "17256",
+"projected_score": 5.9,
+"updated_at": 1791396679
+},
+"17472": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.5,
+"player_id": "17472",
+"projected_score": 10.5,
+"updated_at": 1791396679
+},
+"17497": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 10.9,
+"player_id": "17497",
+"projected_score": 10.9,
+"updated_at": 1791396679
+},
+"17499": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 3.5,
+"player_id": "17499",
+"projected_score": 7.7,
+"updated_at": 1791396679
+},
+"17512": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 4.9,
+"player_id": "17512",
+"projected_score": 7.2,
+"updated_at": 1791396679
+},
+"17556": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.5,
+"player_id": "17556",
+"projected_score": 5.5,
+"updated_at": 1791396679
+},
+"17560": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 8.8,
+"player_id": "17560",
+"projected_score": 8.8,
+"updated_at": 1791396679
+},
+"17562": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 7.6,
+"player_id": "17562",
+"projected_score": 7.6,
+"updated_at": 1791396679
+},
+"17576": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 12.1,
+"player_id": "17576",
+"projected_score": 11.8,
+"updated_at": 1791396679
+},
+"17640": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 6.7,
+"player_id": "17640",
+"projected_score": 6.7,
+"updated_at": 1791396679
+},
+"17668": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 5.2,
+"player_id": "17668",
+"projected_score": 5.2,
+"updated_at": 1791396679
+},
+"9431": {
+"capture_count": 3,
+"first_captured_at": 1790963255,
+"first_projected": 16.7,
+"player_id": "9431",
+"projected_score": 16.7,
+"updated_at": 1791396679
+}
+},
+"recordBook": {
+"combinedGames": [
+{
+"combined": 584.5999999999999,
+"franchiseId": "0009",
+"higher": [
+[
+600.5,
+2023
+]
+],
+"of": 10,
+"opponentId": "0011",
+"priorBest": 600.5,
+"priorBestSeason": 2023,
+"priorBestWeek": 12,
+"rank": 2
+}
+],
+"teamScores": []
+},
+"regGames": [
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0005",
+"opponent_score": 208.7,
+"team_score": 208.6
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0003",
+"opponent_score": 208.6,
+"team_score": 208.7
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0004",
+"opponent_score": 199.6,
+"team_score": 208.6
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0003",
+"opponent_score": 208.6,
+"team_score": 199.6
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0006",
+"opponent_score": 178,
+"team_score": 208.6
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0003",
+"opponent_score": 208.6,
+"team_score": 178
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0005",
+"opponent_score": 208.7,
+"team_score": 215.3
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0002",
+"opponent_score": 215.3,
+"team_score": 208.7
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0004",
+"opponent_score": 199.6,
+"team_score": 215.3
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0002",
+"opponent_score": 215.3,
+"team_score": 199.6
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0006",
+"opponent_score": 178,
+"team_score": 215.3
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0002",
+"opponent_score": 215.3,
+"team_score": 178
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0005",
+"opponent_score": 208.7,
+"team_score": 303.4
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0010",
+"opponent_score": 303.4,
+"team_score": 208.7
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0004",
+"opponent_score": 199.6,
+"team_score": 303.4
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0010",
+"opponent_score": 303.4,
+"team_score": 199.6
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0006",
+"opponent_score": 178,
+"team_score": 303.4
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0010",
+"opponent_score": 303.4,
+"team_score": 178
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0009",
+"opponent_score": 281.8,
+"team_score": 201.2
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0008",
+"opponent_score": 201.2,
+"team_score": 281.8
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0012",
+"opponent_score": 236.1,
+"team_score": 201.2
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0008",
+"opponent_score": 201.2,
+"team_score": 236.1
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0011",
+"opponent_score": 144.2,
+"team_score": 201.2
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0008",
+"opponent_score": 201.2,
+"team_score": 144.2
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0009",
+"opponent_score": 281.8,
+"team_score": 172.2
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0007",
+"opponent_score": 172.2,
+"team_score": 281.8
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0012",
+"opponent_score": 236.1,
+"team_score": 172.2
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0007",
+"opponent_score": 172.2,
+"team_score": 236.1
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0011",
+"opponent_score": 144.2,
+"team_score": 172.2
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0007",
+"opponent_score": 172.2,
+"team_score": 144.2
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0009",
+"opponent_score": 281.8,
+"team_score": 179.2
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0001",
+"opponent_score": 179.2,
+"team_score": 281.8
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0012",
+"opponent_score": 236.1,
+"team_score": 179.2
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0001",
+"opponent_score": 179.2,
+"team_score": 236.1
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0011",
+"opponent_score": 144.2,
+"team_score": 179.2
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0001",
+"opponent_score": 179.2,
+"team_score": 144.2
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0009",
+"opponent_score": 254.8,
+"team_score": 153.8
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0003",
+"opponent_score": 153.8,
+"team_score": 254.8
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0012",
+"opponent_score": 227,
+"team_score": 153.8
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0003",
+"opponent_score": 153.8,
+"team_score": 227
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0011",
+"opponent_score": 216.2,
+"team_score": 153.8
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0003",
+"opponent_score": 153.8,
+"team_score": 216.2
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0009",
+"opponent_score": 254.8,
+"team_score": 213.6
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0002",
+"opponent_score": 213.6,
+"team_score": 254.8
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0012",
+"opponent_score": 227,
+"team_score": 213.6
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0002",
+"opponent_score": 213.6,
+"team_score": 227
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0011",
+"opponent_score": 216.2,
+"team_score": 213.6
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0002",
+"opponent_score": 213.6,
+"team_score": 216.2
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0009",
+"opponent_score": 254.8,
+"team_score": 245.9
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0010",
+"opponent_score": 245.9,
+"team_score": 254.8
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0012",
+"opponent_score": 227,
+"team_score": 245.9
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0010",
+"opponent_score": 245.9,
+"team_score": 227
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0011",
+"opponent_score": 216.2,
+"team_score": 245.9
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0010",
+"opponent_score": 245.9,
+"team_score": 216.2
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0008",
+"opponent_score": 218.9,
+"team_score": 224.8
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0005",
+"opponent_score": 224.8,
+"team_score": 218.9
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0007",
+"opponent_score": 165.4,
+"team_score": 224.8
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0005",
+"opponent_score": 224.8,
+"team_score": 165.4
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0001",
+"opponent_score": 207.1,
+"team_score": 224.8
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0005",
+"opponent_score": 224.8,
+"team_score": 207.1
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0008",
+"opponent_score": 218.9,
+"team_score": 212.9
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0004",
+"opponent_score": 212.9,
+"team_score": 218.9
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0007",
+"opponent_score": 165.4,
+"team_score": 212.9
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0004",
+"opponent_score": 212.9,
+"team_score": 165.4
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0001",
+"opponent_score": 207.1,
+"team_score": 212.9
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0004",
+"opponent_score": 212.9,
+"team_score": 207.1
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0008",
+"opponent_score": 218.9,
+"team_score": 205.2
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0006",
+"opponent_score": 205.2,
+"team_score": 218.9
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0007",
+"opponent_score": 165.4,
+"team_score": 205.2
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0006",
+"opponent_score": 205.2,
+"team_score": 165.4
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0001",
+"opponent_score": 207.1,
+"team_score": 205.2
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0006",
+"opponent_score": 205.2,
+"team_score": 207.1
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"opponent_score": 251.4,
+"team_score": 230.1
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"opponent_score": 230.1,
+"team_score": 251.4
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"opponent_score": 180.8,
+"team_score": 230.1
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"opponent_score": 230.1,
+"team_score": 180.8
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"opponent_score": 180.8,
+"team_score": 251.4
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"opponent_score": 251.4,
+"team_score": 180.8
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"opponent_score": 258.5,
+"team_score": 312.8
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"opponent_score": 312.8,
+"team_score": 258.5
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"opponent_score": 220,
+"team_score": 312.8
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"opponent_score": 312.8,
+"team_score": 220
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"opponent_score": 220,
+"team_score": 258.5
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"opponent_score": 258.5,
+"team_score": 220
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"opponent_score": 228.3,
+"team_score": 246.9
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"opponent_score": 246.9,
+"team_score": 228.3
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"opponent_score": 166.6,
+"team_score": 246.9
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"opponent_score": 246.9,
+"team_score": 166.6
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"opponent_score": 166.6,
+"team_score": 228.3
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"opponent_score": 228.3,
+"team_score": 166.6
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"opponent_score": 153.7,
+"team_score": 190.3
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"opponent_score": 190.3,
+"team_score": 153.7
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"opponent_score": 223.9,
+"team_score": 190.3
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"opponent_score": 190.3,
+"team_score": 223.9
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"opponent_score": 223.9,
+"team_score": 153.7
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"opponent_score": 153.7,
+"team_score": 223.9
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"opponent_score": 214.5,
+"team_score": 208.3
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"opponent_score": 208.3,
+"team_score": 214.5
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"opponent_score": 250.9,
+"team_score": 208.3
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"opponent_score": 208.3,
+"team_score": 250.9
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"opponent_score": 250.9,
+"team_score": 214.5
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"opponent_score": 214.5,
+"team_score": 250.9
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"opponent_score": 211.6,
+"team_score": 250.2
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"opponent_score": 250.2,
+"team_score": 211.6
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"opponent_score": 181.4,
+"team_score": 250.2
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"opponent_score": 250.2,
+"team_score": 181.4
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"opponent_score": 181.4,
+"team_score": 211.6
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"opponent_score": 211.6,
+"team_score": 181.4
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"opponent_score": 194.3,
+"team_score": 206.3
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"opponent_score": 206.3,
+"team_score": 194.3
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"opponent_score": 216,
+"team_score": 206.3
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"opponent_score": 206.3,
+"team_score": 216
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"opponent_score": 216,
+"team_score": 194.3
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"opponent_score": 194.3,
+"team_score": 216
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"opponent_score": 223.9,
+"team_score": 289.9
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"opponent_score": 289.9,
+"team_score": 223.9
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"opponent_score": 294.7,
+"team_score": 289.9
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"opponent_score": 289.9,
+"team_score": 294.7
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"opponent_score": 294.7,
+"team_score": 223.9
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"opponent_score": 223.9,
+"team_score": 294.7
+}
+],
+"standings": {
+"0001": {
+"allplay_l": 31,
+"allplay_pct": 0.2955,
+"allplay_t": 0,
+"allplay_w": 13,
+"franchise_id": "0001",
+"h2h_l": 6,
+"h2h_pct": 0.4,
+"h2h_t": 0,
+"h2h_w": 4,
+"pf": 768.9
+},
+"0002": {
+"allplay_l": 17,
+"allplay_pct": 0.6136,
+"allplay_t": 0,
+"allplay_w": 27,
+"franchise_id": "0002",
+"h2h_l": 4,
+"h2h_pct": 0.6,
+"h2h_t": 0,
+"h2h_w": 6,
+"pf": 894.8
+},
+"0003": {
+"allplay_l": 28,
+"allplay_pct": 0.3636,
+"allplay_t": 0,
+"allplay_w": 16,
+"franchise_id": "0003",
+"h2h_l": 7,
+"h2h_pct": 0.3,
+"h2h_t": 0,
+"h2h_w": 3,
+"pf": 800.8
+},
+"0004": {
+"allplay_l": 22,
+"allplay_pct": 0.5,
+"allplay_t": 0,
+"allplay_w": 22,
+"franchise_id": "0004",
+"h2h_l": 6,
+"h2h_pct": 0.4,
+"h2h_t": 0,
+"h2h_w": 4,
+"pf": 882.6
+},
+"0005": {
+"allplay_l": 10,
+"allplay_pct": 0.7727,
+"allplay_t": 0,
+"allplay_w": 34,
+"franchise_id": "0005",
+"h2h_l": 2,
+"h2h_pct": 0.8,
+"h2h_t": 0,
+"h2h_w": 8,
+"pf": 996.5
+},
+"0006": {
+"allplay_l": 36,
+"allplay_pct": 0.1818,
+"allplay_t": 0,
+"allplay_w": 8,
+"franchise_id": "0006",
+"h2h_l": 9,
+"h2h_pct": 0.1,
+"h2h_t": 0,
+"h2h_w": 1,
+"pf": 784.6
+},
+"0007": {
+"allplay_l": 35,
+"allplay_pct": 0.2045,
+"allplay_t": 0,
+"allplay_w": 9,
+"franchise_id": "0007",
+"h2h_l": 8,
+"h2h_pct": 0.2,
+"h2h_t": 0,
+"h2h_w": 2,
+"pf": 760.2
+},
+"0008": {
+"allplay_l": 22,
+"allplay_pct": 0.5,
+"allplay_t": 0,
+"allplay_w": 22,
+"franchise_id": "0008",
+"h2h_l": 4,
+"h2h_pct": 0.6,
+"h2h_t": 0,
+"h2h_w": 6,
+"pf": 873.3
+},
+"0009": {
+"allplay_l": 10,
+"allplay_pct": 0.7727,
+"allplay_t": 0,
+"allplay_w": 34,
+"franchise_id": "0009",
+"h2h_l": 2,
+"h2h_pct": 0.8,
+"h2h_t": 0,
+"h2h_w": 8,
+"pf": 1016.8
+},
+"0010": {
+"allplay_l": 12,
+"allplay_pct": 0.7273,
+"allplay_t": 0,
+"allplay_w": 32,
+"franchise_id": "0010",
+"h2h_l": 3,
+"h2h_pct": 0.7,
+"h2h_t": 0,
+"h2h_w": 7,
+"pf": 981
+},
+"0011": {
+"allplay_l": 22,
+"allplay_pct": 0.5,
+"allplay_t": 0,
+"allplay_w": 22,
+"franchise_id": "0011",
+"h2h_l": 4,
+"h2h_pct": 0.6,
+"h2h_t": 0,
+"h2h_w": 6,
+"pf": 879
+},
+"0012": {
+"allplay_l": 19,
+"allplay_pct": 0.5682,
+"allplay_t": 0,
+"allplay_w": 25,
+"franchise_id": "0012",
+"h2h_l": 5,
+"h2h_pct": 0.5,
+"h2h_t": 0,
+"h2h_w": 5,
+"pf": 840.7
+}
+},
+"teamScores": {
+"0001": 216.0,
+"0002": 214.5,
+"0003": 208.3,
+"0004": 211.6,
+"0005": 250.2,
+"0006": 181.4,
+"0007": 194.3,
+"0008": 206.3,
+"0009": 289.9,
+"0010": 250.9,
+"0011": 294.7,
+"0012": 223.9
+}
+},
+"eliasReport": {
+"allplayChanged": false,
+"allplayChanges": [],
+"checkedAtUtc": "2026-10-08T13:59:36Z",
+"games": [],
+"officialChanges": [
+{
+"from": 1.0,
+"game": "New York Jets at Chicago Bears",
+"player": "Jamien Sherwood",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Passes Defended",
+"to": 0.0
+},
+{
+"from": 0.0,
+"game": "Jacksonville Jaguars at Cincinnati Bengals",
+"player": "Dennis Gardeck",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Passes Defended",
+"to": 1.0
+},
+{
+"from": 0.0,
+"game": "Dallas Cowboys at Houston Texans",
+"player": "Tyrus Wheat",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Special Teams Assists",
+"to": 1.0
+},
+{
+"from": 1.0,
+"game": "Dallas Cowboys at Houston Texans",
+"player": "Markquese Bell",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Special Teams Assists",
+"to": 0.0
+},
+{
+"from": 7.0,
+"game": "Green Bay Packers at Tampa Bay Buccaneers",
+"player": "Javon Bullard",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Assists",
+"to": 6.0
+},
+{
+"from": 1.0,
+"game": "Green Bay Packers at Tampa Bay Buccaneers",
+"player": "Brenton Cox",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 2.0
+},
+{
+"from": 2.0,
+"game": "Green Bay Packers at Tampa Bay Buccaneers",
+"player": "Brenton Cox",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Assists",
+"to": 1.0
+},
+{
+"from": 4.0,
+"game": "Los Angeles Chargers at Seattle Seahawks",
+"player": "Daiyan Henley",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 3.0
+},
+{
+"from": 1.0,
+"game": "Los Angeles Chargers at Seattle Seahawks",
+"player": "Daiyan Henley",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Assists",
+"to": 2.0
+},
+{
+"from": 0.0,
+"game": "Los Angeles Chargers at Seattle Seahawks",
+"player": "Tarheeb Still",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 1.0
+},
+{
+"from": 6.0,
+"game": "Detroit Lions at Carolina Panthers",
+"player": "Jack Campbell",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 5.0
+},
+{
+"from": 4.0,
+"game": "Detroit Lions at Carolina Panthers",
+"player": "Chuck Clark",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 5.0
+},
+{
+"from": 0.0,
+"game": "Detroit Lions at Carolina Panthers",
+"player": "Trevor Nowaske",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Passes Defended",
+"to": 1.0
+}
+],
+"players": [],
+"published": [
+"Wed Oct 7, 11:32 PM ET"
+],
+"rankChanges": [],
+"resultsFlipped": 0,
+"season": 2026,
+"teams": [],
+"week": 4
+},
+"evidence": {
+"basis": "first_pregame_fallback",
+"ranked": [
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Tetairoa McMillan",
+"player_id": "17071",
+"pos_group": "WR",
+"proj": 11.0,
+"score": 49.8
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "DAL",
+"player": "CeeDee Lamb",
+"player_id": "14832",
+"pos_group": "WR",
+"proj": 16.3,
+"score": 46.5
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Kyren Williams",
+"player_id": "15710",
+"pos_group": "RB",
+"proj": 16.7,
+"score": 37.5
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Kenneth Walker III",
+"player_id": "15711",
+"pos_group": "RB",
+"proj": 11.1,
+"score": 33.9
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "Nico Collins",
+"player_id": "15290",
+"pos_group": "WR",
+"proj": 12.2,
+"score": 33.8
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Joe Burrow",
+"player_id": "14777",
+"pos_group": "QB",
+"proj": 14.7,
+"score": 31.9
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "DAL",
+"player": "Javonte Williams",
+"player_id": "15256",
+"pos_group": "RB",
+"proj": 14.3,
+"score": 31.5
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Kirk Cousins",
+"player_id": "10700",
+"pos_group": "QB",
+"proj": 12.7,
+"score": 31.4
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Tee Higgins",
+"player_id": "14835",
+"pos_group": "WR",
+"proj": 16.7,
+"score": 31.3
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Puka Nacua",
+"player_id": "16211",
+"pos_group": "WR",
+"proj": 12.1,
+"score": 30.9
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Bijan Robinson",
+"player_id": "16161",
+"pos_group": "RB",
+"proj": 22.0,
+"score": 30.7
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "Kyle Monangai",
+"player_id": "17066",
+"pos_group": "RB",
+"proj": 8.3,
+"score": 30.4
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "C.J. Stroud",
+"player_id": "16150",
+"pos_group": "QB",
+"proj": 16.1,
+"score": 29.9
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Bryce Young",
+"player_id": "16148",
+"pos_group": "QB",
+"proj": 15.6,
+"score": 29.0
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "BAL",
+"player": "Zay Flowers",
+"player_id": "16190",
+"pos_group": "WR",
+"proj": 13.3,
+"score": 28.6
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Chuba Hubbard",
+"player_id": "15261",
+"pos_group": "RB",
+"proj": 9.9,
+"score": 28.5
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Jared Goff",
+"player_id": "12611",
+"pos_group": "QB",
+"proj": 16.5,
+"score": 27.7
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Sam LaPorta",
+"player_id": "16214",
+"pos_group": "TE",
+"proj": 11.0,
+"score": 27.4
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Brian Robinson",
+"player_id": "15716",
+"pos_group": "RB",
+"proj": 4.6,
+"score": 26.9
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791145500,
+"nfl_team": "SFO",
+"player": "Brock Purdy",
+"player_id": "15698",
+"pos_group": "QB",
+"proj": 16.5,
+"score": 26.8
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Malik Nabers",
+"player_id": "16615",
+"pos_group": "WR",
+"proj": 13.0,
+"score": 26.0
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Jameis Winston",
+"player_id": "12140",
+"pos_group": "QB",
+"proj": 15.1,
+"score": 25.4
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "NEP",
+"player": "Romeo Doubs",
+"player_id": "15779",
+"pos_group": "WR",
+"proj": 9.6,
+"score": 24.8
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "TEN",
+"player": "Carnell Tate",
+"player_id": "17497",
+"pos_group": "WR",
+"proj": 10.9,
+"score": 24.7
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Brock Bowers",
+"player_id": "16641",
+"pos_group": "TE",
+"proj": 14.8,
+"score": 24.6
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791120600,
+"nfl_team": "IND",
+"player": "Jonathan Taylor",
+"player_id": "14802",
+"pos_group": "RB",
+"proj": 18.8,
+"score": 23.7
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "BAL",
+"player": "Lamar Jackson",
+"player_id": "13593",
+"pos_group": "QB",
+"proj": 17.5,
+"score": 23.6
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "DAL",
+"player": "Dak Prescott",
+"player_id": "12620",
+"pos_group": "QB",
+"proj": 17.0,
+"score": 23.4
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791245700,
+"nfl_team": "NOS",
+"player": "Chris Olave",
+"player_id": "15754",
+"pos_group": "WR",
+"proj": 23.3,
+"score": 22.6
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791245700,
+"nfl_team": "NOS",
+"player": "Alvin Kamara",
+"player_id": "13132",
+"pos_group": "RB",
+"proj": 7.3,
+"score": 22.6
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Matt Araiza",
+"player_id": "15911",
+"pos_group": "PN",
+"proj": 5.8,
+"score": 22.4
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "BUF",
+"player": "Josh Allen",
+"player_id": "13589",
+"pos_group": "QB",
+"proj": 22.5,
+"score": 22.3
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Patrick Mahomes",
+"player_id": "13116",
+"pos_group": "QB",
+"proj": 16.9,
+"score": 21.5
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Tucker Kraft",
+"player_id": "16222",
+"pos_group": "TE",
+"proj": 9.4,
+"score": 21.3
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791145500,
+"nfl_team": "SFO",
+"player": "George Kittle",
+"player_id": "13299",
+"pos_group": "TE",
+"proj": 19.1,
+"score": 20.2
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791144300,
+"nfl_team": "MIN",
+"player": "Will Reichard",
+"player_id": "16681",
+"pos_group": "PK",
+"proj": 5.2,
+"score": 20.0
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791145500,
+"nfl_team": "SFO",
+"player": "Deebo Samuel",
+"player_id": "14136",
+"pos_group": "WR",
+"proj": 10.4,
+"score": 19.8
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Nick Emmanwori",
+"player_id": "17144",
+"pos_group": "DB",
+"proj": 7.1,
+"score": 19.7
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Evan Williams",
+"player_id": "16719",
+"pos_group": "DB",
+"proj": 10.0,
+"score": 19.6
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Jameson Williams",
+"player_id": "15756",
+"pos_group": "WR",
+"proj": 8.8,
+"score": 19.4
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791144300,
+"nfl_team": "MIA",
+"player": "Ollie Gordon II",
+"player_id": "17059",
+"pos_group": "RB",
+"proj": 2.1,
+"score": 19.2
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791245700,
+"nfl_team": "NOS",
+"player": "Tyler Shough",
+"player_id": "17039",
+"pos_group": "QB",
+"proj": 16.5,
+"score": 19.1
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Ernest Jones",
+"player_id": "15404",
+"pos_group": "LB",
+"proj": 8.7,
+"score": 19.0
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Jordan Love",
+"player_id": "14782",
+"pos_group": "QB",
+"proj": 15.7,
+"score": 18.9
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Ashton Jeanty",
+"player_id": "17042",
+"pos_group": "RB",
+"proj": 11.0,
+"score": 18.6
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "NEP",
+"player": "Rhamondre Stevenson",
+"player_id": "15259",
+"pos_group": "RB",
+"proj": 9.1,
+"score": 18.6
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Arvell Reese",
+"player_id": "17556",
+"pos_group": "LB",
+"proj": 5.5,
+"score": 18.5
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Chase Brown",
+"player_id": "16181",
+"pos_group": "RB",
+"proj": 11.4,
+"score": 18.3
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791245700,
+"nfl_team": "NOS",
+"player": "Devaughn Vele",
+"player_id": "16788",
+"pos_group": "WR",
+"proj": 9.9,
+"score": 18.0
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Bo Nix",
+"player_id": "16582",
+"pos_group": "QB",
+"proj": 15.7,
+"score": 17.8
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Michael Wilson",
+"player_id": "16206",
+"pos_group": "WR",
+"proj": 12.1,
+"score": 17.7
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Jahmyr Gibbs",
+"player_id": "16162",
+"pos_group": "RB",
+"proj": 22.2,
+"score": 17.5
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791145500,
+"nfl_team": "LAC",
+"player": "Tuli Tuipulotu",
+"player_id": "16266",
+"pos_group": "DL",
+"proj": 8.7,
+"score": 17.5
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "Ka'imi Fairbairn",
+"player_id": "12860",
+"pos_group": "PK",
+"proj": 5.3,
+"score": 17.4
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791120600,
+"nfl_team": "IND",
+"player": "Spencer Shrader",
+"player_id": "16896",
+"pos_group": "PK",
+"proj": 5.3,
+"score": 17.4
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "NYJ",
+"player": "Isaiah Williams",
+"player_id": "16630",
+"pos_group": "WR",
+"proj": 6.5,
+"score": 17.3
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Sam Darnold",
+"player_id": "13592",
+"pos_group": "QB",
+"proj": 14.5,
+"score": 17.3
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "BAL",
+"player": "Derrick Henry",
+"player_id": "12626",
+"pos_group": "RB",
+"proj": 17.0,
+"score": 16.9
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791133200,
+"nfl_team": "BUF",
+"player": "James Cook",
+"player_id": "15715",
+"pos_group": "RB",
+"proj": 18.0,
+"score": 16.7
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Amon-Ra St. Brown",
+"player_id": "15287",
+"pos_group": "WR",
+"proj": 19.2,
+"score": 16.3
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "PHI",
+"player": "Jalen Hurts",
+"player_id": "14783",
+"pos_group": "QB",
+"proj": 16.2,
+"score": 16.2
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791145500,
+"nfl_team": "SFO",
+"player": "Christian McCaffrey",
+"player_id": "13130",
+"pos_group": "RB",
+"proj": 19.8,
+"score": 16.2
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "Rome Odunze",
+"player_id": "16616",
+"pos_group": "WR",
+"proj": 9.4,
+"score": 16.2
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Trevor Lawrence",
+"player_id": "15237",
+"pos_group": "QB",
+"proj": 15.4,
+"score": 16.0
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Michael Penix Jr.",
+"player_id": "16583",
+"pos_group": "QB",
+"proj": 14.0,
+"score": 15.7
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "NYJ",
+"player": "Dane Belton",
+"player_id": "15875",
+"pos_group": "DB",
+"proj": 5.6,
+"score": 15.7
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Drake London",
+"player_id": "15751",
+"pos_group": "WR",
+"proj": 13.5,
+"score": 15.6
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Edgerrin Cooper",
+"player_id": "16696",
+"pos_group": "LB",
+"proj": 6.5,
+"score": 15.5
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791245700,
+"nfl_team": "NOS",
+"player": "Juwan Johnson",
+"player_id": "14861",
+"pos_group": "TE",
+"proj": 11.9,
+"score": 15.5
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791144300,
+"nfl_team": "MIN",
+"player": "Dallas Turner",
+"player_id": "16650",
+"pos_group": "DL",
+"proj": 7.4,
+"score": 15.0
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Jaylen Waddle",
+"player_id": "15284",
+"pos_group": "WR",
+"proj": 11.0,
+"score": 14.7
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Cam Little",
+"player_id": "16680",
+"pos_group": "PK",
+"proj": 6.0,
+"score": 14.7
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "NEP",
+"player": "Hunter Henry",
+"player_id": "12676",
+"pos_group": "TE",
+"proj": 8.1,
+"score": 14.5
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Foyesade Oluokun",
+"player_id": "13813",
+"pos_group": "LB",
+"proj": 7.6,
+"score": 14.5
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Mansoor Delane",
+"player_id": "17562",
+"pos_group": "DB",
+"proj": 7.6,
+"score": 14.5
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Tremaine Edmunds",
+"player_id": "13697",
+"pos_group": "LB",
+"proj": 7.6,
+"score": 14.0
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791145500,
+"nfl_team": "LAC",
+"player": "Omarion Hampton",
+"player_id": "17044",
+"pos_group": "RB",
+"proj": 6.8,
+"score": 13.7
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "BAL",
+"player": "Kyle Hamilton",
+"player_id": "15834",
+"pos_group": "DB",
+"proj": 7.8,
+"score": 13.6
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Trey McBride",
+"player_id": "15794",
+"pos_group": "TE",
+"proj": 18.2,
+"score": 13.6
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "BUF",
+"player": "Khalil Shakir",
+"player_id": "15761",
+"pos_group": "WR",
+"proj": 8.6,
+"score": 13.6
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791145500,
+"nfl_team": "LAC",
+"player": "Cameron Dicker",
+"player_id": "15979",
+"pos_group": "PK",
+"proj": 5.1,
+"score": 13.5
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Jaxon Smith-Njigba",
+"player_id": "16185",
+"pos_group": "WR",
+"proj": 26.7,
+"score": 13.2
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "TEN",
+"player": "Tony Pollard",
+"player_id": "14085",
+"pos_group": "RB",
+"proj": 8.2,
+"score": 13.2
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Matthew Stafford",
+"player_id": "9431",
+"pos_group": "QB",
+"proj": 16.7,
+"score": 13.1
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Daniel Whelan",
+"player_id": "16452",
+"pos_group": "PN",
+"proj": 6.8,
+"score": 13.0
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "Will Anderson",
+"player_id": "16223",
+"pos_group": "DL",
+"proj": 8.8,
+"score": 13.0
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "Kamari Lassiter",
+"player_id": "16672",
+"pos_group": "DB",
+"proj": 8.8,
+"score": 12.9
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "DAL",
+"player": "Brandon Aubrey",
+"player_id": "16414",
+"pos_group": "PK",
+"proj": 5.7,
+"score": 12.9
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Devon Witherspoon",
+"player_id": "16241",
+"pos_group": "DB",
+"proj": 9.2,
+"score": 12.7
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "Luther Burden",
+"player_id": "17070",
+"pos_group": "WR",
+"proj": 9.5,
+"score": 12.2
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Budda Baker",
+"player_id": "13251",
+"pos_group": "DB",
+"proj": 9.2,
+"score": 12.0
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791120600,
+"nfl_team": "IND",
+"player": "Tyler Warren",
+"player_id": "17102",
+"pos_group": "TE",
+"proj": 11.8,
+"score": 12.0
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Matthew Golden",
+"player_id": "17075",
+"pos_group": "WR",
+"proj": 8.9,
+"score": 11.9
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "BAL",
+"player": "Malaki Starks",
+"player_id": "17132",
+"pos_group": "DB",
+"proj": 6.0,
+"score": 11.8
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Alex Singleton",
+"player_id": "14412",
+"pos_group": "LB",
+"proj": 7.3,
+"score": 11.5
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Zaven Collins",
+"player_id": "15352",
+"pos_group": "DL",
+"proj": 4.9,
+"score": 11.5
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "Reed Blankenship",
+"player_id": "16018",
+"pos_group": "DB",
+"proj": 8.8,
+"score": 11.3
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Bhayshul Tuten",
+"player_id": "17052",
+"pos_group": "RB",
+"proj": 14.4,
+"score": 11.1
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "TEN",
+"player": "Tommy Townsend",
+"player_id": "15051",
+"pos_group": "PN",
+"proj": 6.8,
+"score": 11.0
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Jacoby Brissett",
+"player_id": "12616",
+"pos_group": "QB",
+"proj": 15.4,
+"score": 10.9
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Xavier Watts",
+"player_id": "17131",
+"pos_group": "DB",
+"proj": 9.7,
+"score": 10.9
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "Tyson Bagent",
+"player_id": "16384",
+"pos_group": "QB",
+"proj": 0.1,
+"score": 10.8
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791145500,
+"nfl_team": "LAC",
+"player": "Justin Herbert",
+"player_id": "14779",
+"pos_group": "QB",
+"proj": 15.8,
+"score": 10.6
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Jack Campbell",
+"player_id": "16239",
+"pos_group": "LB",
+"proj": 6.4,
+"score": 9.5
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Barrett Carter",
+"player_id": "17124",
+"pos_group": "LB",
+"proj": 5.5,
+"score": 10.5
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791144300,
+"nfl_team": "MIA",
+"player": "Jordyn Brooks",
+"player_id": "14892",
+"pos_group": "LB",
+"proj": 7.4,
+"score": 10.5
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "George Karlaftis",
+"player_id": "15808",
+"pos_group": "DL",
+"proj": 5.5,
+"score": 10.5
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Brandon Jones",
+"player_id": "14910",
+"pos_group": "DB",
+"proj": 8.2,
+"score": 10.2
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "Cairo Santos",
+"player_id": "11945",
+"pos_group": "PK",
+"proj": 5.9,
+"score": 10.1
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791144300,
+"nfl_team": "MIN",
+"player": "Blake Cashman",
+"player_id": "14251",
+"pos_group": "LB",
+"proj": 9.5,
+"score": 10.0
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "DAL",
+"player": "George Pickens",
+"player_id": "15762",
+"pos_group": "WR",
+"proj": 12.3,
+"score": 9.9
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Kyle Pitts",
+"player_id": "15329",
+"pos_group": "TE",
+"proj": 8.9,
+"score": 9.6
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "TBB",
+"player": "Antoine Winfield",
+"player_id": "14909",
+"pos_group": "DB",
+"proj": 7.9,
+"score": 9.3
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "TBB",
+"player": "Tykee Smith",
+"player_id": "16708",
+"pos_group": "DB",
+"proj": 7.8,
+"score": 9.3
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "NYJ",
+"player": "Braelon Allen",
+"player_id": "16596",
+"pos_group": "RB",
+"proj": 3.3,
+"score": 9.1
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Jordan Stout",
+"player_id": "15884",
+"pos_group": "PN",
+"proj": 6.8,
+"score": 9.0
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "PHI",
+"player": "Braden Mann",
+"player_id": "14985",
+"pos_group": "PN",
+"proj": 6.3,
+"score": 9.0
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "BUF",
+"player": "Gregory Rousseau",
+"player_id": "15346",
+"pos_group": "DL",
+"proj": 7.7,
+"score": 9.0
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Tre Tucker",
+"player_id": "16287",
+"pos_group": "WR",
+"proj": 7.2,
+"score": 8.8
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Darren Waller",
+"player_id": "12263",
+"pos_group": "TE",
+"proj": 13.5,
+"score": 8.7
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791120600,
+"nfl_team": "WAS",
+"player": "Stefon Diggs",
+"player_id": "12186",
+"pos_group": "WR",
+"proj": 16.3,
+"score": 8.7
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791120600,
+"nfl_team": "IND",
+"player": "DeForest Buckner",
+"player_id": "12688",
+"pos_group": "DL",
+"proj": 5.9,
+"score": 8.5
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Devin Lloyd",
+"player_id": "15822",
+"pos_group": "LB",
+"proj": 7.9,
+"score": 8.5
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "NEP",
+"player": "Marcus Jones",
+"player_id": "15868",
+"pos_group": "DB",
+"proj": 9.4,
+"score": 8.4
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Cam Skattebo",
+"player_id": "17045",
+"pos_group": "RB",
+"proj": 11.4,
+"score": 8.2
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Christian Watson",
+"player_id": "15789",
+"pos_group": "WR",
+"proj": 17.2,
+"score": 8.1
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791145500,
+"nfl_team": "SFO",
+"player": "Fred Warner",
+"player_id": "13743",
+"pos_group": "LB",
+"proj": 8.7,
+"score": 8.0
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Zach Allen",
+"player_id": "14153",
+"pos_group": "DL",
+"proj": 5.3,
+"score": 8.0
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791120600,
+"nfl_team": "IND",
+"player": "Grover Stewart",
+"player_id": "13298",
+"pos_group": "DL",
+"proj": 3.4,
+"score": 8.0
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Sam Martin",
+"player_id": "11383",
+"pos_group": "PN",
+"proj": 6.7,
+"score": 8.0
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "TEN",
+"player": "Amani Hooker",
+"player_id": "14182",
+"pos_group": "DB",
+"proj": 6.8,
+"score": 7.8
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Trey Smack",
+"player_id": "17668",
+"pos_group": "PK",
+"proj": 5.2,
+"score": 7.8
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "D'Andre Swift",
+"player_id": "14797",
+"pos_group": "RB",
+"proj": 17.6,
+"score": 7.6
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Chuck Clark",
+"player_id": "13322",
+"pos_group": "DB",
+"proj": 9.4,
+"score": 8.9
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Jevon Holland",
+"player_id": "15366",
+"pos_group": "DB",
+"proj": 10.1,
+"score": 7.6
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Davante Adams",
+"player_id": "11675",
+"pos_group": "WR",
+"proj": 17.2,
+"score": 7.6
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Julian Love",
+"player_id": "14179",
+"pos_group": "DB",
+"proj": 11.0,
+"score": 7.0
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Bobby Okereke",
+"player_id": "14218",
+"pos_group": "LB",
+"proj": 6.2,
+"score": 7.0
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791120600,
+"nfl_team": "WAS",
+"player": "Jacory Croskey-Merritt",
+"player_id": "17256",
+"pos_group": "RB",
+"proj": 5.9,
+"score": 7.0
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Nate Landman",
+"player_id": "16013",
+"pos_group": "LB",
+"proj": 6.9,
+"score": 7.0
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Antonio Johnson",
+"player_id": "16246",
+"pos_group": "DB",
+"proj": 7.1,
+"score": 7.0
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Jeremiyah Love",
+"player_id": "17472",
+"pos_group": "RB",
+"proj": 10.5,
+"score": 6.9
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Javon Bullard",
+"player_id": "16677",
+"pos_group": "DB",
+"proj": 6.0,
+"score": 6.1
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791144300,
+"nfl_team": "MIA",
+"player": "Michael Taaffe",
+"player_id": "17640",
+"pos_group": "DB",
+"proj": 6.7,
+"score": 6.8
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "TBB",
+"player": "Bucky Irving",
+"player_id": "16598",
+"pos_group": "RB",
+"proj": 12.2,
+"score": 6.7
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Nick Bolton",
+"player_id": "15355",
+"pos_group": "LB",
+"proj": 7.7,
+"score": 6.5
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Kamren Curl",
+"player_id": "15001",
+"pos_group": "DB",
+"proj": 6.9,
+"score": 6.2
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "PHI",
+"player": "Makai Lemon",
+"player_id": "17499",
+"pos_group": "WR",
+"proj": 3.5,
+"score": 6.1
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Ventrell Miller",
+"player_id": "16296",
+"pos_group": "LB",
+"proj": 6.5,
+"score": 6.0
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791145500,
+"nfl_team": "LAC",
+"player": "Daiyan Henley",
+"player_id": "16280",
+"pos_group": "LB",
+"proj": 6.9,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "NYJ",
+"player": "Garrett Wilson",
+"player_id": "15753",
+"pos_group": "WR",
+"proj": 18.9,
+"score": 5.9
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Evan McPherson",
+"player_id": "15368",
+"pos_group": "PK",
+"proj": 5.9,
+"score": 5.9
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Ja'Marr Chase",
+"player_id": "15281",
+"pos_group": "WR",
+"proj": 21.4,
+"score": 5.9
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "LAR",
+"player": "Quentin Lake",
+"player_id": "15923",
+"pos_group": "DB",
+"proj": 10.0,
+"score": 5.8
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Harrison Butker",
+"player_id": "13354",
+"pos_group": "PK",
+"proj": 5.4,
+"score": 5.8
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "DAL",
+"player": "Jake Ferguson",
+"player_id": "15799",
+"pos_group": "TE",
+"proj": 8.8,
+"score": 5.8
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "CHI",
+"player": "Dillon Thieneman",
+"player_id": "17576",
+"pos_group": "DB",
+"proj": 12.1,
+"score": 5.6
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "TEN",
+"player": "Anthony Hill Jr.",
+"player_id": "17560",
+"pos_group": "LB",
+"proj": 8.8,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Jason Myers",
+"player_id": "12437",
+"pos_group": "PK",
+"proj": 6.2,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Demetrius Knight",
+"player_id": "17125",
+"pos_group": "LB",
+"proj": 5.7,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791245700,
+"nfl_team": "NOS",
+"player": "Chase Young",
+"player_id": "14877",
+"pos_group": "DL",
+"proj": 8.8,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791133200,
+"nfl_team": "TEN",
+"player": "Jeffery Simmons",
+"player_id": "14163",
+"pos_group": "DL",
+"proj": 8.4,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Jeremy Chinn",
+"player_id": "14927",
+"pos_group": "DB",
+"proj": 8.1,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Maxx Crosby",
+"player_id": "14225",
+"pos_group": "DL",
+"proj": 9.5,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Trevon Moehrig",
+"player_id": "15365",
+"pos_group": "DB",
+"proj": 7.0,
+"score": 5.5
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791145500,
+"nfl_team": "SFO",
+"player": "Eddy Pineiro",
+"player_id": "13719",
+"pos_group": "PK",
+"proj": 5.8,
+"score": 5.4
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791145500,
+"nfl_team": "LAC",
+"player": "Quentin Johnston",
+"player_id": "16188",
+"pos_group": "WR",
+"proj": 6.5,
+"score": 5.2
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791120600,
+"nfl_team": "WAS",
+"player": "Antonio Williams",
+"player_id": "17512",
+"pos_group": "WR",
+"proj": 4.9,
+"score": 5.1
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791120600,
+"nfl_team": "WAS",
+"player": "Marcus Mariota",
+"player_id": "12141",
+"pos_group": "QB",
+"proj": 9.2,
+"score": 5.1
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "PHI",
+"player": "Dontayvion Wicks",
+"player_id": "16195",
+"pos_group": "WR",
+"proj": 8.6,
+"score": 5.0
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Blake Gillikin",
+"player_id": "15499",
+"pos_group": "PN",
+"proj": 5.4,
+"score": 5.0
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "A.J. Cole",
+"player_id": "14630",
+"pos_group": "PN",
+"proj": 6.3,
+"score": 5.0
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Logan Cooke",
+"player_id": "13844",
+"pos_group": "PN",
+"proj": 6.2,
+"score": 5.0
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Travis Kelce",
+"player_id": "11244",
+"pos_group": "TE",
+"proj": 12.8,
+"score": 4.7
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Jordan Battle",
+"player_id": "16245",
+"pos_group": "DB",
+"proj": 8.8,
+"score": 4.7
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "CIN",
+"player": "Daxton Hill",
+"player_id": "15836",
+"pos_group": "DB",
+"proj": 9.0,
+"score": 4.6
+},
+{
+"captured": 1790963255,
+"fid": "0006",
+"kickoff": 1791120600,
+"nfl_team": "IND",
+"player": "Josh Downs",
+"player_id": "16187",
+"pos_group": "WR",
+"proj": 11.2,
+"score": 4.6
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Aidan Hutchinson",
+"player_id": "15805",
+"pos_group": "DL",
+"proj": 7.2,
+"score": 4.5
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "David Montgomery",
+"player_id": "14071",
+"pos_group": "RB",
+"proj": 7.8,
+"score": 4.3
+},
+{
+"captured": 1790963255,
+"fid": "0010",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Talanoa Hufanga",
+"player_id": "15452",
+"pos_group": "DB",
+"proj": 8.7,
+"score": 4.2
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791133200,
+"nfl_team": "HOU",
+"player": "Dalton Schultz",
+"player_id": "13772",
+"pos_group": "TE",
+"proj": 11.4,
+"score": 4.1
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "NYG",
+"player": "Abdul Carter",
+"player_id": "17112",
+"pos_group": "DL",
+"proj": 5.3,
+"score": 4.0
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791133200,
+"nfl_team": "GBP",
+"player": "Lukas Van Ness",
+"player_id": "16230",
+"pos_group": "DL",
+"proj": 5.6,
+"score": 4.0
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Jake Bailey",
+"player_id": "14256",
+"pos_group": "PN",
+"proj": 6.8,
+"score": 4.0
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791145500,
+"nfl_team": "LVR",
+"player": "Nakobe Dean",
+"player_id": "15821",
+"pos_group": "LB",
+"proj": 7.4,
+"score": 4.0
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "BAL",
+"player": "Roquan Smith",
+"player_id": "13696",
+"pos_group": "LB",
+"proj": 8.3,
+"score": 3.5
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "TBB",
+"player": "Emeka Egbuka",
+"player_id": "17081",
+"pos_group": "WR",
+"proj": 17.1,
+"score": 3.5
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791145500,
+"nfl_team": "DEN",
+"player": "Nik Bonitto",
+"player_id": "15861",
+"pos_group": "DL",
+"proj": 6.2,
+"score": 3.5
+},
+{
+"captured": 1790963255,
+"fid": "0011",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Travon Walker",
+"player_id": "15815",
+"pos_group": "DL",
+"proj": 4.5,
+"score": 3.0
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791133200,
+"nfl_team": "BUF",
+"player": "D.J. Moore",
+"player_id": "13635",
+"pos_group": "WR",
+"proj": 10.7,
+"score": 2.9
+},
+{
+"captured": 1790963255,
+"fid": "0009",
+"kickoff": 1791245700,
+"nfl_team": "ATL",
+"player": "Jessie Bates",
+"player_id": "13737",
+"pos_group": "DB",
+"proj": 8.4,
+"score": 2.3
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "JAC",
+"player": "Parker Washington",
+"player_id": "16192",
+"pos_group": "WR",
+"proj": 18.8,
+"score": 2.2
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "BUF",
+"player": "Dalton Kincaid",
+"player_id": "16213",
+"pos_group": "TE",
+"proj": 9.6,
+"score": 2.2
+},
+{
+"captured": 1790963255,
+"fid": "0001",
+"kickoff": 1791144300,
+"nfl_team": "MIN",
+"player": "Eric Wilson",
+"player_id": "13447",
+"pos_group": "LB",
+"proj": 7.0,
+"score": 2.0
+},
+{
+"captured": 1790963255,
+"fid": "0012",
+"kickoff": 1791133200,
+"nfl_team": "TBB",
+"player": "Alex Anzalone",
+"player_id": "13268",
+"pos_group": "LB",
+"proj": 4.9,
+"score": 2.0
+},
+{
+"captured": 1790963255,
+"fid": "0004",
+"kickoff": 1791144300,
+"nfl_team": "MIN",
+"player": "Andrew Van Ginkel",
+"player_id": "14249",
+"pos_group": "DL",
+"proj": 8.2,
+"score": 2.0
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791133200,
+"nfl_team": "PHI",
+"player": "Saquon Barkley",
+"player_id": "13604",
+"pos_group": "RB",
+"proj": 11.5,
+"score": 1.8
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791133200,
+"nfl_team": "ARI",
+"player": "Andrew Wingard",
+"player_id": "14328",
+"pos_group": "DB",
+"proj": 8.0,
+"score": 1.3
+},
+{
+"captured": 1790963255,
+"fid": "0003",
+"kickoff": 1791159600,
+"nfl_team": "DET",
+"player": "Derrick Barnes",
+"player_id": "15409",
+"pos_group": "LB",
+"proj": 4.4,
+"score": 1.0
+},
+{
+"captured": 1790963255,
+"fid": "0002",
+"kickoff": 1791145500,
+"nfl_team": "SEA",
+"player": "Leonard Williams",
+"player_id": "12225",
+"pos_group": "DL",
+"proj": 6.1,
+"score": 0.5
+},
+{
+"captured": 1790963255,
+"fid": "0005",
+"kickoff": 1791159600,
+"nfl_team": "CAR",
+"player": "Jaelan Phillips",
+"player_id": "15349",
+"pos_group": "DL",
+"proj": 6.1,
+"score": 0.5
+},
+{
+"captured": 1790963255,
+"fid": "0008",
+"kickoff": 1791144300,
+"nfl_team": "MIA",
+"player": "Greg Dulcich",
+"player_id": "15797",
+"pos_group": "TE",
+"proj": 6.8,
+"score": 0.0
+},
+{
+"captured": 1790963255,
+"fid": "0007",
+"kickoff": 1791145500,
+"nfl_team": "KCC",
+"player": "Rashee Rice",
+"player_id": "16194",
+"pos_group": "WR",
+"proj": 10.2,
+"score": 0.0
+}
+],
+"unranked": [
+{
+"fid": "0010",
+"nfl_team": "CLE",
+"player": "Quinshon Judkins",
+"player_id": "17051",
+"pos_group": "RB",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 21.8
+},
+{
+"fid": "0005",
+"nfl_team": "PIT",
+"player": "T.J. Watt",
+"player_id": "13214",
+"pos_group": "DL",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 20.5
+},
+{
+"fid": "0001",
+"nfl_team": "PIT",
+"player": "Jaylen Warren",
+"player_id": "15742",
+"pos_group": "RB",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 16.6
+},
+{
+"fid": "0007",
+"nfl_team": "CLE",
+"player": "Harold Fannin",
+"player_id": "17103",
+"pos_group": "TE",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 13.6
+},
+{
+"fid": "0003",
+"nfl_team": "PIT",
+"player": "Payton Wilson",
+"player_id": "16716",
+"pos_group": "LB",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 12.5
+},
+{
+"fid": "0004",
+"nfl_team": "CLE",
+"player": "Corey Bojorquez",
+"player_id": "13869",
+"pos_group": "PN",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 9.0
+},
+{
+"fid": "0002",
+"nfl_team": "PIT",
+"player": "Jaquan Brisker",
+"player_id": "15835",
+"pos_group": "DB",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 7.6
+},
+{
+"fid": "0007",
+"nfl_team": "CLE",
+"player": "Carson Schwesinger",
+"player_id": "17147",
+"pos_group": "LB",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 6.0
+},
+{
+"fid": "0003",
+"nfl_team": "LAC",
+"player": "J.K. Scott",
+"player_id": "13791",
+"pos_group": "PN",
+"reason": "first capture missing",
+"score": 4.0
+},
+{
+"fid": "0002",
+"nfl_team": "CLE",
+"player": "Jared Verse",
+"player_id": "16653",
+"pos_group": "DL",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 3.5
+},
+{
+"fid": "0009",
+"nfl_team": "PIT",
+"player": "Alex Highsmith",
+"player_id": "14940",
+"pos_group": "DL",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 3.0
+},
+{
+"fid": "0006",
+"nfl_team": "PIT",
+"player": "Nick Herbig",
+"player_id": "16303",
+"pos_group": "DL",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 2.0
+},
+{
+"fid": "0003",
+"nfl_team": "CLE",
+"player": "Mason Graham",
+"player_id": "17121",
+"pos_group": "DL",
+"reason": "first capture after his own kickoff -- no capture of this row was ever provably pregame",
+"score": 0.0
+}
+]
+},
+"gatheredAtUtc": "2026-10-08T15:35:08Z",
+"links": {
+"Kenneth Walker III": {
+"url": "https://www.nfl.com/videos/kenneth-walker-iii-s-best-plays-from-2-td-game-vs-raiders-week-4",
+"verified": true,
+"why": "NFL.com page title: Kansas City Chiefs running back Kenneth Walker III&#x27;s best plays from career-high 177-yard rushing performance | Wee"
+},
+"Nico Collins": {
+"url": "https://www.nfl.com/videos/nico-collins-best-plays-from-2-td-118-yard-game-vs-cowboys-week-4",
+"verified": true,
+"why": "NFL.com page title: Nico Collins&#x27; best plays from 2-touchdown, 118-yard game vs. Dallas Cowboys | Week 4"
+},
+"Puka Nacua": {
+"url": "https://www.youtube.com/watch?v=HTVpi50y9Do",
+"verified": true,
+"why": "YouTube oEmbed: NFL channel, Puka Nacua's best plays from 125-yard game vs. Eagles | Week 4"
+},
+"Tetairoa McMillan": {
+"url": "https://www.nfl.com/videos/tetairoa-mcmillan-best-plays-from-career-high-2-td-192-yard-game-week-4",
+"verified": true,
+"why": "NFL.com page title: Carolina Panthers wide receiver Tetairoa McMillan best plays from career-high two-touchdown, 192-yard game | Week 4"
+}
+},
+"mfl": {
+"elias": [
+{
+"from": 1.0,
+"game": "New York Jets at Chicago Bears",
+"player": "Jamien Sherwood",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Passes Defended",
+"to": 0.0
+},
+{
+"from": 0.0,
+"game": "Jacksonville Jaguars at Cincinnati Bengals",
+"player": "Dennis Gardeck",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Passes Defended",
+"to": 1.0
+},
+{
+"from": 0.0,
+"game": "Dallas Cowboys at Houston Texans",
+"player": "Tyrus Wheat",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Special Teams Assists",
+"to": 1.0
+},
+{
+"from": 1.0,
+"game": "Dallas Cowboys at Houston Texans",
+"player": "Markquese Bell",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Special Teams Assists",
+"to": 0.0
+},
+{
+"from": 7.0,
+"game": "Green Bay Packers at Tampa Bay Buccaneers",
+"player": "Javon Bullard",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Assists",
+"to": 6.0
+},
+{
+"from": 1.0,
+"game": "Green Bay Packers at Tampa Bay Buccaneers",
+"player": "Brenton Cox",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 2.0
+},
+{
+"from": 2.0,
+"game": "Green Bay Packers at Tampa Bay Buccaneers",
+"player": "Brenton Cox",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Assists",
+"to": 1.0
+},
+{
+"from": 4.0,
+"game": "Los Angeles Chargers at Seattle Seahawks",
+"player": "Daiyan Henley",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 3.0
+},
+{
+"from": 1.0,
+"game": "Los Angeles Chargers at Seattle Seahawks",
+"player": "Daiyan Henley",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Assists",
+"to": 2.0
+},
+{
+"from": 0.0,
+"game": "Los Angeles Chargers at Seattle Seahawks",
+"player": "Tarheeb Still",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 1.0
+},
+{
+"from": 6.0,
+"game": "Detroit Lions at Carolina Panthers",
+"player": "Jack Campbell",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 5.0
+},
+{
+"from": 4.0,
+"game": "Detroit Lions at Carolina Panthers",
+"player": "Chuck Clark",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Tackles",
+"to": 5.0
+},
+{
+"from": 0.0,
+"game": "Detroit Lions at Carolina Panthers",
+"player": "Trevor Nowaske",
+"publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+"stat": "Passes Defended",
+"to": 1.0
+}
+],
+"games": [
+{
+"a": "0003",
+"ar": "L",
+"as": 208.3,
+"b": "0002",
+"br": "W",
+"bs": 214.5
+},
+{
+"a": "0003",
+"ar": "L",
+"as": 208.3,
+"b": "0010",
+"br": "W",
+"bs": 250.9
+},
+{
+"a": "0002",
+"ar": "L",
+"as": 214.5,
+"b": "0010",
+"br": "W",
+"bs": 250.9
+},
+{
+"a": "0005",
+"ar": "W",
+"as": 250.2,
+"b": "0004",
+"br": "L",
+"bs": 211.6
+},
+{
+"a": "0005",
+"ar": "W",
+"as": 250.2,
+"b": "0006",
+"br": "L",
+"bs": 181.4
+},
+{
+"a": "0004",
+"ar": "W",
+"as": 211.6,
+"b": "0006",
+"br": "L",
+"bs": 181.4
+},
+{
+"a": "0008",
+"ar": "W",
+"as": 206.3,
+"b": "0007",
+"br": "L",
+"bs": 194.3
+},
+{
+"a": "0008",
+"ar": "L",
+"as": 206.3,
+"b": "0001",
+"br": "W",
+"bs": 216.0
+},
+{
+"a": "0007",
+"ar": "L",
+"as": 194.3,
+"b": "0001",
+"br": "W",
+"bs": 216.0
+},
+{
+"a": "0009",
+"ar": "W",
+"as": 289.9,
+"b": "0012",
+"br": "L",
+"bs": 223.9
+},
+{
+"a": "0009",
+"ar": "L",
+"as": 289.9,
+"b": "0011",
+"br": "W",
+"bs": 294.7
+},
+{
+"a": "0012",
+"ar": "L",
+"as": 223.9,
+"b": "0011",
+"br": "W",
+"bs": 294.7
+}
+],
+"scores": {
+"0001": 216.0,
+"0002": 214.5,
+"0003": 208.3,
+"0004": 211.6,
+"0005": 250.2,
+"0006": 181.4,
+"0007": 194.3,
+"0008": 206.3,
+"0009": 289.9,
+"0010": 250.9,
+"0011": 294.7,
+"0012": 223.9
+},
+"standings": {
+"0001": {
+"allplay": "13-31-0",
+"h2hl": 6,
+"h2ht": 0,
+"h2hw": 4,
+"pf": 768.9
+},
+"0002": {
+"allplay": "27-17-0",
+"h2hl": 4,
+"h2ht": 0,
+"h2hw": 6,
+"pf": 894.8
+},
+"0003": {
+"allplay": "16-28-0",
+"h2hl": 7,
+"h2ht": 0,
+"h2hw": 3,
+"pf": 800.8
+},
+"0004": {
+"allplay": "22-22-0",
+"h2hl": 6,
+"h2ht": 0,
+"h2hw": 4,
+"pf": 882.6
+},
+"0005": {
+"allplay": "34-10-0",
+"h2hl": 2,
+"h2ht": 0,
+"h2hw": 8,
+"pf": 996.5
+},
+"0006": {
+"allplay": "8-36-0",
+"h2hl": 9,
+"h2ht": 0,
+"h2hw": 1,
+"pf": 784.6
+},
+"0007": {
+"allplay": "9-35-0",
+"h2hl": 8,
+"h2ht": 0,
+"h2hw": 2,
+"pf": 760.2
+},
+"0008": {
+"allplay": "22-22-0",
+"h2hl": 4,
+"h2ht": 0,
+"h2hw": 6,
+"pf": 873.3
+},
+"0009": {
+"allplay": "34-10-0",
+"h2hl": 2,
+"h2ht": 0,
+"h2hw": 8,
+"pf": 1016.8
+},
+"0010": {
+"allplay": "32-12-0",
+"h2hl": 3,
+"h2ht": 0,
+"h2hw": 7,
+"pf": 981.0
+},
+"0011": {
+"allplay": "22-22-0",
+"h2hl": 4,
+"h2ht": 0,
+"h2hw": 6,
+"pf": 879.0
+},
+"0012": {
+"allplay": "25-19-0",
+"h2hl": 5,
+"h2ht": 0,
+"h2hw": 5,
+"pf": 840.7
+}
+},
+"trades": [
+{
+"comments": "",
+"expires": "1791849600",
+"franchise": "0003",
+"franchise1_gave_up": "FP_0003_2027_1,FP_0003_2027_3,",
+"franchise2": "0010",
+"franchise2_gave_up": "17044,17075,FP_0010_2027_4,",
+"timestamp": "1791320240",
+"type": "TRADE"
+},
+{
+"comments": "",
+"expires": "1791905775",
+"franchise": "0006",
+"franchise1_gave_up": "12626,BB_20000,",
+"franchise2": "0010",
+"franchise2_gave_up": "17030,13163,17607,FP_0008_2027_1,",
+"timestamp": "1791320211",
+"type": "TRADE"
+}
+]
+},
+"season": 2026,
+"site": {
+"standings": [
+{
+"franchise_id": "0009",
+"is_division_leader": true,
+"owner_name": "Bear Dunn",
+"playoff_seed": 1
+},
+{
+"franchise_id": "0005",
+"is_division_leader": true,
+"owner_name": "Eric Martel",
+"playoff_seed": 2
+},
+{
+"franchise_id": "0010",
+"is_division_leader": true,
+"owner_name": "Shawn Blake",
+"playoff_seed": 3
+},
+{
+"franchise_id": "0002",
+"is_division_leader": false,
+"owner_name": "Derrick Whitman",
+"playoff_seed": 4
+},
+{
+"franchise_id": "0012",
+"is_division_leader": false,
+"owner_name": "Chris Klingenberg",
+"playoff_seed": 5
+},
+{
+"franchise_id": "0008",
+"is_division_leader": true,
+"owner_name": "Keith Creelman",
+"playoff_seed": 6
+},
+{
+"franchise_id": "0004",
+"is_division_leader": false,
+"owner_name": "Brian Cutting",
+"playoff_seed": null
+},
+{
+"franchise_id": "0011",
+"is_division_leader": false,
+"owner_name": "Eric Mannila",
+"playoff_seed": null
+},
+{
+"franchise_id": "0003",
+"is_division_leader": false,
+"owner_name": "Matt Gerardi",
+"playoff_seed": null
+},
+{
+"franchise_id": "0001",
+"is_division_leader": false,
+"owner_name": "Ryan Bousquet",
+"playoff_seed": null
+},
+{
+"franchise_id": "0007",
+"is_division_leader": false,
+"owner_name": "Josh Martel",
+"playoff_seed": null
+},
+{
+"franchise_id": "0006",
+"is_division_leader": false,
+"owner_name": "Brian Cross",
+"playoff_seed": null
+}
+]
+},
+"timing": {
+"deadline": 1791476100,
+"finalAt": 1791263700,
+"kickoffs": {
+"ARI": 1791133200,
+"ATL": 1791245700,
+"BAL": 1791133200,
+"BUF": 1791133200,
+"CAR": 1791159600,
+"CHI": 1791133200,
+"CIN": 1791133200,
+"CLE": 1790900100,
+"DAL": 1791133200,
+"DEN": 1791145500,
+"DET": 1791159600,
+"GBP": 1791133200,
+"HOU": 1791133200,
+"IND": 1791120600,
+"JAC": 1791133200,
+"KCC": 1791145500,
+"LAC": 1791145500,
+"LAR": 1791133200,
+"LVR": 1791145500,
+"MIA": 1791144300,
+"MIN": 1791144300,
+"NEP": 1791133200,
+"NOS": 1791245700,
+"NYG": 1791133200,
+"NYJ": 1791133200,
+"PHI": 1791133200,
+"PIT": 1790900100,
+"SEA": 1791145500,
+"SFO": 1791145500,
+"TBB": 1791133200,
+"TEN": 1791133200,
+"WAS": 1791120600
+},
+"lastKickoff": 1791245700,
+"nextFirstKickoff": 1791504900
+},
+"week": 4
+}
