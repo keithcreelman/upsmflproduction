@@ -45,6 +45,13 @@ def _close(a, b, tol=0.05):
     return abs(float(a) - float(b)) <= tol
 
 
+def _unwrap(shown):
+    """Remove the ONE pair of quote marks the renderer wraps a quote in -- never the
+    message's own (a post that itself starts and ends with curly quotes stays verbatim)."""
+    s = shown.strip()
+    return s[1:-1] if len(s) >= 2 and s[0] == "\u201c" and s[-1] == "\u201d" else s
+
+
 def validate(res, ctx, pack):
     errors, warnings, n = [], [], {}
     s, st = ctx["mfl"]["scores"], ctx["mfl"]["standings"]
@@ -156,7 +163,7 @@ def validate(res, ctx, pack):
         m = chat.get(mid)
         if not m or not href.endswith("/%s/%s" % (m["channel_id"], mid)):
             errors.append("quote link %s does not resolve to its message" % href)
-        elif H.unescape(re.sub(r"<[^>]+>", "", inner)).strip("“”\" ") != " ".join((m["content"] or "").split()):
+        elif _unwrap(H.unescape(re.sub(r"<[^>]+>", "", inner))) != " ".join((m["content"] or "").split()):
             errors.append("quote link %s text differs from the message" % href)
     # highlight links only if verified
     for href in re.findall(r'<a class="wire-play-watch" href="([^"]+)"', doc):

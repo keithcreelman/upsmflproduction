@@ -113,4 +113,4 @@ A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft
 
 ## Tests
 
-`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (66 checks), with synthetic chat. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.
+`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (67 checks), with synthetic chat. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.

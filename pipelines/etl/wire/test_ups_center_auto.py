@@ -102,6 +102,12 @@ for m in c4["d1"]["chat"]:
     if m["message_id"] == qid:
         m["content"] = m["content"] + " (edited)"
 check("a quote that is not verbatim fails", not VAL.validate(res, c4, PACK)["ok"])
+c4b = copy.deepcopy(CTX)
+for m in c4b["d1"]["chat"]:
+    if m["message_id"] == qid:
+        m["content"] = "\u201cSynthetic line that is itself in curly quotes\u201d"
+r4b, v4b, _ = build(c4b)
+check("a post that itself starts and ends with curly quotes still validates verbatim", v4b["ok"], v4b["errors"])
 
 c5 = copy.deepcopy(CTX)
 c5["d1"]["chat"].append({"message_id": "999", "channel_id": "1", "channel_name": "the-coffee-shop", "owner_name": "Brian Cross",
