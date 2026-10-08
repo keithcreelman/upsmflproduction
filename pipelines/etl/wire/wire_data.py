@@ -1762,13 +1762,15 @@ def week_quotes(season, week, limit=40, min_len=25):
     caller picks which of these to surface; the pack carries them verbatim so
     the writer can only place them, never paraphrase.
     """
-    return d1(
+    import chat_exclusions                      # ruled-out and never-material lines never reach a pack
+    rows = d1(
         "SELECT message_id, owner_name, franchise_id, content, posted_at_unix, channel_name "
         "FROM ups_discord_messages "
         "WHERE season = %d AND week = %d AND is_bot = 0 AND owner_name IS NOT NULL "
         "AND length(content) >= %d AND content NOT LIKE 'http%%' "
         "ORDER BY posted_at_unix LIMIT %d"
         % (int(season), int(week), int(min_len), int(limit)))
+    return chat_exclusions.keep(rows)[0]
 
 
 def _quoted(ids):

@@ -51,6 +51,7 @@ import wire_video                                         # noqa: E402
 import preview_grade as PG                                # noqa: E402
 import elias as ELIAS                                     # noqa: E402
 import wire_xfp as WX                                     # noqa: E402
+import chat_exclusions                               # noqa: E402
 from wire_pack import Pack                                # noqa: E402
 
 PACK_ID_RE = re.compile(r"^(\d{4})-wk(\d{2})-recap$")
@@ -1539,7 +1540,9 @@ def build(pack_id):
     # above a mid-game line about the exact QB an owner had benched. So an editor
     # lists MESSAGE IDS (never text) in <pack>.quotes.json, each with where it
     # goes; the build resolves every id verbatim from ups_discord_messages and
-    # fails if one is missing, from another week, or not from a league owner.
+    # fails if one is missing, from another week, or not from a league owner --
+    # or is ruled out (chat_exclusions). A pick whose only problem is the pattern net
+    # (e.g. NFL injury news) needs "clearedPattern": "<why it is fine>" on the pick.
     # No picks file -> the ranked fallback below, unchanged.
     quote_ids, quote_place = [], {}
     picks_path = os.path.join(D.REPO, "site", "wire", "packs", str(season), "%s.quotes.json" % pack_id)
@@ -1556,6 +1559,10 @@ def build(pack_id):
                                   % (pk["messageId"], m["season"], m["week"], season, week))
             if m["is_bot"] or not m["owner_name"]:
                 raise D.DataError("quote pick %s is not from a league owner" % pk["messageId"])
+            why_not = chat_exclusions.reason(pk["messageId"], m["content"],
+                                             cleared=bool(str(pk.get("clearedPattern") or "").strip()))
+            if why_not:
+                raise D.DataError("quote pick %s may not be used: %s" % (pk["messageId"], why_not))
             qid = "q.%s" % pk["messageId"][-6:]
             pack.quote(qid, D.clean_discord_text(m["content"], mention_map), m["owner_name"],
                        "#%s, %s" % (m["channel_name"], D.et_clock(m["posted_at_unix"])),

@@ -1,0 +1,31 @@
+{
+ "id": "2026-wk04-ups-center",
+ "season": 2026,
+ "week": 4,
+ "at": "2026-10-08T16:02:09Z",
+ "status": "ready-with-gaps",
+ "reasons": [],
+ "deadline": "2026-10-08T16:15:00Z",
+ "claims": "f48c2ba1e924",
+ "gaps": [
+  "landscape:site-order",
+  "coffee:kenny"
+ ],
+ "errors": [],
+ "preview": "/Users/keithcreelman/Library/Caches/upsmfl-ups-center-auto/2026-wk04-ups-center.review.pdf",
+ "pr": {
+  "action": "editor-owned",
+  "pr": 1195,
+  "changes": [],
+  "recheck": {
+   "ok": true,
+   "errors": [],
+   "changedClaims": [],
+   "frozenScoresFrom": "wire/2026-wk04-ups-center"
+  },
+  "comment": {
+   "action": "noop",
+   "digest": "ee54630ab981"
+  }
+ }
+}

@@ -1,0 +1,7 @@
+{
+  "why": "League chat that must never be carried into a pack, a draft, a preview or a review copy (Keith 2026-10-08). Message ids only -- never the text. Matched by pipelines/etl/wire/chat_exclusions.py together with its pattern net (family, health, recovery, crude and graphic-injury lines).",
+  "messages": [
+    {"message_id": "1557163194651254845", "category": "family", "added": "2026-10-08", "note": "names an owner's family member"},
+    {"message_id": "1556369890321899692", "category": "crude injury post", "added": "2026-10-08", "note": "graphic, crude injury wish about an NFL player"}
+  ]
+}
