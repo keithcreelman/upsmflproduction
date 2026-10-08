@@ -18,12 +18,26 @@ Checked Thu Oct 8 (`ups_center_due.py preflight --season 2026 --week 4`): **no W
 - #league-announcements has no post; the latest is Week 3's, Sep 30 at 9:46 AM ET.
 - No Week 4 files exist on any branch or worktree.
 
+## Two checks: the missing-issue alert and the duplicate guard
+
+They answer different questions, and neither can publish or post anything.
+
+- **`due` is the alert.** The scheduled `ups-center-due.yml` runs it Thu and Fri at 12:30 PM ET. It asks: *is something missing?*
+  - The run fails (red, plus GitHub's failed-workflow email) when a finished week has no live issue 8 hours before the next week's first kickoff.
+  - It also fails when Elias posted changes for a live issue and no `elias_<season>_wk<NN>.json` records the check.
+  - It reads only public MFL data and the repo, with `contents: read` permission. It has no D1, Discord or deploy credentials.
+- **`preflight` is the duplicate guard.** It's run by hand before a publish (`--stage publish`) and again before an announce (`--stage announce`). It asks: *would this create a second copy?* It checks five destinations: the repo index, the live Pages index, the live page, `ups_wire_threads` and #league-announcements.
+  - **"Clean for Week 4"** means no Week 4 issue exists in any of the five, so a catch-up publish can't duplicate anything.
+  - **"Blocks Week 3"** means Week 3 already exists in all five, so the guard refuses a Week 3 publish or announce. That is the intended result: Week 3's Elias correction is an edit to the live article through a normal PR, not a new publication, and it gets no new announcement.
+- **Read together.** On Oct 8, `due` reports Week 4 *missing*, and `preflight` reports Week 4 *safe to create*. `due` stays red until Week 4 is live with `elias_2026_wk04.json`, and the Week 3 correction lands `elias_2026_wk03.json`.
+
 ## Inputs that are not ready, with evidence
 
-1. **D1 Week 4 scores are pre-Elias.** This is the All-Play issue, PR #1190.
+1. **D1 Week 4 scores were pre-Elias. Repaired Oct 8.** This was the All-Play issue, PR #1190.
    - Elias posted Week 4 changes Wed Oct 7 at 11:32 PM ET, and MFL applied them.
-   - D1 still has Tuesday's sync, so a pack built now would publish Martel 251.2 and Martel/Blake all-play 35-9 / 31-13 instead of 250.2 and 34-10 / 32-12.
-   - **Repair D1 first.**
+   - D1 kept Tuesday's sync (Martel 251.2; Martel/Blake All-Play 35-9 / 31-13) until the Oct 8 13:13Z repair. See `docs/data_fixes/2026-10-08-wk4-elias-standings.md`.
+   - D1 now matches MFL for all 12 teams: 250.2, and 34-10 / 32-12.
+   - The league notice went out Oct 8 13:43Z (message 1557750253988618243).
 2. **Most Week 4 projections were overwritten after the games.**
    - 1,010 of 1,106 `ups_player_projections` rows were re-stamped Wed Oct 7 at about 18:00Z by the known Wednesday ingest bug.
    - No `projection_evidence_2026_wk04.json` freeze exists, and the Sep 30 raw export is gone. The preview inputs file holds model-adjusted values, not MFL's projections.
@@ -51,11 +65,15 @@ The article's figures that change:
 
 ## Catch-up procedure (one time, in order)
 
-1. **Confirm the plan with Keith:** before or after tonight's 8:15 PM ET kickoff, the bust/bargain scope (item 2), and the publish order.
+1. **Keith's plan (Oct 8):**
+   - Build Week 4 as a catch-up issue from the repaired data.
+   - Grade busts and bargains only for players with a verifiable pregame projection, and omit the rest.
+   - Don't rush an unverified Week 5 preview in before tonight's game, so step 5 is skipped.
+   - Show Keith the completed issue before any publish or announce.
 2. **Duplicate guard.** Run `python3 pipelines/etl/wire/ups_center_due.py preflight --season 2026 --week 4`. It must print `No 2026-wk04-ups-center anywhere checked.` and exit 0. If it finds anything, **stop**.
-3. **Repair D1** using PR #1190's steps: standings `--standings-only` (dry run first), weekly scores `--weeks 4`, then verify 34-10 / 32-12 in D1 and `/api/standings`.
+3. **Repair D1.** Done Oct 8: 23 guarded Week 4 updates, then weekly scores `--weeks 4`. D1 and `/api/standings` were verified at 34-10 / 32-12.
 4. **Chat:** `python3 pipelines/etl/scripts/ingest_discord_chat.py --incremental --dry-run`, then run it without `--dry-run`.
-5. **Week 5 preview, before kickoff only:** `week_preview.py --season 2026 --week 5 --live-cache <dir> --out <scratch>`, then move it into place deliberately, as on Sep 30.
+5. **Week 5 preview: skipped (Keith, Oct 8).** The catch-up ships without a Week 5 preview rather than an unverified one cut in a rush before TNF.
 6. **Pack:**
    - `python3 pipelines/etl/wire/wire.py build --pack 2026-wk04-recap`. The build freezes `scores_published_2026_wk04.json` from the corrected scores.
    - `python3 pipelines/etl/wire/elias.py check --season 2026 --week 4` records that the published numbers already include the 13 Week 4 corrections.
