@@ -1,0 +1,32 @@
+name: UPS Center due check
+
+# Nothing generates or schedules the weekly UPS Center: each issue is built and
+# published from a Claude session. Week 4 (2026) was simply never started, and
+# nothing noticed for days; Week 3's Elias corrections were never applied to the
+# published article either. This job publishes nothing and posts nothing -- it
+# FAILS (a red run, and GitHub's failed-workflow email) when:
+#   - a finished week has no live UPS Center issue 8 hours before the next
+#     week's first kickoff, or
+#   - Elias posted changes for a published week and no elias_<s>_wk<NN>.json
+#     records the check (the standing rule: every correction gets published).
+# See pipelines/etl/wire/ups_center_due.py.
+
+on:
+  schedule:
+    - cron: "30 16 * * 4"   # Thu 16:30 UTC = 12:30 PM EDT / 11:30 AM EST, after the 8h-before-TNF deadline
+    - cron: "30 16 * * 5"   # Fri 16:30 UTC: Elias posts Wed night / Thu; one more look
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  due:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Is a UPS Center issue or Elias check overdue?
+        run: python pipelines/etl/wire/ups_center_due.py due --season 2026

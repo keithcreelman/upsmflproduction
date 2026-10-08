@@ -41,4 +41,10 @@ Verified afterwards:
 - **D1 vs MFL:** D1 matches MFL for all 12 teams (All-Play, H2H, PF, PP) and for all 48 weekly team scores.
 - **`/api/standings`:** serves 34-10 and 32-12, and the corrected Week 4 scores.
 - **Rendered standings page:** shows Martel 34-10 (77.3%) and Blake 32-12 (72.7%).
-- **Consequence:** Bear Dunn and Martel are now tied at 34-10 with matching 8-2 records, and the site's seeding (All-Play %, then H2H, then PF) puts Bear first on points, 1016.8 to 996.5.
+- **Consequence:** Bear Dunn and Martel are now tied at 34-10 with matching 8-2 records.
+  - **Correction (Oct 8):** an earlier version of this note said the site seeds by "All-Play %, then H2H, then PF". That was wrong. The league's rule is `docs/league_context_v1.md` §F.1: All-Play %, then Overall record, then Points For, then head-to-head.
+  - Bear and Martel tie on All-Play % and on Overall, so Points For decides it, 1016.8 to 996.5, and Bear is first under the rule. That matches the displayed seed.
+  - **Code still diverges.** The worker's comparators don't all follow §F.1:
+    - `/api/standings` breaks All-Play ties on per-game PF before Overall.
+    - `/api/playoff-bracket` ranks division winners and the non-playoff teams on All-Play % and PF only.
+  - The divergence is visible today: Brian Cutting (4-6) is shown ahead of Eric Mannila (6-4) at 22-22. Neither is in the top six.

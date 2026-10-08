@@ -625,10 +625,23 @@ export function explainClosedSeasonAnomaly(period, ctx) {
 export const ADD_EVENT_SUPERSEDED_NOTE = (stampId, changeId, endpoint, status) => `superseded_by_later_owner_contract: the canonical FCFS contract (canon §A5) was written (salary_change_log ${stampId}) and then converted by its owner (salary_change_log ${changeId}, ${s(endpoint)}, ${s(status)}); a described contract is never reverted — never fcfs_contract_verified, since MFL no longer holds the FCFS contract`;
 export const ADD_EVENT_CLOSE_NOTE = (dropId) => `fcfs_contract_settled_by_drop_repair: the canonical FCFS contract (canon §A5) is recorded as the pre-drop contract by the audited repair of drop event ${dropId}; the player is not rostered, so this is NOT a roster-verified contract`;
 const stampedAtSec = (r) => { const v = Date.parse(s(r && r.created_ts).replace(" ", "T") + (/Z$/.test(s(r && r.created_ts)) ? "" : "Z")); return Number.isFinite(v) ? v / 1000 : 0; };
-/** Path B's evidence: a landed stamp of the canonical contract (at/after the acquisition) followed by a landed change whose BEFORE state is that canonical contract and whose AFTER state is a described, non-WW contract. */
+/**
+ * Is this salary_change_log row PROOF that MFL took a contract write? Only when it is not a dry run, is marked landed, AND MFL answered the
+ * import (an HTTP 2xx import_status). `landed` / `dry_run` alone are not enough (2026-10-08): until then the contract routes (/offer-mym,
+ * /offer-restructure, /commish-contract-update) logged every DRY RUN as dry_run=0, landed=1, notes "import_ok_log_dispatched", with
+ * import_status 0 (no MFL request) and the AFTER fields a copy of BEFORE — a row that looks exactly like a stamp of whatever MFL already
+ * held. Every genuinely landed row in production carries import_status 200.
+ */
+export function isMflConfirmedWrite(r) {
+  if (!r || Number(r.landed) !== 1 || Number(r.dry_run) === 1) return false;
+  const st = Number(r.import_status);
+  if (!(st >= 200 && st <= 299)) return false;
+  return !/^dry_run/i.test(s(r.notes));
+}
+/** Path B's evidence: a landed stamp of the canonical contract (at/after the acquisition) followed by a landed change whose BEFORE state is that canonical contract and whose AFTER state is a described, non-WW contract. Both must be MFL-confirmed writes (isMflConfirmedWrite). */
 function ownerConversionEvidence(ev, changeLog) {
   const acq = Number(ev.acquired_at_unix) || 0;
-  const rows = (Array.isArray(changeLog) ? changeLog : []).filter((r) => s(r.player_id) === s(ev.player_id) && Number(r.landed) === 1 && !(Number(r.dry_run) === 1)).sort((a, b) => Number(a.id) - Number(b.id));
+  const rows = (Array.isArray(changeLog) ? changeLog : []).filter((r) => s(r.player_id) === s(ev.player_id) && isMflConfirmedWrite(r)).sort((a, b) => Number(a.id) - Number(b.id));
   const cls = (sal, st, yr, info) => classifyFcfsContract({ salary: sal, contractStatus: st, contractYear: yr, contractInfo: info }, { season: Number(ev.season) }).state;
   const stamp = rows.find((r) => stampedAtSec(r) >= acq - 60 && cls(r.after_salary, r.after_contract_status, r.after_contract_year, r.after_contract_info) === "correct");
   if (!stamp) return null;
@@ -640,7 +653,7 @@ function ownerConversionEvidence(ev, changeLog) {
  * @param addEvent  ups_add_events row {id, season, player_id, franchise_id, acquired_at_unix, source, contract_annotated, notes}
  * @param dropRow   the EARLIEST ups_drop_events row for the same player+franchise at or after the acquisition (or null)
  * @param auditRows ups_contract_gate_audit rows of field `fcfs_reprice_unstamped_drop` whose note names this drop ([{id, note}])
- * @param changeLog landed salary_change_log rows for this player (path B — only consulted when there is no drop)
+ * @param changeLog landed salary_change_log rows for this player (path B — only consulted when there is no drop); each must carry import_status and notes (isMflConfirmedWrite)
  * @returns { ok:true, path:'drop_repair'|'owner_conversion', before, after, evidence } | { ok:false, result, detail? }
  */
 export function planFcfsAddEventClosure({ addEvent, dropRow, auditRows, changeLog } = {}) {
