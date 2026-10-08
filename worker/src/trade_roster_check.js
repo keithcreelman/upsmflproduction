@@ -35,6 +35,7 @@ export function tradeKeyOf(tx) {
  *                       here). A trade is the War Room's when BOTH its teams are participants and its time is within
  *                       WAR_ROOM_MATCH_SEC of the stamp — or, for a 3-way (whose stamp follows its last leg), up to THREE_WAY_LEGS_SEC before it.
  * @param a.sinceUnix / a.nowUnix / a.windowSec (default 36 h; a longer window is for read-only dry runs only)
+ * @param a.qbApplies    false outside the in-season window (qb_trade_window.js) → no QB findings; default true
  * @returns [{ trade_key, trade_ts, franchise_id, other_id, kind: "roster"|"qb", active, max, active_qbs }]
  */
 export function planRosterChecks(a) {
@@ -52,7 +53,7 @@ export function planRosterChecks(a) {
       const activeQbs = active.filter((p) => s(a.positions && a.positions[s(p.id)]).toUpperCase() === "QB").length;
       const base = { trade_key: t.key, trade_ts: t.ts, franchise_id: fid, other_id: fid === t.a ? t.b : t.a, active: active.length, max: a.rosterMax, active_qbs: activeQbs };
       if (active.length > a.rosterMax) out.push({ ...base, kind: "roster" });
-      if (activeQbs > ACTIVE_QB_LIMIT) out.push({ ...base, kind: "qb" });
+      if (a.qbApplies !== false && activeQbs > ACTIVE_QB_LIMIT) out.push({ ...base, kind: "qb" });   // in-season only (qb_trade_window.js)
     }
   }
   return out;

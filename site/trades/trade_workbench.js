@@ -5926,8 +5926,9 @@
           // Five active QBs (Keith 2026-10-07) blocks SEND like the loaded-contract limit. The roster maximum
           // does not block Send — it is required before ACCEPT — so it is only shown as a notice here.
           var qb = res.body.compliance.qb_limit || null;
-          // a server that doesn't send the QB block yet isn't a failure: its own Send gate is the authority
-          var qbStatus = !qb ? "ok" : qb.status;
+          // a server that doesn't send the QB block yet isn't a failure: its own Send gate is the authority.
+          // "not_applicable" = outside the in-season window (the five-QB trade limit applies in-season only).
+          var qbStatus = !qb || qb.status === "not_applicable" ? "ok" : qb.status;
           status = (lc.status === "blocked" || qbStatus === "blocked") ? "blocked" : (lc.status === "ok" && qbStatus === "ok") ? "ok" : "unavailable";
           loadedContracts = lc; qbLimit = qb; rosterLimit = res.body.compliance.roster_limit || null;
         }

@@ -99,6 +99,7 @@ export function tradeLimitBlockPayload(gate, code) {
 }
 
 const s = (v) => String(v == null ? "" : v).trim();
+const qbWindowOut = (w) => (w ? { state: w.state, start_unix: w.start_unix == null ? null : w.start_unix, end_unix: w.end_unix == null ? null : w.end_unix, reason: w.reason || "" } : { state: "in_season", reason: "not_supplied_applied" });
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
 const arr = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
 const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -230,6 +231,9 @@ function readPlayerNames(res) {
  *                   arriving player counts as active and any room must be made first (Keith 2026-10-07). The cap and
  *                   the QB limit never credit a taxi move.
  * @param taxiDestinations { pid -> { eligible, reason, text } } from trade_taxi_destination.js (read live by the caller).
+ * @param qbWindow         qb_trade_window.js qbTradeLimitWindow(): the five-QB trade limit applies IN-SEASON only (from the
+ *                   September contract deadline through the end of Week 17). `applies:false` → qb_limit "not_applicable"
+ *                   (executable); `state:"unknown"` → "unavailable" (fails closed at accept). Omitted = applied (strict).
  * @param extensionRequests  [{player_id, to_franchise_id, loaded_indicator:"FL"|"BL"|"NONE"}] -- pre-trade
  *                   extensions in THIS deal (canon §C4); a player being extended lands on the acquiring
  *                   franchise (to_franchise_id) with the EXTENSION's loaded status, never their
@@ -246,7 +250,7 @@ function readPlayerNames(res) {
  *                   Every selected id is reported back with why it did or didn't count -- nothing here
  *                   silently drops (pun intended) an invalid selection without saying so.
  */
-export function evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep }) {
+export function evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep, qbWindow }) {
   const empty = (why) => ({
     participants: [],
     cap: { status: "unavailable", reason: why.reason, cap_dollars: null, rows: [], violations: [],
@@ -565,11 +569,16 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
             : "Every team stays at or under the roster maximum." },
     // HARD (Keith 2026-10-07): at Send and at Accept, no team may end up with more than 5 ACTIVE QBs —
     // the actual count right after MFL executes, no taxi credit.
-    qb_limit: !positions
+    qb_limit: qbWindow && qbWindow.state === "unknown"
+      ? { status: "unavailable", max: ACTIVE_QB_MAX, rows: [], violations: [], executable: false, window: qbWindowOut(qbWindow), message: "We couldn't confirm whether the in-season five-QB limit applies right now." }
+      : qbWindow && qbWindow.applies === false
+      ? { status: "not_applicable", max: ACTIVE_QB_MAX, rows: qbRows, violations: [], executable: true, window: qbWindowOut(qbWindow),
+          message: `The five-active-QB trade limit applies in-season only (from the September contract deadline through the end of Week 17), so it doesn't apply to this trade.` }
+      : !positions
       ? { status: "unavailable", max: ACTIVE_QB_MAX, rows: [], violations: [], executable: false, message: "We couldn't verify the active-QB count for this trade right now." }
       : qbViolations.length
-      ? { status: "blocked", max: ACTIVE_QB_MAX, rows: qbRows, violations: qbViolations, executable: false, message: qbViolations.map((v) => v.message).join(" ") }
-      : { status: "ok", max: ACTIVE_QB_MAX, rows: qbRows, violations: [], executable: true, message: `Every team stays at or under ${ACTIVE_QB_MAX} active QBs.` },
+      ? { status: "blocked", max: ACTIVE_QB_MAX, rows: qbRows, violations: qbViolations, executable: false, window: qbWindowOut(qbWindow), message: qbViolations.map((v) => v.message).join(" ") }
+      : { status: "ok", max: ACTIVE_QB_MAX, rows: qbRows, violations: [], executable: true, window: qbWindowOut(qbWindow), message: `Every team stays at or under ${ACTIVE_QB_MAX} active QBs.` },
     // status: "ok" (nobody over, before any drop) | "needs_drops" (someone's over, but every
     // over-limit franchise has a VALID, SUFFICIENT drop selection -- the trade is conditional but
     // may proceed) | "blocked" (someone's over and does NOT yet have a satisfied selection -- a

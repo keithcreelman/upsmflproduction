@@ -705,6 +705,26 @@ test("MOBILE: the same 6-QB trade — blocked, Send disabled, the QB move named"
   t.equal(true && builderState.compliance.status === "ok", false, "canSubmit is false");
 });
 
+// ═══════════════ the five-QB limit is IN-SEASON only (Keith 2026-10-08) — before the contract deadline the same offer is sendable ═══════════════
+async function atClock(iso, fn) { const real = Date.now; Date.now = () => Date.parse(iso); try { return await fn(); } finally { Date.now = real; } }
+test("DESKTOP + MOBILE: the same 6-QB offer before the September contract deadline is NOT blocked — the server says the limit doesn't apply yet", async () => {
+  await atClock("2026-08-20T15:00:00Z", async () => {
+    const { env, mfl } = fresh();
+    mfl.st.positions = QB_POS;
+    mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+    mfl.st.rosters[HAMMER] = fiveActiveQbs();
+    const d = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+    const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+    d.api.refreshOfferComplianceIfNeeded(payload);
+    await settle();
+    t.equal(d.state.offerCompliance.qbLimit.status, "not_applicable"); t.equal(d.state.offerCompliance.status, "ok"); t.equal(d.api.offerIsReady(payload), true);
+    const m = loadMobileOfferReview(env, { token: "tok-A" });
+    m.api.refreshBuilderComplianceIfNeeded(payload);
+    await settle();
+    t.equal(m.builderState.compliance.status, "ok", "mobile: sendable");
+  });
+});
+
 // ═══════════════ ROSTER MAXIMUM at SEND (Keith 2026-10-07): a visible warning, never a Send block ═══════════════
 const thirtyActive = () => Array.from({ length: 30 }, (_, i) => ({ id: String(8000 + i), salary: 1000, contractStatus: "Vet-FAA" }));
 const rosterSender = () => [{ id: "7000", salary: 1000, contractStatus: "Vet-FAA" }, { id: "7001", salary: 1000, contractStatus: "Rookie-Draft", status: "TAXI_SQUAD" }];

@@ -2,7 +2,7 @@
 // after-trade check for trades accepted on MFL's own site. Stateful fake MFL + Discord; no real write anywhere.
 //   node tests/trade_roster_qb_routes.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
-import { makeWorkerEnv, makeMfl, callWorker, quiet, ADMIN_KEY } from "./fixtures/worker_harness.mjs";
+import { makeWorkerEnv, makeMfl, callWorker, quiet, ADMIN_KEY, NFL_2026_WEEKS } from "./fixtures/worker_harness.mjs";
 
 const restore = quiet();
 const Q = "L=74598&YEAR=2026";
@@ -26,7 +26,10 @@ function fresh(opts) {
   mfl.st.league = { rosterSize: "30", taxiSquad: "10" };
   mfl.st.positions = { ...(opts && opts.positions) };
   // this week's NFL schedule: every test player's team ("TST") kicks off in 3 days, so nobody is locked
-  mfl.st.exportBody = { liveScoring: { liveScoring: { week: "6" } }, nflSchedule: { nflSchedule: { week: "6", matchup: [{ kickoff: String(Math.floor(Date.now() / 1000) + 3 * 86400), team: [{ id: "TST" }, { id: "OPP" }] }] } } };
+  // (Weeks 1 and 17 are the real 2026 schedule — the five-QB limit's in-season window is built from them)
+  mfl.st.exportBody = { liveScoring: { liveScoring: { week: "6" } }, nflSchedule: (q) => NFL_2026_WEEKS[q.W]
+    ? { nflSchedule: { week: q.W, matchup: NFL_2026_WEEKS[q.W] } }
+    : { nflSchedule: { week: "6", matchup: [{ kickoff: String(Math.floor(Date.now() / 1000) + 3 * 86400), team: [{ id: "TST" }, { id: "OPP" }] }] } } };
   mfl.install();
   return { env, mfl };
 }

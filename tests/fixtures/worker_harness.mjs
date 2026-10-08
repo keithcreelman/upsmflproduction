@@ -47,6 +47,12 @@ export function bindSelf(env) {
   return env;
 }
 
+// Week 1: Wed 2026-09-09 8:20 PM ET opener … Mon 09-14 MNF · Week 17: Thu 2026-12-31 … Mon 2027-01-04 8:15 PM ET (the last game)
+export const NFL_2026_WEEKS = {
+  "1": [{ kickoff: "1788999600", team: [{ id: "SEA" }, { id: "NEP" }] }, { kickoff: "1789431300", team: [{ id: "LAC" }, { id: "KCC" }] }],
+  "17": [{ kickoff: "1798766100", team: [{ id: "DAL" }, { id: "WAS" }] }, { kickoff: "1799111700", team: [{ id: "GBP" }, { id: "MIN" }] }],
+};
+
 export function makeMfl(opts) {
   opts = opts || {};
   const st = {
@@ -114,7 +120,11 @@ export function makeMfl(opts) {
         // (st.exportFailByYear["2025"] = { salaries: 503 } fails an export for ONE season only — e.g. last season's contracts, which the AAV repair reads)
         { const yr = (/\/(\d{4})\/export/.exec(url.pathname) || [])[1]; if (yr && st.exportFailByYear && st.exportFailByYear[yr] && st.exportFailByYear[yr][type]) return json({ error: "MFL boom" }, st.exportFailByYear[yr][type]); }
         if (st.exportFail && st.exportFail[type]) return json({ error: "MFL boom" }, st.exportFail[type]);
-        if (st.exportBody && Object.prototype.hasOwnProperty.call(st.exportBody, type)) return json(st.exportBody[type]);
+        // (a function body is called with the request's params — e.g. one NFL schedule per week)
+        if (st.exportBody && Object.prototype.hasOwnProperty.call(st.exportBody, type)) { const b = st.exportBody[type]; return json(typeof b === "function" ? b(Object.fromEntries(params)) : b); }
+        // The REAL 2026 NFL Week 1 / Week 17 kickoffs (MFL nflSchedule, read 2026-10-08) — the in-season window of the
+        // five-QB trade limit is built from them (worker/src/qb_trade_window.js). Other weeks stay unserved, as before.
+        if (type === "nflSchedule" && NFL_2026_WEEKS[params.get("W")]) return json({ nflSchedule: { week: params.get("W"), matchup: NFL_2026_WEEKS[params.get("W")] } });
         if (type === "league") { const seeEmail = /COMMISH-COOKIE/.test(cookie) || /tok-commish/.test(cookie); return json({ league: { salaryCapAmount: "300000", rosterSize: "30", taxiSquad: "10", ...(st.league || {}), franchises: { franchise: Object.entries(NAMES).map(([id, name]) => ({ id, name, abbrev: ABBREVS[id] || name, ...(seeEmail ? { email: `${id}@ups.test` } : {}) })) } } }); }
         if (type === "salaries") return json({ salaries: { leagueUnit: { player: st.salaries || [] } } });
         if (type === "pendingTrades") {

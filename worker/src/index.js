@@ -54,6 +54,7 @@ import {
 import { evaluateTradeCompliance, loadedContractBlockPayload, tradeLimitBlockPayload } from "./trade_cap_authority.js";
 import { evaluateTaxiDestinations } from "./trade_taxi_destination.js";
 import { planRosterChecks, cureDeadline, rosterCheckMessage, rosterCheckCommishCopy, currentOverage } from "./trade_roster_check.js";
+import { qbTradeLimitWindow, contractDeadlineFromWeek1 } from "./qb_trade_window.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
@@ -33109,11 +33110,11 @@ const mflToSleeper = {};
       //     open. Guessing writes a real contract against the wrong window, and per
       //     rule_no_fail_open_guards an unreadable input is never "empty".
       // Absence of a config is NOT an error — it is "not configured" → hardcoded.
-      const resolveContractDeadlineUtc = async (season) => {
+      const resolveContractDeadlineUtc = async (season, opts = {}) => {
         const fallback = getContractDeadlineUtc(season);
         let cfg = null;
         try {
-          cfg = await getAuctionCalendar(env);
+          cfg = await getAuctionCalendar(env, undefined, { readOnly: !!opts.readOnly });
         } catch (e) {
           return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${e && e.message}` };
         }
@@ -38225,6 +38226,21 @@ const mflToSleeper = {};
         return evaluateTaxiDestinations({ season, arrivals, draftPicks, callupCounts, priorSeasonActive, kickoffByTeam, nowUnix: Math.floor(Date.now() / 1000) });
       };
 
+      // WHEN the five-QB trade limit applies (Keith 2026-10-08: in-season only — worker/src/qb_trade_window.js). Inputs are
+      // the league's own contract-deadline calendar (the commissioner's value; else derived from the rule: the last Sunday
+      // before NFL Week 1) and the NFL Week-17 schedule — never MFL's position-limit toggle. Unreadable → "unknown".
+      const loadQbTradeWindow = async (season) => {
+        const nowUnix = Math.floor(Date.now() / 1000);
+        let cd;
+        try { cd = await resolveContractDeadlineUtc(season, { readOnly: true }); } catch (e) { cd = { deadline: null, source: "error" }; }   // read-only: no CREATE
+        if (!cd || cd.source === "error") return qbTradeLimitWindow({ nowUnix, calendarError: true });
+        const configured = cd.source === "calendar" && cd.deadline ? Math.floor(cd.deadline.getTime() / 1000) : null;
+        const week1 = configured ? null : await nflWeekKickoffsByTeam(season, 1).catch(() => ({}));
+        const start = configured || contractDeadlineFromWeek1(week1);
+        const week17 = start && nowUnix >= start ? await nflWeekKickoffsByTeam(season, 17).catch(() => ({})) : null;
+        return qbTradeLimitWindow({ nowUnix, contractDeadlineUnix: configured, week1Kickoffs: week1, week17Kickoffs: week17 });
+      };
+
       // `taxiStep` (Keith 2026-10-07): pass `{ pids }` ONLY from the two-team War Room path, whose accept runs the
       // verified taxi step for exactly those players (applyTaxiDemotionsFromPayload: moves, checks MFL's rosters,
       // needs-review + owner/commissioner DM on failure). Omitted = no taxi step (3-way): nothing is credited.
@@ -38244,7 +38260,8 @@ const mflToSleeper = {};
           ]);
           const stepPids = taxiStep && Array.isArray(taxiStep.pids) ? taxiStep.pids : [];
           const taxiDestinations = stepPids.length ? await loadTaxiDestinations({ season, leagueId, movements, rosters, players }).catch(() => ({})) : {};
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep: taxiStep || null });
+          const qbWindow = await loadQbTradeWindow(season).catch(() => ({ state: "unknown", applies: null, reason: "window_load_failed" }));
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep: taxiStep || null, qbWindow });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -52378,7 +52395,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // the War Room ledger couldn't be read: rather than mistake a War Room trade for a native one, wait
           if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:ledger_unreadable"); return jsonOut(200, { ok: false, error: "ledger_unreadable" }); }
         }
-        const rcFindings = planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow, windowSec: rcWindowSec })
+        // the five-QB limit is in-season only (qb_trade_window.js); outside it — or when that can't be established — no QB alert is sent
+        const rcQbWindow = await loadQbTradeWindow(rcSeason).catch(() => ({ state: "unknown", applies: null, reason: "window_load_failed" }));
+        const rcFindings = planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow, windowSec: rcWindowSec, qbApplies: rcQbWindow.state === "in_season" })
           .sort((x, y) => x.trade_ts - y.trade_ts);
         let rcKick = null;
         const rcKickoffs = async () => {
@@ -52475,7 +52494,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
         }
         await rcBeat(`ok:findings=${rcFindings.length}`);
-        return jsonOut(200, { ok: true, dry_run: rcDry, window_hours: rcWindowSec / 3600, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
+        return jsonOut(200, { ok: true, dry_run: rcDry, window_hours: rcWindowSec / 3600, qb_window: rcQbWindow, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
       }
 
       // POST /admin/trades/settlement-sweep?L=&YEAR=&APIKEY=   body { dry_run? }

@@ -306,15 +306,17 @@
     // is active; QBs MFL already shows on taxi or IR don't count.
     var qb = c.qb_limit || null;
     if (qb) {
-      var qbTitle = qb.status === "blocked" ? "Can\'t be accepted \u2014 too many active QBs" : qb.status === "ok" ? "Active QBs \u2014 every team stays at or under " + esc(qb.max || 5) : "Active QBs \u2014 couldn\'t be verified";
+      var qbTitle = qb.status === "blocked" ? "Can\'t be accepted \u2014 too many active QBs" : qb.status === "ok" ? "Active QBs \u2014 every team stays at or under " + esc(qb.max || 5)
+        : qb.status === "not_applicable" ? "Active QBs \u2014 the five-QB limit applies in-season only" : "Active QBs \u2014 couldn\'t be verified";
       var qbRows = (qb.rows || []).map(function (r) {
         var over = r.active_qbs_after > (qb.max || 5);
         var txt = esc(r.active_qbs_before) + ' \u2192 ' + esc(r.active_qbs_after);
         return '<li class="' + (over ? "t3w-over" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span><span class="t3w-cr-num">' + txt + ' active QBs</span>' +
           (over ? '<span class="t3w-cr-flag">max ' + esc(qb.max || 5) + '</span>' : '<span class="t3w-cr-room">of ' + esc(qb.max || 5) + ' max</span>') + '</li>';
       }).join("");
-      h += '<div class="t3w-cap t3w-cap-' + esc(qb.status) + '" role="' + (qb.status === "ok" ? "status" : "alert") + '" data-t3w-qb-limit="' + esc(qb.status) + '"><b>' + qbTitle + '</b>' +
-        (qb.status !== "ok" ? '<p>' + esc(qb.message) + '</p>' : '') + (qbRows ? '<ul class="t3w-crows" aria-label="Active QBs after the trade">' + qbRows + '</ul>' : '') + '</div>';
+      var qbCalm = qb.status === "ok" || qb.status === "not_applicable";
+      h += '<div class="t3w-cap t3w-cap-' + esc(qb.status === "not_applicable" ? "ok" : qb.status) + '" role="' + (qbCalm ? "status" : "alert") + '" data-t3w-qb-limit="' + esc(qb.status) + '"><b>' + qbTitle + '</b>' +
+        (qb.status !== "ok" ? '<p>' + esc(qb.message) + '</p>' : '') + (qbRows && qb.status !== "not_applicable" ? '<ul class="t3w-crows" aria-label="Active QBs after the trade">' + qbRows + '</ul>' : '') + '</div>';
     }
     // ── loaded-contract limit (HARD, canon §2.G/§6.G: max 5) — same severity tier as the
     // salary cap, so it reuses the identical .t3w-cap classes rather than inventing a new

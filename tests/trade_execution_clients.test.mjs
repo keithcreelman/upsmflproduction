@@ -110,7 +110,7 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // own -- see that file's own removal-era comments), so the two diverge further. This
   // assertion tracks the CURRENT true pairing, not a fixed pin -- update it again whenever
   // either file's own real content changes and bumps its stamp.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.07.3", "2026.10.07.3"],
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.08.1", "2026.10.08.1"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   // Numeric, component-by-component comparison -- a lexicographic string compare (the
