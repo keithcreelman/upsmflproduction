@@ -51,6 +51,11 @@ jobs:
       - name: Verify UPS Wire invariants
         run: python pipelines/etl/wire/wire.py verify
 
+      # Offline: the missing-issue / unchecked-Elias detector and the duplicate
+      # guard a catch-up publish runs first (ups_center_due.py).
+      - name: UPS Center due + duplicate-guard logic
+        run: python pipelines/etl/wire/test_ups_center_due.py
+
       # Packs are re-validated OFFLINE. `build` needs D1 credentials and the
       # live worker, and is deliberately a human-run step -- a report's numbers
       # should be fetched deliberately and reviewed, not refreshed by CI behind
