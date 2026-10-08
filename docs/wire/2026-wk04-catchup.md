@@ -83,7 +83,7 @@ The article's figures that change:
    - Trace every number to the pack and every quote to its message id.
    - Keith reads it.
 8. **Publish, on Keith's explicit go:**
-   - Rerun preflight; it must still be clean.
+   - Rerun preflight from the catch-up branch with `--candidate`: `python3 pipelines/etl/wire/ups_center_due.py preflight --season 2026 --week 4 --candidate`. It must still be clean. `wire.py index` lists drafts, so the branch's own draft entry is allowed; a live entry or any other destination still blocks.
    - Set `status: live` and `publishedAt`, run `wire.py index` and `wire.py verify`, then squash-merge.
    - Confirm the live page is byte-identical to the merged file.
 9. **Announce, once:**
