@@ -899,6 +899,107 @@ f3Suite(
   (fid, ts, po, opp, wk, os) => ({ w: wk || 1, fid: fid, ts: ts, opp: opp, os: os != null ? os : (fid === '0001' ? 90 : 100), po: po })
 );
 
+// ── F3 final — every case asserted on exact status AND byFid, and each
+// built so the three possible readings of a `po` value (regular season /
+// excluded playoff / malformed) produce three DIFFERENT outcomes. The
+// cases above can't tell a malformed row from an excluded playoff row
+// (both leave a playoff-only payload 'incomplete'); these can: a value
+// read as regular season shows up as a duplicate score ('conflict') or a
+// changed record, one read as playoff is dropped ('ok'), and only a value
+// treated as malformed gives 'incomplete'.
+const PO_ABSENT = Symbol('po key absent');
+const F3_MALFORMED = [['po key absent', PO_ABSENT], ['undefined', undefined], ['null', null], ['"x"', 'x'], ['2', 2], ['"00"', '00']];
+function f3FinalSuite(label, deriveTable, buildRow, resolve) {
+  const E = ['0001', '0002'];
+  const mk = (fid, ts, po, opp, wk, os) => {
+    const r = buildRow(fid, ts, po === PO_ABSENT ? undefined : po, opp, wk, os);
+    if (po === PO_ABSENT) delete r.po;
+    return r;
+  };
+  // Weeks 1-3, complete and reciprocal: 0001 wins week 1, wins week 2, ties week 3.
+  const regular = (po0001, po0002) => [
+    mk('0001', 100, po0001, '0002', 1, 90), mk('0002', 90, po0002 === undefined ? po0001 : po0002, '0001', 1, 100),
+    mk('0001', 110, po0001, '0002', 2, 95), mk('0002', 95, po0002 === undefined ? po0001 : po0002, '0001', 2, 110),
+    mk('0001', 100, po0001, '0002', 3, 100), mk('0002', 100, po0002 === undefined ? po0001 : po0002, '0001', 3, 100)
+  ];
+  const REG_RECORD = { '0001': { w: 2, l: 0, t: 1 }, '0002': { w: 0, l: 2, t: 1 } };
+
+  check(label + ' (final): empty array -> preseason, byFid {}; every expected franchise resolves to 0-0-0; only-unrelated-foreign rows are genuinely empty too', () => {
+    const t = deriveTable([], E);
+    assert.deepStrictEqual(t, { status: 'preseason', byFid: {} });
+    E.forEach((fid) => assert.deepStrictEqual(resolve(row({ franchise_id: fid, seed_ap: undefined }), t), { w: 0, l: 0, t: 0 }, fid + ' must resolve to 0-0-0'));
+    const foreignOnly = deriveTable([mk('9999', 100, 'x', '8888', 1, 90), mk('8888', 90, 0, '9999', 1, 100)], E);
+    assert.deepStrictEqual(foreignOnly, { status: 'preseason', byFid: {} }, 'no row involves an expected franchise, so the RELEVANT input is genuinely empty');
+  });
+  check(label + ' (final): ALL rows carrying one malformed po (key absent / undefined / null / "x" / 2 / "00") -> incomplete, byFid null', () => {
+    F3_MALFORMED.forEach(([name, po]) => {
+      assert.deepStrictEqual(deriveTable(regular(po), E), { status: 'incomplete', byFid: null }, 'po=' + name);
+    });
+  });
+  check(label + ' (final): valid regular-season rows + ONE malformed relevant row -> incomplete for EVERY malformed value (neither read as regular season nor dropped as playoff)', () => {
+    assert.deepStrictEqual(deriveTable(regular(false), E), { status: 'ok', byFid: REG_RECORD }, 'baseline: the valid rows alone are complete');
+    // 0001's SECOND week-3 entry vs 0002 (week 3 is already complete without it).
+    // Read as regular season it would collide with 0001's real week-3 score ('conflict');
+    // dropped as playoff the table would stay 'ok'. Only the fail-closed gate gives 'incomplete'.
+    assert.deepStrictEqual(deriveTable(regular(false).concat([mk('0001', 999, true, '0002', 3, 999)]), E), { status: 'ok', byFid: REG_RECORD }, 'control: the same extra row with a VALID playoff flag is excluded');
+    F3_MALFORMED.forEach(([name, po]) => {
+      const rows = regular(false).concat([mk('0001', 999, po, '0002', 3, 999)]);
+      assert.deepStrictEqual(deriveTable(rows, E), { status: 'incomplete', byFid: null }, 'po=' + name);
+      assert.deepStrictEqual(deriveTable(rows.slice().reverse(), E), { status: 'incomplete', byFid: null }, 'po=' + name + ' (row order reversed)');
+    });
+  });
+  check(label + ' (final): only valid playoff rows (1 / "1" / true, mixed too) -> incomplete with byFid null, never preseason', () => {
+    [[1], ['1'], [true], [1, true]].forEach(([a, b]) => {
+      const t = deriveTable(regular(a, b === undefined ? a : b), E);
+      assert.deepStrictEqual(t, { status: 'incomplete', byFid: null }, 'po=' + JSON.stringify([a, b]));
+    });
+  });
+  check(label + ' (final): regular-season flags 0 / "0" / false give the IDENTICAL, CORRECT record — uniformly and mixed within one payload', () => {
+    [[0], ['0'], [false], [0, false], ['0', 0], [false, '0']].forEach(([a, b]) => {
+      assert.deepStrictEqual(deriveTable(regular(a, b === undefined ? a : b), E), { status: 'ok', byFid: REG_RECORD }, 'po=' + JSON.stringify([a, b]));
+    });
+  });
+  check(label + ' (final): playoff flags 1 / "1" / true are EXCLUDED — added to valid regular-season data, status stays ok and the record is unchanged', () => {
+    // Week 15: 0001 blows out 0002. Counted as regular season it would add a win/loss; read as malformed it would give 'incomplete'.
+    [[1], ['1'], [true], ['1', true], [true, 1]].forEach(([a, b]) => {
+      const rows = regular(false).concat([mk('0001', 200, a, '0002', 15, 50), mk('0002', 50, b === undefined ? a : b, '0001', 15, 200)]);
+      assert.deepStrictEqual(deriveTable(rows, E), { status: 'ok', byFid: REG_RECORD }, 'po=' + JSON.stringify([a, b]));
+    });
+  });
+  check(label + ' (final): a malformed po on an UNRELATED foreign franchise (every malformed value) leaves the expected table exactly as without it', () => {
+    F3_MALFORMED.forEach(([name, po]) => {
+      const rows = regular(false).concat([mk('9999', 100, po, '8888', 3, 90), mk('8888', 90, po, '9999', 3, 100)]);
+      assert.deepStrictEqual(deriveTable(rows, E), { status: 'ok', byFid: REG_RECORD }, 'po=' + name);
+    });
+  });
+}
+f3FinalSuite(
+  'F3 AP',
+  (rows, fids) => RACE.deriveRegSeasonApTable(rows, fids),
+  (fid, ts, po, _opp, wk) => ({ w: wk || 1, fid: fid, ts: ts, po: po }),
+  (r, t) => RACE.resolveApRecordWithTable(r, t)
+);
+f3FinalSuite(
+  'F3 Overall',
+  (rows, fids) => RACE.deriveRegSeasonOverallTable(rows, fids),
+  (fid, ts, po, opp, wk, os) => ({ w: wk || 1, fid: fid, ts: ts, opp: opp, os: os, po: po }),
+  (r, t) => RACE.resolveOverallRecordWithTable(r, t)
+);
+check('F3 Overall (final): a row whose OPPONENT is expected involves the expected population — a malformed po on it fails closed; such rows alone are not preseason; a valid one leaves the table unchanged', () => {
+  const E = ['0001', '0002'];
+  const g = (fid, ts, po, opp, wk, os) => ({ w: wk, fid: fid, ts: ts, opp: opp, os: os, po: po });
+  const valid = [g('0001', 100, 0, '0002', 1, 90), g('0002', 90, 0, '0001', 1, 100)];
+  const clean = RACE.deriveRegSeasonOverallTable(valid, E);
+  assert.deepStrictEqual(clean, { status: 'ok', byFid: { '0001': { w: 1, l: 0, t: 0 }, '0002': { w: 0, l: 1, t: 0 } } });
+  F3_MALFORMED.forEach(([name, po]) => {
+    const extra = g('9999', 80, po, '0001', 1, 70);
+    if (po === PO_ABSENT) delete extra.po;
+    assert.deepStrictEqual(RACE.deriveRegSeasonOverallTable(valid.concat([extra]), E), { status: 'incomplete', byFid: null }, 'po=' + name);
+  });
+  assert.deepStrictEqual(RACE.deriveRegSeasonOverallTable(valid.concat([g('9999', 80, 0, '0001', 1, 70)]), E), clean, 'a VALID foreign-side row is still not part of this table');
+  assert.deepStrictEqual(RACE.deriveRegSeasonOverallTable([g('9999', 80, 0, '0001', 1, 70), g('8888', 60, 1, '0002', 15, 50)], E), { status: 'incomplete', byFid: null }, 'expected franchises appear only as opponents: rows were discarded, nobody-has-played is false');
+});
+
 for (const [name, fn] of checks) {
   try { fn(); console.log('  ok   ' + name); }
   catch (e) { fails++; console.log('  FAIL ' + name + '\n         ' + (e && e.message || e)); }
