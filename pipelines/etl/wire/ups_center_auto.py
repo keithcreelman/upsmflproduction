@@ -261,10 +261,11 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
 def crashed(season, week, now, exc, workdir, dry, sandbox, missed, log=print):
     import traceback
     aid = "%d-wk%02d-ups-center%s" % (season, week, "-sandbox" if sandbox else "")
-    where = traceback.extract_tb(exc.__traceback__)[-1]
+    tb = traceback.extract_tb(exc.__traceback__)
+    where = " (%s line %d)" % (os.path.basename(tb[-1].filename), tb[-1].lineno) if tb else ""
     st = {"id": aid, "season": season, "week": week, "at": SRC.iso(now), "status": "failed", "sandbox": sandbox,
-          "missedSlots": list(missed), "reasons": ["the builder stopped with an error: %s: %s (%s line %d)" % (
-              type(exc).__name__, str(exc)[:300], os.path.basename(where.filename), where.lineno)]}
+          "missedSlots": list(missed), "reasons": ["the builder stopped with an error: %s: %s%s" % (
+              type(exc).__name__, str(exc)[:300], where)]}
     try:
         timing = SRC.week_timing(season, week)
     except Exception as exc2:                         # cannot even read the schedule: alert now, not never
