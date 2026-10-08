@@ -33,4 +33,22 @@ Two editor items:
 
 `automated_draft.html` is the generated issue, exactly as the run produced it, kept here for review. It is not under `site/`, so it can never be served.
 
-**Not demonstrated live:** the CREATE and UPDATE paths. Week 4 already has an editor-owned draft, and creating a second one is exactly what the process must never do. Both paths are covered offline in `test_ups_center_auto.py`. The first live CREATE will be Week 5's Tuesday run, if the schedule is approved.
+(Runs 1-4 above predate #1197; the `landscape:site-order` item cleared once it deployed. The sandbox runs below show only `coffee:kenny`.)
+
+## Chat exclusions, catch-up, CREATE / UPDATE / NOOP (2026-10-08, after Keith's review)
+
+Keith: "The automated preview still exposes the excluded injury post in its editor candidates. Filter it before generating or committing packs and previews, test that exclusion, and demonstrate safe draft-PR creation and update plus catch-up after a missed Mac run."
+
+**Simulated missed run.** `last_run.json` and `last_run_sandbox.json` were set to Mon Oct 5, 11:00 PM ET, as if the Mac had slept through Tuesday, Wednesday and Thursday morning.
+
+| # | Command | Result |
+|---|---|---|
+| A | `run` (real mode, no `--week`) | `catching up: scheduled run(s) missed since the last run -- Tue Oct 06 10:00 AM, Wed Oct 07 10:00 AM, Thu Oct 08 09:00 AM`. It then built nothing:<br>• **Week 4:** stopped by the repo index (live), the Pages index (live) and Pages HTTP 200. No announcement was found, which matches: Week 4 has not been announced.<br>• **Weeks 3 and 2:** also stopped by their `ups_wire_threads` row and their #league-announcements message.<br>No second issue was built. |
+| B | `run --sandbox --code-ref <this branch>` | Same three missed slots. Built Week 4 under the demo id `2026-wk04-ups-center-sandbox`: **created** draft PR #1200, `[SANDBOX demo -- will be closed]`. The PR holds only 3 files: `site/wire/articles/_sandbox/...html` and `docs/wire/auto/<id>/{claims,validation}.json`. The PR body carried "Built late: scheduled run(s) missed ...". Status `ready-with-gaps` (`coffee:kenny`), 0 validation errors. |
+| C1 | `--week 4 --no-ingest --chat-since <one day earlier>` | **noop.** The window really widened, but D1 has no owner chat in that day, so no claim moved and nothing was pushed. |
+| C2 | `--chat-since 1790686000` (a window reaching back to real chat) | First attempt **BLOCKED** (fail-closed). The validator called a quote link's text altered, because the post itself begins and ends with curly quotes and the check stripped them. A validator bug, fixed in this PR with a regression test. Re-run: **updated** PR #1200 in place. The branch was rebuilt to one commit, and one comment listed the 5 changed claims: `count:candidates` 25→29, `posts:Eric Martel` 0→2, `posts:Josh Martel` 7→9, `posts:Shawn Blake` 10→11, `posts:total` 41→46. Still one PR. |
+| D | the same command again | **noop.** Same commit, still one comment, still one open PR for the issue. |
+
+**Where the two ruled-out posts went** (ids 1556369890321899692 and 1557163194651254845, now on `site/wire/data/chat_exclusions.json`). Every output was scanned for their message ids and text: PR #1200's diff, the committed article, the rebuilt Week 4 pack, the local review copy (HTML and PDF), and `status.json`. **Neither appears in any of them.** The local sources snapshot keeps both rows (they still count as posts) with `content: null` and `withheld: "excluded by id (...)"`. The review copy's editor box says "2 message(s) ruled out by an editor or touching family, health or similar were withheld and must not be used", and it lists 25 candidates without them.
+
+PR #1200 was closed by hand after the demo, and its branch was deleted. The automation itself refuses `gh pr close/merge/ready`.
