@@ -129,8 +129,9 @@ def preflight_findings(season, week, repo_index, live_index, live_page_status, w
         found.extend(_announced(aid, title, wire_thread_article_ids, discord_messages))
         return found
     mine = [a for a in index_articles(repo_index) if a.get("id") == aid or a.get("path") == path]
-    if candidate and len(mine) == 1 and str(mine[0].get("status", "")).lower() == "draft":
-        mine = []                                      # the draft being published, not a duplicate
+    if (candidate and len(mine) == 1 and str(mine[0].get("status", "")).lower() == "draft"
+            and mine[0].get("id") == aid and mine[0].get("path") == path):
+        mine = []                                      # exactly this issue's own draft: the candidate, not a copy
     for a in mine:
         found.append("repo site/wire/index.json lists %s (status %s)" % (a.get("id"), a.get("status")))
     for a in index_articles(live_index):

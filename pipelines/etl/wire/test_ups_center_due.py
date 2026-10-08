@@ -116,6 +116,33 @@ check("a draft that already reached Pages still blocks (index + page)", len(f) =
 f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3), 404, [],
                          [{"id": "9", "content": "**UPS Center: Week 4** is up."}], candidate=True)
 check("an existing announcement still blocks", len(f) == 1, f)
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3), 404,
+                         ["2026-wk04-ups-center"], [], candidate=True)
+check("a ups_wire_threads row for it still blocks", len(f) == 1 and "ups_wire_threads" in f[0], f)
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3, (4, "live")), 404,
+                         [], [], candidate=True)
+check("a live copy in the Pages index still blocks", len(f) == 1 and "live Pages index" in f[0], f)
+two = index(*PUBLISHED_1_3, (4, "draft"))
+two["families"][0]["articles"].append({"id": "2026-wk04-ups-center-v2", "path": "articles/2026/2026-wk04-ups-center.html",
+                        "status": "draft"})
+f = U.preflight_findings(2026, 4, two, index(*PUBLISHED_1_3), 404, [], [], candidate=True)
+check("two entries for the same page still block", len(f) == 2, f)
+wrong_path = index(*PUBLISHED_1_3)
+wrong_path["families"][0]["articles"].append({"id": "2026-wk04-ups-center", "path": "articles/2026/other.html", "status": "draft"})
+f = U.preflight_findings(2026, 4, wrong_path, index(*PUBLISHED_1_3), 404, [], [], candidate=True)
+check("a draft with the right id but the wrong page still blocks", len(f) == 1, f)
+wrong_id = index(*PUBLISHED_1_3)
+wrong_id["families"][0]["articles"].append({"id": "2026-wk04-recap", "path": "articles/2026/2026-wk04-ups-center.html",
+                             "status": "draft"})
+f = U.preflight_findings(2026, 4, wrong_id, index(*PUBLISHED_1_3), 404, [], [], candidate=True)
+check("a draft for the page under another id still blocks", len(f) == 1, f)
+live3 = index(*PUBLISHED_1_3)
+f = U.preflight_findings(2026, 3, live3, live3, 200, ["2026-wk03-ups-center"],
+                         [{"id": "7", "content": "UPS Center: Week 3 is up"}], candidate=True)
+check("--candidate cannot republish a live, announced issue (Week 3: all 5 destinations)", len(f) == 5, f)
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3), 404,
+                         ["2026-wk03-ups-center"], [{"id": "1", "content": "UPS Center: Week 3 is up"}], candidate=True)
+check("Week 3's own thread and post do not block Week 4's candidate", f == [], f)
 
 print("4. announce stage: page must be live, and only an existing announcement blocks")
 live4 = index(*PUBLISHED_1_3, (4, "live"))
