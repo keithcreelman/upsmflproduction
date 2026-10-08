@@ -103,6 +103,20 @@ for name, kw in cases.items():
     found = U.preflight_findings(2026, 4, **args)
     check("detects it in the " + name, len(found) == 1, found)
 
+print("3b. --candidate: the branch's own draft is the issue being published, not a duplicate")
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3), 404,
+                         ["2026-wk03-ups-center"], [], candidate=True)
+check("one draft entry on the catch-up branch -> clean", f == [], f)
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "live")), index(*PUBLISHED_1_3), 404, [], [],
+                         candidate=True)
+check("a live entry still blocks", len(f) == 1 and "status live" in f[0], f)
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3, (4, "draft")), 200,
+                         [], [], candidate=True)
+check("a draft that already reached Pages still blocks (index + page)", len(f) == 2, f)
+f = U.preflight_findings(2026, 4, index(*PUBLISHED_1_3, (4, "draft")), index(*PUBLISHED_1_3), 404, [],
+                         [{"id": "9", "content": "**UPS Center: Week 4** is up."}], candidate=True)
+check("an existing announcement still blocks", len(f) == 1, f)
+
 print("4. announce stage: page must be live, and only an existing announcement blocks")
 live4 = index(*PUBLISHED_1_3, (4, "live"))
 ok = U.preflight_findings(2026, 4, live4, live4, 200, ["2026-wk03-ups-center"], [], stage="announce")

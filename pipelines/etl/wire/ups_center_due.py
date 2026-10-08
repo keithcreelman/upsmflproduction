@@ -25,6 +25,11 @@ This module does not generate or publish anything. It makes the gap visible:
              before a catch-up build and again before the publish merge.
              --stage announce: exit 1 unless the page IS live, or when an
              announcement already exists (ups_wire_threads row or a post).
+             --candidate: run on the catch-up branch once the draft exists.
+             `wire.py index` lists drafts in site/wire/index.json, so the
+             branch's own draft entry is the issue being published, not a
+             copy of it; one DRAFT entry there is allowed. A live entry, and
+             every other destination, still blocks.
 
 Usage:
   python3 pipelines/etl/wire/ups_center_due.py due --season 2026
@@ -107,10 +112,13 @@ def due_findings(season, kickoffs_by_week, index, elias_posted_weeks, elias_chec
 
 
 def preflight_findings(season, week, repo_index, live_index, live_page_status, wire_thread_article_ids,
-                       discord_messages, stage="publish"):
+                       discord_messages, stage="publish", candidate=False):
     """Reasons NOT to proceed. Empty list = safe.
     stage "publish": the issue must exist nowhere yet.
-    stage "announce": the page must be live, and no announcement may exist yet."""
+    stage "announce": the page must be live, and no announcement may exist yet.
+    candidate: the working copy is the catch-up branch, so a single DRAFT entry
+    for this issue in the repo index is the candidate itself (wire.py index
+    lists drafts). Anything live, or a second entry, still blocks."""
     aid, title = article_id(season, week), article_title(week)
     path = "articles/%d/%s.html" % (int(season), aid)
     found = []
@@ -120,9 +128,11 @@ def preflight_findings(season, week, repo_index, live_index, live_page_status, w
                          % (aid, live_page_status))
         found.extend(_announced(aid, title, wire_thread_article_ids, discord_messages))
         return found
-    for a in index_articles(repo_index):
-        if a.get("id") == aid or a.get("path") == path:
-            found.append("repo site/wire/index.json lists %s (status %s)" % (a.get("id"), a.get("status")))
+    mine = [a for a in index_articles(repo_index) if a.get("id") == aid or a.get("path") == path]
+    if candidate and len(mine) == 1 and str(mine[0].get("status", "")).lower() == "draft":
+        mine = []                                      # the draft being published, not a duplicate
+    for a in mine:
+        found.append("repo site/wire/index.json lists %s (status %s)" % (a.get("id"), a.get("status")))
     for a in index_articles(live_index):
         if a.get("id") == aid or a.get("path") == path:
             found.append("live Pages index.json lists %s (status %s)" % (a.get("id"), a.get("status")))
@@ -219,7 +229,7 @@ def cmd_preflight(args):
         I.TOKEN = I.keychain_token()
         messages = I.api("/channels/%s/messages?limit=100" % ANNOUNCE_CHANNEL)
     found = preflight_findings(args.season, args.week, repo_index(), live_index, page, threads, messages,
-                               stage=args.stage)
+                               stage=args.stage, candidate=args.candidate)
     skipped = [n for n, off in (("ups_wire_threads", args.no_d1), ("#league-announcements", args.no_discord)) if off]
     for f in found:
         print("STOP: " + f)
@@ -245,6 +255,8 @@ def main():
     p.add_argument("--stage", choices=("publish", "announce"), default="publish")
     p.add_argument("--no-d1", action="store_true")
     p.add_argument("--no-discord", action="store_true")
+    p.add_argument("--candidate", action="store_true",
+                   help="catch-up branch: this issue's own DRAFT entry in the repo index is allowed")
     args = ap.parse_args()
     return cmd_due(args) if args.cmd == "due" else cmd_preflight(args)
 
