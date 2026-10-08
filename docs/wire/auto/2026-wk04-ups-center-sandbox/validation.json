@@ -1,0 +1,47 @@
+{
+ "ok": true,
+ "publishable": false,
+ "errors": [],
+ "warnings": [
+  "unchecked claim kind box:Tetairoa McMillan",
+  "unchecked claim kind box:Kenneth Walker III",
+  "unchecked claim kind box:Nico Collins",
+  "unchecked claim kind box:Puka Nacua",
+  "unchecked claim kind usage:Parker Washington",
+  "unchecked claim kind usage:Ja'Marr Chase",
+  "unchecked claim kind usage:Emeka Egbuka",
+  "unchecked claim kind usage:Jaxon Smith-Njigba",
+  "unchecked claim kind usage:Garrett Wilson",
+  "unchecked claim kind usage:Tetairoa McMillan",
+  "unchecked claim kind usage:CeeDee Lamb",
+  "unchecked claim kind usage:Kenneth Walker III",
+  "unchecked claim kind usage:Brian Robinson",
+  "unchecked claim kind usage:Kyle Monangai"
+ ],
+ "checkedClaims": {
+  "score": 12,
+  "margin": 12,
+  "record": 1,
+  "pts": 23,
+  "box": 4,
+  "fact": 6,
+  "proj": 20,
+  "diff": 20,
+  "usage": 10,
+  "count": 3,
+  "rec": 12,
+  "ap": 12,
+  "pf": 12,
+  "wkap": 12,
+  "grade": 12,
+  "posts": 13,
+  "elias": 1
+ },
+ "gaps": [
+  {
+   "id": "coffee:kenny",
+   "section": "coffee",
+   "why": "Kenny Mayne&rsquo;s lines are an editor&rsquo;s job: choose from the verbatim candidates and follow the owner dossier. 2 message(s) ruled out by an editor or touching family, health or similar were withheld and must not be used. 29 candidate line(s) are listed, verbatim and linked, in the local review copy only (raw chat stays off the public repo)."
+  }
+ ]
+}
