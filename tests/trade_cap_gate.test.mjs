@@ -631,15 +631,17 @@ test("ROSTER: a balanced trade between legal rosters is clean (status ok, no war
   t.match(p.json.compliance.roster_limit.message, /Every team stays at or under the roster maximum/);
 });
 test("ROSTER: an uneven trade that pushes one team over the maximum is REFUSED at accept — nothing sent to MFL, the team and the move it needs are named", async () => {
-  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 33), league: { rosterSize: "35" } });    // 0002: 36 active (13100+90002+33+... )
+  // in-season the maximum is canon's 30 (trade_season_window.js) — MFL's own rosterSize (35 here) is not what decides it
+  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 28), league: { rosterSize: "35" } });    // 0002: 30 active (13100+90002+28)
   const two = payloadOf("0001", "0002", [player(14056), player(90001)], [player(13100)]);       // 0002 receives two, sends one → +1
   const o = await sendOffer(env, mfl, two);
   const p = await act(env, mobileBody(o.id, "PREVIEW"));
   const rows = Object.fromEntries(p.json.compliance.roster.rows.map((r) => [r.franchise_id, r]));
-  t.equal(rows["0002"].status, "above_max"); t.equal(rows["0002"].active_after, rows["0002"].active_before + 1); t.equal(rows["0002"].max, 35);
+  t.equal(rows["0002"].status, "above_max"); t.equal(rows["0002"].active_after, rows["0002"].active_before + 1); t.equal(rows["0002"].max, 30);
   t.equal(rows["0001"].status, "within");
   t.equal(p.json.compliance.roster_limit.status, "blocked");
-  t.match(p.json.compliance.roster_limit.message, /CBP would have 36 active players right after this trade — the maximum is 35\. CBP needs 1 more roster spot: make 1 legal roster move/);
+  t.match(p.json.compliance.roster_limit.message, /CBP would have 31 active players right after this trade — the maximum is 30\. CBP needs 1 more roster spot: make 1 legal roster move/);
+  t.equal(p.json.compliance.roster_limit.window.phase, "in_season");
   t.ok(p.json.roster_limit_block && p.json.roster_limit_block.code === "roster_room_required", "the preview names the block");
   // the accept itself IS refused, before MFL
   const r = await act(env, mobileBody(o.id));
@@ -647,7 +649,7 @@ test("ROSTER: an uneven trade that pushes one team over the maximum is REFUSED a
   t.equal(mfl.st.done.length, 0, "MFL was never asked to accept"); t.equal(mfl.st.pending.length, 1, "the offer is still pending");
 });
 test("ROSTER: an MFL rejection is still surfaced, in MFL's own words, alongside the advisory (never swallowed)", async () => {
-  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 28), league: { rosterSize: "35" } });
+  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 27), league: { rosterSize: "35" } });   // 0002: 29 → 30, within
   const o = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056), player(90001)], [player(13100)]));
   mfl.st.failNext = { type: "tradeResponse", status: 200, message: "Roster limit exceeded: CBP would have 36 players (maximum 35)." };
   const r = await act(env, mobileBody(o.id));
@@ -656,11 +658,15 @@ test("ROSTER: an MFL rejection is still surfaced, in MFL's own words, alongside 
   t.equal(mfl.st.done.length, 0); t.equal(mfl.st.pending.length, 1);
   t.equal(outbox(env).filter((x) => ["VERIFIED", "COMPLETED"].includes(x.status)).length, 0);
 });
-test("ROSTER: roster-count authority missing is shown as UNAVAILABLE, not as compliant", async () => {
-  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 28), league: { rosterSize: "" } });
-  const o = await sendOffer(env, mfl, SWAP());
+test("ROSTER: a season window the league calendar can't establish is UNAVAILABLE where the trade depends on it — never compliant; a trade within every possible limit is fine", async () => {
+  const { env, mfl } = fresh(); world(mfl, { fill1: 100000, fill2: 100000, extra1: SEATS(100, 28), extra2: SEATS(500, 28), league: { rosterSize: "" } });   // (MFL's rosterSize missing no longer matters)
+  env.UPS_MFL_DB.raw.exec("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)"); env.UPS_MFL_DB.raw.prepare("INSERT OR REPLACE INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', '{not json', 'x')").run();   // the calendar is unreadable → no phase
+  const swap = await sendOffer(env, mfl, SWAP());
+  const ps = await act(env, mobileBody(swap.id, "PREVIEW"));
+  t.equal(ps.json.compliance.roster_limit.status, "ok", "30 → 30 fits every limit that could apply"); t.equal(ps.json.compliance.roster_limit.window.phase, "unknown");
+  const o = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056), player(90001)], [player(13100)]));   // 0002: 30 → 31
   const p = await act(env, mobileBody(o.id, "PREVIEW"));
-  t.equal(p.status, 200); t.equal(p.json.compliance.roster.status, "unavailable"); t.doesNotMatch(p.json.compliance.roster.message, /within its roster limits/);
+  t.equal(p.status, 200); t.match(p.json.compliance.roster_limit.message, /couldn't confirm which roster limit applies right now \(contract_deadline_unreadable/);
   t.equal(p.json.compliance.roster_limit.status, "unavailable"); t.equal(p.json.compliance.roster_limit.executable, false);
   t.equal(p.json.compliance.cap.status, "ok", "the cap verdict is independent of the roster check");
   const r = await act(env, mobileBody(o.id));
@@ -681,7 +687,7 @@ test("ROSTER (3-way): only ONE participant is over the maximum; the detail and t
   t.equal(rl.status, "blocked"); t.deepEqual(rl.violations.map((w) => w.franchise_id), ["0008"], "exactly one participant is over");
   t.equal(d.json.trade.compliance.cap.status, "ok");
   const msg = await say(await handle3WayButton(press("accept", DISCORD.B), env, ctxWait()));
-  t.match(msg, /You're in/); t.match(msg, /Real Deal Creel would have 38 active players right after this trade — the maximum is 35/); t.match(msg, /can't run until that's resolved — your accept is saved and nothing has moved/);
+  t.match(msg, /You're in/); t.match(msg, /Real Deal Creel would have 38 active players right after this trade — the maximum is 30/); t.match(msg, /can't run until that's resolved — your accept is saved and nothing has moved/);
   t.equal(F.readRow(env).team_b_state, "accepted", "a partner's accept is still recorded; the trade runs only once the over-limit team has made its move");
 });
 test("ROSTER (3-way, Keith 2026-10-07): a leg sends a TAXI player to a team already at 30 → judged on the ACTUAL count (31), never credited as a taxi move — the 3-way engine has no taxi step; the execute gate refuses before any MFL write", async () => {

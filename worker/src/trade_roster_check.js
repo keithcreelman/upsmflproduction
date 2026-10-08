@@ -29,13 +29,13 @@ export function tradeKeyOf(tx) {
 /**
  * @param a.trades       MFL transactions (TRADE) rows
  * @param a.rosters      { fid -> [{ id, status }] }
- * @param a.rosterMax    MFL league.rosterSize (number) — required
+ * @param a.rosterMax    the season window's maximum (trade_season_window.js) — null = no roster limit in this phase
  * @param a.positions    { pid -> position } — required
  * @param a.warRoom      [{ participants: "0003,0010" | "0008,0001,0012", mfl_executed_at_unix }] War Room executions (gated there; skipped
  *                       here). A trade is the War Room's when BOTH its teams are participants and its time is within
  *                       WAR_ROOM_MATCH_SEC of the stamp — or, for a 3-way (whose stamp follows its last leg), up to THREE_WAY_LEGS_SEC before it.
  * @param a.sinceUnix / a.nowUnix / a.windowSec (default 36 h; a longer window is for read-only dry runs only)
- * @param a.qbApplies    false outside the in-season window (qb_trade_window.js) → no QB findings; default true
+ * @param a.qbApplies    false outside the in-season phase (trade_season_window.js) → no QB findings; default true
  * @returns [{ trade_key, trade_ts, franchise_id, other_id, kind: "roster"|"qb", active, max, active_qbs }]
  */
 export function planRosterChecks(a) {
@@ -52,8 +52,8 @@ export function planRosterChecks(a) {
       const active = roster.filter((p) => s(p.status).toUpperCase() === "ROSTER");
       const activeQbs = active.filter((p) => s(a.positions && a.positions[s(p.id)]).toUpperCase() === "QB").length;
       const base = { trade_key: t.key, trade_ts: t.ts, franchise_id: fid, other_id: fid === t.a ? t.b : t.a, active: active.length, max: a.rosterMax, active_qbs: activeQbs };
-      if (active.length > a.rosterMax) out.push({ ...base, kind: "roster" });
-      if (a.qbApplies !== false && activeQbs > ACTIVE_QB_LIMIT) out.push({ ...base, kind: "qb" });   // in-season only (qb_trade_window.js)
+      if (a.rosterMax != null && active.length > a.rosterMax) out.push({ ...base, kind: "roster" });   // null = no limit in this phase
+      if (a.qbApplies !== false && activeQbs > ACTIVE_QB_LIMIT) out.push({ ...base, kind: "qb" });   // in-season only (trade_season_window.js)
     }
   }
   return out;
@@ -73,7 +73,7 @@ export function isWarRoomTrade(t, w) {
 export function currentOverage({ roster, rosterMax, positions }) {
   const active = arr(roster).filter((p) => s(p.status).toUpperCase() === "ROSTER");
   const qbs = positions ? active.filter((p) => s(positions[s(p.id)]).toUpperCase() === "QB").length : null;
-  return { roster: active.length > rosterMax, qb: qbs == null ? null : qbs > ACTIVE_QB_LIMIT, active: active.length, active_qbs: qbs };
+  return { roster: rosterMax != null && active.length > rosterMax, qb: qbs == null ? null : qbs > ACTIVE_QB_LIMIT, active: active.length, active_qbs: qbs };
 }
 
 /**

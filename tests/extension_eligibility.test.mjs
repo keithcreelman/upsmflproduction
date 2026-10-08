@@ -14,7 +14,7 @@ const { handle3WayButton } = await import("../worker/src/trade_3way.js");
 const restore = quiet();
 
 // ───────────────────────────────── layer 1: the rules ─────────────────────────────────
-const DEADLINE = Math.floor(Date.parse("2026-09-07T01:00:00Z") / 1000);        // 2026-09-06 21:00 ET (the pinned 2026 contract deadline)
+const DEADLINE = Math.floor(Date.parse("2026-09-07T03:59:59Z") / 1000);        // 2026-09-06 23:59:59 ET — the approved 2026 deadline (23:59 ET, open through that minute; contract_deadline.js)
 const NOW_STD = DEADLINE - 10 * DAY;
 const REQ = () => ({ player_id: "14056", from_franchise_id: "0001", to_franchise_id: "0002", extension_term: "2YR", new_contract_length: 3, new_TCV: 15000, new_aav_future: 5000 });
 const FACTS = (o) => ({
@@ -175,13 +175,15 @@ test("WORKER (2-way): FAIL CLOSED — an authority that can't be read refuses th
 });
 test("WORKER (2-way): after the September deadline only the four-week acquisition window opens it — exact boundaries through the real calendar", async () => {
   const at = (iso) => ({ TWR_TEST_NOW_MS: String(Date.parse(iso)) });
-  // exactly at the deadline (2026-09-06 21:00 ET = 2026-09-07T01:00:00Z) and 1s before: standard window
-  for (const iso of ["2026-09-07T00:59:59Z", "2026-09-07T01:00:00Z"]) {
+  // The league calendar is deliberately UNSET in this harness, so this is the PINNED 2026 fallback — which now agrees with
+  // the approved time (Keith 2026-10-08): 23:59 ET, open through 23:59:59 ET = 2026-09-07T03:59:59Z. (It was 21:00 ET.)
+  // exactly at the deadline and 1s before: standard window
+  for (const iso of ["2026-09-07T03:59:58Z", "2026-09-07T03:59:59Z", "2026-09-07T01:00:01Z"]) {
     const { env, mfl } = fresh(at(iso)); const id = await sendOffer(env, mfl); const r = await accept(env, id);
     t.equal(r.status, 200, `${iso}: ${r.text.slice(0, 160)}`);
   }
   // 1s after, no acquisition on record → closed
-  await refused(at("2026-09-07T01:00:01Z"), () => {}, "deadline_passed", "1s after the deadline, no acquisition");
+  await refused(at("2026-09-07T04:00:00Z"), () => {}, "deadline_passed", "1s after the deadline, no acquisition");
   // 1s after, but the extender got him by TRADE 10 days ago → the four-week window is open
   const tradeAt = (nowIso, ageSec) => (m) => { const now = Math.floor(Date.parse(nowIso) / 1000); m.st.transactions = [{ type: "TRADE", franchise: "0003", franchise1_gave_up: "14056,", franchise2: "0001", franchise2_gave_up: "9,", timestamp: String(now - ageSec) }]; };
   const NOW = "2026-09-20T12:00:00Z";

@@ -113,9 +113,25 @@ await check('no deadline row -> closed, not open', async () => {
   assert.strictEqual(r.open, false);
   assert.strictEqual(r.reason, 'window_unreadable');
 });
-await check('malformed date -> closed', async () => {
-  const r = await checkRestructureWindow(envDeadline('not-a-date'), { season: '2026' });
+await check('malformed date (a season with no approved pin) -> closed, unreadable', async () => {
+  const r = await checkRestructureWindow(envDeadline('not-a-date'), { season: '2027' });
   assert.strictEqual(r.open, false);
+  assert.strictEqual(r.reason, 'window_unreadable');
+});
+
+console.log('\nthe ONE resolver (contract_deadline.js, 2026-10-08): no invented time for a future season');
+await check('2027 with only a league_events DATE: the day before -> OPEN; the day itself -> refused (no time on file); the day after -> CLOSED', async () => {
+  const D = (iso) => Math.floor(Date.parse(iso) / 1000);
+  assert.strictEqual((await checkRestructureWindow(envDeadline('2027-09-05'), { season: '2027', nowUnix: D('2027-09-04T23:59:59-04:00') })).open, true);
+  const onDay = await checkRestructureWindow(envDeadline('2027-09-05'), { season: '2027', nowUnix: D('2027-09-05T12:00:00-04:00') });
+  assert.strictEqual(onDay.open, false); assert.strictEqual(onDay.reason, 'window_unreadable'); assert.match(onDay.detail, /Only the date/);
+  const after = await checkRestructureWindow(envDeadline('2027-09-05'), { season: '2027', nowUnix: D('2027-09-06T00:00:00-04:00') });
+  assert.strictEqual(after.open, false); assert.strictEqual(after.reason, 'window_closed');
+});
+await check('2026 with the calendar UNSET and NO league_events row: the approved pinned 23:59 ET still answers (same second)', async () => {
+  const r = await checkRestructureWindow(envDeadline(undefined), { season: '2026', nowUnix: DEADLINE });
+  assert.strictEqual(r.open, true); assert.strictEqual(r.deadline_unix, DEADLINE);
+  assert.strictEqual((await checkRestructureWindow(envDeadline(undefined), { season: '2026', nowUnix: DEADLINE + 1 })).open, false);
 });
 await check('D1 throws -> closed', async () => {
   const r = await checkRestructureWindow(envWinThrows(), { season: '2026' });

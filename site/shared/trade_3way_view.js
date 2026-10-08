@@ -283,11 +283,13 @@
     var anyTaxiMove = (ro.rows || []).some(function (r) { return (r.taxi_moves || []).length; });
     var roTitle = rl && rl.status === "blocked" ? "Can\'t be accepted \u2014 roster maximum"
       : rl && rl.status === "unavailable" ? "Roster counts \u2014 couldn\'t be checked"
+      : rl && rl.status === "not_applicable" ? "Roster counts \u2014 no roster limit right now (offseason)"
       : ro.status === "warn" ? "Roster counts \u2014 heads-up"
       : ro.status === "unavailable" ? "Roster counts \u2014 couldn\'t be checked"
       : anyTaxiMove ? "Roster counts \u2014 fits once the taxi move is made" : "Roster counts \u2014 within limits";
     var roRows = (ro.rows || []).map(function (r) {
-      var lim = r.max ? r.min + "\u2013" + r.max : "min " + r.min;
+      // the maximum is the season window's (none in the offseason, 35 auction → deadline, 30 in-season)
+      var lim = r.max ? (r.min != null ? r.min + "\u2013" + r.max : "max " + r.max) : (r.min != null ? "min " + r.min : "no limit");
       var moves = r.taxi_moves || [];
       var after = esc(r.active_before) + ' \u2192 ' + esc(r.active_after) + ' active';
       if (moves.length) after += ' \u00b7 ' + esc(r.active_after_taxi) + ' once ' + esc(moves.map(function (m) { return m.player_name || m.player_id; }).join(" and ")) + ' ' + (moves.length === 1 ? 'is' : 'are') + ' on taxi';
@@ -295,7 +297,7 @@
       return '<li class="' + (flag ? "t3w-flag" : "") + '"><span class="t3w-cr-name">' + esc(r.franchise_name || r.franchise_id) + '</span>' +
         '<span class="t3w-cr-num">' + after + '</span><span class="t3w-cr-room">limit ' + esc(lim) + '</span></li>';
     }).join("");
-    var roMsg = rl && (rl.status === "blocked" || rl.status === "unavailable") ? str(rl.message)
+    var roMsg = rl && (rl.status === "blocked" || rl.status === "unavailable" || rl.status === "not_applicable") ? str(rl.message)
       : ro.status !== "ok" ? str(ro.message) : (anyTaxiMove && rl ? str(rl.message) : "");
     var roBlocked = rl && rl.status === "blocked";
     h += '<div class="' + (roBlocked ? "t3w-cap t3w-cap-blocked" : "t3w-rost t3w-rost-" + esc(rl && rl.status === "unavailable" ? "unavailable" : ro.status)) + '" role="' + (roBlocked ? "alert" : "status") + '" data-t3w-roster-limit="' + esc(rl ? rl.status : "") + '"><b>' + roTitle + '</b>' +

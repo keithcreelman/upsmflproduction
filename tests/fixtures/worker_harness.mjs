@@ -123,7 +123,7 @@ export function makeMfl(opts) {
         // (a function body is called with the request's params — e.g. one NFL schedule per week)
         if (st.exportBody && Object.prototype.hasOwnProperty.call(st.exportBody, type)) { const b = st.exportBody[type]; return json(typeof b === "function" ? b(Object.fromEntries(params)) : b); }
         // The REAL 2026 NFL Week 1 / Week 17 kickoffs (MFL nflSchedule, read 2026-10-08) — the in-season window of the
-        // five-QB trade limit is built from them (worker/src/qb_trade_window.js). Other weeks stay unserved, as before.
+        // five-QB trade limit and roster season window are built from them (worker/src/trade_season_window.js). Other weeks stay unserved, as before.
         if (type === "nflSchedule" && NFL_2026_WEEKS[params.get("W")]) return json({ nflSchedule: { week: params.get("W"), matchup: NFL_2026_WEEKS[params.get("W")] } });
         if (type === "league") { const seeEmail = /COMMISH-COOKIE/.test(cookie) || /tok-commish/.test(cookie); return json({ league: { salaryCapAmount: "300000", rosterSize: "30", taxiSquad: "10", ...(st.league || {}), franchises: { franchise: Object.entries(NAMES).map(([id, name]) => ({ id, name, abbrev: ABBREVS[id] || name, ...(seeEmail ? { email: `${id}@ups.test` } : {}) })) } } }); }
         if (type === "salaries") return json({ salaries: { leagueUnit: { player: st.salaries || [] } } });

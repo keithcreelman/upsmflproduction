@@ -54,7 +54,8 @@ import {
 import { evaluateTradeCompliance, loadedContractBlockPayload, tradeLimitBlockPayload } from "./trade_cap_authority.js";
 import { evaluateTaxiDestinations } from "./trade_taxi_destination.js";
 import { planRosterChecks, cureDeadline, rosterCheckMessage, rosterCheckCommishCopy, currentOverage } from "./trade_roster_check.js";
-import { qbTradeLimitWindow, contractDeadlineFromWeek1 } from "./qb_trade_window.js";
+import { tradeSeasonWindow, loadAuctionStart } from "./trade_season_window.js";
+import { loadContractDeadline, resolveContractDeadline, deadlineState, determinateDeadlineUnix } from "./contract_deadline.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
@@ -20043,15 +20044,9 @@ export default {
           // hid a real bug for a full deploy cycle (#952).
           out.contract_ladder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
           try {
-            let cdUnix = null;
-            const cdRow = await db.prepare(
-              "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
-            ).bind(String(season)).first();
-            const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
-            if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
-              const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
-              if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
-            }
+            // the ONE resolver (contract_deadline.js); null when it can't be decided for now → unresolved, with the reason
+            const cdRes = await loadContractDeadline(env, season);
+            const cdUnix = determinateDeadlineUnix(cdRes, Math.floor(Date.now() / 1000));
             const [lw3, lw5] = await Promise.all([
               nflWeekFirstKickoffUnix(season, 3),
               nflWeekFirstKickoffUnix(season, 5),
@@ -33067,28 +33062,13 @@ const mflToSleeper = {};
         return Date.now() > deadline.getTime();
       };
 
-      // September CONTRACT deadline (last Sunday before NFL Week 1) — the deadline
-      // for FINAL-YEAR VETERAN extensions + MYAC per canon §C4/§C2. Distinct from
-      // the May tag/rookie-extension deadline above. Reads the league calendar
-      // when in scope; falls back to the pinned 2026 value (2026-09-06 21:00 ET).
-      // HARDCODED baseline for the September contract deadline. Kept as the
-      // fallback and as the value every non-gate consumer still reads.
-      // The ENFORCEMENT gate goes through resolveContractDeadlineUtc() below,
-      // which layers the commish-editable calendar on top of this.
+      // September CONTRACT deadline (last Sunday before NFL Week 1) — the deadline for FINAL-YEAR VETERAN extensions + MYAC
+      // per canon §C4/§C2. Every consumer goes through ONE resolver, worker/src/contract_deadline.js (Keith 2026-10-08).
+      // This sync form returns only the APPROVED PINNED value (2026: 2026-09-06 23:59 ET, open through 23:59:59) — it used
+      // to read 21:00 ET from the reminder calendar — and null for any other season: no time is invented.
       const getContractDeadlineUtc = (season) => {
-        const calRoot = (typeof DEADLINE_REMINDER_CALENDAR !== "undefined") ? DEADLINE_REMINDER_CALENDAR : null;
-        const cc = (calRoot && calRoot[String(season)] && calRoot[String(season)].contract_deadline) || null;
-        const dateEt = safeStr(cc && cc.deadline_date_et) || (String(season) === "2026" ? "2026-09-06" : "");
-        const timeEt = safeStr(cc && cc.deadline_time_et) || "21:00";
-        if (!dateEt) return null;
-        // Early September is always EDT (UTC-4).
-        const d = new Date(`${dateEt}T${timeEt}:00-04:00`);
-        return isNaN(d.getTime()) ? null : d;
-      };
-      const hasContractDeadlinePassed = (season) => {
-        const deadline = getContractDeadlineUtc(season);
-        if (!deadline) return false;
-        return Date.now() > deadline.getTime();
+        const r = resolveContractDeadline({ season, calendar: null });
+        return r.exact ? new Date(r.deadline_unix * 1000) : null;
       };
 
       // EFFECTIVE September contract deadline — the value that ENFORCES the
@@ -33110,43 +33090,14 @@ const mflToSleeper = {};
       //     open. Guessing writes a real contract against the wrong window, and per
       //     rule_no_fail_open_guards an unreadable input is never "empty".
       // Absence of a config is NOT an error — it is "not configured" → hardcoded.
+      // A thin wrapper over the ONE resolver (contract_deadline.js) that keeps this function's historical shape for its
+      // callers: { deadline (exact instant or null), source, error, resolved }. `resolved` is the full result — callers that
+      // GATE use deadlineState(resolved, now): "unknown" (none / unreadable / a date-only day) must refuse.
       const resolveContractDeadlineUtc = async (season, opts = {}) => {
-        const fallback = getContractDeadlineUtc(season);
-        let cfg = null;
-        try {
-          cfg = await getAuctionCalendar(env, undefined, { readOnly: !!opts.readOnly });
-        } catch (e) {
-          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${e && e.message}` };
-        }
-        // getAuctionCalendar reports read failures via read_error rather than
-        // throwing (it returns the empty shape on error, which is byte-identical to
-        // "nothing configured"). Without this check a transient D1 fault — observed
-        // live 2026-08-05 as `exceeded its CPU time limit [code: 7429]` — would look
-        // like an unset field and silently enforce the HARDCODED deadline instead of
-        // the configured one, i.e. lock extensions at a different instant than the
-        // commish set. Refuse instead; the caller surfaces 503 and the owner retries.
-        if (cfg && cfg.read_error) {
-          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${cfg.read_error}` };
-        }
-        if (!env || !env.UPS_MFL_DB) {
-          return { deadline: null, source: "error", error: "contract_calendar_unreadable: no D1 binding" };
-        }
-        const cfgSeason = safeStr(cfg && cfg.season);
-        const wall = safeStr(cfg && cfg.faa && cfg.faa.contract_deadline_at);
-        if (!wall || (cfgSeason && cfgSeason !== safeStr(season))) {
-          return { deadline: fallback, source: "hardcoded", error: "" };
-        }
-        const m = wall.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
-        if (!m) {
-          // Stored but unparseable — refuse. Silently reverting to the hardcoded date
-          // would enforce a window the commish believes he changed.
-          return { deadline: null, source: "error", error: `contract_deadline_at malformed: "${wall}"` };
-        }
-        const d = new Date(`${m[1]}T${m[2]}:00-04:00`);   // early Sept is always EDT
-        if (isNaN(d.getTime())) {
-          return { deadline: null, source: "error", error: `contract_deadline_at unparseable: "${wall}"` };
-        }
-        return { deadline: d, source: "calendar", error: "" };
+        void opts;   // always read-only now
+        const r = await loadContractDeadline(env, season);
+        const source = r.source === "pinned" ? "hardcoded" : r.source;
+        return { deadline: r.exact ? new Date(r.deadline_unix * 1000) : null, source, error: r.source === "error" ? r.error : "", resolved: r };
       };
 
       const formatContractSubmissionDate = (rawValue) => {
@@ -35054,7 +35005,7 @@ const mflToSleeper = {};
           contract_deadline: {
             title: "Contract Deadline",
             deadline_date_et: "2026-09-06",
-            deadline_time_et: "21:00",
+            deadline_time_et: "23:59",   // the approved 2026 time (contract_deadline.js PINNED) — was 21:00
             reminder_send_time_et: "09:00",
             summary: "Extensions, auction multis, and option decisions need to be locked before kickoff week closes the door.",
             reminder_offsets_days: [7, 1],
@@ -38226,19 +38177,18 @@ const mflToSleeper = {};
         return evaluateTaxiDestinations({ season, arrivals, draftPicks, callupCounts, priorSeasonActive, kickoffByTeam, nowUnix: Math.floor(Date.now() / 1000) });
       };
 
-      // WHEN the five-QB trade limit applies (Keith 2026-10-08: in-season only — worker/src/qb_trade_window.js). Inputs are
-      // the league's own contract-deadline calendar (the commissioner's value; else derived from the rule: the last Sunday
-      // before NFL Week 1) and the NFL Week-17 schedule — never MFL's position-limit toggle. Unreadable → "unknown".
-      const loadQbTradeWindow = async (season) => {
+      // WHICH roster limits a trade is held to right now (Keith 2026-10-08 — worker/src/trade_season_window.js): offseason
+      // none · FA Auction → contract deadline 35 · in-season 30 + five active QBs. Boundaries: the league calendar (FA Auction
+      // start; the contract deadline through the ONE resolver, contract_deadline.js) and the NFL Week-17 schedule — never
+      // MFL's own roster/position settings. Read-only; anything unestablished → phase "unknown" (fails closed where it matters).
+      const loadTradeSeasonWindow = async (season) => {
         const nowUnix = Math.floor(Date.now() / 1000);
-        let cd;
-        try { cd = await resolveContractDeadlineUtc(season, { readOnly: true }); } catch (e) { cd = { deadline: null, source: "error" }; }   // read-only: no CREATE
-        if (!cd || cd.source === "error") return qbTradeLimitWindow({ nowUnix, calendarError: true });
-        const configured = cd.source === "calendar" && cd.deadline ? Math.floor(cd.deadline.getTime() / 1000) : null;
-        const week1 = configured ? null : await nflWeekKickoffsByTeam(season, 1).catch(() => ({}));
-        const start = configured || contractDeadlineFromWeek1(week1);
-        const week17 = start && nowUnix >= start ? await nflWeekKickoffsByTeam(season, 17).catch(() => ({})) : null;
-        return qbTradeLimitWindow({ nowUnix, contractDeadlineUnix: configured, week1Kickoffs: week1, week17Kickoffs: week17 });
+        const [contractDeadline, auctionStart, week17] = await Promise.all([
+          loadContractDeadline(env, season),
+          loadAuctionStart(env, season),
+          nflWeekKickoffsByTeam(season, 17).catch(() => ({})),
+        ]);
+        return tradeSeasonWindow({ nowUnix, auctionStart, contractDeadline, week17Kickoffs: week17 });
       };
 
       // `taxiStep` (Keith 2026-10-07): pass `{ pids }` ONLY from the two-team War Room path, whose accept runs the
@@ -38260,8 +38210,8 @@ const mflToSleeper = {};
           ]);
           const stepPids = taxiStep && Array.isArray(taxiStep.pids) ? taxiStep.pids : [];
           const taxiDestinations = stepPids.length ? await loadTaxiDestinations({ season, leagueId, movements, rosters, players }).catch(() => ({})) : {};
-          const qbWindow = await loadQbTradeWindow(season).catch(() => ({ state: "unknown", applies: null, reason: "window_load_failed" }));
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep: taxiStep || null, qbWindow });
+          const seasonWindow = await loadTradeSeasonWindow(season).catch(() => ({ phase: "unknown", candidates: ["offseason", "auction", "in_season"], roster_max: null, qb_limit: null, boundaries: {}, reason: "window_load_failed" }));
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep: taxiStep || null, seasonWindow });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -38307,7 +38257,8 @@ const mflToSleeper = {};
         } catch (_) { /* stays null */ }
         try {   // September contract deadline — commissioner calendar over the pinned baseline; unreadable ⇒ closed
           const d = await resolveContractDeadlineUtc(season);
-          if (d && d.deadline && !d.error) facts.deadlineUnix = Math.floor(d.deadline.getTime() / 1000);
+          const du = d && d.resolved ? determinateDeadlineUnix(d.resolved, nowUnix) : null;   // null when it can't be decided → stays unavailable
+          if (du != null) facts.deadlineUnix = du;
         } catch (_) { /* stays null */ }
         try { facts.rookieWindowOpen = !hasTagDeadlinePassed(season); } catch (_) { /* stays null */ }
         if (facts.deadlineUnix != null && nowUnix > facts.deadlineUnix) {   // only after the deadline does the acquisition time matter
@@ -46340,7 +46291,7 @@ const mflToSleeper = {};
         // GATE, which must refuse rather than guess; it is wrong here, where
         // the alternative is publishing an eligibility block with NO contract
         // deadline at all. getContractDeadlineUtc can never return null for
-        // 2026 — the pinned 2026-09-06 21:00 ET value lives inside it — so
+        // 2026 — the approved pinned 2026-09-06 23:59 ET value (contract_deadline.js) lives inside it — so
         // there is a known-good date to print, and a possibly-stale date
         // clearly labelled as the fallback beats no date.
         //
@@ -52371,8 +52322,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const rcRecent = rcTrades.filter((t) => (parseInt(t.timestamp, 10) || 0) >= Math.max(rcSince, rcNow - rcWindowSec));
         if (!rcRecent.length && !rcOpen.length) { await rcBeat("ok:no_recent_trades"); return jsonOut(200, { ok: true, dry_run: rcDry, findings: [], notified: 0 }); }
         const rcRoot = rcLg.data?.league || {};
-        const rcMax = parseInt(rcRoot.rosterSize, 10);
-        if (!(rcMax > 0)) { await rcBeat("blind:roster_max_unreadable"); return jsonOut(200, { ok: false, error: "roster_max_unreadable" }); }
+        // The limits come from the SEASON WINDOW (trade_season_window.js; Keith 2026-10-08) — canon's maximum for the phase
+        // (offseason none · auction 35 · in-season 30; five active QBs in-season only), never MFL's rosterSize. While the
+        // phase can't be established, no alert is sent (and no open alert is closed): never a DM on a guess.
+        const rcWin = await loadTradeSeasonWindow(rcSeason).catch(() => ({ phase: "unknown", candidates: [], roster_max: null, qb_limit: null, boundaries: {}, reason: "window_load_failed" }));
+        const rcKnown = rcWin.phase !== "unknown";
+        const rcMax = rcKnown ? rcWin.roster_max : null;
         const rcNames = {};
         for (const f of asArray(rcRoot.franchises?.franchise).filter(Boolean)) rcNames[padFranchiseId(f.id)] = safeStr(f.name);
         const rcRosters = {}, rcPids = new Set();
@@ -52396,9 +52351,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // the War Room ledger couldn't be read: rather than mistake a War Room trade for a native one, wait
           if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:ledger_unreadable"); return jsonOut(200, { ok: false, error: "ledger_unreadable" }); }
         }
-        // the five-QB limit is in-season only (qb_trade_window.js); outside it — or when that can't be established — no QB alert is sent
-        const rcQbWindow = await loadQbTradeWindow(rcSeason).catch(() => ({ state: "unknown", applies: null, reason: "window_load_failed" }));
-        const rcFindings = planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow, windowSec: rcWindowSec, qbApplies: rcQbWindow.state === "in_season" })
+        // the five-QB limit is in-season only (trade_season_window.js) — QB findings only when the phase is in_season
+        const rcFindings = (rcKnown ? planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow, windowSec: rcWindowSec, qbApplies: rcWin.qb_limit === true }) : [])
           .sort((x, y) => x.trade_ts - y.trade_ts);
         let rcKick = null;
         const rcKickoffs = async () => {
@@ -52421,8 +52375,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const rcOpenByFk = new Map();
         for (const o of rcOpen) {
           const fid = padFranchiseId(o.franchise_id);
-          const ov = currentOverage({ roster: rcRosters[fid], rosterMax: rcMax, positions: rcPos });
-          const back = o.kind === "qb" ? ov.qb === false : !ov.roster;
+          if (!rcKnown) { const fk0 = `${fid}|${o.kind}`; if (!rcOpenByFk.has(fk0)) rcOpenByFk.set(fk0, o); continue; }   // can't tell → leave it open
+          // outside the limit's phase (offseason; or the QB limit outside the season) the team is no longer over it
+          const ov = currentOverage({ roster: rcRosters[fid], rosterMax: rcMax, positions: rcWin.qb_limit ? rcPos : null });
+          const back = o.kind === "qb" ? (!rcWin.qb_limit || ov.qb === false) : !ov.roster;
           const sending = o.status === "sending";
           if (back && (!sending || rcAge(o.updated_at_utc) >= rcStaleSec)) {
             if (!rcDry) {
@@ -52495,7 +52451,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
         }
         await rcBeat(`ok:findings=${rcFindings.length}`);
-        return jsonOut(200, { ok: true, dry_run: rcDry, window_hours: rcWindowSec / 3600, qb_window: rcQbWindow, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
+        return jsonOut(200, { ok: true, dry_run: rcDry, window_hours: rcWindowSec / 3600, season_window: rcWin, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
       }
 
       // POST /admin/trades/settlement-sweep?L=&YEAR=&APIKEY=   body { dry_run? }
@@ -59178,17 +59134,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // it just caught.
         let contractLadder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
         try {
-          let cdUnix = null;
-          const cdRow = await env.UPS_MFL_DB.prepare(
-            "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
-          ).bind(String(season)).first();
-          const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
-          if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
-            // 23:59:59 ET on the deadline DAY — matches the instant every other
-            // arm already gates MYAC on (front_office.js ~3360).
-            const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
-            if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
-          }
+          // the ONE resolver (contract_deadline.js) — for 2026 the same 23:59:59 ET the Front Office uses (front_office.js ~3360)
+          const cdRes = await loadContractDeadline(env, season);
+          const cdUnix = determinateDeadlineUnix(cdRes, Math.floor(Date.now() / 1000));
           const [wk3, wk5] = await Promise.all([
             nflWeekFirstKickoffUnix(season, 3),
             nflWeekFirstKickoffUnix(season, 5),
@@ -59901,20 +59849,24 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               // REFUSE rather than fall back — enforcing the wrong window writes a
               // real contract against a window the commish thinks he changed.
               const _cd = await resolveContractDeadlineUtc(year);
-              if (_cd.error) {
+              // "unknown" = unreadable, no deadline configured for this season (none is invented), or the deadline DAY of a
+              // date-only record — refuse. (Before 2026-10-08 an unconfigured season had no deadline and never refused.)
+              const _cdNow = Math.floor(Date.now() / 1000);
+              const _cdState = deadlineState(_cd.resolved, _cdNow);
+              if (_cdState === "unknown") {
                 return mutationResponse(
                   "validation_fail",
                   String(body.submission_id || body.submissionId || "").trim(),
                   {
                     reason: `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
                     code: "CONTRACT_DEADLINE_UNRESOLVED",
-                    detail: _cd.error,
+                    detail: _cd.error || `no ${year} contract deadline is configured in the league calendar (source: ${_cd.resolved && _cd.resolved.source}${_cd.resolved && _cd.resolved.day ? `, date-only ${_cd.resolved.day}` : ""})`,
                     submission_kind: submissionKindRaw,
                   },
                   503
                 );
               }
-              _extDeadline = _cd.deadline;
+              _extDeadline = new Date(determinateDeadlineUnix(_cd.resolved, _cdNow) * 1000);
               _extClass = "veteran";
             }
             const _nowMs = Date.now();

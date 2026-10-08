@@ -198,22 +198,26 @@ test("MOBILE: cap data unavailable → the sheet says so, offers Try again, neve
 test("MOBILE: over the roster maximum shows BEFORE the final confirmation, and the owner can't accept until that team has made its move", async () => {
   const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "35" } });
   const bulk = w.bulk;
-  w.mfl.st.rosters["0001"].push(...bulk(100, 28)); w.mfl.st.rosters["0002"].push(...bulk(500, 33));    // 0002: 13100 + 90002 + 33 = 35 active
-  const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);                              // 0002 receives 2, sends 1 → 36
+  // in-season the maximum is canon's 30 (the season window), whatever MFL's own setting says (35 here)
+  w.mfl.st.rosters["0001"].push(...bulk(100, 28)); w.mfl.st.rosters["0002"].push(...bulk(500, 28));    // 0002: 13100 + 90002 + 28 = 30 active
+  const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);                              // 0002 receives 2, sends 1 → 31
   const app = liveMobile(w.env, id);
   await app.click("accept");
   const html = app.sheet().innerHTML;
-  t.match(html, /Can't be accepted — roster maximum/); t.match(html, /CBP would have 36 active players right after this trade — the maximum is 35/);
+  t.match(html, /Can't be accepted — roster maximum/); t.match(html, /CBP would have 31 active players right after this trade — the maximum is 30/);
   t.ok(!has(html, "accept-confirm"), "no Accept while CBP is over");
   t.deepEqual(actionsOf(app.log), ["PREVIEW"], "nothing was sent: only the review ran");
 });
-test("MOBILE: roster-count authority missing is shown as unavailable, not as compliant", async () => {
-  const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "" } });
-  const id = await sendOffer(w.env, w.mfl, ["14056"], ["13100"]);
+test("MOBILE: when the league calendar can't say which roster limit applies and the trade depends on it, it's shown as unavailable, not as compliant", async () => {
+  const w = world({ fill1: 100000, fill2: 100000 });
+  w.mfl.st.rosters["0001"].push(...w.bulk(100, 28)); w.mfl.st.rosters["0002"].push(...w.bulk(500, 28));   // 0002: 30 → 31
+  const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);
+  { const env = w.env; env.UPS_MFL_DB.raw.exec("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)"); env.UPS_MFL_DB.raw.prepare("INSERT OR REPLACE INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', '{not json', 'x')").run(); }   // the calendar is unreadable: no phase
   const app = liveMobile(w.env, id);
   await app.click("accept");
   const html = app.sheet().innerHTML;
   t.match(html, /Roster counts — couldn't be checked/); t.doesNotMatch(html, /Roster counts — within limits/);
+  t.ok(!has(html, "accept-confirm"), "a trade that depends on the unknown limit can't be accepted");
 });
 test("MOBILE: if the offer moved on (no longer pending) the sheet says why and offers no Accept", async () => {
   const { env, mfl } = world({});
@@ -272,12 +276,12 @@ test("DESKTOP: unavailable cap → says so with Try again; over the roster maxim
     const p = d.api.reviewBeforeAccept(d.url, previewBody(id)); await settle(40);
     t.match(d.dlg.innerHTML, /couldn&#39;t verify the salary cap/); t.ok(!d.dlg.has("accept-confirm")); t.ok(d.dlg.has("accept-retry"));
     d.dlg.click("accept-close"); t.equal(await p, false); }
-  { const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "35" } });
-    w.mfl.st.rosters["0001"].push(...w.bulk(100, 28)); w.mfl.st.rosters["0002"].push(...w.bulk(500, 33));
+  { const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "35" } });   // MFL says 35; in-season canon says 30
+    w.mfl.st.rosters["0001"].push(...w.bulk(100, 28)); w.mfl.st.rosters["0002"].push(...w.bulk(500, 28));
     const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);
     const d = loadDesktop(w.env);
     const p = d.api.reviewBeforeAccept(d.url, previewBody(id)); await settle(40);
-    t.match(d.dlg.innerHTML, /Can&#39;t be accepted — roster maximum|Can't be accepted — roster maximum/); t.match(d.dlg.innerHTML, /CBP would have 36 active players right after this trade/);
+    t.match(d.dlg.innerHTML, /Can&#39;t be accepted — roster maximum|Can't be accepted — roster maximum/); t.match(d.dlg.innerHTML, /CBP would have 31 active players right after this trade — the maximum is 30/);
     t.ok(!d.dlg.has("accept-confirm")); t.deepEqual(actionsOf(d.log), ["PREVIEW"]);
     d.dlg.click("accept-close"); await p; }
 });
