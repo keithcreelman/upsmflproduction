@@ -155,7 +155,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     live_or_announced = [d for d in dup if "status draft" not in d]
     if live_or_announced:
         st.update(status="already-published", reasons=live_or_announced)
-        log("%s is already published or announced -- nothing to build" % aid)
+        log("%s is already published or announced -- nothing to build (%s)" % (aid, "; ".join(live_or_announced)[:400]))
         return st
 
     # clean, automation-owned tree at origin/main on the week's branch
