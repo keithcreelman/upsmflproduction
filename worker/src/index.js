@@ -49442,8 +49442,9 @@ const mflToSleeper = {};
                                                         WHERE season = ? AND league_id = ? AND player_id = ? AND franchise_id = ? AND dropped_at_unix >= ? ORDER BY dropped_at_unix ASC LIMIT 1`).bind(fSeason, fLeague, ev.player_id, ev.franchise_id, ev.acquired_at_unix).first();
               let audits = [], chg = [];
               if (dr) { try { audits = ((await env.UPS_MFL_DB.prepare(`SELECT id, note FROM ups_contract_gate_audit WHERE field = 'fcfs_reprice_unstamped_drop' AND season = ? AND note LIKE ?`).bind(fSeason, `drop_event_id=${dr.id} %`).all()).results) || []; } catch (_) { audits = []; } }
-              else { try { chg = ((await env.UPS_MFL_DB.prepare(`SELECT id, created_ts, player_id, endpoint, dry_run, landed, before_salary, before_contract_status, before_contract_year, before_contract_info, after_salary, after_contract_status, after_contract_year, after_contract_info
-                                                                   FROM salary_change_log WHERE season = ? AND league_id = ? AND dry_run = 0 AND landed = 1 AND player_id = ? ORDER BY id`).bind(fSeason, fLeague, ev.player_id).all()).results) || []; } catch (_) { chg = []; } }
+              // import_status + notes: only an MFL-confirmed write is evidence (fcfs_contract.js isMflConfirmedWrite — a mislabeled dry run is not)
+              else { try { chg = ((await env.UPS_MFL_DB.prepare(`SELECT id, created_ts, player_id, endpoint, dry_run, landed, import_status, notes, before_salary, before_contract_status, before_contract_year, before_contract_info, after_salary, after_contract_status, after_contract_year, after_contract_info
+                                                                   FROM salary_change_log WHERE season = ? AND league_id = ? AND dry_run = 0 AND landed = 1 AND import_status BETWEEN 200 AND 299 AND player_id = ? ORDER BY id`).bind(fSeason, fLeague, ev.player_id).all()).results) || []; } catch (_) { chg = []; } }
               let plan = planFcfsAddEventClosure({ addEvent: ev, dropRow: dr, auditRows: audits, changeLog: chg });
               if (plan.ok && plan.path === "owner_conversion") {
                 // the chain must belong to THIS acquisition: no later acquisition of the player, and no trade of him, between this add and the owner's conversion — anything unreadable refuses
@@ -60791,7 +60792,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 contract_info: activityContractInfo,
                 submitted_at_utc: submittedAtUtc || new Date().toISOString(),
                 source: sourceTag,
-                test_flag: 0,
+                // a dry run is logged AS one (2026-10-08): the Front Office timeline badges test_flag=1 rows "DRY";
+                // until then every dry run landed in contract_activity_<yr>.json as real activity (test_flag 0)
+                test_flag: dryRunFlag === 1 ? 1 : 0,
                 commish_override_flag: commishOverrideFlag,
                 override_as_of_date: overrideAsOfDate,
                 delivery_target: contractDiscord?.delivery_target || "",
@@ -60829,18 +60832,24 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // Audit log: capture every contract mutation going through this path
         // (extensions, restructures, tags, manual commish updates) — same
         // salary_change_log table used by /admin/import-salaries.
+        // A DRY RUN is recorded as one (2026-10-08): dry_run=1, landed=0, and a
+        // note that says no MFL request was made. Until then this row hard-coded
+        // dry_run=0 and took `landed` from the SIMULATED success above, so every
+        // dry run read as a landed change (27 rows, ids 1233–1876, import_status 0).
         try {
           const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
           await ensureSalaryChangeLogTable(auditDb);
+          const isDryRunAudit = dryRunFlag === 1;
           const landedFlag =
-            mutationStatus === "import_ok_log_dispatched" ||
-            mutationStatus === "import_ok_log_failed";
+            !isDryRunAudit &&
+            (mutationStatus === "import_ok_log_dispatched" ||
+              mutationStatus === "import_ok_log_failed");
           await logSalaryChangeRow(auditDb, {
             created_ts: new Date().toISOString(),
             endpoint: path,
             league_id: leagueId,
             season: year,
-            dry_run: false,
+            dry_run: isDryRunAudit,
             actor_ip: safeStr(request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")),
             actor_ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
             actor_had_api_key: !!sessionByApiKey,
@@ -60859,7 +60868,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             intended_contract_info: safeStr(contractInfo),
             landed: landedFlag,
             import_status: mflRes ? mflRes.status : 0,
-            notes: mutationStatus,
+            notes: isDryRunAudit ? `dry_run_no_mfl_request (simulated ${mutationStatus})` : mutationStatus,
           });
         } catch (_) { /* never fail the request on audit errors */ }
 
