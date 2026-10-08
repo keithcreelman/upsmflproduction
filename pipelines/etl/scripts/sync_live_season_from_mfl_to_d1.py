@@ -53,12 +53,29 @@ decided what the table held. The rows are still BUILT here, because the
 starter-sum check above is what gates the other per-player tables; they are
 just never written. See per_player_write_plan().
 
+SCORE CORRECTIONS (2026-10-08). Elias's official stat changes land in MFL on
+Wednesday night or early Thursday (2026 weeks 1-4: Wed 10:49 PM, Thu 12:10 AM,
+Wed 10:25 PM, Wed 11:32 PM ET), days after the Tuesday run that synced the week.
+Week 4's correction (Eric Martel 251.2 -> 250.2, now below Shawn Blake's 250.9)
+moved two teams' all-play records in MFL while D1 kept the old ones, because
+nothing re-ran: the wrapper's only state was "highest week synced", and a
+correction doesn't change the week number. Every run now prints
+SYNC_FINGERPRINT -- a hash of the exact per-franchise-week scores, potential
+points and results MFL reported -- and the wrapper re-syncs whenever that
+fingerprint moves, not only when a new week appears. --skip-if-fingerprint lets
+the extra Thursday/Friday runs exit without writing when nothing changed.
+--standings-only writes the four standings tables and leaves the per-player
+ones alone (the targeted repair for a correction).
+
 Usage:
   python3 sync_live_season_from_mfl_to_d1.py --season 2026 --dry-run
   python3 sync_live_season_from_mfl_to_d1.py --season 2026
+  python3 sync_live_season_from_mfl_to_d1.py --season 2026 --standings-only
+  python3 sync_live_season_from_mfl_to_d1.py --season 2026 --skip-if-fingerprint v1:...
 """
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -190,6 +207,23 @@ def determine_played_weeks(season, league_id, server, max_week):
             break
         played.append((wk, matchups))
     return played
+
+
+def scores_fingerprint(played_weeks):
+    """Exact fingerprint of what MFL reported for every franchise-week: score,
+    potential points and result. Any official stat correction that moves a
+    team score (all-play, h2h, pf) or a bench score (pp, eff) changes it, even
+    when the set of played weeks does not. Exact values, never sums -- offsetting
+    corrections would collide in a sum (the #1170 lesson)."""
+    items = []
+    for wk, matchups in played_weeks:
+        for m in matchups:
+            for f in as_list(m.get("franchise")):
+                items.append("%d|%s|%r|%r|%s" % (wk, pad4(f.get("id")), safe_float(f.get("score")),
+                                                  safe_float(f.get("opt_pts")), safe_str(f.get("result")).upper()))
+    items.sort()
+    weeks = ",".join(str(wk) for wk, _ in played_weeks)
+    return "v1:w%s:%d:%s" % (weeks, len(items), hashlib.sha256("\n".join(items).encode("utf-8")).hexdigest())
 
 
 def build_league_meta(season, league_id, server):
@@ -562,6 +596,10 @@ def main():
     parser.add_argument("--server", default="www48")
     parser.add_argument("--max-week", type=int, default=17)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--skip-if-fingerprint", default=None,
+                        help="exit 0 without writing when MFL's scores still match this SYNC_FINGERPRINT")
+    parser.add_argument("--standings-only", action="store_true",
+                        help="write only src_franchises/src_schedule/src_franchise_weekly_score/src_standings")
     args = parser.parse_args()
 
     print(f"Fetching league meta for {args.season}...")
@@ -586,6 +624,12 @@ def main():
     print(f"  played weeks: {week_nums}")
     if not played_weeks:
         print("No played weeks found -- nothing to sync.")
+        return 0
+    fingerprint = scores_fingerprint(played_weeks)
+    print(f"SYNC_FINGERPRINT={fingerprint}")
+    if args.skip_if_fingerprint and args.skip_if_fingerprint == fingerprint:
+        print("MFL's scores match the last recorded sync exactly -- nothing written.")
+        print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
         return 0
 
     schedule_rows, weekly_score = build_from_weeks(args.season, played_weeks, fmeta, owner_map)
@@ -673,6 +717,12 @@ def main():
     else:
         print("  Verified: every franchise-week's starters match MFL's list and sum to MFL's team score.")
 
+    if args.dry_run and args.standings_only:
+        print(f"\nDRY RUN (--standings-only) -- would write: {len(franchises_rows)} src_franchises, "
+              f"{len(schedule_rows)} src_schedule, {len(weekly_score_rows)} src_franchise_weekly_score, "
+              f"{len(standings_rows)} src_standings rows for season {args.season}; per-player tables untouched.")
+        print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
+        return 0
     if args.dry_run:
         print(f"\nDRY RUN -- would write: {len(franchises_rows)} src_franchises, "
               f"{len(schedule_rows)} src_schedule, {len(weekly_score_rows)} src_franchise_weekly_score, "
@@ -688,6 +738,10 @@ def main():
     d1_execute_file(build_sql("src_schedule", SCHEDULE_COLS, schedule_rows, ["season", "week", "franchise_id", "opponent_franchise_id"]), "src_schedule")
     d1_execute_file(build_sql("src_franchise_weekly_score", WEEKLY_SCORE_COLS, weekly_score_rows, ["season", "week", "franchise_id"]), "src_franchise_weekly_score")
     d1_execute_file(build_sql("src_standings", STANDINGS_COLS, standings_rows, ["season", "franchise_id"]), "src_standings")
+    if args.standings_only:
+        print("\nStandings tables written; per-player tables left as they were (--standings-only).")
+        print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
+        return 0
     if problems:
         print(f"\nStandings tables written; per-player tables skipped ({len(problems)} problem(s) above).")
         print(f"SYNC_RESULT week_nums={week_nums} max_week={max(week_nums)}")
