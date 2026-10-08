@@ -36,7 +36,12 @@ async function send(env, mfl, p) {
 }
 const act = (env, id, action) => callWorker(env, "POST", `/api/trades/proposals/action?${Q}&MFL_USER_ID=tok-C`, { body: { action: action || "ACCEPT", trade_id: id, league_id: "74598", franchise_id: "0002", year: "2026", message: "" } });
 const accepts = (mfl) => mfl.st.done.filter((d) => d.response === "accept").length;
-const dms = (mfl) => mfl.st.discord.filter((d) => /\/messages$/.test(d.url) && /Roster check|Copy of what|Commissioner review/.test(String(d.body && d.body.content)));
+const dms = (mfl) => mfl.st.discord.filter((d) => /\/messages$/.test(d.url) && /Roster check|Copy of what|Commissioner review|could NOT be reached/.test(String(d.body && d.body.content)));
+const check = (env, body) => callWorker(env, "POST", `/admin/trades/roster-check?${Q}&APIKEY=${ADMIN_KEY}`, { body: { season: "2026", league_id: "74598", ...(body || {}) } });
+const tx = (secsAgo, a, b) => ({ type: "TRADE", timestamp: String(Math.floor(Date.now() / 1000) - secsAgo), franchise: a || "0001", franchise2: b || "0002", franchise1_gave_up: "5100,", franchise2_gave_up: "FP_0002_2027_2," });
+const d1Snapshot = (env) => JSON.stringify(env.UPS_MFL_DB.raw.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all()
+  .map(({ name }) => [name, env.UPS_MFL_DB.raw.prepare(`SELECT * FROM "${name}"`).all()]));
+const claims = (env) => { try { return env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_trade_roster_check ORDER BY created_at_utc").all(); } catch (_) { return []; } };
 
 test("ROSTER: 30 active + 2 in, 1 out = 31 → the War Room accept is refused BEFORE MFL; the team and the move it needs are named", async () => {
   const { env, mfl } = fresh();
@@ -166,6 +171,101 @@ test("AFTER-TRADE CHECK: a War Room trade is skipped (its gates and #1187 cover 
   mfl.st.exportFail = { rosters: 503 };
   const blind = await callWorker(env, "POST", `/admin/trades/roster-check?${Q}&APIKEY=${ADMIN_KEY}`, { body: { season: "2026", league_id: "74598" } });
   t.equal(blind.json.ok, false); t.equal(blind.json.error, "mfl_unreadable"); t.equal(dms(mfl).length, 0);
+});
+
+test("REVIEW (dry run): a dry run is READ-ONLY end to end — not one D1 row, heartbeat, claim table, DM or MFL import — even when it replays a wider window", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  mfl.st.transactions = [tx(600), tx(5 * 86400)];
+  const before = d1Snapshot(env);
+  const calls = [], mflFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => { const u = new URL(typeof input === "string" ? input : input.url); calls.push({ method: String((init && init.method) || (input && input.method) || "GET").toUpperCase(), host: u.hostname, path: u.pathname }); return mflFetch(input, init); };
+  let r;
+  try { r = await check(env, { dry_run: true, window_hours: 240, since: "2026-01-01T00:00:00Z" }); } finally { globalThis.fetch = mflFetch; }
+  t.equal(r.status, 200, r.text.slice(0, 200)); t.equal(r.json.window_hours, 240);
+  t.deepEqual(calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${c.host}${c.path}`), [], "no write-method request to ANY host (MFL, Discord, GitHub)");
+  t.equal(calls.filter((c) => /github/.test(c.host)).length, 0, "no GitHub call at all");
+  t.deepEqual(r.json.findings.map((f) => f.action), ["would_notify", "covered_by_open_alert"], "the older trade would alert; the newer one is covered by it");
+  t.equal(d1Snapshot(env), before, "no D1 change of any kind (no heartbeat, no claim table)");
+  t.equal(dms(mfl).length, 0); t.equal(mfl.writes().length, 0);
+  const live = await check(env, { window_hours: 240 });
+  t.equal(live.json.window_hours, 36, "only a dry run may widen the window");
+});
+
+test("REVIEW (3-way): a 3-way War Room leg is NOT treated as a native trade (its stamp follows its last leg); a later native trade between the same teams still is", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  const legTs = Math.floor(Date.now() / 1000) - 3600;
+  mfl.st.transactions = [{ ...tx(0), timestamp: String(legTs) }];
+  env.UPS_MFL_DB.raw.prepare("INSERT INTO ups_trade_executions (league_id, season, exec_key, kind, state, participants, mfl_executed_at_utc, created_at_utc, updated_at_utc) VALUES ('74598','2026','3w-1','three_way','completed','0003,0001,0002',?, ?, ?)")
+    .run(new Date((legTs + 240) * 1000).toISOString(), new Date().toISOString(), new Date().toISOString());
+  t.equal((await check(env)).json.findings.length, 0, "the leg belongs to the 3-way");
+  t.equal(dms(mfl).length, 0);
+  mfl.st.transactions.push(tx(600));
+  const r = await check(env);
+  t.deepEqual(r.json.findings.map((f) => f.action), ["notified"], "the native trade an hour later is checked");
+});
+
+test("REVIEW (dedupe): two native trades while the team stays over → ONE alert; once MFL shows it back within the limit the alert closes, and a NEW overage alerts again", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  mfl.st.transactions = [tx(1200), tx(600)];
+  const r1 = await check(env);
+  t.deepEqual(r1.json.findings.map((f) => f.action), ["notified", "covered_by_open_alert"]);
+  t.equal(dms(mfl).length, 2, "owner + commissioner, once");
+  t.deepEqual((await check(env)).json.findings.map((f) => f.action), ["already_notified", "covered_by_open_alert"]); t.equal(dms(mfl).length, 2);
+  mfl.st.rosters["0002"] = fill(6000, 30);                                          // the team made its move
+  const r3 = await check(env);
+  t.deepEqual(r3.json.findings.map((f) => f.action), ["resolved"]); t.equal(claims(env)[0].status, "resolved");
+  mfl.st.rosters["0002"] = fill(6000, 31); mfl.st.transactions.push(tx(0));           // a NEW trade, after the fix, puts it over again
+  const r4 = await check(env);
+  t.deepEqual(r4.json.findings.map((f) => f.action), ["before_resolution", "before_resolution", "notified"], "the two old trades can't start or block it; the new one alerts");
+  t.equal(dms(mfl).length, 4, "the new overage is its own alert");
+  t.equal(r4.json.findings[2].trade_ts, Number(mfl.st.transactions[2].timestamp), "and it is attributed to the NEW trade");
+});
+
+test("REVIEW (crash recovery): a 'sending' claim left by a run that never finished is retried after 15 minutes — and never while it is fresh", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  mfl.st.transactions = [tx(1200)];
+  t.equal((await check(env, { dry_run: true })).json.findings[0].action, "would_notify");
+  await check(env);                                                                  // creates the table + claim, notifies
+  const key = claims(env)[0].check_key;
+  const set = (status, ageSec) => env.UPS_MFL_DB.raw.prepare("UPDATE ups_trade_roster_check SET status = ?, updated_at_utc = ? WHERE check_key = ?").run(status, new Date(Date.now() - ageSec * 1000).toISOString(), key);
+  const sent = dms(mfl).length;
+  set("sending", 60);
+  t.equal((await check(env)).json.findings[0].action, "already_notified", "a fresh claim belongs to a run still in flight"); t.equal(dms(mfl).length, sent);
+  set("sending", 20 * 60);
+  t.equal((await check(env, { dry_run: true })).json.findings[0].action, "would_retry_stale_send");
+  t.equal((await check(env)).json.findings[0].action, "notified", "a stale claim is taken over and sent"); t.equal(dms(mfl).length, sent + 2);
+  t.equal(claims(env)[0].status, "notified");
+});
+
+test("REVIEW (owner unreachable): the commissioner is told the owner could NOT be reached — never 'a copy of what was sent'", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  env.UPS_MFL_DB.raw.prepare("DELETE FROM discord_owners WHERE franchise_id = '0002'").run();
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  mfl.st.transactions = [tx(600)];
+  const r = await check(env);
+  t.equal(r.json.findings[0].action, "notified"); t.equal(r.json.findings[0].notified_owner, 0); t.equal(r.json.findings[0].notified_commish, 1);
+  const sent = dms(mfl);
+  t.equal(sent.length, 1); t.match(sent[0].body.content, /^⚠️ CBP's owner could NOT be reached on Discord \(no linked account, or the DM failed\) — please pass this on: ⚠️ Roster check after your trade/);
+  t.doesNotMatch(sent[0].body.content, /Copy of what/);
+});
+
+test("REVIEW (escalation): past the deadline and still over → ONE commissioner escalation, claimed before it is sent; never repeated", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  mfl.st.transactions = [tx(30 * 3600)];                                            // 30 h ago: inside the 36 h window, past the 24 h deadline
+  const r1 = await check(env);
+  t.equal(r1.json.findings[0].action, "notified");
+  t.equal((await check(env, { dry_run: true })).json.findings[0].action, "would_escalate");
+  const r2 = await check(env);
+  t.equal(r2.json.findings[0].action, "escalated");
+  t.equal(dms(mfl).filter((d) => /Commissioner review/.test(d.body.content)).length, 1);
+  t.equal((await check(env)).json.findings[0].action, "already_notified");
+  t.equal(dms(mfl).filter((d) => /Commissioner review/.test(d.body.content)).length, 1, "never twice");
+  t.match(dms(mfl).find((d) => /Commissioner review/.test(d.body.content)).body.content, /Nothing has been dropped, voided or penalized\./);
 });
 
 test("AFTER-TRADE CHECK ships OFF and needs the commissioner key", async () => {

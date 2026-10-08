@@ -53,7 +53,7 @@ import {
 } from "./trade_accept_integrity.js";
 import { evaluateTradeCompliance, loadedContractBlockPayload, tradeLimitBlockPayload } from "./trade_cap_authority.js";
 import { evaluateTaxiDestinations } from "./trade_taxi_destination.js";
-import { planRosterChecks, cureDeadline, rosterCheckMessage } from "./trade_roster_check.js";
+import { planRosterChecks, cureDeadline, rosterCheckMessage, rosterCheckCommishCopy, currentOverage } from "./trade_roster_check.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
@@ -52315,23 +52315,43 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         try { rcBody = (await request.json()) || {}; } catch (_) { rcBody = {}; }
         const rcSeason = safeStr(rcBody.season || url.searchParams.get("YEAR") || YEAR || "");
         const rcLeague = safeStr(rcBody.league_id || url.searchParams.get("L") || L || "74598");
+        // A DRY RUN is read-only end to end — no heartbeat, no claim table, no DM — so it is safe to send to
+        // production (2026-10-08). Only a dry run may widen the window or move the start date, to replay real trades.
         const rcDry = _wvTruthy(rcBody.dry_run);
         if (!rcSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!rcDry && !(await getFeatureFlag(env, "TRADE_ROSTER_CHECK_ENABLED"))) return jsonOut(200, { ok: true, skipped: "flag_off" });
-        const rcSinceRaw = safeStr(env.TRADE_ROSTER_CHECK_SINCE || "2026-10-08T00:00:00Z");
+        const rcSinceRaw = safeStr((rcDry && rcBody.since) || env.TRADE_ROSTER_CHECK_SINCE || "2026-10-08T00:00:00Z");
         const rcSince = /^\d+$/.test(rcSinceRaw) ? Number(rcSinceRaw) : Math.floor(Date.parse(rcSinceRaw) / 1000);
         if (!Number.isFinite(rcSince) || rcSince <= 0) return jsonOut(500, { ok: false, error: "TRADE_ROSTER_CHECK_SINCE unreadable", value: rcSinceRaw });
+        const rcWindowSec = (rcDry ? Math.min(24 * 14, Math.max(36, safeInt(rcBody.window_hours, 36))) : 36) * 3600;
         const rcNow = Math.floor(Date.now() / 1000);
-        const rcBeat = async (status) => { try { await env.UPS_MFL_DB.prepare("INSERT INTO ups_bot_heartbeat (bot, last_ts, status) VALUES ('trade_roster_check', ?, ?) ON CONFLICT(bot) DO UPDATE SET last_ts=excluded.last_ts, status=excluded.status").bind(rcNow, status).run(); } catch (_) {} };
+        const rcStaleSec = 15 * 60;   // a 'sending' claim this old means the run that made it never finished
+        const rcBeat = async (status) => { if (rcDry) return; try { await env.UPS_MFL_DB.prepare("INSERT INTO ups_bot_heartbeat (bot, last_ts, status) VALUES ('trade_roster_check', ?, ?) ON CONFLICT(bot) DO UPDATE SET last_ts=excluded.last_ts, status=excluded.status").bind(rcNow, status).run(); } catch (_) {} };
+        // Alerts still open (sent, or being sent) — one per team and limit, closed again once MFL shows the team back within it.
+        // A trade from BEFORE a team's last resolution can neither start nor block an alert for that team and limit.
+        let rcOpen = [];
+        const rcResolvedAt = new Map();
+        try {
+          const { results } = await env.UPS_MFL_DB.prepare("SELECT check_key, franchise_id, kind, status, trade_ts, deadline_unix, escalated_at_utc, updated_at_utc FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND status IN ('sending', 'notified', 'resolved') ORDER BY trade_ts")
+            .bind(rcLeague, rcSeason).all();
+          for (const r of results || []) {
+            if (r.status === "resolved") {
+              const fk = `${padFranchiseId(r.franchise_id)}|${r.kind}`, at = Math.floor((Date.parse(r.updated_at_utc) || 0) / 1000);
+              if (at > (rcResolvedAt.get(fk) || 0)) rcResolvedAt.set(fk, at);
+            } else rcOpen.push(r);
+          }
+        } catch (e) {
+          if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:claims_unreadable"); return jsonOut(200, { ok: false, error: "claims_unreadable" }); }
+        }
         const [rcTx, rcRos, rcLg] = await Promise.all([
-          mflExportJson(rcSeason, rcLeague, "transactions", { TRANS_TYPE: "TRADE", DAYS: "3" }, { useCookie: true }),
+          mflExportJson(rcSeason, rcLeague, "transactions", { TRANS_TYPE: "TRADE", DAYS: String(Math.ceil(rcWindowSec / 86400) + 1) }, { useCookie: true }),
           mflExportJson(rcSeason, rcLeague, "rosters", {}, { useCookie: true }),
           mflExportJson(rcSeason, rcLeague, "league", {}, { useCookie: true }),
         ]);
         if (!rcTx.ok || !rcRos.ok || !rcLg.ok) { await rcBeat("blind:mfl_unreadable"); return jsonOut(200, { ok: false, error: "mfl_unreadable" }); }
         const rcTrades = asArray(rcTx.data?.transactions?.transaction).filter(Boolean);
-        const rcRecent = rcTrades.filter((t) => (parseInt(t.timestamp, 10) || 0) >= Math.max(rcSince, rcNow - 36 * 3600));
-        if (!rcRecent.length) { await rcBeat("ok:no_recent_trades"); return jsonOut(200, { ok: true, findings: [], notified: 0 }); }
+        const rcRecent = rcTrades.filter((t) => (parseInt(t.timestamp, 10) || 0) >= Math.max(rcSince, rcNow - rcWindowSec));
+        if (!rcRecent.length && !rcOpen.length) { await rcBeat("ok:no_recent_trades"); return jsonOut(200, { ok: true, dry_run: rcDry, findings: [], notified: 0 }); }
         const rcRoot = rcLg.data?.league || {};
         const rcMax = parseInt(rcRoot.rosterSize, 10);
         if (!(rcMax > 0)) { await rcBeat("blind:roster_max_unreadable"); return jsonOut(200, { ok: false, error: "roster_max_unreadable" }); }
@@ -52342,7 +52362,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           const fid = padFranchiseId(fr.id);
           rcRosters[fid] = asArray(fr.player).filter(Boolean).map((p) => ({ id: String(p.id || "").replace(/\D/g, ""), status: safeStr(p.status) }));
         }
-        for (const t of rcRecent) for (const fid of [padFranchiseId(t.franchise), padFranchiseId(t.franchise2)]) for (const p of rcRosters[fid] || []) rcPids.add(p.id);
+        const rcFids = new Set(rcOpen.map((o) => padFranchiseId(o.franchise_id)));
+        for (const t of rcRecent) { rcFids.add(padFranchiseId(t.franchise)); rcFids.add(padFranchiseId(t.franchise2)); }
+        for (const fid of rcFids) for (const p of rcRosters[fid] || []) rcPids.add(p.id);
         const rcPl = await mflExportJson(rcSeason, rcLeague, "players", { PLAYERS: [...rcPids].join(","), DETAILS: "1" }, { useCookie: true });
         if (!rcPl.ok) { await rcBeat("blind:players_unreadable"); return jsonOut(200, { ok: false, error: "players_unreadable" }); }
         const rcPos = {}, rcTeam = {};
@@ -52350,13 +52372,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         let rcWar = [];
         try {
           const { results } = await env.UPS_MFL_DB.prepare("SELECT participants, mfl_executed_at_utc FROM ups_trade_executions WHERE league_id = ? AND season = ? AND mfl_executed_at_utc IS NOT NULL AND mfl_executed_at_utc >= ?")
-            .bind(rcLeague, rcSeason, new Date((rcNow - 40 * 3600) * 1000).toISOString()).all();
+            .bind(rcLeague, rcSeason, new Date((rcNow - rcWindowSec - 4 * 3600) * 1000).toISOString()).all();
           rcWar = (results || []).map((r) => ({ participants: safeStr(r.participants), mfl_executed_at_unix: Math.floor(Date.parse(r.mfl_executed_at_utc) / 1000) }));
         } catch (e) {
           // the War Room ledger couldn't be read: rather than mistake a War Room trade for a native one, wait
           if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:ledger_unreadable"); return jsonOut(200, { ok: false, error: "ledger_unreadable" }); }
         }
-        const rcFindings = planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow });
+        const rcFindings = planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow, windowSec: rcWindowSec })
+          .sort((x, y) => x.trade_ts - y.trade_ts);
         let rcKick = null;
         const rcKickoffs = async () => {
           if (rcKick) return rcKick;
@@ -52367,45 +52390,92 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return rcKick;
         };
         const rcEt = (unix) => new Date(unix * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+        const rcAge = (iso) => rcNow - Math.floor((Date.parse(iso) || 0) / 1000);
         if (!rcDry) {
           await env.UPS_MFL_DB.prepare(`CREATE TABLE IF NOT EXISTS ups_trade_roster_check (league_id TEXT NOT NULL, season TEXT NOT NULL, check_key TEXT NOT NULL, franchise_id TEXT NOT NULL, kind TEXT NOT NULL,
             trade_ts INTEGER NOT NULL, deadline_unix INTEGER, status TEXT NOT NULL, message TEXT, notified_owner INTEGER DEFAULT 0, notified_commish INTEGER DEFAULT 0, escalated_at_utc TEXT,
             created_at_utc TEXT NOT NULL, updated_at_utc TEXT NOT NULL, PRIMARY KEY (league_id, season, check_key))`).run();
         }
         const rcOut = [];
+        // 1. close every open alert whose team MFL now shows back within that limit (a later overage then alerts again)
+        const rcOpenByFk = new Map();
+        for (const o of rcOpen) {
+          const fid = padFranchiseId(o.franchise_id);
+          const ov = currentOverage({ roster: rcRosters[fid], rosterMax: rcMax, positions: rcPos });
+          const back = o.kind === "qb" ? ov.qb === false : !ov.roster;
+          const sending = o.status === "sending";
+          if (back && (!sending || rcAge(o.updated_at_utc) >= rcStaleSec)) {
+            if (!rcDry) {
+              const ts = new Date().toISOString();
+              await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET status = 'resolved', updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = ?").bind(ts, rcLeague, rcSeason, o.check_key, o.status).run();
+            }
+            rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: rcDry ? "would_resolve" : "resolved", active: ov.active, active_qbs: ov.active_qbs });
+            rcResolvedAt.set(`${fid}|${o.kind}`, rcNow);
+            continue;
+          }
+          const fk = `${fid}|${o.kind}`;
+          if (!rcOpenByFk.has(fk)) rcOpenByFk.set(fk, o);
+        }
+        // 2. each finding: ONE alert per team and limit while it stays over, however many trades are involved
         for (const f of rcFindings) {
           const teams = (rcRosters[f.franchise_id] || []).filter((p) => p.status.toUpperCase() === "ROSTER").map((p) => rcTeam[p.id]);
           const dl = cureDeadline({ tradeTs: f.trade_ts, nflTeams: teams, kickoffs: await rcKickoffs(), nowUnix: rcNow });
+          const teamName = rcNames[f.franchise_id] || f.franchise_id;
           const msg = rosterCheckMessage({ finding: f, teamName: rcNames[f.franchise_id], otherName: rcNames[f.other_id], tradeWhenEt: rcEt(f.trade_ts), deadlineEt: rcEt(dl.deadline_unix), basis: dl.basis });
           const checkKey = `${f.trade_key}|${f.franchise_id}|${f.kind}`;
+          const fk = `${f.franchise_id}|${f.kind}`;
           const rec = { ...f, check_key: checkKey, deadline_unix: dl.deadline_unix, deadline_basis: dl.basis, message: msg };
-          if (rcDry) { rcOut.push({ ...rec, action: "would_notify" }); continue; }
+          const open = rcOpenByFk.get(fk);
+          if (open && open.check_key !== checkKey) { rcOut.push({ ...rec, action: "covered_by_open_alert", open_check_key: open.check_key }); continue; }
+          if (!open && f.trade_ts < (rcResolvedAt.get(fk) || 0)) { rcOut.push({ ...rec, action: "before_resolution" }); continue; }
+          if (rcDry) {
+            const due = open && open.status === "notified" && !open.escalated_at_utc && rcNow >= (Number(open.deadline_unix) || 0);
+            rcOut.push({ ...rec, action: !open ? "would_notify" : due ? "would_escalate" : open.status === "sending" && rcAge(open.updated_at_utc) >= rcStaleSec ? "would_retry_stale_send" : "already_notified" });
+            if (!open) rcOpenByFk.set(fk, { check_key: checkKey, status: "sending" });
+            continue;
+          }
           const ts = new Date().toISOString();
           const claim = await env.UPS_MFL_DB.prepare(`INSERT OR IGNORE INTO ups_trade_roster_check (league_id, season, check_key, franchise_id, kind, trade_ts, deadline_unix, status, message, created_at_utc, updated_at_utc)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'sending', ?, ?, ?)`).bind(rcLeague, rcSeason, checkKey, f.franchise_id, f.kind, f.trade_ts, dl.deadline_unix, msg, ts, ts).run();
           if (!(claim && claim.meta && claim.meta.changes)) {
-            // Already told. Past the deadline and STILL over → one commissioner escalation (never an automatic penalty).
-            const row = await env.UPS_MFL_DB.prepare("SELECT status, deadline_unix, escalated_at_utc FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ?").bind(rcLeague, rcSeason, checkKey).first();
-            if (row && row.status === "notified" && !row.escalated_at_utc && rcNow >= (Number(row.deadline_unix) || 0)) {
-              const esc = await dmCommish(env, `⏰ Commissioner review: the deadline has passed and ${rcNames[f.franchise_id] || f.franchise_id} is still over — ${f.kind === "qb" ? `${f.active_qbs} active QBs (maximum 5)` : `${f.active} active players (maximum ${f.max})`}. Nothing has been dropped, voided or penalized.`).catch(() => 0);
-              if (esc) await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ?").bind(ts, ts, rcLeague, rcSeason, checkKey).run();
-              rcOut.push({ ...rec, action: esc ? "escalated" : "escalation_failed" });
-            } else rcOut.push({ ...rec, action: "already_notified" });
-            continue;
+            const row = await env.UPS_MFL_DB.prepare("SELECT status, deadline_unix, escalated_at_utc, updated_at_utc FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ?").bind(rcLeague, rcSeason, checkKey).first();
+            let reclaimed = false;
+            if (row && row.status === "resolved") { rcOut.push({ ...rec, action: "previously_resolved" }); continue; }
+            if (row && row.status === "sending" && rcAge(row.updated_at_utc) >= rcStaleSec) {
+              // the run that claimed it never finished: take it over (conditional, so only one run does)
+              const r2 = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending' AND updated_at_utc = ?").bind(ts, rcLeague, rcSeason, checkKey, row.updated_at_utc).run();
+              reclaimed = !!(r2 && r2.meta && r2.meta.changes);
+            }
+            if (!reclaimed) {
+              // Already told. Past the deadline and STILL over → one commissioner escalation (never an automatic penalty).
+              if (row && row.status === "notified" && !row.escalated_at_utc && rcNow >= (Number(row.deadline_unix) || 0)) {
+                // claim the escalation FIRST (conditional), so two overlapping runs can't both send it; undo the claim if the DM fails
+                const own = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'notified' AND escalated_at_utc IS NULL").bind(ts, ts, rcLeague, rcSeason, checkKey).run();
+                if (own && own.meta && own.meta.changes) {
+                  const esc = await dmCommish(env, `⏰ Commissioner review: the deadline has passed and ${teamName} is still over — ${f.kind === "qb" ? `${f.active_qbs} active QBs (maximum 5)` : `${f.active} active players (maximum ${f.max})`}. Nothing has been dropped, voided or penalized.`).catch(() => 0);
+                  if (!esc) await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = NULL WHERE league_id = ? AND season = ? AND check_key = ? AND escalated_at_utc = ?").bind(rcLeague, rcSeason, checkKey, ts).run();
+                  rcOut.push({ ...rec, action: esc ? "escalated" : "escalation_failed" });
+                } else rcOut.push({ ...rec, action: "already_notified" });
+              } else rcOut.push({ ...rec, action: "already_notified" });
+              rcOpenByFk.set(fk, { check_key: checkKey, status: row ? row.status : "sending" });
+              continue;
+            }
           }
+          rcOpenByFk.set(fk, { check_key: checkKey, status: "sending" });
           let owner = 0, commish = 0;
           try { const ids = await resolveDiscordUserIds(env, f.franchise_id); if (ids.length) owner = (await dmAll(env, ids, { content: msg, allowed_mentions: { parse: [] } })).sent || 0; } catch (_) {}
-          try { commish = await dmCommish(env, `🧾 Copy of what ${rcNames[f.franchise_id] || f.franchise_id} was sent — ${msg}`); } catch (_) {}
+          try { commish = await dmCommish(env, rosterCheckCommishCopy({ teamName, message: msg, ownerReached: owner > 0 })); } catch (_) {}
           if (owner + commish > 0) {
             await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET status = 'notified', notified_owner = ?, notified_commish = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ?").bind(owner, commish, ts, rcLeague, rcSeason, checkKey).run();
             rcOut.push({ ...rec, action: "notified", notified_owner: owner, notified_commish: commish });
           } else {
             await env.UPS_MFL_DB.prepare("DELETE FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending'").bind(rcLeague, rcSeason, checkKey).run();
+            rcOpenByFk.delete(fk);
             rcOut.push({ ...rec, action: "dm_failed_will_retry" });
           }
         }
         await rcBeat(`ok:findings=${rcFindings.length}`);
-        return jsonOut(200, { ok: true, dry_run: rcDry, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
+        return jsonOut(200, { ok: true, dry_run: rcDry, window_hours: rcWindowSec / 3600, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
       }
 
       // POST /admin/trades/settlement-sweep?L=&YEAR=&APIKEY=   body { dry_run? }

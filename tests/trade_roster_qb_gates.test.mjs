@@ -15,7 +15,7 @@
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { evaluateTradeCompliance, ACTIVE_QB_MAX, tradeLimitBlockPayload } from "../worker/src/trade_cap_authority.js";
 import { evaluateTaxiDestinations } from "../worker/src/trade_taxi_destination.js";
-import { planRosterChecks, cureDeadline, rosterCheckMessage } from "../worker/src/trade_roster_check.js";
+import { planRosterChecks, cureDeadline, rosterCheckMessage, isWarRoomTrade, currentOverage, rosterCheckCommishCopy, tradeKeyOf } from "../worker/src/trade_roster_check.js";
 
 const ok = (data) => ({ ok: true, data });
 const NAMES = { "0003": "Gride", "0006": "The Long Haulers", "0010": "Blake Bombers" };
@@ -193,6 +193,33 @@ test("after-trade check (trades accepted on MFL): over the max and over 5 QBs ar
   t.equal(JSON.stringify(f.map((x) => [x.franchise_id, x.kind, x.active])), JSON.stringify([["0003", "roster", 32]]));
   const qb = planRosterChecks({ trades: [trades[1]], rosters, rosterMax: 30, positions, sinceUnix: 0, nowUnix: 1791325000, warRoom: [] });
   t.equal(JSON.stringify(qb.map((x) => [x.franchise_id, x.kind, x.active, x.active_qbs])), JSON.stringify([["0006", "roster", 31, 6], ["0006", "qb", 31, 6]]));
+});
+
+test("War Room match (review 2026-10-08): real ledger timings — a 2-way within 3 minutes of its stamp; EVERY leg of a 3-way (stamped after its last leg); never a different pair or a later trade", () => {
+  // #1249: MFL 20:57:20, ledger 20:57:20.531 · the 07-22 3-way: legs 17:57:56-57 between 0008/0009/0010
+  const t1249 = tradeKeyOf({ timestamp: String(Date.parse("2026-10-06T20:57:20Z") / 1000), franchise: "0003", franchise2: "0010" });
+  t.equal(isWarRoomTrade(t1249, { participants: "0003,0010", mfl_executed_at_unix: Math.floor(Date.parse("2026-10-06T20:57:20.531Z") / 1000) }), true);
+  t.equal(isWarRoomTrade(t1249, { participants: "0003,0010", mfl_executed_at_unix: t1249.ts + 600 }), false, "10 minutes off is another trade");
+  t.equal(isWarRoomTrade(t1249, { participants: "0006,0010", mfl_executed_at_unix: t1249.ts }), false, "a different pair");
+  const stamp = Math.floor(Date.parse("2026-07-22T17:58:30Z") / 1000);
+  for (const [a, b, at] of [["0008", "0009", "17:57:56"], ["0009", "0010", "17:57:57"], ["0008", "0010", "17:57:57"]]) {
+    const leg = tradeKeyOf({ timestamp: String(Date.parse(`2026-07-22T${at}Z`) / 1000), franchise: a, franchise2: b });
+    t.equal(isWarRoomTrade(leg, { participants: "0008,0009,0010", mfl_executed_at_unix: stamp }), true, `${a}↔${b} is a leg`);
+    t.equal("0008_0009_0010" === [leg.a, leg.b].sort().join("_"), false, "(the old exact-pair rule missed every leg)");
+  }
+  const later = tradeKeyOf({ timestamp: String(stamp + 3600), franchise: "0008", franchise2: "0009" });
+  t.equal(isWarRoomTrade(later, { participants: "0008,0009,0010", mfl_executed_at_unix: stamp }), false, "an hour later is a native trade");
+  t.equal(isWarRoomTrade(t1249, { participants: "0003,0010", mfl_executed_at_unix: 0 }), false, "no stamp, no match");
+});
+
+test("current overage + the commissioner's copy (review 2026-10-08)", () => {
+  const roster = [...Array.from({ length: 31 }, (_, i) => ({ id: `p${i}`, status: "ROSTER" })), { id: "t", status: "TAXI_SQUAD" }];
+  const pos = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`p${i}`, "QB"]));
+  t.deepEqual(currentOverage({ roster, rosterMax: 30, positions: pos }), { roster: true, qb: true, active: 31, active_qbs: 6 });
+  t.deepEqual(currentOverage({ roster: roster.slice(1), rosterMax: 30, positions: pos }), { roster: false, qb: false, active: 30, active_qbs: 5 });
+  t.equal(currentOverage({ roster, rosterMax: 30, positions: null }).qb, null, "no positions → unknown, never 'fine'");
+  t.equal(rosterCheckCommishCopy({ teamName: "Gride", message: "M", ownerReached: true }), "🧾 Copy of what Gride was sent — M");
+  t.equal(rosterCheckCommishCopy({ teamName: "Gride", message: "M", ownerReached: false }), "⚠️ Gride's owner could NOT be reached on Discord (no linked account, or the DM failed) — please pass this on: M");
 });
 
 test("cure deadline = 24 hours after the trade or the team's next player lock, whichever comes first", () => {

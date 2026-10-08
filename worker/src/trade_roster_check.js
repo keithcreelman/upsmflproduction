@@ -16,6 +16,8 @@ const arr = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
 export const ACTIVE_QB_LIMIT = 5;
 export const CURE_WINDOW_SEC = 24 * 3600;
 export const WAR_ROOM_MATCH_SEC = 180;
+// A 3-way records its execution time AFTER its last leg, and each leg is an ordinary two-team MFL trade.
+export const THREE_WAY_LEGS_SEC = 900;
 
 /** MFL TRADE transaction → { key, ts, a, b }. Key = timestamp + both teams (MFL's ledger carries no trade id). */
 export function tradeKeyOf(tx) {
@@ -29,21 +31,20 @@ export function tradeKeyOf(tx) {
  * @param a.rosters      { fid -> [{ id, status }] }
  * @param a.rosterMax    MFL league.rosterSize (number) — required
  * @param a.positions    { pid -> position } — required
- * @param a.warRoom      [{ participants: "0003,0010", mfl_executed_at_unix }] War Room executions (gated there; skipped here)
- * @param a.sinceUnix / a.nowUnix
+ * @param a.warRoom      [{ participants: "0003,0010" | "0008,0001,0012", mfl_executed_at_unix }] War Room executions (gated there; skipped
+ *                       here). A trade is the War Room's when BOTH its teams are participants and its time is within
+ *                       WAR_ROOM_MATCH_SEC of the stamp — or, for a 3-way (whose stamp follows its last leg), up to THREE_WAY_LEGS_SEC before it.
+ * @param a.sinceUnix / a.nowUnix / a.windowSec (default 36 h; a longer window is for read-only dry runs only)
  * @returns [{ trade_key, trade_ts, franchise_id, other_id, kind: "roster"|"qb", active, max, active_qbs }]
  */
 export function planRosterChecks(a) {
   const out = [];
-  const since = Math.max(Number(a.sinceUnix) || 0, (Number(a.nowUnix) || 0) - 36 * 3600);
+  const since = Math.max(Number(a.sinceUnix) || 0, (Number(a.nowUnix) || 0) - (Number(a.windowSec) > 0 ? Number(a.windowSec) : 36 * 3600));
   for (const tx of arr(a.trades)) {
     if (s(tx && tx.type).toUpperCase() !== "TRADE") continue;
     const t = tradeKeyOf(tx);
     if (!t.ts || t.ts < since || !t.a || !t.b) continue;
-    const viaWarRoom = arr(a.warRoom).some((w) => {
-      const parts = s(w.participants).split(",").map(pad4).sort().join("_");
-      return parts === [t.a, t.b].sort().join("_") && Math.abs((Number(w.mfl_executed_at_unix) || 0) - t.ts) <= WAR_ROOM_MATCH_SEC;
-    });
+    const viaWarRoom = arr(a.warRoom).some((w) => isWarRoomTrade(t, w));
     if (viaWarRoom) continue;
     for (const fid of [t.a, t.b]) {
       const roster = arr(a.rosters && a.rosters[fid]);
@@ -55,6 +56,23 @@ export function planRosterChecks(a) {
     }
   }
   return out;
+}
+
+/** Is MFL trade `t` (tradeKeyOf) the War Room execution `w`? Both teams must be participants; a 3-way's stamp follows its last leg. */
+export function isWarRoomTrade(t, w) {
+  const parts = new Set(s(w && w.participants).split(",").map(pad4).filter(Boolean));
+  if (!parts.has(t.a) || !parts.has(t.b)) return false;
+  const at = Number(w.mfl_executed_at_unix) || 0;
+  if (!at) return false;
+  const before = parts.size > 2 ? THREE_WAY_LEGS_SEC : WAR_ROOM_MATCH_SEC;
+  return t.ts >= at - before && t.ts <= at + WAR_ROOM_MATCH_SEC;
+}
+
+/** Is this team over a limit RIGHT NOW (actual MFL statuses)? Used to close an open alert once the team has made its move. */
+export function currentOverage({ roster, rosterMax, positions }) {
+  const active = arr(roster).filter((p) => s(p.status).toUpperCase() === "ROSTER");
+  const qbs = positions ? active.filter((p) => s(positions[s(p.id)]).toUpperCase() === "QB").length : null;
+  return { roster: active.length > rosterMax, qb: qbs == null ? null : qbs > ACTIVE_QB_LIMIT, active: active.length, active_qbs: qbs };
 }
 
 /**
@@ -77,6 +95,13 @@ export function cureDeadline({ tradeTs, nflTeams, kickoffs, nowUnix }) {
     if (next) break;   // this week's next lock found; next week only when this week has none left
   }
   return next && next < by24 ? { deadline_unix: next, basis: "next_lock" } : { deadline_unix: by24, basis: "24h" };
+}
+
+/** The commissioner's copy. When the owner could not be reached it says so — never "a copy of what was sent". */
+export function rosterCheckCommishCopy({ teamName, message, ownerReached }) {
+  return ownerReached
+    ? `🧾 Copy of what ${teamName} was sent — ${message}`
+    : `⚠️ ${teamName}'s owner could NOT be reached on Discord (no linked account, or the DM failed) — please pass this on: ${message}`;
 }
 
 /** The DM both the affected owner and the commissioner receive. */
