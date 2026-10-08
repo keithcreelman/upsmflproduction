@@ -1,0 +1,706 @@
+[
+ {
+  "id": 1233,
+  "ts": "2026-06-01T15:51:19.739Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16614",
+  "auth": "owner/commissioner session",
+  "intended": "24000 EXT1 y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #10 dry_run=1",
+  "E2_code_versions": [
+   "32e25198"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1255 2026-06-04T16:27:05 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Extension \u2192 test (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-01T15:51:19Z (32e25198) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #10 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1255 2026-06-04T16:27:05 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Extension \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1234,
+  "ts": "2026-06-01T15:56:19.549Z",
+  "endpoint": "/offer-restructure",
+  "player_id": "14779",
+  "auth": "owner/commissioner session",
+  "intended": "31000 Vet-FAA-FL y2",
+  "E1_same_request_dry_run_record": "ups_restructure_submissions #1 dry_run=1",
+  "E2_code_versions": [
+   "32e25198"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": null,
+  "E6_activity_log": [
+   "Restructure \u2192 test (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-01T15:56:19Z (32e25198) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_restructure_submissions #1 dry_run=1 (written by the same handler from the request's own flag)",
+   "activity log: Restructure \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1235,
+  "ts": "2026-06-01T15:56:51.276Z",
+  "endpoint": "/offer-restructure",
+  "player_id": "14779",
+  "auth": "owner/commissioner session",
+  "intended": "76500 Vet-FAA-FL y2",
+  "E1_same_request_dry_run_record": "ups_restructure_submissions #2 dry_run=1",
+  "E2_code_versions": [
+   "32e25198"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": null,
+  "E6_activity_log": [
+   "Restructure \u2192 test (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-01T15:56:51Z (32e25198) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_restructure_submissions #2 dry_run=1 (written by the same handler from the request's own flag)",
+   "activity log: Restructure \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1236,
+  "ts": "2026-06-01T18:18:23.120Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16614",
+  "auth": "owner/commissioner session",
+  "intended": "14000 EXT1 y2",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #11 dry_run=1",
+  "E2_code_versions": [
+   "677cb75a",
+   "32e25198"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1255 2026-06-04T16:27:05 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Extension \u2192 test (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-01T18:18:23Z (677cb75a, 32e25198) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #11 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1255 2026-06-04T16:27:05 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Extension \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1237,
+  "ts": "2026-06-01T18:36:42.067Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16614",
+  "auth": "owner/commissioner session",
+  "intended": "24000 EXT1 y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #12 dry_run=1",
+  "E2_code_versions": [
+   "677cb75a"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1255 2026-06-04T16:27:05 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Extension \u2192 test (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-01T18:36:42Z (677cb75a) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #12 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1255 2026-06-04T16:27:05 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Extension \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1238,
+  "ts": "2026-06-03T10:08:26.970Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16212",
+  "auth": "owner/commissioner session",
+  "intended": "2000 Vet-ERA y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "3ea58590",
+   "4abe8774"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1834 2026-09-05T14:48:40 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "FA Contract \u2192 test (test_flag 0)"
+  ],
+  "tier": "B",
+  "evidence": [
+   "code: every worker version live at 2026-06-03T10:08:26Z (3ea58590, 4abe8774) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "MFL: next MFL-confirmed read of this player: 1834 2026-09-05T14:48:40 /commish-contract-update st=200 before==this.before:True",
+   "activity log: FA Contract \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1240,
+  "ts": "2026-06-03T13:47:54.433Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16174",
+  "auth": "commissioner key",
+  "intended": "3000 Vet-ERA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #13 dry_run=1",
+  "E2_code_versions": [
+   "36efe080",
+   "73cdb515"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1241 2026-06-03T13:49:07 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-03T13:47:54Z (36efe080, 73cdb515) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #13 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1241 2026-06-03T13:49:07 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1243,
+  "ts": "2026-06-03T15:12:08.862Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16174",
+  "auth": "commissioner key",
+  "intended": "3000 Vet-ERA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #16 dry_run=1",
+  "E2_code_versions": [
+   "d1f6c41b"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1244 2026-06-03T15:12:18 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-03T15:12:08Z (d1f6c41b) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #16 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1244 2026-06-03T15:12:18 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1246,
+  "ts": "2026-06-03T20:54:56.824Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16174",
+  "auth": "commissioner key",
+  "intended": "3000 Vet-ERA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #19 dry_run=1",
+  "E2_code_versions": [
+   "59aede77",
+   "432d96b4"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1247 2026-06-03T20:55:01 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-03T20:54:56Z (59aede77, 432d96b4) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #19 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1247 2026-06-03T20:55:01 /commish-contract-update st=200 before==this.before:True"
+  ]
+ },
+ {
+  "id": 1248,
+  "ts": "2026-06-04T13:11:41.764Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16194",
+  "auth": "owner/commissioner session",
+  "intended": "6000 Vet-Ext2 y3",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #21 dry_run=1",
+  "E2_code_versions": [
+   "9f00b7e9"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1268 2026-06-05T18:40:21 /offer-restructure st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Extension \u2192 test (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-04T13:11:41Z (9f00b7e9) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #21 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1268 2026-06-05T18:40:21 /offer-restructure st=200 before==this.before:True",
+   "activity log: Extension \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1250,
+  "ts": "2026-06-04T16:25:24.435Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "13674",
+  "auth": "commissioner key",
+  "intended": "7000 Vet-FAA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #23 dry_run=1",
+  "E2_code_versions": [
+   "43aecfef"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1251 2026-06-04T16:25:29 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-04T16:25:24Z (43aecfef) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #23 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1251 2026-06-04T16:25:29 /commish-contract-update st=200 before==this.before:True"
+  ]
+ },
+ {
+  "id": 1253,
+  "ts": "2026-06-04T16:26:15.325Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "14137",
+  "auth": "commissioner key",
+  "intended": "4000 Vet-FAA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #26 dry_run=1",
+  "E2_code_versions": [
+   "43aecfef"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1254 2026-06-04T16:26:19 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Extension \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-04T16:26:15Z (43aecfef) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #26 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1254 2026-06-04T16:26:19 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Extension \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1256,
+  "ts": "2026-06-04T16:27:20.766Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16614",
+  "auth": "commissioner key",
+  "intended": "14000 Rookie-Draft y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #29 dry_run=1",
+  "E2_code_versions": [
+   "43aecfef"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1257 2026-06-04T16:27:24 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-04T16:27:20Z (43aecfef) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #29 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1257 2026-06-04T16:27:24 /commish-contract-update st=200 before==this.before:True"
+  ]
+ },
+ {
+  "id": 1259,
+  "ts": "2026-06-04T17:32:58.621Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16252",
+  "auth": "commissioner key",
+  "intended": "1000 Vet-ERA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #32 dry_run=1",
+  "E2_code_versions": [
+   "43aecfef"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1260 2026-06-04T17:33:03 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-04T17:32:58Z (43aecfef) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #32 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1260 2026-06-04T17:33:03 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1262,
+  "ts": "2026-06-04T22:29:11.592Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16193",
+  "auth": "commissioner key",
+  "intended": "2000 Vet-ERA y1",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #35 dry_run=1",
+  "E2_code_versions": [
+   "43aecfef"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1263 2026-06-04T22:29:14 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-04T22:29:11Z (43aecfef) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #35 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1263 2026-06-04T22:29:14 /commish-contract-update st=200 before==this.before:True",
+   "activity log: Multi-Year Contract \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1264,
+  "ts": "2026-06-05T17:41:08.108Z",
+  "endpoint": "/offer-mym",
+  "player_id": "14836",
+  "auth": "owner/commissioner session",
+  "intended": "71000 Vet-MYM y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "3eef1b46"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+  "E6_activity_log": [
+   "FA Contract \u2192 test (test_flag 0)"
+  ],
+  "tier": "B",
+  "evidence": [
+   "code: every worker version live at 2026-06-05T17:41:08Z (3eef1b46) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "MFL: next MFL-confirmed read of this player: 1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+   "activity log: FA Contract \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1265,
+  "ts": "2026-06-05T18:21:57.271Z",
+  "endpoint": "/offer-mym",
+  "player_id": "14836",
+  "auth": "owner/commissioner session",
+  "intended": "1000 Vet-MYM y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "a355cb92",
+   "3eef1b46"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+  "E6_activity_log": [
+   "MYM \u2192 test (test_flag 0)"
+  ],
+  "tier": "B",
+  "evidence": [
+   "code: every worker version live at 2026-06-05T18:21:57Z (a355cb92, 3eef1b46) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "MFL: next MFL-confirmed read of this player: 1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+   "activity log: MYM \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1266,
+  "ts": "2026-06-05T18:22:17.626Z",
+  "endpoint": "/offer-mym",
+  "player_id": "14836",
+  "auth": "owner/commissioner session",
+  "intended": "1000 Vet-MYM y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "a355cb92",
+   "3eef1b46"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+  "E6_activity_log": [
+   "MYM \u2192 test (test_flag 0)"
+  ],
+  "tier": "B",
+  "evidence": [
+   "code: every worker version live at 2026-06-05T18:22:17Z (a355cb92, 3eef1b46) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "MFL: next MFL-confirmed read of this player: 1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+   "activity log: MYM \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1267,
+  "ts": "2026-06-05T18:24:01.002Z",
+  "endpoint": "/offer-mym",
+  "player_id": "14836",
+  "auth": "owner/commissioner session",
+  "intended": "1000 Vet-MYM y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "ad60f753",
+   "a355cb92"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+  "E6_activity_log": [
+   "MYM \u2192 test (test_flag 0)"
+  ],
+  "tier": "B",
+  "evidence": [
+   "code: every worker version live at 2026-06-05T18:24:01Z (ad60f753, a355cb92) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "MFL: next MFL-confirmed read of this player: 1806 2026-08-06T03:22:51 /admin/import-salaries st=200 before==this.before:True",
+   "activity log: MYM \u2192 test (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1269,
+  "ts": "2026-06-05T21:39:13.170Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16194",
+  "auth": "commissioner key",
+  "intended": "25000 Veteran y2",
+  "E1_same_request_dry_run_record": "ups_extension_submissions #658 dry_run=1",
+  "E2_code_versions": [
+   "ac5bf9ad",
+   "ad60f753"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1620 2026-07-19T13:54:49 /admin/import-salaries st=200 before==this.before:False",
+  "E6_activity_log": [
+   "Extension \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-05T21:39:13Z (ac5bf9ad, ad60f753) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: same-request record ups_extension_submissions #658 dry_run=1 (written by the same handler from the request's own flag)",
+   "MFL: next MFL-confirmed read of this player: 1620 2026-07-19T13:54:49 /admin/import-salaries st=200 before==this.before:False",
+   "activity log: Extension \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1271,
+  "ts": "2026-06-05T21:40:45.826Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16167",
+  "auth": "commissioner key",
+  "intended": "25000 Vet-Ext2-BL y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "ac5bf9ad",
+   "ad60f753"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1272 2026-06-05T21:40:50 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "Extension \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-06-05T21:40:45Z (ac5bf9ad, ad60f753) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: followed seconds later by the identical REAL request (1272 2026-06-05T21:40:50 /commish-contract-update st=200), whose before-state equals this row's",
+   "activity log: Extension \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1698,
+  "ts": "2026-07-28T02:50:50.295Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "16185",
+  "auth": "commissioner key",
+  "intended": "1000 Vet-Ext2-FL y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "6df05c67"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1701 2026-07-28T02:51:07 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "FA Contract \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-07-28T02:50:50Z (6df05c67) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: followed seconds later by the identical REAL request (1701 2026-07-28T02:51:07 /commish-contract-update st=200), whose before-state equals this row's",
+   "activity log: FA Contract \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1699,
+  "ts": "2026-07-28T02:50:51.570Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "14833",
+  "auth": "commissioner key",
+  "intended": "1000 Vet-FAA-FL y1",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "6df05c67"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1702 2026-07-28T02:51:10 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-07-28T02:50:51Z (6df05c67) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: followed seconds later by the identical REAL request (1702 2026-07-28T02:51:10 /commish-contract-update st=200), whose before-state equals this row's"
+  ]
+ },
+ {
+  "id": 1700,
+  "ts": "2026-07-28T02:50:52.899Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "13696",
+  "auth": "commissioner key",
+  "intended": "1000 Vet-FAA-FL y1",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "6df05c67"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1703 2026-07-28T02:51:13 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-07-28T02:50:52Z (6df05c67) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: followed seconds later by the identical REAL request (1703 2026-07-28T02:51:13 /commish-contract-update st=200), whose before-state equals this row's"
+  ]
+ },
+ {
+  "id": 1704,
+  "ts": "2026-07-28T10:25:34.764Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "15290",
+  "auth": "commissioner key",
+  "intended": "30000 Vet-Ext2-BL y2",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "6df05c67"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1706 2026-07-28T10:25:47 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [
+   "FA Contract \u2192 silenced (test_flag 0)"
+  ],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-07-28T10:25:34Z (6df05c67) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: followed seconds later by the identical REAL request (1706 2026-07-28T10:25:47 /commish-contract-update st=200), whose before-state equals this row's",
+   "activity log: FA Contract \u2192 silenced (test_flag 0)"
+  ]
+ },
+ {
+  "id": 1705,
+  "ts": "2026-07-28T10:25:35.892Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "14778",
+  "auth": "commissioner key",
+  "intended": "15000 Vet-Ext2-FL y1",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "6df05c67"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": "1707 2026-07-28T10:25:49 /commish-contract-update st=200 before==this.before:True",
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-07-28T10:25:35Z (6df05c67) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: followed seconds later by the identical REAL request (1707 2026-07-28T10:25:49 /commish-contract-update st=200), whose before-state equals this row's"
+  ]
+ },
+ {
+  "id": 1876,
+  "ts": "2026-10-07T20:13:55.092Z",
+  "endpoint": "/commish-contract-update",
+  "player_id": "99999999",
+  "auth": "owner/commissioner session",
+  "intended": "1000 Vet-FAA y1",
+  "E1_same_request_dry_run_record": null,
+  "E2_code_versions": [
+   "750b32df",
+   "4c1286cc"
+  ],
+  "E2_all_13_checks_hold": true,
+  "E3_import_status": 0,
+  "E3_all_4_fields_before_eq_after": true,
+  "E4_next_mfl_confirmed_row": null,
+  "E6_activity_log": [],
+  "tier": "A",
+  "evidence": [
+   "code: every worker version live at 2026-10-07T20:13:55Z (750b32df, 4c1286cc) writes landed=1 with import_status 0 only on the dry-run branch (13 checks, all hold)",
+   "row: import_status 0 (no MFL response) and before = after on all four contract fields (a real landed write requires an observed year/info/status change)",
+   "request: the 2026-10-07 auth-check probe; its body carried dry_run=1 (session record); its [DRY RUN] card is in the test Discord channel; its activity-log row was reverted in #1188"
+  ]
+ }
+]

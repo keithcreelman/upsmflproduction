@@ -1,0 +1,222 @@
+[
+ {
+  "activity_id": "bc08737b50a3b072b7c7b7e2",
+  "change_log_id": 1233,
+  "player_id": "16614",
+  "player_name": "",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-01T15:51:18.402Z",
+  "delivery_target": "test",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "2e28f3f352fdba4d0ac686ac",
+  "change_log_id": 1234,
+  "player_id": "14779",
+  "player_name": "Herbert, Justin",
+  "activity_type": "Restructure",
+  "submitted_at_utc": "2026-06-01T15:56:18.105Z",
+  "delivery_target": "test",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "6eee6588cbe3ac62dbc92d24",
+  "change_log_id": 1235,
+  "player_id": "14779",
+  "player_name": "Herbert, Justin",
+  "activity_type": "Restructure",
+  "submitted_at_utc": "2026-06-01T15:56:50.091Z",
+  "delivery_target": "test",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "b196efe091ca0e5dd14b3559",
+  "change_log_id": 1236,
+  "player_id": "16614",
+  "player_name": "",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-01T18:18:21.879Z",
+  "delivery_target": "test",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "7a8b5e6fadaf731657de9030",
+  "change_log_id": 1237,
+  "player_id": "16614",
+  "player_name": "",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-01T18:36:40.854Z",
+  "delivery_target": "test",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "dbe64fb42722e6321b66a6b1",
+  "change_log_id": 1238,
+  "player_id": "16212",
+  "player_name": "Michael Mayer",
+  "activity_type": "FA Contract",
+  "submitted_at_utc": "2026-06-03T10:08:25.213Z",
+  "delivery_target": "test",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "b0ddc2f2d74a636a6ec66748",
+  "change_log_id": 1240,
+  "player_id": "16174",
+  "player_name": "Rodriguez, Chris",
+  "activity_type": "Multi-Year Contract",
+  "submitted_at_utc": "2026-06-03T13:47:51.690Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "069e31c472ff215fd9a33eff",
+  "change_log_id": 1243,
+  "player_id": "16174",
+  "player_name": "Rodriguez, Chris",
+  "activity_type": "Multi-Year Contract",
+  "submitted_at_utc": "2026-06-03T15:12:07.777Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "59549decbf0f745fcdab12dc",
+  "change_log_id": 1248,
+  "player_id": "16194",
+  "player_name": "Benson, Trey",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-04T13:11:38.029Z",
+  "delivery_target": "test",
+  "discord_channel_id": "1089538054236160010",
+  "discord_message_id": "1512081410863796296"
+ },
+ {
+  "activity_id": "18c076258e1087f9ed4d4db0",
+  "change_log_id": 1253,
+  "player_id": "14137",
+  "player_name": "",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-04T16:26:14.348Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "0957d55f77024a1b28667856",
+  "change_log_id": 1259,
+  "player_id": "16252",
+  "player_name": "McDonald, Will",
+  "activity_type": "Multi-Year Contract",
+  "submitted_at_utc": "2026-06-04T17:32:57.705Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "2e55ad50b6e77d88afb1f6b8",
+  "change_log_id": 1262,
+  "player_id": "16193",
+  "player_name": "Boutte, Kayshon",
+  "activity_type": "Multi-Year Contract",
+  "submitted_at_utc": "2026-06-04T22:29:10.172Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "0f4733771ff96841a1fd5678",
+  "change_log_id": 1264,
+  "player_id": "14836",
+  "player_name": "Jefferson, Justin",
+  "activity_type": "FA Contract",
+  "submitted_at_utc": "2026-06-05T17:41:05.539Z",
+  "delivery_target": "test",
+  "discord_channel_id": "1089538054236160010",
+  "discord_message_id": "1512511604405698580"
+ },
+ {
+  "activity_id": "26899c41cf0c38e9d48c7cb9",
+  "change_log_id": 1265,
+  "player_id": "14836",
+  "player_name": "Jefferson, Justin",
+  "activity_type": "MYM",
+  "submitted_at_utc": "2026-06-05T18:21:55.433Z",
+  "delivery_target": "test",
+  "discord_channel_id": "1089538054236160010",
+  "discord_message_id": "1512521877523005451"
+ },
+ {
+  "activity_id": "4f49b78f9fa4f0f82200ca2f",
+  "change_log_id": 1266,
+  "player_id": "14836",
+  "player_name": "Jefferson, Justin",
+  "activity_type": "MYM",
+  "submitted_at_utc": "2026-06-05T18:22:14.294Z",
+  "delivery_target": "test",
+  "discord_channel_id": "1089538054236160010",
+  "discord_message_id": "1512521963019567197"
+ },
+ {
+  "activity_id": "8c57373f2cfa3d9fb553b244",
+  "change_log_id": 1267,
+  "player_id": "14836",
+  "player_name": "Jefferson, Justin",
+  "activity_type": "MYM",
+  "submitted_at_utc": "2026-06-05T18:23:58.973Z",
+  "delivery_target": "test",
+  "discord_channel_id": "1089538054236160010",
+  "discord_message_id": "1512522397046276268"
+ },
+ {
+  "activity_id": "c612dbfdd39f7552fc02fe2b",
+  "change_log_id": 1269,
+  "player_id": "16194",
+  "player_name": "Rice, Rashee",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-05T21:39:12.286Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "1dac2d05f77f6ba10265fedb",
+  "change_log_id": 1271,
+  "player_id": "16167",
+  "player_name": "Achane, De'Von",
+  "activity_type": "Extension",
+  "submitted_at_utc": "2026-06-05T21:40:44.435Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "45fa3e7438fc2c06f5227cee",
+  "change_log_id": 1698,
+  "player_id": "16185",
+  "player_name": "",
+  "activity_type": "FA Contract",
+  "submitted_at_utc": "2026-07-28T02:50:49.332Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ },
+ {
+  "activity_id": "e5b8c4d68bf8089a819ff4fb",
+  "change_log_id": 1704,
+  "player_id": "15290",
+  "player_name": "",
+  "activity_type": "FA Contract",
+  "submitted_at_utc": "2026-07-28T10:25:33.794Z",
+  "delivery_target": "silenced",
+  "discord_channel_id": "",
+  "discord_message_id": ""
+ }
+]

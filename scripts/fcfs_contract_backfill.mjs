@@ -77,8 +77,9 @@ export const QUERIES = Object.freeze({
   stampLog2026: `SELECT id, created_ts, player_id, after_salary, after_contract_status, after_contract_year, after_contract_info, landed, endpoint FROM salary_change_log WHERE season='${CURRENT_SEASON}' AND dry_run=0 AND landed=1 AND endpoint='/admin/import-salaries'`,
   cycles: `SELECT season, player_id, franchise_id, acquisition_date, salary_at_acquisition_usd, contract_years_at_acquisition, contract_type_at_acquisition FROM player_acquisition_cycles WHERE acquisition_path='fcfs'`,
   repairAudit2026: `SELECT id, note FROM ups_contract_gate_audit WHERE field = 'fcfs_reprice_unstamped_drop' AND season = '${CURRENT_SEASON}'`,
-  changeLog2026: `SELECT id, created_ts, player_id, endpoint, dry_run, landed, before_salary, before_contract_status, before_contract_year, before_contract_info, after_salary, after_contract_status, after_contract_year, after_contract_info FROM salary_change_log
-                  WHERE season='${CURRENT_SEASON}' AND dry_run=0 AND landed=1 AND player_id IN (SELECT player_id FROM ups_add_events WHERE season='${CURRENT_SEASON}' AND source='fcfs' AND contract_annotated IN (0,3)) ORDER BY id`,
+  // only MFL-confirmed writes are evidence (worker/src/fcfs_contract.js isMflConfirmedWrite): a contract-route DRY RUN was logged landed=1 / dry_run=0 with import_status 0 until 2026-10-08
+  changeLog2026: `SELECT id, created_ts, player_id, endpoint, dry_run, landed, import_status, notes, before_salary, before_contract_status, before_contract_year, before_contract_info, after_salary, after_contract_status, after_contract_year, after_contract_info FROM salary_change_log
+                  WHERE season='${CURRENT_SEASON}' AND dry_run=0 AND landed=1 AND import_status BETWEEN 200 AND 299 AND player_id IN (SELECT player_id FROM ups_add_events WHERE season='${CURRENT_SEASON}' AND source='fcfs' AND contract_annotated IN (0,3)) ORDER BY id`,
   ledger2026: `SELECT player_id, winner_fid, source, salary, contract_status, contract_info, finalized_at_unix FROM ups_auction_contract_finalizations WHERE season='${CURRENT_SEASON}'`,
 });
 const assertReadOnly = (sql) => { if (!/^\s*SELECT\b/i.test(sql) || /;\s*\S/.test(sql)) throw new Error("fcfs backfill: read-only helper refuses a non-SELECT statement"); };
