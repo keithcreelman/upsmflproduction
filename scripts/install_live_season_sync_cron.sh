@@ -14,6 +14,14 @@
 # improvement to the sync script is picked up automatically on the next
 # Tuesday run.
 # Reinstall-safe.
+#
+# Schedule (2026-10-08): Tuesday 01:00 (new week) PLUS Thursday and Friday
+# 08:00 (official Elias stat corrections, which MFL applies Wednesday night or
+# just after midnight -- see the wrapper's header). Installing THIS version adds
+# the two new firings; that is the commissioner's call, so it is never run
+# automatically.
+#
+#   bash scripts/install_live_season_sync_cron.sh --print-plist   # show, change nothing
 
 set -euo pipefail
 
@@ -30,14 +38,8 @@ if [ ! -f "$WRAPPER_SRC" ]; then
   exit 1
 fi
 
-mkdir -p "$(dirname "$WRAPPER_DST")" "$(dirname "$PLIST_DST")" "$(dirname "$LOG_PATH")"
-cp -f "$WRAPPER_SRC" "$WRAPPER_DST" && chmod +x "$WRAPPER_DST"
-echo "✓ installed wrapper -> $WRAPPER_DST"
-echo "  (it will call \$UPSMFL_REPO_ROOT/pipelines/etl/scripts/sync_live_season_from_mfl_to_d1.py,"
-echo "   default \$UPSMFL_REPO_ROOT = \$HOME/Code/MFL/upsmflproduction — the MAIN checkout,"
-echo "   so this PR must be merged to main and pulled there before Tuesday's first real run.)"
-
-cat > "$PLIST_DST" <<EOF
+plist() {
+cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -50,21 +52,49 @@ cat > "$PLIST_DST" <<EOF
     <string>-lc</string>
     <string>$WRAPPER_DST</string>
   </array>
-  <!-- Every Tuesday 01:00 local. The wrapper itself retries hourly (up to
-       12x) if MFL's data hasn't landed/settled yet, so this single firing
-       covers the whole "keep checking until populated" window. -->
+  <!-- Tuesday 01:00: the new week (the wrapper retries hourly, up to 12x,
+       until MFL's data has landed). Thursday + Friday 08:00: one refresh pass
+       each, to pick up Elias's official stat corrections; it writes nothing
+       when MFL's scores haven't moved. -->
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Weekday</key><integer>2</integer>
-    <key>Hour</key><integer>1</integer>
-    <key>Minute</key><integer>0</integer>
-  </dict>
+  <array>
+    <dict>
+      <key>Weekday</key><integer>2</integer>
+      <key>Hour</key><integer>1</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Weekday</key><integer>4</integer>
+      <key>Hour</key><integer>8</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>Weekday</key><integer>5</integer>
+      <key>Hour</key><integer>8</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+  </array>
   <key>StandardOutPath</key><string>$LOG_PATH</string>
   <key>StandardErrorPath</key><string>$LOG_PATH</string>
   <key>RunAtLoad</key><false/>
 </dict>
 </plist>
 EOF
+}
+
+if [ "${1:-}" = "--print-plist" ]; then
+  plist
+  exit 0
+fi
+
+mkdir -p "$(dirname "$WRAPPER_DST")" "$(dirname "$PLIST_DST")" "$(dirname "$LOG_PATH")"
+cp -f "$WRAPPER_SRC" "$WRAPPER_DST" && chmod +x "$WRAPPER_DST"
+echo "✓ installed wrapper -> $WRAPPER_DST"
+echo "  (it will call \$UPSMFL_REPO_ROOT/pipelines/etl/scripts/sync_live_season_from_mfl_to_d1.py,"
+echo "   default \$UPSMFL_REPO_ROOT = \$HOME/Code/MFL/upsmflproduction — the MAIN checkout,"
+echo "   so this PR must be merged to main and pulled there before Tuesday's first real run.)"
+
+plist > "$PLIST_DST"
 echo "✓ wrote plist -> $PLIST_DST"
 
 launchctl unload "$PLIST_DST" 2>/dev/null || true
@@ -72,8 +102,9 @@ launchctl load "$PLIST_DST"
 echo "✓ loaded launchd job '$LABEL'"
 
 echo ""
-echo "Installed. Runs every Tuesday at 01:00 local, retrying hourly (up to 12x)"
-echo "until a new week's data shows up in MFL."
+echo "Installed. Runs Tuesday at 01:00 local, retrying hourly (up to 12x) until a"
+echo "new week's data shows up in MFL, and Thursday + Friday at 08:00 for one refresh"
+echo "pass each (official stat corrections)."
 echo "Log: $LOG_PATH"
 echo "Unload with: launchctl unload $PLIST_DST"
 echo ""
