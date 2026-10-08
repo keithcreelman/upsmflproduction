@@ -1,0 +1,121 @@
+{
+ "allplayChanged": false,
+ "allplayChanges": [],
+ "checkedAtUtc": "2026-10-08T13:59:36Z",
+ "games": [],
+ "officialChanges": [
+  {
+   "from": 1.0,
+   "game": "New York Jets at Chicago Bears",
+   "player": "Jamien Sherwood",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 0.0
+  },
+  {
+   "from": 0.0,
+   "game": "Jacksonville Jaguars at Cincinnati Bengals",
+   "player": "Dennis Gardeck",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 1.0
+  },
+  {
+   "from": 0.0,
+   "game": "Dallas Cowboys at Houston Texans",
+   "player": "Tyrus Wheat",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Special Teams Assists",
+   "to": 1.0
+  },
+  {
+   "from": 1.0,
+   "game": "Dallas Cowboys at Houston Texans",
+   "player": "Markquese Bell",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Special Teams Assists",
+   "to": 0.0
+  },
+  {
+   "from": 7.0,
+   "game": "Green Bay Packers at Tampa Bay Buccaneers",
+   "player": "Javon Bullard",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 6.0
+  },
+  {
+   "from": 1.0,
+   "game": "Green Bay Packers at Tampa Bay Buccaneers",
+   "player": "Brenton Cox",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 2.0,
+   "game": "Green Bay Packers at Tampa Bay Buccaneers",
+   "player": "Brenton Cox",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 4.0,
+   "game": "Los Angeles Chargers at Seattle Seahawks",
+   "player": "Daiyan Henley",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 3.0
+  },
+  {
+   "from": 1.0,
+   "game": "Los Angeles Chargers at Seattle Seahawks",
+   "player": "Daiyan Henley",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 0.0,
+   "game": "Los Angeles Chargers at Seattle Seahawks",
+   "player": "Tarheeb Still",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 1.0
+  },
+  {
+   "from": 6.0,
+   "game": "Detroit Lions at Carolina Panthers",
+   "player": "Jack Campbell",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 4.0,
+   "game": "Detroit Lions at Carolina Panthers",
+   "player": "Chuck Clark",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 0.0,
+   "game": "Detroit Lions at Carolina Panthers",
+   "player": "Trevor Nowaske",
+   "publishedText": "Wed Oct 7 11:32:16 p.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 1.0
+  }
+ ],
+ "players": [],
+ "published": [
+  "Wed Oct 7, 11:32 PM ET"
+ ],
+ "rankChanges": [],
+ "resultsFlipped": 0,
+ "season": 2026,
+ "teams": [],
+ "week": 4
+}
