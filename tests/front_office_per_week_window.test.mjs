@@ -166,17 +166,33 @@ test("FRONT OFFICE FAIL-CLOSED: no window → no number. Loading shows the loadi
   t.ok(!/Math\.round\(sal \/ 17\)/.test(FO), "no assumed 17-week divisor is left");
 });
 
-test("DEPLOY ORDER: the new page reads BOTH worker row shapes — today's live rows (no eligible_weeks) give the same Per Wk as the new worker", async () => {
+test("DEPLOY ORDER: the new page reads BOTH worker row shapes — an explicit acquisition week is used, an old worker's ambiguous null is NEVER 17 weeks", async () => {
   // Worker and Pages deploy independently on one merge, and a worker rollout serves old isolates for a while.
   const live = JSON.parse(fs.readFileSync(new URL("./fixtures/cap_penalty_preview_live_2026_10_09.json", import.meta.url), "utf8")).players;
   t.ok(!("eligible_weeks" in live["16601"]) && live["16601"].acquisition_week === 5, "the fixture IS the old shape (captured from production 2026-10-09)");
-  const oldShape = foCtx("ok", live), newShape = foCtx("ok", (await preview()).players);
-  for (const [p, want] of [[SHIPLEY, "$846"], [MEYERS, "$462"], [AUCTION, "$471"]]) {
-    t.equal(oldShape(p).label, want, p.id + " on the OLD worker"); t.equal(newShape(p).label, want, p.id + " on the NEW worker");
-  }
-  t.equal(foCtx("ok", { "16601": { penalty: 8250, earned: 0, acquisition_week: null } })(SHIPLEY).label, "$647",
-    "old shape, no acquisition week = that worker priced him on 17 weeks; the page agrees with that worker's own Earned column");
-  t.match(foCtx("ok", { "16601": { penalty: null, eligible_weeks: null, acquisition_week: null } })(SHIPLEY).label, /—<\/span>$/, "new shape, window unresolved: —");
+  const unavailable = /could not be resolved[^<]*">—<\/span>$/;
+  // OLD worker, explicit Week-5 pickups (today's live rows): that worker's own window, 18 − 5 = 13
+  const oldShape = foCtx("ok", live);
+  t.equal(oldShape(SHIPLEY).label, "$846", "old worker, explicit Week 5: $11,000 / 13"); t.equal(oldShape(MEYERS).label, "$462");
+  // OLD worker, acquisition_week null — ambiguous: a full-season contract (today's live auction row 16696) OR a failed transactions read
+  t.equal(live["16696"].acquisition_week, null, "the live auction row carries null");
+  t.match(oldShape(AUCTION).label, unavailable, "old worker, null on a legitimate full-season contract: — (the page cannot tell it from a failed read)");
+  t.equal(oldShape(AUCTION).sort, -1);
+  const oldFailedRead = { "16601": { ...live["16601"], acquisition_week: null, penalty: 4368, earned: 3882, current_year_earned: 3882 } };   // what that worker returns when its read fails: priced on 17 weeks
+  t.match(foCtx("ok", oldFailedRead)(SHIPLEY).label, unavailable, "old worker, FAILED read: — (not $647 off a guessed 17 weeks)");
+  t.match(foCtx("ok", { "16601": { penalty: 8250, acquisition_week: "" } })(SHIPLEY).label, unavailable, "an empty acquisition week is not a number either");
+  t.match(foCtx("ok", { "16601": { penalty: 8250, acquisition_week: "x" } })(SHIPLEY).label, unavailable);
+  // NEW worker, resolved: its own window (13 for the Week-5 pickup, 17 for the auction contract)
+  const resolved = (await preview()).players;
+  t.equal(resolved["16601"].eligible_weeks, 13); t.equal(resolved["16696"].eligible_weeks, 17);
+  const newShape = foCtx("ok", resolved);
+  t.equal(newShape(SHIPLEY).label, "$846", "new worker, resolved Week 5"); t.equal(newShape(MEYERS).label, "$462");
+  t.equal(newShape(AUCTION).label, "$471", "new worker, resolved full season: $8,000 / 17");
+  // NEW worker, unresolved (its transactions read failed): eligible_weeks null → —, even though acquisition_week is also null
+  const unresolved = (await preview({ failTransactions: true })).players;
+  t.equal(unresolved["16601"].eligible_weeks, null); t.equal(unresolved["16601"].acquisition_week, null);
+  t.match(foCtx("ok", unresolved)(SHIPLEY).label, unavailable, "new worker, unresolved: —");
+  t.equal(foCtx("ok", unresolved)(AUCTION).label, "$471", "new worker, unresolved read: the auction contract still resolves (17)");
 });
 
 test("DEPLOY ORDER: the OLD page on the NEW worker still renders — Per Wk keeps its old /17 until the page ships; an unpriced row reads unavailable, never $0", async () => {

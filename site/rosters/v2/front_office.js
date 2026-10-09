@@ -963,11 +963,12 @@
       weeks = cap.eligible_weeks == null ? NaN : Number(cap.eligible_weeks);   // this worker states the window; null = it could not be resolved
     } else if (cap) {
       // ROLLOUT COMPATIBILITY (2026-10-09). The site and the worker deploy independently, and a worker rollout serves old
-      // isolates for a while, so this page must read the PREVIOUS row shape too: no eligible_weeks, only the
-      // acquisition_week that worker priced earned on (null = a Week-1 / continuing contract). That worker's own window
-      // (max(1, 17 − W + 1)), so Per Wk agrees with its Earned column. Remove once every worker serves eligible_weeks.
-      var aw = Number(cap.acquisition_week);
-      weeks = aw >= 1 ? Math.max(1, 17 - aw + 1) : 17;
+      // isolates for a while, so this page must read the PREVIOUS row shape too: no eligible_weeks, only acquisition_week.
+      // An explicit week W is that worker's own window (max(1, 17 − W + 1)). Its null is AMBIGUOUS — a Week-1 / continuing
+      // contract, OR a transactions read that failed — so it is never taken as 17 weeks: no rate ("—").
+      // Remove once every worker serves eligible_weeks.
+      var aw = (cap.acquisition_week == null || cap.acquisition_week === "") ? NaN : Number(cap.acquisition_week);
+      weeks = (Number.isInteger(aw) && aw >= 1) ? Math.max(1, 17 - aw + 1) : NaN;
     }
     if (!(weeks >= 1)) {
       return STATE.capPenaltyFeed === "pending" || STATE.capPenaltyFeed == null
