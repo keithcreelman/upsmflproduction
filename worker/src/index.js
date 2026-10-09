@@ -49831,7 +49831,7 @@ const mflToSleeper = {};
                   pre_drop_years_remaining, pre_drop_taxi,
                   earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
                   penalty_exempt, penalty_exempt_reason, ledger_key,
-                  discord_message_id, discord_channel_id`;
+                  discord_message_id, discord_channel_id, notes`;
         const { results: rows } = repostIds.length
           ? await env.UPS_MFL_DB.prepare(
               `SELECT ${dropCols} FROM ups_drop_events
@@ -49876,31 +49876,38 @@ const mflToSleeper = {};
             held_unpriced_count: heldUnpriced.length, held_unpriced: heldUnpriced });
         }
 
-        // Which CAP YEAR a real penalty belongs to (canon §6) — resolved once
-        // for this whole batch, same instant every row is bucketed against.
-        // capYearNote turns a roll-forward (or an unresolved instant) into a
-        // visible line; the ordinary case (applies to targetSeason) stays
-        // silent. See the FA-Auction-open Sanders discussion, 2026-08-16.
-        const dropsAuctionStart = await _faaAuctionStartUnix(env, targetSeason);
-        // Historical-drop week-1 boundary, resolved once for this batch — every
-        // recompute below is a PAST dropped_at_iso, so this feeds
-        // resolveCompletedPayableWeeks' cheap synchronous date-math branch (no
-        // extra network call per row).
-        const recomputeWeek1Iso = recompute ? await _week1BoundaryIsoET(targetSeason) : null;
-        // ...and the transactions that say when each dropped contract BEGAN (canon §D1: a Week-W pickup's window is 18 − W). This
-        // path used to pass no acquisition week at all, so a recompute re-priced every mid-season pickup on a 17-week window and
-        // persisted it. Unreadable → those rows come back unpriced and are skipped below, left unchanged.
-        let recomputeTxs = [], recomputeAcqUnresolved = false;
-        if (recompute && rows.some((r) => _nflWeekForUnix(Number(r.dropped_at_unix) || 0, targetSeason) > 0)) {
-          try {
-            const rcTxRes = await mflExportJson(targetSeason, leagueId, "transactions", {}, { useCookie: true });
-            if (!rcTxRes || !rcTxRes.ok || !(rcTxRes.data && rcTxRes.data.transactions)) throw new Error(`transactions export ${rcTxRes && rcTxRes.status || "failed"}`);
-            recomputeTxs = rcTxRes.data.transactions.transaction;
-          } catch (e) {
-            recomputeAcqUnresolved = true;
-            console.error(`[drops recompute] acquisition weeks unresolved — mid-season waiver/MYM rows will be skipped: ${(e && e.message) || e}`);
+        // EVERY season-dependent input below is the ROW's own season (r.season), never this request's. After Jan 1 the */5 cron
+        // posts as the NEXT season (its season is the calendar year; NFL Week 17 runs into January), and the selection above
+        // also takes the previous season's held-then-priced rows (_HELD_REPRICED_MARK). Priced on the poster's season, a 2026
+        // Week-16 pickup dropped 12-29 read as 0 weeks earned (2027's Week 1 is next September) and its verified $5,000 was
+        // rewritten to the full $15,000 guarantee; its card said the cap year "could not be resolved" (2027's FA Auction date
+        // isn't on the calendar in January). Each season's inputs are read once per batch:
+        //   - auctionStart — which CAP YEAR a real penalty belongs to (canon §6); capYearNote turns a roll-forward (or an
+        //     unresolved instant) into a visible line, the ordinary case (applies to the row's own season) stays silent. See
+        //     the FA-Auction-open Sanders discussion, 2026-08-16.
+        //   - week1Iso — the historical Week-1 boundary for resolveCompletedPayableWeeks' synchronous date-math branch (every
+        //     recompute is a PAST dropped_at_iso, so no extra network call per row);
+        //   - txs / acqUnresolved — the transactions that say when each dropped contract BEGAN (canon §D1: a Week-W pickup's
+        //     window is 18 − W). This path once passed no acquisition week at all, so a recompute re-priced every mid-season
+        //     pickup on a 17-week window and persisted it. Unreadable → those rows come back unpriced and are left unchanged.
+        const rowSeasonOf = (r) => safeStr(r && r.season) || targetSeason;
+        const seasonInputs = {};
+        const seasonCtx = (season) => (seasonInputs[season] = seasonInputs[season] || (async () => {
+          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), week1Iso: null, txs: [], acqUnresolved: false };
+          if (!recompute) return ctx;
+          ctx.week1Iso = await _week1BoundaryIsoET(season);
+          if (rows.some((r) => rowSeasonOf(r) === season && _nflWeekForUnix(Number(r.dropped_at_unix) || 0, season) > 0)) {
+            try {
+              const rcTxRes = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
+              if (!rcTxRes || !rcTxRes.ok || !(rcTxRes.data && rcTxRes.data.transactions)) throw new Error(`transactions export ${rcTxRes && rcTxRes.status || "failed"}`);
+              ctx.txs = rcTxRes.data.transactions.transaction;
+            } catch (e) {
+              ctx.acqUnresolved = true;
+              console.error(`[drops recompute] ${season} acquisition weeks unresolved — its mid-season waiver/MYM rows will be skipped: ${(e && e.message) || e}`);
+            }
           }
-        }
+          return ctx;
+        })());
 
         const results = [];
         for (const r of rows) {
@@ -49913,22 +49920,31 @@ const mflToSleeper = {};
           }
           // recompute the penalty from stored pre-drop contract fields using the
           // CURRENT calc, and persist the correction, before building the embed.
+          const rs = rowSeasonOf(r);
+          const sc = await seasonCtx(rs);
           if (recompute) {
             try {
-              const rcWeekAuthority = await resolveCompletedPayableWeeks(targetSeason, leagueId, {
-                dropDateIso: r.dropped_at_iso,
-                week1ThursdayIso: recomputeWeek1Iso,
-                regularSeasonWeeks: 17,
-              });
+              // A held-then-priced row was priced by the RECORDER as of its own drop, by its live week rule
+              // (_completedWeeksAtLiveRule). The historical walk is kickoff-to-kickoff and reads one week fewer between Monday
+              // night and Thursday, so re-pricing that row with it would quietly raise a verified charge; it gets the
+              // recorder's rule instead, and a recompute reproduces the recorder's number.
+              const heldPriced = safeStr(r.notes).includes(_HELD_REPRICED_MARK);
+              const rcWeekAuthority = heldPriced
+                ? await _completedWeeksAtLiveRule(rs, Number(r.dropped_at_unix) || 0, 17)
+                : await resolveCompletedPayableWeeks(rs, leagueId, {
+                    dropDateIso: r.dropped_at_iso,
+                    week1ThursdayIso: sc.week1Iso,
+                    regularSeasonWeeks: 17,
+                  });
               const rc = _computeDropPenalty({
                 contractStatus: r.pre_drop_contract_status,
                 salary: r.pre_drop_salary,
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
-              }, { season: targetSeason, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
-                   acquisitionWeek: _acquisitionWeekAsOf(recomputeTxs, targetSeason, r.player_id, Number(r.dropped_at_unix) || 0),
-                   acquisitionWeekUnresolved: recomputeAcqUnresolved });
+              }, { season: rs, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
+                   acquisitionWeek: _acquisitionWeekAsOf(sc.txs, rs, r.player_id, Number(r.dropped_at_unix) || 0),
+                   acquisitionWeekUnresolved: sc.acqUnresolved });
               // FAIL CLOSED: `Number(rc.penalty) || 0` (and the matching
               // guaranteed/earned lines below) used to silently turn a null
               // "week_authority_unresolved" result into a confident $0 and
@@ -49941,7 +49957,7 @@ const mflToSleeper = {};
               // scanner path (below, /admin/drops/scan-and-record) already
               // does the null-preserving version of this correctly.
               if (rc.basis === "week_authority_unresolved") {
-                console.error(`[drops recompute] id=${r.id}: week authority unresolved (source=${rcWeekAuthority.source}${recomputeAcqUnresolved ? ", acquisition weeks unreadable" : ""}) — skipped, row left unchanged`);
+                console.error(`[drops recompute] id=${r.id}: week authority unresolved (source=${rcWeekAuthority.source}${sc.acqUnresolved ? ", acquisition weeks unreadable" : ""}) — skipped, row left unchanged`);
               } else {
                 r.penalty_amount = Number(rc.penalty) || 0;
                 r.penalty_exempt = rc.exempt ? 1 : 0;
@@ -49965,7 +49981,7 @@ const mflToSleeper = {};
 
           // Build embed.
           const franchiseMeta = await loadContractDiscordFranchiseMeta({
-            season: targetSeason,
+            season: rs,
             leagueId,
             franchiseId: padFranchiseId(r.franchise_id),
           });
@@ -50042,15 +50058,15 @@ const mflToSleeper = {};
             penaltyLine = `⚠️ **Unpriced** — ${humanizeDropBasis(r.penalty_basis)}`;
           } else if (!exempt && penalty > 0) {
             const capYear = _dropPenaltyCapSeason({
-              season: targetSeason, dropUnix: Number(r.dropped_at_unix) || 0,
-              auctionStartUnix: dropsAuctionStart.unix,
+              season: rs, dropUnix: Number(r.dropped_at_unix) || 0,
+              auctionStartUnix: sc.auctionStart.unix,
             });
             const penForNote = {
               known: true, penalty, exempt, guaranteed, earned, basis: r.penalty_basis,
               cap_year_ok: !!capYear.ok, applies_to_season: capYear.ok ? capYear.applies_to_season : null,
             };
             const calc = explainPenalty(penForNote);
-            const yearNote = capYearNote(penForNote, targetSeason);
+            const yearNote = capYearNote(penForNote, rs);
             penaltyLine = `**${fmtK(penalty)} cap penalty** — ${calc || humanizeDropBasis(r.penalty_basis)}`;
             if (yearNote) penaltyLine += `\n${yearNote}`;
           }
@@ -53077,11 +53093,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
           } catch (_) { return false; }
         })();
-        // ONE injuries read for the whole scan. MUST omit L= — `injuries` is
-        // league-agnostic and sending it is rejected, decoding to an empty list.
-        const scanInjByPid = await (async () => {
+        // MFL injury designations: ONE read per SEASON, made only when a row that carries money needs one. Per season because
+        // a HELD drop from the previous season can be priced after Jan 1, when this scan's season has rolled over and MFL has
+        // not created next year's league yet — its designation must come from ITS season, or the "MFL says RETIRED" fast path
+        // silently falls through to the budgeted news lookup (5 per run; a miss is stamped deferred_budget and never
+        // re-routed). MUST omit L= — `injuries` is league-agnostic and sending it is rejected, decoding to an empty list.
+        const scanInjBySeason = {};
+        const scanInjFor = (injSeason) => (scanInjBySeason[injSeason] = scanInjBySeason[injSeason] || (async () => {
           try {
-            const ires = await mflExportJson(targetSeason, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
+            const ires = await mflExportJson(injSeason, leagueId, "injuries", {}, { useCookie: false, omitLeagueParam: true });
             if (!ires || !ires.ok) return { known: false, map: new Map() };
             const root = ires.data && ires.data.injuries && ires.data.injuries.injury;
             const irows = Array.isArray(root) ? root : (root ? [root] : []);
@@ -53092,7 +53112,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             for (const r of irows) m.set(safeStr(r && r.id), safeStr(r && r.status).toUpperCase());
             return { known: true, map: m };
           } catch (_) { return { known: false, map: new Map() }; }
-        })();
+        })());
         // Cap on per-invocation news lookups (see the routing block below).
         let scanNewsBudget = 5;
 
@@ -53179,6 +53199,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // HELD drop priced on a later tick, so a held retiree is never charged in full just because MFL hiccupped.
         const routeCapfree = async (ledgerKey, pid, penaltyInfo, contractYear, season) => {
             if (scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0) {
+              const scanInjByPid = await scanInjFor(season || targetSeason);
               const cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(pid) || "").toUpperCase() : "";
               const cfIsRetired = scanInjByPid.known && cfDesig === "RETIRED";
               let cfRoute = "none";

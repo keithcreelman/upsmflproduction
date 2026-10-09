@@ -121,9 +121,10 @@ const _nflWeekForUnix=(u,y)=>{const w=_nflWeek1Iso(y);if(!w||!u)return 0;const s
   t.match(scan, /acquisitionWeek: _acquisitionWeekAsOf\(acqTxs, targetSeason, drop\.pid, drop\.ts\)/);
   t.match(scan, /acquisitionWeekUnresolved: acqWeekUnresolved/);
   t.doesNotMatch(scan, /acqWeekMap = _acquisitionWeekMapFromTxs[\s\S]{0,40}\} catch \(_\) \{\}/, "the swallowed read is gone");
-  const rc = grab("const recomputeWeek1Iso = recompute", 'if (rc.basis === "week_authority_unresolved")');
-  t.match(rc, /acquisitionWeek: _acquisitionWeekAsOf\(recomputeTxs, targetSeason, r\.player_id, Number\(r\.dropped_at_unix\) \|\| 0\)/, "the recompute now passes the acquisition week");
-  t.match(rc, /acquisitionWeekUnresolved: recomputeAcqUnresolved/);
+  // …on the ROW's own season (a previous season's row is posted after Jan 1 — tests/drop_held_unpriced_routes.test.mjs §5)
+  const rc = grab("const rowSeasonOf = (r) =>", 'if (rc.basis === "week_authority_unresolved")');
+  t.match(rc, /acquisitionWeek: _acquisitionWeekAsOf\(sc\.txs, rs, r\.player_id, Number\(r\.dropped_at_unix\) \|\| 0\)/, "the recompute now passes the acquisition week");
+  t.match(rc, /acquisitionWeekUnresolved: sc\.acqUnresolved/);
 });
 
 // ── the Front Office cell ────────────────────────────────────────────

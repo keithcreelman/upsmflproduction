@@ -4,6 +4,9 @@
 //   3. A drop held across Jan 1 stays visible and is still priced — the cron's season is the calendar year, NFL Week 17
 //      runs into January, and MFL has not created next year's league yet.
 //   4. Overlapping recorder runs: the run that loses the race reports the WINNER's result, with no false held alert.
+//   5. (pre-merge review) post-discord's recompute of a PREVIOUS season's held-then-priced row prices it on THAT row's season —
+//      Week 1, transactions, acquisition week, the penalty itself and the card's cap-year note — never the poster's season.
+//   6. (pre-merge review) cap-free routing of a previous-season held row reads THAT season's MFL designations.
 //   node tests/drop_held_unpriced_routes.test.mjs
 import fs from "node:fs";
 import { makeD1 } from "./fixtures/d1_sqlite.mjs";
@@ -27,6 +30,8 @@ const YEARS = {
     { type: "FREE_AGENT", franchise: "0010", timestamp: ET("2026-10-27T12:01:00-04:00"), transaction: "|17469," },          // no pre-drop contract (A)
     { type: "BBID_WAIVER", franchise: "0005", timestamp: ET("2026-12-24T09:00:00-04:00"), transaction: "18000,|20000|" },   // Week 16 pickup
     { type: "FREE_AGENT", franchise: "0005", timestamp: ET("2026-12-29T12:00:00-05:00"), transaction: "|18000," },          // held across Jan 1 (B)
+    { type: "BBID_WAIVER", franchise: "0005", timestamp: ET("2026-12-17T09:00:00-05:00"), transaction: "18001,|20000|" },   // Week 15 pickup
+    { type: "FREE_AGENT", franchise: "0005", timestamp: ET("2026-12-26T12:00:00-05:00"), transaction: "|18001," },          // priced on time (5d)
   ] },
 };
 const ww = (id, k) => ({ id, salary: String(k * 1000), status: "ROSTER", contractStatus: "Vet-WW", contractInfo: `CL 1| TCV ${k}K| AAV ${k}K`, contractYear: "1" });
@@ -35,16 +40,19 @@ function snapshotFor(day) {           // 17469 is never in a snapshot (claimed a
   const add = (fid, p) => (fr[fid] = fr[fid] || []).push(p);
   if (day >= "2026-10-08" && day <= "2026-10-27") add("0008", ww("16601", 11));
   if (day >= "2026-12-24" && day <= "2026-12-29") add("0005", ww("18000", 20));
+  if (day >= "2026-12-17" && day <= "2026-12-26") add("0005", ww("18001", 20));
   return { rosters: { franchise: Object.entries(fr).map(([id, player]) => ({ id, player })) } };
 }
-function nflSchedule(w) {             // 2026: Wed Sep 9 opener, then Thu 8:15 PM ET / Sun 1 PM / Mon 8:15 PM ET
-  const ko = (d, h, m) => String(Math.floor(RealDate.UTC(2026, 8, d, h, m) / 1000));
+function nflSchedule(w, year) {       // 2026: Wed Sep 9 opener, then Thu 8:15 PM ET / Sun 1 PM / Mon 8:15 PM ET; 2027 = +52 weeks
+  const shift = (Number(year || 2026) - 2026) * 364 * 86400;
+  const ko = (d, h, m) => String(Math.floor(RealDate.UTC(2026, 8, d, h, m) / 1000) + shift);
   const thu = w === 1 ? ko(10, 0, 20) : ko(18 + 7 * (w - 2), 0, 15), sun = ko(13 + 7 * (w - 1), 17, 0), mon = ko(15 + 7 * (w - 1), 0, 15);
   return { nflSchedule: { week: String(w), matchup: [{ kickoff: thu, team: [{ id: "KCC" }, { id: "BAL" }] }, { kickoff: sun, team: [{ id: "BUF" }, { id: "MIA" }] }, { kickoff: mon, team: [{ id: "NYG" }, { id: "DAL" }] }] } };
 }
 const liveWeek = () => { let w = 1; for (let k = 1; k <= 18; k++) if (Number(nflSchedule(k).nflSchedule.matchup[0].kickoff) * 1000 <= NOW) w = k; return w; };
 const DISCORD = { posts: [] };
 const EXPORTS = [];
+const NEWS = [];   // /api/player-news reads — the cap-free routing's budgeted fallback when MFL's designation can't be read
 const json = (o, s) => new Response(JSON.stringify(o), { status: s || 200, headers: { "content-type": "application/json" } });
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === "string" ? input : input.url);
@@ -57,7 +65,7 @@ globalThis.fetch = async (input, init) => {
     const year = (u.pathname.match(/\/(\d{4})\//) || [])[1];
     const type = u.searchParams.get("TYPE");
     EXPORTS.push(year + ":" + type + (u.searchParams.get("TRANS_TYPE") ? ":" + u.searchParams.get("TRANS_TYPE") : ""));
-    if (type === "nflSchedule") return json(nflSchedule(Number(u.searchParams.get("W"))));
+    if (type === "nflSchedule") return json(nflSchedule(Number(u.searchParams.get("W")), Number(year)));
     const Y = YEARS[year];
     if (!Y) return json({ error: "No league " + year }, 500);            // next year's league does not exist yet
     if (type === "transactions") {
@@ -66,16 +74,17 @@ globalThis.fetch = async (input, init) => {
       return json({ transactions: { transaction: Y.txs.filter((x) => Number(x.timestamp) <= NOW / 1000 && (!tt || x.type === tt)) } });
     }
     if (type === "liveScoring") return json({ liveScoring: { week: String(liveWeek()) } });
-    if (type === "players") return json({ players: { player: [{ id: "16601", name: "Shipley, Will", position: "RB", team: "PHI" }, { id: "17469", name: "Daniels, Jalon", position: "QB", team: "TBB" }, { id: "18000", name: "Pickup, Late", position: "WR", team: "KCC" }] } });
+    if (type === "players") return json({ players: { player: [{ id: "16601", name: "Shipley, Will", position: "RB", team: "PHI" }, { id: "17469", name: "Daniels, Jalon", position: "QB", team: "TBB" }, { id: "18000", name: "Pickup, Late", position: "WR", team: "KCC" }, { id: "18001", name: "Pickup, Early", position: "WR", team: "KCC" }] } });
     if (type === "league") return json({ league: { franchises: { franchise: [["0005", "HammerTime"], ["0008", "Real Deal Creel"], ["0010", "Blake Bombers"]].map(([id, name]) => ({ id, name, email: id + "@ups.test" })) } } });
-    if (type === "injuries") return json({ injuries: { injury: [] } });
+    if (type === "injuries") return json({ injuries: { injury: Y.injuries || [] } });
     if (type === "salaryAdjustments") return json({ salaryAdjustments: { salaryAdjustment: [] } });
     return json({ error: "test: no such export " + type }, 503);
   }
+  if (u.pathname === "/api/player-news") NEWS.push(u.search);
   return json({ error: "test: no such call " + u.hostname }, 503);
 };
 
-function makeDb() {
+function makeDb(opts) {
   const db = makeD1({});
   db.raw.exec(`CREATE TABLE ups_drop_events (id INTEGER PRIMARY KEY AUTOINCREMENT, season TEXT, league_id TEXT, player_id TEXT, player_name TEXT, position TEXT, nfl_team TEXT,
     franchise_id TEXT, franchise_name TEXT, dropped_at_unix INTEGER, dropped_at_iso TEXT, pre_drop_contract_status TEXT, pre_drop_salary INTEGER, pre_drop_contract_year INTEGER,
@@ -88,6 +97,10 @@ function makeDb() {
   const subCols = "id INTEGER, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, submitted_at_utc TEXT, dry_run INTEGER";
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
   db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER)");
+  if (opts && opts.capfree) {
+    for (const c of ["capfree_route TEXT", "capfree_review_status TEXT", "capfree_mfl_designation TEXT", "capfree_evidence_json TEXT",
+                     "capfree_settlement_amount INTEGER", "capfree_decided_at_utc TEXT", "capfree_decided_by TEXT"]) db.raw.exec(`ALTER TABLE ups_drop_events ADD COLUMN ${c}`);
+  }
   db.raw.exec("CREATE TABLE ups_faa_nom_penalties (penalty_id TEXT, season INTEGER, league_id TEXT, fid TEXT, et_day TEXT, offense_no INTEGER, amount_k INTEGER, applies_to_season INTEGER, voided INTEGER DEFAULT 0, posted_to_mfl INTEGER DEFAULT 0)");
   return db;
 }
@@ -201,6 +214,9 @@ test("3d. …its card goes out ONCE from the 2027 poster, and it is ONE booked c
   const before = DISCORD.posts.length;
   const d = await postDiscord(envB, "2027");
   t.equal(d.json.posted_count, 1); t.match(JSON.stringify(DISCORD.posts.at(-1)), /Drop: Late Pickup[\s\S]*Cap Penalty: \$5K/);
+  // the card's cap-year note is judged on the row's OWN season (2026's FA Auction): a 2027 cap charge, ledger-only — never
+  // "could not be resolved" because the 2027 auction date isn't on the calendar yet
+  t.match(JSON.stringify(DISCORD.posts.at(-1)), /applies to the \*\*2027\*\* cap/); t.ok(!/could not be resolved/.test(JSON.stringify(DISCORD.posts.at(-1))));
   t.equal((await postDiscord(envB, "2027")).json.posted_count, 0); t.equal(DISCORD.posts.length, before + 1);
   const n = await call(envB, "GET", "/api/cap-adjustments/next-season?L=74598&YEAR=2026");
   t.deepEqual(n.json.rows.map((x) => [x.player_id, x.amount, x.applies_to_season]), [["18000", 5000, 2027]]);
@@ -234,6 +250,86 @@ test("4. two overlapping recorder runs: ONE prices the held drop; the other repo
   // the alert the */5 cron raises is exactly held_unpriced_count > 0
   const src = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
   t.match(src, /const heldN = Number\(scanData\?\.held_unpriced_count\) \|\| 0;[\s\S]{0,120}if \(heldN\) \{\s*console\.error\(`\[scheduled \*\/5\] drop-tracker: \$\{heldN\} drop\(s\) HELD unpriced/);
+});
+
+// ═════════ 5. post-discord recompute of a previous season's held-then-priced row ═════════
+// The 3a–3c timeline, fresh each time: a $20K Week-16 pickup dropped Tue 12-29-2026 while MFL's 2026 transactions were down
+// (held), then priced by the 2027-season recorder on Sat 1-2-2027 at $5,000 — not yet announced.
+async function heldThenPricedAcrossJan1(dbOpts) {
+  const db = makeDb(dbOpts), env = makeEnv(db);
+  YEARS["2026"].txs = only("18000"); YEARS["2026"].failAll = true; delete YEARS["2027"];
+  NOW = RealDate.parse("2026-12-29T17:05:00Z");
+  await scan(env, "2026");
+  YEARS["2026"].failAll = false; NOW = RealDate.parse("2027-01-02T17:10:00Z");
+  const s = await scan(env, "2027");
+  return { db, env, s };
+}
+const priced = (r) => [r.penalty_amount, r.earned_to_date, r.guaranteed_amount, r.penalty_basis];
+test("5a. January (no 2027 league yet): post-discord(2027) with recompute:true re-prices the 2026 row on 2026 — $5,000 stands, card once, 2027-cap note", async () => {
+  const { db, env } = await heldThenPricedAcrossJan1();
+  t.deepEqual(priced(rowOf(db, "18000")), [5000, 10000, 15000, "guarantee_minus_earned"]);
+  const n0 = DISCORD.posts.length;
+  const d = await postDiscord(env, "2027", { recompute: true });
+  t.equal(d.json.posted_count, 1, d.text.slice(0, 300));
+  t.deepEqual(priced(rowOf(db, "18000")), [5000, 10000, 15000, "guarantee_minus_earned"], "NOT re-priced on 2027's calendar (0 weeks earned → the full $15,000)");
+  const card = JSON.stringify(DISCORD.posts.at(-1));
+  t.match(card, /Cap Penalty: \$5K/); t.match(card, /applies to the \*\*2027\*\* cap/); t.ok(!/could not be resolved/.test(card));
+  t.equal((await postDiscord(env, "2027", { recompute: true })).json.posted_count, 0); t.equal(DISCORD.posts.length, n0 + 1);
+});
+test("5b. after MFL creates the 2027 league: the same recompute still prices it on 2026's transactions + calendar", async () => {
+  const { db, env } = await heldThenPricedAcrossJan1();
+  YEARS["2027"] = { failAll: false, txs: [] };
+  const ex0 = EXPORTS.length;
+  const d = await postDiscord(env, "2027", { recompute: true });
+  delete YEARS["2027"];
+  t.equal(d.json.posted_count, 1, d.text.slice(0, 300));
+  t.deepEqual(priced(rowOf(db, "18000")), [5000, 10000, 15000, "guarantee_minus_earned"]);
+  t.ok(EXPORTS.slice(ex0).includes("2026:transactions"), "the recompute read 2026's transactions: " + EXPORTS.slice(ex0).join(" "));
+  t.ok(!EXPORTS.slice(ex0).includes("2027:transactions"), "…not 2027's");
+  t.match(JSON.stringify(DISCORD.posts.at(-1)), /Cap Penalty: \$5K/);
+});
+test("5c. 2026's transactions unreadable at recompute time: the recompute is skipped, the verified $5,000 stands and the card still posts once", async () => {
+  const { db, env } = await heldThenPricedAcrossJan1();
+  YEARS["2026"].failAll = true;
+  const d = await postDiscord(env, "2027", { recompute: true });
+  YEARS["2026"].failAll = false;
+  t.equal(d.json.posted_count, 1, d.text.slice(0, 300));
+  t.deepEqual(priced(rowOf(db, "18000")), [5000, 10000, 15000, "guarantee_minus_earned"]);
+  t.match(JSON.stringify(DISCORD.posts.at(-1)), /Cap Penalty: \$5K/);
+  t.equal(rowOf(db, "18000").discord_posted, 1);
+});
+
+test("5d. an explicit repost of a NORMAL (never held) 2026 row from the 2027 poster recomputes it on 2026 too — $8,333 stands", async () => {
+  const db = makeDb(), env = makeEnv(db);
+  YEARS["2026"].txs = only("18001"); YEARS["2026"].failAll = false; delete YEARS["2027"];
+  NOW = RealDate.parse("2026-12-26T17:05:00Z");           // Sat 12-26: Week 15 complete, Week 16 under way
+  await scan(env, "2026");
+  // Week-15 pickup: Weeks 15–17 = 3 eligible, 1 completed → earned round(20,000 / 3) = 6,667; penalty 15,000 − 6,667
+  t.deepEqual(priced(rowOf(db, "18001")), [8333, 6667, 15000, "guarantee_minus_earned"]);
+  NOW = RealDate.parse("2027-01-02T17:10:00Z");
+  const ex0 = EXPORTS.length;
+  const d = await postDiscord(env, "2027", { repost_ids: [rowOf(db, "18001").id], recompute: true });
+  t.equal(d.json.posted_count, 1, d.text.slice(0, 300));
+  t.deepEqual(priced(rowOf(db, "18001")), [8333, 6667, 15000, "guarantee_minus_earned"], "not 2027's 0 weeks → $15,000");
+  t.ok(EXPORTS.slice(ex0).includes("2026:transactions") && !EXPORTS.slice(ex0).includes("2027:transactions"), EXPORTS.slice(ex0).join(" "));
+  t.match(JSON.stringify(DISCORD.posts.at(-1)), /Cap Penalty: \$8\.3K[\s\S]*applies to the \*\*2027\*\* cap/);
+});
+
+// ═════════ 6. cap-free routing of a previous season's held row ═════════
+test("6. a 2026 held drop priced in January takes its cap-free routing from 2026's MFL designations (RETIRED) — no 2027 read, no news-budget fallback", async () => {
+  YEARS["2026"].injuries = [{ id: "18000", status: "Retired" }];
+  const ex0 = EXPORTS.length, news0 = NEWS.length;
+  const { db, s } = await heldThenPricedAcrossJan1({ capfree: true });
+  delete YEARS["2026"].injuries;
+  t.equal(s.json.repriced_count, 1, s.text.slice(0, 300));
+  const r = rowOf(db, "18000");
+  t.equal(r.capfree_mfl_designation, "RETIRED", "read from 2026's injuries export");
+  t.equal(r.capfree_route, "auto");
+  t.equal(r.capfree_decided_by, "auto:mfl_retired_flag");
+  t.equal(NEWS.length, news0, "no player-news lookup: the designation answered (the news path is budgeted — 5 per run — and a miss is never re-routed)");
+  const janExports = EXPORTS.slice(ex0);
+  t.ok(janExports.includes("2026:injuries"), janExports.join(" "));
+  t.ok(!janExports.includes("2027:injuries"), "never 2027's (no 2027 league in January): " + janExports.join(" "));
 });
 
 await run("drop_held_unpriced_routes");
