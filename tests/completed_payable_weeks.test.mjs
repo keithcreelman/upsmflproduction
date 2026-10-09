@@ -53,7 +53,7 @@ const resolveCompletedFn = grab(
 );
 const parseFn = grab(
   'const _parseContractData =',
-  'return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };\n        };'
+  'return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved, eligibleWeeks, currentYearSalary };\n        };'
 );
 const compFn = grab(
   'const _computeDropPenalty =',

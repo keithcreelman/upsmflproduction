@@ -28,14 +28,18 @@ const HOOK_NAMES = [
  *   unmodified function from the shipped file); window is the sandbox's own window object,
  *   useful for reading STATE-independent test hooks after the fact.
  */
-export function loadFrontOfficeV2(windowExtra) {
+// extra: optional { hooks: [more function names], raw: "name: expression, ..." } — e.g. a setter for an IIFE-private
+// variable. Existing callers pass nothing and get exactly the original hook set.
+export function loadFrontOfficeV2(windowExtra, extra) {
   const raw = fs.readFileSync(SRC_PATH, "utf8");
   const tail = "})();";
   const lastClose = raw.lastIndexOf(tail);
   if (lastClose === -1 || lastClose < raw.length - tail.length - 5) {
     throw new Error("front_office_v2_harness: could not find the file's closing `})();` -- source shape changed, update this harness");
   }
-  const hookAssignment = `\n  window.__FO_TEST_HOOKS__ = { ${HOOK_NAMES.join(", ")} };\n`;
+  const names = HOOK_NAMES.concat((extra && extra.hooks) || []);
+  const rawHooks = extra && extra.raw ? ", " + extra.raw : "";
+  const hookAssignment = `\n  window.__FO_TEST_HOOKS__ = { ${names.join(", ")}${rawHooks} };\n`;
   const patched = raw.slice(0, lastClose) + hookAssignment + raw.slice(lastClose);
 
   const win = Object.assign(

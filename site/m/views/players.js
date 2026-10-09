@@ -988,7 +988,8 @@
     return DATA.getRosterFor(fid).map(function (r) {
       var p = DATA.playerById(r.id);
       var penalty = DATA.dropPenaltyFor(r, M.state.ctx.year);
-      var pAmt = (penalty && typeof penalty.amount === "number") ? penalty.amount : 0;
+      var unpriced = !!(penalty && penalty.unpriced);
+      var pAmt = unpriced ? null : ((penalty && typeof penalty.amount === "number") ? penalty.amount : 0);
       return {
         id: r.id,
         name: nameFor(p) || ("Player " + r.id),
@@ -997,12 +998,32 @@
         salary: r.salary,
         contractYear: r.contractYear,
         penaltyAmt: pAmt,
+        // the worker could not price this drop yet — NOT a $0 (see front_office_penalty.js)
+        unpriced: unpriced,
         // authoritative === straight from the worker; false means we're
         // showing the offline estimate and should say so.
         authoritative: !!(penalty && penalty.authoritative),
         penaltyNote: (penalty && penalty.note) || ""
       };
-    }).sort(function (a, b) { return a.penaltyAmt - b.penaltyAmt; });
+    }).sort(dropCandidateOrder);
+  }
+  // Cheapest first; an UNPRICED drop is never "cheapest" — it goes last.
+  function dropCandidateOrder(a, b) {
+    if (!!a.unpriced !== !!b.unpriced) return a.unpriced ? 1 : -1;
+    if (a.unpriced) return 0;
+    return a.penaltyAmt - b.penaltyAmt;
+  }
+  // The drop row's penalty + cap-room-after lines. Unpriced: says so, and room after is unknown — never computed as free.
+  function dropRowPenaltyHtml(r, cap) {
+    if (r.unpriced) {
+      return '<span class="penalty unpriced">penalty under review</span>' +
+        '<div class="after">Cap room after: unknown until it is priced</div>';
+    }
+    var roomAfter = cap.capRoom + Math.max(0, r.salary) - r.penaltyAmt;
+    return (r.penaltyAmt > 0
+        ? '<span class="penalty">' + U.fmtUsd(r.penaltyAmt) + ' penalty</span>'
+        : '<span class="penalty ok">no penalty</span>') +
+      '<div class="after">Cap room after: ' + U.fmtUsd(roomAfter) + '</div>';
   }
 
   // ══ "No drop" gating ═══════════════════════════════════════════════════
@@ -1093,10 +1114,6 @@
       // What cap room would look like AFTER the drop. The add side is not
       // included — a blind bid's price isn't settled until the run, and an
       // FCFS add is the league-default $1K WW.
-      var roomAfter = cap.capRoom + Math.max(0, r.salary) - r.penaltyAmt;
-      var pLabel = r.penaltyAmt > 0
-        ? '<span class="penalty">' + U.fmtUsd(r.penaltyAmt) + ' penalty</span>'
-        : '<span class="penalty ok">no penalty</span>';
       var selected = opts.selectedPid && String(opts.selectedPid) === String(r.id);
       return '<button class="ups-m-drop-row' + (selected ? " on" : "") + '" data-drop-pid="' + U.escapeHtml(r.id) + '">' +
         '<div class="body">' +
@@ -1107,8 +1124,7 @@
           '</div>' +
         '</div>' +
         '<div class="right">' +
-          pLabel +
-          '<div class="after">Cap room after: ' + U.fmtUsd(roomAfter) + '</div>' +
+          dropRowPenaltyHtml(r, cap) +
         '</div>' +
       '</button>';
     }).join("");
@@ -1292,8 +1308,12 @@
     // Cap room is ADVISORY ONLY. MFL enforces the real $300K cap at award
     // time; we never block a bid on our own arithmetic.
     var advisory = "";
-    if (cap && cap.capAmount) {
-      var roomAfterDrop = cap.capRoom + (bidView.dropPid ? Math.max(0, dropSalary(bidView.dropPid)) - dropPenalty(bidView.dropPid) : 0);
+    var dropPen = bidView.dropPid ? dropPenalty(bidView.dropPid) : 0;
+    if (cap && cap.capAmount && dropPen === null) {
+      advisory = '<div class="ups-m-bid-advisory warn">Cap room after that drop: <strong>unknown</strong> — its cap penalty is under review ' +
+        '(not yet priced). MFL enforces the cap when the claim is awarded.</div>';
+    } else if (cap && cap.capAmount) {
+      var roomAfterDrop = cap.capRoom + (bidView.dropPid ? Math.max(0, dropSalary(bidView.dropPid)) - dropPen : 0);
       var over = bidView.amount > roomAfterDrop;
       advisory = '<div class="ups-m-bid-advisory' + (over ? " warn" : "") + '">' +
         'Cap room ' + (bidView.dropPid ? "after that drop" : "today") + ': <strong>' + U.fmtUsd(roomAfterDrop) + '</strong>' +
@@ -1335,7 +1355,7 @@
 
     var needDrop = dropRequired();
     var dropLabel = bidView.dropPid
-      ? (nameForPid(bidView.dropPid) + " · " + U.fmtUsd(dropPenalty(bidView.dropPid)) + " penalty")
+      ? (nameForPid(bidView.dropPid) + " · " + dropPenaltyShortText(bidView.dropPid))
       : (needDrop ? "Choose who this replaces — roster full (" + needDrop.active + "/" + needDrop.max + ")"
                   : "No conditional drop");
 
@@ -1407,7 +1427,12 @@
     var row = DATA.getRosterFor(fid).filter(function (r) { return String(r.id) === String(pid); })[0];
     if (!row) return 0;
     var p = DATA.dropPenaltyFor(row, M.state.ctx.year);
+    if (p && p.unpriced) return null;   // the worker could not price it yet — NOT $0
     return (p && typeof p.amount === "number") ? p.amount : 0;
+  }
+  function dropPenaltyShortText(pid) {
+    var pen = dropPenalty(pid);
+    return pen === null ? "penalty under review" : U.fmtUsd(pen) + " penalty";
   }
 
   function renderBidSheet() {
@@ -2868,12 +2893,15 @@
     });
   }
 
+  function fcfsDropPenaltySuffix(pen) {
+    if (pen === null) return " — cap penalty under review (not yet priced; it is not $0)";
+    return pen > 0 ? " — " + U.fmtUsd(pen) + " cap penalty" : " — no cap penalty";
+  }
   function confirmFcfsAdd(addPid, dropPids) {
     var lines = ["Add " + nameForPid(addPid) + " now?", "", "$1,000 · 1-year WW contract."];
     if (dropPids.length) {
       dropPids.forEach(function (d) {
-        var pen = dropPenalty(d);
-        lines.push("Drop " + nameForPid(d) + (pen > 0 ? " — " + U.fmtUsd(pen) + " cap penalty" : " — no cap penalty"));
+        lines.push("Drop " + nameForPid(d) + fcfsDropPenaltySuffix(dropPenalty(d)));
       });
     }
     lines.push("", "This writes to MFL immediately.");

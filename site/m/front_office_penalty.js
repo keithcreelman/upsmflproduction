@@ -344,6 +344,9 @@
     return (s && s.ctx) || null;
   }
   // Authoritative batch, app-owned first, then this file's own fetch.
+  function isUnpricedCapRow(c) {
+    return !!c && (c.penalty == null || c.basis === "week_authority_unresolved" || c.basis === "contract_unstamped_needs_review");
+  }
   function authoritativeCapRow(pid) {
     if (!pid) return null;
     var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
@@ -399,6 +402,18 @@
     var __mAuth = authoritativeCapRow(__mPid);
     if (__mAuth) {
       var __mc = __mAuth;
+      // UNPRICED: the worker could not price this drop yet (an MFL read failed, or the contract is unstamped) and sent
+      // penalty null. That is NOT a $0 penalty: amount stays null with unpriced: true, and every screen says
+      // "under review" and sorts it last — never "no penalty", never cap room computed as if it cost nothing.
+      if (isUnpricedCapRow(__mc)) {
+        return {
+          amount: null, unpriced: true, authoritative: true,
+          note: safeStr(__mc.review_reason) || "The worker could not price this drop yet. It is not $0.",
+          tcv: safeInt(__mc.tcv, 0), guaranteed: null,
+          currentYearSalary: safeInt(player && player.salary, 0),
+          priorEarned: null, accrued: 0, earned: null
+        };
+      }
       if (__mc.earned_rule === "full_year_sub_5k") {
         // "$1K Per Yr" contract: dedicated full-year rule (canon §D1 + Keith's ruling) — no weekly / cumulative earned amount.
         return {

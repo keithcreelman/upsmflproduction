@@ -928,7 +928,11 @@
     };
   }
 
-  // Per-Week Earning = current-year salary spread over the 17-week earning window.
+  // Per-Week Earning = current-year salary spread over THIS contract's own earning window (canon §D1: Weeks W through 17 inclusive — 17
+  // weeks for an auction / Week-1 / continuing contract, 18 − W for a Week-W waiver pickup). Only the worker knows W (it reads MFL's
+  // transactions), so the window is ITS `eligible_weeks`, never an assumed 17 (Will Shipley, $11K Week-5 blind bid: $11,000 / 13 =
+  // $846 a week, not $11,000 / 17 = $647). While the batch loads the cell shows the loading mark; a row the worker could not price
+  // shows "—". Displayed to the nearest $1 — presentation only: earned is rounded once on the total, never per week.
   // The $1K-a-year class shows "1K Per Yr" and a one-year pure-WW deal of $2K–$4K shows "nK Per Yr" (the class, not a TCV cutoff); taxi players with TCV > $4K
   // DO get the per-week calc (Keith 2026-06-01); only expired / $0 show "—".
   // "Per Yr" is a CLASS label, never a TCV proxy: "1K Per Yr" only when the contract pays exactly $1,000 in EVERY year (the worker's proof `full_year_sub_5k`, or
@@ -954,7 +958,25 @@
     // the WW class is the WORKER's call once its row is loaded; the local status check only bridges the moments before
     if (rule === "ww_earned_na" || (!cap && isWwEarnedNaPlayer(p))) return { label: (sal / 1000) + "K Per Yr", sort: 0 };
     if (yrs <= 0 || sal <= 0) return { label: "—", sort: -1 };
-    var v = Math.round(sal / 17);
+    var weeks = NaN;
+    if (cap && Object.prototype.hasOwnProperty.call(cap, "eligible_weeks")) {
+      weeks = cap.eligible_weeks == null ? NaN : Number(cap.eligible_weeks);   // this worker states the window; null = it could not be resolved
+    } else if (cap) {
+      // ROLLOUT COMPATIBILITY (2026-10-09). The site and the worker deploy independently, and a worker rollout serves old
+      // isolates for a while, so this page must read the PREVIOUS row shape too: no eligible_weeks, only acquisition_week.
+      // An explicit week W is that worker's own window (max(1, 17 − W + 1)). Its null is AMBIGUOUS — a Week-1 / continuing
+      // contract, OR a transactions read that failed — so it is never taken as 17 weeks: no rate ("—").
+      // Remove once every worker serves eligible_weeks.
+      var aw = (cap.acquisition_week == null || cap.acquisition_week === "") ? NaN : Number(cap.acquisition_week);
+      weeks = (Number.isInteger(aw) && aw >= 1) ? Math.max(1, 17 - aw + 1) : NaN;
+    }
+    if (!(weeks >= 1)) {
+      return STATE.capPenaltyFeed === "pending" || STATE.capPenaltyFeed == null
+        ? { label: '<span class="fo-tt" data-tip="Loading this contract\'s earning window from the worker…">…</span>', sort: -1 }
+        : { label: '<span class="fo-tt" data-tip="This contract\'s earning window (the week it began) could not be resolved — not assumed to be 17 weeks.">—</span>', sort: -1 };
+    }
+    var base = Number(cap.current_year_salary) > 0 ? Number(cap.current_year_salary) : sal;
+    var v = Math.round(base / weeks);
     return { label: fmtUSD(v), sort: v };
   }
   function perWeekEarningValue(p) { return perWeekEarningInfo(p).sort; }

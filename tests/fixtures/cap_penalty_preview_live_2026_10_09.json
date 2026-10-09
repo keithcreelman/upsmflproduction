@@ -1,0 +1,62 @@
+{
+ "_source": "GET https://upsmflproduction.keith-creelman.workers.dev/api/cap-penalty/preview?L=74598&YEAR=2026 at 2026-10-09T12:52:05.207Z (worker before #1202: no eligible_weeks)",
+ "players": {
+  "16601": {
+   "franchise_id": "0008",
+   "penalty": 8250,
+   "guaranteed": 8250,
+   "earned": 0,
+   "prior_earned": 0,
+   "current_year_earned": 0,
+   "tcv": 11000,
+   "cl": 1,
+   "years_remaining": 1,
+   "years_played": 0,
+   "acquisition_week": 5,
+   "basis": "guarantee_minus_earned",
+   "exempt": false,
+   "exempt_reason": "",
+   "earned_rule": null,
+   "needs_review": false,
+   "review_reason": ""
+  },
+  "17752": {
+   "franchise_id": "0003",
+   "penalty": 4500,
+   "guaranteed": 4500,
+   "earned": 0,
+   "prior_earned": 0,
+   "current_year_earned": 0,
+   "tcv": 6000,
+   "cl": 1,
+   "years_remaining": 1,
+   "years_played": 0,
+   "acquisition_week": 5,
+   "basis": "guarantee_minus_earned",
+   "exempt": false,
+   "exempt_reason": "",
+   "earned_rule": null,
+   "needs_review": false,
+   "review_reason": ""
+  },
+  "16696": {
+   "franchise_id": "0002",
+   "penalty": 4118,
+   "guaranteed": 6000,
+   "earned": 1882,
+   "prior_earned": 0,
+   "current_year_earned": 1882,
+   "tcv": 8000,
+   "cl": 1,
+   "years_remaining": 1,
+   "years_played": 0,
+   "acquisition_week": null,
+   "basis": "guarantee_minus_earned",
+   "exempt": false,
+   "exempt_reason": "",
+   "earned_rule": null,
+   "needs_review": false,
+   "review_reason": ""
+  }
+ }
+}
