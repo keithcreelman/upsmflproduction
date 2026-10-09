@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.08.1",
-  "label": "Trades: the five-active-QB limit applies in-season only (from the September contract deadline through the end of Week 17). A trade can't be accepted while a team would be over 30 active players, or in-season over 5 active QBs (counted as MFL shows them right after the trade). Over 30 warns at Send; the team makes its own move first."
+  "build": "2026.10.09.5",
+  "label": "Trades: the War Room checks the roster maximum for the league calendar's stretch (35 from the FA Auction to the contract deadline, 30 through Week 17) and, in-season, five active QBs, counted as MFL shows them right after the trade. Over the maximum warns at Send and can't be accepted; the team makes its own move first."
 }

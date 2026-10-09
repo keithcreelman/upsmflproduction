@@ -1,0 +1,2306 @@
+{
+ "_source": "Live reads 2026-10-09 (read-only): worker /api/advanced-stats-leaderboard?season=2026&pos=skill (precompute, built_for_week 4) and MFL 2026 L=74598 rosters / league / players exports. Leaderboard and players trimmed to the players the test names; mfl_rosters is the COMPLETE live rosters export (ids + status), so the completeness check sees what production sees.",
+ "leaderboard_skill": [
+  {
+   "mfl_pid": 17472,
+   "gsis_id": "00-0041027",
+   "player_name": "Jeremiyah Love",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "ARI",
+   "current_team": null,
+   "games": 4,
+   "mfl_points": 48.9,
+   "mfl_ppg": 12.225,
+   "mfl_franchise_id": null,
+   "mfl_franchise_name": null,
+   "rush_att": 55,
+   "rush_yds": 223,
+   "rush_tds": 1,
+   "targets": 13,
+   "receptions": 11,
+   "rec_yds": 36,
+   "rec_tds": 1
+  },
+  {
+   "mfl_pid": 12626,
+   "gsis_id": "00-0032764",
+   "player_name": "Derrick Henry",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "BAL",
+   "current_team": "BAL",
+   "games": 4,
+   "mfl_points": 95.4,
+   "mfl_ppg": 23.85,
+   "mfl_franchise_id": "0006",
+   "mfl_franchise_name": "The Long Haulers",
+   "rush_att": 89,
+   "rush_yds": 374,
+   "rush_tds": 7,
+   "targets": 7,
+   "receptions": 7,
+   "rec_yds": 44,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 16601,
+   "gsis_id": "00-0039746",
+   "player_name": "Will Shipley",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "PHI",
+   "current_team": "PHI",
+   "games": 4,
+   "mfl_points": 14.9,
+   "mfl_ppg": 3.725,
+   "mfl_franchise_id": "0007",
+   "mfl_franchise_name": "Sex Manther",
+   "rush_att": 15,
+   "rush_yds": 51,
+   "rush_tds": 0,
+   "targets": 6,
+   "receptions": 4,
+   "rec_yds": 24,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 16171,
+   "gsis_id": "00-0038551",
+   "player_name": "Kendre Miller",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "NO",
+   "current_team": "NOS",
+   "games": 3,
+   "mfl_points": 15.8,
+   "mfl_ppg": 5.266666666666667,
+   "mfl_franchise_id": "0008",
+   "mfl_franchise_name": "Real Deal Creel",
+   "rush_att": 19,
+   "rush_yds": 53,
+   "rush_tds": 1,
+   "targets": 6,
+   "receptions": 4,
+   "rec_yds": 15,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 15711,
+   "gsis_id": "00-0038134",
+   "player_name": "Kenneth Walker III",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "KC",
+   "current_team": "KCC",
+   "games": 4,
+   "mfl_points": 119.69999999999999,
+   "mfl_ppg": 29.924999999999997,
+   "mfl_franchise_id": "0005",
+   "mfl_franchise_name": "HammerTime 🔨 ⏰",
+   "rush_att": 87,
+   "rush_yds": 537,
+   "rush_tds": 4,
+   "targets": 19,
+   "receptions": 12,
+   "rec_yds": 84,
+   "rec_tds": 2
+  },
+  {
+   "mfl_pid": 16387,
+   "gsis_id": "00-0038685",
+   "player_name": "Chris Brooks",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "GB",
+   "current_team": "GBP",
+   "games": 4,
+   "mfl_points": 13.4,
+   "mfl_ppg": 3.35,
+   "mfl_franchise_id": null,
+   "mfl_franchise_name": null,
+   "rush_att": 15,
+   "rush_yds": 70,
+   "rush_tds": 0,
+   "targets": 5,
+   "receptions": 3,
+   "rec_yds": 24,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 15787,
+   "gsis_id": "00-0038104",
+   "player_name": "Tyquan Thornton",
+   "position": "WR",
+   "pos_group": "WR",
+   "team": "KC",
+   "current_team": "KCC",
+   "games": 4,
+   "mfl_points": 48.5,
+   "mfl_ppg": 12.125,
+   "mfl_franchise_id": "0008",
+   "mfl_franchise_name": "Real Deal Creel",
+   "rush_att": 0,
+   "rush_yds": 0,
+   "rush_tds": 0,
+   "targets": 15,
+   "receptions": 11,
+   "rec_yds": 219,
+   "rec_tds": 2
+  },
+  {
+   "mfl_pid": 11679,
+   "gsis_id": "00-0031235",
+   "player_name": "Odell Beckham",
+   "position": "WR",
+   "pos_group": "WR",
+   "team": "NYG",
+   "current_team": "FA",
+   "games": 1,
+   "mfl_points": 0,
+   "mfl_ppg": 0,
+   "mfl_franchise_id": "0012",
+   "mfl_franchise_name": "Hawks",
+   "rush_att": 0,
+   "rush_yds": 0,
+   "rush_tds": 0,
+   "targets": 1,
+   "receptions": 0,
+   "rec_yds": 0,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 17500,
+   "gsis_id": "00-0041037",
+   "player_name": "Denzel Boston",
+   "position": "WR",
+   "pos_group": "WR",
+   "team": "CLE",
+   "current_team": null,
+   "games": 4,
+   "mfl_points": 59.400000000000006,
+   "mfl_ppg": 14.850000000000001,
+   "mfl_franchise_id": null,
+   "mfl_franchise_name": null,
+   "rush_att": 0,
+   "rush_yds": 0,
+   "rush_tds": 0,
+   "targets": 22,
+   "receptions": 13,
+   "rec_yds": 284,
+   "rec_tds": 2
+  }
+ ],
+ "mfl_rosters": {
+  "rosters": {
+   "franchise": [
+    {
+     "id": "0001",
+     "player": [
+      {
+       "id": "13630",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16582",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16181",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16414",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17144",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15799",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14871",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14860",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15001",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16651",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17076",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13592",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16809",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16596",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15798",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15762",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15742",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14163",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12221",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14893",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14059",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16296",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12263",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16650",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14137",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15911",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16630",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15589",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13713",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16169",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "13806",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "15768",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16164",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17047",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17120",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17709",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17510",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17575",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17722",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17474",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17519",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17551",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0002",
+     "player": [
+      {
+       "id": "16653",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14782",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15290",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17081",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16586",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16178",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15753",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17543",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17039",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14797",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14802",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14842",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15329",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13844",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16681",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13813",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13319",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14085",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14907",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12225",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14303",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15835",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16696",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13629",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16201",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13189",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12610",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14328",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16018",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17135",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17544",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17502",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16184",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16629",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17036",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17037",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17467",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17520",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17645",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17685",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17064",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0003",
+     "player": [
+      {
+       "id": "16148",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13635",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14136",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16757",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17512",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17560",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17548",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17668",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16716",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17045",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15287",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13116",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12676",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16672",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16224",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15694",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15788",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17186",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17504",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13298",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15396",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17529",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17066",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13322",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15409",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17121",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16171",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17044",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17752",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17241",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17498",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "15864",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16036",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "13192",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17473",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16623",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17056",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17060",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17078",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17652",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17506",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17031",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17509",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17075",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0004",
+     "player": [
+      {
+       "id": "16580",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16598",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15754",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17042",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16162",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16190",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14836",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11675",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13772",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16708",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14147",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13714",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15261",
+       "status": "ROSTER"
+      },
+      {
+       "id": "7836",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13671",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15821",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15861",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12801",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16166",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13113",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15368",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15869",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13869",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15366",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13593",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14249",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14789",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16280",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16450",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17527",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13146",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "13198",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16704",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16645",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17098",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17087",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17096",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17654",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17599",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17589",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17505",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17547",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0005",
+     "player": [
+      {
+       "id": "15794",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16627",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16239",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17070",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11150",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15293",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16186",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17106",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15281",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16150",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14138",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16152",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16583",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15711",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14071",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15256",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12860",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15805",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13214",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14927",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15404",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14861",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15349",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15331",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15923",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11222",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17062",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17145",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13848",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15846",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14073",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "15350",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16613",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16686",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16642",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16689",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17122",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16644",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17481",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17508",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17580",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17568",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0006",
+     "player": [
+      {
+       "id": "16287",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17102",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15802",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16241",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17053",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16195",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16187",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16175",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15237",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14783",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16188",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17462",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16165",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16245",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14225",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14892",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12437",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15834",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13697",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14170",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16608",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16675",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17105",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15241",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14985",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17059",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17030",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13163",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11721",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14104",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "15972",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "14171",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17069",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17466",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17482",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17503",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17528",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17511",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16626",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17553",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16684",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17607",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0007",
+     "player": [
+      {
+       "id": "16579",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16616",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16266",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17147",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17058",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17099",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17256",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17103",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17134",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14179",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16384",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16194",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17074",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17576",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15284",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13719",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15756",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15255",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17521",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16604",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12140",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16230",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13132",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13590",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16618",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15884",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12678",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17667",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16457",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16204",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "15484",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16597",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16167",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17055",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17080",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17123",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17083",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17475",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17567",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17549",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17550",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17586",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17601",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0008",
+     "player": [
+      {
+       "id": "16614",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17043",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15789",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13674",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17501",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16193",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16212",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16211",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15051",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16680",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12620",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13604",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16192",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14056",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12616",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15355",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15889",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12186",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15346",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15716",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17743",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15875",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13066",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17124",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14153",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14910",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16601",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13404",
+       "status": "ROSTER"
+      },
+      {
+       "id": "10816",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14957",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17115",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16594",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "15253",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17514",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17588",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17557",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0009",
+     "player": [
+      {
+       "id": "16581",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15715",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16185",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14778",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14835",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16747",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16752",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15708",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16214",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16641",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17071",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13837",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14251",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14777",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14940",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14102",
+       "status": "ROSTER"
+      },
+      {
+       "id": "10266",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13130",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13164",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14877",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13251",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14412",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12141",
+       "status": "ROSTER"
+      },
+      {
+       "id": "9064",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13672",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14256",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16432",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16719",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16846",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17563",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16244",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16603",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "16610",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17033",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17073",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17126",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17571",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0010",
+     "player": [
+      {
+       "id": "16223",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15698",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14109",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16080",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16723",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17051",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17131",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14823",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16269",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17500",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13299",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15751",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15282",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13589",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16246",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16013",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15822",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16276",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16896",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16788",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15452",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12688",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16452",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16174",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12626",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14943",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15473",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16295",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14086",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16622",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16593",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17107",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17082",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17463",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17478",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17634",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17477",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17052",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0011",
+     "player": [
+      {
+       "id": "16161",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14833",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13696",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16584",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14832",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17104",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17132",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14779",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15815",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15761",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15757",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16222",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16615",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17472",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17556",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17269",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16628",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16621",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15979",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16617",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15712",
+       "status": "ROSTER"
+      },
+      {
+       "id": "10700",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14909",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15779",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14630",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16679",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17518",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17361",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17640",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15352",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17032",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "17072",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17157",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17086",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17108",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17113",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17507",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17584",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17476",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17657",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    },
+    {
+     "id": "0012",
+     "player": [
+      {
+       "id": "15710",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15868",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16655",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16677",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16620",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17112",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17068",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17048",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17171",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14127",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16213",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16206",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11671",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13743",
+       "status": "ROSTER"
+      },
+      {
+       "id": "14800",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17497",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17499",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17558",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17562",
+       "status": "ROSTER"
+      },
+      {
+       "id": "9431",
+       "status": "ROSTER"
+      },
+      {
+       "id": "17220",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11244",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12611",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15259",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15721",
+       "status": "ROSTER"
+      },
+      {
+       "id": "16283",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13268",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15808",
+       "status": "ROSTER"
+      },
+      {
+       "id": "11945",
+       "status": "ROSTER"
+      },
+      {
+       "id": "13782",
+       "status": "ROSTER"
+      },
+      {
+       "id": "15351",
+       "status": "INJURED_RESERVE"
+      },
+      {
+       "id": "16636",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17061",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17184",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17159",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17468",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17485",
+       "status": "TAXI_SQUAD"
+      },
+      {
+       "id": "17517",
+       "status": "TAXI_SQUAD"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "mfl_franchises": [
+  {
+   "id": "0001",
+   "name": "L.A. Looks"
+  },
+  {
+   "id": "0002",
+   "name": "CBP"
+  },
+  {
+   "id": "0003",
+   "name": "Gride"
+  },
+  {
+   "id": "0004",
+   "name": "Pure Greatness"
+  },
+  {
+   "id": "0005",
+   "name": "HammerTime 🔨 ⏰"
+  },
+  {
+   "id": "0006",
+   "name": "The Long Haulers"
+  },
+  {
+   "id": "0007",
+   "name": "Sex Manther"
+  },
+  {
+   "id": "0008",
+   "name": "Real Deal Creel"
+  },
+  {
+   "id": "0009",
+   "name": "C-Town Chivalry"
+  },
+  {
+   "id": "0010",
+   "name": "Blake Bombers"
+  },
+  {
+   "id": "0011",
+   "name": "Cleon Ca$h"
+  },
+  {
+   "id": "0012",
+   "name": "Hawks"
+  }
+ ],
+ "mfl_players": [
+  {
+   "id": "17472",
+   "name": "Love, Jeremiyah",
+   "position": "RB",
+   "team": "ARI"
+  },
+  {
+   "id": "12626",
+   "name": "Henry, Derrick",
+   "position": "RB",
+   "team": "BAL"
+  },
+  {
+   "id": "16601",
+   "name": "Shipley, Will",
+   "position": "RB",
+   "team": "PHI"
+  },
+  {
+   "id": "16171",
+   "name": "Miller, Kendre",
+   "position": "RB",
+   "team": "NOS"
+  },
+  {
+   "id": "15711",
+   "name": "Walker III, Kenneth",
+   "position": "RB",
+   "team": "KCC"
+  },
+  {
+   "id": "16387",
+   "name": "Brooks, Chris",
+   "position": "RB",
+   "team": "GBP"
+  },
+  {
+   "id": "15787",
+   "name": "Thornton, Tyquan",
+   "position": "WR",
+   "team": "KCC"
+  },
+  {
+   "id": "11679",
+   "name": "Beckham, Odell",
+   "position": "WR",
+   "team": "MIN"
+  },
+  {
+   "id": "17500",
+   "name": "Boston, Denzel",
+   "position": "WR",
+   "team": "CLE"
+  }
+ ]
+}

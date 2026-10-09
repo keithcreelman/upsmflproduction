@@ -56,6 +56,13 @@ jobs:
       - name: UPS Center due + duplicate-guard logic
         run: python pipelines/etl/wire/test_ups_center_due.py
 
+      # Offline: the scheduled draft builder (render, validation against recorded
+      # sources, one-PR-per-week decisions, no publish/post path).
+      - name: UPS Center automated draft builder
+        env:
+          UPS_CENTER_AUTO_QUIET: "1"
+        run: python pipelines/etl/wire/test_ups_center_auto.py
+
       # Packs are re-validated OFFLINE. `build` needs D1 credentials and the
       # live worker, and is deliberately a human-run step -- a report's numbers
       # should be fetched deliberately and reviewed, not refreshed by CI behind

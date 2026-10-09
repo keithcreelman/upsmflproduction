@@ -1,0 +1,1067 @@
+{
+ "ap:0001": {
+  "shown": "13&ndash;31",
+  "source": "MFL leagueStandings",
+  "value": "13-31"
+ },
+ "ap:0002": {
+  "shown": "27&ndash;17",
+  "source": "MFL leagueStandings",
+  "value": "27-17"
+ },
+ "ap:0003": {
+  "shown": "16&ndash;28",
+  "source": "MFL leagueStandings",
+  "value": "16-28"
+ },
+ "ap:0004": {
+  "shown": "22&ndash;22",
+  "source": "MFL leagueStandings",
+  "value": "22-22"
+ },
+ "ap:0005": {
+  "shown": "34&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "34-10"
+ },
+ "ap:0006": {
+  "shown": "8&ndash;36",
+  "source": "MFL leagueStandings",
+  "value": "8-36"
+ },
+ "ap:0007": {
+  "shown": "9&ndash;35",
+  "source": "MFL leagueStandings",
+  "value": "9-35"
+ },
+ "ap:0008": {
+  "shown": "22&ndash;22",
+  "source": "MFL leagueStandings",
+  "value": "22-22"
+ },
+ "ap:0009": {
+  "shown": "34&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "34-10"
+ },
+ "ap:0010": {
+  "shown": "32&ndash;12",
+  "source": "MFL leagueStandings",
+  "value": "32-12"
+ },
+ "ap:0011": {
+  "shown": "22&ndash;22",
+  "source": "MFL leagueStandings",
+  "value": "22-22"
+ },
+ "ap:0012": {
+  "shown": "25&ndash;19",
+  "source": "MFL leagueStandings",
+  "value": "25-19"
+ },
+ "box:Kenneth Walker III": {
+  "shown": "22 carries for 177 and 2 TD; 1 catch on 1 target for 2",
+  "source": "pack playcard (nflverse box score)",
+  "value": "22 carries for 177 and 2 TD; 1 catch on 1 target for 2"
+ },
+ "box:Nico Collins": {
+  "shown": "7 catches on 8 targets for 118 and 2 TD",
+  "source": "pack playcard (nflverse box score)",
+  "value": "7 catches on 8 targets for 118 and 2 TD"
+ },
+ "box:Puka Nacua": {
+  "shown": "1 carry for 2 and 1 TD; 9 catches on 12 targets for 125",
+  "source": "pack playcard (nflverse box score)",
+  "value": "1 carry for 2 and 1 TD; 9 catches on 12 targets for 125"
+ },
+ "box:Tetairoa McMillan": {
+  "shown": "14 catches on 16 targets for 192 and 2 TD",
+  "source": "pack playcard (nflverse box score)",
+  "value": "14 catches on 16 targets for 192 and 2 TD"
+ },
+ "count:candidates": {
+  "shown": "26",
+  "source": "D1 ups_discord_messages window (usable lines)",
+  "value": 26
+ },
+ "count:graded": {
+  "shown": "181",
+  "source": "D1 evidence (starters graded)",
+  "value": 181
+ },
+ "count:ungraded": {
+  "shown": "11",
+  "source": "D1 evidence (starters not graded)",
+  "value": 11
+ },
+ "diff:12225": {
+  "shown": "-5.6",
+  "source": "pack t.bb.idp.bust",
+  "value": "-5.6"
+ },
+ "diff:13737": {
+  "shown": "-6.1",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.1"
+ },
+ "diff:14249": {
+  "shown": "-6.2",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.2"
+ },
+ "diff:14328": {
+  "shown": "-6.7",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.7"
+ },
+ "diff:14832": {
+  "shown": "+30.2",
+  "source": "pack t.bb.off.bargain",
+  "value": "+30.2"
+ },
+ "diff:15281": {
+  "shown": "-15.5",
+  "source": "pack t.bb.off.bust",
+  "value": "-15.5"
+ },
+ "diff:15404": {
+  "shown": "+10.3",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+10.3"
+ },
+ "diff:15711": {
+  "shown": "+22.8",
+  "source": "pack t.bb.off.bargain",
+  "value": "+22.8"
+ },
+ "diff:15716": {
+  "shown": "+22.3",
+  "source": "pack t.bb.off.bargain",
+  "value": "+22.3"
+ },
+ "diff:15753": {
+  "shown": "-13.0",
+  "source": "pack t.bb.off.bust",
+  "value": "-13.0"
+ },
+ "diff:15875": {
+  "shown": "+10.1",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+10.1"
+ },
+ "diff:16185": {
+  "shown": "-13.5",
+  "source": "pack t.bb.off.bust",
+  "value": "-13.5"
+ },
+ "diff:16192": {
+  "shown": "-16.6",
+  "source": "pack t.bb.off.bust",
+  "value": "-16.6"
+ },
+ "diff:16719": {
+  "shown": "+9.6",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+9.6"
+ },
+ "diff:17066": {
+  "shown": "+22.1",
+  "source": "pack t.bb.off.bargain",
+  "value": "+22.1"
+ },
+ "diff:17071": {
+  "shown": "+38.8",
+  "source": "pack t.bb.off.bargain",
+  "value": "+38.8"
+ },
+ "diff:17081": {
+  "shown": "-13.6",
+  "source": "pack t.bb.off.bust",
+  "value": "-13.6"
+ },
+ "diff:17144": {
+  "shown": "+12.6",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+12.6"
+ },
+ "diff:17556": {
+  "shown": "+13.0",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+13.0"
+ },
+ "diff:17576": {
+  "shown": "-6.5",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.5"
+ },
+ "elias:count": {
+  "shown": "13",
+  "source": "MFL site news",
+  "value": 13
+ },
+ "fact:f.grade.favorites": {
+  "shown": "8",
+  "source": "pack f.grade.favorites",
+  "value": 8
+ },
+ "fact:f.team.0003.best_available": {
+  "shown": "227.5",
+  "source": "pack f.team.0003.best_available",
+  "value": 227.5
+ },
+ "fact:f.team.0004.best_available": {
+  "shown": "258.3",
+  "source": "pack f.team.0004.best_available",
+  "value": 258.3
+ },
+ "fact:f.team.0007.best_available": {
+  "shown": "214.9",
+  "source": "pack f.team.0007.best_available",
+  "value": 214.9
+ },
+ "fact:f.team.0008.best_available": {
+  "shown": "246.2",
+  "source": "pack f.team.0008.best_available",
+  "value": 246.2
+ },
+ "fact:f.team.0009.best_available": {
+  "shown": "328.7",
+  "source": "pack f.team.0009.best_available",
+  "value": 328.7
+ },
+ "grade:0": {
+  "shown": "Brian Cutting (77%) 211.6-181.4 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Brian Cutting (77%)",
+   "final": "211.6-181.4",
+   "game": "Brian Cutting vs Brian Cross"
+  }
+ },
+ "grade:1": {
+  "shown": "Bear Dunn (74%) 289.9-223.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (74%)",
+   "final": "289.9-223.9",
+   "game": "Bear Dunn vs Chris Klingenberg"
+  }
+ },
+ "grade:10": {
+  "shown": "Eric Mannila (52%) 294.7-223.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Mannila (52%)",
+   "final": "294.7-223.9",
+   "game": "Eric Mannila vs Chris Klingenberg"
+  }
+ },
+ "grade:11": {
+  "shown": "Ryan Bousquet (51%) 216.0-194.3 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Ryan Bousquet (51%)",
+   "final": "216.0-194.3",
+   "game": "Ryan Bousquet vs Josh Martel"
+  }
+ },
+ "grade:2": {
+  "shown": "Bear Dunn (72%) 289.9-294.7 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Bear Dunn (72%)",
+   "final": "289.9-294.7",
+   "game": "Bear Dunn vs Eric Mannila"
+  }
+ },
+ "grade:3": {
+  "shown": "Eric Martel (69%) 250.2-181.4 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Martel (69%)",
+   "final": "250.2-181.4",
+   "game": "Eric Martel vs Brian Cross"
+  }
+ },
+ "grade:4": {
+  "shown": "Derrick Whitman (62%) 214.5-208.3 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Derrick Whitman (62%)",
+   "final": "214.5-208.3",
+   "game": "Derrick Whitman vs Matt Gerardi"
+  }
+ },
+ "grade:5": {
+  "shown": "Brian Cutting (59%) 211.6-250.2 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Brian Cutting (59%)",
+   "final": "211.6-250.2",
+   "game": "Brian Cutting vs Eric Martel"
+  }
+ },
+ "grade:6": {
+  "shown": "Derrick Whitman (58%) 214.5-250.9 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Derrick Whitman (58%)",
+   "final": "214.5-250.9",
+   "game": "Derrick Whitman vs Shawn Blake"
+  }
+ },
+ "grade:7": {
+  "shown": "Keith Creelman (55%) 206.3-194.3 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Keith Creelman (55%)",
+   "final": "206.3-194.3",
+   "game": "Keith Creelman vs Josh Martel"
+  }
+ },
+ "grade:8": {
+  "shown": "Shawn Blake (54%) 250.9-208.3 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Shawn Blake (54%)",
+   "final": "250.9-208.3",
+   "game": "Shawn Blake vs Matt Gerardi"
+  }
+ },
+ "grade:9": {
+  "shown": "Keith Creelman (54%) 206.3-216.0 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Keith Creelman (54%)",
+   "final": "206.3-216.0",
+   "game": "Keith Creelman vs Ryan Bousquet"
+  }
+ },
+ "margin:0001:0007": {
+  "shown": "21.7",
+  "source": "MFL weeklyResults W4",
+  "value": 21.7
+ },
+ "margin:0001:0008": {
+  "shown": "9.7",
+  "source": "MFL weeklyResults W4",
+  "value": 9.7
+ },
+ "margin:0002:0003": {
+  "shown": "6.2",
+  "source": "MFL weeklyResults W4",
+  "value": 6.2
+ },
+ "margin:0004:0006": {
+  "shown": "30.2",
+  "source": "MFL weeklyResults W4",
+  "value": 30.2
+ },
+ "margin:0005:0004": {
+  "shown": "38.6",
+  "source": "MFL weeklyResults W4",
+  "value": 38.6
+ },
+ "margin:0005:0006": {
+  "shown": "68.8",
+  "source": "MFL weeklyResults W4",
+  "value": 68.8
+ },
+ "margin:0008:0007": {
+  "shown": "12.0",
+  "source": "MFL weeklyResults W4",
+  "value": 12.0
+ },
+ "margin:0009:0012": {
+  "shown": "66.0",
+  "source": "MFL weeklyResults W4",
+  "value": 66.0
+ },
+ "margin:0010:0002": {
+  "shown": "36.4",
+  "source": "MFL weeklyResults W4",
+  "value": 36.4
+ },
+ "margin:0010:0003": {
+  "shown": "42.6",
+  "source": "MFL weeklyResults W4",
+  "value": 42.6
+ },
+ "margin:0011:0009": {
+  "shown": "4.8",
+  "source": "MFL weeklyResults W4",
+  "value": 4.8
+ },
+ "margin:0011:0012": {
+  "shown": "70.8",
+  "source": "MFL weeklyResults W4",
+  "value": 70.8
+ },
+ "pf:0001": {
+  "shown": "768.9",
+  "source": "MFL leagueStandings",
+  "value": 768.9
+ },
+ "pf:0002": {
+  "shown": "894.8",
+  "source": "MFL leagueStandings",
+  "value": 894.8
+ },
+ "pf:0003": {
+  "shown": "800.8",
+  "source": "MFL leagueStandings",
+  "value": 800.8
+ },
+ "pf:0004": {
+  "shown": "882.6",
+  "source": "MFL leagueStandings",
+  "value": 882.6
+ },
+ "pf:0005": {
+  "shown": "996.5",
+  "source": "MFL leagueStandings",
+  "value": 996.5
+ },
+ "pf:0006": {
+  "shown": "784.6",
+  "source": "MFL leagueStandings",
+  "value": 784.6
+ },
+ "pf:0007": {
+  "shown": "760.2",
+  "source": "MFL leagueStandings",
+  "value": 760.2
+ },
+ "pf:0008": {
+  "shown": "873.3",
+  "source": "MFL leagueStandings",
+  "value": 873.3
+ },
+ "pf:0009": {
+  "shown": "1,016.8",
+  "source": "MFL leagueStandings",
+  "value": 1016.8
+ },
+ "pf:0010": {
+  "shown": "981.0",
+  "source": "MFL leagueStandings",
+  "value": 981.0
+ },
+ "pf:0011": {
+  "shown": "879.0",
+  "source": "MFL leagueStandings",
+  "value": 879.0
+ },
+ "pf:0012": {
+  "shown": "840.7",
+  "source": "MFL leagueStandings",
+  "value": 840.7
+ },
+ "posts:Bear Dunn": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Brian Cross": {
+  "shown": "3",
+  "source": "D1 ups_discord_messages window",
+  "value": 3
+ },
+ "posts:Brian Cutting": {
+  "shown": "2",
+  "source": "D1 ups_discord_messages window",
+  "value": 2
+ },
+ "posts:Chris Klingenberg": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Derrick Whitman": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Eric Mannila": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Eric Martel": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Josh Martel": {
+  "shown": "7",
+  "source": "D1 ups_discord_messages window",
+  "value": 7
+ },
+ "posts:Keith Creelman": {
+  "shown": "13",
+  "source": "D1 ups_discord_messages window",
+  "value": 13
+ },
+ "posts:Matt Gerardi": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Ryan Bousquet": {
+  "shown": "6",
+  "source": "D1 ups_discord_messages window",
+  "value": 6
+ },
+ "posts:Shawn Blake": {
+  "shown": "10",
+  "source": "D1 ups_discord_messages window",
+  "value": 10
+ },
+ "posts:total": {
+  "shown": "41",
+  "source": "D1 ups_discord_messages window",
+  "value": 41
+ },
+ "proj:12225": {
+  "shown": "6.1",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791145500,
+   "value": 6.1
+  }
+ },
+ "proj:13737": {
+  "shown": "8.4",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791245700,
+   "value": 8.4
+  }
+ },
+ "proj:14249": {
+  "shown": "8.2",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791144300,
+   "value": 8.2
+  }
+ },
+ "proj:14328": {
+  "shown": "8.0",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 8.0
+  }
+ },
+ "proj:14832": {
+  "shown": "16.3",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 16.3
+  }
+ },
+ "proj:15281": {
+  "shown": "21.4",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 21.4
+  }
+ },
+ "proj:15404": {
+  "shown": "8.7",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791145500,
+   "value": 8.7
+  }
+ },
+ "proj:15711": {
+  "shown": "11.1",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791145500,
+   "value": 11.1
+  }
+ },
+ "proj:15716": {
+  "shown": "4.6",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791245700,
+   "value": 4.6
+  }
+ },
+ "proj:15753": {
+  "shown": "18.9",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 18.9
+  }
+ },
+ "proj:15875": {
+  "shown": "5.6",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 5.6
+  }
+ },
+ "proj:16185": {
+  "shown": "26.7",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791145500,
+   "value": 26.7
+  }
+ },
+ "proj:16192": {
+  "shown": "18.8",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 18.8
+  }
+ },
+ "proj:16719": {
+  "shown": "10.0",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 10.0
+  }
+ },
+ "proj:17066": {
+  "shown": "8.3",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 8.3
+  }
+ },
+ "proj:17071": {
+  "shown": "11.0",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791159600,
+   "value": 11.0
+  }
+ },
+ "proj:17081": {
+  "shown": "17.1",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 17.1
+  }
+ },
+ "proj:17144": {
+  "shown": "7.1",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791145500,
+   "value": 7.1
+  }
+ },
+ "proj:17556": {
+  "shown": "5.5",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 5.5
+  }
+ },
+ "proj:17576": {
+  "shown": "12.1",
+  "source": "D1 ups_player_projections (first_pregame_fallback)",
+  "value": {
+   "captured": 1790963255,
+   "kickoff": 1791133200,
+   "value": 12.1
+  }
+ },
+ "pts:Andrew Van Ginkel": {
+  "shown": "2.0",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 2.0
+ },
+ "pts:Andrew Wingard": {
+  "shown": "1.3",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 1.3
+ },
+ "pts:Arvell Reese": {
+  "shown": "18.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 18.5
+ },
+ "pts:Brian Robinson": {
+  "shown": "26.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 26.9
+ },
+ "pts:CeeDee Lamb": {
+  "shown": "46.5",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 46.5
+ },
+ "pts:Dane Belton": {
+  "shown": "15.7",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 15.7
+ },
+ "pts:Dillon Thieneman": {
+  "shown": "5.6",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 5.6
+ },
+ "pts:Emeka Egbuka": {
+  "shown": "3.5",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 3.5
+ },
+ "pts:Ernest Jones": {
+  "shown": "19.0",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 19.0
+ },
+ "pts:Evan Williams": {
+  "shown": "19.6",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 19.6
+ },
+ "pts:Garrett Wilson": {
+  "shown": "5.9",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 5.9
+ },
+ "pts:Ja'Marr Chase": {
+  "shown": "5.9",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 5.9
+ },
+ "pts:Jaxon Smith-Njigba": {
+  "shown": "13.2",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 13.2
+ },
+ "pts:Jessie Bates": {
+  "shown": "2.3",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 2.3
+ },
+ "pts:Kenneth Walker III": {
+  "shown": "33.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 33.9
+ },
+ "pts:Kyle Monangai": {
+  "shown": "30.4",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 30.4
+ },
+ "pts:Kyren Williams": {
+  "shown": "37.5",
+  "source": "pack t.performers (src_weekly)",
+  "value": 37.5
+ },
+ "pts:Leonard Williams": {
+  "shown": "0.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 0.5
+ },
+ "pts:Nick Emmanwori": {
+  "shown": "19.7",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 19.7
+ },
+ "pts:Nico Collins": {
+  "shown": "33.8",
+  "source": "pack playcard (src_weekly)",
+  "value": 33.8
+ },
+ "pts:Parker Washington": {
+  "shown": "2.2",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 2.2
+ },
+ "pts:Puka Nacua": {
+  "shown": "30.9",
+  "source": "pack playcard (src_weekly)",
+  "value": 30.9
+ },
+ "pts:Tetairoa McMillan": {
+  "shown": "49.8",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 49.8
+ },
+ "rec:0001": {
+  "shown": "4&ndash;6",
+  "source": "MFL leagueStandings",
+  "value": "4-6"
+ },
+ "rec:0002": {
+  "shown": "6&ndash;4",
+  "source": "MFL leagueStandings",
+  "value": "6-4"
+ },
+ "rec:0003": {
+  "shown": "3&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "3-7"
+ },
+ "rec:0004": {
+  "shown": "4&ndash;6",
+  "source": "MFL leagueStandings",
+  "value": "4-6"
+ },
+ "rec:0005": {
+  "shown": "8&ndash;2",
+  "source": "MFL leagueStandings",
+  "value": "8-2"
+ },
+ "rec:0006": {
+  "shown": "1&ndash;9",
+  "source": "MFL leagueStandings",
+  "value": "1-9"
+ },
+ "rec:0007": {
+  "shown": "2&ndash;8",
+  "source": "MFL leagueStandings",
+  "value": "2-8"
+ },
+ "rec:0008": {
+  "shown": "6&ndash;4",
+  "source": "MFL leagueStandings",
+  "value": "6-4"
+ },
+ "rec:0009": {
+  "shown": "8&ndash;2",
+  "source": "MFL leagueStandings",
+  "value": "8-2"
+ },
+ "rec:0010": {
+  "shown": "7&ndash;3",
+  "source": "MFL leagueStandings",
+  "value": "7-3"
+ },
+ "rec:0011": {
+  "shown": "6&ndash;4",
+  "source": "MFL leagueStandings",
+  "value": "6-4"
+ },
+ "rec:0012": {
+  "shown": "5&ndash;5",
+  "source": "MFL leagueStandings",
+  "value": "5-5"
+ },
+ "record:combined": {
+  "shown": "584.6",
+  "source": "D1 src_schedule record book (regular-season head-to-head games, 2012 and 2020 on)",
+  "value": 584.6
+ },
+ "score:0001": {
+  "shown": "216.0",
+  "source": "MFL weeklyResults W4",
+  "value": 216.0
+ },
+ "score:0002": {
+  "shown": "214.5",
+  "source": "MFL weeklyResults W4",
+  "value": 214.5
+ },
+ "score:0003": {
+  "shown": "208.3",
+  "source": "MFL weeklyResults W4",
+  "value": 208.3
+ },
+ "score:0004": {
+  "shown": "211.6",
+  "source": "MFL weeklyResults W4",
+  "value": 211.6
+ },
+ "score:0005": {
+  "shown": "250.2",
+  "source": "MFL weeklyResults W4",
+  "value": 250.2
+ },
+ "score:0006": {
+  "shown": "181.4",
+  "source": "MFL weeklyResults W4",
+  "value": 181.4
+ },
+ "score:0007": {
+  "shown": "194.3",
+  "source": "MFL weeklyResults W4",
+  "value": 194.3
+ },
+ "score:0008": {
+  "shown": "206.3",
+  "source": "MFL weeklyResults W4",
+  "value": 206.3
+ },
+ "score:0009": {
+  "shown": "289.9",
+  "source": "MFL weeklyResults W4",
+  "value": 289.9
+ },
+ "score:0010": {
+  "shown": "250.9",
+  "source": "MFL weeklyResults W4",
+  "value": 250.9
+ },
+ "score:0011": {
+  "shown": "294.7",
+  "source": "MFL weeklyResults W4",
+  "value": 294.7
+ },
+ "score:0012": {
+  "shown": "223.9",
+  "source": "MFL weeklyResults W4",
+  "value": 223.9
+ },
+ "usage:Brian Robinson": {
+  "shown": "14 carries, 1 target",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "14 carries, 1 target"
+ },
+ "usage:CeeDee Lamb": {
+  "shown": "21 targets, 159 air yards, 1 carry",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "21 targets, 159 air yards, 1 carry"
+ },
+ "usage:Emeka Egbuka": {
+  "shown": "4 targets, 18 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "4 targets, 18 air yards"
+ },
+ "usage:Garrett Wilson": {
+  "shown": "4 targets, 31 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "4 targets, 31 air yards"
+ },
+ "usage:Ja'Marr Chase": {
+  "shown": "3 targets, 12 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "3 targets, 12 air yards"
+ },
+ "usage:Jaxon Smith-Njigba": {
+  "shown": "6 targets, 66 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "6 targets, 66 air yards"
+ },
+ "usage:Kenneth Walker III": {
+  "shown": "22 carries, 1 target",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "22 carries, 1 target"
+ },
+ "usage:Kyle Monangai": {
+  "shown": "30 carries, 1 target",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "30 carries, 1 target"
+ },
+ "usage:Parker Washington": {
+  "shown": "3 targets, 38 air yards, 1 carry",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "3 targets, 38 air yards, 1 carry"
+ },
+ "usage:Tetairoa McMillan": {
+  "shown": "16 targets, 152 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "16 targets, 152 air yards"
+ },
+ "wkap:0001": {
+  "shown": "6&ndash;5",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "6-5"
+ },
+ "wkap:0002": {
+  "shown": "5&ndash;6",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "5-6"
+ },
+ "wkap:0003": {
+  "shown": "3&ndash;8",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "3-8"
+ },
+ "wkap:0004": {
+  "shown": "4&ndash;7",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "4-7"
+ },
+ "wkap:0005": {
+  "shown": "8&ndash;3",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "8-3"
+ },
+ "wkap:0006": {
+  "shown": "0&ndash;11",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "0-11"
+ },
+ "wkap:0007": {
+  "shown": "1&ndash;10",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "1-10"
+ },
+ "wkap:0008": {
+  "shown": "2&ndash;9",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "2-9"
+ },
+ "wkap:0009": {
+  "shown": "10&ndash;1",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "10-1"
+ },
+ "wkap:0010": {
+  "shown": "9&ndash;2",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "9-2"
+ },
+ "wkap:0011": {
+  "shown": "11&ndash;0",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "11-0"
+ },
+ "wkap:0012": {
+  "shown": "7&ndash;4",
+  "source": "MFL weeklyResults W4 (all-play)",
+  "value": "7-4"
+ }
+}

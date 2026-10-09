@@ -380,15 +380,7 @@
     // hasn't landed, dropPenaltyFor falls back to local math — say "est." so
     // the number is never mistaken for the authoritative charge.
     var penalty = DATA.dropPenaltyFor(rosterRow, s.ctx.year);
-    var penaltyLabel = "";
-    if (penalty && typeof penalty.amount === "number") {
-      var estTag = penalty.authoritative ? "" : "est. ";
-      penaltyLabel = penalty.amount > 0
-        ? ' <span class="pn">(' + estTag + U.fmtUsd(penalty.amount) + ' penalty)</span>'
-        : ' <span class="pn ok">(no penalty)</span>';
-    } else {
-      penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
-    }
+    var penaltyLabel = penaltyLabelHtml(penalty);
     // Eligibility from the verbatim Front Office mirror (same predicates the
     // desktop Roster Workbench uses). Tag check now consults the league
     // tag plan (site/ccc/tag_tracking.json) + per-team-side conflict scan
@@ -2016,16 +2008,31 @@
       "\nRoom left: " + U.fmtUsdPrecise(newRoom) + " (" + newPct + "% of $300K cap)";
   }
 
-  function handleDrop(pid, name, rosterRow, btn) {
-    var penalty = DATA.dropPenaltyFor(rosterRow, window.UPS_MOBILE.state.ctx.year);
-    var penaltyLine = "";
+  // The drop penalty as the sheet shows it. UNPRICED (the worker could not price it yet — front_office_penalty.js) is
+  // "under review", never "no penalty" and never a $0.
+  function penaltyLabelHtml(penalty) {
+    if (penalty && penalty.unpriced) return ' <span class="pn">(penalty under review)</span>';
     if (penalty && typeof penalty.amount === "number") {
-      penaltyLine = penalty.amount > 0
+      var estTag = penalty.authoritative ? "" : "est. ";
+      return penalty.amount > 0
+        ? ' <span class="pn">(' + estTag + U.fmtUsd(penalty.amount) + ' penalty)</span>'
+        : ' <span class="pn ok">(no penalty)</span>';
+    }
+    return ' <span class="pn">(penalty TBD)</span>';
+  }
+  function dropConfirmPenaltyLine(penalty) {
+    if (penalty && penalty.unpriced) return "\nCap penalty: under review — not yet priced. It is NOT $0.";
+    if (penalty && typeof penalty.amount === "number") {
+      return penalty.amount > 0
         ? "\nEstimated cap penalty: " + U.fmtUsdPrecise(penalty.amount)
         : "\nNo dead-cap penalty.";
-    } else {
-      penaltyLine = "\nCap penalty: unknown (pre-2019 or unparseable contract).";
     }
+    return "\nCap penalty: unknown (pre-2019 or unparseable contract).";
+  }
+
+  function handleDrop(pid, name, rosterRow, btn) {
+    var penalty = DATA.dropPenaltyFor(rosterRow, window.UPS_MOBILE.state.ctx.year);
+    var penaltyLine = dropConfirmPenaltyLine(penalty);
     // U6 — cap impact preview: show user the post-drop cap state before
     // they commit. Drop removes the live salary and replaces it with the
     // dead-cap penalty, so the net delta is (penalty - currentSalary).
@@ -2039,7 +2046,8 @@
     var curSalary = Number(rosterRow && rosterRow.salary) || 0;
     var cyRem = U.safeInt(rosterRow && rosterRow.contractYear, -1);
     var capDelta = cyRem === 0 ? 0 : (penaltyAmt - curSalary);
-    var capLine = capPreviewLine(capDelta);
+    // An UNPRICED drop's cost is unknown — never previewed as if it were free.
+    var capLine = (penalty && penalty.unpriced) ? "\nCap room after the drop: unknown until the penalty is priced." : capPreviewLine(capDelta);
     if (!window.confirm("Drop " + name + "?" + penaltyLine + capLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
     setBusy(btn, true, "Dropping…");
     ACT.submitDrop(pid, name).then(function (resp) {

@@ -1,0 +1,980 @@
+{
+ "_source": "D1 src_standings + src_schedule (regular season, played) and /api/standings (division leaders, franchise names, per-game pf) for 2026, read 2026-10-08 after the Week 4 Elias repair",
+ "season": 2026,
+ "rows": [
+  {
+   "franchise_id": "0001",
+   "franchise_name": "L.A. Looks",
+   "owner_name": "Ryan Bousquet",
+   "division": "02",
+   "is_division_leader": false,
+   "allplay_pct": 0.2955,
+   "h2h_pct": 0.4,
+   "pf": 192.41,
+   "pf_total": 768.9
+  },
+  {
+   "franchise_id": "0002",
+   "franchise_name": "CBP",
+   "owner_name": "Derrick Whitman",
+   "division": "01",
+   "is_division_leader": false,
+   "allplay_pct": 0.6136,
+   "h2h_pct": 0.6,
+   "pf": 221.85,
+   "pf_total": 894.8
+  },
+  {
+   "franchise_id": "0003",
+   "franchise_name": "Gride",
+   "owner_name": "Matt Gerardi",
+   "division": "01",
+   "is_division_leader": false,
+   "allplay_pct": 0.3636,
+   "h2h_pct": 0.3,
+   "pf": 196.4,
+   "pf_total": 800.8
+  },
+  {
+   "franchise_id": "0004",
+   "franchise_name": "Pure Greatness",
+   "owner_name": "Brian Cutting",
+   "division": "00",
+   "is_division_leader": false,
+   "allplay_pct": 0.5,
+   "h2h_pct": 0.4,
+   "pf": 217.77,
+   "pf_total": 882.6
+  },
+  {
+   "franchise_id": "0005",
+   "franchise_name": "HammerTime 🔨 ⏰",
+   "owner_name": "Eric Martel",
+   "division": "00",
+   "is_division_leader": true,
+   "allplay_pct": 0.7727,
+   "h2h_pct": 0.8,
+   "pf": 242.65,
+   "pf_total": 996.5
+  },
+  {
+   "franchise_id": "0006",
+   "franchise_name": "The Long Haulers",
+   "owner_name": "Brian Cross",
+   "division": "00",
+   "is_division_leader": false,
+   "allplay_pct": 0.1818,
+   "h2h_pct": 0.1,
+   "pf": 195.24,
+   "pf_total": 784.6
+  },
+  {
+   "franchise_id": "0007",
+   "franchise_name": "Sex Manther",
+   "owner_name": "Josh Martel",
+   "division": "02",
+   "is_division_leader": false,
+   "allplay_pct": 0.2045,
+   "h2h_pct": 0.2,
+   "pf": 185.8,
+   "pf_total": 760.2
+  },
+  {
+   "franchise_id": "0008",
+   "franchise_name": "Real Deal Creel",
+   "owner_name": "Keith Creelman",
+   "division": "02",
+   "is_division_leader": true,
+   "allplay_pct": 0.5,
+   "h2h_pct": 0.6,
+   "pf": 216.67,
+   "pf_total": 873.3
+  },
+  {
+   "franchise_id": "0009",
+   "franchise_name": "C-Town Chivalry",
+   "owner_name": "Bear Dunn",
+   "division": "03",
+   "is_division_leader": true,
+   "allplay_pct": 0.7727,
+   "h2h_pct": 0.8,
+   "pf": 257.02,
+   "pf_total": 1016.8
+  },
+  {
+   "franchise_id": "0010",
+   "franchise_name": "Blake Bombers",
+   "owner_name": "Shawn Blake",
+   "division": "01",
+   "is_division_leader": true,
+   "allplay_pct": 0.7273,
+   "h2h_pct": 0.7,
+   "pf": 251.13,
+   "pf_total": 981
+  },
+  {
+   "franchise_id": "0011",
+   "franchise_name": "Cleon Ca$h",
+   "owner_name": "Eric Mannila",
+   "division": "03",
+   "is_division_leader": false,
+   "allplay_pct": 0.5,
+   "h2h_pct": 0.6,
+   "pf": 211.84,
+   "pf_total": 879
+  },
+  {
+   "franchise_id": "0012",
+   "franchise_name": "Hawks",
+   "owner_name": "Chris Klingenberg",
+   "division": "03",
+   "is_division_leader": false,
+   "allplay_pct": 0.5682,
+   "h2h_pct": 0.5,
+   "pf": 214.45,
+   "pf_total": 840.7
+  }
+ ],
+ "games": [
+  {
+   "week": 1,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0007",
+   "team_score": 166.6,
+   "opponent_score": 228.3
+  },
+  {
+   "week": 1,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0008",
+   "team_score": 166.6,
+   "opponent_score": 246.9
+  },
+  {
+   "week": 1,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0003",
+   "team_score": 251.4,
+   "opponent_score": 230.1
+  },
+  {
+   "week": 1,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0010",
+   "team_score": 251.4,
+   "opponent_score": 180.8
+  },
+  {
+   "week": 1,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0002",
+   "team_score": 230.1,
+   "opponent_score": 251.4
+  },
+  {
+   "week": 1,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0010",
+   "team_score": 230.1,
+   "opponent_score": 180.8
+  },
+  {
+   "week": 1,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0005",
+   "team_score": 258.5,
+   "opponent_score": 312.8
+  },
+  {
+   "week": 1,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0006",
+   "team_score": 258.5,
+   "opponent_score": 220
+  },
+  {
+   "week": 1,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0004",
+   "team_score": 312.8,
+   "opponent_score": 258.5
+  },
+  {
+   "week": 1,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0006",
+   "team_score": 312.8,
+   "opponent_score": 220
+  },
+  {
+   "week": 1,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0004",
+   "team_score": 220,
+   "opponent_score": 258.5
+  },
+  {
+   "week": 1,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0005",
+   "team_score": 220,
+   "opponent_score": 312.8
+  },
+  {
+   "week": 1,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0001",
+   "team_score": 228.3,
+   "opponent_score": 166.6
+  },
+  {
+   "week": 1,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0008",
+   "team_score": 228.3,
+   "opponent_score": 246.9
+  },
+  {
+   "week": 1,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0001",
+   "team_score": 246.9,
+   "opponent_score": 166.6
+  },
+  {
+   "week": 1,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0007",
+   "team_score": 246.9,
+   "opponent_score": 228.3
+  },
+  {
+   "week": 1,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0011",
+   "team_score": 190.3,
+   "opponent_score": 223.9
+  },
+  {
+   "week": 1,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0012",
+   "team_score": 190.3,
+   "opponent_score": 153.7
+  },
+  {
+   "week": 1,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0002",
+   "team_score": 180.8,
+   "opponent_score": 251.4
+  },
+  {
+   "week": 1,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0003",
+   "team_score": 180.8,
+   "opponent_score": 230.1
+  },
+  {
+   "week": 1,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0009",
+   "team_score": 223.9,
+   "opponent_score": 190.3
+  },
+  {
+   "week": 1,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0012",
+   "team_score": 223.9,
+   "opponent_score": 153.7
+  },
+  {
+   "week": 1,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0009",
+   "team_score": 153.7,
+   "opponent_score": 190.3
+  },
+  {
+   "week": 1,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0011",
+   "team_score": 153.7,
+   "opponent_score": 223.9
+  },
+  {
+   "week": 2,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0009",
+   "team_score": 179.2,
+   "opponent_score": 281.8
+  },
+  {
+   "week": 2,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0011",
+   "team_score": 179.2,
+   "opponent_score": 144.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0012",
+   "team_score": 179.2,
+   "opponent_score": 236.1
+  },
+  {
+   "week": 2,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0004",
+   "team_score": 215.3,
+   "opponent_score": 199.6
+  },
+  {
+   "week": 2,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0005",
+   "team_score": 215.3,
+   "opponent_score": 208.7
+  },
+  {
+   "week": 2,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0006",
+   "team_score": 215.3,
+   "opponent_score": 178
+  },
+  {
+   "week": 2,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0004",
+   "team_score": 208.6,
+   "opponent_score": 199.6
+  },
+  {
+   "week": 2,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0005",
+   "team_score": 208.6,
+   "opponent_score": 208.7
+  },
+  {
+   "week": 2,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0006",
+   "team_score": 208.6,
+   "opponent_score": 178
+  },
+  {
+   "week": 2,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0002",
+   "team_score": 199.6,
+   "opponent_score": 215.3
+  },
+  {
+   "week": 2,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0003",
+   "team_score": 199.6,
+   "opponent_score": 208.6
+  },
+  {
+   "week": 2,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0010",
+   "team_score": 199.6,
+   "opponent_score": 303.4
+  },
+  {
+   "week": 2,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0002",
+   "team_score": 208.7,
+   "opponent_score": 215.3
+  },
+  {
+   "week": 2,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0003",
+   "team_score": 208.7,
+   "opponent_score": 208.6
+  },
+  {
+   "week": 2,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0010",
+   "team_score": 208.7,
+   "opponent_score": 303.4
+  },
+  {
+   "week": 2,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0002",
+   "team_score": 178,
+   "opponent_score": 215.3
+  },
+  {
+   "week": 2,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0003",
+   "team_score": 178,
+   "opponent_score": 208.6
+  },
+  {
+   "week": 2,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0010",
+   "team_score": 178,
+   "opponent_score": 303.4
+  },
+  {
+   "week": 2,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0009",
+   "team_score": 172.2,
+   "opponent_score": 281.8
+  },
+  {
+   "week": 2,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0011",
+   "team_score": 172.2,
+   "opponent_score": 144.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0012",
+   "team_score": 172.2,
+   "opponent_score": 236.1
+  },
+  {
+   "week": 2,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0009",
+   "team_score": 201.2,
+   "opponent_score": 281.8
+  },
+  {
+   "week": 2,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0011",
+   "team_score": 201.2,
+   "opponent_score": 144.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0012",
+   "team_score": 201.2,
+   "opponent_score": 236.1
+  },
+  {
+   "week": 2,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0001",
+   "team_score": 281.8,
+   "opponent_score": 179.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0007",
+   "team_score": 281.8,
+   "opponent_score": 172.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0008",
+   "team_score": 281.8,
+   "opponent_score": 201.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0004",
+   "team_score": 303.4,
+   "opponent_score": 199.6
+  },
+  {
+   "week": 2,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0005",
+   "team_score": 303.4,
+   "opponent_score": 208.7
+  },
+  {
+   "week": 2,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0006",
+   "team_score": 303.4,
+   "opponent_score": 178
+  },
+  {
+   "week": 2,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0001",
+   "team_score": 144.2,
+   "opponent_score": 179.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0007",
+   "team_score": 144.2,
+   "opponent_score": 172.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0008",
+   "team_score": 144.2,
+   "opponent_score": 201.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0001",
+   "team_score": 236.1,
+   "opponent_score": 179.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0007",
+   "team_score": 236.1,
+   "opponent_score": 172.2
+  },
+  {
+   "week": 2,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0008",
+   "team_score": 236.1,
+   "opponent_score": 201.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0004",
+   "team_score": 207.1,
+   "opponent_score": 212.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0005",
+   "team_score": 207.1,
+   "opponent_score": 224.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0006",
+   "team_score": 207.1,
+   "opponent_score": 205.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0009",
+   "team_score": 213.6,
+   "opponent_score": 254.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0011",
+   "team_score": 213.6,
+   "opponent_score": 216.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0012",
+   "team_score": 213.6,
+   "opponent_score": 227
+  },
+  {
+   "week": 3,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0009",
+   "team_score": 153.8,
+   "opponent_score": 254.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0011",
+   "team_score": 153.8,
+   "opponent_score": 216.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0012",
+   "team_score": 153.8,
+   "opponent_score": 227
+  },
+  {
+   "week": 3,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0001",
+   "team_score": 212.9,
+   "opponent_score": 207.1
+  },
+  {
+   "week": 3,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0007",
+   "team_score": 212.9,
+   "opponent_score": 165.4
+  },
+  {
+   "week": 3,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0008",
+   "team_score": 212.9,
+   "opponent_score": 218.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0001",
+   "team_score": 224.8,
+   "opponent_score": 207.1
+  },
+  {
+   "week": 3,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0007",
+   "team_score": 224.8,
+   "opponent_score": 165.4
+  },
+  {
+   "week": 3,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0008",
+   "team_score": 224.8,
+   "opponent_score": 218.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0001",
+   "team_score": 205.2,
+   "opponent_score": 207.1
+  },
+  {
+   "week": 3,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0007",
+   "team_score": 205.2,
+   "opponent_score": 165.4
+  },
+  {
+   "week": 3,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0008",
+   "team_score": 205.2,
+   "opponent_score": 218.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0004",
+   "team_score": 165.4,
+   "opponent_score": 212.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0005",
+   "team_score": 165.4,
+   "opponent_score": 224.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0006",
+   "team_score": 165.4,
+   "opponent_score": 205.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0004",
+   "team_score": 218.9,
+   "opponent_score": 212.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0005",
+   "team_score": 218.9,
+   "opponent_score": 224.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0006",
+   "team_score": 218.9,
+   "opponent_score": 205.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0002",
+   "team_score": 254.8,
+   "opponent_score": 213.6
+  },
+  {
+   "week": 3,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0003",
+   "team_score": 254.8,
+   "opponent_score": 153.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0010",
+   "team_score": 254.8,
+   "opponent_score": 245.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0009",
+   "team_score": 245.9,
+   "opponent_score": 254.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0011",
+   "team_score": 245.9,
+   "opponent_score": 216.2
+  },
+  {
+   "week": 3,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0012",
+   "team_score": 245.9,
+   "opponent_score": 227
+  },
+  {
+   "week": 3,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0002",
+   "team_score": 216.2,
+   "opponent_score": 213.6
+  },
+  {
+   "week": 3,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0003",
+   "team_score": 216.2,
+   "opponent_score": 153.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0010",
+   "team_score": 216.2,
+   "opponent_score": 245.9
+  },
+  {
+   "week": 3,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0002",
+   "team_score": 227,
+   "opponent_score": 213.6
+  },
+  {
+   "week": 3,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0003",
+   "team_score": 227,
+   "opponent_score": 153.8
+  },
+  {
+   "week": 3,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0010",
+   "team_score": 227,
+   "opponent_score": 245.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0007",
+   "team_score": 216,
+   "opponent_score": 194.3
+  },
+  {
+   "week": 4,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0008",
+   "team_score": 216,
+   "opponent_score": 206.3
+  },
+  {
+   "week": 4,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0003",
+   "team_score": 214.5,
+   "opponent_score": 208.3
+  },
+  {
+   "week": 4,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0010",
+   "team_score": 214.5,
+   "opponent_score": 250.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0002",
+   "team_score": 208.3,
+   "opponent_score": 214.5
+  },
+  {
+   "week": 4,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0010",
+   "team_score": 208.3,
+   "opponent_score": 250.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0005",
+   "team_score": 211.6,
+   "opponent_score": 250.2
+  },
+  {
+   "week": 4,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0006",
+   "team_score": 211.6,
+   "opponent_score": 181.4
+  },
+  {
+   "week": 4,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0004",
+   "team_score": 250.2,
+   "opponent_score": 211.6
+  },
+  {
+   "week": 4,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0006",
+   "team_score": 250.2,
+   "opponent_score": 181.4
+  },
+  {
+   "week": 4,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0004",
+   "team_score": 181.4,
+   "opponent_score": 211.6
+  },
+  {
+   "week": 4,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0005",
+   "team_score": 181.4,
+   "opponent_score": 250.2
+  },
+  {
+   "week": 4,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0001",
+   "team_score": 194.3,
+   "opponent_score": 216
+  },
+  {
+   "week": 4,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0008",
+   "team_score": 194.3,
+   "opponent_score": 206.3
+  },
+  {
+   "week": 4,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0001",
+   "team_score": 206.3,
+   "opponent_score": 216
+  },
+  {
+   "week": 4,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0007",
+   "team_score": 206.3,
+   "opponent_score": 194.3
+  },
+  {
+   "week": 4,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0011",
+   "team_score": 289.9,
+   "opponent_score": 294.7
+  },
+  {
+   "week": 4,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0012",
+   "team_score": 289.9,
+   "opponent_score": 223.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0002",
+   "team_score": 250.9,
+   "opponent_score": 214.5
+  },
+  {
+   "week": 4,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0003",
+   "team_score": 250.9,
+   "opponent_score": 208.3
+  },
+  {
+   "week": 4,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0009",
+   "team_score": 294.7,
+   "opponent_score": 289.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0012",
+   "team_score": 294.7,
+   "opponent_score": 223.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0009",
+   "team_score": 223.9,
+   "opponent_score": 289.9
+  },
+  {
+   "week": 4,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0011",
+   "team_score": 223.9,
+   "opponent_score": 294.7
+  }
+ ]
+}
