@@ -236,13 +236,42 @@
     var t = curTab();
     return t.sets[view.set] || t.sets[0];
   }
-  // Player's CURRENT NFL team. Prefer the worker's current_team (from
-  // src_players, so desktop + mobile match), then the boot-loaded player DB,
-  // then the season-stamped leaderboard team as a last resort.
+  // Player's CURRENT NFL team: the boot-loaded LIVE MFL players export first (trade-fresh — the desktop Stats Workbench
+  // does the same), then the worker's current_team (a D1 src_players copy that can lag MFL by days), then the
+  // season-stamped leaderboard team as a last resort.
   function curTeam(r) {
-    if (r.current_team) return U.safeStr(r.current_team);
     var p = M.data.playerById ? M.data.playerById(r.mfl_pid) : null;
-    return U.safeStr((p && p.team) || r.team || "");
+    if (p && p.team) return U.safeStr(p.team);
+    return U.safeStr(r.current_team || r.team || "");
+  }
+
+  // The player's UPS franchise, from LIVE MFL rosters — the same boot-loaded export the Players tab, the player sheet,
+  // search and waiver bidding read (M.state.rosters) — never the leaderboard's mfl_franchise_id. That field is joined
+  // from D1 src_contracts, a stored snapshot (2026's is from 08-05), through player_id_crosswalk, which has no 2026
+  // rookies — so it read "FA" for Jeremiyah Love (Cleon Ca$h's) and the old owner for every trade, claim and drop since
+  // the snapshot. Rosters MFL could not serve = ownership UNKNOWN, never "FA".
+  //   → { known: false } | { known: true, fid: null } (free agent) | { known: true, fid, name }
+  var ownCache = { src: null, map: null };
+  function pidKey(id) { var n = parseInt(id, 10); return isFinite(n) ? String(n) : String(id || ""); }
+  function liveOwnerMap() {
+    var rs = M.state && M.state.rosters && M.state.rosters.rosters;
+    if (!rs) return null;
+    if (ownCache.src === rs) return ownCache.map;
+    var map = {};
+    U.asArray(rs.franchise).forEach(function (fr) {
+      var fid = U.pad4(fr.id);
+      U.asArray(fr.player).forEach(function (p) { if (p && p.id) map[pidKey(p.id)] = fid; });
+    });
+    ownCache = { src: rs, map: map };
+    return map;
+  }
+  function ownerOf(r) {
+    var map = liveOwnerMap();
+    if (!map) return { known: false };
+    var fid = map[pidKey(r.mfl_pid)] || null;
+    if (!fid) return { known: true, fid: null };
+    var f = (M.state.franchises || []).find(function (x) { return x.id === fid; });
+    return { known: true, fid: fid, name: (f && f.name) || "Rostered" };
   }
 
   // Rank within pos_group by MFL PPG (mirrors app.js buildLeaderboardMap).
@@ -336,7 +365,7 @@
     var name = flip(r.player_name);
     var bag = normTokens(name) + " " + normTight(name) + " " +
               normTokens(curTeam(r)) + " " + normTokens(mflPos(r.position)) + " " +
-              normTokens(r.mfl_franchise_name);
+              normTokens(ownerOf(r).name || "");
     var hay = bag.split(" ").filter(Boolean);
     for (var i = 0; i < qTokens.length; i++) {
       var hit = false;
@@ -356,9 +385,13 @@
     var qTokens = queryTokens();
     return all.filter(function (r) {
       if (tab.group.indexOf(String(r.pos_group || "").toUpperCase()) === -1) return false;
-      // FA vs rostered scope (the leaderboard row carries mfl_franchise_id).
-      if (view.scope === "ros" && !r.mfl_franchise_id) return false;
-      if (view.scope === "fa" && r.mfl_franchise_id) return false;
+      // FA vs rostered scope, by LIVE MFL rosters (ownerOf). Unknown ownership matches neither — renderList says why.
+      if (view.scope !== "all") {
+        var own = ownerOf(r);
+        if (!own.known) return false;
+        if (view.scope === "ros" && !own.fid) return false;
+        if (view.scope === "fa" && own.fid) return false;
+      }
       return matchesQuery(r, qTokens);
     }).sort(function (a, b) { return num(b.mfl_ppg) - num(a.mfl_ppg); });
   }
@@ -385,6 +418,12 @@
   }
 
   function renderList(tab) {
+    // MFL's rosters could not be read: free agents can't be told from rostered players, so neither scope pretends to.
+    if (view.scope !== "all" && !liveOwnerMap()) {
+      return '<div class="ups-m-stub"><div>Couldn\u2019t read MFL rosters, so ' +
+        (view.scope === "fa" ? "free agents" : "rostered players") + " can\u2019t be told apart right now.</div>" +
+        '<div class="ups-m-st-nosub">Choose All players, or reload.</div></div>';
+    }
     var rows = rowsFor(tab);
     if (!rows.length) {
       /* The old copy here was "No QB data for 2025." for EVERY empty result,
@@ -415,8 +454,9 @@
       '<span class="rk">#</span><span class="nm">Player</span>' +
       cols.map(function (c) { return '<span class="v">' + U.escapeHtml(c.l) + "</span>"; }).join("") + "</div>";
     var body = capped.map(function (r) {
-      var ownTag = r.mfl_franchise_id
-        ? '<span class="own"> · ' + U.escapeHtml(String(r.mfl_franchise_name || "Rostered")) + "</span>"
+      var own = ownerOf(r);
+      var ownTag = !own.known ? '<span class="own unk"> · owner unknown</span>'
+        : own.fid ? '<span class="own"> · ' + U.escapeHtml(own.name) + "</span>"
         : '<span class="own fa"> · FA</span>';
       return '<div class="ups-m-st-row" data-pid="' + U.escapeHtml(String(r.mfl_pid || "")) + '" style="--n:' + cols.length + '">' +
         '<span class="rk">' + (r.__rk || "") + "</span>" +

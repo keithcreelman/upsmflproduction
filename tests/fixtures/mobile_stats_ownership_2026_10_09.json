@@ -1,0 +1,383 @@
+{
+ "_source": "Live reads 2026-10-09 (read-only): worker /api/advanced-stats-leaderboard?season=2026&pos=skill (precompute, built_for_week 4) and MFL 2026 L=74598 rosters / league / players exports. Trimmed to the players the test names.",
+ "leaderboard_skill": [
+  {
+   "mfl_pid": 17472,
+   "gsis_id": "00-0041027",
+   "player_name": "Jeremiyah Love",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "ARI",
+   "current_team": null,
+   "games": 4,
+   "mfl_points": 48.9,
+   "mfl_ppg": 12.225,
+   "mfl_franchise_id": null,
+   "mfl_franchise_name": null,
+   "rush_att": 55,
+   "rush_yds": 223,
+   "rush_tds": 1,
+   "targets": 13,
+   "receptions": 11,
+   "rec_yds": 36,
+   "rec_tds": 1
+  },
+  {
+   "mfl_pid": 12626,
+   "gsis_id": "00-0032764",
+   "player_name": "Derrick Henry",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "BAL",
+   "current_team": "BAL",
+   "games": 4,
+   "mfl_points": 95.4,
+   "mfl_ppg": 23.85,
+   "mfl_franchise_id": "0006",
+   "mfl_franchise_name": "The Long Haulers",
+   "rush_att": 89,
+   "rush_yds": 374,
+   "rush_tds": 7,
+   "targets": 7,
+   "receptions": 7,
+   "rec_yds": 44,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 16601,
+   "gsis_id": "00-0039746",
+   "player_name": "Will Shipley",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "PHI",
+   "current_team": "PHI",
+   "games": 4,
+   "mfl_points": 14.9,
+   "mfl_ppg": 3.725,
+   "mfl_franchise_id": "0007",
+   "mfl_franchise_name": "Sex Manther",
+   "rush_att": 15,
+   "rush_yds": 51,
+   "rush_tds": 0,
+   "targets": 6,
+   "receptions": 4,
+   "rec_yds": 24,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 16171,
+   "gsis_id": "00-0038551",
+   "player_name": "Kendre Miller",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "NO",
+   "current_team": "NOS",
+   "games": 3,
+   "mfl_points": 15.8,
+   "mfl_ppg": 5.266666666666667,
+   "mfl_franchise_id": "0008",
+   "mfl_franchise_name": "Real Deal Creel",
+   "rush_att": 19,
+   "rush_yds": 53,
+   "rush_tds": 1,
+   "targets": 6,
+   "receptions": 4,
+   "rec_yds": 15,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 15711,
+   "gsis_id": "00-0038134",
+   "player_name": "Kenneth Walker III",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "KC",
+   "current_team": "KCC",
+   "games": 4,
+   "mfl_points": 119.69999999999999,
+   "mfl_ppg": 29.924999999999997,
+   "mfl_franchise_id": "0005",
+   "mfl_franchise_name": "HammerTime 🔨 ⏰",
+   "rush_att": 87,
+   "rush_yds": 537,
+   "rush_tds": 4,
+   "targets": 19,
+   "receptions": 12,
+   "rec_yds": 84,
+   "rec_tds": 2
+  },
+  {
+   "mfl_pid": 16387,
+   "gsis_id": "00-0038685",
+   "player_name": "Chris Brooks",
+   "position": "RB",
+   "pos_group": "RB",
+   "team": "GB",
+   "current_team": "GBP",
+   "games": 4,
+   "mfl_points": 13.4,
+   "mfl_ppg": 3.35,
+   "mfl_franchise_id": null,
+   "mfl_franchise_name": null,
+   "rush_att": 15,
+   "rush_yds": 70,
+   "rush_tds": 0,
+   "targets": 5,
+   "receptions": 3,
+   "rec_yds": 24,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 15787,
+   "gsis_id": "00-0038104",
+   "player_name": "Tyquan Thornton",
+   "position": "WR",
+   "pos_group": "WR",
+   "team": "KC",
+   "current_team": "KCC",
+   "games": 4,
+   "mfl_points": 48.5,
+   "mfl_ppg": 12.125,
+   "mfl_franchise_id": "0008",
+   "mfl_franchise_name": "Real Deal Creel",
+   "rush_att": 0,
+   "rush_yds": 0,
+   "rush_tds": 0,
+   "targets": 15,
+   "receptions": 11,
+   "rec_yds": 219,
+   "rec_tds": 2
+  },
+  {
+   "mfl_pid": 11679,
+   "gsis_id": "00-0031235",
+   "player_name": "Odell Beckham",
+   "position": "WR",
+   "pos_group": "WR",
+   "team": "NYG",
+   "current_team": "FA",
+   "games": 1,
+   "mfl_points": 0,
+   "mfl_ppg": 0,
+   "mfl_franchise_id": "0012",
+   "mfl_franchise_name": "Hawks",
+   "rush_att": 0,
+   "rush_yds": 0,
+   "rush_tds": 0,
+   "targets": 1,
+   "receptions": 0,
+   "rec_yds": 0,
+   "rec_tds": 0
+  },
+  {
+   "mfl_pid": 17500,
+   "gsis_id": "00-0041037",
+   "player_name": "Denzel Boston",
+   "position": "WR",
+   "pos_group": "WR",
+   "team": "CLE",
+   "current_team": null,
+   "games": 4,
+   "mfl_points": 59.400000000000006,
+   "mfl_ppg": 14.850000000000001,
+   "mfl_franchise_id": null,
+   "mfl_franchise_name": null,
+   "rush_att": 0,
+   "rush_yds": 0,
+   "rush_tds": 0,
+   "targets": 22,
+   "receptions": 13,
+   "rec_yds": 284,
+   "rec_tds": 2
+  }
+ ],
+ "mfl_rosters": {
+  "rosters": {
+   "franchise": [
+    {
+     "id": "0001",
+     "player": []
+    },
+    {
+     "id": "0002",
+     "player": []
+    },
+    {
+     "id": "0003",
+     "player": [
+      {
+       "id": "16171",
+       "status": "ROSTER"
+      }
+     ]
+    },
+    {
+     "id": "0004",
+     "player": []
+    },
+    {
+     "id": "0005",
+     "player": [
+      {
+       "id": "15711",
+       "status": "ROSTER"
+      }
+     ]
+    },
+    {
+     "id": "0006",
+     "player": []
+    },
+    {
+     "id": "0007",
+     "player": []
+    },
+    {
+     "id": "0008",
+     "player": [
+      {
+       "id": "16601",
+       "status": "ROSTER"
+      }
+     ]
+    },
+    {
+     "id": "0009",
+     "player": []
+    },
+    {
+     "id": "0010",
+     "player": [
+      {
+       "id": "17500",
+       "status": "ROSTER"
+      },
+      {
+       "id": "12626",
+       "status": "ROSTER"
+      }
+     ]
+    },
+    {
+     "id": "0011",
+     "player": [
+      {
+       "id": "17472",
+       "status": "ROSTER"
+      }
+     ]
+    },
+    {
+     "id": "0012",
+     "player": []
+    }
+   ]
+  }
+ },
+ "mfl_franchises": [
+  {
+   "id": "0001",
+   "name": "L.A. Looks"
+  },
+  {
+   "id": "0002",
+   "name": "CBP"
+  },
+  {
+   "id": "0003",
+   "name": "Gride"
+  },
+  {
+   "id": "0004",
+   "name": "Pure Greatness"
+  },
+  {
+   "id": "0005",
+   "name": "HammerTime 🔨 ⏰"
+  },
+  {
+   "id": "0006",
+   "name": "The Long Haulers"
+  },
+  {
+   "id": "0007",
+   "name": "Sex Manther"
+  },
+  {
+   "id": "0008",
+   "name": "Real Deal Creel"
+  },
+  {
+   "id": "0009",
+   "name": "C-Town Chivalry"
+  },
+  {
+   "id": "0010",
+   "name": "Blake Bombers"
+  },
+  {
+   "id": "0011",
+   "name": "Cleon Ca$h"
+  },
+  {
+   "id": "0012",
+   "name": "Hawks"
+  }
+ ],
+ "mfl_players": [
+  {
+   "id": "17472",
+   "name": "Love, Jeremiyah",
+   "position": "RB",
+   "team": "ARI"
+  },
+  {
+   "id": "12626",
+   "name": "Henry, Derrick",
+   "position": "RB",
+   "team": "BAL"
+  },
+  {
+   "id": "16601",
+   "name": "Shipley, Will",
+   "position": "RB",
+   "team": "PHI"
+  },
+  {
+   "id": "16171",
+   "name": "Miller, Kendre",
+   "position": "RB",
+   "team": "NOS"
+  },
+  {
+   "id": "15711",
+   "name": "Walker III, Kenneth",
+   "position": "RB",
+   "team": "KCC"
+  },
+  {
+   "id": "16387",
+   "name": "Brooks, Chris",
+   "position": "RB",
+   "team": "GBP"
+  },
+  {
+   "id": "15787",
+   "name": "Thornton, Tyquan",
+   "position": "WR",
+   "team": "KCC"
+  },
+  {
+   "id": "11679",
+   "name": "Beckham, Odell",
+   "position": "WR",
+   "team": "MIN"
+  },
+  {
+   "id": "17500",
+   "name": "Boston, Denzel",
+   "position": "WR",
+   "team": "CLE"
+  }
+ ]
+}

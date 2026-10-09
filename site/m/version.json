@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.07.1",
-  "label": "Security: contract submits (extend, MYM, MYAC, restructure, tag/untag) now send your MFL sign-in so the server can confirm the team is yours."
+  "build": "2026.10.09.2",
+  "label": "Player Stats: each player's UPS team (and the Rostered / Free agents filter) now comes from live MFL rosters — rookies like Jeremiyah Love no longer show as FA, and trades and claims since August show the right owner."
 }
