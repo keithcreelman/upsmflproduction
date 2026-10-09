@@ -2193,6 +2193,17 @@
     var __capPid = safeStr(player && player.id).replace(/\D/g, "");
     if (__capPenaltyCache && __capPid && __capPenaltyCache[__capPid]) {
       var __cap = __capPenaltyCache[__capPid];
+      // UNPRICED: the worker could not price this drop yet (an MFL read failed, or the contract is unstamped) and sent
+      // penalty null. NOT a $0 penalty — NaN with unpriced: true; every display says "under review" and it sorts last.
+      if (__cap.penalty == null || __cap.basis === "week_authority_unresolved" || __cap.basis === "contract_unstamped_needs_review") {
+        return {
+          amount: NaN, unpriced: true, authoritative: true,
+          note: safeStr(__cap.review_reason) || "The worker could not price this drop yet. It is not $0.",
+          tcv: safeInt(__cap.tcv, 0), guaranteed: NaN,
+          currentYearSalary: safeInt(player && player.salary, 0),
+          priorEarned: NaN, accrued: 0, earned: NaN
+        };
+      }
       if (__cap.earned_rule === "full_year_sub_5k") {
         // "$1K Per Yr" contract: dedicated full-year rule (canon §D1 + Keith's ruling) — no weekly / cumulative earned amount.
         return {
@@ -2352,7 +2363,8 @@
     var eligibility = rosterContractEligibility(player);
     var years = Math.max(0, safeInt(player && player.years, 0));
     var penalty = dropPenaltyEstimate(player);
-    var penaltyAmount = safeInt(penalty && penalty.amount, 0);
+    var penaltyUnpriced = !!(penalty && penalty.unpriced);
+    var penaltyAmount = penaltyUnpriced ? 0 : safeInt(penalty && penalty.amount, 0);
     var previewYears = extensionPreviewYears(player);
     var unknownContract = contractUnknownForPlayer(player);
     var items = [];
@@ -2381,7 +2393,9 @@
       // the same as any other "pending"/unresolved chip already shown here.
       items.push({ key: "loaded_unknown", label: "Loaded?", tone: "risk" });
     }
-    if (penaltyAmount >= 5000) {
+    if (penaltyUnpriced) {
+      items.push({ key: "penalty_unpriced", label: "Penalty under review", tone: "risk" });
+    } else if (penaltyAmount >= 5000) {
       items.push({ key: "penalty", label: "Penalty " + formatContractK(penaltyAmount), tone: "risk" });
     }
     if (previewYears > 0) {
@@ -3943,7 +3957,21 @@
   }
 
   function capPenaltyAmountForPlayer(player) {
-    return safeInt(dropPenaltyEstimate(player).amount, 0);
+    var est = dropPenaltyEstimate(player);
+    return est && est.unpriced ? NaN : safeInt(est && est.amount, 0);   // NaN = under review, never a $0
+  }
+  // The modal's Cap Penalty metric and the drop confirmation's penalty lines — "under review" for an unpriced drop, never $0.
+  function capPenaltyMetricText(penalty) {
+    return penalty && penalty.unpriced ? "Under review" : money(penalty && penalty.amount);
+  }
+  function dropConfirmPenaltyText(penalty) {
+    return penalty && penalty.unpriced
+      ? "\n\nCap penalty: under review — not yet priced. It is NOT $0.\n" + safeStr(penalty.note)
+      : "\n\nEstimated cap penalty: " + money(penalty && penalty.amount) + "\n" + safeStr(penalty && penalty.note);
+  }
+  // A penalty cell's text: compact amount, or "under review" for an unpriced drop.
+  function capPenaltyCellText(amount) {
+    return Number.isFinite(amount) ? compactContractAmountAllowZero(amount) : "under review";
   }
 
   function isCurrentMobile() {
@@ -6278,9 +6306,16 @@
         case "guarantee":
           delta = guaranteedContractValueForPlayer(a) - guaranteedContractValueForPlayer(b);
           break;
-        case "penalty":
-          delta = capPenaltyAmountForPlayer(a) - capPenaltyAmountForPlayer(b);
+        case "penalty": {
+          var penA = capPenaltyAmountForPlayer(a), penB = capPenaltyAmountForPlayer(b);
+          if (!Number.isFinite(penA) || !Number.isFinite(penB)) {
+            if (Number.isFinite(penA) !== Number.isFinite(penB)) return Number.isFinite(penA) ? -1 : 1;   // unpriced last, either direction
+            delta = 0;
+          } else {
+            delta = penA - penB;
+          }
           break;
+        }
         case "salary":
           delta = safeInt(a.salary, 0) - safeInt(b.salary, 0);
           break;
@@ -8143,6 +8178,7 @@
         : Math.max(0, safeInt(penalty.tcv, totalContractValueForPlayer(player)));
       var modalEarned = modalUnknownContract ? 0 : Math.max(0, safeInt(penalty.earned, 0));
       var modalEarnedText = penalty.earnedRule === "full_year" ? "Full-year rule" : penalty.earnedRule === "ww_na" ? "Not applicable" : (modalEarned > 0 ? money(modalEarned) : "$0");
+      if (penalty.unpriced) modalEarnedText = "Under review";   // the worker could not price this drop yet — not a $0 earned
       var extensionOptions = playerExtensionOptions(player);
       var extensionBlockReason = extensionBlockedReason(player);
       var contractEligibility = rosterContractEligibility(player);
@@ -8448,7 +8484,7 @@
               '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : String(player.years)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : modalEarnedText) + '</strong></div>' +
-              '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : money(penalty.amount)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(modalUnknownContract ? modalPendingText : capPenaltyMetricText(penalty)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
               '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
               extendedByHtml +
@@ -9664,7 +9700,7 @@
                 '<div><dt>AAV</dt><dd>' + (unknownContract ? pendingText : escapeHtml(taxiAwareSalaryText(p, p.aav, p.positionAavRank))) + '</dd></div>' +
                 '<div><dt>TCV</dt><dd>' + (unknownContract ? pendingText : escapeHtml(taxiAwareAmountText(p, totalContractValue))) + '</dd></div>' +
                 '<div><dt>Orig GTD</dt><dd>' + (unknownContract ? pendingText : escapeHtml(compactContractAmountAllowZero(contractGuarantee))) + '</dd></div>' +
-                '<div><dt>Cap Pen</dt><dd>' + (unknownContract ? pendingText : escapeHtml(compactContractAmountAllowZero(capPenalty))) + '</dd></div>' +
+                '<div><dt>Cap Pen</dt><dd>' + (unknownContract ? pendingText : escapeHtml(capPenaltyCellText(capPenalty))) + '</dd></div>' +
               '</dl>' +
             '</div>' +
           '</td>' +
@@ -9675,7 +9711,8 @@
           '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : taxiAwareSalaryHtml(p, p.aav, p.positionAavRank)) + '</td>' +
           '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(taxiAwareAmountText(p, totalContractValue))) + '</td>' +
           '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(compactContractAmountAllowZero(contractGuarantee))) + '</td>' +
-          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : escapeHtml(compactContractAmountAllowZero(capPenalty))) + '</td>' +
+          '<td class="rwb-cell-num">' + (unknownContract ? pendingCellHtml : (Number.isFinite(capPenalty) ? escapeHtml(capPenaltyCellText(capPenalty))
+            : '<span class="rwb-pending-cell" title="The worker could not price this drop yet — it is not $0.">under review</span>')) + '</td>' +
         '</tr>'
       );
     }
@@ -9752,7 +9789,7 @@
       var dropPenaltyColIdx = -1; // index into proj[] that gets the penalty cell
       if (dropPreviewing) {
         var est = dropPenaltyEstimate(p);
-        dropPenaltyAmount = Math.max(0, safeInt(est && est.amount, 0));
+        dropPenaltyAmount = est && est.unpriced ? NaN : Math.max(0, safeInt(est && est.amount, 0));   // NaN = under review
         dropPenaltyColIdx = capPlanDropMode === "pre_auction" ? 0 : 1;
         // Override all three year cells: zero everything, then drop
         // the penalty into the correct slot.
@@ -9787,8 +9824,8 @@
           '<td class="rwb-cell-num' + (tcv === 0 && !unknownContract ? ' rwb-money-zero' : '') + '">' + (unknownContract ? pendingCellHtml : escapeHtml(tcv > 0 ? money(tcv) : "—")) + '</td>' +
           '<td class="rwb-cell-num' + (aav === 0 && !unknownContract ? ' rwb-money-zero' : '') + '">' + (unknownContract ? pendingCellHtml : escapeHtml(aav > 0 ? money(aav) : "—")) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(projectedExpiryLabel(p)) + '</td>' +
-          '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 0 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
-          '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 1 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
+          '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 0 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(Number.isFinite(proj[0]) ? money(proj[0]) : "Under review") + '</td>' +
+          '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 1 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(Number.isFinite(proj[1]) ? money(proj[1]) : "Under review") + '</td>' +
           '<td class="rwb-cell-num' + (proj[2] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[2])) + '</td>' +
           '<td>' +
             previewControlsHtml +
@@ -11582,7 +11619,7 @@
         : (move === "demote_taxi" ? "demote to taxi" : "promote from taxi"));
     var penaltyText = "";
     if (move === "drop_player" && options.dropPenalty) {
-      penaltyText = "\n\nEstimated cap penalty: " + money(options.dropPenalty.amount) + "\n" + safeStr(options.dropPenalty.note);
+      penaltyText = dropConfirmPenaltyText(options.dropPenalty);
     }
     // Canon §B2 context for taxi promote/demote so owners know the rule
     // before they burn a call-up. Counter values come from the worker

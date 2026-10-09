@@ -153,9 +153,15 @@
         .then(function () { __capBatchLoading = false; });
     } catch (_) { __capBatchLoading = false; }
   }
+  // The worker priced nothing yet for this drop (an MFL read failed, or the contract is unstamped): its row says penalty
+  // null. That is NOT "no worker value, estimate locally" — it is "under review", shown as "—" (never a guessed number).
+  var UNPRICED = { unpriced: true };
   function workerPenalty(sal, season) {
     var pid = String((sal && sal.id) || '').replace(/\D/g, '');
-    if (__capBatch && pid && __capBatch[pid]) return __capBatch[pid].penalty;
+    if (__capBatch && pid && __capBatch[pid]) {
+      var row = __capBatch[pid];
+      return (row.penalty == null || row.basis === 'week_authority_unresolved' || row.basis === 'contract_unstamped_needs_review') ? UNPRICED : row.penalty;
+    }
     loadCapBatch(season);
     return null;
   }
@@ -167,6 +173,7 @@
   function dropPenalty(sal, opts) {
     opts = opts || {};
     var wp = workerPenalty(sal, opts.season);
+    if (wp === UNPRICED) return null;   // the UI renders "—"
     if (wp != null) return wp;
     var info = parseContractInfo(sal && sal.contractInfo);
     var tcv = info.tcv;

@@ -20,14 +20,18 @@ const HOOK_NAMES = [
   "contractLimitSummaryForPlayers",
 ];
 
-export function loadRosterWorkbench(windowExtra) {
+// extra: optional { hooks: [more function names], raw: "name: expression, ..." } — e.g. a setter for an IIFE-private
+// variable. Existing callers pass nothing and get exactly the original hook set.
+export function loadRosterWorkbench(windowExtra, extra) {
   const raw = fs.readFileSync(SRC_PATH, "utf8");
   const tail = "})();";
   const lastClose = raw.lastIndexOf(tail);
   if (lastClose === -1 || lastClose < raw.length - tail.length - 5) {
     throw new Error("roster_workbench_harness: could not find the file's closing `})();` -- source shape changed, update this harness");
   }
-  const hookAssignment = `\n  window.__RWB_TEST_HOOKS__ = { ${HOOK_NAMES.join(", ")} };\n`;
+  const names = HOOK_NAMES.concat((extra && extra.hooks) || []);
+  const rawHooks = extra && extra.raw ? ", " + extra.raw : "";
+  const hookAssignment = `\n  window.__RWB_TEST_HOOKS__ = { ${names.join(", ")}${rawHooks} };\n`;
   const patched = raw.slice(0, lastClose) + hookAssignment + raw.slice(lastClose);
 
   const win = Object.assign(

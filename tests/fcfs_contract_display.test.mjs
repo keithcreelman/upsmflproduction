@@ -19,11 +19,12 @@ test("DISPLAY: Front Office — '1K Per Yr' / 'Full-year rule' for the $1K-a-yea
   const k = fo.indexOf("function isWwEarnedNaPlayer(player) {"), l = fo.indexOf("function perWeekEarningValue");
   t.ok(i > 0 && j > i && k > j && l > k, "the slices are in the expected order");
   const rows = { "1": { penalty: 0, guaranteed: 0, earned: null, earned_rule: "full_year_sub_5k", exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", tcv: 1000, basis: "ww_under_5k_exempt" },
-    "2": { penalty: 0, guaranteed: 0, earned: 4000, tcv: 25000, basis: "guarantee_minus_earned" },
+    "2": { penalty: 0, guaranteed: 0, earned: 4000, tcv: 25000, basis: "guarantee_minus_earned", eligible_weeks: 17 },
     "3": { penalty: 0, guaranteed: 0, earned: null, earned_rule: "ww_earned_na", exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", tcv: 4000, basis: "ww_under_5k_earned_na" },
-    "4": { penalty: 0, guaranteed: 0, earned: 235, tcv: 2000, basis: "one_year_under_5k_exempt", exempt: true },
-    "5": { penalty: 0, guaranteed: 0, earned: 353, tcv: 3000, basis: "ww_under_5k_exempt", exempt: true },
-    "6": { penalty: 0, guaranteed: 0, earned: null, earned_rule: "ww_earned_na", exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", tcv: 3000, basis: "ww_under_5k_earned_na" } };
+    "4": { penalty: 0, guaranteed: 0, earned: 235, tcv: 2000, basis: "one_year_under_5k_exempt", exempt: true, eligible_weeks: 17 },
+    "5": { penalty: 0, guaranteed: 0, earned: 353, tcv: 3000, basis: "ww_under_5k_exempt", exempt: true, eligible_weeks: 17 },
+    "6": { penalty: 0, guaranteed: 0, earned: null, earned_rule: "ww_earned_na", exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", tcv: 3000, basis: "ww_under_5k_earned_na" },
+    "9": { penalty: 0, guaranteed: 0, earned: 0, tcv: 0, basis: "guarantee_minus_earned", eligible_weeks: 17 } };
   const mk = (feed, byPid) => { const ctx = { STATE: { capPenaltyFeed: feed, capPenaltyByPid: byPid }, safeStr: (v) => String(v == null ? "" : v), safeInt: (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : (d || 0); },
     totalContractValueForPlayer: (p) => p.tcv, contractLengthForPlayer: (p) => p.cl, guaranteedContractValueForPlayer: () => 0, money: (n) => "$" + n, fmtUSD: (n) => (Number.isFinite(n) ? "$" + n : "—"), result: null };
     vm.createContext(ctx); vm.runInContext(fo.slice(i, j) + "\n" + fo.slice(k, l), ctx); return ctx; };
@@ -55,9 +56,10 @@ test("DISPLAY: Front Office — '1K Per Yr' / 'Full-year rule' for the $1K-a-yea
   vm.runInContext(`result = { ww3: perWeekEarningInfo({id:'7', type:'Vet-WW', tcv:3000, cl:1, salary:3000, years:1}), ww1: perWeekEarningInfo({id:'7', type:'Vet-WW', tcv:1000, cl:1, salary:1000, years:1}),
     faa: perWeekEarningInfo({id:'7', type:'Vet-FAA', tcv:3000, cl:1, salary:3000, years:1}), mym: perWeekEarningInfo({id:'7', type:'Vet-WW-MYM', tcv:3000, cl:1, salary:3000, years:1}),
     multi: perWeekEarningInfo({id:'7', type:'Vet-WW', tcv:6000, cl:2, salary:3000, years:2}), taxi: perWeekEarningInfo({id:'7', type:'Vet-WW', tcv:3000, cl:1, salary:3000, years:1, isTaxi:true}) };`, pre);
-  t.equal(pre.result.ww3.label, "3K Per Yr"); t.equal(pre.result.ww1.label, "1K Per Yr"); t.equal(pre.result.faa.label, "$176", "a non-WW $3K deal: its actual rate");
-  t.equal(pre.result.mym.label, "$176", "a WW-MYM is not the class"); t.equal(pre.result.multi.label, "$176", "a multi-year WW is not the class"); t.equal(pre.result.taxi.label, "$176", "taxi is not in the class");
-  const loaded = mk("ok", { "7": { penalty: 0, earned: 176, tcv: 3000, basis: "ww_under_5k_exempt" } });
+  t.equal(pre.result.ww3.label, "3K Per Yr"); t.equal(pre.result.ww1.label, "1K Per Yr");
+  // not the class ⇒ an actual rate — but over the worker's window, so it waits for the batch (2026-10-09: no assumed 17)
+  for (const k2 of ["faa", "mym", "multi", "taxi"]) { t.match(pre.result[k2].label, /…<\/span>$/, k2 + ": loading, not a class label and not a guessed $176"); t.equal(pre.result[k2].sort, -1); }
+  const loaded = mk("ok", { "7": { penalty: 0, earned: 176, tcv: 3000, basis: "ww_under_5k_exempt", eligible_weeks: 17 } });
   vm.runInContext(`result = { ww3: perWeekEarningInfo({id:'7', type:'Vet-WW', tcv:3000, cl:1, salary:3000, years:1}) };`, loaded);
   t.equal(loaded.result.ww3.label, "$176", "the worker's row has no rule ⇒ the worker did not put it in the class ⇒ the local check stands down");
   t.match(fo, /drop\.earnedRule === "full_year" \? `<span class="fo-tt" data-tip="\$\{escapeHtml\(drop\.note\)\}">Full-year rule<\/span>`/, "the EARNED cell says so");
@@ -93,7 +95,9 @@ test("DISPLAY: roster workbench + mobile — the authoritative row AND the pre-b
   // later, unrelated mobile fix (2026-09-28, contract eligibility) bumped the
   // build without touching this file — which is correct per-file hygiene, not
   // a regression of the drop-penalty fix this test protects.
-  t.equal((idx.match(/front_office_penalty\.js\?v=2026\.09\.27\.2/g) || []).length, 1, "the changed penalty script is cache-busted with the build it shipped in");
+  // (2026-10-09: the file changed again — unpriced drops — and was re-stamped; the stamp may move forward, never back.)
+  const penStamp = (idx.match(/front_office_penalty\.js\?v=([0-9.]+)/) || [])[1] || "";
+  t.ok(penStamp >= "2026.09.27.2", "the changed penalty script is cache-busted with the build it shipped in or a later one: " + penStamp);
   t.equal(read("site/m/app.js").match(/var BUILD = "([^"]+)";/)[1], build, "app.js BUILD == version.json build");
   t.match(read("site/rosters/v2/front_office.html"), /front_office\.js\?v=\d{4}\.\d{2}\.\d{2}\.v[\d.]+/);
 });
