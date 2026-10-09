@@ -3,7 +3,9 @@
 // and waiver bidding read — not the leaderboard's mfl_franchise_id. That field is a D1 join (src_contracts, an 08-05
 // snapshot, through player_id_crosswalk, which has no 2026 rookies), so on 2026-10-09 it read "FA" for Jeremiyah Love,
 // rostered by Cleon Ca$h, and the old owner for every trade, claim and drop since August (167 of 1,010 players).
-// Runs the REAL site/m/views/stats.js against a trimmed copy of that day's live worker + MFL reads.
+// A player on NO roster is "FA" only when MFL's rosters are CONFIRMED COMPLETE (every league franchise present, with
+// players); an empty or partial response makes him "owner unknown".
+// Runs the REAL site/m/views/stats.js against that day's live worker + MFL reads (full rosters; leaderboard trimmed).
 //   node tests/mobile_stats_live_ownership.test.mjs
 import fs from "node:fs";
 import vm from "node:vm";
@@ -19,7 +21,7 @@ const utilSrc = ["safeStr", "pad4", "escapeHtml", "asArray"].map((name) => {
   return m[0];
 }).join("");
 
-function boot({ rosters = FX.mfl_rosters, players = FX.mfl_players } = {}) {
+function boot({ rosters = FX.mfl_rosters, players = FX.mfl_players, franchises = FX.mfl_franchises } = {}) {
   const els = {};
   const elById = (id) => (els[id] = els[id] || { id, innerHTML: "", value: "", listeners: {},
     addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); } });
@@ -32,7 +34,7 @@ function boot({ rosters = FX.mfl_rosters, players = FX.mfl_players } = {}) {
     querySelector() { return null; } };
   const views = {};
   const M = {
-    state: { rosters, franchises: FX.mfl_franchises.map((f) => ({ id: f.id, name: f.name })) },
+    state: { rosters, franchises: franchises.map((f) => ({ id: f.id, name: f.name })) },
     data: { playerById: (id) => players.find((p) => String(p.id) === String(id)) || null, getAdvancedStatsLatestYear: () => 2026 },
     api: { workerUrl: (p) => "https://w.test" + p },
     route: { registerView: (name, fn) => (views[name] = fn), renderRoute: () => views.stats(mount) },
@@ -124,8 +126,64 @@ test("MFL rosters unreadable: ownership is UNKNOWN — never 'FA' — and neithe
   for (const scope of ["fa", "ros"]) {
     sel.value = scope; sel.listeners.change.forEach((fn) => fn.call(sel));
     t.deepEqual(Object.keys(tags(wrap.innerHTML)), [], scope + ": no rows");
-    t.match(wrap.innerHTML, /Couldn.t read MFL rosters/);
+    t.match(wrap.innerHTML, /Couldn.t read MFL.s rosters/);
   }
+});
+
+// MFL rosters payloads built from the day's complete export
+const rostersWith = (edit) => { const r = JSON.parse(JSON.stringify(FX.mfl_rosters)); edit(r.rosters); return r; };
+const scopeRows = (v, wrap, scope) => {
+  const sel = v.els["ups-m-st-scope"]; sel.value = scope; sel.listeners.change.forEach((fn) => fn.call(sel));
+  return { pids: Object.keys(tags(wrap.innerHTML)), html: wrap.innerHTML };
+};
+async function rbWith(opts) {
+  const v = boot(opts);
+  await openTab(v, "RB");
+  const tg = tags(v.mount.innerHTML);
+  const wrap = { innerHTML: "", addEventListener() {} };
+  v.els["ups-m-st-listwrap"] = wrap;
+  return { v, tg, fa: scopeRows(v, wrap, "fa"), ros: scopeRows(v, wrap, "ros") };
+}
+const noFaFilter = (x) => { t.deepEqual(x.fa.pids, [], "Free agents: no rows"); t.match(x.fa.html, /Couldn.t read all of MFL.s rosters/);
+  t.deepEqual(x.ros.pids, [], "Rostered: no rows (a partial list would read as the whole league's)"); t.match(x.ros.html, /Couldn.t read all of MFL.s rosters/); };
+
+test("the fixture's rosters are COMPLETE (all 12 franchises, 485 players) — so 'FA' above is a confirmed free agent", () => {
+  const fr = FX.mfl_rosters.rosters.franchise;
+  t.deepEqual(fr.map((f) => f.id).sort(), FX.mfl_franchises.map((f) => f.id).sort());
+  t.ok(fr.every((f) => f.player.length > 0)); t.equal(fr.reduce((n, f) => n + f.player.length, 0), 485);
+});
+
+test("EMPTY rosters response (MFL answered, but with no franchises): every row is 'owner unknown', never FA", async () => {
+  for (const rosters of [{ rosters: {} }, { rosters: { franchise: [] } }]) {
+    const x = await rbWith({ rosters });
+    t.equal(x.tg["17472"], "ARI · owner unknown", JSON.stringify(rosters));
+    t.equal(x.tg["16387"], "GBP · owner unknown", "not even a real free agent is called FA");
+    t.ok(!Object.values(x.tg).some((tag) => / · FA$/.test(tag)));
+    noFaFilter(x);
+  }
+});
+
+test("PARTIAL: Cleon Ca$h's roster missing from the response → Love is 'owner unknown' (not FA); players found keep their owner", async () => {
+  const x = await rbWith({ rosters: rostersWith((r) => { r.franchise = r.franchise.filter((f) => f.id !== "0011"); }) });
+  t.equal(x.tg["17472"], "ARI · owner unknown");
+  t.equal(x.tg["12626"], "BAL · Blake Bombers", "found on a roster = positive evidence, still shown");
+  t.equal(x.tg["16387"], "GBP · owner unknown", "a free agent can't be confirmed either while a roster is missing");
+  noFaFilter(x);
+});
+
+test("PARTIAL: a franchise listed with NO players (and a single-object franchise list) → incomplete, never FA", async () => {
+  const emptied = await rbWith({ rosters: rostersWith((r) => { r.franchise.find((f) => f.id === "0011").player = []; }) });
+  t.equal(emptied.tg["17472"], "ARI · owner unknown"); noFaFilter(emptied);
+  // MFL collapses a one-element list to an object: one franchise is not the whole league
+  const single = await rbWith({ rosters: rostersWith((r) => { r.franchise = r.franchise.find((f) => f.id === "0010"); }) });
+  t.equal(single.tg["12626"], "BAL · Blake Bombers"); t.equal(single.tg["17472"], "ARI · owner unknown"); noFaFilter(single);
+});
+
+test("the league franchise list itself is unavailable → completeness can't be confirmed → no FA", async () => {
+  const x = await rbWith({ franchises: [] });
+  t.equal(x.tg["16387"], "GBP · owner unknown");
+  t.equal(x.tg["17472"], "ARI · Rostered", "still on a roster (name unavailable)");
+  noFaFilter(x);
 });
 
 test("a roster reload is picked up (the owner map is rebuilt when state.rosters changes, not cached forever)", async () => {
@@ -137,6 +195,20 @@ test("a roster reload is picked up (the owner map is rebuilt when state.rosters 
   v.M.state.rosters = next;
   v.render(); await settle();
   t.equal(tags(v.mount.innerHTML)["16387"], "GBP · Pure Greatness");
+  // a trade: Love moves from Cleon Ca$h to Blake Bombers on the next reload — no app restart
+  const traded = JSON.parse(JSON.stringify(next));
+  const cleon = traded.rosters.franchise.find((f) => f.id === "0011"), bombers = traded.rosters.franchise.find((f) => f.id === "0010");
+  cleon.player = cleon.player.filter((p) => p.id !== "17472"); bombers.player.push({ id: "17472", status: "ROSTER" });
+  v.M.state.rosters = traded;
+  v.render(); await settle();
+  t.equal(tags(v.mount.innerHTML)["17472"], "ARI · Blake Bombers");
+  // a reload that comes back PARTIAL degrades to unknown, and the next complete one restores the confirmed answer
+  v.M.state.rosters = { rosters: { franchise: traded.rosters.franchise.filter((f) => f.id !== "0004") } };
+  v.render(); await settle();
+  t.equal(tags(v.mount.innerHTML)["16387"], "GBP · owner unknown");
+  v.M.state.rosters = FX.mfl_rosters;
+  v.render(); await settle();
+  t.equal(tags(v.mount.innerHTML)["16387"], "GBP · FA");
 });
 
 await run("mobile_stats_live_ownership");

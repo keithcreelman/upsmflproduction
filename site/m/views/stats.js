@@ -249,27 +249,38 @@
   // search and waiver bidding read (M.state.rosters) — never the leaderboard's mfl_franchise_id. That field is joined
   // from D1 src_contracts, a stored snapshot (2026's is from 08-05), through player_id_crosswalk, which has no 2026
   // rookies — so it read "FA" for Jeremiyah Love (Cleon Ca$h's) and the old owner for every trade, claim and drop since
-  // the snapshot. Rosters MFL could not serve = ownership UNKNOWN, never "FA".
+  // the snapshot.
+  //
+  // A player on a roster is that franchise's — positive evidence. A player on NO roster is a free agent ONLY when the
+  // rosters are CONFIRMED COMPLETE: every franchise in the league export is present with players on it. An empty,
+  // partial or unreadable response (a franchise missing, or listed with nobody) can't tell a free agent from a player
+  // on a roster it left out, so he is "owner unknown" — never "FA" — and neither the Rostered nor the Free agents filter
+  // pretends to know. Rebuilt whenever state.rosters or state.franchises is replaced (the reload after a trade or claim),
+  // so an owner change shows without restarting the app.
   //   → { known: false } | { known: true, fid: null } (free agent) | { known: true, fid, name }
-  var ownCache = { src: null, map: null };
+  var ownCache = { src: null, fr: null, live: null };
   function pidKey(id) { var n = parseInt(id, 10); return isFinite(n) ? String(n) : String(id || ""); }
-  function liveOwnerMap() {
+  function liveOwners() {
     var rs = M.state && M.state.rosters && M.state.rosters.rosters;
+    var leagueFr = (M.state && M.state.franchises) || [];
     if (!rs) return null;
-    if (ownCache.src === rs) return ownCache.map;
-    var map = {};
+    if (ownCache.src === rs && ownCache.fr === leagueFr) return ownCache.live;
+    var map = {}, onRoster = {};
     U.asArray(rs.franchise).forEach(function (fr) {
       var fid = U.pad4(fr.id);
-      U.asArray(fr.player).forEach(function (p) { if (p && p.id) map[pidKey(p.id)] = fid; });
+      U.asArray(fr.player).forEach(function (p) {
+        if (p && p.id) { map[pidKey(p.id)] = fid; onRoster[fid] = (onRoster[fid] || 0) + 1; }
+      });
     });
-    ownCache = { src: rs, map: map };
-    return map;
+    var complete = leagueFr.length > 0 && leagueFr.every(function (f) { return onRoster[U.pad4(f.id)] > 0; });
+    ownCache = { src: rs, fr: leagueFr, live: { map: map, complete: complete } };
+    return ownCache.live;
   }
   function ownerOf(r) {
-    var map = liveOwnerMap();
-    if (!map) return { known: false };
-    var fid = map[pidKey(r.mfl_pid)] || null;
-    if (!fid) return { known: true, fid: null };
+    var live = liveOwners();
+    if (!live) return { known: false };
+    var fid = live.map[pidKey(r.mfl_pid)] || null;
+    if (!fid) return live.complete ? { known: true, fid: null } : { known: false };
     var f = (M.state.franchises || []).find(function (x) { return x.id === fid; });
     return { known: true, fid: fid, name: (f && f.name) || "Rostered" };
   }
@@ -418,9 +429,11 @@
   }
 
   function renderList(tab) {
-    // MFL's rosters could not be read: free agents can't be told from rostered players, so neither scope pretends to.
-    if (view.scope !== "all" && !liveOwnerMap()) {
-      return '<div class="ups-m-stub"><div>Couldn\u2019t read MFL rosters, so ' +
+    // MFL's rosters are unreadable or incomplete: free agents can't be told from rostered players, so neither scope
+    // pretends to (a partial Rostered list would read as the whole league's).
+    var live = view.scope !== "all" ? liveOwners() : null;
+    if (view.scope !== "all" && !(live && live.complete)) {
+      return '<div class="ups-m-stub"><div>Couldn\u2019t read ' + (live ? "all of " : "") + "MFL\u2019s rosters, so " +
         (view.scope === "fa" ? "free agents" : "rostered players") + " can\u2019t be told apart right now.</div>" +
         '<div class="ups-m-st-nosub">Choose All players, or reload.</div></div>';
     }
