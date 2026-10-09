@@ -958,7 +958,17 @@
     // the WW class is the WORKER's call once its row is loaded; the local status check only bridges the moments before
     if (rule === "ww_earned_na" || (!cap && isWwEarnedNaPlayer(p))) return { label: (sal / 1000) + "K Per Yr", sort: 0 };
     if (yrs <= 0 || sal <= 0) return { label: "—", sort: -1 };
-    var weeks = cap ? Number(cap.eligible_weeks) : NaN;
+    var weeks = NaN;
+    if (cap && Object.prototype.hasOwnProperty.call(cap, "eligible_weeks")) {
+      weeks = cap.eligible_weeks == null ? NaN : Number(cap.eligible_weeks);   // this worker states the window; null = it could not be resolved
+    } else if (cap) {
+      // ROLLOUT COMPATIBILITY (2026-10-09). The site and the worker deploy independently, and a worker rollout serves old
+      // isolates for a while, so this page must read the PREVIOUS row shape too: no eligible_weeks, only the
+      // acquisition_week that worker priced earned on (null = a Week-1 / continuing contract). That worker's own window
+      // (max(1, 17 − W + 1)), so Per Wk agrees with its Earned column. Remove once every worker serves eligible_weeks.
+      var aw = Number(cap.acquisition_week);
+      weeks = aw >= 1 ? Math.max(1, 17 - aw + 1) : 17;
+    }
     if (!(weeks >= 1)) {
       return STATE.capPenaltyFeed === "pending" || STATE.capPenaltyFeed == null
         ? { label: '<span class="fo-tt" data-tip="Loading this contract\'s earning window from the worker…">…</span>', sort: -1 }

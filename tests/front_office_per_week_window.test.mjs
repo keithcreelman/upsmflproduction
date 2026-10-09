@@ -29,6 +29,7 @@ const TXS = [
 const ROSTERS = {
   "0008": [{ id: "16601", salary: 11000, contractStatus: "Vet-WW", contractInfo: "CL 1| TCV 11K| AAV 11K", contractYear: 1 },
            { id: "15000", salary: 8000, contractStatus: "Vet-WW", contractInfo: "CL 1| TCV 8K| AAV 8K", contractYear: 1 }],
+  "0010": [{ id: "17207", salary: 1000, contractStatus: "Vet-WW", contractInfo: "CL 1| TCV 1K| AAV 1K", contractYear: 1 }],   // cap-free whatever the window
   "0003": [{ id: "17752", salary: 6000, contractStatus: "Vet-WW", contractInfo: "CL 1| TCV 6K| AAV 6K", contractYear: 1 },
            { id: "16696", salary: 8000, contractStatus: "Vet-FAA", contractInfo: "CL 1| TCV 8K| AAV 8K", contractYear: 1 },
            { id: "14000", salary: 9000, contractStatus: "Vet-WW", contractInfo: "CL 2| TCV 18K| AAV 9K| Y1-9K, Y2-9K", contractYear: 1 }], // year 2 of a WW deal from 2025
@@ -93,6 +94,9 @@ test("WORKER FAIL-CLOSED: transactions unreadable in-season → first-year waive
   t.equal(j.players["16696"].eligible_weeks, 17, "the auction contract's window does not depend on the transactions");
   t.ok(Number.isFinite(j.players["16696"].penalty), "…and it still prices");
   t.equal(j.players["14000"].eligible_weeks, 17, "a later contract year began in Week 1"); t.ok(Number.isFinite(j.players["14000"].penalty));
+  const free = j.players["17207"];
+  t.equal(free.penalty, 0, "a $1K WW cut is cap-free whatever the window — priced, not held"); t.ok(free.basis !== "week_authority_unresolved", free.basis);
+  t.equal(free.eligible_weeks, null, "…but its window is still unknown, not 17");
 });
 
 test("WORKER: the drop recorder and the recompute price a drop on the contract it ENDED — 0010's Sep-25 drop of Shipley was his Week-3 contract", () => {
@@ -160,6 +164,35 @@ test("FRONT OFFICE FAIL-CLOSED: no window → no number. Loading shows the loadi
   t.equal(foCtx("pending", null)({ id: "1", type: "Vet-WW", tcv: 1000, cl: 1, salary: 1000, years: 1 }).label, "1K Per Yr");
   t.equal(foCtx("pending", null)({ id: "3", type: "Vet-WW", tcv: 3000, cl: 1, salary: 3000, years: 1 }).label, "3K Per Yr");
   t.ok(!/Math\.round\(sal \/ 17\)/.test(FO), "no assumed 17-week divisor is left");
+});
+
+test("DEPLOY ORDER: the new page reads BOTH worker row shapes — today's live rows (no eligible_weeks) give the same Per Wk as the new worker", async () => {
+  // Worker and Pages deploy independently on one merge, and a worker rollout serves old isolates for a while.
+  const live = JSON.parse(fs.readFileSync(new URL("./fixtures/cap_penalty_preview_live_2026_10_09.json", import.meta.url), "utf8")).players;
+  t.ok(!("eligible_weeks" in live["16601"]) && live["16601"].acquisition_week === 5, "the fixture IS the old shape (captured from production 2026-10-09)");
+  const oldShape = foCtx("ok", live), newShape = foCtx("ok", (await preview()).players);
+  for (const [p, want] of [[SHIPLEY, "$846"], [MEYERS, "$462"], [AUCTION, "$471"]]) {
+    t.equal(oldShape(p).label, want, p.id + " on the OLD worker"); t.equal(newShape(p).label, want, p.id + " on the NEW worker");
+  }
+  t.equal(foCtx("ok", { "16601": { penalty: 8250, earned: 0, acquisition_week: null } })(SHIPLEY).label, "$647",
+    "old shape, no acquisition week = that worker priced him on 17 weeks; the page agrees with that worker's own Earned column");
+  t.match(foCtx("ok", { "16601": { penalty: null, eligible_weeks: null, acquisition_week: null } })(SHIPLEY).label, /—<\/span>$/, "new shape, window unresolved: —");
+});
+
+test("DEPLOY ORDER: the OLD page on the NEW worker still renders — Per Wk keeps its old /17 until the page ships; an unpriced row reads unavailable, never $0", async () => {
+  const { execFileSync } = await import("node:child_process");
+  let oldFo;
+  try { oldFo = execFileSync("git", ["show", "origin/main:site/rosters/v2/front_office.js"], { encoding: "utf8", maxBuffer: 64 << 20 }); }
+  catch (_) { t.ok(true, "origin/main not available in this checkout — skipped"); return; }
+  if (!/Math\.round\(sal \/ 17\)/.test(oldFo)) { t.ok(true, "origin/main already carries the new page — nothing to check"); return; }
+  const i = oldFo.indexOf("function isOneKPerYearPlayer(player) {"), l = oldFo.indexOf("function perWeekEarningValue");
+  const j = await preview({ failTransactions: true });
+  const ctx = { STATE: { capPenaltyFeed: "ok", capPenaltyByPid: j.players }, safeStr: (v) => String(v == null ? "" : v), safeInt: (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : (d || 0); },
+    totalContractValueForPlayer: (p) => p.tcv, contractLengthForPlayer: (p) => p.cl, guaranteedContractValueForPlayer: () => 0, money: (n) => "$" + n, fmtUSD: (n) => (Number.isFinite(n) ? "$" + n : "—") };
+  vm.createContext(ctx); vm.runInContext(oldFo.slice(i, l), ctx);
+  t.equal(vm.runInContext(`perWeekEarningInfo(${JSON.stringify(SHIPLEY)}).label`, ctx), "$647", "old page: its old (wrong) rate, no crash");
+  const drop = vm.runInContext(`dropPenaltyEstimate(${JSON.stringify(SHIPLEY)})`, ctx);
+  t.equal(drop.earnedState, "unavailable", "old page: an unpriced row is unavailable"); t.ok(Number.isNaN(drop.amount), "…never a $0 penalty");
 });
 
 await run("front_office_per_week_window");
