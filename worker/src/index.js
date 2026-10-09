@@ -20432,6 +20432,14 @@ export default {
             ).bind(yr).first();
             seasonComplete = !!(wkR && wkR.x);
           } catch (_) {}
+          // `po` (playoff flag) is 1 or 0 ONLY when D1 holds exactly 1 or 0. Anything
+          // else (NULL, a stray value) is sent as null, never guessed as regular
+          // season: the standings race module (site/shared/standings_race.js) fails
+          // closed on an unrecognized flag, and it can only do that if it sees it.
+          const poFlag = (v) => (v === 1 || v === "1") ? 1 : (v === 0 || v === "0") ? 0 : null;
+          // A failed query is sent as null + an error, never as an empty array:
+          // an empty array means "nothing played yet", which a reader may show as 0-0.
+          const weeklyErrors = {};
           // Per-week matchup rows (played games only) so the client can compute
           // scoped standings — Full / Regular / Playoffs / Custom — over any week
           // range. See docs/STANDINGS_SCOPE_BUILD.md.
@@ -20448,9 +20456,9 @@ export default {
               opp: String(r.opponent_franchise_id || "").padStart(4, "0"),
               os: Number(r.opponent_score) || 0,
               div: Number(r.is_divisional) === 1 ? 1 : 0,
-              po: Number(r.is_playoff) === 1 ? 1 : 0,
+              po: poFlag(r.is_playoff),
             }));
-          } catch (_) {}
+          } catch (e) { weekly = null; weeklyErrors.weekly = String((e && e.message) || e); }
           // EVERY franchise's weekly score (incl. playoff byes — a team scores even
           // with no H2H matchup), + optimal points for efficiency. This is what
           // all-play and scoped scoring should use so counts are consistent.
@@ -20465,9 +20473,9 @@ export default {
               fid: String(r.franchise_id || "").padStart(4, "0"),
               ts: Number(r.team_score) || 0,
               opt: Number(r.team_opt_pts) || 0,
-              po: Number(r.is_playoff) === 1 ? 1 : 0,
+              po: poFlag(r.is_playoff),
             }));
-          } catch (_) {}
+          } catch (e) { weeklyScores = null; weeklyErrors.weeklyScores = String((e && e.message) || e); }
           return new Response(JSON.stringify({
             ok: true,
             year: yr,
@@ -20480,6 +20488,7 @@ export default {
             rows,
             weekly,
             weeklyScores,
+            ...(Object.keys(weeklyErrors).length ? { weekly_errors: weeklyErrors } : {}),
             takeovers: takeoversForYear,
           }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
         } catch (e) {
