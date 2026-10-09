@@ -49885,17 +49885,14 @@ const mflToSleeper = {};
         //   - auctionStart — which CAP YEAR a real penalty belongs to (canon §6); capYearNote turns a roll-forward (or an
         //     unresolved instant) into a visible line, the ordinary case (applies to the row's own season) stays silent. See
         //     the FA-Auction-open Sanders discussion, 2026-08-16.
-        //   - week1Iso — the historical Week-1 boundary for resolveCompletedPayableWeeks' synchronous date-math branch (every
-        //     recompute is a PAST dropped_at_iso, so no extra network call per row);
         //   - txs / acqUnresolved — the transactions that say when each dropped contract BEGAN (canon §D1: a Week-W pickup's
         //     window is 18 − W). This path once passed no acquisition week at all, so a recompute re-priced every mid-season
         //     pickup on a 17-week window and persisted it. Unreadable → those rows come back unpriced and are left unchanged.
         const rowSeasonOf = (r) => safeStr(r && r.season) || targetSeason;
         const seasonInputs = {};
         const seasonCtx = (season) => (seasonInputs[season] = seasonInputs[season] || (async () => {
-          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), week1Iso: null, txs: [], acqUnresolved: false };
+          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), txs: [], acqUnresolved: false };
           if (!recompute) return ctx;
-          ctx.week1Iso = await _week1BoundaryIsoET(season);
           if (rows.some((r) => rowSeasonOf(r) === season && _nflWeekForUnix(Number(r.dropped_at_unix) || 0, season) > 0)) {
             try {
               const rcTxRes = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
@@ -49924,18 +49921,13 @@ const mflToSleeper = {};
           const sc = await seasonCtx(rs);
           if (recompute) {
             try {
-              // A held-then-priced row was priced by the RECORDER as of its own drop, by its live week rule
-              // (_completedWeeksAtLiveRule). The historical walk is kickoff-to-kickoff and reads one week fewer between Monday
-              // night and Thursday, so re-pricing that row with it would quietly raise a verified charge; it gets the
-              // recorder's rule instead, and a recompute reproduces the recorder's number.
-              const heldPriced = safeStr(r.notes).includes(_HELD_REPRICED_MARK);
-              const rcWeekAuthority = heldPriced
-                ? await _completedWeeksAtLiveRule(rs, Number(r.dropped_at_unix) || 0, 17)
-                : await resolveCompletedPayableWeeks(rs, leagueId, {
-                    dropDateIso: r.dropped_at_iso,
-                    week1ThursdayIso: sc.week1Iso,
-                    regularSeasonWeeks: 17,
-                  });
+              // Completed weeks by the RECORDER's own rule at the DROP instant (_completedWeeksAtLiveRule: a week counts once its
+              // last game is over + the grace period) — for every row, held-then-priced or recorded on time — so a recompute
+              // reproduces what the recorder charged. This used the historical kickoff-to-kickoff walk, which doesn't count the
+              // week that ended Monday night until Thursday's kickoff: a Tuesday or Wednesday drop was re-priced with one week
+              // less earned and its correct stored penalty rewritten one week too high (Shipley's $5,712 → $6,558). An
+              // unreadable schedule → weeks null → week_authority_unresolved → skipped below, the stored row left untouched.
+              const rcWeekAuthority = await _completedWeeksAtLiveRule(rs, Number(r.dropped_at_unix) || 0, 17);
               const rc = _computeDropPenalty({
                 contractStatus: r.pre_drop_contract_status,
                 salary: r.pre_drop_salary,

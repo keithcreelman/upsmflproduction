@@ -7,6 +7,8 @@
 //   5. (pre-merge review) post-discord's recompute of a PREVIOUS season's held-then-priced row prices it on THAT row's season —
 //      Week 1, transactions, acquisition week, the penalty itself and the card's cap-year note — never the poster's season.
 //   6. (pre-merge review) cap-free routing of a previous-season held row reads THAT season's MFL designations.
+//   7. (pre-merge review) a NORMAL drop recomputed by post-discord counts completed weeks by the recorder's own rule at the
+//      drop instant — a Tuesday/Wednesday drop is never re-priced one week short (one week of earned lower, penalty higher).
 //   node tests/drop_held_unpriced_routes.test.mjs
 import fs from "node:fs";
 import { makeD1 } from "./fixtures/d1_sqlite.mjs";
@@ -32,6 +34,7 @@ const YEARS = {
     { type: "FREE_AGENT", franchise: "0005", timestamp: ET("2026-12-29T12:00:00-05:00"), transaction: "|18000," },          // held across Jan 1 (B)
     { type: "BBID_WAIVER", franchise: "0005", timestamp: ET("2026-12-17T09:00:00-05:00"), transaction: "18001,|20000|" },   // Week 15 pickup
     { type: "FREE_AGENT", franchise: "0005", timestamp: ET("2026-12-26T12:00:00-05:00"), transaction: "|18001," },          // priced on time (5d)
+    { type: "FREE_AGENT", franchise: "0010", timestamp: ET("2026-10-28T10:00:00-04:00"), transaction: "|18002," },          // auction contract, Wed (7)
   ] },
 };
 const ww = (id, k) => ({ id, salary: String(k * 1000), status: "ROSTER", contractStatus: "Vet-WW", contractInfo: `CL 1| TCV ${k}K| AAV ${k}K`, contractYear: "1" });
@@ -41,6 +44,7 @@ function snapshotFor(day) {           // 17469 is never in a snapshot (claimed a
   if (day >= "2026-10-08" && day <= "2026-10-27") add("0008", ww("16601", 11));
   if (day >= "2026-12-24" && day <= "2026-12-29") add("0005", ww("18000", 20));
   if (day >= "2026-12-17" && day <= "2026-12-26") add("0005", ww("18001", 20));
+  if (day >= "2026-08-01" && day <= "2026-10-28") add("0010", { id: "18002", salary: "17000", status: "ROSTER", contractStatus: "Vet-FAA", contractInfo: "CL 1| TCV 17K| AAV 17K", contractYear: "1" });
   return { rosters: { franchise: Object.entries(fr).map(([id, player]) => ({ id, player })) } };
 }
 function nflSchedule(w, year) {       // 2026: Wed Sep 9 opener, then Thu 8:15 PM ET / Sun 1 PM / Mon 8:15 PM ET; 2027 = +52 weeks
@@ -74,7 +78,7 @@ globalThis.fetch = async (input, init) => {
       return json({ transactions: { transaction: Y.txs.filter((x) => Number(x.timestamp) <= NOW / 1000 && (!tt || x.type === tt)) } });
     }
     if (type === "liveScoring") return json({ liveScoring: { week: String(liveWeek()) } });
-    if (type === "players") return json({ players: { player: [{ id: "16601", name: "Shipley, Will", position: "RB", team: "PHI" }, { id: "17469", name: "Daniels, Jalon", position: "QB", team: "TBB" }, { id: "18000", name: "Pickup, Late", position: "WR", team: "KCC" }, { id: "18001", name: "Pickup, Early", position: "WR", team: "KCC" }] } });
+    if (type === "players") return json({ players: { player: [{ id: "16601", name: "Shipley, Will", position: "RB", team: "PHI" }, { id: "17469", name: "Daniels, Jalon", position: "QB", team: "TBB" }, { id: "18000", name: "Pickup, Late", position: "WR", team: "KCC" }, { id: "18001", name: "Pickup, Early", position: "WR", team: "KCC" }, { id: "18002", name: "Auction, Steady", position: "TE", team: "DAL" }] } });
     if (type === "league") return json({ league: { franchises: { franchise: [["0005", "HammerTime"], ["0008", "Real Deal Creel"], ["0010", "Blake Bombers"]].map(([id, name]) => ({ id, name, email: id + "@ups.test" })) } } });
     if (type === "injuries") return json({ injuries: { injury: Y.injuries || [] } });
     if (type === "salaryAdjustments") return json({ salaryAdjustments: { salaryAdjustment: [] } });
@@ -126,6 +130,7 @@ const rowOf = (db, pid) => ({ ...db.raw.prepare("SELECT * FROM ups_drop_events W
 // ═════════ 2. post-discord: never posts, recomputes or reposts an unpriced drop ═════════
 const dbA = makeDb(), envA = makeEnv(dbA);
 test("2a. setup — MFL's transactions export down on Tue 10-27: Shipley's drop is HELD; Jalon Daniels has NO pre-drop contract", async () => {
+  YEARS["2026"].txs = only("16601", "17469");   // this section's two drops only
   NOW = RealDate.parse("2026-10-27T16:05:00Z"); YEARS["2026"].failAll = true;
   const s = await scan(envA, "2026");
   t.equal(s.status, 200, s.text.slice(0, 300));
@@ -332,5 +337,50 @@ test("6. a 2026 held drop priced in January takes its cap-free routing from 2026
   t.ok(!janExports.includes("2027:injuries"), "never 2027's (no 2027 league in January): " + janExports.join(" "));
 });
 
+// ═════════ 7. post-discord recompute of a NORMAL drop, recorded on time on a Tuesday / Wednesday ═════════
+// The recorder prices a drop as of the drop (its live rule: a week counts once its last game is over + the grace period), so
+// on a Tuesday or Wednesday the week that ended Monday night is complete. The historical kickoff-to-kickoff walk doesn't count
+// it until the next Thursday's kickoff — re-pricing with it rewrote a correct stored penalty one week too high.
+async function normalDropsRecordedOnTime() {
+  const db = makeDb(), env = makeEnv(db);
+  YEARS["2026"].txs = only("16601", "18002"); YEARS["2026"].failAll = false; delete YEARS["2027"];
+  NOW = RealDate.parse("2026-10-27T16:05:00Z"); await scan(env, "2026");   // Tue 12:05 PM ET — Shipley ($11K Week-5 claim), dropped noon
+  NOW = RealDate.parse("2026-10-28T14:05:00Z"); await scan(env, "2026");   // Wed 10:05 AM ET — an auction contract, dropped 10:00
+  return { db, env };
+}
+test("7a. recorded on time: Tue Week-5 waiver pickup $5,712 (3 of 13 weeks); Wed auction contract earned 7 of 17 weeks", async () => {
+  const { db } = await normalDropsRecordedOnTime();
+  // Shipley: Weeks 5–17 = 13 eligible; Week 7 ended Monday night → 3 completed → earned round(3/13 × 11,000) = 2,538; 8,250 − 2,538
+  t.deepEqual(priced(rowOf(db, "16601")), [5712, 2538, 8250, "guarantee_minus_earned"]);
+  t.equal(rowOf(db, "18002").earned_to_date, 7000, "7 of 17 weeks × $17,000");
+});
+test("7b. post-discord recompute (Wed, then again Fri) leaves both rows' penalty and earned EXACTLY as the recorder stored them", async () => {
+  const { db, env } = await normalDropsRecordedOnTime();
+  const stored = [priced(rowOf(db, "16601")), priced(rowOf(db, "18002"))];
+  NOW = RealDate.parse("2026-10-28T16:00:00Z");     // Wed noon ET — before Week 8's Thursday kickoff
+  const d = await postDiscord(env, "2026", { recompute: true });
+  t.equal(d.json.posted_count, 2, d.text.slice(0, 300));
+  t.deepEqual([priced(rowOf(db, "16601")), priced(rowOf(db, "18002"))], stored, "not 6 completed weeks (earned 1,692 → penalty 6,558; auction earned 6,000)");
+  t.match(JSON.stringify(DISCORD.posts.slice(-2)), /Drop: Will Shipley[\s\S]*Cap Penalty: \$5\.7K/);
+  // and a recompute after Thursday's kickoff still gives the drop-instant answer — not "now"
+  NOW = RealDate.parse("2026-10-30T16:00:00Z");
+  await postDiscord(env, "2026", { repost_ids: [rowOf(db, "16601").id, rowOf(db, "18002").id], recompute: true });
+  t.deepEqual([priced(rowOf(db, "16601")), priced(rowOf(db, "18002"))], stored);
+});
+test("7c. transactions export unreadable at recompute time: the waiver pickup's stored amount is untouched and its card still posts", async () => {
+  const { db, env } = await normalDropsRecordedOnTime();
+  const before = { ...rowOf(db, "16601") };
+  YEARS["2026"].failAll = true;
+  NOW = RealDate.parse("2026-10-28T16:00:00Z");
+  const d = await postDiscord(env, "2026", { recompute: true });
+  YEARS["2026"].failAll = false;
+  t.equal(d.json.posted_count, 2, d.text.slice(0, 300));
+  const after = rowOf(db, "16601");
+  for (const k of ["penalty_amount", "earned_to_date", "guaranteed_amount", "penalty_basis", "penalty_exempt", "penalty_exempt_reason", "posted_to_mfl"]) t.equal(after[k], before[k], k + " untouched");
+  t.match(JSON.stringify(DISCORD.posts.slice(-2)), /Drop: Will Shipley[\s\S]*Cap Penalty: \$5\.7K/);
+  t.equal(rowOf(db, "18002").earned_to_date, 7000, "the auction contract needs no acquisition week — still the recorder's 7 weeks");
+});
+
 await run("drop_held_unpriced_routes");
+
 globalThis.Date = RealDate;
