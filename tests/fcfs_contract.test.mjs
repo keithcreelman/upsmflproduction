@@ -204,7 +204,7 @@ test("STAMPER: a blank contract is never silent — the cron alerts on needs-rev
 // ═════════════════════════════════════ 3. the sub-$5K "full-year" rule ═════════════════════════════════════
 const src = read("worker/src/index.js");
 function grab(a, b) { const i = src.indexOf(a); if (i < 0) throw new Error("not found: " + a); const j = src.indexOf(b, i); if (j < 0) throw new Error("end not found: " + a); return src.slice(i, j + b.length); }
-const parseFn = grab("const _parseContractData =", "return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };\n        };");
+const parseFn = grab("const _parseContractData =", "return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved, eligibleWeeks, currentYearSalary };\n        };");
 const compFn = grab("const _computeDropPenalty =", 'return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };\n        };');
 const prelude = `import { applyFullYearRule, classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS } from "${new URL("../worker/src/fcfs_contract.js", import.meta.url).href}";
 const safeStr=(v)=>v==null?"":String(v); const safeInt=(v,d)=>{const n=Number(v);return Number.isFinite(n)?Math.trunc(n):(d||0);}; const _s=(v)=>String(v==null?"":v).trim();

@@ -17,7 +17,7 @@ function grab(startMarker, endMarker){
   if (j < 0) throw new Error('end not found for '+startMarker);
   return src.slice(i, j+endMarker.length);
 }
-const parseFn = grab('const _parseContractData =', 'return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };\n        };');
+const parseFn = grab('const _parseContractData =', 'return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved, eligibleWeeks, currentYearSalary };\n        };');
 const compFn  = grab('const _computeDropPenalty =', 'return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };\n        };');
 
 const prelude = `

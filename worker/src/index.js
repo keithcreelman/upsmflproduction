@@ -3202,6 +3202,27 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
   for (const pid of Object.keys(byPid)) map[pid] = byPid[pid].wk;
   return map;
 };
+// The acquisition week of the contract a player HELD at `atUnix` — for pricing a DROP. The same rule as the map above (in-season
+// adds only, trades never start a contract), but the latest add AT OR BEFORE that instant rather than the latest add overall: a
+// player dropped and later re-acquired was on a different contract for the first stint (Will Shipley 2026: a $1K blind bid in
+// Week 3, dropped, then an $11K blind bid in Week 5). undefined = a continuing / Week-1 contract (17-week window).
+const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
+  const ACQ = { FREE_AGENT: 1, BBID_WAIVER: 1, AUCTION_WON: 1 };
+  const want = String(pid == null ? "" : pid).replace(/\D/g, "");
+  const at = Number(atUnix);
+  let best = null;
+  for (const t of (Array.isArray(txs) ? txs : (txs ? [txs] : []))) {
+    if (!t || !ACQ[_s(t.type)]) continue;
+    const ts = Number(t.timestamp) || 0;
+    if (!(ts <= at)) continue;
+    const wk = _nflWeekForUnix(ts, year);
+    if (wk <= 1) continue; // preseason / Week-1 add → continuing window (17)
+    const added = _s(t.transaction).split("|")[0];
+    if (!(added.match(/\d{3,6}/g) || []).includes(want)) continue;
+    if (!best || ts > best.ts) best = { ts, wk };
+  }
+  return best ? best.wk : undefined;
+};
         const _parseContractData = ({ contractInfo, salary, contractYear }, opts) => {
           opts = opts || {};
           const ci = _s(contractInfo);
@@ -3241,12 +3262,19 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           // drop date the result is the legacy completed-years-only earned.
           let currentYearEarned = 0;
           let weekAuthorityUnresolved = false;
+          // The contract's own window for THIS year (canon §D1): Weeks W through 17 inclusive, so 17 for an auction / Week-1 /
+          // continuing contract and 18 − W for a Week-W pickup. Returned for every in-contract row (eligibleWeeks, currentYearSalary)
+          // so a per-week figure is always THIS window, never an assumed 17.
+          const rsw = Number(opts.regularSeasonWeeks) || 17;
+          const acqWk = (Number(opts.acquisitionWeek) >= 1) ? Number(opts.acquisitionWeek) : 1;
+          const eligibleWeeks = Math.max(1, rsw - acqWk + 1);
+          const currentYearSalary = (cl != null && yearsRemaining > 0)
+            ? ((yearSalaries[yearsPlayed + 1] != null) ? yearSalaries[yearsPlayed + 1] : (Number(salary) || 0))
+            : null;
           if (cl != null && yearsRemaining > 0 && opts.dropDateIso) {
-            const curYrSalary = (yearSalaries[yearsPlayed + 1] != null) ? yearSalaries[yearsPlayed + 1] : (Number(salary) || 0);
-            const rsw = Number(opts.regularSeasonWeeks) || 17;
+            const curYrSalary = currentYearSalary;
             if (Number.isFinite(opts.completedPayableWeeks)) {
-              const acqWk = (Number(opts.acquisitionWeek) >= 1) ? Number(opts.acquisitionWeek) : 1;
-              const eligible = Math.max(1, rsw - acqWk + 1);
+              const eligible = eligibleWeeks;
               const completedEligible = Math.max(0, Math.min(eligible, opts.completedPayableWeeks - (acqWk - 1)));
               currentYearEarned = Math.round((completedEligible / eligible) * curYrSalary);
             } else {
@@ -3258,7 +3286,7 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
             }
           }
           const earned = priorEarned + currentYearEarned;
-          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved };
+          return { tcv, cl, aav, cy, yearsRemaining, yearsPlayed, yearSalaries, earned, priorEarned, currentYearEarned, weekAuthorityUnresolved, eligibleWeeks, currentYearSalary };
         };
 
         // A "$1K Per Yr" contract (every contract year exactly $1,000, TCV <= $4K — fcfs_contract.js `classifyFullYearRule`) priced by the dedicated
@@ -3337,6 +3365,31 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
                 + "rescan, or price it by hand.",
             };
           }
+          // 1.6b The ACQUISITION week could not be resolved (the caller tried MFL's transactions in-season and could not read them),
+          // and this contract may have begun mid-season: a first contract year whose status is a waiver (WW) or mid-year (MYM) deal.
+          // Its window is 18 − W for an unknown W — so no window (eligibleWeeks null), no earned, no penalty: the same unpriced shape
+          // as 1.6, never the 17-week guess. Auction / draft / extension / later-year contracts began in Week 1 (or earlier) and still
+          // price normally. Checked first so a row unpriced for BOTH reasons never reports a guessed 17-week window.
+          const acquisitionUnknown = !!(opts && opts.acquisitionWeekUnresolved && opts.dropDateIso)
+            && ctx.yearsPlayed === 0 && /WW|MYM/i.test(_s(contractStatus));
+          if (acquisitionUnknown && !ctx.weekAuthorityUnresolved) {
+            return {
+              ...ctx,
+              eligibleWeeks: null,
+              earned: null,
+              currentYearEarned: null,
+              penalty: null,
+              guaranteed: null,
+              basis: "week_authority_unresolved",
+              exempt: false,
+              needs_review: true,
+              exempt_reason: "",
+              review_reason:
+                "The acquisition week could not be resolved (MFL's transactions were unreadable), and this "
+                + "waiver / mid-year contract may have begun mid-season — its eligible-week window (canon §D1: "
+                + "Weeks W through 17) is unknown, so earned salary and drop penalty cannot be priced. NOT a $0.",
+            };
+          }
           // 1.6 Week-authority could not be resolved for an in-season pricing
           // request — refuse to emit a confident penalty/earned number. Mirrors
           // the "contract_unstamped_needs_review" shape (basis + needs_review +
@@ -3349,6 +3402,7 @@ const _acquisitionWeekMapFromTxs = (txs, year) => {
           if (ctx.weekAuthorityUnresolved) {
             return {
               ...ctx,
+              ...(acquisitionUnknown ? { eligibleWeeks: null } : {}),
               penalty: null,
               guaranteed: null,
               basis: "week_authority_unresolved",
@@ -49771,6 +49825,20 @@ const mflToSleeper = {};
         // resolveCompletedPayableWeeks' cheap synchronous date-math branch (no
         // extra network call per row).
         const recomputeWeek1Iso = recompute ? await _week1BoundaryIsoET(targetSeason) : null;
+        // ...and the transactions that say when each dropped contract BEGAN (canon §D1: a Week-W pickup's window is 18 − W). This
+        // path used to pass no acquisition week at all, so a recompute re-priced every mid-season pickup on a 17-week window and
+        // persisted it. Unreadable → those rows come back unpriced and are skipped below, left unchanged.
+        let recomputeTxs = [], recomputeAcqUnresolved = false;
+        if (recompute && rows.some((r) => _nflWeekForUnix(Number(r.dropped_at_unix) || 0, targetSeason) > 0)) {
+          try {
+            const rcTxRes = await mflExportJson(targetSeason, leagueId, "transactions", {}, { useCookie: true });
+            if (!rcTxRes || !rcTxRes.ok || !(rcTxRes.data && rcTxRes.data.transactions)) throw new Error(`transactions export ${rcTxRes && rcTxRes.status || "failed"}`);
+            recomputeTxs = rcTxRes.data.transactions.transaction;
+          } catch (e) {
+            recomputeAcqUnresolved = true;
+            console.error(`[drops recompute] acquisition weeks unresolved — mid-season waiver/MYM rows will be skipped: ${(e && e.message) || e}`);
+          }
+        }
 
         const results = [];
         for (const r of rows) {
@@ -49789,7 +49857,9 @@ const mflToSleeper = {};
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
-              }, { season: targetSeason, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks });
+              }, { season: targetSeason, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
+                   acquisitionWeek: _acquisitionWeekAsOf(recomputeTxs, targetSeason, r.player_id, Number(r.dropped_at_unix) || 0),
+                   acquisitionWeekUnresolved: recomputeAcqUnresolved });
               // FAIL CLOSED: `Number(rc.penalty) || 0` (and the matching
               // guaranteed/earned lines below) used to silently turn a null
               // "week_authority_unresolved" result into a confident $0 and
@@ -49802,7 +49872,7 @@ const mflToSleeper = {};
               // scanner path (below, /admin/drops/scan-and-record) already
               // does the null-preserving version of this correctly.
               if (rc.basis === "week_authority_unresolved") {
-                console.error(`[drops recompute] id=${r.id}: week authority unresolved (source=${rcWeekAuthority.source}) — skipped, row left unchanged`);
+                console.error(`[drops recompute] id=${r.id}: week authority unresolved (source=${rcWeekAuthority.source}${recomputeAcqUnresolved ? ", acquisition weeks unreadable" : ""}) — skipped, row left unchanged`);
               } else {
                 r.penalty_amount = Number(rc.penalty) || 0;
                 r.penalty_exempt = rc.exempt ? 1 : 0;
@@ -53040,12 +53110,19 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // Build the in-season acquisition-week map once (skip offseason: current-year
         // earned is $0 then, so the pickup-week denominator is irrelevant). Gives
         // mid-season WW/FCFS pickups the canon 18−W eligible-weeks window.
-        let acqWeekMap = {};
+        let acqTxs = [];
+        let acqWeekUnresolved = false;
         if (drops.some((d) => _nflWeekForUnix(d.ts, targetSeason) > 0)) {
+          // THIS IS A REAL-CHARGE PATH: an unreadable transactions export must not price a mid-season pickup on a 17-week window —
+          // _computeDropPenalty returns those rows unpriced (week_authority_unresolved) instead.
           try {
             const allTxRes = await mflExportJson(targetSeason, leagueId, "transactions", {}, { useCookie: true });
-            acqWeekMap = _acquisitionWeekMapFromTxs(allTxRes && allTxRes.data && allTxRes.data.transactions && allTxRes.data.transactions.transaction, targetSeason);
-          } catch (_) {}
+            if (!allTxRes || !allTxRes.ok || !(allTxRes.data && allTxRes.data.transactions)) throw new Error(`transactions export ${allTxRes && allTxRes.status || "failed"}`);
+            acqTxs = allTxRes.data.transactions.transaction;
+          } catch (e) {
+            acqWeekUnresolved = true;
+            console.error(`[drop-penalty scan] acquisition weeks unresolved — mid-season waiver/MYM drops unpriced this batch: ${(e && e.message) || e}`);
+          }
         }
 
         // This is the path that posts the REAL charge, so it needs the same
@@ -53131,7 +53208,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
                 taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
-              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: acqWeekMap[drop.pid],
+              }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: _acquisitionWeekAsOf(acqTxs, targetSeason, drop.pid, drop.ts),
+                   acquisitionWeekUnresolved: acqWeekUnresolved,
                    week1ThursdayIso: scanWeek1Iso || undefined,
                    completedPayableWeeks: scanWeekAuthority.weeks });
             }
@@ -54076,12 +54154,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // eligible-weeks denominator is 18−W (canon §D1). Offseason or an explicit
           // ?acquisition_week= skips the extra transactions fetch (irrelevant then).
           let pvAcqMap = {};
+          let pvAcqSource = pvAcqWhatIf != null ? "what_if" : "not_needed", pvAcqError = "";
           const pvDropTs = Math.floor(new Date(pvDropIso).getTime() / 1000);
           if (pvAcqWhatIf == null && _nflWeekForUnix(pvDropTs, pvSeason) > 0) {
+            // A failed read is NOT "nobody was picked up mid-season": that would price every pickup on a 17-week window.
             try {
               const txRes = await mflExportJson(pvSeason, pvLeague, "transactions", {}, {});
-              pvAcqMap = _acquisitionWeekMapFromTxs(txRes && txRes.data && txRes.data.transactions && txRes.data.transactions.transaction, pvSeason);
-            } catch (_) {}
+              if (!txRes || !txRes.ok || !(txRes.data && txRes.data.transactions)) throw new Error(`transactions export ${txRes && txRes.status || "failed"}`);
+              pvAcqMap = _acquisitionWeekMapFromTxs(txRes.data.transactions.transaction, pvSeason);
+              pvAcqSource = "transactions";
+            } catch (e) { pvAcqSource = "unresolved"; pvAcqError = String((e && e.message) || e); }
           }
           // A taxi player on a temporary call-up reads as ACTIVE in MFL, so
           // status alone loses him his §D2 cap-free cut. Look up call-up history
@@ -54106,11 +54188,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               taxiNeverPromoted: pvTaxiNeverPromoted[pid] === true,
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
-            const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk });
+            const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk, acquisitionWeekUnresolved: pvAcqSource === "unresolved" });
             return { penalty: r.penalty, guaranteed: r.guaranteed, earned: r.earned,
                      prior_earned: r.priorEarned, current_year_earned: r.currentYearEarned, tcv: r.tcv,
                      cl: r.cl, years_remaining: r.yearsRemaining, years_played: r.yearsPlayed,
                      acquisition_week: acqWk || null,
+                     // THIS year's earning window and salary (canon §D1) — the Front Office "Per Wk" column divides one by the other
+                     eligible_weeks: r.eligibleWeeks == null ? null : r.eligibleWeeks,
+                     current_year_salary: r.currentYearSalary == null ? null : r.currentYearSalary,
                      basis: r.basis, exempt: !!r.exempt, exempt_reason: r.exempt_reason || "",
                      earned_rule: r.earned_rule || null,   // "full_year_sub_5k": earned is null by design — clients show "Full-year rule", never a number
                      needs_review: !!r.needs_review, review_reason: r.review_reason || "" };
@@ -54135,7 +54220,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             if (o("contractYear") != null) wf.contractYear = o("contractYear");
             return jsonOut(200, { ok: true, player_id: pvPid, franchise_id: foundFid, season: pvSeason,
               current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
-              week_authority_source: pvWeekAuthority.source, calculated_at: new Date().toISOString(),
+              week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,
+              ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),
               ...penaltyFor(wf) });
           }
 
@@ -54152,7 +54238,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
           return jsonOut(200, { ok: true, season: pvSeason, league_id: pvLeague,
             current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
-            week_authority_source: pvWeekAuthority.source, calculated_at: new Date().toISOString(),
+            week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,
+            ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),
             count: Object.keys(players).length, players });
         } catch (pvErr) {
           return jsonOut(500, { ok: false, error: safeStr(pvErr && pvErr.message ? pvErr.message : String(pvErr)) });
