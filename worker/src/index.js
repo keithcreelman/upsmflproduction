@@ -2996,6 +2996,15 @@ async function resolveCompletedPayableWeeks(season, leagueId, opts) {
 // that was HELD (an MFL read failed when it was recorded), so it is charged exactly what it would have been charged on time.
 // (The historical walk above is kickoff-to-kickoff, so between Monday night and Thursday it reads one week fewer than the
 // recorder did.) null when the schedule can't be read — the drop then stays held.
+// Stamped into a HELD drop's notes when the recorder prices it, so post-discord can still find a PREVIOUS season's held-then-
+// priced row after the cron's season has rolled over (Jan 1; NFL Week 17 runs into January).
+const _HELD_REPRICED_MARK = "[repriced-after-hold]";
+// A drop row with no penalty yet: never posted, recomputed or charged as if it had one (see /admin/drops/post-discord).
+const DROP_UNPRICED_BASES = new Set(["no_pre_drop_contract", "contract_unstamped_needs_review", "week_authority_unresolved"]);
+const DROP_UNPRICED_BASES_SQL = "('no_pre_drop_contract', 'contract_unstamped_needs_review', 'week_authority_unresolved')";
+const _dropUnpricedReason = (basis) => String(basis || "") === "week_authority_unresolved"
+  ? "held_unpriced: the recorder prices it once MFL can be read"
+  : `unpriced_needs_review: ${String(basis || "no penalty recorded")} — needs a verified contract`;
 async function _completedWeeksAtLiveRule(season, atUnix, regularSeasonWeeks) {
   const rsw = Number(regularSeasonWeeks) || 17;
   const at = Number(atUnix) || 0;
@@ -7326,6 +7335,12 @@ export default {
                 );
                 const postData = await postRes.json().catch(() => ({}));
                 postedCount = Number(postData?.posted_count) || 0;
+                // A drop with no verified pre-drop contract gets NO card (it would have to say "no cap penalty" or guess one) —
+                // so say so here, or it would sit unannounced with nothing pointing at it.
+                const needsReview = (postData?.held_unpriced || []).filter((h) => /^unpriced_needs_review/.test(String(h.reason || "")));
+                if (needsReview.length) {
+                  console.error(`[scheduled */5] drop-tracker: ${needsReview.length} drop(s) UNPRICED with no verified pre-drop contract — no Discord card until a commissioner verifies one: ${JSON.stringify(needsReview.map((h) => `${h.player_name || h.player_id}@${h.dropped_at_iso}`)).slice(0, 400)}`);
+                }
               }
 
               // Cap-free review notifications. Announces newly-pending drops
@@ -49831,23 +49846,29 @@ const mflToSleeper = {};
             ).bind(targetSeason, leagueId, `%${playerNameFilter}%`, limit).all()
           : await env.UPS_MFL_DB.prepare(
               `SELECT ${dropCols} FROM ups_drop_events
-                WHERE season = ? AND league_id = ? AND discord_posted = 0
-                  AND COALESCE(penalty_basis, '') <> 'week_authority_unresolved'
+                WHERE league_id = ? AND discord_posted = 0
+                  AND penalty_amount IS NOT NULL AND COALESCE(penalty_basis, '') NOT IN ${DROP_UNPRICED_BASES_SQL}
+                  AND (season = ? OR (season = ? AND COALESCE(notes, '') LIKE ?))
                 ORDER BY dropped_at_unix ASC LIMIT ?`
-            ).bind(targetSeason, leagueId, limit).all();
-        // HELD drops (recorded unpriced: an authority was unreadable — see /admin/drops/scan-and-record) are never posted:
-        // their card would have to say "no cap penalty" or guess one. They stay discord_posted = 0, are left out of the
-        // selection above (so they can't crowd priced drops out of the limit), and go out ONCE, with the real number, after
-        // the scanner prices them. Listed here so a hold is visible, never silent.
+            ).bind(leagueId, targetSeason, String((Number(targetSeason) || 0) - 1), "%" + _HELD_REPRICED_MARK + "%", limit).all();
+        // UNPRICED drops are never posted, recomputed or reposted by THIS route — not even by an explicit repost_ids /
+        // recompute — because their card would have to say "no cap penalty" or guess one:
+        //   - held (week_authority_unresolved): only the recorder (/admin/drops/scan-and-record) prices it, as of its own drop;
+        //     its card then goes out ONCE with the real number — including a PREVIOUS season's held row priced after Jan 1
+        //     (the _HELD_REPRICED_MARK clause above);
+        //   - no pre-drop contract / an unstamped contract: needs a verified contract first (a commissioner correction).
+        // They are left out of the selection above (so they can't crowd priced drops out of the limit) and listed here.
         let heldUnpriced = [];
         try {
           const hq = await env.UPS_MFL_DB.prepare(
-            `SELECT id, player_id, player_name, franchise_id, dropped_at_iso FROM ups_drop_events
-              WHERE season = ? AND league_id = ? AND discord_posted = 0 AND penalty_basis = 'week_authority_unresolved'
+            `SELECT id, season, player_id, player_name, franchise_id, dropped_at_iso, penalty_basis FROM ups_drop_events
+              WHERE season IN (?, ?) AND league_id = ? AND discord_posted = 0
+                AND (penalty_amount IS NULL OR COALESCE(penalty_basis, '') IN ${DROP_UNPRICED_BASES_SQL})
               ORDER BY dropped_at_unix ASC LIMIT 50`
-          ).bind(targetSeason, leagueId).all();
-          heldUnpriced = ((hq && hq.results) || []).map((h) => ({ row_id: h.id, player_id: h.player_id, player_name: h.player_name,
-            franchise_id: padFranchiseId(h.franchise_id), dropped_at_iso: h.dropped_at_iso, reason: "held_unpriced" }));
+          ).bind(targetSeason, String((Number(targetSeason) || 0) - 1), leagueId).all();
+          heldUnpriced = ((hq && hq.results) || []).map((h) => ({ row_id: h.id, season: safeStr(h.season), player_id: h.player_id,
+            player_name: h.player_name, franchise_id: padFranchiseId(h.franchise_id), dropped_at_iso: h.dropped_at_iso,
+            reason: _dropUnpricedReason(h.penalty_basis) }));
         } catch (_) { heldUnpriced = []; }
 
         if (!rows || rows.length === 0) {
@@ -49883,6 +49904,13 @@ const mflToSleeper = {};
 
         const results = [];
         for (const r of rows) {
+          // UNPRICED (an explicit repost_ids / player_name pick can reach one): refused BEFORE any recompute — only the
+          // recorder may resolve a held row, and a row with no verified contract has nothing to recompute from.
+          if (r.penalty_amount == null || DROP_UNPRICED_BASES.has(safeStr(r.penalty_basis))) {
+            results.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, held: true,
+                           reason: _dropUnpricedReason(r.penalty_basis), penalty_basis: safeStr(r.penalty_basis) });
+            continue;
+          }
           // recompute the penalty from stored pre-drop contract fields using the
           // CURRENT calc, and persist the correction, before building the embed.
           if (recompute) {
@@ -49930,18 +49958,9 @@ const mflToSleeper = {};
               }
             } catch (e) { console.error(`[drops recompute] id=${r.id}: ${e?.message || e}`); }
           }
-          // HELD (still unpriced — e.g. an explicit repost of a held row whose recompute could not price it): never posted.
-          // It goes out once the scanner prices it.
-          if (safeStr(r.penalty_basis) === "week_authority_unresolved") {
-            results.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, held: true, reason: "held_unpriced" });
-            continue;
-          }
           const penalty = Number(r.penalty_amount) || 0;
           const exempt = Number(r.penalty_exempt) === 1;
-          // An UNPRICED row (no pre-drop contract, an unstamped contract) has no penalty yet — never "No Cap Penalty".
-          const unpricedRow = r.penalty_amount == null
-            || ["no_pre_drop_contract", "contract_unstamped_needs_review", "week_authority_unresolved"].includes(safeStr(r.penalty_basis));
-          const tier = (exempt || unpricedRow) ? null : pickTier(penalty);
+          const tier = exempt ? null : pickTier(penalty);
           const gifUrl = dryRun ? "" : await pickTierGif(tier);
 
           // Build embed.
@@ -50017,7 +50036,7 @@ const mflToSleeper = {};
           // showing nothing for them would silently relabel an unpriced drop
           // as a clean one, exactly what rule_no_fail_open_guards exists to
           // catch. They keep their own visible line instead of going quiet.
-          const UNPRICED_BASES = new Set(["no_pre_drop_contract", "contract_unstamped_needs_review", "week_authority_unresolved"]);
+          const UNPRICED_BASES = DROP_UNPRICED_BASES;   // unreachable here now (refused above) — kept as a second line of defense
           let penaltyLine = null;
           if (UNPRICED_BASES.has(safeStr(r.penalty_basis))) {
             penaltyLine = `⚠️ **Unpriced** — ${humanizeDropBasis(r.penalty_basis)}`;
@@ -50073,9 +50092,7 @@ const mflToSleeper = {};
           // explicitly what we want to avoid (prior iteration on
           // commit 598ee20).
           let penaltyHeading;
-          if (unpricedRow) {
-            penaltyHeading = "# ⚠️ Cap Penalty: Under Review";
-          } else if (exempt || penalty === 0) {
+          if (exempt || penalty === 0) {
             penaltyHeading = "# ✅ No Cap Penalty";
           } else {
             const cap = fmtK(penalty);
@@ -50084,7 +50101,7 @@ const mflToSleeper = {};
           const headerEmbed = {
             title: `Drop: ${safeStr(r.player_name)}`,
             description: `${corrected ? "✏️ _Corrected_\n" : ""}${penaltyHeading}\n${safeStr(r.franchise_name)} dropped ${safeStr(r.player_name)}.`,
-            color: unpricedRow ? 0x8a8f98 : (exempt || penalty === 0 ? 0x25c37d : (penalty >= 16000 ? 0xd9433a : (penalty >= 9000 ? 0xf0a020 : (penalty >= 5000 ? 0xf0c465 : 0x6c7a8a)))),
+            color: exempt || penalty === 0 ? 0x25c37d : (penalty >= 16000 ? 0xd9433a : (penalty >= 9000 ? 0xf0a020 : (penalty >= 5000 ? 0xf0c465 : 0x6c7a8a))),
             fields,
           };
           if (franchiseMeta?.icon_url) {
@@ -52597,11 +52614,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         let heldUnpriced = [];
         try {
           const hq = await env.UPS_MFL_DB.prepare(
-            `SELECT player_id, player_name, franchise_id, ledger_key, dropped_at_iso FROM ups_drop_events
-              WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND penalty_basis = 'week_authority_unresolved'
+            `SELECT season, player_id, player_name, franchise_id, ledger_key, dropped_at_iso FROM ups_drop_events
+              WHERE season IN (?, ?) AND league_id = ? AND posted_to_mfl = 0 AND penalty_basis = 'week_authority_unresolved'
               ORDER BY dropped_at_unix ASC`
-          ).bind(targetSeason, leagueId).all();
-          heldUnpriced = ((hq && hq.results) || []).map((h) => ({ player_id: safeStr(h.player_id), player_name: safeStr(h.player_name),
+          ).bind(targetSeason, String((Number(targetSeason) || 0) - 1), leagueId).all();
+          heldUnpriced = ((hq && hq.results) || []).map((h) => ({ season: safeStr(h.season), player_id: safeStr(h.player_id), player_name: safeStr(h.player_name),
             franchise_id: padFranchiseId(h.franchise_id), ledger_key: safeStr(h.ledger_key), dropped_at_iso: safeStr(h.dropped_at_iso) }));
         } catch (_) { heldUnpriced = []; }
 
@@ -53144,6 +53161,173 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return null;
         };
 
+        // ── HELD rows: re-priced FIRST, independent of this tick's new-drop pulls ──
+        // A drop recorded UNPRICED because an authority it depends on (completed weeks, or the acquisition week) could not be
+        // resolved — penalty_basis 'week_authority_unresolved', never charged — is NOT "already recorded, done". Every tick
+        // re-prices it from its own stored pre-drop contract, as of its own drop: the recorder's own live week rule at that
+        // instant (_completedWeeksAtLiveRule), and the acquisition week of the contract it ENDED, from ITS season's
+        // transactions. Until that succeeds it stays held: listed in every drop route's response, never posted as a $0.
+        //   - Two seasons are read (this one and the last), and this runs before the new-drop pulls, so a drop held across
+        //     Jan 1 (NFL Week 17 runs into January; the cron's season is the calendar year) is still found and priced, and a
+        //     league year MFL hasn't created yet can't block it.
+        //   - Only a row that is STILL held and was never charged is updated (guarded in the UPDATE). A run that loses that race
+        //     to an overlapping run re-reads the row and reports the WINNER's result — never a false hold.
+        //   - A priced row keeps discord_posted = 0 (its card goes out once, with the real number), carries
+        //     _HELD_REPRICED_MARK, and takes the same cap-free routing as a new drop.
+        const scanNowIso = new Date().toISOString();
+        // Cap-free retirement routing for a row that carries money — the SAME routing for a newly recorded drop and for a
+        // HELD drop priced on a later tick, so a held retiree is never charged in full just because MFL hiccupped.
+        const routeCapfree = async (ledgerKey, pid, penaltyInfo, contractYear, season) => {
+            if (scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0) {
+              const cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(pid) || "").toUpperCase() : "";
+              const cfIsRetired = scanInjByPid.known && cfDesig === "RETIRED";
+              let cfRoute = "none";
+              let cfEvidence = null;
+              if (cfIsRetired) {
+                cfRoute = "auto";
+              } else if (scanNewsBudget > 0) {
+                scanNewsBudget -= 1;
+                const oneNews = await _retirementNewsBatch(season || targetSeason, leagueId, [pid], scanOrigin);
+                const ev = await _retirementEvidence(season || targetSeason, leagueId, pid, oneNews);
+                cfRoute = ev.route;
+                if (ev.sources.length) cfEvidence = ev.sources;
+              } else {
+                cfRoute = "deferred_budget";
+              }
+
+              if (cfRoute === "auto" || cfRoute === "pending") {
+                const cfSet = _d2aSettlement({
+                  pre_drop_aav: penaltyInfo.aav,
+                  pre_drop_contract_length: penaltyInfo.cl,
+                  pre_drop_contract_year: contractYear,
+                  earned_to_date: penaltyInfo.earned,
+                });
+                // AUTO only settles when §D2a can actually be computed. If it
+                // cannot, the row drops to `pending` so a human prices it —
+                // never a silent $0 cap-free.
+                const cfAuto = cfRoute === "auto" && cfSet.known;
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events
+                      SET capfree_route = ?, capfree_review_status = ?, capfree_mfl_designation = ?,
+                          capfree_evidence_json = ?, capfree_settlement_amount = ?,
+                          penalty_amount = COALESCE(?, penalty_amount),
+                          penalty_basis = COALESCE(?, penalty_basis),
+                          capfree_decided_at_utc = ?, capfree_decided_by = ?
+                    WHERE ledger_key = ?`
+                ).bind(
+                  cfRoute,
+                  cfAuto ? "approved" : "pending",
+                  cfDesig || null,
+                  cfEvidence ? JSON.stringify(cfEvidence).slice(0, 4000) : null,
+                  cfAuto ? cfSet.settlement : null,
+                  cfAuto ? cfSet.settlement : null,
+                  cfAuto ? "retired_capfree_d2a_settlement" : null,
+                  cfAuto ? scanNowIso : null,
+                  cfAuto ? "auto:mfl_retired_flag" : null,
+                  ledgerKey
+                ).run();
+              }
+            }
+        };
+        const prevSeason = String((Number(targetSeason) || 0) - 1);
+        const repriced = [], repricedByOtherRun = [], stillHeld = [];
+        let heldRows = [];
+        try {
+          const hr = await env.UPS_MFL_DB.prepare(
+            `SELECT id, season, player_id, player_name, franchise_id, dropped_at_unix, dropped_at_iso, ledger_key,
+                    pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_info, pre_drop_taxi
+               FROM ups_drop_events
+              WHERE season IN (?, ?) AND league_id = ? AND penalty_basis = 'week_authority_unresolved' AND COALESCE(posted_to_mfl, 0) = 0
+              ORDER BY dropped_at_unix ASC LIMIT 50`
+          ).bind(targetSeason, prevSeason, leagueId).all();
+          heldRows = (hr && hr.results) || [];
+        } catch (e) {
+          console.error(`[drop-penalty scan] held-row read failed: ${(e && e.message) || e}`);
+        }
+        const heldAcq = {};   // season -> { txs, unresolved }: that season's transactions, read once
+        const heldSeasons = [...new Set(heldRows
+          .filter((h) => _nflWeekForUnix(Number(h.dropped_at_unix) || 0, safeStr(h.season)) > 0).map((h) => safeStr(h.season)))];
+        for (const hs of heldSeasons) {
+          try {
+            const txRes = await mflExportJson(hs, leagueId, "transactions", {}, { useCookie: true });
+            if (!txRes || !txRes.ok || !(txRes.data && txRes.data.transactions)) throw new Error(`transactions export ${txRes && txRes.status || "failed"}`);
+            heldAcq[hs] = { txs: txRes.data.transactions.transaction, unresolved: false };
+          } catch (e) {
+            heldAcq[hs] = { txs: [], unresolved: true };
+            console.error(`[drop-penalty scan] ${hs} acquisition weeks unresolved — its held drops stay held: ${(e && e.message) || e}`);
+          }
+        }
+        const heldTaxiNeverPromoted = heldRows.length ? await _taxiNeverPromotedMap(env, heldRows.map((h) => safeStr(h.player_id))) : {};
+        for (const h of heldRows) {
+          const hSeason = safeStr(h.season);
+          const pid = safeStr(h.player_id);
+          const dropUnix = Number(h.dropped_at_unix) || 0;
+          const acq = heldAcq[hSeason] || { txs: [], unresolved: false };
+          const brief = { id: h.id, season: hSeason, pid, name: safeStr(h.player_name), fid: padFranchiseId(h.franchise_id),
+                          dropped_at_iso: safeStr(h.dropped_at_iso), ledger_key: safeStr(h.ledger_key) };
+          try {
+            const hWeeks = await _completedWeeksAtLiveRule(hSeason, dropUnix, 17);
+            const hAcqWk = _acquisitionWeekAsOf(acq.txs, hSeason, pid, dropUnix);
+            const rp = computeDropPenalty({
+              contractStatus: h.pre_drop_contract_status,
+              salary: h.pre_drop_salary,
+              contractInfo: h.pre_drop_contract_info,
+              contractYear: h.pre_drop_contract_year,
+              isTaxi: Number(h.pre_drop_taxi) === 1,
+              taxiNeverPromoted: heldTaxiNeverPromoted[pid] === true,
+            }, { dropDateIso: safeStr(h.dropped_at_iso), season: hSeason, acquisitionWeek: hAcqWk,
+                 acquisitionWeekUnresolved: acq.unresolved, completedPayableWeeks: hWeeks.weeks });
+            if (rp.basis === "week_authority_unresolved") {
+              stillHeld.push({ ...brief, reason: acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}` });
+              continue;
+            }
+            const note = `${_HELD_REPRICED_MARK} Priced ${scanNowIso} after being HELD unpriced (acquisition week ${hAcqWk || "1 (continuing)"}, `
+              + `${hWeeks.weeks} completed week(s) as of the drop).`;
+            if (dryRun) {
+              repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null, dry_run: true });
+              continue;
+            }
+            const upd = await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_drop_events
+                  SET earned_to_date = ?, guaranteed_amount = ?, penalty_amount = ?, penalty_basis = ?,
+                      penalty_exempt = ?, penalty_exempt_reason = ?,
+                      notes = TRIM(COALESCE(notes, '') || ' ' || ?)
+                WHERE id = ? AND penalty_basis = 'week_authority_unresolved' AND COALESCE(posted_to_mfl, 0) = 0`
+            ).bind(
+              rp.earned != null ? Number(rp.earned) : null,
+              rp.guaranteed != null ? Number(rp.guaranteed) : null,
+              rp.penalty != null ? Number(rp.penalty) : null,
+              safeStr(rp.basis), rp.exempt ? 1 : 0, safeStr(rp.exempt_reason), note, h.id
+            ).run();
+            if (!(Number(upd && upd.meta && upd.meta.changes) > 0)) {
+              // An overlapping run priced (or charged) it first: report what the row holds NOW — not a hold.
+              const cur = await env.UPS_MFL_DB.prepare(
+                "SELECT penalty_amount, penalty_basis, earned_to_date, posted_to_mfl FROM ups_drop_events WHERE id = ?"
+              ).bind(h.id).first();
+              if (cur && safeStr(cur.penalty_basis) !== "week_authority_unresolved") {
+                repricedByOtherRun.push({ ...brief, penalty_amount: cur.penalty_amount, penalty_basis: cur.penalty_basis,
+                                          earned: cur.earned_to_date, posted_to_mfl: Number(cur.posted_to_mfl) || 0 });
+              } else {
+                stillHeld.push({ ...brief, reason: "update_lost_retry_next_tick" });
+              }
+              continue;
+            }
+            await routeCapfree(safeStr(h.ledger_key), pid, rp, h.pre_drop_contract_year, hSeason);
+            repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null });
+          } catch (e) {
+            stillHeld.push({ ...brief, reason: "reprice_failed", error: String((e && e.message) || e) });
+          }
+        }
+        // Reported by every exit below (including a refused new-drop pull) — a hold is never silent.
+        const heldReport = (writtenHeld) => ({
+          repriced_count: repriced.length,
+          repriced,
+          repriced_by_other_run: repricedByOtherRun,
+          held_unpriced_count: stillHeld.length + (writtenHeld || []).length,
+          held_unpriced: stillHeld.concat((writtenHeld || []).map((w) => ({ season: targetSeason, pid: w.pid, name: w.name, fid: w.fid,
+            dropped_at_iso: w.dropped_at_iso, reason: "recorded_this_tick" }))),
+        });
+
         // ── Pull the transaction types that can carry a drop ──
         // FREE_AGENT always; BBID_WAIVER only when enabled (see includeWaivers).
         // Each type is fetched separately: MFL's TRANS_TYPE takes one value, and
@@ -53158,7 +53342,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // complete would silently drop real penalties on the floor.
           if (!r || !r.ok) {
             return jsonOut(502, { ok: false, error: `transactions fetch failed for TRANS_TYPE=${tt}`,
-              season: targetSeason, league_id: leagueId });
+              season: targetSeason, league_id: leagueId, ...heldReport([]) });
           }
           let rows = r.data?.transactions?.transaction || [];
           if (!Array.isArray(rows)) rows = [rows];
@@ -53204,31 +53388,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
         }
 
-        // HELD rows: drops recorded UNPRICED because an authority they depend on (completed weeks, or the acquisition week)
-        // could not be resolved at the time — penalty_basis 'week_authority_unresolved', never charged. They are NOT
-        // "already recorded, done": every tick re-prices them below, from their own stored pre-drop contract, as of their own
-        // drop instant, and they stay held (visible in this response, never posted as a $0) until that succeeds.
-        let heldRows = [];
-        try {
-          const hr = await env.UPS_MFL_DB.prepare(
-            `SELECT id, player_id, player_name, franchise_id, dropped_at_unix, dropped_at_iso, ledger_key,
-                    pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_info, pre_drop_taxi
-               FROM ups_drop_events
-              WHERE season = ? AND league_id = ? AND penalty_basis = 'week_authority_unresolved' AND COALESCE(posted_to_mfl, 0) = 0
-              ORDER BY dropped_at_unix ASC LIMIT 50`
-          ).bind(targetSeason, leagueId).all();
-          heldRows = (hr && hr.results) || [];
-        } catch (e) {
-          console.error(`[drop-penalty scan] held-row read failed: ${(e && e.message) || e}`);
-        }
-
         // Build the in-season acquisition-week map once (skip offseason: current-year
         // earned is $0 then, so the pickup-week denominator is irrelevant). Gives
         // mid-season WW/FCFS pickups the canon 18−W eligible-weeks window.
         let acqTxs = [];
         let acqWeekUnresolved = false;
-        if (drops.some((d) => _nflWeekForUnix(d.ts, targetSeason) > 0)
-            || heldRows.some((h) => _nflWeekForUnix(Number(h.dropped_at_unix) || 0, targetSeason) > 0)) {
+        if (drops.some((d) => _nflWeekForUnix(d.ts, targetSeason) > 0)) {
           // THIS IS A REAL-CHARGE PATH: an unreadable transactions export must not price a mid-season pickup on a 17-week window —
           // _computeDropPenalty returns those rows unpriced (week_authority_unresolved) instead.
           try {
@@ -53245,7 +53410,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // call-up awareness as the preview: `preDrop.is_taxi` is MFL's roster
         // status, which reads false for a taxi player dropped mid-call-up and
         // silently costs him the §D2 exemption.
-        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid).concat(heldRows.map((h) => safeStr(h.player_id))));
+        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid));
 
         // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
         // after Labor Day" is a day late). Resolved once for the whole scan.
@@ -53269,65 +53434,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           console.error(`[drop-penalty scan] week authority unresolved — pricing refused for this batch, source=${scanWeekAuthority.source}`);
         }
 
-        // Cap-free retirement routing for a row that carries money — the SAME routing for a newly recorded drop and for a
-        // HELD drop priced on a later tick (below), so a held retiree is never charged in full just because MFL hiccupped.
-        const routeCapfree = async (ledgerKey, pid, penaltyInfo, contractYear) => {
-            if (scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0) {
-              const cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(pid) || "").toUpperCase() : "";
-              const cfIsRetired = scanInjByPid.known && cfDesig === "RETIRED";
-              let cfRoute = "none";
-              let cfEvidence = null;
-              if (cfIsRetired) {
-                cfRoute = "auto";
-              } else if (scanNewsBudget > 0) {
-                scanNewsBudget -= 1;
-                const oneNews = await _retirementNewsBatch(targetSeason, leagueId, [pid], scanOrigin);
-                const ev = await _retirementEvidence(targetSeason, leagueId, pid, oneNews);
-                cfRoute = ev.route;
-                if (ev.sources.length) cfEvidence = ev.sources;
-              } else {
-                cfRoute = "deferred_budget";
-              }
-
-              if (cfRoute === "auto" || cfRoute === "pending") {
-                const cfSet = _d2aSettlement({
-                  pre_drop_aav: penaltyInfo.aav,
-                  pre_drop_contract_length: penaltyInfo.cl,
-                  pre_drop_contract_year: contractYear,
-                  earned_to_date: penaltyInfo.earned,
-                });
-                // AUTO only settles when §D2a can actually be computed. If it
-                // cannot, the row drops to `pending` so a human prices it —
-                // never a silent $0 cap-free.
-                const cfAuto = cfRoute === "auto" && cfSet.known;
-                await env.UPS_MFL_DB.prepare(
-                  `UPDATE ups_drop_events
-                      SET capfree_route = ?, capfree_review_status = ?, capfree_mfl_designation = ?,
-                          capfree_evidence_json = ?, capfree_settlement_amount = ?,
-                          penalty_amount = COALESCE(?, penalty_amount),
-                          penalty_basis = COALESCE(?, penalty_basis),
-                          capfree_decided_at_utc = ?, capfree_decided_by = ?
-                    WHERE ledger_key = ?`
-                ).bind(
-                  cfRoute,
-                  cfAuto ? "approved" : "pending",
-                  cfDesig || null,
-                  cfEvidence ? JSON.stringify(cfEvidence).slice(0, 4000) : null,
-                  cfAuto ? cfSet.settlement : null,
-                  cfAuto ? cfSet.settlement : null,
-                  cfAuto ? "retired_capfree_d2a_settlement" : null,
-                  cfAuto ? nowIso : null,
-                  cfAuto ? "auto:mfl_retired_flag" : null,
-                  ledgerKey
-                ).run();
-              }
-            }
-        };
 
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
         const skipped = [];
-        const nowIso = new Date().toISOString();
+        const nowIso = scanNowIso;
 
         for (const drop of drops) {
           const ledgerKey = `${drop.pid}_${drop.ts}`;
@@ -53549,62 +53660,6 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
         }
 
-        // ── Re-price HELD rows (see heldRows above) ──
-        // Same formula, same stored pre-drop contract the row was recorded with, priced AS OF ITS OWN DROP — the completed
-        // weeks by the recorder's own live rule at that instant (_completedWeeksAtLiveRule), and the acquisition week of the
-        // contract it ENDED (never a later re-acquisition) — so it is charged exactly what it would have been charged on time.
-        // Only a row that is STILL held and was never charged is touched (guarded in the UPDATE itself). A row that prices
-        // now gets its real penalty and basis, keeps discord_posted = 0 so the drop card goes out once with the real number,
-        // and goes through the same cap-free routing as a new drop; post-mfl then books it exactly once (its ledger key).
-        const repriced = [];
-        const stillHeld = [];
-        for (const h of heldRows) {
-          const pid = safeStr(h.player_id);
-          const dropUnix = Number(h.dropped_at_unix) || 0;
-          const brief = { id: h.id, pid, name: safeStr(h.player_name), fid: padFranchiseId(h.franchise_id), dropped_at_iso: safeStr(h.dropped_at_iso), ledger_key: safeStr(h.ledger_key) };
-          try {
-            const hWeeks = await _completedWeeksAtLiveRule(targetSeason, dropUnix, 17);
-            const hAcqWk = _acquisitionWeekAsOf(acqTxs, targetSeason, pid, dropUnix);
-            const rp = computeDropPenalty({
-              contractStatus: h.pre_drop_contract_status,
-              salary: h.pre_drop_salary,
-              contractInfo: h.pre_drop_contract_info,
-              contractYear: h.pre_drop_contract_year,
-              isTaxi: Number(h.pre_drop_taxi) === 1,
-              taxiNeverPromoted: scanTaxiNeverPromoted[pid] === true,
-            }, { dropDateIso: safeStr(h.dropped_at_iso), season: targetSeason, acquisitionWeek: hAcqWk,
-                 acquisitionWeekUnresolved: acqWeekUnresolved, week1ThursdayIso: scanWeek1Iso || undefined,
-                 completedPayableWeeks: hWeeks.weeks });
-            if (rp.basis === "week_authority_unresolved") {
-              stillHeld.push({ ...brief, reason: acqWeekUnresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}` });
-              continue;
-            }
-            const note = `Priced ${nowIso} after being HELD unpriced (acquisition week ${hAcqWk || "1 (continuing)"}, `
-              + `${hWeeks.weeks} completed week(s) as of the drop).`;
-            if (dryRun) {
-              repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null, dry_run: true });
-              continue;
-            }
-            const upd = await env.UPS_MFL_DB.prepare(
-              `UPDATE ups_drop_events
-                  SET earned_to_date = ?, guaranteed_amount = ?, penalty_amount = ?, penalty_basis = ?,
-                      penalty_exempt = ?, penalty_exempt_reason = ?,
-                      notes = TRIM(COALESCE(notes, '') || ' ' || ?)
-                WHERE id = ? AND penalty_basis = 'week_authority_unresolved' AND COALESCE(posted_to_mfl, 0) = 0`
-            ).bind(
-              rp.earned != null ? Number(rp.earned) : null,
-              rp.guaranteed != null ? Number(rp.guaranteed) : null,
-              rp.penalty != null ? Number(rp.penalty) : null,
-              safeStr(rp.basis), rp.exempt ? 1 : 0, safeStr(rp.exempt_reason), note, h.id
-            ).run();
-            const changed = Number(upd && upd.meta && upd.meta.changes) || 0;
-            if (!changed) { stillHeld.push({ ...brief, reason: "row_changed_concurrently" }); continue; }
-            await routeCapfree(safeStr(h.ledger_key), pid, rp, h.pre_drop_contract_year);
-            repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null });
-          } catch (e) {
-            stillHeld.push({ ...brief, reason: "reprice_failed", error: String((e && e.message) || e) });
-          }
-        }
         return jsonOut(200, {
           ok: true,
           dry_run: dryRun,
@@ -53628,11 +53683,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           cap_year_unresolved_count: written.filter((w) => w.cap_year_needs_review).length,
           acquisition_week_source: acqWeekUnresolved ? "unresolved" : (acqTxs.length ? "transactions" : "not_needed"),
           // HELD = recorded but unpriced; never posted to Discord or MFL as a $0, re-priced every tick until it prices.
-          repriced_count: repriced.length,
-          repriced,
-          held_unpriced_count: stillHeld.length + written.filter((w) => w.penalty_basis === "week_authority_unresolved").length,
-          held_unpriced: stillHeld.concat(written.filter((w) => w.penalty_basis === "week_authority_unresolved")
-            .map((w) => ({ pid: w.pid, name: w.name, fid: w.fid, dropped_at_iso: w.dropped_at_iso, reason: "recorded_this_tick" }))),
+          ...heldReport(written.filter((w) => w.penalty_basis === "week_authority_unresolved")),
           written, skipped,
         });
       }

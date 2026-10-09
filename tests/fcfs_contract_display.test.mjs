@@ -95,7 +95,9 @@ test("DISPLAY: roster workbench + mobile — the authoritative row AND the pre-b
   // later, unrelated mobile fix (2026-09-28, contract eligibility) bumped the
   // build without touching this file — which is correct per-file hygiene, not
   // a regression of the drop-penalty fix this test protects.
-  t.equal((idx.match(/front_office_penalty\.js\?v=2026\.09\.27\.2/g) || []).length, 1, "the changed penalty script is cache-busted with the build it shipped in");
+  // (2026-10-09: the file changed again — unpriced drops — and was re-stamped; the stamp may move forward, never back.)
+  const penStamp = (idx.match(/front_office_penalty\.js\?v=([0-9.]+)/) || [])[1] || "";
+  t.ok(penStamp >= "2026.09.27.2", "the changed penalty script is cache-busted with the build it shipped in or a later one: " + penStamp);
   t.equal(read("site/m/app.js").match(/var BUILD = "([^"]+)";/)[1], build, "app.js BUILD == version.json build");
   t.match(read("site/rosters/v2/front_office.html"), /front_office\.js\?v=\d{4}\.\d{2}\.\d{2}\.v[\d.]+/);
 });

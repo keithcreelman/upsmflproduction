@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.07.1",
-  "label": "Security: contract submits (extend, MYM, MYAC, restructure, tag/untag) now send your MFL sign-in so the server can confirm the team is yours."
+  "build": "2026.10.09.1",
+  "label": "Drops: a drop penalty the worker could not price yet reads “under review” and sorts last — never $0."
 }
