@@ -45,7 +45,7 @@
   function mflPos(raw) {
     var p = String(raw || "").toUpperCase();
     if (p === "ILB" || p === "MLB" || p === "OLB" || p === "LB") return "LB";
-    if (p === "FS" || p === "SS" || p === "S") return "S";
+    if (p === "FS" || p === "SS" || p === "S" || p === "SAF") return "S";
     if (p === "NT") return "DT";
     return p;
   }
@@ -125,13 +125,13 @@
       return { m: num(a.fg_made_50_59) + num(a.fg_made_60plus), a: num(a.fg_att_50_59) + num(a.fg_att_60plus) }; } },
     punts: { l: "Punts", src: "box", t: "Punts", g: function (r) { return nn(L(r).punts); } },
     // I20%: the rate over its numerator/denominator in one cell ("41%" over "9/22").
-    i20p:  { l: "I20%",  src: "box", f: "pctnd", t: "Inside-20 punts ÷ all punts (touchbacks, fair catches, returns and blocks all count as punts)",
+    i20p:  { l: "I20%",  src: "box", f: "pctnd", t: "Inside-20 punts ÷ all punts, 10+ punts (touchbacks, fair catches, returns and blocks all count as punts)",
       nd: function (r) { return L(r).punts ? [num(L(r).punt_inside20), num(L(r).punts)] : null; },
-      g: function (r) { return rate(L(r).punt_inside20, L(r).punts, 1); } },
+      g: function (r) { return rate(L(r).punt_inside20, L(r).punts, 10); } },
     navg:  { l: "Net",   src: "box", f: "dec1", t: "Gross yards minus return yards, per punt. Touchbacks are not charged 20 yards, so this runs higher than the NFL's official net.", g: function (r) { return nn(L(r).punt_net_avg); } },
-    ccons: { l: "Cons",  src: "cons", t: "Consistency, 0–100: how steady his weekly scores are (100 = about the same every week)", g: function (r) { var c = consRec(r); return c && c.consistency != null ? c.consistency : null; } },
-    cboom: { l: "Boom%", src: "cons", w: 44, t: "Share of his weeks in the top quarter of all weekly scores at his position", g: function (r) { var c = consRec(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
-    cbust: { l: "Bust%", src: "cons", w: 40, t: "Share of his weeks in the bottom quarter of all weekly scores at his position", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
+    ccons: { l: "Cons",  src: "cons", t: "Consistency, 0–100: how steady his weekly scores are (100 = about the same every week). 3+ weeks.", g: function (r) { var c = consQ(r); return c && c.consistency != null ? c.consistency : null; } },
+    cboom: { l: "Boom%", src: "cons", w: 44, t: "Share of his weeks in the top quarter of all weekly scores at his position. 3+ weeks.", g: function (r) { var c = consQ(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
+    cbust: { l: "Bust%", src: "cons", w: 40, t: "Share of his weeks in the bottom quarter of all weekly scores at his position. 3+ weeks.", g: function (r) { var c = consQ(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
     cgp:   { l: "Wks",   src: "cons", w: 30, dim: true, t: "Weeks this source counted", g: function (r) { var c = consRec(r); return c && c.gp != null ? c.gp : null; } },
     eepa:  { l: "EPA",   src: "adv", w: 40, f: "epa", t: "Expected points added per play (nflfastR)", g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; } },
     ecpoe: { l: "CPOE",  src: "adv", w: 40, f: "delta", t: "Completion % over expected (nflfastR)", g: function (r) { return epaCpoe(r); } },
@@ -222,6 +222,10 @@
       .catch(function () { consMap = {}; return consMap; });
   }
   function consRec(r) { return (consMap && r.gsis && consMap[String(r.gsis)]) || null; }
+  // Cons/Boom%/Bust% only from 3+ weeks: one week is "Cons 100" and 0 or 100%
+  // by definition, and those players topped every sort (QA 2026-10-10).
+  var CONS_MIN_WKS = 3;
+  function consQ(r) { var c = consRec(r); return c && Number(c.gp) >= CONS_MIN_WKS ? c : null; }
 
   // EPA / efficiency (nflfastR), single-season for mobile. Rate stats gated to a
   // qualified sample (the raw "Plays" stays visible) so scrubs don't top a sort.
@@ -407,7 +411,10 @@
   }
 
   function fmt(v, c, r) {
-    if (v == null) return "—";
+    if (v == null) {
+      var nd0 = c.f === "pctnd" && c.nd(r);
+      return nd0 ? '<span class="nd"><b>—</b><small>' + nd0[0] + "/" + nd0[1] + "</small></span>" : "—";
+    }
     if (c.f === "ma") return v.m + "/" + v.a;
     if (c.f === "pctnd") { var nd = c.nd(r); return '<span class="nd"><b>' + Math.round(v * 100) + "%</b><small>" + nd[0] + "/" + nd[1] + "</small></span>"; }
     if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
@@ -673,9 +680,9 @@
     var txt, warn = false;
     // On a set with no points column the full basis would only explain "#",
     // and its 3–4 lines pushed the list off the first screen: one line there.
-    if (b.kind === "live" && curSet().id !== "fantasy") {
-      return '<div class="ups-m-st-basis" id="ups-m-st-basis"># = PPG rank on actual MFL points, ' + U.escapeHtml(SSMOD().weeksLabel(b.ss.seasonWeeks)) + ".</div>";
-    }
+    // That one line now lives in the set note (setNoteHtml), behind
+    // "About these numbers" when the set has one.
+    if (b.kind === "live" && curSet().id !== "fantasy") return "";
     if (b.kind === "live") {
       var ss = b.ss, S = SSMOD();
       txt = "<b>Actual MFL points, UPS scoring.</b> " + U.escapeHtml(S.weeksLabel(ss.seasonWeeks));
@@ -720,8 +727,8 @@
       more.push("All punts count in the denominator: touchbacks, fair catches, returns and blocks. Net = gross minus return yards; touchbacks aren’t charged 20 yards, so it runs above the NFL’s official net.");
     }
     if (srcs.cons) {
-      line.push("Boom% = share of his weeks in the top 25% of all weekly scores at his position; Bust% = the bottom 25%. Cons: 100 = same score every week.");
-      more.push("Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season (free agents and 0.0 weeks included): top quarter = boom, bottom quarter = bust, so a 0.0 week counts as a bust even if he didn’t play. Consistency = 100 × (1 − spread ÷ average) of his weekly scores, 0–100. Wks = the weeks this source counted; it can trail Fantasy pts until the Tuesday score sync.");
+      line.push("Boom% = share of his weeks in the top 25% of all weekly scores at his position; Bust% = the bottom 25%. Cons: 100 = same score every week. 3+ weeks.");
+      more.push("Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season (free agents and 0.0 weeks included): top quarter = boom, bottom quarter = bust, so a 0.0 week counts as a bust even if he didn’t play. Consistency = 100 × (1 − spread ÷ average) of his weekly scores, 0–100. All three need 3+ weeks; with fewer they show —. Wks = the weeks this source counted. It reads the league’s copy of MFL’s scores, synced Tuesday, Thursday and Friday mornings, so after Sunday’s games it trails Fantasy pts until Tuesday.");
     }
     if (srcs.adv) line.push((set.id === "epa" ? "nflfastR play-by-play" : set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date" + (set.id === "epa" ? "; rates need a minimum sample." : "."));
     // The leaderboard decides who is listed. When it hit its row cap the list
@@ -729,6 +736,10 @@
     if (meta && meta.count >= meta.limit) {
       line.push("List = the stats source’s top " + meta.limit + (tab.alias === "idp" ? " IDPs" : "") + "; ranks are within it.");
       more.push("The stats source returns at most " + meta.limit + " players here, chosen by tackles, sacks and other impact stats, so this isn’t every " + tab.id + ".");
+    }
+    if (b.kind === "live" && set.id !== "fantasy") {
+      var rankLine = "# = PPG rank on actual MFL points, " + SSMOD().weeksLabel(b.ss.seasonWeeks) + ".";
+      if (more.length) more.unshift(rankLine); else line.unshift(rankLine);
     }
     var open = view.noteOpen ? " open" : "";
     return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(line.join(" ")) +
@@ -872,6 +883,15 @@
       repaintList();
     });
     var chips = mount.querySelectorAll(".ups-m-pos-chip");
+    try {   // keep the active chip in view (PK/PN sit past the edge at 320px)
+      var onChip = null;
+      for (var j = 0; j < chips.length; j++) if (/(^|\s)on(\s|$)/.test(chips[j].className || "")) onChip = chips[j];
+      var chipRow = onChip && onChip.parentNode;
+      if (chipRow && chipRow.getBoundingClientRect && chipRow.scrollWidth > chipRow.clientWidth) {
+        var dx = onChip.getBoundingClientRect().right - chipRow.getBoundingClientRect().right;
+        if (dx > 0) chipRow.scrollLeft += dx + 16;
+      }
+    } catch (e) { /* cosmetic only */ }
     for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () {
       view.tab = this.getAttribute("data-tab");
       view.q = "";

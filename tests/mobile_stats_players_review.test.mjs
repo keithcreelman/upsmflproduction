@@ -183,7 +183,8 @@ function boot(opt = {}) {
     let body = {};
     if (u.pathname === "/api/advanced-stats-leaderboard") body = opt.leaderboard ? opt.leaderboard(u.searchParams.get("pos")) : leaderboard(u.searchParams.get("pos"));
     else if (u.pathname === "/api/player-routes") body = { by_gsis: opt.routes || {} };
-    else if (/^\/api\/(sos-adjusted-points|player-consistency|player-epa|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
+    else if (u.pathname === "/api/player-consistency") body = { by_gsis: opt.cons || {} };
+    else if (/^\/api\/(sos-adjusted-points|player-epa|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
     else if (u.pathname === "/api/mfl-market") body = { by_mfl: {} };
     else if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "nflByeWeeks") body = opt.byes === null ? null : { nflByeWeeks: { team: FX.byes } };
     else if (u.pathname === "/api/player-bundle") {
@@ -388,7 +389,7 @@ test("column sets: Fantasy pts first; PPG ONLY there; YPC and Targets; Schedule-
   const boom = await chooseSet(v, "boom");
   t.deepEqual(labels(boom.head), ["Cons", "Boom%", "Bust%", "Wks"], "Boom/Bust carries the weeks ITS source counted");
   t.match(boom.notes, /Boom% = share of his weeks in the top 25% of all weekly scores at his position; Bust% = the bottom 25%\. Cons: 100 = same score every week\./, "plain-language explanation on screen");
-  t.match(boom.notes, /<summary>About these numbers<\/summary><div>Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season \(free agents and 0\.0 weeks included\)[^<]*a 0\.0 week counts as a bust even if he didn’t play\. Consistency = 100 × \(1 − spread ÷ average\)/, "the full definition is one tap away");
+  t.match(boom.notes, /<summary>About these numbers<\/summary><div># = PPG rank on actual MFL points, Wks 1–5\. Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season \(free agents and 0\.0 weeks included\)[^<]*a 0\.0 week counts as a bust even if he didn’t play\. Consistency = 100 × \(1 − spread ÷ average\)/, "the full definition is one tap away");
   const src = read("site/m/views/stats.js");
   const setBlock = src.slice(src.indexOf("var TABS = ["), src.indexOf("// scope:"));
   let n = 0;
@@ -436,8 +437,9 @@ test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; pu
   t.ok(rows.length >= 30);
   for (const r of rows) {
     const src = pl.rows.find((x) => String(x[0]) === r.pid);
-    // I20% with its numerator/denominator under it: "41%" over "9/22".
-    t.equal(r.cells[1], Math.round(src[pi("punt_inside20")] / src[pi("punts")] * 100) + "%" + src[pi("punt_inside20")] + "/" + src[pi("punts")], "I20% with numerator/denominator");
+    // I20% with its numerator/denominator under it: "41%" over "9/22"; under 10 punts "—" over the count.
+    const n = src[pi("punt_inside20")], d = src[pi("punts")];
+    t.equal(r.cells[1], (d >= 10 ? Math.round(n / d * 100) + "%" : "—") + n + "/" + d, "I20% with numerator/denominator");
   }
   t.match(pn.notes, /touchbacks aren’t charged 20 yards/);
 });
@@ -484,6 +486,28 @@ test("sorting: every data heading sorts the WHOLE filtered list; '—' stays las
   t.ok(!/data-sort="ruyd"/.test(recv.head) && /#<i aria-hidden="true">•/.test(recv.head), "a set without that column falls back to the default order");
   await openTab(v, "WR");
   t.ok(!/class="ups-m-st-sort on" data-sort="[a-z]/.test(v.mount.innerHTML), "changing position resets the sort");
+});
+
+test("Boom/Bust: Cons, Boom% and Bust% need 3+ weeks — a one-week player (Cons 100 by definition) shows '—' and sorts last, not first", async () => {
+  const [a, b2, c] = FX.leaderboard.qb.rows.slice(0, 3).map((r) => ({ pid: String(r.mfl_pid), gsis: r.gsis_id }));
+  const cons = {
+    [a.gsis]: { gp: 1, consistency: 100, boom_pct: 100, bust_pct: 0 },
+    [b2.gsis]: { gp: 4, consistency: 71, boom_pct: 50, bust_pct: 25 },
+    [c.gsis]: { gp: 3, consistency: 64, boom_pct: 33, bust_pct: 0 },
+  };
+  const v = boot({ cons });
+  await openTab(v, "QB");
+  const boom = await chooseSet(v, "boom");
+  const rows = rowsOf(boom.list), get = (pid) => rows.find((r) => r.pid === pid);
+  t.deepEqual(get(a.pid).cells, ["—", "—", "—", "1"], "1 week: no Cons/Boom/Bust, but his week count shows");
+  t.deepEqual(get(b2.pid).cells, ["71", "50", "25", "4"]);
+  t.deepEqual(get(c.pid).cells, ["64", "33", "0", "3"], "3 weeks is enough");
+  const head = v.getEl("ups-m-st-head");
+  head.fire("click", { target: { closest: () => ({ getAttribute: () => "ccons" }) } }); await settle();
+  const sorted = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML);
+  t.deepEqual(sorted.slice(0, 2).map((r) => r.pid), [b2.pid, c.pid], "Cons ▼ starts with real samples");
+  t.ok(sorted.findIndex((r) => r.pid === a.pid) > 1, "the one-week 100 is not on top");
+  t.match(boom.notes, /3\+ weeks\./);
 });
 
 test("Routes appears once its source has rows", async () => {
@@ -610,9 +634,9 @@ test("REMAINING GUARANTEED, whole contract: Purdy $17,824 — year by year, addi
   t.match(body, /2025 \$40,000 · 2026 \$5,176 thru Wk 4/);
   t.deepEqual(years, [["2025", "40,000", "40,000", "40,000", "0"], ["2026", "22,000", "5,176", "22,000", "16,824"],
     ["2027", "22,000", "0", "1,000", "1,000"], ["Total", "84,000", "45,176", "63,000", "17,824"]]);
-  t.equal(f["2026 salary"], "$22,000"); t.equal(f["Earning window"], "Wks 1–17 · 17 wks"); t.equal(f["Per week"], "$1,294");
+  t.equal(f["2026 salary"], "$22,000"); t.equal(f["Earning window"], "Wks 1–17 · 17 wks"); t.equal(f["Per week"], "≈ $1,294", "rounded: the engine's earned is the exact sum");
   t.equal(f["Earned this season"], "$5,176 · thru Wk 4");
-  t.match(body, /Guaranteed = 75% of the \$84,000 total value = \$63,000\. Earned counts each finished season in full \(\$40,000\) plus this season by completed week: \$22,000 × 4 ÷ 17 = \$5,176 \(window Wks 1–17, from the week this contract began\)\. Remaining guaranteed = \$63,000 − \$45,176 = \$17,824, what cutting him now would cost before the team’s rounding\. By year the guarantee is used up in order, leaving 2026 \$16,824 and 2027 \$1,000\. League cap engine, calculated Oct \d+, \d{1,2}:\d{2} (AM|PM)\./);
+  t.match(body, /Guaranteed = 75% of the \$84,000 total value = \$63,000\. Earned counts each finished season in full \(\$40,000\) plus this season by completed week: \$22,000 × 4 ÷ 17 = \$5,176 \(this season’s earning window: Wks 1–17\)\. Remaining guaranteed = \$63,000 − \$45,176 = \$17,824, what cutting him now would cost before the team’s rounding\. By year the guarantee is used up in order, leaving 2026 \$16,824 and 2027 \$1,000\. League cap engine, calculated Oct \d+, \d{1,2}:\d{2} (AM|PM)\./);
   t.doesNotMatch(body, /Still due this season/, "the one-season figure is gone");
 });
 
@@ -646,13 +670,22 @@ test("every contract shape matches the cap engine: back-loaded, restructured, ro
   const jeanty = moneyOf(v, "17042");
   t.match(jeanty.body, /<tr class="opt"><td>2028<\/td><td>20,000<\/td><td colspan="3">option — not exercised<\/td><\/tr>/, "the rookie option year is not part of the contract");
   const ship = moneyOf(v, "16601");
-  t.equal(ship.f["Earning window"], "Wks 5–17 · 13 wks"); t.equal(ship.f["Per week"], "$846", "$11,000 ÷ 13, never ÷ 17");
+  t.equal(ship.f["Earning window"], "Wks 5–17 · 13 wks"); t.equal(ship.f["Per week"], "≈ $846", "$11,000 ÷ 13, never ÷ 17");
 });
 
 test("the other rules say what they are: taxi $0, sub-$5K flat $1,000 (DeJean: not $529), small waiver deal $0", () => {
   const v = boot();
   const corum = moneyOf(v, "16593");
   t.equal(corum.f["Remaining guaranteed"], "$0"); t.match(corum.body, /Taxi-squad players carry no guarantee/);
+  // a temporary call-up is on the active roster: never "while on the taxi squad"
+  const callup = moneyOf(boot({ capRows: Object.assign({}, FX.cap_rows, { "16593": Object.assign({}, FX.cap_rows["16593"], { basis: "taxi_callup_exempt" }) }) }), "16593");
+  t.equal(callup.f["Remaining guaranteed"], "$0");
+  t.match(callup.body, /A taxi player on a temporary call-up, never permanently promoted, still carries no guarantee/);
+  t.doesNotMatch(callup.body, /while on the taxi squad/);
+  // earned already past the guarantee: no "$87,000 − $104,529 = $0"
+  const tua = moneyOf(v, "14778");
+  t.match(tua.body, /Earned \$104,529 already covers the \$87,000 guarantee, so remaining guaranteed is \$0\./);
+  t.doesNotMatch(tua.body, /\$87,000 − \$104,529/);
   const watson = moneyOf(v, "13113");
   t.equal(watson.f["Remaining guaranteed"], "$1,000 flat"); t.match(watson.body, /\$1,000-a-year contract costs a flat \$1,000/);
   const dejean = moneyOf(v, "16675");
@@ -664,7 +697,7 @@ test("the other rules say what they are: taxi $0, sub-$5K flat $1,000 (DeJean: n
 test("unpriceable → a stated reason, never a local estimate (and a split that doesn't add up is never shown)", () => {
   const cases = [
     [{ capMeta: null }, /Loading the remaining guarantee from the league cap engine/],
-    [{ capMeta: { status: "error" } }, /couldn’t be reached\. Reload to retry — nothing is estimated in its place/],
+    [{ capMeta: { status: "error" } }, /couldn’t be reached\. Reload to retry; this block shows no estimate in its place/],
     [{ capRows: {} }, /isn’t in the league cap engine’s list/],
     [{ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { needs_review: true, review_reason: "unstamped contract" }) } }, /under review \(unstamped contract\)/],
     [{ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { penalty: 1 }) } }, /figures for this contract don’t reconcile/],
@@ -706,7 +739,7 @@ test("game log: every week of the season — MFL points per week (= W=ALL), that
   t.deepEqual(g.wk(4).stats, [String(b4.pass_yds), String(b4.pass_tds), String(b4.pass_ints), b4.rush_att + "-" + b4.rush_yds]);
   t.equal(g.wk(4).opp, b4.opponent);
   t.deepEqual([g.wk(5).pts, g.wk(5).cls], ["—", "dim"], "Wk 5 in progress and SF hasn't played: not called DNP");
-  t.match(g.html, /Pts: actual MFL points, UPS scoring, Wks 1–5 \(● Wk 5 in progress\)\. Box score: nflverse, through Wk 4\./);
+  t.match(g.html, /Pts: actual MFL points, UPS scoring, Wks 1–5 \(● Wk 5 in progress\)\. Box score: nflverse; his latest row is Wk 4\./);
   // a live-week score is marked; its box score waits for the nflverse refresh
   const aub = await gameLog(v, "16414");
   const w5 = aub.rows.find((r) => r.wk === 5);
@@ -730,6 +763,13 @@ test("game log: MFL points show while the box score loads, and a failed bundle s
   t.equal(failed.wk(4).pts, Number(FX.weeks["4"][PURDY]).toFixed(1), "points still shown");
   t.deepEqual(failed.wk(4).stats, ["—", "—", "—", "—"]);
   t.doesNotMatch(failed.html, /Loading/);
+});
+test("game log: a player whose bundle has no NFL stat rows (e.g. an unmatched rookie) is told so — never 'No box score yet this season'", async () => {
+  const pid = Object.keys(FX.players).find((id) => !FX.bundles[id] && FX.players[id][1] === "WR" && FX.weeks["1"][id] != null && FX.weeks["2"][id] != null);
+  const g = await gameLog(boot(), pid);
+  t.match(g.html, /Box score isn’t linked for him: the player data has no NFL stat rows under his ID \(often a rookie not yet matched\), so only MFL points show\./);
+  t.doesNotMatch(g.html, /No box score yet this season/);
+  t.equal(g.wk(1).pts, Number(FX.weeks["1"][pid]).toFixed(1), "his MFL points still show");
 });
 test("game log: BYE on his team's bye week (MFL's list), DNP for a finished week with no MFL score; bye list unreadable → says so", async () => {
   const v = boot();

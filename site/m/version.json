@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.10.3",
+  "build": "2026.10.10.5",
   "label": "Stats → Players: sortable columns, PPG only in Fantasy pts, YPC/targets, kicker distance and punter inside-20, IDP sets without PPG; player card shows remaining guaranteed salary for the whole contract and a weekly game log."
 }
