@@ -1,0 +1,32 @@
+name: Improve a feature
+description: Request a new or better user experience
+title: "[Enhancement] "
+body:
+  - type: textarea
+    id: user_need
+    attributes:
+      label: Who needs what, and why?
+      description: Describe the owner decision or task; avoid prescribing code.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current experience
+      description: What is confusing, redundant, slow, or missing? Link the page.
+    validations:
+      required: true
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired outcome and boundaries
+      description: Include what should be visible on a phone and what this change should not alter.
+    validations:
+      required: true
+  - type: textarea
+    id: preview
+    attributes:
+      label: How will I review it?
+      description: Ask for an interactive phone-openable preview, test steps, and before/after screenshots.
+    validations:
+      required: false
