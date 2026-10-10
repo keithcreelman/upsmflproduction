@@ -1,0 +1,32 @@
+name: Fix a broken behavior
+description: Record an existing behavior that needs correction
+title: "[Fix] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What is wrong, and what should happen?
+      description: Describe what an owner sees. Do not paste credentials or private chat.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to reproduce
+      description: Include page, device, steps, and a safe example. Link a screenshot if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Source and impact
+      description: State source, timestamp, affected users, and whether this is confirmed or suspected.
+    validations:
+      required: false
+  - type: textarea
+    id: done
+    attributes:
+      label: What would prove it is fixed?
+      description: Include the expected result and a failure case.
+    validations:
+      required: true
