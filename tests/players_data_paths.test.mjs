@@ -76,6 +76,31 @@ test("/api/player-weekly-box: map first, nulls kept, and a name-only crosswalk r
   t.deepEqual([fz.json.gsis_id, fz.json.id_source, fz.json.weeks.length], [null, "none", 0], "the fuzzy row is ignored: an empty log, not someone else's games");
 });
 
+test("cross-position: a player is on his MFL lineup group's board, whatever position nflverse's box score gives him", async () => {
+  const { env, db } = setup();
+  const w = db.prepare(`INSERT INTO nfl_player_weekly (season, week, gsis_id, position, pos_group, team, targets, receptions, rec_yds, rush_att, def_tackles_solo)
+                        VALUES (2026, ?, ?, ?, ?, 'AAA', ?, ?, ?, ?, ?)`);
+  const m = db.prepare("INSERT INTO player_id_map (mfl_id, gsis_id, pfr_id, mfl_position, status, accepted) VALUES (?, ?, ?, ?, ?, ?)");
+  // HUNT: MFL lists him at WR; nflverse's box score at CB (pos_group DB) — a target in Wk 1, tackles every week.
+  m.run("17074", "00-HUNT", null, "WR", "bio_flag", 1);
+  w.run(1, "00-HUNT", "CB", "DB", 1, 0, 0, 1, 1); w.run(2, "00-HUNT", "CB", "DB", 0, 0, 0, 0, 4);
+  // VANS: MFL lists him at LB; nflverse at RB (a fullback who makes special-teams tackles).
+  m.run("16527", "00-VANS", null, "LB", "bio_flag", 1);
+  w.run(1, "00-VANS", "RB", "RB", 0, 0, 0, 0, 1);
+  // NOMAP: no accepted map row — nflverse's group decides, as before.
+  m.run("19999", "00-NOMAP", null, "WR", "id_disagree", 0);
+  w.run(1, "00-NOMAP", "CB", "DB", 0, 0, 0, 0, 2);
+  const board = async (pos) => Object.fromEntries((await get(env, `/api/advanced-stats-leaderboard?season=2026&pos=${pos}&YEAR=2026&L=74598&min_games=1&limit=200&NO_PRECOMPUTE=1&NO_CACHE=1`)).json.rows.map((x) => [x.gsis_id, x]));
+  const skill = await board("skill"), idp = await board("idp");
+  t.ok(skill["00-HUNT"] && !idp["00-HUNT"], "Hunter: skill board only");
+  t.deepEqual([skill["00-HUNT"].mfl_position, skill["00-HUNT"].targets, skill["00-HUNT"].games, skill["00-HUNT"].pos_group], ["WR", 1, 2, "DB"],
+    "MFL position from the map; every box-score week counts; nflverse's group is still reported as it is");
+  t.ok(idp["00-VANS"] && !skill["00-VANS"], "VanSumeren: IDP board only");
+  t.deepEqual([idp["00-VANS"].mfl_position, idp["00-VANS"].def_tackles_total], ["LB", 1]);
+  t.ok(idp["00-NOMAP"] && !skill["00-NOMAP"], "an unaccepted map row moves nobody");
+  t.ok(idp["00-ROOK"] && idp["00-NOPFR"], "same-board players are unaffected");
+});
+
 test("/api/player-starter-rates: final, synced weeks only — later weeks are pending, never graded", async () => {
   const { env, db } = setup();
   const sw = db.prepare("INSERT INTO src_weekly (season, week, player_id, pos_group, status, score, is_reg, roster_franchise_id) VALUES (2026, ?, ?, 'LB', ?, ?, 1, ?)");

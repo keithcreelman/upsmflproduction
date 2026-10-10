@@ -57,7 +57,7 @@ FAM = {
     "CB": {"CB", "DB", "S", "SAF", "FS", "SS"}, "S": {"S", "SAF", "FS", "SS", "DB", "CB"},
 }
 ACCEPTED = {"verified", "verified_dp", "single_route", "bio_flag", "override_accept"}
-COLS = ["mfl_id", "gsis_id", "pfr_id", "espn_id", "status", "accepted", "routes", "checks", "note", "built_at"]
+COLS = ["mfl_id", "gsis_id", "pfr_id", "espn_id", "mfl_position", "status", "accepted", "routes", "checks", "note", "built_at"]
 
 
 def gsis_ok(v) -> str | None:
@@ -167,7 +167,7 @@ def build(players: list[dict], ff, nplayers, overrides: dict) -> list[dict]:
                 status = "verified_dp"
             else:
                 status = "single_route"
-        rows.append({"mfl_id": pid, "gsis_id": gsis, "espn_id": e or None, "status": status,
+        rows.append({"mfl_id": pid, "gsis_id": gsis, "espn_id": e or None, "mfl_position": p.get("position") or None, "status": status,
                      "routes": routes, "checks": chk, "note": "; ".join(note), "_name": p.get("name")})
         if gsis and status in ACCEPTED:
             claims[gsis].append(pid)
@@ -210,7 +210,7 @@ def main() -> None:
     if not args.skip_d1:
         with D1Writer(table="player_id_map", cols=COLS, pk_cols=["mfl_id"]) as w:
             for r in rows:
-                w.add((r["mfl_id"], r["gsis_id"], r["pfr_id"], r["espn_id"], r["status"], r["accepted"],
+                w.add((r["mfl_id"], r["gsis_id"], r["pfr_id"], r["espn_id"], r["mfl_position"], r["status"], r["accepted"],
                        json.dumps(r["routes"], sort_keys=True), json.dumps(r["checks"], sort_keys=True), r["note"], r["built_at"]))
 
 

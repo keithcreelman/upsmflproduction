@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS player_id_map (
   gsis_id    TEXT,                  -- the NFL id the routes agree on (NULL when none)
   pfr_id     TEXT,                  -- nflverse players.pfr_id for that gsis (snap counts join) — accepted rows only
   espn_id    TEXT,                  -- MFL's espn_id
+  mfl_position TEXT,                -- MFL's position when built (QB RB WR TE PK PN DE DT LB CB S): the
+                                    -- leaderboard lists a player on the board of his MFL lineup group,
+                                    -- not nflverse's (a WR nflverse calls CB is a WR in this league)
   status     TEXT NOT NULL,         -- verified | verified_dp | single_route | bio_flag | override_accept
                                     -- | id_suspect | id_disagree | dup_claim | unmapped | override_exclude
   accepted   INTEGER NOT NULL DEFAULT 0,

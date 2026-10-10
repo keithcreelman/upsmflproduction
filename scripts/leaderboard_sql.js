@@ -78,6 +78,10 @@ body = body.replace(/\$\{([^}]*)\}/g, (m, expr) => {
   if (e === '_gTeamSitu')  return _phase === 'special' ? '1=1' : '1=0';
   if (e === '_gSeasonAdv') return _phase !== 'special' ? '1=1' : '1=0';
   if (e === '_gRedzone')   return _phase === 'offense' ? '1=1' : '1=0';
+  if (e === '_gIdpSnaps')  return _phase === 'idp' ? '1=1' : '1=0';
+  if (e === 'pos') return pos;
+  const mb = /^mflBoardSql\("([^"]+)"\)$/.exec(e);
+  if (mb) return `(CASE ${mb[1]} WHEN 'QB' THEN 'qb' WHEN 'RB' THEN 'skill' WHEN 'WR' THEN 'skill' WHEN 'TE' THEN 'skill' WHEN 'PK' THEN 'kicker' WHEN 'PN' THEN 'punter' WHEN 'DE' THEN 'idp' WHEN 'DT' THEN 'idp' WHEN 'LB' THEN 'idp' WHEN 'CB' THEN 'idp' WHEN 'S' THEN 'idp' END)`;
   if (e === 'weekFilter' || e === 'weekSqlPredicate') return wk;
   if (e === 'rzWeekSqlPredicate') return rzwk;
   if (/^weekFilter\.replace/.test(e) || /^weekSqlPredicate\.replace/.test(e)) {

@@ -12571,6 +12571,10 @@ export default {
         const weekFilter = weekSqlPredicate;
 
         const posList = posGroups.map(p => `'${p}'`).join(",");
+        // MFL position -> leaderboard board (the pos param), for board placement.
+        const mflBoardSql = (col) => `(CASE ${col} WHEN 'QB' THEN 'qb' WHEN 'RB' THEN 'skill' WHEN 'WR' THEN 'skill'
+                     WHEN 'TE' THEN 'skill' WHEN 'PK' THEN 'kicker' WHEN 'PN' THEN 'punter' WHEN 'DE' THEN 'idp'
+                     WHEN 'DT' THEN 'idp' WHEN 'LB' THEN 'idp' WHEN 'CB' THEN 'idp' WHEN 'S' THEN 'idp' END)`;
         const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
         // Representative season for the team-pace join (the latest queried).
         const paceSeason = Math.max.apply(null, seasons.map(s => parseInt(s, 10)));
@@ -12903,7 +12907,7 @@ export default {
                    COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
                    a.position, a.team, a.pos_group, a.games,
                    ctm.nfl_team AS current_team,
-                   ctm.mfl_position AS mfl_position,
+                   COALESCE(im.mfl_position, ctm.mfl_position) AS mfl_position,
                    ntp.off_plays_pg AS team_plays_pg, ntp.def_plays_pg AS team_def_plays_pg, ntp.pace_sos AS pace_sos,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
@@ -13087,10 +13091,26 @@ export default {
             -- "D1_ERROR: exceeded its CPU time limit".
             -- team_agg / team_rz_player_active already had the pos_group
             -- filter; these three did not.
+            --
+            -- Which board a player is on (2026-10-10): his MFL lineup group's,
+            -- from the verified id map, whatever nflverse's box score calls him
+            -- — a WR nflverse lists at CB is on the skill board, an LB it lists
+            -- at RB on the IDP board. Without an accepted map row (or an MFL
+            -- position) it is nflverse's pos_group, as before.
             elig AS (
-              SELECT DISTINCT gsis_id
-                FROM nfl_player_weekly
-               WHERE season IN (${seasonList}) AND pos_group IN (${posList})
+              SELECT DISTINCT w.gsis_id
+                FROM nfl_player_weekly w
+               WHERE w.season IN (${seasonList}) AND w.pos_group IN (${posList})
+                 AND NOT EXISTS (SELECT 1 FROM player_id_map m
+                                  WHERE m.gsis_id = w.gsis_id AND m.accepted = 1
+                                    AND ${mflBoardSql("m.mfl_position")} <> '${pos}')
+              UNION
+              SELECT m.gsis_id
+                FROM player_id_map m
+               WHERE m.accepted = 1 AND ${mflBoardSql("m.mfl_position")} = '${pos}'
+                 AND EXISTS (SELECT 1 FROM nfl_player_weekly w
+                              WHERE w.gsis_id = m.gsis_id AND w.season IN (${seasonList})
+                                AND w.pos_group IS NOT NULL AND w.pos_group NOT IN (${posList}))
             ),
             -- The verified MFL<->NFL id map (migration 0170) for the players in
             -- play: preferred wherever this query needs an MFL id or a pfr id.
@@ -13098,7 +13118,8 @@ export default {
             -- rookie had an MFL position, contract or snap count here; it stays
             -- the fallback for players MFL no longer lists (past seasons).
             idmap AS (
-              SELECT gsis_id, MIN(CAST(mfl_id AS INTEGER)) AS mfl_pid, MIN(pfr_id) AS pfr_id
+              SELECT gsis_id, MIN(CAST(mfl_id AS INTEGER)) AS mfl_pid, MIN(pfr_id) AS pfr_id,
+                     MIN(mfl_position) AS mfl_position
                 FROM player_id_map
                WHERE accepted = 1 AND gsis_id IN (SELECT gsis_id FROM elig)
                GROUP BY gsis_id
@@ -13266,7 +13287,8 @@ export default {
                       AND x.season = w.season
                       AND x.week   = w.week
                       AND x.gsis_id = w.gsis_id
-               WHERE w.season IN (${seasonList}) AND w.pos_group IN (${posList})
+               WHERE w.season IN (${seasonList}) AND w.gsis_id IN (SELECT gsis_id FROM elig)
+                 AND w.pos_group IS NOT NULL
                  AND ${weekFilter}
                GROUP BY w.gsis_id
             ),
