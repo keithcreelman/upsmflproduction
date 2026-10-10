@@ -53294,6 +53294,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         })());
         // Cap on per-invocation news lookups, shared by held re-prices → deferred re-routes → new drops (see routeCapfree).
         let scanNewsBudget = 5;
+        // Set by the first news read in this run that fails. A RE-ROUTE after that does not fetch again (it stays deferred and
+        // costs no budget), so rows stuck behind an unreadable news service can never use up the budget new drops need.
+        let scanNewsUnreadable = "";
 
         // ── Contract parsing + penalty math (canon §6/§D2) ──
         // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
@@ -53388,7 +53391,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // It STAYS 'deferred' — /admin/drops/post-mfl holds it, capfree-notify ignores it — when:
         //   deferred_budget          — the news lookup was skipped: the per-run budget (scanNewsBudget, 5) is spent;
         //   deferred_news_unreadable — on a RE-ROUTE, the news could not be read. A row already held for its check is only
-        //                              released to a charge by a check that actually ran.
+        //                              released to a charge by a check that actually ran. Once one read fails in a run, later
+        //                              re-routes in that run skip the fetch (scanNewsUnreadable), so stuck rows cost at most one
+        //                              lookup per run and never starve new drops of the budget.
         // (A FIRST attempt whose news is unreadable keeps the long-standing `_retirementEvidence` rule — none/unknown, charged.)
         // Every write is guarded on capfree_review_status = 'deferred' AND not yet posted, so a commish ruling or an overlapping
         // run that resolved the row first always wins. Deferred rows are re-routed every tick (below), oldest first.
@@ -53414,9 +53419,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(pid) || "").toUpperCase() : "";
             if (scanInjByPid.known && cfDesig === "RETIRED") {
               cfRoute = "auto";
+            } else if (reroute && scanNewsUnreadable) {
+              // The news already failed once this run: stay deferred without another fetch (and without spending budget).
+              cfRoute = "deferred_news_unreadable";
+              cfWhy = `${scanNewsUnreadable} (earlier this run; not re-fetched)`;
             } else if (scanNewsBudget > 0) {
               scanNewsBudget -= 1;
               const oneNews = await _retirementNewsBatch(cfSeason, leagueId, [pid], scanOrigin);
+              if (!oneNews.known && !scanNewsUnreadable) scanNewsUnreadable = safeStr(oneNews.error) || "player-news unreadable";
               const ev = await _retirementEvidence(cfSeason, leagueId, pid, oneNews);
               if (reroute && ev.route !== "auto" && !ev.sources_known) {
                 cfRoute = "deferred_news_unreadable";

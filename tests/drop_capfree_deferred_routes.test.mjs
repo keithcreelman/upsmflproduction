@@ -360,6 +360,36 @@ test("g. Jan 2 2027 (no 2027 league yet): the 2026 deferred row is still re-rout
   t.ok(reads.includes("2026:injuries") && !reads.includes("2027:injuries"), reads.join(" "));
 });
 
+// ═════════ the news service stays down (production today): stuck rows never starve new drops ═════════
+// Until the news lookup is activated, every production read of /api/player-news fails. A burst of more than five penalty
+// drops in one tick leaves the overflow deferred, and a deferred row can't complete its check while the news is down. Those
+// rows stay held (never charged) — and they must not use up the per-run budget every tick, or every later penalty drop would
+// be born deferred behind them.
+test("h. news down for good: five stuck deferred rows cost ONE lookup per tick; new drops still get theirs; nothing stuck is charged", async () => {
+  Object.assign(PEOPLE, { "13021": ["New, One", "0001"], "13022": ["New, Two", "0002"], "13023": ["New, Three", "0003"] });
+  const STUCK = ["13000", "13011", "13012", "13013", "13014"];
+  const L = freshLeague([...FIVE, ...STUCK]);
+  NEWS.up = false;
+  const s1 = await L.scan();
+  t.deepEqual(NEWS.calls, FIVE, "tick 1: the budget went to the first five cuts (each read failed)");
+  for (const pid of FIVE) t.equal(L.row(pid).capfree_route, "none", pid + ": a FIRST attempt with unreadable news keeps the existing rule (charged)");
+  t.deepEqual(s1.json.capfree_deferred.map((d) => [d.pid, d.capfree_route]), STUCK.map((pid) => [pid, "deferred_budget"]));
+  TXS = TXS.concat(cuts(["13021", "13022", "13023"], "2026-06-15T09:11:00-04:00"));
+  tick(4); NEWS.calls = [];
+  const s2 = await L.scan();
+  t.deepEqual(NEWS.calls, ["13000", "13021", "13022", "13023"], "one re-route lookup (the oldest), then the new cuts — not five re-routes");
+  t.deepEqual(s2.json.capfree_deferred.map((d) => [d.pid, d.capfree_route]), STUCK.map((pid) => [pid, "deferred_news_unreadable"]));
+  t.match(s2.json.capfree_deferred[0].reason, /player-news HTTP 502$/);
+  t.ok(s2.json.capfree_deferred.slice(1).every((d) => /earlier this run; not re-fetched/.test(d.reason)));
+  for (const pid of ["13021", "13022", "13023"]) t.equal(L.row(pid).capfree_review_status, null, pid + " is not born deferred behind the stuck rows");
+  await L.postMfl();
+  for (const pid of STUCK) t.deepEqual(chargedFor(pid), [], pid + " is held, never charged");
+  t.deepEqual([...FIVE, "13021", "13022", "13023"].map((pid) => chargedFor(pid).length), [1, 1, 1, 1, 1, 1, 1, 1]);
+  tick(5); NEWS.calls = [];
+  await L.scan();
+  t.deepEqual(NEWS.calls, ["13000"], "a quiet tick: one lookup for the whole backlog");
+});
+
 await run("drop_capfree_deferred_routes");
 
 globalThis.Date = RealDate;
