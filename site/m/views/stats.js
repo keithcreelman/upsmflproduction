@@ -119,17 +119,17 @@
     ypc:   { l: "YPC",   src: "box", f: "dec1", t: "Rushing yards per carry (10+ carries)", g: function (r) { return rate(L(r).rush_yds, L(r).rush_att, 10); } },
     tgt:   { l: "Tgt",   src: "box", t: "Targets", g: function (r) { return nn(L(r).targets); } },
     rec:   { l: "Rec",   src: "box", t: "Receptions", g: function (r) { return nn(L(r).receptions); } },
-    recyd: { l: "RecYd", src: "box", w: 44, t: "Receiving yards", g: function (r) { return nn(L(r).rec_yds); } },
-    rectd: { l: "RecTD", src: "box", w: 44, t: "Receiving touchdowns", g: function (r) { return nn(L(r).rec_tds); } },
+    recyd: { l: "RecYd", src: "box", w: 40, t: "Receiving yards", g: function (r) { return nn(L(r).rec_yds); } },
+    rectd: { l: "RecTD", src: "box", w: 40, t: "Receiving touchdowns", g: function (r) { return nn(L(r).rec_tds); } },
     ypr:   { l: "Y/R",   src: "box", f: "dec1", t: "Yards per reception (5+ catches)", g: function (r) { return rate(L(r).rec_yds, L(r).receptions, 5); } },
-    catchpct: { l: "Catch%", src: "box", w: 44, f: "pct", t: "Catches ÷ targets (10+ targets)", g: function (r) { return rate(L(r).receptions, L(r).targets, 10); } },
+    catchpct: { l: "Catch%", src: "box", w: 46, f: "pct", t: "Catches ÷ targets (10+ targets)", g: function (r) { return rate(L(r).receptions, L(r).targets, 10); } },
     tgtsh: { l: "Tgt%",  src: "box", f: "pct", t: "Share of his team's targets in the weeks he played", g: function (r) { return nn(L(r).target_share); } },
     // "Solo", not "Tkl": def_tackles_total is SOLO tackles only (worker
     // SUM(def_tackles_solo)); MFL's TK also counts assisted tackles.
     solo:  { l: "Solo",  src: "box", t: "Solo tackles", g: function (r) { return nn(L(r).def_tackles_total); } },
     ast:   { l: "Ast",   src: "box", t: "Assisted tackles", g: function (r) { return nn(L(r).def_tackles_ast); } },
     tfl:   { l: "TFL",   src: "box", t: "Tackles for loss", g: function (r) { return nn(L(r).def_tfl); } },
-    snaps: { l: "Snaps", src: "box", w: 44, dim: true, t: "Defensive snaps (all snaps, not pass-rush snaps)", g: function (r) { return nn(L(r).def_snaps_total); } },
+    snaps: { l: "Snaps", src: "box", w: 40, dim: true, t: "Defensive snaps (all snaps, not pass-rush snaps)", g: function (r) { return nn(L(r).def_snaps_total); } },
     sk:    { l: "Sk",    src: "box", f: "dec1", t: "Sacks", g: function (r) { return nn(L(r).def_sacks); } },
     ff:    { l: "FF",    src: "box", t: "Forced fumbles", g: function (r) { return nn(L(r).def_ff); } },
     pd:    { l: "PD",    src: "box", t: "Passes defended", g: function (r) { return nn(L(r).def_pass_def); } },
@@ -143,33 +143,35 @@
     xpm:   { l: "XPM",   src: "box", t: "Extra points made", g: function (r) { return nn(L(r).xp_made); } },
     // Distance bands: the play-by-play's own bands (0–39 / 40–49 / 50–59 /
     // 60+). There is no 0–19 / 20–29 / 30–39 split in any 2026 source yet.
-    fg39:  { l: "0–39",  src: "box", w: 44, f: "ma", t: "Field goals made/attempted, 0–39 yards", g: function (r) { return madeAtt(L(r).fg_made_0_39, L(r).fg_att_0_39); } },
-    fg49:  { l: "40–49", src: "box", w: 44, f: "ma", t: "Field goals made/attempted, 40–49 yards", g: function (r) { return madeAtt(L(r).fg_made_40_49, L(r).fg_att_40_49); } },
-    fg50:  { l: "50+",   src: "box", w: 44, f: "ma", t: "Field goals made/attempted, 50+ yards (50–59 and 60+)", g: function (r) {
+    fg39:  { l: "0–39",  src: "box", w: 40, f: "ma", t: "Field goals made/attempted, 0–39 yards", g: function (r) { return madeAtt(L(r).fg_made_0_39, L(r).fg_att_0_39); } },
+    fg49:  { l: "40–49", src: "box", w: 40, f: "ma", t: "Field goals made/attempted, 40–49 yards", g: function (r) { return madeAtt(L(r).fg_made_40_49, L(r).fg_att_40_49); } },
+    fg50:  { l: "50+",   src: "box", w: 40, f: "ma", t: "Field goals made/attempted, 50+ yards (50–59 and 60+)", g: function (r) {
       var a = L(r); if (a.fg_att_50_59 == null && a.fg_att_60plus == null) return null;
       return { m: num(a.fg_made_50_59) + num(a.fg_made_60plus), a: num(a.fg_att_50_59) + num(a.fg_att_60plus) }; } },
     punts: { l: "Punts", src: "box", t: "Punts", g: function (r) { return nn(L(r).punts); } },
-    i20n:  { l: "I20",   src: "box", w: 44, f: "ma", t: "Punts downed inside the 20 / all punts", g: function (r) { return madeAtt(L(r).punt_inside20, L(r).punts); } },
-    i20p:  { l: "I20%",  src: "box", f: "pct", t: "Inside-20 punts ÷ all punts (touchbacks, fair catches, returns and blocks all count as punts)", g: function (r) { return rate(L(r).punt_inside20, L(r).punts, 1); } },
+    // I20%: the rate over its numerator/denominator in one cell ("41%" over "9/22").
+    i20p:  { l: "I20%",  src: "box", f: "pctnd", t: "Inside-20 punts ÷ all punts (touchbacks, fair catches, returns and blocks all count as punts)",
+      nd: function (r) { return L(r).punts ? [num(L(r).punt_inside20), num(L(r).punts)] : null; },
+      g: function (r) { return rate(L(r).punt_inside20, L(r).punts, 1); } },
     navg:  { l: "Net",   src: "box", f: "dec1", t: "Gross yards minus return yards, per punt. Touchbacks are not charged 20 yards, so this runs higher than the NFL's official net.", g: function (r) { return nn(L(r).punt_net_avg); } },
     ccons: { l: "Cons",  src: "cons", t: "Consistency, 0–100: how steady his weekly scores are (100 = about the same every week)", g: function (r) { var c = consRec(r); return c && c.consistency != null ? c.consistency : null; } },
     cboom: { l: "Boom%", src: "cons", w: 44, t: "Share of his weeks in the top quarter of all weekly scores at his position", g: function (r) { var c = consRec(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
-    cbust: { l: "Bust%", src: "cons", w: 44, t: "Share of his weeks in the bottom quarter of all weekly scores at his position", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
-    cgp:   { l: "Wks",   src: "cons", w: 34, dim: true, t: "Weeks this source counted", g: function (r) { var c = consRec(r); return c && c.gp != null ? c.gp : null; } },
-    eepa:  { l: "EPA",   src: "adv", w: 44, f: "epa", t: "Expected points added per play (nflfastR)", g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; } },
-    ecpoe: { l: "CPOE",  src: "adv", w: 44, f: "delta", t: "Completion % over expected (nflfastR)", g: function (r) { return epaCpoe(r); } },
-    esucc: { l: "Succ%", src: "adv", w: 44, f: "pct100", t: "Successful plays %", g: function (r) { var x = epaRecM(r); return x && x.succ != null ? x.succ : null; } },
+    cbust: { l: "Bust%", src: "cons", w: 40, t: "Share of his weeks in the bottom quarter of all weekly scores at his position", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
+    cgp:   { l: "Wks",   src: "cons", w: 30, dim: true, t: "Weeks this source counted", g: function (r) { var c = consRec(r); return c && c.gp != null ? c.gp : null; } },
+    eepa:  { l: "EPA",   src: "adv", w: 40, f: "epa", t: "Expected points added per play (nflfastR)", g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; } },
+    ecpoe: { l: "CPOE",  src: "adv", w: 40, f: "delta", t: "Completion % over expected (nflfastR)", g: function (r) { return epaCpoe(r); } },
+    esucc: { l: "Succ%", src: "adv", w: 42, f: "pct100", t: "Successful plays %", g: function (r) { var x = epaRecM(r); return x && x.succ != null ? x.succ : null; } },
     evol:  { l: "Plays", src: "adv", w: 40, dim: true, t: "Plays the EPA is measured over", g: function (r) { var x = epaRawM(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } },
-    rtn:   { l: "Routes", src: "adv", w: 46, g: function (r) { var x = rtRec(r); return x && x.routes ? x.routes : null; } },
+    rtn:   { l: "Routes", src: "adv", w: 40, g: function (r) { var x = rtRec(r); return x && x.routes ? x.routes : null; } },
     rtpct: { l: "Route%", src: "adv", w: 46, f: "pct100", g: function (r) { var x = rtRec(r); return x && x.route_pct != null ? x.route_pct : null; } },
-    tprr:  { l: "TPRR",  src: "adv", w: 42, f: "dec2", g: function (r) { var x = rtRec(r); return x && x.tprr != null ? x.tprr : null; } },
-    yprr:  { l: "YPRR",  src: "adv", w: 42, f: "dec2", g: function (r) { var x = rtRec(r); return x && x.yprr != null ? x.yprr : null; } },
+    tprr:  { l: "TPRR",  src: "adv", w: 40, f: "dec2", g: function (r) { var x = rtRec(r); return x && x.tprr != null ? x.tprr : null; } },
+    yprr:  { l: "YPRR",  src: "adv", w: 40, f: "dec2", g: function (r) { var x = rtRec(r); return x && x.yprr != null ? x.yprr : null; } },
     nryoe: { l: "RYOE/A", src: "adv", w: 46, f: "delta", t: "Rush yards over expected per attempt (Next Gen Stats, 30+ attempts)", g: function (r) { var x = ngsRecMob(r); return x && x.rush ? x.rush.ryoe_pa : null; } },
     nbox8: { l: "8+Box", src: "adv", w: 44, f: "pct100", t: "Share of carries against 8+ defenders in the box (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.rush ? x.rush.box8 : null; } },
     nsep:  { l: "Sep",   src: "adv", f: "dec1", t: "Average separation at the catch point, yards (Next Gen Stats, 20+ targets)", g: function (r) { var x = ngsRecMob(r); return x && x.rec ? x.rec.sep : null; } },
     ncush: { l: "Cush",  src: "adv", f: "dec1", t: "Average cushion at the snap, yards (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.rec ? x.rec.cush : null; } },
     ntt:   { l: "TTT",   src: "adv", f: "dec2", t: "Time to throw, seconds (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; } },
-    nagg:  { l: "AGG%",  src: "adv", w: 44, f: "pct100", t: "Aggressiveness: throws into tight windows (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; } }
+    nagg:  { l: "AGG%",  src: "adv", w: 40, f: "pct100", t: "Aggressiveness: throws into tight windows (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; } }
   };
   // Removed from this view (Keith 2026-10-09/10): XpertRk (an expert ranking),
   // Schedule-adjusted (calculation under review) and All-MFL usage. Points per
@@ -207,7 +209,7 @@
       { id: "kicking",  l: "Kicking",   cols: ["fgm", "fga", "fgpct", "xpm"] },
       { id: "distance", l: "FG by distance", cols: ["fg39", "fg49", "fg50"] } ] },
     { id: "PN", alias: "punter", group: ["PK", "PN"], sets: [
-      { id: "punting",  l: "Punting",   cols: ["punts", "i20n", "i20p", "navg"] } ] }
+      { id: "punting",  l: "Punting",   cols: ["punts", "i20p", "navg"] } ] }
   ];
   TABS.forEach(function (t) {
     t.sets.unshift({ id: "fantasy", l: "Fantasy pts", cols: ["pts", "ppg", "wks", "rcnt"] });
@@ -429,9 +431,10 @@
       "</div>";
   }
 
-  function fmt(v, c) {
+  function fmt(v, c, r) {
     if (v == null) return "—";
     if (c.f === "ma") return v.m + "/" + v.a;
+    if (c.f === "pctnd") { var nd = c.nd(r); return '<span class="nd"><b>' + Math.round(v * 100) + "%</b><small>" + nd[0] + "/" + nd[1] + "</small></span>"; }
     if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
     if (c.f === "epa") { return '<span class="ups-m-tr ' + (v > 0 ? "up" : (v < 0 ? "dn" : "")) + '">' + (v > 0 ? "+" : "") + v.toFixed(2) + "</span>"; }
     if (c.f === "pct100") return Math.round(v) + "%";
@@ -608,11 +611,11 @@
     return cols.some(function (c) { return keyOf(c) === k; }) ? k : "";
   }
   // A number to sort by; null = unavailable. Made/attempts sorts by makes,
-  // then attempts.
+  // then by fewer attempts (the more accurate kicker first).
   function sortValue(c, r) {
     var v = c.g(r);
     if (v == null) return null;
-    if (c.f === "ma") return v.m * 10000 + v.a;
+    if (c.f === "ma") return v.m * 10000 - v.a;   // 3/3 ranks above 3/5
     return typeof v === "number" && isFinite(v) ? v : null;
   }
   // Sorts the WHOLE filtered list (the screen then shows its first 150).
@@ -689,9 +692,12 @@
       var m = metaCache[tab.alias + "|" + b.season];
       return { key: "box", text: "nflverse" + (m && m.coverage ? " Wk 1–" + m.coverage : " " + b.season) };
     }
+    // PFR charting rides the same nflverse weekly refresh and coverage week, so
+    // it shares the box-score band (a separate band split narrow columns and
+    // truncated both labels); the set note names PFR.
     if (c.src === "pfr") {
       var m2 = metaCache[tab.alias + "|" + b.season];
-      return { key: "pfr", text: "PFR" + (m2 && m2.coverage ? " Wk 1–" + m2.coverage : " " + b.season) };
+      return { key: "box", text: "nflverse" + (m2 && m2.coverage ? " Wk 1–" + m2.coverage : " " + b.season) };
     }
     if (c.src === "cons") return { key: "cons", text: "MFL weekly · own wks" };
     return { key: "adv", text: (set.id === "epa" ? "nflfastR" : set.id === "routes" ? "Routes" : "Next Gen") + " " + b.season };
@@ -745,6 +751,11 @@
   // which weeks, and how fresh — then a second for the chosen set's source.
   function basisHtml(tab, b) {
     var txt, warn = false;
+    // On a set with no points column the full basis would only explain "#",
+    // and its 3–4 lines pushed the list off the first screen: one line there.
+    if (b.kind === "live" && curSet().id !== "fantasy") {
+      return '<div class="ups-m-st-basis" id="ups-m-st-basis"># = PPG rank on actual MFL points, ' + U.escapeHtml(SSMOD().weeksLabel(b.ss.seasonWeeks)) + ".</div>";
+    }
     if (b.kind === "live") {
       var ss = b.ss, S = SSMOD();
       txt = "<b>Actual MFL points, UPS scoring.</b> " + U.escapeHtml(S.weeksLabel(ss.seasonWeeks));
@@ -773,34 +784,50 @@
     }
     return '<div class="ups-m-st-basis' + (warn ? " warn" : "") + '" id="ups-m-st-basis">' + txt + "</div>";
   }
+  // One short line under the controls (≤ ~2 lines at 375px, so the list stays
+  // on the first screen), and the longer definitions behind "About these
+  // numbers" (Keith 2026-10-10: explain Boom/Bust/Consistency on screen).
   function setNoteHtml(tab, b, set, rows) {
     var key = tab.alias + "|" + b.season, meta = metaCache[key];
     var cols = set.cols.map(function (k) { return C[k]; });
     var srcs = {}; cols.forEach(function (c) { srcs[c.src] = 1; });
-    var parts = [];
-    if (srcs.box) {
-      parts.push("Box score: nflverse" + (meta && meta.coverage ? ", Wks 1–" + meta.coverage : "") + ".");
+    var line = [], more = [];
+    if (srcs.box || srcs.pfr) line.push("Box score: nflverse" + (meta && meta.coverage ? ", Wks 1–" + meta.coverage : "") + ".");
+    if (srcs.pfr) more.push("Press, Cmp and Yds are PFR charting delivered by nflverse. PFR shows 0, not —, when it has no record for a player.");
+    if (set.id === "distance") line.push("Made/attempted by distance (no split under 40 yds).");
+    if (set.id === "punting") {
+      line.push("I20% = inside-20 punts ÷ all punts.");
+      more.push("All punts count in the denominator: touchbacks, fair catches, returns and blocks. Net = gross minus return yards; touchbacks aren’t charged 20 yards, so it runs above the NFL’s official net.");
     }
-    if (srcs.pfr) parts.push("Press, Cmp and Yds: PFR charting via nflverse; PFR shows 0, not —, when it has no record for a player.");
-    if (set.id === "distance") parts.push("Made/attempted by distance, from the play-by-play. The source has no split below 40 yards.");
-    if (set.id === "punting") parts.push("I20 = punts downed inside the 20 / all punts. Net = gross minus return yards; touchbacks aren’t charged 20 yards, so it runs above the NFL’s official net.");
-    if (srcs.cons) parts.push("Boom% = share of his weeks in the top quarter of every weekly score posted at his position this season; Bust% = the bottom quarter (a 0.0 week counts, even one he didn’t play). Consistency: 100 = about the same score every week; lower = bigger swings. Wks = the weeks this source counted — it can trail Fantasy pts until the Tuesday sync.");
-    if (srcs.adv) parts.push((set.id === "epa" ? "nflfastR play-by-play" : set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " season to date" + (set.id === "epa" ? "; rates hidden below a minimum sample." : "."));
-    if (srcs.box && rows.source === "mfl" && meta && meta.count >= meta.limit) {
+    if (srcs.cons) {
+      line.push("Boom% = share of his weeks in the top 25% of all weekly scores at his position; Bust% = the bottom 25%. Cons: 100 = same score every week.");
+      more.push("Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season (free agents and 0.0 weeks included): top quarter = boom, bottom quarter = bust, so a 0.0 week counts as a bust even if he didn’t play. Consistency = 100 × (1 − spread ÷ average) of his weekly scores, 0–100. Wks = the weeks this source counted; it can trail Fantasy pts until the Tuesday score sync.");
+    }
+    if (srcs.adv) line.push((set.id === "epa" ? "nflfastR play-by-play" : set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date" + (set.id === "epa" ? "; rates need a minimum sample." : "."));
+    // MFL decides who is listed; the stats source only adds the box score, and
+    // only for the players in its own (capped) list.
+    if ((srcs.box || srcs.pfr || srcs.adv || srcs.cons) && rows.source === "mfl" && meta && meta.count >= meta.limit) {
       var missing = rows.filter(function (r) { return !r.lb; }).length;
-      if (missing) parts.push("The stats source returns at most " + meta.limit + " players here, so " + missing + " listed " + tab.id + (missing === 1 ? " has" : "s have") + " no box score (—).");
+      if (missing) {
+        line.push(missing + " listed " + tab.id + (missing === 1 ? " has" : "s have") + " no stats here (—).");
+        more.push("They aren’t in the stats source’s list, which returns at most " + meta.limit + " players here, chosen by tackles, sacks and other impact stats. Their MFL points are still shown on Fantasy pts.");
+      }
     }
     if (b.kind === "live" && rows.source === "leaderboard") {
-      parts.push("MFL’s player list didn’t load, so this is the stats source’s list: nflverse positions, ranks within this list.");
+      line.push("MFL’s player list didn’t load, so this is the stats source’s list: nflverse positions, ranks within this list.");
     }
     // When the LEADERBOARD decides who is listed and it hit its row cap, the
     // list is NOT every player at the position, and the ranks are within it.
     if (rows.source === "leaderboard" && meta && meta.count >= meta.limit) {
-      parts.push("This list is the stats source’s top " + meta.limit + " " + (tab.alias === "idp" ? "IDPs" : "players") +
-        " (by tackles, sacks and other impact stats), so it isn’t every " + tab.id + " and ranks are within it.");
+      line.push("List = the stats source’s top " + meta.limit + (tab.alias === "idp" ? " IDPs" : " players") + "; ranks are within it.");
+      more.push("The stats source returns at most " + meta.limit + " players here, chosen by tackles, sacks and other impact stats, so this isn’t every " + tab.id + ".");
     }
-    return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(parts.join(" ")) + "</div>";
+    var open = view.noteOpen ? " open" : "";
+    return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(line.join(" ")) +
+      (more.length ? '<details class="ups-m-st-more"' + open + '><summary>About these numbers</summary><div>' + U.escapeHtml(more.join(" ")) + "</div></details>" : "") +
+      "</div>";
   }
+
 
   function rowHtml(r, cols, tab, viewerFid) {
     var own = ownerOf(r.pid);
@@ -809,17 +836,19 @@
       : '<span class="own fa"> · FA</span>';
     // The position badge only where it says something: the mixed tabs (DE/DT,
     // CB/S). On QB it repeated "QB" on every row and cost the name 32px.
+    // On DL/DB it leads the team line ("DE · HOU · Blake Bombers"): as a chip
+    // left of the name it cut 146 of 150 names at 320px.
     var badge = (tab.id === "DL" || tab.id === "DB")
-      ? '<span class="pos ' + tab.id.toLowerCase() + '">' + U.escapeHtml(r.pos) + "</span>" : "";
+      ? '<span class="pos ' + tab.id.toLowerCase() + '">' + U.escapeHtml(r.pos) + "</span> · " : "";
     return '<div class="ups-m-st-row' + (own.known && own.fid && own.fid === viewerFid ? " mine" : "") + '" data-pid="' + U.escapeHtml(r.pid) + '">' +
       '<span class="rk">' + (r.rank || "–") + "</span>" +
-      '<span class="nm">' + badge +
+      '<span class="nm">' +
         '<span class="t"><span class="pn">' + U.escapeHtml(r.name) + "</span>" +
-        '<span class="tm">' + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
+        '<span class="tm">' + badge + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
       cols.map(function (c) {
         var v = c.g(r);
         var dot = (c === C.pts && r.live && v != null) ? '<span class="ups-m-st-live" aria-label="includes the week in progress"></span>' : "";
-        return '<span class="v' + (c.strong ? " ppg" : "") + (c.dim ? " dim" : "") + '">' + dot + fmt(v, c) + "</span>";
+        return '<span class="v' + (c.strong ? " ppg" : "") + (c.dim ? " dim" : "") + '">' + dot + fmt(v, c, r) + "</span>";
       }).join("") +
     "</div>";
   }
@@ -954,6 +983,13 @@
     // Heading taps sort: high→low, then low→high, then back to the default
     // order. "#" always goes back to the default. Delegated on the heading's
     // container, which repaintList() keeps (it only replaces what's inside).
+    // "About these numbers" stays open across repaints (the note is rebuilt on
+    // every keystroke).
+    var notes = document.getElementById("ups-m-st-notes");
+    if (notes && notes.addEventListener && !notes.__upsMoreBound) notes.__upsMoreBound = true, notes.addEventListener("click", function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest("summary")) view.noteOpen = !view.noteOpen;
+    });
     var head = document.getElementById("ups-m-st-head");
     if (head && head.addEventListener && !head.__upsSortBound) head.__upsSortBound = true, head.addEventListener("click", function (e) {
       var t = e.target, btn = t && t.closest ? t.closest("[data-sort]") : null;

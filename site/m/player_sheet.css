@@ -596,6 +596,7 @@
 .ups-m-gl-table td.pts { font-weight: 700; }
 .ups-m-gl-table tr.bye td, .ups-m-gl-table tr.dim td { color: var(--fg-muted); }
 .ups-m-gl-table tr.bye td.pts, .ups-m-gl-table tr.dnp td.pts { font-weight: 600; letter-spacing: 0.04em; font-size: 11px; }
-.ups-m-gl-table tr.dnp td.pts { color: var(--warn); }
+.ups-m-gl-table tr.dnp td { color: var(--fg-muted); }
+.ups-m-gl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .ups-m-gl-live { display: inline-block; width: 6px; height: 6px; margin-left: 3px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
 @media (max-width: 340px) { .ups-m-gl-table, .ups-m-gtd-table { font-size: 11px; } }
