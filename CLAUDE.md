@@ -1,6 +1,6 @@
 # UPS MFL production: Claude project instructions
 
-This public repository is the UPS platform source. Do not store private chat, credentials, owner-session data, or personal career notes here. Read `docs/WORK_OPERATING_SYSTEM.md` for the workflow. Read the relevant section of `docs/league_context_v1.md` before changing a league rule or contract calculation. Older handoff/status documents may be stale; verify code, GitHub PR state, and live state before stating what is deployed.
+This public repository is the UPS platform source. Do not store private chat, credentials, owner-session data, or personal notes here. Read `docs/WORK_OPERATING_SYSTEM.md` for the workflow. Read the relevant section of `docs/league_context_v1.md` before changing a league rule or contract calculation. Older handoff/status documents may be stale; verify code, GitHub PR state, and live state before stating what is deployed.
 
 ## Start each task
 - Identify the UPS issue or PR and the desired owner outcome. Classify it as a **fix**, **enhancement**, **data discrepancy**, or **rule decision**. Do not fold unrelated work into the same PR.
