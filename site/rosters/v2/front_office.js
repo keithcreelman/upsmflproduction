@@ -2173,7 +2173,9 @@
     if (stage === "closed") return { stage: "closed", date: "", endMs: null };
     var endMs = finiteMsOrNullFO(srv && srv.end_unix ? srv.end_unix * 1000 : null);
     if (stage === "myac" || stage === "mym" || stage === "extension") {
-      return { stage: stage, date: endMs ? isoEtDayFromMsFO(endMs) : "", endMs: endMs };
+      // a date-only contract deadline (no time on the league calendar) comes back as end_day with end_unix null — the date
+      // is shown, no time is invented (Keith 2026-10-09)
+      return { stage: stage, date: endMs ? isoEtDayFromMsFO(endMs) : String((srv && srv.end_day) || ""), endMs: endMs };
     }
     return UNRESOLVED;
   }

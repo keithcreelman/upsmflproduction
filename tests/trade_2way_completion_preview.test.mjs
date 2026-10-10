@@ -32,6 +32,9 @@ function makeEnv(opts) {
   const healthy = { participants: [], cap: { status: "ok", reason: "", cap_dollars: 300000, rows: [], violations: [], message: "" },
     roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "" },
     loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], message: "" },
+    // the real compliance route has carried these since #1189; the staged gate requires them (missing = unavailable)
+    roster_limit: { status: "ok", max: 30, rows: [], violations: [], executable: true, message: "" },
+    qb_limit: { status: "ok", max: 5, rows: [], violations: [], executable: true, message: "" },
     lineup: { status: "ok", advisory: true, rows: [], warnings: [], message: "" }, extension_skipped: [] };
   const self = { fetch: async (u, init) => {
     selfCalls.push({ url: String(u), body: init && init.body ? JSON.parse(init.body) : null });

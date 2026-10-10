@@ -805,27 +805,41 @@
     cs.signature = sig;
     cs.status = "loading";
     cs.loadedContracts = null;
+    cs.qbLimit = null;
+    cs.rosterLimit = null;
     var movements = tw2sMovementsFromPayload(payload);
     var fromFid = U.pad4(payload.teams[0].franchise_id);
     var extensionRequests = payload.extension_requests || [];
     (async function () {
-      var status = "unavailable", loadedContracts = null;
+      var status = "unavailable", loadedContracts = null, qbLimit = null, rosterLimit = null;
       try {
         var ctx = M.state.ctx;
         var url = M.api.workerUrl("/api/trades/compliance-preview?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year));
         var stored = M.api.getStoredMflUserId && M.api.getStoredMflUserId();
         if (stored) url += "&MFL_USER_ID=" + encodeURIComponent(stored);
-        var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests };
+        // The players this offer sends to the receiver's taxi squad: the accept's taxi step moves exactly these,
+        // so the roster-maximum warning may count those moves (the server checks each is eligible).
+        var taxiStepIds = [];
+        (payload.teams || []).forEach(function (team) { (team.selected_assets || []).forEach(function (a) { if (a && a.taxi && a.player_id) taxiStepIds.push(String(a.player_id)); }); });
+        var body = { league_id: ctx.leagueId, season: ctx.year, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests, taxi_step_player_ids: taxiStepIds };
         var res = await tw2sFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
           var lc = res.body.compliance.loaded_contracts;
-          status = lc.status === "blocked" ? "blocked" : lc.status === "ok" ? "ok" : "unavailable";
-          loadedContracts = lc;
+          // Five active QBs (Keith 2026-10-07) blocks Send like the loaded-contract limit; the roster
+          // maximum is required before ACCEPT, so it's a notice here, not a Send block.
+          var qb = res.body.compliance.qb_limit || null;
+          // a server that doesn't send the QB block yet isn't a failure: its own Send gate is the authority.
+          // "not_applicable" = outside the in-season window (the five-QB trade limit applies in-season only).
+          var qbStatus = !qb || qb.status === "not_applicable" ? "ok" : qb.status;
+          status = (lc.status === "blocked" || qbStatus === "blocked") ? "blocked" : (lc.status === "ok" && qbStatus === "ok") ? "ok" : "unavailable";
+          loadedContracts = lc; qbLimit = qb; rosterLimit = res.body.compliance.roster_limit || null;
         }
       } catch (e) { /* status stays "unavailable" -- fail closed */ }
       if (mySeq !== cs.seq || !builderState) return; // superseded, or the builder was closed
       cs.status = status;
       cs.loadedContracts = loadedContracts;
+      cs.qbLimit = qbLimit;
+      cs.rosterLimit = rosterLimit;
       renderBuilder();
     })();
   }
@@ -835,13 +849,32 @@
   // specified: "{Team}: N loaded contracts; maximum M. Revise the trade or make a separate
   // roster move first."
   function builderComplianceAlertHtml(cs) {
+    var rosterNotice = "";
+    var rlv = cs.rosterLimit && cs.rosterLimit.status === "blocked" ? (cs.rosterLimit.violations || []) : [];
+    // Roster maximum: a warning at Send, the hard stop is at Accept (Keith 2026-10-07).
+    if (rlv.length) rosterNotice = rlv.map(function (v) { return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(v.message) + " The offer can still be sent, but it can't be accepted until that's done.") + '</div>'; }).join("");
+    // The league calendar can't yet say which maximum applies and this trade depends on it (review 2026-10-09): Send is
+    // still allowed, but Accept will be refused until the commissioner enters it — say so before Send.
+    var rlu = cs.rosterLimit;
+    if (rlu && rlu.status === "unavailable" && rlu.window && rlu.window.phase === "unknown" && U.safeStr(rlu.message)) rosterNotice += '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(rlu.message) + " The offer can still be sent, but it can't be accepted until that's settled.") + '</div>';
+    if (cs.status === "blocked" && cs.qbLimit && cs.qbLimit.status === "blocked") {
+      var qbv = cs.qbLimit.violations || [];
+      var qbLines = qbv.map(function (v) { return U.escapeHtml(U.safeStr(v.message)); });
+      if (!qbLines.length) qbLines = ["This trade would leave a team over 5 active QBs. Revise the offer, or that team makes a legal QB move first."];
+      return '<div class="ups-m-rstr-err">' + qbLines.join('</div><div class="ups-m-rstr-err">') + '</div>' + rosterNotice;
+    }
+    if (rosterNotice && cs.status === "ok") return rosterNotice;
     if (cs.status === "blocked" && cs.loadedContracts) {
       var violations = cs.loadedContracts.violations || [];
       var lines = violations.map(function (v) {
         return U.escapeHtml(U.safeStr(v.franchise_name || v.franchise_id) + ": " + U.safeInt(v.projected, 0) + " loaded contracts; maximum " + U.safeInt(v.max, 5) + ". Revise the trade or make a separate roster move first.");
       });
       if (!lines.length) lines = ["This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first."];
-      return '<div class="ups-m-rstr-err">' + lines.join('</div><div class="ups-m-rstr-err">') + '</div>';
+      return '<div class="ups-m-rstr-err">' + lines.join('</div><div class="ups-m-rstr-err">') + '</div>' + rosterNotice;
+    }
+    // name the limit that couldn't be verified: with loaded contracts fine, it's the five-QB count (the server says why)
+    if (cs.status === "unavailable" && cs.qbLimit && cs.qbLimit.status === "unavailable" && cs.loadedContracts && cs.loadedContracts.status === "ok") {
+      return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(cs.qbLimit.message) || "Cannot verify the active-QB count. Try again in a moment.") + '</div>' + rosterNotice;
     }
     if (cs.status === "unavailable") return '<div class="ups-m-rstr-err">Cannot verify loaded-contract limit. Try again in a moment.</div>';
     if (cs.status === "loading") return '<div class="ups-m-tb-warn">Checking the loaded-contract limit…</div>';

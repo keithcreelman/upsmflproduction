@@ -669,5 +669,151 @@ test("AGREEMENT: the compliance-preview endpoint (what the Offer Review panel no
   t.equal(mfl.st.imports.length, 0, "and the preview itself never touched MFL either -- zero writes across both calls");
 });
 
+// ═══════════════ FIVE ACTIVE QBs at SEND (Keith 2026-10-07) — the same live check blocks Send, both surfaces ═══════════════
+const QB_POS = { 13593: "QB", 9101: "QB", 9102: "QB", 9103: "QB", 9104: "QB", 9105: "QB", 9106: "QB", 13100: "WR" };
+const fiveActiveQbs = () => [{ id: "13100", salary: 5000, contractStatus: "Vet-FAA" }, ...[9101, 9102, 9103, 9104, 9105].map((id) => ({ id: String(id), salary: 1000, contractStatus: "Vet-FAA" })),
+  { id: "9106", salary: 1000, contractStatus: "Rookie-Draft", status: "TAXI_SQUAD" }];
+const qbAsset = { type: "PLAYER", player_id: "13593" };
+test("DESKTOP: a trade that would give HammerTime 6 ACTIVE QBs (the taxi QB doesn't count) blocks Send with the server's own wording", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.positions = QB_POS;
+  mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters[HAMMER] = fiveActiveQbs();
+  const { api, state, els } = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+  const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+  api.refreshOfferComplianceIfNeeded(payload);
+  await settle();
+  t.equal(state.offerCompliance.status, "blocked"); t.equal(api.offerIsReady(payload), false); t.equal(api.offerStatusLabel(payload).text, "Not Ready");
+  api.renderOfferAlerts(payload);
+  t.match(els.offerAlerts.children[0].textContent, /^HammerTime would have 6 QBs on the active roster right after this trade — the maximum is 5\. QBs MFL already shows on taxi or IR don't count; an arriving QB counts as active\. HammerTime must first make a legal QB move/);
+  api.renderSubmitArea(payload);
+  t.equal(els.submitOfferBtn.disabled, true);
+  t.equal(mfl.st.imports.length, 0, "a preview never writes to MFL");
+});
+test("MOBILE: the same 6-QB trade — blocked, Send disabled, the QB move named", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.positions = QB_POS;
+  mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters[HAMMER] = fiveActiveQbs();
+  const { api, builderState } = loadMobileOfferReview(env, { token: "tok-A" });
+  const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+  api.refreshBuilderComplianceIfNeeded(payload);
+  await settle();
+  t.equal(builderState.compliance.status, "blocked");
+  const html = api.builderComplianceAlertHtml(builderState.compliance);
+  t.match(html, /HammerTime would have 6 QBs on the active roster right after this trade — the maximum is 5/);
+  t.equal(true && builderState.compliance.status === "ok", false, "canSubmit is false");
+});
+
+// ═══════════════ the five-QB limit is IN-SEASON only (Keith 2026-10-08) — before the contract deadline the same offer is sendable ═══════════════
+async function atClock(iso, fn) { const real = Date.now; Date.now = () => Date.parse(iso); try { return await fn(); } finally { Date.now = real; } }
+test("DESKTOP + MOBILE: the same 6-QB offer before the September contract deadline is NOT blocked — the server says the limit doesn't apply yet", async () => {
+  await atClock("2026-08-20T15:00:00Z", async () => {
+    const { env, mfl } = fresh();
+    mfl.st.positions = QB_POS;
+    mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+    mfl.st.rosters[HAMMER] = fiveActiveQbs();
+    const d = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+    const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+    d.api.refreshOfferComplianceIfNeeded(payload);
+    await settle();
+    t.equal(d.state.offerCompliance.qbLimit.status, "not_applicable"); t.equal(d.state.offerCompliance.status, "ok"); t.equal(d.api.offerIsReady(payload), true);
+    const m = loadMobileOfferReview(env, { token: "tok-A" });
+    m.api.refreshBuilderComplianceIfNeeded(payload);
+    await settle();
+    t.equal(m.builderState.compliance.status, "ok", "mobile: sendable");
+  });
+});
+
+// ═══════════════ ROSTER MAXIMUM at SEND (Keith 2026-10-07): a visible warning, never a Send block ═══════════════
+const thirtyActive = () => Array.from({ length: 30 }, (_, i) => ({ id: String(8000 + i), salary: 1000, contractStatus: "Vet-FAA" }));
+const rosterSender = () => [{ id: "7000", salary: 1000, contractStatus: "Vet-FAA" }, { id: "7001", salary: 1000, contractStatus: "Rookie-Draft", status: "TAXI_SQUAD" }];
+const rosterAssets = [{ type: "PLAYER", player_id: "7000" }, { type: "PLAYER", player_id: "7001", taxi: true }];
+const SEND_WARNING = /^HammerTime would have 32 active players right after this trade.* — the maximum is 30\. HammerTime needs \d more roster spots?: .* The offer can still be sent, but it can't be accepted until that's done\.$/;
+test("DESKTOP: HammerTime at 30 receiving 2 → the roster maximum WARNS at Send (actual count, spots needed) and Send stays enabled; the offer's taxi-flagged player is sent for the taxi-move count", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters[SENDER] = rosterSender();
+  mfl.st.rosters[HAMMER] = thirtyActive();
+  const { api, state, els, calls } = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+  const payload = payloadOf(SENDER, HAMMER, rosterAssets, [pickAsset]);
+  api.refreshOfferComplianceIfNeeded(payload);
+  await settle();
+  t.deepEqual(calls[0].body.taxi_step_player_ids, ["7001"], "only the player the offer sends to taxi");
+  t.equal(state.offerCompliance.status, "ok", "the maximum doesn't block Send"); t.equal(api.offerIsReady(payload), true);
+  t.equal(state.offerCompliance.rosterLimit.status, "blocked", "but it would refuse an Accept right now");
+  api.renderOfferAlerts(payload);
+  t.match(els.offerAlerts.children[0].textContent, SEND_WARNING);
+  api.renderSubmitArea(payload);
+  t.equal(els.submitOfferBtn.disabled, false);
+  t.equal(mfl.st.imports.length, 0, "a preview never writes to MFL");
+});
+test("MOBILE: the same offer — the roster warning shows (actual count, spots needed, can still be sent) and Send stays enabled", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters[SENDER] = rosterSender();
+  mfl.st.rosters[HAMMER] = thirtyActive();
+  const { api, builderState, calls } = loadMobileOfferReview(env, { token: "tok-A" });
+  const payload = payloadOf(SENDER, HAMMER, rosterAssets, [pickAsset]);
+  api.refreshBuilderComplianceIfNeeded(payload);
+  await settle();
+  t.deepEqual(calls[0].body.taxi_step_player_ids, ["7001"]);
+  t.equal(builderState.compliance.status, "ok", "canSubmit");
+  const html = api.builderComplianceAlertHtml(builderState.compliance);
+  t.match(html.replace(/<[^>]+>/g, "").replace(/&#39;/g, "'"), SEND_WARNING);
+  t.equal(mfl.st.imports.length, 0);
+});
+
+// ═══════════════ review 2026-10-09: an UNESTABLISHED season window is named at Send — never "loaded-contract" / "try again" ═══════════════
+const setCalendar = (env, value) => {
+  env.UPS_MFL_DB.raw.exec("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
+  env.UPS_MFL_DB.raw.prepare("INSERT OR REPLACE INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', ?, 'x')").run(value);
+};
+const thirtyFiveActive = () => Array.from({ length: 35 }, (_, i) => ({ id: String(8000 + i), salary: 1000, contractStatus: "Vet-FAA" }));
+const WINDOW_NOTICE = /^We couldn't confirm which roster limit applies right now: the 2026 FA Auction start isn't on the league calendar\. This trade depends on it — a team would be over 35\. The commissioner sets it in Commish Settings → Update League Calendar; until then a trade that depends on it can't be accepted\. The offer can still be sent, but it can't be accepted until that's settled\.$/;
+test("DESKTOP + MOBILE: the FA Auction start isn't on the calendar and HammerTime would go 35 → 36 — Send stays enabled, and the sender is told why it can't be accepted yet and who fixes it", async () => {
+  await atClock("2026-07-01T15:00:00Z", async () => {
+    const { env, mfl } = fresh();
+    setCalendar(env, JSON.stringify({ season: "2026", faa: { contract_deadline_at: "2026-09-06T23:59" } }));
+    mfl.st.rosters[SENDER] = [{ id: "7000", salary: 1000, contractStatus: "Vet-FAA" }];
+    mfl.st.rosters[HAMMER] = thirtyFiveActive();
+    const payload = payloadOf(SENDER, HAMMER, [{ type: "PLAYER", player_id: "7000" }], [pickAsset]);
+    const d = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+    d.api.refreshOfferComplianceIfNeeded(payload);
+    await settle();
+    t.equal(d.state.offerCompliance.rosterLimit.status, "unavailable"); t.equal(d.state.offerCompliance.status, "ok", "the roster maximum never blocks Send");
+    d.api.renderOfferAlerts(payload);
+    t.match(d.els.offerAlerts.children[0].textContent, WINDOW_NOTICE);
+    d.api.renderSubmitArea(payload);
+    t.equal(d.els.submitOfferBtn.disabled, false);
+    const m = loadMobileOfferReview(env, { token: "tok-A" });
+    m.api.refreshBuilderComplianceIfNeeded(payload);
+    await settle();
+    t.equal(m.builderState.compliance.status, "ok", "mobile: sendable");
+    t.match(m.api.builderComplianceAlertHtml(m.builderState.compliance).replace(/<[^>]+>/g, "").replace(/&#39;/g, "'"), WINDOW_NOTICE);
+    t.equal(mfl.st.imports.length, 0);
+  });
+});
+test("DESKTOP + MOBILE: an unverifiable FIVE-QB count (the calendar can't be read, in-season unknown) names the QB check — it used to say 'Cannot verify loaded-contract limit'", async () => {
+  const { env, mfl } = fresh();
+  setCalendar(env, "{not json");
+  mfl.st.positions = QB_POS;
+  mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters[HAMMER] = fiveActiveQbs();
+  const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+  const d = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+  d.api.refreshOfferComplianceIfNeeded(payload);
+  await settle();
+  t.equal(d.state.offerCompliance.qbLimit.status, "unavailable"); t.equal(d.state.offerCompliance.loadedContracts.status, "ok");
+  t.equal(d.state.offerCompliance.status, "unavailable", "the client still fails closed, as for any unverifiable hard limit");
+  d.api.renderOfferAlerts(payload);
+  const text = d.els.offerAlerts.children[0].textContent;
+  t.match(text, /^We couldn't confirm whether the in-season five-QB limit applies right now: the 2026 contract deadline couldn't be read/);
+  t.doesNotMatch(text, /loaded-contract/);
+  const m = loadMobileOfferReview(env, { token: "tok-A" });
+  m.api.refreshBuilderComplianceIfNeeded(payload);
+  await settle();
+  const html = m.api.builderComplianceAlertHtml(m.builderState.compliance);
+  t.match(html, /five-QB limit applies right now: the 2026 contract deadline couldn&#39;t be read/); t.doesNotMatch(html, /loaded-contract/);
+});
+
 await run("trade_offer_review_loaded_contract_preview");
 restoreConsole();

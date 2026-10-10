@@ -30,6 +30,8 @@ const ctxWait = () => { const p = []; return { waitUntil: (x) => p.push(x), flus
 
 const FR = { A: "0008", B: "0001" };
 const MIGRATIONS = [...THREE_WAY_MIGRATIONS, "0162_ups_trade_cap_acknowledgments.sql", "0163_ups_trade_conditional_drops.sql", "0164_ups_2way_trades.sql"];
+// roster maximum + five active QBs, both fine (the real compliance route always carries them; the staged gate requires them)
+const LIMITS_OK = { roster_limit: { status: "ok", max: 30, rows: [], violations: [], executable: true, message: "" }, qb_limit: { status: "ok", max: 5, rows: [], violations: [], executable: true, message: "" } };
 
 function makeEnv(opts) {
   opts = opts || {};
@@ -42,6 +44,9 @@ function makeEnv(opts) {
   const healthy = { participants: [], cap: { status: "ok", reason: "", cap_dollars: 300000, rows: [], violations: [], message: "Every team stays under the salary cap." },
     roster: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team stays within its roster limits." },
     loaded_contracts: { status: "ok", max: 5, rows: [], violations: [], message: "Every team stays at or under the 5 loaded-contract limit." },
+    // the real compliance route has carried these since #1189; the staged gate requires them (missing = unavailable)
+    roster_limit: { status: "ok", max: 30, rows: [], violations: [], executable: true, message: "Every team stays at or under the roster maximum." },
+    qb_limit: { status: "ok", max: 5, rows: [], violations: [], executable: true, message: "Every team stays at or under 5 active QBs." },
     lineup: { status: "ok", advisory: true, rows: [], warnings: [], message: "Every team can still field a complete legal lineup after this trade." },
     extension_skipped: [] };
   const self = opts.self === false ? undefined : { fetch: async (u, init) => {
@@ -237,7 +242,7 @@ test("ZERO MFL WRITES: a cap overage with no acknowledgment holds the trade at a
   const env = makeEnv({
     compliance: () => ({
       participants: [], cap: { status: "blocked", cap_dollars: 300000, violations: [{ franchise_id: FR.A, franchise_name: "Real Deal Creel", amount_over: 5000 }], message: "x" },
-      roster: { status: "ok", advisory: true, warnings: [], message: "" }, loaded_contracts: { status: "ok", max: 5, violations: [], message: "" },
+      roster: { status: "ok", advisory: true, warnings: [], message: "" }, loaded_contracts: { status: "ok", max: 5, violations: [], message: "" }, ...LIMITS_OK,
       lineup: { status: "ok", advisory: true, warnings: [], message: "" }, extension_skipped: [],
     }),
   });
@@ -248,6 +253,22 @@ test("ZERO MFL WRITES: a cap overage with no acknowledgment holds the trade at a
   t.equal(x.kind, "cap_ack_required");
   const row = env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(created.id);
   t.equal(row.status, "collecting");
+});
+
+test("REVIEW 2026-10-09: the staged engine (retired, flags off) is no path around the roster maximum or the five-QB rule — each holds the trade; a compliance answer without them is 'unavailable', never a pass", async () => {
+  const base = { participants: [], cap: { status: "ok", cap_dollars: 300000, violations: [], message: "" }, roster: { status: "ok", advisory: true, warnings: [], message: "" },
+    loaded_contracts: { status: "ok", max: 5, violations: [], message: "" }, lineup: { status: "ok", advisory: true, warnings: [], message: "" }, extension_skipped: [] };
+  for (const [name, over, kind] of [
+    ["roster maximum", { ...LIMITS_OK, roster_limit: { status: "blocked", max: 30, violations: [{ franchise_id: FR.B, franchise_name: "L.A. Looks", active_after: 31, max: 30, message: "L.A. Looks would have 31 active players right after this trade — the maximum is 30." }], executable: false, message: "L.A. Looks would have 31 active players right after this trade — the maximum is 30." } }, "roster_room_required"],
+    ["five active QBs", { ...LIMITS_OK, qb_limit: { status: "blocked", max: 5, violations: [{ franchise_id: FR.B, franchise_name: "L.A. Looks", active_qbs_after: 6, max: 5, message: "L.A. Looks would have 6 QBs on the active roster right after this trade — the maximum is 5." }], executable: false, message: "L.A. Looks would have 6 QBs on the active roster right after this trade — the maximum is 5." } }, "qb_limit_exceeded"],
+    ["no roster_limit in the answer", {}, "unavailable"],
+  ]) {
+    const env = makeEnv({ compliance: () => ({ ...base, ...over }) });
+    const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+    const x = await accept2WayTrade(env, ctxWait(), created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    t.equal(x.executing, false, name); t.equal(x.held, true, name); t.equal(x.kind, kind, name);
+    t.equal(env.UPS_MFL_DB.raw.prepare("SELECT status FROM ups_2way_trades WHERE id=?").get(created.id).status, "collecting", name);
+  }
 });
 
 test("ZERO MFL WRITES: cancelling a staged trade before either side finishes deciding writes only to D1, never MFL", async () => {
@@ -266,7 +287,7 @@ test("DETAIL: get2WayTrade exposes fresh cap_ack on a plain GET -- not only insi
   const env = makeEnv({
     compliance: () => ({
       participants: [], cap: { status: "blocked", cap_dollars: 300000, violations: [{ franchise_id: FR.A, franchise_name: "Real Deal Creel", amount_over: 5000 }], message: "x" },
-      roster: { status: "ok", advisory: true, warnings: [], message: "" }, loaded_contracts: { status: "ok", max: 5, violations: [], message: "" },
+      roster: { status: "ok", advisory: true, warnings: [], message: "" }, loaded_contracts: { status: "ok", max: 5, violations: [], message: "" }, ...LIMITS_OK,
       lineup: { status: "ok", advisory: true, warnings: [], message: "" }, extension_skipped: [],
     }),
   });

@@ -42,6 +42,12 @@ test("RE-CHECK: an accepted-but-cap-held trade — success, still blocked (with 
   t.equal(held.ok, false); t.equal(held.kind, "still_blocked"); t.match(held.message, /Hawks would be \$5,000 over/);
   const unavail = V.interpretRecheck(ok({ ok: false, code: "cap_check_unavailable", message: "We couldn't verify the salary cap for this trade right now." }, 409));
   t.equal(unavail.kind, "still_blocked");
+  // review 2026-10-09: a 3-way held by the roster maximum / five active QBs / loaded contracts re-checks to ITS OWN code
+  // (it used to come back as cap_exceeded) and still reads as "still blocked", with the server's own words
+  for (const code of ["roster_room_required", "qb_limit_exceeded", "loaded_contract_limit_exceeded"]) {
+    const r = V.interpretRecheck(ok({ ok: false, code, message: "Hawks would have 31 active players right after this trade — the maximum is 30." }, 409));
+    t.equal(r.kind, "still_blocked", code); t.equal(r.code, code); t.match(r.message, /Hawks would have 31 active players/);
+  }
   const anon = V.interpretRecheck(ok({ ok: false, code: "unauthenticated" }, 401)); t.equal(anon.ok, false); t.equal(anon.kind, "unauthenticated");
   const net = V.interpretRecheck({ networkError: true }); t.equal(net.ok, false); t.equal(net.retryable, true);
   const boom = V.interpretRecheck(ok({ ok: false, error: "TypeError: x is not a function at index.js:123" }, 500));
@@ -110,7 +116,7 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // own -- see that file's own removal-era comments), so the two diverge further. This
   // assertion tracks the CURRENT true pairing, not a fixed pin -- update it again whenever
   // either file's own real content changes and bumps its stamp.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.01.3"],
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.09.5", "2026.10.09.5"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   // Numeric, component-by-component comparison -- a lexicographic string compare (the

@@ -174,9 +174,9 @@
         "The $260K floor is softer, and it only exists for the auction and preseason. Touch it at any single instant during the FA Auction and you are satisfied for the year - one moment counts, and a player going on IR afterwards does not undo it. If you finish the auction short you have until the September contract deadline to get there, and front-loading a contract is the intended way to do it. Miss both and you are charged exactly what you were short, against this season and next: end $10K light and never fix it, that is $10K now and $10K next year. The doubling is the point, because paying it once would just be the money you declined to spend.",
         "Your roster floor is 27 players, and it holds from auction close through the end of the season. The auction window is the one stretch in-season where the roster may float below it.",
         "Before the FA Auction there are no limits at all — no cap ceiling, no floor, no roster minimum or maximum. You can sit $40K over the cap in April with 40 players. Compliance starts when the auction opens.",
-        "The ceiling runs 35 during the auction and drops to 30 at the September contract deadline. MFL enforces that one at write time.",
+        "The ceiling runs 35 during the auction and drops to 30 at the September contract deadline. MFL enforces that one at write time. A War Room trade is held to the same calendar: no roster limit before the FA Auction starts, 35 from then until the deadline, 30 until the season ends, and none again after it. A trade that would put a team over can still be sent, with a warning, but it can't be accepted until that team makes room.",
         "Four NFL starting quarterbacks is your limit, taxi squad included, measured once a year on the contract deadline off the FantasyPros depth chart. A backup you're sitting on who steals the job in Week 11 doesn't put you in violation, so enjoy it.",
-        "Five QBs on the active roster is a separate ceiling, and it is measured at the September contract deadline, the same day as the 4-starter cap.",
+        "Five QBs on the active roster is a separate ceiling, and it works two ways. It's measured once at the September contract deadline, the same day as the 4-starter cap. And in-season, from that deadline through the end of Week 17, no War Room trade can leave a team with a sixth active QB. QBs on taxi or IR don't count, but a QB you trade for counts as active the moment the trade goes through. Make your QB move first, or rework the offer.",
         "Tagged salary counts in full, exactly like any other active-roster salary. That's the line people get wrong most often on their own cap sheet.",
         "For your real available number: start at $300K, subtract every active salary, add back IR refunds and any cap money sent to you, then subtract drop penalties, fines, and cap money you've sent away. The fines are what catch people, because they were charged last August and nobody remembers them.",
         "Before you fire off a max bid, hold back $1K for every roster spot you still need to reach 27 and for every positional hole you still have to fill. Winning a bidding war with your last dollars and then discovering you have no punter is a UPS tradition, and not a proud one."
@@ -251,13 +251,13 @@
         "A player on IR stops counting against the roster ceiling and gives back half his salary. That is the half people forget when they are doing auction math.",
         "Bid through the UPS app during the auction and it will refuse a bid outright — roster already at 35, a bid above your funds minus the $1K you owe each empty spot, or a position you can no longer afford to take because every remaining spot is owed elsewhere.",
         "Those checks only exist in UPS's own tools. Bid through MFL Lite or MFL directly and none of them run — only MFL's own cap enforcement applies, so it is possible to put yourself somewhere the UPS app would have stopped you.",
-        "Neither QB cap is enforced by any software. Both are checked by hand at the contract deadline."
+        "At the September deadline, both QB caps are checked by hand. The only automated QB check is the in-season War Room trade rule: it refuses a trade that would give a team a sixth active QB."
       ],
       "open_questions": [
         "Canon says missing the floor puts you out of compliance and triggers a cap penalty, but never says how much.",
         "The 50% IR relief has not been traced against a live case - no player is currently on IR, so the code path is unverified.",
         "Canon says a called-up taxi player's salary counts 'for that week' but not whether that is a full-salary hit or a one-week slice.",
-        "Canon does not say what happens if you breach the 5-QB active maximum mid-season."
+        "Canon now covers a sixth active QB arriving by trade in-season (the War Room refuses it), but still does not say what happens if a team goes over five active QBs some other way mid-season."
       ],
       "layout": [
         "numbers",
@@ -610,7 +610,8 @@
         "A three-team trade is proposed by one owner, the initiator, and both partners have to accept it in their Discord DM before anything moves. While it's still waiting, only the initiator can call it off (a partner just declines). The commissioner can also call it off, but has to give a reason, and all three teams are told. Once all three have accepted, it can't be cancelled.",
         "When you accept a two-team offer, you accept exactly what was offered. Everything is re-checked at that moment: if a player or pick has moved, or cap money or an extension no longer fits the rules, the accept is refused instead of being adjusted.",
         "The salary cap is a hard stop when a trade is accepted, two-team or three-team. If the numbers, worked out right then, would leave any team over the cap, the trade doesn't happen and you're told which team and by how much. Exactly at the cap is fine; a dollar over isn't. Nobody can override it, the commissioner included.",
-        "Roster counts are only a heads-up. Before you confirm, you'll see each team's roster count after the trade, with a flag on any team over or under its limit. That flag isn't a ruling that the trade is legal, and MFL can still say no on its own."
+        "The roster maximum is a hard stop when a War Room trade is accepted. It follows the league calendar: no limit before the FA Auction starts, 35 from then until the September contract deadline, 30 until the end of the season, and none again after it. You can send an offer that would put a team over. You'll see the team, its count right after the trade, and how many spots it needs. But it can't be accepted until that team makes room. In a two-team trade, a player arriving from the other team's taxi squad who is still taxi-eligible and fits on your taxi squad counts once he's moved there; in a three-team trade he counts as active. The 27-player minimum is only a heads-up, and MFL can still refuse a trade on its own.",
+        "In-season, from the September contract deadline through the end of Week 17, a War Room trade also can't leave either team with more than five active QBs. That's a trade rule on top of the five-QB check at the contract deadline. QBs on taxi or IR don't count; an arriving QB counts as active."
       ],
       "numbers": [
         {

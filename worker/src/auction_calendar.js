@@ -80,7 +80,9 @@ export function calendarSettingsKey(env, leagueId) {
 // about the real league, so they must keep resolving to prod without being
 // touched. Only surfaces that explicitly act on a chosen league (the settings
 // save, the calendar push) pass one.
-export async function getAuctionCalendar(env, leagueId) {
+// opts.readOnly (2026-10-08): skip ensureTable's CREATE — for READ-ONLY paths that must issue no write statement of any kind
+// (a missing table then reads as "nothing configured", exactly what a freshly created empty table would have said).
+export async function getAuctionCalendar(env, leagueId, opts = {}) {
   const empty = {
     season: null,
     faa: Object.fromEntries(FIELD_KEYS.map((k) => [k, ""])),
@@ -102,9 +104,11 @@ export async function getAuctionCalendar(env, leagueId) {
   // See rule_no_fail_open_guards.
   if (!env || !env.UPS_MFL_DB) return { ...empty, read_error: "no_d1_binding" };
   try {
-    await ensureTable(env);
+    if (!opts.readOnly) await ensureTable(env);
     const key = calendarSettingsKey(env, leagueId);
-    const row = await env.UPS_MFL_DB.prepare("SELECT value, updated_at FROM ups_settings WHERE key=?").bind(key).first();
+    let row;
+    try { row = await env.UPS_MFL_DB.prepare("SELECT value, updated_at FROM ups_settings WHERE key=?").bind(key).first(); }
+    catch (e) { if (opts.readOnly && /no such table/i.test(String(e && e.message))) row = null; else throw e; }
     if (!row || !row.value) return { ...empty, read_error: "", league_id: safeStr(leagueId) || productionLeagueId(env), settings_key: key };   // genuinely unset
     const cfg = JSON.parse(row.value);
     const faa = (cfg && cfg.faa && typeof cfg.faa === "object") ? cfg.faa : {};

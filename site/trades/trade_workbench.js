@@ -5897,6 +5897,8 @@
       state.offerCompliance.signature = "";
       state.offerCompliance.status = "idle";
       state.offerCompliance.loadedContracts = null;
+      state.offerCompliance.qbLimit = null;
+      state.offerCompliance.rosterLimit = null;
       return;
     }
     if (sig === state.offerCompliance.signature && state.offerCompliance.status !== "idle") return;
@@ -5904,24 +5906,38 @@
     state.offerCompliance.signature = sig;
     state.offerCompliance.status = "loading";
     state.offerCompliance.loadedContracts = null;
+    state.offerCompliance.qbLimit = null;
+    state.offerCompliance.rosterLimit = null;
     var movements = tw2sMovementsFromPayload(payload);
     var fromFid = pad4(payload.teams[0].franchise_id);
     var extensionRequests = payload.extension_requests || [];
     (async function () {
-      var status = "unavailable", loadedContracts = null;
+      var status = "unavailable", loadedContracts = null, qbLimit = null, rosterLimit = null;
       try {
         var ctx = getLeagueContext();
-        var body = { league_id: ctx.leagueId, season: ctx.season, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests };
+        // The players this offer sends to the receiver's taxi squad: the accept's taxi step moves exactly these,
+        // so the roster-maximum warning may count those moves (the server checks each is eligible).
+        var taxiStepIds = [];
+        (payload.teams || []).forEach(function (team) { (team.selected_assets || []).forEach(function (a) { if (a && a.taxi && a.player_id) taxiStepIds.push(String(a.player_id)); }); });
+        var body = { league_id: ctx.leagueId, season: ctx.season, from_franchise_id: fromFid, movements: movements, extension_requests: extensionRequests, taxi_step_player_ids: taxiStepIds };
         var res = await tw2sFetch(resolveCompliancePreviewApiUrl(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         if (res && !res.networkError && res.ok && res.body && res.body.ok !== false && res.body.compliance && res.body.compliance.loaded_contracts) {
           var lc = res.body.compliance.loaded_contracts;
-          status = lc.status === "blocked" ? "blocked" : lc.status === "ok" ? "ok" : "unavailable";
-          loadedContracts = lc;
+          // Five active QBs (Keith 2026-10-07) blocks SEND like the loaded-contract limit. The roster maximum
+          // does not block Send — it is required before ACCEPT — so it is only shown as a notice here.
+          var qb = res.body.compliance.qb_limit || null;
+          // a server that doesn't send the QB block yet isn't a failure: its own Send gate is the authority.
+          // "not_applicable" = outside the in-season window (the five-QB trade limit applies in-season only).
+          var qbStatus = !qb || qb.status === "not_applicable" ? "ok" : qb.status;
+          status = (lc.status === "blocked" || qbStatus === "blocked") ? "blocked" : (lc.status === "ok" && qbStatus === "ok") ? "ok" : "unavailable";
+          loadedContracts = lc; qbLimit = qb; rosterLimit = res.body.compliance.roster_limit || null;
         }
       } catch (e) { /* status stays "unavailable" -- fail closed */ }
       if (mySeq !== state.offerCompliance.seq) return; // a newer composition superseded this request
       state.offerCompliance.status = status;
       state.offerCompliance.loadedContracts = loadedContracts;
+      state.offerCompliance.qbLimit = qbLimit;
+      state.offerCompliance.rosterLimit = rosterLimit;
       renderSummary();
     })();
   }
@@ -6712,6 +6728,11 @@
     // under granular "no assets selected" bullets either.
     if (!tw2sMovementsFromPayload(payload).length) {
       entries.push({ text: "Add assets to build an offer.", bad: false });
+    } else if (state.offerCompliance.status === "blocked" && state.offerCompliance.qbLimit && state.offerCompliance.qbLimit.status === "blocked") {
+      // Five active QBs (Keith 2026-10-07): the server's own wording names the team and the move it must make.
+      var qbv = state.offerCompliance.qbLimit.violations || [];
+      for (i = 0; i < qbv.length; i += 1) entries.push({ text: safeStr(qbv[i].message), bad: true });
+      if (!qbv.length) entries.push({ text: "This trade would leave a team over 5 active QBs. Revise the offer, or that team makes a legal QB move first.", bad: true });
     } else if (state.offerCompliance.status === "blocked" && state.offerCompliance.loadedContracts) {
       // The live loaded-contract result -- shown here, in the Offer Review panel itself,
       // before the owner ever clicks Send. Exact wording Keith specified: "{Team}: N loaded
@@ -6725,10 +6746,24 @@
       }
       if (!violations.length) entries.push({ text: "This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first.", bad: true });
     } else if (state.offerCompliance.status === "unavailable") {
-      entries.push({ text: "Cannot verify loaded-contract limit. Try again in a moment.", bad: true });
+      // Name the limit that couldn't be verified (review 2026-10-09): with the loaded-contract count fine, an
+      // unverifiable five-QB count used to read "Cannot verify loaded-contract limit". The server's QB message
+      // says why (e.g. the league calendar doesn't establish the in-season window yet).
+      var qbU = state.offerCompliance.qbLimit, lcU = state.offerCompliance.loadedContracts;
+      if (qbU && qbU.status === "unavailable" && lcU && lcU.status === "ok") entries.push({ text: safeStr(qbU.message) || "Cannot verify the active-QB count. Try again in a moment.", bad: true });
+      else entries.push({ text: "Cannot verify loaded-contract limit. Try again in a moment.", bad: true });
     } else if (state.offerCompliance.status === "loading") {
       entries.push({ text: "Checking the loaded-contract limit…", bad: false });
     }
+    // The roster maximum doesn't stop Send (Keith 2026-10-07: a team may legally make room while the offer is
+    // pending), but it can't be ACCEPTED until the team over it makes its move. The message carries the actual
+    // count, the count after any taxi move the accept will make, and the spots still needed.
+    var rlv = state.offerCompliance.rosterLimit && state.offerCompliance.rosterLimit.status === "blocked" ? (state.offerCompliance.rosterLimit.violations || []) : [];
+    for (i = 0; i < rlv.length; i += 1) entries.push({ text: safeStr(rlv[i].message) + " The offer can still be sent, but it can't be accepted until that's done.", bad: true });
+    // The league calendar can't yet say which roster maximum applies and this trade depends on it (e.g. next season's
+    // FA Auction start isn't entered): Send is still allowed, but Accept will be refused until it is — say so now.
+    var rlu = state.offerCompliance.rosterLimit;
+    if (rlu && rlu.status === "unavailable" && rlu.window && rlu.window.phase === "unknown" && safeStr(rlu.message)) entries.push({ text: safeStr(rlu.message) + " The offer can still be sent, but it can't be accepted until that's settled.", bad: true });
     for (i = 0; i < entries.length; i += 1) {
       var alert = document.createElement("div");
       alert.className = "twb-offer-alert" + (entries[i].bad ? " twb-offer-alert-bad" : "");

@@ -27,7 +27,14 @@ const OK = { participants: ["0001", "0002"], cap: { status: "ok", reason: "", ca
   roster: { status: "ok", advisory: true, rows: [{ franchise_id: "0001", franchise_name: "L.A. Looks", active_before: 30, active_after: 30, min: 27, max: 35, status: "within" }], warnings: [], message: "Every team stays within its roster limits." } };
 const BLOCKED = { ...OK, cap: { status: "blocked", reason: "over_cap", cap_dollars: 300000, rows: [capRow("0001", "L.A. Looks", 310000, 10000), capRow("0002", "CBP", 250000)], violations: [{ franchise_id: "0001", amount_over: 10000 }], message: "L.A. Looks would be $10,000 over the $300,000 salary cap after this trade (projected $310,000)." } };
 const UNAVAIL = { participants: [], cap: { status: "unavailable", reason: "x", cap_dollars: null, rows: [], violations: [], message: "We couldn't verify the salary cap for this trade right now." }, roster: { status: "unavailable", advisory: true, rows: [], warnings: [], message: "We couldn't check the roster counts for this trade right now." } };
-const WARN = { ...OK, roster: { status: "warn", advisory: true, rows: [{ franchise_id: "0002", franchise_name: "CBP", active_before: 35, active_after: 36, min: 27, max: 35, status: "above_max" }], warnings: [{ franchise_id: "0002" }], message: "CBP would have 36 active players after this trade (limit 35), so a cut may be needed afterward. This is a heads-up, not a ruling on whether the trade is allowed — MFL decides when it processes the trade." } };
+// Over the roster MAXIMUM is a hard gate since 2026-10-07 (compliance.roster_limit); the 27 minimum stays a heads-up.
+const OVER_ROW = { franchise_id: "0002", franchise_name: "CBP", active_before: 35, active_after: 36, active_after_taxi: 36, taxi_moves: [], taxi_not_credited: [], min: 27, max: 35, status: "above_max", moves_needed: 1 };
+const WARN = { ...OK, roster: { status: "ok", advisory: true, rows: [OVER_ROW], warnings: [], message: "Every team stays at or above the roster minimum." },
+  roster_limit: { status: "blocked", max: 35, rows: [OVER_ROW], executable: false, violations: [{ ...OVER_ROW, message: "CBP would have 36 active players right after this trade — the maximum is 35. CBP needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer." }],
+    message: "CBP would have 36 active players right after this trade — the maximum is 35. CBP needs 1 more roster spot: make 1 legal roster move first (for example, move an eligible injured player to IR), or revise the offer." } };
+const MIN_ROW = { franchise_id: "0002", franchise_name: "CBP", active_before: 27, active_after: 26, active_after_taxi: 26, taxi_moves: [], taxi_not_credited: [], min: 27, max: 35, status: "below_min", moves_needed: 0 };
+const MINWARN = { ...OK, roster: { status: "warn", advisory: true, rows: [MIN_ROW], warnings: [{ ...MIN_ROW }], message: "CBP would have 26 active players after this trade (minimum 27), so an add may be needed afterward. The minimum is a heads-up, not a block." },
+  roster_limit: { status: "ok", max: 35, rows: [MIN_ROW], violations: [], executable: true, message: "Every team stays at or under the roster maximum." } };
 const view = (c, res) => T.renderAcceptReview(T.interpretPreview(res || { ok: true, status: 200, body: { ok: true, compliance: c } }));
 const has = (h, act) => h.includes(`data-t3w-act="${act}"`);
 
@@ -41,11 +48,12 @@ test("SHARED: cap ok → the Accept button is offered; cap BLOCKED or UNAVAILABL
   t.ok(!has(un, "accept-confirm"), "no Accept button when the cap can't be verified"); t.match(un, /couldn(&#39;|')t verify the salary cap/); t.match(un, /can(&#39;|')t be accepted until we can/);
   t.doesNotMatch(un, /under the salary cap|within limits/i, "unavailable never reads as compliant");
 });
-test("SHARED: the roster warning is a heads-up — advisory, not a verdict — and never blocks the Accept button", () => {
+test("SHARED: over the roster MAXIMUM can't be accepted (both counts shown, the move named); under the 27 minimum is only a heads-up", () => {
   const h = view(WARN);
-  t.ok(has(h, "accept-confirm"), "an over-limit roster does not remove Accept"); t.match(h, /Roster counts — heads-up/); t.match(h, /CBP would have 36 active players/);
-  t.match(h, /35 → 36 active/); t.match(h, /Advisory only/); t.match(h, /MFL decides when the trade is processed/);
-  t.doesNotMatch(h, /illegal|not allowed|invalid|violat|certif|approved/i);
+  t.ok(!has(h, "accept-confirm"), "an over-maximum roster removes Accept"); t.match(h, /Can't be accepted — roster maximum/); t.match(h, /CBP would have 36 active players right after this trade — the maximum is 35/);
+  t.match(h, /35 → 36 active/); t.match(h, /CBP needs 1 more roster spot: make 1 legal roster move first/);
+  const m = view(MINWARN);
+  t.ok(has(m, "accept-confirm"), "the 27 minimum never blocks"); t.match(m, /Roster counts — heads-up/); t.match(m, /minimum is a heads-up/);
   const un = view({ ...OK, roster: UNAVAIL.roster });
   t.match(un, /Roster counts — couldn't be checked/); t.doesNotMatch(un, /Roster counts — within limits/); t.ok(has(un, "accept-confirm"), "the cap is fine, so accepting is still possible");
 });
@@ -187,25 +195,29 @@ test("MOBILE: cap data unavailable → the sheet says so, offers Try again, neve
   app.sheet().click("accept-retry"); await settle(40);
   html = app.sheet().innerHTML; t.ok(has(html, "accept-confirm"), "after the outage the same sheet can proceed"); t.deepEqual(actionsOf(app.log), ["PREVIEW", "PREVIEW"]);
 });
-test("MOBILE: the roster warning shows BEFORE the final confirmation, as a heads-up; the owner can still accept", async () => {
+test("MOBILE: over the roster maximum shows BEFORE the final confirmation, and the owner can't accept until that team has made its move", async () => {
   const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "35" } });
   const bulk = w.bulk;
-  w.mfl.st.rosters["0001"].push(...bulk(100, 28)); w.mfl.st.rosters["0002"].push(...bulk(500, 33));    // 0002: 13100 + 90002 + 33 = 35 active
-  const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);                              // 0002 receives 2, sends 1 → 36
+  // in-season the maximum is canon's 30 (the season window), whatever MFL's own setting says (35 here)
+  w.mfl.st.rosters["0001"].push(...bulk(100, 28)); w.mfl.st.rosters["0002"].push(...bulk(500, 28));    // 0002: 13100 + 90002 + 28 = 30 active
+  const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);                              // 0002 receives 2, sends 1 → 31
   const app = liveMobile(w.env, id);
   await app.click("accept");
   const html = app.sheet().innerHTML;
-  t.match(html, /Roster counts — heads-up/); t.match(html, /CBP would have 36 active players/); t.match(html, /Advisory only/);
-  t.doesNotMatch(html, /illegal|not allowed|invalid|certif/i); t.ok(has(html, "accept-confirm"));
-  t.deepEqual(actionsOf(app.log), ["PREVIEW"], "the warning was on screen before any accept");
+  t.match(html, /Can't be accepted — roster maximum/); t.match(html, /CBP would have 31 active players right after this trade — the maximum is 30/);
+  t.ok(!has(html, "accept-confirm"), "no Accept while CBP is over");
+  t.deepEqual(actionsOf(app.log), ["PREVIEW"], "nothing was sent: only the review ran");
 });
-test("MOBILE: roster-count authority missing is shown as unavailable, not as compliant", async () => {
-  const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "" } });
-  const id = await sendOffer(w.env, w.mfl, ["14056"], ["13100"]);
+test("MOBILE: when the league calendar can't say which roster limit applies and the trade depends on it, it's shown as unavailable, not as compliant", async () => {
+  const w = world({ fill1: 100000, fill2: 100000 });
+  w.mfl.st.rosters["0001"].push(...w.bulk(100, 28)); w.mfl.st.rosters["0002"].push(...w.bulk(500, 28));   // 0002: 30 → 31
+  const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);
+  { const env = w.env; env.UPS_MFL_DB.raw.exec("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)"); env.UPS_MFL_DB.raw.prepare("INSERT OR REPLACE INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', '{not json', 'x')").run(); }   // the calendar is unreadable: no phase
   const app = liveMobile(w.env, id);
   await app.click("accept");
   const html = app.sheet().innerHTML;
   t.match(html, /Roster counts — couldn't be checked/); t.doesNotMatch(html, /Roster counts — within limits/);
+  t.ok(!has(html, "accept-confirm"), "a trade that depends on the unknown limit can't be accepted");
 });
 test("MOBILE: if the offer moved on (no longer pending) the sheet says why and offers no Accept", async () => {
   const { env, mfl } = world({});
@@ -257,20 +269,20 @@ test("DESKTOP: a cap block shows the franchise and amount, offers no Accept, and
   t.match(d.dlg.innerHTML, /CBP would be \$10,000 over the \$300,000 salary cap/); t.ok(!d.dlg.has("accept-confirm")); t.ok(d.dlg.has("accept-close"));
   d.dlg.click("accept-close"); t.equal(await p, false); t.equal(mfl.writes("tradeResponse").length, 0);
 });
-test("DESKTOP: unavailable cap → says so with Try again; roster warning appears before confirmation as a heads-up", async () => {
+test("DESKTOP: unavailable cap → says so with Try again; over the roster maximum is shown before confirmation and can't be accepted", async () => {
   { const { env, mfl } = world({ fill1: 100000, fill2: 100000 });
     const id = await sendOffer(env, mfl, ["14056"], ["13100"]); mfl.st.exportFail = { league: 503 };
     const d = loadDesktop(env);
     const p = d.api.reviewBeforeAccept(d.url, previewBody(id)); await settle(40);
     t.match(d.dlg.innerHTML, /couldn&#39;t verify the salary cap/); t.ok(!d.dlg.has("accept-confirm")); t.ok(d.dlg.has("accept-retry"));
     d.dlg.click("accept-close"); t.equal(await p, false); }
-  { const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "35" } });
-    w.mfl.st.rosters["0001"].push(...w.bulk(100, 28)); w.mfl.st.rosters["0002"].push(...w.bulk(500, 33));
+  { const w = world({ fill1: 100000, fill2: 100000, league: { rosterSize: "35" } });   // MFL says 35; in-season canon says 30
+    w.mfl.st.rosters["0001"].push(...w.bulk(100, 28)); w.mfl.st.rosters["0002"].push(...w.bulk(500, 28));
     const id = await sendOffer(w.env, w.mfl, ["14056", "90001"], ["13100"]);
     const d = loadDesktop(w.env);
     const p = d.api.reviewBeforeAccept(d.url, previewBody(id)); await settle(40);
-    t.match(d.dlg.innerHTML, /Roster counts — heads-up/); t.match(d.dlg.innerHTML, /CBP would have 36 active players/); t.doesNotMatch(d.dlg.innerHTML, /illegal|not allowed|certif/i);
-    t.ok(d.dlg.has("accept-confirm")); t.deepEqual(actionsOf(d.log), ["PREVIEW"]);
+    t.match(d.dlg.innerHTML, /Can&#39;t be accepted — roster maximum|Can't be accepted — roster maximum/); t.match(d.dlg.innerHTML, /CBP would have 31 active players right after this trade — the maximum is 30/);
+    t.ok(!d.dlg.has("accept-confirm")); t.deepEqual(actionsOf(d.log), ["PREVIEW"]);
     d.dlg.click("accept-close"); await p; }
 });
 test("DESKTOP: performOfferAction reviews BEFORE it accepts, and stops when the review is declined (source-level guarantee)", () => {

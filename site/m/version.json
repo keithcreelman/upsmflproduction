@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.09.4",
-  "label": "Players: when MFL's rosters don't fully load, nobody is called a free agent — the list, player card and search say ownership is unknown and offer no add or bid until a refresh."
+  "build": "2026.10.09.5",
+  "label": "Trades: the War Room checks the roster maximum for the league calendar's stretch (35 from the FA Auction to the contract deadline, 30 through Week 17) and, in-season, five active QBs, counted as MFL shows them right after the trade. Over the maximum warns at Send and can't be accepted; the team makes its own move first."
 }

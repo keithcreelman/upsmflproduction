@@ -53,7 +53,11 @@ import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
   indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
 } from "./trade_accept_integrity.js";
-import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap_authority.js";
+import { evaluateTradeCompliance, loadedContractBlockPayload, tradeLimitBlockPayload } from "./trade_cap_authority.js";
+import { evaluateTaxiDestinations } from "./trade_taxi_destination.js";
+import { planRosterChecks, cureDeadline, rosterCheckMessage, rosterCheckCommishCopy, currentOverage } from "./trade_roster_check.js";
+import { tradeSeasonWindow, loadAuctionStart } from "./trade_season_window.js";
+import { loadContractDeadline, resolveContractDeadline, deadlineState, determinateDeadlineUnix, withDateOnlyLadderEnd } from "./contract_deadline.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
@@ -7300,6 +7304,25 @@ export default {
             console.log(`[scheduled */5] auction poll: new_bids=${r.new_bids} new_wins=${r.new_wins} purged_lots=${r.purged_lots || 0} purged_bids=${r.purged_bids || 0} active_lots=${r.active_lots}`);
           }
         }).catch((e) => console.error(`[scheduled */5] auction poll failed: ${e && e.message}`)));
+        // Roster / five-QB check after trades accepted on MFL's own site (Keith 2026-10-07). Read-only on MFL;
+        // DMs only; flag-gated (ships OFF). Every 5 minutes so the owner hears within minutes of the trade.
+        ctx.waitUntil((async () => {
+          try {
+            if (!env.SELF || !env.UPS_MFL_DB || !(await getFeatureFlag(env, "TRADE_ROSTER_CHECK_ENABLED"))) return;
+            const rk = String(env.COMMISH_API_KEY || "").trim(); if (!rk) return;
+            const rl = String(env.LEAGUE_ID || "74598");
+            // WHICH SEASON (review 2026-10-09): the LIVE MFL league year (league_year.js, the same resolver the drop pipeline
+            // uses since #1207), never the calendar year — Week 17 runs into January and the next year's league 404s until the
+            // rollover, so from Jan 1 the calendar year read a league that doesn't exist ("blind" every tick) and stopped
+            // closing or escalating the season's open alerts. Unresolved → this tick checks nothing (never a guessed season).
+            const live = await _liveDropLeagueYear(env, rl);
+            if (!live.ok) { console.log(`[roster-check] skipped: live MFL league year unresolved (${live.reason})`); return; }
+            const rs = live.season;
+            const r = await env.SELF.fetch(`https://self.invalid/admin/trades/roster-check?L=${rl}&YEAR=${rs}&APIKEY=${encodeURIComponent(rk)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: rs, league_id: rl }) });
+            const d = await r.json().catch(() => ({}));
+            if (d && (d.ok === false || (d.findings && d.findings.length))) console.log("[roster-check]", JSON.stringify(d).slice(0, 600));
+          } catch (e) { console.log("[roster-check] failed:", String(e?.message || e)); }
+        })());
       } catch (e) {
         console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
       }
@@ -20171,25 +20194,19 @@ export default {
           // hid a real bug for a full deploy cycle (#952).
           out.contract_ladder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
           try {
-            let cdUnix = null;
-            const cdRow = await db.prepare(
-              "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
-            ).bind(String(season)).first();
-            const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
-            if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
-              const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
-              if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
-            }
+            // the ONE resolver (contract_deadline.js); null when it can't be decided for now → unresolved, with the reason
+            const cdRes = await loadContractDeadline(env, season);
+            const cdUnix = determinateDeadlineUnix(cdRes, Math.floor(Date.now() / 1000));
             const [lw3, lw5] = await Promise.all([
               nflWeekFirstKickoffUnix(season, 3),
               nflWeekFirstKickoffUnix(season, 5),
             ]);
-            out.contract_ladder = contractLadderStage({
+            out.contract_ladder = withDateOnlyLadderEnd(contractLadderStage({
               contractDeadlineUnix: cdUnix,
               week3KickoffUnix: lw3,
               week5KickoffUnix: lw5,
               nowUnix: Math.floor(Date.now() / 1000),
-            });
+            }), cdRes);
             if (out.contract_ladder.stage === "unresolved") {
               out.contract_ladder.reason = !cdUnix ? "no_contract_deadline"
                 : (!lw3 || !lw5) ? "no_week_kickoffs" : "boundaries_out_of_order";
@@ -33181,28 +33198,13 @@ const mflToSleeper = {};
         return Date.now() > deadline.getTime();
       };
 
-      // September CONTRACT deadline (last Sunday before NFL Week 1) — the deadline
-      // for FINAL-YEAR VETERAN extensions + MYAC per canon §C4/§C2. Distinct from
-      // the May tag/rookie-extension deadline above. Reads the league calendar
-      // when in scope; falls back to the pinned 2026 value (2026-09-06 21:00 ET).
-      // HARDCODED baseline for the September contract deadline. Kept as the
-      // fallback and as the value every non-gate consumer still reads.
-      // The ENFORCEMENT gate goes through resolveContractDeadlineUtc() below,
-      // which layers the commish-editable calendar on top of this.
+      // September CONTRACT deadline (last Sunday before NFL Week 1) — the deadline for FINAL-YEAR VETERAN extensions + MYAC
+      // per canon §C4/§C2. Every consumer goes through ONE resolver, worker/src/contract_deadline.js (Keith 2026-10-08).
+      // This sync form returns only the APPROVED PINNED value (2026: 2026-09-06 23:59 ET, open through 23:59:59) — it used
+      // to read 21:00 ET from the reminder calendar — and null for any other season: no time is invented.
       const getContractDeadlineUtc = (season) => {
-        const calRoot = (typeof DEADLINE_REMINDER_CALENDAR !== "undefined") ? DEADLINE_REMINDER_CALENDAR : null;
-        const cc = (calRoot && calRoot[String(season)] && calRoot[String(season)].contract_deadline) || null;
-        const dateEt = safeStr(cc && cc.deadline_date_et) || (String(season) === "2026" ? "2026-09-06" : "");
-        const timeEt = safeStr(cc && cc.deadline_time_et) || "21:00";
-        if (!dateEt) return null;
-        // Early September is always EDT (UTC-4).
-        const d = new Date(`${dateEt}T${timeEt}:00-04:00`);
-        return isNaN(d.getTime()) ? null : d;
-      };
-      const hasContractDeadlinePassed = (season) => {
-        const deadline = getContractDeadlineUtc(season);
-        if (!deadline) return false;
-        return Date.now() > deadline.getTime();
+        const r = resolveContractDeadline({ season, calendar: null });
+        return r.exact ? new Date(r.deadline_unix * 1000) : null;
       };
 
       // EFFECTIVE September contract deadline — the value that ENFORCES the
@@ -33224,43 +33226,14 @@ const mflToSleeper = {};
       //     open. Guessing writes a real contract against the wrong window, and per
       //     rule_no_fail_open_guards an unreadable input is never "empty".
       // Absence of a config is NOT an error — it is "not configured" → hardcoded.
-      const resolveContractDeadlineUtc = async (season) => {
-        const fallback = getContractDeadlineUtc(season);
-        let cfg = null;
-        try {
-          cfg = await getAuctionCalendar(env);
-        } catch (e) {
-          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${e && e.message}` };
-        }
-        // getAuctionCalendar reports read failures via read_error rather than
-        // throwing (it returns the empty shape on error, which is byte-identical to
-        // "nothing configured"). Without this check a transient D1 fault — observed
-        // live 2026-08-05 as `exceeded its CPU time limit [code: 7429]` — would look
-        // like an unset field and silently enforce the HARDCODED deadline instead of
-        // the configured one, i.e. lock extensions at a different instant than the
-        // commish set. Refuse instead; the caller surfaces 503 and the owner retries.
-        if (cfg && cfg.read_error) {
-          return { deadline: null, source: "error", error: `contract_calendar_unreadable: ${cfg.read_error}` };
-        }
-        if (!env || !env.UPS_MFL_DB) {
-          return { deadline: null, source: "error", error: "contract_calendar_unreadable: no D1 binding" };
-        }
-        const cfgSeason = safeStr(cfg && cfg.season);
-        const wall = safeStr(cfg && cfg.faa && cfg.faa.contract_deadline_at);
-        if (!wall || (cfgSeason && cfgSeason !== safeStr(season))) {
-          return { deadline: fallback, source: "hardcoded", error: "" };
-        }
-        const m = wall.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
-        if (!m) {
-          // Stored but unparseable — refuse. Silently reverting to the hardcoded date
-          // would enforce a window the commish believes he changed.
-          return { deadline: null, source: "error", error: `contract_deadline_at malformed: "${wall}"` };
-        }
-        const d = new Date(`${m[1]}T${m[2]}:00-04:00`);   // early Sept is always EDT
-        if (isNaN(d.getTime())) {
-          return { deadline: null, source: "error", error: `contract_deadline_at unparseable: "${wall}"` };
-        }
-        return { deadline: d, source: "calendar", error: "" };
+      // A thin wrapper over the ONE resolver (contract_deadline.js) that keeps this function's historical shape for its
+      // callers: { deadline (exact instant or null), source, error, resolved }. `resolved` is the full result — callers that
+      // GATE use deadlineState(resolved, now): "unknown" (none / unreadable / a date-only day) must refuse.
+      const resolveContractDeadlineUtc = async (season, opts = {}) => {
+        void opts;   // always read-only now
+        const r = await loadContractDeadline(env, season);
+        const source = r.source === "pinned" ? "hardcoded" : r.source;
+        return { deadline: r.exact ? new Date(r.deadline_unix * 1000) : null, source, error: r.source === "error" ? r.error : "", resolved: r };
       };
 
       const formatContractSubmissionDate = (rawValue) => {
@@ -35168,7 +35141,7 @@ const mflToSleeper = {};
           contract_deadline: {
             title: "Contract Deadline",
             deadline_date_et: "2026-09-06",
-            deadline_time_et: "21:00",
+            deadline_time_et: "23:59",   // the approved 2026 time (contract_deadline.js PINNED) — was 21:00
             reminder_send_time_et: "09:00",
             summary: "Extensions, auction multis, and option decisions need to be locked before kickoff week closes the door.",
             reminder_offsets_days: [7, 1],
@@ -38280,7 +38253,84 @@ const mflToSleeper = {};
       // 2-way preview, the 3-way accept/execute gates and the 3-way detail view. Reads live MFL exports
       // (rosters, salaryAdjustments, league); any failure comes back as status "unavailable" (fail closed).
       // Client-supplied cap totals are never an input. See worker/src/trade_cap_authority.js.
-      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops }) => {
+      // Valid taxi destinations for players arriving from the other team's TAXI squad (Keith 2026-10-07):
+      // the facts trade_taxi_destination.js judges, read live. Every source that can't be read is passed as
+      // null, so that player is NOT credited (fail closed) — he simply counts as active, as MFL will show.
+      const loadTaxiDestinations = async ({ season, leagueId, movements, rosters, players }) => {
+        const statusOf = {}, contractOf = {}, teamOf = {};
+        for (const fr of asArray(rosters?.data?.rosters?.franchise).filter(Boolean)) {
+          const fid = padFranchiseId(fr?.id);
+          for (const p of asArray(fr?.player).filter(Boolean)) {
+            const pid = String(p?.id || "").replace(/\D/g, "");
+            statusOf[`${fid}|${pid}`] = safeStr(p?.status).toUpperCase(); contractOf[pid] = safeStr(p?.contractStatus);
+          }
+        }
+        for (const p of asArray(players?.data?.players?.player).filter(Boolean)) teamOf[String(p?.id || "").replace(/\D/g, "")] = safeStr(p?.team);
+        const arrivals = [];
+        for (const m of asArray(movements)) for (const tok of asArray(m && m.tokens)) {
+          const pid = String(tok || "");
+          if (/^\d+$/.test(pid) && /TAXI/.test(statusOf[`${padFranchiseId(m.from)}|${pid}`] || "")) arrivals.push({ player_id: pid, contract_status: contractOf[pid] || "", nfl_team: teamOf[pid] || "" });
+        }
+        if (!arrivals.length) return {};
+        const pids = arrivals.map((x) => x.player_id);
+        const yr = parseInt(season, 10);
+        const [draftPicks, callupCounts, priorSeasonActive, kickoffByTeam] = await Promise.all([
+          (async () => {
+            const out = {};
+            for (const y of [yr, yr - 1, yr - 2]) {
+              const r = await mflExportJson(String(y), leagueId, "draftResults", {}, { useCookie: true });
+              if (!r || !r.ok) return null;
+              for (const u of asArray(r.data?.draftResults?.draftUnit).filter(Boolean)) for (const dp of asArray(u?.draftPick).filter(Boolean)) {
+                const pid = safeStr(dp?.player);
+                if (pids.includes(pid) && !out[pid]) out[pid] = { round: parseInt(dp?.round, 10) || 0, year: y };
+              }
+            }
+            return out;
+          })().catch(() => null),
+          (async () => {
+            const { results } = await env.UPS_MFL_DB.prepare(`SELECT player_id, COUNT(*) AS n FROM ups_taxi_callups WHERE league_id = ? AND pending = 0 AND player_id IN (${pids.map(() => "?").join(",")}) GROUP BY player_id`).bind(String(leagueId), ...pids).all();
+            const out = {}; for (const r of results || []) out[safeStr(r.player_id)] = Number(r.n) || 0; return out;
+          })().catch(() => null),
+          (async () => {
+            const set = new Set();
+            for (const y of [yr - 1, yr - 2]) {
+              const r = await mflExportJson(String(y), leagueId, "rosters", {}, { useCookie: true });
+              if (!r || !r.ok) return null;
+              for (const fr of asArray(r.data?.rosters?.franchise).filter(Boolean)) for (const p of asArray(fr?.player).filter(Boolean)) {
+                const pid = String(p?.id || "").replace(/\D/g, "");
+                if (pids.includes(pid) && !/TAXI/i.test(safeStr(p?.status))) set.add(pid);
+              }
+            }
+            return set;
+          })().catch(() => null),
+          (async () => {
+            const wk = await resolveCurrentLineupWeek(season, leagueId);
+            if (!wk || !(wk.week > 0)) return null;
+            const map = await nflWeekKickoffsByTeam(season, wk.week);
+            return Object.keys(map || {}).length ? map : null;
+          })().catch(() => null),
+        ]);
+        return evaluateTaxiDestinations({ season, arrivals, draftPicks, callupCounts, priorSeasonActive, kickoffByTeam, nowUnix: Math.floor(Date.now() / 1000) });
+      };
+
+      // WHICH roster limits a trade is held to right now (Keith 2026-10-08 — worker/src/trade_season_window.js): offseason
+      // none · FA Auction → contract deadline 35 · in-season 30 + five active QBs. Boundaries: the league calendar (FA Auction
+      // start; the contract deadline through the ONE resolver, contract_deadline.js) and the NFL Week-17 schedule — never
+      // MFL's own roster/position settings. Read-only; anything unestablished → phase "unknown" (fails closed where it matters).
+      const loadTradeSeasonWindow = async (season) => {
+        const nowUnix = Math.floor(Date.now() / 1000);
+        const [contractDeadline, auctionStart, week17] = await Promise.all([
+          loadContractDeadline(env, season),
+          loadAuctionStart(env, season),
+          nflWeekKickoffsByTeam(season, 17).catch(() => ({})),
+        ]);
+        return tradeSeasonWindow({ nowUnix, auctionStart, contractDeadline, week17Kickoffs: week17 });
+      };
+
+      // `taxiStep` (Keith 2026-10-07): pass `{ pids }` ONLY from the two-team War Room path, whose accept runs the
+      // verified taxi step for exactly those players (applyTaxiDemotionsFromPayload: moves, checks MFL's rosters,
+      // needs-review + owner/commissioner DM on failure). Omitted = no taxi step (3-way): nothing is credited.
+      const computeTradeComplianceLive = async ({ season, leagueId, movements, extensionSalary, taxiFlags, rostersRes, extensionRequests, conditionalDrops, taxiStep }) => {
         try {
           const opts = { includeApiKey: true, useCookie: true };
           const [rosters, league, adjustments, salaries, players] = await Promise.all([
@@ -38294,7 +38344,10 @@ const mflToSleeper = {};
             // loaded_contracts closed, since none of those read position at all.
             mflExportJson(season, leagueId, "players", { DETAILS: 1 }, opts),
           ]);
-          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops });
+          const stepPids = taxiStep && Array.isArray(taxiStep.pids) ? taxiStep.pids : [];
+          const taxiDestinations = stepPids.length ? await loadTaxiDestinations({ season, leagueId, movements, rosters, players }).catch(() => ({})) : {};
+          const seasonWindow = await loadTradeSeasonWindow(season).catch(() => ({ phase: "unknown", candidates: ["offseason", "auction", "in_season"], roster_max: null, qb_limit: null, boundaries: {}, reason: "window_load_failed" }));
+          return evaluateTradeCompliance({ league, rosters, salaries, adjustments, movements, extensionSalary, taxiFlags, players, extensionRequests, conditionalDrops, taxiDestinations, taxiStep: taxiStep || null, seasonWindow });
         } catch (e) {
           console.error("[trade-compliance] calculation failed:", e && e.message);
           return evaluateTradeCompliance({ league: null, rosters: null, adjustments: null, movements: [] });
@@ -38340,7 +38393,8 @@ const mflToSleeper = {};
         } catch (_) { /* stays null */ }
         try {   // September contract deadline — commissioner calendar over the pinned baseline; unreadable ⇒ closed
           const d = await resolveContractDeadlineUtc(season);
-          if (d && d.deadline && !d.error) facts.deadlineUnix = Math.floor(d.deadline.getTime() / 1000);
+          const du = d && d.resolved ? determinateDeadlineUnix(d.resolved, nowUnix) : null;   // null when it can't be decided → stays unavailable
+          if (du != null) facts.deadlineUnix = du;
         } catch (_) { /* stays null */ }
         try { facts.rookieWindowOpen = !hasTagDeadlinePassed(season); } catch (_) { /* stays null */ }
         if (facts.deadlineUnix != null && nowUnix > facts.deadlineUnix) {   // only after the deadline does the acquisition time matter
@@ -38668,9 +38722,10 @@ const mflToSleeper = {};
           }
         },
         // Live cap/roster projection for a 3-way row (used by the accept + execute gates and the detail view).
-        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc, conditionalDrops }) => {
+        // `taxiStep` is passed only by the two-team Send preview; the 3-way engine's /admin/3way/compliance call never does.
+        compliance: async ({ leagueId, season, movements, extensionRequests, offerCreatedAtUtc, conditionalDrops, taxiStep }) => {
           const ext = await planExtensionSalaries(season, leagueId, extensionRequests, { offerCreatedAtUtc });
-          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops });
+          const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops, taxiStep });
           out.extension_skipped = (ext.skipped || []).map((x) => ({ player_id: safeStr(x && x.player_id), reason: safeStr(x && x.reason) }));
           if (!ext.ok && out.cap.status !== "unavailable") { out.cap = { ...out.cap, status: "unavailable", reason: "extension_salaries_unavailable", message: "We couldn't verify the salary cap for this trade right now." }; }
           return out;
@@ -38766,7 +38821,11 @@ const mflToSleeper = {};
         // The caller must be one of the trade's own parties (or the commissioner) -- never lets
         // an unrelated owner probe another two teams' cap/roster situation.
         if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
-        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
+        // The Send-time warning for a TWO-team offer may count the taxi moves its accept will make (the offer's
+        // taxi-flagged players); the accept recomputes from the stored offer and live data. A 3-way never does.
+        const taxiStep = partyFids.size === 2 && Array.isArray(body?.taxi_step_player_ids)
+          ? { pids: body.taxi_step_player_ids.map((x) => safeStr(x).replace(/\D/g, "")).filter(Boolean) } : null;
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops, taxiStep });
         return jsonOut(200, { ok: true, compliance: out });
       }
 
@@ -39340,6 +39399,16 @@ const mflToSleeper = {};
                 who: affectsSender ? "sender" : "recipient",
                 error: blocked.message, message: blocked.message,
                 teams: blocked.teams,
+              });
+            }
+            // FIVE ACTIVE QBs (Keith 2026-10-07): at Send, neither team may end up over 5. Refused before
+            // any MFL write. (Like the checks above, an UNREADABLE count doesn't stop a send; Accept fails closed.)
+            if (createLoadedCompliance.qb_limit && createLoadedCompliance.qb_limit.status === "blocked") {
+              const blocked = tradeLimitBlockPayload(createLoadedCompliance.qb_limit, "qb_limit_exceeded");
+              return jsonOut(409, {
+                ok: false, code: blocked.code, error_type: blocked.code,
+                who: blocked.teams.some((t) => t.franchise_id === fromFranchiseId) ? "sender" : "recipient",
+                error: blocked.message, message: blocked.message, teams: blocked.teams,
               });
             }
           }
@@ -40334,6 +40403,14 @@ const mflToSleeper = {};
                   teams: blocked.teams,
                 });
               }
+              if (counterLoadedCompliance.qb_limit && counterLoadedCompliance.qb_limit.status === "blocked") {
+                const blocked = tradeLimitBlockPayload(counterLoadedCompliance.qb_limit, "qb_limit_exceeded");
+                return jsonOut(409, {
+                  ok: false, code: blocked.code, error_type: blocked.code,
+                  who: blocked.teams.some((t) => t.franchise_id === counterFromId) ? "sender" : "recipient",
+                  error: blocked.message, message: blocked.message, teams: blocked.teams,
+                });
+              }
             }
             // A counter that promises an extension is priced from the current contract BEFORE the original offer is rejected — a refusal here must
             // never leave the sender with their offer rejected and no counter sent.
@@ -40583,6 +40660,9 @@ const mflToSleeper = {};
               // CREATE gate above for the full ruling text.
               acceptCompliance = await computeTradeComplianceLive({
                 season, leagueId, rostersRes: acceptRostersRes, extensionSalary: acceptExtSalary, taxiFlags,
+                // this accept's own taxi step (runTradePostProcessing → applyTaxiDemotionsFromPayload) moves exactly
+                // the same payload's taxi-flagged players, so only they may be credited against the roster maximum
+                taxiStep: { pids: Object.keys(taxiFlags) },
                 movements: capFids.map((f) => ({ from: f, to: capFids.find((x) => x !== f), tokens: byFranchise[f] })),
                 // loaded_indicator here is read from the SAME extension_requests field the
                 // existing 3-way extension preview/DM code already reads at this identical
@@ -40647,6 +40727,28 @@ const mflToSleeper = {};
                 const blocked = loadedContractBlockPayload(acceptCompliance.loaded_contracts);
                 console.warn("[trade-accept] loaded-contract limit exceeded:", JSON.stringify({ trade_id: mflTradeId, teams: blocked.teams }));
                 return integrityFail(409, blocked.code, blocked.message + " Nothing was changed.", { teams: blocked.teams });
+              }
+              // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07): refused before MFL unless every team ends
+              // at or under the roster maximum after the VALID taxi moves this accept's own taxi step will make,
+              // and at or under 5 ACTUAL active QBs (no taxi credit). Any other move must be made first.
+              // Unreadable → fail closed. The 27 minimum stays a heads-up.
+              if (action === "ACCEPT") {
+                for (const [blockKey, code, label] of [["roster_limit", "roster_room_required", "roster maximum"], ["qb_limit", "qb_limit_exceeded", "active-QB count"]]) {
+                  const gate = acceptCompliance[blockKey];
+                  if (!gate || gate.status === "unavailable") {
+                    // A season window the league calendar can't establish is named, never "try again" (review 2026-10-09):
+                    // a missing calendar input (e.g. next season's FA Auction start or contract deadline) won't fix itself.
+                    const gw = gate && gate.window;
+                    const why = gw && gw.phase === "unknown" && gate.message ? safeStr(gate.message) : "";
+                    if (why && gw.calendar_input_missing) return integrityFail(409, `${blockKey}_calendar_missing`, `${why} Nothing was changed.`, { compliance: acceptCompliance });
+                    return integrityFail(503, `${blockKey}_check_unavailable`, why ? `${why} Nothing was changed; try again in a moment.` : `We couldn't verify the ${label} for this trade right now, so it wasn't accepted. Try again in a moment.`, { compliance: acceptCompliance });
+                  }
+                  if (gate.status === "blocked") {
+                    const blocked = tradeLimitBlockPayload(gate, code);
+                    console.warn(`[trade-accept] ${blockKey} exceeded:`, JSON.stringify({ trade_id: mflTradeId, teams: blocked.teams }));
+                    return integrityFail(409, blocked.code, blocked.message + " Nothing was changed.", { teams: blocked.teams, compliance: acceptCompliance });
+                  }
+                }
               }
               // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith 2026-09-30) -------------
               // ACCEPT is this legacy engine's own "execute" -- it posts straight to MFL for
@@ -40730,7 +40832,9 @@ const mflToSleeper = {};
               const loadedContractBlock = acceptCompliance.loaded_contracts.status === "blocked"
                 ? loadedContractBlockPayload(acceptCompliance.loaded_contracts)
                 : null;
-              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_block: loadedContractBlock });
+              const rosterLimitBlock = acceptCompliance.roster_limit && acceptCompliance.roster_limit.status === "blocked" ? tradeLimitBlockPayload(acceptCompliance.roster_limit, "roster_room_required") : null;
+              const qbLimitBlock = acceptCompliance.qb_limit && acceptCompliance.qb_limit.status === "blocked" ? tradeLimitBlockPayload(acceptCompliance.qb_limit, "qb_limit_exceeded") : null;
+              return jsonOut(200, { ok: true, mode: "direct_mfl", action: "PREVIEW", trade_id: mflTradeId, compliance: acceptCompliance, cap_ack: capAckPreview, loaded_contract_block: loadedContractBlock, roster_limit_block: rosterLimitBlock, qb_limit_block: qbLimitBlock });
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {
@@ -46328,7 +46432,7 @@ const mflToSleeper = {};
         // GATE, which must refuse rather than guess; it is wrong here, where
         // the alternative is publishing an eligibility block with NO contract
         // deadline at all. getContractDeadlineUtc can never return null for
-        // 2026 — the pinned 2026-09-06 21:00 ET value lives inside it — so
+        // 2026 — the approved pinned 2026-09-06 23:59 ET value (contract_deadline.js) lives inside it — so
         // there is a known-good date to print, and a possibly-stale date
         // clearly labelled as the fallback beats no date.
         //
@@ -52488,6 +52592,227 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // traded cap the same way a normal 2-party trade does (the 3-way engine
       // wrongly moved it as blind-bid dollars instead of a salary settlement).
       // Requires the commish MFL_COOKIE (salaryAdj import is cookie-gated).
+      // POST /admin/trades/roster-check?L=&YEAR=&APIKEY=   body { dry_run? }
+      // After a trade accepted ENTIRELY on MFL's own site — which the War Room cannot intercept — any team
+      // left over the roster maximum or over five active QBs gets ONE DM (and the commissioner a copy) with
+      // the actual counts, the required move and the deadline (worker/src/trade_roster_check.js). Runs every
+      // 5 minutes from the cron when TRADE_ROSTER_CHECK_ENABLED is on. READ-ONLY on MFL: it never drops,
+      // voids or penalizes. A D1 claim is written before the DM and removed again if none lands, so a Discord
+      // hiccup retries instead of swallowing the alert; after the deadline, a team still over gets ONE
+      // commissioner escalation. War Room trades are skipped (their gates and #1187 cover them).
+      if (path === "/admin/trades/roster-check" && request.method === "POST") {
+        if (!sessionByApiKey) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let rcBody = {};
+        try { rcBody = (await request.json()) || {}; } catch (_) { rcBody = {}; }
+        const rcSeason = safeStr(rcBody.season || url.searchParams.get("YEAR") || YEAR || "");
+        const rcLeague = safeStr(rcBody.league_id || url.searchParams.get("L") || L || "74598");
+        // A DRY RUN is read-only end to end — no heartbeat, no claim table, no DM — so it is safe to send to
+        // production (2026-10-08). Only a dry run may widen the window or move the start date, to replay real trades.
+        const rcDry = _wvTruthy(rcBody.dry_run);
+        if (!rcSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!rcDry && !(await getFeatureFlag(env, "TRADE_ROSTER_CHECK_ENABLED"))) return jsonOut(200, { ok: true, skipped: "flag_off" });
+        const rcSinceRaw = safeStr((rcDry && rcBody.since) || env.TRADE_ROSTER_CHECK_SINCE || "2026-10-08T00:00:00Z");
+        const rcSince = /^\d+$/.test(rcSinceRaw) ? Number(rcSinceRaw) : Math.floor(Date.parse(rcSinceRaw) / 1000);
+        if (!Number.isFinite(rcSince) || rcSince <= 0) return jsonOut(500, { ok: false, error: "TRADE_ROSTER_CHECK_SINCE unreadable", value: rcSinceRaw });
+        const rcWindowSec = (rcDry ? Math.min(24 * 14, Math.max(36, safeInt(rcBody.window_hours, 36))) : 36) * 3600;
+        const rcNow = Math.floor(Date.now() / 1000);
+        const rcStaleSec = 15 * 60;   // a 'sending' claim this old means the run that made it never finished
+        const rcBeat = async (status) => { if (rcDry) return; try { await env.UPS_MFL_DB.prepare("INSERT INTO ups_bot_heartbeat (bot, last_ts, status) VALUES ('trade_roster_check', ?, ?) ON CONFLICT(bot) DO UPDATE SET last_ts=excluded.last_ts, status=excluded.status").bind(rcNow, status).run(); } catch (_) {} };
+        // Alerts still open (sent, or being sent) — one per team and limit, closed again once MFL shows the team back within it.
+        // A trade from BEFORE a team's last resolution can neither start nor block an alert for that team and limit.
+        let rcOpen = [];
+        const rcResolvedAt = new Map();
+        try {
+          const { results } = await env.UPS_MFL_DB.prepare("SELECT check_key, franchise_id, kind, status, trade_ts, deadline_unix, escalated_at_utc, updated_at_utc, message FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND status IN ('sending', 'notified', 'resolved') ORDER BY trade_ts")
+            .bind(rcLeague, rcSeason).all();
+          for (const r of results || []) {
+            if (r.status === "resolved") {
+              const fk = `${padFranchiseId(r.franchise_id)}|${r.kind}`, at = Math.floor((Date.parse(r.updated_at_utc) || 0) / 1000);
+              if (at > (rcResolvedAt.get(fk) || 0)) rcResolvedAt.set(fk, at);
+            } else rcOpen.push(r);
+          }
+        } catch (e) {
+          if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:claims_unreadable"); return jsonOut(200, { ok: false, error: "claims_unreadable" }); }
+        }
+        const [rcTx, rcRos, rcLg] = await Promise.all([
+          mflExportJson(rcSeason, rcLeague, "transactions", { TRANS_TYPE: "TRADE", DAYS: String(Math.ceil(rcWindowSec / 86400) + 1) }, { useCookie: true }),
+          mflExportJson(rcSeason, rcLeague, "rosters", {}, { useCookie: true }),
+          mflExportJson(rcSeason, rcLeague, "league", {}, { useCookie: true }),
+        ]);
+        if (!rcTx.ok || !rcRos.ok || !rcLg.ok) { await rcBeat("blind:mfl_unreadable"); return jsonOut(200, { ok: false, error: "mfl_unreadable" }); }
+        const rcTrades = asArray(rcTx.data?.transactions?.transaction).filter(Boolean);
+        const rcRecent = rcTrades.filter((t) => (parseInt(t.timestamp, 10) || 0) >= Math.max(rcSince, rcNow - rcWindowSec));
+        if (!rcRecent.length && !rcOpen.length) { await rcBeat("ok:no_recent_trades"); return jsonOut(200, { ok: true, dry_run: rcDry, findings: [], notified: 0 }); }
+        const rcRoot = rcLg.data?.league || {};
+        // The limits come from the SEASON WINDOW (trade_season_window.js; Keith 2026-10-08) — canon's maximum for the phase
+        // (offseason none · auction 35 · in-season 30; five active QBs in-season only), never MFL's rosterSize. While the
+        // phase can't be established, no alert is sent (and no open alert is closed): never a DM on a guess.
+        const rcWin = await loadTradeSeasonWindow(rcSeason).catch(() => ({ phase: "unknown", candidates: [], roster_max: null, qb_limit: null, boundaries: {}, reason: "window_load_failed" }));
+        const rcKnown = rcWin.phase !== "unknown";
+        const rcMax = rcKnown ? rcWin.roster_max : null;
+        const rcNames = {};
+        for (const f of asArray(rcRoot.franchises?.franchise).filter(Boolean)) rcNames[padFranchiseId(f.id)] = safeStr(f.name);
+        const rcRosters = {}, rcPids = new Set();
+        for (const fr of asArray(rcRos.data?.rosters?.franchise).filter(Boolean)) {
+          const fid = padFranchiseId(fr.id);
+          rcRosters[fid] = asArray(fr.player).filter(Boolean).map((p) => ({ id: String(p.id || "").replace(/\D/g, ""), status: safeStr(p.status) }));
+        }
+        const rcFids = new Set(rcOpen.map((o) => padFranchiseId(o.franchise_id)));
+        for (const t of rcRecent) { rcFids.add(padFranchiseId(t.franchise)); rcFids.add(padFranchiseId(t.franchise2)); }
+        for (const fid of rcFids) for (const p of rcRosters[fid] || []) rcPids.add(p.id);
+        const rcPl = await mflExportJson(rcSeason, rcLeague, "players", { PLAYERS: [...rcPids].join(","), DETAILS: "1" }, { useCookie: true });
+        if (!rcPl.ok) { await rcBeat("blind:players_unreadable"); return jsonOut(200, { ok: false, error: "players_unreadable" }); }
+        const rcPos = {}, rcTeam = {};
+        for (const p of asArray(rcPl.data?.players?.player).filter(Boolean)) { const pid = String(p.id || "").replace(/\D/g, ""); rcPos[pid] = safeStr(p.position); rcTeam[pid] = safeStr(p.team); }
+        let rcWar = [];
+        try {
+          const { results } = await env.UPS_MFL_DB.prepare("SELECT participants, mfl_executed_at_utc FROM ups_trade_executions WHERE league_id = ? AND season = ? AND mfl_executed_at_utc IS NOT NULL AND mfl_executed_at_utc >= ?")
+            .bind(rcLeague, rcSeason, new Date((rcNow - rcWindowSec - 4 * 3600) * 1000).toISOString()).all();
+          rcWar = (results || []).map((r) => ({ participants: safeStr(r.participants), mfl_executed_at_unix: Math.floor(Date.parse(r.mfl_executed_at_utc) / 1000) }));
+        } catch (e) {
+          // the War Room ledger couldn't be read: rather than mistake a War Room trade for a native one, wait
+          if (!/no such table/i.test(String(e && e.message))) { await rcBeat("blind:ledger_unreadable"); return jsonOut(200, { ok: false, error: "ledger_unreadable" }); }
+        }
+        // the five-QB limit is in-season only (trade_season_window.js) — QB findings only when the phase is in_season
+        const rcFindings = (rcKnown ? planRosterChecks({ trades: rcRecent, rosters: rcRosters, rosterMax: rcMax, positions: rcPos, warRoom: rcWar, sinceUnix: rcSince, nowUnix: rcNow, windowSec: rcWindowSec, qbApplies: rcWin.qb_limit === true }) : [])
+          .sort((x, y) => x.trade_ts - y.trade_ts);
+        let rcKick = null;
+        const rcKickoffs = async () => {
+          if (rcKick) return rcKick;
+          try {
+            const wk = await resolveCurrentLineupWeek(rcSeason, rcLeague);
+            rcKick = wk && wk.week > 0 ? [await nflWeekKickoffsByTeam(rcSeason, wk.week), await nflWeekKickoffsByTeam(rcSeason, wk.week + 1)] : [];
+          } catch (_) { rcKick = []; }
+          return rcKick;
+        };
+        const rcEt = (unix) => new Date(unix * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+        const rcAge = (iso) => rcNow - Math.floor((Date.parse(iso) || 0) / 1000);
+        const rcWindowStart = Math.max(rcSince, rcNow - rcWindowSec);
+        // the owner's DM + the commissioner's copy for one alert → { owner, commish } (counts of DMs that landed)
+        const rcSend = async (fid, teamName, msg) => {
+          let owner = 0, commish = 0;
+          try { const ids = await resolveDiscordUserIds(env, fid); if (ids.length) owner = (await dmAll(env, ids, { content: msg, allowed_mentions: { parse: [] } })).sent || 0; } catch (_) {}
+          try { commish = await dmCommish(env, rosterCheckCommishCopy({ teamName, message: msg, ownerReached: owner > 0 })); } catch (_) {}
+          return { owner, commish };
+        };
+        // the ONE commissioner escalation for an open alert past its deadline: claimed first (conditional), the claim undone if the DM fails
+        const rcEscalate = async (checkKey, teamName, kind, counts) => {
+          const ts = new Date().toISOString();
+          const own = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'notified' AND escalated_at_utc IS NULL").bind(ts, ts, rcLeague, rcSeason, checkKey).run();
+          if (!(own && own.meta && own.meta.changes)) return "already_notified";
+          const esc = await dmCommish(env, `⏰ Commissioner review: the deadline has passed and ${teamName} is still over — ${kind === "qb" ? `${counts.active_qbs} active QBs (maximum 5)` : `${counts.active} active players (maximum ${counts.max})`}. Nothing has been dropped, voided or penalized.`).catch(() => 0);
+          if (!esc) await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = NULL WHERE league_id = ? AND season = ? AND check_key = ? AND escalated_at_utc = ?").bind(rcLeague, rcSeason, checkKey, ts).run();
+          return esc ? "escalated" : "escalation_failed";
+        };
+        if (!rcDry) {
+          await env.UPS_MFL_DB.prepare(`CREATE TABLE IF NOT EXISTS ups_trade_roster_check (league_id TEXT NOT NULL, season TEXT NOT NULL, check_key TEXT NOT NULL, franchise_id TEXT NOT NULL, kind TEXT NOT NULL,
+            trade_ts INTEGER NOT NULL, deadline_unix INTEGER, status TEXT NOT NULL, message TEXT, notified_owner INTEGER DEFAULT 0, notified_commish INTEGER DEFAULT 0, escalated_at_utc TEXT,
+            created_at_utc TEXT NOT NULL, updated_at_utc TEXT NOT NULL, PRIMARY KEY (league_id, season, check_key))`).run();
+        }
+        const rcOut = [];
+        // 1. close every open alert whose team MFL now shows back within that limit (a later overage then alerts again)
+        const rcOpenByFk = new Map();
+        for (const o of rcOpen) {
+          const fid = padFranchiseId(o.franchise_id);
+          if (!rcKnown) { const fk0 = `${fid}|${o.kind}`; if (!rcOpenByFk.has(fk0)) rcOpenByFk.set(fk0, o); continue; }   // can't tell → leave it open
+          // outside the limit's phase (offseason; or the QB limit outside the season) the team is no longer over it
+          const ov = currentOverage({ roster: rcRosters[fid], rosterMax: rcMax, positions: rcWin.qb_limit ? rcPos : null });
+          const back = o.kind === "qb" ? (!rcWin.qb_limit || ov.qb === false) : !ov.roster;
+          const sending = o.status === "sending";
+          if (back && (!sending || rcAge(o.updated_at_utc) >= rcStaleSec)) {
+            if (!rcDry) {
+              const ts = new Date().toISOString();
+              await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET status = 'resolved', updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = ?").bind(ts, rcLeague, rcSeason, o.check_key, o.status).run();
+            }
+            rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: rcDry ? "would_resolve" : "resolved", active: ov.active, active_qbs: ov.active_qbs });
+            rcResolvedAt.set(`${fid}|${o.kind}`, rcNow);
+            continue;
+          }
+          const fk = `${fid}|${o.kind}`;
+          if (!rcOpenByFk.has(fk)) rcOpenByFk.set(fk, o);
+          // An open alert whose trade has LEFT the window can't be reached by a finding any more (findings come only from
+          // trades inside it), so it is handled here (review 2026-10-09). Before, a 'sending' claim whose run never finished
+          // was never retried once its trade aged out — and, still open, it silently covered every LATER overage for that
+          // team and limit; a 'notified' alert that reached its deadline after the window got no escalation.
+          if (back || (Number(o.trade_ts) || 0) >= rcWindowStart) continue;
+          const teamName = rcNames[fid] || fid;
+          const counts = { active: ov.active, active_qbs: ov.active_qbs, max: rcMax };
+          if (sending && rcAge(o.updated_at_utc) >= rcStaleSec) {
+            // A LOST send: its cure deadline (24 h after the trade at most) has already passed, so the owner can't be given it
+            // now. The commissioner gets the alert that should have gone out, and the claim is RELEASED, so a later overage of
+            // this team and limit alerts again on its own (with its own deadline) instead of being covered by a send that
+            // never happened. Claimed first (conditional, one run only); kept for a retry if that DM fails.
+            if (rcDry) { rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "would_release_lost_send", ...counts }); if (rcOpenByFk.get(fk) === o) rcOpenByFk.delete(fk); continue; }
+            const ts = new Date().toISOString();
+            const r2 = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending' AND updated_at_utc = ?").bind(ts, rcLeague, rcSeason, o.check_key, o.updated_at_utc).run();
+            if (!(r2 && r2.meta && r2.meta.changes)) continue;
+            const told = await dmCommish(env, `⚠️ Commissioner review: a roster-check alert for ${teamName} was claimed but never confirmed sent, and its trade is now more than ${rcWindowSec / 3600} hours old. ${teamName} is still over — ${o.kind === "qb" ? `${ov.active_qbs} active QBs (maximum 5)` : `${ov.active} active players (maximum ${rcMax})`}. The alert that should have gone out: ${safeStr(o.message)} Nothing has been dropped, voided or penalized.`).catch(() => 0);
+            if (told) {
+              await env.UPS_MFL_DB.prepare("DELETE FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending' AND updated_at_utc = ?").bind(rcLeague, rcSeason, o.check_key, ts).run();
+              if (rcOpenByFk.get(fk) === o) rcOpenByFk.delete(fk);
+              rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "released_lost_send", notified_commish: told, ...counts });
+            } else rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "release_failed_will_retry", ...counts });   // stays 'sending': retried after another 15 minutes
+          } else if (o.status === "notified" && !o.escalated_at_utc && rcNow >= (Number(o.deadline_unix) || 0)) {
+            if (rcDry) { rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "would_escalate", ...counts }); continue; }
+            rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: await rcEscalate(o.check_key, teamName, o.kind, counts), ...counts });
+          }
+        }
+        // 2. each finding: ONE alert per team and limit while it stays over, however many trades are involved
+        for (const f of rcFindings) {
+          const teams = (rcRosters[f.franchise_id] || []).filter((p) => p.status.toUpperCase() === "ROSTER").map((p) => rcTeam[p.id]);
+          const dl = cureDeadline({ tradeTs: f.trade_ts, nflTeams: teams, kickoffs: await rcKickoffs(), nowUnix: rcNow });
+          const teamName = rcNames[f.franchise_id] || f.franchise_id;
+          const msg = rosterCheckMessage({ finding: f, teamName: rcNames[f.franchise_id], otherName: rcNames[f.other_id], tradeWhenEt: rcEt(f.trade_ts), deadlineEt: rcEt(dl.deadline_unix), basis: dl.basis });
+          const checkKey = `${f.trade_key}|${f.franchise_id}|${f.kind}`;
+          const fk = `${f.franchise_id}|${f.kind}`;
+          const rec = { ...f, check_key: checkKey, deadline_unix: dl.deadline_unix, deadline_basis: dl.basis, message: msg };
+          const open = rcOpenByFk.get(fk);
+          if (open && open.check_key !== checkKey) { rcOut.push({ ...rec, action: "covered_by_open_alert", open_check_key: open.check_key }); continue; }
+          if (!open && f.trade_ts < (rcResolvedAt.get(fk) || 0)) { rcOut.push({ ...rec, action: "before_resolution" }); continue; }
+          if (rcDry) {
+            const due = open && open.status === "notified" && !open.escalated_at_utc && rcNow >= (Number(open.deadline_unix) || 0);
+            rcOut.push({ ...rec, action: !open ? "would_notify" : due ? "would_escalate" : open.status === "sending" && rcAge(open.updated_at_utc) >= rcStaleSec ? "would_retry_stale_send" : "already_notified" });
+            if (!open) rcOpenByFk.set(fk, { check_key: checkKey, status: "sending" });
+            continue;
+          }
+          const ts = new Date().toISOString();
+          const claim = await env.UPS_MFL_DB.prepare(`INSERT OR IGNORE INTO ups_trade_roster_check (league_id, season, check_key, franchise_id, kind, trade_ts, deadline_unix, status, message, created_at_utc, updated_at_utc)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'sending', ?, ?, ?)`).bind(rcLeague, rcSeason, checkKey, f.franchise_id, f.kind, f.trade_ts, dl.deadline_unix, msg, ts, ts).run();
+          if (!(claim && claim.meta && claim.meta.changes)) {
+            const row = await env.UPS_MFL_DB.prepare("SELECT status, deadline_unix, escalated_at_utc, updated_at_utc FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ?").bind(rcLeague, rcSeason, checkKey).first();
+            let reclaimed = false;
+            if (row && row.status === "resolved") { rcOut.push({ ...rec, action: "previously_resolved" }); continue; }
+            if (row && row.status === "sending" && rcAge(row.updated_at_utc) >= rcStaleSec) {
+              // the run that claimed it never finished: take it over (conditional, so only one run does)
+              const r2 = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending' AND updated_at_utc = ?").bind(ts, rcLeague, rcSeason, checkKey, row.updated_at_utc).run();
+              reclaimed = !!(r2 && r2.meta && r2.meta.changes);
+            }
+            if (!reclaimed) {
+              // Already told. Past the deadline and STILL over → one commissioner escalation (never an automatic penalty).
+              if (row && row.status === "notified" && !row.escalated_at_utc && rcNow >= (Number(row.deadline_unix) || 0)) {
+                // claim the escalation FIRST (conditional), so two overlapping runs can't both send it; undo the claim if the DM fails
+                rcOut.push({ ...rec, action: await rcEscalate(checkKey, teamName, f.kind, { active: f.active, active_qbs: f.active_qbs, max: f.max }) });
+              } else rcOut.push({ ...rec, action: "already_notified" });
+              rcOpenByFk.set(fk, { check_key: checkKey, status: row ? row.status : "sending" });
+              continue;
+            }
+          }
+          rcOpenByFk.set(fk, { check_key: checkKey, status: "sending" });
+          const { owner, commish } = await rcSend(f.franchise_id, teamName, msg);
+          if (owner + commish > 0) {
+            await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET status = 'notified', notified_owner = ?, notified_commish = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ?").bind(owner, commish, ts, rcLeague, rcSeason, checkKey).run();
+            rcOut.push({ ...rec, action: "notified", notified_owner: owner, notified_commish: commish });
+          } else {
+            await env.UPS_MFL_DB.prepare("DELETE FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending'").bind(rcLeague, rcSeason, checkKey).run();
+            rcOpenByFk.delete(fk);
+            rcOut.push({ ...rec, action: "dm_failed_will_retry" });
+          }
+        }
+        await rcBeat(`ok:findings=${rcFindings.length}`);
+        return jsonOut(200, { ok: true, dry_run: rcDry, window_hours: rcWindowSec / 3600, season_window: rcWin, findings: rcOut, notified: rcOut.filter((x) => x.action === "notified").length });
+      }
+
       // POST /admin/trades/settlement-sweep?L=&YEAR=&APIKEY=   body { dry_run? }
       // Posts the traded-salary settlement for any executed MFL trade that
       // moved cap money (BB_) but has no settlement on MFL — the case where a
@@ -59331,27 +59656,19 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // it just caught.
         let contractLadder = { stage: "unresolved", end_unix: null, reason: "not_computed" };
         try {
-          let cdUnix = null;
-          const cdRow = await env.UPS_MFL_DB.prepare(
-            "SELECT date FROM league_events WHERE nfl_season = ? AND event = 'ups_contract_deadline' LIMIT 1"
-          ).bind(String(season)).first();
-          const cdDate = safeStr(cdRow && cdRow.date).slice(0, 10);
-          if (/^\d{4}-\d{2}-\d{2}$/.test(cdDate)) {
-            // 23:59:59 ET on the deadline DAY — matches the instant every other
-            // arm already gates MYAC on (front_office.js ~3360).
-            const ms = new Date(cdDate + "T23:59:59-04:00").getTime();
-            if (Number.isFinite(ms)) cdUnix = Math.floor(ms / 1000);
-          }
+          // the ONE resolver (contract_deadline.js) — for 2026 the same 23:59:59 ET the Front Office uses (front_office.js ~3360)
+          const cdRes = await loadContractDeadline(env, season);
+          const cdUnix = determinateDeadlineUnix(cdRes, Math.floor(Date.now() / 1000));
           const [wk3, wk5] = await Promise.all([
             nflWeekFirstKickoffUnix(season, 3),
             nflWeekFirstKickoffUnix(season, 5),
           ]);
-          contractLadder = contractLadderStage({
+          contractLadder = withDateOnlyLadderEnd(contractLadderStage({
             contractDeadlineUnix: cdUnix,
             week3KickoffUnix: wk3,
             week5KickoffUnix: wk5,
             nowUnix: Math.floor(Date.now() / 1000),
-          });
+          }), cdRes);
           if (contractLadder.stage === "unresolved") {
             contractLadder.reason = !cdUnix ? "no_contract_deadline"
               : (!wk3 || !wk5) ? "no_week_kickoffs" : "boundaries_out_of_order";
@@ -60038,7 +60355,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // Extensions → per-player window. WW/trade pickup windows take priority
           // over the rookie/veteran season deadlines.
           if (isExtensionSubmission) {
-            let _extDeadline = null, _extStart = null, _extClass = "";
+            let _extDeadline = null, _extStart = null, _extClass = "", _extDeadlineDay = "";
             if (_isWWpickup) {
               _extStart = new Date(_acqDate.getTime() + 15 * _DAY_MS);
               _extDeadline = new Date(_acqDate.getTime() + 28 * _DAY_MS);
@@ -60054,20 +60371,28 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               // REFUSE rather than fall back — enforcing the wrong window writes a
               // real contract against a window the commish thinks he changed.
               const _cd = await resolveContractDeadlineUtc(year);
-              if (_cd.error) {
+              // "unknown" = unreadable, no deadline configured for this season (none is invented), or the deadline DAY of a
+              // date-only record — refuse. (Before 2026-10-08 an unconfigured season had no deadline and never refused.)
+              const _cdNow = Math.floor(Date.now() / 1000);
+              const _cdState = deadlineState(_cd.resolved, _cdNow);
+              const _cdDateOnlyDay = _cd.resolved && !_cd.resolved.exact && _cd.resolved.source === "league_events_day" ? safeStr(_cd.resolved.day) : "";
+              if (_cdState === "unknown") {
                 return mutationResponse(
                   "validation_fail",
                   String(body.submission_id || body.submissionId || "").trim(),
                   {
-                    reason: `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
+                    reason: _cdDateOnlyDay
+                      ? `Only the date of the ${year} contract deadline (${_cdDateOnlyDay}) is on the league calendar, not its time, so on that day this submission can't be checked against the deadline and is refused. The commissioner sets the time in Commish Settings → Update League Calendar.`
+                      : `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
                     code: "CONTRACT_DEADLINE_UNRESOLVED",
-                    detail: _cd.error,
+                    detail: _cd.error || `no ${year} contract deadline is configured in the league calendar (source: ${_cd.resolved && _cd.resolved.source}${_cd.resolved && _cd.resolved.day ? `, date-only ${_cd.resolved.day}` : ""})`,
                     submission_kind: submissionKindRaw,
                   },
                   503
                 );
               }
-              _extDeadline = _cd.deadline;
+              _extDeadline = new Date(determinateDeadlineUnix(_cd.resolved, _cdNow) * 1000);   // for the comparison only
+              _extDeadlineDay = _cdDateOnlyDay;   // date-only: the refusal states the DAY, never an invented 23:59:59
               _extClass = "veteran";
             }
             const _nowMs = Date.now();
@@ -60080,9 +60405,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 {
                   reason: _tooEarly
                     ? `Extension window not open yet — a WW/FCFS pickup is extension-eligible only on days 15–28 of the post-pickup window (opens ${_extStart.toISOString()}); it is MYM-eligible until then.`
-                    : `${_extClass} extension submissions are locked — the deadline passed (${_extDeadline ? _extDeadline.toISOString() : "unknown"}). Contact the commissioner for late corrections.`,
+                    : `${_extClass} extension submissions are locked — the deadline passed (${_extDeadlineDay ? `${_extDeadlineDay}; its time isn't on the league calendar` : (_extDeadline ? _extDeadline.toISOString() : "unknown")}). Contact the commissioner for late corrections.`,
                   code: _tooEarly ? "EXTENSION_WINDOW_NOT_OPEN" : "EXTENSION_DEADLINE_PASSED",
-                  deadline_utc: _extDeadline ? _extDeadline.toISOString() : null,
+                  deadline_utc: _extDeadlineDay ? null : (_extDeadline ? _extDeadline.toISOString() : null),
+                  ...(_extDeadlineDay ? { deadline_day: _extDeadlineDay, deadline_time_known: false } : {}),
                   window_open_utc: _extStart ? _extStart.toISOString() : null,
                   extension_class: _extClass,
                   submission_kind: submissionKindRaw,
