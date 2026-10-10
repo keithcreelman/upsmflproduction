@@ -21,6 +21,7 @@ import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
+import { resolveLiveLeagueYear } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
@@ -3637,6 +3638,20 @@ const _faaAuctionStartUnix = async (env, season) => {
     return { unix: null, source: "auction_calendar_read_threw", read_error: String((e && e.message) || e) };
   }
 };
+
+// ── WHICH LEAGUE YEAR the */5 drop pipeline runs as ─────────────────────────
+// The LIVE MFL league year, never the calendar year: NFL Week 17 runs into January and MFL keeps last season's league
+// live until the rollover (the next year's league 404s until then) — see league_year.js. One bounded raw `TYPE=league`
+// read per year asked; no cookie (the export and its history are public). Unresolved → { ok: false }: run nothing.
+const _liveDropLeagueYear = (env, leagueId) => resolveLiveLeagueYear({
+  leagueId, nowMs: Date.now(), pinnedYear: env && env.YEAR,
+  readLeague: async (year) => {
+    const res = await fetchBounded(
+      `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1&_=${Date.now()}`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 0, cacheEverything: false } }, 8000);
+    return { status: res.status, text: await res.text() };
+  },
+});
 
 // ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
 // The ONLY reliable "this auction really completed" signal, established on prod
@@ -7314,11 +7329,25 @@ export default {
         if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
-              const scanUrl = `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`;
+              // WHICH SEASON: the LIVE MFL league year (league_year.js), never `season` (the calendar year). NFL Week 17
+              // runs into January and MFL keeps the 2026 league live until its rollover — 2027's exports 404 until then —
+              // so from Jan 1 the calendar year scanned a league that doesn't exist and every drop made in the live one was
+              // missed. Every route below records, prices (on that season's own week calendar) and posts as dropSeason; a
+              // drop's CAP year (applies_to_season, canon §6) is still decided per row from its own drop instant — a
+              // 2027-01-03 drop in the 2026 league is season 2026, priced on 2026's weeks, booked to the 2027 cap.
+              // UNRESOLVED → nothing runs this tick: no drop is recorded, announced or charged under a guessed season, held
+              // rows stay held (and listed by every drop route), and the recorder's 2-day lookback catches up once it resolves.
+              const live = await _liveDropLeagueYear(env, leagueId);
+              if (!live.ok) {
+                console.error(`[scheduled */5] drop-tracker SKIPPED: live MFL league year unresolved (${live.reason}) — nothing recorded, posted or charged this tick under a guessed season; retried every tick.`);
+                return;
+              }
+              const dropSeason = live.season;
+              const scanUrl = `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`;
               const scanRes = await env.SELF.fetch(scanUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
+                body: JSON.stringify({ season: dropSeason, league_id: leagueId, days: 2 }),
               });
               const scanData = await scanRes.json().catch(() => ({}));
               const newWritten = Number(scanData?.written_count) || 0;
@@ -7331,11 +7360,11 @@ export default {
               let postedCount = 0;
               if (dropAutoPost) {
                 const postRes = await env.SELF.fetch(
-                  `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
+                    body: JSON.stringify({ season: dropSeason, league_id: leagueId, target: dropTarget, limit: 20 }),
                   }
                 );
                 const postData = await postRes.json().catch(() => ({}));
@@ -7374,11 +7403,11 @@ export default {
               let capfreeNotified = 0;
               try {
                 const cfRes = await env.SELF.fetch(
-                  `${origin}/admin/drops/capfree-notify?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  `${origin}/admin/drops/capfree-notify?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ season, league_id: leagueId }),
+                    body: JSON.stringify({ season: dropSeason, league_id: leagueId }),
                   }
                 );
                 const cfData = await cfRes.json().catch(() => ({}));
@@ -7394,11 +7423,11 @@ export default {
               let mflPostedCount = 0;
               if (dropPostMfl) {
                 const mflRes = await env.SELF.fetch(
-                  `${origin}/admin/drops/post-mfl?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  `${origin}/admin/drops/post-mfl?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ season, league_id: leagueId, limit: 20 }),
+                    body: JSON.stringify({ season: dropSeason, league_id: leagueId, limit: 20 }),
                   }
                 );
                 const mflData = await mflRes.json().catch(() => ({}));
@@ -7422,15 +7451,15 @@ export default {
               if (dropPostMfl) {
                 try {
                   const recRes = await env.SELF.fetch(
-                    `${origin}/admin/drops/reconcile-post?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId }) }
+                    `${origin}/admin/drops/reconcile-post?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: dropSeason, league_id: leagueId }) }
                   );
                   const recData = await recRes.json().catch(() => ({}));
                   reconciledRows = Number(recData?.posted) || 0;
                 } catch (_) {}
               }
               if (newWritten || postedCount || mflPostedCount || reconciledRows) {
-                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} reconciled=${reconciledRows} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
+                console.log(`[scheduled */5] drop-tracker: season=${dropSeason} (${live.source}) new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} reconciled=${reconciledRows} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
               }
             } catch (e) {
               console.error(`[scheduled */5] drop-tracker failed: ${e?.message || String(e)}`);
