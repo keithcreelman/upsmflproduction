@@ -81,26 +81,134 @@
     return s;
   }
 
-  function rowContractBlock(rosterRow) {
+  // ── Ownership: live MFL rosters through the shared rule
+  // (site/m/roster_ownership.js) — the same answer the Stats list shows on
+  // the row that opened this sheet. A player we can't find on a roster is a
+  // free agent ONLY when every franchise's roster loaded; otherwise he is
+  // "owner unknown" and is offered no add or bid.
+  function sheetOwner(pid) {
+    var O = window.UPS_MOBILE_OWNERSHIP;
+    var s = window.UPS_MOBILE.state;
+    if (!O) return { known: false, reason: "rosters_unreadable" };
+    return O.ownerOf(s.rosters, s.franchises || [], pid);
+  }
+
+  var CAP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // "2026-10-10T00:14:56.821Z" → "Oct 9, 8:14 PM" (viewer's clock); "" if unreadable.
+  function capTime(iso) {
+    var t = Date.parse(U.safeStr(iso));
+    if (isNaN(t)) return "";
+    var d = new Date(t), h = d.getHours(), m = d.getMinutes();
+    return CAP_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
+  }
+  function usd(n) { return "$" + Math.round(Number(n) || 0).toLocaleString("en-US"); }
+  function wkSpan(a, b) { return a === b ? "Wk " + a : "Wks " + a + "–" + b; }
+
+  // This season's money for one contract — salary, its earning window, what
+  // has been EARNED through the last completed week, and what is still due —
+  // with the arithmetic written out. Every earned / window number is the
+  // worker's own (/api/cap-penalty/preview: the batch the drop penalties and
+  // Front Office's Per Wk read, loaded at boot): the window is THIS contract's
+  // eligible_weeks (canon §D1, Weeks W–17), never an assumed 17, and nothing is
+  // estimated here. When the worker can't price the player the block says why.
+  //   → { rows: [[label, value, hl?]...], how: "text", note: "unavailable reason" }
+  function seasonMoney(pid, rosterRow) {
+    var salary = Number(rosterRow && rosterRow.salary) || 0;
+    var rows = [["Salary", usd(salary)]];
+    var meta = DATA.capPenaltyMeta ? DATA.capPenaltyMeta() : null;
+    var cap = DATA.capPenaltyFor ? DATA.capPenaltyFor(pid) : null;
+    if (!meta) return { rows: rows, note: "Loading this contract’s earned-to-date from the league cap engine…" };
+    if (meta.status !== "ok") return { rows: rows, note: "Earned to date is unavailable: the league cap engine couldn’t be reached. Reload to retry — nothing is estimated in its place." };
+    var at = capTime(meta.calculatedAt);
+    var src = "League cap engine" + (at ? ", calculated " + at : "") + ".";
+    if (!cap) return { rows: rows, note: "Earned to date is unavailable: this player isn’t in the league cap engine’s list. " + src };
+    if (cap.needs_review) return { rows: rows, note: "Earned to date is under review" + (cap.review_reason ? " (" + cap.review_reason + ")" : "") + ", so no number is shown. " + src };
+    if (cap.earned_rule === "full_year_sub_5k") {
+      rows.push(["Earned to date", "Full-year rule"]);
+      return { rows: rows, how: "A contract that pays $1,000 every year has no weekly earning (canon §D1), so there is no earned-to-date or still-due figure. " + src };
+    }
+    if (cap.earned_rule === "ww_earned_na") {
+      rows.push(["Earned to date", "n/a"]);
+      return { rows: rows, how: "One-year waiver-wire deal of $4K or less: earned doesn’t apply (canon §C3). " + src };
+    }
+    var weeks = Object.prototype.hasOwnProperty.call(cap, "eligible_weeks") && cap.eligible_weeks != null ? Number(cap.eligible_weeks) : NaN;
+    if (!(weeks >= 1)) return { rows: rows, note: "Earned to date is unavailable: the league cap engine couldn’t resolve this contract’s earning window (the week it began), and it is never assumed to be 17 weeks. " + src };
+    var base = Number(cap.current_year_salary) > 0 ? Number(cap.current_year_salary) : salary;
+    var earned = cap.current_year_earned == null ? NaN : Number(cap.current_year_earned);
+    var start = 18 - weeks;              // Weeks W–17 inclusive: 17 − W + 1 = weeks
+    var thru = meta.earnedThroughWeek;
+    var perWk = Math.round(base / weeks);
+    rows.push(["Earning window", wkSpan(start, 17) + " · " + weeks + " wk" + (weeks === 1 ? "" : "s")]);
+    rows.push(["Per week", usd(perWk)]);
+    if (!isFinite(earned)) return { rows: rows, note: "Earned to date is unavailable from the league cap engine. " + src };
+    rows.push(["Earned to date", usd(earned) + (thru != null ? " · thru Wk " + thru : ""), true]);
+    rows.push(["Still due this season", usd(base - earned), true]);
+    var how = usd(base) + " ÷ " + weeks + " eligible week" + (weeks === 1 ? "" : "s") + " (" + wkSpan(start, 17) +
+      ", from the week this contract began) = " + usd(perWk) + " a week. ";
+    // Write out the multiplication only when it reproduces the worker's own
+    // number; otherwise just cite it (the worker applies rules this sheet
+    // doesn't restate, e.g. a taxi settlement).
+    var counted = thru != null ? Math.max(0, Math.min(weeks, thru - start + 1)) : null;
+    if (counted != null && Math.round(base * counted / weeks) === earned) {
+      how += "Earned through Wk " + thru + " = " + usd(base) + " × " + counted + " ÷ " + weeks + " = " + usd(earned) + ", rounded once on the total. ";
+    } else {
+      how += "Earned to date " + usd(earned) + (thru != null ? " through Wk " + thru : "") + ", as the cap engine computed it. ";
+    }
+    how += "Still due = " + usd(base) + " − " + usd(earned) + ". " + src;
+    return { rows: rows, how: how };
+  }
+
+  function contractBlockHtml(pid, rosterRow) {
     if (!rosterRow) return '';
-    var salary = U.fmtUsd(rosterRow.salary);
     var cy = U.safeStr(rosterRow.contractYear);
     var status = U.safeStr(rosterRow.contractStatus);
     var info = U.safeStr(rosterRow.contractInfo);
     var live = U.safeStr(rosterRow.status);
     var yrsRem = (cy && Number(cy) > 0) ? cy + " yr" + (cy === "1" ? "" : "s") + " left" :
                  (cy === "0" ? "Expired" : "—");
+    var year = U.safeStr(window.UPS_MOBILE.state.ctx && window.UPS_MOBILE.state.ctx.year);
+    var money = seasonMoney(pid, rosterRow);
+    var kv = function (rows) {
+      return '<div class="ups-m-sheet-kv">' + rows.map(function (r) {
+        return '<div class="lbl' + (r[2] ? " hl" : "") + '">' + U.escapeHtml(r[0]) + '</div><div class="val' + (r[2] ? " hl" : "") + '">' + U.escapeHtml(r[1]) + '</div>';
+      }).join("") + '</div>';
+    };
+    var cap = DATA.capPenaltyFor ? DATA.capPenaltyFor(pid) : null;
+    var terms = [["Years left", yrsRem]];
+    if (cap && Number(cap.cl) > 0) terms.push(["Length", cap.cl + " yr" + (Number(cap.cl) === 1 ? "" : "s")]);
+    if (cap && Number(cap.tcv) > 0) terms.push(["Total value", usd(cap.tcv)]);
+    // MFL's year-by-year schedule ("Y1-40K, Y2-22K, Y3-22K"), as MFL states it.
+    var sched = [], re = /Y(\d+)\s*-\s*\$?([\d.]+)\s*K/gi, mm;
+    while ((mm = re.exec(info))) sched.push("Y" + mm[1] + " $" + mm[2] + "K");
+    if (sched.length) terms.push(["By year", sched.join(" · ")]);
+    if (cap && Number(cap.guaranteed) > 0) terms.push(["Guaranteed", usd(cap.guaranteed)]);
+    if (status) terms.push(["Type", status]);
+    if (live) terms.push(["Status", live]);
     return '' +
+      '<div class="ups-m-sheet-block ups-m-sheet-money">' +
+        '<h4>' + U.escapeHtml(year) + ' salary</h4>' +
+        kv(money.rows) +
+        (money.how ? '<div class="ups-m-sheet-how"><b>How it’s calculated.</b> ' + U.escapeHtml(money.how) + '</div>' : '') +
+        (money.note ? '<div class="ups-m-sheet-how warn">' + U.escapeHtml(money.note) + '</div>' : '') +
+      '</div>' +
       '<div class="ups-m-sheet-block">' +
         '<h4>Contract</h4>' +
-        '<div class="ups-m-sheet-kv">' +
-          '<div class="lbl">Salary</div><div class="val">' + U.escapeHtml(salary) + '</div>' +
-          '<div class="lbl">Years left</div><div class="val">' + U.escapeHtml(yrsRem) + '</div>' +
-          (status ? '<div class="lbl">Type</div><div class="val">' + U.escapeHtml(status) + '</div>' : '') +
-          (live ? '<div class="lbl">Status</div><div class="val">' + U.escapeHtml(live) + '</div>' : '') +
-          (info ? '<div class="lbl">Notes</div><div class="val">' + U.escapeHtml(info) + '</div>' : '') +
-        '</div>' +
+        kv(terms) +
+        (info ? '<div class="ups-m-sheet-mflnote">MFL contract note: ' + U.escapeHtml(info) + '</div>' : '') +
       '</div>';
+  }
+
+  // The verified UPS owner, under the name: Your team / {franchise} / Free
+  // agent / Owner unknown — from the same rule as the Stats list's tag.
+  function ownerChipHtml(pid) {
+    var own = sheetOwner(pid);
+    var viewer = window.UPS_MOBILE.state.viewerFranchiseId;
+    var cls, txt;
+    if (!own.known) { cls = "unk"; txt = "Owner unknown"; }
+    else if (!own.fid) { cls = "fa"; txt = "Free agent"; }
+    else if (viewer && U.pad4(viewer) === own.fid) { cls = "mine"; txt = "Your team"; }
+    else { cls = "other"; txt = own.name; }
+    return '<div class="ups-m-own-chip ' + cls + '">' + U.escapeHtml(txt) + '</div>';
   }
 
   function findRosterRowAcrossLeague(pid) {
@@ -260,6 +368,30 @@
     '</tr>';
   }
 
+  // Actions tab: this season's actual MFL points in one line — the SAME
+  // numbers (liveSeasonRow) as the sheet's Stats tab and the Stats list row
+  // that opened it. Nothing when MFL's scoring isn't available.
+  function pointsSummaryHtml(pid) {
+    var live = liveSeasonRow(pid);
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    if (!live || !SSMOD || !ss) return "";
+    var span = SSMOD.weeksLabel(ss.seasonWeeks);
+    var pl = DATA.playerById(pid);
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    var grp = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
+    var rk = typeof live.rank === "number" && live.rank > 0 ? "#" + live.rank + (grp && grp !== "OTH" ? " " + grp : "") : (live.games > 0 ? "unranked" : "—");
+    var tile = function (v, l) { return '<div><b>' + U.escapeHtml(v) + '</b><small>' + U.escapeHtml(l) + '</small></div>'; };
+    return '<div class="ups-m-sheet-block ups-m-sheet-pts">' +
+      '<div class="ups-m-sheet-pts-row">' +
+        tile((Math.round(live.pts * 10) / 10).toFixed(1), "Pts · " + span) +
+        tile(live.games > 0 ? (Math.round(live.ppg * 10) / 10).toFixed(1) : "—", "PPG · " + live.games + " MFL wk" + (live.games === 1 ? "" : "s")) +
+        tile(rk, "PPG rank") +
+      '</div>' +
+      '<div class="ups-m-stat-basis">Actual MFL points, UPS scoring' + (ss.liveWeeks.length ? " · Wk " + ss.liveWeeks.join(", ") + " in progress" : "") + '</div>' +
+    '</div>';
+  }
+
   // { season, games, pts, ppg, rank, basis } for the current season from MFL's
   // league scoring (its YTD), or null when MFL has posted nothing to show.
   function liveSeasonRow(pid) {
@@ -365,11 +497,30 @@
   function renderActionsFooter(pid, rosterRow, ownsPlayer, opts) {
     opts = opts || {};
     if (!ownsPlayer) {
-      // No rosterRow at all = free agent → offer the live acquisition path.
-      // A rosterRow owned by someone ELSE = trade territory, which lives in
-      // the Market row / Trades view, so that case still just gets Close.
-      var acq = rosterRow ? "" : renderAcquisitionBlock(pid);
-      return acq + '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+      var closeBtn = '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+      var own = sheetOwner(pid);
+      // OWNER UNKNOWN (MFL's rosters unreadable or partial): no add, no bid.
+      // This used to fall through to the free-agent path — "no roster row"
+      // was read as "free agent" — so a failed or partial rosters read put
+      // Bid / Add now on players who are on someone's roster.
+      if (!own.known) {
+        return '<div class="ups-m-acq-note">' + U.escapeHtml(window.UPS_MOBILE_OWNERSHIP
+            ? window.UPS_MOBILE_OWNERSHIP.unknownReason(own) : "MFL’s rosters couldn’t be read.") +
+          ' No add or bid is offered until they load — tap ⟳ to reload.</div>' + closeBtn;
+      }
+      // Another team's player: Propose trade opens the EXISTING builder with
+      // him preloaded on the "get" side. Opening it only reads both rosters;
+      // nothing is sent until "Send offer" on its review step.
+      if (own.fid) {
+        var viewerFid = window.UPS_MOBILE.state.viewerFranchiseId;
+        var canTrade = viewerFid && window.UPS_MOBILE.tradeView && window.UPS_MOBILE.tradeView.openBuilder;
+        return (canTrade
+          ? '<div class="ups-m-sheet-actions one"><button class="btn-act trade" data-act="propose-trade" data-fid="' +
+              U.escapeHtml(own.fid) + '" data-pid="' + U.escapeHtml(String(pid)) + '">Propose trade to ' + U.escapeHtml(own.name) + '</button></div>'
+          : '') + closeBtn;
+      }
+      // Confirmed free agent → the live acquisition path (unchanged).
+      return renderAcquisitionBlock(pid) + closeBtn;
     }
     var s = window.UPS_MOBILE.state;
     var otbIds = DATA.getMyTradeBaitIds();
@@ -665,46 +816,14 @@
     wireFooterActions();
   }
 
-  // ERA forced retention (league_context_v1.md §A3): a player won in the
-  // CURRENT cycle's Expired Rookie Auction cannot be cut until the FA Auction
-  // CLOSES ("you bid, you hold through auction"). The worker is the authority
-  // — it blocks the real drop — so we hide the Drop button up front and the
-  // owner never taps into that error. The check is a DRY-RUN drop: the
-  // worker's ERA gate runs before the dry-run short-circuit, so it returns the
-  // block precisely (current-cycle winners only, auto-lifts when the auction
-  // closes) without touching MFL. Fired only for "-era" contracts; fail-open
-  // (leave Drop) on any error since the worker still enforces it.
-  function gateEraRetentionDrop(foot, dropBtn) {
-    if (!dropBtn || !foot) return;
-    var status = U.safeStr(footerState.rosterRow && footerState.rosterRow.contractStatus).toLowerCase();
-    if (status.indexOf("-era") === -1) return;
-    var s = window.UPS_MOBILE.state;
-    var pidAtFire = U.safeStr(footerState.pid);
-    fetch(window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action", {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "drop_player", dry_run: 1,
-        league_id: s.ctx.leagueId, season: s.ctx.year,
-        franchise_id: U.pad4(s.viewerFranchiseId),
-        player_id: pidAtFire
-      })
-    }).then(function (r) { return r.json(); }).then(function (b) {
-      var blocked = b && (b.code === "ERA_FORCED_RETENTION" || (b.gate && b.gate.blocked === true));
-      if (!blocked) return;
-      if (U.safeStr(footerState.pid) !== pidAtFire) return;   // sheet moved on
-      var live = foot.querySelector('[data-act="drop"]');
-      if (live && live.parentNode) live.parentNode.removeChild(live);
-      if (!foot.querySelector(".ups-m-era-lock")) {
-        var actions = foot.querySelector(".ups-m-sheet-actions");
-        var note = document.createElement("div");
-        note.className = "ups-m-era-lock";
-        note.textContent = "🔒 Won in the " + s.ctx.year + " Expired Rookie Auction — can’t be cut until the FA Auction closes (forced retention, §A3).";
-        if (actions && actions.parentNode) actions.parentNode.insertBefore(note, actions.nextSibling);
-        else foot.appendChild(note);
-      }
-    }).catch(function () { /* fail-open — worker still enforces the block */ });
-  }
+  // ERA forced retention (league_context_v1.md §A3) is enforced by the WORKER
+  // on the real drop: /roster-workbench/action runs _eraRetentionBlocked for
+  // drop_player and unload_player before it touches MFL, and handleDrop shows
+  // its refusal ("Drop failed: …won in the 2026 Expired Rookie Auction…").
+  // The sheet used to POST a dry-run drop_player the moment one of your ERA
+  // players was OPENED, to hide the Drop button early. Opening a player must
+  // never call a write route — and that probe had been refused (403, no
+  // MFL_USER_ID) since 2026-08-07, so it hid nothing. Removed 2026-10-09.
 
   function wireFooterActions() {
     var foot = document.getElementById("ups-m-sheet-foot");
@@ -729,7 +848,14 @@
     if (save) save.addEventListener("click", function () { handleOTBSave(save); });
     if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
     if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
-    gateEraRetentionDrop(foot, drop);
+    // Propose trade (another team's player): close the sheet, open the builder.
+    var trade = foot.querySelector('[data-act="propose-trade"]');
+    if (trade) trade.addEventListener("click", function () {
+      var tfid = this.getAttribute("data-fid"), tpid = this.getAttribute("data-pid");
+      window.UPS_MOBILE.sheet.close();
+      var TV = window.UPS_MOBILE.tradeView;
+      if (TV && TV.openBuilder) TV.openBuilder({ toFid: tfid, preGetPid: tpid });
+    });
     // Waiver acquisition (unrostered players). The flows live in
     // views/players.js (M.waiverUI) so the Market tab and this sheet can
     // never disagree about what window we're in. Close the sheet first —
@@ -2104,8 +2230,11 @@
       body.innerHTML = renderBioBlock(footerState.pid, currentBundle);
     } else {
       // Actions tab — contract context; the action buttons sit in the foot.
-      body.innerHTML = rowContractBlock(footerState.rosterRow) ||
-        '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>';
+      var own = sheetOwner(footerState.pid);
+      body.innerHTML = pointsSummaryHtml(footerState.pid) + (contractBlockHtml(footerState.pid, footerState.rosterRow) ||
+        '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">' +
+          (own.known ? "Free agent — no contract on file." : "No contract shown: his UPS owner can’t be confirmed right now.") +
+        '</div></div>');
     }
   }
   // ── Player News ───────────────────────────────────────────────────────────
@@ -2333,6 +2462,7 @@
         '<div class="ups-m-sheet-head-text">' +
           '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + injChip + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
+          ownerChipHtml(pid) +
         '</div>' +
       '</div>';
 
@@ -2365,7 +2495,7 @@
      * re-rendering the Stats/Bio tab under B's name — a fast double-tap or the
      * global player search (player_search.js) reopening in quick succession
      * both reach this. Same pattern already used for the ERA drop-gate fetch
-     * at gateEraRetentionDrop:613/626 and for news at paintPlayerNews:2064,
+     * for news at paintPlayerNews,
      * just checked against footerState.pid instead of a DOM node's presence
      * since the bundle has no DOM identity of its own to test. */
     var pidAtFire = pid;
@@ -2375,6 +2505,13 @@
       if (activeTab === "stats" || activeTab === "bio") renderTabBody();
     });
   }
+
+  // The cap batch can land after the sheet opened (boot still loading): repaint
+  // the contract block so "Loading…" turns into the worker's numbers.
+  window.addEventListener("ups-cap-penalty-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
+  });
 
   window.UPS_MOBILE.sheet = {
     open: open,

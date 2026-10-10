@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.09.3",
-  "label": "Drops: a drop penalty the worker could not price yet reads “under review” and sorts last — never $0."
+  "build": "2026.10.09.4",
+  "label": "Stats → Players: actual MFL points (live week marked) on the first screen, pinned headings that fit 320px, and a player sheet with the verified owner, Propose trade, and earned / still-due from the cap engine. Owner unknown is never offered Bid or Add."
 }

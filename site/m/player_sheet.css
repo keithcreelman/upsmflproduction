@@ -549,3 +549,30 @@
 .ups-m-inj-chip.d   { color:#fed7aa; background:rgba(234,88,12,.20);  border-color:rgba(251,146,60,.50); }
 .ups-m-inj-chip.q   { color:#fde68a; background:rgba(202,138,4,.20);  border-color:rgba(250,204,21,.45); }
 .ups-m-inj-chip.ho  { color:#bfdbfe; background:rgba(37,99,235,.20);  border-color:rgba(96,165,250,.45); }
+
+/* ----- Owner chip, points line, contract money (Keith 2026-10-09 review) ----- */
+.ups-m-own-chip {
+  display: inline-block; margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; border: 1px solid var(--line); color: var(--fg);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ups-m-own-chip.fa { color: var(--accent); border-color: var(--accent); }
+.ups-m-own-chip.unk { color: var(--warn); border-color: var(--warn); }
+.ups-m-own-chip.mine { background: var(--accent); border-color: var(--accent); color: #0a1222; }
+.ups-m-sheet-pts-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ups-m-sheet-pts-row div { background: var(--bg-elev2); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+.ups-m-sheet-pts-row b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+.ups-m-sheet-pts-row small { display: block; font-size: 11px; line-height: 1.3; color: var(--fg-muted); }
+.ups-m-sheet-pts .ups-m-stat-basis { margin-top: 6px; }
+.ups-m-sheet-money .ups-m-sheet-kv { grid-template-columns: 1fr auto; }
+.ups-m-sheet-money .ups-m-sheet-kv .val { text-align: right; }
+.ups-m-sheet-kv .lbl.hl, .ups-m-sheet-kv .val.hl { color: var(--fg); font-weight: 700; }
+.ups-m-sheet-how {
+  margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--bg);
+  border: 1px solid var(--line); font-size: 12px; line-height: 1.45; color: var(--fg-muted);
+}
+.ups-m-sheet-how b { color: var(--fg); font-weight: 600; }
+.ups-m-sheet-how.warn { border-left: 3px solid var(--warn); color: var(--fg); }
+.ups-m-sheet-mflnote { margin-top: 8px; font-size: 11px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.ups-m-sheet-actions.one { grid-template-columns: 1fr; }
+.btn-act.trade { background: var(--accent); border-color: var(--accent); color: #0a1222; font-weight: 700; }

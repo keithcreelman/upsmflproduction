@@ -1,13 +1,33 @@
-/* Player Stats (#league/stats) — mobile advanced-stats leaderboard.
-   A focused port of the desktop Stats Workbench: position tabs + a curated set
-   of per-position columns + search, tap a player → the shared player sheet.
-   Read-only (Phase 1; column toggles / filters / heat-map are desktop-only).
+/* Player Stats (#league/stats) — mobile per-position leaderboard. Position
+   tabs + a curated set of per-position columns + search; tap a player → the
+   shared player sheet. Read-only.
 
-   Data: /api/advanced-stats-leaderboard (raw rows), fetched per pos-alias +
-   season and cached. Rank is computed within the IDP/offense GROUP (DL/LB/DB/…)
-   by MFL PPG — the same basis as the desktop "Pos Rk" column and the player
-   sheet's PPG-Rk, so all three agree. Positions display in MFL's vocabulary
-   (OLB/ILB/MLB → LB, FS/SS → S) per Keith 2026-06-20. */
+   ACTUAL POINTS (Keith 2026-10-09 review). Every Pts / PPG / L2-L4 PPG / MFL
+   wks / rank on this screen comes from the app's ONE scoring path,
+   DATA.getSeasonScoring() — MFL's own playerScores W=ALL for THIS league
+   (site/m/season_scoring.js) — the same numbers the player sheet and the
+   Players market show. It used to read /api/advanced-stats-leaderboard's
+   mfl_points / mfl_ppg, a precompute that stops at the last FINAL week: on
+   2026-10-09, after Thursday's DAL–TB game, 53 players were a week behind MFL
+   (Dak Prescott 107.5 here vs MFL's 125.5) and tapping one showed a different
+   PPG on his sheet.
+     - The player universe is MFL's players export at the MFL position
+       (DE/DT → DL, CB/S → DB) with a posted score this season. The
+       leaderboard's nflverse position put 53 MFL defensive ends on the LB tab
+       (Rousseau "#1 LB"), and its 500-row cap hid 302 scoring IDPs.
+     - The leaderboard is still the source of the nflverse BOX SCORE columns,
+       joined by MFL id and labelled with the weeks it covers.
+     - Rank = season_scoring's rankMap with the PPG-rank minimum (Keith
+       2026-10-02), grouped exactly like the player sheet, so the list and the
+       sheet can't disagree. One-week players keep their real PPG, unranked.
+     - MFL's scoring unreadable → the last VERIFIED stored totals (the
+       leaderboard's finalized weeks), labelled with that period and the time
+       the app read them. A stored copy that doesn't state its weeks shows no
+       points at all rather than a guess.
+
+   OWNERSHIP comes from live MFL rosters via the shared rule in
+   site/m/roster_ownership.js (#1203) — never the leaderboard's
+   mfl_franchise_id. Positions display in MFL's vocabulary. */
 (function () {
   "use strict";
   if (!window.UPS_MOBILE) return;
@@ -16,8 +36,10 @@
 
   function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
   function nn(v) { return (v == null || v === "" || isNaN(Number(v))) ? null : Number(v); }
+  function round1(v) { return Math.round(v * 10) / 10; }
 
-  // nflverse position → MFL's set (DT|DE|LB|CB|S). "we simply use LB."
+  // nflverse position → MFL's set (DT|DE|LB|CB|S). Only used to DISPLAY a
+  // stored-copy row's position when the worker sent no mfl_position.
   function mflPos(raw) {
     var p = String(raw || "").toUpperCase();
     if (p === "ILB" || p === "MLB" || p === "OLB" || p === "LB") return "LB";
@@ -26,130 +48,163 @@
     return p;
   }
 
-  // Curated columns. g(r) → value | null; f: dec1 | pct (else integer).
-  var C = {
-    ppg:   { l: "PPG",   g: function (r) { return nn(r.mfl_ppg); }, f: "dec1" },
-    pts:   { l: "Pts",   g: function (r) { return nn(r.mfl_points); }, f: "dec1" },
-    payd:  { l: "PaYd",  g: function (r) { return nn(r.pass_yds); } },
-    patd:  { l: "PaTD",  g: function (r) { return nn(r.pass_tds); } },
-    patt:  { l: "Att",   g: function (r) { return nn(r.pass_att); } },
-    cmppct:{ l: "Cmp%",  g: function (r) { return r.pass_att ? num(r.pass_cmp) / num(r.pass_att) : null; }, f: "pct" },
-    pint:  { l: "Int",   g: function (r) { return nn(r.pass_ints); } },
-    qbsk:  { l: "Sk",    g: function (r) { return nn(r.pass_sacks); } },
-    ya:    { l: "Y/A",   g: function (r) { return r.pass_att ? num(r.pass_yds) / num(r.pass_att) : null; }, f: "dec1" },
-    ruatt: { l: "Att",   g: function (r) { return nn(r.rush_att); } },
-    ruyd:  { l: "RuYd",  g: function (r) { return nn(r.rush_yds); } },
-    rutd:  { l: "RuTD",  g: function (r) { return nn(r.rush_tds); } },
-    rya:   { l: "Y/A",   g: function (r) { return r.rush_att ? num(r.rush_yds) / num(r.rush_att) : null; }, f: "dec1" },
-    tgt:   { l: "Tgt",   g: function (r) { return nn(r.targets); } },
-    rec:   { l: "Rec",   g: function (r) { return nn(r.receptions); } },
-    recyd: { l: "RecYd", g: function (r) { return nn(r.rec_yds); } },
-    rectd: { l: "RecTD", g: function (r) { return nn(r.rec_tds); } },
-    ypr:   { l: "Y/R",   g: function (r) { return r.receptions ? num(r.rec_yds) / num(r.receptions) : null; }, f: "dec1" },
-    catchpct: { l: "Catch%", g: function (r) { return r.targets ? num(r.receptions) / num(r.targets) : null; }, f: "pct" },
-    tgtsh: { l: "Tgt%",  g: function (r) { return nn(r.target_share); }, f: "pct" },
-    tkl:   { l: "Tkl",   g: function (r) { return nn(r.def_tackles_total); } },  // solo
-    ast:   { l: "Ast",   g: function (r) { return nn(r.def_tackles_ast); } },
-    sk:    { l: "Sk",    g: function (r) { return nn(r.def_sacks); }, f: "dec1" },
-    tfl:   { l: "TFL",   g: function (r) { return nn(r.def_tfl); } },
-    pd:    { l: "PD",    g: function (r) { return nn(r.def_pass_def); } },
-    intd:  { l: "INT",   g: function (r) { return nn(r.def_ints); } },
-    ff:    { l: "FF",    g: function (r) { return nn(r.def_ff); } },
-    press: { l: "Press", g: function (r) { return nn(r.def_pressures); } },
-    deftd: { l: "DefTD", g: function (r) { return nn(r.def_tds); } },
-    fgm:   { l: "FGM",   g: function (r) { return nn(r.fg_made); } },
-    fgpct: { l: "FG%",   g: function (r) { return r.fg_att ? num(r.fg_made) / num(r.fg_att) : null; }, f: "pct" },
-    xpm:   { l: "XPM",   g: function (r) { return nn(r.xp_made); } },
-    punts: { l: "Punts", g: function (r) { return nn(r.punts); } },
-    navg:  { l: "NetAvg",g: function (r) { return nn(r.punt_net_avg); }, f: "dec1" },
-    i20:   { l: "I20",   g: function (r) { return nn(r.punt_inside20); } },
-    sospts:{ l: "SoSΔ",  g: function (r) { var s = sosRec(r); return (s && s.sos != null && s.raw != null) ? Math.round((s.sos - s.raw) * 10) / 10 : null; }, f: "delta" },
-    cfloor:{ l: "Floor", g: function (r) { var c = consRec(r); return c && c.floor != null ? c.floor : null; }, f: "dec1" },
-    cceil: { l: "Ceil",  g: function (r) { var c = consRec(r); return c && c.ceil != null ? c.ceil : null; }, f: "dec1" },
-    ccons: { l: "Consist", g: function (r) { var c = consRec(r); return c && c.consistency != null ? c.consistency : null; } },
-    cboom: { l: "Boom%", g: function (r) { var c = consRec(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
-    cbust: { l: "Bust%", g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
-    eepa:  { l: "EPA",   g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; }, f: "epa" },
-    ecpoe: { l: "CPOE",  g: function (r) { return epaCpoe(r); }, f: "delta" },
-    esucc: { l: "Succ%", g: function (r) { var x = epaRecM(r); return x && x.succ != null ? x.succ : null; }, f: "pct100" },
-    evol:  { l: "EPA n", g: function (r) { var x = epaRawM(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } },
-    // Market (MFL) — MFL-wide market signals by mfl_pid (/api/mfl-market; mirrors desktop).
-    mown:  { l: "Own%",  g: function (r) { var m = mktRec(r); return m && m.own != null ? m.own : null; }, f: "pct100" },
-    mstart:{ l: "Start%",g: function (r) { var m = mktRec(r); return m && m.start != null ? m.start : null; }, f: "pct100" },
-    madd:  { l: "Add%",  g: function (r) { var m = mktRec(r); return m && m.add != null ? m.add : null; }, f: "pct100" },
-    mdrop: { l: "Cut%",  g: function (r) { var m = mktRec(r); return m && m.drop != null ? m.drop : null; }, f: "pct100" },
-    mrank: { l: "XpertRk", g: function (r) { var m = mktRec(r); return m && m.rank != null ? m.rank : null; } },
-    // Routes + NGS (2016+) — /api/player-routes + /api/player-ngs (mirrors desktop).
-    rtn:   { l: "Routes", g: function (r) { var x = rtRec(r); return x && x.routes ? x.routes : null; } },
-    rtpct: { l: "Route%", g: function (r) { var x = rtRec(r); return x && x.route_pct != null ? x.route_pct : null; }, f: "pct100" },
-    tprr:  { l: "TPRR",  g: function (r) { var x = rtRec(r); return x && x.tprr != null ? x.tprr : null; }, f: "dec2" },
-    yprr:  { l: "YPRR",  g: function (r) { var x = rtRec(r); return x && x.yprr != null ? x.yprr : null; }, f: "dec2" },
-    nsep:  { l: "Sep",   g: function (r) { var x = ngsRecMob(r); return x && x.rec ? x.rec.sep : null; }, f: "dec2" },
-    nryoe: { l: "RYOE/A", g: function (r) { var x = ngsRecMob(r); return x && x.rush ? x.rush.ryoe_pa : null; }, f: "delta" },
-    ntt:   { l: "TmToThrw", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; }, f: "dec2" },
-    nagg:  { l: "AGG%",  g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; }, f: "pct100" }
-  };
+  // Position → tab group. The player sheet's rank and the lineup both use
+  // UPS_FRONT_OFFICE_LINEUP.posGroup; this is the same table for the moments
+  // it isn't loaded (tests/mobile_stats_players_review.test.mjs checks they
+  // agree on every position).
+  var GROUP = { QB: "QB", RB: "RB", FB: "RB", HB: "RB", WR: "WR", TE: "TE", PK: "PK", K: "PK", PN: "PN", P: "PN",
+    DT: "DL", DE: "DL", NT: "DL", DL: "DL", LB: "LB", OLB: "LB", ILB: "LB", MLB: "LB",
+    CB: "DB", S: "DB", FS: "DB", SS: "DB", DB: "DB" };
+  function groupOf(pos) {
+    var p = String(pos || "").toUpperCase();
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    if (FOL && FOL.posGroup) { var g = FOL.posGroup(p); return g === "OTH" ? "" : g; }
+    return GROUP[p] || "";
+  }
 
-  // Each tab: alias (worker pos param), group (pos_group values to keep), and
-  // one-or-more named column SETS. The first set is the default; a dropdown
-  // switches between them so the owner can pull up other advanced stats without
-  // crowding the (phone-width) table. PN shares the punter alias's PK group.
+  function D() { return M.data || {}; }
+  function SSMOD() { return window.UPS_MOBILE_SEASON_SCORING || null; }
+  function OWN() { return window.UPS_MOBILE_OWNERSHIP || null; }
+  function pidKey(id) {
+    var O = OWN();
+    if (O) return O.pidKey(id);
+    var d = String(id == null ? "" : id).replace(/\D/g, "");
+    return d ? String(parseInt(d, 10)) : "";
+  }
+
+  // ── Columns ──
+  // g(r) → value | null over a normalized row (see buildRows). f: dec1 | pct |
+  // pct100 | delta | epa (else integer). w: px width at phone size. src names
+  // the source AND period a column reports, which drives the period line under
+  // its heading:
+  //   pts   MFL actual points (season scoring, or the stored copy)
+  //   rec   the last N FINAL weeks (season scoring)
+  //   box   nflverse box score (the leaderboard's coverage week)
+  //   sos / cons   their own endpoints — each counts its own weeks, shown in
+  //                that set's Wks column, never borrowed from the live totals
+  //   adv   season-level nflfastR / Next Gen / routes
+  //   mkt   all-MFL usage, this week's snapshot (not UPS)
+  function L(r) { return r.lb || {}; }
+  var C = {
+    pts:   { l: "Pts", src: "pts", w: 46, f: "dec1", t: "Total MFL fantasy points, UPS scoring", g: function (r) { return r.pts; } },
+    ppg:   { l: "PPG", src: "pts", w: 40, f: "dec1", strong: true, t: "MFL points per MFL scored week", g: function (r) { return r.ppg; } },
+    rcnt:  { l: "PPG", src: "rec", w: 46, f: "dec1", t: "Points per MFL scored week over the last final weeks", g: function (r) { return r.rec ? r.rec.ppg : null; } },
+    wks:   { l: "Wks", src: "pts", w: 30, dim: true, t: "Weeks MFL posted a score for him (0.0 included) — MFL's own AVG denominator", g: function (r) { return r.games; } },
+    payd:  { l: "PaYd",  src: "box", g: function (r) { return nn(L(r).pass_yds); } },
+    patd:  { l: "PaTD",  src: "box", g: function (r) { return nn(L(r).pass_tds); } },
+    patt:  { l: "Att",   src: "box", g: function (r) { return nn(L(r).pass_att); } },
+    cmppct:{ l: "Cmp%",  src: "box", f: "pct", g: function (r) { return L(r).pass_att ? num(L(r).pass_cmp) / num(L(r).pass_att) : null; } },
+    pint:  { l: "Int",   src: "box", g: function (r) { return nn(L(r).pass_ints); } },
+    ya:    { l: "Y/A",   src: "box", f: "dec1", g: function (r) { return L(r).pass_att ? num(L(r).pass_yds) / num(L(r).pass_att) : null; } },
+    ruatt: { l: "Att",   src: "box", g: function (r) { return nn(L(r).rush_att); } },
+    ruyd:  { l: "RuYd",  src: "box", g: function (r) { return nn(L(r).rush_yds); } },
+    rutd:  { l: "RuTD",  src: "box", g: function (r) { return nn(L(r).rush_tds); } },
+    tgt:   { l: "Tgt",   src: "box", g: function (r) { return nn(L(r).targets); } },
+    rec:   { l: "Rec",   src: "box", g: function (r) { return nn(L(r).receptions); } },
+    recyd: { l: "RecYd", src: "box", w: 44, g: function (r) { return nn(L(r).rec_yds); } },
+    rectd: { l: "RecTD", src: "box", w: 44, g: function (r) { return nn(L(r).rec_tds); } },
+    ypr:   { l: "Y/R",   src: "box", f: "dec1", g: function (r) { return L(r).receptions ? num(L(r).rec_yds) / num(L(r).receptions) : null; } },
+    catchpct: { l: "Catch%", src: "box", w: 44, f: "pct", g: function (r) { return L(r).targets ? num(L(r).receptions) / num(L(r).targets) : null; } },
+    tgtsh: { l: "Tgt%",  src: "box", f: "pct", g: function (r) { return nn(L(r).target_share); } },
+    tkl:   { l: "Tkl",   src: "box", t: "Solo tackles", g: function (r) { return nn(L(r).def_tackles_total); } },
+    ast:   { l: "Ast",   src: "box", g: function (r) { return nn(L(r).def_tackles_ast); } },
+    sk:    { l: "Sk",    src: "box", f: "dec1", g: function (r) { return nn(L(r).def_sacks); } },
+    tfl:   { l: "TFL",   src: "box", g: function (r) { return nn(L(r).def_tfl); } },
+    pd:    { l: "PD",    src: "box", g: function (r) { return nn(L(r).def_pass_def); } },
+    intd:  { l: "INT",   src: "box", g: function (r) { return nn(L(r).def_ints); } },
+    press: { l: "Press", src: "box", g: function (r) { return nn(L(r).def_pressures); } },
+    deftd: { l: "DefTD", src: "box", w: 44, g: function (r) { return nn(L(r).def_tds); } },
+    fgm:   { l: "FGM",   src: "box", g: function (r) { return nn(L(r).fg_made); } },
+    fgpct: { l: "FG%",   src: "box", f: "pct", g: function (r) { return L(r).fg_att ? num(L(r).fg_made) / num(L(r).fg_att) : null; } },
+    xpm:   { l: "XPM",   src: "box", g: function (r) { return nn(L(r).xp_made); } },
+    punts: { l: "Punts", src: "box", g: function (r) { return nn(L(r).punts); } },
+    navg:  { l: "Net",   src: "box", f: "dec1", t: "Net punting average", g: function (r) { return nn(L(r).punt_net_avg); } },
+    i20:   { l: "I20",   src: "box", g: function (r) { return nn(L(r).punt_inside20); } },
+    // Schedule-adjusted (was "SoSΔ"): /api/sos-adjusted-points re-weights STORED
+    // MFL points for opponent strength. All four come from that source.
+    sosraw:{ l: "Raw",   src: "sos", f: "dec1", t: "Stored MFL points the adjustment starts from", g: function (r) { var s = sosRec(r); return s && s.raw != null ? s.raw : null; } },
+    sosadj:{ l: "Adj",   src: "sos", f: "dec1", t: "Schedule-adjusted points", g: function (r) { var s = sosRec(r); return s && s.sos != null ? s.sos : null; } },
+    sospts:{ l: "Adj ±", src: "sos", w: 44, f: "delta", t: "Schedule-adjusted points minus raw points: + = scored against tough defenses", g: function (r) { var s = sosRec(r); return (s && s.sos != null && s.raw != null) ? round1(s.sos - s.raw) : null; } },
+    sosgp: { l: "Wks",   src: "sos", w: 34, dim: true, t: "Weeks this source counted", g: function (r) { var s = sosRec(r); return s && s.gp != null ? s.gp : null; } },
+    ccons: { l: "Cons",  src: "cons", t: "Consistency score, 0–100", g: function (r) { var c = consRec(r); return c && c.consistency != null ? c.consistency : null; } },
+    cboom: { l: "Boom%", src: "cons", w: 44, g: function (r) { var c = consRec(r); return c && c.boom_pct != null ? c.boom_pct : null; } },
+    cbust: { l: "Bust%", src: "cons", w: 44, g: function (r) { var c = consRec(r); return c && c.bust_pct != null ? c.bust_pct : null; } },
+    cgp:   { l: "Wks",   src: "cons", w: 34, dim: true, t: "Weeks this source counted", g: function (r) { var c = consRec(r); return c && c.gp != null ? c.gp : null; } },
+    eepa:  { l: "EPA",   src: "adv", w: 44, f: "epa", t: "Expected points added per play (nflfastR)", g: function (r) { var x = epaRecM(r); return x && x.epa != null ? x.epa : null; } },
+    ecpoe: { l: "CPOE",  src: "adv", w: 44, f: "delta", g: function (r) { return epaCpoe(r); } },
+    esucc: { l: "Succ%", src: "adv", w: 44, f: "pct100", g: function (r) { var x = epaRecM(r); return x && x.succ != null ? x.succ : null; } },
+    evol:  { l: "Plays", src: "adv", w: 40, dim: true, g: function (r) { var x = epaRawM(r); return x ? (x.plays != null ? x.plays : x.tgt) : null; } },
+    mown:  { l: "Own%",  src: "mkt", g: function (r) { var m = mktRec(r); return m && m.own != null ? m.own : null; }, f: "pct100" },
+    mstart:{ l: "Start%",src: "mkt", w: 44, g: function (r) { var m = mktRec(r); return m && m.start != null ? m.start : null; }, f: "pct100" },
+    madd:  { l: "Add%",  src: "mkt", g: function (r) { var m = mktRec(r); return m && m.add != null ? m.add : null; }, f: "pct100" },
+    mdrop: { l: "Cut%",  src: "mkt", g: function (r) { var m = mktRec(r); return m && m.drop != null ? m.drop : null; }, f: "pct100" },
+    rtn:   { l: "Routes", src: "adv", w: 46, g: function (r) { var x = rtRec(r); return x && x.routes ? x.routes : null; } },
+    rtpct: { l: "Route%", src: "adv", w: 46, f: "pct100", g: function (r) { var x = rtRec(r); return x && x.route_pct != null ? x.route_pct : null; } },
+    tprr:  { l: "TPRR",  src: "adv", w: 42, f: "dec2", g: function (r) { var x = rtRec(r); return x && x.tprr != null ? x.tprr : null; } },
+    yprr:  { l: "YPRR",  src: "adv", w: 42, f: "dec2", g: function (r) { var x = rtRec(r); return x && x.yprr != null ? x.yprr : null; } },
+    nryoe: { l: "RYOE/A", src: "adv", w: 46, f: "delta", g: function (r) { var x = ngsRecMob(r); return x && x.rush ? x.rush.ryoe_pa : null; } },
+    ntt:   { l: "TTT",   src: "adv", f: "dec2", t: "Time to throw, seconds (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; } },
+    nagg:  { l: "AGG%",  src: "adv", w: 44, f: "pct100", t: "Aggressiveness: throws into tight windows (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; } }
+  };
+  // XpertRk (MFL playerRanks — a FantasySharks EXPERT ranking) was removed from
+  // this view: an unexplained expert rank beside actual results reads as one.
+
+  // Each tab: id (= its MFL position group), alias (the leaderboard's pos param
+  // for the box-score join) and named column SETS. "Fantasy pts" is the default
+  // everywhere. No set has more than four numbers, so the table fits a 320px
+  // phone with nothing off the right edge.
   var TABS = [
-    { id: "QB", alias: "qb",     group: ["QB"], sets: [
-      { l: "Passing",   cols: ["payd", "patd", "pint", "ya", "ppg"] },
-      { l: "Volume",    cols: ["patt", "cmppct", "qbsk", "payd", "ppg"] },
-      { l: "Rushing",   cols: ["ruatt", "ruyd", "rutd", "rya", "ppg"] } ] },
-    { id: "RB", alias: "skill",  group: ["RB"], sets: [
-      { l: "Rushing",   cols: ["ruatt", "ruyd", "rutd", "rya", "ppg"] },
-      { l: "Receiving", cols: ["tgt", "rec", "recyd", "rectd", "ppg"] } ] },
-    { id: "WR", alias: "skill",  group: ["WR"], sets: [
-      { l: "Receiving", cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
-      { l: "Efficiency",cols: ["tgt", "catchpct", "ypr", "recyd", "ppg"] } ] },
-    { id: "TE", alias: "skill",  group: ["TE"], sets: [
-      { l: "Receiving", cols: ["rec", "recyd", "rectd", "tgtsh", "ppg"] },
-      { l: "Efficiency",cols: ["tgt", "catchpct", "ypr", "recyd", "ppg"] } ] },
-    { id: "DL", alias: "idp",    group: ["DL"], sets: [
-      { l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] },
-      { l: "Pass rush", cols: ["sk", "press", "tfl", "ppg"] } ] },
-    { id: "LB", alias: "idp",    group: ["LB"], sets: [
-      { l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] },
-      { l: "Pass rush", cols: ["sk", "press", "intd", "ppg"] },
-      { l: "Coverage",  cols: ["pd", "intd", "deftd", "ppg"] } ] },
-    { id: "DB", alias: "idp",    group: ["DB"], sets: [
-      { l: "Coverage",  cols: ["tkl", "intd", "pd", "ppg"] },
-      { l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] } ] },
-    { id: "PK", alias: "kicker", group: ["PK"], sets: [
-      { l: "Kicking",   cols: ["fgm", "fgpct", "xpm", "ppg"] } ] },
-    { id: "PN", alias: "punter", group: ["PK", "PN"], sets: [
-      { l: "Punting",   cols: ["punts", "navg", "i20", "ppg"] } ] }
+    { id: "QB", alias: "qb", sets: [
+      { id: "passing", l: "Passing",   cols: ["payd", "patd", "pint", "ppg"] },
+      { id: "volume",  l: "Volume",    cols: ["patt", "cmppct", "ya", "ppg"] },
+      { id: "rushing", l: "Rushing",   cols: ["ruatt", "ruyd", "rutd", "ppg"] } ] },
+    { id: "RB", alias: "skill", sets: [
+      { id: "rushing", l: "Rushing",   cols: ["ruatt", "ruyd", "rutd", "ppg"] },
+      { id: "receiving", l: "Receiving", cols: ["rec", "recyd", "rectd", "ppg"] } ] },
+    { id: "WR", alias: "skill", sets: [
+      { id: "receiving", l: "Receiving", cols: ["rec", "recyd", "rectd", "ppg"] },
+      { id: "efficiency", l: "Efficiency", cols: ["tgtsh", "catchpct", "ypr", "ppg"] } ] },
+    { id: "TE", alias: "skill", sets: [
+      { id: "receiving", l: "Receiving", cols: ["rec", "recyd", "rectd", "ppg"] },
+      { id: "efficiency", l: "Efficiency", cols: ["tgtsh", "catchpct", "ypr", "ppg"] } ] },
+    { id: "DL", alias: "idp", sets: [
+      { id: "tackles",  l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] },
+      { id: "passrush", l: "Pass rush", cols: ["sk", "press", "tfl", "ppg"] } ] },
+    { id: "LB", alias: "idp", sets: [
+      { id: "tackles",  l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] },
+      { id: "passrush", l: "Pass rush", cols: ["sk", "press", "intd", "ppg"] },
+      { id: "coverage", l: "Coverage",  cols: ["pd", "intd", "deftd", "ppg"] } ] },
+    { id: "DB", alias: "idp", sets: [
+      { id: "coverage", l: "Coverage",  cols: ["tkl", "intd", "pd", "ppg"] },
+      { id: "tackles",  l: "Tackles",   cols: ["tkl", "ast", "tfl", "ppg"] } ] },
+    { id: "PK", alias: "kicker", sets: [
+      { id: "kicking",  l: "Kicking",   cols: ["fgm", "fgpct", "xpm", "ppg"] } ] },
+    { id: "PN", alias: "punter", sets: [
+      { id: "punting",  l: "Punting",   cols: ["punts", "navg", "i20", "ppg"] } ] }
   ];
-  // SoS set — every position (raw Pts · SoS delta · PPG). (ADP + Team Pace moved
-  // to their own Stats sub-tabs.)
-  TABS.forEach(function (t) { t.sets.push({ l: "SoS", cols: ["pts", "sospts", "ppg"] }); });
-  // Boom/Bust set — every position (consistency + boom% + bust%).
-  TABS.forEach(function (t) { t.sets.push({ l: "Boom/Bust", cols: ["ccons", "cboom", "cbust"] }); });
-  // Efficiency (EPA) set — skill positions only; QB gets CPOE (nflfastR).
   TABS.forEach(function (t) {
-    if (t.id === "QB") t.sets.push({ l: "EPA", cols: ["eepa", "ecpoe", "esucc", "evol"] });
-    else if (t.id === "RB" || t.id === "WR" || t.id === "TE") t.sets.push({ l: "EPA", cols: ["eepa", "esucc", "evol"] });
-  });
-  // Market (MFL) set — every position (MFL-wide own/start/add/cut % + expert rank).
-  TABS.forEach(function (t) { t.sets.push({ l: "Market", cols: ["mown", "mstart", "madd", "mdrop", "mrank"] }); });
-  // Routes/NGS sets (2016+) — WR/TE/RB get routes; RB adds RYOE; QB gets NGS passing.
-  TABS.forEach(function (t) {
-    if (t.id === "WR" || t.id === "TE") t.sets.push({ l: "Routes", cols: ["rtn", "rtpct", "tprr", "yprr", "nsep"] });
-    else if (t.id === "RB") t.sets.push({ l: "Routes", cols: ["rtn", "tprr", "yprr", "nryoe"] });
-    else if (t.id === "QB") t.sets.push({ l: "NGS", cols: ["ntt", "nagg", "ppg"] });
+    t.sets.unshift({ id: "fantasy", l: "Fantasy pts", cols: ["pts", "ppg", "wks", "rcnt"] });
+    t.sets.push({ id: "sos", l: "Schedule-adjusted", cols: ["sosraw", "sosadj", "sospts", "sosgp"] });
+    t.sets.push({ id: "boom", l: "Boom/Bust", cols: ["ccons", "cboom", "cbust", "cgp"] });
+    if (t.id === "QB") t.sets.push({ id: "epa", l: "EPA", cols: ["eepa", "ecpoe", "esucc", "evol"] });
+    else if (t.id === "RB" || t.id === "WR" || t.id === "TE") t.sets.push({ id: "epa", l: "EPA", cols: ["eepa", "esucc", "evol"] });
+    t.sets.push({ id: "usage", l: "All-MFL usage", cols: ["mown", "mstart", "madd", "mdrop"] });
+    // Routes (2016+): HIDDEN while its source has no rows — nflverse hadn't
+    // published 2026 routes on 2026-10-09, so every cell read "—".
+    if (t.id === "WR" || t.id === "TE") t.sets.push({ id: "routes", l: "Routes", needs: "routes", cols: ["rtn", "rtpct", "tprr", "yprr"] });
+    else if (t.id === "RB") t.sets.push({ id: "routes", l: "Routes", needs: "routes", cols: ["rtn", "tprr", "yprr", "nryoe"] });
+    else if (t.id === "QB") t.sets.push({ id: "ngs", l: "Next Gen", cols: ["ntt", "nagg", "ppg"] });
   });
 
   // scope: "all" | "ros" (rostered) | "fa" (free agents) — Keith 2026-06-20.
-  // inner: "players" (the leaderboard) | "fpa" (Fantasy Points Against).
-  var view = { tab: "QB", q: "", scope: "all", set: 0, debounce: null, inner: "players" };
-  var cache = {};   // alias|season → ranked raw rows
+  // inner: "players" (the leaderboard) | "fpa" | "adp" | "vegas" | "pace" | "sched".
+  var view = { tab: "QB", q: "", scope: "all", set: "fantasy", inner: "players" };
+  var cache = {};     // alias|season → leaderboard rows (box-score join / stored fallback)
+  var metaCache = {}; // alias|season → { finalized, coverage, stale, count, limit, readAt }
   var season = 0;
 
-  // SoS-adjusted MFL points keyed by gsis_id — side-loaded per season (MFL Total
-  // wks 1-17, matching the leaderboard's default), read by the "SoS" set.
+  // SoS-adjusted MFL points keyed by gsis_id — side-loaded per season, read by
+  // the "Schedule-adjusted" set.
   var sosMap = null, sosSeason = 0;
   function loadSos(yr) {
     if (sosMap && sosSeason === yr) return Promise.resolve(sosMap);
@@ -160,7 +215,7 @@
       .then(function (j) { sosMap = (j && j.by_gsis) || {}; return sosMap; })
       .catch(function () { sosMap = {}; return sosMap; });
   }
-  function sosRec(r) { return (sosMap && sosMap[String(r.gsis_id)]) || null; }
+  function sosRec(r) { return (sosMap && r.gsis && sosMap[String(r.gsis)]) || null; }
   // Consistency / boom-bust by gsis_id — side-loaded per season, read by the "Boom/Bust" set.
   var consMap = null, consSeason = 0;
   function loadCons(yr) {
@@ -172,10 +227,10 @@
       .then(function (j) { consMap = (j && j.by_gsis) || {}; return consMap; })
       .catch(function () { consMap = {}; return consMap; });
   }
-  function consRec(r) { return (consMap && consMap[String(r.gsis_id)]) || null; }
+  function consRec(r) { return (consMap && r.gsis && consMap[String(r.gsis)]) || null; }
 
   // EPA / efficiency (nflfastR), single-season for mobile. Rate stats gated to a
-  // qualified sample (the raw "EPA n" stays visible) so scrubs don't top a sort.
+  // qualified sample (the raw "Plays" stays visible) so scrubs don't top a sort.
   var epaMap = null, epaSeason = 0;
   function loadEpa(yr) {
     if (epaMap && epaSeason === yr) return Promise.resolve(epaMap);
@@ -185,12 +240,11 @@
       .then(function (j) { epaMap = (j && j.by_gsis) || {}; return epaMap; })
       .catch(function () { epaMap = {}; return epaMap; });
   }
-  function epaRawM(r) { var e = epaMap && epaMap[String(r.gsis_id)]; if (!e) return null; var pg = String(r.pos_group || r.position || "").toUpperCase(); if (pg === "QB") return e.pass; if (pg === "RB") return e.rush; return e.rec; }
-  function epaRecM(r) { var x = epaRawM(r); if (!x) return null; var pg = String(r.pos_group || r.position || "").toUpperCase(); var n = (x.plays != null ? x.plays : x.tgt) || 0; var min = pg === "QB" ? 50 : (pg === "RB" ? 25 : 20); return n >= min ? x : null; }
-  function epaCpoe(r) { var e = epaMap && epaMap[String(r.gsis_id)]; return (e && e.pass && e.pass.plays >= 50 && e.pass.cpoe != null) ? e.pass.cpoe : null; }
+  function epaRawM(r) { var e = epaMap && r.gsis && epaMap[String(r.gsis)]; if (!e) return null; if (r.grp === "QB") return e.pass; if (r.grp === "RB") return e.rush; return e.rec; }
+  function epaRecM(r) { var x = epaRawM(r); if (!x) return null; var n = (x.plays != null ? x.plays : x.tgt) || 0; var min = r.grp === "QB" ? 50 : (r.grp === "RB" ? 25 : 20); return n >= min ? x : null; }
+  function epaCpoe(r) { var e = epaMap && r.gsis && epaMap[String(r.gsis)]; return (e && e.pass && e.pass.plays >= 50 && e.pass.cpoe != null) ? e.pass.cpoe : null; }
 
-  // MFL-wide market signals by MFL player id — season-independent current
-  // snapshot (own/start/add/cut % + expert rank), read by the "Market" set.
+  // All-MFL usage by MFL player id — season-independent current snapshot.
   var mktMap = null;
   function loadMarket() {
     if (mktMap) return Promise.resolve(mktMap);
@@ -199,9 +253,9 @@
       .then(function (j) { mktMap = (j && j.by_mfl) || {}; return mktMap; })
       .catch(function () { mktMap = {}; return mktMap; });
   }
-  function mktRec(r) { return (mktMap && mktMap[String(r.mfl_pid)]) || null; }
+  function mktRec(r) { return (mktMap && mktMap[String(r.pid)]) || null; }
 
-  // Routes + NGS by gsis_id — per season (2016+), read by the "Routes"/"NGS" sets.
+  // Routes + NGS by gsis_id — per season (2016+), read by the "Routes"/"Next Gen" sets.
   var rtMap = null, rtSeason = 0, ngsMap = null, ngsSeason = 0;
   function loadRoutes(yr) {
     if (rtMap && rtSeason === yr) return Promise.resolve(rtMap);
@@ -219,12 +273,14 @@
       .then(function (j) { ngsMap = (j && j.by_gsis) || {}; return ngsMap; })
       .catch(function () { ngsMap = {}; return ngsMap; });
   }
-  function rtRec(r) { return (rtMap && rtMap[String(r.gsis_id)]) || null; }
-  function ngsRecMob(r) { return (ngsMap && ngsMap[String(r.gsis_id)]) || null; }
+  function rtRec(r) { return (rtMap && r.gsis && rtMap[String(r.gsis)]) || null; }
+  function ngsRecMob(r) { return (ngsMap && r.gsis && ngsMap[String(r.gsis)]) || null; }
 
+  // The latest season with leaderboard rows — the season the OTHER Stats tabs
+  // (Pts Agst, Sched) default to. The Players list's own season is basis().season.
   function curSeason() {
     if (season) return season;
-    var ly = (M.data.getAdvancedStatsLatestYear && M.data.getAdvancedStatsLatestYear()) || 0;
+    var ly = (D().getAdvancedStatsLatestYear && D().getAdvancedStatsLatestYear()) || 0;
     season = ly || (new Date().getUTCFullYear() - 1);
     return season;
   }
@@ -232,97 +288,119 @@
     for (var i = 0; i < TABS.length; i++) if (TABS[i].id === view.tab) return TABS[i];
     return TABS[0];
   }
+  // The sets this tab can show right now: a set whose source is loaded and
+  // EMPTY is hidden (Routes for 2026), so the dropdown never offers a column
+  // set that can only read "—".
+  function availSets(tab) {
+    return tab.sets.filter(function (s) {
+      if (s.needs === "routes") return !!(rtMap && Object.keys(rtMap).length);
+      return true;
+    });
+  }
   function curSet() {
-    var t = curTab();
-    return t.sets[view.set] || t.sets[0];
+    var sets = availSets(curTab());
+    for (var i = 0; i < sets.length; i++) if (sets[i].id === view.set) return sets[i];
+    return sets[0];
   }
-  // Player's CURRENT NFL team: the boot-loaded LIVE MFL players export first (trade-fresh — the desktop Stats Workbench
-  // does the same), then the worker's current_team (a D1 src_players copy that can lag MFL by days), then the
-  // season-stamped leaderboard team as a last resort.
-  function curTeam(r) {
-    var p = M.data.playerById ? M.data.playerById(r.mfl_pid) : null;
+
+  // ── Points basis: WHICH numbers this screen shows, and for which weeks ──
+  //   live    MFL has posted a current-season score → season scoring (W=ALL).
+  //   stored  MFL's scoring couldn't be read, or nothing is posted yet → the
+  //           leaderboard's stored totals, ONLY for the weeks it says are final.
+  function basis() {
+    var SS = SSMOD();
+    var ss = D().getSeasonScoring ? D().getSeasonScoring() : null;
+    if (SS && ss && ss.known && ss.seasonWeeks && ss.seasonWeeks.length) {
+      return { kind: "live", ss: ss, season: Number(ss.season) || curSeason() };
+    }
+    var reason = !ss || !ss.known ? ((ss && ss.reason) || "unavailable") : "no_scores_posted";
+    return { kind: "stored", reason: reason, season: curSeason() };
+  }
+  function ctxYear() { return U.safeInt ? U.safeInt(M.state.ctx && M.state.ctx.year, 0) : parseInt(M.state.ctx && M.state.ctx.year, 10) || 0; }
+  // Recent-form window — the Players market's thresholds (views/players.js
+  // availWindows): L2 once more than 2 weeks are FINAL, L4 once more than 4.
+  // (At exactly 4 final weeks an L4 would just repeat season PPG.) 0 = none:
+  // no week is confirmed final, so no window is shown on a guess.
+  function recentWindow(ss) {
+    var n = ss && ss.finalKnown ? ss.finalWeeks.length : 0;
+    return n > 4 ? 4 : (n > 2 ? 2 : 0);
+  }
+  function recentWeeks(ss, k) {
+    var lo = ss.finalThrough - k + 1;
+    return ss.finalWeeks.filter(function (w) { return w >= lo; });
+  }
+  // "Wks 1–5" → "Wk 1–5" for a 40px heading.
+  function wkShort(weeks) {
+    var S = SSMOD();
+    var s = S ? S.weeksLabel(weeks) : "";
+    return s.replace(/^Wks /, "Wk ");
+  }
+  function clock(ms) {
+    if (!ms) return "";
+    var d = new Date(ms); if (isNaN(d.getTime())) return "";
+    var h = d.getHours(), m = d.getMinutes();
+    return ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
+  }
+  // The stored copy's verified period: its season's final board, or this
+  // season's finalized weeks. null = it doesn't say → no points shown.
+  function storedPeriod(meta, yr) {
+    if (!meta || meta.stale) return null;
+    var cur = ctxYear();
+    if (cur && yr < cur) return { label: String(yr), weeks: null, prior: true };
+    var n = parseInt(meta.finalized, 10);
+    if (!(n >= 1)) return null;
+    var wk = []; for (var i = 1; i <= n; i++) wk.push(i);
+    return { label: wkShort(wk), weeks: wk, prior: false };
+  }
+
+  // ── Ownership: live MFL rosters through the shared rule ──
+  function ownerOf(pid) {
+    var O = OWN();
+    if (!O) return { known: false, reason: "rosters_unreadable" };   // helper missing → never guess FA
+    return O.ownerOf(M.state && M.state.rosters, (M.state && M.state.franchises) || [], pid);
+  }
+  function rostersComplete() {
+    var O = OWN();
+    var idx = O ? O.index(M.state && M.state.rosters, (M.state && M.state.franchises) || []) : null;
+    return { readable: !!idx, complete: !!(idx && idx.complete) };
+  }
+  // Player's CURRENT NFL team: the boot-loaded LIVE MFL players export first,
+  // then the worker's current_team, then the season-stamped team.
+  function liveTeam(pid, lb) {
+    var p = D().playerById ? D().playerById(pid) : null;
     if (p && p.team) return U.safeStr(p.team);
-    return U.safeStr(r.current_team || r.team || "");
+    return lb ? U.safeStr(lb.current_team || lb.team || "") : "";
   }
 
-  // The player's UPS franchise, from LIVE MFL rosters — the same boot-loaded export the Players tab, the player sheet,
-  // search and waiver bidding read (M.state.rosters) — never the leaderboard's mfl_franchise_id. That field is joined
-  // from D1 src_contracts, a stored snapshot (2026's is from 08-05), through player_id_crosswalk, which has no 2026
-  // rookies — so it read "FA" for Jeremiyah Love (Cleon Ca$h's) and the old owner for every trade, claim and drop since
-  // the snapshot.
-  //
-  // A player on a roster is that franchise's — positive evidence. A player on NO roster is a free agent ONLY when the
-  // rosters are CONFIRMED COMPLETE: every franchise in the league export is present with players on it. An empty,
-  // partial or unreadable response (a franchise missing, or listed with nobody) can't tell a free agent from a player
-  // on a roster it left out, so he is "owner unknown" — never "FA" — and neither the Rostered nor the Free agents filter
-  // pretends to know. Rebuilt whenever state.rosters or state.franchises is replaced (the reload after a trade or claim),
-  // so an owner change shows without restarting the app.
-  //   → { known: false } | { known: true, fid: null } (free agent) | { known: true, fid, name }
-  var ownCache = { src: null, fr: null, live: null };
-  function pidKey(id) { var n = parseInt(id, 10); return isFinite(n) ? String(n) : String(id || ""); }
-  function liveOwners() {
-    var rs = M.state && M.state.rosters && M.state.rosters.rosters;
-    var leagueFr = (M.state && M.state.franchises) || [];
-    if (!rs) return null;
-    if (ownCache.src === rs && ownCache.fr === leagueFr) return ownCache.live;
-    var map = {}, onRoster = {};
-    U.asArray(rs.franchise).forEach(function (fr) {
-      var fid = U.pad4(fr.id);
-      U.asArray(fr.player).forEach(function (p) {
-        if (p && p.id) { map[pidKey(p.id)] = fid; onRoster[fid] = (onRoster[fid] || 0) + 1; }
-      });
-    });
-    var complete = leagueFr.length > 0 && leagueFr.every(function (f) { return onRoster[U.pad4(f.id)] > 0; });
-    ownCache = { src: rs, fr: leagueFr, live: { map: map, complete: complete } };
-    return ownCache.live;
-  }
-  function ownerOf(r) {
-    var live = liveOwners();
-    if (!live) return { known: false };
-    var fid = live.map[pidKey(r.mfl_pid)] || null;
-    if (!fid) return live.complete ? { known: true, fid: null } : { known: false };
-    var f = (M.state.franchises || []).find(function (x) { return x.id === fid; });
-    return { known: true, fid: fid, name: (f && f.name) || "Rostered" };
-  }
-
-  // Rank within pos_group by MFL PPG (mirrors app.js buildLeaderboardMap).
-  function rankByGroup(rows) {
-    var b = {};
-    rows.forEach(function (r) {
-      var p = String(r.pos_group || r.position || "").toUpperCase();
-      (b[p] = b[p] || []).push(r);
-    });
-    Object.keys(b).forEach(function (p) {
-      b[p].slice().sort(function (x, y) { return num(y.mfl_ppg) - num(x.mfl_ppg); })
-        .forEach(function (r, i) { r.__rk = i + 1; });
-    });
-    return rows;
-  }
-
-  /* The worker defaults this endpoint to 200 rows and orders them by overall
-   * impact ACROSS the whole alias, so the two aliases that carry three position
-   * groups each were being truncated into near-uselessness. Measured against
-   * prod 2026-08-29, season 2025:
-   *
-   *   idp    @200 → DL 22, LB 85, DB 93      @500 → DL 136, LB 165, DB 199
-   *   skill  @200 → RB 65, WR 95, TE 40      @500 → RB 148, WR 226, TE 126
-   *
-   * The DL tab was showing 22 of 136 players. The single-group aliases (qb 78,
-   * kicker 42, punter 37) never reach 200, so raising their limit would buy
-   * nothing and cost D1 reads for it. 500 is the endpoint's own ceiling; both
-   * calls returned in under 300ms. */
+  // ── Leaderboard (box-score join; stored fallback) ──
+  /* The worker defaults this endpoint to 200 rows ordered by impact across the
+   * whole alias; 500 is its ceiling. The two three-group aliases ask for 500.
+   * Even so, idp returned EXACTLY 500 on 2026-10-09 with 302 scoring IDPs
+   * outside it — so the live list no longer takes its universe from here, and
+   * the box-score note says when this input was capped. */
   var WIDE_ALIASES = { skill: 1, idp: 1 };
-
   function load(alias, yr) {
     var key = alias + "|" + yr;
     if (cache[key]) return Promise.resolve(cache[key]);
+    var limit = WIDE_ALIASES[alias] ? 500 : 200;
     var url = API.workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(yr) +
       "&pos=" + encodeURIComponent(alias) + "&min_games=1" +
       (WIDE_ALIASES[alias] ? "&limit=500" : ""));
     return fetch(url, { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : { rows: [] }; })
-      .then(function (j) { var rows = rankByGroup((j && j.rows) || []); cache[key] = rows; return rows; })
-      .catch(function () { cache[key] = []; return []; });
+      .then(function (j) {
+        var rows = (j && j.rows) || [];
+        cache[key] = rows;
+        var cov = j && j.source_coverage;
+        metaCache[key] = {
+          finalized: j && j.finalized_through_week,
+          coverage: (cov && cov.week) || (j && j.built_for_week) || null,
+          stale: !!(j && j.stale),
+          count: rows.length, limit: limit, readAt: Date.now()
+        };
+        return rows;
+      })
+      .catch(function () { cache[key] = []; metaCache[key] = { count: 0, limit: limit, readAt: Date.now(), failed: true }; return []; });
   }
 
   // League sub-tab bar (same pattern as league.js/auction.js, with Stats).
@@ -344,12 +422,14 @@
 
   function fmt(v, c) {
     if (v == null) return "—";
-    if (c.f === "trend") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "▲" : "▼") + Math.abs(v) + "</span>"; }
     if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
-    if (c.f === "epa") { return '<span class="ups-m-tr ' + (v > 0 ? "up" : (v < 0 ? "dn" : "")) + '">' + (v > 0 ? "+" : "") + v.toFixed(3) + "</span>"; }
+    if (c.f === "epa") { return '<span class="ups-m-tr ' + (v > 0 ? "up" : (v < 0 ? "dn" : "")) + '">' + (v > 0 ? "+" : "") + v.toFixed(2) + "</span>"; }
     if (c.f === "pct100") return Math.round(v) + "%";
     if (c.f === "pct") return Math.round(v * 100) + "%";
-    if (c.f === "dec1") return v.toFixed(1);
+    // The player sheet's rounding (statRowHtml): round to tenths, then print —
+    // so a worker sum like 59.400000000000006 can't read 14.9 here and 14.8 there.
+    if (c.f === "dec1") return round1(v).toFixed(1);
+    if (c.f === "dec2") return v.toFixed(2);
     return String(Math.round(v));
   }
   function flip(raw) {
@@ -359,9 +439,7 @@
   }
 
   /* Punctuation-insensitive, order-insensitive matching, the same rule the
-   * global search overlay uses (player_search.js). A raw substring test on the
-   * concatenated row could not find "D.J. Reader" from "dj reader" or
-   * "O'Connell" from "oconnell", and required the words in source order. */
+   * global search overlay uses (player_search.js). */
   function normTokens(s) {
     return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
@@ -370,13 +448,9 @@
   }
   function matchesQuery(r, qTokens) {
     if (!qTokens.length) return true;
-    // flip() is a no-op on this endpoint today (verified 2026-08-29: 0 of 557
-    // rows across all five aliases carry a comma) but costs nothing and keeps
-    // the match working on the displayed name if that ever changes.
-    var name = flip(r.player_name);
-    var bag = normTokens(name) + " " + normTight(name) + " " +
-              normTokens(curTeam(r)) + " " + normTokens(mflPos(r.position)) + " " +
-              normTokens(ownerOf(r).name || "");
+    var bag = normTokens(r.name) + " " + normTight(r.name) + " " +
+              normTokens(r.team) + " " + normTokens(r.pos) + " " +
+              normTokens(ownerOf(r.pid).name || "");
     var hay = bag.split(" ").filter(Boolean);
     for (var i = 0; i < qTokens.length; i++) {
       var hit = false;
@@ -391,61 +465,277 @@
     return normTokens(view.q).split(" ").filter(Boolean);
   }
 
-  function rowsFor(tab) {
-    var all = cache[tab.alias + "|" + curSeason()] || [];
+  // ── Rows ──
+  // A normalized row: { pid, name, team, pos, grp, lb, gsis, pts, ppg, games,
+  // rank (0 = unranked), live (his total includes a week still being played),
+  // rec ({ ppg, games } over the recent window | null) }.
+  var rankCache = { ss: null, map: null };
+  // Season PPG ranks, grouped exactly like the player sheet's (liveSeasonRow):
+  // MFL position of D.playerById → posGroup, with the same rank minimum.
+  function liveRanks(ss) {
+    if (rankCache.ss === ss && rankCache.map) return rankCache.map;
+    var SS = SSMOD();
+    var map = SS ? SS.rankMap(ss.byPid, function (id) {
+      var pl = D().playerById ? D().playerById(id) : null;
+      return groupOf(U.safeStr(pl && pl.position).toUpperCase());
+    }, ss.rankMinimum ? ss.rankMinimum(0) : 1) : {};
+    rankCache = { ss: ss, map: map };
+    return map;
+  }
+  function lbIndex(alias, yr) {
+    var out = {};
+    (cache[alias + "|" + yr] || []).forEach(function (r) { var k = pidKey(r.mfl_pid); if (k) out[k] = r; });
+    return out;
+  }
+  function liveRows(tab, b) {
+    var ss = b.ss;
+    var players = (M.state.players && M.state.players.players) ? U.asArray(M.state.players.players.player) : [];
+    var lbBy = lbIndex(tab.alias, b.season);
+    var rk = liveRanks(ss);
+    var win = recentWindow(ss);
+    var recMap = win ? ss.windowFor(win) : null;
+    var out = [];
+    players.forEach(function (p) {
+      if (!p || !p.id) return;
+      var pos = U.safeStr(p.position).toUpperCase();
+      if (groupOf(pos) !== tab.id) return;
+      var id = String(p.id);
+      var st = ss.byPid[id];
+      if (!st || !(st.games > 0)) return;   // no posted MFL score this season
+      var lb = lbBy[pidKey(id)] || null;
+      var r = rk[id];
+      out.push({
+        pid: id, name: flip(p.name), team: U.safeStr(p.team), pos: pos, grp: tab.id,
+        lb: lb, gsis: lb ? lb.gsis_id : null,
+        pts: st.pts, ppg: st.ppg, games: st.games, rank: r ? r.rank : 0,
+        live: ss.liveWeeks.some(function (w) { return st.weeks && st.weeks[w] != null; }),
+        rec: recMap ? (recMap[id] ? { ppg: recMap[id].ppg, games: recMap[id].games } : { ppg: null, games: 0 }) : null
+      });
+    });
+    return out;
+  }
+  function storedRows(tab, b) {
+    var key = tab.alias + "|" + b.season;
+    var period = storedPeriod(metaCache[key], b.season);
+    var out = [];
+    (cache[key] || []).forEach(function (lb) {
+      var pos = U.safeStr(lb.mfl_position) ? U.safeStr(lb.mfl_position).toUpperCase() : mflPos(lb.position);
+      var grp = groupOf(pos) || groupOf(lb.pos_group);
+      if (grp !== tab.id) return;
+      var pts = period ? nn(lb.mfl_points) : null, ppg = period ? nn(lb.mfl_ppg) : null;
+      out.push({
+        pid: lb.mfl_pid != null ? String(lb.mfl_pid) : "", name: flip(lb.player_name), team: liveTeam(lb.mfl_pid, lb),
+        pos: pos, grp: grp, lb: lb, gsis: lb.gsis_id,
+        pts: pts, ppg: ppg,
+        // MFL scored weeks, exactly as the sheet derives them from a stored row:
+        // the leaderboard's `games` counts nflverse NFL games, a different number.
+        games: (pts != null && ppg) ? Math.round(pts / ppg) : null,
+        rank: 0, live: false, rec: null
+      });
+    });
+    // Rank inside this list with the same minimum (half its final weeks); a
+    // prior season's final board is ranked as served, like the market's.
+    var min = period && !period.prior && period.weeks ? Math.max(1, Math.ceil(period.weeks.length / 2)) : 1;
+    out.filter(function (r) { return r.ppg != null && r.games >= min; })
+      .sort(function (a, b2) { return (b2.ppg - a.ppg) || (b2.pts - a.pts); })
+      .forEach(function (r, i) { r.rank = i + 1; });
+    return out;
+  }
+  function buildRows(tab, b) { return b.kind === "live" ? liveRows(tab, b) : storedRows(tab, b); }
+  // Ranked players first by rank; unranked (below the minimum, or no points)
+  // after them by PPG — a one-week player never tops the list (Keith 2026-10-02).
+  function sortRows(rows) {
+    return rows.sort(function (a, b) {
+      if (a.rank && b.rank) return a.rank - b.rank;
+      if (a.rank !== b.rank) return a.rank ? -1 : 1;
+      var pa = a.ppg == null ? -1e9 : a.ppg, pb = b.ppg == null ? -1e9 : b.ppg;
+      return (pb - pa) || ((b.pts || 0) - (a.pts || 0)) || (a.name < b.name ? -1 : 1);
+    });
+  }
+
+  function rowsFor(tab, b) {
     var qTokens = queryTokens();
-    return all.filter(function (r) {
-      if (tab.group.indexOf(String(r.pos_group || "").toUpperCase()) === -1) return false;
-      // FA vs rostered scope, by LIVE MFL rosters (ownerOf). Unknown ownership matches neither — renderList says why.
+    return sortRows(buildRows(tab, b).filter(function (r) {
+      // FA vs rostered scope, by LIVE MFL rosters. Unknown ownership matches neither — renderList says why.
       if (view.scope !== "all") {
-        var own = ownerOf(r);
+        var own = ownerOf(r.pid);
         if (!own.known) return false;
         if (view.scope === "ros" && !own.fid) return false;
         if (view.scope === "fa" && own.fid) return false;
       }
       return matchesQuery(r, qTokens);
-    }).sort(function (a, b) { return num(b.mfl_ppg) - num(a.mfl_ppg); });
+    }));
   }
 
-  // How many players the query would find on the OTHER position tabs, using
-  // only data already in cache. Drives the "found N elsewhere" handoff below —
-  // never triggers a fetch, so it silently reports 0 for positions the owner
-  // has not opened yet, which is why the copy offers a league-wide search
-  // rather than claiming a total.
-  function matchesElsewhere(tab) {
+  // How many players the query would find on the OTHER position tabs. Live
+  // rows need no fetch; a stored-copy tab that was never opened reports 0, so
+  // the copy offers a league-wide search rather than claiming a total.
+  function matchesElsewhere(tab, b) {
     var qTokens = queryTokens();
     if (!qTokens.length) return 0;
     var n = 0, seen = {};
     TABS.forEach(function (t) {
       if (t.id === tab.id) return;
-      var rows = cache[t.alias + "|" + curSeason()] || [];
-      rows.forEach(function (r) {
-        if (t.group.indexOf(String(r.pos_group || "").toUpperCase()) === -1) return;
-        if (seen[r.mfl_pid]) return;
-        if (matchesQuery(r, qTokens)) { seen[r.mfl_pid] = 1; n++; }
+      buildRows(t, b).forEach(function (r) {
+        if (seen[r.pid]) return;
+        if (matchesQuery(r, qTokens)) { seen[r.pid] = 1; n++; }
       });
     });
     return n;
   }
 
-  function renderList(tab) {
+  // ── Headings: every column sits under a band naming its source + period ──
+  // Two tiers: a band over each run of columns that share a period ("MFL Wks
+  // 1–5 ●" over Pts · PPG · Wks; "Wk 3–4" over L2 PPG; "nflverse Wk 1–4" over
+  // a box score), then the short labels. A per-column "Wk 1–5" line didn't fit
+  // a 40px column. Live MFL totals never share a band with another source.
+  function colLabel(c, b) {
+    if (c === C.rcnt) { var k = b.kind === "live" ? recentWindow(b.ss) : 0; return "L" + k + " PPG"; }
+    return c.l;
+  }
+  // → { key, text, dot }: columns with the same key share a band.
+  function colBand(c, b, tab, set, wide) {
+    if (c.src === "pts") {
+      if (b.kind === "live") {
+        var w = wkShort(b.ss.seasonWeeks);
+        return { key: "pts", text: wide ? "MFL " + S_weeks(b.ss.seasonWeeks) : w, dot: b.ss.liveWeeks.length > 0 };
+      }
+      var p = storedPeriod(metaCache[tab.alias + "|" + b.season], b.season);
+      return { key: "pts", text: p ? (p.prior ? p.label : (wide ? "Stored " : "") + p.label) : "no verified wks" };
+    }
+    if (c.src === "rec") return { key: "rec", text: wkShort(recentWeeks(b.ss, recentWindow(b.ss))) };
+    if (c.src === "box") {
+      var m = metaCache[tab.alias + "|" + b.season];
+      return { key: "box", text: "nflverse" + (m && m.coverage ? " Wk 1–" + m.coverage : " " + b.season) };
+    }
+    if (c.src === "sos") return { key: "sos", text: "Stored MFL pts · own wks" };
+    if (c.src === "cons") return { key: "cons", text: "MFL weekly · own wks" };
+    if (c.src === "mkt") return { key: "mkt", text: "All MFL leagues, this week" };
+    return { key: "adv", text: (set.id === "epa" ? "nflfastR" : set.id === "routes" ? "Routes" : "Next Gen") + " " + b.season };
+  }
+  function S_weeks(weeks) { var S = SSMOD(); return S ? S.weeksLabel(weeks) : ""; }
+  function visibleCols(set, b) {
+    return set.cols.filter(function (k) {
+      if (k === "rcnt") return b.kind === "live" && recentWindow(b.ss) > 0;
+      return true;
+    }).map(function (k) { return C[k]; });
+  }
+  function gridCols(cols) {
+    return "26px minmax(0,1fr) " + cols.map(function (c) { return (c.w || 40) + "px"; }).join(" ");
+  }
+  function headHtml(tab, b, cols) {
+    var set = curSet(), bands = [];
+    cols.forEach(function (c) {
+      var k = colBand(c, b, tab, set, false).key, last = bands[bands.length - 1];
+      if (last && last.key === k) last.cols.push(c); else bands.push({ key: k, cols: [c] });
+    });
+    var bandHtml = bands.map(function (bd) {
+      var width = bd.cols.reduce(function (n, c) { return n + (c.w || 40); }, 0) + 4 * (bd.cols.length - 1);
+      var info = colBand(bd.cols[0], b, tab, set, width >= 90);
+      // The in-progress dot rides on the band when there's room for it.
+      var dot = info.dot && width >= 60 ? '<span class="ups-m-st-live" aria-hidden="true"></span>' : "";
+      return '<span class="band" style="grid-column: span ' + bd.cols.length + '"' +
+        (info.dot ? ' title="Includes a week still being played"' : "") + ">" + U.escapeHtml(info.text) + dot + "</span>";
+    }).join("");
+    return '<div class="ups-m-st-row head" style="--cols:' + gridCols(cols) + '">' +
+      '<span class="band-pad"></span>' + bandHtml +
+      '<span class="rk" title="Positional rank by PPG">#</span><span class="nm">Player</span>' +
+      cols.map(function (c) {
+        return '<span class="v"' + (c.t ? ' title="' + U.escapeHtml(c.t) + '"' : "") + ">" + U.escapeHtml(colLabel(c, b)) + "</span>";
+      }).join("") + "</div>";
+  }
+
+  // One line under the controls that says exactly what the points ARE, for
+  // which weeks, and how fresh — then a second for the chosen set's source.
+  function basisHtml(tab, b) {
+    var txt, warn = false;
+    if (b.kind === "live") {
+      var ss = b.ss, S = SSMOD();
+      txt = "<b>Actual MFL points, UPS scoring.</b> " + U.escapeHtml(S.weeksLabel(ss.seasonWeeks));
+      if (ss.liveWeeks.length) txt += ', <span class="ups-m-st-live"></span>Wk ' + ss.liveWeeks.join(", ") + " in progress (games played so far count)";
+      else if (ss.finalKnown) txt += " (final)";
+      txt += ".";
+      var k = recentWindow(ss);
+      if (k) txt += " L" + k + " PPG = " + U.escapeHtml(S.weeksLabel(recentWeeks(ss, k))) + ", final weeks only.";
+      else if (!ss.finalKnown) txt += " Couldn’t confirm which weeks are final, so recent form is hidden.";
+      var min = ss.rankMinimum ? ss.rankMinimum(0) : 1;
+      txt += " Rank needs " + min + "+ MFL wk" + (min === 1 ? "" : "s") + ".";
+      var at = clock(ss.fetchedAt);
+      if (at) txt += " MFL read " + at + ".";
+    } else {
+      warn = true;
+      var key = tab.alias + "|" + b.season, meta = metaCache[key];
+      var per = storedPeriod(meta, b.season), readAt = meta ? clock(meta.readAt) : "";
+      var why = b.reason === "no_scores_posted"
+        ? "No " + ctxYear() + " MFL scores posted yet"
+        : "MFL’s live scoring couldn’t be read";
+      if (!meta) txt = U.escapeHtml(why) + ". Loading the stored totals…";
+      else if (per && per.prior) txt = U.escapeHtml(why) + " — showing the " + per.label + " season’s final totals (stored copy read " + readAt + ").";
+      else if (per) txt = U.escapeHtml(why) + ", so these are the last verified stored totals: " + U.escapeHtml(SSMOD() ? SSMOD().weeksLabel(per.weeks) : per.label) +
+        ", final weeks only (stored copy read " + readAt + "). Recent form is hidden. Tap refresh to retry.";
+      else txt = U.escapeHtml(why) + " and the stored copy doesn’t say which weeks it covers, so points are hidden rather than guessed. Tap refresh to retry.";
+    }
+    return '<div class="ups-m-st-basis' + (warn ? " warn" : "") + '" id="ups-m-st-basis">' + txt + "</div>";
+  }
+  function setNoteHtml(tab, b, set, rows) {
+    var key = tab.alias + "|" + b.season, meta = metaCache[key];
+    var cols = set.cols.map(function (k) { return C[k]; });
+    var srcs = {}; cols.forEach(function (c) { srcs[c.src] = 1; });
+    var parts = [];
+    if (srcs.box) {
+      parts.push("Box score: nflverse" + (meta && meta.coverage ? ", Wks 1–" + meta.coverage : "") + ".");
+      if (meta && meta.count >= meta.limit && b.kind === "live") {
+        var missing = rows.filter(function (r) { return !r.lb; }).length;
+        parts.push("The stats source returns at most " + meta.limit + " players here, so " + missing + " listed " + tab.id + (missing === 1 ? " has" : "s have") + " no box score (—).");
+      }
+    }
+    if (srcs.sos) parts.push("Schedule-adjusted: stored MFL points re-weighted for opponent strength. Raw, Adj and Wks come from that source and count its own weeks — not the live Fantasy pts totals.");
+    if (srcs.cons) parts.push("Boom/Bust: from MFL weekly scores in the consistency source; Wks = the weeks it counted (compare with Fantasy pts’ Wks).");
+    if (srcs.mkt) parts.push("All-MFL usage: share of all MFL leagues that roster / start / added / cut him this week — not UPS.");
+    if (srcs.adv) parts.push((set.id === "epa" ? "nflfastR play-by-play" : set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " season to date" + (set.id === "epa" ? "; rates hidden below a minimum sample." : "."));
+    if (b.kind === "stored" && meta && meta.count >= meta.limit) {
+      parts.push("This stored list stops at " + meta.limit + " players, so " + tab.id + " ranks are within it, not all " + tab.id + "s.");
+    }
+    return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(parts.join(" ")) + "</div>";
+  }
+
+  function rowHtml(r, cols, tab, viewerFid) {
+    var own = ownerOf(r.pid);
+    var ownTag = !own.known ? '<span class="own unk"> · owner unknown</span>'
+      : own.fid ? (own.fid === viewerFid ? '<span class="own me"> · Your team</span>' : '<span class="own"> · ' + U.escapeHtml(own.name) + "</span>")
+      : '<span class="own fa"> · FA</span>';
+    // The position badge only where it says something: the mixed tabs (DE/DT,
+    // CB/S). On QB it repeated "QB" on every row and cost the name 32px.
+    var badge = (tab.id === "DL" || tab.id === "DB")
+      ? '<span class="pos ' + tab.id.toLowerCase() + '">' + U.escapeHtml(r.pos) + "</span>" : "";
+    return '<div class="ups-m-st-row' + (own.known && own.fid && own.fid === viewerFid ? " mine" : "") + '" data-pid="' + U.escapeHtml(r.pid) + '">' +
+      '<span class="rk">' + (r.rank || "–") + "</span>" +
+      '<span class="nm">' + badge +
+        '<span class="t"><span class="pn">' + U.escapeHtml(r.name) + "</span>" +
+        '<span class="tm">' + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
+      cols.map(function (c) {
+        var v = c.g(r);
+        var dot = (c === C.pts && r.live && v != null) ? '<span class="ups-m-st-live" aria-label="includes the week in progress"></span>' : "";
+        return '<span class="v' + (c.strong ? " ppg" : "") + (c.dim ? " dim" : "") + '">' + dot + fmt(v, c) + "</span>";
+      }).join("") +
+    "</div>";
+  }
+
+  function renderList(tab, b) {
     // MFL's rosters are unreadable or incomplete: free agents can't be told from rostered players, so neither scope
     // pretends to (a partial Rostered list would read as the whole league's).
-    var live = view.scope !== "all" ? liveOwners() : null;
-    if (view.scope !== "all" && !(live && live.complete)) {
-      return '<div class="ups-m-stub"><div>Couldn\u2019t read ' + (live ? "all of " : "") + "MFL\u2019s rosters, so " +
-        (view.scope === "fa" ? "free agents" : "rostered players") + " can\u2019t be told apart right now.</div>" +
-        '<div class="ups-m-st-nosub">Choose All players, or reload.</div></div>';
+    if (view.scope !== "all") {
+      var rc = rostersComplete();
+      if (!rc.complete) {
+        return '<div class="ups-m-stub"><div>Couldn’t read ' + (rc.readable ? "all of " : "") + "MFL’s rosters, so " +
+          (view.scope === "fa" ? "free agents" : "rostered players") + " can’t be told apart right now.</div>" +
+          '<div class="ups-m-st-nosub">Choose All players, or reload.</div></div>';
+      }
     }
-    var rows = rowsFor(tab);
+    var rows = rowsFor(tab, b);
     if (!rows.length) {
-      /* The old copy here was "No QB data for 2025." for EVERY empty result,
-       * including a search. Typing "Bijan" on the QB tab therefore reported a
-       * real, rostered player as missing data (Keith 2026-08-29: "I don't like
-       * the filters and how to find players"). Say which of the three filters
-       * actually emptied the list, and offer the way out. */
       if (view.q.trim()) {
-        var elsewhere = matchesElsewhere(tab);
+        var elsewhere = matchesElsewhere(tab, b);
         return '<div class="ups-m-stub"><div class="ups-m-st-noq">' +
           "No " + U.escapeHtml(tab.id) + ' matches “' + U.escapeHtml(view.q.trim()) + '”' +
           (view.scope === "fa" ? " among free agents" : view.scope === "ros" ? " among rostered players" : "") +
@@ -459,91 +749,81 @@
       }
       return '<div class="ups-m-stub"><div>No ' + U.escapeHtml(tab.id) + " " +
         (view.scope === "fa" ? "free agents" : view.scope === "ros" ? "rostered players" : "data") +
-        " for " + curSeason() + ".</div></div>";
+        " for " + b.season + ".</div></div>";
     }
-    var cols = curSet().cols.map(function (k) { return C[k]; });
+    var cols = visibleCols(curSet(), b);
     var capped = rows.slice(0, 150);
-    var head = '<div class="ups-m-st-row head" style="--n:' + cols.length + '">' +
-      '<span class="rk">#</span><span class="nm">Player</span>' +
-      cols.map(function (c) { return '<span class="v">' + U.escapeHtml(c.l) + "</span>"; }).join("") + "</div>";
-    var body = capped.map(function (r) {
-      var own = ownerOf(r);
-      var ownTag = !own.known ? '<span class="own unk"> · owner unknown</span>'
-        : own.fid ? '<span class="own"> · ' + U.escapeHtml(own.name) + "</span>"
-        : '<span class="own fa"> · FA</span>';
-      return '<div class="ups-m-st-row" data-pid="' + U.escapeHtml(String(r.mfl_pid || "")) + '" style="--n:' + cols.length + '">' +
-        '<span class="rk">' + (r.__rk || "") + "</span>" +
-        '<span class="nm"><span class="pos ' + String(r.pos_group || "").toLowerCase() + '">' + U.escapeHtml(mflPos(r.position)) + "</span>" +
-          '<span class="t"><span class="pn">' + U.escapeHtml(flip(r.player_name)) + "</span>" +
-          '<span class="tm">' + U.escapeHtml(curTeam(r)) + ownTag + "</span></span></span>" +
-        cols.map(function (c) { return '<span class="v">' + fmt(c.g(r), c) + "</span>"; }).join("") +
-      "</div>";
-    }).join("");
-    /* The old footer said "search to narrow", which promised something search
-     * cannot do here: the query only ever filters THIS position's rows, and
-     * those rows are themselves a server-side top-N of the alias. Say what the
-     * list actually is instead of implying there is more behind the box. */
-    var more = rows.length > capped.length
-      ? '<div class="ups-m-fa-more">Top ' + capped.length + " of " + rows.length + " " +
-        U.escapeHtml(tab.id) + (view.q.trim() ? " matches" : "s by PPG") + ".</div>"
-      : "";
-    return '<div class="ups-m-st-scroll"><div class="ups-m-st-table">' + head + body + "</div></div>" + more;
+    var viewerFid = M.state && M.state.viewerFranchiseId ? U.pad4(M.state.viewerFranchiseId) : "";
+    var body = capped.map(function (r) { return rowHtml(r, cols, tab, viewerFid); }).join("");
+    var ranked = rows.filter(function (r) { return r.rank; }).length;
+    var foot = (rows.length > capped.length ? "Top " + capped.length + " of " + rows.length + " " : rows.length + " ") +
+      U.escapeHtml(tab.id) + (rows.length === 1 ? "" : "s") +
+      (view.q.trim() ? " matching" : (b.kind === "live" ? " with a " + b.season + " MFL score" : " in the stored list")) +
+      " · " + ranked + " ranked.";
+    return '<div class="ups-m-st-table" style="--cols:' + gridCols(cols) + '">' + body + "</div>" +
+      '<div class="ups-m-fa-more">' + foot + "</div>";
   }
 
-  /* A stable wrapper so a keystroke can repaint the ROWS without rebuilding the
-   * toolbar around them. Before this, every character re-ran the whole route:
-   * the <input> was destroyed and recreated, and stats.js carried a
-   * focus()+setSelectionRange() hack to paper over it. Measured 2026-08-29:
-   * five keystrokes produced five new input nodes, focus was lost on every one,
-   * and 140 DOM nodes were removed to type a five-letter name — which on a
-   * phone means the keyboard closes mid-word. */
-  function listShell(tab) {
-    return '<div class="ups-m-st-listwrap" id="ups-m-st-listwrap">' + renderList(tab) + "</div>";
+  /* A stable wrapper so a keystroke repaints the ROWS (and the heading /
+   * notes that depend on the set) without rebuilding the search box: on a
+   * phone a rebuilt input closes the keyboard mid-word. */
+  function listShell(tab, b) {
+    return '<div class="ups-m-st-listwrap" id="ups-m-st-listwrap">' + renderList(tab, b) + "</div>";
   }
   function repaintList() {
+    var tab = curTab(), b = basis();
     var wrap = document.getElementById("ups-m-st-listwrap");
     if (!wrap) return;
-    wrap.innerHTML = renderList(curTab());
+    wrap.innerHTML = renderList(tab, b);
+    var head = document.getElementById("ups-m-st-head");
+    if (head) head.innerHTML = headHtml(tab, b, visibleCols(curSet(), b));
+    var note = document.getElementById("ups-m-st-notes");
+    if (note) note.innerHTML = basisHtml(tab, b) + setNoteHtml(tab, b, curSet(), buildRows(tab, b));
+    var setSel = document.getElementById("ups-m-st-set");
+    if (setSel && setSel.options && setSel.options.length !== availSets(tab).length) setSel.outerHTML = setSelectHtml(tab);
   }
 
-  function toolbar() {
+  function setSelectHtml(tab) {
+    var sets = availSets(tab);
+    return '<select class="ups-m-players-filter" id="ups-m-st-set" aria-label="Stat columns">' +
+      sets.map(function (s) { return '<option value="' + s.id + '"' + (curSet().id === s.id ? " selected" : "") + ">" + U.escapeHtml(s.l) + "</option>"; }).join("") +
+    "</select>";
+  }
+
+  // The controls scroll away with the page; the position chips and the column
+  // headings are PINNED, directly under the League tabs — never over them.
+  // (Both bars used to stick at the same 48px offset, z-index 10, so after a
+  // short scroll the 148px toolbar covered the League tabs completely, and the
+  // headings sat inside an overflow-x box, which can't stick, so past row four
+  // every number was unlabelled.)
+  function toolbar(tab, b) {
     var chips = TABS.map(function (t) {
-      return '<button class="ups-m-pos-chip' + (view.tab === t.id ? " on" : "") + '" data-tab="' + t.id + '">' + t.id + "</button>";
+      return '<button class="ups-m-pos-chip' + (view.tab === t.id ? " on" : "") + '" data-tab="' + t.id + '"' +
+        (view.tab === t.id ? ' aria-pressed="true"' : ' aria-pressed="false"') + ">" + t.id + "</button>";
     }).join("");
-    var scopeSel = '<select class="ups-m-players-filter" id="ups-m-st-scope" aria-label="Filter by roster status">' +
-      '<option value="all"' + (view.scope === "all" ? " selected" : "") + ">All players</option>" +
+    var scopeSel = '<label class="ups-m-st-sel"><span>Roster</span><select class="ups-m-players-filter" id="ups-m-st-scope" aria-label="Filter by roster status">' +
+      '<option value="all"' + (view.scope === "all" ? " selected" : "") + ">All</option>" +
       '<option value="ros"' + (view.scope === "ros" ? " selected" : "") + ">Rostered</option>" +
       '<option value="fa"'  + (view.scope === "fa"  ? " selected" : "") + ">Free agents</option>" +
-    "</select>";
-    // Column-set dropdown — only when the position offers more than one set.
-    var sets = curTab().sets;
-    var setSel = sets.length > 1
-      ? '<select class="ups-m-players-filter" id="ups-m-st-set" aria-label="Stat columns">' +
-          sets.map(function (s, i) { return '<option value="' + i + '"' + (view.set === i ? " selected" : "") + ">" + U.escapeHtml(s.l) + "</option>"; }).join("") +
-        "</select>"
-      : "";
-    /* The "PLAYER STATS · 2025 · ADVANCED (NFLVERSE)" heading that used to sit
-     * here cost 35px of a 812px screen to repeat what the "Players" inner tab
-     * directly above it already says. Measured before this change: 350px — 43%
-     * of the viewport — was chrome before the first data row, leaving room for
-     * seven. The season and source now ride along the filter row as a caption. */
-    return '<div class="ups-m-players-toolbar">' +
+    "</select></label>";
+    var setSel = '<label class="ups-m-st-sel"><span>Columns</span>' + setSelectHtml(tab) + "</label>";
+    return '<div class="ups-m-st-tools">' +
       '<input type="search" class="ups-m-players-search" id="ups-m-st-search" placeholder="Search ' +
-        U.escapeHtml(curTab().id) + ' by name, team or owner…" autocomplete="off" autocorrect="off" ' +
+        U.escapeHtml(tab.id) + 's by name, team or owner" autocomplete="off" autocorrect="off" ' +
         'autocapitalize="off" spellcheck="false" value="' + U.escapeHtml(view.q) + '" />' +
-      '<div class="ups-m-st-filters">' + scopeSel + setSel +
-        '<span class="ups-m-st-src">' + curSeason() + " · nflverse</span>" +
-      "</div>" +
-      '<div class="ups-m-pos-chips">' + chips + "</div>" +
+      '<div class="ups-m-st-filters">' + scopeSel + setSel + "</div>" +
+      '<div id="ups-m-st-notes">' + basisHtml(tab, b) + setNoteHtml(tab, b, curSet(), buildRows(tab, b)) + "</div>" +
+    "</div>" +
+    '<div class="ups-m-st-pin">' +
+      '<div class="ups-m-pos-chips" role="group" aria-label="Position">' + chips + "</div>" +
+      '<div id="ups-m-st-head">' + headHtml(tab, b, visibleCols(curSet(), b)) + "</div>" +
     "</div>";
   }
 
   function bindToolbar(mount) {
     var s = document.getElementById("ups-m-st-search");
-    // Repaint only the rows, straight off the keystroke. No debounce: filtering
-    // an already-fetched array of at most 500 rows is sub-millisecond, and the
-    // 220ms timer only ever added lag. No focus restoration either — the input
-    // is no longer in the subtree being replaced, so it never loses focus.
+    // Repaint only the rows, straight off the keystroke: the input is not in
+    // the subtree being replaced, so it never loses focus.
     if (s) s.addEventListener("input", function (e) {
       view.q = e.target.value;
       repaintList();
@@ -552,15 +832,18 @@
     for (var i = 0; i < chips.length; i++) chips[i].addEventListener("click", function () {
       view.tab = this.getAttribute("data-tab");
       view.q = "";
-      view.set = 0;   // each position defaults to its first column set
+      view.set = "fantasy";   // each position opens on Fantasy pts
       M.route.renderRoute();
     });
     var scope = document.getElementById("ups-m-st-scope");
-    // Scope and column-set change the ROWS, not the controls — except the set
-    // list itself, which is per-position and only changes when the tab does.
     if (scope) scope.addEventListener("change", function () { view.scope = this.value; repaintList(); });
+    // Delegated: repaintList() may replace the set <select> when a source
+    // (Routes) turns out empty.
+    var filters = mount.querySelector ? mount.querySelector(".ups-m-st-filters") : null;
     var setSel = document.getElementById("ups-m-st-set");
-    if (setSel) setSel.addEventListener("change", function () { view.set = parseInt(this.value, 10) || 0; repaintList(); });
+    var onSet = function (e) { var el = e && e.target && e.target.id === "ups-m-st-set" ? e.target : setSel; view.set = el.value || "fantasy"; repaintList(); };
+    if (filters && filters.addEventListener) filters.addEventListener("change", function (e) { if (e.target && e.target.id === "ups-m-st-set") onSet(e); });
+    else if (setSel) setSel.addEventListener("change", function () { view.set = this.value || "fantasy"; repaintList(); });
   }
 
   function bind(mount) {
@@ -573,8 +856,6 @@
     wrap.addEventListener("click", function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
-      // Hand a fruitless position-scoped search over to the league-wide search,
-      // carrying the query across so the owner does not retype it.
       if (t.closest('[data-act="search-all"]')) {
         if (M.playerSearch) M.playerSearch.openWith(view.q);
         return;
@@ -584,6 +865,20 @@
       var pid = row.getAttribute("data-pid");
       if (pid && M.sheet) M.sheet.open(pid);
     });
+  }
+
+  // Pin the chips + headings exactly under the League tabs, whatever height
+  // those wrap to; and bring the active Stats tab into view in its scroller.
+  function settleChrome(mount) {
+    if (!mount || !mount.querySelector) return;
+    var st = mount.querySelector(".ups-m-subtabs");
+    if (st && st.offsetHeight && mount.style && mount.style.setProperty) mount.style.setProperty("--st-subtabs-h", st.offsetHeight + "px");
+    var bar = mount.querySelector(".ups-m-stseg-bar");
+    var on = bar && bar.querySelector(".ups-m-stseg.on");
+    if (bar && on && bar.scrollWidth > bar.clientWidth) {
+      var left = on.offsetLeft - bar.offsetLeft, right = left + on.offsetWidth;
+      if (left < bar.scrollLeft || right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = Math.max(0, left - 12);
+    }
   }
 
   // ── Fantasy Points Against (inner view of the Stats sub-tab) ──
@@ -628,9 +923,12 @@
   }
   function fpaRkCls(rank, of) { if (rank == null) return "mid"; if (rank <= 10) return "easy"; if (rank > of - 10) return "tough"; return "mid"; }
 
+  // The six Stats boards. Shared navigation: 13px labels in a row that
+  // scrolls sideways when it doesn't fit (they were squeezed to 9px with
+  // negative tracking to fit 375px), the active one scrolled into view.
   function innerSwitch() {
-    function b(key, label) { return '<button class="ups-m-stseg' + (view.inner === key ? " on" : "") + '" data-inner="' + key + '">' + label + "</button>"; }
-    return '<div class="ups-m-stseg-bar six">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + b("pace", "Pace") + b("sched", "Sched") + "</div>";
+    function b(key, label) { return '<button class="ups-m-stseg' + (view.inner === key ? " on" : "") + '" data-inner="' + key + '" role="tab" aria-selected="' + (view.inner === key ? "true" : "false") + '">' + label + "</button>"; }
+    return '<div class="ups-m-stseg-bar six" role="tablist" aria-label="Stats boards">' + b("players", "Players") + b("fpa", "Pts Agst") + b("adp", "ADP") + b("vegas", "Vegas") + b("pace", "Pace") + b("sched", "Sched") + "</div>";
   }
   // ── Vegas board (Stats → Vegas inner tab) — implied team points + O/U ──
   var vg = { year: 0, week: 0, data: null, weeks: [], _fb: false };
@@ -1108,32 +1406,33 @@
   function paint(mount) {
     if (view.inner === "pace") {
       mount.innerHTML = subTabs("stats") + innerSwitch() + paceToolbar() + paceHtml();
-      bindInner(mount); bindPace(mount);
+      settleChrome(mount); bindInner(mount); bindPace(mount);
       return;
     }
     if (view.inner === "fpa") {
       var bodyHtml = fpa.detailTeam ? fpaDetailHtml() : fpaListHtml();
       mount.innerHTML = subTabs("stats") + innerSwitch() + fpaToolbar() + bodyHtml;
-      bindInner(mount); bindFpa(mount);
+      settleChrome(mount); bindInner(mount); bindFpa(mount);
       return;
     }
     if (view.inner === "adp") {
       mount.innerHTML = subTabs("stats") + innerSwitch() + adpBoardToolbar() + adpBoardHtml();
-      bindInner(mount); bindAdpBoard(mount);
+      settleChrome(mount); bindInner(mount); bindAdpBoard(mount);
       return;
     }
     if (view.inner === "vegas") {
       mount.innerHTML = subTabs("stats") + innerSwitch() + vegasToolbar() + vegasHtml();
-      bindInner(mount); bindVegas(mount);
+      settleChrome(mount); bindInner(mount); bindVegas(mount);
       return;
     }
     if (view.inner === "sched") {
       mount.innerHTML = subTabs("stats") + innerSwitch() + schedToolbar() + schedHtml();
-      bindInner(mount); bindSched(mount);
+      settleChrome(mount); bindInner(mount); bindSched(mount);
       return;
     }
-    mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + listShell(curTab());
-    bindInner(mount); bind(mount);
+    var tab = curTab(), b = basis();
+    mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar(tab, b) + listShell(tab, b);
+    settleChrome(mount); bindInner(mount); bind(mount);
   }
 
   function render(mount) {
@@ -1200,16 +1499,34 @@
     function fillColumns() {
       if (view.inner === "players" && view.tab === tab.id) repaintList();
     }
-    loadSos(curSeason()).then(fillColumns);
-    loadCons(curSeason()).then(fillColumns);
-    loadEpa(curSeason()).then(fillColumns);
+    var b = basis(), yr = b.season;
+    loadSos(yr).then(fillColumns);
+    loadCons(yr).then(fillColumns);
+    loadEpa(yr).then(fillColumns);
     loadMarket().then(fillColumns);
-    loadRoutes(curSeason()).then(fillColumns);
-    loadNgs(curSeason()).then(fillColumns);
-    if (cache[tab.alias + "|" + curSeason()]) { paint(mount); return; }
-    mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar() + '<div class="ups-m-loading">Loading stats…</div>';
-    bindInner(mount); bindToolbar(mount);
-    load(tab.alias, curSeason()).then(function () { if (view.tab === tab.id && view.inner === "players") paint(mount); });
+    loadRoutes(yr).then(fillColumns);
+    loadNgs(yr).then(fillColumns);
+    // MFL's YTD moves while games are played: re-read W=ALL once it is 5+
+    // minutes old (the same refresh the Players market uses). A failed read
+    // keeps the old numbers AND their old "MFL read" time, so staleness shows.
+    if (D().refreshSeasonScoringIfStale) D().refreshSeasonScoringIfStale(5 * 60 * 1000).then(function (changed) {
+      if (changed && view.inner === "players" && view.tab === tab.id) repaintList();
+    });
+    if (cache[tab.alias + "|" + yr]) { paint(mount); return; }
+    // Live MFL points don't wait for the box-score join: paint them now, then
+    // again when the leaderboard lands. The stored fallback needs it first.
+    if (b.kind === "live") paint(mount);
+    else {
+      mount.innerHTML = subTabs("stats") + innerSwitch() + '<div class="ups-m-loading">Loading stats…</div>';
+      settleChrome(mount); bindInner(mount);
+    }
+    load(tab.alias, yr).then(function () {
+      if (view.tab !== tab.id || view.inner !== "players") return;
+      // Already on screen (live): refresh rows, headings and notes only, so a
+      // search box someone is typing in keeps its focus.
+      if (b.kind === "live" && document.getElementById("ups-m-st-listwrap")) repaintList();
+      else paint(mount);
+    });
   }
 
   M.statsView = { render: render };
