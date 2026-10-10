@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.09.3",
-  "label": "Drops: a drop penalty the worker could not price yet reads “under review” and sorts last — never $0."
+  "build": "2026.10.09.4",
+  "label": "Players: when MFL's rosters don't fully load, nobody is called a free agent — the list, player card and search say ownership is unknown and offer no add or bid until a refresh."
 }
