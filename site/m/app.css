@@ -1295,6 +1295,10 @@ button.ups-m-busy::before,
 .ups-m-st-row .nm .pn { font-size: 14px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* One line, ellipsised: the owner is secondary and not worth a second line. */
 .ups-m-st-row .nm .tm { font-size: 11px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Status chips lead the team line (2026-10-10): small, never truncated by a long name, never over the numbers. */
+.ups-m-st-row .nm .tm .ups-m-inj-chip.sm { margin: 0 4px 0 0; padding: 0 3px; font-size: 11px; line-height: 13px; border-radius: 4px; letter-spacing: .02em; vertical-align: 1px; }
+.ups-m-st-row .nm .tm .ups-m-inj-chip.sm + .ups-m-inj-chip.sm { margin-left: 0; }
+.ups-m-st-injline { margin-top: 2px; font-size: 11px; color: var(--fg-muted); }
 .ups-m-st-row .nm .tm .own.fa { color: var(--accent); font-weight: 700; }
 .ups-m-st-row .nm .tm .own.me { color: var(--fg); font-weight: 600; }
 .ups-m-st-row .nm .tm .own.unk { color: var(--warn); font-weight: 600; }
