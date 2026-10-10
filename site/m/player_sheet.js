@@ -432,11 +432,11 @@
     }).join("");
 
     return '' +
-      '<table class="ups-m-stat-table">' +
+      '<div class="ups-m-gl-wrap"><table class="ups-m-stat-table">' +
         '<thead><tr><th>Year</th><th title="MFL scored weeks: weeks MFL posted a score, 0.0 included. Not NFL games played.">MFL Wks</th>' +
           '<th>Pts</th><th title="Points per MFL scored week">PPG</th><th>PPG Rk</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
-      '</table>' +
+      '</table></div>' +
       '<div class="ups-m-stat-basis">' + U.escapeHtml(live
         ? live.season + ": " + live.basis
         : (!seasonScoring || !seasonScoring.known)
@@ -477,7 +477,8 @@
   function gameLogCols(grp) {
     function n(v) { return v == null ? null : Number(v); }
     function pair(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "/" + (Number(b) || 0); }
-    function dash(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "-" + (Number(b) || 0); }
+    // "att-yds"; a loss reads "3-(−3)", not "3--3"
+    function dash(a, b) { if (a == null && b == null) return null; var y = Number(b) || 0; return (Number(a) || 0) + "-" + (y < 0 ? "(−" + (-y) + ")" : y); }
     // Columns sized to fit a 320px sheet (agent measurements 2026-10-10).
     if (grp === "QB") return [["Yds", function (r) { return n(r.pass_yds); }], ["TD", function (r) { return n(r.pass_tds); }],
       ["Int", function (r) { return n(r.pass_ints); }], ["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }]];
@@ -538,6 +539,7 @@
       });
     }
     var rzCols = wb ? gameLogRzCols(grp) : [];
+    var hasSnaps = Object.keys(snaps).length > 0;
     var view = rzCols.length && glView === "rz" ? "rz" : "box";
     var cols = view === "rz" ? rzCols : gameLogCols(grp);
     var live = {}; ss.liveWeeks.forEach(function (w) { live[w] = true; });
@@ -555,7 +557,8 @@
       else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; ttl = "Not played yet"; }
       // With snap counts: say what happened. A snap row with 0 snaps, or no
       // snap row while his team played, is "no snaps" — not a guess.
-      else if (wb && wb.pfr_id && (snapTot === 0 || (!sn && w <= (wb.box_through_week || 0)))) { label = "0 snp"; cls = "dnp"; ttl = "His team played; he had no snaps"; }
+      // (only for a player with snap rows this season: no rows at all = no NFL team, not "no snaps")
+      else if (wb && wb.pfr_id && hasSnaps && (snapTot === 0 || (!sn && w <= (wb.box_through_week || 0)))) { label = "0 snp"; cls = "dnp"; ttl = "His team played; he had no snaps"; }
       // DNP only when the bye list was read: otherwise a bye would be called DNP.
       else if (byesKnown) { label = "DNP"; cls = "dnp"; ttl = "No MFL score this week"; }
       else { label = "—"; cls = "dim"; }
@@ -586,7 +589,7 @@
         '<tbody>' + rows.join("") + '</tbody></table></div>' +
       '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
         boxNote + (view === "rz" ? " Red zone: inside the opponent’s 20; two-point tries excluded; sacks are not attempts." : "") +
-        (wb && wb.pfr_id ? " 0 snp = his team played and he had no snaps." : "") +
+        (wb && wb.pfr_id && hasSnaps ? " 0 snp = his team played and he had no snaps." : "") +
         (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows —, not DNP." : " DNP = no MFL score in a finished week that wasn’t his bye.") +
         '</div>';
   }

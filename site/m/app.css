@@ -1276,7 +1276,7 @@ button.ups-m-busy::before,
 .ups-m-st-row .nm .tm span.pos { background: none; border: 0; padding: 0; font-size: 11px; font-weight: 700; color: #b39ddb; }
 /* "About these numbers": the longer definitions, collapsed. */
 .ups-m-st-more { margin-top: 3px; }
-.ups-m-st-more summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 12px; list-style: none; }
+.ups-m-st-more summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 12px; list-style: none; min-height: 32px; display: flex; align-items: center; }
 .ups-m-st-more summary::-webkit-details-marker { display: none; }
 .ups-m-st-more summary::before { content: "▸ "; }
 .ups-m-st-more[open] summary::before { content: "▾ "; }

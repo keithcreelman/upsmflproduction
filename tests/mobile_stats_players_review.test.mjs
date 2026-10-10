@@ -363,7 +363,7 @@ test("IDP universe comes from MFL, not the 500-row leaderboard: rostered IDPs it
   }
   search.fire("input", { target: { value: "" } });
   const box = await chooseSet(v, "coverage");
-  t.match(box.notes, /\d+ listed DBs show — here\./, "one short line");
+  t.match(box.notes, /\d+ listed DBs have no row in the stats source \(—\)\./, "one short line");
   t.match(box.notes, /<summary>About these numbers<\/summary><div>[^<]*They aren’t in the box-score list, which returns at most 500 players here\. Their player sheet can show the weekly box score; their MFL points are on Fantasy pts\./, "the why: not in the box-score list");
   // Boom/Bust is joined by MFL id (its source grades every MFL-scored player): no "—" line for it
   const bb = await chooseSet(v, "boom");
@@ -476,10 +476,8 @@ test("column sets: Fantasy pts first; PPG ONLY there; YPC and Targets; Schedule-
   t.deepEqual(labels((await chooseSet(v, "rushing")).head), ["Att", "RuYd", "RuTD", "YPC"], "Rushing shows YPC");
   const boom = await chooseSet(v, "boom");
   t.deepEqual(labels(boom.head), ["Start%", "Boom%", "Bust%", "Wks"], "Boom/Bust is now measured against UPS starters; Consistency is gone");
-  t.match(boom.notes, /Each played week vs that week’s UPS starters at his position: Start% = at or above their median, Boom% = top quarter, Bust% = bottom quarter\. Count under each %; 3\+ weeks\./, "plain-language explanation on screen");
-  t.match(boom.notes, /<summary>About these numbers<\/summary><div># = PPG rank on actual MFL points, Wks 1–5\. Pool: the UPS lineup starters at his MFL lineup group \(DL = DE\+DT, DB = CB\+S\) who played that week\. A started player who didn’t play, or scored 0\.0, is left out of that week’s lines and counted separately/, "the full definition is one tap away");
-  t.match(boom.notes, /Final weeks only: Wks 1–4\./);
-  t.match(boom.notes, /This replaces the old Boom\/Bust \(measured against every weekly score at the position, free agents and 0\.0 weeks included\) and the old Consistency score\./);
+  t.match(boom.notes, /Each week he played vs that week’s UPS starters at his position: Start% = at or above their middle score, Boom% = top quarter, Bust% = bottom quarter\./, "plain-language explanation on screen");
+  t.match(boom.notes, /<summary>About these numbers<\/summary><div># = PPG rank on actual MFL points, Wks 1–5\. Final weeks only \(Wks 1–4\), and only weeks he played \(Wks\)\. A % needs 3\+ weeks; the count is under it\. Starters who sat out or scored 0 aren’t used to set the lines\.<\/div>/, "short: three sentences behind the tap (Keith: the long version 'will make your head spin')");
   const src = read("site/m/views/stats.js");
   const setBlock = src.slice(src.indexOf("var TABS = ["), src.indexOf("// scope:"));
   let n = 0;
@@ -491,21 +489,35 @@ test("column sets: Fantasy pts first; PPG ONLY there; YPC and Targets; Schedule-
   t.ok(n >= 20, "checked every set definition (" + n + ")");
 });
 
-test("IDP sets: Tackles = Solo · Ast · TFL · Snaps (no FF, no PPG); Pass rush = Sk · Press · FF · Snaps; Coverage = INT · PD · Cmp · Yds", async () => {
-  const v = boot();
+test("IDP sets: Tackles = Solo · Ast · TFL · Snap% (team snaps in his games); Pass rush = Sk · Press · FF; Coverage = INT · PD · Cmp/Tgt (sorted by targets) · Yds", async () => {
+  const lb = (pos) => {
+    const b = leaderboard(pos);
+    if (pos === "idp") b.rows = b.rows.map((r, i) => Object.assign({}, r, { def_snaps_total: 200 + i, def_snaps_team: 260,
+      def_targets: i % 5 === 0 ? null : 20 - (i % 17), def_completions_allowed: i % 5 === 0 ? null : 10 - (i % 9) }));
+    return b;
+  };
+  const v = boot({ leaderboard: lb });
   await openTab(v, "LB");
   const tk = await chooseSet(v, "tackles");
-  t.deepEqual(labels(tk.head), ["Solo", "Ast", "TFL", "Snaps"]);
+  t.deepEqual(labels(tk.head), ["Solo", "Ast", "TFL", "Snap%"], "Snap% once, on Tackles");
   t.match(tk.head, /title="Solo tackles"/, "the label says Solo: the source counts solo tackles only");
+  const r0 = rowsOf(tk.list)[0];
+  t.match(r0.cells[3], /^\d+%\d+\/260$/, "Snap% with his snaps / his team's snaps under it");
+  t.match(tk.notes, /Snap% = his defensive snaps ÷ his team’s, only in the games he played on defense\./);
   const pr = await chooseSet(v, "passrush");
-  t.deepEqual(labels(pr.head), ["Sk", "Press", "FF", "Snaps"]);
+  t.deepEqual(labels(pr.head), ["Sk", "Press", "FF"], "no snaps on every defensive page");
   t.deepEqual(bands(pr.head), ["nflverse Wk 1–4"], "one band: PFR's charting reaches the app through nflverse, same weeks");
-  t.match(pr.notes, /Press, Cmp and Yds are PFR charting delivered by nflverse/, "…and the note names PFR");
   t.doesNotMatch(pr.head + pr.notes, /pressure rate|win rate/i, "no rate without a pass-rush-snap source");
   const cv = await chooseSet(v, "coverage");
-  t.deepEqual(labels(cv.head), ["INT", "PD", "Cmp", "Yds"]);
-  t.match(cv.notes, /— means PFR has no record for him; a recorded 0 completions allowed means 0 yards\./);
+  t.deepEqual(labels(cv.head), ["INT", "PD", "Cmp/Tgt", "Yds"]);
+  t.match(cv.notes, /Cmp\/Tgt, Yds and Press are PFR charting via nflverse; — means PFR has no record for him\./);
   t.match(read("site/m/views/stats.js"), /Pressures \(PFR: hurries \+ knockdowns \+ sacks\)\. — when PFR has no record for him\./, "the Press heading's title says it too");
+  const head = v.getEl("ups-m-st-head");
+  head.fire("click", { target: { closest: () => ({ getAttribute: () => "cmptgt" }) } }); await settle();
+  const tg = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML).map((r) => r.cells[2]);
+  const nums = tg.filter((c) => c !== "—").map((c) => +c.split("/")[1]);
+  t.ok(nums.every((x, i) => i === 0 || nums[i - 1] >= x), "sorted by TARGETS, high to low");
+  t.ok(tg.indexOf("—") === -1 || tg.slice(tg.indexOf("—")).every((c) => c === "—"), "no PFR record: last");
 });
 
 test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; punters: I20 as made/punts plus I20% — no PPG", async () => {
@@ -513,13 +525,17 @@ test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; pu
   await openTab(v, "PK");
   t.deepEqual(labels((await chooseSet(v, "kicking")).head), ["FGM", "FGA", "FG%", "XPM"]);
   const dist = await chooseSet(v, "distance");
-  t.deepEqual(labels(dist.head), ["0–39", "40–49", "50+"]);
+  t.deepEqual(labels(dist.head), ["0–39", "40–49", "50–59", "60+"], "50–59 and 60+ apart (Keith 2026-10-10)");
   const lb = FX.leaderboard.kicker, ix = (k) => lb.cols.indexOf(k);
-  const row = lb.rows.find((r) => r[ix("fg_att_50_59")] + r[ix("fg_att_60plus")] > 1);
+  const row = lb.rows.find((r) => r[ix("fg_att_60plus")] > 0) || lb.rows.find((r) => r[ix("fg_att_50_59")] > 1);
   const k = rowsOf(dist.list).find((r) => r.pid === String(row[0]));
   t.deepEqual(k.cells, [row[ix("fg_made_0_39")] + "/" + row[ix("fg_att_0_39")], row[ix("fg_made_40_49")] + "/" + row[ix("fg_att_40_49")],
-    (row[ix("fg_made_50_59")] + row[ix("fg_made_60plus")]) + "/" + (row[ix("fg_att_50_59")] + row[ix("fg_att_60plus")])], "50+ = 50–59 + 60+");
-  t.match(dist.notes, /Made\/attempted by distance \(no split under 40 yds\)\./);
+    row[ix("fg_made_50_59")] + "/" + row[ix("fg_att_50_59")], row[ix("fg_made_60plus")] + "/" + row[ix("fg_att_60plus")]]);
+  t.match(dist.notes, /Made\/attempted by distance; sorted by attempts\./);
+  const head = v.getEl("ups-m-st-head");
+  head.fire("click", { target: { closest: () => ({ getAttribute: () => "fg59" }) } }); await settle();
+  const att = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML).map((r) => r.cells[2]).filter((c) => c !== "—").map((c) => c.split("/").map(Number));
+  t.ok(att.every((x, i) => i === 0 || att[i - 1][1] > x[1] || (att[i - 1][1] === x[1] && att[i - 1][0] >= x[0])), "50–59 sorts by ATTEMPTS, then makes");
   await openTab(v, "PN");
   const pn = await chooseSet(v, "punting");
   t.deepEqual(labels(pn.head), ["Punts", "I20%", "Net"]);
@@ -620,7 +636,7 @@ test("Boom/Bust vs UPS starters: Start% / Boom% / Bust% with counts, joined by M
 test("red zone: shown once the board was rebuilt under 0168 — QB Att/Cmp/TD/Pass%, RB and WR shares with their counts", async () => {
   const lb = (pos) => {
     const b = leaderboard(pos);
-    if (pos === "qb") b.rows = b.rows.map((r, i) => Object.assign({}, r, { rz_v2: 1, pass_att_i20: 21 - i, pass_cmp_i20: 18 - i, pass_tds_i20: 7, rush_att_i20: 3 }));
+    if (pos === "qb") b.rows = b.rows.map((r, i) => Object.assign({}, r, { rz_v2: 1, pass_att_i20: 21 - i, pass_cmp_i20: 18 - i, pass_tds_i20: 7, rush_att_i20: 3, rz_qb_dropbacks: 22, rz_qb_plays: 45 }));
     if (pos === "skill") b.rows = b.rows.map((r) => Object.assign({}, r, { rz_v2: 1, rush_att_i20: 23, team_rush_att_i20: 28, rz_rush_share: 23 / 28,
       rush_att_i5: 11, team_rush_att_i5: 13, gl_rush_share: 11 / 13, targets_i20: 10, team_targets_i20: 21, rz_target_share: 10 / 21,
       targets_ez: 6, team_targets_ez: 10, ez_target_share: 0.6 }));
@@ -632,9 +648,9 @@ test("red zone: shown once the board was rebuilt under 0168 — QB Att/Cmp/TD/Pa
   t.deepEqual(labels(qb.head), ["Att", "Cmp", "TD", "Pass%"]);
   t.deepEqual(rowsOf(qb.list)[0].cells.slice(0, 4).length, 4);
   const first = FX.leaderboard.qb.rows[0], fr = rowsOf(qb.list).find((r) => r.pid === String(first.mfl_pid));
-  t.deepEqual(fr.cells, ["21", "18", "7", "88%21/24"], "Pass% = attempts ÷ (attempts + carries), sacks not counted");
-  t.match(qb.notes, /Inside the opponent’s 20, regular season, Wks 1–4; two-point tries excluded\./);
-  t.match(qb.notes, /sacks are not attempts and are counted apart/);
+  t.deepEqual(fr.cells, ["21", "18", "7", "49%22/45"], "Pass% = his TEAM's red-zone plays with him at QB that were passes (Keith 2026-10-10)");
+  t.match(qb.notes, /Inside the 20, Wks 1–4; no two-point tries\. Pass% = share of his team’s red-zone plays that were passes, while he was the QB\./);
+  t.match(qb.notes, /the QB on each play is the one who last dropped back for his team in that game/);
   await openTab(v, "RB");
   const rb = await chooseSet(v, "redzone");
   t.deepEqual(labels(rb.head), ["I20", "I20%", "I5", "I5%"]);
@@ -643,7 +659,7 @@ test("red zone: shown once the board was rebuilt under 0168 — QB Att/Cmp/TD/Pa
   const wr = await chooseSet(v, "redzone");
   t.deepEqual(labels(wr.head), ["I20", "I20%", "EZ", "EZ%"]);
   t.deepEqual(rowsOf(wr.list)[0].cells, ["10", "48%10/21", "6", "60%6/10"]);
-  t.match(wr.notes, /EZ = passes thrown to him that reached the end zone, from anywhere on the field/);
+  t.match(wr.notes, /EZ = passes to him that reached the end zone, from anywhere on the field\./);
   // a board NOT rebuilt since 0168 never offers the set (its attempts still include sacks)
   const v2 = boot();
   const html = await openTab(v2, "QB");
@@ -967,6 +983,23 @@ test("game log: a player with no verified NFL id says so; and an undeployed week
   const b4 = FX.bundles[PURDY].nfl_weekly.find((x) => x.week === 4);
   t.equal(g2.wk(4).stats[0], String(b4.pass_yds), "route not deployed: the bundle's box score, as before");
   t.doesNotMatch(g2.html, /data-glview/, "no Red zone view without the route");
+});
+
+test("QA fixes: 'About' closes on a new set; a loss reads 3-(−3); no '0 snp' for a player with no NFL team", async () => {
+  const v = boot();
+  await openTab(v, "QB");
+  await chooseSet(v, "boom");
+  v.getEl("ups-m-st-notes").fire("click", { target: { closest: (q) => (q === "summary" ? {} : null) } }); await settle();
+  v.getEl("ups-m-st-search").fire("input", { target: { value: "" } }); await settle();   // a repaint keeps it open
+  t.match(v.getEl("ups-m-st-notes").innerHTML, /<details class="ups-m-st-more" open>/, "opened");
+  const ep = await chooseSet(v, "epa");
+  t.doesNotMatch(ep.notes, /<details class="ups-m-st-more" open>/, "closed again on the next set (it pushed rows off a 568-px screen)");
+  const pid = Object.keys(FX.players).find((id) => !FX.bundles[id] && FX.players[id][1] === "RB" && FX.weeks["1"][id] != null);
+  const g = await gameLog(boot({ weeklyBox: (m) => ({ ok: true, mfl_id: m, gsis_id: "00-RB", pfr_id: "RbRb00", id_source: "player_id_map:verified", box_through_week: 4,
+    weeks: [{ week: 1, box: { week: 1, opponent: "NYJ", rush_att: 3, rush_yds: -3, receptions: 0, rec_yds: 0, rush_tds: 0, rec_tds: 0 }, snaps: null, redzone: null }] }) }), pid);
+  t.equal(g.wk(1).stats[0], "3-(−3)");
+  t.ok(!g.rows.some((r) => r.pts === "0 snp"), "no snap rows all season = no NFL team: never '0 snp'");
+  t.doesNotMatch(g.html, /0 snp = his team played/);
 });
 
 test("game log: BYE on his team's bye week (MFL's list), DNP for a finished week with no MFL score; bye list unreadable → says so", async () => {

@@ -603,3 +603,4 @@
 .ups-m-gl-views { display: inline-flex; margin: 8px 0 0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
 .ups-m-gl-views button { font: 600 12px/1 inherit; min-height: 32px; padding: 0 12px; border: 0; background: transparent; color: var(--fg-muted); }
 .ups-m-gl-views button.on { background: var(--accent); color: var(--bg); }
+@media (max-width: 360px) { .ups-m-stat-table th, .ups-m-stat-table td { padding: 5px 4px; } }
