@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.09.6",
-  "label": "Stats → Players lists every player from MFL's own player list at his MFL position (DE → DL; every scoring IDP), ranked exactly like his player card; falls back to the stats list, said on screen, if MFL's list doesn't load."
+  "build": "2026.10.10.2",
+  "label": "Stats → Players lists MFL's own players at their MFL positions (DE → DL; every scoring IDP), ranked exactly like the player card, with sortable columns, remaining guaranteed by year and a weekly game log."
 }

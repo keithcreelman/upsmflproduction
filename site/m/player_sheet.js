@@ -90,60 +90,167 @@
     return CAP_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
   }
   function usd(n) { return "$" + Math.round(Number(n) || 0).toLocaleString("en-US"); }
+  // Table cells: the same whole dollars without the "$" (the caption says so),
+  // so a five-column year table fits a 320px phone.
+  function dol(n) { return Math.round(Number(n) || 0).toLocaleString("en-US"); }
   function wkSpan(a, b) { return a === b ? "Wk " + a : "Wks " + a + "–" + b; }
 
-  // This season's money for one contract — salary, its earning window, what
-  // has been EARNED through the last completed week, and what is still due —
-  // with the arithmetic written out. Every earned / window number is the
-  // worker's own (/api/cap-penalty/preview: the batch the drop penalties and
-  // Front Office's Per Wk read, loaded at boot): the window is THIS contract's
-  // eligible_weeks (canon §D1, Weeks W–17), never an assumed 17, and nothing is
-  // estimated here. When the worker can't price the player the block says why.
-  //   → { rows: [[label, value, hl?]...], how: "text", note: "unavailable reason" }
-  function seasonMoney(pid, rosterRow) {
-    var salary = Number(rosterRow && rosterRow.salary) || 0;
-    var rows = [["Salary", usd(salary)]];
+  // ── Contract money (Keith 2026-10-10) ──
+  // The headline is REMAINING GUARANTEED SALARY FOR THE WHOLE CONTRACT, not
+  // this season's unpaid salary. Canon (league_context_v1.md §D1 / §6.C1 /
+  // §C5.1): the guarantee is ONE pool for the contract, 75% of its total value
+  // (TCV re-based by a restructure, reset by an extension), minus every dollar
+  // earned under that contract — each finished season in full plus this season
+  // week by week over the contract's own earning window. That is exactly what
+  // the league cap engine (/api/cap-penalty/preview, the same function the drop
+  // cron charges with) returns as `penalty` for the standard rule, so the sheet
+  // shows the ENGINE's number and only explains it; nothing is computed here
+  // that could disagree with it:
+  //   - shown only when penalty = max(0, guaranteed − earned) holds on the row;
+  //   - the year-by-year split uses the guarantee in year order (verified to
+  //     sum to the engine's figure on all 218 standard contracts, 2026-10-10)
+  //     and is hidden when it doesn't add up or MFL's schedule is incomplete;
+  //   - the other rules (taxi, sub-$5K, small waiver deals) say what they are.
+  // It is NOT "salary − this season's earned" (Josh Allen: $88,000 − $20,706
+  // = $67,294, but his remaining guarantee is $66,000 − $20,706 = $45,294).
+  var STD_BASES = { guarantee_minus_earned: 1, no_penalty_zero: 1 };
+  var RULE_COPY = {
+    tcv_under_5k_flat: { amt: "flat", why: "A multi-year contract under $5K total costs a flat $1,000 to cut while 2 or more years remain (canon §D1). It is a set price, not salary earned down." },
+    full_year_1k_contract: { amt: "flat", why: "A $1,000-a-year contract costs a flat $1,000 to cut while 2 or more years remain (canon §D1). It has no weekly earning." },
+    tcv_under_5k_final_year_exempt: { amt: "zero", why: "A contract under $5K in its final year carries no guarantee (canon §D1/§D2)." },
+    one_year_under_5k_exempt: { amt: "zero", why: "A one-year contract under $5K carries no guarantee (canon §D2)." },
+    ww_under_5k_exempt: { amt: "zero", why: "A one-year waiver deal under $5K carries no guarantee (canon §D2)." },
+    ww_under_5k_earned_na: { amt: "zero", why: "A one-year waiver deal of $4K or less carries no guarantee; earned doesn’t apply (canon §6.C3)." },
+    taxi_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." },
+    taxi_callup_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." }
+  };
+  // MFL's year schedule through the shared parser (site/shared/cap_math.js,
+  // the same one Front Office uses: bare "Y1-11" tokens are $K too). Unexercised
+  // rookie option years ("Y4-20K Option") are kept apart, never in the contract.
+  function contractSchedule(rosterRow, cap, season) {
+    var CM = window.UPS_CAP_MATH;
+    var info = U.safeStr(rosterRow && rosterRow.contractInfo);
+    var parsed = CM && CM.parseContractInfo ? CM.parseContractInfo(info) : { yearVals: {}, length: 0 };
+    var cl = Number(cap && cap.cl) || parsed.length || 0;
+    var played = Number(cap && cap.years_played);
+    if (!isFinite(played)) played = Math.max(0, cl - (parseInt(rosterRow && rosterRow.contractYear, 10) || 0));
+    // A one-year contract carries no Y-tokens in MFL (145 of them, 2026-10-10):
+    // its only year is this season's salary.
+    if (cl === 1 && parsed.yearVals[1] == null) {
+      var sal1 = Number(cap && cap.current_year_salary) || Number(rosterRow && rosterRow.salary) || 0;
+      if (sal1 > 0) parsed.yearVals[1] = sal1;
+    }
+    var opt = {}, re = /Y(\d+)\s*[-:]\s*\$?[0-9.]+\s*K?\s*Option/gi, m;
+    while ((m = re.exec(info))) opt[Number(m[1])] = true;
+    var years = [], complete = cl > 0;
+    for (var i = 1; i <= cl; i++) {
+      var v = parsed.yearVals[i];
+      if (v == null || opt[i]) complete = false;
+      years.push({ i: i, season: season - played + (i - 1), salary: v == null ? null : v });
+    }
+    var options = Object.keys(parsed.yearVals).map(Number).filter(function (k) { return k > cl || opt[k]; })
+      .map(function (k) { return { i: k, season: season - played + (k - 1), salary: parsed.yearVals[k] }; });
+    var sum = years.reduce(function (n, y) { return n + (y.salary || 0); }, 0);
+    if (Number(cap && cap.tcv) > 0 && sum !== Number(cap.tcv)) complete = false;
+    return { years: years, options: options, complete: complete, played: played, cl: cl };
+  }
+  // The guarantee used up in year order → per year { gtd, earned, left }.
+  function allocateGuarantee(sched, cap) {
+    var G = Number(cap.guaranteed) || 0, cum = 0, cur = sched.played + 1;
+    return sched.years.map(function (y) {
+      var sal = y.salary || 0;
+      var gtd = Math.max(0, Math.min(sal, G - cum));
+      cum += sal;
+      var earned = y.i < cur ? sal : (y.i === cur ? (Number(cap.current_year_earned) || 0) : 0);
+      return { season: y.season, salary: sal, earned: earned, gtd: gtd, left: Math.max(0, gtd - earned), current: y.i === cur, past: y.i < cur };
+    });
+  }
+
+  function contractMoneyHtml(pid, rosterRow) {
+    var year = parseInt(window.UPS_MOBILE.state.ctx && window.UPS_MOBILE.state.ctx.year, 10) || 0;
     var meta = DATA.capPenaltyMeta ? DATA.capPenaltyMeta() : null;
     var cap = DATA.capPenaltyFor ? DATA.capPenaltyFor(pid) : null;
-    if (!meta) return { rows: rows, note: "Loading this contract’s earned-to-date from the league cap engine…" };
-    if (meta.status !== "ok") return { rows: rows, note: "Earned to date is unavailable: the league cap engine couldn’t be reached. Reload to retry — nothing is estimated in its place." };
+    var block = function (inner) { return '<div class="ups-m-sheet-block ups-m-sheet-money"><h4>Contract money</h4>' + inner + '</div>'; };
+    var warn = function (t) { return block('<div class="ups-m-sheet-how warn">' + U.escapeHtml(t) + '</div>'); };
+    if (!meta) return warn("Loading the remaining guarantee from the league cap engine…");
+    if (meta.status !== "ok") return warn("Remaining guaranteed is unavailable: the league cap engine couldn’t be reached. Reload to retry — nothing is estimated in its place.");
     var at = capTime(meta.calculatedAt);
     var src = "League cap engine" + (at ? ", calculated " + at : "") + ".";
-    if (!cap) return { rows: rows, note: "Earned to date is unavailable: this player isn’t in the league cap engine’s list. " + src };
-    if (cap.needs_review) return { rows: rows, note: "Earned to date is under review" + (cap.review_reason ? " (" + cap.review_reason + ")" : "") + ", so no number is shown. " + src };
-    if (cap.earned_rule === "full_year_sub_5k") {
-      rows.push(["Earned to date", "Full-year rule"]);
-      return { rows: rows, how: "A contract that pays $1,000 every year has no weekly earning (canon §D1), so there is no earned-to-date or still-due figure. " + src };
+    if (!cap) return warn("Remaining guaranteed is unavailable: this player isn’t in the league cap engine’s list. " + src);
+    if (cap.needs_review) return warn("Remaining guaranteed is under review" + (cap.review_reason ? " (" + cap.review_reason + ")" : "") + " — no number is shown. " + src);
+    var sched = contractSchedule(rosterRow, cap, year);
+    var kv = function (rows) {
+      return '<div class="ups-m-sheet-kv">' + rows.map(function (r) {
+        return '<div class="lbl' + (r[2] ? " hl" : "") + '">' + U.escapeHtml(r[0]) + '</div><div class="val' + (r[2] ? " hl" : "") + '">' +
+          U.escapeHtml(r[1]) + (r[3] ? '<small>' + U.escapeHtml(r[3]) + '</small>' : '') + '</div>';
+      }).join("") + '</div>';
+    };
+    var optionRows = sched.options.map(function (o) {
+      return '<tr class="opt"><td>' + o.season + '</td><td>' + dol(o.salary) + '</td><td colspan="3">option — not exercised</td></tr>';
+    }).join("");
+    var rule = RULE_COPY[cap.basis];
+    if (rule) {
+      var amt = Number(cap.penalty) || 0;
+      var schedLine = sched.years.filter(function (y) { return y.salary != null; }).map(function (y) { return y.season + " " + usd(y.salary); }).join(" · ");
+      return block(kv([["Remaining guaranteed", (rule.amt === "flat" ? usd(amt) + " flat" : usd(0)), true],
+          ["Salary by year", schedLine || "—"]]) +
+        (optionRows ? '<table class="ups-m-gtd-table"><tbody>' + optionRows + '</tbody></table>' : '') +
+        '<div class="ups-m-sheet-how"><b>Why.</b> ' + U.escapeHtml(rule.why + " " + src) + '</div>');
     }
-    if (cap.earned_rule === "ww_earned_na") {
-      rows.push(["Earned to date", "n/a"]);
-      return { rows: rows, how: "One-year waiver-wire deal of $4K or less: earned doesn’t apply (canon §C3). " + src };
+    if (!STD_BASES[cap.basis]) return warn("Remaining guaranteed is unavailable: the cap engine priced this contract with a rule this screen doesn’t describe (" + U.safeStr(cap.basis) + "). " + src);
+    var G = Number(cap.guaranteed), E = Number(cap.earned), P = Number(cap.penalty);
+    if (!(isFinite(G) && isFinite(E) && isFinite(P)) || P !== Math.max(0, G - E)) {
+      return warn("Remaining guaranteed is unavailable: the cap engine’s figures for this contract don’t reconcile (guaranteed − earned ≠ its total). Nothing is shown in its place. " + src);
     }
-    var weeks = Object.prototype.hasOwnProperty.call(cap, "eligible_weeks") && cap.eligible_weeks != null ? Number(cap.eligible_weeks) : NaN;
-    if (!(weeks >= 1)) return { rows: rows, note: "Earned to date is unavailable: the league cap engine couldn’t resolve this contract’s earning window (the week it began), and it is never assumed to be 17 weeks. " + src };
-    var base = Number(cap.current_year_salary) > 0 ? Number(cap.current_year_salary) : salary;
-    var earned = cap.current_year_earned == null ? NaN : Number(cap.current_year_earned);
-    var start = 18 - weeks;              // Weeks W–17 inclusive: 17 − W + 1 = weeks
-    var thru = meta.earnedThroughWeek;
-    var perWk = Math.round(base / weeks);
-    rows.push(["Earning window", wkSpan(start, 17) + " · " + weeks + " wk" + (weeks === 1 ? "" : "s")]);
-    rows.push(["Per week", usd(perWk)]);
-    if (!isFinite(earned)) return { rows: rows, note: "Earned to date is unavailable from the league cap engine. " + src };
-    rows.push(["Earned to date", usd(earned) + (thru != null ? " · thru Wk " + thru : ""), true]);
-    rows.push(["Still due this season", usd(base - earned), true]);
-    var how = usd(base) + " ÷ " + weeks + " eligible week" + (weeks === 1 ? "" : "s") + " (" + wkSpan(start, 17) +
-      ", from the week this contract began) = " + usd(perWk) + " a week. ";
-    // Write out the multiplication only when it reproduces the worker's own
-    // number; otherwise just cite it (the worker applies rules this sheet
-    // doesn't restate, e.g. a taxi settlement).
-    var counted = thru != null ? Math.max(0, Math.min(weeks, thru - start + 1)) : null;
-    if (counted != null && Math.round(base * counted / weeks) === earned) {
-      how += "Earned through Wk " + thru + " = " + usd(base) + " × " + counted + " ÷ " + weeks + " = " + usd(earned) + ", rounded once on the total. ";
+    var tcv = Number(cap.tcv) || 0;
+    var alloc = sched.complete ? allocateGuarantee(sched, cap) : null;
+    var allocSum = alloc ? alloc.reduce(function (n, y) { return n + y.left; }, 0) : null;
+    if (alloc && allocSum !== P) alloc = null;   // never show a split that doesn't add up to the engine's figure
+    var earnedParts = [];
+    if (alloc) alloc.forEach(function (y) { if (y.past || y.current) earnedParts.push(y.season + " " + usd(y.earned) + (y.current && meta.earnedThroughWeek != null ? " thru Wk " + meta.earnedThroughWeek : "")); });
+    var gtdNote = (tcv > 0 && G === Math.floor(tcv * 0.75)) ? "of " + usd(G) + " guaranteed (75% of " + usd(tcv) + ")" : "of " + usd(G) + " guaranteed";
+    var rows = [["Remaining guaranteed", usd(P), true, gtdNote], ["Earned so far", usd(E), false, earnedParts.join(" · ")]];
+    var table = "";
+    if (alloc) {
+      table = '<table class="ups-m-gtd-table"><thead><tr><th>Year</th><th>Salary</th><th>Earned</th><th>Gtd</th><th>Left</th></tr></thead><tbody>' +
+        alloc.map(function (y) {
+          return '<tr' + (y.current ? ' class="cur"' : '') + '><td>' + y.season + '</td><td>' + dol(y.salary) + '</td><td>' + dol(y.earned) +
+            '</td><td>' + dol(y.gtd) + '</td><td>' + dol(y.left) + '</td></tr>';
+        }).join("") + optionRows +
+        '<tr class="tot"><td>Total</td><td>' + dol(alloc.reduce(function (n, y) { return n + y.salary; }, 0)) + '</td><td>' + dol(E) + '</td><td>' + dol(G) + '</td><td>' + dol(P) + '</td></tr>' +
+        '</tbody></table><div class="ups-m-gtd-cap">Dollars by contract year. Gtd = the guarantee used up in year order; Left = guaranteed and not yet earned.</div>';
     } else {
-      how += "Earned to date " + usd(earned) + (thru != null ? " through Wk " + thru : "") + ", as the cap engine computed it. ";
+      table = '<div class="ups-m-sheet-how warn">MFL’s year-by-year schedule for this contract is incomplete, so the split by year isn’t shown. The totals above are the cap engine’s.</div>';
     }
-    how += "Still due = " + usd(base) + " − " + usd(earned) + ". " + src;
-    return { rows: rows, how: how };
+    // This season's earning, from the same row (the Front Office "Per Wk" rule:
+    // salary ÷ this contract's own eligible weeks — never an assumed 17).
+    var how = (tcv > 0 && G === Math.floor(tcv * 0.75) ? "Guaranteed = 75% of the " + usd(tcv) + " total value = " + usd(G) + ". " : "Guaranteed = " + usd(G) + " (cap engine). ");
+    var seasonRows = [];
+    var weeks = cap.eligible_weeks != null ? Number(cap.eligible_weeks) : NaN;
+    var base = Number(cap.current_year_salary) > 0 ? Number(cap.current_year_salary) : Number(rosterRow && rosterRow.salary) || 0;
+    var cye = cap.current_year_earned == null ? NaN : Number(cap.current_year_earned);
+    var thru = meta.earnedThroughWeek;
+    if (weeks >= 1 && isFinite(cye)) {
+      var start = 18 - weeks, perWk = Math.round(base / weeks);
+      seasonRows = [[year + " salary", usd(base)], ["Earning window", wkSpan(start, 17) + " · " + weeks + " wk" + (weeks === 1 ? "" : "s")],
+        ["Per week", usd(perWk)], ["Earned this season", usd(cye) + (thru != null ? " · thru Wk " + thru : "")]];
+      var counted = thru != null ? Math.max(0, Math.min(weeks, thru - start + 1)) : null;
+      var prior = Number(cap.prior_earned) || 0;
+      how += "Earned counts each finished season in full" + (prior ? " (" + usd(prior) + ")" : "") + " plus this season by completed week: " +
+        ((counted != null && Math.round(base * counted / weeks) === cye)
+          ? usd(base) + " × " + counted + " ÷ " + weeks + " = " + usd(cye)
+          : usd(cye) + " so far") + " (window " + wkSpan(start, 17) + ", from the week this contract began). ";
+    } else {
+      how += "Earned so far " + usd(E) + ". ";
+    }
+    how += "Remaining guaranteed = " + usd(G) + " − " + usd(E) + " = " + usd(P) + ", what cutting him now would cost before the team’s rounding.";
+    if (alloc) {
+      var leftYears = alloc.filter(function (y) { return y.left > 0; }).map(function (y) { return y.season + " " + usd(y.left); });
+      if (leftYears.length) how += " By year the guarantee is used up in order, leaving " + leftYears.join(" and ") + ".";
+    }
+    how += " " + src;
+    return block(kv(rows) + table + (seasonRows.length ? kv(seasonRows) : "") +
+      '<div class="ups-m-sheet-how"><b>How it’s calculated.</b> ' + U.escapeHtml(how) + '</div>');
   }
 
   function contractBlockHtml(pid, rosterRow) {
@@ -154,34 +261,17 @@
     var live = U.safeStr(rosterRow.status);
     var yrsRem = (cy && Number(cy) > 0) ? cy + " yr" + (cy === "1" ? "" : "s") + " left" :
                  (cy === "0" ? "Expired" : "—");
-    var year = U.safeStr(window.UPS_MOBILE.state.ctx && window.UPS_MOBILE.state.ctx.year);
-    var money = seasonMoney(pid, rosterRow);
-    var kv = function (rows) {
-      return '<div class="ups-m-sheet-kv">' + rows.map(function (r) {
-        return '<div class="lbl' + (r[2] ? " hl" : "") + '">' + U.escapeHtml(r[0]) + '</div><div class="val' + (r[2] ? " hl" : "") + '">' + U.escapeHtml(r[1]) + '</div>';
-      }).join("") + '</div>';
-    };
     var cap = DATA.capPenaltyFor ? DATA.capPenaltyFor(pid) : null;
-    var terms = [["Years left", yrsRem]];
-    if (cap && Number(cap.cl) > 0) terms.push(["Length", cap.cl + " yr" + (Number(cap.cl) === 1 ? "" : "s")]);
+    var terms = [];
+    if (cap && Number(cap.cl) > 0) terms.push(["Length", cap.cl + " yr" + (Number(cap.cl) === 1 ? "" : "s") + " · " + yrsRem]);
+    else terms.push(["Years left", yrsRem]);
     if (cap && Number(cap.tcv) > 0) terms.push(["Total value", usd(cap.tcv)]);
-    // MFL's year-by-year schedule ("Y1-40K, Y2-22K, Y3-22K"), as MFL states it.
-    var sched = [], re = /Y(\d+)\s*-\s*\$?([\d.]+)\s*K/gi, mm;
-    while ((mm = re.exec(info))) sched.push("Y" + mm[1] + " $" + mm[2] + "K");
-    if (sched.length) terms.push(["By year", sched.join(" · ")]);
-    if (cap && Number(cap.guaranteed) > 0) terms.push(["Guaranteed", usd(cap.guaranteed)]);
     if (status) terms.push(["Type", status]);
     if (live) terms.push(["Status", live]);
-    return '' +
-      '<div class="ups-m-sheet-block ups-m-sheet-money">' +
-        '<h4>' + U.escapeHtml(year) + ' salary</h4>' +
-        kv(money.rows) +
-        (money.how ? '<div class="ups-m-sheet-how"><b>How it’s calculated.</b> ' + U.escapeHtml(money.how) + '</div>' : '') +
-        (money.note ? '<div class="ups-m-sheet-how warn">' + U.escapeHtml(money.note) + '</div>' : '') +
-      '</div>' +
+    return contractMoneyHtml(pid, rosterRow) +
       '<div class="ups-m-sheet-block">' +
         '<h4>Contract</h4>' +
-        kv(terms) +
+        '<div class="ups-m-sheet-kv">' + terms.map(function (r) { return '<div class="lbl">' + U.escapeHtml(r[0]) + '</div><div class="val">' + U.escapeHtml(r[1]) + '</div>'; }).join("") + '</div>' +
         (info ? '<div class="ups-m-sheet-mflnote">MFL contract note: ' + U.escapeHtml(info) + '</div>' : '') +
       '</div>';
   }
@@ -344,6 +434,91 @@
         : (!seasonScoring || !seasonScoring.known)
           ? curYear + ": points unavailable — MFL's scoring could not be read"
           : curYear + ": no scores posted yet; current-season points are not shown") + '</div>';
+  }
+
+  // ── Game log (Stats tab, Keith 2026-10-10) ──
+  // One row per week of this season: MFL's own league-scored points for that
+  // week (the same W=ALL read as every points number in the app) beside that
+  // week's box score from the player bundle the sheet already loads (nflverse,
+  // which runs a few days behind MFL). Week labels:
+  //   points        MFL posted a score row (0.0 included); ● = week in progress
+  //   BYE           no row and it's his NFL team's bye week (MFL's bye list)
+  //   DNP           no row in a finished week that wasn't his bye
+  //   not played    no row yet in the week still being played
+  var byeCache = { year: "", map: null, loading: false, failed: false };
+  function loadByes(year) {
+    if (byeCache.year === year && (byeCache.map || byeCache.loading)) return;
+    byeCache = { year: year, map: null, loading: true, failed: false };
+    var ctx = window.UPS_MOBILE.state.ctx || {};
+    fetch(API.workerUrl("/api/mfl-export?TYPE=nflByeWeeks&L=" + encodeURIComponent(ctx.leagueId || "") +
+        "&YEAR=" + encodeURIComponent(year) + "&JSON=1"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var m = {};
+        U.asArray(j && j.nflByeWeeks && j.nflByeWeeks.team).forEach(function (t) {
+          if (t && t.id) m[String(t.id).toUpperCase()] = parseInt(t.bye_week, 10);
+        });
+        byeCache.map = m; byeCache.loading = false; byeCache.failed = !j;
+        if (activeTab === "stats") renderTabBody();
+      })
+      .catch(function () { byeCache.map = {}; byeCache.loading = false; byeCache.failed = true; });
+  }
+  function gameLogCols(grp) {
+    function n(v) { return v == null ? null : Number(v); }
+    function pair(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "/" + (Number(b) || 0); }
+    function dash(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "-" + (Number(b) || 0); }
+    if (grp === "QB") return [["C/A", function (r) { return pair(r.pass_cmp, r.pass_att); }], ["Yds", function (r) { return n(r.pass_yds); }],
+      ["TD-Int", function (r) { return dash(r.pass_tds, r.pass_ints); }], ["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }]];
+    if (grp === "RB") return [["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }], ["Rec", function (r) { return dash(r.receptions, r.rec_yds); }],
+      ["Tgt", function (r) { return n(r.targets); }], ["TD", function (r) { return (r.rush_tds == null && r.rec_tds == null) ? null : (Number(r.rush_tds) || 0) + (Number(r.rec_tds) || 0); }]];
+    if (grp === "WR" || grp === "TE") return [["Tgt", function (r) { return n(r.targets); }], ["Rec", function (r) { return n(r.receptions); }],
+      ["Yds", function (r) { return n(r.rec_yds); }], ["TD", function (r) { return n(r.rec_tds); }]];
+    if (grp === "DL" || grp === "LB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
+      ["Sk", function (r) { return n(r.def_sacks); }], ["TFL", function (r) { return n(r.def_tfl); }]];
+    if (grp === "DB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
+      ["PD", function (r) { return n(r.def_pass_def); }], ["INT", function (r) { return n(r.def_ints); }]];
+    if (grp === "PK") return [["FG", function (r) { return pair(r.fg_made, r.fg_att); }], ["XP", function (r) { return pair(r.xp_made, r.xp_att); }]];
+    if (grp === "PN") return [["Punts", function (r) { return n(r.punts); }], ["Yds", function (r) { return n(r.punt_yds); }], ["I20", function (r) { return n(r.punt_inside20); }]];
+    return [];
+  }
+  function gameLogHtml(pid, bundle) {
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    if (!SSMOD || !ss || !ss.known || !ss.seasonWeeks || !ss.seasonWeeks.length) return "";
+    var season = Number(ss.season), last = ss.latestWeek;
+    var pl = DATA.playerById(pid);
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    var grp = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
+    var team = U.safeStr(pl && pl.team).toUpperCase();
+    loadByes(String(season));
+    var bye = byeCache.map ? byeCache.map[team] : null;
+    var st = ss.byPid[String(pid)];
+    var pts = (st && st.weeks) || {};
+    var box = {}, boxMax = 0;
+    U.asArray(bundle && bundle.nfl_weekly).forEach(function (r) {
+      if (r && Number(r.season) === season) { box[Number(r.week)] = r; boxMax = Math.max(boxMax, Number(r.week) || 0); }
+    });
+    var cols = gameLogCols(grp);
+    var live = {}; ss.liveWeeks.forEach(function (w) { live[w] = true; });
+    var rows = [];
+    for (var w = 1; w <= last; w++) {
+      var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null;
+      var label, cls = "";
+      if (has) label = (Math.round(pts[w] * 10) / 10).toFixed(1) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
+      else if (bye === w) { label = "BYE"; cls = "bye"; }
+      else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; }
+      else { label = "DNP"; cls = "dnp"; }
+      rows.push('<tr class="' + cls + '"><td>' + w + (b && b.opponent ? ' <small>' + U.escapeHtml(b.opponent) + '</small>' : '') + '</td><td class="pts">' + label + '</td>' +
+        cols.map(function (c) { var v = b ? c[1](b) : null; return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>'; }).join("") + '</tr>');
+    }
+    var liveTxt = ss.liveWeeks.length ? " (● Wk " + ss.liveWeeks.join(", ") + " in progress)" : "";
+    return '<h4 class="ups-m-gl-h">' + season + ' game log</h4>' +
+      '<table class="ups-m-gl-table"><thead><tr><th>Wk · opp</th><th>Pts</th>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join("") + '</tr></thead>' +
+        '<tbody>' + rows.join("") + '</tbody></table>' +
+      '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
+        (boxMax ? 'Box score: nflverse, through Wk ' + boxMax + '.' : 'No box score yet this season.') +
+        (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows DNP." : "") +
+        ' DNP = no MFL score in a finished week.</div>';
   }
 
   function statRowHtml(y, games, pts, ppg, ppgRank) {
@@ -2218,7 +2393,7 @@
     if (activeTab === "stats") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats">' +
-          (currentBundle ? renderStatsBlock(currentBundle) : '<div class="ups-m-sheet-loading">Loading…</div>') +
+          (currentBundle ? renderStatsBlock(currentBundle) + gameLogHtml(footerState.pid, currentBundle) : '<div class="ups-m-sheet-loading">Loading…</div>') +
         '</div></div>';
     } else if (activeTab === "news") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Player News</h4>' +
