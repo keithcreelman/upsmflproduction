@@ -7357,6 +7357,14 @@ export default {
                 console.error(`[scheduled */5] drop-tracker: ${heldN} drop(s) HELD unpriced (an MFL read failed when recorded) — not posted to Discord or MFL; re-priced every tick: ${JSON.stringify((scanData.held_unpriced || []).map((h) => `${h.name || h.pid}@${h.dropped_at_iso}:${h.reason}`)).slice(0, 400)}`);
               }
               if (repricedN) console.log(`[scheduled */5] drop-tracker: ${repricedN} held drop(s) priced this tick: ${JSON.stringify((scanData.repriced || []).map((r) => `${r.name || r.pid}=${r.penalty_amount}/${r.penalty_basis}`)).slice(0, 400)}`);
+              // DEFERRED = priced, but its cap-free retirement check has not completed (news budget spent, or news unreadable on a
+              // re-route). Held from the MFL charge and re-routed every tick — said out loud so a stuck one is never silent.
+              const cfDeferredN = Number(scanData?.capfree_deferred_count) || 0;
+              if (cfDeferredN) {
+                console.error(`[scheduled */5] drop-tracker: ${cfDeferredN} drop(s) DEFERRED — cap-free retirement check not completed; held from the MFL charge, re-routed every tick: ${JSON.stringify((scanData.capfree_deferred || []).map((d) => `${d.name || d.pid}@${d.dropped_at_iso}:${d.capfree_route}${d.reason ? ` (${d.reason})` : ""}`)).slice(0, 400)}`);
+              }
+              const cfReroutedN = Number(scanData?.capfree_rerouted_count) || 0;
+              if (cfReroutedN) console.log(`[scheduled */5] drop-tracker: ${cfReroutedN} deferred drop(s) re-routed this tick: ${JSON.stringify((scanData.capfree_rerouted || []).map((r) => `${r.name || r.pid}→${r.capfree_route}`)).slice(0, 400)}`);
               let postedCount = 0;
               if (dropAutoPost) {
                 const postRes = await env.SELF.fetch(
@@ -51023,6 +51031,8 @@ const mflToSleeper = {};
           });
         }
 
+        // 'pending' ONLY. A 'deferred' row (its retirement check has not completed — see /admin/drops/scan-and-record) is
+        // neither announced nor nudged: there is nothing for the commish to rule on until the check finds retirement evidence.
         const cnPending = ((await env.UPS_MFL_DB.prepare(
           `SELECT id, player_id, player_name, position, franchise_id, franchise_name,
                   dropped_at_iso, penalty_amount, pre_drop_aav, pre_drop_contract_length,
@@ -52741,18 +52751,25 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // §D2a settlement (which REPLACES the penalty, canon §D2a) could never
         // be applied, because the money would already be down.
         //
-        // Written as COALESCE(...) <> 'pending' on purpose: an ordinary drop
+        // ⚠️ …and anything whose cap-free retirement check has NOT COMPLETED
+        // ('deferred': the recorder's per-run news budget ran out, or the news
+        // could not be read on a re-route). Charging it now would charge a
+        // retiree the full §D1 penalty just because many drops landed in one
+        // tick; the recorder re-routes it on a later tick, and it then charges
+        // (or is held as pending) exactly like any other row.
+        //
+        // Written as COALESCE(...) NOT IN (...) on purpose: an ordinary drop
         // has NULL here forever and MUST keep charging normally. Only the
-        // explicit string 'pending' holds money. Column-guarded so a D1 that
-        // has not had migration 0127 hand-applied yet behaves exactly as before
-        // (`d1 migrations apply` is banned on this database).
+        // explicit strings 'pending' / 'deferred' hold money. Column-guarded so
+        // a D1 that has not had migration 0127 hand-applied yet behaves exactly
+        // as before (`d1 migrations apply` is banned on this database).
         const cfHoldCol = await (async () => {
           try {
             const info = await env.UPS_MFL_DB.prepare("PRAGMA table_info(ups_drop_events)").all();
             return ((info && info.results) || []).some((r) => String(r.name || "") === "capfree_review_status");
           } catch (_) { return false; }
         })();
-        const cfHoldClause = cfHoldCol ? "AND COALESCE(capfree_review_status, '') <> 'pending'" : "";
+        const cfHoldClause = cfHoldCol ? "AND COALESCE(capfree_review_status, '') NOT IN ('pending', 'deferred')" : "";
         const selBinds = onlyPid ? [targetSeason, leagueId, onlyPid] : [targetSeason, leagueId];
         const sel = await env.UPS_MFL_DB.prepare(
           `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis,
@@ -52791,6 +52808,21 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ).bind(targetSeason, leagueId).first();
             cfHeldCount = safeInt(heldRes && heldRes.n, 0);
           } catch (_) { cfHeldCount = 0; }
+        }
+        // …and list the DEFERRED ones (retirement check not completed). Reporting only — the hold is the SELECT above.
+        let cfDeferredHeld = [];
+        if (cfHoldCol) {
+          try {
+            const dq = await env.UPS_MFL_DB.prepare(
+              `SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, dropped_at_iso, capfree_route
+                 FROM ups_drop_events
+                WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND capfree_review_status = 'deferred'
+                ORDER BY dropped_at_unix ASC`
+            ).bind(targetSeason, leagueId).all();
+            cfDeferredHeld = ((dq && dq.results) || []).map((d) => ({ player_id: safeStr(d.player_id), player_name: safeStr(d.player_name),
+              franchise_id: padFranchiseId(d.franchise_id), amount: safeInt(d.penalty_amount, 0), ledger_key: safeStr(d.ledger_key),
+              dropped_at_iso: safeStr(d.dropped_at_iso), capfree_route: safeStr(d.capfree_route) }));
+          } catch (_) { cfDeferredHeld = []; }
         }
 
         // 1b. Split by cap year BEFORE anything can be posted.
@@ -52910,6 +52942,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ok: true, dry_run: true, season: targetSeason, league_id: leagueId,
             owed_unposted: owed.length, would_post: rowsSliced, skipped,
             held_unpriced: heldUnpriced,
+            held_capfree_deferred: cfDeferredHeld,
             auction_start: { unix: auctionStart.unix, source: auctionStart.source, wall_et: auctionStart.wall || "" },
             deferred_next_season: deferredNextSeason,
             deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
@@ -52942,8 +52975,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             // cap-free decision. Reported so a hold never reads as "nothing owed".
             held_pending_capfree_review: cfHeldCount,
             held_unpriced: heldUnpriced,
+            held_capfree_deferred: cfDeferredHeld,
             message: ["No new penalties to post.",
               cfHeldCount ? `${cfHeldCount} drop(s) are HELD awaiting cap-free review.` : "",
+              cfDeferredHeld.length ? `${cfDeferredHeld.length} drop(s) are DEFERRED — their cap-free retirement check has not completed; the recorder re-routes them every tick.` : "",
               heldUnpriced.length ? `${heldUnpriced.length} drop(s) are HELD unpriced (an MFL read failed when they were recorded) — priced and charged once it recovers.` : ""].filter(Boolean).join(" "),
           });
         }
@@ -53010,6 +53045,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           deferred_next_season_total: deferredNextSeason.reduce((a, r) => a + r.amount, 0),
           cap_year_needs_review: bucketNeedsReview,
           held_unpriced: heldUnpriced,
+          held_pending_capfree_review: cfHeldCount,
+          held_capfree_deferred: cfDeferredHeld,
+          message: cfDeferredHeld.length ? `${cfDeferredHeld.length} drop(s) are DEFERRED — their cap-free retirement check has not completed; the recorder re-routes them every tick.` : "",
           mfl_import: {
             ok: !!(importRes && importRes.ok),
             status: importRes && importRes.status,
@@ -53237,8 +53275,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // MFL injury designations: ONE read per SEASON, made only when a row that carries money needs one. Per season because
         // a HELD drop from the previous season can be priced after Jan 1, when this scan's season has rolled over and MFL has
         // not created next year's league yet — its designation must come from ITS season, or the "MFL says RETIRED" fast path
-        // silently falls through to the budgeted news lookup (5 per run; a miss is stamped deferred_budget and never
-        // re-routed). MUST omit L= — `injuries` is league-agnostic and sending it is rejected, decoding to an empty list.
+        // silently falls through to the budgeted news lookup (5 per run; a miss stays deferred, held from the charge, until a
+        // later tick re-routes it). MUST omit L= — `injuries` is league-agnostic and sending it is rejected, decoding to an empty list.
         const scanInjBySeason = {};
         const scanInjFor = (injSeason) => (scanInjBySeason[injSeason] = scanInjBySeason[injSeason] || (async () => {
           try {
@@ -53254,8 +53292,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             return { known: true, map: m };
           } catch (_) { return { known: false, map: new Map() }; }
         })());
-        // Cap on per-invocation news lookups (see the routing block below).
+        // Cap on per-invocation news lookups, shared by held re-prices → deferred re-routes → new drops (see routeCapfree).
         let scanNewsBudget = 5;
+        // Set by the first news read in this run that fails. A RE-ROUTE after that does not fetch again (it stays deferred and
+        // costs no budget), so rows stuck behind an unreadable news service can never use up the budget new drops need.
+        let scanNewsUnreadable = "";
 
         // ── Contract parsing + penalty math (canon §6/§D2) ──
         // Ported from pipelines/etl/scripts/build_salary_adjustments_report.py.
@@ -53336,60 +53377,137 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         //   - A priced row keeps discord_posted = 0 (its card goes out once, with the real number), carries
         //     _HELD_REPRICED_MARK, and takes the same cap-free routing as a new drop.
         const scanNowIso = new Date().toISOString();
-        // Cap-free retirement routing for a row that carries money — the SAME routing for a newly recorded drop and for a
-        // HELD drop priced on a later tick, so a held retiree is never charged in full just because MFL hiccupped.
-        const routeCapfree = async (ledgerKey, pid, penaltyInfo, contractYear, season) => {
-            if (scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0) {
-              const scanInjByPid = await scanInjFor(season || targetSeason);
-              const cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(pid) || "").toUpperCase() : "";
-              const cfIsRetired = scanInjByPid.known && cfDesig === "RETIRED";
-              let cfRoute = "none";
-              let cfEvidence = null;
-              if (cfIsRetired) {
-                cfRoute = "auto";
-              } else if (scanNewsBudget > 0) {
-                scanNewsBudget -= 1;
-                const oneNews = await _retirementNewsBatch(season || targetSeason, leagueId, [pid], scanOrigin);
-                const ev = await _retirementEvidence(season || targetSeason, leagueId, pid, oneNews);
+        // ── Cap-free retirement routing for a row that carries money ──
+        // The SAME routing for a newly recorded drop, a HELD drop priced on a later tick, and a DEFERRED drop re-routed on a later
+        // tick, so a retiree is never charged in full just because MFL hiccupped or many drops landed in one tick.
+        //
+        // A row that carries money is BORN capfree_review_status = 'deferred' — written by the INSERT / the held re-price itself,
+        // so there is no instant at which it is chargeable before its check has run — and leaves 'deferred' only when the check
+        // COMPLETES:
+        //   auto    — MFL says RETIRED (the fast path; no news lookup): approved on the spot, §D2a settlement replaces the penalty.
+        //   pending — real sources say retired, MFL does not: penalty untouched, held for the commish (capfree-notify / -decide).
+        //   none / unknown — no retirement signal: status cleared, the row charges normally (capfree_route records the answer,
+        //             so "checked, nothing found" is no longer indistinguishable from "never checked").
+        // It STAYS 'deferred' — /admin/drops/post-mfl holds it, capfree-notify ignores it — when:
+        //   deferred_budget          — the news lookup was skipped: the per-run budget (scanNewsBudget, 5) is spent;
+        //   deferred_news_unreadable — on a RE-ROUTE, the news could not be read. A row already held for its check is only
+        //                              released to a charge by a check that actually ran. Once one read fails in a run, later
+        //                              re-routes in that run skip the fetch (scanNewsUnreadable), so stuck rows cost at most one
+        //                              lookup per run and never starve new drops of the budget.
+        // (A FIRST attempt whose news is unreadable keeps the long-standing `_retirementEvidence` rule — none/unknown, charged.)
+        // Every write is guarded on capfree_review_status = 'deferred' AND not yet posted, so a commish ruling or an overlapping
+        // run that resolved the row first always wins. Deferred rows are re-routed every tick (below), oldest first.
+        const _CAPFREE_REROUTED_MARK = "[capfree-rerouted]";
+        const cfDeferred = [], cfRerouted = [];
+        const cfRoutedThisTick = new Set();
+        const routeCapfree = async (ledgerKey, pid, penaltyInfo, contractYear, season, ctx) => {
+          if (!scanHasCapfreeCols) return null;
+          ctx = ctx || {};
+          const reroute = !!ctx.reroute;
+          const hasMoney = safeInt(penaltyInfo.penalty, 0) > 0;
+          if (!hasMoney && !reroute) return null;
+          cfRoutedThisTick.add(ledgerKey);
+          const cfSeason = season || targetSeason;
+          let cfRoute = "none";
+          let cfDesig = "";
+          let cfEvidence = null;
+          let cfWhy = "";
+          if (!hasMoney) {
+            cfWhy = "no penalty left to route";   // a deferred row a repair has since re-priced to $0
+          } else {
+            const scanInjByPid = await scanInjFor(cfSeason);
+            cfDesig = scanInjByPid.known ? safeStr(scanInjByPid.map.get(pid) || "").toUpperCase() : "";
+            if (scanInjByPid.known && cfDesig === "RETIRED") {
+              cfRoute = "auto";
+            } else if (reroute && scanNewsUnreadable) {
+              // The news already failed once this run: stay deferred without another fetch (and without spending budget).
+              cfRoute = "deferred_news_unreadable";
+              cfWhy = `${scanNewsUnreadable} (earlier this run; not re-fetched)`;
+            } else if (scanNewsBudget > 0) {
+              scanNewsBudget -= 1;
+              const oneNews = await _retirementNewsBatch(cfSeason, leagueId, [pid], scanOrigin);
+              if (!oneNews.known && !scanNewsUnreadable) scanNewsUnreadable = safeStr(oneNews.error) || "player-news unreadable";
+              const ev = await _retirementEvidence(cfSeason, leagueId, pid, oneNews);
+              if (reroute && ev.route !== "auto" && !ev.sources_known) {
+                cfRoute = "deferred_news_unreadable";
+                cfWhy = safeStr(ev.sources_error) || "player-news unreadable";
+              } else {
                 cfRoute = ev.route;
                 if (ev.sources.length) cfEvidence = ev.sources;
-              } else {
-                cfRoute = "deferred_budget";
               }
-
-              if (cfRoute === "auto" || cfRoute === "pending") {
-                const cfSet = _d2aSettlement({
-                  pre_drop_aav: penaltyInfo.aav,
-                  pre_drop_contract_length: penaltyInfo.cl,
-                  pre_drop_contract_year: contractYear,
-                  earned_to_date: penaltyInfo.earned,
-                });
-                // AUTO only settles when §D2a can actually be computed. If it
-                // cannot, the row drops to `pending` so a human prices it —
-                // never a silent $0 cap-free.
-                const cfAuto = cfRoute === "auto" && cfSet.known;
-                await env.UPS_MFL_DB.prepare(
-                  `UPDATE ups_drop_events
-                      SET capfree_route = ?, capfree_review_status = ?, capfree_mfl_designation = ?,
-                          capfree_evidence_json = ?, capfree_settlement_amount = ?,
-                          penalty_amount = COALESCE(?, penalty_amount),
-                          penalty_basis = COALESCE(?, penalty_basis),
-                          capfree_decided_at_utc = ?, capfree_decided_by = ?
-                    WHERE ledger_key = ?`
-                ).bind(
-                  cfRoute,
-                  cfAuto ? "approved" : "pending",
-                  cfDesig || null,
-                  cfEvidence ? JSON.stringify(cfEvidence).slice(0, 4000) : null,
-                  cfAuto ? cfSet.settlement : null,
-                  cfAuto ? cfSet.settlement : null,
-                  cfAuto ? "retired_capfree_d2a_settlement" : null,
-                  cfAuto ? scanNowIso : null,
-                  cfAuto ? "auto:mfl_retired_flag" : null,
-                  ledgerKey
-                ).run();
-              }
+            } else {
+              cfRoute = "deferred_budget";
+              cfWhy = "news lookup budget (5 per run) spent — re-routed on a later tick";
             }
+          }
+          const cfGuard = "WHERE ledger_key = ? AND capfree_review_status = 'deferred' AND COALESCE(posted_to_mfl, 0) = 0";
+          const brief = { ...(ctx.brief || {}), capfree_route: cfRoute };
+
+          if (cfRoute === "deferred_budget" || cfRoute === "deferred_news_unreadable") {
+            // Still deferred. Record WHY (once — a re-route that ends where it started writes nothing). A write that matches
+            // nothing means another writer (an overlapping run, a commish ruling) already resolved the row: not reported.
+            let stillDeferred = true;
+            if (cfRoute !== safeStr(ctx.prevRoute)) {
+              const dUpd = await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_drop_events SET capfree_route = ?, capfree_mfl_designation = ? ${cfGuard}`
+              ).bind(cfRoute, cfDesig || null, ledgerKey).run();
+              stillDeferred = Number(dUpd && dUpd.meta && dUpd.meta.changes) > 0;
+            }
+            if (stillDeferred) cfDeferred.push({ ...brief, capfree_review_status: "deferred", reason: cfWhy });
+            return { route: cfRoute, status: stillDeferred ? "deferred" : null };
+          }
+
+          const cfNote = reroute
+            ? `${_CAPFREE_REROUTED_MARK} Retirement check completed ${scanNowIso} after being deferred (${safeStr(ctx.prevRoute) || "deferred"}): ${cfRoute}.`
+            : "";
+          let upd;
+          let cfStatus = null;
+          if (cfRoute === "auto" || cfRoute === "pending") {
+            const cfSet = _d2aSettlement({
+              pre_drop_aav: penaltyInfo.aav,
+              pre_drop_contract_length: penaltyInfo.cl,
+              pre_drop_contract_year: contractYear,
+              earned_to_date: penaltyInfo.earned,
+            });
+            // AUTO only settles when §D2a can actually be computed. If it
+            // cannot, the row drops to `pending` so a human prices it —
+            // never a silent $0 cap-free.
+            const cfAuto = cfRoute === "auto" && cfSet.known;
+            cfStatus = cfAuto ? "approved" : "pending";
+            upd = await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_drop_events
+                  SET capfree_route = ?, capfree_review_status = ?, capfree_mfl_designation = ?,
+                      capfree_evidence_json = ?, capfree_settlement_amount = ?,
+                      penalty_amount = COALESCE(?, penalty_amount),
+                      penalty_basis = COALESCE(?, penalty_basis),
+                      capfree_decided_at_utc = ?, capfree_decided_by = ?,
+                      notes = CASE WHEN ? = '' THEN notes ELSE TRIM(COALESCE(notes, '') || ' ' || ?) END
+                ${cfGuard}`
+            ).bind(
+              cfRoute,
+              cfStatus,
+              cfDesig || null,
+              cfEvidence ? JSON.stringify(cfEvidence).slice(0, 4000) : null,
+              cfAuto ? cfSet.settlement : null,
+              cfAuto ? cfSet.settlement : null,
+              cfAuto ? "retired_capfree_d2a_settlement" : null,
+              cfAuto ? scanNowIso : null,
+              cfAuto ? "auto:mfl_retired_flag" : null,
+              cfNote, cfNote,
+              ledgerKey
+            ).run();
+          } else {
+            // none / unknown: no retirement signal — released to the normal charge.
+            upd = await env.UPS_MFL_DB.prepare(
+              `UPDATE ups_drop_events
+                  SET capfree_route = ?, capfree_review_status = NULL, capfree_mfl_designation = ?,
+                      notes = CASE WHEN ? = '' THEN notes ELSE TRIM(COALESCE(notes, '') || ' ' || ?) END
+                ${cfGuard}`
+            ).bind(cfRoute, cfDesig || null, cfNote, cfNote, ledgerKey).run();
+          }
+          const won = Number(upd && upd.meta && upd.meta.changes) > 0;
+          if (reroute) cfRerouted.push({ ...brief, capfree_review_status: cfStatus, ...(won ? {} : { resolved_by_other_writer: true }) });
+          return { route: cfRoute, status: cfStatus };
         };
         const prevSeason = String((Number(targetSeason) || 0) - 1);
         const repriced = [], repricedByOtherRun = [], stillHeld = [];
@@ -53449,11 +53567,13 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null, dry_run: true });
               continue;
             }
+            // Priced with money → born 'deferred' in the same statement (see routeCapfree): never chargeable before its check.
+            const hBornDeferred = scanHasCapfreeCols && safeInt(rp.penalty, 0) > 0;
             const upd = await env.UPS_MFL_DB.prepare(
               `UPDATE ups_drop_events
                   SET earned_to_date = ?, guaranteed_amount = ?, penalty_amount = ?, penalty_basis = ?,
                       penalty_exempt = ?, penalty_exempt_reason = ?,
-                      notes = TRIM(COALESCE(notes, '') || ' ' || ?)
+                      notes = TRIM(COALESCE(notes, '') || ' ' || ?)${hBornDeferred ? ",\n                      capfree_review_status = 'deferred', capfree_route = 'deferred_unchecked'" : ""}
                 WHERE id = ? AND penalty_basis = 'week_authority_unresolved' AND COALESCE(posted_to_mfl, 0) = 0`
             ).bind(
               rp.earned != null ? Number(rp.earned) : null,
@@ -53474,12 +53594,69 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               }
               continue;
             }
-            await routeCapfree(safeStr(h.ledger_key), pid, rp, h.pre_drop_contract_year, hSeason);
-            repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null });
+            const hCf = await routeCapfree(safeStr(h.ledger_key), pid, rp, h.pre_drop_contract_year, hSeason, {
+              brief: { season: hSeason, pid, name: brief.name, fid: brief.fid, dropped_at_iso: brief.dropped_at_iso,
+                       ledger_key: brief.ledger_key, penalty_amount: rp.penalty },
+            });
+            repriced.push({ ...brief, penalty_amount: rp.penalty, penalty_basis: rp.basis, earned: rp.earned, acquisition_week: hAcqWk || null,
+                            ...(hCf ? { capfree_route: hCf.route } : {}) });
           } catch (e) {
             stillHeld.push({ ...brief, reason: "reprice_failed", error: String((e && e.message) || e) });
           }
         }
+
+        // ── DEFERRED cap-free routing: re-routed every tick until the retirement check completes ──
+        // Priority for the shared news budget (5 lookups per run): held re-prices (above, unchanged) → DEFERRED re-routes, oldest
+        // drop first → new drops (below), in MFL's order. First in, first out: a deferred row is already held from the charge, so a
+        // burst of new drops can never starve it, and a new drop that finds the budget spent is born deferred and queues behind it
+        // — nothing is charged early and nothing is lost. The MFL-RETIRED fast path costs no budget at any stage. Like the held
+        // re-price, this runs before (and regardless of) the new-drop pulls, and covers the previous season too (a December drop
+        // deferred across Jan 1), each row checked against ITS season's designations.
+        let cfDeferredReadError = "";
+        let cfDeferredRows = [];
+        if (scanHasCapfreeCols) {
+          try {
+            const dq = await env.UPS_MFL_DB.prepare(
+              `SELECT season, player_id, player_name, franchise_id, dropped_at_iso, ledger_key, penalty_amount,
+                      pre_drop_aav, pre_drop_contract_length, pre_drop_contract_year, earned_to_date, capfree_route
+                 FROM ups_drop_events
+                WHERE season IN (?, ?) AND league_id = ? AND capfree_review_status = 'deferred' AND COALESCE(posted_to_mfl, 0) = 0
+                ORDER BY dropped_at_unix ASC, id ASC LIMIT 50`
+            ).bind(targetSeason, prevSeason, leagueId).all();
+            cfDeferredRows = (dq && dq.results) || [];
+          } catch (e) {
+            // Unreadable → nothing re-routed this tick. The rows stay deferred, so post-mfl keeps holding them.
+            cfDeferredReadError = String((e && e.message) || e).slice(0, 200);
+            console.error(`[drop-penalty scan] deferred cap-free read failed — re-routed next tick: ${cfDeferredReadError}`);
+          }
+        }
+        for (const d of cfDeferredRows) {
+          const lk = safeStr(d.ledger_key);
+          if (cfRoutedThisTick.has(lk)) continue;   // a held row priced (and deferred) above — already reported
+          const dBrief = { season: safeStr(d.season), pid: safeStr(d.player_id), name: safeStr(d.player_name), fid: padFranchiseId(d.franchise_id),
+                           dropped_at_iso: safeStr(d.dropped_at_iso), ledger_key: lk, penalty_amount: d.penalty_amount };
+          if (dryRun) {
+            cfDeferred.push({ ...dBrief, capfree_route: safeStr(d.capfree_route), capfree_review_status: "deferred", reason: "dry_run_not_rerouted" });
+            continue;
+          }
+          try {
+            await routeCapfree(lk, dBrief.pid,
+              { penalty: d.penalty_amount, aav: d.pre_drop_aav, cl: d.pre_drop_contract_length, earned: d.earned_to_date },
+              d.pre_drop_contract_year, dBrief.season, { brief: dBrief, reroute: true, prevRoute: safeStr(d.capfree_route) });
+          } catch (e) {
+            cfDeferred.push({ ...dBrief, capfree_route: safeStr(d.capfree_route), capfree_review_status: "deferred",
+                              reason: "reroute_failed", error: String((e && e.message) || e).slice(0, 200) });
+          }
+        }
+        // Reported by every exit below (including a refused new-drop pull) — a deferral is never silent.
+        const capfreeReport = () => ({
+          capfree_columns_present: scanHasCapfreeCols,
+          capfree_rerouted_count: cfRerouted.length,
+          capfree_rerouted: cfRerouted,
+          capfree_deferred_count: cfDeferred.length,
+          capfree_deferred: cfDeferred,
+          ...(cfDeferredReadError ? { capfree_deferred_read_error: cfDeferredReadError } : {}),
+        });
         // Reported by every exit below (including a refused new-drop pull) — a hold is never silent.
         const heldReport = (writtenHeld) => ({
           repriced_count: repriced.length,
@@ -53504,7 +53681,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // complete would silently drop real penalties on the floor.
           if (!r || !r.ok) {
             return jsonOut(502, { ok: false, error: `transactions fetch failed for TRANS_TYPE=${tt}`,
-              season: targetSeason, league_id: leagueId, ...heldReport([]) });
+              season: targetSeason, league_id: leagueId, ...heldReport([]), ...capfreeReport() });
           }
           let rows = r.data?.transactions?.transaction || [];
           if (!Array.isArray(rows)) rows = [rows];
@@ -53726,6 +53903,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               continue;
             }
 
+            // A row that carries money is BORN deferred — its cap-free retirement check (routeCapfree, below) has not run yet,
+            // and /admin/drops/post-mfl must not be able to charge it in between. Column-guarded: migration 0127 is hand-applied.
+            const cfBornDeferred = scanHasCapfreeCols && safeInt(penaltyInfo.penalty, 0) > 0;
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_drop_events (
                  season, league_id, player_id, player_name, position, nfl_team,
@@ -53736,8 +53916,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                  earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,
                  penalty_exempt, penalty_exempt_reason,
                  ledger_key, source, detected_at_utc, raw_transaction_json, snapshot_source,
-                 discord_posted, notes
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 discord_posted, notes${cfBornDeferred ? ", capfree_review_status, capfree_route" : ""}
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${cfBornDeferred ? ", 'deferred', 'deferred_unchecked'" : ""})
                ON CONFLICT (season, league_id, player_id, dropped_at_unix) DO NOTHING`
             ).bind(
               targetSeason, leagueId, drop.pid,
@@ -53799,15 +53979,19 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             // pending → real sources say retired, MFL does not. penalty_amount
             //           is left ALONE and the row is held from the charge cron
             //           until the commish rules.
-            // none    → no retirement signal. Untouched, charges normally.
+            // none    → no retirement signal. Charges normally.
             //
             // Only rows that actually carry money are considered — a $0 row has
             // nothing to hold. The news leg is capped per invocation because
             // /api/player-news fans out to Sleeper + ESPN RSS + Reddit on every
             // call and exhausted the Worker subrequest budget when the preview
-            // tried 35 rows at once (2026-08-15). Uncapped rows simply route on
-            // the next scan; nothing is lost.
-            await routeCapfree(ledgerKey, drop.pid, penaltyInfo, preDrop?.contract_year);
+            // tried 35 rows at once (2026-08-15). A row past the cap STAYS
+            // deferred (held from the charge) and is re-routed on a later tick —
+            // see routeCapfree and the deferred re-route above.
+            const nCf = await routeCapfree(ledgerKey, drop.pid, penaltyInfo, preDrop?.contract_year, targetSeason, {
+              brief: { season: targetSeason, pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
+                       ledger_key: ledgerKey, penalty_amount: penaltyInfo.penalty },
+            });
             written.push({
               pid: drop.pid, name: meta.name, fid: drop.fid, dropped_at_iso: dropIso,
               tx_type: drop.tx_type,
@@ -53816,6 +54000,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               applies_to_season: capYear.ok ? capYear.applies_to_season : null,
               cap_year_bucket: capYear.bucket || "",
               cap_year_needs_review: capYear.ok ? "" : capYear.reason,
+              ...(nCf ? { capfree_route: nCf.route } : {}),
             });
           } catch (e) {
             skipped.push({ ...drop, reason: "insert_failed", error: String(e?.message || e) });
@@ -53846,6 +54031,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           acquisition_week_source: acqWeekUnresolved ? "unresolved" : (acqTxs.length ? "transactions" : "not_needed"),
           // HELD = recorded but unpriced; never posted to Discord or MFL as a $0, re-priced every tick until it prices.
           ...heldReport(written.filter((w) => w.penalty_basis === "week_authority_unresolved")),
+          // DEFERRED = priced, but its cap-free retirement check has not completed; held from MFL, re-routed every tick.
+          ...capfreeReport(),
           written, skipped,
         });
       }

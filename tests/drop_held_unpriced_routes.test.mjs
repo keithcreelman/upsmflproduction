@@ -331,7 +331,8 @@ test("6. a 2026 held drop priced in January takes its cap-free routing from 2026
   t.equal(r.capfree_mfl_designation, "RETIRED", "read from 2026's injuries export");
   t.equal(r.capfree_route, "auto");
   t.equal(r.capfree_decided_by, "auto:mfl_retired_flag");
-  t.equal(NEWS.length, news0, "no player-news lookup: the designation answered (the news path is budgeted — 5 per run — and a miss is never re-routed)");
+  t.equal(NEWS.length, news0, "no player-news lookup: the designation answered (the news path is budgeted — 5 per run — and a miss waits, deferred, for a later tick)");
+  t.equal(r.capfree_review_status, "approved", "born deferred by the held re-price, then resolved by the fast path");
   const janExports = EXPORTS.slice(ex0);
   t.ok(janExports.includes("2026:injuries"), janExports.join(" "));
   t.ok(!janExports.includes("2027:injuries"), "never 2027's (no 2027 league in January): " + janExports.join(" "));
