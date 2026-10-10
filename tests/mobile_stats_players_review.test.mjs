@@ -181,7 +181,7 @@ function boot(opt = {}) {
     requests.push({ url: String(url), method: (o && o.method) || "GET" });
     const u = new URL(url);
     let body = {};
-    if (u.pathname === "/api/advanced-stats-leaderboard") body = opt.leaderboard ? opt.leaderboard(u.searchParams.get("pos")) : leaderboard(u.searchParams.get("pos"));
+    if (u.pathname === "/api/advanced-stats-leaderboard") body = opt.leaderboard ? opt.leaderboard(u.searchParams.get("pos"), Number(u.searchParams.get("offset") || 0)) : leaderboard(u.searchParams.get("pos"));
     else if (u.pathname === "/api/player-routes") body = { by_gsis: opt.routes || {} };
     else if (u.pathname === "/api/player-consistency") body = { by_gsis: opt.cons || {} };
     else if (/^\/api\/(sos-adjusted-points|player-epa|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
@@ -353,6 +353,28 @@ test("the IDP tabs say their list is the stats source's capped top 500 — on ev
 });
 
 // ═══ 2b. The stored fallback ═══
+test("the list reads the WHOLE stats board: it follows next_offset across pages, and a paged board is never called 'capped'", async () => {
+  const full = leaderboard("idp");
+  const paged = (pos, offset) => {
+    const b = leaderboard(pos);
+    if (pos !== "idp") return b;
+    const rows = b.rows.slice(offset, offset + 250);
+    return Object.assign({}, b, { rows, count: rows.length, limit: 500, offset, next_offset: offset + 250 < b.rows.length ? offset + 250 : null });
+  };
+  const v = boot({ leaderboard: paged });
+  await openTab(v, "LB");
+  const offsets = v.requests.filter((r) => r.url.includes("advanced-stats-leaderboard") && r.url.includes("pos=idp"))
+    .map((r) => Number(new URL(r.url).searchParams.get("offset") || 0));
+  t.deepEqual(offsets, [0, 250], "page 1, then the offset the worker named, then stop at next_offset null");
+  t.ok(v.requests.filter((r) => r.url.includes("advanced-stats-leaderboard")).every((r) => /[?&]limit=500(&|$)/.test(r.url)), "every alias asks for full 500-row pages");
+  const tk = await chooseSet(v, "tackles");
+  t.doesNotMatch(tk.notes, /top 500|at most 500/, "every page was read: no 'capped' note");
+  const v2 = boot();   // today's worker: no next_offset, exactly 500 rows back
+  await openTab(v2, "LB");
+  t.match((await chooseSet(v2, "tackles")).notes, /top 500 IDPs/, "an unpaged full page is still reported as capped");
+  t.equal(full.rows.length, 500);
+});
+
 test("MFL scoring unreadable → the last VERIFIED stored totals, labelled Wks 1–4 with the read time; no recent form", async () => {
   const v = boot({ scores: { error: { $t: "simulated" } } });
   const html = await openTab(v, "QB");

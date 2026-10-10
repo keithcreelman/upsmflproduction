@@ -363,34 +363,44 @@
   }
 
   // ── Leaderboard (box-score join; stored fallback) ──
-  /* The worker defaults this endpoint to 200 rows ordered by impact across the
-   * whole alias; 500 is its ceiling. The two three-group aliases ask for 500.
-   * Even so, idp returned EXACTLY 500 on 2026-10-09 with 302 scoring IDPs
-   * outside it — so the live list no longer takes its universe from here, and
-   * the box-score note says when this input was capped. */
-  var WIDE_ALIASES = { skill: 1, idp: 1 };
+  /* Every alias is read WHOLE: 500 rows a page, following the worker's
+   * next_offset until it is null (2026-10-10). One 500-row page cut the IDP
+   * board at impact 7 inside a 36-way tie and left ~350 scoring IDPs with "—".
+   * A worker without paging sends no next_offset: that is one page, and if it
+   * came back full the list is marked capped (the notes say so). */
+  var PAGE = 500, MAX_PAGES = 12;
   function load(alias, yr) {
     var key = alias + "|" + yr;
     if (cache[key]) return Promise.resolve(cache[key]);
-    var limit = WIDE_ALIASES[alias] ? 500 : 200;
-    var url = API.workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(yr) +
-      "&pos=" + encodeURIComponent(alias) + "&min_games=1" +
-      (WIDE_ALIASES[alias] ? "&limit=500" : ""));
-    return fetch(url, { mode: "cors", credentials: "omit" })
-      .then(function (r) { return r.ok ? r.json() : { rows: [] }; })
-      .then(function (j) {
-        var rows = (j && j.rows) || [];
+    var base = "/api/advanced-stats-leaderboard?season=" + encodeURIComponent(yr) +
+      "&pos=" + encodeURIComponent(alias) + "&min_games=1&limit=" + PAGE;
+    var rows = [], first = null, capped = false;
+    function page(offset, n) {
+      return fetch(API.workerUrl(base + (offset ? "&offset=" + offset : "")), { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : { rows: [] }; })
+        .then(function (j) {
+          var got = (j && j.rows) || [];
+          if (!first) first = j || {};
+          rows = rows.concat(got);
+          var paged = j && Object.prototype.hasOwnProperty.call(j, "next_offset");
+          if (paged && j.next_offset != null && n + 1 < MAX_PAGES) return page(Number(j.next_offset), n + 1);
+          capped = paged ? j.next_offset != null : got.length >= PAGE;
+          return rows;
+        });
+    }
+    return page(0, 0)
+      .then(function () {
         cache[key] = rows;
-        var cov = j && j.source_coverage;
+        var cov = first && first.source_coverage;
         metaCache[key] = {
-          finalized: j && j.finalized_through_week,
-          coverage: (cov && cov.week) || (j && j.built_for_week) || null,
-          stale: !!(j && j.stale),
-          count: rows.length, limit: limit, readAt: Date.now()
+          finalized: first && first.finalized_through_week,
+          coverage: (cov && cov.week) || (first && first.built_for_week) || null,
+          stale: !!(first && first.stale),
+          count: rows.length, limit: PAGE, capped: capped, readAt: Date.now()
         };
         return rows;
       })
-      .catch(function () { cache[key] = []; metaCache[key] = { count: 0, limit: limit, readAt: Date.now(), failed: true }; return []; });
+      .catch(function () { cache[key] = []; metaCache[key] = { count: 0, limit: PAGE, capped: false, readAt: Date.now(), failed: true }; return []; });
   }
 
   // League sub-tab bar (same pattern as league.js/auction.js, with Stats).
@@ -733,7 +743,7 @@
     if (srcs.adv) line.push((set.id === "epa" ? "nflfastR play-by-play" : set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date" + (set.id === "epa" ? "; rates need a minimum sample." : "."));
     // The leaderboard decides who is listed. When it hit its row cap the list
     // is NOT every player at the position, and the ranks are within it.
-    if (meta && meta.count >= meta.limit) {
+    if (meta && meta.capped) {
       line.push("List = the stats source’s top " + meta.limit + (tab.alias === "idp" ? " IDPs" : "") + "; ranks are within it.");
       more.push("The stats source returns at most " + meta.limit + " players here, chosen by tackles, sacks and other impact stats, so this isn’t every " + tab.id + ".");
     }
