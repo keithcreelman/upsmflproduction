@@ -12933,6 +12933,10 @@ export default {
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,
                    a.rush_att_i20, a.rush_att_i5, a.targets_i20, a.targets_ez,
                    a.rec_i20, a.pass_att_i20, a.pass_att_ez,
+                   a.pass_tds_i20,
+                   CASE WHEN a.rz_v2 = 1 THEN a.pass_cmp_i20 END AS pass_cmp_i20,
+                   CASE WHEN a.rz_v2 = 1 THEN a.sacks_i20 END    AS sacks_i20,
+                   a.rz_v2,
                    a.receiving_rat, a.passing_bad_throw_pct, a.passing_pressure_pct,
                    sv.s_rec_adot AS receiving_adot, sv.s_rec_air_yards AS receiving_air_yards,
                    sv.s_rec_yac_per_r AS receiving_yac_per_r, sv.s_rec_drop_pct AS receiving_drop_pct,
@@ -12948,9 +12952,10 @@ export default {
                    CAST(a.targets_ez AS REAL)   / NULLIF(trpa.team_targets_ez, 0)    AS ez_target_share,
                    CAST(a.rush_att_i20 AS REAL) / NULLIF(trpa.team_rush_att_i20, 0)  AS rz_rush_share,
                    CAST(a.rush_att_i5 AS REAL)  / NULLIF(trpa.team_rush_att_i5, 0)   AS gl_rush_share,
-                   (COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0)) AS team_rz_plays,
-                   CAST(tr.team_pass_att_i20 AS REAL) /
-                     NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0), 0) AS team_rz_pass_rate`;
+                   trpa.team_targets_i20, trpa.team_targets_ez, trpa.team_rush_att_i20, trpa.team_rush_att_i5,
+                   (tr.team_rz_dropbacks + tr.team_rz_carries) AS team_rz_plays,
+                   CAST(tr.team_rz_dropbacks AS REAL) /
+                     NULLIF(tr.team_rz_dropbacks + tr.team_rz_carries, 0) AS team_rz_pass_rate`;
           // IDP — now includes def_tackles_ast, def_tds, def_pressures (were
           // dropped for the cap; they're already SUM'd in the agg CTE).
           //
@@ -13180,6 +13185,15 @@ export default {
                      SUM(COALESCE(rz.rec_i20,0))                     AS rec_i20,
                      SUM(COALESCE(rz.pass_att_i20,0))                AS pass_att_i20,
                      SUM(COALESCE(rz.pass_att_ez,0))                 AS pass_att_ez,
+                     SUM(COALESCE(rz.pass_tds_i20,0))                AS pass_tds_i20,
+                     SUM(COALESCE(rz.pass_cmp_i20,0))                AS pass_cmp_i20,
+                     SUM(COALESCE(rz.sacks_i20,0))                   AS sacks_i20,
+                     -- 1 when every red-zone row behind this player was built by
+                     -- the 0168 ETL (pass_cmp_i20 / sacks_i20 exist, 2-pt tries
+                     -- excluded, attempts exclude sacks). A row from the old ETL
+                     -- has NULL there, and its completions/sacks are UNKNOWN —
+                     -- never 0 — so the projection returns NULL for them.
+                     MIN(CASE WHEN rz.gsis_id IS NULL THEN 1 WHEN rz.sacks_i20 IS NULL THEN 0 ELSE 1 END) AS rz_v2,
                      -- FG buckets (PBP-derived via fetch_nflverse_pbp.py —
                      -- weekly payload doesn't populate these)
                      SUM(COALESCE(w.fg_att_0_39,0))                  AS fg_att_0_39,
@@ -13243,13 +13257,54 @@ export default {
             -- week, team); (2) team_agg joins those to each player's
             -- own weekly rows so the denominator lines up with the
             -- numerator's game set. Keyed by gsis_id now.
+            --
+            -- WHICH weeks count as "active" changed 2026-10-10: box-score weeks
+            -- alone dropped every game a player played WITHOUT recording a stat
+            -- (169 RB/WR/TE games in 2026 Wks 1-4), so his team's totals for
+            -- those games left the denominator and the share came out too high
+            -- (one WR read 33.3% of his team's red-zone targets; truly 4.3%).
+            -- player_games = the weeks he took an OFFENSIVE snap, on that week's
+            -- team (so a trade splits correctly). A box-score week counts only
+            -- when there is no snap row for him that week at all (no pfr
+            -- mapping, or a gap in the snap data): a week with special-teams
+            -- snaps only is NOT an offensive game.
+            pfr_gsis AS (
+              SELECT DISTINCT pfr_id, gsis_id FROM (
+                SELECT pfr_id, gsis_id FROM player_id_crosswalk
+                 WHERE ${_gTeamShare} AND pfr_id IS NOT NULL AND pfr_id <> 'NA' AND gsis_id LIKE '00-%'
+                   AND COALESCE(confidence, '') NOT LIKE 'fuzzy%'
+                UNION
+                SELECT pfr_id, gsis_id FROM ff_player_ids
+                 WHERE ${_gTeamShare} AND pfr_id IS NOT NULL AND pfr_id <> 'NA' AND gsis_id LIKE '00-%'
+              ) x WHERE ${_gTeamShare} AND x.gsis_id IN (SELECT gsis_id FROM elig)
+            ),
+            player_games AS (
+              SELECT gsis_id, season, week, COALESCE(MAX(off_team), MAX(box_team)) AS team
+                FROM (
+                  SELECT pg.gsis_id, s.season, s.week,
+                         CASE WHEN COALESCE(s.off_snaps, 0) > 0 THEN s.team END AS off_team,
+                         1 AS has_snap_row, NULL AS box_team
+                    FROM nfl_player_snaps s
+                    JOIN pfr_gsis pg ON pg.pfr_id = s.pfr_id
+                   WHERE ${_gTeamShare} AND s.season IN (${seasonList})
+                     AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
+                  UNION ALL
+                  SELECT pw.gsis_id, pw.season, pw.week, NULL AS off_team, 0 AS has_snap_row, pw.team AS box_team
+                    FROM nfl_player_weekly pw
+                   WHERE ${_gTeamShare} AND pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
+                     AND pw.gsis_id IN (SELECT gsis_id FROM elig)
+                ) u
+               WHERE ${_gTeamShare} AND u.season IN (${seasonList})
+               GROUP BY gsis_id, season, week
+              HAVING MAX(off_team) IS NOT NULL OR MAX(has_snap_row) = 0
+            ),
             team_agg AS (
               SELECT pw.gsis_id,
                      SUM(twt.team_targets_wk)   AS team_targets,
                      SUM(twt.team_rec_wk)       AS team_rec,
                      SUM(twt.team_rush_att_wk)  AS team_rush_att,
                      SUM(twt.team_air_yds_wk)   AS team_air_yds
-                FROM nfl_player_weekly pw
+                FROM player_games pw
                 JOIN (
                   SELECT season, week, team,
                          SUM(COALESCE(targets,0))    AS team_targets_wk,
@@ -13260,8 +13315,7 @@ export default {
                    WHERE ${_gTeamShare} AND season IN (${seasonList}) AND ${weekFilter.replace(/w\.week/g, "week")}
                    GROUP BY season, week, team
                 ) twt ON twt.season = pw.season AND twt.week = pw.week AND twt.team = pw.team
-               WHERE ${_gTeamShare} AND pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
-                 AND pw.pos_group IN (${posList})
+               WHERE ${_gTeamShare} AND pw.season IN (${seasonList})
                GROUP BY pw.gsis_id
             ),
             -- Team-level situational rates (migration 0016). 4th-down
@@ -13279,48 +13333,35 @@ export default {
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "tw.week")}
                GROUP BY tw.team
             ),
-            -- Whole-team RZ totals (used for team context cols
-            -- team_rz_plays + team_rz_pass_rate). Team-wide regardless
-            -- of which player we're looking at.
+            -- The team's red-zone play mix over the player's games (team_rz_plays,
+            -- team_rz_pass_rate), from the per-game team totals the PBP ETL writes
+            -- (migration 0168). It was the team's whole window joined on
+            -- MAX(w.team) — wrong for a traded player — and counted sacks and
+            -- two-point tries as pass attempts.
             team_rz_agg AS (
-              SELECT w.team,
-                     SUM(COALESCE(rz.pass_att_i20,0))  AS team_pass_att_i20,
-                     SUM(COALESCE(rz.rush_att_i20,0))  AS team_rush_att_i20_all
-                FROM nfl_player_redzone rz
-                JOIN nfl_player_weekly w
-                       ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
-               WHERE ${_gTeamShare} AND rz.season IN (${seasonList})
-                 AND ${rzWeekSqlPredicate}
-               GROUP BY w.team
+              SELECT pg.gsis_id,
+                     SUM(tw.rz_pass_att + tw.rz_sacks) AS team_rz_dropbacks,
+                     SUM(tw.rz_carries)                AS team_rz_carries
+                FROM player_games pg
+                JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
+               WHERE ${_gTeamShare} AND pg.season IN (${seasonList})
+               GROUP BY pg.gsis_id
             ),
-            -- Player-active RZ share denominators: team RZ stats only
-            -- in weeks this player also played. Same per-game-active
-            -- logic as team_agg above. Keyed by gsis_id.
+            -- Red-zone share denominators: the team's per-game totals (straight
+            -- from the play-by-play, two-point tries excluded) over the games
+            -- the player played. A season whose PBP has not been re-run since
+            -- 0168 has NULL team columns, so its shares read "—", not a guess.
             team_rz_player_active AS (
-              SELECT pw.gsis_id,
-                     SUM(trzw.team_targets_i20_wk)   AS team_targets_i20,
-                     SUM(trzw.team_rec_i20_wk)       AS team_rec_i20,
-                     SUM(trzw.team_targets_ez_wk)    AS team_targets_ez,
-                     SUM(trzw.team_rush_att_i20_wk)  AS team_rush_att_i20,
-                     SUM(trzw.team_rush_att_i5_wk)   AS team_rush_att_i5
-                FROM nfl_player_weekly pw
-                JOIN (
-                  SELECT w.season, w.week, w.team,
-                         SUM(COALESCE(rz.targets_i20,0))  AS team_targets_i20_wk,
-                         SUM(COALESCE(rz.rec_i20,0))      AS team_rec_i20_wk,
-                         SUM(COALESCE(rz.targets_ez,0))   AS team_targets_ez_wk,
-                         SUM(COALESCE(rz.rush_att_i20,0)) AS team_rush_att_i20_wk,
-                         SUM(COALESCE(rz.rush_att_i5,0))  AS team_rush_att_i5_wk
-                    FROM nfl_player_redzone rz
-                    JOIN nfl_player_weekly w
-                           ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
-                   WHERE ${_gTeamShare} AND rz.season IN (${seasonList})
-                     AND ${rzWeekSqlPredicate}
-                   GROUP BY w.season, w.week, w.team
-                ) trzw ON trzw.season = pw.season AND trzw.week = pw.week AND trzw.team = pw.team
-               WHERE ${_gTeamShare} AND pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
-                 AND pw.pos_group IN (${posList})
-               GROUP BY pw.gsis_id
+              SELECT pg.gsis_id,
+                     SUM(tw.rz_targets)  AS team_targets_i20,
+                     SUM(tw.rz_rec)      AS team_rec_i20,
+                     SUM(tw.ez_targets)  AS team_targets_ez,
+                     SUM(tw.rz_carries)  AS team_rush_att_i20,
+                     SUM(tw.i5_carries)  AS team_rush_att_i5
+                FROM player_games pg
+                JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
+               WHERE ${_gTeamShare} AND pg.season IN (${seasonList})
+               GROUP BY pg.gsis_id
             ),
             -- PFR season-level adv stats: ADOT, YAC/R, YBC/R, IAY, etc.
             -- Trimmed to only columns the workbench template consumes —
@@ -13352,7 +13393,7 @@ export default {
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
               LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
               LEFT JOIN team_agg ta           ON ta.gsis_id = a.gsis_id
-              LEFT JOIN team_rz_agg tr        ON tr.team = a.team
+              LEFT JOIN team_rz_agg tr        ON tr.gsis_id = a.gsis_id
               LEFT JOIN team_rz_player_active trpa ON trpa.gsis_id = a.gsis_id
               LEFT JOIN team_situational_agg tsa ON tsa.team = a.team
               LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
@@ -19765,7 +19806,17 @@ export default {
               rec: tt ? { tgt: tt, epa: rnd(x.te / tt, 3), succ: rnd(100 * x.tsx / tt, 1) } : null,
             };
           }
-          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, by_gsis });
+          // The weeks these totals cover (migration 0168: the ETL stamps the
+          // last REG week it aggregated). Before 0168, or for a row written by
+          // an older ETL, it is null and the app keeps saying "to date".
+          const through_week = {};
+          try {
+            const tw = await db.prepare(
+              "SELECT season, MAX(through_week) AS tw FROM nfl_player_epa WHERE season IN (" + seasonList + ") GROUP BY season"
+            ).all();
+            for (const x of (tw && tw.results) || []) through_week[x.season] = x.tw == null ? null : Number(x.tw);
+          } catch (_) { /* column not migrated yet */ }
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, through_week, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

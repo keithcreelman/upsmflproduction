@@ -54,6 +54,17 @@ def _d1_write(table: str, pk_cols: list[str], cols: list[str],
             w.add(r)
 
 
+def _valid_id(v) -> bool:
+    """A real player id. pandas' to_dict turns a missing id into float NaN,
+    which is truthy: `if gsis:` let it through and 2026 Wks 1-4 stored 78
+    throwaways/sacks as "targets" under gsis_id 'nan' (2026-10-10 audit)."""
+    return isinstance(v, str) and v.strip() != "" and v.strip().lower() != "nan"
+
+
+def _flag(v) -> bool:
+    return v in (1, True, "1", 1.0)
+
+
 def parse_seasons(spec: str) -> list[int]:
     out = set()
     for piece in spec.split(","):
@@ -79,10 +90,17 @@ def ensure_table(db: sqlite3.Connection) -> None:
           targets_i20 INTEGER, targets_i10 INTEGER, targets_i5 INTEGER,
           targets_ez INTEGER, rec_i20 INTEGER, rec_tds_i20 INTEGER,
           pass_att_i20 INTEGER, pass_tds_i20 INTEGER, pass_att_ez INTEGER,
+          pass_cmp_i20 INTEGER, sacks_i20 INTEGER,
           PRIMARY KEY (season, week, gsis_id)
         )
     """)
     db.execute("CREATE INDEX IF NOT EXISTS idx_redzone_player ON nfl_player_redzone (gsis_id, season)")
+    # Migration 0168 columns on an older local copy.
+    for table, col in (("nfl_player_redzone", "pass_cmp_i20"), ("nfl_player_redzone", "sacks_i20")):
+        try:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {col} INTEGER")
+        except sqlite3.OperationalError:
+            pass
     db.commit()
 
 
@@ -127,7 +145,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
     tw_agg = {}   # team-weekly (keyed by (season,week,team))
 
     def rz_bucket(gsis, week):
-        if not gsis:
+        if not _valid_id(gsis):
             return None
         key = (season, int(week), str(gsis))
         if key not in rz_agg:
@@ -137,11 +155,12 @@ def process_season(db: sqlite3.Connection, season: int, args,
                 "targets_i20": 0, "targets_i10": 0, "targets_i5": 0,
                 "targets_ez": 0, "rec_i20": 0, "rec_tds_i20": 0,
                 "pass_att_i20": 0, "pass_tds_i20": 0, "pass_att_ez": 0,
+                "pass_cmp_i20": 0, "sacks_i20": 0,
             }
         return rz_agg[key]
 
     def fg_bucket(gsis, week):
-        if not gsis:
+        if not _valid_id(gsis):
             return None
         key = (season, int(week), str(gsis))
         if key not in fg_agg:
@@ -155,7 +174,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
         return fg_agg[key]
 
     def pt_bucket(gsis, week):
-        if not gsis:
+        if not _valid_id(gsis):
             return None
         key = (season, int(week), str(gsis))
         if key not in pt_agg:
@@ -177,6 +196,20 @@ def process_season(db: sqlite3.Connection, season: int, args,
                 "punt_inside20_pbp": 0,
             }
         return pt_agg[key]
+
+    # Team red-zone totals per game, straight from the play-by-play (migration
+    # 0168). Kept apart from tw_agg so a red-zone run never overwrites the
+    # 4th-down columns with zeros (and vice versa).
+    twrz_agg = {}
+
+    def twrz_bucket(team, week):
+        if not isinstance(team, str) or not team:
+            return None
+        key = (season, int(week), team)
+        if key not in twrz_agg:
+            twrz_agg[key] = {k: 0 for k in ("rz_pass_att", "rz_pass_cmp", "rz_sacks", "rz_carries", "rz_scrambles",
+                                             "i5_carries", "rz_targets", "ez_targets", "ez_targets_i20", "rz_rec")}
+        return twrz_agg[key]
 
     def tw_bucket(team, week):
         if not team:
@@ -311,12 +344,22 @@ def process_season(db: sqlite3.Connection, season: int, args,
         # ---- Redzone aggregation (only run/pass) ----
         if not do_redzone or yl100 is None:
             continue
+        # Two-point tries are not red-zone plays: a try from the 2 with no down.
+        # Counting them added 26 plays to 40 players' 2026 Wk 1-4 counts.
+        if _flag(row.get("two_point_attempt")):
+            continue
         yl = yl100  # reuse the top-of-loop parse
         bucket = rz_bucket
+        trz = twrz_bucket(posteam, week)
         if ptype == "run":
+            # Run plays include QB scrambles and aborted snaps (the box score
+            # counts both as carries); kneels are play_type qb_kneel, not here.
+            if trz is not None:
+                if yl <= 20:
+                    trz["rz_carries"] += 1
+                    if _flag(row.get("qb_scramble")): trz["rz_scrambles"] += 1
+                if yl <= 5: trz["i5_carries"] += 1
             rusher = row.get("rusher_player_id") or row.get("rusher_id")
-            if not rusher:
-                continue
             b = bucket(rusher, week)
             if b is None:
                 continue
@@ -327,45 +370,69 @@ def process_season(db: sqlite3.Connection, season: int, args,
                 yds = row.get("yards_gained") or 0
                 try: b["rush_yds_i20"] += int(yds)
                 except (ValueError, TypeError): pass
-                if row.get("touchdown") in (1, True, "1"):
+                # rush_touchdown, not touchdown: a fumble returned for a
+                # defensive TD sets `touchdown` too.
+                if _flag(row.get("rush_touchdown")):
                     b["rush_tds_i20"] += 1
 
         elif ptype == "pass":
             passer = row.get("passer_player_id") or row.get("passer_id")
             receiver = row.get("receiver_player_id") or row.get("receiver_id")
             air_yards = row.get("air_yards")
+            is_sack = _flag(row.get("sack"))
+            is_cmp = _flag(row.get("complete_pass"))
+            is_ptd = _flag(row.get("pass_touchdown"))
+            has_rcv = _valid_id(receiver)
 
             # End-zone target = pass with air_yards sufficient to reach end zone
-            # (air_yards ≥ yl). Account for nullable.
+            # (air_yards ≥ yl). nflverse caps air yards at the goal line, so this
+            # reads "reached the end zone", from anywhere on the field.
             is_ez = False
             try:
-                if air_yards is not None:
+                if air_yards is not None and not is_sack:
                     is_ez = int(air_yards) >= yl
             except (ValueError, TypeError):
                 pass
 
-            if passer:
-                bp = bucket(passer, week)
-                if bp is not None:
-                    if yl <= 20:
-                        bp["pass_att_i20"] += 1
-                        if row.get("touchdown") in (1, True, "1") and row.get("td_team") == row.get("posteam"):
-                            bp["pass_tds_i20"] += 1
-                    if is_ez:
-                        bp["pass_att_ez"] += 1
+            if trz is not None:
+                if yl <= 20:
+                    if is_sack:
+                        trz["rz_sacks"] += 1
+                    else:
+                        trz["rz_pass_att"] += 1
+                        if is_cmp: trz["rz_pass_cmp"] += 1
+                    if has_rcv:
+                        trz["rz_targets"] += 1
+                        if is_cmp: trz["rz_rec"] += 1
+                if is_ez and has_rcv:
+                    trz["ez_targets"] += 1
+                    if yl <= 20: trz["ez_targets_i20"] += 1
 
-            if receiver:
-                br = bucket(receiver, week)
-                if br is not None:
-                    if yl <= 20:
-                        br["targets_i20"] += 1
-                        if row.get("complete_pass") in (1, True, "1"):
-                            br["rec_i20"] += 1
-                            if row.get("touchdown") in (1, True, "1"):
-                                br["rec_tds_i20"] += 1
-                    if yl <= 10: br["targets_i10"] += 1
-                    if yl <= 5:  br["targets_i5"]  += 1
-                    if is_ez:    br["targets_ez"]  += 1
+            bp = bucket(passer, week)
+            if bp is not None:
+                if yl <= 20:
+                    # A sack is not an attempt (the box score agrees: nflverse
+                    # `attempts` excludes sacks). Stored apart as sacks_i20.
+                    if is_sack:
+                        bp["sacks_i20"] += 1
+                    else:
+                        bp["pass_att_i20"] += 1
+                        if is_cmp: bp["pass_cmp_i20"] += 1
+                        if is_ptd: bp["pass_tds_i20"] += 1
+                if is_ez:
+                    bp["pass_att_ez"] += 1
+
+            br = bucket(receiver, week)
+            if br is not None:
+                if yl <= 20:
+                    br["targets_i20"] += 1
+                    if is_cmp:
+                        br["rec_i20"] += 1
+                        if is_ptd:
+                            br["rec_tds_i20"] += 1
+                if yl <= 10: br["targets_i10"] += 1
+                if yl <= 5:  br["targets_i5"]  += 1
+                if is_ez:    br["targets_ez"]  += 1
 
     counts = {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
 
@@ -377,7 +444,8 @@ def process_season(db: sqlite3.Connection, season: int, args,
                             v["rush_yds_i20"], v["rush_tds_i20"],
                             v["targets_i20"], v["targets_i10"], v["targets_i5"],
                             v["targets_ez"], v["rec_i20"], v["rec_tds_i20"],
-                            v["pass_att_i20"], v["pass_tds_i20"], v["pass_att_ez"]))
+                            v["pass_att_i20"], v["pass_tds_i20"], v["pass_att_ez"],
+                            v["pass_cmp_i20"], v["sacks_i20"]))
         if not args.skip_local:
             try:
                 db.executemany("""
@@ -386,8 +454,9 @@ def process_season(db: sqlite3.Connection, season: int, args,
                          rush_yds_i20, rush_tds_i20,
                          targets_i20, targets_i10, targets_i5,
                          targets_ez, rec_i20, rec_tds_i20,
-                         pass_att_i20, pass_tds_i20, pass_att_ez)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         pass_att_i20, pass_tds_i20, pass_att_ez,
+                         pass_cmp_i20, sacks_i20)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(season, week, gsis_id) DO UPDATE SET
                       rush_att_i20 = excluded.rush_att_i20,
                       rush_att_i10 = excluded.rush_att_i10,
@@ -402,7 +471,9 @@ def process_season(db: sqlite3.Connection, season: int, args,
                       rec_tds_i20  = excluded.rec_tds_i20,
                       pass_att_i20 = excluded.pass_att_i20,
                       pass_tds_i20 = excluded.pass_tds_i20,
-                      pass_att_ez  = excluded.pass_att_ez
+                      pass_att_ez  = excluded.pass_att_ez,
+                      pass_cmp_i20 = excluded.pass_cmp_i20,
+                      sacks_i20    = excluded.sacks_i20
                 """, rz_rows)
             except sqlite3.OperationalError as e:
                 print(f"  [redzone {season}] local: FAILED ({e})", file=sys.stderr)
@@ -413,10 +484,34 @@ def process_season(db: sqlite3.Connection, season: int, args,
              "rush_yds_i20","rush_tds_i20",
              "targets_i20","targets_i10","targets_i5",
              "targets_ez","rec_i20","rec_tds_i20",
-             "pass_att_i20","pass_tds_i20","pass_att_ez"],
+             "pass_att_i20","pass_tds_i20","pass_att_ez",
+             "pass_cmp_i20","sacks_i20"],
             rz_rows, args.skip_d1, label=f"redzone {season}",
         )
         counts["redzone"] = len(rz_rows)
+
+    # ---- Team red-zone totals per game (nfl_team_weekly, migration 0168) ----
+    # Only these columns are written, so the 4th-down/punt columns are untouched.
+    if do_redzone and twrz_agg:
+        rz_cols = ["rz_pass_att", "rz_pass_cmp", "rz_sacks", "rz_carries", "rz_scrambles",
+                   "i5_carries", "rz_targets", "ez_targets", "ez_targets_i20", "rz_rec"]
+        twrz_rows = [(s, wk, team, *[v[c] for c in rz_cols]) for (s, wk, team), v in twrz_agg.items()]
+        if not args.skip_local:
+            try:
+                for c in rz_cols:
+                    try:
+                        db.execute(f"ALTER TABLE nfl_team_weekly ADD COLUMN {c} INTEGER")
+                    except sqlite3.OperationalError:
+                        pass
+                db.executemany(
+                    "INSERT INTO nfl_team_weekly (season, week, team, " + ", ".join(rz_cols) + ") VALUES (" +
+                    ",".join("?" * (3 + len(rz_cols))) + ") ON CONFLICT(season, week, team) DO UPDATE SET " +
+                    ", ".join(f"{c} = excluded.{c}" for c in rz_cols), twrz_rows)
+            except sqlite3.OperationalError as e:
+                print(f"  [team-rz {season}] local: FAILED ({e})", file=sys.stderr)
+        _d1_write("nfl_team_weekly", ["season", "week", "team"], ["season", "week", "team"] + rz_cols,
+                  twrz_rows, args.skip_d1, label=f"team-rz {season}")
+        counts["team_rz"] = len(twrz_rows)
 
     # ---- FG upsert (updates nfl_player_weekly — row must already exist via
     # fetch_nflverse_weekly.py; UPDATE leaves other columns alone) ----

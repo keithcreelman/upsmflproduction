@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS nfl_player_epa (
   season INTEGER NOT NULL, gsis_id TEXT NOT NULL,
   pass_plays INTEGER, pass_epa_sum REAL, pass_cpoe_sum REAL, pass_cpoe_n INTEGER, pass_succ_sum REAL,
   rush_plays INTEGER, rush_epa_sum REAL, rush_succ_sum REAL,
-  rec_tgt INTEGER, rec_epa_sum REAL, rec_succ_sum REAL,
+  rec_tgt INTEGER, rec_epa_sum REAL, rec_succ_sum REAL, through_week INTEGER,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (season, gsis_id)
 );
 """
@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS nfl_player_epa (
 COLS = ["season", "gsis_id",
         "pass_plays", "pass_epa_sum", "pass_cpoe_sum", "pass_cpoe_n", "pass_succ_sum",
         "rush_plays", "rush_epa_sum", "rush_succ_sum",
-        "rec_tgt", "rec_epa_sum", "rec_succ_sum"]
+        "rec_tgt", "rec_epa_sum", "rec_succ_sum",
+        # Migration 0168: the last REG week aggregated, so the app can say
+        # "Wk 1–N" instead of "to date" (2026-10-10 audit).
+        "through_week"]
 
 
 def parse_seasons(s: str) -> list[int]:
@@ -71,6 +74,9 @@ def compute(seasons: list[int]) -> list[tuple]:
         df = df[df["season_type"] == "REG"]
 
     acc: dict[tuple, dict] = {}
+    # The last REG week each season's rows include (every row of a season
+    # shares it: the play-by-play is aggregated whole).
+    through = {int(s): int(w) for s, w in df.groupby("season")["week"].max().items()} if len(df) else {}
 
     def bump(season, gsis, **kw) -> None:
         if not isinstance(gsis, str) or not gsis.strip():
@@ -111,6 +117,7 @@ def compute(seasons: list[int]) -> list[tuple]:
             round(d.get("pass_cpoe_sum", 0.0), 4), int(d.get("pass_cpoe_n", 0)), round(d.get("pass_succ_sum", 0.0), 2),
             int(d.get("rush_plays", 0)), round(d.get("rush_epa_sum", 0.0), 4), round(d.get("rush_succ_sum", 0.0), 2),
             int(d.get("rec_tgt", 0)), round(d.get("rec_epa_sum", 0.0), 4), round(d.get("rec_succ_sum", 0.0), 2),
+            through.get(int(season)),
         ))
     return rows
 
@@ -134,6 +141,10 @@ def main() -> None:
 
     if not args.skip_local and LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB)); db.executescript(DDL)
+        try:
+            db.execute("ALTER TABLE nfl_player_epa ADD COLUMN through_week INTEGER")   # 0168 on an older local copy
+        except sqlite3.OperationalError:
+            pass
         db.executemany(
             f"""INSERT INTO nfl_player_epa ({', '.join(COLS)})
                 VALUES ({', '.join('?' for _ in COLS)})
