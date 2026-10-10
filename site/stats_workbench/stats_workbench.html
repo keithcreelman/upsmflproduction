@@ -285,6 +285,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
 .asw-gsearch-row .nm{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asw-gsearch-row .sub{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asw-gsearch-row .sub .fa{color:var(--accent);font-weight:700}
+.asw-gsearch-row .sub .unk{color:var(--muted);font-style:italic}
 .asw-gsearch-row .num{flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}
 .asw-gsearch-row .num .ppg{font-size:13px;font-weight:700;color:var(--text)}
 .asw-gsearch-row .num .ppg i{font-style:normal;font-size:9px;font-weight:700;color:var(--muted);margin-left:3px}
@@ -643,6 +644,11 @@ table.asw-table{font-size:13px}
 <!-- Known-empty-source warning for whatever columns are currently visible.
      Filled by renderDataNote(); hidden when every visible column has data. -->
 <div id="asw-datanote-slot"></div>
+
+<!-- Live MFL ownership couldn't be confirmed (a failed, empty or partial
+     /api/mfl-league-state read). Filled by renderOwnershipNote(); empty while
+     every roster was read. -->
+<div id="asw-ownership-slot"></div>
 
 <!-- Side-loaded ETL source freshness (FTN charting / game-script splits) --
      separate from the box-score freshness line in #asw-meta below and from
@@ -1017,7 +1023,8 @@ table.asw-table{font-size:13px}
       title:"Current NFL team (falls back to the stat-season team if unknown)",
       compute: function(r){ return r.current_team || r.team || "—"; } },
     mfl_franchise_name:  { label:"MFL Team", cls:"dim",
-      compute: function(r){ return r.mfl_franchise_name || "FA"; } },
+      title:"UPS franchise from live MFL rosters. FA only when every roster was read; otherwise a player not found on one is 'owner unknown'.",
+      compute: function(r){ return mflTeamLabel(r); } },
     // MFL's own position, not nflverse's. They use different vocabularies —
     // nflverse says MLB / SAF / OLB / FS where this league says LB / S / DE / DT
     // — and on 54 of 500 IDP players they disagree about the GROUP too
@@ -1812,6 +1819,23 @@ table.asw-table{font-size:13px}
   var fidToName = {};
   var pidToFid  = {};
   var pidToContract = {}; // { pid: { salary, aav, yearsRemaining } } from MFL live rosters
+  // A player on a roster is that franchise's: positive evidence. A player on NO
+  // roster is a free agent ONLY when the latest /api/mfl-league-state read is
+  // CONFIRMED COMPLETE (leagueStateIsComplete). Until 2026-10-09 a failed, empty
+  // or partial read left pidToFid empty or short, and applyLiveOwnership called
+  // every player it couldn't find "FA" with $0 / 0 years — one bad read made the
+  // whole league look like free agents, and the FA filter listed rostered
+  // players. Now a missing player from an unconfirmed read is "owner unknown".
+  // Same rule as mobile's liveOwners()/ownerOf() (site/m/views/stats.js, #1203).
+  //   complete — the latest read is confirmed complete
+  //   readAt   — when it finished (0 = no read has finished yet)
+  //   inflight — the read in progress, shared by every caller
+  var ownership = { complete: false, readAt: 0, inflight: null };
+  // runQuery re-reads a complete read once it is this old, so a trade or claim
+  // made while the page is open shows on the next query. = the worker's edge
+  // cache on MFL's rosters export (cacheTtl 60): re-reading sooner can't see
+  // anything newer.
+  var OWNERSHIP_REFRESH_MS = 60 * 1000;
 
   function padFid(fid) {
     fid = String(fid || "");
@@ -1967,20 +1991,62 @@ table.asw-table{font-size:13px}
       try { if (typeof render === "function") render(); } catch (e) {}
     });
 
-  var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){
-      if (!j) { console.warn("[asw] mfl-league-state returned null"); return; }
-      (j.franchises || []).forEach(function(f){
+  // The route (worker/src/index.js "/api/mfl-league-state") builds `franchises`
+  // from MFL's TYPE=league export and `pid_to_fid` from a SEPARATE TYPE=rosters
+  // export, and answers 200 with whatever it got when one of them fails — a
+  // rosters failure is 12 franchises and an EMPTY pid_to_fid, not an error. So
+  // the client judges completeness itself, by comparing the two: the league
+  // lists franchises, every one of them has at least one player in pid_to_fid,
+  // and no player sits on a franchise the list doesn't have (a short list).
+  // franchise_count / rostered_count are the route's own tallies of those two
+  // collections; a payload that disagrees with them isn't trusted either.
+  function leagueStateIsComplete(j) {
+    if (!j || typeof j !== "object" || !Array.isArray(j.franchises) || !j.franchises.length) return false;
+    var map = j.pid_to_fid;
+    if (!map || typeof map !== "object") return false;
+    var pids = Object.keys(map);
+    if (typeof j.franchise_count === "number" && j.franchise_count !== j.franchises.length) return false;
+    if (typeof j.rostered_count === "number" && j.rostered_count !== pids.length) return false;
+    var listed = {}, onRoster = {};
+    for (var i = 0; i < j.franchises.length; i++) {
+      var f = j.franchises[i];
+      if (!f || !f.id) return false;
+      listed[padFid(f.id)] = true;
+    }
+    for (var k = 0; k < pids.length; k++) {
+      var fid = padFid(map[pids[k]]);
+      if (!listed[fid]) return false;
+      onRoster[fid] = (onRoster[fid] || 0) + 1;
+    }
+    return Object.keys(listed).every(function(fid){ return onRoster[fid] > 0; });
+  }
+
+  // Team <select> option per franchise, added once and renamed in place (a
+  // re-read must not append a second copy of every team).
+  function upsertTeamOption(fid) {
+    for (var i = 0; i < teamSel.options.length; i++) {
+      if (teamSel.options[i].value === fid) { teamSel.options[i].textContent = fidToName[fid]; return; }
+    }
+    var o = document.createElement("option");
+    o.value = fid;
+    o.textContent = fidToName[fid];
+    teamSel.appendChild(o);
+  }
+
+  // Every read REPLACES the roster overlay: the latest read is the only
+  // evidence, so a failed re-read never keeps vouching for an older roster.
+  // fidToName (labels only, never ownership) keeps the names it has seen.
+  function applyLeagueState(j) {
+    var nextFid = {}, nextContract = {};
+    if (j && typeof j === "object") {
+      (Array.isArray(j.franchises) ? j.franchises : []).forEach(function(f){
+        if (!f || !f.id) return;
         var fid = padFid(f.id);
         fidToName[fid] = String(f.name || ("Team " + fid));
-        var o = document.createElement("option");
-        o.value = fid;
-        o.textContent = fidToName[fid];
-        teamSel.appendChild(o);
+        upsertTeamOption(fid);
       });
       Object.keys(j.pid_to_fid || {}).forEach(function(pid){
-        pidToFid[pid] = padFid(j.pid_to_fid[pid]);
+        nextFid[pid] = padFid(j.pid_to_fid[pid]);
       });
       // Live contract overlay — parse contractInfo for AAV ("AAV NK").
       // MFL's contractYear field IS years remaining (cy=1 = LAST year of
@@ -2006,35 +2072,82 @@ table.asw-table{font-size:13px}
         var yr = (typeof c.contractYear === "number" && Number.isFinite(c.contractYear))
           ? Math.max(0, c.contractYear)
           : null;
-        pidToContract[pid] = {
+        nextContract[pid] = {
           salary: typeof c.salary === "number" ? c.salary : null,
           aav: aav,
           yearsRemaining: yr,
           contractStatus: c.contractStatus || null,
         };
       });
-      console.log("[asw] loaded " + (j.franchises || []).length + " franchises, " +
-                  Object.keys(pidToFid).length + " rostered players, " +
-                  Object.keys(pidToContract).length + " live contracts");
-    })
-    .catch(function(e){
-      console.warn("[asw] mfl-league-state fetch failed:", e && e.message || e);
-    });
+    }
+    pidToFid = nextFid;
+    pidToContract = nextContract;
+    ownership.complete = leagueStateIsComplete(j);
+    ownership.readAt = Date.now();
+    console.log("[asw] mfl-league-state: " + Object.keys(fidToName).length + " franchises, " +
+                Object.keys(pidToFid).length + " rostered players, " +
+                Object.keys(pidToContract).length + " live contracts — ownership " +
+                (ownership.complete ? "complete" : "NOT confirmed complete (players not found are owner unknown)"));
+  }
+
+  function readLeagueState() {
+    if (ownership.inflight) return ownership.inflight;
+    ownership.inflight = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
+      .then(function(r){
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(j){ applyLeagueState(j); })
+      .catch(function(e){
+        console.warn("[asw] mfl-league-state fetch failed:", e && e.message || e);
+        applyLeagueState(null);
+      })
+      .then(function(){ ownership.inflight = null; });
+    return ownership.inflight;
+  }
+
+  // runQuery's read. Re-reads when the last read wasn't confirmed complete —
+  // the retry after a failed or partial one, on the NEXT QUERY (a tab, season,
+  // team, scope or week change; a sort or search re-render doesn't re-read) —
+  // or when a complete one is older than OWNERSHIP_REFRESH_MS. Otherwise it
+  // reuses the last complete read.
+  function refreshLeagueState() {
+    if (ownership.inflight) return ownership.inflight;
+    if (ownership.complete && (Date.now() - ownership.readAt) < OWNERSHIP_REFRESH_MS) return Promise.resolve();
+    return readLeagueState();
+  }
+
+  // The page-load read. Other consumers (URL restore, filter summary) wait on
+  // it and read the shared maps at use time.
+  var leagueStatePromise = readLeagueState();
+
+  // → { known: true, fid }        on that franchise's roster
+  //   { known: true, fid: null }  a CONFIRMED free agent (complete read, on no roster)
+  //   { known: false }            owner unknown: on no roster the read returned,
+  //                               and the read wasn't confirmed complete
+  function liveOwnerOf(pid) {
+    var fid = (pid != null && pid !== "") ? pidToFid[String(pid)] : null;
+    if (fid) return { known: true, fid: fid };
+    return ownership.complete ? { known: true, fid: null } : { known: false };
+  }
 
   function applyLiveOwnership(rows) {
     return rows.map(function(r){
       var pid = r.mfl_pid ? String(r.mfl_pid) : null;
       if (!pid) return r;
       var curTm = currentTeamByPid[pid] || r.current_team || null;   // trade-fresh NFL team
-      var liveFid = pidToFid[pid];
-      if (liveFid) {
+      var own = liveOwnerOf(pid);
+      if (own.fid) {
         // Rostered — overlay franchise + LIVE contract details from MFL
         // rosters API. Replaces stale src_contracts values when present;
-        // falls back to whatever the leaderboard returned otherwise.
+        // falls back to whatever the leaderboard returned otherwise. Name
+        // unavailable (the league export failed) → "Rostered", never the
+        // leaderboard's own mfl_franchise_name, a D1 snapshot that lags trades.
         var liveC = pidToContract[pid];
         var patch = {
-          mfl_franchise_id: liveFid,
-          mfl_franchise_name: fidToName[liveFid] || r.mfl_franchise_name,
+          mfl_franchise_id: own.fid,
+          mfl_franchise_name: fidToName[own.fid] || "Rostered",
+          mfl_owner_unknown: false,
           current_team: curTm,
         };
         if (liveC) {
@@ -2044,17 +2157,90 @@ table.asw-table{font-size:13px}
         }
         return Object.assign({}, r, patch);
       }
-      // FA — zero contract details. MFL doesn't track contracts for FAs;
-      // src_contracts keeps historic rows but they aren't applicable now.
+      if (own.known) {
+        // CONFIRMED FA — zero contract details. MFL doesn't track contracts for
+        // FAs; src_contracts keeps historic rows but they aren't applicable now.
+        return Object.assign({}, r, {
+          mfl_franchise_id: null,
+          mfl_franchise_name: null,
+          mfl_owner_unknown: false,
+          mfl_salary: 0,
+          mfl_aav: 0,
+          mfl_years_remaining: 0,
+          current_team: curTm,
+        });
+      }
+      // Owner UNKNOWN — not on any roster this read returned, and the read
+      // wasn't confirmed complete. Not "FA", and no $0 / 0 years from a guess
+      // (nor the leaderboard's D1 owner/contract fields): null = unknown.
       return Object.assign({}, r, {
         mfl_franchise_id: null,
         mfl_franchise_name: null,
-        mfl_salary: 0,
-        mfl_aav: 0,
-        mfl_years_remaining: 0,
+        mfl_owner_unknown: true,
+        mfl_salary: null,
+        mfl_aav: null,
+        mfl_years_remaining: null,
         current_team: curTm,
       });
     });
+  }
+
+  // "MFL Team" for a row after applyLiveOwnership — the table column, the
+  // player drawer and the compare drawer all use this one label.
+  function mflTeamLabel(r) {
+    if (r && r.mfl_owner_unknown) return "owner unknown";
+    return (r && r.mfl_franchise_name) || "FA";
+  }
+
+  // Team filter (post-ownership-overlay). Special values:
+  //   [] / __ALL__        → no filter (every player)
+  //   __ROSTERED__        → any active franchise roster (exclude FAs)
+  //   FA                  → free agents only
+  //   <fid>               → that specific franchise
+  // Multi-select: if __ROSTERED__ picked alongside specific fids,
+  // __ROSTERED__ wins (superset). If FA also picked, add FAs back.
+  // Every one of these needs ownership CONFIRMED complete: from a failed or
+  // partial read a free agent can't be told from a player on a roster the read
+  // left out, so FA would list rostered players and Rostered / a team would
+  // pass a partial list off as the whole one. No rows then — the note
+  // (ownershipNoteHtml) says why.
+  function filterRowsByTeams(rows, teams) {
+    if (!teams || !teams.length) return rows;
+    if (!ownership.complete) return [];
+    var wantAllRostered = teams.indexOf("__ROSTERED__") >= 0;
+    var wantFA = teams.indexOf("FA") >= 0;
+    var wantFids = {};
+    teams.forEach(function(t){
+      if (t !== "FA" && t !== "__ROSTERED__" && t !== "__ALL__") wantFids[padFid(t)] = true;
+    });
+    return rows.filter(function(r){
+      if (r.mfl_owner_unknown) return false;
+      if (!r.mfl_franchise_id) return wantFA;
+      if (wantAllRostered) return true;
+      return wantFids[r.mfl_franchise_id] === true;
+    });
+  }
+
+  // The note above the table when the rows on screen were overlaid from a read
+  // that wasn't confirmed complete — `complete` is state.rowsOwnershipComplete,
+  // stamped by runQuery with the rows, so the note always matches the rows
+  // shown (undefined before the first query lands → no note).
+  var OWNERSHIP_UNKNOWN_MSG = "Couldn’t read all of MFL’s rosters — ownership unknown.";
+  function ownershipNoteHtml(teams, complete) {
+    if (complete !== false) return "";
+    return "<b>" + OWNERSHIP_UNKNOWN_MSG + "</b> " +
+      (teams && teams.length
+        ? "The Free Agents / Rostered / team filter needs every roster, so no players are listed rather than a partial list. "
+        : "Players not found on a roster show “owner unknown”, never FA. ") +
+      "Change a filter or tab to retry.";
+  }
+  // Its own slot (#asw-ownership-slot), like renderSourceFreshnessNote: who owns
+  // a player is not a column-data fact, so it stays out of renderDataNote.
+  function renderOwnershipNote() {
+    var slot = document.getElementById("asw-ownership-slot");
+    if (!slot) return;
+    var note = ownershipNoteHtml(getSelectedTeams(), state.rowsOwnershipComplete);
+    slot.innerHTML = note ? '<div class="asw-datanote"><span>⚠</span><span>' + note + "</span></div>" : "";
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2067,10 +2253,11 @@ table.asw-table{font-size:13px}
   // actual player master list instead (every player the league knows about)
   // so a name search can find literally anyone.
   //
-  // Ownership: reuses pidToFid/fidToName, already populated by
-  // leagueStatePromise above (/api/mfl-league-state) — NOT a second rosters
-  // fetch. The only new network call this feature makes is the player-list
-  // export itself.
+  // Ownership: reuses pidToFid/fidToName from the shared league-state read
+  // above (/api/mfl-league-state) — NOT a second rosters fetch. The only new
+  // network call this feature makes is the player-list export itself. A row's
+  // owner label is looked up live (liveOwnerOf) when it renders, so it is never
+  // "Free Agent" from an unconfirmed read and follows a later re-read.
   // ─────────────────────────────────────────────────────────────────────────
   var gsearch = { indexPromise: null, index: null, q: "", results: [] };
 
@@ -2131,7 +2318,7 @@ table.asw-table{font-size:13px}
       "&YEAR=" + encodeURIComponent(THIS_YEAR) + "&DETAILS=1&JSON=1";
     gsearch.indexPromise = Promise.all([
       fetch(url, { credentials: "omit", mode: "cors" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      leagueStatePromise   // pidToFid / fidToName — already in flight from page load
+      refreshLeagueState()   // pidToFid / fidToName — joins the page-load read, or retries one that wasn't complete
     ]).then(function (pair) {
       var data = pair[0];
       var universe = (data && data.players && data.players.player) || [];
@@ -2205,8 +2392,10 @@ table.asw-table{font-size:13px}
   var GSEARCH_CAP = 60;
   function gsearchRowHtml(r) {
     var ppg = r.ppg != null ? '<span class="ppg">' + r.ppg.toFixed(1) + '<i>PPG</i></span>' : '<span class="ppg none">—</span>';
+    var own = liveOwnerOf(r.pid);
     var sub = (r.team ? escapeHtml(r.team) + " · " : "") +
-      (r.fid ? escapeHtml(r.owner || "Rostered") : '<span class="fa">Free Agent</span>');
+      (own.fid ? escapeHtml(fidToName[own.fid] || "Rostered")
+        : own.known ? '<span class="fa">Free Agent</span>' : '<span class="unk">Owner unknown</span>');
     return '<button type="button" class="asw-gsearch-row" data-pid="' + escapeHtml(r.pid) + '">' +
       '<span class="pos">' + escapeHtml(r.group) + '</span>' +
       '<span class="body"><span class="nm">' + escapeHtml(r.name) + '</span><span class="sub">' + sub + '</span></span>' +
@@ -2359,6 +2548,7 @@ table.asw-table{font-size:13px}
     rankByGsis: {},        // gsis_id → pos rank by MFL PPG (B2, mirrors mobile buildLeaderboardMap)
     lastApiCount: 0,       // worker row count for the last query (A1 coverage / 500-cap signal)
     sourceFreshness: null, // /api/data-freshness payload (etl + weeklyCoverage), set once sourceFreshnessPromise resolves
+    rowsOwnershipComplete: undefined, // was the active rows' ownership read confirmed complete? (runQuery; undefined until one lands)
   };
 
   // ---------- Per-column filter expressions ----------
@@ -2940,6 +3130,11 @@ table.asw-table{font-size:13px}
   // verbatim for a REAL, rostered player search that just happened to be on
   // the wrong tab, indistinguishable from an actually-empty position group.
   function emptySearchHtml(tab, searchQ) {
+    // Emptied by the Team filter on an unconfirmed ownership read — say so,
+    // not "no rows match" (which would read as "no free agents").
+    if (getSelectedTeams().length && ownershipNoteHtml(getSelectedTeams(), state.rowsOwnershipComplete)) {
+      return escapeHtml(OWNERSHIP_UNKNOWN_MSG) + " No players are listed for this Team filter — choose All, or change a filter or tab to retry.";
+    }
     if (!searchQ) return "No rows match filters.";
     var cross = crossTabMatches(searchQ, tab);
     var hint = cross.count
@@ -3208,6 +3403,7 @@ table.asw-table{font-size:13px}
     }
 
     renderDataNote(cols, state.lastApiCount, availability);
+    renderOwnershipNote();
     renderSourceFreshnessNote(cols);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
@@ -3952,7 +4148,7 @@ table.asw-table{font-size:13px}
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }),
-      leagueStatePromise,
+      refreshLeagueState(),   // retries a failed / partial read; re-reads a complete one older than OWNERSHIP_REFRESH_MS
       currentTeamsPromise,
       sosFetch,
       consistFetch,
@@ -3989,33 +4185,15 @@ table.asw-table{font-size:13px}
       state.lastFinalizedThroughWeek = (j && typeof j.finalized_through_week === "number") ? j.finalized_through_week : null;
       state.lastSourceCoverage = (j && j.source_coverage && typeof j.source_coverage === "object") ? j.source_coverage : null;
       state.lastPending = !!(j && j.pending);
+      var ownComplete = ownership.complete;   // the read these rows are overlaid from
       rows = applyLiveOwnership(rows);
-      // Team filter (post-ownership-overlay)
-      // Special values:
-      //   [] / __ALL__        → no filter (every player)
-      //   __ROSTERED__        → any active franchise roster (exclude FAs)
-      //   FA                  → free agents only
-      //   <fid>               → that specific franchise
-      // Multi-select: if __ROSTERED__ picked alongside specific fids,
-      // __ROSTERED__ wins (superset). If FA also picked, add FAs back.
-      if (teams.length) {
-        var wantAllRostered = teams.indexOf("__ROSTERED__") >= 0;
-        var wantFA = teams.indexOf("FA") >= 0;
-        var wantFids = {};
-        teams.forEach(function(t){
-          if (t !== "FA" && t !== "__ROSTERED__" && t !== "__ALL__") wantFids[padFid(t)] = true;
-        });
-        rows = rows.filter(function(r){
-          if (!r.mfl_franchise_id) return wantFA;
-          if (wantAllRostered) return true;
-          return wantFids[r.mfl_franchise_id] === true;
-        });
-      }
+      rows = filterRowsByTeams(rows, teams);   // Team filter — [] when ownership isn't confirmed complete
       state.rowsByWorkerPos[workerPos] = rows;   // cache is keyed by pos — safe to keep even if superseded
       // A newer tab switch already replaced the active view: keep the cached rows
       // above, but don't clobber the active tab's rank map / meta line / render
       // with this stale position's data (was the "PN tab shows 'QB ·'" bug).
       if (state.activeTab !== reqTab) return;
+      state.rowsOwnershipComplete = ownComplete;   // renderOwnershipNote / emptySearchHtml
       // B2 — rank within position by MFL PPG over the fetched set. Mirrors the
       // mobile buildLeaderboardMap (app.js) exactly (bucket by position||pos_group,
       // sort by mfl_ppg desc) so desktop + mobile ranks never disagree.
@@ -4234,7 +4412,7 @@ table.asw-table{font-size:13px}
 
     var playerHeaders = players.map(function(p){
       var team = p.team || "";
-      var mfl  = p.mfl_franchise_name || "FA";
+      var mfl  = mflTeamLabel(p);
       var pos  = p.position || "";
       return '<th class="player num">' +
         escapeHtml(p.player_name || "—") +
@@ -4492,7 +4670,7 @@ table.asw-table{font-size:13px}
 
     var name = playerRow.player_name || "—";
     var nfl = playerRow.team || "—";
-    var mfl = playerRow.mfl_franchise_name || "FA";
+    var mfl = mflTeamLabel(playerRow);
     var pos = playerRow.position || "";
     drawerTitle.textContent = name;
 
@@ -5506,7 +5684,7 @@ table.asw-table{font-size:13px}
       // and the franchise dropdown are ready on first paint.
       Promise.all([
         fetch(API_BASE + "/api/adp-board").then(function(r){ return r.json(); }).catch(function(){ return null; }),
-        leagueStatePromise,
+        refreshLeagueState(),
       ]).then(function(res){
         var d = res[0]; adp.data = (d && d.board) || []; adp.sources = (d && d.sources) || []; adp.generatedAt = (d && d.generated_at) || null;
         adp._rankConsensus = adpBuildRankConsensus(adp.data);
@@ -5583,7 +5761,9 @@ table.asw-table{font-size:13px}
         '</div><div class="adp-movers"></div><div class="adp-body"></div>';
       adpFillTeams();
       var tsel = adpSection.querySelector(".adp-team");
-      if (tsel) { tsel.value = adp.team; tsel.addEventListener("change", function(){ adp.team = tsel.value; adpPaint(); }); }
+      // A Team pick re-reads ownership first when the last read wasn't confirmed
+      // complete (or is stale) — the ADP board's retry.
+      if (tsel) { tsel.value = adp.team; tsel.addEventListener("change", function(){ adp.team = tsel.value; refreshLeagueState().then(function(){ adpFillTeams(); adpPaint(); }); }); }
       adpSection.querySelectorAll(".fpa-pos [data-adppos]").forEach(function(b){
         b.addEventListener("click", function(){ adp.pos = b.getAttribute("data-adppos"); adpSection.querySelectorAll(".fpa-pos [data-adppos]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); adpPaint(); });
       });
@@ -5660,8 +5840,12 @@ table.asw-table{font-size:13px}
       // even when filtered to a roster.
       var rows = universe.slice();
       if (!isIdpView && adp.pos !== "ALL") rows = rows.filter(function(r){ return r.pos === adp.pos; });
+      // Team / FA filter by live MFL ownership — same rule as the Player Stats
+      // table (filterRowsByTeams): only on a CONFIRMED complete read; otherwise
+      // no rows and the note, never a partial list or rostered players as FAs.
+      var adpOwnUnknown = !!(adp.team && adp.team !== "__ALL__") && !ownership.complete;
       if (adp.team && adp.team !== "__ALL__") {
-        rows = rows.filter(function(r){
+        rows = adpOwnUnknown ? [] : rows.filter(function(r){
           var fid = pidToFid[String(r.pid)] || null;
           if (adp.team === "__ROSTERED__") return fid != null;
           if (adp.team === "FA") return fid == null;
@@ -5684,6 +5868,8 @@ table.asw-table{font-size:13px}
         ? ('IDP — FantasyPros dynasty ECR · ranks + tiers · ' + rows.length + ' players · click a header to sort')
         : ('Superflex · ' + (rdP === 0 ? "Dynasty" : rdP === 100 ? "Redraft" : (rdP + "% redraft / " + (100 - rdP) + "% dynasty")) + ' · normalized ranks across ' + nSrc + ' source' + (nSrc === 1 ? "" : "s") + ' · FFC = real redraft ADP · tiers from value gaps · ' + rows.length + ' players' + (fetched ? ' · sources fetched ' + fetched : ''));
       var html = '<div class="fpa-sub">' + esc(sub) + '</div>' +
+        (adpOwnUnknown ? '<div class="asw-datanote"><span>⚠</span><span><b>' + esc(OWNERSHIP_UNKNOWN_MSG) + '</b> ' +
+          'The Team filter needs every roster, so no players are listed rather than a partial list. Choose All, or change the Team filter to retry.</span></div>' : '') +
         '<div class="asw-table-wrap"><table class="fpa-table"><thead><tr>' +
         '<th class="num" data-k="ovr" title="Overall consensus rank in your league (Superflex)">#' + arrow("ovr") + '</th>' +
         '<th class="team" data-k="name">Player' + arrow("name") + '</th>' +
