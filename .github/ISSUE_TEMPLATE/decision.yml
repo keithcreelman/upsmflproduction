@@ -1,0 +1,35 @@
+name: Decision for Keith
+description: Present one concrete choice and its effect
+title: "[Decision] "
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: What decision is needed?
+      description: Link the work item and state the verified facts in plain English.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options and consequences
+      description: Include the recommended option and what changes for owners.
+    validations:
+      required: true
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical reason
+      description: Explain source, transformation, storage, API, UI, and failure behavior only where relevant.
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Preview and evidence
+      description: Link the phone preview, tests, PR and exact commit. State what remains unverified.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: "Keith: reply in a comment with your choice and any notes. The integrator will record the ruling and update the linked PR. Opening this issue does not approve a write or release."
