@@ -1,4 +1,4 @@
-// Red-zone counts and team shares on the leaderboard (migration 0168).
+// Red-zone counts and team shares on the leaderboard (migration 0169).
 //   node tests/leaderboard_redzone_shares.test.mjs
 //
 // THE BUGS (2026-10-10 audit, 2026 Wks 1-4, checked play by play):
@@ -11,21 +11,21 @@
 //   * a passer's inside-20 completions were not stored at all, and "attempts"
 //     counted sacks.
 // Drives the REAL route under node:sqlite with production's schema
-// (tests/fixtures/leaderboard_schema_pre0168.sql) plus the real 0168 migration.
+// (tests/fixtures/leaderboard_schema_pre0169.sql) plus the real 0169 migration.
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, callWorker, quiet } from "./fixtures/fcfs_worker_harness.mjs";
 
-const SCHEMA = fs.readFileSync("tests/fixtures/leaderboard_schema_pre0168.sql", "utf8");
-const M0168 = fs.readFileSync("worker/migrations/0168_redzone_v2_epa_through_week.sql", "utf8");
-const M0169 = fs.readFileSync("worker/migrations/0169_player_id_map.sql", "utf8");
+const SCHEMA = fs.readFileSync("tests/fixtures/leaderboard_schema_pre0169.sql", "utf8");
+const M0169 = fs.readFileSync("worker/migrations/0169_redzone_v2_epa_through_week.sql", "utf8");
+const M0170 = fs.readFileSync("worker/migrations/0170_player_id_map.sql", "utf8");
 
 function setup({ migrate = true } = {}) {
   const env = makeWorkerEnv();
   const db = env.UPS_MFL_DB.raw;
   db.exec(SCHEMA);
-  if (migrate) db.exec(M0168);
-  db.exec(M0169);
+  if (migrate) db.exec(M0169);
+  db.exec(M0170);
   const wk = db.prepare(`INSERT INTO nfl_player_weekly (season, week, gsis_id, position, pos_group, team, targets, receptions, rush_att, pass_att)
                          VALUES (2026, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const sn = db.prepare("INSERT INTO nfl_player_snaps (season, week, pfr_id, team, off_snaps, def_snaps, st_snaps) VALUES (2026, ?, ?, ?, ?, 0, ?)");
@@ -105,7 +105,7 @@ test("QB inside-20: attempts, completions, TDs and sacks are separate; an old-ET
   const q = (await board(env, "qb"))["00-Q"];
   t.deepEqual([q.pass_att_i20, q.pass_cmp_i20, q.pass_tds_i20, q.sacks_i20, q.rush_att_i20, q.rz_v2], [9, 7, 3, 1, 1, 1]);
   t.deepEqual([q.rz_qb_dropbacks, q.rz_qb_plays], [11, 20], "the team's red-zone dropbacks / plays with him at QB");
-  // a week still holding a pre-0168 row (sacks_i20 NULL): completions/sacks are UNKNOWN for the season
+  // a week still holding a pre-0169 row (sacks_i20 NULL): completions/sacks are UNKNOWN for the season
   xw.run(30011, "00-R", "RrrrRr00");
   wk.run(1, "00-R", "QB", "QB", "BBB", 0, 0, 0, 25); sn.run(1, "RrrrRr00", "BBB", 55, 0);
   rz({ week: 1, gsis_id: "00-R", pass_att_i20: 6, pass_tds_i20: 1, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
@@ -113,7 +113,7 @@ test("QB inside-20: attempts, completions, TDs and sacks are separate; an old-ET
   t.deepEqual([r.pass_att_i20, r.pass_cmp_i20, r.sacks_i20, r.rz_qb_plays, r.rz_v2], [6, null, null, null, 0], "NULL, never 0");
 });
 
-test("a season whose play-by-play wasn't re-run since 0168 has no team totals: shares are null, not a guess", async () => {
+test("a season whose play-by-play wasn't re-run since 0169 has no team totals: shares are null, not a guess", async () => {
   const { env, db } = setup();
   db.exec("UPDATE nfl_team_weekly SET rz_targets = NULL, rz_rec = NULL, ez_targets = NULL, rz_carries = NULL, i5_carries = NULL, rz_pass_att = NULL, rz_sacks = NULL");
   const x = (await board(env, "skill"))["00-X"];

@@ -31,7 +31,7 @@ check('the join block is locatable and substantial', () => {
 });
 
 // The MFL id is the verified map's first, the crosswalk's second (2026-10-10,
-// migration 0169): rookies have no crosswalk row. Both forms carry the same
+// migration 0170): rookies have no crosswalk row. Both forms carry the same
 // TEXT-rendering and NULL-guard obligations.
 const ID = String.raw`(?:c\.mfl_player_id|COALESCE\(im\.mfl_pid, c\.mfl_player_id\))`;
 

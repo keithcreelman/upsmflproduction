@@ -15,10 +15,13 @@
 //     median; Startable% = qualifying played weeks reaching the median ÷
 //     qualifying played weeks. Counts are shown beside every %;
 //   * anyone (starter, bench, free agent) is measured against those numbers;
-//   * no-game, bye and no-snap weeks are counted apart from played games; a
-//     started player's no-show — and, by default, a started player's 0.0 — is
-//     listed separately and kept OUT of the thresholds ("so it cannot distort
-//     the starter thresholds"); `zeros: "pool"` keeps played zeros in;
+//   * no-game, bye and no-snap weeks are counted apart from played games, and
+//     a started player who didn't play (a true DNP / no-snap week) is kept OUT
+//     of that week's lines. A player who PLAYED and scored 0.0 had a bust: that
+//     week stays in his record AND in the lines (Keith 2026-10-10 ruling — low
+//     snaps don't prove an injury, and there is no reliable injury-exit record
+//     to say otherwise). Availability (weeks played / weeks his team played)
+//     is reported beside the rates;
 //   * final weeks only; three qualifying weeks before a % is shown.
 // Percentiles are linear (R-7 = numpy default = Excel PERCENTILE.INC =
 // d3.quantile) on integer TENTHS of a point, so every engine agrees exactly.
@@ -70,10 +73,8 @@ export const rate = (n, q) => (q >= MIN_WEEKS ? Math.round((100 * n) / q) : null
  * rows: one per (player, final week): {mfl_id, week, group, started, rostered,
  *   snaps_total (null = no snap row), mfl_score (null = no MFL row), nfl_team}
  * ctx: {final_weeks, teams_with_game: {week: [team]}, bye_week: {team: week}}
- * opts: {zeros: "exclude" (default) | "pool"}
  */
-export function computeStarterRates(rows, ctx, opts = {}) {
-  const zerosOut = (opts.zeros || "exclude") !== "pool";
+export function computeStarterRates(rows, ctx) {
   const finalWeeks = ctx.final_weeks || [];
   const cls = new Map();
   const key = (pid, w) => pid + "|" + w;
@@ -91,10 +92,7 @@ export function computeStarterRates(rows, ctx, opts = {}) {
     pools[k] = pools[k] || [];
     const x = cls.get(key(r.mfl_id, r.week));
     if (x.c !== "played" || x.score == null) { noShows.push({ mfl_id: r.mfl_id, week: r.week, group: r.group, class: x.c }); continue; }
-    if (x.score === 0) {
-      playedZero.push({ mfl_id: r.mfl_id, week: r.week, group: r.group, snaps: r.snaps_total });
-      if (zerosOut) continue;
-    }
+    if (x.score === 0) playedZero.push({ mfl_id: r.mfl_id, week: r.week, group: r.group, snaps: r.snaps_total });   // listed, and IN the lines
     pools[k].push(tenths(x.score));
   }
   const thr = {};
@@ -141,6 +139,9 @@ export function computeStarterRates(rows, ctx, opts = {}) {
       no_snap_n: n.no_snap, bye_n: n.bye, no_game_n: n.no_game,
       started_n: n.started, started_played_n: n.started_played, started_no_show_n: n.started_no_show, played_zero_n: n.played_zero,
       started_played_zero_n: n.started_played_zero, played_unscored_n: n.played_unscored, pool_too_small_n: n.pool_too_small,
+      // Availability: weeks he played ÷ weeks his NFL team played (byes and
+      // weeks without a team game are in neither).
+      played_n: q + n.played_unscored + n.pool_too_small, team_games_n: q + n.played_unscored + n.pool_too_small + n.no_snap,
       ppg: q ? Math.round((pts / q) * 100) / 100 : null,
       wk,
     };
@@ -154,7 +155,7 @@ export function computeStarterRates(rows, ctx, opts = {}) {
   }
   const weeks_label = finalWeeks.length
     ? (finalWeeks.length > 1 ? `Wks ${finalWeeks[0]}–${finalWeeks[finalWeeks.length - 1]}` : `Wk ${finalWeeks[0]}`) : "";
-  return { thresholds, players, weeks_label, started_no_shows: noShows, started_played_zero: playedZero, zeros: zerosOut ? "exclude" : "pool" };
+  return { thresholds, players, weeks_label, started_no_shows: noShows, started_played_zero: playedZero };
 }
 
 /** MFL team codes → nflverse codes (bye list vs snap rows). */
@@ -168,11 +169,11 @@ export const normTeam = (t) => {
 /**
  * Assemble the rows from D1 and run the model. Reads only:
  *   src_weekly (MFL scores, UPS starter/bench status), nfl_player_snaps,
- *   player_id_map (0169) → ff_player_ids → player_id_crosswalk (id-matched rows only) for MFL id → pfr,
+ *   player_id_map (0170) → ff_player_ids → player_id_crosswalk (id-matched rows only) for MFL id → pfr,
  *   src_players (current NFL team, the last resort for a team).
  * completedWeek: the last COMPLETED week (the caller's authority); byeWeek: {team: week} or null.
  */
-export async function loadStarterRates(db, { season, completedWeek, byeWeek, zeros }) {
+export async function loadStarterRates(db, { season, completedWeek, byeWeek }) {
   const sw = (await db.prepare(
     "SELECT player_id, week, pos_group, status, score, roster_franchise_id FROM src_weekly WHERE season = ? AND week <= ? AND COALESCE(is_reg, 1) = 1"
   ).bind(season, completedWeek).all()).results || [];
@@ -207,7 +208,7 @@ export async function loadStarterRates(db, { season, completedWeek, byeWeek, zer
   }
   const ids = new Map();   // mfl_id -> pfr_id
   const put = (rows, src) => { for (const r of rows || []) { const k = String(parseInt(r.mfl_id, 10)); if (!ids.has(k) && r.pfr_id && r.pfr_id !== "NA") ids.set(k, String(r.pfr_id)); } };
-  try { put((await db.prepare("SELECT mfl_id, pfr_id FROM player_id_map WHERE accepted = 1 AND pfr_id IS NOT NULL").all()).results); } catch (_) { /* pre-0169 */ }
+  try { put((await db.prepare("SELECT mfl_id, pfr_id FROM player_id_map WHERE accepted = 1 AND pfr_id IS NOT NULL").all()).results); } catch (_) { /* pre-0170 */ }
   put((await db.prepare(
     "SELECT mfl_id, pfr_id FROM ff_player_ids WHERE pfr_id IS NOT NULL AND pfr_id <> 'NA' AND mfl_id IN (SELECT DISTINCT player_id FROM src_weekly WHERE season = ?)"
   ).bind(season).all()).results);
@@ -263,7 +264,7 @@ export async function loadStarterRates(db, { season, completedWeek, byeWeek, zer
       });
     }
   }
-  const out = computeStarterRates(rows, { final_weeks: finalWeeks, teams_with_game: twg, bye_week: byeWeek || {} }, { zeros });
+  const out = computeStarterRates(rows, { final_weeks: finalWeeks, teams_with_game: twg, bye_week: byeWeek || {} });
   out.final_weeks = finalWeeks;
   out.pending_weeks = pendingWeeks;
   out.bye_list = byeWeek ? "mfl" : "unavailable";

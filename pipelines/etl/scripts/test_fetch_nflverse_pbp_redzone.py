@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Red-zone rules of fetch_nflverse_pbp.py on hand-built plays (migration 0168).
+"""Red-zone rules of fetch_nflverse_pbp.py on hand-built plays (migration 0169).
 
     python3 pipelines/etl/scripts/test_fetch_nflverse_pbp_redzone.py
 

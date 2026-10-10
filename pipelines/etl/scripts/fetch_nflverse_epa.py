@@ -49,7 +49,7 @@ COLS = ["season", "gsis_id",
         "pass_plays", "pass_epa_sum", "pass_cpoe_sum", "pass_cpoe_n", "pass_succ_sum",
         "rush_plays", "rush_epa_sum", "rush_succ_sum",
         "rec_tgt", "rec_epa_sum", "rec_succ_sum",
-        # Migration 0168: the last REG week aggregated, so the app can say
+        # Migration 0169: the last REG week aggregated, so the app can say
         # "Wk 1–N" instead of "to date" (2026-10-10 audit).
         "through_week"]
 
@@ -164,7 +164,7 @@ def main() -> None:
     if not args.skip_local and LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB)); db.executescript(DDL)
         try:
-            db.execute("ALTER TABLE nfl_player_epa ADD COLUMN through_week INTEGER")   # 0168 on an older local copy
+            db.execute("ALTER TABLE nfl_player_epa ADD COLUMN through_week INTEGER")   # 0169 on an older local copy
         except sqlite3.OperationalError:
             pass
         db.executemany(

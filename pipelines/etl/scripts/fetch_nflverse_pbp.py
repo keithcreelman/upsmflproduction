@@ -95,7 +95,7 @@ def ensure_table(db: sqlite3.Connection) -> None:
         )
     """)
     db.execute("CREATE INDEX IF NOT EXISTS idx_redzone_player ON nfl_player_redzone (gsis_id, season)")
-    # Migration 0168 columns on an older local copy.
+    # Migration 0169 columns on an older local copy.
     for table, col in (("nfl_player_redzone", "pass_cmp_i20"), ("nfl_player_redzone", "sacks_i20"),
                        ("nfl_player_redzone", "rz_qb_dropbacks"), ("nfl_player_redzone", "rz_qb_plays")):
         try:
@@ -216,7 +216,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
         return pt_agg[key]
 
     # Team red-zone totals per game, straight from the play-by-play (migration
-    # 0168). Kept apart from tw_agg so a red-zone run never overwrites the
+    # 0169). Kept apart from tw_agg so a red-zone run never overwrites the
     # 4th-down columns with zeros (and vice versa).
     twrz_agg = {}
 
@@ -516,7 +516,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
         )
         counts["redzone"] = len(rz_rows)
 
-    # ---- Team red-zone totals per game (nfl_team_weekly, migration 0168) ----
+    # ---- Team red-zone totals per game (nfl_team_weekly, migration 0169) ----
     # Only these columns are written, so the 4th-down/punt columns are untouched.
     if do_redzone and twrz_agg:
         rz_cols = ["rz_pass_att", "rz_pass_cmp", "rz_sacks", "rz_carries", "rz_scrambles",

@@ -42,7 +42,7 @@ const strip = (e) => { const o = { ...e }; delete o.weeks_label; delete o.ppg; r
 
 test("synthetic league (oracle, played zeros kept in the pool): thresholds, no-shows, every player", () => {
   const e = C.end_to_end;
-  const out = computeStarterRates(e.rows, { final_weeks: e.final_weeks, teams_with_game: e.teams_with_game, bye_week: e.bye_week }, { zeros: "pool" });
+  const out = computeStarterRates(e.rows, { final_weeks: e.final_weeks, teams_with_game: e.teams_with_game, bye_week: e.bye_week });
   for (const [k, v] of Object.entries(e.expected_thresholds)) {
     const [w, g] = k.split("|"), got = out.thresholds[w][g];
     t.deepEqual([got.n, got.p25 == null ? null : got.p25 * 10, got.p50 == null ? null : got.p50 * 10, got.p75 == null ? null : got.p75 * 10],
@@ -54,15 +54,17 @@ test("synthetic league (oracle, played zeros kept in the pool): thresholds, no-s
   t.equal(out.weeks_label, "Wks 1–4");
 });
 
-test("Keith's default: a started 0.0 is kept OUT of the thresholds and listed separately (not hidden from his own record)", () => {
+test("Keith's ruling: a played 0.0 IS a bust and stays in the lines; only a true no-show is left out; availability beside it", () => {
   const e = C.end_to_end;
   const out = computeStarterRates(e.rows, { final_weeks: e.final_weeks, teams_with_game: e.teams_with_game, bye_week: e.bye_week });
-  t.equal(out.zeros, "exclude");
-  t.equal(out.thresholds["1"].WR.n, e.expected_thresholds["1|WR"].n - 1, "Wk 1 pool loses the played zero");
-  t.deepEqual(out.started_played_zero.map((x) => x.mfl_id), ["ZERO"], "listed separately");
-  t.equal(out.thresholds["1"].WR.p50, null, "this synthetic Wk 1 drops to 5 played starters: below the 6-starter minimum, no thresholds");
-  t.equal(out.players.ZERO.wk[0][2], "pool_too_small", "…so his Wk 1 isn't graded at all rather than graded against a distorted pool");
-  t.equal(out.thresholds["2"].WR.p50, C.end_to_end.expected_thresholds["2|WR"].p50 / 10, "weeks without a played zero are unchanged");
+  t.equal(out.thresholds["1"].WR.n, e.expected_thresholds["1|WR"].n, "the played zero is IN the Wk 1 pool (n=6); the no-show starter is not");
+  t.deepEqual(out.started_played_zero.map((x) => x.mfl_id), ["ZERO"], "listed for context");
+  t.deepEqual(out.started_no_shows.map((x) => [x.mfl_id, x.class]), [["NOSHOW", "no_snap"]]);
+  t.equal(out.players.ZERO.wk[0][2], "bust", "his 0.0 week is a Bust");
+  const ns = out.players.NOSHOW;
+  t.deepEqual([ns.played_n, ns.team_games_n], [ns.q + ns.played_unscored_n + ns.pool_too_small_n, ns.q + ns.played_unscored_n + ns.pool_too_small_n + ns.no_snap_n], "availability = weeks played / his team's game weeks");
+  t.equal(ns.no_game_n, 1, "a week his team didn't play is in neither");
+  t.equal("zeros" in out, false, "no switch left to hide played zeros");
 });
 
 test("real 2026 Wks 1-4: every starter pool's thresholds, and 23 players' weeks", () => {

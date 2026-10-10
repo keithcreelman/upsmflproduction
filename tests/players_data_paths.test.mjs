@@ -2,19 +2,19 @@
 //   node tests/players_data_paths.test.mjs
 //
 //   * a 2026 rookie has no player_id_crosswalk row (it was last built before
-//     the draft): the verified player_id_map (0169) must supply his MFL id,
+//     the draft): the verified player_id_map (0170) must supply his MFL id,
 //     MFL position, contract join and snap counts on the leaderboard, and his
 //     weekly box score on /api/player-weekly-box;
 //   * a name-only `fuzzy_auto` crosswalk row never resolves a player;
 //   * a PFR stat with no PFR record is NULL ("—"), never 0;
 //   * /api/player-starter-rates grades only final, synced weeks.
-// Real route, node:sqlite, production schema + migrations 0168 and 0169.
+// Real route, node:sqlite, production schema + migrations 0169 and 0170.
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, callWorker, quiet } from "./fixtures/fcfs_worker_harness.mjs";
 
-const SCHEMA = fs.readFileSync("tests/fixtures/leaderboard_schema_pre0168.sql", "utf8");
-const MIG = ["0168_redzone_v2_epa_through_week.sql", "0169_player_id_map.sql"].map((f) => fs.readFileSync("worker/migrations/" + f, "utf8"));
+const SCHEMA = fs.readFileSync("tests/fixtures/leaderboard_schema_pre0169.sql", "utf8");
+const MIG = ["0169_redzone_v2_epa_through_week.sql", "0170_player_id_map.sql"].map((f) => fs.readFileSync("worker/migrations/" + f, "utf8"));
 
 function setup() {
   const env = makeWorkerEnv();

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MFL player id -> NFL (gsis) id, by IDENTIFIERS only, with the checks shown.
 
-Writes D1 `player_id_map` (migration 0169): one row per MFL player in MFL's
+Writes D1 `player_id_map` (migration 0170): one row per MFL player in MFL's
 current players export, whether it was accepted, and why.
 
 WHY (2026-10-10 audit, mobile Stats -> Players). `player_id_crosswalk` is built

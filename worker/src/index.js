@@ -13095,7 +13095,7 @@ export default {
                 FROM nfl_player_weekly
                WHERE season IN (${seasonList}) AND pos_group IN (${posList})
             ),
-            -- The verified MFL<->NFL id map (migration 0169) for the players in
+            -- The verified MFL<->NFL id map (migration 0170) for the players in
             -- play: preferred wherever this query needs an MFL id or a pfr id.
             -- player_id_crosswalk was last built before the 2026 draft, so no
             -- rookie had an MFL position, contract or snap count here; it stays
@@ -13216,7 +13216,7 @@ export default {
                      SUM(COALESCE(rz.rz_qb_dropbacks,0))             AS rz_qb_dropbacks,
                      SUM(COALESCE(rz.rz_qb_plays,0))                 AS rz_qb_plays,
                      -- 1 when every red-zone row behind this player was built by
-                     -- the 0168 ETL (pass_cmp_i20 / sacks_i20 exist, 2-pt tries
+                     -- the 0169 ETL (pass_cmp_i20 / sacks_i20 exist, 2-pt tries
                      -- excluded, attempts exclude sacks). A row from the old ETL
                      -- has NULL there, and its completions/sacks are UNKNOWN —
                      -- never 0 — so the projection returns NULL for them.
@@ -13265,7 +13265,7 @@ export default {
                       AND rz.season = w.season
                       AND rz.week   = w.week
                       AND rz.gsis_id = w.gsis_id
-                -- PFR coverage targets (0168) live in the _ext table; IDP only.
+                -- PFR coverage targets (0169) live in the _ext table; IDP only.
                 LEFT JOIN nfl_player_weekly_ext x
                        ON ${_gIdpSnaps}
                       AND x.season = w.season
@@ -13392,7 +13392,7 @@ export default {
             ),
             -- The team's red-zone play mix over the player's games (team_rz_plays,
             -- team_rz_pass_rate), from the per-game team totals the PBP ETL writes
-            -- (migration 0168). It was the team's whole window joined on
+            -- (migration 0169). It was the team's whole window joined on
             -- MAX(w.team) — wrong for a traded player — and counted sacks and
             -- two-point tries as pass attempts.
             team_rz_agg AS (
@@ -13407,7 +13407,7 @@ export default {
             -- Red-zone share denominators: the team's per-game totals (straight
             -- from the play-by-play, two-point tries excluded) over the games
             -- the player played. A season whose PBP has not been re-run since
-            -- 0168 has NULL team columns, so its shares read "—", not a guess.
+            -- 0169 has NULL team columns, so its shares read "—", not a guess.
             team_rz_player_active AS (
               SELECT pg.gsis_id,
                      SUM(tw.rz_targets)  AS team_targets_i20,
@@ -14861,11 +14861,11 @@ export default {
             // shows "No advanced data available" when empty.
             const crosswalkRows = crosswalkRes.results || [];
             const crosswalkRow = crosswalkRows[0] || null;
-            // The verified id map (migration 0169) wins. player_id_crosswalk was
+            // The verified id map (migration 0170) wins. player_id_crosswalk was
             // last built before the 2026 draft (every rookie: no NFL id, empty
             // game log) and its name-only fuzzy rows never resolve a player
             // (all 3 were wrong: J'Mari Taylor -> J.J. Taylor). A D1 without
-            // 0169 just falls back to the crosswalk's id-matched rows.
+            // 0170 just falls back to the crosswalk's id-matched rows.
             let idMapRow = null;
             try {
               idMapRow = await db.prepare(
@@ -19883,8 +19883,8 @@ export default {
               rec: tt ? { tgt: tt, epa: rnd(x.te / tt, 3), succ: rnd(100 * x.tsx / tt, 1) } : null,
             };
           }
-          // The weeks these totals cover (migration 0168: the ETL stamps the
-          // last REG week it aggregated). Before 0168, or for a row written by
+          // The weeks these totals cover (migration 0169: the ETL stamps the
+          // last REG week it aggregated). Before 0169, or for a row written by
           // an older ETL, it is null and the app keeps saying "to date".
           const through_week = {};
           try {
@@ -19899,7 +19899,7 @@ export default {
         }
       }
 
-      // ── GET /api/player-starter-rates?season=YYYY[&mfl_id=N][&zeros=pool] ──
+      // ── GET /api/player-starter-rates?season=YYYY[&group=G][&mfl_id=N] ──
       // Boom / Bust / Startable against the UPS starter pool (Keith
       // 2026-10-10; worker/src/starter_rates.js). Final weeks only: the last
       // completed week comes from MFL's live-scoring authority, and a week
@@ -19911,7 +19911,6 @@ export default {
           const db = env.UPS_MFL_DB;
           if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
           const season = parseInt(safeStr(url.searchParams.get("season")) || String(YEAR || ""), 10) || new Date().getUTCFullYear();
-          const zeros = safeStr(url.searchParams.get("zeros")) === "pool" ? "pool" : "exclude";
           const onlyPid = safeStr(url.searchParams.get("mfl_id")).replace(/\D/g, "");
           let completed = null, authority = "mfl_live_scoring";
           try { completed = await resolveAuthoritativeCompletedWeek(season, String(env.LEAGUE_ID || L || "74598")); } catch (_) { completed = null; }
@@ -19922,7 +19921,7 @@ export default {
             authority = "synced_data_only";
           }
           const byeWeek = await fetchMflByeWeeks(season);
-          const out = await loadStarterRates(db, { season, completedWeek: Math.min(18, Number(completed) || 0), byeWeek, zeros });
+          const out = await loadStarterRates(db, { season, completedWeek: Math.min(18, Number(completed) || 0), byeWeek });
           const onlyGroup = safeStr(url.searchParams.get("group")).toUpperCase();
           if (onlyPid) {
             const p = out.players[String(parseInt(onlyPid, 10))];
@@ -19959,7 +19958,7 @@ export default {
               "SELECT gsis_id, pfr_id, status FROM player_id_map WHERE mfl_id = ? AND accepted = 1 AND gsis_id LIKE '00-%' LIMIT 1"
             ).bind(pid).first();
             if (m) { gsis = m.gsis_id; pfr = m.pfr_id || null; idSource = "player_id_map:" + m.status; }
-          } catch (_) { /* pre-0169 */ }
+          } catch (_) { /* pre-0170 */ }
           if (!gsis) {
             const c = await db.prepare(
               "SELECT gsis_id, pfr_id FROM player_id_crosswalk WHERE mfl_player_id = ? AND gsis_id LIKE '00-%' AND COALESCE(confidence, '') NOT LIKE 'fuzzy%' LIMIT 1"

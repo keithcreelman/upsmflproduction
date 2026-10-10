@@ -190,7 +190,7 @@ jobs:
           run nflverse_splits  "${STATS_SEASONS}" python3 ../pipelines/etl/scripts/fetch_nflverse_splits.py --seasons "${STATS_SEASONS}" --skip-local
           run nfl_player_names "all-eras"   python3 ../pipelines/etl/scripts/fetch_nflverse_player_names.py
           run ff_player_ids    "all"        python3 ../pipelines/etl/scripts/fetch_ff_playerids.py
-          # The verified MFL id -> NFL id map (migration 0169), rebuilt every run
+          # The verified MFL id -> NFL id map (migration 0170), rebuilt every run
           # so a newly signed or drafted player maps within a week. IDs only:
           # DynastyProcess's mfl_id row + nflverse's ESPN id + bio checks;
           # pipelines/etl/data/player_id_map_overrides.csv holds reviewed exceptions.

@@ -1,6 +1,6 @@
 -- Schema-only fixture: production DDL (ups-mfl-db, read 2026-10-10) for the tables the
--- /api/advanced-stats-leaderboard query reads — BEFORE migration 0168. No data.
--- Tests apply worker/migrations/0168_*.sql on top, exactly as production will.
+-- /api/advanced-stats-leaderboard query reads — BEFORE migration 0169. No data.
+-- Tests apply worker/migrations/0169_*.sql on top, exactly as production will.
 CREATE TABLE nfl_player_weekly (
   season      INTEGER NOT NULL,
   week        INTEGER NOT NULL,

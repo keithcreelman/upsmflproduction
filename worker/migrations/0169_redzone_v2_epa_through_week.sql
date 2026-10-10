@@ -1,4 +1,4 @@
--- 0168: red-zone counts that mean what their labels say, team red-zone totals
+-- 0169: red-zone counts that mean what their labels say, team red-zone totals
 -- per game, and the week an EPA row runs through. Additive only.
 --
 -- WHY (2026-10-10 audit, Players tab). Replaying fetch_nflverse_pbp.py on the

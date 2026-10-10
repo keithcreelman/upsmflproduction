@@ -317,7 +317,7 @@ def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> in
     if df is None or df.empty:
         return 0
     rows = []
-    ext_rows = []      # (def_targets, season, week, gsis) -> nfl_player_weekly_ext (migration 0168)
+    ext_rows = []      # (def_targets, season, week, gsis) -> nfl_player_weekly_ext (migration 0169)
     skipped = 0
     for row in df.to_dict(orient="records"):
         pfr = row.get("pfr_player_id") or row.get("pfr_id")
