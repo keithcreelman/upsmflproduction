@@ -580,10 +580,10 @@
 /* ----- Contract money: remaining guarantee by year (Keith 2026-10-10) ----- */
 .ups-m-sheet-kv .val small { display: block; font-size: 11px; font-weight: 500; color: var(--fg-muted); line-height: 1.35; white-space: normal; }
 .ups-m-gtd-table, .ups-m-gl-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.ups-m-gtd-cap { margin-top: 4px; font-size: 11px; color: var(--fg-muted); line-height: 1.4; }
+.ups-m-gtd-cap { margin: 4px 0 12px; font-size: 11px; color: var(--fg-muted); line-height: 1.4; }
 .ups-m-gtd-table th, .ups-m-gtd-table td, .ups-m-gl-table th, .ups-m-gl-table td { padding: 5px 3px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .ups-m-gtd-table th, .ups-m-gtd-table td, .ups-m-gl-table th, .ups-m-gl-table td { padding: 5px 2px; }
-.ups-m-gl-table td small { color: var(--fg-muted); font-size: 10.5px; }
+.ups-m-gl-table td small { color: var(--fg-muted); font-size: 11px; }
 .ups-m-gtd-table th:first-child, .ups-m-gtd-table td:first-child, .ups-m-gl-table th:first-child, .ups-m-gl-table td:first-child { text-align: left; }
 .ups-m-gtd-table thead th, .ups-m-gl-table thead th { color: var(--fg-muted); font-weight: 600; font-size: 11px; }
 .ups-m-gtd-table tr.cur td { color: var(--fg); font-weight: 600; }

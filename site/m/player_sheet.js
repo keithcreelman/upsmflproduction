@@ -123,7 +123,7 @@
     ww_under_5k_exempt: { amt: "zero", why: "A one-year waiver deal under $5K carries no guarantee (canon §D2)." },
     ww_under_5k_earned_na: { amt: "zero", why: "A one-year waiver deal of $4K or less carries no guarantee; earned doesn’t apply (canon §6.C3)." },
     taxi_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." },
-    taxi_callup_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." }
+    taxi_callup_exempt: { amt: "zero", why: "A taxi player on a temporary call-up, never permanently promoted, still carries no guarantee (canon §B2/§D2)." }
   };
   // MFL's year schedule through the shared parser (site/shared/cap_math.js,
   // the same one Front Office uses: bare "Y1-11" tokens are $K too). Unexercised
@@ -174,7 +174,7 @@
     var block = function (inner) { return '<div class="ups-m-sheet-block ups-m-sheet-money"><h4>Contract money</h4>' + inner + '</div>'; };
     var warn = function (t) { return block('<div class="ups-m-sheet-how warn">' + U.escapeHtml(t) + '</div>'); };
     if (!meta) return warn("Loading the remaining guarantee from the league cap engine…");
-    if (meta.status !== "ok") return warn("Remaining guaranteed is unavailable: the league cap engine couldn’t be reached. Reload to retry — nothing is estimated in its place.");
+    if (meta.status !== "ok") return warn("Remaining guaranteed is unavailable: the league cap engine couldn’t be reached. Reload to retry; this block shows no estimate in its place.");
     var at = capTime(meta.calculatedAt);
     var src = "League cap engine" + (at ? ", calculated " + at : "") + ".";
     if (!cap) return warn("Remaining guaranteed is unavailable: this player isn’t in the league cap engine’s list. " + src);
@@ -234,17 +234,19 @@
     if (weeks >= 1 && isFinite(cye)) {
       var start = 18 - weeks, perWk = Math.round(base / weeks);
       seasonRows = [[year + " salary", usd(base)], ["Earning window", wkSpan(start, 17) + " · " + weeks + " wk" + (weeks === 1 ? "" : "s")],
-        ["Per week", usd(perWk)], ["Earned this season", usd(cye) + (thru != null ? " · thru Wk " + thru : "")]];
+        ["Per week", "≈ " + usd(perWk)], ["Earned this season", usd(cye) + (thru != null ? " · thru Wk " + thru : "")]];
       var counted = thru != null ? Math.max(0, Math.min(weeks, thru - start + 1)) : null;
       var prior = Number(cap.prior_earned) || 0;
       how += "Earned counts each finished season in full" + (prior ? " (" + usd(prior) + ")" : "") + " plus this season by completed week: " +
         ((counted != null && Math.round(base * counted / weeks) === cye)
           ? usd(base) + " × " + counted + " ÷ " + weeks + " = " + usd(cye)
-          : usd(cye) + " so far") + " (window " + wkSpan(start, 17) + ", from the week this contract began). ";
+          : usd(cye) + " so far") + " (this season’s earning window: " + wkSpan(start, 17) + "). ";
     } else {
       how += "Earned so far " + usd(E) + ". ";
     }
-    how += "Remaining guaranteed = " + usd(G) + " − " + usd(E) + " = " + usd(P) + ", what cutting him now would cost before the team’s rounding.";
+    how += (E >= G
+      ? "Earned " + usd(E) + " already covers the " + usd(G) + " guarantee, so remaining guaranteed is " + usd(P) + "."
+      : "Remaining guaranteed = " + usd(G) + " − " + usd(E) + " = " + usd(P) + ", what cutting him now would cost before the team’s rounding.");
     if (alloc) {
       var leftYears = alloc.filter(function (y) { return y.left > 0; }).map(function (y) { return y.season + " " + usd(y.left); });
       if (leftYears.length) how += " By year the guarantee is used up in order, leaving " + leftYears.join(" and ") + ".";
@@ -532,7 +534,10 @@
       '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
         (state === "error" ? "Box score couldn’t be loaded — close and reopen to retry." :
           state === "loading" ? "Loading the box score…" :
-          boxMax ? 'Box score: nflverse, through Wk ' + boxMax + '.' : 'No box score yet this season.') +
+          boxMax ? 'Box score: nflverse; his latest row is Wk ' + boxMax + '.'
+            : ss.finalThrough >= 1 && Object.keys(pts).length
+              ? "Box score isn’t linked for him: the player data has no NFL stat rows under his ID (often a rookie not yet matched), so only MFL points show."
+              : 'No box score yet this season.') +
         (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows —, not DNP." : " DNP = no MFL score in a finished week that wasn’t his bye.") +
         '</div>';
   }
