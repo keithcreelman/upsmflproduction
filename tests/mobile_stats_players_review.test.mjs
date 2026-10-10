@@ -11,10 +11,11 @@
 //   2. Every heading names its period; the week in progress is marked; recent form
 //      is L2 now and L4 once more than four weeks are final (the Players market's
 //      rule); a stored copy is shown ONLY for the weeks it says are final.
-//   3. The PPG-rank minimum (Jordan Mason, one week, was RB #21). WHO is listed and on
-//      which tab is unchanged (the leaderboard's rows and position group); the IDP tabs
-//      now SAY their list is capped at 500. Replacing that row source with MFL's is a
-//      separate, stacked PR.
+//   3. The PPG-rank minimum (Jordan Mason, one week, was RB #21). WHO is listed comes
+//      from MFL's players export already loaded at boot (stacked PR on #1213): MFL
+//      positions (DE → DL: Gregory Rousseau was "#1 LB"), every scoring IDP (the
+//      leaderboard stopped at 500), list rank = sheet rank on every tab; a missing or
+//      partial export falls back to / unions with the leaderboard, said on screen.
 //   4. Controls (Keith 2026-10-10): PPG only in Fantasy pts; YPC and Targets; IDP sets without
 //      PPG; kicker distance bands and punter I20 as made/attempts; Schedule-adjusted, All-MFL
 //      usage and XpertRk removed; empty Routes hidden; every data heading sorts the WHOLE list,
@@ -145,7 +146,7 @@ function boot(opt = {}) {
     // the app's ONE ownership rule (#1208) — the Stats list and the sheet both read it
     ["function findFranchiseById(", "function rosterOwnership(", "function ownerOfPid("].map((sig) => sliceFn(APP, sig)).join("\n") +
     "\nthis.__ss = getSeasonScoring; this.__cap = capPenaltyFor; this.__own = ownerOfPid; this.__rosterOwn = rosterOwnership;", ctx);
-  const byId = Object.fromEntries(PLAYERS.map((p) => [p.id, p]));
+  let playerIdx = { src: undefined, map: {} };
   const requests = [], builderCalls = [], els = {};
   const getEl = (id) => (els[id] = els[id] || makeEl(id));
   const views = {};
@@ -163,7 +164,12 @@ function boot(opt = {}) {
     util: ctx.__util, state,
     api: { workerUrl: (p) => "https://w.test" + p, workerBase: () => "https://w.test" },
     data: {
-      playerById: (id) => byId[String(id)] || null,
+      // like app.js playerById: reads whatever players export is in state right now
+      playerById: (id) => {
+        const src = state.players;
+        if (playerIdx.src !== src) playerIdx = { src, map: Object.fromEntries(((src && src.players && [].concat(src.players.player)) || []).map((p) => [p.id, p])) };
+        return playerIdx.map[String(id)] || null;
+      },
       getSeasonScoring: () => ctx.__ss(),
       getAdvancedStatsLatestYear: () => 2026, getAdvancedStatsFor: () => null,
       capPenaltyFor: (id) => ctx.__cap(id),
@@ -317,11 +323,8 @@ test("rank: the PPG-rank minimum (2 MFL wks) — one-week players keep their PPG
   t.deepEqual(rows.slice(0, firstUnranked).map((r) => +r.rk), rows.slice(0, firstUnranked).map((_, i) => i + 1), "ranks run 1..N without gaps");
 });
 
-test("list rank = player-sheet rank on the tabs where the two sources group players the same way (QB, RB, WR, TE, PK)", async () => {
-  // Same scores, same minimum, same tie-breaks (season_scoring rankMap). The sheet ranks among
-  // every MFL player at his MFL position; the list among ITS rows. They agree wherever those
-  // are the same players — the offense tabs and kickers on this day's data, every row checked.
-  for (const tab of ["QB", "RB", "WR", "TE", "PK"]) {
+test("list rank = player-sheet rank on EVERY tab (one universe, one grouping, one minimum, one source)", async () => {
+  for (const tab of ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"]) {
     const v = boot();
     await openTab(v, tab);
     const all = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML || v.mount.innerHTML);
@@ -336,35 +339,94 @@ test("list rank = player-sheet rank on the tabs where the two sources group play
   }
 });
 
-// ═══ 3. Who is listed is unchanged — and the IDP tabs say their list is capped ═══
-test("rows and positions are still the leaderboard's (reported, not repaired here): Rousseau stays on LB, with his LIVE MFL points", async () => {
+// ═══ 3. MFL positions and a complete IDP universe ═══
+test("positions are MFL's: Rousseau (MFL DE) is on DL, not LB; the badge says DE", async () => {
   const v = boot();
-  const lb = rowsOf(await openTab(v, "LB"));
-  const rou = lb.find((r) => r.pid === ROUSSEAU);
-  t.ok(rou, "Rousseau (MFL DE) is where the leaderboard's nflverse position puts him");
-  t.deepEqual(rou.cells.slice(0, 3), [mflYtd(ROUSSEAU).pts.toFixed(1), mflYtd(ROUSSEAU).ppg.toFixed(1), String(mflYtd(ROUSSEAU).n)], "…with MFL's own numbers");
+  t.equal(FX.players[ROUSSEAU][1], "DE");
   const dl = rowsOf(await openTab(v, "DL"));
-  t.ok(!dl.some((r) => r.pid === ROUSSEAU), "not moved to DL in this PR");
-  const lbDl = FX.leaderboard.idp.rows.filter((r) => r[FX.leaderboard.idp.cols.indexOf("pos_group")] === "DL").map((r) => String(r[0]));
-  t.equal(dl.length, Math.min(150, lbDl.length), "the DL tab lists the leaderboard's DL rows (capped at 150 on screen)");
-  t.ok(dl.every((r) => lbDl.includes(r.pid)), "…and only those");
-  t.match(v.mount.innerHTML, /<span class="pos dl">(DE|DT)<\/span>/, "mixed tabs keep a position badge");
+  t.ok(dl.some((r) => r.pid === ROUSSEAU), "on the DL tab");
+  t.match(v.mount.innerHTML, new RegExp('data-pid="' + ROUSSEAU + '"><span class="rk">\\d+</span><span class="nm"><span class="t"><span class="pn">[^<]*</span><span class="tm"><span class="pos dl">DE</span> · '),
+    "the DE badge leads his team line (as a chip left of the name it cut 146 of 150 names at 320px)");
+  const lb = rowsOf(await openTab(v, "LB"));
+  t.ok(!lb.some((r) => r.pid === ROUSSEAU), "…and not on LB ('#1 LB' on the old board)");
+  t.doesNotMatch(v.mount.innerHTML, /<span class="pos /, "single-position tabs carry no badge");
 });
 
-test("the IDP tabs say their list is the stats source's capped top 500 — on every column set — and that ranks are within it", async () => {
-  t.equal(FX.leaderboard.idp.count, 500, "the IDP request came back exactly at its cap");
+test("IDP universe comes from MFL, not the 500-row leaderboard: rostered IDPs it omitted are listed, and the box-score note says the input is capped", async () => {
+  t.equal(FX.leaderboard.idp.count, 500, "the stored IDP list is exactly at its cap");
+  const inLb = new Set(FX.leaderboard.idp.rows.map((r) => String(r[0])));
   const v = boot();
-  for (const tab of ["DL", "LB", "DB"]) {
-    await openTab(v, tab);
-    for (const set of ["fantasy", "tackles", "boom"]) {
-      const sel = v.getEl("ups-m-st-set"); sel.value = set; sel.fire("change", { target: sel }); await settle();
-      const note = v.getEl("ups-m-st-notes").innerHTML;
-      t.match(note, /List = the stats source’s top 500 IDPs; ranks are within it\./, tab + "/" + set + ": one short line");
-      t.match(note, /<details class="ups-m-st-more"><summary>About these numbers<\/summary><div>[^<]*returns at most 500 players here, chosen by tackles, sacks and other impact stats, so this isn’t every (DL|LB|DB)\./, tab + "/" + set + ": the why sits behind a tap");
-    }
+  const html = await openTab(v, "DB");
+  // every DB with a posted MFL score is counted, not just the leaderboard's
+  const scoredDbs = Object.keys(FX.players).filter((id) => ["CB", "S"].includes(FX.players[id][1]) && mflYtd(id).n > 0);
+  t.match(html, new RegExp("Top 150 of " + scoredDbs.length + " DBs with a 2026 MFL score"));
+  t.ok(scoredDbs.filter((id) => !inLb.has(id)).length > 50, "dozens of scoring DBs the stored list didn't have");
+  // two ROSTERED players the old list could not show at all — found by search now
+  const search = v.getEl("ups-m-st-search");
+  for (const [name, pid, tab, team] of [["malachi moore", pidOf("Moore, Malachi"), "DB", "Gride"]]) {
+    t.ok(!inLb.has(pid), name + " was missing from the stored list");
+    search.fire("input", { target: { value: name } });
+    const rows = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML);
+    t.equal(rows.length, 1, name);
+    t.equal(rows[0].cells[0], mflYtd(pid).pts.toFixed(1));
+    t.match(rows[0].tm, new RegExp(" · " + team + "$"));
   }
-  await openTab(v, "QB");
-  t.doesNotMatch(v.getEl("ups-m-st-notes").innerHTML + v.mount.innerHTML, /top 500/, "QB (51 rows) is not capped: no note");
+  search.fire("input", { target: { value: "" } });
+  const box = await chooseSet(v, "coverage");
+  t.match(box.notes, /\d+ listed DBs have no row in the stats source \(—\)\./, "one short line");
+  t.match(box.notes, /<summary>About these numbers<\/summary><div>[^<]*They aren’t in the box-score list, which returns at most 500 players here\. Their player sheet can show the weekly box score; their MFL points are on Fantasy pts\./, "the why: not in the box-score list");
+  // Boom/Bust is joined by MFL id (its source grades every MFL-scored player): no "—" line for it
+  const bb = await chooseSet(v, "boom");
+  t.doesNotMatch(bb.notes, /show — here|at most 500/, "Boom/Bust doesn't depend on the box-score list");
+  await chooseSet(v, "coverage");
+  t.deepEqual(bands(box.head), ["nflverse Wk 1–4"], "one band: PFR's charting comes through nflverse, same weeks; no PPG in this set");
+  const dl = await openTab(v, "DL");
+  search.fire("input", { target: { value: "brian burns" } });
+  t.equal(rowsOf(v.getEl("ups-m-st-listwrap").innerHTML)[0].pid, pidOf("Burns, Brian"), "Brian Burns (rostered, omitted) is on DL");
+  t.ok(dl.length > 0);
+});
+
+test("MFL's players export didn't load → the leaderboard's rows (never an empty list), ranked within them, and the screen says so", async () => {
+  const v = boot();
+  v.state.players = null;
+  const qb = rowsOf(await openTab(v, "QB"));
+  t.equal(qb.length, FX.leaderboard.qb.rows.length, "every leaderboard QB, not an empty list");
+  const dak = qb.find((r) => r.pid === DAK);
+  t.deepEqual(dak.cells.slice(0, 3), ["125.5", "25.1", "5"], "points are still MFL's own");
+  t.match(v.getEl("ups-m-st-notes").innerHTML || v.mount.innerHTML, /MFL’s player list didn’t load, so this is the stats source’s list, with its copy of MFL positions; ranks are within it\./);
+  const dl = await openTab(v, "DL");
+  t.match(v.mount.innerHTML, /List = the stats source’s top 500 IDPs; ranks are within it\./, "the capped-list note returns with the capped list");
+  t.ok(rowsOf(dl).length > 0);
+});
+
+test("a PARTIAL players export can't drop a scoring player the leaderboard has (union) — he stays listed at his MFL position", async () => {
+  const v = boot();
+  v.state.players = { players: { player: PLAYERS.filter((p) => p.id !== ROUSSEAU) } };
+  await openTab(v, "DL");
+  v.getEl("ups-m-st-search").fire("input", { target: { value: "rousseau" } });
+  const rou = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML).find((r) => r.pid === ROUSSEAU);
+  t.ok(rou, "still on DL (the worker's mfl_position: DE)");
+  t.equal(rou.cells[0], mflYtd(ROUSSEAU).pts.toFixed(1));
+  t.equal(rou.rk, "–", "unranked, like his sheet (no MFL position to rank him against)");
+  t.doesNotMatch(v.mount.innerHTML, /MFL’s player list didn’t load/, "the export DID load");
+});
+
+test("no new requests: switching every position makes only the requests the tab always made (leaderboard + side stats), never an MFL export", async () => {
+  const v = boot();
+  for (const tab of ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"]) await openTab(v, tab);
+  const paths = [...new Set(v.requests.map((r) => new URL(r.url).pathname))].sort();
+  t.deepEqual(paths, ["/api/advanced-stats-leaderboard", "/api/player-epa",
+    "/api/player-ngs", "/api/player-routes", "/api/player-starter-rates", "/api/player-status"], "no MFL export; the Schedule-adjusted and All-MFL usage reads are gone; Boom/Bust reads the starter-pool route; status chips read /api/player-status");
+  t.equal(v.requests.filter((r) => /leaderboard/.test(r.url)).length, 5, "one leaderboard call per alias, cached after");
+  t.equal(v.requests.filter((r) => /player-status/.test(r.url)).length, 1, "one status read for every tab (cached 5 minutes)");
+});
+
+test("the stats.js position table agrees with UPS_FRONT_OFFICE_LINEUP.posGroup on every position", () => {
+  const v = boot();
+  const FOL = v.ctx.UPS_FRONT_OFFICE_LINEUP;
+  const src = read("site/m/views/stats.js");
+  const table = JSON.parse("{" + /var GROUP = \{([^}]*)\}/.exec(src)[1].replace(/([A-Z]+):/g, '"$1":') + "}");
+  for (const [pos, g] of Object.entries(table)) t.equal(FOL.posGroup(pos), g, pos);
 });
 
 // ═══ 2b. The stored fallback ═══
@@ -386,7 +448,7 @@ test("the list reads the WHOLE stats board: it follows next_offset across pages,
   t.doesNotMatch(tk.notes, /top 500|at most 500/, "every page was read: no 'capped' note");
   const v2 = boot();   // today's worker: no next_offset, exactly 500 rows back
   await openTab(v2, "LB");
-  t.match((await chooseSet(v2, "tackles")).notes, /top 500 IDPs/, "an unpaged full page is still reported as capped");
+  t.match((await chooseSet(v2, "tackles")).notes, /returns at most 500 players here/, "an unpaged full page is still reported as capped (MFL's list, so the gap is named)");
   t.equal(full.rows.length, 500);
 });
 

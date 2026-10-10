@@ -11,15 +11,21 @@
    2026-10-09, after Thursday's DAL–TB game, 53 players were a week behind MFL
    (Dak Prescott 107.5 here vs MFL's 125.5) and tapping one showed a different
    PPG on his sheet.
-     - WHICH players are listed, and on which position tab, is unchanged: the
-       leaderboard's rows and its position group, as before. (That source puts
-       53 MFL defensive ends on the LB tab and stops IDPs at 500 rows; both are
-       reported, not repaired here — the IDP tabs say their list is capped.)
-     - The leaderboard is also the source of the nflverse BOX SCORE columns,
-       labelled with the weeks it covers.
-     - Rank = season_scoring's rankMap over THIS list, with the PPG-rank
-       minimum (Keith 2026-10-02): one-week players keep their real PPG,
-       unranked, and sort after everyone ranked.
+     - WHO is listed, and on which tab, is MFL's: the players export already
+       loaded at boot (no new request), at the MFL position (DE/DT → DL, CB/S
+       → DB), every player with a posted score this season. The leaderboard's
+       nflverse position put 53 MFL defensive ends on the LB tab (Rousseau
+       "#1 LB"), and its 500-row cap left out 302 scoring IDPs.
+       · A scoring player MFL's export lacks, but the leaderboard has, is still
+         listed (union), so a partial export can't silently drop him.
+       · MFL's players export didn't load → the leaderboard's rows, as before,
+         and the screen says so (IDPs capped at 500, nflverse positions).
+     - The leaderboard is still the source of the nflverse BOX SCORE columns,
+       joined by MFL id and labelled with the weeks it covers.
+     - Rank = season_scoring's rankMap with the PPG-rank minimum (Keith
+       2026-10-02), over every MFL player at the MFL position — exactly the
+       player sheet's ranking, so the two can't disagree. (Without MFL's player
+       list: rank within the listed rows, said on screen.)
      - MFL's scoring unreadable → the last VERIFIED stored totals (the
        leaderboard's finalized weeks), labelled with that period and the time
        the app read them. A stored copy that doesn't state its weeks shows no
@@ -48,6 +54,25 @@
     if (p === "FS" || p === "SS" || p === "S" || p === "SAF") return "S";
     if (p === "NT") return "DT";
     return p;
+  }
+
+  // Position → tab group. The player sheet's rank and the lineup both use
+  // UPS_FRONT_OFFICE_LINEUP.posGroup; this is the same table for the moments
+  // it isn't loaded (tests/mobile_stats_mfl_universe.test.mjs checks they agree
+  // on every position).
+  var GROUP = { QB: "QB", RB: "RB", FB: "RB", HB: "RB", WR: "WR", TE: "TE", PK: "PK", K: "PK", PN: "PN", P: "PN",
+    DT: "DL", DE: "DL", NT: "DL", DL: "DL", LB: "LB", OLB: "LB", ILB: "LB", MLB: "LB",
+    CB: "DB", S: "DB", FS: "DB", SS: "DB", DB: "DB" };
+  function groupOf(pos) {
+    var p = String(pos || "").toUpperCase();
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    if (FOL && FOL.posGroup) { var g = FOL.posGroup(p); return g === "OTH" ? "" : g; }
+    return GROUP[p] || "";
+  }
+  // A leaderboard row's tab: the worker's mfl_position (MFL's own) when it sent
+  // one, else its nflverse position group.
+  function lbGroup(r) {
+    return groupOf(r.mfl_position) || String(r.pos_group || "").toUpperCase();
   }
 
   function D() { return M.data || {}; }
@@ -546,36 +571,84 @@
   // A normalized row: { pid, name, team, pos, grp, lb, gsis, pts, ppg, games,
   // rank (0 = unranked), live (his total includes a week still being played),
   // rec ({ ppg, games } over the recent window | null) }.
-  // The tab's rows from the leaderboard, by its position group (unchanged).
-  function lbRows(tab, yr) {
-    return (cache[tab.alias + "|" + yr] || []).filter(function (r) {
-      return tab.group.indexOf(String(r.pos_group || "").toUpperCase()) !== -1;
-    });
+  // MFL's players export (boot-loaded), or null when it didn't load.
+  function mflPlayers() {
+    var pl = M.state && M.state.players && M.state.players.players;
+    var list = pl ? U.asArray(pl.player) : [];
+    return list.length ? list : null;
   }
-  // Live: each listed player's points are MFL's own (season scoring), joined
-  // by MFL id. No MFL id → no points (never a guess); no posted MFL score →
-  // 0.0 over 0 MFL wks, the Players market's convention.
+  // The leaderboard's rows for a tab, by MFL position where the worker sent it.
+  function lbRows(tab, yr) {
+    return (cache[tab.alias + "|" + yr] || []).filter(function (r) { return lbGroup(r) === tab.id; });
+  }
+  var rankCache = { ss: null, map: null };
+  // Season PPG ranks, grouped exactly like the player sheet's (liveSeasonRow):
+  // MFL position of D.playerById → posGroup, with the same rank minimum.
+  function liveRanks(ss) {
+    if (rankCache.ss === ss && rankCache.map) return rankCache.map;
+    var SS = SSMOD();
+    var map = SS ? SS.rankMap(ss.byPid, function (id) {
+      var pl = D().playerById ? D().playerById(id) : null;
+      return groupOf(U.safeStr(pl && pl.position).toUpperCase());
+    }, ss.rankMinimum ? ss.rankMinimum(0) : 1) : {};
+    rankCache = { ss: ss, map: map };
+    return map;
+  }
+  // Live: WHO is listed comes from MFL (see the header); points from season scoring.
+  //   → rows, with rows.source = "mfl" | "leaderboard" (MFL's player list missing)
   function liveRows(tab, b) {
     var ss = b.ss, SS = SSMOD();
     var win = recentWindow(ss);
     var recMap = win ? ss.windowFor(win) : null;
-    var out = lbRows(tab, b.season).map(function (lb) {
-      var id = pidKey(lb.mfl_pid);
-      var st = id ? (ss.byPid[id] || ss.byPid[String(lb.mfl_pid)] || null) : null;
+    var players = mflPlayers();
+    var lbBy = {};
+    (cache[tab.alias + "|" + b.season] || []).forEach(function (r) { var k = pidKey(r.mfl_pid); if (k) lbBy[k] = r; });
+    function row(id, name, team, pos, lb) {
+      var st = id ? (ss.byPid[id] || null) : null;
       return {
-        pid: id, name: flip(lb.player_name), team: liveTeam(lb.mfl_pid, lb), pos: mflPos(lb.position), grp: tab.id,
-        lb: lb, gsis: lb.gsis_id,
+        pid: id, name: name, team: team, pos: pos, grp: tab.id, lb: lb || null, gsis: lb ? lb.gsis_id : null,
         pts: !id ? null : (st ? st.pts : 0), ppg: st ? st.ppg : null, games: !id ? null : (st ? st.games : 0), rank: 0,
         live: !!st && ss.liveWeeks.some(function (w) { return st.weeks && st.weeks[w] != null; }),
         rec: recMap ? (id && recMap[id] ? { ppg: recMap[id].ppg, games: recMap[id].games } : { ppg: null, games: 0 }) : null
       };
+    }
+    var out = [], inExport = {};
+    if (players) {
+      var rk = liveRanks(ss);
+      players.forEach(function (p) {
+        if (!p || !p.id) return;
+        inExport[pidKey(p.id)] = 1;
+        var pos = U.safeStr(p.position).toUpperCase();
+        if (groupOf(pos) !== tab.id) return;
+        var id = pidKey(p.id), st = ss.byPid[String(p.id)] || ss.byPid[id];
+        if (!st || !(st.games > 0)) return;   // no posted MFL score this season
+        var r = row(String(p.id), flip(p.name), U.safeStr(p.team), pos, lbBy[id]);
+        r.rank = rk[String(p.id)] ? rk[String(p.id)].rank : 0;
+        out.push(r);
+      });
+      // Union: a scoring player on the leaderboard whom MFL's export LACKS
+      // entirely (a partial export). One the export has at another position
+      // stays on that position's tab — MFL's position wins. Unranked, like his
+      // sheet: without an MFL position he can't be ranked against anyone.
+      lbRows(tab, b.season).forEach(function (lb) {
+        var id = pidKey(lb.mfl_pid);
+        if (!id || inExport[id] || !(ss.byPid[id] && ss.byPid[id].games > 0)) return;
+        var r = row(id, flip(lb.player_name), liveTeam(lb.mfl_pid, lb), U.safeStr(lb.mfl_position).toUpperCase() || mflPos(lb.position), lb);
+        r.rank = rk[id] ? rk[id].rank : 0;
+        out.push(r);
+      });
+      out.source = "mfl";
+      return out;
+    }
+    // MFL's player list didn't load: the leaderboard's rows, ranked within them.
+    out = lbRows(tab, b.season).map(function (lb) {
+      return row(pidKey(lb.mfl_pid), flip(lb.player_name), liveTeam(lb.mfl_pid, lb), U.safeStr(lb.mfl_position).toUpperCase() || mflPos(lb.position), lb);
     });
-    // Rank among the players in THIS list, with the same minimum and tie-breaks
-    // the player sheet and the Players market use (season_scoring rankMap).
     var subset = {};
     out.forEach(function (r) { if (r.pid && r.games > 0) subset[r.pid] = { pts: r.pts, ppg: r.ppg, games: r.games }; });
-    var rk = SS ? SS.rankMap(subset, function () { return tab.id; }, ss.rankMinimum ? ss.rankMinimum(0) : 1) : {};
-    out.forEach(function (r) { r.rank = (r.pid && rk[r.pid]) ? rk[r.pid].rank : 0; });
+    var rk2 = SS ? SS.rankMap(subset, function () { return tab.id; }, ss.rankMinimum ? ss.rankMinimum(0) : 1) : {};
+    out.forEach(function (r) { r.rank = (r.pid && rk2[r.pid]) ? rk2[r.pid].rank : 0; });
+    out.source = "leaderboard";
     return out;
   }
   function storedRows(tab, b) {
@@ -585,7 +658,7 @@
       var pts = period ? nn(lb.mfl_points) : null, ppg = period ? nn(lb.mfl_ppg) : null;
       return {
         pid: pidKey(lb.mfl_pid), name: flip(lb.player_name), team: liveTeam(lb.mfl_pid, lb),
-        pos: mflPos(lb.position), grp: tab.id, lb: lb, gsis: lb.gsis_id,
+        pos: U.safeStr(lb.mfl_position).toUpperCase() || mflPos(lb.position), grp: tab.id, lb: lb, gsis: lb.gsis_id,
         pts: pts, ppg: ppg,
         // MFL scored weeks, exactly as the sheet derives them from a stored row:
         // the leaderboard's `games` counts nflverse NFL games, a different number.
@@ -601,7 +674,11 @@
       .forEach(function (r, i) { r.rank = i + 1; });
     return out;
   }
-  function buildRows(tab, b) { return b.kind === "live" ? liveRows(tab, b) : storedRows(tab, b); }
+  function buildRows(tab, b) {
+    var rows = b.kind === "live" ? liveRows(tab, b) : storedRows(tab, b);
+    if (!rows.source) rows.source = "leaderboard";
+    return rows;
+  }
   // Ranked players first by rank; unranked (below the minimum, or no points)
   // after them by PPG — a one-week player never tops the list (Keith 2026-10-02).
   function sortRows(rows) {
@@ -648,7 +725,8 @@
 
   function rowsFor(tab, b) {
     var qTokens = queryTokens();
-    var out = sortRows(buildRows(tab, b).filter(function (r) {
+    var all = buildRows(tab, b);
+    var out = sortRows(all.filter(function (r) {
       // FA vs rostered scope, by LIVE MFL rosters. Unknown ownership matches neither — renderList says why.
       if (view.scope !== "all") {
         var own = ownerOf(r.pid);
@@ -658,7 +736,9 @@
       }
       return matchesQuery(r, qTokens);
     }));
-    return applySort(out, visibleCols(curSet(), b));
+    out = applySort(out, visibleCols(curSet(), b));
+    out.source = all.source;
+    return out;
   }
 
   // How many players the query would find on the OTHER position tabs. Live
@@ -869,10 +949,27 @@
       else more.push(lead + "Receiving EPA gives him the whole EPA of every pass thrown to him — complete, incomplete or intercepted — the same EPA the passer gets, so it also reflects the QB, the line and the play call. EPA/target = that total ÷ his targets (Tgts), as his box score counts them. Two-point tries and plays wiped out by a penalty (pass interference included) don’t count.",
         "Success% = the same targets with EPA above zero ÷ his targets.");
     } else if (srcs.adv) line.push((set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date.");
-    // The leaderboard decides who is listed. When it hit its row cap the list
-    // is NOT every player at the position, and the ranks are within it.
-    if (meta && meta.capped) {
-      line.push("List = the stats source’s top " + meta.limit + (tab.alias === "idp" ? " IDPs" : "") + "; ranks are within it.");
+    // MFL decides who is listed. The box-score, red-zone and nflverse side-load
+    // columns are joined through the stats source's row (and its NFL ID); a
+    // listed player without one reads "—" there. Boom/Bust is joined by MFL id.
+    if ((srcs.box || srcs.pfr || srcs.rz || srcs.adv) && rows.source === "mfl") {
+      var missing = rows.filter(function (r) { return !r.lb; }).length;
+      if (missing) {
+        line.push(missing + " listed " + tab.id + (missing === 1 ? " has" : "s have") + " no row in the stats source (—).");
+        more.push(meta && meta.capped
+          ? "They aren’t in the box-score list, which returns at most " + meta.limit + " players here. Their player sheet can show the weekly box score; their MFL points are on Fantasy pts."
+          : "Most played without recording an NFL stat; a few are filed by nflverse at another position, or have no verified NFL id yet. Their MFL points are on Fantasy pts.");
+      }
+    }
+    if (b.kind === "live" && rows.source === "leaderboard") {
+      // Its rows carry the worker's copy of MFL positions (mfl_position).
+      line.push("MFL’s player list didn’t load, so this is the stats source’s list, with its copy of MFL positions" +
+        (meta && meta.capped ? "." : "; ranks are within it."));
+    }
+    // When the LEADERBOARD decides who is listed and it hit its row cap, the
+    // list is NOT every player at the position, and the ranks are within it.
+    if (rows.source === "leaderboard" && meta && meta.capped) {
+      line.push("List = the stats source’s top " + meta.limit + (tab.alias === "idp" ? " IDPs" : " players") + "; ranks are within it.");
       more.push("The stats source returns at most " + meta.limit + " players here, chosen by tackles, sacks and other impact stats, so this isn’t every " + tab.id + ".");
     }
     if (b.kind === "live" && set.id !== "fantasy") {
@@ -956,7 +1053,7 @@
     var sk = activeSortKey(cols);
     var foot = (rows.length > capped.length ? (sk ? "First " : "Top ") + capped.length + " of " + rows.length + " " : rows.length + " ") +
       U.escapeHtml(tab.id) + (rows.length === 1 ? "" : "s") +
-      (view.q.trim() ? " matching" : " in this list") +
+      (view.q.trim() ? " matching" : (rows.source === "mfl" ? " with a " + b.season + " MFL score" : " in this list")) +
       " · " + ranked + " ranked" +
       (sk ? " · sorted by " + U.escapeHtml(colLabel(C[sk], b)) + (view.sort.dir === "asc" ? ", low to high" : ", high to low") +
         "; players without a value are listed last" : "") + ".";
