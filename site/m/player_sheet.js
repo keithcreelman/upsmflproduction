@@ -706,21 +706,29 @@
   var PSTAT = (function () {
     var st = { season: "", state: "idle", data: null, at: 0, p: null };
     var TTL = 5 * 60 * 1000;
+    // A refresh keeps showing the last good read until the new one lands
+    // (chips don't blink off); a failed refresh shows "unavailable".
     function load(season, force) {
       season = String(season || "");
       if (!force && st.season === season && st.p) return st.p;
       if (!force && st.season === season && st.state === "ok" && Date.now() - st.at < TTL) return Promise.resolve(st);
       var ctx = window.UPS_MOBILE.state.ctx || {};
-      st.season = season; st.state = "loading";
+      if (st.season !== season) { st.data = null; st.state = "loading"; }
+      st.season = season;
       st.p = fetch(API.workerUrl("/api/player-status?season=" + encodeURIComponent(season) + "&L=" + encodeURIComponent(ctx.leagueId || "")),
           { mode: "cors", credentials: "omit" })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
-          st.data = j && j.ok ? j : null; st.state = st.data ? "ok" : "error"; st.at = Date.now(); st.p = null; return st;
+          st.data = j && j.ok ? j : null; st.state = st.data ? "ok" : "error"; st.at = Date.now(); st.p = null;
+          st.mapped = null;
+          if (st.data && st.data.mapped_mfl_ids) { st.mapped = {}; st.data.mapped_mfl_ids.forEach(function (id) { st.mapped[String(id)] = 1; }); }
+          return st;
         })
-        .catch(function () { st.data = null; st.state = "error"; st.at = Date.now(); st.p = null; return st; });
+        .catch(function () { st.data = null; st.state = "error"; st.at = Date.now(); st.p = null; st.mapped = null; return st; });
       return st.p;
     }
+    // MFL and nflverse spell six teams differently; either is accepted.
+    var NFLV_TO_MFL = { GB: "GBP", JAX: "JAC", KC: "KCC", LA: "LAR", LV: "LVR", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB" };
     function clockEt(iso) {
       var d = iso ? new Date(iso) : null;
       if (!d || isNaN(d.getTime())) return "";
@@ -742,7 +750,7 @@
     }
     // → { chips: [{ t, cls, title }], report: "line", roster: "line" | "" }
     function info(pid, team) {
-      pid = U.safeStr(pid); team = U.safeStr(team).toUpperCase();
+      pid = U.safeStr(pid); team = U.safeStr(team).toUpperCase(); team = NFLV_TO_MFL[team] || team;
       var out = { chips: [], report: "", roster: "" };
       var d = st.state === "ok" ? st.data : null;
       var p = d && d.players ? d.players[pid] : null;
@@ -757,7 +765,10 @@
             (r.practice ? " · practice: " + r.practice.replace(/ (Participation )?in Practice$/i, "").replace(/^Did Not Participate$/i, "did not practice") : "") +
             " (NFL report, updated " + when + ").";
         }
-        else if ((d.unmapped_mfl_ids || []).indexOf(pid) >= 0) out.report = "No verified NFL id, so he can’t be matched to the injury report.";
+        // Matching needs his verified NFL id: without one (or without the list
+        // of matched players) "not on the report" can't be said.
+        else if (!st.mapped) out.report = "Couldn’t tell whether he’s on the Wk " + f.week + " injury report.";
+        else if (!st.mapped[pid]) out.report = "No verified NFL id, so he can’t be matched to the injury report.";
         else if (!team || team === "FA" || team === "FA*") out.report = "Free agent: not on an NFL team’s injury report.";
         else if ((f.teams_mfl || []).indexOf(team) >= 0) out.report = "Not on " + team + "’s Wk " + f.week + " injury report (NFL, updated " + when + ").";
         else out.report = "No Wk " + f.week + " injury report for " + team + " (a bye, or not out yet).";
@@ -785,7 +796,8 @@
       if (st.state !== "ok") return st.state === "error" ? "Injury tags unavailable — no tag doesn’t mean healthy." : "";
       var f = st.data.report_feed || {}, rf = st.data.roster_feed || {};
       var a = f.current ? "Tags: NFL injury report Wk " + f.week + " (" + clockEt(f.updated_utc) + ")" : "Injury report unavailable (" + why(f) + "), so no Q/D/OUT tags — no tag doesn’t mean healthy";
-      return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.");
+      return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.") +
+        (f.current ? " No tag: not on the report, a bye, or unmatched — tap him for which." : "");
     }
     return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, state: function () { return st.state; }, _st: st };
   })();
@@ -2816,19 +2828,9 @@
       ? '<img class="ups-m-sheet-photo" src="' + U.escapeHtml(photoUrl) + '" alt="' + U.escapeHtml(name || pid) + '" onerror="' + photoOnError + '">'
       : '<div class="ups-m-sheet-photo-placeholder"></div>';
 
-    // NFL designation chip, right beside the name (Keith 2026-08-15: "make him
+    // NFL designation chips right beside the name (Keith 2026-08-15: "make him
     // stand out more with a red S or something ... do the same with any injury
-    // designation (Q, Out, whatever)"). The sheet previously showed NOTHING
-    // here, so a suspended player looked identical to a healthy one — which is
-    // precisely how James Pearce's suspension went unnoticed.
-    //
-    // Severity drives the colour, not the letter: OUT / IR / IR-PUP / IR-NFI /
-    // SUSPENDED / RETIRED are red, DOUBTFUL amber, QUESTIONABLE yellow, and
-    // HOLDOUT its own tone (a contract dispute, not an injury).
-    //
-    // An absent designation renders NOTHING rather than a "healthy" chip: the
-    // feed can be unreadable, and a clean bill of health we did not earn is a
-    // lie. irEligibilityFor returns known:false in that case and we stay quiet.
+    // designation (Q, Out, whatever)"; a suspension once went unnoticed here).
     // Status chips beside the name and a line under it: this week's official
     // NFL injury report designation and the NFL roster designation, each from
     // its own verified source (PSTAT above). Severity drives the colour: OUT
