@@ -1,5 +1,5 @@
 import { handleHallRequest } from "./hall.js";
-import { seedLadder, modernField, legacyStandingsTiebreak } from "./seeding.js";
+import { seedLadder, seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -20472,6 +20472,7 @@ export default {
             recordedSeason = !!(fr && fr.x);
           } catch (_) {}
           let regGames = [];
+          let regGamesOk = false;
           if (!recordedSeason) {
             try {
               const gRs = await db.prepare(
@@ -20481,9 +20482,11 @@ export default {
                     AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
               ).bind(yr).all();
               regGames = gRs.results || [];
+              regGamesOk = true;
             } catch (_) {}
           }
-          const seedTiebreak = recordedSeason ? legacyStandingsTiebreak : seedLadder(rows, regGames);
+          const ladder = recordedSeason ? null : seedLadderSteps(rows, regGames);
+          const seedTiebreak = recordedSeason ? legacyStandingsTiebreak : ladder.cmp;
           const field = modernField(rows, divisionWinnerIds, seedTiebreak);
           const topTwoDW = field.byes;
           const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
@@ -20505,6 +20508,37 @@ export default {
             r.playoff_status = "non_playoff";
             r.is_wild_card = false;
           });
+
+          // WHY each team sits where it does: the ladder step that separated it from the team next to it in its pool
+          // (seeds 1-2: the other bye; seeds 3-6: the neighbouring seed; everyone else: the last wild card, the cut line).
+          // Pages show this; they never re-derive the ladder (Keith 2026-10-09). Seasons with recorded final standings
+          // make no ladder claim at all. Without the regular-season games read, a tie that reached head-to-head can't be
+          // explained, so it says so instead of naming the name-order fallback.
+          if (recordedSeason) {
+            rows.forEach((r) => { r.seed_reason = { basis: "recorded_final_standings" }; });
+          } else {
+            const reasonVs = (team, rival, pool) => {
+              let step = ladder.decidingStep(team, rival);
+              if (!regGamesOk && (step === "head_to_head" || step === "name" || step === "franchise_id")) step = "head_to_head_unavailable";
+              return {
+                basis: "ladder", pool, step,
+                position: ladder.cmp(team, rival) < 0 ? "ahead" : "behind",
+                rival_franchise_id: String(rival.franchise_id).padStart(4, "0"),
+                rival_name: rival.franchise_name || null,
+                rival_seed: rival.playoff_seed == null ? null : rival.playoff_seed,
+              };
+            };
+            const poolReasons = (list, pool) => list.forEach((r, i) => {
+              const rival = i < list.length - 1 ? list[i + 1] : list[i - 1];
+              r.seed_reason = rival ? reasonVs(r, rival, pool) : { basis: "ladder", pool, step: null };
+            });
+            poolReasons(topTwoDW, "bye");
+            poolReasons(seeds3to6, "seeds3to6");
+            const cutLine = field.wildCards.length ? field.wildCards[field.wildCards.length - 1] : null;
+            nonPlayoff.forEach((r) => {
+              r.seed_reason = cutLine ? reasonVs(r, cutLine, "outside") : { basis: "ladder", pool: "outside", step: null };
+            });
+          }
 
           // Final sort for the standings page: playoff seeds 1-6 in order,
           // then non-playoff teams by the same ladder. Matches what the

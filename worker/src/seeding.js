@@ -28,7 +28,15 @@ const pad4 = (v) => String(v == null ? "" : v).padStart(4, "0");
 const pctKey = (v) => Math.round(Number(v || 0) * 1e6);
 const pfKey = (v) => Math.round(Number(v || 0) * 10);
 
-export function seedLadder(rows, games) {
+// The ladder's steps, in order, by name. A response says which one separated two teams (seed_reason), so no page ever
+// re-derives the ladder to explain a seed (Keith 2026-10-09: "Current-season seeds get an authoritative worker seed
+// reason"). "name" and "franchise_id" are the deterministic fallback, not a league rule.
+export const SEED_STEPS = ["all_play", "overall", "points_for", "head_to_head", "name", "franchise_id"];
+
+// { cmp, decidingStep }: cmp orders two rows by the ladder; decidingStep(a, b) names the FIRST step that separates them
+// (one of SEED_STEPS), or null when nothing does. Both read the same steps, so an explanation can never disagree with
+// the order it explains.
+export function seedLadderSteps(rows, games) {
   const tieKey = (r) => pctKey(r.allplay_pct) + "|" + pctKey(r.h2h_pct) + "|" + pfKey(r.pf_total);
 
   // Pairwise head-to-head results, from each team's own schedule rows.
@@ -68,13 +76,27 @@ export function seedLadder(rows, games) {
   }
   const h2h = (r) => (h2hPct.has(pad4(r.franchise_id)) ? h2hPct.get(pad4(r.franchise_id)) : 0.5);
 
-  return (a, b) =>
-    (pctKey(b.allplay_pct) - pctKey(a.allplay_pct)) ||   // 1. All-Play %
-    (pctKey(b.h2h_pct) - pctKey(a.h2h_pct)) ||           // 2. Overall record
-    (pfKey(b.pf_total) - pfKey(a.pf_total)) ||           // 3. Points For (season)
-    (h2h(b) - h2h(a)) ||                                 // 4. head-to-head within the tie
-    String(a.franchise_name || "").localeCompare(String(b.franchise_name || "")) ||
-    pad4(a.franchise_id).localeCompare(pad4(b.franchise_id));
+  const steps = [
+    (a, b) => pctKey(b.allplay_pct) - pctKey(a.allplay_pct),   // 1. All-Play %
+    (a, b) => pctKey(b.h2h_pct) - pctKey(a.h2h_pct),           // 2. Overall record
+    (a, b) => pfKey(b.pf_total) - pfKey(a.pf_total),           // 3. Points For (season)
+    (a, b) => h2h(b) - h2h(a),                                 // 4. head-to-head within the tie
+    (a, b) => String(a.franchise_name || "").localeCompare(String(b.franchise_name || "")),
+    (a, b) => pad4(a.franchise_id).localeCompare(pad4(b.franchise_id)),
+  ];
+  const cmp = (a, b) => {
+    for (const step of steps) { const d = step(a, b); if (d) return d; }
+    return 0;
+  };
+  const decidingStep = (a, b) => {
+    for (let i = 0; i < steps.length; i++) if (steps[i](a, b)) return SEED_STEPS[i];
+    return null;
+  };
+  return { cmp, decidingStep };
+}
+
+export function seedLadder(rows, games) {
+  return seedLadderSteps(rows, games).cmp;
 }
 
 // The order /api/standings used before 2026-10-08 (AP%, per-game PF average,
