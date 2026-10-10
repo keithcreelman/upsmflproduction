@@ -507,6 +507,14 @@
       ["TD", function (z) { return n(z.rec_tds_i20); }], ["EZ", function (z) { return n(z.targets_ez); }]];
     return [];
   }
+  // Usage view (RB/WR/TE, 2026-10-10): his offensive snaps, his share of his
+  // team's offensive snaps in that game, and targets. A week with no snap row
+  // is "—" (not 0%); 0 offensive snaps with his team's total known is a real 0%.
+  function gameLogUsageCols() {
+    return [["Snaps", function (u) { return u.off; }],
+      ["Snap%", function (u) { return u.off == null || !u.team_off ? null : Math.round(100 * u.off / u.team_off) + "%"; }],
+      ["Tgt", function (u) { return u.tgt; }]];
+  }
   var RZ_ZERO = { pass_att_i20: 0, pass_cmp_i20: 0, pass_tds_i20: 0, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, rush_tds_i20: 0,
                   targets_i20: 0, rec_i20: 0, rec_tds_i20: 0, targets_ez: 0 };
   function gameLogHtml(pid, bundle, state) {
@@ -540,8 +548,9 @@
     }
     var rzCols = wb ? gameLogRzCols(grp) : [];
     var hasSnaps = Object.keys(snaps).length > 0;
-    var view = rzCols.length && glView === "rz" ? "rz" : "box";
-    var cols = view === "rz" ? rzCols : gameLogCols(grp);
+    var useUsage = !!wb && hasSnaps && (grp === "RB" || grp === "WR" || grp === "TE");
+    var view = rzCols.length && glView === "rz" ? "rz" : useUsage && glView === "usage" ? "usage" : "box";
+    var cols = view === "rz" ? rzCols : view === "usage" ? gameLogUsageCols() : gameLogCols(grp);
     var live = {}; ss.liveWeeks.forEach(function (w) { live[w] = true; });
     var boxState = wb ? "ok" : (weeklyBoxState === "loading" ? "loading" : state);
     // Most recent week first: by Week 17 the live week would otherwise sit at
@@ -562,7 +571,10 @@
       // DNP only when the bye list was read: otherwise a bye would be called DNP.
       else if (byesKnown) { label = "DNP"; cls = "dnp"; ttl = "No MFL score this week"; }
       else { label = "—"; cls = "dim"; }
-      var src = view === "rz" ? (rz[w] || (b ? RZ_ZERO : null)) : b;
+      var src = view === "rz" ? (rz[w] || (b ? RZ_ZERO : null))
+        : view === "usage" ? (sn || b ? { off: sn ? (sn.off == null ? null : Number(sn.off)) : null, team_off: sn && sn.team_off ? Number(sn.team_off) : null,
+                                          tgt: b ? (b.targets == null ? null : Number(b.targets)) : null } : null)
+        : b;
       var cell = function (c) {
         if (!src) return '<td>' + (boxState === "loading" && has ? "…" : "—") + '</td>';
         var v = c[1](src); return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>';
@@ -571,14 +583,16 @@
         cols.map(cell).join("") + '</tr>');
     }
     var liveTxt = ss.liveWeeks.length ? " (● Wk " + ss.liveWeeks.join(", ") + " in progress)" : "";
-    var toggle = rzCols.length
-      ? '<div class="ups-m-gl-views" role="group" aria-label="Game log view">' +
-          '<button type="button" data-glview="box" aria-pressed="' + (view === "box") + '"' + (view === "box" ? ' class="on"' : "") + '>Box score</button>' +
-          '<button type="button" data-glview="rz" aria-pressed="' + (view === "rz") + '"' + (view === "rz" ? ' class="on"' : "") + '>Red zone</button></div>'
+    var vbtn = function (id, label) {
+      return '<button type="button" data-glview="' + id + '" aria-pressed="' + (view === id) + '"' + (view === id ? ' class="on"' : "") + '>' + label + '</button>';
+    };
+    var toggle = rzCols.length || useUsage
+      ? '<div class="ups-m-gl-views" role="group" aria-label="Game log view">' + vbtn("box", "Box score") +
+          (useUsage ? vbtn("usage", "Usage") : "") + (rzCols.length ? vbtn("rz", "Red zone") : "") + '</div>'
       : "";
     var boxNote = boxState === "error" ? "Box score couldn’t be loaded — close and reopen to retry."
       : boxState === "loading" ? "Loading the box score…"
-      : wb && !wb.gsis_id ? "Box score isn’t linked for him: there is no verified NFL id for this player yet, so only MFL points show."
+      : wb && !wb.gsis_id ? "Box score unavailable: no verified NFL id for this player, so only MFL points show."
       : boxMax ? "Box score: nflverse" + (wb && wb.box_through_week ? ", Wks 1–" + wb.box_through_week : "; his latest row is Wk " + boxMax) + "."
       : wb ? "No NFL stat rows for him this season" + (wb.box_through_week ? " (through Wk " + wb.box_through_week + ")" : "") + "."
       : ss.finalThrough >= 1 && Object.keys(pts).length
@@ -589,6 +603,7 @@
         '<tbody>' + rows.join("") + '</tbody></table></div>' +
       '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
         boxNote + (view === "rz" ? " Red zone: inside the opponent’s 20; two-point tries excluded; sacks are not attempts." : "") +
+        (view === "usage" ? " Usage: nflverse snap counts. Snap% = his offensive snaps ÷ his team’s offensive snaps that game; — = no snap row (Snaps, Snap%) or no box-score row (Tgt)." : "") +
         (wb && wb.pfr_id && hasSnaps ? " 0 snp = his team played and he had no snaps." : "") +
         (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows —, not DNP." : " DNP = no MFL score in a finished week that wasn’t his bye.") +
         '</div>';
@@ -678,6 +693,103 @@
       .then(function (res) { if (res.state === "ok") weeklyBoxCache[key] = res; return res; })
       .catch(function () { return { state: "error", data: null }; });
   }
+
+  // ── Injury and roster status (Keith 2026-10-10) ──
+  // ONE loader for the Stats → Players list and this sheet. /api/player-status
+  // gives this week's OFFICIAL NFL injury report designation (Out / Doubtful /
+  // Questionable, via nflverse) and the NFL roster designation (IR, IR – to
+  // return, PUP, NFI, Suspended — from MFL), each with its source's updated
+  // time. MFL's own Q/D/Out are NOT used: its export keeps them for weeks after
+  // they lapse (Wk 5 2026: 66 on free agents, 26 more absent from the official
+  // report). Never "healthy" by default: an unread or stale report is said in
+  // words, and "not on his team's report" needs that report to have been read.
+  var PSTAT = (function () {
+    var st = { season: "", state: "idle", data: null, at: 0, p: null };
+    var TTL = 5 * 60 * 1000;
+    function load(season, force) {
+      season = String(season || "");
+      if (!force && st.season === season && st.p) return st.p;
+      if (!force && st.season === season && st.state === "ok" && Date.now() - st.at < TTL) return Promise.resolve(st);
+      var ctx = window.UPS_MOBILE.state.ctx || {};
+      st.season = season; st.state = "loading";
+      st.p = fetch(API.workerUrl("/api/player-status?season=" + encodeURIComponent(season) + "&L=" + encodeURIComponent(ctx.leagueId || "")),
+          { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          st.data = j && j.ok ? j : null; st.state = st.data ? "ok" : "error"; st.at = Date.now(); st.p = null; return st;
+        })
+        .catch(function () { st.data = null; st.state = "error"; st.at = Date.now(); st.p = null; return st; });
+      return st.p;
+    }
+    function clockEt(iso) {
+      var d = iso ? new Date(iso) : null;
+      if (!d || isNaN(d.getTime())) return "";
+      try { return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET"; }
+      catch (e) { return d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+    }
+    var SEV = { Out: "out", Doubtful: "d", Questionable: "q" };
+    var SHORT = { Out: "OUT", Doubtful: "D", Questionable: "Q" };
+    // MFL's roster designations when the route itself is unavailable: roster
+    // kinds only, never its Q/D/Out.
+    var FALLBACK = { "IR": ["IR", "Injured reserve"], "IR-R": ["IR-R", "Injured reserve – designated to return"], "IR-PUP": ["PUP", "Physically unable to perform"],
+      "IR-NFI": ["NFI", "Non-football injury list"], "SUSPENDED": ["SUSP", "Suspended"], "HOLDOUT": ["HOLD", "Holdout"], "RETIRED": ["RET", "Retired"] };
+    function why(feed) {
+      var r = U.safeStr(feed && feed.reason);
+      if (/not out yet/.test(r)) return r;
+      if (/not updated for/.test(r)) return "the report hasn’t been updated for " + r.replace(/^.*not updated for /, "");
+      if (/current NFL week unknown/.test(r)) return "the current NFL week couldn’t be read";
+      return "it couldn’t be read";
+    }
+    // → { chips: [{ t, cls, title }], report: "line", roster: "line" | "" }
+    function info(pid, team) {
+      pid = U.safeStr(pid); team = U.safeStr(team).toUpperCase();
+      var out = { chips: [], report: "", roster: "" };
+      var d = st.state === "ok" ? st.data : null;
+      var p = d && d.players ? d.players[pid] : null;
+      if (d) {
+        var f = d.report_feed || {};
+        var when = clockEt(f.updated_utc);
+        if (!f.current) out.report = "Injury report unavailable: " + why(f) + ". No tag doesn’t mean healthy.";
+        else if (p && p.report) {
+          var r = p.report;
+          if (r.status) out.chips.push({ t: SHORT[r.status], cls: SEV[r.status], title: "Wk " + f.week + " injury report: " + r.status });
+          out.report = "Wk " + f.week + " injury report: " + (r.status || "listed, no game status") + (r.injury ? " — " + r.injury : "") +
+            (r.practice ? " · practice: " + r.practice.replace(/ (Participation )?in Practice$/i, "").replace(/^Did Not Participate$/i, "did not practice") : "") +
+            " (NFL report, updated " + when + ").";
+        }
+        else if ((d.unmapped_mfl_ids || []).indexOf(pid) >= 0) out.report = "No verified NFL id, so he can’t be matched to the injury report.";
+        else if (!team || team === "FA" || team === "FA*") out.report = "Free agent: not on an NFL team’s injury report.";
+        else if ((f.teams_mfl || []).indexOf(team) >= 0) out.report = "Not on " + team + "’s Wk " + f.week + " injury report (NFL, updated " + when + ").";
+        else out.report = "No Wk " + f.week + " injury report for " + team + " (a bye, or not out yet).";
+        if (p && p.roster) {
+          var ro = p.roster, rf = d.roster_feed || {};
+          out.chips.unshift({ t: ro.chip, cls: ro.chip === "HOLD" ? "ho" : "res", title: "NFL roster: " + ro.label });
+          out.roster = "Roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : "") + " — MFL, updated " + clockEt(rf.updated_utc) + ".";
+        }
+        else if (d.roster_feed && !d.roster_feed.ok) out.roster = "Roster designations (IR, PUP …) couldn’t be read.";
+      } else {
+        out.report = st.state === "loading" || st.state === "idle" ? "" : "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
+        var e = DATA.irEligibilityFor ? DATA.irEligibilityFor(pid) : null;
+        var fb = e && e.known ? FALLBACK[U.safeStr(e.designation).toUpperCase()] : null;
+        if (fb) { out.chips.push({ t: fb[0], cls: fb[0] === "HOLD" ? "ho" : "res", title: "NFL roster: " + fb[1] }); out.roster = "Roster: " + fb[1] + " — MFL."; }
+      }
+      return out;
+    }
+    function chipsHtml(pid, team, extra) {
+      return info(pid, team).chips.map(function (c) {
+        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
+      }).join("");
+    }
+    // One line for the Stats list: what the tags are and how fresh.
+    function listLine() {
+      if (st.state !== "ok") return st.state === "error" ? "Injury tags unavailable — no tag doesn’t mean healthy." : "";
+      var f = st.data.report_feed || {}, rf = st.data.roster_feed || {};
+      var a = f.current ? "Tags: NFL injury report Wk " + f.week + " (" + clockEt(f.updated_utc) + ")" : "Injury report unavailable (" + why(f) + "), so no Q/D/OUT tags — no tag doesn’t mean healthy";
+      return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.");
+    }
+    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, state: function () { return st.state; }, _st: st };
+  })();
+  window.UPS_MOBILE_PLAYER_STATUS = PSTAT;
 
   function loadBundle(pid) {
     if (bundleCache[pid]) return Promise.resolve(bundleCache[pid]);
@@ -2485,7 +2597,8 @@
       body.addEventListener("click", function (ev) {
         var t = ev && ev.target && ev.target.closest ? ev.target.closest("[data-glview]") : null;
         if (!t) return;
-        glView = t.getAttribute("data-glview") === "rz" ? "rz" : "box";
+        var gv = t.getAttribute("data-glview");
+        glView = gv === "rz" || gv === "usage" ? gv : "box";
         renderTabBody();
       });
     }
@@ -2716,37 +2829,30 @@
     // An absent designation renders NOTHING rather than a "healthy" chip: the
     // feed can be unreadable, and a clean bill of health we did not earn is a
     // lie. irEligibilityFor returns known:false in that case and we stay quiet.
-    var injChip = "";
-    (function () {
-      if (!DATA.irEligibilityFor) return;
-      var e = DATA.irEligibilityFor(pid);
-      if (!e || !e.known) return;
-      var d = U.safeStr(e.designation).toUpperCase();
-      if (!d) return;
-      var short = d === "QUESTIONABLE" ? "Q"
-                : d === "DOUBTFUL" ? "D"
-                : d === "OUT" ? "OUT"
-                : d.indexOf("SUSPEND") === 0 ? "S"
-                : d === "RETIRED" ? "RET"
-                : d.indexOf("HOLDOUT") === 0 ? "HO"
-                : d;                        // IR, IR-PUP, IR-NFI pass through
-      var sev = (d === "QUESTIONABLE") ? "q"
-              : (d === "DOUBTFUL") ? "d"
-              : (d.indexOf("HOLDOUT") === 0) ? "ho"
-              : "out";                      // everything else is the red tier
-      injChip = '<span class="ups-m-inj-chip ' + sev + '" title="' +
-                U.escapeHtml("NFL status: " + d) + '">' + U.escapeHtml(short) + '</span>';
-    })();
-
-    head.innerHTML =
-      '<div class="ups-m-sheet-head-row">' +
+    // Status chips beside the name and a line under it: this week's official
+    // NFL injury report designation and the NFL roster designation, each from
+    // its own verified source (PSTAT above). Severity drives the colour: OUT
+    // red, D amber, Q yellow; IR / IR-R / PUP / NFI / SUSP / RET the reserve
+    // tone; HOLD its own. No chip is never a claim of health — the line says
+    // why there's none.
+    var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
+    function statusHtml() {
+      var inf = PSTAT.info(pid, team);
+      return { chips: PSTAT.chipsHtml(pid, team), lines: [inf.report, inf.roster].filter(Boolean) };
+    }
+    function headHtml(stNow) {
+      return '<div class="ups-m-sheet-head-row">' +
         photoHtml +
         '<div class="ups-m-sheet-head-text">' +
-          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + injChip + '</div>' +
+          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + stNow.chips + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
+          '<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' + U.escapeHtml(stNow.lines.join(" ")) + '</div>' +
           ownerChipHtml(pid) +
         '</div>' +
       '</div>';
+    }
+    var stFirst = statusHtml();
+    head.innerHTML = headHtml(stFirst);
 
     var rosterRow = opts.rosterRow || (findRosterRowAcrossLeague(pid) || {}).row || null;
     var ownsPlayer = isOwnRoster(pid);
@@ -2783,6 +2889,11 @@
      * just checked against footerState.pid instead of a DOM node's presence
      * since the bundle has no DOM identity of its own to test. */
     var pidAtFire = pid;
+    PSTAT.load(ctxYear).then(function () {
+      if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
+      var now = statusHtml();
+      if (now.chips !== stFirst.chips || now.lines.join(" ") !== stFirst.lines.join(" ")) head.innerHTML = headHtml(now);
+    });
     loadWeeklyBox(pid).then(function (res) {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       weeklyBox = res.data; weeklyBoxState = res.state;
