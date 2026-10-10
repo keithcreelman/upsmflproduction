@@ -549,3 +549,65 @@
 .ups-m-inj-chip.d   { color:#fed7aa; background:rgba(234,88,12,.20);  border-color:rgba(251,146,60,.50); }
 .ups-m-inj-chip.q   { color:#fde68a; background:rgba(202,138,4,.20);  border-color:rgba(250,204,21,.45); }
 .ups-m-inj-chip.ho  { color:#bfdbfe; background:rgba(37,99,235,.20);  border-color:rgba(96,165,250,.45); }
+/* NFL roster designation (IR, IR-R, PUP, NFI, SUSP, RET): not playing, but a
+   roster status, not this week's injury-report call — its own tone. */
+.ups-m-inj-chip.res { color:#e9d5ff; background:rgba(126,34,206,.22); border-color:rgba(192,132,252,.50); }
+.ups-m-inj-chip + .ups-m-inj-chip { margin-left: 4px; }
+/* The status line under the sheet header: report and roster, each with its source and time. */
+.ups-m-sheet-inj { margin-top: 3px; font-size: 11.5px; line-height: 1.35; color: var(--fg-muted); }
+.ups-m-sheet-inj:empty { display: none; }
+
+/* ----- Owner chip, points line, contract money (Keith 2026-10-09 review) ----- */
+.ups-m-own-chip {
+  display: inline-block; margin-top: 5px; padding: 2px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; border: 1px solid var(--line); color: var(--fg);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ups-m-own-chip.fa { color: var(--accent); border-color: var(--accent); }
+.ups-m-own-chip.unk { color: var(--warn); border-color: var(--warn); }
+.ups-m-own-chip.mine { background: var(--accent); border-color: var(--accent); color: #0a1222; }
+.ups-m-sheet-pts-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ups-m-sheet-pts-row div { background: var(--bg-elev2); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+.ups-m-sheet-pts-row b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+.ups-m-sheet-pts-row small { display: block; font-size: 11px; line-height: 1.3; color: var(--fg-muted); }
+.ups-m-sheet-pts .ups-m-stat-basis { margin-top: 6px; }
+.ups-m-sheet-money .ups-m-sheet-kv { grid-template-columns: 1fr auto; }
+.ups-m-sheet-money .ups-m-sheet-kv .val { text-align: right; }
+.ups-m-sheet-kv .lbl.hl, .ups-m-sheet-kv .val.hl { color: var(--fg); font-weight: 700; }
+.ups-m-sheet-how {
+  margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--bg);
+  border: 1px solid var(--line); font-size: 12px; line-height: 1.45; color: var(--fg-muted);
+}
+.ups-m-sheet-how b { color: var(--fg); font-weight: 600; }
+.ups-m-sheet-how.warn { border-left: 3px solid var(--warn); color: var(--fg); }
+.ups-m-sheet-mflnote { margin-top: 8px; font-size: 11px; color: var(--fg-muted); overflow-wrap: anywhere; }
+.ups-m-sheet-actions.one { grid-template-columns: 1fr; }
+.btn-act.trade { background: var(--accent); border-color: var(--accent); color: #0a1222; font-weight: 700; }
+
+/* ----- Contract money: remaining guarantee by year (Keith 2026-10-10) ----- */
+.ups-m-sheet-kv .val small { display: block; font-size: 11px; font-weight: 500; color: var(--fg-muted); line-height: 1.35; white-space: normal; }
+.ups-m-gtd-table, .ups-m-gl-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ups-m-gtd-cap { margin: 4px 0 12px; font-size: 11px; color: var(--fg-muted); line-height: 1.4; }
+.ups-m-gtd-table th, .ups-m-gtd-table td, .ups-m-gl-table th, .ups-m-gl-table td { padding: 5px 3px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ups-m-gtd-table th, .ups-m-gtd-table td, .ups-m-gl-table th, .ups-m-gl-table td { padding: 5px 2px; }
+.ups-m-gl-table td small { color: var(--fg-muted); font-size: 11px; }
+.ups-m-gtd-table th:first-child, .ups-m-gtd-table td:first-child, .ups-m-gl-table th:first-child, .ups-m-gl-table td:first-child { text-align: left; }
+.ups-m-gtd-table thead th, .ups-m-gl-table thead th { color: var(--fg-muted); font-weight: 600; font-size: 11px; }
+.ups-m-gtd-table tr.cur td { color: var(--fg); font-weight: 600; }
+.ups-m-gtd-table tr.tot td { font-weight: 700; border-top: 1px solid var(--line); }
+.ups-m-gtd-table tr.opt td { color: var(--fg-muted); font-style: italic; }
+.ups-m-gtd-table tr.opt td[colspan] { text-align: left; }
+.ups-m-sheet-money .ups-m-sheet-kv + .ups-m-gtd-table + .ups-m-sheet-kv, .ups-m-sheet-money .ups-m-gtd-table + .ups-m-sheet-kv { margin-top: 12px; }
+/* Game log */
+.ups-m-gl-h { margin: 16px 0 0; }
+.ups-m-gl-table td.pts { font-weight: 700; }
+.ups-m-gl-table tr.bye td, .ups-m-gl-table tr.dim td { color: var(--fg-muted); }
+.ups-m-gl-table tr.bye td.pts, .ups-m-gl-table tr.dnp td.pts { font-weight: 600; letter-spacing: 0.04em; font-size: 11px; }
+.ups-m-gl-table tr.dnp td { color: var(--fg-muted); }
+.ups-m-gl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ups-m-gl-live { display: inline-block; width: 6px; height: 6px; margin-left: 3px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
+@media (max-width: 340px) { .ups-m-gl-table, .ups-m-gtd-table { font-size: 11px; } }
+.ups-m-gl-views { display: inline-flex; margin: 8px 0 0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.ups-m-gl-views button { font: 600 12px/1 inherit; min-height: 32px; padding: 0 12px; border: 0; background: transparent; color: var(--fg-muted); }
+.ups-m-gl-views button.on { background: var(--accent); color: var(--bg); }
+@media (max-width: 360px) { .ups-m-stat-table th, .ups-m-stat-table td { padding: 5px 4px; } }

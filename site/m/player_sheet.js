@@ -14,6 +14,12 @@
   var newsCache = {};          // pid → rendered-ready items[] from /api/player-news (see loadPlayerNews)
   var activeTab = "actions";   // player sheet tab: actions | stats | news | bio
   var currentBundle = null;    // /api/player-bundle result for the open player
+  var bundleState = "loading"; // "loading" | "ok" | "error" — the Stats tab never waits forever
+  // The game log's own read (/api/player-weekly-box, 2026-10-10): box score,
+  // snap counts and red-zone plays per week through the VERIFIED id map — the
+  // bundle's crosswalk predates the 2026 draft, so every rookie's log was
+  // empty. "unavailable" = the route isn't deployed: fall back to the bundle.
+  var weeklyBox = null, weeklyBoxState = "loading", glView = "box";
 
   // "2026-10-08" → "Oct 8, 2026". Same shape the Contracts list prints, so a
   // window date reads identically wherever the owner meets it. Parsed as a
@@ -81,26 +87,215 @@
     return s;
   }
 
-  function rowContractBlock(rosterRow) {
+  var CAP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // "2026-10-10T00:14:56.821Z" → "Oct 9, 8:14 PM" (viewer's clock); "" if unreadable.
+  function capTime(iso) {
+    var t = Date.parse(U.safeStr(iso));
+    if (isNaN(t)) return "";
+    var d = new Date(t), h = d.getHours(), m = d.getMinutes();
+    return CAP_MONTHS[d.getMonth()] + " " + d.getDate() + ", " + ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
+  }
+  function usd(n) { return "$" + Math.round(Number(n) || 0).toLocaleString("en-US"); }
+  // Table cells: the same whole dollars without the "$" (the caption says so),
+  // so a five-column year table fits a 320px phone.
+  function dol(n) { return Math.round(Number(n) || 0).toLocaleString("en-US"); }
+  function wkSpan(a, b) { return a === b ? "Wk " + a : "Wks " + a + "–" + b; }
+
+  // ── Contract money (Keith 2026-10-10) ──
+  // The headline is REMAINING GUARANTEED SALARY FOR THE WHOLE CONTRACT, not
+  // this season's unpaid salary. Canon (league_context_v1.md §D1 / §6.C1 /
+  // §C5.1): the guarantee is ONE pool for the contract, 75% of its total value
+  // (TCV re-based by a restructure, reset by an extension), minus every dollar
+  // earned under that contract — each finished season in full plus this season
+  // week by week over the contract's own earning window. That is exactly what
+  // the league cap engine (/api/cap-penalty/preview, the same function the drop
+  // cron charges with) returns as `penalty` for the standard rule, so the sheet
+  // shows the ENGINE's number and only explains it; nothing is computed here
+  // that could disagree with it:
+  //   - shown only when penalty = max(0, guaranteed − earned) holds on the row;
+  //   - the year-by-year split uses the guarantee in year order (verified to
+  //     sum to the engine's figure on all 218 standard contracts, 2026-10-10)
+  //     and is hidden when it doesn't add up or MFL's schedule is incomplete;
+  //   - the other rules (taxi, sub-$5K, small waiver deals) say what they are.
+  // It is NOT "salary − this season's earned" (Josh Allen: $88,000 − $20,706
+  // = $67,294, but his remaining guarantee is $66,000 − $20,706 = $45,294).
+  var STD_BASES = { guarantee_minus_earned: 1, no_penalty_zero: 1 };
+  var RULE_COPY = {
+    tcv_under_5k_flat: { amt: "flat", why: "A multi-year contract under $5K total costs a flat $1,000 to cut while 2 or more years remain (canon §D1). It is a set price, not salary earned down." },
+    full_year_1k_contract: { amt: "flat", why: "A $1,000-a-year contract costs a flat $1,000 to cut while 2 or more years remain (canon §D1). It has no weekly earning." },
+    tcv_under_5k_final_year_exempt: { amt: "zero", why: "A contract under $5K in its final year carries no guarantee (canon §D1/§D2)." },
+    one_year_under_5k_exempt: { amt: "zero", why: "A one-year contract under $5K carries no guarantee (canon §D2)." },
+    ww_under_5k_exempt: { amt: "zero", why: "A one-year waiver deal under $5K carries no guarantee (canon §D2)." },
+    ww_under_5k_earned_na: { amt: "zero", why: "A one-year waiver deal of $4K or less carries no guarantee; earned doesn’t apply (canon §6.C3)." },
+    taxi_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." },
+    taxi_callup_exempt: { amt: "zero", why: "A taxi player on a temporary call-up, never permanently promoted, still carries no guarantee (canon §B2/§D2)." }
+  };
+  // MFL's year schedule through the shared parser (site/shared/cap_math.js,
+  // the same one Front Office uses: bare "Y1-11" tokens are $K too). Unexercised
+  // rookie option years ("Y4-20K Option") are kept apart, never in the contract.
+  function contractSchedule(rosterRow, cap, season) {
+    var CM = window.UPS_CAP_MATH;
+    var info = U.safeStr(rosterRow && rosterRow.contractInfo);
+    var parsed = CM && CM.parseContractInfo ? CM.parseContractInfo(info) : { yearVals: {}, length: 0 };
+    var cl = Number(cap && cap.cl) || parsed.length || 0;
+    var played = Number(cap && cap.years_played);
+    if (!isFinite(played)) played = Math.max(0, cl - (parseInt(rosterRow && rosterRow.contractYear, 10) || 0));
+    // A one-year contract carries no Y-tokens in MFL (145 of them, 2026-10-10):
+    // its only year is this season's salary.
+    if (cl === 1 && parsed.yearVals[1] == null) {
+      var sal1 = Number(cap && cap.current_year_salary) || Number(rosterRow && rosterRow.salary) || 0;
+      if (sal1 > 0) parsed.yearVals[1] = sal1;
+    }
+    var opt = {}, re = /Y(\d+)\s*[-:]\s*\$?[0-9.]+\s*K?\s*Option/gi, m;
+    while ((m = re.exec(info))) opt[Number(m[1])] = true;
+    var years = [], complete = cl > 0;
+    for (var i = 1; i <= cl; i++) {
+      var v = parsed.yearVals[i];
+      if (v == null || opt[i]) complete = false;
+      years.push({ i: i, season: season - played + (i - 1), salary: v == null ? null : v });
+    }
+    var options = Object.keys(parsed.yearVals).map(Number).filter(function (k) { return k > cl || opt[k]; })
+      .map(function (k) { return { i: k, season: season - played + (k - 1), salary: parsed.yearVals[k] }; });
+    var sum = years.reduce(function (n, y) { return n + (y.salary || 0); }, 0);
+    if (Number(cap && cap.tcv) > 0 && sum !== Number(cap.tcv)) complete = false;
+    return { years: years, options: options, complete: complete, played: played, cl: cl };
+  }
+  // The guarantee used up in year order → per year { gtd, earned, left }.
+  function allocateGuarantee(sched, cap) {
+    var G = Number(cap.guaranteed) || 0, cum = 0, cur = sched.played + 1;
+    return sched.years.map(function (y) {
+      var sal = y.salary || 0;
+      var gtd = Math.max(0, Math.min(sal, G - cum));
+      cum += sal;
+      var earned = y.i < cur ? sal : (y.i === cur ? (Number(cap.current_year_earned) || 0) : 0);
+      return { season: y.season, salary: sal, earned: earned, gtd: gtd, left: Math.max(0, gtd - earned), current: y.i === cur, past: y.i < cur };
+    });
+  }
+
+  function contractMoneyHtml(pid, rosterRow) {
+    var year = parseInt(window.UPS_MOBILE.state.ctx && window.UPS_MOBILE.state.ctx.year, 10) || 0;
+    var meta = DATA.capPenaltyMeta ? DATA.capPenaltyMeta() : null;
+    var cap = DATA.capPenaltyFor ? DATA.capPenaltyFor(pid) : null;
+    var block = function (inner) { return '<div class="ups-m-sheet-block ups-m-sheet-money"><h4>Contract money</h4>' + inner + '</div>'; };
+    var warn = function (t) { return block('<div class="ups-m-sheet-how warn">' + U.escapeHtml(t) + '</div>'); };
+    if (!meta) return warn("Loading the remaining guarantee from the league cap engine…");
+    if (meta.status !== "ok") return warn("Remaining guaranteed is unavailable: the league cap engine couldn’t be reached. Reload to retry; this block shows no estimate in its place.");
+    var at = capTime(meta.calculatedAt);
+    var src = "League cap engine" + (at ? ", calculated " + at : "") + ".";
+    if (!cap) return warn("Remaining guaranteed is unavailable: this player isn’t in the league cap engine’s list. " + src);
+    if (cap.needs_review) return warn("Remaining guaranteed is under review" + (cap.review_reason ? " (" + cap.review_reason + ")" : "") + " — no number is shown. " + src);
+    var sched = contractSchedule(rosterRow, cap, year);
+    var kv = function (rows) {
+      return '<div class="ups-m-sheet-kv">' + rows.map(function (r) {
+        return '<div class="lbl' + (r[2] ? " hl" : "") + '">' + U.escapeHtml(r[0]) + '</div><div class="val' + (r[2] ? " hl" : "") + '">' +
+          U.escapeHtml(r[1]) + (r[3] ? '<small>' + U.escapeHtml(r[3]) + '</small>' : '') + '</div>';
+      }).join("") + '</div>';
+    };
+    var optionRows = sched.options.map(function (o) {
+      return '<tr class="opt"><td>' + o.season + '</td><td>' + dol(o.salary) + '</td><td colspan="3">option — not exercised</td></tr>';
+    }).join("");
+    var rule = RULE_COPY[cap.basis];
+    if (rule) {
+      var amt = Number(cap.penalty) || 0;
+      var schedLine = sched.years.filter(function (y) { return y.salary != null; }).map(function (y) { return y.season + " " + usd(y.salary); }).join(" · ");
+      return block(kv([["Remaining guaranteed", (rule.amt === "flat" ? usd(amt) + " flat" : usd(0)), true],
+          ["Salary by year", schedLine || "—"]]) +
+        (optionRows ? '<table class="ups-m-gtd-table"><tbody>' + optionRows + '</tbody></table>' : '') +
+        '<div class="ups-m-sheet-how"><b>Why.</b> ' + U.escapeHtml(rule.why + " " + src) + '</div>');
+    }
+    if (!STD_BASES[cap.basis]) return warn("Remaining guaranteed is unavailable: the cap engine priced this contract with a rule this screen doesn’t describe (" + U.safeStr(cap.basis) + "). " + src);
+    var G = Number(cap.guaranteed), E = Number(cap.earned), P = Number(cap.penalty);
+    if (!(isFinite(G) && isFinite(E) && isFinite(P)) || P !== Math.max(0, G - E)) {
+      return warn("Remaining guaranteed is unavailable: the cap engine’s figures for this contract don’t reconcile (guaranteed − earned ≠ its total). Nothing is shown in its place. " + src);
+    }
+    var tcv = Number(cap.tcv) || 0;
+    var alloc = sched.complete ? allocateGuarantee(sched, cap) : null;
+    var allocSum = alloc ? alloc.reduce(function (n, y) { return n + y.left; }, 0) : null;
+    if (alloc && allocSum !== P) alloc = null;   // never show a split that doesn't add up to the engine's figure
+    var earnedParts = [];
+    if (alloc) alloc.forEach(function (y) { if (y.past || y.current) earnedParts.push(y.season + " " + usd(y.earned) + (y.current && meta.earnedThroughWeek != null ? " thru Wk " + meta.earnedThroughWeek : "")); });
+    var gtdNote = (tcv > 0 && G === Math.floor(tcv * 0.75)) ? "of " + usd(G) + " guaranteed (75% of " + usd(tcv) + ")" : "of " + usd(G) + " guaranteed";
+    var rows = [["Remaining guaranteed", usd(P), true, gtdNote], ["Earned so far", usd(E), false, earnedParts.join(" · ")]];
+    var table = "";
+    if (alloc) {
+      table = '<table class="ups-m-gtd-table"><thead><tr><th>Year</th><th>Salary</th><th>Earned</th><th>Gtd</th><th>Left</th></tr></thead><tbody>' +
+        alloc.map(function (y) {
+          return '<tr' + (y.current ? ' class="cur"' : '') + '><td>' + y.season + '</td><td>' + dol(y.salary) + '</td><td>' + dol(y.earned) +
+            '</td><td>' + dol(y.gtd) + '</td><td>' + dol(y.left) + '</td></tr>';
+        }).join("") + optionRows +
+        '<tr class="tot"><td>Total</td><td>' + dol(alloc.reduce(function (n, y) { return n + y.salary; }, 0)) + '</td><td>' + dol(E) + '</td><td>' + dol(G) + '</td><td>' + dol(P) + '</td></tr>' +
+        '</tbody></table><div class="ups-m-gtd-cap">Dollars by contract year. Gtd = the guarantee used up in year order; Left = guaranteed and not yet earned.</div>';
+    } else {
+      table = '<div class="ups-m-sheet-how warn">MFL’s year-by-year schedule for this contract is incomplete, so the split by year isn’t shown. The totals above are the cap engine’s.</div>';
+    }
+    // This season's earning, from the same row (the Front Office "Per Wk" rule:
+    // salary ÷ this contract's own eligible weeks — never an assumed 17).
+    var how = (tcv > 0 && G === Math.floor(tcv * 0.75) ? "Guaranteed = 75% of the " + usd(tcv) + " total value = " + usd(G) + ". " : "Guaranteed = " + usd(G) + " (cap engine). ");
+    var seasonRows = [];
+    var weeks = cap.eligible_weeks != null ? Number(cap.eligible_weeks) : NaN;
+    var base = Number(cap.current_year_salary) > 0 ? Number(cap.current_year_salary) : Number(rosterRow && rosterRow.salary) || 0;
+    var cye = cap.current_year_earned == null ? NaN : Number(cap.current_year_earned);
+    var thru = meta.earnedThroughWeek;
+    if (weeks >= 1 && isFinite(cye)) {
+      var start = 18 - weeks, perWk = Math.round(base / weeks);
+      seasonRows = [[year + " salary", usd(base)], ["Earning window", wkSpan(start, 17) + " · " + weeks + " wk" + (weeks === 1 ? "" : "s")],
+        ["Per week", "≈ " + usd(perWk)], ["Earned this season", usd(cye) + (thru != null ? " · thru Wk " + thru : "")]];
+      var counted = thru != null ? Math.max(0, Math.min(weeks, thru - start + 1)) : null;
+      var prior = Number(cap.prior_earned) || 0;
+      how += "Earned counts each finished season in full" + (prior ? " (" + usd(prior) + ")" : "") + " plus this season by completed week: " +
+        ((counted != null && Math.round(base * counted / weeks) === cye)
+          ? usd(base) + " × " + counted + " ÷ " + weeks + " = " + usd(cye)
+          : usd(cye) + " so far") + " (this season’s earning window: " + wkSpan(start, 17) + "). ";
+    } else {
+      how += "Earned so far " + usd(E) + ". ";
+    }
+    how += (E >= G
+      ? "Earned " + usd(E) + " already covers the " + usd(G) + " guarantee, so remaining guaranteed is " + usd(P) + "."
+      : "Remaining guaranteed = " + usd(G) + " − " + usd(E) + " = " + usd(P) + ", what cutting him now would cost before the team’s rounding.");
+    if (alloc) {
+      var leftYears = alloc.filter(function (y) { return y.left > 0; }).map(function (y) { return y.season + " " + usd(y.left); });
+      if (leftYears.length) how += " By year the guarantee is used up in order, leaving " + leftYears.join(" and ") + ".";
+    }
+    how += " " + src;
+    return block(kv(rows) + table + (seasonRows.length ? kv(seasonRows) : "") +
+      '<div class="ups-m-sheet-how"><b>How it’s calculated.</b> ' + U.escapeHtml(how) + '</div>');
+  }
+
+  function contractBlockHtml(pid, rosterRow) {
     if (!rosterRow) return '';
-    var salary = U.fmtUsd(rosterRow.salary);
     var cy = U.safeStr(rosterRow.contractYear);
     var status = U.safeStr(rosterRow.contractStatus);
     var info = U.safeStr(rosterRow.contractInfo);
     var live = U.safeStr(rosterRow.status);
     var yrsRem = (cy && Number(cy) > 0) ? cy + " yr" + (cy === "1" ? "" : "s") + " left" :
                  (cy === "0" ? "Expired" : "—");
-    return '' +
+    var cap = DATA.capPenaltyFor ? DATA.capPenaltyFor(pid) : null;
+    var terms = [];
+    if (cap && Number(cap.cl) > 0) terms.push(["Length", cap.cl + " yr" + (Number(cap.cl) === 1 ? "" : "s") + " · " + yrsRem]);
+    else terms.push(["Years left", yrsRem]);
+    if (cap && Number(cap.tcv) > 0) terms.push(["Total value", usd(cap.tcv)]);
+    if (status) terms.push(["Type", status]);
+    if (live) terms.push(["Status", live]);
+    return contractMoneyHtml(pid, rosterRow) +
       '<div class="ups-m-sheet-block">' +
         '<h4>Contract</h4>' +
-        '<div class="ups-m-sheet-kv">' +
-          '<div class="lbl">Salary</div><div class="val">' + U.escapeHtml(salary) + '</div>' +
-          '<div class="lbl">Years left</div><div class="val">' + U.escapeHtml(yrsRem) + '</div>' +
-          (status ? '<div class="lbl">Type</div><div class="val">' + U.escapeHtml(status) + '</div>' : '') +
-          (live ? '<div class="lbl">Status</div><div class="val">' + U.escapeHtml(live) + '</div>' : '') +
-          (info ? '<div class="lbl">Notes</div><div class="val">' + U.escapeHtml(info) + '</div>' : '') +
-        '</div>' +
+        '<div class="ups-m-sheet-kv">' + terms.map(function (r) { return '<div class="lbl">' + U.escapeHtml(r[0]) + '</div><div class="val">' + U.escapeHtml(r[1]) + '</div>'; }).join("") + '</div>' +
+        (info ? '<div class="ups-m-sheet-mflnote">MFL contract note: ' + U.escapeHtml(info) + '</div>' : '') +
       '</div>';
+  }
+
+  // The verified UPS owner, under the name: Your team / {franchise} / Free
+  // agent / Owner unknown — the app's one ownership rule (DATA.ownerOfPid),
+  // the same one the Stats list's "TEAM · owner" tag reads.
+  function ownerChipHtml(pid) {
+    var own = ownerOf(pid);
+    var viewer = window.UPS_MOBILE.state.viewerFranchiseId;
+    var cls, txt;
+    if (!own.known) { cls = "unk"; txt = "Owner unknown"; }
+    else if (own.free) { cls = "fa"; txt = "Free agent"; }
+    else if (viewer && U.pad4(viewer) === own.fid) { cls = "mine"; txt = "Your team"; }
+    else { cls = "other"; txt = own.name || "Rostered"; }
+    return '<div class="ups-m-own-chip ' + cls + '">' + U.escapeHtml(txt) + '</div>';
   }
 
   function findRosterRowAcrossLeague(pid) {
@@ -237,16 +432,181 @@
     }).join("");
 
     return '' +
-      '<table class="ups-m-stat-table">' +
+      '<div class="ups-m-gl-wrap"><table class="ups-m-stat-table">' +
         '<thead><tr><th>Year</th><th title="MFL scored weeks: weeks MFL posted a score, 0.0 included. Not NFL games played.">MFL Wks</th>' +
           '<th>Pts</th><th title="Points per MFL scored week">PPG</th><th>PPG Rk</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
-      '</table>' +
+      '</table></div>' +
       '<div class="ups-m-stat-basis">' + U.escapeHtml(live
         ? live.season + ": " + live.basis
         : (!seasonScoring || !seasonScoring.known)
           ? curYear + ": points unavailable — MFL's scoring could not be read"
           : curYear + ": no scores posted yet; current-season points are not shown") + '</div>';
+  }
+
+  // ── Game log (Stats tab, Keith 2026-10-10) ──
+  // One row per week of this season: MFL's own league-scored points for that
+  // week (the same W=ALL read as every points number in the app) beside that
+  // week's box score from the player bundle the sheet already loads (nflverse,
+  // which runs a few days behind MFL). Week labels:
+  //   points        MFL posted a score row (0.0 included); ● = week in progress
+  //   BYE           no row and it's his NFL team's bye week (MFL's bye list)
+  //   DNP           no row in a finished week that wasn't his bye
+  //   not played    no row yet in the week still being played
+  var byeCache = { year: "", map: null, loading: false, failed: false };
+  function loadByes(year) {
+    if (byeCache.year === year && (byeCache.map || byeCache.loading)) return;
+    byeCache = { year: year, map: null, loading: true, failed: false };
+    var ctx = window.UPS_MOBILE.state.ctx || {};
+    fetch(API.workerUrl("/api/mfl-export?TYPE=nflByeWeeks&L=" + encodeURIComponent(ctx.leagueId || "") +
+        "&YEAR=" + encodeURIComponent(year) + "&JSON=1"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var m = {};
+        U.asArray(j && j.nflByeWeeks && j.nflByeWeeks.team).forEach(function (t) {
+          if (t && t.id) m[String(t.id).toUpperCase()] = parseInt(t.bye_week, 10);
+        });
+        byeCache.map = m; byeCache.loading = false; byeCache.failed = !j;
+        if (activeTab === "stats") renderTabBody();
+      })
+      .catch(function () {
+        byeCache.map = {}; byeCache.loading = false; byeCache.failed = true;
+        if (activeTab === "stats") renderTabBody();
+      });
+  }
+  function gameLogCols(grp) {
+    function n(v) { return v == null ? null : Number(v); }
+    function pair(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "/" + (Number(b) || 0); }
+    // "att-yds"; a loss reads "3-(−3)", not "3--3"
+    function dash(a, b) { if (a == null && b == null) return null; var y = Number(b) || 0; return (Number(a) || 0) + "-" + (y < 0 ? "(−" + (-y) + ")" : y); }
+    // Columns sized to fit a 320px sheet (agent measurements 2026-10-10).
+    if (grp === "QB") return [["Yds", function (r) { return n(r.pass_yds); }], ["TD", function (r) { return n(r.pass_tds); }],
+      ["Int", function (r) { return n(r.pass_ints); }], ["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }]];
+    if (grp === "RB") return [["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }], ["Rec", function (r) { return dash(r.receptions, r.rec_yds); }],
+      ["TD", function (r) { return (r.rush_tds == null && r.rec_tds == null) ? null : (Number(r.rush_tds) || 0) + (Number(r.rec_tds) || 0); }]];
+    if (grp === "WR" || grp === "TE") return [["Tgt", function (r) { return n(r.targets); }], ["Rec", function (r) { return n(r.receptions); }],
+      ["Yds", function (r) { return n(r.rec_yds); }], ["TD", function (r) { return n(r.rec_tds); }]];
+    if (grp === "DL" || grp === "LB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
+      ["Sk", function (r) { return n(r.def_sacks); }], ["TFL", function (r) { return n(r.def_tfl); }]];
+    if (grp === "DB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
+      ["PD", function (r) { return n(r.def_pass_def); }], ["INT", function (r) { return n(r.def_ints); }]];
+    if (grp === "PK") return [["FG", function (r) { return pair(r.fg_made, r.fg_att); }], ["XP", function (r) { return pair(r.xp_made, r.xp_att); }]];
+    if (grp === "PN") return [["Punts", function (r) { return n(r.punts); }], ["Yds", function (r) { return n(r.punt_yds); }], ["I20", function (r) { return n(r.punt_inside20); }]];
+    return [];
+  }
+  // Red-zone view of the game log (QB/RB/WR/TE): inside the 20, two-point
+  // tries excluded. No red-zone row in a week he has a box score = no red-zone
+  // plays (0); a field the data doesn't have yet (pre-0168 rows) = "—".
+  function gameLogRzCols(grp) {
+    function n(v) { return v == null ? null : Number(v); }
+    if (grp === "QB") return [["Att", function (z) { return n(z.pass_att_i20); }], ["Cmp", function (z) { return n(z.pass_cmp_i20); }],
+      ["TD", function (z) { return n(z.pass_tds_i20); }], ["Sk", function (z) { return n(z.sacks_i20); }]];
+    if (grp === "RB") return [["Car", function (z) { return n(z.rush_att_i20); }], ["I5", function (z) { return n(z.rush_att_i5); }],
+      ["TD", function (z) { return n(z.rush_tds_i20); }], ["Tgt", function (z) { return n(z.targets_i20); }]];
+    if (grp === "WR" || grp === "TE") return [["Tgt", function (z) { return n(z.targets_i20); }], ["Rec", function (z) { return n(z.rec_i20); }],
+      ["TD", function (z) { return n(z.rec_tds_i20); }], ["EZ", function (z) { return n(z.targets_ez); }]];
+    return [];
+  }
+  // Usage view (RB/WR/TE, 2026-10-10): his offensive snaps, his share of his
+  // team's offensive snaps in that game, and targets. A week with no snap row
+  // is "—" (not 0%); 0 offensive snaps with his team's total known is a real 0%.
+  function gameLogUsageCols() {
+    return [["Snaps", function (u) { return u.off; }],
+      ["Snap%", function (u) { return u.off == null || !u.team_off ? null : Math.round(100 * u.off / u.team_off) + "%"; }],
+      ["Tgt", function (u) { return u.tgt; }]];
+  }
+  var RZ_ZERO = { pass_att_i20: 0, pass_cmp_i20: 0, pass_tds_i20: 0, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, rush_tds_i20: 0,
+                  targets_i20: 0, rec_i20: 0, rec_tds_i20: 0, targets_ez: 0 };
+  function gameLogHtml(pid, bundle, state) {
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    if (!SSMOD || !ss || !ss.known || !ss.seasonWeeks || !ss.seasonWeeks.length) return "";
+    var season = Number(ss.season), last = ss.latestWeek;
+    var pl = DATA.playerById(pid);
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    var grp = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
+    var team = U.safeStr(pl && pl.team).toUpperCase();
+    loadByes(String(season));
+    var bye = byeCache.map ? byeCache.map[team] : null;
+    var st = ss.byPid[String(pid)];
+    var pts = (st && st.weeks) || {};
+    // Box score + snaps + red zone: the game log's own route when it answers,
+    // else the bundle's nfl_weekly (box only).
+    var wb = weeklyBoxState === "ok" && weeklyBox ? weeklyBox : null;
+    var box = {}, snaps = {}, rz = {}, boxMax = 0;
+    if (wb) {
+      U.asArray(wb.weeks).forEach(function (x) {
+        var w = Number(x.week);
+        if (x.box) { box[w] = x.box; boxMax = Math.max(boxMax, w); }
+        if (x.snaps) snaps[w] = x.snaps;
+        if (x.redzone) rz[w] = x.redzone;
+      });
+    } else {
+      U.asArray(bundle && bundle.nfl_weekly).forEach(function (r) {
+        if (r && Number(r.season) === season) { box[Number(r.week)] = r; boxMax = Math.max(boxMax, Number(r.week) || 0); }
+      });
+    }
+    var rzCols = wb ? gameLogRzCols(grp) : [];
+    var hasSnaps = Object.keys(snaps).length > 0;
+    var useUsage = !!wb && hasSnaps && (grp === "RB" || grp === "WR" || grp === "TE");
+    var view = rzCols.length && glView === "rz" ? "rz" : useUsage && glView === "usage" ? "usage" : "box";
+    var cols = view === "rz" ? rzCols : view === "usage" ? gameLogUsageCols() : gameLogCols(grp);
+    var live = {}; ss.liveWeeks.forEach(function (w) { live[w] = true; });
+    var boxState = wb ? "ok" : (weeklyBoxState === "loading" ? "loading" : state);
+    // Most recent week first: by Week 17 the live week would otherwise sit at
+    // the bottom of 17 rows.
+    var byesKnown = !!byeCache.map && !byeCache.failed;
+    var rows = [];
+    for (var w = last; w >= 1; w--) {
+      var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null, sn = snaps[w] || null;
+      var snapTot = sn ? (Number(sn.off) || 0) + (Number(sn.def) || 0) + (Number(sn.st) || 0) : null;
+      var label, cls = "", ttl = "";
+      if (has) label = (Math.round(pts[w] * 10) / 10).toFixed(1) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
+      else if (bye === w) { label = "BYE"; cls = "bye"; }
+      else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; ttl = "Not played yet"; }
+      // With snap counts: say what happened. A snap row with 0 snaps, or no
+      // snap row while his team played, is "no snaps" — not a guess.
+      // (only for a player with snap rows this season: no rows at all = no NFL team, not "no snaps")
+      else if (wb && wb.pfr_id && hasSnaps && (snapTot === 0 || (!sn && w <= (wb.box_through_week || 0)))) { label = "0 snp"; cls = "dnp"; ttl = "His team played; he had no snaps"; }
+      // DNP only when the bye list was read: otherwise a bye would be called DNP.
+      else if (byesKnown) { label = "DNP"; cls = "dnp"; ttl = "No MFL score this week"; }
+      else { label = "—"; cls = "dim"; }
+      var src = view === "rz" ? (rz[w] || (b ? RZ_ZERO : null))
+        : view === "usage" ? (sn || b ? { off: sn ? (sn.off == null ? null : Number(sn.off)) : null, team_off: sn && sn.team_off ? Number(sn.team_off) : null,
+                                          tgt: b ? (b.targets == null ? null : Number(b.targets)) : null } : null)
+        : b;
+      var cell = function (c) {
+        if (!src) return '<td>' + (boxState === "loading" && has ? "…" : "—") + '</td>';
+        var v = c[1](src); return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>';
+      };
+      rows.push('<tr class="' + cls + '"' + (ttl ? ' title="' + ttl + '"' : "") + '><td>' + w + (b && b.opponent ? ' <small>' + U.escapeHtml(b.opponent) + '</small>' : '') + '</td><td class="pts">' + label + '</td>' +
+        cols.map(cell).join("") + '</tr>');
+    }
+    var liveTxt = ss.liveWeeks.length ? " (● Wk " + ss.liveWeeks.join(", ") + " in progress)" : "";
+    var vbtn = function (id, label) {
+      return '<button type="button" data-glview="' + id + '" aria-pressed="' + (view === id) + '"' + (view === id ? ' class="on"' : "") + '>' + label + '</button>';
+    };
+    var toggle = rzCols.length || useUsage
+      ? '<div class="ups-m-gl-views" role="group" aria-label="Game log view">' + vbtn("box", "Box score") +
+          (useUsage ? vbtn("usage", "Usage") : "") + (rzCols.length ? vbtn("rz", "Red zone") : "") + '</div>'
+      : "";
+    var boxNote = boxState === "error" ? "Box score couldn’t be loaded — close and reopen to retry."
+      : boxState === "loading" ? "Loading the box score…"
+      : wb && !wb.gsis_id ? "Box score unavailable: no verified NFL id for this player, so only MFL points show."
+      : boxMax ? "Box score: nflverse" + (wb && wb.box_through_week ? ", Wks 1–" + wb.box_through_week : "; his latest row is Wk " + boxMax) + "."
+      : wb ? "No NFL stat rows for him this season" + (wb.box_through_week ? " (through Wk " + wb.box_through_week + ")" : "") + "."
+      : ss.finalThrough >= 1 && Object.keys(pts).length
+        ? "Box score isn’t linked for him: the player data has no NFL stat rows under his ID (often a rookie not yet matched), so only MFL points show."
+        : "No box score yet this season.";
+    return '<h4 class="ups-m-gl-h">' + season + ' game log</h4>' + toggle +
+      '<div class="ups-m-gl-wrap"><table class="ups-m-gl-table"><thead><tr><th>Wk · opp</th><th>Pts</th>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join("") + '</tr></thead>' +
+        '<tbody>' + rows.join("") + '</tbody></table></div>' +
+      '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
+        boxNote + (view === "rz" ? " Red zone: inside the opponent’s 20; two-point tries excluded; sacks are not attempts." : "") +
+        (view === "usage" ? " Usage: nflverse snap counts. Snap% = his offensive snaps ÷ his team’s offensive snaps that game; — = no snap row (Snaps, Snap%) or no box-score row (Tgt)." : "") +
+        (wb && wb.pfr_id && hasSnaps ? " 0 snp = his team played and he had no snaps." : "") +
+        (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows —, not DNP." : " DNP = no MFL score in a finished week that wasn’t his bye.") +
+        '</div>';
   }
 
   function statRowHtml(y, games, pts, ppg, ppgRank) {
@@ -258,6 +618,30 @@
       // A string is a word in place of a number ("unranked", current season).
       '<td>' + (typeof ppgRank === "string" ? U.escapeHtml(ppgRank) : (ppgRank > 0 ? ppgRank : 0)) + '</td>' +
     '</tr>';
+  }
+
+  // Actions tab: this season's actual MFL points in one line — the SAME
+  // numbers (liveSeasonRow) as the sheet's Stats tab and the Stats list row
+  // that opened it. Nothing when MFL's scoring isn't available.
+  function pointsSummaryHtml(pid) {
+    var live = liveSeasonRow(pid);
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    if (!live || !SSMOD || !ss) return "";
+    var span = SSMOD.weeksLabel(ss.seasonWeeks);
+    var pl = DATA.playerById(pid);
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    var grp = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
+    var rk = typeof live.rank === "number" && live.rank > 0 ? "#" + live.rank + (grp && grp !== "OTH" ? " " + grp : "") : (live.games > 0 ? "unranked" : "—");
+    var tile = function (v, l) { return '<div><b>' + U.escapeHtml(v) + '</b><small>' + U.escapeHtml(l) + '</small></div>'; };
+    return '<div class="ups-m-sheet-block ups-m-sheet-pts">' +
+      '<div class="ups-m-sheet-pts-row">' +
+        tile((Math.round(live.pts * 10) / 10).toFixed(1), "Pts · " + span) +
+        tile(live.games > 0 ? (Math.round(live.ppg * 10) / 10).toFixed(1) : "—", "PPG · " + live.games + " MFL wk" + (live.games === 1 ? "" : "s")) +
+        tile(rk, "PPG rank") +
+      '</div>' +
+      '<div class="ups-m-stat-basis">Actual MFL points, UPS scoring' + (ss.liveWeeks.length ? " · Wk " + ss.liveWeeks.join(", ") + " in progress" : "") + '</div>' +
+    '</div>';
   }
 
   // { season, games, pts, ppg, rank, basis } for the current season from MFL's
@@ -292,6 +676,132 @@
         " · PPG rank needs " + min + "+ MFL wk" + (min === 1 ? "" : "s")
     };
   }
+
+  var weeklyBoxCache = {};
+  function loadWeeklyBox(pid) {
+    var ctx = window.UPS_MOBILE.state.ctx || {};
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    var season = (ss && ss.season) || ctx.year;
+    var key = pid + "|" + season;
+    if (weeklyBoxCache[key]) return Promise.resolve(weeklyBoxCache[key]);
+    return fetch(API.workerUrl("/api/player-weekly-box?season=" + encodeURIComponent(season) + "&mfl_id=" + encodeURIComponent(pid) +
+        "&L=" + encodeURIComponent(ctx.leagueId || "")), { mode: "cors", credentials: "omit" })
+      .then(function (r) {
+        if (r.status === 404) return { state: "unavailable", data: null };
+        return r.ok ? r.json().then(function (j) { return j && j.ok ? { state: "ok", data: j } : { state: "error", data: null }; }) : { state: "error", data: null };
+      })
+      .then(function (res) { if (res.state === "ok") weeklyBoxCache[key] = res; return res; })
+      .catch(function () { return { state: "error", data: null }; });
+  }
+
+  // ── Injury and roster status (Keith 2026-10-10) ──
+  // ONE loader for the Stats → Players list and this sheet. /api/player-status
+  // gives this week's OFFICIAL NFL injury report designation (Out / Doubtful /
+  // Questionable, via nflverse) and the NFL roster designation (IR, IR – to
+  // return, PUP, NFI, Suspended — from MFL), each with its source's updated
+  // time. MFL's own Q/D/Out are NOT used: its export keeps them for weeks after
+  // they lapse (Wk 5 2026: 66 on free agents, 26 more absent from the official
+  // report). Never "healthy" by default: an unread or stale report is said in
+  // words, and "not on his team's report" needs that report to have been read.
+  var PSTAT = (function () {
+    var st = { season: "", state: "idle", data: null, at: 0, p: null };
+    var TTL = 5 * 60 * 1000;
+    // A refresh keeps showing the last good read until the new one lands
+    // (chips don't blink off); a failed refresh shows "unavailable".
+    function load(season, force) {
+      season = String(season || "");
+      if (!force && st.season === season && st.p) return st.p;
+      if (!force && st.season === season && st.state === "ok" && Date.now() - st.at < TTL) return Promise.resolve(st);
+      var ctx = window.UPS_MOBILE.state.ctx || {};
+      if (st.season !== season) { st.data = null; st.state = "loading"; }
+      st.season = season;
+      st.p = fetch(API.workerUrl("/api/player-status?season=" + encodeURIComponent(season) + "&L=" + encodeURIComponent(ctx.leagueId || "")),
+          { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          st.data = j && j.ok ? j : null; st.state = st.data ? "ok" : "error"; st.at = Date.now(); st.p = null;
+          st.mapped = null;
+          if (st.data && st.data.mapped_mfl_ids) { st.mapped = {}; st.data.mapped_mfl_ids.forEach(function (id) { st.mapped[String(id)] = 1; }); }
+          return st;
+        })
+        .catch(function () { st.data = null; st.state = "error"; st.at = Date.now(); st.p = null; st.mapped = null; return st; });
+      return st.p;
+    }
+    // MFL and nflverse spell six teams differently; either is accepted.
+    var NFLV_TO_MFL = { GB: "GBP", JAX: "JAC", KC: "KCC", LA: "LAR", LV: "LVR", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB" };
+    function clockEt(iso) {
+      var d = iso ? new Date(iso) : null;
+      if (!d || isNaN(d.getTime())) return "";
+      try { return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET"; }
+      catch (e) { return d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+    }
+    var SEV = { Out: "out", Doubtful: "d", Questionable: "q" };
+    var SHORT = { Out: "OUT", Doubtful: "D", Questionable: "Q" };
+    // MFL's roster designations when the route itself is unavailable: roster
+    // kinds only, never its Q/D/Out.
+    var FALLBACK = { "IR": ["IR", "Injured reserve"], "IR-R": ["IR-R", "Injured reserve – designated to return"], "IR-PUP": ["PUP", "Physically unable to perform"],
+      "IR-NFI": ["NFI", "Non-football injury list"], "SUSPENDED": ["SUSP", "Suspended"], "HOLDOUT": ["HOLD", "Holdout"], "RETIRED": ["RET", "Retired"] };
+    function why(feed) {
+      var r = U.safeStr(feed && feed.reason);
+      if (/not out yet/.test(r)) return r;
+      if (/not updated for/.test(r)) return "the report hasn’t been updated for " + r.replace(/^.*not updated for /, "");
+      if (/current NFL week unknown/.test(r)) return "the current NFL week couldn’t be read";
+      return "it couldn’t be read";
+    }
+    // → { chips: [{ t, cls, title }], report: "line", roster: "line" | "" }
+    function info(pid, team) {
+      pid = U.safeStr(pid); team = U.safeStr(team).toUpperCase(); team = NFLV_TO_MFL[team] || team;
+      var out = { chips: [], report: "", roster: "" };
+      var d = st.state === "ok" ? st.data : null;
+      var p = d && d.players ? d.players[pid] : null;
+      if (d) {
+        var f = d.report_feed || {};
+        var when = clockEt(f.updated_utc);
+        if (!f.current) out.report = "Injury report unavailable: " + why(f) + ". No tag doesn’t mean healthy.";
+        else if (p && p.report) {
+          var r = p.report;
+          if (r.status) out.chips.push({ t: SHORT[r.status], cls: SEV[r.status], title: "Wk " + f.week + " injury report: " + r.status });
+          out.report = "Wk " + f.week + " injury report: " + (r.status || "listed, no game status") + (r.injury ? " — " + r.injury : "") +
+            (r.practice ? " · practice: " + r.practice.replace(/ (Participation )?in Practice$/i, "").replace(/^Did Not Participate$/i, "did not practice") : "") +
+            " (NFL report, updated " + when + ").";
+        }
+        // Matching needs his verified NFL id: without one (or without the list
+        // of matched players) "not on the report" can't be said.
+        else if (!st.mapped) out.report = "Couldn’t tell whether he’s on the Wk " + f.week + " injury report.";
+        else if (!st.mapped[pid]) out.report = "No verified NFL id, so he can’t be matched to the injury report.";
+        else if (!team || team === "FA" || team === "FA*") out.report = "Free agent: not on an NFL team’s injury report.";
+        else if ((f.teams_mfl || []).indexOf(team) >= 0) out.report = "Not on " + team + "’s Wk " + f.week + " injury report (NFL, updated " + when + ").";
+        else out.report = "No Wk " + f.week + " injury report for " + team + " (a bye, or not out yet).";
+        if (p && p.roster) {
+          var ro = p.roster, rf = d.roster_feed || {};
+          out.chips.unshift({ t: ro.chip, cls: ro.chip === "HOLD" ? "ho" : "res", title: "NFL roster: " + ro.label });
+          out.roster = "Roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : "") + " — MFL, updated " + clockEt(rf.updated_utc) + ".";
+        }
+        else if (d.roster_feed && !d.roster_feed.ok) out.roster = "Roster designations (IR, PUP …) couldn’t be read.";
+      } else {
+        out.report = st.state === "loading" || st.state === "idle" ? "" : "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
+        var e = DATA.irEligibilityFor ? DATA.irEligibilityFor(pid) : null;
+        var fb = e && e.known ? FALLBACK[U.safeStr(e.designation).toUpperCase()] : null;
+        if (fb) { out.chips.push({ t: fb[0], cls: fb[0] === "HOLD" ? "ho" : "res", title: "NFL roster: " + fb[1] }); out.roster = "Roster: " + fb[1] + " — MFL."; }
+      }
+      return out;
+    }
+    function chipsHtml(pid, team, extra) {
+      return info(pid, team).chips.map(function (c) {
+        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
+      }).join("");
+    }
+    // One line for the Stats list: what the tags are and how fresh.
+    function listLine() {
+      if (st.state !== "ok") return st.state === "error" ? "Injury tags unavailable — no tag doesn’t mean healthy." : "";
+      var f = st.data.report_feed || {}, rf = st.data.roster_feed || {};
+      var a = f.current ? "Tags: NFL injury report Wk " + f.week + " (" + clockEt(f.updated_utc) + ")" : "Injury report unavailable (" + why(f) + "), so no Q/D/OUT tags — no tag doesn’t mean healthy";
+      return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.") +
+        (f.current ? " No tag: not on the report, a bye, or unmatched — tap him for which." : "");
+    }
+    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, state: function () { return st.state; }, _st: st };
+  })();
+  window.UPS_MOBILE_PLAYER_STATUS = PSTAT;
 
   function loadBundle(pid) {
     if (bundleCache[pid]) return Promise.resolve(bundleCache[pid]);
@@ -369,21 +879,37 @@
   function ownerOf(pid) {
     return (DATA.ownerOfPid && DATA.ownerOfPid(pid)) || { known: false, free: false, fid: "" };
   }
+  // Why ownership is unknown, in one plain clause.
+  function unknownWhy() {
+    var own = DATA.rosterOwnership ? DATA.rosterOwnership() : null;
+    if (!own || !own.readable) return "MFL’s rosters couldn’t be read, so we can’t tell whether he’s available.";
+    return "MFL’s rosters didn’t fully load, so we can’t tell whether he’s available.";
+  }
 
   function renderActionsFooter(pid, rosterRow, ownsPlayer, opts) {
     opts = opts || {};
     if (!ownsPlayer) {
-      // A CONFIRMED free agent → offer the live acquisition path. A rosterRow
-      // owned by someone ELSE = trade territory, which lives in the Market row /
-      // Trades view, so that case still just gets Close. Ownership unknown (no
-      // rosterRow, rosters read incomplete) → no add, no bid, no FCFS.
-      var acq = "";
-      if (!rosterRow) {
-        acq = ownerOf(pid).free
-          ? renderAcquisitionBlock(pid)
-          : '<div class="ups-m-sheet-acq"><div class="ups-m-acq-note">Ownership unknown — no add or bid until MFL’s rosters load.</div></div>';
+      var closeBtn = '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+      var own = ownerOf(pid);
+      // OWNERSHIP UNKNOWN (MFL's rosters unreadable or partial): no add, no
+      // bid, no FCFS — and no trade either, since we can't say whose he is.
+      if (!own.known) {
+        return '<div class="ups-m-sheet-acq"><div class="ups-m-acq-note">Ownership unknown — ' + U.escapeHtml(unknownWhy()) +
+          ' No add or bid until MFL’s rosters load; pull down to refresh.</div></div>' + closeBtn;
       }
-      return acq + '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+      // Another team's player: Propose trade opens the EXISTING builder with
+      // him preloaded on the "get" side. Opening it only reads both rosters;
+      // nothing is sent until "Send offer" on its review step.
+      if (!own.free) {
+        var viewerFid = window.UPS_MOBILE.state.viewerFranchiseId;
+        var canTrade = own.fid && viewerFid && window.UPS_MOBILE.tradeView && window.UPS_MOBILE.tradeView.openBuilder;
+        return (canTrade
+          ? '<div class="ups-m-sheet-actions one"><button class="btn-act trade" data-act="propose-trade" data-fid="' +
+              U.escapeHtml(own.fid) + '" data-pid="' + U.escapeHtml(String(pid)) + '">Propose trade to ' + U.escapeHtml(own.name || "their team") + '</button></div>'
+          : '') + closeBtn;
+      }
+      // A CONFIRMED free agent → the live acquisition path (unchanged).
+      return renderAcquisitionBlock(pid) + closeBtn;
     }
     var s = window.UPS_MOBILE.state;
     var otbIds = DATA.getMyTradeBaitIds();
@@ -679,46 +1205,14 @@
     wireFooterActions();
   }
 
-  // ERA forced retention (league_context_v1.md §A3): a player won in the
-  // CURRENT cycle's Expired Rookie Auction cannot be cut until the FA Auction
-  // CLOSES ("you bid, you hold through auction"). The worker is the authority
-  // — it blocks the real drop — so we hide the Drop button up front and the
-  // owner never taps into that error. The check is a DRY-RUN drop: the
-  // worker's ERA gate runs before the dry-run short-circuit, so it returns the
-  // block precisely (current-cycle winners only, auto-lifts when the auction
-  // closes) without touching MFL. Fired only for "-era" contracts; fail-open
-  // (leave Drop) on any error since the worker still enforces it.
-  function gateEraRetentionDrop(foot, dropBtn) {
-    if (!dropBtn || !foot) return;
-    var status = U.safeStr(footerState.rosterRow && footerState.rosterRow.contractStatus).toLowerCase();
-    if (status.indexOf("-era") === -1) return;
-    var s = window.UPS_MOBILE.state;
-    var pidAtFire = U.safeStr(footerState.pid);
-    fetch(window.UPS_MOBILE.api.workerBase() + "/roster-workbench/action", {
-      method: "POST", mode: "cors", credentials: "omit",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "drop_player", dry_run: 1,
-        league_id: s.ctx.leagueId, season: s.ctx.year,
-        franchise_id: U.pad4(s.viewerFranchiseId),
-        player_id: pidAtFire
-      })
-    }).then(function (r) { return r.json(); }).then(function (b) {
-      var blocked = b && (b.code === "ERA_FORCED_RETENTION" || (b.gate && b.gate.blocked === true));
-      if (!blocked) return;
-      if (U.safeStr(footerState.pid) !== pidAtFire) return;   // sheet moved on
-      var live = foot.querySelector('[data-act="drop"]');
-      if (live && live.parentNode) live.parentNode.removeChild(live);
-      if (!foot.querySelector(".ups-m-era-lock")) {
-        var actions = foot.querySelector(".ups-m-sheet-actions");
-        var note = document.createElement("div");
-        note.className = "ups-m-era-lock";
-        note.textContent = "🔒 Won in the " + s.ctx.year + " Expired Rookie Auction — can’t be cut until the FA Auction closes (forced retention, §A3).";
-        if (actions && actions.parentNode) actions.parentNode.insertBefore(note, actions.nextSibling);
-        else foot.appendChild(note);
-      }
-    }).catch(function () { /* fail-open — worker still enforces the block */ });
-  }
+  // ERA forced retention (league_context_v1.md §A3) is enforced by the WORKER
+  // on the real drop: /roster-workbench/action runs _eraRetentionBlocked for
+  // drop_player and unload_player before it touches MFL, and handleDrop shows
+  // its refusal ("Drop failed: …won in the 2026 Expired Rookie Auction…").
+  // The sheet used to POST a dry-run drop_player the moment one of your ERA
+  // players was OPENED, to hide the Drop button early. Opening a player must
+  // never call a write route — and that probe had been refused (403, no
+  // MFL_USER_ID) since 2026-08-07, so it hid nothing. Removed 2026-10-09.
 
   function wireFooterActions() {
     var foot = document.getElementById("ups-m-sheet-foot");
@@ -743,7 +1237,14 @@
     if (save) save.addEventListener("click", function () { handleOTBSave(save); });
     if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
     if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
-    gateEraRetentionDrop(foot, drop);
+    // Propose trade (another team's player): close the sheet, open the builder.
+    var trade = foot.querySelector('[data-act="propose-trade"]');
+    if (trade) trade.addEventListener("click", function () {
+      var tfid = this.getAttribute("data-fid"), tpid = this.getAttribute("data-pid");
+      window.UPS_MOBILE.sheet.close();
+      var TV = window.UPS_MOBILE.tradeView;
+      if (TV && TV.openBuilder) TV.openBuilder({ toFid: tfid, preGetPid: tpid });
+    });
     // Waiver acquisition (unrostered players). The flows live in
     // views/players.js (M.waiverUI) so the Market tab and this sheet can
     // never disagree about what window we're in. Close the sheet first —
@@ -2103,10 +2604,27 @@
   function renderTabBody() {
     var body = document.getElementById("ups-m-sheet-body");
     if (!body) return;
+    if (!body.__upsGlBound) {   // the game log's Box score / Red zone switch (delegated: the body re-renders)
+      body.__upsGlBound = true;
+      body.addEventListener("click", function (ev) {
+        var t = ev && ev.target && ev.target.closest ? ev.target.closest("[data-glview]") : null;
+        if (!t) return;
+        var gv = t.getAttribute("data-glview");
+        glView = gv === "rz" || gv === "usage" ? gv : "box";
+        renderTabBody();
+      });
+    }
     if (activeTab === "stats") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats">' +
-          (currentBundle ? renderStatsBlock(currentBundle) : '<div class="ups-m-sheet-loading">Loading…</div>') +
+          // MFL points don't wait for the bundle (it only adds earlier seasons'
+          // history and the box scores), and a failed bundle says so instead of
+          // "Loading…" forever.
+          (currentBundle ? renderStatsBlock(currentBundle)
+            : '<div class="ups-m-sheet-loading">' + (bundleState === "error"
+                ? "Season history couldn’t be loaded — close and reopen to retry."
+                : "Loading season history…") + '</div>') +
+          gameLogHtml(footerState.pid, currentBundle, bundleState) +
         '</div></div>';
     } else if (activeTab === "news") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Player News</h4>' +
@@ -2119,11 +2637,11 @@
     } else {
       // Actions tab — contract context; the action buttons sit in the foot.
       // No roster row is "Free agent" only for a CONFIRMED free agent.
-      body.innerHTML = rowContractBlock(footerState.rosterRow) ||
+      body.innerHTML = pointsSummaryHtml(footerState.pid) + (contractBlockHtml(footerState.pid, footerState.rosterRow) ||
         (ownerOf(footerState.pid).free
           ? '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>'
           : '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Ownership unknown — couldn’t read all of MFL’s rosters, ' +
-            'so we can’t tell whether he’s on a team. Close this and pull down to refresh.</div></div>');
+            'so we can’t tell whether he’s on a team. Close this and pull down to refresh.</div></div>'));
     }
   }
   // ── Player News ───────────────────────────────────────────────────────────
@@ -2310,49 +2828,33 @@
       ? '<img class="ups-m-sheet-photo" src="' + U.escapeHtml(photoUrl) + '" alt="' + U.escapeHtml(name || pid) + '" onerror="' + photoOnError + '">'
       : '<div class="ups-m-sheet-photo-placeholder"></div>';
 
-    // NFL designation chip, right beside the name (Keith 2026-08-15: "make him
+    // NFL designation chips right beside the name (Keith 2026-08-15: "make him
     // stand out more with a red S or something ... do the same with any injury
-    // designation (Q, Out, whatever)"). The sheet previously showed NOTHING
-    // here, so a suspended player looked identical to a healthy one — which is
-    // precisely how James Pearce's suspension went unnoticed.
-    //
-    // Severity drives the colour, not the letter: OUT / IR / IR-PUP / IR-NFI /
-    // SUSPENDED / RETIRED are red, DOUBTFUL amber, QUESTIONABLE yellow, and
-    // HOLDOUT its own tone (a contract dispute, not an injury).
-    //
-    // An absent designation renders NOTHING rather than a "healthy" chip: the
-    // feed can be unreadable, and a clean bill of health we did not earn is a
-    // lie. irEligibilityFor returns known:false in that case and we stay quiet.
-    var injChip = "";
-    (function () {
-      if (!DATA.irEligibilityFor) return;
-      var e = DATA.irEligibilityFor(pid);
-      if (!e || !e.known) return;
-      var d = U.safeStr(e.designation).toUpperCase();
-      if (!d) return;
-      var short = d === "QUESTIONABLE" ? "Q"
-                : d === "DOUBTFUL" ? "D"
-                : d === "OUT" ? "OUT"
-                : d.indexOf("SUSPEND") === 0 ? "S"
-                : d === "RETIRED" ? "RET"
-                : d.indexOf("HOLDOUT") === 0 ? "HO"
-                : d;                        // IR, IR-PUP, IR-NFI pass through
-      var sev = (d === "QUESTIONABLE") ? "q"
-              : (d === "DOUBTFUL") ? "d"
-              : (d.indexOf("HOLDOUT") === 0) ? "ho"
-              : "out";                      // everything else is the red tier
-      injChip = '<span class="ups-m-inj-chip ' + sev + '" title="' +
-                U.escapeHtml("NFL status: " + d) + '">' + U.escapeHtml(short) + '</span>';
-    })();
-
-    head.innerHTML =
-      '<div class="ups-m-sheet-head-row">' +
+    // designation (Q, Out, whatever)"; a suspension once went unnoticed here).
+    // Status chips beside the name and a line under it: this week's official
+    // NFL injury report designation and the NFL roster designation, each from
+    // its own verified source (PSTAT above). Severity drives the colour: OUT
+    // red, D amber, Q yellow; IR / IR-R / PUP / NFI / SUSP / RET the reserve
+    // tone; HOLD its own. No chip is never a claim of health — the line says
+    // why there's none.
+    var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
+    function statusHtml() {
+      var inf = PSTAT.info(pid, team);
+      return { chips: PSTAT.chipsHtml(pid, team), lines: [inf.report, inf.roster].filter(Boolean) };
+    }
+    function headHtml(stNow) {
+      return '<div class="ups-m-sheet-head-row">' +
         photoHtml +
         '<div class="ups-m-sheet-head-text">' +
-          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + injChip + '</div>' +
+          '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + stNow.chips + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
+          '<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' + U.escapeHtml(stNow.lines.join(" ")) + '</div>' +
+          ownerChipHtml(pid) +
         '</div>' +
       '</div>';
+    }
+    var stFirst = statusHtml();
+    head.innerHTML = headHtml(stFirst);
 
     var rosterRow = opts.rosterRow || (findRosterRowAcrossLeague(pid) || {}).row || null;
     var ownsPlayer = isOwnRoster(pid);
@@ -2367,6 +2869,8 @@
     // Tabs default to Actions; the action buttons render into the sticky foot
     // (shown only on the Actions tab). Stats/Bio lazy-render from the bundle.
     currentBundle = null;
+    bundleState = "loading";
+    weeklyBox = null; weeklyBoxState = "loading"; glView = "box";
     activeTab = "actions";
     var tabsNav = document.getElementById("ups-m-sheet-tabs");
     if (tabsNav) tabsNav.innerHTML = renderTabNav();
@@ -2383,16 +2887,34 @@
      * re-rendering the Stats/Bio tab under B's name — a fast double-tap or the
      * global player search (player_search.js) reopening in quick succession
      * both reach this. Same pattern already used for the ERA drop-gate fetch
-     * at gateEraRetentionDrop:613/626 and for news at paintPlayerNews:2064,
+     * for news at paintPlayerNews,
      * just checked against footerState.pid instead of a DOM node's presence
      * since the bundle has no DOM identity of its own to test. */
     var pidAtFire = pid;
+    PSTAT.load(ctxYear).then(function () {
+      if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
+      var now = statusHtml();
+      if (now.chips !== stFirst.chips || now.lines.join(" ") !== stFirst.lines.join(" ")) head.innerHTML = headHtml(now);
+    });
+    loadWeeklyBox(pid).then(function (res) {
+      if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
+      weeklyBox = res.data; weeklyBoxState = res.state;
+      if (activeTab === "stats") renderTabBody();
+    });
     loadBundle(pid).then(function (bundle) {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       currentBundle = bundle;
+      bundleState = bundle ? "ok" : "error";
       if (activeTab === "stats" || activeTab === "bio") renderTabBody();
     });
   }
+
+  // The cap batch can land after the sheet opened (boot still loading): repaint
+  // the contract block so "Loading…" turns into the worker's numbers.
+  window.addEventListener("ups-cap-penalty-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
+  });
 
   window.UPS_MOBILE.sheet = {
     open: open,

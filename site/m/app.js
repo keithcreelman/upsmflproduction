@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.09.4";
+  var BUILD = "2026.10.10.13";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -341,6 +341,7 @@
                                 // plan; null = never — so a plan saved before
                                 // this existed is reconciled once.
     capPenaltyByPid: null,      // /api/cap-penalty/preview BATCH — authoritative drop penalties
+    capPenaltyMeta: null,       // how that read went: null (pending) | { status: "ok"|"error", calculatedAt, earnedThroughWeek }
     // ── Hot/Cold (MFL platform-wide add/drop trend, Market screen sort) ────
     // GET /api/hot-cold — MFL's own topAdds ("Who's Hot?") / topDrops
     // ("Who's Cold?") export, free agents only. Lazy: fetched only when the
@@ -910,14 +911,32 @@
   // only falls back to its local estimate when this hasn't landed (offline /
   // worker down). Fetched once per load; fail-open to {} so a worker blip never
   // blocks boot. (Keith: the owner-facing preview must equal the actual charge.)
+  //
+  // state.capPenaltyMeta records how that read went, so a screen can say WHY a
+  // number is missing instead of guessing one: null = not back yet, status
+  // "ok" with the worker's own calculated_at + earned_through_week (the last
+  // completed week its "earned" counts), or status "error". The player sheet's
+  // contract block cites both.
   function fetchCapPenaltyPreview() {
     var url = workerUrl("/api/cap-penalty/preview") +
       "?L=" + encodeURIComponent(state.ctx.leagueId) +
       "&YEAR=" + encodeURIComponent(state.ctx.year);
     return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return (j && j.ok && j.players) ? j.players : {}; })
-      .catch(function () { return {}; });
+      .then(function (j) {
+        if (j && j.ok && j.players) {
+          state.capPenaltyMeta = {
+            status: "ok", readAt: Date.now(),
+            calculatedAt: safeStr(j.calculated_at),
+            earnedThroughWeek: j.earned_through_week == null ? null : Number(j.earned_through_week),
+            season: safeStr(j.season)
+          };
+          return j.players;
+        }
+        state.capPenaltyMeta = { status: "error", readAt: Date.now() };
+        return {};
+      })
+      .catch(function () { state.capPenaltyMeta = { status: "error", readAt: Date.now() }; return {}; });
   }
 
   function buildLeaderboardMap(perAliasArrays) {
@@ -1573,8 +1592,8 @@
   // Who owns a player, from LIVE MFL rosters (state.rosters, the TYPE=rosters
   // read loadAllData makes at boot and on every reloadData). The Players list,
   // the player sheet, global search and the waiver Bid / Add controls all read
-  // it through DATA.rosterOwnership() / DATA.ownerOfPid(). views/stats.js has
-  // its own copy of the same rule (liveOwners, #1203).
+  // it through DATA.rosterOwnership() / DATA.ownerOfPid() — and so does the
+  // Stats list (views/stats.js), which used to carry its own copy (#1203).
   //
   // fetchJson returns null on ANY failure, and MFL can also answer with an
   // empty or partial payload (a franchise missing, or listed with no players).
@@ -1631,6 +1650,9 @@
   //   { known: true, free: true,  fid: "" }    a CONFIRMED free agent
   //   { known: false, free: false, fid: "" }   ownership unknown
   function ownerOfPid(pid) {
+    // No id → unknown. Looking up "" read as a CONFIRMED free agent whenever the
+    // rosters were complete (3 Stats rows carried no MFL id on 2026-10-09).
+    if (!safeStr(pid)) return { known: false, free: false, fid: "" };
     var own = rosterOwnership();
     var fid = own.byPid[safeStr(pid)] || "";
     if (fid) {
@@ -3767,6 +3789,7 @@
       dropPenaltyFor: dropPenaltyFor,
       // Authoritative /api/cap-penalty/preview row for one pid (or null).
       capPenaltyFor: capPenaltyFor,
+      capPenaltyMeta: function () { return state.capPenaltyMeta; },
       getMyTradeBaitIds: getMyTradeBaitIds,
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
       getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
