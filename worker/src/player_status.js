@@ -147,14 +147,18 @@ export async function loadPlayerStatus(db, { season, fetchImpl = fetch, now = Da
       : { error: "HTTP " + r.status }).catch((e) => ({ error: String(e && e.message || e) })),
     fetchImpl(MFL_INJURIES_URL(season), opts(120)).then(async (r) => r.ok ? { payload: await r.json() } : { error: "HTTP " + r.status })
       .catch((e) => ({ error: String(e && e.message || e) })),
-    db.prepare("SELECT mfl_id, gsis_id FROM player_id_map WHERE accepted = 1 AND gsis_id LIKE '00-%'").all()
+    db.prepare("SELECT mfl_id, gsis_id, accepted FROM player_id_map").all()
       .then((x) => (x && x.results) || []).catch(() => []),
   ]);
-  const gsisToMfl = {};
-  for (const r of map) gsisToMfl[r.gsis_id] = String(r.mfl_id);
+  const gsisToMfl = {}, unmapped = [];
+  for (const r of map) {
+    if (Number(r.accepted) === 1 && /^00-\d+/.test(r.gsis_id || "")) gsisToMfl[r.gsis_id] = String(r.mfl_id);
+    else unmapped.push(String(r.mfl_id));
+  }
   const out = assemble({ reportRows: rep.rows, reportModified: rep.modified, reportError: rep.error,
                          mflPayload: mfl.payload, mflError: mfl.error || (mfl.payload && !mfl.payload.injuries ? "no injuries node" : null),
                          gsisToMfl, now });
   out.id_map_rows = map.length;
+  out.unmapped_mfl_ids = unmapped.sort();   // no verified NFL id: can't be matched to the report
   return out;
 }

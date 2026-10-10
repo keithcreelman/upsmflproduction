@@ -96,6 +96,7 @@ test("the route: /api/player-status joins by the verified id map and says when e
     t.deepEqual([a.json.report_feed.current, a.json.report_feed.week, a.json.players["101"].report.status, a.json.players["101"].roster.chip],
       [true, 5, "Doubtful", "IR-R"]);
     t.equal(a.json.players["103"], undefined, "an unaccepted map row resolves nobody");
+    t.deepEqual(a.json.unmapped_mfl_ids, ["103"], "so the sheet can say 'no verified NFL id', not 'not on the report'");
     t.ok(a.json.report_feed.updated_utc && a.json.roster_feed.updated_utc === "2026-10-10T14:01:03.000Z");
     report = null;
     const b = await get();
