@@ -182,6 +182,16 @@ export async function handle3WayHttp(a) {
           { teams: [{ franchise_id: myViolation.franchise_id, franchise_name: myViolation.franchise_name, projected: myViolation.projected, max: myViolation.max }] });
       }
     }
+    // FIVE ACTIVE QBs (canon §B1 in-season trade rule, Keith 2026-10-07/08): "no War Room trade (two-team or 3-way) can be
+    // SENT or accepted if either team would have more than five QBs on its active roster right after MFL executes the
+    // trade." The two-team Send has refused this since revision 1; the 3-way create did not (review 2026-10-09) — the
+    // execute gate stopped it, but only after the partners were invited. ANY of the three teams over 5 refuses the send,
+    // nothing is stored and no one is DMed. Like the two-team Send, an UNREADABLE count doesn't stop it (execution fails closed).
+    if (createCompliance.qb_limit && createCompliance.qb_limit.status === "blocked") {
+      const qbv = createCompliance.qb_limit.violations || [];
+      return fail(409, "qb_limit_exceeded", qbv.map((v) => safeStr(v.message)).join(" ") || "This trade would leave a team over 5 active QBs.",
+        { teams: qbv.map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, active_qbs_after: v.active_qbs_after, max: v.max })) });
+    }
   }
   const created = await create3WayTrade(env, ctx, {
     leagueId, season,

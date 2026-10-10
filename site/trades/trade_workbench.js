@@ -6746,7 +6746,12 @@
       }
       if (!violations.length) entries.push({ text: "This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first.", bad: true });
     } else if (state.offerCompliance.status === "unavailable") {
-      entries.push({ text: "Cannot verify loaded-contract limit. Try again in a moment.", bad: true });
+      // Name the limit that couldn't be verified (review 2026-10-09): with the loaded-contract count fine, an
+      // unverifiable five-QB count used to read "Cannot verify loaded-contract limit". The server's QB message
+      // says why (e.g. the league calendar doesn't establish the in-season window yet).
+      var qbU = state.offerCompliance.qbLimit, lcU = state.offerCompliance.loadedContracts;
+      if (qbU && qbU.status === "unavailable" && lcU && lcU.status === "ok") entries.push({ text: safeStr(qbU.message) || "Cannot verify the active-QB count. Try again in a moment.", bad: true });
+      else entries.push({ text: "Cannot verify loaded-contract limit. Try again in a moment.", bad: true });
     } else if (state.offerCompliance.status === "loading") {
       entries.push({ text: "Checking the loaded-contract limit…", bad: false });
     }
@@ -6755,6 +6760,10 @@
     // count, the count after any taxi move the accept will make, and the spots still needed.
     var rlv = state.offerCompliance.rosterLimit && state.offerCompliance.rosterLimit.status === "blocked" ? (state.offerCompliance.rosterLimit.violations || []) : [];
     for (i = 0; i < rlv.length; i += 1) entries.push({ text: safeStr(rlv[i].message) + " The offer can still be sent, but it can't be accepted until that's done.", bad: true });
+    // The league calendar can't yet say which roster maximum applies and this trade depends on it (e.g. next season's
+    // FA Auction start isn't entered): Send is still allowed, but Accept will be refused until it is — say so now.
+    var rlu = state.offerCompliance.rosterLimit;
+    if (rlu && rlu.status === "unavailable" && rlu.window && rlu.window.phase === "unknown" && safeStr(rlu.message)) entries.push({ text: safeStr(rlu.message) + " The offer can still be sent, but it can't be accepted until that's settled.", bad: true });
     for (i = 0; i < entries.length; i += 1) {
       var alert = document.createElement("div");
       alert.className = "twb-offer-alert" + (entries[i].bad ? " twb-offer-alert-bad" : "");

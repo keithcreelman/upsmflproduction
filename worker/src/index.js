@@ -40681,7 +40681,12 @@ const mflToSleeper = {};
                 for (const [blockKey, code, label] of [["roster_limit", "roster_room_required", "roster maximum"], ["qb_limit", "qb_limit_exceeded", "active-QB count"]]) {
                   const gate = acceptCompliance[blockKey];
                   if (!gate || gate.status === "unavailable") {
-                    return integrityFail(503, `${blockKey}_check_unavailable`, `We couldn't verify the ${label} for this trade right now, so it wasn't accepted. Try again in a moment.`, { compliance: acceptCompliance });
+                    // A season window the league calendar can't establish is named, never "try again" (review 2026-10-09):
+                    // a missing calendar input (e.g. next season's FA Auction start or contract deadline) won't fix itself.
+                    const gw = gate && gate.window;
+                    const why = gw && gw.phase === "unknown" && gate.message ? safeStr(gate.message) : "";
+                    if (why && gw.calendar_input_missing) return integrityFail(409, `${blockKey}_calendar_missing`, `${why} Nothing was changed.`, { compliance: acceptCompliance });
+                    return integrityFail(503, `${blockKey}_check_unavailable`, why ? `${why} Nothing was changed; try again in a moment.` : `We couldn't verify the ${label} for this trade right now, so it wasn't accepted. Try again in a moment.`, { compliance: acceptCompliance });
                   }
                   if (gate.status === "blocked") {
                     const blocked = tradeLimitBlockPayload(gate, code);
@@ -52463,7 +52468,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         let rcOpen = [];
         const rcResolvedAt = new Map();
         try {
-          const { results } = await env.UPS_MFL_DB.prepare("SELECT check_key, franchise_id, kind, status, trade_ts, deadline_unix, escalated_at_utc, updated_at_utc FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND status IN ('sending', 'notified', 'resolved') ORDER BY trade_ts")
+          const { results } = await env.UPS_MFL_DB.prepare("SELECT check_key, franchise_id, kind, status, trade_ts, deadline_unix, escalated_at_utc, updated_at_utc, message FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND status IN ('sending', 'notified', 'resolved') ORDER BY trade_ts")
             .bind(rcLeague, rcSeason).all();
           for (const r of results || []) {
             if (r.status === "resolved") {
@@ -52527,6 +52532,23 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         };
         const rcEt = (unix) => new Date(unix * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
         const rcAge = (iso) => rcNow - Math.floor((Date.parse(iso) || 0) / 1000);
+        const rcWindowStart = Math.max(rcSince, rcNow - rcWindowSec);
+        // the owner's DM + the commissioner's copy for one alert → { owner, commish } (counts of DMs that landed)
+        const rcSend = async (fid, teamName, msg) => {
+          let owner = 0, commish = 0;
+          try { const ids = await resolveDiscordUserIds(env, fid); if (ids.length) owner = (await dmAll(env, ids, { content: msg, allowed_mentions: { parse: [] } })).sent || 0; } catch (_) {}
+          try { commish = await dmCommish(env, rosterCheckCommishCopy({ teamName, message: msg, ownerReached: owner > 0 })); } catch (_) {}
+          return { owner, commish };
+        };
+        // the ONE commissioner escalation for an open alert past its deadline: claimed first (conditional), the claim undone if the DM fails
+        const rcEscalate = async (checkKey, teamName, kind, counts) => {
+          const ts = new Date().toISOString();
+          const own = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'notified' AND escalated_at_utc IS NULL").bind(ts, ts, rcLeague, rcSeason, checkKey).run();
+          if (!(own && own.meta && own.meta.changes)) return "already_notified";
+          const esc = await dmCommish(env, `⏰ Commissioner review: the deadline has passed and ${teamName} is still over — ${kind === "qb" ? `${counts.active_qbs} active QBs (maximum 5)` : `${counts.active} active players (maximum ${counts.max})`}. Nothing has been dropped, voided or penalized.`).catch(() => 0);
+          if (!esc) await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = NULL WHERE league_id = ? AND season = ? AND check_key = ? AND escalated_at_utc = ?").bind(rcLeague, rcSeason, checkKey, ts).run();
+          return esc ? "escalated" : "escalation_failed";
+        };
         if (!rcDry) {
           await env.UPS_MFL_DB.prepare(`CREATE TABLE IF NOT EXISTS ups_trade_roster_check (league_id TEXT NOT NULL, season TEXT NOT NULL, check_key TEXT NOT NULL, franchise_id TEXT NOT NULL, kind TEXT NOT NULL,
             trade_ts INTEGER NOT NULL, deadline_unix INTEGER, status TEXT NOT NULL, message TEXT, notified_owner INTEGER DEFAULT 0, notified_commish INTEGER DEFAULT 0, escalated_at_utc TEXT,
@@ -52553,6 +52575,32 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           }
           const fk = `${fid}|${o.kind}`;
           if (!rcOpenByFk.has(fk)) rcOpenByFk.set(fk, o);
+          // An open alert whose trade has LEFT the window can't be reached by a finding any more (findings come only from
+          // trades inside it), so it is handled here (review 2026-10-09). Before, a 'sending' claim whose run never finished
+          // was never retried once its trade aged out — and, still open, it silently covered every LATER overage for that
+          // team and limit; a 'notified' alert that reached its deadline after the window got no escalation.
+          if (back || (Number(o.trade_ts) || 0) >= rcWindowStart) continue;
+          const teamName = rcNames[fid] || fid;
+          const counts = { active: ov.active, active_qbs: ov.active_qbs, max: rcMax };
+          if (sending && rcAge(o.updated_at_utc) >= rcStaleSec) {
+            // A LOST send: its cure deadline (24 h after the trade at most) has already passed, so the owner can't be given it
+            // now. The commissioner gets the alert that should have gone out, and the claim is RELEASED, so a later overage of
+            // this team and limit alerts again on its own (with its own deadline) instead of being covered by a send that
+            // never happened. Claimed first (conditional, one run only); kept for a retry if that DM fails.
+            if (rcDry) { rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "would_release_lost_send", ...counts }); if (rcOpenByFk.get(fk) === o) rcOpenByFk.delete(fk); continue; }
+            const ts = new Date().toISOString();
+            const r2 = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending' AND updated_at_utc = ?").bind(ts, rcLeague, rcSeason, o.check_key, o.updated_at_utc).run();
+            if (!(r2 && r2.meta && r2.meta.changes)) continue;
+            const told = await dmCommish(env, `⚠️ Commissioner review: a roster-check alert for ${teamName} was claimed but never confirmed sent, and its trade is now more than ${rcWindowSec / 3600} hours old. ${teamName} is still over — ${o.kind === "qb" ? `${ov.active_qbs} active QBs (maximum 5)` : `${ov.active} active players (maximum ${rcMax})`}. The alert that should have gone out: ${safeStr(o.message)} Nothing has been dropped, voided or penalized.`).catch(() => 0);
+            if (told) {
+              await env.UPS_MFL_DB.prepare("DELETE FROM ups_trade_roster_check WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'sending' AND updated_at_utc = ?").bind(rcLeague, rcSeason, o.check_key, ts).run();
+              if (rcOpenByFk.get(fk) === o) rcOpenByFk.delete(fk);
+              rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "released_lost_send", notified_commish: told, ...counts });
+            } else rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "release_failed_will_retry", ...counts });   // stays 'sending': retried after another 15 minutes
+          } else if (o.status === "notified" && !o.escalated_at_utc && rcNow >= (Number(o.deadline_unix) || 0)) {
+            if (rcDry) { rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: "would_escalate", ...counts }); continue; }
+            rcOut.push({ check_key: o.check_key, franchise_id: fid, kind: o.kind, action: await rcEscalate(o.check_key, teamName, o.kind, counts), ...counts });
+          }
         }
         // 2. each finding: ONE alert per team and limit while it stays over, however many trades are involved
         for (const f of rcFindings) {
@@ -52588,21 +52636,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               // Already told. Past the deadline and STILL over → one commissioner escalation (never an automatic penalty).
               if (row && row.status === "notified" && !row.escalated_at_utc && rcNow >= (Number(row.deadline_unix) || 0)) {
                 // claim the escalation FIRST (conditional), so two overlapping runs can't both send it; undo the claim if the DM fails
-                const own = await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ? AND status = 'notified' AND escalated_at_utc IS NULL").bind(ts, ts, rcLeague, rcSeason, checkKey).run();
-                if (own && own.meta && own.meta.changes) {
-                  const esc = await dmCommish(env, `⏰ Commissioner review: the deadline has passed and ${teamName} is still over — ${f.kind === "qb" ? `${f.active_qbs} active QBs (maximum 5)` : `${f.active} active players (maximum ${f.max})`}. Nothing has been dropped, voided or penalized.`).catch(() => 0);
-                  if (!esc) await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET escalated_at_utc = NULL WHERE league_id = ? AND season = ? AND check_key = ? AND escalated_at_utc = ?").bind(rcLeague, rcSeason, checkKey, ts).run();
-                  rcOut.push({ ...rec, action: esc ? "escalated" : "escalation_failed" });
-                } else rcOut.push({ ...rec, action: "already_notified" });
+                rcOut.push({ ...rec, action: await rcEscalate(checkKey, teamName, f.kind, { active: f.active, active_qbs: f.active_qbs, max: f.max }) });
               } else rcOut.push({ ...rec, action: "already_notified" });
               rcOpenByFk.set(fk, { check_key: checkKey, status: row ? row.status : "sending" });
               continue;
             }
           }
           rcOpenByFk.set(fk, { check_key: checkKey, status: "sending" });
-          let owner = 0, commish = 0;
-          try { const ids = await resolveDiscordUserIds(env, f.franchise_id); if (ids.length) owner = (await dmAll(env, ids, { content: msg, allowed_mentions: { parse: [] } })).sent || 0; } catch (_) {}
-          try { commish = await dmCommish(env, rosterCheckCommishCopy({ teamName, message: msg, ownerReached: owner > 0 })); } catch (_) {}
+          const { owner, commish } = await rcSend(f.franchise_id, teamName, msg);
           if (owner + commish > 0) {
             await env.UPS_MFL_DB.prepare("UPDATE ups_trade_roster_check SET status = 'notified', notified_owner = ?, notified_commish = ?, updated_at_utc = ? WHERE league_id = ? AND season = ? AND check_key = ?").bind(owner, commish, ts, rcLeague, rcSeason, checkKey).run();
             rcOut.push({ ...rec, action: "notified", notified_owner: owner, notified_commish: commish });

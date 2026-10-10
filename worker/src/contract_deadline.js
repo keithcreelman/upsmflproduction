@@ -15,6 +15,14 @@
 //   4. none — no deadline is known, and none is invented ("unknown" everywhere).
 // An unreadable calendar or league_events row is an ERROR ("unknown"), never "not configured".
 //
+// ANOTHER SEASON'S VALUE IS NOT THIS SEASON'S (review 2026-10-09). The calendar row holds ONE season and the
+// Commish Settings panel re-sends every field on Save, so changing its Season to 2027 while leaving the contract
+// deadline at "2026-09-06T23:59" stores a 2026 instant under season 2027 — and a Push then writes league_events rows
+// for 2027 dated 2026-09-06. Taken at face value that makes 2027's deadline "already passed" all 2027 offseason
+// (veteran extensions / MYAC / restructures locked, the trade gates in-season). The September deadline is always in
+// its own season's year, so a calendar value or league_events date in any other year is IGNORED (listed in
+// `ignored`) and the next source is tried — never used as this season's deadline.
+//
 // The instant: a configured deadline is a wall-clock MINUTE; the window stays open THROUGH the end of that minute. So the
 // deadline instant is HH:MM:59 ET, "before" means now <= that second, "after" means now > it. For 2026 that is 23:59:59 ET
 // — the second the restructure window, the contract ladder and the Front Office already used.
@@ -61,7 +69,8 @@ export function etDayBoundsUnix(day) {
  */
 export function resolveContractDeadline(a) {
   const season = s(a && a.season);
-  const base = { season, source: "none", exact: false, deadline_unix: null, day: "", day_start_unix: null, day_end_unix: null, wall_et: "", error: "" };
+  const ignored = [];
+  const base = { season, source: "none", exact: false, deadline_unix: null, day: "", day_start_unix: null, day_end_unix: null, wall_et: "", error: "", ignored };
   const cal = a && a.calendar;
   if (cal && cal.read_error) return { ...base, source: "error", error: `contract_calendar_unreadable: ${cal.read_error}` };
   const exactFrom = (wall, source) => {
@@ -72,12 +81,23 @@ export function resolveContractDeadline(a) {
   };
   const wall = s(cal && cal.faa && cal.faa.contract_deadline_at);
   const calSeason = s(cal && cal.season);
-  if (wall && (!calSeason || calSeason === season)) return exactFrom(wall, "calendar");
+  if (wall && (!calSeason || calSeason === season)) {
+    if (!isOtherSeasonValue(wall, season)) return exactFrom(wall, "calendar");
+    ignored.push(`calendar contract_deadline_at "${wall}" is not in season ${season}`);
+  }
   if (PINNED_CONTRACT_DEADLINE_ET[season]) return exactFrom(PINNED_CONTRACT_DEADLINE_ET[season], "pinned");
   if (a && a.eventError) return { ...base, source: "error", error: `league_events_unreadable: ${a.eventError}` };
   const b = etDayBoundsUnix(a && a.eventDay);
+  if (b && isOtherSeasonValue(a.eventDay, season)) { ignored.push(`league_events ups_contract_deadline ${s(a.eventDay).slice(0, 10)} is not in season ${season}`); return base; }
   if (b) return { ...base, source: "league_events_day", day: s(a.eventDay).slice(0, 10), day_start_unix: b.start, day_end_unix: b.end };
   return base;
+}
+
+/** A "YYYY-…" calendar value / league_events date whose year is not `season`'s (a leftover from another season). A season
+ * that isn't a 4-digit year can't be checked, so nothing is called stale then. */
+export function isOtherSeasonValue(value, season) {
+  const yr = s(season), v = s(value);
+  return /^\d{4}$/.test(yr) && /^\d{4}-/.test(v) && v.slice(0, 4) !== yr;
 }
 
 /** "before" (the deadline has not passed), "after", or "unknown" (no deadline / unreadable / on a date-only day). */

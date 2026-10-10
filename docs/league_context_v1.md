@@ -275,7 +275,7 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 - **Pre-trade extension (wired in the Trade War Room module):** if the trading-away team currently has extension eligibility on the player, they can apply that extension as their last action before the trade. The now-extended player goes to the acquiring team carrying the extended contract. (This is NOT a "pre-agreement" — it's the trading-away team using their own extension right before the trade closes.)
 - **Tagged players: cannot be extended by the acquiring team** in trade. Tag overrides extension eligibility.
 - **Tagged players:** cannot be extended by the acquiring team after a trade (tag locks them out of extension that season).
-- **Roster compliance:** trades must put both teams in compliance immediately or within 24 hours for contract limits. (The app enforces the **salary cap** at the accept; roster counts only warn — see "Salary cap and roster counts at the moment of an accept" below.) In-season: MFL system blocks invalid lineups, which carries its own penalty — that's the practical enforcement mechanism.
+- **Roster compliance:** trades must put both teams in compliance immediately or within 24 hours for contract limits. (The app enforces the **salary cap**, the **roster maximum** and, in-season, the **five-active-QB** trade rule at the accept; only the 27 minimum is a heads-up — see "Salary cap and roster counts at the moment of an accept" below and §B1.) In-season: MFL system blocks invalid lineups, which carries its own penalty — that's the practical enforcement mechanism.
 - **No vetoes.** Trades process immediately and stand unless there's blatant collusion or massive cap violation. Commissioner intervenes only in extreme cases.
 - **Withdrawing a two-team offer:** only the team that made the offer can withdraw it while it is pending (MFL's own rule); the other team accepts or declines. A commissioner has no separate cancel on a two-team offer.
 - **Three-team trades (Keith 2026-09-25).** MFL only supports two-party trades, so a 3-way is run by the app: one owner (the **initiator**) proposes it, and **both partners must accept** it (in their Discord DM) before anything moves. Every limit above applies to each leg.
@@ -322,7 +322,7 @@ A rostered player is always in exactly one of three states.
    - **Counting:** QBs MFL already shows on taxi or IR don't count. An arriving QB counts as active, because MFL puts every traded player on the active roster, even one who could later move to taxi.
    - **To make room:** the affected team makes its own legal QB move first (an existing eligible QB to taxi or IR, or a separate drop), or the offer is revised. There is no conditional-drop picker.
    - **The boundaries come from the league calendar and the NFL schedule**, never from MFL's own QB position-limit setting. A season with no deadline time on file is not given one: the check is unavailable (an acceptance is refused) until the calendar has it. A date alone decides every day except the deadline day itself.
-   - **In practice:** the trade deadline (Thanksgiving kickoff) closes trading inside that stretch, so the rule binds trades from the contract deadline to the trade deadline.
+   - **In practice:** the trade deadline (§A6) closes trading inside that stretch, so the rule binds trades from the contract deadline to the trade deadline.
 - **Size:** 27 (min) – 30 (max, after contract deadline).
   - **The 27 MINIMUM is MFL-ENFORCED** (Keith set it 2026-08-24). It lives on the
     commish page **Roster Position Limits Setup** → *Total across all positions*,
@@ -346,7 +346,7 @@ A rostered player is always in exactly one of three states.
 - **Enforcement model (CORRECTED 2026-08-16, Keith):**
   - **27-active minimum applies ALL SEASON**, not only at auction close. At auction close the team must additionally be able to **start a complete lineup** at that moment (per the lineup spec in §B4). Dropping below 27 mid-season is a compliance violation, not a permitted state.
   - **Supersedes the 2026-05-16 review-session note**, which recorded the floor as auction-close-only and explicitly permitted dropping below 27 mid-season. That was wrong; Keith corrected it on 2026-08-16 while reviewing the member rulebook, which had faithfully repeated the error.
-  - **30-active maximum (post-contract-deadline) is enforced via MFL settings** (Keith maintains in MFL config). No UPS worker-side enforcement — MFL blocks adds that would push a team over 30 once the deadline passes.
+  - **30-active maximum (post-contract-deadline) is enforced via MFL settings** (Keith maintains in MFL config). No UPS worker-side enforcement for adds — MFL blocks adds that would push a team over 30 once the deadline passes. **Trades are the exception:** MFL executes a trade over the maximum, so the War Room enforces canon's maximum at acceptance (§A6, Keith 2026-10-07).
   - **UPS-side safeguarding** (auction-close compliance cron, complete-lineup pre-flight at auction close, 30-max display chips) is **parked** for the broader auction tooling discussion — see `CROSS_CODEBASE_ALIGNMENT.md §4.1` (Auction Room scope).
 
 ### B2. Taxi Squad (UPDATED 2026-05-08)

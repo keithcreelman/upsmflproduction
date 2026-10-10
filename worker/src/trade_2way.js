@@ -172,6 +172,13 @@ async function capGate2Way(env, row) {
       : `${safeStr(compliance.loaded_contracts.message)}${waiting ? ` Waiting on ${waiting} to select conditional drops.` : ""}`;
     return { ok: false, kind: "loaded_contract_drops_required", message: heldMsg, compliance, drop_requirements: compliance.loaded_contracts.drop_requirements || [] };
   }
+  // ROSTER MAXIMUM and FIVE ACTIVE QBs (Keith 2026-10-07) — the SAME hard gates as trade_3way.js capGate (review 2026-10-09).
+  // This engine is retired behind TRADE_2WAY_STAGING_ENABLED / _EXECUTE (both off), but if it is ever switched back on it
+  // must not be a path around them. It calls the compliance route with no taxi step, so every arrival counts active.
+  if (!compliance.roster_limit || compliance.roster_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: safeStr(compliance.roster_limit && compliance.roster_limit.message) || "We couldn't verify the roster maximum for this trade right now. Try again in a moment.", compliance };
+  if (!compliance.qb_limit || compliance.qb_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: safeStr(compliance.qb_limit && compliance.qb_limit.message) || "We couldn't verify the active-QB count for this trade right now. Try again in a moment.", compliance };
+  if (compliance.roster_limit.status === "blocked") return { ok: false, kind: "roster_room_required", message: safeStr(compliance.roster_limit.message), compliance };
+  if (compliance.qb_limit.status === "blocked") return { ok: false, kind: "qb_limit_exceeded", message: safeStr(compliance.qb_limit.message), compliance };
   if (compliance.cap.status === "blocked") {
     const acks = await capAckStoreFor(env).readAllForTrade(capAckKey(row));
     const ackEval = evaluateCapAcknowledgment({ violations: compliance.cap.violations, tradeKey: safeStr(row.id), acks });

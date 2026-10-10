@@ -271,6 +271,58 @@ test("REVIEW (escalation): past the deadline and still over → ONE commissioner
   t.match(dms(mfl).find((d) => /Commissioner review/.test(d.body.content)).body.content, /Nothing has been dropped, voided or penalized\./);
 });
 
+// ── review 2026-10-09: an open alert whose trade has LEFT the 36-hour window (findings only come from trades inside it) ──
+const DDL_0168 = (await import("node:fs")).readFileSync(new URL("../worker/migrations/0168_trade_roster_check.sql", import.meta.url), "utf8");
+const claimRow = (env, o) => env.UPS_MFL_DB.raw.prepare(`INSERT INTO ups_trade_roster_check (league_id, season, check_key, franchise_id, kind, trade_ts, deadline_unix, status, message, escalated_at_utc, created_at_utc, updated_at_utc)
+  VALUES ('74598', '2026', ?, '0002', 'roster', ?, ?, ?, ?, NULL, ?, ?)`).run(`${o.ts}_0001_0002|0002|roster`, o.ts, o.ts + 24 * 3600, o.status, o.message || "⚠️ Roster check after your trade with L.A. Looks: CBP has 31 active players — the maximum is 30.", o.at, o.at);
+test("REVIEW 2026-10-09 (a LOST send outside the window): released to the commissioner, and a LATER overage alerts on its own instead of being silently covered", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  env.UPS_MFL_DB.raw.exec(DDL_0168);
+  const ts = Math.floor(Date.now() / 1000) - 40 * 3600;                             // 40 h ago: outside the window
+  claimRow(env, { ts, status: "sending", at: new Date(Date.now() - 20 * 60 * 1000).toISOString() });   // claimed, never sent, 20 min stale
+  mfl.st.transactions = [tx(600)];                                                  // a NEW native trade leaves CBP over again
+  // (before the fix: the stale claim covered the new trade forever — ["covered_by_open_alert"], no DM ever)
+  const before = d1Snapshot(env);
+  const dry = await check(env, { dry_run: true });
+  t.deepEqual(dry.json.findings.map((f) => f.action), ["would_release_lost_send", "would_notify"]);
+  t.equal(d1Snapshot(env), before, "the dry run writes nothing"); t.equal(dms(mfl).length, 0);
+  const r = await check(env);
+  t.deepEqual(r.json.findings.map((f) => f.action), ["released_lost_send", "notified"], r.text.slice(0, 300));
+  const sent = dms(mfl);
+  t.equal(sent.length, 3, "the commissioner's review of the lost send, then the new alert: owner + commissioner copy");
+  t.match(sent[0].body.content, /^⚠️ Commissioner review: a roster-check alert for CBP was claimed but never confirmed sent, and its trade is now more than 36 hours old\. CBP is still over — 31 active players \(maximum 30\)\. The alert that should have gone out: ⚠️ Roster check after your trade with L\.A\. Looks/);
+  t.deepEqual(claims(env).map((c) => [c.trade_ts, c.status]), [[Number(mfl.st.transactions[0].timestamp), "notified"]], "the lost claim is gone; the new alert is the open one");
+  t.deepEqual((await check(env)).json.findings.map((f) => f.action), ["already_notified"], "and nothing repeats");
+  t.equal(dms(mfl).length, 3);
+});
+test("REVIEW 2026-10-09 (a lost send whose commissioner DM fails): kept and retried — never dropped silently", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" }, env: { COMMISH_DISCORD_USER_ID: "" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  env.UPS_MFL_DB.raw.exec(DDL_0168);
+  const ts = Math.floor(Date.now() / 1000) - 40 * 3600;
+  claimRow(env, { ts, status: "sending", at: new Date(Date.now() - 20 * 60 * 1000).toISOString() });
+  mfl.st.transactions = [];
+  const r = await check(env);
+  t.deepEqual(r.json.findings.map((f) => f.action), ["release_failed_will_retry"], r.text.slice(0, 300));
+  t.equal(claims(env)[0].status, "sending", "kept for the next run (fresh again: retried after another 15 minutes)");
+});
+test("REVIEW 2026-10-09 (escalation after the window): a notified alert whose deadline passed while the cron couldn't run still gets its ONE escalation", async () => {
+  const { env, mfl } = fresh({ positions: { 6000: "WR" } });
+  mfl.st.rosters = { "0001": fill(5000, 28), "0002": fill(6000, 31) };
+  env.UPS_MFL_DB.raw.exec(DDL_0168);
+  const ts = Math.floor(Date.now() / 1000) - 50 * 3600;                             // told in time; 50 h on, still over, never escalated
+  claimRow(env, { ts, status: "notified", at: new Date((ts + 600) * 1000).toISOString() });
+  mfl.st.transactions = [];
+  t.deepEqual((await check(env, { dry_run: true })).json.findings.map((f) => f.action), ["would_escalate"]);
+  t.equal(dms(mfl).length, 0);
+  t.deepEqual((await check(env)).json.findings.map((f) => f.action), ["escalated"]);
+  t.match(dms(mfl)[0].body.content, /^⏰ Commissioner review: the deadline has passed and CBP is still over — 31 active players \(maximum 30\)\. Nothing has been dropped, voided or penalized\.$/);
+  t.deepEqual((await check(env)).json.findings, [], "never twice"); t.equal(dms(mfl).length, 1);
+  mfl.st.rosters["0002"] = fill(6000, 30);
+  t.deepEqual((await check(env)).json.findings.map((f) => f.action), ["resolved"], "and it closes once MFL shows the team back within the limit");
+});
+
 test("AFTER-TRADE CHECK ships OFF and needs the commissioner key", async () => {
   const { env } = fresh({ env: { TRADE_ROSTER_CHECK_ENABLED: "0" } });
   const off = await callWorker(env, "POST", `/admin/trades/roster-check?${Q}&APIKEY=${ADMIN_KEY}`, { body: { season: "2026", league_id: "74598" } });

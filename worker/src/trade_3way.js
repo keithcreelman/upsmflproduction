@@ -424,8 +424,11 @@ async function capGate(env, row) {
   // active count. This engine has NO post-execution taxi step (executeCommishTwoPartyTrade only moves the
   // trade), so no arriving taxi player is ever credited as moving to taxi here — the compliance route is
   // called without a taxiStep. A team over either makes its own legal move first, then "Re-check".
-  if (!compliance.roster_limit || compliance.roster_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the roster maximum for this trade right now. Try again in a moment.", compliance };
-  if (!compliance.qb_limit || compliance.qb_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the active-QB count for this trade right now. Try again in a moment.", compliance };
+  // A season window the league calendar can't establish is NAMED (which input is missing, and that the commissioner sets it),
+  // never a bare "try again" (review 2026-10-09). Still kind "unavailable": approvals are kept and a Re-check retries.
+  const windowWhy = (g) => (g && g.window && g.window.phase === "unknown" && safeStr(g.message)) || "";
+  if (!compliance.roster_limit || compliance.roster_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: windowWhy(compliance.roster_limit) || "We couldn't verify the roster maximum for this trade right now. Try again in a moment.", compliance };
+  if (!compliance.qb_limit || compliance.qb_limit.status === "unavailable") return { ok: false, kind: "unavailable", message: windowWhy(compliance.qb_limit) || "We couldn't verify the active-QB count for this trade right now. Try again in a moment.", compliance };
   if (compliance.roster_limit.status === "blocked") return { ok: false, kind: "roster_room_required", message: safeStr(compliance.roster_limit.message), compliance };
   if (compliance.qb_limit.status === "blocked") return { ok: false, kind: "qb_limit_exceeded", message: safeStr(compliance.qb_limit.message), compliance };
   // ACKNOWLEDGE, DON'T BLOCK (Keith's ruling, 2026-09-28, separate PR): a proven cap overage
@@ -1067,7 +1070,9 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
     return {
       ok: false, http: 409,
-      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
+      // roster maximum / five active QBs keep their own codes (review 2026-10-09: they were reported as "cap_exceeded")
+      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required"
+        : gate.kind === "roster_room_required" || gate.kind === "qb_limit_exceeded" ? gate.kind : "cap_exceeded",
       message: gate.message, compliance: gate.compliance, cap_ack: gate.cap_ack || null,
     };
   }

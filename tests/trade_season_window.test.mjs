@@ -82,12 +82,16 @@ test("UNKNOWN PHASE fails closed only where it matters: within every possible li
   t.deepEqual(candidateRosterMaxes(noAuction), { strict: 35, lenient: null });
   t.deepEqual(R(trade(34, 0, 0, null, { window: noAuction })), ["ok", 35]);
   t.deepEqual(R(trade(36, 0, 0, null, { window: noAuction })), ["unavailable", 35]);
-  t.match(trade(36, 0, 0, null, { window: noAuction }).roster_limit.message, /couldn't confirm which roster limit applies right now \(auction_start_not_set\)/);
+  t.equal(trade(36, 0, 0, null, { window: noAuction }).roster_limit.message,
+    "We couldn't confirm which roster limit applies right now: the 2026 FA Auction start isn't on the league calendar. This trade depends on it — a team would be over 35. The commissioner sets it in Commish Settings → Update League Calendar; until then a trade that depends on it can't be accepted.");
+  t.equal(trade(36, 0, 0, null, { window: noAuction }).roster_limit.window.calendar_input_missing, true);
   t.equal(trade(30, 6, 0, null, { window: noAuction }).qb_limit.status, "not_applicable", "neither candidate has the QB limit");
-  // a date-only contract deadline, ON that day (2027-style record) → auction OR in_season
-  const day = tradeSeasonWindow({ nowUnix: U("2026-09-06T12:00:00-04:00"), auctionStart: resolveAuctionStart({ season: "2026", calendar: CAL }),
-    contractDeadline: resolveContractDeadline({ season: "2099", calendar: null, eventDay: "2026-09-06" }), week17Kickoffs: W17 });
+  // a date-only contract deadline, ON that day (production's real 2027 record: league_events 2027-09-05, no time) → auction OR in_season
+  const CAL27 = { season: "2027", faa: { faa_open_at: "2027-07-24T12:00", contract_deadline_at: "" }, read_error: "" };
+  const day = tradeSeasonWindow({ nowUnix: U("2027-09-05T12:00:00-04:00"), auctionStart: resolveAuctionStart({ season: "2027", calendar: CAL27 }),
+    contractDeadline: resolveContractDeadline({ season: "2027", calendar: CAL27, eventDay: "2027-09-05" }), week17Kickoffs: { GBP: U("2028-01-03T20:15:00-05:00") } });
   t.deepEqual(day.candidates, ["auction", "in_season"]); t.match(day.reason, /contract_deadline_time_not_set/);
+  t.equal(day.reason_text, "only the date of the 2027 contract deadline is on file, not its time"); t.equal(day.calendar_input_missing, true);
   t.deepEqual(R(trade(30, 0, 0, null, { window: day })), ["ok", 30]);
   t.deepEqual(R(trade(33, 0, 0, null, { window: day })), ["unavailable", 30]);
   t.deepEqual(R(trade(36, 0, 0, null, { window: day })), ["blocked", 35], "over 35 is over every possible limit");

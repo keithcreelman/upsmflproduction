@@ -498,7 +498,10 @@
     var f = failure(res);
     var code = b && b.code;
     var msg = (b && typeof code === "string" && res.status < 500 && (b.message || b.error)) ? (b.message || b.error) : f.message;
-    return { kind: code === "cap_exceeded" || code === "cap_check_unavailable" ? "still_blocked" : f.kind, ok: false, code: code, message: msg, retryable: f.retryable };
+    // every "the trade still can't run" answer is still_blocked — the roster maximum and five active QBs keep their own codes
+    // since 2026-10-09 (they used to come back as cap_exceeded), and so does the loaded-contract limit
+    var blocked = code === "cap_exceeded" || code === "cap_check_unavailable" || code === "roster_room_required" || code === "qb_limit_exceeded" || code === "loaded_contract_limit_exceeded";
+    return { kind: blocked ? "still_blocked" : f.kind, ok: false, code: code, message: msg, retryable: f.retryable };
   };
 
   // What an ACCEPT of a two-team trade actually did — never a bare "Done". Three DIFFERENT truths:

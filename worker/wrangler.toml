@@ -76,12 +76,13 @@ TRADE_SENTINEL_TEST_FRANCHISES = ""
 # Traded-salary settlement sweep (2026-10-06): posts the settlement for trades
 # accepted on MFL's own site (the War Room only settles its own accepts).
 # Trades before SINCE are history (cap_adjustment_audit_log.json), never swept.
-# Roster / 5-QB check after trades accepted on MFL's own site (Keith 2026-10-07). Ships OFF; DMs only, read-only on MFL.
-TRADE_ROSTER_CHECK_ENABLED = "0"
-TRADE_ROSTER_CHECK_SINCE = "2026-10-08T00:00:00Z"
 TRADE_SETTLEMENT_SWEEP_ENABLED = "1"
 TRADE_SETTLEMENT_SWEEP_SINCE = "2026-10-06T00:00:00Z"
 TRADE_SETTLEMENT_SWEEP_GRACE_SEC = "1800"
+# Roster / 5-QB check after trades accepted on MFL's own site (Keith 2026-10-07). Ships OFF; DMs only, read-only on MFL.
+# Before turning it on, move SINCE to the activation instant (a live run checks trades since max(SINCE, now − 36 h)).
+TRADE_ROSTER_CHECK_ENABLED = "0"
+TRADE_ROSTER_CHECK_SINCE = "2026-10-08T00:00:00Z"
 DROP_TRACKER_ENABLED = "1"
 DROP_TRACKER_AUTO_POST = "1"
 DROP_TRACKER_POST_MFL = "1"

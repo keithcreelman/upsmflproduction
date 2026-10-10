@@ -762,5 +762,58 @@ test("MOBILE: the same offer — the roster warning shows (actual count, spots n
   t.equal(mfl.st.imports.length, 0);
 });
 
+// ═══════════════ review 2026-10-09: an UNESTABLISHED season window is named at Send — never "loaded-contract" / "try again" ═══════════════
+const setCalendar = (env, value) => {
+  env.UPS_MFL_DB.raw.exec("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
+  env.UPS_MFL_DB.raw.prepare("INSERT OR REPLACE INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', ?, 'x')").run(value);
+};
+const thirtyFiveActive = () => Array.from({ length: 35 }, (_, i) => ({ id: String(8000 + i), salary: 1000, contractStatus: "Vet-FAA" }));
+const WINDOW_NOTICE = /^We couldn't confirm which roster limit applies right now: the 2026 FA Auction start isn't on the league calendar\. This trade depends on it — a team would be over 35\. The commissioner sets it in Commish Settings → Update League Calendar; until then a trade that depends on it can't be accepted\. The offer can still be sent, but it can't be accepted until that's settled\.$/;
+test("DESKTOP + MOBILE: the FA Auction start isn't on the calendar and HammerTime would go 35 → 36 — Send stays enabled, and the sender is told why it can't be accepted yet and who fixes it", async () => {
+  await atClock("2026-07-01T15:00:00Z", async () => {
+    const { env, mfl } = fresh();
+    setCalendar(env, JSON.stringify({ season: "2026", faa: { contract_deadline_at: "2026-09-06T23:59" } }));
+    mfl.st.rosters[SENDER] = [{ id: "7000", salary: 1000, contractStatus: "Vet-FAA" }];
+    mfl.st.rosters[HAMMER] = thirtyFiveActive();
+    const payload = payloadOf(SENDER, HAMMER, [{ type: "PLAYER", player_id: "7000" }], [pickAsset]);
+    const d = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+    d.api.refreshOfferComplianceIfNeeded(payload);
+    await settle();
+    t.equal(d.state.offerCompliance.rosterLimit.status, "unavailable"); t.equal(d.state.offerCompliance.status, "ok", "the roster maximum never blocks Send");
+    d.api.renderOfferAlerts(payload);
+    t.match(d.els.offerAlerts.children[0].textContent, WINDOW_NOTICE);
+    d.api.renderSubmitArea(payload);
+    t.equal(d.els.submitOfferBtn.disabled, false);
+    const m = loadMobileOfferReview(env, { token: "tok-A" });
+    m.api.refreshBuilderComplianceIfNeeded(payload);
+    await settle();
+    t.equal(m.builderState.compliance.status, "ok", "mobile: sendable");
+    t.match(m.api.builderComplianceAlertHtml(m.builderState.compliance).replace(/<[^>]+>/g, "").replace(/&#39;/g, "'"), WINDOW_NOTICE);
+    t.equal(mfl.st.imports.length, 0);
+  });
+});
+test("DESKTOP + MOBILE: an unverifiable FIVE-QB count (the calendar can't be read, in-season unknown) names the QB check — it used to say 'Cannot verify loaded-contract limit'", async () => {
+  const { env, mfl } = fresh();
+  setCalendar(env, "{not json");
+  mfl.st.positions = QB_POS;
+  mfl.st.rosters[SENDER] = [{ id: "13593", salary: 5000, contractStatus: "Vet-FAA" }];
+  mfl.st.rosters[HAMMER] = fiveActiveQbs();
+  const payload = payloadOf(SENDER, HAMMER, [qbAsset], [pickAsset]);
+  const d = loadDesktopOfferReview(env, { token: "tok-A", fid: SENDER });
+  d.api.refreshOfferComplianceIfNeeded(payload);
+  await settle();
+  t.equal(d.state.offerCompliance.qbLimit.status, "unavailable"); t.equal(d.state.offerCompliance.loadedContracts.status, "ok");
+  t.equal(d.state.offerCompliance.status, "unavailable", "the client still fails closed, as for any unverifiable hard limit");
+  d.api.renderOfferAlerts(payload);
+  const text = d.els.offerAlerts.children[0].textContent;
+  t.match(text, /^We couldn't confirm whether the in-season five-QB limit applies right now: the 2026 contract deadline couldn't be read/);
+  t.doesNotMatch(text, /loaded-contract/);
+  const m = loadMobileOfferReview(env, { token: "tok-A" });
+  m.api.refreshBuilderComplianceIfNeeded(payload);
+  await settle();
+  const html = m.api.builderComplianceAlertHtml(m.builderState.compliance);
+  t.match(html, /five-QB limit applies right now: the 2026 contract deadline couldn&#39;t be read/); t.doesNotMatch(html, /loaded-contract/);
+});
+
 await run("trade_offer_review_loaded_contract_preview");
 restoreConsole();

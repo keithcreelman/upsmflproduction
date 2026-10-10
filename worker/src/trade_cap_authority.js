@@ -38,7 +38,7 @@
 //
 // Pure functions only.
 
-import { PHASES, candidateRosterMaxes } from "./trade_season_window.js";
+import { PHASES, candidateRosterMaxes, CALENDAR_FIX_TEXT } from "./trade_season_window.js";
 import { currentCapHit, derivePlayerCapFields, parseCapDollars, readSalaryOverlay } from "./cap_math.js";
 import { resolveLoadedStatus, resolveExtensionLoadedStatus } from "./contract_classification.js";
 import { evaluateLineupFeasibility, posGroup } from "./trade_lineup_feasibility.js";
@@ -441,8 +441,18 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   const listNames = (pids) => { const n = pids.map(nm); return n.length <= 1 ? (n[0] || "") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`; };
 
   // ── Roster maximum + five active QBs, in the SEASON WINDOW (trade_season_window.js; Keith 2026-10-08) ──
-  const win = isObj(seasonWindow) ? seasonWindow : null;
+  // A window whose phase isn't one of the known ones, or an "unknown" one that lists no recognisable candidate, is treated as
+  // "nothing is known" (every phase possible) — never as "no limit" (review 2026-10-09: no fail-open on a malformed window).
+  const win = !isObj(seasonWindow) ? null
+    : (PHASES[seasonWindow.phase] && seasonWindow.phase !== "unknown") ? seasonWindow
+    : { ...seasonWindow, phase: "unknown", roster_max: null, qb_limit: null,
+        candidates: (Array.isArray(seasonWindow.candidates) ? seasonWindow.candidates : []).filter((p) => PHASES[p]).length
+          ? seasonWindow.candidates.filter((p) => PHASES[p]) : Object.keys(PHASES),
+        reason: seasonWindow.reason || (seasonWindow.phase === "unknown" ? "" : "window_malformed") };
   const minApplies = !win || win.phase !== "offseason";   // no roster minimum in the offseason either
+  // why the phase is unknown, in words, plus the commissioner's fix when it's a league-calendar input (2026-10-09)
+  const whyUnknown = win && win.phase === "unknown" ? (win.reason_text || win.reason || "the league calendar doesn't say") : "";
+  const fixUnknown = win && win.phase === "unknown" && win.calendar_input_missing ? ` ${CALENDAR_FIX_TEXT}` : "";
   const rosterPass = (max) => {
     const rows = [], warns = [], viol = [];
     for (const fid of [...parts].sort()) {
@@ -464,7 +474,8 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     }
     return { rows, warns, viol };
   };
-  const winOut = win ? { phase: win.phase, candidates: win.candidates || [], boundaries: win.boundaries || {}, reason: win.reason || "" } : { phase: "not_supplied", candidates: [], boundaries: {}, reason: "mfl_roster_size" };
+  const winOut = win ? { phase: win.phase, candidates: win.candidates || [], boundaries: win.boundaries || {}, reason: win.reason || "", reason_text: win.reason_text || "", calendar_input_missing: !!win.calendar_input_missing }
+    : { phase: "not_supplied", candidates: [], boundaries: {}, reason: "mfl_roster_size" };
   // rosterDecision: { kind: "ok"|"blocked"|"unavailable"|"not_applicable", max, pass, note }
   let rosterDecision;
   if (!win) {
@@ -472,8 +483,9 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     const pass = rosterPass(max);
     rosterDecision = { kind: max == null ? "unavailable" : pass.viol.length ? "blocked" : "ok", max, pass, note: "" };
   } else if (win.phase !== "unknown") {
-    const pass = rosterPass(win.roster_max);
-    rosterDecision = { kind: win.roster_max == null ? "not_applicable" : pass.viol.length ? "blocked" : "ok", max: win.roster_max, pass, note: "" };
+    const max = PHASES[win.phase].roster_max;   // canon's number for the phase (never a value carried on the window object)
+    const pass = rosterPass(max);
+    rosterDecision = { kind: max == null ? "not_applicable" : pass.viol.length ? "blocked" : "ok", max, pass, note: "" };
   } else {
     const { strict, lenient } = candidateRosterMaxes(win);
     const pStrict = rosterPass(strict);
@@ -483,7 +495,7 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
   }
   const rosterRows = rosterDecision.pass.rows, warnings = rosterDecision.pass.warns, limitViolations = rosterDecision.kind === "blocked" ? rosterDecision.pass.viol : [];
   // the five-QB trade limit: true | false | "depends" (an unknown phase where only some candidates are in-season)
-  const qbApplies = !win ? true : win.phase !== "unknown" ? !!win.qb_limit
+  const qbApplies = !win ? true : win.phase !== "unknown" ? PHASES[win.phase].qb_limit
     : (win.candidates || []).every((p) => PHASES[p].qb_limit) ? true : (win.candidates || []).some((p) => PHASES[p].qb_limit) ? "depends" : false;
   const qbRows = [], qbViolations = [];
   if (positions) {
@@ -594,7 +606,7 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
           message: "There's no roster limit in the offseason (before the FA Auction starts or after the season ends), so the maximum doesn't apply to this trade." }
       : rosterDecision.kind === "unavailable"
       ? { status: "unavailable", max: win ? rosterDecision.max : null, rows: rosterRows, violations: [], executable: false, window: winOut,
-          message: win ? `We couldn't confirm which roster limit applies right now (${win.reason || "the league calendar doesn't say"}), and this trade depends on it — a team would be over ${rosterDecision.max}.` : "We couldn't confirm the roster maximum for this trade right now." }
+          message: win ? `We couldn't confirm which roster limit applies right now: ${whyUnknown}. This trade depends on it — a team would be over ${rosterDecision.max}.${fixUnknown}` : "We couldn't confirm the roster maximum for this trade right now." }
       : limitViolations.length
       ? { status: "blocked", max: rosterDecision.max, rows: rosterRows, violations: limitViolations, executable: false, window: winOut, message: limitViolations.map((v) => v.message).join(" ") }
       : { status: "ok", max: rosterDecision.max, rows: rosterRows, violations: [], executable: true, window: winOut,
@@ -611,7 +623,7 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
       ? { status: "unavailable", max: ACTIVE_QB_MAX, rows: [], violations: [], executable: false, window: winOut, message: "We couldn't verify the active-QB count for this trade right now." }
       : qbApplies === "depends" && qbViolations.length
       ? { status: "unavailable", max: ACTIVE_QB_MAX, rows: qbRows, violations: [], executable: false, window: winOut,
-          message: `We couldn't confirm whether the in-season five-QB limit applies right now (${win.reason || "the league calendar doesn't say"}), and this trade depends on it.` }
+          message: `We couldn't confirm whether the in-season five-QB limit applies right now: ${whyUnknown}. This trade depends on it.${fixUnknown}` }
       : qbApplies === true && qbViolations.length
       ? { status: "blocked", max: ACTIVE_QB_MAX, rows: qbRows, violations: qbViolations, executable: false, window: winOut, message: qbViolations.map((v) => v.message).join(" ") }
       : { status: "ok", max: ACTIVE_QB_MAX, rows: qbRows, violations: [], executable: true, window: winOut, message: `Every team stays at or under ${ACTIVE_QB_MAX} active QBs.` },

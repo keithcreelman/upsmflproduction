@@ -16,8 +16,11 @@
 // then fail CLOSED only where it matters: a trade that fits every candidate's limit is fine; one that would break a
 // candidate's limit is refused ("unavailable") until the calendar answers. Nothing is ever more permissive than the rule.
 
+// A calendar value or league_events date from ANOTHER season (the one-season calendar re-saved with a new Season but an
+// old date) is ignored, exactly as contract_deadline.js does — the FA Auction is always in its own season's July.
+
 import { getAuctionCalendar } from "./auction_calendar.js";
-import { etWallToUnix, etDayBoundsUnix, deadlineState } from "./contract_deadline.js";
+import { etWallToUnix, etDayBoundsUnix, deadlineState, isOtherSeasonValue } from "./contract_deadline.js";
 
 export const AUCTION_ROSTER_MAX = 35;
 export const IN_SEASON_ROSTER_MAX = 30;
@@ -32,16 +35,21 @@ const s = (v) => String(v == null ? "" : v).trim();
 
 /** The FA Auction start for `season`: { source: "calendar"|"league_events_day"|"none"|"error", exact, start_unix, day, day_start_unix, day_end_unix, error }. */
 export function resolveAuctionStart({ season, calendar, eventDay, eventError }) {
-  const base = { season: s(season), source: "none", exact: false, start_unix: null, day: "", day_start_unix: null, day_end_unix: null, error: "" };
+  const ignored = [];
+  const base = { season: s(season), source: "none", exact: false, start_unix: null, day: "", day_start_unix: null, day_end_unix: null, error: "", ignored };
   if (calendar && calendar.read_error) return { ...base, source: "error", error: `calendar_unreadable: ${calendar.read_error}` };
   const wall = s(calendar && calendar.faa && calendar.faa.faa_open_at), calSeason = s(calendar && calendar.season);
   if (wall && (!calSeason || calSeason === s(season))) {
-    const start = etWallToUnix(wall);
-    if (start == null) return { ...base, source: "error", error: `faa_open_at malformed: "${wall}"` };
-    return { ...base, source: "calendar", exact: true, start_unix: start, day: wall.slice(0, 10) };
+    if (!isOtherSeasonValue(wall, season)) {
+      const start = etWallToUnix(wall);
+      if (start == null) return { ...base, source: "error", error: `faa_open_at malformed: "${wall}"` };
+      return { ...base, source: "calendar", exact: true, start_unix: start, day: wall.slice(0, 10) };
+    }
+    ignored.push(`calendar faa_open_at "${wall}" is not in season ${s(season)}`);
   }
   if (eventError) return { ...base, source: "error", error: `league_events_unreadable: ${eventError}` };
   const b = etDayBoundsUnix(eventDay);
+  if (b && isOtherSeasonValue(eventDay, season)) { ignored.push(`league_events ups_fa_auction_start ${s(eventDay).slice(0, 10)} is not in season ${s(season)}`); return base; }
   return b ? { ...base, source: "league_events_day", day: s(eventDay).slice(0, 10), day_start_unix: b.start, day_end_unix: b.end } : base;
 }
 /** Has the FA Auction started? "after" | "before" | "unknown". */
@@ -76,9 +84,12 @@ export function tradeSeasonWindow(a) {
   else candidates = au === "before" ? ["offseason"] : au === "after" ? (plausibleEnd != null ? ["auction", "in_season"] : ["auction", "in_season", "offseason"]) : ["offseason", "auction", "in_season"];
   const phase = candidates.length === 1 ? candidates[0] : "unknown";
   const missing = [];
-  if (cd === "unknown") missing.push(cdRes.source === "error" ? "contract_deadline_unreadable" : cdRes.source === "league_events_day" ? "contract_deadline_time_not_set" : "contract_deadline_not_set");
-  if (au === "unknown" && candidates.includes("offseason") && candidates.includes("auction")) missing.push(auRes.source === "error" ? "auction_start_unreadable" : auRes.source === "league_events_day" ? "auction_start_time_not_set" : "auction_start_not_set");
+  const notSet = (res, prefix) => res.source === "error" ? `${prefix}_unreadable` : res.source === "league_events_day" ? `${prefix}_time_not_set`
+    : (Array.isArray(res.ignored) && res.ignored.length) ? `${prefix}_other_season` : `${prefix}_not_set`;
+  if (cd === "unknown") missing.push(notSet(cdRes, "contract_deadline"));
+  if (au === "unknown" && candidates.includes("offseason") && candidates.includes("auction")) missing.push(notSet(auRes, "auction_start"));
   if (plausibleEnd == null && candidates.includes("in_season") && candidates.includes("offseason")) missing.push(end == null ? "week17_schedule_unreadable" : "week17_schedule_implausible");
+  const season = s(cdRes.season || auRes.season);
   return {
     phase, candidates,
     roster_max: phase === "unknown" ? null : PHASES[phase].roster_max,
@@ -87,15 +98,45 @@ export function tradeSeasonWindow(a) {
       auction_start_unix: auRes.exact ? auRes.start_unix : null, auction_start_day: auRes.day || "", auction_start_source: auRes.source || "none",
       contract_deadline_unix: cdRes.exact ? cdRes.deadline_unix : null, contract_deadline_day: cdRes.day || "", contract_deadline_source: cdRes.source || "none",
       season_end_unix: plausibleEnd,
+      ignored: [...(Array.isArray(auRes.ignored) ? auRes.ignored : []), ...(Array.isArray(cdRes.ignored) ? cdRes.ignored : [])],
     },
     reason: phase === "unknown" ? missing.join(",") : "",
+    // What an owner / the commissioner reads (2026-10-09): which input is missing, in words — and whether it is one the
+    // commissioner enters on the league calendar (Commish Settings → Update League Calendar), so it never reads as "try again".
+    reason_text: phase === "unknown" ? windowReasonText(missing, season) : "",
+    calendar_input_missing: phase === "unknown" && missing.some((m) => CALENDAR_INPUT.test(m)),
   };
 }
+
+const CALENDAR_INPUT = /_(not_set|time_not_set|other_season)$/;
+const REASON_TEXT = {
+  contract_deadline_unreadable: (y) => `the ${y} contract deadline couldn't be read`,
+  contract_deadline_time_not_set: (y) => `only the date of the ${y} contract deadline is on file, not its time`,
+  contract_deadline_not_set: (y) => `the ${y} contract deadline isn't on the league calendar`,
+  contract_deadline_other_season: (y) => `the league calendar's contract deadline is from another season, not ${y}`,
+  auction_start_unreadable: (y) => `the ${y} FA Auction start couldn't be read`,
+  auction_start_time_not_set: (y) => `only the date of the ${y} FA Auction start is on file, not its time`,
+  auction_start_not_set: (y) => `the ${y} FA Auction start isn't on the league calendar`,
+  auction_start_other_season: (y) => `the league calendar's FA Auction start is from another season, not ${y}`,
+  week17_schedule_unreadable: (y) => `MFL's ${y} NFL Week 17 schedule couldn't be read`,
+  week17_schedule_implausible: (y) => `MFL's ${y} NFL Week 17 schedule doesn't look like the real one`,
+  window_load_failed: () => "the league calendar couldn't be read",
+};
+/** The `reason` codes as one plain sentence fragment ("the 2027 FA Auction start isn't on the league calendar; …"). */
+export function windowReasonText(codes, season) {
+  const y = s(season) || "this season's";
+  const list = (Array.isArray(codes) ? codes : s(codes).split(",")).map(s).filter(Boolean);
+  return list.map((c) => (REASON_TEXT[c] ? REASON_TEXT[c](y) : c.replace(/_/g, " "))).join("; ");
+}
+/** The sentence the gates append when the missing piece is a league-calendar input the commissioner enters. */
+export const CALENDAR_FIX_TEXT = "The commissioner sets it in Commish Settings → Update League Calendar; until then a trade that depends on it can't be accepted.";
 
 /** The limit a gate must apply when the phase is unknown: the STRICTEST and the most LENIENT maximum across the candidates
  * (null = no limit). A trade under `strict` is fine whatever the phase; one over `lenient` is over whatever the phase. */
 export function candidateRosterMaxes(win) {
-  const maxes = (win && win.candidates ? win.candidates : []).map((p) => PHASES[p].roster_max);
+  // No (or no recognisable) candidate is "nothing is known", never "no limit": every phase stays possible (fail closed).
+  const listed = (win && Array.isArray(win.candidates) ? win.candidates : []).filter((p) => PHASES[p]);
+  const maxes = (listed.length ? listed : Object.keys(PHASES)).map((p) => PHASES[p].roster_max);
   const limited = maxes.filter((m) => m != null);
   return { strict: limited.length ? Math.min(...limited) : null, lenient: maxes.some((m) => m == null) ? null : (limited.length ? Math.max(...limited) : null) };
 }

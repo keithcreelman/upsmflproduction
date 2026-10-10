@@ -28,7 +28,9 @@ export const TAXI_LEAGUE_YEARS = 3;          // canon §B2: first 3 LEAGUE years
 
 const TEXT = {
   draft_unreadable: "we couldn't read the UPS Rookie Draft results to confirm his taxi eligibility",
-  not_drafted: "he has no UPS Rookie Draft record (only Round 2+ picks are taxi-eligible)",
+  // (the loader reads this season's and the two before it — a player drafted earlier is past his 3 league years anyway, so
+  // "no record" must not read as "never drafted": review 2026-10-09)
+  not_drafted: "he isn't a UPS Rookie Draft pick from his first 3 league years (only Round 2+ picks in those years are taxi-eligible)",
   round_1: "he was a Round 1 pick (Round 1 rookies stay on the active roster)",
   graduated: "his 3 league years of taxi eligibility are over",
   contract_not_rookie: "he is no longer on his rookie contract",

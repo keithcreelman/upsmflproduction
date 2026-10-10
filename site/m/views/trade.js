@@ -853,6 +853,10 @@
     var rlv = cs.rosterLimit && cs.rosterLimit.status === "blocked" ? (cs.rosterLimit.violations || []) : [];
     // Roster maximum: a warning at Send, the hard stop is at Accept (Keith 2026-10-07).
     if (rlv.length) rosterNotice = rlv.map(function (v) { return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(v.message) + " The offer can still be sent, but it can't be accepted until that's done.") + '</div>'; }).join("");
+    // The league calendar can't yet say which maximum applies and this trade depends on it (review 2026-10-09): Send is
+    // still allowed, but Accept will be refused until the commissioner enters it — say so before Send.
+    var rlu = cs.rosterLimit;
+    if (rlu && rlu.status === "unavailable" && rlu.window && rlu.window.phase === "unknown" && U.safeStr(rlu.message)) rosterNotice += '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(rlu.message) + " The offer can still be sent, but it can't be accepted until that's settled.") + '</div>';
     if (cs.status === "blocked" && cs.qbLimit && cs.qbLimit.status === "blocked") {
       var qbv = cs.qbLimit.violations || [];
       var qbLines = qbv.map(function (v) { return U.escapeHtml(U.safeStr(v.message)); });
@@ -867,6 +871,10 @@
       });
       if (!lines.length) lines = ["This trade would leave a team over the loaded-contract limit. Revise the trade or make a separate roster move first."];
       return '<div class="ups-m-rstr-err">' + lines.join('</div><div class="ups-m-rstr-err">') + '</div>' + rosterNotice;
+    }
+    // name the limit that couldn't be verified: with loaded contracts fine, it's the five-QB count (the server says why)
+    if (cs.status === "unavailable" && cs.qbLimit && cs.qbLimit.status === "unavailable" && cs.loadedContracts && cs.loadedContracts.status === "ok") {
+      return '<div class="ups-m-rstr-err">' + U.escapeHtml(U.safeStr(cs.qbLimit.message) || "Cannot verify the active-QB count. Try again in a moment.") + '</div>' + rosterNotice;
     }
     if (cs.status === "unavailable") return '<div class="ups-m-rstr-err">Cannot verify loaded-contract limit. Try again in a moment.</div>';
     if (cs.status === "loading") return '<div class="ups-m-tb-warn">Checking the loaded-contract limit…</div>';

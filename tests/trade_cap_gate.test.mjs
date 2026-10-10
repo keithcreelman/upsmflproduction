@@ -666,11 +666,13 @@ test("ROSTER: a season window the league calendar can't establish is UNAVAILABLE
   t.equal(ps.json.compliance.roster_limit.status, "ok", "30 → 30 fits every limit that could apply"); t.equal(ps.json.compliance.roster_limit.window.phase, "unknown");
   const o = await sendOffer(env, mfl, payloadOf("0001", "0002", [player(14056), player(90001)], [player(13100)]));   // 0002: 30 → 31
   const p = await act(env, mobileBody(o.id, "PREVIEW"));
-  t.equal(p.status, 200); t.match(p.json.compliance.roster_limit.message, /couldn't confirm which roster limit applies right now \(contract_deadline_unreadable/);
+  t.equal(p.status, 200); t.match(p.json.compliance.roster_limit.message, /couldn't confirm which roster limit applies right now: the 2026 contract deadline couldn't be read/);
+  t.equal(p.json.compliance.roster_limit.window.reason, "contract_deadline_unreadable,auction_start_unreadable", "the machine reason is kept beside the words");
   t.equal(p.json.compliance.roster_limit.status, "unavailable"); t.equal(p.json.compliance.roster_limit.executable, false);
   t.equal(p.json.compliance.cap.status, "ok", "the cap verdict is independent of the roster check");
   const r = await act(env, mobileBody(o.id));
   t.equal(r.status, 503, "an unreadable maximum refuses the accept (fail closed)"); t.equal(r.json.code, "roster_limit_check_unavailable"); t.equal(mfl.st.done.length, 0);
+  t.match(r.json.message, /the 2026 contract deadline couldn't be read.*Nothing was changed; try again in a moment\./, "a READ failure is transient: it says what couldn't be read and to retry");
 });
 test("ROSTER (3-way): only ONE participant is over the maximum; the detail and the Discord accept say it can't run until that team makes its move (the accept itself is recorded)", async () => {
   const { env, mfl } = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 });
@@ -732,6 +734,40 @@ test("ROSTER (3-way, Keith 2026-10-07): a leg sends a TAXI player to a team alre
   mfl.st.rosters["0012"].pop();
   const ok2 = await callWorker(env, "GET", `/api/trades/3way?id=${F.TRADE_ID}&${Q}&MFL_USER_ID=tok-A`);
   t.equal(ok2.json.trade.compliance.roster_limit.status, "ok"); t.equal(ok2.json.trade.compliance.roster_limit.rows.find((r) => r.franchise_id === "0012").active_after, 30);
+});
+test("REVIEW 2026-10-09 (3-way RE-CHECK): a 3-way held by the roster maximum re-checks to ITS OWN code — it came back as 'cap_exceeded'", async () => {
+  const { env, mfl } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0008"].push(...SEATS(100, 26)); mfl.st.rosters["0001"].push(...SEATS(200, 26)); mfl.st.rosters["0012"].push(...SEATS(300, 28));   // Hawks (C) at 30
+  env.UPS_MFL_DB.raw.prepare("UPDATE ups_3way_trades SET legs_json=?").run(JSON.stringify([
+    { from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0, summary: "P16614" },
+    { from: "0001", to: "0012", asset_tokens: ["P_16181", "P_200"], cap_k: 0, summary: "P16181+P200" },   // Hawks 30 → 32
+    { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0, summary: "P16650" },
+  ]));
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.equal(out.kind, "roster_room_required"); t.equal(ledgerRow(env).state, "blocked_cap");
+  const r = await recheck(env, "tok-A");
+  t.equal(r.status, 409, r.text.slice(0, 200)); t.equal(r.json.code, "roster_room_required", "not cap_exceeded");
+  t.match(r.json.message || r.json.error, /Hawks would have 31 active players right after this trade — the maximum is 30/);
+  t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(F.readRow(env).status, "collecting");
+});
+test("REVIEW 2026-10-09 (3-way, season window unknown): the execute gate names the missing calendar input and who sets it — not 'try again in a moment'", async () => {
+  const real = Date.now; Date.now = () => Date.parse("2026-07-01T16:00:00Z");
+  try {
+    const { env, mfl } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+    env.UPS_MFL_DB.raw.exec("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
+    env.UPS_MFL_DB.raw.prepare("INSERT OR REPLACE INTO ups_settings (key, value, updated_at) VALUES ('auction_calendar', ?, 'x')").run(JSON.stringify({ season: "2026", faa: { contract_deadline_at: "2026-09-06T23:59" } }));   // no FA Auction start
+    mfl.st.rosters["0008"].push(...SEATS(100, 26)); mfl.st.rosters["0001"].push(...SEATS(200, 26)); mfl.st.rosters["0012"].push(...SEATS(300, 33));   // Hawks at 35
+    env.UPS_MFL_DB.raw.prepare("UPDATE ups_3way_trades SET legs_json=?").run(JSON.stringify([
+      { from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0, summary: "P16614" },
+      { from: "0001", to: "0012", asset_tokens: ["P_16181", "P_200"], cap_k: 0, summary: "P16181+P200" },   // Hawks 35 → 36: over 35, legal if it's still the offseason
+      { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0, summary: "P16650" },
+    ]));
+    const out = await execute3Way(env, F.TRADE_ID);
+    t.equal(out.ok, false); t.equal(out.blocked, true); t.equal(out.kind, "unavailable");
+    t.match(out.message, /^We couldn't confirm which roster limit applies right now: the 2026 FA Auction start isn't on the league calendar\. This trade depends on it — a team would be over 35\. The commissioner sets it in Commish Settings → Update League Calendar/);
+    t.match(JSON.parse(ledgerRow(env).block_json).message, /Update League Calendar/);
+    t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(F.readRow(env).status, "collecting", "approvals kept");
+  } finally { Date.now = real; }
 });
 test("3-WAY detail: a live trade carries its cap + roster picture; an unavailable calculation is shown as unavailable", async () => {
   const { env, mfl } = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 });
