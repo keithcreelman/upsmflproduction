@@ -441,6 +441,18 @@ button.ups-m-busy::before,
   background: var(--bg);
 }
 .ups-m-action-chips .ups-m-subtab { font-size: 12px; padding: 9px 13px; }
+/* F3 (Phase II-A2 correction pass): League/Divisions/Playoffs needs a
+   >=44px touch target at 375px — scoped to .ups-m-mode-toggle only, so
+   other .ups-m-action-chips rows (e.g. Contracts hub) are unaffected. */
+.ups-m-mode-toggle.ups-m-action-chips { align-items: stretch; }
+.ups-m-mode-toggle .ups-m-subtab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 13px;
+  box-sizing: border-box;
+}
 .ups-m-action-blurb {
   font-size: 12px;
   color: var(--fg-muted);
@@ -1659,6 +1671,87 @@ button.ups-m-busy::before,
   padding: 4px 8px;
 }
 .ups-m-standings-table tr[data-fid] { cursor: pointer; }
+
+/* Phase II-A2 — mobile Playoffs mode: pre-playoff groups + actual/
+   projected matchup cards. Reuses .ups-m-card/.ups-m-card-title and the
+   A1 status-chip classes; only the group rows and matchup cards are new. */
+.ups-m-playoff-group-head {
+  display: grid;
+  grid-template-columns: 32px 1fr 56px 48px 40px;
+  gap: 6px;
+  padding: 4px 4px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ups-m-playoff-group-head .num,
+.ups-m-playoff-row .num { text-align: right; }
+.ups-m-playoff-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 56px 48px 40px;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 4px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-playoff-row:first-child { border-top: none; }
+.ups-m-playoff-row .rank { color: var(--fg-muted); font-weight: 700; text-align: center; }
+.ups-m-playoff-row .team {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+/* The status chip must stay visible even when the name truncates — it is
+   NOT part of the ellipsis-clipped text run (a real bug found during
+   browser verification: chip + name in one truncating block silently
+   hid the chip on every row whose name was long enough to wrap). */
+.ups-m-playoff-row .team .name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ups-m-playoff-row .team .ups-m-status-chip { flex: none; }
+
+.ups-m-matchup-card {
+  padding: 10px 4px;
+  border-top: 1px solid var(--line);
+}
+.ups-m-matchup-card:first-child { border-top: none; }
+.ups-m-matchup-meta {
+  font-size: 10px;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.ups-m-matchup-meta .pending { color: #ffcf6b; }
+.ups-m-matchup-meta .final { color: #7cd992; }
+.ups-m-matchup-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.ups-m-matchup-team.dim { color: var(--fg-muted); font-size: 12px; }
+.ups-m-matchup-team .seed { color: var(--fg-muted); font-size: 11px; font-weight: 700; width: 24px; flex: none; }
+.ups-m-matchup-team .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ups-m-matchup-team .score { font-variant-numeric: tabular-nums; font-weight: 600; }
+.ups-m-matchup-team.winner .name { font-weight: 700; color: var(--fg); }
+.ups-m-matchup-team.winner .score { color: #7cd992; }
+.ups-m-matchup-determines {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-style: italic;
+}
 
 /* On-the-Block list */
 .ups-m-otb-lookingfor {

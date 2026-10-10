@@ -573,6 +573,181 @@
     }).join("");
   }
 
+  // ---------- Phase II-A2 — Playoffs mode (mobile A6) ----------
+  // Bracket fetch, cached per year like state.standingsByYear — but a
+  // FAILED fetch is never cached as permanent "no data": it's retried
+  // automatically after a short cooldown (state.bracketErrorAt), so a
+  // transient outage can't look identical to a legitimately empty
+  // pre-playoff bracket for the rest of the session.
+  state.bracketByYear = state.bracketByYear || {};
+  state.bracketLoading = state.bracketLoading || null;
+  state.bracketErrorAt = state.bracketErrorAt || {};
+  var BRACKET_RETRY_COOLDOWN_MS = 20000;
+  function loadPlayoffBracketForYear(year) {
+    var y = String(year);
+    if (state.bracketByYear[y]) return Promise.resolve();
+    if (state.bracketLoading === y) return Promise.resolve();
+    var lastFail = state.bracketErrorAt[y];
+    if (lastFail && (Date.now() - lastFail) < BRACKET_RETRY_COOLDOWN_MS) return Promise.resolve();
+    state.bracketLoading = y;
+    return fetch(API.workerUrl("/api/playoff-bracket?year=" + encodeURIComponent(y)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (resp) {
+        if (resp && resp.ok) { state.bracketByYear[y] = resp; delete state.bracketErrorAt[y]; }
+        else { state.bracketErrorAt[y] = Date.now(); }
+      })
+      .catch(function () { state.bracketErrorAt[y] = Date.now(); })
+      .then(function () { state.bracketLoading = null; renderRoute(); });
+  }
+
+  function playoffGroupRowHtml(entry) {
+    var chip = statusChipHtml(entry.status);
+    var gb = entry.apGB == null ? "—" : entry.apGB.toFixed(1);
+    var rec = (entry.overall.w || 0) + "-" + (entry.overall.l || 0) + (entry.overall.t ? "-" + entry.overall.t : "");
+    return '<div class="ups-m-playoff-row" data-fid="' + U.escapeHtml(entry.franchise_id) + '" tabindex="0" role="button" aria-label="' + U.escapeHtml(entry.franchise_name) + ' details">' +
+      '<div class="rank">' + (entry.seed != null ? "#" + entry.seed : "—") + '</div>' +
+      '<div class="team"><span class="name-text">' + U.escapeHtml(entry.franchise_name) + '</span>' + chip + '</div>' +
+      '<div class="num">' + rec + '</div>' +
+      '<div class="num">' + fmtPct(entry.allplay_pct) + '</div>' +
+      '<div class="num">' + gb + '</div>' +
+    '</div>';
+  }
+  function playoffGroupSectionHtml(title, entries) {
+    if (!entries.length) return "";
+    return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(title) + '</div>' +
+      '<div class="ups-m-playoff-group-head"><div class="rank">#</div><div class="team">Team</div><div class="num">W-L</div><div class="num">AP%</div><div class="num">GB</div></div>' +
+      '<div class="ups-m-playoff-group">' + entries.map(playoffGroupRowHtml).join("") + '</div></div>';
+  }
+  // Pre-playoff presentation: four stacked groups from projectedPlayoffGroups
+  // (BYES / DIVISION WINNERS / WILD CARDS / IN THE HUNT) — same race helper
+  // (statusForRow / apGamesBack, via projectedPlayoffGroups) the A1 tables
+  // already use, never a separate computation.
+  function renderPrePlayoffGroups(groups) {
+    // F4 (Phase II-A2 correction pass): owner-facing copy only — the
+    // previous legend text was a developer note that literally named the
+    // very elimination language it was trying to disclaim, defeating
+    // its own intent.
+    return playoffGroupSectionHtml("BYES", groups.byes) +
+      playoffGroupSectionHtml("DIVISION WINNERS", groups.divisionWinners) +
+      playoffGroupSectionHtml("WILD CARDS", groups.wildCards) +
+      playoffGroupSectionHtml("IN THE HUNT", groups.inTheHunt) +
+      '<div class="ups-m-standings-legend">Projected from current seeds. AP GB shows All-Play wins behind the sixth seed.</div>';
+  }
+
+  // Playoff-period / completed-season presentation: real matchup cards
+  // from /api/playoff-bracket, grouped/labeled via the SAME shared
+  // bracket-topology function A5's desktop projected bracket uses
+  // (window.UPS_STANDINGS_RACE.buildActualBracketResult) — not scattered
+  // mobile conditionals.
+  function pickLabelsForGame(sideKey, gameKey) {
+    var slots = (window.UPS_STANDINGS_RACE.BRACKET_FINISH_SLOTS || []).filter(function (s) { return s.side === sideKey && s.game === gameKey; });
+    var winnerSlot = slots.filter(function (s) { return s.role === "winner"; })[0];
+    var loserSlot = slots.filter(function (s) { return s.role === "loser"; })[0];
+    if (!winnerSlot) return null; // R1/semis games don't directly decide a single pick — don't fabricate one
+    return "Winner → " + winnerSlot.pick + (loserSlot ? " · Loser → " + loserSlot.pick : "");
+  }
+  function matchupCardHtml(game, roundLabel, pickLabel) {
+    function teamHtml(seedEntry, score, isWinner) {
+      if (!seedEntry) return '<div class="ups-m-matchup-team dim">TBD</div>';
+      return '<div class="ups-m-matchup-team' + (isWinner ? " winner" : "") + '">' +
+        '<span class="seed">#' + seedEntry.seed + '</span>' +
+        '<span class="name">' + U.escapeHtml(seedEntry.franchise_name || seedEntry.franchise_id) + '</span>' +
+        '<span class="score">' + (score == null ? "—" : Number(score).toFixed(1)) + '</span>' +
+      '</div>';
+    }
+    var aWin = !!(game.winner && game.a && game.winner.franchise_id === game.a.franchise_id);
+    var bWin = !!(game.winner && game.b && game.winner.franchise_id === game.b.franchise_id);
+    return '<div class="ups-m-matchup-card">' +
+      '<div class="ups-m-matchup-meta">' + U.escapeHtml(roundLabel) + (game.week ? " · Week " + game.week : "") +
+        (game.pending ? ' · <span class="pending">pending</span>' : ' · <span class="final">final</span>') + '</div>' +
+      teamHtml(game.a, game.scoreA, aWin) +
+      teamHtml(game.b, game.scoreB, bWin) +
+      (pickLabel ? '<div class="ups-m-matchup-determines">Determines: ' + U.escapeHtml(pickLabel) + '</div>' : "") +
+    '</div>';
+  }
+  function renderActualMatchupCards(seeds, matchups, playoffWeeksRaw) {
+    var result = window.UPS_STANDINGS_RACE.buildActualBracketResult(seeds, matchups, playoffWeeksRaw);
+    if (result.status !== "ok") {
+      return '<div class="ups-m-stub"><div>Playoff bracket data unavailable' + (result.reason ? (": " + U.escapeHtml(result.reason)) : ".") + '</div></div>';
+    }
+    function sideHtml(label, side, sideKey) {
+      var cards = [];
+      side.r1.forEach(function (g) { cards.push(matchupCardHtml(g, label + " · Round 1", null)); });
+      side.semis.forEach(function (g) { cards.push(matchupCardHtml(g, label + " · Semifinal", null)); });
+      if (side.placement) cards.push(matchupCardHtml(side.placement, label + " · Placement", pickLabelsForGame(sideKey, "placement")));
+      // F7 (Phase II-A2 correction pass): "Title Game" here, never the
+      // side's own name again — `label` is already "UPS Championship" /
+      // "Hawktuah Bowl", so repeating it produced a literal duplicate
+      // ("Hawktuah Bowl · Hawktuah Bowl") on the real 2025 final card.
+      if (side.final) cards.push(matchupCardHtml(side.final, label + " · Title Game", pickLabelsForGame(sideKey, "final")));
+      if (side.third) cards.push(matchupCardHtml(side.third, label + " · 3rd place", pickLabelsForGame(sideKey, "third")));
+      if (!cards.length) return "";
+      return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(label) + '</div>' + cards.join("") + '</div>';
+    }
+    var html = sideHtml("UPS Championship", result.champ, "champ") + sideHtml("Hawktuah Bowl", result.hawk, "hawk");
+    return html || '<div class="ups-m-stub"><div>No playoff games recorded yet.</div></div>';
+  }
+
+  // Top-level Playoffs-mode render — loading / actual-cards / projected-
+  // groups / unavailable are FOUR distinct, textually-distinguishable
+  // states (never a false empty picture while the fetch is in flight,
+  // and a failed fetch is never indistinguishable from a legitimately
+  // empty bracket — see loadPlayoffBracketForYear's cooldown-retry above).
+  function renderPlayoffsMode(mount, year, y) {
+    if (!state.bracketByYear[y] && state.bracketLoading !== y) loadPlayoffBracketForYear(year);
+    var shell = subTabs("standings") + renderYearPicker(year) + renderStandingsModeToggle("playoffs");
+    if (state.bracketLoading === y || (!state.bracketByYear[y] && !state.bracketErrorAt[y])) {
+      mount.innerHTML = shell + '<div class="ups-m-loading">Loading playoff bracket…</div>';
+      bindYearPicker(mount); bindStandingsModeToggle(mount);
+      return;
+    }
+    var bresp = state.bracketByYear[y];
+    if (!bresp) {
+      mount.innerHTML = shell + '<div class="ups-m-stub"><div>Couldn’t load playoff data for ' + U.escapeHtml(y) + ' right now. It will retry automatically.</div></div>';
+      bindYearPicker(mount); bindStandingsModeToggle(mount);
+      return;
+    }
+    if (!window.UPS_STANDINGS_RACE) {
+      mount.innerHTML = shell + '<div class="ups-m-stub"><div>Playoff projections unavailable (shared module not loaded).</div></div>';
+      bindYearPicker(mount); bindStandingsModeToggle(mount);
+      return;
+    }
+    var seeds = bresp.seeds || [];
+    var matchups = bresp.matchups || [];
+    // F9 (Phase II-A2 correction pass): the SAME shared gating decision
+    // desktop's renderBracket()/renderDraftOrder() use — never a mobile-
+    // local "matchups.length / !season_complete" conditional pair.
+    var mode = window.UPS_STANDINGS_RACE.projectionMode({ seasonComplete: bresp.season_complete, matchups: matchups, seeds: seeds });
+    var body;
+    if (mode === "actual") {
+      body = renderActualMatchupCards(seeds, matchups, bresp.playoff_weeks);
+    } else if (mode === "projected") {
+      var stdResp = state.standingsByYear[y] || { rows: [], weeklyScores: [] };
+      // weeklyScores passes through as-is: a failed query (null) makes AP games back unavailable, never a preseason 0.0
+      var groups = window.UPS_STANDINGS_RACE.projectedPlayoffGroups(stdResp.rows || [], stdResp.weeklyScores);
+      body = renderPrePlayoffGroups(groups);
+    } else {
+      body = '<div class="ups-m-stub"><div>No playoff data for ' + U.escapeHtml(y) + '.</div></div>';
+    }
+    mount.innerHTML = shell + body;
+    bindYearPicker(mount);
+    bindStandingsModeToggle(mount);
+    // Playoff-group rows can open the same A1 team sheet as League mode —
+    // never a separate/duplicated team-detail surface.
+    Array.prototype.forEach.call(mount.querySelectorAll(".ups-m-playoff-row[data-fid]"), function (rowEl) {
+      var openSheet = function () {
+        var fid = rowEl.getAttribute("data-fid");
+        var stdResp2 = state.standingsByYear[y];
+        var srcRow = stdResp2 && (stdResp2.rows || []).filter(function (r) { return U.pad4(r.franchise_id) === fid; })[0];
+        if (M.teamSheet && srcRow) M.teamSheet.open(fid, { row: srcRow, raceRow: null, year: year, trigger: rowEl });
+      };
+      rowEl.addEventListener("click", openSheet);
+      rowEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); openSheet(); }
+      });
+    });
+  }
+
   function renderStandings(mount) {
     // Lazy-load champion panels (trophy badges).
     if (!state.championsByYear && !state._championsLoading) loadChampions();
@@ -626,7 +801,14 @@
       return;
     }
 
-    // PRIMARY SORT: end-of-season draft order (final_finish). Per Keith
+    // PLAYOFFS MODE (Phase II-A2) — its own fetch (bracket, not standings)
+    // and its own loading/unavailable states; see renderPlayoffsMode.
+    if (state.standingsMode === "playoffs") {
+      renderPlayoffsMode(mount, year, y);
+      return;
+    }
+
+    // PRIMARY SORT: end-of-season finish (final_finish). Per Keith
     // 2026-05-16: standings should show the END finish, not regular-
     // season standings. Sources from /api/historical-finishes which
     // mirrors src_final_standings.final_finish (1 = champion, 12 = toilet
@@ -844,11 +1026,21 @@
   }
 
   function renderStandingsModeToggle(mode) {
+    // Phase II-A2 adds a third "Playoffs" mode. aria-pressed is added
+    // here (the pre-A2 League/Divisions toggle had none) so all three
+    // buttons are consistently announced as toggle state, not just
+    // visually distinguished by the .active class.
     function b(key, label) {
       return '<a class="ups-m-subtab' + (key === mode ? ' active' : '') +
-             '" href="#" data-sw-mode="' + key + '">' + label + '</a>';
+             '" href="#" role="button" aria-pressed="' + (key === mode ? "true" : "false") +
+             '" data-sw-mode="' + key + '">' + label + '</a>';
     }
-    return '<div class="ups-m-action-chips">' + b("league", "League") + b("divisions", "Divisions") + '</div>';
+    // F3 (Phase II-A2 correction pass): "ups-m-mode-toggle" scopes the
+    // >=44px touch-target CSS fix to just this League/Divisions/Playoffs
+    // control — the shared ".ups-m-action-chips .ups-m-subtab" rule is
+    // also used by other, unrelated action-chip rows (e.g. the Contracts
+    // hub) that this correction pass must not touch.
+    return '<div class="ups-m-action-chips ups-m-mode-toggle">' + b("league", "League") + b("divisions", "Divisions") + b("playoffs", "Playoffs") + '</div>';
   }
   function bindStandingsModeToggle(mount) {
     Array.prototype.forEach.call(mount.querySelectorAll("[data-sw-mode]"), function (el) {

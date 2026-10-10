@@ -665,6 +665,408 @@
     };
   }
 
+  // ── 8. Projected bracket / draft order (Phase II-A2) ────────────────
+  // Pure bracket-topology + chalk-projection helpers for A5 (desktop
+  // projected bracket + draft order) and A6 (mobile Playoffs mode).
+  // NEVER recomputes playoff SEEDS — every function here takes an
+  // already-ordered seeds[] array (from /api/playoff-bracket, or the
+  // canonical playoff_seed already on /api/standings rows) and only ever
+  // asks "who wins a projected/actual GAME between two already-seeded
+  // teams" — seed 1..12 is trusted input, not derived here.
+  //
+  // BRACKET TOPOLOGY (verified against real, live /api/playoff-bracket
+  // data for a completed season — 2025 — not assumed): each 6-team side
+  // (seeds 1-6 for the UPS championship side, 7-12 for the Hawktuah Bowl
+  // side, using within-side relative positions 1-6) is a standard
+  // single-elimination bracket with the top 2 byed to the semifinal
+  // round:
+  //   Round 1 (week 1 of 3 playoff weeks):  3 vs 6,  4 vs 5
+  //   Semis   (week 2): 1 vs winner(4v5),  2 vs winner(3v6)
+  //   Placement (week 2, the other game — the two R1 LOSERS play each
+  //     other for the lower two of the six positions)
+  //   Final   (week 3): winner(semi1) vs winner(semi2)
+  //   Third-place (week 3): loser(semi1) vs loser(semi2)
+  // This exact topology (and the finish/pick assignment below) was
+  // verified by replaying it against real 2025 matchup data and
+  // confirming it reproduces the real bracket's actual picks, including
+  // 1.01 = Cleon Ca$h (finish 7, the real 2025 Hawktuah Bowl champion).
+  //
+  // FINISH / PICK ASSIGNMENT — as of the Phase II-A2 correction pass, this
+  // table is the ONE authoritative pick mapper for BOTH the real desktop
+  // Draft Order view (site/standings/mfl_hpm_standings_v2.html
+  // renderDraftOrder now calls buildActualBracketResult()/this table
+  // directly — it no longer has its own inline pick-assignment
+  // arithmetic) and the projected chalk bracket. It is intentionally NOT
+  // a lookup keyed by the DB's stored final_finish column — that's a
+  // separate concept (final_finish is a historical record written at
+  // season-end; this module computes bracket placement fresh from named
+  // game-slot outcomes). For the 2025 season (the only completed season
+  // this module has been verified against), the stored final_finish
+  // values agree with the bracket-computed placements for all 12
+  // franchises — no divergence has been observed or demonstrated; this
+  // comment previously claimed otherwise without a verified example, and
+  // that claim has been retracted (Phase II-A2 correction pass, F8):
+  var BRACKET_FINISH_SLOTS = [
+    { side: 'champ', game: 'final',     role: 'winner', finish: 1,  pick: '1.12' },
+    { side: 'champ', game: 'final',     role: 'loser',  finish: 2,  pick: '1.11' },
+    { side: 'champ', game: 'third',     role: 'winner', finish: 3,  pick: '1.10' },
+    { side: 'champ', game: 'third',     role: 'loser',  finish: 4,  pick: '1.09' },
+    { side: 'champ', game: 'placement', role: 'winner', finish: 5,  pick: '1.07' },
+    { side: 'champ', game: 'placement', role: 'loser',  finish: 6,  pick: '1.08' },
+    { side: 'hawk',  game: 'final',     role: 'winner', finish: 7,  pick: '1.01' },
+    { side: 'hawk',  game: 'final',     role: 'loser',  finish: 8,  pick: '1.02' },
+    { side: 'hawk',  game: 'third',     role: 'winner', finish: 9,  pick: '1.03' },
+    { side: 'hawk',  game: 'third',     role: 'loser',  finish: 10, pick: '1.04' },
+    { side: 'hawk',  game: 'placement', role: 'winner', finish: 11, pick: '1.05' },
+    { side: 'hawk',  game: 'placement', role: 'loser',  finish: 12, pick: '1.06' }
+  ];
+  // Validates and normalizes a seeds[] array (from /api/playoff-bracket,
+  // or any equivalent list of {seed, franchise_id, franchise_name}).
+  // Fails closed — returns { ok:false, reason } rather than fabricating
+  // a bracket — when there aren't exactly 12 entries, a seed number is
+  // missing/non-integer/out of 1-12/duplicated, or a franchise_id is
+  // missing/duplicated. Never keyed on franchise name.
+  function validateBracketSeeds(seedsRaw) {
+    if (!Array.isArray(seedsRaw)) return { ok: false, reason: 'seeds must be an array' };
+    if (seedsRaw.length !== 12) return { ok: false, reason: 'expected exactly 12 seeds, got ' + seedsRaw.length };
+    var bySeedNum = {}, byFid = {}, normalized = [];
+    for (var i = 0; i < seedsRaw.length; i++) {
+      var s = seedsRaw[i];
+      if (!s || typeof s !== 'object') return { ok: false, reason: 'seed entry ' + i + ' is missing or malformed' };
+      var n = Number(s.seed);
+      if (!Number.isInteger(n) || n < 1 || n > 12) return { ok: false, reason: 'seed entry ' + i + ' has an invalid seed number' };
+      if (bySeedNum.hasOwnProperty(n)) return { ok: false, reason: 'duplicate seed number ' + n };
+      var rawFid = s.franchise_id;
+      if (rawFid == null || String(rawFid).trim() === '') return { ok: false, reason: 'seed ' + n + ' is missing a franchise_id' };
+      var fid = pad4(rawFid);
+      if (byFid.hasOwnProperty(fid)) return { ok: false, reason: 'duplicate franchise_id ' + fid };
+      bySeedNum[n] = true; byFid[fid] = true;
+      normalized.push({ seed: n, franchise_id: fid, franchise_name: (s.franchise_name == null ? '' : String(s.franchise_name)) || ('Franchise ' + fid) });
+    }
+    return { ok: true, seeds: normalized };
+  }
+  // Chalk rule (Keith's Phase II-A2 decision): the higher seed (lower
+  // seed NUMBER) wins every projected game. Never a tie under chalk
+  // (seed numbers are always distinct once validated).
+  function chalkWinner(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    return Number(a.seed) < Number(b.seed) ? a : b;
+  }
+  function chalkLoser(a, b) {
+    if (!a || !b) return null;
+    return chalkWinner(a, b) === a ? b : a;
+  }
+  function chalkGame(a, b) {
+    return { a: a, b: b, winner: chalkWinner(a, b), loser: chalkLoser(a, b), scoreA: null, scoreB: null, pending: false, projected: true };
+  }
+  // Builds one 6-team side's full bracket topology (see the module
+  // comment above) entirely by chalk. `base` = 0 for the UPS
+  // championship side (seeds 1-6), 6 for the Hawktuah side (7-12).
+  function chalkBracketSide(bySeedNum, base) {
+    function s(n) { return bySeedNum[base + n]; }
+    var r1a = chalkGame(s(3), s(6));
+    var r1b = chalkGame(s(4), s(5));
+    var semi1 = chalkGame(s(1), r1b.winner);
+    var semi2 = chalkGame(s(2), r1a.winner);
+    var placement = chalkGame(r1a.loser, r1b.loser);
+    var finalGame = chalkGame(semi1.winner, semi2.winner);
+    var thirdGame = chalkGame(semi1.loser, semi2.loser);
+    return { r1: [r1a, r1b], semis: [semi1, semi2], placement: placement, final: finalGame, third: thirdGame };
+  }
+  // ── F5 (Phase II-A2 correction pass) — one GAME's natural identity is
+  // (week, sorted franchise-id pair), regardless of how many perspective
+  // rows the API sends for it. normalizeActualGame() groups those rows
+  // and returns an explicit STATUS, never guessing:
+  //   'ok'         — both sides' rows present, mutually consistent, a
+  //                  real (non-tied) score difference decides a winner.
+  //   'pending'    — valid/consistent data, but a score is null/missing
+  //                  or the two scores are tied (no explicit winner is
+  //                  ever supplied by this module's inputs, so a tie
+  //                  always stays pending, never a coin-flip).
+  //   'incomplete' — only ONE side's perspective row was ever seen for
+  //                  this game (no reciprocal row) — never enough to
+  //                  assign a winner, regardless of what that one row's
+  //                  score says.
+  //   'conflict'   — two rows disagree (duplicate rows for the same
+  //                  perspective report different scores, OR the two
+  //                  sides' rows cross-check to different score pairs).
+  //                  scoreA/scoreB are cleared to null — a conflict is
+  //                  never resolved by trusting "whichever row came
+  //                  first"; the result is input-order independent.
+  // Only 'ok' games ever produce a non-null winner/loser — pending/
+  // incomplete/conflict all leave winner=null, loser=null, pending=true,
+  // so assignFinishesAndPicks() (below) never assigns a placement/pick
+  // from anything but a decided game.
+  function normalizeActualGame(week, loFid, hiFid, rawRows, byFid) {
+    var loRows = [], hiRows = [];
+    (rawRows || []).forEach(function (m) {
+      var fid = pad4(m.franchise_id), oppFid = pad4(m.opponent_franchise_id);
+      // m.team_score == null must stay null, never Number(null) === 0.
+      var score = (m.team_score == null) ? null : (isFiniteNum(Number(m.team_score)) ? Number(m.team_score) : null);
+      var oppScore = (m.opponent_score == null) ? null : (isFiniteNum(Number(m.opponent_score)) ? Number(m.opponent_score) : null);
+      if (fid === loFid && oppFid === hiFid) loRows.push({ score: score, oppScore: oppScore });
+      else if (fid === hiFid && oppFid === loFid) hiRows.push({ score: score, oppScore: oppScore });
+      // a row that doesn't match this exact pair is not this game's data
+    });
+    function allSame(rows) {
+      if (rows.length <= 1) return true;
+      var first = rows[0];
+      return rows.every(function (r) { return r.score === first.score && r.oppScore === first.oppScore; });
+    }
+    var loConsistent = allSame(loRows), hiConsistent = allSame(hiRows);
+    var loRow = loRows[0] || null, hiRow = hiRows[0] || null;
+    var crossConsistent = true;
+    if (loRow && hiRow) {
+      crossConsistent =
+        (loRow.score == null || hiRow.oppScore == null || loRow.score === hiRow.oppScore) &&
+        (loRow.oppScore == null || hiRow.score == null || loRow.oppScore === hiRow.score);
+    }
+    var status;
+    if (!loConsistent || !hiConsistent || !crossConsistent) status = 'conflict';
+    else if (!loRow || !hiRow) status = 'incomplete';
+    else status = (loRow.score == null || hiRow.score == null || loRow.score === hiRow.score) ? 'pending' : 'ok';
+    // Each side's score is taken ONLY from that side's own reported row —
+    // never inferred from the other side's oppScore mirror field, even
+    // when that side's own row is missing. A missing/unreported side
+    // stays null (honest, never fabricated) whether the game is
+    // 'incomplete' (only one perspective ever seen) or 'conflict'
+    // (perspectives disagree — neither is trusted).
+    var scoreLo = (status !== 'conflict' && loRow) ? loRow.score : null;
+    var scoreHi = (status !== 'conflict' && hiRow) ? hiRow.score : null;
+    var teamLo = byFid[loFid], teamHi = byFid[hiFid];
+    var winner = null, loser = null;
+    if (status === 'ok') {
+      winner = scoreLo > scoreHi ? teamLo : teamHi;
+      loser = scoreLo > scoreHi ? teamHi : teamLo;
+    }
+    return {
+      week: week, a: teamLo, b: teamHi, scoreA: scoreLo, scoreB: scoreHi,
+      winner: winner, loser: loser, pending: status !== 'ok', projected: false, status: status
+    };
+  }
+  // Classifies a flat list of ACTUAL game entries for ONE side (already
+  // deduped to one entry per (week, franchise pair)) into the same
+  // {r1, semis, placement, final, third} shape chalkBracketSide()
+  // produces — by CROSS-REFERENCING who won/lost the round-1 games and
+  // the semis, exactly mirroring the desktop Bracket view's own
+  // classification (both R1 losers meeting again = placement/consolation;
+  // both semi winners meeting = the real final; both semi losers = 3rd
+  // place) — never by assuming a fixed week-to-round label, so a
+  // partially-played bracket degrades to missing slots instead of a
+  // wrong label. `playoffWeeks` = [r1Week, semisWeek, finalWeek].
+  function classifySideGamesFromMatchups(games, playoffWeeks) {
+    var wk1 = playoffWeeks[0], wk2 = playoffWeeks[1], wk3 = playoffWeeks[2];
+    var r1 = games.filter(function (g) { return g.week === wk1; });
+    var r1LoserFids = {};
+    r1.forEach(function (g) { if (g.loser) r1LoserFids[g.loser.franchise_id] = true; });
+    var wk2Games = games.filter(function (g) { return g.week === wk2; });
+    var semis = [], placement = null;
+    wk2Games.forEach(function (g) {
+      if (r1LoserFids[g.a.franchise_id] && r1LoserFids[g.b.franchise_id]) placement = g;
+      else semis.push(g);
+    });
+    var semiLoserFids = {}, semiWinnerFids = {};
+    semis.forEach(function (g) {
+      if (g.loser) semiLoserFids[g.loser.franchise_id] = true;
+      if (g.winner) semiWinnerFids[g.winner.franchise_id] = true;
+    });
+    var wk3Games = games.filter(function (g) { return g.week === wk3; });
+    var finalGame = null, thirdGame = null;
+    wk3Games.forEach(function (g) {
+      if (semiWinnerFids[g.a.franchise_id] && semiWinnerFids[g.b.franchise_id]) finalGame = g;
+      else if (semiLoserFids[g.a.franchise_id] && semiLoserFids[g.b.franchise_id]) thirdGame = g;
+    });
+    return { r1: r1, semis: semis, placement: placement, final: finalGame, third: thirdGame };
+  }
+  // THE shared finish/pick assignment — used identically for a chalk
+  // projection (champSide/hawkSide from chalkBracketSide) and for real
+  // results (from classifySideGamesFromMatchups). A slot whose game
+  // hasn't been decided yet (null, or pending with no winner/loser) is
+  // simply left unassigned — never fabricated.
+  function assignFinishesAndPicks(champSide, hawkSide) {
+    var sides = { champ: champSide, hawk: hawkSide };
+    var picks = {}, finishes = {};
+    BRACKET_FINISH_SLOTS.forEach(function (slot) {
+      var side = sides[slot.side];
+      var g = side ? side[slot.game] : null;
+      var entry = g ? g[slot.role] : null;
+      if (!entry) return;
+      picks[slot.pick] = entry.franchise_id;
+      finishes[entry.franchise_id] = slot.finish;
+    });
+    return { picks: picks, finishes: finishes, slots: BRACKET_FINISH_SLOTS };
+  }
+  // Top-level: PROJECTED bracket + draft order using chalk (A5's core
+  // entry point). seedsRaw = /api/playoff-bracket's seeds[] (or any
+  // equivalent already-ordered 12-team list). Returns
+  // { status: 'ok', champ, hawk, picks, finishes } or
+  // { status: 'unavailable', reason, champ:null, hawk:null, picks:null, finishes:null }.
+  function projectChalkBracket(seedsRaw) {
+    var v = validateBracketSeeds(seedsRaw);
+    if (!v.ok) return { status: 'unavailable', reason: v.reason, champ: null, hawk: null, picks: null, finishes: null };
+    var bySeedNum = {};
+    v.seeds.forEach(function (s) { bySeedNum[s.seed] = s; });
+    var champSide = chalkBracketSide(bySeedNum, 0);
+    var hawkSide = chalkBracketSide(bySeedNum, 6);
+    var assigned = assignFinishesAndPicks(champSide, hawkSide);
+    return { status: 'ok', champ: champSide, hawk: hawkSide, picks: assigned.picks, finishes: assigned.finishes };
+  }
+  // Top-level: ACTUAL bracket + draft order from real /api/playoff-bracket
+  // matchups[] (verified against real 2025 data — reproduces every real
+  // pick, including the semifinal upsets that season had). seedsRaw =
+  // seeds[]; matchupsRaw = matchups[] (one row per side per game, as the
+  // worker returns it — deduped here); playoffWeeksRaw = the response's
+  // playoff_weeks (defaults to [15,16,17] if not a 3-element array). A
+  // matchup row for a franchise not on seedsRaw, or a game whose two
+  // participants are seeded on DIFFERENT sides (a data anomaly), is
+  // ignored rather than fabricated into a result. Used both to validate
+  // A2's chalk logic against real history and to power A6's mobile
+  // "what does this game determine" labeling.
+  function buildActualBracketResult(seedsRaw, matchupsRaw, playoffWeeksRaw) {
+    var v = validateBracketSeeds(seedsRaw);
+    if (!v.ok) return { status: 'unavailable', reason: v.reason, champ: null, hawk: null, picks: null, finishes: null, games: [] };
+    var byFid = {};
+    v.seeds.forEach(function (s) { byFid[s.franchise_id] = s; });
+    var playoffWeeks = (Array.isArray(playoffWeeksRaw) && playoffWeeksRaw.length === 3)
+      ? playoffWeeksRaw.map(Number).sort(function (a, b) { return a - b; })
+      : [15, 16, 17];
+    // Group raw rows by (week, canonical sorted fid pair) — a GAME's
+    // natural identity — before deciding anything about who won. This is
+    // input-order independent: it doesn't matter which row arrived first,
+    // or how many duplicate/reciprocal rows exist for the pair.
+    var groups = {};
+    (Array.isArray(matchupsRaw) ? matchupsRaw : []).forEach(function (m) {
+      if (!m) return;
+      var fidA = pad4(m.franchise_id), fidB = pad4(m.opponent_franchise_id);
+      if (!byFid.hasOwnProperty(fidA) || !byFid.hasOwnProperty(fidB)) return;
+      var week = Number(m.week);
+      if (!isFiniteNum(week)) return;
+      var seedA = byFid[fidA], seedB = byFid[fidB];
+      // a cross-side pairing would be a data anomaly — never fabricated
+      // into either side's bracket.
+      var bothChamp = seedA.seed <= 6 && seedB.seed <= 6;
+      var bothHawk = seedA.seed >= 7 && seedB.seed >= 7;
+      if (!bothChamp && !bothHawk) return;
+      var pair = [fidA, fidB].sort();
+      var key = week + '|' + pair.join('-');
+      if (!groups.hasOwnProperty(key)) groups[key] = { week: week, loFid: pair[0], hiFid: pair[1], side: bothChamp ? 'champ' : 'hawk', rows: [] };
+      groups[key].rows.push(m);
+    });
+    var champGames = [], hawkGames = [];
+    Object.keys(groups).forEach(function (key) {
+      var g = groups[key];
+      var entry = normalizeActualGame(g.week, g.loFid, g.hiFid, g.rows, byFid);
+      (g.side === 'champ' ? champGames : hawkGames).push(entry);
+    });
+    function byWeekThenFid(x, y) { return x.week - y.week || x.a.franchise_id.localeCompare(y.a.franchise_id); }
+    champGames.sort(byWeekThenFid);
+    hawkGames.sort(byWeekThenFid);
+    var champSide = classifySideGamesFromMatchups(champGames, playoffWeeks);
+    var hawkSide = classifySideGamesFromMatchups(hawkGames, playoffWeeks);
+    var assigned = assignFinishesAndPicks(champSide, hawkSide);
+    return { status: 'ok', champ: champSide, hawk: hawkSide, picks: assigned.picks, finishes: assigned.finishes, games: champGames.concat(hawkGames) };
+  }
+  // ── F9 (Phase II-A2 correction pass) — the ONE shared gating decision
+  // both the desktop and mobile Playoffs surfaces consume, replacing each
+  // page's own ad hoc "!matchups.length && !season_complete" conditionals.
+  // Returns exactly one of:
+  //   'actual'      — matchups is a non-empty array. Real results exist
+  //                    (even mid-playoffs, partially played) — render
+  //                    them via buildActualBracketResult(); NEVER project
+  //                    over real data, regardless of season_complete.
+  //   'projected'   — matchups is an empty array AND season_complete is
+  //                    the literal boolean `false` (a string, null,
+  //                    undefined, or any other truthy/falsy-but-not-
+  //                    boolean value fails closed to 'unavailable' —
+  //                    malformed season_complete never silently enables
+  //                    a projection) AND the 12-seed set validates.
+  //   'unavailable' — anything else: matchups is not an array (a
+  //                    malformed non-array matchups object is NEVER
+  //                    treated as an empty array), or matchups is empty
+  //                    but season_complete isn't strictly false, or the
+  //                    seeds don't validate.
+  function projectionMode(input) {
+    var seasonComplete = input && input.seasonComplete;
+    var matchupsRaw = input && input.matchups;
+    var seedsRaw = input && input.seeds;
+    if (!Array.isArray(matchupsRaw)) return 'unavailable';
+    if (matchupsRaw.length > 0) return 'actual';
+    if (seasonComplete !== false) return 'unavailable';
+    var v = validateBracketSeeds(seedsRaw);
+    return v.ok ? 'projected' : 'unavailable';
+  }
+  // ── F2 (Phase II-A2 correction pass) — one shared, human-readable
+  // "why this pick" label generator driven by BRACKET_FINISH_SLOTS, used
+  // by BOTH the actual and projected desktop Draft Order rendering (no
+  // separate hand-written why-text table per rendering path). `pick` is
+  // a "1.0N"/"1.1N" string; `projected` prefixes the text when the pick
+  // came from projectChalkBracket() rather than real results.
+  var GAME_DISPLAY_NAME = {
+    champ: { final: 'the UPS Championship', third: 'the championship 3rd-place game', placement: 'the championship placement game' },
+    hawk:  { final: 'the Hawktuah Bowl', third: 'the Toilet 3rd-place game', placement: 'the Toilet placement game' }
+  };
+  function pickWhyText(pick, projected) {
+    var slot = null;
+    for (var i = 0; i < BRACKET_FINISH_SLOTS.length; i++) {
+      if (BRACKET_FINISH_SLOTS[i].pick === pick) { slot = BRACKET_FINISH_SLOTS[i]; break; }
+    }
+    if (!slot) return null;
+    var verb = slot.role === 'winner' ? 'Won' : 'Lost';
+    var name = GAME_DISPLAY_NAME[slot.side][slot.game];
+    return (projected ? 'Projected — ' : '') + verb + ' ' + name;
+  }
+  // The draft year a season's playoff results determine — e.g. the 2026
+  // season's playoffs set the 2027 rookie draft order. Never hardcoded.
+  function nextDraftYear(season) {
+    var n = Number(season);
+    return isFiniteNum(n) ? n + 1 : null;
+  }
+  // A6's four pre-playoff mobile groups (BYES / DIVISION WINNERS / WILD
+  // CARDS / IN THE HUNT), derived from the SAME playoff_status field
+  // (via statusForRow) and the SAME regular-season-only AP GB
+  // (via apGamesBack) that the A1 desktop/mobile standings tables
+  // already use — never a separate/duplicated computation. `rows` =
+  // /api/standings rows; `weeklyScores` threads through to apGamesBack
+  // exactly as A1 already does. IN THE HUNT is sorted by AP GB ascending
+  // (nulls last), tie-broken by seed (when present) then franchise_id
+  // for a fully deterministic order.
+  function projectedPlayoffGroups(rows, weeklyScores) {
+    var list = (Array.isArray(rows) ? rows : []).filter(Boolean);
+    var gbMap = apGamesBack(list, weeklyScores);
+    var byes = [], divisionWinners = [], wildCards = [], inTheHunt = [];
+    list.forEach(function (r, i) {
+      var fid = pad4(r.franchise_id);
+      var status = statusForRow(r);
+      var entry = {
+        order: i,   // the worker's order — playoff seed, then the league ladder (never re-derived here)
+        franchise_id: fid,
+        franchise_name: r.franchise_name || ('Franchise ' + fid),
+        seed: (r.playoff_seed == null ? null : Number(r.playoff_seed)),
+        status: status,
+        overall: { w: r.h2h_w || 0, l: r.h2h_l || 0, t: r.h2h_t || 0, pct: (r.h2h_pct == null ? null : Number(r.h2h_pct)) },
+        allplay_pct: (r.allplay_pct == null ? null : Number(r.allplay_pct)),
+        apGB: gbMap.hasOwnProperty(fid) ? gbMap[fid] : null
+      };
+      if (status === 'BYE') byes.push(entry);
+      else if (status === 'DIV') divisionWinners.push(entry);
+      else if (status === 'WC') wildCards.push(entry);
+      else inTheHunt.push(entry);
+    });
+    function bySeedAsc(a, b) { return (a.seed == null ? 99 : a.seed) - (b.seed == null ? 99 : b.seed); }
+    byes.sort(bySeedAsc);
+    divisionWinners.sort(bySeedAsc);
+    wildCards.sort(bySeedAsc);
+    // Teams outside the field: by AP games back of the 6-seed, and otherwise in the WORKER's order (its ladder) —
+    // never by franchise id, which would be a ranking of our own.
+    inTheHunt.sort(function (a, b) {
+      var ag = a.apGB == null ? Infinity : a.apGB, bg = b.apGB == null ? Infinity : b.apGB;
+      if (ag !== bg) return ag - bg;
+      return a.order - b.order;
+    });
+    return { byes: byes, divisionWinners: divisionWinners, wildCards: wildCards, inTheHunt: inTheHunt };
+  }
+
   // ── top-level composition ───────────────────────────────────────────
   // race(payload) -> { byFranchise: { <fid>: {...} }, seed2FranchiseId,
   //   seed6FranchiseId, hasSeed6, preseason }
@@ -745,6 +1147,20 @@
     gameLogForFranchise: gameLogForFranchise,
     divisionRace: divisionRace,
     whySeedForRow: whySeedForRow,
-    LUCK_TOOLTIP: LUCK_TOOLTIP
+    LUCK_TOOLTIP: LUCK_TOOLTIP,
+    // Phase II-A2 — projected bracket / draft order / mobile Playoffs mode.
+    validateBracketSeeds: validateBracketSeeds,
+    chalkBracketSide: chalkBracketSide,
+    classifySideGamesFromMatchups: classifySideGamesFromMatchups,
+    assignFinishesAndPicks: assignFinishesAndPicks,
+    projectChalkBracket: projectChalkBracket,
+    buildActualBracketResult: buildActualBracketResult,
+    nextDraftYear: nextDraftYear,
+    projectedPlayoffGroups: projectedPlayoffGroups,
+    BRACKET_FINISH_SLOTS: BRACKET_FINISH_SLOTS,
+    // Phase II-A2 correction pass (F2/F5/F9).
+    normalizeActualGame: normalizeActualGame,
+    projectionMode: projectionMode,
+    pickWhyText: pickWhyText
   };
 })(typeof window !== 'undefined' ? window : this);
