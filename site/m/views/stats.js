@@ -179,7 +179,7 @@
     // played, final weeks. Only played weeks are graded; a 0.0 in a game he
     // played is graded (a bust), a game he didn't play is not.
     sq:    { l: "Played", src: "srt", w: 40, f: "ma", t: "Games he played ÷ games his NFL team played (final weeks); only played games are graded",
-      g: function (r) { var x = srRec(r); return x && x.team_games_n != null ? { m: x.played_n, a: x.team_games_n } : null; },
+      g: function (r) { var x = srRec(r); return x && x.team_games_n ? { m: x.played_n, a: x.team_games_n } : null; },   // 0/0 = nothing to say: "—"
       sv: function (v) { return v.m * 100 - v.a; } },
     // Kickers and punters: about 12 UPS starters a week — counts, not a ranking.
     sstartn:{ l: "Start", src: "srt", w: 40, f: "ma", t: "Played weeks at or above that week's UPS-starter median (count / graded weeks)",
@@ -899,7 +899,7 @@
     if (set.cols.indexOf("snappct") >= 0) more.push("Snap% = his defensive snaps ÷ his team’s, only in the games he played on defense. It isn’t box or slot alignment — no source has that.");
     if (srcs.snap) {
       line.push("Snap% = his offensive snaps ÷ his team’s, in the games he played on offense.");
-      more.push("Snaps: nflverse snap counts. Both counts cover the same games; — when his team’s total or his snap record is missing." +
+      more.push("Snaps: nflverse snap counts. Both counts cover the same games; — when he had no offensive snaps, or his team’s total or his snap record is missing." +
         (set.cols.indexOf("tgtsh") >= 0 ? " Tgt% = his share of his team’s targets in the weeks he played." : ""));
     }
     if (set.id === "distance") line.push("Made/attempted by distance; sorted by attempts.");

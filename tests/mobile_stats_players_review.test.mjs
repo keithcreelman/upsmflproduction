@@ -120,7 +120,7 @@ function makeEl(id) {
 const STATUS_OK = (players = {}, feed = {}) => ({ ok: true, season: 2026,
   report_feed: Object.assign({ ok: true, current: true, week: 5, current_week: 5, updated_utc: "2026-10-10T13:33:06.000Z", reason: null,
     teams_mfl: ["ARI", "ATL", "BAL", "BUF", "CHI", "CIN", "CLE", "DAL", "DEN", "DET", "GBP", "HOU", "IND", "JAC", "LAR", "LAC", "LVR", "MIA", "MIN", "NEP", "NOS", "NYG", "NYJ", "PHI", "PIT", "SEA", "SFO", "TBB", "TEN", "WAS"] }, feed),
-  roster_feed: { ok: true, week: 5, updated_utc: "2026-10-10T14:01:03.000Z", reason: null }, players, unmapped_mfl_ids: [] });
+  roster_feed: { ok: true, week: 5, updated_utc: "2026-10-10T14:01:03.000Z", reason: null }, players, mapped_mfl_ids: PLAYERS.map((p) => p.id) });
 function boot(opt = {}) {
   const ctx = vm.createContext({ console, setTimeout, clearTimeout, Promise, URL, Date, Math, JSON });
   ctx.window = ctx;
@@ -622,18 +622,20 @@ test("sorting: every data heading sorts the WHOLE filtered list; '—' stays las
 });
 
 test("Boom/Bust vs UPS starters: Start% / Boom% / Bust% with counts, joined by MFL id; under 3 weeks the % is '—' and sorts last", async () => {
-  const [a, b2, c] = FX.leaderboard.qb.rows.slice(0, 3).map((r) => String(r.mfl_pid));
+  const [a, b2, c, d] = FX.leaderboard.qb.rows.slice(0, 4).map((r) => String(r.mfl_pid));
   const groups = [];
   const starter = (g) => { groups.push(g); return { ok: true, weeks_label: "Wks 1–4", pending_weeks: [], players: g !== "QB" ? {} : {
     [a]: { q: 2, startable_n: 2, boom_n: 2, bust_n: 0, startable_pct: null, boom_pct: null, bust_pct: null, played_n: 2, team_games_n: 3 },
     [b2]: { q: 4, startable_n: 3, boom_n: 2, bust_n: 1, startable_pct: 75, boom_pct: 50, bust_pct: 25, played_n: 4, team_games_n: 4 },
-    [c]: { q: 3, startable_n: 1, boom_n: 0, bust_n: 2, startable_pct: 33, boom_pct: 0, bust_pct: 67, played_n: 3, team_games_n: 4 } } }; };
+    [c]: { q: 3, startable_n: 1, boom_n: 0, bust_n: 2, startable_pct: 33, boom_pct: 0, bust_pct: 67, played_n: 3, team_games_n: 4 },
+    [d]: { q: 0, startable_n: 0, boom_n: 0, bust_n: 0, startable_pct: null, boom_pct: null, bust_pct: null, played_n: 0, team_games_n: 0 } } }; };
   const v = boot({ starter });
   await openTab(v, "QB");
   const boom = await chooseSet(v, "boom");
   t.deepEqual(groups, ["QB"], "one request for the tab's lineup group");
   const rows = rowsOf(boom.list), get = (pid) => rows.find((r) => r.pid === pid);
   t.deepEqual(get(a).cells, ["—2/2", "—2/2", "—0/2", "2/3"], "2 weeks: no %, but the counts show; Played = 2 of his team's 3 games");
+  t.equal(get(d).cells[3], "—", "no team games to count (0/0): '—', not 0/0");
   t.deepEqual(get(b2).cells, ["75%3/4", "50%2/4", "25%1/4", "4/4"]);
   t.deepEqual(get(c).cells, ["33%1/3", "0%0/3", "67%2/3", "3/4"], "3 weeks is enough");
   t.match(boom.head, /Starters Wks 1–4|vs UPS starters Wks 1–4/, "the band names the pool and the exact weeks");
@@ -1069,7 +1071,7 @@ test("Usage (WR/TE/RB): Snaps · Snap% over his team's offensive snaps in HIS ga
   t.deepEqual(get(LAMB).cells.slice(0, 2), ["216", "—"], "no team total for every game he played: '—', not a smaller denominator");
   t.deepEqual(get(OLAVE).cells.slice(0, 2), ["—", "—"], "no snap record: '—', never 0 or 0%");
   t.match(u.notes, /Snap% = his offensive snaps ÷ his team’s, in the games he played on offense\./);
-  t.match(u.notes, /Snaps: nflverse snap counts\. Both counts cover the same games; — when his team’s total or his snap record is missing\./);
+  t.match(u.notes, /Snaps: nflverse snap counts\. Both counts cover the same games; — when he had no offensive snaps, or his team’s total or his snap record is missing\./);
   await openTab(v, "RB");
   const r = await chooseSet(v, "usage");
   t.deepEqual(labels(r.head), ["Snaps", "Snap%", "Att", "Tgt"], "RB targets ride along in Usage (and stay in Receiving)");
@@ -1113,10 +1115,13 @@ test("status chips: this week's NFL report (Q/D/OUT) and the roster designation 
   t.deepEqual(listChips(list, PURDY), ["Q:q"]);
   t.deepEqual(listChips(list, DAK), ["IR-R:res", "D:d"], "roster designation and report designation, apart");
   t.ok(/<span class="tm"><span class="ups-m-inj-chip/.test(list), "chips LEAD the team line: never cut by a long name, never over the numbers");
-  t.match(v.getEl("ups-m-st-notes").innerHTML, /Tags: NFL injury report Wk 5 \(Sat 9:33 AM ET\); IR\/PUP from MFL \(Sat 10:01 AM ET\)\./, "the list says what the tags are and when each source was updated");
-  // a status CHANGE: the next read (after the 5-minute cache, or forced) shows OUT
+  t.match(v.getEl("ups-m-st-notes").innerHTML, /Tags: NFL injury report Wk 5 \(Sat 9:33 AM ET\); IR\/PUP from MFL \(Sat 10:01 AM ET\)\. No tag: not on the report, a bye, or unmatched — tap him for which\./, "the list says what the tags are, when each source was updated, and what no tag means");
+  // a status CHANGE: the next read (after the 5-minute cache, or forced) shows OUT;
+  // while it is in flight the last good read stays on screen (chips don't blink off)
   payload = STATUS_OK({ [PURDY]: { report: { status: "Out", injury: "Toe", practice: "Did Not Participate In Practice", team: "SF" } } });
-  await v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026", true); v.render(); await settle();
+  const inflight = v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026", true);
+  t.deepEqual(JSON.parse(JSON.stringify(v.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SFO").chips.map((c) => c.t))), ["Q"], "old read kept during the refresh");
+  await inflight; v.render(); await settle();
   const list2 = v.getEl("ups-m-st-listwrap").innerHTML;
   t.deepEqual(listChips(list2, PURDY), ["OUT:out"]);
   t.deepEqual(listChips(list2, DAK), [], "dropped from the report and the roster designation lifted: no chip");
@@ -1148,8 +1153,13 @@ test("status in the sheet: the report line with practice + time; 'not on his tea
   t.match(stale, /<span class="ups-m-inj-chip res"[^>]*>IR<\/span>/, "the roster designation still shows");
   t.match(stale, /Roster: Injured reserve \(Toe\) — MFL, updated Sat 10:01 AM ET\./);
   // no verified NFL id
-  const nid = await head({ status: Object.assign(STATUS_OK({}), { unmapped_mfl_ids: [PURDY] }) }, PURDY);
-  t.match(nid, /No verified NFL id, so he can’t be matched to the injury report\./);
+  const nid = await head({ status: Object.assign(STATUS_OK({}), { mapped_mfl_ids: PLAYERS.map((p) => p.id).filter((id) => id !== PURDY) }) }, PURDY);
+  t.match(nid, /No verified NFL id, so he can’t be matched to the injury report\./, "not in the matched list (unaccepted, or signed since the map was built)");
+  const nolist = await head({ status: Object.assign(STATUS_OK({}), { mapped_mfl_ids: undefined }) }, PURDY);
+  t.match(nolist, /Couldn’t tell whether he’s on the Wk 5 injury report\./, "no matched list: never 'not on the report'");
+  // the list's team can be nflverse's spelling (SF): still matched to SFO's report
+  const v2 = boot(); await v2.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
+  t.match(v2.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SF").report, /Not on SFO’s Wk 5 injury report/);
 });
 
 test("status fallback: with the route unavailable, MFL's ROSTER designations still show, its lapsed Q/D/Out never do", async () => {
