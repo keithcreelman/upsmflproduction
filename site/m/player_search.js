@@ -91,10 +91,12 @@
   }
 
   // ── Index ────────────────────────────────────────────────────────────────
-  // Built once and memoized. Rebuilt only when the underlying data actually
-  // changes size (a refresh, a trade, a waiver claim), never per keystroke —
-  // 2,188 real players is cheap to scan but not cheap to re-derive 5x a word.
-  var idx = null, idxKey = "";
+  // Built once and memoized, never per keystroke — 2,188 real players is cheap
+  // to scan but not cheap to re-derive 5x a word. Rebuilt whenever the players,
+  // rosters or league franchise exports are REPLACED (every reload does): the
+  // old key was the players + rostered COUNTS, so a trade (same counts) kept
+  // showing the old owner.
+  var idx = null, idxFor = null;
 
   function rosterIndex() {
     var byPid = {};
@@ -108,6 +110,15 @@
     return byPid;
   }
 
+  // Live MFL roster ownership — app.js rosterOwnership(), the one rule every
+  // mobile surface uses: a player on no roster is "FA" ONLY when MFL's rosters
+  // read is confirmed complete; otherwise "owner unknown". A missing helper is
+  // unknown too (fail closed).
+  function rostersComplete() {
+    var own = M.data.rosterOwnership ? M.data.rosterOwnership() : null;
+    return !!(own && own.complete);
+  }
+
   function franchiseName(fid) {
     var f = M.data.findFranchiseById ? M.data.findFranchiseById(fid) : null;
     return U.safeStr((f && (f.name || f.abbrev)) || "");
@@ -116,9 +127,12 @@
   function buildIndex() {
     var universe = (M.state.players && M.state.players.players && M.state.players.players.player) || [];
     universe = U.asArray(universe);
+    var src = { players: M.state.players, rosters: M.state.rosters, franchises: M.state.franchises,
+                year: U.safeStr(M.state.ctx && M.state.ctx.year) };
+    if (idx && idxFor && idxFor.players === src.players && idxFor.rosters === src.rosters &&
+        idxFor.franchises === src.franchises && idxFor.year === src.year) return idx;
     var roster = rosterIndex();
-    var key = universe.length + ":" + Object.keys(roster).length + ":" + U.safeStr(M.state.ctx && M.state.ctx.year);
-    if (idx && idxKey === key) return idx;
+    var complete = rostersComplete();
 
     var adv = (M.data.getAdvancedStatsMap && M.data.getAdvancedStatsMap()) || {};
     var out = [];
@@ -154,6 +168,8 @@
         team: team,
         fid: own ? own.fid : "",
         owner: ownerName,
+        // On no roster: a free agent only when the rosters read is complete.
+        free: !own && complete,
         // ROSTER / TAXI_SQUAD / INJURED_RESERVE — the roster feed's own words.
         rosterStatus: own ? own.status : "",
         ppg: stat && stat.mfl_ppg != null ? Number(stat.mfl_ppg) : null,
@@ -162,7 +178,7 @@
     });
 
     idx = out;
-    idxKey = key;
+    idxFor = src;
     return idx;
   }
 
@@ -238,7 +254,7 @@
 
   // ── Render ───────────────────────────────────────────────────────────────
   function ownerHtml(r) {
-    if (!r.fid) return '<span class="own fa">FA</span>';
+    if (!r.fid) return r.free ? '<span class="own fa">FA</span>' : '<span class="own unk">owner unknown</span>';
     var extra = "";
     if (r.rosterStatus === "TAXI_SQUAD") extra = '<span class="tag taxi">TAXI</span>';
     else if (r.rosterStatus === "INJURED_RESERVE") extra = '<span class="tag ir">IR</span>';
