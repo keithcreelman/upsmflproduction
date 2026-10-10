@@ -101,6 +101,34 @@ test("cross-position: a player is on his MFL lineup group's board, whatever posi
   t.ok(idp["00-ROOK"] && idp["00-NOPFR"], "same-board players are unaffected");
 });
 
+test("offensive Snap%: his snaps over his team's offensive snaps in the SAME games; a missing team total is null, not a smaller sum", async () => {
+  const { env, db } = setup();
+  const w = db.prepare("INSERT INTO nfl_player_weekly (season, week, gsis_id, position, pos_group, team, targets, receptions, rec_yds) VALUES (2026, ?, ?, 'WR', 'WR', ?, ?, 0, 0)");
+  const sn = db.prepare("INSERT INTO nfl_player_snaps (season, week, pfr_id, team, off_snaps, off_snap_pct, def_snaps, st_snaps) VALUES (2026, ?, ?, ?, ?, ?, 0, 0)");
+  const m = db.prepare("INSERT INTO player_id_map (mfl_id, gsis_id, pfr_id, mfl_position, status, accepted) VALUES (?, ?, ?, 'WR', 'verified', 1)");
+  // the teams' QBs play every snap: AAA 60 / 70 / 65 in Wks 1-3, BBB 62 in Wk 2
+  for (const [wk, tm, n] of [[1, "AAA", 60], [2, "AAA", 70], [3, "AAA", 65], [2, "BBB", 62]]) sn.run(wk, "Qb" + tm + "00", tm, n, 1.0);
+  // WR1 (AAA): 45 of 60 in Wk 1, 0 offensive snaps in Wk 2, 52 of 65 in Wk 3 -> 97 / 125
+  m.run("20001", "00-WR1", "Wr1Wr00");
+  w.run(1, "00-WR1", "AAA", 7); w.run(3, "00-WR1", "AAA", 5);
+  sn.run(1, "Wr1Wr00", "AAA", 45, 0.75); sn.run(2, "Wr1Wr00", "AAA", 0, 0); sn.run(3, "Wr1Wr00", "AAA", 52, 0.8);
+  // WR2: traded — AAA Wk 1 (30 of 60), BBB Wk 2 (31 of 62) -> 61 / 122
+  m.run("20002", "00-WR2", "Wr2Wr00");
+  w.run(1, "00-WR2", "AAA", 3); w.run(2, "00-WR2", "BBB", 4);
+  sn.run(1, "Wr2Wr00", "AAA", 30, 0.5); sn.run(2, "Wr2Wr00", "BBB", 31, 0.5);
+  // WR3 (CCC): his team has no usable total in Wk 1 (every share stored as 0) -> null, never 40 / 0
+  m.run("20003", "00-WR3", "Wr3Wr00");
+  w.run(1, "00-WR3", "CCC", 2); sn.run(1, "Wr3Wr00", "CCC", 40, 0);
+  const r = await get(env, "/api/advanced-stats-leaderboard?season=2026&pos=skill&YEAR=2026&L=74598&min_games=1&limit=200&NO_PRECOMPUTE=1&NO_CACHE=1");
+  const by = Object.fromEntries(r.json.rows.map((x) => [x.gsis_id, x]));
+  t.deepEqual([by["00-WR1"].off_snaps_total, by["00-WR1"].off_snaps_team, by["00-WR1"].off_games], [97, 125, 2], "Wk 2 (no offensive snaps) is in neither count");
+  t.deepEqual([by["00-WR2"].off_snaps_total, by["00-WR2"].off_snaps_team], [61, 122], "each game against the team he played for");
+  t.deepEqual([by["00-WR3"].off_snaps_total, by["00-WR3"].off_snaps_team], [40, null], "no team total: Snap% is '—', not a guess");
+  const wb = await get(env, "/api/player-weekly-box?season=2026&mfl_id=20001&L=74598");
+  t.deepEqual(wb.json.weeks.map((x) => [x.week, x.snaps && x.snaps.off, x.snaps && x.snaps.team_off]), [[1, 45, 60], [2, 0, 70], [3, 52, 65]],
+    "the game log gets his team's offensive snaps each week");
+});
+
 test("/api/player-starter-rates: final, synced weeks only — later weeks are pending, never graded", async () => {
   const { env, db } = setup();
   const sw = db.prepare("INSERT INTO src_weekly (season, week, player_id, pos_group, status, score, is_reg, roster_franchise_id) VALUES (2026, ?, ?, 'LB', ?, ?, 1, ?)");

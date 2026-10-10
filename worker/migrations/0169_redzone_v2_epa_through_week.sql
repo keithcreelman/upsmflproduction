@@ -16,11 +16,12 @@
 --     come straight from the play-by-play, per team per game;
 --   * nfl_player_epa had no week column, so the app could not say which weeks
 --     its EPA covered.
--- After applying: re-run fetch_nflverse_pbp.py and fetch_nflverse_epa.py for
--- the seasons shown, DELETING that season's nfl_player_redzone rows first (the
--- upsert would keep rows the new rules no longer produce, e.g. a player whose
--- only red-zone play was a two-point target), then rebuild the leaderboard
--- precompute.
+-- After applying: rebuild the season with the staged, recoverable procedure
+-- (pipelines/etl/scripts/players_data_backfill.py — stage, validate, ONE
+-- all-or-nothing swap, exact rollback; .github/workflows/players-data-backfill.yml).
+-- A plain re-run of the fetchers can't do it: an upsert keeps rows the new
+-- rules no longer produce (e.g. a player whose only red-zone play was a
+-- two-point target), and deleting first leaves readers an empty season.
 
 ALTER TABLE nfl_player_redzone ADD COLUMN pass_cmp_i20 INTEGER;   -- completions on inside-20 attempts (passer)
 ALTER TABLE nfl_player_redzone ADD COLUMN sacks_i20    INTEGER;   -- times sacked inside the 20 (passer); not attempts

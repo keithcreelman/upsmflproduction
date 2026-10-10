@@ -61,6 +61,7 @@ import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eli
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
+import { loadPlayerStatus } from "./player_status.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
@@ -12958,6 +12959,7 @@ export default {
                    CAST(a.rush_att_i20 AS REAL) / NULLIF(trpa.team_rush_att_i20, 0)  AS rz_rush_share,
                    CAST(a.rush_att_i5 AS REAL)  / NULLIF(trpa.team_rush_att_i5, 0)   AS gl_rush_share,
                    trpa.team_targets_i20, trpa.team_targets_ez, trpa.team_rush_att_i20, trpa.team_rush_att_i5,
+                   sa.off_snaps_team, sa.off_games,
                    tr.team_rz_dropbacks, tr.team_rz_plays,
                    CAST(tr.team_rz_dropbacks AS REAL) / NULLIF(tr.team_rz_plays, 0) AS team_rz_pass_rate`;
           // IDP — now includes def_tackles_ast, def_tds, def_pressures (were
@@ -13306,17 +13308,41 @@ export default {
                  AND COALESCE(def_snaps, 0) > 0
                GROUP BY season, week, team
             ),
+            -- The team's OFFENSIVE snaps in each game (2026-10-10, offense only),
+            -- the same way: 127 of 128 2026 team-games have a 100% offensive
+            -- player, and the one that doesn't has a single total consistent
+            -- with every player's rounded share.
+            team_off_snaps AS (
+              SELECT season, week, team,
+                     CAST(ROUND(MAX(off_snaps) * 1.0 / NULLIF(MAX(off_snap_pct), 0)) AS INTEGER) AS team_off
+                FROM nfl_player_snaps
+               WHERE ${_gTeamShare} AND season IN (${seasonList})
+                 AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "week")}
+                 AND COALESCE(off_snaps, 0) > 0
+               GROUP BY season, week, team
+            ),
             snap_agg AS (
               SELECT c.gsis_id,
                      SUM(COALESCE(s.off_snaps, 0)) AS off_snaps_total,
                      SUM(COALESCE(s.def_snaps, 0)) AS def_snaps_total,
                      AVG(COALESCE(s.off_snap_pct, 0.0)) AS off_snap_rate,
                      AVG(COALESCE(s.def_snap_pct, 0.0)) AS def_snap_rate,
-                     -- his team's defensive snaps in the games HE played on defense
-                     SUM(CASE WHEN COALESCE(s.def_snaps, 0) > 0 THEN tds.team_def END) AS def_snaps_team
+                     -- His team's defensive / offensive snaps in exactly the games HE
+                     -- played on that side — the same rows as his own snaps, so the
+                     -- two counts cover the same weeks and games. A game without a
+                     -- team total makes the whole denominator NULL ("—"), never a
+                     -- smaller sum.
+                     CASE WHEN COUNT(CASE WHEN COALESCE(s.def_snaps, 0) > 0 THEN 1 END)
+                             = COUNT(CASE WHEN COALESCE(s.def_snaps, 0) > 0 THEN tds.team_def END)
+                          THEN SUM(CASE WHEN COALESCE(s.def_snaps, 0) > 0 THEN tds.team_def END) END AS def_snaps_team,
+                     COUNT(CASE WHEN COALESCE(s.off_snaps, 0) > 0 THEN 1 END) AS off_games,
+                     CASE WHEN COUNT(CASE WHEN COALESCE(s.off_snaps, 0) > 0 THEN 1 END)
+                             = COUNT(CASE WHEN COALESCE(s.off_snaps, 0) > 0 THEN tos.team_off END)
+                          THEN SUM(CASE WHEN COALESCE(s.off_snaps, 0) > 0 THEN tos.team_off END) END AS off_snaps_team
                 FROM nfl_player_snaps s
                 JOIN id_pfr c ON c.pfr_id = s.pfr_id
                 LEFT JOIN team_def_snaps tds ON tds.season = s.season AND tds.week = s.week AND tds.team = s.team
+                LEFT JOIN team_off_snaps tos ON tos.season = s.season AND tos.week = s.week AND tos.team = s.team
                WHERE s.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
                  AND c.gsis_id IN (SELECT gsis_id FROM elig)
@@ -19960,6 +19986,27 @@ export default {
         }
       }
 
+      // ── GET /api/player-status?season=YYYY ──
+      // Each player's current reported status for the mobile Players list and
+      // sheet: this week's official NFL injury report designation and the NFL
+      // roster designation (IR / PUP / NFI / Suspended), each with its source's
+      // last-updated time. A feed that can't be read, or a report that isn't
+      // this week's or is over 36 h old, comes back unavailable WITH the reason
+      // — never as "no designation". See worker/src/player_status.js.
+      if (path === "/api/player-status" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const season = parseInt(safeStr(url.searchParams.get("season")) || String(YEAR || ""), 10) || new Date().getUTCFullYear();
+          const out = await loadPlayerStatus(db, { season });
+          const r = jsonOut(200, { ok: true, season, generated_utc: new Date().toISOString(), ...out });
+          try { r.headers.set("Cache-Control", "public, max-age=120"); } catch (_) {}
+          return r;
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // ── GET /api/player-weekly-box?season=YYYY&mfl_id=N ──
       // One player's weeks for the mobile game log: the nflverse box score,
       // snap counts (did he play) and red-zone detail, resolved through the
@@ -19991,17 +20038,33 @@ export default {
           const base = { ok: true, season, mfl_id: pid, gsis_id: gsis, pfr_id: pfr, id_source: idSource,
                          box_through_week: cov && cov.w != null ? Number(cov.w) : null };
           if (!gsis) return statOk({ ...base, weeks: [] });
-          const [box, rz, sn] = await Promise.all([
+          const [box, rz, sn, tsn] = await Promise.all([
             db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
             db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
             pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ? ORDER BY week").bind(season, pfr).all()
                 : Promise.resolve({ results: [] }),
+            // His team's offensive / defensive snaps in each of his games, read
+            // off the team's most-used player that game (max snaps / max share;
+            // exact when someone played 100%).
+            pfr ? db.prepare(
+              "SELECT s.week, s.team, " +
+              "CAST(ROUND(MAX(s.off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.off_snaps > 0 THEN s.off_snap_pct END), 0)) AS INTEGER) AS team_off, " +
+              "CAST(ROUND(MAX(s.def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.def_snaps > 0 THEN s.def_snap_pct END), 0)) AS INTEGER) AS team_def " +
+              "FROM nfl_player_snaps s JOIN (SELECT week, team FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?) p " +
+              "ON p.week = s.week AND p.team = s.team WHERE s.season = ? GROUP BY s.week, s.team"
+            ).bind(season, pfr, season).all() : Promise.resolve({ results: [] }),
           ]);
+          const teamSnaps = {};
+          for (const r of (tsn && tsn.results) || []) teamSnaps[r.week + "|" + r.team] = r;
           const weeks = {};
           const at = (w) => (weeks[w] = weeks[w] || { week: Number(w), box: null, redzone: null, snaps: null });
           for (const r of (box && box.results) || []) at(r.week).box = r;
           for (const r of (rz && rz.results) || []) at(r.week).redzone = r;
-          for (const r of (sn && sn.results) || []) at(r.week).snaps = { team: r.team, off: r.off_snaps, def: r.def_snaps, st: r.st_snaps };
+          for (const r of (sn && sn.results) || []) {
+            const tt = teamSnaps[r.week + "|" + r.team] || {};
+            at(r.week).snaps = { team: r.team, off: r.off_snaps, def: r.def_snaps, st: r.st_snaps,
+                                 team_off: tt.team_off != null ? tt.team_off : null, team_def: tt.team_def != null ? tt.team_def : null };
+          }
           return statOk({ ...base, weeks: Object.values(weeks).sort((a, b) => a.week - b.week) });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
