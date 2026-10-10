@@ -1,14 +1,31 @@
 #!/usr/bin/env python3
 """Aggregate per-player EPA / efficiency from nflfastR PBP → nfl_player_epa.
 
-EPA, CPOE and success are PRECOMPUTED inside the play-by-play (nflfastR's
-`epa`, `cpoe`, `success` columns) — this is pure aggregation, no modeling.
-For each (season, gsis_id), REG season only, we store SUMS + counts (not
-means) so the worker can re-aggregate exactly over any multi-season window:
+EPA and CPOE are PRECOMPUTED inside the play-by-play (nflfastR's `qb_epa`,
+`epa`, `cpoe` columns) — this is pure aggregation, no modeling. For each
+(season, gsis_id), REG season only, we store SUMS + counts (not means) so the
+worker can re-aggregate exactly over any multi-season window.
 
-  pass_*  passer_player_id on play_type=='pass'  (QB) — incl CPOE
-  rush_*  rusher_player_id on play_type=='run'
-  rec_*   receiver_player_id on play_type=='pass' (target; play EPA → receiver)
+THE DEFINITION (settled 2026-10-10): a player's EPA plays are exactly his
+BOX-SCORE plays — pass attempts + sacks (spikes are attempts), carries
+(kneel-downs included, as the box score counts them), targets — and TWO-POINT
+TRIES ARE LEFT OUT, as the box score and the red-zone counts leave them out:
+
+  pass_*  passer_player_id, play_type pass or qb_spike, EPA = qb_epa (a
+          receiver's fumble after the catch isn't charged to the passer) — incl CPOE
+  rush_*  rusher_player_id, play_type run or qb_kneel, EPA = epa
+  rec_*   receiver_player_id, play_type pass (a target), EPA = epa
+
+Checked against nflverse's published player stats on 2026 Wks 1-4: every
+player's play count equals his box score (56 passers attempts + sacks, 194
+rushers carries, 366 receivers targets) and his EPA equals nflverse's
+published passing_epa / rushing_epa / receiving_epa minus his two-point tries
+(nflverse's EPA columns include the tries; its attempts/carries/targets don't).
+
+Success = the share of THOSE SAME plays whose EPA (the same column) is above
+zero — nflfastR's `success` is epa > 0, so for a passer it is recomputed on
+qb_epa; the plays and the EPA behind a player's EPA/play and Success% are
+identical.
 
 Source : nflreadpy.load_pbp(seasons)
 Writes : local mfl_database.db (if present) + D1 nfl_player_epa
@@ -107,27 +124,36 @@ def compute(seasons: list[int]) -> list[tuple]:
         for f, v in kw.items():
             d[f] = d.get(f, 0) + v
 
-    # ── pass plays (passer + receiver share the play's EPA) ──
-    pas = df[(df["play_type"] == "pass") & df["epa"].notna()].copy()
-    pas["success"] = pas["success"].fillna(0)
-    gp = pas[pas["passer_player_id"].notna()].groupby(["season", "passer_player_id"]).agg(
-        n=("epa", "size"), epa=("epa", "sum"), succ=("success", "sum"))
+    # Two-point tries are not box-score plays (no down; the box score counts
+    # them only as 2-pt conversions).
+    if "two_point_attempt" in df.columns:
+        df = df[df["two_point_attempt"].fillna(0).astype(float) != 1]
+
+    # ── passer: dropbacks and spikes, charged qb_epa ──
+    qb_col = "qb_epa" if "qb_epa" in df.columns else "epa"
+    pas = df[df["play_type"].isin(["pass", "qb_spike"]) & df[qb_col].notna() & df["passer_player_id"].notna()].copy()
+    pas["_succ"] = (pas[qb_col] > 0).astype(float)
+    gp = pas.groupby(["season", "passer_player_id"]).agg(
+        n=(qb_col, "size"), epa=(qb_col, "sum"), succ=("_succ", "sum"))
     for (season, gsis), r in gp.iterrows():
         bump(season, gsis, pass_plays=int(r["n"]), pass_epa_sum=float(r["epa"]), pass_succ_sum=float(r["succ"]))
-    gpc = pas[pas["cpoe"].notna() & pas["passer_player_id"].notna()].groupby(["season", "passer_player_id"]).agg(
+    gpc = pas[pas["cpoe"].notna()].groupby(["season", "passer_player_id"]).agg(
         csum=("cpoe", "sum"), cn=("cpoe", "size"))
     for (season, gsis), r in gpc.iterrows():
         bump(season, gsis, pass_cpoe_sum=float(r["csum"]), pass_cpoe_n=int(r["cn"]))
-    gr = pas[pas["receiver_player_id"].notna()].groupby(["season", "receiver_player_id"]).agg(
-        n=("epa", "size"), epa=("epa", "sum"), succ=("success", "sum"))
+    # ── receiver: every target, charged the play's epa ──
+    tgt = df[(df["play_type"] == "pass") & df["epa"].notna() & df["receiver_player_id"].notna()].copy()
+    tgt["_succ"] = (tgt["epa"] > 0).astype(float)
+    gr = tgt.groupby(["season", "receiver_player_id"]).agg(
+        n=("epa", "size"), epa=("epa", "sum"), succ=("_succ", "sum"))
     for (season, gsis), r in gr.iterrows():
         bump(season, gsis, rec_tgt=int(r["n"]), rec_epa_sum=float(r["epa"]), rec_succ_sum=float(r["succ"]))
 
-    # ── run plays (rusher) ──
-    run = df[(df["play_type"] == "run") & df["epa"].notna() & df["rusher_player_id"].notna()].copy()
-    run["success"] = run["success"].fillna(0)
+    # ── rusher: runs (scrambles included) and kneels ──
+    run = df[df["play_type"].isin(["run", "qb_kneel"]) & df["epa"].notna() & df["rusher_player_id"].notna()].copy()
+    run["_succ"] = (run["epa"] > 0).astype(float)
     gru = run.groupby(["season", "rusher_player_id"]).agg(
-        n=("epa", "size"), epa=("epa", "sum"), succ=("success", "sum"))
+        n=("epa", "size"), epa=("epa", "sum"), succ=("_succ", "sum"))
     for (season, gsis), r in gru.iterrows():
         bump(season, gsis, rush_plays=int(r["n"]), rush_epa_sum=float(r["epa"]), rush_succ_sum=float(r["succ"]))
 
