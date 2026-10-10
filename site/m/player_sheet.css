@@ -600,3 +600,6 @@
 .ups-m-gl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .ups-m-gl-live { display: inline-block; width: 6px; height: 6px; margin-left: 3px; border-radius: 50%; background: var(--warn); vertical-align: middle; }
 @media (max-width: 340px) { .ups-m-gl-table, .ups-m-gtd-table { font-size: 11px; } }
+.ups-m-gl-views { display: inline-flex; margin: 8px 0 0; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.ups-m-gl-views button { font: 600 12px/1 inherit; min-height: 32px; padding: 0 12px; border: 0; background: transparent; color: var(--fg-muted); }
+.ups-m-gl-views button.on { background: var(--accent); color: var(--bg); }

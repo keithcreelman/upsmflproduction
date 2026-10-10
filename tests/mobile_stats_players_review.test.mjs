@@ -183,8 +183,13 @@ function boot(opt = {}) {
     let body = {};
     if (u.pathname === "/api/advanced-stats-leaderboard") body = opt.leaderboard ? opt.leaderboard(u.searchParams.get("pos"), Number(u.searchParams.get("offset") || 0)) : leaderboard(u.searchParams.get("pos"));
     else if (u.pathname === "/api/player-routes") body = { by_gsis: opt.routes || {} };
-    else if (u.pathname === "/api/player-consistency") body = { by_gsis: opt.cons || {} };
-    else if (/^\/api\/(sos-adjusted-points|player-epa|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
+    else if (u.pathname === "/api/player-weekly-box") {
+      if (opt.weeklyBox === 404) return { ok: false, status: 404, json: async () => ({}) };
+      body = opt.weeklyBox ? opt.weeklyBox(u.searchParams.get("mfl_id")) : { ok: false };
+    }
+    else if (u.pathname === "/api/player-starter-rates") body = opt.starter ? opt.starter(u.searchParams.get("group")) : { ok: true, players: {}, weeks_label: "Wks 1–4", pending_weeks: [] };
+    else if (u.pathname === "/api/player-epa") body = { by_gsis: opt.epa || {}, through_week: opt.epaThrough ? { 2026: opt.epaThrough } : {} };
+    else if (/^\/api\/(sos-adjusted-points|player-consistency|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
     else if (u.pathname === "/api/mfl-market") body = { by_mfl: {} };
     else if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "nflByeWeeks") body = opt.byes === null ? null : { nflByeWeeks: { team: FX.byes } };
     else if (u.pathname === "/api/player-bundle") {
@@ -409,9 +414,11 @@ test("column sets: Fantasy pts first; PPG ONLY there; YPC and Targets; Schedule-
   await openTab(v, "RB");
   t.deepEqual(labels((await chooseSet(v, "rushing")).head), ["Att", "RuYd", "RuTD", "YPC"], "Rushing shows YPC");
   const boom = await chooseSet(v, "boom");
-  t.deepEqual(labels(boom.head), ["Cons", "Boom%", "Bust%", "Wks"], "Boom/Bust carries the weeks ITS source counted");
-  t.match(boom.notes, /Boom% = share of his weeks in the top 25% of all weekly scores at his position; Bust% = the bottom 25%\. Cons: 100 = same score every week\./, "plain-language explanation on screen");
-  t.match(boom.notes, /<summary>About these numbers<\/summary><div># = PPG rank on actual MFL points, Wks 1–5\. Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season \(free agents and 0\.0 weeks included\)[^<]*a 0\.0 week counts as a bust even if he didn’t play\. Consistency = 100 × \(1 − spread ÷ average\)/, "the full definition is one tap away");
+  t.deepEqual(labels(boom.head), ["Start%", "Boom%", "Bust%", "Wks"], "Boom/Bust is now measured against UPS starters; Consistency is gone");
+  t.match(boom.notes, /Each played week vs that week’s UPS starters at his position: Start% = at or above their median, Boom% = top quarter, Bust% = bottom quarter\. Count under each %; 3\+ weeks\./, "plain-language explanation on screen");
+  t.match(boom.notes, /<summary>About these numbers<\/summary><div># = PPG rank on actual MFL points, Wks 1–5\. Pool: the UPS lineup starters at his MFL lineup group \(DL = DE\+DT, DB = CB\+S\) who played that week\. A started player who didn’t play, or scored 0\.0, is left out of that week’s lines and counted separately/, "the full definition is one tap away");
+  t.match(boom.notes, /Final weeks only: Wks 1–4\./);
+  t.match(boom.notes, /This replaces the old Boom\/Bust \(measured against every weekly score at the position, free agents and 0\.0 weeks included\) and the old Consistency score\./);
   const src = read("site/m/views/stats.js");
   const setBlock = src.slice(src.indexOf("var TABS = ["), src.indexOf("// scope:"));
   let n = 0;
@@ -436,7 +443,8 @@ test("IDP sets: Tackles = Solo · Ast · TFL · Snaps (no FF, no PPG); Pass rush
   t.doesNotMatch(pr.head + pr.notes, /pressure rate|win rate/i, "no rate without a pass-rush-snap source");
   const cv = await chooseSet(v, "coverage");
   t.deepEqual(labels(cv.head), ["INT", "PD", "Cmp", "Yds"]);
-  t.match(cv.notes, /PFR shows 0, not —, when it has no record for a player/);
+  t.match(cv.notes, /— means PFR has no record for him; a recorded 0 completions allowed means 0 yards\./);
+  t.match(read("site/m/views/stats.js"), /Pressures \(PFR: hurries \+ knockdowns \+ sacks\)\. — when PFR has no record for him\./, "the Press heading's title says it too");
 });
 
 test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; punters: I20 as made/punts plus I20% — no PPG", async () => {
@@ -464,6 +472,21 @@ test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; pu
     t.equal(r.cells[1], (d >= 10 ? Math.round(n / d * 100) + "%" : "—") + n + "/" + d, "I20% with numerator/denominator");
   }
   t.match(pn.notes, /touchbacks aren’t charged 20 yards/);
+});
+
+test("Purdy's 'Sk 0' is four populated Wk 1–4 records, labelled with its period; the most-sacked QB is the positive control", async () => {
+  const v = boot();
+  await openTab(v, "QB");
+  const vol = await chooseSet(v, "volume");
+  t.deepEqual(labels(vol.head), ["Att", "Cmp%", "Sk"]);
+  t.deepEqual(bands(vol.head), ["nflverse Wk 1–4"], "the sacks column states its weeks");
+  const rows = rowsOf(vol.list), qb = FX.leaderboard.qb.rows;
+  const purdy = qb.find((r) => String(r.mfl_pid) === PURDY);
+  t.equal(purdy.pass_sacks, 0, "the stored board says 0 (the audit traced it to four weekly rows of 0, nflverse sacks_suffered 0 and no sack plays)");
+  t.equal(rows.find((r) => r.pid === PURDY).cells[2], "0");
+  const top = qb.slice().sort((a, b) => b.pass_sacks - a.pass_sacks)[0];
+  t.ok(top.pass_sacks >= 10, "a QB with real sacks exists in the same data");
+  t.equal(rows.find((r) => r.pid === String(top.mfl_pid)).cells[2], String(top.pass_sacks), "positive control shows his count, not 0");
 });
 
 test("sorting: every data heading sorts the WHOLE filtered list; '—' stays last both ways; ▼/▲ + aria-sort shown; # restores the default", async () => {
@@ -510,26 +533,83 @@ test("sorting: every data heading sorts the WHOLE filtered list; '—' stays las
   t.ok(!/class="ups-m-st-sort on" data-sort="[a-z]/.test(v.mount.innerHTML), "changing position resets the sort");
 });
 
-test("Boom/Bust: Cons, Boom% and Bust% need 3+ weeks — a one-week player (Cons 100 by definition) shows '—' and sorts last, not first", async () => {
-  const [a, b2, c] = FX.leaderboard.qb.rows.slice(0, 3).map((r) => ({ pid: String(r.mfl_pid), gsis: r.gsis_id }));
-  const cons = {
-    [a.gsis]: { gp: 1, consistency: 100, boom_pct: 100, bust_pct: 0 },
-    [b2.gsis]: { gp: 4, consistency: 71, boom_pct: 50, bust_pct: 25 },
-    [c.gsis]: { gp: 3, consistency: 64, boom_pct: 33, bust_pct: 0 },
-  };
-  const v = boot({ cons });
+test("Boom/Bust vs UPS starters: Start% / Boom% / Bust% with counts, joined by MFL id; under 3 weeks the % is '—' and sorts last", async () => {
+  const [a, b2, c] = FX.leaderboard.qb.rows.slice(0, 3).map((r) => String(r.mfl_pid));
+  const groups = [];
+  const starter = (g) => { groups.push(g); return { ok: true, weeks_label: "Wks 1–4", pending_weeks: [], players: g !== "QB" ? {} : {
+    [a]: { q: 2, startable_n: 2, boom_n: 2, bust_n: 0, startable_pct: null, boom_pct: null, bust_pct: null },
+    [b2]: { q: 4, startable_n: 3, boom_n: 2, bust_n: 1, startable_pct: 75, boom_pct: 50, bust_pct: 25 },
+    [c]: { q: 3, startable_n: 1, boom_n: 0, bust_n: 2, startable_pct: 33, boom_pct: 0, bust_pct: 67 } } }; };
+  const v = boot({ starter });
   await openTab(v, "QB");
   const boom = await chooseSet(v, "boom");
+  t.deepEqual(groups, ["QB"], "one request for the tab's lineup group");
   const rows = rowsOf(boom.list), get = (pid) => rows.find((r) => r.pid === pid);
-  t.deepEqual(get(a.pid).cells, ["—", "—", "—", "1"], "1 week: no Cons/Boom/Bust, but his week count shows");
-  t.deepEqual(get(b2.pid).cells, ["71", "50", "25", "4"]);
-  t.deepEqual(get(c.pid).cells, ["64", "33", "0", "3"], "3 weeks is enough");
+  t.deepEqual(get(a).cells, ["—2/2", "—2/2", "—0/2", "2"], "2 weeks: no %, but the counts show");
+  t.deepEqual(get(b2).cells, ["75%3/4", "50%2/4", "25%1/4", "4"]);
+  t.deepEqual(get(c).cells, ["33%1/3", "0%0/3", "67%2/3", "3"], "3 weeks is enough");
+  t.match(boom.head, /Starters Wks 1–4|vs UPS starters Wks 1–4/, "the band names the pool and the exact weeks");
   const head = v.getEl("ups-m-st-head");
-  head.fire("click", { target: { closest: () => ({ getAttribute: () => "ccons" }) } }); await settle();
+  head.fire("click", { target: { closest: () => ({ getAttribute: () => "sstart" }) } }); await settle();
   const sorted = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML);
-  t.deepEqual(sorted.slice(0, 2).map((r) => r.pid), [b2.pid, c.pid], "Cons ▼ starts with real samples");
-  t.ok(sorted.findIndex((r) => r.pid === a.pid) > 1, "the one-week 100 is not on top");
-  t.match(boom.notes, /3\+ weeks\./);
+  t.deepEqual(sorted.slice(0, 2).map((r) => r.pid), [b2, c], "Start% ▼ — real samples first");
+  t.ok(sorted.findIndex((r) => r.pid === a) > 1, "the 2-week player is not on top");
+});
+
+test("red zone: shown once the board was rebuilt under 0168 — QB Att/Cmp/TD/Pass%, RB and WR shares with their counts", async () => {
+  const lb = (pos) => {
+    const b = leaderboard(pos);
+    if (pos === "qb") b.rows = b.rows.map((r, i) => Object.assign({}, r, { rz_v2: 1, pass_att_i20: 21 - i, pass_cmp_i20: 18 - i, pass_tds_i20: 7, rush_att_i20: 3 }));
+    if (pos === "skill") b.rows = b.rows.map((r) => Object.assign({}, r, { rz_v2: 1, rush_att_i20: 23, team_rush_att_i20: 28, rz_rush_share: 23 / 28,
+      rush_att_i5: 11, team_rush_att_i5: 13, gl_rush_share: 11 / 13, targets_i20: 10, team_targets_i20: 21, rz_target_share: 10 / 21,
+      targets_ez: 6, team_targets_ez: 10, ez_target_share: 0.6 }));
+    return b;
+  };
+  const v = boot({ leaderboard: lb });
+  await openTab(v, "QB");
+  const qb = await chooseSet(v, "redzone");
+  t.deepEqual(labels(qb.head), ["Att", "Cmp", "TD", "Pass%"]);
+  t.deepEqual(rowsOf(qb.list)[0].cells.slice(0, 4).length, 4);
+  const first = FX.leaderboard.qb.rows[0], fr = rowsOf(qb.list).find((r) => r.pid === String(first.mfl_pid));
+  t.deepEqual(fr.cells, ["21", "18", "7", "88%21/24"], "Pass% = attempts ÷ (attempts + carries), sacks not counted");
+  t.match(qb.notes, /Inside the opponent’s 20, regular season, Wks 1–4; two-point tries excluded\./);
+  t.match(qb.notes, /sacks are not attempts and are counted apart/);
+  await openTab(v, "RB");
+  const rb = await chooseSet(v, "redzone");
+  t.deepEqual(labels(rb.head), ["I20", "I20%", "I5", "I5%"]);
+  t.deepEqual(rowsOf(rb.list)[0].cells, ["23", "82%23/28", "11", "85%11/13"]);
+  await openTab(v, "WR");
+  const wr = await chooseSet(v, "redzone");
+  t.deepEqual(labels(wr.head), ["I20", "I20%", "EZ", "EZ%"]);
+  t.deepEqual(rowsOf(wr.list)[0].cells, ["10", "48%10/21", "6", "60%6/10"]);
+  t.match(wr.notes, /EZ = passes thrown to him that reached the end zone, from anywhere on the field/);
+  // a board NOT rebuilt since 0168 never offers the set (its attempts still include sacks)
+  const v2 = boot();
+  const html = await openTab(v2, "QB");
+  t.doesNotMatch(html, /<option value="redzone">/);
+});
+
+test("EPA: per-position play counts (Plays / Car / Tgts) and an 'About' that states the weeks, plays counted, and that these aren't UPS points", async () => {
+  const sk = leaderboard("skill").rows;
+  const qbRow = FX.leaderboard.qb.rows[0], rbRow = sk.find((r) => r.pos_group === "RB"), wrRow = sk.find((r) => r.pos_group === "WR");
+  const epa = { [qbRow.gsis_id]: { pass: { plays: 120, epa: 0.15, cpoe: 3.1, succ: 51.2 } }, [rbRow.gsis_id]: { rush: { plays: 60, epa: -0.02, succ: 41 } },
+                [wrRow.gsis_id]: { rec: { tgt: 30, epa: 0.4, succ: 60 } } };
+  const v = boot({ epa, epaThrough: 4 });
+  await openTab(v, "QB");
+  const q = await chooseSet(v, "epa");
+  t.deepEqual(labels(q.head), ["EPA", "CPOE", "Succ%", "Plays"]);
+  t.deepEqual(bands(q.head), ["nflfastR Wk 1–4"], "the weeks the EPA covers, from the source");
+  t.match(q.notes, /NFL play measures from nflfastR play-by-play, regular season Wks 1–4 — not UPS fantasy points\. Rates need 50\+ pass plays\./);
+  t.match(q.notes, /EPA \(expected points added\) is how much a play changed the offense’s expected points[^<]*EPA\/play = the total EPA of his pass plays ÷ his pass plays\. Pass plays \(Plays\) = his throws — complete, incomplete or intercepted — plus sacks, two-point tries included; scrambles \(they count as runs\)/);
+  t.match(q.notes, /Success% = his pass plays nflfastR marks successful — the play’s EPA is above zero — ÷ the same pass plays\./);
+  await openTab(v, "RB");
+  const r = await chooseSet(v, "epa");
+  t.deepEqual(labels(r.head), ["EPA", "Succ%", "Car"]);
+  t.match(r.notes, /Passes thrown to him aren’t included\./);
+  await openTab(v, "WR");
+  const w = await chooseSet(v, "epa");
+  t.deepEqual(labels(w.head), ["EPA", "Succ%", "Tgts"]);
+  t.match(w.notes, /Receiving EPA gives him the whole EPA of every pass thrown to him — complete, incomplete or intercepted — the same EPA the passer gets/);
 });
 
 test("Routes appears once its source has rows", async () => {
@@ -793,6 +873,41 @@ test("game log: a player whose bundle has no NFL stat rows (e.g. an unmatched ro
   t.doesNotMatch(g.html, /No box score yet this season/);
   t.equal(g.wk(1).pts, Number(FX.weeks["1"][pid]).toFixed(1), "his MFL points still show");
 });
+test("game log via the verified id map: a rookie's box score, '0 snp' when his team played without him, and a Red zone view", async () => {
+  const pid = Object.keys(FX.players).find((id) => !FX.bundles[id] && FX.players[id][1] === "TE" && FX.weeks["1"][id] != null && FX.weeks["2"][id] != null);
+  const wk = (w, tgt, snapsOff, rz) => ({ week: w, box: tgt == null ? null : { week: w, opponent: "NYJ", targets: tgt, receptions: tgt - 1, rec_yds: 10 * tgt, rec_tds: 0 },
+    snaps: snapsOff == null ? null : { team: "XXX", off: snapsOff, def: 0, st: 0 }, redzone: rz || null });
+  const weeklyBox = (m) => ({ ok: true, mfl_id: m, gsis_id: "00-ROOKIE", pfr_id: "RookRo00", id_source: "player_id_map:verified", box_through_week: 4,
+    weeks: [wk(1, 3, 28, { targets_i20: 1, rec_i20: 1, rec_tds_i20: 1, targets_ez: 1 }), wk(2, 4, 30), wk(4, 2, 20)] });
+  const v = boot({ weeklyBox });
+  const g = await gameLog(v, pid);
+  t.deepEqual(g.wk(1).stats, ["3", "2", "30", "0"], "the bundle had nothing for him; the weekly route does");
+  t.match(g.html, /Box score: nflverse, Wks 1–4\./);
+  t.doesNotMatch(g.html, /isn’t linked/);
+  // Wk 3: no MFL score; his snap data exists (pfr) but has no row that week while the source covers it → his team played without him
+  if (FX.weeks["3"][pid] == null) t.deepEqual([g.wk(3).pts, g.wk(3).cls], ["0 snp", "dnp"]);
+  // Red zone view
+  const body = v.getEl("ups-m-sheet-body");
+  body.fire("click", { target: { closest: () => ({ getAttribute: () => "rz" }) } }); await settle();
+  const rz = await (async () => { const html = body.innerHTML; const t0 = html.indexOf('class="ups-m-gl-table"');
+    return [...html.slice(t0).matchAll(/<tr class="([^"]*)"(?: title="[^"]*")?><td>(\d+)(?: <small>[^<]*<\/small>)?<\/td><td class="pts">[\s\S]*?<\/td>([\s\S]*?)<\/tr>/g)]
+      .map((m) => [+m[2], [...m[3].matchAll(/<td>([^<]*)<\/td>/g)].map((x) => x[1])]); })();
+  t.match(body.innerHTML, /<th>Tgt<\/th><th>Rec<\/th><th>TD<\/th><th>EZ<\/th>/, "TE red-zone columns");
+  t.deepEqual(rz.find((r) => r[0] === 1)[1], ["1", "1", "1", "1"]);
+  t.deepEqual(rz.find((r) => r[0] === 2)[1], ["0", "0", "0", "0"], "a box score with no red-zone row = no red-zone plays (0)");
+  t.match(body.innerHTML, /Red zone: inside the opponent’s 20; two-point tries excluded; sacks are not attempts\./);
+});
+
+test("game log: a player with no verified NFL id says so; and an undeployed weekly route falls back to the bundle", async () => {
+  const pid = Object.keys(FX.players).find((id) => !FX.bundles[id] && FX.players[id][1] === "WR" && FX.weeks["1"][id] != null);
+  const g = await gameLog(boot({ weeklyBox: (m) => ({ ok: true, mfl_id: m, gsis_id: null, pfr_id: null, id_source: "none", box_through_week: 4, weeks: [] }) }), pid);
+  t.match(g.html, /Box score isn’t linked for him: there is no verified NFL id for this player yet, so only MFL points show\./);
+  const g2 = await gameLog(boot({ weeklyBox: 404 }), PURDY);
+  const b4 = FX.bundles[PURDY].nfl_weekly.find((x) => x.week === 4);
+  t.equal(g2.wk(4).stats[0], String(b4.pass_yds), "route not deployed: the bundle's box score, as before");
+  t.doesNotMatch(g2.html, /data-glview/, "no Red zone view without the route");
+});
+
 test("game log: BYE on his team's bye week (MFL's list), DNP for a finished week with no MFL score; bye list unreadable → says so", async () => {
   const v = boot();
   // Week 5 byes: CAR and KCC. A CAR player with a score in earlier weeks:
