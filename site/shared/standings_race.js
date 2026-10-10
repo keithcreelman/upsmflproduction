@@ -348,9 +348,14 @@
   // participation check below), relevant rows that were all legitimately
   // playoff-only (not "nobody has played"), or missing/short weekly data;
   // 'conflict' for contradictory data. 'incomplete' and 'conflict' both
-  // resolve to byFid: null for EVERY franchise, never a partial map. A
-  // row for a franchise outside the expected population is ignored
-  // entirely, including any malformed `po` it carries.
+  // resolve to byFid: null for EVERY franchise, never a partial map.
+  // RELEVANT here means the row involves the expected population on
+  // either side — its franchise OR its opponent — because a row whose
+  // opponent is expected describes that expected franchise's game: it
+  // counts against 'preseason' and its `po` is checked like any other
+  // (only expected franchises' own rows ever enter the table). A row
+  // with NEITHER side expected is unrelated and ignored entirely,
+  // including any malformed `po` it carries.
   function deriveRegSeasonOverallTable(weekly, expectedFids) {
     // A FAILED query (null) is incomplete, never preseason — see deriveRegSeasonApTable.
     if (!Array.isArray(weekly)) return { status: 'incomplete', byFid: null, unreadable: true };
@@ -366,14 +371,15 @@
     weekly.forEach(function (m) {
       if (!m) return;
       var fid = pad4(m.fid);
-      if (!expected.hasOwnProperty(fid)) return; // foreign franchise — irrelevant, never poisons this table
-      sawAnyRelevantRow = true;
+      var opp = pad4(m.opp);
+      if (!expected.hasOwnProperty(fid) && !expected.hasOwnProperty(opp)) return; // neither side expected — unrelated, never poisons this table
+      sawAnyRelevantRow = true; // involves an expected franchise (as fid OR opp) — this payload is not "nobody has played"
       var isPo = normalizePo(m.po);
       if (isPo === null) { sawUnrecognizedPo = true; return; } // fail closed — never guessed as regular season
       if (isPo === true) return; // valid, explicit playoff — excluded, not an error
+      if (!expected.hasOwnProperty(fid)) return; // the foreign side of an expected franchise's game — only expected franchises' own rows enter the table
       var w = Number(m.w);
       if (!isFiniteNum(w)) return;
-      var opp = pad4(m.opp);
       var ts = Number(m.ts), os = Number(m.os);
       if (!isFiniteNum(ts) || !isFiniteNum(os)) return; // unparseable score -> absent, never zero
       var key = fid + '|' + opp;

@@ -88,6 +88,24 @@ test("race(): a RECORDED season is labelled recorded — no ladder step claimed"
   t.ok(Object.values(out.byFranchise).every((r) => /from the recorded final standings\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
 });
 
+test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as po: null) makes BOTH regular-season tables incomplete", async () => {
+  const RACE = raceModule();
+  // "x" reaches both tables (AP via weeklyScores, Overall via weekly); NULL can only be in src_schedule (Overall)
+  for (const [po, apIncomplete] of [["x", true], [null, false]]) {
+    const j = await standings(makeLadderSeason({ po }));
+    t.ok(j.weekly.every((m) => m.po === null), "the worker passes the bad flag through as null (#1201), never 0");
+    const fids = j.rows.map((r) => r.franchise_id);
+    t.equal(RACE.deriveRegSeasonOverallTable(j.weekly, fids).status, "incomplete", "Overall: " + po);
+    t.equal(RACE.deriveRegSeasonApTable(j.weeklyScores, fids).status, apIncomplete ? "incomplete" : "ok", "AP: " + po);
+    const out = RACE.race(j);
+    t.equal(out.byFranchise["0006"].luck, null, "luck needs both tables — unavailable, never a guess");
+    if (apIncomplete) t.equal(out.byFranchise["0006"].apGB, null, "AP games back unavailable");
+    t.equal(out.weeklyUnreadable, false, "readable but untrustworthy — not the same as a failed query");
+  }
+  const ok = RACE.race(await standings(makeLadderSeason()));
+  t.notEqual(ok.byFranchise["0006"].apGB, null, "control: clean flags give a real AP games back");
+});
+
 // ═══ the desktop page ═══
 test("desktop: projected status chips, the league ladder note, and the worker's seed reason in each disclosure", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason()) });
