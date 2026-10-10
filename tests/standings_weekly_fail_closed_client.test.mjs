@@ -24,8 +24,19 @@ async function page(env, query) {
   await settle();
   return p.html().replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");   // read it as the owner does
 }
-// the Playoffs column cell of each rendered row (9th <td>: #, Seed, Team, Owner, Division, W-L-T, PCT, Div, Playoffs)
-const playoffCells = (html) => [...html.matchAll(/<tr>((?:<td[^>]*>[\s\S]*?<\/td>){9})/g)].map((m) => [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)][8][1]);
+// the Playoffs column cell of each team row, found by its header (the race columns move it)
+function playoffCells(html) {
+  const thead = /<thead>([\s\S]*?)<\/thead>/.exec(html);
+  if (!thead) return [];
+  const idx = [...thead[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].findIndex((m) => />?Playoffs</.test(">" + m[1].replace(/<[^>]+>/g, "") + "<"));
+  // drop the race disclosure rows (they hold nested tables) before splitting the team rows
+  const body = /<tbody>([\s\S]*)<\/tbody>/.exec(html)[1]
+    .replace(/<tr class="disclosure-row"[\s\S]*?(?=<tr class="(?:you-row )?race-row"|<tr class="seed-divider|$)/g, "");
+  return [...body.matchAll(/<tr(?: [^>]*)?>([\s\S]*?)<\/tr>/g)]
+    .map((m) => [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => c[1]))
+    .filter((cells) => cells.length > idx + 1)               // team rows (not dividers / disclosures)
+    .map((cells) => cells[idx]);
+}
 
 test("control: a readable season renders the Regular Season table and real playoff records", async () => {
   const html = await page(makeEnv({ 1: 0, 2: 0, 15: 1 }), "view=overall&year=2026&scope=regular");

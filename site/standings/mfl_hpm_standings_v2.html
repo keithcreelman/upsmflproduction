@@ -284,6 +284,71 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
       color: var(--dim);
     }
+    /* ─── Phase II-A1: status chips, seed dividers, AP GB, Luck, Form/trend, disclosure ─── */
+    .status-chip {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+    .status-chip.bye { background: var(--champ-bg); border: 1px solid rgba(231,190,89,0.55); color: var(--gold); }
+    .status-chip.div { background: rgba(206,147,216,0.16); border: 1px solid rgba(206,147,216,0.5); color: #ce93d8; }
+    .status-chip.wc { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); color: var(--muted); }
+    .status-chip.projected { border-style: dashed; }
+    .status-chip.projected small { font-weight: 400; opacity: .8; }
+    tr.seed-divider td {
+      padding: 3px 10px;
+      border-bottom: 2px solid var(--gold);
+    }
+    tr.seed-divider.hawk-divider td {
+      border-bottom: none;
+      background: rgba(255, 138, 101, 0.08);
+      color: var(--warn);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 5px 10px;
+    }
+    .luck-pos { color: #7cd992; }
+    .luck-neg { color: var(--warn); }
+    .form-chips { display: inline-flex; gap: 2px; }
+    .form-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; border-radius: 3px;
+      font-size: 9px; font-weight: 800;
+    }
+    .form-chip.W { background: rgba(124,217,146,0.18); color: #7cd992; }
+    .form-chip.L { background: rgba(255,138,101,0.18); color: var(--warn); }
+    .form-chip.T { background: rgba(255,255,255,0.1); color: var(--muted); }
+    .rank-strip { display: inline-flex; gap: 1px; }
+    .rank-cell {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px; border-radius: 2px; font-size: 8px; font-weight: 700;
+    }
+    .rank-cell.top { background: rgba(124,217,146,0.22); color: #7cd992; }
+    .rank-cell.mid { background: rgba(255,255,255,0.08); color: var(--muted); }
+    .rank-cell.bot { background: rgba(255,138,101,0.16); color: var(--warn); }
+    .rank-cell.playoff-wk { opacity: 0.45; filter: grayscale(1); }
+    .rank-cell.empty { background: transparent; }
+    tr.race-row { cursor: pointer; }
+    /* The viewer's own franchise row (VIEWER_FID). */
+    tr.you-row td { background: rgba(125, 232, 217, 0.09); box-shadow: inset 3px 0 0 var(--teal); }
+    tr.race-row:focus { outline: 2px solid var(--teal); outline-offset: -2px; }
+    tr.race-row td.disclosure-toggle { text-align: center; color: var(--muted); font-size: 10px; }
+    tr.disclosure-row td {
+      background: rgba(5, 24, 52, 0.55);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .disclosure-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 16px; }
+    .disclosure-block h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gold); }
+    .disclosure-block table { font-size: 11px; }
+    .disclosure-block .why-seed { color: var(--text); line-height: 1.5; }
+    .disclosure-block .why-blocked { color: var(--warn); font-style: italic; }
     .partial-badge {
       display: inline-block;
       background: rgba(255, 255, 255, 0.06);
@@ -1133,6 +1198,7 @@
     </div>
   </div>
 
+<script src="../shared/standings_race.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1201,6 +1267,13 @@
       .replace(/'/g, "&#39;");
   }
   function pad4(v) { var s = String(v == null ? "" : v); while (s.length < 4) s = "0" + s; return s; }
+  // The viewer's own franchise (the Rookie Draft Hub's localStorage key) — highlights "your" row in the race table.
+  var VIEWER_FID = (function () {
+    try {
+      var v = window.localStorage && window.localStorage.getItem("rdh_my_fid");
+      return v ? pad4(v) : null;
+    } catch (e) { return null; }
+  })();
   function fmtPct(p) {
     if (p == null || isNaN(p)) return "—";
     return (Number(p) * 100).toFixed(1) + "%";
@@ -1422,6 +1495,91 @@
   }
 
   // ────────────────────────────────────────────────────────────────────────
+  // Phase II-A1 — "standings race" derived values (site/shared/standings_race.js).
+  // ────────────────────────────────────────────────────────────────────────
+  var STATUS_LABEL = { BYE: "Bye", DIV: "Division winner", WC: "Wild card" };
+  // projected: the season isn't over, so the status is where the team stands now — not a clinched spot.
+  function statusChipHtml(status, projected) {
+    if (!status) return "";
+    var cls = status.toLowerCase();
+    return '<span class="status-chip ' + cls + (projected ? ' projected' : '') + '" title="' + (projected ? 'Projected: ' : '') + STATUS_LABEL[status] + '" aria-label="' + (projected ? 'Projected playoff status: ' : 'Playoff status: ') + STATUS_LABEL[status] + '">' + status + (projected ? '<small> proj.</small>' : '') + '</span>';
+  }
+  function fmtGB(v) { return v == null ? "—" : Number(v).toFixed(1); }
+  function fmtSignedLuck(v) {
+    if (v == null || isNaN(v)) return "—";
+    var n = Number(v);
+    var sign = n >= 0 ? "+" : "−";
+    return sign + Math.abs(n).toFixed(3).replace(/^0\./, ".");
+  }
+  function luckClass(v) {
+    if (v == null || isNaN(v)) return "";
+    return Math.abs(v) >= 0.1 ? (v > 0 ? "luck-pos" : "luck-neg") : "";
+  }
+  function formChipsHtml(form5) {
+    if (!form5 || !form5.length) return '<span class="dim">—</span>';
+    return '<span class="form-chips">' + form5.map(function (r) {
+      return '<span class="form-chip ' + r + '" title="' + (r === "W" ? "Win" : r === "L" ? "Loss" : "Tie") + '">' + r + '</span>';
+    }).join("") + '</span>';
+  }
+  function rankTercile(rank, totalTeams) {
+    var third = Math.ceil((totalTeams || 12) / 3);
+    if (rank <= third) return "top";
+    if (rank <= third * 2) return "mid";
+    return "bot";
+  }
+  function rankStripHtml(weeklyRank, totalTeams) {
+    if (!weeklyRank || !weeklyRank.maxWeek) return '<span class="dim">—</span>';
+    var cells = [];
+    for (var w = 1; w <= weeklyRank.maxWeek; w++) {
+      var wk = weeklyRank.weeks && weeklyRank.weeks[w];
+      if (!wk) { cells.push('<span class="rank-cell empty" title="Week ' + w + ': not played">·</span>'); continue; }
+      var tier = rankTercile(wk.rank, totalTeams);
+      cells.push('<span class="rank-cell ' + tier + (wk.playoff ? " playoff-wk" : "") + '" title="Week ' + w + (wk.playoff ? " (playoff)" : "") + ': AP rank ' + wk.rank + '">' + wk.rank + '</span>');
+    }
+    return '<span class="rank-strip">' + cells.join("") + '</span>';
+  }
+  function whySeedHtml(why) {
+    if (!why) return '<div class="why-blocked">No seed data available.</div>';
+    if (why.blocked) return '<div class="why-blocked">' + escapeHtml(why.reason) + '</div>';
+    return '<div class="why-seed">' + escapeHtml(why.text) + '</div>';
+  }
+  function gameLogTableHtml(log) {
+    if (log == null) return '<div class="dim">Weekly results couldn\u2019t be read.</div>';
+    if (!log.length) return '<div class="dim">No games played yet.</div>';
+    var trs = log.map(function (g) {
+      return '<tr>'
+        + '<td>' + g.week + (g.is_playoff ? ' <span class="partial-badge">PO</span>' : '') + '</td>'
+        + '<td>' + escapeHtml(g.opponent_name) + '</td>'
+        + '<td class="num">' + fmtDec(g.team_score, 1) + '–' + fmtDec(g.opponent_score, 1) + '</td>'
+        + '<td class="num">' + g.result + '</td>'
+        + '</tr>';
+    }).join("");
+    return '<table><thead><tr><th>Wk</th><th>Opp</th><th class="num">Score</th><th class="num">Result</th></tr></thead><tbody>' + trs + '</tbody></table>';
+  }
+  function divisionRaceTableHtml(dr) {
+    if (!dr || !dr.length) return '<div class="dim">Division alignment not available.</div>';
+    var trs = dr.slice().sort(function (a, b) { return (a.ap_gb == null ? 99 : a.ap_gb) - (b.ap_gb == null ? 99 : b.ap_gb); }).map(function (d) {
+      return '<tr>'
+        + '<td>' + (d.is_division_leader ? '<span title="Division leader">👑</span> ' : '') + escapeHtml(d.franchise_name) + '</td>'
+        + '<td class="num">' + rec(d.overall.w, d.overall.l, d.overall.t) + '</td>'
+        + '<td class="num">' + (d.ap ? rec(d.ap.w, d.ap.l, d.ap.t) : '—') + '</td>'
+        + '<td class="num">' + fmtGB(d.ap_gb) + '</td>'
+        + '</tr>';
+    }).join("");
+    return '<table><thead><tr><th>Team</th><th class="num">Overall</th><th class="num">AP</th><th class="num">AP GB</th></tr></thead><tbody>' + trs + '</tbody></table>';
+  }
+  function buildDisclosureHtml(raceRow, colCount) {
+    if (!raceRow) return '<tr class="disclosure-row"><td colspan="' + colCount + '">No data.</td></tr>';
+    return '<tr class="disclosure-row"><td colspan="' + colCount + '">'
+      + '<div class="disclosure-grid">'
+      + '<div class="disclosure-block"><h4>Week-by-week</h4>' + gameLogTableHtml(raceRow.gameLog) + '</div>'
+      + '<div class="disclosure-block"><h4>Seed explanation</h4>' + whySeedHtml(raceRow.whySeed) + '</div>'
+      + '<div class="disclosure-block"><h4>Division race</h4>' + divisionRaceTableHtml(raceRow.divisionRace) + '</div>'
+      + '</div>'
+      + '</td></tr>';
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
   // View 1 — Overall
   // ────────────────────────────────────────────────────────────────────────
   // ── Scoped standings (Full / Regular / Playoffs / Custom) ───────────────
@@ -1551,11 +1709,38 @@
         });
         baseRows.forEach(function (r) { var p = po[pad4(r.franchise_id)]; r.po_w = p ? p.w : 0; r.po_l = p ? p.l : 0; });
       })();
+      // Phase II-A1 — standings race (status chips, AP GB, Luck, Form, weekly
+      // AP-rank trend, seed explanation, division race). Only meaningful in
+      // Full scope: computeScopedRows() rebuilds row objects without
+      // playoff_seed/playoff_status/seed_ap/seed_total_pf/seed_ov_pct (those
+      // are regular-season-seeding concepts, not a function of an arbitrary
+      // custom week range), so race data is intentionally omitted — not
+      // faked — when scoped.
+      var raceData = (!scoped && window.UPS_STANDINGS_RACE)
+        ? window.UPS_STANDINGS_RACE.race({ rows: baseRows, weekly: resp.weekly, weeklyScores: resp.weeklyScores, preseason: resp.preseason, season_complete: resp.season_complete })
+        : null;
+      var totalTeams = baseRows.length;
+      baseRows.forEach(function (r) {
+        var rr = raceData && raceData.byFranchise[pad4(r.franchise_id)];
+        r._status = rr ? rr.status : null;
+        r._apGB = rr ? rr.apGB : null;
+        r._luck = rr ? rr.luck : null;
+        r._expectedWins = rr ? rr.expectedWins : null;
+        r._form5 = rr ? rr.form5 : null;
+        r._weeklyRank = rr ? rr.weeklyRank : null;
+        r._raceRow = rr || null;
+      });
       var rows = sortRows(baseRows, state.overall.sortKey, state.overall.sortDir);
       var sortHdrs = state.overall;
+      // Divider lines follow the SEED BOUNDARY (playoff_seed 2 / 6), not
+      // table row index — and only render under the canonical seed sort, so
+      // they can never mislead when the table is sorted some other way.
+      var canonicalSeedOrder = sortHdrs.sortKey === "seed" && sortHdrs.sortDir === "asc";
+      var showRace = !scoped && !!raceData;
       var head = '<tr>'
         + '<th class="num">#</th>'
         + sortableHeader("Seed", "seed", sortHdrs, "num")
+        + (showRace ? '<th>Status</th>' : '')
         + sortableHeader("Team", "franchise_name", sortHdrs)
         + sortableHeader("Owner", "owner_name", sortHdrs)
         + sortableHeader("Division", "division_name", sortHdrs)
@@ -1565,15 +1750,25 @@
         + sortableHeader("Playoffs", "po_w", sortHdrs)
         + sortableHeader("AP W-L-T", "allplay_w", sortHdrs)
         + sortableHeader("AP %", "allplay_pct", sortHdrs, "num")
+        + (showRace ? sortableHeader("AP GB", "_apGB", sortHdrs, "num") : '')
+        + (showRace ? sortableHeader("Luck", "_luck", sortHdrs, "num") : '')
         + sortableHeader("Avg PF", "pf", sortHdrs, "num")
         + sortableHeader("Avg PA", "pa", sortHdrs, "num")
         + (scoped ? '' : sortableHeader("PP", "pp", sortHdrs, "num") + sortableHeader("EFF", "eff", sortHdrs, "num"))
+        + (showRace ? '<th>Form</th><th>AP rank trend</th>' : '')
         + '</tr>';
-      var body = rows.map(function (r, i) {
+      var colCount = (head.match(/<th/g) || []).length;
+      var bodyParts = [];
+      rows.forEach(function (r, i) {
         var s = seedMap[pad4(r.franchise_id)];
-        return '<tr>'
+        var isYou = VIEWER_FID && pad4(r.franchise_id) === VIEWER_FID;
+        var fid = pad4(r.franchise_id);
+        var rowAttrs = (isYou ? ' class="you-row race-row"' : ' class="race-row"')
+          + (showRace ? ' tabindex="0" role="button" aria-expanded="false" data-fid="' + fid + '"' : '');
+        bodyParts.push('<tr' + rowAttrs + '>'
           + '<td class="num">' + (i + 1) + '</td>'
           + '<td>' + (resp.preseason ? '' : seedBadge(s)) + '</td>'
+          + (showRace ? '<td>' + statusChipHtml(r._status, raceData.projected && !resp.preseason) + '</td>' : '')
           + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="' + escapeHtml(r.franchise_name || r.franchise_id) + '">' : escapeHtml(r.franchise_name || r.franchise_id)) + tkoMark(r) + '</td>'
           + '<td>' + escapeHtml(r.owner_name || "") + '</td>'
           + '<td>' + escapeHtml(divisionLabel(r)) + '</td>'
@@ -1583,21 +1778,59 @@
           + '<td>' + (r.po_unknown ? '<span title="Playoff record unavailable: ' + escapeHtml(wk.reason) + '">?</span>' : ((r.po_w || r.po_l) ? rec(r.po_w, r.po_l) : '—')) + '</td>'
           + '<td>' + rec(r.allplay_w, r.allplay_l, r.allplay_t) + '</td>'
           + '<td class="num">' + fmtPct(r.allplay_pct) + '</td>'
+          + (showRace ? '<td class="num">' + fmtGB(r._apGB) + '</td>' : '')
+          + (showRace ? '<td class="num ' + luckClass(r._luck) + '">' + fmtSignedLuck(r._luck) + '</td>' : '')
           + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
           + '<td class="num">' + fmtCommas(r.pa, 1) + '</td>'
           + (scoped ? '' : '<td class="num">' + fmtCommas(r.pp, 1) + '</td>' + '<td class="num">' + fmtPct(r.eff / 100) + '</td>')
-          + '</tr>';
-      }).join("");
+          + (showRace ? '<td>' + formChipsHtml(r._form5) + '</td><td>' + rankStripHtml(r._weeklyRank, totalTeams) + '</td>' : '')
+          + '</tr>');
+        if (showRace) bodyParts.push(buildDisclosureHtml(r._raceRow, colCount).replace('<tr class="disclosure-row">', '<tr class="disclosure-row" hidden data-for="' + fid + '">'));
+        if (canonicalSeedOrder && showRace) {
+          if (Number(r.playoff_seed) === 2) bodyParts.push('<tr class="seed-divider"><td colspan="' + colCount + '"></td></tr>');
+          if (Number(r.playoff_seed) === 6) bodyParts.push('<tr class="seed-divider hawk-divider"><td colspan="' + colCount + '">Hawktuah Bowl · seeds 7–12</td></tr>');
+        }
+      });
+      var body = bodyParts.join("");
       var meta = resp.meta || {};
+      // Where the seeds come from, as the worker says (seed_reason) — never a ladder claim for a recorded season.
+      var recordedSeeds = (resp.rows || []).some(function (r) { return r && r.seed_reason && r.seed_reason.basis === "recorded_final_standings"; });
+      var seedNote = recordedSeeds
+        ? ' Seeds: the recorded final standings.'
+        : ' Seeds: All-Play % → Overall → season Points For → head-to-head (league rule §F.1); open a team for the step that decided its seed.'
+          + (showRace && raceData.projected && !resp.preseason ? ' Seeds and BYE / DIV / WC are projected until the season ends.' : '');
       var note = scoped
         ? '<div class="note"><strong>' + scopeLabel() + '</strong> — weeks ' + rng[0] + '–' + rng[1] + ' (computed from weekly results; PP / Eff are full-season only and hidden here). Click any header to sort.</div>'
         : (meta.last_regular_season_week
-          ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>'
-          : '<div class="note">Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>');
+          ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort.' + seedNote + '</div>'
+          : '<div class="note">Click any column header to sort.' + seedNote + '</div>');
+      if (showRace && raceData.weeklyUnreadable) note += '<div class="note">AP GB, Luck, Form and the AP-rank trend show — : the weekly results couldn\u2019t be read.</div>';
       if (!wk.ok) note += '<div class="note">Playoff records show <strong>?</strong>: ' + escapeHtml(wk.reason) + '.</div>';
       host.innerHTML = '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + note + tkoFootnote(resp) + DEFERRED_NOTE;
       wireSortClicks(host, state.overall, function () { renderOverall(host); });
+      wireDisclosureToggles(host);
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // Toggles a race-row's disclosure row (week-by-week log, seed
+  // explanation, division race) without re-rendering the table, so
+  // opening one disclosure can't disturb sorting, headers, or any other
+  // row's own expanded state.
+  function wireDisclosureToggles(host) {
+    host.querySelectorAll("tr.race-row[data-fid]").forEach(function (tr) {
+      var fid = tr.getAttribute("data-fid");
+      var disclosure = host.querySelector('tr.disclosure-row[data-for="' + fid + '"]');
+      if (!disclosure) return;
+      var toggle = function () {
+        var open = !disclosure.hidden;
+        disclosure.hidden = open;
+        tr.setAttribute("aria-expanded", open ? "false" : "true");
+      };
+      tr.addEventListener("click", toggle);
+      tr.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); toggle(); }
+      });
+    });
   }
 
   // ────────────────────────────────────────────────────────────────────────
