@@ -57,7 +57,7 @@ import { evaluateTradeCompliance, loadedContractBlockPayload, tradeLimitBlockPay
 import { evaluateTaxiDestinations } from "./trade_taxi_destination.js";
 import { planRosterChecks, cureDeadline, rosterCheckMessage, rosterCheckCommishCopy, currentOverage } from "./trade_roster_check.js";
 import { tradeSeasonWindow, loadAuctionStart } from "./trade_season_window.js";
-import { loadContractDeadline, resolveContractDeadline, deadlineState, determinateDeadlineUnix } from "./contract_deadline.js";
+import { loadContractDeadline, resolveContractDeadline, deadlineState, determinateDeadlineUnix, withDateOnlyLadderEnd } from "./contract_deadline.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
@@ -20201,12 +20201,12 @@ export default {
               nflWeekFirstKickoffUnix(season, 3),
               nflWeekFirstKickoffUnix(season, 5),
             ]);
-            out.contract_ladder = contractLadderStage({
+            out.contract_ladder = withDateOnlyLadderEnd(contractLadderStage({
               contractDeadlineUnix: cdUnix,
               week3KickoffUnix: lw3,
               week5KickoffUnix: lw5,
               nowUnix: Math.floor(Date.now() / 1000),
-            });
+            }), cdRes);
             if (out.contract_ladder.stage === "unresolved") {
               out.contract_ladder.reason = !cdUnix ? "no_contract_deadline"
                 : (!lw3 || !lw5) ? "no_week_kickoffs" : "boundaries_out_of_order";
@@ -59663,12 +59663,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             nflWeekFirstKickoffUnix(season, 3),
             nflWeekFirstKickoffUnix(season, 5),
           ]);
-          contractLadder = contractLadderStage({
+          contractLadder = withDateOnlyLadderEnd(contractLadderStage({
             contractDeadlineUnix: cdUnix,
             week3KickoffUnix: wk3,
             week5KickoffUnix: wk5,
             nowUnix: Math.floor(Date.now() / 1000),
-          });
+          }), cdRes);
           if (contractLadder.stage === "unresolved") {
             contractLadder.reason = !cdUnix ? "no_contract_deadline"
               : (!wk3 || !wk5) ? "no_week_kickoffs" : "boundaries_out_of_order";
@@ -60355,7 +60355,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // Extensions → per-player window. WW/trade pickup windows take priority
           // over the rookie/veteran season deadlines.
           if (isExtensionSubmission) {
-            let _extDeadline = null, _extStart = null, _extClass = "";
+            let _extDeadline = null, _extStart = null, _extClass = "", _extDeadlineDay = "";
             if (_isWWpickup) {
               _extStart = new Date(_acqDate.getTime() + 15 * _DAY_MS);
               _extDeadline = new Date(_acqDate.getTime() + 28 * _DAY_MS);
@@ -60375,12 +60375,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               // date-only record — refuse. (Before 2026-10-08 an unconfigured season had no deadline and never refused.)
               const _cdNow = Math.floor(Date.now() / 1000);
               const _cdState = deadlineState(_cd.resolved, _cdNow);
+              const _cdDateOnlyDay = _cd.resolved && !_cd.resolved.exact && _cd.resolved.source === "league_events_day" ? safeStr(_cd.resolved.day) : "";
               if (_cdState === "unknown") {
                 return mutationResponse(
                   "validation_fail",
                   String(body.submission_id || body.submissionId || "").trim(),
                   {
-                    reason: `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
+                    reason: _cdDateOnlyDay
+                      ? `Only the date of the ${year} contract deadline (${_cdDateOnlyDay}) is on the league calendar, not its time, so on that day this submission can't be checked against the deadline and is refused. The commissioner sets the time in Commish Settings → Update League Calendar.`
+                      : `Cannot verify the ${year} contract deadline right now, so this submission is being refused rather than accepted against a possibly-wrong window. Retry shortly; if it persists, check the League Calendar in Commish Settings.`,
                     code: "CONTRACT_DEADLINE_UNRESOLVED",
                     detail: _cd.error || `no ${year} contract deadline is configured in the league calendar (source: ${_cd.resolved && _cd.resolved.source}${_cd.resolved && _cd.resolved.day ? `, date-only ${_cd.resolved.day}` : ""})`,
                     submission_kind: submissionKindRaw,
@@ -60388,7 +60391,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                   503
                 );
               }
-              _extDeadline = new Date(determinateDeadlineUnix(_cd.resolved, _cdNow) * 1000);
+              _extDeadline = new Date(determinateDeadlineUnix(_cd.resolved, _cdNow) * 1000);   // for the comparison only
+              _extDeadlineDay = _cdDateOnlyDay;   // date-only: the refusal states the DAY, never an invented 23:59:59
               _extClass = "veteran";
             }
             const _nowMs = Date.now();
@@ -60401,9 +60405,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 {
                   reason: _tooEarly
                     ? `Extension window not open yet — a WW/FCFS pickup is extension-eligible only on days 15–28 of the post-pickup window (opens ${_extStart.toISOString()}); it is MYM-eligible until then.`
-                    : `${_extClass} extension submissions are locked — the deadline passed (${_extDeadline ? _extDeadline.toISOString() : "unknown"}). Contact the commissioner for late corrections.`,
+                    : `${_extClass} extension submissions are locked — the deadline passed (${_extDeadlineDay ? `${_extDeadlineDay}; its time isn't on the league calendar` : (_extDeadline ? _extDeadline.toISOString() : "unknown")}). Contact the commissioner for late corrections.`,
                   code: _tooEarly ? "EXTENSION_WINDOW_NOT_OPEN" : "EXTENSION_DEADLINE_PASSED",
-                  deadline_utc: _extDeadline ? _extDeadline.toISOString() : null,
+                  deadline_utc: _extDeadlineDay ? null : (_extDeadline ? _extDeadline.toISOString() : null),
+                  ...(_extDeadlineDay ? { deadline_day: _extDeadlineDay, deadline_time_known: false } : {}),
                   window_open_utc: _extStart ? _extStart.toISOString() : null,
                   extension_class: _extClass,
                   submission_kind: submissionKindRaw,

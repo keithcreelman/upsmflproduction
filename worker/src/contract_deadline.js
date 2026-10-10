@@ -118,6 +118,15 @@ export function determinateDeadlineUnix(res, nowUnix) {
   return res.exact ? res.deadline_unix : res.day_end_unix;
 }
 
+/** The contract ladder's MYAC rung ends AT the contract deadline. When that deadline is DATE-ONLY (no time on the league
+ * calendar — e.g. 2027's seeded 2027-09-05), the rung's end is that DAY: `end_unix` null, `end_day` set,
+ * `end_time_known` false — never the invented 23:59:59 ET that determinateDeadlineUnix uses for before/after comparisons
+ * (Keith 2026-10-09: "do not infer a time from the date-only entry"). Exact deadlines and the kickoff rungs are unchanged. */
+export function withDateOnlyLadderEnd(ladder, res) {
+  if (!ladder || ladder.stage !== "myac" || !res || res.exact || !res.day) return ladder;
+  return { ...ladder, end_unix: null, end_day: res.day, end_time_known: false };
+}
+
 /** The ONE loader. Read-only: no CREATE, no write of any kind. */
 export async function loadContractDeadline(env, season) {
   if (!env || !env.UPS_MFL_DB) return resolveContractDeadline({ season, calendar: { read_error: "no_d1_binding" } });
