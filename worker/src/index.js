@@ -12463,6 +12463,11 @@ export default {
         const includePost = safeStr(url.searchParams.get("include_post")) === "1";
         const minGames = Math.max(1, parseInt(safeStr(url.searchParams.get("min_games")), 10) || 1);
         const limit = Math.min(500, Math.max(10, parseInt(safeStr(url.searchParams.get("limit")), 10) || 200));
+        // Paging (2026-10-10): a page is still at most 500 rows, but a caller can
+        // walk the WHOLE board with offset=0,500,1000… until next_offset is null.
+        // The IDP board alone has ~850 scoring players; a single 500-row page
+        // silently dropped the rest (351 of them listed on mobile with "—").
+        const offset = Math.min(20000, Math.max(0, parseInt(safeStr(url.searchParams.get("offset")), 10) || 0));
         // Team filter: MFL franchise_id (pad-4 like "0005"), or "FA"
         // for free agents (players with no current contract row).
         const teamFilter = safeStr(url.searchParams.get("team")).trim();
@@ -12523,7 +12528,7 @@ export default {
             seasons: seasons.join(","), pos,
             weeks: weeksParam || "", week_min: String(weekMinParam || ""), week_max: String(weekMaxParam || ""),
             include_post: includePost ? "1" : "0",
-            min_games: String(minGames), limit: String(limit), team: teamFilter || "",
+            min_games: String(minGames), limit: String(limit), offset: String(offset), team: teamFilter || "",
           }).toString(),
           { method: "GET" }
         );
@@ -12717,8 +12722,11 @@ export default {
                    FROM nfl_leaderboard_precompute
                   WHERE season = ? AND pos_alias = ?` +
                   (minGames > 1 ? ` AND games >= ${minGames}` : ``) +
-                ` ORDER BY rank ASC LIMIT ?`
-              ).bind(lbPreSeason, pos, limit).all();
+                ` ORDER BY rank ASC LIMIT ? OFFSET ?`
+              ).bind(lbPreSeason, pos, limit, offset).all();
+              // Counted BEFORE the post-SQL filters: a page is "full" by what the
+              // query returned, not by what survived the punter/team filters.
+              const preRawCount = (pre.results || []).length;
               let preRows = (pre.results || []).map((r) => {
                 try { return JSON.parse(r.row_json); } catch (_) { return null; }
               }).filter(Boolean);
@@ -12730,6 +12738,15 @@ export default {
                 const padded = (teamFilter + "000").slice(0, 4);
                 preRows = preRows.filter((r) => (r.mfl_franchise_id || "") === padded ||
                                                 (r.mfl_franchise_id || "") === teamFilter);
+              }
+              // Past the end of a stored board: an empty LAST page — never a
+              // fall-through to the multi-million-row live query.
+              if (!preRawCount && offset > 0 && offset >= _preNum(meta.row_count)) {
+                return jsonOut(200, {
+                  seasons, pos, include_post: includePost, min_games: minGames,
+                  team: teamFilter || null, count: 0, limit, offset, next_offset: null,
+                  source: "precompute", rows: [],
+                });
               }
               if (preRows.length) {
                 // A STALE current-season board is SERVED, not discarded, and
@@ -12793,6 +12810,7 @@ export default {
                 const preResponse = jsonOut(200, {
                   seasons, pos, include_post: includePost, min_games: minGames,
                   team: teamFilter || null, count: preRows.length,
+                  limit, offset, next_offset: preRawCount === limit ? offset + limit : null,
                   source: "precompute",
                   ...(lbPreIsCurrent ? {
                     stale: lbPreStale,
@@ -13399,10 +13417,11 @@ export default {
                                                                    CAST(c.mfl_player_id AS TEXT))
              WHERE a.games >= ?
              ORDER BY ${orderExpr} DESC
-             LIMIT ?
+             LIMIT ? OFFSET ?
           `;
-          const res = await db.prepare(sql).bind(minGames, limit).all();
+          const res = await db.prepare(sql).bind(minGames, limit, offset).all();
           let rows = res.results || [];
+          const rawCount = rows.length;   // before the post-SQL filters (see next_offset)
           // Punter filter: if pos=punter, keep only rows with actual punts
           if (pos === "punter") rows = rows.filter(r => (r.punts || 0) > 0);
           // Team filter applied client-of-Worker: "FA" → no contract,
@@ -13417,6 +13436,7 @@ export default {
           const lbResponse = jsonOut(200, {
             seasons, pos, include_post: includePost, min_games: minGames,
             team: teamFilter || null, count: rows.length,
+            limit, offset, next_offset: rawCount === limit ? offset + limit : null,
             rows,
           });
           // TTL depends on whether the requested seasons can still CHANGE.
@@ -55417,19 +55437,29 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                     `&min_games=1&limit=500&NO_CACHE=1&NO_PRECOMPUTE=1` +
                     `&YEAR=${encodeURIComponent(String(currentSeason))}` +
                     `&L=${encodeURIComponent(preLeagueId)}`;
+          // EVERY page, not the first 500 (2026-10-10): the stored board is what
+          // mobile reads, and a 500-row board cut the IDP list at impact 7 —
+          // inside a 36-way tie — leaving ~350 scoring IDPs with no stats.
           let rows = [];
+          let pageRefused = false;
           try {
-            const r = await env.SELF.fetch(u);
-            const j = await r.json();
-            // The live path sets no `source`; only the precompute block does.
-            // If this is ever "precompute", NO_PRECOMPUTE stopped working and we
-            // are about to re-store our own rows — refuse rather than write a
-            // successful-looking no-op.
-            if (j && j.source === "precompute") {
+            for (let off = 0, pages = 0; off != null && pages < 40; pages++) {
+              const r = await env.SELF.fetch(u + `&offset=${off}`);
+              const j = await r.json();
+              // The live path sets no `source`; only the precompute block does.
+              // If this is ever "precompute", NO_PRECOMPUTE stopped working and we
+              // are about to re-store our own rows — refuse rather than write a
+              // successful-looking no-op.
+              if (j && j.source === "precompute") { pageRefused = true; break; }
+              rows = rows.concat(Array.isArray(j?.rows) ? j.rows : []);
+              // A worker without paging (no next_offset in its reply) is ONE page,
+              // exactly the old behaviour — never an endless loop.
+              off = (j && j.next_offset != null) ? Number(j.next_offset) : null;
+            }
+            if (pageRefused) {
               built.push({ pos: alias, ok: false, error: "self-fetch was served the precompute — refusing to re-store its own output" });
               continue;
             }
-            rows = Array.isArray(j?.rows) ? j.rows : [];
           } catch (err) {
             built.push({ pos: alias, ok: false, error: String(err && err.message || err) });
             continue;
