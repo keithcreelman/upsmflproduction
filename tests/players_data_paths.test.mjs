@@ -93,10 +93,12 @@ test("cross-position: a player is on his MFL lineup group's board, whatever posi
   const board = async (pos) => Object.fromEntries((await get(env, `/api/advanced-stats-leaderboard?season=2026&pos=${pos}&YEAR=2026&L=74598&min_games=1&limit=200&NO_PRECOMPUTE=1&NO_CACHE=1`)).json.rows.map((x) => [x.gsis_id, x]));
   const skill = await board("skill"), idp = await board("idp");
   t.ok(skill["00-HUNT"] && !idp["00-HUNT"], "Hunter: skill board only");
-  t.deepEqual([skill["00-HUNT"].mfl_position, skill["00-HUNT"].targets, skill["00-HUNT"].games, skill["00-HUNT"].pos_group], ["WR", 1, 2, "DB"],
-    "MFL position from the map; every box-score week counts; nflverse's group is still reported as it is");
+  t.deepEqual([skill["00-HUNT"].mfl_position, skill["00-HUNT"].targets, skill["00-HUNT"].games], ["WR", 1, 2], "MFL position from the map; every box-score week counts");
+  t.deepEqual([skill["00-HUNT"].pos_group, skill["00-HUNT"].position, skill["00-HUNT"].nfl_pos_group, skill["00-HUNT"].nfl_position], ["WR", "WR", "DB", "CB"],
+    "the board's group and his MFL position, so a client filtering by pos_group / position finds him; nflverse's values ride along");
   t.ok(idp["00-VANS"] && !skill["00-VANS"], "VanSumeren: IDP board only");
-  t.deepEqual([idp["00-VANS"].mfl_position, idp["00-VANS"].def_tackles_total], ["LB", 1]);
+  t.deepEqual([idp["00-VANS"].mfl_position, idp["00-VANS"].def_tackles_total, idp["00-VANS"].pos_group, idp["00-VANS"].nfl_pos_group], ["LB", 1, "LB", "RB"]);
+  t.deepEqual([idp["00-ROOK"].pos_group, idp["00-ROOK"].nfl_pos_group], ["LB", "LB"], "a same-board player keeps nflverse's group");
   t.ok(idp["00-NOMAP"] && !skill["00-NOMAP"], "an unaccepted map row moves nobody");
   t.ok(idp["00-ROOK"] && idp["00-NOPFR"], "same-board players are unaffected");
 });

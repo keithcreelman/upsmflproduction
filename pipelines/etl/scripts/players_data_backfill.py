@@ -48,6 +48,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shlex
 import sqlite3
 import subprocess
@@ -155,7 +156,7 @@ def fp_sql(table: str, season: int, key: list[str], cols: list[str]) -> str:
                                                      ((1, 1), (2, 7), (3, 31), (-1, 127), (-2, 1009), (-3, 9973))) + "),0)")
     for c in cols:
         parts.append(f"COALESCE(SUM(CAST(ROUND(COALESCE({c},0)*10000) AS INTEGER)),0)")
-        parts.append(f"SUM({c} IS NULL)")
+        parts.append(f"COALESCE(SUM({c} IS NULL),0)")   # never NULL: an empty season fingerprints as 0,0,… (QA 2026-10-10)
     def joined(p: list[str]) -> str:   # a BALANCED || tree: D1's import caps expression depth at 100
         if len(p) == 1:
             return p[0]
@@ -178,6 +179,9 @@ def compute(d1: D1, season: int, pbp_parquet: str | None) -> dict:
     if pbp_parquet:
         import polars as pl
         frame = pl.read_parquet(pbp_parquet)
+        frame = frame.filter(pl.col("season") == season)
+        if frame.is_empty():
+            raise SystemExit(f"{pbp_parquet} has no {season} plays")
         nflreadpy.load_pbp = lambda seasons=None: frame
     import fetch_nflverse_pbp as F
     import fetch_nflverse_epa as E
@@ -294,14 +298,15 @@ def validate(computed: dict, season: int, pbp_parquet: str | None, stats_parquet
 
 # ── the procedure ─────────────────────────────────────────────────────────────
 def names(tag: str) -> dict:
-    if not tag.replace("_", "").isalnum():
-        raise SystemExit("--tag must be letters, digits and _")
+    if not re.fullmatch(r"[A-Za-z0-9_]{3,40}", tag or ""):
+        raise SystemExit("--tag must be 3-40 ASCII letters, digits and _")
     return {k: {"bk": f"bk_{k}_{tag}", "stg": f"stg_{k}_{tag}"} for k in TABLES} | {"meta": f"bf_meta_{tag}", "guard": f"bf_guard_{tag}"}
 
 
 def guard(n: dict, cond: str) -> str:
-    """A statement that violates CHECK (ok = 1) — rolling the whole import back — unless cond holds."""
-    return f"INSERT INTO {n['guard']} (ok) SELECT 0 WHERE NOT ({cond});"
+    """A statement that violates CHECK (ok = 1) — rolling the whole import back —
+    unless cond is TRUE. `IS NOT 1`, not `NOT (…)`: a NULL condition must fail."""
+    return f"INSERT INTO {n['guard']} (ok) SELECT 0 WHERE ({cond}) IS NOT 1;"
 
 
 def require_0169(d1: D1) -> None:
@@ -355,6 +360,8 @@ def cmd_stage(a, d1: D1) -> None:
         back, want = read_rows(d1, n[k]["stg"], a.season, key, cols), canon(rows, key, cols)
         if back != want:
             raise SystemExit(f"{n[k]['stg']} read back differs from the computed rows")
+        if not back and report["snapshot"][k]["rows"]:
+            raise SystemExit(f"{n[k]['stg']} is EMPTY but the live season has {report['snapshot'][k]['rows']} rows: refusing to stage a swap that would empty it")
         report["staged"][k] = {"table": n[k]["stg"], "rows": len(back), "sha256": sha(back),
                                "fp": fingerprint(d1, n[k]["stg"], a.season, key, cols)}
     # 4. validate
@@ -376,11 +383,14 @@ def cmd_stage(a, d1: D1) -> None:
     print(f"\nstaged and validated: swap with  swap --season {a.season} --tag {a.tag} --yes")
 
 
-def load_report(d1: D1, n: dict) -> dict:
+def load_report(d1: D1, n: dict, season: int) -> dict:
     r = d1.q(f"SELECT v FROM {n['meta']} WHERE k = 'report'")
     if not r:
         raise SystemExit("no stage report for this tag")
-    return json.loads(r[0]["v"])
+    rep = json.loads(r[0]["v"])
+    if int(rep.get("season") or 0) != int(season):
+        raise SystemExit(f"this tag was staged for {rep.get('season')}, not {season}")
+    return rep
 
 
 def swap_sql(n: dict, season: int, rep: dict, live_cols: dict) -> str:
@@ -406,24 +416,41 @@ def swap_sql(n: dict, season: int, rep: dict, live_cols: dict) -> str:
     return "\n".join(s)
 
 
-def rollback_sql(n: dict, season: int, rep: dict, live_cols: dict) -> str:
+def rollback_sql(n: dict, season: int, rep: dict, live_cols: dict, force: bool = False) -> str:
+    """Restore the snapshot. Refuses (unless force) when live has moved on since
+    the swap — a later refresh's rows would be thrown away (QA 2026-10-10)."""
     s = [f"DELETE FROM {n['guard']};"]
     for k, (t, key, cols) in TABLES.items():
         s.append(guard(n, f"({fp_sql(n[k]['bk'], season, key, cols)}) = {lit(rep['snapshot'][k]['fp'])}"))
-    for k, (t, key, cols) in TABLES.items():
+        if not force:
+            live_fp = fp_sql(t, season, key, cols)
+            if k == "tw":
+                live_fp = live_fp.replace("WHERE season", "WHERE rz_pass_att IS NOT NULL AND season")
+            s.append(guard(n, f"({live_fp}) = {lit(rep['staged'][k]['fp'])}"))
+    for k in ("rz", "epa"):        # the swap replaced these rows whole
+        t = TABLES[k][0]
         c = [x for x in live_cols[k] if x in set(rep["snapshot"][k]["all_columns"])]
         s.append(f"DELETE FROM {t} WHERE season = {season};")
         s.append(f"INSERT INTO {t} ({', '.join(c)}) SELECT {', '.join(c)} FROM {n[k]['bk']};")
+    # nfl_team_weekly: the swap touched only the red-zone columns, so only they
+    # go back; a team-week row the swap ADDED (nothing but red-zone columns) goes.
+    bk = n["tw"]["bk"]
+    other = [c for c in rep["snapshot"]["tw"]["all_columns"] if c not in ("season", "week", "team") and c not in RZ_TEAM_COLS]
+    s.append(f"UPDATE nfl_team_weekly SET ({', '.join(RZ_TEAM_COLS)}) = (SELECT {', '.join('b.' + c for c in RZ_TEAM_COLS)} FROM {bk} b "
+             f"WHERE b.week = nfl_team_weekly.week AND b.team = nfl_team_weekly.team) WHERE season = {season};")
+    s.append(f"DELETE FROM nfl_team_weekly WHERE season = {season} AND NOT EXISTS (SELECT 1 FROM {bk} b WHERE b.week = nfl_team_weekly.week AND b.team = nfl_team_weekly.team)"
+             + "".join(f" AND {c} IS NULL" for c in other) + ";")
     return "\n".join(s)
 
 
 def check_equal(d1: D1, n: dict, season: int, which: str, rep: dict | None = None) -> list[str]:
     """Tables whose live season differs row-for-row from stg (the owned columns)
-    or from bk (every column the snapshot holds)."""
+    or from bk (every column the snapshot holds; nfl_team_weekly: its key and
+    red-zone columns, the only ones the swap and rollback touch)."""
     bad = []
     for k, (t, key, cols) in TABLES.items():
         src = n[k][which]
-        if which == "bk":
+        if which == "bk" and k != "tw":
             cols = [c for c in rep["snapshot"][k]["all_columns"] if c not in key]
         live = read_rows(d1, t, season, key, cols)
         if k == "tw" and which == "stg":
@@ -435,7 +462,7 @@ def check_equal(d1: D1, n: dict, season: int, which: str, rep: dict | None = Non
 
 def cmd_swap(a, d1: D1) -> None:
     n = names(a.tag)
-    rep = load_report(d1, n)
+    rep = load_report(d1, n, a.season)
     if not rep.get("validation", {}).get("ok"):
         raise SystemExit("the stage report is not validated: nothing swapped")
     if not a.yes:
@@ -443,8 +470,8 @@ def cmd_swap(a, d1: D1) -> None:
     live_cols = {k: cols_of(d1, t) for k, (t, _, _) in TABLES.items()}
     sql = swap_sql(n, a.season, rep, live_cols)
     before = {k: fingerprint(d1, t, a.season, key, cols) for k, (t, key, cols) in TABLES.items()}
-    if a.fail_after_writes:     # rehearsal only: prove the import rolls back
-        sql += f"\nINSERT INTO {n['guard']} (ok) VALUES (0);"
+    if a.fail_after_writes:     # rehearsal only: a DISTINCT error (the meta table's primary key)
+        sql += f"\nINSERT INTO {n['meta']} (k, v) VALUES ('report', 'duplicate');"   # after every write and guard
     try:
         d1.file(sql)
     except D1Error as e:
@@ -459,7 +486,7 @@ def cmd_swap(a, d1: D1) -> None:
     bad = check_equal(d1, n, a.season, "stg")
     if bad:
         print(f"post-check FAILED for {bad}: restoring the snapshot", file=sys.stderr)
-        d1.file(rollback_sql(n, a.season, rep, live_cols))
+        d1.file(rollback_sql(n, a.season, rep, live_cols, force=True))   # we just wrote it: restore regardless
         raise SystemExit(3)
     print(json.dumps({"swap": "ok", "live_now_equals_staged": True,
                       "rows": {k: rep["staged"][k]["rows"] for k in TABLES},
@@ -469,15 +496,22 @@ def cmd_swap(a, d1: D1) -> None:
 
 def cmd_rollback(a, d1: D1) -> None:
     n = names(a.tag)
-    rep = load_report(d1, n)
+    rep = load_report(d1, n, a.season)
     if not a.yes:
         raise SystemExit("rollback changes what readers see: pass --yes")
     live_cols = {k: cols_of(d1, t) for k, (t, _, _) in TABLES.items()}
-    d1.file(rollback_sql(n, a.season, rep, live_cols))
+    try:
+        d1.file(rollback_sql(n, a.season, rep, live_cols, force=a.force))
+    except D1Error as e:
+        why = [ln.strip() for ln in str(e).splitlines() if "ERROR" in ln or "constraint" in ln.lower()]
+        raise SystemExit("rollback REFUSED, nothing changed: live is no longer what the swap wrote (a later refresh?) "
+                         "— rerun with --force to discard those rows, or stage a new tag. " + " ".join(why[:2]))
     bad = check_equal(d1, n, a.season, "bk", rep)
     shas = {k: sha(read_rows(d1, t, a.season, key, [c for c in rep["snapshot"][k]["all_columns"] if c not in key]))
-            for k, (t, key, cols) in TABLES.items()}
-    ok = not bad and all(shas[k] == rep["snapshot"][k]["sha256_all_columns"] for k in TABLES)
+            for k, (t, key, cols) in TABLES.items() if k != "tw"}
+    shas["tw_redzone"] = sha(read_rows(d1, "nfl_team_weekly", a.season, ["season", "week", "team"], RZ_TEAM_COLS))
+    want_tw = sha(read_rows(d1, n["tw"]["bk"], a.season, ["season", "week", "team"], RZ_TEAM_COLS))
+    ok = not bad and all(shas[k] == rep["snapshot"][k]["sha256_all_columns"] for k in ("rz", "epa")) and shas["tw_redzone"] == want_tw
     print(json.dumps({"rollback": "ok" if ok else "MISMATCH", "differs": bad, "sha256": shas}, indent=1))
     if not ok:
         raise SystemExit(4)
@@ -503,6 +537,7 @@ def main() -> None:
     ap.add_argument("--pbp-parquet", default=None, help="use this play-by-play file instead of downloading")
     ap.add_argument("--stats-parquet", default=None, help="use this nflverse weekly player-stats file instead of downloading")
     ap.add_argument("--yes", action="store_true")
+    ap.add_argument("--force", action="store_true", help="rollback only: restore even though live changed after the swap")
     ap.add_argument("--fail-after-writes", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args()
     d1 = D1(a.db)

@@ -124,4 +124,13 @@ test("a season whose play-by-play wasn't re-run since 0169 has no team totals: s
   t.equal(x.targets_i20, 2, "his own count is still there");
 });
 
+test("one of his games without team totals (e.g. a season not re-run since 0169 in a multi-season window): the share is null, never over his other games", async () => {
+  const { env, db } = setup();
+  db.exec("UPDATE nfl_team_weekly SET rz_targets = NULL, rz_rec = NULL, ez_targets = NULL, rz_carries = NULL, i5_carries = NULL, rz_pass_att = NULL, rz_sacks = NULL, rz_scrambles = NULL WHERE week = 2 AND team = 'BBB'");
+  const sk = await board(env, "skill");
+  const y = sk["00-Y"];   // AAA Wk 1 (totals present) + BBB Wk 2 (missing)
+  t.deepEqual([y.team_targets_i20, y.rz_target_share, y.team_rz_plays, y.team_rz_pass_rate], [null, null, null, null], "a plain SUM would have used Wk 1's team totals for both weeks of his targets");
+  t.equal(sk["00-X"].team_targets_i20, 10 + 10, "a player whose games all have totals is unaffected");
+});
+
 await run("leaderboard_redzone_shares");

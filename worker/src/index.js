@@ -12576,6 +12576,10 @@ export default {
         const mflBoardSql = (col) => `(CASE ${col} WHEN 'QB' THEN 'qb' WHEN 'RB' THEN 'skill' WHEN 'WR' THEN 'skill'
                      WHEN 'TE' THEN 'skill' WHEN 'PK' THEN 'kicker' WHEN 'PN' THEN 'punter' WHEN 'DE' THEN 'idp'
                      WHEN 'DT' THEN 'idp' WHEN 'LB' THEN 'idp' WHEN 'CB' THEN 'idp' WHEN 'S' THEN 'idp' END)`;
+        // MFL position -> lineup group (the pos_group vocabulary).
+        const mflGroupSql = (col) => `(CASE ${col} WHEN 'QB' THEN 'QB' WHEN 'RB' THEN 'RB' WHEN 'WR' THEN 'WR' WHEN 'TE' THEN 'TE'
+                     WHEN 'PK' THEN 'PK' WHEN 'PN' THEN 'PN' WHEN 'DE' THEN 'DL' WHEN 'DT' THEN 'DL' WHEN 'LB' THEN 'LB'
+                     WHEN 'CB' THEN 'DB' WHEN 'S' THEN 'DB' END)`;
         const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
         // Representative season for the team-pace join (the latest queried).
         const paceSeason = Math.max.apply(null, seasons.map(s => parseInt(s, 10)));
@@ -12906,7 +12910,17 @@ export default {
                               WHERE ff.gsis_id = a.gsis_id
                                 AND ff.gsis_id IS NOT NULL AND ff.gsis_id != '')) AS mfl_pid,
                    COALESCE(NULLIF(c.full_name, ''), npn.display_name) AS player_name,
-                   a.position, a.team, a.pos_group, a.games,
+                   -- A player the id map placed on this board from another group
+                   -- (a WR whose box score says CB) reports the board's group and
+                   -- his MFL position, so every client that filters by
+                   -- pos_group / position finds him; nflverse's values ride along.
+                   CASE WHEN a.pos_group IN (${posList}) THEN a.position
+                        ELSE COALESCE(im.mfl_position, a.position) END AS position,
+                   a.team,
+                   CASE WHEN a.pos_group IN (${posList}) THEN a.pos_group
+                        ELSE COALESCE(${mflGroupSql("im.mfl_position")}, a.pos_group) END AS pos_group,
+                   a.position AS nfl_position, a.pos_group AS nfl_pos_group,
+                   a.games,
                    ctm.nfl_team AS current_team,
                    COALESCE(im.mfl_position, ctm.mfl_position) AS mfl_position,
                    ntp.off_plays_pg AS team_plays_pg, ntp.def_plays_pg AS team_def_plays_pg, ntp.pace_sos AS pace_sos,
@@ -13443,12 +13457,18 @@ export default {
             -- own pass/run split (Keith 2026-10-10). It was the team's whole
             -- window joined on MAX(w.team) — wrong for a traded player — and
             -- counted sacks and two-point tries as pass attempts.
+            -- A game whose team totals aren't there (no row, or a season the
+            -- play-by-play hasn't been re-run for since 0169) makes the whole
+            -- figure NULL ("—") — a plain SUM would skip it and divide his
+            -- counts from every game by the team's from some (QA 2026-10-10).
             team_rz_agg AS (
               SELECT pg.gsis_id,
-                     SUM(tw.rz_pass_att + tw.rz_sacks + tw.rz_scrambles) AS team_rz_dropbacks,
-                     SUM(tw.rz_pass_att + tw.rz_sacks + tw.rz_carries)   AS team_rz_plays
+                     CASE WHEN COUNT(tw.rz_pass_att) = COUNT(*)
+                          THEN SUM(tw.rz_pass_att + tw.rz_sacks + tw.rz_scrambles) END AS team_rz_dropbacks,
+                     CASE WHEN COUNT(tw.rz_pass_att) = COUNT(*)
+                          THEN SUM(tw.rz_pass_att + tw.rz_sacks + tw.rz_carries) END   AS team_rz_plays
                 FROM player_games pg
-                JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
+                LEFT JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
                WHERE ${_gTeamShare} AND pg.season IN (${seasonList})
                GROUP BY pg.gsis_id
             ),
@@ -13458,13 +13478,13 @@ export default {
             -- 0169 has NULL team columns, so its shares read "—", not a guess.
             team_rz_player_active AS (
               SELECT pg.gsis_id,
-                     SUM(tw.rz_targets)  AS team_targets_i20,
-                     SUM(tw.rz_rec)      AS team_rec_i20,
-                     SUM(tw.ez_targets)  AS team_targets_ez,
-                     SUM(tw.rz_carries)  AS team_rush_att_i20,
-                     SUM(tw.i5_carries)  AS team_rush_att_i5
+                     CASE WHEN COUNT(tw.rz_targets) = COUNT(*) THEN SUM(tw.rz_targets) END AS team_targets_i20,
+                     CASE WHEN COUNT(tw.rz_targets) = COUNT(*) THEN SUM(tw.rz_rec) END     AS team_rec_i20,
+                     CASE WHEN COUNT(tw.rz_targets) = COUNT(*) THEN SUM(tw.ez_targets) END AS team_targets_ez,
+                     CASE WHEN COUNT(tw.rz_targets) = COUNT(*) THEN SUM(tw.rz_carries) END AS team_rush_att_i20,
+                     CASE WHEN COUNT(tw.rz_targets) = COUNT(*) THEN SUM(tw.i5_carries) END AS team_rush_att_i5
                 FROM player_games pg
-                JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
+                LEFT JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
                WHERE ${_gTeamShare} AND pg.season IN (${seasonList})
                GROUP BY pg.gsis_id
             ),

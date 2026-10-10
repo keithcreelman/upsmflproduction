@@ -10,7 +10,9 @@ name: players data backfill (staged, recoverable)
 #            validation, live unchanged since the snapshot), the replacement,
 #            a final guard that live equals stg; then a row-for-row read-back.
 #            Any failure leaves the live season exactly as it was.
-#   rollback ONE import restoring the snapshot; read back against its sha256.
+#   rollback ONE import restoring the snapshot (red zone + EPA rows; only the
+#            red-zone columns of nfl_team_weekly); refuses if live changed after
+#            the swap unless force_rollback; read back against its sha256.
 #   cleanup  drop the tag's bk_/stg_/bf_ tables once the result is accepted.
 # swap and rollback finish with a FORCED leaderboard precompute rebuild.
 #
@@ -37,6 +39,11 @@ on:
         description: "For swap / rollback / cleanup: type the tag again"
         required: false
         default: ""
+      force_rollback:
+        description: "Rollback only: restore even though live changed after the swap (discards those later rows)"
+        required: false
+        type: boolean
+        default: false
 
 # The SAME group as nflverse-stats-refresh.yml, so a backfill step and a
 # scheduled refresh never run at the same time. GitHub keeps only one PENDING
@@ -58,6 +65,7 @@ jobs:
       SEASON: ${{ github.event.inputs.season }}
       TAG: ${{ github.event.inputs.tag }}
       CONFIRM: ${{ github.event.inputs.confirm }}
+      FORCE_ROLLBACK: ${{ github.event.inputs.force_rollback }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -86,9 +94,11 @@ jobs:
           MFL_DB_PATH: ${{ runner.temp }}/etl_local.db
           NFLREADPY_TIMEOUT: "120"
         run: |
-          YES=""; [ "$STEP" = "stage" ] || YES="--yes"
+          ARGS=()
+          [ "$STEP" = "stage" ] || ARGS+=(--yes)
+          if [ "$STEP" = "rollback" ] && [ "$FORCE_ROLLBACK" = "true" ]; then ARGS+=(--force); fi
           python3 ../pipelines/etl/scripts/players_data_backfill.py "$STEP" --season "$SEASON" --tag "$TAG" \
-            --db ups-mfl-db --out "${{ runner.temp }}/players_backfill" $YES
+            --db ups-mfl-db --out "${{ runner.temp }}/players_backfill" "${ARGS[@]}"
       - name: Keep the snapshot and report
         if: always() && github.event.inputs.step == 'stage'
         uses: actions/upload-artifact@v4

@@ -99,7 +99,7 @@ export function rosterFrom(payload) {
 }
 
 /** gsisToMfl: { gsis: mflId } from the verified id map. now: ms. */
-export function assemble({ reportRows, reportModified, reportError, mflPayload, mflError, gsisToMfl, now }) {
+export function assemble({ reportRows, reportModified, reportError, mflPayload, mflError, gsisToMfl, mapError, now }) {
   const roster = mflError ? { ok: false, week: null, ts: null, byMfl: {} } : rosterFrom(mflPayload);
   const currentWeek = roster.ok ? roster.week : null;
   const report_feed = { ok: false, source: "Official NFL injury report (nflverse)", week: null, current_week: currentWeek,
@@ -116,6 +116,9 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
     report_feed.teams = rep.teams;
     report_feed.teams_mfl = rep.teams.map((t) => MFL_TEAM[t] || t);
     if (!report_feed.ok) report_feed.reason = "no report rows";
+    // Without the verified id map nobody can be matched, and "not on the
+    // report" would be said of players listed Out (QA 2026-10-10).
+    else if (mapError || !gsisToMfl || !Object.keys(gsisToMfl).length) report_feed.reason = "the NFL id map couldn’t be read, so players can’t be matched to the report";
     else if (currentWeek == null) report_feed.reason = "current NFL week unknown (MFL unreadable)";
     else if (rep.week !== currentWeek) report_feed.reason = `the newest report is Wk ${rep.week}; Wk ${currentWeek}'s is not out yet`;
     else if (report_feed.age_hours == null) report_feed.reason = "report age unknown";
@@ -148,17 +151,19 @@ export async function loadPlayerStatus(db, { season, fetchImpl = fetch, now = Da
     fetchImpl(MFL_INJURIES_URL(season), opts(120)).then(async (r) => r.ok ? { payload: await r.json() } : { error: "HTTP " + r.status })
       .catch((e) => ({ error: String(e && e.message || e) })),
     db.prepare("SELECT mfl_id, gsis_id, accepted FROM player_id_map").all()
-      .then((x) => (x && x.results) || []).catch(() => []),
+      .then((x) => ({ rows: (x && x.results) || [] })).catch((e) => ({ rows: [], error: String(e && e.message || e) })),
   ]);
-  const gsisToMfl = {}, unmapped = [];
-  for (const r of map) {
-    if (Number(r.accepted) === 1 && /^00-\d+/.test(r.gsis_id || "")) gsisToMfl[r.gsis_id] = String(r.mfl_id);
-    else unmapped.push(String(r.mfl_id));
+  const gsisToMfl = {}, mapped = [];
+  for (const r of map.rows) {
+    if (Number(r.accepted) === 1 && /^00-\d+/.test(r.gsis_id || "")) { gsisToMfl[r.gsis_id] = String(r.mfl_id); mapped.push(String(r.mfl_id)); }
   }
   const out = assemble({ reportRows: rep.rows, reportModified: rep.modified, reportError: rep.error,
                          mflPayload: mfl.payload, mflError: mfl.error || (mfl.payload && !mfl.payload.injuries ? "no injuries node" : null),
-                         gsisToMfl, now });
-  out.id_map_rows = map.length;
-  out.unmapped_mfl_ids = unmapped.sort();   // no verified NFL id: can't be matched to the report
+                         gsisToMfl, mapError: map.error, now });
+  out.id_map_rows = map.rows.length;
+  // The MFL ids that CAN be matched to the report. Anyone else — an
+  // unaccepted id, or a player signed since the map was built — is "no
+  // verified NFL id", never "not on the report".
+  out.mapped_mfl_ids = mapped.sort();
   return out;
 }

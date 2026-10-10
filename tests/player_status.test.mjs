@@ -67,6 +67,16 @@ test("unavailable: an unreadable report, an unreadable MFL feed, last week's rep
   t.ok(/not updated/.test(old.report_feed.reason));
 });
 
+test("fail closed: an unreadable or empty id map means nobody can be matched — the report is unavailable, never 'not on the report'", () => {
+  const rows = parseCsv(csv(line("BUF", 5, "00-0000001", "Out", "Ankle", "")));
+  for (const [what, opt] of [["read failed", { gsisToMfl: {}, mapError: "no such table: player_id_map" }], ["empty map", { gsisToMfl: {} }]]) {
+    const a = assemble(Object.assign({ reportRows: rows, reportModified: FRESH, mflPayload: mflPayload(5, [{ id: "102", status: "IR" }]), now: NOW }, opt));
+    t.deepEqual([a.report_feed.current, Object.values(a.players).some((p) => p.report)], [false, false], what);
+    t.ok(/id map/.test(a.report_feed.reason), a.report_feed.reason);
+    t.equal(a.players["102"].roster.chip, "IR", what + ": roster designations are by MFL id and still show");
+  }
+});
+
 test("MFL's own Q / D / Out never become a designation (it keeps them long after they lapse)", () => {
   const a = assemble({ reportRows: parseCsv(csv(line("BUF", 5, "00-0000001", "Out", "Ankle", ""))), reportModified: FRESH,
                        mflPayload: mflPayload(5, [{ id: "104", status: "Questionable", details: "Hamstring", exp_return: "Sep 13, 2026" }]),
@@ -96,7 +106,7 @@ test("the route: /api/player-status joins by the verified id map and says when e
     t.deepEqual([a.json.report_feed.current, a.json.report_feed.week, a.json.players["101"].report.status, a.json.players["101"].roster.chip],
       [true, 5, "Doubtful", "IR-R"]);
     t.equal(a.json.players["103"], undefined, "an unaccepted map row resolves nobody");
-    t.deepEqual(a.json.unmapped_mfl_ids, ["103"], "so the sheet can say 'no verified NFL id', not 'not on the report'");
+    t.deepEqual(a.json.mapped_mfl_ids, ["101"], "anyone not in this list is 'no verified NFL id', never 'not on the report'");
     t.ok(a.json.report_feed.updated_utc && a.json.roster_feed.updated_utc === "2026-10-10T14:01:03.000Z");
     report = null;
     const b = await get();

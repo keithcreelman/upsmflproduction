@@ -55,11 +55,15 @@ export function label(t, thr) {
   return { startable, boom: t >= thr.p75, bust: t <= thr.p25 && !startable };
 }
 
-/** played | no_snap | bye | no_game, with the reason. */
+/** played | no_snap | bye | no_game | unknown, with the reason. */
 export function classify(row, teamsWithGame, byeWeek) {
   const st = row.snaps_total, ms = row.mfl_score;
   if (st != null && st > 0) return ["played", "snaps"];
   if (ms != null && ms !== 0) return ["played", "mfl_score_no_snap_row"];   // a snap-data gap; nonzero points prove he played
+  // No snap data for him at all this season (no snap-count id, or none of
+  // his weeks has a row): a 0.0 or a missing score can't say whether he
+  // played — neither a bust nor a missed game (QA 2026-10-10).
+  if (row.snap_source === false && st == null) return ["unknown", "no_snap_source"];
   const team = row.nfl_team;
   if (!team) return ["no_game", "no_nfl_team"];
   if (byeWeek[team] === row.week) return ["bye", "team_bye"];
@@ -103,7 +107,7 @@ export function computeStarterRates(rows, ctx) {
   for (const [pid, rs] of byPlayer) {
     rs.sort((a, b) => a.week - b.week);
     const g = rs[0].group;
-    const n = { qualifying: 0, startable: 0, boom: 0, bust: 0, no_snap: 0, bye: 0, no_game: 0, started: 0, started_played: 0, started_no_show: 0,
+    const n = { qualifying: 0, startable: 0, boom: 0, bust: 0, no_snap: 0, bye: 0, no_game: 0, unknown: 0, started: 0, started_played: 0, started_no_show: 0,
                 played_zero: 0, started_played_zero: 0, played_unscored: 0, pool_too_small: 0 };
     let pts = 0;
     const wk = [];
@@ -139,6 +143,7 @@ export function computeStarterRates(rows, ctx) {
       no_snap_n: n.no_snap, bye_n: n.bye, no_game_n: n.no_game,
       started_n: n.started, started_played_n: n.started_played, started_no_show_n: n.started_no_show, played_zero_n: n.played_zero,
       started_played_zero_n: n.started_played_zero, played_unscored_n: n.played_unscored, pool_too_small_n: n.pool_too_small,
+      unknown_n: n.unknown,   // weeks we can't tell whether he played: in neither Played count
       // Availability: weeks he played ÷ weeks his NFL team played (byes and
       // weeks without a team game are in neither).
       played_n: q + n.played_unscored + n.pool_too_small, team_games_n: q + n.played_unscored + n.pool_too_small + n.no_snap,
@@ -259,6 +264,7 @@ export async function loadStarterRates(db, { season, completedWeek, byeWeek }) {
         started: !!(u && u.status === "starter"),
         rostered: !!(u && (u.status === "starter" || u.status === "nonstarter")),
         snaps_total: sn ? Number(sn.tot) : null,
+        snap_source: !!(pfr && snapWeeksByPfr.has(pfr)),
         mfl_score: u && u.score != null ? Number(u.score) : null,
         nfl_team: teamFor(pfr, pid, w),
       });

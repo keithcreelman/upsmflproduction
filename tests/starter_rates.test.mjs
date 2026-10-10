@@ -29,6 +29,20 @@ test("played / no-snap / bye / no-game", () => {
   for (const c of C.classify_cases) t.deepEqual(classify(c.input, ctx.teams_with_game, ctx.bye_week), [c.class, c.why], JSON.stringify(c.input));
 });
 
+test("no snap data for him at all: a 0.0 (or no score) is 'unknown' — neither a bust nor a missed game", () => {
+  const twg = { 1: ["AAA"], 2: ["AAA"] };
+  t.deepEqual(classify({ week: 1, snaps_total: null, mfl_score: 0, nfl_team: "AAA", snap_source: false }, twg, {}), ["unknown", "no_snap_source"]);
+  t.deepEqual(classify({ week: 1, snaps_total: null, mfl_score: null, nfl_team: "AAA", snap_source: false }, twg, {}), ["unknown", "no_snap_source"]);
+  t.deepEqual(classify({ week: 1, snaps_total: null, mfl_score: 4.5, nfl_team: "AAA", snap_source: false }, twg, {})[0], "played", "points prove he played");
+  t.deepEqual(classify({ week: 2, snaps_total: null, mfl_score: 0, nfl_team: "AAA", snap_source: true }, twg, {}), ["no_snap", "team_played"],
+    "with snap data in other weeks, no row while his team played is a real no-snap week");
+  const rows = [1, 2].map((w) => ({ mfl_id: "U", week: w, group: "WR", started: true, rostered: true, snaps_total: null, mfl_score: w === 1 ? 0 : 6, nfl_team: "AAA", snap_source: false }));
+  const out = computeStarterRates(rows, { final_weeks: [1, 2], teams_with_game: twg, bye_week: {} });
+  const u = out.players.U;
+  t.deepEqual([u.unknown_n, u.played_n, u.team_games_n, u.no_snap_n], [1, 1, 1, 0], "Wk 1 is in neither Played count");
+  t.equal(out.started_no_shows.some((x) => x.mfl_id === "U" && x.week === 1), true, "and out of the starter lines");
+});
+
 test("rates round half up and need 3 qualifying weeks", () => {
   for (const c of C.rate_cases) t.equal(rate(c.n, c.q), c.pct, `${c.n}/${c.q}`);
 });
