@@ -50763,7 +50763,13 @@ const mflToSleeper = {};
         const uniq = Array.from(new Set((pids || []).map((p) => safeStr(p)).filter(Boolean))).slice(0, 50);
         if (!uniq.length) return { known: true, map: new Map(), error: "" };
         try {
-          const res = await fetch(
+          // A call to THIS Worker — through the SELF service binding whenever it is bound (production). Plain fetch() of the
+          // Worker's own host never comes back to it: the */5 cron invokes the drop recorder as https://self.invalid (an
+          // unresolvable name) and a public workers.dev self-fetch 404s, so this lookup read as "unreadable" from every
+          // production caller. The hostname is irrelevant to a service binding; only path + query matter. Plain fetch()
+          // remains only where SELF is unbound (tests, local dev), and any failure still returns known:false (never "no news").
+          const newsFetch = env.SELF && typeof env.SELF.fetch === "function" ? env.SELF.fetch.bind(env.SELF) : fetch;
+          const res = await newsFetch(
             `${origin}/api/player-news?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}&pids=${encodeURIComponent(uniq.join(","))}`,
             { headers: { "User-Agent": "upsmflproduction-worker" } }
           );
