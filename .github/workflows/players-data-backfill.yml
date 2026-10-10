@@ -1,0 +1,126 @@
+name: players data backfill (staged, recoverable)
+
+# Rebuilds ONE season's nfl_player_redzone, nfl_team_weekly red-zone columns and
+# nfl_player_epa under migration 0169's rules without readers ever seeing an
+# empty or half-rebuilt season. pipelines/etl/scripts/players_data_backfill.py:
+#   stage    snapshot (bk_* tables + an artifact with sha256), compute with the
+#            real ETL, load stg_* tables, validate against independent oracles.
+#            Nothing a reader sees changes.
+#   swap     ONE all-or-nothing D1 import: guards (stg unchanged since
+#            validation, live unchanged since the snapshot), the replacement,
+#            a final guard that live equals stg; then a row-for-row read-back.
+#            Any failure leaves the live season exactly as it was.
+#   rollback ONE import restoring the snapshot (red zone + EPA rows; only the
+#            red-zone columns of nfl_team_weekly); refuses if live changed after
+#            the swap unless force_rollback; read back against its sha256.
+#   cleanup  drop the tag's bk_/stg_/bf_ tables once the result is accepted.
+# swap and rollback finish with a FORCED leaderboard precompute rebuild.
+#
+# Manual only, and every step is a production write: run it only with Keith's
+# go for that step. Rehearsed end to end on the isolated preview D1 on
+# 2026-10-10 (stage, a deliberate mid-swap failure, swap, rollback, re-swap).
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "stage | swap | rollback | cleanup"
+        required: true
+        type: choice
+        options: [stage, swap, rollback, cleanup]
+      season:
+        description: "Season (e.g. 2026)"
+        required: true
+        default: "2026"
+      tag:
+        description: "Run tag, letters/digits/_ (e.g. t20261011). The same tag across stage -> swap -> rollback/cleanup."
+        required: true
+      confirm:
+        description: "For swap / rollback / cleanup: type the tag again"
+        required: false
+        default: ""
+      force_rollback:
+        description: "Rollback only: restore even though live changed after the swap (discards those later rows)"
+        required: false
+        type: boolean
+        default: false
+
+# The SAME group as nflverse-stats-refresh.yml, so a backfill step and a
+# scheduled refresh never run at the same time. GitHub keeps only one PENDING
+# run per group (a newer pending run replaces an older pending one), so run
+# the backfill outside the refresh windows (Mon 05/13, Tue 05/12/20, Wed 11 UTC).
+concurrency:
+  group: nflverse-stats-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      STEP: ${{ github.event.inputs.step }}
+      SEASON: ${{ github.event.inputs.season }}
+      TAG: ${{ github.event.inputs.tag }}
+      CONFIRM: ${{ github.event.inputs.confirm }}
+      FORCE_ROLLBACK: ${{ github.event.inputs.force_rollback }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          pip install --quiet nflreadpy==0.1.5 pandas pyarrow
+          npm install --global wrangler@4.131.2
+      - name: Check inputs
+        run: |
+          [[ "$SEASON" =~ ^20[0-9]{2}$ ]] || { echo "::error::season must be a 4-digit year"; exit 1; }
+          [[ "$TAG" =~ ^[A-Za-z0-9_]{3,40}$ ]] || { echo "::error::tag must be 3-40 letters/digits/_"; exit 1; }
+          if [ "$STEP" != "stage" ] && [ "$CONFIRM" != "$TAG" ]; then
+            echo "::error::$STEP changes production: type the tag again in 'confirm'"; exit 1
+          fi
+      - name: Run ${{ github.event.inputs.step }}
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          D1_WRANGLER: wrangler
+          WRANGLER_SEND_METRICS: "false"
+          MFL_DB_PATH: ${{ runner.temp }}/etl_local.db
+          NFLREADPY_TIMEOUT: "120"
+        run: |
+          ARGS=()
+          [ "$STEP" = "stage" ] || ARGS+=(--yes)
+          if [ "$STEP" = "rollback" ] && [ "$FORCE_ROLLBACK" = "true" ]; then ARGS+=(--force); fi
+          python3 ../pipelines/etl/scripts/players_data_backfill.py "$STEP" --season "$SEASON" --tag "$TAG" \
+            --db ups-mfl-db --out "${{ runner.temp }}/players_backfill" "${ARGS[@]}"
+      - name: Keep the snapshot and report
+        if: always() && github.event.inputs.step == 'stage'
+        uses: actions/upload-artifact@v4
+        with:
+          name: players-backfill-${{ github.event.inputs.tag }}
+          path: ${{ runner.temp }}/players_backfill
+          retention-days: 30
+      - name: Rebuild the leaderboard precompute (forced)
+        if: success() && (github.event.inputs.step == 'swap' || github.event.inputs.step == 'rollback')
+        env:
+          KEY: ${{ secrets.COMMISH_API_KEY }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::COMMISH_API_KEY not set"; exit 1; }
+          curl -sS -X POST \
+            "https://upsmflproduction.keith-creelman.workers.dev/admin/leaderboard-precompute/build?APIKEY=${KEY}&L=74598&YEAR=${SEASON}&season=${SEASON}" \
+            -H 'Content-Type: application/json' -d "{\"season\":${SEASON},\"force\":true}" -o /tmp/pre.json
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("/tmp/pre.json"))
+          bad = [b for b in (d.get("built") or []) if not b.get("ok")]
+          for b in d.get("built") or []:
+              print(f"  {b.get('pos'):<8} ok={b.get('ok')} rows={b.get('rows', 0)} {b.get('error', '')}")
+          if not d.get("ok") or bad:
+              print("::error::forced precompute rebuild failed"); sys.exit(1)
+          PY

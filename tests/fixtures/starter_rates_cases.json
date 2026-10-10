@@ -1,0 +1,4003 @@
+{
+ "spec": "UPS starter-pool Boom/Bust/Startable, agent B reference (B_model.py core())",
+ "conventions": {
+  "scores_and_thresholds_in_tenths": "t = Math.round(score*10); quantiles computed on sorted int tenths; compare ints/exact halves, never float points",
+  "quantile": "linear R-7: h=(n-1)p; lo=floor(h); hi=min(lo+1,n-1); q=s[lo]+(s[hi]-s[lo])*(h-lo)  (== d3.quantile on sorted array)",
+  "boom": "t >= P75",
+  "startable": "t >= P50",
+  "bust": "t <= P25 && !(t >= P50)",
+  "rate": "Math.round(100*n/q) when q >= 3 else null  (half rounds UP: 5/8 -> 63, Python round() would give 62)",
+  "min_pool": 6,
+  "small_pool_flag_below": 12,
+  "min_qualifying_weeks": 3
+ },
+ "row_schema": {
+  "mfl_id": "str",
+  "week": "int",
+  "group": "QB|RB|WR|TE|PK|PN|DL|LB|DB",
+  "started": "bool (UPS lineup starter that week)",
+  "rostered": "bool (on a UPS roster in that week's weeklyResults)",
+  "snaps_total": "int off+def+st, null = no snap row",
+  "mfl_score": "float, null = no MFL score row",
+  "nfl_team": "team code for that week, null = no NFL team"
+ },
+ "quantile_cases": [
+  {
+   "sorted_tenths": [
+    100,
+    200,
+    300,
+    400
+   ],
+   "p25": 175.0,
+   "p50": 250.0,
+   "p75": 325.0
+  },
+  {
+   "sorted_tenths": [
+    100
+   ],
+   "p25": 100.0,
+   "p50": 100.0,
+   "p75": 100.0
+  },
+  {
+   "sorted_tenths": [],
+   "p25": null,
+   "p50": null,
+   "p75": null
+  },
+  {
+   "sorted_tenths": [
+    -13,
+    0,
+    0,
+    50,
+    75
+   ],
+   "p25": 0.0,
+   "p50": 0.0,
+   "p75": 50.0
+  },
+  {
+   "sorted_tenths": [
+    20,
+    40,
+    60,
+    80,
+    100,
+    120,
+    140,
+    160,
+    180
+   ],
+   "p25": 60.0,
+   "p50": 100.0,
+   "p75": 140.0
+  },
+  {
+   "sorted_tenths": [
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    90,
+    90
+   ],
+   "p25": 50.0,
+   "p50": 50.0,
+   "p75": 60.0
+  }
+ ],
+ "label_cases": [
+  {
+   "score_tenths": 137,
+   "p25": 62.5,
+   "p50": 100,
+   "p75": 137.5,
+   "boom": false,
+   "bust": false,
+   "startable": true
+  },
+  {
+   "score_tenths": 138,
+   "p25": 62.5,
+   "p50": 100,
+   "p75": 137.5,
+   "boom": true,
+   "bust": false,
+   "startable": true
+  },
+  {
+   "score_tenths": 100,
+   "p25": 62.5,
+   "p50": 100,
+   "p75": 137.5,
+   "boom": false,
+   "bust": false,
+   "startable": true
+  },
+  {
+   "score_tenths": 99,
+   "p25": 62.5,
+   "p50": 100,
+   "p75": 137.5,
+   "boom": false,
+   "bust": false,
+   "startable": false
+  },
+  {
+   "score_tenths": 63,
+   "p25": 62.5,
+   "p50": 100,
+   "p75": 137.5,
+   "boom": false,
+   "bust": false,
+   "startable": false
+  },
+  {
+   "score_tenths": 62,
+   "p25": 62.5,
+   "p50": 100,
+   "p75": 137.5,
+   "boom": false,
+   "bust": true,
+   "startable": false
+  },
+  {
+   "score_tenths": 60,
+   "p25": 60,
+   "p50": 100,
+   "p75": 140,
+   "boom": false,
+   "bust": true,
+   "startable": false
+  },
+  {
+   "score_tenths": 50,
+   "p25": 50,
+   "p50": 50,
+   "p75": 60,
+   "boom": false,
+   "bust": false,
+   "startable": true
+  },
+  {
+   "score_tenths": 49,
+   "p25": 50,
+   "p50": 50,
+   "p75": 60,
+   "boom": false,
+   "bust": true,
+   "startable": false
+  },
+  {
+   "score_tenths": 60,
+   "p25": 50,
+   "p50": 50,
+   "p75": 60,
+   "boom": true,
+   "bust": false,
+   "startable": true
+  },
+  {
+   "score_tenths": -13,
+   "p25": 0,
+   "p50": 0,
+   "p75": 50,
+   "boom": false,
+   "bust": true,
+   "startable": false
+  }
+ ],
+ "classify_context": {
+  "teams_with_game": {
+   "1": [
+    "AAA",
+    "BBB",
+    "CCC"
+   ],
+   "2": [
+    "AAA",
+    "BBB"
+   ],
+   "3": [
+    "AAA",
+    "CCC"
+   ],
+   "4": [
+    "AAA",
+    "BBB",
+    "CCC"
+   ]
+  },
+  "bye_week": {
+   "BBB": 3
+  }
+ },
+ "classify_cases": [
+  {
+   "input": {
+    "week": 1,
+    "snaps_total": 12,
+    "mfl_score": 0.0,
+    "nfl_team": "AAA"
+   },
+   "class": "played",
+   "why": "snaps"
+  },
+  {
+   "input": {
+    "week": 1,
+    "snaps_total": 3,
+    "mfl_score": null,
+    "nfl_team": "AAA"
+   },
+   "class": "played",
+   "why": "snaps"
+  },
+  {
+   "input": {
+    "week": 1,
+    "snaps_total": 0,
+    "mfl_score": 0.0,
+    "nfl_team": "AAA"
+   },
+   "class": "no_snap",
+   "why": "team_played"
+  },
+  {
+   "input": {
+    "week": 1,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": "AAA"
+   },
+   "class": "no_snap",
+   "why": "team_played"
+  },
+  {
+   "input": {
+    "week": 1,
+    "snaps_total": null,
+    "mfl_score": 2.5,
+    "nfl_team": "AAA"
+   },
+   "class": "played",
+   "why": "mfl_score_no_snap_row"
+  },
+  {
+   "input": {
+    "week": 1,
+    "snaps_total": null,
+    "mfl_score": -1.0,
+    "nfl_team": "AAA"
+   },
+   "class": "played",
+   "why": "mfl_score_no_snap_row"
+  },
+  {
+   "input": {
+    "week": 3,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": "BBB"
+   },
+   "class": "bye",
+   "why": "team_bye"
+  },
+  {
+   "input": {
+    "week": 2,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": "CCC"
+   },
+   "class": "no_game",
+   "why": "team_did_not_play"
+  },
+  {
+   "input": {
+    "week": 2,
+    "snaps_total": null,
+    "mfl_score": 0.0,
+    "nfl_team": null
+   },
+   "class": "no_game",
+   "why": "no_nfl_team"
+  }
+ ],
+ "end_to_end": {
+  "description": "Synthetic WR group. Wk1 pool n=6 with a played-zero starter (in pool) and a no-show starter (out). Wk2 n=9: thresholds land on observed scores -> exact ties at P25/P50/P75. Wk3 n=5 < min_pool -> no thresholds. Wk4 n=8 with P25 == P50 (degenerate tie). Team CCC has no game in Wk2 (not a bye); team BBB bye in Wk3.",
+  "final_weeks": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "teams_with_game": {
+   "1": [
+    "AAA",
+    "BBB",
+    "CCC"
+   ],
+   "2": [
+    "AAA",
+    "BBB"
+   ],
+   "3": [
+    "AAA",
+    "CCC"
+   ],
+   "4": [
+    "AAA",
+    "BBB",
+    "CCC"
+   ]
+  },
+  "bye_week": {
+   "BBB": 3
+  },
+  "rows": [
+   {
+    "mfl_id": "S1",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 20.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S2",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 10.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S3",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 10.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S4",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 15.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S5",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S1",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 18.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S2",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 16.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S3",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 14.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S4",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 12.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S5",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 10.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S6",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 8.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S7",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 4.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S8",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 2.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S1",
+    "week": 3,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 9.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S2",
+    "week": 3,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 8.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S3",
+    "week": 3,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 7.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S4",
+    "week": 3,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 6.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S5",
+    "week": 3,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S1",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S2",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S3",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S4",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S5",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S6",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 9.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "S7",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 50,
+    "mfl_score": 9.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "ZERO",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 30,
+    "mfl_score": 0.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "ZERO",
+    "week": 2,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 41,
+    "mfl_score": 6.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "ZERO",
+    "week": 3,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": 35,
+    "mfl_score": 7.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "ZERO",
+    "week": 4,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 44,
+    "mfl_score": 5.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "BEN",
+    "week": 1,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": 20,
+    "mfl_score": 10.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "BEN",
+    "week": 2,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": 25,
+    "mfl_score": 14.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "BEN",
+    "week": 3,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": 22,
+    "mfl_score": 3.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "BEN",
+    "week": 4,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": 30,
+    "mfl_score": 4.9,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "FAX",
+    "week": 1,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": 15,
+    "mfl_score": 6.3,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "FAX",
+    "week": 2,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": 18,
+    "mfl_score": 10.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "FAX",
+    "week": 3,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "FAX",
+    "week": 4,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": 12,
+    "mfl_score": 6.0,
+    "nfl_team": "AAA"
+   },
+   {
+    "mfl_id": "NOSHOW",
+    "week": 1,
+    "group": "WR",
+    "started": true,
+    "rostered": true,
+    "snaps_total": 0,
+    "mfl_score": null,
+    "nfl_team": "CCC"
+   },
+   {
+    "mfl_id": "NOSHOW",
+    "week": 2,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": "CCC"
+   },
+   {
+    "mfl_id": "NOSHOW",
+    "week": 3,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": 40,
+    "mfl_score": 12.0,
+    "nfl_team": "CCC"
+   },
+   {
+    "mfl_id": "NOSHOW",
+    "week": 4,
+    "group": "WR",
+    "started": false,
+    "rostered": true,
+    "snaps_total": null,
+    "mfl_score": 3.0,
+    "nfl_team": "CCC"
+   },
+   {
+    "mfl_id": "BYEP",
+    "week": 1,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": 33,
+    "mfl_score": 12.0,
+    "nfl_team": "BBB"
+   },
+   {
+    "mfl_id": "BYEP",
+    "week": 2,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": 5,
+    "mfl_score": null,
+    "nfl_team": "BBB"
+   },
+   {
+    "mfl_id": "BYEP",
+    "week": 3,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": "BBB"
+   },
+   {
+    "mfl_id": "BYEP",
+    "week": 4,
+    "group": "WR",
+    "started": false,
+    "rostered": false,
+    "snaps_total": null,
+    "mfl_score": null,
+    "nfl_team": null
+   }
+  ],
+  "expected_thresholds": {
+   "1|WR": {
+    "n": 6,
+    "p25": 62.5,
+    "p50": 100.0,
+    "p75": 137.5,
+    "unit": "tenths"
+   },
+   "2|WR": {
+    "n": 9,
+    "p25": 60.0,
+    "p50": 100.0,
+    "p75": 140.0,
+    "unit": "tenths"
+   },
+   "3|WR": {
+    "n": 5,
+    "p25": null,
+    "p50": null,
+    "p75": null,
+    "unit": "tenths"
+   },
+   "4|WR": {
+    "n": 8,
+    "p25": 50.0,
+    "p50": 50.0,
+    "p75": 60.0,
+    "unit": "tenths"
+   }
+  },
+  "expected_no_shows": [
+   {
+    "mfl_id": "NOSHOW",
+    "week": 1,
+    "group": "WR",
+    "class": "no_snap"
+   }
+  ],
+  "expected_played_zero": [
+   {
+    "mfl_id": "ZERO",
+    "week": 1,
+    "group": "WR"
+   }
+  ],
+  "expected_players": {
+   "ZERO": {
+    "qualifying_weeks": 3,
+    "startable_n": 1,
+    "boom_n": 0,
+    "bust_n": 2,
+    "startable_pct": 33,
+    "boom_pct": 0,
+    "bust_pct": 67,
+    "no_snap_n": 0,
+    "bye_n": 0,
+    "no_game_n": 0,
+    "started_n": 3,
+    "started_played_n": 3,
+    "started_no_show_n": 0,
+    "played_zero_n": 1,
+    "played_unscored_n": 0,
+    "pool_too_small_n": 1,
+    "weeks_label": "Wks 1\u20134",
+    "week_labels": [
+     "bust",
+     "bust",
+     "pool_too_small",
+     "startable"
+    ]
+   },
+   "BEN": {
+    "qualifying_weeks": 3,
+    "startable_n": 2,
+    "boom_n": 1,
+    "bust_n": 1,
+    "startable_pct": 67,
+    "boom_pct": 33,
+    "bust_pct": 33,
+    "no_snap_n": 0,
+    "bye_n": 0,
+    "no_game_n": 0,
+    "started_n": 0,
+    "started_played_n": 0,
+    "started_no_show_n": 0,
+    "played_zero_n": 0,
+    "played_unscored_n": 0,
+    "pool_too_small_n": 1,
+    "weeks_label": "Wks 1\u20134",
+    "week_labels": [
+     "startable",
+     "boom",
+     "pool_too_small",
+     "bust"
+    ]
+   },
+   "FAX": {
+    "qualifying_weeks": 3,
+    "startable_n": 2,
+    "boom_n": 1,
+    "bust_n": 0,
+    "startable_pct": 67,
+    "boom_pct": 33,
+    "bust_pct": 0,
+    "no_snap_n": 1,
+    "bye_n": 0,
+    "no_game_n": 0,
+    "started_n": 0,
+    "started_played_n": 0,
+    "started_no_show_n": 0,
+    "played_zero_n": 0,
+    "played_unscored_n": 0,
+    "pool_too_small_n": 0,
+    "weeks_label": "Wks 1\u20134",
+    "week_labels": [
+     "below_median",
+     "startable",
+     "no_snap",
+     "boom"
+    ]
+   },
+   "NOSHOW": {
+    "qualifying_weeks": 1,
+    "startable_n": 0,
+    "boom_n": 0,
+    "bust_n": 1,
+    "startable_pct": null,
+    "boom_pct": null,
+    "bust_pct": null,
+    "no_snap_n": 1,
+    "bye_n": 0,
+    "no_game_n": 1,
+    "started_n": 1,
+    "started_played_n": 0,
+    "started_no_show_n": 1,
+    "played_zero_n": 0,
+    "played_unscored_n": 0,
+    "pool_too_small_n": 1,
+    "weeks_label": "Wks 1\u20134",
+    "week_labels": [
+     "no_snap_started",
+     "no_game",
+     "pool_too_small",
+     "bust"
+    ]
+   },
+   "BYEP": {
+    "qualifying_weeks": 1,
+    "startable_n": 1,
+    "boom_n": 0,
+    "bust_n": 0,
+    "startable_pct": null,
+    "boom_pct": null,
+    "bust_pct": null,
+    "no_snap_n": 0,
+    "bye_n": 1,
+    "no_game_n": 1,
+    "started_n": 0,
+    "started_played_n": 0,
+    "started_no_show_n": 0,
+    "played_zero_n": 0,
+    "played_unscored_n": 1,
+    "pool_too_small_n": 0,
+    "weeks_label": "Wks 1\u20134",
+    "week_labels": [
+     "startable",
+     "played_unscored",
+     "bye",
+     "no_game"
+    ]
+   },
+   "S1": {
+    "qualifying_weeks": 3,
+    "startable_n": 3,
+    "boom_n": 2,
+    "bust_n": 0,
+    "startable_pct": 100,
+    "boom_pct": 67,
+    "bust_pct": 0,
+    "no_snap_n": 0,
+    "bye_n": 0,
+    "no_game_n": 0,
+    "started_n": 4,
+    "started_played_n": 3,
+    "started_no_show_n": 0,
+    "played_zero_n": 0,
+    "played_unscored_n": 0,
+    "pool_too_small_n": 1,
+    "weeks_label": "Wks 1\u20134",
+    "week_labels": [
+     "boom",
+     "boom",
+     "pool_too_small",
+     "startable"
+    ]
+   }
+  }
+ },
+ "rate_cases": [
+  {
+   "n": 2,
+   "q": 3,
+   "pct": 67
+  },
+  {
+   "n": 1,
+   "q": 3,
+   "pct": 33
+  },
+  {
+   "n": 5,
+   "q": 8,
+   "pct": 63
+  },
+  {
+   "n": 3,
+   "q": 8,
+   "pct": 38
+  },
+  {
+   "n": 1,
+   "q": 6,
+   "pct": 17
+  },
+  {
+   "n": 0,
+   "q": 4,
+   "pct": 0
+  },
+  {
+   "n": 4,
+   "q": 4,
+   "pct": 100
+  },
+  {
+   "n": 1,
+   "q": 2,
+   "pct": null
+  }
+ ],
+ "real_2026": {
+  "final_weeks": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "pools_tenths": {
+   "1|DB": [
+    13,
+    13,
+    24,
+    29,
+    34,
+    39,
+    39,
+    42,
+    44,
+    45,
+    47,
+    53,
+    59,
+    60,
+    62,
+    63,
+    66,
+    80,
+    80,
+    83,
+    94,
+    102,
+    107,
+    119,
+    121,
+    123,
+    130,
+    130,
+    140,
+    153,
+    200
+   ],
+   "1|DL": [
+    0,
+    15,
+    15,
+    20,
+    20,
+    20,
+    25,
+    30,
+    40,
+    40,
+    45,
+    60,
+    65,
+    80,
+    85,
+    85,
+    85,
+    95,
+    100,
+    100,
+    135,
+    165,
+    175,
+    175,
+    230,
+    290
+   ],
+   "1|LB": [
+    30,
+    35,
+    40,
+    45,
+    55,
+    65,
+    70,
+    75,
+    75,
+    80,
+    80,
+    80,
+    85,
+    90,
+    90,
+    100,
+    105,
+    105,
+    105,
+    110,
+    115,
+    120,
+    130,
+    135,
+    155,
+    160
+   ],
+   "1|PK": [
+    10,
+    10,
+    20,
+    60,
+    63,
+    66,
+    73,
+    88,
+    103,
+    106,
+    127,
+    128
+   ],
+   "1|PN": [
+    10,
+    30,
+    30,
+    30,
+    30,
+    50,
+    70,
+    90,
+    90,
+    90,
+    130,
+    150
+   ],
+   "1|QB": [
+    -2,
+    2,
+    51,
+    70,
+    79,
+    136,
+    149,
+    150,
+    151,
+    210,
+    212,
+    222,
+    238,
+    263,
+    273,
+    298,
+    302,
+    303,
+    320,
+    358,
+    361,
+    426,
+    439
+   ],
+   "1|RB": [
+    41,
+    44,
+    70,
+    82,
+    90,
+    92,
+    93,
+    101,
+    103,
+    104,
+    123,
+    130,
+    132,
+    141,
+    142,
+    153,
+    157,
+    186,
+    226,
+    240,
+    259,
+    293,
+    315,
+    343,
+    344,
+    376,
+    377,
+    385
+   ],
+   "1|TE": [
+    0,
+    0,
+    36,
+    52,
+    53,
+    73,
+    113,
+    116,
+    120,
+    120,
+    127,
+    128,
+    165,
+    263,
+    302,
+    330
+   ],
+   "1|WR": [
+    12,
+    34,
+    36,
+    37,
+    41,
+    49,
+    57,
+    58,
+    60,
+    62,
+    71,
+    74,
+    80,
+    84,
+    85,
+    87,
+    89,
+    95,
+    99,
+    101,
+    112,
+    113,
+    119,
+    128,
+    135,
+    138,
+    145,
+    164,
+    181,
+    199,
+    202,
+    207,
+    220,
+    238,
+    292,
+    295,
+    310,
+    322,
+    326,
+    367,
+    380
+   ],
+   "2|DB": [
+    13,
+    41,
+    42,
+    42,
+    47,
+    47,
+    53,
+    54,
+    55,
+    66,
+    67,
+    68,
+    75,
+    76,
+    82,
+    86,
+    88,
+    99,
+    100,
+    101,
+    104,
+    105,
+    108,
+    109,
+    118,
+    141,
+    151,
+    154,
+    188
+   ],
+   "2|DL": [
+    10,
+    15,
+    15,
+    15,
+    15,
+    20,
+    20,
+    35,
+    35,
+    35,
+    35,
+    35,
+    40,
+    45,
+    65,
+    75,
+    80,
+    80,
+    95,
+    105,
+    110,
+    110,
+    125,
+    135,
+    135,
+    175,
+    180
+   ],
+   "2|LB": [
+    5,
+    20,
+    25,
+    40,
+    40,
+    45,
+    45,
+    50,
+    50,
+    50,
+    60,
+    60,
+    60,
+    65,
+    70,
+    70,
+    75,
+    85,
+    85,
+    85,
+    100,
+    105,
+    115,
+    115,
+    120,
+    135,
+    320
+   ],
+   "2|PK": [
+    20,
+    71,
+    73,
+    77,
+    79,
+    80,
+    92,
+    95,
+    123,
+    128,
+    159,
+    169
+   ],
+   "2|PN": [
+    0,
+    10,
+    10,
+    50,
+    70,
+    75,
+    90,
+    90,
+    110,
+    130,
+    130,
+    170
+   ],
+   "2|QB": [
+    12,
+    61,
+    64,
+    73,
+    77,
+    79,
+    116,
+    156,
+    165,
+    173,
+    185,
+    185,
+    191,
+    195,
+    226,
+    253,
+    312,
+    363,
+    381,
+    388,
+    399,
+    401,
+    507
+   ],
+   "2|RB": [
+    30,
+    40,
+    40,
+    54,
+    56,
+    69,
+    71,
+    74,
+    79,
+    89,
+    91,
+    92,
+    97,
+    107,
+    109,
+    112,
+    123,
+    128,
+    129,
+    140,
+    150,
+    161,
+    183,
+    185,
+    230,
+    231,
+    235,
+    254,
+    302
+   ],
+   "2|TE": [
+    18,
+    19,
+    37,
+    45,
+    47,
+    97,
+    114,
+    130,
+    135,
+    147,
+    178,
+    206,
+    210,
+    227,
+    229,
+    270,
+    330
+   ],
+   "2|WR": [
+    -1,
+    11,
+    26,
+    40,
+    56,
+    57,
+    57,
+    59,
+    64,
+    69,
+    69,
+    74,
+    74,
+    75,
+    87,
+    89,
+    90,
+    105,
+    108,
+    112,
+    120,
+    129,
+    134,
+    145,
+    154,
+    155,
+    175,
+    177,
+    179,
+    190,
+    225,
+    238,
+    250,
+    257,
+    271,
+    321,
+    386,
+    397,
+    481
+   ],
+   "3|DB": [
+    37,
+    39,
+    42,
+    45,
+    47,
+    50,
+    52,
+    57,
+    57,
+    67,
+    68,
+    73,
+    78,
+    79,
+    85,
+    86,
+    88,
+    91,
+    100,
+    102,
+    110,
+    117,
+    123,
+    129,
+    133,
+    141,
+    145,
+    169
+   ],
+   "3|DL": [
+    0,
+    0,
+    5,
+    5,
+    10,
+    10,
+    15,
+    15,
+    20,
+    25,
+    25,
+    30,
+    30,
+    30,
+    35,
+    35,
+    40,
+    55,
+    75,
+    95,
+    95,
+    105,
+    110,
+    150,
+    150,
+    170,
+    225,
+    280
+   ],
+   "3|LB": [
+    0,
+    20,
+    25,
+    35,
+    35,
+    40,
+    45,
+    50,
+    50,
+    55,
+    60,
+    60,
+    70,
+    70,
+    70,
+    70,
+    75,
+    75,
+    90,
+    100,
+    105,
+    120,
+    120,
+    125,
+    135,
+    140,
+    160
+   ],
+   "3|PK": [
+    20,
+    44,
+    50,
+    64,
+    67,
+    95,
+    97,
+    107,
+    109,
+    118,
+    173,
+    197
+   ],
+   "3|PN": [
+    0,
+    10,
+    10,
+    10,
+    40,
+    50,
+    80,
+    80,
+    90,
+    130,
+    130,
+    130
+   ],
+   "3|QB": [
+    53,
+    132,
+    143,
+    161,
+    164,
+    171,
+    176,
+    221,
+    230,
+    243,
+    247,
+    264,
+    272,
+    278,
+    279,
+    293,
+    298,
+    303,
+    330,
+    334,
+    381,
+    433
+   ],
+   "3|RB": [
+    -7,
+    19,
+    37,
+    37,
+    53,
+    60,
+    68,
+    68,
+    78,
+    89,
+    93,
+    94,
+    96,
+    96,
+    99,
+    106,
+    110,
+    123,
+    132,
+    136,
+    150,
+    195,
+    219,
+    219,
+    222,
+    222,
+    224,
+    225,
+    230,
+    393,
+    422
+   ],
+   "3|TE": [
+    0,
+    20,
+    20,
+    45,
+    50,
+    77,
+    88,
+    91,
+    97,
+    132,
+    132,
+    153,
+    198,
+    216,
+    282,
+    304,
+    313
+   ],
+   "3|WR": [
+    18,
+    32,
+    35,
+    39,
+    40,
+    54,
+    56,
+    68,
+    74,
+    75,
+    78,
+    80,
+    85,
+    87,
+    91,
+    93,
+    112,
+    116,
+    123,
+    124,
+    129,
+    130,
+    134,
+    135,
+    145,
+    160,
+    162,
+    186,
+    218,
+    231,
+    232,
+    235,
+    236,
+    260,
+    273,
+    299,
+    334,
+    394
+   ],
+   "4|DB": [
+    13,
+    23,
+    42,
+    46,
+    47,
+    55,
+    55,
+    56,
+    58,
+    61,
+    62,
+    68,
+    70,
+    70,
+    76,
+    76,
+    78,
+    84,
+    89,
+    93,
+    93,
+    102,
+    109,
+    113,
+    118,
+    120,
+    127,
+    129,
+    136,
+    145,
+    157,
+    196,
+    197
+   ],
+   "4|DL": [
+    0,
+    5,
+    5,
+    20,
+    20,
+    30,
+    30,
+    35,
+    35,
+    40,
+    40,
+    45,
+    55,
+    55,
+    55,
+    80,
+    80,
+    85,
+    90,
+    105,
+    115,
+    130,
+    150,
+    175,
+    205
+   ],
+   "4|LB": [
+    10,
+    20,
+    20,
+    35,
+    40,
+    55,
+    55,
+    55,
+    60,
+    60,
+    65,
+    70,
+    70,
+    80,
+    85,
+    95,
+    100,
+    105,
+    105,
+    115,
+    125,
+    140,
+    145,
+    155,
+    185,
+    190
+   ],
+   "4|PK": [
+    54,
+    55,
+    58,
+    59,
+    78,
+    101,
+    129,
+    135,
+    147,
+    174,
+    174,
+    200
+   ],
+   "4|PN": [
+    40,
+    40,
+    50,
+    50,
+    50,
+    80,
+    90,
+    90,
+    90,
+    110,
+    130,
+    224
+   ],
+   "4|QB": [
+    51,
+    106,
+    108,
+    109,
+    131,
+    157,
+    160,
+    162,
+    173,
+    178,
+    189,
+    191,
+    215,
+    223,
+    234,
+    236,
+    254,
+    268,
+    277,
+    290,
+    299,
+    314,
+    319
+   ],
+   "4|RB": [
+    18,
+    43,
+    67,
+    69,
+    70,
+    76,
+    82,
+    91,
+    111,
+    132,
+    137,
+    162,
+    166,
+    167,
+    169,
+    175,
+    183,
+    186,
+    186,
+    192,
+    218,
+    226,
+    237,
+    269,
+    285,
+    304,
+    307,
+    315,
+    339,
+    375
+   ],
+   "4|TE": [
+    0,
+    22,
+    41,
+    47,
+    58,
+    87,
+    96,
+    120,
+    136,
+    136,
+    145,
+    155,
+    202,
+    213,
+    246,
+    274
+   ],
+   "4|WR": [
+    0,
+    22,
+    29,
+    35,
+    46,
+    50,
+    51,
+    52,
+    59,
+    59,
+    61,
+    76,
+    81,
+    87,
+    88,
+    99,
+    119,
+    122,
+    132,
+    136,
+    147,
+    156,
+    162,
+    163,
+    173,
+    177,
+    180,
+    194,
+    198,
+    226,
+    247,
+    248,
+    260,
+    286,
+    309,
+    313,
+    338,
+    465,
+    498
+   ]
+  },
+  "thresholds_tenths": {
+   "1|DB": {
+    "n": 31,
+    "p25": 43.0,
+    "p50": 63.0,
+    "p75": 113.0
+   },
+   "1|DL": {
+    "n": 26,
+    "p25": 26.25,
+    "p50": 72.5,
+    "p75": 100.0
+   },
+   "1|LB": {
+    "n": 26,
+    "p25": 71.25,
+    "p50": 87.5,
+    "p75": 108.75
+   },
+   "1|PK": {
+    "n": 12,
+    "p25": 50.0,
+    "p50": 69.5,
+    "p75": 103.75
+   },
+   "1|PN": {
+    "n": 12,
+    "p25": 30.0,
+    "p50": 60.0,
+    "p75": 90.0
+   },
+   "1|QB": {
+    "n": 23,
+    "p25": 142.5,
+    "p50": 222.0,
+    "p75": 302.5
+   },
+   "1|RB": {
+    "n": 28,
+    "p25": 99.0,
+    "p50": 141.5,
+    "p75": 267.5
+   },
+   "1|TE": {
+    "n": 16,
+    "p25": 52.75,
+    "p50": 118.0,
+    "p75": 137.25
+   },
+   "1|WR": {
+    "n": 41,
+    "p25": 71.0,
+    "p50": 112.0,
+    "p75": 202.0
+   },
+   "2|DB": {
+    "n": 29,
+    "p25": 54.0,
+    "p50": 82.0,
+    "p75": 105.0
+   },
+   "2|DL": {
+    "n": 27,
+    "p25": 27.5,
+    "p50": 45.0,
+    "p75": 107.5
+   },
+   "2|LB": {
+    "n": 27,
+    "p25": 47.5,
+    "p50": 65.0,
+    "p75": 92.5
+   },
+   "2|PK": {
+    "n": 12,
+    "p25": 76.0,
+    "p50": 86.0,
+    "p75": 124.25
+   },
+   "2|PN": {
+    "n": 12,
+    "p25": 40.0,
+    "p50": 82.5,
+    "p75": 115.0
+   },
+   "2|QB": {
+    "n": 23,
+    "p25": 97.5,
+    "p50": 185.0,
+    "p75": 337.5
+   },
+   "2|RB": {
+    "n": 29,
+    "p25": 74.0,
+    "p50": 109.0,
+    "p75": 161.0
+   },
+   "2|TE": {
+    "n": 17,
+    "p25": 47.0,
+    "p50": 135.0,
+    "p75": 210.0
+   },
+   "2|WR": {
+    "n": 39,
+    "p25": 69.0,
+    "p50": 112.0,
+    "p75": 184.5
+   },
+   "3|DB": {
+    "n": 28,
+    "p25": 55.75,
+    "p50": 82.0,
+    "p75": 111.75
+   },
+   "3|DL": {
+    "n": 28,
+    "p25": 15.0,
+    "p50": 32.5,
+    "p75": 97.5
+   },
+   "3|LB": {
+    "n": 27,
+    "p25": 47.5,
+    "p50": 70.0,
+    "p75": 102.5
+   },
+   "3|PK": {
+    "n": 12,
+    "p25": 60.5,
+    "p50": 96.0,
+    "p75": 111.25
+   },
+   "3|PN": {
+    "n": 12,
+    "p25": 10.0,
+    "p50": 65.0,
+    "p75": 100.0
+   },
+   "3|QB": {
+    "n": 22,
+    "p25": 172.25,
+    "p50": 255.5,
+    "p75": 296.75
+   },
+   "3|RB": {
+    "n": 31,
+    "p25": 73.0,
+    "p50": 106.0,
+    "p75": 219.0
+   },
+   "3|TE": {
+    "n": 17,
+    "p25": 50.0,
+    "p50": 97.0,
+    "p75": 198.0
+   },
+   "3|WR": {
+    "n": 38,
+    "p25": 75.75,
+    "p50": 123.5,
+    "p75": 210.0
+   },
+   "4|DB": {
+    "n": 33,
+    "p25": 58.0,
+    "p50": 78.0,
+    "p75": 118.0
+   },
+   "4|DL": {
+    "n": 25,
+    "p25": 30.0,
+    "p50": 55.0,
+    "p75": 90.0
+   },
+   "4|LB": {
+    "n": 26,
+    "p25": 55.0,
+    "p50": 75.0,
+    "p75": 112.5
+   },
+   "4|PK": {
+    "n": 12,
+    "p25": 58.75,
+    "p50": 115.0,
+    "p75": 153.75
+   },
+   "4|PN": {
+    "n": 12,
+    "p25": 50.0,
+    "p50": 85.0,
+    "p75": 95.0
+   },
+   "4|QB": {
+    "n": 23,
+    "p25": 158.5,
+    "p50": 191.0,
+    "p75": 261.0
+   },
+   "4|RB": {
+    "n": 30,
+    "p25": 96.0,
+    "p50": 172.0,
+    "p75": 234.25
+   },
+   "4|TE": {
+    "n": 16,
+    "p25": 55.25,
+    "p50": 128.0,
+    "p75": 166.75
+   },
+   "4|WR": {
+    "n": 39,
+    "p25": 60.0,
+    "p50": 136.0,
+    "p75": 212.0
+   }
+  },
+  "players": {
+   "17039": {
+    "name": "Shough, Tyler",
+    "rows": [
+     {
+      "mfl_id": "17039",
+      "week": 1,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 90,
+      "mfl_score": 32.0,
+      "nfl_team": "NO"
+     },
+     {
+      "mfl_id": "17039",
+      "week": 2,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 68,
+      "mfl_score": 25.3,
+      "nfl_team": "NO"
+     },
+     {
+      "mfl_id": "17039",
+      "week": 3,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 74,
+      "mfl_score": 33.4,
+      "nfl_team": "NO"
+     },
+     {
+      "mfl_id": "17039",
+      "week": 4,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 74,
+      "mfl_score": 19.1,
+      "nfl_team": "NO"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 4,
+     "boom_n": 2,
+     "bust_n": 0,
+     "startable_pct": 100,
+     "boom_pct": 50,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 27.45,
+     "week_labels": [
+      "boom",
+      "startable",
+      "boom",
+      "startable"
+     ]
+    }
+   },
+   "13589": {
+    "name": "Allen, Josh",
+    "rows": [
+     {
+      "mfl_id": "13589",
+      "week": 1,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 58,
+      "mfl_score": 42.6,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "13589",
+      "week": 2,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 74,
+      "mfl_score": 50.7,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "13589",
+      "week": 3,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 66,
+      "mfl_score": 17.1,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "13589",
+      "week": 4,
+      "group": "QB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 59,
+      "mfl_score": 22.3,
+      "nfl_team": "BUF"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 3,
+     "boom_n": 2,
+     "bust_n": 1,
+     "startable_pct": 75,
+     "boom_pct": 50,
+     "bust_pct": 25,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 33.18,
+     "week_labels": [
+      "boom",
+      "boom",
+      "bust",
+      "startable"
+     ]
+    }
+   },
+   "13113": {
+    "name": "Watson, Deshaun",
+    "rows": [
+     {
+      "mfl_id": "13113",
+      "week": 1,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 51,
+      "mfl_score": 16.4,
+      "nfl_team": "CLE"
+     },
+     {
+      "mfl_id": "13113",
+      "week": 2,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 58,
+      "mfl_score": 25.6,
+      "nfl_team": "CLE"
+     },
+     {
+      "mfl_id": "13113",
+      "week": 3,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 69,
+      "mfl_score": 24.8,
+      "nfl_team": "CLE"
+     },
+     {
+      "mfl_id": "13113",
+      "week": 4,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 64,
+      "mfl_score": 17.1,
+      "nfl_team": "CLE"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 1,
+     "boom_n": 0,
+     "bust_n": 0,
+     "startable_pct": 25,
+     "boom_pct": 0,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 20.98,
+     "week_labels": [
+      "below_median",
+      "startable",
+      "below_median",
+      "below_median"
+     ]
+    }
+   },
+   "13319": {
+    "name": "Jones, Aaron",
+    "rows": [
+     {
+      "mfl_id": "13319",
+      "week": 1,
+      "group": "RB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 30,
+      "mfl_score": 10.6,
+      "nfl_team": "MIN"
+     },
+     {
+      "mfl_id": "13319",
+      "week": 2,
+      "group": "RB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 42,
+      "mfl_score": 12.1,
+      "nfl_team": "MIN"
+     },
+     {
+      "mfl_id": "13319",
+      "week": 3,
+      "group": "RB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 47,
+      "mfl_score": 14.0,
+      "nfl_team": "MIN"
+     },
+     {
+      "mfl_id": "13319",
+      "week": 4,
+      "group": "RB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 57,
+      "mfl_score": 17.4,
+      "nfl_team": "MIN"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 3,
+     "boom_n": 0,
+     "bust_n": 0,
+     "startable_pct": 75,
+     "boom_pct": 0,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 13.52,
+     "week_labels": [
+      "below_median",
+      "startable",
+      "startable",
+      "startable"
+     ]
+    }
+   },
+   "15711": {
+    "name": "Walker III, Kenneth",
+    "rows": [
+     {
+      "mfl_id": "15711",
+      "week": 1,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 47,
+      "mfl_score": 38.5,
+      "nfl_team": "KC"
+     },
+     {
+      "mfl_id": "15711",
+      "week": 2,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 66,
+      "mfl_score": 25.4,
+      "nfl_team": "KC"
+     },
+     {
+      "mfl_id": "15711",
+      "week": 3,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 38,
+      "mfl_score": 21.9,
+      "nfl_team": "KC"
+     },
+     {
+      "mfl_id": "15711",
+      "week": 4,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 45,
+      "mfl_score": 33.9,
+      "nfl_team": "KC"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 4,
+     "boom_n": 4,
+     "bust_n": 0,
+     "startable_pct": 100,
+     "boom_pct": 100,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 29.92,
+     "week_labels": [
+      "boom",
+      "boom",
+      "boom",
+      "boom"
+     ]
+    }
+   },
+   "14071": {
+    "name": "Montgomery, David",
+    "rows": [
+     {
+      "mfl_id": "14071",
+      "week": 1,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 39,
+      "mfl_score": 29.3,
+      "nfl_team": "HOU"
+     },
+     {
+      "mfl_id": "14071",
+      "week": 2,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 42,
+      "mfl_score": 4.0,
+      "nfl_team": "HOU"
+     },
+     {
+      "mfl_id": "14071",
+      "week": 3,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 34,
+      "mfl_score": 6.8,
+      "nfl_team": "HOU"
+     },
+     {
+      "mfl_id": "14071",
+      "week": 4,
+      "group": "RB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 31,
+      "mfl_score": 4.3,
+      "nfl_team": "HOU"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 1,
+     "boom_n": 1,
+     "bust_n": 3,
+     "startable_pct": 25,
+     "boom_pct": 25,
+     "bust_pct": 75,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 11.1,
+     "week_labels": [
+      "boom",
+      "bust",
+      "bust",
+      "bust"
+     ]
+    }
+   },
+   "15754": {
+    "name": "Olave, Chris",
+    "rows": [
+     {
+      "mfl_id": "15754",
+      "week": 1,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 77,
+      "mfl_score": 32.6,
+      "nfl_team": "NO"
+     },
+     {
+      "mfl_id": "15754",
+      "week": 2,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 57,
+      "mfl_score": 23.8,
+      "nfl_team": "NO"
+     },
+     {
+      "mfl_id": "15754",
+      "week": 3,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 62,
+      "mfl_score": 23.1,
+      "nfl_team": "NO"
+     },
+     {
+      "mfl_id": "15754",
+      "week": 4,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 64,
+      "mfl_score": 22.6,
+      "nfl_team": "NO"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 4,
+     "boom_n": 4,
+     "bust_n": 0,
+     "startable_pct": 100,
+     "boom_pct": 100,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 25.53,
+     "week_labels": [
+      "boom",
+      "boom",
+      "boom",
+      "boom"
+     ]
+    }
+   },
+   "15281": {
+    "name": "Chase, Ja'Marr",
+    "rows": [
+     {
+      "mfl_id": "15281",
+      "week": 1,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 60,
+      "mfl_score": 3.4,
+      "nfl_team": "CIN"
+     },
+     {
+      "mfl_id": "15281",
+      "week": 2,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 53,
+      "mfl_score": 27.1,
+      "nfl_team": "CIN"
+     },
+     {
+      "mfl_id": "15281",
+      "week": 3,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 57,
+      "mfl_score": 26.0,
+      "nfl_team": "CIN"
+     },
+     {
+      "mfl_id": "15281",
+      "week": 4,
+      "group": "WR",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 15,
+      "mfl_score": 5.9,
+      "nfl_team": "CIN"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 2,
+     "boom_n": 2,
+     "bust_n": 2,
+     "startable_pct": 50,
+     "boom_pct": 50,
+     "bust_pct": 50,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 15.6,
+     "week_labels": [
+      "bust",
+      "boom",
+      "boom",
+      "bust"
+     ]
+    }
+   },
+   "16617": {
+    "name": "Coleman, Keon",
+    "rows": [
+     {
+      "mfl_id": "16617",
+      "week": 1,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 29,
+      "mfl_score": 1.1,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "16617",
+      "week": 2,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 56,
+      "mfl_score": 13.1,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "16617",
+      "week": 3,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 33,
+      "mfl_score": 4.9,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "16617",
+      "week": 4,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 46,
+      "mfl_score": 26.6,
+      "nfl_team": "BUF"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 2,
+     "boom_n": 1,
+     "bust_n": 2,
+     "startable_pct": 50,
+     "boom_pct": 25,
+     "bust_pct": 50,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 11.43,
+     "week_labels": [
+      "bust",
+      "startable",
+      "bust",
+      "boom"
+     ]
+    }
+   },
+   "15346": {
+    "name": "Rousseau, Gregory",
+    "rows": [
+     {
+      "mfl_id": "15346",
+      "week": 1,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 68,
+      "mfl_score": 23.0,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "15346",
+      "week": 2,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 47,
+      "mfl_score": 17.5,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "15346",
+      "week": 3,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 61,
+      "mfl_score": 22.5,
+      "nfl_team": "BUF"
+     },
+     {
+      "mfl_id": "15346",
+      "week": 4,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 65,
+      "mfl_score": 9.0,
+      "nfl_team": "BUF"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 4,
+     "boom_n": 4,
+     "bust_n": 0,
+     "startable_pct": 100,
+     "boom_pct": 100,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 18.0,
+     "week_labels": [
+      "boom",
+      "boom",
+      "boom",
+      "boom"
+     ]
+    }
+   },
+   "14940": {
+    "name": "Highsmith, Alex",
+    "rows": [
+     {
+      "mfl_id": "14940",
+      "week": 1,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 41,
+      "mfl_score": 13.5,
+      "nfl_team": "PIT"
+     },
+     {
+      "mfl_id": "14940",
+      "week": 2,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 33,
+      "mfl_score": 12.5,
+      "nfl_team": "PIT"
+     },
+     {
+      "mfl_id": "14940",
+      "week": 3,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 41,
+      "mfl_score": 0.0,
+      "nfl_team": "PIT"
+     },
+     {
+      "mfl_id": "14940",
+      "week": 4,
+      "group": "DL",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 45,
+      "mfl_score": 3.0,
+      "nfl_team": "PIT"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 2,
+     "boom_n": 2,
+     "bust_n": 2,
+     "startable_pct": 50,
+     "boom_pct": 50,
+     "bust_pct": 50,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 1,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 7.25,
+     "week_labels": [
+      "boom",
+      "boom",
+      "bust",
+      "bust"
+     ]
+    }
+   },
+   "16276": {
+    "name": "Young, Byron",
+    "rows": [
+     {
+      "mfl_id": "16276",
+      "week": 1,
+      "group": "DL",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 48,
+      "mfl_score": 0.5,
+      "nfl_team": "LA"
+     },
+     {
+      "mfl_id": "16276",
+      "week": 2,
+      "group": "DL",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 42,
+      "mfl_score": 11.5,
+      "nfl_team": "LA"
+     },
+     {
+      "mfl_id": "16276",
+      "week": 3,
+      "group": "DL",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 59,
+      "mfl_score": 2.0,
+      "nfl_team": "LA"
+     },
+     {
+      "mfl_id": "16276",
+      "week": 4,
+      "group": "DL",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 54,
+      "mfl_score": 21.0,
+      "nfl_team": "LA"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 2,
+     "boom_n": 2,
+     "bust_n": 1,
+     "startable_pct": 50,
+     "boom_pct": 50,
+     "bust_pct": 25,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 8.75,
+     "week_labels": [
+      "bust",
+      "boom",
+      "below_median",
+      "boom"
+     ]
+    }
+   },
+   "13322": {
+    "name": "Clark, Chuck",
+    "rows": [
+     {
+      "mfl_id": "13322",
+      "week": 1,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 46,
+      "mfl_score": 9.4,
+      "nfl_team": "DET"
+     },
+     {
+      "mfl_id": "13322",
+      "week": 2,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 70,
+      "mfl_score": 10.8,
+      "nfl_team": "DET"
+     },
+     {
+      "mfl_id": "13322",
+      "week": 3,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 69,
+      "mfl_score": 14.1,
+      "nfl_team": "DET"
+     },
+     {
+      "mfl_id": "13322",
+      "week": 4,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 81,
+      "mfl_score": 8.9,
+      "nfl_team": "DET"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 4,
+     "boom_n": 2,
+     "bust_n": 0,
+     "startable_pct": 100,
+     "boom_pct": 50,
+     "bust_pct": 0,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 10.8,
+     "week_labels": [
+      "startable",
+      "boom",
+      "boom",
+      "startable"
+     ]
+    }
+   },
+   "13251": {
+    "name": "Baker, Budda",
+    "rows": [
+     {
+      "mfl_id": "13251",
+      "week": 1,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 55,
+      "mfl_score": 8.0,
+      "nfl_team": "ARI"
+     },
+     {
+      "mfl_id": "13251",
+      "week": 2,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 71,
+      "mfl_score": 18.8,
+      "nfl_team": "ARI"
+     },
+     {
+      "mfl_id": "13251",
+      "week": 3,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 54,
+      "mfl_score": 3.7,
+      "nfl_team": "ARI"
+     },
+     {
+      "mfl_id": "13251",
+      "week": 4,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 67,
+      "mfl_score": 12.0,
+      "nfl_team": "ARI"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 3,
+     "boom_n": 2,
+     "bust_n": 1,
+     "startable_pct": 75,
+     "boom_pct": 50,
+     "bust_pct": 25,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 4,
+     "started_played_n": 4,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 10.62,
+     "week_labels": [
+      "startable",
+      "boom",
+      "bust",
+      "boom"
+     ]
+    }
+   },
+   "16675": {
+    "name": "DeJean, Cooper",
+    "rows": [
+     {
+      "mfl_id": "16675",
+      "week": 1,
+      "group": "DB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 75,
+      "mfl_score": 8.9,
+      "nfl_team": "PHI"
+     },
+     {
+      "mfl_id": "16675",
+      "week": 2,
+      "group": "DB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 53,
+      "mfl_score": 5.0,
+      "nfl_team": "PHI"
+     },
+     {
+      "mfl_id": "16675",
+      "week": 3,
+      "group": "DB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 72,
+      "mfl_score": 8.0,
+      "nfl_team": "PHI"
+     },
+     {
+      "mfl_id": "16675",
+      "week": 4,
+      "group": "DB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 86,
+      "mfl_score": 12.5,
+      "nfl_team": "PHI"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 2,
+     "boom_n": 1,
+     "bust_n": 1,
+     "startable_pct": 50,
+     "boom_pct": 25,
+     "bust_pct": 25,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 8.6,
+     "week_labels": [
+      "startable",
+      "bust",
+      "below_median",
+      "boom"
+     ]
+    }
+   },
+   "17558": {
+    "name": "Allen, CJ",
+    "rows": [
+     {
+      "mfl_id": "17558",
+      "week": 1,
+      "group": "LB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "IND"
+     },
+     {
+      "mfl_id": "17558",
+      "week": 2,
+      "group": "LB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 6,
+      "mfl_score": 0.5,
+      "nfl_team": "IND"
+     },
+     {
+      "mfl_id": "17558",
+      "week": 3,
+      "group": "LB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 5,
+      "mfl_score": 0.0,
+      "nfl_team": "IND"
+     },
+     {
+      "mfl_id": "17558",
+      "week": 4,
+      "group": "LB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "IND"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 2,
+     "startable_n": 0,
+     "boom_n": 0,
+     "bust_n": 2,
+     "startable_pct": null,
+     "boom_pct": null,
+     "bust_pct": null,
+     "no_snap_n": 2,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 3,
+     "started_played_n": 2,
+     "started_no_show_n": 1,
+     "played_zero_n": 1,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 0.25,
+     "week_labels": [
+      "no_snap_started",
+      "bust",
+      "bust",
+      "no_snap"
+     ]
+    }
+   },
+   "17562": {
+    "name": "Delane, Mansoor",
+    "rows": [
+     {
+      "mfl_id": "17562",
+      "week": 1,
+      "group": "DB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 3,
+      "mfl_score": 5.5,
+      "nfl_team": "KC"
+     },
+     {
+      "mfl_id": "17562",
+      "week": 2,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "KC"
+     },
+     {
+      "mfl_id": "17562",
+      "week": 3,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 73,
+      "mfl_score": 14.5,
+      "nfl_team": "KC"
+     },
+     {
+      "mfl_id": "17562",
+      "week": 4,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 78,
+      "mfl_score": 14.5,
+      "nfl_team": "KC"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 3,
+     "startable_n": 2,
+     "boom_n": 2,
+     "bust_n": 0,
+     "startable_pct": 67,
+     "boom_pct": 67,
+     "bust_pct": 0,
+     "no_snap_n": 1,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 3,
+     "started_played_n": 2,
+     "started_no_show_n": 1,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 11.5,
+     "week_labels": [
+      "below_median",
+      "no_snap_started",
+      "boom",
+      "boom"
+     ]
+    }
+   },
+   "16679": {
+    "name": "Nubin, Tyler",
+    "rows": [
+     {
+      "mfl_id": "16679",
+      "week": 1,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 62,
+      "mfl_score": 3.9,
+      "nfl_team": "NYG"
+     },
+     {
+      "mfl_id": "16679",
+      "week": 2,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 73,
+      "mfl_score": 10.4,
+      "nfl_team": "NYG"
+     },
+     {
+      "mfl_id": "16679",
+      "week": 3,
+      "group": "DB",
+      "started": true,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "NYG"
+     },
+     {
+      "mfl_id": "16679",
+      "week": 4,
+      "group": "DB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 60,
+      "mfl_score": 8.2,
+      "nfl_team": "NYG"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 3,
+     "startable_n": 2,
+     "boom_n": 0,
+     "bust_n": 1,
+     "startable_pct": 67,
+     "boom_pct": 0,
+     "bust_pct": 33,
+     "no_snap_n": 1,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 3,
+     "started_played_n": 2,
+     "started_no_show_n": 1,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 7.5,
+     "week_labels": [
+      "bust",
+      "startable",
+      "no_snap_started",
+      "startable"
+     ]
+    }
+   },
+   "12801": {
+    "name": "Hill, Tyreek",
+    "rows": [
+     {
+      "mfl_id": "12801",
+      "week": 1,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": null
+     },
+     {
+      "mfl_id": "12801",
+      "week": 2,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": null
+     },
+     {
+      "mfl_id": "12801",
+      "week": 3,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": null
+     },
+     {
+      "mfl_id": "12801",
+      "week": 4,
+      "group": "WR",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": null
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 0,
+     "startable_n": 0,
+     "boom_n": 0,
+     "bust_n": 0,
+     "startable_pct": null,
+     "boom_pct": null,
+     "bust_pct": null,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 4,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": null,
+     "week_labels": [
+      "no_game",
+      "no_game",
+      "no_game",
+      "no_game"
+     ]
+    }
+   },
+   "9064": {
+    "name": "Flacco, Joe",
+    "rows": [
+     {
+      "mfl_id": "9064",
+      "week": 1,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": 0,
+      "mfl_score": 0.0,
+      "nfl_team": "CIN"
+     },
+     {
+      "mfl_id": "9064",
+      "week": 2,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "CIN"
+     },
+     {
+      "mfl_id": "9064",
+      "week": 3,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "CIN"
+     },
+     {
+      "mfl_id": "9064",
+      "week": 4,
+      "group": "QB",
+      "started": false,
+      "rostered": true,
+      "snaps_total": null,
+      "mfl_score": null,
+      "nfl_team": "CIN"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 0,
+     "startable_n": 0,
+     "boom_n": 0,
+     "bust_n": 0,
+     "startable_pct": null,
+     "boom_pct": null,
+     "bust_pct": null,
+     "no_snap_n": 4,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": null,
+     "week_labels": [
+      "no_snap",
+      "no_snap",
+      "no_snap",
+      "no_snap"
+     ]
+    }
+   },
+   "13810": {
+    "name": "Joseph-Day, Sebastian",
+    "rows": [
+     {
+      "mfl_id": "13810",
+      "week": 1,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": null,
+      "mfl_score": 2.0,
+      "nfl_team": "PIT"
+     },
+     {
+      "mfl_id": "13810",
+      "week": 2,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 12,
+      "mfl_score": 3.0,
+      "nfl_team": "PIT"
+     },
+     {
+      "mfl_id": "13810",
+      "week": 3,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 19,
+      "mfl_score": 4.5,
+      "nfl_team": "PIT"
+     },
+     {
+      "mfl_id": "13810",
+      "week": 4,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 30,
+      "mfl_score": 1.0,
+      "nfl_team": "PIT"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 1,
+     "boom_n": 0,
+     "bust_n": 2,
+     "startable_pct": 25,
+     "boom_pct": 0,
+     "bust_pct": 50,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 0,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 2.62,
+     "week_labels": [
+      "bust",
+      "below_median",
+      "startable",
+      "bust"
+     ]
+    }
+   },
+   "17389": {
+    "name": "Okoye, CJ",
+    "rows": [
+     {
+      "mfl_id": "17389",
+      "week": 1,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": null,
+      "mfl_score": 0.5,
+      "nfl_team": "NYG"
+     },
+     {
+      "mfl_id": "17389",
+      "week": 2,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 29,
+      "mfl_score": 0.5,
+      "nfl_team": "NYG"
+     },
+     {
+      "mfl_id": "17389",
+      "week": 3,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 16,
+      "mfl_score": 0.0,
+      "nfl_team": "NYG"
+     },
+     {
+      "mfl_id": "17389",
+      "week": 4,
+      "group": "DL",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 19,
+      "mfl_score": 7.0,
+      "nfl_team": "NYG"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 1,
+     "boom_n": 0,
+     "bust_n": 3,
+     "startable_pct": 25,
+     "boom_pct": 0,
+     "bust_pct": 75,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 0,
+     "started_played_n": 0,
+     "started_no_show_n": 0,
+     "played_zero_n": 1,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 2.0,
+     "week_labels": [
+      "bust",
+      "bust",
+      "bust",
+      "startable"
+     ]
+    }
+   },
+   "17664": {
+    "name": "Eckley, Ryan",
+    "rows": [
+     {
+      "mfl_id": "17664",
+      "week": 1,
+      "group": "PN",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 10,
+      "mfl_score": 13.0,
+      "nfl_team": "BAL"
+     },
+     {
+      "mfl_id": "17664",
+      "week": 2,
+      "group": "PN",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 7,
+      "mfl_score": 0.0,
+      "nfl_team": "BAL"
+     },
+     {
+      "mfl_id": "17664",
+      "week": 3,
+      "group": "PN",
+      "started": true,
+      "rostered": true,
+      "snaps_total": 9,
+      "mfl_score": 1.0,
+      "nfl_team": "BAL"
+     },
+     {
+      "mfl_id": "17664",
+      "week": 4,
+      "group": "PN",
+      "started": false,
+      "rostered": false,
+      "snaps_total": 11,
+      "mfl_score": 17.0,
+      "nfl_team": "BAL"
+     }
+    ],
+    "expected": {
+     "qualifying_weeks": 4,
+     "startable_n": 2,
+     "boom_n": 2,
+     "bust_n": 2,
+     "startable_pct": 50,
+     "boom_pct": 50,
+     "bust_pct": 50,
+     "no_snap_n": 0,
+     "bye_n": 0,
+     "no_game_n": 0,
+     "started_n": 3,
+     "started_played_n": 3,
+     "started_no_show_n": 0,
+     "played_zero_n": 1,
+     "played_unscored_n": 0,
+     "pool_too_small_n": 0,
+     "weeks_label": "Wks 1\u20134",
+     "ppg": 7.75,
+     "week_labels": [
+      "boom",
+      "bust",
+      "bust",
+      "boom"
+     ]
+    }
+   }
+  },
+  "teams_with_game": {
+   "1": [
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LA",
+    "LAC",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WAS"
+   ],
+   "2": [
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LA",
+    "LAC",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WAS"
+   ],
+   "3": [
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LA",
+    "LAC",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WAS"
+   ],
+   "4": [
+    "ARI",
+    "ATL",
+    "BAL",
+    "BUF",
+    "CAR",
+    "CHI",
+    "CIN",
+    "CLE",
+    "DAL",
+    "DEN",
+    "DET",
+    "GB",
+    "HOU",
+    "IND",
+    "JAX",
+    "KC",
+    "LA",
+    "LAC",
+    "LV",
+    "MIA",
+    "MIN",
+    "NE",
+    "NO",
+    "NYG",
+    "NYJ",
+    "PHI",
+    "PIT",
+    "SEA",
+    "SF",
+    "TB",
+    "TEN",
+    "WAS"
+   ]
+  },
+  "bye_week": {
+   "ARI": 14,
+   "ATL": 11,
+   "BAL": 13,
+   "BUF": 7,
+   "CAR": 5,
+   "CHI": 10,
+   "CIN": 6,
+   "CLE": 11,
+   "DAL": 14,
+   "DEN": 10,
+   "DET": 6,
+   "GB": 11,
+   "HOU": 8,
+   "IND": 13,
+   "JAX": 7,
+   "KC": 5,
+   "LAC": 7,
+   "LA": 11,
+   "LV": 13,
+   "MIA": 6,
+   "MIN": 6,
+   "NE": 11,
+   "NO": 8,
+   "NYG": 8,
+   "NYJ": 13,
+   "PHI": 10,
+   "PIT": 9,
+   "SEA": 11,
+   "SF": 8,
+   "TB": 10,
+   "TEN": 9,
+   "WAS": 7
+  }
+ }
+}

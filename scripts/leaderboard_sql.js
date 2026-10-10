@@ -65,7 +65,7 @@ const paceSeason = Math.max(...seasonsCsv.split(',').map(Number));
 
 // Evaluate each ${...} the way the worker does, by name. Anything left over is
 // a fatal error rather than a silently-unsubstituted placeholder.
-body = body.replace(/\$\{([^}]*)\}/g, (m, expr) => {
+const subst = (m, expr) => {
   const e = expr.trim();
   if (e === 'seasonList') return seasonList;
   if (e === 'posList') return PG.map((p) => `'${p}'`).join(',');
@@ -78,6 +78,12 @@ body = body.replace(/\$\{([^}]*)\}/g, (m, expr) => {
   if (e === '_gTeamSitu')  return _phase === 'special' ? '1=1' : '1=0';
   if (e === '_gSeasonAdv') return _phase !== 'special' ? '1=1' : '1=0';
   if (e === '_gRedzone')   return _phase === 'offense' ? '1=1' : '1=0';
+  if (e === '_gIdpSnaps')  return _phase === 'idp' ? '1=1' : '1=0';
+  if (e === 'pos') return pos;
+  const mg = /^mflGroupSql\("([^"]+)"\)$/.exec(e);
+  if (mg) return `(CASE ${mg[1]} WHEN 'QB' THEN 'QB' WHEN 'RB' THEN 'RB' WHEN 'WR' THEN 'WR' WHEN 'TE' THEN 'TE' WHEN 'PK' THEN 'PK' WHEN 'PN' THEN 'PN' WHEN 'DE' THEN 'DL' WHEN 'DT' THEN 'DL' WHEN 'LB' THEN 'LB' WHEN 'CB' THEN 'DB' WHEN 'S' THEN 'DB' END)`;
+  const mb = /^mflBoardSql\("([^"]+)"\)$/.exec(e);
+  if (mb) return `(CASE ${mb[1]} WHEN 'QB' THEN 'qb' WHEN 'RB' THEN 'skill' WHEN 'WR' THEN 'skill' WHEN 'TE' THEN 'skill' WHEN 'PK' THEN 'kicker' WHEN 'PN' THEN 'punter' WHEN 'DE' THEN 'idp' WHEN 'DT' THEN 'idp' WHEN 'LB' THEN 'idp' WHEN 'CB' THEN 'idp' WHEN 'S' THEN 'idp' END)`;
   if (e === 'weekFilter' || e === 'weekSqlPredicate') return wk;
   if (e === 'rzWeekSqlPredicate') return rzwk;
   if (/^weekFilter\.replace/.test(e) || /^weekSqlPredicate\.replace/.test(e)) {
@@ -88,7 +94,9 @@ body = body.replace(/\$\{([^}]*)\}/g, (m, expr) => {
     if (/"week"/.test(e)) return wk.replace(/w\.week/g, 'week');
   }
   console.error('UNHANDLED interpolation: ${' + e + '}'); process.exit(1);
-});
+};
+// The projection itself holds ${...} (posList, mflGroupSql): substitute until none remain.
+for (let pass = 0; pass < 3 && body.includes('${'); pass++) body = body.replace(/\$\{([^}]*)\}/g, subst);
 if (body.includes('${')) { console.error('unsubstituted placeholder remains'); process.exit(1); }
 
 // The two bind params, in order: min_games then limit.
