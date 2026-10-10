@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.09.5",
-  "label": "Stats → Players: actual MFL points (live week marked) on the first screen, pinned headings that fit 320px, and a player sheet with the verified owner, Propose trade, and earned / still-due from the cap engine. Ownership unknown is never offered Bid or Add."
+  "build": "2026.10.09.6",
+  "label": "Stats → Players lists every player from MFL's own player list at his MFL position (DE → DL; every scoring IDP), ranked exactly like his player card; falls back to the stats list, said on screen, if MFL's list doesn't load."
 }
