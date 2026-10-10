@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.09.4";
+  var BUILD = "2026.10.09.5";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -1352,7 +1352,9 @@
   function reloadData() {
     state.loadingPromise = null;
     state.loaded = false;
-    state._rosteredCache = null;
+    // rosterOwnership() is keyed on the state.rosters object, so it rebuilds by
+    // itself when loadAllData replaces it. Dropping it here as well just frees it.
+    state._rosterOwnershipCache = null;
     state._ytdScoresCache = null;
     state._seasonScoringCache = null;
     // Invalidate the player sheet's bundleCache so stats reflect any
@@ -1586,21 +1588,87 @@
     return { loaded: loaded, threeYearNonRookie: threeYearNonRookie };
   }
 
-  // Build a Set of all pids on ANY franchise's roster (used to identify FAs).
-  // Cached on state to avoid re-scanning roster export on every render.
-  function getAllRosteredPids() {
-    if (state._rosteredCache) return state._rosteredCache;
-    var ids = new Set();
-    if (state.rosters && state.rosters.rosters) {
-      var fr = asArray(state.rosters.rosters.franchise);
-      fr.forEach(function (f) {
+  // ══ Roster ownership: the ONE answer every mobile surface reads ═══════
+  // Who owns a player, from LIVE MFL rosters (state.rosters, the TYPE=rosters
+  // read loadAllData makes at boot and on every reloadData). The Players list,
+  // the player sheet, global search and the waiver Bid / Add controls all read
+  // it through DATA.rosterOwnership() / DATA.ownerOfPid() — and so does the
+  // Stats list (views/stats.js), which used to carry its own copy (#1203).
+  //
+  // fetchJson returns null on ANY failure, and MFL can also answer with an
+  // empty or partial payload (a franchise missing, or listed with no players).
+  // On 2026-10-09, with that read failed, the Players tab listed EVERY player as
+  // a free agent, Jeremiyah Love (Cleon Ca$h's) included, and his sheet said
+  // "Free agent — no contract on file" and offered Bid. So:
+  //   - a player FOUND on a roster is that franchise's (positive evidence);
+  //   - a player on NO roster is a free agent ONLY when the read is CONFIRMED
+  //     COMPLETE: state.franchises (the league export) is non-empty and every
+  //     franchise in it is present with at least one player;
+  //   - otherwise his ownership is UNKNOWN: never "FA", never offered an add,
+  //     a bid or an FCFS claim.
+  // Cached on the state.rosters / state.franchises OBJECTS themselves, so the
+  // reload that replaces them rebuilds it (a trade or claim shows its new owner,
+  // and a complete read restores free agents). There is no flag to forget, and
+  // a render while the reload is still running can't re-cache the old copy.
+  //   → { readable, complete, missing: [fid…], byPid: {pid: fid}, pids: Set }
+  function rosterOwnership() {
+    var src = state.rosters, fr = state.franchises || [];
+    var c = state._rosterOwnershipCache;
+    if (c && c.src === src && c.fr === fr) return c.own;
+    var rs = src && src.rosters;
+    var byPid = {}, pids = new Set(), count = {};
+    if (rs) {
+      asArray(rs.franchise).forEach(function (f) {
+        var fid = pad4(f && f.id);
+        if (!fid) return;
         asArray(f.player).forEach(function (p) {
-          if (p && p.id) ids.add(String(p.id));
+          var pid = safeStr(p && p.id);
+          if (!pid) return;
+          byPid[pid] = fid;
+          pids.add(pid);
+          count[fid] = (count[fid] || 0) + 1;
         });
       });
     }
-    state._rosteredCache = ids;
-    return ids;
+    var missing = [];
+    fr.forEach(function (f) {
+      var fid = pad4(f && f.id);
+      if (!(count[fid] > 0)) missing.push(fid);
+    });
+    var own = {
+      readable: !!rs,
+      complete: !!rs && fr.length > 0 && missing.length === 0,
+      missing: missing,
+      byPid: byPid,
+      pids: pids
+    };
+    state._rosterOwnershipCache = { src: src, fr: fr, own: own };
+    return own;
+  }
+  // One player's owner under the rule above:
+  //   { known: true, free: false, fid, name }  on a roster
+  //   { known: true, free: true,  fid: "" }    a CONFIRMED free agent
+  //   { known: false, free: false, fid: "" }   ownership unknown
+  function ownerOfPid(pid) {
+    // No id → unknown. Looking up "" read as a CONFIRMED free agent whenever the
+    // rosters were complete (3 Stats rows carried no MFL id on 2026-10-09).
+    if (!safeStr(pid)) return { known: false, free: false, fid: "" };
+    var own = rosterOwnership();
+    var fid = own.byPid[safeStr(pid)] || "";
+    if (fid) {
+      var f = findFranchiseById(fid);
+      return { known: true, free: false, fid: fid, name: (f && f.name) || "" };
+    }
+    return own.complete
+      ? { known: true, free: true, fid: "" }
+      : { known: false, free: false, fid: "" };
+  }
+
+  // Every pid on ANY franchise's roster: positive evidence only. NOT a
+  // free-agent test: a pid missing from this Set is a free agent only when
+  // rosterOwnership().complete (see above).
+  function getAllRosteredPids() {
+    return rosterOwnership().pids;
   }
 
   // Build a Set of pids on the VIEWER'S OWN roster only — contrast with
@@ -3726,6 +3794,10 @@
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
       getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
       getAllRosteredPids: getAllRosteredPids,
+      // Live MFL roster ownership: known / free agent / UNKNOWN. The one rule
+      // every surface uses before calling anyone a free agent (see above).
+      rosterOwnership: rosterOwnership,
+      ownerOfPid: ownerOfPid,
       getYtdScoresMap: getYtdScoresMap,
       getSeasonScoring: getSeasonScoring,
       refreshSeasonScoringIfStale: refreshSeasonScoringIfStale,

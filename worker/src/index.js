@@ -21,6 +21,7 @@ import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
+import { resolveLiveLeagueYear } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
@@ -3005,6 +3006,11 @@ const DROP_UNPRICED_BASES_SQL = "('no_pre_drop_contract', 'contract_unstamped_ne
 const _dropUnpricedReason = (basis) => String(basis || "") === "week_authority_unresolved"
   ? "held_unpriced: the recorder prices it once MFL can be read"
   : `unpriced_needs_review: ${String(basis || "no penalty recorded")} — needs a verified contract`;
+// ups_drop_events.discord_posted is 0 (unposted) or 1 (posted) — or 2: CLAIMED by a /admin/drops/post-discord run that is posting its
+// card now. A claim older than the stale window (the cron's 15-minute wall, the longest any Worker run can hold one) has no live owner:
+// it is STUCK — never re-posted, listed by every run until a commissioner settles it (see the claim notes in that route).
+const DROP_DISCORD_CLAIMED = 2;
+const DROP_DISCORD_CLAIM_STALE_SEC = 15 * 60;
 async function _completedWeeksAtLiveRule(season, atUnix, regularSeasonWeeks) {
   const rsw = Number(regularSeasonWeeks) || 17;
   const at = Number(atUnix) || 0;
@@ -3632,6 +3638,20 @@ const _faaAuctionStartUnix = async (env, season) => {
     return { unix: null, source: "auction_calendar_read_threw", read_error: String((e && e.message) || e) };
   }
 };
+
+// ── WHICH LEAGUE YEAR the */5 drop pipeline runs as ─────────────────────────
+// The LIVE MFL league year, never the calendar year: NFL Week 17 runs into January and MFL keeps last season's league
+// live until the rollover (the next year's league 404s until then) — see league_year.js. One bounded raw `TYPE=league`
+// read per year asked; no cookie (the export and its history are public). Unresolved → { ok: false }: run nothing.
+const _liveDropLeagueYear = (env, leagueId) => resolveLiveLeagueYear({
+  leagueId, nowMs: Date.now(), pinnedYear: env && env.YEAR,
+  readLeague: async (year) => {
+    const res = await fetchBounded(
+      `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1&_=${Date.now()}`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 0, cacheEverything: false } }, 8000);
+    return { status: res.status, text: await res.text() };
+  },
+});
 
 // ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
 // The ONLY reliable "this auction really completed" signal, established on prod
@@ -7309,11 +7329,25 @@ export default {
         if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
-              const scanUrl = `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`;
+              // WHICH SEASON: the LIVE MFL league year (league_year.js), never `season` (the calendar year). NFL Week 17
+              // runs into January and MFL keeps the 2026 league live until its rollover — 2027's exports 404 until then —
+              // so from Jan 1 the calendar year scanned a league that doesn't exist and every drop made in the live one was
+              // missed. Every route below records, prices (on that season's own week calendar) and posts as dropSeason; a
+              // drop's CAP year (applies_to_season, canon §6) is still decided per row from its own drop instant — a
+              // 2027-01-03 drop in the 2026 league is season 2026, priced on 2026's weeks, booked to the 2027 cap.
+              // UNRESOLVED → nothing runs this tick: no drop is recorded, announced or charged under a guessed season, held
+              // rows stay held (and listed by every drop route), and the recorder's 2-day lookback catches up once it resolves.
+              const live = await _liveDropLeagueYear(env, leagueId);
+              if (!live.ok) {
+                console.error(`[scheduled */5] drop-tracker SKIPPED: live MFL league year unresolved (${live.reason}) — nothing recorded, posted or charged this tick under a guessed season; retried every tick.`);
+                return;
+              }
+              const dropSeason = live.season;
+              const scanUrl = `${origin}/admin/drops/scan-and-record?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`;
               const scanRes = await env.SELF.fetch(scanUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ season, league_id: leagueId, days: 2 }),
+                body: JSON.stringify({ season: dropSeason, league_id: leagueId, days: 2 }),
               });
               const scanData = await scanRes.json().catch(() => ({}));
               const newWritten = Number(scanData?.written_count) || 0;
@@ -7326,11 +7360,11 @@ export default {
               let postedCount = 0;
               if (dropAutoPost) {
                 const postRes = await env.SELF.fetch(
-                  `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  `${origin}/admin/drops/post-discord?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ season, league_id: leagueId, target: dropTarget, limit: 20 }),
+                    body: JSON.stringify({ season: dropSeason, league_id: leagueId, target: dropTarget, limit: 20 }),
                   }
                 );
                 const postData = await postRes.json().catch(() => ({}));
@@ -7340,6 +7374,20 @@ export default {
                 const needsReview = (postData?.held_unpriced || []).filter((h) => /^unpriced_needs_review/.test(String(h.reason || "")));
                 if (needsReview.length) {
                   console.error(`[scheduled */5] drop-tracker: ${needsReview.length} drop(s) UNPRICED with no verified pre-drop contract — no Discord card until a commissioner verifies one: ${JSON.stringify(needsReview.map((h) => `${h.player_name || h.player_id}@${h.dropped_at_iso}`)).slice(0, 400)}`);
+                }
+                // A card CLAIMED but never confirmed posted is never re-posted (Discord may already have it), so only a person can settle
+                // it — said every tick, unthrottled, until they do.
+                const stuckClaims = Array.isArray(postData?.stuck_claims) ? postData.stuck_claims : [];
+                if (stuckClaims.length) {
+                  console.error(
+                    `[scheduled */5] drop-tracker: ${stuckClaims.length} drop card(s) CLAIMED but never confirmed posted — NOT re-posted (Discord may ` +
+                    `already have them). Check the drops channel: card there → set discord_posted = 1 (+ discord_message_id) on the ups_drop_events ` +
+                    `row; not there → set discord_posted = 0 and the next tick posts it: ` +
+                    JSON.stringify(stuckClaims.map((c) => `id=${c.row_id} ${c.player_name || c.player_id}:${c.reason}${c.message_id ? `:msg=${c.message_id}` : ""}@${c.claimed_at || "?"}`)).slice(0, 400)
+                  );
+                }
+                if (postData?.stuck_claims_error) {
+                  console.error(`[scheduled */5] drop-tracker: claimed drop cards could not be listed — a stuck card may be unreported: ${postData.stuck_claims_error}`);
                 }
               }
 
@@ -7355,11 +7403,11 @@ export default {
               let capfreeNotified = 0;
               try {
                 const cfRes = await env.SELF.fetch(
-                  `${origin}/admin/drops/capfree-notify?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  `${origin}/admin/drops/capfree-notify?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ season, league_id: leagueId }),
+                    body: JSON.stringify({ season: dropSeason, league_id: leagueId }),
                   }
                 );
                 const cfData = await cfRes.json().catch(() => ({}));
@@ -7375,11 +7423,11 @@ export default {
               let mflPostedCount = 0;
               if (dropPostMfl) {
                 const mflRes = await env.SELF.fetch(
-                  `${origin}/admin/drops/post-mfl?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                  `${origin}/admin/drops/post-mfl?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ season, league_id: leagueId, limit: 20 }),
+                    body: JSON.stringify({ season: dropSeason, league_id: leagueId, limit: 20 }),
                   }
                 );
                 const mflData = await mflRes.json().catch(() => ({}));
@@ -7403,15 +7451,15 @@ export default {
               if (dropPostMfl) {
                 try {
                   const recRes = await env.SELF.fetch(
-                    `${origin}/admin/drops/reconcile-post?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
-                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId }) }
+                    `${origin}/admin/drops/reconcile-post?L=${leagueId}&YEAR=${dropSeason}&APIKEY=${encodeURIComponent(commishApiKey)}`,
+                    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: dropSeason, league_id: leagueId }) }
                   );
                   const recData = await recRes.json().catch(() => ({}));
                   reconciledRows = Number(recData?.posted) || 0;
                 } catch (_) {}
               }
               if (newWritten || postedCount || mflPostedCount || reconciledRows) {
-                console.log(`[scheduled */5] drop-tracker: new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} reconciled=${reconciledRows} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
+                console.log(`[scheduled */5] drop-tracker: season=${dropSeason} (${live.source}) new_drops=${newWritten} discord_posted=${postedCount} mfl_posted=${mflPostedCount} reconciled=${reconciledRows} auto_post=${dropAutoPost ? "1" : "0"} post_mfl=${dropPostMfl ? "1" : "0"} target=${dropTarget}`);
               }
             } catch (e) {
               console.error(`[scheduled */5] drop-tracker failed: ${e?.message || String(e)}`);
@@ -49437,7 +49485,9 @@ const mflToSleeper = {};
       //
       // Pulls unposted rows from ups_drop_events (posted_to_mfl/discord
       // tracking lives in same row) and posts each as a Discord embed
-      // with a tiered cap-penalty GIF.
+      // with a tiered cap-penalty GIF. Each row is CLAIMED before its card
+      // goes out, so overlapping runs post it once (claim notes in the route;
+      // the response lists in_flight_claims / stuck_claims).
       //
       // Cap-penalty GIF tiers (Keith 2026-05-22):
       //   $0 (exempt)            → no GIF, just "no penalty" line
@@ -49683,6 +49733,18 @@ const mflToSleeper = {};
         const recompute = !!body?.recompute;
         const playerNameFilter = safeStr(body?.player_name || "").trim();
         const corrected = repostIds.length > 0 || !!playerNameFilter || !!body?.corrected;
+        // CLAIM before posting (2026-10-09). The */5 cron, the launchd stand-in (scripts/drop_scan_tick.sh) and the manual workflow can
+        // overlap, and each used to SELECT discord_posted = 0, post, and only then flip the flag — so two runs posted the same public
+        // card. The default (unposted) path now takes each row with a guarded UPDATE and posts only when it won (changes === 1):
+        //   0 → 2 CLAIMED (discord_message_id holds the marker `claim:<nonce>@<iso>`, discord_channel_id the target channel)
+        //     → 1 with the real message id once Discord answers with one, or back to 0 (the row's own ids restored) when Discord
+        //       answered and REFUSED the post — the next run retries it.
+        // A claim whose outcome is UNKNOWN (no answer from Discord, a 2xx with no message id, the "posted" write failed, or the run
+        // died) is never released or re-posted: Discord may already have the card, and a duplicate public card can't be taken back
+        // without deleting a message. It stays 2 and every run lists it (stuck_claims, console.error'd by the cron) until a commissioner
+        // checks the channel and sets 1 (card there) or 0 (not there). No schema change: 2 is a new value of an existing column.
+        // repost_ids / player_name are manual corrections that post regardless of discord_posted — unchanged, and they take no claim.
+        const claimMode = !repostIds.length && !playerNameFilter;
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
 
@@ -49870,10 +49932,39 @@ const mflToSleeper = {};
             player_name: h.player_name, franchise_id: padFranchiseId(h.franchise_id), dropped_at_iso: h.dropped_at_iso,
             reason: _dropUnpricedReason(h.penalty_basis) }));
         } catch (_) { heldUnpriced = []; }
+        // CLAIMED rows (discord_posted = 2) are out of the selection above too — listed here so none can go quiet: in flight (another
+        // run is posting it right now) or STUCK (older than any run can live, or this run could not settle it — the claim notes above).
+        const inFlightClaims = [], stuckClaims = [];
+        let claimsReadError = "";
+        try {
+          const cq = await env.UPS_MFL_DB.prepare(
+            `SELECT id, season, player_id, player_name, franchise_id, dropped_at_iso, discord_channel_id, discord_message_id FROM ups_drop_events
+              WHERE season IN (?, ?) AND league_id = ? AND discord_posted = ${DROP_DISCORD_CLAIMED}
+              ORDER BY dropped_at_unix ASC LIMIT 50`
+          ).bind(targetSeason, String((Number(targetSeason) || 0) - 1), leagueId).all();
+          for (const c of ((cq && cq.results) || [])) {
+            const m = /^claim:[^@]*@(.+)$/.exec(safeStr(c.discord_message_id));
+            const at = m ? Date.parse(m[1]) : NaN;
+            const age = Number.isFinite(at) ? Math.max(0, Math.floor((Date.now() - at) / 1000)) : null;   // no readable marker → age unknown → stuck
+            const brief = { row_id: c.id, season: safeStr(c.season), player_id: c.player_id, player_name: c.player_name,
+              franchise_id: padFranchiseId(c.franchise_id), dropped_at_iso: c.dropped_at_iso, channel_id: safeStr(c.discord_channel_id),
+              claimed_at: age == null ? null : new Date(at).toISOString(), age_sec: age };
+            if (age != null && age < DROP_DISCORD_CLAIM_STALE_SEC) inFlightClaims.push(brief);
+            else stuckClaims.push({ ...brief, reason: "claim_never_finalized" });
+          }
+        } catch (e) {
+          claimsReadError = String(e?.message || e).slice(0, 200);
+          console.error(`[drops post-discord] claimed-row read failed — a stuck drop card may be unreported: ${claimsReadError}`);
+        }
+        const claimReport = () => ({
+          in_flight_claims: inFlightClaims, stuck_claim_count: stuckClaims.length, stuck_claims: stuckClaims,
+          ...(stuckClaims.length ? { stuck_claims_note: "NOT re-posted (Discord may already have the card). Check the drops channel: card there → set discord_posted = 1 (and discord_message_id); not there → set discord_posted = 0 and the next run posts it." } : {}),
+          ...(claimsReadError ? { stuck_claims_error: claimsReadError } : {}),
+        });
 
         if (!rows || rows.length === 0) {
           return jsonOut(200, { ok: true, dry_run: dryRun, posted_count: 0, message: "No unposted drops.",
-            held_unpriced_count: heldUnpriced.length, held_unpriced: heldUnpriced });
+            held_unpriced_count: heldUnpriced.length, held_unpriced: heldUnpriced, ...claimReport() });
         }
 
         // EVERY season-dependent input below is the ROW's own season (r.season), never this request's. After Jan 1 the */5 cron
@@ -50141,10 +50232,33 @@ const mflToSleeper = {};
             continue;
           }
 
+          // CLAIM (default path): post only if THIS run moved the row 0 → 2. A run that loses the race skips the row and says so.
+          let claimToken = "";
+          if (claimMode) {
+            claimToken = `claim:${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`}@${new Date().toISOString()}`;
+            let claimRes;
+            try {
+              claimRes = await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_drop_events SET discord_posted = ${DROP_DISCORD_CLAIMED}, discord_channel_id = ?, discord_message_id = ?
+                  WHERE id = ? AND discord_posted = 0`
+              ).bind(channelId, claimToken, r.id).run();
+            } catch (e) {
+              // nothing was written, so nothing is posted: the row stays unposted and the next run retries it
+              results.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, tier, ok: false,
+                             error: `claim_failed: ${String(e?.message || e).slice(0, 200)}` });
+              continue;
+            }
+            if (Number(claimRes && claimRes.meta && claimRes.meta.changes) !== 1) {
+              results.push({ row_id: r.id, player_id: r.player_id, player_name: r.player_name, skipped: "claimed_by_other_run" });
+              continue;
+            }
+          }
+
           // Repost/correct: delete the stale message (and its thread, if the
           // thread has no other content it goes with the parent) before posting
           // the corrected one. Best-effort — a failed delete just leaves a dupe.
-          if (corrected && r.discord_message_id) {
+          // A claim marker is not a message id — there is nothing to delete.
+          if (corrected && r.discord_message_id && !/^claim:/.test(safeStr(r.discord_message_id))) {
             const oldCh = safeStr(r.discord_channel_id) || channelId;
             try {
               await discordBotRequest(botToken, "DELETE",
@@ -50166,8 +50280,31 @@ const mflToSleeper = {};
             postRes = { ok: false, status: 0, text: String(e?.message || e) };
           }
           const messageId = safeStr(postRes?.data?.id || "");
+          // A claim this run cannot settle is listed as STUCK right away (a later run lists it once the stale window has passed).
+          const holdClaim = (reason, extra) => {
+            const claimedAt = claimToken.slice(claimToken.indexOf("@") + 1);
+            stuckClaims.push({ row_id: r.id, season: rs, player_id: r.player_id, player_name: r.player_name,
+              franchise_id: padFranchiseId(r.franchise_id), dropped_at_iso: r.dropped_at_iso, channel_id: channelId,
+              claimed_at: claimedAt, age_sec: Math.max(0, Math.floor((Date.now() - Date.parse(claimedAt)) / 1000)), reason, ...(extra || {}) });
+            console.error(`[drops post-discord] id=${r.id} ${safeStr(r.player_name)}: ${reason} — claim HELD, never re-posted automatically` +
+              (extra && extra.message_id ? `; message ${extra.message_id} is live` : ""));
+          };
 
           if (postRes?.ok && messageId) {
+            // Recorded FIRST — before the best-effort thread — so a card is live with its row unrecorded for one write, not two
+            // Discord calls. Claimed: only while the row still holds THIS run's claim.
+            let recorded = true;
+            try {
+              const fin = await env.UPS_MFL_DB.prepare(
+                `UPDATE ups_drop_events
+                    SET discord_posted = 1,
+                        discord_channel_id = ?,
+                        discord_message_id = ?
+                  WHERE id = ?${claimToken ? ` AND discord_posted = ${DROP_DISCORD_CLAIMED} AND discord_message_id = ?` : ""}`
+              ).bind(channelId, messageId, r.id, ...(claimToken ? [claimToken] : [])).run();
+              if (claimToken) recorded = Number(fin && fin.meta && fin.meta.changes) === 1;
+            } catch (_) { if (claimToken) recorded = false; }
+            if (!recorded) holdClaim("posted_not_recorded", { message_id: messageId });
             // Thread-based (Keith 2026-07-20): open a discussion thread off the
             // drop message so drop chatter stays contained — same idiom as OTB
             // and the auction narrator. Best-effort; the message stands alone
@@ -50185,22 +50322,32 @@ const mflToSleeper = {};
                 dropThreadId = safeStr(thr?.data?.id || "");
               } catch (_) { /* thread is best-effort */ }
             }
-            try {
-              await env.UPS_MFL_DB.prepare(
-                `UPDATE ups_drop_events
-                    SET discord_posted = 1,
-                        discord_channel_id = ?,
-                        discord_message_id = ?
-                  WHERE id = ?`
-              ).bind(channelId, messageId, r.id).run();
-            } catch (_) {}
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
               tier, penalty, channel_id: channelId, message_id: messageId,
               thread_id: dropThreadId,
-              embed_count: embeds.length, ok: true,
+              embed_count: embeds.length, ok: true, ...(recorded ? {} : { recorded: false }),
             });
+          } else if (claimToken && !(Number(postRes?.status) > 0 && !postRes?.ok)) {
+            // NO answer from Discord (the connection failed or dropped) or a 2xx with no message id: the card may be live. HELD, and the
+            // batch stops — posting more into an unreachable Discord would only strand more cards.
+            holdClaim("post_outcome_unknown");
+            results.push({
+              row_id: r.id, player_id: r.player_id, player_name: r.player_name,
+              tier, ok: false, reason: "post_outcome_unknown", error: safeStr(postRes?.text).slice(0, 300),
+            });
+            break;
           } else {
+            // Discord answered and REFUSED the post — no card exists. Release the claim (the row's own ids restored, and only while it
+            // still holds THIS run's claim) so the next run retries. A release that fails leaves the claim held, listed as stuck.
+            if (claimToken) {
+              try {
+                await env.UPS_MFL_DB.prepare(
+                  `UPDATE ups_drop_events SET discord_posted = 0, discord_channel_id = ?, discord_message_id = ?
+                    WHERE id = ? AND discord_posted = ${DROP_DISCORD_CLAIMED} AND discord_message_id = ?`
+                ).bind(r.discord_channel_id ?? null, r.discord_message_id ?? null, r.id, claimToken).run();
+              } catch (_) { holdClaim("release_failed"); }
+            }
             results.push({
               row_id: r.id, player_id: r.player_id, player_name: r.player_name,
               tier, ok: false, error: safeStr(postRes?.text).slice(0, 300),
@@ -50211,14 +50358,16 @@ const mflToSleeper = {};
         }
 
         return jsonOut(200, {
-          ok: results.every((r) => r.ok !== false),
+          ok: results.every((r) => r.ok !== false && r.recorded !== false),
           dry_run: dryRun,
           target,
           channel_id: channelId,
-          posted_count: results.filter((r) => r.ok !== false && !r.held).length,
+          posted_count: results.filter((r) => r.ok !== false && !r.held && !r.skipped).length,
           failed_count: results.filter((r) => r.ok === false).length,
+          claimed_by_other_run_count: results.filter((r) => r.skipped === "claimed_by_other_run").length,
           held_unpriced_count: heldUnpriced.length,
           held_unpriced: heldUnpriced,
+          ...claimReport(),
           results,
         });
       }

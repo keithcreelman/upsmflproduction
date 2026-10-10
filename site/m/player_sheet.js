@@ -81,18 +81,6 @@
     return s;
   }
 
-  // ── Ownership: live MFL rosters through the shared rule
-  // (site/m/roster_ownership.js) — the same answer the Stats list shows on
-  // the row that opened this sheet. A player we can't find on a roster is a
-  // free agent ONLY when every franchise's roster loaded; otherwise he is
-  // "owner unknown" and is offered no add or bid.
-  function sheetOwner(pid) {
-    var O = window.UPS_MOBILE_OWNERSHIP;
-    var s = window.UPS_MOBILE.state;
-    if (!O) return { known: false, reason: "rosters_unreadable" };
-    return O.ownerOf(s.rosters, s.franchises || [], pid);
-  }
-
   var CAP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   // "2026-10-10T00:14:56.821Z" → "Oct 9, 8:14 PM" (viewer's clock); "" if unreadable.
   function capTime(iso) {
@@ -199,15 +187,16 @@
   }
 
   // The verified UPS owner, under the name: Your team / {franchise} / Free
-  // agent / Owner unknown — from the same rule as the Stats list's tag.
+  // agent / Owner unknown — the app's one ownership rule (DATA.ownerOfPid),
+  // the same one the Stats list's "TEAM · owner" tag reads.
   function ownerChipHtml(pid) {
-    var own = sheetOwner(pid);
+    var own = ownerOf(pid);
     var viewer = window.UPS_MOBILE.state.viewerFranchiseId;
     var cls, txt;
     if (!own.known) { cls = "unk"; txt = "Owner unknown"; }
-    else if (!own.fid) { cls = "fa"; txt = "Free agent"; }
+    else if (own.free) { cls = "fa"; txt = "Free agent"; }
     else if (viewer && U.pad4(viewer) === own.fid) { cls = "mine"; txt = "Your team"; }
-    else { cls = "other"; txt = own.name; }
+    else { cls = "other"; txt = own.name || "Rostered"; }
     return '<div class="ups-m-own-chip ' + cls + '">' + U.escapeHtml(txt) + '</div>';
   }
 
@@ -494,32 +483,43 @@
     return '<div class="ups-m-sheet-acq">' + parts.join("") + '</div>';
   }
 
+  // The player's owner by the app's one rule (app.js ownerOfPid): on a
+  // roster / a CONFIRMED free agent / unknown. No rosterRow is NOT proof of a
+  // free agent: an unreadable, empty or partial MFL rosters read can't find
+  // anyone. A missing helper is unknown (fail closed).
+  function ownerOf(pid) {
+    return (DATA.ownerOfPid && DATA.ownerOfPid(pid)) || { known: false, free: false, fid: "" };
+  }
+  // Why ownership is unknown, in one plain clause.
+  function unknownWhy() {
+    var own = DATA.rosterOwnership ? DATA.rosterOwnership() : null;
+    if (!own || !own.readable) return "MFL’s rosters couldn’t be read, so we can’t tell whether he’s available.";
+    return "MFL’s rosters didn’t fully load, so we can’t tell whether he’s available.";
+  }
+
   function renderActionsFooter(pid, rosterRow, ownsPlayer, opts) {
     opts = opts || {};
     if (!ownsPlayer) {
       var closeBtn = '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
-      var own = sheetOwner(pid);
-      // OWNER UNKNOWN (MFL's rosters unreadable or partial): no add, no bid.
-      // This used to fall through to the free-agent path — "no roster row"
-      // was read as "free agent" — so a failed or partial rosters read put
-      // Bid / Add now on players who are on someone's roster.
+      var own = ownerOf(pid);
+      // OWNERSHIP UNKNOWN (MFL's rosters unreadable or partial): no add, no
+      // bid, no FCFS — and no trade either, since we can't say whose he is.
       if (!own.known) {
-        return '<div class="ups-m-acq-note">' + U.escapeHtml(window.UPS_MOBILE_OWNERSHIP
-            ? window.UPS_MOBILE_OWNERSHIP.unknownReason(own) : "MFL’s rosters couldn’t be read.") +
-          ' No add or bid is offered until they load — tap ⟳ to reload.</div>' + closeBtn;
+        return '<div class="ups-m-sheet-acq"><div class="ups-m-acq-note">Ownership unknown — ' + U.escapeHtml(unknownWhy()) +
+          ' No add or bid until MFL’s rosters load; pull down to refresh.</div></div>' + closeBtn;
       }
       // Another team's player: Propose trade opens the EXISTING builder with
       // him preloaded on the "get" side. Opening it only reads both rosters;
       // nothing is sent until "Send offer" on its review step.
-      if (own.fid) {
+      if (!own.free) {
         var viewerFid = window.UPS_MOBILE.state.viewerFranchiseId;
-        var canTrade = viewerFid && window.UPS_MOBILE.tradeView && window.UPS_MOBILE.tradeView.openBuilder;
+        var canTrade = own.fid && viewerFid && window.UPS_MOBILE.tradeView && window.UPS_MOBILE.tradeView.openBuilder;
         return (canTrade
           ? '<div class="ups-m-sheet-actions one"><button class="btn-act trade" data-act="propose-trade" data-fid="' +
-              U.escapeHtml(own.fid) + '" data-pid="' + U.escapeHtml(String(pid)) + '">Propose trade to ' + U.escapeHtml(own.name) + '</button></div>'
+              U.escapeHtml(own.fid) + '" data-pid="' + U.escapeHtml(String(pid)) + '">Propose trade to ' + U.escapeHtml(own.name || "their team") + '</button></div>'
           : '') + closeBtn;
       }
-      // Confirmed free agent → the live acquisition path (unchanged).
+      // A CONFIRMED free agent → the live acquisition path (unchanged).
       return renderAcquisitionBlock(pid) + closeBtn;
     }
     var s = window.UPS_MOBILE.state;
@@ -2230,11 +2230,12 @@
       body.innerHTML = renderBioBlock(footerState.pid, currentBundle);
     } else {
       // Actions tab — contract context; the action buttons sit in the foot.
-      var own = sheetOwner(footerState.pid);
+      // No roster row is "Free agent" only for a CONFIRMED free agent.
       body.innerHTML = pointsSummaryHtml(footerState.pid) + (contractBlockHtml(footerState.pid, footerState.rosterRow) ||
-        '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">' +
-          (own.known ? "Free agent — no contract on file." : "No contract shown: his UPS owner can’t be confirmed right now.") +
-        '</div></div>');
+        (ownerOf(footerState.pid).free
+          ? '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>'
+          : '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Ownership unknown — couldn’t read all of MFL’s rosters, ' +
+            'so we can’t tell whether he’s on a team. Close this and pull down to refresh.</div></div>'));
     }
   }
   // ── Player News ───────────────────────────────────────────────────────────

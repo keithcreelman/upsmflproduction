@@ -3860,6 +3860,16 @@ button.ups-m-busy::before,
 .ups-m-fa-row.has-act { grid-template-columns: 28px 36px 1fr auto; }
 .ups-m-fa-row .sub .owned { color: var(--accent); font-weight: 600; }
 .ups-m-fa-row .sub .owned.you { color: var(--teal); }
+/* MFL's rosters read not confirmed complete (views/players.js rostersNoteHtml) */
+.ups-m-fa-row .sub .owned.unk { color: var(--fg-muted); }
+.ups-m-fa-own-act { margin-top: 12px; display: flex; justify-content: center; }
+.ups-m-fa-own-act .ups-m-btn-secondary { flex: 0 0 auto; padding: 9px 18px; }
+.ups-m-fa-own-note.inline {
+  display: flex; align-items: center; gap: 10px; margin: 0 12px 8px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; line-height: 1.45; color: var(--fg-muted);
+}
+.ups-m-fa-own-note.inline span { flex: 1 1 auto; min-width: 0; }
+.ups-m-fa-own-note.inline .ups-m-btn-secondary { flex: 0 0 auto; padding: 7px 12px; font-size: 12.5px; }
 .ups-m-fa-trade {
   align-self: center; flex: 0 0 auto;
   padding: 9px 11px; border-radius: 8px;

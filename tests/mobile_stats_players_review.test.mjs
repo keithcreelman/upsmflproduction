@@ -113,7 +113,7 @@ function boot(opt = {}) {
   ctx.window = ctx;
   ctx.addEventListener = () => {};
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
-  for (const f of ["site/m/season_scoring.js", "site/m/roster_ownership.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
+  for (const f of ["site/m/season_scoring.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
   const state = {
     ctx: { year: "2026", leagueId: "74598" }, players: { players: { player: PLAYERS } },
     rosters: "rosters" in opt ? opt.rosters : rostersPayload(),
@@ -128,7 +128,10 @@ function boot(opt = {}) {
   };
   ctx.state = state;
   vm.runInContext("var safeInt = this.__util.safeInt, safeStr = this.__util.safeStr;\n" + sliceFn(APP, "function getSeasonScoring(") + "\n" +
-    sliceFn(APP, "function capPenaltyFor(") + "\nthis.__ss = getSeasonScoring; this.__cap = capPenaltyFor;", ctx);
+    sliceFn(APP, "function capPenaltyFor(") + "\n" +
+    // the app's ONE ownership rule (#1208) — the Stats list and the sheet both read it
+    ["function findFranchiseById(", "function rosterOwnership(", "function ownerOfPid("].map((sig) => sliceFn(APP, sig)).join("\n") +
+    "\nthis.__ss = getSeasonScoring; this.__cap = capPenaltyFor; this.__own = ownerOfPid; this.__rosterOwn = rosterOwnership;", ctx);
   const byId = Object.fromEntries(PLAYERS.map((p) => [p.id, p]));
   const requests = [], builderCalls = [], els = {};
   const getEl = (id) => (els[id] = els[id] || makeEl(id));
@@ -151,6 +154,7 @@ function boot(opt = {}) {
       getSeasonScoring: () => ctx.__ss(),
       getAdvancedStatsLatestYear: () => 2026, getAdvancedStatsFor: () => null,
       capPenaltyFor: (id) => ctx.__cap(id),
+      ownerOfPid: (id) => ctx.__own(id), rosterOwnership: () => ctx.__rosterOwn(),
       capPenaltyMeta: () => state.capPenaltyMeta,
       dropPenaltyFor: () => ({ amount: 32426, authoritative: true }),
       getMyTradeBaitIds: () => new Set(), getMyTradeBaitNoteFor: () => "",
@@ -384,14 +388,14 @@ test("Routes appears once its source has rows", async () => {
 });
 
 // ═══ 5. Ownership — the list and the sheet agree; owner unknown is never offered Bid / Add ═══
-test("roster_ownership: no player id is 'owner unknown' (it read FA whenever rosters were complete)", () => {
+test("the app's ownership rule: no player id is 'owner unknown' (it read as a confirmed FA whenever rosters were complete)", () => {
   const v = boot();
-  const O0 = v.ctx.UPS_MOBILE_OWNERSHIP;
-  const O = { ownerOf: (...a) => JSON.parse(JSON.stringify(O0.ownerOf(...a))) };   // plain objects across the vm realm
-  t.deepEqual(O.ownerOf(v.state.rosters, v.state.franchises, ""), { known: false, reason: "no_player_id" });
-  t.deepEqual(O.ownerOf(v.state.rosters, v.state.franchises, null), { known: false, reason: "no_player_id" });
-  t.deepEqual(O.ownerOf(v.state.rosters, v.state.franchises, LOCK), { known: true, fid: null }, "a confirmed free agent");
-  t.equal(O.ownerOf(v.state.rosters, v.state.franchises, "0" + PURDY).name, "Blake Bombers", "ids normalize");
+  const own = (id) => JSON.parse(JSON.stringify(v.M.data.ownerOfPid(id)));   // plain objects across the vm realm
+  t.deepEqual(own(""), { known: false, free: false, fid: "" });
+  t.deepEqual(own(null), { known: false, free: false, fid: "" });
+  t.deepEqual(own(LOCK), { known: true, free: true, fid: "" }, "a confirmed free agent");
+  t.equal(own(PURDY).name, "Blake Bombers");
+  t.equal(read("site/m/views/stats.js").includes("UPS_MOBILE_OWNERSHIP"), false, "no second copy of the rule");
 });
 
 const rosterStates = {
@@ -412,7 +416,7 @@ for (const [label, opt] of Object.entries(rosterStates)) {
       if (/· owner unknown$/.test(row.tm)) {
         t.match(head, /ups-m-own-chip unk">Owner unknown</, FX.players[pid][0] + " chip");
         t.doesNotMatch(foot, /waiver-bid|waiver-add|propose-trade/, FX.players[pid][0] + ": no acquisition, no trade");
-        t.match(foot, /No add or bid is offered until they load/);
+        t.match(foot, /Ownership unknown — .* No add or bid until MFL’s rosters load/);
       } else {
         // positive evidence (found on a roster that DID load) still shows its owner
         t.ok(!/FA$/.test(row.tm), FX.players[pid][0] + " is never FA while rosters are incomplete: " + row.tm);

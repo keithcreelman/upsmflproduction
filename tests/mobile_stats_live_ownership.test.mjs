@@ -13,8 +13,17 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 
 const FX = JSON.parse(fs.readFileSync(new URL("./fixtures/mobile_stats_ownership_2026_10_09.json", import.meta.url), "utf8"));
 const STATS_SRC = fs.readFileSync(new URL("../site/m/views/stats.js", import.meta.url), "utf8");
-// The ownership rule itself lives in the shared helper both the list and the player sheet use.
-const OWN_SRC = fs.readFileSync(new URL("../site/m/roster_ownership.js", import.meta.url), "utf8");
+// The ownership rule itself is the app's one rule (app.js rosterOwnership / ownerOfPid, #1208), which the
+// list now reads like the player sheet, the Players market and search — sliced out, never re-typed.
+const sliceAppFn = (name) => {
+  const at = APP_SRC.indexOf("\n  function " + name + "(");
+  if (at < 0) throw new Error("app.js: no " + name);
+  let i = APP_SRC.indexOf("{", at), depth = 0;
+  for (; i < APP_SRC.length; i++) { if (APP_SRC[i] === "{") depth++; else if (APP_SRC[i] === "}" && --depth === 0) return APP_SRC.slice(at, i + 1); }
+  throw new Error("unbalanced: " + name);
+};
+const ownSrc = () => "var state = window.UPS_MOBILE.state;\n" + ["findFranchiseById", "rosterOwnership", "ownerOfPid"].map(sliceAppFn).join("\n") +
+  "\nwindow.UPS_MOBILE.data.rosterOwnership = rosterOwnership; window.UPS_MOBILE.data.ownerOfPid = ownerOfPid;";
 const APP_SRC = fs.readFileSync(new URL("../site/m/app.js", import.meta.url), "utf8");
 // The real mobile util helpers, sliced out of app.js (no hand-written look-alikes to drift).
 const utilSrc = ["safeStr", "pad4", "escapeHtml", "asArray"].map((name) => {
@@ -51,7 +60,7 @@ function boot({ rosters = FX.mfl_rosters, players = FX.mfl_players, franchises =
     fetch, console, setTimeout, clearTimeout, Promise, URL };
   vm.createContext(ctx);
   vm.runInContext(utilSrc + "window.UPS_MOBILE.util = { safeStr, pad4, escapeHtml, asArray };", ctx);
-  vm.runInContext(OWN_SRC, ctx);
+  vm.runInContext(ownSrc(), ctx);
   vm.runInContext(STATS_SRC, ctx);
   return { M, mount, els, render: () => views.stats(mount) };
 }

@@ -102,7 +102,10 @@ function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
     util: ctx.__util,
     state: { ctx: { year: "2026", leagueId: "74598" }, players: { players: { player: players } }, viewerFranchiseId: "0008",
       franchises: [], get waiverState() { return ctx.state.waiverState; }, lineupWeek: 4 },
+    // MFL's rosters read is complete and none of these four is on a roster: confirmed
+    // free agents (app.js rosterOwnership / ownerOfPid).
     data: { getAllRosteredPids: () => new Set(), getSeasonScoring: () => null, getAdvancedStatsMap: () => ({}), getAdvancedStatsLatestYear: () => 2026,
+      rosterOwnership: () => ({ readable: true, complete: true, missing: [], byPid: {} }), ownerOfPid: () => ({ known: true, free: true, fid: "" }),
       getYtdScoresMap: () => ({}), playerById: (id) => byId[String(id)] || null, computeCap: () => null, rosterCapMax: () => 30,
       getRosterFor: () => [], dropPenaltyFor: () => null },
     ui: { showToast() {} },

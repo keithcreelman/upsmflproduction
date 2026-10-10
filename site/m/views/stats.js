@@ -25,9 +25,10 @@
        the app read them. A stored copy that doesn't state its weeks shows no
        points at all rather than a guess.
 
-   OWNERSHIP comes from live MFL rosters via the shared rule in
-   site/m/roster_ownership.js (#1203) — never the leaderboard's
-   mfl_franchise_id. Positions display in MFL's vocabulary. */
+   OWNERSHIP comes from live MFL rosters through the app's one rule,
+   DATA.ownerOfPid / DATA.rosterOwnership (app.js, #1208) — the same answer the
+   player sheet, the Players market and search give — never the leaderboard's
+   mfl_franchise_id (#1203). Positions display in MFL's vocabulary. */
 (function () {
   "use strict";
   if (!window.UPS_MOBILE) return;
@@ -64,10 +65,8 @@
 
   function D() { return M.data || {}; }
   function SSMOD() { return window.UPS_MOBILE_SEASON_SCORING || null; }
-  function OWN() { return window.UPS_MOBILE_OWNERSHIP || null; }
+  // MFL player ids are digits; the leaderboard sends numbers, MFL strings.
   function pidKey(id) {
-    var O = OWN();
-    if (O) return O.pidKey(id);
     var d = String(id == null ? "" : id).replace(/\D/g, "");
     return d ? String(parseInt(d, 10)) : "";
   }
@@ -353,16 +352,19 @@
     return { label: wkShort(wk), weeks: wk, prior: false };
   }
 
-  // ── Ownership: live MFL rosters through the shared rule ──
+  // ── Ownership: the app's one rule (app.js rosterOwnership / ownerOfPid) ──
+  // A player on a roster is that franchise's; on NO roster he is a free agent
+  // ONLY when MFL's rosters are confirmed complete; otherwise "owner unknown",
+  // and neither the Rostered nor the Free agents filter pretends to know.
+  //   → { known: false } | { known: true, fid: null } (FA) | { known: true, fid, name }
   function ownerOf(pid) {
-    var O = OWN();
-    if (!O) return { known: false, reason: "rosters_unreadable" };   // helper missing → never guess FA
-    return O.ownerOf(M.state && M.state.rosters, (M.state && M.state.franchises) || [], pid);
+    var o = D().ownerOfPid ? D().ownerOfPid(pid) : null;   // helper missing → never guess FA
+    if (!o || !o.known) return { known: false };
+    return o.free ? { known: true, fid: null } : { known: true, fid: o.fid, name: o.name || "Rostered" };
   }
   function rostersComplete() {
-    var O = OWN();
-    var idx = O ? O.index(M.state && M.state.rosters, (M.state && M.state.franchises) || []) : null;
-    return { readable: !!idx, complete: !!(idx && idx.complete) };
+    var own = D().rosterOwnership ? D().rosterOwnership() : null;
+    return { readable: !!(own && own.readable), complete: !!(own && own.complete) };
   }
   // Player's CURRENT NFL team: the boot-loaded LIVE MFL players export first,
   // then the worker's current_team, then the season-stamped team.
