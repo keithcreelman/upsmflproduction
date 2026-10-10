@@ -1,6 +1,6 @@
 # UPS work system
 
-This is a process guide, not a live status page. GitHub issues and pull requests hold current work. Keith's private cross-project dashboard links to the UPS items; it must not expose job-search or business notes in this public repository.
+This is a process guide, not a live status page. GitHub issues and pull requests hold current work. Keith's private cross-project dashboard links to the UPS items; it must not expose private notes in this public repository.
 
 ## One work item, one outcome
 
@@ -53,4 +53,4 @@ Use RAG only when the task actually needs retrieval over a document corpus; expl
 
 ## Portfolio boundary
 
-The private cross-project dashboard contains four priorities: UPS, FIU Panthers, AI income experiments, and job search. This repository contains only UPS implementation work. The dashboard may link to public UPS PRs, but never put private career or other-project details here.
+The private dashboard also tracks work outside UPS. This repository contains only UPS implementation work. The dashboard may link to public UPS PRs, but never put private or other-project details here.
