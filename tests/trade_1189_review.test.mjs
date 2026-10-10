@@ -202,6 +202,42 @@ test("5. 3-WAY SEND (in-season): a 3-way that would leave a PARTNER with 6 activ
   });
 });
 
+// ── 6. the */5 cron runs the after-trade check as the LIVE MFL league year (league_year.js, as the drop pipeline since #1207) ──
+// Week 17 runs into January and MFL keeps the 2026 league live until its rollover (2027's exports 404). The cron used the
+// CALENDAR year, so from Jan 1 it checked a league that doesn't exist and left the season's open alerts unclosed.
+async function cronTick(nowIso, years) {
+  const realNow = Date.now, realFetch = globalThis.fetch;
+  const env = makeWorkerEnv({ TRADE_ROSTER_CHECK_ENABLED: "1", AUCTION_FAA_ENABLED: "0", DROP_TRACKER_ENABLED: "0" });
+  const selfCalls = [];
+  env.SELF = { fetch: async (u) => { selfCalls.push(String(u)); return new Response(JSON.stringify({ ok: true, findings: [] }), { status: 200, headers: { "content-type": "application/json" } }); } };
+  Date.now = () => Date.parse(nowIso);
+  globalThis.fetch = async (input) => {
+    const u = new URL(typeof input === "string" ? input : input.url);
+    const year = (u.pathname.match(/\/(\d{4})\//) || [])[1];
+    if (/myfantasyleague\.com$/.test(u.hostname) && u.searchParams.get("TYPE") === "league") {
+      const st = years[year];
+      if (st === "500") return new Response(JSON.stringify({ error: "MFL boom" }), { status: 500 });
+      if (!st) return new Response("<H1>Not Found</H1>", { status: 404, headers: { "content-type": "text/html" } });
+      return new Response(JSON.stringify({ version: "1.0", league: { id: "74598", history: { league: st.map((y) => ({ year: String(y) })) } } }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ error: "not served in this test" }), { status: 503, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const waits = [];
+    const worker = (await import("../worker/src/index.js")).default;
+    await worker.scheduled({ cron: "*/5 * * * *", scheduledTime: Date.parse(nowIso) }, env, { waitUntil: (p) => waits.push(p), passThroughOnException() {} });
+    await Promise.allSettled(waits);
+  } finally { Date.now = realNow; globalThis.fetch = realFetch; }
+  return selfCalls.filter((u) => /\/admin\/trades\/roster-check/.test(u)).map((u) => new URL(u).searchParams.get("YEAR"));
+}
+const HIST_2026 = Array.from({ length: 17 }, (_, i) => 2010 + i);   // the 2026 league's history lists 2010 … 2026
+test("6. CRON SEASON: on Sat 2027-01-02 (Week 17, the 2026 league live, 2027 not yet created) the check runs as 2026 — not 2027; unresolved → it checks nothing", async () => {
+  t.deepEqual(await cronTick("2027-01-02T18:00:00Z", { "2026": HIST_2026 }), ["2026"], "the live league year");
+  t.deepEqual(await cronTick("2026-11-20T18:00:00Z", { "2026": HIST_2026 }), ["2026"], "in-season, as before");
+  t.deepEqual(await cronTick("2027-03-20T18:00:00Z", { "2026": [...HIST_2026, 2027], "2027": [...HIST_2026, 2027] }), ["2027"], "after the rollover");
+  t.deepEqual(await cronTick("2027-01-02T18:00:00Z", { "2026": "500" }), [], "MFL can't say which league is live → no check this tick (never a guessed season)");
+});
+
 await run("trade_1189_review");
 restore();
 

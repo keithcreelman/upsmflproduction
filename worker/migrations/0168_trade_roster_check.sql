@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS ups_trade_roster_check (
   kind             TEXT NOT NULL,     -- 'roster' | 'qb'
   trade_ts         INTEGER NOT NULL,
   deadline_unix    INTEGER,
-  status           TEXT NOT NULL,     -- 'sending' | 'notified'
+  status           TEXT NOT NULL,     -- 'sending' | 'notified' | 'resolved' (MFL shows the team back within the limit)
   message          TEXT,
   notified_owner   INTEGER DEFAULT 0,
   notified_commish INTEGER DEFAULT 0,

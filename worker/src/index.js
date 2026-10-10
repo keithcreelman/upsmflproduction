@@ -7310,7 +7310,14 @@ export default {
           try {
             if (!env.SELF || !env.UPS_MFL_DB || !(await getFeatureFlag(env, "TRADE_ROSTER_CHECK_ENABLED"))) return;
             const rk = String(env.COMMISH_API_KEY || "").trim(); if (!rk) return;
-            const rs = String(env.YEAR || new Date().getUTCFullYear()), rl = String(env.LEAGUE_ID || "74598");
+            const rl = String(env.LEAGUE_ID || "74598");
+            // WHICH SEASON (review 2026-10-09): the LIVE MFL league year (league_year.js, the same resolver the drop pipeline
+            // uses since #1207), never the calendar year — Week 17 runs into January and the next year's league 404s until the
+            // rollover, so from Jan 1 the calendar year read a league that doesn't exist ("blind" every tick) and stopped
+            // closing or escalating the season's open alerts. Unresolved → this tick checks nothing (never a guessed season).
+            const live = await _liveDropLeagueYear(env, rl);
+            if (!live.ok) { console.log(`[roster-check] skipped: live MFL league year unresolved (${live.reason})`); return; }
+            const rs = live.season;
             const r = await env.SELF.fetch(`https://self.invalid/admin/trades/roster-check?L=${rl}&YEAR=${rs}&APIKEY=${encodeURIComponent(rk)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: rs, league_id: rl }) });
             const d = await r.json().catch(() => ({}));
             if (d && (d.ok === false || (d.findings && d.findings.length))) console.log("[roster-check]", JSON.stringify(d).slice(0, 600));
