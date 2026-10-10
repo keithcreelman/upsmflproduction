@@ -74,5 +74,28 @@ check("RB inside-5 carry counted", P["RB1"]["rush_att_i5"], 1)
 check("team: attempts / sacks / carries / scrambles", (T["rz_pass_att"], T["rz_sacks"], T["rz_carries"], T["rz_scrambles"]), (2, 1, 2, 1))
 check("team: targets need a receiver; end zone from anywhere", (T["rz_targets"], T["ez_targets"], T["ez_targets_i20"], T["i5_carries"]), (1, 2, 1, 1))
 check("team red-zone totals never touch the 4th-down columns", T["fourth_down_total"], None)
+
+# ---- the team's red-zone pass rate with HIM at QB (current-QB attribution) ----
+g = dict(base, game_id="2026_01_AAA_BBB", posteam="AAA")
+QPLAYS = pd.DataFrame([
+    {**g, "play_id": 10, "play_type": "run",  "yardline_100": 15, "rusher_player_id": "RB9"},                       # before any dropback -> QB1 (backfilled)
+    {**g, "play_id": 20, "play_type": "pass", "yardline_100": 60, "passer_player_id": "QB1", "receiver_player_id": "WR1"},
+    {**g, "play_id": 30, "play_type": "pass", "yardline_100": 12, "passer_player_id": "QB1", "sack": 1},           # QB1 sacked in the RZ: a dropback
+    {**g, "play_id": 40, "play_type": "run",  "yardline_100": 8,  "rusher_player_id": "RB9"},                       # designed run with QB1 in
+    {**g, "play_id": 50, "play_type": "pass", "yardline_100": 70, "passer_player_id": "QB2", "receiver_player_id": "WR1"},  # QB2 takes over
+    {**g, "play_id": 60, "play_type": "run",  "yardline_100": 18, "rusher_player_id": "QB2", "qb_scramble": 1},    # QB2 scramble: a dropback
+    {**g, "play_id": 70, "play_type": "run",  "yardline_100": 3,  "rusher_player_id": "RB9"},                       # designed run with QB2 in
+    {**g, "play_id": 80, "play_type": "pass", "yardline_100": 2,  "passer_player_id": "QB2", "receiver_player_id": "WR1", "two_point_attempt": 1},  # 2-pt: not counted
+])
+nflreadpy.load_pbp = lambda seasons=None: QPLAYS.copy()
+db2 = sqlite3.connect(":memory:"); F.ensure_table(db2)
+db2.execute("CREATE TABLE nfl_team_weekly (season INTEGER, week INTEGER, team TEXT, fourth_down_total INTEGER, fourth_down_go INTEGER,"
+            " fourth_down_punt INTEGER, fourth_down_fg INTEGER, stall_punts INTEGER, team_punts INTEGER, PRIMARY KEY (season, week, team))")
+F.process_season(db2, 2026, argparse.Namespace(skip_d1=True, skip_local=False), do_redzone=True, do_fg=False, do_punts=False, do_team=False)
+Q = {r[0]: (r[1], r[2]) for r in db2.execute("SELECT gsis_id, rz_qb_dropbacks, rz_qb_plays FROM nfl_player_redzone WHERE rz_qb_plays > 0")}
+check("QB1: the run before his first dropback, his sack and the run with him in = 1 dropback / 3 plays", Q.get("QB1"), (1, 3))
+check("QB2 after the mid-game change: his scramble and the run with him in = 1 / 2 (the 2-pt try never counts)", Q.get("QB2"), (1, 2))
+check("a running back is never 'the QB on the field'", "RB9" in Q, False)
+
 print(f"\n{'FAILED ' + str(fails) if fails else 'all passed'}")
 sys.exit(1 if fails else 0)

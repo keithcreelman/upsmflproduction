@@ -74,9 +74,31 @@ def compute(seasons: list[int]) -> list[tuple]:
         df = df[df["season_type"] == "REG"]
 
     acc: dict[tuple, dict] = {}
-    # The last REG week each season's rows include (every row of a season
-    # shares it: the play-by-play is aggregated whole).
+    # Only COMPLETE weeks (2026-10-10 QA): the Monday 05:00/13:00 UTC runs land
+    # before Monday Night Football, so the newest week in the play-by-play can
+    # be half played. A week counts once every one of its REG games has a
+    # final result in nflverse's schedule; later plays are left out and the
+    # app's "Wk 1–N" is never a week still being played. Without a schedule,
+    # the newest week is used as before.
     through = {int(s): int(w) for s, w in df.groupby("season")["week"].max().items()} if len(df) else {}
+    try:
+        sch = nfl.load_schedules(seasons)
+        sch = sch.to_pandas() if hasattr(sch, "to_pandas") else sch
+        sch = sch[sch["game_type"] == "REG"]
+        for season_ in list(through):
+            ss = sch[sch["season"] == season_]
+            if ss.empty:
+                continue
+            done = ss.groupby("week")["result"].apply(lambda r: r.notna().all())
+            full = 0
+            for w in sorted(done.index):
+                if not done[w]:
+                    break
+                full = int(w)
+            through[season_] = min(through[season_], full)
+        df = df[df.apply(lambda r: int(r["week"]) <= through.get(int(r["season"]), 99), axis=1)] if len(df) else df
+    except Exception as e:  # noqa: BLE001 — schedule is a guard, not a dependency
+        print(f"  (schedule unavailable: {type(e).__name__}; through_week = newest week in the play-by-play)", file=sys.stderr)
 
     def bump(season, gsis, **kw) -> None:
         if not isinstance(gsis, str) or not gsis.strip():

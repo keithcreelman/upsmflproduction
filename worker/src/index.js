@@ -12937,6 +12937,8 @@ export default {
                    a.pass_tds_i20,
                    CASE WHEN a.rz_v2 = 1 THEN a.pass_cmp_i20 END AS pass_cmp_i20,
                    CASE WHEN a.rz_v2 = 1 THEN a.sacks_i20 END    AS sacks_i20,
+                   CASE WHEN a.rz_v2 = 1 THEN a.rz_qb_dropbacks END AS rz_qb_dropbacks,
+                   CASE WHEN a.rz_v2 = 1 THEN a.rz_qb_plays END     AS rz_qb_plays,
                    a.rz_v2,
                    a.receiving_rat, a.passing_bad_throw_pct, a.passing_pressure_pct,
                    sv.s_rec_adot AS receiving_adot, sv.s_rec_air_yards AS receiving_air_yards,
@@ -12971,7 +12973,7 @@ export default {
           const COL_IDP = `a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
                    a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds, a.def_pressures,
                    a.def_missed_tackles, a.def_missed_tackle_pct, a.def_passer_rating_allowed,
-                   a.def_completions_allowed, a.def_yards_allowed, a.def_pfr_wks,
+                   a.def_completions_allowed, a.def_yards_allowed, a.def_pfr_wks, a.def_targets, sa.def_snaps_team,
                    sv.s_def_adot AS def_adot`;
           const COL_SPECIAL = `a.fg_att, a.fg_made, a.xp_att, a.xp_made,
                    a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
@@ -13015,6 +13017,7 @@ export default {
           const _gTeamSitu  = _useTeamSitu  ? "1=1" : "1=0";
           const _gSeasonAdv = _useSeasonAdv ? "1=1" : "1=0";
           const _gRedzone   = _useRedzone   ? "1=1" : "1=0";
+          const _gIdpSnaps  = _phase === "idp" ? "1=1" : "1=0";   // team_def_snaps (Snap% for defenders)
           const projection = COL_SHARED + ",\n                   " +
             (_phase === "idp" ? COL_IDP : _phase === "special" ? COL_SPECIAL : COL_OFFENSE);
           // IDP ranks/cuts are meaningless ordered by yardage — order defenders
@@ -13210,6 +13213,8 @@ export default {
                      SUM(COALESCE(rz.pass_tds_i20,0))                AS pass_tds_i20,
                      SUM(COALESCE(rz.pass_cmp_i20,0))                AS pass_cmp_i20,
                      SUM(COALESCE(rz.sacks_i20,0))                   AS sacks_i20,
+                     SUM(COALESCE(rz.rz_qb_dropbacks,0))             AS rz_qb_dropbacks,
+                     SUM(COALESCE(rz.rz_qb_plays,0))                 AS rz_qb_plays,
                      -- 1 when every red-zone row behind this player was built by
                      -- the 0168 ETL (pass_cmp_i20 / sacks_i20 exist, 2-pt tries
                      -- excluded, attempts exclude sacks). A row from the old ETL
@@ -13252,25 +13257,49 @@ export default {
                      SUM(CASE WHEN w.def_yards_allowed IS NOT NULL THEN w.def_yards_allowed
                               WHEN w.def_completions_allowed = 0 THEN 0 END)  AS def_yards_allowed,
                      SUM(w.def_pressures)                            AS def_pressures,
-                     COUNT(w.def_pressures)                          AS def_pfr_wks
+                     COUNT(w.def_pressures)                          AS def_pfr_wks,
+                     SUM(x.def_targets)                              AS def_targets
                 FROM nfl_player_weekly w
                 LEFT JOIN nfl_player_redzone rz
                        ON ${_gRedzone}
                       AND rz.season = w.season
                       AND rz.week   = w.week
                       AND rz.gsis_id = w.gsis_id
+                -- PFR coverage targets (0168) live in the _ext table; IDP only.
+                LEFT JOIN nfl_player_weekly_ext x
+                       ON ${_gIdpSnaps}
+                      AND x.season = w.season
+                      AND x.week   = w.week
+                      AND x.gsis_id = w.gsis_id
                WHERE w.season IN (${seasonList}) AND w.pos_group IN (${posList})
                  AND ${weekFilter}
                GROUP BY w.gsis_id
+            ),
+            -- The team's defensive snaps in each game (2026-10-10, IDP only):
+            -- nfl_player_snaps carries each player's share but no team total
+            -- (def_snaps_team is NULL), so it is read off the team's most-used
+            -- defender that game — max snaps ÷ max share is the team total
+            -- (exact when someone played 100%, as in 118 of 128 2026 team-games).
+            team_def_snaps AS (
+              SELECT season, week, team,
+                     CAST(ROUND(MAX(def_snaps) * 1.0 / NULLIF(MAX(def_snap_pct), 0)) AS INTEGER) AS team_def
+                FROM nfl_player_snaps
+               WHERE ${_gIdpSnaps} AND season IN (${seasonList})
+                 AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "week")}
+                 AND COALESCE(def_snaps, 0) > 0
+               GROUP BY season, week, team
             ),
             snap_agg AS (
               SELECT c.gsis_id,
                      SUM(COALESCE(s.off_snaps, 0)) AS off_snaps_total,
                      SUM(COALESCE(s.def_snaps, 0)) AS def_snaps_total,
                      AVG(COALESCE(s.off_snap_pct, 0.0)) AS off_snap_rate,
-                     AVG(COALESCE(s.def_snap_pct, 0.0)) AS def_snap_rate
+                     AVG(COALESCE(s.def_snap_pct, 0.0)) AS def_snap_rate,
+                     -- his team's defensive snaps in the games HE played on defense
+                     SUM(CASE WHEN COALESCE(s.def_snaps, 0) > 0 THEN tds.team_def END) AS def_snaps_team
                 FROM nfl_player_snaps s
                 JOIN id_pfr c ON c.pfr_id = s.pfr_id
+                LEFT JOIN team_def_snaps tds ON tds.season = s.season AND tds.week = s.week AND tds.team = s.team
                WHERE s.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
                  AND c.gsis_id IN (SELECT gsis_id FROM elig)

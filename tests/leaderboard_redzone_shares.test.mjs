@@ -100,16 +100,17 @@ test("QB inside-20: attempts, completions, TDs and sacks are separate; an old-ET
   const { env, wk, rz, xw, sn } = setup();
   xw.run(30010, "00-Q", "QqqqQq00");
   for (const w of [1, 2]) { wk.run(w, "00-Q", "QB", "QB", "AAA", 0, 0, 2, 30); sn.run(w, "QqqqQq00", "AAA", 60, 0); }
-  rz({ week: 1, gsis_id: "00-Q", pass_att_i20: 5, pass_cmp_i20: 4, pass_tds_i20: 2, sacks_i20: 1, rush_att_i20: 1, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
-  rz({ week: 2, gsis_id: "00-Q", pass_att_i20: 4, pass_cmp_i20: 3, pass_tds_i20: 1, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
+  rz({ week: 1, gsis_id: "00-Q", pass_att_i20: 5, pass_cmp_i20: 4, pass_tds_i20: 2, sacks_i20: 1, rush_att_i20: 1, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0, rz_qb_dropbacks: 7, rz_qb_plays: 11 });
+  rz({ week: 2, gsis_id: "00-Q", pass_att_i20: 4, pass_cmp_i20: 3, pass_tds_i20: 1, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0, rz_qb_dropbacks: 4, rz_qb_plays: 9 });
   const q = (await board(env, "qb"))["00-Q"];
   t.deepEqual([q.pass_att_i20, q.pass_cmp_i20, q.pass_tds_i20, q.sacks_i20, q.rush_att_i20, q.rz_v2], [9, 7, 3, 1, 1, 1]);
+  t.deepEqual([q.rz_qb_dropbacks, q.rz_qb_plays], [11, 20], "the team's red-zone dropbacks / plays with him at QB");
   // a week still holding a pre-0168 row (sacks_i20 NULL): completions/sacks are UNKNOWN for the season
   xw.run(30011, "00-R", "RrrrRr00");
   wk.run(1, "00-R", "QB", "QB", "BBB", 0, 0, 0, 25); sn.run(1, "RrrrRr00", "BBB", 55, 0);
   rz({ week: 1, gsis_id: "00-R", pass_att_i20: 6, pass_tds_i20: 1, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
   const r = (await board(env, "qb"))["00-R"];
-  t.deepEqual([r.pass_att_i20, r.pass_cmp_i20, r.sacks_i20, r.rz_v2], [6, null, null, 0], "NULL, never 0");
+  t.deepEqual([r.pass_att_i20, r.pass_cmp_i20, r.sacks_i20, r.rz_qb_plays, r.rz_v2], [6, null, null, null, 0], "NULL, never 0");
 });
 
 test("a season whose play-by-play wasn't re-run since 0168 has no team totals: shares are null, not a guess", async () => {

@@ -174,20 +174,36 @@ export const normTeam = (t) => {
  */
 export async function loadStarterRates(db, { season, completedWeek, byeWeek, zeros }) {
   const sw = (await db.prepare(
-    "SELECT player_id, week, pos_group, status, score FROM src_weekly WHERE season = ? AND week <= ? AND COALESCE(is_reg, 1) = 1"
+    "SELECT player_id, week, pos_group, status, score, roster_franchise_id FROM src_weekly WHERE season = ? AND week <= ? AND COALESCE(is_reg, 1) = 1"
   ).bind(season, completedWeek).all()).results || [];
   const snaps = (await db.prepare(
     "SELECT week, pfr_id, team, COALESCE(off_snaps,0) + COALESCE(def_snaps,0) + COALESCE(st_snaps,0) AS tot FROM nfl_player_snaps WHERE season = ? AND week <= ?"
   ).bind(season, completedWeek).all()).results || [];
-  // A week is FINAL here only once both of its sources have synced: every UPS
-  // franchise's starters (src_weekly) and the snap counts. Otherwise pending.
-  const startersByWeek = {}, snapWeeks = new Set();
-  for (const r of sw) if (r.status === "starter") startersByWeek[r.week] = (startersByWeek[r.week] || 0) + 1;
-  for (const r of snaps) snapWeeks.add(Number(r.week));
-  const maxStarters = Math.max(0, ...Object.values(startersByWeek));
+  // A week is FINAL here only once both of its sources have synced:
+  //   * lineups — every UPS franchise that set a lineup in any week has starter
+  //     rows that week (by FRANCHISE, so one empty lineup slot can't hold a
+  //     week "pending" forever);
+  //   * snap counts — rows for every team the schedule says played that week
+  //     (nfl_team_vegas_weekly), not merely one snap row. Without a schedule
+  //     row for the week, any snap rows count.
+  const franchisesByWeek = {}, allFranchises = new Set(), snapTeamsByWeek = {};
+  for (const r of sw) {
+    if (r.status !== "starter" || !r.roster_franchise_id) continue;
+    (franchisesByWeek[r.week] = franchisesByWeek[r.week] || new Set()).add(r.roster_franchise_id);
+    allFranchises.add(r.roster_franchise_id);
+  }
+  for (const r of snaps) (snapTeamsByWeek[r.week] = snapTeamsByWeek[r.week] || new Set()).add(r.team);
+  const expectedTeams = {};
+  try {
+    for (const r of (await db.prepare("SELECT week, COUNT(DISTINCT team) AS n FROM nfl_team_vegas_weekly WHERE season = ? AND week <= ? GROUP BY week")
+      .bind(season, completedWeek).all()).results || []) expectedTeams[r.week] = Number(r.n);
+  } catch (_) { /* no schedule table: any snap rows count */ }
   const finalWeeks = [], pendingWeeks = [];
   for (let w = 1; w <= completedWeek; w++) {
-    if (startersByWeek[w] && startersByWeek[w] >= maxStarters && snapWeeks.has(w)) finalWeeks.push(w); else pendingWeeks.push(w);
+    const lineups = franchisesByWeek[w] && franchisesByWeek[w].size >= allFranchises.size;
+    const nSnapTeams = snapTeamsByWeek[w] ? snapTeamsByWeek[w].size : 0;
+    const snapsIn = nSnapTeams > 0 && (!expectedTeams[w] || nSnapTeams >= expectedTeams[w]);
+    if (lineups && snapsIn) finalWeeks.push(w); else pendingWeeks.push(w);
   }
   const ids = new Map();   // mfl_id -> pfr_id
   const put = (rows, src) => { for (const r of rows || []) { const k = String(parseInt(r.mfl_id, 10)); if (!ids.has(k) && r.pfr_id && r.pfr_id !== "NA") ids.set(k, String(r.pfr_id)); } };

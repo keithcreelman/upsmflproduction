@@ -317,6 +317,7 @@ def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> in
     if df is None or df.empty:
         return 0
     rows = []
+    ext_rows = []      # (def_targets, season, week, gsis) -> nfl_player_weekly_ext (migration 0168)
     skipped = 0
     for row in df.to_dict(orient="records"):
         pfr = row.get("pfr_player_id") or row.get("pfr_id")
@@ -334,9 +335,14 @@ def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> in
         rat       = _col_float(row, "def_passer_rating_allowed", "passer_rating_allowed")
         yds_allow = _col_int(row, "def_yards_allowed", "yards_allowed")
         pressures = _col_int(row, "def_pressures", "pressures")
-        if all(x is None for x in (mt, mt_pct, cmp_allow, rat, yds_allow, pressures)):
+        # Targets in coverage (2026-10-10): nfl_player_weekly.def_targets existed
+        # but was never written, so Cmp could not be shown out of Tgt.
+        targets   = _col_int(row, "def_targets", "targets")
+        if all(x is None for x in (mt, mt_pct, cmp_allow, rat, yds_allow, pressures, targets)):
             continue
         rows.append((mt, mt_pct, cmp_allow, rat, yds_allow, pressures, season, week, gsis))
+        if targets is not None:
+            ext_rows.append((targets, season, week, gsis))
 
     if not rows:
         print(f"  [def] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
@@ -366,6 +372,22 @@ def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> in
          "def_passer_rating_allowed","def_yards_allowed","def_pressures"],
         rows, args.skip_d1, label="def",
     )
+    # Targets in coverage (2026-10-10): nfl_player_weekly is at D1's 100-column
+    # cap, so def_targets lives in nfl_player_weekly_ext (an upsert by PK).
+    if ext_rows:
+        if not args.skip_local:
+            try:
+                try:
+                    db.execute("ALTER TABLE nfl_player_weekly_ext ADD COLUMN def_targets INTEGER")
+                except sqlite3.OperationalError:
+                    pass
+                db.executemany(
+                    "INSERT INTO nfl_player_weekly_ext (def_targets, season, week, gsis_id) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(season, week, gsis_id) DO UPDATE SET def_targets = excluded.def_targets", ext_rows)
+                db.commit()
+            except sqlite3.OperationalError as e:
+                print(f"  [def-ext] local: FAILED ({e})", file=sys.stderr)
+        _dual_write_d1("nfl_player_weekly_ext", ["season", "week", "gsis_id"], ["def_targets"], ext_rows, args.skip_d1, label="def-ext")
     return len(rows)
 
 
