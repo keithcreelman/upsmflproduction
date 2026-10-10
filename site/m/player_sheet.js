@@ -15,6 +15,11 @@
   var activeTab = "actions";   // player sheet tab: actions | stats | news | bio
   var currentBundle = null;    // /api/player-bundle result for the open player
   var bundleState = "loading"; // "loading" | "ok" | "error" — the Stats tab never waits forever
+  // The game log's own read (/api/player-weekly-box, 2026-10-10): box score,
+  // snap counts and red-zone plays per week through the VERIFIED id map — the
+  // bundle's crosswalk predates the 2026 draft, so every rookie's log was
+  // empty. "unavailable" = the route isn't deployed: fall back to the bundle.
+  var weeklyBox = null, weeklyBoxState = "loading", glView = "box";
 
   // "2026-10-08" → "Oct 8, 2026". Same shape the Contracts list prints, so a
   // window date reads identically wherever the owner meets it. Parsed as a
@@ -488,6 +493,21 @@
     if (grp === "PN") return [["Punts", function (r) { return n(r.punts); }], ["Yds", function (r) { return n(r.punt_yds); }], ["I20", function (r) { return n(r.punt_inside20); }]];
     return [];
   }
+  // Red-zone view of the game log (QB/RB/WR/TE): inside the 20, two-point
+  // tries excluded. No red-zone row in a week he has a box score = no red-zone
+  // plays (0); a field the data doesn't have yet (pre-0168 rows) = "—".
+  function gameLogRzCols(grp) {
+    function n(v) { return v == null ? null : Number(v); }
+    if (grp === "QB") return [["Att", function (z) { return n(z.pass_att_i20); }], ["Cmp", function (z) { return n(z.pass_cmp_i20); }],
+      ["TD", function (z) { return n(z.pass_tds_i20); }], ["Sk", function (z) { return n(z.sacks_i20); }]];
+    if (grp === "RB") return [["Car", function (z) { return n(z.rush_att_i20); }], ["I5", function (z) { return n(z.rush_att_i5); }],
+      ["TD", function (z) { return n(z.rush_tds_i20); }], ["Tgt", function (z) { return n(z.targets_i20); }]];
+    if (grp === "WR" || grp === "TE") return [["Tgt", function (z) { return n(z.targets_i20); }], ["Rec", function (z) { return n(z.rec_i20); }],
+      ["TD", function (z) { return n(z.rec_tds_i20); }], ["EZ", function (z) { return n(z.targets_ez); }]];
+    return [];
+  }
+  var RZ_ZERO = { pass_att_i20: 0, pass_cmp_i20: 0, pass_tds_i20: 0, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, rush_tds_i20: 0,
+                  targets_i20: 0, rec_i20: 0, rec_tds_i20: 0, targets_ez: 0 };
   function gameLogHtml(pid, bundle, state) {
     var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
     var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
@@ -501,43 +521,72 @@
     var bye = byeCache.map ? byeCache.map[team] : null;
     var st = ss.byPid[String(pid)];
     var pts = (st && st.weeks) || {};
-    var box = {}, boxMax = 0;
-    U.asArray(bundle && bundle.nfl_weekly).forEach(function (r) {
-      if (r && Number(r.season) === season) { box[Number(r.week)] = r; boxMax = Math.max(boxMax, Number(r.week) || 0); }
-    });
-    var cols = gameLogCols(grp);
+    // Box score + snaps + red zone: the game log's own route when it answers,
+    // else the bundle's nfl_weekly (box only).
+    var wb = weeklyBoxState === "ok" && weeklyBox ? weeklyBox : null;
+    var box = {}, snaps = {}, rz = {}, boxMax = 0;
+    if (wb) {
+      U.asArray(wb.weeks).forEach(function (x) {
+        var w = Number(x.week);
+        if (x.box) { box[w] = x.box; boxMax = Math.max(boxMax, w); }
+        if (x.snaps) snaps[w] = x.snaps;
+        if (x.redzone) rz[w] = x.redzone;
+      });
+    } else {
+      U.asArray(bundle && bundle.nfl_weekly).forEach(function (r) {
+        if (r && Number(r.season) === season) { box[Number(r.week)] = r; boxMax = Math.max(boxMax, Number(r.week) || 0); }
+      });
+    }
+    var rzCols = wb ? gameLogRzCols(grp) : [];
+    var view = rzCols.length && glView === "rz" ? "rz" : "box";
+    var cols = view === "rz" ? rzCols : gameLogCols(grp);
     var live = {}; ss.liveWeeks.forEach(function (w) { live[w] = true; });
+    var boxState = wb ? "ok" : (weeklyBoxState === "loading" ? "loading" : state);
     // Most recent week first: by Week 17 the live week would otherwise sit at
     // the bottom of 17 rows.
     var byesKnown = !!byeCache.map && !byeCache.failed;
     var rows = [];
     for (var w = last; w >= 1; w--) {
-      var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null;
+      var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null, sn = snaps[w] || null;
+      var snapTot = sn ? (Number(sn.off) || 0) + (Number(sn.def) || 0) + (Number(sn.st) || 0) : null;
       var label, cls = "", ttl = "";
       if (has) label = (Math.round(pts[w] * 10) / 10).toFixed(1) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
       else if (bye === w) { label = "BYE"; cls = "bye"; }
       else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; ttl = "Not played yet"; }
+      // With snap counts: say what happened. A snap row with 0 snaps, or no
+      // snap row while his team played, is "no snaps" — not a guess.
+      else if (wb && wb.pfr_id && (snapTot === 0 || (!sn && w <= (wb.box_through_week || 0)))) { label = "0 snp"; cls = "dnp"; ttl = "His team played; he had no snaps"; }
       // DNP only when the bye list was read: otherwise a bye would be called DNP.
       else if (byesKnown) { label = "DNP"; cls = "dnp"; ttl = "No MFL score this week"; }
       else { label = "—"; cls = "dim"; }
+      var src = view === "rz" ? (rz[w] || (b ? RZ_ZERO : null)) : b;
       var cell = function (c) {
-        if (!b) return '<td>' + (state === "loading" && has ? "…" : "—") + '</td>';
-        var v = c[1](b); return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>';
+        if (!src) return '<td>' + (boxState === "loading" && has ? "…" : "—") + '</td>';
+        var v = c[1](src); return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>';
       };
       rows.push('<tr class="' + cls + '"' + (ttl ? ' title="' + ttl + '"' : "") + '><td>' + w + (b && b.opponent ? ' <small>' + U.escapeHtml(b.opponent) + '</small>' : '') + '</td><td class="pts">' + label + '</td>' +
         cols.map(cell).join("") + '</tr>');
     }
     var liveTxt = ss.liveWeeks.length ? " (● Wk " + ss.liveWeeks.join(", ") + " in progress)" : "";
-    return '<h4 class="ups-m-gl-h">' + season + ' game log</h4>' +
+    var toggle = rzCols.length
+      ? '<div class="ups-m-gl-views" role="group" aria-label="Game log view">' +
+          '<button type="button" data-glview="box" aria-pressed="' + (view === "box") + '"' + (view === "box" ? ' class="on"' : "") + '>Box score</button>' +
+          '<button type="button" data-glview="rz" aria-pressed="' + (view === "rz") + '"' + (view === "rz" ? ' class="on"' : "") + '>Red zone</button></div>'
+      : "";
+    var boxNote = boxState === "error" ? "Box score couldn’t be loaded — close and reopen to retry."
+      : boxState === "loading" ? "Loading the box score…"
+      : wb && !wb.gsis_id ? "Box score isn’t linked for him: there is no verified NFL id for this player yet, so only MFL points show."
+      : boxMax ? "Box score: nflverse" + (wb && wb.box_through_week ? ", Wks 1–" + wb.box_through_week : "; his latest row is Wk " + boxMax) + "."
+      : wb ? "No NFL stat rows for him this season" + (wb.box_through_week ? " (through Wk " + wb.box_through_week + ")" : "") + "."
+      : ss.finalThrough >= 1 && Object.keys(pts).length
+        ? "Box score isn’t linked for him: the player data has no NFL stat rows under his ID (often a rookie not yet matched), so only MFL points show."
+        : "No box score yet this season.";
+    return '<h4 class="ups-m-gl-h">' + season + ' game log</h4>' + toggle +
       '<div class="ups-m-gl-wrap"><table class="ups-m-gl-table"><thead><tr><th>Wk · opp</th><th>Pts</th>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join("") + '</tr></thead>' +
         '<tbody>' + rows.join("") + '</tbody></table></div>' +
       '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
-        (state === "error" ? "Box score couldn’t be loaded — close and reopen to retry." :
-          state === "loading" ? "Loading the box score…" :
-          boxMax ? 'Box score: nflverse; his latest row is Wk ' + boxMax + '.'
-            : ss.finalThrough >= 1 && Object.keys(pts).length
-              ? "Box score isn’t linked for him: the player data has no NFL stat rows under his ID (often a rookie not yet matched), so only MFL points show."
-              : 'No box score yet this season.') +
+        boxNote + (view === "rz" ? " Red zone: inside the opponent’s 20; two-point tries excluded; sacks are not attempts." : "") +
+        (wb && wb.pfr_id ? " 0 snp = his team played and he had no snaps." : "") +
         (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows —, not DNP." : " DNP = no MFL score in a finished week that wasn’t his bye.") +
         '</div>';
   }
@@ -608,6 +657,23 @@
           : ss.finalKnown ? " (final)" : "") +
         " · PPG rank needs " + min + "+ MFL wk" + (min === 1 ? "" : "s")
     };
+  }
+
+  var weeklyBoxCache = {};
+  function loadWeeklyBox(pid) {
+    var ctx = window.UPS_MOBILE.state.ctx || {};
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    var season = (ss && ss.season) || ctx.year;
+    var key = pid + "|" + season;
+    if (weeklyBoxCache[key]) return Promise.resolve(weeklyBoxCache[key]);
+    return fetch(API.workerUrl("/api/player-weekly-box?season=" + encodeURIComponent(season) + "&mfl_id=" + encodeURIComponent(pid) +
+        "&L=" + encodeURIComponent(ctx.leagueId || "")), { mode: "cors", credentials: "omit" })
+      .then(function (r) {
+        if (r.status === 404) return { state: "unavailable", data: null };
+        return r.ok ? r.json().then(function (j) { return j && j.ok ? { state: "ok", data: j } : { state: "error", data: null }; }) : { state: "error", data: null };
+      })
+      .then(function (res) { if (res.state === "ok") weeklyBoxCache[key] = res; return res; })
+      .catch(function () { return { state: "error", data: null }; });
   }
 
   function loadBundle(pid) {
@@ -2411,6 +2477,15 @@
   function renderTabBody() {
     var body = document.getElementById("ups-m-sheet-body");
     if (!body) return;
+    if (!body.__upsGlBound) {   // the game log's Box score / Red zone switch (delegated: the body re-renders)
+      body.__upsGlBound = true;
+      body.addEventListener("click", function (ev) {
+        var t = ev && ev.target && ev.target.closest ? ev.target.closest("[data-glview]") : null;
+        if (!t) return;
+        glView = t.getAttribute("data-glview") === "rz" ? "rz" : "box";
+        renderTabBody();
+      });
+    }
     if (activeTab === "stats") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats">' +
@@ -2684,6 +2759,7 @@
     // (shown only on the Actions tab). Stats/Bio lazy-render from the bundle.
     currentBundle = null;
     bundleState = "loading";
+    weeklyBox = null; weeklyBoxState = "loading"; glView = "box";
     activeTab = "actions";
     var tabsNav = document.getElementById("ups-m-sheet-tabs");
     if (tabsNav) tabsNav.innerHTML = renderTabNav();
@@ -2704,6 +2780,11 @@
      * just checked against footerState.pid instead of a DOM node's presence
      * since the bundle has no DOM identity of its own to test. */
     var pidAtFire = pid;
+    loadWeeklyBox(pid).then(function (res) {
+      if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
+      weeklyBox = res.data; weeklyBoxState = res.state;
+      if (activeTab === "stats") renderTabBody();
+    });
     loadBundle(pid).then(function (bundle) {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       currentBundle = bundle;
