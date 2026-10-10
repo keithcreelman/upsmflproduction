@@ -15,10 +15,15 @@
 //      which tab is unchanged (the leaderboard's rows and position group); the IDP tabs
 //      now SAY their list is capped at 500. Replacing that row source with MFL's is a
 //      separate, stacked PR.
-//   4. Controls: XpertRk gone, empty Routes hidden, SoSΔ / Market renamed.
+//   4. Controls (Keith 2026-10-10): PPG only in Fantasy pts; YPC and Targets; IDP sets without
+//      PPG; kicker distance bands and punter I20 as made/attempts; Schedule-adjusted, All-MFL
+//      usage and XpertRk removed; empty Routes hidden; every data heading sorts the WHOLE list,
+//      unavailable values last, with the direction shown.
 //   5. The sheet: verified owner chip; Propose trade through the existing builder;
-//      contract money from the worker's cap row (never ÷17); OWNER UNKNOWN is never
-//      offered Bid / Add; opening ANY player makes no write-route request.
+//      REMAINING GUARANTEED for the whole contract from the worker's cap row (never "salary −
+//      this season's earned", never ÷17), with a year-by-year split that must add up to the
+//      engine's figure; a weekly game log; OWNER UNKNOWN is never offered Bid / Add; opening
+//      ANY player makes no write-route request.
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -115,7 +120,8 @@ function boot(opt = {}) {
   ctx.window = ctx;
   ctx.addEventListener = () => {};
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
-  for (const f of ["site/m/season_scoring.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
+  // the shared contract parser the app loads (index.html: ../shared/cap_math.js)
+  for (const f of ["site/shared/cap_math.js", "site/m/season_scoring.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
   const state = {
     ctx: { year: "2026", leagueId: "74598" }, players: { players: { player: PLAYERS } },
     rosters: "rosters" in opt ? opt.rosters : rostersPayload(),
@@ -179,6 +185,8 @@ function boot(opt = {}) {
     else if (u.pathname === "/api/player-routes") body = { by_gsis: opt.routes || {} };
     else if (/^\/api\/(sos-adjusted-points|player-consistency|player-epa|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
     else if (u.pathname === "/api/mfl-market") body = { by_mfl: {} };
+    else if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "nflByeWeeks") body = opt.byes === null ? null : { nflByeWeeks: { team: FX.byes } };
+    else if (u.pathname === "/api/player-bundle") body = FX.bundles[u.searchParams.get("pid")] || {};
     return { ok: true, json: async () => body };
   };
   vm.runInContext(read("site/m/views/stats.js"), ctx);
@@ -208,7 +216,9 @@ function rowsOf(html) {
   return out;
 }
 const bands = (html) => [...html.matchAll(/<span class="band"[^>]*>([\s\S]*?)<\/span>(?=<span class="band|<span class="rk)/g)].map((m) => m[1].replace(/<[^>]+>/g, "").trim());
-const labels = (html) => [...html.matchAll(/<span class="v"[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
+// Column headings are sort buttons: label text before the direction glyph.
+const labels = (html) => [...html.matchAll(/class="ups-m-st-sort[^"]*" data-sort="([a-z0-9]+)"[^>]*>([^<]*)<i/g)].map((m) => m[2]);
+const sortState = (html) => [...html.matchAll(/aria-sort="([a-z]+)"><button type="button" class="ups-m-st-sort[^"]*" data-sort="([a-z0-9]+)"[^>]*>[^<]*<i aria-hidden="true">([^<]*)</g)].map((m) => m[2] + ":" + m[1] + ":" + m[3]);
 
 const PURDY = pidOf("Purdy, Brock"), DAK = pidOf("Prescott, Dak"), MASON = pidOf("Mason, Jordan"), ROUSSEAU = pidOf("Rousseau, Gregory");
 const LOCK = pidOf("Lock, Drew");
@@ -359,23 +369,114 @@ test("a stored copy that doesn't state its weeks (or is stale) shows NO points r
 });
 
 // ═══ 4. Controls ═══
-test("column sets: Fantasy pts first; XpertRk removed; SoSΔ → Schedule-adjusted / 'Adj ±'; Market → All-MFL usage; ≤ 4 numbers each", async () => {
+test("column sets: Fantasy pts first; PPG ONLY there; YPC and Targets; Schedule-adjusted, All-MFL usage and XpertRk gone; ≤ 4 numbers each", async () => {
   const v = boot();
   const html = await openTab(v, "WR");
   const sets = [...html.matchAll(/<option value="([a-z]+)"[^>]*>([^<]*)<\/option>/g)].map((m) => m[2]).filter((l) => !/^(All|Rostered|Free agents)$/.test(l));
-  t.deepEqual(sets, ["Fantasy pts", "Receiving", "Efficiency", "Schedule-adjusted", "Boom/Bust", "EPA", "All-MFL usage"], "Routes hidden: its source is empty for 2026");
+  t.deepEqual(sets, ["Fantasy pts", "Receiving", "Efficiency", "Boom/Bust", "EPA", "Next Gen"], "Routes hidden: its source is empty for 2026");
   const srcNoComments = read("site/m/views/stats.js").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-  t.ok(!/XpertRk|SoSΔ|l: "Market"|mrank/.test(srcNoComments), "no XpertRk column, no SoSΔ / Market labels in code");
-  const sos = await chooseSet(v, "sos");
-  t.deepEqual(labels(sos.head), ["Raw", "Adj", "Adj ±", "Wks"]);
-  t.deepEqual(bands(sos.head), ["Stored MFL pts · own wks"], "never under the live Fantasy pts period");
+  t.ok(!/XpertRk|SoSΔ|Schedule-adjusted|All-MFL usage|sos-adjusted-points|mfl-market|mrank/.test(srcNoComments), "no XpertRk, Schedule-adjusted or All-MFL usage left in the code (nor their requests)");
+  t.deepEqual(labels((await chooseSet(v, "receiving")).head), ["Tgt", "Rec", "RecYd", "RecTD"], "Receiving shows Targets");
+  t.deepEqual(labels((await chooseSet(v, "efficiency")).head), ["Tgt%", "Catch%", "Y/R"], "Efficiency: no PPG, no YPRR (no 2026 routes source)");
+  await openTab(v, "RB");
+  t.deepEqual(labels((await chooseSet(v, "rushing")).head), ["Att", "RuYd", "RuTD", "YPC"], "Rushing shows YPC");
   const boom = await chooseSet(v, "boom");
   t.deepEqual(labels(boom.head), ["Cons", "Boom%", "Bust%", "Wks"], "Boom/Bust carries the weeks ITS source counted");
-  t.match(boom.notes, /Wks = the weeks it counted/);
-  const usage = await chooseSet(v, "usage");
-  t.match(usage.notes, /all MFL leagues .* — not UPS/);
-  const setBlock = read("site/m/views/stats.js").slice(read("site/m/views/stats.js").indexOf("var TABS = ["), read("site/m/views/stats.js").indexOf("// scope:"));
-  for (const m of setBlock.matchAll(/cols: \[([^\]]*)\]/g)) t.ok(m[1].split(",").length <= 4, "≤ 4 columns: " + m[1]);
+  t.match(boom.notes, /Boom% = share of his weeks in the top quarter of every weekly score posted at his position this season; Bust% = the bottom quarter \(a 0\.0 week counts, even one he didn’t play\)\. Consistency: 100 = about the same score every week/, "plain-language explanation on screen");
+  const src = read("site/m/views/stats.js");
+  const setBlock = src.slice(src.indexOf("var TABS = ["), src.indexOf("// scope:"));
+  let n = 0;
+  for (const m of setBlock.matchAll(/id: "([a-z]+)",\s*l: "[^"]*",(?: needs: "[a-z]+",)?\s*cols: \[([^\]]*)\]/g)) {
+    n++;
+    t.ok(m[2].split(",").length <= 4, "≤ 4 columns: " + m[2]);
+    if (m[1] !== "fantasy") t.ok(!/"ppg"|"rcnt"/.test(m[2]), m[1] + " has no PPG");
+  }
+  t.ok(n >= 20, "checked every set definition (" + n + ")");
+});
+
+test("IDP sets: Tackles = Solo · Ast · TFL · Snaps (no FF, no PPG); Pass rush = Sk · Press · FF · Snaps; Coverage = INT · PD · Cmp · Yds", async () => {
+  const v = boot();
+  await openTab(v, "LB");
+  const tk = await chooseSet(v, "tackles");
+  t.deepEqual(labels(tk.head), ["Solo", "Ast", "TFL", "Snaps"]);
+  t.match(tk.head, /title="Solo tackles"/, "the label says Solo: the source counts solo tackles only");
+  const pr = await chooseSet(v, "passrush");
+  t.deepEqual(labels(pr.head), ["Sk", "Press", "FF", "Snaps"]);
+  t.deepEqual(bands(pr.head), ["nflverse Wk 1–4", "PFR Wk 1–4", "nflverse Wk 1–4"], "PFR pressures under their own band");
+  t.doesNotMatch(pr.head + pr.notes, /pressure rate|win rate/i, "no rate without a pass-rush-snap source");
+  const cv = await chooseSet(v, "coverage");
+  t.deepEqual(labels(cv.head), ["INT", "PD", "Cmp", "Yds"]);
+  t.match(cv.notes, /PFR shows 0, not —, when it has no record for a player/);
+});
+
+test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; punters: I20 as made/punts plus I20% — no PPG", async () => {
+  const v = boot();
+  await openTab(v, "PK");
+  t.deepEqual(labels((await chooseSet(v, "kicking")).head), ["FGM", "FGA", "FG%", "XPM"]);
+  const dist = await chooseSet(v, "distance");
+  t.deepEqual(labels(dist.head), ["0–39", "40–49", "50+"]);
+  const lb = FX.leaderboard.kicker, ix = (k) => lb.cols.indexOf(k);
+  const row = lb.rows.find((r) => r[ix("fg_att_50_59")] + r[ix("fg_att_60plus")] > 1);
+  const k = rowsOf(dist.list).find((r) => r.pid === String(row[0]));
+  t.deepEqual(k.cells, [row[ix("fg_made_0_39")] + "/" + row[ix("fg_att_0_39")], row[ix("fg_made_40_49")] + "/" + row[ix("fg_att_40_49")],
+    (row[ix("fg_made_50_59")] + row[ix("fg_made_60plus")]) + "/" + (row[ix("fg_att_50_59")] + row[ix("fg_att_60plus")])], "50+ = 50–59 + 60+");
+  t.match(dist.notes, /no split below 40 yards/);
+  await openTab(v, "PN");
+  const pn = await chooseSet(v, "punting");
+  t.deepEqual(labels(pn.head), ["Punts", "I20", "I20%", "Net"]);
+  const pl = FX.leaderboard.punter, pi = (k) => pl.cols.indexOf(k);
+  const rows = rowsOf(pn.list);
+  t.ok(rows.length >= 30);
+  for (const r of rows) {
+    const src = pl.rows.find((x) => String(x[0]) === r.pid);
+    t.equal(r.cells[1], src[pi("punt_inside20")] + "/" + src[pi("punts")], "numerator/denominator shown");
+    t.equal(r.cells[2], Math.round(src[pi("punt_inside20")] / src[pi("punts")] * 100) + "%");
+  }
+  t.match(pn.notes, /touchbacks aren’t charged 20 yards/);
+});
+
+test("sorting: every data heading sorts the WHOLE filtered list; '—' stays last both ways; ▼/▲ + aria-sort shown; # restores the default", async () => {
+  const v = boot();
+  await openTab(v, "RB");
+  const set = await chooseSet(v, "rushing");
+  t.deepEqual(sortState(set.head), ["ruatt:none:⇅", "ruyd:none:⇅", "rutd:none:⇅", "ypc:none:⇅"], "every heading is a sort button");
+  const head = v.getEl("ups-m-st-head");
+  const tap = async (key) => { head.fire("click", { target: { closest: () => ({ getAttribute: () => key }) } }); await settle(); return { list: v.getEl("ups-m-st-listwrap").innerHTML, head: head.innerHTML }; };
+  const s1 = await tap("ypc");
+  t.deepEqual(sortState(s1.head).pop(), "ypc:descending:▼");
+  const lb = FX.leaderboard.skill, ix = (k) => lb.cols.indexOf(k);
+  const all = lb.rows.filter((r) => r[ix("pos_group")] === "RB");
+  const ypcOf = (r) => (r[ix("rush_att")] >= 10 ? r[ix("rush_yds")] / r[ix("rush_att")] : null);
+  const withVal = all.filter((r) => ypcOf(r) != null).sort((a, b) => ypcOf(b) - ypcOf(a));
+  const shown = rowsOf(s1.list);
+  t.equal(shown[0].pid, String(withVal[0][0]), "the best YPC in the WHOLE list leads (not just the top 150 by PPG)");
+  const firstDash = shown.findIndex((r) => r.cells[3] === "—");
+  t.equal(firstDash, withVal.length, "every player with a YPC comes before every '—'");
+  t.ok(shown.slice(firstDash).every((r) => r.cells[3] === "—"));
+  for (let i = 1; i < firstDash; i++) t.ok(+shown[i - 1].cells[3] >= +shown[i].cells[3], "descending");
+  t.match(s1.list, /sorted by YPC, high to low; players without a value are listed last/);
+  const s2 = await tap("ypc");
+  t.deepEqual(sortState(s2.head).pop(), "ypc:ascending:▲");
+  const asc = rowsOf(s2.list);
+  t.equal(asc[0].pid, String(withVal[withVal.length - 1][0]), "low to high");
+  t.equal(asc.findIndex((r) => r.cells[3] === "—"), withVal.length, "'—' still last when ascending");
+  const s3 = await tap("ypc");
+  t.deepEqual(sortState(s3.head).pop(), "ypc:none:⇅", "third tap: back to the default order");
+  t.equal(rowsOf(s3.list)[0].rk, "1");
+  await tap("ruyd");
+  const s4 = await tap("");
+  t.equal(rowsOf(s4.list)[0].rk, "1", "# puts the default order back");
+  await tap("ruyd");
+  const sel = v.getEl("ups-m-st-scope"); sel.value = "fa"; sel.fire("change", { target: sel }); await settle();
+  const fa = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML);
+  t.ok(fa.length > 0 && fa.every((r) => /· FA$/.test(r.tm)), "Free agents only, still sorted");
+  for (let i = 1; i < fa.length; i++) if (fa[i].cells[1] !== "—" && fa[i - 1].cells[1] !== "—") t.ok(+fa[i - 1].cells[1] >= +fa[i].cells[1]);
+  sel.value = "all"; sel.fire("change", { target: sel }); await settle();
+  // the sort holds across a set change only while its column is on screen
+  const recv = await chooseSet(v, "receiving");
+  t.ok(!/data-sort="ruyd"/.test(recv.head) && /#<i aria-hidden="true">•/.test(recv.head), "a set without that column falls back to the default order");
+  await openTab(v, "WR");
+  t.ok(!/class="ups-m-st-sort on" data-sort="[a-z]/.test(v.mount.innerHTML), "changing position resets the sort");
 });
 
 test("Routes appears once its source has rows", async () => {
@@ -485,52 +586,143 @@ test("the real drop is still ERA-protected server-side: the worker gates drop_pl
 
 // ═══ 5b. Contract money from the worker's cap row — never ÷17 ═══
 const bodyOf = (v, pid) => { v.ctx.UPS_MOBILE.sheet.open(pid); return v.getEl("ups-m-sheet-body").innerHTML.replace(/&amp;/g, "&"); };
-const kv = (html) => Object.fromEntries([...html.matchAll(/<div class="lbl[^"]*">([^<]*)<\/div><div class="val[^"]*">([^<]*)<\/div>/g)].map((m) => [m[1], m[2]]));
+const kv = (html) => Object.fromEntries([...html.matchAll(/<div class="lbl[^"]*">([^<]*)<\/div><div class="val[^"]*">([^<]*)/g)].map((m) => [m[1], m[2]]));
 
-test("Purdy (another team's player): salary, window, per week, earned through Wk 4, still due, and the arithmetic — all the worker's", () => {
+// The worked examples (agent review 2026-10-10, canon §D1/§6.C1/§C5.1): remaining guaranteed =
+// max(0, 75% × TCV − all salary earned under the contract) = the cap engine's `penalty` for the
+// standard rule — NOT "salary − this season's earned".
+const moneyOf = (v, pid) => { v.ctx.UPS_MOBILE.sheet.open(pid); const b = v.getEl("ups-m-sheet-body").innerHTML.replace(/&amp;/g, "&"); return { body: b, f: kv(b), years: yearRows(b) }; };
+const yearRows = (html) => [...html.matchAll(/<tr(?: class="[^"]*")?><td>(\d{4}|Total)<\/td>([\s\S]*?)<\/tr>/g)].map((m) => [m[1], ...[...m[2].matchAll(/<td[^>]*>([^<]*)<\/td>/g)].map((x) => x[1])]);
+
+test("REMAINING GUARANTEED, whole contract: Purdy $17,824 — year by year, adding up to the cap engine's figure, with the arithmetic", () => {
   const v = boot();
-  const body = bodyOf(v, PURDY), f = kv(body);
-  t.equal(f["Salary"], "$22,000");
-  t.equal(f["Earning window"], "Wks 1–17 · 17 wks");
-  t.equal(f["Per week"], "$1,294");
-  t.equal(f["Earned to date"], "$5,176 · thru Wk 4", "worker current_year_earned 5176, earned_through_week 4");
-  t.equal(f["Still due this season"], "$16,824");
-  t.match(body, /\$22,000 ÷ 17 eligible weeks \(Wks 1–17, from the week this contract began\) = \$1,294 a week\. Earned through Wk 4 = \$22,000 × 4 ÷ 17 = \$5,176, rounded once on the total\. Still due = \$22,000 − \$5,176\. League cap engine, calculated Oct \d+, \d{1,2}:\d{2} (AM|PM)\./);
-  t.equal(f["Length"], "3 yrs"); t.equal(f["Total value"], "$84,000"); t.equal(f["Guaranteed"], "$63,000");
-  t.equal(f["By year"], "Y1 $40K · Y2 $22K · Y3 $22K");
+  const { body, f, years } = moneyOf(v, PURDY);
+  t.equal(f["Remaining guaranteed"], "$17,824");
+  t.match(body, /of \$63,000 guaranteed \(75% of \$84,000\)/);
+  t.equal(f["Earned so far"], "$45,176");
+  t.match(body, /2025 \$40,000 · 2026 \$5,176 thru Wk 4/);
+  t.deepEqual(years, [["2025", "40,000", "40,000", "40,000", "0"], ["2026", "22,000", "5,176", "22,000", "16,824"],
+    ["2027", "22,000", "0", "1,000", "1,000"], ["Total", "84,000", "45,176", "63,000", "17,824"]]);
+  t.equal(f["2026 salary"], "$22,000"); t.equal(f["Earning window"], "Wks 1–17 · 17 wks"); t.equal(f["Per week"], "$1,294");
+  t.equal(f["Earned this season"], "$5,176 · thru Wk 4");
+  t.match(body, /Guaranteed = 75% of the \$84,000 total value = \$63,000\. Earned counts each finished season in full \(\$40,000\) plus this season by completed week: \$22,000 × 4 ÷ 17 = \$5,176 \(window Wks 1–17, from the week this contract began\)\. Remaining guaranteed = \$63,000 − \$45,176 = \$17,824, what cutting him now would cost before the team’s rounding\. By year the guarantee is used up in order, leaving 2026 \$16,824 and 2027 \$1,000\. League cap engine, calculated Oct \d+, \d{1,2}:\d{2} (AM|PM)\./);
+  t.doesNotMatch(body, /Still due this season/, "the one-season figure is gone");
 });
 
-test("the window is the contract's OWN (eligible_weeks): Shipley's Week-5 claim earns over 13 weeks → $846/wk, never $11,000 ÷ 17", () => {
-  const row = FX.cap_rows["16601"];
-  t.ok(row, "Shipley's cap row is in the fixture");
-  const v = boot();
-  const f = kv(bodyOf(v, "16601"));
-  t.equal(f["Earning window"], "Wks " + (18 - row.eligible_weeks) + "–17 · " + row.eligible_weeks + " wks");
-  t.equal(f["Per week"], "$" + Math.round(row.current_year_salary / row.eligible_weeks).toLocaleString("en-US"));
-  t.notEqual(f["Per week"], "$" + Math.round(row.current_year_salary / 17).toLocaleString("en-US"));
+test("Keith's $88,000 (Josh Allen, one year): remaining guaranteed $45,294 — never $88,000 − this season's earned ($67,294)", () => {
+  const { body, f, years } = moneyOf(boot(), "13589");
+  t.equal(f["Remaining guaranteed"], "$45,294");
+  t.match(body, /of \$66,000 guaranteed \(75% of \$88,000\)/);
+  t.deepEqual(years, [["2026", "88,000", "20,706", "66,000", "45,294"], ["Total", "88,000", "20,706", "66,000", "45,294"]], "a one-year deal's only year is this season's salary");
+  t.doesNotMatch(body, /67,294/);
 });
 
-test("unpriceable → a stated reason, never a local estimate", () => {
+test("every contract shape matches the cap engine: back-loaded, restructured, rookie option, waiver window, bare tokens, flat and $0 rules", () => {
   const cases = [
-    [{ capMeta: null }, /Loading this contract’s earned-to-date/],
+    ["14777", "Burrow (back-loaded)", "$80,412", [["2026", "28,000", "6,588", "28,000", "21,412"], ["2027", "88,000", "0", "59,000", "59,000"]]],
+    ["15281", "Chase (restructured)", "$90,632", [["2026", "26,000", "6,118", "26,000", "19,882"], ["2027", "103,000", "0", "70,750", "70,750"]]],
+    ["17042", "Jeanty (rookie)", "$15,221", [["2025", "15,000", "15,000", "15,000", "0"], ["2026", "15,000", "3,529", "15,000", "11,471"], ["2027", "15,000", "0", "3,750", "3,750"]]],
+    ["16601", "Shipley (Week-5 waiver)", "$8,250", [["2026", "11,000", "0", "8,250", "8,250"]]],
+    ["12263", "Waller (Week-3 waiver)", "$3,083", [["2026", "5,000", "667", "3,750", "3,083"]]],
+    ["12620", "Prescott (one year)", "$32,426", null],
+    ["14778", "Tua (guarantee fully earned)", "$0", null],
+    ["15799", "Ferguson (bare Y1-11 tokens)", "$8,059", [["2025", "11,000", "11,000", "11,000", "0"], ["2026", "21,000", "4,941", "13,000", "8,059"]]],
+  ];
+  const v = boot();
+  for (const [pid, who, amt, yrs] of cases) {
+    const { body, f, years } = moneyOf(v, pid);
+    t.equal(f["Remaining guaranteed"], amt, who);
+    t.equal(f["Remaining guaranteed"], "$" + FX.cap_rows[pid].penalty.toLocaleString("en-US"), who + " = the engine's penalty");
+    if (yrs) t.deepEqual(years.filter((y) => y[0] !== "Total" && y.length === 5), yrs, who + " by year");
+    t.doesNotMatch(body, /Still due this season/);
+  }
+  const jeanty = moneyOf(v, "17042");
+  t.match(jeanty.body, /<tr class="opt"><td>2028<\/td><td>20,000<\/td><td colspan="3">option — not exercised<\/td><\/tr>/, "the rookie option year is not part of the contract");
+  const ship = moneyOf(v, "16601");
+  t.equal(ship.f["Earning window"], "Wks 5–17 · 13 wks"); t.equal(ship.f["Per week"], "$846", "$11,000 ÷ 13, never ÷ 17");
+});
+
+test("the other rules say what they are: taxi $0, sub-$5K flat $1,000 (DeJean: not $529), small waiver deal $0", () => {
+  const v = boot();
+  const corum = moneyOf(v, "16593");
+  t.equal(corum.f["Remaining guaranteed"], "$0"); t.match(corum.body, /Taxi-squad players carry no guarantee/);
+  const watson = moneyOf(v, "13113");
+  t.equal(watson.f["Remaining guaranteed"], "$1,000 flat"); t.match(watson.body, /\$1,000-a-year contract costs a flat \$1,000/);
+  const dejean = moneyOf(v, "16675");
+  t.equal(dejean.f["Remaining guaranteed"], "$1,000 flat"); t.doesNotMatch(dejean.body, /\$529/);
+  const fant = moneyOf(v, "14137");
+  t.equal(fant.f["Remaining guaranteed"], "$0"); t.match(fant.body, /waiver deal of \$4K or less carries no guarantee/);
+});
+
+test("unpriceable → a stated reason, never a local estimate (and a split that doesn't add up is never shown)", () => {
+  const cases = [
+    [{ capMeta: null }, /Loading the remaining guarantee from the league cap engine/],
     [{ capMeta: { status: "error" } }, /couldn’t be reached\. Reload to retry — nothing is estimated in its place/],
     [{ capRows: {} }, /isn’t in the league cap engine’s list/],
-    [{ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { eligible_weeks: null }) } }, /couldn’t resolve this contract’s earning window .* never assumed to be 17 weeks/],
-    [{ capRows: { [PURDY]: (({ eligible_weeks, ...r }) => r)(FX.cap_rows[PURDY]) } }, /never assumed to be 17 weeks/],
     [{ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { needs_review: true, review_reason: "unstamped contract" }) } }, /under review \(unstamped contract\)/],
+    [{ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { penalty: 1 }) } }, /figures for this contract don’t reconcile/],
+    [{ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { basis: "something_new" }) } }, /a rule this screen doesn’t describe \(something_new\)/],
   ];
   for (const [opt, re] of cases) {
-    const body = bodyOf(boot(opt), PURDY), f = kv(body);
+    const { body, f } = moneyOf(boot(opt), PURDY);
     t.match(body, re, JSON.stringify(opt).slice(0, 60));
-    t.equal(f["Salary"], "$22,000", "salary (MFL's) still shows");
-    t.equal(f["Earned to date"], undefined, "no earned number");
-    t.equal(f["Still due this season"], undefined);
-    t.doesNotMatch(body, /\$1,294|\$5,176/, "nothing computed locally");
+    t.equal(f["Remaining guaranteed"], undefined, "no figure");
+    t.doesNotMatch(body, /\$17,824|\$1,294|\$5,176/, "nothing computed locally");
   }
-  const full = kv(bodyOf(boot({ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { earned_rule: "full_year_sub_5k", current_year_earned: null }) } }), PURDY));
-  t.equal(full["Earned to date"], "Full-year rule");
-  const ww = kv(bodyOf(boot({ capRows: { [PURDY]: Object.assign({}, FX.cap_rows[PURDY], { earned_rule: "ww_earned_na", current_year_earned: null }) } }), PURDY));
-  t.equal(ww["Earned to date"], "n/a");
+  // a schedule that doesn't sum to TCV: totals stay (the engine's), the year split is hidden
+  const bad = rostersPayload((r) => { const p = r.franchise.flatMap((f) => f.player).find((x) => x.id === PURDY); p.contractInfo = "CL 3| TCV 84K| AAV 28K| Y1-40K, Y2-22K"; });
+  const m = moneyOf(boot({ rosters: bad }), PURDY);
+  t.equal(m.f["Remaining guaranteed"], "$17,824");
+  t.equal(m.years.length, 0); t.match(m.body, /year-by-year schedule for this contract is incomplete/);
+});
+
+// ═══ 5c. Weekly game log (Stats tab) ═══
+async function gameLog(v, pid) {
+  v.ctx.UPS_MOBILE.sheet.open(pid);
+  await settle();
+  v.getEl("ups-m-sheet-tabs").fire("click", { target: { closest: () => ({ getAttribute: () => "stats" }) } });
+  await settle(); await settle();
+  const html = v.getEl("ups-m-sheet-body").innerHTML;
+  const t0 = html.indexOf('class="ups-m-gl-table"');
+  const rows = t0 < 0 ? [] : [...html.slice(t0).matchAll(/<tr class="([^"]*)"><td>(\d+)(?: <small>([^<]*)<\/small>)?<\/td><td class="pts">([\s\S]*?)<\/td>([\s\S]*?)<\/tr>/g)]
+    .map((m) => ({ cls: m[1], wk: +m[2], opp: m[3] || "", pts: m[4].replace(/<span class="ups-m-gl-live"[^>]*><\/span>/, "●"), stats: [...m[5].matchAll(/<td>([^<]*)<\/td>/g)].map((x) => x[1]) }));
+  return { html, rows, head: (/<table class="ups-m-gl-table"><thead><tr>([\s\S]*?)<\/tr>/.exec(html) || [])[1] || "" };
+}
+test("game log: every week of the season — MFL points per week (= W=ALL), that week's box score from the bundle, ● on the week in progress", async () => {
+  const v = boot();
+  const g = await gameLog(v, PURDY);
+  t.deepEqual(g.rows.map((r) => r.wk), [1, 2, 3, 4, 5]);
+  for (const r of g.rows.slice(0, 4)) t.equal(r.pts, Number(FX.weeks[String(r.wk)][PURDY]).toFixed(1), "Wk " + r.wk + " = MFL's own score");
+  const b4 = FX.bundles[PURDY].nfl_weekly.find((x) => x.week === 4);
+  t.deepEqual(g.rows[3].stats, [b4.pass_cmp + "/" + b4.pass_att, String(b4.pass_yds), b4.pass_tds + "-" + b4.pass_ints, b4.rush_att + "-" + b4.rush_yds], "QB: C/A · Yds · TD-Int · Rush");
+  t.equal(g.rows[3].opp, b4.opponent);
+  t.deepEqual([g.rows[4].pts, g.rows[4].cls], ["—", "dim"], "Wk 5 in progress and SF hasn't played: not called DNP");
+  t.match(g.html, /Pts: actual MFL points, UPS scoring, Wks 1–5 \(● Wk 5 in progress\)\. Box score: nflverse, through Wk 4\./);
+  // a live-week score is marked; its box score waits for the nflverse refresh
+  const aub = await gameLog(v, "16414");
+  const w5 = aub.rows.find((r) => r.wk === 5);
+  t.equal(w5.pts, Number(FX.weeks["5"]["16414"]).toFixed(1) + "●");
+  t.deepEqual(w5.stats, ["—", "—"], "kicker: FG · XP — no Week 5 box score yet");
+  t.match(aub.head, /<th>FG<\/th><th>XP<\/th>/);
+  const watt = await gameLog(v, "13214");
+  t.match(watt.head, /<th>Solo<\/th><th>Ast<\/th><th>Sk<\/th><th>TFL<\/th>/, "IDP columns");
+});
+
+test("game log: BYE on his team's bye week (MFL's list), DNP for a finished week with no MFL score; bye list unreadable → says so", async () => {
+  const v = boot();
+  // Week 5 byes: CAR and KCC. A CAR player with a score in earlier weeks:
+  const car = Object.keys(FX.players).find((id) => FX.players[id][2] === "CAR" && FX.players[id][1] === "QB" && FX.weeks["1"][id] != null);
+  const gb = await gameLog(v, car);
+  t.deepEqual([gb.rows[4].pts, gb.rows[4].cls], ["BYE", "bye"]);
+  // a player missing from a FINISHED week that wasn't his bye
+  const byes = Object.fromEntries(FX.byes.map((b) => [b.id, +b.bye_week]));
+  const dnp = Object.keys(FX.players).find((id) => FX.weeks["1"][id] != null && FX.weeks["2"][id] == null && FX.weeks["3"][id] != null &&
+    byes[FX.players[id][2]] !== 2 && ["QB", "RB", "WR", "TE"].includes(FX.players[id][1]));
+  const gd = await gameLog(v, dnp);
+  t.deepEqual([gd.rows[1].pts, gd.rows[1].cls], ["DNP", "dnp"], FX.players[dnp][0] + " Wk 2");
+  const v2 = boot({ byes: null });
+  const gn = await gameLog(v2, car);
+  t.match(gn.html, /Bye weeks couldn’t be read, so a week without a score shows DNP/);
 });
 
 // ═══ 3b. Layout guards (the rendered geometry was measured in the browser at 320 / 375px — see the PR) ═══
