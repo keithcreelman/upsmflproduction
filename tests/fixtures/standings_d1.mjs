@@ -58,7 +58,8 @@ export const LADDER_TEAMS = [
 ];
 // Week 1: every team plays once (0004 beat 0002 — the head-to-head that splits their tie) and posts a score.
 // failGames / failWeekly / failScores make that /api/standings query throw (D1 error), as #1201's tests do.
-export function makeLadderSeason({ recorded = false, failGames = false, failWeekly = false, failScores = false } = {}) {
+// po: the is_playoff value written for week 1 (default 0); null or a stray value models a malformed flag in D1.
+export function makeLadderSeason({ recorded = false, failGames = false, failWeekly = false, failScores = false, po = 0 } = {}) {
   const env = makeWorkerEnv({});
   const db = env.UPS_MFL_DB.raw;
   db.exec(SCHEMA);
@@ -68,11 +69,12 @@ export function makeLadderSeason({ recorded = false, failGames = false, failWeek
     db.prepare("INSERT INTO src_standings (season, franchise_id, h2h_w, h2h_l, h2h_t, h2h_pct, allplay_pct, pf) VALUES (2026, ?, 1, 1, 0, ?, ?, ?)").run(fid, ov, ap, pf);
     if (recorded) db.prepare("INSERT INTO src_final_standings (season, franchise_id, final_finish) VALUES (2026, ?, 1)").run(fid);
   }
-  const g = db.prepare("INSERT INTO src_schedule (season, week, franchise_id, opponent_franchise_id, team_score, opponent_score, is_divisional, is_playoff) VALUES (2026, 1, ?, ?, ?, ?, 0, 0)");
-  const sc = db.prepare("INSERT INTO src_franchise_weekly_score (season, week, franchise_id, team_score, team_opt_pts, is_playoff) VALUES (2026, 1, ?, ?, ?, 0)");
+  const g = db.prepare("INSERT INTO src_schedule (season, week, franchise_id, opponent_franchise_id, team_score, opponent_score, is_divisional, is_playoff) VALUES (2026, 1, ?, ?, ?, ?, 0, ?)");
+  const sc = db.prepare("INSERT INTO src_franchise_weekly_score (season, week, franchise_id, team_score, team_opt_pts, is_playoff) VALUES (2026, 1, ?, ?, ?, ?)");
   for (const [a, b, as, bs] of [["0004", "0002", 120, 100], ["0001", "0003", 130, 125], ["0005", "0007", 110, 115], ["0006", "0008", 95, 90]]) {
-    g.run(a, b, as, bs); g.run(b, a, bs, as);
-    sc.run(a, as, as + 10); sc.run(b, bs, bs + 10);
+    g.run(a, b, as, bs, po); g.run(b, a, bs, as, po);
+    const spo = po === null ? 0 : po;   // NOT NULL column: a NULL flag can only exist in src_schedule
+    sc.run(a, as, as + 10, spo); sc.run(b, bs, bs + 10, spo);
   }
   const needles = [];
   if (failGames) needles.push("WHERE season = ? AND COALESCE(is_playoff, 0) = 0");
