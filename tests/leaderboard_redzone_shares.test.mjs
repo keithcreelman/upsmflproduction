@@ -18,12 +18,14 @@ import { makeWorkerEnv, callWorker, quiet } from "./fixtures/fcfs_worker_harness
 
 const SCHEMA = fs.readFileSync("tests/fixtures/leaderboard_schema_pre0168.sql", "utf8");
 const M0168 = fs.readFileSync("worker/migrations/0168_redzone_v2_epa_through_week.sql", "utf8");
+const M0169 = fs.readFileSync("worker/migrations/0169_player_id_map.sql", "utf8");
 
 function setup({ migrate = true } = {}) {
   const env = makeWorkerEnv();
   const db = env.UPS_MFL_DB.raw;
   db.exec(SCHEMA);
   if (migrate) db.exec(M0168);
+  db.exec(M0169);
   const wk = db.prepare(`INSERT INTO nfl_player_weekly (season, week, gsis_id, position, pos_group, team, targets, receptions, rush_att, pass_att)
                          VALUES (2026, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const sn = db.prepare("INSERT INTO nfl_player_snaps (season, week, pfr_id, team, off_snaps, def_snaps, st_snaps) VALUES (2026, ?, ?, ?, ?, 0, ?)");

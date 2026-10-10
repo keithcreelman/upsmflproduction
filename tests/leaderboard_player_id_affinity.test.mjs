@@ -30,22 +30,27 @@ check('the join block is locatable and substantial', () => {
   assert.ok(joins.length > 100, `slice is ${joins.length} chars`);
 });
 
+// The MFL id is the verified map's first, the crosswalk's second (2026-10-10,
+// migration 0169): rookies have no crosswalk row. Both forms carry the same
+// TEXT-rendering and NULL-guard obligations.
+const ID = String.raw`(?:c\.mfl_player_id|COALESCE\(im\.mfl_pid, c\.mfl_player_id\))`;
+
 console.log('\nneither join compares TEXT to INTEGER');
 for (const alias of ['lc', 'ctm']) {
   check(`${alias} does not use the bare numeric equality`, () => {
-    const re = new RegExp(`${alias}\\.player_id\\s*=\\s*c\\.mfl_player_id`);
+    const re = new RegExp(`${alias}\\.player_id\\s*=\\s*${ID}`);
     assert.ok(!re.test(joins),
       `${alias}.player_id = c.mfl_player_id forces numeric affinity and loses the PK seek`);
   });
   check(`${alias} compares against a TEXT rendering of the id`, () => {
-    const re = new RegExp(`${alias}\\.player_id\\s+IN \\(printf\\('%04d', c\\.mfl_player_id\\),`);
+    const re = new RegExp(`${alias}\\.player_id\\s+IN \\(printf\\('%04d', ${ID}\\),`);
     assert.ok(re.test(joins), `${alias} must match on printf('%04d', ...) so the TEXT index is seekable`);
   });
 }
 
 console.log('\nthe NULL guard is present on both');
 check('both joins guard c.mfl_player_id IS NOT NULL', () => {
-  const n = (joins.match(/c\.mfl_player_id IS NOT NULL/g) || []).length;
+  const n = (joins.match(new RegExp(`${ID} IS NOT NULL`, "g")) || []).length;
   assert.strictEqual(n, 2,
     "printf('%04d', NULL) returns the STRING '0000', not NULL — without the guard a player " +
     "missing from the crosswalk would match any player_id='0000' row, where the numeric compare matched nothing");

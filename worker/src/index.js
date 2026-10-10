@@ -60,6 +60,7 @@ import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_exec
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial } from "./admin_authority.js";
+import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
@@ -12894,7 +12895,7 @@ export default {
                    -- players and was then SCANNED once per result row — on its
                    -- own roughly half the query's join cost. This form hits
                    -- idx_ff_player_ids_gsis for a single indexed lookup per row.
-                   COALESCE(c.mfl_player_id,
+                   COALESCE(im.mfl_pid, c.mfl_player_id,
                             (SELECT MAX(CAST(ff.mfl_id AS INTEGER))
                                FROM ff_player_ids ff
                               WHERE ff.gsis_id = a.gsis_id
@@ -12970,7 +12971,7 @@ export default {
           const COL_IDP = `a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
                    a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds, a.def_pressures,
                    a.def_missed_tackles, a.def_missed_tackle_pct, a.def_passer_rating_allowed,
-                   a.def_completions_allowed, a.def_yards_allowed,
+                   a.def_completions_allowed, a.def_yards_allowed, a.def_pfr_wks,
                    sv.s_def_adot AS def_adot`;
           const COL_SPECIAL = `a.fg_att, a.fg_made, a.xp_att, a.xp_made,
                    a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
@@ -13090,6 +13091,27 @@ export default {
               SELECT DISTINCT gsis_id
                 FROM nfl_player_weekly
                WHERE season IN (${seasonList}) AND pos_group IN (${posList})
+            ),
+            -- The verified MFL<->NFL id map (migration 0169) for the players in
+            -- play: preferred wherever this query needs an MFL id or a pfr id.
+            -- player_id_crosswalk was last built before the 2026 draft, so no
+            -- rookie had an MFL position, contract or snap count here; it stays
+            -- the fallback for players MFL no longer lists (past seasons).
+            idmap AS (
+              SELECT gsis_id, MIN(CAST(mfl_id AS INTEGER)) AS mfl_pid, MIN(pfr_id) AS pfr_id
+                FROM player_id_map
+               WHERE accepted = 1 AND gsis_id IN (SELECT gsis_id FROM elig)
+               GROUP BY gsis_id
+            ),
+            -- pfr <-> gsis for the snap counts: the map, plus the crosswalk's
+            -- id-matched rows (never its name-only fuzzy rows).
+            id_pfr AS (
+              SELECT pfr_id, gsis_id FROM idmap WHERE pfr_id IS NOT NULL AND pfr_id <> ''
+              UNION
+              SELECT pfr_id, gsis_id FROM player_id_crosswalk
+               WHERE pfr_id IS NOT NULL AND pfr_id <> 'NA' AND gsis_id LIKE '00-%'
+                 AND COALESCE(confidence, '') NOT LIKE 'fuzzy%'
+                 AND gsis_id IN (SELECT gsis_id FROM elig)
             ),
             mfl_scoring_agg AS (
               -- mfl_games_scored counts a week as "scored" whenever MFL computed a
@@ -13216,13 +13238,21 @@ export default {
                      AVG(w.passing_pressure_pct)                     AS passing_pressure_pct,
                      SUM(COALESCE(w.passing_hurries,0))              AS passing_hurries,
                      SUM(COALESCE(w.passing_hits,0))                 AS passing_hits,
-                     -- PFR def (IDP adv)
-                     SUM(COALESCE(w.def_missed_tackles,0))           AS def_missed_tackles,
+                     -- PFR def (IDP adv). Plain SUM (2026-10-10): a player PFR has no
+                     -- record for is NULL ("—"), not 0 — SUM(COALESCE(x,0)) served 0
+                     -- pressures to 20 such players and 0 yards allowed to 142. SQLite's
+                     -- SUM is NULL only when EVERY week is NULL. def_pfr_wks says how
+                     -- many weeks PFR covered, so a partial total can say so.
+                     SUM(w.def_missed_tackles)                       AS def_missed_tackles,
                      AVG(w.def_missed_tackle_pct)                    AS def_missed_tackle_pct,
-                     SUM(COALESCE(w.def_completions_allowed,0))      AS def_completions_allowed,
+                     SUM(w.def_completions_allowed)                  AS def_completions_allowed,
                      AVG(w.def_passer_rating_allowed)                AS def_passer_rating_allowed,
-                     SUM(COALESCE(w.def_yards_allowed,0))            AS def_yards_allowed,
-                     SUM(COALESCE(w.def_pressures,0))                AS def_pressures
+                     -- Yards allowed: PFR leaves it NULL in a week it recorded 0
+                     -- completions allowed — 0 yards is then certain, not a guess.
+                     SUM(CASE WHEN w.def_yards_allowed IS NOT NULL THEN w.def_yards_allowed
+                              WHEN w.def_completions_allowed = 0 THEN 0 END)  AS def_yards_allowed,
+                     SUM(w.def_pressures)                            AS def_pressures,
+                     COUNT(w.def_pressures)                          AS def_pfr_wks
                 FROM nfl_player_weekly w
                 LEFT JOIN nfl_player_redzone rz
                        ON ${_gRedzone}
@@ -13240,7 +13270,7 @@ export default {
                      AVG(COALESCE(s.off_snap_pct, 0.0)) AS off_snap_rate,
                      AVG(COALESCE(s.def_snap_pct, 0.0)) AS def_snap_rate
                 FROM nfl_player_snaps s
-                JOIN player_id_crosswalk c ON c.pfr_id = s.pfr_id
+                JOIN id_pfr c ON c.pfr_id = s.pfr_id
                WHERE s.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
                  AND c.gsis_id IN (SELECT gsis_id FROM elig)
@@ -13270,9 +13300,7 @@ export default {
             -- snaps only is NOT an offensive game.
             pfr_gsis AS (
               SELECT DISTINCT pfr_id, gsis_id FROM (
-                SELECT pfr_id, gsis_id FROM player_id_crosswalk
-                 WHERE ${_gTeamShare} AND pfr_id IS NOT NULL AND pfr_id <> 'NA' AND gsis_id LIKE '00-%'
-                   AND COALESCE(confidence, '') NOT LIKE 'fuzzy%'
+                SELECT pfr_id, gsis_id FROM id_pfr WHERE ${_gTeamShare} AND pfr_id IS NOT NULL
                 UNION
                 SELECT pfr_id, gsis_id FROM ff_player_ids
                  WHERE ${_gTeamShare} AND pfr_id IS NOT NULL AND pfr_id <> 'NA' AND gsis_id LIKE '00-%'
@@ -13387,7 +13415,10 @@ export default {
             )
             SELECT ${projection}
               FROM agg a
-              LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
+              LEFT JOIN idmap im              ON im.gsis_id = a.gsis_id
+              -- Never a name-only fuzzy row: one claimed J.J. Taylor's gsis for
+              -- J'Mari Taylor, which would have listed J.J. twice.
+              LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id AND COALESCE(c.confidence, '') NOT LIKE 'fuzzy%'
               LEFT JOIN nfl_player_names npn   ON npn.gsis_id = a.gsis_id
               LEFT JOIN nfl_team_pace ntp      ON ntp.team = a.team AND ntp.season = ${paceSeason}
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
@@ -13450,12 +13481,14 @@ export default {
               -- player_id = 0000 row, where the numeric compare matched nothing.
               -- No such row exists today, which is exactly what makes it a
               -- fail-silent trap worth closing now.
-              LEFT JOIN latest_contract lc    ON c.mfl_player_id IS NOT NULL
-                                             AND lc.player_id  IN (printf('%04d', c.mfl_player_id),
-                                                                   CAST(c.mfl_player_id AS TEXT))
-              LEFT JOIN current_team ctm      ON c.mfl_player_id IS NOT NULL
-                                             AND ctm.player_id IN (printf('%04d', c.mfl_player_id),
-                                                                   CAST(c.mfl_player_id AS TEXT))
+              -- Keyed on the map's MFL id first (2026 rookies have no crosswalk
+              -- row, so they had no contract or MFL position here).
+              LEFT JOIN latest_contract lc    ON COALESCE(im.mfl_pid, c.mfl_player_id) IS NOT NULL
+                                             AND lc.player_id  IN (printf('%04d', COALESCE(im.mfl_pid, c.mfl_player_id)),
+                                                                   CAST(COALESCE(im.mfl_pid, c.mfl_player_id) AS TEXT))
+              LEFT JOIN current_team ctm      ON COALESCE(im.mfl_pid, c.mfl_player_id) IS NOT NULL
+                                             AND ctm.player_id IN (printf('%04d', COALESCE(im.mfl_pid, c.mfl_player_id)),
+                                                                   CAST(COALESCE(im.mfl_pid, c.mfl_player_id) AS TEXT))
              WHERE a.games >= ?
              ORDER BY ${orderExpr} DESC
              LIMIT ? OFFSET ?
@@ -14799,23 +14832,38 @@ export default {
             // shows "No advanced data available" when empty.
             const crosswalkRows = crosswalkRes.results || [];
             const crosswalkRow = crosswalkRows[0] || null;
-            const gsisId = crosswalkRow && crosswalkRow.gsis_id ? crosswalkRow.gsis_id : null;
+            // The verified id map (migration 0169) wins. player_id_crosswalk was
+            // last built before the 2026 draft (every rookie: no NFL id, empty
+            // game log) and its name-only fuzzy rows never resolve a player
+            // (all 3 were wrong: J'Mari Taylor -> J.J. Taylor). A D1 without
+            // 0169 just falls back to the crosswalk's id-matched rows.
+            let idMapRow = null;
+            try {
+              idMapRow = await db.prepare(
+                "SELECT mfl_id, gsis_id, pfr_id, status FROM player_id_map WHERE mfl_id = ? AND accepted = 1 AND gsis_id LIKE '00-%' LIMIT 1"
+              ).bind(String(parseInt(pid, 10))).first();
+            } catch (_) { idMapRow = null; }
+            const xwRow = crosswalkRow && !/^fuzzy/i.test(String(crosswalkRow.confidence || "")) &&
+              /^00-/.test(String(crosswalkRow.gsis_id || "")) ? crosswalkRow : null;
+            const gsisId = idMapRow ? idMapRow.gsis_id : (xwRow ? xwRow.gsis_id : null);
             // Snap data comes keyed by PFR ID (not gsis) because
             // nflverse load_snap_counts() only emits pfr_player_id.
             // Worker binds pfrId for the snap_totals CTE below.
-            const pfrId = crosswalkRow && crosswalkRow.pfr_id ? crosswalkRow.pfr_id : null;
-            bundle.crosswalk = crosswalkRow
+            const pfrId = idMapRow
+              ? (idMapRow.pfr_id || (xwRow && xwRow.gsis_id === idMapRow.gsis_id ? xwRow.pfr_id : null))
+              : (xwRow ? xwRow.pfr_id : null);
+            bundle.crosswalk = (idMapRow || crosswalkRow)
               ? {
-                  mfl_player_id: crosswalkRow.mfl_player_id,
-                  gsis_id: crosswalkRow.gsis_id,
-                  pfr_id: crosswalkRow.pfr_id,
-                  confidence: crosswalkRow.confidence,
-                  source: crosswalkRow.source,
+                  mfl_player_id: crosswalkRow ? crosswalkRow.mfl_player_id : parseInt(pid, 10),
+                  gsis_id: gsisId,
+                  pfr_id: pfrId,
+                  confidence: idMapRow ? idMapRow.status : (xwRow ? crosswalkRow.confidence : "ignored_name_only"),
+                  source: idMapRow ? "player_id_map" : (xwRow ? crosswalkRow.source : "none"),
                   // `position` is the raw NFL position (e.g. "P" for
                   // punter, "K" for kicker, "CB" vs "SS" vs "FS" for
                   // DBs). UI uses it to disambiguate Kicker vs Punter
                   // since MFL collapses both under "PK".
-                  position: crosswalkRow.position || null,
+                  position: (crosswalkRow && crosswalkRow.position) || null,
                 }
               : null;
             bundle.nfl_weekly = [];
@@ -19817,6 +19865,94 @@ export default {
             for (const x of (tw && tw.results) || []) through_week[x.season] = x.tw == null ? null : Number(x.tw);
           } catch (_) { /* column not migrated yet */ }
           return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, through_week, by_gsis });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-starter-rates?season=YYYY[&mfl_id=N][&zeros=pool] ──
+      // Boom / Bust / Startable against the UPS starter pool (Keith
+      // 2026-10-10; worker/src/starter_rates.js). Final weeks only: the last
+      // completed week comes from MFL's live-scoring authority, and a week
+      // whose starters or snap counts haven't synced is listed as pending.
+      // /api/player-consistency (the old all-players pool) stays for the
+      // desktop workbench until it moves over.
+      if (path === "/api/player-starter-rates" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const season = parseInt(safeStr(url.searchParams.get("season")) || String(YEAR || ""), 10) || new Date().getUTCFullYear();
+          const zeros = safeStr(url.searchParams.get("zeros")) === "pool" ? "pool" : "exclude";
+          const onlyPid = safeStr(url.searchParams.get("mfl_id")).replace(/\D/g, "");
+          let completed = null, authority = "mfl_live_scoring";
+          try { completed = await resolveAuthoritativeCompletedWeek(season, String(env.LEAGUE_ID || L || "74598")); } catch (_) { completed = null; }
+          if (completed == null) {
+            // MFL unreachable: the synced data's own last week, said so in the reply.
+            const r = await db.prepare("SELECT MAX(week) AS w FROM nfl_player_snaps WHERE season = ?").bind(season).first();
+            completed = r && r.w ? Number(r.w) : 0;
+            authority = "synced_data_only";
+          }
+          const byeWeek = await fetchMflByeWeeks(season);
+          const out = await loadStarterRates(db, { season, completedWeek: Math.min(18, Number(completed) || 0), byeWeek, zeros });
+          const onlyGroup = safeStr(url.searchParams.get("group")).toUpperCase();
+          if (onlyPid) {
+            const p = out.players[String(parseInt(onlyPid, 10))];
+            out.players = p ? { [String(parseInt(onlyPid, 10))]: p } : {};
+          } else {
+            // One lineup group per request (a phone tab): ~70 KB, not ~500 KB.
+            if (onlyGroup) for (const [k, p] of Object.entries(out.players)) if (p.group !== onlyGroup) delete out.players[k];
+            for (const p of Object.values(out.players)) delete p.wk;      // the list doesn't need the weekly detail
+          }
+          return statOk({ ok: true, season, completed_week: completed, week_authority: authority,
+            method: "linear R-7 on tenths; Boom >= P75, Startable >= P50, Bust <= P25 unless Startable; 3+ qualifying weeks", ...out });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/player-weekly-box?season=YYYY&mfl_id=N ──
+      // One player's weeks for the mobile game log: the nflverse box score,
+      // snap counts (did he play) and red-zone detail, resolved through the
+      // verified id map first (2026 rookies have no crosswalk row; the
+      // crosswalk's name-only rows never resolve a player). Values come back
+      // as stored: an absent stat is null, never 0.
+      if (path === "/api/player-weekly-box" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const season = parseInt(safeStr(url.searchParams.get("season")) || String(YEAR || ""), 10) || new Date().getUTCFullYear();
+          const pidRaw = safeStr(url.searchParams.get("mfl_id")).replace(/\D/g, "");
+          if (!pidRaw) return jsonOut(400, { ok: false, error: "mfl_id required" });
+          const pid = String(parseInt(pidRaw, 10));
+          let gsis = null, pfr = null, idSource = "none";
+          try {
+            const m = await db.prepare(
+              "SELECT gsis_id, pfr_id, status FROM player_id_map WHERE mfl_id = ? AND accepted = 1 AND gsis_id LIKE '00-%' LIMIT 1"
+            ).bind(pid).first();
+            if (m) { gsis = m.gsis_id; pfr = m.pfr_id || null; idSource = "player_id_map:" + m.status; }
+          } catch (_) { /* pre-0169 */ }
+          if (!gsis) {
+            const c = await db.prepare(
+              "SELECT gsis_id, pfr_id FROM player_id_crosswalk WHERE mfl_player_id = ? AND gsis_id LIKE '00-%' AND COALESCE(confidence, '') NOT LIKE 'fuzzy%' LIMIT 1"
+            ).bind(parseInt(pid, 10)).first();
+            if (c) { gsis = c.gsis_id; pfr = c.pfr_id && c.pfr_id !== "NA" ? c.pfr_id : null; idSource = "player_id_crosswalk"; }
+          }
+          const cov = await db.prepare("SELECT MAX(week) AS w FROM nfl_player_weekly WHERE season = ? AND week <= 22").bind(season).first();
+          const base = { ok: true, season, mfl_id: pid, gsis_id: gsis, pfr_id: pfr, id_source: idSource,
+                         box_through_week: cov && cov.w != null ? Number(cov.w) : null };
+          if (!gsis) return statOk({ ...base, weeks: [] });
+          const [box, rz, sn] = await Promise.all([
+            db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
+            db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
+            pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ? ORDER BY week").bind(season, pfr).all()
+                : Promise.resolve({ results: [] }),
+          ]);
+          const weeks = {};
+          const at = (w) => (weeks[w] = weeks[w] || { week: Number(w), box: null, redzone: null, snaps: null });
+          for (const r of (box && box.results) || []) at(r.week).box = r;
+          for (const r of (rz && rz.results) || []) at(r.week).redzone = r;
+          for (const r of (sn && sn.results) || []) at(r.week).snaps = { team: r.team, off: r.off_snaps, def: r.def_snaps, st: r.st_snaps };
+          return statOk({ ...base, weeks: Object.values(weeks).sort((a, b) => a.week - b.week) });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -55447,6 +55583,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return jsonOut(400, { ok: false, error: `only_pos must be one of ${ALL_ALIASES.join(", ")} (or "all")` });
         }
         const aliases = (onlyPos && onlyPos !== "all") ? [onlyPos] : ALL_ALIASES;
+        const forceRebuild = body.force === true || body.force === 1 || safeStr(url.searchParams.get("force")) === "1";
         // The MFL half of the board's inputs (mfl_points = SUM(src_weekly.score))
         // — an exact SHA-256 of the season's weeks 1-17 rows; see
         // computeMflScoresFingerprint / shouldSkipRebuild. Read once for all
@@ -55468,7 +55605,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           const existingMeta = await db.prepare(
             "SELECT data_max_week, data_row_count, teams_reported, mfl_scores_fingerprint FROM nfl_leaderboard_precompute_meta WHERE season = ? AND pos_alias = ?"
           ).bind(season, alias).first().catch(() => null);
-          if (shouldSkipRebuild(existingMeta, { covWeek, covRows, teamsReported, mflFingerprint })) {
+          // force: a QUERY change (not a data change) — e.g. the 2026-10-10 red-zone
+          // shares and id map — leaves every fingerprint equal, so without it
+          // the stored board would keep the old query's answers indefinitely.
+          if (!forceRebuild && shouldSkipRebuild(existingMeta, { covWeek, covRows, teamsReported, mflFingerprint })) {
             built.push({ pos: alias, ok: true, skipped: true, reason: "no_change" });
             continue;
           }
