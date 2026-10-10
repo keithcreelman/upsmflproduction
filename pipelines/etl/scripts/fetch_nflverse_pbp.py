@@ -90,14 +90,13 @@ def ensure_table(db: sqlite3.Connection) -> None:
           targets_i20 INTEGER, targets_i10 INTEGER, targets_i5 INTEGER,
           targets_ez INTEGER, rec_i20 INTEGER, rec_tds_i20 INTEGER,
           pass_att_i20 INTEGER, pass_tds_i20 INTEGER, pass_att_ez INTEGER,
-          pass_cmp_i20 INTEGER, sacks_i20 INTEGER, rz_qb_dropbacks INTEGER, rz_qb_plays INTEGER,
+          pass_cmp_i20 INTEGER, sacks_i20 INTEGER,
           PRIMARY KEY (season, week, gsis_id)
         )
     """)
     db.execute("CREATE INDEX IF NOT EXISTS idx_redzone_player ON nfl_player_redzone (gsis_id, season)")
     # Migration 0169 columns on an older local copy.
-    for table, col in (("nfl_player_redzone", "pass_cmp_i20"), ("nfl_player_redzone", "sacks_i20"),
-                       ("nfl_player_redzone", "rz_qb_dropbacks"), ("nfl_player_redzone", "rz_qb_plays")):
+    for table, col in (("nfl_player_redzone", "pass_cmp_i20"), ("nfl_player_redzone", "sacks_i20")):
         try:
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} INTEGER")
         except sqlite3.OperationalError:
@@ -139,18 +138,10 @@ def process_season(db: sqlite3.Connection, season: int, args,
         return {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
     df = df[df["play_type"].isin(list(want_types))]
 
-    # Who is at QB on every run/pass play: the team's most recent dropback
-    # passer in that game (a pass or a sack names the passer; a scramble the
-    # rusher), carried forward — and back, for the runs before his first
-    # dropback. A mid-game change switches at the new QB's first dropback.
-    # (nflverse publishes no 2026 participation data, so the QB on a handed-off
-    # run isn't recorded directly; this is the play-by-play's best evidence.)
-    if do_redzone and {"game_id", "play_id", "posteam"}.issubset(df.columns):
-        df = df.sort_values(["game_id", "play_id"])
-        scr = df["qb_scramble"].fillna(0).astype(float) == 1 if "qb_scramble" in df.columns else False
-        dbq = df["passer_player_id"].where(df["play_type"] == "pass")
-        dbq = dbq.where(dbq.notna(), df["rusher_player_id"].where(scr))
-        df = df.assign(_cur_qb=dbq.groupby([df["game_id"], df["posteam"]]).transform(lambda x: x.ffill().bfill()))
+    # No "plays with him at QB" count: the play-by-play doesn't name the QB on
+    # a handed-off run, and nflverse publishes no 2026 participation data, so
+    # it can't be proved play by play (Keith 2026-10-10: leave it out). The
+    # team's per-game red-zone mix is stored in nfl_team_weekly instead.
 
     # ---- Aggregators (each domain has its own dict keyed by (season,week,gsis)) ----
     rz_agg = {}   # redzone (player)
@@ -170,10 +161,6 @@ def process_season(db: sqlite3.Connection, season: int, args,
                 "targets_ez": 0, "rec_i20": 0, "rec_tds_i20": 0,
                 "pass_att_i20": 0, "pass_tds_i20": 0, "pass_att_ez": 0,
                 "pass_cmp_i20": 0, "sacks_i20": 0,
-                # The TEAM's red-zone plays with him at QB (Keith 2026-10-10:
-                # pass vs run for the team, only while he's the QB — backups and
-                # games he didn't play don't count).
-                "rz_qb_dropbacks": 0, "rz_qb_plays": 0,
             }
         return rz_agg[key]
 
@@ -369,12 +356,6 @@ def process_season(db: sqlite3.Connection, season: int, args,
         yl = yl100  # reuse the top-of-loop parse
         bucket = rz_bucket
         trz = twrz_bucket(posteam, week)
-        if yl <= 20:
-            bq = bucket(row.get("_cur_qb"), week)
-            if bq is not None:
-                bq["rz_qb_plays"] += 1
-                if ptype == "pass" or _flag(row.get("qb_scramble")):
-                    bq["rz_qb_dropbacks"] += 1
         if ptype == "run":
             # Run plays include QB scrambles and aborted snaps (the box score
             # counts both as carries); kneels are play_type qb_kneel, not here.
@@ -469,7 +450,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
                             v["targets_i20"], v["targets_i10"], v["targets_i5"],
                             v["targets_ez"], v["rec_i20"], v["rec_tds_i20"],
                             v["pass_att_i20"], v["pass_tds_i20"], v["pass_att_ez"],
-                            v["pass_cmp_i20"], v["sacks_i20"], v["rz_qb_dropbacks"], v["rz_qb_plays"]))
+                            v["pass_cmp_i20"], v["sacks_i20"]))
         if not args.skip_local:
             try:
                 db.executemany("""
@@ -479,8 +460,8 @@ def process_season(db: sqlite3.Connection, season: int, args,
                          targets_i20, targets_i10, targets_i5,
                          targets_ez, rec_i20, rec_tds_i20,
                          pass_att_i20, pass_tds_i20, pass_att_ez,
-                         pass_cmp_i20, sacks_i20, rz_qb_dropbacks, rz_qb_plays)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         pass_cmp_i20, sacks_i20)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     ON CONFLICT(season, week, gsis_id) DO UPDATE SET
                       rush_att_i20 = excluded.rush_att_i20,
                       rush_att_i10 = excluded.rush_att_i10,
@@ -497,9 +478,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
                       pass_tds_i20 = excluded.pass_tds_i20,
                       pass_att_ez  = excluded.pass_att_ez,
                       pass_cmp_i20 = excluded.pass_cmp_i20,
-                      sacks_i20    = excluded.sacks_i20,
-                      rz_qb_dropbacks = excluded.rz_qb_dropbacks,
-                      rz_qb_plays     = excluded.rz_qb_plays
+                      sacks_i20    = excluded.sacks_i20
                 """, rz_rows)
             except sqlite3.OperationalError as e:
                 print(f"  [redzone {season}] local: FAILED ({e})", file=sys.stderr)
@@ -511,7 +490,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
              "targets_i20","targets_i10","targets_i5",
              "targets_ez","rec_i20","rec_tds_i20",
              "pass_att_i20","pass_tds_i20","pass_att_ez",
-             "pass_cmp_i20","sacks_i20","rz_qb_dropbacks","rz_qb_plays"],
+             "pass_cmp_i20","sacks_i20"],
             rz_rows, args.skip_d1, label=f"redzone {season}",
         )
         counts["redzone"] = len(rz_rows)

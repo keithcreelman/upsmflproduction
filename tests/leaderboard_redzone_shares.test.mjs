@@ -35,10 +35,10 @@ function setup({ migrate = true } = {}) {
     db.prepare(`INSERT INTO nfl_player_redzone (season, ${k.join(", ")}) VALUES (2026, ${k.map(() => "?").join(", ")})`).run(...Object.values(cols));
   };
   const tw = migrate
-    ? db.prepare("INSERT INTO nfl_team_weekly (season, week, team, rz_targets, rz_rec, ez_targets, rz_carries, i5_carries, rz_pass_att, rz_sacks) VALUES (2026, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    ? db.prepare("INSERT INTO nfl_team_weekly (season, week, team, rz_targets, rz_rec, ez_targets, rz_carries, i5_carries, rz_pass_att, rz_sacks, rz_scrambles) VALUES (2026, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     : null;
-  // Team AAA plays 10 inside-20 targets and 8 inside-20 carries every week; BBB 20 and 4.
-  if (tw) for (let w = 1; w <= 3; w++) { tw.run(w, "AAA", 10, 6, 4, 8, 3, 9, 1); tw.run(w, "BBB", 20, 12, 8, 4, 2, 18, 2); }
+  // Team AAA plays 10 inside-20 targets and 8 inside-20 carries (1 a scramble) every week; BBB 20 and 4 (no scrambles).
+  if (tw) for (let w = 1; w <= 3; w++) { tw.run(w, "AAA", 10, 6, 4, 8, 3, 9, 1, 1); tw.run(w, "BBB", 20, 12, 8, 4, 2, 18, 2, 0); }
 
   // WR "X" (AAA): Wk 1 a box row with 2 red-zone targets; Wk 2 offensive snaps but no stat (no box row);
   // Wk 3 special-teams snaps only plus a box row (a kick return) — NOT an offensive game.
@@ -86,6 +86,7 @@ test("a traded player is measured against each team in the weeks he played for i
   t.equal(y.team_targets_i20, 10 + 20, "AAA Wk 1 + BBB Wk 2");
   t.equal(y.rz_target_share, 4 / 30);
   t.equal(y.team_rz_plays, (9 + 1 + 8) + (18 + 2 + 4), "the team play mix follows him too, not MAX(team)");
+  t.equal(y.team_rz_dropbacks, (9 + 1 + 1) + (18 + 2 + 0), "dropbacks = attempts + sacks + scrambles");
 });
 
 test("no snap mapping: the box-score weeks are his games (never a blank share)", async () => {
@@ -96,28 +97,30 @@ test("no snap mapping: the box-score weeks are his games (never a blank share)",
   t.equal(z.gl_rush_share, 3 / 6);
 });
 
-test("QB inside-20: attempts, completions, TDs and sacks are separate; an old-ETL row's completions are unknown, not 0", async () => {
+test("QB inside-20: attempts, completions, TDs and sacks are separate; the pass rate is the TEAM's in his games; an old-ETL row's completions are unknown, not 0", async () => {
   const { env, wk, rz, xw, sn } = setup();
   xw.run(30010, "00-Q", "QqqqQq00");
   for (const w of [1, 2]) { wk.run(w, "00-Q", "QB", "QB", "AAA", 0, 0, 2, 30); sn.run(w, "QqqqQq00", "AAA", 60, 0); }
-  rz({ week: 1, gsis_id: "00-Q", pass_att_i20: 5, pass_cmp_i20: 4, pass_tds_i20: 2, sacks_i20: 1, rush_att_i20: 1, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0, rz_qb_dropbacks: 7, rz_qb_plays: 11 });
-  rz({ week: 2, gsis_id: "00-Q", pass_att_i20: 4, pass_cmp_i20: 3, pass_tds_i20: 1, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0, rz_qb_dropbacks: 4, rz_qb_plays: 9 });
+  rz({ week: 1, gsis_id: "00-Q", pass_att_i20: 5, pass_cmp_i20: 4, pass_tds_i20: 2, sacks_i20: 1, rush_att_i20: 1, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
+  rz({ week: 2, gsis_id: "00-Q", pass_att_i20: 4, pass_cmp_i20: 3, pass_tds_i20: 1, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
   const q = (await board(env, "qb"))["00-Q"];
   t.deepEqual([q.pass_att_i20, q.pass_cmp_i20, q.pass_tds_i20, q.sacks_i20, q.rush_att_i20, q.rz_v2], [9, 7, 3, 1, 1, 1]);
-  t.deepEqual([q.rz_qb_dropbacks, q.rz_qb_plays], [11, 20], "the team's red-zone dropbacks / plays with him at QB");
+  t.deepEqual([q.team_rz_dropbacks, q.team_rz_plays], [2 * (9 + 1 + 1), 2 * (9 + 1 + 8)], "every AAA inside-20 play in his 2 games, whoever was at QB");
+  t.equal(q.team_rz_pass_rate, 22 / 36);
+  t.equal("rz_qb_plays" in q, false, "no 'with him at QB' count");
   // a week still holding a pre-0169 row (sacks_i20 NULL): completions/sacks are UNKNOWN for the season
   xw.run(30011, "00-R", "RrrrRr00");
   wk.run(1, "00-R", "QB", "QB", "BBB", 0, 0, 0, 25); sn.run(1, "RrrrRr00", "BBB", 55, 0);
   rz({ week: 1, gsis_id: "00-R", pass_att_i20: 6, pass_tds_i20: 1, rush_att_i20: 0, rush_att_i5: 0, targets_i20: 0, rec_i20: 0, targets_ez: 0 });
   const r = (await board(env, "qb"))["00-R"];
-  t.deepEqual([r.pass_att_i20, r.pass_cmp_i20, r.sacks_i20, r.rz_qb_plays, r.rz_v2], [6, null, null, null, 0], "NULL, never 0");
+  t.deepEqual([r.pass_att_i20, r.pass_cmp_i20, r.sacks_i20, r.rz_v2], [6, null, null, 0], "NULL, never 0");
 });
 
 test("a season whose play-by-play wasn't re-run since 0169 has no team totals: shares are null, not a guess", async () => {
   const { env, db } = setup();
-  db.exec("UPDATE nfl_team_weekly SET rz_targets = NULL, rz_rec = NULL, ez_targets = NULL, rz_carries = NULL, i5_carries = NULL, rz_pass_att = NULL, rz_sacks = NULL");
+  db.exec("UPDATE nfl_team_weekly SET rz_targets = NULL, rz_rec = NULL, ez_targets = NULL, rz_carries = NULL, i5_carries = NULL, rz_pass_att = NULL, rz_sacks = NULL, rz_scrambles = NULL");
   const x = (await board(env, "skill"))["00-X"];
-  t.deepEqual([x.team_targets_i20, x.rz_target_share, x.team_rz_plays], [null, null, null]);
+  t.deepEqual([x.team_targets_i20, x.rz_target_share, x.team_rz_plays, x.team_rz_pass_rate], [null, null, null, null]);
   t.equal(x.targets_i20, 2, "his own count is still there");
 });
 

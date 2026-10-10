@@ -12937,8 +12937,6 @@ export default {
                    a.pass_tds_i20,
                    CASE WHEN a.rz_v2 = 1 THEN a.pass_cmp_i20 END AS pass_cmp_i20,
                    CASE WHEN a.rz_v2 = 1 THEN a.sacks_i20 END    AS sacks_i20,
-                   CASE WHEN a.rz_v2 = 1 THEN a.rz_qb_dropbacks END AS rz_qb_dropbacks,
-                   CASE WHEN a.rz_v2 = 1 THEN a.rz_qb_plays END     AS rz_qb_plays,
                    a.rz_v2,
                    a.receiving_rat, a.passing_bad_throw_pct, a.passing_pressure_pct,
                    sv.s_rec_adot AS receiving_adot, sv.s_rec_air_yards AS receiving_air_yards,
@@ -12956,9 +12954,8 @@ export default {
                    CAST(a.rush_att_i20 AS REAL) / NULLIF(trpa.team_rush_att_i20, 0)  AS rz_rush_share,
                    CAST(a.rush_att_i5 AS REAL)  / NULLIF(trpa.team_rush_att_i5, 0)   AS gl_rush_share,
                    trpa.team_targets_i20, trpa.team_targets_ez, trpa.team_rush_att_i20, trpa.team_rush_att_i5,
-                   (tr.team_rz_dropbacks + tr.team_rz_carries) AS team_rz_plays,
-                   CAST(tr.team_rz_dropbacks AS REAL) /
-                     NULLIF(tr.team_rz_dropbacks + tr.team_rz_carries, 0) AS team_rz_pass_rate`;
+                   tr.team_rz_dropbacks, tr.team_rz_plays,
+                   CAST(tr.team_rz_dropbacks AS REAL) / NULLIF(tr.team_rz_plays, 0) AS team_rz_pass_rate`;
           // IDP — now includes def_tackles_ast, def_tds, def_pressures (were
           // dropped for the cap; they're already SUM'd in the agg CTE).
           //
@@ -13213,8 +13210,6 @@ export default {
                      SUM(COALESCE(rz.pass_tds_i20,0))                AS pass_tds_i20,
                      SUM(COALESCE(rz.pass_cmp_i20,0))                AS pass_cmp_i20,
                      SUM(COALESCE(rz.sacks_i20,0))                   AS sacks_i20,
-                     SUM(COALESCE(rz.rz_qb_dropbacks,0))             AS rz_qb_dropbacks,
-                     SUM(COALESCE(rz.rz_qb_plays,0))                 AS rz_qb_plays,
                      -- 1 when every red-zone row behind this player was built by
                      -- the 0169 ETL (pass_cmp_i20 / sacks_i20 exist, 2-pt tries
                      -- excluded, attempts exclude sacks). A row from the old ETL
@@ -13390,15 +13385,20 @@ export default {
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "tw.week")}
                GROUP BY tw.team
             ),
-            -- The team's red-zone play mix over the player's games (team_rz_plays,
-            -- team_rz_pass_rate), from the per-game team totals the PBP ETL writes
-            -- (migration 0169). It was the team's whole window joined on
-            -- MAX(w.team) — wrong for a traded player — and counted sacks and
-            -- two-point tries as pass attempts.
+            -- The TEAM's red-zone play mix in the games the player played
+            -- (team_rz_dropbacks / team_rz_plays / team_rz_pass_rate), from the
+            -- per-game team totals the PBP ETL writes (migration 0169).
+            -- Dropbacks = attempts + sacks + scrambles; plays = attempts + sacks
+            -- + carries (a scramble is a carry). Every inside-20 play the team
+            -- ran in those games counts, whoever was at QB — the play-by-play
+            -- doesn't name the QB on a handed-off run, so this is NOT a QB's
+            -- own pass/run split (Keith 2026-10-10). It was the team's whole
+            -- window joined on MAX(w.team) — wrong for a traded player — and
+            -- counted sacks and two-point tries as pass attempts.
             team_rz_agg AS (
               SELECT pg.gsis_id,
-                     SUM(tw.rz_pass_att + tw.rz_sacks) AS team_rz_dropbacks,
-                     SUM(tw.rz_carries)                AS team_rz_carries
+                     SUM(tw.rz_pass_att + tw.rz_sacks + tw.rz_scrambles) AS team_rz_dropbacks,
+                     SUM(tw.rz_pass_att + tw.rz_sacks + tw.rz_carries)   AS team_rz_plays
                 FROM player_games pg
                 JOIN nfl_team_weekly tw ON tw.season = pg.season AND tw.week = pg.week AND tw.team = pg.team
                WHERE ${_gTeamShare} AND pg.season IN (${seasonList})

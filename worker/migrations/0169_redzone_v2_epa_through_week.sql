@@ -24,11 +24,6 @@
 
 ALTER TABLE nfl_player_redzone ADD COLUMN pass_cmp_i20 INTEGER;   -- completions on inside-20 attempts (passer)
 ALTER TABLE nfl_player_redzone ADD COLUMN sacks_i20    INTEGER;   -- times sacked inside the 20 (passer); not attempts
--- The TEAM's inside-20 plays with him at QB (the QB on the field = the team's
--- most recent dropback passer in that game): dropbacks (passes, sacks,
--- scrambles) and all plays. Pass rate = dropbacks / plays (Keith 2026-10-10).
-ALTER TABLE nfl_player_redzone ADD COLUMN rz_qb_dropbacks INTEGER;
-ALTER TABLE nfl_player_redzone ADD COLUMN rz_qb_plays     INTEGER;
 
 ALTER TABLE nfl_team_weekly ADD COLUMN rz_pass_att    INTEGER;   -- team inside-20 pass attempts (no sacks, no 2-pt)
 ALTER TABLE nfl_team_weekly ADD COLUMN rz_pass_cmp    INTEGER;
