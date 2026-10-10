@@ -119,6 +119,16 @@ def as_list(v):
     return v if isinstance(v, list) else [v]
 
 
+def regular_season_flag(m):
+    """MFL's matchup `regularSeason` as 1 (regular season) or 0 (playoff), or None
+    when it is missing or anything other than exactly "1"/"0". Never defaulted: a
+    guessed flag would silently move a playoff game into the regular-season
+    standings (or the reverse), and once it is written as 0/1 no reader can tell
+    it was a guess."""
+    v = safe_str(m.get("regularSeason"))
+    return 1 if v == "1" else 0 if v == "0" else None
+
+
 def pct_from_wlt(w, l, t):
     games = max(0, w + l + t)
     return round((w + 0.5 * t) / games, 4) if games > 0 else 0.0
@@ -255,10 +265,15 @@ def build_from_weeks(season, played_weeks, fmeta, owner_map):
     matchup -- verified directly against MFL's own W=1 payload)."""
     schedule_rows = []
     weekly_score = {}
+    unflagged = []
     for wk, matchups in played_weeks:
         for m in matchups:
-            reg = safe_int(m.get("regularSeason"), 1)
+            reg = regular_season_flag(m)
             frs = as_list(m.get("franchise"))
+            if reg is None:
+                unflagged.append(f"week {wk} {'-'.join(pad4(f.get('id')) for f in frs)}: "
+                                 f"regularSeason={m.get('regularSeason', '<missing>')!r}")
+                continue
             if len(frs) != 2:
                 sys.stderr.write(f"week {wk}: skipping non-2-team matchup ({len(frs)} franchises)\n")
                 continue
@@ -288,6 +303,12 @@ def build_from_weeks(season, played_weeks, fmeta, owner_map):
                 })
             weekly_score[(wk, aid)] = {"score": a_score, "opt_pts": a_opt, "is_playoff": is_playoff}
             weekly_score[(wk, bid)] = {"score": b_score, "opt_pts": b_opt, "is_playoff": is_playoff}
+    if unflagged:
+        # Fail closed BEFORE any D1 write: the playoff flag decides which games count
+        # toward the regular-season standings, all-play and seeding, so a matchup
+        # whose flag MFL didn't state can't be written at all.
+        sys.exit("REFUSE: MFL weeklyResults matchup(s) without a regularSeason flag of "
+                 "exactly \"1\" or \"0\" -- nothing written:\n  " + "\n  ".join(unflagged))
     return schedule_rows, weekly_score
 
 
@@ -388,7 +409,7 @@ def build_weekly_rows(season, played_weeks, fmeta, weekly_score, players):
     for wk, matchups in played_weeks:
         starter_sum = {}
         for m in matchups:
-            reg = 1 if safe_int(m.get("regularSeason"), 1) == 1 else 0
+            reg = regular_season_flag(m)  # build_from_weeks already refused any matchup where this is None
             for fr in as_list(m.get("franchise")):
                 fid = pad4(fr.get("id"))
                 seen_here = set()
