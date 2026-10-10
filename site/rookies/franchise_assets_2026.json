@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-09T16:35:08.756299+00:00",
+    "generated_at_utc": "2026-10-10T15:34:01.784280+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1980,18 +1980,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16280",
-          "display": "Daiyan Henley",
-          "player_id": "16280",
-          "position": "LB",
-          "nfl_team": "LAC",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_13113",
           "display": "Deshaun Watson",
           "player_id": "13113",
@@ -2024,6 +2012,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16460",
+          "display": "Ronnie Hickman",
+          "player_id": "16460",
+          "position": "S",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3176,6 +3176,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17222",
+          "display": "Tyler Loop",
+          "player_id": "17222",
+          "position": "PK",
+          "nfl_team": "BAL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16626",
           "display": "Adonai Mitchell",
           "player_id": "16626",
@@ -3494,6 +3506,18 @@
           "player_id": "13132",
           "position": "RB",
           "nfl_team": "NOS",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15717",
+          "display": "Dameon Pierce",
+          "player_id": "15717",
+          "position": "RB",
+          "nfl_team": "PHI",
           "salary": 4000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -5314,7 +5338,7 @@
           "display": "Kaytron Allen",
           "player_id": "17478",
           "position": "RB",
-          "nfl_team": "FA",
+          "nfl_team": "MIA",
           "salary": 5000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
