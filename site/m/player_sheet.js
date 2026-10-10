@@ -14,6 +14,7 @@
   var newsCache = {};          // pid → rendered-ready items[] from /api/player-news (see loadPlayerNews)
   var activeTab = "actions";   // player sheet tab: actions | stats | news | bio
   var currentBundle = null;    // /api/player-bundle result for the open player
+  var bundleState = "loading"; // "loading" | "ok" | "error" — the Stats tab never waits forever
 
   // "2026-10-08" → "Oct 8, 2026". Same shape the Contracts list prints, so a
   // window date reads identically wherever the owner meets it. Parsed as a
@@ -461,16 +462,20 @@
         byeCache.map = m; byeCache.loading = false; byeCache.failed = !j;
         if (activeTab === "stats") renderTabBody();
       })
-      .catch(function () { byeCache.map = {}; byeCache.loading = false; byeCache.failed = true; });
+      .catch(function () {
+        byeCache.map = {}; byeCache.loading = false; byeCache.failed = true;
+        if (activeTab === "stats") renderTabBody();
+      });
   }
   function gameLogCols(grp) {
     function n(v) { return v == null ? null : Number(v); }
     function pair(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "/" + (Number(b) || 0); }
     function dash(a, b) { return (a == null && b == null) ? null : (Number(a) || 0) + "-" + (Number(b) || 0); }
-    if (grp === "QB") return [["C/A", function (r) { return pair(r.pass_cmp, r.pass_att); }], ["Yds", function (r) { return n(r.pass_yds); }],
-      ["TD-Int", function (r) { return dash(r.pass_tds, r.pass_ints); }], ["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }]];
+    // Columns sized to fit a 320px sheet (agent measurements 2026-10-10).
+    if (grp === "QB") return [["Yds", function (r) { return n(r.pass_yds); }], ["TD", function (r) { return n(r.pass_tds); }],
+      ["Int", function (r) { return n(r.pass_ints); }], ["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }]];
     if (grp === "RB") return [["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }], ["Rec", function (r) { return dash(r.receptions, r.rec_yds); }],
-      ["Tgt", function (r) { return n(r.targets); }], ["TD", function (r) { return (r.rush_tds == null && r.rec_tds == null) ? null : (Number(r.rush_tds) || 0) + (Number(r.rec_tds) || 0); }]];
+      ["TD", function (r) { return (r.rush_tds == null && r.rec_tds == null) ? null : (Number(r.rush_tds) || 0) + (Number(r.rec_tds) || 0); }]];
     if (grp === "WR" || grp === "TE") return [["Tgt", function (r) { return n(r.targets); }], ["Rec", function (r) { return n(r.receptions); }],
       ["Yds", function (r) { return n(r.rec_yds); }], ["TD", function (r) { return n(r.rec_tds); }]];
     if (grp === "DL" || grp === "LB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
@@ -481,7 +486,7 @@
     if (grp === "PN") return [["Punts", function (r) { return n(r.punts); }], ["Yds", function (r) { return n(r.punt_yds); }], ["I20", function (r) { return n(r.punt_inside20); }]];
     return [];
   }
-  function gameLogHtml(pid, bundle) {
+  function gameLogHtml(pid, bundle, state) {
     var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
     var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
     if (!SSMOD || !ss || !ss.known || !ss.seasonWeeks || !ss.seasonWeeks.length) return "";
@@ -500,25 +505,36 @@
     });
     var cols = gameLogCols(grp);
     var live = {}; ss.liveWeeks.forEach(function (w) { live[w] = true; });
+    // Most recent week first: by Week 17 the live week would otherwise sit at
+    // the bottom of 17 rows.
+    var byesKnown = !!byeCache.map && !byeCache.failed;
     var rows = [];
-    for (var w = 1; w <= last; w++) {
+    for (var w = last; w >= 1; w--) {
       var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null;
-      var label, cls = "";
+      var label, cls = "", ttl = "";
       if (has) label = (Math.round(pts[w] * 10) / 10).toFixed(1) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
       else if (bye === w) { label = "BYE"; cls = "bye"; }
-      else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; }
-      else { label = "DNP"; cls = "dnp"; }
-      rows.push('<tr class="' + cls + '"><td>' + w + (b && b.opponent ? ' <small>' + U.escapeHtml(b.opponent) + '</small>' : '') + '</td><td class="pts">' + label + '</td>' +
-        cols.map(function (c) { var v = b ? c[1](b) : null; return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>'; }).join("") + '</tr>');
+      else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; ttl = "Not played yet"; }
+      // DNP only when the bye list was read: otherwise a bye would be called DNP.
+      else if (byesKnown) { label = "DNP"; cls = "dnp"; ttl = "No MFL score this week"; }
+      else { label = "—"; cls = "dim"; }
+      var cell = function (c) {
+        if (!b) return '<td>' + (state === "loading" && has ? "…" : "—") + '</td>';
+        var v = c[1](b); return '<td>' + (v == null ? "—" : U.escapeHtml(String(v))) + '</td>';
+      };
+      rows.push('<tr class="' + cls + '"' + (ttl ? ' title="' + ttl + '"' : "") + '><td>' + w + (b && b.opponent ? ' <small>' + U.escapeHtml(b.opponent) + '</small>' : '') + '</td><td class="pts">' + label + '</td>' +
+        cols.map(cell).join("") + '</tr>');
     }
     var liveTxt = ss.liveWeeks.length ? " (● Wk " + ss.liveWeeks.join(", ") + " in progress)" : "";
     return '<h4 class="ups-m-gl-h">' + season + ' game log</h4>' +
-      '<table class="ups-m-gl-table"><thead><tr><th>Wk · opp</th><th>Pts</th>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join("") + '</tr></thead>' +
-        '<tbody>' + rows.join("") + '</tbody></table>' +
+      '<div class="ups-m-gl-wrap"><table class="ups-m-gl-table"><thead><tr><th>Wk · opp</th><th>Pts</th>' + cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join("") + '</tr></thead>' +
+        '<tbody>' + rows.join("") + '</tbody></table></div>' +
       '<div class="ups-m-stat-basis">Pts: actual MFL points, UPS scoring, ' + U.escapeHtml(SSMOD.weeksLabel(ss.seasonWeeks)) + (liveTxt ? " " + U.escapeHtml(liveTxt) : "") + '. ' +
-        (boxMax ? 'Box score: nflverse, through Wk ' + boxMax + '.' : 'No box score yet this season.') +
-        (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows DNP." : "") +
-        ' DNP = no MFL score in a finished week.</div>';
+        (state === "error" ? "Box score couldn’t be loaded — close and reopen to retry." :
+          state === "loading" ? "Loading the box score…" :
+          boxMax ? 'Box score: nflverse, through Wk ' + boxMax + '.' : 'No box score yet this season.') +
+        (byeCache.failed ? " Bye weeks couldn’t be read, so a week without a score shows —, not DNP." : " DNP = no MFL score in a finished week that wasn’t his bye.") +
+        '</div>';
   }
 
   function statRowHtml(y, games, pts, ppg, ppgRank) {
@@ -2393,7 +2409,14 @@
     if (activeTab === "stats") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats">' +
-          (currentBundle ? renderStatsBlock(currentBundle) + gameLogHtml(footerState.pid, currentBundle) : '<div class="ups-m-sheet-loading">Loading…</div>') +
+          // MFL points don't wait for the bundle (it only adds earlier seasons'
+          // history and the box scores), and a failed bundle says so instead of
+          // "Loading…" forever.
+          (currentBundle ? renderStatsBlock(currentBundle)
+            : '<div class="ups-m-sheet-loading">' + (bundleState === "error"
+                ? "Season history couldn’t be loaded — close and reopen to retry."
+                : "Loading season history…") + '</div>') +
+          gameLogHtml(footerState.pid, currentBundle, bundleState) +
         '</div></div>';
     } else if (activeTab === "news") {
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Player News</h4>' +
@@ -2655,6 +2678,7 @@
     // Tabs default to Actions; the action buttons render into the sticky foot
     // (shown only on the Actions tab). Stats/Bio lazy-render from the bundle.
     currentBundle = null;
+    bundleState = "loading";
     activeTab = "actions";
     var tabsNav = document.getElementById("ups-m-sheet-tabs");
     if (tabsNav) tabsNav.innerHTML = renderTabNav();
@@ -2678,6 +2702,7 @@
     loadBundle(pid).then(function (bundle) {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       currentBundle = bundle;
+      bundleState = bundle ? "ok" : "error";
       if (activeTab === "stats" || activeTab === "bio") renderTabBody();
     });
   }

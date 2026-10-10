@@ -1247,7 +1247,7 @@ button.ups-m-busy::before,
 /* Headings, two tiers: a band naming the source + period over each run of
    columns that share it, then the short labels. */
 .ups-m-st-row.head {
-  background: transparent; border-top: 0; min-height: 0; padding: 0 8px 6px; cursor: default;
+  background: transparent; border-top: 0; min-height: 0; padding: 0 8px 2px; cursor: default;
   color: var(--fg-muted); font-size: 11px; line-height: 1.25; row-gap: 3px;
 }
 .ups-m-st-row.head .band-pad { grid-column: 1 / 3; }
@@ -1259,7 +1259,7 @@ button.ups-m-busy::before,
 /* Sortable headings: the whole cell is the button; a second line carries the
    direction (▼ high→low, ▲ low→high) or a faint ⇅ on unsorted columns. */
 .ups-m-st-sort {
-  display: block; width: 100%; min-height: 30px; padding: 2px 0; margin: 0; border: 0; background: transparent;
+  display: block; width: 100%; min-height: 32px; padding: 2px 0; margin: 0; border: 0; background: transparent;
   font: inherit; font-weight: 700; color: var(--fg); text-align: right; line-height: 1.2; cursor: pointer;
   -webkit-tap-highlight-color: rgba(91,141,255,0.15); white-space: nowrap;
 }
@@ -1268,6 +1268,19 @@ button.ups-m-busy::before,
 .ups-m-st-sort.on, .ups-m-st-row.head .rk .ups-m-st-sort.on { color: var(--accent); }
 .ups-m-st-sort.on i { color: var(--accent); opacity: 1; }
 .ups-m-st-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+/* A rate over its numerator/denominator in one cell: "41%" over "9/22". */
+.ups-m-st-row .v .nd { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.ups-m-st-row .v .nd b { font-weight: 400; font-size: 13px; }
+.ups-m-st-row .v .nd small { font-size: 11px; font-weight: 600; color: var(--fg-muted); }
+/* DL/DB: the position leads the team line instead of a chip beside the name. */
+.ups-m-st-row .nm .tm span.pos { background: none; border: 0; padding: 0; font-size: 11px; font-weight: 700; color: #b39ddb; }
+/* "About these numbers": the longer definitions, collapsed. */
+.ups-m-st-more { margin-top: 3px; }
+.ups-m-st-more summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 12px; list-style: none; }
+.ups-m-st-more summary::-webkit-details-marker { display: none; }
+.ups-m-st-more summary::before { content: "▸ "; }
+.ups-m-st-more[open] summary::before { content: "▾ "; }
+.ups-m-st-more > div { margin-top: 4px; }
 .ups-m-st-row.head .nm { font-weight: 700; color: var(--fg-muted); }
 .ups-m-st-row .rk { text-align: center; font-variant-numeric: tabular-nums; color: var(--fg-muted); font-weight: 700; font-size: 12px; letter-spacing: -0.02em; }
 .ups-m-st-row .nm { display: flex; align-items: center; gap: 6px; min-width: 0; }

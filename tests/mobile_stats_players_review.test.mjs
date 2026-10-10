@@ -186,7 +186,11 @@ function boot(opt = {}) {
     else if (/^\/api\/(sos-adjusted-points|player-consistency|player-epa|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
     else if (u.pathname === "/api/mfl-market") body = { by_mfl: {} };
     else if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "nflByeWeeks") body = opt.byes === null ? null : { nflByeWeeks: { team: FX.byes } };
-    else if (u.pathname === "/api/player-bundle") body = FX.bundles[u.searchParams.get("pid")] || {};
+    else if (u.pathname === "/api/player-bundle") {
+      if (opt.bundle === "hold") return new Promise(() => {});              // never answers
+      if (opt.bundle === "fail") return { ok: false, json: async () => null };
+      body = FX.bundles[u.searchParams.get("pid")] || {};
+    }
     return { ok: true, json: async () => body };
   };
   vm.runInContext(read("site/m/views/stats.js"), ctx);
@@ -336,10 +340,11 @@ test("the IDP tabs say their list is the stats source's capped top 500 — on ev
   const v = boot();
   for (const tab of ["DL", "LB", "DB"]) {
     await openTab(v, tab);
-    for (const set of ["fantasy", "tackles", "sos"]) {
+    for (const set of ["fantasy", "tackles", "boom"]) {
       const sel = v.getEl("ups-m-st-set"); sel.value = set; sel.fire("change", { target: sel }); await settle();
       const note = v.getEl("ups-m-st-notes").innerHTML;
-      t.match(note, /This list is the stats source’s top 500 IDPs .* so it isn’t every (DL|LB|DB) and ranks are within it/, tab + "/" + set);
+      t.match(note, /List = the stats source’s top 500 IDPs; ranks are within it\./, tab + "/" + set + ": one short line");
+      t.match(note, /<details class="ups-m-st-more"><summary>About these numbers<\/summary><div>[^<]*returns at most 500 players here, chosen by tackles, sacks and other impact stats, so this isn’t every (DL|LB|DB)\./, tab + "/" + set + ": the why sits behind a tap");
     }
   }
   await openTab(v, "QB");
@@ -382,7 +387,8 @@ test("column sets: Fantasy pts first; PPG ONLY there; YPC and Targets; Schedule-
   t.deepEqual(labels((await chooseSet(v, "rushing")).head), ["Att", "RuYd", "RuTD", "YPC"], "Rushing shows YPC");
   const boom = await chooseSet(v, "boom");
   t.deepEqual(labels(boom.head), ["Cons", "Boom%", "Bust%", "Wks"], "Boom/Bust carries the weeks ITS source counted");
-  t.match(boom.notes, /Boom% = share of his weeks in the top quarter of every weekly score posted at his position this season; Bust% = the bottom quarter \(a 0\.0 week counts, even one he didn’t play\)\. Consistency: 100 = about the same score every week/, "plain-language explanation on screen");
+  t.match(boom.notes, /Boom% = share of his weeks in the top 25% of all weekly scores at his position; Bust% = the bottom 25%\. Cons: 100 = same score every week\./, "plain-language explanation on screen");
+  t.match(boom.notes, /<summary>About these numbers<\/summary><div>Boom and Bust compare each of his weekly MFL scores with every weekly score posted at his position this season \(free agents and 0\.0 weeks included\)[^<]*a 0\.0 week counts as a bust even if he didn’t play\. Consistency = 100 × \(1 − spread ÷ average\)/, "the full definition is one tap away");
   const src = read("site/m/views/stats.js");
   const setBlock = src.slice(src.indexOf("var TABS = ["), src.indexOf("// scope:"));
   let n = 0;
@@ -402,7 +408,8 @@ test("IDP sets: Tackles = Solo · Ast · TFL · Snaps (no FF, no PPG); Pass rush
   t.match(tk.head, /title="Solo tackles"/, "the label says Solo: the source counts solo tackles only");
   const pr = await chooseSet(v, "passrush");
   t.deepEqual(labels(pr.head), ["Sk", "Press", "FF", "Snaps"]);
-  t.deepEqual(bands(pr.head), ["nflverse Wk 1–4", "PFR Wk 1–4", "nflverse Wk 1–4"], "PFR pressures under their own band");
+  t.deepEqual(bands(pr.head), ["nflverse Wk 1–4"], "one band: PFR's charting reaches the app through nflverse, same weeks");
+  t.match(pr.notes, /Press, Cmp and Yds are PFR charting delivered by nflverse/, "…and the note names PFR");
   t.doesNotMatch(pr.head + pr.notes, /pressure rate|win rate/i, "no rate without a pass-rush-snap source");
   const cv = await chooseSet(v, "coverage");
   t.deepEqual(labels(cv.head), ["INT", "PD", "Cmp", "Yds"]);
@@ -420,17 +427,17 @@ test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; pu
   const k = rowsOf(dist.list).find((r) => r.pid === String(row[0]));
   t.deepEqual(k.cells, [row[ix("fg_made_0_39")] + "/" + row[ix("fg_att_0_39")], row[ix("fg_made_40_49")] + "/" + row[ix("fg_att_40_49")],
     (row[ix("fg_made_50_59")] + row[ix("fg_made_60plus")]) + "/" + (row[ix("fg_att_50_59")] + row[ix("fg_att_60plus")])], "50+ = 50–59 + 60+");
-  t.match(dist.notes, /no split below 40 yards/);
+  t.match(dist.notes, /Made\/attempted by distance \(no split under 40 yds\)\./);
   await openTab(v, "PN");
   const pn = await chooseSet(v, "punting");
-  t.deepEqual(labels(pn.head), ["Punts", "I20", "I20%", "Net"]);
+  t.deepEqual(labels(pn.head), ["Punts", "I20%", "Net"]);
   const pl = FX.leaderboard.punter, pi = (k) => pl.cols.indexOf(k);
   const rows = rowsOf(pn.list);
   t.ok(rows.length >= 30);
   for (const r of rows) {
     const src = pl.rows.find((x) => String(x[0]) === r.pid);
-    t.equal(r.cells[1], src[pi("punt_inside20")] + "/" + src[pi("punts")], "numerator/denominator shown");
-    t.equal(r.cells[2], Math.round(src[pi("punt_inside20")] / src[pi("punts")] * 100) + "%");
+    // I20% with its numerator/denominator under it: "41%" over "9/22".
+    t.equal(r.cells[1], Math.round(src[pi("punt_inside20")] / src[pi("punts")] * 100) + "%" + src[pi("punt_inside20")] + "/" + src[pi("punts")], "I20% with numerator/denominator");
   }
   t.match(pn.notes, /touchbacks aren’t charged 20 yards/);
 });
@@ -684,19 +691,21 @@ async function gameLog(v, pid) {
   await settle(); await settle();
   const html = v.getEl("ups-m-sheet-body").innerHTML;
   const t0 = html.indexOf('class="ups-m-gl-table"');
-  const rows = t0 < 0 ? [] : [...html.slice(t0).matchAll(/<tr class="([^"]*)"><td>(\d+)(?: <small>([^<]*)<\/small>)?<\/td><td class="pts">([\s\S]*?)<\/td>([\s\S]*?)<\/tr>/g)]
+  const rows = t0 < 0 ? [] : [...html.slice(t0).matchAll(/<tr class="([^"]*)"(?: title="[^"]*")?><td>(\d+)(?: <small>([^<]*)<\/small>)?<\/td><td class="pts">([\s\S]*?)<\/td>([\s\S]*?)<\/tr>/g)]
     .map((m) => ({ cls: m[1], wk: +m[2], opp: m[3] || "", pts: m[4].replace(/<span class="ups-m-gl-live"[^>]*><\/span>/, "●"), stats: [...m[5].matchAll(/<td>([^<]*)<\/td>/g)].map((x) => x[1]) }));
-  return { html, rows, head: (/<table class="ups-m-gl-table"><thead><tr>([\s\S]*?)<\/tr>/.exec(html) || [])[1] || "" };
+  return { html, rows, wk: (n) => rows.find((r) => r.wk === n), head: (/<table class="ups-m-gl-table"><thead><tr>([\s\S]*?)<\/tr>/.exec(html) || [])[1] || "" };
 }
 test("game log: every week of the season — MFL points per week (= W=ALL), that week's box score from the bundle, ● on the week in progress", async () => {
   const v = boot();
   const g = await gameLog(v, PURDY);
-  t.deepEqual(g.rows.map((r) => r.wk), [1, 2, 3, 4, 5]);
-  for (const r of g.rows.slice(0, 4)) t.equal(r.pts, Number(FX.weeks[String(r.wk)][PURDY]).toFixed(1), "Wk " + r.wk + " = MFL's own score");
+  t.deepEqual(g.rows.map((r) => r.wk), [5, 4, 3, 2, 1], "most recent week first");
+  t.match(g.html, /<div class="ups-m-gl-wrap"><table class="ups-m-gl-table">/, "the table scrolls inside its own box if it ever outgrows the sheet");
+  for (const r of g.rows.filter((x) => x.wk <= 4)) t.equal(r.pts, Number(FX.weeks[String(r.wk)][PURDY]).toFixed(1), "Wk " + r.wk + " = MFL's own score");
   const b4 = FX.bundles[PURDY].nfl_weekly.find((x) => x.week === 4);
-  t.deepEqual(g.rows[3].stats, [b4.pass_cmp + "/" + b4.pass_att, String(b4.pass_yds), b4.pass_tds + "-" + b4.pass_ints, b4.rush_att + "-" + b4.rush_yds], "QB: C/A · Yds · TD-Int · Rush");
-  t.equal(g.rows[3].opp, b4.opponent);
-  t.deepEqual([g.rows[4].pts, g.rows[4].cls], ["—", "dim"], "Wk 5 in progress and SF hasn't played: not called DNP");
+  t.match(g.head, /<th>Yds<\/th><th>TD<\/th><th>Int<\/th><th>Rush<\/th>/, "QB: Yds · TD · Int · Rush (fits 320px)");
+  t.deepEqual(g.wk(4).stats, [String(b4.pass_yds), String(b4.pass_tds), String(b4.pass_ints), b4.rush_att + "-" + b4.rush_yds]);
+  t.equal(g.wk(4).opp, b4.opponent);
+  t.deepEqual([g.wk(5).pts, g.wk(5).cls], ["—", "dim"], "Wk 5 in progress and SF hasn't played: not called DNP");
   t.match(g.html, /Pts: actual MFL points, UPS scoring, Wks 1–5 \(● Wk 5 in progress\)\. Box score: nflverse, through Wk 4\./);
   // a live-week score is marked; its box score waits for the nflverse refresh
   const aub = await gameLog(v, "16414");
@@ -708,21 +717,37 @@ test("game log: every week of the season — MFL points per week (= W=ALL), that
   t.match(watt.head, /<th>Solo<\/th><th>Ast<\/th><th>Sk<\/th><th>TFL<\/th>/, "IDP columns");
 });
 
+test("game log: MFL points show while the box score loads, and a failed bundle says so instead of 'Loading…' forever", async () => {
+  const held = await gameLog(boot({ bundle: "hold" }), PURDY);
+  t.match(held.html, /Loading season history…/);
+  t.deepEqual(held.rows.map((r) => r.wk), [5, 4, 3, 2, 1], "the weekly points don't wait for the bundle");
+  t.equal(held.wk(4).pts, Number(FX.weeks["4"][PURDY]).toFixed(1));
+  t.deepEqual(held.wk(4).stats, ["…", "…", "…", "…"], "box cells say they're loading");
+  t.match(held.html, /Loading the box score…/);
+  const failed = await gameLog(boot({ bundle: "fail" }), PURDY);
+  t.match(failed.html, /Season history couldn’t be loaded — close and reopen to retry\./);
+  t.match(failed.html, /Box score couldn’t be loaded — close and reopen to retry\./);
+  t.equal(failed.wk(4).pts, Number(FX.weeks["4"][PURDY]).toFixed(1), "points still shown");
+  t.deepEqual(failed.wk(4).stats, ["—", "—", "—", "—"]);
+  t.doesNotMatch(failed.html, /Loading/);
+});
 test("game log: BYE on his team's bye week (MFL's list), DNP for a finished week with no MFL score; bye list unreadable → says so", async () => {
   const v = boot();
   // Week 5 byes: CAR and KCC. A CAR player with a score in earlier weeks:
   const car = Object.keys(FX.players).find((id) => FX.players[id][2] === "CAR" && FX.players[id][1] === "QB" && FX.weeks["1"][id] != null);
   const gb = await gameLog(v, car);
-  t.deepEqual([gb.rows[4].pts, gb.rows[4].cls], ["BYE", "bye"]);
+  t.deepEqual([gb.wk(5).pts, gb.wk(5).cls], ["BYE", "bye"]);
   // a player missing from a FINISHED week that wasn't his bye
   const byes = Object.fromEntries(FX.byes.map((b) => [b.id, +b.bye_week]));
   const dnp = Object.keys(FX.players).find((id) => FX.weeks["1"][id] != null && FX.weeks["2"][id] == null && FX.weeks["3"][id] != null &&
     byes[FX.players[id][2]] !== 2 && ["QB", "RB", "WR", "TE"].includes(FX.players[id][1]));
   const gd = await gameLog(v, dnp);
-  t.deepEqual([gd.rows[1].pts, gd.rows[1].cls], ["DNP", "dnp"], FX.players[dnp][0] + " Wk 2");
+  t.deepEqual([gd.wk(2).pts, gd.wk(2).cls], ["DNP", "dnp"], FX.players[dnp][0] + " Wk 2");
   const v2 = boot({ byes: null });
   const gn = await gameLog(v2, car);
-  t.match(gn.html, /Bye weeks couldn’t be read, so a week without a score shows DNP/);
+  t.match(gn.html, /Bye weeks couldn’t be read, so a week without a score shows —, not DNP/);
+  t.deepEqual([gn.wk(5).pts, gn.wk(5).cls], ["—", "dim"], "bye list unreadable: his bye isn't called DNP");
+  t.ok(!gn.rows.some((r) => r.pts === "DNP"), "…and no week is");
 });
 
 // ═══ 3b. Layout guards (the rendered geometry was measured in the browser at 320 / 375px — see the PR) ═══
