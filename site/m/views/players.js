@@ -1,6 +1,9 @@
 /* Players tab — Free-agent browser + in-app waiver acquisition.
    Free agents = anyone in players export NOT on any roster (exempts taxi/IR
-   since those ARE on rosters). Rows show Name / POS / NFL team / actual pts
+   since those ARE on rosters), and ONLY when MFL's rosters read is confirmed
+   complete (DATA.rosterOwnership(), app.js). An unreadable, empty or partial
+   read makes "not on a roster" mean ownership UNKNOWN: no free-agent list, no
+   Bid / Add (2026-10-09). Rows show Name / POS / NFL team / actual pts
    (MFL league scoring, completed weeks — see pointsBasis) / PPG · games / rank,
    then next week's projection + matchup. Tap row opens player sheet.
 
@@ -86,17 +89,32 @@
     var f = (M.state.franchises || []).find(function (x) { return x.id === U.pad4(fid); });
     return f ? f.name : ("Franchise " + fid);
   }
-  // pid → owning franchise id (for "All players" scope → propose-trade).
-  function rosteredFidByPid() {
-    var map = {};
-    var rs = M.state.rosters && M.state.rosters.rosters;
-    if (rs) {
-      U.asArray(rs.franchise).forEach(function (fr) {
-        var fid = U.pad4(fr.id);
-        U.asArray(fr.player).forEach(function (p) { if (p && p.id) map[String(p.id)] = fid; });
-      });
-    }
-    return map;
+  // Live MFL roster ownership: app.js rosterOwnership() / ownerOfPid(), the
+  // one rule every mobile surface uses. A player on a roster is that
+  // franchise's; a player on NO roster is a free agent only when the read is
+  // confirmed complete; otherwise his ownership is unknown. A missing helper
+  // is unknown too (fail closed), never "everyone is a free agent".
+  var NO_OWNERSHIP = { readable: false, complete: false, missing: [], byPid: {} };
+  function ownership() {
+    return (DATA.rosterOwnership && DATA.rosterOwnership()) || NO_OWNERSHIP;
+  }
+  function isConfirmedFreeAgent(pid) {
+    var o = DATA.ownerOfPid ? DATA.ownerOfPid(pid) : null;
+    return !!(o && o.free === true);
+  }
+  // "Couldn't read (all of) MFL's rosters" + a Refresh button
+  // (data-act="reload-rosters", bound in bind()). faScope: the Free Agents
+  // list, which shows this INSTEAD of rows; otherwise it sits above them.
+  function rostersNoteHtml(own, faScope) {
+    var what = own.readable ? "all of MFL’s rosters" : "MFL’s rosters";
+    var text = faScope
+      ? "Couldn’t read " + what + " — free agents can’t be confirmed right now, so none are listed and no add or bid is offered."
+      : "Couldn’t read " + what + " — a player not found on one shows “Owner unknown”, with no add or bid.";
+    var btn = '<button type="button" class="ups-m-btn-secondary" data-act="reload-rosters">Refresh</button>';
+    return faScope
+      ? '<div class="ups-m-stub ups-m-fa-own-note"><div>' + U.escapeHtml(text) + '</div>' +
+          '<div class="ups-m-fa-own-act">' + btn + '</div></div>'
+      : '<div class="ups-m-fa-own-note inline"><span>' + U.escapeHtml(text) + '</span> ' + btn + '</div>';
   }
 
   function nameFor(player) {
@@ -188,11 +206,13 @@
   }
 
   function buildFreeAgents() {
-    var rostered = DATA.getAllRosteredPids();
+    var own = ownership();
     // "All Players" OR a specific team filter both need rostered players in
     // the list + their owner mapping.
     var showAll = (view.scope === "all") || !!view.teamFilter;
-    var fidByPid = showAll ? rosteredFidByPid() : null;
+    // Free Agents with an unconfirmed rosters read: nobody can be called a
+    // free agent, so there are no rows (render() shows rostersNoteHtml).
+    if (!showAll && !own.complete) return [];
     var basis = pointsBasis();
     var seasonMap = basis.kind === "season" ? basis.ss.byPid : null;
     var seasonRank = seasonMap ? rankMapFor(basis.ss, 0) : null;
@@ -205,7 +225,8 @@
       var p = list[i];
       if (!p || !p.id) continue;
       var pid = String(p.id);
-      var isRostered = rostered.has(pid);
+      var ownerFid = own.byPid[pid] || "";
+      var isRostered = !!ownerFid;
       if (!showAll && isRostered) continue;
       var pos = U.safeStr(p.position).toUpperCase();
       if (!pos) continue;
@@ -246,7 +267,10 @@
         ppg: ppg,
         posRank: rank,
         rankGroup: rankGroup,
-        rosteredFid: (isRostered && fidByPid) ? (fidByPid[pid] || "") : ""
+        rosteredFid: ownerFid,
+        // On no roster, but the rosters read isn't confirmed complete: maybe a
+        // free agent, maybe on a roster MFL left out. Not acquirable.
+        ownerUnknown: !isRostered && !own.complete
       });
     }
     return out;
@@ -566,6 +590,16 @@
     }
     return null;
   }
+  // The Bid / Add entry points re-check what acquisitionCta checked: a button
+  // drawn before a reload (or another surface calling in) must not stage a
+  // claim on a player who isn't a confirmed free agent.
+  function refuseUnlessFreeAgent(pid) {
+    if (isConfirmedFreeAgent(pid)) return false;
+    M.ui.showToast(ownership().complete
+      ? nameForPid(pid) + " is on a roster — not a free agent."
+      : "Couldn’t confirm " + nameForPid(pid) + " is a free agent — MFL’s rosters didn’t fully load. Pull down to refresh.", "err");
+    return true;
+  }
   // THE entry point for "act on this player's bid" from any surface.
   //
   // The Market button used to relabel itself "Bid ✓" once a claim was staged —
@@ -577,6 +611,7 @@
   // same-looking control behaved two opposite ways depending on where you
   // tapped it. That is the "disjointed between that and edit".
   function openBidFor(pid) {
+    if (refuseUnlessFreeAgent(pid)) return;
     // Reconcile a run-stale board BEFORE anything is staged on top of it.
     //
     // A bid staged from the Market never opens the Claims screen, so without
@@ -616,6 +651,10 @@
     opts = opts || {};
     var info = waiverModeInfo();
     if (!M.state.viewerFranchiseId) return { mode: "unknown", html: "" };
+    // Only a CONFIRMED free agent can be bid on or added. A player on a
+    // roster, or one whose ownership is unknown because MFL's rosters didn't
+    // fully load, gets no control at all, not even "Locked".
+    if (!isConfirmedFreeAgent(pid)) return { mode: "unknown", html: "", notFree: true };
     // Transactions closed (Keith 2026-10-03): a league-wide blackout — the FA
     // Auction span or the season shut-off — or waivers not yet open. The
     // worker refuses both an add and a new bid then, so the label says Locked
@@ -928,6 +967,11 @@
 
   function renderRows(rows) {
     if (!rows.length) {
+      // A team MFL's rosters read left out isn't an empty team.
+      if (view.teamFilter && ownership().missing.indexOf(view.teamFilter) !== -1) {
+        return '<div class="ups-m-stub"><div>Couldn’t read ' + U.escapeHtml(franchiseName(view.teamFilter)) +
+          '’s roster from MFL right now.</div></div>';
+      }
       return '<div class="ups-m-stub"><div>No matching ' + (view.scope === "all" ? "players" : "free agents") + '.</div></div>';
     }
     var capped = rows.slice(0, 200); // limit DOM cost on mobile
@@ -938,7 +982,8 @@
       // Rostered player (All-players scope): show the owner; offer Propose
       // trade for players on OTHER teams (Keith 2026-06-08).
       // Unrostered player: the acquisition CTA for the CURRENT waiver window
-      // (Bid / Add / nothing) — see acquisitionCta.
+      // (Bid / Add / nothing) — see acquisitionCta. Ownership unknown (MFL's
+      // rosters not confirmed complete): says so, and offers nothing.
       var ownerTag = "", actionBtn = "";
       if (r.rosteredFid) {
         if (r.rosteredFid === myFid) {
@@ -947,6 +992,8 @@
           ownerTag = '<span class="owned">' + U.escapeHtml(franchiseName(r.rosteredFid)) + '</span>';
           actionBtn = '<button class="ups-m-fa-trade" data-act="propose-trade" data-fid="' + U.escapeHtml(r.rosteredFid) + '" data-pid="' + U.escapeHtml(r.id) + '">Propose trade</button>';
         }
+      } else if (r.ownerUnknown) {
+        ownerTag = '<span class="owned unk">Owner unknown</span>';
       } else {
         actionBtn = acquisitionCta(r.id).html;
       }
@@ -2840,6 +2887,7 @@
   // 1-year WW at $1K, so we never write salary or contract fields.
   function startFcfsAdd(pid) {
     if (!M.state.viewerFranchiseId) return;
+    if (refuseUnlessFreeAgent(pid)) return;
     if (!writeEnabled()) { openNativeWaiverPage(); return; }
     var fid = M.state.viewerFranchiseId;
     var cap = DATA.computeCap(fid);
@@ -3194,6 +3242,19 @@
         else openClaimsScreen();
       });
     }
+    // "Couldn't read MFL's rosters" → Refresh: the app's own reload (the same
+    // reloadData() pull-to-refresh and More → Refresh data run). A complete
+    // read brings the free-agent list back; a roster change shows its owner.
+    var reloadBtns = mount.querySelectorAll('[data-act="reload-rosters"]');
+    for (var rb = 0; rb < reloadBtns.length; rb++) {
+      reloadBtns[rb].addEventListener("click", function (e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (!(M.actions && M.actions.reloadData)) return;
+        this.disabled = true;
+        this.textContent = "Refreshing…";
+        M.actions.reloadData().then(function () { renderRoute(); }, function () { renderRoute(); });
+      });
+    }
     var rows = mount.querySelectorAll(".ups-m-fa-row");
     for (var k = 0; k < rows.length; k++) {
       rows[k].addEventListener("click", function () {
@@ -3258,7 +3319,14 @@
     var liveVal = prevSearch ? prevSearch.value : null;
     var caret = null;
     if (hadFocus) { try { caret = prevSearch.selectionStart; } catch (e) { caret = null; } }
-    mount.innerHTML = renderToolbar() + renderRows(filtered);
+    // MFL's rosters read not confirmed complete: the Free Agents list says so
+    // instead of listing anyone; All Players keeps its rows (owners found on a
+    // roster are still right) under the same note.
+    var own = ownership();
+    var listHtml = own.complete ? renderRows(filtered)
+      : faScopeActive() ? rostersNoteHtml(own, true)
+      : (!view.teamFilter ? rostersNoteHtml(own, false) : "") + renderRows(filtered);
+    mount.innerHTML = renderToolbar() + listHtml;
     bind(mount);
     var nextSearch = document.getElementById("ups-m-players-search");
     if (nextSearch && liveVal != null && nextSearch.value !== liveVal) {
