@@ -34973,82 +34973,62 @@ const mflToSleeper = {};
           )
         );
 
-      const resolveTradeDeadlineKickoffEt = async (season) => {
+      // WHEN MFL STOPS ACCEPTING TRADES, read from MFL itself (Keith 2026-10-09: "owner-facing reminders must accurately
+      // state when MFL will actually stop accepting trades"). MFL's trade deadline is a calendar event — EVENT_TYPE TRADE,
+      // shown on the League Calendar as "No Trades Allowed starts at …" — with no end, so the EARLIEST one in the season's
+      // calendar is the instant trading stops. (2026: MFL holds Tue 11-24 12:00 PM plus Wed 11-25 8:00 PM twice → Tue noon.)
+      //
+      // This replaced a resolver that read ESPN's scoreboard for Thanksgiving Day and called the first game the deadline
+      // (Thu 11-26 1:00 PM), overriding both the commish calendar and MFL. Nothing here guesses: a calendar that can't be
+      // read, or holds no TRADE event, returns fallback_used = true with no date, and the caller sends no trade-deadline
+      // reminder that sweep (it retries next sweep) rather than state a time MFL may not honour.
+      const resolveTradeDeadlineKickoffEt = async (season, leagueId) => {
         const seasonKey = safeStr(season);
-        const configured =
-          ((DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline && typeof (DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline === "object")
-            ? (DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline
-            : {};
-        const thanksgivingDate = thanksgivingDateKey(seasonKey) || safeStr(configured.deadline_date_et);
-        const fallbackTimeEt = safeStr(configured.deadline_time_et || "13:00");
-        const checkedAtUtc = new Date().toISOString();
-        const datesParam = thanksgivingDate ? thanksgivingDate.replace(/-/g, "") : "";
-        const sourceUrl = datesParam
-          ? `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${encodeURIComponent(datesParam)}`
-          : "";
-        const fallback = {
+        const lid = safeStr(leagueId || L || "74598");
+        const out = {
           season: safeInt(seasonKey, 0),
-          deadline_date_et: thanksgivingDate,
-          deadline_time_et: fallbackTimeEt,
+          deadline_date_et: "",
+          deadline_time_et: "",
           fallback_used: true,
-          source: "configured_fallback",
-          source_url: sourceUrl,
-          checked_at_utc: checkedAtUtc,
+          source: "mfl_calendar",
+          source_url: `https://www48.myfantasyleague.com/${encodeURIComponent(seasonKey)}/options?L=${encodeURIComponent(lid)}&O=123`,
+          checked_at_utc: new Date().toISOString(),
           event_name: "",
           event_id: "",
           event_date_utc: "",
+          mfl_trade_events: [],
           upstream_status: 0,
           upstream_error: "",
         };
-        if (!sourceUrl) return fallback;
+        if (!seasonKey) { out.upstream_error = "season_missing"; return out; }
         try {
-          const res = await fetch(sourceUrl, {
-            headers: {
-              "User-Agent": "upsmflproduction-worker",
-              "Cache-Control": "no-store",
-            },
-            cf: { cacheTtl: 0, cacheEverything: false },
+          const res = await mflExportJson(seasonKey, lid, "calendar", {}, { useCookie: true });
+          out.upstream_status = safeInt(res && res.status, 0);
+          if (!res || !res.ok) { out.upstream_error = `calendar_unreadable_http_${out.upstream_status}`; return out; }
+          const all = normalizeMflCalendar(res.data);
+          // An empty calendar is not evidence that MFL has no trade deadline — it is what a failed login looks like.
+          if (!all.length) { out.upstream_error = "calendar_has_no_events"; return out; }
+          const trades = all.filter((e) => e.event_type === "TRADE" && Number(e.start_unix) > 0)
+            .sort((x, y) => Number(x.start_unix) - Number(y.start_unix));
+          out.mfl_trade_events = trades.map((e) => {
+            const et = etDateTimeFromIso(new Date(Number(e.start_unix) * 1000).toISOString());
+            return { id: safeStr(e.id), start_unix: Number(e.start_unix), date_et: et.date_key, time_et: et.time_et };
           });
-          fallback.upstream_status = safeInt(res.status, 0);
-          if (!res.ok) {
-            fallback.upstream_error = `http_${res.status}`;
-            return fallback;
-          }
-          const data = await res.json();
-          const events = Array.isArray(data?.events) ? data.events : [];
-          if (!events.length) {
-            fallback.upstream_error = "no_events";
-            return fallback;
-          }
-          const first = events
-            .filter((row) => safeStr(row?.date))
-            .sort((a, b) => String(a?.date || "").localeCompare(String(b?.date || "")))[0];
-          if (!first) {
-            fallback.upstream_error = "no_event_dates";
-            return fallback;
-          }
-          const resolved = etDateTimeFromIso(first.date);
-          if (!safeStr(resolved.date_key) || !safeStr(resolved.time_et)) {
-            fallback.upstream_error = "unresolved_event_time";
-            return fallback;
-          }
+          if (!trades.length) { out.upstream_error = "no_trade_event_on_mfl_calendar"; return out; }
+          const first = out.mfl_trade_events[0];
+          if (!first.date_et || !first.time_et) { out.upstream_error = "unresolved_event_time"; return out; }
           return {
-            season: safeInt(seasonKey, 0),
-            deadline_date_et: safeStr(resolved.date_key),
-            deadline_time_et: safeStr(resolved.time_et),
+            ...out,
+            deadline_date_et: first.date_et,
+            deadline_time_et: first.time_et,
             fallback_used: false,
-            source: "espn_scoreboard",
-            source_url: sourceUrl,
-            checked_at_utc: checkedAtUtc,
-            event_name: safeStr(first?.name || ""),
-            event_id: safeStr(first?.id || ""),
-            event_date_utc: safeStr(first?.date || ""),
-            upstream_status: safeInt(res.status, 0),
-            upstream_error: "",
+            event_name: `MFL "No Trades Allowed" (${trades.length} TRADE event${trades.length === 1 ? "" : "s"} on the calendar; the earliest applies)`,
+            event_id: first.id,
+            event_date_utc: new Date(first.start_unix * 1000).toISOString(),
           };
         } catch (e) {
-          fallback.upstream_error = `fetch_failed: ${e?.message || String(e)}`;
-          return fallback;
+          out.upstream_error = `calendar_fetch_failed: ${e?.message || String(e)}`;
+          return out;
         }
       };
 
@@ -35080,16 +35060,15 @@ const mflToSleeper = {};
         const prev = previous && typeof previous === "object" ? previous : {};
         const next = current && typeof current === "object" ? current : {};
         return {
-          title: `Trade Deadline Auto-Updated for ${safeStr(season)}`,
+          title: `Trade Deadline Reminders Updated for ${safeStr(season)}`,
           color: 0x103a71,
-          description: "Thanksgiving kickoff is official, so the trade deadline reminder schedule has been updated automatically.",
+          description: "The trade-deadline reminders now state when MFL stops accepting trades: the earliest \"No Trades Allowed\" event on MFL's league calendar.",
           fields: [
             {
               name: "Previous Deadline",
-              value: formatPlainDateTimeLabelEt(
-                safeStr(prev.deadline_date_et || thanksgivingDateKey(season)),
-                safeStr(prev.deadline_time_et || "13:00")
-              ),
+              value: safeStr(prev.deadline_date_et)
+                ? formatPlainDateTimeLabelEt(safeStr(prev.deadline_date_et), safeStr(prev.deadline_time_et || "13:00"))
+                : "(none recorded)",
               inline: false,
             },
             {
@@ -35176,10 +35155,12 @@ const mflToSleeper = {};
           },
           trade_deadline: {
             title: "Trade Deadline",
+            // Date and time come from MFL's own calendar at send time (resolveTradeDeadlineKickoffEt); when it can't be read,
+            // no trade-deadline reminder is sent. These two values are never used for a send.
             deadline_date_et: "2026-11-26",
             deadline_time_et: "13:00",
             reminder_send_time_et: "09:00",
-            summary: "Finish the last deals before Thanksgiving kickoff shuts the market down.",
+            summary: "MFL stops accepting trades at this time. Finish your deals before then.",
             reminder_offsets_days: [7, 1],
             reminder_offsets_hours: [1],
           },
@@ -35372,6 +35353,14 @@ const mflToSleeper = {};
             // Day-based reminders degrade gracefully when late; these do not.
             if (triggerDateEt !== targetDate) continue;
             if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
+            // …and never once the deadline itself has passed: a "1 hour left" posted after the window closed is false
+            // (a missed 11:05 tick used to send it at 12:05 for a noon deadline).
+            {
+              const dlDate = safeStr(event.deadline_date_et);
+              const dlParts = parseEtTimeParts(event.deadline_time_et, 23, 59);
+              if (dlDate && (targetDate > dlDate || (targetDate === dlDate
+                  && minutesOfDayEt(nowEt.hour, nowEt.minute) >= minutesOfDayEt(dlParts.hour, dlParts.minute)))) continue;
+            }
             const reminderKey = buildDeadlineReminderKey({
               season,
               eventKey: event.event_key,
@@ -35534,6 +35523,7 @@ const mflToSleeper = {};
               name: "What This Covers",
               value:
                 safeStr(reminder?.event_key) === "trade_deadline" && safeStr(reminder?.reminder_code) === "1_hour"
+                  && safeStr(reminder?.deadline_date_et) === thanksgivingDateKey(safeStr(reminder?.season || safeStr(reminder?.deadline_date_et).slice(0, 4)))
                   ? `${safeStr(reminder?.summary || "Deadline reminder")}\nHappy Thanksgiving.`
                   : safeStr(reminder?.summary || "Deadline reminder"),
               inline: false,
@@ -55574,12 +55564,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
-        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
+        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season, leagueId);
         // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
-        // base overrides; the MFL-derived trade-deadline resolution still wins for
-        // trade_deadline specifically, since it is computed from the real kickoff
-        // time rather than typed in. Anything the commish has not set falls through
-        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        // base overrides; for trade_deadline the date and time come from MFL's own
+        // calendar (the earliest TRADE event — when MFL actually stops accepting
+        // trades), never from the commish field or a guess. When MFL's calendar
+        // can't be read, the trade_deadline reminder is left out of this sweep.
+        // Anything the commish has not set falls through to the hardcoded
+        // DEADLINE_REMINDER_CALENDAR.
         //
         // On a read failure we deliberately fall back to the hardcoded calendar
         // rather than skipping the sweep: an empty override set still sends the
@@ -55592,6 +55584,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         } catch (e) {
           console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
         }
+        // (a strict boolean test: safeInt(false, 1) is 1, which is why the persist / notify checks below never fire.)
+        const tradeDeadlineResolved = tradeDeadlineResolution.fallback_used === false;
+        if (!tradeDeadlineResolved) {
+          console.error(`[deadline-reminders] trade_deadline reminder WITHHELD for ${season}: MFL's calendar trade lock unresolved (${safeStr(tradeDeadlineResolution.upstream_error) || "unknown"}) — retried next sweep`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
           ...calendarOverrides,
           trade_deadline: {
@@ -55599,12 +55596,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
-        });
+        }).filter((row) => tradeDeadlineResolved || safeStr(row.event_key) !== "trade_deadline");
         if (!catalog.length) {
           return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
         }
         const eventKey = safeStr(body.event_key || body.eventKey || url.searchParams.get("event_key") || "contract_deadline");
         const reminderCode = safeStr(body.reminder_code || body.reminderCode || url.searchParams.get("reminder_code") || "one_week");
+        if (eventKey === "trade_deadline" && !tradeDeadlineResolved) {
+          return jsonOut(409, { ok: false, error: "trade_deadline_unresolved",
+            message: "MFL's calendar trade lock could not be read, so there is no trade-deadline time to state.", trade_deadline_resolution: tradeDeadlineResolution });
+        }
         const sentKeys = new Set();
         const triggerDateEtOverride =
           safeStr(body.trigger_date_et || body.triggerDateEt || "") ||
@@ -55770,28 +55771,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           doc.meta && typeof doc.meta.trade_deadline_resolution === "object"
             ? doc.meta.trade_deadline_resolution
             : {};
-        const fetchedTradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
-        const previousOfficialTradeDeadlineResolution =
-          safeInt(previousTradeDeadlineResolution.fallback_used, 1) === 0 &&
-          safeStr(previousTradeDeadlineResolution.deadline_date_et) &&
-          safeStr(previousTradeDeadlineResolution.deadline_time_et)
-            ? previousTradeDeadlineResolution
-            : null;
-        const tradeDeadlineResolution =
-          safeInt(fetchedTradeDeadlineResolution.fallback_used, 1) === 1 && previousOfficialTradeDeadlineResolution
-            ? {
-                ...previousOfficialTradeDeadlineResolution,
-                checked_at_utc: safeStr(fetchedTradeDeadlineResolution.checked_at_utc || new Date().toISOString()),
-                upstream_status: safeInt(fetchedTradeDeadlineResolution.upstream_status, 0),
-                upstream_error: safeStr(fetchedTradeDeadlineResolution.upstream_error || ""),
-                source_url: safeStr(fetchedTradeDeadlineResolution.source_url || previousOfficialTradeDeadlineResolution.source_url || ""),
-              }
-            : fetchedTradeDeadlineResolution;
+        // MFL's calendar as read NOW. An earlier resolution is never reused: a stale time is exactly the wrong-time reminder this
+        // replaced, so an unreadable calendar withholds the trade-deadline reminder (retried next sweep) instead.
+        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season, leagueId);
         // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
-        // base overrides; the MFL-derived trade-deadline resolution still wins for
-        // trade_deadline specifically, since it is computed from the real kickoff
-        // time rather than typed in. Anything the commish has not set falls through
-        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        // base overrides; for trade_deadline the date and time come from MFL's own
+        // calendar (the earliest TRADE event — when MFL actually stops accepting
+        // trades), never from the commish field or a guess. When MFL's calendar
+        // can't be read, the trade_deadline reminder is left out of this sweep.
+        // Anything the commish has not set falls through to the hardcoded
+        // DEADLINE_REMINDER_CALENDAR.
         //
         // On a read failure we deliberately fall back to the hardcoded calendar
         // rather than skipping the sweep: an empty override set still sends the
@@ -55804,6 +55793,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         } catch (e) {
           console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
         }
+        // (a strict boolean test: safeInt(false, 1) is 1, which is why the persist / notify checks below never fire.)
+        const tradeDeadlineResolved = tradeDeadlineResolution.fallback_used === false;
+        if (!tradeDeadlineResolved) {
+          console.error(`[deadline-reminders] trade_deadline reminder WITHHELD for ${season}: MFL's calendar trade lock unresolved (${safeStr(tradeDeadlineResolution.upstream_error) || "unknown"}) — retried next sweep`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
           ...calendarOverrides,
           trade_deadline: {
@@ -55811,7 +55805,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
-        });
+        }).filter((row) => tradeDeadlineResolved || safeStr(row.event_key) !== "trade_deadline");
         if (!catalog.length) {
           return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
         }
@@ -55931,6 +55925,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           count_sent: newRows.length,
           spacing_seconds: spacingSeconds,
           trade_deadline_resolution: tradeDeadlineResolution,
+          trade_deadline_reminder_withheld: !tradeDeadlineResolved,
           trade_deadline_resolution_changed: tradeResolutionChanged,
           trade_deadline_resolution_persisted: tradeResolutionPersist,
           trade_deadline_resolution_dm: resolutionDmResults,
