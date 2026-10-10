@@ -390,6 +390,18 @@ test("h. news down for good: five stuck deferred rows cost ONE lookup per tick; 
   t.deepEqual(NEWS.calls, ["13000"], "a quiet tick: one lookup for the whole backlog");
 });
 
+// ═════════ the news lookup goes through the SELF service binding when it is bound ═════════
+test("f. with env.SELF bound (production), the news lookup is a service-binding call — never a plain fetch of the Worker's own host", async () => {
+  const selfCalls = [];
+  const SELF = { fetch: async (url) => { const u = new URL(String(url)); selfCalls.push(u.pathname); return playerNews(u); } };
+  const L = freshLeague(["13000"], { SELF });
+  NEWS.calls = [];
+  const before = selfCalls.length;
+  await L.scan();
+  t.deepEqual(selfCalls.slice(before), ["/api/player-news"]);
+  t.equal(L.row("13000").capfree_review_status, "pending", "the news answered through SELF");
+});
+
 await run("drop_capfree_deferred_routes");
 
 globalThis.Date = RealDate;
