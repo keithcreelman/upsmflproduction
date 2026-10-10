@@ -362,13 +362,27 @@
     return '<div class="ups-m-sheet-acq">' + parts.join("") + '</div>';
   }
 
+  // The player's owner by the app's one rule (app.js ownerOfPid): on a
+  // roster / a CONFIRMED free agent / unknown. No rosterRow is NOT proof of a
+  // free agent: an unreadable, empty or partial MFL rosters read can't find
+  // anyone. A missing helper is unknown (fail closed).
+  function ownerOf(pid) {
+    return (DATA.ownerOfPid && DATA.ownerOfPid(pid)) || { known: false, free: false, fid: "" };
+  }
+
   function renderActionsFooter(pid, rosterRow, ownsPlayer, opts) {
     opts = opts || {};
     if (!ownsPlayer) {
-      // No rosterRow at all = free agent → offer the live acquisition path.
-      // A rosterRow owned by someone ELSE = trade territory, which lives in
-      // the Market row / Trades view, so that case still just gets Close.
-      var acq = rosterRow ? "" : renderAcquisitionBlock(pid);
+      // A CONFIRMED free agent → offer the live acquisition path. A rosterRow
+      // owned by someone ELSE = trade territory, which lives in the Market row /
+      // Trades view, so that case still just gets Close. Ownership unknown (no
+      // rosterRow, rosters read incomplete) → no add, no bid, no FCFS.
+      var acq = "";
+      if (!rosterRow) {
+        acq = ownerOf(pid).free
+          ? renderAcquisitionBlock(pid)
+          : '<div class="ups-m-sheet-acq"><div class="ups-m-acq-note">Ownership unknown — no add or bid until MFL’s rosters load.</div></div>';
+      }
       return acq + '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
     }
     var s = window.UPS_MOBILE.state;
@@ -2104,8 +2118,12 @@
       body.innerHTML = renderBioBlock(footerState.pid, currentBundle);
     } else {
       // Actions tab — contract context; the action buttons sit in the foot.
+      // No roster row is "Free agent" only for a CONFIRMED free agent.
       body.innerHTML = rowContractBlock(footerState.rosterRow) ||
-        '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>';
+        (ownerOf(footerState.pid).free
+          ? '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Free agent — no contract on file.</div></div>'
+          : '<div class="ups-m-sheet-block"><div class="ups-m-sheet-empty">Ownership unknown — couldn’t read all of MFL’s rosters, ' +
+            'so we can’t tell whether he’s on a team. Close this and pull down to refresh.</div></div>');
     }
   }
   // ── Player News ───────────────────────────────────────────────────────────

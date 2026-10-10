@@ -45,6 +45,15 @@ function sliceFn(src, sig) {
 }
 const UTIL_SRC = ["function safeStr(", "function safeInt(", "function pad4(", "function escapeHtml(",
   "function fmtUsd(", "function asArray("].map((s) => sliceFn(APP, s)).join("\n");
+// The fixture's rosters read is COMPLETE, so a player on none of them is a confirmed
+// free agent (app.js rosterOwnership / ownerOfPid; tests/mobile_players_ownership_unknown
+// covers the incomplete cases).
+function completeOwnership(fx) {
+  const own = { readable: true, complete: true, missing: [],
+    byPid: Object.fromEntries(Object.entries(fx.rosters).map(([pid, r]) => [pid, r.fid])) };
+  return { rosterOwnership: () => own,
+    ownerOfPid: (pid) => (own.byPid[String(pid)] ? { known: true, free: false, fid: own.byPid[String(pid)] } : { known: true, free: true, fid: "" }) };
+}
 
 function harness({ fx = FX } = {}) {
   const ctx = vm.createContext({ console, setTimeout, clearTimeout });
@@ -68,7 +77,7 @@ function harness({ fx = FX } = {}) {
   ctx.UPS_MOBILE = {
     util: ctx.__util, state,
     data: {
-      getAllRosteredPids: () => rostered, getSeasonScoring: () => ctx.__getSeasonScoring(),
+      getAllRosteredPids: () => rostered, ...completeOwnership(fx), getSeasonScoring: () => ctx.__getSeasonScoring(),
       getAdvancedStatsMap: () => ({}), getAdvancedStatsLatestYear: () => 2026, getYtdScoresMap: () => ({}),
       playerById: (pid) => byId[String(pid)] || null,
       computeCap: () => null, rosterCapMax: () => 30, getRosterFor: () => [], dropPenaltyFor: () => null,
@@ -260,7 +269,7 @@ function bidHarness({ full = false, players = PLAYERS_JS, fx = FX } = {}) {
   ctx.UPS_MOBILE = {
     util: ctx.__util, state,
     data: {
-      getAllRosteredPids: () => rostered, getSeasonScoring: () => ctx.__getSeasonScoring(),
+      getAllRosteredPids: () => rostered, ...completeOwnership(fx), getSeasonScoring: () => ctx.__getSeasonScoring(),
       getAdvancedStatsMap: () => ({}), getAdvancedStatsLatestYear: () => 2026, getYtdScoresMap: () => ({}),
       playerById: (pid) => byId[String(pid)] || null,
       computeCap: () => ({ capAmount: 300000, capRoom: 18000, rosterCount: 36, activeCount: full ? 30 : 28, irCount: 1, taxiCount: 5 }),
