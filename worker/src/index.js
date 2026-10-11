@@ -44,7 +44,7 @@ import {
   evaluateLineup, bookLineupViolation, lineupStandings, voidLineupViolation,
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
-import { runLineupDmSweep, runLineupBooking, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
+import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
@@ -7707,6 +7707,29 @@ export default {
         console.error(`[scheduled */5] transactions-ledger dispatch failed: ${e?.message || String(e)}`);
       }
 
+      // ── §G3 BOOKING FAST PATH ──────────────────────────────────────────
+      // The week is judged at its FINAL kickoff (Keith 2026-10-11). The hourly
+      // :05 run alone can land up to ~60 min late, so this tick also books for
+      // the first 15 minutes after that kickoff. Outside that window it costs
+      // one cached MFL schedule read. Same idempotent booking as the hourly
+      // run, which stays as the safety net (see lineup_wiring.js).
+      try {
+        if (env.UPS_MFL_DB) {
+          ctx.waitUntil((async () => {
+            try {
+              const fpSeason = String(env.YEAR || new Date().getUTCFullYear());
+              const fpLeague = String(env.LEAGUE_ID || "74598");
+              const fpWeek = await _injuryPollWeek(fpSeason);
+              if (!fpWeek) return;
+              const fp = await runLineupBookingFastPath(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek });
+              if (fp && !fp.skipped) console.log(`[scheduled */5] lineup booking wk${fpWeek}: booked=${fp.booked} clean=${fp.clean} skipped=${fp.skipped}${fp.refused ? " REFUSED:" + fp.refused : ""}`);
+            } catch (e) { console.error(`[scheduled */5] lineup booking fast path failed: ${e && e.message}`); }
+          })());
+        }
+      } catch (e) {
+        console.error(`[scheduled */5] lineup booking dispatch failed: ${e?.message || String(e)}`);
+      }
+
       return; // jobs dispatched on the */5 tick
     }
 
@@ -8045,9 +8068,10 @@ export default {
     //   • DM sweep — fires only when a game window is 1–2.5h out, so an owner
     //     still has time to act. Deduped per (fid, week, window) in
     //     ups_lineup_dm_log, so an extra tick cannot double-DM anybody.
-    //   • Booking  — fires only once the week's last kickoff is >4h past, then
-    //     evaluates and books onto the §G3 ladder. Idempotent per
-    //     franchise-week.
+    //   • Booking  — fires at or after the week's FINAL kickoff (Keith
+    //     2026-10-11), then evaluates and books onto the §G3 ladder.
+    //     Idempotent per franchise-week. The */5 cron books first (within
+    //     ~5 min of that kickoff); this hourly run is the safety net.
     //
     // Deliberately AFTER the injury poll above and in its own try/catch: the
     // poll is the one that must never be skipped, because its history cannot
