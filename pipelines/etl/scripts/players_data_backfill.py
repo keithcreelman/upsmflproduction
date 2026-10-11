@@ -66,7 +66,7 @@ RZ_PLAYER_COLS = ["rush_att_i20", "rush_att_i10", "rush_att_i5", "rush_yds_i20",
                   "targets_i20", "targets_i10", "targets_i5", "targets_ez", "rec_i20", "rec_tds_i20",
                   "pass_att_i20", "pass_tds_i20", "pass_att_ez", "pass_cmp_i20", "sacks_i20"]
 EPA_COLS = ["pass_plays", "pass_epa_sum", "pass_cpoe_sum", "pass_cpoe_n", "pass_succ_sum",
-            "rush_plays", "rush_epa_sum", "rush_succ_sum", "rec_tgt", "rec_epa_sum", "rec_succ_sum", "through_week"]
+            "rush_plays", "rush_epa_sum", "rush_succ_sum", "rec_tgt", "rec_epa_sum", "rec_succ_sum", "through_week", "epa_def"]
 # name -> (live table, primary key, the columns this procedure owns)
 TABLES = {
     "rz":  ("nfl_player_redzone", ["season", "week", "gsis_id"], RZ_PLAYER_COLS),
@@ -312,7 +312,7 @@ def guard(n: dict, cond: str) -> str:
 def require_0169(d1: D1) -> None:
     rz, tw = cols_of(d1, "nfl_player_redzone"), cols_of(d1, "nfl_team_weekly")
     missing = [c for c in ("pass_cmp_i20", "sacks_i20") if c not in rz] + [c for c in RZ_TEAM_COLS if c not in tw] + \
-              [c for c in ("through_week",) if c not in cols_of(d1, "nfl_player_epa")]
+              [c for c in ("through_week", "epa_def") if c not in cols_of(d1, "nfl_player_epa")]
     if missing:
         raise SystemExit("migration 0169 is not applied (missing " + ", ".join(missing) + "): apply it first")
 

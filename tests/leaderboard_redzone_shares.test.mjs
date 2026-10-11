@@ -133,4 +133,23 @@ test("one of his games without team totals (e.g. a season not re-run since 0169 
   t.equal(sk["00-X"].team_targets_i20, 10 + 10, "a player whose games all have totals is unaffected");
 });
 
+test("a window mixing a rebuilt season (2026) with one that isn't (2025): every red-zone count is null and rz_mixed says why; 2025 alone is unchanged", async () => {
+  const { env, db } = setup();
+  // 2025: an old-ETL red-zone row (sacks counted as attempts, no completions column) for WR X
+  db.prepare("INSERT INTO nfl_player_weekly (season, week, gsis_id, position, pos_group, team, targets, receptions, rush_att, pass_att) VALUES (2025, 1, '00-X', 'WR', 'WR', 'AAA', 5, 3, 0, 0)").run();
+  db.prepare("INSERT INTO nfl_player_redzone (season, week, gsis_id, targets_i20, rec_i20, targets_ez, rush_att_i20, rush_att_i5, pass_att_i20) VALUES (2025, 1, '00-X', 3, 2, 1, 0, 0, 0)").run();
+  const q = async (seasons) => { const restore = quiet(); try {
+    const r = await callWorker(env, "GET", `/api/advanced-stats-leaderboard?seasons=${seasons}&pos=skill&YEAR=2026&L=74598&min_games=1&limit=200&NO_PRECOMPUTE=1&NO_CACHE=1`);
+    t.equal(r.status, 200, JSON.stringify(r.json).slice(0, 300));
+    return Object.fromEntries((r.json.rows || []).map((x) => [x.gsis_id, x]));
+  } finally { restore(); } };
+  const both = (await q("2025,2026"))["00-X"];
+  t.deepEqual([both.targets_i20, both.rec_i20, both.targets_ez, both.rz_target_share, both.rz_mixed], [null, null, null, null, 1], "never 2 + 3 targets under two definitions");
+  t.equal(both.targets, 3 + 5, "box-score totals are one definition and still add");
+  const old = (await q("2025"))["00-X"];
+  t.deepEqual([old.targets_i20, old.rz_mixed, old.rz_v2], [3, 0, 0], "a single old-definition season reads as before (completions unknown)");
+  const cur = (await board(env, "skill"))["00-X"];
+  t.deepEqual([cur.targets_i20, cur.rz_mixed], [2, 0]);
+});
+
 await run("leaderboard_redzone_shares");

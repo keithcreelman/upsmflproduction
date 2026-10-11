@@ -38,6 +38,11 @@ ALTER TABLE nfl_team_weekly ADD COLUMN ez_targets_i20 INTEGER;   -- …thrown fr
 ALTER TABLE nfl_team_weekly ADD COLUMN rz_rec         INTEGER;
 
 ALTER TABLE nfl_player_epa ADD COLUMN through_week INTEGER;       -- max REG week aggregated into the row
+-- Which play definition built the row: 2 = the box-score plays, two-point tries
+-- out (fetch_nflverse_epa.py, 2026-10-10); NULL = the original definition
+-- (two-point tries in, spikes and kneels out, passer charged epa). /api/player-epa
+-- refuses to add seasons with different definitions together.
+ALTER TABLE nfl_player_epa ADD COLUMN epa_def INTEGER;
 
 -- PFR coverage targets (Keith 2026-10-10: Coverage shows completions / targets,
 -- sorted by targets). nfl_player_weekly is at D1's 100-column cap, so it lives

@@ -12951,12 +12951,23 @@ export default {
                    a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints, a.pass_sacks, a.pass_sack_yds,
                    a.receiving_drops, a.receiving_broken_tackles, a.rushing_broken_tackles,
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,
-                   a.rush_att_i20, a.rush_att_i5, a.targets_i20, a.targets_ez,
-                   a.rec_i20, a.pass_att_i20, a.pass_att_ez,
-                   a.pass_tds_i20,
+                   -- A window mixing seasons rebuilt under 0169 with seasons that
+                   -- weren't (2026 + 2025 until history is rebuilt) would add two
+                   -- definitions together (old rows count two-point tries, and
+                   -- sacks as attempts): every red-zone count is NULL ("—") and
+                   -- rz_mixed says why. One-definition windows are unchanged.
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.rush_att_i20 END AS rush_att_i20,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.rush_att_i5 END  AS rush_att_i5,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.targets_i20 END  AS targets_i20,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.targets_ez END   AS targets_ez,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.rec_i20 END      AS rec_i20,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.pass_att_i20 END AS pass_att_i20,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.pass_att_ez END  AS pass_att_ez,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN NULL ELSE a.pass_tds_i20 END AS pass_tds_i20,
                    CASE WHEN a.rz_v2 = 1 THEN a.pass_cmp_i20 END AS pass_cmp_i20,
                    CASE WHEN a.rz_v2 = 1 THEN a.sacks_i20 END    AS sacks_i20,
                    a.rz_v2,
+                   CASE WHEN a.rz_any_v2 = 1 AND a.rz_v2 = 0 THEN 1 ELSE 0 END AS rz_mixed,
                    a.receiving_rat, a.passing_bad_throw_pct, a.passing_pressure_pct,
                    sv.s_rec_adot AS receiving_adot, sv.s_rec_air_yards AS receiving_air_yards,
                    sv.s_rec_yac_per_r AS receiving_yac_per_r, sv.s_rec_drop_pct AS receiving_drop_pct,
@@ -13253,6 +13264,7 @@ export default {
                      -- has NULL there, and its completions/sacks are UNKNOWN —
                      -- never 0 — so the projection returns NULL for them.
                      MIN(CASE WHEN rz.gsis_id IS NULL THEN 1 WHEN rz.sacks_i20 IS NULL THEN 0 ELSE 1 END) AS rz_v2,
+                     MAX(CASE WHEN rz.sacks_i20 IS NOT NULL THEN 1 ELSE 0 END) AS rz_any_v2,
                      -- FG buckets (PBP-derived via fetch_nflverse_pbp.py —
                      -- weekly payload doesn't populate these)
                      SUM(COALESCE(w.fg_att_0_39,0))                  AS fg_att_0_39,
@@ -19933,6 +19945,26 @@ export default {
             .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
           if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
           const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
+          // Which play definition each season's rows were built under
+          // (migration 0169 `epa_def`): 2 = box-score plays, two-point tries
+          // out (2026-10-10); NULL = the original (tries in, spikes/kneels out,
+          // passer charged epa). Seasons under different definitions are NOT
+          // added together: the reply is empty for EPA, says so, and lists each
+          // season's definition so a client can label it (Keith 2026-10-11).
+          const definitions = {};
+          let defOk = true;
+          try {
+            const d = await db.prepare(
+              "SELECT season, MIN(COALESCE(epa_def, 1)) AS lo, MAX(COALESCE(epa_def, 1)) AS hi FROM nfl_player_epa WHERE season IN (" + seasonList + ") GROUP BY season"
+            ).all();
+            for (const x of (d && d.results) || []) definitions[x.season] = Number(x.lo) === Number(x.hi) ? Number(x.lo) : "mixed";
+          } catch (_) { for (const sn of seasons) definitions[sn] = 1; defOk = false; }   // pre-0169: one (old) definition everywhere
+          const kinds = new Set(Object.values(definitions));
+          if (kinds.has("mixed") || kinds.size > 1) {
+            return statOk({ ok: true, seasons, count: 0, mixed_definitions: true, definitions, by_gsis: {}, through_week: {},
+              reason: "EPA for these seasons was built under different play definitions and can't be added together. " +
+                      "Choose seasons from one side: " + Object.entries(definitions).map(([sn, v]) => sn + " = " + (v === 2 ? "box-score plays, no two-point tries" : v === 1 ? "original (two-point tries in)" : "mid-rebuild")).join("; ") + "." });
+          }
           const r = await db.prepare(
             "SELECT gsis_id AS gsis, " +
             "SUM(pass_plays) pp, SUM(pass_epa_sum) pe, SUM(pass_cpoe_sum) pc, SUM(pass_cpoe_n) pcn, SUM(pass_succ_sum) psx, " +
@@ -19961,7 +19993,7 @@ export default {
             ).all();
             for (const x of (tw && tw.results) || []) through_week[x.season] = x.tw == null ? null : Number(x.tw);
           } catch (_) { /* column not migrated yet */ }
-          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, through_week, by_gsis });
+          return statOk({ ok: true, seasons, count: Object.keys(by_gsis).length, through_week, definitions, definitions_known: defOk, by_gsis });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

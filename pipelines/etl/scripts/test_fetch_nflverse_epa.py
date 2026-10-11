@@ -53,6 +53,7 @@ check("CPOE over the plays that have one", (round(q["pass_cpoe_sum"], 4), q["pas
 check("receiver: 2 targets, the play's epa, no two-point try", (w["rec_tgt"], round(w["rec_epa_sum"], 4), w["rec_succ_sum"]), (2, -1.0, 1.0))
 check("rusher: 2 carries; 0.0 EPA is not a success; the two-point run is out", (r["rush_plays"], round(r["rush_epa_sum"], 4), r["rush_succ_sum"]), (2, 0.4, 1.0))
 check("a kneel is a QB carry; a play with no EPA isn't counted", (q["rush_plays"], round(q["rush_epa_sum"], 4)), (1, -0.3))
+check("every row is stamped with its play definition (2)", {r["epa_def"] for r in rows.values()}, {2})
 
 print(f"\n{'FAILED ' + str(fails) if fails else 'all passed'}")
 sys.exit(1 if fails else 0)

@@ -3028,6 +3028,35 @@ table.asw-table{font-size:13px}
   // table (state.lastBuiltForWeek et al, rendered elsewhere into #asw-meta)
   // must never be read as certifying these two ETL jobs, and vice versa --
   // each is its own pipeline with its own etl_runs row.
+  // EPA and red-zone play definitions (2026-10-11). 2026 is rebuilt under the
+  // new rules (box-score plays; two-point tries out; sacks apart from red-zone
+  // attempts); earlier seasons keep the original ones until they are rebuilt.
+  // The worker refuses to add the two together (EPA empty, red-zone counts
+  // null); this says why, and labels an all-old window so it isn't compared
+  // with 2026 as if alike. Silent when no EPA / red-zone column is showing.
+  var RZ_COLS = { rush_att_i20:1, rush_att_i5:1, targets_i20:1, rec_i20:1, targets_ez:1, pass_att_i20:1, pass_att_ez:1,
+                  rz_rush_share:1, gl_rush_share:1, rz_target_share:1, rz_rec_share:1, ez_target_share:1, team_rz_plays:1, team_rz_pass_rate:1 };
+  function renderDefinitionNote(cols) {
+    var slot = document.getElementById("asw-source-freshness-slot");
+    if (!slot) return;
+    var epaShown = (cols || []).some(function (k) { return /^epa_/.test(k); });
+    var rzShown = (cols || []).some(function (k) { return RZ_COLS[k]; });
+    var lines = [];
+    var defs = state.epaDefinitions || {};
+    var old = Object.keys(defs).filter(function (y) { return defs[y] !== 2; }).sort();
+    if (epaShown && state.epaMixed) {
+      lines.push("EPA columns read — : the seasons chosen use different play definitions (rebuilt seasons: box-score plays, no two-point tries; the rest: two-point tries in, spikes and kneels out), and they are never added together. Choose seasons on one side.");
+    } else if (epaShown && old.length) {
+      lines.push("EPA for " + old.join(", ") + " uses the original play definition (two-point tries in, spikes and kneels out). Seasons rebuilt on box-score plays (no two-point tries) aren't comparable with it.");
+    }
+    if (rzShown && state.rzMixed) {
+      lines.push("Red-zone columns read — : this window mixes 2026 (two-point tries out, sacks not attempts) with earlier seasons on the old rules, so they aren't added together.");
+    }
+    if (!lines.length) return;
+    slot.insertAdjacentHTML("beforeend", '<div class="asw-datanote asw-def-note"><span>ℹ</span><span><b>Play definitions</b>: ' +
+      escapeHtml(lines.join(" ")) + "</span></div>");
+  }
+
   function renderSourceFreshnessNote(cols) {
     var slot = document.getElementById("asw-source-freshness-slot");
     if (!slot) return;
@@ -3405,6 +3434,7 @@ table.asw-table{font-size:13px}
     renderDataNote(cols, state.lastApiCount, availability);
     renderOwnershipNote();
     renderSourceFreshnessNote(cols);
+    renderDefinitionNote(cols);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
@@ -4102,8 +4132,15 @@ table.asw-table{font-size:13px}
     var epaFetch = fetch(API_BASE + "/api/player-epa?seasons=" +
         encodeURIComponent(seasons.join(",")))
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ epaByGsis = (j && j.by_gsis) || {}; })
-      .catch(function(){ epaByGsis = {}; });
+      .then(function(j){
+        epaByGsis = (j && j.by_gsis) || {};
+        // 2026-10-11: the worker never adds seasons built under different EPA
+        // play definitions together (by_gsis comes back empty, flagged); keep
+        // each season's definition so the note below can say why / which.
+        state.epaMixed = !!(j && j.mixed_definitions);
+        state.epaDefinitions = (j && j.definitions) || null;
+      })
+      .catch(function(){ epaByGsis = {}; state.epaMixed = false; state.epaDefinitions = null; });
     var routesFetch = fetch(API_BASE + "/api/player-routes?seasons=" +
         encodeURIComponent(seasons.join(",")))
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -4164,6 +4201,9 @@ table.asw-table{font-size:13px}
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
+      // Red-zone counts come back null with rz_mixed = 1 when the window mixes
+      // seasons rebuilt under migration 0169 with older ones (2026-10-11).
+      state.rzMixed = rows.some(function (r) { return r && r.rz_mixed === 1; });
       // Coverage signal (A1): the worker LIMITs at 500; j.count === 500 means
       // the long tail was truncated. Stash pre-team-filter count for the meta line.
       state.lastApiCount = (j && typeof j.count === "number") ? j.count : rows.length;

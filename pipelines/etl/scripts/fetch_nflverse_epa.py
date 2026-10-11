@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS nfl_player_epa (
   season INTEGER NOT NULL, gsis_id TEXT NOT NULL,
   pass_plays INTEGER, pass_epa_sum REAL, pass_cpoe_sum REAL, pass_cpoe_n INTEGER, pass_succ_sum REAL,
   rush_plays INTEGER, rush_epa_sum REAL, rush_succ_sum REAL,
-  rec_tgt INTEGER, rec_epa_sum REAL, rec_succ_sum REAL, through_week INTEGER,
+  rec_tgt INTEGER, rec_epa_sum REAL, rec_succ_sum REAL, through_week INTEGER, epa_def INTEGER,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (season, gsis_id)
 );
 """
@@ -68,7 +68,12 @@ COLS = ["season", "gsis_id",
         "rec_tgt", "rec_epa_sum", "rec_succ_sum",
         # Migration 0169: the last REG week aggregated, so the app can say
         # "Wk 1–N" instead of "to date" (2026-10-10 audit).
-        "through_week"]
+        "through_week",
+        # The play definition below (2 = box-score plays, two-point tries out).
+        # Rows from the older ETL have NULL; /api/player-epa never adds seasons
+        # with different definitions together.
+        "epa_def"]
+EPA_DEF = 2
 
 
 def parse_seasons(s: str) -> list[int]:
@@ -166,6 +171,7 @@ def compute(seasons: list[int]) -> list[tuple]:
             int(d.get("rush_plays", 0)), round(d.get("rush_epa_sum", 0.0), 4), round(d.get("rush_succ_sum", 0.0), 2),
             int(d.get("rec_tgt", 0)), round(d.get("rec_epa_sum", 0.0), 4), round(d.get("rec_succ_sum", 0.0), 2),
             through.get(int(season)),
+            EPA_DEF,
         ))
     return rows
 
@@ -189,10 +195,11 @@ def main() -> None:
 
     if not args.skip_local and LOCAL_DB.exists():
         db = sqlite3.connect(str(LOCAL_DB)); db.executescript(DDL)
-        try:
-            db.execute("ALTER TABLE nfl_player_epa ADD COLUMN through_week INTEGER")   # 0169 on an older local copy
-        except sqlite3.OperationalError:
-            pass
+        for col in ("through_week", "epa_def"):   # 0169 on an older local copy
+            try:
+                db.execute(f"ALTER TABLE nfl_player_epa ADD COLUMN {col} INTEGER")
+            except sqlite3.OperationalError:
+                pass
         db.executemany(
             f"""INSERT INTO nfl_player_epa ({', '.join(COLS)})
                 VALUES ({', '.join('?' for _ in COLS)})

@@ -37,7 +37,7 @@ def run_file(db, sql):
 
 RZ = ", ".join(f"{c} INTEGER" for c in B.RZ_PLAYER_COLS)
 TW = ", ".join(f"{c} INTEGER" for c in B.RZ_TEAM_COLS)
-EPA = ", ".join(f"{c} {'INTEGER' if c.endswith(('_plays', '_n', '_tgt', 'week')) else 'REAL'}" for c in B.EPA_COLS)
+EPA = ", ".join(f"{c} {'INTEGER' if c.endswith(('_plays', '_n', '_tgt', 'week', '_def')) else 'REAL'}" for c in B.EPA_COLS)
 DDL = {"nfl_player_redzone": f"(season INTEGER, week INTEGER, gsis_id TEXT, {RZ}, PRIMARY KEY (season, week, gsis_id))",
        "nfl_team_weekly": f"(season INTEGER, week INTEGER, team TEXT, fourth_down_total INTEGER, team_punts INTEGER, {TW}, PRIMARY KEY (season, week, team))",
        "nfl_player_epa": f"(season INTEGER, gsis_id TEXT, {EPA}, updated_at TEXT, PRIMARY KEY (season, gsis_id))"}
@@ -52,7 +52,7 @@ def fresh():
         db.execute(f"INSERT INTO nfl_player_redzone VALUES ({season}, {w}, '{g}', {', '.join(['1'] * 14)}, NULL, NULL)")
     for w in (1, 2):
         db.execute(f"INSERT INTO nfl_team_weekly VALUES (2026, {w}, 'AAA', 5, 4, {', '.join(['NULL'] * len(B.RZ_TEAM_COLS))})")
-    db.execute(f"INSERT INTO nfl_player_epa VALUES (2026, '00-A', 10, 1.5, 0, 0, 5, {z(6)}, NULL, 'old')")
+    db.execute(f"INSERT INTO nfl_player_epa VALUES (2026, '00-A', 10, 1.5, 0, 0, 5, {z(6)}, NULL, NULL, 'old')")
     n = B.names("tag1")
     db.execute(f"CREATE TABLE {n['guard']} (ok INTEGER CHECK (ok = 1))")
     db.execute(f"CREATE TABLE {n['meta']} (k TEXT PRIMARY KEY, v TEXT)")
@@ -64,7 +64,7 @@ def fresh():
         db.execute(f"INSERT INTO {n['rz']['stg']} VALUES (2026, {w}, '{g}', {', '.join(['2'] * 16)})")
     for w in (1, 2, 3):
         db.execute(f"INSERT INTO {n['tw']['stg']} (season, week, team, {', '.join(B.RZ_TEAM_COLS)}) VALUES (2026, {w}, 'AAA', {', '.join(['3'] * len(B.RZ_TEAM_COLS))})")
-    db.execute(f"INSERT INTO {n['epa']['stg']} VALUES (2026, '00-A', 11, 1.25, 0, 0, 6, {z(6)}, 4, NULL)")
+    db.execute(f"INSERT INTO {n['epa']['stg']} VALUES (2026, '00-A', 11, 1.25, 0, 0, 6, {z(6)}, 4, 2, NULL)")
     rep = {"season": 2026, "snapshot": {}, "staged": {}}
     for k, (t, key, cols) in B.TABLES.items():
         rep["snapshot"][k] = {"fp": db.execute(B.fp_sql(n[k]["bk"], 2026, key, cols)).fetchone()[0],
@@ -86,7 +86,7 @@ check("2026 red zone now equals stage; 2025 untouched", rows(db, "SELECT season,
       [(2025, 1, "00-A", None), (2026, 1, "00-A", 2), (2026, 2, "00-A", 2), (2026, 3, "00-B", 2)])
 check("team red-zone columns filled, 4th-down columns kept, new team-game added", rows(db, "SELECT week, fourth_down_total, rz_pass_att FROM nfl_team_weekly ORDER BY week"),
       [(1, 5, 3), (2, 5, 3), (3, None, 3)])
-check("EPA replaced", rows(db, "SELECT pass_plays, through_week FROM nfl_player_epa"), [(11, 4)])
+check("EPA replaced, stamped with its play definition", rows(db, "SELECT pass_plays, through_week, epa_def FROM nfl_player_epa"), [(11, 4, 2)])
 
 err = run_file(db, B.swap_sql(n, 2026, rep, cols))
 check("a second swap is refused: live no longer matches the snapshot", bool(err and "CHECK" in err), True)

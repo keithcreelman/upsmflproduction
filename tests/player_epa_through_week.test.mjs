@@ -22,4 +22,26 @@ test("before 0169 (no column) the route still answers, with no week claim", asyn
   const r = await get(env);
   t.deepEqual([r.status, r.json.through_week, r.json.count], [200, {}, 1]);
 });
+// Multi-season windows (Keith 2026-10-11): the 2026 backfill changes the EPA play
+// definition while 2014-2025 keep the old one, and the desktop sums seasons.
+const getS = async (env, seasons) => { const r = quiet(); try { return await callWorker(env, "GET", "/api/player-epa?seasons=" + seasons); } finally { r(); } };
+const row = (db, season, def) => db.prepare(`INSERT INTO nfl_player_epa (season, gsis_id, pass_plays, pass_epa_sum, pass_succ_sum, through_week, epa_def)
+                                             VALUES (?, '00-Q', 100, 12.5, 48, 17, ?)`).run(season, def);
+test("seasons built under different EPA definitions are never added together: empty, flagged, each season's definition listed", async () => {
+  const env = makeWorkerEnv(); const db = env.UPS_MFL_DB.raw; db.exec(SCHEMA); db.exec(M0169);
+  row(db, 2024, null); row(db, 2025, null); row(db, 2026, 2);
+  const mixed = await getS(env, "2025,2026");
+  t.deepEqual([mixed.status, mixed.json.mixed_definitions, mixed.json.count, mixed.json.by_gsis], [200, true, 0, {}], "no combined total");
+  t.deepEqual(mixed.json.definitions, { 2025: 1, 2026: 2 });
+  t.match(mixed.json.reason, /can't be added together/);
+  const old = await getS(env, "2024,2025");
+  t.deepEqual([old.json.mixed_definitions, old.json.by_gsis["00-Q"].pass.plays, old.json.definitions], [undefined, 200, { 2024: 1, 2025: 1 }], "one definition: summed as before");
+  const cur = await getS(env, "2026");
+  t.deepEqual([cur.json.by_gsis["00-Q"].pass.plays, cur.json.definitions], [100, { 2026: 2 }]);
+  // a season caught mid-rebuild (rows of both kinds) is not combined either
+  db.prepare("INSERT INTO nfl_player_epa (season, gsis_id, pass_plays, pass_epa_sum, pass_succ_sum, epa_def) VALUES (2026, '00-R', 50, 1, 20, NULL)").run();
+  const mid = await getS(env, "2026");
+  t.deepEqual([mid.json.mixed_definitions, mid.json.definitions], [true, { 2026: "mixed" }]);
+});
+
 await run("player_epa_through_week");
