@@ -59,7 +59,7 @@ import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
-import { adminAuthority, adminDenial } from "./admin_authority.js";
+import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
@@ -55635,7 +55635,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // `commishOk`, which exists nowhere — a ReferenceError that would have
         // 500'd this route exactly like the safeInt temporal-dead-zone bug did
         // to the leaderboard yesterday.
-        if (!sessionByApiKey) {
+        //
+        // The key may also come in an `Authorization: Bearer <key>` header
+        // (2026-10-11): a URL carrying it lands in logs, shell history and job
+        // output. New callers (players-data-backfill.yml) send the header; the
+        // ?APIKEY= form stays only for the two existing workflows.
+        const pcBearer = bearerKey(request);
+        const pcHeaderKeyOk = !!commishApiKey && !!pcBearer && safeEqual(pcBearer, commishApiKey);   // the COMMISH key only
+        if (!sessionByApiKey && !pcHeaderKeyOk) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required to build the precompute." });
         }
         const body = await request.json().catch(() => ({}));

@@ -5,7 +5,7 @@
 // Anonymous requests could reach routes that post league Discord alerts, read contract/config metadata, etc. The fix is a single
 // front-door check on every exact, non-public admin route, BEFORE the handler runs: the caller must present
 //   • one of the worker's own secrets (COMMISH_API_KEY, TEST_SYNC_API_KEY, MFL_APIKEY) as APIKEY / key / X-COMMISH-APIKEY / X-MFL-APIKEY /
-//     X-Internal-Auth — the credential forms the existing routes and workflows already use — compared in constant time, OR
+//     X-Internal-Auth / Authorization: Bearer — compared in constant time, OR
 //   • an MFL session (MFL_USER_ID) that MFL itself proves belongs to a commissioner franchise of this league.
 // Nothing else — and in particular never the worker's cookie, a franchise id in a body, or the absence of a credential. Each route may
 // still apply a stricter rule of its own after this door.
@@ -20,11 +20,17 @@ export function commishFranchiseIds(env) {
   return s(env && env.COMMISH_FRANCHISE_IDS || "0008,0000").split(/[,\s]+/).map(pad4).filter(Boolean);
 }
 
-/** Every place a credential may arrive — nothing here is trusted until compared. */
+/** Every place a credential may arrive — nothing here is trusted until compared.
+ *  `Authorization: Bearer <key>` (2026-10-11) is the form new callers use, so a
+ *  key never has to sit in a URL (logs, shell history, job output). */
+export function bearerKey(request) {
+  const a = s(request.headers.get("authorization"));
+  return /^bearer\s+/i.test(a) ? a.replace(/^bearer\s+/i, "").trim() : "";
+}
 export function presentedKeys(request, url) {
   const q = (k) => s(url.searchParams.get(k));
   const h = (k) => s(request.headers.get(k));
-  return [q("APIKEY"), q("key"), h("X-COMMISH-APIKEY"), h("X-MFL-APIKEY"), h("X-Internal-Auth")].filter(Boolean);
+  return [q("APIKEY"), q("key"), h("X-COMMISH-APIKEY"), h("X-MFL-APIKEY"), h("X-Internal-Auth"), bearerKey(request)].filter(Boolean);
 }
 
 async function commishSession({ token, leagueId, year, env, fetchImpl }) {

@@ -58,8 +58,36 @@ function setup() {
       return await callWorker(env, "GET", `/api/advanced-stats-leaderboard?season=2026&pos=idp&limit=500&offset=${offset}&YEAR=2026&L=74598`);
     } finally { restore(); }
   };
-  return { env, db, build, read, calls };
+  // The commissioner key in a header, never the URL (2026-10-11).
+  const buildWith = async (headers, query = "") => {
+    const restore = quiet();
+    try {
+      return await callWorker(env, "POST", `/admin/leaderboard-precompute/build?L=74598&YEAR=2026&season=2026${query}`, { body: { season: 2026 }, headers });
+    } finally { restore(); }
+  };
+  return { env, db, build, buildWith, read, calls };
 }
+
+test("build route: the key in an Authorization header works; missing, wrong or malformed keys are refused and nothing is built", async () => {
+  const h = setup();
+  for (const [what, headers] of [["no key", {}], ["wrong key", { Authorization: "Bearer not-the-key" }], ["empty bearer", { Authorization: "Bearer " }],
+                                 ["key without the Bearer scheme", { Authorization: ADMIN_KEY }], ["key in another header", { "X-Api-Key": ADMIN_KEY }]]) {
+    const r = await h.buildWith(headers);
+    t.ok([401, 403].includes(r.status), what + " → " + r.status + " (401 no credential, 403 wrong one)");
+    t.ok(!JSON.stringify(r.json).includes(ADMIN_KEY), what + ": the reply never echoes a key");
+  }
+  t.equal(h.calls.length, 0, "a refused request built nothing");
+  t.equal(h.db.prepare("SELECT COUNT(*) AS n FROM nfl_leaderboard_precompute").get().n, 0);
+  const ok = await h.buildWith({ Authorization: "Bearer " + ADMIN_KEY });
+  t.equal(ok.status, 200, "authorized by header, no key in the URL");
+  t.equal(ok.json.built.find((b) => b.pos === "idp").rows, IDP_ROWS);
+  t.ok(!JSON.stringify(ok.json).includes(ADMIN_KEY), "the reply never echoes the key");
+  const lower = await h.buildWith({ authorization: "bearer " + ADMIN_KEY });
+  t.equal(lower.status, 200, "scheme and header name are case-insensitive");
+  // another worker secret passes the front door but is not the commissioner key: the route itself refuses
+  const other = await h.buildWith({ Authorization: "Bearer mfl-api-key" });
+  t.equal(other.status, 403, "the MFL API key is not the commissioner key");
+});
 
 test("the builder walks every page and stores all 805 IDP rows in rank order", async () => {
   const h = setup();
