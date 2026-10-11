@@ -504,8 +504,11 @@ def cmd_rollback(a, d1: D1) -> None:
         d1.file(rollback_sql(n, a.season, rep, live_cols, force=a.force))
     except D1Error as e:
         why = [ln.strip() for ln in str(e).splitlines() if "ERROR" in ln or "constraint" in ln.lower()]
-        raise SystemExit("rollback REFUSED, nothing changed: live is no longer what the swap wrote (a later refresh?) "
-                         "— rerun with --force to discard those rows, or stage a new tag. " + " ".join(why[:2]))
+        if any("CHECK constraint" in w for w in why):
+            raise SystemExit("rollback REFUSED, nothing changed: live is no longer what the swap wrote (a later refresh?), "
+                             "or the backup no longer matches its snapshot — rerun with --force to discard later rows, or stage a new tag. " + " ".join(why[:2]))
+        raise SystemExit("rollback FAILED, nothing changed (D1 rolled the file back): " + " ".join(why[:2] or [str(e)[-300:]]) +
+                         " — a tag must be swapped and rolled back by the same code that staged it.")
     bad = check_equal(d1, n, a.season, "bk", rep)
     shas = {k: sha(read_rows(d1, t, a.season, key, [c for c in rep["snapshot"][k]["all_columns"] if c not in key]))
             for k, (t, key, cols) in TABLES.items() if k != "tw"}
