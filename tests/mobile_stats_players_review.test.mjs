@@ -196,9 +196,11 @@ function boot(opt = {}) {
     else if (u.pathname === "/api/player-status") {
       const st = typeof opt.status === "function" ? opt.status() : opt.status;
       if (st === 500) return { ok: false, status: 500, json: async () => ({ ok: false }) };
+      if (st === "hold") return new Promise(() => {});                         // never answers
       body = st || STATUS_OK();
     }
-    else if (u.pathname === "/api/player-epa") body = { by_gsis: opt.epa || {}, through_week: opt.epaThrough ? { 2026: opt.epaThrough } : {} };
+    else if (u.pathname === "/api/player-epa") body = Object.assign({ by_gsis: opt.epa || {}, through_week: opt.epaThrough ? { 2026: opt.epaThrough } : {} },
+      opt.epaDefs ? { definitions: opt.epaDefs } : {});
     else if (/^\/api\/(sos-adjusted-points|player-consistency|player-ngs)$/.test(u.pathname)) body = { by_gsis: {} };
     else if (u.pathname === "/api/mfl-market") body = { by_mfl: {} };
     else if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "nflByeWeeks") body = opt.byes === null ? null : { nflByeWeeks: { team: FX.byes } };
@@ -1122,6 +1124,48 @@ test("kickers and punters: Boom/Bust as counts with the real pool size — no cl
   t.deepEqual(labels(b.head), ["Start", "Boom", "Bust", "Played"]);
   t.deepEqual(rowsOf(b.list).find((r) => r.pid === k).cells, ["3/4", "1/4", "1/4", "4/4"], "counts, not percentages");
   t.match(b.notes, /Only 12 kickers start each week, so a few weeks can’t rank them reliably — these are counts, not a ranking\./);
+});
+
+test("status from the sheet's OTHER entry points (Rosters, Lineup, Search open it without Stats): loading and stale reads never look healthy", async () => {
+  const OUT = STATUS_OK({ [PURDY]: { report: { status: "Out", injury: "Toe", practice: "Did Not Participate In Practice", team: "SF" } } });
+  const open = async (v) => { v.ctx.UPS_MOBILE.sheet.open(PURDY); await settle(); await settle(); return v.getEl("ups-m-sheet-head").innerHTML; };
+  // 1. opened before any status read has answered (the read hangs)
+  const slow = await open(boot({ status: "hold" }));
+  t.match(slow, /Checking this week’s injury report…/, "says it's checking");
+  t.doesNotMatch(slow, /Not on |ups-m-inj-chip (q|d|out)"/, "no 'not on the report', no game-status chip while nothing has been read");
+  // 2. opened first from another view: the sheet itself reads the status, then shows it
+  const v = boot({ status: () => OUT });
+  const h = await open(v);
+  t.match(h, /<span class="ups-m-inj-chip out"[^>]*>OUT<\/span>/);
+  t.match(h, /Wk 5 injury report: Out — Toe/);
+  // 3. the app sat open: the last read is older than the 5-minute window and its refresh is in flight
+  const PS = v.ctx.UPS_MOBILE_PLAYER_STATUS;
+  const v2 = boot({ status: () => STATUS_OK({}) });
+  await v2.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
+  v2.ctx.UPS_MOBILE_PLAYER_STATUS._st.at -= v2.ctx.UPS_MOBILE_PLAYER_STATUS.TTL + 1000;
+  const stale = JSON.parse(JSON.stringify(v2.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SFO")));
+  t.equal(stale.report, "Checking this week’s injury report…", "an old 'not on SFO's report' is never shown as this week's finding");
+  t.match(v2.ctx.UPS_MOBILE_PLAYER_STATUS.listLine(), /Checking this week’s injury report — no tags until it’s read\./);
+  // 4. ...and that refresh fails
+  const v3 = boot({ status: (() => { let n = 0; return () => (n++ ? 500 : STATUS_OK({})); })() });
+  await v3.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
+  v3.ctx.UPS_MOBILE_PLAYER_STATUS._st.at -= v3.ctx.UPS_MOBILE_PLAYER_STATUS.TTL + 1000;
+  const h3 = await open(v3);
+  t.match(h3, /Injury status couldn’t be loaded\. No tag doesn’t mean healthy\./);
+  t.doesNotMatch(h3, /Not on /);
+  t.ok(PS, "loader shared with the list");
+});
+
+test("EPA note follows the season's play definition: rebuilt (2), original (1), mid-rebuild", async () => {
+  for (const [def, re] of [[2, /Two-point tries, scrambles \(they’re runs\) and plays wiped out by a penalty don’t count\./],
+                           [1, /This season’s EPA uses the original play definition, not comparable with seasons rebuilt on box-score plays\./],
+                           ["mixed", /This season’s EPA is being rebuilt, so the columns read — for now\./]]) {
+    const v = boot({ epaDefs: { 2026: def } });
+    await openTab(v, "QB");
+    const e = await chooseSet(v, "epa");
+    t.match(e.notes, re, String(def));
+    if (def === 1) t.doesNotMatch(e.notes, /box score’s pass attempts/, "the new-definition text isn't shown for an old season");
+  }
 });
 
 await run("mobile_stats_players_review");

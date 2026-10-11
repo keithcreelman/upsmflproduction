@@ -706,8 +706,10 @@
   var PSTAT = (function () {
     var st = { season: "", state: "idle", data: null, at: 0, p: null };
     var TTL = 5 * 60 * 1000;
-    // A refresh keeps showing the last good read until the new one lands
-    // (chips don't blink off); a failed refresh shows "unavailable".
+    // A read older than TTL is never shown as current (2026-10-11): while its
+    // refresh is in flight the sheet and list say they're checking, and a
+    // failed refresh says "couldn't be loaded" — an old "not on the report"
+    // must never read as this week's finding.
     function load(season, force) {
       season = String(season || "");
       if (!force && st.season === season && st.p) return st.p;
@@ -752,7 +754,8 @@
     function info(pid, team) {
       pid = U.safeStr(pid); team = U.safeStr(team).toUpperCase(); team = NFLV_TO_MFL[team] || team;
       var out = { chips: [], report: "", roster: "" };
-      var d = st.state === "ok" ? st.data : null;
+      var fresh = st.state === "ok" && !!st.data && (Date.now() - st.at) <= TTL;
+      var d = fresh ? st.data : null;
       var p = d && d.players ? d.players[pid] : null;
       if (d) {
         var f = d.report_feed || {};
@@ -779,7 +782,8 @@
         }
         else if (d.roster_feed && !d.roster_feed.ok) out.roster = "Roster designations (IR, PUP …) couldn’t be read.";
       } else {
-        out.report = st.state === "loading" || st.state === "idle" ? "" : "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
+        out.report = st.state === "error" ? "Injury status couldn’t be loaded. No tag doesn’t mean healthy."
+          : "Checking this week’s injury report…";   // loading, or an old read being refreshed: no finding yet
         var e = DATA.irEligibilityFor ? DATA.irEligibilityFor(pid) : null;
         var fb = e && e.known ? FALLBACK[U.safeStr(e.designation).toUpperCase()] : null;
         if (fb) { out.chips.push({ t: fb[0], cls: fb[0] === "HOLD" ? "ho" : "res", title: "NFL roster: " + fb[1] }); out.roster = "Roster: " + fb[1] + " — MFL."; }
@@ -793,13 +797,14 @@
     }
     // One line for the Stats list: what the tags are and how fresh.
     function listLine() {
-      if (st.state !== "ok") return st.state === "error" ? "Injury tags unavailable — no tag doesn’t mean healthy." : "";
+      if (st.state === "error") return "Injury tags unavailable — no tag doesn’t mean healthy.";
+      if (st.state !== "ok" || !st.data || (Date.now() - st.at) > TTL) return "Checking this week’s injury report — no tags until it’s read.";
       var f = st.data.report_feed || {}, rf = st.data.roster_feed || {};
       var a = f.current ? "Tags: NFL injury report Wk " + f.week + " (" + clockEt(f.updated_utc) + ")" : "Injury report unavailable (" + why(f) + "), so no Q/D/OUT tags — no tag doesn’t mean healthy";
       return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.") +
         (f.current ? " No tag: not on the report, a bye, or unmatched — tap him for which." : "");
     }
-    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, state: function () { return st.state; }, _st: st };
+    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
   window.UPS_MOBILE_PLAYER_STATUS = PSTAT;
 
