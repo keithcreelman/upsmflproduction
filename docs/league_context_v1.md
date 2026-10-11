@@ -2520,7 +2520,7 @@ The cap applies only to games kicking off **Sunday or later**. For Wed/Thu/Fri/S
 
 ✅ **The ladder above is confirmed current (Keith 2026-08-16: "yes that's the current penalty").** Asked because nobody has been past violation 1 in the current era and the pick-stripping reads as a heavy 2018-era hammer; it stands as written. Live as of the 2026 season — the next owner to reach violation 2 loses a 4th and $5K.
 
-⚠️ **Detection is entirely manual.** MFL is set `partialLineupAllowed: "YES"`, so a short lineup is accepted silently. Nothing in the app flags a violation, counts one, or knows what number an owner is on — the count lives only in Discord history.
+⚠️ **Detection is automated; rulings and penalties are not (corrected 2026-10-11).** MFL itself is set `partialLineupAllowed: "YES"`, so MFL accepts a short lineup silently. The app fills that gap. It records injury status hourly, DMs owners before each kickoff window, and posts the Saturday Injury Report. After each week it books **candidates** into `ups_lineup_violations` (the detection described above). A booked row is not a ruling. The commissioner confirms or excuses it (`ups_lineup_rulings`), the final owner and league notice posts only after a confirmed ruling, and any pick or cap consequence is applied **by hand** on MFL. Weeks 1–4 of 2026 were booked from the wrong week's lineup (every team, "0 of 18"; PR #1220). Those rows are not offenses. The rule itself is unchanged.
 
 ### G4. Roster and cap compliance windows
 

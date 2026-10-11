@@ -45,6 +45,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
+import { listLineupCases, recordLineupRuling, postLineupNotice, markSanctionApplied, fetchTeamName } from "./lineup_rulings.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
@@ -57536,6 +57537,66 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ? await unvoidNomDay(env, { season, leagueId, fid, etDay, by: who })
             : await voidNomDay(env, { season, leagueId, fid, etDay, reason: safeStr(body.reason), by: who });
           return jsonOut(200, { ok: true, undo: !!body.undo, ...r });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      // ── §G3 lineup rulings (lineup_rulings.js) ───────────────────────────
+      // The booked ups_lineup_violations row is only a CANDIDATE. These routes
+      // let the commissioner rule on it, post the final notice exactly once,
+      // and record that the MFL-side penalty was done by hand. Nothing here
+      // writes MFL. Same gate and audit attribution as void-nom-day above.
+      //
+      // GET  /admin/lineup/cases            every candidate this season + its ruling
+      // POST /admin/lineup/rule             { fid, week, ruling: confirmed|excused, note? }
+      // POST /admin/lineup/notice           { fid, week, confirm: "post", mention?: bool }
+      // POST /admin/lineup/sanction-applied { fid, week, note? }
+      if (path === "/admin/lineup/cases" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || env.LEAGUE_ID || "74598");
+        return jsonOut(200, await listLineupCases(env, { season, leagueId }));
+      }
+      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-applied")
+          && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const season = safeStr(body.season || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(body.league_id || L || env.LEAGUE_ID || "74598");
+        const fid = padFranchiseId(body.fid);
+        const week = parseInt(body.week, 10) || 0;
+        if (!fid || !(week >= 1 && week <= 18)) return jsonOut(400, { ok: false, error: "need fid + week (1-18)" });
+        const who = (await provenCommish(season, leagueId)).fid || "commish";
+        // Dispatch on the suffix rather than another literal path comparison, so
+        // the route-table scan records these as POST-only.
+        const lineupAction = path.slice("/admin/lineup/".length);
+        try {
+          if (lineupAction === "rule") {
+            const teamName = await fetchTeamName(season, leagueId, fid);
+            const r = await recordLineupRuling(env, {
+              season, leagueId, fid, week, ruling: safeStr(body.ruling), note: safeStr(body.note), by: who, teamName,
+            });
+            return jsonOut(r.ok ? 200 : 409, r);
+          }
+          if (lineupAction === "notice") {
+            // Posting is league-visible and one-shot, so it needs the literal
+            // word, not a truthy flag a stray client could send.
+            if (safeStr(body.confirm) !== "post") {
+              return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"post\" to post. Read the stored text first with GET /admin/lineup/cases." });
+            }
+            const r = await postLineupNotice(env, {
+              season, leagueId, fid, week, mention: body.mention !== false, resolveMentions: resolveFranchiseMentions,
+            });
+            return jsonOut(r.ok ? 200 : 409, r);
+          }
+          const r = await markSanctionApplied(env, { season, leagueId, fid, week, by: who, note: safeStr(body.note) });
+          return jsonOut(r.ok ? 200 : 409, r);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
         }
