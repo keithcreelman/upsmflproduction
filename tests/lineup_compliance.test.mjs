@@ -188,5 +188,19 @@ t('advisory DM says NOT a violation', /not a violation/i.test(dmA), true);
 t('advisory DM never claims a violation', /Possible lineup violation/.test(dmA), false);
 t('violation DM explains the 24-hour rule', /24 hours/.test(dmV), true);
 
+console.log('\n-- pre-kickoff wording: "before" the deadline, never "inside" it (fixed 2026-10-11) --');
+{
+  // Out Friday, evaluated Saturday morning, kickoff Sunday 1pm: at risk.
+  const r = evaluateStarter(P, ctx({ history: hist(['OUT', MARK - H(20)]), nowUnix: MARK - H(5) }));
+  t('at-risk verdict', [r.verdict, r.reason], ['violation', 'out_at_risk']);
+  t('says BEFORE the notice deadline', /listed OUT before your notice deadline/.test(r.detail), true);
+  t('never says "inside" (the DM footer says inside = never a violation)', /inside/i.test(r.detail), false);
+  const dm = composeLineupDm({ franchiseName: 'Team', week: 2, result: evaluateLineup([P], () => ctx({ history: hist(['OUT', MARK - H(20)]), nowUnix: MARK - H(5) }), { final: false, requiredStarters: 1 }) });
+  t('the DM line and its footer no longer contradict', /listed OUT inside/.test(dm), false);
+  // MNF player: the Saturday 8pm cap is the deadline the owner is held to.
+  const m = evaluateStarter(P, ctx({ kickoffUnix: MNF, history: hist(['OUT', SAT8 - H(3)]), nowUnix: SAT8 + H(12) }));
+  t('MNF at-risk names the Saturday 8pm deadline', /before your notice deadline \(Sat 8pm ET\)/.test(m.detail), true);
+}
+
 console.log('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' PASS'));
 process.exit(fail ? 1 : 0);
