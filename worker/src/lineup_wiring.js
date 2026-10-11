@@ -5,7 +5,7 @@
 //
 //   1. runLineupDmSweep()       — 1.5h before each game window, DM every
 //                                 owner their status. Keith's §H spec.
-//   2. runLineupBooking()       — once the week's last game is final,
+//   2. runLineupBooking()       — once the week's FINAL kickoff has passed,
 //                                 evaluate and book violations onto the §G3
 //                                 ladder.
 //   3. runLineupSaturdayAnnounce() — once, Saturday morning, ONE public post
@@ -92,8 +92,26 @@ const COFFEE_SHOP_CHANNEL_ID = "1087157907419840644";
 // exactly once, and ups_lineup_dm_log makes a second landing a no-op anyway.
 const DM_WINDOW_MIN_SEC = 60 * 60;
 const DM_WINDOW_MAX_SEC = 150 * 60;
-// Don't judge a week until its last game has had time to finalize.
-const WEEK_SETTLE_SEC = 4 * 3600;
+// WHEN THE WEEK IS JUDGED (Keith 2026-10-11): at the FINAL scheduled kickoff
+// of the fantasy week — normally Monday night. From that instant every
+// starting slot is locked, every starter's status at his own kickoff is
+// known, and an empty slot can no longer be filled; nothing after it can
+// change the verdict. (Until 2026-10-11 this waited 4 hours past the final
+// kickoff, which put the run at ~1am ET Tuesday — after MFL had already
+// rolled its implicit lineup week, which is how weeks 1-4 were booked off
+// the wrong lineup.) "Final kickoff" is re-read from MFL's schedule on every
+// run, so a postponed or rescheduled final game simply moves the moment.
+//
+// The hourly :05 cron alone can be up to ~60 minutes late (a kickoff at
+// hh:05:01 waits for (hh+1):05). The */5 cron therefore also runs the booking
+// for FAST_BOOKING_WINDOW_SEC after the final kickoff — see
+// runLineupBookingFastPath — and the hourly run stays as the safety net.
+export const FAST_BOOKING_WINDOW_SEC = 15 * 60;
+
+export function finalKickoffUnix(sched) {
+  const ks = (sched && sched.kickoffs) || [];
+  return ks.length ? Math.max(...ks) : 0;
+}
 
 async function _json(url) {
   try {
@@ -281,9 +299,9 @@ export const MAX_BOOKINGS_PER_WEEK = 4;
 // Assemble everything one franchise-week needs and hand it to the evaluator.
 // `final` false = a pre-kickoff advisory pass; true = the end-of-week booking.
 // `nowUnix` (optional) lets evaluateStarter tell a still-ahead kickoff from a
-// finished one -- pass the caller's own `now` for a preview/DM pass; omit it
-// for the booking pass, which never runs until every kickoff in the week is
-// hours in the past anyway (see WEEK_SETTLE_SEC).
+// finished one -- pass the caller's own `now` for a preview/DM pass. The
+// booking pass passes its `now` too; it only runs at or after the week's
+// final kickoff, so every kickoff reads as passed (see FAST_BOOKING_WINDOW_SEC).
 // `weekStarters` (optional) is the booking pass's fid -> [ids] map from
 // weekStartersFromResults. When it is supplied the lineup comes ONLY from it —
 // a franchise missing from it is unknown, never a fallback to the live read.
@@ -404,10 +422,10 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
 
   const sched = await weekSchedule(season, week);
   if (!sched) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:schedule_unreadable"); return { ok: true, skipped: "schedule_unreadable" }; }
-  const last = sched.kickoffs[sched.kickoffs.length - 1] || 0;
-  // Wait for the last game to finish AND for injury status to settle. Booking
-  // early would judge a player whose game has not kicked off yet.
-  if (!last || now < last + WEEK_SETTLE_SEC) { await _stampLineupHeartbeat(db, "lineup_booking", "ok:week_not_final"); return { ok: true, skipped: "week_not_final" }; }
+  const last = finalKickoffUnix(sched);
+  // Judge at the week's FINAL kickoff, never before: booking early would judge
+  // a player whose game has not kicked off and a slot that can still be filled.
+  if (!last || now < last) { await _stampLineupHeartbeat(db, "lineup_booking", "ok:week_not_final"); return { ok: true, skipped: "week_not_final", final_kickoff: last || null }; }
 
   const [players, rosters, byes] = await Promise.all([
     playerIndex(season, leagueId),
@@ -460,6 +478,20 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
   await _stampLineupHeartbeat(db, "lineup_booking", `ok:booked=${booked.length}`);
   return { ok: true, week, booked: booked.length, clean: clean.length, skipped: skipped.length,
            detail: { booked, skipped } };
+}
+
+// The */5 cron's entry point: book on the first 5-minute tick at or after the
+// final kickoff instead of waiting for the hourly :05 run. Cheap when idle —
+// one MFL schedule read (cached 60s) and a time comparison — and it only does
+// the full evaluation inside FAST_BOOKING_WINDOW_SEC. Idempotent with the
+// hourly run (same primary key; the second run finds the rows and skips), so
+// the two crons overlapping at :05 cannot double-book.
+export async function runLineupBookingFastPath(env, { season, leagueId, week, nowUnix }) {
+  const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
+  const sched = await weekSchedule(season, week);
+  const last = finalKickoffUnix(sched);
+  if (!last || now < last || now >= last + FAST_BOOKING_WINDOW_SEC) return { ok: true, skipped: "outside_fast_window", final_kickoff: last || null };
+  return runLineupBooking(env, { season, leagueId, week, nowUnix: now });
 }
 
 // fid -> franchise name, for the public post (DMs don't need this — Discord
