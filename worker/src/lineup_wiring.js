@@ -182,10 +182,20 @@ export async function leagueRosters(season, leagueId, cookieHeader) {
 //   { known: true,  starters: [...] }   we have the lineup
 //   { known: false, state: 'no_record' } nobody submitted one
 //   { known: false, state: 'unknown' }   the READ FAILED — never "empty"
-export async function submittedStarters(season, leagueId, fid, playerIds, cookieHeader) {
+//
+// `week` is REQUIRED for a correct answer (found 2026-10-11). Without &W= MFL
+// answers for ITS current lineup week, which rolls forward as soon as a week's
+// games end. The end-of-week booking pass runs ~1am ET Tuesday, so it was
+// reading the NEXT week's mostly-empty lineup and booked "Only 0 of 18" for all
+// 12 teams in weeks 1-4. MFL honors W (verified live 2026-10-11: one player read NS for
+// W=4 and S for W=5 on the same day). The booking pass no longer uses this read
+// at all — see weekStartersFromResults — but the pre-kickoff passes do, and
+// they pass the week they are evaluating rather than trusting MFL's clock.
+export async function submittedStarters(season, leagueId, fid, playerIds, cookieHeader, week) {
   const ids = (playerIds || []).map((p) => (typeof p === "string" ? p : p.id)).filter(Boolean);
   if (!ids.length) return { known: false, state: "unknown", starters: null, reason: "no roster ids" };
-  const url = `${MFL_WWW}/${season}/export?TYPE=playerRosterStatus&L=${leagueId}&P=${ids.join(",")}&JSON=1`;
+  const wParam = Number(week) > 0 ? `&W=${Number(week)}` : "";
+  const url = `${MFL_WWW}/${season}/export?TYPE=playerRosterStatus&L=${leagueId}&P=${ids.join(",")}${wParam}&JSON=1`;
   let d = null;
   try {
     const r = await fetch(url, { headers: cookieHeader ? { ...UA, Cookie: cookieHeader } : UA });
@@ -219,6 +229,48 @@ export async function submittedStarters(season, leagueId, fid, playerIds, cookie
   return { known: true, state: "submitted", starters };
 }
 
+// fid -> [starter player ids] for ONE completed week, from MFL's scored results
+// (TYPE=weeklyResults&W=week). This is the booking pass's lineup source.
+//
+// Why not playerRosterStatus&W=: that read needs a P= list, and the only list
+// available is the roster as it stands NOW. A player who started in week N and
+// was dropped before the Tuesday booking would vanish from the lineup and turn
+// a legal 18-man lineup into a "17 of 18" violation. weeklyResults carries the
+// starters MFL actually scored, independent of today's roster.
+//
+// Returns null (NOT {}) when the export cannot be read. A franchise that plays
+// several games in a week appears in several matchups; every copy lists the
+// same lineup, so the first one wins.
+export async function weekStartersFromResults(season, leagueId, week, cookieHeader) {
+  const url = `${MFL_WWW}/${season}/export?TYPE=weeklyResults&L=${leagueId}&W=${Number(week)}&JSON=1`;
+  let d = null;
+  try {
+    const r = await fetch(url, { headers: cookieHeader ? { ...UA, Cookie: cookieHeader } : UA });
+    d = r.ok ? await r.json().catch(() => null) : null;
+  } catch (_) { d = null; }
+  const wr = d && d.weeklyResults;
+  if (!wr) return null;
+  // Guard against MFL answering a different week than the one asked for.
+  if (wr.week != null && Number(wr.week) !== Number(week)) return null;
+  const out = {};
+  for (const m of _arr(wr.matchup)) {
+    for (const f of _arr(m && m.franchise)) {
+      const fid = _fid(f && f.id);
+      if (!fid || out[fid]) continue;
+      out[fid] = _s(f && f.starters).split(",").map(_s).filter(Boolean);
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// Never book more than this many franchises in one week without a human
+// looking first. The 2026 weeks 1-4 bug booked 12 of 12, four weeks running,
+// and nothing noticed because nothing reads the ledger yet. A real week with
+// more than a third of the league fielding an illegal lineup is far more
+// likely to be a broken input than a broken league — so the pass refuses,
+// stamps the heartbeat, and books NOTHING for that week until someone checks.
+export const MAX_BOOKINGS_PER_WEEK = 4;
+
 // REMOVED 2026-09-19. Used to answer "could this owner have started somebody
 // else in his place?" so a bad starter with no eligible bench replacement
 // downgraded to an advisory (Keith 2026-08-17). Keith corrected that same
@@ -232,15 +284,29 @@ export async function submittedStarters(season, leagueId, fid, playerIds, cookie
 // finished one -- pass the caller's own `now` for a preview/DM pass; omit it
 // for the booking pass, which never runs until every kickoff in the week is
 // hours in the past anyway (see WEEK_SETTLE_SEC).
+// `weekStarters` (optional) is the booking pass's fid -> [ids] map from
+// weekStartersFromResults. When it is supplied the lineup comes ONLY from it —
+// a franchise missing from it is unknown, never a fallback to the live read.
 export async function evaluateFranchiseWeek(env, {
-  season, leagueId, fid, week, roster, players, sched, byes, history, observedFrom, final, nowUnix,
+  season, leagueId, fid, week, roster, players, sched, byes, history, observedFrom, final, nowUnix, weekStarters,
 }) {
-  const st = await submittedStarters(season, leagueId, fid, roster, env && env.MFL_COOKIE);
+  const st = weekStarters
+    ? (Array.isArray(weekStarters[fid])
+        ? { known: true, state: "submitted", starters: weekStarters[fid] }
+        : { known: false, state: "unknown", starters: null, reason: "franchise missing from weeklyResults" })
+    : await submittedStarters(season, leagueId, fid, roster, env && env.MFL_COOKIE, week);
   if (!st.known) {
     // No lineup, or an unreadable one. Either way this module refuses to judge:
     // "failed to submit any lineup" is a SEPARATE §G3 offense with its own
     // process (explain by Tuesday, league vote), not something to book here.
     return { skipped: true, reason: st.state, detail: st.reason };
+  }
+  if (final && !st.starters.length) {
+    // At booking time ZERO starters is not a short lineup, it is no lineup —
+    // the same separate process as above. Booking it as "Only 0 of 18" is how
+    // weeks 1-4 of 2026 produced 44 of 48 false violations (the read was a week
+    // ahead). Pre-kickoff passes keep the "still fixable" advisory.
+    return { skipped: true, reason: "no_record", detail: "zero starters recorded for this week" };
   }
   const starters = st.starters.map((id) => ({
     id, name: (players[id] && players[id].name) || id, nfl_team: players[id] && players[id].team,
@@ -350,10 +416,17 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
   ]);
   if (!players || !rosters) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:inputs_unreadable"); return { ok: true, skipped: "inputs_unreadable" }; }
 
+  // The lineup for THE WEEK BEING BOOKED, from MFL's scored results — never the
+  // live lineup read, which by booking time has rolled to the next week.
+  const weekStarters = await weekStartersFromResults(season, leagueId, week, env.MFL_COOKIE);
+  if (!weekStarters) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:week_results_unreadable"); return { ok: true, skipped: "week_results_unreadable" }; }
+
   const history = await injuryHistoryForWeek(env, { season, week });
   const observedFrom = await injuryObservedFrom(env, { season, week });
 
-  const booked = [], clean = [], skipped = [];
+  // Evaluate everyone FIRST, book afterwards — the mass-booking guard below has
+  // to see the whole week before a single row is written.
+  const candidates = [], clean = [], skipped = [];
   for (const fid of Object.keys(rosters).sort()) {
     const already = await db.prepare(
       `SELECT 1 FROM ups_lineup_violations WHERE season=? AND league_id=? AND fid=? AND week=?`
@@ -361,15 +434,28 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
     if (already) { skipped.push({ fid, reason: "already_booked" }); continue; }
 
     const ev = await evaluateFranchiseWeek(env, {
-      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: true, nowUnix: now,
+      season, leagueId, fid, week, roster: rosters[fid], players, sched, byes, history, observedFrom, final: true, nowUnix: now, weekStarters,
     });
     if (ev.skipped) { skipped.push({ fid, reason: ev.reason }); continue; }
     if (ev.result.verdict !== "violation") { clean.push(fid); continue; }
-    if (dryRun) { booked.push({ fid, dry_run: true, reasons: ev.result.violations.map((v) => v.reason) }); continue; }
+    candidates.push({ fid, result: ev.result });
+  }
 
-    const b = await bookLineupViolation(env, { season, leagueId, fid, week, result: ev.result });
-    booked.push({ fid, offense_no: b.offense_no, rung: b.rung && b.rung.label,
-                  reasons: ev.result.violations.map((v) => v.reason) });
+  if (candidates.length > MAX_BOOKINGS_PER_WEEK) {
+    // Fail closed: book NOTHING for this week. Re-evaluated every hourly tick,
+    // so a stale input that clears books normally; a real mass-violation week
+    // waits for a human, which is the right owner for that call anyway.
+    await _stampLineupHeartbeat(db, "lineup_booking", `refused:mass_booking wk${week} n=${candidates.length}`);
+    return { ok: false, week, refused: "mass_booking", candidates: candidates.length, limit: MAX_BOOKINGS_PER_WEEK,
+             detail: { candidates: candidates.map((c) => ({ fid: c.fid, reasons: c.result.violations.map((v) => v.reason) })), skipped } };
+  }
+
+  const booked = [];
+  for (const c of candidates) {
+    if (dryRun) { booked.push({ fid: c.fid, dry_run: true, reasons: c.result.violations.map((v) => v.reason) }); continue; }
+    const b = await bookLineupViolation(env, { season, leagueId, fid: c.fid, week, result: c.result });
+    booked.push({ fid: c.fid, offense_no: b.offense_no, rung: b.rung && b.rung.label,
+                  reasons: c.result.violations.map((v) => v.reason) });
   }
   await _stampLineupHeartbeat(db, "lineup_booking", `ok:booked=${booked.length}`);
   return { ok: true, week, booked: booked.length, clean: clean.length, skipped: skipped.length,
