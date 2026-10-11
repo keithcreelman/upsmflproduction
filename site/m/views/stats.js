@@ -325,14 +325,21 @@
 
   // EPA / efficiency (nflfastR), single-season for mobile. Rate stats gated to a
   // qualified sample (the raw "Plays" stays visible) so scrubs don't top a sort.
-  var epaMap = null, epaSeason = 0, epaThrough = null;
+  // epaDef: the play definition the season's EPA was built under (the
+  // worker's `definitions`): 2 = box-score plays, no two-point tries; 1 = the
+  // original (a season not rebuilt yet); "mixed" = mid-rebuild (no values).
+  var epaMap = null, epaSeason = 0, epaThrough = null, epaDef = null;
   function loadEpa(yr) {
     if (epaMap && epaSeason === yr) return Promise.resolve(epaMap);
     epaSeason = yr;
     return fetch(API.workerUrl("/api/player-epa?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { epaMap = (j && j.by_gsis) || {}; epaThrough = (j && j.through_week && j.through_week[yr]) || null; return epaMap; })
-      .catch(function () { epaMap = {}; return epaMap; });
+      .then(function (j) {
+        epaMap = (j && j.by_gsis) || {}; epaThrough = (j && j.through_week && j.through_week[yr]) || null;
+        epaDef = j && j.definitions && j.definitions[yr] != null ? j.definitions[yr] : null;
+        return epaMap;
+      })
+      .catch(function () { epaMap = {}; epaDef = null; return epaMap; });
   }
   function epaRawM(r) { var e = epaMap && r.gsis && epaMap[String(r.gsis)]; if (!e) return null; if (r.grp === "QB") return e.pass; if (r.grp === "RB") return e.rush; return e.rec; }
   function epaRecM(r) { var x = epaRawM(r); if (!x) return null; var n = (x.plays != null ? x.plays : x.tgt) || 0; var min = r.grp === "QB" ? 50 : (r.grp === "RB" ? 25 : 20); return n >= min ? x : null; }
@@ -940,8 +947,14 @@
       var lead = "EPA (expected points added) is how much a play changed the offense’s expected points, from nflfastR’s model of down, distance, field position and clock. ";
       // One definition everywhere (settled 2026-10-10): his EPA plays are his
       // box-score plays, two-point tries out — checked player by player against
-      // nflverse's published box score and EPA.
-      if (tab.id === "QB") more.push(lead + "EPA/play = the total EPA of his pass plays ÷ his pass plays. Pass plays (Plays) = his box score’s pass attempts (spikes count as attempts) plus sacks. Two-point tries, scrambles (they’re runs) and plays wiped out by a penalty don’t count. A receiver’s fumble after the catch isn’t charged to him.",
+      // nflverse's published box score and EPA. A season not rebuilt yet (the
+      // worker's definitions say so) is described as what it is (2026-10-11).
+      if (epaDef === "mixed") line.push("This season’s EPA is being rebuilt, so the columns read — for now.");
+      else if (epaDef === 1) {
+        line.push("This season’s EPA uses the original play definition, not comparable with seasons rebuilt on box-score plays.");
+        more.push(lead + "Original definition: two-point tries count; spikes and kneel-downs don’t; a receiver’s fumble after the catch is charged to the passer. Success% = those plays with EPA above zero.");
+      }
+      else if (tab.id === "QB") more.push(lead + "EPA/play = the total EPA of his pass plays ÷ his pass plays. Pass plays (Plays) = his box score’s pass attempts (spikes count as attempts) plus sacks. Two-point tries, scrambles (they’re runs) and plays wiped out by a penalty don’t count. A receiver’s fumble after the catch isn’t charged to him.",
         "Success% = the same pass plays with EPA above zero ÷ those pass plays.",
         "CPOE = his average, per throw, of 100 if completed or 0 if not, minus nflfastR’s completion probability for that throw. Sacks and throws with no intended receiver have no CPOE.");
       else if (tab.id === "RB") more.push(lead + "EPA/play = the total EPA of his carries ÷ his carries (Car), as his box score counts them (kneel-downs included). Two-point runs and plays wiped out by a penalty don’t count; passes thrown to him aren’t included.",
