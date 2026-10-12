@@ -540,6 +540,8 @@ test("Separation Score (Keith 2026-10-12): Sep+ = NGS separation minus what cush
   await openTab(v, "WR");
   const n = await chooseSet(v, "ngs");
   t.deepEqual(labels(n.head), ["Sep+", "Sep", "Cush", "aDOT"], "Separation Score first, then its inputs");
+  t.deepEqual(bands(n.head), ["Next Gen 2026", "Wk 1–4"], "aDOT's one-column box-score band reads its weeks, not a cut-off 'nflve…'");
+  t.match(n.head, /<span class="band" style="grid-column: span 1" title="nflverse Wk 1–4">Wk 1–4<\/span>/, "full source on the band's title");
   const row = (pid) => rowsOf(n.list).find((r) => r.pid === String(parseInt(pid, 10)));
   // WR: 3.5 − (2.4138 + 0.2291·6.0 − 0.0864·10) = 3.5 − 2.9244 = +0.5756 → "+0.6"
   const a = row(pick[0].mfl_pid); t.deepEqual(a && a.cells, ["+0.6", "3.5", "6.0", "10.0"]);
