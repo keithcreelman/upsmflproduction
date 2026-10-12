@@ -480,12 +480,14 @@
     // "att-yds"; a loss reads "3-(−3)", not "3--3"
     function dash(a, b) { if (a == null && b == null) return null; var y = Number(b) || 0; return (Number(a) || 0) + "-" + (y < 0 ? "(−" + (-y) + ")" : y); }
     // Columns sized to fit a 320px sheet (agent measurements 2026-10-10).
-    if (grp === "QB") return [["Yds", function (r) { return n(r.pass_yds); }], ["TD", function (r) { return n(r.pass_tds); }],
+    // TD columns say whose TDs they count, the Stats list's labels (QA 2026-10-11:
+    // a receiver's rushing TD read "TD 0" next to his points); RB's TD = all of his.
+    if (grp === "QB") return [["Yds", function (r) { return n(r.pass_yds); }], ["PaTD", function (r) { return n(r.pass_tds); }],
       ["Int", function (r) { return n(r.pass_ints); }], ["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }]];
     if (grp === "RB") return [["Rush", function (r) { return dash(r.rush_att, r.rush_yds); }], ["Rec", function (r) { return dash(r.receptions, r.rec_yds); }],
       ["TD", function (r) { return (r.rush_tds == null && r.rec_tds == null) ? null : (Number(r.rush_tds) || 0) + (Number(r.rec_tds) || 0); }]];
     if (grp === "WR" || grp === "TE") return [["Tgt", function (r) { return n(r.targets); }], ["Rec", function (r) { return n(r.receptions); }],
-      ["Yds", function (r) { return n(r.rec_yds); }], ["TD", function (r) { return n(r.rec_tds); }]];
+      ["Yds", function (r) { return n(r.rec_yds); }], ["RecTD", function (r) { return n(r.rec_tds); }]];
     if (grp === "DL" || grp === "LB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
       ["Sk", function (r) { return n(r.def_sacks); }], ["TFL", function (r) { return n(r.def_tfl); }]];
     if (grp === "DB") return [["Solo", function (r) { return n(r.def_tackles_solo); }], ["Ast", function (r) { return n(r.def_tackles_ast); }],
@@ -571,7 +573,12 @@
       // DNP only when the bye list was read: otherwise a bye would be called DNP.
       else if (byesKnown) { label = "DNP"; cls = "dnp"; ttl = "No MFL score this week"; }
       else { label = "—"; cls = "dim"; }
-      var src = view === "rz" ? (rz[w] || (b ? RZ_ZERO : null))
+      // Red zone and usage stop where the box score does: a week past its
+      // coverage (e.g. Thursday's game before the week is in) reads "—", not
+      // numbers under a "Box score: Wks 1–4" note (QA 2026-10-11).
+      var pastBox = !!(wb && wb.box_through_week && w > wb.box_through_week);
+      var src = pastBox && view !== "box" ? null
+        : view === "rz" ? (rz[w] || (b ? RZ_ZERO : null))
         : view === "usage" ? (sn || b ? { off: sn ? (sn.off == null ? null : Number(sn.off)) : null, team_off: sn && sn.team_off ? Number(sn.team_off) : null,
                                           tgt: b ? (b.targets == null ? null : Number(b.targets)) : null } : null)
         : b;
@@ -745,7 +752,8 @@
       "IR-NFI": ["NFI", "Non-football injury list"], "SUSPENDED": ["SUSP", "Suspended"], "HOLDOUT": ["HOLD", "Holdout"], "RETIRED": ["RET", "Retired"] };
     function why(feed) {
       var r = U.safeStr(feed && feed.reason);
-      if (/not out yet/.test(r)) return r;
+      if (/not out yet/.test(r) || /has no Wk \d+ rows/.test(r)) return r;
+      if (/id map/.test(r)) return "players couldn’t be matched to it (the NFL id map couldn’t be read)";
       if (/not updated for/.test(r)) return "the report hasn’t been updated for " + r.replace(/^.*not updated for /, "");
       if (/current NFL week unknown/.test(r)) return "the current NFL week couldn’t be read";
       return "it couldn’t be read";
