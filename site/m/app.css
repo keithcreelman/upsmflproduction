@@ -1211,82 +1211,117 @@ button.ups-m-busy::before,
 .ups-m-fa-row .pos.db { color: #b39ddb; }
 .ups-m-fa-row .body { min-width: 0; }
 
-/* Player Stats view (#league/stats) — compact per-position leaderboard table */
-.ups-m-st-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 8px; }
-.ups-m-st-table { display: flex; flex-direction: column; min-width: 100%; }
+/* Player Stats view (#league/stats) — per-position leaderboard.
+   Layout (Keith 2026-10-09 review): the controls (search, Roster, Columns, the
+   points basis) scroll away; the position chips + column headings are PINNED
+   directly under the League tabs (--st-subtabs-h is measured by stats.js).
+   They used to stick at the same 48px offset as the League tabs with the same
+   z-index, so the 148px toolbar slid over and covered them, and the headings
+   lived inside an overflow-x box, which can't stick.
+   No horizontal scroll: every column set has at most four numbers and the grid
+   is sized from the set's own columns (--cols, set inline by stats.js), so the
+   PPG column is on screen at 320px. */
+.ups-m-st-tools { padding: 6px 12px 10px; display: grid; gap: 8px; }
+.ups-m-st-pin {
+  position: sticky;
+  top: calc(var(--hdr-h) + var(--safe-top) + var(--st-subtabs-h, 41px));
+  z-index: 9;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.ups-m-st-pin .ups-m-pos-chips { margin-top: 0; padding: 7px 12px 6px; gap: 5px; scrollbar-width: none; }
+.ups-m-st-pin .ups-m-pos-chips::-webkit-scrollbar { display: none; }
+.ups-m-st-pin .ups-m-pos-chip { padding: 5px 10px; font-size: 12px; letter-spacing: 0.02em; }
+.ups-m-st-table { display: flex; flex-direction: column; }
 .ups-m-st-row {
   display: grid;
-  /* Tuned to fit a 375px phone at the widest column set (5 stat columns):
-     10+10 padding + 6 gaps x 5 + 22 rk + 128 name + 5 x 34 = 360. At the old
-     6px gap / 118px name / 40px minimum this summed past the viewport and the
-     last column sat 11px off-screen on every load.
-     The slack went to the NAME rather than the stats: a stat cell holds four
-     digits ("4482") in 34px, while at 118px the list read "Matthew ...",
-     "Patrick Ma...", "Dak Presc..." — the one column you scan by was the one
-     being truncated. */
-  grid-template-columns: 22px minmax(128px, 1.6fr) repeat(var(--n, 5), minmax(34px, 1fr));
-  gap: 5px; align-items: center;
-  padding: 8px 10px; border-top: 1px solid var(--line); background: var(--bg-elev);
+  grid-template-columns: var(--cols, 26px minmax(0, 1fr) repeat(4, 40px));
+  gap: 4px; align-items: center;
+  padding: 6px 8px; border-top: 1px solid var(--line); background: var(--bg-elev);
   cursor: pointer; min-height: 48px; -webkit-tap-highlight-color: rgba(91,141,255,0.08);
 }
+.ups-m-st-row:first-child { border-top: 0; }
 .ups-m-st-row:active { background: var(--bg-elev2); }
+.ups-m-st-row.mine { background: linear-gradient(90deg, rgba(91,141,255,0.12), var(--bg-elev) 70%); }
+/* Headings, two tiers: a band naming the source + period over each run of
+   columns that share it, then the short labels. */
 .ups-m-st-row.head {
-  background: transparent; border-top: 0; min-height: 0; padding: 2px 10px 4px; cursor: default;
-  color: var(--fg-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+  background: transparent; border-top: 0; min-height: 0; padding: 0 8px 2px; cursor: default;
+  color: var(--fg-muted); font-size: 11px; line-height: 1.25; row-gap: 3px;
 }
-.ups-m-st-row .rk { text-align: center; font-variant-numeric: tabular-nums; color: var(--fg-muted); font-weight: 700; font-size: 12px; }
-.ups-m-st-row .nm { display: flex; align-items: center; gap: 7px; min-width: 0; }
-/* `span.pos`, not `.pos`: the punter pos-group modifier is `pn`, which is the
-   SAME class name as the player-name span `.pn` below. At equal specificity the
-   later rule wins, so on the PN tab the position badge was being rendered by
-   the name rule — 13px semibold white instead of 9px bold. Qualifying with the
-   element name outranks it without touching the name rule. */
+.ups-m-st-row.head .band-pad { grid-column: 1 / 3; }
+.ups-m-st-row.head .band {
+  text-align: center; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-bottom: 1px solid var(--line); padding-bottom: 2px;
+}
+.ups-m-st-row.head .v { font-weight: 700; color: var(--fg); font-size: 11px; }
+/* Sortable headings: the whole cell is the button; a second line carries the
+   direction (▼ high→low, ▲ low→high) or a faint ⇅ on unsorted columns. */
+.ups-m-st-sort {
+  display: block; width: 100%; min-height: 32px; padding: 2px 0; margin: 0; border: 0; background: transparent;
+  font: inherit; font-weight: 700; color: var(--fg); text-align: right; line-height: 1.2; cursor: pointer;
+  -webkit-tap-highlight-color: rgba(91,141,255,0.15); white-space: nowrap;
+}
+.ups-m-st-row.head .rk .ups-m-st-sort { text-align: center; color: var(--fg-muted); }
+.ups-m-st-sort i { display: block; font-style: normal; font-size: 10px; color: var(--fg-muted); opacity: 0.55; }
+.ups-m-st-sort.on, .ups-m-st-row.head .rk .ups-m-st-sort.on { color: var(--accent); }
+.ups-m-st-sort.on i { color: var(--accent); opacity: 1; }
+.ups-m-st-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+/* A rate over its numerator/denominator in one cell: "41%" over "9/22". */
+.ups-m-st-row .v .nd { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.ups-m-st-row .v .nd b { font-weight: 400; font-size: 13px; }
+.ups-m-st-row .v .nd small { font-size: 11px; font-weight: 600; color: var(--fg-muted); }
+/* DL/DB: the position leads the team line instead of a chip beside the name. */
+.ups-m-st-row .nm .tm span.pos { background: none; border: 0; padding: 0; font-size: 11px; font-weight: 700; color: #b39ddb; }
+/* "About these numbers": the longer definitions, collapsed. */
+.ups-m-st-more { margin-top: 3px; }
+.ups-m-st-more summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 12px; list-style: none; min-height: 32px; display: flex; align-items: center; }
+.ups-m-st-more summary::-webkit-details-marker { display: none; }
+.ups-m-st-more summary::before { content: "▸ "; }
+.ups-m-st-more[open] summary::before { content: "▾ "; }
+.ups-m-st-more > div { margin-top: 4px; }
+.ups-m-st-row.head .nm { font-weight: 700; color: var(--fg-muted); }
+.ups-m-st-row .rk { text-align: center; font-variant-numeric: tabular-nums; color: var(--fg-muted); font-weight: 700; font-size: 12px; letter-spacing: -0.02em; }
+.ups-m-st-row .nm { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* `span.pos`, not `.pos`: the punter group class `pn` collides with the
+   player-name span `.pn` at equal specificity. Shown on DL/DB only. */
 .ups-m-st-row .nm span.pos {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 4px; border-radius: 4px;
-  background: var(--bg-elev2); border: 1px solid var(--line); color: var(--fg-muted); flex: 0 0 auto;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em; padding: 1px 4px; border-radius: 4px;
+  background: var(--bg-elev2); border: 1px solid var(--line); color: #b39ddb; flex: 0 0 auto;
   white-space: nowrap;
 }
-.ups-m-st-row .nm span.pos.qb { color: #ef9a9a; }
-.ups-m-st-row .nm span.pos.rb { color: #80deea; }
-.ups-m-st-row .nm span.pos.wr { color: #a5d6a7; }
-.ups-m-st-row .nm span.pos.te { color: #ffcc80; }
-/* pn was missing entirely, so punters fell through to the muted default even
-   before the specificity collision above. */
-.ups-m-st-row .nm span.pos.pk,
-.ups-m-st-row .nm span.pos.pn { color: #ce93d8; }
-.ups-m-st-row .nm span.pos.dl,
-.ups-m-st-row .nm span.pos.lb,
-.ups-m-st-row .nm span.pos.db { color: #b39ddb; }
 .ups-m-st-row .nm .t { display: flex; flex-direction: column; min-width: 0; }
-.ups-m-st-row .nm .pn { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* One line, ellipsised. "SFO · Blake Bombers" used to wrap onto a second line,
-   which made every row 63px tall and fit only seven on an 812px screen — the
-   owner name is secondary information and is not worth a third of the list. */
-.ups-m-st-row .nm .tm {
-  font-size: 10px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ups-m-st-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--fg); }
-.ups-m-st-row .v:last-child { font-weight: 700; }
-.ups-m-st-row.head .v { font-weight: 600; }
-.ups-m-st-row .nm .tm .own { margin-left: 5px; color: var(--fg-muted); }
-.ups-m-st-row .nm .tm .own.fa { color: var(--accent); font-weight: 600; }
-/* Stats filter row — roster scope + column-set dropdowns */
+.ups-m-st-row .nm .pn { font-size: 14px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* One line, ellipsised: the owner is secondary and not worth a second line. */
+.ups-m-st-row .nm .tm { font-size: 11px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Status chips lead the team line (2026-10-10): small, never truncated by a long name, never over the numbers. */
+.ups-m-st-row .nm .tm .ups-m-inj-chip.sm { margin: 0 4px 0 0; padding: 0 3px; font-size: 11px; line-height: 13px; border-radius: 4px; letter-spacing: .02em; vertical-align: 1px; }
+.ups-m-st-row .nm .tm .ups-m-inj-chip.sm + .ups-m-inj-chip.sm { margin-left: 0; }
+.ups-m-st-injline { margin-top: 2px; font-size: 11px; color: var(--fg-muted); }
+.ups-m-st-row .nm .tm .own.fa { color: var(--accent); font-weight: 700; }
+.ups-m-st-row .nm .tm .own.me { color: var(--fg); font-weight: 600; }
+.ups-m-st-row .nm .tm .own.unk { color: var(--warn); font-weight: 600; }
+.ups-m-st-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--fg); white-space: nowrap; }
+.ups-m-st-row .v.ppg { font-weight: 700; font-size: 14px; }
+.ups-m-st-row .v.dim { color: var(--fg-muted); font-size: 12px; }
+/* A total that includes a week still being played. */
+.ups-m-st-live { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); margin: 0 3px 1px 0; vertical-align: middle; }
+.ups-m-st-row.head .ups-m-st-live { margin: 0 0 1px 4px; }
+/* Roster + Columns dropdowns, each with a visible label. */
+/* (.ups-m-st-filters is also the filter row of the other Stats boards — keep
+   its original flex rule; only the Players tools get the labelled grid.) */
 .ups-m-st-filters { display: flex; gap: 8px; padding: 0 12px 8px; align-items: center; }
 .ups-m-st-filters .ups-m-players-filter { flex: 1 1 0; min-width: 0; }
-/* Season + source caption. Replaces the "PLAYER STATS · 2025 · ADVANCED
-   (NFLVERSE)" heading that cost 35px of vertical space above the search box to
-   repeat what the "Players" inner tab already says. */
-.ups-m-st-src {
-  flex: 0 0 auto;
-  font-size: 10px;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
+.ups-m-st-tools .ups-m-st-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0; align-items: end; }
+.ups-m-st-sel { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 11px; font-weight: 600; color: var(--fg-muted); }
+.ups-m-st-sel .ups-m-players-filter { margin-bottom: 0; padding: 8px 30px 8px 10px; font-size: 14px; min-width: 0; }
+/* What the numbers ARE (period, live week, read time) + the set's source. */
+.ups-m-st-basis { font-size: 12px; line-height: 1.45; color: var(--fg-muted); }
+.ups-m-st-basis b { color: var(--fg); font-weight: 600; }
+.ups-m-st-basis.warn { color: var(--warn); }
+.ups-m-st-setnote { font-size: 12px; line-height: 1.45; color: var(--fg-muted); margin-top: 4px; }
+.ups-m-st-setnote:empty { display: none; }
 
 /* Empty search result → hand off to the league-wide search rather than
    reporting a real player as missing data. */
@@ -1314,8 +1349,15 @@ button.ups-m-busy::before,
 .ups-m-stseg-bar.four .ups-m-stseg { font-size: 11px; padding: 8px 2px; letter-spacing: -0.01em; }
 .ups-m-stseg-bar.five { gap: 3px; }
 .ups-m-stseg-bar.five .ups-m-stseg { font-size: 10px; padding: 8px 1px; letter-spacing: -0.02em; }
-.ups-m-stseg-bar.six { gap: 2px; }
-.ups-m-stseg-bar.six .ups-m-stseg { font-size: 9px; padding: 8px 1px; letter-spacing: -0.03em; }
+/* Stats → the six boards (shared navigation). 13px labels in a row that
+   scrolls sideways when it doesn't fit — they were squeezed to 9px with
+   negative tracking to fit a 375px screen. */
+.ups-m-stseg-bar.six { gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 10px; }
+.ups-m-stseg-bar.six::-webkit-scrollbar { display: none; }
+.ups-m-stseg-bar.six .ups-m-stseg { flex: 0 0 auto; font-size: 13px; padding: 8px 14px; letter-spacing: 0; }
+/* Every Stats board's sticky toolbar pins BELOW the League tabs, never over
+   them (same offset + z-index used to stack the two). */
+.ups-m-stseg-bar ~ .ups-m-players-toolbar { top: calc(var(--hdr-h) + var(--safe-top) + var(--st-subtabs-h, 41px)); z-index: 9; }
 .ups-m-stseg.on { background: var(--accent); border-color: var(--accent); color: #0a1222; }
 /* Strength-of-Schedule heatmap (Stats → Sched) */
 .ups-m-pos-chips.inline { display: inline-flex; gap: 4px; margin-left: 6px; }
