@@ -594,7 +594,12 @@ function rosteredOutDoubtfulByTeam({ rosters, players, history, sched, names, no
 // with an issue, after they're known, rather than per-team -- same "one
 // batched SELECT" discipline that function's own header documents. Without
 // it every team renders by name only, exactly like before 2026-09-19.
-export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false, skipLog = false, resolveMentions }) {
+export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, nowUnix, channelId, dryRun = false, skipLog = false, resolveMentions: resolveMentionsIn }) {
+  // A preview (skipLog) or dry run never looks up an owner mention and never
+  // pings anyone, whatever the caller passes (Keith 2026-10-11: nobody is
+  // tagged in tests, dry runs or previews). Only the real weekly post mentions.
+  const isPreview = !!(skipLog || dryRun);
+  const resolveMentions = isPreview ? undefined : resolveMentionsIn;
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
@@ -739,7 +744,7 @@ export async function runLineupSaturdayAnnounce(env, { season, leagueId, week, n
               // added owner @mentions to Part 1 so the 🚨/⚠️ lines actually
               // reach them); every other Discord post this module sends
               // stays silent.
-              body: JSON.stringify({ content: chunk.slice(0, 1900), allowed_mentions: { parse: ["users"] } }),
+              body: JSON.stringify({ content: chunk.slice(0, 1900), allowed_mentions: isPreview ? { parse: [] } : { parse: ["users"] } }),
             });
             const j = await res.json().catch(() => null);
             if (res.ok && j && j.id) messageIds.push(_s(j.id));
