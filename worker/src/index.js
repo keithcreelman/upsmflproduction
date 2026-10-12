@@ -45635,7 +45635,8 @@ const mflToSleeper = {};
         const pRes = await runLineupSaturdayAnnounce(env, {
           season: pSeason, leagueId: pLeague, week: pWeek,
           channelId: pChannel, dryRun: pDry, skipLog: true,
-          resolveMentions: resolveFranchiseMentions,
+          // No resolveMentions: a preview never looks up or pings an owner
+          // (Keith 2026-10-11). Teams render by name only.
         });
         return jsonOut(200, pRes);
       }
