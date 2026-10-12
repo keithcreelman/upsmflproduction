@@ -105,7 +105,7 @@ function install(w) {
 
 function env({ channel = INJURY_CH, satLog = THREAD5 } = {}) {
   const d = makeD1({});
-  applyMigrations(d, ["0093_ups_bot_heartbeat.sql", "0129_lineup_compliance.sql", "0149_lineup_sat_announce_log.sql", "0171_lineup_rulings.sql"]);
+  applyMigrations(d, ["0093_ups_bot_heartbeat.sql", "0129_lineup_compliance.sql", "0149_lineup_sat_announce_log.sql", "0171_lineup_rulings.sql", "0172_lineup_pick_reservation_state.sql"]);
   for (const wk of [5, 6]) {
     d.raw.prepare("INSERT INTO ups_injury_polls (season, week, polled_unix, rows_seen) VALUES (?, ?, ?, 400)").run(SEASON, wk, POLL_FROM);
     for (const [p, st, first] of [[ELLISS, "QUESTIONABLE", 1791507952], [ELLISS, "OUT", 1791579952], [WINGARD, "QUESTIONABLE", 1791507952], [WINGARD, "OUT", 1791569151], [X4, "OUT", 1791569151]]) {

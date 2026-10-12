@@ -489,7 +489,7 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     const laterWeeks = ((later && later.results) || []).map((r) => Number(r.week));
     if (laterWeeks.length) return { ok: false, error: "later_ruling_exists", weeks: laterWeeks, detail: "a later confirmed week would be renumbered; correct it by hand" };
     if (!Number(cand.voided)) await voidLineupViolation(env, { season, leagueId, fid: k.fid, week, reason: _s(note) || "excused by commissioner", by });
-    await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=? WHERE ${RES_SQL} AND released_at_utc IS NULL`)
+    await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=?, state='released' WHERE ${RES_SQL} AND released_at_utc IS NULL`)
       .bind(_nowIso(), ...keyArgs(k)).run();
     await _upsertRuling(db, k, { ruling: "excused", note, by, status: "closed", hold_reason: null });
     return { ok: true, ruling: "excused", status: "closed" };
@@ -535,13 +535,15 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     try {
       await db.prepare(
         `INSERT INTO ups_lineup_pick_reservations
-           (season, league_id, holder_fid, week, pick_year, pick_round, original_owner, ownership_basis, reserved_at_utc)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (season, league_id, holder_fid, week, pick_year, pick_round, original_owner, ownership_basis, reserved_at_utc, state)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(season, league_id, holder_fid, week) DO UPDATE SET
            pick_year=excluded.pick_year, pick_round=excluded.pick_round, original_owner=excluded.original_owner,
-           ownership_basis=excluded.ownership_basis, reserved_at_utc=excluded.reserved_at_utc, released_at_utc=NULL
+           ownership_basis=excluded.ownership_basis, reserved_at_utc=excluded.reserved_at_utc, released_at_utc=NULL, state=excluded.state
          WHERE ups_lineup_pick_reservations.released_at_utc IS NOT NULL`
-      ).bind(...keyArgs(k), pick.year, pick.round, _fid(pick.original_owner), pick.basis, _nowIso()).run();
+      ).bind(...keyArgs(k), pick.year, pick.round, _fid(pick.original_owner), pick.basis, _nowIso(),
+             // A year MFL does not list yet is an OBLIGATION until it does (lineup_forfeits.js).
+             pick.basis === "beyond_trade_horizon" ? "obligation" : "reserved").run();
     } catch (e) {
       return hold("pick_already_reserved", { evidence: plan.evidence, detail: _s(e && e.message) });
     }
@@ -1070,12 +1072,20 @@ export async function verifyLineupSanction(env, { season, leagueId, fid, week })
   const pen = r.penalty_json ? JSON.parse(r.penalty_json) : {};
   const out = { pick: null, cap: null, membership: null };
   if (pen.pick) {
+    // SECURED only: the pick is gone from EVERY franchise on MFL. A pick that
+    // left the team but sits on another one was traded, not secured
+    // (Keith 2026-10-11) — the forfeiture is not applied.
+    const res = await db.prepare(`SELECT * FROM ups_lineup_pick_reservations WHERE ${RES_SQL} AND released_at_utc IS NULL`).bind(...keyArgs(k)).first();
+    const held = res ? { year: Number(res.pick_year), round: Number(res.pick_round), original_owner: _fid(res.original_owner) } : pen.pick;
     const inv = await readPickInventory(season, leagueId);
-    if (!inv) out.pick = { verified: false, reason: "pick_inventory_unreadable" };
-    else if (!inv.years.includes(Number(pen.pick.year))) out.pick = { verified: false, reason: "pick_year_not_listed_on_mfl_yet" };
+    if (res && res.state && res.state !== "reserved" && res.state !== "secured") out.pick = { verified: false, reason: `reservation_${res.state}` };
+    else if (!inv) out.pick = { verified: false, reason: "pick_inventory_unreadable" };
+    else if (!inv.years.includes(Number(held.year))) out.pick = { verified: false, reason: "pick_year_not_listed_on_mfl_yet" };
     else {
-      const still = (inv.byHolder[k.fid] || []).some((p) => pickKey(p) === pickKey(pen.pick));
-      out.pick = still ? { verified: false, reason: "pick_still_owned" } : { verified: true };
+      const owner = Object.entries(inv.byHolder).find(([, picks]) => picks.some((p) => pickKey(p) === pickKey(held)));
+      if (!owner) out.pick = { verified: true, secured: true };
+      else if (_fid(owner[0]) === k.fid) out.pick = { verified: false, reason: "pick_still_owned" };
+      else out.pick = { verified: false, reason: "pick_traded_away", owner: _fid(owner[0]) };
     }
   }
   if (pen.cap_k) {

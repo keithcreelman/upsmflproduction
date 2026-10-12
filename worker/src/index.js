@@ -46,6 +46,7 @@ import {
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking, alertBookingSkips, previewStandingRule } from "./lineup_rulings.js";
+import { checkForfeitedPicks, reconcileForfeitedPicks, selectForfeitedPick } from "./lineup_forfeits.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
@@ -8115,6 +8116,14 @@ export default {
               if (ap && ap.results && ap.results.length) console.log(`[scheduled hourly] lineup auto-publish wk${wk}: ${JSON.stringify(ap.results).slice(0, 400)}`);
             }
           } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
+          try {
+            // §G3 forfeited picks (Keith 2026-10-11): resolve obligations once MFL lists
+            // the year, detect native-MFL trades of reserved picks (alert commish + owner),
+            // and recognize a pick the commissioner has removed (SECURED). No-op when
+            // nothing is reserved.
+            const fr = await reconcileForfeitedPicks(env, { season: lcSeason, leagueId: lcLeague });
+            if (fr && fr.checked) console.log(`[scheduled hourly] forfeited picks: ${JSON.stringify(fr.results || fr.error).slice(0, 300)}`);
+          } catch (e) { console.error(`[scheduled hourly] forfeited-pick reconcile failed: ${e && e.message}`); }
           try {
             const sat = await runLineupSaturdayAnnounce(env, { season: lcSeason, leagueId: lcLeague, week: lcWeek, resolveMentions: resolveFranchiseMentions });
             if (sat && !sat.skipped) console.log(`[scheduled hourly] lineup Sat-AM post: wk${lcWeek} -> clean=${sat.clean} issues=${sat.issues} msg=${sat.message_id}`);
@@ -22538,6 +22547,12 @@ const mflToSleeper = {};
         };
         const giveMfl = give.map(_toMflAsset).join(",");
         const receiveMfl = receive.map(_toMflAsset).join(",");
+        // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
+        // Checked on the raw ids (the forfeit canonicalizer reads FP_ tokens in either order).
+        {
+          const fg = await checkForfeitedPicks(env, _rdhLeagueId(), { [fromFid]: give, [toFid]: receive });
+          if (!fg.ok) return jsonOut(fg.http, { ok: false, code: fg.code, error: fg.message, message: fg.message, violations: fg.violations || [] });
+        }
         const fromName = await _rdhFranchiseName(fromFid);
         const toName = await _rdhFranchiseName(toFid);
 
@@ -22981,6 +22996,12 @@ const mflToSleeper = {};
         };
         const giveMfl = give.map(_toMflAsset).join(",");
         const receiveMfl = receive.map(_toMflAsset).join(",");
+        // EXECUTE (commissioner propose + accept) — §G3: a pick forfeited as a lineup-violation
+        // penalty can't be traded (Keith 2026-10-11). Before the dry run and before MFL is called.
+        {
+          const fg = await checkForfeitedPicks(env, leagueId, { [fromFid]: give, [toFid]: receive });
+          if (!fg.ok) return jsonOut(fg.http, { ok: false, code: fg.code, error: fg.message, message: fg.message, violations: fg.violations || [] });
+        }
         const fromName = await _rdhFranchiseName(fromFid);
         const toName = await _rdhFranchiseName(toFid);
 
@@ -39337,6 +39358,12 @@ const mflToSleeper = {};
             });
           }
 
+          // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
+          {
+            const fg = await checkForfeitedPicks(env, leagueId, tokensByFranchise(proposalAssets));
+            if (!fg.ok) return jsonOut(fg.http, { ok: false, code: fg.code, error_type: fg.code, error: fg.message, message: fg.message, violations: fg.violations || [] });
+          }
+
           const intentBundle = await buildTradeIntentBundleFromPayload({
             leagueId,
             season,
@@ -40391,6 +40418,12 @@ const mflToSleeper = {};
               }
             }
 
+            // COUNTER (SEND) — checked BEFORE the original offer is rejected. §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
+            {
+              const fg = await checkForfeitedPicks(env, leagueId, tokensByFranchise(buildTradeProposalAssetLists(counterPayload)));
+              if (!fg.ok) return jsonOut(fg.http, { ok: false, code: fg.code, error_type: fg.code, error: fg.message, message: fg.message, violations: fg.violations || [] });
+            }
+
             const rejectImport = await postMflImportFormAsViewer(
               season,
               {
@@ -40597,6 +40630,9 @@ const mflToSleeper = {};
               if (picksBad.length) {
                 return integrityFail(409, "pick_not_tradeable", "A draft pick in this trade can't be traded (6th-round picks, and picks more than a year out, aren't tradeable).", { violations: picksBad });
               }
+              // ACCEPT — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
+              const forfeitGate = await checkForfeitedPicks(env, leagueId, byFranchise);
+              if (!forfeitGate.ok) return integrityFail(forfeitGate.http, forfeitGate.code, forfeitGate.message, { violations: forfeitGate.violations || [] });
               const capBad = capMoneyViolations({ byFranchise, rosters: liveRosters });
               if (capBad.length) {
                 return integrityFail(409, "cap_money_rule", "The cap money in this trade breaks the league rule (at most 50% of the traded-away salary, and never money without a player or pick).", { violations: capBad });
@@ -40819,6 +40855,12 @@ const mflToSleeper = {};
                   right: acceptProposalAssets.rightTokensOut.invalid,
                 },
               });
+            }
+            // EXECUTE — the last check before MFL is called. §G3: a pick forfeited as a
+            // lineup-violation penalty can't be traded (Keith 2026-10-11).
+            const execForfeit = await checkForfeitedPicks(env, leagueId, tokensByFranchise(acceptProposalAssets));
+            if (!execForfeit.ok) {
+              return jsonOut(execForfeit.http, { ok: false, mode: "direct_mfl", action, code: execForfeit.code, error_type: execForfeit.code, error: execForfeit.message, message: execForfeit.message, violations: execForfeit.violations || [] });
             }
           }
 
@@ -57578,6 +57620,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // GET  /admin/lineup/auto-preview?week=        dry run of the standing rule (read-only, no mention)
       // POST /admin/lineup/notice                   { fid, week, confirm: "post" }
       // POST /admin/lineup/sanction-verify          { fid, week }  assessed → applied only when MFL shows it
+      // POST /admin/lineup/forfeit-select           { fid, week, pick_choice }  choose among several qualifying picks
       if ((path === "/admin/lineup/cases" || path === "/admin/lineup/notice-preview" || path === "/admin/lineup/thread-check" || path === "/admin/lineup/auto-preview") && request.method === "GET") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -57605,7 +57648,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // Plain text only — the owner's mention is never looked up for a preview.
         return jsonOut(200, await previewLineupNotice(env, { season, leagueId, fid, week }));
       }
-      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify")
+      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify" || path === "/admin/lineup/forfeit-select")
           && request.method === "POST") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -57636,6 +57679,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"post\" to post. Read GET /admin/lineup/notice-preview first." });
             }
             const r = await postLineupNotice(env, { season, leagueId, fid, week, resolveMentions: resolveFranchiseMentions });
+            return jsonOut(r.ok ? 200 : 409, r);
+          }
+          if (lineupAction === "forfeit-select") {
+            // The commissioner's choice among several qualifying picks (never chosen silently).
+            const r = await selectForfeitedPick(env, { season, leagueId, fid, week, pickChoice: safeStr(body.pick_choice) });
             return jsonOut(r.ok ? 200 : 409, r);
           }
           const r = await verifyLineupSanction(env, { season, leagueId, fid, week });
