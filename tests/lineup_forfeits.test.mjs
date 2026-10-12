@@ -277,5 +277,16 @@ test("the cases list shows each ruling's stage", async () => {
   t.deepEqual(c.cases.map((x) => [x.fid, x.pick_state, x.penalty_stage]), [["0002", "obligation", "assessed"], ["0004", "reserved", "reserved"]]);
 });
 
+test("0172 applies on top of 0171 and its rollback restores the exact 0171 schema", () => {
+  const schema = (d) => d.raw.prepare("SELECT type, name, sql FROM sqlite_master WHERE name LIKE '%lineup%' ORDER BY name").all();
+  const base = makeD1({}); applyMigrations(base, ["0129_lineup_compliance.sql", "0149_lineup_sat_announce_log.sql", "0171_lineup_rulings.sql"]);
+  const d = makeD1({}); applyMigrations(d, ["0129_lineup_compliance.sql", "0149_lineup_sat_announce_log.sql", "0171_lineup_rulings.sql", "0172_lineup_pick_reservation_state.sql"]);
+  t.ok(d.raw.prepare("SELECT COUNT(*) n FROM pragma_table_info('ups_lineup_pick_reservations') WHERE name='state'").get().n === 1);
+  d.raw.exec("CREATE TABLE d1_migrations (id INTEGER PRIMARY KEY, name TEXT, applied_at TEXT); INSERT INTO d1_migrations (name) VALUES ('0172_lineup_pick_reservation_state.sql')");
+  d.raw.exec("BEGIN;" + fs.readFileSync(new URL("../worker/migrations/manual/0172_lineup_pick_reservation_state_rollback.sql", import.meta.url), "utf8") + "COMMIT;");
+  t.deepEqual(schema(d), schema(base), "schema identical to 0171");
+  t.equal(d.raw.prepare("SELECT COUNT(*) n FROM d1_migrations WHERE name LIKE '0172%'").get().n, 0);
+});
+
 restoreConsole();
 await run("lineup_forfeits");
