@@ -55,6 +55,8 @@ function install(w) {
     const method = (init && init.method) || "GET";
     if (u.startsWith("https://discord.com/api/v10/channels/")) {
       const id = u.split("/channels/")[1].split("/")[0];
+      discordCalls.push({ method, url: u });
+      if (method === "GET" && u.includes("/messages")) return json(w.threadMessages || []);
       if (method === "GET") { gets.push(id); return w.threadStatus === 200 && id === w.thread.id ? json(w.thread) : json({ message: "Unknown Channel" }, 404); }
       posts.push({ id, body: JSON.parse(init.body) });
       return w.postStatus === 200 ? json({ id: String(990000000000000000n + BigInt(posts.length)) }) : json({ code: 50013 }, w.postStatus);
@@ -79,6 +81,9 @@ function install(w) {
         if (p.id === X4) Object.assign(p, { name: "Doe, John", team: "NOS" });
       }
       return json({ players: { player } });
+    }
+    if (u.includes("TYPE=rosters")) {
+      return json({ rosters: { franchise: FIDS.map((id) => ({ id, player: w.lineups[id].map((pid) => ({ id: pid, status: "ROSTER" })) })) } });
     }
     if (u.includes("TYPE=weeklyResults")) {
       if (!w.resultsOk) return json(null, 500);
@@ -108,6 +113,9 @@ function env({ channel = INJURY_CH, satLog = THREAD5 } = {}) {
     }
   }
   if (satLog) d.raw.prepare("INSERT INTO ups_lineup_sat_announce_log (season, league_id, week, message_id, clean_count, issue_count, posted_unix) VALUES (?, ?, 5, ?, 7, 5, 1791633943)").run(SEASON, L, satLog);
+  // Active owner accounts (0009 deliberately has none).
+  d.raw.exec("CREATE TABLE IF NOT EXISTS discord_owners (franchise_id TEXT, active_owner TEXT, discord_user_id TEXT)");
+  for (const [f, id] of [["0002", OWNER], ["0004", "222222222222222222"], ["0007", "333333333333333333"]]) d.raw.prepare("INSERT INTO discord_owners VALUES (?, 'Y', ?)").run(f, id);
   return { UPS_MFL_DB: d, DISCORD_BOT_TOKEN: "test", DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID: channel, LINEUP_AUTO_PUBLISH_ENABLED: "1" };
 }
 const CBP_REASONS = JSON.stringify([
@@ -119,7 +127,10 @@ const book = (e, fid, week, reasons) => e.UPS_MFL_DB.raw.prepare(
   "INSERT INTO ups_lineup_violations (season, league_id, fid, week, offense_no, reasons_json) VALUES (?, ?, ?, ?, 0, ?)").run(SEASON, L, fid, week, reasons);
 const ruling = (e, fid, week) => e.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_lineup_rulings WHERE season=? AND fid=? AND week=?").get(SEASON, fid, week);
 const reservations = (e) => e.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_lineup_pick_reservations ORDER BY week").all();
-const mentions = async (_env, fids) => new Map(fids.filter((f) => f !== "0009").map((f) => [f, f === "0002" ? [OWNER] : ["222222222222222222"]]));
+// Spy: the ONLY code allowed to look up a real mention is the final send.
+const discordCalls = [];
+let mentionLookups = 0;
+const mentions = async (_env, fids) => { mentionLookups += 1; return new Map(fids.filter((f) => f !== "0009").map((f) => [f, f === "0002" ? [OWNER] : ["222222222222222222"]])); };
 const alerts = [];
 const alertImpl = async (_env, text) => { alerts.push(text); return { sent: 1 }; };
 const rule = (e, fid, week, extra) => R.recordLineupRuling(e, { season: SEASON, leagueId: L, fid, week, ruling: "confirmed", by: "0008", ...(extra || {}) });
@@ -145,6 +156,9 @@ const CBP_EXPECTED = [
   "If there is another violation this season: CBP will forfeit its earliest owned future fourth-round pick and receive a $5,000 charge against the following season’s salary cap. Because CBP does not own a 2027 fourth-round pick, its own 2028 fourth-round pick is currently the applicable pick.",
 ].join("\n");
 
+// Keith's preview copy (2026-10-11): identical, minus the mention.
+const CBP_PLAIN = CBP_EXPECTED.replace(` <@${OWNER}>`, "");
+
 // ── CBP Week 5 ──────────────────────────────────────────────────────────────
 test("CBP Week 5: one offense (#1), exact evidence timestamps, the exact post, in the Week 5 thread", async () => {
   const e = env(); const net = install(world()); alerts.length = 0;
@@ -164,8 +178,12 @@ test("CBP Week 5: one offense (#1), exact evidence timestamps, the exact post, i
   t.equal(ev[0].deadline_rule, "kickoff − 24 hours");
   t.equal(net.posts.length, 0, "ruling never posts");
 
+  const lookupsBefore = mentionLookups;
   const pv = await preview(e, "0002", 5);
-  t.equal(pv.ok, true); t.equal(pv.text, CBP_EXPECTED);
+  t.equal(pv.ok, true); t.equal(pv.text, CBP_PLAIN, "preview shows the plain copy, no mention");
+  t.equal(JSON.stringify(pv).includes("<@"), false, "no rendered mention anywhere in the preview");
+  t.equal(mentionLookups, lookupsBefore, "preview never looks up the owner's id");
+  t.equal(pv.owner_account_active, true);
   t.equal(pv.destination.thread_id, THREAD5); t.equal(pv.destination.name, "Week 5 Injury Report"); t.equal(pv.destination.parent_id, INJURY_CH);
   t.equal(net.posts.length, 0, "preview never posts");
 
@@ -174,6 +192,7 @@ test("CBP Week 5: one offense (#1), exact evidence timestamps, the exact post, i
   t.equal(net.posts.length, 1); t.equal(net.posts[0].id, THREAD5, "into the Week 5 thread, nowhere else");
   t.equal(net.posts[0].body.content, CBP_EXPECTED);
   t.deepEqual(net.posts[0].body.allowed_mentions, { users: [OWNER] }, "pings only the owner");
+  t.equal(mentionLookups, lookupsBefore + 1, "the mention is looked up exactly once — at the live send");
   t.equal(ruling(e, "0002", 5).status, "posted");
   t.equal(e.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) n FROM ups_lineup_rulings").get().n, 1, "one ruling = one offense");
   t.equal(alerts.length, 0);
@@ -217,14 +236,14 @@ test("Coffee Shop configured as the Injury Report channel → held, never posts"
   t.equal((await post(e, "0002", 5)).reason, "coffee_shop_blocked"); t.equal(net.posts.length, 0);
 });
 
-test("owner mention unresolved → held", async () => {
+test("no active owner account → held before any mention lookup", async () => {
   const e = env(); alerts.length = 0;
   book(e, "0009", 5, CBP_REASONS);
   const w = world(); w.lineups = { ...LINEUPS, "0009": [ELLISS, WINGARD, ...filler("0009")] };
   const net = install(w);
   await rule(e, "0009", 5);
   const p = await post(e, "0009", 5);
-  t.equal(p.reason, "owner_mention_unresolved"); t.equal(net.posts.length, 0);
+  t.equal(p.reason, "owner_account_missing"); t.equal(net.posts.length, 0);
 });
 
 test("a re-post after a hold is fixed goes out once; a failed send keeps the claim", async () => {
@@ -465,7 +484,7 @@ test("AUTOMATIC stops for review: needs_review, conflicting evidence, missing th
   e = env(); const w = world(); w.lineups = { ...LINEUPS, "0009": [ELLISS, WINGARD, ...filler("0009")] }; net = install(w); alerts.length = 0;
   book(e, "0009", 5, CBP_REASONS);
   await auto(e, MNF + 60);
-  t.equal(net.posts.length, 0); t.match(alerts[0], /owner_mention_unresolved/);
+  t.equal(net.posts.length, 0); t.match(alerts[0], /owner_account_missing/);
   // several qualifying picks on a 2nd offense
   e = env(); net = install(world({ picks: { "0004": [{ year: "2027", round: "4", originalPickFor: "0004" }, { year: "2027", round: "4", originalPickFor: "0007" }] } })); alerts.length = 0;
   book(e, "0004", 5, X4_REASONS); book(e, "0004", 6, X4_REASONS);
@@ -498,6 +517,66 @@ test("mass-booking breaker alerts Keith once per week", async () => {
   await R.alertMassBooking(e, { season: SEASON, leagueId: L, week: 5, candidates: 7, alertImpl });
   await R.alertMassBooking(e, { season: SEASON, leagueId: L, week: 5, candidates: 7, alertImpl });
   t.equal(alerts.length, 1); t.match(alerts[0], /REFUSED for Week 5: 7 teams/);
+});
+
+// ── previews and dry runs can never notify anyone ───────────────────────────
+const ONLY_CBP = { ...LINEUPS, "0004": ["80004a", "80004b", ...filler("0004")] };   // nobody else starts a hurt player
+const snapshot = (e) => ["ups_lineup_violations", "ups_lineup_rulings", "ups_lineup_alerts", "ups_lineup_pick_reservations", "ups_bot_heartbeat"]
+  .map((tb) => e.UPS_MFL_DB.raw.prepare(`SELECT COUNT(*) n FROM ${tb}`).get().n).join(",");
+
+test("DRY RUN of the standing rule (CBP Week 5): would POST, exact plain copy, and provably sends/writes/mentions nothing", async () => {
+  const e = env(); const net = install(world({ lineups: ONLY_CBP })); discordCalls.length = 0; alerts.length = 0;
+  const lookups = mentionLookups;
+  const before = snapshot(e);
+  const d = await R.previewStandingRule(e, { season: SEASON, leagueId: L, week: 5, nowUnix: SUN425 + 7200 });
+  t.equal(d.ok, true); t.equal(d.evaluated_as_if_final, true);
+  t.deepEqual(d.booking.would_book, ["0002"]);
+  t.equal(d.results.length, 1, "Elliss + Wingard = ONE franchise-week");
+  const c = d.results[0];
+  t.equal(c.would, "post"); t.deepEqual(c.holds, []);
+  t.equal(c.offense_no, 1); t.equal(c.starters_behind_it, 2); t.equal(c.weekly_offenses_recorded, 1);
+  t.equal(c.notice_text, CBP_PLAIN, "the approved preview copy, word for word");
+  t.equal(d.thread.ok, true); t.equal(d.thread.thread_id, THREAD5); t.equal(d.thread_audit.violation_posts, 0);
+  // the proof
+  t.equal(JSON.stringify(d).includes("<@"), false, "no rendered mention anywhere");
+  t.equal(JSON.stringify(d).includes(OWNER), false, "the owner's id never appears");
+  t.equal(mentionLookups, lookups, "no mention lookup");
+  t.equal(net.posts.length, 0, "no Discord message sent");
+  t.deepEqual([...new Set(discordCalls.map((x) => x.method))], ["GET"], "Discord was only read");
+  t.equal(snapshot(e), before, "no D1 row written (violations, rulings, alerts, reservations, heartbeat)");
+  t.equal(alerts.length, 0, "nobody DMed");
+});
+
+test("DRY RUN reports HOLD (with the reason) instead of posting when a check fails", async () => {
+  let e = env({ satLog: null }); let net = install(world({ lineups: ONLY_CBP }));
+  let d = await R.previewStandingRule(e, { season: SEASON, leagueId: L, week: 5, nowUnix: MNF + 60 });
+  t.equal(d.results[0].would, "hold"); t.deepEqual(d.results[0].holds, ["injury_thread_missing"]); t.equal(net.posts.length, 0);
+  e = env(); net = install(world({ lineups: ONLY_CBP, official: [["NO", "Kaden Elliss", "Questionable"], ["ARI", "Andrew Wingard", "Out"]] }));
+  d = await R.previewStandingRule(e, { season: SEASON, leagueId: L, week: 5, nowUnix: MNF + 60 });
+  t.deepEqual(d.results[0].holds, ["official_report_conflict"]); t.equal(net.posts.length, 0);
+  e = env(); e.UPS_MFL_DB.raw.exec("DELETE FROM discord_owners WHERE franchise_id='0002'"); net = install(world({ lineups: ONLY_CBP }));
+  d = await R.previewStandingRule(e, { season: SEASON, leagueId: L, week: 5, nowUnix: MNF + 60 });
+  t.deepEqual(d.results[0].holds, ["owner_account_missing"]); t.equal(net.posts.length, 0);
+});
+
+test("a ruling's notice preview never looks up or renders the owner mention", async () => {
+  const e = env(); const net = install(world());
+  book(e, "0002", 5, CBP_REASONS);
+  await rule(e, "0002", 5);
+  const lookups = mentionLookups;
+  const pv = await preview(e, "0002", 5);
+  t.equal(pv.text, CBP_PLAIN); t.equal(JSON.stringify(pv).includes(OWNER), false);
+  t.equal(mentionLookups, lookups); t.equal(net.posts.length, 0);
+  t.equal(ruling(e, "0002", 5).notice_text.includes(OWNER), false, "the stored text holds a placeholder, never the id");
+});
+
+test("booking that can't read a lineup, or finds none, alerts Keith once (never a silent skip)", async () => {
+  const e = env(); install(world()); alerts.length = 0;
+  const skipped = [{ fid: "0003", reason: "unknown" }, { fid: "0005", reason: "no_record" }, { fid: "0006", reason: "already_booked" }];
+  await R.alertBookingSkips(e, { season: SEASON, leagueId: L, week: 5, skipped, alertImpl });
+  await R.alertBookingSkips(e, { season: SEASON, leagueId: L, week: 5, skipped, alertImpl });
+  t.equal(alerts.length, 2);
+  t.match(alerts.join("|"), /Team 0003's locked lineup couldn't be read/); t.match(alerts.join("|"), /no lineup was recorded for Team 0005/);
 });
 
 await run("lineup_rulings");

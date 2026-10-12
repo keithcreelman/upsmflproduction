@@ -79,6 +79,7 @@ export const ADMIN_ROUTES = {
   "/admin/import-salaries": ["POST"],
   "/admin/ir/announce": ["POST"],
   "/admin/leaderboard-precompute/build": ["POST"],
+  "/admin/lineup/auto-preview": ["GET"],
   "/admin/lineup/cases": ["GET"],
   "/admin/lineup/notice": ["POST"],
   "/admin/lineup/notice-preview": ["GET"],

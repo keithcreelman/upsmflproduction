@@ -45,7 +45,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
-import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking } from "./lineup_rulings.js";
+import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking, alertBookingSkips, previewStandingRule } from "./lineup_rulings.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
@@ -7729,6 +7729,7 @@ export default {
                 await alertMassBooking(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek, candidates: fp.candidates });
                 return;
               }
+              if (fp && fp.detail) await alertBookingSkips(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek, skipped: fp.detail.skipped });
               // The standing rule (Keith 2026-10-11): rule + verify + post the
               // unambiguous cases now; hold and alert on anything else.
               const ap = await runLineupAutoPublish(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek, resolveMentions: resolveFranchiseMentions });
@@ -8107,6 +8108,7 @@ export default {
                 await alertMassBooking(env, { season: lcSeason, leagueId: lcLeague, week: wk, candidates: bk.candidates });
                 continue;
               }
+              if (bk && bk.detail) await alertBookingSkips(env, { season: lcSeason, leagueId: lcLeague, week: wk, skipped: bk.detail.skipped });
               // Safety net for the */5 standing-rule run: retries transient
               // holds, alerts once on anything that needs Keith.
               const ap = await runLineupAutoPublish(env, { season: lcSeason, leagueId: lcLeague, week: wk, resolveMentions: resolveFranchiseMentions });
@@ -57572,15 +57574,24 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // POST /admin/lineup/rule                     { fid, week, ruling: confirmed|excused, note?, pick_choice? }
       // GET  /admin/lineup/notice-preview?fid=&week=  exact text + verified thread + mention (read-only)
       // GET  /admin/lineup/thread-check?week=        the stored Week N thread, verified (read-only)
+      // GET  /admin/lineup/auto-preview?week=        dry run of the standing rule (read-only, no mention)
       // POST /admin/lineup/notice                   { fid, week, confirm: "post" }
       // POST /admin/lineup/sanction-verify          { fid, week }  assessed → applied only when MFL shows it
-      if ((path === "/admin/lineup/cases" || path === "/admin/lineup/notice-preview" || path === "/admin/lineup/thread-check") && request.method === "GET") {
+      if ((path === "/admin/lineup/cases" || path === "/admin/lineup/notice-preview" || path === "/admin/lineup/thread-check" || path === "/admin/lineup/auto-preview") && request.method === "GET") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
         const leagueId = safeStr(url.searchParams.get("L") || L || env.LEAGUE_ID || "74598");
         if (path.endsWith("/cases")) return jsonOut(200, await listLineupCases(env, { season, leagueId }));
+        if (path.endsWith("/auto-preview")) {
+          // Read-only DRY RUN of the standing rule for one week: would it POST or
+          // HOLD each case, with the exact plain-text post. No D1 write, no Discord
+          // write, no owner mention looked up or rendered (Keith 2026-10-11).
+          const aw = parseInt(url.searchParams.get("week"), 10) || 0;
+          if (!(aw >= 1 && aw <= 18)) return jsonOut(400, { ok: false, error: "need week (1-18)" });
+          return jsonOut(200, await previewStandingRule(env, { season, leagueId, week: aw }));
+        }
         if (path.endsWith("/thread-check")) {
           // Read-only: the stored "Week N Injury Report" thread, verified with Discord.
           const tw = parseInt(url.searchParams.get("week"), 10) || 0;
@@ -57590,7 +57601,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const fid = padFranchiseId(url.searchParams.get("fid"));
         const week = parseInt(url.searchParams.get("week"), 10) || 0;
         if (!fid || !(week >= 1 && week <= 18)) return jsonOut(400, { ok: false, error: "need fid + week (1-18)" });
-        return jsonOut(200, await previewLineupNotice(env, { season, leagueId, fid, week, resolveMentions: resolveFranchiseMentions }));
+        // Plain text only — the owner's mention is never looked up for a preview.
+        return jsonOut(200, await previewLineupNotice(env, { season, leagueId, fid, week }));
       }
       if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify")
           && request.method === "POST") {
