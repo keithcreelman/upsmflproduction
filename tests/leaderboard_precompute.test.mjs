@@ -74,7 +74,7 @@ check('min_games and limit are applied in SQL, not after', () => {
 
 console.log('\nthe build route');
 check('gated on sessionByApiKey, the gate other admin routes use', () => {
-  assert.ok(/if \(!sessionByApiKey\)/.test(buildRoute));
+  assert.ok(/if \(!sessionByApiKey( && !pcHeaderKeyOk)?\)/.test(buildRoute))   // + the Authorization-header key (2026-10-11);
 });
 check('no invented identifier (commishOk) in code', () => {
   const code = buildRoute.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
