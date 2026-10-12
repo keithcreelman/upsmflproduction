@@ -800,7 +800,9 @@
     return c.l;
   }
   // → { key, text, dot }: columns with the same key share a band.
-  function colBand(c, b, tab, set, wide) {
+  // narrow: a band one column wide (< 60px), where "nflverse Wk 1–4" would be
+  // cut to "nflve…": it reads "Wk 1–4" and keeps the full text as its title.
+  function colBand(c, b, tab, set, wide, narrow) {
     if (c.src === "pts") {
       if (b.kind === "live") {
         var w = wkShort(b.ss.seasonWeeks);
@@ -812,18 +814,21 @@
     if (c.src === "rec") return { key: "rec", text: wkShort(recentWeeks(b.ss, recentWindow(b.ss))) };
     if (c.src === "box") {
       var m = metaCache[tab.alias + "|" + b.season];
-      return { key: "box", text: "nflverse " + (covWks(m) || b.season) };
+      var fm = "nflverse " + (covWks(m) || b.season);
+      return { key: "box", text: narrow ? (covWks(m) || String(b.season)) : fm, full: fm };
     }
     // PFR charting rides the same nflverse weekly refresh and coverage week, so
     // it shares the box-score band (a separate band split narrow columns and
     // truncated both labels); the set note names PFR.
     if (c.src === "pfr") {
       var m2 = metaCache[tab.alias + "|" + b.season];
-      return { key: "box", text: "nflverse " + (covWks(m2) || b.season) };
+      var fm2 = "nflverse " + (covWks(m2) || b.season);
+      return { key: "box", text: narrow ? (covWks(m2) || String(b.season)) : fm2, full: fm2 };
     }
     if (c.src === "snap") {
       var m4 = metaCache[tab.alias + "|" + b.season];
-      return { key: "box", text: "nflverse " + (covWks(m4) || b.season) };
+      var fm4 = "nflverse " + (covWks(m4) || b.season);
+      return { key: "box", text: narrow ? (covWks(m4) || String(b.season)) : fm4, full: fm4 };
     }
     if (c.src === "srt") {
       var sm = srFor(srGroup(tab));
@@ -861,11 +866,11 @@
     });
     var bandHtml = bands.map(function (bd) {
       var width = bd.cols.reduce(function (n, c) { return n + (c.w || 40); }, 0) + 4 * (bd.cols.length - 1);
-      var info = colBand(bd.cols[0], b, tab, set, width >= 90);
+      var info = colBand(bd.cols[0], b, tab, set, width >= 90, width < 60);
       // The in-progress dot rides on the band when there's room for it.
       var dot = info.dot && width >= 60 ? '<span class="ups-m-st-live" aria-hidden="true"></span>' : "";
       return '<span class="band" style="grid-column: span ' + bd.cols.length + '"' +
-        (info.dot ? ' title="Includes a week still being played"' : "") + ">" + U.escapeHtml(info.text) + dot + "</span>";
+        (info.dot ? ' title="Includes a week still being played"' : info.full && info.full !== info.text ? ' title="' + U.escapeHtml(info.full) + '"' : "") + ">" + U.escapeHtml(info.text) + dot + "</span>";
     }).join("");
     // Every data heading is a sort button (Keith 2026-10-10). The second line
     // shows the direction on the sorted column (▼ high→low, ▲ low→high) and a
