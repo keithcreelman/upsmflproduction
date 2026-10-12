@@ -10,6 +10,9 @@
 2. **Done means removed:** the issue is solved once the pick is removed in the settings.
 3. **App scope:** the app only has to block the pick from trading. No test-league check is needed. A worker that removes picks through the settings is a topic to discuss later.
 4. **If a forfeited pick is traded on MFL's own site: option B.** A worker reverses the whole trade, then posts in Discord that the trade was reversed because the pick was forfeited (Keith: "I would prefer to have a reversal and then a post in discord").
+5. **Lockout: Option 2.** The worker turns lockout off, makes the reversal, and turns lockout back on (Keith: "I don't wanna have to touch it").
+6. **Discord:** the trade already has a thread in #transactions (channel 1059111651846131833). The worker replies in that thread, @mentioning the owners involved, saying the trade will be reversed.
+7. **Test league:** approved for a supervised reversal on L=25625 ("TEST UPS", lockout currently No).
 
 ## Plain English
 
@@ -65,6 +68,13 @@ MFL only processes a trade as the two teams: one proposes, the other accepts. A 
 - The 3-way trade engine already hits this wall: it pauses with "Commish: toggle lockout off and re-run" (`worker/src/trade_3way.js`).
 
 So "a worker reverses the trade" needs a decision on lockout (§3.4).
+
+### Facts that bear on Option 2 (checked 2026-10-12)
+
+- **No API.** MFL's 27 import types include nothing for league settings. Lockout can only be changed on MFL's commissioner page **Setup → Abilities Setup** (MFL help, "Commissioner Lockout"). That page also holds the league's other abilities, such as future-pick trading.
+- **Nothing in this codebase has ever toggled lockout.** Every reference either reads the setting or tells the commissioner to turn it off by hand. The one known toggle was manual: 2026-07-22, for a 3-way trade.
+- **MFL emails all owners** whenever the lockout status changes (MFL help). An automatic reversal therefore sends two league-wide emails, "lockout off" then "lockout on".
+- **How the worker would toggle it:** load the Abilities Setup page with the commissioner cookie (`MFL_COOKIE`), resubmit **every field exactly as loaded** with only the lockout field flipped, then compare the full league export before and after. If anything other than lockout changed, it stops, leaves lockout safely on, and DMs Keith. This is proven on the test league before production.
 
 ### 3.1 Finding the trade
 
