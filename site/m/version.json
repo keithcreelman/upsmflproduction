@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.11.4",
-  "label": "Stats → Players lists MFL's own players at their MFL positions, with status chips (this week's NFL injury report + IR/PUP from MFL), Usage, Boom/Bust with availability, the team red-zone pass rate labelled as the team's, and EPA on box-score plays. A missing source shows — instead of a guess, a partial week is marked *, and stored totals no longer claim final weeks."
+  "build": "2026.10.12.3",
+  "label": "Stats → Players lists MFL's own players at their MFL positions, with status chips, Usage, Boom/Bust with availability and EPA on box-score plays; Next Gen for receivers and tight ends adds a Separation Score (Sep+): how much more or less open he gets than his cushion and target depth predict."
 }

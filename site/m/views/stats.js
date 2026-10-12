@@ -228,6 +228,17 @@
     nbox8: { l: "8+Box", src: "adv", w: 44, f: "pct100", t: "Share of carries against 8+ defenders in the box (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.rush ? x.rush.box8 : null; } },
     nsep:  { l: "Sep",   src: "adv", f: "dec1", t: "Average separation at the catch point, yards (Next Gen Stats, 20+ targets)", g: function (r) { var x = ngsRecMob(r); return x && x.rec ? x.rec.sep : null; } },
     ncush: { l: "Cush",  src: "adv", f: "dec1", t: "Average cushion at the snap, yards (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.rec ? x.rec.cush : null; } },
+    // Separation Score (Keith 2026-10-12). Raw separation mostly says how far
+    // off the defender lined up and how short the routes are, so Sep+ is his
+    // separation minus what his cushion and target depth predict: yards, + =
+    // more open than expected. SEP_FIT = target-weighted least squares on every
+    // 2018–25 regular-season WR / TE season with 20+ NGS targets (WR n=805,
+    // R² 0.42; TE n=256, R² 0.27), depth = box-score air yards ÷ targets
+    // (r = 0.96 with NGS's own intended air yards). Fixed, not refit per
+    // season, so early-season samples can't move the yardstick.
+    nadot: { l: "aDOT",  src: "box", f: "dec1", t: "Average depth of target, yards: box-score air yards ÷ targets", g: function (r) { return adotOf(r); } },
+    nsepx: { l: "Sep+",  src: "adv", w: 44, f: "delta", t: "Separation Score: his separation minus what his cushion and target depth predict, yards (+ = more open than expected; 20+ NGS targets)",
+      g: function (r) { var x = ngsRecMob(r), d = adotOf(r), k = SEP_FIT[r.grp]; return x && x.rec && d != null && k && x.rec.sep != null && x.rec.cush != null ? x.rec.sep - (k[0] + k[1] * x.rec.cush + k[2] * d) : null; } },
     ntt:   { l: "TTT",   src: "adv", f: "dec2", t: "Time to throw, seconds (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; } },
     nagg:  { l: "AGG%",  src: "adv", w: 40, f: "pct100", t: "Aggressiveness: throws into tight windows (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; } }
   };
@@ -285,7 +296,7 @@
     // Next Gen Stats publishes passing, rushing and receiving only.
     if (t.id === "QB") t.sets.push({ id: "ngs", l: "Next Gen", cols: ["ntt", "nagg"] });
     else if (t.id === "RB") t.sets.push({ id: "ngs", l: "Next Gen", cols: ["nryoe", "nbox8"] });
-    else if (t.id === "WR" || t.id === "TE") t.sets.push({ id: "ngs", l: "Next Gen", cols: ["nsep", "ncush"] });
+    else if (t.id === "WR" || t.id === "TE") t.sets.push({ id: "ngs", l: "Next Gen", cols: ["nsepx", "nsep", "ncush", "nadot"] });
     // Routes (YPRR, TPRR): HIDDEN while its source has no rows. nflverse marks
     // 2026 participation "not_published" (released after the season).
     if (t.id === "WR" || t.id === "TE") t.sets.push({ id: "routes", l: "Routes", needs: "routes", cols: ["rtn", "rtpct", "tprr", "yprr"] });
@@ -368,6 +379,10 @@
   }
   function rtRec(r) { return (rtMap && r.gsis && rtMap[String(r.gsis)]) || null; }
   function ngsRecMob(r) { return (ngsMap && r.gsis && ngsMap[String(r.gsis)]) || null; }
+  // Separation Score fit: expected separation = a + b·cushion + c·aDOT (see C.nsepx).
+  var SEP_FIT = { WR: [2.4138, 0.2291, -0.0864], TE: [3.481, 0.1234, -0.1323] };
+  // Box-score depth of target: air yards ÷ targets; no targets or no air yards = "—".
+  function adotOf(r) { var t = nn(L(r).targets), a = nn(L(r).rec_air_yds); return t && a != null ? a / t : null; }
 
   // The latest season with leaderboard rows — the season the OTHER Stats tabs
   // (Pts Agst, Sched) default to. The Players list's own season is basis().season.
@@ -978,7 +993,13 @@
         "Success% = the same carries with EPA above zero ÷ his carries.");
       else more.push(lead + "Receiving EPA gives him the whole EPA of every pass thrown to him — complete, incomplete or intercepted — the same EPA the passer gets, so it also reflects the QB, the line and the play call. EPA/target = that total ÷ his targets (Tgts), as his box score counts them. Two-point tries and plays wiped out by a penalty (pass interference included) don’t count.",
         "Success% = the same targets with EPA above zero ÷ his targets.");
-    } else if (srcs.adv) line.push((set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date.");
+    } else if (srcs.adv) {
+      line.push((set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date.");
+      if (set.cols.indexOf("nsepx") >= 0) {
+        line.push("Sep+ = his separation minus what his cushion and target depth predict, in yards.");
+        more.push("Expected separation is fit on every 2018–25 WR or TE season with 20+ targets, by position. aDOT = box-score air yards per target; Sep+ needs 20+ Next Gen targets.");
+      }
+    }
     // MFL decides who is listed. The box-score, red-zone and nflverse side-load
     // columns are joined through the stats source's row (and its NFL ID); a
     // listed player without one reads "—" there. Boom/Bust is joined by MFL id.
