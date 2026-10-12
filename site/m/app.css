@@ -1272,6 +1272,11 @@ button.ups-m-busy::before,
 .ups-m-st-row .v .nd { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
 .ups-m-st-row .v .nd b { font-weight: 400; font-size: 13px; }
 .ups-m-st-row .v .nd small { font-size: 11px; font-weight: 600; color: var(--fg-muted); }
+/* A reliability warning in words under the row's numbers ("Small sample · 28 targets"). */
+.ups-m-st-row .flag { grid-column: 2 / -1; justify-self: end; margin-top: -2px; font-size: 11px; font-weight: 600; color: var(--warn); white-space: nowrap; }
+/* A one-column coverage band on two lines ("Wk 1–5" over "in progress"); bands sit on one baseline. */
+.ups-m-st-row.head .band { align-self: end; }
+.ups-m-st-row.head .band.two { white-space: nowrap; line-height: 1.2; }
 /* DL/DB: the position leads the team line instead of a chip beside the name. */
 .ups-m-st-row .nm .tm span.pos { background: none; border: 0; padding: 0; font-size: 11px; font-weight: 700; color: #b39ddb; }
 /* "About these numbers": the longer definitions, collapsed. */
@@ -4776,6 +4781,7 @@ a.ups-m-bid-btn {
 }
 .ups-m-bid-total .snap { font-weight: 600; font-size: 11px; color: var(--warn); }
 .ups-m-stat-basis { margin-top: 6px; font-size: 11px; color: var(--fg-muted); }
+.ups-m-stat-basis.warn { color: var(--warn); }
 
 /* ── Players market: ONE points-period control (2026-10-02) ──────────────────
    Replaces the YTD / L2 buttons that looked like a second sort. Each button
