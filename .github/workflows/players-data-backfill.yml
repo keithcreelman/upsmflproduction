@@ -14,7 +14,13 @@ name: players data backfill (staged, recoverable)
 #            red-zone columns of nfl_team_weekly); refuses if live changed after
 #            the swap unless force_rollback; read back against its sha256.
 #   cleanup  drop the tag's bk_/stg_/bf_ tables once the result is accepted.
-# swap and rollback finish with a FORCED leaderboard precompute rebuild.
+#   rebuild  ONLY the forced leaderboard rebuild — to finish a swap / rollback
+#            whose run stopped after the data step (e.g. wrangler errored after
+#            D1 committed: the script says so instead of "nothing changed").
+# swap and rollback finish with a FORCED leaderboard precompute rebuild. Before
+# swap / rollback / rebuild, the job checks that production serves #1219's
+# worker (its /api/player-status route; Bearer auth + force exist only there),
+# so a swap never lands while the rebuild that must follow it would be refused.
 #
 # Manual only, and every step is a production write: run it only with Keith's
 # go for that step. Rehearsed end to end on the isolated preview D1 on
@@ -24,10 +30,10 @@ on:
   workflow_dispatch:
     inputs:
       step:
-        description: "stage | swap | rollback | cleanup"
+        description: "stage | swap | rollback | cleanup | rebuild"
         required: true
         type: choice
-        options: [stage, swap, rollback, cleanup]
+        options: [stage, swap, rollback, cleanup, rebuild]
       season:
         description: "Season (e.g. 2026)"
         required: true
@@ -36,7 +42,7 @@ on:
         description: "Run tag, letters/digits/_ (e.g. t20261011). The same tag across stage -> swap -> rollback/cleanup."
         required: true
       confirm:
-        description: "For swap / rollback / cleanup: type the tag again"
+        description: "For swap / rollback / cleanup / rebuild: type the tag again"
         required: false
         default: ""
       force_rollback:
@@ -85,7 +91,20 @@ jobs:
           if [ "$STEP" != "stage" ] && [ "$CONFIRM" != "$TAG" ]; then
             echo "::error::$STEP changes production: type the tag again in 'confirm'"; exit 1
           fi
+      - name: Check production serves the #1219 worker (swap / rollback / rebuild)
+        if: env.STEP == 'swap' || env.STEP == 'rollback' || env.STEP == 'rebuild'
+        run: |
+          # Three reads, all must answer: right after a deploy an old isolate can
+          # still serve some requests. Read-only; nothing has changed yet.
+          for i in 1 2 3; do
+            code=$(curl -sS -o /tmp/ps.json -w '%{http_code}' "https://upsmflproduction.keith-creelman.workers.dev/api/player-status?season=${SEASON}" || echo 000)
+            if [ "$code" != "200" ] || ! python3 -c 'import json,sys; sys.exit(0 if json.load(open("/tmp/ps.json")).get("ok") is True else 1)'; then
+              echo "::error::production is not serving #1219's worker yet (/api/player-status -> $code). Wait for 'Deploy worker' to finish. Nothing changed."; exit 1
+            fi
+            sleep 5
+          done
       - name: Run ${{ github.event.inputs.step }}
+        if: env.STEP != 'rebuild'
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -107,7 +126,7 @@ jobs:
           path: ${{ runner.temp }}/players_backfill
           retention-days: 30
       - name: Rebuild the leaderboard precompute (forced)
-        if: success() && (github.event.inputs.step == 'swap' || github.event.inputs.step == 'rollback')
+        if: success() && (github.event.inputs.step == 'swap' || github.event.inputs.step == 'rollback' || github.event.inputs.step == 'rebuild')
         env:
           KEY: ${{ secrets.COMMISH_API_KEY }}
         run: |

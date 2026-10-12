@@ -443,6 +443,19 @@ def rollback_sql(n: dict, season: int, rep: dict, live_cols: dict, force: bool =
     return "\n".join(s)
 
 
+def after_error(d1: D1, season: int, before: dict, reached_target) -> str:
+    """What live holds after wrangler reported an error on an import: 'unchanged'
+    (fingerprints as before: D1 rolled it back), 'target' (the import's intended
+    result: it committed anyway), 'other', or 'unread' (live can't be read)."""
+    try:
+        after = {k: fingerprint(d1, t, season, key, cols) for k, (t, key, cols) in TABLES.items()}
+        if after == before:
+            return "unchanged"
+        return "target" if reached_target() else "other"
+    except D1Error:
+        return "unread"
+
+
 def check_equal(d1: D1, n: dict, season: int, which: str, rep: dict | None = None) -> list[str]:
     """Tables whose live season differs row-for-row from stg (the owned columns)
     or from bk (every column the snapshot holds; nfl_team_weekly: its key and
@@ -476,13 +489,20 @@ def cmd_swap(a, d1: D1) -> None:
         d1.file(sql)
     except D1Error as e:
         msg = str(e)
-        after = {k: fingerprint(d1, t, a.season, key, cols) for k, (t, key, cols) in TABLES.items()}
         why = [ln.strip() for ln in msg.splitlines() if "ERROR" in ln or "constraint" in ln.lower() or "SQLITE" in ln]
-        print(json.dumps({"swap": "REFUSED / ROLLED BACK by D1 - nothing changed",
-                          "live_unchanged_by_this_run": before == after,
+        # wrangler can report an error AFTER D1 committed the import (its polling
+        # dropped, the job was cancelled). Say what live actually holds, never a
+        # fixed "nothing changed" (QA 2026-10-11).
+        state = after_error(d1, a.season, before, lambda: not check_equal(d1, n, a.season, "stg"))
+        print(json.dumps({"swap": {"unchanged": "REFUSED / ROLLED BACK by D1 - nothing changed",
+                                   "target": "WENT THROUGH despite the error: live now equals staged, row for row",
+                                   "other": "UNKNOWN: live changed but does not equal staged. Do NOT re-run swap; run rollback for this tag.",
+                                   "unread": "UNKNOWN: live could not be read back after the error. Verify before doing anything else."}[state],
+                          "live_unchanged_by_this_run": state == "unchanged",
                           "live_matched_snapshot_before_run": all(before[k] == rep["snapshot"][k]["fp"] for k in TABLES),
                           "error": why[:4] or [msg[-600:]]}, indent=1))
-        raise SystemExit(2)
+        if state != "target":
+            raise SystemExit(2 if state == "unchanged" else 5)
     bad = check_equal(d1, n, a.season, "stg")
     if bad:
         print(f"post-check FAILED for {bad}: restoring the snapshot", file=sys.stderr)
@@ -500,15 +520,23 @@ def cmd_rollback(a, d1: D1) -> None:
     if not a.yes:
         raise SystemExit("rollback changes what readers see: pass --yes")
     live_cols = {k: cols_of(d1, t) for k, (t, _, _) in TABLES.items()}
+    before = {k: fingerprint(d1, t, a.season, key, cols) for k, (t, key, cols) in TABLES.items()}
     try:
         d1.file(rollback_sql(n, a.season, rep, live_cols, force=a.force))
     except D1Error as e:
         why = [ln.strip() for ln in str(e).splitlines() if "ERROR" in ln or "constraint" in ln.lower()]
-        if any("CHECK constraint" in w for w in why):
+        state = after_error(d1, a.season, before, lambda: not check_equal(d1, n, a.season, "bk", rep))
+        if state == "unchanged" and any("CHECK constraint" in w for w in why):
             raise SystemExit("rollback REFUSED, nothing changed: live is no longer what the swap wrote (a later refresh?), "
                              "or the backup no longer matches its snapshot — rerun with --force to discard later rows, or stage a new tag. " + " ".join(why[:2]))
-        raise SystemExit("rollback FAILED, nothing changed (D1 rolled the file back): " + " ".join(why[:2] or [str(e)[-300:]]) +
-                         " — a tag must be swapped and rolled back by the same code that staged it.")
+        if state == "unchanged":
+            raise SystemExit("rollback FAILED, nothing changed (D1 rolled the file back): " + " ".join(why[:2] or [str(e)[-300:]]) +
+                             " — a tag must be swapped and rolled back by the same code that staged it.")
+        if state != "target":
+            raise SystemExit("rollback state UNKNOWN after an error: " + ("live changed but does not equal the snapshot"
+                             if state == "other" else "live could not be read back") +
+                             ". Verify before doing anything else. " + " ".join(why[:2] or [str(e)[-300:]]))
+        print("rollback reported an error but WENT THROUGH: live now equals the snapshot; checking it row for row", file=sys.stderr)
     bad = check_equal(d1, n, a.season, "bk", rep)
     shas = {k: sha(read_rows(d1, t, a.season, key, [c for c in rep["snapshot"][k]["all_columns"] if c not in key]))
             for k, (t, key, cols) in TABLES.items() if k != "tw"}

@@ -23,4 +23,16 @@ test("writes are guarded: the refresh's concurrency group, a typed confirmation,
   t.match(Y, /workflow_dispatch:/); t.doesNotMatch(Y, /schedule:|push:|pull_request:/, "manual only");
 });
 
+test("swap / rollback / rebuild first check production serves #1219's worker; rebuild runs only the rebuild", () => {
+  const check = /- name: Check production serves the #1219 worker[\s\S]*?(?=\n      - name: )/.exec(Y);
+  t.ok(check, "the check step exists");
+  t.match(check[0], /if: env\.STEP == 'swap' \|\| env\.STEP == 'rollback' \|\| env\.STEP == 'rebuild'/);
+  t.match(check[0], /\/api\/player-status\?season=\$\{SEASON\}/, "probes the route only #1219 has");
+  t.doesNotMatch(check[0], /KEY|Authorization/, "the probe carries no credential");
+  t.ok(Y.indexOf("Check production serves the #1219 worker") < Y.indexOf("- name: Run ${{ github.event.inputs.step }}"), "the check runs before the data step");
+  t.match(Y, /- name: Run \$\{\{ github\.event\.inputs\.step \}\}\n        if: env\.STEP != 'rebuild'/, "rebuild skips the data step");
+  t.match(Y, /options: \[stage, swap, rollback, cleanup, rebuild\]/);
+  t.match(Y, /if: success\(\) && \(github\.event\.inputs\.step == 'swap' \|\| github\.event\.inputs\.step == 'rollback' \|\| github\.event\.inputs\.step == 'rebuild'\)/);
+});
+
 await run("players_backfill_workflow");

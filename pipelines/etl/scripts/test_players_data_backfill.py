@@ -117,5 +117,31 @@ try:
 except SystemExit:
     check("bad tag refused", True, True)
 
+# After wrangler reports an error, the script reads live back and says what it
+# holds — never a fixed "nothing changed" (QA 2026-10-11: wrangler can error
+# AFTER D1 committed the import).
+class FakeD1:
+    def __init__(self, db, broken=False): self.db, self.broken = db, broken
+    def q(self, sql):
+        if self.broken: raise B.D1Error("network")
+        cur = self.db.execute(sql); names = [c[0] for c in cur.description]
+        return [dict(zip(names, r)) for r in cur.fetchall()]
+
+def fps(d1):
+    return {k: B.fingerprint(d1, t, 2026, key, cols) for k, (t, key, cols) in B.TABLES.items()}
+
+db, n, rep, cols = fresh(); f = FakeD1(db); before = fps(f)
+to_stg = lambda: not B.check_equal(f, n, 2026, "stg")  # noqa: E731
+check("error, nothing written -> 'unchanged'", B.after_error(f, 2026, before, to_stg), "unchanged")
+run_file(db, B.swap_sql(n, 2026, rep, cols))
+check("error but the swap committed -> 'target' (the run continues to its read-back + rebuild)", B.after_error(f, 2026, before, to_stg), "target")
+db.execute("UPDATE nfl_player_redzone SET targets_i20 = 9 WHERE season = 2026 AND week = 3")
+check("live changed to something else -> 'other'", B.after_error(f, 2026, before, to_stg), "other")
+check("live unreadable after the error -> 'unread'", B.after_error(FakeD1(db, broken=True), 2026, before, to_stg), "unread")
+db.execute("UPDATE nfl_player_redzone SET targets_i20 = 2 WHERE season = 2026 AND week = 3")
+before_rb = fps(f)
+run_file(db, B.rollback_sql(n, 2026, rep, cols))
+check("error but the rollback committed -> 'target'", B.after_error(f, 2026, before_rb, lambda: not B.check_equal(f, n, 2026, "bk", rep)), "target")
+
 print(f"\n{'FAILED ' + str(fails) if fails else 'all passed'}")
 sys.exit(1 if fails else 0)

@@ -62,10 +62,14 @@ export function parseCsv(text) {
   return rows.filter((r) => r.length > 1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] == null ? "" : r[i]])));
 }
 
-// The newest report week in the file, and its rows by gsis.
-export function reportFrom(rows) {
+// The report week to use and its rows by gsis: MFL's current week when the file
+// has rows for it (the file can already hold next week's early reports while
+// MFL is still on this one — QA 2026-10-11), otherwise the newest week in it.
+export function reportFrom(rows, preferWeek = null) {
   const reg = rows.filter((r) => /^(REG|POST)$/i.test(r.season_type || r.game_type || "REG"));
-  const week = reg.reduce((m, r) => Math.max(m, parseInt(r.week, 10) || 0), 0);
+  const newest = reg.reduce((m, r) => Math.max(m, parseInt(r.week, 10) || 0), 0);
+  const want = parseInt(preferWeek, 10) || 0;
+  const week = want && reg.some((r) => (parseInt(r.week, 10) || 0) === want) ? want : newest;
   const byGsis = {}, teams = new Set();
   for (const r of reg) {
     if ((parseInt(r.week, 10) || 0) !== week) continue;
@@ -107,7 +111,7 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
   let rep = null;
   if (reportError || !reportRows) report_feed.reason = "unreadable: " + (reportError || "no data");
   else {
-    rep = reportFrom(reportRows);
+    rep = reportFrom(reportRows, currentWeek);
     report_feed.ok = rep.week > 0;
     report_feed.week = rep.week || null;
     const mod = reportModified ? Date.parse(reportModified) : NaN;
@@ -120,7 +124,8 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
     // report" would be said of players listed Out (QA 2026-10-10).
     else if (mapError || !gsisToMfl || !Object.keys(gsisToMfl).length) report_feed.reason = "the NFL id map couldn’t be read, so players can’t be matched to the report";
     else if (currentWeek == null) report_feed.reason = "current NFL week unknown (MFL unreadable)";
-    else if (rep.week !== currentWeek) report_feed.reason = `the newest report is Wk ${rep.week}; Wk ${currentWeek}'s is not out yet`;
+    else if (rep.week < currentWeek) report_feed.reason = `the newest report is Wk ${rep.week}; Wk ${currentWeek}'s is not out yet`;
+    else if (rep.week > currentWeek) report_feed.reason = `the report file has no Wk ${currentWeek} rows (its newest is Wk ${rep.week})`;
     else if (report_feed.age_hours == null) report_feed.reason = "report age unknown";
     else if (report_feed.age_hours > STALE_HOURS) report_feed.reason = `report not updated for ${report_feed.age_hours} h`;
     else report_feed.current = true;

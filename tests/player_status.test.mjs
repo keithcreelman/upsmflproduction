@@ -67,6 +67,19 @@ test("unavailable: an unreadable report, an unreadable MFL feed, last week's rep
   t.ok(/not updated/.test(old.report_feed.reason));
 });
 
+test("the file already holds next week's early reports while MFL is still on this week: this week's rows are used (QA 2026-10-11)", () => {
+  const rows = parseCsv(csv(line("BUF", 5, "00-0000001", "Out", "Ankle", ""), line("NYJ", 6, "00-0000002", "Questionable", "Knee", "")));
+  const a = assemble({ reportRows: rows, reportModified: FRESH, mflPayload: mflPayload(5, []), gsisToMfl: MAP, now: NOW });
+  t.deepEqual([a.report_feed.current, a.report_feed.week, a.players["101"].report.status, a.players["102"]], [true, 5, "Out", undefined],
+    "Wk 5 rows, not the newer Wk 6 ones");
+  t.deepEqual(a.report_feed.teams, ["BUF"], "teams reported are Wk 5's");
+  const onlyNext = assemble({ reportRows: parseCsv(csv(line("NYJ", 6, "00-0000002", "Questionable", "Knee", ""))), reportModified: FRESH,
+                              mflPayload: mflPayload(5, []), gsisToMfl: MAP, now: NOW });
+  t.deepEqual([onlyNext.report_feed.current, onlyNext.report_feed.week, Object.keys(onlyNext.players).length], [false, 6, 0], "fails closed");
+  t.ok(/no Wk 5 rows \(its newest is Wk 6\)/.test(onlyNext.report_feed.reason), onlyNext.report_feed.reason);
+  t.doesNotMatch(onlyNext.report_feed.reason, /not out yet/, "never says this week's report isn't out when the file is ahead");
+});
+
 test("fail closed: an unreadable or empty id map means nobody can be matched — the report is unavailable, never 'not on the report'", () => {
   const rows = parseCsv(csv(line("BUF", 5, "00-0000001", "Out", "Ankle", "")));
   for (const [what, opt] of [["read failed", { gsisToMfl: {}, mapError: "no such table: player_id_map" }], ["empty map", { gsisToMfl: {} }]]) {
