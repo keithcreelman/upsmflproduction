@@ -49,7 +49,7 @@ test("the reconciliation and the multi-year table use the ARRIVAL cost for incom
 
 test("the desktop page loads the changed script under a new stamp", () => {
   const html = fs.readFileSync(new URL("../site/trades/trade_workbench.html", import.meta.url), "utf8");
-  t.match(html, /\.\/trade_workbench\.js\?v=20261012a/);
+  t.match(html, /\.\/trade_workbench\.js\?v=20261012b/);
 });
 
 await run("trade_taxi_arrival_preview_client");

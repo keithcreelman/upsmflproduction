@@ -3219,6 +3219,7 @@ button.ups-m-busy::before,
 .ups-m-tb-asset.is-forfeited { opacity: .55; cursor: not-allowed; }
 .ups-m-tb-asset.is-forfeited .nm { text-decoration: line-through; text-decoration-color: var(--fg-muted); }
 .ups-m-tb-asset.is-forfeited .mt { color: var(--warn); font-weight: 700; white-space: normal; text-align: right; }
+.ups-m-tb-assets .ups-m-tb-pickwarn { margin: 4px 12px 8px; font-weight: 600; }
 /* cap money */
 .ups-m-tb-cap { margin-top: 12px; }
 .ups-m-tb-cap label {

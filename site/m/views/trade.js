@@ -294,7 +294,8 @@
       .then(function (data) {
         var inv = {
           players: (data && data.players) || [],
-          future_picks: (data && data.future_picks) || []
+          future_picks: (data && data.future_picks) || [],
+          forfeit_check: (data && data.forfeit_check) || ""
         };
         builderState.inv[key] = inv;
         return inv;
@@ -327,6 +328,13 @@
   // label, never selectable. The worker refuses it at Send/Accept regardless.
   function forfeitLabel(fp) {
     return (fp && fp.forfeited === true) ? (U.safeStr(fp.forfeit_label) || "Forfeited — lineup penalty") : "";
+  }
+  // The worker couldn't read the forfeit list (forfeit_check not "ok"): never show the
+  // picks as plainly available. They stay selectable; the worker re-checks at
+  // Send/Accept/Execute/Recheck (Keith 2026-10-12).
+  function pickRestrictionsWarningHtml(inv) {
+    if (!inv || !(inv.future_picks || []).length || inv.forfeit_check === "ok") return "";
+    return '<div class="ups-m-tb-warn ups-m-tb-pickwarn" role="status">Pick restrictions could not be verified. The server will recheck before this trade can be sent.</div>';
   }
   function forfeitedPickHtml(attrs, name, label) {
     return '<button class="ups-m-tb-asset is-forfeited" disabled aria-disabled="true" ' + attrs + '>' +
@@ -530,7 +538,7 @@
       '<input class="ups-m-tb-search" id="ups-m-tb-search" type="search" placeholder="Search players…" autocomplete="off" />' +
       '<div class="ups-m-tb-assets">' +
         (rowsHtml || '<div class="ups-m-auc-empty">No players.</div>') +
-        (pickHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + pickHtml : '') +
+        (pickHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + pickRestrictionsWarningHtml(inv) + pickHtml : '') +
       '</div>' +
       '<div class="ups-m-tb-cap">' +
         '<label>' + capLabel + ' ($000s) <span class="mx" id="ups-m-tb-capmax"></span></label>' +
@@ -1406,7 +1414,7 @@
     return fetch(inventoryUrl(key), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        var inv = { players: (data && data.players) || [], future_picks: (data && data.future_picks) || [] };
+        var inv = { players: (data && data.players) || [], future_picks: (data && data.future_picks) || [], forfeit_check: (data && data.forfeit_check) || "" };
         b3.inv[key] = inv; return inv;
       });
   }
@@ -1667,7 +1675,7 @@
       return '<div class="ups-m-3w-leg">' +
         '<div class="ups-m-tb-subhead">' + U.escapeHtml(label) + ' <span class="cnt" data-cnt="' + giver + '">' + count + ' selected</span></div>' +
         '<div class="ups-m-tb-assets">' + (playersHtml || '<div class="ups-m-auc-empty">No players.</div>') +
-          (picksHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + picksHtml : '') + '</div>' +
+          (picksHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + pickRestrictionsWarningHtml(inv) + picksHtml : '') + '</div>' +
       '</div>';
     }
     body.innerHTML =

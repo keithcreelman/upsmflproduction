@@ -4496,7 +4496,13 @@
             })() : "";
         // Draft picks first — they're the most-traded asset on draft day,
         // so prioritize them visually. Players follow below.
-        pickerEl.innerHTML = stubBanner +
+        // The worker couldn't read the lineup-penalty forfeit list (forfeit_check not
+        // "ok", including the offline stub): say so instead of showing every future pick
+        // as plainly available. The server re-checks before the trade is sent (Keith 2026-10-12).
+        const pickWarn = ((data.future_picks || []).length && data.forfeit_check !== "ok")
+          ? `<div class="small pick-unverified" role="status" style="color:var(--warn); font-weight:700; margin:6px 0; padding:4px 6px; background:rgba(251,191,36,0.10); border-radius:3px;">Pick restrictions could not be verified. The server will recheck before this trade can be sent.</div>`
+          : "";
+        pickerEl.innerHTML = stubBanner + pickWarn +
           renderGroup("Draft Picks", allPicks, "pick") +
           renderGroup("Players", data.players, "player");
 

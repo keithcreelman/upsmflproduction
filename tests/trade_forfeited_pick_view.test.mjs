@@ -27,6 +27,7 @@ function reserve(d, { holder, week = 6, year, round, orig, state = "reserved", o
     VALUES (?, ?, ?, ?, ?, ?, ?, 'mfl_future_picks', 'x', ?, ?, ?)`).run(SEASON, L, holder, week, year, round, orig || holder, state, options ? JSON.stringify(options) : null, released ? "y" : null);
 }
 const FORFEITED = "Forfeited — lineup penalty", ON_HOLD = "On hold — lineup penalty";
+const UNVERIFIED = "Pick restrictions could not be verified. The server will recheck before this trade can be sent.";
 
 // ═══════════════════════════════ worker ═══════════════════════════════
 test("marks reserved, obligation and traded-away picks 'Forfeited', needs-selection candidates 'On hold', in either token order", async () => {
@@ -149,18 +150,18 @@ function fakeEl(tag, attrs) {
 
 const FR = [{ id: "0008", name: "Real Deal Creel" }, { id: "0004", name: "Pure Greatness" }, { id: "0007", name: "Sex Manther" }];
 const INV = {
-  "0008": { players: [], future_picks: [{ asset_id: "FP_2027_2_0008", display: "2027 R2", year: "2027", round: "2", original_fid: "0008" }] },
-  "0004": { players: [], future_picks: [
+  "0008": { forfeit_check: "ok", players: [], future_picks: [{ asset_id: "FP_2027_2_0008", display: "2027 R2", year: "2027", round: "2", original_fid: "0008" }] },
+  "0004": { forfeit_check: "ok", players: [], future_picks: [
     { asset_id: "FP_2027_1_0004", display: "2027 R1", year: "2027", round: "1", original_fid: "0004" },
     { asset_id: "FP_2027_4_0004", display: "2027 R4", year: "2027", round: "4", original_fid: "0004", forfeited: true, forfeit_state: "forfeited", forfeit_label: FORFEITED },
   ] },
-  "0007": { players: [], future_picks: [
+  "0007": { forfeit_check: "ok", players: [], future_picks: [
     { asset_id: "FP_2027_3_0007", display: "2027 R3", year: "2027", round: "3", original_fid: "0007", forfeited: true, forfeit_state: "on_hold", forfeit_label: ON_HOLD },
   ] },
 };
 const settle = async (n = 10) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
 
-function loadMobile() {
+function loadMobile({ check } = {}) {
   const els = {};
   const document = {
     getElementById: (id) => (/overlay$/.test(id) ? null : (els[id] = els[id] || fakeEl("div", { id }))),
@@ -171,8 +172,9 @@ function loadMobile() {
     const url = new URL(String(u));
     calls.push(url.pathname + url.search);
     if (url.pathname === "/api/franchise-assets") {
-      const inv = INV[url.searchParams.get("fid")];
-      return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(inv)), text: async () => JSON.stringify(inv) };
+      const inv = JSON.parse(JSON.stringify(INV[url.searchParams.get("fid")]));
+      if (check !== undefined) { if (check === null) delete inv.forfeit_check; else inv.forfeit_check = check; }
+      return { ok: true, status: 200, json: async () => inv, text: async () => JSON.stringify(inv) };
     }
     return { ok: false, status: 404, json: async () => null, text: async () => "" };
   };
@@ -209,6 +211,28 @@ test("mobile 2-team: the forfeited pick shows greyed with its label, disabled; t
   t.equal(locked.classList.contains("on"), false); t.equal((els["ups-m-tb-cnt"] || {}).textContent || "", "", "count untouched");
   open.fire("click");
   t.equal(open.classList.contains("on"), true); t.equal(els["ups-m-tb-cnt"].textContent, "1 selected", "an ordinary pick still selects");
+  t.equal(body.innerHTML.includes(UNVERIFIED), false, "verified list → no warning");
+});
+
+test("mobile: forfeit list unreadable (or not confirmed) → the warning sits above the picks; picks stay selectable, server rechecks", async () => {
+  for (const check of ["unavailable", null]) {
+    const { M, els } = loadMobile({ check });
+    M.tradeView.openBuilder({ toFid: "0004" });
+    await settle();
+    const body = els["ups-m-tb-body"];
+    t.match(body.innerHTML, new RegExp('<div class="ups-m-tb-subhead">Future picks</div><div class="ups-m-tb-warn ups-m-tb-pickwarn" role="status">' + UNVERIFIED.replace(/\./g, "\\.") + "</div>"), String(check));
+    const open = btnFor(body, "FP_0004_2027_1");
+    t.equal(open.disabled, false);
+    open.fire("click");
+    t.equal(open.classList.contains("on"), true, "still selectable — the worker refuses a forfeited pick at Send");
+  }
+  const three = loadMobile({ check: "unavailable" });
+  three.M.tradeView.open3WayBuilder();
+  const b3 = three.els["ups-m-3w-body"];
+  b3.querySelectorAll(".ups-m-tb-frow").find((b) => b.getAttribute("data-fid") === "0004").fire("click");
+  b3.querySelectorAll(".ups-m-tb-frow").find((b) => b.getAttribute("data-fid") === "0007").fire("click");
+  await settle();
+  t.equal(b3.innerHTML.split(UNVERIFIED).length - 1, 3, "one warning per team with future picks (3-team)");
 });
 
 test("mobile 3-team: forfeited and on-hold picks show greyed with their labels and can't be given", async () => {
@@ -249,9 +273,12 @@ vm.runInContext([
   "function ordinalSuffix(n){ return n + (['th','st','nd','rd'][n] || 'th'); }",
   "function livePickLabel(a){ return a.description || ''; }",
   "var TEAM = null; function getTeamById(){ return TEAM; } function getAssetView(){ return 'picks'; } function assetMatchesFilters(){ return true; }",
-  "var tw3 = { give: {} }; function tw3DestChooserHtml(){ return '<chooser>'; } function tw3ExtControlHtml(){ return ''; }",
+  "var tw3 = { give: {}, aFid: '0004' }; function tw3DestChooserHtml(){ return '<chooser>'; } function tw3ExtControlHtml(){ return ''; } function tw3NameOf(f){ return 'Team ' + f; }",
+  "var state = { data: { meta: { pick_restrictions_verified: true } } };",
+  "var PICK_RESTRICTIONS_UNVERIFIED = " + JSON.stringify(UNVERIFIED) + ";",
   ...["isForfeitedPick", "isUntradeableSixthRoundPick", "isTradeEligibleAsset", "isTaggedTradeIneligibleAsset", "getTradeIneligibleReason",
-      "escapeHtml", "getVisibleAssetsForTeam", "tw3PickToken", "tw3IsTradeable", "tw3TeamAssets", "tw3AssetName", "tw3AssetMeta", "tw3AssetRowHtml"].map(fn),
+      "escapeHtml", "getVisibleAssetsForTeam", "tw3PickToken", "tw3IsTradeable", "tw3TeamAssets", "tw3AssetName", "tw3AssetMeta", "tw3AssetRowHtml",
+      "pickRestrictionsVerified", "hasFuturePick", "tw3ColumnHtml"].map(fn),
 ].join("\n"), dctx);
 
 const fp = (round, extra) => ({ type: "PICK", asset_id: `pick:FP_0004_2027_${round}`, pick_key: `FP_0004_2027_${round}`, pick_season: 2027, pick_round: round, original_owner_fid: "0004", franchise_id: "0004", ...(extra || {}) });
@@ -277,6 +304,17 @@ test("desktop 3-team: the forfeited pick renders as a disabled button with its l
   t.doesNotMatch(dctx.tw3AssetRowHtml("0004", fp(1)), /is-forfeited|disabled/);
 });
 
+test("desktop: restrictions not confirmed by the worker → warning in the 3-team column and team panel; confirmed → none", () => {
+  vm.runInContext("state.data.meta.pick_restrictions_verified = false;", dctx);
+  t.match(dctx.tw3ColumnHtml("a"), new RegExp('<div class="twb-pick-unverified" role="status">' + UNVERIFIED.replace(/\./g, "\\.") + "</div>"));
+  vm.runInContext("state.data.meta.pick_restrictions_verified = true;", dctx);
+  t.doesNotMatch(dctx.tw3ColumnHtml("a"), /twb-pick-unverified/);
+  t.match(fn("normalizeData"), /pick_restrictions_verified: !!\(raw\.meta && raw\.meta\.forfeit_marks && raw\.meta\.forfeit_marks\.ok === true\)/, "only an explicit ok from the worker counts as verified");
+  t.match(fn("renderTeamPanel"), /if \(!pickRestrictionsVerified\(\) && hasFuturePick\(visibleAssets\)\) groupsWrap\.appendChild\(pickRestrictionsWarningEl\(\)\);/);
+  t.match(fn("renderDiscoveryPanel"), /if \(!pickRestrictionsVerified\(\) && hasFuturePick\(/);
+  t.equal(dctx.hasFuturePick([{ type: "PICK", pick_key: "DP_2026_1_3" }]), false, "current-year picks alone don't trigger it");
+});
+
 test("desktop wiring: flag kept by normalizeAsset; checkbox can't add it; 3-way click, discovery list and CSS all handle it", () => {
   t.match(fn("normalizeAsset"), /asset\.forfeited = raw\.forfeited === true;/);
   t.match(fn("renderAssetRow"), /cb\.disabled = !eligible && !selected;/);
@@ -291,7 +329,7 @@ test("desktop wiring: flag kept by normalizeAsset; checkbox can't add it; 3-way 
     t.match(src, /\.twb-row-forfeited td \{ opacity: 0\.55; \}/);
     t.match(src, /\.twb-3w-asset\.is-forfeited,\n\.twb-discovery-item\.is-forfeited \{ opacity: 0\.55; cursor: not-allowed;/);
   }
-  t.match(html, /\.\/trade_workbench\.js\?v=20261012a/);
+  t.match(html, /\.\/trade_workbench\.js\?v=20261012b/);
 });
 
 // ═════════════════ Rookie Draft Hub trade window ═════════════════
@@ -300,7 +338,9 @@ test("Rookie Draft Hub: the forfeited row is greyed, labelled, and its click add
   t.match(src, /const forfeited = it\.forfeited === true;/);
   t.match(src, /\$\{forfeited \? " is-forfeited" : ""\}"\$\{forfeited \? ' aria-disabled="true"' : ""\}/);
   t.match(src, /row\.addEventListener\("click", \(\) => \{\n\s+if \(row\.classList\.contains\("is-forfeited"\)\) return;/);
-  t.match(fs.readFileSync(new URL("../site/rookies/rookie_draft_hub.html", import.meta.url), "utf8"), /rookie_draft_hub\.js\?v=2026\.10\.12\.1/);
+  t.match(src, /const pickWarn = \(\(data\.future_picks \|\| \[\]\)\.length && data\.forfeit_check !== "ok"\)/, "warning unless the worker confirmed the forfeit list");
+  t.ok(src.includes(UNVERIFIED));
+  t.match(fs.readFileSync(new URL("../site/rookies/rookie_draft_hub.html", import.meta.url), "utf8"), /rookie_draft_hub\.js\?v=2026\.10\.12\.2/);
 });
 
 await run("trade_forfeited_pick_view");

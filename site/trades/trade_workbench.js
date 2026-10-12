@@ -817,6 +817,26 @@
     return !!(asset && safeStr(asset.type).toUpperCase() === "PICK" && asset.forfeited);
   }
 
+  // The worker could not read the lineup-penalty forfeit list (meta.forfeit_marks.ok
+  // not true): no pick can be shown as plainly available. Picks stay selectable and the
+  // worker re-checks at Send/Accept/Execute/Recheck (Keith 2026-10-12).
+  var PICK_RESTRICTIONS_UNVERIFIED = "Pick restrictions could not be verified. The server will recheck before this trade can be sent.";
+  function pickRestrictionsVerified() {
+    return !!(state.data && state.data.meta && state.data.meta.pick_restrictions_verified);
+  }
+  function hasFuturePick(assets) {
+    return (assets || []).some(function (a) {
+      return a && safeStr(a.type).toUpperCase() === "PICK" && /^FP_/i.test(safeStr(a.pick_key || a.asset_id).replace(/^pick:/i, ""));
+    });
+  }
+  function pickRestrictionsWarningEl() {
+    var warn = document.createElement("div");
+    warn.className = "twb-pick-unverified";
+    warn.setAttribute("role", "status");
+    warn.textContent = PICK_RESTRICTIONS_UNVERIFIED;
+    return warn;
+  }
+
   function isUntradeableSixthRoundPick(asset) {
     if (!asset || safeStr(asset.type).toUpperCase() !== "PICK") return false;
     return safeInt(resolvePickMeta(asset).round, 0) === 6;
@@ -1299,6 +1319,8 @@
 
     return {
       meta: {
+        // true only when the worker says it READ the forfeit list (#1229).
+        pick_restrictions_verified: !!(raw.meta && raw.meta.forfeit_marks && raw.meta.forfeit_marks.ok === true),
         league_id: safeStr(raw.league_id || raw.leagueId),
         season: safeInt(raw.season || raw.year, 0),
         generated_at: safeStr(raw.generated_at || raw.generatedAt || ""),
@@ -5061,6 +5083,7 @@
       "Search results across all teams: " + shown.length + (matches.length > cap ? " of " + matches.length : "") +
       ". Click one to set the trade partner and add it to the offer.";
     panel.appendChild(helper);
+    if (!pickRestrictionsVerified() && hasFuturePick(shown.map(function (m) { return m.asset; }))) panel.appendChild(pickRestrictionsWarningEl());
 
     var list = document.createElement("div");
     list.className = "twb-discovery-list";
@@ -5166,6 +5189,7 @@
       return node;
     }
 
+    if (!pickRestrictionsVerified() && hasFuturePick(visibleAssets)) groupsWrap.appendChild(pickRestrictionsWarningEl());
     var grouped = groupAssets(visibleAssets);
     var i;
     for (i = 0; i < grouped.length; i += 1) {
@@ -7769,10 +7793,13 @@
       return '<div class="twb-3w-col is-empty"><div class="twb-3w-colhead">' + placeholder + '</div><div class="twb-3w-colempty">Pick a team above.</div></div>';
     }
     var label = slot === "a" ? "You send" : (tw3NameOf(fid) + " sends");
-    var rows = tw3TeamAssets(fid).map(function (a) { return tw3AssetRowHtml(fid, a); }).join("");
+    var colAssets = tw3TeamAssets(fid);
+    var rows = colAssets.map(function (a) { return tw3AssetRowHtml(fid, a); }).join("");
     var count = Object.keys(tw3.give[fid] || {}).length;
+    var unverified = !pickRestrictionsVerified() && hasFuturePick(colAssets)
+      ? '<div class="twb-pick-unverified" role="status">' + escapeHtml(PICK_RESTRICTIONS_UNVERIFIED) + "</div>" : "";
     return '<div class="twb-3w-col"><div class="twb-3w-colhead">' + escapeHtml(label) +
-      ' <span class="twb-3w-cnt" data-3w-cnt="' + fid + '">' + count + " selected</span></div>" +
+      ' <span class="twb-3w-cnt" data-3w-cnt="' + fid + '">' + count + " selected</span></div>" + unverified +
       '<div class="twb-3w-assets">' + (rows || '<div class="twb-3w-colempty">No tradeable assets.</div>') + "</div></div>";
   }
   function tw3SummaryHtml() {
