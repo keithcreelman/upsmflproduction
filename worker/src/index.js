@@ -58079,9 +58079,41 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           leagueId: "25625", year: Number(body.season || YEAR || new Date().getUTCFullYear()),
           fromFid: padFranchiseId(body.from_fid), toFid: padFranchiseId(body.to_fid),
           give: Array.isArray(body.give) ? body.give.map(safeStr) : [], receive: Array.isArray(body.receive) ? body.receive.map(safeStr) : [],
-          mflTokens: true, commentTag: "[Test league: staged trade]", comments: safeStr(body.comments),
+          mflTokens: true, commentTag: "[Test league: staged trade]", comments: safeStr(body.comments), cookieAuth: true,
         });
         return jsonOut(r.ok ? 200 : 409, r);
+      }
+      // Test league (25625) only — the supervised forfeited-pick test. Hard-wired to
+      // 25625: no league parameter is read, so the production league can't be named.
+      if (path === "/admin/test-league/settings-snapshot" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        const { snapshotPage } = await import("./mfl_lockout.js");
+        const page = safeStr(url.searchParams.get("page"));
+        if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
+        const r = await snapshotPage(env, { season: safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page });
+        return jsonOut(r.ok ? 200 : 502, { league_id: "25625", ...r });
+      }
+      if (path === "/admin/test-league/settings-set" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const page = safeStr(body.page);
+        if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
+        if (!body.changes || typeof body.changes !== "object" || Array.isArray(body.changes)) return jsonOut(400, { ok: false, error: "changes must be an object" });
+        const { setPageFields } = await import("./mfl_lockout.js");
+        const r = await setPageFields(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page, changes: body.changes });
+        return jsonOut(r.ok ? 200 : 409, { league_id: "25625", ...r });
+      }
+      if (path === "/admin/test-league/forfeit-check" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const { checkForfeitedPicks } = await import("./lineup_forfeits.js");
+        const r = await checkForfeitedPicks(env, "25625", body.tokens || {});
+        return jsonOut(200, { league_id: "25625", writes: 0, ...r });
       }
       if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {
         const denied = await commishSettingsGate();

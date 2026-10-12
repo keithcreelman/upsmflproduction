@@ -34,11 +34,17 @@ const LEDGER_DDL = `CREATE TABLE IF NOT EXISTS ups_lineup_forfeit_reversals (
   error TEXT, created_at_utc TEXT NOT NULL, updated_at_utc TEXT NOT NULL)`;
 
 const MFL = "https://www48.myfantasyleague.com";
+// MFL API keys are per league: the test league (25625) reads with the commissioner's
+// cookie; the real league with its APIKEY.
 async function mflJson(env, fetchImpl, season, query) {
+  const isTest = new URLSearchParams(query).get("L") === TEST_LEAGUE_ID;
   const key = _s(env && env.MFL_APIKEY);
-  const url = `${MFL}/${encodeURIComponent(season)}/export?${query}&JSON=1${key ? `&APIKEY=${encodeURIComponent(key)}` : ""}`;
+  const ck = _s(env && (env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE));
+  const url = `${MFL}/${encodeURIComponent(season)}/export?${query}&JSON=1${!isTest && key ? `&APIKEY=${encodeURIComponent(key)}` : ""}`;
+  const headers = { "User-Agent": "upsmflproduction-worker", Accept: "application/json" };
+  if (isTest && ck) headers.Cookie = ck.includes("=") ? ck : `MFL_USER_ID=${ck}`;
   try {
-    const r = await (fetchImpl || fetch)(url, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const r = await (fetchImpl || fetch)(url, { headers });
     if (!r.ok) return null;
     return await r.json();
   } catch (_) { return null; }
@@ -307,7 +313,7 @@ export async function reverseForfeitedPickTrade(env, opts) {
       leagueId: _s(leagueId), year: Number(season), fromFid: trade.to, toFid: trade.from,
       give: trade.from_gave, receive: trade.to_gave, mflTokens: true,
       returnForfeited: { canonical, toFid: trade.from },
-      commentTag: "[Commish: trade reversed — forfeited pick]", comments: `Lineup penalty, Week ${week}`,
+      commentTag: "[Commish: trade reversed — forfeited pick]", comments: `Lineup penalty, Week ${week}`, cookieAuth: isTest,
     });
     result.exec = ex;
     if (ex && ex.tradeId) await setRow(db, key, { mfl_trade_id: _s(ex.tradeId) });

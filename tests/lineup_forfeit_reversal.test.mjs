@@ -240,6 +240,7 @@ test("switch off → nothing read, nothing written; the test league never posts 
   t.equal(r.ok, true, "the test league runs without the switch");
   t.deepEqual(tl.log, ["lockout_off", "exec", "lockout_on"]);
   t.equal(tl.d.calls.length, 0, "no Discord call at all"); t.equal(tl.told.length, 0, "no DM");
+  t.equal(tl.deps.lastExec.cookieAuth, true, "the test league trades with the commissioner cookie (MFL keys are per league)");
 });
 
 test("the backstop lets ONLY that pick go back to the team that forfeited it", async () => {
@@ -251,6 +252,10 @@ test("the backstop lets ONLY that pick go back to the team that forfeited it", a
   try {
     const back = await executeCommishTwoPartyTrade(env, { leagueId: L, year: SEASON, fromFid: "0009", toFid: "0004", give: ["FP_0004_2027_4", "111"], receive: ["222"], mflTokens: true, returnForfeited: { canonical: "FP_0004_2027_4", toFid: "0004" }, commentTag: "[x]" });
     t.equal(back.ok, true); t.equal(sent.length, 2, "propose + accept");
+    t.ok(sent.every((u) => /APIKEY=k/.test(u)), "real league: APIKEY");
+    sent.length = 0;
+    const ck = await executeCommishTwoPartyTrade({ ...env, MFL_COOKIE: "c" }, { leagueId: "25625", year: SEASON, fromFid: "0001", toFid: "0002", give: ["111"], receive: ["222"], mflTokens: true, cookieAuth: true });
+    t.equal(ck.ok, true); t.ok(sent.length === 2 && sent.every((u) => !/APIKEY/.test(u)), "test league: cookie, no APIKEY in the URL");
     sent.length = 0;
     const elsewhere = await executeCommishTwoPartyTrade(env, { leagueId: L, year: SEASON, fromFid: "0009", toFid: "0002", give: ["FP_0004_2027_4"], receive: ["555"], mflTokens: true, returnForfeited: { canonical: "FP_0004_2027_4", toFid: "0004" } });
     t.equal(elsewhere.step, "pick_forfeited"); t.equal(sent.length, 0, "to anyone else: refused before MFL");
@@ -272,6 +277,76 @@ test("the hourly forfeit check hands a native trade of a reserved pick to the re
     t.deepEqual(out.results[0].reversal, { ok: false, reason: "reversal_disabled" });
     t.equal(seen[0].owner, "0009"); t.equal(seen[0].mode, "run");
     t.deepEqual({ h: seen[0].reservation.holder_fid, y: seen[0].reservation.pick_year, r: seen[0].reservation.pick_round }, { h: "0004", y: 2027, r: 4 });
+  } finally { globalThis.fetch = realFetch; }
+});
+
+// ═════════════════════ Trades Setup (test league only) ═════════════════════
+function tradesHtml(st) {
+  const sel = (name, opts, cur) => `<select name="${name}">${opts.map((o) => `<option value="${o}"${o === cur ? " selected" : ""}>${o}</option>`).join("")}</select>`;
+  return `<form method="POST" action="/2026/csetup"><input type="hidden" name="L" value="25625"><input type="hidden" name="C" value="TRADES">
+    Future Draft Picks: number of future years ${sel("FUTURE_YEARS", ["0", "1", "2"], st.years)}
+    Picks per round ${sel("FUTURE_PICKS", ["1", "2"], st.perRound)}
+    Trade deadline <input type="text" name="DEADLINE" value="${st.deadline}">
+    <input type="submit" name="SAVE" value="Save Trades Setup"></form>`;
+}
+function fakeTradesSite(st, { clobber = false } = {}) {
+  const posts = [];
+  return { posts, fetchImpl: async (url, init = {}) => {
+    if ((init.method || "GET") === "POST") {
+      const b = new URLSearchParams(init.body); posts.push([...b]);
+      st.years = b.get("FUTURE_YEARS"); st.perRound = b.get("FUTURE_PICKS"); st.deadline = b.get("DEADLINE");
+      if (clobber && posts.length === 1) st.deadline = "changed";
+      return { ok: true, status: 200, text: async () => "ok" };
+    }
+    if (String(url).includes("C=TRADES")) return { ok: true, status: 200, text: async () => tradesHtml(st) };
+    throw new Error("unexpected " + url);
+  } };
+}
+
+test("Trades Setup: changes ONLY the named field, refuses unknown fields, restores the page if anything else moved", async () => {
+  const st = { years: "0", perRound: "1", deadline: "11/24" };
+  const site = fakeTradesSite(st);
+  const r = await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { FUTURE_YEARS: "1" }, fetchImpl: site.fetchImpl });
+  t.equal(r.ok, true); t.deepEqual(r.before, [["FUTURE_YEARS", "0"]]); t.deepEqual(r.after, [["FUTURE_YEARS", "1"]]);
+  t.deepEqual(site.posts[0], [["L", "25625"], ["C", "TRADES"], ["FUTURE_YEARS", "1"], ["FUTURE_PICKS", "1"], ["DEADLINE", "11/24"], ["SAVE", "Save Trades Setup"]]);
+  t.deepEqual(st, { years: "1", perRound: "1", deadline: "11/24" });
+  t.equal((await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { NOPE: "1" }, fetchImpl: site.fetchImpl })).error, "unknown_fields");
+  const snap = await LK.snapshotPage(ENV, { season: SEASON, leagueId: "25625", page: "trades", fetchImpl: site.fetchImpl });
+  t.deepEqual(snap.fields.find(([k]) => k === "FUTURE_YEARS"), ["FUTURE_YEARS", "1"]);
+  const st2 = { years: "0", perRound: "1", deadline: "11/24" };
+  const bad = fakeTradesSite(st2, { clobber: true });
+  const r2 = await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { FUTURE_YEARS: "1" }, fetchImpl: bad.fetchImpl });
+  t.equal(r2.error, "other_settings_changed"); t.equal(r2.restored, true); t.deepEqual(st2, { years: "0", perRound: "1", deadline: "11/24" });
+});
+
+// ═════════════ the production league can't be targeted (real worker routes) ═════════════
+const worker = (await import("../worker/src/index.js")).default;
+test("test-league routes never touch the production league; the real-league run needs confirm + the switch", async () => {
+  const d = db();
+  const env = { UPS_MFL_DB: d, COMMISH_API_KEY: "admin-key", MFL_COOKIE: "c", MFL_APIKEY: "k", LINEUP_FORFEIT_REVERSAL_ENABLED: "0" };
+  const mflUrls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (u) => { mflUrls.push(String(u)); return { ok: true, status: 200, text: async () => tradesHtml({ years: "0", perRound: "1", deadline: "x" }), json: async () => ({}) }; };
+  const hit = async (method, path, body) => {
+    const res = await worker.fetch(new Request(`https://w.test${path}`, { method, headers: { "X-COMMISH-APIKEY": "admin-key", "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }), env, { waitUntil() {}, passThroughOnException() {} });
+    return { status: res.status, json: JSON.parse(await res.text()) };
+  };
+  try {
+    t.equal((await hit("POST", "/admin/mfl/lockout?L=74598", { league_id: "74598", on: false })).status, 403, "lockout on the real league: refused");
+    t.equal((await hit("POST", "/admin/test-league/trade?L=74598", { league_id: "74598", from_fid: "0001", to_fid: "0002", give: ["1"] })).status, 403);
+    t.equal(mflUrls.length, 0, "nothing reached MFL");
+    const snap = await hit("GET", "/admin/test-league/settings-snapshot?L=74598&page=trades");
+    t.equal(snap.json.league_id, "25625");
+    t.ok(mflUrls.length > 0 && mflUrls.every((u) => /[?&]L=25625(&|$)/.test(u)), "only the test league's page was read");
+    mflUrls.length = 0;
+    const set = await hit("POST", "/admin/test-league/settings-set?L=74598", { league_id: "74598", page: "trades", changes: { FUTURE_YEARS: "1" } });
+    t.equal(set.json.league_id, "25625");
+    t.ok(mflUrls.every((u) => !/L=74598/.test(u)), "the production league ID never reached MFL");
+    mflUrls.length = 0;
+    t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "74598", mode: "run", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "confirm_required");
+    const off = await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "74598", mode: "run", confirm: "reverse", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 });
+    t.equal(off.json.reason, "reversal_disabled", "the production switch (off) stops it");
+    t.equal(mflUrls.length, 0, "…before any MFL call");
   } finally { globalThis.fetch = realFetch; }
 });
 

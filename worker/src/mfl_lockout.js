@@ -153,61 +153,115 @@ export function diffFields(beforeFields, afterFields, excludeName) {
   return out;
 }
 
-const withLockout = (form, lockout, value) => form.fields.map(([k, v]) => [k, k === lockout.name ? value : v]);
+// Commissioner setup pages this module may read or change. Only "abilities" holds the
+// lockout radio; "trades" (Trades Setup, csetup C=TRADES) holds future-pick trading.
+export const PAGES = {
+  abilities: { url: (season, leagueId) => abilitiesUrl(season, leagueId), formText: /Commissioner\s+Lockout/i },
+  trades: { url: (season, leagueId) => `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/csetup?L=${encodeURIComponent(_s(leagueId))}&C=TRADES`, formText: /Future\s+Draft\s+Pick|Trade/i },
+};
 
-// Read-only: the page's lockout state + a summary of the form (no submit).
-export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
-  const f = fetchImpl || fetch;
+async function loadPage(env, { season, leagueId, page, fetchImpl }) {
+  const cfg = PAGES[page];
+  if (!cfg) return { ok: false, error: "unknown_page" };
   const ck = cookieHeader(env);
   if (!ck) return { ok: false, error: "no_commissioner_cookie" };
+  const url = cfg.url(season, leagueId);
   let status = 0, html = "";
   try {
-    const r = await f(abilitiesUrl(season, leagueId), { headers: { Cookie: ck, "User-Agent": "upsmflproduction-worker" } });
+    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: ck, "User-Agent": "upsmflproduction-worker" } });
     status = r.status; html = await r.text();
   } catch (e) { return { ok: false, error: `fetch_failed: ${e && e.message}` }; }
   if (status !== 200) return { ok: false, error: `http_${status}` };
-  const p = parseAbilitiesPage(html);
-  if (!p.ok) return { ok: false, error: p.error, detail: p };
-  return { ok: true, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
-    lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length, page: p };
+  if (page === "abilities") {
+    const p = parseAbilitiesPage(html);
+    return p.ok ? { ok: true, url, form: p.form, lockout: p.lockout } : { ok: false, error: p.error };
+  }
+  const forms = [...html.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => cfg.formText.test(textOf(f)) && /save/i.test(f));
+  if (forms.length !== 1) return { ok: false, error: forms.length ? "several_forms" : "form_not_found" };
+  return { ok: true, url, form: parseForm(forms[0]) };
 }
 
-// Set lockout to `on` (true = Yes). { ok, changed, from, to } or { ok:false, error, ... }.
-export async function setLockout(env, { season, leagueId, on, fetchImpl }) {
+// Read-only: the Abilities Setup page's lockout state + a summary of the form (no submit).
+export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
+  const p = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
+  if (!p.ok) return { ok: false, error: p.error };
+  return { ok: true, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
+    lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length };
+}
+
+// Read-only snapshot of a setup page: every field as a browser would submit it,
+// plus each radio group's and select's choices.
+export async function snapshotPage(env, { season, leagueId, page, fetchImpl }) {
+  const p = await loadPage(env, { season, leagueId, page, fetchImpl });
+  if (!p.ok) return p;
+  return { ok: true, page, fields: p.form.fields, radios: p.form.radios, action: p.form.action, method: p.form.method, lockout: p.lockout ? p.lockout.current : undefined };
+}
+
+// Change ONLY the named fields on a setup page (changes: {name: value}; a value of
+// null leaves a checkbox unchecked). Every other field is re-sent exactly as loaded.
+// Verified by re-reading the page: the changed fields hold their new values and NOTHING
+// else differs — otherwise the original form is re-sent once and ok:false comes back.
+export async function setPageFields(env, { season, leagueId, page, changes, fetchImpl }) {
   const f = fetchImpl || fetch;
   const ck = cookieHeader(env);
-  const pageUrl = abilitiesUrl(season, leagueId);
-  const before = await inspectAbilities(env, { season, leagueId, fetchImpl: f });
+  const before = await loadPage(env, { season, leagueId, page, fetchImpl: f });
   if (!before.ok) return { ok: false, step: "load", error: before.error };
-  const want = on ? "Yes" : "No";
-  if (before.lockout === want) return { ok: true, changed: false, from: want, to: want };
-  const pb = before.page;
-  const action = new URL(pb.form.action || pageUrl, pageUrl);
+  const names = Object.keys(changes || {});
+  if (!names.length) return { ok: false, step: "validate", error: "no_changes" };
+  const known = new Set([...before.form.fields.map(([k]) => k), ...Object.keys(before.form.radios)]);
+  const unknown = names.filter((n) => !known.has(n) && changes[n] !== null);
+  if (unknown.length && page !== "abilities") return { ok: false, step: "validate", error: "unknown_fields", fields: unknown };
+  const want = (fields) => {
+    const out = [];
+    const placed = new Set();
+    for (const [k, v] of fields) {
+      if (!names.includes(k)) { out.push([k, v]); continue; }
+      if (!placed.has(k)) { placed.add(k); if (changes[k] !== null) out.push([k, String(changes[k])]); }
+    }
+    for (const k of names) if (!placed.has(k) && changes[k] !== null) out.push([k, String(changes[k])]);
+    return out;
+  };
+  const target = want(before.form.fields);
+  if (!diffFields(before.form.fields, target, "").length) return { ok: true, changed: false };
+  const action = new URL(before.form.action || before.url, before.url);
   if (!/(^|\.)myfantasyleague\.com$/i.test(action.hostname)) return { ok: false, step: "validate", error: "form_action_off_site" };
   const submit = async (fields) => {
     const body = new URLSearchParams(); for (const [k, v] of fields) body.append(k, v);
     const headers = { Cookie: ck, "User-Agent": "upsmflproduction-worker" };
-    if (pb.form.method === "POST") {
+    if (before.form.method === "POST") {
       return f(action.toString(), { method: "POST", headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() });
     }
     const u = new URL(action.toString()); for (const [k, v] of body) u.searchParams.append(k, v);
     return f(u.toString(), { headers });
   };
-  try { await submit(withLockout(pb.form, pb.lockout, on ? pb.lockout.yesValue : pb.lockout.noValue)); }
-  catch (e) { return { ok: false, step: "submit", error: `fetch_failed: ${e && e.message}` }; }
-  const after = await inspectAbilities(env, { season, leagueId, fetchImpl: f });
+  try { await submit(target); } catch (e) { return { ok: false, step: "submit", error: `fetch_failed: ${e && e.message}` }; }
+  const after = await loadPage(env, { season, leagueId, page, fetchImpl: f });
   if (!after.ok) return { ok: false, step: "verify", error: `reload_failed: ${after.error}` };
-  const diff = diffFields(pb.form.fields, after.page.form.fields, pb.lockout.name);
+  const others = names.reduce((acc, n) => acc.filter(([k]) => k !== n), before.form.fields);
+  const othersAfter = names.reduce((acc, n) => acc.filter(([k]) => k !== n), after.form.fields);
+  const diff = diffFields(others, othersAfter, "");
   if (diff.length) {
-    // Something else moved: put the original form back once, and report.
     let restored = false;
     try {
-      await submit(pb.form.fields);
-      const again = await inspectAbilities(env, { season, leagueId, fetchImpl: f });
-      restored = !!(again.ok && !diffFields(pb.form.fields, again.page.form.fields, "").length);
+      await submit(before.form.fields);
+      const again = await loadPage(env, { season, leagueId, page, fetchImpl: f });
+      restored = !!(again.ok && !diffFields(before.form.fields, again.form.fields, "").length);
     } catch (_) { restored = false; }
     return { ok: false, step: "verify", error: "other_settings_changed", diff: diff.slice(0, 20), restored };
   }
-  if (after.lockout !== want) return { ok: false, step: "verify", error: "lockout_did_not_change", now: after.lockout };
-  return { ok: true, changed: true, from: before.lockout, to: want };
+  const wrong = diffFields(target, after.form.fields, "");
+  if (wrong.length) return { ok: false, step: "verify", error: "change_did_not_take", diff: wrong.slice(0, 20) };
+  return { ok: true, changed: true, page, before: before.form.fields.filter(([k]) => names.includes(k)), after: after.form.fields.filter(([k]) => names.includes(k)) };
+}
+
+// Set lockout to `on` (true = Yes). { ok, changed, from, to } or { ok:false, error, ... }.
+export async function setLockout(env, { season, leagueId, on, fetchImpl }) {
+  const before = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
+  if (!before.ok) return { ok: false, step: "load", error: before.error };
+  const want = on ? "Yes" : "No";
+  if (before.lockout.current === want) return { ok: true, changed: false, from: want, to: want };
+  const r = await setPageFields(env, { season, leagueId, page: "abilities", fetchImpl,
+    changes: { [before.lockout.name]: on ? before.lockout.yesValue : before.lockout.noValue } });
+  if (!r.ok) return r;
+  return { ok: true, changed: true, from: before.lockout.current, to: want };
 }
