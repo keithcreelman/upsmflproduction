@@ -1,47 +1,68 @@
-// §G3 — from a booked CANDIDATE to a commissioner RULING, one post in that
-// week's Injury Report thread, and a penalty that is ASSESSED, then APPLIED.
+// §G3 — from a booked CANDIDATE to a RULING, one post in that week's Injury
+// Report thread, and a penalty that is ASSESSED, then APPLIED.
 //
 // lineup_compliance.js decides whether a franchise-week looks illegal and
-// lineup_wiring.js books it into ups_lineup_violations. This module is what
-// happens next, as Keith specified it on 2026-10-11:
+// lineup_wiring.js books it into ups_lineup_violations at the week's final
+// kickoff. This module is what happens next, as Keith specified on 2026-10-11:
 //
-//   1. RULE      the commissioner confirms or excuses one candidate. A confirm
-//                re-derives the season rung, re-reads the evidence for every
-//                starter behind it (status, when it became known against the
-//                notice deadline, still in the lineup at kickoff, played or
-//                not), and — on a pick rung — resolves and RESERVES the exact
-//                pick: the franchise's EARLIEST future year that holds a pick
-//                in that round.
-//   2. PREVIEW   read-only: the exact final text, the verified thread, the
-//                verified owner mention.
-//   3. POST      once, into THAT week's existing "Week N Injury Report" thread
-//                (from the Saturday post's record). Missing or unverifiable
-//                thread, missing owner mention, or a pick no longer owned:
-//                HOLD and alert the commissioner. Never posts anywhere else.
-//   4. VERIFY    the penalty reads "assessed" until the exact pick and cap
-//                action are verified on MFL; only then "applied".
+//   AUTOMATIC (runLineupAutoPublish — the standing rule, Keith 2026-10-11:
+//   "I do not want to approve every obvious case manually"). On the first
+//   run after the final kickoff, for each booked candidate:
+//     1. RULE     re-derive the season rung; re-read the evidence for every
+//                 starter behind it — status and when it was first recorded
+//                 against the notice deadline, corroborated by the official
+//                 NFL report; still in the locked lineup at kickoff; did not
+//                 play — and, on a pick rung, resolve and RESERVE the exact
+//                 pick (earliest future year the team owns one in that round).
+//     2. VERIFY   the stored "Week N Injury Report" thread with Discord itself
+//                 and the owner's mention.
+//     3. POST     once, into that thread.
+//   It STOPS for Keith — holds, and DMs him once per reason — whenever the
+//   evidence is ambiguous or a safety check fails: missing/conflicting
+//   injury evidence, an unreadable or changed lineup, a missing/unverifiable
+//   thread or owner mention, the mass-booking breaker, unreadable pick
+//   ownership, several qualifying picks, or needs_review.
 //
-// Nothing here writes MFL. Every step is idempotent: the ruling and the
-// reservation are keyed per franchise-week, a pick can be held by one live
-// reservation only, and the post is claimed before it is sent.
+//   BY HAND (admin routes): rule / excuse / choose a pick / preview / post /
+//   verify the sanction.
+//
+// The penalty reads "assessed" until the exact pick and cap action are
+// verified on MFL; only then "applied". Nothing here writes MFL. Every step is
+// idempotent: one ruling per franchise-week, one live reservation per pick,
+// the post claimed before it is sent, each alert claimed before it is sent.
 
 import {
   LINEUP_LADDER, lineupLadderRung, voidLineupViolation, recomputeLineupOffenses,
   injuryHistoryForWeek, noticeMarkUnix, saturdayCapUnix, INJURY_NOTICE_SECONDS, REQUIRED_STARTERS,
 } from "./lineup_compliance.js";
 import { weekSchedule, playerIndex, byeTeams, weekStartersFromResults, finalKickoffUnix } from "./lineup_wiring.js";
+import { getFeatureFlag } from "./feature_flags.js";
 
 // Same hard block as lineup_wiring.js (Keith 2026-09-19: "NEVER POST TO
 // COFFEE SHOP only to the injury report page").
 export const COFFEE_SHOP_CHANNEL_ID = "1087157907419840644";
 export const MENTION_TOKEN = "{{MENTION}}";
+export const AUTO_RULER = "auto (Keith standing rule 2026-10-11)";
+// Kill switch, fail-closed: wrangler.toml ships it "1"; a D1 override "0"
+// (Commish Settings) stops automatic rulings and posts at once.
+export const AUTO_FLAG = "LINEUP_AUTO_PUBLISH_ENABLED";
 
 const MFL_WWW = "https://www48.myfantasyleague.com";
+const NFLVERSE_INJURIES = (season) => `https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_${encodeURIComponent(season)}.csv`;
 const UA = { "User-Agent": "upsmflproduction-worker" };
 const _s = (v) => String(v == null ? "" : v).trim();
 const _fid = (v) => { const d = _s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; };
 const _arr = (x) => (Array.isArray(x) ? x : x ? [x] : []);
 const _nowIso = () => new Date().toISOString();
+
+// Read failures that a later run may clear on its own. Everything else waits
+// for Keith. Transient holds are retried automatically; their alert is held
+// back for the first 30 minutes after the final kickoff.
+export const TRANSIENT_HOLDS = new Set([
+  "evidence_unreadable", "lineup_unreadable", "team_name_unreadable", "pick_inventory_unreadable",
+  "official_report_unreadable", "injury_thread_unreadable",
+]);
+const TRANSIENT_ALERT_GRACE_SEC = 30 * 60;
 
 export function ordinal(n) {
   const k = Number(n) || 0;
@@ -49,6 +70,8 @@ export function ordinal(n) {
   if (t >= 11 && t <= 13) return `${k}th`;
   return `${k}${({ 1: "st", 2: "nd", 3: "rd" })[k % 10] || "th"}`;
 }
+const ROUND_WORD = { 1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth" };
+export const roundWord = (r) => ROUND_WORD[roundNo(r)] || `${ordinal(roundNo(r))}`;
 
 // MFL names are "Last, First". Owners read "First Last".
 export function displayName(mflName) {
@@ -58,16 +81,28 @@ export function displayName(mflName) {
   return first ? `${first} ${last}` : last;
 }
 
-// MFL's three-letter team codes → the abbreviations owners read.
+// MFL's three-letter team codes → the abbreviations owners read (and that
+// the official report uses; nflverse writes the Rams as "LA").
 const NFL_ABBR = { NOS: "NO", GBP: "GB", KCC: "KC", LVR: "LV", NEP: "NE", SFO: "SF", TBB: "TB", JAC: "JAX" };
 export const nflAbbr = (t) => NFL_ABBR[_s(t).toUpperCase()] || _s(t).toUpperCase();
+const nflverseTeam = (t) => (_s(t).toUpperCase() === "LAR" ? "LA" : nflAbbr(t));
 
+function etParts(unix) {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+  }).formatToParts(new Date(Number(unix) * 1000));
+  const g = (k) => (f.find((p) => p.type === k) || {}).value || "";
+  return { wd: g("weekday"), mon: g("month"), day: g("day"), time: `${g("hour")}:${g("minute")} ${g("dayPeriod").toUpperCase()}` };
+}
+// "Fri, Oct 9, 5:05 PM ET" — the stored evidence record.
 export function etLabel(unix) {
   if (!unix) return "";
-  return new Date(Number(unix) * 1000).toLocaleString("en-US", {
-    timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-  }) + " ET";
+  const p = etParts(unix);
+  return `${p.wd}, ${p.mon} ${p.day}, ${p.time} ET`;
 }
+// The public copy, in Keith's own formats (2026-10-11):
+const etSeen = (u) => { const p = etParts(u); return `${p.wd} ${p.mon} ${p.day} at ${p.time} ET`; };   // "Fri Oct 9 at 5:05 PM ET"
+const etWhen = (u) => { const p = etParts(u); return `${p.wd} ${p.mon} ${p.day}, ${p.time}`; };        // "Sat Oct 10, 1:00 PM"
 
 // The status in effect at `at`, WITH the instant it was first seen.
 export function statusEntryAsOf(history, at) {
@@ -82,74 +117,95 @@ export function statusEntryAsOf(history, at) {
 
 // ── the ladder, in words ────────────────────────────────────────────────────
 
-const roundNo = (r) => parseInt(_s(r), 10) || 0;
+function roundNo(r) { return parseInt(String(r == null ? "" : r).replace(/\D/g, ""), 10) || 0; }
 
-export function pickLabel(pick, holder, names) {
-  if (!pick) return "";
+// "own 2027 fourth-round pick" / "2027 fourth-round pick acquired from X"
+function pickPhrase(pick, holder, names) {
   const orig = _fid(pick.original_owner);
-  const of = orig && orig !== _fid(holder) ? ` (originally ${(names && names[orig]) || `Team ${orig}`}’s)` : "";
-  return `${pick.year} ${ordinal(pick.round)}-round pick${of}`;
+  const base = `${pick.year} ${roundWord(pick.round)}-round pick`;
+  return orig && orig !== _fid(holder) ? `${base} acquired from ${(names && names[orig]) || `Team ${orig}`}` : `own ${base}`;
 }
 
-// What the rung assesses NOW. A pick rung names the exact pick, which must
-// already be resolved; "assessed" is said out loud until it is verified.
+// What the rung assesses NOW. A pick rung names the exact pick; "assessed"
+// is said out loud until it is verified on MFL.
 export function penaltyNowText({ offenseNo, team, season, pick, holder, names }) {
   const next = Number(season) + 1;
   switch (Number(offenseNo)) {
     case 1: return "Warning only. No draft pick or cap charge applies to a first violation.";
-    case 2: return `Loss of ${team}’s ${pickLabel(pick, holder, names)} and a $5K charge against the ${next} salary cap. Status: assessed (not yet applied on MFL).`;
-    case 3: return `Loss of ${team}’s ${pickLabel(pick, holder, names)} and a further $5K charge against the ${next} salary cap. Status: assessed (not yet applied on MFL).`;
-    case 4: return `League vote on ${team}’s retention; if retained, a further $10K charge against the ${next} salary cap. Status: assessed (vote not yet held).`;
-    default: return "Automatic expulsion. Status: assessed (commissioner action pending).";
+    case 2: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)} and a $5,000 charge against the ${next} salary cap. Status: assessed — not yet applied on MFL.`;
+    case 3: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)} and a further $5,000 charge against the ${next} salary cap. Status: assessed — not yet applied on MFL.`;
+    case 4: return `League vote on ${team}’s retention; if retained, a further $10,000 charge against the ${next} salary cap. Status: assessed — the vote has not been held.`;
+    default: return "Automatic expulsion. Status: assessed — commissioner action pending.";
   }
 }
 
-// What the NEXT violation this season would cost, in the general terms Keith
-// used ("earliest owned future 4th-round pick") — the exact pick is resolved
-// only when, and if, that violation is ruled.
-export function nextPenaltyText({ offenseNo, team }) {
+// Which pick the NEXT rung would take today, in Keith's words (2026-10-11:
+// "Because CBP does not own a 2027 fourth-round pick, its own 2028
+// fourth-round pick is currently the applicable pick."). Informational only —
+// nothing is reserved for a violation that has not happened.
+export function applicablePickSentence({ team, round, season, resolution, holder, names }) {
+  const rw = roundWord(round);
+  if (!resolution) return "";
+  if (resolution.status === "needs_selection") {
+    return `${team} owns more than one ${resolution.year} ${rw}-round pick; the commissioner will choose which one applies.`;
+  }
+  if (resolution.status !== "resolved") return "";
+  const p = resolution.pick;
+  const skipped = [];
+  for (let y = Number(season) + 1; y < Number(p.year); y += 1) skipped.push(y);
+  const what = _fid(p.original_owner) === _fid(holder)
+    ? `its own ${p.year} ${rw}-round pick`
+    : `the ${p.year} ${rw}-round pick it acquired from ${(names && names[_fid(p.original_owner)]) || `Team ${_fid(p.original_owner)}`}`;
+  if (skipped.length) {
+    const years = skipped.length === 1 ? `${skipped[0]}` : `${skipped.slice(0, -1).join(", ")} or ${skipped[skipped.length - 1]}`;
+    return `Because ${team} does not own a ${years} ${rw}-round pick, ${what} is currently the applicable pick.`;
+  }
+  return `${what.charAt(0).toUpperCase()}${what.slice(1)} is currently the applicable pick.`;
+}
+
+export function nextPenaltyText({ offenseNo, team, pickSentence }) {
+  const tail = pickSentence ? ` ${pickSentence}` : "";
   switch (Number(offenseNo)) {
-    case 1: return `${team} will lose its earliest owned future 4th-round pick and receive a $5K charge against next season’s salary cap.`;
-    case 2: return `${team} will lose its earliest owned future 2nd-round pick and receive a further $5K charge against next season’s salary cap.`;
-    case 3: return `the league will vote on ${team}’s retention; if retained, ${team} receives a further $10K charge against next season’s salary cap.`;
+    case 1: return `${team} will forfeit its earliest owned future fourth-round pick and receive a $5,000 charge against the following season’s salary cap.${tail}`;
+    case 2: return `${team} will forfeit its earliest owned future second-round pick and receive a further $5,000 charge against the following season’s salary cap.${tail}`;
+    case 3: return `the league will vote on ${team}’s retention; if retained, ${team} receives a further $10,000 charge against the following season’s salary cap.`;
     case 4: return `${team}’s owner is expelled automatically.`;
     default: return null;
   }
 }
 
-// One bullet per starter (or per short lineup), from VERIFIED evidence.
+// One bullet per starter (or per short lineup), from VERIFIED evidence, in
+// Keith's 2026-10-11 wording with the exact timing.
 export function evidenceBullet(item, team) {
   const who = `${displayName(item.name)} (${nflAbbr(item.nfl_team)})`;
-  const tail = "remained in the starting lineup at kickoff, and did not play.";
+  const status = item.status_at_deadline === "IR" ? "on IR" : _s(item.status_at_deadline);
   switch (item.kind) {
-    case "out": {
-      const st = item.status_at_deadline === "IR" ? "on IR" : "OUT";
-      return `${who} was listed ${st} before ${team}’s notice deadline, ${tail}`;
-    }
-    case "doubtful_did_not_play": return `${who} was listed DOUBTFUL at ${team}’s notice deadline, ${tail}`;
+    case "out":
+    case "doubtful_did_not_play":
+      return `${who} was first recorded ${status} on ${etSeen(item.status_first_seen_unix)}—before ${team}’s ${etWhen(item.notice_deadline_unix)} notice deadline. `
+        + `He remained in the starting lineup at the ${etWhen(item.kickoff_unix)} kickoff and did not play.`;
     case "bye": return `${who} was on a bye week and remained in the starting lineup.`;
-    case "missing_starter": return `${team}’s lineup had only ${item.starters} of ${item.required} starting slots filled when the week’s final game kicked off.`;
+    case "missing_starter": return `${team}’s lineup had only ${item.starters} of ${item.required} starting slots filled when the week’s final game kicked off at ${etWhen(item.final_kickoff_unix)}.`;
     default: return `${who}: ${item.kind}.`;
   }
 }
 
 export function composeViolationPost({ team, week, season, offenseNo, evidence, penaltyNow, penaltyNext }) {
-  const bullets = (evidence || []).map((it) => `• ${evidenceBullet(it, team)}`);
   const L = [
-    `🚨 **Lineup Violation — Week ${week}**`,
+    `🚨 Lineup Violation — Week ${week}`,
+    "",
     `${team} ${MENTION_TOKEN} — ${ordinal(offenseNo)} violation of the ${season} season`,
     "",
-    "**Why it occurred**",
-    "",
-    ...bullets,
+    "Why it occurred",
   ];
-  if (bullets.length > 1) L.push("", "Multiple ineligible starters in the same weekly lineup count as one lineup violation.");
-  L.push("", `**Penalty assessed:** ${penaltyNow}`);
-  if (penaltyNext) L.push("", `**If there is another violation this season:** ${penaltyNext}`);
+  for (const it of (evidence || [])) L.push("", `• ${evidenceBullet(it, team)}`);
+  if ((evidence || []).length > 1) L.push("", "Multiple ineligible starters in the same weekly lineup count as one lineup violation.");
+  L.push("", `Penalty assessed: ${penaltyNow}`);
+  if (penaltyNext) L.push("", `If there is another violation this season: ${penaltyNext}`);
   return L.join("\n");
 }
 
-// ── MFL reads ───────────────────────────────────────────────────────────────
+// ── MFL + official-report reads ─────────────────────────────────────────────
 
 async function _mflJson(url) {
   try {
@@ -191,17 +247,14 @@ export async function readPickInventory(season, leagueId) {
 const pickKey = (p) => `${p.year}-${p.round}-${_fid(p.original_owner)}`;
 
 // The pick a rung forfeits: the EARLIEST future year in which the franchise
-// owns a pick in that round (Keith 2026-10-11 — "if the team does not own a
-// 2027 fourth-round pick, take its 2028 fourth-round pick").
-//
-//   - Years MFL lists are read from MFL. Reserved picks (already forfeited by
-//     another ruling) are skipped.
-//   - Two or more qualifying picks in that earliest year: the rules don't say
-//     which, so the commissioner chooses (`choice` = "YEAR-ROUND-ORIGFID").
-//   - Past the years MFL lists: canon A6 makes picks more than one year out
-//     untradeable, so a franchise still holds its OWN pick in any year beyond
-//     season + 1 — resolved with basis 'beyond_trade_horizon'. A year MFL does
-//     not list but that IS tradeable cannot be read: unreadable → hold.
+// owns a pick in that round (Keith 2026-10-11; canon §G3).
+//   - Years MFL lists are read from MFL; picks already reserved are skipped.
+//   - Two or more in that earliest year: the commissioner chooses (`choice`
+//     = "YEAR-ROUND-ORIGFID").
+//   - Past the years MFL lists: canon A6 makes picks more than a year out
+//     untradeable, so the franchise still holds its OWN pick there — resolved
+//     with basis 'beyond_trade_horizon' (an obligation until MFL lists it).
+//   - A year MFL does not list but that IS tradeable cannot be read: hold.
 export function resolveForfeitPick({ inventory, holder, round, season, reserved, choice }) {
   if (!inventory) return { status: "unreadable", reason: "pick_inventory_unreadable" };
   const r = roundNo(round), h = _fid(holder);
@@ -224,30 +277,71 @@ export function resolveForfeitPick({ inventory, holder, round, season, reserved,
   return { status: "unreadable", reason: "no_qualifying_pick" };
 }
 
+// Minimal CSV (quoted fields, doubled quotes).
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i += 1; } else if (c === '"') q = false; else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i += 1; row.push(cur); rows.push(row); row = []; cur = ""; }
+    else cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  const head = rows.shift() || [];
+  return rows.filter((r) => r.length > 1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] || ""])));
+}
+const normName = (n) => _s(n).toLowerCase().replace(/[.'’]/g, "").replace(/-/g, " ").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").replace(/\s+/g, " ").trim();
+
+// The official NFL game-status report for one week (nflverse mirror of the
+// league's injury report). Corroborates MFL's feed, which is known to keep
+// lapsed designations. null when unreadable.
+export async function officialReportForWeek(season, week) {
+  try {
+    const r = await fetch(NFLVERSE_INJURIES(season), { headers: UA, cf: { cacheTtl: 600 } });
+    if (!r.ok) return null;
+    const rows = parseCsv(await r.text());
+    const out = new Map();
+    for (const x of rows) {
+      if (_s(x.week) !== String(week) || _s(x.season_type || "REG") !== "REG") continue;
+      out.set(`${_s(x.team).toUpperCase()}|${normName(x.full_name)}`, { status: _s(x.report_status), practice: _s(x.practice_status), gsis_id: _s(x.gsis_id) });
+    }
+    return { rows: out, last_modified: _s(r.headers && r.headers.get && r.headers.get("last-modified")) };
+  } catch (_) { return null; }
+}
+
 // ── evidence ────────────────────────────────────────────────────────────────
 
 // Re-read, for every reason the candidate was booked, the facts the post will
-// state, with exact timestamps — and confirm each still holds. Any read that
-// fails, or any fact that no longer matches, returns ok:false (hold).
+// state, with exact timestamps, and confirm each still holds — including the
+// official report. Any failed read, missing fact, or disagreement returns
+// ok:false with the reason (hold).
 export async function gatherEvidence(env, { season, leagueId, fid, week, violations }) {
   const [sched, players, byes, weekStarters] = await Promise.all([
     weekSchedule(season, week), playerIndex(season, leagueId), byeTeams(season, week),
     weekStartersFromResults(season, leagueId, week, env && env.MFL_COOKIE),
   ]);
-  if (!sched || !players || !byes || !weekStarters) {
-    return { ok: false, reason: "evidence_unreadable", detail: { schedule: !!sched, players: !!players, byes: !!byes, lineup: !!weekStarters } };
-  }
+  if (!sched || !players || !byes) return { ok: false, reason: "evidence_unreadable", detail: { schedule: !!sched, players: !!players, byes: !!byes } };
+  if (!weekStarters) return { ok: false, reason: "lineup_unreadable" };
   const lineup = weekStarters[_fid(fid)];
   if (!Array.isArray(lineup)) return { ok: false, reason: "lineup_unreadable" };
+  const needsOfficial = (violations || []).some((v) => ["out", "doubtful_did_not_play"].includes(_s(v && v.reason)));
+  const official = needsOfficial ? await officialReportForWeek(season, week) : null;
+  if (needsOfficial && !official) return { ok: false, reason: "official_report_unreadable" };
   const history = await injuryHistoryForWeek(env, { season, week });
   const finalKo = finalKickoffUnix(sched);
   const source = `MFL weeklyResults W=${week}`;
   const items = [];
+  let reason = null;
   for (const v of (violations || [])) {
     const kind = _s(v && v.reason);
     if (kind === "missing_starter") {
       items.push({ kind, starters: lineup.length, required: REQUIRED_STARTERS, final_kickoff_unix: finalKo, final_kickoff_et: etLabel(finalKo),
                    lineup_source: source, confirmed: lineup.length > 0 && lineup.length < REQUIRED_STARTERS });
+      if (!items[items.length - 1].confirmed) reason = reason || "lineup_changed";
       continue;
     }
     const pid = _s(v && v.player_id);
@@ -260,6 +354,7 @@ export async function gatherEvidence(env, { season, leagueId, fid, week, violati
     const atKo = statusEntryAsOf(history[pid], ko);
     const inLineup = lineup.includes(pid);
     const played = !(atKo && (atKo.status === "OUT" || atKo.status === "IR"));
+    const off = official ? official.rows.get(`${nflverseTeam(team)}|${normName(displayName(info.name || (v && v.name)))}`) : null;
     const item = {
       kind, player_id: pid, name: _s(info.name) || _s(v && v.name), nfl_team: team,
       status_at_deadline: atMark ? atMark.status : null,
@@ -269,22 +364,39 @@ export async function gatherEvidence(env, { season, leagueId, fid, week, violati
       kickoff_unix: ko, kickoff_et: etLabel(ko),
       status_at_kickoff: atKo ? atKo.status : "ACTIVE",
       in_final_lineup: inLineup, played, played_basis: "NFL injury status at kickoff (canon §G3)", lineup_source: source,
+      official_report_status: off ? off.status : null, official_source: official ? `nflverse injuries_${season}.csv` : null,
+      official_last_modified: official ? official.last_modified : null,
     };
-    if (kind === "out") item.confirmed = !!(ko && atMark && (atMark.status === "OUT" || atMark.status === "IR") && inLineup && !played);
-    else if (kind === "doubtful_did_not_play") item.confirmed = !!(ko && atMark && atMark.status === "DOUBTFUL" && inLineup && !played);
-    else if (kind === "bye") item.confirmed = !!(team && byes.has(team) && inLineup);
-    else item.confirmed = false;
+    let why = null;
+    if (!inLineup) why = "lineup_changed";
+    else if (!ko) why = "evidence_unreadable";
+    else if (kind === "out") {
+      if (!atMark || !(atMark.status === "OUT" || atMark.status === "IR")) why = "injury_evidence_missing";
+      else if (played) why = "injury_evidence_conflict";
+      else if (atMark.status === "IR") why = "ir_needs_review";
+      else if (!off) why = "official_report_unmatched";
+      else if (off.status !== "Out") why = "official_report_conflict";
+    } else if (kind === "doubtful_did_not_play") {
+      if (!atMark || atMark.status !== "DOUBTFUL") why = "injury_evidence_missing";
+      else if (played) why = "injury_evidence_conflict";
+      else if (!off) why = "official_report_unmatched";
+      else if (!(off.status === "Doubtful" || off.status === "Out")) why = "official_report_conflict";
+    } else if (kind === "bye") {
+      if (!(team && byes.has(team))) why = "injury_evidence_conflict";
+    } else why = "unknown_reason";
+    item.confirmed = !why;
+    if (why) reason = reason || why;
     items.push(item);
   }
   if (!items.length) return { ok: false, reason: "no_reasons" };
-  const bad = items.filter((it) => !it.confirmed);
-  if (bad.length) return { ok: false, reason: "evidence_mismatch", items };
+  if (reason) return { ok: false, reason, items };
   return { ok: true, items, final_kickoff_unix: finalKo, lineup_source: source };
 }
 
 // ── D1 ──────────────────────────────────────────────────────────────────────
 
 const KEY_SQL = "season=? AND league_id=? AND fid=? AND week=?";
+const RES_SQL = "season=? AND league_id=? AND holder_fid=? AND week=?";
 const keyArgs = (k) => [Number(k.season), String(k.leagueId), _fid(k.fid), Number(k.week)];
 
 export async function getCandidate(db, k) {
@@ -312,7 +424,7 @@ export async function listLineupCases(env, { season, leagueId }) {
   const { results } = await db.prepare(
     `SELECT v.season, v.league_id, v.fid, v.week, v.offense_no, v.reasons_json, v.needs_review, v.voided, v.void_reason, v.recorded_at_utc,
             r.ruling, r.offense_no AS ruled_offense_no, r.status, r.hold_reason, r.ruled_by, r.ruled_at_utc,
-            r.notice_posted_at_utc, r.notice_message_id, r.sanction_status, r.penalty_json
+            r.notice_thread_id, r.notice_posted_at_utc, r.notice_message_id, r.sanction_status, r.penalty_json
        FROM ups_lineup_violations v
        LEFT JOIN ups_lineup_rulings r
          ON r.season=v.season AND r.league_id=v.league_id AND r.fid=v.fid AND r.week=v.week
@@ -348,7 +460,7 @@ async function _upsertRuling(db, k, f) {
   ).run();
 }
 
-// Record the commissioner's ruling on one candidate.
+// Record a ruling on one candidate (by hand, or by the standing rule).
 //   'confirmed' — the violation stands: rung, evidence, penalty (exact pick
 //                 reserved on a pick rung), and the final post text.
 //   'excused'   — commissioner immunity: voids the candidate (never deletes),
@@ -377,19 +489,21 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     const laterWeeks = ((later && later.results) || []).map((r) => Number(r.week));
     if (laterWeeks.length) return { ok: false, error: "later_ruling_exists", weeks: laterWeeks, detail: "a later confirmed week would be renumbered; correct it by hand" };
     if (!Number(cand.voided)) await voidLineupViolation(env, { season, leagueId, fid: k.fid, week, reason: _s(note) || "excused by commissioner", by });
-    await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=? WHERE ${KEY_SQL.replace("fid=?", "holder_fid=?")} AND released_at_utc IS NULL`)
+    await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=? WHERE ${RES_SQL} AND released_at_utc IS NULL`)
       .bind(_nowIso(), ...keyArgs(k)).run();
     await _upsertRuling(db, k, { ruling: "excused", note, by, status: "closed", hold_reason: null });
     return { ok: true, ruling: "excused", status: "closed" };
   }
 
   if (Number(cand.voided)) return { ok: false, error: "candidate_voided", detail: "this week was voided; it cannot be confirmed" };
-  if (Number(cand.needs_review) && !_s(note)) return { ok: false, error: "review_note_required", detail: _s(cand.review_note) || "flagged needs_review" };
+  if (Number(cand.needs_review) && !_s(note)) return { ok: false, error: "needs_review", detail: _s(cand.review_note) || "flagged needs_review" };
   // An earlier week that is still only a candidate decides this week's rung.
   const earlier = await db.prepare(
     `SELECT v.week FROM ups_lineup_violations v
        LEFT JOIN ups_lineup_rulings r ON r.season=v.season AND r.league_id=v.league_id AND r.fid=v.fid AND r.week=v.week
-      WHERE v.season=? AND v.league_id=? AND v.fid=? AND v.week < ? AND v.voided=0 AND r.ruling IS NULL ORDER BY v.week`
+      WHERE v.season=? AND v.league_id=? AND v.fid=? AND v.week < ? AND v.voided=0
+        AND (r.ruling IS NULL OR (r.ruling='confirmed' AND r.status NOT IN ('ready','posted')))
+      ORDER BY v.week`
   ).bind(...keyArgs(k)).all();
   const pending = ((earlier && earlier.results) || []).map((r) => Number(r.week));
   if (pending.length) return { ok: false, error: "earlier_candidates_unruled", weeks: pending };
@@ -413,20 +527,29 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
   if (!names || !names[k.fid]) return hold("team_name_unreadable", { evidence: ev.items });
   const team = names[k.fid];
 
-  let pick = null, sanction = "none";
-  if (rung.pick || rung.cap_k || rung.membership) sanction = "assessed";
-  if (rung.pick) {
-    const inventory = await readPickInventory(season, leagueId);
-    const reserved = await liveReservations(db, leagueId, k);
+  // Picks: the one THIS rung forfeits (reserved now), and the one the NEXT
+  // rung would take (named in the post; nothing reserved).
+  const nextRung = lineupLadderRung(offenseNo + 1);
+  const wantNow = !!rung.pick, wantNext = offenseNo < LINEUP_LADDER.length && !!(nextRung && nextRung.pick);
+  let inventory = null, reserved = null;
+  if (wantNow || wantNext) {
+    inventory = await readPickInventory(season, leagueId);
+    if (!inventory) return hold("pick_inventory_unreadable", { evidence: ev.items });
+    reserved = await liveReservations(db, leagueId, k);
+  }
+
+  let pick = null;
+  const sanction = rung.pick || rung.cap_k || rung.membership ? "assessed" : "none";
+  if (wantNow) {
     const res = resolveForfeitPick({ inventory, holder: k.fid, round: rung.pick, season, reserved, choice: pickChoice });
     if (res.status === "unreadable") return hold(res.reason, { evidence: ev.items });
     if (res.status === "needs_selection") {
-      await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "needs_pick_selection", evidence: ev.items, options: res.options, hold_reason: res.bad_choice ? `pick_choice_not_an_option:${res.bad_choice}` : null });
+      await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "needs_pick_selection", evidence: ev.items, options: res.options, hold_reason: res.bad_choice ? `pick_choice_not_an_option:${res.bad_choice}` : "needs_pick_selection" });
       return { ok: true, status: "needs_pick_selection", offense_no: offenseNo, year: res.year, options: res.options, bad_choice: res.bad_choice };
     }
     pick = res.pick;
-    // Reserve NOW, so a retry or an overlapping call cannot pick a second
-    // one, and no other ruling can take the same pick.
+    // Reserve NOW, so a retry or an overlapping call cannot pick a second one,
+    // and no other ruling can take the same pick.
     try {
       await db.prepare(
         `INSERT INTO ups_lineup_pick_reservations
@@ -440,10 +563,18 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     } catch (e) {
       return hold("pick_already_reserved", { evidence: ev.items, detail: _s(e && e.message) });
     }
-    const held = await db.prepare(`SELECT * FROM ups_lineup_pick_reservations WHERE ${KEY_SQL.replace("fid=?", "holder_fid=?")}`).bind(...keyArgs(k)).first();
+    const held = await db.prepare(`SELECT * FROM ups_lineup_pick_reservations WHERE ${RES_SQL}`).bind(...keyArgs(k)).first();
     if (!held || held.released_at_utc) return hold("pick_reservation_failed", { evidence: ev.items });
     // An overlapping call may have reserved first; the stored reservation wins.
     pick = { year: Number(held.pick_year), round: Number(held.pick_round), original_owner: _fid(held.original_owner), basis: held.ownership_basis };
+  }
+  let nextSentence = "", nextResolution = null;
+  if (wantNext) {
+    const exclude = new Set(reserved || []);
+    if (pick) exclude.add(pickKey(pick));
+    nextResolution = resolveForfeitPick({ inventory, holder: k.fid, round: nextRung.pick, season, reserved: exclude });
+    if (nextResolution.status === "unreadable") return hold(nextResolution.reason, { evidence: ev.items });
+    nextSentence = applicablePickSentence({ team, round: nextRung.pick, season, resolution: nextResolution, holder: k.fid, names });
   }
 
   const penalty = {
@@ -452,14 +583,15 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     cap_description: rung.cap_k ? `UPS lineup violation ${season} W${week} #${offenseNo}` : null,
     membership: rung.membership || null,
     now_text: penaltyNowText({ offenseNo, team, season, pick, holder: k.fid, names }),
-    next_text: nextPenaltyText({ offenseNo, team }),
+    next_text: nextPenaltyText({ offenseNo, team, pickSentence: nextSentence }),
+    next_applicable_pick: nextResolution && nextResolution.status === "resolved" ? nextResolution.pick : null,
   };
   const notice = composeViolationPost({ team, week, season, offenseNo, evidence: ev.items, penaltyNow: penalty.now_text, penaltyNext: penalty.next_text });
   await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "ready", evidence: ev.items, penalty, notice_text: notice, sanction_status: sanction });
   return { ok: true, status: "ready", offense_no: offenseNo, penalty, notice_text: notice, evidence: ev.items };
 }
 
-// ── destination, mention, and the one post ─────────────────────────────────
+// ── destination, mention, alerts, and the one post ─────────────────────────
 
 async function _discord(env, method, path, body) {
   const token = _s(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || "");
@@ -479,6 +611,7 @@ async function _discord(env, method, path, body) {
 // THE destination: the existing "Week N Injury Report" thread, resolved from
 // the Saturday post's record and verified against Discord itself — a thread
 // (type 11/12), that exact name, inside the Injury Report channel, not locked.
+// Read-only.
 export async function verifyInjuryThread(env, { season, leagueId, week }) {
   const db = env && env.UPS_MFL_DB;
   const parent = _s(env && env.DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID);
@@ -502,7 +635,7 @@ export async function verifyInjuryThread(env, { season, leagueId, week }) {
     parent: _s(t.parent_id) === parent,
     not_locked: !meta.locked,
   };
-  const dest = { thread_id: threadId, name: _s(t.name), parent_id: _s(t.parent_id), archived: !!meta.archived, locked: !!meta.locked, checks };
+  const dest = { thread_id: threadId, name: _s(t.name), parent_id: _s(t.parent_id), guild_id: _s(t.guild_id), type: t.type, archived: !!meta.archived, locked: !!meta.locked, checks };
   if (!Object.values(checks).every(Boolean)) return { ok: false, reason: "injury_thread_unverified", ...dest };
   return { ok: true, ...dest };
 }
@@ -514,6 +647,28 @@ async function _mentions(env, fid, resolveMentions) {
     return ((m && m.get && m.get(_fid(fid))) || []).filter((id) => /^\d{15,22}$/.test(_s(id)));
   } catch (_) { return []; }
 }
+
+async function _defaultAlert(env, text) {
+  const ids = _s(env.COMMISH_DISCORD_USER_ID).split(/[,\s]+/).filter((x) => /^\d{15,22}$/.test(x));
+  if (!ids.length) return { sent: 0 };
+  const { dmAll } = await import("./trade_dm.js");
+  return dmAll(env, ids, { content: text });
+}
+
+// DM the commissioner ONCE per (season, week, franchise, reason). The INSERT
+// is the claim, so overlapping runs cannot double-alert.
+export async function alertOnce(env, { season, leagueId, week, fid, reason, text, alertImpl }) {
+  const db = env && env.UPS_MFL_DB;
+  if (!db) return { alerted: false };
+  const res = await db.prepare(
+    `INSERT OR IGNORE INTO ups_lineup_alerts (season, league_id, week, fid, reason, detail, alerted_at_utc) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(Number(season), String(leagueId), Number(week), fid ? _fid(fid) : "", _s(reason), _s(text).slice(0, 1000), _nowIso()).run();
+  if (!res || !res.meta || Number(res.meta.changes) !== 1) return { alerted: false, duplicate: true };
+  try { await (alertImpl || _defaultAlert)(env, text); return { alerted: true }; } catch (_) { return { alerted: false, error: true }; }
+}
+
+const holdText = (k, team, reason, extra) =>
+  `⚠️ Lineup violation HELD for your review — Week ${k.week}, ${team || `Team ${_fid(k.fid)}`}: ${reason}.${extra ? " " + extra : ""} Nothing was posted. Review it in the commissioner tools (GET /admin/lineup/cases).`;
 
 // The exact text that would post, and every check that gates it. Read-only.
 export async function previewLineupNotice(env, { season, leagueId, fid, week, resolveMentions }) {
@@ -547,51 +702,28 @@ export async function previewLineupNotice(env, { season, leagueId, fid, week, re
 
 // The reserved pick must still be the franchise's when the post goes out.
 export async function recheckReservedPick({ season, leagueId, holder, pick }) {
-  if (pick.basis === "beyond_trade_horizon") {
-    const inv = await readPickInventory(season, leagueId);
-    if (!inv) return { ok: false, reason: "pick_inventory_unreadable" };
-    if (inv.years.includes(Number(pick.year))) {
-      // MFL now lists that year: read it instead of inferring.
-      const owns = (inv.byHolder[_fid(holder)] || []).some((p) => pickKey(p) === pickKey(pick));
-      return owns ? { ok: true, basis: "mfl_future_picks" } : { ok: false, reason: "reserved_pick_no_longer_owned" };
-    }
-    return Number(pick.year) > Number(season) + 1 ? { ok: true, basis: "beyond_trade_horizon" } : { ok: false, reason: "pick_year_not_listed" };
-  }
   const inv = await readPickInventory(season, leagueId);
   if (!inv) return { ok: false, reason: "pick_inventory_unreadable" };
+  if (pick.basis === "beyond_trade_horizon" && !inv.years.includes(Number(pick.year))) {
+    return Number(pick.year) > Number(season) + 1 ? { ok: true, basis: "beyond_trade_horizon" } : { ok: false, reason: "pick_year_not_listed" };
+  }
   const owns = (inv.byHolder[_fid(holder)] || []).some((p) => pickKey(p) === pickKey(pick));
   return owns ? { ok: true, basis: "mfl_future_picks" } : { ok: false, reason: "reserved_pick_no_longer_owned" };
 }
 
-async function _defaultAlert(env, text) {
-  const { resolveDiscordUserIds, dmAll } = await import("./trade_dm.js");
-  const fids = _s(env.COMMISH_FRANCHISE_IDS || "0008").split(/[,\s]+/).map(_fid).filter((f) => f && f !== "0000");
-  let sent = 0;
-  for (const f of fids) {
-    const ids = await resolveDiscordUserIds(env, f);
-    if (ids && ids.length) sent += (await dmAll(env, ids, { content: text })).sent || 0;
-  }
-  return { sent };
-}
-
-// Hold the publication and tell the commissioner — once per distinct reason.
-async function _hold(env, k, reason, { alertImpl, team } = {}) {
+async function _hold(env, k, reason, { alertImpl, team, quiet } = {}) {
   const db = env.UPS_MFL_DB;
   await db.prepare(`UPDATE ups_lineup_rulings SET status='held', hold_reason=? WHERE ${KEY_SQL} AND status IN ('ready','held')`)
     .bind(reason, ...keyArgs(k)).run();
-  const claim = await db.prepare(
-    `UPDATE ups_lineup_rulings SET alerted_reason=?, alerted_at_utc=? WHERE ${KEY_SQL} AND (alerted_reason IS NULL OR alerted_reason <> ?)`
-  ).bind(reason, _nowIso(), ...keyArgs(k), reason).run();
-  let alerted = false;
-  if (claim && claim.meta && Number(claim.meta.changes) === 1) {
-    const text = `⚠️ Lineup violation post HELD — Week ${k.week}, ${team || "Team " + k.fid}: ${reason}. Nothing was posted. Fix the cause, then post again from the commissioner tools.`;
-    try { await (alertImpl || _defaultAlert)(env, text); alerted = true; } catch (_) { alerted = false; }
-  }
-  return { ok: false, held: true, reason, alerted };
+  const a = quiet ? { alerted: false, deferred: true }
+    : await alertOnce(env, { season: k.season, leagueId: k.leagueId, week: k.week, fid: k.fid, reason, text: holdText(k, team, reason), alertImpl });
+  return { ok: false, held: true, reason, alerted: !!a.alerted };
 }
 
 // Post the confirmed ruling ONCE into the week's Injury Report thread.
-export async function postLineupNotice(env, { season, leagueId, fid, week, resolveMentions, alertImpl }) {
+// `quietTransient` (the automatic run, early) defers the alert for a
+// read failure that the next run may clear.
+export async function postLineupNotice(env, { season, leagueId, fid, week, resolveMentions, alertImpl, quietTransient = false }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const k = { season, leagueId, fid: _fid(fid), week };
@@ -603,8 +735,11 @@ export async function postLineupNotice(env, { season, leagueId, fid, week, resol
   if (!_s(r.notice_text)) return { ok: false, error: "notice_missing", hold_reason: r.hold_reason };
 
   const pv = await previewLineupNotice(env, { season, leagueId, fid: k.fid, week, resolveMentions });
-  const team = (_s(r.notice_text).split("\n")[1] || "").split(` ${MENTION_TOKEN}`)[0];
-  if (!pv.ok) return { ...(await _hold(env, k, (pv.problems && pv.problems[0]) || pv.error || "preview_failed", { alertImpl, team })), problems: pv.problems };
+  const team = (_s(r.notice_text).split("\n")[2] || "").split(` ${MENTION_TOKEN}`)[0];
+  if (!pv.ok) {
+    const reason = (pv.problems && pv.problems[0]) || pv.error || "preview_failed";
+    return { ...(await _hold(env, k, reason, { alertImpl, team, quiet: quietTransient && TRANSIENT_HOLDS.has(reason) })), problems: pv.problems };
+  }
 
   const claim = await db.prepare(
     `UPDATE ups_lineup_rulings SET notice_claimed_at_utc=?, notice_thread_id=?
@@ -626,6 +761,61 @@ export async function postLineupNotice(env, { season, leagueId, fid, week, resol
   await db.prepare(`UPDATE ups_lineup_rulings SET status='posted', notice_posted_at_utc=?, notice_message_id=?, notice_error=NULL, hold_reason=NULL WHERE ${KEY_SQL}`)
     .bind(_nowIso(), msgId, ...keyArgs(k)).run();
   return { ok: true, posted: true, thread_id: pv.destination.thread_id, message_id: msgId, text: pv.text };
+}
+
+// ── the standing rule: book → rule → verify → post, unattended ─────────────
+
+// Run for one week, at or after its final kickoff. Idempotent and safe to
+// overlap: a posted/claimed ruling is never touched, a non-transient hold
+// waits for Keith, a transient hold is retried, every alert is sent once.
+export async function runLineupAutoPublish(env, { season, leagueId, week, nowUnix, resolveMentions, alertImpl }) {
+  const db = env && env.UPS_MFL_DB;
+  if (!db) return { ok: false, error: "no_db" };
+  if (!(await getFeatureFlag(env, AUTO_FLAG))) return { ok: true, skipped: "auto_publish_disabled" };
+  const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
+  const sched = await weekSchedule(season, week);
+  const last = finalKickoffUnix(sched);
+  if (!last || now < last) return { ok: true, skipped: "week_not_final" };
+  const early = now - last < TRANSIENT_ALERT_GRACE_SEC;
+  const { results } = await db.prepare(
+    `SELECT fid, needs_review, review_note FROM ups_lineup_violations WHERE season=? AND league_id=? AND week=? AND voided=0 ORDER BY fid`
+  ).bind(Number(season), String(leagueId), Number(week)).all();
+  const names = (results || []).length ? (await franchiseNameMap(season, leagueId)) || {} : {};
+  const out = [];
+  for (const c of (results || [])) {
+    const k = { season, leagueId, fid: _fid(c.fid), week };
+    const team = names[k.fid] || `Team ${k.fid}`;
+    const alert = (reason, extra) => alertOnce(env, { season, leagueId, week, fid: k.fid, reason, text: holdText(k, team, reason, extra), alertImpl });
+    let r = await getRuling(db, k);
+    if (r && (r.notice_claimed_at_utc || r.status === "posted" || r.status === "closed")) { out.push({ fid: k.fid, status: r.status, skipped: "done" }); continue; }
+    if (Number(c.needs_review)) { await alert("needs_review", _s(c.review_note)); out.push({ fid: k.fid, status: "needs_review" }); continue; }
+    if (r && r.status === "needs_pick_selection") { await alert("needs_pick_selection", "Choose the exact pick (POST /admin/lineup/rule with pick_choice)."); out.push({ fid: k.fid, status: r.status }); continue; }
+    if (r && r.status === "held" && !TRANSIENT_HOLDS.has(_s(r.hold_reason))) { await alert(_s(r.hold_reason)); out.push({ fid: k.fid, status: "held", reason: r.hold_reason }); continue; }
+    if (!r || r.status === "held") {
+      const rr = await recordLineupRuling(env, { season, leagueId, fid: k.fid, week, ruling: "confirmed", by: AUTO_RULER });
+      if (rr.status === "needs_pick_selection") { await alert("needs_pick_selection", "Choose the exact pick (POST /admin/lineup/rule with pick_choice)."); out.push({ fid: k.fid, status: rr.status }); continue; }
+      if (!rr.ok) {
+        const reason = _s(rr.reason || rr.error);
+        if (!(TRANSIENT_HOLDS.has(reason) && early)) await alert(reason, rr.weeks ? `Earlier weeks: ${rr.weeks.join(", ")}.` : "");
+        out.push({ fid: k.fid, status: "held", reason });
+        continue;
+      }
+      r = await getRuling(db, k);
+    }
+    if (r && r.status === "ready") {
+      const p = await postLineupNotice(env, { season, leagueId, fid: k.fid, week, resolveMentions, alertImpl, quietTransient: early });
+      out.push({ fid: k.fid, status: p.ok ? "posted" : "held", reason: p.reason || p.error || null, message_id: p.message_id || null, thread_id: p.thread_id || null });
+    }
+  }
+  return { ok: true, week, results: out };
+}
+
+// The booking breaker refused this week: tell Keith once.
+export async function alertMassBooking(env, { season, leagueId, week, candidates, alertImpl }) {
+  return alertOnce(env, {
+    season, leagueId, week, fid: "", reason: "mass_booking", alertImpl,
+    text: `⚠️ Lineup booking REFUSED for Week ${week}: ${candidates} teams would have been booked (limit 4). Nothing was recorded or posted. This usually means a broken input — review before anything is booked.`,
+  });
 }
 
 // ── assessed → applied ──────────────────────────────────────────────────────

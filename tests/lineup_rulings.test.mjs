@@ -43,6 +43,7 @@ function world(over = {}) {
     adjustments: null,                       // null = the cap season's league is unreadable
     thread: { id: THREAD5, type: 11, name: "Week 5 Injury Report", parent_id: INJURY_CH, thread_metadata: { archived: false, locked: false } },
     threadStatus: 200, postStatus: 200,
+    official: [["NO", "Kaden Elliss", "Out"], ["ARI", "Andrew Wingard", "Out"], ["NO", "John Doe", "Out"]], officialOk: true,
     ...over,
   };
 }
@@ -57,6 +58,13 @@ function install(w) {
       if (method === "GET") { gets.push(id); return w.threadStatus === 200 && id === w.thread.id ? json(w.thread) : json({ message: "Unknown Channel" }, 404); }
       posts.push({ id, body: JSON.parse(init.body) });
       return w.postStatus === 200 ? json({ id: String(990000000000000000n + BigInt(posts.length)) }) : json({ code: 50013 }, w.postStatus);
+    }
+    if (u.startsWith("https://github.com/nflverse/")) {
+      if (!w.officialOk) return { ok: false, status: 503, text: async () => "", headers: { get: () => "" } };
+      const csv = "season,season_type,game_type,team,week,gsis_id,position,full_name,first_name,last_name,report_primary_injury,report_secondary_injury,report_status,practice_primary_injury,practice_secondary_injury,practice_status\n"
+        + w.official.map(([tm, n, st]) => `2026,REG,REG,${tm},5,00-1,LB,${n},x,y,Calf,,${st},Calf,,"Did Not Participate In Practice"`).join("\n")
+        + "\n" + w.official.map(([tm, n, st]) => `2026,REG,REG,${tm},6,00-1,LB,${n},x,y,Calf,,${st},Calf,,DNP`).join("\n") + "\n";
+      return { ok: true, status: 200, text: async () => csv, headers: { get: (h) => (h === "last-modified" ? "Sun, 11 Oct 2026 13:56:09 GMT" : "") } };
     }
     const W = new URL(u).searchParams.get("W");
     if (u.includes("TYPE=nflSchedule")) {
@@ -100,7 +108,7 @@ function env({ channel = INJURY_CH, satLog = THREAD5 } = {}) {
     }
   }
   if (satLog) d.raw.prepare("INSERT INTO ups_lineup_sat_announce_log (season, league_id, week, message_id, clean_count, issue_count, posted_unix) VALUES (?, ?, 5, ?, 7, 5, 1791633943)").run(SEASON, L, satLog);
-  return { UPS_MFL_DB: d, DISCORD_BOT_TOKEN: "test", DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID: channel };
+  return { UPS_MFL_DB: d, DISCORD_BOT_TOKEN: "test", DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID: channel, LINEUP_AUTO_PUBLISH_ENABLED: "1" };
 }
 const CBP_REASONS = JSON.stringify([
   { player_id: ELLISS, name: "Elliss, Kaden", verdict: "violation", reason: "out" },
@@ -118,20 +126,23 @@ const rule = (e, fid, week, extra) => R.recordLineupRuling(e, { season: SEASON, 
 const post = (e, fid, week) => R.postLineupNotice(e, { season: SEASON, leagueId: L, fid, week, resolveMentions: mentions, alertImpl });
 const preview = (e, fid, week) => R.previewLineupNotice(e, { season: SEASON, leagueId: L, fid, week, resolveMentions: mentions });
 
+// Keith's 2026-10-11 copy, verbatim (the owner mention is the only variable).
 const CBP_EXPECTED = [
-  "🚨 **Lineup Violation — Week 5**",
+  "🚨 Lineup Violation — Week 5",
+  "",
   `CBP <@${OWNER}> — 1st violation of the 2026 season`,
   "",
-  "**Why it occurred**",
+  "Why it occurred",
   "",
-  "• Kaden Elliss (NO) was listed OUT before CBP’s notice deadline, remained in the starting lineup at kickoff, and did not play.",
-  "• Andrew Wingard (ARI) was listed OUT before CBP’s notice deadline, remained in the starting lineup at kickoff, and did not play.",
+  "• Kaden Elliss (NO) was first recorded OUT on Fri Oct 9 at 5:05 PM ET—before CBP’s Sat Oct 10, 1:00 PM notice deadline. He remained in the starting lineup at the Sun Oct 11, 1:00 PM kickoff and did not play.",
+  "",
+  "• Andrew Wingard (ARI) was first recorded OUT on Fri Oct 9 at 2:05 PM ET—before CBP’s Sat Oct 10, 4:25 PM notice deadline. He remained in the starting lineup at the Sun Oct 11, 4:25 PM kickoff and did not play.",
   "",
   "Multiple ineligible starters in the same weekly lineup count as one lineup violation.",
   "",
-  "**Penalty assessed:** Warning only. No draft pick or cap charge applies to a first violation.",
+  "Penalty assessed: Warning only. No draft pick or cap charge applies to a first violation.",
   "",
-  "**If there is another violation this season:** CBP will lose its earliest owned future 4th-round pick and receive a $5K charge against next season’s salary cap.",
+  "If there is another violation this season: CBP will forfeit its earliest owned future fourth-round pick and receive a $5,000 charge against the following season’s salary cap. Because CBP does not own a 2027 fourth-round pick, its own 2028 fourth-round pick is currently the applicable pick.",
 ].join("\n");
 
 // ── CBP Week 5 ──────────────────────────────────────────────────────────────
@@ -176,7 +187,7 @@ test("missing Injury Report thread → held, Keith alerted once, nothing posted"
   const p = await post(e, "0002", 5);
   t.equal(p.held, true); t.equal(p.reason, "injury_thread_missing"); t.equal(p.alerted, true);
   t.equal(net.posts.length, 0, "no fallback post anywhere");
-  t.match(alerts[0], /HELD — Week 5, CBP: injury_thread_missing/);
+  t.match(alerts[0], /HELD for your review — Week 5, CBP: injury_thread_missing/);
   await post(e, "0002", 5);
   t.equal(alerts.length, 1, "same reason is alerted once"); t.equal(net.posts.length, 0);
   t.equal(ruling(e, "0002", 5).status, "held");
@@ -238,11 +249,11 @@ test("evidence must still hold: a starter no longer in the final lineup, or unre
   const e = env(); install(world({ lineups: { ...LINEUPS, "0002": [ELLISS, ...filler("0002"), "70000x"] } }));
   book(e, "0002", 5, CBP_REASONS);
   const r = await rule(e, "0002", 5);
-  t.equal(r.held, true); t.equal(r.reason, "evidence_mismatch");
+  t.equal(r.held, true); t.equal(r.reason, "lineup_changed");
   t.equal(ruling(e, "0002", 5).status, "held");
   const e2 = env(); install(world({ resultsOk: false }));
   book(e2, "0002", 5, CBP_REASONS);
-  t.equal((await rule(e2, "0002", 5)).reason, "evidence_unreadable");
+  t.equal((await rule(e2, "0002", 5)).reason, "lineup_unreadable");
   t.equal((await preview(e2, "0002", 5)).error, "notice_missing", "nothing to publish while the ruling is held");
 });
 
@@ -261,9 +272,9 @@ test("2nd offense with a 2027 4th owned → that pick, reserved; post says ASSES
   t.equal(r.offense_no, 2); t.equal(r.status, "ready");
   t.deepEqual(r.penalty.pick, { year: 2027, round: 4, original_owner: "0004", basis: "mfl_future_picks" });
   t.equal(reservations(e).length, 1);
-  t.match(r.notice_text, /\*\*Penalty assessed:\*\* Loss of Pure Greatness’s 2027 4th-round pick and a \$5K charge against the 2027 salary cap\. Status: assessed \(not yet applied on MFL\)\./);
+  t.match(r.notice_text, /Penalty assessed: Forfeiture of Pure Greatness’s own 2027 fourth-round pick and a \$5,000 charge against the 2027 salary cap\. Status: assessed — not yet applied on MFL\./);
   t.match(r.notice_text, /2nd violation of the 2026 season/);
-  t.match(r.notice_text, /\*\*If there is another violation this season:\*\* Pure Greatness will lose its earliest owned future 2nd-round pick and receive a further \$5K/);
+  t.match(r.notice_text, /If there is another violation this season: Pure Greatness will forfeit its earliest owned future second-round pick and receive a further \$5,000 charge against the following season’s salary cap\. Because Pure Greatness does not own a 2027 second-round pick, its own 2028 second-round pick is currently the applicable pick\./);
   t.equal(ruling(e, "0004", 6).sanction_status, "assessed");
 });
 
@@ -277,7 +288,7 @@ test("no 2027 4th and MFL lists only 2027 → own 2028 4th, beyond the trade hor
   const e = await secondOffense({ picks: { "0004": [{ year: "2027", round: "3", originalPickFor: "0004" }] } });
   const r = await rule(e, "0004", 6);
   t.deepEqual(r.penalty.pick, { year: 2028, round: 4, original_owner: "0004", basis: "beyond_trade_horizon" });
-  t.match(r.notice_text, /Loss of Pure Greatness’s 2028 4th-round pick/);
+  t.match(r.notice_text, /Forfeiture of Pure Greatness’s own 2028 fourth-round pick/);
 });
 
 test("two qualifying picks in the earliest year → Keith chooses; nothing reserved until he does", async () => {
@@ -293,7 +304,7 @@ test("two qualifying picks in the earliest year → Keith chooses; nothing reser
   const ok = await rule(e, "0004", 6, { pickChoice: "2027-4-0007" });
   t.equal(ok.status, "ready");
   t.deepEqual(ok.penalty.pick, { year: 2027, round: 4, original_owner: "0007", basis: "mfl_future_picks" });
-  t.match(ok.notice_text, /2027 4th-round pick \(originally Sex Manther’s\)/);
+  t.match(ok.notice_text, /Forfeiture of Pure Greatness’s 2027 fourth-round pick acquired from Sex Manther/);
 });
 
 test("pick inventory unreadable → ruling held, no reservation, no post", async () => {
@@ -384,6 +395,109 @@ test("the module never writes MFL", async () => {
   const src = (await import("node:fs")).readFileSync(new URL("../worker/src/lineup_rulings.js", import.meta.url), "utf8")
     .split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
   t.doesNotMatch(src, /\/import\?|import\?TYPE|TYPE=salaryAdj(?!ustments)|method:\s*"POST"[^\n]*myfantasyleague/i);
+});
+
+// ── official report corroboration ──────────────────────────────────────────
+test("official NFL report must agree: Questionable → conflict, absent → unmatched, unreadable → transient hold", async () => {
+  const cases = [
+    [{ official: [["NO", "Kaden Elliss", "Questionable"], ["ARI", "Andrew Wingard", "Out"]] }, "official_report_conflict"],
+    [{ official: [["ARI", "Andrew Wingard", "Out"]] }, "official_report_unmatched"],
+    [{ officialOk: false }, "official_report_unreadable"],
+  ];
+  for (const [w, reason] of cases) {
+    const e = env(); install(world(w));
+    book(e, "0002", 5, CBP_REASONS);
+    const r = await rule(e, "0002", 5);
+    t.equal(r.held, true); t.equal(r.reason, reason);
+  }
+  t.ok(R.TRANSIENT_HOLDS.has("official_report_unreadable")); t.equal(R.TRANSIENT_HOLDS.has("official_report_conflict"), false);
+});
+
+test("evidence record carries the official report status and source", async () => {
+  const e = env(); install(world());
+  book(e, "0002", 5, CBP_REASONS);
+  const r = await rule(e, "0002", 5);
+  t.deepEqual(r.evidence.map((x) => [x.official_report_status, x.official_source]), [["Out", "nflverse injuries_2026.csv"], ["Out", "nflverse injuries_2026.csv"]]);
+});
+
+// ── the standing rule: automatic ruling + post ─────────────────────────────
+const auto = (e, nowUnix, week = 5) => R.runLineupAutoPublish(e, { season: SEASON, leagueId: L, week, nowUnix, resolveMentions: mentions, alertImpl });
+
+test("AUTOMATIC: after the final kickoff CBP is ruled #1 and posted once in the Week 5 thread; reruns never repost", async () => {
+  const e = env(); const net = install(world()); alerts.length = 0;
+  book(e, "0002", 5, CBP_REASONS);
+  t.equal((await auto(e, MNF - 1)).skipped, "week_not_final", "nothing before the final kickoff");
+  t.equal(net.posts.length, 0);
+  const a = await auto(e, MNF + 120);
+  t.deepEqual(a.results.map((x) => [x.fid, x.status]), [["0002", "posted"]]);
+  t.equal(net.posts.length, 1); t.equal(net.posts[0].id, THREAD5); t.equal(net.posts[0].body.content, CBP_EXPECTED);
+  const row = ruling(e, "0002", 5);
+  t.equal(row.ruled_by, R.AUTO_RULER); t.equal(row.status, "posted"); t.equal(row.offense_no, 1); t.equal(row.notice_thread_id, THREAD5); t.ok(row.notice_message_id);
+  // the */5 tick, the hourly run, and a later retry — overlapping and after
+  await Promise.all([auto(e, MNF + 300), auto(e, MNF + 300)]);
+  await auto(e, MNF + 3600);
+  t.equal(net.posts.length, 1, "exactly one post, ever");
+  t.equal(e.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) n FROM ups_lineup_rulings WHERE fid='0002'").get().n, 1);
+  t.equal(e.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) n FROM ups_lineup_violations WHERE fid='0002' AND week=5").get().n, 1, "one weekly offense, not two player offenses");
+  t.equal(alerts.length, 0, "an obvious case never pings Keith");
+});
+
+test("AUTOMATIC stops for review: needs_review, conflicting evidence, missing thread, missing mention, several picks — one alert each, no post", async () => {
+  // needs_review
+  let e = env(); let net = install(world()); alerts.length = 0;
+  book(e, "0002", 5, CBP_REASONS);
+  e.UPS_MFL_DB.raw.prepare("UPDATE ups_lineup_violations SET needs_review=1, review_note='Out then played' WHERE fid='0002'").run();
+  await auto(e, MNF + 60); await auto(e, MNF + 3600);
+  t.equal(net.posts.length, 0); t.equal(alerts.length, 1); t.match(alerts[0], /needs_review/);
+  t.equal(ruling(e, "0002", 5), undefined, "not ruled");
+  // conflicting official report
+  e = env(); net = install(world({ official: [["NO", "Kaden Elliss", "Questionable"], ["ARI", "Andrew Wingard", "Out"]] })); alerts.length = 0;
+  book(e, "0002", 5, CBP_REASONS);
+  await auto(e, MNF + 60); await auto(e, MNF + 3600);
+  t.equal(net.posts.length, 0); t.equal(alerts.length, 1); t.match(alerts[0], /official_report_conflict/);
+  // missing thread
+  e = env({ satLog: null }); net = install(world()); alerts.length = 0;
+  book(e, "0002", 5, CBP_REASONS);
+  await auto(e, MNF + 60); await auto(e, MNF + 3600);
+  t.equal(net.posts.length, 0); t.equal(alerts.length, 1); t.match(alerts[0], /injury_thread_missing/);
+  t.equal(ruling(e, "0002", 5).status, "held");
+  // missing mention
+  e = env(); const w = world(); w.lineups = { ...LINEUPS, "0009": [ELLISS, WINGARD, ...filler("0009")] }; net = install(w); alerts.length = 0;
+  book(e, "0009", 5, CBP_REASONS);
+  await auto(e, MNF + 60);
+  t.equal(net.posts.length, 0); t.match(alerts[0], /owner_mention_unresolved/);
+  // several qualifying picks on a 2nd offense
+  e = env(); net = install(world({ picks: { "0004": [{ year: "2027", round: "4", originalPickFor: "0004" }, { year: "2027", round: "4", originalPickFor: "0007" }] } })); alerts.length = 0;
+  book(e, "0004", 5, X4_REASONS); book(e, "0004", 6, X4_REASONS);
+  t.equal((await rule(e, "0004", 5)).offense_no, 1);
+  await auto(e, MNF + 60, 6); await auto(e, MNF + 3600, 6);
+  t.equal(ruling(e, "0004", 6).status, "needs_pick_selection");
+  t.equal(alerts.filter((x) => /needs_pick_selection/.test(x)).length, 1, "asked once");
+  t.equal(net.posts.length, 0, "nothing posted for the week needing a choice");
+});
+
+test("AUTOMATIC: a transient read failure retries quietly, then posts once it clears", async () => {
+  const e = env(); let net = install(world({ officialOk: false })); alerts.length = 0;
+  book(e, "0002", 5, CBP_REASONS);
+  await auto(e, MNF + 60);
+  t.equal(ruling(e, "0002", 5).status, "held"); t.equal(alerts.length, 0, "no alert inside the 30-minute grace");
+  net = install(world());
+  await auto(e, MNF + 600);
+  t.equal(ruling(e, "0002", 5).status, "posted"); t.equal(net.posts.length, 1);
+});
+
+test("AUTOMATIC kill switch: flag off → nothing ruled or posted", async () => {
+  const e = env(); e.LINEUP_AUTO_PUBLISH_ENABLED = "0"; const net = install(world());
+  book(e, "0002", 5, CBP_REASONS);
+  t.equal((await auto(e, MNF + 60)).skipped, "auto_publish_disabled");
+  t.equal(net.posts.length, 0); t.equal(ruling(e, "0002", 5), undefined);
+});
+
+test("mass-booking breaker alerts Keith once per week", async () => {
+  const e = env(); install(world()); alerts.length = 0;
+  await R.alertMassBooking(e, { season: SEASON, leagueId: L, week: 5, candidates: 7, alertImpl });
+  await R.alertMassBooking(e, { season: SEASON, leagueId: L, week: 5, candidates: 7, alertImpl });
+  t.equal(alerts.length, 1); t.match(alerts[0], /REFUSED for Week 5: 7 teams/);
 });
 
 await run("lineup_rulings");

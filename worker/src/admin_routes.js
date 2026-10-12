@@ -85,6 +85,7 @@ export const ADMIN_ROUTES = {
   "/admin/lineup/preview-announce": ["POST"],
   "/admin/lineup/rule": ["POST"],
   "/admin/lineup/sanction-verify": ["POST"],
+  "/admin/lineup/thread-check": ["GET"],
   "/admin/load-forum-extensions": ["POST"],
   "/admin/mym-ingest": ["POST"],
   "/admin/qb-caps/check": ["GET"],

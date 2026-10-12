@@ -62,6 +62,12 @@ DISCORD_DROPS_CHANNEL_ID = "1059111651846131833"
 # Injury Report" -- Keith: "remove any association with the coffee
 # shop...we're using the other channel").
 DISCORD_LINEUP_ANNOUNCE_CHANNEL_ID = "1550849538229534760"
+# §G3 standing rule (Keith 2026-10-11): after a week's final kickoff, rule and
+# publish unambiguous lineup violations into that week's Injury Report thread
+# without a manual approval; anything ambiguous holds and DMs the commish.
+# Kill switch: set the D1 override LINEUP_AUTO_PUBLISH_ENABLED=0 in Commish
+# Settings. Fail-closed: an unreadable flag store reads OFF.
+LINEUP_AUTO_PUBLISH_ENABLED = "1"
 # Trade sentinel (2026-07-15): watch every pending offer, kill asset-moved
 # offers, 14-day silent re-offer. ACT ships OFF — dry-run until the L=25625
 # battery + Keith's prod self-test clear it.

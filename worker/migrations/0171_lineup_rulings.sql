@@ -21,6 +21,8 @@
 --                ready                 verified and composed, not yet posted
 --                posted                posted ONCE into the Week N Injury Report thread
 --                closed                excused — nothing to publish
+--   ruled_by   'auto (...)' when the standing rule published an unambiguous case
+--              (Keith 2026-10-11); a commissioner fid when Keith ruled by hand.
 --   sanction   assessed = recorded by the ruling;
 --              applied  = the exact pick / cap action VERIFIED on MFL.
 --              Nothing here ever writes MFL.
@@ -41,8 +43,6 @@ CREATE TABLE IF NOT EXISTS ups_lineup_rulings (
   status                   TEXT    NOT NULL DEFAULT 'held'
                            CHECK (status IN ('needs_pick_selection', 'held', 'ready', 'posted', 'closed')),
   hold_reason              TEXT,
-  alerted_reason           TEXT,
-  alerted_at_utc           TEXT,
   notice_text              TEXT,
   notice_thread_id         TEXT,
   notice_claimed_at_utc    TEXT,
@@ -78,3 +78,17 @@ CREATE TABLE IF NOT EXISTS ups_lineup_pick_reservations (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_lineup_pick_reserved_once
   ON ups_lineup_pick_reservations (league_id, pick_year, pick_round, original_owner)
   WHERE released_at_utc IS NULL;
+
+-- Every hold / review alert sent to the commissioner, once per
+-- (season, league, week, franchise, reason). fid '' = a week-level alert
+-- (e.g. the mass-booking circuit breaker). The INSERT is the send-once claim.
+CREATE TABLE IF NOT EXISTS ups_lineup_alerts (
+  season          INTEGER NOT NULL,
+  league_id       TEXT    NOT NULL,
+  week            INTEGER NOT NULL,
+  fid             TEXT    NOT NULL DEFAULT '',
+  reason          TEXT    NOT NULL,
+  detail          TEXT,
+  alerted_at_utc  TEXT    NOT NULL,
+  PRIMARY KEY (season, league_id, week, fid, reason)
+);
