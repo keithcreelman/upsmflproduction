@@ -105,7 +105,7 @@ function install(w) {
 
 function env({ channel = INJURY_CH, satLog = THREAD5 } = {}) {
   const d = makeD1({});
-  applyMigrations(d, ["0093_ups_bot_heartbeat.sql", "0129_lineup_compliance.sql", "0149_lineup_sat_announce_log.sql", "0171_lineup_rulings.sql"]);
+  applyMigrations(d, ["0093_ups_bot_heartbeat.sql", "0129_lineup_compliance.sql", "0149_lineup_sat_announce_log.sql", "0171_lineup_rulings.sql", "0172_lineup_pick_reservation_state.sql"]);
   for (const wk of [5, 6]) {
     d.raw.prepare("INSERT INTO ups_injury_polls (season, week, polled_unix, rows_seen) VALUES (?, ?, ?, 400)").run(SEASON, wk, POLL_FROM);
     for (const [p, st, first] of [[ELLISS, "QUESTIONABLE", 1791507952], [ELLISS, "OUT", 1791579952], [WINGARD, "QUESTIONABLE", 1791507952], [WINGARD, "OUT", 1791569151], [X4, "OUT", 1791569151]]) {
@@ -291,7 +291,8 @@ test("2nd offense with a 2027 4th owned → that pick, reserved; post says ASSES
   t.equal(r.offense_no, 2); t.equal(r.status, "ready");
   t.deepEqual(r.penalty.pick, { year: 2027, round: 4, original_owner: "0004", basis: "mfl_future_picks" });
   t.equal(reservations(e).length, 1);
-  t.match(r.notice_text, /Penalty assessed: Forfeiture of Pure Greatness’s own 2027 fourth-round pick and a \$5,000 charge against the 2027 salary cap\. Status: assessed — not yet applied on MFL\./);
+  t.match(r.notice_text, /Penalty assessed: Forfeiture of Pure Greatness’s own 2027 fourth-round pick and a \$5,000 charge against the 2027 salary cap\. Status: assessed — the pick is reserved; not yet applied on MFL\./);
+  t.equal(e.UPS_MFL_DB.raw.prepare("SELECT event FROM ups_lineup_forfeit_events WHERE holder_fid='0004' AND week=6").get().event, "reserved", "audit: reserved");
   t.match(r.notice_text, /2nd violation of the 2026 season/);
   t.match(r.notice_text, /If there is another violation this season: Pure Greatness will forfeit its earliest owned future second-round pick and receive a further \$5,000 charge against the following season’s salary cap\. Because Pure Greatness does not own a 2027 second-round pick, its own 2028 second-round pick is currently the applicable pick\./);
   t.equal(ruling(e, "0004", 6).sanction_status, "assessed");
@@ -307,19 +308,40 @@ test("no 2027 4th and MFL lists only 2027 → own 2028 4th, beyond the trade hor
   const e = await secondOffense({ picks: { "0004": [{ year: "2027", round: "3", originalPickFor: "0004" }] } });
   const r = await rule(e, "0004", 6);
   t.deepEqual(r.penalty.pick, { year: 2028, round: 4, original_owner: "0004", basis: "beyond_trade_horizon" });
-  t.match(r.notice_text, /Forfeiture of Pure Greatness’s own 2028 fourth-round pick/);
+  t.match(r.notice_text, /Forfeiture of Pure Greatness’s own 2028 fourth-round pick \(an outstanding obligation until MFL lists 2028 picks\)[\s\S]*Status: assessed — the pick is not yet reserved or applied\./,
+    "an obligation is never described as reserved or applied");
+  t.equal(reservations(e)[0].state, "obligation");
+  t.equal(e.UPS_MFL_DB.raw.prepare("SELECT event FROM ups_lineup_forfeit_events WHERE holder_fid='0004' AND week=6").get().event, "obligation_recorded", "audit: obligation recorded");
 });
 
-test("two qualifying picks in the earliest year → Keith chooses; nothing reserved until he does", async () => {
-  const two = [{ year: "2027", round: "4", originalPickFor: "0004" }, { year: "2027", round: "4", originalPickFor: "0007" }];
+test("own pick and an acquired pick in the same draft → its own pick, no question asked (Keith 2026-10-12)", async () => {
+  const two = [{ year: "2027", round: "4", originalPickFor: "0007" }, { year: "2027", round: "4", originalPickFor: "0004" }];
+  const e = await secondOffense({ picks: { "0004": two } });
+  const r = await rule(e, "0004", 6);
+  t.equal(r.status, "ready");
+  t.deepEqual(r.penalty.pick, { year: 2027, round: 4, original_owner: "0004", basis: "mfl_future_picks" });
+  t.match(r.notice_text, /Forfeiture of Pure Greatness’s own 2027 fourth-round pick/);
+  t.equal(reservations(e).length, 1); t.equal(reservations(e)[0].original_owner, "0004");
+  t.equal(R.resolveForfeitPick({ inventory: { byHolder: { "0004": [{ year: 2027, round: 4, original_owner: "0007" }, { year: 2027, round: 4, original_owner: "0004" }] }, years: [2027] },
+    holder: "0004", round: 4, season: 2026, choice: "2027-4-0007" }).pick.original_owner, "0004", "the rule, not a choice, decides when its own pick is there");
+});
+
+test("own pick in a LATER draft does not beat an acquired pick in the earliest draft", async () => {
+  const e = await secondOffense({ picks: { "0004": [{ year: "2027", round: "4", originalPickFor: "0007" }, { year: "2028", round: "4", originalPickFor: "0004" }] } });
+  const r = await rule(e, "0004", 6);
+  t.deepEqual(r.penalty.pick, { year: 2027, round: 4, original_owner: "0007", basis: "mfl_future_picks" });
+});
+
+test("two acquired picks in the earliest year and none its own → Keith chooses; nothing reserved until he does", async () => {
+  const two = [{ year: "2027", round: "4", originalPickFor: "0011" }, { year: "2027", round: "4", originalPickFor: "0007" }];
   const e = await secondOffense({ picks: { "0004": two } });
   const r = await rule(e, "0004", 6);
   t.equal(r.status, "needs_pick_selection");
-  t.deepEqual(r.options.map((o) => o.key), ["2027-4-0004", "2027-4-0007"]);
+  t.deepEqual(r.options.map((o) => o.key), ["2027-4-0011", "2027-4-0007"]);
   t.equal(reservations(e).length, 0); t.equal(ruling(e, "0004", 6).status, "needs_pick_selection");
   t.equal((await preview(e, "0004", 6)).error, "status_needs_pick_selection", "cannot publish before the choice");
-  const bad = await rule(e, "0004", 6, { pickChoice: "2027-4-0011" });
-  t.equal(bad.status, "needs_pick_selection"); t.equal(bad.bad_choice, "2027-4-0011");
+  const bad = await rule(e, "0004", 6, { pickChoice: "2027-4-0004" });
+  t.equal(bad.status, "needs_pick_selection"); t.equal(bad.bad_choice, "2027-4-0004");
   const ok = await rule(e, "0004", 6, { pickChoice: "2027-4-0007" });
   t.equal(ok.status, "ready");
   t.deepEqual(ok.penalty.pick, { year: 2027, round: 4, original_owner: "0007", basis: "mfl_future_picks" });
@@ -485,8 +507,8 @@ test("AUTOMATIC stops for review: needs_review, conflicting evidence, missing th
   book(e, "0009", 5, CBP_REASONS);
   await auto(e, MNF + 60);
   t.equal(net.posts.length, 0); t.match(alerts[0], /owner_account_missing/);
-  // several qualifying picks on a 2nd offense
-  e = env(); net = install(world({ picks: { "0004": [{ year: "2027", round: "4", originalPickFor: "0004" }, { year: "2027", round: "4", originalPickFor: "0007" }] } })); alerts.length = 0;
+  // several qualifying picks on a 2nd offense, none of them its own
+  e = env(); net = install(world({ picks: { "0004": [{ year: "2027", round: "4", originalPickFor: "0011" }, { year: "2027", round: "4", originalPickFor: "0007" }] } })); alerts.length = 0;
   book(e, "0004", 5, X4_REASONS); book(e, "0004", 6, X4_REASONS);
   t.equal((await rule(e, "0004", 5)).offense_no, 1);
   await auto(e, MNF + 60, 6); await auto(e, MNF + 3600, 6);

@@ -33,6 +33,7 @@ import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS
 import { makeLedger, EXEC, findExecutedTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
+import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -100,6 +101,11 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
   const giveMfl = (give || []).map(toMflAsset).filter(Boolean).join(",");
   const receiveMfl = (receive || []).map(toMflAsset).filter(Boolean).join(",");
   if (!giveMfl && !receiveMfl) return { ok: false, step: "validate", error: "empty leg" };
+  // BACKSTOP — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). Every staged 2-way trade, drop-first trade and
+  // 3-way leg passes here right before MFL. The gates above refuse earlier;
+  // this only fires if something reached execution around them.
+  const forfeit = await checkForfeitedPicks(env, leagueId, { [padFid(fromFid)]: give || [], [padFid(toFid)]: receive || [] });
+  if (!forfeit.ok) return { ok: false, step: "pick_forfeited", error: forfeit.message, violations: forfeit.violations || [] };
 
   // Step 1 — propose as fromFid
   const proposeUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeProposal&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
@@ -393,6 +399,10 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
 
 /** { ok:true, compliance } | { ok:false, kind:"loaded_contracts"|"cap_ack_required"|"unavailable"|"extension"|"extension_stale", message, compliance, cap_ack? } */
 async function capGate(env, row) {
+  // ACCEPT / RECHECK / EXECUTE gate — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). The WHOLE trade is checked
+  // here, before any leg runs, so a refusal can never leave it half-done.
+  const forfeit = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
+  if (!forfeit.ok) return { ok: false, kind: forfeit.code === "pick_forfeited" ? "pick_forfeited" : "unavailable", message: forfeit.message, compliance: null, violations: forfeit.violations || [] };
   const compliance = await complianceViaSelf(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: `${UNAVAILABLE_MSG} Try again in a moment.`, compliance };
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the loaded-contract count for this trade right now. Try again in a moment.", compliance };
@@ -938,7 +948,7 @@ export async function handle3WayButton(interaction, env, ctx) {
   const gate = await capGate(env, row);
   // A stale pre-trade EXTENSION is not a wait-it-out problem (the contract moved on / the window closed): a partner is never asked to consent to
   // a trade that can no longer run as built. (If it goes stale AFTER both accepted, execution blocks recoverably — see enterBlockedCap.)
-  if (!gate.ok && String(gate.kind).startsWith("extension")) return ephemeral(`${gate.message} Your accept wasn't recorded and nothing was changed.`);
+  if (!gate.ok && (String(gate.kind).startsWith("extension") || gate.kind === "pick_forfeited")) return ephemeral(`${gate.message} Your accept wasn't recorded and nothing was changed.`);
   const heads = gate.ok ? rosterNote(gate.compliance) : `\n⚠️ ${gate.message} This can't run until that's resolved — your accept is saved and nothing has moved.`;
 
   const ares =await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='accepted', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
@@ -1047,7 +1057,7 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
     return {
       ok: false, http: 409,
-      code: gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
+      code: gate.kind === "pick_forfeited" ? "pick_forfeited" : gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
       message: gate.message, compliance: gate.compliance, cap_ack: gate.cap_ack || null,
     };
   }
