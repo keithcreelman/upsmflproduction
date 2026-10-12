@@ -58041,6 +58041,68 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // Plain text only — the owner's mention is never looked up for a preview.
         return jsonOut(200, await previewLineupNotice(env, { season, leagueId, fid, week }));
       }
+      // ── Forfeited pick traded on MFL's own site → reverse the trade (Keith 2026-10-12) ──
+      // abilities-inspect: read-only — the Abilities Setup page's lockout state and form summary.
+      // lockout + test-league/trade: TEST LEAGUE (25625) ONLY — staging the supervised test.
+      // forfeit-reversal: mode "preview" writes nothing; mode "run" is the test league
+      // (no Discord, no DMs) or the real league behind LINEUP_FORFEIT_REVERSAL_ENABLED.
+      if (path === "/admin/mfl/abilities-inspect" && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        const { inspectAbilities } = await import("./mfl_lockout.js");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || "74598");
+        const r = await inspectAbilities(env, { season, leagueId });
+        if (!r.ok) return jsonOut(502, { ok: false, error: r.error });
+        return jsonOut(200, { ok: true, league_id: leagueId, lockout: r.lockout, lockout_field: r.lockout_field, form_action: r.form_action,
+          method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, writes: 0 });
+      }
+      if (path === "/admin/mfl/lockout" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const leagueId = safeStr(body.league_id);
+        if (leagueId !== "25625") return jsonOut(403, { ok: false, error: "test_league_only", message: "Lockout is only switched directly on the test league (25625). On the real league it happens only inside a forfeited-pick reversal." });
+        const { setLockout } = await import("./mfl_lockout.js");
+        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true });
+        return jsonOut(r.ok ? 200 : 409, r);
+      }
+      if (path === "/admin/test-league/trade" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        if (safeStr(body.league_id || "25625") !== "25625") return jsonOut(403, { ok: false, error: "test_league_only" });
+        const { executeCommishTwoPartyTrade } = await import("./trade_3way.js");
+        const r = await executeCommishTwoPartyTrade(env, {
+          leagueId: "25625", year: Number(body.season || YEAR || new Date().getUTCFullYear()),
+          fromFid: padFranchiseId(body.from_fid), toFid: padFranchiseId(body.to_fid),
+          give: Array.isArray(body.give) ? body.give.map(safeStr) : [], receive: Array.isArray(body.receive) ? body.receive.map(safeStr) : [],
+          mflTokens: true, commentTag: "[Test league: staged trade]", comments: safeStr(body.comments),
+        });
+        return jsonOut(r.ok ? 200 : 409, r);
+      }
+      if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const leagueId = safeStr(body.league_id || L || "74598");
+        const mode = safeStr(body.mode) === "run" ? "run" : "preview";
+        if (mode === "run" && leagueId !== "25625" && safeStr(body.confirm) !== "reverse") {
+          return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"reverse\" to run on the real league (it also needs LINEUP_FORFEIT_REVERSAL_ENABLED). Preview first." });
+        }
+        const { reverseForfeitedPickTrade } = await import("./lineup_forfeit_reversal.js");
+        const r = await reverseForfeitedPickTrade(env, {
+          season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, mode,
+          owner: padFranchiseId(body.owner_fid),
+          reservation: { holder_fid: padFranchiseId(body.holder_fid), week: parseInt(body.week, 10) || 0,
+            pick_year: parseInt(body.pick_year, 10) || 0, pick_round: parseInt(body.pick_round, 10) || 0,
+            original_owner: padFranchiseId(body.original_owner || body.holder_fid), reserved_at_utc: safeStr(body.reserved_at_utc) || null },
+        });
+        return jsonOut(200, r);
+      }
       if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify" || path === "/admin/lineup/forfeit-select")
           && request.method === "POST") {
         const denied = await commishSettingsGate();

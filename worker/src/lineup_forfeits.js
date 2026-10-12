@@ -124,7 +124,7 @@ async function _setState(db, r, fields) {
 // Hourly. Resolves obligations whose year MFL now lists, flags native trades
 // of reserved picks, and recognizes a pick the commissioner has removed.
 // Each alert is sent once (ups_lineup_alerts).
-export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl, ownerDmImpl }) {
+export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl, ownerDmImpl, reverseImpl }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const { results } = await db.prepare(
@@ -199,7 +199,15 @@ export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl
       await say(r, "forfeited_pick_traded",
         `🚨 A forfeited pick was traded on MFL — Team ${holder}'s ${pickWords(year, round)} (lineup penalty, Week ${r.week}) now belongs to Team ${owner}. The app cannot block MFL's own site. The forfeiture is NOT applied; decide how to recover it.`,
         `⚠️ Your ${pickWords(year, round)} was forfeited as a lineup-violation penalty (Week ${r.week}) and has just been traded on MFL to Team ${owner}. The forfeiture still stands; the commissioner will follow up.`);
-      out.push({ holder, state: "traded_away", owner });
+      // Keith 2026-10-12: reverse that trade (the worker switches MFL lockout off and
+      // back on). LINEUP_FORFEIT_REVERSAL_ENABLED gates it inside; off = nothing moves.
+      let reversal = null;
+      try {
+        const run = reverseImpl || (async (a) => (await import("./lineup_forfeit_reversal.js")).reverseForfeitedPickTrade(env, a));
+        reversal = await run({ season: r.season, leagueId, owner, mode: "run",
+          reservation: { holder_fid: r.holder_fid, week: r.week, pick_year: r.pick_year, pick_round: r.pick_round, original_owner: r.original_owner, reserved_at_utc: r.reserved_at_utc } });
+      } catch (e) { reversal = { ok: false, held: true, reason: `error: ${e && e.message}` }; }
+      out.push({ holder, state: "traded_away", owner, reversal: reversal && { ok: !!reversal.ok, reason: reversal.reason || null } });
       continue;
     }
     await _setState(db, r, { state: "secured" });
