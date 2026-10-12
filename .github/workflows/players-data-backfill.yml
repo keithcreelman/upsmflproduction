@@ -96,8 +96,10 @@ jobs:
         run: |
           # Three reads, all must answer: right after a deploy an old isolate can
           # still serve some requests. Read-only; nothing has changed yet.
+          # &L= is required: the worker's front door answers 400 without it
+          # (the first production swap run, 2026-10-12, stopped here safely).
           for i in 1 2 3; do
-            code=$(curl -sS -o /tmp/ps.json -w '%{http_code}' "https://upsmflproduction.keith-creelman.workers.dev/api/player-status?season=${SEASON}" || echo 000)
+            code=$(curl -sS -o /tmp/ps.json -w '%{http_code}' "https://upsmflproduction.keith-creelman.workers.dev/api/player-status?season=${SEASON}&L=74598" || echo 000)
             if [ "$code" != "200" ] || ! python3 -c 'import json,sys; sys.exit(0 if json.load(open("/tmp/ps.json")).get("ok") is True else 1)'; then
               echo "::error::production is not serving #1219's worker yet (/api/player-status -> $code). Wait for 'Deploy worker' to finish. Nothing changed."; exit 1
             fi
