@@ -585,19 +585,18 @@ test("sheet status wording: an id-map failure isn't blamed on the report; a file
   t.match(src, /has no Wk \\d\+ rows/);
 });
 
-test("Separation Score (Keith 2026-10-12): Sep+ = NGS separation minus what cushion and target depth predict, by position; — when an input is missing", async () => {
+test("Separation Score (Keith 2026-10-12): Sep+ in signed yards over expected from cushion + depth, by position, with the tracked-target sample under it; 20–29 flagged small; — when an input is missing", async () => {
+  // Real 2026 Wk 1–4 inputs (NGS: tracked targets, separation, cushion; box score: targets, air yards).
+  const WADDLE = "15284", FANNIN = "17103";
   const skill = leaderboard("skill").rows;
-  const wr = skill.filter((r) => r.position === "WR").slice(0, 3), te = skill.find((r) => r.position === "TE");
-  const pick = [...wr, te];
-  const gs = (r) => "00-T" + r.mfl_pid;
-  const lb = (a) => { const x = leaderboard(a); if (a === "skill") x.rows = x.rows.map((r) => {
-    const i = pick.indexOf(pick.find((p) => p.mfl_pid === r.mfl_pid));
-    if (i < 0) return r;
-    // [0] WR 30 tgts 300 air yds (aDOT 10); [1] WR, NO air yards; [2] WR without NGS; [3] TE 25 tgts 175 air (aDOT 7)
-    return Object.assign({}, r, { gsis_id: gs(r), targets: i === 3 ? 25 : 30, rec_air_yds: i === 1 ? null : (i === 3 ? 175 : 300) });
-  }); return x; };
-  const ngs = { [gs(pick[0])]: { rec: { tgt: 28, sep: 3.5, cush: 6.0 } }, [gs(pick[1])]: { rec: { tgt: 28, sep: 3.0, cush: 6.0 } },
-                [gs(pick[3])]: { rec: { tgt: 24, sep: 3.6, cush: 5.5 } } };
+  const wr = skill.filter((r) => r.position === "WR" && ![WADDLE].includes(String(r.mfl_pid))).slice(0, 3);
+  const gs = (pid) => "00-T" + pid;
+  const box = { [WADDLE]: { targets: 26, rec_air_yds: 277 }, [FANNIN]: { targets: 23, rec_air_yds: 140 },
+                [wr[0].mfl_pid]: { targets: 40, rec_air_yds: 400 }, [wr[1].mfl_pid]: { targets: 30, rec_air_yds: null }, [wr[2].mfl_pid]: { targets: 30, rec_air_yds: 300 } };
+  const lb = (a) => { const x = leaderboard(a); if (a === "skill") x.rows = x.rows.map((r) => box[String(r.mfl_pid)] ? Object.assign({}, r, { gsis_id: gs(r.mfl_pid) }, box[String(r.mfl_pid)]) : r); return x; };
+  const ngs = { [gs(WADDLE)]: { rec: { tgt: 23, sep: 4.22, cush: 8.12 } }, [gs(FANNIN)]: { rec: { tgt: 20, sep: 5.98, cush: 4.62 } },
+                [gs(wr[0].mfl_pid)]: { rec: { tgt: 38, sep: 2.6, cush: 6.0 } },          // 38 tracked targets: no small-sample flag
+                [gs(wr[1].mfl_pid)]: { rec: { tgt: 28, sep: 3.0, cush: 6.0 } } };        // no air yards → —
   const v = boot({ leaderboard: lb, ngs });
   await openTab(v, "WR");
   const n = await chooseSet(v, "ngs");
@@ -605,20 +604,29 @@ test("Separation Score (Keith 2026-10-12): Sep+ = NGS separation minus what cush
   t.deepEqual(bands(n.head), ["Next Gen 2026", "Wk 1–4"], "aDOT's one-column box-score band reads its weeks, not a cut-off 'nflve…'");
   t.match(n.head, /<span class="band" style="grid-column: span 1" title="nflverse Wk 1–4">Wk 1–4<\/span>/, "full source on the band's title");
   const row = (pid) => rowsOf(n.list).find((r) => r.pid === String(parseInt(pid, 10)));
-  // WR: 3.5 − (2.4138 + 0.2291·6.0 − 0.0864·10) = 3.5 − 2.9244 = +0.5756 → "+0.6"
-  const a = row(pick[0].mfl_pid); t.deepEqual(a && a.cells, ["+0.6", "3.5", "6.0", "10.0"]);
-  const b2 = row(pick[1].mfl_pid); t.deepEqual(b2 && [b2.cells[0], b2.cells[3]], ["—", "—"], "no air yards: no aDOT, no Sep+ (never a guessed depth)");
-  const c = row(pick[2].mfl_pid); t.deepEqual(c && c.cells.slice(0, 3), ["—", "—", "—"], "no Next Gen record (under 20 targets): —");
-  t.match(n.notes, /Sep\+ = his separation minus what his cushion and target depth predict, in yards\./);
+  const cell = (pid) => { const m = new RegExp('data-pid="' + parseInt(pid, 10) + '">[\\s\\S]*?<span class="v[^"]*">([\\s\\S]*?)</span></span>(?=<span class="v)').exec(n.list); return m ? m[1] : ""; };
+  // Waddle: 4.22 − (2.4138 + 0.2291·8.12 − 0.0864·(277/26)) = +0.866 → "+0.9", 23 tracked targets: small sample
+  t.deepEqual(row(WADDLE).cells, ["+0.923 tgt*", "4.2", "8.1", "10.7"], "Waddle +0.9 yd over 23 tracked targets, flagged *");
+  t.match(cell(WADDLE), /title="Sep\+ \+0\.9 yd on 23 tracked targets \(small sample: 20–29\)"/, "tooltip: the sample, said in words");
+  // 38 tracked targets: 2.6 − (2.4138 + 1.3746 − 0.864) = −0.3244 → "−0.3" (a real minus sign), no flag
+  t.deepEqual(row(wr[0].mfl_pid).cells, ["−0.338 tgt", "2.6", "6.0", "10.0"], "negative with a minus sign; 30+ tracked targets: no flag");
+  t.match(cell(wr[0].mfl_pid), /class="ups-m-tr dn"/, "below expected reads as down");
+  t.deepEqual([row(wr[1].mfl_pid).cells[0], row(wr[1].mfl_pid).cells[3]], ["—", "—"], "no air yards: no aDOT, no Sep+ (never a guessed depth)");
+  t.deepEqual(row(wr[2].mfl_pid).cells.slice(0, 3), ["—", "—", "—"], "no Next Gen record (under 20 tracked targets): —");
+  t.match(n.notes, /Sep\+ = yards of separation above \(\+\) or below \(−\) what his cushion and target depth predict; under it, tracked targets \(\* = 20–29, a small sample\)\./, "plain: units, sign, sample flag");
   const about = /<summary>About these numbers<\/summary><div>([^<]*)<\/div>/.exec(n.notes)[1];
   // Only the Sep+ explanation is counted: the "who is listed" note (#1214) is its own topic on every set.
-  const sepAbout = /Expected separation[^]*?Next Gen targets\./.exec(about);
-  t.ok(sepAbout && sepAbout[0].split(/(?<=\.)\s/).length <= 2, "the Sep+ explanation is ≤ 2 short sentences: " + about);
+  t.match(about, /not pure receiver talent: route mix, coverage, quarterback and team context still show up in it\./, "a descriptive residual, not a talent rating");
+  const sepAbout = /Expected separation[^]*?Sep\+ needs 20\+ tracked targets\./.exec(about);
+  t.ok(sepAbout && sepAbout[0].split(/(?<=\.)\s/).length <= 3, "the Sep+ explanation is ≤ 3 short sentences: " + about);
   await openTab(v, "TE");
   const nt = await chooseSet(v, "ngs");
-  const d = rowsOf(nt.list).find((r) => r.pid === String(parseInt(pick[3].mfl_pid, 10)));
-  // TE fit: 3.6 − (3.481 + 0.1234·5.5 − 0.1323·7) = 3.6 − 3.2335 = +0.3665 → "+0.4"
-  t.equal(d && d.cells[0], "+0.4", "a TE is measured against the TE fit");
+  // Fannin (TE fit): 5.98 − (3.481 + 0.1234·4.62 − 0.1323·(140/23)) = +2.734 → "+2.7" on 20 tracked targets — NEVER without the flag
+  const f = rowsOf(nt.list).find((r) => r.pid === FANNIN);
+  t.deepEqual(f.cells, ["+2.720 tgt*", "6.0", "4.6", "6.1"], "Fannin +2.7 always carries his 20-tracked-target small-sample flag");
+  t.match(nt.list, /title="Sep\+ \+2\.7 yd on 20 tracked targets \(small sample: 20–29\)"/);
+  const shown = [...nt.list.matchAll(/>\+2\.7<\/span><\/b>(<small>[^<]*<\/small>)?/g)].map((m) => m[1] || "");
+  t.ok(shown.length >= 1 && shown.every((x) => x === "<small>20 tgt*</small>"), "every +2.7 shown carries '20 tgt*': " + JSON.stringify(shown));
 });
 
 test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; punters: I20 as made/punts plus I20% — no PPG", async () => {

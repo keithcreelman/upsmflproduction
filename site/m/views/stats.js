@@ -237,7 +237,10 @@
     // (r = 0.96 with NGS's own intended air yards). Fixed, not refit per
     // season, so early-season samples can't move the yardstick.
     nadot: { l: "aDOT",  src: "box", f: "dec1", t: "Average depth of target, yards: box-score air yards ÷ targets", g: function (r) { return adotOf(r); } },
-    nsepx: { l: "Sep+",  src: "adv", w: 44, f: "delta", t: "Separation Score: his separation minus what his cushion and target depth predict, yards (+ = more open than expected; 20+ NGS targets)",
+    // Shown in yards, signed (+0.9 / −0.4), with his tracked-target sample under
+    // it; 20–29 tracked targets is flagged * small sample (Keith 2026-10-12).
+    nsepx: { l: "Sep+",  src: "adv", w: 48, f: "sepx", t: "Separation Score, yards: his separation minus what his cushion and target depth predict. + = more separation than expected, − = less. Tracked targets under it; * = 20–29, a small sample",
+      n: function (r) { var x = ngsRecMob(r); return x && x.rec && x.rec.tgt != null ? Number(x.rec.tgt) : null; },
       g: function (r) { var x = ngsRecMob(r), d = adotOf(r), k = SEP_FIT[r.grp]; return x && x.rec && d != null && k && x.rec.sep != null && x.rec.cush != null ? x.rec.sep - (k[0] + k[1] * x.rec.cush + k[2] * d) : null; } },
     ntt:   { l: "TTT",   src: "adv", f: "dec2", t: "Time to throw, seconds (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; } },
     nagg:  { l: "AGG%",  src: "adv", w: 40, f: "pct100", t: "Aggressiveness: throws into tight windows (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; } }
@@ -556,6 +559,14 @@
     }
     if (c.f === "ma") return v.m + "/" + v.a;
     if (c.f === "pctnd") { var nd = c.nd(r); return '<span class="nd"><b>' + Math.round(v * 100) + "%</b><small>" + nd[0] + "/" + nd[1] + "</small></span>"; }
+    if (c.f === "sepx") {
+      // Signed yards (a real minus sign) over his tracked targets; 20–29 = small sample (*).
+      var nt = c.n(r), small = nt != null && nt < 30, yd = round1(v);
+      var sv = yd > 0 ? "+" + yd.toFixed(1) : yd < 0 ? "−" + (-yd).toFixed(1) : "0.0";
+      var ttl = "Sep+ " + sv + " yd" + (nt != null ? " on " + nt + " tracked targets" + (small ? " (small sample: 20–29)" : "") : "");
+      return '<span class="nd" title="' + U.escapeHtml(ttl) + '"><b><span class="ups-m-tr ' + (yd > 0 ? "up" : yd < 0 ? "dn" : "") + '">' + sv + '</span></b>' +
+        (nt != null ? "<small>" + nt + " tgt" + (small ? "*" : "") + "</small>" : "") + "</span>";
+    }
     if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
     if (c.f === "epa") { return '<span class="ups-m-tr ' + (v > 0 ? "up" : (v < 0 ? "dn" : "")) + '">' + (v > 0 ? "+" : "") + v.toFixed(2) + "</span>"; }
     if (c.f === "pct100") return Math.round(v) + "%";
@@ -1001,8 +1012,8 @@
     } else if (srcs.adv) {
       line.push((set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date.");
       if (set.cols.indexOf("nsepx") >= 0) {
-        line.push("Sep+ = his separation minus what his cushion and target depth predict, in yards.");
-        more.push("Expected separation is fit on every 2018–25 WR or TE season with 20+ targets, by position. aDOT = box-score air yards per target; Sep+ needs 20+ Next Gen targets.");
+        line.push("Sep+ = yards of separation above (+) or below (−) what his cushion and target depth predict; under it, tracked targets (* = 20–29, a small sample).");
+        more.push("Expected separation comes from every 2018–25 WR or TE season with 20+ tracked targets, by position; aDOT = box-score air yards per target. It describes this season, not pure receiver talent: route mix, coverage, quarterback and team context still show up in it. Sep+ needs 20+ tracked targets.");
       }
     }
     // MFL decides who is listed. The box-score, red-zone and nflverse side-load
