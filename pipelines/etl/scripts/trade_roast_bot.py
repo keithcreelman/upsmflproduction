@@ -653,7 +653,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
                            extension_player_id: str = ""):
     """v9 flow: announcement embed → thread → roast → GIF.
 
-    Mirrors test_fire_ab.py end-to-end. Keith 2026-05-22.
+    Mirrors roast_bot_fire_ab.py (was test_fire_ab.py) end-to-end. Keith 2026-05-22.
 
     1. Analyze trade via trade_grader.analyze_trade
     2. Build announcement embed (trade_announcement.build_announcement_embed)

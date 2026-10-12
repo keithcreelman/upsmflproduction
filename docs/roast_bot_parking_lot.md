@@ -160,13 +160,13 @@ The roast currently has cap space + owner record + pick-band hit rates. It does 
 **What's missing:**
 - The production bot (launchd) needs to actually be RUNNING and capturing thread messages (it has the gateway connection but until v6/v7/v8 it was producing junk roasts due to upstream data bugs).
 - Threading specifically — the bot's reply-monitoring code may need to be updated to also watch messages INSIDE threads, not just channel-level replies. Need to verify the existing event handler picks up thread messages (Discord's `on_message` event fires for thread messages too AFAIK, but worth confirming with a test reply).
-- When the test_fire_ab.py script creates a thread, the production bot needs to be aware of those threads to monitor them. Currently the bot only knows about messages IT posts. We'd need to either:
+- When the roast_bot_fire_ab.py script creates a thread, the production bot needs to be aware of those threads to monitor them. Currently the bot only knows about messages IT posts. We'd need to either:
   - Have the same bot do the test fire AND monitoring (one process), OR
   - Have a shared "tracked threads" store (D1 table) that any process can append to + the bot polls
 
 **Effort:** Small to medium. The mechanics exist; this is glue work:
 - Verify Discord `on_message` fires for thread messages
-- Wire test_fire_ab.py to append thread_ids to a shared store
+- Wire roast_bot_fire_ab.py to append thread_ids to a shared store
 - Production bot reads the store + monitors those threads
 - Cost: Sonnet for classify + clap-back, ~1-2¢ per reply round-trip
 

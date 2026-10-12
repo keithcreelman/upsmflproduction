@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """
-test_fire_ab.py — One-shot A/B test fire for the Trade Roast Bot.
+roast_bot_fire_ab.py — One-shot A/B fire for the Trade Roast Bot.
 
-Posts 4 messages to the Discord TEST channel:
+(Renamed from test_fire_ab.py 2026-10-12 so test discovery — test_*.py,
+*_test.py — can never run it. tests: test_roast_bot_fire_ab_safety.py.)
+
+DRY RUN IS THE DEFAULT. With no flags nothing is posted to Discord; it
+builds each fire and prints the destination + proposed messages.
+
+With --send it posts to the Discord TEST channel:
   - Trade 1 (ts=1778546756, 0006 ↔ 0007) × Opus 4.6
   - Trade 1 × Sonnet 4.6
   - Trade 2 (Hurts ts=1775772921) × Opus 4.6
@@ -15,16 +21,29 @@ connection → no identity conflict with the running bot). Reads owner /
 team mapping from D1 (discord_owners table) via the worker, NOT the
 missing hardcoded CSV. Reads contracts + rosters live from MFL.
 
-Env required:
-  ANTHROPIC_API_KEY  — sk-ant-...
-  DISCORD_BOT_TOKEN  — read from Keychain if not in env:
+Sending needs BOTH (either missing → refuse, exit 2, nothing sent):
+  --send --confirm-send=<TEST_CHANNEL_ID>      exact id it will post to
+  UPS_ALLOW_ROAST_AB_DISCORD_SEND=1            in the environment
+
+What a dry run still does (reads only, never a Discord write):
+  - MFL export + Worker GETs (trade, league, rosters, roast context)
+  - Anthropic: generates each roast (ANTHROPIC_API_KEY, env → Keychain)
+It does NOT read the Discord token or the Giphy key, does NOT do the
+context builder's read of the bot's recent posts (anti-repetition list),
+and does NOT search Giphy (the GIF query is printed instead).
+
+Env:
+  ANTHROPIC_API_KEY  — sk-ant-... (Keychain service anthropic_api_key)
+  DISCORD_BOT_TOKEN  — --send only; Keychain if not in env:
                        security find-generic-password -a $USER -s discord_bot_token -w
 
 Usage:
-  python test_fire_ab.py                           # both trades, both models
-  python test_fire_ab.py --trade 1778546756        # single trade, both models
-  python test_fire_ab.py --model opus              # both trades, opus only
-  python test_fire_ab.py --dry-run                 # build + print, don't post
+  python roast_bot_fire_ab.py                      # dry run: both trades, opus
+  python roast_bot_fire_ab.py --trade 1778546756   # dry run: single trade
+  python roast_bot_fire_ab.py --model both         # dry run: opus + sonnet
+  python roast_bot_fire_ab.py --context-only       # context only, no Anthropic
+  UPS_ALLOW_ROAST_AB_DISCORD_SEND=1 python roast_bot_fire_ab.py \\
+      --send --confirm-send=1089538054236160010    # POSTS to the test channel
 """
 
 from __future__ import annotations
@@ -53,6 +72,7 @@ from trade_grader import (
     load_rosters, load_rollover, load_auction_pool, load_team_caps,
     load_future_picks, load_trade_value_model,
 )
+import trade_roast_context
 from trade_roast_context import (
     build_trade_roast_context,
     context_to_prompt_text,
@@ -77,6 +97,29 @@ MODELS = {
 }
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
+
+# Discord writes need this env var AND --send --confirm-send=<TEST_CHANNEL_ID>.
+SEND_ENV = "UPS_ALLOW_ROAST_AB_DISCORD_SEND"
+
+
+def send_refusal(args, env) -> str:
+    """Why this run may NOT write to Discord, or "" when every gate is met.
+    Only meaningful with --send; without it the run is a dry run."""
+    if not args.send:
+        if args.confirm_send:
+            return "--confirm-send given without --send — refusing; nothing sent."
+        return ""
+    missing = []
+    if args.confirm_send is None:
+        missing.append(f"--confirm-send={TEST_CHANNEL_ID} (the exact channel id it will post to)")
+    elif args.confirm_send.strip() != TEST_CHANNEL_ID:
+        missing.append(f"--confirm-send={args.confirm_send!r} does not match the destination "
+                       f"channel {TEST_CHANNEL_ID}")
+    if env.get(SEND_ENV, "").strip() != "1":
+        missing.append(f"{SEND_ENV}=1 in the environment")
+    if missing:
+        return "REFUSING to post to Discord — missing:\n  - " + "\n  - ".join(missing)
+    return ""
 
 
 # ── Token sourcing ─────────────────────────────────────────────────────────
@@ -141,6 +184,9 @@ def get_anthropic_key() -> str:
 # ── Discord REST post ──────────────────────────────────────────────────────
 
 def _discord_request(method: str, path: str, token: str, payload: dict = None) -> dict:
+    # Backstop for any caller that skipped main()'s gate: no env permission, no request.
+    if os.environ.get(SEND_ENV, "").strip() != "1":
+        raise SystemExit(f"Discord {method} {path} refused: {SEND_ENV}=1 is not set")
     url = f"{DISCORD_API_BASE}{path}"
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(
@@ -285,17 +331,20 @@ def _extract_gif_query(roast_text: str) -> tuple[str, str]:
     return clean, query
 
 
+def _show(label: str, payload: dict) -> None:
+    print(f"  {label}:\n" + json.dumps(payload, indent=2, ensure_ascii=False))
+
+
 def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
-             trade_ts: int, dry_run: bool) -> dict:
-    """Full sequence:
+             trade_ts: int, send: bool) -> dict:
+    """Full sequence (every message is built and printed before any post):
       1) Run analyze_trade → TradeAnalysis
-      2) Build announcement embed → post to channel (Message 1)
-      3) Create thread off Message 1
-      4) Generate roast via Anthropic
-      5) Parse [GIF: ...] tag from roast end
-      6) Post roast in thread (Message 2)
-      7) Search Giphy for the GIF query
-      8) Post GIF in thread (Message 3)
+      2) Build announcement embed (Message 1)
+      3) Generate roast via Anthropic, parse [GIF: ...] tag (Message 2)
+      4) --send only: search Giphy for the GIF query (Message 3)
+      5) Print the destination + the exact proposed messages
+      6) --send only: post Message 1 to the channel, create a thread off it,
+         post Messages 2 and 3 in the thread
     """
     print(f"\n=== ts={trade_ts} · model={model_label} ({model_id}) ===")
 
@@ -350,8 +399,43 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     roast_clean, gif_query = _extract_gif_query(raw_roast)
     print(f"  GIF query: {gif_query!r}" if gif_query else "  GIF query: (none — Opus skipped the tag)")
 
-    if dry_run:
-        print(f"  DRY-RUN — would post announcement + thread (roast {len(roast_clean)} chars, gif='{gif_query}')")
+    # 5) Build every message before anything is posted
+    announce_payload = {"embeds": [announcement], "allowed_mentions": {"parse": []}}
+    team_a_name = franchises.get(analysis.side_a.franchise_id, analysis.side_a.franchise_name or "Team A")
+    team_b_name = franchises.get(analysis.side_b.franchise_id, analysis.side_b.franchise_name or "Team B")
+    # Discord thread names cap at 100 chars
+    thread_name = f"Trade Roast — {team_a_name} ↔ {team_b_name}"[:100]
+    roast_embed = {
+        "title": f"🔥 Roast — {model_label.upper()}",
+        "description": roast_clean[:4096],
+        "color": 0x5865F2 if model_label == "opus" else 0x57F287,
+    }
+    roast_payload = {"embeds": [roast_embed], "allowed_mentions": {"parse": []}}
+    # giphy_search() tries local key first, falls back to Worker /api/giphy-search proxy.
+    # Dry run skips Giphy entirely (no key, no request).
+    gif_url = ""
+    if send and gif_query:
+        source = "local key" if giphy_key else "Worker proxy"
+        print(f"  Searching Giphy for {gif_query!r} via {source}...")
+        gif_url = giphy_search(giphy_key, gif_query)
+        if not gif_url:
+            print(f"    (no Giphy result for query — neither local key nor proxy returned a URL)")
+    gif_payload = ({"embeds": [{"image": {"url": gif_url}, "color": 0x202225}],
+                    "allowed_mentions": {"parse": []}} if gif_url else None)
+
+    print(f"\n  DESTINATION: channel {TEST_CHANNEL_ID} (UPS test channel); Messages 2-3 go in a "
+          f"NEW thread {thread_name!r} created off Message 1 (thread id assigned by Discord)")
+    _show(f"Message 1 → channel {TEST_CHANNEL_ID}", announce_payload)
+    _show("Message 2 → new thread", roast_payload)
+    if gif_payload:
+        _show("Message 3 → new thread", gif_payload)
+    elif gif_query and not send:
+        print(f"  Message 3 → new thread: a Giphy GIF for {gif_query!r} (dry run: Giphy not searched)")
+    else:
+        print("  Message 3: none (no GIF)")
+
+    if not send:
+        print(f"  DRY RUN — nothing posted to Discord (roast {len(roast_clean)} chars, gif='{gif_query}')")
         return {
             "ok": True, "dry_run": True,
             "trade_ts": trade_ts, "model": model_label,
@@ -361,52 +445,31 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
             "gen_ms": gen_ms, "usage": usage,
         }
 
-    # 5) Post announcement (Message 1)
+    # 6) Post announcement (Message 1)
     print(f"  Posting announcement to channel {TEST_CHANNEL_ID}...")
-    announce_payload = {"embeds": [announcement], "allowed_mentions": {"parse": []}}
     announce_resp = discord_post_message(TEST_CHANNEL_ID, discord_token, announce_payload)
     announce_msg_id = announce_resp.get("id", "")
     print(f"    announcement message_id={announce_msg_id}")
 
-    # 6) Create thread off announcement
-    team_a_name = franchises.get(analysis.side_a.franchise_id, analysis.side_a.franchise_name or "Team A")
-    team_b_name = franchises.get(analysis.side_b.franchise_id, analysis.side_b.franchise_name or "Team B")
-    # Discord thread names cap at 100 chars
-    thread_name = f"Trade Roast — {team_a_name} ↔ {team_b_name}"[:100]
+    # 7) Create thread off announcement
     print(f"  Creating thread '{thread_name}'...")
     thread = discord_create_thread_from_message(
         TEST_CHANNEL_ID, announce_msg_id, discord_token, thread_name)
     thread_id = thread.get("id", "")
     print(f"    thread_id={thread_id}")
 
-    # 7) Post roast in thread (Message 2)
-    roast_embed = {
-        "title": f"🔥 Roast — {model_label.upper()}",
-        "description": roast_clean[:4096],
-        "color": 0x5865F2 if model_label == "opus" else 0x57F287,
-    }
-    print(f"  Posting roast in thread...")
-    roast_resp = discord_post_message(thread_id, discord_token,
-                                      {"embeds": [roast_embed], "allowed_mentions": {"parse": []}})
+    # 8) Post roast in thread (Message 2)
+    print(f"  Posting roast in thread {thread_id}...")
+    roast_resp = discord_post_message(thread_id, discord_token, roast_payload)
     roast_msg_id = roast_resp.get("id", "")
     print(f"    roast message_id={roast_msg_id}")
 
-    # 8) Fetch + post GIF (Message 3)
-    # giphy_search() tries local key first, falls back to Worker /api/giphy-search proxy.
-    gif_url = ""
+    # 9) Post GIF in thread (Message 3)
     gif_msg_id = ""
-    if gif_query:
-        source = "local key" if giphy_key else "Worker proxy"
-        print(f"  Searching Giphy for {gif_query!r} via {source}...")
-        gif_url = giphy_search(giphy_key, gif_query)
-        if gif_url:
-            gif_embed = {"image": {"url": gif_url}, "color": 0x202225}
-            gif_resp = discord_post_message(thread_id, discord_token,
-                                            {"embeds": [gif_embed], "allowed_mentions": {"parse": []}})
-            gif_msg_id = gif_resp.get("id", "")
-            print(f"    gif message_id={gif_msg_id}  url={gif_url[:80]}")
-        else:
-            print(f"    (no Giphy result for query — neither local key nor proxy returned a URL)")
+    if gif_payload:
+        gif_resp = discord_post_message(thread_id, discord_token, gif_payload)
+        gif_msg_id = gif_resp.get("id", "")
+        print(f"    gif message_id={gif_msg_id}  url={gif_url[:80]}")
 
     return {
         "ok": True,
@@ -422,17 +485,31 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description="A/B test fire for the trade roast")
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="A/B fire for the trade roast (dry run unless --send)")
     parser.add_argument("--trade", type=int, choices=[TRADE_1_TS, TRADE_2_TS],
                         help="Only fire this trade timestamp (else both)")
     parser.add_argument("--model", choices=["opus", "sonnet", "both"], default=None,
                         help="opus (default) | sonnet | both for A/B compare")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Build context + generate roast but don't post to Discord")
+    parser.add_argument("--send", action="store_true",
+                        help=f"POST to Discord. Also needs --confirm-send and {SEND_ENV}=1. "
+                             "Without it the run is a dry run: build + print, never post.")
+    parser.add_argument("--confirm-send", metavar="CHANNEL_ID", default=None,
+                        help=f"Must equal the destination channel id ({TEST_CHANNEL_ID}) for --send")
     parser.add_argument("--context-only", action="store_true",
                         help="Just build + print the context. No Anthropic call, no posting. Useful for previewing what the LLM would see without needing the API key.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    refusal = send_refusal(args, os.environ)
+    if refusal:
+        print(refusal)
+        return 2
+    send = args.send
+    if not send:
+        # Dry run never reads the Discord token: the roast context builder
+        # would otherwise read it (env → Keychain) to fetch the bot's recent
+        # posts as an anti-repetition list. Dry-run prompts go without it.
+        trade_roast_context._discord_bot_token = lambda: ""
 
     trades = [args.trade] if args.trade else [TRADE_1_TS, TRADE_2_TS]
     # Default to Opus-only (Keith 2026-05-22: "stick 100% with Opus for the roast").
@@ -461,29 +538,33 @@ def main():
             ctx = build_trade_roast_context(trade, extension_years=ext_years,
                                             extension_player_id=ext_player)
             print(context_to_prompt_text(ctx))
-        return
+        return 0
 
     # Validate creds up front so we fail fast
     print("Sourcing credentials...")
     anthropic_key = get_anthropic_key()
-    discord_token = get_discord_token() if not args.dry_run else "(skipped — dry-run)"
-    giphy_key = get_giphy_key()
+    # Discord token + Giphy key are read only when sending.
+    discord_token = get_discord_token() if send else ""
+    giphy_key = get_giphy_key() if send else ""
     os.environ["ANTHROPIC_API_KEY"] = anthropic_key  # SDK reads from env
     client = anthropic.Anthropic()
     print(f"  Anthropic key: sourced ({len(anthropic_key)} chars)")
-    print(f"  Discord token: sourced ({len(discord_token) if not args.dry_run else 0} chars)")
-    print(f"  Giphy: {'local key (' + str(len(giphy_key)) + ' chars)' if giphy_key else 'Worker /api/giphy-search proxy (no local key)'}")
+    if send:
+        print(f"  Discord token: sourced ({len(discord_token)} chars)")
+        print(f"  Giphy: {'local key (' + str(len(giphy_key)) + ' chars)' if giphy_key else 'Worker /api/giphy-search proxy (no local key)'}")
+    else:
+        print("  Discord token / Giphy key: not read (dry run)")
     print(f"  Target channel: {TEST_CHANNEL_ID}")
     print(f"  Trades: {trades}")
     print(f"  Models: {models}")
-    print(f"  Dry run: {args.dry_run}")
+    print(f"  Mode: {'SEND — will post to Discord' if send else 'DRY RUN — nothing will be posted'}")
 
     results = []
     for ts in trades:
         for m_label in models:
             try:
                 r = fire_one(client, discord_token, giphy_key, m_label, MODELS[m_label],
-                             ts, args.dry_run)
+                             ts, send)
                 results.append(r)
             except Exception as e:
                 print(f"  ✗ FAILED ts={ts} model={m_label}: {e}")
@@ -521,7 +602,8 @@ def main():
             "results": results,
         }) + "\n")
     print(f"\n  Audit log: {audit_path}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
