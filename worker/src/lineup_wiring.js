@@ -419,25 +419,28 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
+  // A dry run writes NOTHING — not even the heartbeat (Keith 2026-10-11:
+  // previews and dry runs must leave no trace and send nothing).
+  const stamp = (status) => (dryRun ? Promise.resolve() : _stampLineupHeartbeat(db, "lineup_booking", status));
 
   const sched = await weekSchedule(season, week);
-  if (!sched) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:schedule_unreadable"); return { ok: true, skipped: "schedule_unreadable" }; }
+  if (!sched) { await stamp("skipped:schedule_unreadable"); return { ok: true, skipped: "schedule_unreadable" }; }
   const last = finalKickoffUnix(sched);
   // Judge at the week's FINAL kickoff, never before: booking early would judge
   // a player whose game has not kicked off and a slot that can still be filled.
-  if (!last || now < last) { await _stampLineupHeartbeat(db, "lineup_booking", "ok:week_not_final"); return { ok: true, skipped: "week_not_final", final_kickoff: last || null }; }
+  if (!last || now < last) { await stamp("ok:week_not_final"); return { ok: true, skipped: "week_not_final", final_kickoff: last || null }; }
 
   const [players, rosters, byes] = await Promise.all([
     playerIndex(season, leagueId),
     leagueRosters(season, leagueId, env.MFL_COOKIE),
     byeTeams(season, week),
   ]);
-  if (!players || !rosters) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:inputs_unreadable"); return { ok: true, skipped: "inputs_unreadable" }; }
+  if (!players || !rosters) { await stamp("skipped:inputs_unreadable"); return { ok: true, skipped: "inputs_unreadable" }; }
 
   // The lineup for THE WEEK BEING BOOKED, from MFL's scored results — never the
   // live lineup read, which by booking time has rolled to the next week.
   const weekStarters = await weekStartersFromResults(season, leagueId, week, env.MFL_COOKIE);
-  if (!weekStarters) { await _stampLineupHeartbeat(db, "lineup_booking", "skipped:week_results_unreadable"); return { ok: true, skipped: "week_results_unreadable" }; }
+  if (!weekStarters) { await stamp("skipped:week_results_unreadable"); return { ok: true, skipped: "week_results_unreadable" }; }
 
   const history = await injuryHistoryForWeek(env, { season, week });
   const observedFrom = await injuryObservedFrom(env, { season, week });
@@ -463,19 +466,19 @@ export async function runLineupBooking(env, { season, leagueId, week, nowUnix, d
     // Fail closed: book NOTHING for this week. Re-evaluated every hourly tick,
     // so a stale input that clears books normally; a real mass-violation week
     // waits for a human, which is the right owner for that call anyway.
-    await _stampLineupHeartbeat(db, "lineup_booking", `refused:mass_booking wk${week} n=${candidates.length}`);
+    await stamp(`refused:mass_booking wk${week} n=${candidates.length}`);
     return { ok: false, week, refused: "mass_booking", candidates: candidates.length, limit: MAX_BOOKINGS_PER_WEEK,
              detail: { candidates: candidates.map((c) => ({ fid: c.fid, reasons: c.result.violations.map((v) => v.reason) })), skipped } };
   }
 
   const booked = [];
   for (const c of candidates) {
-    if (dryRun) { booked.push({ fid: c.fid, dry_run: true, reasons: c.result.violations.map((v) => v.reason) }); continue; }
+    if (dryRun) { booked.push({ fid: c.fid, dry_run: true, reasons: c.result.violations.map((v) => v.reason), violations: c.result.violations, needs_review: !!c.result.needs_review }); continue; }
     const b = await bookLineupViolation(env, { season, leagueId, fid: c.fid, week, result: c.result });
     booked.push({ fid: c.fid, offense_no: b.offense_no, rung: b.rung && b.rung.label,
                   reasons: c.result.violations.map((v) => v.reason) });
   }
-  await _stampLineupHeartbeat(db, "lineup_booking", `ok:booked=${booked.length}`);
+  await stamp(`ok:booked=${booked.length}`);
   return { ok: true, week, booked: booked.length, clean: clean.length, skipped: skipped.length,
            detail: { booked, skipped } };
 }

@@ -35,7 +35,7 @@ import {
   LINEUP_LADDER, lineupLadderRung, voidLineupViolation, recomputeLineupOffenses,
   injuryHistoryForWeek, noticeMarkUnix, saturdayCapUnix, INJURY_NOTICE_SECONDS, REQUIRED_STARTERS,
 } from "./lineup_compliance.js";
-import { weekSchedule, playerIndex, byeTeams, weekStartersFromResults, finalKickoffUnix } from "./lineup_wiring.js";
+import { weekSchedule, playerIndex, byeTeams, weekStartersFromResults, finalKickoffUnix, runLineupBooking } from "./lineup_wiring.js";
 import { getFeatureFlag } from "./feature_flags.js";
 
 // Same hard block as lineup_wiring.js (Keith 2026-09-19: "NEVER POST TO
@@ -521,33 +521,15 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
 
   let violations = [];
   try { violations = JSON.parse(cand.reasons_json || "[]"); } catch (_) { violations = []; }
-  const ev = await gatherEvidence(env, { season, leagueId, fid: k.fid, week, violations });
-  if (!ev.ok) return hold(ev.reason, { evidence: ev.items || ev.detail || null });
-  const names = await franchiseNameMap(season, leagueId);
-  if (!names || !names[k.fid]) return hold("team_name_unreadable", { evidence: ev.items });
-  const team = names[k.fid];
-
-  // Picks: the one THIS rung forfeits (reserved now), and the one the NEXT
-  // rung would take (named in the post; nothing reserved).
-  const nextRung = lineupLadderRung(offenseNo + 1);
-  const wantNow = !!rung.pick, wantNext = offenseNo < LINEUP_LADDER.length && !!(nextRung && nextRung.pick);
-  let inventory = null, reserved = null;
-  if (wantNow || wantNext) {
-    inventory = await readPickInventory(season, leagueId);
-    if (!inventory) return hold("pick_inventory_unreadable", { evidence: ev.items });
-    reserved = await liveReservations(db, leagueId, k);
+  const reserved = await liveReservations(db, leagueId, k);
+  const plan = await computeConfirmedRuling(env, { season, leagueId, fid: k.fid, week, violations, offenseNo, reserved, pickChoice });
+  if (plan.status === "held") return hold(plan.reason, { evidence: plan.evidence });
+  if (plan.status === "needs_pick_selection") {
+    await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "needs_pick_selection", evidence: plan.evidence, options: plan.options, hold_reason: plan.bad_choice ? `pick_choice_not_an_option:${plan.bad_choice}` : "needs_pick_selection" });
+    return { ok: true, status: "needs_pick_selection", offense_no: offenseNo, year: plan.year, options: plan.options, bad_choice: plan.bad_choice };
   }
-
-  let pick = null;
-  const sanction = rung.pick || rung.cap_k || rung.membership ? "assessed" : "none";
-  if (wantNow) {
-    const res = resolveForfeitPick({ inventory, holder: k.fid, round: rung.pick, season, reserved, choice: pickChoice });
-    if (res.status === "unreadable") return hold(res.reason, { evidence: ev.items });
-    if (res.status === "needs_selection") {
-      await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "needs_pick_selection", evidence: ev.items, options: res.options, hold_reason: res.bad_choice ? `pick_choice_not_an_option:${res.bad_choice}` : "needs_pick_selection" });
-      return { ok: true, status: "needs_pick_selection", offense_no: offenseNo, year: res.year, options: res.options, bad_choice: res.bad_choice };
-    }
-    pick = res.pick;
+  let pick = plan.pick;
+  if (pick) {
     // Reserve NOW, so a retry or an overlapping call cannot pick a second one,
     // and no other ruling can take the same pick.
     try {
@@ -561,35 +543,77 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
          WHERE ups_lineup_pick_reservations.released_at_utc IS NOT NULL`
       ).bind(...keyArgs(k), pick.year, pick.round, _fid(pick.original_owner), pick.basis, _nowIso()).run();
     } catch (e) {
-      return hold("pick_already_reserved", { evidence: ev.items, detail: _s(e && e.message) });
+      return hold("pick_already_reserved", { evidence: plan.evidence, detail: _s(e && e.message) });
     }
     const held = await db.prepare(`SELECT * FROM ups_lineup_pick_reservations WHERE ${RES_SQL}`).bind(...keyArgs(k)).first();
-    if (!held || held.released_at_utc) return hold("pick_reservation_failed", { evidence: ev.items });
+    if (!held || held.released_at_utc) return hold("pick_reservation_failed", { evidence: plan.evidence });
     // An overlapping call may have reserved first; the stored reservation wins.
     pick = { year: Number(held.pick_year), round: Number(held.pick_round), original_owner: _fid(held.original_owner), basis: held.ownership_basis };
   }
-  let nextSentence = "", nextResolution = null;
-  if (wantNext) {
-    const exclude = new Set(reserved || []);
-    if (pick) exclude.add(pickKey(pick));
-    nextResolution = resolveForfeitPick({ inventory, holder: k.fid, round: nextRung.pick, season, reserved: exclude });
-    if (nextResolution.status === "unreadable") return hold(nextResolution.reason, { evidence: ev.items });
-    nextSentence = applicablePickSentence({ team, round: nextRung.pick, season, resolution: nextResolution, holder: k.fid, names });
-  }
-
-  const penalty = {
-    rung: offenseNo, label: rung.label,
-    pick, cap_k: rung.cap_k || 0, cap_season: rung.cap_k ? Number(season) + 1 : null,
-    cap_description: rung.cap_k ? `UPS lineup violation ${season} W${week} #${offenseNo}` : null,
-    membership: rung.membership || null,
-    now_text: penaltyNowText({ offenseNo, team, season, pick, holder: k.fid, names }),
-    next_text: nextPenaltyText({ offenseNo, team, pickSentence: nextSentence }),
-    next_applicable_pick: nextResolution && nextResolution.status === "resolved" ? nextResolution.pick : null,
-  };
-  const notice = composeViolationPost({ team, week, season, offenseNo, evidence: ev.items, penaltyNow: penalty.now_text, penaltyNext: penalty.next_text });
-  await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "ready", evidence: ev.items, penalty, notice_text: notice, sanction_status: sanction });
-  return { ok: true, status: "ready", offense_no: offenseNo, penalty, notice_text: notice, evidence: ev.items };
+  const built = plan.build(pick);
+  await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "ready", evidence: plan.evidence, penalty: built.penalty, notice_text: built.notice, sanction_status: plan.sanction });
+  return { ok: true, status: "ready", offense_no: offenseNo, penalty: built.penalty, notice_text: built.notice, evidence: plan.evidence };
 }
+
+// Everything a confirmed ruling needs, computed READ-ONLY: evidence, team,
+// rung, the pick this rung would forfeit, the next rung's applicable pick,
+// and a builder for the penalty + post text. No D1 write, no Discord call,
+// no owner-mention lookup — shared by the real ruling and the dry run.
+export async function computeConfirmedRuling(env, { season, leagueId, fid, week, violations, offenseNo, reserved, pickChoice }) {
+  const rung = lineupLadderRung(offenseNo);
+  if (!rung) return { status: "held", reason: "offense_unresolved" };
+  const ev = await gatherEvidence(env, { season, leagueId, fid, week, violations });
+  if (!ev.ok) return { status: "held", reason: ev.reason, evidence: ev.items || ev.detail || null };
+  const names = await franchiseNameMap(season, leagueId);
+  if (!names || !names[_fid(fid)]) return { status: "held", reason: "team_name_unreadable", evidence: ev.items };
+  const team = names[_fid(fid)];
+  const nextRung = lineupLadderRung(offenseNo + 1);
+  const wantNow = !!rung.pick, wantNext = offenseNo < LINEUP_LADDER.length && !!(nextRung && nextRung.pick);
+  let inventory = null;
+  if (wantNow || wantNext) {
+    inventory = await readPickInventory(season, leagueId);
+    if (!inventory) return { status: "held", reason: "pick_inventory_unreadable", evidence: ev.items };
+  }
+  let pick = null;
+  if (wantNow) {
+    const res = resolveForfeitPick({ inventory, holder: fid, round: rung.pick, season, reserved, choice: pickChoice });
+    if (res.status === "unreadable") return { status: "held", reason: res.reason, evidence: ev.items };
+    if (res.status === "needs_selection") return { status: "needs_pick_selection", evidence: ev.items, year: res.year, options: res.options, bad_choice: res.bad_choice };
+    pick = res.pick;
+  }
+  const sanction = rung.pick || rung.cap_k || rung.membership ? "assessed" : "none";
+  const build = (finalPick) => {
+    let nextSentence = "", nextResolution = null;
+    if (wantNext) {
+      const exclude = new Set(reserved || []);
+      if (finalPick) exclude.add(pickKey(finalPick));
+      nextResolution = resolveForfeitPick({ inventory, holder: fid, round: nextRung.pick, season, reserved: exclude });
+      nextSentence = nextResolution.status === "unreadable" ? "" : applicablePickSentence({ team, round: nextRung.pick, season, resolution: nextResolution, holder: fid, names });
+    }
+    const penalty = {
+      rung: offenseNo, label: rung.label,
+      pick: finalPick, cap_k: rung.cap_k || 0, cap_season: rung.cap_k ? Number(season) + 1 : null,
+      cap_description: rung.cap_k ? `UPS lineup violation ${season} W${week} #${offenseNo}` : null,
+      membership: rung.membership || null,
+      now_text: penaltyNowText({ offenseNo, team, season, pick: finalPick, holder: fid, names }),
+      next_text: nextPenaltyText({ offenseNo, team, pickSentence: nextSentence }),
+      next_applicable_pick: nextResolution && nextResolution.status === "resolved" ? nextResolution.pick : null,
+    };
+    const notice = composeViolationPost({ team, week, season, offenseNo, evidence: ev.items, penaltyNow: penalty.now_text, penaltyNext: penalty.next_text });
+    return { penalty, notice };
+  };
+  if (wantNext) {
+    // The next rung's applicable pick must be readable before anything posts.
+    const probe = resolveForfeitPick({ inventory, holder: fid, round: nextRung.pick, season, reserved: new Set([...(reserved || []), ...(pick ? [pickKey(pick)] : [])]) });
+    if (probe.status === "unreadable") return { status: "held", reason: probe.reason, evidence: ev.items };
+  }
+  return { status: "ready", evidence: ev.items, team, pick, sanction, build };
+}
+
+// The post with NO mention — what every preview, dry run and test shows
+// ("CBP — 1st violation of the 2026 season"). Only postLineupNotice, at the
+// final production send, swaps the token for the owner's real mention.
+export const plainNotice = (text) => _s(text).split(` ${MENTION_TOKEN}`).join("").split(MENTION_TOKEN).join("");
 
 // ── destination, mention, alerts, and the one post ─────────────────────────
 
@@ -670,8 +694,23 @@ export async function alertOnce(env, { season, leagueId, week, fid, reason, text
 const holdText = (k, team, reason, extra) =>
   `⚠️ Lineup violation HELD for your review — Week ${k.week}, ${team || `Team ${_fid(k.fid)}`}: ${reason}.${extra ? " " + extra : ""} Nothing was posted. Review it in the commissioner tools (GET /admin/lineup/cases).`;
 
-// The exact text that would post, and every check that gates it. Read-only.
-export async function previewLineupNotice(env, { season, leagueId, fid, week, resolveMentions }) {
+// Does the franchise have an active owner account to mention? Answers with a
+// COUNT only — previews and dry runs never look up, return or render the
+// owner's id (Keith 2026-10-11: nobody is tagged until the one live post).
+export async function ownerAccountCount(env, fid) {
+  try {
+    const r = await env.UPS_MFL_DB.prepare(
+      `SELECT COUNT(*) AS n FROM discord_owners
+        WHERE franchise_id=? AND active_owner='Y' AND discord_user_id IS NOT NULL
+          AND length(discord_user_id) BETWEEN 15 AND 22 AND discord_user_id NOT GLOB '*[^0-9]*'`
+    ).bind(_fid(fid)).first();
+    return Number(r && r.n) || 0;
+  } catch (_) { return -1; }   // unreadable — never read as "has an owner"
+}
+
+// The exact text that would post — WITHOUT any mention — and every check that
+// gates it. Read-only: no D1 write, no Discord write, no owner-id lookup.
+export async function previewLineupNotice(env, { season, leagueId, fid, week }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const k = { season, leagueId, fid: _fid(fid), week };
@@ -685,17 +724,18 @@ export async function previewLineupNotice(env, { season, leagueId, fid, week, re
   const problems = [];
   const dest = await verifyInjuryThread(env, { season, leagueId, week });
   if (!dest.ok) problems.push(dest.reason);
-  const ids = await _mentions(env, k.fid, resolveMentions);
-  if (!ids.length) problems.push("owner_mention_unresolved");
+  const owners = await ownerAccountCount(env, k.fid);
+  if (owners < 0) problems.push("owner_account_unreadable");
+  else if (owners === 0) problems.push("owner_account_missing");
   let pickCheck = null;
   const penalty = r.penalty_json ? JSON.parse(r.penalty_json) : null;
   if (penalty && penalty.pick) {
     pickCheck = await recheckReservedPick({ season, leagueId, holder: k.fid, pick: penalty.pick });
     if (!pickCheck.ok) problems.push(pickCheck.reason);
   }
-  const text = _s(r.notice_text).split(MENTION_TOKEN).join(ids.map((id) => `<@${id}>`).join(" ") || "@owner");
   return {
-    ok: !problems.length, problems, text, destination: dest, mention_ids: ids, pick_check: pickCheck,
+    ok: !problems.length, problems, text: plainNotice(r.notice_text), mention: "not rendered in preview", owner_account_active: owners > 0,
+    destination: dest, pick_check: pickCheck,
     offense_no: r.offense_no, sanction_status: r.sanction_status, evidence: r.evidence_json ? JSON.parse(r.evidence_json) : null,
   };
 }
@@ -734,12 +774,17 @@ export async function postLineupNotice(env, { season, leagueId, fid, week, resol
   if (r.status !== "ready" && r.status !== "held") return { ok: false, error: `status_${r.status}`, hold_reason: r.hold_reason };
   if (!_s(r.notice_text)) return { ok: false, error: "notice_missing", hold_reason: r.hold_reason };
 
-  const pv = await previewLineupNotice(env, { season, leagueId, fid: k.fid, week, resolveMentions });
+  const pv = await previewLineupNotice(env, { season, leagueId, fid: k.fid, week });
   const team = (_s(r.notice_text).split("\n")[2] || "").split(` ${MENTION_TOKEN}`)[0];
   if (!pv.ok) {
     const reason = (pv.problems && pv.problems[0]) || pv.error || "preview_failed";
     return { ...(await _hold(env, k, reason, { alertImpl, team, quiet: quietTransient && TRANSIENT_HOLDS.has(reason) })), problems: pv.problems };
   }
+  // THE FINAL PRODUCTION SEND STEP — the only place the owner's real mention
+  // is looked up and inserted (Keith 2026-10-11).
+  const ids = await _mentions(env, k.fid, resolveMentions);
+  if (!ids.length) return await _hold(env, k, "owner_mention_unresolved", { alertImpl, team });
+  const sendText = _s(r.notice_text).split(MENTION_TOKEN).join(ids.map((id) => `<@${id}>`).join(" "));
 
   const claim = await db.prepare(
     `UPDATE ups_lineup_rulings SET notice_claimed_at_utc=?, notice_thread_id=?
@@ -748,7 +793,7 @@ export async function postLineupNotice(env, { season, leagueId, fid, week, resol
   if (!claim || !claim.meta || Number(claim.meta.changes) !== 1) return { ok: false, error: "already_claimed" };
 
   const p = await _discord(env, "POST", `/channels/${encodeURIComponent(pv.destination.thread_id)}/messages`, {
-    content: pv.text.slice(0, 1990), allowed_mentions: { users: pv.mention_ids },
+    content: sendText.slice(0, 1990), allowed_mentions: { users: ids },
   });
   const msgId = _s(p.data && p.data.id);
   if (!p.ok || !msgId) {
@@ -760,6 +805,7 @@ export async function postLineupNotice(env, { season, leagueId, fid, week, resol
   }
   await db.prepare(`UPDATE ups_lineup_rulings SET status='posted', notice_posted_at_utc=?, notice_message_id=?, notice_error=NULL, hold_reason=NULL WHERE ${KEY_SQL}`)
     .bind(_nowIso(), msgId, ...keyArgs(k)).run();
+  // The returned text is the plain one; the mention lives only in Discord.
   return { ok: true, posted: true, thread_id: pv.destination.thread_id, message_id: msgId, text: pv.text };
 }
 
@@ -808,6 +854,91 @@ export async function runLineupAutoPublish(env, { season, leagueId, week, nowUni
     }
   }
   return { ok: true, week, results: out };
+}
+
+// Booking could not read a franchise's lineup for the week, or found none:
+// that is for Keith to review, never a silent skip (Keith 2026-10-11).
+export async function alertBookingSkips(env, { season, leagueId, week, skipped, alertImpl }) {
+  const out = [];
+  for (const sk of (skipped || [])) {
+    const reason = sk.reason === "unknown" ? "lineup_unreadable" : sk.reason === "no_record" ? "no_lineup_submitted" : null;
+    if (!reason) continue;
+    const text = reason === "no_lineup_submitted"
+      ? `⚠️ Week ${week}: no lineup was recorded for Team ${_fid(sk.fid)} when the week's final game kicked off. Failing to submit a lineup is its own §G3 process — nothing was booked or posted.`
+      : `⚠️ Week ${week}: Team ${_fid(sk.fid)}'s locked lineup couldn't be read, so it was not judged. Nothing was booked or posted — review it.`;
+    out.push(await alertOnce(env, { season, leagueId, week, fid: sk.fid, reason, text, alertImpl }));
+  }
+  return out;
+}
+
+// Read-only: how many messages in the thread already carry a violation
+// notice. Contents are never returned.
+async function auditThreadForViolationPosts(env, threadId) {
+  const g = await _discord(env, "GET", `/channels/${encodeURIComponent(threadId)}/messages?limit=100`);
+  if (!g.ok || !Array.isArray(g.data)) return { ok: false, http: g.status };
+  return { ok: true, messages_scanned: g.data.length, violation_posts: g.data.filter((m) => /Lineup Violation — Week/.test(_s(m && m.content))).length };
+}
+
+// THE DRY RUN of the standing rule (Keith 2026-10-11): evaluate the week as
+// the live run will at its final kickoff — booking, evidence, offense number,
+// penalty, the exact post text — verify the thread and that the owner has an
+// active account, and say whether each case would POST or HOLD (and why).
+// Writes nothing to D1. Sends nothing to Discord. Never looks up, returns or
+// renders an owner mention: the text is the plain "CBP — 1st violation …".
+export async function previewStandingRule(env, { season, leagueId, week, nowUnix }) {
+  const db = env && env.UPS_MFL_DB;
+  if (!db) return { ok: false, error: "no_db" };
+  const sched = await weekSchedule(season, week);
+  const last = finalKickoffUnix(sched);
+  if (!last) return { ok: false, error: "schedule_unreadable" };
+  const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
+  const evalAt = Math.max(now, last);
+  const booking = await runLineupBooking(env, { season, leagueId, week, nowUnix: evalAt, dryRun: true });
+  if (booking.skipped) return { ok: false, error: booking.skipped };
+  const thread = await verifyInjuryThread(env, { season, leagueId, week });
+  const threadAudit = thread.thread_id ? await auditThreadForViolationPosts(env, thread.thread_id) : null;
+  const { results: live } = await db.prepare(
+    `SELECT fid, reasons_json, needs_review, review_note FROM ups_lineup_violations WHERE season=? AND league_id=? AND week=? AND voided=0`
+  ).bind(Number(season), String(leagueId), Number(week)).all();
+  const cands = new Map();
+  for (const r of (live || [])) cands.set(_fid(r.fid), { violations: JSON.parse(r.reasons_json || "[]"), needs_review: !!Number(r.needs_review), source: "booked" });
+  const dryBooked = (booking.detail && booking.detail.booked) || [];
+  for (const b of dryBooked) if (!cands.has(_fid(b.fid))) cands.set(_fid(b.fid), { violations: b.violations || [], needs_review: !!b.needs_review, source: "would_book" });
+  if (booking.refused) for (const c of ((booking.detail && booking.detail.candidates) || [])) if (!cands.has(_fid(c.fid))) cands.set(_fid(c.fid), { violations: [], source: "would_book", refused: true });
+  const reserved = await liveReservations(db, leagueId, null);
+  const results = [];
+  for (const [fid, c] of cands) {
+    const holds = [];
+    if (booking.refused) holds.push("mass_booking");
+    if (c.needs_review) holds.push("needs_review");
+    const pr = await db.prepare(`SELECT COUNT(*) AS n FROM ups_lineup_violations WHERE season=? AND league_id=? AND fid=? AND voided=0 AND week < ?`)
+      .bind(Number(season), String(leagueId), fid, Number(week)).first();
+    const offenseNo = (Number(pr && pr.n) || 0) + 1;
+    const earlier = await db.prepare(
+      `SELECT v.week FROM ups_lineup_violations v LEFT JOIN ups_lineup_rulings r ON r.season=v.season AND r.league_id=v.league_id AND r.fid=v.fid AND r.week=v.week
+        WHERE v.season=? AND v.league_id=? AND v.fid=? AND v.week < ? AND v.voided=0 AND (r.ruling IS NULL OR r.status NOT IN ('ready','posted'))`
+    ).bind(Number(season), String(leagueId), fid, Number(week)).all();
+    if (((earlier && earlier.results) || []).length) holds.push("earlier_candidates_unruled");
+    const plan = c.refused ? { status: "held", reason: "mass_booking" } : await computeConfirmedRuling(env, { season, leagueId, fid, week, violations: c.violations, offenseNo, reserved });
+    if (plan.status !== "ready") holds.push(plan.reason || plan.status);
+    if (!thread.ok) holds.push(thread.reason);
+    const owners = await ownerAccountCount(env, fid);
+    if (owners < 0) holds.push("owner_account_unreadable"); else if (owners === 0) holds.push("owner_account_missing");
+    const built = plan.status === "ready" ? plan.build(plan.pick) : null;
+    results.push({
+      fid, team: plan.team || null, source: c.source, would: holds.length ? "hold" : "post", holds: [...new Set(holds)],
+      offense_no: offenseNo, weekly_offenses_recorded: 1, starters_behind_it: (c.violations || []).length,
+      evidence: plan.evidence || null, penalty: built ? built.penalty : null,
+      notice_text: built ? plainNotice(built.notice) : null,
+      owner_account_active: owners > 0,
+    });
+  }
+  return {
+    ok: true, week, evaluated_at_unix: evalAt, final_kickoff_unix: last, final_kickoff_et: etLabel(last), evaluated_as_if_final: now < last,
+    booking: { would_book: dryBooked.map((b) => b.fid), clean: booking.clean || 0, skipped: (booking.detail && booking.detail.skipped) || [], refused: booking.refused || null },
+    thread, thread_audit: threadAudit, results,
+    guarantees: { d1_writes: 0, discord_writes: 0, owner_mentions_resolved: 0, owner_mentions_rendered: 0 },
+  };
 }
 
 // The booking breaker refused this week: tell Keith once.
