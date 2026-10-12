@@ -2357,6 +2357,9 @@ summary:focus-visible {
 .twb-3w-asset .nm { font-weight: 700; font-size: 0.86rem; }
 .twb-3w-asset .mt { font-size: 0.72rem; color: var(--twb-text-soft); }
 /* Lineup-penalty forfeited picks: visible, greyed, never selectable (Keith 2026-10-12). */
+.twb-row-forfeited td { opacity: 0.55; }
+.twb-row-forfeited .twb-asset-name { text-decoration: line-through; }
+.twb-row-forfeited .twb-asset-sub.twb-asset-sub-warn { color: #ffb3b3; font-weight: 700; }
 .twb-3w-asset.is-forfeited,
 .twb-discovery-item.is-forfeited { opacity: 0.55; cursor: not-allowed; border-style: dashed; border-color: var(--twb-border-strong); }
 .twb-3w-asset.is-forfeited:hover { border-color: var(--twb-border-strong); }

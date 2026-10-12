@@ -5301,6 +5301,7 @@
     if (selected) tr.className = "twb-row-selected";
     if (asset.taxi) tr.className = (tr.className ? tr.className + " " : "") + "twb-row-taxi";
     if (!eligible) tr.className = (tr.className ? tr.className + " " : "") + "twb-row-ineligible";
+    if (isForfeitedPick(asset)) tr.className += " twb-row-forfeited";
 
     var tdSelect = document.createElement("td");
     tdSelect.className = "twb-col-select";

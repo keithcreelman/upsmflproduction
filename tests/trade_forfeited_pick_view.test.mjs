@@ -280,13 +280,17 @@ test("desktop 3-team: the forfeited pick renders as a disabled button with its l
 test("desktop wiring: flag kept by normalizeAsset; checkbox can't add it; 3-way click, discovery list and CSS all handle it", () => {
   t.match(fn("normalizeAsset"), /asset\.forfeited = raw\.forfeited === true;/);
   t.match(fn("renderAssetRow"), /cb\.disabled = !eligible && !selected;/);
+  t.match(fn("renderAssetRow"), /if \(isForfeitedPick\(asset\)\) tr\.className \+= " twb-row-forfeited";/);
   t.match(fn("toggleAsset"), /if \(!isTradeEligibleAsset\(asset\)\) return;/);
   t.match(DESK, /if \(this\.disabled \|\| this\.classList\.contains\("is-forfeited"\)\) return;\n\s+var giver = this\.getAttribute\("data-3w-giver"\)/);
   t.match(fn("collectDiscoverableMatches"), /!isTradeEligibleAsset\(a\) && !isForfeitedPick\(a\)/);
   t.match(fn("renderDiscoveryPanel"), /btn\.disabled = true;/);
   const css = fs.readFileSync(new URL("../site/trades/trade_workbench.css", import.meta.url), "utf8");
   const html = fs.readFileSync(new URL("../site/trades/trade_workbench.html", import.meta.url), "utf8");
-  for (const src of [css, html]) t.match(src, /\.twb-3w-asset\.is-forfeited,\n\.twb-discovery-item\.is-forfeited \{ opacity: 0\.55; cursor: not-allowed;/);
+  for (const src of [css, html]) {
+    t.match(src, /\.twb-row-forfeited td \{ opacity: 0\.55; \}/);
+    t.match(src, /\.twb-3w-asset\.is-forfeited,\n\.twb-discovery-item\.is-forfeited \{ opacity: 0\.55; cursor: not-allowed;/);
+  }
   t.match(html, /\.\/trade_workbench\.js\?v=20261012a/);
 });
 
