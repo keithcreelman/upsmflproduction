@@ -291,7 +291,8 @@ test("2nd offense with a 2027 4th owned → that pick, reserved; post says ASSES
   t.equal(r.offense_no, 2); t.equal(r.status, "ready");
   t.deepEqual(r.penalty.pick, { year: 2027, round: 4, original_owner: "0004", basis: "mfl_future_picks" });
   t.equal(reservations(e).length, 1);
-  t.match(r.notice_text, /Penalty assessed: Forfeiture of Pure Greatness’s own 2027 fourth-round pick and a \$5,000 charge against the 2027 salary cap\. Status: assessed — not yet applied on MFL\./);
+  t.match(r.notice_text, /Penalty assessed: Forfeiture of Pure Greatness’s own 2027 fourth-round pick and a \$5,000 charge against the 2027 salary cap\. Status: assessed — the pick is reserved; not yet applied on MFL\./);
+  t.equal(e.UPS_MFL_DB.raw.prepare("SELECT event FROM ups_lineup_forfeit_events WHERE holder_fid='0004' AND week=6").get().event, "reserved", "audit: reserved");
   t.match(r.notice_text, /2nd violation of the 2026 season/);
   t.match(r.notice_text, /If there is another violation this season: Pure Greatness will forfeit its earliest owned future second-round pick and receive a further \$5,000 charge against the following season’s salary cap\. Because Pure Greatness does not own a 2027 second-round pick, its own 2028 second-round pick is currently the applicable pick\./);
   t.equal(ruling(e, "0004", 6).sanction_status, "assessed");
@@ -307,7 +308,10 @@ test("no 2027 4th and MFL lists only 2027 → own 2028 4th, beyond the trade hor
   const e = await secondOffense({ picks: { "0004": [{ year: "2027", round: "3", originalPickFor: "0004" }] } });
   const r = await rule(e, "0004", 6);
   t.deepEqual(r.penalty.pick, { year: 2028, round: 4, original_owner: "0004", basis: "beyond_trade_horizon" });
-  t.match(r.notice_text, /Forfeiture of Pure Greatness’s own 2028 fourth-round pick/);
+  t.match(r.notice_text, /Forfeiture of Pure Greatness’s own 2028 fourth-round pick \(an outstanding obligation until MFL lists 2028 picks\)[\s\S]*Status: assessed — the pick is not yet reserved or applied\./,
+    "an obligation is never described as reserved or applied");
+  t.equal(reservations(e)[0].state, "obligation");
+  t.equal(e.UPS_MFL_DB.raw.prepare("SELECT event FROM ups_lineup_forfeit_events WHERE holder_fid='0004' AND week=6").get().event, "obligation_recorded", "audit: obligation recorded");
 });
 
 test("two qualifying picks in the earliest year → Keith chooses; nothing reserved until he does", async () => {

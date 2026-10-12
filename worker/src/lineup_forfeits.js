@@ -21,7 +21,7 @@
 // Execute. Trades with no future pick never touch D1. If the reservation store
 // cannot be read, a trade WITH a future pick is refused (fail closed).
 
-import { readPickInventory, alertOnce } from "./lineup_rulings.js";
+import { readPickInventory, alertOnce, logForfeitEvent } from "./lineup_rulings.js";
 
 const _s = (v) => String(v == null ? "" : v).trim();
 const _fid = (v) => { const d = _s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; };
@@ -144,20 +144,35 @@ export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl
   ]);
   for (const r of rows) {
     const holder = _fid(r.holder_fid), year = Number(r.pick_year), round = Number(r.pick_round);
+    const log = (event, pick, currentOwner, detail) => logForfeitEvent(db, { season: r.season, leagueId, holder, week: r.week, event, pick, currentOwner, detail });
     if (r.state === "obligation") {
       if (!inv.years.includes(year)) { out.push({ holder, state: "obligation", year, waiting: true }); continue; }
       const qualifying = (inv.byHolder[holder] || []).filter((p) => p.year === year && p.round === round);
       if (qualifying.length === 1) {
         await _setState(db, r, { state: "reserved", original_owner: _fid(qualifying[0].original_owner), ownership_basis: "mfl_future_picks" });
+        await log("obligation_resolved", { year, round, original_owner: qualifying[0].original_owner });
         out.push({ holder, state: "reserved", year, round, original_owner: _fid(qualifying[0].original_owner) });
       } else if (qualifying.length > 1) {
         await _setState(db, r, { state: "needs_selection", options_json: JSON.stringify(qualifying) });
+        await log("needs_selection", { year, round, original_owner: holder }, null, { options: qualifying });
         await say(r, "forfeit_pick_selection", `⚠️ Forfeited-pick choice needed — Team ${holder} owns ${qualifying.length} ${pickWords(year, round)}s for its Week ${r.week} lineup penalty. Choose which one (POST /admin/lineup/forfeit-select).`);
         out.push({ holder, state: "needs_selection", year, round, options: qualifying.length });
       } else {
-        // No pick in that round that year after all: the rule moves to the
-        // next year. Kept as an obligation; Keith is told.
+        // The pick the obligation expected (the team's own, that year) is on
+        // ANOTHER franchise: it was traded on MFL before it could be reserved.
+        // Keep the auditable record and tell both sides (Keith 2026-10-11).
+        const expected = `FP_${holder}_${year}_${round}`;
+        const elsewhere = ownerOf.get(expected);
+        if (elsewhere && elsewhere !== holder) {
+          await log("traded_before_reserve", { year, round, original_owner: holder }, elsewhere);
+          await say(r, `forfeit_traded_before_reserve_${year}`,
+            `🚨 Team ${holder}'s ${pickWords(year, round)} — owed for its Week ${r.week} lineup penalty — was traded on MFL to Team ${elsewhere} before it could be reserved. The forfeiture moves to the next owned ${ROUND_WORD[round] || round}-round pick; recorded for your review.`,
+            `⚠️ Your ${pickWords(year, round)} was owed as a lineup-violation penalty (Week ${r.week}) and was traded on MFL before it could be reserved. The forfeiture still stands and moves to your next owned pick in that round; the commissioner has been told.`);
+        }
+        // No pick in that round that year: the rule moves to the next year.
+        // Kept as an obligation; Keith is told.
         await _setState(db, r, { pick_year: year + 1, original_owner: holder });
+        await log("rolled_forward", { year: year + 1, round, original_owner: holder }, null, { from_year: year });
         await say(r, `forfeit_obligation_rolled_${year}`, `ℹ️ Team ${holder} owns no ${pickWords(year, round)}; its Week ${r.week} forfeiture now applies to its ${pickWords(year + 1, round)} (kept as an obligation until MFL lists it).`);
         out.push({ holder, state: "obligation", year: year + 1, rolled: true });
       }
@@ -168,6 +183,7 @@ export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl
     if (!inv.years.includes(year)) {
       // The year has left the future-pick list (it is now the current draft)
       // and the pick was never secured.
+      await log("unsecured_at_draft", { year, round, original_owner: r.original_owner });
       await say(r, "forfeit_pick_unsecured_at_draft", `⚠️ Team ${holder}'s forfeited ${pickWords(year, round)} reached its draft year without being removed on MFL. Remove it before the draft.`);
       out.push({ holder, state: "reserved", year, unsecured_at_draft: true });
       continue;
@@ -176,6 +192,7 @@ export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl
     if (owner === holder) { out.push({ holder, state: "reserved", ok: true }); continue; }
     if (owner) {
       await _setState(db, r, { state: "traded_away" });
+      await log("traded_away", { year, round, original_owner: r.original_owner }, owner);
       await say(r, "forfeited_pick_traded",
         `🚨 A forfeited pick was traded on MFL — Team ${holder}'s ${pickWords(year, round)} (lineup penalty, Week ${r.week}) now belongs to Team ${owner}. The app cannot block MFL's own site. The forfeiture is NOT applied; decide how to recover it.`,
         `⚠️ Your ${pickWords(year, round)} was forfeited as a lineup-violation penalty (Week ${r.week}) and has just been traded on MFL to Team ${owner}. The forfeiture still stands; the commissioner will follow up.`);
@@ -183,6 +200,7 @@ export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl
       continue;
     }
     await _setState(db, r, { state: "secured" });
+    await log("secured", { year, round, original_owner: r.original_owner });
     out.push({ holder, state: "secured" });
   }
   return { ok: true, checked: rows.length, results: out };
@@ -210,7 +228,21 @@ export async function selectForfeitedPick(env, { season, leagueId, fid, week, pi
   } catch (e) {
     return { ok: false, error: "pick_already_reserved", detail: _s(e && e.message) };
   }
+  await logForfeitEvent(db, { season, leagueId, holder: fid, week, event: "selected", pick });
   return { ok: true, state: "reserved", pick };
+}
+
+// The three stages Keith distinguishes (2026-10-11) for one ruling's penalty:
+//   assessed  the league ruling is recorded (an obligation, a pending choice,
+//             or a pick traded away all stay here)
+//   reserved  the exact pick is held (or already removed on MFL) — not yet
+//             applied until the cap half is verified too
+//   applied   the exact pick/cap action is verified on MFL
+export function penaltyStage({ sanctionStatus, pickState }) {
+  if (sanctionStatus === "applied") return "applied";
+  if (!sanctionStatus || sanctionStatus === "none") return "none";
+  if (pickState === "reserved" || pickState === "secured") return "reserved";
+  return "assessed";
 }
 
 // Staged 2-way / 3-way movements [{from, to, asset_tokens}] → {sender: [tokens]}.

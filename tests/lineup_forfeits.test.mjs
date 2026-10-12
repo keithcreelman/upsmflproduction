@@ -229,5 +229,53 @@ test("a reserved pick reaching its draft year unsecured is flagged to Keith", as
   t.match(alerts[0][1], /reached its draft year without being removed/);
 });
 
+const events = (d, holder) => d.raw.prepare("SELECT event, pick_year, current_owner FROM ups_lineup_forfeit_events WHERE holder_fid=? ORDER BY id").all(holder);
+
+test("the expected pick traded on MFL BEFORE it could be reserved: auditable record, both sides told once, obligation moves on", async () => {
+  const d = db(); const env = { UPS_MFL_DB: d }; alerts.length = 0;
+  reserve(d, { holder: "0002", year: 2028, round: 4, state: "obligation", basis: "beyond_trade_horizon" });
+  mflPicks({ "0002": [[2028, 1]], "0009": [[2028, 4, "0002"]] });   // MFL now lists 2028; CBP's own 4th sits on 0009
+  await reconcile(env); await reconcile(env);
+  const ev = events(d, "0002");
+  t.deepEqual(ev.slice(0, 2).map((x) => [x.event, x.pick_year, x.current_owner]), [["traded_before_reserve", 2028, "0009"], ["rolled_forward", 2029, null]]);
+  t.equal(resv(d, "0002").state, "obligation"); t.equal(resv(d, "0002").pick_year, 2029);
+  t.equal(alerts.filter(([w, x]) => w === "commish" && /traded on MFL to Team 0009 before it could be reserved/.test(x)).length, 1);
+  t.equal(alerts.filter(([w, x]) => w === "owner:0002" && /traded on MFL before it could be reserved/.test(x)).length, 1);
+});
+
+test("every transition lands in the audit trail", async () => {
+  const d = db(); const env = { UPS_MFL_DB: d };
+  reserve(d, { holder: "0004", year: 2027, round: 4 });
+  mflPicks({ "0004": [[2027, 3]], "0009": [[2027, 4, "0004"]] });
+  await reconcile(env);
+  reserve(d, { holder: "0005", year: 2027, round: 2 });
+  mflPicks({ "0005": [[2027, 3]] });
+  await reconcile(env);
+  t.deepEqual(events(d, "0004").map((x) => [x.event, x.current_owner]), [["traded_away", "0009"]]);
+  t.deepEqual(events(d, "0005").map((x) => x.event), ["secured"]);
+});
+
+test("assessed, reserved and applied are distinct stages", () => {
+  t.equal(F.penaltyStage({ sanctionStatus: "none" }), "none");
+  t.equal(F.penaltyStage({ sanctionStatus: "assessed", pickState: "obligation" }), "assessed", "an obligation is not reserved");
+  t.equal(F.penaltyStage({ sanctionStatus: "assessed", pickState: "needs_selection" }), "assessed");
+  t.equal(F.penaltyStage({ sanctionStatus: "assessed", pickState: "traded_away" }), "assessed", "a traded-away pick is not reserved");
+  t.equal(F.penaltyStage({ sanctionStatus: "assessed", pickState: "reserved" }), "reserved");
+  t.equal(F.penaltyStage({ sanctionStatus: "assessed", pickState: "secured" }), "reserved", "secured pick but cap not yet verified ≠ applied");
+  t.equal(F.penaltyStage({ sanctionStatus: "applied", pickState: "secured" }), "applied");
+});
+
+test("the cases list shows each ruling's stage", async () => {
+  const d = db(); const env = { UPS_MFL_DB: d };
+  const ins = (fid, week, state) => {
+    d.raw.prepare("INSERT INTO ups_lineup_violations (season, league_id, fid, week, offense_no, reasons_json) VALUES (?, ?, ?, ?, 2, '[]')").run(SEASON, L, fid, week);
+    d.raw.prepare(`INSERT INTO ups_lineup_rulings (season, league_id, fid, week, ruling, offense_no, ruled_by, ruled_at_utc, status, sanction_status) VALUES (?, ?, ?, ?, 'confirmed', 2, 'auto', 'x', 'posted', 'assessed')`).run(SEASON, L, fid, week);
+    reserve(d, { holder: fid, week, year: 2028, round: 4, state, basis: state === "obligation" ? "beyond_trade_horizon" : "mfl_future_picks" });
+  };
+  ins("0002", 7, "obligation"); ins("0004", 7, "reserved");
+  const c = await R.listLineupCases(env, { season: SEASON, leagueId: L });
+  t.deepEqual(c.cases.map((x) => [x.fid, x.pick_state, x.penalty_stage]), [["0002", "obligation", "assessed"], ["0004", "reserved", "reserved"]]);
+});
+
 restoreConsole();
 await run("lineup_forfeits");

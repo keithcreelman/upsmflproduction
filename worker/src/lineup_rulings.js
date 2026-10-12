@@ -126,14 +126,22 @@ function pickPhrase(pick, holder, names) {
   return orig && orig !== _fid(holder) ? `${base} acquired from ${(names && names[orig]) || `Team ${orig}`}` : `own ${base}`;
 }
 
+// A pick whose league year MFL does not list yet is an OBLIGATION — never
+// described as reserved or applied (Keith 2026-10-11).
+const obligationNote = (pick) => (pick && pick.basis === "beyond_trade_horizon"
+  ? ` (an outstanding obligation until MFL lists ${pick.year} picks)` : "");
+const pickStatus = (pick) => (pick && pick.basis === "beyond_trade_horizon"
+  ? "Status: assessed — the pick is not yet reserved or applied."
+  : "Status: assessed — the pick is reserved; not yet applied on MFL.");
+
 // What the rung assesses NOW. A pick rung names the exact pick; "assessed"
 // is said out loud until it is verified on MFL.
 export function penaltyNowText({ offenseNo, team, season, pick, holder, names }) {
   const next = Number(season) + 1;
   switch (Number(offenseNo)) {
     case 1: return "Warning only. No draft pick or cap charge applies to a first violation.";
-    case 2: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)} and a $5,000 charge against the ${next} salary cap. Status: assessed — not yet applied on MFL.`;
-    case 3: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)} and a further $5,000 charge against the ${next} salary cap. Status: assessed — not yet applied on MFL.`;
+    case 2: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)}${obligationNote(pick)} and a $5,000 charge against the ${next} salary cap. ${pickStatus(pick)}`;
+    case 3: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)}${obligationNote(pick)} and a further $5,000 charge against the ${next} salary cap. ${pickStatus(pick)}`;
     case 4: return `League vote on ${team}’s retention; if retained, a further $10,000 charge against the ${next} salary cap. Status: assessed — the vote has not been held.`;
     default: return "Automatic expulsion. Status: assessed — commissioner action pending.";
   }
@@ -395,6 +403,22 @@ export async function gatherEvidence(env, { season, leagueId, fid, week, violati
 
 // ── D1 ──────────────────────────────────────────────────────────────────────
 
+// Append-only forfeited-pick audit trail (migration 0172). Best-effort by
+// design: a failed audit write is logged loudly but never blocks the ruling,
+// the guard or the reconcile that produced the event.
+export async function logForfeitEvent(db, { season, leagueId, holder, week, event, pick, currentOwner, detail }) {
+  try {
+    await db.prepare(
+      `INSERT INTO ups_lineup_forfeit_events (season, league_id, holder_fid, week, event, pick_year, pick_round, original_owner, current_owner, detail_json, at_utc)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(Number(season), String(leagueId), _fid(holder), Number(week), _s(event),
+      pick ? Number(pick.year) : null, pick ? Number(pick.round) : null, pick ? _fid(pick.original_owner) : null,
+      currentOwner ? _fid(currentOwner) : null, detail ? JSON.stringify(detail).slice(0, 2000) : null, _nowIso()).run();
+  } catch (e) {
+    console.error(`[lineup-forfeit] audit write failed (${event}): ${e && e.message}`);
+  }
+}
+
 const KEY_SQL = "season=? AND league_id=? AND fid=? AND week=?";
 const RES_SQL = "season=? AND league_id=? AND holder_fid=? AND week=?";
 const keyArgs = (k) => [Number(k.season), String(k.leagueId), _fid(k.fid), Number(k.week)];
@@ -424,16 +448,23 @@ export async function listLineupCases(env, { season, leagueId }) {
   const { results } = await db.prepare(
     `SELECT v.season, v.league_id, v.fid, v.week, v.offense_no, v.reasons_json, v.needs_review, v.voided, v.void_reason, v.recorded_at_utc,
             r.ruling, r.offense_no AS ruled_offense_no, r.status, r.hold_reason, r.ruled_by, r.ruled_at_utc,
-            r.notice_thread_id, r.notice_posted_at_utc, r.notice_message_id, r.sanction_status, r.penalty_json
+            r.notice_thread_id, r.notice_posted_at_utc, r.notice_message_id, r.sanction_status, r.penalty_json,
+            p.state AS pick_state, p.pick_year, p.pick_round, p.original_owner AS pick_original_owner
        FROM ups_lineup_violations v
        LEFT JOIN ups_lineup_rulings r
          ON r.season=v.season AND r.league_id=v.league_id AND r.fid=v.fid AND r.week=v.week
+       LEFT JOIN ups_lineup_pick_reservations p
+         ON p.season=v.season AND p.league_id=v.league_id AND p.holder_fid=v.fid AND p.week=v.week AND p.released_at_utc IS NULL
       WHERE v.season=? AND v.league_id=?
       ORDER BY v.fid, v.week`
   ).bind(Number(season), String(leagueId)).all();
   const rows = (results || []).map((r) => ({ ...r }));
   const live = {};
   for (const r of rows) {
+    // assessed → reserved → applied (Keith 2026-10-11)
+    r.penalty_stage = r.sanction_status === "applied" ? "applied"
+      : !r.sanction_status || r.sanction_status === "none" ? "none"
+      : (r.pick_state === "reserved" || r.pick_state === "secured") ? "reserved" : "assessed";
     if (Number(r.voided)) { r.preview_offense_no = 0; continue; }
     live[r.fid] = (live[r.fid] || 0) + 1;
     r.preview_offense_no = live[r.fid];
@@ -489,8 +520,9 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     const laterWeeks = ((later && later.results) || []).map((r) => Number(r.week));
     if (laterWeeks.length) return { ok: false, error: "later_ruling_exists", weeks: laterWeeks, detail: "a later confirmed week would be renumbered; correct it by hand" };
     if (!Number(cand.voided)) await voidLineupViolation(env, { season, leagueId, fid: k.fid, week, reason: _s(note) || "excused by commissioner", by });
-    await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=?, state='released' WHERE ${RES_SQL} AND released_at_utc IS NULL`)
+    const rel = await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=?, state='released' WHERE ${RES_SQL} AND released_at_utc IS NULL`)
       .bind(_nowIso(), ...keyArgs(k)).run();
+    if (rel && rel.meta && Number(rel.meta.changes) > 0) await logForfeitEvent(db, { season, leagueId, holder: k.fid, week, event: "released", detail: { note: _s(note) } });
     await _upsertRuling(db, k, { ruling: "excused", note, by, status: "closed", hold_reason: null });
     return { ok: true, ruling: "excused", status: "closed" };
   }
@@ -551,6 +583,7 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     if (!held || held.released_at_utc) return hold("pick_reservation_failed", { evidence: plan.evidence });
     // An overlapping call may have reserved first; the stored reservation wins.
     pick = { year: Number(held.pick_year), round: Number(held.pick_round), original_owner: _fid(held.original_owner), basis: held.ownership_basis };
+    await logForfeitEvent(db, { season, leagueId, holder: k.fid, week, event: pick.basis === "beyond_trade_horizon" ? "obligation_recorded" : "reserved", pick, detail: { offense_no: offenseNo } });
   }
   const built = plan.build(pick);
   await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "ready", evidence: plan.evidence, penalty: built.penalty, notice_text: built.notice, sanction_status: plan.sanction });

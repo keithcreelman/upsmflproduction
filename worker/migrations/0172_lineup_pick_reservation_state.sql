@@ -16,3 +16,25 @@ ALTER TABLE ups_lineup_pick_reservations ADD COLUMN state_changed_at_utc TEXT;
 UPDATE ups_lineup_pick_reservations SET state = 'obligation'
  WHERE ownership_basis = 'beyond_trade_horizon' AND released_at_utc IS NULL;
 UPDATE ups_lineup_pick_reservations SET state = 'released' WHERE released_at_utc IS NOT NULL;
+
+-- Audit trail: every forfeited-pick event, append-only (Keith 2026-10-11:
+-- "preserve an auditable record if an owner trades the expected pick through
+-- MFL before it can be reserved"). event: reserved | obligation_recorded |
+-- obligation_resolved | needs_selection | selected | rolled_forward |
+-- traded_before_reserve | traded_away | secured | released | unsecured_at_draft
+CREATE TABLE IF NOT EXISTS ups_lineup_forfeit_events (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  season          INTEGER NOT NULL,
+  league_id       TEXT    NOT NULL,
+  holder_fid      TEXT    NOT NULL,
+  week            INTEGER NOT NULL,
+  event           TEXT    NOT NULL,
+  pick_year       INTEGER,
+  pick_round      INTEGER,
+  original_owner  TEXT,
+  current_owner   TEXT,
+  detail_json     TEXT,
+  at_utc          TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lineup_forfeit_events_holder
+  ON ups_lineup_forfeit_events (season, league_id, holder_fid, week);
