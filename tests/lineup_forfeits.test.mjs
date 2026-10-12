@@ -168,20 +168,34 @@ test("obligation: kept while MFL doesn't list the year; reserved the moment it d
   t.equal(alerts.length, 0);
 });
 
-test("obligation: several qualifying picks → needs_selection, Keith asked once; his choice reserves it", async () => {
+test("obligation: its own pick and an acquired pick in the same draft → own pick reserved, nobody asked (Keith 2026-10-12)", async () => {
   const d = db(); const env = { UPS_MFL_DB: d }; alerts.length = 0;
   reserve(d, { holder: "0002", year: 2028, round: 4, state: "obligation", basis: "beyond_trade_horizon" });
-  mflPicks({ "0002": [[2028, 4], [2028, 4, "0007"]] });
+  mflPicks({ "0002": [[2028, 4, "0007"], [2028, 4]] });
+  await reconcile(env); await reconcile(env);
+  const r = resv(d, "0002");
+  t.equal(r.state, "reserved"); t.equal(r.original_owner, "0002"); t.equal(r.ownership_basis, "mfl_future_picks");
+  t.equal(alerts.length, 0, "no question asked");
+  t.equal((await F.checkForfeitedPicks(env, L, ["FP_0002_2028_4"])).code, "pick_forfeited", "its own pick is blocked");
+  t.equal((await F.checkForfeitedPicks(env, L, ["FP_0007_2028_4"])).ok, true, "the acquired pick stays tradeable");
+  const ev = d.raw.prepare("SELECT event, detail_json FROM ups_lineup_forfeit_events WHERE holder_fid='0002' AND event='obligation_resolved'").get();
+  t.match(ev.detail_json, /own_pick_first/, "audit names the rule that chose it");
+});
+
+test("obligation: several qualifying picks, none its own → needs_selection, Keith asked once; his choice reserves it", async () => {
+  const d = db(); const env = { UPS_MFL_DB: d }; alerts.length = 0;
+  reserve(d, { holder: "0002", year: 2028, round: 4, state: "obligation", basis: "beyond_trade_horizon" });
+  mflPicks({ "0002": [[2028, 4, "0011"], [2028, 4, "0007"]] });
   await reconcile(env); await reconcile(env);
   t.equal(resv(d, "0002").state, "needs_selection");
   t.equal(alerts.filter(([w]) => w === "commish").length, 1, "asked once");
   t.equal((await F.checkForfeitedPicks(env, L, ["FP_0007_2028_4"])).code, "pick_forfeited", "both candidates blocked while undecided");
-  t.equal((await F.selectForfeitedPick(env, { season: SEASON, leagueId: L, fid: "0002", week: 5, pickChoice: "2028-4-0011" })).error, "not_an_option");
+  t.equal((await F.selectForfeitedPick(env, { season: SEASON, leagueId: L, fid: "0002", week: 5, pickChoice: "2028-4-0002" })).error, "not_an_option");
   const ok = await F.selectForfeitedPick(env, { season: SEASON, leagueId: L, fid: "0002", week: 5, pickChoice: "2028-4-0007" });
   t.equal(ok.ok, true);
   const r = resv(d, "0002");
   t.equal(r.state, "reserved"); t.equal(r.original_owner, "0007");
-  t.equal((await F.checkForfeitedPicks(env, L, ["FP_0002_2028_4"])).ok, true, "the unchosen pick is free again");
+  t.equal((await F.checkForfeitedPicks(env, L, ["FP_0011_2028_4"])).ok, true, "the unchosen pick is free again");
 });
 
 test("obligation: no pick in that round that year → rolls to the next year, Keith told", async () => {

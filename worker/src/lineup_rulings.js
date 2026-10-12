@@ -254,11 +254,18 @@ export async function readPickInventory(season, leagueId) {
 
 const pickKey = (p) => `${p.year}-${p.round}-${_fid(p.original_owner)}`;
 
+// Two or more picks in the same round of the same draft: the franchise's OWN
+// pick is forfeited first (Keith 2026-10-12; canon §G3). null when none of
+// them is its own — the commissioner then chooses.
+export function ownPickFirst(picks, holder) {
+  return (picks || []).find((p) => _fid(p.original_owner) === _fid(holder)) || null;
+}
+
 // The pick a rung forfeits: the EARLIEST future year in which the franchise
 // owns a pick in that round (Keith 2026-10-11; canon §G3).
 //   - Years MFL lists are read from MFL; picks already reserved are skipped.
-//   - Two or more in that earliest year: the commissioner chooses (`choice`
-//     = "YEAR-ROUND-ORIGFID").
+//   - Two or more in that earliest year: its own pick (ownPickFirst); if none
+//     is its own, the commissioner chooses (`choice` = "YEAR-ROUND-ORIGFID").
 //   - Past the years MFL lists: canon A6 makes picks more than a year out
 //     untradeable, so the franchise still holds its OWN pick there — resolved
 //     with basis 'beyond_trade_horizon' (an obligation until MFL lists it).
@@ -272,6 +279,8 @@ export function resolveForfeitPick({ inventory, holder, round, season, reserved,
     const inYear = own.filter((p) => p.year === y);
     if (!inYear.length) continue;
     if (inYear.length === 1) return { status: "resolved", pick: { ...inYear[0], basis: "mfl_future_picks" } };
+    const mine = ownPickFirst(inYear, h);
+    if (mine) return { status: "resolved", pick: { ...mine, basis: "mfl_future_picks" } };
     const picked = choice ? inYear.find((p) => pickKey(p) === _s(choice)) : null;
     if (picked) return { status: "resolved", pick: { ...picked, basis: "mfl_future_picks" } };
     return { status: "needs_selection", year: y, options: inYear.map((p) => ({ ...p, key: pickKey(p) })), bad_choice: choice ? _s(choice) : null };

@@ -21,7 +21,7 @@
 // Execute. Trades with no future pick never touch D1. If the reservation store
 // cannot be read, a trade WITH a future pick is refused (fail closed).
 
-import { readPickInventory, alertOnce, logForfeitEvent } from "./lineup_rulings.js";
+import { readPickInventory, alertOnce, logForfeitEvent, ownPickFirst } from "./lineup_rulings.js";
 
 const _s = (v) => String(v == null ? "" : v).trim();
 const _fid = (v) => { const d = _s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0") : ""; };
@@ -148,10 +148,13 @@ export async function reconcileForfeitedPicks(env, { season, leagueId, alertImpl
     if (r.state === "obligation") {
       if (!inv.years.includes(year)) { out.push({ holder, state: "obligation", year, waiting: true }); continue; }
       const qualifying = (inv.byHolder[holder] || []).filter((p) => p.year === year && p.round === round);
-      if (qualifying.length === 1) {
-        await _setState(db, r, { state: "reserved", original_owner: _fid(qualifying[0].original_owner), ownership_basis: "mfl_future_picks" });
-        await log("obligation_resolved", { year, round, original_owner: qualifying[0].original_owner });
-        out.push({ holder, state: "reserved", year, round, original_owner: _fid(qualifying[0].original_owner) });
+      // One pick, or several with its own among them (own pick first —
+      // Keith 2026-10-12): reserved without asking.
+      const chosen = qualifying.length === 1 ? qualifying[0] : ownPickFirst(qualifying, holder);
+      if (chosen) {
+        await _setState(db, r, { state: "reserved", original_owner: _fid(chosen.original_owner), ownership_basis: "mfl_future_picks" });
+        await log("obligation_resolved", { year, round, original_owner: chosen.original_owner }, null, qualifying.length > 1 ? { rule: "own_pick_first", options: qualifying } : undefined);
+        out.push({ holder, state: "reserved", year, round, original_owner: _fid(chosen.original_owner) });
       } else if (qualifying.length > 1) {
         await _setState(db, r, { state: "needs_selection", options_json: JSON.stringify(qualifying) });
         await log("needs_selection", { year, round, original_owner: holder }, null, { options: qualifying });
