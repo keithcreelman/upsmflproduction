@@ -30,10 +30,13 @@ and the exact destination. Nothing touches the network before it.
                     --confirm-send=<TEST_CHANNEL_ID>   exact id it will post to
                     UPS_ALLOW_ROAST_AB_DISCORD_SEND=1  in the environment
                   It also stops (exit 2) if no Discord bot token is found.
-  --context-only  build + print the roast context (what the model would see).
-                  No Anthropic, no Discord write. Does the same recent-posts
-                  Discord read as the live context build (skipped + said when
-                  there is no token).
+  --context-only  OFFLINE: prints only what local files hold — the trade from
+                  the newest committed MFL snapshot (data/mfl-snapshots),
+                  franchise names from that snapshot, the local owner dossier,
+                  and the prompt framing. No network, no token, no Keychain, no
+                  Anthropic, no Giphy. The full roast context (live MFL/Worker)
+                  is NOT built, and the duplicate check runs only with
+                  --generate / --send; the output says so.
 
 Per fire (trade × model), a send posts:
   Message 1  trade announcement embed → channel TEST_CHANNEL_ID
@@ -47,12 +50,23 @@ Bypasses the launchd bot entirely — uses Discord REST API (no gateway
 connection → no identity conflict with the running bot). Reads owner /
 team mapping from D1 (discord_owners table) via the worker, NOT the
 missing hardcoded CSV. Reads contracts + rosters live from MFL.
-Every Discord WRITE also passes a backstop in
-_discord_request(): any non-GET request needs UPS_ALLOW_ROAST_AB_DISCORD_SEND=1.
+
+WRITE GUARD (in _discord_request, the one function that does Discord HTTP,
+checked before any network attempt): a non-GET request needs
+UPS_ALLOW_ROAST_AB_DISCORD_SEND=1 AND this run's validated --confirm-send,
+must be a POST create-message or create-thread-from-message route, and may
+target only TEST_CHANNEL_ID or a thread THIS run created there. The
+production trade channel, existing threads, other channels, other routes and
+unparsable paths are refused with the reason.
+
+Audit log (pipelines/etl/data/ab_test_fire.log, gitignored): one JSON line
+per --generate/--send run with whitelisted fields only — mode, trade, model,
+ok/error type, message/thread ids, char counts, flags, token usage. Never a
+token/key, roast or context text, GIF query, or fetched Discord text.
 
 Env / Keychain (each env first, then `security find-generic-password -a $USER -s <service> -w`):
   ANTHROPIC_API_KEY  — --generate/--send          (service anthropic_api_key)
-  DISCORD_BOT_TOKEN  — --generate/--send/--context-only, read; --send, write
+  DISCORD_BOT_TOKEN  — --generate/--send, read; --send, write
                                                    (service discord_bot_token)
   GIPHY_API_KEY      — --generate/--send, optional (service giphy_api_key;
                        falls back to the Worker /api/giphy-search proxy)
@@ -61,7 +75,7 @@ Usage:
   python roast_bot_fire_ab.py                        # usage + plan only; nothing runs
   python roast_bot_fire_ab.py --generate             # PAID: both trades, opus; preview only
   python roast_bot_fire_ab.py --generate --trade 1778546756 --model both
-  python roast_bot_fire_ab.py --context-only         # context only, no Anthropic
+  python roast_bot_fire_ab.py --context-only         # offline: local context only
   UPS_ALLOW_ROAST_AB_DISCORD_SEND=1 python roast_bot_fire_ab.py \\
       --send --confirm-send=1089538054236160010      # generates, then POSTS to the test channel
 """
@@ -153,8 +167,9 @@ def send_refusal(args, env) -> str:
 def get_discord_token() -> str:
     """DISCORD_BOT_TOKEN: env, then Keychain (service discord_bot_token).
     "" when neither has it. This IS trade_roast_context's helper — the one
-    the context builder's recent-posts read uses — so --generate, --send and
-    --context-only all source the token exactly the way the live build does."""
+    the context builder's recent-posts read uses — so --generate and --send
+    source the token exactly the way the live build does. --context-only
+    never calls it."""
     return trade_roast_context._discord_bot_token()
 
 
@@ -175,12 +190,21 @@ def source_discord_token() -> str:
     return tok
 
 
+def _dup_check_status(ctx, have_token: bool) -> str:
+    """skipped (no token) | done (ban list built) | empty (read gave nothing)."""
+    if not have_token:
+        return "skipped"
+    text = (ctx.get("recent_bot_posts_text") or "") if isinstance(ctx, dict) else ""
+    return "done" if text else "empty"
+
+
 def _dup_check_note(ctx, have_token: bool) -> str:
     """One line on whether the recent-posts duplicate check fed this context."""
-    if not have_token:
+    status = _dup_check_status(ctx, have_token)
+    if status == "skipped":
         return "  Duplicate check: SKIPPED (no Discord token — see above)"
     text = (ctx.get("recent_bot_posts_text") or "") if isinstance(ctx, dict) else ""
-    if text:
+    if status == "done":
         return (f"  Duplicate check: done — bot's recent posts read from trade channel "
                 f"{trade_roast_context.DISCORD_TRADE_CHANNEL_ID}; ban list in the prompt "
                 f"({len(text)} chars)")
@@ -227,13 +251,110 @@ def get_anthropic_key() -> str:
 
 # ── Discord REST post ──────────────────────────────────────────────────────
 
+# ── Discord WRITE GUARD ────────────────────────────────────────────────────
+# Every Discord request goes through _discord_request(); every non-GET one
+# passes _write_guard() there, BEFORE any network attempt, so no caller can
+# bypass it. A write is allowed only when ALL hold:
+#   - UPS_ALLOW_ROAST_AB_DISCORD_SEND=1 in the environment, AND
+#   - this run's main() accepted --confirm-send=<TEST_CHANNEL_ID> (run state), AND
+#   - method POST on exactly one of two routes:
+#       /channels/<id>/messages                   create message
+#       /channels/<id>/messages/<msg id>/threads  create thread from message
+#   - <id> is never the production trade channel
+#     (trade_roast_context.DISCORD_TRADE_CHANNEL_ID), AND
+#   - create message: <id> is TEST_CHANNEL_ID or a thread THIS run created there;
+#     create thread: <id> is TEST_CHANNEL_ID and <msg id> a message THIS run
+#     posted there.
+# Anything else — another channel, an existing/unknown thread, another route
+# or method, an unparsable path — is refused with the reason.
+
+_SNOWFLAKE = "[0-9]{1,20}"
+_CREATE_MESSAGE_RE = re.compile(rf"/channels/({_SNOWFLAKE})/messages")
+_CREATE_THREAD_RE = re.compile(rf"/channels/({_SNOWFLAKE})/messages/({_SNOWFLAKE})/threads")
+
+# Run-local write state. main() resets it at the start and end of every run.
+#   confirmed_channel  the --confirm-send value main() validated (TEST_CHANNEL_ID or None)
+#   posted_messages    ids of messages this run posted in TEST_CHANNEL_ID
+#   created_threads    ids of threads this run created off those messages,
+#                      taken ONLY from a create-thread response whose
+#                      parent_id is TEST_CHANNEL_ID
+_RUN = {"confirmed_channel": None, "posted_messages": set(), "created_threads": set()}
+
+
+class DiscordWriteRefused(SystemExit):
+    """A Discord write the guard refused. Raised before any network attempt."""
+
+
+def _reset_run_state() -> None:
+    _RUN["confirmed_channel"] = None
+    _RUN["posted_messages"] = set()
+    _RUN["created_threads"] = set()
+
+
+def record_send_confirmation(value) -> bool:
+    """main() calls this once it has accepted --send: records the validated
+    --confirm-send value for _write_guard(). Only TEST_CHANNEL_ID is accepted."""
+    if str(value or "").strip() != TEST_CHANNEL_ID:
+        return False
+    _RUN["confirmed_channel"] = TEST_CHANNEL_ID
+    return True
+
+
+def _write_guard(method: str, path) -> tuple:
+    """Raise DiscordWriteRefused unless this write is allowed (rules above).
+    Returns (route, channel_id, message_id) for _record_write()."""
+    def refuse(why):
+        raise DiscordWriteRefused(f"Discord {method} {path!r} REFUSED (nothing sent): {why}")
+
+    if os.environ.get(SEND_ENV, "").strip() != "1":
+        refuse(f"{SEND_ENV}=1 is not set (only GET is allowed without it)")
+    if _RUN["confirmed_channel"] != TEST_CHANNEL_ID:
+        refuse(f"this run has no validated --confirm-send={TEST_CHANNEL_ID}")
+    if str(method).upper() != "POST":
+        refuse("only POST create-message / create-thread-from-message writes are allowed")
+    path_s = path if isinstance(path, str) else ""
+    m_thread = _CREATE_THREAD_RE.fullmatch(path_s)
+    m_msg = _CREATE_MESSAGE_RE.fullmatch(path_s)
+    if not (m_thread or m_msg):
+        refuse("unrecognised or unparsable route (allowed: /channels/<id>/messages, "
+               "/channels/<id>/messages/<msg id>/threads)")
+    channel_id = (m_thread or m_msg).group(1)
+    prod = str(getattr(trade_roast_context, "DISCORD_TRADE_CHANNEL_ID", "") or "").strip()
+    if not prod:
+        refuse("the production trade channel id is unknown, so the destination can't be verified")
+    if channel_id == prod:
+        refuse(f"{channel_id} is the PRODUCTION trade channel")
+    if m_thread:
+        if channel_id != TEST_CHANNEL_ID:
+            refuse(f"threads may only be created in the test channel {TEST_CHANNEL_ID}")
+        if m_thread.group(2) not in _RUN["posted_messages"]:
+            refuse(f"message {m_thread.group(2)} was not posted to the test channel by this run")
+        return "thread", channel_id, m_thread.group(2)
+    if channel_id == TEST_CHANNEL_ID or channel_id in _RUN["created_threads"]:
+        return "message", channel_id, ""
+    refuse(f"{channel_id} is neither the test channel nor a thread this run created in it "
+           f"(existing threads and other channels are refused)")
+
+
+def _record_write(route: str, channel_id: str, resp) -> None:
+    """After an allowed write: remember what THIS run created, so only those
+    ids become valid destinations."""
+    rid = str((resp or {}).get("id", "")) if isinstance(resp, dict) else ""
+    if not re.fullmatch(_SNOWFLAKE, rid):
+        return
+    if route == "message" and channel_id == TEST_CHANNEL_ID:
+        _RUN["posted_messages"].add(rid)
+    elif (route == "thread" and channel_id == TEST_CHANNEL_ID
+          and str(resp.get("parent_id", "")) == TEST_CHANNEL_ID):
+        _RUN["created_threads"].add(rid)
+
+
 def _discord_request(method: str, path: str, token: str, payload: dict = None) -> dict:
-    # Backstop for EVERY write path, even a caller that skipped main()'s gate:
-    # any method other than GET needs SEND_ENV=1 or no request is made.
-    # Reads (GET) pass, so a generated dry run can read exactly like a send.
-    if method.upper() not in READ_METHODS and os.environ.get(SEND_ENV, "").strip() != "1":
-        raise SystemExit(f"Discord {method} {path} refused: {SEND_ENV}=1 is not set "
-                         f"(only GET is allowed without it)")
+    # The ONE function that performs Discord HTTP. GET is a read and passes;
+    # every other method must clear _write_guard() first (raises, no request).
+    write = str(method).upper() not in READ_METHODS
+    if write:
+        route, channel_id, _msg = _write_guard(method, path)
     url = f"{DISCORD_API_BASE}{path}"
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(
@@ -247,7 +368,10 @@ def _discord_request(method: str, path: str, token: str, payload: dict = None) -
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             body = resp.read().decode("utf-8")
-            return json.loads(body) if body else {}
+            result = json.loads(body) if body else {}
+        if write:
+            _record_write(route, channel_id, result)
+        return result
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         raise SystemExit(f"Discord {method} {path} failed {e.code}: {body}") from e
@@ -326,6 +450,10 @@ def giphy_search(api_key: str, query: str) -> str:
 
 # ── Roast generation ───────────────────────────────────────────────────────
 
+# The user turn sent with every roast (the context text follows it).
+ROAST_USER_PREFIX = "Roast this trade. Use ALL the data provided. Be ruthless."
+
+
 def generate_roast(client: anthropic.Anthropic, model: str, context_text: str) -> tuple[str, dict]:
     """Generate a roast. Returns (roast_text, usage_dict) — usage has input_tokens, output_tokens, cost_estimate."""
     message = client.messages.create(
@@ -334,7 +462,7 @@ def generate_roast(client: anthropic.Anthropic, model: str, context_text: str) -
         system=ROAST_SYSTEM,
         messages=[{
             "role": "user",
-            "content": f"Roast this trade. Use ALL the data provided. Be ruthless.\n\n{context_text}",
+            "content": f"{ROAST_USER_PREFIX}\n\n{context_text}",
         }],
     )
     usage = message.usage
@@ -437,6 +565,7 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     context_text = context_to_prompt_text(ctx)
     print(f"  Context built ({len(context_text)} chars)")
     print(_dup_check_note(ctx, bool(discord_token)))
+    dup_check = _dup_check_status(ctx, bool(discord_token))
 
     print(f"  Generating roast via {model_id}...")
     t0 = time.time()
@@ -489,9 +618,9 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
         return {
             "ok": True, "dry_run": True,
             "trade_ts": trade_ts, "model": model_label,
-            "context_chars": len(context_text),
+            "context_chars": len(context_text), "dup_check": dup_check,
             "roast_chars": len(roast_clean),
-            "gif_query": gif_query,
+            "gif_query": gif_query, "gif": bool(gif_url),
             "gen_ms": gen_ms, "usage": usage,
         }
 
@@ -528,11 +657,31 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
         "thread_id": thread_id,
         "roast_msg_id": roast_msg_id,
         "gif_msg_id": gif_msg_id,
-        "gif_query": gif_query,
-        "context_chars": len(context_text),
+        "gif_query": gif_query, "gif": bool(gif_url),
+        "context_chars": len(context_text), "dup_check": dup_check,
         "roast_chars": len(roast_clean),
         "gen_ms": gen_ms, "usage": usage,
     }
+
+
+# Audit log: the only fields a result may write (anything else is dropped).
+AUDIT_RESULT_KEYS = ("ok", "dry_run", "trade_ts", "model", "context_chars", "dup_check",
+                     "roast_chars", "gif", "gen_ms", "announcement_msg_id", "thread_id",
+                     "roast_msg_id", "gif_msg_id", "error_type")
+AUDIT_USAGE_KEYS = ("input_tokens", "output_tokens", "cost_estimate_usd")
+
+
+def audit_log_line(mode: str, results: list) -> str:
+    """One JSON line for ab_test_fire.log: whitelisted ids/counts/flags only."""
+    rows = []
+    for r in results:
+        row = {k: r[k] for k in AUDIT_RESULT_KEYS if k in r}
+        usage = r.get("usage")
+        if isinstance(usage, dict):
+            row["usage"] = {k: usage[k] for k in AUDIT_USAGE_KEYS if k in usage}
+        rows.append(row)
+    return json.dumps({"fired_at_utc": datetime.now(timezone.utc).isoformat(),
+                       "mode": mode, "results": rows})
 
 
 DESTINATION = (f"channel {TEST_CHANNEL_ID} (UPS test channel) — Message 1 (trade announcement) "
@@ -544,7 +693,7 @@ Nothing was run. Generating a roast is a PAID Anthropic call, so it needs an exp
   --generate        generate + print a dry-run preview (destination + every message); never posts
   --send            generate, then post to the test channel; also needs
                     --confirm-send={TEST_CHANNEL_ID} and {SEND_ENV}=1 in the environment
-  --context-only    print the roast context only; no Anthropic, no post"""
+  --context-only    offline: print the context local files hold; no network, no token"""
 
 
 def preflight_plan(args, mode: str, trades: list, models: list) -> str:
@@ -564,15 +713,17 @@ def preflight_plan(args, mode: str, trades: list, models: list) -> str:
     giphy = ("YES — one GIF search per roast that ends in [GIF: …] "
              "(GIPHY_API_KEY env → Keychain giphy_api_key → Worker /api/giphy-search proxy)")
     secrets = "ANTHROPIC_API_KEY, DISCORD_BOT_TOKEN, GIPHY_API_KEY (each env first, then Keychain)"
+    dup_later = "NO — duplicate check: runs only with --generate / --send"
     if mode == "plan":
         rows = [
             ("Mode", "PLAN ONLY — no option given; nothing is read, generated or posted"),
+            ("Network", "NO"),
             ("Anthropic", "NO — generating is a paid call; it needs --generate (or --send)"),
             ("MFL / Worker", "NO"),
             ("Discord read", "NO"),
             ("Giphy read", "NO"),
             ("Discord write", "NO"),
-            ("Secrets read", "none (no env key, no Keychain)"),
+            ("Secrets", "none (no env key, no Keychain)"),
             ("Destination", f"none this run; --send would post to {DESTINATION}"),
         ]
     elif mode == "refused":
@@ -580,48 +731,58 @@ def preflight_plan(args, mode: str, trades: list, models: list) -> str:
                 else "--confirm-send without --send")
         rows = [
             ("Mode", f"REFUSED — {what}; nothing runs (reason below)"),
+            ("Network", "NO (refused)"),
             ("Anthropic", "NO (refused)"),
             ("MFL / Worker", "NO (refused)"),
             ("Discord read", "NO (refused)"),
             ("Giphy read", "NO (refused)"),
             ("Discord write", "NO (refused)"),
-            ("Secrets read", "none (refused before any env key or Keychain read)"),
+            ("Secrets", "none (refused before any env key or Keychain read)"),
             ("Destination", f"none this run; an allowed --send posts to {DESTINATION}"),
         ]
     elif mode == "context":
         rows = [
-            ("Mode", "CONTEXT ONLY — build + print the roast context the model would see"),
+            ("Mode", "CONTEXT ONLY (offline) — print the context available from local files; "
+                     "the full roast context needs live reads, so it is NOT built here"),
+            ("Network", "NO — no MFL, Worker, Discord, Giphy or Anthropic"),
             ("Anthropic", "NO"),
-            ("MFL / Worker", mfl),
-            ("Discord read", dread + no_token + ". Same read as the live context build"),
+            ("MFL / Worker", "NO — local files only: committed MFL snapshots "
+                             "(data/mfl-snapshots/<date>/transactions.json, league.json) "
+                             "+ local owner_profiles.json"),
+            ("Discord read", dup_later),
             ("Giphy read", "NO"),
             ("Discord write", "NO"),
-            ("Secrets read", "DISCORD_BOT_TOKEN (env first, then Keychain), for the read only"),
+            ("Secrets", "none (no token, no env key, no Keychain)"),
             ("Destination", "none — nothing is posted"),
         ]
     elif mode == "generate":
         rows = [
             ("Mode", "GENERATE — paid generation, then a DRY-RUN preview; nothing is posted"),
+            ("Network", "YES — MFL, Worker, Discord (GET only), Giphy, Anthropic"),
             ("Anthropic", gen),
             ("MFL / Worker", mfl),
             ("Discord read", dread + no_token + ". Same reads as --send"),
             ("Giphy read", giphy + ". Same as --send"),
             ("Discord write", "NO — dry run; only --send writes (the token is used for the read only)"),
-            ("Secrets read", secrets),
+            ("Secrets", secrets),
             ("Destination", f"PREVIEW ONLY — {DESTINATION}"),
         ]
     else:  # send — every gate already met
         rows = [
             ("Mode", "SEND — --send implies --generate: same reads + messages as --generate, "
                      "every message printed, THEN posted"),
+            ("Network", "YES — MFL, Worker, Discord (GET + test-channel POSTs), Giphy, Anthropic"),
             ("Anthropic", gen),
             ("MFL / Worker", mfl),
             ("Discord read", dread + "; no token → --send stops (exit 2) before generating"),
             ("Giphy read", giphy),
             ("Discord write", f"YES — gates met (--confirm-send={TEST_CHANNEL_ID}, {SEND_ENV}=1); "
                               f"per fire: POST Message 1, create a NEW thread off it, POST "
-                              f"Messages 2-3 in that thread"),
-            ("Secrets read", secrets),
+                              f"Messages 2-3 in that thread. Write guard: only channel "
+                              f"{TEST_CHANNEL_ID} + threads this run creates there; production "
+                              f"trade channel {trade_roast_context.DISCORD_TRADE_CHANNEL_ID} "
+                              f"and every other id refused"),
+            ("Secrets", secrets),
             ("Destination", DESTINATION),
         ]
     rows.append(("Selection", f"trades {trades} (context only; --model unused)" if mode == "context"
@@ -631,7 +792,103 @@ def preflight_plan(args, mode: str, trades: list, models: list) -> str:
     return f"{PLAN_START}\n{body}\n{PLAN_END}"
 
 
+# ── --context-only: OFFLINE (local files only) ─────────────────────────────
+# repo/data/mfl-snapshots — the committed daily MFL pulls. Fixed at import
+# (not derived from SCRIPT_DIR) so it never moves with the audit-log dir.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SNAPSHOT_DIR = REPO_ROOT / "data" / "mfl-snapshots"
+
+
+def _rel(path: Path) -> str:
+    try:
+        return str(Path(path).resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _read_json(path: Path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def local_trade_snapshot(ts: int):
+    """(snapshot_dir, trade) from the NEWEST local MFL snapshot whose
+    transactions.json has this trade, else (None, None). Local files only."""
+    if not SNAPSHOT_DIR.is_dir():
+        return None, None
+    for d in sorted((p for p in SNAPSHOT_DIR.iterdir() if p.is_dir()), reverse=True):
+        data = _read_json(d / "transactions.json")
+        if not isinstance(data, dict):
+            continue
+        txns = (data.get("transactions") or {}).get("transaction") or []
+        if isinstance(txns, dict):
+            txns = [txns]
+        for t in txns:
+            if t.get("type") == "TRADE" and str(t.get("timestamp")) == str(ts):
+                return d, t
+    return None, None
+
+
+def _snapshot_franchise_names(snapshot_dir: Path) -> dict:
+    data = _read_json(snapshot_dir / "league.json") or {}
+    rows = ((data.get("league") or {}).get("franchises") or {}).get("franchise") or []
+    if isinstance(rows, dict):
+        rows = [rows]
+    return {str(r.get("id")): r.get("name", "") for r in rows if isinstance(r, dict)}
+
+
+def print_offline_context(trades: list) -> None:
+    """Print only what local files hold — no network, no token, no Keychain,
+    no Anthropic. Says plainly what is NOT built and why."""
+    print("CONTEXT ONLY — OFFLINE: no network, no token, no Keychain, no Anthropic.")
+    print("  NOT built here: the full roast context. It needs live reads (MFL league, players,")
+    print("  rosters, future picks; Worker stats) — run --generate for it.")
+    print("  Duplicate check: runs only with --generate / --send (it reads the bot's recent")
+    print("  Discord posts). Not run here.")
+    print(f"  Prompt framing (local): system prompt content_engine.ROAST_SYSTEM = "
+          f"{len(ROAST_SYSTEM)} chars; user turn = {ROAST_USER_PREFIX!r} + the full context.")
+    print("  Asset tokens: DP_<round>_<pick> = this year's pick, zero-indexed (DP_2_10 = 3.11);")
+    print("  FP_<team>_<year>_<round> = future pick; BB_<n> = budget bucks; a bare number = MFL player id.")
+    profiles = trade_roast_context.OWNER_PROFILES_PATH
+    for ts in trades:
+        print(f"\n{'='*70}\n=== LOCAL CONTEXT for ts={ts} ===\n{'='*70}")
+        snap, trade = local_trade_snapshot(ts)
+        if not trade:
+            print(f"  Trade: not found in any local MFL snapshot under {_rel(SNAPSHOT_DIR)} "
+                  f"(nothing more can be shown offline)")
+            continue
+        names = _snapshot_franchise_names(snap)
+        fa, fb = str(trade.get("franchise", "")), str(trade.get("franchise2", ""))
+        print(f"  Source: {_rel(snap / 'transactions.json')} — local MFL snapshot "
+              f"{snap.name}, NOT a live read")
+        print(f"  Trade:  {fa} {names.get(fa, '(name not in snapshot)')} ↔ "
+              f"{fb} {names.get(fb, '(name not in snapshot)')}")
+        for fid, key in ((fa, "franchise1_gave_up"), (fb, "franchise2_gave_up")):
+            assets = [a for a in str(trade.get(key, "")).split(",") if a.strip()]
+            print(f"    {fid} {names.get(fid, '')} gave up: {', '.join(assets) or '(nothing listed)'}")
+        print(f"  Comments: {trade.get('comments') or '(none)'}")
+        dossier = trade_roast_context.format_owner_dossier([fa, fb])
+        if dossier:
+            print(f"  Owner dossier (local {profiles.name}):{dossier}")
+        else:
+            print(f"  Owner dossier: none locally for {fa}/{fb} ({_rel(profiles)} missing or "
+                  f"no entries)")
+
+
 def main(argv=None) -> int:
+    # Every run starts and ends with empty write state: no confirmation, no
+    # posted messages, no created threads carried between runs.
+    _reset_run_state()
+    try:
+        return _main(argv)
+    finally:
+        _reset_run_state()
+
+
+def _main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="roast_bot_fire_ab.py",
         description="A/B fire for the Trade Roast Bot. With no option it only prints this "
@@ -645,8 +902,10 @@ def main(argv=None) -> int:
     parser.add_argument("--confirm-send", metavar="CHANNEL_ID", default=None,
                         help=f"Must equal the destination channel id ({TEST_CHANNEL_ID}) for --send")
     parser.add_argument("--context-only", action="store_true",
-                        help="Just build + print the context (what the model would see). No "
-                             "Anthropic call, no posting; same Discord recent-posts read as live.")
+                        help="OFFLINE: print the trade context available from local files "
+                             "(committed MFL snapshot, owner dossier). No network, no token, no "
+                             "Keychain, no Anthropic; the duplicate check runs only with "
+                             "--generate / --send.")
     parser.add_argument("--trade", type=int, choices=[TRADE_1_TS, TRADE_2_TS],
                         help="Only fire this trade timestamp (else both)")
     parser.add_argument("--model", choices=["opus", "sonnet", "both"], default=None,
@@ -689,28 +948,16 @@ def main(argv=None) -> int:
         print(HOW_TO_GENERATE)
         return 0
 
-    # --context-only: build + print, no Anthropic, no Discord write. The
-    # context builder does its own recent-posts read, exactly as live.
+    # --context-only: OFFLINE. Local files only — no network, no token, no
+    # Keychain, no Anthropic (Keith 2026-10-12). The live builder needs MFL +
+    # Worker + Discord reads, so it is not called here.
     if mode == "context":
-        print("Sourcing credentials...")
-        have_token = bool(source_discord_token())
-        for ts in trades:
-            print(f"\n{'='*70}\n=== CONTEXT for ts={ts} ===\n{'='*70}")
-            trade = find_trade(ts)
-            comments = (trade.get("comments", "") or "").lower()
-            ext_years = 2 if ("extension" in comments or "extend" in comments) else 0
-            ext_player = ""
-            if ext_years:
-                for tok in trade.get("franchise2_gave_up", "").split(","):
-                    tok = tok.strip()
-                    if tok and not tok.startswith("FP_") and not tok.startswith("BB_"):
-                        ext_player = tok
-                        break
-            ctx = build_trade_roast_context(trade, extension_years=ext_years,
-                                            extension_player_id=ext_player)
-            print(_dup_check_note(ctx, have_token))
-            print(context_to_prompt_text(ctx))
+        print_offline_context(trades)
         return 0
+
+    if send:
+        # Recorded for _write_guard(), which re-checks it on every write.
+        record_send_confirmation(args.confirm_send)
 
     # --generate / --send: identical credential sourcing (fail fast, before
     # any MFL or Anthropic call). Only --send needs the token to exist.
@@ -740,7 +987,8 @@ def main(argv=None) -> int:
                 results.append(r)
             except Exception as e:
                 print(f"  ✗ FAILED ts={ts} model={m_label}: {e}")
-                results.append({"ok": False, "trade_ts": ts, "model": m_label, "error": str(e)})
+                results.append({"ok": False, "trade_ts": ts, "model": m_label,
+                                "error": str(e), "error_type": type(e).__name__})
             # polite pacing between fires
             time.sleep(1.5)
 
@@ -765,14 +1013,13 @@ def main(argv=None) -> int:
             print(f"  FAIL  ts={r['trade_ts']}  {r['model']:6}  {r.get('error','?')}")
     print(f"\n  TOTAL COST: ${round(total_cost, 4)}")
 
-    # Write a tiny audit log
+    # Write a tiny audit log (gitignored, local). WHITELISTED fields only:
+    # ids, counts, flags, usage — never a token/key, roast or context text,
+    # GIF query, fetched Discord message text, or a free-text error.
     audit_path = SCRIPT_DIR.parent / "data" / "ab_test_fire.log"
     audit_path.parent.mkdir(parents=True, exist_ok=True)
     with open(audit_path, "a") as f:
-        f.write(json.dumps({
-            "fired_at_utc": datetime.now(timezone.utc).isoformat(),
-            "results": results,
-        }) + "\n")
+        f.write(audit_log_line("send" if send else "generate", results) + "\n")
     print(f"\n  Audit log: {audit_path}")
     return 0
 
