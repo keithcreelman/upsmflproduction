@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.11.3",
-  "label": "Stats → Players: a missing source shows — instead of a guess (coverage completions, availability with unknown weeks), a partial week is marked * with how many teams are in, stored totals no longer claim final weeks, and the game log's TD columns say whose TDs they count."
+  "build": "2026.10.12.2",
+  "label": "Stats → Players: Next Gen for receivers and tight ends adds a Separation Score (Sep+): how much more or less open he gets than his cushion and target depth predict."
 }
