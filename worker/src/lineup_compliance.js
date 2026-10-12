@@ -230,9 +230,15 @@ export function evaluateStarter(player, ctx) {
   // his game is underway; the resolved verdict below applies them once it is.
   const nowUnix = Number(ctx && ctx.nowUnix) || 0;
   const kickoffPassed = nowUnix > 0 ? nowUnix >= kickoff : true;
+  // Wording (fixed 2026-10-11): this player's status was set BEFORE the notice
+  // deadline — that is what makes him at risk. The old text said "inside your
+  // 24-hour mark", which reads as late news, and the DM footer says late news
+  // "is never a violation" — so the two lines contradicted each other on the
+  // one case that is a violation.
   if (!kickoffPassed && (status === "OUT" || status === "IR" || status === "DOUBTFUL")) {
+    const deadline = capped ? "notice deadline (Sat 8pm ET)" : "notice deadline (24 hours before his kickoff)";
     return { ...base, verdict: "violation", reason: status === "DOUBTFUL" ? "doubtful_at_risk" : "out_at_risk",
-             detail: `${name} is listed ${status} inside your ${window} — still time to fix before kickoff.` };
+             detail: `${name} was listed ${status} before your ${deadline} — bench him before kickoff or it counts.` };
   }
 
   // "Did he play?" is decided by NFL INJURY STATUS AND NOTHING ELSE (Keith
