@@ -45,6 +45,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
+import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking } from "./lineup_rulings.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
@@ -7722,7 +7723,16 @@ export default {
               const fpWeek = await _injuryPollWeek(fpSeason);
               if (!fpWeek) return;
               const fp = await runLineupBookingFastPath(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek });
-              if (fp && !fp.skipped) console.log(`[scheduled */5] lineup booking wk${fpWeek}: booked=${fp.booked} clean=${fp.clean} skipped=${fp.skipped}${fp.refused ? " REFUSED:" + fp.refused : ""}`);
+              if (fp && fp.skipped === "outside_fast_window") return;
+              if (fp) console.log(`[scheduled */5] lineup booking wk${fpWeek}: booked=${fp.booked} clean=${fp.clean} skipped=${fp.skipped}${fp.refused ? " REFUSED:" + fp.refused : ""}`);
+              if (fp && fp.refused === "mass_booking") {
+                await alertMassBooking(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek, candidates: fp.candidates });
+                return;
+              }
+              // The standing rule (Keith 2026-10-11): rule + verify + post the
+              // unambiguous cases now; hold and alert on anything else.
+              const ap = await runLineupAutoPublish(env, { season: fpSeason, leagueId: fpLeague, week: fpWeek, resolveMentions: resolveFranchiseMentions });
+              if (ap && ap.results && ap.results.length) console.log(`[scheduled */5] lineup auto-publish wk${fpWeek}: ${JSON.stringify(ap.results).slice(0, 400)}`);
             } catch (e) { console.error(`[scheduled */5] lineup booking fast path failed: ${e && e.message}`); }
           })());
         }
@@ -8093,6 +8103,14 @@ export default {
               if (wk < 1) continue;
               const bk = await runLineupBooking(env, { season: lcSeason, leagueId: lcLeague, week: wk });
               if (bk && bk.booked) console.log(`[scheduled hourly] lineup violations booked: wk${wk} -> ${bk.booked} (${bk.clean} clean, ${bk.skipped} skipped)`);
+              if (bk && bk.refused === "mass_booking") {
+                await alertMassBooking(env, { season: lcSeason, leagueId: lcLeague, week: wk, candidates: bk.candidates });
+                continue;
+              }
+              // Safety net for the */5 standing-rule run: retries transient
+              // holds, alerts once on anything that needs Keith.
+              const ap = await runLineupAutoPublish(env, { season: lcSeason, leagueId: lcLeague, week: wk, resolveMentions: resolveFranchiseMentions });
+              if (ap && ap.results && ap.results.length) console.log(`[scheduled hourly] lineup auto-publish wk${wk}: ${JSON.stringify(ap.results).slice(0, 400)}`);
             }
           } catch (e) { console.error(`[scheduled hourly] lineup booking failed: ${e && e.message}`); }
           try {
@@ -8885,7 +8903,9 @@ export default {
       };
       const commishKeyProven = () => {
         const expected = String(env.COMMISH_API_KEY || "").trim();
-        const presented = String(url.searchParams.get("APIKEY") || "").trim();
+        // The X-COMMISH-APIKEY header is accepted too (2026-10-11), so callers
+        // can stop putting the key in URLs, where request logs keep it.
+        const presented = String(url.searchParams.get("APIKEY") || request.headers.get("X-COMMISH-APIKEY") || "").trim();
         // No key configured => nothing can prove commish. Fail CLOSED.
         return !!expected && !!presented && presented === expected;
       };
@@ -57536,6 +57556,77 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ? await unvoidNomDay(env, { season, leagueId, fid, etDay, by: who })
             : await voidNomDay(env, { season, leagueId, fid, etDay, reason: safeStr(body.reason), by: who });
           return jsonOut(200, { ok: true, undo: !!body.undo, ...r });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e?.message || e) });
+        }
+      }
+
+      // ── §G3 lineup rulings (lineup_rulings.js) ───────────────────────────
+      // The booked ups_lineup_violations row is only a CANDIDATE. These routes
+      // let the commissioner rule on it, preview and post the one final message
+      // into that week's Injury Report thread, and verify the penalty on MFL.
+      // Nothing here writes MFL. Same gate and audit attribution as
+      // void-nom-day above.
+      //
+      // GET  /admin/lineup/cases                    every candidate this season + its ruling
+      // POST /admin/lineup/rule                     { fid, week, ruling: confirmed|excused, note?, pick_choice? }
+      // GET  /admin/lineup/notice-preview?fid=&week=  exact text + verified thread + mention (read-only)
+      // GET  /admin/lineup/thread-check?week=        the stored Week N thread, verified (read-only)
+      // POST /admin/lineup/notice                   { fid, week, confirm: "post" }
+      // POST /admin/lineup/sanction-verify          { fid, week }  assessed → applied only when MFL shows it
+      if ((path === "/admin/lineup/cases" || path === "/admin/lineup/notice-preview" || path === "/admin/lineup/thread-check") && request.method === "GET") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(url.searchParams.get("L") || L || env.LEAGUE_ID || "74598");
+        if (path.endsWith("/cases")) return jsonOut(200, await listLineupCases(env, { season, leagueId }));
+        if (path.endsWith("/thread-check")) {
+          // Read-only: the stored "Week N Injury Report" thread, verified with Discord.
+          const tw = parseInt(url.searchParams.get("week"), 10) || 0;
+          if (!(tw >= 1 && tw <= 18)) return jsonOut(400, { ok: false, error: "need week (1-18)" });
+          return jsonOut(200, await verifyInjuryThread(env, { season, leagueId, week: tw }));
+        }
+        const fid = padFranchiseId(url.searchParams.get("fid"));
+        const week = parseInt(url.searchParams.get("week"), 10) || 0;
+        if (!fid || !(week >= 1 && week <= 18)) return jsonOut(400, { ok: false, error: "need fid + week (1-18)" });
+        return jsonOut(200, await previewLineupNotice(env, { season, leagueId, fid, week, resolveMentions: resolveFranchiseMentions }));
+      }
+      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify")
+          && request.method === "POST") {
+        const denied = await commishSettingsGate();
+        if (denied) return denied;
+        if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const season = safeStr(body.season || YEAR || new Date().getUTCFullYear());
+        const leagueId = safeStr(body.league_id || L || env.LEAGUE_ID || "74598");
+        const fid = padFranchiseId(body.fid);
+        const week = parseInt(body.week, 10) || 0;
+        if (!fid || !(week >= 1 && week <= 18)) return jsonOut(400, { ok: false, error: "need fid + week (1-18)" });
+        const who = (await provenCommish(season, leagueId)).fid || "commish";
+        // Dispatch on the suffix rather than another literal path comparison, so
+        // the route-table scan records these as POST-only.
+        const lineupAction = path.slice("/admin/lineup/".length);
+        try {
+          if (lineupAction === "rule") {
+            const r = await recordLineupRuling(env, {
+              season, leagueId, fid, week, ruling: safeStr(body.ruling), note: safeStr(body.note), by: who,
+              pickChoice: safeStr(body.pick_choice) || null,
+            });
+            return jsonOut(r.ok || r.held ? 200 : 409, r);
+          }
+          if (lineupAction === "notice") {
+            // League-visible and one-shot: it needs the literal word, not a
+            // truthy flag a stray client could send. Preview first.
+            if (safeStr(body.confirm) !== "post") {
+              return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"post\" to post. Read GET /admin/lineup/notice-preview first." });
+            }
+            const r = await postLineupNotice(env, { season, leagueId, fid, week, resolveMentions: resolveFranchiseMentions });
+            return jsonOut(r.ok ? 200 : 409, r);
+          }
+          const r = await verifyLineupSanction(env, { season, leagueId, fid, week });
+          return jsonOut(r.ok ? 200 : 409, r);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e?.message || e) });
         }
