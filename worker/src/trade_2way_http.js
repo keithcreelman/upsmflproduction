@@ -24,6 +24,7 @@ import {
   executeDropFirstDeal,
 } from "./trade_2way.js";
 import { padFid } from "./trade_3way_model.js";
+import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody, isAdminCaller } from "./trade_authz.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -179,6 +180,11 @@ export async function handle2WayStagedHttp(a) {
   if (Array.isArray(body.extension_requests) && body.extension_requests.length && typeof deps.validateExtensions === "function") {
     const v = await deps.validateExtensions({ leagueId, season, extensionRequests: body.extension_requests });
     if (!v.ok) return out(v.http || 409, { ok: false, code: v.code, error: v.message, message: v.message, skipped: v.skipped });
+  }
+  // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
+  {
+    const fg = await checkForfeitedPicks(env, leagueId, movementsToTokens(body.movements));
+    if (!fg.ok) return fail(fg.http, fg.code, fg.message, { violations: fg.violations || [] });
   }
   const created = await createStaged2WayTrade(env, ctx, {
     leagueId, season,

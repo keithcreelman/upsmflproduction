@@ -2454,7 +2454,7 @@ A lineup is a **violation** when it contains a missing starter, a player on bye,
 | 4th | League vote on retention; if retained, a further $10K |
 | 5th | Automatic expulsion |
 
-**A forfeiture takes the earliest future pick in the required round that the franchise actually owns** (Keith 2026-10-11). If the franchise owns no 2027 4th-round pick, it forfeits its 2028 4th; if it owns none in 2028 either, its 2029 4th; and so on forward until an owned pick in that round is found. **Failing to submit any lineup** is separate: the owner has until the following Tuesday to explain, the league votes on retention, and a second occurrence is automatic expulsion.
+**A forfeiture takes the earliest future pick in the required round that the franchise actually owns** (Keith 2026-10-11). If the franchise owns no 2027 4th-round pick, it forfeits its 2028 4th; if it owns none in 2028 either, its 2029 4th; and so on forward until an owned pick in that round is found. **If it owns more than one pick in that round of that draft — its own and one acquired in a trade — its own pick is forfeited first** (Keith 2026-10-12); the acquired pick stays tradeable. The commissioner chooses only when none of them is its own. **Failing to submit any lineup** is separate: the owner has until the following Tuesday to explain, the league votes on retention, and a second occurrence is automatic expulsion.
 
 **The ladder resets every season (Keith 2026-08-17).** Violations are counted within a single season and the count starts at zero each year. An owner who reached violation 3 in 2024 comes into 2025 clean, at violation 0.
 

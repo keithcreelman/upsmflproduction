@@ -126,14 +126,22 @@ function pickPhrase(pick, holder, names) {
   return orig && orig !== _fid(holder) ? `${base} acquired from ${(names && names[orig]) || `Team ${orig}`}` : `own ${base}`;
 }
 
+// A pick whose league year MFL does not list yet is an OBLIGATION — never
+// described as reserved or applied (Keith 2026-10-11).
+const obligationNote = (pick) => (pick && pick.basis === "beyond_trade_horizon"
+  ? ` (an outstanding obligation until MFL lists ${pick.year} picks)` : "");
+const pickStatus = (pick) => (pick && pick.basis === "beyond_trade_horizon"
+  ? "Status: assessed — the pick is not yet reserved or applied."
+  : "Status: assessed — the pick is reserved; not yet applied on MFL.");
+
 // What the rung assesses NOW. A pick rung names the exact pick; "assessed"
 // is said out loud until it is verified on MFL.
 export function penaltyNowText({ offenseNo, team, season, pick, holder, names }) {
   const next = Number(season) + 1;
   switch (Number(offenseNo)) {
     case 1: return "Warning only. No draft pick or cap charge applies to a first violation.";
-    case 2: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)} and a $5,000 charge against the ${next} salary cap. Status: assessed — not yet applied on MFL.`;
-    case 3: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)} and a further $5,000 charge against the ${next} salary cap. Status: assessed — not yet applied on MFL.`;
+    case 2: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)}${obligationNote(pick)} and a $5,000 charge against the ${next} salary cap. ${pickStatus(pick)}`;
+    case 3: return `Forfeiture of ${team}’s ${pickPhrase(pick, holder, names)}${obligationNote(pick)} and a further $5,000 charge against the ${next} salary cap. ${pickStatus(pick)}`;
     case 4: return `League vote on ${team}’s retention; if retained, a further $10,000 charge against the ${next} salary cap. Status: assessed — the vote has not been held.`;
     default: return "Automatic expulsion. Status: assessed — commissioner action pending.";
   }
@@ -246,11 +254,18 @@ export async function readPickInventory(season, leagueId) {
 
 const pickKey = (p) => `${p.year}-${p.round}-${_fid(p.original_owner)}`;
 
+// Two or more picks in the same round of the same draft: the franchise's OWN
+// pick is forfeited first (Keith 2026-10-12; canon §G3). null when none of
+// them is its own — the commissioner then chooses.
+export function ownPickFirst(picks, holder) {
+  return (picks || []).find((p) => _fid(p.original_owner) === _fid(holder)) || null;
+}
+
 // The pick a rung forfeits: the EARLIEST future year in which the franchise
 // owns a pick in that round (Keith 2026-10-11; canon §G3).
 //   - Years MFL lists are read from MFL; picks already reserved are skipped.
-//   - Two or more in that earliest year: the commissioner chooses (`choice`
-//     = "YEAR-ROUND-ORIGFID").
+//   - Two or more in that earliest year: its own pick (ownPickFirst); if none
+//     is its own, the commissioner chooses (`choice` = "YEAR-ROUND-ORIGFID").
 //   - Past the years MFL lists: canon A6 makes picks more than a year out
 //     untradeable, so the franchise still holds its OWN pick there — resolved
 //     with basis 'beyond_trade_horizon' (an obligation until MFL lists it).
@@ -264,6 +279,8 @@ export function resolveForfeitPick({ inventory, holder, round, season, reserved,
     const inYear = own.filter((p) => p.year === y);
     if (!inYear.length) continue;
     if (inYear.length === 1) return { status: "resolved", pick: { ...inYear[0], basis: "mfl_future_picks" } };
+    const mine = ownPickFirst(inYear, h);
+    if (mine) return { status: "resolved", pick: { ...mine, basis: "mfl_future_picks" } };
     const picked = choice ? inYear.find((p) => pickKey(p) === _s(choice)) : null;
     if (picked) return { status: "resolved", pick: { ...picked, basis: "mfl_future_picks" } };
     return { status: "needs_selection", year: y, options: inYear.map((p) => ({ ...p, key: pickKey(p) })), bad_choice: choice ? _s(choice) : null };
@@ -395,6 +412,22 @@ export async function gatherEvidence(env, { season, leagueId, fid, week, violati
 
 // ── D1 ──────────────────────────────────────────────────────────────────────
 
+// Append-only forfeited-pick audit trail (migration 0172). Best-effort by
+// design: a failed audit write is logged loudly but never blocks the ruling,
+// the guard or the reconcile that produced the event.
+export async function logForfeitEvent(db, { season, leagueId, holder, week, event, pick, currentOwner, detail }) {
+  try {
+    await db.prepare(
+      `INSERT INTO ups_lineup_forfeit_events (season, league_id, holder_fid, week, event, pick_year, pick_round, original_owner, current_owner, detail_json, at_utc)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(Number(season), String(leagueId), _fid(holder), Number(week), _s(event),
+      pick ? Number(pick.year) : null, pick ? Number(pick.round) : null, pick ? _fid(pick.original_owner) : null,
+      currentOwner ? _fid(currentOwner) : null, detail ? JSON.stringify(detail).slice(0, 2000) : null, _nowIso()).run();
+  } catch (e) {
+    console.error(`[lineup-forfeit] audit write failed (${event}): ${e && e.message}`);
+  }
+}
+
 const KEY_SQL = "season=? AND league_id=? AND fid=? AND week=?";
 const RES_SQL = "season=? AND league_id=? AND holder_fid=? AND week=?";
 const keyArgs = (k) => [Number(k.season), String(k.leagueId), _fid(k.fid), Number(k.week)];
@@ -424,16 +457,23 @@ export async function listLineupCases(env, { season, leagueId }) {
   const { results } = await db.prepare(
     `SELECT v.season, v.league_id, v.fid, v.week, v.offense_no, v.reasons_json, v.needs_review, v.voided, v.void_reason, v.recorded_at_utc,
             r.ruling, r.offense_no AS ruled_offense_no, r.status, r.hold_reason, r.ruled_by, r.ruled_at_utc,
-            r.notice_thread_id, r.notice_posted_at_utc, r.notice_message_id, r.sanction_status, r.penalty_json
+            r.notice_thread_id, r.notice_posted_at_utc, r.notice_message_id, r.sanction_status, r.penalty_json,
+            p.state AS pick_state, p.pick_year, p.pick_round, p.original_owner AS pick_original_owner
        FROM ups_lineup_violations v
        LEFT JOIN ups_lineup_rulings r
          ON r.season=v.season AND r.league_id=v.league_id AND r.fid=v.fid AND r.week=v.week
+       LEFT JOIN ups_lineup_pick_reservations p
+         ON p.season=v.season AND p.league_id=v.league_id AND p.holder_fid=v.fid AND p.week=v.week AND p.released_at_utc IS NULL
       WHERE v.season=? AND v.league_id=?
       ORDER BY v.fid, v.week`
   ).bind(Number(season), String(leagueId)).all();
   const rows = (results || []).map((r) => ({ ...r }));
   const live = {};
   for (const r of rows) {
+    // assessed → reserved → applied (Keith 2026-10-11)
+    r.penalty_stage = r.sanction_status === "applied" ? "applied"
+      : !r.sanction_status || r.sanction_status === "none" ? "none"
+      : (r.pick_state === "reserved" || r.pick_state === "secured") ? "reserved" : "assessed";
     if (Number(r.voided)) { r.preview_offense_no = 0; continue; }
     live[r.fid] = (live[r.fid] || 0) + 1;
     r.preview_offense_no = live[r.fid];
@@ -489,8 +529,9 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     const laterWeeks = ((later && later.results) || []).map((r) => Number(r.week));
     if (laterWeeks.length) return { ok: false, error: "later_ruling_exists", weeks: laterWeeks, detail: "a later confirmed week would be renumbered; correct it by hand" };
     if (!Number(cand.voided)) await voidLineupViolation(env, { season, leagueId, fid: k.fid, week, reason: _s(note) || "excused by commissioner", by });
-    await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=? WHERE ${RES_SQL} AND released_at_utc IS NULL`)
+    const rel = await db.prepare(`UPDATE ups_lineup_pick_reservations SET released_at_utc=?, state='released' WHERE ${RES_SQL} AND released_at_utc IS NULL`)
       .bind(_nowIso(), ...keyArgs(k)).run();
+    if (rel && rel.meta && Number(rel.meta.changes) > 0) await logForfeitEvent(db, { season, leagueId, holder: k.fid, week, event: "released", detail: { note: _s(note) } });
     await _upsertRuling(db, k, { ruling: "excused", note, by, status: "closed", hold_reason: null });
     return { ok: true, ruling: "excused", status: "closed" };
   }
@@ -535,13 +576,15 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     try {
       await db.prepare(
         `INSERT INTO ups_lineup_pick_reservations
-           (season, league_id, holder_fid, week, pick_year, pick_round, original_owner, ownership_basis, reserved_at_utc)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (season, league_id, holder_fid, week, pick_year, pick_round, original_owner, ownership_basis, reserved_at_utc, state)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(season, league_id, holder_fid, week) DO UPDATE SET
            pick_year=excluded.pick_year, pick_round=excluded.pick_round, original_owner=excluded.original_owner,
-           ownership_basis=excluded.ownership_basis, reserved_at_utc=excluded.reserved_at_utc, released_at_utc=NULL
+           ownership_basis=excluded.ownership_basis, reserved_at_utc=excluded.reserved_at_utc, released_at_utc=NULL, state=excluded.state
          WHERE ups_lineup_pick_reservations.released_at_utc IS NOT NULL`
-      ).bind(...keyArgs(k), pick.year, pick.round, _fid(pick.original_owner), pick.basis, _nowIso()).run();
+      ).bind(...keyArgs(k), pick.year, pick.round, _fid(pick.original_owner), pick.basis, _nowIso(),
+             // A year MFL does not list yet is an OBLIGATION until it does (lineup_forfeits.js).
+             pick.basis === "beyond_trade_horizon" ? "obligation" : "reserved").run();
     } catch (e) {
       return hold("pick_already_reserved", { evidence: plan.evidence, detail: _s(e && e.message) });
     }
@@ -549,6 +592,7 @@ export async function recordLineupRuling(env, { season, leagueId, fid, week, rul
     if (!held || held.released_at_utc) return hold("pick_reservation_failed", { evidence: plan.evidence });
     // An overlapping call may have reserved first; the stored reservation wins.
     pick = { year: Number(held.pick_year), round: Number(held.pick_round), original_owner: _fid(held.original_owner), basis: held.ownership_basis };
+    await logForfeitEvent(db, { season, leagueId, holder: k.fid, week, event: pick.basis === "beyond_trade_horizon" ? "obligation_recorded" : "reserved", pick, detail: { offense_no: offenseNo } });
   }
   const built = plan.build(pick);
   await _upsertRuling(db, k, { ruling: "confirmed", offense_no: offenseNo, note, by, status: "ready", evidence: plan.evidence, penalty: built.penalty, notice_text: built.notice, sanction_status: plan.sanction });
@@ -1070,12 +1114,20 @@ export async function verifyLineupSanction(env, { season, leagueId, fid, week })
   const pen = r.penalty_json ? JSON.parse(r.penalty_json) : {};
   const out = { pick: null, cap: null, membership: null };
   if (pen.pick) {
+    // SECURED only: the pick is gone from EVERY franchise on MFL. A pick that
+    // left the team but sits on another one was traded, not secured
+    // (Keith 2026-10-11) — the forfeiture is not applied.
+    const res = await db.prepare(`SELECT * FROM ups_lineup_pick_reservations WHERE ${RES_SQL} AND released_at_utc IS NULL`).bind(...keyArgs(k)).first();
+    const held = res ? { year: Number(res.pick_year), round: Number(res.pick_round), original_owner: _fid(res.original_owner) } : pen.pick;
     const inv = await readPickInventory(season, leagueId);
-    if (!inv) out.pick = { verified: false, reason: "pick_inventory_unreadable" };
-    else if (!inv.years.includes(Number(pen.pick.year))) out.pick = { verified: false, reason: "pick_year_not_listed_on_mfl_yet" };
+    if (res && res.state && res.state !== "reserved" && res.state !== "secured") out.pick = { verified: false, reason: `reservation_${res.state}` };
+    else if (!inv) out.pick = { verified: false, reason: "pick_inventory_unreadable" };
+    else if (!inv.years.includes(Number(held.year))) out.pick = { verified: false, reason: "pick_year_not_listed_on_mfl_yet" };
     else {
-      const still = (inv.byHolder[k.fid] || []).some((p) => pickKey(p) === pickKey(pen.pick));
-      out.pick = still ? { verified: false, reason: "pick_still_owned" } : { verified: true };
+      const owner = Object.entries(inv.byHolder).find(([, picks]) => picks.some((p) => pickKey(p) === pickKey(held)));
+      if (!owner) out.pick = { verified: true, secured: true };
+      else if (_fid(owner[0]) === k.fid) out.pick = { verified: false, reason: "pick_still_owned" };
+      else out.pick = { verified: false, reason: "pick_traded_away", owner: _fid(owner[0]) };
     }
   }
   if (pen.cap_k) {
