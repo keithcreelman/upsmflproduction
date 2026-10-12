@@ -1,0 +1,87 @@
+{
+  "_about": "Live Scoring (#scores) injury-source fixture for tests/mobile_live_scoring_official_injury.test.mjs. SYNTHETIC: fictional players and ids (900xx), in the exact shapes MFL's exports (liveScoring matchup shape, weeklyResults in progress = all 0.0, schedule, league, projectedScores, playerScores, nflSchedule, injuries) and the worker's /api/player-status (worker/src/player_status.js, PR #1219) serve. Week 6 of 2026, mid-game.",
+  "season": "2026",
+  "week": 6,
+  "players": [
+    { "id": "90001", "name": "Alpha, Adam", "position": "QB", "team": "BUF" },
+    { "id": "90002", "name": "Bravo, Ben", "position": "RB", "team": "MIA" },
+    { "id": "90003", "name": "Charlie, Cal", "position": "WR", "team": "NYJ" },
+    { "id": "90004", "name": "Delta, Dan", "position": "TE", "team": "MIA" },
+    { "id": "90005", "name": "Echo, Eli", "position": "WR", "team": "NYJ" },
+    { "id": "90006", "name": "Foxtrot, Finn", "position": "PK", "team": "BUF" },
+    { "id": "90007", "name": "Golf, Gus", "position": "RB", "team": "NEP" },
+    { "id": "90008", "name": "Hotel, Hal", "position": "RB", "team": "NEP" },
+    { "id": "90009", "name": "India, Ike", "position": "QB", "team": "MIA" },
+    { "id": "90010", "name": "Juliet, Jay", "position": "WR", "team": "BUF" }
+  ],
+  "franchises": [
+    { "id": "0001", "name": "Test Alphas" },
+    { "id": "0002", "name": "Test Bravos" }
+  ],
+  "liveScoring": { "liveScoring": { "week": "6", "matchup": [ { "franchise": [
+    { "id": "0001", "score": "11.0", "gameSecondsRemaining": "19800", "playersCurrentlyPlaying": "1", "playersYetToPlay": "4",
+      "players": { "player": [
+        { "id": "90001", "status": "starter", "score": "0", "gameSecondsRemaining": "3600" },
+        { "id": "90002", "status": "starter", "score": "0", "gameSecondsRemaining": "3600" },
+        { "id": "90003", "status": "starter", "score": "0", "gameSecondsRemaining": "3600" },
+        { "id": "90004", "status": "starter", "score": "4.0", "gameSecondsRemaining": "1800" },
+        { "id": "90005", "status": "starter", "score": "0", "gameSecondsRemaining": "3600" },
+        { "id": "90006", "status": "starter", "score": "7.0", "gameSecondsRemaining": "0" },
+        { "id": "90008", "status": "nonstarter", "score": "0", "gameSecondsRemaining": "3600" }
+      ] } },
+    { "id": "0002", "score": "10.0", "gameSecondsRemaining": "9000", "playersCurrentlyPlaying": "1", "playersYetToPlay": "2",
+      "players": { "player": [
+        { "id": "90007", "status": "starter", "score": "0", "gameSecondsRemaining": "3600" },
+        { "id": "90009", "status": "starter", "score": "10.0", "gameSecondsRemaining": "1800" },
+        { "id": "90010", "status": "starter", "score": "0", "gameSecondsRemaining": "3600" }
+      ] } }
+  ] } ] } },
+  "weeklyResults": { "weeklyResults": { "week": "6", "matchup": [ { "franchise": [
+    { "id": "0001", "score": "0.0", "result": "T" }, { "id": "0002", "score": "0.0", "result": "T" }
+  ] } ] } },
+  "schedule": { "schedule": { "weeklySchedule": [
+    { "week": "6", "matchup": [ { "franchise": [ { "id": "0001", "isHome": "1" }, { "id": "0002", "isHome": "0" } ] } ] }
+  ] } },
+  "league": { "league": { "franchises": { "franchise": [
+    { "id": "0001", "name": "Test Alphas" }, { "id": "0002", "name": "Test Bravos" }
+  ] } } },
+  "projectedScores": { "projectedScores": { "week": "6", "playerScore": [
+    { "id": "90001", "score": "20.0" }, { "id": "90002", "score": "12.0" }, { "id": "90003", "score": "9.0" },
+    { "id": "90004", "score": "12.0" }, { "id": "90005", "score": "10.0" }, { "id": "90006", "score": "8.0" },
+    { "id": "90007", "score": "7.0" }, { "id": "90008", "score": "6.0" }, { "id": "90009", "score": "18.0" },
+    { "id": "90010", "score": "6.0" }
+  ] } },
+  "playerScores": { "playerScores": { "week": "6", "playerScore": [
+    { "id": "90004", "score": "4.0" }, { "id": "90006", "score": "7.0" }, { "id": "90009", "score": "10.0" }
+  ] } },
+  "nflSchedule": { "nflSchedule": { "week": "6", "matchup": [
+    { "kickoff": "1792170000", "team": [ { "id": "BUF" }, { "id": "MIA" } ] },
+    { "kickoff": "1792180800", "team": [ { "id": "NYJ" }, { "id": "NEP" } ] }
+  ] } },
+  "_injuries_about": "MFL's own export for Week 6. 90002's Out and 90008's Doubtful are LAPSED (absent from the official Wk 6 report); 90003 IR, 90007 IR-PUP and 90010 Suspended are roster designations; 90004 is Questionable on both.",
+  "injuries": { "injuries": { "week": "6", "timestamp": "1792150000", "injury": [
+    { "id": "90002", "status": "Out", "details": "Hamstring", "exp_return": "" },
+    { "id": "90003", "status": "IR", "details": "Knee", "exp_return": "" },
+    { "id": "90004", "status": "Questionable", "details": "Hip", "exp_return": "" },
+    { "id": "90007", "status": "IR-PUP", "details": "Achilles", "exp_return": "" },
+    { "id": "90008", "status": "Doubtful", "details": "Ankle", "exp_return": "" },
+    { "id": "90010", "status": "Suspended", "details": "Conduct", "exp_return": "" }
+  ] } },
+  "playerStatus": {
+    "ok": true, "season": 2026, "generated_utc": "2026-10-18T15:00:00.000Z",
+    "report_feed": { "ok": true, "source": "Official NFL injury report (nflverse)", "week": 6, "current_week": 6,
+      "updated_utc": "2026-10-18T13:33:06.000Z", "age_hours": 1.4, "current": true, "reason": null,
+      "teams": ["BUF", "MIA", "NE", "NYJ"], "teams_mfl": ["BUF", "MIA", "NEP", "NYJ"] },
+    "roster_feed": { "ok": true, "source": "MFL injuries export", "week": 6, "updated_utc": "2026-10-18T14:01:03.000Z", "reason": null },
+    "players": {
+      "90001": { "report": { "status": "Out", "injury": "Ankle", "practice": "Did Not Participate In Practice", "team": "BUF" } },
+      "90004": { "report": { "status": "Questionable", "injury": "Hip", "practice": "Limited Participation in Practice", "team": "MIA" } },
+      "90005": { "report": { "status": "Doubtful", "injury": "Knee", "practice": "Did Not Participate In Practice", "team": "NYJ" } },
+      "90003": { "roster": { "status": "IR", "label": "Injured reserve", "chip": "IR", "detail": "Knee", "exp_return": null } },
+      "90007": { "roster": { "status": "IR-PUP", "label": "Physically unable to perform", "chip": "PUP", "detail": "Achilles", "exp_return": null } },
+      "90010": { "roster": { "status": "SUSPENDED", "label": "Suspended", "chip": "SUSP", "detail": "Conduct", "exp_return": null } }
+    },
+    "id_map_rows": 10,
+    "mapped_mfl_ids": ["90001", "90002", "90003", "90004", "90005", "90006", "90007", "90008", "90009", "90010"]
+  }
+}
