@@ -4472,7 +4472,7 @@
                        style="cursor:${forfeited ? "not-allowed; opacity:0.55" : "pointer"}; font-size:12px; border-bottom:1px solid var(--border);">
                     <div style="padding:4px 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                       <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        ${escapeHtml(it.display)}
+                        ${forfeited ? `<span style="text-decoration:line-through;">${escapeHtml(it.display)}</span>` : escapeHtml(it.display)}
                         ${it.position ? `<span class="small" style="color:var(--muted); margin-left:6px;">${escapeHtml(it.position)}</span>` : ""}
                         ${taxiPill}
                       </div>

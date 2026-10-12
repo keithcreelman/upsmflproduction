@@ -336,11 +336,12 @@ test("desktop wiring: flag kept by normalizeAsset; checkbox can't add it; 3-way 
 test("Rookie Draft Hub: the forfeited row is greyed, labelled, and its click adds nothing", () => {
   const src = fs.readFileSync(new URL("../site/rookies/rookie_draft_hub.js", import.meta.url), "utf8");
   t.match(src, /const forfeited = it\.forfeited === true;/);
+  t.match(src, /\$\{forfeited \? `<span style="text-decoration:line-through;">\$\{escapeHtml\(it\.display\)\}<\/span>` : escapeHtml\(it\.display\)\}/, "struck through, like desktop and phone");
   t.match(src, /\$\{forfeited \? " is-forfeited" : ""\}"\$\{forfeited \? ' aria-disabled="true"' : ""\}/);
   t.match(src, /row\.addEventListener\("click", \(\) => \{\n\s+if \(row\.classList\.contains\("is-forfeited"\)\) return;/);
   t.match(src, /const pickWarn = \(\(data\.future_picks \|\| \[\]\)\.length && data\.forfeit_check !== "ok"\)/, "warning unless the worker confirmed the forfeit list");
   t.ok(src.includes(UNVERIFIED));
-  t.match(fs.readFileSync(new URL("../site/rookies/rookie_draft_hub.html", import.meta.url), "utf8"), /rookie_draft_hub\.js\?v=2026\.10\.12\.2/);
+  t.match(fs.readFileSync(new URL("../site/rookies/rookie_draft_hub.html", import.meta.url), "utf8"), /rookie_draft_hub\.js\?v=2026\.10\.12\.3/);
 });
 
 await run("trade_forfeited_pick_view");
