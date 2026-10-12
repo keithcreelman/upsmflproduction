@@ -27,7 +27,7 @@ test("swap / rollback / rebuild first check production serves #1219's worker; re
   const check = /- name: Check production serves the #1219 worker[\s\S]*?(?=\n      - name: )/.exec(Y);
   t.ok(check, "the check step exists");
   t.match(check[0], /if: env\.STEP == 'swap' \|\| env\.STEP == 'rollback' \|\| env\.STEP == 'rebuild'/);
-  t.match(check[0], /\/api\/player-status\?season=\$\{SEASON\}/, "probes the route only #1219 has");
+  t.match(check[0], /\/api\/player-status\?season=\$\{SEASON\}&L=74598"/, "probes the route only #1219 has, with the league id the worker requires (400 without it)");
   t.doesNotMatch(check[0], /KEY|Authorization/, "the probe carries no credential");
   t.ok(Y.indexOf("Check production serves the #1219 worker") < Y.indexOf("- name: Run ${{ github.event.inputs.step }}"), "the check runs before the data step");
   t.match(Y, /- name: Run \$\{\{ github\.event\.inputs\.step \}\}\n        if: env\.STEP != 'rebuild'/, "rebuild skips the data step");
