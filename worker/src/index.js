@@ -58065,7 +58065,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const leagueId = safeStr(body.league_id);
         if (leagueId !== "25625") return jsonOut(403, { ok: false, error: "test_league_only", message: "Lockout is only switched directly on the test league (25625). On the real league it happens only inside a forfeited-pick reversal." });
         const { setLockout } = await import("./mfl_lockout.js");
-        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true });
+        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true, expectDigest: safeStr(body.expect_digest) || undefined });
         return jsonOut(r.ok ? 200 : 409, r);
       }
       if (path === "/admin/test-league/trade" && request.method === "POST") {
@@ -58103,7 +58103,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
         if (!body.changes || typeof body.changes !== "object" || Array.isArray(body.changes)) return jsonOut(400, { ok: false, error: "changes must be an object" });
         const { setPageFields } = await import("./mfl_lockout.js");
-        const r = await setPageFields(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page, changes: body.changes });
+        if (!safeStr(body.expect_digest)) return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the snapshot fingerprint (digest) the page must still match before the write." });
+        const r = await setPageFields(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page, changes: body.changes, expectDigest: safeStr(body.expect_digest) });
         return jsonOut(r.ok ? 200 : 409, { league_id: "25625", ...r });
       }
       if (path === "/admin/test-league/forfeit-check" && request.method === "POST") {

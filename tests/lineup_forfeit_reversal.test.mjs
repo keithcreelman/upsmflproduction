@@ -53,6 +53,17 @@ function fakeAbilitiesSite(state, { clobber = false } = {}) {
 }
 const ENV = { MFL_COOKIE: "commish-cookie", MFL_APIKEY: "k" };
 
+test("snapshots never show session-like values; fingerprints ignore only the lockout radio when asked", async () => {
+  const html = abilitiesHtml({ league: L, lockout: "Y", boxes: { ABIL_0001_TRADE: true, ABIL_0001_HOME: false, ABIL_0002_TRADE: true, ABIL_0002_HOME: false } })
+    .replace('<input type="hidden" name="O" value="93">', '<input type="hidden" name="O" value="93"><input type="hidden" name="MFL_USER_ID" value="aGVsbG9oZWxsb2hlbGxvaGVsbG8=">');
+  const snap = await LK.snapshotPage(ENV, { season: SEASON, leagueId: L, page: "abilities", fetchImpl: async () => ({ ok: true, status: 200, text: async () => html }) });
+  const sid = snap.fields.find(([k]) => k === "MFL_USER_ID")[1];
+  t.match(sid, /^sha256:[0-9a-f]{12}$/); t.doesNotMatch(JSON.stringify(snap), /aGVsbG9oZWxsb2hl/);
+  const flipped = html.replace('value="Y" checked', 'value="Y"').replace('value="N">', 'value="N" checked>');
+  const snap2 = await LK.snapshotPage(ENV, { season: SEASON, leagueId: L, page: "abilities", fetchImpl: async () => ({ ok: true, status: 200, text: async () => flipped }) });
+  t.notEqual(snap.digest, snap2.digest); t.equal(snap.digest_except_lockout, snap2.digest_except_lockout);
+});
+
 test("lockout page: finds exactly the Commissioner Lockout pair and the full form", () => {
   const p = LK.parseAbilitiesPage(abilitiesHtml({ league: L, lockout: "Y", boxes: { ABIL_0001_TRADE: true, ABIL_0001_HOME: false, ABIL_0002_TRADE: true, ABIL_0002_HOME: false } }));
   t.equal(p.ok, true);
@@ -313,6 +324,12 @@ test("Trades Setup: changes ONLY the named field, refuses unknown fields, restor
   t.equal((await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { NOPE: "1" }, fetchImpl: site.fetchImpl })).error, "unknown_fields");
   const snap = await LK.snapshotPage(ENV, { season: SEASON, leagueId: "25625", page: "trades", fetchImpl: site.fetchImpl });
   t.deepEqual(snap.fields.find(([k]) => k === "FUTURE_YEARS"), ["FUTURE_YEARS", "1"]);
+  // Stop-if-different: a fingerprint from before the change no longer matches → no write.
+  const posted = site.posts.length;
+  const stale = await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { FUTURE_YEARS: "0" }, fetchImpl: site.fetchImpl, expectDigest: "0".repeat(64) });
+  t.equal(stale.error, "page_differs_from_snapshot"); t.equal(site.posts.length, posted, "nothing submitted");
+  const ok2 = await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { FUTURE_YEARS: "0" }, fetchImpl: site.fetchImpl, expectDigest: snap.digest });
+  t.equal(ok2.ok, true, "the current fingerprint lets the restore through"); t.equal(st.years, "0");
   const st2 = { years: "0", perRound: "1", deadline: "11/24" };
   const bad = fakeTradesSite(st2, { clobber: true });
   const r2 = await LK.setPageFields(ENV, { season: SEASON, leagueId: "25625", page: "trades", changes: { FUTURE_YEARS: "1" }, fetchImpl: bad.fetchImpl });
@@ -339,8 +356,9 @@ test("test-league routes never touch the production league; the real-league run 
     t.equal(snap.json.league_id, "25625");
     t.ok(mflUrls.length > 0 && mflUrls.every((u) => /[?&]L=25625(&|$)/.test(u)), "only the test league's page was read");
     mflUrls.length = 0;
-    const set = await hit("POST", "/admin/test-league/settings-set?L=74598", { league_id: "74598", page: "trades", changes: { FUTURE_YEARS: "1" } });
-    t.equal(set.json.league_id, "25625");
+    t.equal((await hit("POST", "/admin/test-league/settings-set?L=74598", { page: "trades", changes: { FUTURE_YEARS: "1" } })).json.error, "expect_digest_required");
+    const set = await hit("POST", "/admin/test-league/settings-set?L=74598", { league_id: "74598", page: "trades", changes: { FUTURE_YEARS: "1" }, expect_digest: "not-the-page" });
+    t.equal(set.json.league_id, "25625"); t.equal(set.json.error, "page_differs_from_snapshot", "a stale fingerprint → nothing written");
     t.ok(mflUrls.every((u) => !/L=74598/.test(u)), "the production league ID never reached MFL");
     mflUrls.length = 0;
     t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "74598", mode: "run", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "confirm_required");

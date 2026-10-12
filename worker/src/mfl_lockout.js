@@ -189,23 +189,48 @@ export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
     lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length };
 }
 
-// Read-only snapshot of a setup page: every field as a browser would submit it,
-// plus each radio group's and select's choices.
+// A fingerprint of the page's whole field list (order included), and one that ignores
+// the lockout radio — so "the page is exactly as snapshotted" can be checked before a write.
+async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+export async function pageDigest(fields, exceptName) {
+  return sha256(JSON.stringify((fields || []).filter(([k]) => k !== exceptName)));
+}
+// Values that could be session material are never returned: shown as a short hash.
+const SECRETISH_NAME = /session|token|key|cookie|user_?id|csrf|auth|pass/i;
+const SECRETISH_VALUE = /^[A-Za-z0-9+/=_-]{24,}$/;
+async function redact(fields) {
+  const out = [];
+  for (const [k, v] of fields) out.push([k, SECRETISH_NAME.test(k) || SECRETISH_VALUE.test(v) ? `sha256:${(await sha256(v)).slice(0, 12)}` : v]);
+  return out;
+}
+
+// Read-only snapshot of a setup page: every field as a browser would submit it
+// (session-like values hashed), the page fingerprint, and the radio choices.
 export async function snapshotPage(env, { season, leagueId, page, fetchImpl }) {
   const p = await loadPage(env, { season, leagueId, page, fetchImpl });
   if (!p.ok) return p;
-  return { ok: true, page, fields: p.form.fields, radios: p.form.radios, action: p.form.action, method: p.form.method, lockout: p.lockout ? p.lockout.current : undefined };
+  const radios = {};
+  for (const [k, opts] of Object.entries(p.form.radios)) radios[k] = opts.map((o) => ({ value: o.value, checked: o.checked }));
+  return { ok: true, page, field_count: p.form.fields.length, digest: await pageDigest(p.form.fields),
+    digest_except_lockout: p.lockout ? await pageDigest(p.form.fields, p.lockout.name) : undefined,
+    fields: await redact(p.form.fields), radios, method: p.form.method, lockout: p.lockout ? p.lockout.current : undefined };
 }
 
 // Change ONLY the named fields on a setup page (changes: {name: value}; a value of
 // null leaves a checkbox unchecked). Every other field is re-sent exactly as loaded.
 // Verified by re-reading the page: the changed fields hold their new values and NOTHING
 // else differs — otherwise the original form is re-sent once and ok:false comes back.
-export async function setPageFields(env, { season, leagueId, page, changes, fetchImpl }) {
+// expectDigest (optional): the page must match this fingerprint right before the write,
+// else nothing is written (Keith 2026-10-12: stop if a page differs from its snapshot).
+export async function setPageFields(env, { season, leagueId, page, changes, fetchImpl, expectDigest }) {
   const f = fetchImpl || fetch;
   const ck = cookieHeader(env);
   const before = await loadPage(env, { season, leagueId, page, fetchImpl: f });
   if (!before.ok) return { ok: false, step: "load", error: before.error };
+  if (expectDigest && (await pageDigest(before.form.fields)) !== expectDigest) return { ok: false, step: "precheck", error: "page_differs_from_snapshot" };
   const names = Object.keys(changes || {});
   if (!names.length) return { ok: false, step: "validate", error: "no_changes" };
   const known = new Set([...before.form.fields.map(([k]) => k), ...Object.keys(before.form.radios)]);
@@ -251,16 +276,17 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
   }
   const wrong = diffFields(target, after.form.fields, "");
   if (wrong.length) return { ok: false, step: "verify", error: "change_did_not_take", diff: wrong.slice(0, 20) };
-  return { ok: true, changed: true, page, before: before.form.fields.filter(([k]) => names.includes(k)), after: after.form.fields.filter(([k]) => names.includes(k)) };
+  return { ok: true, changed: true, page, before: before.form.fields.filter(([k]) => names.includes(k)), after: after.form.fields.filter(([k]) => names.includes(k)),
+    digest_after: await pageDigest(after.form.fields) };
 }
 
 // Set lockout to `on` (true = Yes). { ok, changed, from, to } or { ok:false, error, ... }.
-export async function setLockout(env, { season, leagueId, on, fetchImpl }) {
+export async function setLockout(env, { season, leagueId, on, fetchImpl, expectDigest }) {
   const before = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
   if (!before.ok) return { ok: false, step: "load", error: before.error };
   const want = on ? "Yes" : "No";
   if (before.lockout.current === want) return { ok: true, changed: false, from: want, to: want };
-  const r = await setPageFields(env, { season, leagueId, page: "abilities", fetchImpl,
+  const r = await setPageFields(env, { season, leagueId, page: "abilities", fetchImpl, expectDigest,
     changes: { [before.lockout.name]: on ? before.lockout.yesValue : before.lockout.noValue } });
   if (!r.ok) return r;
   return { ok: true, changed: true, from: before.lockout.current, to: want };
