@@ -454,11 +454,14 @@ test("the list reads the WHOLE stats board: it follows next_offset across pages,
   t.equal(full.rows.length, 500);
 });
 
-test("MFL scoring unreadable → the last VERIFIED stored totals, labelled Wks 1–4 with the read time; no recent form", async () => {
+test("MFL scoring unreadable → the stored totals from the last sync, said to include any synced week (never labelled final Wks 1–N), with the read time; no recent form", async () => {
   const v = boot({ scores: { error: { $t: "simulated" } } });
   const html = await openTab(v, "QB");
-  t.deepEqual(bands(html), ["Stored Wk 1–4"]);
-  t.match(html, /MFL’s live scoring couldn’t be read, so these are the last verified stored totals: Wks 1–4, final weeks only \(stored copy read \d{1,2}:\d{2} (AM|PM)\)/);
+  // QA 2026-10-11: the stored totals sum every SYNCED week — after Thursday's
+  // game that includes the week in progress — so no week range is claimed.
+  t.deepEqual(bands(html), ["Stored totals"]);
+  t.match(html, /MFL’s live scoring couldn’t be read, so these are the stored totals from the last sync: every week synced so far, which can include a week still being played \(stored copy read \d{1,2}:\d{2} (AM|PM)\)/);
+  t.doesNotMatch(html, /final weeks only \(stored/, "never called final weeks");
   t.deepEqual(labels(html).slice(0, 3), ["Pts", "PPG", "Wks"]);
   const dak = rowsOf(html).find((r) => r.pid === DAK);
   t.deepEqual(dak.cells, ["107.5", "26.9", "4"], "Wks 1–4 only — never mixed with Week 5");
@@ -531,6 +534,54 @@ test("IDP sets: Tackles = Solo · Ast · TFL · Snap% (team snaps in his games);
   const nums = tg.filter((c) => c !== "—").map((c) => +c.split("/")[1]);
   t.ok(nums.every((x, i) => i === 0 || nums[i - 1] >= x), "sorted by TARGETS, high to low");
   t.ok(tg.indexOf("—") === -1 || tg.slice(tg.indexOf("—")).every((c) => c === "—"), "no PFR record: last");
+});
+
+test("no guessed values (QA 2026-10-11): Cmp/Tgt needs BOTH counts; Played is — when some of his team's games are unknown", async () => {
+  const lb = (pos) => {
+    const b = leaderboard(pos);
+    if (pos === "idp") b.rows = b.rows.map((r, i) => Object.assign({}, r, i === 0 ? { def_targets: 35, def_completions_allowed: null } : { def_targets: 20, def_completions_allowed: 10 }));
+    return b;
+  };
+  const v = boot({ leaderboard: lb });
+  await openTab(v, "LB");
+  const cv = await chooseSet(v, "coverage");
+  const first = leaderboard("idp").rows[0], firstPid = String(parseInt(first.mfl_pid, 10));
+  const row = rowsOf(cv.list).find((r) => r.pid === firstPid);
+  if (row) t.equal(row.cells[2], "—", "35 targets but no completions count: — (never 0/35)");
+  t.doesNotMatch(cv.list, />0\/35</, "never 0/35");
+  t.ok(rowsOf(cv.list).some((r) => r.cells[2] === "10/20"), "both counts: shown");
+
+  const qb = Object.keys(FX.players).find((id) => FX.players[id][1] === "QB" && FX.weeks["1"][id] != null);
+  const starter = (g) => ({ ok: true, weeks_label: "Wks 1–4", pending_weeks: [],
+    players: g === "QB" ? { [qb]: { q: 1, startable_n: 1, boom_n: 0, bust_n: 0, startable_pct: null, boom_pct: null, bust_pct: null, played_n: 1, team_games_n: 1, unknown_n: 3 } } : {} });
+  const v2 = boot({ starter });
+  await openTab(v2, "QB");
+  const b = await chooseSet(v2, "boom");
+  const r2 = rowsOf(b.list).find((r) => r.pid === qb);
+  t.equal(r2.cells[r2.cells.length - 1], "—", "1 played of 1 KNOWN, 3 unknown: — (never 1/1)");
+  t.match(read("site/m/views/stats.js"), /— when some of his team's games have no snap record for him/, "the heading's title says why");
+});
+
+test("a partial coverage week is labelled partial, never shown as a full week (QA 2026-10-11: the Monday rebuild before MNF)", async () => {
+  const part = { built_for_week: 5, finalized_through_week: 4, source_coverage: { week: 5, teams_reported: 30, teams_expected: 32, complete: false } };
+  const v = boot({ leaderboard: (a) => { const x = leaderboard(a, part); x.rows = x.rows.map((r) => Object.assign({}, r, { rz_v2: 1 })); return x; } });
+  await openTab(v, "WR");
+  const rc = await chooseSet(v, "receiving");
+  t.deepEqual(bands(rc.head).filter((x) => /nflverse/.test(x)), ["nflverse Wk 1–5*"]);
+  t.match(rc.notes, /\* Wk 5 is partial \(30 of 32 teams in\)\./);
+  const rz = await chooseSet(v, "redzone");
+  t.ok(bands(rz.head).some((x) => x === "Red zone Wk 1–5*"), bands(rz.head).join(" | "));
+  const done = boot();   // the fixture's board: Wk 4 complete and final
+  await openTab(done, "WR");
+  const rc2 = await chooseSet(done, "receiving");
+  t.deepEqual(bands(rc2.head).filter((x) => /nflverse/.test(x)), ["nflverse Wk 1–4"], "a complete, final week: no *");
+  t.doesNotMatch(rc2.notes, /is partial/);
+});
+
+test("sheet status wording: an id-map failure isn't blamed on the report; a file ahead of MFL's week says so", async () => {
+  const src = read("site/m/player_sheet.js");
+  t.match(src, /if \(\/id map\/\.test\(r\)\) return "players couldn’t be matched to it \(the NFL id map couldn’t be read\)";/);
+  t.match(src, /has no Wk \\d\+ rows/);
 });
 
 test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; punters: I20 as made/punts plus I20% — no PPG", async () => {
@@ -931,7 +982,7 @@ test("game log: every week of the season — MFL points per week (= W=ALL), that
   t.match(g.html, /<div class="ups-m-gl-wrap"><table class="ups-m-gl-table">/, "the table scrolls inside its own box if it ever outgrows the sheet");
   for (const r of g.rows.filter((x) => x.wk <= 4)) t.equal(r.pts, Number(FX.weeks[String(r.wk)][PURDY]).toFixed(1), "Wk " + r.wk + " = MFL's own score");
   const b4 = FX.bundles[PURDY].nfl_weekly.find((x) => x.week === 4);
-  t.match(g.head, /<th>Yds<\/th><th>TD<\/th><th>Int<\/th><th>Rush<\/th>/, "QB: Yds · TD · Int · Rush (fits 320px)");
+  t.match(g.head, /<th>Yds<\/th><th>PaTD<\/th><th>Int<\/th><th>Rush<\/th>/, "QB: Yds · PaTD · Int · Rush (fits 320px; says the TDs are passing ones)");
   t.deepEqual(g.wk(4).stats, [String(b4.pass_yds), String(b4.pass_tds), String(b4.pass_ints), b4.rush_att + "-" + b4.rush_yds]);
   t.equal(g.wk(4).opp, b4.opponent);
   t.deepEqual([g.wk(5).pts, g.wk(5).cls], ["—", "dim"], "Wk 5 in progress and SF hasn't played: not called DNP");
@@ -972,10 +1023,13 @@ test("game log via the verified id map: a rookie's box score, '0 snp' when his t
   const wk = (w, tgt, snapsOff, rz) => ({ week: w, box: tgt == null ? null : { week: w, opponent: "NYJ", targets: tgt, receptions: tgt - 1, rec_yds: 10 * tgt, rec_tds: 0 },
     snaps: snapsOff == null ? null : { team: "XXX", off: snapsOff, def: 0, st: 0 }, redzone: rz || null });
   const weeklyBox = (m) => ({ ok: true, mfl_id: m, gsis_id: "00-ROOKIE", pfr_id: "RookRo00", id_source: "player_id_map:verified", box_through_week: 4,
-    weeks: [wk(1, 3, 28, { targets_i20: 1, rec_i20: 1, rec_tds_i20: 1, targets_ez: 1 }), wk(2, 4, 30), wk(4, 2, 20)] });
+    weeks: [wk(1, 3, 28, { targets_i20: 1, rec_i20: 1, rec_tds_i20: 1, targets_ez: 1 }), wk(2, 4, 30), wk(4, 2, 20),
+            // Wk 5: red-zone rows already in (Thursday's game) but the box score covers Wks 1–4
+            wk(5, null, 31, { targets_i20: 2, rec_i20: 1, rec_tds_i20: 1, targets_ez: 1 })] });
   const v = boot({ weeklyBox });
   const g = await gameLog(v, pid);
   t.deepEqual(g.wk(1).stats, ["3", "2", "30", "0"], "the bundle had nothing for him; the weekly route does");
+  t.match(g.html, /<th>Tgt<\/th><th>Rec<\/th><th>Yds<\/th><th>RecTD<\/th>/, "the TD column says it counts receiving TDs (QA 2026-10-11)");
   t.match(g.html, /Box score: nflverse, Wks 1–4\./);
   t.doesNotMatch(g.html, /isn’t linked/);
   // Wk 3: no MFL score; his snap data exists (pfr) but has no row that week while the source covers it → his team played without him
@@ -989,6 +1043,9 @@ test("game log via the verified id map: a rookie's box score, '0 snp' when his t
   t.match(body.innerHTML, /<th>Tgt<\/th><th>Rec<\/th><th>TD<\/th><th>EZ<\/th>/, "TE red-zone columns");
   t.deepEqual(rz.find((r) => r[0] === 1)[1], ["1", "1", "1", "1"]);
   t.deepEqual(rz.find((r) => r[0] === 2)[1], ["0", "0", "0", "0"], "a box score with no red-zone row = no red-zone plays (0)");
+  const r5 = rz.find((r) => r[0] === 5);
+  if (r5) t.deepEqual(r5[1], ["—", "—", "—", "—"], "past the box score's Wks 1–4: — even though red-zone rows exist (QA 2026-10-11)");
+  t.ok(FX.weeks["5"][pid] == null || r5, "Wk 5 row is checked when he has a Wk 5 row");
   t.match(body.innerHTML, /Red zone: inside the opponent’s 20; two-point tries excluded; sacks are not attempts\./);
 });
 

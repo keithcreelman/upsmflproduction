@@ -149,7 +149,8 @@
     press: { l: "Press", src: "pfr", t: "Pressures (PFR: hurries + knockdowns + sacks). — when PFR has no record for him.", g: function (r) { return nn(L(r).def_pressures); } },
     // Completions allowed / targets in coverage, sorted by targets (Keith 2026-10-10).
     cmptgt:{ l: "Cmp/Tgt", src: "pfr", w: 52, f: "ma", t: "Completions allowed / times targeted in coverage (PFR); sorts by targets",
-      g: function (r) { var t = nn(L(r).def_targets); return t == null ? null : { m: num(L(r).def_completions_allowed), a: t }; } },
+      // Both counts or "—": a missing completions count is never shown as 0 (QA 2026-10-11).
+      g: function (r) { var t = nn(L(r).def_targets), c = nn(L(r).def_completions_allowed); return t == null || c == null ? null : { m: c, a: t }; } },
     ydsa:  { l: "Yds",   src: "pfr", t: "Yards allowed in coverage (PFR)", g: function (r) { return nn(L(r).def_yards_allowed); } },
     fgm:   { l: "FGM",   src: "box", t: "Field goals made", g: function (r) { return nn(L(r).fg_made); } },
     fga:   { l: "FGA",   src: "box", t: "Field goals attempted", g: function (r) { return nn(L(r).fg_att); } },
@@ -178,8 +179,10 @@
     // Availability (Keith 2026-10-10): games he played ÷ games his NFL team
     // played, final weeks. Only played weeks are graded; a 0.0 in a game he
     // played is graded (a bust), a game he didn't play is not.
-    sq:    { l: "Played", src: "srt", w: 40, f: "ma", t: "Games he played ÷ games his NFL team played (final weeks); only played games are graded",
-      g: function (r) { var x = srRec(r); return x && x.team_games_n ? { m: x.played_n, a: x.team_games_n } : null; },   // 0/0 = nothing to say: "—"
+    sq:    { l: "Played", src: "srt", w: 40, f: "ma", t: "Games he played ÷ games his NFL team played (final weeks); only played games are graded. — when some of his team's games have no snap record for him",
+      // 0/0 = nothing to say: "—". Weeks with no snap record for him (unknown_n)
+      // are in neither count, so "1/1" would hide them: "—" then (QA 2026-10-11).
+      g: function (r) { var x = srRec(r); return x && x.team_games_n && !(x.unknown_n > 0) ? { m: x.played_n, a: x.team_games_n } : null; },
       sv: function (v) { return v.m * 100 - v.a; } },
     // Kickers and punters: about 12 UPS starters a week — counts, not a ranking.
     sstartn:{ l: "Start", src: "srt", w: 40, f: "ma", t: "Played weeks at or above that week's UPS-starter median (count / graded weeks)",
@@ -441,7 +444,9 @@
     var n = parseInt(meta.finalized, 10);
     if (!(n >= 1)) return null;
     var wk = []; for (var i = 1; i <= n; i++) wk.push(i);
-    return { label: wkShort(wk), weeks: wk, prior: false };
+    // The stored totals are every week MFL scores were synced for, which can
+    // include a week still being played: labelled as that, not as final weeks.
+    return { label: "Stored totals", weeks: wk, prior: false };
   }
 
   // ── Ownership: the app's one rule (app.js rosterOwnership / ownerOfPid) ──
@@ -496,9 +501,14 @@
       .then(function () {
         cache[key] = rows;
         var cov = first && first.source_coverage;
+        var covWk = (cov && cov.week) || (first && first.built_for_week) || null, fin = first && first.finalized_through_week;
         metaCache[key] = {
-          finalized: first && first.finalized_through_week,
-          coverage: (cov && cov.week) || (first && first.built_for_week) || null,
+          finalized: fin,
+          coverage: covWk,
+          // The coverage week is partial until its data is complete and the
+          // schedule says it's over (finalized_through_week reaches it).
+          partial: !!covWk && ((cov && cov.complete === false) || (fin != null && Number(fin) < Number(covWk))),
+          teamsRep: cov && cov.teams_reported, teamsExp: cov && cov.teams_expected,
           stale: !!(first && first.stale),
           count: rows.length, limit: PAGE, capped: capped, readAt: Date.now()
         };
@@ -782,23 +792,23 @@
         return { key: "pts", text: wide ? "MFL " + S_weeks(b.ss.seasonWeeks) : w, dot: b.ss.liveWeeks.length > 0 };
       }
       var p = storedPeriod(metaCache[tab.alias + "|" + b.season], b.season);
-      return { key: "pts", text: p ? (p.prior ? p.label : (wide ? "Stored " : "") + p.label) : "no verified wks" };
+      return { key: "pts", text: p ? (p.prior || wide ? p.label : "Stored") : "no verified wks" };
     }
     if (c.src === "rec") return { key: "rec", text: wkShort(recentWeeks(b.ss, recentWindow(b.ss))) };
     if (c.src === "box") {
       var m = metaCache[tab.alias + "|" + b.season];
-      return { key: "box", text: "nflverse" + (m && m.coverage ? " Wk 1–" + m.coverage : " " + b.season) };
+      return { key: "box", text: "nflverse " + (covWks(m) || b.season) };
     }
     // PFR charting rides the same nflverse weekly refresh and coverage week, so
     // it shares the box-score band (a separate band split narrow columns and
     // truncated both labels); the set note names PFR.
     if (c.src === "pfr") {
       var m2 = metaCache[tab.alias + "|" + b.season];
-      return { key: "box", text: "nflverse" + (m2 && m2.coverage ? " Wk 1–" + m2.coverage : " " + b.season) };
+      return { key: "box", text: "nflverse " + (covWks(m2) || b.season) };
     }
     if (c.src === "snap") {
       var m4 = metaCache[tab.alias + "|" + b.season];
-      return { key: "box", text: "nflverse" + (m4 && m4.coverage ? " Wk 1–" + m4.coverage : " " + b.season) };
+      return { key: "box", text: "nflverse " + (covWks(m4) || b.season) };
     }
     if (c.src === "srt") {
       var sm = srFor(srGroup(tab));
@@ -806,10 +816,17 @@
     }
     if (c.src === "rz") {
       var m3 = metaCache[tab.alias + "|" + b.season];
-      return { key: "rz", text: "Red zone" + (m3 && m3.coverage ? " Wk 1–" + m3.coverage : " " + b.season) };
+      return { key: "rz", text: "Red zone " + (covWks(m3) || b.season) };
     }
     if (set.id === "epa") return { key: "adv", text: "nflfastR " + (epaThrough ? "Wk 1–" + epaThrough : b.season) };
     return { key: "adv", text: (set.id === "routes" ? "Routes" : "Next Gen") + " " + b.season };
+  }
+  // "Wk 1–5*" when Wk 5 is partial; the set note says what the * means.
+  function covWks(m) { return m && m.coverage ? "Wk 1–" + m.coverage + (m.partial ? "*" : "") : ""; }
+  function covNote(m) {
+    if (!m || !m.partial) return "";
+    var t = m.teamsRep != null && m.teamsExp ? " (" + m.teamsRep + " of " + m.teamsExp + " teams in)" : "";
+    return "* Wk " + m.coverage + " is partial" + t + ".";
   }
   function S_weeks(weeks) { var S = SSMOD(); return S ? S.weeksLabel(weeks) : ""; }
   function visibleCols(set, b) {
@@ -887,8 +904,7 @@
         : "MFL’s live scoring couldn’t be read";
       if (!meta) txt = U.escapeHtml(why) + ". Loading the stored totals…";
       else if (per && per.prior) txt = U.escapeHtml(why) + " — showing the " + per.label + " season’s final totals (stored copy read " + readAt + ").";
-      else if (per) txt = U.escapeHtml(why) + ", so these are the last verified stored totals: " + U.escapeHtml(SSMOD() ? SSMOD().weeksLabel(per.weeks) : per.label) +
-        ", final weeks only (stored copy read " + readAt + "). Recent form is hidden. Tap refresh to retry.";
+      else if (per) txt = U.escapeHtml(why) + ", so these are the stored totals from the last sync: every week synced so far, which can include a week still being played (stored copy read " + readAt + "). Recent form is hidden. Tap refresh to retry.";
       else txt = U.escapeHtml(why) + " and the stored copy doesn’t say which weeks it covers, so points are hidden rather than guessed. Tap refresh to retry.";
     }
     return '<div class="ups-m-st-basis' + (warn ? " warn" : "") + '" id="ups-m-st-basis">' + txt + "</div>";
@@ -901,6 +917,7 @@
     var cols = set.cols.map(function (k) { return C[k]; });
     var srcs = {}; cols.forEach(function (c) { srcs[c.src] = 1; });
     var line = [], more = [];
+    if (srcs.box || srcs.pfr || srcs.snap || srcs.rz) { var cn = covNote(meta); if (cn) line.push(cn); }
     if (srcs.box || srcs.pfr) line.push("Box score: nflverse" + (meta && meta.coverage ? ", Wks 1–" + meta.coverage : "") + ".");
     if (srcs.pfr) more.push("Cmp/Tgt, Yds and Press are PFR charting via nflverse; — means PFR has no record for him.");
     if (set.cols.indexOf("snappct") >= 0) more.push("Snap% = his defensive snaps ÷ his team’s, only in the games he played on defense. It isn’t box or slot alignment — no source has that.");
