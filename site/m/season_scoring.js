@@ -50,6 +50,11 @@
    - games = weeks MFL posted a score row for the player (0.0 included) — MFL's
      own AVG denominator. A week with no row (bye, not active, hasn't played
      yet this week) is not a game.
+   - opts.season (the app's season): the export must name that year
+     (playerScoresAllWeeks.year). Another year, or no year at all, is
+     "season_mismatch" / "season_unverified" — unknown, never shown as this
+     season's points (Keith 2026-10-12: no earlier season's points or rank
+     without an explicit historical label).
    - Zero and negative weeks are real scores and count, in points AND games.
    - A blank score is "no score", never 0.
    - A PPG RANK needs a minimum of MFL wks — rankMinimum(), below. Every
@@ -109,6 +114,11 @@
     if (payload && payload.error) return unknown("mfl_error");
     var root = payload && payload.playerScoresAllWeeks;
     if (!root || typeof root !== "object" || Array.isArray(root)) return unknown("unavailable");
+    if (opts.season) {
+      var yr = String(root.year == null ? "" : root.year).replace(/\D/g, "");
+      if (!yr) return unknown("season_unverified");
+      if (yr !== String(opts.season)) return unknown("season_mismatch");
+    }
     var completed = (typeof opts.completedWeek === "number" && isFinite(opts.completedWeek) && opts.completedWeek >= 0)
       ? opts.completedWeek : null;
     var perWeek = {}, scored = [], duplicateRows = 0, hasPostedScore = false;

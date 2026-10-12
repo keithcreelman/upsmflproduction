@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.12.11",
-  "label": "Stats → Players: Search shows the same points, rank, weeks and MFL read time as the player sheet (MFL's live scoring, no older copy); Snap% counts never spill or pass 100%; 'Wk 1–5 · in progress' and 'Small sample · 20 targets' in words instead of '*'."
+  "build": "2026.10.12.12",
+  "label": "Stats → Players: Search shows the same points, rank, weeks and MFL read time as the player sheet; before MFL posts a season's first score, Search and the sheet show — and \"No 2027 MFL scores yet.\" (an earlier season only under its year); Snap% counts never spill or pass 100%; 'Wk 1–5 · in progress' and 'Small sample · 20 targets' in words instead of '*'."
 }

@@ -133,7 +133,7 @@ function boot(opt = {}) {
   // the shared contract parser the app loads (index.html: ../shared/cap_math.js)
   for (const f of ["site/shared/cap_math.js", "site/m/season_scoring.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
   const state = {
-    ctx: { year: "2026", leagueId: "74598" }, players: { players: { player: PLAYERS } },
+    ctx: { year: opt.year || "2026", leagueId: "74598" }, players: { players: { player: PLAYERS } },
     rosters: "rosters" in opt ? opt.rosters : rostersPayload(),
     franchises: "franchises" in opt ? opt.franchises : FX.franchises.map((f) => ({ id: f.id, name: f.name })),
     viewerFranchiseId: opt.viewer == null ? "0008" : opt.viewer,
@@ -230,7 +230,7 @@ function boot(opt = {}) {
     else if (u.pathname === "/api/player-bundle") {
       if (opt.bundle === "hold") return new Promise(() => {});              // never answers
       if (opt.bundle === "fail") return { ok: false, json: async () => null };
-      body = FX.bundles[u.searchParams.get("pid")] || {};
+      body = (opt.bundles && opt.bundles[u.searchParams.get("pid")]) || FX.bundles[u.searchParams.get("pid")] || {};
     }
     return { ok: true, json: async () => body };
   };
@@ -1445,7 +1445,7 @@ test("Search rows show the sheet's PPG and rank for every player — MFL's W=ALL
   // The SAME line above the rows and under the sheet's points: source, weeks, week in progress, rank rule, read time.
   const sb = searchBasis(v.searchList()), shb = sheetPoints(v, DAK).basis;
   t.deepEqual(sb, shb, "Search and sheet say the same thing about the numbers");
-  t.match(sb.text, /^Actual MFL points, UPS scoring · Wks 1–5 · Wk 5 in progress · Rank needs 2\+ MFL wks · MFL read \d{1,2}:\d{2} (AM|PM)$/);
+  t.match(sb.text, /^Actual 2026 MFL points, UPS scoring · Wks 1–5 · Wk 5 in progress · Rank needs 2\+ MFL wks · MFL read \d{1,2}:\d{2} (AM|PM)$/, "the season is named");
   t.equal(advReads, 0, "getAdvancedStatsMap (the D1 leaderboard copy) is never read by Search");
   t.doesNotMatch(read("site/m/player_search.js"), /getAdvancedStatsMap\s*\(/, "and isn't called anywhere in Search");
 });
@@ -1475,7 +1475,7 @@ test("MFL's scoring unreadable → Search shows — with the reason, the sheet s
   // preseason: MFL answers but has posted no week
   const pre = boot({ search: true, scores: { playerScoresAllWeeks: { year: "2026", playerScores: [] } } });
   pre.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");
-  t.deepEqual(searchBasis(pre.searchList()), { warn: false, text: "No 2026 MFL scores posted yet, so no points or ranks are shown." });
+  t.deepEqual(searchBasis(pre.searchList()), { warn: false, text: "No 2026 MFL scores yet." });
   t.equal(searchRows(pre.searchList())[DAK].ppg, "—");
 });
 
@@ -1561,6 +1561,81 @@ test("Snap% on Usage: 1342/1452 with the postseason (22 weeks) fits; the sheet's
   t.equal(/style="--cols:26px minmax\(0,1fr\) ([^"]+)"/.exec(u.list)[1].split(" ")[1], "64px");
   const src = read("site/m/player_sheet.js");
   t.match(src, /u\.off < 0 \|\| u\.off > u\.team_off \? null : Math\.round\(100 \* u\.off \/ u\.team_off\) \+ "%"/, "game log: his snaps over his team's that game → —");
+});
+
+// ═══ 7. Season rollover (Keith 2026-10-12): "—" until MFL has actual scores for the season;
+//      an earlier season's points or rank only under an explicit year ═══
+const ROLL_BUNDLE = { career_summary: [
+  { season: 2026, games_played: 17, season_points: 401.2, avg_ppg: 23.6, pos_ppg_rank: 6 },
+  { season: 2025, games_played: 16, season_points: 352.0, avg_ppg: 22.0, pos_ppg_rank: 9 } ] };
+async function rollover(opt) {
+  let advReads = 0;
+  const v = boot(Object.assign({ search: true, year: "2027", bundles: { [DAK]: ROLL_BUNDLE },
+    advMap: () => { advReads++; return { [DAK]: { mfl_ppg: 25.1, posRank: 10 } }; } }, opt));
+  v.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");
+  const search = v.searchList();
+  const sheet = sheetPoints(v, DAK);
+  await settle();
+  v.getEl("ups-m-sheet-tabs").fire("click", { target: { closest: () => ({ getAttribute: () => "stats" }) } });
+  await settle(); await settle();
+  const statsTab = v.getEl("ups-m-sheet-body").innerHTML;
+  return { v, search, row: searchRows(search)[DAK], basis: searchBasis(search), sheet, statsTab, advReads: () => advReads };
+}
+const yearRowsOf = (html) => [...html.matchAll(/<tr><td>(\d{4})<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/g)].map((m) => m.slice(1));
+
+test("rollover, 2027 before MFL posts a 2027 score: Search and the sheet show — and \"No 2027 MFL scores yet.\"; 2026 appears only as a labelled history row", async () => {
+  const r = await rollover({ scores: { playerScoresAllWeeks: { year: "2027", playerScores: [] } }, lineupWeek: null });
+  t.deepEqual(r.row, { ppg: "—", rank: "" }, "no PPG, no rank in Search");
+  t.deepEqual(r.basis, { warn: false, text: "No 2027 MFL scores yet." });
+  t.deepEqual(r.sheet.basis, r.basis, "the sheet's Actions tab says the same");
+  t.equal(r.sheet.ppg, undefined, "and shows no points tiles");
+  t.doesNotMatch(r.search + r.sheet.body, /25\.1|#10 QB|#6 QB|23\.6/, "no 2026 number anywhere on Search or the Actions tab");
+  t.equal(r.advReads(), 0, "the leaderboard copy (2026) is never read");
+  // Stats tab: 2026 and 2025 only as rows under their own year; no 2027 row; the line says what they are
+  const yrs = yearRowsOf(r.statsTab);
+  t.deepEqual(yrs.map((x) => x[0]), ["2026", "2025", "2024"], "history rows, each under its year");
+  t.deepEqual(yrs[0], ["2026", "17", "401.2", "23.6", "6"], "2026's final line, labelled 2026");
+  t.match(r.statsTab, /No 2027 MFL scores yet\. Rows above are earlier seasons, each under its year\./);
+  t.doesNotMatch(r.statsTab, /<td>2027<\/td>/);
+  // Stats → Players list: the stored 2026 board, said to be 2026
+  const html = await openTab(r.v, "QB");
+  t.match(html, /No 2027 MFL scores posted yet — showing the 2026 season’s final totals/, "the list says whose totals they are");
+  t.ok(bands(html).includes("2026"), "and its points band reads 2026: " + bands(html).join(" | "));
+});
+
+test("rollover: a payload for another season (or one that doesn't say) is never shown as this season's — — plus the reason", async () => {
+  const wrong = await rollover({ scores: scoresPayload(FX.weeks) });   // MFL answers with 2026's weeks while the app is on 2027
+  t.deepEqual(wrong.row, { ppg: "—", rank: "" });
+  t.deepEqual(wrong.basis, { warn: true, text: "Points unavailable: MFL’s scores aren’t marked as 2027, so none are shown." });
+  t.deepEqual(wrong.sheet.basis, wrong.basis);
+  t.doesNotMatch(wrong.search + wrong.sheet.body, /25\.1/, "Dak's 2026 PPG never appears as 2027's");
+  const p = scoresPayload(FX.weeks); delete p.playerScoresAllWeeks.year;
+  const unmarked = await rollover({ scores: p, year: "2026" });         // even in the right year, no year = unverified
+  t.deepEqual(unmarked.row, { ppg: "—", rank: "" });
+  t.equal(unmarked.basis.text, "Points unavailable: MFL’s scores aren’t marked as 2026, so none are shown.");
+  // MFL has no 2027 league yet (the export is "Not Found"): unavailable, not a guess
+  const gone = await rollover({ scores: { raw: "<H1>Not Found</H1>", parse_error: "Unexpected token '<'" } });
+  t.deepEqual(gone.row, { ppg: "—", rank: "" });
+  t.deepEqual(gone.basis, { warn: true, text: "Points unavailable: MFL’s scoring couldn’t be read, so no points or ranks are shown." });
+});
+
+test("rollover: 2027's first posted score (Thursday of Week 1) is shown as 2027, ranked on 2027 alone", async () => {
+  const wk1 = { playerScoresAllWeeks: { year: "2027", playerScores: [{ week: "1", playerScore: [
+    { id: DAK, week: "1", score: "31.4" }, { id: PURDY, week: "1", score: "18.2" } ] }] } };
+  const r = await rollover({ scores: wk1, lineupWeek: { ok: true, week: 1, source: "live_scoring" } });
+  t.deepEqual(r.row, { ppg: "31.4", rank: "#1 QB" }, "2027's own number and rank");
+  t.deepEqual({ ppg: r.sheet.ppg, rank: r.sheet.rank }, { ppg: "31.4", rank: "#1 QB" }, "the sheet agrees");
+  t.match(r.basis.text, /^Actual 2027 MFL points, UPS scoring · Wk 1 · Wk 1 in progress · Rank needs 1\+ MFL wk · MFL read /);
+  t.deepEqual(r.sheet.basis, r.basis);
+  const yrs = yearRowsOf(r.statsTab);
+  t.deepEqual(yrs.map((x) => x[0]), ["2027", "2026", "2025"], "the 2027 row joins the history, each still under its year");
+  t.deepEqual(yrs[0].slice(0, 4), ["2027", "1", "31.4", "31.4"]);
+});
+
+test("a season after its last week stays named: 'Actual 2026 MFL points … (final)'", async () => {
+  const v = boot({ search: true, lineupWeek: { ok: true, week: 6, source: "live_scoring_week_complete" } });
+  v.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");
+  t.match(searchBasis(v.searchList()).text, /^Actual 2026 MFL points, UPS scoring · Wks 1–5 \(final\) · Rank needs 3\+ MFL wks · MFL read /);
 });
 
 await run("mobile_stats_players_review");

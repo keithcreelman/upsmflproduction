@@ -441,7 +441,7 @@
         ? live.season + ": " + live.basis
         : (!seasonScoring || !seasonScoring.known)
           ? curYear + ": points unavailable — MFL's scoring could not be read"
-          : curYear + ": no scores posted yet; current-season points are not shown") + '</div>';
+          : "No " + curYear + " MFL scores yet. Rows above are earlier seasons, each under its year.") + '</div>';
   }
 
   // ── Game log (Stats tab, Keith 2026-10-10) ──
@@ -671,11 +671,17 @@
     var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
     var ss = D && D.getSeasonScoring ? D.getSeasonScoring() : null;
     var yr = (ss && ss.season) || U.safeStr((window.UPS_MOBILE.state.ctx || {}).year);
+    // Until MFL posts a score for THIS season: "—" and this line, never an
+    // earlier season's points or rank (Keith 2026-10-12). Earlier seasons
+    // appear only in the sheet's Stats tab, each row under its own year.
+    if (ss && (ss.reason === "season_mismatch" || ss.reason === "season_unverified")) return { ok: false, warn: true, text: "Points unavailable: MFL’s scores aren’t marked as " + yr + ", so none are shown." };
     if (!SSMOD || !ss || !ss.known) return { ok: false, warn: true, text: "Points unavailable: MFL’s scoring couldn’t be read, so no points or ranks are shown." };
-    if (!ss.seasonWeeks || !ss.seasonWeeks.length) return { ok: false, warn: false, text: "No " + yr + " MFL scores posted yet, so no points or ranks are shown." };
+    if (!ss.seasonWeeks || !ss.seasonWeeks.length) return { ok: false, warn: false, text: "No " + yr + " MFL scores yet." };
     var min = ss.rankMinimum ? ss.rankMinimum(0) : 1;
     var at = clockLabel(ss.fetchedAt);
-    return { ok: true, warn: false, text: "Actual MFL points, UPS scoring · " + SSMOD.weeksLabel(ss.seasonWeeks) +
+    // The season is named, so a final season shown after the calendar turns
+    // still reads as which season it is.
+    return { ok: true, warn: false, text: "Actual " + yr + " MFL points, UPS scoring · " + SSMOD.weeksLabel(ss.seasonWeeks) +
       (ss.liveWeeks.length ? " · Wk " + ss.liveWeeks.join(", ") + " in progress" : ss.finalKnown ? " (final)" : "") +
       " · Rank needs " + min + "+ MFL wk" + (min === 1 ? "" : "s") + (at ? " · MFL read " + at : "") };
   }
