@@ -812,7 +812,17 @@
       return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.") +
         (f.current ? " No tag: not on the report, a bye, or unmatched — tap him for which." : "");
     }
-    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, state: function () { return st.state; }, _st: st, TTL: TTL };
+    // For Live Scoring, which needs the report's week and only the game status
+    // (same rule as info and listLine): "ok" only for a fresh, current report.
+    function currentReport() {
+      if (st.state !== "ok" || !st.data || (Date.now() - st.at) > TTL) return { state: st.state === "error" ? "unavailable" : "loading" };
+      var f = st.data.report_feed || {}, players = st.data.players || {};
+      if (!f.current) return { state: "unavailable" };
+      return { state: "ok", season: st.season, week: parseInt(f.week, 10) || 0, at: st.at,
+        statusOf: function (pid) { var p = players[U.safeStr(pid)]; return (p && p.report && p.report.status) || ""; } };
+    }
+    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, currentReport: currentReport,
+      state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
   window.UPS_MOBILE_PLAYER_STATUS = PSTAT;
 

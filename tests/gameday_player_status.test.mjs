@@ -227,6 +227,9 @@ function desktopSandbox(store, overrides, season, week) {
   vm.runInContext(["injStatusFor", "lineupInjOpts", "injBadgeInfo", "injBadgeHtml"].map((n) => extractFn(GAMEDAY, n)).join("\n"), ctx);
   return ctx;
 }
+// Mobile's injStatusFor is the MFL half only: since 2026-10-12 its board keeps just MFL's roster
+// kinds (IR, PUP, Suspended …) and takes Q/D/OUT from the official NFL report
+// (tests/mobile_live_scoring_official_injury.test.mjs).
 function mobileSandbox(store, overrides, season, week) {
   const ctx = { LS, window: { UPS_INJURY_OVERRIDES: overrides }, M: { state: { injuryStore: store } }, sbYear: () => String(season), sbWeek: () => String(week), out: null };
   vm.createContext(ctx);

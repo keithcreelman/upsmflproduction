@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.12.9",
-  "label": "Stats → Players lists MFL's own players at their MFL positions, with status chips, Usage, Boom/Bust with availability and EPA on box-score plays; Next Gen for receivers and tight ends adds Sep+ — yards of separation above (+) or below (−) what cushion and target depth predict, with tracked targets under it (* = 20–29, a small sample)."
+  "build": "2026.10.12.10",
+  "label": "Live Scoring: Q/D/OUT tags and injury discounts now come from this week's official NFL injury report — the same source as Stats → Players (MFL's lapsing designations aren't used); IR/PUP from MFL as before."
 }

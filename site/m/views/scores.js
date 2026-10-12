@@ -8,7 +8,8 @@
    per-FG distances, full IDP; MFL-exact for any week).
 
    Data: liveScoring (current week) + weeklyResults (any past week, keyless)
-   lazy-loaded per selected week; injuries are the app-global current feed;
+   lazy-loaded per selected week; Q/D/OUT come from the official NFL injury
+   report (/api/player-status), IR/PUP/Suspended from MFL's injuries export;
    projectedScores (keyless, current week) drives the live remaining-proj blend.
    Reached via the Home "Live Scoring" tile. */
 (function () {
@@ -102,6 +103,7 @@
   function loadScoreboard(force) {
     if (M.state.sb && M.state.sb.loaded && !force) { scheduleSbPoll(); return; }
     if (!M.state.sb) M.state.sb = { loaded: false };
+    loadOfficialReport();   // in parallel, so a refresh lands with the scores
     Promise.all([loadLeagueYears(), sbWeekSel() ? Promise.resolve("") : sbCurrentWeekPromise()]).then(function (pre) {
     var wk = sbWeekSel() || pre[1];
     Promise.all([
@@ -198,9 +200,10 @@
   function sbCompute(fid) {
     var meta = sbFranchises().filter(function (f) { return f.id === pad4(fid); })[0] || { name: pad4(fid) };
     var sb = M.state.sb || {};
+    var rep = officialReport();
     return LS.computeTeam(pad4(fid), meta.name, {
       source: sbSource(), live: sb.live, weekly: sb.weekly,
-      injuryOf: injStatusFor,
+      injuryOf: function (pid) { return boardStatusFor(rep, pid); },
       projOf: projFor,
       metaOf: function (pid) {
         var pm = playerById(pid) || {};
@@ -217,12 +220,61 @@
     if (sbSource() === "weekly") { var wr = sbWeekly(); return wr ? String(wr.week || sbWeekSel() || "") : (sbWeekSel() || ""); }
     var ls = sbLive(); return ls ? String(ls.week || "") : (sbWeekSel() || "");
   }
-  // The designation for a player, read for the season and week the board is
+  // MFL's designation for a player, read for the season and week the board is
   // SHOWING -- from the same season+week store the desktop Game Day reads, never
   // from "whatever the app-global feed last said" (a phone left open across a
-  // week boundary used to keep showing last week's Out).
+  // week boundary used to keep showing last week's Out). The board keeps only
+  // its ROSTER kinds (boardStatusFor below).
   function injStatusFor(pid) {
     return LS.injuryStatusFor({ store: M.state.injuryStore, overrides: window.UPS_INJURY_OVERRIDES, season: sbYear(), week: sbWeek() }, pid);
+  }
+  // What the board tags and discounts by (Keith 2026-10-12), from the same two
+  // sources as the Stats → Players list and the player sheet:
+  //   • Q / D / OUT: this week's OFFICIAL NFL injury report (/api/player-status
+  //     via UPS_MOBILE_PLAYER_STATUS). MFL's own Q/D/Out are never shown or
+  //     used: its export keeps them for weeks after they lapse. While the
+  //     report is loading, stale, unavailable or for another week, no player
+  //     gets a Q/D/OUT tag or an injury discount, and a line says so.
+  //   • IR / IR-R / PUP / NFI / Suspended / Holdout / Retired: MFL's roster
+  //     designations, read and treated exactly as before (tag, no remaining
+  //     projection). Same list the worker's roster feed keeps.
+  var MFL_ROSTER_KINDS = { "IR": 1, "IR-R": 1, "IR-PUP": 1, "IR-NFI": 1, "SUSPENDED": 1, "HOLDOUT": 1, "RETIRED": 1 };
+  // "ok" (with statusOf) only when the report is for the season+week shown;
+  // it is read for the current season only.
+  function officialReport() {
+    var PS = window.UPS_MOBILE_PLAYER_STATUS;
+    if (!PS || !PS.currentReport || String(sbYear()) !== String(ctx().year)) return { state: "unavailable" };
+    var r = PS.currentReport();
+    if (r.state === "ok" && (String(r.season) !== String(sbYear()) || String(r.week) !== String(sbWeek()))) return { state: "unavailable" };
+    return r;
+  }
+  function boardStatusFor(rep, pid) {
+    var mfl = injStatusFor(pid);
+    if (MFL_ROSTER_KINDS[mfl]) return mfl;
+    return rep.state === "ok" ? LS.injuryToken(rep.statusOf(pid)) : "";
+  }
+  // One read shared with the Stats list and the sheet (cached 5 min); repaints
+  // once a read changes what the board can say.
+  var psWait = false;
+  function loadOfficialReport() {
+    var PS = window.UPS_MOBILE_PLAYER_STATUS;
+    if (!PS || psWait || String(sbYear()) !== String(ctx().year)) return;
+    var sig = function () { var r = officialReport(); return r.state + ":" + (r.at || ""); }, before = sig();
+    psWait = true;
+    PS.load(ctx().year).then(function () {
+      psWait = false;
+      if (sig() !== before && M.state.sb && M.state.sb.loaded && M.route.currentRoute().split("/")[0] === "scores") renderRoute();
+    });
+  }
+  // The one line when a live board can't take Q/D/OUT from the report (the
+  // Stats list's wording). A final week shows no designation at all.
+  function officialNote() {
+    if (sbSource() !== "live") return "";
+    var st = officialReport().state;
+    if (st === "ok") return "";
+    return '<div class="ups-m-sb-note">' + (st === "loading"
+      ? "Checking this week’s injury report — no Q/D/OUT tags or injury discounts until it’s read."
+      : "Injury report unavailable, so no Q/D/OUT tags or injury discounts — no tag doesn’t mean healthy.") + "</div>";
   }
   function anyGameLive() {
     if (sbSource() !== "live") return false;
@@ -573,6 +625,7 @@
       bindControls(mount);
       return;
     }
+    loadOfficialReport();   // a read gone stale since the last poll refreshes
     var me = sbCompute(sbViewFid());
     var opps = sbOpponents().map(function (id) { return sbCompute(id); });
     var wk = sbWeek();
@@ -611,7 +664,7 @@
       '<button type="button" data-sbview="live"' + (sbView === "live" ? ' class="on"' : '') + '>Live</button></span></div>' +
       '<div class="ups-m-sb-ap"><div class="ups-m-sb-ap-row head"><span class="rk">#</span><span class="nm">Team</span><span class="lv">Live</span><span class="pj">Proj</span><span class="bt">All-Play</span></div>' + apRows + '</div>';
 
-    mount.innerHTML = head + weekControls() + top +
+    mount.innerHTML = head + weekControls() + top + officialNote() +
       '<div class="ups-m-sb-sec">My Week</div>' + meRow + oppRows +
       allplay +
       '<div class="ups-m-sb-actions"><a href="' + esc(nativeUrl) + '" target="_blank" rel="noopener">MFL Live Scoring ↗</a></div>';
