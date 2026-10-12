@@ -760,53 +760,156 @@ async function _hold(env, k, reason, { alertImpl, team, quiet } = {}) {
   return { ok: false, held: true, reason, alerted: !!a.alerted };
 }
 
+// ── delivering the one post: a time-limited sending lease ─────────────────
+//
+// Keith 2026-10-11: a permanent "claimed but unsent" mark could silently lose
+// the announcement if the worker died, or Discord failed, after the claim. So:
+//
+//   - a run takes a SENDING LEASE (notice_claimed_at_utc = lease start; it
+//     lapses after SEND_LEASE_SEC). Overlapping runs cannot both hold it.
+//   - before any RETRY (a lapsed lease), the run reads the target thread for
+//     THIS violation's post (our bot, the approved text). Found → adopt its
+//     message id, never repost. Not found → send.
+//   - every send carries a deterministic Discord nonce with enforce_nonce, so
+//     Discord itself returns the existing message instead of creating a second
+//     one if the same send repeats within its dedupe window.
+//   - the message id is stored ONLY after Discord confirms the post.
+//   - a definite rejection (4xx) holds for Keith; an uncertain outcome (5xx,
+//     timeout, network, 429) lets the lease lapse and the next run inspect and
+//     retry; after MAX_SEND_ATTEMPTS uncertain tries — or if the thread can't
+//     be inspected — the ruling is held as delivery_uncertain and Keith is DMed.
+//
+// The attempt log lives in notice_error as JSON {attempts, last}.
+export const SEND_LEASE_SEC = 5 * 60;
+export const MAX_SEND_ATTEMPTS = 3;
+const _isoAt = (unix) => new Date(Number(unix) * 1000).toISOString();
+export const sendNonce = (k) => `lv${k.season}w${String(k.week).padStart(2, "0")}f${_fid(k.fid)}`;   // ≤ 25 chars
+const _delivery = (s) => { try { const j = JSON.parse(s || "{}"); return j && typeof j === "object" && !Array.isArray(j) ? j : {}; } catch (_) { return {}; } };
+const _plainOf = (content) => _s(content).replace(/ ?<@!?\d+>/g, "");
+
+// Read-only: is THIS violation's post already in the thread? Matches a
+// message by our bot whose text, with mentions removed, is the approved post.
+export async function findPostedNotice(env, { threadId, noticeText }) {
+  const me = await _discord(env, "GET", "/users/@me");
+  const botId = me.ok && me.data ? _s(me.data.id) : "";
+  const g = await _discord(env, "GET", `/channels/${encodeURIComponent(threadId)}/messages?limit=100`);
+  if (!g.ok || !Array.isArray(g.data)) return { ok: false, http: g.status };
+  const want = plainNotice(noticeText);
+  const hit = g.data.find((m) => m && m.author && (botId ? _s(m.author.id) === botId : !!m.author.bot) && _plainOf(m.content) === want);
+  return { ok: true, found: !!hit, message_id: hit ? _s(hit.id) : null, scanned: g.data.length };
+}
+
 // Post the confirmed ruling ONCE into the week's Injury Report thread.
-// `quietTransient` (the automatic run, early) defers the alert for a
-// read failure that the next run may clear.
-export async function postLineupNotice(env, { season, leagueId, fid, week, resolveMentions, alertImpl, quietTransient = false }) {
+// `quietTransient` (the automatic run, early) defers the alert for a read
+// failure that the next run may clear. `nowUnix` is for tests.
+export async function postLineupNotice(env, { season, leagueId, fid, week, resolveMentions, alertImpl, quietTransient = false, nowUnix }) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ok: false, error: "no_db" };
   const k = { season, leagueId, fid: _fid(fid), week };
+  const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
   const r = await getRuling(db, k);
   if (!r) return { ok: false, error: "no_ruling" };
   if (r.ruling !== "confirmed") return { ok: false, error: "not_confirmed", detail: "only a confirmed ruling is published" };
-  if (r.notice_claimed_at_utc) return { ok: false, error: "already_claimed", posted_at: r.notice_posted_at_utc || null, message_id: r.notice_message_id || null };
+  if (r.status === "posted" || r.notice_message_id) return { ok: false, error: "already_posted", message_id: r.notice_message_id || null, thread_id: r.notice_thread_id || null };
   if (r.status !== "ready" && r.status !== "held") return { ok: false, error: `status_${r.status}`, hold_reason: r.hold_reason };
   if (!_s(r.notice_text)) return { ok: false, error: "notice_missing", hold_reason: r.hold_reason };
-
-  const pv = await previewLineupNotice(env, { season, leagueId, fid: k.fid, week });
-  const team = (_s(r.notice_text).split("\n")[2] || "").split(` ${MENTION_TOKEN}`)[0];
-  if (!pv.ok) {
-    const reason = (pv.problems && pv.problems[0]) || pv.error || "preview_failed";
-    return { ...(await _hold(env, k, reason, { alertImpl, team, quiet: quietTransient && TRANSIENT_HOLDS.has(reason) })), problems: pv.problems };
+  if (r.notice_claimed_at_utc && r.notice_claimed_at_utc > _isoAt(now - SEND_LEASE_SEC)) {
+    return { ok: false, error: "send_in_progress", lease_since: r.notice_claimed_at_utc };
   }
+  const team = (_s(r.notice_text).split("\n")[2] || "").split(` ${MENTION_TOKEN}`)[0];
+  const priorAttempt = !!r.notice_claimed_at_utc;
+  const log = _delivery(r.notice_error);
+  const attempts = Number(log.attempts) || 0;
+
+  // First attempt: every check passes BEFORE a lease is taken.
+  let pv = null;
+  if (!priorAttempt) {
+    pv = await previewLineupNotice(env, { season, leagueId, fid: k.fid, week });
+    if (!pv.ok) {
+      const reason = (pv.problems && pv.problems[0]) || pv.error || "preview_failed";
+      return { ...(await _hold(env, k, reason, { alertImpl, team, quiet: quietTransient && TRANSIENT_HOLDS.has(reason) })), problems: pv.problems };
+    }
+  }
+
+  // Take the lease — only if none is held, or the last one lapsed.
+  const token = _isoAt(now).replace(/Z$/, `.${Math.random().toString(36).slice(2, 8)}Z`);
+  const lease = await db.prepare(
+    `UPDATE ups_lineup_rulings SET notice_claimed_at_utc=?, notice_thread_id=COALESCE(notice_thread_id, ?), notice_error=?
+      WHERE ${KEY_SQL} AND ruling='confirmed' AND status IN ('ready','held') AND notice_message_id IS NULL
+        AND (notice_claimed_at_utc IS NULL OR notice_claimed_at_utc < ?)`
+  ).bind(token, pv ? pv.destination.thread_id : null, JSON.stringify({ ...log, attempts: attempts + 1, last: { at: _isoAt(now), outcome: "leased" } }),
+    ...keyArgs(k), _isoAt(now - SEND_LEASE_SEC)).run();
+  if (!lease || !lease.meta || Number(lease.meta.changes) !== 1) return { ok: false, error: "send_in_progress" };
+  const mine = `${KEY_SQL} AND notice_claimed_at_utc=? AND notice_message_id IS NULL`;
+  const record = (outcome, extra) => db.prepare(`UPDATE ups_lineup_rulings SET notice_error=? WHERE ${mine}`)
+    .bind(JSON.stringify({ attempts: attempts + 1, last: { at: _isoAt(now), outcome, ...(extra || {}) } }), ...keyArgs(k), token).run();
+  const release = () => db.prepare(`UPDATE ups_lineup_rulings SET notice_claimed_at_utc=NULL WHERE ${mine}`).bind(...keyArgs(k), token).run();
+  const needsReview = async (reason, detail) => {
+    await record(reason, detail);
+    await db.prepare(`UPDATE ups_lineup_rulings SET status='held', hold_reason=? WHERE ${mine}`).bind(reason, ...keyArgs(k), token).run();
+    await alertOnce(env, { season, leagueId, week, fid: k.fid, reason, alertImpl,
+      text: `⚠️ Lineup violation post NEEDS REVIEW — Week ${week}, ${team || `Team ${k.fid}`}: ${reason}. Delivery is uncertain after ${attempts + 1} attempt(s); nothing more will be sent automatically. Check thread ${_s(r.notice_thread_id || (pv && pv.destination && pv.destination.thread_id))} before re-posting.` });
+    return { ok: false, held: true, needs_review: true, reason };
+  };
+
+  // RETRY after a lapsed lease: is the post already there?
+  if (priorAttempt) {
+    const threadId = _s(r.notice_thread_id);
+    const found = threadId ? await findPostedNotice(env, { threadId, noticeText: r.notice_text }) : { ok: false };
+    if (!found.ok) {
+      if (attempts + 1 >= MAX_SEND_ATTEMPTS) return needsReview("delivery_uncertain", { inspection: "unreadable" });
+      await record("inspection_unavailable", { http: found.http || 0 });
+      return { ok: false, error: "inspection_unavailable", retry: true };   // the lease lapses; the next run tries again
+    }
+    if (found.found) {
+      const adopt = await db.prepare(
+        `UPDATE ups_lineup_rulings SET status='posted', notice_posted_at_utc=?, notice_message_id=?, notice_error=?, hold_reason=NULL WHERE ${mine}`
+      ).bind(_isoAt(now), found.message_id, JSON.stringify({ attempts: attempts + 1, last: { at: _isoAt(now), outcome: "adopted_existing" } }), ...keyArgs(k), token).run();
+      if (!adopt || !adopt.meta || Number(adopt.meta.changes) !== 1) return { ok: false, error: "lease_lost" };
+      return { ok: true, posted: true, adopted: true, thread_id: threadId, message_id: found.message_id };
+    }
+    // Not there: re-run every check before sending again.
+    pv = await previewLineupNotice(env, { season, leagueId, fid: k.fid, week });
+    if (!pv.ok) {
+      await release();
+      const reason = (pv.problems && pv.problems[0]) || pv.error || "preview_failed";
+      return { ...(await _hold(env, k, reason, { alertImpl, team, quiet: quietTransient && TRANSIENT_HOLDS.has(reason) })), problems: pv.problems };
+    }
+  }
+
   // THE FINAL PRODUCTION SEND STEP — the only place the owner's real mention
   // is looked up and inserted (Keith 2026-10-11).
   const ids = await _mentions(env, k.fid, resolveMentions);
-  if (!ids.length) return await _hold(env, k, "owner_mention_unresolved", { alertImpl, team });
+  if (!ids.length) { await release(); return await _hold(env, k, "owner_mention_unresolved", { alertImpl, team }); }
   const sendText = _s(r.notice_text).split(MENTION_TOKEN).join(ids.map((id) => `<@${id}>`).join(" "));
-
-  const claim = await db.prepare(
-    `UPDATE ups_lineup_rulings SET notice_claimed_at_utc=?, notice_thread_id=?
-      WHERE ${KEY_SQL} AND ruling='confirmed' AND status IN ('ready','held') AND notice_claimed_at_utc IS NULL`
-  ).bind(_nowIso(), pv.destination.thread_id, ...keyArgs(k)).run();
-  if (!claim || !claim.meta || Number(claim.meta.changes) !== 1) return { ok: false, error: "already_claimed" };
-
   const p = await _discord(env, "POST", `/channels/${encodeURIComponent(pv.destination.thread_id)}/messages`, {
-    content: sendText.slice(0, 1990), allowed_mentions: { users: ids },
+    content: sendText.slice(0, 1990), allowed_mentions: { users: ids }, nonce: sendNonce(k), enforce_nonce: true,
   });
   const msgId = _s(p.data && p.data.id);
-  if (!p.ok || !msgId) {
-    await db.prepare(`UPDATE ups_lineup_rulings SET notice_error=? WHERE ${KEY_SQL}`)
-      .bind(`discord ${p.status}: ${JSON.stringify(p.data || p.error || "").slice(0, 300)}`, ...keyArgs(k)).run();
-    // The claim stays: the message may or may not have landed. A person
-    // checks the thread before anything is sent again.
-    return { ...(await _hold(env, k, "post_failed", { alertImpl, team })), claimed: true };
+  if (p.ok && msgId) {
+    // Stored ONLY now that Discord has confirmed the post.
+    const fin = await db.prepare(
+      `UPDATE ups_lineup_rulings SET status='posted', notice_posted_at_utc=?, notice_message_id=?, notice_error=?, hold_reason=NULL WHERE ${mine}`
+    ).bind(_isoAt(now), msgId, JSON.stringify({ attempts: attempts + 1, last: { at: _isoAt(now), outcome: "posted" } }), ...keyArgs(k), token).run();
+    if (!fin || !fin.meta || Number(fin.meta.changes) !== 1) {
+      const cur = await getRuling(db, k);
+      if (cur && cur.notice_message_id === msgId) return { ok: true, posted: true, thread_id: pv.destination.thread_id, message_id: msgId };
+      return needsReview("delivery_conflict", { message_id: msgId });
+    }
+    // The returned text is the plain one; the mention lives only in Discord.
+    return { ok: true, posted: true, thread_id: pv.destination.thread_id, message_id: msgId, text: pv.text };
   }
-  await db.prepare(`UPDATE ups_lineup_rulings SET status='posted', notice_posted_at_utc=?, notice_message_id=?, notice_error=NULL, hold_reason=NULL WHERE ${KEY_SQL}`)
-    .bind(_nowIso(), msgId, ...keyArgs(k)).run();
-  // The returned text is the plain one; the mention lives only in Discord.
-  return { ok: true, posted: true, thread_id: pv.destination.thread_id, message_id: msgId, text: pv.text };
+  const http = Number(p.status) || 0;
+  if (http >= 400 && http < 500 && http !== 429) {
+    // Discord definitively refused: nothing was created. Hold for Keith.
+    await record("rejected", { http, detail: JSON.stringify(p.data || "").slice(0, 200) });
+    await release();
+    return await _hold(env, k, `post_rejected_${http}`, { alertImpl, team });
+  }
+  // Uncertain (5xx / 429 / network): the post may or may not exist.
+  if (attempts + 1 >= MAX_SEND_ATTEMPTS) return needsReview("delivery_uncertain", { http });
+  await record("uncertain", { http, detail: _s(p.error).slice(0, 200) });
+  return { ok: false, error: "delivery_uncertain", retry: true, http };   // lease lapses; the next run inspects first
 }
 
 // ── the standing rule: book → rule → verify → post, unattended ─────────────
@@ -833,7 +936,7 @@ export async function runLineupAutoPublish(env, { season, leagueId, week, nowUni
     const team = names[k.fid] || `Team ${k.fid}`;
     const alert = (reason, extra) => alertOnce(env, { season, leagueId, week, fid: k.fid, reason, text: holdText(k, team, reason, extra), alertImpl });
     let r = await getRuling(db, k);
-    if (r && (r.notice_claimed_at_utc || r.status === "posted" || r.status === "closed")) { out.push({ fid: k.fid, status: r.status, skipped: "done" }); continue; }
+    if (r && (r.status === "posted" || r.status === "closed" || r.notice_message_id)) { out.push({ fid: k.fid, status: r.status, skipped: "done" }); continue; }
     if (Number(c.needs_review)) { await alert("needs_review", _s(c.review_note)); out.push({ fid: k.fid, status: "needs_review" }); continue; }
     if (r && r.status === "needs_pick_selection") { await alert("needs_pick_selection", "Choose the exact pick (POST /admin/lineup/rule with pick_choice)."); out.push({ fid: k.fid, status: r.status }); continue; }
     if (r && r.status === "held" && !TRANSIENT_HOLDS.has(_s(r.hold_reason))) { await alert(_s(r.hold_reason)); out.push({ fid: k.fid, status: "held", reason: r.hold_reason }); continue; }
@@ -849,7 +952,7 @@ export async function runLineupAutoPublish(env, { season, leagueId, week, nowUni
       r = await getRuling(db, k);
     }
     if (r && r.status === "ready") {
-      const p = await postLineupNotice(env, { season, leagueId, fid: k.fid, week, resolveMentions, alertImpl, quietTransient: early });
+      const p = await postLineupNotice(env, { season, leagueId, fid: k.fid, week, resolveMentions, alertImpl, quietTransient: early, nowUnix: now });
       out.push({ fid: k.fid, status: p.ok ? "posted" : "held", reason: p.reason || p.error || null, message_id: p.message_id || null, thread_id: p.thread_id || null });
     }
   }

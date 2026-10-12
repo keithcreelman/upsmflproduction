@@ -246,7 +246,7 @@ test("no active owner account → held before any mention lookup", async () => {
   t.equal(p.reason, "owner_account_missing"); t.equal(net.posts.length, 0);
 });
 
-test("a re-post after a hold is fixed goes out once; a failed send keeps the claim", async () => {
+test("a re-post after a hold is fixed goes out once; a definite Discord rejection holds for Keith", async () => {
   const e = env({ satLog: null }); let net = install(world()); alerts.length = 0;
   book(e, "0002", 5, CBP_REASONS);
   await rule(e, "0002", 5);
@@ -258,9 +258,9 @@ test("a re-post after a hold is fixed goes out once; a failed send keeps the cla
   book(e2, "0002", 5, CBP_REASONS);
   await rule(e2, "0002", 5);
   const f = await post(e2, "0002", 5);
-  t.equal(f.reason, "post_failed"); t.equal(f.claimed, true); t.equal(alerts.length, 1);
-  install(world());
-  t.equal((await post(e2, "0002", 5)).error, "already_claimed", "never auto re-sent: a person checks the thread first");
+  t.equal(f.reason, "post_rejected_403"); t.equal(alerts.length, 1);
+  t.equal(ruling(e2, "0002", 5).status, "held", "waits for Keith");
+  t.equal(ruling(e2, "0002", 5).notice_message_id, null, "no message id without Discord's confirmation");
 });
 
 // ── evidence ────────────────────────────────────────────────────────────────
@@ -359,7 +359,7 @@ test("overlapping rulings: one ruling, one reservation; overlapping posts: one D
   const [p1, p2] = await Promise.all([post(e2, "0002", 5), post(e2, "0002", 5)]);
   t.equal([p1.ok, p2.ok].filter(Boolean).length, 1);
   t.equal(net.posts.length, 1, "exactly one Discord message");
-  t.equal((await post(e2, "0002", 5)).error, "already_claimed");
+  t.equal((await post(e2, "0002", 5)).error, "already_posted");
   t.equal((await rule(e2, "0002", 5)).unchanged, true, "re-ruling after posting changes nothing");
 });
 
