@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.09.4",
-  "label": "Players: when MFL's rosters don't fully load, nobody is called a free agent — the list, player card and search say ownership is unknown and offer no add or bid until a refresh."
+  "build": "2026.10.12.8",
+  "label": "Trade builder: a draft pick forfeited as a lineup penalty shows greyed out with \"Forfeited — lineup penalty\" and can't be added to an offer."
 }

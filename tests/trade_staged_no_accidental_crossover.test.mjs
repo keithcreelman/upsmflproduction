@@ -36,13 +36,13 @@ function sliceByAnchors(lines, startLineText, startLineNum, endLineText, endLine
 }
 
 test("DESKTOP: submitStagedOfferToQueue's own body never references the direct-MFL endpoint family, and never calls submitOfferToQueue/submitTradeCreateWithGates", () => {
-  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8671, "function init3WayTrade()", 8714);
+  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8701, "function init3WayTrade()", 8744);
   t.doesNotMatch(body, /resolveTradeOffersApiUrl|\/trade-offers|submitTradeCreateWithGates\(|submitOfferToQueue\(/);
   t.match(body, /tw2sUrl\(/, "it must go through the staged 2-way URL builder");
 });
 
 test("DESKTOP: submitOfferToQueue's own body never references the staged endpoint family, and never calls submitStagedOfferToQueue", () => {
-  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4282, "async function retryLastSubmitRequest()", 4428);
+  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4292, "async function retryLastSubmitRequest()", 4438);
   t.doesNotMatch(body, /resolveStaged2WayApiUrl|\/api\/trades\/2way|submitStagedOfferToQueue\(/);
 });
 
@@ -53,13 +53,13 @@ test("DESKTOP: the staged URL builder resolves to the staged endpoint (it legiti
 });
 
 test("MOBILE: submitStagedOffer's own body never references the direct-MFL proposals endpoint, and never calls submitOffer/submitTradeCreateWithGatesMobile", () => {
-  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2330, "function render(mount, parts)", 2368);
+  const body = sliceByAnchors(mobileLines, "function submitStagedOffer()", 2355, "function render(mount, parts)", 2393);
   t.doesNotMatch(body, /\/api\/trades\/proposals|submitTradeCreateWithGatesMobile\(|[^d]submitOffer\(/);
   t.match(body, /\/api\/trades\/2way/, "it must post to the staged endpoint");
 });
 
 test("MOBILE: submitOffer's own body never references the staged endpoint, and never calls submitStagedOffer", () => {
-  const body = sliceByAnchors(mobileLines, "function submitOffer()", 1091, "function mflActionVerb(action)", 1180);
+  const body = sliceByAnchors(mobileLines, "function submitOffer()", 1109, "function mflActionVerb(action)", 1198);
   t.doesNotMatch(body, /\/api\/trades\/2way(?!-)|submitStagedOffer\(/);
 });
 

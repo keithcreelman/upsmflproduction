@@ -4456,13 +4456,20 @@
                   const taxiPill = it.taxi
                     ? `<span class="taxi-pill" title="Taxi squad — salary doesn't count vs cap, but real for trade math">TAXI</span>`
                     : "";
+                  // A pick a lineup penalty took out of trading (worker flag,
+                  // Keith 2026-10-12): shown greyed with its label, not addable.
+                  // The worker refuses it at Send/Accept regardless.
+                  const forfeited = it.forfeited === true;
+                  const forfeitNote = forfeited
+                    ? `<span class="small" style="color:var(--warn); font-weight:700; white-space:nowrap;">${escapeHtml(it.forfeit_label || "Forfeited — lineup penalty")}</span>`
+                    : "";
                   return `
-                  <div class="trade-asset-row${it.taxi ? " is-taxi" : ""}" data-asset-id="${escapeHtml(it.asset_id)}" data-display="${escapeHtml(it.display)}" data-kind="${k}"
+                  <div class="trade-asset-row${it.taxi ? " is-taxi" : ""}${forfeited ? " is-forfeited" : ""}"${forfeited ? ' aria-disabled="true"' : ""} data-asset-id="${escapeHtml(it.asset_id)}" data-display="${escapeHtml(it.display)}" data-kind="${k}"
                        data-player-id="${escapeHtml(it.player_id || '')}"
                        data-position="${escapeHtml(it.position || '')}"
                        data-salary="${escapeHtml(String(it.salary || ''))}"
                        data-taxi="${it.taxi ? '1' : '0'}"
-                       style="cursor:pointer; font-size:12px; border-bottom:1px solid var(--border);">
+                       style="cursor:${forfeited ? "not-allowed; opacity:0.55" : "pointer"}; font-size:12px; border-bottom:1px solid var(--border);">
                     <div style="padding:4px 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                       <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                         ${escapeHtml(it.display)}
@@ -4470,6 +4477,7 @@
                         ${taxiPill}
                       </div>
                       ${it.salary ? `<span class="small" style="color:var(--muted); white-space:nowrap;">$${Math.round(it.salary).toLocaleString()}</span>` : ""}
+                      ${forfeitNote}
                     </div>
                   </div>`;
                 }).join("")}
@@ -4505,6 +4513,7 @@
         // Wire click-to-add
         pickerEl.querySelectorAll(".trade-asset-row").forEach(row => {
           row.addEventListener("click", () => {
+            if (row.classList.contains("is-forfeited")) return;
             const existing = basket[side].find(x => x.asset_id === row.dataset.assetId);
             if (existing) return;
             basket[side].push({
