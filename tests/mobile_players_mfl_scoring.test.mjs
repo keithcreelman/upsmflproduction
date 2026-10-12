@@ -366,7 +366,7 @@ test("player sheet: the current-season row is MFL's YTD with the live week, or a
   const none = { known: true, reason: "no_scores_posted", seasonWeeks: [], finalWeeks: [], liveWeeks: [], byPid: {} };
   const pre = sheetHarness(none).renderStatsBlock(staleBundle);
   t.doesNotMatch(pre, /<td>2026<\/td>/, "no current-season row before MFL posts a score");
-  t.match(pre, /no scores posted yet/, "preseason reason is distinct");
+  t.match(pre, /No 2026 MFL scores yet\. Rows above are earlier seasons, each under its year\./, "preseason reason is distinct, and the earlier rows are said to be earlier seasons");
   // Live week: the row the bid was priced on, Thursday included.
   const c = sheetHarness(null);
   const ss = c.UPS_MOBILE_SEASON_SCORING.build(FX4.playerScoresAll, { completedWeek: 3 });
