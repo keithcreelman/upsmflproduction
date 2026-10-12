@@ -124,7 +124,11 @@ const STATUS_OK = (players = {}, feed = {}) => ({ ok: true, season: 2026,
 function boot(opt = {}) {
   const ctx = vm.createContext({ console, setTimeout, clearTimeout, Promise, URL, Date, Math, JSON });
   ctx.window = ctx;
-  ctx.addEventListener = () => {};
+  // window events are recorded so a test can fire one (e.g. "ups-season-scoring-changed")
+  const winListeners = {};
+  ctx.addEventListener = (type, fn) => (winListeners[type] = winListeners[type] || []).push(fn);
+  ctx.Event = class { constructor(type) { this.type = type; } };
+  ctx.dispatchEvent = (e) => { (winListeners[e.type] || []).forEach((fn) => fn(e)); return true; };
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
   // the shared contract parser the app loads (index.html: ../shared/cap_math.js)
   for (const f of ["site/shared/cap_math.js", "site/m/season_scoring.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
@@ -171,6 +175,8 @@ function boot(opt = {}) {
         return playerIdx.map[String(id)] || null;
       },
       getSeasonScoring: () => ctx.__ss(),
+      ...(opt.advMap ? { getAdvancedStatsMap: opt.advMap } : {}),
+      ...(opt.refresh ? { refreshSeasonScoringIfStale: (ms) => ctx.__refresh(ms) } : {}),
       getAdvancedStatsLatestYear: () => 2026, getAdvancedStatsFor: () => null,
       capPenaltyFor: (id) => ctx.__cap(id),
       ownerOfPid: (id) => ctx.__own(id), rosterOwnership: () => ctx.__rosterOwn(),
@@ -187,7 +193,16 @@ function boot(opt = {}) {
       modeInfo: () => ({ mode: "bbid", detail: "Blind bids run Sat Oct 10, 9:00 AM ET" }), stagedRoundsFor: () => [],
     },
   };
-  ctx.document = { getElementById: getEl, addEventListener() {}, body: { style: {} } };
+  // Search's overlay (player_search.js open()): its input and list are fake elements a test can read.
+  const created = [];
+  ctx.document = { getElementById: getEl, addEventListener() {}, removeEventListener() {}, querySelector: () => null,
+    body: { style: {}, appendChild(e) { e.parentNode = this; }, removeChild(e) { e.parentNode = null; } },
+    createElement() {
+      const kids = {};
+      const e = { className: "", innerHTML: "", parentNode: null, setAttribute() {}, addEventListener() {},
+        querySelector: (sel) => (kids[sel] = kids[sel] || Object.assign(makeEl(sel), { focus() {}, scrollTop: 0 })), kids };
+      created.push(e); return e;
+    } };
   ctx.fetch = async (url, o) => {
     requests.push({ url: String(url), method: (o && o.method) || "GET" });
     const u = new URL(url);
@@ -210,6 +225,7 @@ function boot(opt = {}) {
     else if (u.pathname === "/api/player-ngs") body = { by_gsis: opt.ngs || {} };
     else if (/^\/api\/(sos-adjusted-points|player-consistency)$/.test(u.pathname)) body = { by_gsis: {} };
     else if (u.pathname === "/api/mfl-market") body = { by_mfl: {} };
+    else if (u.pathname === "/api/current-lineup-week") body = "lineupWeekNext" in opt ? opt.lineupWeekNext : FX.lineup_week;
     else if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "nflByeWeeks") body = opt.byes === null ? null : { nflByeWeeks: { team: FX.byes } };
     else if (u.pathname === "/api/player-bundle") {
       if (opt.bundle === "hold") return new Promise(() => {});              // never answers
@@ -220,7 +236,17 @@ function boot(opt = {}) {
   };
   vm.runInContext(read("site/m/views/stats.js"), ctx);
   vm.runInContext(read("site/m/player_sheet.js"), ctx);
-  return { ctx, M, state, els, getEl, mount, requests, builderCalls, render: () => views.stats(mount) };
+  if (opt.search) vm.runInContext(read("site/m/player_search.js"), ctx);
+  // app.js's real 5-minute re-read of MFL's W=ALL, with MFL's answer from opt.refresh()
+  if (opt.refresh) {
+    ctx.__fetchJson = async () => opt.refresh();
+    vm.runInContext("var fetchJson = this.__fetchJson, mflExportUrl = function (t, p) { return 'https://w.test/api/mfl-export?TYPE=' + t; }," +
+      " workerUrl = function (p) { return 'https://w.test' + p; };\nvar seasonScoringRefresh = null, seasonScoringTriedAt = 0;\n" +
+      sliceFn(APP, "function refreshSeasonScoringIfStale(") + "\nthis.__refresh = refreshSeasonScoringIfStale;", ctx);
+  }
+  // Search's overlay list (after M.playerSearch.openWith)
+  const searchList = () => { const o = created[created.length - 1]; return o ? o.kids[".ups-m-psr-list"].innerHTML : ""; };
+  return { ctx, M, state, els, getEl, mount, requests, builderCalls, searchList, winListeners, render: () => views.stats(mount) };
 }
 const settle = async () => { for (let i = 0; i < 12; i++) await new Promise((r) => setTimeout(r, 0)); };
 async function openTab(v, tab) {
@@ -237,14 +263,17 @@ async function chooseSet(v, id) {
 function rowsOf(html) {
   const out = [];
   for (const m of html.matchAll(/<div class="ups-m-st-row[^"]*" data-pid="(\d+)">([\s\S]*?)(?=<div class="ups-m-st-row|<\/div><div class="ups-m-fa-more"|$)/g)) {
-    const cells = [...m[2].matchAll(/<span class="v[^"]*">([\s\S]*?)<\/span>(?=<span class="v|<\/div>|$)/g)].map((c) => c[1].replace(/<[^>]+>/g, "").trim());
+    const cells = [...m[2].matchAll(/<span class="v[^"]*">([\s\S]*?)<\/span>(?=<span class="v|<span class="flag"|<\/div>|$)/g)].map((c) => c[1].replace(/<[^>]+>/g, "").trim());
     const rk = /<span class="rk">([^<]*)<\/span>/.exec(m[2])[1];
     const tm = /<span class="tm">([\s\S]*?)<\/span><\/span><\/span>/.exec(m[2])[1].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
-    out.push({ pid: m[1], rk, cells, tm, live: m[2].includes("ups-m-st-live") });
+    // the row's reliability line ("Small sample · 23 targets"), "" when none
+    const flag = (/<span class="flag">([^<]*)<\/span>/.exec(m[2]) || [])[1] || "";
+    out.push({ pid: m[1], rk, cells, tm, flag, live: m[2].includes("ups-m-st-live") });
   }
   return out;
 }
-const bands = (html) => [...html.matchAll(/<span class="band"[^>]*>([\s\S]*?)<\/span>(?=<span class="band|<span class="rk)/g)].map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+// A two-line band ("Wk 1–5" over "in progress") reads "Wk 1–5 / in progress".
+const bands = (html) => [...html.matchAll(/<span class="band(?: two)?"[^>]*>([\s\S]*?)<\/span>(?=<span class="band|<span class="rk)/g)].map((m) => m[1].replace(/<br>/g, " / ").replace(/<[^>]+>/g, "").trim());
 // Column headings are sort buttons: label text before the direction glyph.
 const labels = (html) => [...html.matchAll(/class="ups-m-st-sort[^"]*" data-sort="([a-z0-9]+)"[^>]*>([^<]*)<i/g)].map((m) => m[2]);
 const sortState = (html) => [...html.matchAll(/aria-sort="([a-z]+)"><button type="button" class="ups-m-st-sort[^"]*" data-sort="([a-z0-9]+)"[^>]*>[^<]*<i aria-hidden="true">([^<]*)</g)].map((m) => m[2] + ":" + m[1] + ":" + m[3]);
@@ -563,20 +592,34 @@ test("no guessed values (QA 2026-10-11): Cmp/Tgt needs BOTH counts; Played is �
   t.match(read("site/m/views/stats.js"), /— when some of his team's games have no snap record for him/, "the heading's title says why");
 });
 
-test("a partial coverage week is labelled partial, never shown as a full week (QA 2026-10-11: the Monday rebuild before MNF)", async () => {
+test("a partial coverage week says 'in progress' in words, never a '*' and never shown as a full week (QA 2026-10-11; Keith 2026-10-12)", async () => {
   const part = { built_for_week: 5, finalized_through_week: 4, source_coverage: { week: 5, teams_reported: 30, teams_expected: 32, complete: false } };
   const v = boot({ leaderboard: (a) => { const x = leaderboard(a, part); x.rows = x.rows.map((r) => Object.assign({}, r, { rz_v2: 1 })); return x; } });
   await openTab(v, "WR");
   const rc = await chooseSet(v, "receiving");
-  t.deepEqual(bands(rc.head).filter((x) => /nflverse/.test(x)), ["nflverse Wk 1–5*"]);
-  t.match(rc.notes, /\* Wk 5 is partial \(30 of 32 teams in\)\./);
+  t.deepEqual(bands(rc.head).filter((x) => /Wk/.test(x)), ["nflverse Wk 1–5 · in progress"], "a four-column band has room for the source too");
+  t.match(rc.notes, /Wk 1–5 · in progress: Wk 5 has 30 of 32 teams in\./);
   const rz = await chooseSet(v, "redzone");
-  t.ok(bands(rz.head).some((x) => x === "Red zone Wk 1–5*"), bands(rz.head).join(" | "));
+  t.ok(bands(rz.head).some((x) => x === "Red zone Wk 1–5 · in progress"), bands(rz.head).join(" | "));
+  // a three-column band (WR Efficiency, 134px) drops the source name, never the "in progress"
+  const ef = await chooseSet(v, "efficiency");
+  t.deepEqual(bands(ef.head), ["Wk 1–5 · in progress"]);
+  t.match(ef.head, /title="nflverse Wk 1–5 · in progress"/, "the full label stays on the band's title");
+  // the one-column aDOT band on Next Gen: two lines, and the column is widened to hold them
+  const ng = await chooseSet(v, "ngs");
+  t.deepEqual(bands(ng.head), ["Next Gen 2026", "Wk 1–5 / in progress"]);
+  const cols = /style="--cols:26px minmax\(0,1fr\) ([^"]+)"/.exec(ng.head)[1].split(" ").map((x) => parseInt(x, 10));
+  t.ok(cols[3] >= 62, "aDOT column ≥ 62px for 'in progress' (60.0px in WebKit): " + cols.join(","));
+  t.equal(/style="--cols:([^"]+)"/.exec(ng.list)[1], /style="--cols:([^"]+)"/.exec(ng.head)[1], "heading and rows share one grid");
+  for (const set of ["receiving", "usage", "efficiency", "redzone", "ngs"]) {
+    const x = await chooseSet(v, set);
+    t.doesNotMatch(x.head + x.notes + x.list, /Wk 1–\d+\*|\* Wk|tgt\*|\(\* =/, set + ": no '*' marker anywhere");
+  }
   const done = boot();   // the fixture's board: Wk 4 complete and final
   await openTab(done, "WR");
   const rc2 = await chooseSet(done, "receiving");
-  t.deepEqual(bands(rc2.head).filter((x) => /nflverse/.test(x)), ["nflverse Wk 1–4"], "a complete, final week: no *");
-  t.doesNotMatch(rc2.notes, /is partial/);
+  t.deepEqual(bands(rc2.head).filter((x) => /nflverse/.test(x)), ["nflverse Wk 1–4"], "a complete, final week: no 'in progress'");
+  t.doesNotMatch(rc2.notes + rc2.head, /in progress/);
 });
 
 test("sheet status wording: an id-map failure isn't blamed on the report; a file ahead of MFL's week says so", async () => {
@@ -606,14 +649,17 @@ test("Separation Score (Keith 2026-10-12): Sep+ in signed yards over expected fr
   const row = (pid) => rowsOf(n.list).find((r) => r.pid === String(parseInt(pid, 10)));
   const cell = (pid) => { const m = new RegExp('data-pid="' + parseInt(pid, 10) + '">[\\s\\S]*?<span class="v[^"]*">([\\s\\S]*?)</span></span>(?=<span class="v)').exec(n.list); return m ? m[1] : ""; };
   // Waddle: 4.22 − (2.4138 + 0.2291·8.12 − 0.0864·(277/26)) = +0.866 → "+0.9", 23 tracked targets: small sample
-  t.deepEqual(row(WADDLE).cells, ["+0.923 tgt*", "4.2", "8.1", "10.7"], "Waddle +0.9 yd over 23 tracked targets, flagged *");
-  t.match(cell(WADDLE), /title="Sep\+ \+0\.9 yd on 23 tracked targets \(small sample: 20–29\)"/, "tooltip: the sample, said in words");
+  t.deepEqual(row(WADDLE).cells, ["+0.923 tgt", "4.2", "8.1", "10.7"], "Waddle +0.9 yd over 23 tracked targets");
+  t.equal(row(WADDLE).flag, "Small sample · 23 targets", "20–29 tracked targets: said in words on his row (Keith 2026-10-12), not a '*'");
+  t.match(cell(WADDLE), /title="Sep\+ \+0\.9 yd on 23 tracked targets · Small sample · 23 targets"/, "tooltip: the same words");
   // 38 tracked targets: 2.6 − (2.4138 + 1.3746 − 0.864) = −0.3244 → "−0.3" (a real minus sign), no flag
   t.deepEqual(row(wr[0].mfl_pid).cells, ["−0.338 tgt", "2.6", "6.0", "10.0"], "negative with a minus sign; 30+ tracked targets: no flag");
+  t.equal(row(wr[0].mfl_pid).flag, "", "38 tracked targets: no Small sample line");
+  t.equal(row(wr[1].mfl_pid).flag, "", "no Sep+ shown (—): no Small sample line either");
   t.match(cell(wr[0].mfl_pid), /class="ups-m-tr dn"/, "below expected reads as down");
   t.deepEqual([row(wr[1].mfl_pid).cells[0], row(wr[1].mfl_pid).cells[3]], ["—", "—"], "no air yards: no aDOT, no Sep+ (never a guessed depth)");
   t.deepEqual(row(wr[2].mfl_pid).cells.slice(0, 3), ["—", "—", "—"], "no Next Gen record (under 20 tracked targets): —");
-  t.match(n.notes, /Sep\+ = yards of separation above \(\+\) or below \(−\) what his cushion and target depth predict; under it, tracked targets \(\* = 20–29, a small sample\)\./, "plain: units, sign, sample flag");
+  t.match(n.notes, /Sep\+ = yards of separation above \(\+\) or below \(−\) what his cushion and target depth predict; under it, tracked targets; 20–29 is marked “Small sample · N targets” on his row\./, "plain: units, sign, sample flag");
   const about = /<summary>About these numbers<\/summary><div>([^<]*)<\/div>/.exec(n.notes)[1];
   // Only the Sep+ explanation is counted: the "who is listed" note (#1214) is its own topic on every set.
   t.match(about, /not pure receiver talent: route mix, coverage, quarterback and team context still show up in it\./, "a descriptive residual, not a talent rating");
@@ -623,10 +669,13 @@ test("Separation Score (Keith 2026-10-12): Sep+ in signed yards over expected fr
   const nt = await chooseSet(v, "ngs");
   // Fannin (TE fit): 5.98 − (3.481 + 0.1234·4.62 − 0.1323·(140/23)) = +2.734 → "+2.7" on 20 tracked targets — NEVER without the flag
   const f = rowsOf(nt.list).find((r) => r.pid === FANNIN);
-  t.deepEqual(f.cells, ["+2.720 tgt*", "6.0", "4.6", "6.1"], "Fannin +2.7 always carries his 20-tracked-target small-sample flag");
-  t.match(nt.list, /title="Sep\+ \+2\.7 yd on 20 tracked targets \(small sample: 20–29\)"/);
-  const shown = [...nt.list.matchAll(/>\+2\.7<\/span><\/b>(<small>[^<]*<\/small>)?/g)].map((m) => m[1] || "");
-  t.ok(shown.length >= 1 && shown.every((x) => x === "<small>20 tgt*</small>"), "every +2.7 shown carries '20 tgt*': " + JSON.stringify(shown));
+  t.deepEqual(f.cells, ["+2.720 tgt", "6.0", "4.6", "6.1"], "Fannin +2.7 over his 20 tracked targets");
+  t.equal(f.flag, "Small sample · 20 targets", "Fannin +2.7 always carries the Small sample line");
+  t.match(nt.list, /title="Sep\+ \+2\.7 yd on 20 tracked targets · Small sample · 20 targets"/);
+  const shown = rowsOf(nt.list).filter((r) => /^\+2\.7/.test(r.cells[0]));
+  t.ok(shown.length >= 1 && shown.every((r) => r.cells[0] === "+2.720 tgt" && r.flag === "Small sample · 20 targets"),
+    "every +2.7 shown carries '20 tgt' and 'Small sample · 20 targets': " + JSON.stringify(shown.map((r) => [r.cells[0], r.flag])));
+  t.doesNotMatch(nt.list + nt.notes + nt.head, /tgt\*|\(\* =|\* = 20/, "no '*' left on the Next Gen set");
 });
 
 test("kickers: made/attempted by distance (0–39 · 40–49 · 50+) and FGA; punters: I20 as made/punts plus I20% — no PPG", async () => {
@@ -1330,6 +1379,188 @@ test("EPA note follows the season's play definition: rebuilt (2), original (1), 
     t.match(e.notes, re, String(def));
     if (def === 1) t.doesNotMatch(e.notes, /box score’s pass attempts/, "the new-definition text isn't shown for an old season");
   }
+});
+
+// ═══ 6. Hardening (Keith 2026-10-12): Search = sheet; Snap% at four digits; no "*" ═══
+// Search rows → { pid: { ppg, rank } } and the line above them.
+function searchRows(html) {
+  const out = {};
+  for (const m of html.matchAll(/<button type="button" class="ups-m-psr-row" data-pid="(\d+)">([\s\S]*?)<\/button>/g)) {
+    const ppg = /<span class="ppg[^"]*">([\s\S]*?)<\/span>/.exec(m[2])[1].replace(/<i>PPG<\/i>/, "");
+    const rk = (/<span class="rk">([^<]*)<\/span>/.exec(m[2]) || [])[1] || "";
+    out[m[1]] = { ppg, rank: rk };
+  }
+  return out;
+}
+const searchBasis = (html) => { const m = /<div class="ups-m-psr-basis( warn)?">([^<]*)<\/div>/.exec(html); return m ? { warn: !!m[1], text: m[2] } : null; };
+function sheetPoints(v, pid) {
+  v.ctx.UPS_MOBILE.sheet.open(pid);
+  const body = v.getEl("ups-m-sheet-body").innerHTML;
+  const tile = (label) => (new RegExp("<div><b>([^<]*)</b><small>" + label).exec(body) || [])[1];
+  const basis = /<div class="ups-m-stat-basis( warn)?">([^<]*)<\/div>/.exec(body);
+  return { ppg: tile("PPG · "), rank: tile("PPG rank"), basis: basis ? { warn: !!basis[1], text: basis[2] } : null, body };
+}
+const nameOf = (pid) => { const [last, first] = FX.players[pid][0].split(", "); return (first ? first + " " : "") + last; };
+
+test("Search rows show the sheet's PPG and rank for every player — MFL's W=ALL, Week 5 in progress included; the old leaderboard copy is never read", async () => {
+  let advReads = 0;
+  const v = boot({ search: true, advMap: () => { advReads++; return {}; } });
+  const S = v.ctx.UPS_MOBILE.playerSearch;
+  // Dak: the leaderboard copy stopped at Week 4 (107.5); MFL has 125.5 through Thursday's Week 5 game.
+  const lbDak = FX.leaderboard.qb.rows.find((r) => String(r.mfl_pid) === DAK);
+  t.ok(Math.abs(Number(lbDak.mfl_points) - mflYtd(DAK).pts) > 1, "fixture: the two sources disagree for Dak");
+  S.openWith("dak prescott");
+  const dak = searchRows(v.searchList())[DAK];
+  const sd = sheetPoints(v, DAK);
+  t.deepEqual(dak, { ppg: sd.ppg, rank: sd.rank }, "Dak: Search = sheet");
+  t.equal(dak.ppg, mflYtd(DAK).ppg.toFixed(1), "= MFL's own YTD ÷ MFL weeks");
+  // every row of 40 searches, against the sheet that row opens
+  const scored = Object.keys(FX.players).filter((id) => FX.weeks["1"][id] != null || FX.weeks["5"][id] != null);
+  let checked = 0;
+  for (const pid of [DAK, PURDY, MASON, LOCK, ROUSSEAU, ...scored.slice(0, 35)]) {
+    S.openWith(nameOf(pid));
+    const rows = searchRows(v.searchList());
+    t.ok(rows[pid], nameOf(pid) + " is found");
+    for (const [id, r] of Object.entries(rows)) {
+      const sh = sheetPoints(v, id);
+      t.deepEqual(r, { ppg: sh.ppg, rank: sh.rank }, nameOf(id) + ": Search row = sheet tiles");
+      const m = mflYtd(id);
+      if (m.n) t.equal(r.ppg, m.ppg.toFixed(1), nameOf(id) + ": = MFL W=ALL");
+      checked++;
+    }
+  }
+  // and last-name searches that list several players at once
+  for (const q of ["williams", "johnson", "smith", "allen", "jones"]) {
+    S.openWith(q);
+    for (const [id, r] of Object.entries(searchRows(v.searchList()))) {
+      const sh = sheetPoints(v, id);
+      t.deepEqual(r, { ppg: sh.ppg, rank: sh.rank }, q + " → " + nameOf(id) + ": Search row = sheet tiles");
+      checked++;
+    }
+  }
+  t.ok(checked >= 120, checked + " rows checked");
+  // Mason: one MFL week, under the 2-week rank minimum — "unranked" on both (the old copy said RB #21)
+  S.openWith("jordan mason");
+  t.deepEqual(searchRows(v.searchList())[MASON], { ppg: mflYtd(MASON).ppg.toFixed(1), rank: "unranked" });
+  // The SAME line above the rows and under the sheet's points: source, weeks, week in progress, rank rule, read time.
+  const sb = searchBasis(v.searchList()), shb = sheetPoints(v, DAK).basis;
+  t.deepEqual(sb, shb, "Search and sheet say the same thing about the numbers");
+  t.match(sb.text, /^Actual MFL points, UPS scoring · Wks 1–5 · Wk 5 in progress · Rank needs 2\+ MFL wks · MFL read \d{1,2}:\d{2} (AM|PM)$/);
+  t.equal(advReads, 0, "getAdvancedStatsMap (the D1 leaderboard copy) is never read by Search");
+  t.doesNotMatch(read("site/m/player_search.js"), /getAdvancedStatsMap\s*\(/, "and isn't called anywhere in Search");
+});
+
+test("Search sorts by the PPG it shows; players without an MFL week this season sort last and show —", async () => {
+  const v = boot({ search: true });
+  v.ctx.UPS_MOBILE.playerSearch.openWith("nyj");      // matches only the team (no name starts "nyj"): one tier, so PPG decides
+  const ids = [...v.searchList().matchAll(/data-pid="(\d+)"/g)].map((m) => m[1]);
+  const ppg = ids.map((id) => searchRows(v.searchList())[id].ppg);
+  const nums = ppg.filter((x) => x !== "—").map(Number);
+  t.ok(nums.length >= 5, nums.length + " NYJ players with an MFL week");
+  t.deepEqual(nums, [...nums].sort((a, b) => b - a), "highest PPG first");
+  t.ok(ppg.slice(nums.length).every((x) => x === "—"), "then everyone without one");
+});
+
+test("MFL's scoring unreadable → Search shows — with the reason, the sheet says the same, and nothing falls back to the leaderboard copy", async () => {
+  let advReads = 0;
+  const v = boot({ search: true, scores: { error: "MFL timeout" }, advMap: () => { advReads++; return { [DAK]: { mfl_ppg: 26.9, posRank: 4 } }; } });
+  v.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");
+  const html = v.searchList();
+  t.deepEqual(searchRows(html)[DAK], { ppg: "—", rank: "" }, "no number, never the old copy's 26.9");
+  t.deepEqual(searchBasis(html), { warn: true, text: "Points unavailable: MFL’s scoring couldn’t be read, so no points or ranks are shown." });
+  const sh = sheetPoints(v, DAK);
+  t.deepEqual(sh.basis, searchBasis(html), "the sheet's Actions tab says the same, instead of dropping the block");
+  t.equal(sh.ppg, undefined, "and shows no tiles");
+  t.equal(advReads, 0);
+  // preseason: MFL answers but has posted no week
+  const pre = boot({ search: true, scores: { playerScoresAllWeeks: { year: "2026", playerScores: [] } } });
+  pre.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");
+  t.deepEqual(searchBasis(pre.searchList()), { warn: false, text: "No 2026 MFL scores posted yet, so no points or ranks are shown." });
+  t.equal(searchRows(pre.searchList())[DAK].ppg, "—");
+});
+
+test("freshness: a re-read that moves MFL's YTD updates the open Search AND the open sheet together; a failed re-read changes neither and keeps the old read time", async () => {
+  // Dak's Week 5 gets a stat correction of +6.0 in the next W=ALL read
+  const next = JSON.parse(JSON.stringify(FX.weeks)); next["5"][DAK] = String(Number(next["5"][DAK]) + 6);
+  let answer = scoresPayload(next);
+  const v = boot({ search: true, refresh: () => answer });
+  v.state.loaded = true;
+  v.state.playerScoresAllAt = Date.now() - 10 * 60 * 1000;   // read 10 minutes ago
+  v.ctx.UPS_MOBILE.sheet.open(DAK);                           // the sheet is open on Dak…
+  const before = sheetPoints(v, DAK);
+  v.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");      // …and Search, which asks for a re-read on open
+  await settle(); await settle();
+  const after = searchRows(v.searchList())[DAK], shAfter = { ppg: /<div><b>([^<]*)<\/b><small>PPG · /.exec(v.getEl("ups-m-sheet-body").innerHTML)[1] };
+  t.notEqual(after.ppg, before.ppg, "Search moved: " + before.ppg + " → " + after.ppg);
+  t.equal(shAfter.ppg, after.ppg, "the open sheet moved with it (window event, no reopen)");
+  t.equal(after.ppg, (Math.round((mflYtd(DAK).pts + 6) / 5 * 10) / 10).toFixed(1));
+  const b1 = searchBasis(v.searchList());
+  t.deepEqual(b1, sheetPoints(v, DAK).basis, "same read time on both");
+  t.notEqual(b1.text, before.basis.text, "the 'MFL read' time moved: " + before.basis.text.slice(-15) + " → " + b1.text.slice(-15));
+  // a failed read: nothing changes, the old time stays (staleness shows)
+  answer = null;
+  v.state.playerScoresAllAt = Date.now() - 10 * 60 * 1000;
+  const stamp = searchBasis(v.searchList()).text;
+  const r = await v.ctx.__refresh(5 * 60 * 1000);
+  t.equal(r, false, "a failed read reports no change");
+  t.equal(searchBasis(v.searchList()).text, stamp);
+});
+
+test("Snap% at four digits over four (Kamren Curl 2025: 1057/1067 through Wk 17): the column fits the widest count on the tab, heading and rows share it, and it doesn't move while searching", async () => {
+  const lb = (pos) => {
+    const b = leaderboard(pos);
+    if (pos === "idp") b.rows = b.rows.map((r, i) => Object.assign({}, r, i === 0 ? { def_snaps_total: 1057, def_snaps_team: 1067 }
+      : i === 1 ? { def_snaps_total: 1068, def_snaps_team: 1067 }          // a bad source row: his more than his team's
+      : { def_snaps_total: 40 + i, def_snaps_team: 300 }));
+    return b;
+  };
+  const v = boot({ leaderboard: lb });
+  await openTab(v, "LB");
+  const tk = await chooseSet(v, "tackles");
+  const grid = (html) => /style="--cols:26px minmax\(0,1fr\) ([^"]+)"/.exec(html)[1].split(" ").map((x) => parseInt(x, 10));
+  const lbRows = leaderboard("idp").rows;
+  const lbPid = (i) => String(parseInt(lbRows[i].mfl_pid, 10));
+  const curl = rowsOf(tk.list).find((r) => r.pid === lbPid(0));
+  if (curl) t.equal(curl.cells[3], "99%1057/1067", "four digits over four, whole");
+  // 8 digits × 7.3 + the slash 3.6 + 2 = 64px (WebKit measures "1365/1400" at 62.0)
+  t.equal(grid(tk.list)[3], 64, "the Snap% column grew from 46 to 64px for the widest count on the tab");
+  t.deepEqual(grid(tk.head), grid(tk.list), "the heading's grid is the rows' grid");
+  // every count on screen fits its column (the same arithmetic the app uses)
+  for (const r of rowsOf(tk.list)) {
+    const m = /(\d+)\/(\d+)$/.exec(r.cells[3]);
+    if (m) t.ok(Math.ceil((m[1].length + m[2].length) * 7.3 + 3.6) + 2 <= grid(tk.list)[3], r.cells[3] + " fits");
+  }
+  // over 100% is never shown: "—" over the counts, with the reason on the title, and it sorts with the unavailable
+  const bad = rowsOf(tk.list).find((r) => r.pid === lbPid(1));
+  if (bad) t.equal(bad.cells[3], "—1068/1067");
+  t.match(tk.list, /title="The counts disagree \(1068 is more than 1067\), so no % is shown"/);
+  t.doesNotMatch(tk.list, />1\d\d%</, "no share over 100% anywhere");
+  v.getEl("ups-m-st-head").fire("click", { target: { closest: () => ({ getAttribute: () => "snappct" }) } }); await settle();
+  const sorted = rowsOf(v.getEl("ups-m-st-listwrap").innerHTML);
+  const iBad = sorted.findIndex((x) => x.pid === lbPid(1));
+  t.ok(iBad < 0 || sorted.slice(iBad).every((x) => /^—/.test(x.cells[3])), "the disagreeing row sorts with the unavailable, after every real %");
+  // searching down to a short count keeps the width (no jump under the user's thumb)
+  v.getEl("ups-m-st-search").fire("input", { target: { value: FX.players[lbPid(5)] ? FX.players[lbPid(5)][0].split(",")[0] : "zz" } });
+  t.equal(grid(v.getEl("ups-m-st-listwrap").innerHTML.includes("--cols") ? v.getEl("ups-m-st-listwrap").innerHTML : tk.list)[3], 64, "same 64px with one short row on screen");
+  // the design width stays when every count is short (Wk 1–4 of the real board)
+  const v2 = boot();
+  await openTab(v2, "LB");
+  t.equal(grid((await chooseSet(v2, "tackles")).list)[3] >= 46, true);
+});
+
+test("Snap% on Usage: 1342/1452 with the postseason (22 weeks) fits; the sheet's game log never shows a game over 100%", async () => {
+  const lb = (pos) => {
+    const b = leaderboard(pos);
+    if (pos === "skill") b.rows = b.rows.map((r) => String(r.mfl_pid) === JSN ? Object.assign({}, r, { off_snaps_total: 1342, off_snaps_team: 1452 }) : r);
+    return b;
+  };
+  const v = boot({ leaderboard: lb });
+  await openTab(v, "WR");
+  const u = await chooseSet(v, "usage");
+  t.equal(rowsOf(u.list).find((r) => r.pid === JSN).cells[1], "92%1342/1452");
+  t.equal(/style="--cols:26px minmax\(0,1fr\) ([^"]+)"/.exec(u.list)[1].split(" ")[1], "64px");
+  const src = read("site/m/player_sheet.js");
+  t.match(src, /u\.off < 0 \|\| u\.off > u\.team_off \? null : Math\.round\(100 \* u\.off \/ u\.team_off\) \+ "%"/, "game log: his snaps over his team's that game → —");
 });
 
 await run("mobile_stats_players_review");

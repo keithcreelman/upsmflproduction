@@ -514,7 +514,8 @@
   // is "—" (not 0%); 0 offensive snaps with his team's total known is a real 0%.
   function gameLogUsageCols() {
     return [["Snaps", function (u) { return u.off; }],
-      ["Snap%", function (u) { return u.off == null || !u.team_off ? null : Math.round(100 * u.off / u.team_off) + "%"; }],
+      // Never over 100%: his snaps above his team's that game is a bad source row, so "—".
+      ["Snap%", function (u) { return u.off == null || !u.team_off || u.off < 0 || u.off > u.team_off ? null : Math.round(100 * u.off / u.team_off) + "%"; }],
       ["Tgt", function (u) { return u.tgt; }]];
   }
   var RZ_ZERO = { pass_att_i20: 0, pass_cmp_i20: 0, pass_tds_i20: 0, sacks_i20: 0, rush_att_i20: 0, rush_att_i5: 0, rush_tds_i20: 0,
@@ -628,27 +629,77 @@
   }
 
   // Actions tab: this season's actual MFL points in one line — the SAME
-  // numbers (liveSeasonRow) as the sheet's Stats tab and the Stats list row
-  // that opened it. Nothing when MFL's scoring isn't available.
+  // numbers (liveSeasonRow) as the sheet's Stats tab, the Stats list row that
+  // opened it and Search (seasonPoints / seasonPointsBasis below). When MFL's
+  // scoring can't be read it says so instead of disappearing.
   function pointsSummaryHtml(pid) {
-    var live = liveSeasonRow(pid);
-    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
-    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
-    if (!live || !SSMOD || !ss) return "";
-    var span = SSMOD.weeksLabel(ss.seasonWeeks);
-    var pl = DATA.playerById(pid);
-    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
-    var grp = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
-    var rk = typeof live.rank === "number" && live.rank > 0 ? "#" + live.rank + (grp && grp !== "OTH" ? " " + grp : "") : (live.games > 0 ? "unranked" : "—");
+    var sp = seasonPoints(pid);
+    var basis = seasonPointsBasis();
+    if (!sp) {
+      return '<div class="ups-m-sheet-block ups-m-sheet-pts">' +
+        '<div class="ups-m-stat-basis' + (basis.warn ? " warn" : "") + '">' + U.escapeHtml(basis.text) + '</div></div>';
+    }
     var tile = function (v, l) { return '<div><b>' + U.escapeHtml(v) + '</b><small>' + U.escapeHtml(l) + '</small></div>'; };
     return '<div class="ups-m-sheet-block ups-m-sheet-pts">' +
       '<div class="ups-m-sheet-pts-row">' +
-        tile((Math.round(live.pts * 10) / 10).toFixed(1), "Pts · " + span) +
-        tile(live.games > 0 ? (Math.round(live.ppg * 10) / 10).toFixed(1) : "—", "PPG · " + live.games + " MFL wk" + (live.games === 1 ? "" : "s")) +
-        tile(rk, "PPG rank") +
+        tile((Math.round(sp.pts * 10) / 10).toFixed(1), "Pts · " + sp.weeks) +
+        tile(sp.ppg != null ? (Math.round(sp.ppg * 10) / 10).toFixed(1) : "—", "PPG · " + sp.games + " MFL wk" + (sp.games === 1 ? "" : "s")) +
+        tile(sp.rankLabel, "PPG rank") +
       '</div>' +
-      '<div class="ups-m-stat-basis">Actual MFL points, UPS scoring' + (ss.liveWeeks.length ? " · Wk " + ss.liveWeeks.join(", ") + " in progress" : "") + '</div>' +
+      '<div class="ups-m-stat-basis">' + U.escapeHtml(basis.text) + '</div>' +
     '</div>';
+  }
+
+  // ONE reading of this season's points for every surface that shows them:
+  // this sheet (Actions and Stats tabs) and Search (Keith 2026-10-12: "Search
+  // and the player sheet must show the same points, rank, source weeks and
+  // freshness state"). Search used to read the D1 leaderboard copy, which stops
+  // at the last sync (Dak Prescott 107.5 there, 125.5 on MFL with Week 5 in
+  // progress) and ranked by its own rule. Both now read MFL's W=ALL through
+  // liveSeasonRow, and neither falls back to an older copy: no MFL scoring = no
+  // points, said on screen.
+  function clockLabel(ms) {
+    if (!ms) return "";
+    var d = new Date(ms); if (isNaN(d.getTime())) return "";
+    var h = d.getHours(), m = d.getMinutes();
+    return ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
+  }
+  // { ok, warn, text }: the source, weeks, week in progress, rank minimum and
+  // when MFL was read — the line under the points wherever they show.
+  function seasonPointsBasis() {
+    var D = window.UPS_MOBILE.data;
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = D && D.getSeasonScoring ? D.getSeasonScoring() : null;
+    var yr = (ss && ss.season) || U.safeStr((window.UPS_MOBILE.state.ctx || {}).year);
+    if (!SSMOD || !ss || !ss.known) return { ok: false, warn: true, text: "Points unavailable: MFL’s scoring couldn’t be read, so no points or ranks are shown." };
+    if (!ss.seasonWeeks || !ss.seasonWeeks.length) return { ok: false, warn: false, text: "No " + yr + " MFL scores posted yet, so no points or ranks are shown." };
+    var min = ss.rankMinimum ? ss.rankMinimum(0) : 1;
+    var at = clockLabel(ss.fetchedAt);
+    return { ok: true, warn: false, text: "Actual MFL points, UPS scoring · " + SSMOD.weeksLabel(ss.seasonWeeks) +
+      (ss.liveWeeks.length ? " · Wk " + ss.liveWeeks.join(", ") + " in progress" : ss.finalKnown ? " (final)" : "") +
+      " · Rank needs " + min + "+ MFL wk" + (min === 1 ? "" : "s") + (at ? " · MFL read " + at : "") };
+  }
+  // { season, weeks, games, pts, ppg (null with no MFL week), rank (number or
+  // null), rankLabel ("#4 QB" / "unranked" / "—") } or null when there is
+  // nothing current to show (see seasonPointsBasis for why).
+  function seasonPoints(pid) {
+    var live = liveSeasonRow(pid);
+    if (!live) return null;
+    var SSMOD = window.UPS_MOBILE_SEASON_SCORING;
+    var ss = DATA.getSeasonScoring ? DATA.getSeasonScoring() : null;
+    var pl = DATA.playerById(pid);
+    var FOL = window.UPS_FRONT_OFFICE_LINEUP;
+    var grp = FOL && FOL.posGroup ? FOL.posGroup(U.safeStr(pl && pl.position).toUpperCase()) : "";
+    var ranked = typeof live.rank === "number" && live.rank > 0;
+    return {
+      season: live.season,
+      weeks: SSMOD.weeksLabel(ss.seasonWeeks),
+      games: live.games,
+      pts: live.pts,
+      ppg: live.games > 0 ? live.ppg : null,
+      rank: ranked ? live.rank : null,
+      rankLabel: ranked ? "#" + live.rank + (grp && grp !== "OTH" ? " " + grp : "") : (live.games > 0 ? "unranked" : "—")
+    };
   }
 
   // { season, games, pts, ppg, rank, basis } for the current season from MFL's
@@ -2939,9 +2990,19 @@
     if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
   });
 
+  // MFL's YTD was re-read and moved (app.js refreshSeasonScoringIfStale, from
+  // any screen): the points on an open sheet follow, so it never shows older
+  // numbers than the Search or Stats row behind it.
+  window.addEventListener("ups-season-scoring-changed", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (ov && ov.classList.contains("open") && (activeTab === "actions" || activeTab === "stats")) renderTabBody();
+  });
+
   window.UPS_MOBILE.sheet = {
     open: open,
     close: close,
+    seasonPoints: seasonPoints,
+    seasonPointsBasis: seasonPointsBasis,
     // Called from app.js reloadData() so contract changes mid-session
     // (extension/restructure/drop) don't serve stale /api/player-bundle
     // responses on the next open. News rides along: a refresh is exactly when

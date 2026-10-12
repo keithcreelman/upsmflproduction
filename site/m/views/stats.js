@@ -238,13 +238,30 @@
     // season, so early-season samples can't move the yardstick.
     nadot: { l: "aDOT",  src: "box", f: "dec1", t: "Average depth of target, yards: box-score air yards ÷ targets", g: function (r) { return adotOf(r); } },
     // Shown in yards, signed (+0.9 / −0.4), with his tracked-target sample under
-    // it; 20–29 tracked targets is flagged * small sample (Keith 2026-10-12).
-    nsepx: { l: "Sep+",  src: "adv", w: 48, f: "sepx", t: "Separation Score, yards: his separation minus what his cushion and target depth predict. + = more separation than expected, − = less. Tracked targets under it; * = 20–29, a small sample",
+    // it. 20–29 tracked targets says so in words on his row, "Small sample · 28
+    // targets" (Keith 2026-10-12) — no "*", which also meant "week in progress".
+    nsepx: { l: "Sep+",  src: "adv", w: 48, f: "sepx", t: "Separation Score, yards: his separation minus what his cushion and target depth predict. + = more separation than expected, − = less. Tracked targets under it; 20–29 targets is marked Small sample on his row",
       n: function (r) { var x = ngsRecMob(r); return x && x.rec && x.rec.tgt != null ? Number(x.rec.tgt) : null; },
+      note: function (r, v) { var nt = v == null ? null : C.nsepx.n(r); return nt != null && nt < 30 ? "Small sample · " + nt + " targets" : ""; },
       g: function (r) { var x = ngsRecMob(r), d = adotOf(r), k = SEP_FIT[r.grp]; return x && x.rec && d != null && k && x.rec.sep != null && x.rec.cush != null ? x.rec.sep - (k[0] + k[1] * x.rec.cush + k[2] * d) : null; } },
     ntt:   { l: "TTT",   src: "adv", f: "dec2", t: "Time to throw, seconds (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.tt : null; } },
     nagg:  { l: "AGG%",  src: "adv", w: 40, f: "pct100", t: "Aggressiveness: throws into tight windows (Next Gen Stats)", g: function (r) { var x = ngsRecMob(r); return x && x.pass ? x.pass.agg : null; } }
   };
+  // A share is never over 100% or under 0 (Keith 2026-10-12). If a column's two
+  // counts disagree (his snaps more than his team's in the same games: a bad
+  // source row), the cell shows "—" over the counts and sorts with the
+  // unavailable, never "104%". Every share column ("pctnd") goes through this.
+  Object.keys(C).forEach(function (k) {
+    var c = C[k];
+    if (c.f !== "pctnd") return;
+    var g0 = c.g;
+    c.g = function (r) {
+      var v = g0(r);
+      if (v == null) return null;
+      var nd = c.nd ? c.nd(r) : null;
+      return !(v >= 0 && v <= 1) || (nd && !(nd[0] >= 0 && nd[0] <= nd[1])) ? null : v;
+    };
+  });
   // Removed from this view (Keith 2026-10-09/10): XpertRk (an expert ranking),
   // Schedule-adjusted (calculation under review) and All-MFL usage. Points per
   // game appears ONLY in Fantasy pts, never repeated beside box scores.
@@ -555,17 +572,20 @@
   function fmt(v, c, r) {
     if (v == null) {
       var nd0 = c.f === "pctnd" && c.nd(r);
-      return nd0 ? '<span class="nd"><b>—</b><small>' + nd0[0] + "/" + nd0[1] + "</small></span>" : "—";
+      var bad = nd0 && !(nd0[0] >= 0 && nd0[0] <= nd0[1]);
+      return nd0 ? '<span class="nd"' + (bad ? ' title="' + U.escapeHtml("The counts disagree (" + nd0[0] + " is more than " + nd0[1] + "), so no % is shown") + '"' : "") +
+        "><b>—</b><small>" + nd0[0] + "/" + nd0[1] + "</small></span>" : "—";
     }
     if (c.f === "ma") return v.m + "/" + v.a;
     if (c.f === "pctnd") { var nd = c.nd(r); return '<span class="nd"><b>' + Math.round(v * 100) + "%</b><small>" + nd[0] + "/" + nd[1] + "</small></span>"; }
     if (c.f === "sepx") {
-      // Signed yards (a real minus sign) over his tracked targets; 20–29 = small sample (*).
+      // Signed yards (a real minus sign) over his tracked targets; 20–29 also
+      // gets "Small sample · N targets" on the row (rowHtml, C.nsepx.note).
       var nt = c.n(r), small = nt != null && nt < 30, yd = round1(v);
       var sv = yd > 0 ? "+" + yd.toFixed(1) : yd < 0 ? "−" + (-yd).toFixed(1) : "0.0";
-      var ttl = "Sep+ " + sv + " yd" + (nt != null ? " on " + nt + " tracked targets" + (small ? " (small sample: 20–29)" : "") : "");
+      var ttl = "Sep+ " + sv + " yd" + (nt != null ? " on " + nt + " tracked targets" + (small ? " · Small sample · " + nt + " targets" : "") : "");
       return '<span class="nd" title="' + U.escapeHtml(ttl) + '"><b><span class="ups-m-tr ' + (yd > 0 ? "up" : yd < 0 ? "dn" : "") + '">' + sv + '</span></b>' +
-        (nt != null ? "<small>" + nt + " tgt" + (small ? "*" : "") + "</small>" : "") + "</span>";
+        (nt != null ? "<small>" + nt + " tgt</small>" : "") + "</span>";
     }
     if (c.f === "delta") { if (v === 0) return "0"; return '<span class="ups-m-tr ' + (v > 0 ? "up" : "dn") + '">' + (v > 0 ? "+" : "") + v.toFixed(1) + "</span>"; }
     if (c.f === "epa") { return '<span class="ups-m-tr ' + (v > 0 ? "up" : (v < 0 ? "dn" : "")) + '">' + (v > 0 ? "+" : "") + v.toFixed(2) + "</span>"; }
@@ -810,10 +830,15 @@
     if (c === C.rcnt) { var k = b.kind === "live" ? recentWindow(b.ss) : 0; return "L" + k + " PPG"; }
     return c.l;
   }
-  // → { key, text, dot }: columns with the same key share a band.
-  // narrow: a band one column wide (< 60px), where "nflverse Wk 1–4" would be
-  // cut to "nflve…": it reads "Wk 1–4" and keeps the full text as its title.
-  function colBand(c, b, tab, set, wide, narrow) {
+  // → { key, text, dot, lines }: columns with the same key share a band.
+  // width: the band's px. A coverage band (box score, snaps, PFR, red zone)
+  // takes the longest label that fits: "nflverse Wk 1–5 · in progress", then
+  // "Wk 1–5 · in progress"; a band one column wide (the Next Gen set's aDOT)
+  // reads "Wk 1–5" over "in progress" (lines), and colWidths makes the column
+  // wide enough for it.
+  function colBand(c, b, tab, set, width) {
+    width = width || 0;
+    var wide = width >= 90;
     if (c.src === "pts") {
       if (b.kind === "live") {
         var w = wkShort(b.ss.seasonWeeks);
@@ -823,41 +848,56 @@
       return { key: "pts", text: p ? (p.prior || wide ? p.label : "Stored") : "no verified wks" };
     }
     if (c.src === "rec") return { key: "rec", text: wkShort(recentWeeks(b.ss, recentWindow(b.ss))) };
-    if (c.src === "box") {
-      var m = metaCache[tab.alias + "|" + b.season];
-      var fm = "nflverse " + (covWks(m) || b.season);
-      return { key: "box", text: narrow ? (covWks(m) || String(b.season)) : fm, full: fm };
-    }
-    // PFR charting rides the same nflverse weekly refresh and coverage week, so
-    // it shares the box-score band (a separate band split narrow columns and
-    // truncated both labels); the set note names PFR.
-    if (c.src === "pfr") {
-      var m2 = metaCache[tab.alias + "|" + b.season];
-      var fm2 = "nflverse " + (covWks(m2) || b.season);
-      return { key: "box", text: narrow ? (covWks(m2) || String(b.season)) : fm2, full: fm2 };
-    }
-    if (c.src === "snap") {
-      var m4 = metaCache[tab.alias + "|" + b.season];
-      var fm4 = "nflverse " + (covWks(m4) || b.season);
-      return { key: "box", text: narrow ? (covWks(m4) || String(b.season)) : fm4, full: fm4 };
+    // PFR charting and snap counts ride the same nflverse weekly refresh and
+    // coverage week, so they share the box-score band (a separate band split
+    // narrow columns and truncated both labels); the set note names PFR.
+    if (c.src === "box" || c.src === "pfr" || c.src === "snap") {
+      return covBand("box", "nflverse", metaCache[tab.alias + "|" + b.season], b.season, width);
     }
     if (c.src === "srt") {
       var sm = srFor(srGroup(tab));
       return { key: "srt", text: (wide ? "vs UPS starters " : "Starters ") + ((sm && sm.weeks_label) || b.season) };
     }
-    if (c.src === "rz") {
-      var m3 = metaCache[tab.alias + "|" + b.season];
-      return { key: "rz", text: "Red zone " + (covWks(m3) || b.season) };
-    }
+    if (c.src === "rz") return covBand("rz", "Red zone", metaCache[tab.alias + "|" + b.season], b.season, width);
     if (set.id === "epa") return { key: "adv", text: "nflfastR " + (epaThrough ? "Wk 1–" + epaThrough : b.season) };
     return { key: "adv", text: (set.id === "routes" ? "Routes" : "Next Gen") + " " + b.season };
   }
-  // "Wk 1–5*" when Wk 5 is partial; the set note says what the * means.
-  function covWks(m) { return m && m.coverage ? "Wk 1–" + m.coverage + (m.partial ? "*" : "") : ""; }
+  // The weeks a box-score source covers, in words (Keith 2026-10-12): "Wk 1–5",
+  // and "Wk 1–5 · in progress" while Week 5 is still partial. Never a "*" —
+  // on the Next Gen set that also meant "small sample" under Sep+.
+  function covWks(m) { return m && m.coverage ? "Wk 1–" + m.coverage : ""; }
+  function covLive(m) { return !!(m && m.coverage && m.partial); }
   function covNote(m) {
-    if (!m || !m.partial) return "";
-    var t = m.teamsRep != null && m.teamsExp ? " (" + m.teamsRep + " of " + m.teamsExp + " teams in)" : "";
-    return "* Wk " + m.coverage + " is partial" + t + ".";
+    if (!covLive(m)) return "";
+    var t = m.teamsRep != null && m.teamsExp ? ": Wk " + m.coverage + " has " + m.teamsRep + " of " + m.teamsExp + " teams in" : ": Wk " + m.coverage + " isn’t complete yet";
+    return "Wk 1–" + m.coverage + " · in progress" + t + ".";
+  }
+  // Px of a label in the band's 11px type, a little generous: per-character
+  // widths measured in WebKit and Chromium (2026-10-12), rounded up, and the
+  // widest of each kind for the rest. "Wk 1–5" 39.2 → 40.3, "in progress"
+  // 60.0 → 62.6, "nflverse Wk 1–5 · in progress" 155.0 → 161.2.
+  var LABEL_PX = { " ": 3.1, "·": 3.6, "–": 6.7, "1": 5.4, "7": 6.7, i: 3, j: 3, l: 3, I: 3.2, f: 4.3, t: 4.3, r: 4.6, s: 5.9, m: 9.9, w: 8.9, W: 10.9, M: 9.8 };
+  function labelPx(t) {
+    var w = 0;
+    for (var i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      w += LABEL_PX[ch] || ((ch >= "0" && ch <= "9") ? 7.3 : (ch >= "a" && ch <= "z") ? 7 : 8.7);
+    }
+    return w;
+  }
+  var IN_PROGRESS = "in progress";
+  function covBand(key, src, m, season, width) {
+    var wk = covWks(m) || String(season), live = covLive(m);
+    var full = src + " " + wk + (live ? " · " + IN_PROGRESS : "");
+    var picks = [full, wk + (live ? " · " + IN_PROGRESS : "")];
+    for (var i = 0; i < picks.length; i++) if (labelPx(picks[i]) <= width - 2) return { key: key, text: picks[i], full: full };
+    return { key: key, text: wk, lines: live ? [wk, IN_PROGRESS] : null, full: full };
+  }
+  // The px a one-column coverage band needs (colWidths): its label, or its two lines.
+  function covBandPx(c, b, tab) {
+    var info = colBand(c, b, tab, curSet(), 0);
+    if (info.key !== "box" && info.key !== "rz") return 0;
+    return Math.ceil(Math.max.apply(null, (info.lines || [info.text]).map(labelPx))) + 2;
   }
   function S_weeks(weeks) { var S = SSMOD(); return S ? S.weeksLabel(weeks) : ""; }
   function visibleCols(set, b) {
@@ -866,29 +906,58 @@
       return true;
     }).map(function (k) { return C[k]; });
   }
-  function gridCols(cols) {
-    return "26px minmax(0,1fr) " + cols.map(function (c) { return (c.w || 40) + "px"; }).join(" ");
+  // Width of a count line like "1365/1400" (11px semibold tabular figures):
+  // 7.3px a digit and 3.6px the slash, measured in WebKit and Chromium on
+  // 2026-10-12, +2px so it never touches the next column.
+  function countPx(a, d) { return Math.ceil((String(a).length + String(d).length) * 7.3 + 3.6) + 2; }
+  // This list's column widths. A share column with its counts under it
+  // ("Snap%" over "330/340") is as wide as its widest count on the WHOLE tab,
+  // never narrower than its design width: a season of defensive snaps reaches
+  // four digits over four by about Week 13 ("1000/1050" is 62px), which ran
+  // out of the 46px column into the next one. The whole tab, not the rows on
+  // screen, so the heading and every row share one width that doesn't jump
+  // while searching or sorting.
+  // A column alone in its coverage band (the Next Gen set's aDOT) is also as
+  // wide as that band's label: "Wk 1–5" over "in progress", or "Wk 1–18".
+  function colWidths(tab, b, cols) {
+    var rows = null, set = curSet();
+    var keys = cols.map(function (c) { return colBand(c, b, tab, set, 0).key; });
+    return cols.map(function (c, i) {
+      var w = c.w || 40;
+      if (keys[i] !== keys[i - 1] && keys[i] !== keys[i + 1]) w = Math.max(w, covBandPx(c, b, tab));
+      if (c.f !== "pctnd" || !c.nd) return w;
+      rows = rows || buildRows(tab, b);
+      for (var j = 0; j < rows.length; j++) {
+        var nd = c.nd(rows[j]);
+        if (nd) w = Math.max(w, countPx(nd[0], nd[1]));
+      }
+      return w;
+    });
+  }
+  function gridCols(cols, ws) {
+    return "26px minmax(0,1fr) " + cols.map(function (c, i) { return (ws ? ws[i] : (c.w || 40)) + "px"; }).join(" ");
   }
   function headHtml(tab, b, cols) {
-    var set = curSet(), bands = [];
-    cols.forEach(function (c) {
-      var k = colBand(c, b, tab, set, false).key, last = bands[bands.length - 1];
-      if (last && last.key === k) last.cols.push(c); else bands.push({ key: k, cols: [c] });
+    var set = curSet(), bands = [], ws = colWidths(tab, b, cols);
+    cols.forEach(function (c, i) {
+      var k = colBand(c, b, tab, set, 0).key, last = bands[bands.length - 1];
+      if (last && last.key === k) { last.cols.push(c); last.w += ws[i]; } else bands.push({ key: k, cols: [c], w: ws[i] });
     });
     var bandHtml = bands.map(function (bd) {
-      var width = bd.cols.reduce(function (n, c) { return n + (c.w || 40); }, 0) + 4 * (bd.cols.length - 1);
-      var info = colBand(bd.cols[0], b, tab, set, width >= 90, width < 60);
+      var width = bd.w + 4 * (bd.cols.length - 1);
+      var info = colBand(bd.cols[0], b, tab, set, width);
       // The in-progress dot rides on the band when there's room for it.
       var dot = info.dot && width >= 60 ? '<span class="ups-m-st-live" aria-hidden="true"></span>' : "";
-      return '<span class="band" style="grid-column: span ' + bd.cols.length + '"' +
-        (info.dot ? ' title="Includes a week still being played"' : info.full && info.full !== info.text ? ' title="' + U.escapeHtml(info.full) + '"' : "") + ">" + U.escapeHtml(info.text) + dot + "</span>";
+      return '<span class="band' + (info.lines ? " two" : "") + '" style="grid-column: span ' + bd.cols.length + '"' +
+        (info.dot ? ' title="Includes a week still being played"' : info.full && info.full !== info.text ? ' title="' + U.escapeHtml(info.full) + '"' : "") + ">" +
+        (info.lines ? info.lines.map(U.escapeHtml).join("<br>") : U.escapeHtml(info.text)) + dot + "</span>";
     }).join("");
     // Every data heading is a sort button (Keith 2026-10-10). The second line
     // shows the direction on the sorted column (▼ high→low, ▲ low→high) and a
     // faint ⇅ on the others, so it's visible that each one sorts. "#" puts the
     // default order back (PPG rank, then unranked by PPG).
     var sk = activeSortKey(cols);
-    return '<div class="ups-m-st-row head" style="--cols:' + gridCols(cols) + '">' +
+    return '<div class="ups-m-st-row head" style="--cols:' + gridCols(cols, ws) + '">' +
       '<span class="band-pad"></span>' + bandHtml +
       '<span class="rk" role="columnheader"' + (sk ? "" : ' aria-sort="ascending"') + '><button type="button" class="ups-m-st-sort' + (sk ? "" : " on") +
         '" data-sort="" aria-label="Default order: PPG rank" title="PPG rank. Tap to put the default order back.">#<i aria-hidden="true">' + (sk ? "" : "•") + "</i></button></span>" +
@@ -1012,7 +1081,7 @@
     } else if (srcs.adv) {
       line.push((set.id === "routes" ? "nflverse route data" : "Next Gen Stats") + ", " + b.season + " to date.");
       if (set.cols.indexOf("nsepx") >= 0) {
-        line.push("Sep+ = yards of separation above (+) or below (−) what his cushion and target depth predict; under it, tracked targets (* = 20–29, a small sample).");
+        line.push("Sep+ = yards of separation above (+) or below (−) what his cushion and target depth predict; under it, tracked targets; 20–29 is marked “Small sample · N targets” on his row.");
         more.push("Expected separation comes from every 2018–25 WR or TE season with 20+ tracked targets, by position; aDOT = box-score air yards per target. It describes this season, not pure receiver talent: route mix, coverage, quarterback and team context still show up in it. Sep+ needs 20+ tracked targets.");
       }
     }
@@ -1079,6 +1148,11 @@
         var dot = (c === C.pts && r.live && v != null) ? '<span class="ups-m-st-live" aria-label="includes the week in progress"></span>' : "";
         return '<span class="v' + (c.strong ? " ppg" : "") + (c.dim ? " dim" : "") + '">' + dot + fmt(v, c, r) + "</span>";
       }).join("") +
+      // A reliability warning in words across the row (Sep+: "Small sample · 28 targets").
+      (function () {
+        var notes = cols.map(function (c) { return c.note ? c.note(r, c.g(r)) : ""; }).filter(Boolean);
+        return notes.length ? '<span class="flag">' + U.escapeHtml(notes.join(" · ")) + "</span>" : "";
+      })() +
     "</div>";
   }
 
@@ -1124,7 +1198,7 @@
       " · " + ranked + " ranked" +
       (sk ? " · sorted by " + U.escapeHtml(colLabel(C[sk], b)) + (view.sort.dir === "asc" ? ", low to high" : ", high to low") +
         "; players without a value are listed last" : "") + ".";
-    return '<div class="ups-m-st-table" style="--cols:' + gridCols(cols) + '">' + body + "</div>" +
+    return '<div class="ups-m-st-table" style="--cols:' + gridCols(cols, colWidths(tab, b, cols)) + '">' + body + "</div>" +
       '<div class="ups-m-fa-more">' + foot + "</div>";
   }
 

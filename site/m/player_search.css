@@ -80,6 +80,15 @@
   padding-bottom: calc(24px + var(--safe-bot));
 }
 
+/* What the PPG / rank on the rows are and how fresh — the sheet's own line. */
+.ups-m-psr-basis {
+  padding: 10px 14px 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+.ups-m-psr-basis.warn { color: var(--warn); }
+
 .ups-m-psr-sec {
   padding: 14px 14px 6px;
   font-size: 11px;
