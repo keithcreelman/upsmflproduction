@@ -16,6 +16,7 @@
 
 import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
+import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -182,6 +183,12 @@ export async function handle3WayHttp(a) {
           { teams: [{ franchise_id: myViolation.franchise_id, franchise_name: myViolation.franchise_name, projected: myViolation.projected, max: myViolation.max }] });
       }
     }
+  }
+  // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). (Legs carry the same tokens.)
+  {
+    const sendMoves = Array.isArray(body.movements) && body.movements.length ? body.movements : (Array.isArray(body.legs) ? body.legs : []);
+    const fg = await checkForfeitedPicks(env, leagueId, movementsToTokens(sendMoves));
+    if (!fg.ok) return fail(fg.http, fg.code, fg.message, { violations: fg.violations || [] });
   }
   const created = await create3WayTrade(env, ctx, {
     leagueId, season,

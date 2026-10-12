@@ -44,6 +44,7 @@ import { EXEC, makeLedger, LEDGER_DDL, franchiseHasUnresolvedDropSequence, findE
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
+import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveLoadedStatus } from "./contract_classification.js";
 import {
   executeCommishTwoPartyTrade, movementsForCompliance, injectCapTokens,
@@ -154,6 +155,10 @@ function canView2Way(row, viewer) {
 // executed drop, and no executor exists yet) -> hold; a proven cap overage -> require each
 // affected franchise's own acknowledgment.
 async function capGate2Way(env, row) {
+  // EXECUTE / gate — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). Runs on accept, recheck, queue preview
+  // and every execution, before any cap math or MFL call.
+  const forfeit = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
+  if (!forfeit.ok) return { ok: false, kind: forfeit.code === "pick_forfeited" ? "pick_forfeited" : "unavailable", message: forfeit.message, compliance: null, violations: forfeit.violations || [] };
   const compliance = await complianceViaSelf2Way(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the salary cap for this trade right now. Try again in a moment.", compliance };
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the loaded-contract count for this trade right now. Try again in a moment.", compliance };
@@ -617,6 +622,10 @@ export async function accept2WayTrade(env, ctx, id, viewer, body) {
     catch (e) { return { ok: false, http: 503, code: "loaded_contract_drops_unavailable", message: "Couldn't save your conditional-drop selection right now, so the accept wasn't recorded. Try again in a moment." }; }
   }
 
+  // ACCEPT — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). Refused before the consent is recorded.
+  const forfeitA = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
+  if (!forfeitA.ok) return { ok: false, http: forfeitA.http, code: forfeitA.code, message: forfeitA.message, violations: forfeitA.violations || [] };
+
   const { success } = await env.UPS_MFL_DB.prepare(`UPDATE ups_2way_trades SET to_state='accepted', updated_at_utc=? WHERE id=? AND status='collecting' AND to_state='pending'`).bind(nowIso(), tid).run();
   if (!success) return { ok: false, http: 409, code: "race", message: "This trade just changed state — refresh and try again." };
 
@@ -714,6 +723,9 @@ export async function recheck2WayExecution(env, ctx, id, viewer) {
   } catch (e) {
     return { ok: false, http: 503, code: "unavailable", message: "Couldn't confirm it's safe to re-check this right now. Try again in a moment." };
   }
+  // RECHECK — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
+  const forfeitR = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
+  if (!forfeitR.ok) return { ok: false, http: forfeitR.http, code: forfeitR.code, message: forfeitR.message, violations: forfeitR.violations || [] };
   const { success } = await env.UPS_MFL_DB.prepare(`UPDATE ups_2way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), tid).run();
   if (!success) return { ok: false, http: 409, code: "race", message: "This trade just changed state — refresh and try again." };
   const run = () => execute2Way(env, tid);

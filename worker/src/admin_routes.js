@@ -81,6 +81,7 @@ export const ADMIN_ROUTES = {
   "/admin/leaderboard-precompute/build": ["POST"],
   "/admin/lineup/auto-preview": ["GET"],
   "/admin/lineup/cases": ["GET"],
+  "/admin/lineup/forfeit-select": ["POST"],
   "/admin/lineup/notice": ["POST"],
   "/admin/lineup/notice-preview": ["GET"],
   "/admin/lineup/preview-announce": ["POST"],
