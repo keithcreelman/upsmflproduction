@@ -5,45 +5,65 @@ roast_bot_fire_ab.py — One-shot A/B fire for the Trade Roast Bot.
 (Renamed from test_fire_ab.py 2026-10-12 so test discovery — test_*.py,
 *_test.py — can never run it. tests: test_roast_bot_fire_ab_safety.py.)
 
-DRY RUN IS THE DEFAULT. With no flags nothing is posted to Discord; it
-builds each fire and prints the destination + proposed messages.
+NOTHING RUNS WITHOUT AN OPTION. With no option (or only --trade/--model)
+it prints the usage and a preflight plan (Anthropic: NO, Discord read: NO,
+Discord write: NO) and exits 0 — no network, no secrets, no Keychain.
 
-With --send it posts to the Discord TEST channel:
-  - Trade 1 (ts=1778546756, 0006 ↔ 0007) × Opus 4.6
-  - Trade 1 × Sonnet 4.6
-  - Trade 2 (Hurts ts=1775772921) × Opus 4.6
-  - Trade 2 × Sonnet 4.6
+Every mode prints a PREFLIGHT PLAN first: whether Anthropic will be called,
+whether Discord will be read (and for what), whether Discord can be written,
+and the exact destination. Nothing touches the network before it.
 
-Each message footer-tagged with the model + trade ID for direct comparison.
+  --generate      PAID Anthropic generation, then a dry-run preview of the
+                  destination + every message. Never writes to Discord. It
+                  makes every READ a send makes:
+                    - MFL export + Worker GETs (trade, league, rosters, context)
+                    - Discord: the bot's recent posts in the trade channel (the
+                      duplicate / anti-repetition check). Token: DISCORD_BOT_TOKEN
+                      env → Keychain discord_bot_token. No token → the check is
+                      SKIPPED and the run says so; it still completes.
+                    - Giphy: the GIF search for the roast's [GIF: …] tag
+                  It differs from --send ONLY at the write step.
+  --send          implies --generate (same reads, same messages), then POSTS
+                  to the Discord TEST channel. Needs BOTH (either missing →
+                  print why, exit 2, before any MFL/Anthropic/Keychain/Discord
+                  activity):
+                    --confirm-send=<TEST_CHANNEL_ID>   exact id it will post to
+                    UPS_ALLOW_ROAST_AB_DISCORD_SEND=1  in the environment
+                  It also stops (exit 2) if no Discord bot token is found.
+  --context-only  build + print the roast context (what the model would see).
+                  No Anthropic, no Discord write. Does the same recent-posts
+                  Discord read as the live context build (skipped + said when
+                  there is no token).
+
+Per fire (trade × model), a send posts:
+  Message 1  trade announcement embed → channel TEST_CHANNEL_ID
+  thread     a NEW thread created off Message 1
+  Message 2  roast embed → that thread
+  Message 3  Giphy GIF → that thread (only when the roast ends in [GIF: …])
+Trades: 1778546756 (0006 ↔ 0007) and 1775772921 (Hurts fixture).
+Models: opus (default), sonnet, both.
 
 Bypasses the launchd bot entirely — uses Discord REST API (no gateway
 connection → no identity conflict with the running bot). Reads owner /
 team mapping from D1 (discord_owners table) via the worker, NOT the
 missing hardcoded CSV. Reads contracts + rosters live from MFL.
+Every Discord WRITE also passes a backstop in
+_discord_request(): any non-GET request needs UPS_ALLOW_ROAST_AB_DISCORD_SEND=1.
 
-Sending needs BOTH (either missing → refuse, exit 2, nothing sent):
-  --send --confirm-send=<TEST_CHANNEL_ID>      exact id it will post to
-  UPS_ALLOW_ROAST_AB_DISCORD_SEND=1            in the environment
-
-What a dry run still does (reads only, never a Discord write):
-  - MFL export + Worker GETs (trade, league, rosters, roast context)
-  - Anthropic: generates each roast (ANTHROPIC_API_KEY, env → Keychain)
-It does NOT read the Discord token or the Giphy key, does NOT do the
-context builder's read of the bot's recent posts (anti-repetition list),
-and does NOT search Giphy (the GIF query is printed instead).
-
-Env:
-  ANTHROPIC_API_KEY  — sk-ant-... (Keychain service anthropic_api_key)
-  DISCORD_BOT_TOKEN  — --send only; Keychain if not in env:
-                       security find-generic-password -a $USER -s discord_bot_token -w
+Env / Keychain (each env first, then `security find-generic-password -a $USER -s <service> -w`):
+  ANTHROPIC_API_KEY  — --generate/--send          (service anthropic_api_key)
+  DISCORD_BOT_TOKEN  — --generate/--send/--context-only, read; --send, write
+                                                   (service discord_bot_token)
+  GIPHY_API_KEY      — --generate/--send, optional (service giphy_api_key;
+                       falls back to the Worker /api/giphy-search proxy)
 
 Usage:
-  python roast_bot_fire_ab.py                      # dry run: both trades, opus
-  python roast_bot_fire_ab.py --trade 1778546756   # dry run: single trade
-  python roast_bot_fire_ab.py --model both         # dry run: opus + sonnet
-  python roast_bot_fire_ab.py --context-only       # context only, no Anthropic
+  python roast_bot_fire_ab.py                        # usage + plan only; nothing runs
+  python roast_bot_fire_ab.py --generate             # PAID: both trades, opus; preview only
+  python roast_bot_fire_ab.py --generate --trade 1778546756 --model both
+  python roast_bot_fire_ab.py --context-only         # context only, no Anthropic
   UPS_ALLOW_ROAST_AB_DISCORD_SEND=1 python roast_bot_fire_ab.py \\
-      --send --confirm-send=1089538054236160010    # POSTS to the test channel
+      --send --confirm-send=1089538054236160010      # generates, then POSTS to the test channel
 """
 
 from __future__ import annotations
@@ -101,13 +121,19 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 # Discord writes need this env var AND --send --confirm-send=<TEST_CHANNEL_ID>.
 SEND_ENV = "UPS_ALLOW_ROAST_AB_DISCORD_SEND"
 
+# The only HTTP method _discord_request() lets through without SEND_ENV=1.
+READ_METHODS = frozenset({"GET"})
+
+PLAN_START = "=== PREFLIGHT PLAN ==="
+PLAN_END = "=== END PLAN ==="
+
 
 def send_refusal(args, env) -> str:
     """Why this run may NOT write to Discord, or "" when every gate is met.
-    Only meaningful with --send; without it the run is a dry run."""
+    Only meaningful with --send; without it nothing is ever written."""
     if not args.send:
         if args.confirm_send:
-            return "--confirm-send given without --send — refusing; nothing sent."
+            return "REFUSING: --confirm-send given without --send; nothing run, nothing sent."
         return ""
     missing = []
     if args.confirm_send is None:
@@ -125,23 +151,41 @@ def send_refusal(args, env) -> str:
 # ── Token sourcing ─────────────────────────────────────────────────────────
 
 def get_discord_token() -> str:
-    tok = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+    """DISCORD_BOT_TOKEN: env, then Keychain (service discord_bot_token).
+    "" when neither has it. This IS trade_roast_context's helper — the one
+    the context builder's recent-posts read uses — so --generate, --send and
+    --context-only all source the token exactly the way the live build does."""
+    return trade_roast_context._discord_bot_token()
+
+
+def source_discord_token() -> str:
+    """Read the bot token (same helper in every mode) and say what that
+    means for the recent-posts duplicate check. Returns "" when unavailable."""
+    from_env = bool(os.environ.get("DISCORD_BOT_TOKEN", "").strip())
+    tok = get_discord_token()
     if tok:
-        return tok
-    # Fallback: Keychain (matches the launchd plist's documented pattern)
-    try:
-        result = subprocess.run(
-            ["security", "find-generic-password", "-a", os.environ["USER"],
-             "-s", "discord_bot_token", "-w"],
-            check=True, capture_output=True, text=True,
-        )
-        return result.stdout.strip()
-    except (subprocess.CalledProcessError, KeyError) as e:
-        raise SystemExit(
-            "DISCORD_BOT_TOKEN not in env and not in Keychain. "
-            "Set via `security add-generic-password -a $USER -s discord_bot_token -w` "
-            "or `export DISCORD_BOT_TOKEN=...`"
-        ) from e
+        print(f"  Discord token: found in {'env' if from_env else 'Keychain'} ({len(tok)} chars) — "
+              f"the recent-posts duplicate check will read trade channel "
+              f"{trade_roast_context.DISCORD_TRADE_CHANNEL_ID} (GET only)")
+    else:
+        print("  Discord token: NOT FOUND (no DISCORD_BOT_TOKEN in env; Keychain service "
+              "discord_bot_token empty or unreadable)")
+        print("  Duplicate check: SKIPPED — no Discord token, so the bot's recent posts can't be "
+              "read; the roast context goes without the RECENT BOT POSTS ban list")
+    return tok
+
+
+def _dup_check_note(ctx, have_token: bool) -> str:
+    """One line on whether the recent-posts duplicate check fed this context."""
+    if not have_token:
+        return "  Duplicate check: SKIPPED (no Discord token — see above)"
+    text = (ctx.get("recent_bot_posts_text") or "") if isinstance(ctx, dict) else ""
+    if text:
+        return (f"  Duplicate check: done — bot's recent posts read from trade channel "
+                f"{trade_roast_context.DISCORD_TRADE_CHANNEL_ID}; ban list in the prompt "
+                f"({len(text)} chars)")
+    return ("  Duplicate check: read attempted, no recent bot posts came back (empty channel, or "
+            "the read failed — see any '[trade_roast_context] recent-bot-posts fetch skipped' line)")
 
 
 def get_giphy_key() -> str:
@@ -184,9 +228,12 @@ def get_anthropic_key() -> str:
 # ── Discord REST post ──────────────────────────────────────────────────────
 
 def _discord_request(method: str, path: str, token: str, payload: dict = None) -> dict:
-    # Backstop for any caller that skipped main()'s gate: no env permission, no request.
-    if os.environ.get(SEND_ENV, "").strip() != "1":
-        raise SystemExit(f"Discord {method} {path} refused: {SEND_ENV}=1 is not set")
+    # Backstop for EVERY write path, even a caller that skipped main()'s gate:
+    # any method other than GET needs SEND_ENV=1 or no request is made.
+    # Reads (GET) pass, so a generated dry run can read exactly like a send.
+    if method.upper() not in READ_METHODS and os.environ.get(SEND_ENV, "").strip() != "1":
+        raise SystemExit(f"Discord {method} {path} refused: {SEND_ENV}=1 is not set "
+                         f"(only GET is allowed without it)")
     url = f"{DISCORD_API_BASE}{path}"
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(
@@ -337,11 +384,14 @@ def _show(label: str, payload: dict) -> None:
 
 def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
              trade_ts: int, send: bool) -> dict:
-    """Full sequence (every message is built and printed before any post):
+    """Full sequence (every message is built and printed before any post).
+    Steps 1-5 are identical for --generate and --send (same reads); only
+    step 6, the write, is --send only:
       1) Run analyze_trade → TradeAnalysis
       2) Build announcement embed (Message 1)
-      3) Generate roast via Anthropic, parse [GIF: ...] tag (Message 2)
-      4) --send only: search Giphy for the GIF query (Message 3)
+      3) Build the roast context (incl. the Discord recent-posts read when a
+         token is available), generate via Anthropic, parse [GIF: ...] (Message 2)
+      4) Search Giphy for the GIF query (Message 3)
       5) Print the destination + the exact proposed messages
       6) --send only: post Message 1 to the channel, create a thread off it,
          post Messages 2 and 3 in the thread
@@ -386,6 +436,7 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
                                     extension_player_id=ext_player)
     context_text = context_to_prompt_text(ctx)
     print(f"  Context built ({len(context_text)} chars)")
+    print(_dup_check_note(ctx, bool(discord_token)))
 
     print(f"  Generating roast via {model_id}...")
     t0 = time.time()
@@ -412,9 +463,9 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     }
     roast_payload = {"embeds": [roast_embed], "allowed_mentions": {"parse": []}}
     # giphy_search() tries local key first, falls back to Worker /api/giphy-search proxy.
-    # Dry run skips Giphy entirely (no key, no request).
+    # A read: runs the same in --generate and --send.
     gif_url = ""
-    if send and gif_query:
+    if gif_query:
         source = "local key" if giphy_key else "Worker proxy"
         print(f"  Searching Giphy for {gif_query!r} via {source}...")
         gif_url = giphy_search(giphy_key, gif_query)
@@ -429,11 +480,10 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     _show("Message 2 → new thread", roast_payload)
     if gif_payload:
         _show("Message 3 → new thread", gif_payload)
-    elif gif_query and not send:
-        print(f"  Message 3 → new thread: a Giphy GIF for {gif_query!r} (dry run: Giphy not searched)")
     else:
         print("  Message 3: none (no GIF)")
 
+    # ── The ONLY difference between --generate and --send starts here. ──
     if not send:
         print(f"  DRY RUN — nothing posted to Discord (roast {len(roast_clean)} chars, gif='{gif_query}')")
         return {
@@ -485,31 +535,125 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     }
 
 
+DESTINATION = (f"channel {TEST_CHANNEL_ID} (UPS test channel) — Message 1 (trade announcement) "
+               f"goes there, then a NEW thread created off it gets Message 2 (roast) + "
+               f"Message 3 (GIF)")
+
+HOW_TO_GENERATE = f"""\
+Nothing was run. Generating a roast is a PAID Anthropic call, so it needs an explicit option:
+  --generate        generate + print a dry-run preview (destination + every message); never posts
+  --send            generate, then post to the test channel; also needs
+                    --confirm-send={TEST_CHANNEL_ID} and {SEND_ENV}=1 in the environment
+  --context-only    print the roast context only; no Anthropic, no post"""
+
+
+def preflight_plan(args, mode: str, trades: list, models: list) -> str:
+    """What this run will and won't do, printed before any network,
+    Keychain or Anthropic activity. mode: plan | refused | context |
+    generate | send."""
+    n_calls = len(trades) * len(models)
+    model_ids = ", ".join(MODELS[m] for m in models)
+    gen = (f"YES — {n_calls} PAID call(s): {model_ids} × trades {trades} "
+           f"(ANTHROPIC_API_KEY env → Keychain anthropic_api_key)")
+    mfl = "YES, read only — MFL trade feed, league, rosters; Worker roast context"
+    dread = (f"YES when a bot token is found (DISCORD_BOT_TOKEN env → Keychain discord_bot_token): "
+             f"GET /users/@me + GET the last 100 messages in trade channel "
+             f"{trade_roast_context.DISCORD_TRADE_CHANNEL_ID} — the recent-posts duplicate check "
+             f"(anti-repetition ban list)")
+    no_token = "; no token → check SKIPPED and said so"
+    giphy = ("YES — one GIF search per roast that ends in [GIF: …] "
+             "(GIPHY_API_KEY env → Keychain giphy_api_key → Worker /api/giphy-search proxy)")
+    secrets = "ANTHROPIC_API_KEY, DISCORD_BOT_TOKEN, GIPHY_API_KEY (each env first, then Keychain)"
+    if mode == "plan":
+        rows = [
+            ("Mode", "PLAN ONLY — no option given; nothing is read, generated or posted"),
+            ("Anthropic", "NO — generating is a paid call; it needs --generate (or --send)"),
+            ("MFL / Worker", "NO"),
+            ("Discord read", "NO"),
+            ("Giphy read", "NO"),
+            ("Discord write", "NO"),
+            ("Secrets read", "none (no env key, no Keychain)"),
+            ("Destination", f"none this run; --send would post to {DESTINATION}"),
+        ]
+    elif mode == "refused":
+        what = ("--send (implies --generate: generate, print, then post)" if args.send
+                else "--confirm-send without --send")
+        rows = [
+            ("Mode", f"REFUSED — {what}; nothing runs (reason below)"),
+            ("Anthropic", "NO (refused)"),
+            ("MFL / Worker", "NO (refused)"),
+            ("Discord read", "NO (refused)"),
+            ("Giphy read", "NO (refused)"),
+            ("Discord write", "NO (refused)"),
+            ("Secrets read", "none (refused before any env key or Keychain read)"),
+            ("Destination", f"none this run; an allowed --send posts to {DESTINATION}"),
+        ]
+    elif mode == "context":
+        rows = [
+            ("Mode", "CONTEXT ONLY — build + print the roast context the model would see"),
+            ("Anthropic", "NO"),
+            ("MFL / Worker", mfl),
+            ("Discord read", dread + no_token + ". Same read as the live context build"),
+            ("Giphy read", "NO"),
+            ("Discord write", "NO"),
+            ("Secrets read", "DISCORD_BOT_TOKEN (env first, then Keychain), for the read only"),
+            ("Destination", "none — nothing is posted"),
+        ]
+    elif mode == "generate":
+        rows = [
+            ("Mode", "GENERATE — paid generation, then a DRY-RUN preview; nothing is posted"),
+            ("Anthropic", gen),
+            ("MFL / Worker", mfl),
+            ("Discord read", dread + no_token + ". Same reads as --send"),
+            ("Giphy read", giphy + ". Same as --send"),
+            ("Discord write", "NO — dry run; only --send writes (the token is used for the read only)"),
+            ("Secrets read", secrets),
+            ("Destination", f"PREVIEW ONLY — {DESTINATION}"),
+        ]
+    else:  # send — every gate already met
+        rows = [
+            ("Mode", "SEND — --send implies --generate: same reads + messages as --generate, "
+                     "every message printed, THEN posted"),
+            ("Anthropic", gen),
+            ("MFL / Worker", mfl),
+            ("Discord read", dread + "; no token → --send stops (exit 2) before generating"),
+            ("Giphy read", giphy),
+            ("Discord write", f"YES — gates met (--confirm-send={TEST_CHANNEL_ID}, {SEND_ENV}=1); "
+                              f"per fire: POST Message 1, create a NEW thread off it, POST "
+                              f"Messages 2-3 in that thread"),
+            ("Secrets read", secrets),
+            ("Destination", DESTINATION),
+        ]
+    rows.append(("Selection", f"trades {trades} (context only; --model unused)" if mode == "context"
+                 else f"trades {trades} × models {models} = {n_calls} fire(s)"))
+    width = max(len(k) for k, _ in rows) + 1
+    body = "\n".join(f"  {k + ':':<{width}} {v}" for k, v in rows)
+    return f"{PLAN_START}\n{body}\n{PLAN_END}"
+
+
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="A/B fire for the trade roast (dry run unless --send)")
+    parser = argparse.ArgumentParser(
+        prog="roast_bot_fire_ab.py",
+        description="A/B fire for the Trade Roast Bot. With no option it only prints this "
+                    "usage and a plan: no Anthropic call, no Discord read or write.")
+    parser.add_argument("--generate", action="store_true",
+                        help="PAID: generate the roasts via Anthropic, then print a dry-run preview "
+                             "(destination + every message). Same reads as --send; never posts.")
+    parser.add_argument("--send", action="store_true",
+                        help=f"Implies --generate, then POSTS to Discord. Also needs --confirm-send "
+                             f"and {SEND_ENV}=1.")
+    parser.add_argument("--confirm-send", metavar="CHANNEL_ID", default=None,
+                        help=f"Must equal the destination channel id ({TEST_CHANNEL_ID}) for --send")
+    parser.add_argument("--context-only", action="store_true",
+                        help="Just build + print the context (what the model would see). No "
+                             "Anthropic call, no posting; same Discord recent-posts read as live.")
     parser.add_argument("--trade", type=int, choices=[TRADE_1_TS, TRADE_2_TS],
                         help="Only fire this trade timestamp (else both)")
     parser.add_argument("--model", choices=["opus", "sonnet", "both"], default=None,
                         help="opus (default) | sonnet | both for A/B compare")
-    parser.add_argument("--send", action="store_true",
-                        help=f"POST to Discord. Also needs --confirm-send and {SEND_ENV}=1. "
-                             "Without it the run is a dry run: build + print, never post.")
-    parser.add_argument("--confirm-send", metavar="CHANNEL_ID", default=None,
-                        help=f"Must equal the destination channel id ({TEST_CHANNEL_ID}) for --send")
-    parser.add_argument("--context-only", action="store_true",
-                        help="Just build + print the context. No Anthropic call, no posting. Useful for previewing what the LLM would see without needing the API key.")
     args = parser.parse_args(argv)
-
-    refusal = send_refusal(args, os.environ)
-    if refusal:
-        print(refusal)
-        return 2
-    send = args.send
-    if not send:
-        # Dry run never reads the Discord token: the roast context builder
-        # would otherwise read it (env → Keychain) to fetch the bot's recent
-        # posts as an anti-repetition list. Dry-run prompts go without it.
-        trade_roast_context._discord_bot_token = lambda: ""
+    if args.context_only and (args.generate or args.send):
+        parser.error("--context-only cannot be combined with --generate or --send")
 
     trades = [args.trade] if args.trade else [TRADE_1_TS, TRADE_2_TS]
     # Default to Opus-only (Keith 2026-05-22: "stick 100% with Opus for the roast").
@@ -521,8 +665,35 @@ def main(argv=None) -> int:
     else:
         models = ["opus"]
 
-    # --context-only short-circuit: just build + print, no Anthropic, no Discord
-    if args.context_only:
+    refusal = send_refusal(args, os.environ)
+    send = args.send and not refusal
+    if refusal:
+        mode = "refused"
+    elif send:
+        mode = "send"
+    elif args.generate:
+        mode = "generate"
+    elif args.context_only:
+        mode = "context"
+    else:
+        mode = "plan"
+
+    # The plan comes first in every mode: nothing below it has run yet.
+    if mode == "plan":
+        print(parser.format_help())
+    print(preflight_plan(args, mode, trades, models))
+    if refusal:
+        print(refusal)
+        return 2
+    if mode == "plan":
+        print(HOW_TO_GENERATE)
+        return 0
+
+    # --context-only: build + print, no Anthropic, no Discord write. The
+    # context builder does its own recent-posts read, exactly as live.
+    if mode == "context":
+        print("Sourcing credentials...")
+        have_token = bool(source_discord_token())
         for ts in trades:
             print(f"\n{'='*70}\n=== CONTEXT for ts={ts} ===\n{'='*70}")
             trade = find_trade(ts)
@@ -537,23 +708,24 @@ def main(argv=None) -> int:
                         break
             ctx = build_trade_roast_context(trade, extension_years=ext_years,
                                             extension_player_id=ext_player)
+            print(_dup_check_note(ctx, have_token))
             print(context_to_prompt_text(ctx))
         return 0
 
-    # Validate creds up front so we fail fast
+    # --generate / --send: identical credential sourcing (fail fast, before
+    # any MFL or Anthropic call). Only --send needs the token to exist.
     print("Sourcing credentials...")
     anthropic_key = get_anthropic_key()
-    # Discord token + Giphy key are read only when sending.
-    discord_token = get_discord_token() if send else ""
-    giphy_key = get_giphy_key() if send else ""
+    discord_token = source_discord_token()
+    if send and not discord_token:
+        print("REFUSING to post: --send needs DISCORD_BOT_TOKEN (env or Keychain service "
+              "discord_bot_token). Nothing generated, nothing sent.")
+        return 2
+    giphy_key = get_giphy_key()
     os.environ["ANTHROPIC_API_KEY"] = anthropic_key  # SDK reads from env
     client = anthropic.Anthropic()
     print(f"  Anthropic key: sourced ({len(anthropic_key)} chars)")
-    if send:
-        print(f"  Discord token: sourced ({len(discord_token)} chars)")
-        print(f"  Giphy: {'local key (' + str(len(giphy_key)) + ' chars)' if giphy_key else 'Worker /api/giphy-search proxy (no local key)'}")
-    else:
-        print("  Discord token / Giphy key: not read (dry run)")
+    print(f"  Giphy: {'local key (' + str(len(giphy_key)) + ' chars)' if giphy_key else 'Worker /api/giphy-search proxy (no local key)'}")
     print(f"  Target channel: {TEST_CHANNEL_ID}")
     print(f"  Trades: {trades}")
     print(f"  Models: {models}")
