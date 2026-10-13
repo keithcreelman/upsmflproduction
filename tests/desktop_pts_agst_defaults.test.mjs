@@ -1,4 +1,5 @@
-// Desktop Stats workbench → Fantasy Points Against: opens on QB; weeks run 1 → the league's own last
+// Desktop Stats workbench → Fantasy Points Against: the approved mobile wording (Allowed / Usual / vs usual,
+// descriptive, restrained color, no easy/tough); opens on QB; weeks run 1 → the league's own last
 // week for the shown season (17 now, 16 in 2017–2020, from the API's season.endWeek; never 18);
 // "To wk" defaults to Latest game (no week_max: Full season through the latest completed game, as on
 // mobile); the header names the weeks actually counted. The real page code (esc … renderShell) runs
@@ -70,8 +71,8 @@ console.log("desktop Pts Agst: defaults and weeks");
     assert.strictEqual(v.host.querySelector(".fpa-wmax").querySelectorAll("option")[0].textContent, "Latest game");
     assert.strictEqual(v.host.querySelector(".fpa-wmax").value, "0");
   });
-  await check("the header names the weeks counted: '2026 · weeks 1–5, through the latest completed game · rank 1 = most generous to QB'", () => {
-    assert.ok(/^2026 · weeks 1–5, through the latest completed game · rank 1 = most generous to QB/.test(v.sub()), v.sub());
+  await check("the header names the weeks counted: '2026 · weeks 1–5, through the latest completed game · Points QBs scored …'", () => {
+    assert.ok(/^2026 · weeks 1–5, through the latest completed game · Points QBs scored vs each defense/.test(v.sub()), v.sub());
   });
   const ys = v.host.querySelector(".fpa-year"); ys.value = "2019"; ys.dispatch("change"); await settle(); await settle();
   await check("a 16-week season (2019): both pickers become 1–16, header 'weeks 1–16'", () => {
@@ -86,7 +87,7 @@ console.log("desktop Pts Agst: defaults and weeks");
   const to = v.host.querySelector(".fpa-wmax"); to.value = "4"; to.dispatch("change"); await settle(); await settle();
   await check("To wk 4 reads week_max=4 and the header says 'weeks 1–4' (no 'latest' wording)", () => {
     const r = v.lists().slice(-1)[0]; assert.ok(/week_min=1&week_max=4$/.test(r), r);
-    assert.ok(/^2026 · weeks 1–4 · rank 1/.test(v.sub()), v.sub());
+    assert.ok(/^2026 · weeks 1–4 · Points QBs/.test(v.sub()), v.sub());
   });
   to.value = "0"; to.dispatch("change"); await settle(); await settle();
   v.host.querySelector('.fpa-team-row[data-team="BUF"]').click(); await settle(); await settle();
@@ -99,6 +100,68 @@ console.log("desktop Pts Agst: defaults and weeks");
     assert.deepStrictEqual(v.pressed(), ["DL"]);
   });
 }
+console.log("\ndesktop Pts Agst: the approved mobile wording (descriptive, not a forecast) and restrained color");
+{
+  const v = boot();
+  await v.open();
+  const heads = () => v.host.querySelectorAll(".fpa-table thead th").map((t) => t.textContent.replace(/[▲▼]/g, "").trim());
+  const notes = () => v.host.querySelectorAll(".fpa-sub").map((e) => e.textContent.replace(/\s+/g, " "));
+  const colored = () => v.host.querySelectorAll(".fpa-team-row").filter((r) => r.querySelector(".asw-trend.up, .asw-trend.dn")).map((r) => r.getAttribute("data-team"));
+  const K = { QB: 50, RB: 30, WR: 50, TE: 30, DL: 20, LB: 120, DB: 50, PK: 50, PN: 120 };
+  const want = (pos) => Object.keys(FX.list_auto.teams).filter((t) => {
+    const c = FX.list_auto.teams[t][pos]; if (!c || !c.adj || Math.round((c.adj.ratio - 1) * 100) === 0) return false;
+    const g = (FX.list_auto.teamGames[t] || {}).games != null ? FX.list_auto.teamGames[t].games : c.raw.games;
+    return Math.abs((g * c.adj.ratio + K[pos]) / (g + K[pos]) - 1) >= 0.08;
+  });
+  await check("columns read Rank · Defense · Allowed · Usual · vs usual · G (no 'Opp Norm', no 'Δ%')", () => {
+    assert.deepStrictEqual(heads(), ["Rank", "Defense", "Allowed", "Usual", "vs usual", "G"]);
+  });
+  await check("the notes say what it is: 'Points QBs scored vs each defense, per game · Default order: most points above usual first' + not a next-game forecast", () => {
+    const [sub, note] = notes();
+    assert.ok(/Points QBs scored vs each defense, per game · Default order: most points above usual first/.test(sub), sub);
+    assert.strictEqual(note, "This shows games already played. It isn’t a next-game forecast. Color appears only when the difference remains large after adjusting for small sample sizes.");
+  });
+  await check("no easy/tough rank badges and no 'generous' / 'easiest' / 'matchup' wording on the board", () => {
+    assert.strictEqual(v.host.querySelectorAll(".fpa-rk.easy, .fpa-rk.tough").length, 0);
+    assert.ok(!/generous|easiest|matchup|Opp Norm|Δ/i.test(v.host.textContent), v.host.textContent.slice(0, 200));
+  });
+  await check("QB: vs usual is colored only where the gap survives shrinking by k = 50 games (the mobile rule)", () => assert.deepStrictEqual(colored().sort(), want("QB").sort()));
+  v.host.querySelector('.fpa-pos button[data-pos="DL"]').click(); await settle();
+  await check("DL: heading says 'Offense', 'Points DL scored vs each offense', and color follows k = 20", () => {
+    assert.strictEqual(heads()[1], "Offense");
+    assert.ok(/Points DL scored vs each offense, per game/.test(notes()[0]), notes()[0]);
+    assert.deepStrictEqual(colored().sort(), want("DL").sort());
+  });
+  await check("desktop FPA_COLOR_K equals mobile's (site/m/views/stats.js)", () => {
+    const mob = fs.readFileSync(new URL("../site/m/views/stats.js", import.meta.url), "utf8");
+    const grab = (src) => JSON.parse(/var FPA_COLOR_K = (\{[^}]+\});/.exec(src)[1].replace(/(\w+):/g, '"$1":'));
+    assert.deepStrictEqual(grab(CODE), grab(mob));
+  });
+  v.host.querySelector('.fpa-pos button[data-pos="QB"]').click(); await settle();
+  v.host.querySelector('.fpa-team-row[data-team="BUF"]').click(); await settle(); await settle();
+  const D = FX.detail_BUF_QB;
+  await check("breakdown weeks: Wk · Allowed · vs usual · Opp · Plays vs usual · Script; vs usual = week total − usual total", () => {
+    assert.deepStrictEqual(heads().slice(0, 6), ["Wk", "Allowed", "vs usual", "Opp", "Plays vs usual", "Script"]);
+    const w = D.weeks.find((x) => x.total != null && x.usualTotal != null);
+    const row = v.host.querySelector(`.fpa-week-row[data-wk="${w.wk}"]`);
+    const d = w.total - w.usualTotal, r = d.toFixed(1);
+    assert.strictEqual(row.children[2].textContent, Number(r) === 0 ? "0.0" : (d > 0 ? "+" : "−") + r.replace("-", ""));
+  });
+  const wk = D.weeks.find((x) => x.players && x.players.length);
+  v.host.querySelector(`.fpa-week-row[data-wk="${wk.wk}"]`).click(); await settle();
+  await check("breakdown players: Player · Pts · Usual · vs usual · Snaps vs usual, with the same usual as mobile", () => {
+    assert.deepStrictEqual(heads(), ["Player", "Pts", "Usual", "vs usual", "Snaps vs usual"]);
+    const g = wk.players[0], cells = v.host.querySelectorAll(".fpa-table tbody tr")[0].children.map((c) => c.textContent);
+    assert.strictEqual(cells[2], Number(g.usual).toFixed(1));
+    const r = Number(g.diff).toFixed(1);
+    assert.strictEqual(cells[3], Number(r) === 0 ? "0.0" : (g.diff > 0 ? "+" : "−") + r.replace("-", ""));
+    assert.ok(!/Norm|Δ/.test(v.host.textContent));
+  });
+}
+await check("the page description is descriptive (no 'generous', no 'did the damage'; says it is not a forecast)", () => {
+  const m = /"fpa":\s*\{ title:"Fantasy Points Against", desc:"([^"]+)"/.exec(HTML);
+  assert.ok(m && /not a forecast/.test(m[1]) && !/generous|damage/i.test(m[1]), m && m[1]);
+});
 await check("no 'w <= 18' week loop and no wkMax: 18 default remain in the page's Pts Agst block", () => {
   assert.ok(!/w <= 18/.test(CODE) && !/wkMax: 18/.test(CODE));
 });
