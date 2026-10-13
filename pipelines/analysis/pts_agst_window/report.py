@@ -59,6 +59,8 @@ for g in GROUPS + ["ALL"]:
 open(os.path.join(HERE, "REPORT.md"), "w").write("\n".join(md) + "\n")
 # minimal HTML (tables) for the review page
 import re
+def bold(t):
+    return re.sub(r"[*][*](.+?)[*][*]", r"<b>\1</b>", html.escape(t))
 def md_to_html(lines):
     out, table = [], False
     for ln in lines:
@@ -67,12 +69,12 @@ def md_to_html(lines):
             if set("".join(cells)) <= set("-: "): continue
             if not table: out.append('<div class="tw"><table>'); table = True; tag = "th"
             else: tag = "td"
-            out.append("<tr>" + "".join(f"<{tag}>{re.sub(r'[*][*](.+?)[*][*]', r'<b>\\1</b>', html.escape(c))}</{tag}>" for c in cells) + "</tr>")
+            out.append("<tr>" + "".join(f"<{tag}>{bold(c)}</{tag}>" for c in cells) + "</tr>")
             continue
         if table: out.append("</table></div>"); table = False
         if ln.startswith("## "): out.append(f"<h3>{html.escape(ln[3:])}</h3>")
         elif ln.startswith("# "): continue
-        elif ln.strip(): out.append(f"<p class=\"mut\">{re.sub(r'[*][*](.+?)[*][*]', r'<b>\\1</b>', html.escape(ln))}</p>")
+        elif ln.strip(): out.append(f"<p class=\"mut\">{bold(ln)}</p>")
     if table: out.append("</table></div>")
     return "\n".join(out)
 open(os.path.join(HERE, "report.html"), "w").write(md_to_html(md))
