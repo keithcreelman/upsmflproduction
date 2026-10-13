@@ -95,29 +95,47 @@ export function toMflAsset(a) {
 // knowledge; the caller owns all state-machine/ledger bookkeeping around it. See that
 // module's own execute2Way for the (much simpler, single-leg, no ring/pairwise decomposition)
 // caller.
-export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments }) {
+// `mflTokens: true` = give/receive are already MFL asset tokens (bare player ids,
+// FP_/DP_/BB_ exactly as MFL's transactions export lists them) — used to reverse a
+// trade made on MFL's own site. `returnForfeited` = { canonical, toFid }: the ONE
+// forfeited pick allowed through, and only when it goes back to the team that
+// forfeited it (Keith 2026-10-12: such a trade is reversed). `commentTag` labels the
+// offer on MFL. `cookieAuth` = authenticate with the commissioner's MFL cookie instead of
+// the league APIKEY — MFL API keys are per league, so the TEST league (25625) needs this.
+export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments, mflTokens = false, returnForfeited = null, commentTag = "[Commish-processed: 3-way]", cookieAuth = false }) {
   const apiKey = safeStr(env.MFL_APIKEY);
-  if (!apiKey) return { ok: false, step: "config", error: "MFL_APIKEY missing" };
-  const giveMfl = (give || []).map(toMflAsset).filter(Boolean).join(",");
-  const receiveMfl = (receive || []).map(toMflAsset).filter(Boolean).join(",");
+  const cookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE);
+  const cookie = cookieRaw ? (cookieRaw.includes("=") ? cookieRaw : `MFL_USER_ID=${cookieRaw}`) : "";
+  if (cookieAuth ? !cookie : !apiKey) return { ok: false, step: "config", error: cookieAuth ? "MFL_COOKIE missing" : "MFL_APIKEY missing" };
+  const keyQs = cookieAuth ? "" : `&APIKEY=${encodeURIComponent(apiKey)}`;
+  const authHeaders = cookieAuth ? { Cookie: cookie } : {};
+  const asMfl = mflTokens ? (t) => safeStr(t) : toMflAsset;
+  const giveMfl = (give || []).map(asMfl).filter(Boolean).join(",");
+  const receiveMfl = (receive || []).map(asMfl).filter(Boolean).join(",");
   if (!giveMfl && !receiveMfl) return { ok: false, step: "validate", error: "empty leg" };
   // BACKSTOP — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). Every staged 2-way trade, drop-first trade and
   // 3-way leg passes here right before MFL. The gates above refuse earlier;
   // this only fires if something reached execution around them.
   const forfeit = await checkForfeitedPicks(env, leagueId, { [padFid(fromFid)]: give || [], [padFid(toFid)]: receive || [] });
-  if (!forfeit.ok) return { ok: false, step: "pick_forfeited", error: forfeit.message, violations: forfeit.violations || [] };
+  if (!forfeit.ok) {
+    // The only exception: a reversal returning that exact pick to the team that forfeited it.
+    const exempt = forfeit.code === "pick_forfeited" && returnForfeited && (forfeit.violations || []).length > 0 &&
+      (forfeit.violations || []).every((v) => v.canonical === returnForfeited.canonical &&
+        padFid(v.forfeited_by) === padFid(returnForfeited.toFid) && padFid(toFid) === padFid(returnForfeited.toFid) && padFid(v.sender) === padFid(fromFid));
+    if (!exempt) return { ok: false, step: "pick_forfeited", error: forfeit.message, violations: forfeit.violations || [] };
+  }
 
   // Step 1 — propose as fromFid
-  const proposeUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeProposal&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+  const proposeUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeProposal&L=${leagueId}${keyQs}&JSON=1`;
   const proposeForm = new URLSearchParams();
   proposeForm.set("FRANCHISE_ID", padFid(fromFid));
   proposeForm.set("OFFEREDTO", padFid(toFid));
   proposeForm.set("WILL_GIVE_UP", giveMfl);
   proposeForm.set("WILL_RECEIVE", receiveMfl);
-  proposeForm.set("COMMENTS", "[Commish-processed: 3-way] " + safeStr(comments));
+  proposeForm.set("COMMENTS", commentTag + " " + safeStr(comments));
   let proposeResp = "", proposeStatus = 0;
   try {
-    const r = await fetch(proposeUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" }, body: proposeForm.toString() });
+    const r = await fetch(proposeUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker", ...authHeaders }, body: proposeForm.toString() });
     proposeStatus = r.status; proposeResp = await r.text();
   } catch (e) { return { ok: false, step: "propose", error: `fetch failed: ${e?.message || e}` }; }
   // MFL's commissioner "lockout" disables acting-as-a-franchise (impersonation),
@@ -147,8 +165,8 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
   }
   if (!tradeId) {
     try {
-      const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${padFid(fromFid)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
-      const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+      const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${padFid(fromFid)}${keyQs}&JSON=1`;
+      const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json", ...authHeaders } });
       const j = await r.json().catch(() => null);
       const root = (j && (j.pendingTrades || j.pendingtrades)) || {};
       let arr = root.pendingTrade || root.pendingtrade || root.trade || root.trades || [];
@@ -166,15 +184,15 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
   if (!tradeId) return { ok: false, step: "extract_trade_id", error: "no trade_id from propose or pendingTrades" };
 
   // Step 2 — accept on behalf of toFid
-  const acceptUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeResponse&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+  const acceptUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeResponse&L=${leagueId}${keyQs}&JSON=1`;
   const acceptForm = new URLSearchParams();
   acceptForm.set("TRADE_ID", tradeId);
   acceptForm.set("RESPONSE", "accept");
   acceptForm.set("FRANCHISE_ID", padFid(toFid));
-  acceptForm.set("COMMENTS", "[Commish-processed: 3-way]");
+  acceptForm.set("COMMENTS", commentTag);
   let acceptResp = "", acceptStatus = 0;
   try {
-    const r = await fetch(acceptUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" }, body: acceptForm.toString() });
+    const r = await fetch(acceptUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker", ...authHeaders }, body: acceptForm.toString() });
     acceptStatus = r.status; acceptResp = await r.text();
   } catch (e) { return { ok: false, step: "accept", tradeId, error: `fetch failed: ${e?.message || e}` }; }
   if (/impersonate[^.]*lockout|lockout[^.]*impersonate/i.test(acceptResp)) {
