@@ -158,7 +158,7 @@
   // played for that day, the full season through the latest completed game. Keith
   // 2026-10-13: rank and color by MFL POINTS ALLOWED PER GAME to the position (#1 = the
   // most; the board's Allowed column, high to low), green = ranks 1–10, red = the bottom
-  // 10. Measured on 2019–2025 (review #1249, L2b): top-10 vs bottom-10 = +0.95 pts a
+  // 10; Details keeps "vs usual" too, uncolored. Measured on 2019–2025 (review #1249, L2b): top-10 vs bottom-10 = +0.95 pts a
   // game against a player's own usual (QB +2.3; LB/DB/P and Weeks 2–4 ≈ nothing). The
   // Season/L3/L5 toggle is gone: shorter windows were less accurate, not more.
   var MU_PLURAL = { QB: "QBs", RB: "RBs", WR: "WRs", TE: "TEs", DL: "DL", LB: "LBs", DB: "DBs", PK: "Ks", PN: "Ps" };
@@ -223,6 +223,8 @@
     var d = new Date(t), h = d.getHours(), m = d.getMinutes();
     return (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
   }
+  // "+29%" / "−12%" (a real minus) / "0%".
+  function signedPct(p) { return p === 0 ? "0%" : (p > 0 ? "+" : "−") + Math.abs(p) + "%"; }
   function ordinal(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   // Green = the 10 teams allowing the most per game, red = the 10 allowing the least.
   // Only with 20+ teams ranked (the first days of a season have a handful).
@@ -233,7 +235,9 @@
   function muRating(d, team, grp) {
     var x = d && d.defRatings && d.defRatings[team] && d.defRatings[team][grp];
     if (!x || x.ppgRank == null) return null;
-    return { ppgRank: x.ppgRank, ppgOf: x.ppgOf, tier: muTier(x.ppgRank, x.ppgOf), perGame: x.perGame, games: x.games };
+    var pct = x.ratio == null ? null : Math.round((x.ratio - 1) * 100);
+    return { ppgRank: x.ppgRank, ppgOf: x.ppgOf, tier: muTier(x.ppgRank, x.ppgOf), perGame: x.perGame, games: x.games,
+      usual: x.usual, pct: pct };
   }
   // Which weeks the numbers cover: "Wks 1–5", or "2025 season" in Week 1.
   function muBasis(d) { return d ? (d.priorSeason ? d.ratingYear + " season" : d.basis) : ""; }
@@ -327,13 +331,35 @@
     return r;
   }
   var GAME_CLS = { out: 1, d: 1, q: 1 };
+  var PRIOR_SHORT = { Out: "OUT", Doubtful: "D", Questionable: "Q" }, PRIOR_CLS = { Out: "out", Doubtful: "d", Questionable: "q" };
+  // Until his team's report for this week is out (the first one comes mid-week), his
+  // LAST final official designation, labeled with its week ("W5 OUT") and outlined, so
+  // it's never read as this week's (Keith 2026-10-13: "I need to see a player's
+  // injury status"). Source: the same official report, via the worker's `prior`.
+  function priorChip(p) {
+    return { t: "W" + p.week + " " + PRIOR_SHORT[p.status], cls: PRIOR_CLS[p.status] + " prior",
+      title: "Wk " + p.week + " injury report (final): " + p.status, prior: p };
+  }
+  function priorLine(p) {
+    return "Wk " + p.week + " injury report (final): " + p.status + (p.injury ? " — " + p.injury : "") +
+      ". Wk " + M.state.lineupWeek + "’s isn’t out yet for his team.";
+  }
   function injInfo(pid, team) {
     var PS = PSx(); if (!PS) return { chips: [], report: "", roster: "" };
-    var i = PS.info(pid, team), rep = injReport();
+    var i = PS.info(pid, team), rep = injReport(), wk = parseInt(M.state.lineupWeek, 10) || 0;
+    var chips = i.chips, report = i.report;
     if (rep.state === "otherweek") {
-      return { chips: i.chips.filter(function (c) { return !GAME_CLS[c.cls]; }),
-        report: "The newest NFL injury report is Wk " + rep.week + ", not Wk " + M.state.lineupWeek + ".", roster: i.roster };
+      // A current report for an EARLIER week than this lineup's (it lags the lineup
+      // week): its designations are last week's, so they're shown as such.
+      var older = rep.week < wk;
+      chips = i.chips.map(function (c) { return !GAME_CLS[c.cls] ? c : (older ? { t: "W" + rep.week + " " + c.t, cls: c.cls + " prior", title: c.title + " (final)" } : null); })
+        .filter(Boolean);
+      report = older ? "" : "The newest NFL injury report is Wk " + rep.week + ", not Wk " + wk + ".";
+      return { chips: chips, report: report, roster: i.roster, priorWeek: older ? rep.week : 0 };
     }
+    var hasGame = chips.some(function (c) { return GAME_CLS[c.cls]; });
+    var p = !hasGame && PS.prior ? PS.prior(pid) : null;
+    if (p && wk && p.week < wk) return { chips: chips.concat([priorChip(p)]), report: priorLine(p), roster: i.roster, priorWeek: p.week };
     return i;
   }
   function injChipsHtml(pid, team) {
@@ -341,6 +367,8 @@
       return '<span class="ups-m-inj-chip ' + c.cls + ' lu" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
     }).join("");
   }
+  // The weeks of the last-week designations in the current read (for the note).
+  function injPriorWeeks() { var PS = PSx(); return PS && PS.priorWeeks ? PS.priorWeeks() : []; }
   // " · OUT" for a dropdown choice (plain text).
   function injOptText(pid, team) {
     var ch = injInfo(pid, team).chips;
@@ -352,9 +380,12 @@
     var st = PS.state();
     if (st === "error") return "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
     if (rep.state === "loading" || st === "idle" || st === "loading") return "Checking this week’s injury report…";
-    if (rep.state === "ok") return "Injury tags: NFL injury report Wk " + rep.week + "; IR/PUP from MFL. No tag: not on the report, or a bye.";
+    var pw = injPriorWeeks();
+    var marked = "“W" + pw.join("/W") + "”";
+    if (rep.state === "ok") return "Injury tags: NFL injury report Wk " + rep.week + "; IR/PUP from MFL." + (pw.length ? " Teams yet to report for Wk " + wk + " show last week’s final tags, marked " + marked + "." : " No tag: not on the report, or a bye.");
+    if (rep.state === "otherweek" && rep.week < (parseInt(wk, 10) || 0)) return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet, so Q/D/OUT tags are marked “W" + rep.week + "” (last week’s final report); IR/PUP from MFL.";
     if (rep.state === "otherweek") return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet (the newest is Wk " + rep.week + "), so no Q/D/OUT tags; IR/PUP from MFL. No tag doesn’t mean healthy.";
-    return "Injury tags: Wk " + (wk || "") + "’s NFL report isn’t out or couldn’t be read, so no Q/D/OUT tags yet; IR/PUP from MFL. No tag doesn’t mean healthy.";
+    return "Injury tags: Wk " + (wk || "") + "’s NFL report isn’t out yet, so Q/D/OUT tags" + (pw.length ? " are last week’s final report, marked " + marked : " will show once it is") + "; IR/PUP from MFL. No tag doesn’t mean healthy.";
   }
 
   // Compact, tappable matchup line (with a visible "Details" button) + the detail card.
@@ -372,10 +403,11 @@
       '<span class="ups-m-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
-    // His line from this week's report (on it or not); when the report isn't out or
-    // can't be read, the screen's injury note says so once, not on every card.
+    // His line from this week's report (on it or not), or last week's final one while
+    // his team's isn't out; otherwise the screen's injury note says so once, not on
+    // every card.
     var pl = DATA.playerById(pid), inj = injInfo(pid, pl && pl.team);
-    if (inj.report && injReport().state === "ok") rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.report) + '</div>');
+    if (inj.report && (injReport().state === "ok" || inj.priorWeek)) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.report) + '</div>');
     if (inj.roster) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.roster) + '</div>');
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
@@ -386,6 +418,13 @@
       rows.push('<div class="r">' + U.escapeHtml(mu.opp + (mu.idp ? "’s offense" : "") + " allows " + (MU_PLURAL[mu.grp] || mu.grp)) + ' <b>' +
         U.escapeHtml(fmtAvg(r.perGame)) + '</b> a game: <span class="ups-m-mu-rk' + (r.tier ? " " + r.tier : "") + '">#' + r.ppgRank + ' of ' + r.ppgOf + '</span> · ' +
         U.escapeHtml(mu.basis) + '</div>');
+      // Keith 2026-10-13: keep both — the rank (points allowed) and "vs usual" (what
+      // those same players usually score; the Pts Agst board's order). Uncolored, so
+      // green/red only ever comes from the rank.
+      if (r.usual != null && r.pct != null) {
+        rows.push('<div class="r">Those ' + U.escapeHtml(MU_PLURAL[mu.grp] || mu.grp) + ' usually score ' + U.escapeHtml(fmtAvg(r.usual)) +
+          ' a game: ' + U.escapeHtml(signedPct(r.pct)) + ' vs usual</div>');
+      }
     } else if (muData()) {
       rows.push('<div class="r">' + U.escapeHtml(mu.opp + " hasn’t played a final game" + (mu.basis ? " in " + mu.basis : " yet") + ".") + '</div>');
     }

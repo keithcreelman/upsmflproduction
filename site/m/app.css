@@ -897,6 +897,8 @@ button.ups-m-busy::before,
 /* Injury/roster status chips (the shared .ups-m-inj-chip, player_sheet.css) on Lineup:
    under the slot's position label, after a bench player's team. */
 .ups-m-inj-chip.lu { margin-left: 0; padding: 0 4px; font-size: 10.5px; line-height: 15px; border-radius: 4px; }
+/* Last week's final designation ("W5 OUT"): outlined, so it never reads as this week's. */
+.ups-m-inj-chip.lu.prior { background: transparent; border-style: dashed; }
 .ups-m-slot-tag .inj { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 3px; }
 .ups-m-bench-id .ups-m-inj-chip.lu { margin-left: 6px; vertical-align: 1px; }
 .ups-m-mu-note { font-size: 12px; line-height: 1.45; color: var(--fg-muted); margin-top: 8px; }

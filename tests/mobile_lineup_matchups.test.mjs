@@ -27,17 +27,26 @@ const check = async (n, fn) => { try { await fn(); console.log("  ok   " + n); }
 const ALLEN = "13589", THOMAS = "15814", TAYLOR = "14802", CHASE = "15281", DAVIS = "13710";   // real MFL ids from the fixture
 // /api/player-status as the worker answers it: this week's official report (Q for a
 // starter, OUT for a bench player) and an MFL roster designation (IR – to return).
+// o.prior: the worker's last-week designations (Wk 5 final) for teams without a Wk 6
+// report yet — all of them while it isn't out, CIN only once IND has reported.
 function statusBody(o) {
-  o = Object.assign({ week: 6, current: true }, o || {});
+  o = Object.assign({ week: 6, current: true, prior: false }, o || {});
   const players = {};
-  if (o.current) {
+  if (o.current && o.week === 6) {
     players[TAYLOR] = { report: { status: "Questionable", injury: "Hamstring", practice: "Limited Participation in Practice" } };
-    players[CHASE] = { report: { status: "Out", injury: "Ankle", practice: "Did Not Participate" } };
+    if (!o.prior) players[CHASE] = { report: { status: "Out", injury: "Ankle", practice: "Did Not Participate" } };
+  }
+  if (o.current && o.week === 5) {
+    players[TAYLOR] = { report: { status: "Questionable", injury: "Hamstring", practice: "Limited Participation in Practice" } };
+  }
+  if (o.prior) {
+    if (!(o.current && o.week === 6)) players[TAYLOR] = { prior: { week: 5, status: "Questionable", injury: "Hamstring", team: "IND" } };
+    players[CHASE] = { prior: { week: 5, status: "Out", injury: "Ankle", team: "CIN" } };
   }
   players[DAVIS] = { roster: { status: "IR-R", label: "Injured reserve – designated to return", chip: "IR-R" } };
   return { ok: true, season: 2026, players, mapped_mfl_ids: FX.starters.concat(FX.bench),
     report_feed: { ok: true, week: o.week, current_week: 6, current: o.current, updated_utc: "2026-10-14T20:00:00Z", reason: o.current ? null : "the newest report is Wk 5; Wk 6's is not out yet",
-      teams_mfl: ["IND", "CIN", "BUF", "NEP", "ATL"] },
+      teams_mfl: o.prior && o.current ? ["IND"] : ["IND", "CIN", "BUF", "NEP", "ATL"], prior_weeks: o.prior ? [5] : [] },
     roster_feed: { ok: true, updated_utc: "2026-10-14T16:00:00Z" } };
 }
 
@@ -168,13 +177,16 @@ console.log("1. rank and color by MFL points allowed per game (Keith 2026-10-13)
     assert.ok(e.card(ALLEN), "aria-controls points at the card");
     assert.strictEqual(e.doc.activeElement, b2, "focus is back on the tapped line");
   });
-  await check("the card: points allowed a game, #rank of 32 (tier colored), the weeks; his average; no 'vs usual' to contradict the chip", () => {
+  await check("the card: points allowed a game, #rank of 32 (tier colored), the weeks; \"vs usual\" too, uncolored (Keith: keep both); his average", () => {
     const w = want(ALLEN), card = e.card(ALLEN), t = e.text(card);
     assert.ok(t.indexOf(w.opp + " allows QBs " + w.r.perGame.toFixed(1) + " a game: #" + w.r.ppgRank + " of " + w.r.ppgOf + " · Wks 1–5") >= 0, t);
     const rk = card.querySelector(".ups-m-mu-rk"); assert.strictEqual(/\b(good|tough)\b/.exec(rk.attrs.class || "") ? RegExp.lastMatch : "", w.tier);
     const pw = FX.response.playerWindow[ALLEN];
     assert.ok(t.indexOf("His avg " + pw.avg.toFixed(1) + " pts a game (Wks 1–5, " + pw.games + " games)") >= 0, t);
-    assert.ok(!/vs usual/.test(t), t);
+    const pct = Math.round((w.r.ratio - 1) * 100), sp = pct === 0 ? "0%" : (pct > 0 ? "+" : "−") + Math.abs(pct) + "%";
+    assert.ok(t.indexOf("Those QBs usually score " + w.r.usual.toFixed(1) + " a game: " + sp + " vs usual") >= 0, t);
+    const usualRow = card.querySelectorAll(".r").find((r) => /vs usual/.test(r.textContent));
+    assert.strictEqual(usualRow.querySelectorAll(".good, .tough, .up, .dn").length, 0, "uncolored");
   });
   await check("opening a second card leaves the first open (the tapped line never jumps)", async () => {
     e.line(THOMAS).click(); await settle();
@@ -221,21 +233,41 @@ console.log("\n2. injury status (Keith 2026-10-13)");
   await check("one line says which report the tags come from", () => {
     assert.ok(/^Injury tags: NFL injury report Wk 6; IR\/PUP from MFL\./.test(e.text(e.mount.querySelector(".ups-m-mu-note.inj"))));
   });
-  await check("this week's report not out yet: no Q/D/OUT tags, roster tags stay, and it says so (never 'healthy')", async () => {
+  await check("this week's report not out yet, no last-week data: no Q/D/OUT tags, roster tags stay, and it says so (never 'healthy')", async () => {
     const e2 = boot({ status: statusBody({ week: 5, current: false }) }); await e2.open(); await e2.bench();
     assert.ok(!e2.slot(TAYLOR).querySelector(".ups-m-inj-chip"));
     assert.ok(e2.mount.querySelectorAll(".ups-m-inj-chip").every((c) => /\bres\b/.test(c.attrs.class)), "only roster chips");
     e2.line(TAYLOR).click(); await settle();
     assert.ok(!/injury report/i.test(e2.text(e2.card(TAYLOR))), "the card doesn't repeat the screen note: " + e2.text(e2.card(TAYLOR)));
+    assert.ok(/isn’t out yet, so Q\/D\/OUT tags will show once it is; IR\/PUP from MFL\. No tag doesn’t mean healthy\./.test(e2.text(e2.mount.querySelector(".ups-m-mu-note.inj"))));
     e2.line(DAVIS).click(); await settle();
     assert.ok(/Roster: Injured reserve – designated to return — MFL/.test(e2.text(e2.card(DAVIS))), e2.text(e2.card(DAVIS)));
-    const n = e2.text(e2.mount.querySelector(".ups-m-mu-note.inj"));
-    assert.ok(/Wk 6’s NFL report isn’t out or couldn’t be read, so no Q\/D\/OUT tags yet; IR\/PUP from MFL\. No tag doesn’t mean healthy\./.test(n), n);
   });
-  await check("a current report for another week than the lineup's (Wk 5 on a Wk 6 lineup) never tags this week", async () => {
+  await check("Keith 2026-10-13 (\"dont see them\"): until this week's report is out, last week's final designation shows, labeled \"W5\" and outlined", async () => {
+    const e5 = boot({ status: statusBody({ week: 5, current: false, prior: true }) }); await e5.open(); await e5.bench();
+    const chip = e5.slot(TAYLOR).querySelector(".ups-m-inj-chip");
+    assert.strictEqual(e5.text(chip), "W5 Q"); assert.ok(/\bq\b/.test(chip.attrs.class) && /\bprior\b/.test(chip.attrs.class), chip.attrs.class);
+    const opt = e5.slot(TAYLOR).querySelectorAll("option").find((o) => o.attrs.value === TAYLOR);
+    assert.ok(/·\s+W5 Q\s+·/.test(opt.textContent), opt.textContent);
+    const chase = e5.mount.querySelectorAll(".ups-m-bench-row").find((r) => /Chase/.test(r.textContent));
+    assert.strictEqual(e5.text(chase.querySelector(".ups-m-inj-chip")), "W5 OUT");
+    e5.line(TAYLOR).click(); await settle();
+    assert.ok(e5.text(e5.card(TAYLOR)).indexOf("Wk 5 injury report (final): Questionable — Hamstring. Wk 6’s isn’t out yet for his team.") >= 0, e5.text(e5.card(TAYLOR)));
+    assert.strictEqual(e5.text(e5.mount.querySelector(".ups-m-mu-note.inj")),
+      "Injury tags: Wk 6’s NFL report isn’t out yet, so Q/D/OUT tags are last week’s final report, marked “W5”; IR/PUP from MFL. No tag doesn’t mean healthy.");
+  });
+  await check("this week's report out for some teams: theirs use it; the rest keep last week's \"W5\" tag, and the note says both", async () => {
+    const e6 = boot({ status: statusBody({ week: 6, current: true, prior: true }) }); await e6.open(); await e6.bench();
+    assert.strictEqual(e6.text(e6.slot(TAYLOR).querySelector(".ups-m-inj-chip")), "Q", "IND reported for Wk 6");
+    const chase = e6.mount.querySelectorAll(".ups-m-bench-row").find((r) => /Chase/.test(r.textContent));
+    assert.strictEqual(e6.text(chase.querySelector(".ups-m-inj-chip")), "W5 OUT", "CIN hasn't");
+    assert.ok(/Teams yet to report for Wk 6 show last week’s final tags, marked “W5”\./.test(e6.text(e6.mount.querySelector(".ups-m-mu-note.inj"))));
+  });
+  await check("a current report for an earlier week than the lineup's (Wk 5 on a Wk 6 lineup) is shown as last week's (\"W5 Q\"), never as this week's", async () => {
     const e3 = boot({ status: statusBody({ week: 5, current: true }) }); await e3.open();
-    assert.ok(!e3.slot(TAYLOR).querySelector(".ups-m-inj-chip"));
-    assert.ok(/Wk 6’s NFL report isn’t out yet \(the newest is Wk 5\)/.test(e3.text(e3.mount.querySelector(".ups-m-mu-note.inj"))));
+    const chip = e3.slot(TAYLOR).querySelector(".ups-m-inj-chip");
+    assert.strictEqual(e3.text(chip), "W5 Q"); assert.ok(/\bprior\b/.test(chip.attrs.class));
+    assert.ok(/Wk 6’s NFL report isn’t out yet, so Q\/D\/OUT tags are marked “W5” \(last week’s final report\)/.test(e3.text(e3.mount.querySelector(".ups-m-mu-note.inj"))));
   });
   await check("status unreadable: no tags, and the note says so", async () => {
     const e4 = boot({ status: { fail: true } }); await e4.open();
