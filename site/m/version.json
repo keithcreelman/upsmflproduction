@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.12.12",
-  "label": "Stats → Players: Search shows the same points, rank, weeks and MFL read time as the player sheet; before MFL posts a season's first score, Search and the sheet show — and \"No 2027 MFL scores yet.\" (an earlier season only under its year); Snap% counts never spill or pass 100%; 'Wk 1–5 · in progress' and 'Small sample · 20 targets' in words instead of '*'."
+  "build": "2026.10.13.1",
+  "label": "Stats → Pts Agst: points per game counted over games actually played (a team still to play Monday no longer reads 20% low); traded players count for the team they played for; past seasons stop at the league's last week; Allowed / Usual / vs usual with sortable headings; byes and unplayed games in the breakdown; a failed load says so with Retry instead of switching to last season; Back goes up one level."
 }

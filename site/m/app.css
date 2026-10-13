@@ -1375,41 +1375,44 @@ button.ups-m-busy::before,
 .ups-m-sched-row .ag { min-width: 34px; max-width: 34px; text-align: center; font-size: 11px; font-weight: 800; padding: 5px 0; border-radius: 3px; margin-left: 2px; margin-bottom: 2px; }
 .ups-m-sched-row.head .cell, .ups-m-sched-row.head .ag, .ups-m-sched-row.head .tm { background: var(--bg-elev); color: var(--fg-muted); font-size: 9px; font-weight: 700; }
 .ups-m-sched-row.head .cell.po { color: var(--accent); }
-.ups-m-fpa-wk { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-muted); flex: 1 1 0; }
-.ups-m-fpa-wk select { flex: 0 0 auto; min-width: 0; width: 68px; padding-left: 8px; padding-right: 4px; }
-.ups-m-fpa-sub { color: var(--fg-muted); font-size: 11px; padding: 0 12px 8px; }
 .ups-m-fpa-table { display: flex; flex-direction: column; }
-.ups-m-fpa-row { display: grid; grid-template-columns: 34px 1fr 48px 48px 54px; gap: 6px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line); background: var(--bg-elev); }
-.ups-m-fpa-row.head { background: transparent; border-top: 0; padding: 2px 12px 4px; color: var(--fg-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-.ups-m-fpa-row.tap { cursor: pointer; -webkit-tap-highlight-color: rgba(91,141,255,0.08); }
-.ups-m-fpa-row.tap:active { background: var(--bg-elev2); }
-.ups-m-fpa-row .rk { text-align: center; }
-.ups-m-fpa-row .tm { font-size: 13px; font-weight: 700; color: var(--fg); }
-.ups-m-fpa-row .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--fg); }
-.ups-m-fpa-row .v:last-child { font-weight: 700; }
-.ups-m-fpa-back { color: var(--accent); text-decoration: none; font-weight: 700; }
-.ups-m-fpa-drow { display: grid; grid-template-columns: 26px 1fr 46px 58px; gap: 6px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--bg-elev); }
-.ups-m-fpa-drow .wk { text-align: center; color: var(--fg-muted); font-weight: 700; font-size: 12px; }
-.ups-m-fpa-drow .pl { display: flex; flex-direction: column; min-width: 0; }
-.ups-m-fpa-drow .pl .nm { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ups-m-fpa-drow .pl .sub { font-size: 10px; color: var(--fg-muted); }
-.ups-m-fpa-drow .fp { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 700; color: var(--fg); }
-.ups-m-fpa-drow .dv { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
-.ups-m-fpa-drow.nowk { grid-template-columns: 1fr 46px 58px; }
-.ups-m-fpa-wkrow { display: grid; grid-template-columns: 1fr auto 18px; gap: 8px; align-items: center; padding: 11px 12px; border-top: 1px solid var(--line); background: var(--bg-elev); cursor: pointer; -webkit-tap-highlight-color: rgba(91,141,255,0.08); }
-.ups-m-fpa-wkrow:active { background: var(--bg-elev2); }
-.ups-m-fpa-wkrow .wk { display: flex; flex-direction: column; min-width: 0; }
-.ups-m-fpa-wkrow .wk .b { font-size: 13px; font-weight: 700; color: var(--fg); }
-.ups-m-fpa-wkrow .wk .s { font-size: 10px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ups-m-fpa-wkrow .tot .s { font-size: 10px; color: var(--fg-muted); margin-left: 0; }
-.ups-m-fpa-wkrow .tot { text-align: right; font-variant-numeric: tabular-nums; }
-.ups-m-fpa-wkrow .tot .b { font-size: 13px; font-weight: 700; color: var(--fg); }
-.ups-m-fpa-wkrow .tot .s { font-size: 10px; color: var(--fg-muted); margin-left: 7px; }
-.ups-m-fpa-wkrow .ch { text-align: right; color: var(--accent); font-weight: 700; font-size: 15px; }
-.ups-m-fpa-rk { display: inline-block; min-width: 26px; text-align: center; padding: 2px 6px; border-radius: 5px; font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
-.ups-m-fpa-rk.easy { background: rgba(91,217,162,0.16); color: #8ff0c4; }
-.ups-m-fpa-rk.tough { background: rgba(224,122,122,0.14); color: #ffb1b1; }
-.ups-m-fpa-rk.mid { background: var(--bg-elev2); color: var(--fg); }
+/* Stats → Pts Agst (review 2026-10-12). The list uses the Players board's rows,
+   headings and pin (.ups-m-st-*); these rules only add what Pts Agst needs. */
+.ups-m-st-tools .ups-m-fpa-filters { grid-template-columns: 1.1fr 1fr 1.25fr; }
+.ups-m-fpa-chips { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; overflow: visible; }
+.ups-m-st-pin .ups-m-fpa-chips .ups-m-pos-chip { padding: 7px 0; min-height: 32px; text-align: center; font-size: 12px; }
+.ups-m-fpa-list .ups-m-st-row .nm .tm { font-size: 11px; }
+.ups-m-fpa-list .v.vs { font-weight: 700; font-size: 14px; }
+.ups-m-fpa-r:focus-visible, .ups-m-fpa-wk2[role="button"]:focus-visible, .ups-m-fpa-pl[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ups-m-fpa-root.drill { padding-bottom: 12px; }
+.ups-m-fpa-backbtn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; margin: 2px 0 0;
+  background: transparent; border: 0; color: var(--accent); font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.ups-m-fpa-backbtn span { font-size: 22px; line-height: 1; margin-top: -2px; }
+.ups-m-fpa-backbtn:focus-visible, .ups-m-fpa-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.ups-m-fpa-title { margin: 0; padding: 0 12px 2px; font-size: 17px; font-weight: 700; color: var(--fg); outline: none; }
+.ups-m-fpa-sum { padding: 0 12px 10px; font-size: 12px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.ups-m-fpa-wk2, .ups-m-fpa-pl {
+  display: grid; gap: 4px; align-items: center; min-height: 48px; padding: 6px 12px;
+  border-top: 1px solid var(--line); background: var(--bg-elev);
+}
+.ups-m-fpa-wk2 { grid-template-columns: 34px minmax(0, 1fr) 46px 56px 12px; }
+.ups-m-fpa-pl { grid-template-columns: minmax(0, 1fr) 44px 44px 56px; }
+.ups-m-fpa-wk2[role="button"], .ups-m-fpa-pl[role="button"] { cursor: pointer; -webkit-tap-highlight-color: rgba(91,141,255,0.08); }
+.ups-m-fpa-wk2[role="button"]:active, .ups-m-fpa-pl[role="button"]:active { background: var(--bg-elev2); }
+.ups-m-fpa-wk2.head, .ups-m-fpa-pl.head { min-height: 0; padding: 0 12px 4px; background: transparent; border-top: 0; font-size: 11px; font-weight: 700; color: var(--fg-muted); }
+.ups-m-fpa-wk2.off { color: var(--fg-muted); background: transparent; }
+.ups-m-fpa-wk2 .wk { font-size: 12px; font-weight: 700; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.ups-m-fpa-wk2 .op, .ups-m-fpa-pl .nm { display: flex; flex-direction: column; min-width: 0; font-size: 14px; font-weight: 600; color: var(--fg); }
+.ups-m-fpa-wk2.off .op { color: var(--fg-muted); font-weight: 500; }
+.ups-m-fpa-pl .nm b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-fpa-wk2 .op small, .ups-m-fpa-pl .nm small { font-size: 11px; font-weight: 500; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-fpa-wk2 .v, .ups-m-fpa-pl .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--fg); white-space: nowrap; }
+.ups-m-fpa-wk2.head .v, .ups-m-fpa-pl.head .v { font-size: 11px; color: var(--fg-muted); }
+.ups-m-fpa-pl .v.dim { color: var(--fg-muted); font-size: 13px; }
+.ups-m-fpa-wk2 .ch { text-align: right; color: var(--accent); font-weight: 700; font-size: 15px; }
+.ups-m-fpa-err .ups-m-st-searchall { margin-top: 10px; }
 .ups-m-tr { font-weight: 700; font-variant-numeric: tabular-nums; }
 .ups-m-tr.up { color: var(--ok); }
 .ups-m-tr.dn { color: var(--danger); }
