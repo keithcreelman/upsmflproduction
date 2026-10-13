@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.7",
-  "label": "Lineup: each opponent's rank in MFL points allowed to your player's position (green top 10, red bottom 10) plus \"vs usual\" in Details, a Details button on every line, and injury tags (NFL report; last week's marked \"W5\" until this week's is out)."
+  "build": "2026.10.13.8",
+  "label": "Trade builder: a draft pick forfeited as a lineup penalty shows greyed out with \"Forfeited — lineup penalty\" and can't be added; if the forfeit list can't be checked, a warning says the server will recheck before the trade is sent."
 }
