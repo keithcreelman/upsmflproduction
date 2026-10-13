@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.5",
-  "label": "The selected position button (QB, RB, …) is easier to read: dark text on blue instead of white."
+  "build": "2026.10.13.6",
+  "label": "Lineup matchups now use the Pts Agst numbers (for example “QBs +29% vs DEN”) and describe games already played, not a forecast."
 }

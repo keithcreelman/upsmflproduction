@@ -41,7 +41,7 @@ export function fpaPosGroup(p) {
 }
 
 // nflverse team codes → MFL's. Anything else is the same in both (ARI, BAL, …).
-const NFLV_TO_MFL = { GB: "GBP", KC: "KCC", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB", LV: "LVR", JAX: "JAC", LA: "LAR" };
+export const NFLV_TO_MFL = { GB: "GBP", KC: "KCC", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB", LV: "LVR", JAX: "JAC", LA: "LAR" };
 // MFL → nflverse, for the D1 pace / plays tables (which use nflverse codes).
 export const MFL_TO_NFLV = { GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" };
 
@@ -492,7 +492,7 @@ function fpaCachePut(ctx, key, body, ttl) {
   } catch (_) {}
 }
 
-async function fpaSeasonContextCached(env, ctx, yr, past) {
+export async function fpaSeasonContextCached(env, ctx, yr, past) {
   const db = env && env.UPS_MFL_DB;
   if (!db) return { ctx: null, state: "none" };
   const key = FPA_CACHE_HOST + "/ctx?season=" + yr + "&v=" + FPA_ENGINE_VERSION;

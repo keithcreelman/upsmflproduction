@@ -872,18 +872,31 @@ button.ups-m-busy::before,
   background: var(--bg-elev);
 }
 .ups-m-slot.filled { border-left: 3px solid var(--accent); padding-left: 11px; }
-.ups-m-slot-mu { font-size: 10.5px; color: var(--fg-muted); padding: 1px 12px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.35; cursor: pointer; display: flex; align-items: center; gap: 5px; -webkit-tap-highlight-color: transparent; }
-.ups-m-mu-rank { font-weight: 700; color: var(--fg); }
-.ups-m-mu-rank.good { color: var(--ok); }
-.ups-m-mu-rank.tough { color: var(--danger); }
-.ups-m-mu-exp { color: var(--fg-muted); font-size: 10px; margin-left: auto; }
-.ups-m-mu-detail { font-size: 11px; color: var(--fg-muted); padding: 4px 12px 9px 11px; border-left: 3px solid var(--accent); background: rgba(91,141,255,0.05); }
-.ups-m-mu-detail .r { padding: 2px 0; line-height: 1.4; }
+/* Matchup line under a player (review #1249): a real button, 32px tall, 12px text.
+   It wraps the chip onto a second line rather than overflow at 320px. */
+.ups-m-slot-mu { -webkit-appearance: none; appearance: none; display: flex; flex-wrap: wrap; align-items: center; gap: 1px 5px;
+  width: 100%; min-height: 32px; margin: 0; padding: 3px 12px 6px 11px; background: transparent; border: 0;
+  border-left: 3px solid var(--accent); border-radius: 0; text-align: left; font: inherit; font-size: 12px; line-height: 1.35;
+  color: var(--fg-muted); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ups-m-slot-mu:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ups-m-mu-where { white-space: nowrap; }
+.ups-m-mu-sep { color: var(--fg-muted); }
+/* "QBs +29% vs DEN": plain text unless the Pts Agst color rule holds (up = scored more than usual). */
+.ups-m-mu-chip { font-weight: 700; color: var(--fg); white-space: nowrap; }
+.ups-m-mu-chip.up { color: var(--ok); }
+.ups-m-mu-chip.dn { color: var(--danger); }
+.ups-m-mu-exp { color: var(--fg-muted); font-size: 13px; margin-left: auto; padding-left: 6px; }
+.ups-m-mu-note { font-size: 12px; line-height: 1.45; color: var(--fg-muted); margin-top: 8px; }
+.ups-m-mu-note.warn { color: var(--warn); }
+.ups-m-mu-retry { background: transparent; border: 1px solid var(--line); color: var(--accent); border-radius: 6px;
+  min-height: 32px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.ups-m-mu-detail { font-size: 12px; color: var(--fg-muted); padding: 4px 12px 9px 11px; border-left: 3px solid var(--accent); background: rgba(91,141,255,0.05); }
+.ups-m-mu-detail .r { padding: 2px 0; line-height: 1.45; }
 .ups-m-mu-detail b { color: var(--fg); font-weight: 800; }
 .ups-m-mu-wx { opacity: 0.9; }
 .ups-m-bench .ups-m-mu-detail { border-left: 0; padding-left: 12px; }
 .ups-m-bench-head { margin: 14px 0 0; }
-.ups-m-bench-toggle { width: 100%; text-align: left; background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg);
+.ups-m-bench-toggle { width: 100%; min-height: 44px; text-align: left; background: var(--bg-elev); border: 1px solid var(--line); color: var(--fg);
   border-radius: 8px; padding: 10px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
 .ups-m-bench { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; overflow: hidden; }
 .ups-m-bench-row { display: grid; grid-template-columns: 1fr 48px; gap: 10px; align-items: center; padding: 8px 12px 1px; border-top: 1px solid var(--line); }
@@ -905,16 +918,7 @@ button.ups-m-busy::before,
 .ups-m-slot.bye { border-color: var(--danger); }
 .ups-m-bench-row.blocked .ups-m-bench-id .nm { color: var(--fg-muted); }
 .ups-m-bench-row.blocked .ups-m-bench-proj { opacity: 0.45; }
-.ups-m-mu-form { font-weight: 700; color: var(--fg); }
-.ups-m-slot-hz { font-size: 9.5px; color: var(--fg-muted); padding: 0 12px 7px 11px; border-left: 3px solid var(--accent); line-height: 1.4; }
-.ups-m-slot-hz .ups-m-hz { font-weight: 700; margin-left: 5px; }
-.ups-m-hz.good { color: var(--ok); }
-.ups-m-hz.tough { color: var(--danger); }
-.ups-m-bench .ups-m-slot-hz { border-left: 0; padding-left: 12px; }
-.ups-m-mu-window { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
-.ups-m-win-btn { background: transparent; border: 1px solid var(--line); color: var(--fg-muted); border-radius: 6px;
-  padding: 5px 9px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
-.ups-m-win-btn.on { color: var(--accent); border-color: var(--accent); }
+.ups-m-hz { white-space: nowrap; color: var(--fg); }
 .ups-m-slot-proj {
   text-align: right;
   font-size: 13px;
@@ -1457,8 +1461,8 @@ button.ups-m-busy::before,
 }
 /* Second sub-line on an FA row: proj · opponent · opponent's rank vs this
    position. Rendered only when there's real data (views/players.js
-   faIntelHtml), so this never reserves empty space. The rank chip itself
-   reuses .ups-m-mu-rank / .good / .tough from the Lineup view. */
+   faIntelHtml), so this never reserves empty space. The chip ("QBs +29% vs DEN")
+   reuses .ups-m-mu-chip from the Lineup view. */
 .ups-m-fa-row .ups-m-fa-mu {
   font-size: 11px;
   color: var(--fg-muted);

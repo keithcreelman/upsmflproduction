@@ -936,31 +936,25 @@
   }
 
   // The decision line: projected points for the upcoming week · who they play ·
-  // that opponent's rank against this player's position (rank 1 = MOST
-  // generous = easiest matchup). The player → NFL team → this week's game →
-  // defRatings[opp][group] join is M.lineupIntel.matchupFor (views/lineup.js),
-  // not re-derived here. Whatever we don't have is left out — a bye, an
-  // unscheduled week, the preseason, or a cold/failed cache produces no line
-  // at all rather than "— proj" or "#0".
+  // how players at this position have scored against that opponent so far
+  // ("QBs +29% vs DEN", the Pts Agst board's "vs usual", colored only by its rule;
+  // games already played, not a forecast — review #1249). The player → NFL team →
+  // this week's game → opponent join and the chip are M.lineupIntel's
+  // (views/lineup.js), not re-derived here. Whatever we don't have is left out — a
+  // bye, an unscheduled week, the preseason, or a cold/failed read produces no line
+  // at all rather than "— proj" or "+0%".
   function faIntelHtml(r) {
     var I = intel();
     if (!I) return "";
     var bits = [];
     var p = I.projFor(r.id);
     if (p != null) bits.push(U.escapeHtml(projLabel()) + " " + U.escapeHtml(I.fmtProj(p)));
-    // Always the SEASON window (key 0): the points-period control changes
-    // player points only. It used to re-rank the opponent's defense too —
-    // tapping "L2" moved GBP from #22 to #7 vs PK with no label saying why.
-    var mu = I.matchupFor(r.id, 0);
+    // One window (the full season): the points-period control changes player points
+    // only, never the opponent numbers.
+    var mu = I.matchupFor(r.id);
     if (mu && mu.opp) {
       bits.push(U.escapeHtml((mu.isHome ? "vs " : "@ ") + mu.opp));
-      if (mu.rank != null) {
-        var basis = I.priorSeason() ? "last season" : "season to date";
-        bits.push('<span class="ups-m-mu-rank ' + I.rankCls(mu.rank) +
-          '" title="Opponent-adjusted defense vs ' + U.escapeHtml(mu.grp) +
-          ', rank 1 = most generous (' + U.escapeHtml(basis) + ')">' +
-          U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + U.escapeHtml(mu.grp) + '</span>');
-      }
+      if (mu.rating && I.chipHtml) bits.push(I.chipHtml(mu));
     }
     return bits.length ? '<div class="ups-m-fa-mu">' + bits.join(" · ") + '</div>' : "";
   }
@@ -3301,7 +3295,7 @@
     if (waiverModeInfo().mode === "fcfs" && M.lineupIntel && M.lineupIntel.kickoffs) M.lineupIntel.kickoffs.load();
     refreshScoresIfStale();
     // Season window only: the matchup line no longer follows the points period.
-    if (M.lineupIntel) M.lineupIntel.load(0);
+    if (M.lineupIntel) M.lineupIntel.load();
     var all = buildFreeAgents();
     var filtered = filterAndSort(all);
     // Those fetches re-render this view when they land, which can be mid-typing

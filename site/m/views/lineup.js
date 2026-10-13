@@ -149,59 +149,68 @@
       .catch(function () { M.state.lineupProj = { loaded: true, map: {} }; renderRoute(); });
   }
 
-  // ── Matchup intel — opponent · home/away · kickoff · spread + opponent-adjusted
-  // defense-vs-position rank, recent-form window, and schedule horizon, from worker
-  // /api/lineup-matchups. Tap-to-expand: one clean line per starter, full intel on tap.
-  function muWindow() { return M.state.lineupMuWindow || 0; }   // 0 = season-to-date, else last-N weeks
-  function muLabel(k) { var s = muData(0); return k ? ("last " + k) : ((s && s.priorSeason) ? "last season" : "season"); }
-  // Which window buttons are meaningful: a window only differs from "season"
-  // once enough current-season weeks exist (else L3/L5 == season → confusing
-  // dead toggle, per Keith). 0 weeks ⇒ prior-season fallback ⇒ none.
-  function availWindows() {
-    var s = muData(0), wa = s ? (s.weeksAvailable || 0) : 0, out = [["0", "Season"]];
-    if (wa > 3) out.push(["3", "L3"]);
-    if (wa > 5) out.push(["5", "L5"]);
-    return out;
-  }
-  // Per-window cache so the detail can show recent-vs-season without re-fetching.
-  // `keys` = the window keys this caller needs; season (0) is always fetched.
-  // The Players/FA picker asks for its own window via M.lineupIntel.load, so
-  // both views share ONE cache and one fetch path.
-  function loadMatchups(keys) {
+  // ── Matchup info: opponent · home/away · kickoff, and how players at this position
+  // have scored against that opponent so far, from worker /api/lineup-matchups.
+  // One tappable line per player; the rest on tap (Keith 2026-06-21).
+  //
+  // Review 2026-10-13 (#1249). The defense numbers are the Pts Agst board's: the same
+  // engine (worker/src/fpa_engine.js), the full season through the latest completed
+  // game, "vs usual" = what these players scored against the team ÷ their own average.
+  // They DESCRIBE games already played; they aren't a forecast. Tested on 2019–2025, the
+  // 10 most generous teams gave a player about 1 point more than the 10 stingiest (QB
+  // about 2), and in Weeks 2–4 nothing measurable, so there is no "good/tough" verdict.
+  // Color only where the gap holds up after shrinking toward average, with the board's
+  // own constant (stats.js FPA_COLOR_K, read through M.statsView) and the board's 8%.
+  // The Season/L3/L5 toggle is gone: shorter windows were less accurate, not more.
+  var MU_PLURAL = { QB: "QBs", RB: "RBs", WR: "WRs", TE: "TEs", DL: "DL", LB: "LBs", DB: "DBs", PK: "Ks", PN: "Ps" };
+  var MU_WORD = { QB: "quarterbacks", RB: "running backs", WR: "wide receivers", TE: "tight ends", DL: "defensive linemen", LB: "linebackers", DB: "defensive backs", PK: "kickers", PN: "punters" };
+  var MU_IDP = { DL: 1, LB: 1, DB: 1 };
+  var MU_STALE_MS = 5 * 60 * 1000;   // re-read a good answer after 5 minutes (the worker caches 2–5)
+  var MU_RETRY_MS = 60 * 1000;       // a failed read is tried again on the next render after a minute
+  // The season and week the matchups are for. Keyed by both, so an answer for one week
+  // is never shown for another (the week can resolve after the first read).
+  function muCtx() {
     var qp; try { qp = new URLSearchParams(location.search); } catch (e) { qp = { get: function () { return null; } }; }
-    var myr = qp.get("mYEAR") || M.state.ctx.year;
-    var mwk = qp.get("mW") || M.state.lineupWeek || "";
-    if (!M.state.lineupMuCache) M.state.lineupMuCache = {};
-    if (!M.state._muLoading || typeof M.state._muLoading !== "object") M.state._muLoading = {};
-    // No scoring week yet. That is "offseason" ONLY once projectedScores has
-    // actually come back without one — the week is set in loadProjections'
-    // .then, so the first render always lands here while that fetch is still
-    // open. Marking the cache empty then poisoned key "0" for the rest of the
-    // session (the guard below sees a cache entry and never fetches), which
-    // silently killed matchup intel in-season. Wait for the answer first.
-    if (!mwk) {
-      var settled = !!(M.state.lineupProj && M.state.lineupProj.loaded);
-      if (settled && !M.state.lineupMuCache["0"]) M.state.lineupMuCache["0"] = { empty: true };
-      return;
-    }
-    [0].concat(keys == null ? [muWindow()] : keys).forEach(function (key) {
-      var k = String(parseInt(key, 10) || 0);
-      // In-flight flag is PER KEY: with a second view requesting its own
-      // window, one shared flag let a re-render re-fire a fetch that was
-      // still open (every keystroke in the FA search box re-renders).
-      if (M.state.lineupMuCache[k] || M.state._muLoading[k]) return;
-      M.state._muLoading[k] = 1;
-      fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(myr) + "&W=" + encodeURIComponent(mwk) + (k !== "0" ? "&last=" + k : "")), { mode: "cors", credentials: "omit" })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          M.state.lineupMuCache[k] = { matchups: (d && d.matchups) || {}, defRatings: (d && d.defRatings) || {},
-            playerWindow: (d && d.playerWindow) || {}, horizon: (d && d.horizon) || {}, weather: (d && d.weather) || {},
-            weeksAvailable: (d && d.weeksAvailable) || 0, priorSeason: !!(d && d.priorSeason) };
-          delete M.state._muLoading[k]; renderRoute();
-        }).catch(function () { M.state.lineupMuCache[k] = { empty: true }; delete M.state._muLoading[k]; });
-    });
+    return { year: String(qp.get("mYEAR") || M.state.ctx.year || ""), week: String(qp.get("mW") || M.state.lineupWeek || "") };
   }
-  function muData(key) { return (M.state.lineupMuCache || {})[String(key)] || null; }
+  function muKeyOf(c) { return c.year + ":" + c.week; }
+  function muEntry() { var c = muCtx(); return c.week ? (M.state.lineupMuCache || {})[muKeyOf(c)] || null : null; }
+  // Only a 200 with ok:true is an answer; anything else is a failure, never "no matchups".
+  function muNormalize(d) {
+    return { matchups: d.matchups || {}, defRatings: d.defRatings || {}, playerWindow: d.playerWindow || {},
+      horizon: d.horizon || {}, horizonWeeks: d.horizonWeeks || [], weather: d.weather || {}, weatherState: d.weatherState || "",
+      weeksUsed: d.weeksUsed || [], basis: d.ratingsBasis || "", ratingYear: String(d.ratingYear || d.year || ""),
+      priorSeason: !!d.priorSeason, weeksAvailable: d.weeksAvailable || 0, readAt: d.mfl_read_at || d.as_of || "" };
+  }
+  function loadMatchups() {
+    var c = muCtx();
+    if (!M.state.lineupMuCache || typeof M.state.lineupMuCache !== "object") M.state.lineupMuCache = {};
+    if (!M.state._muLoading || typeof M.state._muLoading !== "object") M.state._muLoading = {};
+    // No scoring week yet: wait for the week to resolve (loadProjections / loadLiveWeek).
+    if (!c.week) return;
+    var key = muKeyOf(c), hit = M.state.lineupMuCache[key], now = Date.now();
+    if (M.state._muLoading[key]) return;
+    if (hit && hit.d && !hit.err && now - hit.at < MU_STALE_MS) return;
+    if (hit && hit.err && now - hit.at < MU_RETRY_MS) return;
+    M.state._muLoading[key] = 1;
+    fetch(API.workerUrl("/api/lineup-matchups?YEAR=" + encodeURIComponent(c.year) + "&W=" + encodeURIComponent(c.week)), { mode: "cors", credentials: "omit" })
+      .then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          if (!r.ok || !j || j.ok !== true) throw new Error(j && j.error === "mfl_unavailable" ? "mfl" : "http");
+          return j;
+        });
+      })
+      .then(function (d) {
+        M.state.lineupMuCache[key] = { d: muNormalize(d), at: Date.now() };
+        delete M.state._muLoading[key]; renderRoute();
+      }, function (e) {
+        // Keep the last good answer (its read time is on screen); otherwise say why.
+        var prev = M.state.lineupMuCache[key];
+        M.state.lineupMuCache[key] = { d: prev && prev.d ? prev.d : null, err: e && e.message === "mfl" ? "mfl" : "net", at: Date.now() };
+        delete M.state._muLoading[key]; renderRoute();
+      });
+  }
+  function muData() { var e = muEntry(); return e && e.d ? e.d : null; }
   function fmtKick(unix) {
     if (!unix) return "";
     try {
@@ -210,63 +219,157 @@
       return days[d.getDay()] + " " + h12 + (m ? ":" + (m < 10 ? "0" + m : m) : "") + ap;
     } catch (e) { return ""; }
   }
-  function rankCls(r) { return r == null ? "" : (r <= 10 ? "good" : (r >= 23 ? "tough" : "")); }
-  // `winKey` (optional) reads a specific cached window — the FA picker keeps
-  // its own selection, so it can't share M.state.lineupMuWindow. Defaults to
-  // this view's window, which is what every in-file caller wants.
-  function matchupFor(pid, winKey) {
+  function fmtClock(iso) {
+    var t = Date.parse(iso || ""); if (isNaN(t)) return "";
+    var d = new Date(t), h = d.getHours(), m = d.getMinutes();
+    return (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
+  }
+  // "+29%" / "−12%" (a real minus) / "0%".
+  function signedPct(p) { return p === 0 ? "0%" : (p > 0 ? "+" : "−") + Math.abs(p) + "%"; }
+  // The Pts Agst board's color rule: shrink the ratio toward 1 by k games of the
+  // position (stats.js FPA_COLOR_K) and color only a gap still 8% or more.
+  function muColorK() {
+    var d = M.statsView && M.statsView.ptsAgstDefaults;
+    return (d && d.colorK) || null;
+  }
+  function muColored(ratio, games, grp) {
+    var K = muColorK(), k = K && K[grp];
+    if (!k || ratio == null || !(games > 0)) return false;
+    return Math.abs((games * ratio + k) / (games + k) - 1) >= 0.08;
+  }
+  // "up" = these players scored more than usual against this team; "dn" = less.
+  function muCls(r) { return r && r.colored ? (r.pct > 0 ? " up" : " dn") : ""; }
+  function muRating(d, team, grp) {
+    var x = d && d.defRatings && d.defRatings[team] && d.defRatings[team][grp];
+    if (!x || x.ratio == null) return null;
+    var pct = Math.round((x.ratio - 1) * 100);
+    return { rank: x.rank, of: x.of, ratio: x.ratio, pct: pct, games: x.games, perGame: x.perGame, usual: x.usual,
+      colored: pct !== 0 && muColored(x.ratio, x.games, grp) };
+  }
+  // Which weeks the numbers cover: "Wks 1–5", or "2025 season" in Week 1.
+  function muBasis(d) { return d ? (d.priorSeason ? d.ratingYear + " season" : d.basis) : ""; }
+  // Kept for callers that pass a window (the Players picker): there is one window now.
+  function matchupFor(pid) {
     var pl = DATA.playerById(pid); if (!pl) return null;
     var team = U.safeStr(pl.team).toUpperCase(), grp = FO.posGroup(pl.position);
-    var act = muData(winKey == null ? muWindow() : winKey), seas = muData(0);
-    if (!act || !act.matchups) return null;
-    var m = act.matchups[team]; if (!m) return null;
-    var dr = (act.defRatings || {})[m.opp], rk = dr && dr[grp] ? dr[grp] : null;
-    var hz = ((act.horizon || {})[team] || []).slice(0, 3).map(function (h) {
-      var hd = (act.defRatings || {})[h.opp]; return { opp: h.opp, isHome: h.isHome, rank: hd && hd[grp] ? hd[grp].rank : null };
+    var d = muData();
+    if (!d) return null;
+    var m = d.matchups[team]; if (!m) return null;
+    var hz = [], seen = {};
+    (d.horizon[team] || []).forEach(function (h) { seen[h.wk] = h; });
+    var wks = d.horizonWeeks.length ? d.horizonWeeks : Object.keys(seen).map(Number);
+    wks.slice(0, 3).forEach(function (w) {
+      var h = seen[w];
+      hz.push(h ? { wk: w, opp: h.opp, isHome: h.isHome, rating: muRating(d, h.opp, grp) } : { wk: w, bye: true });
     });
-    return { opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp,
-      rank: rk ? rk.rank : null, of: rk ? rk.of : null, ratio: rk ? rk.ratio : null,
-      form: (act.playerWindow || {})[String(pid)] || null,
-      seasonForm: (seas && seas.playerWindow) ? seas.playerWindow[String(pid)] : null, horizon: hz,
-      weather: (act.weather || {})[team] || null };
+    return { team: team, opp: m.opp, isHome: m.isHome, kickoff: m.kickoff, spread: m.spread, grp: grp, idp: !!MU_IDP[grp],
+      rating: muRating(d, m.opp, grp), basis: muBasis(d), priorSeason: d.priorSeason, ratingYear: d.ratingYear,
+      avg: d.playerWindow[String(pid)] || null, horizon: hz, weather: d.weather[team] || null };
   }
-  // "54°F · wind 12 · P.Cloudy" — or "Dome (climate controlled)".
-  function wxText(w) {
+  // The short chip: "QBs +29% vs DEN" (IDP: "DL +12% vs DEN", DEN's offense). Plain
+  // unless the board's color rule holds. Week 1: "(2025)" — last season's games.
+  function chipText(mu) {
+    if (!mu || !mu.rating) return "";
+    return (MU_PLURAL[mu.grp] || mu.grp) + " " + signedPct(mu.rating.pct) + " vs " + mu.opp + (mu.priorSeason ? " (" + mu.ratingYear + ")" : "");
+  }
+  function chipSay(mu) {
+    if (!mu || !mu.rating) return "";
+    var r = mu.rating, word = MU_WORD[mu.grp] || mu.grp;
+    return "Against " + mu.opp + (mu.idp ? "'s offense" : "") + ", " + word + " have scored " +
+      (r.pct === 0 ? "the same as" : Math.abs(r.pct) + " percent " + (r.pct > 0 ? "above" : "below")) + " their usual (" + mu.basis + ")";
+  }
+  function chipHtml(mu) {
+    var t = chipText(mu); if (!t) return "";
+    return '<span class="ups-m-mu-chip' + muCls(mu.rating) + '">' + U.escapeHtml(t) + '</span>';
+  }
+  // "Forecast at kickoff: 54°F · wind 12 mph · P.Cloudy", "Indoors", or a neutral site
+  // (London, Munich, …), where the home team's city would be the wrong forecast.
+  function wxText(w, kickoff) {
     if (!w) return "";
-    if (w.dome) return "Dome (climate controlled)";
+    if (w.neutral) return "Neutral site: no forecast here";
+    if (w.dome) return "Indoors";
     var bits = [];
     if (w.tempF != null) bits.push(w.tempF + "°F");
     if (w.windMph != null) bits.push("wind " + w.windMph + " mph");
     if (w.summary) bits.push(w.summary);
     if (w.precip && w.precip >= 0.05) bits.push(w.precip + '" precip');
-    return bits.join(" · ");
+    if (!bits.length) return "";
+    return (kickoff && Date.now() / 1000 >= kickoff ? "At kickoff: " : "Forecast at kickoff: ") + bits.join(" · ");
   }
-  // Compact, tappable matchup line + an on-demand detail card (Keith 2026-06-21:
-  // declutter — one clean line per starter, full intel on tap).
+  // MFL's spread: negative = favored.
+  function lineText(s) {
+    if (s == null || s === 0 || !isFinite(s)) return "";
+    var n = Math.abs(s);
+    return (s < 0 ? "Favored by " : "Underdog by ") + (Math.round(n * 10) / 10);
+  }
+  function fmtAvg(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
+  // Compact, tappable matchup line + an on-demand detail card.
   function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
     var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
-    var chip = mu.rank != null ? '<span class="ups-m-mu-rank ' + rankCls(mu.rank) + '">' + U.escapeHtml(mu.opp) + ' #' + mu.rank + ' to ' + mu.grp + '</span>' : "";
-    var open = M.state.lineupMuExpand === pid;
-    // Compact line carries location + kickoff + the def chip; the detail no
-    // longer repeats opp/kickoff (Keith: "@ JAC" was showing twice) — it just
-    // leads with the betting line when one exists.
-    var compact = '<div class="ups-m-slot-mu" data-mu-pid="' + U.escapeHtml(pid) + '">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + (chip ? " · " + chip : "") + '<span class="ups-m-mu-exp">' + (open ? "▾" : "▸") + '</span></div>';
+    // Several cards can be open at once, so opening one never moves the line you tapped.
+    var open = !!(M.state.lineupMuOpen && M.state.lineupMuOpen[pid]);
+    var did = "ups-m-mu-d-" + String(pid).replace(/[^\w-]/g, "");
+    var say = (mu.isHome ? "Home against " : "At ") + mu.opp + (when ? ", " + when : "") + (mu.rating ? ". " + chipSay(mu) : "") + ".";
+    var compact = '<button type="button" class="ups-m-slot-mu" data-mu-pid="' + U.escapeHtml(pid) + '" aria-expanded="' + (open ? "true" : "false") + '"' +
+      (open ? ' aria-controls="' + did + '"' : "") + ' aria-label="' + U.escapeHtml(say + (open ? " Hide matchup details." : " Show matchup details.")) + '">' +
+      '<span class="ups-m-mu-where">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + '</span>' +
+      (mu.rating ? '<span class="ups-m-mu-sep" aria-hidden="true">·</span>' + chipHtml(mu) : "") +
+      '<span class="ups-m-mu-exp" aria-hidden="true">' + (open ? "▾" : "▸") + '</span></button>';
     if (!open) return compact;
-    var hasLine = (mu.spread != null && mu.spread !== 0);
     var rows = [];
-    if (hasLine) rows.push('<div class="r ups-m-mu-line">Line <b>' + U.escapeHtml((mu.spread > 0 ? "+" : "") + mu.spread) + '</b></div>');
-    var wx = wxText(mu.weather);
+    var line = lineText(mu.spread);
+    if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
+    var wx = wxText(mu.weather, mu.kickoff);
     if (wx) rows.push('<div class="r ups-m-mu-wx">' + U.escapeHtml(wx) + '</div>');
-    if (mu.rank != null) { var pct = Math.round((mu.ratio - 1) * 100); rows.push('<div class="r">Defense <b class="ups-m-mu-rank ' + rankCls(mu.rank) + '">#' + mu.rank + '/' + mu.of + ' to ' + mu.grp + '</b> · allows ' + (pct >= 0 ? "+" : "") + pct + '% vs expected (' + muLabel(muWindow()) + ')</div>'); }
-    if (mu.form && mu.form.games) {
-      var f = 'Form <b>' + fmtProj(mu.form.avg) + '</b> avg (' + muLabel(muWindow()) + ', ' + mu.form.games + 'g)';
-      if (muWindow() && mu.seasonForm && mu.seasonForm.games) f += ' · season ' + fmtProj(mu.seasonForm.avg);
-      rows.push('<div class="r">' + f + '</div>');
+    var r = mu.rating;
+    if (r) {
+      rows.push('<div class="r">' + U.escapeHtml((MU_PLURAL[mu.grp] || mu.grp) + " vs " + mu.opp + (mu.idp ? "’s offense" : "")) + ': <b>' +
+        U.escapeHtml(fmtAvg(r.perGame)) + '</b> a game, usual ' + U.escapeHtml(fmtAvg(r.usual)) +
+        ' (<span class="ups-m-tr' + muCls(r) + '">' + U.escapeHtml(signedPct(r.pct)) + '</span>) · #' + r.rank + ' of ' + r.of +
+        ' · ' + U.escapeHtml(mu.basis) + '</div>');
+    } else if (muData()) {
+      rows.push('<div class="r">' + U.escapeHtml(mu.opp + " hasn’t played a final game" + (mu.basis ? " in " + mu.basis : " yet") + ".") + '</div>');
     }
-    var hz = (mu.horizon || []).filter(function (h) { return h.opp; });
-    if (hz.length) rows.push('<div class="r">Next: ' + hz.map(function (h) { return '<span class="ups-m-hz ' + rankCls(h.rank) + '">' + (h.isHome ? "" : "@") + U.escapeHtml(h.opp) + (h.rank != null ? " #" + h.rank : "") + '</span>'; }).join("  ") + '</div>');
-    return compact + '<div class="ups-m-mu-detail">' + rows.join("") + '</div>';
+    if (mu.avg && mu.avg.games) {
+      rows.push('<div class="r">Avg <b>' + U.escapeHtml(fmtAvg(mu.avg.avg)) + '</b> pts a game (' + U.escapeHtml(mu.basis) + ', ' +
+        mu.avg.games + (mu.avg.games === 1 ? " game" : " games") + ')</div>');
+    }
+    if (mu.horizon.length) {
+      rows.push('<div class="r">Next: ' + mu.horizon.map(function (h) {
+        if (h.bye) return '<span class="ups-m-hz">Wk ' + h.wk + ' bye</span>';
+        var c = h.rating && h.rating.colored ? h.rating : null;
+        return '<span class="ups-m-hz">Wk ' + h.wk + " " + (h.isHome ? "" : "@") + U.escapeHtml(h.opp) +
+          (c ? ' <span class="ups-m-tr' + muCls(c) + '">' + U.escapeHtml(signedPct(c.pct)) + '</span>' : "") + '</span>';
+      }).join('<span aria-hidden="true"> · </span>') + '</div>');
+    }
+    return compact + '<div class="ups-m-mu-detail" id="' + did + '">' + rows.join("") + '</div>';
+  }
+  // One line for the whole screen: which games the numbers cover, when MFL was read,
+  // and that they describe the past. On a failure, the reason and a way to try again.
+  function matchupNoteHtml() {
+    var c = muCtx(); if (!c.week) return "";
+    var e = muEntry(), d = e && e.d;
+    if (!d) {
+      if (e && e.err) {
+        return '<div class="ups-m-mu-note warn" role="status">Matchup numbers couldn’t be read' + (e.err === "mfl" ? " from MFL" : "") +
+          ' right now. <button type="button" class="ups-m-mu-retry" id="ups-m-mu-retry">Try again</button></div>';
+      }
+      return '<div class="ups-m-mu-note" role="status">Loading matchups…</div>';
+    }
+    var lead;
+    if (d.priorSeason) lead = "No " + U.escapeHtml(c.year) + " games yet, so the matchup numbers are from the " + U.escapeHtml(d.ratingYear) + " season.";
+    else if (!d.weeksUsed.length) lead = "No final games yet, so there are no matchup numbers.";
+    else lead = "Matchups: " + U.escapeHtml(d.basis) + ".";
+    var at = fmtClock(d.readAt);
+    var read = e.err ? "Couldn’t refresh; showing MFL read " + at + "." : (at ? "MFL read " + at + "." : "");
+    return '<div class="ups-m-mu-note' + (d.priorSeason || e.err ? " warn" : "") + '">' + lead + (read ? " " + U.escapeHtml(read) : "") +
+      " Games already played, not a forecast. " +
+      '<details class="ups-m-st-more" id="ups-m-mu-about"' + (M.state.lineupMuNoteOpen ? " open" : "") + '><summary>About</summary><div>' +
+      "“QBs +29% vs DEN” = what quarterbacks scored against DEN, compared with their own average (the Pts Agst board’s “vs usual”). " +
+      "Color appears only when the difference remains large after adjusting for small sample sizes. " +
+      "On 2019–2025 games, the 10 most generous teams gave a player about 1 point more than the 10 stingiest (QB about 2)." +
+      '</div></details></div>';
   }
 
   function nameFor(player) {
@@ -460,16 +563,6 @@
         v.errors.map(function (e) { return '<li>' + U.escapeHtml(e) + '</li>'; }).join("") +
         '</ul>';
     }
-    // Window toggle — only render buttons that produce data distinct from
-    // "season" (Keith: hide the dead L3/L5 toggle until this year's weeks
-    // exist). Clamp the selection if it became unavailable.
-    var wins = availWindows();
-    if (!wins.some(function (o) { return String(muWindow()) === o[0]; })) M.state.lineupMuWindow = 0;
-    var winHtml = wins.length > 1
-      ? '<span class="ups-m-mu-window" title="Window for the matchup defense rank + recent form">' +
-          wins.map(function (o) { return '<button type="button" class="ups-m-win-btn' + (String(muWindow()) === o[0] ? " on" : "") + '" data-win="' + o[0] + '">' + o[1] + '</button>'; }).join("") +
-        '</span>'
-      : '';
     return '' +
       '<div class="ups-m-lineup-status-card">' +
         '<div class="ups-m-lineup-status-line">' + summary +
@@ -480,8 +573,8 @@
         '<div class="ups-m-lineup-tools">' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-autofill" title="Fill the highest-projected eligible player into every slot">⚡ Optimal</button>' +
           '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-clear">Clear all</button>' +
-          winHtml +
         '</div>' +
+        matchupNoteHtml() +
       '</div>';
   }
 
@@ -615,17 +708,30 @@
     if (submit) submit.addEventListener("click", function () { handleSubmit(); });
     var benchT = document.getElementById("ups-m-bench-toggle");
     if (benchT) benchT.addEventListener("click", function () { M.state.lineupShowBench = !M.state.lineupShowBench; renderRoute(); });
-    var winBtns = mount.querySelectorAll(".ups-m-win-btn");
-    for (var w = 0; w < winBtns.length; w++) {
-      winBtns[w].addEventListener("click", (function (el) {
-        return function () { M.state.lineupMuWindow = parseInt(el.getAttribute("data-win"), 10) || 0; renderRoute(); };
-      })(winBtns[w]));
-    }
+    var muRetry = document.getElementById("ups-m-mu-retry");
+    if (muRetry) muRetry.addEventListener("click", function () {
+      var c = muCtx(), k = muKeyOf(c);
+      if (M.state.lineupMuCache && M.state.lineupMuCache[k] && M.state.lineupMuCache[k].err) delete M.state.lineupMuCache[k];
+      renderRoute();
+    });
     var muLines = mount.querySelectorAll(".ups-m-slot-mu[data-mu-pid]");
     for (var mi = 0; mi < muLines.length; mi++) {
       muLines[mi].addEventListener("click", (function (el) {
-        return function () { var p = el.getAttribute("data-mu-pid"); M.state.lineupMuExpand = (M.state.lineupMuExpand === p) ? null : p; renderRoute(); };
+        return function () {
+          var p = el.getAttribute("data-mu-pid");
+          var open = M.state.lineupMuOpen || (M.state.lineupMuOpen = {});
+          if (open[p]) delete open[p]; else open[p] = 1;
+          M.state.lineupMuFocus = p;   // the re-render replaces the button: put focus back on it
+          renderRoute();
+        };
       })(muLines[mi]));
+    }
+    var about = document.getElementById("ups-m-mu-about");
+    if (about) about.addEventListener("toggle", function () { M.state.lineupMuNoteOpen = about.open; });
+    if (M.state.lineupMuFocus) {
+      var back = mount.querySelector('.ups-m-slot-mu[data-mu-pid="' + String(M.state.lineupMuFocus).replace(/[^\w-]/g, "") + '"]');
+      M.state.lineupMuFocus = null;
+      if (back) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } }
     }
   }
 
@@ -762,7 +868,7 @@
       return;
     }
     loadProjections();   // lazy fetch; re-renders when projections arrive
-    loadMatchups();      // lazy: opponent/kickoff/spread + adjusted def rank
+    loadMatchups();      // lazy: opponent/kickoff/spread + the Pts Agst numbers for that opponent
     loadKickoffs();       // lazy: per-player kickoff -> locks a started slot
     if (!M.state.lineupSlots) {
       if (!projSettled()) {
@@ -825,14 +931,14 @@
 
   // ── Shared matchup/projection intel ────────────────────────────────────
   // views/players.js (the FA picker) needs the same projection + opponent +
-  // defense-vs-position join this view already does. It reads it from here
-  // rather than re-implementing it: same endpoint, same per-window cache,
-  // same rank semantics (rank 1 = most generous defense = easiest matchup).
-  //   load(winKey)      lazy fetch of projections + the season/`winKey` windows.
-  //                     Both fetches are fire-and-forget with their own catch,
-  //                     so a dead worker never blocks a caller's render.
-  //   matchupFor(pid,k) the join. Null when there's no data / no game.
-  //   muData(k)         raw cached window ({ playerWindow, defRatings, … }).
+  // matchup join this view already does. It reads it from here rather than
+  // re-implementing it: same endpoint, same cache, same chip and color rule.
+  //   load()            lazy fetch of projections + this week's matchups. Both
+  //                     fetches are fire-and-forget with their own catch, so a
+  //                     dead worker never blocks a caller's render.
+  //   matchupFor(pid)   the join. Null when there's no data / no game.
+  //   chipHtml(mu)      "QBs +29% vs DEN", colored only by the Pts Agst rule.
+  //   muData()          the raw answer for this week ({ defRatings, … }).
   M.lineupIntel = {
     // This week's per-team kickoffs, shared with the Players market so its
     // FCFS "Add now" locks at the same instant a lineup slot does.
@@ -845,20 +951,22 @@
         return ko || null;
       }
     },
-    load: function (winKey) {
+    // The argument (a window) is ignored: there is one window, the full season.
+    load: function () {
       loadProjections();
-      loadMatchups(winKey == null ? [] : [winKey]);
+      loadMatchups();
     },
     projLoaded: projLoaded,
     projFor: projFor,
     fmtProj: fmtProj,
     matchupFor: matchupFor,
     slotMatchupHtml: slotMatchupHtml,
-    rankCls: rankCls,
+    chipHtml: chipHtml,
+    chipText: chipText,
+    chipSay: chipSay,
     muData: muData,
-    // Completed weeks of the CURRENT season (0 ⇒ the ratings fell back to the
-    // prior season ⇒ no recent-form window can differ from season-to-date).
-    weeksAvailable: function () { var s = muData(0); return s ? (s.weeksAvailable || 0) : 0; },
-    priorSeason: function () { var s = muData(0); return !!(s && s.priorSeason); }
+    // Final weeks of the CURRENT season (0 ⇒ the numbers are last season's).
+    weeksAvailable: function () { var s = muData(); return s ? (s.weeksAvailable || 0) : 0; },
+    priorSeason: function () { var s = muData(); return !!(s && s.priorSeason); }
   };
 })();
