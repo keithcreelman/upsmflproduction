@@ -1141,7 +1141,9 @@ button.ups-m-busy::before,
 }
 .ups-m-pos-chip.on {
   background: var(--accent);
-  color: white;
+  /* Dark text on the accent blue: 5.97:1 (white was 3.13:1, under the 4.5:1 minimum).
+     Same as the selected Stats tab (.ups-m-stseg.on). */
+  color: #0a1222;
   border-color: var(--accent);
 }
 .ups-m-sort-row {
