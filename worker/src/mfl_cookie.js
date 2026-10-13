@@ -142,34 +142,32 @@ export function createCookieJar({ now = () => Date.now() } = {}) {
 const sha12 = async (v) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(_s(v))))]
   .map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 12);
 
-// → { ok, cookieFor(url), set_cookies:[sanitized], set_cookie_names, user_id_changed,
-//     session_cookie, identity_after_switch, hops }. `cookieFor` carries session values:
-// use it for the request, never return or log what it gives.
-// Fails closed (switch_deleted_session) if the switch deletes or empties the very
-// cookie that signed in the stored session.
-export async function becomeCommissioner(baseHeader, { season, leagueId, fetchImpl, sessionScope = SESSION_SCOPE, now } = {}) {
-  const f = fetchImpl || fetch;
-  const base = _s(baseHeader);
-  if (!base) return { ok: false, error: "no_commissioner_cookie" };
+// MFL's switch INTERMITTENTLY logs the session out: hop 2 sometimes answers
+// `MFL_USER_ID=; Domain=.myfantasyleague.com; Path=/; Expires=<now>` (seen 2026-10-13,
+// about 2 of 6 switches). The server-side session survives — the next switch works — so
+// a deleted session gets a FRESH switch (new jar from the stored secret), at most
+// SWITCH_ATTEMPTS in all, and still fails closed if every attempt is logged out.
+export const SWITCH_ATTEMPTS = 3;
+export const SWITCH_RETRY_DELAY_MS = 250;
+
+// One switch from a fresh jar. → { ok, cookieFor?, error?, kept, stored, sanitized }
+async function switchOnce(f, base, { season, leagueId, sessionScope, now }) {
   const jar = createCookieJar(now ? { now } : {});
-  let stored = null, sessions = 0;
+  let stored = null;
   for (const part of base.split(";")) {
     const i = part.indexOf("=");
     if (i <= 0 || !part.slice(0, i).trim()) continue;
     const name = part.slice(0, i).trim(), value = part.slice(i + 1).trim();
-    if (name === "MFL_USER_ID") { stored = value; sessions += 1; }
+    if (name === "MFL_USER_ID") stored = value;
     jar.seed(name, value, sessionScope);
   }
-  // Several MFL_USER_ID values in the secret: which one signed the session in is unknowable,
-  // so a deletion could not be judged — refuse rather than guess.
-  if (sessions > 1) return { ok: false, error: "ambiguous_session_cookie" };
-  if (!stored) return { ok: false, error: "no_session_cookie" };
-  const events = [];
+  const events = [], hopLog = [];
   let identityAfter = null;
   let url = `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/logout?L=${encodeURIComponent(_s(leagueId))}&BECOME=0000`;
   let hops = 0;
   try {
     for (; hops < 2 && url; hops += 1) {
+      const reqPath = new URL(url).pathname;
       const r = await f(url, { headers: { Cookie: jar.header(url), "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
       for (const line of setCookieLines(r && r.headers)) {
         const ev = jar.apply(line, url);
@@ -179,16 +177,47 @@ export async function becomeCommissioner(baseHeader, { season, leagueId, fetchIm
       if (r && r.status === 200 && typeof r.text === "function") identityAfter = sessionIdentity(await r.text());
       const loc = r && r.status >= 300 && r.status < 400 && r.headers && typeof r.headers.get === "function" ? _s(r.headers.get("location")) : "";
       const next = loc ? new URL(loc, url) : null;
+      // Paths only (no query, no host) — enough to see where MFL sends the switch.
+      hopLog.push({ hop: hops + 1, path: reqPath, status: r ? r.status : 0, location_path: next ? next.pathname : null });
       url = next && /(^|\.)myfantasyleague\.com$/i.test(next.hostname) ? next.toString() : "";
     }
-  } catch (e) { return { ok: false, error: `become_failed: ${e && e.message}`, set_cookies: events }; }
-  const scope = { domain: sessionScope.domain, host_only: !!sessionScope.hostOnly, path: sessionScope.path };
-  const kept = jar.find("MFL_USER_ID", sessionScope);
-  const sanitized = { set_cookie_names: [...new Set(events.map((e) => e.name).filter(Boolean))], set_cookies: events, identity_after_switch: identityAfter, hops };
-  if (!kept || kept.value === "") {
-    return { ok: false, error: "switch_deleted_session", session_cookie: { ...scope, survived: false }, ...sanitized };
+  } catch (e) {
+    return { ok: false, error: `become_failed: ${e && e.message}`, sanitized: { set_cookies: events, hop_log: hopLog, hops } };
   }
-  return { ok: true, cookieFor: (u) => jar.header(u), user_id_changed: kept.value !== stored, session_cookie: { ...scope, survived: true }, ...sanitized };
+  const kept = jar.find("MFL_USER_ID", sessionScope);
+  const sanitized = { set_cookie_names: [...new Set(events.map((e) => e.name).filter(Boolean))], set_cookies: events, hop_log: hopLog, identity_after_switch: identityAfter, hops };
+  if (!kept || kept.value === "") return { ok: false, error: "switch_deleted_session", sanitized };
+  return { ok: true, cookieFor: (u) => jar.header(u), user_id_changed: kept.value !== stored, sanitized };
+}
+
+// → { ok, cookieFor(url), set_cookies:[sanitized], set_cookie_names, hop_log, attempts,
+//     user_id_changed, session_cookie, identity_after_switch, hops }. Everything but
+// `cookieFor` is sanitized; `cookieFor` carries session values — use it for the request,
+// never return or log what it gives. Fails closed (switch_deleted_session) if every
+// attempt deletes or empties the cookie that signed the stored session in.
+export async function becomeCommissioner(baseHeader, { season, leagueId, fetchImpl, sessionScope = SESSION_SCOPE, now, sleepImpl } = {}) {
+  const f = fetchImpl || fetch;
+  const base = _s(baseHeader);
+  if (!base) return { ok: false, error: "no_commissioner_cookie" };
+  let sessions = 0;
+  for (const part of base.split(";")) { const i = part.indexOf("="); if (i > 0 && part.slice(0, i).trim() === "MFL_USER_ID") sessions += 1; }
+  // Several MFL_USER_ID values in the secret: which one signed the session in is unknowable,
+  // so a deletion could not be judged — refuse rather than guess.
+  if (sessions > 1) return { ok: false, error: "ambiguous_session_cookie" };
+  if (!sessions) return { ok: false, error: "no_session_cookie" };
+  const sleep = sleepImpl || ((ms) => new Promise((res) => setTimeout(res, ms)));
+  const scope = { domain: sessionScope.domain, host_only: !!sessionScope.hostOnly, path: sessionScope.path };
+  const attempts = [];
+  let last = null;
+  for (let n = 1; n <= SWITCH_ATTEMPTS; n += 1) {
+    if (n > 1) await sleep(SWITCH_RETRY_DELAY_MS);
+    last = await switchOnce(f, base, { season, leagueId, sessionScope, now });
+    attempts.push({ attempt: n, outcome: last.ok ? "ok" : last.error, hop_log: last.sanitized.hop_log, set_cookie_names: last.sanitized.set_cookie_names || [] });
+    if (last.ok || last.error !== "switch_deleted_session") break;   // only a logged-out switch is retried
+  }
+  const out = { ...last.sanitized, attempts };
+  if (!last.ok) return { ok: false, error: last.error, ...(last.error === "switch_deleted_session" ? { session_cookie: { ...scope, survived: false } } : {}), ...out };
+  return { ok: true, cookieFor: last.cookieFor, user_id_changed: last.user_id_changed, session_cookie: { ...scope, survived: true }, ...out };
 }
 
 // Who MFL says this page was served to, from its header line — no values.
