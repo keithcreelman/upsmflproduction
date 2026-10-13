@@ -111,6 +111,7 @@ export const ADMIN_ROUTES = {
   "/admin/sync-ups-draft-picks": ["POST"],
   "/admin/tag-ingest": ["POST"],
   "/admin/taxi-callups/sync-weeks": ["POST"],
+  "/admin/test-league/delete-test-trades": ["POST"],
   "/admin/test-sync/prod-rosters": ["POST"],
   "/admin/trade-offers/live-mfl-inventory": ["GET"],
   "/admin/trade-offers/pending-ids": ["GET"],
