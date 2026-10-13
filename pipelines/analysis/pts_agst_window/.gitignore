@@ -7,3 +7,5 @@ targets.pkl
 /results_2025.json
 __pycache__/
 report.html
+matchup_targets.pkl
+matchup_*.log

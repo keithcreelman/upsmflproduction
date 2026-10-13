@@ -68,6 +68,32 @@ python3 make_product.py && python3 report.py
 python3 leak_test_synthetic.py               # also run by tests/pts_agst_window_no_leakage.test.mjs
 ```
 
+## Follow-up: does the defense add anything to the offense? (matchup decomposition, 2026-10-13)
+
+The window test ranked defenses by their schedule-adjusted effect alone, so its "52–57 in 100" figures describe the **defense effect only**. It did not test a points prediction for the whole matchup. `matchup.py` / `matchup_eval.py` test that, on the same games with the same leak-free rules:
+
+1. **Offense baseline only:** the upcoming offense's own pregame points at the position.
+2. **Raw Allowed.**
+3. **Schedule-adjusted defense effect only:** allowed ÷ the past opponents' own pregame averages, excluding the game against this defense.
+4. **Combined:** 1 × 3, unshrunk and shrunk. The ratio and difference forms are both tested.
+
+The shrink k is chosen leave-one-season-out on 2019–2024 and scored once on 2025.
+
+**Result.** Adding the defense does not materially improve on the offense baseline at any position.
+- MAE moves −1.7% to +0.7%, and at most positions it reverses between periods.
+- Rank accuracy moves at most +1.7 points. Only DL gains in both periods (+1.0, +1.6), still under the 2-point bar.
+- Raw Allowed is worse than the league average as a forecast at every position.
+
+So the board stays descriptive, with no Expected matchup. The tables are in [MATCHUP.md](MATCHUP.md).
+
+```
+python3 matchup_leak_check.py                # PASS: target week and later perturbed, predictions unchanged
+python3 matchup_eval.py                      # → matchup_results.json
+python3 matchup_direction.py                 # → matchup_direction.json (above/below vs "always below")
+python3 matchup_report.py                    # → MATCHUP.md
+python3 matchup_example.py RB IND nflSchedule_w6.json   # worked example for one defense
+```
+
 ## Known limits
 
 - **Positions** are MFL's season-end positions.
