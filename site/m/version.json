@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.12.10",
-  "label": "Live Scoring: Q/D/OUT tags and injury discounts now come from this week's official NFL injury report — the same source as Stats → Players (MFL's lapsing designations aren't used); IR/PUP from MFL as before."
+  "build": "2026.10.12.12",
+  "label": "Stats → Players: Search shows the same points, rank, weeks and MFL read time as the player sheet; before MFL posts a season's first score, Search and the sheet show — and \"No 2027 MFL scores yet.\" (an earlier season only under its year); Snap% counts never spill or pass 100%; 'Wk 1–5 · in progress' and 'Small sample · 20 targets' in words instead of '*'."
 }

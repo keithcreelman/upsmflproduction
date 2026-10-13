@@ -134,7 +134,6 @@
     var roster = rosterIndex();
     var complete = rostersComplete();
 
-    var adv = (M.data.getAdvancedStatsMap && M.data.getAdvancedStatsMap()) || {};
     var out = [];
 
     universe.forEach(function (p) {
@@ -147,7 +146,6 @@
       var team = U.safeStr(p.team).toUpperCase();
       var own = roster[pid] || null;
       var ownerName = own ? franchiseName(own.fid) : "";
-      var stat = adv[pid] || null;
 
       // Union of both normalizations, plus team and owner, so you can search
       // "sfo", "brock purdy", "purdy brock", "dj reader" or an owner's name.
@@ -171,15 +169,36 @@
         // On no roster: a free agent only when the rosters read is complete.
         free: !own && complete,
         // ROSTER / TAXI_SQUAD / INJURED_RESERVE — the roster feed's own words.
-        rosterStatus: own ? own.status : "",
-        ppg: stat && stat.mfl_ppg != null ? Number(stat.mfl_ppg) : null,
-        posRank: stat && stat.posRank != null ? Number(stat.posRank) : null
+        rosterStatus: own ? own.status : ""
       });
     });
 
     idx = out;
     idxFor = src;
     return idx;
+  }
+
+  // ── Points ───────────────────────────────────────────────────────────────
+  // This season's points come from the player sheet's ONE reading of MFL's
+  // W=ALL (player_sheet.js seasonPoints / seasonPointsBasis), never from the
+  // index: the index is cached per players/rosters read, and MFL's YTD moves
+  // while games are played. Until 2026-10-12 this read the D1 leaderboard copy
+  // (getAdvancedStatsMap), which stops at the last sync and ranks by its own
+  // rule, so a row here could say 107.5 / #9 while the sheet it opened said
+  // 125.5 / #4. No fallback to that copy: if MFL can't be read, "—" and a
+  // line that says so.
+  function pointsFor(pid) {
+    var sh = M.sheet;
+    return sh && sh.seasonPoints ? sh.seasonPoints(pid) : null;
+  }
+  function pointsBasis() {
+    var sh = M.sheet;
+    return sh && sh.seasonPointsBasis ? sh.seasonPointsBasis()
+      : { ok: false, warn: true, text: "Points unavailable: the player sheet didn’t load, so no points or ranks are shown." };
+  }
+  function ppgOf(pid) {
+    var p = pointsFor(pid);
+    return p && p.ppg != null ? p.ppg : null;
   }
 
   // ── Matching ─────────────────────────────────────────────────────────────
@@ -215,14 +234,15 @@
     var hits = [];
     for (var i = 0; i < recs.length; i++) {
       var s = scoreFor(recs[i], qTokens, qTight);
-      if (s > 0) hits.push({ r: recs[i], s: s });
+      if (s > 0) hits.push({ r: recs[i], s: s, ppg: ppgOf(recs[i].pid) });
     }
     hits.sort(function (a, b) {
       if (b.s !== a.s) return b.s - a.s;
-      // Then by fantasy relevance. Only ~520 of the 2,188 players carry a PPG;
-      // the rest are deep-bench names that should never outrank a starter, so
-      // "no PPG" sorts last rather than as zero.
-      var ap = a.r.ppg, bp = b.r.ppg;
+      // Then by fantasy relevance: this season's MFL PPG (the number on the
+      // row). Most of the universe has no MFL week this season; those are
+      // deep-bench names that should never outrank a starter, so "no PPG"
+      // sorts last rather than as zero.
+      var ap = a.ppg, bp = b.ppg;
       if (ap == null && bp == null) return a.r.name.localeCompare(b.r.name);
       if (ap == null) return 1;
       if (bp == null) return -1;
@@ -261,12 +281,13 @@
     return '<span class="own">' + U.escapeHtml(r.owner || "Rostered") + "</span>" + extra;
   }
 
+  // PPG and PPG rank exactly as the sheet's Actions tab shows them (same
+  // rounding, same "#4 QB" / "unranked" / "—").
   function rowHtml(r) {
-    var rank = (r.posRank != null && r.ppg != null)
-      ? '<span class="rk">#' + r.posRank + " " + U.escapeHtml(r.group) + "</span>"
-      : "";
-    var ppg = r.ppg != null
-      ? '<span class="ppg">' + r.ppg.toFixed(1) + '<i>PPG</i></span>'
+    var p = pointsFor(r.pid);
+    var rank = p ? '<span class="rk">' + U.escapeHtml(p.rankLabel) + "</span>" : "";
+    var ppg = p && p.ppg != null
+      ? '<span class="ppg">' + (Math.round(p.ppg * 10) / 10).toFixed(1) + '<i>PPG</i></span>'
       : '<span class="ppg none">—</span>';
     return '<button type="button" class="ups-m-psr-row" data-pid="' + U.escapeHtml(r.pid) + '">' +
       '<span class="pos ' + U.escapeHtml(r.group.toLowerCase()) + '">' + U.escapeHtml(r.group) + "</span>" +
@@ -297,7 +318,7 @@
           '<div class="s">Rostered, taxi, IR or free agent — ' + recs.length +
           ' players. Try a name, an NFL team like SFO, or an owner.</div></div>';
       }
-      return '<div class="ups-m-psr-sec">Recently viewed</div>' +
+      return basisHtml() + '<div class="ups-m-psr-sec">Recently viewed</div>' +
         have.map(rowHtml).join("");
     }
 
@@ -311,7 +332,13 @@
     var more = hits.length > capped.length
       ? '<div class="ups-m-psr-more">Showing ' + capped.length + " of " + hits.length + " matches</div>"
       : "";
-    return capped.map(rowHtml).join("") + more;
+    return basisHtml() + capped.map(rowHtml).join("") + more;
+  }
+  // What the PPG and rank on these rows are, for which weeks, and how fresh:
+  // the same line the sheet shows under its points.
+  function basisHtml() {
+    var b = pointsBasis();
+    return '<div class="ups-m-psr-basis' + (b.warn ? " warn" : "") + '">' + U.escapeHtml(b.text) + "</div>";
   }
 
   // ── Overlay ──────────────────────────────────────────────────────────────
@@ -319,13 +346,19 @@
 
   function isOpen() { return !!el; }
 
-  function repaint() {
+  function repaint(keepScroll) {
     if (!listEl) return;
     // ONLY the list is repainted. inputEl is never touched, which is the entire
     // point of this module — see the header comment.
+    var top = listEl.scrollTop;
     listEl.innerHTML = resultsHtml(inputEl ? inputEl.value : "");
-    listEl.scrollTop = 0;
+    listEl.scrollTop = keepScroll === true ? top : 0;
   }
+  // MFL's YTD was re-read and moved (this overlay asked on open, or another
+  // screen did): repaint in place so the rows match the sheet's numbers.
+  window.addEventListener("ups-season-scoring-changed", function () {
+    if (isOpen()) repaint(true);
+  });
 
   function onResultTap(e) {
     var btn = e.target && e.target.closest ? e.target.closest(".ups-m-psr-row") : null;
@@ -418,6 +451,10 @@
     // iOS only raises the keyboard for a focus() inside the same gesture that
     // created the element, so this must stay synchronous with the tap.
     inputEl.focus();
+    // The same 5-minute freshness rule as Stats → Players and the Players
+    // market. A failed read changes nothing, so the old "MFL read" time stays
+    // on screen and the staleness shows.
+    if (M.data.refreshSeasonScoringIfStale) M.data.refreshSeasonScoringIfStale(5 * 60 * 1000);
   }
 
   function teardown() {
