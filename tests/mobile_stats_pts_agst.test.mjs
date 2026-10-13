@@ -90,7 +90,7 @@ const wantColored = (pos, d) => byRank(pos, d).filter((t) => {
 });
 const byRank = (pos, d) => Object.keys(d.teams).filter((t) => d.teams[t][pos]).sort((a, b) => (d.teams[a][pos].adj ? d.teams[a][pos].adj.rank : 999) - (d.teams[b][pos].adj ? d.teams[b][pos].adj.rank : 999) || (a < b ? -1 : 1));
 
-console.log("1. the list (RB; default window = Full season through the latest completed game)");
+console.log("1. the list (opens on QB; the RB checks tap RB first; default window = Full season through the latest completed game)");
 {
   const v = boot();
   await v.openBoard();
@@ -98,6 +98,14 @@ console.log("1. the list (RB; default window = Full season through the latest co
     const g = v.fpaGets(); assert.strictEqual(g.length, 1, g.map((r) => r.url).join());
     assert.ok(!/YEAR=/.test(g[0].url) && !/week_max/.test(g[0].url), g[0].url);
   });
+  await check("a fresh visit opens on QB: only the QB chip is pressed, rows in the QB rank order, 'Points QBs scored'", () => {
+    const pressed = v.mount.querySelectorAll("[data-fpapos]").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.getAttribute("data-fpapos"));
+    assert.deepStrictEqual(pressed, ["QB"]);
+    assert.deepStrictEqual(v.rows().map((r) => r.tm), byRank("QB", FX.list_auto));
+    assert.ok(/Points QBs scored vs each defense, per game\./.test(v.mount.querySelector("#ups-m-fpa-window").textContent));
+  });
+  v.mount.querySelector('[data-fpapos="RB"]').click(); await settle();   // the RB checks below
+  await check("tapping RB sends no request (the list holds every position)", () => assert.strictEqual(v.fpaGets().length, 1));
   await check("32 rows in the API's rank order, numbers to one decimal, vs usual signed with a real minus", () => {
     const rows = v.rows();
     assert.deepStrictEqual(rows.map((r) => r.tm), byRank("RB", FX.list_auto));
@@ -175,6 +183,7 @@ console.log("1. the list (RB; default window = Full season through the latest co
     d.teams[a].RB.adj.ratio = 2.0; d.teams[b].RB.adj.ratio = 1.4;
     const w = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? d : null });
     await w.openBoard();
+    w.mount.querySelector('[data-fpapos="RB"]').click(); await settle();
     const colored = w.rows().filter((r) => r.el.querySelector(".ups-m-tr.up")).map((r) => r.tm);
     assert.ok(colored.includes(a) && !colored.includes(b), colored.join());
   });
@@ -352,6 +361,41 @@ console.log("\n6. viewing never writes");
     assert.ok(v.requests.every((r) => r.method === "GET"));
     const mine = v.requests.filter((r) => /fpa|fantasy-points|league-years/.test(r.url)).map((r) => new URL(r.url).pathname);
     assert.ok(mine.every((p) => ["/api/fantasy-points-against", "/api/fpa-detail", "/api/league-years"].includes(p)), mine.join());
+  });
+}
+
+console.log("\n7. position: a fresh visit opens on QB; a position the owner picks is kept for the app session");
+{
+  const v = boot();
+  await v.openBoard();
+  const pressed = () => v.mount.querySelectorAll("[data-fpapos]").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.getAttribute("data-fpapos"));
+  await check("fresh visit: QB", () => assert.deepStrictEqual(pressed(), ["QB"]));
+  v.mount.querySelector('[data-fpapos="DL"]').click(); await settle();
+  await check("tap DL: DL pressed, DL rows, no new request", () => {
+    assert.deepStrictEqual(pressed(), ["DL"]);
+    assert.deepStrictEqual(v.rows().map((r) => r.tm), byRank("DL", FX.list_auto));
+    assert.strictEqual(v.fpaGets().length, 1);
+  });
+  v.mount.querySelector('.ups-m-stseg[data-inner="players"]').click(); await settle();
+  v.mount.querySelector('.ups-m-stseg[data-inner="fpa"]').click(); await settle();
+  await check("Players tab and back to Pts Agst: still DL", () => {
+    assert.deepStrictEqual(pressed(), ["DL"]);
+    assert.deepStrictEqual(v.rows().map((r) => r.tm), byRank("DL", FX.list_auto));
+  });
+  v.setRoute("home"); v.mount.innerHTML = "<div id=home>HOME</div>"; await settle();
+  v.setRoute("league/stats"); v.render(); await settle();
+  await check("another screen (Home) and back to Stats: still DL", () => assert.deepStrictEqual(pressed(), ["DL"]));
+  v.mount.querySelector('[data-fpateam="DAL"]').click(); await settle();
+  v.ctx.history.back(); await settle(); await settle();
+  await check("open a team's breakdown and go Back: still DL", () => assert.deepStrictEqual(pressed(), ["DL"]));
+  const rg = v.mount.querySelector("#ups-m-fpa-range"); rg.value = "custom"; rg.dispatch("change"); await settle();
+  await check("change Window: still DL", () => assert.deepStrictEqual(pressed(), ["DL"]));
+  const yr = v.mount.querySelector("#ups-m-fpa-year"); yr.value = yr.querySelectorAll("option").map((o) => o.value).filter((x) => x && x !== yr.value)[0] || yr.value; yr.dispatch("change"); await settle();
+  await check("change Season: still DL", () => assert.deepStrictEqual(pressed(), ["DL"]));
+  const f = boot();
+  await f.openBoard();
+  await check("a new app session (fresh load) opens on QB again", () => {
+    assert.deepStrictEqual(f.mount.querySelectorAll("[data-fpapos]").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.getAttribute("data-fpapos")), ["QB"]);
   });
 }
 
