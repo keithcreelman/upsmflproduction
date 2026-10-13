@@ -147,5 +147,41 @@ test("6. no cookie value ever appears in a result or a log line", async () => {
   t.equal(seen.some((line) => line.includes(STORED) || line.includes(FLAG)), false, "no value in any log line");
 });
 
+test("review fix: a secret holding MFL_USER_ID twice is refused (a deletion couldn't be judged); seeding one scope twice keeps one copy", async () => {
+  const mfl = fakeMfl([`MFL_USER_ID=; Domain=.myfantasyleague.com; Path=/; Max-Age=0`, flagLine]);
+  const r = await C.becomeCommissioner(`MFL_USER_ID=${STORED}; MFL_USER_ID=other-made-up`, { season: SEASON, leagueId: L, fetchImpl: mfl.fetchImpl });
+  t.equal(r.ok, false); t.equal(r.error, "ambiguous_session_cookie"); t.equal(r.cookieFor, undefined);
+  t.equal(mfl.calls.length, 0, "nothing is requested");
+  const a = await LK.inspectAbilities({ MFL_COOKIE: `MFL_USER_ID=${STORED}; MFL_USER_ID=other-made-up` }, { season: SEASON, leagueId: L, fetchImpl: mfl.fetchImpl });
+  t.equal(a.error, "ambiguous_session_cookie");
+  t.equal(mfl.calls.filter((c) => c.url.includes("/options")).length, 0);
+  const jar = C.createCookieJar();
+  jar.seed("MFL_USER_ID", "first"); jar.seed("MFL_USER_ID", "second");
+  t.equal(jar.header(ABIL), "MFL_USER_ID=second", "one cookie per scope, as in a browser");
+  t.equal(jar.apply(`MFL_USER_ID=; Domain=.myfantasyleague.com; Path=/; Max-Age=0`, BECOME).action, "deleted");
+  t.equal(jar.find("MFL_USER_ID", C.SESSION_SCOPE), null, "a deletion leaves no second copy behind");
+});
+
+test("review fix: an empty, non-expiring host-only copy keeps the session, and goes first on /2026 pages exactly as a browser sends it", async () => {
+  // No Domain, no Path, no Expires from /2026/logout → www48-only, default path /2026.
+  const mfl = fakeMfl([`MFL_USER_ID=`, flagLine]);
+  const r = await C.becomeCommissioner(`MFL_USER_ID=${STORED}`, { season: SEASON, leagueId: L, fetchImpl: mfl.fetchImpl });
+  t.equal(r.ok, true, JSON.stringify(r)); t.equal(r.session_cookie.survived, true);
+  const ev = r.set_cookies.find((e) => e.name === "MFL_USER_ID");
+  t.deepEqual([ev.host_only, ev.scope_domain, ev.scope_path, ev.expires_attr, ev.max_age_attr, ev.action, ev.value_length], [true, "www48.myfantasyleague.com", "/2026", null, null, "added", 0]);
+  t.equal(r.cookieFor(ABIL), `MFL_USER_ID=; MFL_USER_ID=${STORED}; MFL_IS_COMMISH=${FLAG}`, "longer path first — what Chrome would send");
+  t.equal(r.cookieFor("https://api.myfantasyleague.com/2026/export"), `MFL_USER_ID=${STORED}; MFL_IS_COMMISH=${FLAG}`, "the host-only copy stays on www48");
+});
+
+test("review fix: a session cookie that has already expired counts as deleted", () => {
+  let clock = 1_000_000;
+  const jar = C.createCookieJar({ now: () => clock });
+  jar.seed("MFL_USER_ID", STORED);
+  jar.apply(`MFL_USER_ID=${STORED}; Domain=.myfantasyleague.com; Path=/; Max-Age=5`, BECOME);
+  t.ok(jar.find("MFL_USER_ID", C.SESSION_SCOPE));
+  clock += 10_000;
+  t.equal(jar.find("MFL_USER_ID", C.SESSION_SCOPE), null); t.equal(jar.header(ABIL), "");
+});
+
 console.error = () => {};
 await run("mfl_cookie_jar");

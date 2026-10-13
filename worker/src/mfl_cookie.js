@@ -87,8 +87,12 @@ export function createCookieJar({ now = () => Date.now() } = {}) {
   let seq = 0;
   const same = (c, n, scope) => c.name === n && c.domain === scope.domain && c.hostOnly === !!scope.hostOnly && c.path === scope.path;
   return {
+    // A browser holds at most one cookie per name + domain + host-only + path: seeding the
+    // same scope again replaces it in place.
     seed(name, value, scope = SESSION_SCOPE) {
-      store.push({ name, value: _s(value), domain: _s(scope.domain).replace(/^\./, "").toLowerCase(), hostOnly: !!scope.hostOnly, path: scope.path || "/", expiresAt: null, created: seq++ });
+      const c = { name, value: _s(value), domain: _s(scope.domain).replace(/^\./, "").toLowerCase(), hostOnly: !!scope.hostOnly, path: scope.path || "/", expiresAt: null };
+      const idx = store.findIndex((x) => same(x, name, c));
+      if (idx >= 0) store[idx] = { ...c, created: store[idx].created }; else store.push({ ...c, created: seq++ });
     },
     // Apply one Set-Cookie line received from `requestUrl`. Returns what happened, with
     // the scope and attributes — never the value.
@@ -131,7 +135,7 @@ export function createCookieJar({ now = () => Date.now() } = {}) {
         .sort((a, b) => b.path.length - a.path.length || a.created - b.created)
         .map((c) => `${c.name}=${c.value}`).join("; ");
     },
-    find(name, scope) { const c = store.find((x) => same(x, name, scope)); return c ? { value: c.value } : null; },
+    find(name, scope) { const c = store.find((x) => same(x, name, scope) && (x.expiresAt === null || x.expiresAt > now())); return c ? { value: c.value } : null; },
   };
 }
 
@@ -148,14 +152,17 @@ export async function becomeCommissioner(baseHeader, { season, leagueId, fetchIm
   const base = _s(baseHeader);
   if (!base) return { ok: false, error: "no_commissioner_cookie" };
   const jar = createCookieJar(now ? { now } : {});
-  let stored = null;
+  let stored = null, sessions = 0;
   for (const part of base.split(";")) {
     const i = part.indexOf("=");
     if (i <= 0 || !part.slice(0, i).trim()) continue;
     const name = part.slice(0, i).trim(), value = part.slice(i + 1).trim();
+    if (name === "MFL_USER_ID") { stored = value; sessions += 1; }
     jar.seed(name, value, sessionScope);
-    if (name === "MFL_USER_ID") stored = value;
   }
+  // Several MFL_USER_ID values in the secret: which one signed the session in is unknowable,
+  // so a deletion could not be judged — refuse rather than guess.
+  if (sessions > 1) return { ok: false, error: "ambiguous_session_cookie" };
   if (!stored) return { ok: false, error: "no_session_cookie" };
   const events = [];
   let identityAfter = null;
