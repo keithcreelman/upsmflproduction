@@ -1120,6 +1120,15 @@ special case in one builder.
 
 ### The test — `test_asof_leakage.py`
 
+**It reads the production D1 database, so it is opt-in** (2026-10-13, #1239):
+`python3 pipelines/etl/scripts/test_asof_leakage.py --allow-prod-d1` (or
+`UPS_ALLOW_PROD_D1_READS=1`). Without that it prints SKIPPED and makes no D1 call
+(`test_asof_leakage_offline_default.py` proves it). One deliberate run is 21
+queries and about 286k rows read. It used to be about 50 queries and about 214M
+rows, because check C joined `nfl_player_snaps` to `ff_player_ids` on `pfr_id`,
+which has no index. Three unattended runs on 2026-10-12/13 read 642M production
+rows, about two-thirds of that day's D1 reads.
+
 Three independent checks, green on 2024 W3 / W6 / W10 / W17:
 
 | check | what it catches |
