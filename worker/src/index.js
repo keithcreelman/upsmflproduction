@@ -55340,84 +55340,6 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         });
       }
 
-      // POST /admin/test-league/mfl-call — commish-gated raw MFL passthrough,
-      // HARD-SCOPED to the test league (L=25625). Built as the Phase-0 probe
-      // tool for the waiver-wire feature (pendingWaivers response shape,
-      // blindBidWaiverRequest semantics, post-add contract stubs — none of
-      // which MFL documents) and kept for future test-league experiments.
-      // The prod MFL APIKEY does NOT authenticate on the test league (MFL
-      // API keys are per-league), so probing needs the user-level cookie
-      // secret this worker already holds. Refuses any other league id so it
-      // can never touch prod. Body: { kind: "export"|"import",
-      // params: {TYPE, ...}, method?: "GET"|"POST", season? }
-      if (path === "/admin/test-league/mfl-call" && request.method === "POST") {
-        const tlTestKey = String(env.TEST_SYNC_API_KEY || "").trim();
-        const tlKeyOk = sessionByApiKey || (!!tlTestKey && !!browserApiKey && browserApiKey === tlTestKey);
-        if (!tlKeyOk) return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY or TEST_SYNC_API_KEY required." });
-        let tlBody = {};
-        try { tlBody = (await request.json()) || {}; } catch (_) { tlBody = {}; }
-        const TL_TEST_LEAGUE = "25625";
-        const tlKindRaw = safeStr(tlBody.kind || "export").toLowerCase();
-        const tlKind = tlKindRaw === "import" ? "import" : (tlKindRaw === "page" ? "page" : "export");
-        const tlParams = (tlBody.params && typeof tlBody.params === "object") ? tlBody.params : {};
-        if (safeStr(tlParams.L) && safeStr(tlParams.L) !== TL_TEST_LEAGUE) {
-          return jsonOut(403, { ok: false, error: "test_league_only", message: "Hard-scoped to L=25625; refusing any other league." });
-        }
-        const tlSeason = safeStr(tlBody.season || YEAR || "2026");
-        const tlCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
-        const tlCookie = tlCookieRaw ? (tlCookieRaw.includes("=") ? tlCookieRaw : `MFL_USER_ID=${tlCookieRaw}`) : "";
-        if (!tlCookie) return jsonOut(500, { ok: false, error: "Missing MFLTEST_COMMISHCOOKIE / MFL_COOKIE secret." });
-        const tlQp = new URLSearchParams();
-        for (const [k, v] of Object.entries(tlParams)) {
-          if (v == null) continue;
-          tlQp.set(k, String(v));
-        }
-        tlQp.set("L", TL_TEST_LEAGUE);
-        // "page" mode: fetch an arbitrary test-league PAGE (HTML, e.g. the
-        // commish calendar editor, whose delete action has no API) — same
-        // cookie, same forced L=25625. path must be a bare page name.
-        let tlBase;
-        if (tlKind === "page") {
-          const tlPath = safeStr(tlBody.path || "options").replace(/^\/+/, "");
-          if (!/^[A-Za-z0-9_]+$/.test(tlPath)) {
-            return jsonOut(400, { ok: false, error: "bad_path", message: "path must be a bare page name like 'options' or 'csetup'." });
-          }
-          tlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(tlSeason)}/${tlPath}`;
-        } else {
-          tlQp.set("JSON", "1");
-          tlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(tlSeason)}/${tlKind}`;
-        }
-        const tlMethod = safeStr(tlBody.method || "GET").toUpperCase() === "POST" ? "POST" : "GET";
-        let tlRes, tlText = "";
-        try {
-          tlRes = await fetch(tlMethod === "GET" ? `${tlBase}?${tlQp.toString()}` : tlBase, {
-            method: tlMethod,
-            headers: {
-              Cookie: tlCookie,
-              "User-Agent": "Mozilla/5.0 (upsmflproduction-worker)",
-              ...(tlMethod === "POST" ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}),
-            },
-            body: tlMethod === "POST" ? tlQp.toString() : undefined,
-            redirect: "manual",
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          tlText = await tlRes.text();
-        } catch (e) {
-          return jsonOut(502, { ok: false, error: "fetch_failed: " + String(e && e.message) });
-        }
-        const tlMax = Math.min(Math.max(safeInt(tlBody.max_chars, 20000), 1000), 250000);
-        let tlOut = String(tlText);
-        // MFL pages carry the league's enormous custom-header <script> blocks;
-        // strip_scripts drops them so the actual page markup fits in max_chars.
-        if (tlBody.strip_scripts) tlOut = tlOut.replace(/<script[\s\S]*?<\/script>/gi, "");
-        return jsonOut(200, {
-          ok: tlRes.status >= 200 && tlRes.status < 400 && !/<error>/i.test(tlText),
-          status: tlRes.status,
-          kind: tlKind, method: tlMethod, season: tlSeason,
-          full_length: tlOut.length,
-          body_text: tlOut.slice(0, tlMax),
-        });
-      }
 
       if (path === "/admin/test-sync/prod-rosters" && request.method === "POST") {
         let body = {};
@@ -58043,9 +57965,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       }
       // ── Forfeited pick traded on MFL's own site → reverse the trade (Keith 2026-10-12) ──
       // abilities-inspect: read-only — the Abilities Setup page's lockout state and form summary.
-      // lockout + test-league/trade: TEST LEAGUE (25625) ONLY — staging the supervised test.
-      // forfeit-reversal: mode "preview" writes nothing; mode "run" is the test league
-      // (no Discord, no DMs) or the real league behind LINEUP_FORFEIT_REVERSAL_ENABLED.
+      // forfeit-reversal: mode "preview" writes nothing; mode "run" needs confirm:"reverse"
+      // AND LINEUP_FORFEIT_REVERSAL_ENABLED (the supervised test-league harness was removed).
       if (path === "/admin/mfl/abilities-inspect" && request.method === "GET") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -58057,66 +57978,6 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         return jsonOut(200, { ok: true, league_id: leagueId, lockout: r.lockout, lockout_field: r.lockout_field, form_action: r.form_action,
           method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, writes: 0 });
       }
-      if (path === "/admin/mfl/lockout" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        const leagueId = safeStr(body.league_id);
-        if (leagueId !== "25625") return jsonOut(403, { ok: false, error: "test_league_only", message: "Lockout is only switched directly on the test league (25625). On the real league it happens only inside a forfeited-pick reversal." });
-        const { setLockout } = await import("./mfl_lockout.js");
-        if (!safeStr(body.expect_digest)) return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the Abilities Setup fingerprint (digest) the page must still match before the write." });
-        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true, expectDigest: safeStr(body.expect_digest) });
-        return jsonOut(r.ok ? 200 : 409, r);
-      }
-      if (path === "/admin/test-league/trade" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        if (safeStr(body.league_id || "25625") !== "25625") return jsonOut(403, { ok: false, error: "test_league_only" });
-        const { executeCommishTwoPartyTrade } = await import("./trade_3way.js");
-        const r = await executeCommishTwoPartyTrade(env, {
-          leagueId: "25625", year: Number(body.season || YEAR || new Date().getUTCFullYear()),
-          fromFid: padFranchiseId(body.from_fid), toFid: padFranchiseId(body.to_fid),
-          give: Array.isArray(body.give) ? body.give.map(safeStr) : [], receive: Array.isArray(body.receive) ? body.receive.map(safeStr) : [],
-          mflTokens: true, commentTag: "[Test league: staged trade]", comments: safeStr(body.comments), cookieAuth: true,
-        });
-        return jsonOut(r.ok ? 200 : 409, r);
-      }
-      // Test league (25625) only — the supervised forfeited-pick test. Hard-wired to
-      // 25625: no league parameter is read, so the production league can't be named.
-      if (path === "/admin/test-league/settings-snapshot" && request.method === "GET") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        const { snapshotPage } = await import("./mfl_lockout.js");
-        const page = safeStr(url.searchParams.get("page"));
-        if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
-        const r = await snapshotPage(env, { season: safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page });
-        return jsonOut(r.ok ? 200 : 502, { league_id: "25625", ...r });
-      }
-      if (path === "/admin/test-league/settings-set" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        const page = safeStr(body.page);
-        if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
-        if (!body.changes || typeof body.changes !== "object" || Array.isArray(body.changes)) return jsonOut(400, { ok: false, error: "changes must be an object" });
-        const { setPageFields } = await import("./mfl_lockout.js");
-        if (!safeStr(body.expect_digest)) return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the snapshot fingerprint (digest) the page must still match before the write." });
-        const r = await setPageFields(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page, changes: body.changes, expectDigest: safeStr(body.expect_digest) });
-        return jsonOut(r.ok ? 200 : 409, { league_id: "25625", ...r });
-      }
-      if (path === "/admin/test-league/forfeit-check" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        const { checkForfeitedPicks } = await import("./lineup_forfeits.js");
-        const r = await checkForfeitedPicks(env, "25625", body.tokens || {});
-        return jsonOut(200, { league_id: "25625", writes: 0, ...r });
-      }
       if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -58124,7 +57985,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         try { body = await request.json(); } catch (_) {}
         const leagueId = safeStr(body.league_id || L || "74598");
         const mode = safeStr(body.mode) === "run" ? "run" : "preview";
-        if (mode === "run" && leagueId !== "25625" && safeStr(body.confirm) !== "reverse") {
+        if (mode === "run" && safeStr(body.confirm) !== "reverse") {
           return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"reverse\" to run on the real league (it also needs LINEUP_FORFEIT_REVERSAL_ENABLED). Preview first." });
         }
         // A test-league run switches lockout on a page Keith snapshotted: it must quote that fingerprint.

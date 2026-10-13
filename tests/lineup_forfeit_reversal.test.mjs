@@ -259,9 +259,10 @@ test("switch off → nothing read, nothing written; the test league never posts 
   const d = db(); reserve(d);
   const off = harness({ flag: false });
   t.equal((await call({ UPS_MFL_DB: d }, off)).reason, "reversal_disabled"); t.deepEqual(off.log, []);
-  const tl = harness({ flag: false });
+  t.equal((await call({ UPS_MFL_DB: d }, harness({ flag: false }), "run", { leagueId: RV.TEST_LEAGUE_ID })).reason, "reversal_disabled", "the test league needs the switch too");
+  const tl = harness({ flag: true });
   const r = await call({ UPS_MFL_DB: d }, tl, "run", { leagueId: RV.TEST_LEAGUE_ID });
-  t.equal(r.ok, true, "the test league runs without the switch");
+  t.equal(r.ok, true);
   t.deepEqual(tl.log, ["lockout_off", "exec", "lockout_on"]);
   t.equal(tl.d.calls.length, 0, "no Discord call at all"); t.equal(tl.told.length, 0, "no DM");
   t.equal(tl.deps.lastExec.cookieAuth, true, "the test league trades with the commissioner cookie (MFL keys are per league)");
@@ -351,32 +352,25 @@ test("Trades Setup: changes ONLY the named field, refuses unknown fields, restor
 
 // ═════════════ the production league can't be targeted (real worker routes) ═════════════
 const worker = (await import("../worker/src/index.js")).default;
-test("test-league routes never touch the production league; the real-league run needs confirm + the switch", async () => {
+test("the supervised-test harness is gone: its routes 404; a real-league run needs confirm + the switch", async () => {
   const d = db();
   const env = { UPS_MFL_DB: d, COMMISH_API_KEY: "admin-key", MFL_COOKIE: "c", MFL_APIKEY: "k", LINEUP_FORFEIT_REVERSAL_ENABLED: "0" };
   const mflUrls = [];
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async (u) => { mflUrls.push(String(u)); return { ok: true, status: 200, text: async () => tradesHtml({ years: "0", perRound: "1", deadline: "x" }), json: async () => ({}) }; };
+  globalThis.fetch = async (u) => { mflUrls.push(String(u)); return { ok: true, status: 200, text: async () => "", json: async () => ({}) }; };
   const hit = async (method, path, body) => {
     const res = await worker.fetch(new Request(`https://w.test${path}`, { method, headers: { "X-COMMISH-APIKEY": "admin-key", "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }), env, { waitUntil() {}, passThroughOnException() {} });
-    return { status: res.status, json: JSON.parse(await res.text()) };
+    const text = await res.text(); let json = null; try { json = JSON.parse(text); } catch (_) {}
+    return { status: res.status, json };
   };
   try {
-    t.equal((await hit("POST", "/admin/mfl/lockout?L=74598", { league_id: "74598", on: false })).status, 403, "lockout on the real league: refused");
-    t.equal((await hit("POST", "/admin/mfl/lockout?L=74598", { league_id: "25625", on: false })).json.error, "expect_digest_required", "test-league lockout needs the snapshot fingerprint");
-    t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "25625", mode: "run", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "expect_digest_required", "so does a test-league reversal run");
-    t.equal((await hit("POST", "/admin/test-league/trade?L=74598", { league_id: "74598", from_fid: "0001", to_fid: "0002", give: ["1"] })).status, 403);
+    for (const [m, p] of [["POST", "/admin/mfl/lockout"], ["POST", "/admin/test-league/trade"], ["GET", "/admin/test-league/settings-snapshot?page=trades"], ["POST", "/admin/test-league/settings-set"], ["POST", "/admin/test-league/forfeit-check"], ["POST", "/admin/test-league/mfl-call"]]) {
+      const r = await hit(m, `${p}${p.includes("?") ? "&" : "?"}L=74598`, m === "GET" ? undefined : { league_id: "25625", on: false, page: "trades", changes: { FUTURE_YEARS: "1" }, expect_digest: "x", kind: "import", method: "POST", params: { TYPE: "fcfsWaiver" } });
+      t.equal(r.status, 404, `${p} is gone`);
+    }
     t.equal(mflUrls.length, 0, "nothing reached MFL");
-    const snap = await hit("GET", "/admin/test-league/settings-snapshot?L=74598&page=trades");
-    t.equal(snap.json.league_id, "25625");
-    t.ok(mflUrls.length > 0 && mflUrls.every((u) => /[?&]L=25625(&|$)/.test(u)), "only the test league's page was read");
-    mflUrls.length = 0;
-    t.equal((await hit("POST", "/admin/test-league/settings-set?L=74598", { page: "trades", changes: { FUTURE_YEARS: "1" } })).json.error, "expect_digest_required");
-    const set = await hit("POST", "/admin/test-league/settings-set?L=74598", { league_id: "74598", page: "trades", changes: { FUTURE_YEARS: "1" }, expect_digest: "not-the-page" });
-    t.equal(set.json.league_id, "25625"); t.equal(set.json.error, "page_differs_from_snapshot", "a stale fingerprint → nothing written");
-    t.ok(mflUrls.every((u) => !/L=74598/.test(u)), "the production league ID never reached MFL");
-    mflUrls.length = 0;
-    t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "74598", mode: "run", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "confirm_required");
+    t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "25625", mode: "run", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "confirm_required", "even the test league needs confirm now");
+    t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "25625", mode: "run", confirm: "reverse", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "expect_digest_required", "…and the snapshot fingerprint");
     const off = await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "74598", mode: "run", confirm: "reverse", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 });
     t.equal(off.json.reason, "reversal_disabled", "the production switch (off) stops it");
     t.equal(mflUrls.length, 0, "…before any MFL call");
