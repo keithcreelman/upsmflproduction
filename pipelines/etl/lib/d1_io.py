@@ -57,12 +57,29 @@ def sql_escape(v) -> str:
     return f"'{s}'"
 
 
+def _balanced_or(terms: list[str]) -> str:
+    """OR the terms as a balanced tree. D1 caps expression depth at 100, and a
+    flat `a OR b OR c …` over a ~100-column table is ~100 deep; balanced it is
+    about log2(n) + 3."""
+    if len(terms) == 1:
+        return terms[0]
+    mid = len(terms) // 2
+    return f"({_balanced_or(terms[:mid])} OR {_balanced_or(terms[mid:])})"
+
+
+def changed_only_enabled() -> bool:
+    """Upserts skip unchanged rows unless D1WRITER_ALWAYS_UPDATE=1 (rollback switch)."""
+    return os.environ.get("D1WRITER_ALWAYS_UPDATE") != "1"
+
+
 def build_insert(
     table: str,
     cols: list[str],
     rows: list[tuple],
     pk_cols: list[str] | None = None,
     coalesce_cols: list[str] | None = None,
+    changed_only: bool | None = None,
+    change_ignore_cols: list[str] | None = None,
 ) -> str:
     """Build an INSERT (or UPSERT) statement for a batch of rows.
 
@@ -70,6 +87,15 @@ def build_insert(
     Without:       emits `INSERT OR IGNORE`.
     `coalesce_cols` update as `c = COALESCE(excluded.c, c)`, so a NULL in
     this batch keeps the existing value instead of erasing it.
+
+    `changed_only` (default on; D1WRITER_ALWAYS_UPDATE=1 turns it off) adds
+    `WHERE <some value differs>` to the DO UPDATE, so a row whose values are
+    all unchanged is not rewritten. D1 bills every updated row (plus its index
+    entries) as written, even when nothing changed, and the nflverse refresh
+    re-sends ~138k mostly unchanged rows four times a week (2026-10-13: about
+    90% of a day's D1 writes). New rows still insert and changed rows still
+    update. `change_ignore_cols` (e.g. a run timestamp) are still SET when a
+    row changes, but don't by themselves count as a change.
     """
     col_list = ", ".join(cols)
     value_tuples = []
@@ -90,9 +116,20 @@ def build_insert(
                 for c in update_cols
             )
             pk_list = ", ".join(pk_cols)
+            where = ""
+            if changed_only if changed_only is not None else changed_only_enabled():
+                ignore = set(change_ignore_cols or ())
+                # A coalesce column only changes when the batch has a value for it.
+                terms = [
+                    f"(excluded.{c} IS NOT NULL AND {table}.{c} IS NOT excluded.{c})" if c in keep
+                    else f"{table}.{c} IS NOT excluded.{c}"
+                    for c in update_cols if c not in ignore
+                ]
+                if terms:
+                    where = f" WHERE {_balanced_or(terms)}"
             return (
                 f"INSERT INTO {table} ({col_list}) VALUES\n{values_sql}\n"
-                f"ON CONFLICT ({pk_list}) DO UPDATE SET {set_clause};\n"
+                f"ON CONFLICT ({pk_list}) DO UPDATE SET {set_clause}{where};\n"
             )
         return f"INSERT OR IGNORE INTO {table} ({col_list}) VALUES\n{values_sql};\n"
 
@@ -175,6 +212,9 @@ def wrangler_execute(
 class D1Writer:
     """Streaming UPSERT writer. Add rows; statements flush automatically.
 
+    Upserts write only rows whose values changed (see build_insert); the
+    "rows" counts below are rows SENT, not rows written.
+
     Example:
         with D1Writer(
             table="nfl_player_advstats_season",
@@ -221,11 +261,13 @@ class D1Writer:
         max_file_bytes: int | None = None,
         max_rows_per_file: int | None = None,
         coalesce_cols: list[str] | None = None,
+        change_ignore_cols: list[str] | None = None,
     ):
         self.table = table
         self.cols = cols
         self.pk_cols = pk_cols
         self.coalesce_cols = coalesce_cols
+        self.change_ignore_cols = change_ignore_cols
         self.db = db
         self.chunk_size = chunk_size or self.DEFAULT_CHUNK_SIZE
         self.tmp_dir = Path(tmp_dir) if tmp_dir else self._default_tmp_dir()
@@ -303,7 +345,8 @@ class D1Writer:
             self.add(r)
 
     def _build_statements(self, rows: list[tuple]) -> list[tuple[str, int, int]]:
-        sql = build_insert(self.table, self.cols, rows, pk_cols=self.pk_cols, coalesce_cols=self.coalesce_cols)
+        sql = build_insert(self.table, self.cols, rows, pk_cols=self.pk_cols, coalesce_cols=self.coalesce_cols,
+                           change_ignore_cols=self.change_ignore_cols)
         size = len(sql.encode("utf-8"))
         if size < STATEMENT_BYTE_LIMIT:
             return [(sql, len(rows), size)]

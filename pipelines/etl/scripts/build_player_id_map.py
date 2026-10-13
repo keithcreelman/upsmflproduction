@@ -208,7 +208,9 @@ def main() -> None:
     if args.out_json:
         json.dump(rows, open(args.out_json, "w"), indent=1)
     if not args.skip_d1:
-        with D1Writer(table="player_id_map", cols=COLS, pk_cols=["mfl_id"]) as w:
+        # built_at is stamped every run; it alone isn't a change, so an unchanged
+        # mapping isn't rewritten (built_at = when the row last changed).
+        with D1Writer(table="player_id_map", cols=COLS, pk_cols=["mfl_id"], change_ignore_cols=["built_at"]) as w:
             for r in rows:
                 w.add((r["mfl_id"], r["gsis_id"], r["pfr_id"], r["espn_id"], r["mfl_position"], r["status"], r["accepted"],
                        json.dumps(r["routes"], sort_keys=True), json.dumps(r["checks"], sort_keys=True), r["note"], r["built_at"]))

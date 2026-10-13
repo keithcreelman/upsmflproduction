@@ -38,7 +38,11 @@
 
 ## Writes
 - **Every upserted row counts**, even if nothing changed. Each index entry counts too. An `INSERT … ON CONFLICT DO UPDATE` over 65k unchanged rows bills 65k or more rows written.
-- **Write only changed rows.** Either diff against what's stored, or add `WHERE` to `DO UPDATE` so identical rows are skipped. Watch D1's expression-depth limit of 100 on wide tables; use a compact fingerprint column.
+- **Write only changed rows.** `pipelines/etl/lib/d1_io.py` (`build_insert` / `D1Writer`) does this by default since #1267: it adds `WHERE <some value differs>` to `DO UPDATE`, built as a balanced `OR` tree so even 100-column tables fit D1's expression-depth limit of 100.
+  - **Verified on a temporary D1 database (2026-10-13):** re-sending 12,719 unchanged depth-chart rows wrote **0 rows**, against 12,719 before. It read 12,719 instead.
+  - **Stamp columns:** pass `change_ignore_cols` for a column stamped every run, such as `player_id_map.built_at`.
+  - **Rollback switch:** `D1WRITER_ALWAYS_UPDATE=1` restores the old behavior.
+  - **Other writers:** any writer that doesn't use `D1Writer` must do the same itself.
 - **Don't rewrite finished seasons or whole reference tables** on a schedule. Limit refreshes to the current season and to rows that changed.
 - **Bulk `--file` imports are invisible to `wrangler d1 insights`** (and therefore to `scripts/d1_usage.py`). Use `wrangler d1 info ups-mfl-db` (`rows_written_24h`) for the real total.
 
