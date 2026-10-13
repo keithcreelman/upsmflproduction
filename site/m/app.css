@@ -1381,6 +1381,8 @@ button.ups-m-busy::before,
 .ups-m-st-tools .ups-m-fpa-filters { grid-template-columns: 1.1fr 1fr 1.25fr; }
 .ups-m-fpa-chips { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; overflow: visible; }
 .ups-m-st-pin .ups-m-fpa-chips .ups-m-pos-chip { padding: 7px 0; min-height: 32px; text-align: center; font-size: 12px; }
+.ups-m-fpa-list, .ups-m-fpa-head { --cols: 24px minmax(0, 1fr) 46px 42px 54px; }
+@media (max-width: 340px) { .ups-m-fpa-list, .ups-m-fpa-head { --cols: 20px minmax(0, 1fr) 44px 40px 50px; } }
 .ups-m-fpa-list .ups-m-st-row .nm .tm { font-size: 11px; }
 .ups-m-fpa-list .v.vs { font-weight: 700; font-size: 14px; }
 .ups-m-fpa-r:focus-visible, .ups-m-fpa-wk2[role="button"]:focus-visible, .ups-m-fpa-pl[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -1406,7 +1408,7 @@ button.ups-m-busy::before,
 .ups-m-fpa-wk2 .wk { font-size: 12px; font-weight: 700; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .ups-m-fpa-wk2 .op, .ups-m-fpa-pl .nm { display: flex; flex-direction: column; min-width: 0; font-size: 14px; font-weight: 600; color: var(--fg); }
 .ups-m-fpa-wk2.off .op { color: var(--fg-muted); font-weight: 500; }
-.ups-m-fpa-pl .nm b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ups-m-fpa-pl .nm b { font-weight: 600; overflow-wrap: anywhere; }
 .ups-m-fpa-wk2 .op small, .ups-m-fpa-pl .nm small { font-size: 11px; font-weight: 500; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ups-m-fpa-wk2 .v, .ups-m-fpa-pl .v { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--fg); white-space: nowrap; }
 .ups-m-fpa-wk2.head .v, .ups-m-fpa-pl.head .v { font-size: 11px; color: var(--fg-muted); }

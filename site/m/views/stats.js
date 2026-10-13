@@ -1839,7 +1839,7 @@
     { k: "usual", l: "Usual", t: "What the same players usually score, per game" },
     { k: "vs", l: "vs usual", t: "Allowed compared with usual" }
   ];
-  var FPA_GRID = "24px minmax(0,1fr) 46px 42px 54px";
+  // Column widths live in app.css (.ups-m-fpa-list / .ups-m-fpa-head), narrower under 340px.
   function fpaSortVal(r, k) {
     if (k === "alw") return r.raw.perGame;
     if (k === "usual") return r.raw.oppNorm;
@@ -1870,7 +1870,7 @@
     var live = d && (d.weeks_in_progress || []).length;
     var band = "Per game" + (used.length ? " · " + fpaWeeksLabel(used[0], used[used.length - 1]).replace("Wks ", "Wk ") : "");
     var sk = fpa.sort.key;
-    return '<div class="ups-m-st-row head ups-m-fpa-head" style="--cols:' + FPA_GRID + '" role="row">' +
+    return '<div class="ups-m-st-row head ups-m-fpa-head" role="row">' +
       '<span class="band-pad"></span><span class="band" style="grid-column: span 3"' + (live ? ' title="Includes a week still being played"' : "") + ">" + U.escapeHtml(band) +
         (live ? '<span class="ups-m-st-live" aria-hidden="true"></span>' : "") + "</span>" +
       '<span class="rk" role="columnheader"' + (sk ? "" : ' aria-sort="ascending"') + '><button type="button" class="ups-m-st-sort' + (sk ? "" : " on") +
@@ -1934,7 +1934,7 @@
     var sk = fpa.sort.key, col = FPA_COLS.filter(function (c) { return c.k === sk; })[0];
     var foot = rows.length + " " + (fpaSide() === "offense" ? "offenses" : "defenses") +
       (col ? " · sorted by " + col.l + (fpa.sort.dir === "asc" ? ", low to high" : ", high to low") + "; teams without a value are listed last" : " · ranked by vs usual") + ".";
-    return '<div class="ups-m-st-table ups-m-fpa-list" style="--cols:' + FPA_GRID + '">' + body + "</div>" +
+    return '<div class="ups-m-st-table ups-m-fpa-list">' + body + "</div>" +
       '<div class="ups-m-fa-more">' + U.escapeHtml(foot) + "</div>";
   }
   function fpaErrorHtml(why) {
