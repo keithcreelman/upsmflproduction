@@ -67,17 +67,37 @@ export function fpaUrls(yr, lid, tag) {
   };
 }
 
-// Game state from MFL's nflSchedule matchup: "final" = kicked off and the clock
-// reads 0; "live" = kicked off, clock still running; "scheduled" = not kicked off.
-export function fpaGameStatus(m, nowMs) {
+// Game state. MFL's nflSchedule clock and its playerScores export update on their
+// own timetables (live check, MNF 2026-10-13: 40 minutes in, the schedule still read
+// 60:00 and playerScores had no row for either team). So a game is "final" only when
+// it is over (clock at 0, or 5 hours past kickoff if the clock lags) AND MFL has
+// posted scores for one of its teams that week; over but not yet scored = "awaiting".
+// scored: Set of MFL team codes with a posted score that week, or null when that
+// week's scores weren't read (then the schedule decides).
+export function fpaGameStatus(m, nowMs, scored) {
   const ko = Number(m && m.kickoff) || 0;
-  const started = ko > 0 && ko * 1000 <= nowMs;
+  if (!(ko > 0 && ko * 1000 <= nowMs)) return "scheduled";
   const secs = str(m && m.gameSecondsRemaining);
-  if (started && secs === "0") return "final";
-  // Old seasons can omit the clock; a game that kicked off 6+ hours ago is over.
-  if (started && secs === "" && ko * 1000 <= nowMs - 6 * 3600 * 1000) return "final";
-  if (started) return "live";
-  return "scheduled";
+  const over = secs === "0" || ko * 1000 <= nowMs - 5 * 3600 * 1000;
+  if (!over) return "live";
+  if (!scored) return "final";
+  return arr(m.team).some((t) => scored.has(str(t.id).toUpperCase())) ? "final" : "awaiting";
+}
+// Per week: the MFL teams with at least one posted score (by each player's MFL team).
+export function fpaScoredTeams(mfl) {
+  if (mfl.__scored) return mfl.__scored;
+  const pInfo = mfl.pInfo || (mfl.pInfo = fpaPlayerIndex(mfl.players));
+  const out = {};
+  for (const w in mfl.scoresByWeek) {
+    const set = new Set();
+    for (const r of mfl.scoresByWeek[w]) {
+      if (isNaN(parseFloat(r.score))) continue;
+      const i = pInfo.get(typeof r.id === "string" ? r.id : str(r.id));
+      if (i && i.team) set.add(i.team);
+    }
+    out[w] = set;
+  }
+  return (mfl.__scored = out);
 }
 
 // Reads everything MFL has for (yr, window). fetchJson(url, ttlSeconds) → parsed JSON
@@ -172,11 +192,11 @@ function nflvTeamFor(ctx, pid, w) {
 // "partial" = some kicked off, "scheduled" = none), and the last complete week
 // counting from Week 1.
 export function fpaWeekStates(mfl, nowMs) {
-  const weekState = {};
+  const weekState = {}, scored = fpaScoredTeams(mfl);
   let lastComplete = 0, run = true;
   for (let w = 1; w <= mfl.endWeek; w++) {
     const ms = (mfl.schedByWeek[w] || []).filter((m) => arr(m.team).length >= 2);
-    const st = ms.map((m) => fpaGameStatus(m, nowMs));
+    const st = ms.map((m) => fpaGameStatus(m, nowMs, scored[w] || null));
     weekState[w] = ms.length && st.every((x) => x === "final") ? "final" : (st.some((x) => x !== "scheduled") ? "partial" : "scheduled");
     if (run && weekState[w] === "final") lastComplete = w; else run = false;
   }
@@ -204,7 +224,7 @@ export function fpaCompute(mfl, ctx, { wMin, wMax, nowMs, baseline }) {
   const pInfo = mfl.pInfo || (mfl.pInfo = fpaPlayerIndex(mfl.players));
 
   // Every game of the season with its state; team → week → game.
-  const gameOf = {}, teamsAll = {}, weekState = {}, weekGames = {};
+  const gameOf = {}, teamsAll = {}, weekState = {}, weekGames = {}, scored = fpaScoredTeams(mfl);
   for (let w = 1; w <= endWeek; w++) {
     const ms = mfl.schedByWeek[w] || [];
     let fin = 0, started = 0;
@@ -212,7 +232,7 @@ export function fpaCompute(mfl, ctx, { wMin, wMax, nowMs, baseline }) {
     for (const m of ms) {
       const ts = arr(m.team); if (ts.length < 2) continue;
       const a = str(ts[0].id).toUpperCase(), b = str(ts[1].id).toUpperCase();
-      const st = fpaGameStatus(m, nowMs), ko = Number(m.kickoff) || 0;
+      const st = fpaGameStatus(m, nowMs, scored[w] || null), ko = Number(m.kickoff) || 0;
       const aHome = str(ts[0].isHome) === "1";
       (gameOf[a] = gameOf[a] || {})[w] = { wk: w, opp: b, home: aHome, kickoff: ko, status: st };
       (gameOf[b] = gameOf[b] || {})[w] = { wk: w, opp: a, home: !aHome, kickoff: ko, status: st };

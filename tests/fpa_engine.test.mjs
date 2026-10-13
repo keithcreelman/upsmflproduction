@@ -157,6 +157,19 @@ await check("weeks past the league's last week (2017–2020: 16; 2021+: 17) are 
   assert.ok(!c2.some((u) => /W=(3|1[0-8])\b/.test(u)), c2.join("\n"));
 });
 
+await check("over on the schedule but no score posted yet → 'awaiting', not counted (MFL posts scores on its own timetable)", () => {
+  const sched = { 1: MINI.sched[1], 2: [game("AAA", "CCC", past, "0"), game("BBB", "DDD", past, "0")] };   // BBB–DDD 'final' on the schedule…
+  const m = { ...mini, schedByWeek: sched, __scored: undefined, pInfo: undefined };                     // …but week 2 has no BBB/DDD score
+  const E = F.fpaCompute(m, miniCtx, { wMin: 1, wMax: 2, nowMs: NOW, baseline: F.FPA_BASELINE });
+  assert.strictEqual(E.gameOf.BBB[2].status, "awaiting"); assert.strictEqual(E.games.BBB, 1); assert.strictEqual(E.weekState[2], "partial");
+});
+await check("the schedule clock lagging (still 60:00 five hours after kickoff) with scores posted → final", () => {
+  const old = String(Math.floor(NOW / 1000) - 6 * 3600);
+  const st = F.fpaGameStatus(game("AAA", "BBB", old, "3600"), NOW, new Set(["AAA"]));
+  assert.strictEqual(st, "final");
+  assert.strictEqual(F.fpaGameStatus(game("AAA", "BBB", String(Math.floor(NOW / 1000) - 1800), "3600"), NOW, new Set(["AAA"])), "live");
+});
+
 console.log("\n4. the HTTP handler");
 const jsonOut = (status, payload) => new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json" } });
 const handle = async (url, fx, over) => {

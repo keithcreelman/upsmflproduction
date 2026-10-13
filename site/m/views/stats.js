@@ -1816,7 +1816,7 @@
     if (inProg.length) {
       var left = (d.pending || []).filter(function (g) { return g.wk === inProg[0]; });
       txt += ', <span class="ups-m-st-live"></span>Wk ' + inProg[0] + " in progress (final games only" +
-        (left.length && left.length <= 2 ? "; " + left.map(function (g) { return g.away + "–" + g.home + (g.status === "live" ? " being played" : " " + fpaDay(g.kickoff).split(" ")[0] + " to come"); }).join(", ") : "") + ").";
+        (left.length && left.length <= 2 ? "; " + left.map(function (g) { return g.away + "–" + g.home + (g.status === "live" ? " being played" : (g.status === "awaiting" ? " over, MFL score not posted yet" : " " + fpaDay(g.kickoff).split(" ")[0] + " to come")); }).join(", ") : "") + ").";
     } else txt += ", final.";
     var next = w.week_max + 1;
     if (w.auto && season.weeks && season.weeks[next] === "partial") txt += " Wk " + next + " is in progress: choose To: Wk " + next + " to add it.";
@@ -1897,7 +1897,7 @@
     var tg = r.tg || {}, n = tg.games != null ? tg.games : r.raw.games;
     var s = n + (n === 1 ? " game" : " games");
     var p = (tg.pending || [])[0];
-    if (p) return s + " · Wk " + p.wk + " " + (p.status === "live" ? "in progress" : fpaDay(p.kickoff).split(" ")[0]);
+    if (p) return s + " · Wk " + p.wk + " " + (p.status === "live" ? "in progress" : (p.status === "awaiting" ? "score pending" : fpaDay(p.kickoff).split(" ")[0]));
     if (tg.next) return s + " · Wk " + tg.next.wk + " " + (tg.next.home ? "vs " : "@") + tg.next.opp;
     return s;
   }
@@ -1961,7 +1961,7 @@
       var rows = (dd.schedule || []).map(function (s) {
         if (s.state === "bye") return '<div class="ups-m-fpa-wk2 off"><span class="wk">Wk ' + s.wk + '</span><span class="op">Bye</span><span class="v"></span><span class="v"></span><span class="ch"></span></div>';
         if (s.state !== "final") return '<div class="ups-m-fpa-wk2 off"><span class="wk">Wk ' + s.wk + '</span><span class="op">' + (s.home ? "vs " : "@") + U.escapeHtml(s.opp) +
-          '<small>' + (s.state === "live" ? "in progress" : U.escapeHtml(fpaDay(s.kickoff)) + " · not played yet") + '</small></span><span class="v">—</span><span class="v"></span><span class="ch"></span></div>';
+          '<small>' + (s.state === "live" ? "in progress" : (s.state === "awaiting" ? "over · MFL score not posted yet" : U.escapeHtml(fpaDay(s.kickoff)) + " · not played yet")) + '</small></span><span class="v">—</span><span class="v"></span><span class="ch"></span></div>';
         var wk = (dd.weeks || []).filter(function (x) { return x.wk === s.wk; })[0] || { players: [] };
         var one = (fpa.pos === "QB" || fpa.pos === "PK" || fpa.pos === "PN") && wk.players.length === 1;
         var sub = one ? flip(wk.players[0].name) : (wk.players.length + (wk.players.length === 1 ? " player" : " players"));
