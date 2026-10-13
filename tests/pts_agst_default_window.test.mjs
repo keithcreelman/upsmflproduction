@@ -5,8 +5,10 @@
 //     final_defaults.json        statistical defaults after the holdout check
 //     pts_agst_default_window.json  the product rule applied (make_product.py)
 // This test (1) proves the locked files weren't edited after the fact (hashes chain together),
-// (2) re-derives the product defaults in JS from the locked numbers, and (3) requires the mobile
-// app's FPA_DEFAULT_WINDOW / FPA_EVIDENCE to be exactly that.
+// (2) re-derives the product defaults in JS from the locked numbers, (3) requires the mobile
+// app's FPA_DEFAULT_WINDOW and colour shrink FPA_COLOR_K to be exactly that, and (4) re-derives
+// from the matchup follow-up (matchup_results.json) that a defense's record adds nothing material
+// to the offense's own average at any position, which is why Pts Agst has no prediction field.
 //   node tests/pts_agst_default_window.test.mjs
 import fs from "node:fs";
 import vm from "node:vm";
@@ -64,13 +66,33 @@ ctx.window = ctx; ctx.document = { getElementById: () => null, addEventListener(
 ctx.UPS_MOBILE = { util: { safeStr: (v) => (v == null ? "" : String(v)), escapeHtml: (v) => String(v) }, api: { workerUrl: (p) => p }, data: {}, state: {}, route: { registerView() {}, renderRoute() {} } };
 vm.runInContext(fs.readFileSync(root + "site/m/views/stats.js", "utf8"), ctx);
 const shipped = ctx.UPS_MOBILE.statsView.ptsAgstDefaults;
+const M = JSON.parse(fs.readFileSync(root + "pipelines/analysis/pts_agst_window/matchup_results.json", "utf8"));
 for (const g of GROUPS) {
-  check(`${g}: FPA_DEFAULT_WINDOW / FPA_EVIDENCE = the locked product file`, () => {
-    const p = prod.positions[g], e = shipped.evidence[g];
+  check(`${g}: FPA_DEFAULT_WINDOW = the locked product file; FPA_COLOR_K = the player-level Full-season k in both tests`, () => {
+    const p = prod.positions[g];
     assert.strictEqual(shipped.window[g], p.product_default);
-    assert.strictEqual(e.signal, p.signal); assert.strictEqual(e.pct, p.pct);
-    assert.strictEqual(e.k == null ? null : e.k, p.k);
+    const k24 = r24.positions[g].adj["Season to date"].shrunk_loso.k_all_train;
+    assert.strictEqual(M.positions[g].k_defense_all_train["Combined player-level|Full season"], k24);
+    assert.strictEqual(shipped.colorK[g], k24);
   });
 }
+
+console.log("\n4. the matchup follow-up: the defense adds nothing material to the offense baseline (so no prediction field)");
+for (const g of GROUPS) {
+  check(`${g}: offense baseline + defense effect (shrunk) misses the bar in 2019–2024 or 2025`, () => {
+    const per = ["2019-2024 (LOSO)", "2025 holdout"].map((k) => {
+      const R = M.positions[g][k], v = R._incremental_vs_offense_baseline["Combined ratio [Full season] shrunk"], base = R["Offense baseline"].MAE;
+      return { mae: v.dMAE / base <= -MATERIAL && v.dMAE_ci[1] < 0, rank: v.dRank >= MATERIAL && v.dRank_ci[0] > 0 };
+    });
+    const material = (per[0].mae && per[1].mae) || (per[0].rank && per[1].rank);
+    assert.strictEqual(material, false);
+  });
+}
+check("raw Allowed is a worse points forecast than the league average at every position, both periods", () => {
+  for (const g of GROUPS) for (const k of ["2019-2024 (LOSO)", "2025 holdout"]) {
+    const R = M.positions[g][k];
+    assert.ok(R["Raw Allowed [Full season]"].MAE > R["League average"].MAE, g + " " + k);
+  }
+});
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);

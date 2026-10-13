@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.1",
-  "label": "Stats → Pts Agst: points per game counted over games actually played (a team still to play Monday no longer reads 20% low); traded players count for the team they played for; past seasons stop at the league's last week; Allowed / Usual / vs usual with sortable headings; byes and unplayed games in the breakdown; a failed load says so with Retry instead of switching to last season; Back goes up one level."
+  "build": "2026.10.13.2",
+  "label": "Stats → Pts Agst describes games already played, not a next-game forecast: points per game over games actually played, through the latest completed game (a game in progress or not yet scored by MFL never counts); Window = Full season or Custom weeks, always named; traded players count for the team they played for; past seasons stop at the league's last week; Allowed / Usual / vs usual with sortable headings, default order most points above usual first, colour only where the gap holds up after allowing for luck; byes and unplayed games in the breakdown; a failed load says so with Retry instead of switching to last season; Back goes up one level."
 }

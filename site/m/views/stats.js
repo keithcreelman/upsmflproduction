@@ -1374,25 +1374,16 @@
   var POS_FPA = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"], ["PK", "K"], ["PN", "P"]];
   var FPA_PLURAL = { QB: "QBs", RB: "RBs", WR: "WRs", TE: "TEs", DL: "DL", LB: "LBs", DB: "DBs", PK: "kickers", PN: "punters" };
   var FPA_IDP = { DL: 1, LB: 1, DB: 1 };
-  // The default window and the next-game evidence per position, copied from the LOCKED
-  // walk-forward backtest (pipelines/analysis/pts_agst_window/locked/pts_agst_default_window.json;
-  // tests/pts_agst_default_window.test.mjs keeps these identical to it). 2019–2024 chose and the
-  // 2025 holdout confirmed: no shorter window ordered next-game matchups materially better than the
-  // full season. pct = how often the full season put two defenses in the right order for the next
-  // game, 2019–2025 (a coin flip is 50); signal = above a coin flip in both periods; k = games of
-  // shrinkage toward average before a gap is coloured (positions without a signal get no colour).
+  // Pts Agst DESCRIBES games already played; it is not a next-game forecast (Keith 2026-10-13).
+  // Default window: Full season at every position, from the LOCKED walk-forward backtest
+  // (pipelines/analysis/pts_agst_window/locked/pts_agst_default_window.json): no shorter window was
+  // materially better. The matchup follow-up (MATCHUP.md) found a defense's record adds almost
+  // nothing to the offense's own average, so there is no prediction field.
+  // FPA_COLOR_K = games of shrinkage toward average before a "vs usual" gap is coloured: the
+  // player-level Full-season k from both tests (they agree). Colour only where the gap is still 8%+.
+  // tests/pts_agst_default_window.test.mjs keeps both identical to the locked/committed results.
   var FPA_DEFAULT_WINDOW = { QB: "full", RB: "full", WR: "full", TE: "full", DL: "full", LB: "full", DB: "full", PK: "full", PN: "full" };
-  var FPA_EVIDENCE = {
-    QB: { signal: true, pct: 54, k: 50 }, RB: { signal: false, pct: 53 }, WR: { signal: false, pct: 51 },
-    TE: { signal: true, pct: 53, k: 30 }, DL: { signal: true, pct: 55, k: 20 }, LB: { signal: false, pct: 51 },
-    DB: { signal: true, pct: 52, k: 50 }, PK: { signal: false, pct: 52 }, PN: { signal: false, pct: 51 }
-  };
-  function fpaCaveat(pos) {
-    var e = FPA_EVIDENCE[pos] || {};
-    return e.signal
-      ? "A weak next-game guide: over 2019–2025 it put two defenses in the right order about " + e.pct + " times in 100 (a coin flip: 50)."
-      : "Not a reliable next-game guide at " + fpaPosLbl(pos) + ": in testing it did no better than a coin flip.";
-  }
+  var FPA_COLOR_K = { QB: 50, RB: 30, WR: 50, TE: 30, DL: 20, LB: 120, DB: 50, PK: 50, PN: 120 };
   var fpa = {
     year: "",            // "" = this season (the worker decides which that is)
     pos: "RB", range: "",            // "" = the position's default window (FPA_DEFAULT_WINDOW); "full" | "custom"
@@ -1490,11 +1481,10 @@
     var d = new Date(ko * 1000);
     return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()] + " " + fpaClock(d.toISOString());
   }
-  // Colour only where the backtest found a next-game signal, and only a gap still 8%+ after
-  // shrinking toward average by that position's k.
+  // Restrained colour: only a gap still 8%+ after shrinking toward average by the position's k.
   function fpaColored(ratio, games) {
-    var e = FPA_EVIDENCE[fpa.pos] || {}, k = e.k;
-    if (!e.signal || !k || ratio == null || !(games > 0)) return false;
+    var k = FPA_COLOR_K[fpa.pos];
+    if (!k || ratio == null || !(games > 0)) return false;
     return Math.abs((games * ratio + k) / (games + k) - 1) >= 0.08;
   }
 
@@ -1834,18 +1824,17 @@
         ? left.map(function (g) { return g.away + "–" + g.home + (g.status === "live" ? " is being played" : (g.status === "awaiting" ? " is over, MFL score not posted yet" : " (" + fpaDay(g.kickoff).split(" ")[0] + ") isn’t played yet")); }).join("; ") + ", so " + (left.length === 1 ? "it isn’t" : "they aren’t") + " counted."
         : "Wk " + inProg[inProg.length - 1] + " games still being played aren’t counted.");
     }
-    var top = fpa.pos === "PN" ? "Top = defenses that force the most punts." : ("Top = easiest matchup" + (FPA_IDP[fpa.pos] ? " for your " + who : "") + ".");
-    var txt = win + " Points " + U.escapeHtml(who) + " scored vs each " + fpaSide() + ", per game. " + U.escapeHtml(top);
+    var txt = win + " Points " + U.escapeHtml(who) + " scored vs each " + fpaSide() + ", per game. Default order: most points above usual first.";
     var at = fpaClock(d.mfl_read_at); if (at) txt += " MFL read " + at + ".";
     if (fpa.fellBack) txt = "No " + U.escapeHtml(fpa.fellBack) + " games yet, so this is " + U.escapeHtml(String(d.year)) + ". " + txt;
     var html = '<div class="ups-m-st-basis' + (fpa.fellBack ? " warn" : "") + '" id="ups-m-fpa-window">' + txt + "</div>";
     if ((d.attribution || {}).context === "error") html += '<div class="ups-m-st-basis warn">Game-day teams couldn’t be read right now, so a player who changed teams counts for his current team.</div>';
     var side = fpaSide();
-    html += '<div class="ups-m-st-setnote">' + U.escapeHtml(fpaCaveat(fpa.pos)) + " " +
+    html += '<div class="ups-m-st-setnote">This shows games already played. It isn’t a next-game forecast. Colour only where the gap holds up after allowing for luck. ' +
       '<details class="ups-m-st-more"' + (fpa.noteOpen ? " open" : "") + "><summary>About these numbers</summary><div>" +
       "Allowed = MFL points per game by the " + U.escapeHtml(who) + " who faced this " + side + "; Usual = what those same players average across these weeks. " +
       "Only final games count, and a player counts for the team he played for that day. " +
-      "Tested on 2019–2025, no shorter window (last 1–8 games) predicted the next game better than the full season, and none did much better than chance." +
+      "Tested on 2019–2025: a defense’s record didn’t predict the next game better than the offense’s own average, and no shorter window beat the full season." +
       "</div></details></div>";
     return html;
   }
@@ -2365,6 +2354,6 @@
     load(tab.alias, yr).then(function () { if (view.tab === tab.id && view.inner === "players") paint(mount); });
   }
 
-  M.statsView = { render: render, ptsAgstDefaults: { window: FPA_DEFAULT_WINDOW, evidence: FPA_EVIDENCE } };
+  M.statsView = { render: render, ptsAgstDefaults: { window: FPA_DEFAULT_WINDOW, colorK: FPA_COLOR_K } };
   M.route.registerView("stats", render);
 })();
