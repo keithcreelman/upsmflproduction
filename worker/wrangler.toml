@@ -264,6 +264,16 @@ service = "upsmflproduction"
 binding = "UPS_MFL_BACKUPS"
 bucket_name = "ups-mfl-backups"
 
+# Stats → Pts Agst finished-season store (worker/fpa_store/<FPA_ENGINE_VERSION>/<season>.json,
+# built once by pipelines/etl/scripts/build_fpa_season_store.mjs). Static files deployed WITH
+# this worker and read only through env.FPA_STORE (worker/src/fpa_engine.js). run_worker_first
+# sends every request to the worker first, as today: no file is served on a public path and
+# no route changes. Missing files → the engine computes live, as before.
+[assets]
+directory = "./fpa_store"
+binding = "FPA_STORE"
+run_worker_first = true
+
 # D1 database for Phase 3 — structured MFL data + corrections override
 # layer. Worker reads via `env.UPS_MFL_DB.prepare(...).all()`.
 # Migrations live in worker/migrations/ and are applied via
