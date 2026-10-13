@@ -29,12 +29,24 @@ C. FUTURE-ONLY PLAYERS — any player whose FIRST appearance is in week >= W mus
    check that most directly simulates truncation: for these players, weeks < W
    genuinely do not exist.
 
+READS PRODUCTION D1 — OPT-IN ONLY
+=================================
+Every read goes to the production database (wrangler d1 execute --remote). It
+only runs with --allow-prod-d1 (or UPS_ALLOW_PROD_D1_READS=1); otherwise it prints
+SKIPPED and exits 0, so a glob run of test_*.py never touches production. On
+2026-10-13 three unattended runs read 642M production rows in one day (about
+two-thirds of all D1 reads), almost all from check C's single UNION/JOIN query.
+Check C now uses four plain reads joined in Python (about 116k rows for 2024),
+and the feature build runs once and is shared by all three checks. See #1239;
+test_asof_leakage_offline_default.py proves a default run makes no D1 call.
+
 Usage:
-  python3 pipelines/etl/scripts/test_asof_leakage.py
-  python3 pipelines/etl/scripts/test_asof_leakage.py --season 2024 --week 6
+  python3 pipelines/etl/scripts/test_asof_leakage.py --allow-prod-d1
+  python3 pipelines/etl/scripts/test_asof_leakage.py --allow-prod-d1 --season 2024 --week 6
 """
 from __future__ import annotations
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -47,8 +59,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_player_week_features as B  # noqa: E402
 
 
-def check_structural(season: int, week: int) -> list[str]:
-    """A. Every SQL issued must carry the as-of predicate and no future week."""
+def check_structural(season: int, week: int) -> tuple[list[str], list]:
+    """A. Every SQL issued must carry the as-of predicate and no future week.
+
+    Returns (violations, the built rows). Checks B and C reuse those rows: a
+    feature build issues hundreds of production reads, so it runs once.
+    """
     seen: list[str] = []
     orig = AsOfContext.run
 
@@ -58,7 +74,7 @@ def check_structural(season: int, week: int) -> list[str]:
 
     AsOfContext.run = spy
     try:
-        B.build_week(season, week)
+        rows = B.build_week(season, week)
     finally:
         AsOfContext.run = orig
 
@@ -89,12 +105,11 @@ def check_structural(season: int, week: int) -> list[str]:
                 fails.append(f"FUTURE WEEK LITERAL 'week {op} {n}' "
                              f"(target W{week}, cap W{cap}): {sql[:110]}…")
     print(f"  A. structural — {len(seen)} queries issued, {len(fails)} violations")
-    return fails
+    return fails, rows
 
 
-def check_recompute(season: int, week: int, sample: int = 25) -> list[str]:
+def check_recompute(season: int, week: int, rows: list, sample: int = 25) -> list[str]:
     """B. Recompute from source with explicit bounds; require exact equality."""
-    rows = B.build_week(season, week)
     idx = {c: i for i, c in enumerate(B.COLS)}
     hi, lo3 = week - 1, max(1, week - 3)
 
@@ -119,7 +134,37 @@ def check_recompute(season: int, week: int, sample: int = 25) -> list[str]:
     return fails
 
 
-def check_future_only(season: int, week: int) -> list[str]:
+def first_weeks(ctx: AsOfContext, season: int) -> dict[str, int]:
+    """Each player's first week this season across EVERY week-grain source.
+
+    Four plain reads joined here in Python. The old version was one UNION query
+    that joined nfl_player_snaps to ff_player_ids ON pfr_id: ff_player_ids has
+    no index on pfr_id, so each snap row scanned the whole id table, about 214M
+    rows read per run. These four read about 116k (season 2024, 2026-10-13).
+    Same result: nfl_player_snaps has no NULL/'NA' pfr_id rows, and a pfr_id
+    mapped to more than one gsis_id credits each of them, exactly as the JOIN did.
+    """
+    first: dict[str, int] = {}
+
+    def keep(g, wk):
+        if g and wk is not None and (g not in first or wk < first[g]):
+            first[g] = wk
+
+    for table in ("nfl_player_weekly", "nfl_player_routes_weekly"):
+        for r in ctx.run(f"SELECT gsis_id, MIN(week) wk FROM {table}"
+                         f" WHERE season = {season} GROUP BY gsis_id"):
+            keep(r["gsis_id"], r["wk"])
+    snap_first = {r["pfr_id"]: r["wk"] for r in ctx.run(
+        f"SELECT pfr_id, MIN(week) wk FROM nfl_player_snaps"
+        f" WHERE season = {season} GROUP BY pfr_id")}
+    for r in ctx.run("SELECT pfr_id, gsis_id FROM ff_player_ids"
+                     " WHERE pfr_id IS NOT NULL AND pfr_id <> 'NA'"
+                     " AND gsis_id LIKE '00-%'"):
+        keep(r["gsis_id"], snap_first.get(r["pfr_id"]))
+    return first
+
+
+def check_future_only(season: int, week: int, rows: list) -> list[str]:
     """C. A player whose first appearance is week >= W must have no history."""
     ctx = AsOfContext(season=season, week=week)
     # "First appearance" must be computed across EVERY week-grain source, not
@@ -130,24 +175,11 @@ def check_future_only(season: int, week: int) -> list[str]:
     # routes_l1=11 at W6 — he had genuinely run 11 routes in W5 and simply
     # recorded no targets, so no player_stats row existed. The builder was
     # right; the test's premise was wrong.
-    firsts = {r["gsis_id"] for r in ctx.run(
-        f"SELECT gsis_id, MIN(wk) mn FROM ("
-        f"  SELECT gsis_id, MIN(week) wk FROM nfl_player_weekly"
-        f"   WHERE season = {season} GROUP BY gsis_id"
-        f"  UNION ALL"
-        f"  SELECT gsis_id, MIN(week) wk FROM nfl_player_routes_weekly"
-        f"   WHERE season = {season} GROUP BY gsis_id"
-        f"  UNION ALL"
-        f"  SELECT f.gsis_id, MIN(s.week) wk FROM nfl_player_snaps s"
-        f"   JOIN ff_player_ids f ON f.pfr_id = s.pfr_id"
-        f"   WHERE s.season = {season} AND COALESCE(f.gsis_id,'') LIKE '00-%'"
-        f"   GROUP BY f.gsis_id"
-        f") GROUP BY gsis_id HAVING MIN(wk) >= {week}")}
+    firsts = {g for g, wk in first_weeks(ctx, season).items() if wk >= week}
     if not firsts:
         print("  C. future-only players — none exist this week (vacuous)")
         return []
 
-    rows = B.build_week(season, week)
     idx = {c: i for i, c in enumerate(B.COLS)}
     hist = ["routes_l1", "routes_l3", "routes_l4", "routes_std",
             "targets_l1", "targets_l3", "targets_std",
@@ -183,16 +215,23 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--season", type=int, default=2024)
     ap.add_argument("--week", type=int, default=6)
+    ap.add_argument("--allow-prod-d1", action="store_true",
+                    help="required: every read goes to the production D1 database")
     args = ap.parse_args()
+
+    if not (args.allow_prod_d1 or os.environ.get("UPS_ALLOW_PROD_D1_READS") == "1"):
+        print("SKIPPED — test_asof_leakage.py reads the PRODUCTION D1 database "
+              "(hundreds of queries). Not run. To run it on purpose:\n"
+              "  python3 pipelines/etl/scripts/test_asof_leakage.py --allow-prod-d1")
+        sys.exit(0)
 
     print(f"AS-OF LEAKAGE TEST — season {args.season}, week {args.week}")
     print(f"  (a feature row for W{args.week} must be a function of "
           f"weeks < {args.week} only)\n")
 
-    fails = []
-    fails += check_structural(args.season, args.week)
-    fails += check_recompute(args.season, args.week)
-    fails += check_future_only(args.season, args.week)
+    fails, rows = check_structural(args.season, args.week)
+    fails += check_recompute(args.season, args.week, rows)
+    fails += check_future_only(args.season, args.week, rows)
 
     print()
     if fails:
