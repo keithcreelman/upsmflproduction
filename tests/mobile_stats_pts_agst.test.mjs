@@ -83,7 +83,7 @@ function boot(opt = {}) {
   };
 }
 const COLOR_K = { QB: 50, RB: 30, WR: 50, TE: 30, DL: 20, LB: 120, DB: 50, PK: 50, PN: 120 };
-const wantColoured = (pos, d) => byRank(pos, d).filter((t) => {
+const wantColored = (pos, d) => byRank(pos, d).filter((t) => {
   const c = d.teams[t][pos], g = (d.teamGames[t] || {}).games != null ? d.teamGames[t].games : c.raw.games;
   if (!c.adj || Math.round((c.adj.ratio - 1) * 100) === 0) return false;
   return Math.abs((g * c.adj.ratio + COLOR_K[pos]) / (g + COLOR_K[pos]) - 1) >= 0.08;
@@ -113,9 +113,9 @@ console.log("1. the list (RB; default window = Full season through the latest co
     assert.ok(/^BUF4 games · Wk 5 \w{3}$/.test(buf.cells[1].replace(/\s+/g, " ")), buf.cells[1]);
     assert.ok(/^ATL5 games · Wk 6 (vs |@)[A-Z]{2,3}$/.test(atl.cells[1].replace(/\s+/g, " ")), atl.cells[1]);
   });
-  await check("restrained colour on RB: only where the gap is still 8%+ after shrinking by k = 30 games (none after 4–5 games here)", () => {
+  await check("restrained color on RB: only where the gap is still 8%+ after shrinking by k = 30 games (none after 4–5 games here)", () => {
     const got = v.rows().filter((r) => r.el.querySelector(".ups-m-tr.up, .ups-m-tr.dn")).map((r) => r.tm);
-    assert.deepStrictEqual(got.sort(), wantColoured("RB", FX.list_auto).sort());
+    assert.deepStrictEqual(got.sort(), wantColored("RB", FX.list_auto).sort());
   });
   await check("the active window is named: Full season · Wks 1–5 through the latest completed game; the unplayed game is said not to count", () => {
     const t = v.mount.querySelector("#ups-m-fpa-window").textContent.replace(/\s+/g, " ");
@@ -131,13 +131,13 @@ console.log("1. the list (RB; default window = Full season through the latest co
   });
   await check("says plainly it describes games already played, not a next-game forecast; About ≤3 sentences; no Alw/Norm/Δ%", () => {
     const t = v.mount.querySelector("#ups-m-fpa-notes").textContent.replace(/\s+/g, " ");
-    assert.ok(/This shows games already played\. It isn’t a next-game forecast\. Colour only where the gap holds up after allowing for luck\./.test(t), t);
+    assert.ok(/This shows games already played\. It isn’t a next-game forecast\. Color appears only when the difference remains large after adjusting for small sample sizes\./.test(t), t);
     const about = v.mount.querySelector(".ups-m-st-more div").textContent;
     assert.ok(about.split(/(?<=\.)\s/).length <= 3, about);
     assert.ok(/a defense’s record didn’t predict the next game better than the offense’s own average, and no shorter window beat the full season\./.test(about), about);
     assert.ok(!/\bAlw\b|\bNorm\b|Δ%/.test(v.text()));
   });
-  await check("controls are labelled: Season / Window (Full season · Custom weeks); Custom adds From / To with unplayed weeks disabled", async () => {
+  await check("controls are labeled: Season / Window (Full season · Custom weeks); Custom adds From / To with unplayed weeks disabled", async () => {
     let labels = v.mount.querySelectorAll(".ups-m-fpa-tools label span").map((s) => s.textContent);
     assert.deepStrictEqual(labels, ["Season", "Window"]);
     assert.deepStrictEqual(v.mount.querySelectorAll("#ups-m-fpa-range option").map((o) => o.textContent), ["Full season", "Custom weeks"]);
@@ -159,24 +159,24 @@ console.log("1. the list (RB; default window = Full season through the latest co
     assert.strictEqual(v.requests.length, before);
     assert.strictEqual(v.mount.querySelector('[data-fpapos="RB"]').getAttribute("aria-pressed"), "true");
   });
-  await check("all nine positions: the same descriptive notes (no 'easiest', 'guide', 'coin flip', Expected or Prediction) and colour only where the gap survives that position's k", async () => {
+  await check("all nine positions: the same descriptive notes (no 'easiest', 'guide', 'coin flip', Expected or Prediction) and color only where the gap survives that position's k", async () => {
     for (const pos of ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"]) {
       v.mount.querySelector(`[data-fpapos="${pos}"]`).click(); await settle();
       const notes = v.mount.querySelector("#ups-m-fpa-notes").textContent.replace(/\s+/g, " ");
       assert.ok(/Default order: most points above usual first\./.test(notes) && /It isn’t a next-game forecast\./.test(notes), pos + ": " + notes);
       assert.ok(!/easiest|easy matchup|guide|coin flip|\bExpected\b|Prediction|Projected|force the most punts/i.test(v.text()), pos);
       const got = v.rows().filter((r) => r.el.querySelector(".ups-m-tr.up, .ups-m-tr.dn")).map((r) => r.tm);
-      assert.deepStrictEqual(got.sort(), wantColoured(pos, FX.list_auto).sort(), pos);
+      assert.deepStrictEqual(got.sort(), wantColored(pos, FX.list_auto).sort(), pos);
     }
   });
-  await check("a big gap is coloured at a position that used to get none (RB ×2.0 over 5 games → +14% after k = 30); ×1.4 isn't (+6%)", async () => {
+  await check("a big gap is colored at a position that used to get none (RB ×2.0 over 5 games → +14% after k = 30); ×1.4 isn't (+6%)", async () => {
     const d = JSON.parse(JSON.stringify(FX.list_auto));
     const [a, b] = byRank("RB", d).filter((t) => d.teamGames[t].games === 5);
     d.teams[a].RB.adj.ratio = 2.0; d.teams[b].RB.adj.ratio = 1.4;
     const w = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? d : null });
     await w.openBoard();
-    const coloured = w.rows().filter((r) => r.el.querySelector(".ups-m-tr.up")).map((r) => r.tm);
-    assert.ok(coloured.includes(a) && !coloured.includes(b), coloured.join());
+    const colored = w.rows().filter((r) => r.el.querySelector(".ups-m-tr.up")).map((r) => r.tm);
+    assert.ok(colored.includes(a) && !colored.includes(b), colored.join());
   });
   await check("DL is the OFFENSE the linemen faced: heading 'Offense', no defense wording", async () => {
     v.mount.querySelector('[data-fpapos="DL"]').click(); await settle();
@@ -327,7 +327,7 @@ console.log("\n5. failures, freshness, route guard");
   });
   const pre = boot({ answer: (u) => (u.pathname === "/api/fantasy-points-against" && !u.searchParams.get("YEAR")) ? { ok: true, year: "2027", season: { state: "not_started" }, teams: {}, weeksUsed: [] } : null });
   await pre.openBoard();
-  await check("first open before a season starts: last season, LABELLED, never silently", () => {
+  await check("first open before a season starts: last season, LABELED, never silently", () => {
     assert.ok(pre.fpaGets().some((x) => /YEAR=2026/.test(x.url)), pre.fpaGets().map((x) => x.url).join());
     assert.ok(/No 2027 games yet, so this is 2026\./.test(pre.mount.querySelector("#ups-m-fpa-notes").textContent));
   });

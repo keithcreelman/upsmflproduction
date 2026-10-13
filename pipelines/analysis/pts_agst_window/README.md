@@ -98,5 +98,5 @@ python3 matchup_example.py RB IND nflSchedule_w6.json   # worked example for one
 
 - **Positions** are MFL's season-end positions.
 - **Raiders, 2018–19:** 54 Raiders player-games are credited to the season-end team.
-- **Cancelled game:** the 2022 Wk 17 BUF–CIN game counts as played.
+- **Canceled game:** the 2022 Wk 17 BUF–CIN game counts as played.
 - **Fixed usual:** the predictive test uses each player's usual *entering* the game. The board's descriptive Usual includes the game itself, by design.

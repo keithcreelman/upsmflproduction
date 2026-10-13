@@ -6,7 +6,7 @@
 //     pts_agst_default_window.json  the product rule applied (make_product.py)
 // This test (1) proves the locked files weren't edited after the fact (hashes chain together),
 // (2) re-derives the product defaults in JS from the locked numbers, (3) requires the mobile
-// app's FPA_DEFAULT_WINDOW and colour shrink FPA_COLOR_K to be exactly that, and (4) re-derives
+// app's FPA_DEFAULT_WINDOW and color shrink FPA_COLOR_K to be exactly that, and (4) re-derives
 // from the matchup follow-up (matchup_results.json) that a defense's record adds nothing material
 // to the offense's own average at any position, which is why Pts Agst has no prediction field.
 //   node tests/pts_agst_default_window.test.mjs

@@ -8,7 +8,7 @@ Product rule (on top of the pre-registered statistical rule in locked/selection.
     above 0. Otherwise the default is Full season (through the latest completed game).
   * "signal" = the default's rank accuracy is above a coin flip (95% interval above 0) on BOTH periods.
   * pct = the default's pooled 2019–2025 rank accuracy, in whole percent (for the screen).
-  * k   = the LOSO-tuned shrinkage (games) of Full season on 2019–2024, used only to decide colour."""
+  * k   = the LOSO-tuned shrinkage (games) of Full season on 2019–2024, used only to decide color."""
 import json, hashlib, os
 HERE = os.path.dirname(os.path.abspath(__file__)); L = os.path.join(HERE, "locked")
 MATERIAL_GAIN = 0.02

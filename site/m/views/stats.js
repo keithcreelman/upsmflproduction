@@ -1379,8 +1379,8 @@
   // (pipelines/analysis/pts_agst_window/locked/pts_agst_default_window.json): no shorter window was
   // materially better. The matchup follow-up (MATCHUP.md) found a defense's record adds almost
   // nothing to the offense's own average, so there is no prediction field.
-  // FPA_COLOR_K = games of shrinkage toward average before a "vs usual" gap is coloured: the
-  // player-level Full-season k from both tests (they agree). Colour only where the gap is still 8%+.
+  // FPA_COLOR_K = games of shrinkage toward average before a "vs usual" gap is colored: the
+  // player-level Full-season k from both tests (they agree). Color only where the gap is still 8%+.
   // tests/pts_agst_default_window.test.mjs keeps both identical to the locked/committed results.
   var FPA_DEFAULT_WINDOW = { QB: "full", RB: "full", WR: "full", TE: "full", DL: "full", LB: "full", DB: "full", PK: "full", PN: "full" };
   var FPA_COLOR_K = { QB: 50, RB: 30, WR: 50, TE: 30, DL: 20, LB: 120, DB: 50, PK: 50, PN: 120 };
@@ -1481,7 +1481,7 @@
     var d = new Date(ko * 1000);
     return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()] + " " + fpaClock(d.toISOString());
   }
-  // Restrained colour: only a gap still 8%+ after shrinking toward average by the position's k.
+  // Restrained color: only a gap still 8%+ after shrinking toward average by the position's k.
   function fpaColored(ratio, games) {
     var k = FPA_COLOR_K[fpa.pos];
     if (!k || ratio == null || !(games > 0)) return false;
@@ -1830,7 +1830,7 @@
     var html = '<div class="ups-m-st-basis' + (fpa.fellBack ? " warn" : "") + '" id="ups-m-fpa-window">' + txt + "</div>";
     if ((d.attribution || {}).context === "error") html += '<div class="ups-m-st-basis warn">Game-day teams couldn’t be read right now, so a player who changed teams counts for his current team.</div>';
     var side = fpaSide();
-    html += '<div class="ups-m-st-setnote">This shows games already played. It isn’t a next-game forecast. Colour only where the gap holds up after allowing for luck. ' +
+    html += '<div class="ups-m-st-setnote">This shows games already played. It isn’t a next-game forecast. Color appears only when the difference remains large after adjusting for small sample sizes. ' +
       '<details class="ups-m-st-more"' + (fpa.noteOpen ? " open" : "") + "><summary>About these numbers</summary><div>" +
       "Allowed = MFL points per game by the " + U.escapeHtml(who) + " who faced this " + side + "; Usual = what those same players average across these weeks. " +
       "Only final games count, and a player counts for the team he played for that day. " +
