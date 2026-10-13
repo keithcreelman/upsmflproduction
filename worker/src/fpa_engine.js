@@ -193,14 +193,16 @@ function nflvTeamFor(ctx, pid, w) {
 // counting from Week 1.
 export function fpaWeekStates(mfl, nowMs) {
   const weekState = {}, scored = fpaScoredTeams(mfl);
-  let lastComplete = 0, run = true;
+  let lastComplete = 0, latestFinal = 0, run = true;
   for (let w = 1; w <= mfl.endWeek; w++) {
     const ms = (mfl.schedByWeek[w] || []).filter((m) => arr(m.team).length >= 2);
     const st = ms.map((m) => fpaGameStatus(m, nowMs, scored[w] || null));
     weekState[w] = ms.length && st.every((x) => x === "final") ? "final" : (st.some((x) => x !== "scheduled") ? "partial" : "scheduled");
     if (run && weekState[w] === "final") lastComplete = w; else run = false;
+    if (st.some((x) => x === "final")) latestFinal = w;
   }
-  return { weekState, lastComplete };
+  // latestFinal = the latest week with at least one FINAL game ("through the latest completed game").
+  return { weekState, lastComplete, latestFinal };
 }
 
 export function fpaPlayerIndex(players) {
@@ -573,17 +575,15 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   }
   const { ctx: seasonCtx, state: ctxState } = await fpaSeasonContextCached(env, ctx, yr, past);
 
-  // The window: week_max omitted → through the last COMPLETE week (the Lineup
-  // chip's basis); if no week is complete yet, the week being played.
+  // The window: week_max omitted = FULL SEASON through the latest COMPLETED game:
+  // every final game so far, including the final games of a week still being played
+  // (its live and unplayed games never count). Chosen by the 2019–2025 walk-forward
+  // backtest (pipelines/analysis/pts_agst_window): no shorter window ordered next-game
+  // matchups materially better than the full season, at any position.
   const ws = fpaWeekStates(mfl, now);
   let hi;
   if (!auto) hi = Math.min(mfl.endWeek, Math.max(wMin, wMaxRaw));
-  else if (ws.lastComplete >= wMin) hi = ws.lastComplete;
-  else {
-    let firstOpen = wMin;
-    for (let w = wMin; w <= mfl.endWeek; w++) { if (ws.weekState[w] !== "final") { firstOpen = w; break; } }
-    hi = Math.min(mfl.endWeek, firstOpen);
-  }
+  else hi = Math.min(mfl.endWeek, Math.max(wMin, ws.latestFinal));
   const lo = Math.min(wMin, mfl.endWeek);
   const E = fpaCompute(mfl, seasonCtx, { wMin: lo, wMax: hi, nowMs: now, baseline: FPA_BASELINE });
   const facts = fpaSeasonFacts(E);
@@ -595,7 +595,7 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
     ok: true, engine: FPA_ENGINE_VERSION, year: yr, baseline: FPA_BASELINE,
     window: { week_min: lo, week_max: hi, requested_max: auto ? null : wMaxRaw, auto },
     weeksUsed,
-    season: { state: facts.seasonState, endWeek: mfl.endWeek, lastCompleteWeek: ws.lastComplete, weeks: ws.weekState },
+    season: { state: facts.seasonState, endWeek: mfl.endWeek, lastCompleteWeek: ws.lastComplete, latestFinalWeek: ws.latestFinal, weeks: ws.weekState },
     weeks_final: facts.weeksFinal, weeks_in_progress: facts.weeksPartial,
     attribution: { ...E.attribution, context: ctxState, nflverseThrough: seasonCtx ? seasonCtx.through : 0 },
     as_of: asOf, mfl_read_at: new Date(mfl.readAtMs).toISOString(),

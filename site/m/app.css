@@ -1378,7 +1378,7 @@ button.ups-m-busy::before,
 .ups-m-fpa-table { display: flex; flex-direction: column; }
 /* Stats → Pts Agst (review 2026-10-12). The list uses the Players board's rows,
    headings and pin (.ups-m-st-*); these rules only add what Pts Agst needs. */
-.ups-m-st-tools .ups-m-fpa-filters { grid-template-columns: 1.1fr 1fr 1.25fr; }
+.ups-m-st-tools .ups-m-fpa-filters { grid-template-columns: 1fr 1fr; }
 .ups-m-fpa-chips { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; overflow: visible; }
 .ups-m-st-pin .ups-m-fpa-chips .ups-m-pos-chip { padding: 7px 0; min-height: 32px; text-align: center; font-size: 12px; }
 .ups-m-fpa-list, .ups-m-fpa-head { --cols: 24px minmax(0, 1fr) 46px 42px 54px; }

@@ -1374,25 +1374,29 @@
   var POS_FPA = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["DL", "DL"], ["LB", "LB"], ["DB", "DB"], ["PK", "K"], ["PN", "P"]];
   var FPA_PLURAL = { QB: "QBs", RB: "RBs", WR: "WRs", TE: "TEs", DL: "DL", LB: "LBs", DB: "DBs", PK: "kickers", PN: "punters" };
   var FPA_IDP = { DL: 1, LB: 1, DB: 1 };
-  // How much of a team's "vs usual" carried into later weeks, 2019–2025 (seven
-  // seasons, UPS scoring; review 2026-10-12). k = games of evidence a gap needs
-  // before half of it is real; the colour only goes on a gap still 8%+ after
-  // shrinking toward average by k, and each position gets one plain caveat.
-  var FPA_SHRINK_K = { QB: 20, RB: 30, WR: 50, TE: 25, DL: 10, LB: 30, DB: 20, PK: 50, PN: 100 };
-  var FPA_CAVEAT = {
-    QB: "A small nudge at most: trust the quarterback over the matchup.",
-    RB: "Mostly noise: a back’s workload matters far more than the defense.",
-    WR: "Almost pure noise for receivers: leave it out of start/sit calls.",
-    TE: "A small nudge at most: use it only to break a close call.",
-    DL: "The steadiest matchup in the game, worth a look from about Wk 12.",
-    LB: "Mostly noise: tackles follow the linebacker more than the opponent.",
-    DB: "A small, slow signal: use it only to break a close call.",
-    PK: "Mostly noise for kickers: scoring swings swamp the opponent.",
-    PN: "Pure noise for punters: ignore the opponent here."
+  // The default window and the next-game evidence per position, copied from the LOCKED
+  // walk-forward backtest (pipelines/analysis/pts_agst_window/locked/pts_agst_default_window.json;
+  // tests/pts_agst_default_window.test.mjs keeps these identical to it). 2019–2024 chose and the
+  // 2025 holdout confirmed: no shorter window ordered next-game matchups materially better than the
+  // full season. pct = how often the full season put two defenses in the right order for the next
+  // game, 2019–2025 (a coin flip is 50); signal = above a coin flip in both periods; k = games of
+  // shrinkage toward average before a gap is coloured (positions without a signal get no colour).
+  var FPA_DEFAULT_WINDOW = { QB: "full", RB: "full", WR: "full", TE: "full", DL: "full", LB: "full", DB: "full", PK: "full", PN: "full" };
+  var FPA_EVIDENCE = {
+    QB: { signal: true, pct: 54, k: 50 }, RB: { signal: false, pct: 53 }, WR: { signal: false, pct: 51 },
+    TE: { signal: true, pct: 53, k: 30 }, DL: { signal: true, pct: 55, k: 20 }, LB: { signal: false, pct: 51 },
+    DB: { signal: true, pct: 52, k: 50 }, PK: { signal: false, pct: 52 }, PN: { signal: false, pct: 51 }
   };
+  function fpaCaveat(pos) {
+    var e = FPA_EVIDENCE[pos] || {};
+    return e.signal
+      ? "A weak next-game guide: over 2019–2025 it put two defenses in the right order about " + e.pct + " times in 100 (a coin flip: 50)."
+      : "Not a reliable next-game guide at " + fpaPosLbl(pos) + ": in testing it did no better than a coin flip.";
+  }
   var fpa = {
     year: "",            // "" = this season (the worker decides which that is)
-    pos: "RB", wkMin: 1, wkMax: 0,   // wkMax 0 = through the latest complete week
+    pos: "RB", range: "",            // "" = the position's default window (FPA_DEFAULT_WINDOW); "full" | "custom"
+    wkMin: 1, wkMax: 0,              // Custom only; wkMax 0 = through the latest completed game
     sort: { key: "", dir: "desc" },
     team: null, week: null,          // the drill: team → week
     cache: {}, err: {}, inflight: {},
@@ -1402,7 +1406,9 @@
   };
   var FPA_STALE_MS = 5 * 60 * 1000;
   function fpaYearParam() { return fpa.year ? "YEAR=" + encodeURIComponent(fpa.year) + "&" : ""; }
-  function fpaKey() { return (fpa.year || "cur") + ":" + fpa.wkMin + "-" + (fpa.wkMax || "auto"); }
+  function fpaRange() { return fpa.range || FPA_DEFAULT_WINDOW[fpa.pos] || "full"; }
+  function fpaWeekParams() { return fpaRange() === "custom" ? "week_min=" + fpa.wkMin + (fpa.wkMax ? "&week_max=" + fpa.wkMax : "") : "week_min=1"; }
+  function fpaKey() { return (fpa.year || "cur") + ":" + (fpaRange() === "custom" ? fpa.wkMin + "-" + (fpa.wkMax || "auto") : "full"); }
   function fpaDetailKey() { return fpaKey() + "|" + fpa.pos + "|" + fpa.team; }
   function fpaPosLbl(p) { p = p || fpa.pos; return (POS_FPA.filter(function (x) { return x[0] === p; })[0] || ["", p])[1]; }
   function fpaSide(p) { return FPA_IDP[p || fpa.pos] ? "offense" : "defense"; }
@@ -1445,12 +1451,12 @@
   function fpaDetailData() { var h = fpa.dcache[fpaDetailKey()]; return h ? h.d : null; }
   function loadFpa() {
     return fpaLoad(fpa.cache, fpa.err, fpa.inflight, fpaKey(),
-      "/api/fantasy-points-against?" + fpaYearParam() + "week_min=" + fpa.wkMin + (fpa.wkMax ? "&week_max=" + fpa.wkMax : ""));
+      "/api/fantasy-points-against?" + fpaYearParam() + fpaWeekParams());
   }
   function loadFpaDetail() {
     return fpaLoad(fpa.dcache, fpa.derr, fpa.dinflight, fpaDetailKey(),
       "/api/fpa-detail?" + fpaYearParam() + "team=" + encodeURIComponent(fpa.team) + "&pos=" + encodeURIComponent(fpa.pos) +
-      "&week_min=" + fpa.wkMin + (fpa.wkMax ? "&week_max=" + fpa.wkMax : ""));
+      "&" + fpaWeekParams());
   }
   function loadFpaYears() {
     if (fpa.years) return Promise.resolve(fpa.years);
@@ -1484,10 +1490,11 @@
     var d = new Date(ko * 1000);
     return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()] + " " + fpaClock(d.toISOString());
   }
-  // Colour only a gap that is still 8%+ after shrinking toward average.
+  // Colour only where the backtest found a next-game signal, and only a gap still 8%+ after
+  // shrinking toward average by that position's k.
   function fpaColored(ratio, games) {
-    var k = FPA_SHRINK_K[fpa.pos] || 50;
-    if (ratio == null || !(games > 0)) return false;
+    var e = FPA_EVIDENCE[fpa.pos] || {}, k = e.k;
+    if (!e.signal || !k || ratio == null || !(games > 0)) return false;
     return Math.abs((games * ratio + k) / (games + k) - 1) >= 0.08;
   }
 
@@ -1784,23 +1791,29 @@
   // (the Players board's layout, Keith 2026-10-09).
   function fpaToolbar(d) {
     var season = (d && d.season) || {};
-    var endWeek = season.endWeek || 17, states = season.weeks || {}, lastC = season.lastCompleteWeek || 0;
+    var endWeek = season.endWeek || 17, states = season.weeks || {};
     var yrs = (fpa.years || []).slice(), shown = d ? String(d.year) : (fpa.year || "");
     if (shown && yrs.indexOf(shown) < 0) { yrs.push(shown); yrs.sort().reverse(); }
     var yrSel = '<label class="ups-m-st-sel"><span>Season</span><select class="ups-m-players-filter" id="ups-m-fpa-year">' +
       (yrs.length ? yrs : [shown || "—"]).map(function (y) { return '<option value="' + U.escapeHtml(y) + '"' + (y === shown ? " selected" : "") + ">" + U.escapeHtml(y) + "</option>"; }).join("") +
       "</select></label>";
-    var from = "", to = '<option value="0"' + (fpa.wkMax ? "" : " selected") + ">Latest</option>";
-    for (var w = 1; w <= endWeek; w++) {
-      var st = states[w], open = st === "scheduled";
-      from += '<option value="' + w + '"' + (w === fpa.wkMin ? " selected" : "") + (open ? " disabled" : "") + ">Wk " + w + (open ? " · not played" : "") + "</option>";
-      to += '<option value="' + w + '"' + (w === fpa.wkMax ? " selected" : "") + (open ? " disabled" : "") + ">Wk " + w + (st === "partial" ? " · in progress" : (open ? " · not played" : "")) + "</option>";
+    var custom = fpaRange() === "custom";
+    var winSel = '<label class="ups-m-st-sel"><span>Window</span><select class="ups-m-players-filter" id="ups-m-fpa-range">' +
+      '<option value="full"' + (custom ? "" : " selected") + ">Full season</option>" +
+      '<option value="custom"' + (custom ? " selected" : "") + ">Custom weeks</option></select></label>";
+    var weeks = "";
+    if (custom) {
+      var from = "", to = '<option value="0"' + (fpa.wkMax ? "" : " selected") + ">Latest game</option>";
+      for (var w = 1; w <= endWeek; w++) {
+        var st = states[w], open = st === "scheduled";
+        from += '<option value="' + w + '"' + (w === fpa.wkMin ? " selected" : "") + (open ? " disabled" : "") + ">Wk " + w + (open ? " · not played" : "") + "</option>";
+        to += '<option value="' + w + '"' + (w === fpa.wkMax ? " selected" : "") + (open ? " disabled" : "") + ">Wk " + w + (st === "partial" ? " · in progress" : (open ? " · not played" : "")) + "</option>";
+      }
+      weeks = '<label class="ups-m-st-sel"><span>From</span><select class="ups-m-players-filter" id="ups-m-fpa-wmin">' + from + "</select></label>" +
+        '<label class="ups-m-st-sel"><span>To</span><select class="ups-m-players-filter" id="ups-m-fpa-wmax">' + to + "</select></label>";
     }
     return '<div class="ups-m-st-tools ups-m-fpa-tools">' +
-      '<div class="ups-m-st-filters ups-m-fpa-filters">' + yrSel +
-        '<label class="ups-m-st-sel"><span>From</span><select class="ups-m-players-filter" id="ups-m-fpa-wmin">' + from + "</select></label>" +
-        '<label class="ups-m-st-sel"><span>To</span><select class="ups-m-players-filter" id="ups-m-fpa-wmax">' + to + "</select></label>" +
-      "</div>" +
+      '<div class="ups-m-st-filters ups-m-fpa-filters">' + yrSel + winSel + weeks + "</div>" +
       '<div id="ups-m-fpa-notes">' + fpaNotes(d) + "</div>" +
     "</div>";
   }
@@ -1808,29 +1821,30 @@
   // position's caveat, and three sentences behind "About these numbers".
   function fpaNotes(d) {
     if (!d || !(d.weeksUsed || []).length) return "";
-    var used = d.weeksUsed, w = d.window || {}, season = d.season || {};
-    var who = FPA_PLURAL[fpa.pos];
-    var top = fpa.pos === "PN" ? "Top = defenses that force the most punts." : ("Top = easiest matchup" + (FPA_IDP[fpa.pos] ? " for your " + who : "") + ".");
-    var txt = "<b>Points " + U.escapeHtml(who) + " scored vs each " + fpaSide() + ", per game.</b> " + U.escapeHtml(top) + " " + fpaWeeksLabel(used[0], used[used.length - 1]);
+    var used = d.weeksUsed, who = FPA_PLURAL[fpa.pos], custom = fpaRange() === "custom";
+    // The active window, always named: Full season = every final game so far, through the latest
+    // completed game; a game still being played (or not yet scored by MFL) never counts.
+    var span = fpaWeeksLabel(used[0], used[used.length - 1]);
+    var win = custom ? "<b>Window: Custom</b> · " + span + "." : "<b>Window: Full season</b> · " + span + ", through the latest completed game.";
     var inProg = d.weeks_in_progress || [];
     if (inProg.length) {
-      var left = (d.pending || []).filter(function (g) { return g.wk === inProg[0]; });
-      txt += ', <span class="ups-m-st-live"></span>Wk ' + inProg[0] + " in progress (final games only" +
-        (left.length && left.length <= 2 ? "; " + left.map(function (g) { return g.away + "–" + g.home + (g.status === "live" ? " being played" : (g.status === "awaiting" ? " over, MFL score not posted yet" : " " + fpaDay(g.kickoff).split(" ")[0] + " to come")); }).join(", ") : "") + ").";
-    } else txt += ", final.";
-    var next = w.week_max + 1;
-    if (w.auto && season.weeks && season.weeks[next] === "partial") txt += " Wk " + next + " is in progress: choose To: Wk " + next + " to add it.";
+      var left = (d.pending || []).filter(function (g) { return g.wk === inProg[inProg.length - 1]; });
+      win += ' <span class="ups-m-st-live"></span>' + (left.length && left.length <= 3
+        ? left.map(function (g) { return g.away + "–" + g.home + (g.status === "live" ? " is being played" : (g.status === "awaiting" ? " is over, MFL score not posted yet" : " (" + fpaDay(g.kickoff).split(" ")[0] + ") isn’t played yet")); }).join("; ") + ", so " + (left.length === 1 ? "it isn’t" : "they aren’t") + " counted."
+        : "Wk " + inProg[inProg.length - 1] + " games still being played aren’t counted.");
+    }
+    var top = fpa.pos === "PN" ? "Top = defenses that force the most punts." : ("Top = easiest matchup" + (FPA_IDP[fpa.pos] ? " for your " + who : "") + ".");
+    var txt = win + " Points " + U.escapeHtml(who) + " scored vs each " + fpaSide() + ", per game. " + U.escapeHtml(top);
     var at = fpaClock(d.mfl_read_at); if (at) txt += " MFL read " + at + ".";
     if (fpa.fellBack) txt = "No " + U.escapeHtml(fpa.fellBack) + " games yet, so this is " + U.escapeHtml(String(d.year)) + ". " + txt;
-    var html = '<div class="ups-m-st-basis' + (fpa.fellBack ? " warn" : "") + '">' + txt + "</div>";
+    var html = '<div class="ups-m-st-basis' + (fpa.fellBack ? " warn" : "") + '" id="ups-m-fpa-window">' + txt + "</div>";
     if ((d.attribution || {}).context === "error") html += '<div class="ups-m-st-basis warn">Game-day teams couldn’t be read right now, so a player who changed teams counts for his current team.</div>';
-    var cav = FPA_CAVEAT[fpa.pos] || "";
     var side = fpaSide();
-    html += '<div class="ups-m-st-setnote">' + (cav ? U.escapeHtml(cav) + " " : "") +
+    html += '<div class="ups-m-st-setnote">' + U.escapeHtml(fpaCaveat(fpa.pos)) + " " +
       '<details class="ups-m-st-more"' + (fpa.noteOpen ? " open" : "") + "><summary>About these numbers</summary><div>" +
       "Allowed = MFL points per game by the " + U.escapeHtml(who) + " who faced this " + side + "; Usual = what those same players average across these weeks. " +
       "Only final games count, and a player counts for the team he played for that day. " +
-      "In 2019–2025 these gaps rarely carried into later weeks, so colour marks only the few big enough to have held up." +
+      "Tested on 2019–2025, no shorter window (last 1–8 games) predicted the next game better than the full season, and none did much better than chance." +
       "</div></details></div>";
     return html;
   }
@@ -1914,7 +1928,7 @@
       var lastC = season.lastCompleteWeek || 0;
       return '<div class="ups-m-stub" role="status"><div>' + fpaWeeksLabel(fpa.wkMin, fpa.wkMax || fpa.wkMin) + " of " + U.escapeHtml(String(d.year)) + " haven’t been played yet" +
         (lastC ? ". The latest final week is Wk " + lastC + "." : ".") + "</div>" +
-        '<button type="button" class="ups-m-st-searchall" data-fpa="latest">Show the latest weeks ›</button></div>';
+        '<button type="button" class="ups-m-st-searchall" data-fpa="latest">Show the full season ›</button></div>';
     }
     if (!rows.length) return '<div class="ups-m-stub" role="status"><div>No ' + U.escapeHtml(FPA_PLURAL[fpa.pos]) + " scored in these weeks.</div></div>";
     var body = rows.map(function (r) {
@@ -2041,7 +2055,8 @@
     root.__upsFpaBound = true;
     var onSel = function (id, fn) { var el = document.getElementById(id); if (el) el.addEventListener("change", function () { fn(this.value); }); };
     // A new season starts at its full range (Wk 1 → latest final).
-    onSel("ups-m-fpa-year", function (v) { fpa.year = v; fpa.fellBack = ""; fpa.wkMin = 1; fpa.wkMax = 0; fpa.team = null; fpa.week = null; fpaGo(); });
+    onSel("ups-m-fpa-year", function (v) { fpa.year = v; fpa.fellBack = ""; fpa.range = ""; fpa.wkMin = 1; fpa.wkMax = 0; fpa.team = null; fpa.week = null; fpaGo(); });
+    onSel("ups-m-fpa-range", function (v) { fpa.range = v === "custom" ? "custom" : "full"; if (fpa.range === "custom") { fpa.wkMin = 1; fpa.wkMax = 0; } fpaGo(); });
     onSel("ups-m-fpa-wmin", function (v) { fpa.wkMin = parseInt(v, 10) || 1; if (fpa.wkMax && fpa.wkMax < fpa.wkMin) fpa.wkMax = fpa.wkMin; fpaGo(); });
     onSel("ups-m-fpa-wmax", function (v) { fpa.wkMax = parseInt(v, 10) || 0; if (fpa.wkMax && fpa.wkMax < fpa.wkMin) fpa.wkMin = fpa.wkMax; fpaGo(); });
     var notes = document.getElementById("ups-m-fpa-notes");
@@ -2079,7 +2094,7 @@
       if ((el = t.closest("[data-fpapid]"))) { var pid = el.getAttribute("data-fpapid"); if (pid && M.sheet) M.sheet.open(pid); return true; }
       if ((el = t.closest("[data-fpaback]"))) { fpaBack(el.getAttribute("data-fpaback")); return true; }
       if ((el = t.closest('[data-fpa="retry"]'))) { fpaGo(); return true; }
-      if ((el = t.closest('[data-fpa="latest"]'))) { fpa.wkMin = 1; fpa.wkMax = 0; fpaGo(); return true; }
+      if ((el = t.closest('[data-fpa="latest"]'))) { fpa.range = "full"; fpa.wkMin = 1; fpa.wkMax = 0; fpaGo(); return true; }
       return false;
     };
     root.addEventListener("click", function (e) { act(e); });
@@ -2349,6 +2364,6 @@
     load(tab.alias, yr).then(function () { if (view.tab === tab.id && view.inner === "players") paint(mount); });
   }
 
-  M.statsView = { render: render };
+  M.statsView = { render: render, ptsAgstDefaults: { window: FPA_DEFAULT_WINDOW, evidence: FPA_EVIDENCE } };
   M.route.registerView("stats", render);
 })();

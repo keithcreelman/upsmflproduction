@@ -184,10 +184,13 @@ await check("a season that hasn't started answers not_started without reading MF
   const j = await r.json();
   assert.strictEqual(j.season.state, "not_started"); assert.strictEqual(n, 0);
 });
-await check("no week_max = through the last complete week (4); response keeps every field the desktop workbench reads", async () => {
+await check("no week_max = FULL SEASON through the latest completed game (Wk 5's final games; BUF @ LAR not counted); response keeps every field the desktop workbench reads", async () => {
   const r = await handle("/api/fantasy-points-against?YEAR=2026&week_min=1", FIX);
-  assert.strictEqual(r.status, 200); assert.strictEqual(r.json.window.week_max, 4); assert.strictEqual(r.json.window.auto, true);
-  assert.deepStrictEqual(r.json.weeksUsed, [1, 2, 3, 4]);
+  assert.strictEqual(r.status, 200); assert.strictEqual(r.json.window.week_max, 5); assert.strictEqual(r.json.window.auto, true);
+  assert.deepStrictEqual(r.json.weeksUsed, [1, 2, 3, 4, 5]);
+  assert.strictEqual(r.json.season.latestFinalWeek, 5); assert.strictEqual(r.json.season.lastCompleteWeek, 4);
+  assert.strictEqual(r.json.teams.BUF.QB.raw.games, 4); assert.strictEqual(r.json.teams.BUF.QB.raw.perGame, 27.9);   // the unplayed game never counts
+  assert.deepStrictEqual(r.json.pending.map((g) => g.away + "@" + g.home), ["BUF@LAR"]);
   const c = r.json.teams.BUF.QB;
   for (const k of ["total", "perGame", "oppNorm", "games"]) assert.ok(k in c.raw, k);
   for (const k of ["rank", "of", "ratio"]) assert.ok(k in c.adj, k);

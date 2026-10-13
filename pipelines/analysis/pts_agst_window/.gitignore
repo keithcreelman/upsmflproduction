@@ -1,0 +1,9 @@
+# working files written by the scripts (inputs and intermediates are rebuilt, never committed)
+dataset.json
+targets.pkl
+/selection.json
+/final_defaults.json
+/results_2019_2024.json
+/results_2025.json
+__pycache__/
+report.html

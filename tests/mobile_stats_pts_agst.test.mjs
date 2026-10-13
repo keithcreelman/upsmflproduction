@@ -1,6 +1,7 @@
 // Stats → Pts Agst on mobile (site/m/views/stats.js), run for real in node:vm on a tree
 // DOM, fed the draft engine's own responses for the 2026-10-12 23:12 UTC pull (Wk 5 in
-// progress: Monday night BUF @ LAR not yet played). Review 2026-10-12: no silent switch
+// progress: Monday night BUF @ LAR not yet played). Default window = Full season through the latest
+// completed game (2019–2025 walk-forward backtest). Review 2026-10-12: no silent switch
 // to last season, failures never cached, paints only while the owner is on the board,
 // drill levels in history, sortable headings, accessible rows, Allowed / Usual / vs usual.
 //   node tests/mobile_stats_pts_agst.test.mjs
@@ -57,9 +58,9 @@ function boot(opt = {}) {
       if (u.pathname === "/api/league-years") return answer(200, { years: [{ season: 2026 }, { season: 2025 }] });
       if (opt.fail && opt.fail(u)) return answer(500, { ok: false, error: "boom" });
       if (opt.answer) { const a = opt.answer(u); if (a) return answer(200, a); }
-      if (u.pathname === "/api/fantasy-points-against") return answer(200, q.get("week_max") === "5" ? FX.list_w5 : FX.list_auto);
+      if (u.pathname === "/api/fantasy-points-against") return answer(200, q.get("week_max") === "4" ? FX.list_w4 : FX.list_auto);
       if (u.pathname === "/api/fpa-detail") {
-        const key = "detail_" + q.get("team") + "_" + q.get("pos") + (q.get("week_max") === "5" ? "_w5" : "");
+        const key = "detail_" + q.get("team") + "_" + q.get("pos") + (q.get("week_max") ? "_w" + q.get("week_max") : "");
         return FX[key] ? answer(200, FX[key]) : answer(500, { ok: false });
       }
       return null;
@@ -83,11 +84,11 @@ function boot(opt = {}) {
 }
 const byRank = (pos, d) => Object.keys(d.teams).filter((t) => d.teams[t][pos]).sort((a, b) => (d.teams[a][pos].adj ? d.teams[a][pos].adj.rank : 999) - (d.teams[b][pos].adj ? d.teams[b][pos].adj.rank : 999) || (a < b ? -1 : 1));
 
-console.log("1. the list (RB default, Wks 1–4 = through the latest complete week)");
+console.log("1. the list (RB; default window = Full season through the latest completed game)");
 {
   const v = boot();
   await v.openBoard();
-  await check("one list request: this season, no week_max (the worker picks the latest complete week)", () => {
+  await check("one list request: this season, Full season (no week_max: the worker counts through the latest completed game)", () => {
     const g = v.fpaGets(); assert.strictEqual(g.length, 1, g.map((r) => r.url).join());
     assert.ok(!/YEAR=/.test(g[0].url) && !/week_max/.test(g[0].url), g[0].url);
   });
@@ -101,26 +102,39 @@ console.log("1. the list (RB default, Wks 1–4 = through the latest complete we
       assert.strictEqual(r.cells[4], pct === 0 ? "0%" : (pct > 0 ? "+" : "−") + Math.abs(pct) + "%");
     }
   });
-  await check("each row says its games and next game (BUF: 4 games · Wk 5 @LAR)", () => {
-    const buf = v.rows().find((r) => r.tm === "BUF");
-    assert.strictEqual(buf.cells[1].replace(/\s+/g, " "), "BUF4 games · Wk 5 @LAR");
+  await check("each row says its games; a team still to play this week says so (BUF: 4 games · Wk 5 <day>); others name their next game", () => {
+    const buf = v.rows().find((r) => r.tm === "BUF"), atl = v.rows().find((r) => r.tm === "ATL");
+    assert.ok(/^BUF4 games · Wk 5 \w{3}$/.test(buf.cells[1].replace(/\s+/g, " ")), buf.cells[1]);
+    assert.ok(/^ATL5 games · Wk 6 (vs |@)[A-Z]{2,3}$/.test(atl.cells[1].replace(/\s+/g, " ")), atl.cells[1]);
   });
-  await check("no colour on RB (no gap survives shrinking toward average)", () => {
+  await check("no colour on RB (no next-game signal in the 2019–2025 backtest)", () => {
     assert.strictEqual(v.mount.querySelectorAll(".ups-m-fpa-list .ups-m-tr.up").length + v.mount.querySelectorAll(".ups-m-fpa-list .ups-m-tr.dn").length, 0);
   });
-  await check("one plain basis line + the RB caveat + About (≤3 sentences); no Alw/Norm/Δ%", () => {
+  await check("the active window is named: Full season · Wks 1–5 through the latest completed game; the unplayed game is said not to count", () => {
+    const t = v.mount.querySelector("#ups-m-fpa-window").textContent.replace(/\s+/g, " ");
+    assert.ok(/^Window: Full season · Wks 1–5, through the latest completed game\. BUF–LAR \(\w{3}\) isn’t played yet, so it isn’t counted\. Points RBs scored vs each defense, per game\. Top = easiest matchup\./.test(t), t);
+  });
+  await check("RB's evidence line (no reliable next-game signal) + About (≤3 sentences); no Alw/Norm/Δ%", () => {
     const t = v.mount.querySelector("#ups-m-fpa-notes").textContent.replace(/\s+/g, " ");
-    assert.ok(/^Points RBs scored vs each defense, per game\. Top = easiest matchup\. Wks 1–4, final\. Wk 5 is in progress: choose To: Wk 5 to add it\./.test(t), t);
-    assert.ok(/Mostly noise: a back’s workload/.test(t), t);
+    assert.ok(/Not a reliable next-game guide at RB: in testing it did no better than a coin flip\./.test(t), t);
     const about = v.mount.querySelector(".ups-m-st-more div").textContent;
     assert.ok(about.split(/(?<=\.)\s/).length <= 3, about);
     assert.ok(!/\bAlw\b|\bNorm\b|Δ%/.test(v.text()));
   });
-  await check("controls are labelled: Season / From / To; unplayed weeks are disabled", () => {
-    const labels = v.mount.querySelectorAll(".ups-m-fpa-tools label span").map((s) => s.textContent);
-    assert.deepStrictEqual(labels, ["Season", "From", "To"]);
+  await check("controls are labelled: Season / Window (Full season · Custom weeks); Custom adds From / To with unplayed weeks disabled", async () => {
+    let labels = v.mount.querySelectorAll(".ups-m-fpa-tools label span").map((s) => s.textContent);
+    assert.deepStrictEqual(labels, ["Season", "Window"]);
+    assert.deepStrictEqual(v.mount.querySelectorAll("#ups-m-fpa-range option").map((o) => o.textContent), ["Full season", "Custom weeks"]);
+    const r = v.mount.querySelector("#ups-m-fpa-range"); r.value = "custom"; r.dispatch("change"); await settle();
+    labels = v.mount.querySelectorAll(".ups-m-fpa-tools label span").map((s) => s.textContent);
+    assert.deepStrictEqual(labels, ["Season", "Window", "From", "To"]);
     const wk6 = v.mount.querySelector('#ups-m-fpa-wmin option[value="6"]');
     assert.ok(wk6.disabled && /not played/.test(wk6.textContent));
+    const to = v.mount.querySelector("#ups-m-fpa-wmax"); to.value = "4"; to.dispatch("change"); await settle();
+    assert.ok(/week_min=1&week_max=4/.test(v.fpaGets().slice(-1)[0].url), v.fpaGets().slice(-1)[0].url);
+    assert.ok(/^Window: Custom · Wks 1–4\./.test(v.mount.querySelector("#ups-m-fpa-window").textContent), v.mount.querySelector("#ups-m-fpa-window").textContent);
+    const r2 = v.mount.querySelector("#ups-m-fpa-range"); r2.value = "full"; r2.dispatch("change"); await settle();
+    assert.ok(/^Window: Full season/.test(v.mount.querySelector("#ups-m-fpa-window").textContent));
   });
   await check("chips: a group with aria-pressed; switching all nine sends no request", async () => {
     assert.strictEqual(v.mount.querySelector(".ups-m-fpa-chips").getAttribute("role"), "group");
@@ -129,9 +143,9 @@ console.log("1. the list (RB default, Wks 1–4 = through the latest complete we
     assert.strictEqual(v.requests.length, before);
     assert.strictEqual(v.mount.querySelector('[data-fpapos="RB"]').getAttribute("aria-pressed"), "true");
   });
-  await check("QB: colour only where the gap is still 8%+ after shrinking (k = 20 games)", async () => {
+  await check("QB (signal): colour only where the gap is still 8%+ after shrinking by the backtest's k = 50 games", async () => {
     v.mount.querySelector('[data-fpapos="QB"]').click(); await settle();
-    const want = byRank("QB", FX.list_auto).filter((t) => { const c = FX.list_auto.teams[t].QB, g = FX.list_auto.teamGames[t].games; return Math.abs((g * c.adj.ratio + 20) / (g + 20) - 1) >= 0.08; });
+    const want = byRank("QB", FX.list_auto).filter((t) => { const c = FX.list_auto.teams[t].QB, g = FX.list_auto.teamGames[t].games; return Math.abs((g * c.adj.ratio + 50) / (g + 50) - 1) >= 0.08; });
     const got = v.rows().filter((r) => r.el.querySelector(".ups-m-tr.up, .ups-m-tr.dn")).map((r) => r.tm);
     assert.deepStrictEqual(got.sort(), want.sort());
   });
@@ -221,10 +235,9 @@ console.log("\n4. byes, unplayed games, IDP snaps");
 {
   const v = boot();
   await v.openBoard();
-  v.mount.querySelector("#ups-m-fpa-wmax").value = "5"; v.mount.querySelector("#ups-m-fpa-wmax").dispatch("change"); await settle();
   v.mount.querySelector('[data-fpapos="TE"]').click(); await settle();
   v.mount.querySelector('[data-fpateam="KCC"]').click(); await settle();
-  await check("KCC Wk 5 is a 'Bye' row that can't be tapped", () => {
+  await check("Full season includes the latest week: KCC Wk 5 is a 'Bye' row that can't be tapped", () => {
     const rows = v.mount.querySelectorAll(".ups-m-fpa-wk2.off");
     assert.ok(rows.some((r) => /Wk 5\s*Bye/.test(r.textContent)), rows.map((r) => r.textContent).join("|"));
     assert.strictEqual(v.mount.querySelector('[data-fpawk="5"]'), null);
@@ -249,18 +262,14 @@ console.log("\n5. failures, freshness, route guard");
     assert.ok(/Couldn’t load points against/.test(v.text()) && v.mount.querySelector('[data-fpa="retry"]'));
     assert.ok(v.fpaGets().every((r) => !/YEAR=/.test(r.url)), v.fpaGets().map((r) => r.url).join());
   });
-  await check("a game being played reads 'being played'; over but unscored reads 'MFL score not posted yet'; not started reads '<day> to come'", async () => {
-    const live = JSON.parse(JSON.stringify(FX.list_w5)); live.pending[0].status = "live";
-    const w = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? live : null });
-    await w.openBoard();
-    assert.ok(/BUF–LAR being played\)/.test(w.mount.querySelector("#ups-m-fpa-notes").textContent), w.mount.querySelector("#ups-m-fpa-notes").textContent);
-    const aw = JSON.parse(JSON.stringify(FX.list_w5)); aw.pending[0].status = "awaiting";
-    const y = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? aw : null });
-    await y.openBoard();
-    assert.ok(/BUF–LAR over, MFL score not posted yet\)/.test(y.mount.querySelector("#ups-m-fpa-notes").textContent), y.mount.querySelector("#ups-m-fpa-notes").textContent);
-    const x = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? FX.list_w5 : null });
-    await x.openBoard();
-    assert.ok(/BUF–LAR \w{3} to come\)/.test(x.mount.querySelector("#ups-m-fpa-notes").textContent));
+  await check("the window says why a game isn't counted: being played / over but MFL score not posted / not played yet", async () => {
+    const mk = (st) => { const x = JSON.parse(JSON.stringify(FX.list_auto)); x.pending[0].status = st; return x; };
+    for (const [st, re] of [["live", /BUF–LAR is being played, so it isn’t counted\./], ["awaiting", /BUF–LAR is over, MFL score not posted yet, so it isn’t counted\./], ["scheduled", /BUF–LAR \(\w{3}\) isn’t played yet, so it isn’t counted\./]]) {
+      const w = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? mk(st) : null });
+      await w.openBoard();
+      const t = w.mount.querySelector("#ups-m-fpa-window").textContent;
+      assert.ok(re.test(t), st + ": " + t);
+    }
   });
   await check("the failure isn't kept: Retry asks once more and shows the board", async () => {
     down = false; const n = v.fpaGets().length;
@@ -297,6 +306,7 @@ console.log("\n5. failures, freshness, route guard");
   await un.openBoard();
   await check("weeks not played yet: says so, offers the latest weeks, stays on this season", () => {
     assert.ok(/haven’t been played yet\. The latest final week is Wk 4\./.test(un.text()), un.text().slice(0, 300));
+    assert.ok(/Show the full season/.test(un.text()));
     assert.ok(un.mount.querySelector('[data-fpa="latest"]'));
     assert.ok(un.fpaGets().every((x) => !/YEAR=/.test(x.url)));
   });
