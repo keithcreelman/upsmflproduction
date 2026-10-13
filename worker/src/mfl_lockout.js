@@ -183,7 +183,28 @@ async function commissionerCookie(env, { season, leagueId, fetchImpl }) {
   return r.ok ? { ok: true, cookieFor: r.cookieFor, elevation } : { ok: false, error: r.error, elevation };
 }
 
-async function loadPage(env, { season, leagueId, page, fetchImpl, cookie }) {
+// MFL sometimes redirects a setup page to "/" right after a GOOD commissioner switch
+// (2026-10-13: 4 times in one supervised run; the next try read fine). A redirect that is
+// not to the login page gets up to PAGE_ATTEMPTS tries, each after a fresh switch; a
+// login redirect (signed out) is reported at once.
+export const PAGE_ATTEMPTS = 3;
+export const PAGE_RETRY_DELAY_MS = 300;
+const _sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+async function loadPage(env, opts) {
+  const tries = [];
+  let r = null;
+  for (let n = 1; n <= PAGE_ATTEMPTS; n += 1) {
+    if (n > 1) await _sleep(PAGE_RETRY_DELAY_MS);
+    // A retry never reuses the session MFL just turned away: it switches afresh.
+    r = await loadPageOnce(env, n === 1 ? opts : { ...opts, cookie: undefined });
+    tries.push({ attempt: n, outcome: r.ok ? "ok" : r.error, location_path: r.location_path || null });
+    if (r.ok || r.error !== "redirected") break;
+  }
+  return tries.length > 1 ? { ...r, page_attempts: tries } : r;
+}
+
+async function loadPageOnce(env, { season, leagueId, page, fetchImpl, cookie }) {
   const cfg = PAGES[page];
   if (!cfg) return { ok: false, error: "unknown_page" };
   let ck = cookie, elevation;
@@ -235,8 +256,8 @@ export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
     } catch (e) { before = { identity: "unreadable" }; }
   }
   const p = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
-  if (!p.ok) return { ok: false, error: p.error, http: p.http, location_path: p.location_path, identity_before: before, identity: p.identity, elevation: p.elevation };
-  return { ok: true, identity_before: before, identity: p.identity, elevation: p.elevation, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
+  if (!p.ok) return { ok: false, error: p.error, http: p.http, location_path: p.location_path, identity_before: before, identity: p.identity, elevation: p.elevation, page_attempts: p.page_attempts };
+  return { ok: true, identity_before: before, identity: p.identity, elevation: p.elevation, page_attempts: p.page_attempts, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
     lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length };
 }
 
@@ -312,7 +333,7 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
   };
   try { await submit(target); } catch (e) { return { ok: false, step: "submit", error: `fetch_failed: ${e && e.message}` }; }
   const after = await loadPage(env, { season, leagueId, page, fetchImpl: f, cookie: ck });
-  if (!after.ok) return { ok: false, step: "verify", error: `reload_failed: ${after.error}` };
+  if (!after.ok) return { ok: false, step: "verify", submitted: true, error: `reload_failed: ${after.error}` };
   const others = names.reduce((acc, n) => acc.filter(([k]) => k !== n), before.form.fields);
   const othersAfter = names.reduce((acc, n) => acc.filter(([k]) => k !== n), after.form.fields);
   const diff = diffFields(others, othersAfter, "");
@@ -323,10 +344,10 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
       const again = await loadPage(env, { season, leagueId, page, fetchImpl: f, cookie: ck });
       restored = !!(again.ok && !diffFields(before.form.fields, again.form.fields, "").length);
     } catch (_) { restored = false; }
-    return { ok: false, step: "verify", error: "other_settings_changed", diff: diff.slice(0, 20), restored };
+    return { ok: false, step: "verify", submitted: true, error: "other_settings_changed", diff: diff.slice(0, 20), restored };
   }
   const wrong = diffFields(target, after.form.fields, "");
-  if (wrong.length) return { ok: false, step: "verify", error: "change_did_not_take", diff: wrong.slice(0, 20) };
+  if (wrong.length) return { ok: false, step: "verify", submitted: true, error: "change_did_not_take", diff: wrong.slice(0, 20) };
   return { ok: true, changed: true, page, before: before.form.fields.filter(([k]) => names.includes(k)), after: after.form.fields.filter(([k]) => names.includes(k)),
     digest_after: await pageDigest(after.form.fields) };
 }
@@ -339,6 +360,17 @@ export async function setLockout(env, { season, leagueId, on, fetchImpl, expectD
   if (before.lockout.current === want) return { ok: true, changed: false, from: want, to: want };
   const r = await setPageFields(env, { season, leagueId, page: "abilities", fetchImpl, expectDigest,
     changes: { [before.lockout.name]: on ? before.lockout.yesValue : before.lockout.noValue } });
+  if (!r.ok && r.submitted && r.error && r.error.startsWith("reload_failed")) {
+    // The change was sent but its check read failed: read the page again before calling it
+    // a failure — a false "lockout still OFF" alarm is as bad as a missed one. It counts as
+    // done only if lockout now reads as wanted AND every other field is as it was.
+    const again = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
+    if (again.ok && again.lockout.current === want &&
+        (await pageDigest(again.form.fields, again.lockout.name)) === (await pageDigest(before.form.fields, before.lockout.name))) {
+      return { ok: true, changed: true, from: before.lockout.current, to: want, digest_after: await pageDigest(again.form.fields), verified_by_reread: true };
+    }
+    return { ...r, reread: again.ok ? { lockout: again.lockout.current } : { error: again.error } };
+  }
   if (!r.ok) return r;
   return { ok: true, changed: true, from: before.lockout.current, to: want, digest_after: r.digest_after };
 }
