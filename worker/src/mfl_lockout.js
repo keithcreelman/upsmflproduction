@@ -179,7 +179,7 @@ async function commissionerCookie(env, { season, leagueId, fetchImpl }) {
   // Everything here but `cookieFor` is sanitized (names, scopes, attributes, lengths,
   // fingerprints); `cookieFor` builds the per-URL header and is never returned.
   const elevation = { set_cookie_names: r.set_cookie_names, set_cookies: r.set_cookies, session_cookie: r.session_cookie,
-    user_id_changed: r.user_id_changed, identity_after_switch: r.identity_after_switch, hops: r.hops };
+    user_id_changed: r.user_id_changed, identity_after_switch: r.identity_after_switch, hops: r.hops, hop_log: r.hop_log, attempts: r.attempts };
   return r.ok ? { ok: true, cookieFor: r.cookieFor, elevation } : { ok: false, error: r.error, elevation };
 }
 
