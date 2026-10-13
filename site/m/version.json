@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.4",
-  "label": "Stats → Pts Agst opens on QB. A position you pick stays picked while the app is open."
+  "build": "2026.10.13.5",
+  "label": "The selected position button (QB, RB, …) is easier to read: dark text on blue instead of white."
 }
