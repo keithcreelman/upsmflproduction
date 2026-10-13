@@ -87,6 +87,33 @@ export function reportFrom(rows, preferWeek = null) {
   return { week, byGsis, teams: [...teams].sort() };
 }
 
+// Last week's final designation, for a player whose team has no report yet for the
+// current week (Keith 2026-10-13: Lineup must show injury status every day; the
+// week's first report comes out mid-week). Only from his team's MOST RECENT report
+// before the current week (a player dropped from a later report is no longer
+// designated), only within the last two weeks (a bye), only Out / Doubtful /
+// Questionable. Labeled with its week wherever shown; never presented as this week's.
+export function priorFrom(rows, currentWeek, currentTeams) {
+  const cw = parseInt(currentWeek, 10) || 0;
+  if (!cw) return {};
+  const lastByTeam = {}, out = {};
+  const reg = rows.filter((r) => /^(REG|POST)$/i.test(r.season_type || r.game_type || "REG"));
+  for (const r of reg) {
+    const w = parseInt(r.week, 10) || 0;
+    if (w < cw && r.team && w > (lastByTeam[r.team] || 0)) lastByTeam[r.team] = w;
+  }
+  for (const r of reg) {
+    const w = parseInt(r.week, 10) || 0;
+    if (!r.team || w !== lastByTeam[r.team] || w < cw - 2 || (currentTeams && currentTeams.has(r.team))) continue;
+    if (!/^00-\d+/.test(r.gsis_id || "")) continue;
+    const g = GAME[String(r.report_status || "").trim().toUpperCase()] || null;
+    if (!g) continue;
+    out[r.gsis_id] = { week: w, status: g, team: r.team,
+      injury: [r.report_primary_injury, r.report_secondary_injury].filter(Boolean).join(", ") || null };
+  }
+  return out;
+}
+
 export function rosterFrom(payload) {
   const node = payload && payload.injuries;
   if (!node) return { ok: false, week: null, ts: null, byMfl: {} };
@@ -136,6 +163,18 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
       const m = gsisToMfl[g];
       if (m) (players[m] = players[m] || {}).report = r;
     }
+  }
+  // Last week's final designation where his team has no current-week report yet
+  // (the whole league until the week's first report; then the teams still to report).
+  // Needs the rows, the id map and MFL's current week; read by Lineup only.
+  if (rep && gsisToMfl && Object.keys(gsisToMfl).length && currentWeek != null && !mapError) {
+    const curTeams = new Set(report_feed.current ? rep.teams : []);
+    const pri = priorFrom(reportRows, currentWeek, curTeams);
+    for (const [g, r] of Object.entries(pri)) {
+      const m = gsisToMfl[g];
+      if (m) (players[m] = players[m] || {}).prior = r;
+    }
+    report_feed.prior_weeks = [...new Set(Object.values(pri).map((r) => r.week))].sort((a, b) => a - b);
   }
   for (const [m, r] of Object.entries(roster.byMfl)) (players[m] = players[m] || {}).roster = r;
   return {

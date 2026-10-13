@@ -1,5 +1,6 @@
 import { handleHallRequest } from "./hall.js";
 import { handleFpaRequest } from "./fpa_engine.js";
+import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 import { seedLadder, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
@@ -19243,186 +19244,13 @@ export default {
         }
       }
 
-      // ── GET /api/lineup-matchups?YEAR=&W= — Submit Lineup matchup intel ──
-      // (1) matchups: nflSchedule(W) → per NFL team {opp, isHome, kickoff, spread,
-      //     rushDefRank, passDefRank}. (2) defRatings: OPPONENT-ADJUSTED defense-
-      //     vs-position ratings = fantasy pts a defense allowed to a position ÷
-      //     what those specific opponents AVERAGE (strength-of-schedule adjusted,
-      //     per Keith), ranked across all 32 Ds (rank 1 = most generous = easiest
-      //     matchup). Basis = this season W1..(W-1), or the FULL prior season in W1.
+      // ── GET /api/lineup-matchups?YEAR=&W=[&last=N] — Lineup matchup info ──
+      // Mobile Lineup + Players picker and desktop Game Day. The defense numbers come
+      // from the Pts Agst engine (./fpa_engine.js) through ./lineup_matchups.js, so
+      // they match the Pts Agst board (review #1249).
       if (path === "/api/lineup-matchups" && request.method === "GET") {
-        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
-        const wk = Math.max(1, parseInt(url.searchParams.get("W") || "1", 10) || 1);
-        const last = Math.max(0, parseInt(url.searchParams.get("last") || "0", 10) || 0);   // window = last N weeks (0 = season-to-date)
-        const lid = "74598";
-        const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
-        const posGroup = (p) => {
-          p = safeStr(p).toUpperCase();
-          if (p === "QB") return "QB";
-          if (["RB", "FB", "HB"].includes(p)) return "RB";
-          if (p === "WR") return "WR";
-          if (p === "TE") return "TE";
-          if (["PK", "K"].includes(p)) return "PK";
-          if (["PN", "P"].includes(p)) return "PN";
-          if (["DT", "DE", "NT", "DL"].includes(p)) return "DL";
-          if (["LB", "OLB", "ILB", "MLB"].includes(p)) return "LB";
-          if (["CB", "S", "FS", "SS", "DB"].includes(p)) return "DB";
-          return "";
-        };
-        const schedUrl = (y, w) => `https://api.myfantasyleague.com/${y}/export?TYPE=nflSchedule&W=${w}&JSON=1`;
-        const scoresUrl = (y, w) => `https://www48.myfantasyleague.com/${y}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1`;
-        const j = (u, ttl) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } }).then((r) => r.json()).catch(() => null);
         try {
-          const pl = await j(`https://www48.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`, 86400);
-          const pInfo = {};
-          for (const p of arr(pl?.players?.player)) pInfo[String(p.id)] = { pos: safeStr(p.position).toUpperCase(), team: safeStr(p.team).toUpperCase() };
-          // (1) current-week matchups
-          const sched = await j(schedUrl(yr, wk), 300);
-          const matchups = {};
-          for (const m of arr(sched?.nflSchedule?.matchup)) {
-            const ts = arr(m.team); if (ts.length < 2) continue;
-            const ko = Number(m.kickoff) || 0;
-            const mk = (t, o) => ({ opp: safeStr(o.id).toUpperCase(), isHome: String(t.isHome) === "1", kickoff: ko,
-              spread: t.spread != null && t.spread !== "" ? Number(t.spread) : null,
-              rushDefRank: Number(t.rushDefenseRank) || null, passDefRank: Number(t.passDefenseRank) || null });
-            matchups[safeStr(ts[0].id).toUpperCase()] = mk(ts[0], ts[1]);
-            matchups[safeStr(ts[1].id).toUpperCase()] = mk(ts[1], ts[0]);
-          }
-          // (2) ratings basis: a recent window (&last=N → last N weeks before W),
-          // else this season W1..W-1, or the FULL prior season in W1.
-          let ratYear = yr, ratWeeks = [];
-          if (last > 0 && wk > 1) { for (let w = Math.max(1, wk - last); w < wk; w++) ratWeeks.push(w); }
-          else if (wk <= 1) { ratYear = String((parseInt(yr, 10) || 0) - 1); for (let w = 1; w <= 18; w++) ratWeeks.push(w); }
-          else { for (let w = 1; w < wk; w++) ratWeeks.push(w); }
-          const schedJobs = await Promise.all(ratWeeks.map((w) => j(schedUrl(ratYear, w), 86400)));
-          const scoreJobs = await Promise.all(ratWeeks.map((w) => j(scoresUrl(ratYear, w), 86400)));
-          const oppOf = {};   // team -> { weekIdx: oppTeam }
-          ratWeeks.forEach((w, wi) => {
-            for (const m of arr(schedJobs[wi]?.nflSchedule?.matchup)) {
-              const ts = arr(m.team); if (ts.length < 2) continue;
-              const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
-              (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka;
-            }
-          });
-          const playerWeeks = {};   // pid -> [{ pts, def }]
-          ratWeeks.forEach((w, wi) => {
-            for (const s of arr(scoreJobs[wi]?.playerScores?.playerScore)) {
-              const pid = String(s.id), info = pInfo[pid];
-              if (!info || !posGroup(info.pos)) continue;
-              const pts = parseFloat(s.score); if (isNaN(pts)) continue;
-              const def = (oppOf[info.team] || {})[wi]; if (!def) continue;
-              (playerWeeks[pid] = playerWeeks[pid] || []).push({ pts, def });
-            }
-          });
-          // (3) per-player REAL form over the window + the defense aggregates.
-          const allowed = {}, expected = {}, playerWindow = {};   // def -> grp -> sum ; pid -> {total,games,avg}
-          for (const pid in playerWeeks) {
-            const wks = playerWeeks[pid], grp = posGroup(pInfo[pid].pos);
-            const total = wks.reduce((a, x) => a + x.pts, 0), avg = total / wks.length;
-            playerWindow[pid] = { total: Math.round(total * 10) / 10, games: wks.length, avg: Math.round(avg * 10) / 10 };
-            for (const x of wks) {
-              (allowed[x.def] = allowed[x.def] || {})[grp] = (allowed[x.def][grp] || 0) + x.pts;
-              (expected[x.def] = expected[x.def] || {})[grp] = (expected[x.def][grp] || 0) + avg;
-            }
-          }
-          const GROUPS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
-          const defRatings = {};
-          for (const g of GROUPS) {
-            const rows = [];
-            for (const d in allowed) {
-              const al = allowed[d][g], ex = (expected[d] && expected[d][g]) || 0;
-              if (al == null || ex <= 0) continue;
-              rows.push({ d, ratio: al / ex });
-            }
-            rows.sort((a, b) => b.ratio - a.ratio);   // rank 1 = most generous (easiest)
-            rows.forEach((r, i) => { (defRatings[r.d] = defRatings[r.d] || {})[g] = { rank: i + 1, of: rows.length, ratio: Math.round(r.ratio * 100) / 100 }; });
-          }
-          // (4) schedule horizon — the next 3 weeks' opponents (the current week's
-          // game is already in `matchups`); the client looks up each opp's defRating.
-          const horizonWeeks = [wk + 1, wk + 2, wk + 3];
-          const horizonSched = await Promise.all(horizonWeeks.map((w) => j(schedUrl(yr, w), 300)));
-          const horizon = {};   // team -> [{ wk, opp, isHome }]
-          horizonWeeks.forEach((w, wi) => {
-            for (const m of arr(horizonSched[wi]?.nflSchedule?.matchup)) {
-              const ts = arr(m.team); if (ts.length < 2) continue;
-              const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase();
-              (horizon[ka] = horizon[ka] || []).push({ wk: w, opp: kb, isHome: String(ts[0].isHome) === "1" });
-              (horizon[kb] = horizon[kb] || []).push({ wk: w, opp: ka, isHome: String(ts[1].isHome) === "1" });
-            }
-          });
-          // (5) weather at each game's venue (the HOME team's stadium) near
-          // kickoff, via Open-Meteo (no key). Domes are climate-controlled →
-          // flagged, not fetched. Past games use the archive API so it's
-          // testable historically; near-future games use the forecast API.
-          const STADIUMS = {
-            ARI: { la: 33.5277, lo: -112.2626, dome: 1 }, ATL: { la: 33.7554, lo: -84.4008, dome: 1 },
-            BAL: { la: 39.2780, lo: -76.6227 }, BUF: { la: 42.7738, lo: -78.7870 },
-            CAR: { la: 35.2258, lo: -80.8528 }, CHI: { la: 41.8623, lo: -87.6167 },
-            CIN: { la: 39.0955, lo: -84.5161 }, CLE: { la: 41.5061, lo: -81.6995 },
-            DAL: { la: 32.7473, lo: -97.0945, dome: 1 }, DEN: { la: 39.7439, lo: -105.0201 },
-            DET: { la: 42.3400, lo: -83.0456, dome: 1 }, GBP: { la: 44.5013, lo: -88.0622 },
-            HOU: { la: 29.6847, lo: -95.4107, dome: 1 }, IND: { la: 39.7601, lo: -86.1639, dome: 1 },
-            JAC: { la: 30.3239, lo: -81.6373 }, KCC: { la: 39.0489, lo: -94.4839 },
-            LVR: { la: 36.0909, lo: -115.1833, dome: 1 }, LAC: { la: 33.9535, lo: -118.3392, dome: 1 },
-            LAR: { la: 33.9535, lo: -118.3392, dome: 1 }, MIA: { la: 25.9580, lo: -80.2389 },
-            MIN: { la: 44.9736, lo: -93.2575, dome: 1 }, NEP: { la: 42.0909, lo: -71.2643 },
-            NOS: { la: 29.9511, lo: -90.0812, dome: 1 }, NYG: { la: 40.8135, lo: -74.0745 },
-            NYJ: { la: 40.8135, lo: -74.0745 }, PHI: { la: 39.9008, lo: -75.1675 },
-            PIT: { la: 40.4468, lo: -80.0158 }, SFO: { la: 37.4032, lo: -121.9698 },
-            SEA: { la: 47.5952, lo: -122.3316 }, TBB: { la: 27.9759, lo: -82.5033 },
-            TEN: { la: 36.1665, lo: -86.7713 }, WAS: { la: 38.9076, lo: -76.8645 },
-          };
-          STADIUMS.GB = STADIUMS.GBP; STADIUMS.KC = STADIUMS.KCC; STADIUMS.LV = STADIUMS.LVR;
-          STADIUMS.NE = STADIUMS.NEP; STADIUMS.NO = STADIUMS.NOS; STADIUMS.SF = STADIUMS.SFO;
-          STADIUMS.TB = STADIUMS.TBB; STADIUMS.JAX = STADIUMS.JAC;
-          const wmo = (c) => { c = Number(c);
-            if (c === 0) return "Clear"; if (c <= 2) return "P.Cloudy"; if (c === 3) return "Overcast";
-            if (c <= 48) return "Fog"; if (c <= 57) return "Drizzle"; if (c <= 67) return "Rain";
-            if (c <= 77) return "Snow"; if (c <= 82) return "Showers"; if (c <= 86) return "Snow"; return "T-storm"; };
-          const weather = {};
-          const nowSec = Date.now() / 1000;
-          const games = [], seenHome = {};
-          for (const t in matchups) {
-            const m = matchups[t], home = m.isHome ? t : m.opp;
-            if (seenHome[home]) continue; seenHome[home] = 1;
-            games.push({ home, away: m.isHome ? m.opp : t, kickoff: m.kickoff });
-          }
-          // Domes are climate-controlled → flag, no fetch.
-          for (const g of games) { const st = STADIUMS[g.home]; if (st && st.dome) { weather[g.home] = { dome: true }; weather[g.away] = weather[g.home]; } }
-          // Every outdoor venue in ONE multi-location Open-Meteo call (a burst of
-          // ~16 parallel requests gets rate-limited and silently drops games).
-          // Past weeks → archive API (testable historically); near-term → forecast.
-          const outdoor = games.filter((g) => { const st = STADIUMS[g.home]; return st && !st.dome && g.kickoff; });
-          if (outdoor.length) {
-            const dstr = (sec) => new Date(sec * 1000).toISOString().slice(0, 10);
-            const kos = outdoor.map((g) => g.kickoff);
-            const minK = Math.min.apply(null, kos), maxK = Math.max.apply(null, kos);
-            const past = maxK < nowSec - 36 * 3600;
-            const host = past ? "https://archive-api.open-meteo.com/v1/archive" : "https://api.open-meteo.com/v1/forecast";
-            const u = host + "?latitude=" + outdoor.map((g) => STADIUMS[g.home].la).join(",") +
-              "&longitude=" + outdoor.map((g) => STADIUMS[g.home].lo).join(",") +
-              "&hourly=temperature_2m,precipitation,wind_speed_10m,weather_code" +
-              "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timeformat=unixtime&timezone=auto" +
-              "&start_date=" + dstr(minK - 86400) + "&end_date=" + dstr(maxK + 86400);
-            const res = await j(u, past ? 604800 : 1800);
-            const list = Array.isArray(res) ? res : (res ? [res] : []);
-            outdoor.forEach((g, gi) => {
-              const h = list[gi] && list[gi].hourly;
-              if (!h || !Array.isArray(h.time) || !h.time.length) return;
-              let bi = 0, bd = Infinity;
-              for (let i = 0; i < h.time.length; i++) { const dd = Math.abs(h.time[i] - g.kickoff); if (dd < bd) { bd = dd; bi = i; } }
-              const wx = { tempF: Math.round(h.temperature_2m[bi]), windMph: Math.round(h.wind_speed_10m[bi]),
-                precip: Math.round((h.precipitation[bi] || 0) * 100) / 100, summary: wmo(h.weather_code[bi]) };
-              weather[g.home] = wx; weather[g.away] = wx;
-            });
-          }
-          const basis = (last > 0 && wk > 1) ? ("last " + Math.min(last, wk - 1) + " wks")
-            : (wk <= 1 ? (ratYear + " (prior season)") : (yr + " W1–" + (wk - 1)));
-          // weeksAvailable = completed CURRENT-season weeks (0 ⇒ prior-season
-          // fallback). The client uses it to hide window buttons that can't
-          // differ from "season" yet (Keith: don't show a dead L3/L5 toggle).
-          const weeksAvailable = wk > 1 ? wk - 1 : 0;
-          return jsonOut(200, { ok: true, year: yr, week: wk, window: (last || null), matchups, defRatings, playerWindow, horizon, weather, ratingsBasis: basis, weeksAvailable, priorSeason: wk <= 1 });
+          return await handleLineupMatchups(request, env, ctx, { jsonOut, lid: "74598" });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -19519,8 +19347,8 @@ export default {
       // players usually score, and the ratio the list is ranked by; the drill is the
       // same computation for one team. One engine for both (./fpa_engine.js), so
       // the list and its breakdown always agree. week_max omitted = through the
-      // last complete week. /api/fantasy-sos and /api/lineup-matchups still carry
-      // their own copies of the older engine (moved to this one in their reviews).
+      // last complete week. /api/lineup-matchups uses it too (./lineup_matchups.js);
+      // /api/fantasy-sos still carries its own copy of the older engine (its review is next).
       if ((path === "/api/fantasy-points-against" || path === "/api/fpa-detail") && request.method === "GET") {
         try {
           return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });

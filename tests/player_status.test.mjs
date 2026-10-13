@@ -59,12 +59,40 @@ test("unavailable: an unreadable report, an unreadable MFL feed, last week's rep
     "without MFL's current week the report can't be called current");
   const lastWeek = assemble({ reportRows: parseCsv(csv(line("BUF", 4, "00-0000001", "Out", "Ankle", ""))), reportModified: FRESH,
                               mflPayload: mflPayload(5, []), gsisToMfl: MAP, now: NOW });
-  t.deepEqual([lastWeek.report_feed.current, lastWeek.report_feed.week, lastWeek.players["101"]], [false, 4, undefined]);
+  t.deepEqual([lastWeek.report_feed.current, lastWeek.report_feed.week, lastWeek.players["101"].report], [false, 4, undefined],
+    "no CURRENT designation from last week's report");
+  t.deepEqual(lastWeek.players["101"].prior, { week: 4, status: "Out", team: "BUF", injury: "Ankle" }, "only as last week's, labeled with its week");
   t.ok(/Wk 5's is not out yet/.test(lastWeek.report_feed.reason), lastWeek.report_feed.reason);
   const old = assemble({ reportRows: rows, reportModified: new Date(NOW - (STALE_HOURS + 1) * 3600e3).toUTCString(),
                          mflPayload: mflPayload(5, []), gsisToMfl: MAP, now: NOW });
   t.deepEqual([old.report_feed.current, old.players["101"]], [false, undefined]);
   t.ok(/not updated/.test(old.report_feed.reason));
+});
+
+test("last week's final designation (Lineup, Keith 2026-10-13): only for teams without a current-week report, from the team's latest report, ≤ 2 weeks back, Q/D/Out only", () => {
+  const rows = parseCsv(csv(
+    line("BUF", 4, "00-0000001", "Out", "Ankle", ""),          // BUF's Wk 4 report …
+    line("BUF", 5, "00-0000002", "Questionable", "Knee", ""),  // … and its Wk 5 report (the latest): 101 isn't on it any more
+    line("GB", 3, "00-0000003", "Doubtful", "Hip", ""),        // GB's latest is Wk 3: too old for a Wk 6 lineup
+    line("NYJ", 5, "00-0000004", "", "Rest", "Full Participation in Practice")));   // practice only: no designation
+  const a = assemble({ reportRows: rows, reportModified: FRESH, mflPayload: mflPayload(6, []), gsisToMfl: MAP, now: NOW });
+  t.equal(a.report_feed.current, false, "Wk 6's report isn't out");
+  t.equal(a.players["101"], undefined, "dropped from his team's latest report: not designated");
+  t.deepEqual(a.players["102"].prior, { week: 5, status: "Questionable", team: "BUF", injury: "Knee" });
+  t.equal(a.players["103"], undefined, "more than two weeks back");
+  t.equal(a.players["104"], undefined, "practice status only");
+  t.deepEqual(a.report_feed.prior_weeks, [5]);
+  // Wk 6's report is out for BUF only: BUF players use it (102 isn't on it → nothing); NYJ keeps last week's.
+  const b = assemble({ reportRows: parseCsv(csv(line("BUF", 5, "00-0000002", "Questionable", "Knee", ""), line("NYJ", 5, "00-0000004", "Out", "Calf", ""),
+                                               line("BUF", 6, "00-0000001", "Doubtful", "Ankle", ""))),
+                       reportModified: FRESH, mflPayload: mflPayload(6, []), gsisToMfl: MAP, now: NOW });
+  t.equal(b.report_feed.current, true);
+  t.deepEqual([b.players["101"].report.status, b.players["101"].prior], ["Doubtful", undefined]);
+  t.equal(b.players["102"], undefined, "his team reported this week without him");
+  t.deepEqual(b.players["104"].prior, { week: 5, status: "Out", team: "NYJ", injury: "Calf" }, "NYJ hasn't reported this week yet");
+  // No id map or no MFL week: no prior either (fail closed).
+  const c = assemble({ reportRows: rows, reportModified: FRESH, mflPayload: mflPayload(6, []), gsisToMfl: {}, now: NOW });
+  t.equal(Object.keys(c.players).length, 0);
 });
 
 test("the file already holds next week's early reports while MFL is still on this week: this week's rows are used (QA 2026-10-11)", () => {

@@ -878,7 +878,21 @@
       return { state: "ok", season: st.season, week: parseInt(f.week, 10) || 0, at: st.at,
         statusOf: function (pid) { var p = players[U.safeStr(pid)]; return (p && p.report && p.report.status) || ""; } };
     }
-    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, currentReport: currentReport,
+    // Last week's final designation for a player whose team has no report yet this
+    // week ({ week, status, injury, team } or null), from a fresh read only. Lineup
+    // shows it labeled with its week (Keith 2026-10-13); nothing else uses it.
+    function prior(pid) {
+      if (st.state !== "ok" || !st.data || (Date.now() - st.at) > TTL) return null;
+      var p = (st.data.players || {})[U.safeStr(pid)];
+      return p && p.prior && p.prior.status ? p.prior : null;
+    }
+    // The weeks those last-week designations come from (fresh read only), e.g. [5].
+    function priorWeeks() {
+      if (st.state !== "ok" || !st.data || (Date.now() - st.at) > TTL) return [];
+      var f = st.data.report_feed || {};
+      return f.prior_weeks && f.prior_weeks.length ? f.prior_weeks : [];
+    }
+    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
       state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
   window.UPS_MOBILE_PLAYER_STATUS = PSTAT;

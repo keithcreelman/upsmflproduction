@@ -86,8 +86,11 @@ function harness({ fx = FX } = {}) {
     lineupIntel: {
       load: (k) => { calls.load.push(k); },
       projFor: () => 5.0, fmtProj: (v) => v.toFixed(1), projLoaded: () => true, priorSeason: () => false,
-      rankCls: () => "", weeksAvailable: () => 3, muData: () => null,
-      matchupFor: (pid, k) => { calls.matchupFor.push(k); return { opp: "GBP", isHome: true, rank: k ? 7 : 22, grp: "PK" }; },
+      weeksAvailable: () => 3, muData: () => null,
+      // One window since #1249: matchupFor(pid) and load() take no window. A window
+      // argument would mean the period control reached the opponent numbers again.
+      matchupFor: (pid, k) => { calls.matchupFor.push(k); return { opp: "GBP", isHome: true, grp: "PK", rating: { pct: k ? 40 : -9 } }; },
+      chipHtml: (mu) => '<span class="ups-m-mu-chip">Ks ' + (mu.rating.pct > 0 ? "+" : "−") + Math.abs(mu.rating.pct) + "% vs " + mu.opp + "</span>",
     },
     ui: { showToast() {} },
     route: { registerView: (n, fn) => { if (n === "players") ctx.__render = fn; }, renderRoute: () => ctx.__render(mount, []), navigate() {} },
@@ -190,15 +193,15 @@ test("Last 2 wks changes the points, PPG and rank shown — and nothing else", (
   t.ok(h.periodButtons()[1].on, "Last 2 is on");
 });
 
-test("the matchup line's defense rank always uses season-to-date ranks, whatever the period", () => {
+test("the matchup line's opponent numbers are the full season's, whatever the period", () => {
   const h = harness();
   h.click("data-win", 2);
   h.select("ups-m-players-sort", "ppg");
   t.ok(h.calls.matchupFor.length > 0, "matchup line rendered");
-  t.ok(h.calls.matchupFor.every((k) => k === 0), "every matchup lookup used the season window");
-  t.ok(h.calls.load.every((k) => k === 0), "only season defense ratings are loaded");
-  t.match(h.html(), /GBP #22 to PK/, "season rank shown");
-  t.doesNotMatch(h.html(), /GBP #7 to PK/, "the last-2 rank never leaks into the line");
+  t.ok(h.calls.matchupFor.every((k) => k === undefined), "no matchup lookup passes a window (there is one: the full season)");
+  t.ok(h.calls.load.every((k) => k === undefined), "the load never asks for a window");
+  t.match(h.html(), /Ks −9% vs GBP/, "the season chip is shown");
+  t.doesNotMatch(h.html(), /Ks \+40% vs GBP/, "the period never reaches the opponent numbers");
 });
 
 test("a sort you pick survives a trip through All players (it used to become PPG for good)", () => {
