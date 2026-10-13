@@ -19256,85 +19256,18 @@ export default {
         }
       }
 
-      // ── GET /api/fantasy-sos?season=&pos= — fantasy Strength-of-Schedule grid ──
-      // For each NFL team (offense), how easy/hard is the schedule for a position:
-      // each week's opponent DEFENSE's opponent-adjusted FPA rating (>1 = generous
-      // = easy matchup). Reuses /api/fantasy-points-against for the ratings (MFL
-      // team codes → normalized to nflverse) + the nflverse games.csv for the
-      // schedule. Returns a team×week grid + season & playoff (Wk 15-17) averages,
-      // sorted easiest-first. Offseason → falls back to the prior season's ratings
-      // (projected SoS), with the selected season's schedule.
+      // ── GET /api/fantasy-sos?season=&v=2 — Stats → Sched (#1270) ──
+      // Who each NFL team plays in the league's weeks (byes, home/away, game state)
+      // and every defense's ratings through the latest completed game, for all
+      // positions in one answer, from the same engine and data as Pts Agst
+      // (./fpa_engine.js): final, scored games only; game-day teams; no NFL Week 18;
+      // playoff weeks from the league's settings; a failed MFL read is a 502, never an
+      // empty grid. Without v=2 it answers in the older (season, pos) shape for app
+      // builds that haven't updated. Replaces the old inline copy (24 h caches on
+      // live weeks, current-team attribution, failures dropped, nflverse games.csv).
       if (path === "/api/fantasy-sos" && request.method === "GET") {
         try {
-          const yr = safeStr(url.searchParams.get("season") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
-          const posWanted = (safeStr(url.searchParams.get("pos") || "RB").toUpperCase()) || "RB";
-          const toNflv = (t) => ({ GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" }[t] || t);
-          // Compute the FPA def-vs-pos ratings INLINE for posWanted (a Worker
-          // fetching its own /api route returns empty). Same engine as
-          // /api/fantasy-points-against, edge-cached MFL fetches.
-          const lid = "74598";
-          const arr = (x) => Array.isArray(x) ? x : (x == null ? [] : [x]);
-          const posGroup = (p) => { p = safeStr(p).toUpperCase(); if (p === "QB") return "QB"; if (["RB", "FB", "HB"].includes(p)) return "RB"; if (p === "WR") return "WR"; if (p === "TE") return "TE"; if (["PK", "K"].includes(p)) return "PK"; if (["PN", "P"].includes(p)) return "PN"; if (["DT", "DE", "NT", "DL"].includes(p)) return "DL"; if (["LB", "OLB", "ILB", "MLB"].includes(p)) return "LB"; if (["CB", "S", "FS", "SS", "DB"].includes(p)) return "DB"; return ""; };
-          const jf = (u, ttl) => fetch(u, { cf: { cacheTtl: ttl, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } }).then((r) => r.json()).catch(() => null);
-          const fpaRatings = async (season) => {
-            const pl = await jf(`https://www48.myfantasyleague.com/${season}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1`, 86400);
-            const pInfo = {}; for (const p of arr(pl && pl.players && pl.players.player)) pInfo[String(p.id)] = { pos: safeStr(p.position).toUpperCase(), team: safeStr(p.team).toUpperCase() };
-            const weeks = []; for (let w = 1; w <= 17; w++) weeks.push(w);
-            const schedJobs = await Promise.all(weeks.map((w) => jf(`https://api.myfantasyleague.com/${season}/export?TYPE=nflSchedule&W=${w}&JSON=1`, 86400)));
-            const scoreJobs = await Promise.all(weeks.map((w) => jf(`https://www48.myfantasyleague.com/${season}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1`, 86400)));
-            const oppOf = {};
-            weeks.forEach((w, wi) => { for (const m of arr(schedJobs[wi] && schedJobs[wi].nflSchedule && schedJobs[wi].nflSchedule.matchup)) { const ts = arr(m.team); if (ts.length < 2) continue; const ka = safeStr(ts[0].id).toUpperCase(), kb = safeStr(ts[1].id).toUpperCase(); (oppOf[ka] = oppOf[ka] || {})[wi] = kb; (oppOf[kb] = oppOf[kb] || {})[wi] = ka; } });
-            const pw = {};
-            weeks.forEach((w, wi) => { for (const s of arr(scoreJobs[wi] && scoreJobs[wi].playerScores && scoreJobs[wi].playerScores.playerScore)) { const pid = String(s.id), info = pInfo[pid]; if (!info || posGroup(info.pos) !== posWanted) continue; const pts = parseFloat(s.score); if (isNaN(pts)) continue; const def = (oppOf[info.team] || {})[wi]; if (!def) continue; (pw[pid] = pw[pid] || []).push({ pts: pts, def: def }); } });
-            const allowed = {}, expected = {};
-            for (const pid in pw) { const wks = pw[pid], avg = wks.reduce((a, x) => a + x.pts, 0) / wks.length; for (const x of wks) { allowed[x.def] = (allowed[x.def] || 0) + x.pts; expected[x.def] = (expected[x.def] || 0) + avg; } }
-            const rows = [];
-            for (const d in allowed) { const ex = expected[d] || 0; if (ex <= 0) continue; rows.push({ d: d, ratio: allowed[d] / ex }); }
-            rows.sort((a, b) => b.ratio - a.ratio);
-            const rat = {}; rows.forEach((r, i) => { rat[r.d] = { rank: i + 1, ratio: Math.round(r.ratio * 100) / 100 }; });
-            return Object.keys(rat).length ? rat : null;
-          };
-          // Pick the rating season with a single cheap probe instead of a full
-          // wasted first pass — the offseason double-pass (≈70 fetches) blows the
-          // Worker subrequest limit and the fallback silently returns nothing.
-          let ratingSeason = yr, projected = false;
-          const probe = await jf(`https://www48.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${lid}&W=1&JSON=1`, 86400);
-          // A future season returns a single placeholder ({id:'', score:''}); a
-          // real week has scored entries — require a non-empty id + numeric score.
-          const hasData = arr(probe && probe.playerScores && probe.playerScores.playerScore).some((s) => s && s.id && !isNaN(parseFloat(s.score)));
-          if (!hasData) { ratingSeason = String(parseInt(yr, 10) - 1); projected = true; }
-          let rat = await fpaRatings(ratingSeason);
-          if (!rat && !projected) { ratingSeason = String(parseInt(yr, 10) - 1); projected = true; rat = await fpaRatings(ratingSeason); }
-          const ratingByNflv = {};
-          if (rat) for (const mflCode in rat) ratingByNflv[toNflv(mflCode)] = { ratio: rat[mflCode].ratio, rank: rat[mflCode].rank };
-          const txt = await fetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { cf: { cacheTtl: 1800, cacheEverything: true } }).then((x) => x.ok ? x.text() : null).catch(() => null);
-          const sched = {};
-          if (txt) {
-            const lines = txt.split(/\r?\n/), hdr = (lines[0] || "").split(","), ix = (n) => hdr.indexOf(n);
-            const iS = ix("season"), iW = ix("week"), iGT = ix("game_type"), iA = ix("away_team"), iH = ix("home_team");
-            for (let li = 1; li < lines.length; li++) {
-              const c = lines[li].split(","); if (c.length <= iH) continue;
-              if (String(c[iS]) !== String(yr)) continue;
-              if (iGT >= 0 && c[iGT] !== "REG") continue;
-              const wk = parseInt(c[iW], 10), home = c[iH], away = c[iA];
-              if (!home || !away || !wk) continue;
-              (sched[home] = sched[home] || {})[wk] = away; (sched[away] = sched[away] || {})[wk] = home;
-            }
-          }
-          const out = [];
-          for (const team in sched) {
-            const weeks = []; let sSum = 0, sN = 0, pSum = 0, pN = 0;
-            for (let w = 1; w <= 18; w++) {
-              const opp = sched[team][w];
-              if (!opp) { weeks.push({ wk: w, opp: null, ratio: null, rank: null }); continue; }
-              const rt = ratingByNflv[opp], ratio = rt ? rt.ratio : null, rank = rt ? rt.rank : null;
-              weeks.push({ wk: w, opp: opp, ratio: ratio, rank: rank });
-              if (ratio != null) { sSum += ratio; sN++; if (w >= 15 && w <= 17) { pSum += ratio; pN++; } }
-            }
-            out.push({ team: team, weeks: weeks, seasonAvg: sN ? Math.round((sSum / sN) * 100) / 100 : null, playoffAvg: pN ? Math.round((pSum / pN) * 100) / 100 : null });
-          }
-          out.sort((a, b) => (b.seasonAvg || 0) - (a.seasonAvg || 0));
-          return jsonOut(200, { ok: true, season: yr, pos: posWanted, projected: projected, ratingSeason: ratingSeason, defsRated: Object.keys(ratingByNflv).length, teams: out });
+          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -19347,8 +19280,8 @@ export default {
       // players usually score, and the ratio the list is ranked by; the drill is the
       // same computation for one team. One engine for both (./fpa_engine.js), so
       // the list and its breakdown always agree. week_max omitted = through the
-      // last complete week. /api/lineup-matchups uses it too (./lineup_matchups.js);
-      // /api/fantasy-sos still carries its own copy of the older engine (its review is next).
+      // last complete week. /api/lineup-matchups (./lineup_matchups.js) and
+      // /api/fantasy-sos (Stats → Sched) use it too.
       if ((path === "/api/fantasy-points-against" || path === "/api/fpa-detail") && request.method === "GET") {
         try {
           return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });
