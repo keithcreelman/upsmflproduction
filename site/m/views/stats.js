@@ -1816,7 +1816,7 @@
     if (inProg.length) {
       var left = (d.pending || []).filter(function (g) { return g.wk === inProg[0]; });
       txt += ', <span class="ups-m-st-live"></span>Wk ' + inProg[0] + " in progress (final games only" +
-        (left.length && left.length <= 2 ? "; " + left.map(function (g) { return g.away + "–" + g.home + " " + fpaDay(g.kickoff).split(" ")[0]; }).join(", ") + " to come" : "") + ").";
+        (left.length && left.length <= 2 ? "; " + left.map(function (g) { return g.away + "–" + g.home + (g.status === "live" ? " being played" : " " + fpaDay(g.kickoff).split(" ")[0] + " to come"); }).join(", ") : "") + ").";
     } else txt += ", final.";
     var next = w.week_max + 1;
     if (w.auto && season.weeks && season.weeks[next] === "partial") txt += " Wk " + next + " is in progress: choose To: Wk " + next + " to add it.";

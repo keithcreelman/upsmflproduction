@@ -249,6 +249,15 @@ console.log("\n5. failures, freshness, route guard");
     assert.ok(/Couldn’t load points against/.test(v.text()) && v.mount.querySelector('[data-fpa="retry"]'));
     assert.ok(v.fpaGets().every((r) => !/YEAR=/.test(r.url)), v.fpaGets().map((r) => r.url).join());
   });
+  await check("a game being played reads 'being played', one still to kick off reads '<day> to come'", async () => {
+    const live = JSON.parse(JSON.stringify(FX.list_w5)); live.pending[0].status = "live";
+    const w = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? live : null });
+    await w.openBoard();
+    assert.ok(/BUF–LAR being played\)/.test(w.mount.querySelector("#ups-m-fpa-notes").textContent), w.mount.querySelector("#ups-m-fpa-notes").textContent);
+    const x = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? FX.list_w5 : null });
+    await x.openBoard();
+    assert.ok(/BUF–LAR \w{3} to come\)/.test(x.mount.querySelector("#ups-m-fpa-notes").textContent));
+  });
   await check("the failure isn't kept: Retry asks once more and shows the board", async () => {
     down = false; const n = v.fpaGets().length;
     v.mount.querySelector('[data-fpa="retry"]').click(); await settle();
