@@ -168,6 +168,9 @@ export function diffFields(beforeFields, afterFields, excludeName) {
 export const PAGES = {
   abilities: { url: (season, leagueId) => abilitiesUrl(season, leagueId), formText: /Commissioner\s+Lockout/i },
   trades: { url: (season, leagueId) => `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/csetup?L=${encodeURIComponent(_s(leagueId))}&C=TRADES`, formText: /Future\s+Draft\s+Pick|Trade/i },
+  // Setup → Delete Transactions: one checkbox per transaction RECORD. Kept raw so the rows can be read.
+  delete_transactions: { url: (season, leagueId) => `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/options?L=${encodeURIComponent(_s(leagueId))}&O=67`,
+    formAction: /\/delete_transactions\b/i, submit: /Delete\s+Transactions/i, keepMarkup: true },
 };
 
 // The stored session, switched to the league's COMMISSIONER identity for this call
@@ -190,6 +193,10 @@ async function commissionerCookie(env, { season, leagueId, fetchImpl }) {
 export const PAGE_ATTEMPTS = 3;
 export const PAGE_RETRY_DELAY_MS = 300;
 const _sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Commissioner read of a setup page (switch + retries). Success carries `cookie` (session
+// values) — never return it to a caller.
+export async function loadSetupPage(env, opts) { return loadPage(env, opts); }
 
 async function loadPage(env, opts) {
   const tries = [];
@@ -237,9 +244,9 @@ async function loadPageOnce(env, { season, leagueId, page, fetchImpl, cookie }) 
     const p = parseAbilitiesPage(markup);
     return p.ok ? { ok: true, url, form: p.form, lockout: p.lockout, cookie: ck, identity, elevation } : { ok: false, error: p.error, identity, elevation };
   }
-  const forms = [...markup.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => cfg.formText.test(textOf(f)) && /save/i.test(f));
+  const forms = [...markup.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => (cfg.formAction ? cfg.formAction.test(/^<form\b[^>]*>/i.exec(f)[0]) : cfg.formText.test(textOf(f))) && (cfg.submit || /save/i).test(f));
   if (forms.length !== 1) return { ok: false, error: forms.length ? "several_forms" : "form_not_found", identity, elevation };
-  return { ok: true, url, form: parseForm(forms[0]), cookie: ck, identity, elevation };
+  return { ok: true, url, form: parseForm(forms[0]), cookie: ck, identity, elevation, ...(cfg.keepMarkup ? { markup: forms[0] } : {}) };
 }
 
 // Read-only: the Abilities Setup page's lockout state + a summary of the form (no submit).
