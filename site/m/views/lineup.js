@@ -372,8 +372,10 @@
       '<span class="ups-m-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
+    // His line from this week's report (on it or not); when the report isn't out or
+    // can't be read, the screen's injury note says so once, not on every card.
     var pl = DATA.playerById(pid), inj = injInfo(pid, pl && pl.team);
-    if (inj.report) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.report) + '</div>');
+    if (inj.report && injReport().state === "ok") rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.report) + '</div>');
     if (inj.roster) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.roster) + '</div>');
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
