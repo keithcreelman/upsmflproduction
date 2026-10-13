@@ -57545,20 +57545,6 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         return jsonOut(200, { ok: true, league_id: leagueId, identity_before: r.identity_before || null, identity: r.identity || null, elevation: r.elevation || null, page_attempts: r.page_attempts || null, lockout: r.lockout, lockout_field: r.lockout_field,
           form_action: r.form_action, method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, cookie, writes: 0 });
       }
-      // TEMPORARY (removed right after use): delete the RECORDS of the worker's own supervised-test
-      // trades in test league 25625 — Setup → Delete Transactions, record only, never undoes a move.
-      // Hard-wired to 25625; only named test trades; exact match or nothing (Keith 2026-10-13).
-      if (path === "/admin/test-league/delete-test-trades" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        if (safeStr(body.league_id || "25625") !== "25625") return jsonOut(403, { ok: false, error: "test_league_only" });
-        const { deleteTestTradeRecords } = await import("./mfl_test_cleanup.js");
-        const r = await deleteTestTradeRecords(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId: "25625",
-          tradeTimestamps: Array.isArray(body.trade_timestamps) ? body.trade_timestamps : [], expectRecords: Number(body.expect_records) });
-        return jsonOut(r.ok ? 200 : 409, { league_id: "25625", ...r });
-      }
       if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
