@@ -114,6 +114,14 @@ console.log("1. the list (RB; default window = Full season through the latest co
     const t = v.mount.querySelector("#ups-m-fpa-window").textContent.replace(/\s+/g, " ");
     assert.ok(/^Window: Full season · Wks 1–5, through the latest completed game\. BUF–LAR \(\w{3}\) isn’t played yet, so it isn’t counted\. Points RBs scored vs each defense, per game\. Top = easiest matchup\./.test(t), t);
   });
+  await check("a finished season says so: 'Full season · Wks 1–17, the whole season (complete).'", async () => {
+    const past = JSON.parse(JSON.stringify(FX.list_auto));
+    past.year = "2025"; past.weeksUsed = Array.from({ length: 17 }, (_, i) => i + 1); past.weeks_in_progress = []; past.pending = [];
+    past.season = Object.assign({}, past.season, { state: "complete" });
+    const w = boot({ answer: (u) => u.pathname === "/api/fantasy-points-against" ? past : null });
+    await w.openBoard();
+    assert.ok(/^Window: Full season · Wks 1–17, the whole season \(complete\)\./.test(w.mount.querySelector("#ups-m-fpa-window").textContent), w.mount.querySelector("#ups-m-fpa-window").textContent);
+  });
   await check("RB's evidence line (no reliable next-game signal) + About (≤3 sentences); no Alw/Norm/Δ%", () => {
     const t = v.mount.querySelector("#ups-m-fpa-notes").textContent.replace(/\s+/g, " ");
     assert.ok(/Not a reliable next-game guide at RB: in testing it did no better than a coin flip\./.test(t), t);

@@ -1825,7 +1825,8 @@
     // The active window, always named: Full season = every final game so far, through the latest
     // completed game; a game still being played (or not yet scored by MFL) never counts.
     var span = fpaWeeksLabel(used[0], used[used.length - 1]);
-    var win = custom ? "<b>Window: Custom</b> · " + span + "." : "<b>Window: Full season</b> · " + span + ", through the latest completed game.";
+    var done = d.season && d.season.state === "complete";
+    var win = custom ? "<b>Window: Custom</b> · " + span + "." : "<b>Window: Full season</b> · " + span + (done ? ", the whole season (complete)." : ", through the latest completed game.");
     var inProg = d.weeks_in_progress || [];
     if (inProg.length) {
       var left = (d.pending || []).filter(function (g) { return g.wk === inProg[inProg.length - 1]; });
