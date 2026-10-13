@@ -477,9 +477,10 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 // raw = the parsed MFL replies fpaLoadMfl consumed for the full season:
 // { league, players, sched: {w: reply}, scores: {w: reply} }. Keeps only what the
 // engine reads: numeric score rows of known players; those players' id, name,
-// position and team; each game's kickoff, clock and teams. snapRows = D1
-// ff_player_ids rows for snapPids ({mfl_id, pfr_id}) and nfl_player_snaps rows for
-// the season ({pfr_id, week, off_snaps, def_snaps}), or null to leave drill snaps live.
+// position and team; each game's kickoff, clock and teams. For the drill's snaps:
+// snapPids = every player a drill can list (null = leave drill snaps live), idRows =
+// D1 ff_player_ids rows ({mfl_id, pfr_id}), snapRows = the season's nfl_player_snaps
+// rows ({pfr_id, week, off_snaps, def_snaps}); kept with the live query's exact matches.
 export function fpaStoreEncode({ yr, lid, endWeek, raw, ctx, readAtMs, builtAtMs, snapPids, idRows, snapRows }) {
   const plist = arr(raw.players && raw.players.players && raw.players.players.player);
   const known = new Set(plist.map(idOf)), used = new Set();

@@ -34,8 +34,9 @@ const LID = "74598";
 const SNAP_GROUPS = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB"]);   // K and P drills show no snaps
 
 // ── sources (read-only) ──
-// MFL answers bursts with HTTP 429 (seen 2026-10-13 after ~250 reads in 15 minutes),
-// so reads go one at a time with a gap, and a 429 backs off for minutes. --mfl-cache
+// MFL throttles a client (IP + User-Agent) with HTTP 429 after roughly 100-150 reads in
+// ten minutes (seen 2026-10-13), so reads go one at a time, 2 s apart, and a 429 backs off
+// for minutes; a full 2017-2025 build reads ~320 exports. --mfl-cache
 // <dir> keeps each reply on disk, so a rerun reads MFL only for what it hasn't got.
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 let mflQueue = Promise.resolve(), mflCache = null;
@@ -50,7 +51,7 @@ function getJson(u) {
         if (r.ok) {
           const t = await r.text(), j = JSON.parse(t);
           if (cf) fs.writeFileSync(cf, t);
-          await sleep(1000); return j;
+          await sleep(2000); return j;
         }
         last = "HTTP " + r.status;
         await sleep(r.status === 429 ? 30000 * 2 ** i : 2000 * (i + 1));
