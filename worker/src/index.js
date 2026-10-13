@@ -57525,9 +57525,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       }
       // ── Forfeited pick traded on MFL's own site → reverse the trade (Keith 2026-10-12) ──
       // abilities-inspect: read-only — the Abilities Setup page's lockout state and form summary.
-      // lockout + test-league/trade: TEST LEAGUE (25625) ONLY — staging the supervised test.
-      // forfeit-reversal: mode "preview" writes nothing; mode "run" is the test league
-      // (no Discord, no DMs) or the real league behind LINEUP_FORFEIT_REVERSAL_ENABLED.
+      // forfeit-reversal: mode "preview" writes nothing; mode "run" needs confirm:"reverse"
+      // AND LINEUP_FORFEIT_REVERSAL_ENABLED (the supervised test-league harness was removed).
       if (path === "/admin/mfl/abilities-inspect" && request.method === "GET") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -57546,66 +57545,6 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         return jsonOut(200, { ok: true, league_id: leagueId, identity_before: r.identity_before || null, identity: r.identity || null, elevation: r.elevation || null, lockout: r.lockout, lockout_field: r.lockout_field,
           form_action: r.form_action, method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, cookie, writes: 0 });
       }
-      if (path === "/admin/mfl/lockout" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        const leagueId = safeStr(body.league_id);
-        if (leagueId !== "25625") return jsonOut(403, { ok: false, error: "test_league_only", message: "Lockout is only switched directly on the test league (25625). On the real league it happens only inside a forfeited-pick reversal." });
-        const { setLockout } = await import("./mfl_lockout.js");
-        if (!safeStr(body.expect_digest)) return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the Abilities Setup fingerprint (digest) the page must still match before the write." });
-        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true, expectDigest: safeStr(body.expect_digest) });
-        return jsonOut(r.ok ? 200 : 409, r);
-      }
-      if (path === "/admin/test-league/trade" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        if (safeStr(body.league_id || "25625") !== "25625") return jsonOut(403, { ok: false, error: "test_league_only" });
-        const { executeCommishTwoPartyTrade } = await import("./trade_3way.js");
-        const r = await executeCommishTwoPartyTrade(env, {
-          leagueId: "25625", year: Number(body.season || YEAR || new Date().getUTCFullYear()),
-          fromFid: padFranchiseId(body.from_fid), toFid: padFranchiseId(body.to_fid),
-          give: Array.isArray(body.give) ? body.give.map(safeStr) : [], receive: Array.isArray(body.receive) ? body.receive.map(safeStr) : [],
-          mflTokens: true, commentTag: "[Test league: staged trade]", comments: safeStr(body.comments), cookieAuth: true,
-        });
-        return jsonOut(r.ok ? 200 : 409, r);
-      }
-      // Test league (25625) only — the supervised forfeited-pick test. Hard-wired to
-      // 25625: no league parameter is read, so the production league can't be named.
-      if (path === "/admin/test-league/settings-snapshot" && request.method === "GET") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        const { snapshotPage } = await import("./mfl_lockout.js");
-        const page = safeStr(url.searchParams.get("page"));
-        if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
-        const r = await snapshotPage(env, { season: safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page });
-        return jsonOut(r.ok ? 200 : 502, { league_id: "25625", ...r });
-      }
-      if (path === "/admin/test-league/settings-set" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        const page = safeStr(body.page);
-        if (page !== "abilities" && page !== "trades") return jsonOut(400, { ok: false, error: "page must be abilities or trades" });
-        if (!body.changes || typeof body.changes !== "object" || Array.isArray(body.changes)) return jsonOut(400, { ok: false, error: "changes must be an object" });
-        const { setPageFields } = await import("./mfl_lockout.js");
-        if (!safeStr(body.expect_digest)) return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the snapshot fingerprint (digest) the page must still match before the write." });
-        const r = await setPageFields(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId: "25625", page, changes: body.changes, expectDigest: safeStr(body.expect_digest) });
-        return jsonOut(r.ok ? 200 : 409, { league_id: "25625", ...r });
-      }
-      if (path === "/admin/test-league/forfeit-check" && request.method === "POST") {
-        const denied = await commishSettingsGate();
-        if (denied) return denied;
-        let body = {};
-        try { body = await request.json(); } catch (_) {}
-        const { checkForfeitedPicks } = await import("./lineup_forfeits.js");
-        const r = await checkForfeitedPicks(env, "25625", body.tokens || {});
-        return jsonOut(200, { league_id: "25625", writes: 0, ...r });
-      }
       if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -57613,7 +57552,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         try { body = await request.json(); } catch (_) {}
         const leagueId = safeStr(body.league_id || L || "74598");
         const mode = safeStr(body.mode) === "run" ? "run" : "preview";
-        if (mode === "run" && leagueId !== "25625" && safeStr(body.confirm) !== "reverse") {
+        if (mode === "run" && safeStr(body.confirm) !== "reverse") {
           return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"reverse\" to run on the real league (it also needs LINEUP_FORFEIT_REVERSAL_ENABLED). Preview first." });
         }
         // A test-league run switches lockout on a page Keith snapshotted: it must quote that fingerprint.
