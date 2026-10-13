@@ -46,6 +46,7 @@ function fakeAbilitiesSite(state, { clobber = false } = {}) {
       if (clobber && posts.length === 1) state.boxes.ABIL_0002_HOME = !state.boxes.ABIL_0002_HOME; // MFL changed something else
       return { ok: true, status: 200, text: async () => "saved" };
     }
+    if (u.pathname.endsWith("/logout") && u.searchParams.get("BECOME") === "0000") return { ok: true, status: 200, headers: new Headers(), text: async () => "" };   // commissioner switch
     if (u.pathname.endsWith("/options") && u.searchParams.get("O") === "93") return { ok: true, status: 200, text: async () => abilitiesHtml(state) };
     throw new Error("unexpected " + url);
   };
@@ -323,6 +324,7 @@ function fakeTradesSite(st, { clobber = false } = {}) {
       if (clobber && posts.length === 1) st.deadline = "changed";
       return { ok: true, status: 200, text: async () => "ok" };
     }
+    if (String(url).includes("BECOME=0000")) return { ok: true, status: 200, headers: new Headers(), text: async () => "" };   // commissioner switch
     if (String(url).includes("C=TRADES")) return { ok: true, status: 200, text: async () => tradesHtml(st) };
     throw new Error("unexpected " + url);
   } };
