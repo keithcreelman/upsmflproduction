@@ -217,7 +217,7 @@ export async function reverseForfeitedPickTrade(env, opts) {
   const canonical = canonFpToken(`FP_${pick.original_owner}_${pick.year}_${pick.round}`);
   const week = Number(reservation && reservation.week) || 0;
   if (!holder || !_fid(owner) || !canonical) return { ok: false, held: true, reason: "bad_input" };
-  if (mode === "run" && !(await (deps.flagImpl || defaultFlag)(env))) return { ok: false, held: true, reason: "reversal_disabled" };
+  if (mode === "run" && !isTest && !(await (deps.flagImpl || defaultFlag)(env))) return { ok: false, held: true, reason: "reversal_disabled" };
 
   // Names (for the thread match and the text).
   const lg = await mflJson(env, fetchImpl, season, `TYPE=league&L=${encodeURIComponent(leagueId)}`);
