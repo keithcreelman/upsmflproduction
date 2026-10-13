@@ -73,13 +73,20 @@ function mergeCookies(header, pairs) {
   return [...m.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
-// → { ok, header, set_cookie_names, hops } — names only are safe to report; `header`
+const sha12 = async (v) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(_s(v))))]
+  .map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 12);
+const cookieValue = (header, name) => { const m = new RegExp(`(?:^|;\\s*)${name}\\s*=\\s*([^;]*)`, "i").exec(_s(header)); return m ? m[1] : null; };
+
+// → { ok, header, set_cookie_names, set_cookies:[{name,length,sha256_12}], user_id_changed,
+//     identity_after_switch, hops }. Everything but `header` is safe to report; `header`
 // carries session values and must never be returned to a caller or logged.
 export async function becomeCommissioner(baseHeader, { season, leagueId, fetchImpl }) {
   const f = fetchImpl || fetch;
   let header = _s(baseHeader);
   if (!header) return { ok: false, error: "no_commissioner_cookie" };
   const names = [];
+  const storedUserId = cookieValue(header, "MFL_USER_ID");
+  let identityAfter = null;
   let url = `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/logout?L=${encodeURIComponent(_s(leagueId))}&BECOME=0000`;
   let hops = 0;
   try {
@@ -88,12 +95,16 @@ export async function becomeCommissioner(baseHeader, { season, leagueId, fetchIm
       const pairs = setCookiePairs(r && r.headers);
       for (const [k] of pairs) if (!names.includes(k)) names.push(k);
       header = mergeCookies(header, pairs);
+      if (r && r.status === 200 && typeof r.text === "function") identityAfter = sessionIdentity(await r.text());
       const loc = r && r.status >= 300 && r.status < 400 && r.headers && typeof r.headers.get === "function" ? _s(r.headers.get("location")) : "";
       const next = loc ? new URL(loc, url) : null;
       url = next && /(^|\.)myfantasyleague\.com$/i.test(next.hostname) ? next.toString() : "";
     }
   } catch (e) { return { ok: false, error: `become_failed: ${e && e.message}` }; }
-  return { ok: true, header, set_cookie_names: names, hops };
+  const set_cookies = [];
+  for (const n of names) { const v = cookieValue(header, n) || ""; set_cookies.push({ name: n, length: v.length, sha256_12: await sha12(v) }); }
+  const finalUserId = cookieValue(header, "MFL_USER_ID");
+  return { ok: true, header, set_cookie_names: names, set_cookies, user_id_changed: finalUserId !== storedUserId, identity_after_switch: identityAfter, hops };
 }
 
 // Who MFL says this page was served to, from its header line — no values.

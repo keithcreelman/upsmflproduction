@@ -176,7 +176,8 @@ async function commissionerCookie(env, { season, leagueId, fetchImpl }) {
   const base = cookieHeader(env);
   if (!base) return { ok: false, error: "no_commissioner_cookie" };
   const r = await becomeCommissioner(base, { season, leagueId, fetchImpl });
-  return r.ok ? { ok: true, header: r.header, elevation: { set_cookie_names: r.set_cookie_names, hops: r.hops } } : { ok: false, error: r.error };
+  return r.ok ? { ok: true, header: r.header, elevation: { set_cookie_names: r.set_cookie_names, set_cookies: r.set_cookies, user_id_changed: r.user_id_changed,
+    identity_after_switch: r.identity_after_switch, hops: r.hops } } : { ok: false, error: r.error };
 }
 
 async function loadPage(env, { season, leagueId, page, fetchImpl, cookie }) {
@@ -219,9 +220,20 @@ async function loadPage(env, { season, leagueId, page, fetchImpl, cookie }) {
 
 // Read-only: the Abilities Setup page's lockout state + a summary of the form (no submit).
 export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
+  // BEFORE the switch: who MFL serves the stored session as, from the league home page
+  // (a plain read — no redirect followed, nothing submitted).
+  let before = { identity: "no_cookie" };
+  const base = cookieHeader(env);
+  if (base) {
+    try {
+      const r = await (fetchImpl || fetch)(`https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/home/${encodeURIComponent(_s(leagueId))}`,
+        { headers: { Cookie: base, "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
+      before = r.status >= 300 && r.status < 400 ? { http: r.status, identity: "redirected" } : { http: r.status, identity: sessionIdentity(await r.text()) };
+    } catch (e) { before = { identity: "unreadable" }; }
+  }
   const p = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
-  if (!p.ok) return { ok: false, error: p.error, http: p.http, location_path: p.location_path, identity: p.identity, elevation: p.elevation };
-  return { ok: true, identity: p.identity, elevation: p.elevation, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
+  if (!p.ok) return { ok: false, error: p.error, http: p.http, location_path: p.location_path, identity_before: before, identity: p.identity, elevation: p.elevation };
+  return { ok: true, identity_before: before, identity: p.identity, elevation: p.elevation, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
     lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length };
 }
 

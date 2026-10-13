@@ -57978,8 +57978,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // identity = who MFL served the page to (owner / commissioner / signed out); elevation =
         // the Set-Cookie NAMES the BECOME=0000 switch returned. No values.
         if (!r.ok) return jsonOut(502, { ok: false, league_id: leagueId, error: r.error, http: r.http || null, location_path: r.location_path || null,
-          identity: r.identity || null, elevation: r.elevation || null, cookie, writes: 0 });
-        return jsonOut(200, { ok: true, league_id: leagueId, identity: r.identity || null, elevation: r.elevation || null, lockout: r.lockout, lockout_field: r.lockout_field,
+          identity_before: r.identity_before || null, identity: r.identity || null, elevation: r.elevation || null, cookie, writes: 0 });
+        return jsonOut(200, { ok: true, league_id: leagueId, identity_before: r.identity_before || null, identity: r.identity || null, elevation: r.elevation || null, lockout: r.lockout, lockout_field: r.lockout_field,
           form_action: r.form_action, method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, cookie, writes: 0 });
       }
       if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {

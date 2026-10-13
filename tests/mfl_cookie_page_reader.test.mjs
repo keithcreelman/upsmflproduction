@@ -63,8 +63,9 @@ function fakeMfl({ ownerValue, page }) {
       if (!has(ownerValue) && !has(COMMISH)) return res(302, "", { location: `/2026/login?L=${L}` });
       return res(302, "", { location: `/2026/home/${L}`, "set-cookie": [`MFL_USER_ID=${COMMISH}; path=/; domain=.myfantasyleague.com`, "MFL_IS_COMMISH=1; path=/"] });
     }
-    if (u.pathname.endsWith(`/home/${L}`)) return res(200, "home");
     const commish = has(COMMISH), owner = has(ownerValue);
+    if (u.pathname.endsWith("/login")) return res(200, `<html><head><title>TEST UPS Login</title></head><body>${SIGNED_OUT}<form method="POST" action="/2026/login"><input type="password" name="PASSWORD"></form></body></html>`);
+    if (u.pathname.endsWith(`/home/${L}`)) return res(200, `<html><body>${commish ? AS_COMMISH : owner ? AS_OWNER : SIGNED_OUT}<h1>TEST UPS</h1></body></html>`);
     if (u.pathname.endsWith("/options") && !commish) return res(302, "", { location: `https://www48.myfantasyleague.com/2026/login?L=${L}&URL=x` });
     if (u.pathname.endsWith("/csetup") && !commish) return res(200, accessRequiredPage(owner ? AS_OWNER : SIGNED_OUT));
     return res(200, page(u));
@@ -114,6 +115,9 @@ test("hardening: signed out — Abilities reads as 'redirected_to_login' and Tra
   t.equal(a.ok, false); t.equal(a.error, "redirected_to_login"); t.equal(a.http, 302); t.equal(a.location_path, "/2026/login");
   const tr = await LK.snapshotPage({ MFL_COOKIE: BARE_PLAIN }, { season: SEASON, leagueId: L, page: "trades", fetchImpl: mfl.fetchImpl });
   t.equal(tr.ok, false); t.equal(tr.error, "commissioner_access_required"); t.equal(tr.identity, "signed_out");
+  t.deepEqual(a.identity_before, { http: 200, identity: "signed_out" }, "an unknown session reads as signed out before the switch");
+  t.deepEqual(a.elevation.set_cookie_names, [], "the switch returned no session cookie");
+  t.equal(a.elevation.identity_after_switch, "signed_out", "…and landed on the login page");
   t.ok(mfl.calls.every((c) => c.method === "GET" && c.redirect === "manual"), "nothing submitted, no redirect followed blindly");
 });
 
@@ -145,9 +149,14 @@ test("auth candidate: the owner session alone is refused; after BECOME=0000 the 
   t.match(await directT.text(), /Commissioner Access Required/, "owner → Trades Setup says Commissioner Access Required");
   mfl.calls.length = 0;
   const a = await LK.inspectAbilities({ MFL_COOKIE: BARE_PLAIN }, { season: SEASON, leagueId: L, fetchImpl: mfl.fetchImpl });
-  t.equal(a.ok, true, JSON.stringify(a)); t.equal(a.identity, "commissioner");
-  t.deepEqual(a.elevation, { set_cookie_names: ["MFL_USER_ID", "MFL_IS_COMMISH"], hops: 2 });
-  t.match(mfl.calls[0].url, /\/2026\/logout\?L=25625&BECOME=0000$/, "the switch comes first, for the same league");
+  t.equal(a.ok, true, JSON.stringify(a));
+  t.deepEqual(a.identity_before, { http: 200, identity: "owner" }, "before the switch MFL serves the stored session as the owner");
+  t.equal(a.elevation.identity_after_switch, "commissioner"); t.equal(a.identity, "commissioner", "the Abilities page was served to the commissioner");
+  t.deepEqual(a.elevation.set_cookie_names, ["MFL_USER_ID", "MFL_IS_COMMISH"]); t.equal(a.elevation.hops, 2); t.equal(a.elevation.user_id_changed, true);
+  t.deepEqual(a.elevation.set_cookies.map((c) => [c.name, c.length]), [["MFL_USER_ID", COMMISH.length], ["MFL_IS_COMMISH", 1]]);
+  t.ok(a.elevation.set_cookies.every((c) => /^[0-9a-f]{12}$/.test(c.sha256_12)), "fingerprints only");
+  t.match(mfl.calls[0].url, /\/2026\/home\/25625$/, "first a plain read of the league home page as stored");
+  t.match(mfl.calls[1].url, /\/2026\/logout\?L=25625&BECOME=0000$/, "then the switch, for the same league");
   t.match(mfl.calls.at(-1).cookie, new RegExp(`MFL_USER_ID=${COMMISH}`), "the page is read as commissioner");
   t.equal(leaks(a, BARE_PLAIN, COMMISH), false, "no session value in the result");
   const tr = await LK.snapshotPage({ MFL_COOKIE: BARE_PLAIN }, { season: SEASON, leagueId: L, page: "trades", fetchImpl: mfl.fetchImpl });
