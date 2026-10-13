@@ -1,0 +1,66 @@
+{
+ "positions": {
+  "ALL": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5239013880530159,
+   "rank_acc_2025": 0.5296030500112133
+  },
+  "DB": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5208674204498278,
+   "rank_acc_2025": 0.5294622425629291
+  },
+  "DL": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.546692083974876,
+   "rank_acc_2025": 0.5705091533180778
+  },
+  "LB": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5163040821315081,
+   "rank_acc_2025": 0.5017880131597768
+  },
+  "PK": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5226185353011163,
+   "rank_acc_2025": 0.516015280634734
+  },
+  "PN": {
+   "default": "Season to date",
+   "predictive": false,
+   "rank_acc_2019_2024": 0.507991098523164,
+   "rank_acc_2025": 0.5159644263012101
+  },
+  "QB": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5340932066316215,
+   "rank_acc_2025": 0.5609397944199707
+  },
+  "RB": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5319793728767994,
+   "rank_acc_2025": 0.5170194508009154
+  },
+  "TE": {
+   "default": "Season to date",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5241491245327562,
+   "rank_acc_2025": 0.5337528604118993
+  },
+  "WR": {
+   "default": "Last 8",
+   "predictive": true,
+   "rank_acc_2019_2024": 0.5164349079889538,
+   "rank_acc_2025": 0.5245995423340961
+  }
+ },
+ "rule": "Per position, on 2019\u20132024 only: among the displayable windows (Full season = season to date, Last 1/2/3/4/5/6/8 completed games, Previous season), pick the one whose Allowed\u00f7Usual ORDER best matches the next game's actual Allowed\u00f7Usual (pairwise rank accuracy within each week's slate). It replaces Full season only if it beats Full season with a 95% cluster-bootstrap interval above 0 AND in at least 4 of the 6 seasons. The default is then confirmed on the locked 2025 holdout: a replacement must still beat Full season there, otherwise Full season stays. The board is called predictive for a position only if its default window's rank accuracy is above a coin flip (50%) with a 95% interval above 0 on 2019\u20132024 AND above 50% on 2025.",
+ "selection_sha256": "af5a2637709829b4f5aff1ff8328367c4d09417ba6b12b42235ac7226bbc9cc9"
+}

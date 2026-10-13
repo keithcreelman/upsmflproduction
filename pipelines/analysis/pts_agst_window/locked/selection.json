@@ -1,0 +1,784 @@
+{
+ "frozen_from": "2019\u20132024 only",
+ "positions": {
+  "ALL": {
+   "best_shrunk": {
+    "MAE": 8.01976206448589,
+    "improvement_pct": 0.34315264791707945,
+    "k": 20,
+    "method": "EW half-life 8",
+    "no_adjustment_MAE": 8.047376851238782
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.019387860896327047,
+     0.028309019930141788
+    ],
+    "diff": 0.023901388053015893
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5192400942089221,
+     "season_to_date_on_heldout": 0.5244873926295373
+    },
+    "2020": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5253295357843734,
+     "season_to_date_on_heldout": 0.5261284104131572
+    },
+    "2021": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.527319321771646,
+     "season_to_date_on_heldout": 0.5259332086906067
+    },
+    "2022": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5187285889729171,
+     "season_to_date_on_heldout": 0.5187285889729171
+    },
+    "2023": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5229016209276199,
+     "season_to_date_on_heldout": 0.5217300593805168
+    },
+    "2024": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5275638557309716,
+     "season_to_date_on_heldout": 0.5265851623668335
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5146736858318481,
+    "Last 2": 0.5179265350093714,
+    "Last 3": 0.5211810259778448,
+    "Last 4": 0.5222717791866246,
+    "Last 5": 0.5228874739274889,
+    "Last 6": 0.5232240512242711,
+    "Last 8": 0.5241926840729779,
+    "Previous season": 0.5163217380556738,
+    "Season to date": 0.5239013880530159
+   },
+   "winner_by_rank_acc": "Last 8",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.019794943687397648,
+     0.02837202931306071
+    ],
+    "diff": 0.02419268407297792
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.0015083658184048554,
+     0.002055074900980225
+    ],
+    "diff": 0.0002912960199620285,
+    "seasons_better": 4
+   }
+  },
+  "DB": {
+   "best_shrunk": {
+    "MAE": 9.863949624563563,
+    "improvement_pct": 0.20301285602624358,
+    "k": 30,
+    "method": "EW half-life 8",
+    "no_adjustment_MAE": 9.884015446611805
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.007758985727451595,
+     0.03307955476316682
+    ],
+    "diff": 0.02086742044982781
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 3",
+     "rank_acc_on_heldout": 0.5243226600985221,
+     "season_to_date_on_heldout": 0.5389470443349754
+    },
+    "2020": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5301910043130006,
+     "season_to_date_on_heldout": 0.5402033271719039
+    },
+    "2021": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.516733409610984,
+     "season_to_date_on_heldout": 0.516733409610984
+    },
+    "2022": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5069593915913331,
+     "season_to_date_on_heldout": 0.5069593915913331
+    },
+    "2023": {
+     "picked": "Last 3",
+     "rank_acc_on_heldout": 0.48528571428571426,
+     "season_to_date_on_heldout": 0.498
+    },
+    "2024": {
+     "picked": "Last 4",
+     "rank_acc_on_heldout": 0.5261428571428571,
+     "season_to_date_on_heldout": 0.527
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5164961293316076,
+    "Last 2": 0.5186695645803316,
+    "Last 3": 0.5212337297614106,
+    "Last 4": 0.5208674204498278,
+    "Last 5": 0.5171310654716843,
+    "Last 6": 0.5171554860924564,
+    "Last 8": 0.520208063688979,
+    "Previous season": 0.5105130772424235,
+    "Season to date": 0.5208674204498278
+   },
+   "winner_by_rank_acc": "Last 3",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.006769274618782961,
+     0.03523538491221301
+    ],
+    "diff": 0.02123372976141058
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.008790021606757015,
+     0.009347619163839638
+    ],
+    "diff": 0.0003663093115827687,
+    "seasons_better": 4
+   }
+  },
+  "DL": {
+   "best_shrunk": {
+    "MAE": 9.215797589022817,
+    "improvement_pct": 0.807194724349937,
+    "k": 20,
+    "method": "Blend c=0.5",
+    "no_adjustment_MAE": 9.290792374923505
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.034783245459871104,
+     0.05939156135344481
+    ],
+    "diff": 0.04669208397487601
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5153194765204003,
+     "season_to_date_on_heldout": 0.5227097767513472
+    },
+    "2020": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5263401109057301,
+     "season_to_date_on_heldout": 0.5263401109057301
+    },
+    "2021": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5441933638443935,
+     "season_to_date_on_heldout": 0.5517734553775744
+    },
+    "2022": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5157105794176996,
+     "season_to_date_on_heldout": 0.5157105794176996
+    },
+    "2023": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5801428571428572,
+     "season_to_date_on_heldout": 0.5801428571428572
+    },
+    "2024": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.58,
+     "season_to_date_on_heldout": 0.58
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5187339606501283,
+    "Last 2": 0.5216169318376225,
+    "Last 3": 0.5317349756824792,
+    "Last 4": 0.5375516289073001,
+    "Last 5": 0.5400200405699342,
+    "Last 6": 0.5428306083046167,
+    "Last 8": 0.5456167363198671,
+    "Previous season": 0.5250140528386734,
+    "Season to date": 0.546692083974876
+   },
+   "winner_by_rank_acc": "Season to date",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.034783245459871104,
+     0.05939156135344481
+    ],
+    "diff": 0.04669208397487601
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "diff": 0.0,
+    "seasons_better": 0
+   }
+  },
+  "LB": {
+   "best_shrunk": {
+    "MAE": 6.680806716044297,
+    "improvement_pct": 0.046721953677211985,
+    "k": 50,
+    "method": "Blend c=1.0",
+    "no_adjustment_MAE": 6.6839295785257935
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.003835946924004796,
+     0.02891545519395866
+    ],
+    "diff": 0.016304082131508135
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 5",
+     "rank_acc_on_heldout": 0.5020791621746497,
+     "season_to_date_on_heldout": 0.5245649160634529
+    },
+    "2020": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.48605761824064087,
+     "season_to_date_on_heldout": 0.5311970420582345
+    },
+    "2021": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5225972540045767,
+     "season_to_date_on_heldout": 0.5225972540045767
+    },
+    "2022": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.48796656578757747,
+     "season_to_date_on_heldout": 0.4997116493656286
+    },
+    "2023": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5111428571428571,
+     "season_to_date_on_heldout": 0.5111428571428571
+    },
+    "2024": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.5102857142857142,
+     "season_to_date_on_heldout": 0.5101457559302658
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5141648945271443,
+    "Last 2": 0.5067217442315213,
+    "Last 3": 0.5133219261794182,
+    "Last 4": 0.512050843314593,
+    "Last 5": 0.5137619164018578,
+    "Last 6": 0.5151307748716695,
+    "Last 8": 0.5151796626741628,
+    "Previous season": 0.5165831602101919,
+    "Season to date": 0.5163040821315081
+   },
+   "winner_by_rank_acc": "Previous season",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.0034163489627172527,
+     0.03162269606071555
+    ],
+    "diff": 0.016583160210191905
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.01696451944781019,
+     0.017536110196798016
+    ],
+    "diff": 0.0002790780786837699,
+    "seasons_better": 4
+   }
+  },
+  "PK": {
+   "best_shrunk": {
+    "MAE": 4.198287146481718,
+    "improvement_pct": 0.058587346879772795,
+    "k": 20,
+    "method": "EW half-life 8",
+    "no_adjustment_MAE": 4.2007482534325025
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.009573519383098139,
+     0.03740461950917717
+    ],
+    "diff": 0.02261853530111635
+   },
+   "loso": {
+    "2019": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5341873498799039,
+     "season_to_date_on_heldout": 0.5341873498799039
+    },
+    "2020": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.50624,
+     "season_to_date_on_heldout": 0.52544
+    },
+    "2021": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5237733556129425,
+     "season_to_date_on_heldout": 0.5237733556129425
+    },
+    "2022": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5240928019036288,
+     "season_to_date_on_heldout": 0.5240928019036288
+    },
+    "2023": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5074300699300699,
+     "season_to_date_on_heldout": 0.5074300699300699
+    },
+    "2024": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5221588415971917,
+     "season_to_date_on_heldout": 0.5221588415971917
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.506016466117796,
+    "Last 2": 0.5154675712622145,
+    "Last 3": 0.5180366048148242,
+    "Last 4": 0.5137837632584867,
+    "Last 5": 0.5174543705541351,
+    "Last 6": 0.5179353466825305,
+    "Last 8": 0.519757993063818,
+    "Previous season": 0.5143167631226465,
+    "Season to date": 0.5226185353011163
+   },
+   "winner_by_rank_acc": "Season to date",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.009573519383098139,
+     0.03740461950917717
+    ],
+    "diff": 0.02261853530111635
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     0.0,
+     0.0
+    ],
+    "diff": 0.0,
+    "seasons_better": 0
+   }
+  },
+  "PN": {
+   "best_shrunk": {
+    "MAE": 4.164467337240877,
+    "improvement_pct": -0.016622202710212,
+    "k": 80,
+    "method": "Blend c=0.75",
+    "no_adjustment_MAE": 4.1637752260824
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     -0.004737535468179954,
+     0.02138042318403044
+    ],
+    "diff": 0.007991098523164042
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 1",
+     "rank_acc_on_heldout": 0.5182528295871194,
+     "season_to_date_on_heldout": 0.5021350624703463
+    },
+    "2020": {
+     "picked": "Last 2",
+     "rank_acc_on_heldout": 0.5397745571658615,
+     "season_to_date_on_heldout": 0.5528730082085949
+    },
+    "2021": {
+     "picked": "Last 2",
+     "rank_acc_on_heldout": 0.5126498002663116,
+     "season_to_date_on_heldout": 0.4996300133195205
+    },
+    "2022": {
+     "picked": "Last 1",
+     "rank_acc_on_heldout": 0.5123065585851142,
+     "season_to_date_on_heldout": 0.5068854380310577
+    },
+    "2023": {
+     "picked": "Last 4",
+     "rank_acc_on_heldout": 0.5002211410880142,
+     "season_to_date_on_heldout": 0.5047913902403066
+    },
+    "2024": {
+     "picked": "Last 3",
+     "rank_acc_on_heldout": 0.4768142125865703,
+     "season_to_date_on_heldout": 0.48449262270400484
+    }
+   },
+   "ordering_predictive_2019_2024": false,
+   "rank_acc": {
+    "Last 1": 0.5160764746315012,
+    "Last 2": 0.5158629762687851,
+    "Last 3": 0.5161355589276682,
+    "Last 4": 0.5157040258952054,
+    "Last 5": 0.5152365779025365,
+    "Last 6": 0.5108615937081152,
+    "Last 8": 0.5106463686020635,
+    "Previous season": 0.5103764783014348,
+    "Season to date": 0.507991098523164
+   },
+   "winner_by_rank_acc": "Last 3",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.0031099002775778484,
+     0.031754294638209224
+    ],
+    "diff": 0.01613555892766816
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.002313431529058607,
+     0.018970059134807538
+    ],
+    "diff": 0.008144460404504117,
+    "seasons_better": 5
+   }
+  },
+  "QB": {
+   "best_shrunk": {
+    "MAE": 9.373231035725718,
+    "improvement_pct": 0.16095079999442066,
+    "k": 12,
+    "method": "EW half-life 4",
+    "no_adjustment_MAE": 9.38834164671231
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.02149350315854348,
+     0.0459700082067096
+    ],
+    "diff": 0.03409320663162152
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.5580083789880761,
+     "season_to_date_on_heldout": 0.5536577505639704
+    },
+    "2020": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.5319251854240568,
+     "season_to_date_on_heldout": 0.5412770074169623
+    },
+    "2021": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.517094644167278,
+     "season_to_date_on_heldout": 0.517094644167278
+    },
+    "2022": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.5407451387858097,
+     "season_to_date_on_heldout": 0.5420810449755084
+    },
+    "2023": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.5101100208147488,
+     "season_to_date_on_heldout": 0.5187332738626227
+    },
+    "2024": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5340017436791631,
+     "season_to_date_on_heldout": 0.5340017436791631
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.517252711140322,
+    "Last 2": 0.5248433077234128,
+    "Last 3": 0.5317428224828143,
+    "Last 4": 0.5340173877881116,
+    "Last 5": 0.5321100917431193,
+    "Last 6": 0.5351799433885969,
+    "Last 8": 0.533436109987869,
+    "Previous season": 0.5129624014554275,
+    "Season to date": 0.5340932066316215
+   },
+   "winner_by_rank_acc": "Last 6",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.021857578891607554,
+     0.048375794584313514
+    ],
+    "diff": 0.03517994338859687
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.007033184744923204,
+     0.009125300342518239
+    ],
+    "diff": 0.0010867367569753483,
+    "seasons_better": 3
+   }
+  },
+  "RB": {
+   "best_shrunk": {
+    "MAE": 9.240797923770176,
+    "improvement_pct": 1.1372707958438102,
+    "k": 20,
+    "method": "Blend c=0.5",
+    "no_adjustment_MAE": 9.34709975959443
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.016941789748045166,
+     0.044825718786923985
+    ],
+    "diff": 0.03197937287679942
+   },
+   "loso": {
+    "2019": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.5202463433410316,
+     "season_to_date_on_heldout": 0.5424172440338723
+    },
+    "2020": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5112446087492298,
+     "season_to_date_on_heldout": 0.5112446087492298
+    },
+    "2021": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.5409812616220855,
+     "season_to_date_on_heldout": 0.5335431268774138
+    },
+    "2022": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.5239948119325551,
+     "season_to_date_on_heldout": 0.5101599654128837
+    },
+    "2023": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.5477142857142857,
+     "season_to_date_on_heldout": 0.5421428571428571
+    },
+    "2024": {
+     "picked": "Previous season",
+     "rank_acc_on_heldout": 0.5417142857142857,
+     "season_to_date_on_heldout": 0.5514285714285714
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5248197482585849,
+    "Last 2": 0.526798152357211,
+    "Last 3": 0.5284844929980204,
+    "Last 4": 0.5320282523156634,
+    "Last 5": 0.5332257985678325,
+    "Last 6": 0.5301219541999658,
+    "Last 8": 0.5306596280274702,
+    "Previous season": 0.5369650756409317,
+    "Season to date": 0.5319793728767994
+   },
+   "winner_by_rank_acc": "Previous season",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.023515689668146544,
+     0.051626277084053096
+    ],
+    "diff": 0.036965075640931655
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.013040340442475706,
+     0.023762087564993428
+    ],
+    "diff": 0.004985702764132238,
+    "seasons_better": 4
+   }
+  },
+  "TE": {
+   "best_shrunk": {
+    "MAE": 6.601109312532205,
+    "improvement_pct": 0.3825203449082714,
+    "k": 30,
+    "method": "Season to date",
+    "no_adjustment_MAE": 6.626456858161241
+   },
+   "default": "Season to date",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     0.010572523803635492,
+     0.03921927193816599
+    ],
+    "diff": 0.024149124532756194
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.48791377983063894,
+     "season_to_date_on_heldout": 0.48745188606620476
+    },
+    "2020": {
+     "picked": "Season to date",
+     "rank_acc_on_heldout": 0.5166485984203191,
+     "season_to_date_on_heldout": 0.5166485984203191
+    },
+    "2021": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5532467532467532,
+     "season_to_date_on_heldout": 0.5522366522366522
+    },
+    "2022": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.5376672484002327,
+     "season_to_date_on_heldout": 0.5586096567771961
+    },
+    "2023": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.4918552688482053,
+     "season_to_date_on_heldout": 0.4889721781750036
+    },
+    "2024": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5382407805997991,
+     "season_to_date_on_heldout": 0.5383842732099297
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5157925809308275,
+    "Last 2": 0.5191569939012394,
+    "Last 3": 0.5172388353334645,
+    "Last 4": 0.5211735195750541,
+    "Last 5": 0.5218620893173322,
+    "Last 6": 0.5236572890025576,
+    "Last 8": 0.5255016722408027,
+    "Previous season": 0.5064919097034377,
+    "Season to date": 0.5241491245327562
+   },
+   "winner_by_rank_acc": "Last 8",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.01082059236280375,
+     0.03989554439363274
+    ],
+    "diff": 0.025501672240802686
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     -0.004369291532954844,
+     0.006646953886757401
+    ],
+    "diff": 0.001352547708046492,
+    "seasons_better": 4
+   }
+  },
+  "WR": {
+   "best_shrunk": {
+    "MAE": 12.74339795317667,
+    "improvement_pct": 0.0520730275347371,
+    "k": 20,
+    "method": "EW half-life 8",
+    "no_adjustment_MAE": 12.75003728360205
+   },
+   "default": "Last 8",
+   "full_season_vs_coinflip": {
+    "ci95": [
+     -0.00283069955201104,
+     0.0232048374905518
+    ],
+    "diff": 0.010178645616950588
+   },
+   "loso": {
+    "2019": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.5098522167487685,
+     "season_to_date_on_heldout": 0.5153940886699507
+    },
+    "2020": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5036968576709797,
+     "season_to_date_on_heldout": 0.49168207024029575
+    },
+    "2021": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5180205949656751,
+     "season_to_date_on_heldout": 0.5150171624713958
+    },
+    "2022": {
+     "picked": "Last 8",
+     "rank_acc_on_heldout": 0.5219772301484363,
+     "season_to_date_on_heldout": 0.5054042369217466
+    },
+    "2023": {
+     "picked": "Last 2",
+     "rank_acc_on_heldout": 0.5147142857142857,
+     "season_to_date_on_heldout": 0.543
+    },
+    "2024": {
+     "picked": "Last 6",
+     "rank_acc_on_heldout": 0.48328571428571426,
+     "season_to_date_on_heldout": 0.48957142857142855
+    }
+   },
+   "ordering_predictive_2019_2024": true,
+   "rank_acc": {
+    "Last 1": 0.5025538258510717,
+    "Last 2": 0.5122803587575454,
+    "Last 3": 0.5127446907304675,
+    "Last 4": 0.5131357071287177,
+    "Last 5": 0.5150419120701875,
+    "Last 6": 0.515946137491141,
+    "Last 8": 0.5164349079889538,
+    "Previous season": 0.5132578997531709,
+    "Season to date": 0.5101786456169506
+   },
+   "winner_by_rank_acc": "Last 8",
+   "winner_vs_coinflip": {
+    "ci95": [
+     0.0024368630926008272,
+     0.030978858609312043
+    ],
+    "diff": 0.01643490798895375
+   },
+   "winner_vs_full_season": {
+    "ci95": [
+     0.001544685546156721,
+     0.01187068114511347
+    ],
+    "diff": 0.006256262372003163,
+    "seasons_better": 5
+   }
+  }
+ },
+ "rule": "Per position, on 2019\u20132024 only: among the displayable windows (Full season = season to date, Last 1/2/3/4/5/6/8 completed games, Previous season), pick the one whose Allowed\u00f7Usual ORDER best matches the next game's actual Allowed\u00f7Usual (pairwise rank accuracy within each week's slate). It replaces Full season only if it beats Full season with a 95% cluster-bootstrap interval above 0 AND in at least 4 of the 6 seasons. The default is then confirmed on the locked 2025 holdout: a replacement must still beat Full season there, otherwise Full season stays. The board is called predictive for a position only if its default window's rank accuracy is above a coin flip (50%) with a 95% interval above 0 on 2019\u20132024 AND above 50% on 2025.",
+ "train": [
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024
+ ]
+}
