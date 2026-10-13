@@ -121,16 +121,17 @@ function want(pid, resp) {
   const p = PBYID[pid], grp = GRP[p.position];
   const m = resp.matchups[p.team]; if (!m) return null;
   const r = (resp.defRatings[m.opp] || {})[grp];
-  return { grp, opp: m.opp, m, r, tier: tierOf(r.ppgRank, r.ppgOf), text: m.opp + " #" + r.ppgRank + " vs " + PLURAL[grp] };
+  return { grp, opp: m.opp, m, r, tier: tierOf(r.ppgRank, r.ppgOf), text: "#" + r.ppgRank + " vs " + PLURAL[grp] };
 }
 
 console.log("1. rank and color by MFL points allowed per game (Keith 2026-10-13)");
 {
   const e = boot(); await e.open();
-  await check("Josh Allen's line: where, when, and \"OPP #rank vs QBs\" by points allowed per game", () => {
+  await check("Josh Allen's line: where, when, and \"#rank vs QBs\" by points allowed per game (the opponent named once)", () => {
     const w = want(ALLEN), t = e.text(e.line(ALLEN));
     assert.ok(t.indexOf((w.m.isHome ? "vs " : "@ ") + w.opp) === 0, t);
     assert.ok(t.indexOf(w.text) > 0, t + " ≠ " + w.text);
+    assert.strictEqual(t.split(w.opp).length - 1, 1, "opponent once: " + t);
   });
   await check("every chip is green for ranks 1–10 and red for the bottom 10, plain between (starters + bench)", async () => {
     await e.bench();

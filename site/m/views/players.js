@@ -937,7 +937,7 @@
 
   // The decision line: projected points for the upcoming week · who they play ·
   // where that opponent ranks in MFL points allowed per game to this position
-  // ("GBP #19 vs QBs", green top 10 / red bottom 10 — Keith 2026-10-13, #1249;
+  // ("@ GBP · #30 vs QBs", green top 10 / red bottom 10 — Keith 2026-10-13, #1249;
   // games already played, not a forecast). The player → NFL team →
   // this week's game → opponent join and the chip are M.lineupIntel's
   // (views/lineup.js), not re-derived here. Whatever we don't have is left out — a

@@ -255,11 +255,12 @@
       rating: muRating(d, m.opp, grp), basis: muBasis(d), priorSeason: d.priorSeason, ratingYear: d.ratingYear,
       avg: d.playerWindow[String(pid)] || null, horizon: hz, weather: d.weather[team] || null };
   }
-  // The short chip: "GBP #19 vs QBs" (IDP: "MIN #3 vs DL" = MIN's offense). Green or
-  // red by the tier; the rank number says the same thing in text. Week 1: "(2025)".
+  // The short chip: "#30 vs QBs" — the opponent's rank (the line already names him:
+  // "@ GBP · Sun 8:20p · #30 vs QBs"); IDP "#3 vs DL" = that offense. Green or red by
+  // the tier; the rank number says the same thing in text. Week 1: "(2025)".
   function chipText(mu) {
     if (!mu || !mu.rating) return "";
-    return mu.opp + " #" + mu.rating.ppgRank + " vs " + (MU_PLURAL[mu.grp] || mu.grp) + (mu.priorSeason ? " (" + mu.ratingYear + ")" : "");
+    return "#" + mu.rating.ppgRank + " vs " + (MU_PLURAL[mu.grp] || mu.grp) + (mu.priorSeason ? " (" + mu.ratingYear + ")" : "");
   }
   function chipSay(mu) {
     if (!mu || !mu.rating) return "";
@@ -422,7 +423,7 @@
     return '<div class="ups-m-mu-note' + (d.priorSeason || e.err ? " warn" : "") + '">' + U.escapeHtml(lead + (read ? " " + read : "")) +
       " Games already played, not a forecast. " +
       '<details class="ups-m-st-more" id="ups-m-mu-about"' + (M.state.lineupMuNoteOpen ? " open" : "") + '><summary>About</summary><div>' +
-      "“GBP #19 vs QBs” = Green Bay is 19th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
+      "“@ GBP · #30 vs QBs” = Green Bay is 30th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
       "Only final games count, and a player counts for the team he played for that day. " +
       MU_ABOUT_EVIDENCE +
       '</div></details></div>' + injHtml;
@@ -997,7 +998,7 @@
   //                     fetches are fire-and-forget with their own catch, so a
   //                     dead worker never blocks a caller's render.
   //   matchupFor(pid)   the join. Null when there's no data / no game.
-  //   chipHtml(mu)      "GBP #19 vs QBs", green top 10 / red bottom 10 in MFL points allowed.
+  //   chipHtml(mu)      "#30 vs QBs", green top 10 / red bottom 10 in MFL points allowed.
   //   muData()          the raw answer for this week ({ defRatings, … }).
   M.lineupIntel = {
     // This week's per-team kickoffs, shared with the Players market so its
