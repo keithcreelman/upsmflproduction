@@ -5510,7 +5510,7 @@ table.asw-table{font-size:13px}
       var topSub = esc(team) + " · " + posLbl() + " allowed · " + fpa.year + " wks " + wkSpan(dd) +
         " · " + (dd.total != null ? dd.total : "—") + " total" + (dd.perGame != null ? " · " + dd.perGame + "/gm" : "") + (dd.err ? " · (load error)" : "");
 
-      function pctSpan(p){ return (p != null) ? '<span class="asw-trend ' + (p > 0 ? "up" : (p < 0 ? "dn" : "")) + '">' + (p >= 0 ? "+" : "") + p + "%</span>" : ""; }
+      function pctSpan(p){ return (p != null) ? '<span class="asw-trend ' + (p > 0 ? "up" : (p < 0 ? "dn" : "")) + '">' + (p > 0 ? "+" : (p < 0 ? "\u2212" : "")) + Math.abs(p) + "%</span>" : ""; }
       var paceNote = (dd.dPace && dd.dPace.expDeltaPct != null) ? (" · this D allows " + (dd.dPace.expDeltaPct >= 0 ? "+" : "") + dd.dPace.expDeltaPct + "% plays vs league") : "";
 
       if (fpa.detailWeek == null) {
@@ -5532,7 +5532,7 @@ table.asw-table{font-size:13px}
           var wdiff = (w.total != null && w.usualTotal != null) ? w.total - w.usualTotal : null;
           var playsHtml = (s.playsWk != null) ? (s.playsWk + " " + pctSpan(s.actualDeltaPct)) : "—";
           var sg = s.scriptGap;
-          var sgHtml = (sg != null) ? '<span class="asw-trend ' + (sg > 0 ? "up" : (sg < 0 ? "dn" : "")) + '">' + (sg >= 0 ? "+" : "") + sg + "</span>" : "—";
+          var sgHtml = (sg != null) ? '<span class="asw-trend ' + (sg > 0 ? "up" : (sg < 0 ? "dn" : "")) + '">' + (sg > 0 ? "+" : (sg < 0 ? "\u2212" : "")) + Math.abs(sg) + "</span>" : "—";
           html += '<tr class="fpa-week-row" data-wk="' + w.wk + '" title="Click for the players in Week ' + w.wk + '">' +
             '<td class="num">' + w.wk + '</td>' +
             '<td class="num">' + (w.total != null ? w.total : "—") + '</td>' +

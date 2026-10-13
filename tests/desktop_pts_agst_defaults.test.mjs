@@ -156,6 +156,7 @@ console.log("\ndesktop Pts Agst: the approved mobile wording (descriptive, not a
     const r = Number(g.diff).toFixed(1);
     assert.strictEqual(cells[3], Number(r) === 0 ? "0.0" : (g.diff > 0 ? "+" : "−") + r.replace("-", ""));
     assert.ok(!/Norm|Δ/.test(v.host.textContent));
+    assert.ok(!/(^|\s)-\d/.test(v.host.querySelector(".fpa-table").textContent), "negatives use a real minus (−), not a hyphen");
   });
 }
 await check("the page description is descriptive (no 'generous', no 'did the damage'; says it is not a forecast)", () => {
