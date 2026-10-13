@@ -153,7 +153,7 @@ test("auth candidate: the owner session alone is refused; after BECOME=0000 the 
   t.deepEqual(a.identity_before, { http: 200, identity: "owner" }, "before the switch MFL serves the stored session as the owner");
   t.equal(a.elevation.identity_after_switch, "commissioner"); t.equal(a.identity, "commissioner", "the Abilities page was served to the commissioner");
   t.deepEqual(a.elevation.set_cookie_names, ["MFL_USER_ID", "MFL_IS_COMMISH"]); t.equal(a.elevation.hops, 2); t.equal(a.elevation.user_id_changed, true);
-  t.deepEqual(a.elevation.set_cookies.map((c) => [c.name, c.length]), [["MFL_USER_ID", COMMISH.length], ["MFL_IS_COMMISH", 1]]);
+  t.deepEqual(a.elevation.set_cookies.map((c) => [c.name, c.value_length, c.action]), [["MFL_USER_ID", COMMISH.length, "replaced"], ["MFL_IS_COMMISH", 1, "added"]]);
   t.ok(a.elevation.set_cookies.every((c) => /^[0-9a-f]{12}$/.test(c.sha256_12)), "fingerprints only");
   t.match(mfl.calls[0].url, /\/2026\/home\/25625$/, "first a plain read of the league home page as stored");
   t.match(mfl.calls[1].url, /\/2026\/logout\?L=25625&BECOME=0000$/, "then the switch, for the same league");

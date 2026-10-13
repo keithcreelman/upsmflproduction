@@ -176,8 +176,11 @@ async function commissionerCookie(env, { season, leagueId, fetchImpl }) {
   const base = cookieHeader(env);
   if (!base) return { ok: false, error: "no_commissioner_cookie" };
   const r = await becomeCommissioner(base, { season, leagueId, fetchImpl });
-  return r.ok ? { ok: true, header: r.header, elevation: { set_cookie_names: r.set_cookie_names, set_cookies: r.set_cookies, user_id_changed: r.user_id_changed,
-    identity_after_switch: r.identity_after_switch, hops: r.hops } } : { ok: false, error: r.error };
+  // Everything here but `cookieFor` is sanitized (names, scopes, attributes, lengths,
+  // fingerprints); `cookieFor` builds the per-URL header and is never returned.
+  const elevation = { set_cookie_names: r.set_cookie_names, set_cookies: r.set_cookies, session_cookie: r.session_cookie,
+    user_id_changed: r.user_id_changed, identity_after_switch: r.identity_after_switch, hops: r.hops };
+  return r.ok ? { ok: true, cookieFor: r.cookieFor, elevation } : { ok: false, error: r.error, elevation };
 }
 
 async function loadPage(env, { season, leagueId, page, fetchImpl, cookie }) {
@@ -186,15 +189,15 @@ async function loadPage(env, { season, leagueId, page, fetchImpl, cookie }) {
   let ck = cookie, elevation;
   if (!ck) {
     const c = await commissionerCookie(env, { season, leagueId, fetchImpl });
-    if (!c.ok) return { ok: false, error: c.error };
-    ck = c.header; elevation = c.elevation;
+    if (!c.ok) return { ok: false, error: c.error, elevation: c.elevation };
+    ck = c.cookieFor; elevation = c.elevation;
   }
   const url = cfg.url(season, leagueId);
   let status = 0, html = "", location = "";
   try {
     // Never follow a redirect: MFL sends a signed-out request to its login page, which
     // must read as "not signed in", not as a page whose form is missing.
-    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: ck, "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
+    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: typeof ck === "function" ? ck(url) : ck, "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
     status = r.status;
     location = _s(r.headers && typeof r.headers.get === "function" ? r.headers.get("location") : "");
     html = status >= 300 && status < 400 ? "" : await r.text();
@@ -297,10 +300,10 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
   if (!diffFields(before.form.fields, target, "").length) return { ok: true, changed: false };
   const action = new URL(before.form.action || before.url, before.url);
   if (!/(^|\.)myfantasyleague\.com$/i.test(action.hostname)) return { ok: false, step: "validate", error: "form_action_off_site" };
-  const ck = before.cookie;   // the commissioner header from the load above
+  const ck = before.cookie;   // the commissioner session from the load above (per-URL header builder)
   const submit = async (fields) => {
     const body = new URLSearchParams(); for (const [k, v] of fields) body.append(k, v);
-    const headers = { Cookie: ck, "User-Agent": "upsmflproduction-worker" };
+    const headers = { Cookie: typeof ck === "function" ? ck(action.toString()) : ck, "User-Agent": "upsmflproduction-worker" };
     if (before.form.method === "POST") {
       return f(action.toString(), { method: "POST", headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() });
     }
