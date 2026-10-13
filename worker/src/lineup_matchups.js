@@ -12,7 +12,8 @@
 // What it returns (field names kept so every reader keeps working):
 //   matchups[team]    this week's game: opp, isHome, kickoff, spread, status.
 //   defRatings[team][group]  rank / of / ratio (Allowed ÷ Usual, ranked high to low),
-//                     plus games, perGame (Allowed) and usual, exactly as Pts Agst.
+//                     plus games, perGame (Allowed) and usual, exactly as Pts Agst,
+//                     and ppgRank / ppgOf: the rank by MFL points allowed per game.
 //                     For DL/LB/DB the team is the OFFENSE those players faced.
 //   playerWindow[pid] the player's MFL points per final game in the window.
 //   horizon[team]     the next three weeks' opponents.
@@ -71,16 +72,26 @@ export function lmuHorizon(schedByWeek, weeks) {
 }
 
 // Ratings and each player's per-game points for one engine run.
+//   rank / of / ratio  the Pts Agst board's order (Allowed ÷ Usual).
+//   ppgRank / ppgOf    MFL points allowed per game to the position, 1 = the most
+//                      (Keith 2026-10-13: Lineup ranks and colors by this). The same
+//                      order as the board's Allowed column sorted high to low: the
+//                      shown per-game figure, ties by the board's rank, then team.
 export function lmuRatings(E, agg) {
-  const defRatings = {};
+  const defRatings = {}, byGroup = {};
   for (const d in agg) {
     for (const g in agg[d]) {
       const c = agg[d][g];
-      (defRatings[d] = defRatings[d] || {})[g] = {
+      const cell = (defRatings[d] = defRatings[d] || {})[g] = {
         rank: c.adj ? c.adj.rank : null, of: c.adj ? c.adj.of : null, ratio: c.adj ? c.adj.ratio : null,
-        games: c.raw.games, perGame: c.raw.perGame, usual: c.raw.oppNorm,
+        games: c.raw.games, perGame: c.raw.perGame, usual: c.raw.oppNorm, ppgRank: null, ppgOf: null,
       };
+      if (c.raw.games > 0 && c.raw.perGame != null) (byGroup[g] = byGroup[g] || []).push({ d, v: c.raw.perGame, rk: c.adj ? c.adj.rank : 999, cell });
     }
+  }
+  for (const g in byGroup) {
+    const rows = byGroup[g].sort((a, b) => (b.v - a.v) || (a.rk - b.rk) || (a.d < b.d ? -1 : 1));
+    rows.forEach((r, i) => { r.cell.ppgRank = i + 1; r.cell.ppgOf = rows.length; });
   }
   const playerWindow = {};
   const per = {};

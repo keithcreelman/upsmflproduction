@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.6",
-  "label": "Lineup matchups now use the Pts Agst numbers (for example “QBs +29% vs DEN”) and describe games already played, not a forecast."
+  "build": "2026.10.13.7",
+  "label": "Lineup: each opponent's rank in MFL points allowed to your player's position (green top 10, red bottom 10), a Details button on every matchup line, and injury tags (Q/D/OUT from the NFL report, IR/PUP from MFL)."
 }

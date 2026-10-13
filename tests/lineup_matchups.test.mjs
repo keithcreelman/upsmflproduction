@@ -97,7 +97,15 @@ await check("every team's QB rank, of, ratio, games, Allowed and Usual equal the
   assert.strictEqual(n, 32);
 });
 await check("BUF's unplayed Monday game is not counted: 4 games, 27.9 allowed per game, rank 6 of 32, ratio 1.29", () => {
-  assert.deepStrictEqual(R.json.defRatings.BUF.QB, { rank: 6, of: 32, ratio: 1.29, games: 4, perGame: 27.9, usual: 21.7 });
+  const c = R.json.defRatings.BUF.QB;
+  assert.deepStrictEqual([c.rank, c.of, c.ratio, c.games, c.perGame, c.usual], [6, 32, 1.29, 4, 27.9, 21.7]);
+});
+await check("ppgRank (Keith 2026-10-13) = MFL points allowed per game, #1 the most: the board's Allowed column high to low, ties by the board's rank", () => {
+  const rows = Object.keys(P.teams).map((t) => ({ t, v: P.teams[t].QB.raw.perGame, rk: P.teams[t].QB.adj ? P.teams[t].QB.adj.rank : 999 }))
+    .sort((a, b) => (b.v - a.v) || (a.rk - b.rk) || (a.t < b.t ? -1 : 1));
+  rows.forEach((r, i) => { assert.strictEqual(R.json.defRatings[r.t].QB.ppgRank, i + 1, r.t); assert.strictEqual(R.json.defRatings[r.t].QB.ppgOf, 32, r.t); });
+  // BUF allowed the most per game here only if its 27.9 tops the list.
+  assert.strictEqual(R.json.defRatings[rows[0].t].QB.ppgRank, 1);
 });
 await check("basis = Wks 1–5 (Week 5's final games), this season, not last season", () => {
   assert.deepStrictEqual(R.json.weeksUsed, [1, 2, 3, 4, 5]); assert.strictEqual(R.json.ratingsBasis, "Wks 1–5");

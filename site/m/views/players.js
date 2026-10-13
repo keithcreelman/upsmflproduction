@@ -936,13 +936,13 @@
   }
 
   // The decision line: projected points for the upcoming week · who they play ·
-  // how players at this position have scored against that opponent so far
-  // ("QBs +29% vs DEN", the Pts Agst board's "vs usual", colored only by its rule;
-  // games already played, not a forecast — review #1249). The player → NFL team →
+  // where that opponent ranks in MFL points allowed per game to this position
+  // ("GBP #19 vs QBs", green top 10 / red bottom 10 — Keith 2026-10-13, #1249;
+  // games already played, not a forecast). The player → NFL team →
   // this week's game → opponent join and the chip are M.lineupIntel's
   // (views/lineup.js), not re-derived here. Whatever we don't have is left out — a
   // bye, an unscheduled week, the preseason, or a cold/failed read produces no line
-  // at all rather than "— proj" or "+0%".
+  // at all rather than "— proj" or "#0".
   function faIntelHtml(r) {
     var I = intel();
     if (!I) return "";

@@ -149,19 +149,18 @@
       .catch(function () { M.state.lineupProj = { loaded: true, map: {} }; renderRoute(); });
   }
 
-  // ── Matchup info: opponent · home/away · kickoff, and how players at this position
-  // have scored against that opponent so far, from worker /api/lineup-matchups.
-  // One tappable line per player; the rest on tap (Keith 2026-06-21).
+  // ── Matchup info: opponent · home/away · kickoff, and where the opponent ranks in
+  // MFL points allowed to this player's position, from worker /api/lineup-matchups.
+  // One tappable line per player; the rest behind "Details" (Keith 2026-06-21).
   //
-  // Review 2026-10-13 (#1249). The defense numbers are the Pts Agst board's: the same
-  // engine (worker/src/fpa_engine.js), the full season through the latest completed
-  // game, "vs usual" = what these players scored against the team ÷ their own average.
-  // They DESCRIBE games already played; they aren't a forecast. Tested on 2019–2025, the
-  // 10 most generous teams gave a player about 1 point more than the 10 stingiest (QB
-  // about 2), and in Weeks 2–4 nothing measurable, so there is no "good/tough" verdict.
-  // Color only where the gap holds up after shrinking toward average, with the board's
-  // own constant (stats.js FPA_COLOR_K, read through M.statsView) and the board's 8%.
-  // The Season/L3/L5 toggle is gone: shorter windows were less accurate, not more.
+  // Review 2026-10-13 (#1249). The numbers are the Pts Agst board's: the same engine
+  // (worker/src/fpa_engine.js), final games only, each player counted for the team he
+  // played for that day, the full season through the latest completed game. Keith
+  // 2026-10-13: rank and color by MFL POINTS ALLOWED PER GAME to the position (#1 = the
+  // most; the board's Allowed column, high to low), green = ranks 1–10, red = the bottom
+  // 10. Measured on 2019–2025 (review #1249, L2b): top-10 vs bottom-10 = +0.95 pts a
+  // game against a player's own usual (QB +2.3; LB/DB/P and Weeks 2–4 ≈ nothing). The
+  // Season/L3/L5 toggle is gone: shorter windows were less accurate, not more.
   var MU_PLURAL = { QB: "QBs", RB: "RBs", WR: "WRs", TE: "TEs", DL: "DL", LB: "LBs", DB: "DBs", PK: "Ks", PN: "Ps" };
   var MU_WORD = { QB: "quarterbacks", RB: "running backs", WR: "wide receivers", TE: "tight ends", DL: "defensive linemen", LB: "linebackers", DB: "defensive backs", PK: "kickers", PN: "punters" };
   var MU_IDP = { DL: 1, LB: 1, DB: 1 };
@@ -224,27 +223,17 @@
     var d = new Date(t), h = d.getHours(), m = d.getMinutes();
     return (h % 12 || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
   }
-  // "+29%" / "−12%" (a real minus) / "0%".
-  function signedPct(p) { return p === 0 ? "0%" : (p > 0 ? "+" : "−") + Math.abs(p) + "%"; }
-  // The Pts Agst board's color rule: shrink the ratio toward 1 by k games of the
-  // position (stats.js FPA_COLOR_K) and color only a gap still 8% or more.
-  function muColorK() {
-    var d = M.statsView && M.statsView.ptsAgstDefaults;
-    return (d && d.colorK) || null;
+  function ordinal(n) { var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+  // Green = the 10 teams allowing the most per game, red = the 10 allowing the least.
+  // Only with 20+ teams ranked (the first days of a season have a handful).
+  function muTier(rank, of) {
+    if (rank == null || !(of >= 20)) return "";
+    return rank <= 10 ? "good" : (rank > of - 10 ? "tough" : "");
   }
-  function muColored(ratio, games, grp) {
-    var K = muColorK(), k = K && K[grp];
-    if (!k || ratio == null || !(games > 0)) return false;
-    return Math.abs((games * ratio + k) / (games + k) - 1) >= 0.08;
-  }
-  // "up" = these players scored more than usual against this team; "dn" = less.
-  function muCls(r) { return r && r.colored ? (r.pct > 0 ? " up" : " dn") : ""; }
   function muRating(d, team, grp) {
     var x = d && d.defRatings && d.defRatings[team] && d.defRatings[team][grp];
-    if (!x || x.ratio == null) return null;
-    var pct = Math.round((x.ratio - 1) * 100);
-    return { rank: x.rank, of: x.of, ratio: x.ratio, pct: pct, games: x.games, perGame: x.perGame, usual: x.usual,
-      colored: pct !== 0 && muColored(x.ratio, x.games, grp) };
+    if (!x || x.ppgRank == null) return null;
+    return { ppgRank: x.ppgRank, ppgOf: x.ppgOf, tier: muTier(x.ppgRank, x.ppgOf), perGame: x.perGame, games: x.games };
   }
   // Which weeks the numbers cover: "Wks 1–5", or "2025 season" in Week 1.
   function muBasis(d) { return d ? (d.priorSeason ? d.ratingYear + " season" : d.basis) : ""; }
@@ -266,21 +255,22 @@
       rating: muRating(d, m.opp, grp), basis: muBasis(d), priorSeason: d.priorSeason, ratingYear: d.ratingYear,
       avg: d.playerWindow[String(pid)] || null, horizon: hz, weather: d.weather[team] || null };
   }
-  // The short chip: "QBs +29% vs DEN" (IDP: "DL +12% vs DEN", DEN's offense). Plain
-  // unless the board's color rule holds. Week 1: "(2025)" — last season's games.
+  // The short chip: "GBP #19 vs QBs" (IDP: "MIN #3 vs DL" = MIN's offense). Green or
+  // red by the tier; the rank number says the same thing in text. Week 1: "(2025)".
   function chipText(mu) {
     if (!mu || !mu.rating) return "";
-    return (MU_PLURAL[mu.grp] || mu.grp) + " " + signedPct(mu.rating.pct) + " vs " + mu.opp + (mu.priorSeason ? " (" + mu.ratingYear + ")" : "");
+    return mu.opp + " #" + mu.rating.ppgRank + " vs " + (MU_PLURAL[mu.grp] || mu.grp) + (mu.priorSeason ? " (" + mu.ratingYear + ")" : "");
   }
   function chipSay(mu) {
     if (!mu || !mu.rating) return "";
-    var r = mu.rating, word = MU_WORD[mu.grp] || mu.grp;
-    return "Against " + mu.opp + (mu.idp ? "'s offense" : "") + ", " + word + " have scored " +
-      (r.pct === 0 ? "the same as" : Math.abs(r.pct) + " percent " + (r.pct > 0 ? "above" : "below")) + " their usual (" + mu.basis + ")";
+    var r = mu.rating;
+    return mu.opp + (mu.idp ? "'s offense" : "") + " is " + ordinal(r.ppgRank) + " of " + r.ppgOf + " in MFL points allowed per game to " +
+      (MU_WORD[mu.grp] || mu.grp) + ", " + (r.perGame == null ? "" : r.perGame.toFixed(1) + ", ") + mu.basis +
+      (r.tier === "good" ? ", among the 10 most" : (r.tier === "tough" ? ", among the 10 fewest" : ""));
   }
   function chipHtml(mu) {
     var t = chipText(mu); if (!t) return "";
-    return '<span class="ups-m-mu-chip' + muCls(mu.rating) + '">' + U.escapeHtml(t) + '</span>';
+    return '<span class="ups-m-mu-chip' + (mu.rating.tier ? " " + mu.rating.tier : "") + '">' + U.escapeHtml(t) + '</span>';
   }
   // "Forecast at kickoff: 54°F · wind 12 mph · P.Cloudy", "Indoors", or a neutral site
   // (London, Munich, …), where the home team's city would be the wrong forecast.
@@ -303,7 +293,70 @@
     return (s < 0 ? "Favored by " : "Underdog by ") + (Math.round(n * 10) / 10);
   }
   function fmtAvg(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
-  // Compact, tappable matchup line + an on-demand detail card.
+
+  // ── Injury status (Keith 2026-10-13: "I need to see a player's injury status") ──
+  // The app's ONE status loader (player_sheet.js UPS_MOBILE_PLAYER_STATUS), the same as
+  // Stats → Players, the player sheet and Live Scoring: Q / D / OUT from this week's
+  // OFFICIAL NFL injury report, IR / PUP / NFI / Suspended from MFL. MFL's own Q/D/Out
+  // aren't used (its export keeps them for weeks after they lapse). No chip never means
+  // "healthy": the note says when the report isn't out or couldn't be read. Q/D/OUT
+  // only from a report for the week this lineup is for.
+  var injWait = false;
+  function PSx() { return window.UPS_MOBILE_PLAYER_STATUS || null; }
+  function injSig() {
+    var PS = PSx(); if (!PS) return "";
+    var r = PS.currentReport ? PS.currentReport() : {};
+    return PS.state() + ":" + r.state + ":" + (r.week || "") + ":" + (r.at || "");
+  }
+  function loadInjuries() {
+    var PS = PSx();
+    if (!PS || injWait || !M.state.ctx.year) return;
+    var before = injSig();
+    injWait = true;
+    PS.load(M.state.ctx.year).then(function () {
+      injWait = false;
+      if (injSig() !== before) renderRoute();
+    }, function () { injWait = false; });
+  }
+  // The report's week vs this lineup's week: Q/D/OUT only when they match.
+  function injReport() {
+    var PS = PSx(); if (!PS || !PS.currentReport) return { state: "none" };
+    var r = PS.currentReport(), wk = parseInt(M.state.lineupWeek, 10) || 0;
+    if (r.state === "ok" && wk && r.week !== wk) return { state: "otherweek", week: r.week };
+    return r;
+  }
+  var GAME_CLS = { out: 1, d: 1, q: 1 };
+  function injInfo(pid, team) {
+    var PS = PSx(); if (!PS) return { chips: [], report: "", roster: "" };
+    var i = PS.info(pid, team), rep = injReport();
+    if (rep.state === "otherweek") {
+      return { chips: i.chips.filter(function (c) { return !GAME_CLS[c.cls]; }),
+        report: "The newest NFL injury report is Wk " + rep.week + ", not Wk " + M.state.lineupWeek + ".", roster: i.roster };
+    }
+    return i;
+  }
+  function injChipsHtml(pid, team) {
+    return injInfo(pid, team).chips.map(function (c) {
+      return '<span class="ups-m-inj-chip ' + c.cls + ' lu" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
+    }).join("");
+  }
+  // " · OUT" for a dropdown choice (plain text).
+  function injOptText(pid, team) {
+    var ch = injInfo(pid, team).chips;
+    return ch.length ? "  ·  " + ch.map(function (c) { return c.t; }).join(" ") : "";
+  }
+  function injNoteText() {
+    var PS = PSx(); if (!PS) return "";
+    var rep = injReport(), wk = M.state.lineupWeek;
+    var st = PS.state();
+    if (st === "error") return "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
+    if (rep.state === "loading" || st === "idle" || st === "loading") return "Checking this week’s injury report…";
+    if (rep.state === "ok") return "Injury tags: NFL injury report Wk " + rep.week + "; IR/PUP from MFL. No tag: not on the report, or a bye.";
+    if (rep.state === "otherweek") return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet (the newest is Wk " + rep.week + "), so no Q/D/OUT tags; IR/PUP from MFL. No tag doesn’t mean healthy.";
+    return "Injury tags: Wk " + (wk || "") + "’s NFL report isn’t out or couldn’t be read, so no Q/D/OUT tags yet; IR/PUP from MFL. No tag doesn’t mean healthy.";
+  }
+
+  // Compact, tappable matchup line (with a visible "Details" button) + the detail card.
   function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
     var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
@@ -312,65 +365,70 @@
     var did = "ups-m-mu-d-" + String(pid).replace(/[^\w-]/g, "");
     var say = (mu.isHome ? "Home against " : "At ") + mu.opp + (when ? ", " + when : "") + (mu.rating ? ". " + chipSay(mu) : "") + ".";
     var compact = '<button type="button" class="ups-m-slot-mu" data-mu-pid="' + U.escapeHtml(pid) + '" aria-expanded="' + (open ? "true" : "false") + '"' +
-      (open ? ' aria-controls="' + did + '"' : "") + ' aria-label="' + U.escapeHtml(say + (open ? " Hide matchup details." : " Show matchup details.")) + '">' +
+      (open ? ' aria-controls="' + did + '"' : "") + ' aria-label="' + U.escapeHtml(say + (open ? " Hide details." : " Show details.")) + '">' +
       '<span class="ups-m-mu-where">' + U.escapeHtml(loc) + (when ? " · " + U.escapeHtml(when) : "") + '</span>' +
       (mu.rating ? '<span class="ups-m-mu-sep" aria-hidden="true">·</span>' + chipHtml(mu) : "") +
-      '<span class="ups-m-mu-exp" aria-hidden="true">' + (open ? "▾" : "▸") + '</span></button>';
+      '<span class="ups-m-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
+    var pl = DATA.playerById(pid), inj = injInfo(pid, pl && pl.team);
+    if (inj.report) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.report) + '</div>');
+    if (inj.roster) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.roster) + '</div>');
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
     var wx = wxText(mu.weather, mu.kickoff);
     if (wx) rows.push('<div class="r ups-m-mu-wx">' + U.escapeHtml(wx) + '</div>');
     var r = mu.rating;
     if (r) {
-      rows.push('<div class="r">' + U.escapeHtml((MU_PLURAL[mu.grp] || mu.grp) + " vs " + mu.opp + (mu.idp ? "’s offense" : "")) + ': <b>' +
-        U.escapeHtml(fmtAvg(r.perGame)) + '</b> a game, usual ' + U.escapeHtml(fmtAvg(r.usual)) +
-        ' (<span class="ups-m-tr' + muCls(r) + '">' + U.escapeHtml(signedPct(r.pct)) + '</span>) · #' + r.rank + ' of ' + r.of +
-        ' · ' + U.escapeHtml(mu.basis) + '</div>');
+      rows.push('<div class="r">' + U.escapeHtml(mu.opp + (mu.idp ? "’s offense" : "") + " allows " + (MU_PLURAL[mu.grp] || mu.grp)) + ' <b>' +
+        U.escapeHtml(fmtAvg(r.perGame)) + '</b> a game: <span class="ups-m-mu-rk' + (r.tier ? " " + r.tier : "") + '">#' + r.ppgRank + ' of ' + r.ppgOf + '</span> · ' +
+        U.escapeHtml(mu.basis) + '</div>');
     } else if (muData()) {
       rows.push('<div class="r">' + U.escapeHtml(mu.opp + " hasn’t played a final game" + (mu.basis ? " in " + mu.basis : " yet") + ".") + '</div>');
     }
     if (mu.avg && mu.avg.games) {
-      rows.push('<div class="r">Avg <b>' + U.escapeHtml(fmtAvg(mu.avg.avg)) + '</b> pts a game (' + U.escapeHtml(mu.basis) + ', ' +
+      rows.push('<div class="r">His avg <b>' + U.escapeHtml(fmtAvg(mu.avg.avg)) + '</b> pts a game (' + U.escapeHtml(mu.basis) + ', ' +
         mu.avg.games + (mu.avg.games === 1 ? " game" : " games") + ')</div>');
     }
     if (mu.horizon.length) {
       rows.push('<div class="r">Next: ' + mu.horizon.map(function (h) {
         if (h.bye) return '<span class="ups-m-hz">Wk ' + h.wk + ' bye</span>';
-        var c = h.rating && h.rating.colored ? h.rating : null;
+        var t = h.rating ? h.rating.tier : "";
         return '<span class="ups-m-hz">Wk ' + h.wk + " " + (h.isHome ? "" : "@") + U.escapeHtml(h.opp) +
-          (c ? ' <span class="ups-m-tr' + muCls(c) + '">' + U.escapeHtml(signedPct(c.pct)) + '</span>' : "") + '</span>';
+          (h.rating ? ' <span class="ups-m-mu-rk' + (t ? " " + t : "") + '">#' + h.rating.ppgRank + '</span>' : "") + '</span>';
       }).join('<span aria-hidden="true"> · </span>') + '</div>');
     }
     return compact + '<div class="ups-m-mu-detail" id="' + did + '">' + rows.join("") + '</div>';
   }
-  // One line for the whole screen: which games the numbers cover, when MFL was read,
-  // and that they describe the past. On a failure, the reason and a way to try again.
+  // The notes for the whole screen: what the rank is, which games, when MFL was read,
+  // and the injury report's week. On a failure, the reason and a way to try again.
   function matchupNoteHtml() {
     var c = muCtx(); if (!c.week) return "";
     var e = muEntry(), d = e && e.d;
+    var inj = injNoteText(), injHtml = inj ? '<div class="ups-m-mu-note inj">' + U.escapeHtml(inj) + '</div>' : "";
     if (!d) {
       if (e && e.err) {
         return '<div class="ups-m-mu-note warn" role="status">Matchup numbers couldn’t be read' + (e.err === "mfl" ? " from MFL" : "") +
-          ' right now. <button type="button" class="ups-m-mu-retry" id="ups-m-mu-retry">Try again</button></div>';
+          ' right now. <button type="button" class="ups-m-mu-retry" id="ups-m-mu-retry">Try again</button></div>' + injHtml;
       }
-      return '<div class="ups-m-mu-note" role="status">Loading matchups…</div>';
+      return '<div class="ups-m-mu-note" role="status">Loading matchups…</div>' + injHtml;
     }
     var lead;
-    if (d.priorSeason) lead = "No " + U.escapeHtml(c.year) + " games yet, so the matchup numbers are from the " + U.escapeHtml(d.ratingYear) + " season.";
-    else if (!d.weeksUsed.length) lead = "No final games yet, so there are no matchup numbers.";
-    else lead = "Matchups: " + U.escapeHtml(d.basis) + ".";
+    if (d.priorSeason) lead = "No " + c.year + " games yet, so the ranks are from the " + d.ratingYear + " season.";
+    else if (!d.weeksUsed.length) lead = "No final games yet, so there are no ranks.";
+    else lead = "Rank = MFL points allowed per game to the position, " + d.basis + " (#1 = most). Green: top 10 · red: bottom 10.";
     var at = fmtClock(d.readAt);
     var read = e.err ? "Couldn’t refresh; showing MFL read " + at + "." : (at ? "MFL read " + at + "." : "");
-    return '<div class="ups-m-mu-note' + (d.priorSeason || e.err ? " warn" : "") + '">' + lead + (read ? " " + U.escapeHtml(read) : "") +
+    return '<div class="ups-m-mu-note' + (d.priorSeason || e.err ? " warn" : "") + '">' + U.escapeHtml(lead + (read ? " " + read : "")) +
       " Games already played, not a forecast. " +
       '<details class="ups-m-st-more" id="ups-m-mu-about"' + (M.state.lineupMuNoteOpen ? " open" : "") + '><summary>About</summary><div>' +
-      "“QBs +29% vs DEN” = what quarterbacks scored against DEN, compared with their own average (the Pts Agst board’s “vs usual”). " +
-      "Color appears only when the difference remains large after adjusting for small sample sizes. " +
-      "On 2019–2025 games, the 10 most generous teams gave a player about 1 point more than the 10 stingiest (QB about 2)." +
-      '</div></details></div>';
+      "“GBP #19 vs QBs” = Green Bay is 19th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
+      "Only final games count, and a player counts for the team he played for that day. " +
+      MU_ABOUT_EVIDENCE +
+      '</div></details></div>' + injHtml;
   }
+  // The measured size of green vs red (2019–2025 games, leak-free; review #1249 L2b).
+  var MU_ABOUT_EVIDENCE = "On 2019–2025 games, a player facing one of the 10 teams allowing the most to his position scored about 1 point more than facing one of the 10 allowing the least (QB about 2).";
 
   function nameFor(player) {
     var raw = U.safeStr(player && player.name);
@@ -584,7 +642,7 @@
   function optText(r) {
     // Player · Team · proj · POS#rank — the rank already carries the position,
     // so the standalone position token is dropped (Keith 2026-06-21).
-    var line = r.name + (r.team ? "  ·  " + r.team : "") + (r.bye ? "  ·  BYE" : "");
+    var line = r.name + (r.team ? "  ·  " + r.team : "") + (r.bye ? "  ·  BYE" : "") + injOptText(r.id, r.team);
     var p = projFor(r.id);
     if (p != null) {
       line += "  ·  " + fmtProj(p) + " pts";
@@ -630,6 +688,7 @@
 
     var labelCls = slot.flex ? "pos flex" : "pos";
     var note = slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "";
+    if (currentRow) { var ic = injChipsHtml(currentRow.id, currentRow.team); if (ic) note += '<span class="inj">' + ic + '</span>'; }
     var selCls = "ups-m-slot-sel" + (filled ? "" : " empty");
     var emptyHint = cands.length ? "" : ' data-none="1"';
     var cur = current ? projFor(current) : null;
@@ -855,7 +914,7 @@
       var tag = benchBlockedTag(r);
       return '<div class="ups-m-bench-row' + (tag ? " blocked" : "") + '"><div class="ups-m-bench-id"><span class="nm">' + U.escapeHtml(r.name) + '</span>' +
         '<span class="meta">' + U.escapeHtml(r.pos || "—") + ' · ' + U.escapeHtml(r.team || "—") + '</span>' +
-        (tag ? '<span class="ups-m-bench-tag ' + tag.cls + '">' + tag.label + '</span>' : "") + '</div>' +
+        (tag ? '<span class="ups-m-bench-tag ' + tag.cls + '">' + tag.label + '</span>' : "") + injChipsHtml(r.id, r.team) + '</div>' +
         '<div class="ups-m-bench-proj">' + U.escapeHtml(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
     }).join("") : '<div class="ups-m-bench-empty">No bench players.</div>';
     return head + '<div class="ups-m-bench">' + body + '</div>';
@@ -869,6 +928,7 @@
     }
     loadProjections();   // lazy fetch; re-renders when projections arrive
     loadMatchups();      // lazy: opponent/kickoff/spread + the Pts Agst numbers for that opponent
+    loadInjuries();      // lazy: the shared injury/roster status (official NFL report + MFL IR/PUP)
     loadKickoffs();       // lazy: per-player kickoff -> locks a started slot
     if (!M.state.lineupSlots) {
       if (!projSettled()) {
@@ -932,12 +992,12 @@
   // ── Shared matchup/projection intel ────────────────────────────────────
   // views/players.js (the FA picker) needs the same projection + opponent +
   // matchup join this view already does. It reads it from here rather than
-  // re-implementing it: same endpoint, same cache, same chip and color rule.
+  // re-implementing it: same endpoint, same cache, same chip and tiers.
   //   load()            lazy fetch of projections + this week's matchups. Both
   //                     fetches are fire-and-forget with their own catch, so a
   //                     dead worker never blocks a caller's render.
   //   matchupFor(pid)   the join. Null when there's no data / no game.
-  //   chipHtml(mu)      "QBs +29% vs DEN", colored only by the Pts Agst rule.
+  //   chipHtml(mu)      "GBP #19 vs QBs", green top 10 / red bottom 10 in MFL points allowed.
   //   muData()          the raw answer for this week ({ defRatings, … }).
   M.lineupIntel = {
     // This week's per-team kickoffs, shared with the Players market so its
