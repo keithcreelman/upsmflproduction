@@ -1,4 +1,5 @@
 import { handleHallRequest } from "./hall.js";
+import { mflCookieHeader } from "./mfl_cookie.js";
 import { seedLadder, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
@@ -2036,7 +2037,7 @@ async function processAuctionPoll(env, opts = {}) {
   try {
     const mflCookie = String(env.MFL_COOKIE || "").trim();
     if (mflCookie && (await sweepReady("auction_poll_o43_reconcile", 600, newBids > 0 || newWins > 0))) {
-      const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+      const cookieHeader = mflCookieHeader(mflCookie);
       // FRANCHISE=0000 returns the franchise-select interstitial which
       // doesn't list open lots, so we hit with a real franchise id.
       // 0008 = Real Deal Creel (commish team); using as the probe fid
@@ -3702,7 +3703,7 @@ async function fetchBounded(url, init, timeoutMs) {
 
 async function fetchCompletedAuctionPids(env, year, leagueId) {
   const cookieRaw = String(env.MFL_COOKIE || "").trim();
-  const cookie = cookieRaw.includes("=") ? cookieRaw : `MFL_USER_ID=${cookieRaw}`;
+  const cookie = mflCookieHeader(cookieRaw);
   const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
   const url = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/options?LEAGUE_ID=${encodeURIComponent(leagueId)}&FRANCHISE=${probeFid}&O=102`;
   const pids = new Set();
@@ -3870,7 +3871,7 @@ async function finalizeEraContracts(env, year, leagueId, opts) {
   const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
 
   const mflCookie = String(env.MFL_COOKIE || "").trim();
-  const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+  const cookieHeader = mflCookieHeader(mflCookie);
   const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
   const importRes = await fetchBounded(importUrl, {
     method: "POST",
@@ -4273,7 +4274,7 @@ async function finalizeFaaContracts(env, year, leagueId, opts) {
   const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
 
   const mflCookie = String(env.MFL_COOKIE || "").trim();
-  const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+  const cookieHeader = mflCookieHeader(mflCookie);
   const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
   const importRes = await fetchBounded(importUrl, {
     method: "POST",
@@ -4858,7 +4859,7 @@ async function finalizeWaiverContracts(env, year, leagueId, opts) {
   const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
 
   const mflCookie = String(env.MFL_COOKIE || "").trim();
-  const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+  const cookieHeader = mflCookieHeader(mflCookie);
   const importUrl = `${host}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
   const importRes = await fetchBounded(importUrl, {
     method: "POST",
@@ -9872,7 +9873,7 @@ export default {
         const franchise = String(url.searchParams.get("FRANCHISE") || "0000");
         const playerId = String(url.searchParams.get("PLAYER_ID") || "");
         const pageUrl = `https://www48.myfantasyleague.com/${year}/options?LEAGUE_ID=${leagueId}&FRANCHISE=${franchise}&O=43${playerId ? "&PLAYER_ID=" + playerId : ""}`;
-        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const cookieHeader = mflCookieHeader(mflCookie);
         try {
           const res = await fetch(pageUrl, {
             headers: { Cookie: cookieHeader, "User-Agent": "ups-auction-probe" },
@@ -10322,7 +10323,7 @@ export default {
         const wantRaw = (url.searchParams.get("raw") || "") === "1";
         const probeFid = String(env.AUCTION_RECONCILE_FRANCHISE || "0008");
 
-        const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const cookieHeader = mflCookieHeader(mflCookie);
         const oUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(yearArg)}/options?LEAGUE_ID=${encodeURIComponent(leagueArg)}&FRANCHISE=${probeFid}&O=${oArg}`;
         let res, html = "";
         try {
@@ -10556,7 +10557,7 @@ export default {
         {
           const _ck = String(env.MFL_COOKIE || "").trim();
           const _hdr = { "User-Agent": "upsmflproduction-worker", "Accept": "application/json, text/xml, */*" };
-          if (_ck) _hdr.Cookie = _ck.includes("=") ? _ck : `MFL_USER_ID=${_ck}`;
+          if (_ck) _hdr.Cookie = mflCookieHeader(_ck);
           const _qs = new URLSearchParams({ TYPE: "calendar", L: leagueId, JSON: "1", _: String(Date.now()) });
           if (hasApiKey) _qs.set("APIKEY", String(env.MFL_APIKEY || "").trim());
           try {
@@ -10648,7 +10649,7 @@ export default {
         if (!mflCookie) {
           for (const p of planned) mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, ok: false, skipped: false, error: "MFL_COOKIE missing" });
         } else {
-          const cookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+          const cookieHeader = mflCookieHeader(mflCookie);
           for (const p of planned) {
             if (p.already_exists) { mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, ok: true, skipped: true, note: "already on MFL calendar" }); continue; }
             let ok = false, status = 0, err = null;
@@ -20696,7 +20697,7 @@ export default {
             // TYPE=league — without it MFL omits owner_name (see
             // MFL_IMPORT_EXPORT_DETAILED.md §league). Owners ARE MFL-authoritative.
             const cookieRaw = String(env.MFL_COOKIE || "").trim();
-            const cookieHeader = cookieRaw ? (cookieRaw.includes("=") ? cookieRaw : ("MFL_USER_ID=" + cookieRaw)) : "";
+            const cookieHeader = mflCookieHeader(cookieRaw);
             const res = await fetch(u, {
               headers: { "User-Agent": "upsmflproduction-worker-standings", ...(cookieHeader ? { Cookie: cookieHeader } : {}) },
               cf: { cacheTtl: 600 },
@@ -24039,9 +24040,7 @@ const mflToSleeper = {};
       const sessionByApiKey = !!commishApiKey && !!browserApiKey && browserApiKey === commishApiKey;
       const sessionKnown = !!browserCookieValue || (!!commishApiKey && !!browserApiKey);
       const sessionMatch = sessionByCookie || sessionByApiKey;
-      const cookieHeader = cookie
-        ? (cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`)
-        : "";
+      const cookieHeader = mflCookieHeader(cookie);
       const browserCookieHeader = browserCookieValue
         ? `MFL_USER_ID=${browserCookieValue}`
         : "";
@@ -38356,7 +38355,7 @@ const mflToSleeper = {};
         // same account commissions both 74598 and the 25625 mirror.
         const tCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
         if (!tCookieRaw) return jsonOut(500, { ok: false, error: "No MFL session secret (MFLTEST_COMMISHCOOKIE or MFL_COOKIE)" });
-        const tCookie = tCookieRaw.includes("=") ? tCookieRaw : `MFL_USER_ID=${tCookieRaw}`;
+        const tCookie = mflCookieHeader(tCookieRaw);
         const sleep2 = (ms) => new Promise((res) => setTimeout(res, ms));
 
         const testImport = async (fields) => {
@@ -46401,7 +46400,7 @@ const mflToSleeper = {};
         const dPeriod = safeInt(url.searchParams.get("period"), 0);
         const dCookie = String(env.MFL_COOKIE || "").trim();
         if (!dCookie) return jsonOut(400, { ok: false, error: "MFL_COOKIE missing" });
-        const dCookieHeader = dCookie.includes("=") ? dCookie : `MFL_USER_ID=${dCookie}`;
+        const dCookieHeader = mflCookieHeader(dCookie);
         const dPeriodQ = dPeriod > 0 ? `&PERIOD=${dPeriod}` : "";
         let dHtml = "";
         try {
@@ -51937,7 +51936,7 @@ const mflToSleeper = {};
 async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix) {
   const cookie = String(env.MFL_COOKIE || "").trim();
   if (!cookie) return { misses: null, reason: "MFL_COOKIE missing" };
-  const cookieHeader = cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`;
+  const cookieHeader = mflCookieHeader(cookie);
   let html = "";
   try {
     const periodQ = safeInt(periodUnix, 0) > 0 ? `&PERIOD=${safeInt(periodUnix, 0)}` : "";
@@ -52121,7 +52120,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const pwRaw = String(url.searchParams.get("raw") || "") === "1";
         const pwCookie = String(env.MFL_COOKIE || "").trim();
         if (!pwCookie) return jsonOut(403, { ok: false, error: "MFL_COOKIE missing — this report is owner-gated." });
-        const pwCookieHeader = pwCookie.includes("=") ? pwCookie : `MFL_USER_ID=${pwCookie}`;
+        const pwCookieHeader = mflCookieHeader(pwCookie);
         const pwStripTags = (v) => safeStr(String(v).replace(/<[^>]+>/g, " "))
           .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&#39;|&apos;/gi, "'")
           .replace(/&quot;/gi, '"').replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
@@ -53135,7 +53134,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         if (asDry) return jsonOut(200, { ok: true, dry_run: true, would_post: postable, data_xml: dataXml });
         const mflCookie = String(env.MFL_COOKIE || "").trim();
         if (!mflCookie) return jsonOut(403, { ok: false, error: "MFL_COOKIE missing (salaryAdj import is cookie-gated)." });
-        const asCookieHeader = mflCookie.includes("=") ? mflCookie : `MFL_USER_ID=${mflCookie}`;
+        const asCookieHeader = mflCookieHeader(mflCookie);
         const asImportUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(asSeason)}/import`;
         const asImportBody = new URLSearchParams({ TYPE: "salaryAdj", L: asLeague, DATA: dataXml }).toString();
         let asRes;
@@ -55389,9 +55388,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           : null;
         const skipSalary = !!body?.skip_salary;
         const targetCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
-        const targetCookieHeaderBase = targetCookieRaw
-          ? (targetCookieRaw.includes("=") ? targetCookieRaw : `MFL_USER_ID=${targetCookieRaw}`)
-          : "";
+        const targetCookieHeaderBase = mflCookieHeader(targetCookieRaw);
         if (!cookieHeader) return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE secret for prod source reads." });
         if (!targetCookieHeaderBase) return jsonOut(500, { ok: false, error: "Missing MFLTEST_COMMISHCOOKIE secret for test target writes." });
         const sourceRostersRes = await mflExportJsonForCookie(cookieHeader, season, sourceLeagueId, "rosters", {}, { useCookie: true });
@@ -57974,9 +57971,13 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || new Date().getUTCFullYear());
         const leagueId = safeStr(url.searchParams.get("L") || L || "74598");
         const r = await inspectAbilities(env, { season, leagueId });
-        if (!r.ok) return jsonOut(502, { ok: false, error: r.error });
+        // The stored MFL_COOKIE's SHAPE only (present, lengths, bare vs fragment, a
+        // 12-hex SHA-256 fingerprint) — never its value (Keith 2026-10-13).
+        const { mflCookieShape } = await import("./mfl_cookie.js");
+        const cookie = await mflCookieShape(env.MFL_COOKIE);
+        if (!r.ok) return jsonOut(502, { ok: false, league_id: leagueId, error: r.error, http: r.http || null, location_path: r.location_path || null, cookie, writes: 0 });
         return jsonOut(200, { ok: true, league_id: leagueId, lockout: r.lockout, lockout_field: r.lockout_field, form_action: r.form_action,
-          method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, writes: 0 });
+          method: r.method, field_count: r.field_count, radio_groups: r.radio_groups, cookie, writes: 0 });
       }
       if (path === "/admin/lineup/forfeit-reversal" && request.method === "POST") {
         const denied = await commishSettingsGate();

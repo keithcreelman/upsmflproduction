@@ -15,6 +15,8 @@
 // MFL emails every owner whenever lockout changes (MFL help, "Commissioner Lockout").
 // Callers are responsible for when this may run; this module only does it safely.
 
+import { mflCookieHeader } from "./mfl_cookie.js";
+
 const _s = (v) => String(v == null ? "" : v);
 
 export function abilitiesUrl(season, leagueId) {
@@ -24,13 +26,21 @@ export function abilitiesUrl(season, leagueId) {
 function cookieHeader(env) {
   const raw = _s(env && env.MFL_COOKIE).trim();
   if (!raw) return "";
-  return raw.includes("=") ? raw : `MFL_USER_ID=${raw}`;
+  return mflCookieHeader(raw);
 }
 
 const decodeEntities = (t) => _s(t)
   .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
   .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
   .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+// Every MFL page carries the league's custom-header <script> blocks, and those hold
+// "<form" / "<input" text inside JS strings (seen 2026-10-13 on the live test-league
+// page: 3 such "<form" openers, no closing tag). Parse markup only, or the first
+// fake "<form" swallows the real form and its action/method.
+export const stripNonMarkup = (html) => _s(html)
+  .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+  .replace(/<style\b[\s\S]*?<\/style\s*>/gi, "")
+  .replace(/<!--[\s\S]*?-->/g, "");
 const textOf = (html) => decodeEntities(_s(html).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 
 // Attributes of one start tag: name="v", name='v', name=v, or bare boolean attrs.
@@ -104,7 +114,7 @@ export function parseForm(formHtml) {
 // (ok:false) unless there is exactly one form mentioning "Commissioner Lockout" and
 // exactly one radio group right after that label with one "Yes…" and one "No…".
 export function parseAbilitiesPage(html) {
-  const page = _s(html);
+  const page = stripNonMarkup(html);
   const forms = [...page.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => /Commissioner\s+Lockout/i.test(textOf(f)));
   if (forms.length !== 1) return { ok: false, error: forms.length ? "several_lockout_forms" : "lockout_form_not_found" };
   const formHtml = forms[0];
@@ -166,17 +176,29 @@ async function loadPage(env, { season, leagueId, page, fetchImpl }) {
   const ck = cookieHeader(env);
   if (!ck) return { ok: false, error: "no_commissioner_cookie" };
   const url = cfg.url(season, leagueId);
-  let status = 0, html = "";
+  let status = 0, html = "", location = "";
   try {
-    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: ck, "User-Agent": "upsmflproduction-worker" } });
-    status = r.status; html = await r.text();
+    // Never follow a redirect: MFL sends a signed-out request to its login page, which
+    // must read as "not signed in", not as a page whose form is missing.
+    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: ck, "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
+    status = r.status;
+    location = _s(r.headers && typeof r.headers.get === "function" ? r.headers.get("location") : "");
+    html = status >= 300 && status < 400 ? "" : await r.text();
   } catch (e) { return { ok: false, error: `fetch_failed: ${e && e.message}` }; }
+  if (status >= 300 && status < 400) {
+    let to = ""; try { to = new URL(location, url).pathname; } catch (_) { to = ""; }
+    return { ok: false, error: /\/login\b/i.test(to) ? "redirected_to_login" : "redirected", http: status, location_path: to };
+  }
   if (status !== 200) return { ok: false, error: `http_${status}` };
+  const markup = stripNonMarkup(html);
+  const text = textOf(markup);
+  if (/Commissioner\s+Access\s+Required/i.test(text)) return { ok: false, error: "commissioner_access_required" };
+  if (/<input\b[^>]*type\s*=\s*["']?password/i.test(markup) && /\blog\s*in\b/i.test(text) && !cfg.formText.test(text)) return { ok: false, error: "login_page" };
   if (page === "abilities") {
-    const p = parseAbilitiesPage(html);
+    const p = parseAbilitiesPage(markup);
     return p.ok ? { ok: true, url, form: p.form, lockout: p.lockout } : { ok: false, error: p.error };
   }
-  const forms = [...html.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => cfg.formText.test(textOf(f)) && /save/i.test(f));
+  const forms = [...markup.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => cfg.formText.test(textOf(f)) && /save/i.test(f));
   if (forms.length !== 1) return { ok: false, error: forms.length ? "several_forms" : "form_not_found" };
   return { ok: true, url, form: parseForm(forms[0]) };
 }
@@ -184,7 +206,7 @@ async function loadPage(env, { season, leagueId, page, fetchImpl }) {
 // Read-only: the Abilities Setup page's lockout state + a summary of the form (no submit).
 export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
   const p = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
-  if (!p.ok) return { ok: false, error: p.error };
+  if (!p.ok) return { ok: false, error: p.error, http: p.http, location_path: p.location_path };
   return { ok: true, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
     lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length };
 }

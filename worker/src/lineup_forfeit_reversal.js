@@ -14,6 +14,7 @@
 // One reversal per trade (D1 ledger + lease). Lockout is always switched back on.
 
 import { canonFpToken } from "./lineup_forfeits.js";
+import { mflCookieHeader } from "./mfl_cookie.js";
 import { setLockout, inspectAbilities } from "./mfl_lockout.js";
 
 const _s = (v) => String(v == null ? "" : v).trim();
@@ -42,7 +43,7 @@ async function mflJson(env, fetchImpl, season, query) {
   const ck = _s(env && (env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE));
   const url = `${MFL}/${encodeURIComponent(season)}/export?${query}&JSON=1${!isTest && key ? `&APIKEY=${encodeURIComponent(key)}` : ""}`;
   const headers = { "User-Agent": "upsmflproduction-worker", Accept: "application/json" };
-  if (isTest && ck) headers.Cookie = ck.includes("=") ? ck : `MFL_USER_ID=${ck}`;
+  if (isTest && ck) headers.Cookie = mflCookieHeader(ck);
   try {
     const r = await (fetchImpl || fetch)(url, { headers });
     if (!r.ok) return null;
