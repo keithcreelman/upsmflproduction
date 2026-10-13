@@ -202,7 +202,9 @@ async function defaultFlag(env) {
 // reservation: { holder_fid, week, pick_year, pick_round, original_owner, reserved_at_utc? }
 // owner: the franchise now holding the pick. mode: "preview" | "run".
 export async function reverseForfeitedPickTrade(env, opts) {
-  const { season, leagueId, reservation, owner, mode = "preview", nowUnix, deps = {} } = opts || {};
+  // expectDigest (test league): the Abilities Setup fingerprint the page must still match
+  // before lockout is switched off; the switch back on must then match the page as left.
+  const { season, leagueId, reservation, owner, mode = "preview", nowUnix, expectDigest, deps = {} } = opts || {};
   const db = env && env.UPS_MFL_DB;
   const isTest = _s(leagueId) === TEST_LEAGUE_ID;
   const fetchImpl = deps.fetchImpl;
@@ -296,10 +298,11 @@ export async function reverseForfeitedPickTrade(env, opts) {
     }
   }
   // b) lockout off (only if it was on), c) reverse, d) lockout back on — always.
-  const lock = deps.lockout || { set: (on) => setLockout(env, { season, leagueId, on, fetchImpl: deps.pageFetch }) };
-  let turnedOff = false;
+  const lock = deps.lockout || { set: (on, digest) => setLockout(env, { season, leagueId, on, fetchImpl: deps.pageFetch, expectDigest: digest }) };
+  let turnedOff = false, offDigest;
   try {
-    const off = await lock.set(false);
+    const off = await lock.set(false, expectDigest || undefined);
+    offDigest = off && off.digest_after;
     result.lockout_off = off;
     if (!off.ok) {
       await setRow(db, key, { state: "held", error: `lockout_off_${off.error}` });
@@ -319,7 +322,7 @@ export async function reverseForfeitedPickTrade(env, opts) {
     if (ex && ex.tradeId) await setRow(db, key, { mfl_trade_id: _s(ex.tradeId) });
   } finally {
     if (turnedOff) {
-      const on = await lock.set(true);
+      const on = await lock.set(true, expectDigest ? offDigest : undefined);
       result.lockout_on = on;
       if (on.ok) await setRow(db, key, { lockout_restored: 1 });
       else await say(`🚨 MFL lockout is still OFF after a forfeited-pick reversal — the worker couldn't switch it back on (${on.error}). Turn it on now: Setup → Abilities Setup.`);

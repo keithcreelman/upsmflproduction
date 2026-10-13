@@ -58065,7 +58065,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const leagueId = safeStr(body.league_id);
         if (leagueId !== "25625") return jsonOut(403, { ok: false, error: "test_league_only", message: "Lockout is only switched directly on the test league (25625). On the real league it happens only inside a forfeited-pick reversal." });
         const { setLockout } = await import("./mfl_lockout.js");
-        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true, expectDigest: safeStr(body.expect_digest) || undefined });
+        if (!safeStr(body.expect_digest)) return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the Abilities Setup fingerprint (digest) the page must still match before the write." });
+        const r = await setLockout(env, { season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, on: body.on === true, expectDigest: safeStr(body.expect_digest) });
         return jsonOut(r.ok ? 200 : 409, r);
       }
       if (path === "/admin/test-league/trade" && request.method === "POST") {
@@ -58126,9 +58127,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         if (mode === "run" && leagueId !== "25625" && safeStr(body.confirm) !== "reverse") {
           return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"reverse\" to run on the real league (it also needs LINEUP_FORFEIT_REVERSAL_ENABLED). Preview first." });
         }
+        // A test-league run switches lockout on a page Keith snapshotted: it must quote that fingerprint.
+        if (mode === "run" && leagueId === "25625" && !safeStr(body.expect_digest)) {
+          return jsonOut(400, { ok: false, error: "expect_digest_required", message: "Pass the Abilities Setup fingerprint (digest) from the snapshot." });
+        }
         const { reverseForfeitedPickTrade } = await import("./lineup_forfeit_reversal.js");
         const r = await reverseForfeitedPickTrade(env, {
           season: safeStr(body.season || YEAR || new Date().getUTCFullYear()), leagueId, mode,
+          expectDigest: safeStr(body.expect_digest) || undefined,
           owner: padFranchiseId(body.owner_fid),
           reservation: { holder_fid: padFranchiseId(body.holder_fid), week: parseInt(body.week, 10) || 0,
             pick_year: parseInt(body.pick_year, 10) || 0, pick_round: parseInt(body.pick_round, 10) || 0,

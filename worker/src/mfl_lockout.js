@@ -289,5 +289,5 @@ export async function setLockout(env, { season, leagueId, on, fetchImpl, expectD
   const r = await setPageFields(env, { season, leagueId, page: "abilities", fetchImpl, expectDigest,
     changes: { [before.lockout.name]: on ? before.lockout.yesValue : before.lockout.noValue } });
   if (!r.ok) return r;
-  return { ok: true, changed: true, from: before.lockout.current, to: want };
+  return { ok: true, changed: true, from: before.lockout.current, to: want, digest_after: r.digest_after };
 }

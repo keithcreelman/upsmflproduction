@@ -77,12 +77,16 @@ test("setLockout: flips ONLY the radio, re-sends every other field as loaded, ve
   const state = { league: L, lockout: "Y", boxes: { ABIL_0001_TRADE: true, ABIL_0001_HOME: false, ABIL_0002_TRADE: true, ABIL_0002_HOME: false } };
   const site = fakeAbilitiesSite(state);
   const off = await LK.setLockout(ENV, { season: SEASON, leagueId: L, on: false, fetchImpl: site.fetchImpl });
-  t.deepEqual(off, { ok: true, changed: true, from: "Yes", to: "No" });
+  const { digest_after: offDigest, ...offRest } = off;
+  t.deepEqual(offRest, { ok: true, changed: true, from: "Yes", to: "No" });
+  t.match(offDigest, /^[0-9a-f]{64}$/, "the page fingerprint as left");
   t.deepEqual(site.posts[0], [["L", L], ["O", "93"], ["ABIL_0001_TRADE", "1"], ["ABIL_0002_TRADE", "1"], ["COMMISH_LOCKOUT", "N"], ["SAVE", "SAVE ABILITIES"]]);
   t.deepEqual(state.boxes, { ABIL_0001_TRADE: true, ABIL_0001_HOME: false, ABIL_0002_TRADE: true, ABIL_0002_HOME: false }, "every franchise ability unchanged");
   const again = await LK.setLockout(ENV, { season: SEASON, leagueId: L, on: false, fetchImpl: site.fetchImpl });
   t.equal(again.changed, false); t.equal(site.posts.length, 1, "already off → nothing submitted");
-  const on = await LK.setLockout(ENV, { season: SEASON, leagueId: L, on: true, fetchImpl: site.fetchImpl });
+  const stale = await LK.setLockout(ENV, { season: SEASON, leagueId: L, on: true, fetchImpl: site.fetchImpl, expectDigest: "not-the-page" });
+  t.equal(stale.error, "page_differs_from_snapshot"); t.equal(site.posts.length, 1, "a stale fingerprint → nothing submitted");
+  const on = await LK.setLockout(ENV, { season: SEASON, leagueId: L, on: true, fetchImpl: site.fetchImpl, expectDigest: offDigest });
   t.equal(on.ok, true); t.equal(state.lockout, "Y");
 });
 
@@ -139,7 +143,7 @@ function harness({ w = world(), d = fakeDiscord(), execOk = true, lockOff = { ok
     fetchImpl: w.fetchImpl, discord: d.discord, flagImpl: async () => flag,
     alertImpl: async (txt) => told.push(txt),
     resolveMentions: async (fids) => fids.map((f) => `u${f}`),
-    lockout: { set: async (on) => { log.push(on ? "lockout_on" : "lockout_off"); return on ? lockOn : lockOff; }, inspect: async () => ({ ok: true, lockout: "Yes" }) },
+    lockout: { set: async (on, digest) => { log.push(on ? "lockout_on" : "lockout_off"); (deps.digests ||= []).push(digest); return on ? lockOn : lockOff; }, inspect: async () => ({ ok: true, lockout: "Yes" }) },
     execTrade: async (args) => {
       log.push("exec"); deps.lastExec = args;
       if (!execOk) return { ok: false, step: "accept", error: "MFL said no" };
@@ -197,6 +201,15 @@ test("run: replies once in the thread tagging both owners → lockout off → re
   // A second run (or an overlapping one) does nothing.
   const again = await call(env, harness({ w: h.w }));
   t.equal(again.skipped, true); t.equal(again.reason, "already_reversed");
+  t.deepEqual(h.deps.digests, [undefined, undefined], "no snapshot fingerprint given → none demanded (the hourly path)");
+});
+
+test("with a snapshot fingerprint: lockout off must match it, and the switch back on must match the page as left", async () => {
+  const d = db(); reserve(d);
+  const h = harness({ lockOff: { ok: true, changed: true, digest_after: "after-off" } });
+  const r = await call({ UPS_MFL_DB: d, DISCORD_GUILD_ID: "g" }, h, "run", { expectDigest: "snap-123" });
+  t.equal(r.ok, true);
+  t.deepEqual(h.deps.digests, ["snap-123", "after-off"]);
 });
 
 test("never a partial reversal: an asset that moved since → held, no post, no lockout, no trade", async () => {
@@ -350,6 +363,8 @@ test("test-league routes never touch the production league; the real-league run 
   };
   try {
     t.equal((await hit("POST", "/admin/mfl/lockout?L=74598", { league_id: "74598", on: false })).status, 403, "lockout on the real league: refused");
+    t.equal((await hit("POST", "/admin/mfl/lockout?L=74598", { league_id: "25625", on: false })).json.error, "expect_digest_required", "test-league lockout needs the snapshot fingerprint");
+    t.equal((await hit("POST", "/admin/lineup/forfeit-reversal?L=74598", { league_id: "25625", mode: "run", holder_fid: "0004", owner_fid: "0009", pick_year: 2027, pick_round: 4 })).json.error, "expect_digest_required", "so does a test-league reversal run");
     t.equal((await hit("POST", "/admin/test-league/trade?L=74598", { league_id: "74598", from_fid: "0001", to_fid: "0002", give: ["1"] })).status, 403);
     t.equal(mflUrls.length, 0, "nothing reached MFL");
     const snap = await hit("GET", "/admin/test-league/settings-snapshot?L=74598&page=trades");
