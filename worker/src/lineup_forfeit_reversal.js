@@ -167,6 +167,17 @@ export async function findTradeThread(env, { channelId, tradeUnix, names, discor
 }
 
 const pickPhrase = (pick) => `${pick.year} ${ROUND_WORD[Number(pick.round)] || `round-${pick.round}`}-round pick`;
+// The note MFL keeps on the reversing trade (its Transactions report "comments"):
+// it must say plainly that this is a reversal and why (Keith 2026-10-13).
+export function reversalNote({ holderName, ownerName, pick, week, tradeUnix }) {
+  const day = Number(tradeUnix) > 0
+    ? new Date(Number(tradeUnix) * 1000).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })
+    : "earlier";
+  return `TRADE REVERSED by the commissioner (UPS lineup rule G3): this undoes the ${day} trade between ${holderName} and ${ownerName}. ` +
+    `It included ${holderName}'s ${pickPhrase(pick)}, which was forfeited as a lineup-violation penalty (Week ${week}) and cannot be traded. ` +
+    `Every player, pick and cap dollar goes back to its original team.`;
+}
+
 export function replyText({ holderName, pick, week, mentionIds }) {
   const tags = (mentionIds || []).map((id) => `<@${id}>`).join(" ");
   return `${tags ? tags + " " : ""}This trade will be reversed. It included ${holderName}'s ${pickPhrase(pick)}, which was forfeited as a lineup-violation penalty (Week ${week}). Every player, pick and cap dollar goes back to its original team.`;
@@ -317,7 +328,7 @@ export async function reverseForfeitedPickTrade(env, opts) {
       leagueId: _s(leagueId), year: Number(season), fromFid: trade.to, toFid: trade.from,
       give: trade.from_gave, receive: trade.to_gave, mflTokens: true,
       returnForfeited: { canonical, toFid: trade.from },
-      commentTag: "[Commish: trade reversed — forfeited pick]", comments: `Lineup penalty, Week ${week}`, cookieAuth: isTest,
+      commentTag: reversalNote({ holderName, ownerName, pick, week, tradeUnix: trade.unix }), comments: "", cookieAuth: isTest,
     });
     result.exec = ex;
     if (ex && ex.tradeId) await setRow(db, key, { mfl_trade_id: _s(ex.tradeId) });

@@ -133,7 +133,7 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
   proposeForm.set("OFFEREDTO", padFid(toFid));
   proposeForm.set("WILL_GIVE_UP", giveMfl);
   proposeForm.set("WILL_RECEIVE", receiveMfl);
-  proposeForm.set("COMMENTS", commentTag + " " + safeStr(comments));
+  proposeForm.set("COMMENTS", `${commentTag} ${safeStr(comments)}`.trim());
   let proposeResp = "", proposeStatus = 0;
   try {
     const r = await fetch(proposeUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker", ...authHeaders }, body: proposeForm.toString() });
