@@ -973,6 +973,12 @@ button.ups-m-busy::before,
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238a97ad"><path d="M7 10l5 5 5-5z"/></svg>');
   background-repeat: no-repeat;
   background-position: right 8px center;
+  /* A long choice ("Name · TEAM · W5 OUT · 8.1 pts · RB #21") is clipped inside the
+     box; unclipped, WebKit let it widen the whole page (64 px of sideways scroll at
+     320 px, 9 px at 375 — measured 2026-10-13, #1249). */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ups-m-slot-sel.empty {
   color: var(--fg-muted);
