@@ -457,6 +457,134 @@ export function fpaDetail(E, ctx, agg, team, grp, snaps) {
   };
 }
 
+// ── Finished-season store ─────────────────────────────────────────────────────
+// A finished season's inputs never change: MFL's league, players, schedule and
+// scores exports, the D1 game-day context and the drill's snap counts. The pipeline
+// script pipelines/etl/scripts/build_fpa_season_store.mjs reads them once (GETs and
+// SELECTs only), refuses a season that isn't complete, and writes
+// worker/fpa_store/<FPA_ENGINE_VERSION>/<season>.json. The deploy ships that folder
+// as static assets bound to env.FPA_STORE (worker-only: run_worker_first, never a
+// public path). A past-season request reads its file and runs the SAME loader
+// (fpaLoadMfl, with a fetchJson answered from the file instead of MFL) and the same
+// compute, so every window and every drill is the number the live path gives.
+// A missing or invalid file, another engine version, or a season that is not
+// complete → the live path, exactly as before.
+export const FPA_STORE_FORMAT = 1;
+export function fpaStorePath(yr) { return "/" + FPA_ENGINE_VERSION + "/" + yr + ".json"; }
+const idOf = (x) => typeof x.id === "string" ? x.id : str(x.id);
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+// raw = the parsed MFL replies fpaLoadMfl consumed for the full season:
+// { league, players, sched: {w: reply}, scores: {w: reply} }. Keeps only what the
+// engine reads: numeric score rows of known players; those players' id, name,
+// position and team; each game's kickoff, clock and teams. For the drill's snaps:
+// snapPids = every player a drill can list (null = leave drill snaps live), idRows =
+// D1 ff_player_ids rows ({mfl_id, pfr_id}), snapRows = the season's nfl_player_snaps
+// rows ({pfr_id, week, off_snaps, def_snaps}); kept with the live query's exact matches.
+export function fpaStoreEncode({ yr, lid, endWeek, raw, ctx, readAtMs, builtAtMs, snapPids, idRows, snapRows }) {
+  const plist = arr(raw.players && raw.players.players && raw.players.players.player);
+  const known = new Set(plist.map(idOf)), used = new Set();
+  const scores = {}, sched = {};
+  for (let w = 1; w <= endWeek; w++) {
+    scores[w] = [];
+    for (const s of arr(raw.scores[w].playerScores.playerScore)) {
+      const id = idOf(s);
+      if (isNaN(parseFloat(s.score)) || !known.has(id)) continue;   // skipped by the engine either way
+      used.add(id); scores[w].push([s.id, s.score]);
+    }
+    sched[w] = arr(raw.sched[w].nflSchedule.matchup).map((m) => [m.kickoff, m.gameSecondsRemaining, arr(m.team).map((t) => [t.id, t.isHome])]);
+  }
+  // Same order as MFL's list, so a repeated id resolves the same way (last one wins).
+  const players = plist.filter((p) => used.has(idOf(p))).map((p) => [p.id, p.name, p.position, p.team]);
+  const out = { format: FPA_STORE_FORMAT, engine: FPA_ENGINE_VERSION, season: String(yr), lid: String(lid), state: "complete",
+    readAtMs, builtAt: new Date(builtAtMs).toISOString(), endWeek, players, sched, scores, ctx, snaps: null };
+  if (snapPids) {
+    // ids: every player a drill can list → his pfr id ("" = none, so the drill shows no snaps).
+    const ids = {}, wk = {};
+    for (const pid of snapPids) ids[pid] = "";
+    for (const x of idRows) { const p = str(x.pfr_id); if (p && p !== "NA" && own(ids, str(x.mfl_id))) ids[str(x.mfl_id)] = p; }
+    const want = new Set(Object.values(ids).filter(Boolean));
+    for (const x of snapRows) {
+      const w = Number(x.week);
+      if (!want.has(x.pfr_id) || !(w >= 1 && w <= endWeek)) continue;
+      (wk[x.pfr_id] = wk[x.pfr_id] || {})[w] = [x.off_snaps == null ? null : Number(x.off_snaps), x.def_snaps == null ? null : Number(x.def_snaps)];
+    }
+    out.snaps = { ids, wk };
+  }
+  return out;
+}
+
+// Why a stored season can't be used (null = usable). Shape, version and state only;
+// fpaStoreOpen re-checks completeness from the stored games themselves.
+export function fpaStoreProblem(s, yr, lid) {
+  if (!s || typeof s !== "object") return "not an object";
+  if (s.format !== FPA_STORE_FORMAT) return "format " + s.format;
+  if (s.engine !== FPA_ENGINE_VERSION) return "engine " + s.engine;
+  if (s.season !== String(yr) || s.lid !== String(lid)) return "season/league " + s.season + "/" + s.lid;
+  if (s.state !== "complete") return "state " + s.state;
+  if (!(Number.isInteger(s.endWeek) && s.endWeek >= 1 && s.endWeek <= 18)) return "endWeek";
+  if (!(Number(s.readAtMs) > 0)) return "readAtMs";
+  if (!Array.isArray(s.players) || !s.players.length) return "players";
+  for (let w = 1; w <= s.endWeek; w++) {
+    if (!Array.isArray(s.sched && s.sched[w]) || !s.sched[w].length) return "schedule week " + w;
+    if (!Array.isArray(s.scores && s.scores[w]) || !s.scores[w].length) return "scores week " + w;
+  }
+  const c = s.ctx;
+  if (!c || typeof c !== "object" || !c.one || !c.multi || !c.plays || !c.pace) return "context";
+  if (s.snaps != null && !(s.snaps.ids && s.snaps.wk)) return "snaps";
+  return null;
+}
+
+// The MFL replies again, in the shape fpaLoadMfl reads.
+function fpaStoreReplies(s) {
+  const sched = {}, scores = {};
+  for (let w = 1; w <= s.endWeek; w++) {
+    sched[w] = { nflSchedule: { week: String(w), matchup: s.sched[w].map((m) => ({ kickoff: m[0], gameSecondsRemaining: m[1], team: m[2].map((t) => ({ id: t[0], isHome: t[1] })) })) } };
+    scores[w] = { playerScores: { week: String(w), playerScore: s.scores[w].map((r) => ({ id: r[0], score: r[1] })) } };
+  }
+  return {
+    league: { league: { endWeek: String(s.endWeek) } },
+    players: { players: { player: s.players.map((p) => ({ id: p[0], name: p[1], position: p[2], team: p[3] })) } },
+    sched, scores,
+  };
+}
+
+// A usable stored season: { fetchJson (for fpaLoadMfl), ctx, readAtMs, snaps(pids, lo, hi) },
+// or null when the file is unusable or the season isn't complete by the engine's own
+// rule (every week 1..endWeek final, with posted scores) at nowMs.
+export function fpaStoreOpen(s, yr, lid, nowMs) {
+  if (fpaStoreProblem(s, yr, lid)) return null;
+  const R = fpaStoreReplies(s);
+  const fetchJson = async (u) => {
+    const q = new URL(u).searchParams, T = q.get("TYPE"), w = parseInt(q.get("W"), 10);
+    if (T === "league") return R.league;
+    if (T === "players") return R.players;
+    if (T === "nflSchedule") return R.sched[w] || null;
+    if (T === "playerScores") return R.scores[w] || null;
+    return null;
+  };
+  const full = { yr: String(yr), endWeek: s.endWeek, players: R.players.players.player, schedByWeek: {}, scoresByWeek: {}, readAtMs: s.readAtMs };
+  for (let w = 1; w <= s.endWeek; w++) { full.schedByWeek[w] = R.sched[w].nflSchedule.matchup; full.scoresByWeek[w] = R.scores[w].playerScores.playerScore; }
+  if (fpaWeekStates(full, nowMs).lastComplete !== s.endWeek) return null;
+  const sn = s.snaps;
+  // fpaSnaps' answer for these players and weeks, from the stored rows. A player the
+  // build didn't consider → null (the caller reads D1 as before).
+  const snaps = (pids, lo, hi) => {
+    if (!sn) return null;
+    const pfrByMfl = {}, byPfr = {};
+    for (const pid of pids) {
+      if (!own(sn.ids, pid)) return null;
+      if (sn.ids[pid]) pfrByMfl[pid] = sn.ids[pid];
+    }
+    for (const p of new Set(Object.values(pfrByMfl))) {
+      const rec = sn.wk[p]; if (!rec) continue;
+      for (const k in rec) { const w = Number(k); if (w >= lo && w <= hi) (byPfr[p] = byPfr[p] || {})[w] = { off: rec[k][0], def: rec[k][1] }; }
+    }
+    return { byPfr, pfrByMfl, state: "ok" };
+  };
+  return { fetchJson, ctx: s.ctx, readAtMs: Number(s.readAtMs), snaps };
+}
+
 // ── HTTP: both routes. Read-only: MFL export GETs and D1 SELECTs, nothing else. ──
 // Caches (all GET-only, errors never cached):
 //   MFL reads    Cloudflare fetch cache, keyed by URL (+ "&ups=<tag>" so no copy
@@ -465,6 +593,10 @@ export function fpaDetail(E, ctx, agg, team, grp, snaps) {
 //   game-day ctx caches.default, one entry per season: 6 h (this season) / 7 days.
 //   response     caches.default: 2 min while the window has a game not final or
 //                within 4 days of its last kickoff; 1 h otherwise; 24 h past seasons.
+//   past season  the stored copy (env.FPA_STORE, see "Finished-season store") stands
+//                in for the MFL reads, the game-day ctx and the drill's snaps; those
+//                caches are only used when it is missing or unusable.
+// Every answer says where it came from: X-UPS-FPA-Source: stored | live.
 // The caches.default keys sit on a fake host (upsmfl-fpa.local) like the other stat
 // caches; a preview worker on workers.dev must namespace them (shared cache).
 // "Usual" = each player's average over the window, this game included. Pooled over
@@ -474,7 +606,7 @@ export const FPA_BASELINE = "include_self";
 const FPA_CACHE_HOST = "https://upsmfl-fpa.local";
 const FPA_MFL_TAG = "fpa2";
 
-function fpaCurrentSeason(nowMs) {
+export function fpaCurrentSeason(nowMs) {
   const d = new Date(nowMs);
   return d.getUTCMonth() >= 2 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
 }
@@ -483,10 +615,10 @@ async function fpaCacheMatch(key) {
   if (typeof caches === "undefined" || !caches.default) return null;
   try { return await caches.default.match(new Request(key)); } catch (_) { return null; }
 }
-function fpaCachePut(ctx, key, body, ttl) {
+function fpaCachePut(ctx, key, body, ttl, source) {
   if (typeof caches === "undefined" || !caches.default || !ttl) return;
   try {
-    const r = new Response(body, { headers: { "content-type": "application/json", "Cache-Control": "public, max-age=" + ttl } });
+    const r = new Response(body, { headers: { "content-type": "application/json", "Cache-Control": "public, max-age=" + ttl, "X-UPS-FPA-Source": source || "live" } });
     const p = caches.default.put(new Request(key), r);
     if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));
   } catch (_) {}
@@ -506,6 +638,33 @@ export async function fpaSeasonContextCached(env, ctx, yr, past) {
   } catch (e) {
     return { ctx: null, state: "error" };
   }
+}
+
+// Stored seasons opened in this isolate (a list and its drills share one parse).
+// Only usable copies are kept; files change only with a deploy (a new isolate).
+const fpaStoreMemo = new Map();
+export function fpaStoreForget() { fpaStoreMemo.clear(); }   // tests and the build's self-check
+async function fpaStoredSeason(env, yr, lid, nowMs) {
+  const bin = env && env.FPA_STORE;
+  if (!bin || typeof bin.fetch !== "function") return null;
+  const key = yr + "|" + lid;
+  if (fpaStoreMemo.has(key)) return fpaStoreMemo.get(key);
+  let open = null;
+  try {
+    const r = await bin.fetch(new Request("https://fpa-store.local" + fpaStorePath(yr)));
+    if (r && r.ok) open = fpaStoreOpen(await r.json(), yr, lid, nowMs);
+  } catch (_) { open = null; }
+  if (open) {
+    if (fpaStoreMemo.size >= 3) fpaStoreMemo.delete(fpaStoreMemo.keys().next().value);
+    fpaStoreMemo.set(key, open);
+  }
+  return open;
+}
+function fpaHeaders(jsonOut, source, cache) {
+  const h = new Headers(jsonOut(200, {}).headers);
+  h.set("X-UPS-FPA-Source", source);
+  if (cache) h.set("X-UPS-FPA-Cache", cache);
+  return h;
 }
 
 async function fpaSnaps(env, yr, pids, lo, hi) {
@@ -561,19 +720,29 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   const noCache = str(url.searchParams.get("NO_CACHE")) === "1";
   if (!noCache) {
     const hit = await fpaCacheMatch(cacheKey);
-    if (hit) { const body = await hit.text(); return new Response(body, { status: 200, headers: jsonOut(200, {}).headers }); }
+    if (hit) { const body = await hit.text(); return new Response(body, { status: 200, headers: fpaHeaders(jsonOut, hit.headers.get("X-UPS-FPA-Source") || "live", "hit") }); }
   }
 
   const fetchJson = (u, ttl) => doFetch(u, { cf: { cacheTtlByStatus: { "200-299": ttl, "404": 60, "500-599": 0 }, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } })
     .then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
-  let mfl;
-  try {
-    mfl = await fpaLoadMfl({ yr, wMin, wMax: auto ? 99 : wMaxRaw, lid: lid || "74598", fetchJson, nowMs: now, currentSeason: !past, tag: FPA_MFL_TAG });
-  } catch (e) {
-    if (e instanceof FpaUpstreamError) return jsonOut(502, { ok: false, error: "mfl_unavailable", detail: e.message, failedWeeks: e.weeks, as_of: asOf });
-    throw e;
+  const load = (fj) => fpaLoadMfl({ yr, wMin, wMax: auto ? 99 : wMaxRaw, lid: lid || "74598", fetchJson: fj, nowMs: now, currentSeason: !past, tag: FPA_MFL_TAG });
+  // A finished season: the same loader, answered from its stored copy. The current
+  // season is never read from storage.
+  let stored = past ? await fpaStoredSeason(env, yr, lid || "74598", now) : null;
+  let mfl = null;
+  if (stored) {
+    try { mfl = await load(stored.fetchJson); mfl.readAtMs = stored.readAtMs; } catch (_) { stored = null; mfl = null; }
   }
-  const { ctx: seasonCtx, state: ctxState } = await fpaSeasonContextCached(env, ctx, yr, past);
+  if (!mfl) {
+    try {
+      mfl = await load(fetchJson);
+    } catch (e) {
+      if (e instanceof FpaUpstreamError) return jsonOut(502, { ok: false, error: "mfl_unavailable", detail: e.message, failedWeeks: e.weeks, as_of: asOf });
+      throw e;
+    }
+  }
+  const source = stored ? "stored" : "live";
+  const { ctx: seasonCtx, state: ctxState } = stored ? { ctx: stored.ctx, state: "ok" } : await fpaSeasonContextCached(env, ctx, yr, past);
 
   // The window: week_max omitted = FULL SEASON through the latest COMPLETED game:
   // every final game so far, including the final games of a week still being played
@@ -607,7 +776,7 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
     if (!E.teamsAll[team]) return jsonOut(400, { ok: false, error: "unknown team " + team });
     const pids = Array.from(new Set(E.pg.filter((x) => x.def === team && x.grp === grp).map((x) => x.pid)));
     const snapKind = (grp === "PK" || grp === "PN") ? "" : "x";
-    const snaps = snapKind ? await fpaSnaps(env, yr, pids, lo, hi) : null;
+    const snaps = snapKind ? ((stored && stored.snaps(pids, lo, hi)) || await fpaSnaps(env, yr, pids, lo, hi)) : null;
     const d = fpaDetail(E, seasonCtx, agg, team, grp, snaps);
     payload = { ...base, ...d, teamGames: { [team]: facts.teamGames[team] } };
   }
@@ -617,6 +786,6 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   for (let w = lo; w <= hi; w++) for (const g of E.weekGames[w] || []) { if (g.kickoff > lastKo) lastKo = g.kickoff; if (g.status !== "final") allFinal = false; }
   const ttl = past ? 86400 : (allFinal && lastKo * 1000 <= now - 4 * 86400 * 1000 ? 3600 : 120);
   const body = JSON.stringify(payload);
-  if (ctxState === "ok") fpaCachePut(ctx, cacheKey, body, ttl);
-  return new Response(body, { status: 200, headers: jsonOut(200, {}).headers });
+  if (ctxState === "ok") fpaCachePut(ctx, cacheKey, body, ttl, source);
+  return new Response(body, { status: 200, headers: fpaHeaders(jsonOut, source, "miss") });
 }
