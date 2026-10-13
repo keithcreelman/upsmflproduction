@@ -1386,7 +1386,9 @@
   var FPA_COLOR_K = { QB: 50, RB: 30, WR: 50, TE: 30, DL: 20, LB: 120, DB: 50, PK: 50, PN: 120 };
   var fpa = {
     year: "",            // "" = this season (the worker decides which that is)
-    pos: "RB", range: "",            // "" = the position's default window (FPA_DEFAULT_WINDOW); "full" | "custom"
+    // A fresh visit opens on QB (Keith 2026-10-13). This object lives for the app session, so a
+    // position the owner picks is kept across tabs and screens until the app is closed or reloaded.
+    pos: "QB", range: "",            // "" = the position's default window (FPA_DEFAULT_WINDOW); "full" | "custom"
     wkMin: 1, wkMax: 0,              // Custom only; wkMax 0 = through the latest completed game
     sort: { key: "", dir: "desc" },
     team: null, week: null,          // the drill: team → week
