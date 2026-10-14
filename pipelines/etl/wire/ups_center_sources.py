@@ -132,12 +132,45 @@ def withhold(chat):
     return chat
 
 
-def gather(season, week, now=None, chat_since=None, pack=None):
+def load_forecast(season, week, data_dir):
+    """The week's forecast files, compacted (Builder A, Keith 2026-10-14: "odds can never
+    silently disappear"). None for a file that does not exist -- the issue then shows a
+    blocker box instead of a Playoff Picture, never an empty space."""
+    sim_p = os.path.join(data_dir, "season_sim_%d_live_wk%02d.json" % (season, week))
+    prev_p = os.path.join(data_dir, "week_preview_%d_wk%02d.json" % (season, week + 1))
+    out = {"simFile": os.path.basename(sim_p), "previewFile": os.path.basename(prev_p), "sim": None, "preview": None}
+    if os.path.exists(sim_p):
+        s = json.load(open(sim_p, encoding="utf-8"))
+        out["sim"] = {"throughWeek": s.get("throughWeek"), "runs": s.get("runs"), "seed": s.get("seed"),
+                      "generatedAtUtc": s.get("generatedAtUtc"),
+                      "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
+                                                   "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
+                                                   "division": t["division"]} for t in s["teams"]}}
+    if os.path.exists(prev_p):
+        q = json.load(open(prev_p, encoding="utf-8"))
+        # Each team's Week N+1 scenario cells, summed: the same simulated seasons as the sim, so these
+        # must equal the sim's counts exactly (the issue blocks the odds when they do not).
+        totals = {}
+        for fid, sc in (q.get("weekScenarios") or {}).items():
+            cells = sc.get("cells") or []
+            totals[fid] = {"cells": len(cells), **{k: sum(int(c.get(k) or 0) for c in cells)
+                                                   for k in ("runs", "playoff", "division", "bye")}}
+        out["preview"] = {"week": q.get("week"), "throughWeek": q.get("throughWeek"), "generatedAtUtc": q.get("generatedAtUtc"),
+                          "runs": q.get("runs"), "seed": q.get("seed"),
+                          "inputsAtUtc": ((q.get("model") or {}).get("cutoffs") or {}).get("rostersProjectionsInjuries"),
+                          "scenarioTotals": totals}
+    return out
+
+
+def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None):
     """The snapshot. `chat_since` (unix) starts the Coffee Shop window; default = the
-    previous issue's publishedAt from the repo index, else the week's first kickoff."""
+    previous issue's publishedAt from the repo index, else the week's first kickoff.
+    `data_dir` (the job's site/wire/data) adds the week's forecast as ctx["forecast"]."""
     now = int(now or datetime.now(timezone.utc).timestamp())
     ctx = {"season": int(season), "week": int(week), "gatheredAtUtc": iso(now), "mfl": {}, "d1": {}, "site": {}}
     ctx["timing"] = week_timing(season, week)
+    if data_dir:
+        ctx["forecast"] = load_forecast(int(season), int(week), data_dir)
 
     # ---- MFL: the source of truth for the live season
     wr = _get(MFL % (season, "weeklyResults", "&W=%d" % week))["weeklyResults"]

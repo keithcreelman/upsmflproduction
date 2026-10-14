@@ -23,8 +23,10 @@ scores have moved since the draft's numbers were frozen -- the changed claims.
 """
 import html as H
 import re
+from datetime import datetime, timezone
 
 import chat_exclusions
+import season_sim  # display_percentages, the rounding the Playoff Picture prints
 
 TIME_RE = re.compile(r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
                      r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}\b|\bWeek\s+\d{1,2}\b|\b20\d\d\b|"
@@ -50,6 +52,50 @@ def _unwrap(shown):
     message's own (a post that itself starts and ends with curly quotes stays verbatim)."""
     s = shown.strip()
     return s[1:-1] if len(s) >= 2 and s[0] == "\u201c" and s[-1] == "\u201d" else s
+
+
+PLAYOFF_FIELD, PLAYOFF_BYES = 6, 2    # league_context F.1
+
+
+def forecast_inconsistent(ctx, week):
+    """Independent of ups_center_issue.forecast_inconsistencies: works in whole simulated seasons.
+    Each stored probability is count/runs rounded to four decimals, so up to 10,000 runs the counts
+    are recovered exactly and every total must match exactly; above that, to the stored precision."""
+    fc = ctx.get("forecast") or {}
+    sim, prev = fc.get("sim") or {}, fc.get("preview") or {}
+    runs, teams = sim.get("runs"), sim.get("teams") or {}
+    if not isinstance(runs, int) or runs <= 0 or not teams:
+        return ["no simulated-season count or no teams"]
+    n = {f: {k: int(round(t[k] * runs)) for k in ("po", "bye", "div", "title")} for f, t in teams.items()}
+    slack = lambda terms: 0 if runs <= 10000 else int(terms * runs * 0.00005) + 1
+    out = []
+    for k, want in (("po", PLAYOFF_FIELD), ("bye", PLAYOFF_BYES), ("title", 1)):
+        if abs(sum(x[k] for x in n.values()) - want * runs) > slack(len(n)):
+            out.append("%s seasons total %d, expected %d" % (k, sum(x[k] for x in n.values()), want * runs))
+    by_div = {}
+    for f, t in teams.items():
+        by_div.setdefault(t["division"], []).append(f)
+    for d, fs in sorted(by_div.items()):
+        if abs(sum(n[f]["div"] for f in fs) - runs) > slack(len(fs)):
+            out.append("division %s titles total %d of %d seasons" % (d, sum(n[f]["div"] for f in fs), runs))
+    for f, x in sorted(n.items()):
+        if not (x["bye"] <= x["div"] <= x["po"] and x["title"] <= x["po"]):
+            out.append("%s bye %d / division %d / playoffs %d / title %d out of order" % (f, x["bye"], x["div"], x["po"], x["title"]))
+    try:
+        taken = datetime.strptime(str(prev.get("inputsAtUtc") or prev.get("generatedAtUtc")), "%Y-%m-%dT%H:%M:%SZ")
+        taken = taken.replace(tzinfo=timezone.utc).timestamp()
+    except ValueError:
+        taken = 0
+    current = (prev.get("throughWeek") == week and prev.get("week") == week + 1
+               and taken >= ctx["timing"]["finalAt"])      # a stale preview is the issue's own blocker
+    if current:
+        tot = prev.get("scenarioTotals") or {}
+        for f, x in sorted(n.items()):
+            c = tot.get(f) or {}
+            got = (c.get("runs"), c.get("playoff"), c.get("division"), c.get("bye"))
+            if runs <= 10000 and got != (runs, x["po"], x["div"], x["bye"]):
+                out.append("%s scenario cells %s, forecast %s" % (f, got, (runs, x["po"], x["div"], x["bye"])))
+    return out
 
 
 def validate(res, ctx, pack):
@@ -140,6 +186,28 @@ def validate(res, ctx, pack):
                 bad(key, "graded final %s, MFL %s-%s" % (v["final"], s[fa], s[fb]))
             if (v["called"] == "yes") != (s[fa] > s[fb]):
                 bad(key, "'called it' is %s but MFL has %s %s-%s" % (v["called"], fav, s[fa], s[fb]))
+        elif kind == "odds":
+            # Builder A: every printed probability equals the job's forecast file under the documented rounding.
+            sim = ((ctx.get("forecast") or {}).get("sim") or {})
+            teams = sim.get("teams") or {}
+            what, _, fid = rest.partition(":")
+            if what == "runs":
+                if v != sim.get("runs"):
+                    bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
+            elif fid not in teams:
+                bad(key, "no forecast row for %s" % fid)
+            elif what in ("po", "bye"):
+                if round(100 * teams[fid][what], 1) != v:
+                    bad(key, "forecast %s %.4f, page %s" % (what, teams[fid][what], v))
+            elif what == "div":
+                grp = {f: t_["div"] for f, t_ in teams.items() if t_["division"] == teams[fid]["division"]}
+                if float(season_sim.display_percentages(grp)[fid]) != v:
+                    bad(key, "division odds %s do not match the forecast's rounding" % v)
+            elif what == "title":
+                if float(season_sim.display_percentages({f: t_["title"] for f, t_ in teams.items()})[fid]) != v:
+                    bad(key, "title odds %s do not match the forecast's rounding" % v)
+            else:
+                bad(key, "unknown odds claim")
         elif kind == "elias":
             pass                                                 # cross-checked against scores_published below
         elif kind in ("pts", "diff", "count"):
@@ -173,6 +241,18 @@ def validate(res, ctx, pack):
     for g in res["gaps"]:
         if 'data-editor-gap="%s"' % H.escape(g["id"]) not in doc:
             errors.append("gap %s has no EDITOR REVIEW box" % g["id"])
+    # Builder A: the Playoff Picture is shown with registered odds, or blocked by a visible odds gap -- never absent
+    if not any(k.startswith("odds:") for k in res["claims"]) and not any(g["id"].startswith("odds:") for g in res["gaps"]):
+        errors.append("no playoff odds and no odds blocker: the Playoff Picture cannot silently disappear")
+    if 'id="odds"' not in doc:
+        errors.append("the Playoff Picture segment is missing")
+    if any(k.startswith("odds:po:") for k in res["claims"]):
+        for why in forecast_inconsistent(ctx, ctx["week"]):
+            errors.append("odds printed from an inconsistent forecast: " + why)
+    # every printed number traces to a source
+    unsourced = sorted(k for k, c in res["claims"].items() if not str(c.get("source") or "").strip())
+    if unsourced:
+        errors.append("claims with no source: %s" % ", ".join(unsourced[:20]))
     if "status: draft" not in doc:
         errors.append("article is not status: draft")
     return {"ok": not errors, "publishable": not errors and not res["gaps"], "errors": errors, "warnings": warnings,

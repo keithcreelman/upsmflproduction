@@ -143,6 +143,17 @@ def parse_meta(html):
     return meta
 
 
+def live_editor_items(html):
+    """EDITOR REVIEW boxes left on a page whose wire-meta says status: live. The automated UPS
+    Center draft blocks a missing, stale or inconsistent forecast (and every other unresolved
+    item) with a visible box (Keith 2026-10-14); `verify` makes that box a hard stop, so a page
+    cannot go live while one remains."""
+    meta = parse_meta(html) or {}
+    if str(meta.get("status") or "").lower() != "live":
+        return []
+    return re.findall(r'data-editor-gap="([^"]+)"', html)
+
+
 def first(rx, html, default=""):
     m = rx.search(html)
     # Tags are stripped: the shell writes these fields with textContent, so any
@@ -400,6 +411,10 @@ def cmd_verify(args):
         # -- metadata ----------------------------------------------------------
         if parse_meta(html) is None:
             p.add(where, "no <!--wire-meta ... --> block -- `index` cannot place it")
+        left = live_editor_items(html)
+        if left:
+            p.add(where, "status: live with %d EDITOR REVIEW box(es) still on the page (%s) -- resolve them "
+                         "before publishing" % (len(left), ", ".join(left[:6])))
 
     # -- index.json agreement --------------------------------------------------
     if not os.path.exists(INDEX):

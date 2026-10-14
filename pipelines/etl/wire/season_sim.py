@@ -110,12 +110,15 @@ def _as_list(v):
 # export for it older than LIVE_MAX_AGE_HOURS is fetched again.
 LIVE_SEASON = None
 LIVE_MAX_AGE_HOURS = 3
+# --reuse-cache (a replay, Keith 2026-10-14): read --cache-dir exactly as recorded, never
+# refetch, so a past week's forecast can be re-run on the inputs it was published from.
+PINNED_CACHE = False
 
 
 def fetch(url, cache_dir=None):
     key = hashlib.sha1(url.encode()).hexdigest()[:16]
     path = os.path.join(cache_dir, key + ".json") if cache_dir else None
-    stale = (path and LIVE_SEASON and "/%d/" % LIVE_SEASON in url and os.path.exists(path)
+    stale = (path and LIVE_SEASON and not PINNED_CACHE and "/%d/" % LIVE_SEASON in url and os.path.exists(path)
              and time.time() - os.path.getmtime(path) > LIVE_MAX_AGE_HOURS * 3600)
     if path and os.path.exists(path) and not stale:
         return json.load(open(path, encoding="utf-8"))
@@ -731,7 +734,8 @@ def apply_ev_offense(season, proj, pos, end, cache_dir=None):
     cov["availabilityDisagreements"] = sorted(
         (dict({"pid": pid, "player": (mfl_players.get(pid) or {}).get("name"),
                "rotowireAverageWhenPlaying": round(ref[pid], 1) if pid in ref else None}, **d)
-         for pid, d in disagree.items()), key=lambda x: -sum(len(x[k]) for k in ("mflSaysOut", "mflSaysPlays", "mflStarter", "mflBackup")))
+         for pid, d in disagree.items()),
+        key=lambda x: (-sum(len(x[k]) for k in ("mflSaysOut", "mflSaysPlays", "mflStarter", "mflBackup")), x["pid"]))
     cov["nameMatchedPlayers"] = len(name_matched)
     if newest:
         cov["sleeperUpdatedAt"] = datetime.fromtimestamp(newest / 1000.0, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1375,6 +1379,9 @@ def main():
     ap.add_argument("--runs", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=20260911)
     ap.add_argument("--cache-dir", default=None, help="reuse MFL responses from this directory")
+    ap.add_argument("--reuse-cache", action="store_true",
+                    help="live update only: use --cache-dir exactly as recorded (no refetch, however old) -- "
+                         "for replaying a past week's forecast on its own inputs")
     ap.add_argument("--out", default=None)
     ap.add_argument("--regress", type=float, default=REGRESS_DEFAULT,
                     help="share of each team's projected edge to keep (1.0 = none regressed)")
@@ -1394,6 +1401,11 @@ def main():
                     help="live update only: path to the preseason JSON (default site/wire/data/"
                          "season_sim_<season>.json), read as the immutable prior")
     a = ap.parse_args()
+    if a.reuse_cache:
+        if not a.through_week or not a.cache_dir or not os.path.isdir(a.cache_dir) or not os.listdir(a.cache_dir):
+            ap.error("--reuse-cache needs --through-week and a non-empty --cache-dir")
+        global PINNED_CACHE
+        PINNED_CACHE = True
     if a.through_week:
         if not a.season:
             ap.error("--season is required with --through-week")
