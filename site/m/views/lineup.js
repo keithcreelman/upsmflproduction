@@ -98,6 +98,7 @@
     fetch(API.mflExportUrl("projectedScores", { W: wk }), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
+        if (M.state.lineupWeek !== wk) return;   // the week moved while this was in flight (#1277)
         var map = {}, ps = j && j.projectedScores && j.projectedScores.playerScore;
         (Array.isArray(ps) ? ps : (ps ? [ps] : [])).forEach(function (p) {
           if (p && p.id) { var n = parseFloat(p.score); if (!isNaN(n)) map[String(p.id)] = n; }
@@ -112,14 +113,127 @@
   function loadLiveWeek() {
     if (M.state.lineupLiveWeekLoading) return;
     M.state.lineupLiveWeekLoading = true;
-    fetch(API.workerUrl("/api/current-lineup-week"), { mode: "cors", credentials: "omit" })
+    M.state.lineupWeekCheckedAt = Date.now();
+    fetch(API.workerUrl("/api/current-lineup-week"), { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
+        M.state.lineupLiveWeekLoading = false;
         var w = parseInt((j && j.week) || 0, 10) || 0;
-        if (w) { M.state.lineupWeek = w; reconcileProjWeek(); renderRoute(); }
+        if (w) setLineupWeek(w);
       })
-      .catch(function () { /* projectedScores.week remains the fallback */ });
+      .catch(function () { M.state.lineupLiveWeekLoading = false; /* projectedScores.week remains the fallback */ });
   }
+
+  // ── The week flips while the app is open (#1277) ──
+  // The worker moves the lineup week 7 h after week N's last kickoff. This screen used to
+  // resolve the week once per app session, so an app left open across that moment kept
+  // week N's opponents, projections, kickoffs, byes and injury week until a reload. The
+  // week is now asked again when the app comes back to the foreground and every 5
+  // minutes while Lineup is on screen. The same answer reads nothing else. A new week:
+  // matchups follow by themselves (keyed by season:week), kickoffs/byes/projections are
+  // read for it, and the lineup is read again from MFL for it. Unsaved changes are never
+  // dropped or moved to the new week silently: the owner chooses (weekChoiceHtml).
+  var WEEK_RECHECK_MS = 5 * 60 * 1000;     // while Lineup is open
+  var WEEK_FOREGROUND_MS = 60 * 1000;      // back in the foreground: ask if the last ask is older than this
+  function setLineupWeek(w, noRender) {
+    var prev = parseInt(M.state.lineupWeek, 10) || 0, first = !M.state.lineupWeekFromWorker;
+    // Never move the week under a submit in flight: the next repaint applies it.
+    if (M.state.lineupSubmitting && prev && w !== prev) { M.state.lineupWeekNext = w; return; }
+    M.state.lineupWeekNext = 0;
+    M.state.lineupWeekFromWorker = true;
+    if (w === prev) { if (first && !noRender) { reconcileProjWeek(); renderRoute(); } return; }
+    M.state.lineupWeek = w;
+    if (prev) weekChanged(w, !first);
+    reconcileProjWeek();
+    if (!noRender && (first || onLineup())) renderRoute();
+  }
+  // `flip`: the worker's own week moved (not its first answer replacing projectedScores'
+  // fallback week).
+  function weekChanged(w, flip) {
+    M.state.lineupKickoffs = undefined;   // unread = no locks, never the old week's
+    M.state.lineupByes = undefined;       // unread = no BYE tags, never the old week's
+    M.state.lineupProjRank = null;
+    var PS = PSx();
+    if (flip && PS && M.state.ctx.year && !injWait) {   // this week's report / last week's final tags
+      injWait = true;
+      PS.load(M.state.ctx.year, true).then(function () { injWait = false; if (onLineup()) renderRoute(); }, function () { injWait = false; });
+    }
+    var rw = M.state.lineupReadWeek;
+    if (!rw || rw === w) { M.state.lineupWeekChoice = null; return; }   // nothing read yet, or read for this week
+    if (lineupDirty()) { M.state.lineupWeekChoice = { from: rw, to: w }; return; }
+    resetLineupRead();
+    if (flip && rw > 0) M.state.lineupMessage = { kind: "info", text: "Week " + rw + " is over: this screen now shows Week " + w + "." };
+  }
+  // Forget the lineup read for the old week; the next render reads it again for this one.
+  function resetLineupRead() {
+    M.state.lineupGen = (M.state.lineupGen || 0) + 1;   // a read still in flight is dropped when it lands
+    M.state.lineupSlots = null; M.state.lineupSeed = null;
+    M.state.lineupRead = null; M.state.lineupReadErr = null; M.state.lineupReadWeek = 0;
+    M.state.lineupBaseSig = null; M.state.lineupWeekChoice = null; M.state.lineupCarry = null;
+    M.state.lineupMessage = null;
+  }
+  // Unsaved = the slots differ from what MFL held when read (or from what MFL accepted
+  // on the last successful submit, see noteSubmitBaseline).
+  function draftSig(d) { return SLOTS.map(function (s) { return (d && d[s.id]) || ""; }).join(","); }
+  function lineupDirty() {
+    if (!M.state.lineupSlots) return false;
+    return M.state.lineupBaseSig == null || draftSig(M.state.lineupSlots) !== M.state.lineupBaseSig;
+  }
+  // A lineup MFL accepted is saved, not "unsaved changes". handleSubmit (unchanged) sets
+  // lineupSubmitting and repaints before it sends, then clears it and repaints with its
+  // "ok"/"err" message: the slots at the first repaint are what was sent.
+  function noteSubmitBaseline() {
+    if (M.state.lineupSubmitting) { if (M.state.lineupSubmitSig == null) M.state.lineupSubmitSig = draftSig(M.state.lineupSlots); return; }
+    if (M.state.lineupSubmitSig == null) return;
+    if (M.state.lineupMessage && M.state.lineupMessage.kind === "ok") M.state.lineupBaseSig = M.state.lineupSubmitSig;
+    M.state.lineupSubmitSig = null;
+  }
+  // "Keep my changes": the owner's picks on top of the new week's lineup as MFL holds it.
+  // A starter whose game has kicked off stays where MFL has him, and a kept pick who has
+  // kicked off (or is off the roster now) isn't added (canon §B4).
+  function carryOnto(carry, read, byId) {
+    var out = FO.lockedDraftEntries(read, byId), used = {};
+    Object.keys(out).forEach(function (k) { used[out[k]] = 1; });
+    SLOTS.forEach(function (s) {
+      var pid = carry && carry[s.id];
+      if (out[s.id] || !pid || used[pid] || !byId[pid] || byId[pid].locked) return;
+      out[s.id] = pid; used[pid] = 1;
+    });
+    return out;
+  }
+  function weekChoiceHtml() {
+    var c = M.state.lineupWeekChoice; if (!c) return "";
+    return '<div class="ups-m-lineup-msg info" role="alert" id="ups-m-lu-wk-choice">' +
+      U.escapeHtml((c.from > 0 ? "Week " + c.from + " is over and " : "") + "Week " + c.to + " is open. Your unsaved changes are still below.") +
+      '<div class="ups-m-lineup-tools">' +
+        '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-wk-load">Load my Week ' + U.escapeHtml(String(c.to)) + ' lineup</button>' +
+        '<button type="button" class="ups-m-lineup-tool" id="ups-m-lu-wk-keep">Keep my changes for Week ' + U.escapeHtml(String(c.to)) + '</button>' +
+      '</div></div>';
+  }
+  function onLineup() {
+    try { return /^myteam\/lineup(\/|$)/.test(String(M.route.currentRoute())); } catch (e) { return false; }
+  }
+  function pageHidden() { return document.visibilityState === "hidden"; }
+  // Ask again, unless the last ask is younger than minAgeMs. Only once Lineup has
+  // resolved a week this session (its first load asks by itself).
+  function recheckWeek(minAgeMs) {
+    if (!M.state.lineupProj || !M.state.lineupWeekCheckedAt) return;
+    if (Date.now() - M.state.lineupWeekCheckedAt < minAgeMs) return;
+    loadLiveWeek();
+  }
+  var weekTimer = null;
+  function armWeekTimer() {
+    if (weekTimer) return;
+    weekTimer = setTimeout(function () {
+      weekTimer = null;
+      if (!onLineup()) return;   // armed again the next time Lineup is drawn
+      if (!pageHidden()) recheckWeek(WEEK_FOREGROUND_MS);
+      armWeekTimer();
+    }, WEEK_RECHECK_MS);
+  }
+  function onForeground() { if (!pageHidden() && onLineup()) recheckWeek(WEEK_FOREGROUND_MS); }
+  if (document.addEventListener) document.addEventListener("visibilitychange", onForeground);
+  if (window.addEventListener) window.addEventListener("pageshow", function (e) { if (e && e.persisted) onForeground(); });
   function loadProjections() {
     if (M.state.lineupProj) return;   // already loaded or in-flight
     M.state.lineupProj = { loaded: false, map: {} };
@@ -495,7 +609,7 @@
     M.state.lineupKickoffsFor = wk;
     fetch(API.mflExportUrl("nflSchedule", { W: wk }), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
-      .then(function (j) { M.state.lineupKickoffs = (LS && LS.parseKickoffs(j)) || {}; renderRoute(); })
+      .then(function (j) { if (M.state.lineupKickoffsFor !== wk) return; M.state.lineupKickoffs = (LS && LS.parseKickoffs(j)) || {}; renderRoute(); })
       .catch(function () { /* leave undefined -- rows stay unlocked, not wrongly locked */ });
     loadByes();
   }
@@ -510,7 +624,7 @@
     M.state.lineupByesFor = wk;
     fetch(API.mflExportUrl("nflByeWeeks", { W: wk }), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
-      .then(function (j) { M.state.lineupByes = LS.parseByeTeams(j, wk); renderRoute(); })
+      .then(function (j) { if (M.state.lineupByesFor !== wk) return; M.state.lineupByes = LS.parseByeTeams(j, wk); renderRoute(); })
       .catch(function () { /* no BYE tags rather than a wrong one */ });
   }
   // The bye week number for this team (0 = plays this week / unknown).
@@ -576,10 +690,15 @@
   // than falling back to Optimal or silently starting empty — either would
   // let an owner submit over a real lineup we simply failed to read back.
   function loadSubmittedLineup(rows) {
-    if (M.state.lineupRead) return;     // once per page load
+    if (M.state.lineupRead) return;     // once per lineup week (resetLineupRead when the week moves)
     M.state.lineupRead = "loading";
     var url = API.workerUrl("/api/lineup");
     var wk = String(M.state.lineupWeek || "").replace(/\D/g, "");
+    // Which week this read (and the draft seeded from it) belongs to; -1 = read with no
+    // week (the worker's own), re-read once a week resolves. A read still in flight when
+    // the week moves is dropped (lineupGen).
+    var gen = M.state.lineupGen || 0;
+    M.state.lineupReadWeek = parseInt(wk, 10) || -1;
     var qs = [];
     if (wk) qs.push("W=" + encodeURIComponent(wk));
     var uid = API.getStoredMflUserId && API.getStoredMflUserId();
@@ -588,8 +707,10 @@
     fetch(url, { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
+        if ((M.state.lineupGen || 0) !== gen) return;
         if (j && j.known === true && Object.prototype.toString.call(j.starters) === "[object Array]" && j.starters.length) {
           M.state.lineupSlots = FO.slotsFromStarters(rows, j.starters);
+          M.state.lineupBaseSig = draftSig(M.state.lineupSlots);
           M.state.lineupSeed = "submitted";
           M.state.lineupRead = "ok";
         } else if (j && j.state === "no_record") {
@@ -606,6 +727,7 @@
         renderRoute();
       })
       .catch(function (e) {
+        if ((M.state.lineupGen || 0) !== gen) return;
         M.state.lineupRead = "unknown";
         M.state.lineupReadErr = String((e && e.message) || e);
         renderRoute();
@@ -761,8 +883,11 @@
   }
 
   function renderFooter(v, submitting) {
-    var label, ready = false, disabled = false;
+    var label, ready = false, disabled = false, choice = M.state.lineupWeekChoice;
     if (submitting) { label = "Submitting…"; disabled = true; }
+    // The week moved under unsaved changes: nothing is sent until the owner picks one
+    // (the worker writes to ITS week, so this draft would land on the new one).
+    else if (choice) { label = "Choose above first (Week " + choice.to + ")"; disabled = true; }
     else if (v.problems > 0) { label = "Fix lineup errors"; disabled = true; }
     else if (v.complete) { label = "Submit Lineup to MFL"; ready = true; }
     else if (v.filled > 0) { label = "Save Lineup (" + v.filled + "/" + TOTAL + ")"; }
@@ -807,6 +932,15 @@
     });
     var submit = document.getElementById("ups-m-lineup-submit");
     if (submit) submit.addEventListener("click", function () { handleSubmit(); });
+    var wkLoad = document.getElementById("ups-m-lu-wk-load");
+    if (wkLoad) wkLoad.addEventListener("click", function () { resetLineupRead(); renderRoute(); });
+    var wkKeep = document.getElementById("ups-m-lu-wk-keep");
+    if (wkKeep) wkKeep.addEventListener("click", function () {
+      var carry = M.state.lineupSlots;
+      resetLineupRead();
+      M.state.lineupCarry = carry;   // put on top of the new week's lineup once it's read
+      renderRoute();
+    });
     var benchT = document.getElementById("ups-m-bench-toggle");
     if (benchT) benchT.addEventListener("click", function () { M.state.lineupShowBench = !M.state.lineupShowBench; renderRoute(); });
     var muRetry = document.getElementById("ups-m-mu-retry");
@@ -962,6 +1096,10 @@
     return head + '<div class="ups-m-bench">' + body + '</div>';
   }
   function render(mount) {
+    noteSubmitBaseline();
+    if (M.state.lineupWeekNext && !M.state.lineupSubmitting) setLineupWeek(M.state.lineupWeekNext, true);
+    recheckWeek(WEEK_RECHECK_MS);   // back on Lineup after a while
+    armWeekTimer();
     var rows = buildRows();
     if (!rows.length) {
       mount.innerHTML = subTabs("lineup") +
@@ -1000,7 +1138,16 @@
         // holding (they may have set it natively) — the Optimal button is
         // right there if that's genuinely what the owner wants.
         M.state.lineupSlots = {};
+        M.state.lineupBaseSig = draftSig(M.state.lineupSlots);
       }
+    }
+    // "Keep my changes" (#1277): only now that the new week's lineup is READ, never over
+    // an unread one.
+    if (M.state.lineupCarry && (M.state.lineupRead === "ok" || M.state.lineupRead === "norecord")) {
+      M.state.lineupSlots = carryOnto(M.state.lineupCarry, M.state.lineupSlots, rowsById(rows));
+      M.state.lineupCarry = null;
+      M.state.lineupSeed = "user";
+      M.state.lineupMessage = { kind: "info", text: "Your changes are now for Week " + M.state.lineupWeek + ". Not submitted yet." };
     }
     var draft = M.state.lineupSlots;
     var byId = rowsById(rows);
@@ -1019,6 +1166,7 @@
     });
 
     var html = subTabs("lineup");
+    html += weekChoiceHtml();
     html += renderMessage();
     html += renderHeader(v, projTotal);
     html += renderSection("O", "Offense", FO.OFFENSE_STARTERS, rows, draft, used);
