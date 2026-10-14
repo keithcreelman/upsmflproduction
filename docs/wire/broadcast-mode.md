@@ -1,6 +1,14 @@
 # UPS Center broadcast mode: proof of concept
 
-**Status:** draft, on hold (2026-10-14).
+**Status:** CLOSED (2026-10-14). Keith's ruling:
+- Week 5 stays silent.
+- Use only those two exact clips. No generic or generated music, no separate YouTube play buttons, no ads, and no change to the MFL sandbox.
+- No embedding, downloading, extracting or rehosting of the clips.
+- Audio is tracked as a future enhancement that needs licensed local files for the two transitions.
+
+The YouTube check page was removed. The findings below are the record.
+
+Earlier status:
 - Keith rejected the synthesized cues (clinks, stings, closing music).
 - He asked for two YouTube excerpts instead. They cannot be embedded reliably where the league reads the issue (see "YouTube excerpts" below), so per his instruction that work stopped at the findings.
 - Nothing here is merged, published or deployed.
@@ -75,7 +83,7 @@ He set one condition first: stop if either cannot be embedded reliably.
 | iPhone Safari, second clip without a new tap | **Not verified here** (no iOS Simulator on this Mac). WebKit requires a tap inside the player's own frame for sound, so on iPhone the Boomer clip very likely needs its own tap. |
 | Ads and overlays | **The opening video is monetized**: its player data lists ad placements, so a pre-roll ad can play before the theme. **Overlays damage both clips:** <br>- From about 0:42 the uploader's end-screen card (an unrelated "Apple iPhone 4 Antennagate" video) covers the opening, inside the excerpt.<br>- YouTube shows its title bar, "More videos" and, on the Boomer clip, auto-captions. |
 
-**Check page:** `docs/wire/youtube-embed-check.html`, a test page that is not deployed. It lets Keith:
+**Check page (removed at closing):** `docs/wire/youtube-embed-check.html` was a test page, never deployed. It lets Keith:
 - hear both excerpts on his phone and adjust start and stop;
 - see whether the Boomer clip starts without a second tap;
 - see the MFL-sandbox failure.
