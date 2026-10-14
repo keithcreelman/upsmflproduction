@@ -536,8 +536,10 @@ def replay_sh(cmd, cwd=None, check=False, env=None):
     return 0, ""
 
 
-def replay_gather(season, week, now=None, chat_since=None, pack=None, data_dir=None):
+def replay_gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, history=False):
     c = copy.deepcopy(CTX)
+    if history:
+        c["history"] = json.load(open(os.path.join(FX, "history.json")))
     if data_dir:
         c["forecast"] = AUTO.SRC.load_forecast(season, week, data_dir)
     return c
@@ -655,8 +657,10 @@ check("a changed definition (the Dominant cutoff) fails validation", any("rule:d
 r14, v14, _ = build()
 check("no snapshot -> Heat Check and Survival Line blockers, never empty segments",
       {"heat:no-history", "survival:no-history"} <= {g["id"] for g in r14["gaps"]} and v14["ok"])
-check("the job gathers the season snapshot (history=True) for the real build",
-      "history=True" in open(os.path.join(HERE, "ups_center_auto.py")).read())
+_auto = open(os.path.join(HERE, "ups_center_auto.py")).read()
+check("the job gathers the season snapshot (history=True) for the real build and for a replay",
+      _auto[_auto.index("def run_week"):_auto.index("def replay_week")].count("history=True") == 1
+      and _auto[_auto.index("def replay_week"):_auto.index("def crashed")].count("history=True") == 1)
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
