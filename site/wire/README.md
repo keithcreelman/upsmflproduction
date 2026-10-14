@@ -86,6 +86,27 @@ structurally rather than by discipline:
 - All rendered text goes through `textContent`. Nothing concatenates data into
   an HTML string.
 
+## Broadcast mode (opt-in, UPS Center)
+
+A UPS Center issue can carry a **Start UPS Center** button, a sound switch, and
+short sound cues that fire once as the reader reaches the opening, the segment
+stings, Boomer's highlights, Kenny's chat receipts and the sign-off.
+
+- **Opt in per article.** `python pipelines/etl/wire/wire.py broadcast --article <id> --transition <ids> --closing <id>` inserts the control block from
+  `articles/_template/article_broadcast.html.tmpl`. Then run `restyle` (it
+  inlines `article_broadcast.js`) and `index`. `--off` removes it byte for byte.
+- **Every other article is untouched.** `verify` holds an opted-in article to
+  exactly two inline blocks: the runtime, then the broadcast script, each
+  identical to its source.
+- **Same rules as the runtime.** The script is prose-free: labels and captions
+  live in the template markup. It is ASCII-only and synthesizes every sound
+  with Web Audio, so there are no files, no network and nothing to license.
+- **Nothing happens without a tap.** The block stays hidden without JavaScript,
+  and the issue is complete with sound off.
+
+The design, the audio-rights options and the test matrix are in
+`docs/wire/broadcast-mode.md`.
+
 ## Files
 
 | File | Role |

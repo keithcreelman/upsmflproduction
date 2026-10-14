@@ -48,6 +48,11 @@ INDEX = os.path.join(WIRE, "index.json")
 TOKENS_CSS = os.path.join(WIRE, "wire_tokens.css")
 ARTICLE_CSS = os.path.join(WIRE, "wire_article.css")
 RUNTIME_JS = os.path.join(ARTICLES, "_template", "article_runtime.js")
+# Broadcast mode (Keith 2026-10-14): an OPT-IN second script, inlined only into
+# articles that carry its control block. `broadcast` inserts the block from the
+# template; `restyle` fills the script; `verify` holds both to their sources.
+BROADCAST_JS = os.path.join(ARTICLES, "_template", "article_broadcast.js")
+BROADCAST_TMPL = os.path.join(ARTICLES, "_template", "article_broadcast.html.tmpl")
 
 WARN_BYTES = 250 * 1024
 FAIL_BYTES = 600 * 1024
@@ -56,6 +61,8 @@ WORDS_PER_MINUTE = 200
 STYLE_RE = re.compile(
     r'(<style data-wire-style="tokens\+article" data-wire-style-sha=")([^"]*)(">)([\s\S]*?)(</style>)')
 RUNTIME_RE = re.compile(r'(<script data-wire-runtime>)([\s\S]*?)(</script>)')
+BROADCAST_RE = re.compile(r'(<script data-wire-broadcast>)([\s\S]*?)(</script>)')
+BCAST_BLOCK_RE = re.compile(r'<!--wire-bcast-->[\s\S]*?<!--/wire-bcast-->\n?')
 SECTION_RE = re.compile(r'<section class="wire-sec" id="([^"]+)" data-title="([^"]+)"')
 META_RE = re.compile(r'<!--\s*wire-meta\s*([\s\S]*?)-->')
 TITLE_RE = re.compile(r'<title>([\s\S]*?)</title>', re.I)
@@ -159,6 +166,9 @@ def cmd_restyle(args):
     runtime = read(RUNTIME_JS)
     if "</script" in runtime.lower():
         fail("article_runtime.js contains a script close tag; it would truncate every article")
+    bcast = read(BROADCAST_JS)
+    if "</script" in bcast.lower():
+        fail("article_broadcast.js contains a script close tag; it would truncate the article")
 
     changed = 0
     for path in article_paths():
@@ -174,6 +184,8 @@ def cmd_restyle(args):
             lambda m: m.group(1) + "sha256-" + sha + m.group(3) + "\n" + STYLE_BANNER + combined + m.group(5),
             html, count=1)
         html = RUNTIME_RE.sub(lambda m: m.group(1) + "\n" + runtime + m.group(3), html, count=1)
+        if BROADCAST_RE.search(html):
+            html = BROADCAST_RE.sub(lambda m: m.group(1) + "\n" + bcast + m.group(3), html, count=1)
 
         if html != before:
             write(path, html)
@@ -292,10 +304,40 @@ def pack_path_for(pack_id):
     return os.path.join(REPO, "site", "wire", "packs", m.group(1), "%s.pack.json" % pack_id)
 
 
+def cmd_broadcast(args):
+    """Opt one article into broadcast mode (or out, with --off). Idempotent."""
+    path = next((x for x in article_paths() if os.path.basename(x) == args.article + ".html"), None)
+    if not path:
+        fail("no article %s" % args.article)
+    html = read(path)
+    before = html
+    html = BCAST_BLOCK_RE.sub("", html)
+    html = re.sub(r'\n?<script data-wire-broadcast>[\s\S]*?</script>', "", html)
+    if not args.off:
+        sec_ids = [m.group(1) for m in SECTION_RE.finditer(html)]
+        trans = [x for x in (args.transition or "").split(",") if x]
+        for sid in trans + [args.closing]:
+            if sid not in sec_ids:
+                fail("%s has no section %r (sections: %s)" % (rel(path), sid, ", ".join(sec_ids)))
+        block = read(BROADCAST_TMPL).replace("{{TRANSITION}}", " ".join(trans)).replace("{{CLOSING}}", args.closing)
+        hero = html.find('<header class="wire-hero')
+        end = html.find("</header>", hero)
+        if hero < 0 or end < 0:
+            fail("%s has no wire-hero header to hold the controls" % rel(path))
+        html = html[:end] + block + html[end:]
+        r = RUNTIME_RE.search(html)
+        html = html[:r.end()] + "\n<script data-wire-broadcast></script>" + html[r.end():]
+    if html != before:
+        write(path, html)
+    print("broadcast: %s %s -- run `restyle` and `index` next" % (rel(path), "off" if args.off else "on"))
+    return 0
+
+
 def cmd_verify(args):
     p = Problems()
     sha, combined = style_sha()
     runtime = read(RUNTIME_JS)
+    bcast = read(BROADCAST_JS)
     paths = article_paths()
 
     for path in paths:
@@ -378,11 +420,22 @@ def cmd_verify(args):
         # mentions; that arithmetic is invariant to a leading phantom, because
         # the phantom becomes the opener and the real opener is then counted as
         # nested. It could never fire. Do not go back to counting.)
+        # -- broadcast mode (opt-in) -----------------------------------------
+        b = BROADCAST_RE.search(html)
+        expected = [runtime.strip()]
+        if b:
+            expected.append(bcast.strip())
+            if bcast.strip() != b.group(2).strip():
+                p.add(where, "inlined broadcast script differs from articles/_template/article_broadcast.js -- run `restyle`")
+            if len(BCAST_BLOCK_RE.findall(html)) != 1 or "data-wire-bcast" not in html:
+                p.add(where, "broadcast script without exactly one control block -- run `broadcast`")
+        elif "data-wire-bcast" in html:
+            p.add(where, "broadcast controls without the broadcast script -- run `broadcast`")
         lint_blocks = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)</script>', html, re.I)
-        if len(lint_blocks) != 1 or lint_blocks[0].strip() != runtime.strip():
-            p.add(where, "rule 5: check_inline_js.mjs does not see exactly the runtime block "
+        if [x.strip() for x in lint_blocks] != expected:
+            p.add(where, "rule 5: check_inline_js.mjs does not see exactly the runtime block%s "
                          "(%d block(s) extracted) -- a stray '<script' is desyncing it; "
-                         "write &lt;script in prose" % len(lint_blocks))
+                         "write &lt;script in prose" % (" and the broadcast block" if b else "", len(lint_blocks)))
         for c in re.findall(r'<!--[\s\S]*?-->', html):
             if re.search(r'<script', c, re.I):
                 p.add(where, "rule 5: '<script' inside an HTML comment -- the linter does not "
@@ -785,10 +838,15 @@ def main():
     k.add_argument("--game-clip", action="store_true",
                    help="allow an official game-highlights video whose title does not name the player")
     k.add_argument("--clear", action="store_true", help="remove the cached entry instead")
+    bc = sub.add_parser("broadcast", help="opt one article into broadcast mode (Start button, sound cues)")
+    bc.add_argument("--article", required=True, help="article id, e.g. 2026-wk05-ups-center")
+    bc.add_argument("--transition", default="", help="comma-separated section ids that get the segment sting")
+    bc.add_argument("--closing", default="", help="section id whose last desk line gets the closing theme")
+    bc.add_argument("--off", action="store_true", help="remove broadcast mode from the article")
     args = ap.parse_args()
     return {"restyle": cmd_restyle, "index": cmd_index, "verify": cmd_verify,
             "build": cmd_build, "check-pack": cmd_check_pack,
-            "write": cmd_write, "render": cmd_render, "clip": cmd_clip}[args.cmd](args)
+            "write": cmd_write, "render": cmd_render, "clip": cmd_clip, "broadcast": cmd_broadcast}[args.cmd](args)
 
 
 if __name__ == "__main__":
