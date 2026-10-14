@@ -779,7 +779,7 @@ table.asw-table{font-size:13px}
     "adp":          { title:"ADP · Dynasty Value", desc:"Multi-source consensus draft position and dynasty trade value (FantasyCalc, KeepTradeCut, DynastyProcess, Sleeper), blended into one board with tiering." },
     "vegas":        { title:"Vegas Implied Points", desc:"Team totals implied by the live betting market — the cleanest public read on how many points a real offense is expected to score." },
     "pace":         { title:"Team Pace", desc:"Plays per game, seconds per snap, and pass rate by team — the volume side of opportunity, before any individual usage share is applied." },
-    "schedule":     { title:"Schedule", desc:"Who each NFL team plays, week by week, with what each opponent has allowed to the position so far. It describes games already played; it is not a forecast." }
+    "schedule":     { title:"Schedule", desc:"Who each NFL team plays, week by week, with what each opponent has allowed to the position so far. It describes games already played; it is not a forecast of what a team will score." }
   };
   function setPageHead(view) {
     var m = VIEW_META[view] || VIEW_META["player-stats"];
@@ -6248,7 +6248,7 @@ table.asw-table{font-size:13px}
           }).join("") + '</tr>';
       }).join("");
       return '<div class="fpa-sub" id="sched-basis">' + txt + '</div>' +
-        '<div class="fpa-sub fpa-note">This shows games already played. It isn’t a forecast of future matchups. Color appears only when the difference remains large after adjusting for small sample sizes. Each opponent’s number is its season so far; Avg averages the opponents in these weeks (an opponent played twice counts twice).</div>' +
+        '<div class="fpa-sub fpa-note">This describes what each opponent has allowed in games already played. It isn’t a forecast of what a team will score; it doesn’t account for that team’s offense, injuries or future changes. Color appears only when the difference remains large after adjusting for small sample sizes. Each opponent’s number is its season so far; Avg averages the opponents in these weeks (an opponent played twice counts twice).</div>' +
         '<div class="asw-table-wrap"><table class="fpa-table sched-grid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
     }
     function schedPaint(){

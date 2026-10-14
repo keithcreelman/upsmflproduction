@@ -156,8 +156,18 @@ console.log("1. the default board (2026 after Wk 5): QB, Rest of season, Points 
   await check("the plain line names the weeks, the number, the basis and the default order; three sentences; no easy/tough", () => {
     const t = v.mount.querySelector("#ups-m-sched-window").textContent.replace(/\s+/g, " ");
     assert.strictEqual(t, "Wks 6–17 · points opponents have allowed to QBs so far (Wks 1–5), per game; league average " + D26.league.perGame.QB.toFixed(1) + ". Default order: most allowed first.");
-    assert.ok(/This shows games already played\. It isn’t a forecast of future matchups\. Color appears only when the difference remains large after adjusting for small sample sizes\./.test(v.text()));
+    assert.ok(/This describes what each opponent has allowed in games already played\. It isn’t a forecast of what a team will score; it doesn’t account for that team’s offense, injuries or future changes\. Color appears only when the difference remains large after adjusting for small sample sizes\./.test(v.text()));
     assert.ok(!/easy|tough|easiest|strength of schedule/i.test(v.text()), "no easy/tough wording");
+  });
+  await check("byes: MIN's Wk 6 bye reads BYE (and 'Bye Wk 6'), and its Avg divides by its 11 opponents, not 12 weeks", () => {
+    const min = v.rows().find((r) => r.getAttribute("data-schedteam") === "MIN");
+    assert.strictEqual(min.querySelectorAll(".c")[0].textContent, "BYE");
+    assert.strictEqual(min.querySelector(".tm small").textContent, "Bye Wk 6");
+    const opps = D26.schedule.MIN.filter((g) => g.wk >= 6 && g.wk <= 17 && !g.bye).map((g) => D26.teams[g.opp].QB.raw.perGame);
+    assert.strictEqual(opps.length, 11);
+    const sum = opps.reduce((a, b) => a + b, 0);
+    assert.strictEqual(min.querySelector(".ag").textContent.trim(), (sum / 11).toFixed(1));
+    assert.notStrictEqual((sum / 11).toFixed(1), (sum / 12).toFixed(1), "the check can tell the two denominators apart");
   });
   await check("no played-week dimming in Rest of season (Wk 6 hasn't started)", () => assert.strictEqual(v.mount.querySelectorAll(".c.off").length, 0));
 }

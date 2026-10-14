@@ -2355,7 +2355,7 @@
     if (inProg.length) txt += ' <span class="ups-m-st-live"></span>Wk ' + inProg[inProg.length - 1] + " games still being played aren’t counted yet.";
     if (msched.fellBack) txt = "No " + U.escapeHtml(msched.fellBack) + " games yet, so this is " + U.escapeHtml(String(d.year)) + ". " + txt;
     return '<div class="ups-m-st-basis' + (msched.fellBack ? " warn" : "") + '" id="ups-m-sched-window">' + txt + "</div>" +
-      '<div class="ups-m-st-setnote">This shows games already played. It isn’t a forecast of future matchups. Color appears only when the difference remains large after adjusting for small sample sizes. ' +
+      '<div class="ups-m-st-setnote">This describes what each opponent has allowed in games already played. It isn’t a forecast of what a team will score; it doesn’t account for that team’s offense, injuries or future changes. Color appears only when the difference remains large after adjusting for small sample sizes. ' +
       '<details class="ups-m-st-more"' + (msched.noteOpen ? " open" : "") + "><summary>About these numbers</summary><div>" +
       "Each opponent’s number is its Pts Agst full season so far. Avg averages the opponents in these weeks, skipping byes; an opponent played twice counts twice. " +
       "Tap a team for its whole schedule, then an opponent for its breakdown." +

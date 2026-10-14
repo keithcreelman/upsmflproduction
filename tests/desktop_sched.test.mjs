@@ -94,11 +94,18 @@ console.log("desktop Schedule");
     assert.ok(/^Wk 6 @LVR · allowed \d+\.\d per game to QBs, [+−]\d+% vs usual · 5 games$/.test(c[0].getAttribute("title")), c[0].getAttribute("title"));
     assert.ok(!/style="[^"]*background/.test(v.sec.innerHTML), "no background fills");
   });
+  await check("byes: BYE in the bye week and Avg over the opponents only (MIN: 11 of Wks 6–17)", () => {
+    const min = v.rows().find((r) => v.team(r) === "MIN");
+    assert.strictEqual(min.querySelectorAll("td.sc")[0].textContent, "BYE");
+    const opps = D26.schedule.MIN.filter((g) => g.wk >= 6 && !g.bye).map((g) => D26.teams[g.opp].QB.raw.perGame);
+    assert.strictEqual(opps.length, 11);
+    assert.strictEqual(min.querySelector("td.ag").textContent, (opps.reduce((a, b) => a + b, 0) / 11).toFixed(1));
+  });
   await check("descriptive wording; no easy/tough; masthead renamed 'Schedule'", () => {
     assert.ok(/^Wks 6–17 · points opponents have allowed to QBs so far \(Wks 1–5\), per game; league average \d+\.\d\. Default order: most allowed first\.$/.test(v.basis()), v.basis());
-    assert.ok(/This shows games already played\. It isn’t a forecast of future matchups\. Color appears only when the difference remains large after adjusting for small sample sizes\./.test(v.sec.textContent));
+    assert.ok(/This describes what each opponent has allowed in games already played\. It isn’t a forecast of what a team will score; it doesn’t account for that team’s offense, injuries or future changes\. Color appears only when the difference remains large after adjusting for small sample sizes\./.test(v.sec.textContent));
     assert.ok(!/easy|tough|easiest|strength of schedule/i.test(v.sec.textContent));
-    assert.ok(/"schedule":\s*\{ title:"Schedule", desc:"Who each NFL team plays, week by week, with what each opponent has allowed to the position so far\. It describes games already played; it is not a forecast\." \}/.test(HTML));
+    assert.ok(/"schedule":\s*\{ title:"Schedule", desc:"Who each NFL team plays, week by week, with what each opponent has allowed to the position so far\. It describes games already played; it is not a forecast of what a team will score\." \}/.test(HTML));
   });
   await check("vs usual: signed % cells and Avg, re-ordered, no new read", async () => {
     v.sec.querySelector('[data-sshow="vs"]').click(); await settle();
