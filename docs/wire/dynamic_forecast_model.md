@@ -2,6 +2,47 @@
 
 **Status:** built and verified against real 2026 Week 1 data, uncommitted.
 
+## Projection source (decided 2026-09-16): RotoWire first, MFL as backup
+
+**Decision (Keith, 2026-09-16):** "switch but let MFL decide availability."
+
+**Offense (QB/RB/WR/TE):**
+- **Points come from RotoWire.** That means Sleeper's public weekly projections (the numbers are RotoWire's), scored with UPS rules in `pipelines/etl/wire/ev_projections.py`.
+- **MFL is the backup.** A player RotoWire does not project keeps his MFL number. Each run counts these as `evCoverage.keptMfl`.
+- **MFL decides availability.** Its injury feed and depth order decide who plays (`season_sim.apply_ev_offense`).
+- **An empty or unreadable Sleeper week fails the run.** It never scores zero.
+
+**Defenders, kickers and punters** stay on MFL projections.
+
+**Why.** MFL's `projectedScores` move in whole-touchdown steps of about 7.5 UPS points: a 0.49 touchdown counts as 0, a 0.51 as 6. MFL also runs low, most of all at QB. The export carries only the rounded total, so the rounding cannot be undone from MFL alone.
+
+**Backtests (offense, season-specific UPS rules, run 2026-09-16):**
+
+| Measure | RotoWire | MFL |
+|---|---|---|
+| 2025, weeks 1–17 (3,061 player-weeks): weekly error | 6.33 | 6.64 |
+| 2025: correlation | .51 | .43 |
+| 2025: rest-of-season error per game | 1.88 | 3.32 |
+| 2025: weeks jumping 6+ points | 0.6% | 7.3% |
+| 2018–2025 (23,556 player-weeks): weekly error | 6.56 | 6.67 |
+| 2018–2025: rest-of-season error per game (RotoWire lower in all 8 seasons) | 2.29 | 3.32 |
+| 2018–2025: rest-of-season ranking | .82 | .83 |
+| 2018–2025: QB bias per week | about 0 | +2.8 to +5.1 low |
+
+Errors are mean absolute errors.
+
+- **Ranking is a tie overall.** MFL ranked better in 2018, 2019 and 2021; RotoWire better in 2020 and 2022–2025.
+- **Conclusion: RotoWire is generally the better source,** and clearly so for the current era (2022 on, every measure). Most of the gain is level and noise, not ranking, so it is not a blowout.
+- **Where the backtest scripts are.** They ran from a session scratchpad (`ev_backtest_multi.py`, `ev_backtest_report.py`) and are not committed; `ev_projections.py` regenerates the inputs.
+
+**Expected discrepancy, not an error.** The published odds use RotoWire. `week_preview.py` also reports what MFL's offensive projections would give (`enteringPlayoffMflOffense`) and the difference (`switchEffect`). The gap can be large for a superflex roster whose value sits at QB.
+
+On the Week 5 run (inputs fetched 2026-10-14 01:56 UTC, `week_preview_2026_wk06.json`), the gap was:
+- 10+ playoff-odds points for four teams;
+- largest for Derrick Whitman: 39.6% on RotoWire vs 56.6% on MFL.
+
+Print the RotoWire number. Cite the MFL number only as a sensitivity note, never as a competing forecast.
+
 ## UPDATE (2026-09-15, same day) — the permanent-shock model is no longer the published number
 
 You flagged that the correction felt like too strong a market reaction for one week. That was correct, and the mechanism is exactly what §6(b) below already named: the shock was being applied **permanently**, to all 13 remaining weeks, with no decay. Fixed the same day, before any backtest — this didn't need one to see:
