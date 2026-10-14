@@ -43,10 +43,11 @@ sim = json.load(open(os.path.join(WT, "site/wire/data/season_sim_2026_live_wk05.
 p4 = json.load(open(os.path.join(WT, "site/wire/data/week_preview_2026_wk04.json")))
 w3 = {m["fid"]: m for m in p4["movement"]}
 odds = text(sec["odds"])
+field = odds[odds.index("Who makes the field"):odds.index("Division races")]          # the field table only
 for t in sim["teams"]:
     f = t["franchiseId"]; o = own[f]
     po, d = "%.1f%%" % (100 * t["currentPlayoffOdds"]), "%+.1f" % (100 * (t["currentPlayoffOdds"] - w3[f]["enteringPlayoff"]))
-    row = re.search(re.escape(short(o)) + r" (\S+) (\S+) (\S+)", odds)
+    row = re.search(re.escape(short(o)) + r" (\S+) (\S+) (\S+)", field)
     ok("odds: %s playoffs %s, since Wk3 %s" % (o, po, d), row and row.group(1) == po and row.group(2).replace("−", "-") == d, row and row.groups())
 ok("odds: run is through Week 5 with 10,000 runs", sim["throughWeek"] == 5 and sim["runs"] == 10000 and "10,000 simulated seasons" in odds)
 pvc = json.load(open(os.path.join(WT, "site/wire/data/week_preview_2026_wk06.json")))["model"]["cutoffs"]["rostersProjectionsInjuries"]
@@ -193,6 +194,69 @@ ok("Klingenberg did not post in the chat window", not any(m["owner_name"] == "Ch
 b5 = [p for m in L(M["weeklyResults_5"]["weeklyResults"]["matchup"]) for f in L(m["franchise"]) if f["id"] == oid["Shawn Blake"] for p in L(f["player"])]
 qbs = {p["id"] for p in b5 if pos.get(p["id"]) == "QB"}
 ok("Blake's Week 5 roster has exactly two quarterbacks (Allen, Purdy)", len(qbs) == 2, qbs)
+print("11. rev 3 (Keith 2026-10-14 items 1, 6, 7), recomputed independently")
+desks = {m.group(1): re.findall(r'<div class="lt (\w+)"><div class="who">\w+</div><p>([\s\S]*?)</p></div>', m.group(0)) for m in re.finditer(r'<section class="wire-sec" id="([^"]+)"[\s\S]*?</section>', doc)}
+lines = [(sid, who, text(p)) for sid, ls in desks.items() for who, p in ls]
+ok("no standalone Coffee Shop segment; Survival Line is the last segment before Elias", "coffee" not in sec and list(sec)[-2:] == ["survival", "elias"], list(sec))
+ok("masthead no longer promises a Coffee Shop", "Kenny Mayne in the Coffee Shop" not in doc and "Kenny Mayne with receipts from the league chat" in doc)
+where = {mid: sid for sid, s in sec.items() for mid in re.findall(r'discord\.com/channels/\d+/\d+/(\d+)', s)}
+ok("receipts sit in their stories: Blake->odds, Eric+Gerardi->heat, Josh+Bear->survival",
+   where == {"1559179324681093275": "odds", "1559408224636117004": "heat", "1558921157116305433": "heat", "1559180011083272243": "survival", "1559180424889114725": "survival"}, where)
+ok("every receipt is read by Kenny", all(who == "kenny" for sid, who, tx in lines if re.search(r"“", tx) and any(q_ in tx for q_ in ("fluke", "all play win", "Forced to start", "pick or fumble", "Hawks in perpetuity"))))
+PHR = {"stuart": ["Boo-yah", "other side of the pillow", "witness from the congregation", "bus driver"],
+       "boomer": ["Look at him go", "go… all… the… way", "Rumblin", "Whoop", "Back, back"]}
+for host, ph in PHR.items():
+    for x in ph:
+        n_ = sum(tx.count(x) for _, _, tx in lines)
+        hosts_ = {w for _, w, tx in lines if x in tx}
+        ok("catchphrase '%s' used at most once, only by %s" % (x, host), n_ <= 1 and hosts_ <= {host}, (n_, hosts_))
+    used = sum(1 for x in ph if any(x in tx for _, _, tx in lines))
+    ok("%s uses 2-3 signature phrases (got %d)" % (host, used), 2 <= used <= 3, used)
+ok("Rich and Kenny use no catchphrases", not any(x in tx for _, w, tx in lines if w in ("rich", "kenny") for ph in PHR.values() for x in ph))
+# Monday night, from raw MFL weeklyResults + the raw MFL player team field
+team = {p["id"]: p.get("team") for p in L(M["players"]["players"]["player"])}
+wk5 = {f["id"]: f for m in L(M["weeklyResults_5"]["weeklyResults"]["matchup"]) for f in L(m["franchise"])}
+monday = lambda fid: [float(p.get("score") or 0) for p in L(wk5[fid]["player"]) if p["status"] == "starter" and team.get(p["id"]) in ("LAR", "BUF")]
+lead = round(float(wk5[oid["Eric Martel"]]["score"]) - (float(wk5[oid["Chris Klingenberg"]]["score"]) - sum(monday(oid["Chris Klingenberg"]))), 1)
+ok("Monday: Eric had no starters in the only Monday game and led by %.1f entering it" % lead, monday(oid["Eric Martel"]) == [] and lead == 53.3 and "53.3 points ahead" in heat)
+psw = pl.read_parquet(os.path.join(DIR, "ps_2026.parquet")).filter(pl.col("week") == 5)
+sf = psw.filter(pl.col("player_display_name") == "Matthew Stafford").to_dicts()[0]
+ok("Stafford line: 40 of 54, 383 yards, 3 TD, no turnovers", (sf["completions"], sf["attempts"], sf["passing_yards"], sf["passing_tds"], sf["passing_interceptions"], sf["sack_fumbles_lost"], sf["rushing_fumbles_lost"]) == (40, 54, 383, 3, 0, 0, 0)
+   and "40 of 54, 383 yards, 3 touchdowns, no turnovers, 39.3 points" in heat)
+lap = pl.read_parquet(os.path.join(DIR, "pbp_2026.parquet")).filter((pl.col("game_id") == "2026_05_BUF_LA") & pl.col("time_of_day").is_not_null() & (pl.col("time_of_day") < "2026-10-13T03:31:00")).sort("time_of_day").to_dicts()[-1]
+ok("11:31 PM ET: the Rams and Bills were tied in overtime", lap["qtr"] == 5 and lap["total_home_score"] == lap["total_away_score"])
+bbt = text(re.search(r'<section class="wire-sec" id="bb"[\s\S]*?</section>', auto).group(0))
+miss = [float(x) for x in re.findall(r"(?:Omarion Hampton|Amon-Ra St\. Brown) \(\w+, Matt Gerardi\)[\s\S]*?\d+\.\d → \d+\.\d (-\d+\.\d)", bbt)]
+ok("Gerardi: St. Brown + Hampton a combined %.1f under projection" % -sum(miss), len(miss) == 2 and "a combined %.1f points under their projections" % -sum(miss) in heat)
+gb = psw.filter(pl.col("player_display_name") == "Jahmyr Gibbs").to_dicts()[0]
+ok("Gibbs 151 rushing yards on 25 carries, 2 TD", (gb["rushing_yards"], gb["carries"], gb["rushing_tds"]) == (151, 25, 2) and "151 rushing yards on 25 carries, two touchdowns" in text(sec["brief"]))
+# Week 6 as record x scoring rank: recomputed from the preview's raw cells
+WS = json.load(open(os.path.join(WT, "site/wire/data/week_preview_2026_wk06.json")))["weekScenarios"]
+def rate(fid, hw=None, lo=1, hi=12):
+    cs = [c for c in WS[fid]["cells"] if (hw is None or c["h2hWins"] == hw) and lo <= c["rank"] <= hi]
+    return sum(c["playoff"] for c in cs) / sum(c["runs"] for c in cs), sum(c["runs"] for c in cs)
+simt = {t_["franchiseId"]: t_ for t_ in sim["teams"]}
+ok("scenario cells partition the published seasons for every team", all(abs(rate(f_)[0] - simt[f_]["currentPlayoffOdds"]) < 1e-9 and rate(f_)[1] == 10000 for f_ in WS))
+P = lambda x: "%.1f%%" % (100 * x)
+J, K, B, W_, KC_ = oid["Josh Martel"], oid["Chris Klingenberg"], oid["Ryan Bousquet"], oid["Derrick Whitman"], oid["Keith Creelman"]
+surv = text(sec["survival"])
+ok("Josh: sweep %s, swept %s; sweep+top3 %s vs sweep+middle six %s" % (P(rate(J, 3)[0]), P(rate(J, 0)[0]), P(rate(J, 3, 1, 3)[0]), P(rate(J, 3, 4, 9)[0])),
+   "Sweep all three and he is at %s; lose all three and he is at %s" % (P(rate(J, 3)[0]), P(rate(J, 0)[0])) in surv
+   and "A sweep with a top-three score puts him at %s. A sweep with a middle-six score, %s." % (P(rate(J, 3, 1, 3)[0]), P(rate(J, 3, 4, 9)[0])) in surv)
+dshare = round(100 * sum(c["division"] for c in WS[J]["cells"]) / sum(c["playoff"] for c in WS[J]["cells"]))
+ok("Josh: %d%% of his playoff seasons come from the division" % dshare, "in %d%% of the simulated seasons where Josh makes the playoffs, he wins the division" % dshare in surv)
+ok("Klingenberg: 2-1 top three %s vs 3-0 middle six %s" % (P(rate(K, 2, 1, 3)[0]), P(rate(K, 3, 4, 9)[0])), "2–1 with a top-three score, he makes the playoffs %s of the time. Where he goes 3–0 with a middle-six score, %s" % (P(rate(K, 2, 1, 3)[0]), P(rate(K, 3, 4, 9)[0])) in odds)
+ok("Bousquet: 3-0 middle six %s, 2-1 top three %s" % (P(rate(B, 3, 4, 9)[0]), P(rate(B, 2, 1, 3)[0])), "3–0 week with a middle-six score is worth %s, about the same as 2–1 with a top-three score at %s" % (P(rate(B, 3, 4, 9)[0]), P(rate(B, 2, 1, 3)[0])) in odds)
+ok("Bousquet sweep/swept %s/%s; Keith %s/%s; Whitman 2-1 top3 %s vs 3-0 mid %s" % (P(rate(B, 3)[0]), P(rate(B, 0)[0]), P(rate(KC_, 3)[0]), P(rate(KC_, 0)[0]), P(rate(W_, 2, 1, 3)[0]), P(rate(W_, 3, 4, 9)[0])),
+   "sweep all three and he is at %s; lose all three and he is at %s" % (P(rate(B, 3)[0]), P(rate(B, 0)[0])) in pt
+   and "Sweep them and he is at %s; lose all three and he is at %s" % (P(rate(KC_, 3)[0]), P(rate(KC_, 0)[0])) in pt
+   and "Go 2–1 with a top-three score and he is at %s. Go 3–0 with a middle-six score and he is at %s" % (P(rate(W_, 2, 1, 3)[0]), P(rate(W_, 3, 4, 9)[0])) in pt)
+jt = re.search(r"Josh Martel’s Week 6, two ways([\s\S]*?)From the", surv).group(1)
+for hw, lo, hi, nm in ((3, 1, 3, "top three"), (3, 4, 9, "middle six"), (2, 1, 3, "top three"), (1, 10, 12, "bottom three"), (0, 10, 12, "bottom three")):
+    r_, n_ = rate(J, hw, lo, hi)
+    ok("Josh grid %d-%d %s: %s (%d seasons)" % (hw, 3 - hw, nm, P(r_), n_), n_ >= 100 and ("%d–%d %s" % (hw, 3 - hw, nm)) in jt and P(r_) in jt.split("%d–%d %s" % (hw, 3 - hw, nm))[1][:80])
+r_, n_ = rate(J, 1, 1, 3)
+ok("Josh grid 1-2 top three is too rare to price (%d seasons) and says so" % n_, n_ < 100 and re.search(r"1–2 top three \S+ All-Play [^r]*rare %d of 10,000" % n_, jt))
 print("9. no production writes in the code paths used")
 for f in ("pipelines/etl/wire/season_sim.py", "pipelines/etl/wire/week_preview.py", "pipelines/etl/wire/ev_projections.py"):
     s = open(os.path.join(WT, f)).read()

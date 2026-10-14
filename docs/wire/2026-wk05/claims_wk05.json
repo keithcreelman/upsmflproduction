@@ -360,6 +360,81 @@
   "source": "forecast"
  },
  {
+  "key": "sc.path.0012",
+  "shown": "5",
+  "source": ""
+ },
+ {
+  "key": "sc.0012.30m",
+  "shown": "57.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0012.21t",
+  "shown": "74.8",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0002",
+  "shown": "35",
+  "source": ""
+ },
+ {
+  "key": "sc.0002.30m",
+  "shown": "45.3",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0002.21t",
+  "shown": "54.1",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0001",
+  "shown": "82",
+  "source": ""
+ },
+ {
+  "key": "sc.0001.30m",
+  "shown": "33.3",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0001.21t",
+  "shown": "35.4",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0011",
+  "shown": "10",
+  "source": ""
+ },
+ {
+  "key": "sc.0011.30m",
+  "shown": "11.2",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0011.21t",
+  "shown": "22.1",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0003",
+  "shown": "31",
+  "source": ""
+ },
+ {
+  "key": "sc.0003.30m",
+  "shown": "10.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0003.21t",
+  "shown": "18.3",
+  "source": "forecast"
+ },
+ {
   "key": "o.bear.po",
   "shown": "99.5",
   "source": "forecast"
@@ -367,6 +442,11 @@
  {
   "key": "o.bear.bye",
   "shown": "83.2",
+  "source": "forecast"
+ },
+ {
+  "key": "k.bear.po",
+  "shown": "99.5",
   "source": "forecast"
  },
  {
@@ -455,28 +535,38 @@
   "source": "forecast"
  },
  {
-  "key": "g.kw",
-  "shown": "61.3",
+  "key": "sc.k21t",
+  "shown": "74.8",
   "source": "forecast"
  },
  {
-  "key": "g.kl",
-  "shown": "41.3",
+  "key": "sc.k30m",
+  "shown": "57.6",
   "source": "forecast"
  },
  {
-  "key": "g.bw",
-  "shown": "28.4",
+  "key": "sc.bpath",
+  "shown": "82",
+  "source": ""
+ },
+ {
+  "key": "sc.b30m",
+  "shown": "33.3",
   "source": "forecast"
  },
  {
-  "key": "g.bl",
-  "shown": "14.9",
+  "key": "sc.b21t",
+  "shown": "35.4",
   "source": "forecast"
  },
  {
   "key": "fix.max",
   "shown": "0.7",
+  "source": ""
+ },
+ {
+  "key": "sc.minn",
+  "shown": "100",
   "source": ""
  },
  {
@@ -1135,6 +1225,46 @@
   "source": "MFL"
  },
  {
+  "key": "mnf.lead",
+  "shown": "53.3",
+  "source": ""
+ },
+ {
+  "key": "mnf.cmp",
+  "shown": "40",
+  "source": ""
+ },
+ {
+  "key": "mnf.att",
+  "shown": "54",
+  "source": ""
+ },
+ {
+  "key": "mnf.yds",
+  "shown": "383",
+  "source": ""
+ },
+ {
+  "key": "mnf.td",
+  "shown": "3",
+  "source": ""
+ },
+ {
+  "key": "mnf.staf",
+  "shown": "39.3",
+  "source": ""
+ },
+ {
+  "key": "mnf.kyren",
+  "shown": "19.4",
+  "source": ""
+ },
+ {
+  "key": "mnf.margin",
+  "shown": "9.6",
+  "source": ""
+ },
+ {
   "key": "cut.bench",
   "shown": "54.0",
   "source": ""
@@ -1223,6 +1353,26 @@
   "key": "ger.ap3n",
   "shown": "33",
   "source": ""
+ },
+ {
+  "key": "k.willis",
+  "shown": "21.0",
+  "source": ""
+ },
+ {
+  "key": "k.ger",
+  "shown": "161.1",
+  "source": ""
+ },
+ {
+  "key": "ger.miss",
+  "shown": "17.6",
+  "source": ""
+ },
+ {
+  "key": "ger.po",
+  "shown": "5.1",
+  "source": "forecast"
  },
  {
   "key": "ww.0010.p1",
@@ -1720,13 +1870,13 @@
   "source": "forecast"
  },
  {
-  "key": "g.bw2",
-  "shown": "28.4",
+  "key": "sc.b30",
+  "shown": "40.2",
   "source": "forecast"
  },
  {
-  "key": "g.bl2",
-  "shown": "14.9",
+  "key": "sc.b03",
+  "shown": "12.8",
   "source": "forecast"
  },
  {
@@ -1872,6 +2022,16 @@
  {
   "key": "g.cl",
   "shown": "91.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.w21t",
+  "shown": "54.1",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.w30m",
+  "shown": "45.3",
   "source": "forecast"
  },
  {
@@ -2055,13 +2215,13 @@
   "source": ""
  },
  {
-  "key": "g.kcw",
-  "shown": "89.7",
+  "key": "sc.kc30",
+  "shown": "92.9",
   "source": "forecast"
  },
  {
-  "key": "g.kcl",
-  "shown": "78.3",
+  "key": "sc.kc03",
+  "shown": "74.5",
   "source": "forecast"
  },
  {
@@ -2365,6 +2525,391 @@
   "source": ""
  },
  {
+  "key": "sc.jrec.3top.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.3top.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.lo.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.lo.l",
+  "shown": "46",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.hi.w",
+  "shown": "22",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.hi.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.3top",
+  "shown": "7.9",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.3mid.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.3mid.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.3mid",
+  "shown": "3.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.3bot5.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.3bot5.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.hi.w",
+  "shown": "15",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.hi.l",
+  "shown": "51",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jn.3bot5",
+  "shown": "4",
+  "source": ""
+ },
+ {
+  "key": "sc.jrec.2top.w",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.2top.l",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.lo.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.lo.l",
+  "shown": "46",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.hi.w",
+  "shown": "22",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.hi.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.2top",
+  "shown": "5.5",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.2mid.w",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.2mid.l",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.2mid",
+  "shown": "1.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.2bot3.w",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.2bot3.l",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.hi.w",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.hi.l",
+  "shown": "53",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jn.2bot3",
+  "shown": "21",
+  "source": ""
+ },
+ {
+  "key": "sc.jrec.1top.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.1top.l",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.lo.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.lo.l",
+  "shown": "46",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.hi.w",
+  "shown": "22",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.hi.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jn.1top",
+  "shown": "28",
+  "source": ""
+ },
+ {
+  "key": "sc.jrec.1mid.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.1mid.l",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.1mid",
+  "shown": "2.0",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.1bot3.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.1bot3.l",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.hi.w",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.hi.l",
+  "shown": "53",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.1bot3",
+  "shown": "0.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.0mid.w",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.0mid.l",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.0mid",
+  "shown": "1.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.0bot3.w",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.0bot3.l",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.hi.w",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.hi.l",
+  "shown": "53",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.0bot3",
+  "shown": "0.6",
+  "source": "forecast"
+ },
+ {
   "key": "s.ger",
   "shown": "5.1",
   "source": "forecast"
@@ -2430,14 +2975,39 @@
   "source": "bracket"
  },
  {
-  "key": "s.jm2",
-  "shown": "2.0",
+  "key": "sc.jpath",
+  "shown": "80",
+  "source": ""
+ },
+ {
+  "key": "sc.j30",
+  "shown": "6.7",
   "source": "forecast"
  },
  {
-  "key": "s.jmw",
-  "shown": "3.5",
+  "key": "sc.j03",
+  "shown": "0.8",
   "source": "forecast"
+ },
+ {
+  "key": "sc.j30t",
+  "shown": "7.9",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.j30m",
+  "shown": "3.7",
+  "source": "forecast"
+ },
+ {
+  "key": "k.hawks",
+  "shown": "54.0",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.minn2",
+  "shown": "100",
+  "source": ""
  },
  {
   "key": "pr.n",
@@ -2730,8 +3300,8 @@
   "source": ""
  },
  {
-  "key": "bm.gibbs",
-  "shown": "40.9",
+  "key": "bm.gyds",
+  "shown": "151",
   "source": ""
  },
  {
@@ -2740,8 +3310,8 @@
   "source": ""
  },
  {
-  "key": "bm.gtgt",
-  "shown": "6",
+  "key": "bm.gibbs",
+  "shown": "40.9",
   "source": ""
  },
  {
@@ -2793,65 +3363,5 @@
   "key": "bl5.n",
   "shown": "8",
   "source": ""
- },
- {
-  "key": "k.bear.w",
-  "shown": "42",
-  "source": "MFL"
- },
- {
-  "key": "k.bear.l",
-  "shown": "2",
-  "source": "MFL"
- },
- {
-  "key": "k.b17.w",
-  "shown": "11",
-  "source": "D1"
- },
- {
-  "key": "k.b17.l",
-  "shown": "44",
-  "source": "D1"
- },
- {
-  "key": "k.jm",
-  "shown": "2.0",
-  "source": "forecast"
- },
- {
-  "key": "k.willis",
-  "shown": "21.0",
-  "source": ""
- },
- {
-  "key": "k.ger",
-  "shown": "161.1",
-  "source": ""
- },
- {
-  "key": "k.staf",
-  "shown": "39.3",
-  "source": ""
- },
- {
-  "key": "k.margin",
-  "shown": "9.6",
-  "source": ""
- },
- {
-  "key": "k.hawks",
-  "shown": "54.0",
-  "source": "forecast"
- },
- {
-  "key": "k.jm2",
-  "shown": "2.0",
-  "source": "forecast"
- },
- {
-  "key": "k.jmw",
-  "shown": "3.5",
-  "source": "forecast"
  }
 ]

@@ -302,3 +302,126 @@ Not applied: one inference about Dowdle's role that the play-by-play does not su
 
 The heat table's "Reading" label now sits under each team name, and the full-season All-Play record is in parentheses, so the table fits at 320 px.
 
+## 9. Revision 3 (Keith, 2026-10-14): Coffee Shop folded in, signature calls, Week 6 as record plus score
+
+### 9.1 The Coffee Shop segment is gone; its five receipts sit in their stories
+
+Each receipt follows the same sequence:
+1. the situation;
+2. the quote, verbatim and linked;
+3. a host reaction;
+4. what happened next and why it matters.
+
+All five are read by Kenny.
+
+| Receipt | Now in | Story |
+|---|---|---|
+| Blake, "First week was a fluke…" | Playoff Picture | Bear's 99.5%: "Shawn got there in one sentence. The computer needed 10,000 seasons." |
+| Eric Martel, "🙏 for a pick or fumble 6" | Heat Check | Martel's slide and Monday night |
+| Blake on Gerardi, "Forced to start…" | Heat Check | Gride's collapse |
+| Josh Martel, "Not sure I have an all play win…" | Survival Line | why his season is nearly over |
+| Bear, "Rebuild or become Hawks in perpetuity." | Survival Line | Josh vs the Hawks in Week 6 |
+
+**Correction to the brief's framing (Eric Martel).** Monday night had one game, Bills at Rams. Eric had no starters in it, so HammerTime led the Hawks **190.7 to 137.4** going in.
+- Klingenberg still had Stafford (39.3), Kyren Williams (19.4) and Dalton Kincaid (4.2).
+- At 11:31 PM ET, when Eric posted, the game was tied in overtime.
+- Stafford went 40 of 54 for 383 yards and three touchdowns, with no interceptions and no lost fumbles.
+- The Hawks won by 9.6.
+
+So Stafford finished **Klingenberg's comeback**; he did not end Eric's. The article tells it that way.
+
+The masthead now reads "Kenny Mayne with receipts from the league chat". The Survival Line moved to the end and closes with a sign-off, so the closing segment is a real segment. The post-count table is gone.
+
+### 9.2 Signature calls (restraint rule)
+
+| Host | Phrase | Where it lands |
+|---|---|---|
+| Stuart | "He must be the bus driver, because he is taking this league to school." | Bear's 42–2 since Week 1 |
+| Stuart | "As cool as the other side of the pillow" | Stafford's 40-of-54, no-turnover night that beat HammerTime |
+| Stuart | "Boo-yah." | Nacua's 24 targets and 41.7 points |
+| Boomer | "Look at him go!" | Gibbs: 151 rushing yards on 25 carries, 2 TD |
+| Boomer | "He could… go… all… the… way!" | Warren's 80-yard catch-and-run touchdown |
+
+The rest of the restraint rule:
+- **Rich** has no catchphrases: clarity and dry reactions.
+- **Kenny** has none: receipts and understated punchlines.
+- **No phrase repeats.** Every line still makes sense with the phrase deleted.
+- **"Rumblin', bumblin', stumblin'" is not used.** nflverse play-by-play does not record broken tackles, so no run in the data earns it.
+
+The verifier enforces the budget: at most one use of each phrase, by its own host; two or three phrases per host; none from Rich or Kenny.
+
+### 9.3 Week 6 as two numbers: head-to-head record and league scoring rank
+
+**Rules confirmed against canon §F.1 and MFL standingsSort 2026:**
+- division titles go by record (PCT, DIVPCT, H2H, PTS, All-Play);
+- the two wild cards and seeds 3–6 go by All-Play %, then overall record, then points;
+- the top two seeds are division winners.
+
+So which number matters depends on the team's path.
+
+**The simulator supports it.** `week_preview.py` now records, inside the same 10,000 seasons as the published odds, each team's Week 6 head-to-head wins and its league scoring rank (1–12), with playoff, division and bye counts (`weekScenarios`).
+- The cells reproduce every team's published odds exactly. Asserted in the builder and in the verifier.
+- Re-running on the same cached inputs and seed left every forecast number byte-identical. Two diagnostic lists change tie order between runs, as they always have.
+
+**Comparison rule:**
+- a rate is printed only on at least 100 simulated seasons;
+- a comparison is stated only when the gap exceeds two standard errors;
+- "about the same" is stated only when it is within two.
+
+**What the data supports:**
+
+| Team | Division share of playoff seasons | 3–0, middle-six score | 2–1, top-three score |
+|---|---|---|---|
+| Klingenberg | 5% | 57.6% | 74.8% |
+| Whitman | 35% | 45.3% | 54.1% |
+| Bousquet | 82% | 33.3% | 35.4% (same within noise) |
+| Mannila | 10% | 11.2% | 22.1% |
+| Gerardi | 31% | 10.6% | 18.3% |
+
+- **Josh Martel:** 80% of his playoff seasons come from the division.
+  - By record: 3–0 is 6.7%; 0–3 is 0.8%.
+  - By score at 3–0: a top-three score is 7.9%; a middle-six score is 3.7%.
+  - The full grid is in the article.
+- **Not supported:** the brief's example comparison, a 1–2 week with a top-three score against a 3–0 week with a bottom-five score. For Josh those weeks occur in 28 and 4 of 10,000 seasons, too few to price; the table says "rare" and gives the count. Both are structurally rare: a top-three score loses only to the other two top-three teams, and a bottom-five score sweeping needs three lower opponents. Pricing them would need a larger dedicated run, which is a possible model enhancement.
+- **Why a big week helps beyond All-Play:** in the model each simulated season carries a season-long strength shock. A top-three week is partly evidence of a stronger team, so the weeks after it go better too. The article says this in one line.
+
+**Single-game splits that remain:**
+- the Whitman–Cutting split Keith approved in revision 2, now followed by Whitman's whole-week framing;
+- the opening's "three of the six Week 6 games most likely to reshape the field".
+
+Every Week 6 outlook now names all three opponents and uses record plus score:
+- Klingenberg;
+- Bousquet;
+- Whitman;
+- Keith Creelman (sweep 92.9%, swept 74.5%);
+- Josh.
+
+### 9.4 Verification
+- **Builder:** 673 claims registered; the numeric audit passes. New asserts cover:
+  - Monday-night lineups by NFL team;
+  - the overtime timing;
+  - Stafford's box score;
+  - Gerardi's two busts from the validated projection segment;
+  - Gibbs' rushing line;
+  - Warren's 80-yard catch;
+  - the Week 6 opener;
+  - every scenario comparison.
+- **Independent verifier:** 108 of 108 pass, 33 of them new. The new checks cover:
+  - receipt placement;
+  - the masthead;
+  - the catchphrase budget;
+  - the Monday-night lead from raw MFL;
+  - the Stafford line;
+  - the 11:31 PM overtime tie;
+  - Gerardi's 17.6;
+  - Gibbs;
+  - scenario cells that partition the published seasons;
+  - every printed scenario rate and the Josh grid, recomputed from the raw cells.
+- **Layout:** no overflow at 320, 375 or 1280 px.
+
+**Host-voice pass (editorial checklist):**
+- Stuart carries energy and the turns.
+- Rich explains and asks nothing he does not answer.
+- Boomer's four lines are connected highlight stories.
+- Kenny only reads receipts and closes with understated lines.
+- No host speaks another's catchphrase.

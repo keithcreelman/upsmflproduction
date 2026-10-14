@@ -105,9 +105,74 @@ assert BQ["warren_rise"] / BQ["rise"] > 1 / 3
 DOWDLE_INJ = F["players"]["warren"]["dinj"]
 assert DOWDLE_INJ["5"][0] == "Questionable" and DOWDLE_INJ["5"][2].startswith("Limited")
 
+# ================================================================== receipts from the league chat (rev 3: woven into the stories)
+_MP = json.load(open(os.path.join(DIR, "mfl_2026.json")))["players"]
+_MP = _MP.get("players", _MP); _MP = _MP.get("player", _MP)
+NFLTEAM = {p_["id"]: p_.get("team") for p_ in _MP}
+def mon_starters(f):                     # starters in the week's only Monday game (BUF at LAR)
+    return [p_ for p_ in TW[(5, f)]["players"] if p_["status"] == "starter" and NFLTEAM.get(p_["pid"]) in ("LAR", "BUF")]
+import polars as _plr
+_pb5 = _plr.read_parquet(os.path.join(DIR, "pbp_2026.parquet")).filter(_plr.col("week") == 5)
+assert sorted(_pb5.filter(_plr.col("game_date") == "2026-10-12")["game_id"].unique().to_list()) == ["2026_05_BUF_LA"]   # one Monday game
+assert mon_starters(EM) == [] and sorted(pname(p_["pid"]) for p_ in mon_starters(KLING)) == ["Dalton Kincaid", "Kyren Williams", "Matthew Stafford"]
+MNF_LEAD = round(TW[(5, EM)]["score"] - (TW[(5, KLING)]["score"] - sum(p_["score"] for p_ in mon_starters(KLING))), 1)
+assert MNF_LEAD == 53.3
+_la = _pb5.filter(_plr.col("game_id") == "2026_05_BUF_LA").filter(_plr.col("time_of_day").is_not_null())
+_before = _la.filter(_plr.col("time_of_day") < "2026-10-13T03:31:00").sort("time_of_day").to_dicts()[-1]
+assert _before["qtr"] == 5 and _before["total_home_score"] == _before["total_away_score"] == 34          # tied, in overtime, at Eric's 11:31 PM ET post
+_kw = _la.filter((_plr.col("rusher_player_name") == "K.Williams") & (_plr.col("touchdown") == 1)).to_dicts()
+assert len(_kw) == 1 and _kw[0]["qtr"] == 4 and _kw[0]["quarter_seconds_remaining"] == 8                   # the touchdown that set up the tying kick
+_ps5 = _plr.read_parquet(os.path.join(DIR, "ps_2026.parquet")).filter(_plr.col("week") == 5)
+STAF = _ps5.filter(_plr.col("player_display_name") == "Matthew Stafford").to_dicts()[0]
+assert (STAF["completions"], STAF["attempts"], STAF["passing_yards"], STAF["passing_tds"], STAF["passing_interceptions"]) == (40, 54, 383, 3, 0)
+assert STAF["sack_fumbles_lost"] == 0 and STAF["rushing_fumbles_lost"] == 0
+_kp = {pname(p_["pid"]): p_["score"] for p_ in TW[(5, KLING)]["players"]}
+assert _kp["Matthew Stafford"] == 39.3 and _kp["Kyren Williams"] == 19.4
+klg = [g for g in TW[(5, KLING)]["games"] if g["opp"] == EM][0]; assert klg["result"] == "W" and abs(klg["margin"] - 9.6) < 0.05
+assert min(abs(g["margin"]) for (wk, f), t_ in TW.items() if wk == 5 for g in t_["games"]) == 9.6
+assert (T[EM]["W"], T[EM]["L"]) == (9, 4)
+assert F["players"]["ups"]["Malik Willis"]["weeks"]["5"]["status"] == "starter" and F["players"]["ups"]["Malik Willis"]["weeks"]["5"]["owner"] == "Matt Gerardi"
+assert sorted(TW[(5, f)]["score"] for f in FIDS)[0] == TW[(5, GER)]["score"] and [g["result"] for g in TW[(5, GER)]["games"]] == ["L", "L", "L"]
+GIBBS5 = _ps5.filter(_plr.col("player_display_name") == "Jahmyr Gibbs").to_dicts()[0]
+assert (GIBBS5["carries"], GIBBS5["rushing_yards"], GIBBS5["rushing_tds"]) == (25, 151, 2)
+_wr = _pb5.filter((_plr.col("receiver_player_name") == "J.Warren") & (_plr.col("touchdown") == 1)).to_dicts()
+assert len(_wr) == 1 and _wr[0]["yards_gained"] == 80 and "A.Rodgers" in _wr[0]["desc"]
+_s6 = _plr.read_parquet(os.path.join(DIR, "sched_2026.parquet")).filter(_plr.col("week") == 6).sort(["gameday", "gametime"]).to_dicts()[0]
+assert (_s6["weekday"], _s6["home_team"], _s6["away_team"]) == ("Thursday", "DEN", "SEA")
+assert re.search(r'Chris Klingenberg</td><td class="num">0</td>', AUTO), "Klingenberg posted in the window"
+assert [AP[x][JM][0] for x in (2, 3, 4, 5)] == [1, 1, 1, 2]
+# ---- Week 6 as two numbers: head-to-head record AND league scoring rank (Keith 2026-10-14, item 7)
+import math as _m
+PV6 = json.load(open(os.path.join(WT, "site/wire/data/week_preview_2026_wk06.json")))
+WSC = PV6["weekScenarios"]
+TIERS = {"top": (1, 3), "mid": (4, 9), "bot3": (10, 12), "bot5": (8, 12)}
+TIER_NAME = {"top": "top three", "mid": "middle six", "bot3": "bottom three", "bot5": "bottom five"}
+MIN_N = 100                                   # fewer simulated seasons than this: "too rare to price", no rate printed
+def cell(f, hw=None, tier=None):
+    lo, hi = TIERS[tier] if tier else (1, 12)
+    cs = [c for c in WSC[f]["cells"] if (hw is None or c["h2hWins"] == hw) and lo <= c["rank"] <= hi]
+    n_ = sum(c["runs"] for c in cs)
+    return {"n": n_, "po": (sum(c["playoff"] for c in cs) / n_) if n_ else None, "div": (sum(c["division"] for c in cs) / n_) if n_ else None}
+def beats(a, b):                               # a's rate exceeds b's by more than two standard errors
+    se = _m.sqrt(a["po"] * (1 - a["po"]) / a["n"] + b["po"] * (1 - b["po"]) / b["n"])
+    return a["n"] >= MIN_N and b["n"] >= MIN_N and a["po"] - b["po"] > 2 * se
+def same(a, b):                                # within two standard errors either way
+    se = _m.sqrt(a["po"] * (1 - a["po"]) / a["n"] + b["po"] * (1 - b["po"]) / b["n"])
+    return a["n"] >= MIN_N and b["n"] >= MIN_N and abs(a["po"] - b["po"]) <= 2 * se
+for f_ in FIDS:                                 # the cells ARE the published seasons: totals reproduce the table exactly
+    _all = cell(f_); assert _all["n"] == PV6["runs"] and abs(_all["po"] - O[f_]["po"]) < 1e-9, owner(f_)
+    assert WSC[f_]["games"] == 3
+def path_div(f):                               # share of a team's playoff seasons that come from a division title
+    return sum(c["division"] for c in WSC[f]["cells"]) / sum(c["playoff"] for c in WSC[f]["cells"])
+Q_BLAKE = quote("1559179324681093275", "First week was a fluke. Bear has been unstoppable since then", "Shawn Blake", "Mon Oct 12, 8:21 AM ET")
+Q_JOSH = quote("1559180011083272243", "Not sure I have an all play win since week 1", "Josh Martel", "Mon Oct 12, 8:24 AM ET")
+Q_FORCED = quote("1558921157116305433", "Forced to start this week. Bryce and Mahomes on bye", "Shawn Blake", "Sun Oct 11, 3:16 PM ET")
+Q_ERIC = quote("1559408224636117004", "🙏 for a pick or fumble 6", "Eric Martel", "Mon Oct 12, 11:31 PM ET")
+Q_BEAR = quote("1559180424889114725", "Everyone has to rebuild sometimes. Rebuild or become Hawks in perpetuity.", "Bear Dunn", "Mon Oct 12, 8:26 AM ET")
+
 # ================================================================== 1. THE BIG STORY
 story = desk(
-    ("Stuart", "Five weeks down, and this league has started drawing lines. Bear Dunn went %s against the field in Week 1. Since then he is %s, and he is running away from everybody. "
+    ("Stuart", "Five weeks down, and this league has started drawing lines. Bear Dunn went %s against the field in Week 1. Since then he is %s. He must be the bus driver, because he is taking this league to school. "
      "Three teams are already 3&ndash;10, standing in a hole no team has climbed out of since this league went to thirteen games by Week 5. And the teams in between are finding out exactly which players their seasons depend on."
      % (rec("bear.ap1", AP[1][BEAR][0], AP[1][BEAR][1]), rec("bear.ap25", apw(BEAR, (2, 3, 4, 5)), apl(BEAR, (2, 3, 4, 5))))),
     ("Rich", "That last part matters most, because it never shows up in the standings. The contenders behind Bear are strong in different ways and exposed in different ways. Shawn Blake leans "
@@ -148,9 +213,25 @@ DIV_TABLE = ('<div class="tablebox" style="margin:.4rem 0 1rem;break-inside:avoi
              + "</tr></thead><tbody>" + "".join(div_html) + "</tbody></table></div>")
 field_rows = [[ini(f), pct("o.%s.po3" % f, O[f]["po"]), pp("o.%s.d2" % f, O[f]["po"] - O[f]["po_wk3"]), titles[f] + "%"] for f in by_odds]
 gbk = g6("Ryan Bousquet", "Chris Klingenberg"); kn, kw, kl = side(gbk, "Chris Klingenberg"); bn_, bw_, bl_ = side(gbk, "Ryan Bousquet")
+KL21T, KL30M = cell(KLING, 2, "top"), cell(KLING, 3, "mid"); assert beats(KL21T, KL30M) and path_div(KLING) < 0.1
+WH21T, WH30M = cell(WHIT, 2, "top"), cell(WHIT, 3, "mid"); assert beats(WH21T, WH30M)
+BQ30, BQ03 = cell(BOUS, 3), cell(BOUS, 0); assert beats(BQ30, BQ03)
+assert sorted(owner(o) for o in WSC[BOUS]["opponents"]) == ["Bear Dunn", "Chris Klingenberg", "Eric Mannila"]
+KC30, KC03 = cell(KC, 3), cell(KC, 0); assert beats(KC30, KC03) and sorted(owner(o) for o in WSC[KC]["opponents"]) == ["Bear Dunn", "Chris Klingenberg", "Eric Mannila"]
+BQ21T, BQ30M = cell(BOUS, 2, "top"), cell(BOUS, 3, "mid"); assert same(BQ21T, BQ30M) and path_div(BOUS) > 0.75
+PATH_TEAMS = sorted([KLING, WHIT, MAN, GER, BOUS], key=lambda f: -O[f]["po"])
+path_rows = []
+for f_ in PATH_TEAMS:
+    a_, b_ = cell(f_, 3, "mid"), cell(f_, 2, "top")
+    path_rows.append([ini(f_), n("sc.path.%s" % f_, 100 * path_div(f_), "%.0f") + "%",
+                      pct("sc.%s.30m" % f_, a_["po"]) if a_["n"] >= MIN_N else "rare", pct("sc.%s.21t" % f_, b_["po"]) if b_["n"] >= MIN_N else "rare"])
+assert all(beats(cell(f_, 2, "top"), cell(f_, 3, "mid")) for f_ in (KLING, WHIT, MAN, GER)) and same(cell(BOUS, 2, "top"), cell(BOUS, 3, "mid"))
 odds = (desk(
     ("Stuart", "Bear Dunn is about as close to a lock as this league gets in October: %s to make the playoffs and %s to take one of the two first-round byes. The fight is over who joins him."
      % (pct("o.bear.po", O[BEAR]["po"]), pct("o.bear.bye", O[BEAR]["bye"]))),
+    ("Rich", "The chat noticed before the computer did. Kenny?"),
+    ("Kenny", "Thank you, Rich. Monday, 8:21 in the morning, Shawn Blake made an announcement: %s. The forecast agrees: Bear makes the playoffs in %s of the simulated seasons. "
+     "Shawn got there in one sentence. The computer needed %s seasons." % (Q_BLAKE, pct("k.bear.po", O[BEAR]["po"]), RUNS)),
     ("Rich", "Three divisions have clear favorites: Bear wins his in %s of the simulated seasons, Shawn Blake wins his in %s, and Keith Creelman leads Ryan Bousquet %s to %s. "
      "The real race is Outlast PG Time, a coin flip: Eric Martel %s, Brian Cutting %s, even though Martel is %s and Cutting %s." % (
         SS.display_percentages({f: O[f]["div"] for f in divs[T[BEAR]["div"]]})[BEAR] + "%",
@@ -166,9 +247,14 @@ odds = (desk(
         pct("o.blake.wk3", O[BLAKE]["po_wk3"]), pct("o.blake.po", O[BLAKE]["po"]), rec("blake.w45", T[BLAKE]["w45"], T[BLAKE]["l45"]),
         n("henry.wk5", F["players"]["ups"]["Derrick Henry"]["weeks"]["5"]["ups"]), pct("o.whit.wk3", O[WHIT]["po_wk3"]), pct("o.whit.po", O[WHIT]["po"]),
         rec("whit.w45", T[WHIT]["w45"], T[WHIT]["l45"]))),
-    ("Rich", "And the middle gets sorted fast. Chris Klingenberg is at %s and plays Bousquet, Creelman and Josh Martel in Week 6. The Bousquet game matters most to both of them. In the simulated "
-     "seasons where Klingenberg wins it, he makes the playoffs %s of the time; where he loses it, %s. For Bousquet, the same game is the difference between %s and %s." % (
-        pct("o.kling.po", O[KLING]["po"]), pct("g.kw", kw), pct("g.kl", kl), pct("g.bw", bw_), pct("g.bl", bl_)))) +
+    ("Rich", "And the middle gets sorted in Week 6, but not only by who wins. Chris Klingenberg is at %s and plays Bousquet, Creelman and Josh Martel. Almost all of his playoff seasons "
+     "come through a wild card, and wild cards go by All-Play, so how he scores against the whole league matters as much as his three results. In the simulated seasons where he goes 2&ndash;1 "
+     "with a top-three score, he makes the playoffs %s of the time. Where he goes 3&ndash;0 with a middle-six score, %s." % (
+        pct("o.kling.po", O[KLING]["po"]), pct("sc.k21t", KL21T["po"]), pct("sc.k30m", KL30M["po"]))),
+    ("Stuart", "Wait. Losing a game can beat a sweep?"),
+    ("Rich", "For a wild-card team, a loss with a big score can beat a sweep with an ordinary one. Ryan Bousquet is the other case. Most of his playoff seasons, %s, come from winning the "
+     "division, which goes by record, so his wins count. A 3&ndash;0 week with a middle-six score is worth %s, about the same as 2&ndash;1 with a top-three score at %s." % (
+        n("sc.bpath", 100 * path_div(BOUS), "%.0f") + "%", pct("sc.b30m", BQ30M["po"]), pct("sc.b21t", BQ21T["po"])))) +
     h3("Who makes the field") +
     table(["Team", "Playoffs", "Since Wk&nbsp;3", "Title"], field_rows, right=(1, 2, 3),
           caption="Probabilities updated after Week 5 (%s), %s simulated seasons. &ldquo;Since Wk 3&rdquo; is the change in percentage points from the odds in our Week 3 issue (%s); it includes a "
@@ -176,6 +262,10 @@ odds = (desk(
                       inputs_et, RUNS, wk3_et, n("fix.max", 100 * fix_max, "%.1f"))) +
     h3("Division races") +
     DIV_TABLE + '<p class="caption">One team wins each division in every simulated season, so each division totals 100.0%. Byes go to the two division winners with the best All-Play.</p>' +
+    h3("Wins or a big score? Week 6 on the bubble") + table(["Team", "Playoff seasons via division", "3&ndash;0, middle-six score", "2&ndash;1, top-three score"], path_rows, right=(1, 2, 3),
+          caption="Playoff probability in the simulated seasons with that Week 6: the head-to-head record in the team&rsquo;s three games, and where its score ranked among all 12 teams. "
+                  "Second column: the share of the team&rsquo;s playoff seasons that come from winning its division (division titles go by record; wild cards and seeds by All-Play). "
+                  "A rate is shown only where it rests on at least %s simulated seasons." % n("sc.minn", MIN_N, "%d")) +
     box("How the forecast works.", "Weeks 1&ndash;5 are fixed to the real results; the other %s games of each schedule are simulated from current rosters and weekly projections (RotoWire for "
         "offensive points, MFL as the backup and for defenders, kickers and punters, MFL for who plays). Each team keeps %s%% of its projected edge over an average team, calibrated to UPS "
         "2021&ndash;2025. Division titles follow MFL&rsquo;s order: record, division record, head-to-head, points, All-Play. It does not see trades or waiver moves after the cutoff and treats "
@@ -202,12 +292,28 @@ heat_rows = [["%s<br><small><b>%s</b></small>" % (ini(f), LAB[f]), "%s<br><small
 lineup_rows = [[ini(f), n("bench.%s" % f, T[f]["bench_w"]), n("lost.%s" % f, T[f]["lost_best"], "%d") + " of " + n("L.%s" % f, T[f]["L"], "%d"),
                 n("luck.%s" % f, T[f]["luck"], "%+.1f").replace("-", "&minus;")] for f in sorted(FIDS, key=lambda f: -T[f]["bench_w"])]
 em, cut, ger, bou, man = T[EM], T[CUT], T[GER], T[BOUS], T[MAN]
+U5 = F["players"]["ups"]
+_bbtxt = H.unescape(re.sub(r"<[^>]+>", " ", re.search(r'<section class="wire-sec" id="bb"[\s\S]*?</section>', AUTO).group(0)))
+def _bust(nm):
+    m_ = re.search(re.escape(nm) + r" \(\w+, Matt Gerardi\)[\s\S]*?(\d+\.\d)\s*→\s*(\d+\.\d)\s*(-\d+\.\d)", _bbtxt)
+    return float(m_.group(1)), float(m_.group(2)), float(m_.group(3))
+_h, _a = _bust("Omarion Hampton"), _bust("Amon-Ra St. Brown")
+assert _h == (13.8, 4.9, -8.9) and _a == (24.2, 15.5, -8.7)
+GER_MISS = round(-(_h[2] + _a[2]), 1)
 heat = (desk(
     ("Stuart", "Bear&rsquo;s last three weeks are the best stretch anyone has put together this season: %s against the field and the league&rsquo;s top scoring average over Weeks 3 to 5, %s a week."
      % (rec("bear.ap3", T[BEAR]["ap3"][0], T[BEAR]["ap3"][1]), n("bear.ppw3", T[BEAR]["ppw3"]))),
     ("Rich", "And the team Bear just beat by %s is the one whose record is hiding a slide. Eric Martel led the league at %s a week over the first two weeks. Over the last three he is %s, at %s. He is still %s because of what he banked early."
      % (n("em.bear", 89.3), n("em.ppw12", em["ppw12"]), ordn("em.rk3", em["rk3"]), n("em.ppw3", em["ppw3"]), rec("em.rec2", em["W"], em["L"]))),
-    ("Stuart", "And that slide is why his division is a coin flip with Brian Cutting, the reverse case: a team scoring like a contender and losing like an also-ran. Cutting has left %s points a "
+    ("Stuart", "And Monday night showed how thin that cushion has become. Martel&rsquo;s HammerTime went into the night %s points ahead of Chris Klingenberg&rsquo;s Hawks, with nobody "
+     "left to play. Klingenberg still had three: Matthew Stafford, Kyren Williams and Dalton Kincaid." % n("mnf.lead", MNF_LEAD)),
+    ("Kenny", "With the Rams and Bills tied in overtime at 11:31, Eric filed a request: %s. A reasonable ask. He needed one bad throw." % Q_ERIC),
+    ("Stuart", "Stafford never threw it. As cool as the other side of the pillow: %s of %s, %s yards, %s touchdowns, no turnovers, %s points. Kyren Williams added %s, including the "
+     "touchdown that forced overtime, and the Hawks won by %s, the closest game of the week." % (
+        n("mnf.cmp", STAF["completions"], "%d"), n("mnf.att", STAF["attempts"], "%d"), n("mnf.yds", STAF["passing_yards"], "%d"), n("mnf.td", STAF["passing_tds"], "%d"),
+        n("mnf.staf", _kp["Matthew Stafford"]), n("mnf.kyren", _kp["Kyren Williams"]), n("mnf.margin", klg["margin"]))),
+    ("Kenny", "Eric, the prayer was received. You may need the premium package next week."),
+    ("Stuart", "And that slide is why Martel&rsquo;s division is a coin flip with Brian Cutting, the reverse case: a team scoring like a contender and losing like an also-ran. Cutting has left %s points a "
      "week on his bench, the most in the league, and %s of his %s losses came in weeks when his best possible lineup would have won." % (n("cut.bench", cut["bench_w"]), n("cut.lost", cut["lost_best"], "%d"), n("cut.L", cut["L"], "%d"))),
     ("Rich", "That is the gap the forecast is betting closes: good roster, bad Sundays. Luck has not helped either. Cutting has %s fewer wins than his weekly all-play rates would predict, and only "
      "Chris Klingenberg, at %s, has been unluckier." % (n("cut.luck", -cut["luck"]), n("kl.luck", -T[KLING]["luck"]))),
@@ -217,6 +323,11 @@ heat = (desk(
      "Going the other way, Matt Gerardi has fallen from %s to %s and won %s of %s all-play games over the last three weeks." % (
         *[n("man.apw%d" % i, v, "%d") for i, v in enumerate(man["apw_by_week"])],
         ordn("ger.rk12", ger["rk12"]), ordn("ger.rk3", ger["rk3"]), n("ger.ap3w", ger["ap3"][0], "%d"), n("ger.ap3n", ger["ap3"][0] + ger["ap3"][1], "%d"))),
+    ("Kenny", "Week 5 is a fair summary. Sunday afternoon, Shawn Blake explained why Matt was starting Malik Willis: %s. Willis gave Matt&rsquo;s Gride %s, which was perfectly respectable. "
+     "Gride finished with %s, the lowest score of the week, and lost all three. The emergency quarterback was not the emergency." % (
+        Q_FORCED, n("k.willis", U5["Malik Willis"]["weeks"]["5"]["ups"]), n("k.ger", TW[(5, GER)]["score"]))),
+    ("Rich", "The emergency was the rest of the lineup. Amon-Ra St. Brown and Omarion Hampton finished a combined %s points under their projections, and Gride is now at %s "
+     "to make the playoffs." % (n("ger.miss", GER_MISS), pct("ger.po", O[GER]["po"]))),
     ("Stuart", "So who actually won Week 5, and how? Boomer.")) +
     table(["Team<br>Reading", "All-Play<br>Wks 3&ndash;5<br>(season)", "Scoring rank<br>Wks 1&ndash;2 &rarr; 3&ndash;5"], heat_rows, right=(1,),
           caption="Sorted by All-Play over Weeks 3&ndash;5; the full-season All-Play record is in parentheses. Reading, applied in order: <b>Dominant</b> = 28 or more of 33 all-play wins in Weeks 3&ndash;5; <b>Sinking</b> = 5 or fewer; "
@@ -298,8 +409,9 @@ pit = (h3("1. Ryan Bousquet&rsquo;s climb, and the Steelers&rsquo; backfield") +
      "is more than a third of Ryan&rsquo;s %s-point climb. And it has decided games: put a replacement-level back in Warren&rsquo;s spot and Ryan is %s instead of %s, with %s all-play wins instead of %s."
      % (n("bq.w12", BQ["warren12"]), n("bq.w3", BQ["warren3"]), n("bq.wr", BQ["warren_rise"]), n("bq.rise", BQ["rise"]),
         rec("bq.cf", *BQ["rec_cf"]), rec("bq.rec", *BQ["rec"]), n("bq.apcf", BQ["ap_cf"], "%d"), n("bq.ap", BQ["ap"], "%d"))),
-    ("Stuart", "Which makes Dowdle&rsquo;s toe Ryan&rsquo;s problem. Ryan is at %s to make the playoffs, and his Week 6 game with Klingenberg is the difference between %s and %s. Dowdle was ruled "
-     "out for Weeks 3 and 4, practiced on a limited basis before Week 5, was listed Questionable and still did not play." % (pct("o.bou.po", O[BOUS]["po"]), pct("g.bw2", bw_), pct("g.bl2", bl_))),
+    ("Stuart", "Which makes Dowdle&rsquo;s toe Ryan&rsquo;s problem. Ryan is at %s to make the playoffs, and he plays Bear, Klingenberg and Mannila in Week 6. His way in is the division, "
+     "which goes by record, so every win counts: sweep all three and he is at %s; lose all three and he is at %s. Dowdle was ruled "
+     "out for Weeks 3 and 4, practiced on a limited basis before Week 5, was listed Questionable and still did not play." % (pct("o.bou.po", O[BOUS]["po"]), pct("sc.b30", BQ30["po"]), pct("sc.b03", BQ03["po"]))),
     ("Rich", "Here is what he would take back. When both backs were healthy, Dowdle had %s of the %s early-down carries and %s of the %s running-back targets. Without him the job became Warren&rsquo;s: "
      "%s of %s early-down carries. But Dowdle has not been a goal-line back. No Steelers running back has had a carry inside the 5 this season, and Dowdle&rsquo;s red-zone work was one carry. If he returns, the threat to "
      "Warren is volume on early downs and in the passing game, not touchdowns at the goal line. And Boomer&rsquo;s two long touchdowns explain most of Week 5&rsquo;s %s; Warren had no touches inside the 20." % (
@@ -332,9 +444,13 @@ cutting = (h3("2. Brian Cutting: the best player in the league, and the lineup a
     ("Rich", "And Week 6 tests the rest of the roster. Cutting enters it without Gibbs, who has supplied %s of Cutting&rsquo;s starting points and %s of the team&rsquo;s edge over replacement; Detroit is on bye. He faces "
      "Derrick Whitman, whose playoff probability is %s today. In the simulated seasons where Whitman loses that game, it falls to %s; where he wins, it rises to %s. Cutting&rsquo;s own odds barely "
      "move: %s with a win, %s with a loss." % (n("gs.pts", GS["pts"], "%.1f") + "%", n("gs.edge", GS["edge"], "%.1f") + "%", pct("g.wn", wn), pct("g.wl", wl), pct("g.ww", ww_),
-                                                pct("g.cw", cw), pct("g.cl", cl)))))
+                                                pct("g.cw", cw), pct("g.cl", cl))),
+    ("Stuart", "And the Cutting game is only a third of Whitman&rsquo;s week."),
+    ("Rich", "Right, and for him the size of the score matters as much as the results. Whitman also plays Eric Martel and Brian Cross, and his likeliest way in is a wild card, which goes by "
+     "All-Play. Go 2&ndash;1 with a top-three score and he is at %s. Go 3&ndash;0 with a middle-six score and he is at %s." % (pct("sc.w21t", WH21T["po"]), pct("sc.w30m", WH30M["po"])))))
 assert abs(hu["ups"] - 29.8) < .01 and abs(ro["ups"] - 29.8) < .01 and wa["status"] == "starter" and hu["status"] != "starter" and ro["status"] != "starter"
 assert abs(wn - O[WHIT]["po"]) < 0.0006                       # the scenario run and the table are the same simulated seasons
+assert sorted(owner(o) for o in WSC[WHIT]["opponents"]) == ["Brian Cross", "Brian Cutting", "Eric Martel"] and path_div(WHIT) < 0.5
 
 js = P["jsn"]; jm_ = js["me"]; bow = P["bowers_span"]; bw = U["Brock Bowers"]["weeks"]
 jsn_pts = sum(U["Jaxon Smith-Njigba"]["weeks"][str(i)]["ups"] for i in WEEKS)
@@ -368,17 +484,17 @@ assert (_pb["targets"], _pb["receptions"], _pb["receiving_yards"], _pb["receivin
 assert tg["more_than_24"] == [[2009, 14, "Brandon Marshall", 28]] and tg["y2026"] == [[5, "Puka Nacua", 24], [4, "CeeDee Lamb", 21], [5, "Malik Nabers", 20]]
 assert U["CeeDee Lamb"]["weeks"]["5"]["tgt"] == 5 and U["CeeDee Lamb"]["weeks"]["4"]["owner"] == "Eric Mannila" and U["Malik Nabers"]["weeks"]["5"]["owner"] == "Eric Mannila"
 targets = (h3("4. Twenty-four targets") + desk(
-    ("Stuart", "Boomer showed you Monday night: Puka Nacua, %s targets, %s catches, %s yards and a touchdown, %s points for Keith Creelman, in the Rams&rsquo; %s&ndash;%s loss to Buffalo."
-     % (n("p.tgt", 24, "%d"), n("p.rec", 17, "%d"), n("p.yds", 138, "%d"), n("p.ups", pk["5"]["ups"]), n("p.bills", 37, "%d"), n("p.rams", 34, "%d"))),
+    ("Stuart", "Boomer showed you Monday night: Puka Nacua, %s targets, %s catches, %s yards and a touchdown, %s points for Keith Creelman. Boo-yah. The Rams lost to Buffalo, %s&ndash;%s "
+     "in overtime. Keith did not lose at all." % (n("p.tgt", 24, "%d"), n("p.rec", 17, "%d"), n("p.yds", 138, "%d"), n("p.ups", pk["5"]["ups"]), n("p.bills", 37, "%d"), n("p.rams", 34, "%d"))),
     ("Rich", "That almost never happens. In every season since 1999 with tracked targets, which is all but 2003 to 2008, only Brandon Marshall in 2009 saw more in a regular-season game: %s. "
      "This season has three 20-target games, and all three belong to UPS rosters: Nacua&rsquo;s, plus CeeDee Lamb&rsquo;s %s in Week 4 and Malik Nabers&rsquo; %s in Week 5, both for Eric Mannila."
      % (n("p.marsh", 28, "%d"), n("p.lamb", 21, "%d"), n("p.nab", 20, "%d"))),
     ("Stuart", "So does Keith get that again on Sunday?"),
     ("Rich", "Not that much. In the next game after a 20-target game, players averaged %s targets (%s cases). Lamb followed his %s with %s targets and %s points. Nacua missed Weeks 2 and 3 with "
-     "a hip injury and has scored %s and %s since, so the role is real even if the volume falls back. And Keith needs it: his Week 6 game with Klingenberg is the difference between %s and %s." % (
+     "a hip injury and has scored %s and %s since, so the role is real even if the volume falls back. And Keith needs it: he plays Bear, Klingenberg and Mannila, and his lead in the division rests on his record. "
+     "Sweep them and he is at %s; lose all three and he is at %s." % (
         n("p.next", tg["next_mean"]), n("p.n", tg["next_n"], "%d"), n("p.lamb2", 21, "%d"), n("p.lamb_t", 5, "%d"), n("p.lamb_u", U["CeeDee Lamb"]["weeks"]["5"]["ups"]),
-        n("p.u4", pk["4"]["ups"]), n("p.u5", pk["5"]["ups"]), pct("g.kcw", side(g6("Keith Creelman", "Chris Klingenberg"), "Keith Creelman")[1]),
-        pct("g.kcl", side(g6("Keith Creelman", "Chris Klingenberg"), "Keith Creelman")[2]))),
+        n("p.u4", pk["4"]["ups"]), n("p.u5", pk["5"]["ups"]), pct("sc.kc30", KC30["po"]), pct("sc.kc03", KC03["po"]))),
 ))
 players = desk(("Stuart", "Four stories are shaping this race, and the first one is a toe in Pittsburgh."), mb=True) + pit + cutting + bear + targets
 
@@ -395,12 +511,27 @@ for f in by_odds:
     surv_rows.append([ini(f), "<b>%s</b><br>%s" % (cat(O[f]["po"]), pct("s.%s.po" % f, O[f]["po"])),
                       "%s/%s" % (n("s.%s.m" % f, m, "%d"), n("s.%s.n" % f, nn, "%d")), "%s/%s" % (n("s.%s.m2" % f, m2, "%d"), n("s.%s.n2" % f, nn2, "%d"))])
 gjk = g6("Josh Martel", "Chris Klingenberg"); jn, jw, jl = side(gjk, "Josh Martel")
+assert sorted(owner(o) for o in WSC[JM]["opponents"]) == ["Bear Dunn", "Chris Klingenberg", "Eric Mannila"] and 0.75 < path_div(JM) < 0.85
+JM30, JM03, JM30T, JM30M = cell(JM, 3), cell(JM, 0), cell(JM, 3, "top"), cell(JM, 3, "mid")
+assert beats(JM30, JM03) and beats(JM30T, JM30M)
+josh_rows = []
+for hw_, tier_ in ((3, "top"), (3, "mid"), (3, "bot5"), (2, "top"), (2, "mid"), (2, "bot3"), (1, "top"), (1, "mid"), (1, "bot3"), (0, "mid"), (0, "bot3")):
+    c_ = cell(JM, hw_, tier_); lo_, hi_ = TIERS[tier_]
+    apw_lo, apw_hi = T[JM]["apw"] + 12 - hi_, T[JM]["apw"] + 12 - lo_
+    after = "%s<br><small>All-Play %s to %s</small>" % (rec("sc.jrec.%d%s" % (hw_, tier_), T[JM]["W"] + hw_, T[JM]["L"] + 3 - hw_),
+                                                       rec("sc.jap.%d%s.lo" % (hw_, tier_), apw_lo, T[JM]["apl"] + 11 - (apw_lo - T[JM]["apw"])),
+                                                       rec("sc.jap.%d%s.hi" % (hw_, tier_), apw_hi, T[JM]["apl"] + 11 - (apw_hi - T[JM]["apw"])))
+    shown_ = pct("sc.j.%d%s" % (hw_, tier_), c_["po"]) if c_["n"] >= MIN_N else "rare<br><small>%s of %s</small>" % (n("sc.jn.%d%s" % (hw_, tier_), c_["n"], "%d"), RUNS)
+    josh_rows.append(["%d&ndash;%d" % (hw_, 3 - hw_), TIER_NAME[tier_], after, shown_])
+assert cell(JM, 0, "top")["n"] == 0 and cell(JM, 3, "bot3")["n"] == 0
 assert grp_w[-1][1] == 0 and grp_w[-1][2] == 8 and b3 == [4, 24] and b17["apw"] == T[JM]["apw"] and b17["apl"] == T[JM]["apl"]
 survival = (desk(
     ("Stuart", "Now the hard part. Matt Gerardi, Brian Cross and Josh Martel are all 3&ndash;10, with playoff probabilities of %s, %s and %s."
      % (pct("s.ger", O[GER]["po"]), pct("s.cross", O[CROSS]["po"]), pct("s.jm", O[JM]["po"]))),
     ("Rich", "And history agrees with the forecast. Since the league moved to thirteen decisions through Week 5 in 2021, %s teams have reached this point with three wins or fewer. None made the playoffs."
      % n("le3.n", grp_w[-1][2], "%d")),
+    ("Kenny", "Josh Martel saw this coming. Monday, 8:24 in the morning: %s. Josh, you have five. One in Week 2, one in Week 3, one in Week 4 and two this week. I checked, "
+     "because despair is not an official scoring category." % Q_JOSH),
     ("Stuart", "Is there any way out?"),
     ("Rich", "Not by record. By All-Play, a few have found one: since 2017, only %s of the %s teams ranked 10th through 12th in All-Play after Week 5 went on to make the playoffs. All-Play is the "
      "better guide this early; among comparable teams from 2020 to 2025, the team with the better All-Play standing after Week 5 became the playoff team %s%% of the time, compared with %s%% for more "
@@ -408,7 +539,20 @@ survival = (desk(
                                                           n("pr.h2h", 100 * PR["h2h"][0], "%.0f"))),
     ("Stuart", "And one of those four is the best story in this league&rsquo;s history book. Bear Dunn, 2017: %s in All-Play after Week 5, the exact record Josh Martel has now. He won his division, "
      "entered the playoffs as the %s seed and finished %s." % (rec("b17", b17["apw"], b17["apl"], "D1"), ordn("b17.seed", b17["seed"], "bracket"), ordn("b17.fin", b17["finish"], "bracket"))),
-    ("Rich", "Josh would need that and more. His Week 6 game is against Klingenberg, and even a win only takes his playoff probability from %s to %s." % (pct("s.jm2", jn), pct("s.jmw", jw)))) +
+    ("Rich", "Josh would need that and more, and more than one good result. He plays three games in Week 6: Bear, Klingenberg and Mannila. Bear&rsquo;s way out was the division, and it is "
+     "Josh&rsquo;s best one too: in %s of the simulated seasons where Josh makes the playoffs, he wins the division, and division titles go by record. So the wins count. Sweep all three "
+     "and he is at %s; lose all three and he is at %s." % (n("sc.jpath", 100 * path_div(JM), "%.0f") + "%", pct("sc.j30", JM30["po"]), pct("sc.j03", JM03["po"]))),
+    ("Stuart", "And the score?"),
+    ("Rich", "Counts too. A sweep with a top-three score puts him at %s. A sweep with a middle-six score, %s. A big week lifts his All-Play, and in the simulation it is also a sign of a "
+     "better team, so the weeks after it go better too. A lucky 3&ndash;0 keeps the standings alive. A big score is the kind of week that changes the story." % (pct("sc.j30t", JM30T["po"]), pct("sc.j30m", JM30M["po"]))),
+    ("Kenny", "Bear, who climbed out of that exact hole, had different advice for Josh on Monday morning: %s The Hawks are at %s to make the playoffs, and they are one of Josh&rsquo;s "
+     "three Week 6 opponents. Chris Klingenberg did not post once between Thursday night and Tuesday morning. The standings are doing his talking." % (Q_BEAR, pct("k.hawks", O[KLING]["po"]))),
+    ("Stuart", "Week 6 kicks off Thursday night in Denver. Bear plays for a bye, Klingenberg plays three games that could reshape the middle of the field, and Josh plays for a miracle."),
+    ("Rich", "That&rsquo;s UPS Center for Week 5. We&rsquo;ll see you after Week 6.")) +
+    h3("Josh Martel&rsquo;s Week 6, two ways") + table(["Week 6 record", "Score rank", "After Week 6", "Playoffs"], josh_rows, right=(3,),
+          caption="From the %s simulated seasons behind this issue&rsquo;s odds; Josh plays Bear Dunn, Chris Klingenberg and Eric Mannila. Score rank is among all 12 teams that week. "
+                  "After Week 6: overall record, then All-Play. A top-three score cannot go 0&ndash;3 (only the other two top-three teams can beat it), and a bottom-three score cannot go "
+                  "3&ndash;0. A rate is shown only where it rests on at least %s simulated seasons; &ldquo;rare&rdquo; gives the count instead." % (RUNS, n("sc.minn2", MIN_N, "%d"))) +
     table(["Team", "Category, playoffs", "Made it from his All-Play rank, 2017&ndash;25", "Made it with his win total, 2021&ndash;25"], surv_rows, right=(2, 3),
           caption="Categories from this week&rsquo;s playoff probabilities: <b>Contender</b> 90%% or better, <b>In the field</b> 60&ndash;90, <b>In the race</b> 25&ndash;60, <b>Needs a run</b> 8&ndash;25, "
                   "<b>Life support</b> under 8; nobody is called eliminated until the math says so. &ldquo;Made it&rdquo; columns: teams in the same position after Week 5 who went on to make the playoffs, out of all such teams. History groups All-Play rank in pairs (1&ndash;2, 3&ndash;4 &hellip;; tied teams share the higher rank). "
@@ -460,12 +604,13 @@ assert [g for g in TW[(5, BEAR)]["games"] if g["opp"] == EM][0]["margin"] == 89.
 _lk = sorted(FIDS, key=lambda f: T[f]["luck"]); assert _lk[:2] == [KLING, CUT], [owner(f) for f in _lk[:2]]
 bench_lost5 = sorted({owner(f) for f in FIDS for g in TW[(5, f)]["games"] if g["result"] == "L" and TW[(5, f)]["opt"] > TW[(5, g["opp"])]["score"]})
 brief = (desk(
-    ("Boomer", "Thanks, Stu! Brian Cutting got %s points from two players alone. Drake Maye threw four touchdowns, ran for another and scored %s. Jahmyr Gibbs added %s on %s carries and %s "
-     "targets. That pair powered Cutting to a %s week, and now Cutting plays Week 6 without Gibbs." % (
-        n("bm.pair", mg["ups"] + gg["ups"]), n("bm.maye", mg["ups"]), n("bm.gibbs", gg["ups"]), n("bm.gcar", gg["carries"], "%d"), n("bm.gtgt", gg["targets"], "%d"), res(CUT))),
+    ("Boomer", "Thanks, Stu! Brian Cutting got %s points from two players alone. Drake Maye threw four touchdowns, ran for another and scored %s. Then Jahmyr Gibbs. Look at him go! "
+     "%s rushing yards on %s carries, two touchdowns, %s points. That pair powered Cutting to a %s week, and now Cutting plays Week 6 without Gibbs." % (
+        n("bm.pair", mg["ups"] + gg["ups"]), n("bm.maye", mg["ups"]), n("bm.gyds", GIBBS5["rushing_yards"], "%d"), n("bm.gcar", gg["carries"], "%d"), n("bm.gibbs", gg["ups"]), res(CUT))),
     ("Boomer", "Keith Creelman answered Monday night with volume nobody could ignore. Puka Nacua saw %s targets, caught %s and turned them into %s points, and Keith swept all three of his games."
      % (n("bm.ptgt", 24, "%d"), n("bm.prec", 17, "%d"), n("bm.pups", U["Puka Nacua"]["weeks"]["5"]["ups"]))),
-    ("Boomer", "In Pittsburgh, Jaylen Warren took a short pass %s yards and a handoff %s, both for touchdowns: %s points for Ryan Bousquet, who won two of three." % (
+    ("Boomer", "In Pittsburgh, Aaron Rodgers flipped Jaylen Warren a short pass, and he could&hellip; go&hellip; all&hellip; the&hellip; way! %s yards. Then a handoff, %s more, same ending: "
+     "%s points for Ryan Bousquet, who won two of three." % (
         n("bm.wtd1", w["wk5_tds"][0][0], "%d"), n("bm.wtd2", w["wk5_tds"][1][0], "%d"), n("bm.wups", wk5w["ups"]))),
     ("Boomer", "And the top score of the week was Bear Dunn&rsquo;s %s, with %s from Joe Burrow and %s from Brock Bowers. Bear beat all eleven teams for the second time in three weeks. "
      "Every Week 5 result is below. Back to the desk." % (n("bm.bear", TW[(5, BEAR)]["score"]), n("bm.bur", bur["ups"]), n("bm.bow", bow5["ups"]))),
@@ -473,46 +618,21 @@ brief = (desk(
     mb=True) + h3("Plays of the week") + plays_inner + h3("Every Week 5 result") +
     table(["Winner", "Loser", "Margin"], res_rows, right=(2,), caption="Biggest margins first. Teams play two or three games a week with the same weekly score."))
 
-# ================================================================== 9. COFFEE SHOP (a weekend, told in order of the story)
-q = lambda mid, text, o, when: quote(mid, text, o, when)
-assert [AP[x][JM][0] for x in (2, 3, 4, 5)] == [1, 1, 1, 2]
-assert U["Malik Willis"]["weeks"]["5"]["status"] == "starter" and U["Malik Willis"]["weeks"]["5"]["owner"] == "Matt Gerardi"
-assert sorted(TW[(5, f)]["score"] for f in FIDS)[0] == TW[(5, GER)]["score"] and [g["result"] for g in TW[(5, GER)]["games"]] == ["L", "L", "L"]
-klg = [g for g in TW[(5, KLING)]["games"] if g["opp"] == EM][0]; assert klg["result"] == "W" and abs(klg["margin"] - 9.6) < 0.05
-assert min(abs(g["margin"]) for (wk, f), t_ in TW.items() if wk == 5 for g in t_["games"]) == 9.6
-staf = [p for p in TW[(5, KLING)]["players"] if pname(p["pid"]) == "Matthew Stafford"][0]; assert staf["score"] == 39.3 and staf["status"] == "starter"
-coffee = (desk(("Rich", "The standings tell you who is in trouble. The chat tells you who knows it. Kenny."),) + desk(
-    ("Kenny", "Thank you, Rich. Monday, 8:21 in the morning, Shawn Blake made an announcement: %s. Fair. Since Week 1, Bear is %s against the field. Three minutes later, Josh Martel checked in: %s. "
-     "Josh, you have five. One in Week 2, one in Week 3, one in Week 4 and two this week. I checked, because despair is not an official scoring category. Bear once sat at %s in All-Play, the exact "
-     "line Josh has now, and won his division. Josh is at %s to make the playoffs. I&rsquo;m not offering hope. I&rsquo;m just required to read all the numbers." % (
-        q("1559179324681093275", "First week was a fluke. Bear has been unstoppable since then", "Shawn Blake", "Mon Oct 12, 8:21 AM ET"),
-        rec("k.bear", apw(BEAR, (2, 3, 4, 5)), apl(BEAR, (2, 3, 4, 5))),
-        q("1559180011083272243", "Not sure I have an all play win since week 1", "Josh Martel", "Mon Oct 12, 8:24 AM ET"),
-        rec("k.b17", b17["apw"], b17["apl"], "D1"), pct("k.jm", O[JM]["po"]))),
-    ("Kenny", "Matt Gerardi&rsquo;s weekend had gone wrong a day earlier. Sunday afternoon, Shawn Blake explained why Matt was starting Malik Willis: %s. Willis gave Matt&rsquo;s Gride %s, which was "
-     "perfectly respectable. Gride finished with %s, the lowest score of the week, and lost all three. The emergency quarterback was not the emergency." % (
-        q("1558921157116305433", "Forced to start this week. Bryce and Mahomes on bye", "Shawn Blake", "Sun Oct 11, 3:16 PM ET"),
-        n("k.willis", U["Malik Willis"]["weeks"]["5"]["ups"]), n("k.ger", TW[(5, GER)]["score"]))),
-    ("Kenny", "Monday night, with Matthew Stafford still playing for Chris Klingenberg, Eric Martel requested divine intervention: %s. The help went to the other roster. Stafford finished with %s, "
-     "and Eric&rsquo;s HammerTime lost the closest game of the week by %s. Eric, the prayer was received. You may need the premium package next week." % (
-        q("1559408224636117004", "🙏 for a pick or fumble 6", "Eric Martel", "Mon Oct 12, 11:31 PM ET"), n("k.staf", 39.3), n("k.margin", 9.6))),
-    ("Kenny", "Which brings us back to Monday morning, and Bear Dunn&rsquo;s advice on Josh&rsquo;s rebuild: %s Klingenberg&rsquo;s Hawks are at %s to make the playoffs. Josh is at %s, and Josh plays "
-     "the Hawks in Week 6. A win takes him to %s. Klingenberg did not post once between Thursday night and Tuesday morning. The standings are doing his talking." % (
-        q("1559180424889114725", "Everyone has to rebuild sometimes. Rebuild or become Hawks in perpetuity.", "Bear Dunn", "Mon Oct 12, 8:26 AM ET"),
-        pct("k.hawks", O[KLING]["po"]), pct("k.jm2", O[JM]["po"]), pct("k.jmw", jw)))))
-assert re.search(r'Chris Klingenberg</td><td class="num">0</td>', AUTO), "Klingenberg posted in the window"
 # ================================================================== assemble
 S = [("story", "The Big Story", "where the season stands", story), ("odds", "Playoff Picture", "updated after Week 5", odds),
      ("heat", "Heat Check", "full season and the last three weeks", heat), ("brief", "Week 5 in Brief", "Boomer, the plays, every result", brief),
      ("weeks", "Who Is Winning Weeks?", "who the contenders depend on", weeks),
-     ("players", "Player Stories", "what changed and what happens next", players), ("survival", "The Survival Line", "what a Week 5 position has meant", survival),
+     ("players", "Player Stories", "what changed and what happens next", players),
      ("bb", "Above and below expectations", "projection, opportunity and actual points", bb_inner),
-     ("coffee", "Coffee Shop Talk", "Kenny Mayne reads the chat", coffee), ("elias", "Elias changes", "", elias_inner)]
+     ("survival", "The Survival Line", "what a Week 5 position has meant, and what kind of Week 6 changes it", survival),
+     ("elias", "Elias changes", "", elias_inner)]
 body = "\n".join(section(sid, i + 1, t, sub, b) for i, (sid, t, sub, b) in enumerate(S))
 head = AUTO[:AUTO.index('<section class="wire-sec"')]
 head = head.replace("Automated UPS Center draft (ups_center_auto.py).", "UPS Center Week 5, analytical rebuild of automated draft #1244 (Keith's Week 5 brief, 2026-10-13).")
 head = re.sub(r"engine: ups-center-auto[^\n]*", "engine: hand-authored rebuild (scratchpad build_wk05.py) on the automated draft's validated weekly segments; forecast season_sim_2026_live_wk05.json + week_preview_2026_wk06.json", head)
 head = head.replace('<div class="wire-eyebrow">Week 5 recap</div>', '<div class="wire-eyebrow">Week 5</div>')
+assert "Kenny Mayne in the Coffee Shop" in head
+head = head.replace("Kenny Mayne in the Coffee Shop", "Kenny Mayne with receipts from the league chat")
 head = re.sub(r'<p class="wire-dek">[\s\S]*?</p>', '<p class="wire-dek">Bear Dunn is pulling away, three 3&ndash;10 teams are standing in historically dangerous territory, and the contenders in between '
               'are finding out which players their seasons depend on.</p>', head)
 tail = AUTO[AUTO.rindex("</section>") + len("</section>"):]
@@ -547,12 +667,12 @@ def vis(sec):
 bad = []
 for sid, t, sub, b in S:
     reused = sid in ("bb", "elias")
-    text = vis(b if sid not in ("brief", "coffee") else b.replace(desk_inner, "").replace(plays_inner, "").replace(post_table, ""))
+    text = vis(b if sid != "brief" else b.replace(plays_inner, ""))
     pool = auto_shown if reused else (mine | FIXED | (auto_shown if sid == "brief" else set()))   # brief reuses Boomer's validated box lines
     for x in NUM_RE.findall(text):
         k = x.replace(",", "").lstrip("+-−")
         if k not in pool: bad.append((sid, x))
-for part in (desk_inner, plays_inner, post_table, bb_inner, elias_inner):
+for part in (plays_inner, bb_inner, elias_inner):
     for x in NUM_RE.findall(vis(part)):
         k = x.replace(",", "").lstrip("+-−")
         if k not in auto_shown and k not in {"1", "2", "3", "4", "5"}: bad.append(("reused", x))

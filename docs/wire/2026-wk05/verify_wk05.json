@@ -235,9 +235,9 @@
   "detail": "('First week was a fluke. Bear has been unstoppable since then', 'First week was a fluke. Bear has been unstoppable since then')"
  },
  {
-  "check": "quote 1559180011083272243 verbatim, channel matches, not excluded",
+  "check": "quote 1559408224636117004 verbatim, channel matches, not excluded",
   "ok": true,
-  "detail": "('Not sure I have an all play win since week 1', 'Not sure I have an all play win since week 1')"
+  "detail": "('\ud83d\ude4f for a pick or fumble 6', '\ud83d\ude4f for a pick or fumble 6')"
  },
  {
   "check": "quote 1558921157116305433 verbatim, channel matches, not excluded",
@@ -245,9 +245,9 @@
   "detail": "('Forced to start this week. Bryce and Mahomes on bye', 'Forced to start this week. Bryce and Mahomes on bye')"
  },
  {
-  "check": "quote 1559408224636117004 verbatim, channel matches, not excluded",
+  "check": "quote 1559180011083272243 verbatim, channel matches, not excluded",
   "ok": true,
-  "detail": "('\ud83d\ude4f for a pick or fumble 6', '\ud83d\ude4f for a pick or fumble 6')"
+  "detail": "('Not sure I have an all play win since week 1', 'Not sure I have an all play win since week 1')"
  },
  {
   "check": "quote 1559180424889114725 verbatim, channel matches, not excluded",
@@ -357,7 +357,172 @@
  {
   "check": "Blake's Week 5 roster has exactly two quarterbacks (Allen, Purdy)",
   "ok": true,
-  "detail": "{'15698', '13589'}"
+  "detail": "{'13589', '15698'}"
+ },
+ {
+  "check": "no standalone Coffee Shop segment; Survival Line is the last segment before Elias",
+  "ok": true,
+  "detail": "['story', 'odds', 'heat', 'brief', 'weeks', 'players', 'bb', 'survival', 'elias']"
+ },
+ {
+  "check": "masthead no longer promises a Coffee Shop",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "receipts sit in their stories: Blake->odds, Eric+Gerardi->heat, Josh+Bear->survival",
+  "ok": true,
+  "detail": "{'1559179324681093275': 'odds', '1559408224636117004': 'heat', '1558921157116305433': 'heat', '1559180011083272243': 'survival', '1559180424889114725': 'survival'}"
+ },
+ {
+  "check": "every receipt is read by Kenny",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "catchphrase 'Boo-yah' used at most once, only by stuart",
+  "ok": true,
+  "detail": "(1, {'stuart'})"
+ },
+ {
+  "check": "catchphrase 'other side of the pillow' used at most once, only by stuart",
+  "ok": true,
+  "detail": "(1, {'stuart'})"
+ },
+ {
+  "check": "catchphrase 'witness from the congregation' used at most once, only by stuart",
+  "ok": true,
+  "detail": "(0, set())"
+ },
+ {
+  "check": "catchphrase 'bus driver' used at most once, only by stuart",
+  "ok": true,
+  "detail": "(1, {'stuart'})"
+ },
+ {
+  "check": "stuart uses 2-3 signature phrases (got 3)",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "catchphrase 'Look at him go' used at most once, only by boomer",
+  "ok": true,
+  "detail": "(1, {'boomer'})"
+ },
+ {
+  "check": "catchphrase 'go\u2026 all\u2026 the\u2026 way' used at most once, only by boomer",
+  "ok": true,
+  "detail": "(1, {'boomer'})"
+ },
+ {
+  "check": "catchphrase 'Rumblin' used at most once, only by boomer",
+  "ok": true,
+  "detail": "(0, set())"
+ },
+ {
+  "check": "catchphrase 'Whoop' used at most once, only by boomer",
+  "ok": true,
+  "detail": "(0, set())"
+ },
+ {
+  "check": "catchphrase 'Back, back' used at most once, only by boomer",
+  "ok": true,
+  "detail": "(0, set())"
+ },
+ {
+  "check": "boomer uses 2-3 signature phrases (got 2)",
+  "ok": true,
+  "detail": "2"
+ },
+ {
+  "check": "Rich and Kenny use no catchphrases",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Monday: Eric had no starters in the only Monday game and led by 53.3 entering it",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Stafford line: 40 of 54, 383 yards, 3 TD, no turnovers",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "11:31 PM ET: the Rams and Bills were tied in overtime",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Gerardi: St. Brown + Hampton a combined 17.6 under projection",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Gibbs 151 rushing yards on 25 carries, 2 TD",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "scenario cells partition the published seasons for every team",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh: sweep 6.7%, swept 0.8%; sweep+top3 7.9% vs sweep+middle six 3.7%",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh: 80% of his playoff seasons come from the division",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Klingenberg: 2-1 top three 74.8% vs 3-0 middle six 57.6%",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Bousquet: 3-0 middle six 33.3%, 2-1 top three 35.4%",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Bousquet sweep/swept 40.2%/12.8%; Keith 92.9%/74.5%; Whitman 2-1 top3 54.1% vs 3-0 mid 45.3%",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh grid 3-0 top three: 7.9% (757 seasons)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh grid 3-0 middle six: 3.7% (301 seasons)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh grid 2-1 top three: 5.5% (366 seasons)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh grid 1-2 bottom three: 0.7% (597 seasons)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh grid 0-3 bottom three: 0.6% (3416 seasons)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Josh grid 1-2 top three is too rare to price (28 seasons) and says so",
+  "ok": true,
+  "detail": ""
  },
  {
   "check": "pipelines/etl/wire/season_sim.py has no INSERT/UPDATE/DELETE/POST",

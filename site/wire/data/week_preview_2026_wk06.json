@@ -99,6 +99,22 @@
      "mflBackup": []
     },
     {
+     "pid": "17031",
+     "player": "Sanders, Shedeur",
+     "rotowireAverageWhenPlaying": 14.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ]
+    },
+    {
      "pid": "13113",
      "player": "Watson, Deshaun",
      "rotowireAverageWhenPlaying": 15.4,
@@ -116,20 +132,16 @@
      "mflBackup": []
     },
     {
-     "pid": "17031",
-     "player": "Sanders, Shedeur",
-     "rotowireAverageWhenPlaying": 14.5,
-     "mflSaysOut": [],
+     "pid": "17593",
+     "player": "Klein, Marlin",
+     "rotowireAverageWhenPlaying": 2.5,
+     "mflSaysOut": [
+      1,
+      2
+     ],
      "mflSaysPlays": [],
      "mflStarter": [],
-     "mflBackup": [
-      12,
-      13,
-      14,
-      15,
-      16,
-      17
-     ]
+     "mflBackup": []
     },
     {
      "pid": "15800",
@@ -140,18 +152,6 @@
       1,
       2
      ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
-     "pid": "17593",
-     "player": "Klein, Marlin",
-     "rotowireAverageWhenPlaying": 2.5,
-     "mflSaysOut": [
-      1,
-      2
-     ],
-     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -204,18 +204,6 @@
      "mflBackup": []
     },
     {
-     "pid": "17492",
-     "player": "Donaldson, CJ",
-     "rotowireAverageWhenPlaying": 2.2,
-     "mflSaysOut": [
-      4,
-      5
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "16627",
      "player": "McConkey, Ladd",
      "rotowireAverageWhenPlaying": 13.5,
@@ -224,6 +212,18 @@
       4,
       5
      ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17492",
+     "player": "Donaldson, CJ",
+     "rotowireAverageWhenPlaying": 2.2,
+     "mflSaysOut": [
+      4,
+      5
+     ],
+     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -252,13 +252,13 @@
      "mflBackup": []
     },
     {
-     "pid": "17106",
-     "player": "Taylor, Mason",
-     "rotowireAverageWhenPlaying": 5.0,
-     "mflSaysOut": [
+     "pid": "14840",
+     "player": "Aiyuk, Brandon",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
       1
      ],
-     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -274,17 +274,6 @@
      "mflBackup": []
     },
     {
-     "pid": "14840",
-     "player": "Aiyuk, Brandon",
-     "rotowireAverageWhenPlaying": null,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      1
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "16678",
      "player": "Vaki, Sione",
      "rotowireAverageWhenPlaying": 3.9,
@@ -296,9 +285,20 @@
      "mflBackup": []
     },
     {
-     "pid": "16757",
-     "player": "Vidal, Kimani",
-     "rotowireAverageWhenPlaying": 3.1,
+     "pid": "17106",
+     "player": "Taylor, Mason",
+     "rotowireAverageWhenPlaying": 5.0,
+     "mflSaysOut": [
+      1
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16211",
+     "player": "Nacua, Puka",
+     "rotowireAverageWhenPlaying": 22.8,
      "mflSaysOut": [],
      "mflSaysPlays": [
       2
@@ -307,9 +307,9 @@
      "mflBackup": []
     },
     {
-     "pid": "16211",
-     "player": "Nacua, Puka",
-     "rotowireAverageWhenPlaying": 22.8,
+     "pid": "16757",
+     "player": "Vidal, Kimani",
+     "rotowireAverageWhenPlaying": 3.1,
      "mflSaysOut": [],
      "mflSaysPlays": [
       2
@@ -340,28 +340,6 @@
      "mflBackup": []
     },
     {
-     "pid": "16630",
-     "player": "Williams, Isaiah",
-     "rotowireAverageWhenPlaying": 3.4,
-     "mflSaysOut": [
-      3
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
-     "pid": "12658",
-     "player": "Shepard, Sterling",
-     "rotowireAverageWhenPlaying": 4.6,
-     "mflSaysOut": [
-      3
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "17059",
      "player": "Gordon II, Ollie",
      "rotowireAverageWhenPlaying": 12.1,
@@ -373,31 +351,9 @@
      "mflBackup": []
     },
     {
-     "pid": "17048",
-     "player": "Johnson, Kaleb",
-     "rotowireAverageWhenPlaying": 4.4,
-     "mflSaysOut": [
-      3
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "16633",
      "player": "Whittington, Jordan",
      "rotowireAverageWhenPlaying": 1.9,
-     "mflSaysOut": [
-      3
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
-     "pid": "16387",
-     "player": "Brooks, Chris",
-     "rotowireAverageWhenPlaying": 3.5,
      "mflSaysOut": [
       3
      ],
@@ -439,9 +395,53 @@
      "mflBackup": []
     },
     {
+     "pid": "16387",
+     "player": "Brooks, Chris",
+     "rotowireAverageWhenPlaying": 3.5,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "12658",
+     "player": "Shepard, Sterling",
+     "rotowireAverageWhenPlaying": 4.6,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
      "pid": "11675",
      "player": "Adams, Davante",
      "rotowireAverageWhenPlaying": 17.6,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17048",
+     "player": "Johnson, Kaleb",
+     "rotowireAverageWhenPlaying": 4.4,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16630",
+     "player": "Williams, Isaiah",
+     "rotowireAverageWhenPlaying": 3.4,
      "mflSaysOut": [
       3
      ],
@@ -472,6 +472,17 @@
      "mflBackup": []
     },
     {
+     "pid": "15281",
+     "player": "Chase, Ja'Marr",
+     "rotowireAverageWhenPlaying": 19.8,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
      "pid": "14137",
      "player": "Fant, Noah",
      "rotowireAverageWhenPlaying": 6.7,
@@ -486,17 +497,6 @@
      "pid": "13604",
      "player": "Barkley, Saquon",
      "rotowireAverageWhenPlaying": 14.9,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      4
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
-     "pid": "15281",
-     "player": "Chase, Ja'Marr",
-     "rotowireAverageWhenPlaying": 19.8,
      "mflSaysOut": [],
      "mflSaysPlays": [
       4
@@ -527,17 +527,6 @@
      ]
     },
     {
-     "pid": "13635",
-     "player": "Moore, D.J.",
-     "rotowireAverageWhenPlaying": 15.1,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      5
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "14108",
      "player": "Dortch, Greg",
      "rotowireAverageWhenPlaying": 3.7,
@@ -545,6 +534,17 @@
       5
      ],
      "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13635",
+     "player": "Moore, D.J.",
+     "rotowireAverageWhenPlaying": 15.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      5
+     ],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -648,6 +648,17 @@
      ]
     },
     {
+     "pid": "15768",
+     "player": "Pierce, Alec",
+     "rotowireAverageWhenPlaying": 10.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      7
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
      "pid": "14136",
      "player": "Samuel, Deebo",
      "rotowireAverageWhenPlaying": 10.9,
@@ -659,12 +670,12 @@
      "mflBackup": []
     },
     {
-     "pid": "15768",
-     "player": "Pierce, Alec",
-     "rotowireAverageWhenPlaying": 10.3,
+     "pid": "17473",
+     "player": "Price, Jadarian",
+     "rotowireAverageWhenPlaying": 7.1,
      "mflSaysOut": [],
      "mflSaysPlays": [
-      7
+      8
      ],
      "mflStarter": [],
      "mflBackup": []
@@ -681,20 +692,9 @@
      "mflBackup": []
     },
     {
-     "pid": "17473",
-     "player": "Price, Jadarian",
-     "rotowireAverageWhenPlaying": 7.1,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      8
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
-     "pid": "16169",
-     "player": "Charbonnet, Zach",
-     "rotowireAverageWhenPlaying": 10.1,
+     "pid": "16608",
+     "player": "Holani, George",
+     "rotowireAverageWhenPlaying": 6.3,
      "mflSaysOut": [],
      "mflSaysPlays": [],
      "mflStarter": [],
@@ -703,9 +703,9 @@
      ]
     },
     {
-     "pid": "16608",
-     "player": "Holani, George",
-     "rotowireAverageWhenPlaying": 6.3,
+     "pid": "16169",
+     "player": "Charbonnet, Zach",
+     "rotowireAverageWhenPlaying": 10.1,
      "mflSaysOut": [],
      "mflSaysPlays": [],
      "mflStarter": [],
@@ -2891,18 +2891,18 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "14802",
-      "player": "Jonathan Taylor",
-      "perWeekBefore": 16.5,
-      "perWeekNow": 18.8,
-      "lineupImpactPerWeek": 2.3,
-      "note": "MFL projection changed"
-     },
-     {
       "pid": "17543",
       "player": "Kenyon Sadiq",
       "perWeekBefore": 5.4,
       "perWeekNow": 9.2,
+      "lineupImpactPerWeek": 2.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "14802",
+      "player": "Jonathan Taylor",
+      "perWeekBefore": 16.5,
+      "perWeekNow": 18.8,
       "lineupImpactPerWeek": 2.3,
       "note": "MFL projection changed"
      },
@@ -2977,18 +2977,18 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "12676",
-      "player": "Hunter Henry",
-      "perWeekBefore": 7.6,
-      "perWeekNow": 9.9,
-      "lineupImpactPerWeek": 2.3,
-      "note": "MFL projection changed"
-     },
-     {
       "pid": "17045",
       "player": "Cam Skattebo",
       "perWeekBefore": 8.4,
       "perWeekNow": 10.9,
+      "lineupImpactPerWeek": 2.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "12676",
+      "player": "Hunter Henry",
+      "perWeekBefore": 7.6,
+      "perWeekNow": 9.9,
       "lineupImpactPerWeek": 2.3,
       "note": "MFL projection changed"
      }
@@ -3343,18 +3343,18 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "13604",
-      "player": "Saquon Barkley",
-      "perWeekBefore": 8.4,
-      "perWeekNow": 13.1,
-      "lineupImpactPerWeek": 4.4,
-      "note": "MFL projection changed"
-     },
-     {
       "pid": "12620",
       "player": "Dak Prescott",
       "perWeekBefore": 15.5,
       "perWeekNow": 20.3,
+      "lineupImpactPerWeek": 4.4,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "13604",
+      "player": "Saquon Barkley",
+      "perWeekBefore": 8.4,
+      "perWeekNow": 13.1,
       "lineupImpactPerWeek": 4.4,
       "note": "MFL projection changed"
      },
@@ -3531,10 +3531,10 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "17052",
-      "player": "Bhayshul Tuten",
-      "perWeekBefore": 8.3,
-      "perWeekNow": 12.2,
+      "pid": "16269",
+      "player": "Brenton Strange",
+      "perWeekBefore": 9.1,
+      "perWeekNow": 12.4,
       "lineupImpactPerWeek": 2.5,
       "note": "MFL projection changed"
      }
@@ -3800,6 +3800,3552 @@
    "gamesThisWeek": []
   }
  ],
+ "weekScenarios": {
+  "0001": {
+   "games": 3,
+   "opponents": [
+    "0009",
+    "0012",
+    "0011"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 8,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 25,
+     "playoff": 8,
+     "division": 8,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 72,
+     "playoff": 19,
+     "division": 15,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 169,
+     "playoff": 37,
+     "division": 32,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 302,
+     "playoff": 62,
+     "division": 57,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 494,
+     "playoff": 69,
+     "division": 54,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 781,
+     "playoff": 110,
+     "division": 99,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 1045,
+     "playoff": 114,
+     "division": 102,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 1539,
+     "playoff": 148,
+     "division": 137,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 35,
+     "playoff": 8,
+     "division": 7,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 94,
+     "playoff": 29,
+     "division": 21,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 242,
+     "playoff": 62,
+     "division": 56,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 359,
+     "playoff": 87,
+     "division": 68,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 429,
+     "playoff": 87,
+     "division": 69,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 505,
+     "playoff": 78,
+     "division": 66,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 479,
+     "playoff": 70,
+     "division": 59,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 359,
+     "playoff": 58,
+     "division": 48,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 214,
+     "playoff": 25,
+     "division": 23,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 138,
+     "playoff": 48,
+     "division": 39,
+     "bye": 1
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 207,
+     "playoff": 74,
+     "division": 58,
+     "bye": 1
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 318,
+     "playoff": 94,
+     "division": 72,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 322,
+     "playoff": 103,
+     "division": 75,
+     "bye": 1
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 277,
+     "playoff": 61,
+     "division": 44,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 217,
+     "playoff": 52,
+     "division": 39,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 150,
+     "playoff": 23,
+     "division": 20,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 83,
+     "playoff": 8,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 21,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 289,
+     "playoff": 152,
+     "division": 116,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 305,
+     "playoff": 121,
+     "division": 94,
+     "bye": 2
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 216,
+     "playoff": 74,
+     "division": 56,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 143,
+     "playoff": 53,
+     "division": 43,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 79,
+     "playoff": 25,
+     "division": 20,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 52,
+     "playoff": 16,
+     "division": 11,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 20,
+     "playoff": 7,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 9,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 3,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0002": {
+   "games": 3,
+   "opponents": [
+    "0005",
+    "0004",
+    "0006"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 1,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 9,
+     "playoff": 2,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 36,
+     "playoff": 13,
+     "division": 3,
+     "bye": 3
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 98,
+     "playoff": 35,
+     "division": 9,
+     "bye": 2
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 155,
+     "playoff": 39,
+     "division": 16,
+     "bye": 4
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 259,
+     "playoff": 72,
+     "division": 27,
+     "bye": 2
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 328,
+     "playoff": 71,
+     "division": 25,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 422,
+     "playoff": 94,
+     "division": 26,
+     "bye": 5
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 493,
+     "playoff": 86,
+     "division": 24,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 49,
+     "playoff": 30,
+     "division": 13,
+     "bye": 2
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 138,
+     "playoff": 70,
+     "division": 33,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 230,
+     "playoff": 93,
+     "division": 29,
+     "bye": 3
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 352,
+     "playoff": 133,
+     "division": 36,
+     "bye": 6
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 487,
+     "playoff": 167,
+     "division": 57,
+     "bye": 11
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 484,
+     "playoff": 134,
+     "division": 44,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 435,
+     "playoff": 120,
+     "division": 39,
+     "bye": 2
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 344,
+     "playoff": 73,
+     "division": 24,
+     "bye": 2
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 203,
+     "playoff": 29,
+     "division": 10,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 288,
+     "playoff": 156,
+     "division": 61,
+     "bye": 14
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 494,
+     "playoff": 267,
+     "division": 100,
+     "bye": 23
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 504,
+     "playoff": 219,
+     "division": 76,
+     "bye": 17
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 519,
+     "playoff": 235,
+     "division": 65,
+     "bye": 10
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 420,
+     "playoff": 163,
+     "division": 54,
+     "bye": 7
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 292,
+     "playoff": 92,
+     "division": 31,
+     "bye": 7
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 199,
+     "playoff": 61,
+     "division": 21,
+     "bye": 3
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 98,
+     "playoff": 20,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 28,
+     "playoff": 8,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 924,
+     "playoff": 604,
+     "division": 244,
+     "bye": 87
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 676,
+     "playoff": 378,
+     "division": 133,
+     "bye": 49
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 457,
+     "playoff": 250,
+     "division": 97,
+     "bye": 20
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 267,
+     "playoff": 134,
+     "division": 44,
+     "bye": 13
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 175,
+     "playoff": 77,
+     "division": 24,
+     "bye": 7
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 83,
+     "playoff": 33,
+     "division": 9,
+     "bye": 2
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 44,
+     "playoff": 15,
+     "division": 8,
+     "bye": 4
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 8,
+     "playoff": 3,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 1,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0003": {
+   "games": 3,
+   "opponents": [
+    "0005",
+    "0004",
+    "0006"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 1,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 14,
+     "playoff": 1,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 25,
+     "playoff": 3,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 58,
+     "playoff": 4,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 143,
+     "playoff": 5,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 297,
+     "playoff": 7,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 539,
+     "playoff": 11,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 914,
+     "playoff": 20,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 1537,
+     "playoff": 15,
+     "division": 7,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 21,
+     "playoff": 2,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 81,
+     "playoff": 6,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 153,
+     "playoff": 14,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 259,
+     "playoff": 13,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 396,
+     "playoff": 18,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 512,
+     "playoff": 14,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 599,
+     "playoff": 15,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 617,
+     "playoff": 12,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 420,
+     "playoff": 9,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 106,
+     "playoff": 25,
+     "division": 5,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 222,
+     "playoff": 35,
+     "division": 13,
+     "bye": 2
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 296,
+     "playoff": 32,
+     "division": 10,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 356,
+     "playoff": 28,
+     "division": 7,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 357,
+     "playoff": 21,
+     "division": 11,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 304,
+     "playoff": 14,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 252,
+     "playoff": 12,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 179,
+     "playoff": 5,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 67,
+     "playoff": 2,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 311,
+     "playoff": 57,
+     "division": 21,
+     "bye": 2
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 271,
+     "playoff": 28,
+     "division": 4,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 239,
+     "playoff": 36,
+     "division": 15,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 175,
+     "playoff": 30,
+     "division": 6,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 132,
+     "playoff": 12,
+     "division": 5,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 82,
+     "playoff": 4,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 47,
+     "playoff": 2,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 13,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 5,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0004": {
+   "games": 3,
+   "opponents": [
+    "0003",
+    "0002",
+    "0010"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 7,
+     "playoff": 7,
+     "division": 4,
+     "bye": 3
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 23,
+     "playoff": 22,
+     "division": 11,
+     "bye": 6
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 53,
+     "playoff": 51,
+     "division": 19,
+     "bye": 13
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 93,
+     "playoff": 82,
+     "division": 37,
+     "bye": 19
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 150,
+     "playoff": 138,
+     "division": 56,
+     "bye": 36
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 221,
+     "playoff": 197,
+     "division": 65,
+     "bye": 40
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 223,
+     "playoff": 183,
+     "division": 70,
+     "bye": 36
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 292,
+     "playoff": 246,
+     "division": 78,
+     "bye": 34
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 252,
+     "playoff": 214,
+     "division": 72,
+     "bye": 34
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 77,
+     "playoff": 76,
+     "division": 48,
+     "bye": 36
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 204,
+     "playoff": 201,
+     "division": 107,
+     "bye": 68
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 265,
+     "playoff": 249,
+     "division": 110,
+     "bye": 74
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 359,
+     "playoff": 335,
+     "division": 161,
+     "bye": 99
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 362,
+     "playoff": 342,
+     "division": 143,
+     "bye": 82
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 343,
+     "playoff": 315,
+     "division": 133,
+     "bye": 76
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 278,
+     "playoff": 254,
+     "division": 96,
+     "bye": 54
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 202,
+     "playoff": 178,
+     "division": 56,
+     "bye": 32
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 79,
+     "playoff": 66,
+     "division": 24,
+     "bye": 13
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 456,
+     "playoff": 451,
+     "division": 247,
+     "bye": 197
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 604,
+     "playoff": 592,
+     "division": 340,
+     "bye": 244
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 573,
+     "playoff": 561,
+     "division": 282,
+     "bye": 206
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 457,
+     "playoff": 444,
+     "division": 218,
+     "bye": 151
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 334,
+     "playoff": 316,
+     "division": 131,
+     "bye": 82
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 233,
+     "playoff": 219,
+     "division": 95,
+     "bye": 62
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 129,
+     "playoff": 121,
+     "division": 53,
+     "bye": 35
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 58,
+     "playoff": 52,
+     "division": 25,
+     "bye": 17
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 11,
+     "playoff": 8,
+     "division": 5,
+     "bye": 3
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 1676,
+     "playoff": 1659,
+     "division": 1073,
+     "bye": 901
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 970,
+     "playoff": 955,
+     "division": 556,
+     "bye": 460
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 489,
+     "playoff": 476,
+     "division": 264,
+     "bye": 207
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 271,
+     "playoff": 265,
+     "division": 134,
+     "bye": 102
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 154,
+     "playoff": 151,
+     "division": 75,
+     "bye": 59
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 77,
+     "playoff": 73,
+     "division": 26,
+     "bye": 22
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 18,
+     "playoff": 17,
+     "division": 8,
+     "bye": 8
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 6,
+     "playoff": 6,
+     "division": 2,
+     "bye": 2
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 1,
+     "playoff": 1,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0005": {
+   "games": 3,
+   "opponents": [
+    "0003",
+    "0002",
+    "0010"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 5,
+     "playoff": 4,
+     "division": 3,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 19,
+     "playoff": 17,
+     "division": 10,
+     "bye": 6
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 53,
+     "playoff": 46,
+     "division": 30,
+     "bye": 16
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 107,
+     "playoff": 98,
+     "division": 57,
+     "bye": 22
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 196,
+     "playoff": 173,
+     "division": 88,
+     "bye": 46
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 270,
+     "playoff": 228,
+     "division": 115,
+     "bye": 43
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 404,
+     "playoff": 333,
+     "division": 157,
+     "bye": 66
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 541,
+     "playoff": 415,
+     "division": 173,
+     "bye": 63
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 566,
+     "playoff": 408,
+     "division": 158,
+     "bye": 53
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 63,
+     "playoff": 59,
+     "division": 37,
+     "bye": 26
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 152,
+     "playoff": 146,
+     "division": 84,
+     "bye": 45
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 261,
+     "playoff": 247,
+     "division": 148,
+     "bye": 74
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 360,
+     "playoff": 344,
+     "division": 172,
+     "bye": 88
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 474,
+     "playoff": 425,
+     "division": 227,
+     "bye": 123
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 470,
+     "playoff": 420,
+     "division": 203,
+     "bye": 96
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 460,
+     "playoff": 395,
+     "division": 185,
+     "bye": 84
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 346,
+     "playoff": 283,
+     "division": 136,
+     "bye": 52
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 192,
+     "playoff": 157,
+     "division": 69,
+     "bye": 25
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 260,
+     "playoff": 252,
+     "division": 173,
+     "bye": 110
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 433,
+     "playoff": 420,
+     "division": 274,
+     "bye": 179
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 475,
+     "playoff": 461,
+     "division": 281,
+     "bye": 159
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 517,
+     "playoff": 490,
+     "division": 297,
+     "bye": 162
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 410,
+     "playoff": 381,
+     "division": 202,
+     "bye": 110
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 305,
+     "playoff": 274,
+     "division": 166,
+     "bye": 98
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 177,
+     "playoff": 160,
+     "division": 86,
+     "bye": 40
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 83,
+     "playoff": 68,
+     "division": 40,
+     "bye": 21
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 38,
+     "playoff": 30,
+     "division": 18,
+     "bye": 10
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 803,
+     "playoff": 789,
+     "division": 579,
+     "bye": 447
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 614,
+     "playoff": 601,
+     "division": 422,
+     "bye": 312
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 442,
+     "playoff": 426,
+     "division": 272,
+     "bye": 212
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 252,
+     "playoff": 237,
+     "division": 152,
+     "bye": 117
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 134,
+     "playoff": 122,
+     "division": 78,
+     "bye": 52
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 78,
+     "playoff": 68,
+     "division": 35,
+     "bye": 28
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 29,
+     "playoff": 27,
+     "division": 19,
+     "bye": 15
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 11,
+     "playoff": 10,
+     "division": 8,
+     "bye": 6
+    }
+   ]
+  },
+  "0006": {
+   "games": 3,
+   "opponents": [
+    "0003",
+    "0002",
+    "0010"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 11,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 25,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 73,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 179,
+     "playoff": 3,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 319,
+     "playoff": 6,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 590,
+     "playoff": 9,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 1042,
+     "playoff": 6,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 1856,
+     "playoff": 13,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 16,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 71,
+     "playoff": 3,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 158,
+     "playoff": 12,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 270,
+     "playoff": 7,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 384,
+     "playoff": 7,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 519,
+     "playoff": 12,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 575,
+     "playoff": 11,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 559,
+     "playoff": 8,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 415,
+     "playoff": 5,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 90,
+     "playoff": 12,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 175,
+     "playoff": 12,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 241,
+     "playoff": 9,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 345,
+     "playoff": 15,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 333,
+     "playoff": 16,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 311,
+     "playoff": 7,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 233,
+     "playoff": 6,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 150,
+     "playoff": 1,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 53,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 209,
+     "playoff": 17,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 203,
+     "playoff": 14,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 195,
+     "playoff": 18,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 140,
+     "playoff": 7,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 117,
+     "playoff": 7,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 84,
+     "playoff": 2,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 39,
+     "playoff": 2,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 16,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 4,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0007": {
+   "games": 3,
+   "opponents": [
+    "0009",
+    "0012",
+    "0011"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 6,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 29,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 72,
+     "playoff": 2,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 141,
+     "playoff": 5,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 310,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 469,
+     "playoff": 9,
+     "division": 9,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 767,
+     "playoff": 5,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 1118,
+     "playoff": 9,
+     "division": 9,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 1531,
+     "playoff": 6,
+     "division": 5,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 28,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 122,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 215,
+     "playoff": 12,
+     "division": 10,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 325,
+     "playoff": 5,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 442,
+     "playoff": 8,
+     "division": 7,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 476,
+     "playoff": 11,
+     "division": 10,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 517,
+     "playoff": 4,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 386,
+     "playoff": 4,
+     "division": 3,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 211,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 119,
+     "playoff": 6,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 247,
+     "playoff": 14,
+     "division": 8,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 317,
+     "playoff": 8,
+     "division": 7,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 310,
+     "playoff": 4,
+     "division": 4,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 297,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 241,
+     "playoff": 8,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 154,
+     "playoff": 2,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 71,
+     "playoff": 1,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 21,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 269,
+     "playoff": 33,
+     "division": 28,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 274,
+     "playoff": 14,
+     "division": 9,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 214,
+     "playoff": 13,
+     "division": 11,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 151,
+     "playoff": 8,
+     "division": 6,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 74,
+     "playoff": 1,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 52,
+     "playoff": 2,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 20,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 3,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 1,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0008": {
+   "games": 3,
+   "opponents": [
+    "0009",
+    "0012",
+    "0011"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 7,
+     "playoff": 5,
+     "division": 5,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 51,
+     "playoff": 41,
+     "division": 39,
+     "bye": 4
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 111,
+     "playoff": 91,
+     "division": 89,
+     "bye": 8
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 189,
+     "playoff": 154,
+     "division": 148,
+     "bye": 7
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 289,
+     "playoff": 219,
+     "division": 212,
+     "bye": 10
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 413,
+     "playoff": 329,
+     "division": 318,
+     "bye": 9
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 535,
+     "playoff": 388,
+     "division": 380,
+     "bye": 4
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 582,
+     "playoff": 421,
+     "division": 412,
+     "bye": 8
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 529,
+     "playoff": 367,
+     "division": 359,
+     "bye": 3
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 69,
+     "playoff": 62,
+     "division": 62,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 190,
+     "playoff": 165,
+     "division": 161,
+     "bye": 12
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 320,
+     "playoff": 285,
+     "division": 279,
+     "bye": 10
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 438,
+     "playoff": 381,
+     "division": 373,
+     "bye": 15
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 522,
+     "playoff": 422,
+     "division": 410,
+     "bye": 15
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 436,
+     "playoff": 358,
+     "division": 353,
+     "bye": 11
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 336,
+     "playoff": 266,
+     "division": 261,
+     "bye": 5
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 222,
+     "playoff": 175,
+     "division": 170,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 88,
+     "playoff": 60,
+     "division": 59,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 344,
+     "playoff": 313,
+     "division": 306,
+     "bye": 34
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 461,
+     "playoff": 426,
+     "division": 418,
+     "bye": 46
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 485,
+     "playoff": 449,
+     "division": 435,
+     "bye": 34
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 468,
+     "playoff": 410,
+     "division": 405,
+     "bye": 20
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 324,
+     "playoff": 270,
+     "division": 262,
+     "bye": 14
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 194,
+     "playoff": 165,
+     "division": 160,
+     "bye": 9
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 113,
+     "playoff": 87,
+     "division": 81,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 44,
+     "playoff": 34,
+     "division": 33,
+     "bye": 1
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 12,
+     "playoff": 7,
+     "division": 7,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 880,
+     "playoff": 836,
+     "division": 818,
+     "bye": 150
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 582,
+     "playoff": 542,
+     "division": 536,
+     "bye": 77
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 349,
+     "playoff": 318,
+     "division": 309,
+     "bye": 40
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 234,
+     "playoff": 215,
+     "division": 209,
+     "bye": 19
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 111,
+     "playoff": 98,
+     "division": 92,
+     "bye": 7
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 52,
+     "playoff": 45,
+     "division": 44,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 15,
+     "playoff": 11,
+     "division": 10,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 5,
+     "playoff": 5,
+     "division": 5,
+     "bye": 0
+    }
+   ]
+  },
+  "0009": {
+   "games": 3,
+   "opponents": [
+    "0008",
+    "0007",
+    "0001"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 1,
+     "playoff": 1,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 5,
+     "playoff": 5,
+     "division": 5,
+     "bye": 4
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 12,
+     "playoff": 11,
+     "division": 11,
+     "bye": 11
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 36,
+     "playoff": 36,
+     "division": 34,
+     "bye": 28
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 78,
+     "playoff": 78,
+     "division": 64,
+     "bye": 49
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 109,
+     "playoff": 109,
+     "division": 104,
+     "bye": 81
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 177,
+     "playoff": 171,
+     "division": 156,
+     "bye": 114
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 243,
+     "playoff": 238,
+     "division": 217,
+     "bye": 148
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 267,
+     "playoff": 260,
+     "division": 229,
+     "bye": 154
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 19,
+     "playoff": 19,
+     "division": 19,
+     "bye": 19
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 68,
+     "playoff": 68,
+     "division": 66,
+     "bye": 61
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 123,
+     "playoff": 122,
+     "division": 120,
+     "bye": 108
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 216,
+     "playoff": 216,
+     "division": 206,
+     "bye": 175
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 267,
+     "playoff": 266,
+     "division": 259,
+     "bye": 221
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 341,
+     "playoff": 339,
+     "division": 318,
+     "bye": 260
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 305,
+     "playoff": 300,
+     "division": 275,
+     "bye": 214
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 239,
+     "playoff": 237,
+     "division": 216,
+     "bye": 166
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 128,
+     "playoff": 123,
+     "division": 116,
+     "bye": 79
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 187,
+     "playoff": 187,
+     "division": 182,
+     "bye": 173
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 393,
+     "playoff": 393,
+     "division": 381,
+     "bye": 351
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 487,
+     "playoff": 486,
+     "division": 469,
+     "bye": 412
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 489,
+     "playoff": 489,
+     "division": 472,
+     "bye": 407
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 446,
+     "playoff": 444,
+     "division": 425,
+     "bye": 362
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 357,
+     "playoff": 355,
+     "division": 341,
+     "bye": 285
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 260,
+     "playoff": 259,
+     "division": 243,
+     "bye": 202
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 143,
+     "playoff": 143,
+     "division": 136,
+     "bye": 110
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 53,
+     "playoff": 52,
+     "division": 49,
+     "bye": 37
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 1512,
+     "playoff": 1512,
+     "division": 1488,
+     "bye": 1415
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 1125,
+     "playoff": 1124,
+     "division": 1104,
+     "bye": 1034
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 779,
+     "playoff": 777,
+     "division": 763,
+     "bye": 704
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 512,
+     "playoff": 510,
+     "division": 495,
+     "bye": 432
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 324,
+     "playoff": 322,
+     "division": 314,
+     "bye": 271
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 171,
+     "playoff": 169,
+     "division": 164,
+     "bye": 136
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 82,
+     "playoff": 82,
+     "division": 81,
+     "bye": 65
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 39,
+     "playoff": 39,
+     "division": 37,
+     "bye": 24
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 7,
+     "playoff": 7,
+     "division": 7,
+     "bye": 4
+    }
+   ]
+  },
+  "0010": {
+   "games": 3,
+   "opponents": [
+    "0005",
+    "0004",
+    "0006"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 3,
+     "playoff": 3,
+     "division": 3,
+     "bye": 2
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 13,
+     "playoff": 12,
+     "division": 10,
+     "bye": 3
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 39,
+     "playoff": 38,
+     "division": 32,
+     "bye": 12
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 81,
+     "playoff": 76,
+     "division": 68,
+     "bye": 17
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 135,
+     "playoff": 118,
+     "division": 99,
+     "bye": 30
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 211,
+     "playoff": 185,
+     "division": 164,
+     "bye": 49
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 265,
+     "playoff": 226,
+     "division": 187,
+     "bye": 49
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 278,
+     "playoff": 214,
+     "division": 181,
+     "bye": 39
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 276,
+     "playoff": 224,
+     "division": 200,
+     "bye": 44
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 70,
+     "playoff": 69,
+     "division": 69,
+     "bye": 34
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 164,
+     "playoff": 155,
+     "division": 141,
+     "bye": 67
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 266,
+     "playoff": 251,
+     "division": 216,
+     "bye": 88
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 354,
+     "playoff": 332,
+     "division": 291,
+     "bye": 126
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 385,
+     "playoff": 351,
+     "division": 296,
+     "bye": 96
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 365,
+     "playoff": 328,
+     "division": 274,
+     "bye": 97
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 305,
+     "playoff": 267,
+     "division": 227,
+     "bye": 80
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 247,
+     "playoff": 208,
+     "division": 174,
+     "bye": 39
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 115,
+     "playoff": 101,
+     "division": 80,
+     "bye": 21
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 398,
+     "playoff": 394,
+     "division": 369,
+     "bye": 182
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 601,
+     "playoff": 587,
+     "division": 550,
+     "bye": 278
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 637,
+     "playoff": 609,
+     "division": 555,
+     "bye": 259
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 490,
+     "playoff": 467,
+     "division": 423,
+     "bye": 178
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 377,
+     "playoff": 356,
+     "division": 316,
+     "bye": 126
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 269,
+     "playoff": 249,
+     "division": 225,
+     "bye": 83
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 154,
+     "playoff": 139,
+     "division": 127,
+     "bye": 36
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 65,
+     "playoff": 57,
+     "division": 48,
+     "bye": 18
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 14,
+     "playoff": 12,
+     "division": 12,
+     "bye": 3
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 1494,
+     "playoff": 1475,
+     "division": 1399,
+     "bye": 939
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 850,
+     "playoff": 836,
+     "division": 764,
+     "bye": 471
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 521,
+     "playoff": 506,
+     "division": 470,
+     "bye": 295
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 287,
+     "playoff": 277,
+     "division": 251,
+     "bye": 145
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 155,
+     "playoff": 144,
+     "division": 129,
+     "bye": 68
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 72,
+     "playoff": 69,
+     "division": 62,
+     "bye": 28
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 34,
+     "playoff": 33,
+     "division": 30,
+     "bye": 18
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 7,
+     "playoff": 6,
+     "division": 5,
+     "bye": 2
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 3,
+     "playoff": 3,
+     "division": 3,
+     "bye": 1
+    }
+   ]
+  },
+  "0011": {
+   "games": 3,
+   "opponents": [
+    "0008",
+    "0007",
+    "0001"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 5,
+     "playoff": 2,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 8,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 40,
+     "playoff": 6,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 89,
+     "playoff": 10,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 171,
+     "playoff": 9,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 253,
+     "playoff": 20,
+     "division": 3,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 448,
+     "playoff": 7,
+     "division": 2,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 537,
+     "playoff": 14,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 16,
+     "playoff": 3,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 65,
+     "playoff": 13,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 126,
+     "playoff": 20,
+     "division": 2,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 199,
+     "playoff": 38,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 292,
+     "playoff": 33,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 377,
+     "playoff": 25,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 432,
+     "playoff": 36,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 380,
+     "playoff": 13,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 258,
+     "playoff": 7,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 144,
+     "playoff": 29,
+     "division": 4,
+     "bye": 2
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 299,
+     "playoff": 69,
+     "division": 8,
+     "bye": 4
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 422,
+     "playoff": 75,
+     "division": 8,
+     "bye": 4
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 434,
+     "playoff": 66,
+     "division": 5,
+     "bye": 4
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 477,
+     "playoff": 65,
+     "division": 5,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 387,
+     "playoff": 39,
+     "division": 5,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 329,
+     "playoff": 20,
+     "division": 3,
+     "bye": 2
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 205,
+     "playoff": 18,
+     "division": 3,
+     "bye": 1
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 88,
+     "playoff": 4,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 889,
+     "playoff": 284,
+     "division": 36,
+     "bye": 11
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 769,
+     "playoff": 206,
+     "division": 21,
+     "bye": 8
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 641,
+     "playoff": 128,
+     "division": 15,
+     "bye": 5
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 512,
+     "playoff": 70,
+     "division": 8,
+     "bye": 2
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 322,
+     "playoff": 36,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 232,
+     "playoff": 23,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 114,
+     "playoff": 8,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 29,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 11,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  },
+  "0012": {
+   "games": 3,
+   "opponents": [
+    "0008",
+    "0007",
+    "0001"
+   ],
+   "cells": [
+    {
+     "h2hWins": 0,
+     "rank": 4,
+     "runs": 2,
+     "playoff": 2,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 5,
+     "runs": 6,
+     "playoff": 3,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 6,
+     "runs": 10,
+     "playoff": 4,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 7,
+     "runs": 43,
+     "playoff": 23,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 8,
+     "runs": 85,
+     "playoff": 39,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 9,
+     "runs": 166,
+     "playoff": 64,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 10,
+     "runs": 297,
+     "playoff": 112,
+     "division": 3,
+     "bye": 1
+    },
+    {
+     "h2hWins": 0,
+     "rank": 11,
+     "runs": 445,
+     "playoff": 153,
+     "division": 2,
+     "bye": 0
+    },
+    {
+     "h2hWins": 0,
+     "rank": 12,
+     "runs": 617,
+     "playoff": 169,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 3,
+     "runs": 16,
+     "playoff": 11,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 1,
+     "rank": 4,
+     "runs": 58,
+     "playoff": 35,
+     "division": 1,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 5,
+     "runs": 127,
+     "playoff": 89,
+     "division": 4,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 6,
+     "runs": 210,
+     "playoff": 115,
+     "division": 5,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 7,
+     "runs": 335,
+     "playoff": 173,
+     "division": 3,
+     "bye": 3
+    },
+    {
+     "h2hWins": 1,
+     "rank": 8,
+     "runs": 384,
+     "playoff": 180,
+     "division": 7,
+     "bye": 4
+    },
+    {
+     "h2hWins": 1,
+     "rank": 9,
+     "runs": 436,
+     "playoff": 197,
+     "division": 4,
+     "bye": 1
+    },
+    {
+     "h2hWins": 1,
+     "rank": 10,
+     "runs": 451,
+     "playoff": 166,
+     "division": 12,
+     "bye": 6
+    },
+    {
+     "h2hWins": 1,
+     "rank": 11,
+     "runs": 307,
+     "playoff": 64,
+     "division": 1,
+     "bye": 0
+    },
+    {
+     "h2hWins": 2,
+     "rank": 2,
+     "runs": 134,
+     "playoff": 103,
+     "division": 8,
+     "bye": 6
+    },
+    {
+     "h2hWins": 2,
+     "rank": 3,
+     "runs": 231,
+     "playoff": 170,
+     "division": 9,
+     "bye": 6
+    },
+    {
+     "h2hWins": 2,
+     "rank": 4,
+     "runs": 382,
+     "playoff": 238,
+     "division": 18,
+     "bye": 8
+    },
+    {
+     "h2hWins": 2,
+     "rank": 5,
+     "runs": 479,
+     "playoff": 292,
+     "division": 17,
+     "bye": 10
+    },
+    {
+     "h2hWins": 2,
+     "rank": 6,
+     "runs": 493,
+     "playoff": 274,
+     "division": 13,
+     "bye": 9
+    },
+    {
+     "h2hWins": 2,
+     "rank": 7,
+     "runs": 420,
+     "playoff": 235,
+     "division": 16,
+     "bye": 11
+    },
+    {
+     "h2hWins": 2,
+     "rank": 8,
+     "runs": 334,
+     "playoff": 151,
+     "division": 5,
+     "bye": 3
+    },
+    {
+     "h2hWins": 2,
+     "rank": 9,
+     "runs": 219,
+     "playoff": 95,
+     "division": 5,
+     "bye": 2
+    },
+    {
+     "h2hWins": 2,
+     "rank": 10,
+     "runs": 83,
+     "playoff": 28,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 1,
+     "runs": 744,
+     "playoff": 584,
+     "division": 46,
+     "bye": 33
+    },
+    {
+     "h2hWins": 3,
+     "rank": 2,
+     "runs": 697,
+     "playoff": 517,
+     "division": 37,
+     "bye": 21
+    },
+    {
+     "h2hWins": 3,
+     "rank": 3,
+     "runs": 612,
+     "playoff": 440,
+     "division": 34,
+     "bye": 23
+    },
+    {
+     "h2hWins": 3,
+     "rank": 4,
+     "runs": 471,
+     "playoff": 300,
+     "division": 15,
+     "bye": 8
+    },
+    {
+     "h2hWins": 3,
+     "rank": 5,
+     "runs": 341,
+     "playoff": 191,
+     "division": 13,
+     "bye": 4
+    },
+    {
+     "h2hWins": 3,
+     "rank": 6,
+     "runs": 203,
+     "playoff": 110,
+     "division": 9,
+     "bye": 4
+    },
+    {
+     "h2hWins": 3,
+     "rank": 7,
+     "runs": 105,
+     "playoff": 58,
+     "division": 3,
+     "bye": 1
+    },
+    {
+     "h2hWins": 3,
+     "rank": 8,
+     "runs": 47,
+     "playoff": 18,
+     "division": 0,
+     "bye": 0
+    },
+    {
+     "h2hWins": 3,
+     "rank": 9,
+     "runs": 10,
+     "playoff": 1,
+     "division": 0,
+     "bye": 0
+    }
+   ]
+  }
+ },
  "leagueLineupPerWeek": {
   "now": 189.0,
   "rotowireNow": 214.8,
