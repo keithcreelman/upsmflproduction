@@ -1,6 +1,9 @@
 # UPS Center broadcast mode: proof of concept
 
-**Status:** draft for Keith's review (2026-10-14). Stacked on draft #1244 (Week 5). Not merged, published or deployed.
+**Status:** draft, on hold (2026-10-14).
+- Keith rejected the synthesized cues (clinks, stings, closing music).
+- He asked for two YouTube excerpts instead. They cannot be embedded reliably where the league reads the issue (see "YouTube excerpts" below), so per his instruction that work stopped at the findings.
+- Nothing here is merged, published or deployed.
 
 ## What a reader gets
 
@@ -52,3 +55,32 @@ python pipelines/etl/wire/wire.py restyle
 python pipelines/etl/wire/wire.py index
 python pipelines/etl/wire/wire.py verify
 ```
+
+
+## YouTube excerpts: findings (2026-10-14)
+
+Keith asked for two YouTube clips, using YouTube's visible player, with nothing downloaded or rehosted:
+- the SportsCenter opening, `LBkoVMYrzho`;
+- Chris Berman's Fastest Three Minutes entrance, `_qqFKcRcyJA`.
+
+He set one condition first: stop if either cannot be embedded reliably.
+
+| Question | Finding |
+|---|---|
+| Uploader allows embedding? | **Yes, both.** oEmbed answers, and the player reports `playableInEmbed: true`. Both are **fan uploads of ESPN broadcasts**, not ESPN's channel ("Sir Mix-A-Lot Rare Music"; "Pro Football Daily"), so either can disappear or be blocked at any time. |
+| Excerpt timing (provisional, picked by picture; Keith confirms by ear) | **Opening 0:00–0:45:** the open runs to the ESPN SportsCenter logo; anchors appear by 0:46. **Boomer 0:14–0:23:** Berman's toss to the "Fastest 3 Minutes" graphic and the first matchup card; NFL game footage starts about 0:23. |
+| Claude Artifact | **No.** The Artifact viewer blocks every external frame, YouTube included. |
+| Standalone UPS Wire page (Pages) | **Yes, with a tap on the player.** In Chrome, a tap on the page's own Start button started the clip on one host and was blocked on another (htmlpreview, a site the browser had no history with). A tap on YouTube's own play button always works. |
+| MFL frame | **No.** The loader sandboxes every article (`allow-scripts allow-popups allow-popups-to-escape-sandbox`, no same-origin access). Inside that sandbox the YouTube player stays black and ignores taps, in both Chromium and WebKit; the same embed outside the sandbox works. Fixing it means either giving articles same-origin access, which the loader forbids for security, or hosting the player in the MFL page itself through a loader change. |
+| iPhone Safari, second clip without a new tap | **Not verified here** (no iOS Simulator on this Mac). WebKit requires a tap inside the player's own frame for sound, so on iPhone the Boomer clip very likely needs its own tap. |
+| Ads and overlays | **The opening video is monetized**: its player data lists ad placements, so a pre-roll ad can play before the theme. **Overlays damage both clips:** <br>- From about 0:42 the uploader's end-screen card (an unrelated "Apple iPhone 4 Antennagate" video) covers the opening, inside the excerpt.<br>- YouTube shows its title bar, "More videos" and, on the Boomer clip, auto-captions. |
+
+**Check page:** `docs/wire/youtube-embed-check.html`, a test page that is not deployed. It lets Keith:
+- hear both excerpts on his phone and adjust start and stop;
+- see whether the Boomer clip starts without a second tap;
+- see the MFL-sandbox failure.
+
+**Long-term options (Keith's call):**
+1. Keith provides licensed audio files.
+2. Original UPS Center music.
+3. A loader change that hosts a YouTube player in the MFL page, outside the article sandbox. This is technically possible but keeps the ad, overlay and fan-upload risks.
