@@ -1391,17 +1391,62 @@ button.ups-m-busy::before,
    them (same offset + z-index used to stack the two). */
 .ups-m-stseg-bar ~ .ups-m-players-toolbar { top: calc(var(--hdr-h) + var(--safe-top) + var(--st-subtabs-h, 41px)); z-index: 9; }
 .ups-m-stseg.on { background: var(--accent); border-color: var(--accent); color: #0a1222; }
-/* Strength-of-Schedule heatmap (Stats → Sched) */
-.ups-m-pos-chips.inline { display: inline-flex; gap: 4px; margin-left: 6px; }
-.ups-m-sched-note { color: var(--fg-muted); font-size: 10px; padding: 0 12px 6px; }
-.ups-m-sched-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 12px 10px; }
-.ups-m-sched-row { display: flex; gap: 2px; align-items: stretch; }
-.ups-m-sched-row .tm { position: sticky; left: 0; z-index: 1; min-width: 58px; max-width: 58px; background: var(--bg); font-size: 11px; font-weight: 700; padding: 4px 4px 4px 0; display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
-.ups-m-sched-row .cell { min-width: 30px; max-width: 30px; text-align: center; font-size: 10px; font-weight: 700; padding: 5px 0; border-radius: 3px; margin-bottom: 2px; }
-.ups-m-sched-row .cell.bye { background: var(--bg-elev); color: var(--fg-muted); }
-.ups-m-sched-row .ag { min-width: 34px; max-width: 34px; text-align: center; font-size: 11px; font-weight: 800; padding: 5px 0; border-radius: 3px; margin-left: 2px; margin-bottom: 2px; }
-.ups-m-sched-row.head .cell, .ups-m-sched-row.head .ag, .ups-m-sched-row.head .tm { background: var(--bg-elev); color: var(--fg-muted); font-size: 9px; font-weight: 700; }
-.ups-m-sched-row.head .cell.po { color: var(--accent); }
+/* Stats → Sched (#1270): who each NFL team plays. Controls scroll away; the chips and the
+   week headings pin (Pts Agst's layout). The week strip swipes sideways under the pinned
+   headings (bindSched keeps them aligned); the team and Avg columns stay in place. */
+.ups-m-st-tools .ups-m-sched-filters { grid-template-columns: 1fr 1fr; }
+.ups-m-sched-show { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ups-m-sched-show button {
+  min-height: 36px; margin: 0; border: 0; background: var(--bg-elev); color: var(--fg-muted);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: rgba(91,141,255,0.15);
+}
+.ups-m-sched-show button + button { border-left: 1px solid var(--line); }
+.ups-m-sched-show button.on { background: var(--accent); color: #0a1222; }
+.ups-m-sched-show button:focus-visible { outline: 2px solid var(--fg); outline-offset: -3px; }
+.ups-m-sched-hscroll { overflow: hidden; }
+.ups-m-sched-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; }
+.ups-m-sched-scroll::-webkit-scrollbar { display: none; }
+.ups-m-sched-row {
+  --sc-tm: 58px; --sc-ag: 54px; --sc-c: 50px;
+  display: grid; grid-template-columns: var(--sc-tm) var(--sc-ag) repeat(var(--n, 1), var(--sc-c));
+  width: max-content; min-width: 100%; min-height: 48px; align-items: stretch;
+  border-top: 1px solid var(--line); background: var(--bg-elev);
+  cursor: pointer; -webkit-tap-highlight-color: rgba(91,141,255,0.08);
+}
+.ups-m-sched-row:first-child { border-top: 0; }
+.ups-m-sched-row:not(.head):active, .ups-m-sched-row:not(.head):active > .tm, .ups-m-sched-row:not(.head):active > .ag { background: var(--bg-elev2); }
+.ups-m-sched-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ups-m-sched-row > .tm, .ups-m-sched-row > .ag { position: sticky; z-index: 1; background: var(--bg-elev); }
+.ups-m-sched-row > .tm { left: 0; display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 4px 4px 4px 12px; }
+.ups-m-sched-row > .tm b { font-size: 14px; font-weight: 700; color: var(--fg); }
+.ups-m-sched-row > .tm small { font-size: 11px; color: var(--fg-muted); white-space: nowrap; }
+.ups-m-sched-row > .ag {
+  left: var(--sc-tm); display: flex; align-items: center; justify-content: flex-end; padding: 0 8px 0 0;
+  border-right: 1px solid var(--line); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fg);
+}
+.ups-m-sched-row .c {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 1px;
+  border-left: 1px solid rgba(58,69,92,0.45); text-align: center; white-space: nowrap;
+  font-size: 12px; font-variant-numeric: tabular-nums; color: var(--fg);
+}
+.ups-m-sched-row > .ag + .c { border-left: 0; }
+.ups-m-sched-row .c b { font-size: 12px; font-weight: 700; }
+.ups-m-sched-row .c .ups-m-tr { font-size: 12px; font-weight: 600; }
+.ups-m-sched-row .c.off, .ups-m-sched-row .c.off b { color: var(--fg-muted); font-weight: 500; }
+.ups-m-sched-row .c.bye { color: var(--fg-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+/* Pinned headings: the same columns as the rows. */
+.ups-m-sched-row.head { min-height: 0; border-top: 0; cursor: default; background: var(--bg-elev); }
+.ups-m-sched-row.head > .tm { padding: 0 4px 0 12px; }
+.ups-m-sched-row.head > .tm .ups-m-st-sort { text-align: left; }
+.ups-m-sched-row.head > .ag { padding: 0 8px 0 0; font-size: 11px; }
+.ups-m-sched-row.head .ups-m-st-sort { font-size: 11px; }
+.ups-m-sched-row.head .wk {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px 0 4px;
+  font-size: 11px; font-weight: 700; color: var(--fg-muted); white-space: nowrap;
+}
+.ups-m-sched-row.head .wk small { font-size: 11px; font-weight: 600; }
+.ups-m-sched-row.head .wk.now { color: var(--accent); }
+.ups-m-sched-row.head .wk.po { color: var(--fg); }
 .ups-m-fpa-table { display: flex; flex-direction: column; }
 /* Stats → Pts Agst (review 2026-10-12). The list uses the Players board's rows,
    headings and pin (.ups-m-st-*); these rules only add what Pts Agst needs. */

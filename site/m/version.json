@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.7",
-  "label": "Lineup: each opponent's rank in MFL points allowed to your player's position (green top 10, red bottom 10) plus \"vs usual\" in Details, a Details button on every line, and injury tags (NFL report; last week's marked \"W5\" until this week's is out)."
+  "build": "2026.10.13.8",
+  "label": "Sched: who each NFL team plays, with what each opponent has allowed to the position so far (Points allowed or vs usual) and an Avg for the weeks you pick; opens on QB, shared with Pts Agst."
 }
