@@ -341,9 +341,28 @@ table.fpa-table{width:100%;border-collapse:collapse;font-size:13px}
 .fpa-table th{background:var(--panel-alt);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;position:sticky;top:0;cursor:pointer;user-select:none}
 .fpa-table th.team,.fpa-table td.team{text-align:left;position:sticky;left:0;background:var(--panel);font-weight:700}
 .fpa-table td.num{font-variant-numeric:tabular-nums}
-.sched-grid th,.sched-grid td{padding:4px 6px;font-size:11px;text-align:center;border-bottom:1px solid var(--border)}
-.sched-grid td.team,.sched-grid th.team{text-align:left}
-.sched-grid td.sched-cell{font-weight:700;min-width:34px;border-radius:3px}
+/* Stats → Schedule (#1270): readable two-line cells, text color only (never a fill). */
+.fpa-controls .fpa-ctl{display:flex;flex-direction:column;gap:3px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.fpa-controls .fpa-ctl .fpa-pos button{text-transform:none;letter-spacing:0}
+.sched-grid th,.sched-grid td{padding:5px 7px;font-size:12px;text-align:center}
+.sched-grid th{cursor:default}
+.sched-grid th.team,.sched-grid th.team small{text-align:left}
+.sched-grid tbody th.team{top:auto;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0;background:var(--panel)}
+.sched-grid th.team small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
+.sched-grid td.ag{font-size:14px;text-align:right;border-right:1px solid var(--border)}
+.sched-grid td.sc{min-width:52px;line-height:1.3}
+.sched-grid td.sc b{display:block;font-weight:700;color:var(--text)}
+.sched-grid td.sc .asw-trend{font-weight:600}
+.sched-grid td.sc.off b,.sched-grid td.sc.off .asw-trend:not(.up):not(.dn){color:var(--muted);font-weight:500}
+.sched-grid td.sc.bye{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em}
+.sched-grid th.wk small{display:block;font-size:11px;text-transform:none;letter-spacing:0}
+.sched-grid th.wk.now{color:var(--accent)}
+.sched-grid th.wk.po{color:var(--text)}
+.sched-sort{background:none;border:0;padding:2px 0;font:inherit;color:inherit;font-weight:700;text-transform:inherit;letter-spacing:inherit;cursor:pointer}
+.sched-sort i{font-style:normal;opacity:.6}
+th[aria-sort="ascending"] .sched-sort,th[aria-sort="descending"] .sched-sort{color:var(--accent)}
+.sched-sort:focus-visible,.sched-retry:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.sched-retry{margin-left:6px;background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font:inherit;font-weight:600;cursor:pointer}
 .fpa-rk{display:inline-block;min-width:32px;text-align:center;padding:2px 7px;border-radius:5px;font-weight:800;font-variant-numeric:tabular-nums}
 .fpa-rk.mid{background:var(--panel-alt);color:var(--text)}
 .fpa-sub.fpa-note{margin-top:-6px}
@@ -760,7 +779,7 @@ table.asw-table{font-size:13px}
     "adp":          { title:"ADP · Dynasty Value", desc:"Multi-source consensus draft position and dynasty trade value (FantasyCalc, KeepTradeCut, DynastyProcess, Sleeper), blended into one board with tiering." },
     "vegas":        { title:"Vegas Implied Points", desc:"Team totals implied by the live betting market — the cleanest public read on how many points a real offense is expected to score." },
     "pace":         { title:"Team Pace", desc:"Plays per game, seconds per snap, and pass rate by team — the volume side of opportunity, before any individual usage share is applied." },
-    "schedule":     { title:"Strength of Schedule", desc:"Positional schedule difficulty by week, rated off last season’s defensive performance. Use it to time streamers and read a stretch run." }
+    "schedule":     { title:"Schedule", desc:"Who each NFL team plays, week by week, with what each opponent has allowed to the position so far. It describes games already played; it is not a forecast of what a team will score." }
   };
   function setPageHead(view) {
     var m = VIEW_META[view] || VIEW_META["player-stats"];
@@ -5592,7 +5611,7 @@ table.asw-table{font-size:13px}
           '<label>Season<select class="fpa-year"></select></label>' +
           '<label>From wk<select class="fpa-wmin">' + wkOpts(fpa.wkMin, false) + '</select></label>' +
           '<label>To wk<select class="fpa-wmax">' + wkOpts(fpa.wkMax, true) + '</select></label>' +
-          '<label>Position<div class="fpa-pos">' + posChips + '</div></label>' +
+          '<div class="fpa-ctl"><span id="fpa-pos-lbl">Position</span><div class="fpa-pos" role="group" aria-labelledby="fpa-pos-lbl">' + posChips + '</div></div>' +
         '</div>' +
         '<div class="fpa-body"></div>';
       var ysel = host.querySelector(".fpa-year");
@@ -6093,63 +6112,174 @@ table.asw-table{font-size:13px}
       notifyResize();
     }
 
-    // ---- Schedule (fantasy Strength-of-Schedule) heatmap sub-tab ----
+    // ---- Schedule (Stats → Schedule, #1270) ----
+    // Who each NFL team plays, week by week, with what each opponent has allowed to the position so
+    // far: the Pts Agst engine, Full season through the latest completed game. One
+    // /api/fantasy-sos?v=2 answer per season covers all nine positions. Descriptive only, with no
+    // easy/tough wording: the 2019–2025 backtest found the old ranking no better than chance. The
+    // same rules as mobile (site/m/views/stats.js, msched): Weeks = Rest of season / All weeks /
+    // Playoffs / Custom; Show = Points allowed or vs usual; Avg = the opponents in those weeks
+    // (sortable, most allowed first); restrained color (fpaColored); the position is Pts Agst's (fpa.pos).
     var schedSection = document.getElementById("asw-view-schedule");
-    var SCHED_POS = [["QB","QB"],["RB","RB"],["WR","WR"],["TE","TE"],["DL","DL"],["LB","LB"],["DB","DB"],["PK","K"],["PN","P"]];
-    var sched = { season: String(THIS_YEAR), pos: "RB", view: "season", data: null, rendered: false };
-    function schedBody(){ return schedSection.querySelector(".sched-body"); }
+    var sched = { season: "", weeks: "", from: 1, to: 0, show: "pts", sort: "", dir: "desc", cache: {}, err: {}, pending: {}, rendered: false, fellBack: "", opened: false };
+    var SCHED_STALE_MS = 5 * 60 * 1000;
+    function schedKey(){ return sched.season || "cur"; }
+    function schedData(){ var h = sched.cache[schedKey()]; return h ? h.d : null; }
+    // Only a good answer is kept; a season still being played is re-read once it is 5 minutes old.
     function schedLoad(){
-      var b = schedBody(); if (b) b.innerHTML = '<div class="asw-meta" style="padding:14px">Loading schedule…</div>';
-      fetch(API_BASE + "/api/fantasy-sos?season=" + encodeURIComponent(sched.season) + "&pos=" + encodeURIComponent(sched.pos))
-        .then(function(r){ return r.json(); })
-        .then(function(d){ sched.data = d || {}; schedPaint(); })
-        .catch(function(){ sched.data = { teams: [] }; schedPaint(); });
+      var k = schedKey(), h = sched.cache[k];
+      if ((h && !(h.live && Date.now() - h.at > SCHED_STALE_MS)) || sched.pending[k] || sched.err[k]) { schedPaint(); return; }
+      sched.pending[k] = 1;
+      schedPaint();
+      fetch(API_BASE + "/api/fantasy-sos?" + (sched.season ? "season=" + encodeURIComponent(sched.season) + "&" : "") + "v=2")
+        .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ if (!r.ok || !j || j.ok !== true) throw new Error(j && j.error === "mfl_unavailable" ? "mfl" : "http"); return j; }); })
+        .then(function(d){
+          delete sched.pending[k];
+          sched.cache[k] = { d: d, at: Date.now(), live: !!(d.season && d.season.state === "in_season") };
+          // First open, nothing played this season yet (the offseason, from Jan 1): last season, labeled.
+          if (!sched.opened) {
+            sched.opened = true;
+            if (!sched.season && d.season && d.season.state === "not_started") { sched.fellBack = String(d.year); sched.season = String((parseInt(d.year, 10) || 0) - 1); schedLoad(); return; }
+          }
+          if (schedKey() === k) schedPaint();   // a late answer for another season never paints
+        }, function(e){ delete sched.pending[k]; sched.err[k] = e && e.message === "mfl" ? "mfl" : "net"; if (schedKey() === k) schedPaint(); });
     }
-    function schedRenderShell(){
-      var posChips = SCHED_POS.map(function(p){ return '<button type="button" data-spos="' + p[0] + '" aria-pressed="' + (p[0] === sched.pos ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
-      var viewChips = [["season","Full season"],["playoffs","Playoffs 15–17"]].map(function(p){ return '<button type="button" data-sview="' + p[0] + '" aria-pressed="' + (p[0] === sched.view ? "true" : "false") + '">' + p[1] + '</button>'; }).join("");
-      schedSection.innerHTML =
-        '<div class="fpa-controls">' +
-          '<label>Season<select class="sched-year"></select></label>' +
-          '<label>Position<div class="fpa-pos sched-pos">' + posChips + '</div></label>' +
-          '<label>View<div class="fpa-pos sched-view">' + viewChips + '</div></label>' +
-        '</div><div class="sched-body"></div>';
-      var ysel = schedSection.querySelector(".sched-year");
-      loadYears(function(ys){ ysel.innerHTML = ys.map(function(y){ return '<option value="' + y + '"' + (y === sched.season ? " selected" : "") + '>' + y + '</option>'; }).join(""); });
-      ysel.addEventListener("change", function(){ sched.season = ysel.value; schedLoad(); });
-      schedSection.querySelectorAll(".sched-pos [data-spos]").forEach(function(b){ b.addEventListener("click", function(){ sched.pos = b.getAttribute("data-spos"); schedSection.querySelectorAll(".sched-pos [data-spos]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); schedLoad(); }); });
-      schedSection.querySelectorAll(".sched-view [data-sview]").forEach(function(b){ b.addEventListener("click", function(){ sched.view = b.getAttribute("data-sview"); schedSection.querySelectorAll(".sched-view [data-sview]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); schedPaint(); }); });
+    function schedEnd(d){ return (d && d.season && d.season.endWeek) || 17; }
+    function schedNow(d){ var s = (d && d.season) || {}, st = s.weeks || {}; if (s.state !== "in_season") return 0; for (var w = 1; w <= schedEnd(d); w++) if (st[w] !== "final") return w; return 0; }
+    function schedMode(d){ var m = sched.weeks; if (m === "rest" && !schedNow(d)) m = ""; if (m === "playoffs" && !((d && d.playoffWeeks) || []).length) m = ""; return m || (schedNow(d) ? "rest" : "all"); }
+    // League weeks only (no NFL Week 18).
+    function schedWeeks(d){
+      var m = schedMode(d), end = schedEnd(d), lo = 1, hi = end, a = [];
+      if (m === "playoffs") return ((d && d.playoffWeeks) || []).slice();
+      if (m === "rest") lo = schedNow(d) || 1;
+      if (m === "custom") { lo = Math.min(Math.max(1, sched.from || 1), end); hi = sched.to ? Math.min(Math.max(lo, sched.to), end) : end; }
+      for (var w = lo; w <= hi; w++) a.push(w);
+      return a;
     }
-    function schedCellColor(ratio){
-      if (ratio == null) return "background:var(--panel-alt);color:var(--muted)";
-      var t = Math.max(0, Math.min(1, (ratio - 0.8) / 0.4));   // 0 = tough (red) → 1 = easy (green)
-      return "background:hsl(" + Math.round(t * 120) + ",55%,36%);color:#fff";
+    function schedSpan(a, b){ return a === b ? "Wk " + a : "Wks " + a + "–" + b; }
+    function schedOpp(d, opp){
+      var c = d.teams && d.teams[opp] && d.teams[opp][fpa.pos];
+      if (!c) return null;
+      var tg = (d.teamGames || {})[opp], lg = d.league && d.league.perGame ? d.league.perGame[fpa.pos] : null;
+      var pg = c.raw ? c.raw.perGame : null, ratio = c.adj ? c.adj.ratio : null;
+      return { pg: pg, ratio: ratio, ptsR: pg != null && lg ? pg / lg : null, games: tg && tg.games != null ? tg.games : ((c.raw && c.raw.games) || 0) };
+    }
+    function schedPct(r){ var p = Math.round((r - 1) * 100); return p === 0 ? "0%" : (p > 0 ? "+" : "−") + Math.abs(p) + "%"; }
+    function schedFmt(v){ return v == null ? "—" : (sched.show === "vs" ? schedPct(v) : Number(v).toFixed(1)); }
+    function schedCls(r, g){ var p = r == null ? 0 : Math.round((r - 1) * 100); return !p || !fpaColored(r, g) ? "" : (p > 0 ? " up" : " dn"); }
+    function schedRows(d){
+      var wks = schedWeeks(d), all = d.schedule || {}, rows = [];
+      Object.keys(all).forEach(function(tm){
+        var byWk = {}, bye = null;
+        (all[tm] || []).forEach(function(g){ byWk[g.wk] = g; if (g.bye) bye = g.wk; });
+        var sum = 0, n = 0, rsum = 0, rn = 0, games = 0, seen = {};
+        var cells = wks.map(function(w){
+          var g = byWk[w];
+          if (!g) return { wk: w, none: true };
+          if (g.bye) return { wk: w, bye: true };
+          var o = schedOpp(d, g.opp), v = !o ? null : (sched.show === "vs" ? o.ratio : o.pg), r = !o ? null : (sched.show === "vs" ? o.ratio : o.ptsR);
+          if (v != null) { sum += v; n++; }
+          if (r != null) { rsum += r; rn++; if (!seen[g.opp]) { seen[g.opp] = 1; games += o.games; } }
+          return { wk: w, g: g, o: o, v: v, r: r };
+        });
+        rows.push({ tm: tm, bye: bye, cells: cells, avg: n ? sum / n : null, avgR: rn ? rsum / rn : null, avgGames: games });
+      });
+      var key = sched.sort || "avg", dir = sched.sort ? sched.dir : "desc";
+      rows.sort(function(a, b){
+        var az = a.tm < b.tm ? -1 : 1;
+        if (key === "team") return dir === "asc" ? az : -az;
+        if (a.avg == null || b.avg == null) return a.avg == null && b.avg == null ? az : (a.avg == null ? 1 : -1);
+        return (dir === "asc" ? a.avg - b.avg : b.avg - a.avg) || az;
+      });
+      return rows;
+    }
+    function schedControls(d){
+      var shown = d ? String(d.year) : (sched.season || "");
+      var ys = (fpa.years || []).slice(); if (shown && ys.indexOf(shown) < 0) { ys.push(shown); ys.sort().reverse(); }
+      var opt = function(v, l, on){ return '<option value="' + esc(v) + '"' + (on ? " selected" : "") + '>' + esc(l) + '</option>'; };
+      var m = schedMode(d), po = (d && d.playoffWeeks) || [];
+      var html = '<label>Season<select class="sched-year">' + (ys.length ? ys : [shown || "—"]).map(function(y){ return opt(y, y, y === shown); }).join("") + '</select></label>' +
+        '<label>Weeks<select class="sched-weeks">' + (schedNow(d) ? opt("rest", "Rest of season", m === "rest") : "") + opt("all", "All weeks", m === "all") +
+          (po.length ? opt("playoffs", "Playoffs (" + schedSpan(po[0], po[po.length - 1]) + ")", m === "playoffs") : "") + opt("custom", "Custom weeks", m === "custom") + '</select></label>';
+      if (m === "custom") {
+        var end = schedEnd(d), to = sched.to || end, f = "", t = "";
+        for (var w = 1; w <= end; w++) { f += opt(String(w), String(w), w === sched.from); t += opt(String(w), String(w), w === to); }
+        html += '<label>From wk<select class="sched-from">' + f + '</select></label><label>To wk<select class="sched-to">' + t + '</select></label>';
+      }
+      var vs = sched.show === "vs";
+      html += '<div class="fpa-ctl"><span id="sched-show-lbl">Show</span><div class="fpa-pos sched-show" role="group" aria-labelledby="sched-show-lbl">' +
+          '<button type="button" data-sshow="pts" aria-pressed="' + (vs ? "false" : "true") + '">Points allowed</button><button type="button" data-sshow="vs" aria-pressed="' + (vs ? "true" : "false") + '">vs usual</button></div></div>' +
+        '<div class="fpa-ctl"><span id="sched-pos-lbl">Position</span><div class="fpa-pos sched-pos" role="group" aria-labelledby="sched-pos-lbl">' +
+          POS.map(function(p){ return '<button type="button" data-spos="' + p[0] + '" aria-pressed="' + (p[0] === fpa.pos ? "true" : "false") + '">' + p[1] + '</button>'; }).join("") + '</div></div>';
+      return '<div class="fpa-controls">' + html + '</div>';
+    }
+    function schedBodyHtml(d){
+      var k = schedKey();
+      if (!d) {
+        if (sched.err[k]) return '<div class="asw-meta" role="alert" style="padding:14px">Couldn’t load the schedule' + (sched.err[k] === "mfl" ? " (MFL didn’t answer)" : "") + '. <button type="button" class="sched-retry">Retry</button></div>';
+        return '<div class="asw-meta" role="status" style="padding:14px">Loading the schedule…</div>';
+      }
+      if (!Object.keys(d.schedule || {}).length) return '<div class="asw-meta" role="status" style="padding:14px">The ' + esc(String(d.year)) + ' schedule isn’t available yet.</div>';
+      var wks = schedWeeks(d), rows = schedRows(d), used = d.weeksUsed || [], now = schedNow(d), po = d.playoffWeeks || [];
+      var who = FPA_PLURAL[fpa.pos] || fpa.pos, lg = d.league && d.league.perGame ? d.league.perGame[fpa.pos] : null, live = d.season && d.season.state === "in_season";
+      var done = d.season && d.season.state === "complete", yr = esc(String(d.year)), span = schedSpan(wks[0], wks[wks.length - 1]);
+      var basis = used.length ? " (" + schedSpan(used[0], used[used.length - 1]) + ")" : "";
+      var txt = !used.length ? "<b>" + span + "</b> · No " + yr + " games have been played yet, so opponents have no numbers yet."
+        : (sched.show === "vs"
+          ? "<b>" + span + "</b> · how far above or below usual opponents " + (done ? "held " + esc(who) + " over the " + yr + " season" : "have held " + esc(who) + " so far" + basis) + ". Default order: most above usual first."
+          : "<b>" + span + "</b> · points opponents " + (done ? "allowed to " + esc(who) + " over the " + yr + " season" : "have allowed to " + esc(who) + " so far" + basis) + ", per game" + (lg != null ? "; league average " + Number(lg).toFixed(1) : "") + ". Default order: most allowed first.");
+      if ((d.weeks_in_progress || []).length) txt += " Wk " + d.weeks_in_progress[d.weeks_in_progress.length - 1] + " games still being played aren’t counted yet.";
+      if (sched.fellBack) txt = "No " + esc(sched.fellBack) + " games yet, so this is " + yr + ". " + txt;
+      var key = sched.sort || "avg", dir = sched.sort ? sched.dir : "desc";
+      var th = function(k, label, cls, title){
+        var on = key === k;
+        return '<th class="' + cls + '" aria-sort="' + (on ? (dir === "asc" ? "ascending" : "descending") : "none") + '"><button type="button" class="sched-sort" data-ssort="' + k + '" title="' + esc(title) + '">' + label + ' <i aria-hidden="true">' + (on ? (dir === "asc" ? "▲" : "▼") : "⇅") + '</i></button></th>';
+      };
+      var head = '<tr>' + th("team", "Team", "team", "NFL team, A to Z") + th("avg", "Avg", "num", "The opponents in these weeks, averaged (byes skipped)") +
+        wks.map(function(w){ var tag = w === now ? "now" : (po.indexOf(w) >= 0 ? "playoff" : ""); return '<th class="wk' + (tag === "now" ? " now" : (tag ? " po" : "")) + '" scope="col">Wk ' + w + (tag ? "<small>" + tag + "</small>" : "") + '</th>'; }).join("") + '</tr>';
+      var body = rows.map(function(r){
+        return '<tr><th class="team" scope="row">' + esc(r.tm) + '<small>' + (r.bye ? "Bye Wk " + r.bye : "No bye") + '</small></th>' +
+          '<td class="num ag"><span class="asw-trend' + schedCls(r.avgR, r.avgGames) + '">' + schedFmt(r.avg) + '</span></td>' +
+          r.cells.map(function(c){
+            if (c.none) return '<td class="sc"></td>';
+            if (c.bye) return '<td class="sc bye">BYE</td>';
+            var o = c.o, tip = "Wk " + c.wk + " " + (c.g.home ? "vs " : "@") + c.g.opp + (o ? " · allowed " + (o.pg != null ? Number(o.pg).toFixed(1) : "—") + " per game to " + who + (o.ratio != null ? ", " + schedPct(o.ratio) + " vs usual" : "") + " · " + o.games + (o.games === 1 ? " game" : " games") : " · no numbers yet");
+            return '<td class="sc' + (live && c.g.status === "final" ? " off" : "") + '" title="' + esc(tip) + '"><b>' + (c.g.home ? "vs " : "@") + esc(c.g.opp) + '</b><span class="asw-trend' + schedCls(c.r, o && o.games) + '">' + schedFmt(c.v) + '</span></td>';
+          }).join("") + '</tr>';
+      }).join("");
+      return '<div class="fpa-sub" id="sched-basis">' + txt + '</div>' +
+        '<div class="fpa-sub fpa-note">This describes what each opponent has allowed in games already played. It isn’t a forecast of what a team will score; it doesn’t account for that team’s offense, injuries or future changes. Color appears only when the difference remains large after adjusting for small sample sizes. Each opponent’s number is its season so far; Avg averages the opponents in these weeks (an opponent played twice counts twice).</div>' +
+        '<div class="asw-table-wrap"><table class="fpa-table sched-grid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
     }
     function schedPaint(){
-      var d = sched.data || {}, teams = (d.teams || []).slice();
-      var aggKey = sched.view === "playoffs" ? "playoffAvg" : "seasonAvg";
-      teams.sort(function(a, b){ return (b[aggKey] || 0) - (a[aggKey] || 0); });
-      var posLbl = (SCHED_POS.filter(function(p){ return p[0] === (d.pos || sched.pos); })[0] || ["", sched.pos])[1];
-      var sub = posLbl + " strength of schedule · " + (d.season || sched.season) +
-        (d.projected ? " (projected — using " + d.ratingSeason + " defense ratings)" : "") +
-        " · green = faces generous defenses (easy), red = tough · sorted easiest-first by " +
-        (sched.view === "playoffs" ? "playoff (Wk 15–17)" : "season") + " avg";
-      var wkCols = []; for (var w = 1; w <= 18; w++) wkCols.push(w);
-      var html = '<div class="fpa-sub">' + esc(sub) + '</div>' +
-        '<div class="asw-table-wrap"><table class="fpa-table sched-grid"><thead><tr>' +
-        '<th class="num">#</th><th class="team">Team</th>' +
-        wkCols.map(function(w){ return '<th class="num">' + (w >= 15 && w <= 17 ? '<span style="color:var(--accent)">' + w + '</span>' : w) + '</th>'; }).join("") +
-        '<th class="num">Avg</th></tr></thead><tbody>';
-      if (!teams.length) html += '<tr><td colspan="21" class="num" style="color:var(--muted)">No schedule data.</td></tr>';
-      teams.forEach(function(t, i){
-        var byWk = {}; (t.weeks || []).forEach(function(w){ byWk[w.wk] = w; });
-        html += '<tr><td class="num">' + (i + 1) + '</td><td class="team">' + esc(t.team) + '</td>' +
-          wkCols.map(function(w){ var c = byWk[w]; if (!c || c.opp == null) return '<td class="num sched-cell" style="background:var(--panel-alt);color:var(--muted)">—</td>'; return '<td class="num sched-cell" style="' + schedCellColor(c.ratio) + '" title="vs ' + esc(c.opp) + ' · matchup ' + (c.ratio != null ? c.ratio : "—") + ' (D rank ' + (c.rank || "—") + ' of 32)">' + esc(c.opp) + '</td>'; }).join("") +
-          '<td class="num" style="' + schedCellColor(t[aggKey]) + '"><b>' + (t[aggKey] != null ? t[aggKey] : "—") + '</b></td></tr>';
-      });
-      html += '</tbody></table></div>';
-      schedBody().innerHTML = html;
+      var d = schedData();
+      schedSection.innerHTML = schedControls(d) + '<div class="sched-body">' + schedBodyHtml(d) + '</div>';
       notifyResize();
+    }
+    function schedGo(){ delete sched.err[schedKey()]; schedLoad(); }
+    function schedRenderShell(){
+      if (!fpa.years) loadYears(function(){ if (!schedSection.hidden) schedPaint(); });
+      schedSection.addEventListener("change", function(e){
+        var t = e.target, cl = t && t.classList, v = t && t.value;
+        if (!cl) return;
+        if (cl.contains("sched-year")) { sched.season = v; sched.fellBack = ""; sched.weeks = ""; sched.from = 1; sched.to = 0; schedGo(); }
+        else if (cl.contains("sched-weeks")) { var cur = schedWeeks(schedData()); sched.weeks = v; if (v === "custom") { sched.from = cur[0] || 1; sched.to = cur[cur.length - 1] || 0; } schedPaint(); }
+        else if (cl.contains("sched-from")) { sched.from = parseInt(v, 10) || 1; if (sched.to && sched.to < sched.from) sched.to = sched.from; schedPaint(); }
+        else if (cl.contains("sched-to")) { sched.to = parseInt(v, 10) || 0; if (sched.to && sched.to < sched.from) sched.from = sched.to; schedPaint(); }
+      });
+      schedSection.addEventListener("click", function(e){
+        var t = e.target, el;
+        if (!t || !t.closest) return;
+        if ((el = t.closest("[data-spos]"))) { var p = el.getAttribute("data-spos"); if (p !== fpa.pos) { fpa.pos = p; fpa.detailTeam = null; fpa.detailWeek = null; fpa._posFromSched = true; schedPaint(); } return; }
+        if ((el = t.closest("[data-sshow]"))) { sched.show = el.getAttribute("data-sshow") === "vs" ? "vs" : "pts"; schedPaint(); return; }
+        if ((el = t.closest("[data-ssort]"))) {
+          var k = el.getAttribute("data-ssort"), curKey = sched.sort || "avg", curDir = sched.sort ? sched.dir : "desc";
+          if (k !== curKey) { sched.sort = k; sched.dir = k === "team" ? "asc" : "desc"; } else { sched.sort = k; sched.dir = curDir === "asc" ? "desc" : "asc"; }
+          if (sched.sort === "avg" && sched.dir === "desc") sched.sort = "";
+          schedPaint(); return;
+        }
+        if (t.closest(".sched-retry")) { schedGo(); return; }
+      });
     }
 
     var sections = { "player-stats": psSection, "fpa": host, "adp": adpSection, "vegas": vegasSection, "pace": paceSection, "schedule": schedSection };
@@ -6160,10 +6290,12 @@ table.asw-table{font-size:13px}
         Object.keys(sections).forEach(function(k){ if (sections[k]) sections[k].hidden = (k !== v); });
         setPageHead(v);   // masthead names the board you're actually on
         if (v === "fpa" && !fpa.rendered) { fpa.rendered = true; renderShell(); load(); }
+        else if (v === "fpa" && fpa._posFromSched) { fpa._posFromSched = false; host.querySelectorAll(".fpa-pos button").forEach(function(x){ x.setAttribute("aria-pressed", x.getAttribute("data-pos") === fpa.pos ? "true" : "false"); }); paint(); }
         if (v === "adp" && !adp.rendered) { adp.rendered = true; adpRenderShell(); adpLoad(); }
         if (v === "vegas" && !vegas.rendered) { vegas.rendered = true; vegasLoad(); }
         if (v === "pace" && !pace.rendered) { pace.rendered = true; paceLoad(); }
         if (v === "schedule" && !sched.rendered) { sched.rendered = true; schedRenderShell(); schedLoad(); }
+        else if (v === "schedule") schedLoad();   // the shared position, and a re-read once 5 minutes old
         setTimeout(notifyResize, 80);
       });
     });
