@@ -412,6 +412,12 @@ console.log("6. markup: accessible controls, readable sizes, nothing old left");
     assert.ok(sizes.length > 5 && sizes.every((s) => s >= 11), sizes.join());
     assert.ok(!/ups-m-sched-wrap|ups-m-sched-note|\.cell\b/.test(css));
   });
+  await check("week rows (Pts Agst breakdown + Sched team schedule) give 'Wk 17' one line: 44px, 40px under 340px; never the 34px that wrapped Wk 10–17 (#1281)", () => {
+    const wk = [...css.matchAll(/\.ups-m-fpa-wk2\s*\{\s*grid-template-columns:\s*(\d+)px/g)].map((m) => Number(m[1]));
+    assert.deepStrictEqual(wk, [44, 40], "the shared rule (44px) and its under-340px version (40px)");
+    assert.ok(/@media \(max-width: 340px\) \{ \.ups-m-fpa-wk2 \{ grid-template-columns: 40px/.test(css));
+    assert.ok(!/\.ups-m-sched-root \.ups-m-fpa-wk2/.test(css), "one shared rule, no Sched-only copy");
+  });
   await check("stats.js: the old heatmap, its hsl ramp and the easy/tough legend are gone", () => {
     const js = read("site/m/views/stats.js");
     assert.ok(!/schedColor|green = easy|sorted easiest-first|Strength of Schedule/.test(js));
