@@ -251,7 +251,7 @@ console.log("3. Weeks: All weeks, Playoffs, Custom; a finished season; a 16-week
     assert.strictEqual(v.heads().length, 17);
     assert.strictEqual(v.mount.querySelectorAll(".c.off").length, 0);
     assert.strictEqual(v.sosGets().filter((r) => /season=2025&v=2$/.test(r.url)).length, 1);
-    assert.ok(/^Wks 1–17 · points opponents have allowed to QBs so far \(Wks 1–17\)/.test(v.mount.querySelector("#ups-m-sched-window").textContent));
+    assert.ok(/^Wks 1–17 · points opponents allowed to QBs over the 2025 season, per game; league average \d+\.\d\. Default order: most allowed first\./.test(v.mount.querySelector("#ups-m-sched-window").textContent));
   });
   await check("2025 RB, the full season: color only where the shrunk gap is 8%+ (k = 30 games)", async () => {
     v.mount.querySelector('[data-schedpos="RB"]').click(); await settle();

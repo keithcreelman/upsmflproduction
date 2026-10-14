@@ -2347,10 +2347,10 @@
     var lg = d.league && d.league.perGame ? d.league.perGame[fpa.pos] : null;
     var span = wks.length ? fpaWeeksLabel(wks[0], wks[wks.length - 1]) : "";
     var basis = used.length ? " (" + fpaWeeksLabel(used[0], used[used.length - 1]) + ")" : "";
-    var txt;
-    if (!used.length) txt = "<b>" + span + "</b> · No " + U.escapeHtml(String(d.year)) + " games have been played yet, so opponents have no numbers yet.";
-    else if (msched.show === "vs") txt = "<b>" + span + "</b> · how far above or below usual opponents have held " + who + " so far" + basis + ". Default order: most above usual first.";
-    else txt = "<b>" + span + "</b> · points opponents have allowed to " + who + " so far" + basis + ", per game" + (lg != null ? "; league average " + fpaDec(lg) : "") + ". Default order: most allowed first.";
+    var done = d.season && d.season.state === "complete", yr = U.escapeHtml(String(d.year)), txt;
+    if (!used.length) txt = "<b>" + span + "</b> · No " + yr + " games have been played yet, so opponents have no numbers yet.";
+    else if (msched.show === "vs") txt = "<b>" + span + "</b> · how far above or below usual opponents " + (done ? "held " + who + " over the " + yr + " season" : "have held " + who + " so far" + basis) + ". Default order: most above usual first.";
+    else txt = "<b>" + span + "</b> · points opponents " + (done ? "allowed to " + who + " over the " + yr + " season" : "have allowed to " + who + " so far" + basis) + ", per game" + (lg != null ? "; league average " + fpaDec(lg) : "") + ". Default order: most allowed first.";
     var inProg = d.weeks_in_progress || [];
     if (inProg.length) txt += ' <span class="ups-m-st-live"></span>Wk ' + inProg[inProg.length - 1] + " games still being played aren’t counted yet.";
     if (msched.fellBack) txt = "No " + U.escapeHtml(msched.fellBack) + " games yet, so this is " + U.escapeHtml(String(d.year)) + ". " + txt;
@@ -2447,7 +2447,8 @@
         '<span class="v"><span class="ups-m-tr' + (o ? schedCls(o.ratio, o.games) : "") + '">' + (pct == null ? "—" : fpaSigned(pct, "%")) + "</span></span>" +
         '<span class="ch" aria-hidden="true">›</span></div>';
     }).join("");
-    return head + '<div class="ups-m-fpa-sum">' + U.escapeHtml(sum) + "</div>" +
+    var each = "Each opponent’s numbers are its season " + (d.season && d.season.state === "complete" ? "totals" : "so far") + ", per game, not that one game. Tap one for its breakdown.";
+    return head + '<div class="ups-m-fpa-sum">' + U.escapeHtml(sum) + "<br>" + U.escapeHtml(each) + "</div>" +
       '<div class="ups-m-fpa-wk2 head" role="row"><span class="wk">Wk</span><span class="op">Opponent</span><span class="v">Allowed</span><span class="v">vs usual</span><span class="ch"></span></div>' +
       '<div class="ups-m-fpa-wklist">' + rows + "</div>";
   }
