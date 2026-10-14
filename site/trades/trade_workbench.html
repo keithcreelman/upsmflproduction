@@ -2356,6 +2356,16 @@ summary:focus-visible {
 .twb-3w-asset.on { border-color: rgba(238, 79, 31, 0.6); background: rgba(238, 79, 31, 0.12); }
 .twb-3w-asset .nm { font-weight: 700; font-size: 0.86rem; }
 .twb-3w-asset .mt { font-size: 0.72rem; color: var(--twb-text-soft); }
+/* Lineup-penalty forfeited picks: visible, greyed, never selectable (Keith 2026-10-12). */
+.twb-pick-unverified { margin: 0.4rem 0 0.6rem; padding: 0.5rem 0.65rem; border: 1px solid rgba(255, 184, 107, 0.45); border-radius: 8px; background: rgba(255, 184, 107, 0.1); color: #ffd09a; font-size: 0.8rem; font-weight: 700; line-height: 1.35; }
+.twb-row-forfeited td { opacity: 0.55; }
+.twb-row-forfeited .twb-asset-name { text-decoration: line-through; }
+.twb-row-forfeited .twb-asset-sub.twb-asset-sub-warn { color: #ffb3b3; font-weight: 700; }
+.twb-3w-asset.is-forfeited,
+.twb-discovery-item.is-forfeited { opacity: 0.55; cursor: not-allowed; border-style: dashed; border-color: var(--twb-border-strong); }
+.twb-3w-asset.is-forfeited:hover { border-color: var(--twb-border-strong); }
+.twb-3w-asset.is-forfeited .mt,
+.twb-discovery-item.is-forfeited .twb-discovery-item-meta { color: #ffb3b3; font-weight: 700; }
 .twb-3w-destrow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.4rem 0.3rem 0.55rem 0.7rem; }
 .twb-3w-destrow .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--twb-text-soft); }
 .twb-3w-dest {
@@ -2700,7 +2710,7 @@ summary:focus-visible {
     </form>
   </dialog>
 
-  <script src="../shared/trade_3way_view.js?v=20261007a"></script>
-  <script src="./trade_workbench.js?v=20261007a" defer></script>
+  <script src="../shared/trade_3way_view.js?v=20261012b"></script>
+  <script src="./trade_workbench.js?v=20261012b" defer></script>
 </body>
 </html>

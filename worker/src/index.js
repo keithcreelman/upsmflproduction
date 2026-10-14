@@ -49,7 +49,7 @@ import {
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
 import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking, alertBookingSkips, previewStandingRule } from "./lineup_rulings.js";
-import { checkForfeitedPicks, reconcileForfeitedPicks, selectForfeitedPick } from "./lineup_forfeits.js";
+import { checkForfeitedPicks, reconcileForfeitedPicks, selectForfeitedPick, markForfeitedPicks } from "./lineup_forfeits.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
@@ -22202,6 +22202,9 @@ const mflToSleeper = {};
             }
             future_picks.sort((a, b) => (a.year + a.round).localeCompare(b.year + b.round));
           }
+          // Lineup-penalty forfeits → greyed out in the offer builders (display
+          // only; the Send/Accept/Execute guard is the authority).
+          const forfeitMarks = await markForfeitedPicks(env, leagueId, future_picks, (p) => p.asset_id);
 
           // Current-year picks not yet made (still owned by this franchise)
           const current_picks = [];
@@ -22227,7 +22230,7 @@ const mflToSleeper = {};
             }
           }
 
-          return jsonOut(200, { players, future_picks, current_picks });
+          return jsonOut(200, { players, future_picks, current_picks, forfeit_check: forfeitMarks.ok ? "ok" : "unavailable" });
         } catch (e) {
           return jsonOut(500, { error: String(e && e.message || e) });
         }
@@ -59063,6 +59066,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             if (data && typeof data === "object") {
               const next = JSON.parse(JSON.stringify(data));
               next.meta = next.meta && typeof next.meta === "object" ? next.meta : {};
+              // A cached copy must not carry stale forfeit marks: re-mark now.
+              const fbMarks = await markForfeitedPicks(env, leagueId,
+                (Array.isArray(next.teams) ? next.teams : []).flatMap((tm) => (Array.isArray(tm && tm.assets) ? tm.assets : []).filter((a) => a && a.type === "PICK")),
+                (p) => String(p.pick_key || p.asset_id || "").replace(/^pick:/i, ""));
+              next.meta.forfeit_marks = { ok: fbMarks.ok, marked: fbMarks.marked };
               next.meta.stale_fallback = {
                 used: true,
                 reason: safeStr(reasonCode || "upstream_failed"),
@@ -59151,6 +59159,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const pickAssetsByFranchise = assetsRes.ok ? parseAssetsExportPicks(assetsRes.data) : {};
+        // Lineup-penalty forfeits → greyed out in the War Room (display only;
+        // the Send/Accept/Execute guard is the authority).
+        const forfeitMarks = await markForfeitedPicks(env, leagueId,
+          Object.values(pickAssetsByFranchise).flatMap((arr) => asArray(arr)), (p) => String(p.pick_key || p.asset_id || "").replace(/^pick:/i, ""));
         const loggedInFranchiseId = myFrRes.ok ? parseMyFranchiseId(myFrRes.data) : "";
 
         // Salary adjustments are part of cap-used per the official MFL formula
@@ -59474,6 +59486,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             logged_in_franchise_id: loggedInFranchiseId || "",
             commissioner_lockout: commissionerLockout,
             salary_cap_dollars: leagueSalaryCapDollars,
+            forfeit_marks: { ok: forfeitMarks.ok, marked: forfeitMarks.marked },
             counts: {
               teams: teams.length,
               roster_players: allPlayerIds.length,
