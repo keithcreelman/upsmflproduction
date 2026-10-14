@@ -10,7 +10,13 @@
 // team, never MFL's repeated last week, and a failed MFL read fails the answer.
 //
 // What it returns (field names kept so every reader keeps working):
-//   matchups[team]    this week's game: opp, isHome, kickoff, spread, status.
+//   matchups[team]    this week's game: opp, isHome, kickoff, spread, status, plus
+//                     total and implied (team points) from the same line.
+//                     spread = the Vegas line for that team, favorite negative, from
+//                     nflverse games.csv: the source Stats → Vegas (/api/vegas) reads
+//                     (#1262; MFL's nflSchedule spread came and went by MFL server).
+//   spreadSource / spreadState / spreadReadAt  where the lines came from, whether
+//                     every game has one, and when the file was read.
 //   defRatings[team][group]  rank / of / ratio (Allowed ÷ Usual, ranked high to low),
 //                     plus games, perGame (Allowed) and usual, exactly as Pts Agst,
 //                     and ppgRank / ppgOf: the rank by MFL points allowed per game.
@@ -18,14 +24,15 @@
 //   playerWindow[pid] the player's MFL points per final game in the window.
 //   horizon[team]     the next three weeks' opponents.
 //   weather[team]     forecast at the venue near kickoff (Open-Meteo), or dome.
-// Read-only: MFL export GETs, one Open-Meteo GET, D1 SELECTs (via the engine).
+// Read-only: MFL export GETs, one nflverse GET, one Open-Meteo GET, D1 SELECTs (via
+// the engine).
 
 import {
   FPA_ENGINE_VERSION, FPA_BASELINE, FpaUpstreamError, NFLV_TO_MFL,
   fpaUrls, fpaLoadMfl, fpaCompute, fpaAggregate, fpaWeekStates, fpaGameStatus, fpaSeasonContextCached,
 } from "./fpa_engine.js";
 
-export const LINEUP_MU_VERSION = "lmu2-2026-10-13";
+export const LINEUP_MU_VERSION = "lmu3-2026-10-14";   // lmu3: the line from nflverse (#1262)
 const LMU_CACHE_HOST = "https://upsmfl-lineup.local";
 const FPA_MFL_TAG = "fpa2";   // the engine's URL tag: Lineup and Pts Agst share one copy of each MFL read
 
@@ -38,23 +45,38 @@ function currentSeason(nowMs) {
   return d.getUTCMonth() >= 2 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
 }
 
-// One week's games by team, from MFL's nflSchedule rows. spread = MFL's line for that
-// team (negative = favored), kept only when the two sides agree (a = −b); MFL's
-// future-week lines often don't, and 0 / blank means no line posted yet.
-const spreadOf = (t) => (t && t.spread != null && str(t.spread) !== "" && isFinite(Number(t.spread)) ? Number(t.spread) : null);
-export function lmuMatchups(rows, nowMs) {
+// One week's games by team, from MFL's nflSchedule rows (opponent, home/away, kickoff,
+// status). The line comes from `lines` (lmuWeekGames: nflverse), never from MFL's own
+// spread field: MFL's servers disagree on it (2026-10-13: 2 of 6 reads had the Week 6
+// lines, 4 had none) and its future weeks hold last season's numbers (#1262). A team
+// gets a line only when nflverse lists the same game (same opponent); otherwise
+// spread / total / implied are null.
+export function lmuMatchups(rows, nowMs, lines) {
   const out = {};
   for (const m of arr(rows)) {
     const ts = arr(m.team); if (ts.length < 2) continue;
     const ko = Number(m.kickoff) || 0, st = fpaGameStatus(m, nowMs);
-    let a = spreadOf(ts[0]), b = spreadOf(ts[1]);
-    if (a == null || b == null || a === 0 || Math.abs(a + b) > 1e-9) { a = null; b = null; }
-    const mk = (t, o, sp) => ({ opp: str(o.id).toUpperCase(), isHome: str(t.isHome) === "1", kickoff: ko, spread: sp,
-      rushDefRank: Number(t.rushDefenseRank) || null, passDefRank: Number(t.passDefenseRank) || null, status: st });
-    out[str(ts[0].id).toUpperCase()] = mk(ts[0], ts[1], a);
-    out[str(ts[1].id).toUpperCase()] = mk(ts[1], ts[0], b);
+    const mk = (t, o) => {
+      const team = str(t.id).toUpperCase(), opp = str(o.id).toUpperCase();
+      const ln = lines && lines[team] && lines[team].opp === opp ? lines[team] : null;
+      return { opp, isHome: str(t.isHome) === "1", kickoff: ko,
+        spread: ln ? ln.spread : null, total: ln ? ln.total : null, implied: ln ? ln.implied : null,
+        rushDefRank: Number(t.rushDefenseRank) || null, passDefRank: Number(t.passDefenseRank) || null, status: st };
+    };
+    out[str(ts[0].id).toUpperCase()] = mk(ts[0], ts[1]);
+    out[str(ts[1].id).toUpperCase()] = mk(ts[1], ts[0]);
   }
   return out;
+}
+
+// How complete this week's lines are: "ok" every game has one, "partial" some do,
+// "none" the file was read but no line is posted for this week's games yet,
+// "unavailable" the file couldn't be read (no line is shown; never MFL's instead).
+export function lmuSpreadState(matchups, weekGames) {
+  if (!weekGames || !weekGames.lines) return "unavailable";
+  const teams = Object.keys(matchups);
+  const got = teams.filter((t) => matchups[t].spread != null).length;
+  return !teams.length || !got ? "none" : (got === teams.length ? "ok" : "partial");
 }
 
 // The next three weeks' opponents per team.
@@ -100,26 +122,43 @@ export function lmuRatings(E, agg) {
   return { defRatings, playerWindow };
 }
 
-// Teams playing at a neutral site that week (London, Munich, Melbourne, …), from
-// nflverse games.csv `location` — MFL's schedule has no venue, so the home team's
-// stadium would be wrong for them. Only that week's rows are parsed (the file is
-// ~2 MB; the game_id starts "<season>_<WW>_"). null = the file couldn't be read.
-export function lmuNeutralTeams(csv, yr, wk) {
+// This week's rows of nflverse games.csv, the file Stats → Vegas (/api/vegas) reads.
+// Only that week's rows are parsed (the file is ~2 MB; the game_id starts
+// "<season>_<WW>_"). null = the file couldn't be read. Returns:
+//   neutral  teams playing at a neutral site (London, Munich, Melbourne, …; regular
+//            season), from `location`: MFL's schedule has no venue, so the home
+//            team's stadium would be wrong for them. null = no location column.
+//   lines    per team (MFL codes) for each game with a posted spread_line:
+//            { opp, spread, total, implied }. spread is the betting line, favorite
+//            negative. nflverse spread_line is + when the HOME team is favored, so
+//            home = −spread_line and away = +spread_line (/api/vegas does the same).
+//            total = total_line; implied = total/2 − spread/2, the Vegas board's
+//            formula (home T/2 + S/2, away T/2 − S/2), to 0.1; null without a total.
+//            null = no spread_line column.
+export function lmuWeekGames(csv, yr, wk) {
   if (typeof csv !== "string" || csv.indexOf("game_id,") !== 0) return null;
   const hdr = csv.slice(0, csv.indexOf("\n")).replace(/\r$/, "").split(",");
   const ix = (n) => hdr.indexOf(n);
-  const iA = ix("away_team"), iH = ix("home_team"), iL = ix("location"), iT = ix("game_type");
-  if (iA < 0 || iH < 0 || iL < 0) return null;
+  const iA = ix("away_team"), iH = ix("home_team"), iL = ix("location"), iT = ix("game_type"), iS = ix("spread_line"), iO = ix("total_line");
+  if (iA < 0 || iH < 0) return null;
   const tag = "\n" + yr + "_" + (wk < 10 ? "0" : "") + wk + "_";
-  const out = new Set();
+  const neutral = iL >= 0 ? new Set() : null, lines = iS >= 0 ? {} : null;
+  const num = (v) => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  const r1x = (v) => Math.round(v * 10) / 10;
   for (let at = csv.indexOf(tag); at >= 0; at = csv.indexOf(tag, at + 1)) {
     const end = csv.indexOf("\n", at + 1);
     const c = csv.slice(at + 1, end < 0 ? csv.length : end).replace(/\r$/, "").split(",");
-    if (iT >= 0 && c[iT] !== "REG") continue;
-    if (c[iL] !== "Neutral") continue;
-    for (const t of [c[iA], c[iH]]) if (t) out.add(NFLV_TO_MFL[t] || t);
+    const away = c[iA] ? NFLV_TO_MFL[c[iA]] || c[iA] : "", home = c[iH] ? NFLV_TO_MFL[c[iH]] || c[iH] : "";
+    if (!away || !home || away === home) continue;
+    if (neutral && (iT < 0 || c[iT] === "REG") && c[iL] === "Neutral") { neutral.add(away); neutral.add(home); }
+    const S = lines ? num(c[iS]) : null;
+    if (S == null) continue;
+    const T = iO >= 0 ? num(c[iO]) : null;
+    const hs = S === 0 ? 0 : -S;
+    lines[home] = { opp: away, spread: hs, total: T, implied: T == null ? null : r1x(T / 2 - hs / 2) };
+    lines[away] = { opp: home, spread: S, total: T, implied: T == null ? null : r1x(T / 2 - S / 2) };
   }
-  return out;
+  return { neutral, lines };
 }
 
 // ── Weather at each game's venue near kickoff (Open-Meteo, no key). Domes and fixed
@@ -189,6 +228,19 @@ export async function lmuWeather(matchups, fetchJson, nowMs, neutral) {
   return { weather, state: got === outdoor.length ? "ok" : (got ? "partial" : "unavailable") };
 }
 
+// The nflverse games file (Stats → Vegas reads the same URL), and when the worker's
+// copy was fetched from GitHub: the response's Date, or earlier by its Age when the
+// edge served a stored copy; the request time when neither header is there.
+const GAMES_CSV = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
+export function lmuReadAt(res, nowMs) {
+  const h = res && res.headers && typeof res.headers.get === "function" ? res.headers : null;
+  let t = h ? Date.parse(h.get("date") || "") : nowMs;
+  if (!(t > 0) || t > nowMs + 300000) t = nowMs;
+  const age = h ? Number(h.get("age")) : 0;
+  if (age > 0) t = Math.min(t, nowMs - age * 1000);
+  return Math.floor(t / 1000) * 1000;   // whole seconds, like the headers
+}
+
 async function cacheMatch(key) {
   if (typeof caches === "undefined" || !caches.default) return null;
   try { return await caches.default.match(new Request(key)); } catch (_) { return null; }
@@ -254,7 +306,6 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
     const bad = [];
     missing.forEach((w, i) => { if (extra[i] && extra[i].nflSchedule) schedFor[w] = arr(extra[i].nflSchedule.matchup); else if (w === wk) bad.push(w); });
     if (bad.length) throw new FpaUpstreamError("NFL schedule", bad);
-    const matchups = lmuMatchups(schedFor[wk], now);
     const horizonRead = horizonWeeks.filter((w) => w <= mfl.endWeek && schedFor[w] && schedFor[w].length);
     const horizon = lmuHorizon(schedFor, horizonRead);
 
@@ -272,9 +323,16 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
       attribution = { ...E.attribution, context: ctxState, nflverseThrough: seasonCtx ? seasonCtx.through : 0 };
     }
 
-    const csv = await doFetch("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", { cf: { cacheTtl: 21600, cacheEverything: true }, headers: { "User-Agent": "ups-worker" } })
-      .then((r) => (r && r.ok ? r.text() : null)).catch(() => null);
-    const wx = await lmuWeather(matchups, fetchJson, now, lmuNeutralTeams(csv, yr, wk));
+    // nflverse games.csv (one read): this week's lines and neutral sites. The same URL
+    // and the same 30-minute edge copy as Stats → Vegas, so both show one line.
+    let linesReadAt = null;
+    const csv = await doFetch(GAMES_CSV, { cf: { cacheTtl: 1800, cacheEverything: true }, headers: { "User-Agent": "ups-worker" } })
+      .then((r) => { if (!(r && r.ok)) return null; linesReadAt = lmuReadAt(r, now); return r.text(); }).catch(() => null);
+    const weekGames = lmuWeekGames(csv, yr, wk);
+    const matchups = lmuMatchups(schedFor[wk], now, weekGames && weekGames.lines);
+    const spreadState = lmuSpreadState(matchups, weekGames);
+    const spreadSource = spreadState === "ok" || spreadState === "partial" ? "nflverse" : null;
+    const wx = await lmuWeather(matchups, fetchJson, now, weekGames && weekGames.neutral);
     const weeksAvailable = priorSeason ? 0 : ws.latestFinal;
     const basis = !weeksUsed.length ? "" : (priorSeason ? ratingYr + " season" : (weeksUsed.length === 1 ? "Wk " + weeksUsed[0] : "Wks " + weeksUsed[0] + "–" + weeksUsed[weeksUsed.length - 1]));
     const payload = {
@@ -284,7 +342,8 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
       ratingWindow: { week_min: lo, week_max: hi, last: last || null, auto: true },
       weeksUsed, weeksAvailable, ratingsBasis: basis,
       season: { endWeek: mfl.endWeek, lastCompleteWeek: ws.lastComplete, latestFinalWeek: ws.latestFinal },
-      matchups, defRatings, playerWindow, horizon, horizonWeeks: horizonRead, weather: wx.weather, weatherState: wx.state,
+      matchups, spreadSource, spreadState, spreadReadAt: spreadSource && linesReadAt ? new Date(linesReadAt).toISOString() : null,
+      defRatings, playerWindow, horizon, horizonWeeks: horizonRead, weather: wx.weather, weatherState: wx.state,
       attribution, as_of: asOf, mfl_read_at: new Date(mfl.readAtMs).toISOString(),
     };
     const body = JSON.stringify(payload);
