@@ -33,7 +33,7 @@ scripts/scheduler/logs/
 *.log
 
 # Node / Cloudflare
-node_modules/
+node_modules
 .wrangler/
 
 # Local-only Claude tooling
