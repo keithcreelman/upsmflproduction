@@ -15,7 +15,7 @@
 //                     spread = the Vegas line for that team, favorite negative, from
 //                     nflverse games.csv: the source Stats → Vegas (/api/vegas) reads
 //                     (#1262; MFL's nflSchedule spread came and went by MFL server).
-//   spreadSource / spreadState / spreadAsOf  where the lines came from, whether
+//   spreadSource / spreadState / spreadReadAt  where the lines came from, whether
 //                     every game has one, and when the file was read.
 //   defRatings[team][group]  rank / of / ratio (Allowed ÷ Usual, ranked high to low),
 //                     plus games, perGame (Allowed) and usual, exactly as Pts Agst,
