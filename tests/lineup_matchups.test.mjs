@@ -388,6 +388,9 @@ await check("spreadReadAt = when the file was fetched from GitHub (its Date, les
   assert.strictEqual(LM.lmuReadAt({ headers: new Headers({ date: new Date(at).toUTCString() }) }, at + 60000), at);
   assert.strictEqual(LM.lmuReadAt({ headers: new Headers({ date: new Date(at + 600000).toUTCString(), age: "900" }) }, at + 600000), at - 300000);
   assert.strictEqual(LM.lmuReadAt({}, at), at);
+  // Whole seconds: the same edge copy read 0.3 s apart gives the same time.
+  const hdr = (n) => ({ headers: new Headers({ date: new Date(n).toUTCString(), age: String(Math.floor((n - at) / 1000)) }) });
+  assert.strictEqual(LM.lmuReadAt(hdr(at + 5000), at + 5300), LM.lmuReadAt(hdr(at + 5000), at + 5000));
   const r = await run("YEAR=2026&W=6", REAL, { ...realOpts, csv: SPX.csv, csvHeaders: { date: new Date(at).toUTCString() } });
   assert.strictEqual(r.json.spreadReadAt, new Date(at).toISOString());
   assert.notStrictEqual(r.json.spreadReadAt, r.json.as_of);

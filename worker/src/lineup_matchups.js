@@ -233,13 +233,12 @@ export async function lmuWeather(matchups, fetchJson, nowMs, neutral) {
 // edge served a stored copy; the request time when neither header is there.
 const GAMES_CSV = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
 export function lmuReadAt(res, nowMs) {
-  const h = res && res.headers;
-  if (!h || typeof h.get !== "function") return nowMs;
-  let t = Date.parse(h.get("date") || "");
+  const h = res && res.headers && typeof res.headers.get === "function" ? res.headers : null;
+  let t = h ? Date.parse(h.get("date") || "") : nowMs;
   if (!(t > 0) || t > nowMs + 300000) t = nowMs;
-  const age = Number(h.get("age"));
+  const age = h ? Number(h.get("age")) : 0;
   if (age > 0) t = Math.min(t, nowMs - age * 1000);
-  return t;
+  return Math.floor(t / 1000) * 1000;   // whole seconds, like the headers
 }
 
 async function cacheMatch(key) {
