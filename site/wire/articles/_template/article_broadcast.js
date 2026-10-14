@@ -38,6 +38,11 @@
   var AC = window.AudioContext || window.webkitAudioContext;
   var embedded = false;
   try { embedded = window.parent !== window; } catch (e) { embedded = true; }
+  // The MFL loader sets UPS_WIRE_ROUTE when it injects an article (the same
+  // test article_runtime.js uses). Only that frame is sized to its content, so
+  // only there can a fixed control not follow the reader. A Claude Artifact is
+  // framed too, but it scrolls itself and keeps the pinned switch.
+  var inMfl = embedded && typeof window.UPS_WIRE_ROUTE === "string";
   var reduce = false;
   try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {}
 
@@ -71,7 +76,7 @@
     events: events,
     state: function () {
       return { started: started, muted: muted, ctx: ctx ? ctx.state : "none",
-               played: Object.keys(played), embedded: embedded };
+               played: Object.keys(played), embedded: embedded, inMfl: inMfl };
     }
   };
 
@@ -417,7 +422,8 @@
 
   // Inside the auto-sized MFL frame a fixed control cannot follow the reader,
   // so each segment label gets its own copy of the switch once the show starts.
-  if (embedded && toggles.length) {
+  if (inMfl && toggles.length) {
+    docEl.classList.add("bcast-inframe");
     secs.forEach(function (s) {
       var lab = s.querySelector(".label");
       if (!lab) return;

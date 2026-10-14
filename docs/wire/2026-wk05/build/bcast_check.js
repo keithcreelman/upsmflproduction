@@ -127,7 +127,35 @@ async function run(label, browserType, ctxOpts) {
   await b.close();
 }
 
+// Framed: inside MFL (the loader sets UPS_WIRE_ROUTE) the switch moves into every
+// segment label; in an Artifact-style frame (no route) it stays pinned.
+async function framed(label, mfl) {
+  console.log(`\n== ${label}`);
+  const b = await webkit.launch();
+  const ctx = await b.newContext({ ...devices['iPhone 13 mini'], viewport: { width: 375, height: 760 } });
+  if (mfl) await ctx.addInitScript(() => { window.UPS_WIRE_ROUTE = '/a/2026-wk05-ups-center'; });
+  const p = await ctx.newPage();
+  const errors = [];
+  p.on('pageerror', e => errors.push(String(e)));
+  await p.goto(BASE + '/');
+  await p.setContent(`<iframe src="${URL}" style="width:375px;height:740px;border:0"></iframe>`);
+  await p.waitForTimeout(1500);
+  const f = p.frames().find(x => x.url().includes('2026-wk05-ups-center'));
+  let s = await f.evaluate(() => window.__upsBcast.state());
+  ok(`${label}: framed page detected (embedded ${s.embedded}, MFL ${s.inMfl}), no audio before a tap`, s.embedded && s.inMfl === mfl && s.ctx === 'none', s);
+  await f.click('[data-bcast-start]');
+  await p.waitForTimeout(400);
+  const ui = await f.evaluate(() => ({ minis: [...document.querySelectorAll('.wire-bcast-mini')].filter(x => getComputedStyle(x).display !== 'none').length,
+    dock: getComputedStyle(document.querySelector('[data-bcast-dock]')).position, ctx: window.__upsBcast.state().ctx }));
+  if (mfl) ok(`${label}: a sound switch in each of the 9 segment labels, dock inline`, ui.minis === 9 && ui.dock === 'static', ui);
+  else ok(`${label}: switch stays pinned (fixed), no label copies`, ui.minis === 0 && ui.dock === 'fixed', ui);
+  ok(`${label}: no script errors`, errors.length === 0, errors);
+  await b.close();
+}
+
 (async () => {
+  await framed('mfl-frame', true);
+  await framed('artifact-frame', false);
   await run('desktop', chromium, { viewport: { width: 1280, height: 900 } });
   await run('iphone375', webkit, { ...devices['iPhone 13 mini'], viewport: { width: 375, height: 760 } });
   await run('iphone320', webkit, { ...devices['iPhone SE'], viewport: { width: 320, height: 640 } });

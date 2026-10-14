@@ -36,8 +36,8 @@ The current cues are original material:
 
 | Surface | Behavior | Verified |
 |---|---|---|
-| Standalone page / Claude Artifact | Full: fixed switch, remembered choice (localStorage) | Playwright Chromium 1280 px and WebKit with iPhone emulation at 375 and 320 px: 66 of 66 checks (`docs/wire/2026-wk05/build/bcast_check.js`) |
-| Inside MFL (sandboxed frame) | A switch in every segment label, because a fixed control cannot follow the reader in an auto-sized frame. The choice lasts for the page view. | macOS Safari 26.5.2 in a framed page: module runs, no errors, no audio before a tap, and a scripted click leaves audio "interrupted", never running |
+| Standalone page / Claude Artifact | Full: fixed switch, remembered choice (localStorage) | Playwright Chromium 1280 px and WebKit with iPhone emulation at 375 and 320 px, plus a framed Artifact-style page: 72 of 72 checks (`docs/wire/2026-wk05/build/bcast_check.js`) |
+| Inside MFL (sandboxed frame; detected by the loader's `UPS_WIRE_ROUTE`, as the runtime does) | A switch in every segment label, because a fixed control cannot follow the reader in an auto-sized frame. The choice lasts for the page view. Playwright WebKit with the route set: 9 label switches, inline dock. | macOS Safari 26.5.2 in a framed page: module runs, no errors, no audio before a tap, and a scripted click leaves audio "interrupted", never running |
 | Real iPhone Safari | Should match WebKit | **Not verified here** (no iOS Simulator on this Mac). Keith's phone test is the check. |
 
 **iPhone note:** with the ringer switch on silent, iOS mutes web audio by design. The cues then show only as captions, which is the intended fallback.
