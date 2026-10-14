@@ -34,6 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import wire  # noqa: E402  (style_sha, runtime, STYLE_BANNER)
 import season_sim  # noqa: E402  (display_percentages: largest-remainder rounding, each group totals 100.0)
+import ups_center_stories as STORIES  # noqa: E402  (Builder B: Heat Check, Survival Line, story leads)
 
 ET = ZoneInfo("America/New_York")
 PLAYOFF_FIELD, PLAYOFF_BYES = 6, 2    # league_context F.1 (and season_sim): six teams, byes for seeds 1 and 2
@@ -90,6 +91,8 @@ class Ledger:
         prev = self.claims.get(key)
         if prev and prev["value"] != value:
             raise ValueError("claim %s registered twice with different values: %r vs %r" % (key, prev["value"], value))
+        if prev and not source:
+            source = prev["source"]          # a re-use (e.g. a story lead) keeps the number's original source
         self.claims[key] = {"value": value, "shown": shown, "source": source}
         return shown
 
@@ -555,6 +558,123 @@ class Issue:
         return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
                             % self.week, self.desk(lead, mb=True) + extra + table)
 
+    # ------------------------------------------------------------ Heat Check + Survival Line (Builder B)
+    RULES = {"dom": 28, "of": 33, "sink": 5, "c90": 90, "c60": 60, "c25": 25, "c8": 8}
+
+    def rule(self, k):
+        """A fixed definition printed in a caption (the Week 5 reading and category cutoffs)."""
+        return self.L.put("rule:" + k, self.RULES[k], "UPS Center definition (Week 5 issue, 2026-10-14)")
+    @staticmethod
+    def _ord(k):
+        return "%d%s" % (k, "th" if 10 <= k % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(k % 10, "th"))
+
+    def _wins(self, x):
+        return str(int(x)) if float(x).is_integer() else "%.1f" % x
+
+    def seg_heat(self):
+        H = STORIES.heat(self.ctx)
+        if not H:
+            return self.section("heat", "Heat Check", 8, "Heat Check", self.gap(
+                "heat:no-history", "heat", "The season and history snapshot is missing, so the Heat Check could not be built."))
+        first, last = STORIES.windows(self.week)
+        src = "D1 src_franchise_weekly_score + src_schedule, weeks 1-%d" % self.week
+        w_last = "Wks %d&ndash;%d" % (last[0], last[-1]) if len(last) > 1 else "Wk %d" % last[0]
+        w_first = ("Wks %d&ndash;%d" % (first[0], first[-1]) if len(first) > 1 else "Wk %d" % first[0]) if first else ""
+        rows = []
+        for f in sorted(H, key=lambda f: (-H[f]["ap3"][0], -H[f]["ap"][0], f)):
+            r = H[f]
+            a3 = self.L.put("heat:ap3:" + f, "%d-%d" % r["ap3"], src, wl(*r["ap3"]))
+            ap = self.L.put("heat:ap:" + f, "%d-%d" % r["ap"], src, wl(*r["ap"]))
+            last_rk = self.L.put("heat:rkLast:" + f, r["rkLast"], src, self._ord(r["rkLast"]))
+            move = ("%s&nbsp;&rarr;&nbsp;%s" % (self.L.put("heat:rkFirst:" + f, r["rkFirst"], src, self._ord(r["rkFirst"])), last_rk)
+                    if r["rkFirst"] is not None else last_rk)
+            rows.append('<tr><td>%s<br><small><b>%s</b></small></td><td class="num">%s<br><small>(%s)</small></td>'
+                        '<td class="num">%s</td></tr>' % (e(self.owner[f]), r["label"], a3, ap, move))
+        lrows = []
+        for f in sorted(H, key=lambda f: (-H[f]["bench"], f)):
+            r = H[f]
+            lrows.append('<tr><td>%s</td><td class="num">%s</td><td class="num">%s of %s</td><td class="num">%s</td></tr>' % (
+                e(self.owner[f]), self.L.put("heat:bench:" + f, r["bench"], src, "%.1f" % r["bench"]),
+                self.L.put("heat:lostBest:" + f, r["lostBest"], src), self.L.put("heat:losses:" + f, r["losses"], src),
+                self.L.put("heat:luck:" + f, r["luck"], src, ("%+.1f" % r["luck"]).replace("-", "&minus;"))))
+        rank_head = ("Scoring rank<br>%s &rarr; %s" % (w_first, w_last)) if first else "Scoring rank<br>%s" % w_last
+        body = ('<div class="tablebox"><table><thead><tr><th>Team<br>Reading</th><th>All-Play<br>%s<br>(season)</th><th>%s</th></tr>'
+                '</thead><tbody>%s</tbody></table></div><p class="caption">Sorted by All-Play over %s; the full-season All-Play '
+                'record is in parentheses. Reading, applied in order: <b>Dominant</b> = at least %s of every %s all-play games '
+                'in that stretch; <b>Sinking</b> = %s of every %s or fewer; <b>Rising</b> / <b>Cooling</b> = scoring rank moved four or more '
+                'places; otherwise <b>Holding</b>.</p>' % (w_last, rank_head, "".join(rows), w_last.replace("Wks", "Weeks").replace("Wk", "Week"),
+                                                          self.rule("dom"), self.rule("of"), self.rule("sink"), self.rule("of"))
+                + '<div class="tablebox"><table><thead><tr><th>Team</th><th>Left on bench / wk</th><th>Losses the best lineup would have won'
+                  '</th><th>Wins vs expected</th></tr></thead><tbody>%s</tbody></table></div><p class="caption">Bench points = the best '
+                  'possible lineup from the same roster, known only after the games, minus the lineup started. Wins vs expected = '
+                  'head-to-head wins minus the wins each week&rsquo;s all-play rate would give.</p>' % "".join(lrows))
+        return self.section("heat", "Heat Check", 8, "Heat Check <small>&mdash; the season and the last three weeks</small>",
+                            body + self.story_leads(H))
+
+    def story_leads(self, H):
+        """The leads, as an EDITOR REVIEW list (Keith 2026-10-14: "editor leads only -- not dialogue, factual
+        conclusions or publication-ready claims"). Each one points at a row in the tables above and says
+        nothing about it: no numbers, no verdicts, no host voice. The box is a gap, so the draft is not
+        publishable while it is there, and wire.py verify fails a live page that still carries it."""
+        S = STORIES.survival(self.ctx)
+        where = {"hot": "All-Play over the last three weeks (Heat Check, first table)",
+                 "riser": "scoring-rank change between the two windows (Heat Check, first table)",
+                 "faller": "scoring-rank change between the two windows (Heat Check, first table)",
+                 "bench": "bench points and losses the best lineup would have won (Heat Check, second table)",
+                 "unlucky": "wins vs expected (Heat Check, second table)",
+                 "survival": "the lowest win band (Survival Line)"}
+        items = []
+        for kind, f, d in STORIES.leads(H, S, self.owner):
+            who = ", ".join(self.owner[x] for x in d["teams"]) if kind == "survival" else self.owner[f]
+            items.append("Look at %s: %s." % (e(who), where[kind]))
+        if not items:
+            return ""
+        return self.gap("stories:leads", "heat", "Story leads for the editor. They only point at rows above: they are not "
+                        "findings, not for publication, and the job does not write the stories. Check each one, decide "
+                        "whether there is a story, then remove this box."
+                        "<ul style=\"margin:.4rem 0 0 1.1rem\">%s</ul>" % "".join("<li>%s</li>" % x for x in items))
+
+    def seg_survival(self):
+        res = STORIES.survival(self.ctx)
+        if not res:
+            return self.section("survival", "The Survival Line", 9, "The Survival Line", self.gap(
+                "survival:no-history", "survival", "The history snapshot is missing, so the Survival Line could not be built."))
+        S, meta = res
+        src = "D1 weeks 1-%d of %d-%d + /api/playoff-bracket" % (self.week, meta["firstAp"], meta["lastAp"])
+        fc = (self.ctx.get("forecast") or {}).get("sim")
+        fresh = fc and not any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in self.forecast_problems())
+        odds_src = "season_sim live wk%02d (%s runs, %s)" % (self.week, fc["runs"], fc["generatedAtUtc"]) if fresh else ""
+        def cat(p):
+            return ("Contender" if p >= .90 else "In the field" if p >= .60 else "In the race" if p >= .25
+                    else "Needs a run" if p >= .08 else "Life support")
+        order = sorted(S, key=(lambda f: (-fc["teams"][f]["po"], f)) if fresh else (lambda f: (S[f]["apRank"], f)))
+        rows = []
+        for f in order:
+            r = S[f]
+            col = ""
+            if fresh:
+                p = fc["teams"][f]["po"]
+                col = '<td><b>%s</b><br>%s</td>' % (cat(p), self.L.put("odds:po:" + f, round(100 * p, 1), odds_src,
+                                                                       "%.1f%%" % (100 * p)))
+            rows.append('<tr><td>%s</td>%s<td class="num">%s/%s</td><td class="num">%s/%s</td></tr>' % (
+                e(self.owner[f]), col, self.L.put("hist:apMade:" + f, r["apHist"][0], src), self.L.put("hist:apN:" + f, r["apHist"][1], src),
+                self.L.put("hist:winMade:" + f, r["winHist"][0], src), self.L.put("hist:winN:" + f, r["winHist"][1], src)))
+        cat_head = "<th>Category, playoffs</th>" if fresh else ""
+        cat_note = ((" Categories come from this week&rsquo;s playoff odds: <b>Contender</b> %s%%%% or better, <b>In the field</b> %s&ndash;%s, "
+                     "<b>In the race</b> %s&ndash;%s, <b>Needs a run</b> %s&ndash;%s, <b>Life support</b> under %s." % (
+                         self.rule("c90"), self.rule("c60"), self.rule("c90"), self.rule("c25"), self.rule("c60"), self.rule("c8"),
+                         self.rule("c25"), self.rule("c8"))) if fresh else
+                    " No categories: the playoff forecast is not current (see the Playoff Picture).")
+        body = ('<div class="tablebox"><table><thead><tr><th>Team</th>%s<th>Made it from the same All-Play rank, %d&ndash;%d</th>'
+                '<th>Made it with the same win total, %d&ndash;%d</th></tr></thead><tbody>%s</tbody></table></div>'
+                '<p class="caption">&ldquo;Made it&rdquo;: teams in the same position after Week %d of a past season who went on to '
+                'make the playoffs, out of all such teams. All-Play rank is grouped in pairs (tied teams share the higher rank); '
+                'win totals are grouped in five bands, among seasons with the same number of games so far.%s</p>' % (
+                    cat_head, meta["firstAp"], meta["lastAp"], meta["firstWins"], meta["lastWins"], "".join(rows),
+                    self.week, cat_note.replace("%%", "%")))
+        return self.section("survival", "The Survival Line", 9, "The Survival Line <small>&mdash; what a Week %d position has meant"
+                            "</small>" % self.week, body)
+
     def prior_preview_audit(self):
         g = self.T.get("t.grade.games")
         if not g:
@@ -612,7 +732,7 @@ class Issue:
         table = ('<div class="tablebox"><table><thead><tr><th>Owner</th><th>Posts</th></tr></thead><tbody>%s</tbody></table>'
                  '</div><p class="caption">Owner posts in the archived league Discord channels in that window; bot posts '
                  'excluded.</p>' % box)
-        return self.section("coffee", "Coffee Shop Talk", 8, "Coffee Shop Talk <small>&mdash; Kenny Mayne reads the chat</small>",
+        return self.section("coffee", "Coffee Shop Talk", 10, "Coffee Shop Talk <small>&mdash; Kenny Mayne reads the chat</small>",
                             intro + gap + table)
 
     # ------------------------------------------------------------ 8. corrections
@@ -620,18 +740,18 @@ class Issue:
         posts = self.ctx["mfl"].get("elias") or []
         rep = self.ctx.get("eliasReport")
         if not posts:
-            return self.section("elias", "Elias changes", 9, "Elias changes", self.gap(
+            return self.section("elias", "Elias changes", 11, "Elias changes", self.gap(
                 "elias:not-posted", "elias", "Elias has not posted official Week %d changes yet. The Thursday and Friday "
                 "runs re-check and will update this draft." % self.week))
         moved = (rep or {}).get("teams") or []
         if not moved:
             note = ("Elias posted %s official stat change(s) for Week %d; none moved a UPS team score from the numbers "
                     "in this draft." % (self.L.put("elias:count", len(posts), "MFL site news"), self.week))
-            return self.section("elias", "Elias changes", 9, "Elias changes", self.desk([("Rich", note)]))
+            return self.section("elias", "Elias changes", 11, "Elias changes", self.desk([("Rich", note)]))
         rows = "".join('<tr>%s<td class="num">%s</td><td class="num">%s</td></tr>' % (
             self.fr_cell(t["fid"]), self.L.put("elias:before:" + t["fid"], round(t["before"], 1), "scores_published"),
             self.score(t["fid"])) for t in moved)
-        return self.section("elias", "Elias changes", 9, "Elias changes <small>&mdash; official corrections</small>",
+        return self.section("elias", "Elias changes", 11, "Elias changes <small>&mdash; official corrections</small>",
                             self.desk([("Rich", "Elias moved %d team score(s) after the first scores; every number in this "
                                                 "draft uses the corrected ones." % len(moved))], mb=True)
                             + '<div class="tablebox"><table><thead><tr><th>Owner</th><th>First</th><th>Corrected</th></tr>'
@@ -640,7 +760,7 @@ class Issue:
     # ------------------------------------------------------------ assembly
     def render(self, generated_at):
         segs = [self.seg_open(), self.seg_boomer(), self.seg_desk(), self.seg_plays(), self.seg_bb(), self.seg_landscape(),
-                self.seg_odds(), self.seg_coffee(), self.seg_elias()]
+                self.seg_odds(), self.seg_heat(), self.seg_survival(), self.seg_coffee(), self.seg_elias()]
         sha, combined = wire.style_sha()
         runtime = wire.read(wire.RUNTIME_JS)
         aid = "%d-wk%02d-ups-center" % (self.season, self.week)

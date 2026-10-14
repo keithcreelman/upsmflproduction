@@ -251,7 +251,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
         st.update(status="blocked", reasons=st["reasons"] + ["pack build failed: " + out.strip()[-400:]])
         return finish(st, runner, aid, timing, now, dry, log)
     pack = json.load(open(os.path.join(workdir, "site/wire/packs/%d/%d-wk%02d-recap.pack.json" % (season, season, week))))
-    ctx = SRC.gather(season, week, now=now, chat_since=chat_since, pack=pack, data_dir=data)
+    ctx = SRC.gather(season, week, now=now, chat_since=chat_since, pack=pack, data_dir=data, history=True)
     rep_path = os.path.join(data, "elias_%d_wk%02d.json" % (season, week))
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
     res = ISSUE.render(pack, ctx, generated_at=now)                            # committed: no raw chat

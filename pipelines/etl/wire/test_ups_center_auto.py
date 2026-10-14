@@ -42,8 +42,8 @@ def build(ctx=None, pack=None, local=True):
 print("1. Week 4 renders in the real UPS Center format and validates against its sources")
 res, rep, _ = build()
 ids = re.findall(r'<section class="wire-sec" id="([^"]+)"', res["html"])
-check("nine segments in show order (the Playoff Picture follows the landscape)",
-      ids == ["open", "boomer", "desk", "plays", "bb", "landscape", "odds", "coffee", "elias"], ids)
+check("eleven segments in show order (Playoff Picture, Heat Check and Survival Line follow the landscape)",
+      ids == ["open", "boomer", "desk", "plays", "bb", "landscape", "odds", "heat", "survival", "coffee", "elias"], ids)
 check(".uc show markup: desk cards, game deck with one page per division, play cards, bust/bargain lists",
       all(x in res["html"] for x in ('class="wire-wrap uc"', 'class="lt stuart"', 'class="lt boomer"',
                                      'data-wire-gamedeck', 'class="play"', 'class="bbl"'))
@@ -592,6 +592,71 @@ src_auto = open(os.path.join(HERE, "ups_center_auto.py"), encoding="utf-8").read
 rw = src_auto[src_auto.index("def replay_week"):src_auto.index("def crashed")]
 check("the replay code path has no publish, announce, PR or alert call in it",
       not any(x in rw for x in ("PR.sync", "alert_issue", "notify(", "status: live", "git\", \"push", "/messages")), rw[:200])
+print("12. Builder B: Heat Check, Survival Line and story leads from the season snapshot")
+import ups_center_stories as STORIES      # noqa: E402
+HIST4 = json.load(open(os.path.join(FX, "history.json")))
+HIST5 = json.load(open(os.path.join(FX, "..", "2026_wk05", "history.json")))
+H5 = STORIES.heat({"history": HIST5})
+S5, M5 = STORIES.survival({"history": HIST5})
+pub = {"0009": ("32-1", "45-10", 3, 1, "Dominant", 31.5, 2, 2, -0.1, (18, 18), (8, 8)),
+       "0004": ("17-16", "31-24", 5, 4, "Holding", 54.0, 5, 7, -1.2, (9, 18), (7, 15)),
+       "0005": ("19-14", "37-18", 1, 6, "Cooling", 34.9, 2, 4, 0.6, (16, 20), (10, 13)),
+       "0003": ("3-30", "16-39", 7, 12, "Sinking", 23.9, 4, 10, -0.5, (2, 18), (0, 8)),
+       "0007": ("4-29", "11-44", 8, 11, "Sinking", 20.8, 2, 10, 0.6, (3, 17), (0, 8))}
+got = {f: ("%d-%d" % H5[f]["ap3"], "%d-%d" % H5[f]["ap"], H5[f]["rkFirst"], H5[f]["rkLast"], H5[f]["label"], H5[f]["bench"],
+           H5[f]["lostBest"], H5[f]["losses"], H5[f]["luck"], S5[f]["apHist"], S5[f]["winHist"]) for f in pub}
+check("on the real Week 5 snapshot it reproduces the published issue (Bear 32-1 Dominant, Cutting 54.0 bench, 0/8 at three wins ...)",
+      got == pub, {f: (got[f], pub[f]) for f in pub if got[f] != pub[f]})
+check("Week 5 win bands are exactly the published ones (10 or more ... 3 or fewer) at 13 decisions",
+      [b[0] for b in STORIES.win_buckets(13)] == ["10 or more", "8–9", "6–7", "4–5", "3 or fewer"] and M5["decisions"] == 13)
+c12 = copy.deepcopy(CTX)
+c12["history"] = HIST4
+r12, v12, _ = build(c12)
+check("with the snapshot, Heat Check and Survival Line render, every number validates, and leads are an editor box",
+      v12["ok"] and 'id="heat"' in r12["html"] and 'id="survival"' in r12["html"]
+      and any(g["id"] == "stories:leads" for g in r12["gaps"]) and not v12["publishable"]
+      and sum(1 for k in r12["claims"] if k.startswith(("heat:", "hist:"))) >= 12 * 9, (v12["errors"][:3], [g["id"] for g in r12["gaps"]]))
+check("without a current forecast the Survival Line shows no categories and says why",
+      "No categories: the playoff forecast is not current" in r12["html"] and "Contender" not in r12["html"])
+c13 = with_fc(forecast())
+c13["history"] = HIST4
+r13, v13, _ = build(c13)
+check("with a current forecast the Survival Line adds categories, validated against the same odds",
+      v13["ok"] and "Contender" in r13["html"] and "No categories" not in r13["html"], v13["errors"][:3])
+leads = re.search(r'data-editor-gap="stories:leads"[\s\S]*?</div>', r12["html"]).group(0)
+leads_text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", leads[leads.index(">") + 1:]))
+items = re.findall(r"<li>([\s\S]*?)</li>", leads)
+check("story leads point at rows for the editor: each is 'Look at <team>: <table row>', at least three",
+      len(items) >= 3 and all(x.startswith("Look at ") and "(" in x and x.endswith(").") for x in items), items)
+check("story leads are not findings: no numbers, no dialogue, no verdicts, no publication-ready claims",
+      not re.search(r"\d", leads_text) and 'class="lt' not in leads
+      and not re.search(r"\b(best(?! lineup)|worst|luck|hottest|coldest|will|should|made the playoffs|rose|fell)\b", leads_text, re.I)
+      and "not for publication" in leads_text, leads_text[:400])
+check("leads register no claims of their own (every claim keeps a real source)",
+      all(str(x["source"]).strip() for x in r12["claims"].values()) and v12["ok"])
+import wire as W2                            # noqa: E402
+check("a page cannot go live with the leads box still on it (wire.py verify)",
+      "stories:leads" in W2.live_editor_items(r12["html"].replace("status: draft", "status: live", 1)))
+check("Survival categories re-use the Playoff Picture's odds with the forecast as their source",
+      all(r13["claims"]["odds:po:" + f]["source"].startswith("season_sim live") for f in c13["forecast"]["sim"]["teams"]))
+tam = copy.deepcopy(r12["claims"])
+kb = sorted(k for k in tam if k.startswith("heat:bench:"))[0]
+tam[kb]["value"] = round(tam[kb]["value"] + 1.0, 1)
+check("a Heat Check number that disagrees with the season snapshot fails validation",
+      any(kb in x for x in VAL.validate(dict(r12, claims=tam), c12, copy.deepcopy(PACK))["errors"]))
+tam2 = copy.deepcopy(r12["claims"])
+kh = sorted(k for k in tam2 if k.startswith("hist:apMade:"))[0]
+tam2[kh]["value"] = tam2[kh]["value"] + 1
+check("a Survival Line history count that disagrees with D1 + the brackets fails validation",
+      any(kh in x for x in VAL.validate(dict(r12, claims=tam2), c12, copy.deepcopy(PACK))["errors"]))
+tam3 = copy.deepcopy(r12["claims"])
+tam3["rule:dom"]["value"] = 27
+check("a changed definition (the Dominant cutoff) fails validation", any("rule:dom" in x for x in VAL.validate(dict(r12, claims=tam3), c12, copy.deepcopy(PACK))["errors"]))
+r14, v14, _ = build()
+check("no snapshot -> Heat Check and Survival Line blockers, never empty segments",
+      {"heat:no-history", "survival:no-history"} <= {g["id"] for g in r14["gaps"]} and v14["ok"])
+check("the job gathers the season snapshot (history=True) for the real build",
+      "history=True" in open(os.path.join(HERE, "ups_center_auto.py")).read())
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

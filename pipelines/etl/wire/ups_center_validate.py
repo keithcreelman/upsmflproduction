@@ -28,7 +28,8 @@ from datetime import datetime, timezone
 import chat_exclusions
 import season_sim  # display_percentages, the rounding the Playoff Picture prints
 
-TIME_RE = re.compile(r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
+TIME_RE = re.compile(r"\bW(?:ee)?ks?\.?\s+\d{1,2}(?:\s*[–-]\s*\d{1,2})?\b|\b(?:19|20)\d\d\s*[–-]\s*(?:19|20)\d\d\b|"
+                     r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
                      r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}\b|\bWeek\s+\d{1,2}\b|\b20\d\d\b|"
                      r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}\b")
 NUM_RE = re.compile(r"(?<![\w.])[-+−]?\d[\d,]*(?:\.\d+)?")
@@ -95,6 +96,95 @@ def forecast_inconsistent(ctx, week):
             got = (c.get("runs"), c.get("playoff"), c.get("division"), c.get("bye"))
             if runs <= 10000 and got != (runs, x["po"], x["div"], x["bye"]):
                 out.append("%s scenario cells %s, forecast %s" % (f, got, (runs, x["po"], x["div"], x["bye"])))
+    return out
+
+
+RULES = {"dom": 28, "of": 33, "sink": 5, "c90": 90, "c60": 60, "c25": 25, "c8": 8}
+
+
+def _season_truth(ctx):
+    """Builder B, recomputed here WITHOUT ups_center_stories: {(kind, fid): value} for every Heat Check
+    and Survival Line number, straight from ctx["history"] (D1 rows + the bracket API's fields)."""
+    h = ctx.get("history")
+    if not h:
+        return {}
+    n = int(h["week"])
+    score, opt = {}, {}
+    for r in h["seasonScores"]:
+        score[(int(r["week"]), r["franchise_id"])] = float(r["team_score"])
+        opt[(int(r["week"]), r["franchise_id"])] = float(r["team_opt_pts"] or 0)
+    weeks = sorted({w for w, _ in score})
+    fids = sorted({f for _, f in score})
+    def ap_week(w, f):
+        mine = score[(w, f)]
+        others = [score[(w, g)] for g in fids if g != f]
+        return sum(x < mine for x in others), sum(x > mine for x in others), sum(x == mine for x in others)
+    last = [w for w in weeks if w >= n - 2]
+    first = [w for w in weeks if w <= n - 3]
+    def rank_in(ws):
+        ppw = {f: sum(score[(w, f)] for w in ws) / len(ws) for f in fids}
+        return {f: 1 + sum(ppw[g] > ppw[f] for g in fids) for f in fids}
+    rl, rf = rank_in(last), (rank_in(first) if first else {})
+    res = {}
+    for g in h["seasonGames"]:
+        res.setdefault((int(g["week"]), g["franchise_id"]), []).append((g["opponent_franchise_id"], g["result"]))
+    out = {}
+    for f in fids:
+        a3 = [ap_week(w, f) for w in last]
+        at = [ap_week(w, f) for w in weeks]
+        out[("ap3", f)] = "%d-%d" % (sum(x[0] for x in a3), sum(x[1] for x in a3))
+        out[("ap", f)] = "%d-%d" % (sum(x[0] for x in at), sum(x[1] for x in at))
+        out[("rkLast", f)] = rl[f]
+        if rf:
+            out[("rkFirst", f)] = rf[f]
+        out[("bench", f)] = round(sum(opt[(w, f)] - score[(w, f)] for w in weeks) / len(weeks), 1)
+        losses = [(w, o) for w in weeks for o, r in res.get((w, f), []) if r == "L"]
+        out[("losses", f)] = len(losses)
+        out[("lostBest", f)] = sum(opt[(w, f)] > score[(w, o)] for w, o in losses)
+        won = sum(1.0 if r == "W" else 0.5 if r == "T" else 0.0 for w in weeks for _, r in res.get((w, f), []))
+        exp = sum((ap_week(w, f)[0] + 0.5 * ap_week(w, f)[2]) / (len(fids) - 1) * len(res.get((w, f), [])) for w in weeks)
+        out[("luck", f)] = round(won - exp, 1)
+    # survival history
+    made = {int(s): set(v) for s, v in h["made"].items()}
+    def pair(rk):
+        return (rk + 1) // 2
+    ap_tot = {f: sum(ap_week(w, f)[0] + 0.5 * ap_week(w, f)[2] for w in weeks) for f in fids}
+    my_pair = {f: pair(1 + sum(ap_tot[g] > ap_tot[f] for g in fids)) for f in fids}
+    past = {}
+    for r in h["pastScores"]:
+        past.setdefault(int(r["season"]), {}).setdefault(int(r["week"]), {})[r["franchise_id"]] = float(r["team_score"])
+    grp = {}
+    for s, wk in past.items():
+        tot = {}
+        for w, sc in wk.items():
+            for f, x in sc.items():
+                tot[f] = tot.get(f, 0.0) + sum(y < x for g, y in sc.items() if g != f) + 0.5 * sum(y == x for g, y in sc.items() if g != f)
+        for f in tot:
+            k = pair(1 + sum(tot[g] > tot[f] for g in tot))
+            m, c = grp.get(k, (0, 0))
+            grp[k] = (m + (f in made[s]), c + 1)
+    dec = {}
+    for g in h["seasonGames"]:
+        d = dec.setdefault(g["franchise_id"], [0.0, 0])
+        d[0] += 1.0 if g["result"] == "W" else 0.5 if g["result"] == "T" else 0.0
+        d[1] += 1
+    games = max(d[1] for d in dec.values())
+    cuts = [int(round(k * games / 13.0)) for k in (10, 8, 6, 4)]
+    def band(wins):
+        return sum(wins < c for c in cuts)            # 0 = top band ... 4 = bottom band
+    pres = {}
+    for r in h["pastResults"]:
+        d = pres.setdefault((int(r["season"]), r["franchise_id"]), [0.0, 0])
+        d[0] += 1.0 if r["result"] == "W" else 0.5 if r["result"] == "T" else 0.0
+        d[1] += 1
+    wgrp = {}
+    for (s, f), (wn, dn) in pres.items():
+        if dn == games:
+            m, c = wgrp.get(band(wn), (0, 0))
+            wgrp[band(wn)] = (m + (f in made[s]), c + 1)
+    for f in fids:
+        out[("apMade", f)], out[("apN", f)] = grp.get(my_pair[f], (0, 0))
+        out[("winMade", f)], out[("winN", f)] = wgrp.get(band(dec.get(f, [0.0])[0]), (0, 0))
     return out
 
 
@@ -208,6 +298,16 @@ def validate(res, ctx, pack):
                     bad(key, "title odds %s do not match the forecast's rounding" % v)
             else:
                 bad(key, "unknown odds claim")
+        elif kind in ("heat", "hist"):
+            truth = n.setdefault("_season_truth", _season_truth(ctx))
+            what, _, fid = rest.partition(":")
+            if (what, fid) not in truth:
+                bad(key, "no %s value for %s in the season snapshot" % (what, fid))
+            elif truth[(what, fid)] != v:
+                bad(key, "page %r, recomputed %r" % (v, truth[(what, fid)]))
+        elif kind == "rule":
+            if RULES.get(rest) != v:
+                bad(key, "definition %s is %s, page %s" % (rest, RULES.get(rest), v))
         elif kind == "elias":
             pass                                                 # cross-checked against scores_published below
         elif kind in ("pts", "diff", "count"):
@@ -255,6 +355,7 @@ def validate(res, ctx, pack):
         errors.append("claims with no source: %s" % ", ".join(unsourced[:20]))
     if "status: draft" not in doc:
         errors.append("article is not status: draft")
+    n.pop("_season_truth", None)
     return {"ok": not errors, "publishable": not errors and not res["gaps"], "errors": errors, "warnings": warnings,
             "checkedClaims": n, "gaps": res["gaps"]}
 

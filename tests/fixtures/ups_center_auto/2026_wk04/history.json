@@ -1,0 +1,6688 @@
+{
+"_fixture": "recorded 2026-10-14 from D1 (src_franchise_weekly_score, src_schedule; weeks 1-4 of 2026 and of 2017-2025) and the worker's /api/playoff-bracket (2017-2025 playoff fields). Scores and results only.",
+"firstAp": 2017,
+"firstWins": 2021,
+"made": {
+"2017": [
+"0001",
+"0004",
+"0006",
+"0007",
+"0009",
+"0012"
+],
+"2018": [
+"0001",
+"0006",
+"0007",
+"0008",
+"0009",
+"0010"
+],
+"2019": [
+"0003",
+"0004",
+"0005",
+"0007",
+"0008",
+"0009"
+],
+"2020": [
+"0001",
+"0006",
+"0007",
+"0008",
+"0009",
+"0010"
+],
+"2021": [
+"0001",
+"0002",
+"0004",
+"0006",
+"0007",
+"0012"
+],
+"2022": [
+"0001",
+"0003",
+"0004",
+"0006",
+"0008",
+"0009"
+],
+"2023": [
+"0001",
+"0002",
+"0005",
+"0007",
+"0008",
+"0010"
+],
+"2024": [
+"0001",
+"0002",
+"0004",
+"0005",
+"0009",
+"0010"
+],
+"2025": [
+"0001",
+"0004",
+"0005",
+"0007",
+"0009",
+"0010"
+]
+},
+"pastResults": [
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2021
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2021
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2022
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2022
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2023
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2023
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2024
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2024
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0003",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0004",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0007",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0005",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0002",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0006",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0008",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0010",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0012",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0009",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2025
+},
+{
+"franchise_id": "0001",
+"result": "W",
+"season": 2025
+},
+{
+"franchise_id": "0011",
+"result": "L",
+"season": 2025
+}
+],
+"pastScores": [
+{
+"franchise_id": "0001",
+"season": 2017,
+"team_score": 149.3,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2017,
+"team_score": 144.6,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2017,
+"team_score": 156.5,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2017,
+"team_score": 150.4,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2017,
+"team_score": 142.8,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2017,
+"team_score": 170.3,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2017,
+"team_score": 168.4,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2017,
+"team_score": 144.1,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2017,
+"team_score": 136.9,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2017,
+"team_score": 144.3,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2017,
+"team_score": 180.8,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2017,
+"team_score": 128.1,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2017,
+"team_score": 177.7,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2017,
+"team_score": 137.2,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2017,
+"team_score": 159.5,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2017,
+"team_score": 193.2,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2017,
+"team_score": 110.9,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2017,
+"team_score": 194.6,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2017,
+"team_score": 177.4,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2017,
+"team_score": 152.3,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2017,
+"team_score": 151.7,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2017,
+"team_score": 137.3,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2017,
+"team_score": 194.7,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2017,
+"team_score": 153.2,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2017,
+"team_score": 181,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2017,
+"team_score": 124.2,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2017,
+"team_score": 182.7,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2017,
+"team_score": 186.2,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2017,
+"team_score": 172,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2017,
+"team_score": 193.6,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2017,
+"team_score": 218.2,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2017,
+"team_score": 104.3,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2017,
+"team_score": 157.3,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2017,
+"team_score": 148.9,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2017,
+"team_score": 122.7,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2017,
+"team_score": 239.1,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2017,
+"team_score": 139,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2017,
+"team_score": 88.2,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2017,
+"team_score": 174.8,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2017,
+"team_score": 174.2,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2017,
+"team_score": 177.6,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2017,
+"team_score": 207.2,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2017,
+"team_score": 199.6,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2017,
+"team_score": 122.6,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2017,
+"team_score": 132.6,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2017,
+"team_score": 144.2,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2017,
+"team_score": 167.2,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2017,
+"team_score": 134.4,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2018,
+"team_score": 194.4,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2018,
+"team_score": 218.9,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2018,
+"team_score": 230,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2018,
+"team_score": 230.5,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2018,
+"team_score": 174.9,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2018,
+"team_score": 201.7,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2018,
+"team_score": 299.1,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2018,
+"team_score": 214.9,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2018,
+"team_score": 267.5,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2018,
+"team_score": 172.6,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2018,
+"team_score": 163.6,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2018,
+"team_score": 160.5,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2018,
+"team_score": 184.8,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2018,
+"team_score": 190.8,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2018,
+"team_score": 188.6,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2018,
+"team_score": 177.3,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2018,
+"team_score": 235.3,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2018,
+"team_score": 205.5,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2018,
+"team_score": 249.1,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2018,
+"team_score": 190.9,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2018,
+"team_score": 183.1,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2018,
+"team_score": 224.1,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2018,
+"team_score": 185.2,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2018,
+"team_score": 186.3,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2018,
+"team_score": 183.2,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2018,
+"team_score": 213.7,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2018,
+"team_score": 177,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2018,
+"team_score": 218.6,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2018,
+"team_score": 146.5,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2018,
+"team_score": 215.3,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2018,
+"team_score": 224.7,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2018,
+"team_score": 241.1,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2018,
+"team_score": 258.9,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2018,
+"team_score": 167.3,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2018,
+"team_score": 235.8,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2018,
+"team_score": 188,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2018,
+"team_score": 247.8,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2018,
+"team_score": 156.7,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2018,
+"team_score": 185.9,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2018,
+"team_score": 199.3,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2018,
+"team_score": 210.4,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2018,
+"team_score": 231.6,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2018,
+"team_score": 239.5,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2018,
+"team_score": 212.6,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2018,
+"team_score": 231.7,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2018,
+"team_score": 203.5,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2018,
+"team_score": 199.1,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2018,
+"team_score": 164.9,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2019,
+"team_score": 152.7,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2019,
+"team_score": 196.6,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2019,
+"team_score": 176.7,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2019,
+"team_score": 192.1,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2019,
+"team_score": 248.9,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2019,
+"team_score": 164.4,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2019,
+"team_score": 184.1,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2019,
+"team_score": 216.3,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2019,
+"team_score": 190.7,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2019,
+"team_score": 245.9,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2019,
+"team_score": 226.2,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2019,
+"team_score": 178,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2019,
+"team_score": 180.3,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2019,
+"team_score": 173.8,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2019,
+"team_score": 151,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2019,
+"team_score": 201.6,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2019,
+"team_score": 137,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2019,
+"team_score": 179.8,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2019,
+"team_score": 271.2,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2019,
+"team_score": 206.6,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2019,
+"team_score": 207.9,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2019,
+"team_score": 197.7,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2019,
+"team_score": 139.4,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2019,
+"team_score": 181.2,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2019,
+"team_score": 284.7,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2019,
+"team_score": 230.8,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2019,
+"team_score": 260.6,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2019,
+"team_score": 192.8,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2019,
+"team_score": 265.5,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2019,
+"team_score": 207.4,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2019,
+"team_score": 227.6,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2019,
+"team_score": 216.4,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2019,
+"team_score": 191.4,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2019,
+"team_score": 168.9,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2019,
+"team_score": 192.4,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2019,
+"team_score": 135,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2019,
+"team_score": 142.7,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2019,
+"team_score": 163.5,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2019,
+"team_score": 201.8,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2019,
+"team_score": 204.2,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2019,
+"team_score": 263.2,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2019,
+"team_score": 186.2,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2019,
+"team_score": 195.6,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2019,
+"team_score": 129.5,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2019,
+"team_score": 249.1,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2019,
+"team_score": 253.4,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2019,
+"team_score": 136.9,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2019,
+"team_score": 173.8,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2020,
+"team_score": 144,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2020,
+"team_score": 163.8,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2020,
+"team_score": 164.2,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2020,
+"team_score": 201.6,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2020,
+"team_score": 180.9,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2020,
+"team_score": 234.1,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2020,
+"team_score": 177.2,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2020,
+"team_score": 228.6,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2020,
+"team_score": 253.6,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2020,
+"team_score": 239.7,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2020,
+"team_score": 186.5,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2020,
+"team_score": 206.5,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2020,
+"team_score": 255.9,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2020,
+"team_score": 226,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2020,
+"team_score": 196.3,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2020,
+"team_score": 283.3,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2020,
+"team_score": 170.3,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2020,
+"team_score": 221.8,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2020,
+"team_score": 212.2,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2020,
+"team_score": 161.9,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2020,
+"team_score": 221.4,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2020,
+"team_score": 207,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2020,
+"team_score": 161,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2020,
+"team_score": 172.2,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2020,
+"team_score": 271.8,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2020,
+"team_score": 194.2,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2020,
+"team_score": 180,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2020,
+"team_score": 173.5,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2020,
+"team_score": 160.1,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2020,
+"team_score": 174.7,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2020,
+"team_score": 226.9,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2020,
+"team_score": 222.6,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2020,
+"team_score": 242.2,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2020,
+"team_score": 191.4,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2020,
+"team_score": 204,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2020,
+"team_score": 171.1,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2020,
+"team_score": 191.7,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2020,
+"team_score": 211.3,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2020,
+"team_score": 225.4,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2020,
+"team_score": 206.1,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2020,
+"team_score": 183.4,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2020,
+"team_score": 182.8,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2020,
+"team_score": 186.8,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2020,
+"team_score": 216.4,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2020,
+"team_score": 211.4,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2020,
+"team_score": 213.9,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2020,
+"team_score": 174.6,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2020,
+"team_score": 138.9,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2021,
+"team_score": 165.3,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2021,
+"team_score": 293.2,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2021,
+"team_score": 178.4,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2021,
+"team_score": 226.2,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2021,
+"team_score": 193.2,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2021,
+"team_score": 237.8,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2021,
+"team_score": 208.9,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2021,
+"team_score": 193.8,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2021,
+"team_score": 182.4,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2021,
+"team_score": 202.4,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2021,
+"team_score": 184,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2021,
+"team_score": 213.2,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2021,
+"team_score": 188,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2021,
+"team_score": 199.4,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2021,
+"team_score": 155.8,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2021,
+"team_score": 256.5,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2021,
+"team_score": 168.5,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2021,
+"team_score": 176.5,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2021,
+"team_score": 258.3,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2021,
+"team_score": 173.4,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2021,
+"team_score": 201.7,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2021,
+"team_score": 247.5,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2021,
+"team_score": 193.9,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2021,
+"team_score": 185.7,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2021,
+"team_score": 256.4,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2021,
+"team_score": 190.6,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2021,
+"team_score": 171.6,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2021,
+"team_score": 188.2,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2021,
+"team_score": 190.2,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2021,
+"team_score": 197.7,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2021,
+"team_score": 220.9,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2021,
+"team_score": 189.7,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2021,
+"team_score": 143.8,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2021,
+"team_score": 192.1,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2021,
+"team_score": 212.5,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2021,
+"team_score": 145.7,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2021,
+"team_score": 198.3,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2021,
+"team_score": 191.1,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2021,
+"team_score": 208,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2021,
+"team_score": 228.2,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2021,
+"team_score": 193.8,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2021,
+"team_score": 295.4,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2021,
+"team_score": 227,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2021,
+"team_score": 200.4,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2021,
+"team_score": 203.1,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2021,
+"team_score": 136.6,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2021,
+"team_score": 170.5,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2021,
+"team_score": 175.4,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2022,
+"team_score": 302.1,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2022,
+"team_score": 177.1,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2022,
+"team_score": 236.1,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2022,
+"team_score": 200.9,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2022,
+"team_score": 175.2,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2022,
+"team_score": 234.8,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2022,
+"team_score": 204.5,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2022,
+"team_score": 253.2,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2022,
+"team_score": 200.5,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2022,
+"team_score": 169.9,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2022,
+"team_score": 257.1,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2022,
+"team_score": 233.5,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2022,
+"team_score": 215.4,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2022,
+"team_score": 186.7,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2022,
+"team_score": 240.7,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2022,
+"team_score": 216.4,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2022,
+"team_score": 165.2,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2022,
+"team_score": 311.9,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2022,
+"team_score": 151.8,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2022,
+"team_score": 227.1,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2022,
+"team_score": 216.7,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2022,
+"team_score": 192.1,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2022,
+"team_score": 223.6,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2022,
+"team_score": 188.7,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2022,
+"team_score": 233.7,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2022,
+"team_score": 146.9,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2022,
+"team_score": 233.1,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2022,
+"team_score": 247.9,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2022,
+"team_score": 200.4,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2022,
+"team_score": 234.1,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2022,
+"team_score": 154.8,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2022,
+"team_score": 205.6,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2022,
+"team_score": 190.9,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2022,
+"team_score": 199.6,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2022,
+"team_score": 200.9,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2022,
+"team_score": 190,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2022,
+"team_score": 187.7,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2022,
+"team_score": 166.6,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2022,
+"team_score": 146.9,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2022,
+"team_score": 274.4,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2022,
+"team_score": 180.3,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2022,
+"team_score": 248.6,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2022,
+"team_score": 214.8,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2022,
+"team_score": 221.9,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2022,
+"team_score": 233.7,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2022,
+"team_score": 269.7,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2022,
+"team_score": 177.3,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2022,
+"team_score": 188.2,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2023,
+"team_score": 170.8,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2023,
+"team_score": 217.2,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2023,
+"team_score": 157.8,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2023,
+"team_score": 192.7,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2023,
+"team_score": 260.9,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2023,
+"team_score": 137.9,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2023,
+"team_score": 253.8,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2023,
+"team_score": 180.2,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2023,
+"team_score": 177.9,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2023,
+"team_score": 163.2,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2023,
+"team_score": 209.9,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2023,
+"team_score": 168.1,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2023,
+"team_score": 247.4,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2023,
+"team_score": 227.7,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2023,
+"team_score": 275.6,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2023,
+"team_score": 218.6,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2023,
+"team_score": 229.1,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2023,
+"team_score": 230.1,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2023,
+"team_score": 255.8,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2023,
+"team_score": 217.3,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2023,
+"team_score": 212.8,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2023,
+"team_score": 220.9,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2023,
+"team_score": 211,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2023,
+"team_score": 186.7,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2023,
+"team_score": 194.1,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2023,
+"team_score": 198,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2023,
+"team_score": 233.7,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2023,
+"team_score": 192.9,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2023,
+"team_score": 244.5,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2023,
+"team_score": 239.2,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2023,
+"team_score": 265.4,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2023,
+"team_score": 266.1,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2023,
+"team_score": 190.3,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2023,
+"team_score": 271.1,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2023,
+"team_score": 189.4,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2023,
+"team_score": 187.6,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2023,
+"team_score": 244.4,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2023,
+"team_score": 213,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2023,
+"team_score": 179,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2023,
+"team_score": 174.1,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2023,
+"team_score": 272.2,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2023,
+"team_score": 200.4,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2023,
+"team_score": 191.3,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2023,
+"team_score": 229.1,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2023,
+"team_score": 258.9,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2023,
+"team_score": 179.8,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2023,
+"team_score": 230.2,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2023,
+"team_score": 279.3,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2024,
+"team_score": 201.6,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2024,
+"team_score": 215.1,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2024,
+"team_score": 224.2,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2024,
+"team_score": 178.6,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2024,
+"team_score": 200.7,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2024,
+"team_score": 126.5,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2024,
+"team_score": 193.2,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2024,
+"team_score": 153.9,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2024,
+"team_score": 213.4,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2024,
+"team_score": 215.3,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2024,
+"team_score": 228.3,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2024,
+"team_score": 210,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2024,
+"team_score": 257.2,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2024,
+"team_score": 254.6,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2024,
+"team_score": 190.1,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2024,
+"team_score": 207.7,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2024,
+"team_score": 202.6,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2024,
+"team_score": 153.4,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2024,
+"team_score": 226.1,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2024,
+"team_score": 237.3,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2024,
+"team_score": 218.9,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2024,
+"team_score": 192.4,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2024,
+"team_score": 223.1,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2024,
+"team_score": 164.6,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2024,
+"team_score": 253.5,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2024,
+"team_score": 216.7,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2024,
+"team_score": 240.7,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2024,
+"team_score": 217.6,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2024,
+"team_score": 176.1,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2024,
+"team_score": 150,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2024,
+"team_score": 166,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2024,
+"team_score": 205.3,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2024,
+"team_score": 191.5,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2024,
+"team_score": 183.9,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2024,
+"team_score": 238.2,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2024,
+"team_score": 242,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2024,
+"team_score": 247.6,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2024,
+"team_score": 212.8,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2024,
+"team_score": 194.6,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2024,
+"team_score": 203.3,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2024,
+"team_score": 205.5,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2024,
+"team_score": 159.8,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2024,
+"team_score": 228.1,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2024,
+"team_score": 175.8,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2024,
+"team_score": 201.8,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2024,
+"team_score": 236.3,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2024,
+"team_score": 176.8,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2024,
+"team_score": 195.9,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"season": 2025,
+"team_score": 150.3,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"season": 2025,
+"team_score": 210.5,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"season": 2025,
+"team_score": 192.7,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"season": 2025,
+"team_score": 263.7,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"season": 2025,
+"team_score": 222.8,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"season": 2025,
+"team_score": 240.6,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"season": 2025,
+"team_score": 217.8,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"season": 2025,
+"team_score": 241.9,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"season": 2025,
+"team_score": 222.7,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"season": 2025,
+"team_score": 195.5,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"season": 2025,
+"team_score": 226.7,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"season": 2025,
+"team_score": 160.4,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"season": 2025,
+"team_score": 256.1,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"season": 2025,
+"team_score": 222.9,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"season": 2025,
+"team_score": 202.5,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"season": 2025,
+"team_score": 223.3,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"season": 2025,
+"team_score": 227,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"season": 2025,
+"team_score": 203.2,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"season": 2025,
+"team_score": 225.1,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"season": 2025,
+"team_score": 184.8,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"season": 2025,
+"team_score": 196.7,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"season": 2025,
+"team_score": 200.2,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"season": 2025,
+"team_score": 268.6,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"season": 2025,
+"team_score": 225.8,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"season": 2025,
+"team_score": 219.5,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"season": 2025,
+"team_score": 273.1,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"season": 2025,
+"team_score": 192.5,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"season": 2025,
+"team_score": 218,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"season": 2025,
+"team_score": 190.3,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"season": 2025,
+"team_score": 196,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"season": 2025,
+"team_score": 217.4,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"season": 2025,
+"team_score": 227.1,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"season": 2025,
+"team_score": 229.3,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"season": 2025,
+"team_score": 233.9,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"season": 2025,
+"team_score": 148.5,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"season": 2025,
+"team_score": 187.8,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"season": 2025,
+"team_score": 249.3,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"season": 2025,
+"team_score": 233.5,
+"week": 4
+},
+{
+"franchise_id": "0003",
+"season": 2025,
+"team_score": 192.5,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"season": 2025,
+"team_score": 275.3,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"season": 2025,
+"team_score": 222,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"season": 2025,
+"team_score": 172.8,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"season": 2025,
+"team_score": 201.4,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"season": 2025,
+"team_score": 223.9,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"season": 2025,
+"team_score": 257.8,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"season": 2025,
+"team_score": 245.6,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"season": 2025,
+"team_score": 204.5,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"season": 2025,
+"team_score": 230.4,
+"week": 4
+}
+],
+"seasonGames": [
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"result": "L",
+"week": 1
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"result": "W",
+"week": 1
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0004",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0003",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0003",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0005",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0002",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0004",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0002",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0002",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0005",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0004",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0008",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0012",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0008",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0011",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0008",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0012",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0011",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0007",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0001",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0012",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0001",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0011",
+"result": "W",
+"week": 2
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0001",
+"result": "L",
+"week": 2
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0012",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0011",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0002",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0012",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0002",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0011",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0002",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0010",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0012",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0011",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0008",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0001",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0008",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0004",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0004",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0001",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0004",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0008",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0006",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0001",
+"result": "L",
+"week": 3
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 3
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"result": "W",
+"week": 4
+},
+{
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"result": "L",
+"week": 4
+},
+{
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"result": "W",
+"week": 4
+}
+],
+"seasonScores": [
+{
+"franchise_id": "0003",
+"team_opt_pts": 283.6,
+"team_score": 230.1,
+"week": 1
+},
+{
+"franchise_id": "0002",
+"team_opt_pts": 270.7,
+"team_score": 251.4,
+"week": 1
+},
+{
+"franchise_id": "0010",
+"team_opt_pts": 198.3,
+"team_score": 180.8,
+"week": 1
+},
+{
+"franchise_id": "0005",
+"team_opt_pts": 329.1,
+"team_score": 312.8,
+"week": 1
+},
+{
+"franchise_id": "0004",
+"team_opt_pts": 292.7,
+"team_score": 258.5,
+"week": 1
+},
+{
+"franchise_id": "0006",
+"team_opt_pts": 244.7,
+"team_score": 220,
+"week": 1
+},
+{
+"franchise_id": "0008",
+"team_opt_pts": 272.7,
+"team_score": 246.9,
+"week": 1
+},
+{
+"franchise_id": "0007",
+"team_opt_pts": 245.1,
+"team_score": 228.3,
+"week": 1
+},
+{
+"franchise_id": "0001",
+"team_opt_pts": 185.3,
+"team_score": 166.6,
+"week": 1
+},
+{
+"franchise_id": "0009",
+"team_opt_pts": 229.5,
+"team_score": 190.3,
+"week": 1
+},
+{
+"franchise_id": "0012",
+"team_opt_pts": 188.9,
+"team_score": 153.7,
+"week": 1
+},
+{
+"franchise_id": "0011",
+"team_opt_pts": 240.4,
+"team_score": 223.9,
+"week": 1
+},
+{
+"franchise_id": "0003",
+"team_opt_pts": 225.2,
+"team_score": 208.6,
+"week": 2
+},
+{
+"franchise_id": "0005",
+"team_opt_pts": 244.7,
+"team_score": 208.7,
+"week": 2
+},
+{
+"franchise_id": "0004",
+"team_opt_pts": 285.5,
+"team_score": 199.6,
+"week": 2
+},
+{
+"franchise_id": "0006",
+"team_opt_pts": 221.9,
+"team_score": 178,
+"week": 2
+},
+{
+"franchise_id": "0002",
+"team_opt_pts": 223.7,
+"team_score": 215.3,
+"week": 2
+},
+{
+"franchise_id": "0010",
+"team_opt_pts": 327.5,
+"team_score": 303.4,
+"week": 2
+},
+{
+"franchise_id": "0008",
+"team_opt_pts": 224,
+"team_score": 201.2,
+"week": 2
+},
+{
+"franchise_id": "0009",
+"team_opt_pts": 287.6,
+"team_score": 281.8,
+"week": 2
+},
+{
+"franchise_id": "0012",
+"team_opt_pts": 261.1,
+"team_score": 236.1,
+"week": 2
+},
+{
+"franchise_id": "0011",
+"team_opt_pts": 194.1,
+"team_score": 144.2,
+"week": 2
+},
+{
+"franchise_id": "0007",
+"team_opt_pts": 180.5,
+"team_score": 172.2,
+"week": 2
+},
+{
+"franchise_id": "0001",
+"team_opt_pts": 196.2,
+"team_score": 179.2,
+"week": 2
+},
+{
+"franchise_id": "0003",
+"team_opt_pts": 156.8,
+"team_score": 153.8,
+"week": 3
+},
+{
+"franchise_id": "0009",
+"team_opt_pts": 304.8,
+"team_score": 254.8,
+"week": 3
+},
+{
+"franchise_id": "0012",
+"team_opt_pts": 265,
+"team_score": 227,
+"week": 3
+},
+{
+"franchise_id": "0011",
+"team_opt_pts": 240.8,
+"team_score": 216.2,
+"week": 3
+},
+{
+"franchise_id": "0002",
+"team_opt_pts": 251.7,
+"team_score": 213.6,
+"week": 3
+},
+{
+"franchise_id": "0010",
+"team_opt_pts": 271.9,
+"team_score": 245.9,
+"week": 3
+},
+{
+"franchise_id": "0005",
+"team_opt_pts": 270.8,
+"team_score": 224.8,
+"week": 3
+},
+{
+"franchise_id": "0008",
+"team_opt_pts": 252.5,
+"team_score": 218.9,
+"week": 3
+},
+{
+"franchise_id": "0007",
+"team_opt_pts": 180.1,
+"team_score": 165.4,
+"week": 3
+},
+{
+"franchise_id": "0001",
+"team_opt_pts": 232.6,
+"team_score": 207.1,
+"week": 3
+},
+{
+"franchise_id": "0004",
+"team_opt_pts": 268.4,
+"team_score": 212.9,
+"week": 3
+},
+{
+"franchise_id": "0006",
+"team_opt_pts": 215.6,
+"team_score": 205.2,
+"week": 3
+},
+{
+"franchise_id": "0003",
+"team_opt_pts": 227.5,
+"team_score": 208.3,
+"week": 4
+},
+{
+"franchise_id": "0002",
+"team_opt_pts": 247.5,
+"team_score": 214.5,
+"week": 4
+},
+{
+"franchise_id": "0010",
+"team_opt_pts": 281.1,
+"team_score": 250.9,
+"week": 4
+},
+{
+"franchise_id": "0005",
+"team_opt_pts": 291.8,
+"team_score": 250.2,
+"week": 4
+},
+{
+"franchise_id": "0004",
+"team_opt_pts": 258.3,
+"team_score": 211.6,
+"week": 4
+},
+{
+"franchise_id": "0006",
+"team_opt_pts": 198.3,
+"team_score": 181.4,
+"week": 4
+},
+{
+"franchise_id": "0008",
+"team_opt_pts": 246.2,
+"team_score": 206.3,
+"week": 4
+},
+{
+"franchise_id": "0007",
+"team_opt_pts": 214.9,
+"team_score": 194.3,
+"week": 4
+},
+{
+"franchise_id": "0001",
+"team_opt_pts": 228.4,
+"team_score": 216,
+"week": 4
+},
+{
+"franchise_id": "0009",
+"team_opt_pts": 328.7,
+"team_score": 289.9,
+"week": 4
+},
+{
+"franchise_id": "0012",
+"team_opt_pts": 253.3,
+"team_score": 223.9,
+"week": 4
+},
+{
+"franchise_id": "0011",
+"team_opt_pts": 329,
+"team_score": 294.7,
+"week": 4
+}
+],
+"week": 4
+}
