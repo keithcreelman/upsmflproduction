@@ -1417,7 +1417,7 @@ button.ups-m-busy::before,
 .ups-m-sched-row:not(.head):active, .ups-m-sched-row:not(.head):active > .tm, .ups-m-sched-row:not(.head):active > .ag { background: var(--bg-elev2); }
 .ups-m-sched-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ups-m-sched-row > .tm, .ups-m-sched-row > .ag { position: sticky; z-index: 1; background: var(--bg-elev); }
-.ups-m-sched-row > .tm { left: 0; display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 4px 4px 4px 10px; }
+.ups-m-sched-row > .tm { left: 0; display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 4px 2px 4px 8px; }
 .ups-m-sched-row > .tm b { font-size: 14px; font-weight: 700; color: var(--fg); }
 .ups-m-sched-row > .tm small { font-size: 11px; color: var(--fg-muted); white-space: nowrap; }
 .ups-m-sched-row > .ag {
@@ -1436,7 +1436,7 @@ button.ups-m-busy::before,
 .ups-m-sched-row .c.bye { color: var(--fg-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
 /* Pinned headings: the same columns as the rows. */
 .ups-m-sched-row.head { min-height: 0; border-top: 0; cursor: default; background: var(--bg-elev); }
-.ups-m-sched-row.head > .tm { padding: 0 4px 0 10px; }
+.ups-m-sched-row.head > .tm { padding: 0 2px 0 8px; }
 .ups-m-sched-row.head > .tm .ups-m-st-sort { text-align: left; }
 .ups-m-sched-row.head > .ag { padding: 0 8px 0 0; font-size: 11px; }
 .ups-m-sched-row.head .ups-m-st-sort { font-size: 11px; }
@@ -1449,6 +1449,7 @@ button.ups-m-busy::before,
 .ups-m-sched-row.head .wk.po { color: var(--fg); }
 /* One team's schedule reuses the Pts Agst week rows, with room for "Wk 17" on one line. */
 .ups-m-sched-root .ups-m-fpa-wk2 { grid-template-columns: 44px minmax(0, 1fr) 50px 58px 12px; }
+@media (max-width: 340px) { .ups-m-sched-root .ups-m-fpa-wk2 { grid-template-columns: 40px minmax(0, 1fr) 44px 52px 10px; } }
 .ups-m-fpa-table { display: flex; flex-direction: column; }
 /* Stats → Pts Agst (review 2026-10-12). The list uses the Players board's rows,
    headings and pin (.ups-m-st-*); these rules only add what Pts Agst needs. */
