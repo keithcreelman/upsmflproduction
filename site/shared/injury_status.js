@@ -47,15 +47,35 @@
 
   function str(v) { return v == null ? "" : String(v).trim(); }
   function int(v) { var n = parseInt(v, 10); return isFinite(n) ? n : 0; }
+  // Lineup resolves every player for every dropdown on each paint, so the formatted times,
+  // today's date and the matched-id set are computed once per value / per read.
+  var memo = { clock: {}, clockN: 0, day: {}, data: null, mapped: null };
   function clockEt(iso) {
-    var d = iso ? new Date(iso) : null;
-    if (!d || isNaN(d.getTime())) return "";
-    try { return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET"; }
-    catch (e) { return d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+    if (!iso) return "";
+    if (memo.clock[iso] != null) return memo.clock[iso];
+    var d = new Date(iso), out = "";
+    if (!isNaN(d.getTime())) {
+      try { out = d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET"; }
+      catch (e) { out = d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
+    }
+    if (++memo.clockN > 200) { memo.clock = {}; memo.clockN = 0; }
+    return (memo.clock[iso] = out);
   }
   function todayEt(now) {
-    try { return new Date(now).toLocaleDateString("en-CA", { timeZone: "America/New_York" }); }
-    catch (e) { return new Date(now).toISOString().slice(0, 10); }
+    var k = Math.floor(now / 60000);
+    if (memo.day.k === k) return memo.day.v;
+    var v;
+    try { v = new Date(now).toLocaleDateString("en-CA", { timeZone: "America/New_York" }); }
+    catch (e) { v = new Date(now).toISOString().slice(0, 10); }
+    memo.day = { k: k, v: v };
+    return v;
+  }
+  function mappedOf(d) {
+    if (memo.data === d) return memo.mapped;
+    var m = null;
+    if (d && d.mapped_mfl_ids) { m = {}; d.mapped_mfl_ids.forEach(function (id) { m[String(id)] = 1; }); }
+    memo.data = d; memo.mapped = m;
+    return m;
   }
   // "Oct 18" from "2026-10-18" (or MFL's own text when it couldn't be read as a date).
   function dayText(iso, raw) {
@@ -139,8 +159,7 @@
     var rf = d.report_feed || {}, rof = d.roster_feed || {}, mf = d.mfl_feed || null;
     var dataWeek = int((mf && mf.week) || rof.week || rf.current_week);
     var week = int(opts.week) || dataWeek;
-    var mapped = null;
-    if (d.mapped_mfl_ids) { mapped = {}; d.mapped_mfl_ids.forEach(function (id) { mapped[String(id)] = 1; }); }
+    var mapped = mappedOf(d);
     var m = p.mfl || null, r = rf.current ? (p.report || null) : null, pr = p.prior || null, ro = p.roster || null;
     var rWeek = int(rf.week), nflWhen = clockEt(rf.updated_utc);
     var teamReported = rf.current && (rf.teams_mfl || []).indexOf(team) >= 0;

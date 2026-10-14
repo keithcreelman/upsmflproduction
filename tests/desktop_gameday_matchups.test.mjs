@@ -7,10 +7,11 @@
 // usual" uncolored, a pronounced Details button that is a real <button> with
 // aria-expanded and gets focus back, several cards open, one window (no &last), a failed
 // or ok:false read says so with Try again and retries after a minute, a re-read after 5
-// minutes, Week 1 "(2025)", "Next" with byes. Injury badges stay exactly as on main (MFL's
-// injuries export + the week-scoped override list): Keith 2026-10-14 ruled the injury source
-// moves in its own PR (one shared resolver for phone and desktop). The lock / bye / IR-slot
-// rules are unchanged. Nothing here writes: every request is a GET, Submit is never pressed.
+// minutes, Week 1 "(2025)", "Next" with byes. Injury tags come from the ONE shared resolver
+// (site/shared/injury_status.js, Keith 2026-10-14): MFL's Q/D/OUT first, the official report
+// beside it, source + week on every tag and line, both shown when they disagree; the lock /
+// bye / IR-slot rules unchanged. Nothing here writes: every request is a GET, Submit is never
+// pressed.
 //   node tests/desktop_gameday_matchups.test.mjs
 //   GAMEDAY_HTML=<path> node tests/desktop_gameday_matchups.test.mjs   (mutation checks)
 import fs from "node:fs";
@@ -21,7 +22,7 @@ import { makeDocument, settle } from "./fixtures/tree_dom.mjs";
 const read = (p) => fs.readFileSync(p.startsWith("/") ? p : new URL("../" + p, import.meta.url), "utf8");
 const FX = JSON.parse(read("tests/fixtures/lineup_matchups_2026_wk6.json"));
 const GAMEDAY = read(process.env.GAMEDAY_HTML || "site/gameday/gameday.html");
-const LIVE = read("site/shared/live_scoring.js"), OVERRIDES = read("site/shared/injury_overrides.js");
+const LIVE = read("site/shared/live_scoring.js"), OVERRIDES = read("site/shared/injury_overrides.js"), STATUS = read("site/shared/injury_status.js");
 const INLINE = (() => {
   const blocks = [...GAMEDAY.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.strictEqual(blocks.length, 1, "gameday.html has one inline script");
@@ -41,15 +42,39 @@ const COLEMAN = "16617", HAMPTON = "17044", DAVIS = "13710", NIX = "16582", EWIL
 const IR_SLOT = NIX, TAXI = EWILSON;
 const BYES_W6 = ["DET", "MIA", "CIN", "MIN"];   // the four teams with no Week 6 game in the fixture
 
-// MFL's own injuries export for Week 6 (what Game Day's badges read today): a Questionable,
-// a Doubtful and an IR-R roster designation.
+// /api/player-status as the worker answers it (2026-10-14), the same cases as the mobile test:
+//   Allen   MFL Q, his team (BUF) posted its Wk 6 report without him  → a disagreement
+//   Taylor  MFL Q, the official report says Q too                     → they agree
+//   Coleman no MFL designation, the official report says Out          → a disagreement
+//   Davis   MFL roster IR-R
+// o.current: this week's report is out (else last week's finals as `prior`).
+function statusBody(o) {
+  o = Object.assign({ current: true, mflWeek: 6 }, o || {});
+  const at = "2026-10-14T12:01:04.000Z", players = {};
+  const put = (id, k, v) => { (players[id] = players[id] || {})[k] = v; };
+  const mfl = (status, details, exp, date) => ({ status, week: o.mflWeek, updated_utc: at, details, exp_return: exp, return_date: date });
+  put(ALLEN, "mfl", mfl("Questionable", "Ankle", "Oct 18, 2026", "2026-10-18"));
+  put(TAYLOR, "mfl", mfl("Questionable", "Hamstring", "Oct 18, 2026", "2026-10-18"));
+  if (o.current) {
+    put(TAYLOR, "report", { status: "Questionable", injury: "Hamstring", practice: "Limited Participation in Practice" });
+    put(COLEMAN, "report", { status: "Out", injury: "Ankle", practice: "Did Not Participate" });
+  } else put(COLEMAN, "prior", { week: 5, status: "Out", injury: "Ankle", team: "BUF" });
+  put(DAVIS, "roster", { status: "IR-R", label: "Injured reserve – designated to return", chip: "IR-R", detail: "Knee" });
+  return { ok: true, season: 2026, players, mapped_mfl_ids: ALL,
+    report_feed: { ok: true, week: o.current ? 6 : 5, current_week: 6, current: o.current, updated_utc: "2026-10-14T20:00:00Z",
+      reason: o.current ? null : "the newest report is Wk 5; Wk 6's is not out yet", teams_mfl: o.current ? ["IND", "BUF", "NEP"] : [], prior_weeks: o.current ? [] : [5] },
+    roster_feed: { ok: true, week: o.mflWeek, updated_utc: at }, mfl_feed: { ok: true, week: o.mflWeek, updated_utc: at, count: 2 } };
+}
+// MFL's own injuries export for Week 6, as this page reads it (the resolver's fallback while
+// /api/player-status can't be read): a Questionable, a Doubtful and an IR-R.
 const MFL_INJURIES = { injuries: { week: "6", timestamp: "1791936064", injury: [
   { id: ALLEN, status: "Questionable", details: "Ankle", exp_return: "Oct 18, 2026" },
   { id: HAMPTON, status: "Doubtful", details: "Groin", exp_return: "Oct 18, 2026" },
   { id: DAVIS, status: "IR-R", details: "Knee", exp_return: "Nov 15, 2026" }] } };
 
 // opts.lm(u) → { status, body } overrides /api/lineup-matchups; opts.injuries → MFL's
-// injuries export; opts.liveWeek / projWeek; opts.now.
+// injuries export; opts.status → the /api/player-status body (or { fail: true });
+// opts.liveWeek / projWeek; opts.now.
 function boot(opts) {
   opts = Object.assign({ liveWeek: 6, projWeek: 6, now: Date.parse("2026-10-14T21:00:00Z") }, opts || {});
   const doc = makeDocument(), root = doc.mount("gd-root");
@@ -61,6 +86,7 @@ function boot(opts) {
     const u = new URL(url), q = (k) => u.searchParams.get(k);
     if (u.pathname === "/api/current-lineup-week") return resp(200, { ok: true, week: opts.liveWeek });
     if (u.pathname === "/api/lineup") return resp(200, { known: true, starters: FX.starters, state: "ok", source: "mfl_player_status" });
+    if (u.pathname === "/api/player-status") return opts.status && opts.status.fail ? resp(500, { ok: false }) : resp(200, opts.status || statusBody());
     if (u.pathname === "/api/lineup-matchups") {
       if (opts.lm) { const o = opts.lm(u); if (o) return resp(o.status, o.body); }
       return q("W") === "6" && !q("last") ? resp(200, FX.response) : resp(500, { ok: false, error: "no fixture" });
@@ -92,6 +118,7 @@ function boot(opts) {
   c.Date = class extends Date { constructor(...a) { if (a.length) super(...a); else super(now); } static now() { return now; } };
   vm.runInContext(LIVE, c);
   vm.runInContext(OVERRIDES, c);
+  vm.runInContext(STATUS, c);
   vm.runInContext(INLINE, c);
   env.doc = doc; env.root = root; env.log = log; env.writes = writes; env.c = c;
   env.tick = (ms) => { now += ms; };
@@ -113,6 +140,7 @@ function boot(opts) {
   env.open = async () => { await settle(30); };
   env.bench = async () => { doc.getElementById("gd-bench-toggle").click(); await settle(); };
   env.note = () => env.text(root.querySelector(".gd-mu-note"));
+  env.injNote = () => env.text(root.querySelector(".gd-mu-note.inj"));
   return env;
 }
 function nameOf(pid) { const raw = PBYID[pid].name, p = raw.split(","); return p.length > 1 ? p[1].trim() + " " + p[0].trim() : raw; }
@@ -316,31 +344,62 @@ await check("Week 1 before any game: last season's ranks, labeled on the chip an
   assert.ok(/^No 2026 games yet, so the ranks are from the 2025 season\./.test(e.note()), e.note());
 });
 
-console.log("\n4. injury badges: unchanged from main (MFL's export + overrides); the source moves in its own PR");
+console.log("\n4. injury tags: the shared resolver (MFL first, the official report beside it, source + week everywhere)");
 {
   const e = boot(); await e.open(); await e.bench();
-  const badges = (els) => els.filter((x) => /gd-inj-badge/.test(x.attrs.class)).map((x) => ({ t: e.text(x), cls: x.attrs.class, title: x.getAttribute("title") }));
-  await check("a starter MFL marks Questionable keeps the big amber QUESTIONABLE badge, description in the tooltip", () => {
-    assert.deepStrictEqual(badges(e.slotBadges(ALLEN)), [{ t: "QUESTIONABLE", cls: "gd-inj-badge tier-q", title: "QUESTIONABLE: Ankle" }]);
+  const badges = (els) => els.filter((x) => /gd-inj-badge/.test(x.attrs.class)).map((x) => e.text(x));
+  await check("MFL's Q is the tag, with source and week: Allen \"MFL: Q (Wk 6)\" (amber) + BUF's posted report doesn't list him → \"NFL Wk 6: not listed\"", () => {
+    assert.deepStrictEqual(badges(e.slotBadges(ALLEN)), ["MFL: Q (Wk 6)", "NFL Wk 6: not listed"]);
+    const b = e.slotBadges(ALLEN).filter((x) => /gd-inj-badge/.test(x.attrs.class));
+    assert.ok(/\btier-q\b/.test(b[0].attrs.class) && /\btier-na\b/.test(b[1].attrs.class), b.map((x) => x.attrs.class).join(" | "));
   });
-  await check("bench: MFL's Doubtful and IR-R keep their red badges, as on main", () => {
-    assert.deepStrictEqual(badges(e.benchRow(HAMPTON).querySelectorAll(".gd-inj-badge")), [{ t: "DOUBTFUL", cls: "gd-inj-badge tier-out", title: "DOUBTFUL: Groin" }]);
-    assert.deepStrictEqual(badges(e.benchRow(DAVIS).querySelectorAll(".gd-inj-badge")), [{ t: "IR-R", cls: "gd-inj-badge tier-out", title: "IR-R: Knee" }]);
-    assert.strictEqual(e.root.querySelectorAll(".gd-inj-badge").length, 3, "no other tags");
+  await check("they agree (Taylor): one tag, MFL's", () => { assert.deepStrictEqual(badges(e.slotBadges(TAYLOR)), ["MFL: Q (Wk 6)"]); });
+  await check("MFL nothing, the official report Out (Coleman, bench): \"NFL: OUT (Wk 6)\" and \"MFL: none\"; IR-R stays MFL's (Davis: \"MFL: IR-R\")", () => {
+    assert.deepStrictEqual(badges(e.benchRow(COLEMAN).querySelectorAll(".gd-inj-badge")), ["NFL: OUT (Wk 6)", "MFL: none"]);
+    assert.deepStrictEqual(badges(e.benchRow(DAVIS).querySelectorAll(".gd-inj-badge")), ["MFL: IR-R"]);
+    assert.ok(/\btier-res\b/.test(e.benchRow(DAVIS).querySelector(".gd-inj-badge").attrs.class));
   });
-  await check("no /api/player-status read, no injury line in Details, no injury note (all of that is the resolver PR)", async () => {
-    assert.strictEqual(e.log.filter((x) => /player-status/.test(x.url)).length, 0);
+  await check("MFL's export alone no longer decides: Hampton (MFL export Doubtful, but /api/player-status has no MFL row for him) shows nothing", () => {
+    assert.strictEqual(e.benchRow(HAMPTON).querySelectorAll(".gd-inj-badge").length, 0);
+  });
+  await check("Details: both sources with their weeks, MFL's description and return, the disagreement in words", async () => {
     e.line(ALLEN).click(); await settle();
-    assert.ok(!/injury|Roster:|Wk \d+ .*report/i.test(e.text(e.card(ALLEN))), e.text(e.card(ALLEN)));
-    assert.strictEqual(e.root.querySelectorAll(".gd-mu-note").length, 1, "one note: the matchups one");
+    const t = e.text(e.card(ALLEN));
+    assert.ok(t.indexOf("MFL Wk 6: Questionable — Ankle; expected back Oct 18 (updated ") === 0, t);
+    assert.ok(/NFL Wk 6 report: not listed \(BUF’s report, updated .+ ET\)\./.test(t), t);
+    assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL says Questionable; the report doesn’t list him.") >= 0, t);
   });
-  await check("a week-scoped override still applies to its own week only", async () => {
-    const e2 = boot({ injuries: { injuries: { week: "6", timestamp: "1791936064", injury: [] } } });
-    e2.c.UPS_INJURY_OVERRIDES[TAYLOR] = { status: "OUT", season: 2026, week: 6, source: "https://example.test", added: "2026-10-14" };
-    e2.c.UPS_INJURY_OVERRIDES[THOMAS] = { status: "OUT", season: 2026, week: 5, source: "https://example.test", added: "2026-10-07" };
+  await check("one note says where the tags come from; no tag isn't 'healthy'", () => {
+    assert.ok(/^Tags: MFL’s Wk 6 designations first \(updated .+ ET\); where MFL has none, the NFL report — Wk 6’s for 3 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.injNote()), e.injNote());
+  });
+  await check("the status is read once, not on every repaint, from /api/player-status", async () => {
+    await e.repaint(); await e.repaint();
+    const reads = e.log.filter((x) => /player-status/.test(x.url));
+    assert.strictEqual(reads.length, 1); assert.ok(/\/api\/player-status\?season=2026&L=74598$/.test(reads[0].url));
+  });
+  await check("this week's report not out: MFL first; with nothing from MFL, the NFL's last final, labeled and dashed", async () => {
+    const e5 = boot({ status: statusBody({ current: false }) }); await e5.open(); await e5.bench();
+    const b = e5.benchRow(COLEMAN).querySelector(".gd-inj-badge");
+    assert.strictEqual(e5.text(b), "NFL: OUT (Wk 5 final)"); assert.ok(/\bprior\b/.test(b.attrs.class));
+    assert.deepStrictEqual(badges(e5.slotBadges(TAYLOR)), ["MFL: Q (Wk 6)"]);
+  });
+  await check("MFL's export still on Wk 5 for the Wk 6 lineup: its tag says Wk 5 and is dashed, never this week's", async () => {
+    const e3 = boot({ status: statusBody({ mflWeek: 5 }) }); await e3.open();
+    const b = e3.slotBadges(TAYLOR).filter((x) => /gd-inj-badge/.test(x.attrs.class))[0];
+    assert.strictEqual(e3.text(b), "MFL: Q (Wk 5)"); assert.ok(/\bprior\b/.test(b.attrs.class), b.attrs.class);
+  });
+  await check("status unreadable: MFL's designations from this page's own MFL read (its Week 6 export), labeled so; the note says so", async () => {
+    const e4 = boot({ status: { fail: true } }); await e4.open(); await e4.bench();
+    assert.deepStrictEqual(badges(e4.slotBadges(ALLEN)), ["MFL: Q (Wk 6)"]);
+    assert.deepStrictEqual(badges(e4.benchRow(HAMPTON).querySelectorAll(".gd-inj-badge")), ["MFL: D (Wk 6)"]);
+    assert.deepStrictEqual(badges(e4.benchRow(DAVIS).querySelectorAll(".gd-inj-badge")), ["MFL: IR-R"]);
+    assert.strictEqual(e4.injNote(), "Injury status couldn’t be loaded; tags are MFL’s from this page’s own read. No tag doesn’t mean healthy.");
+  });
+  await check("a week-scoped override no longer decides Submit Lineup's tags (the Live tab still uses the list)", async () => {
+    const e2 = boot();
+    e2.c.UPS_INJURY_OVERRIDES[THOMAS] = { status: "OUT", season: 2026, week: 6, source: "https://example.test", added: "2026-10-14" };
     await e2.open();
-    assert.deepStrictEqual(badges(e2.slotBadges(TAYLOR)).map((b) => b.t), ["OUT"]);
-    assert.strictEqual(badges(e2.slotBadges(THOMAS)).length, 0, "a Week 5 entry is inert in Week 6");
+    assert.strictEqual(badges(e2.slotBadges(THOMAS)).length, 0);
   });
 }
 
@@ -353,16 +412,17 @@ console.log("\n5. the lock, bye and IR-slot rules are unchanged");
     return { v: sel.value, disabled: sel.disabled, opts: sel.querySelectorAll("option").map((o) => o.attrs.value).join(",") };
   });
   const errs = (e) => e.root.querySelectorAll(".gd-lu-errors li").map((li) => e.text(li));
-  const tagged = boot({ now: sunday }), clean = boot({ now: sunday, injuries: { injuries: { week: "6", timestamp: "1791936064", injury: [] } } });
+  const tagged = boot({ now: sunday }), clean = boot({ now: sunday, status: { fail: true }, injuries: { injuries: { week: "6", timestamp: "1791936064", injury: [] } } });
   await tagged.open(); await clean.open(); await tagged.bench(); await clean.bench();
   await check("a started game still locks his slot (disabled + Locked badge)", () => {
     for (const pid of [ALSHAAIR, AJOHNSON]) {
       const s = tagged.slot(pid); assert.ok(s.querySelector("select").disabled, pid + " locked");
       assert.ok(tagged.slotBadges(pid).some((b) => /gd-lock-badge/.test(b.attrs.class)), pid + " lock badge");
     }
-    assert.ok(!tagged.slot(TAYLOR).querySelector("select").disabled, "Taylor hasn't kicked off: not locked");
+    assert.ok(!tagged.slot(TAYLOR).querySelector("select").disabled, "Taylor (MFL Q) hasn't kicked off: not locked");
   });
-  await check("every slot's value, lock and candidate list is the same with or without injury entries", () => {
+  await check("every slot's value, lock and candidate list is the same with tags and with none", () => {
+    assert.ok(tagged.root.querySelectorAll(".gd-inj-badge").length >= 4 && clean.root.querySelectorAll(".gd-inj-badge").length === 0);
     assert.deepStrictEqual(snap(tagged), snap(clean));
   });
   await check("the bye starter (Goff, DET) is still flagged and blocks the submit; the errors are the same either way", () => {
