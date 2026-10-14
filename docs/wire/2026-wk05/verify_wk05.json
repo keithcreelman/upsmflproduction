@@ -1,0 +1,302 @@
+[
+ {
+  "check": "article status is draft",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "index.json lists Week 5 as draft only",
+  "ok": true,
+  "detail": "[{'id': '2026-wk05-ups-center', 'familyId': 'weekly', 'season': 2026, 'week': 5, 'kicker': 'Week 5', 'title': 'UPS Center: Week 5', 'dek': 'A third of the season is gone and the league is splitting in three: Bear Dunn and three 90% teams at the top, three 3\u201310 teams on life support, and a crowded mi"
+ },
+ {
+  "check": "heat table: Bear Dunn all-play 45-10",
+  "ok": true,
+  "detail": "B. Dunn"
+ },
+ {
+  "check": "heat table: Eric Martel all-play 37-18",
+  "ok": true,
+  "detail": "E. Martel"
+ },
+ {
+  "check": "heat table: Keith Creelman all-play 32-23",
+  "ok": true,
+  "detail": "K. Creelman"
+ },
+ {
+  "check": "heat table: Shawn Blake all-play 40-15",
+  "ok": true,
+  "detail": "S. Blake"
+ },
+ {
+  "check": "heat table: Derrick Whitman all-play 32-23",
+  "ok": true,
+  "detail": "D. Whitman"
+ },
+ {
+  "check": "heat table: Eric Mannila all-play 23-32",
+  "ok": true,
+  "detail": "E. Mannila"
+ },
+ {
+  "check": "heat table: Brian Cutting all-play 31-24",
+  "ok": true,
+  "detail": "B. Cutting"
+ },
+ {
+  "check": "heat table: Ryan Bousquet all-play 20-35",
+  "ok": true,
+  "detail": "R. Bousquet"
+ },
+ {
+  "check": "heat table: Chris Klingenberg all-play 29-26",
+  "ok": true,
+  "detail": "C. Klingenberg"
+ },
+ {
+  "check": "heat table: Matt Gerardi all-play 16-39",
+  "ok": true,
+  "detail": "M. Gerardi"
+ },
+ {
+  "check": "heat table: Josh Martel all-play 11-44",
+  "ok": true,
+  "detail": "J. Martel"
+ },
+ {
+  "check": "heat table: Brian Cross all-play 14-41",
+  "ok": true,
+  "detail": "B. Cross"
+ },
+ {
+  "check": "story: Cutting 6-7",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "story: the three 3-10 teams",
+  "ok": true,
+  "detail": "['Matt Gerardi', 'Josh Martel', 'Brian Cross']"
+ },
+ {
+  "check": "odds: Bear Dunn playoffs 99.5%, since Wk3 +6.1",
+  "ok": true,
+  "detail": "('99.5%', '+6.1', '95.7%')"
+ },
+ {
+  "check": "odds: Brian Cutting playoffs 95.3%, since Wk3 +2.6",
+  "ok": true,
+  "detail": "('95.3%', '+2.6', '49.6%')"
+ },
+ {
+  "check": "odds: Shawn Blake playoffs 93.8%, since Wk3 +21.2",
+  "ok": true,
+  "detail": "('93.8%', '+21.2', '84.5%')"
+ },
+ {
+  "check": "odds: Eric Martel playoffs 90.0%, since Wk3 +1.5",
+  "ok": true,
+  "detail": "('90.0%', '+1.5', '50.2%')"
+ },
+ {
+  "check": "odds: Keith Creelman playoffs 84.8%, since Wk3 +1.3",
+  "ok": true,
+  "detail": "('84.8%', '+1.3', '83.0%')"
+ },
+ {
+  "check": "odds: Chris Klingenberg playoffs 54.1%, since Wk3 +13.2",
+  "ok": true,
+  "detail": "('54.1%', '+13.2', '3.0%')"
+ },
+ {
+  "check": "odds: Derrick Whitman playoffs 39.9%, since Wk3 -14.6",
+  "ok": true,
+  "detail": "('39.9%', '\u221214.6', '14.0%')"
+ },
+ {
+  "check": "odds: Eric Mannila playoffs 14.0%, since Wk3 -6.1",
+  "ok": true,
+  "detail": "('14.0%', '\u22126.1', '1.4%')"
+ },
+ {
+  "check": "odds: Ryan Bousquet playoffs 19.2%, since Wk3 +3.2",
+  "ok": true,
+  "detail": "('19.2%', '+3.2', '15.5%')"
+ },
+ {
+  "check": "odds: Matt Gerardi playoffs 5.1%, since Wk3 -8.6",
+  "ok": true,
+  "detail": "('5.1%', '\u22128.6', '1.5%')"
+ },
+ {
+  "check": "odds: Brian Cross playoffs 2.5%, since Wk3 -9.4",
+  "ok": true,
+  "detail": "('2.5%', '\u22129.4', '0.2%')"
+ },
+ {
+  "check": "odds: Josh Martel playoffs 2.0%, since Wk3 -10.4",
+  "ok": true,
+  "detail": "('2.0%', '\u221210.4', '1.6%')"
+ },
+ {
+  "check": "odds: run is through Week 5 with 10,000 runs",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "odds: inputs time printed (Tue Oct 13, 9:56 PM ET)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "history: AP rank 1-2 -> 18 of 18",
+  "ok": true,
+  "detail": "(18, 0)"
+ },
+ {
+  "check": "history: AP rank 11-12 -> 3 of 17",
+  "ok": true,
+  "detail": "(3, 14)"
+ },
+ {
+  "check": "history: 3 or fewer wins after Week 5 (2021-25) -> 0 of 8",
+  "ok": true,
+  "detail": "[(2021, '0003'), (2021, '0008'), (2021, '0009'), (2022, '0002'), (2022, '0005'), (2023, '0006'), (2023, '0012'), (2024, '0006')]"
+ },
+ {
+  "check": "history: 2017 Bear Dunn 11-44 through Week 5, made it",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "survival text: 0 for 8 and 2017 line",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Warren carries 21 of 38 (wks 1-2), 49 of 54 (wks 3-5) [play_type=run]",
+  "ok": true,
+  "detail": "({1: 10, 2: 11, 3: 17, 4: 17, 5: 15}, {1: 18, 2: 20, 3: 19, 4: 19, 5: 16})"
+ },
+ {
+  "check": "only Brandon Marshall (28, 2009) above 24 targets in a game",
+  "ok": true,
+  "detail": "[{'season': 2009, 'week': 14, 'player_display_name': 'Brandon Marshall', 'targets': 28}]"
+ },
+ {
+  "check": "2026 20-target games = Nacua 24, Lamb 21, Nabers 20",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Dowdle: Out wks 3-4 (toe), Questionable wk 5",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Dowdle inactive Week 5",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Lions bye in Week 6",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "MFL: Achane IR ACL back Feb 15 2027; Reed IR neck back Feb 15 2027",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "MFL still lists Dowdle Questionable",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Henry: Cross wks 1-4, Blake wk 5 (22.6)",
+  "ok": true,
+  "detail": "[('0006', 'starter', '37.7'), ('0006', 'starter', '18.3'), ('0006', 'starter', '22.5'), ('0006', 'starter', '16.9'), ('0010', 'starter', '22.6')]"
+ },
+ {
+  "check": "Bowers wk3 on Bear's bench (36.0), started wks 4-5",
+  "ok": true,
+  "detail": "[('0009', 'nonstarter', '36.0'), ('0009', 'starter', '24.6'), ('0009', 'starter', '30.0')]"
+ },
+ {
+  "check": "five quotes",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "quote 1559179324681093275 verbatim, channel matches, not excluded",
+  "ok": true,
+  "detail": "('First week was a fluke. Bear has been unstoppable since then', 'First week was a fluke. Bear has been unstoppable since then')"
+ },
+ {
+  "check": "quote 1559180011083272243 verbatim, channel matches, not excluded",
+  "ok": true,
+  "detail": "('Not sure I have an all play win since week 1', 'Not sure I have an all play win since week 1')"
+ },
+ {
+  "check": "quote 1558921157116305433 verbatim, channel matches, not excluded",
+  "ok": true,
+  "detail": "('Forced to start this week. Bryce and Mahomes on bye', 'Forced to start this week. Bryce and Mahomes on bye')"
+ },
+ {
+  "check": "quote 1559408224636117004 verbatim, channel matches, not excluded",
+  "ok": true,
+  "detail": "('\ud83d\ude4f for a pick or fumble 6', '\ud83d\ude4f for a pick or fumble 6')"
+ },
+ {
+  "check": "quote 1559180424889114725 verbatim, channel matches, not excluded",
+  "ok": true,
+  "detail": "('Everyone has to rebuild sometimes. Rebuild or become Hawks in perpetuity.', 'Everyone has to rebuild sometimes. Rebuild or become Hawks in perpetuity.')"
+ },
+ {
+  "check": "ruled-out message 1557163194651254845 absent (id)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "ruled-out message 1556369890321899692 absent (id)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "no withheld chat in the snapshot leaked (ids)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "no never-material terms in the reader-visible text (NFL 'ACL' from the IR record expected)",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "no private (dossier) names in the reader-visible text",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "same verified highlight links",
+  "ok": true,
+  "detail": "['https://www.nfl.com/videos/drake-maye-s-best-plays-from-5-td-game-vs-raiders-week-5', 'https://www.nfl.com/videos/puka-nacua-s-best-plays-from-147-yard-game-vs-bills-week-5']"
+ },
+ {
+  "check": "pipelines/etl/wire/season_sim.py has no INSERT/UPDATE/DELETE/POST",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "pipelines/etl/wire/week_preview.py has no INSERT/UPDATE/DELETE/POST",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "pipelines/etl/wire/ev_projections.py has no INSERT/UPDATE/DELETE/POST",
+  "ok": true,
+  "detail": ""
+ }
+]
