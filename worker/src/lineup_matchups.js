@@ -21,6 +21,8 @@
 //                     plus games, perGame (Allowed) and usual, exactly as Pts Agst,
 //                     and ppgRank / ppgOf: the rank by MFL points allowed per game.
 //                     For DL/LB/DB the team is the OFFENSE those players faced.
+//   ratingsSource     "stored" when last season came from the Pts Agst store (Week 1,
+//                     #1278), else "live" (read from MFL now).
 //   playerWindow[pid] the player's MFL points per final game in the window.
 //   horizon[team]     the next three weeks' opponents.
 //   weather[team]     forecast at the venue near kickoff (Open-Meteo), or dome.
@@ -30,6 +32,7 @@
 import {
   FPA_ENGINE_VERSION, FPA_BASELINE, FpaUpstreamError, NFLV_TO_MFL,
   fpaUrls, fpaLoadMfl, fpaCompute, fpaAggregate, fpaWeekStates, fpaGameStatus, fpaSeasonContextCached,
+  fpaStorePath, fpaStoreOpen,
 } from "./fpa_engine.js";
 
 export const LINEUP_MU_VERSION = "lmu3-2026-10-14";   // lmu3: the line from nflverse (#1262)
@@ -241,6 +244,35 @@ export function lmuReadAt(res, nowMs) {
   return Math.floor(t / 1000) * 1000;   // whole seconds, like the headers
 }
 
+// ── Last season from the Pts Agst store (#1278) ──
+// Week 1 before any game is final describes last season, a finished one. #1258 ships
+// finished seasons as files bound to env.FPA_STORE (worker/fpa_store/<engine>/<yr>.json)
+// and the Pts Agst board answers past seasons from them. This is the same lookup (the
+// engine's fpaStoredSeason isn't exported): the file → fpaStoreOpen, which re-checks
+// shape, engine version, league and completeness, and returns a fetchJson that answers
+// fpaLoadMfl from the file, the season's game-day context and when MFL was read. Any
+// problem → null, and the caller reads MFL live exactly as before. Usable copies are
+// kept per isolate (files change only with a deploy, which starts a new isolate).
+const lmuStoreMemo = new WeakMap();   // env.FPA_STORE → Map("yr|lid" → open store)
+export async function lmuStoredSeason(env, yr, lid, nowMs) {
+  const bin = env && env.FPA_STORE;
+  if (!bin || typeof bin.fetch !== "function") return null;
+  let memo = lmuStoreMemo.get(bin);
+  if (!memo) { memo = new Map(); lmuStoreMemo.set(bin, memo); }
+  const key = yr + "|" + lid;
+  if (memo.has(key)) return memo.get(key);
+  let open = null;
+  try {
+    const r = await bin.fetch(new Request("https://fpa-store.local" + fpaStorePath(yr)));
+    if (r && r.ok) open = fpaStoreOpen(await r.json(), yr, lid, nowMs);
+  } catch (_) { open = null; }
+  if (open) {
+    if (memo.size >= 2) memo.delete(memo.keys().next().value);
+    memo.set(key, open);
+  }
+  return open;
+}
+
 async function cacheMatch(key) {
   if (typeof caches === "undefined" || !caches.default) return null;
   try { return await caches.default.match(new Request(key)); } catch (_) { return null; }
@@ -293,7 +325,16 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
       if (!anyFinal) { ratingYr = String(Number(yr) - 1); priorSeason = true; }
     }
     const past = Number(ratingYr) < cur;
-    const mfl = await fpaLoadMfl({ yr: ratingYr, wMin: 1, wMax: 99, lid: L, fetchJson, nowMs: now, currentSeason: !past, tag: FPA_MFL_TAG });
+    // Last season (Week 1, before a game is final) comes from the Pts Agst store when
+    // it is usable (#1278): the same loader and compute, so the same numbers, without
+    // ~36 MFL reads (a cold past-season read took 33–90 s). Otherwise, live as before.
+    const load = (fj) => fpaLoadMfl({ yr: ratingYr, wMin: 1, wMax: 99, lid: L, fetchJson: fj, nowMs: now, currentSeason: !past, tag: FPA_MFL_TAG });
+    let stored = priorSeason && past ? await lmuStoredSeason(env, ratingYr, L, now) : null;
+    let mfl = null;
+    if (stored) {
+      try { mfl = await load(stored.fetchJson); mfl.readAtMs = stored.readAtMs; } catch (_) { stored = null; mfl = null; }
+    }
+    if (!mfl) mfl = await load(fetchJson);
 
     // This week's games and the next three weeks. When the ratings are this season's,
     // the engine has already read every week of it.
@@ -314,7 +355,7 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
     const ws = fpaWeekStates(mfl, now);
     const hi = ws.latestFinal;
     const lo = last && hi ? Math.max(1, hi - last + 1) : 1;
-    const { ctx: seasonCtx, state: ctxState } = await fpaSeasonContextCached(env, ctx, ratingYr, past);
+    const { ctx: seasonCtx, state: ctxState } = stored ? { ctx: stored.ctx, state: "ok" } : await fpaSeasonContextCached(env, ctx, ratingYr, past);
     let defRatings = {}, playerWindow = {}, weeksUsed = [], attribution = null;
     if (hi >= 1) {
       const E = fpaCompute(mfl, seasonCtx, { wMin: lo, wMax: hi, nowMs: now, baseline: FPA_BASELINE });
@@ -337,7 +378,7 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
     const basis = !weeksUsed.length ? "" : (priorSeason ? ratingYr + " season" : (weeksUsed.length === 1 ? "Wk " + weeksUsed[0] : "Wks " + weeksUsed[0] + "–" + weeksUsed[weeksUsed.length - 1]));
     const payload = {
       ok: true, engine: FPA_ENGINE_VERSION, version: LINEUP_MU_VERSION, baseline: FPA_BASELINE,
-      year: yr, week: wk, ratingYear: ratingYr, priorSeason,
+      year: yr, week: wk, ratingYear: ratingYr, priorSeason, ratingsSource: stored ? "stored" : "live",
       window: last || null,
       ratingWindow: { week_min: lo, week_max: hi, last: last || null, auto: true },
       weeksUsed, weeksAvailable, ratingsBasis: basis,
