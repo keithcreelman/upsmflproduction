@@ -32,3 +32,9 @@ These are the one-off scripts behind `site/wire/articles/2026/2026-wk05-ups-cent
 - `../verify_wk05.json`: the independent checks (75 in revision 2).
 
 The quote check reads the local sources snapshot in `~/Library/Caches/upsmfl-ups-center-auto/`; raw chat never enters the repo.
+
+**Publication (2026-10-14, Keith's go):**
+- `../mfl_injuries_pub.json` plus `.fetched` is MFL's injury feed, fetched just before publishing. It is the source of the timestamped "Dowdle at publication" line. The builder reads it from the data folder.
+- The publish commit sets `status: live`, `publishedAt` and `featured: yes` in the wire-meta.
+- Run `verify_wk05.py` with `WK05_STAGE=live`.
+

@@ -105,6 +105,19 @@ assert BQ["warren_rise"] / BQ["rise"] > 1 / 3
 DOWDLE_INJ = F["players"]["warren"]["dinj"]
 assert DOWDLE_INJ["5"][0] == "Questionable" and DOWDLE_INJ["5"][2].startswith("Limited")
 
+# ---- Dowdle at publication (Keith 2026-10-14: "use the latest verified Dowdle information available at
+# publication time and timestamp it accurately"). MFL's injury feed, fetched just before publishing.
+_pubinj = json.load(open(os.path.join(DIR, "mfl_injuries_pub.json")))["injuries"]
+_pubfetch = datetime.strptime(open(os.path.join(DIR, "mfl_injuries_pub.fetched")).read().strip(), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+_pubfeed = datetime.fromtimestamp(int(_pubinj["timestamp"]), timezone.utc)
+_dw = [r for r in _pubinj["injury"] if r["id"] == "14823"]
+assert len(_dw) == 1 and _dw[0]["status"] == "Questionable" and _dw[0]["details"] == "Toe", _dw
+_et = lambda d: (d - timedelta(hours=4)).strftime("%a %b %-d, %-I:%M %p ET")
+import nflreadpy as _nflr, polars as _plx
+assert _nflr.load_injuries([2026]).filter((_plx.col("week") == 6) & (_plx.col("team") == "PIT")).height == 0   # no Week 6 Steelers report yet
+DOWDLE_PUB = ("Dowdle at publication (checked %s): Questionable with a toe injury on MFL&rsquo;s injury feed (updated %s); "
+              "the Steelers had not yet filed a Week 6 practice report." % (_et(_pubfetch), _et(_pubfeed).split(", ", 1)[1]))
+
 # ================================================================== receipts from the league chat (rev 3: woven into the stories)
 _MP = json.load(open(os.path.join(DIR, "mfl_2026.json")))["players"]
 _MP = _MP.get("players", _MP); _MP = _MP.get("player", _MP)
@@ -422,7 +435,7 @@ pit = (h3("1. Ryan Bousquet&rsquo;s climb, and the Steelers&rsquo; backfield") +
     ("Rich", "So watch Pittsburgh at Tampa Bay on Sunday at 1 PM, after Dowdle&rsquo;s practice reports Wednesday to Friday. The first drive comes first: Warren has taken the first running-back carry "
      "in four of five games. Then his snap share, his routes on passing downs, his carries and targets, and who gets the ball near the goal line. Our forecast already counts Dowdle as available."),
 ) + table(["", "With Dowdle, Wks 1&ndash;2", "Without, Wks 3&ndash;5"], pit_rows, right=(1, 2),
-          caption="nflverse play-by-play; injury designations from the official NFL report. Route data for 2026 is not available yet."))
+          caption="nflverse play-by-play; injury designations from the official NFL report. Route data for 2026 is not available yet. " + DOWDLE_PUB + ""))
 assert list(BQ["rec_cf"]) == [4, 9] and list(BQ["rec"]) == [6, 7]
 assert all(wv("ups", i) is not None for i in WEEKS) and all(w["dstatus"][str(i)] == "nonstarter" for i in WEEKS)
 

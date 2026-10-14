@@ -22,10 +22,15 @@ oid = {v: k for k, v in own.items()}
 short = lambda o: "%s. %s" % (o.split()[0][0], o.split(" ", 1)[1])
 
 print("1. status: still a draft, nothing published")
-ok("article status is draft", "status: draft" in doc and "status: live" not in doc)
+STAGE = os.environ.get("WK05_STAGE", "draft")          # "live" only for the publish commit (Keith's go, 2026-10-14)
+ok("article status is %s" % STAGE, ("status: %s" % STAGE) in doc and ("status: %s" % ("live" if STAGE == "draft" else "draft")) not in doc)
 idx = json.load(open(os.path.join(WT, "site/wire/index.json")))
 ent = [a for a in (idx["articles"] if isinstance(idx, dict) else idx) if a.get("id") == "2026-wk05-ups-center"]
-ok("index.json lists Week 5 as draft only", ent and all(a.get("status") == "draft" for a in ent), ent)
+ok("index.json lists Week 5 as %s only" % STAGE, ent and all(a.get("status") == STAGE for a in ent), ent)
+pubinj = json.load(open(os.path.join(DIR, "mfl_injuries_pub.json")))["injuries"]
+dw = [r for r in L(pubinj["injury"]) if r["id"] == "14823"]
+ok("Dowdle at publication: MFL feed says Questionable (toe), and the caption says so with its check time",
+   dw and dw[0]["status"] == "Questionable" and "Dowdle at publication (checked Wed Oct 14," in text(doc) and "Questionable with a toe injury on MFL" in text(doc), dw)
 
 print("2. standings and form, straight from MFL leagueStandings")
 st = {f["id"]: f for f in L(M["leagueStandings"]["leagueStandings"]["franchise"])}
