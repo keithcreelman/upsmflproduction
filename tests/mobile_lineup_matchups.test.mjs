@@ -236,18 +236,18 @@ console.log("\n2. injury status (Keith 2026-10-14): MFL first, the official repo
   const e = boot(); await e.open(); await e.bench();
   const tags = (els) => els.map((c) => e.text(c));
   const cls = (c) => c.attrs.class;
-  await check("MFL's Q is the tag: Allen's slot shows \"MFL: Q (Wk 6)\" (amber) on its own line under the slot", () => {
+  await check("MFL's Q is the tag: Allen's slot shows \"MFL: Q\" (amber, no week: MFL's list has one week, not one per designation) on its own line under the slot", () => {
     const ch = e.slotChips(ALLEN);
-    assert.strictEqual(e.text(ch[0]), "MFL: Q (Wk 6)"); assert.ok(/\bq\b/.test(cls(ch[0])) && /\blu\b/.test(cls(ch[0])), cls(ch[0]));
+    assert.strictEqual(e.text(ch[0]), "MFL: Q"); assert.ok(/\bq\b/.test(cls(ch[0])) && /\blu\b/.test(cls(ch[0])), cls(ch[0]));
     assert.ok(!e.slot(ALLEN).querySelector(".ups-m-inj-chip"), "not squeezed into the 56px position column");
   });
   await check("a disagreement shows both: BUF posted its Wk 6 report without Allen → a neutral \"NFL Wk 6: not listed\" tag beside MFL's", () => {
-    assert.deepStrictEqual(tags(e.slotChips(ALLEN)), ["MFL: Q (Wk 6)", "NFL Wk 6: not listed"]);
+    assert.deepStrictEqual(tags(e.slotChips(ALLEN)), ["MFL: Q", "NFL Wk 6: not listed"]);
     assert.ok(/\bna\b/.test(cls(e.slotChips(ALLEN)[1])));
     assert.ok(/color:var\(--fg-muted\);background:transparent/.test(e.slotChips(ALLEN)[1].getAttribute("style")), "drawn neutral, never like a status");
   });
   await check("they agree (Taylor: MFL Q, NFL Wk 6 Q): one tag, MFL's", () => {
-    assert.deepStrictEqual(tags(e.slotChips(TAYLOR)), ["MFL: Q (Wk 6)"]);
+    assert.deepStrictEqual(tags(e.slotChips(TAYLOR)), ["MFL: Q"]);
     assert.ok(/the NFL Wk 6 report agrees/.test(e.slotChips(TAYLOR)[0].getAttribute("title")));
   });
   await check("MFL has nothing but the official report says Out (Chase, bench): \"NFL: OUT (Wk 6)\" and \"MFL: none\" — neither hidden", () => {
@@ -259,27 +259,30 @@ console.log("\n2. injury status (Keith 2026-10-14): MFL first, the official repo
   });
   await check("the dropdown choice says it too, with source and week", () => {
     const opt = e.slot(TAYLOR).querySelectorAll("option").find((o) => o.attrs.value === TAYLOR);
-    assert.ok(/^Jonathan Taylor\s+·\s+IND\s+·\s+MFL: Q \(Wk 6\)\s+·/.test(opt.textContent), opt.textContent);
+    assert.ok(/^Jonathan Taylor\s+·\s+IND\s+·\s+MFL: Q\s+·/.test(opt.textContent), opt.textContent);
   });
   await check("Details always shows both sources, each with its week; MFL's description and expected return; the disagreement in words", async () => {
     e.line(ALLEN).click(); await settle();
     const t = e.text(e.card(ALLEN));
-    assert.ok(t.indexOf("MFL Wk 6: Questionable — Ankle; expected back Oct 18 (updated ") === 0, t);
+    assert.ok(t.indexOf("MFL: Questionable — Ankle; expected back Oct 18 (MFL’s Wk 6 list, updated ") === 0, t);
     assert.ok(/NFL Wk 6 report: not listed \(BUF’s report, updated .+ ET\)\./.test(t), t);
-    assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL says Questionable; the report doesn’t list him.") >= 0, t);
+    assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL lists Questionable; the report doesn’t list him.") >= 0, t);
     e.line(TAYLOR).click(); await settle();
     const t2 = e.text(e.card(TAYLOR));
-    assert.ok(/MFL Wk 6: Questionable — Hamstring; expected back Oct 18 \(updated .+ ET\)\.\s*NFL Wk 6 report: Questionable — Hamstring · practice: limited \(updated .+ ET\)\./.test(t2), t2);
+    assert.ok(/MFL: Questionable — Hamstring; expected back Oct 18 \(MFL’s Wk 6 list, updated .+ ET\)\.\s*NFL Wk 6 report: Questionable — Hamstring · practice: limited \(updated .+ ET\)\./.test(t2), t2);
     assert.ok(!/disagree/.test(t2));
   });
-  await check("a return date already past says so (Thomas: MFL D, back Oct 11)", async () => {
+  await check("a return date already past: the tag says so, dashed (\"MFL: D · return passed\"); Details says it may be out of date (Thomas: back Oct 11)", async () => {
     e.line(THOMAS).click(); await settle();
-    assert.ok(/MFL Wk 6: Doubtful — Knee; expected back Oct 11 \(already past\)/.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
-    assert.ok(/already past/.test(e.slotChips(THOMAS)[0].getAttribute("title")));
+    const ch = e.slotChips(THOMAS)[0];
+    assert.strictEqual(e.text(ch), "MFL: D · return passed"); assert.ok(/\bprior\b/.test(cls(ch)) && /dashed/.test(ch.getAttribute("style")), cls(ch));
+    assert.ok(/MFL still lists him Doubtful — Knee, with an expected return of Oct 11, which has passed, so the designation may be out of date \(MFL’s Wk 6 list, updated .+ ET\)\./.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
+    const opt = e.mount.querySelectorAll("option").find((o) => o.attrs.value === THOMAS);
+    assert.ok(/·\s+MFL: D \(return passed\)\s+·/.test(opt.textContent), opt.textContent);
     assert.ok(/NFL Wk 6 report: not out yet for ATL \(or a bye\)\./.test(e.text(e.card(THOMAS))));
   });
   await check("one note says where the tags come from, and that no tag isn't 'healthy'", () => {
-    assert.ok(/^Tags: MFL’s Wk 6 designations first \(updated .+ ET\); where MFL has none, the NFL report — Wk 6’s for 4 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.text(e.mount.querySelector(".ups-m-mu-note.inj"))),
+    assert.ok(/^Tags: MFL’s list first \(its Wk 6 list, updated .+ ET; dashed = MFL’s return date has passed\); where MFL has none, the NFL report — Wk 6’s for 4 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.text(e.mount.querySelector(".ups-m-mu-note.inj"))),
       e.text(e.mount.querySelector(".ups-m-mu-note.inj")));
   });
   await check("the status is read once, not on every repaint", async () => {
@@ -288,19 +291,21 @@ console.log("\n2. injury status (Keith 2026-10-14): MFL first, the official repo
   });
   await check("this week's report not out: MFL's tags stay first; with nothing from MFL, the NFL's last final, labeled and dashed", async () => {
     const e5 = boot({ status: statusBody({ week: 5, current: false, prior: true }) }); await e5.open(); await e5.bench();
-    assert.deepStrictEqual(e5.slotChips(TAYLOR).map((c) => e5.text(c)), ["MFL: Q (Wk 6)"], "MFL's Wk 6 Q, not last week's NFL");
+    assert.deepStrictEqual(e5.slotChips(TAYLOR).map((c) => e5.text(c)), ["MFL: Q"], "MFL's Q, not last week's NFL");
     const ch = e5.benchChips("Chase");
     assert.deepStrictEqual(ch.map((c) => e5.text(c)), ["NFL: OUT (Wk 5 final)"]);
     assert.ok(/\bprior\b/.test(ch[0].attrs.class) && /dashed/.test(ch[0].getAttribute("style")), ch[0].attrs.class);
     e5.line(TAYLOR).click(); await settle();
     const t = e5.text(e5.card(TAYLOR));
     assert.ok(/NFL injury report unavailable: the newest report is Wk 5; Wk 6's is not out yet\.\s*NFL Wk 5 final: Questionable — Hamstring\./.test(t), t);
-    assert.ok(/^Tags: MFL’s Wk 6 designations first .+; where MFL has none, the NFL’s last final report \(Wk 5\): Wk 6’s isn’t out yet\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e5.text(e5.mount.querySelector(".ups-m-mu-note.inj"))));
+    assert.ok(/^Tags: MFL’s list first \(its Wk 6 list, updated .+ ET; dashed = MFL’s return date has passed\); where MFL has none, the NFL’s last final report \(Wk 5\): Wk 6’s isn’t out yet\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e5.text(e5.mount.querySelector(".ups-m-mu-note.inj"))));
   });
-  await check("MFL's export still on last week (Wk 5) for a Wk 6 lineup: its tags are labeled Wk 5 and dashed, never this week's", async () => {
+  await check("MFL's list still on last week (Wk 5) for a Wk 6 lineup: its tags are dashed and Details names the Wk 5 list, never this week's", async () => {
     const e3 = boot({ status: statusBody({ week: 5, current: true, mflWeek: 5 }) }); await e3.open();
     const ch = e3.slotChips(TAYLOR);
-    assert.strictEqual(e3.text(ch[0]), "MFL: Q (Wk 5)"); assert.ok(/\bprior\b/.test(ch[0].attrs.class));
+    assert.strictEqual(e3.text(ch[0]), "MFL: Q"); assert.ok(/\bprior\b/.test(ch[0].attrs.class));
+    e3.line(TAYLOR).click(); await settle();
+    assert.ok(/\(MFL’s Wk 5 list, updated /.test(e3.text(e3.card(TAYLOR))), e3.text(e3.card(TAYLOR)));
   });
   await check("status unreadable: MFL's designations from the app's own MFL read, labeled so; the note says the status couldn't be loaded", async () => {
     const e4 = boot({ status: { fail: true } });
@@ -308,11 +313,11 @@ console.log("\n2. injury status (Keith 2026-10-14): MFL first, the official repo
     store.put({ injuries: { week: "6", timestamp: "1791979264", injury: [{ id: ALLEN, status: "Questionable", details: "Ankle" }, { id: DAVIS, status: "IR-R", details: "Knee" }] } }, { season: "2026" });
     e4.M.state.injuryStore = store;
     await e4.open(); await e4.bench();
-    assert.deepStrictEqual(e4.slotChips(ALLEN).map((c) => e4.text(c)), ["MFL: Q (Wk 6)"]);
+    assert.deepStrictEqual(e4.slotChips(ALLEN).map((c) => e4.text(c)), ["MFL: Q"]);
     assert.deepStrictEqual(e4.benchChips("Davis").map((c) => e4.text(c)), ["MFL: IR-R"]);
     assert.strictEqual(e4.text(e4.mount.querySelector(".ups-m-mu-note.inj")), "Injury status couldn’t be loaded; tags are MFL’s from this page’s own read. No tag doesn’t mean healthy.");
     e4.line(ALLEN).click(); await settle();
-    assert.ok(/^Injury status couldn’t be loaded\. No tag doesn’t mean healthy\.\s*MFL Wk 6: Questionable — Ankle \(this page’s MFL read\)\./.test(e4.text(e4.card(ALLEN))), e4.text(e4.card(ALLEN)));
+    assert.ok(/^Injury status couldn’t be loaded\. No tag doesn’t mean healthy\.\s*MFL: Questionable — Ankle \(this page’s read of MFL’s Wk 6 list\)\./.test(e4.text(e4.card(ALLEN))), e4.text(e4.card(ALLEN)));
   });
   await check("nothing read at all yet: no tags, and it says it's checking (never 'healthy')", async () => {
     const e6 = boot({ hold: /player-status/ }); await e6.open();

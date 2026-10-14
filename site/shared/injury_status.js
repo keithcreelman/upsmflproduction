@@ -8,10 +8,15 @@
  *     week's final for teams that haven't reported yet) is SUPPORTING information:
  *     the tag when MFL has nothing, and always a line in Details.
  *   • IR / IR-R / PUP / NFI / SUSP / RET / HOLD stay MFL's roster designations.
- *   • Every tag and line names its source and week ("MFL: Q (Wk 6)", "NFL: OUT (Wk 6)",
- *     "NFL: OUT (Wk 5 final)"), so an old designation never reads as current; a tag
- *     from a week before the screen's week is drawn dashed. MFL's description and
- *     expected return are shown; a return date already past says so.
+ *   • Every tag and line names its source, and its week where the source has one, so an
+ *     old designation never reads as current. MFL's export has ONE week for the whole
+ *     file (its current week) and per player only status / description / expected return —
+ *     no date of its own — so an MFL tag never claims a week: "MFL: Q", and the line says
+ *     "MFL's Wk 6 list". When MFL's expected return date has already PASSED, the tag says
+ *     so and is dashed ("MFL: Q · return passed") and the line says the designation may
+ *     be out of date (2026-10-14: 43 of MFL's 218 Q/D/OUT rows were like that, the oldest
+ *     dated Sep 13). The NFL report's tags keep their week — that IS the report's week:
+ *     "NFL: OUT (Wk 6)", "NFL: OUT (Wk 5 final)" (dashed).
  *   • When MFL and this week's posted official report disagree (MFL Q but he isn't on
  *     his team's posted report; MFL nothing but the report says Out; Q vs Out), BOTH
  *     are shown — a second tag ("NFL Wk 6: not listed", "MFL: none", or the report's
@@ -87,6 +92,8 @@
     var past = m.return_date && m.return_date < todayEt(now);
     return "expected back " + dayText(m.return_date, m.exp_return) + (past ? " (already past)" : "");
   }
+  // MFL's expected return date is before today (ET): its designation may be stale.
+  function returnPassed(m, now) { return !!(m && m.return_date && m.return_date < todayEt(now)); }
   function why(feed) {
     var r = str(feed && feed.reason);
     if (/not out yet/.test(r) || /has no Wk \d+ rows/.test(r)) return r;
@@ -123,16 +130,26 @@
     return "MFL roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : "") +
       (returnText(ro, now) ? "; " + returnText(ro, now) : "") + (when ? " (updated " + when + ")" : "") + ".";
   }
-  function mflChip(m, week, now) {
-    var rt = returnText(m, now);
-    return chip("MFL: " + SHORT[m.status] + " (Wk " + m.week + ")", SEV[m.status],
-      "MFL Wk " + m.week + ": " + m.status + (m.details ? " — " + m.details : "") + (rt ? "; " + rt : ""),
-      { src: "mfl", prior: !!(week && m.week && m.week < week) });
+  // "MFL’s Wk 6 list, updated Wed 8:01 AM ET" — the export's week is its LIST's week, never
+  // the designation's own.
+  function mflSrc(m, when, own) {
+    return (own ? "this page’s read of " : "") + "MFL’s" + (m && m.week ? " Wk " + m.week : "") + " list" + (when ? ", updated " + when : "");
   }
-  function mflLine(m, when, now) {
+  // "MFL: Q", or, when MFL's own expected return has passed, "MFL: Q · return passed" (dashed).
+  // Also dashed when the whole list is from a week before the screen's (MFL not rolled over yet).
+  function mflChip(m, week, now, when, own) {
+    var past = returnPassed(m, now), s = SHORT[m.status];
+    return chip("MFL: " + s + (past ? " · return passed" : ""), SEV[m.status], mflLine(m, when, now, own).replace(/\.$/, ""),
+      { src: "mfl", prior: past || !!(week && m.week && m.week < week), opt: "MFL: " + s + (past ? " (return passed)" : ""), stale: past });
+  }
+  function mflLine(m, when, now, own) {
+    var src = " (" + mflSrc(m, when, own) + ").";
+    if (returnPassed(m, now)) {
+      return "MFL still lists him " + m.status + (m.details ? " — " + m.details : "") + ", with an expected return of " + dayText(m.return_date, m.exp_return) +
+        ", which has passed, so the designation may be out of date" + src;
+    }
     var rt = returnText(m, now);
-    return "MFL Wk " + m.week + ": " + m.status + (m.details ? " — " + m.details : "") + (rt ? "; " + rt : "") +
-      (when ? " (updated " + when + ")" : "") + ".";
+    return "MFL: " + m.status + (m.details ? " — " + m.details : "") + (rt ? "; " + rt : "") + src;
   }
 
   /* resolve(read, pid, team, opts) → { chips, lines, disagree, label }
@@ -149,9 +166,9 @@
     if (!fresh(read, now)) {
       out.lines.push(read && read.state === "error" ? "Injury status couldn’t be loaded. No tag doesn’t mean healthy." : "Checking injury status…");
       var fb = opts.fallback;
-      if (fb && fb.mfl) { out.chips.push(mflChip(fb.mfl, int(opts.week), now)); out.lines.push(mflLine(fb.mfl, "", now).replace(/\.$/, "") + " (this page’s MFL read)."); }
+      if (fb && fb.mfl) { out.chips.push(mflChip(fb.mfl, int(opts.week), now, "", true)); out.lines.push(mflLine(fb.mfl, "", now, true)); }
       if (fb && fb.roster) { out.chips.unshift(rosterChip(fb.roster)); out.lines.push(rosterLine(fb.roster, "", now).replace(/\.$/, "") + " (this page’s MFL read)."); }
-      if (fb && fb.none) out.lines.push("MFL Wk " + fb.week + ": no designation (this page’s MFL read).");
+      if (fb && fb.none) out.lines.push("MFL: no designation (" + mflSrc({ week: fb.week }, "", true) + ").");
       out.label = out.chips.map(function (c) { return c.t; }).join(" ");
       return out;
     }
@@ -167,18 +184,19 @@
     var notListed = rf.current && teamReported && canMatch && !p.report;
 
     // ── tags ──
+    var mflWhen = clockEt(mf ? mf.updated_utc : rof.updated_utc);
     if (ro) out.chips.push(rosterChip(ro));
     if (m) {
-      var mc = mflChip(m, week, now);
+      var mc = mflChip(m, week, now, mflWhen);
       if (r && r.status === m.status) mc.title += " · the NFL Wk " + rWeek + " report agrees";
       out.chips.push(mc);
       if (r && r.status && r.status !== m.status) {
         out.disagree = true;
-        out.chips.push(chip("NFL: " + SHORT[r.status] + " (Wk " + rWeek + ")", SEV[r.status], "NFL Wk " + rWeek + " report: " + r.status + " (MFL says " + m.status + ")",
+        out.chips.push(chip("NFL: " + SHORT[r.status] + " (Wk " + rWeek + ")", SEV[r.status], "NFL Wk " + rWeek + " report: " + r.status + " (MFL lists " + m.status + ")",
           { src: "nfl", prior: !!(week && rWeek < week) }));
       } else if (notListed) {
         out.disagree = true;
-        out.chips.push(chip("NFL Wk " + rWeek + ": not listed", "na", "Not on " + team + "’s NFL Wk " + rWeek + " injury report (MFL says " + m.status + ")", { src: "nfl" }));
+        out.chips.push(chip("NFL Wk " + rWeek + ": not listed", "na", "Not on " + team + "’s NFL Wk " + rWeek + " injury report (MFL lists " + m.status + ")", { src: "nfl" }));
       }
     } else if (r && r.status) {
       // MFL has no game designation: the official report's, labeled as the NFL's.
@@ -186,7 +204,7 @@
         { src: "nfl", prior: !!(week && rWeek < week) }));
       if (mf && mf.ok && !ro) {   // (an MFL roster designation is MFL saying something)
         out.disagree = true;
-        out.chips.push(chip("MFL: none", "na", "MFL’s Wk " + (mf.week || "") + " export has no designation for him (the NFL report says " + r.status + ")", { src: "note" }));
+        out.chips.push(chip("MFL: none", "na", "MFL’s" + (mf.week ? " Wk " + mf.week : "") + " list has no designation for him (the NFL report says " + r.status + ")", { src: "note" }));
       }
     } else if (pr && !(r && r.status)) {
       // Nothing from MFL and nothing current from the NFL: his last final official designation.
@@ -195,9 +213,8 @@
     }
 
     // ── lines (Details / the sheet): MFL first, then the NFL report, always ──
-    var mflWhen = clockEt(mf ? mf.updated_utc : rof.updated_utc);
     if (m) out.lines.push(mflLine(m, mflWhen, now));
-    else if (mf && mf.ok) out.lines.push("MFL Wk " + mf.week + ": no designation" + (mflWhen ? " (updated " + mflWhen + ")" : "") + ".");
+    else if (mf && mf.ok) out.lines.push("MFL: no designation (" + mflSrc(mf, mflWhen) + ").");
     else if (mf) out.lines.push("MFL’s injury designations couldn’t be read, so MFL’s is unknown.");
     else out.lines.push("MFL’s designation isn’t available from this server yet.");
     if (ro) out.lines.push(rosterLine(ro, clockEt(rof.updated_utc), now));
@@ -216,16 +233,17 @@
     if (pr) out.lines.push("NFL Wk " + pr.week + " final: " + pr.status + (pr.injury ? " — " + pr.injury : "") + ".");
     if (out.disagree) {
       out.lines.push("MFL and the NFL Wk " + rWeek + " report disagree: " +
-        (m ? "MFL says " + m.status : "MFL has no game designation") + "; " +
+        (m ? "MFL lists " + m.status + (returnPassed(m, now) ? " (its return date has passed)" : "") : "MFL has no game designation") + "; " +
         (r && r.status ? "the report says " + r.status : "the report doesn’t list him") + ".");
     }
     out.label = out.chips.map(function (c) { return c.t; }).join(" ");
     return out;
   }
 
-  // " · MFL: Q (Wk 6)" for plain text (a dropdown choice); "" when there's no tag.
+  // "  ·  MFL: Q" / "  ·  MFL: Q (return passed)" for plain text (a dropdown choice); "" when
+  // there's no tag.
   function optText(res) {
-    return res && res.chips.length ? "  ·  " + res.chips.map(function (c) { return c.t; }).join(" ") : "";
+    return res && res.chips.length ? "  ·  " + res.chips.map(function (c) { return c.opt || c.t; }).join(" ") : "";
   }
 
   // The one line on a screen that says where the tags come from (≤ 3 short sentences).
@@ -240,7 +258,7 @@
     var d = read.data, rf = d.report_feed || {}, mf = d.mfl_feed || null, rof = d.roster_feed || {};
     var wk = int(opts.week) || int((mf && mf.week) || rof.week || rf.current_week);
     var a;
-    if (mf && mf.ok) a = "Tags: MFL’s Wk " + mf.week + " designations first (updated " + clockEt(mf.updated_utc) + ")";
+    if (mf && mf.ok) a = "Tags: MFL’s list first (its Wk " + mf.week + " list, updated " + clockEt(mf.updated_utc) + "; dashed = MFL’s return date has passed)";
     else if (mf) a = "Tags: MFL’s designations couldn’t be read";
     else a = "Tags: MFL’s designations aren’t available from this server yet";
     var b;

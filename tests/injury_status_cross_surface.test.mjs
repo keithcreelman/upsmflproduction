@@ -131,7 +131,7 @@ async function mobile(fid) {
   // The dropdown choices (every slot lists every startable bench player): the injury part.
   for (const o of mount.querySelectorAll(".ups-m-slot-sel option")) {
     const pid = o.attrs.value; if (!pid || !out[pid] || out[pid].opt != null) continue;
-    const m = /·\s+((?:MFL|NFL)[^·]*?(?:\s(?:MFL|NFL)[^·]*?)*)\s+·\s+[\d.]+ pts/.exec(o.textContent);
+    const m = /·\s+((?:MFL|NFL)[^·]*?(?:\s(?:MFL|NFL)[^·]*?)*)\s+·\s+[\d.]+ pts/.exec(o.textContent.replace(/\s+·\s+return passed/g, " (return passed)"));
     out[pid].opt = m ? m[1].trim() : "";
   }
   return { out, log, writes, note: (mount.querySelector(".ups-m-mu-note.inj") || { textContent: "" }).textContent };
@@ -153,7 +153,8 @@ async function sheet() {
   const one = (pid) => {
     const res = PS.resolve(pid, PBYID[pid].team, M.state.lineupWeek || null);
     holder.innerHTML = "<div>" + PS.resolvedChipsHtml(res) + "</div>";
-    return { chips: holder.querySelectorAll(".ups-m-inj-chip").map((b) => chipOf(b, /ups-m-inj-chip (\w+)/)), lines: [...res.lines], disagree: res.disagree };   // (copied into this realm: deepStrictEqual compares prototypes)
+    return { chips: holder.querySelectorAll(".ups-m-inj-chip").map((b) => chipOf(b, /ups-m-inj-chip (\w+)/)), lines: [...res.lines], disagree: res.disagree,   // (copied into this realm: deepStrictEqual compares prototypes)
+      opt: c.UPSInjuryStatus.optText(res).replace(/^\s*·\s*/, "") };
   };
   return { one, log, writes };
 }
@@ -169,12 +170,14 @@ await check("player_sheet.js statusHtml(): PSTAT.resolve(pid, team, lineupWeek) 
 
 console.log("\n2. the same player reads the same on all three surfaces (12 teams, live Week 6)");
 const S = await sheet();
-const table = [];
+const table = [], PAST_TABLE = [], MOBILE_OUT = {}, DESKTOP_OUT = {};
+const PS_ALL = FX.player_status.players;
 let compared = 0, withLines = 0, withTags = 0, optCompared = 0;
 const allWrites = [].concat(S.writes);
 const notes = {};
 for (const fid of Object.keys(FX.rosters).sort()) {
   const D = await desktop(fid), Mo = await mobile(fid);
+  MOBILE_OUT[fid] = Mo.out; DESKTOP_OUT[fid] = D.out;
   allWrites.push(...D.writes, ...Mo.writes);
   notes[fid] = [D.note, Mo.note];
   for (const r of FX.rosters[fid].filter(isActive)) {
@@ -189,7 +192,7 @@ for (const fid of Object.keys(FX.rosters).sort()) {
         assert.deepStrictEqual(m.lines, s.lines, "mobile Details vs the sheet's lines");
         withLines++;
       }
-      if (m.opt != null) { assert.strictEqual(m.opt, s.chips.map((c) => c.t).join(" "), "mobile dropdown choice"); optCompared++; }
+      if (m.opt != null) { assert.strictEqual(m.opt, s.opt, "mobile dropdown choice"); optCompared++; }
     });
     compared++; if (s.chips.length) withTags++;
     table.push({ fid, pid, name: p.name, pos: p.position, team: p.team, tags: s.chips, lines: s.lines, disagree: s.disagree });
@@ -206,23 +209,46 @@ await check("both screen notes say the same thing", () => {
 console.log("\n3. the live cases Keith asked for (Week 6, read " + FX.player_status.generated_utc + ")");
 const ps = FX.player_status.players;
 const mflOnly = table.filter((r) => ps[r.pid] && ps[r.pid].mfl && !ps[r.pid].report && !ps[r.pid].prior);
-await check("players MFL tags that the official report doesn't (yet) list: MFL's tag, labeled with its week; the NFL line says why there's nothing", () => {
+await check("players MFL tags that the official report doesn't (yet) list: MFL's tag (never claiming a week); the NFL line says why there's nothing", () => {
   assert.ok(mflOnly.length >= 10, mflOnly.length);
   for (const r of mflOnly) {
-    assert.ok(/^MFL: (Q|D|OUT) \(Wk 6\)$/.test(r.tags[0].t), r.pid + " " + JSON.stringify(r.tags));
+    assert.ok(/^MFL: (Q|D|OUT)( · return passed)?$/.test(r.tags[0].t), r.pid + " " + JSON.stringify(r.tags));
+    assert.ok(!/Wk/.test(r.tags[0].t), "an MFL tag never claims a week");
     assert.ok(r.lines.some((l) => /^NFL (Wk 6 report: (not out yet for|not listed)|report: free agent)/.test(l)), r.lines.join(" | "));
   }
 });
 await check("a disagreement (league-wide: MFL Out, but not on SEA's posted Wk 6 report): both shown, in words too", () => {
   const pid = FX.unrostered_disagreements[0]; assert.ok(pid, "the snapshot has one");
   const s = S.one(pid);
-  assert.deepStrictEqual(s.chips.map((c) => c.t), ["MFL: OUT (Wk 6)", "NFL Wk 6: not listed"]);
-  assert.ok(s.disagree && s.lines.some((l) => /^MFL and the NFL Wk 6 report disagree: MFL says Out; the report doesn’t list him\.$/.test(l)), s.lines.join(" | "));
+  assert.deepStrictEqual(s.chips.map((c) => c.t), ["MFL: OUT", "NFL Wk 6: not listed"]);
+  assert.ok(s.disagree && s.lines.some((l) => /^MFL and the NFL Wk 6 report disagree: MFL lists Out; the report doesn’t list him\.$/.test(l)), s.lines.join(" | "));
 });
 await check("an NFL-final-only case (nothing from MFL): \"NFL: Q (Wk 5 final)\", dashed, with the Wk 5 final line", () => {
   const r = table.find((x) => x.tags.length === 1 && /^NFL: \w+ \(Wk 5 final\)$/.test(x.tags[0].t));
   assert.ok(r, "present"); assert.strictEqual(r.tags[0].prior, true);
-  assert.ok(r.lines.some((l) => /^NFL Wk 5 final: /.test(l)) && r.lines.some((l) => /^MFL Wk 6: no designation/.test(l)), r.lines.join(" | "));
+  assert.ok(r.lines.some((l) => /^NFL Wk 5 final: /.test(l)) && r.lines.some((l) => /^MFL: no designation/.test(l)), r.lines.join(" | "));
+});
+// MFL designations whose expected return has PASSED (2026-10-14: 43 of MFL's 218 Q/D/OUT rows
+// league-wide, the oldest dated Sep 13). On UPS rosters today: those listed below. Game Day
+// doesn't list taxi / IR-slot players, so for those the check is mobile Lineup (its bench lists
+// them) against the sheet.
+const today = "2026-10-14";
+const pastRows = [];
+for (const [fid, rs] of Object.entries(FX.rosters)) for (const r of rs) {
+  const x = PS_ALL[r.id]; if (x && x.mfl && x.mfl.return_date && x.mfl.return_date < today) pastRows.push({ fid, pid: r.id, status: r.status, mfl: x.mfl });
+}
+await check("UPS-rostered players whose MFL return date has passed: \"MFL: Q · return passed\", dashed, the line says it may be out of date — same on mobile Lineup and the sheet (Game Day too, when it lists him)", async () => {
+  assert.ok(pastRows.length >= 1, "today's snapshot has " + pastRows.length);
+  for (const r of pastRows) {
+    const s = S.one(r.pid), mo = MOBILE_OUT[r.fid][r.pid], de = DESKTOP_OUT[r.fid][r.pid];
+    assert.ok(/^MFL: (Q|D|OUT) · return passed$/.test(s.chips.find((c) => /^MFL: (Q|D|OUT)/.test(c.t)).t) && s.chips.some((c) => /return passed/.test(c.t) && c.prior), JSON.stringify(s.chips));
+    assert.ok(s.lines.some((l) => /^MFL still lists him .+, with an expected return of .+, which has passed, so the designation may be out of date \(MFL’s Wk 6 list, updated .+\)\.$/.test(l)), s.lines.join(" | "));
+    assert.ok(mo, r.pid + " on mobile Lineup's bench"); assert.deepStrictEqual(mo.chips, s.chips, "mobile Lineup vs the sheet");
+    if (mo.lines) assert.deepStrictEqual(mo.lines, s.lines);
+    if (isActive(r)) { assert.ok(de, "on Game Day"); assert.deepStrictEqual(de.chips, s.chips); } else assert.strictEqual(de, undefined, "Game Day doesn't list taxi / IR-slot players");
+    PAST_TABLE.push({ fid: r.fid, pid: r.pid, rosterStatus: r.status, name: PBYID[r.pid].name, pos: PBYID[r.pid].position, team: PBYID[r.pid].team, tags: s.chips, lines: s.lines,
+      on: ["sheet", "mobile Lineup"].concat(de ? ["Game Day"] : []) });
+  }
 });
 await check("an IR case: \"MFL: IR\" (MFL's roster designation) with its line", () => {
   const r = table.find((x) => x.tags.some((t) => t.t === "MFL: IR"));
@@ -235,7 +261,8 @@ await check("a player on his team's posted Wk 6 report with practice only (no ga
 });
 await check("nothing on any surface wrote anything (every request a GET)", () => { assert.deepStrictEqual(allWrites, []); });
 
-if (process.env.PROOF_OUT) fs.writeFileSync(process.env.PROOF_OUT, JSON.stringify({ at: FX.player_status.generated_utc, compared, withLines, optCompared, withTags, table,
+if (process.env.PROOF_OUT) fs.writeFileSync(process.env.PROOF_OUT, JSON.stringify({ at: FX.player_status.generated_utc, compared, withLines, optCompared, withTags, table, past: PAST_TABLE,
+  pastLeague: Object.values(PS_ALL).filter((x) => x.mfl && x.mfl.return_date && x.mfl.return_date < today).length,
   disagreement: (() => { const pid = FX.unrostered_disagreements[0]; const s = S.one(pid); return { pid, name: PBYID[pid].name, pos: PBYID[pid].position, team: PBYID[pid].team, tags: s.chips, lines: s.lines }; })(),
   note: Object.values(notes)[0][0] }, null, 1));
 console.log(fails ? `\n${fails} FAILED (${passes} passed)` : `\nall ${passes} passed (${compared} players compared, ${withLines} with Details lines, ${optCompared} dropdown choices, ${withTags} tagged)`);

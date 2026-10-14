@@ -47,6 +47,7 @@ const BYES_W6 = ["DET", "MIA", "CIN", "MIN"];   // the four teams with no Week 6
 //   Taylor  MFL Q, the official report says Q too                     → they agree
 //   Coleman no MFL designation, the official report says Out          → a disagreement
 //   Davis   MFL roster IR-R
+//   Thomas  MFL Q with an expected return of Sep 13 (past): possibly stale
 // o.current: this week's report is out (else last week's finals as `prior`).
 function statusBody(o) {
   o = Object.assign({ current: true, mflWeek: 6 }, o || {});
@@ -55,6 +56,7 @@ function statusBody(o) {
   const mfl = (status, details, exp, date) => ({ status, week: o.mflWeek, updated_utc: at, details, exp_return: exp, return_date: date });
   put(ALLEN, "mfl", mfl("Questionable", "Ankle", "Oct 18, 2026", "2026-10-18"));
   put(TAYLOR, "mfl", mfl("Questionable", "Hamstring", "Oct 18, 2026", "2026-10-18"));
+  put(THOMAS, "mfl", mfl("Questionable", "Hamstring", "Sep 13, 2026", "2026-09-13"));   // a return date long past
   if (o.current) {
     put(TAYLOR, "report", { status: "Questionable", injury: "Hamstring", practice: "Limited Participation in Practice" });
     put(COLEMAN, "report", { status: "Out", injury: "Ankle", practice: "Did Not Participate" });
@@ -348,12 +350,18 @@ console.log("\n4. injury tags: the shared resolver (MFL first, the official repo
 {
   const e = boot(); await e.open(); await e.bench();
   const badges = (els) => els.filter((x) => /gd-inj-badge/.test(x.attrs.class)).map((x) => e.text(x));
-  await check("MFL's Q is the tag, with source and week: Allen \"MFL: Q (Wk 6)\" (amber) + BUF's posted report doesn't list him → \"NFL Wk 6: not listed\"", () => {
-    assert.deepStrictEqual(badges(e.slotBadges(ALLEN)), ["MFL: Q (Wk 6)", "NFL Wk 6: not listed"]);
+  await check("MFL's Q is the tag, named as MFL's (no week: MFL's list has one): Allen \"MFL: Q\" (amber) + BUF's posted report doesn't list him → \"NFL Wk 6: not listed\"", () => {
+    assert.deepStrictEqual(badges(e.slotBadges(ALLEN)), ["MFL: Q", "NFL Wk 6: not listed"]);
     const b = e.slotBadges(ALLEN).filter((x) => /gd-inj-badge/.test(x.attrs.class));
     assert.ok(/\btier-q\b/.test(b[0].attrs.class) && /\btier-na\b/.test(b[1].attrs.class), b.map((x) => x.attrs.class).join(" | "));
   });
-  await check("they agree (Taylor): one tag, MFL's", () => { assert.deepStrictEqual(badges(e.slotBadges(TAYLOR)), ["MFL: Q (Wk 6)"]); });
+  await check("they agree (Taylor): one tag, MFL's", () => { assert.deepStrictEqual(badges(e.slotBadges(TAYLOR)), ["MFL: Q"]); });
+  await check("a return date already past: \"MFL: Q · return passed\", dashed; Details says it may be out of date (Thomas, back Sep 13)", async () => {
+    const b = e.slotBadges(THOMAS).filter((x) => /gd-inj-badge/.test(x.attrs.class))[0];
+    assert.strictEqual(e.text(b), "MFL: Q · return passed"); assert.ok(/\bprior\b/.test(b.attrs.class), b.attrs.class);
+    e.line(THOMAS).click(); await settle();
+    assert.ok(/^MFL still lists him Questionable — Hamstring, with an expected return of Sep 13, which has passed, so the designation may be out of date \(MFL’s Wk 6 list, updated .+ ET\)\./.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
+  });
   await check("MFL nothing, the official report Out (Coleman, bench): \"NFL: OUT (Wk 6)\" and \"MFL: none\"; IR-R stays MFL's (Davis: \"MFL: IR-R\")", () => {
     assert.deepStrictEqual(badges(e.benchRow(COLEMAN).querySelectorAll(".gd-inj-badge")), ["NFL: OUT (Wk 6)", "MFL: none"]);
     assert.deepStrictEqual(badges(e.benchRow(DAVIS).querySelectorAll(".gd-inj-badge")), ["MFL: IR-R"]);
@@ -365,12 +373,12 @@ console.log("\n4. injury tags: the shared resolver (MFL first, the official repo
   await check("Details: both sources with their weeks, MFL's description and return, the disagreement in words", async () => {
     e.line(ALLEN).click(); await settle();
     const t = e.text(e.card(ALLEN));
-    assert.ok(t.indexOf("MFL Wk 6: Questionable — Ankle; expected back Oct 18 (updated ") === 0, t);
+    assert.ok(t.indexOf("MFL: Questionable — Ankle; expected back Oct 18 (MFL’s Wk 6 list, updated ") === 0, t);
     assert.ok(/NFL Wk 6 report: not listed \(BUF’s report, updated .+ ET\)\./.test(t), t);
-    assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL says Questionable; the report doesn’t list him.") >= 0, t);
+    assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL lists Questionable; the report doesn’t list him.") >= 0, t);
   });
   await check("one note says where the tags come from; no tag isn't 'healthy'", () => {
-    assert.ok(/^Tags: MFL’s Wk 6 designations first \(updated .+ ET\); where MFL has none, the NFL report — Wk 6’s for 3 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.injNote()), e.injNote());
+    assert.ok(/^Tags: MFL’s list first \(its Wk 6 list, updated .+ ET; dashed = MFL’s return date has passed\); where MFL has none, the NFL report — Wk 6’s for 3 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.injNote()), e.injNote());
   });
   await check("the status is read once, not on every repaint, from /api/player-status", async () => {
     await e.repaint(); await e.repaint();
@@ -381,25 +389,25 @@ console.log("\n4. injury tags: the shared resolver (MFL first, the official repo
     const e5 = boot({ status: statusBody({ current: false }) }); await e5.open(); await e5.bench();
     const b = e5.benchRow(COLEMAN).querySelector(".gd-inj-badge");
     assert.strictEqual(e5.text(b), "NFL: OUT (Wk 5 final)"); assert.ok(/\bprior\b/.test(b.attrs.class));
-    assert.deepStrictEqual(badges(e5.slotBadges(TAYLOR)), ["MFL: Q (Wk 6)"]);
+    assert.deepStrictEqual(badges(e5.slotBadges(TAYLOR)), ["MFL: Q"]);
   });
-  await check("MFL's export still on Wk 5 for the Wk 6 lineup: its tag says Wk 5 and is dashed, never this week's", async () => {
+  await check("MFL's list still on Wk 5 for the Wk 6 lineup: its tag is dashed, never this week's", async () => {
     const e3 = boot({ status: statusBody({ mflWeek: 5 }) }); await e3.open();
     const b = e3.slotBadges(TAYLOR).filter((x) => /gd-inj-badge/.test(x.attrs.class))[0];
-    assert.strictEqual(e3.text(b), "MFL: Q (Wk 5)"); assert.ok(/\bprior\b/.test(b.attrs.class), b.attrs.class);
+    assert.strictEqual(e3.text(b), "MFL: Q"); assert.ok(/\bprior\b/.test(b.attrs.class), b.attrs.class);
   });
   await check("status unreadable: MFL's designations from this page's own MFL read (its Week 6 export), labeled so; the note says so", async () => {
     const e4 = boot({ status: { fail: true } }); await e4.open(); await e4.bench();
-    assert.deepStrictEqual(badges(e4.slotBadges(ALLEN)), ["MFL: Q (Wk 6)"]);
-    assert.deepStrictEqual(badges(e4.benchRow(HAMPTON).querySelectorAll(".gd-inj-badge")), ["MFL: D (Wk 6)"]);
+    assert.deepStrictEqual(badges(e4.slotBadges(ALLEN)), ["MFL: Q"]);
+    assert.deepStrictEqual(badges(e4.benchRow(HAMPTON).querySelectorAll(".gd-inj-badge")), ["MFL: D"]);
     assert.deepStrictEqual(badges(e4.benchRow(DAVIS).querySelectorAll(".gd-inj-badge")), ["MFL: IR-R"]);
     assert.strictEqual(e4.injNote(), "Injury status couldn’t be loaded; tags are MFL’s from this page’s own read. No tag doesn’t mean healthy.");
   });
   await check("a week-scoped override no longer decides Submit Lineup's tags (the Live tab still uses the list)", async () => {
     const e2 = boot();
-    e2.c.UPS_INJURY_OVERRIDES[THOMAS] = { status: "OUT", season: 2026, week: 6, source: "https://example.test", added: "2026-10-14" };
+    e2.c.UPS_INJURY_OVERRIDES[AJOHNSON] = { status: "OUT", season: 2026, week: 6, source: "https://example.test", added: "2026-10-14" };
     await e2.open();
-    assert.strictEqual(badges(e2.slotBadges(THOMAS)).length, 0);
+    assert.strictEqual(badges(e2.slotBadges(AJOHNSON)).length, 0);
   });
 }
 

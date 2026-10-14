@@ -1289,19 +1289,22 @@ test("status in the sheet (Keith 2026-10-14): MFL's Q/D/OUT first, the official 
   const MFL_Q = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: "Oct 12, 2026", return_date: "2026-10-12" };
   // MFL Q and the official Wk 5 report Q: one tag (MFL's), both lines
   const q = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q, report: { status: "Questionable", injury: "Toe", practice: "Limited Participation in Practice", team: "SF" } } }) }, PURDY);
-  t.match(q, /<div class="name">[^<]*<span class="ups-m-inj-chip q"[^>]*>MFL: Q \(Wk 5\)<\/span><\/div>/);
-  t.match(q, /<div>MFL Wk 5: Questionable — Toe; expected back Oct 12 \(already past\) \(updated Sat 10:01 AM ET\)\.<\/div>/, "MFL's description and return; a return date already past says so");
+  t.match(q, /<div class="name">[^<]*<span class="ups-m-inj-chip q prior"[^>]*>MFL: Q · return passed<\/span><\/div>/, "MFL's return date has passed: said on the tag, dashed");
+  t.match(q, /<div>MFL still lists him Questionable — Toe, with an expected return of Oct 12, which has passed, so the designation may be out of date \(MFL’s Wk 5 list, updated Sat 10:01 AM ET\)\.<\/div>/);
+  const fut = await head({ status: STATUS_OK({ [PURDY]: { mfl: Object.assign({}, MFL_Q, { exp_return: "Oct 19, 2026", return_date: "2026-10-19" }) } }) }, PURDY);
+  t.match(fut, /<span class="ups-m-inj-chip q"[^>]*>MFL: Q<\/span>/, "a future return: solid, no week on MFL's tag");
+  t.match(fut, /<div>MFL: Questionable — Toe; expected back Oct 19 \(MFL’s Wk 5 list, updated Sat 10:01 AM ET\)\.<\/div>/);
   t.match(q, /<div>NFL Wk 5 report: Questionable — Toe · practice: limited \(updated Sat 9:33 AM ET\)\.<\/div>/);
   // MFL Q, but SFO's posted report doesn't list him: both shown
   const dis = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q } }) }, PURDY);
-  t.match(dis, />MFL: Q \(Wk 5\)<\/span><span class="ups-m-inj-chip na"[^>]*>NFL Wk 5: not listed<\/span>/);
-  t.match(dis, /MFL and the NFL Wk 5 report disagree: MFL says Questionable; the report doesn’t list him\./);
+  t.match(dis, />MFL: Q · return passed<\/span><span class="ups-m-inj-chip na"[^>]*>NFL Wk 5: not listed<\/span>/);
+  t.match(dis, /MFL and the NFL Wk 5 report disagree: MFL lists Questionable \(its return date has passed\); the report doesn’t list him\./);
   // MFL nothing, the report says Out: the report's tag and "MFL: none"
   const out = await head({ status: STATUS_OK({ [PURDY]: { report: { status: "Out", injury: "Toe", practice: "Did Not Participate In Practice", team: "SF" } } }) }, PURDY);
   t.match(out, />NFL: OUT \(Wk 5\)<\/span><span class="ups-m-inj-chip na"[^>]*>MFL: none<\/span>/);
   // no designation anywhere: SFO reported this week and he isn't on it; MFL has none
   const none = await head({}, PURDY);
-  t.match(none, /<div>MFL Wk 5: no designation \(updated Sat 10:01 AM ET\)\.<\/div><div>NFL Wk 5 report: not listed \(SFO’s report, updated Sat 9:33 AM ET\)\.<\/div>/);
+  t.match(none, /<div>MFL: no designation \(MFL’s Wk 5 list, updated Sat 10:01 AM ET\)\.<\/div><div>NFL Wk 5 report: not listed \(SFO’s report, updated Sat 9:33 AM ET\)\.<\/div>/);
   t.doesNotMatch(none, /ups-m-inj-chip/, "no chip, and the lines say what each source has");
   // his team's report wasn't read (a bye): no claim either way
   const bye = await head({ status: STATUS_OK({}, { teams_mfl: ["DAL"] }) }, PURDY);
@@ -1329,7 +1332,7 @@ test("status in the sheet (Keith 2026-10-14): MFL's Q/D/OUT first, the official 
 });
 
 test("status fallback: with the route unavailable, MFL's designations from the app's own MFL read still show, labeled as such", async () => {
-  for (const [desig, want] of [["IR-PUP", /<span class="ups-m-inj-chip res"[^>]*>MFL: PUP<\/span>/], ["Questionable", /<span class="ups-m-inj-chip q"[^>]*>MFL: Q \(Wk 5\)<\/span>/]]) {
+  for (const [desig, want] of [["IR-PUP", /<span class="ups-m-inj-chip res"[^>]*>MFL: PUP<\/span>/], ["Questionable", /<span class="ups-m-inj-chip q"[^>]*>MFL: Q<\/span>/]]) {
     const v = boot({ status: 500 });
     v.M.state.lineupWeek = 5;
     v.M.state.injuryStore = { known: (s, w) => String(w) === "5", status: (s, w, id) => (String(id) === PURDY ? desig.toUpperCase() : ""), detail: () => "Toe" };
@@ -1337,7 +1340,7 @@ test("status fallback: with the route unavailable, MFL's designations from the a
     v.ctx.UPS_MOBILE.sheet.open(PURDY); await settle(); await settle();
     const h = v.getEl("ups-m-sheet-head").innerHTML;
     t.match(h, want);
-    t.match(h, /\(this page’s MFL read\)\./);
+    t.match(h, /\(this page’s (MFL read|read of MFL’s Wk 5 list)\)\./);
   }
 });
 
