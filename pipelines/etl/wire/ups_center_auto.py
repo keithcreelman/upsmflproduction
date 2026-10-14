@@ -125,7 +125,7 @@ def forecast_paths(workdir, season, week):
             os.path.join(d, "week_preview_%d_wk%02d.json" % (season, week + 1)))
 
 
-def run_forecast(season, week, workdir, log=print):
+def run_forecast(season, week, workdir, log=print, data_dir=None, cache_dir=None, pinned=False):
     """Builder A (Keith 2026-10-14): the job runs the forecast itself, so a weekly issue never
     depends on someone remembering a hand-run step (Week 4 shipped with no odds that way).
 
@@ -133,15 +133,20 @@ def run_forecast(season, week, workdir, log=print):
     same cache (--reuse-cache), so the Playoff Picture and the next-week scenarios are the same
     simulated seasons. Both scripts refuse to overwrite, so a file that already exists is kept:
     a rerun reads it, and the issue's freshness check decides whether it is still usable.
-    Returns readable reasons for anything that failed; never raises."""
+    Returns readable reasons for anything that failed; never raises.
+    replay only: data_dir (where the two files go), cache_dir (the inputs) and pinned (season_sim
+    --reuse-cache: the recorded inputs exactly as they are, however old)."""
     sim, prev = forecast_paths(workdir, season, week)
-    cache = os.path.join(STATE_DIR, "forecast_inputs_%d_wk%02d" % (season, week))
+    if data_dir:
+        sim, prev = (os.path.join(data_dir, os.path.basename(x)) for x in (sim, prev))
+    cache = cache_dir or os.path.join(STATE_DIR, "forecast_inputs_%d_wk%02d" % (season, week))
     os.makedirs(cache, exist_ok=True)
     py = sys.executable
     reasons = []
     if not os.path.exists(sim):
         rc, out = sh([py, "pipelines/etl/wire/season_sim.py", "--season", str(season), "--through-week", str(week),
-                      "--runs", str(FORECAST_RUNS), "--cache-dir", cache, "--out", os.path.relpath(sim, workdir)], workdir)
+                      "--runs", str(FORECAST_RUNS), "--cache-dir", cache, "--out", os.path.relpath(sim, workdir)]
+                     + (["--reuse-cache"] if pinned else []), workdir)
         if rc != 0 or not os.path.exists(sim):
             reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
     if week >= REG_SEASON_LAST_WEEK:
@@ -306,6 +311,72 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     return finish(st, runner, aid, timing, now, dry, log)
 
 
+def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print):
+    """Re-run a finished week's build, publishing NOTHING (Keith 2026-10-14: "replaying the Week 5
+    build in no-publish mode"). Same steps as run_week from the D1 == MFL check through validation,
+    with the forecast run from scratch into out_dir, but: no duplicate stop (replaying a published
+    week is the point), no git fetch/reset/commit/push, no PR, no GitHub alert, no notification,
+    no chat ingest (a D1 write), nothing in the job's state folder and nothing written to the
+    published site. workdir is a throwaway checkout of the code under test; it is never reset.
+    inputs: recorded MFL responses (a forecast's --cache-dir) to replay exactly; they are copied,
+    never modified. Without them the forecast reads today's feeds. Returns the result dict."""
+    now = int(now or datetime.now(timezone.utc).timestamp())
+    aid = "%d-wk%02d-ups-center" % (season, week)
+    py = sys.executable
+    os.makedirs(out_dir, exist_ok=True)
+    rc, head = sh(["git", "rev-parse", "HEAD"], workdir)
+    res_out = {"mode": "replay", "id": aid, "season": season, "week": week, "at": SRC.iso(now), "code": head.strip(),
+               "inputs": os.path.abspath(inputs) if inputs else "live feeds", "published": False, "announced": False,
+               "prOrAlert": None, "reasons": []}
+
+    def done(status):
+        res_out["status"] = status
+        json.dump(res_out, open(os.path.join(out_dir, "replay.json"), "w"), indent=1, default=str)
+        log(json.dumps({k: v for k, v in res_out.items() if k != "claims"}, default=str)[:2000])
+        return res_out
+
+    timing = SRC.week_timing(season, week)
+    if now < timing["finalAt"]:
+        res_out["reasons"].append("Week %d is not final until %s" % (week, SRC.iso(timing["finalAt"])))
+        return done("not-final")
+    probe = SRC.gather(season, week, now=now)
+    mismatch = SRC.d1_matches_mfl(probe)
+    if mismatch:
+        res_out["reasons"] += ["D1 does not match MFL: " + m for m in mismatch[:8]]
+        return done("blocked")
+    data_out = os.path.join(out_dir, "data")
+    os.makedirs(data_out, exist_ok=True)
+    for f in forecast_paths(workdir, season, week):             # a replay always simulates from scratch
+        if os.path.exists(os.path.join(data_out, os.path.basename(f))):
+            os.remove(os.path.join(data_out, os.path.basename(f)))
+    cache = os.path.join(out_dir, "inputs")
+    if inputs:
+        shutil.rmtree(cache, ignore_errors=True)
+        shutil.copytree(inputs, cache)
+    before = set(os.listdir(cache)) if os.path.isdir(cache) else set()
+    res_out["reasons"] += run_forecast(season, week, workdir, log=log, data_dir=data_out, cache_dir=cache,
+                                       pinned=bool(inputs))
+    # anything the recorded inputs lacked was fetched live; say so, since the replay is then not exact
+    res_out["inputsFetchedLive"] = sorted(set(os.listdir(cache)) - before) if inputs else "all"
+    rc, out = sh([py, "pipelines/etl/wire/wire.py", "build", "--pack", "%d-wk%02d-recap" % (season, week)], workdir)
+    if rc != 0:
+        res_out["reasons"].append("pack build failed: " + out.strip()[-400:])
+        return done("blocked")
+    pack = json.load(open(os.path.join(workdir, "site/wire/packs/%d/%d-wk%02d-recap.pack.json" % (season, season, week))))
+    ctx = SRC.gather(season, week, now=now, pack=pack, data_dir=data_out)
+    rep_path = os.path.join(workdir, "site/wire/data/elias_%d_wk%02d.json" % (season, week))
+    ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
+    res = ISSUE.render(pack, ctx, generated_at=now)
+    report = VAL.validate(res, ctx, pack)
+    open(os.path.join(out_dir, aid + ".html"), "w").write(res["html"])
+    json.dump(res["claims"], open(os.path.join(out_dir, "claims.json"), "w"), indent=1, sort_keys=True, default=str)
+    json.dump(report, open(os.path.join(out_dir, "validation.json"), "w"), indent=1, default=str)
+    json.dump(ctx, open(os.path.join(out_dir, "sources.json"), "w"), default=str)
+    res_out.update(claims=res["claimsDigest"], gaps=[g["id"] for g in res["gaps"]], errors=report["errors"],
+                   ok=report["ok"], publishable=report["publishable"])
+    return done(("ready" if not res["gaps"] else "ready-with-gaps") if report["ok"] else "blocked")
+
+
 def crashed(season, week, now, exc, workdir, dry, sandbox, missed, log=print):
     import traceback
     aid = "%d-wk%02d-ups-center%s" % (season, week, "-sandbox" if sandbox else "")
@@ -395,7 +466,16 @@ def main():
     r.add_argument("--chat-since", type=int, help="unix start of the Coffee Shop window")
     r.add_argument("--sandbox", action="store_true", help="demo id under site/wire/articles/_sandbox (never published)")
     r.add_argument("--code-ref", help="sandbox only: overlay this branch's pipeline code (unstaged) for a pre-merge demo")
+    rp = sub.add_parser("replay", help="re-run a finished week's build: no PR, no alert, no notification, no publish")
+    rp.add_argument("--season", type=int, required=True)
+    rp.add_argument("--week", type=int, required=True)
+    rp.add_argument("--workdir", required=True, help="a throwaway checkout of the code under test (never reset)")
+    rp.add_argument("--out", required=True, help="the forecast, draft, claims, validation and replay.json go here")
+    rp.add_argument("--inputs", help="recorded MFL responses (a forecast --cache-dir) to replay exactly")
     a = ap.parse_args()
+    if a.cmd == "replay":
+        st = replay_week(a.season, a.week, os.path.abspath(a.workdir), os.path.abspath(a.out), inputs=a.inputs)
+        return 0 if st["status"] in ("ready", "ready-with-gaps") else 1
     now = int(datetime.now(timezone.utc).timestamp())
     os.makedirs(STATE_DIR, exist_ok=True)
     last_path = os.path.join(STATE_DIR, "last_run%s.json" % ("_sandbox" if a.sandbox else ""))

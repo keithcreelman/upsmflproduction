@@ -36,6 +36,7 @@ import wire  # noqa: E402  (style_sha, runtime, STYLE_BANNER)
 import season_sim  # noqa: E402  (display_percentages: largest-remainder rounding, each group totals 100.0)
 
 ET = ZoneInfo("America/New_York")
+PLAYOFF_FIELD, PLAYOFF_BYES = 6, 2    # league_context F.1 (and season_sim): six teams, byes for seeds 1 and 2
 GUILD = "1057655884475531324"
 e = html.escape
 OFF, IDP = {"QB", "RB", "WR", "TE"}, {"DL", "LB", "DB"}
@@ -421,6 +422,70 @@ class Issue:
                             "</small>" % self.week, self.desk(lead, mb=True) + body + table + audit)
 
     # ------------------------------------------------------------ Playoff Picture (Builder A)
+    def preview_current(self):
+        prev, final_at = (self.ctx.get("forecast") or {}).get("preview"), self.ctx["timing"]["finalAt"]
+        return bool(prev) and prev.get("throughWeek") == self.week and prev.get("week") == self.week + 1 \
+            and _utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc")) >= final_at
+
+    def forecast_inconsistencies(self):
+        """Plain-English reasons the forecast cannot be printed as it stands (Keith 2026-10-14:
+        "missing, stale or internally inconsistent odds block the draft visibly"). No digits in
+        the text: the box must not need its own claims. Checks, on the stored 4-decimal odds:
+        every franchise exactly once; each value a probability; bye <= division <= playoffs and
+        title <= playoffs (byes go to division winners, every division winner is in the field);
+        playoffs total PLAYOFF_FIELD, byes PLAYOFF_BYES, titles one, each division one; and the
+        Week N+1 scenario cells -- the same simulated seasons -- summing to the forecast's counts."""
+        fc = self.ctx.get("forecast") or {}
+        sim, prev = fc.get("sim") or {}, fc.get("preview")
+        teams, runs = sim.get("teams") or {}, sim.get("runs")
+        out = []
+        if not isinstance(runs, int) or runs <= 0:
+            return ["The forecast does not say how many seasons it simulated."]
+        if set(teams) != set(self.owner):
+            return ["The forecast's franchises are not this league's twelve."]
+        name = lambda f: e(self.owner[f])
+        keys = ("po", "bye", "div", "title")
+        if any(not isinstance(t.get(k), (int, float)) or not 0 <= t[k] <= 1 for t in teams.values() for k in keys):
+            return ["The forecast has a value that is not a probability."]
+        eps = 0.0001                                  # one unit of the stored precision
+        for f in sorted(teams):
+            t = teams[f]
+            if not t["bye"] <= t["div"] + eps <= t["po"] + 2 * eps:
+                out.append("%s: byes go only to division winners, and every division winner makes the playoffs, "
+                           "but the forecast's bye, division and playoff odds are out of that order." % name(f))
+            if t["title"] > t["po"] + eps:
+                out.append("%s: the title odds are higher than the playoff odds." % name(f))
+        tol = lambda n_terms: n_terms * 0.00005 + 1e-9  # each stored value is rounded to four decimals
+        for what, k, want in (("playoff spots", "po", PLAYOFF_FIELD), ("first-round byes", "bye", PLAYOFF_BYES),
+                              ("titles", "title", 1)):
+            if abs(sum(t[k] for t in teams.values()) - want) > tol(len(teams)):
+                out.append("The forecast's %s do not add up to the number there are." % what)
+        divs = {}
+        for f, t in teams.items():
+            divs.setdefault(t["division"], []).append(f)
+        for d in sorted(divs):
+            members = sorted(divs[d])
+            if abs(sum(teams[f]["div"] for f in members) - 1) > tol(len(members)):
+                out.append("The division title odds for %s do not add up to the whole." % ", ".join(name(f) for f in members))
+            shown = season_sim.display_percentages({f: teams[f]["div"] for f in members})
+            if abs(sum(float(x) for x in shown.values()) - 100) > 1e-9:
+                out.append("The printed division title odds for %s do not total the whole." % ", ".join(name(f) for f in members))
+        if self.preview_current():                   # a stale preview is its own blocker, not an inconsistency
+            if prev.get("runs") != runs or (sim.get("seed") is not None and prev.get("seed") != sim.get("seed")):
+                out.append("The Week %d scenarios were not simulated from the same seasons as the playoff odds." % (self.week + 1))
+            tot = prev.get("scenarioTotals") or {}
+            for f in sorted(teams):
+                c = tot.get(f)
+                if not c or not c["cells"]:
+                    out.append("%s has no Week %d scenarios." % (name(f), self.week + 1))
+                    continue
+                exact = lambda count, p: abs(count - p * runs) <= runs * 0.00005 + 1e-6
+                if c["runs"] != runs or not (exact(c["playoff"], teams[f]["po"]) and exact(c["division"], teams[f]["div"])
+                                             and exact(c["bye"], teams[f]["bye"])):
+                    out.append("%s: the Week %d scenario cells do not add up to the playoff, division and bye odds."
+                               % (name(f), self.week + 1))
+        return out
+
     def forecast_problems(self):
         """[(gap id, why)] -- empty only when the job's forecast covers exactly this week and was run
         after the week went final. A missing or stale forecast is never rendered as odds."""
@@ -430,19 +495,24 @@ class Issue:
         out = []
         if not sim:
             out.append(("odds:missing", "No playoff forecast through Week %d (%s). The scheduled job runs season_sim.py "
-                        "--through-week %d; this issue does not publish without current odds." % (
+                        "--through-week for Week %d; this issue does not publish without current odds." % (
                             self.week, e(fc.get("simFile") or "season_sim live file"), self.week)))
         elif sim.get("throughWeek") != self.week:
             out.append(("odds:stale", "The playoff forecast runs through Week %s, not Week %d. Re-run season_sim.py "
-                        "--through-week %d before publishing." % (sim.get("throughWeek"), self.week, self.week)))
+                        "--through-week for Week %d before publishing." % (sim.get("throughWeek"), self.week, self.week)))
         elif _utc(sim.get("generatedAtUtc")) < final_at:
             out.append(("odds:stale", "The playoff forecast was run at %s, before Week %d was final (%s). Re-run it." % (
                 et_clock(_utc(sim.get("generatedAtUtc"))), self.week, et_clock(final_at))))
+        if sim and not out:
+            bad = self.forecast_inconsistencies()
+            if bad:
+                out.append(("odds:inconsistent", "The playoff forecast is internally inconsistent, so it is not printed. "
+                            + " ".join(bad[:6]) + (" (and more)" if len(bad) > 6 else "")
+                            + " Re-run the forecast and look at why before publishing."))
         if not prev:
-            out.append(("odds:preview-missing", "No Week %d preview (%s). The scheduled job runs week_preview.py --week %d "
+            out.append(("odds:preview-missing", "No Week %d preview (%s). The scheduled job runs week_preview.py for Week %d "
                         "from the same inputs." % (self.week + 1, e(fc.get("previewFile") or "week_preview file"), self.week + 1)))
-        elif prev.get("throughWeek") != self.week or prev.get("week") != self.week + 1 \
-                or _utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc")) < final_at:
+        elif not self.preview_current():
             out.append(("odds:preview-stale", "The Week %d preview does not cover Week %d's final results (through Week %s, "
                         "inputs taken %s). Re-run it." % (self.week + 1, self.week, prev.get("throughWeek"),
                                                           et_clock(_utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc"))))))
@@ -450,7 +520,7 @@ class Issue:
 
     def seg_odds(self):
         problems = self.forecast_problems()
-        if any(g in ("odds:missing", "odds:stale") for g, _ in problems):
+        if any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in problems):
             return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; not yet available</small>",
                                 "".join(self.gap(g, "odds", why) for g, why in problems))
         sim = self.ctx["forecast"]["sim"]

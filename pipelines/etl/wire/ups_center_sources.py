@@ -141,15 +141,24 @@ def load_forecast(season, week, data_dir):
     out = {"simFile": os.path.basename(sim_p), "previewFile": os.path.basename(prev_p), "sim": None, "preview": None}
     if os.path.exists(sim_p):
         s = json.load(open(sim_p, encoding="utf-8"))
-        out["sim"] = {"throughWeek": s.get("throughWeek"), "runs": s.get("runs"), "generatedAtUtc": s.get("generatedAtUtc"),
+        out["sim"] = {"throughWeek": s.get("throughWeek"), "runs": s.get("runs"), "seed": s.get("seed"),
+                      "generatedAtUtc": s.get("generatedAtUtc"),
                       "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
                                                    "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
                                                    "division": t["division"]} for t in s["teams"]}}
     if os.path.exists(prev_p):
         q = json.load(open(prev_p, encoding="utf-8"))
+        # Each team's Week N+1 scenario cells, summed: the same simulated seasons as the sim, so these
+        # must equal the sim's counts exactly (the issue blocks the odds when they do not).
+        totals = {}
+        for fid, sc in (q.get("weekScenarios") or {}).items():
+            cells = sc.get("cells") or []
+            totals[fid] = {"cells": len(cells), **{k: sum(int(c.get(k) or 0) for c in cells)
+                                                   for k in ("runs", "playoff", "division", "bye")}}
         out["preview"] = {"week": q.get("week"), "throughWeek": q.get("throughWeek"), "generatedAtUtc": q.get("generatedAtUtc"),
-                          "runs": q.get("runs"),
-                          "inputsAtUtc": ((q.get("model") or {}).get("cutoffs") or {}).get("rostersProjectionsInjuries")}
+                          "runs": q.get("runs"), "seed": q.get("seed"),
+                          "inputsAtUtc": ((q.get("model") or {}).get("cutoffs") or {}).get("rostersProjectionsInjuries"),
+                          "scenarioTotals": totals}
     return out
 
 
