@@ -25,6 +25,7 @@ import html as H
 import re
 
 import chat_exclusions
+import season_sim  # display_percentages, the rounding the Playoff Picture prints
 
 TIME_RE = re.compile(r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
                      r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}\b|\bWeek\s+\d{1,2}\b|\b20\d\d\b|"
@@ -140,6 +141,28 @@ def validate(res, ctx, pack):
                 bad(key, "graded final %s, MFL %s-%s" % (v["final"], s[fa], s[fb]))
             if (v["called"] == "yes") != (s[fa] > s[fb]):
                 bad(key, "'called it' is %s but MFL has %s %s-%s" % (v["called"], fav, s[fa], s[fb]))
+        elif kind == "odds":
+            # Builder A: every printed probability equals the job's forecast file under the documented rounding.
+            sim = ((ctx.get("forecast") or {}).get("sim") or {})
+            teams = sim.get("teams") or {}
+            what, _, fid = rest.partition(":")
+            if what == "runs":
+                if v != sim.get("runs"):
+                    bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
+            elif fid not in teams:
+                bad(key, "no forecast row for %s" % fid)
+            elif what in ("po", "bye"):
+                if round(100 * teams[fid][what], 1) != v:
+                    bad(key, "forecast %s %.4f, page %s" % (what, teams[fid][what], v))
+            elif what == "div":
+                grp = {f: t_["div"] for f, t_ in teams.items() if t_["division"] == teams[fid]["division"]}
+                if float(season_sim.display_percentages(grp)[fid]) != v:
+                    bad(key, "division odds %s do not match the forecast's rounding" % v)
+            elif what == "title":
+                if float(season_sim.display_percentages({f: t_["title"] for f, t_ in teams.items()})[fid]) != v:
+                    bad(key, "title odds %s do not match the forecast's rounding" % v)
+            else:
+                bad(key, "unknown odds claim")
         elif kind == "elias":
             pass                                                 # cross-checked against scores_published below
         elif kind in ("pts", "diff", "count"):
@@ -173,6 +196,11 @@ def validate(res, ctx, pack):
     for g in res["gaps"]:
         if 'data-editor-gap="%s"' % H.escape(g["id"]) not in doc:
             errors.append("gap %s has no EDITOR REVIEW box" % g["id"])
+    # Builder A: the Playoff Picture is shown with registered odds, or blocked by a visible odds gap -- never absent
+    if not any(k.startswith("odds:") for k in res["claims"]) and not any(g["id"].startswith("odds:") for g in res["gaps"]):
+        errors.append("no playoff odds and no odds blocker: the Playoff Picture cannot silently disappear")
+    if 'id="odds"' not in doc:
+        errors.append("the Playoff Picture segment is missing")
     if "status: draft" not in doc:
         errors.append("article is not status: draft")
     return {"ok": not errors, "publishable": not errors and not res["gaps"], "errors": errors, "warnings": warnings,

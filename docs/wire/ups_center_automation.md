@@ -33,6 +33,10 @@ The schedule is a LaunchAgent on Keith's Mac, `com.upsmfl.ups-center-auto`, like
    - `scores_published_<s>_wkNN.json`: the first numbers, so a later Elias change becomes a list of changed claims;
    - then `elias.py check`.
 3. **D1 must equal MFL** for the week's scores and the standings (`ups_center_sources.d1_matches_mfl`). If not, the run is **BLOCKED** with the reasons. It never guesses.
+3b. **The forecast** (Builder A, 2026-10-14). The job runs `season_sim.py --through-week N` and `week_preview.py --week N+1` itself.
+   - Both read one cached input snapshot, so the Playoff Picture and the next-week scenarios are the same simulated seasons.
+   - Both refuse to overwrite, so a rerun keeps the files it made.
+   - A failure is recorded in the run's reasons and never stops the draft. The issue then shows a blocker box.
 4. **Inputs:** league chat (`ingest_discord_chat.py --incremental`, which only reads Discord), then xFP (`wire_xfp.py fetch`).
 5. **Build and check:**
    - `wire.py build --pack`;
@@ -82,6 +86,7 @@ It is the real show markup (`.uc`), the same as Weeks 1–4:
 | Plays of the Week | play cards; NFL.com link (page title checked) or NFL-channel YouTube (oEmbed) | no verified link |
 | Above and below | bust/bargain lists, each row with its **projection capture time and kickoff** | no pregame evidence, or a row that cannot be matched to a pregame capture (postgame numbers are never used) |
 | League landscape | standings in the **site's order** (§F.1); the prior-preview audit | the site's order differs from §F.1; no preview to grade; a head-to-head tiebreak needed |
+| Playoff Picture | the job's `season_sim_<s>_live_wkNN.json`: playoffs, bye, division and title odds; division and title rounded to keep each group at 100.0% | **odds missing or stale** (not through this week, or run before the week went final): a blocker box replaces the table; next-week preview missing or stale: its own box |
 | Coffee Shop | post counts; the number of usable chat lines | **always**: Kenny's jokes are an editor's job (owner dossier). The verbatim, linked candidates appear only in the **local** review copy, because raw chat stays off the public repo. Family, health and similar lines are withheld from both. |
 | Elias changes | MFL Official Statistics Changes vs the first numbers | Elias not posted yet |
 
@@ -100,6 +105,7 @@ Every printed value is a **claim** with a source. A claim kind with no independe
 | post counts | recounted |
 | graded preview rows | the finals and "called it" result, against MFL |
 | pack facts | equal to the pack |
+| odds | the job's forecast file. Playoffs and bye to one decimal; division and title under the same largest-remainder rounding (`season_sim.display_percentages`). A draft with **neither odds nor an odds blocker fails**, so the Playoff Picture cannot silently disappear. |
 | **every number on the page** | must be the printed form of a registered claim (a stray number fails) |
 
 A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft with editor items is pushed but marked not publishable.
@@ -113,4 +119,4 @@ A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft
 
 ## Tests
 
-`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (67 checks), with synthetic chat. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.
+`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (78 checks), with synthetic chat. The Builder A checks use a synthetic forecast relabelled from the real Week 5 file. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.

@@ -16,6 +16,10 @@ One run, for the newest finished week (or --week):
      Elias change becomes a list of changed claims); then elias.py check
   3. D1 must equal MFL for the week's scores and the standings (the Tuesday/Thursday/
      Friday live sync keeps it so); if not, the run is BLOCKED, not guessed
+  3b. the forecast: season_sim --through-week N and week_preview --week N+1 from one input
+     snapshot (Builder A, 2026-10-14). The issue's Playoff Picture shows them only when they
+     cover exactly this week and were run after it went final; otherwise it shows an EDITOR
+     REVIEW blocker, and the validator fails a draft that has neither
   4. league chat (ingest_discord_chat.py --incremental), xFP (wire_xfp.py fetch)
   5. wire.py build --pack, then ups_center_sources.gather (independent snapshot),
      ups_center_issue.render, ups_center_validate.validate
@@ -111,6 +115,46 @@ def alert_issue(run, aid, reasons, cwd, dry=False):
 CODE_PATHS = ("pipelines/etl/wire", "pipelines/etl/scripts", "site/wire/data/chat_exclusions.json")
 
 
+FORECAST_RUNS = 10000
+REG_SEASON_LAST_WEEK = 14             # 2021+: weeks 15-17 are the playoffs; there is no regular-season week to preview after 14
+
+
+def forecast_paths(workdir, season, week):
+    d = os.path.join(workdir, "site/wire/data")
+    return (os.path.join(d, "season_sim_%d_live_wk%02d.json" % (season, week)),
+            os.path.join(d, "week_preview_%d_wk%02d.json" % (season, week + 1)))
+
+
+def run_forecast(season, week, workdir, log=print):
+    """Builder A (Keith 2026-10-14): the job runs the forecast itself, so a weekly issue never
+    depends on someone remembering a hand-run step (Week 4 shipped with no odds that way).
+
+    season_sim --through-week fetches the live inputs into one cache; week_preview reuses that
+    same cache (--reuse-cache), so the Playoff Picture and the next-week scenarios are the same
+    simulated seasons. Both scripts refuse to overwrite, so a file that already exists is kept:
+    a rerun reads it, and the issue's freshness check decides whether it is still usable.
+    Returns readable reasons for anything that failed; never raises."""
+    sim, prev = forecast_paths(workdir, season, week)
+    cache = os.path.join(STATE_DIR, "forecast_inputs_%d_wk%02d" % (season, week))
+    os.makedirs(cache, exist_ok=True)
+    py = sys.executable
+    reasons = []
+    if not os.path.exists(sim):
+        rc, out = sh([py, "pipelines/etl/wire/season_sim.py", "--season", str(season), "--through-week", str(week),
+                      "--runs", str(FORECAST_RUNS), "--cache-dir", cache, "--out", os.path.relpath(sim, workdir)], workdir)
+        if rc != 0 or not os.path.exists(sim):
+            reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
+    if week >= REG_SEASON_LAST_WEEK:
+        log("no regular-season week after %d to preview" % week)
+    elif not os.path.exists(prev):
+        rc, out = sh([py, "pipelines/etl/wire/week_preview.py", "--season", str(season), "--week", str(week + 1),
+                      "--runs", str(FORECAST_RUNS), "--live-cache", cache, "--reuse-cache",
+                      "--out", os.path.relpath(prev, workdir)], workdir)
+        if rc != 0 or not os.path.exists(prev):
+            reasons.append("Week %d preview (week_preview --week %d) failed: %s" % (week + 1, week + 1, out.strip()[-300:]))
+    return reasons
+
+
 def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since=None, log=print, sandbox=False,
              missed=(), code_ref=None):
     """One idempotent pass for one week. Returns a status dict (also written to STATE_DIR).
@@ -184,6 +228,10 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
                                              for m in mismatch[:8]])
         return finish(st, runner, aid, timing, now, dry, log)
 
+    # 3b. the forecast (Builder A): run it here; a missing or stale one becomes a blocker box in the issue
+    if not sandbox:
+        st["reasons"] += run_forecast(season, week, workdir, log=log)
+
     # 4. chat + xFP
     if ingest:
         sh([py, "pipelines/etl/scripts/ingest_discord_chat.py", "--incremental"], workdir)
@@ -198,7 +246,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
         st.update(status="blocked", reasons=st["reasons"] + ["pack build failed: " + out.strip()[-400:]])
         return finish(st, runner, aid, timing, now, dry, log)
     pack = json.load(open(os.path.join(workdir, "site/wire/packs/%d/%d-wk%02d-recap.pack.json" % (season, season, week))))
-    ctx = SRC.gather(season, week, now=now, chat_since=chat_since, pack=pack)
+    ctx = SRC.gather(season, week, now=now, chat_since=chat_since, pack=pack, data_dir=data)
     rep_path = os.path.join(data, "elias_%d_wk%02d.json" % (season, week))
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
     res = ISSUE.render(pack, ctx, generated_at=now)                            # committed: no raw chat

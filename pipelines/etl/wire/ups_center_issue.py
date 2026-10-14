@@ -33,6 +33,7 @@ from zoneinfo import ZoneInfo
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import wire  # noqa: E402  (style_sha, runtime, STYLE_BANNER)
+import season_sim  # noqa: E402  (display_percentages: largest-remainder rounding, each group totals 100.0)
 
 ET = ZoneInfo("America/New_York")
 GUILD = "1057655884475531324"
@@ -56,6 +57,14 @@ def n1(v):
 
 def wl(w, l):
     return "%d&ndash;%d" % (int(w), int(l))
+
+
+def _utc(iso_z):
+    """'2026-10-14T01:56:56Z' -> unix seconds; 0 for anything unreadable (so it can never pass as fresh)."""
+    try:
+        return int(datetime.strptime(str(iso_z), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp())
+    except (TypeError, ValueError):
+        return 0
 
 
 def et_clock(ts, with_day=True):
@@ -411,6 +420,70 @@ class Issue:
         return self.section("landscape", "League landscape", 6, "League landscape <small>&mdash; standings after week %d"
                             "</small>" % self.week, self.desk(lead, mb=True) + body + table + audit)
 
+    # ------------------------------------------------------------ Playoff Picture (Builder A)
+    def forecast_problems(self):
+        """[(gap id, why)] -- empty only when the job's forecast covers exactly this week and was run
+        after the week went final. A missing or stale forecast is never rendered as odds."""
+        fc = self.ctx.get("forecast") or {}
+        sim, prev = fc.get("sim"), fc.get("preview")
+        final_at = self.ctx["timing"]["finalAt"]
+        out = []
+        if not sim:
+            out.append(("odds:missing", "No playoff forecast through Week %d (%s). The scheduled job runs season_sim.py "
+                        "--through-week %d; this issue does not publish without current odds." % (
+                            self.week, e(fc.get("simFile") or "season_sim live file"), self.week)))
+        elif sim.get("throughWeek") != self.week:
+            out.append(("odds:stale", "The playoff forecast runs through Week %s, not Week %d. Re-run season_sim.py "
+                        "--through-week %d before publishing." % (sim.get("throughWeek"), self.week, self.week)))
+        elif _utc(sim.get("generatedAtUtc")) < final_at:
+            out.append(("odds:stale", "The playoff forecast was run at %s, before Week %d was final (%s). Re-run it." % (
+                et_clock(_utc(sim.get("generatedAtUtc"))), self.week, et_clock(final_at))))
+        if not prev:
+            out.append(("odds:preview-missing", "No Week %d preview (%s). The scheduled job runs week_preview.py --week %d "
+                        "from the same inputs." % (self.week + 1, e(fc.get("previewFile") or "week_preview file"), self.week + 1)))
+        elif prev.get("throughWeek") != self.week or prev.get("week") != self.week + 1 \
+                or _utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc")) < final_at:
+            out.append(("odds:preview-stale", "The Week %d preview does not cover Week %d's final results (through Week %s, "
+                        "inputs taken %s). Re-run it." % (self.week + 1, self.week, prev.get("throughWeek"),
+                                                          et_clock(_utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc"))))))
+        return out
+
+    def seg_odds(self):
+        problems = self.forecast_problems()
+        if any(g in ("odds:missing", "odds:stale") for g, _ in problems):
+            return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; not yet available</small>",
+                                "".join(self.gap(g, "odds", why) for g, why in problems))
+        sim = self.ctx["forecast"]["sim"]
+        teams = sim["teams"]
+        src = "season_sim live wk%02d (%s runs, %s)" % (self.week, sim["runs"], sim["generatedAtUtc"])
+        div_shown = {}
+        for d in sorted({t["division"] for t in teams.values()}):
+            div_shown.update(season_sim.display_percentages({f: t["div"] for f, t in teams.items() if t["division"] == d}))
+        title_shown = season_sim.display_percentages({f: t["title"] for f, t in teams.items()})
+        order = sorted(teams, key=lambda f: (-teams[f]["po"], -teams[f]["title"], f))
+        rows = []
+        for f in order:
+            t_ = teams[f]
+            po = self.L.put("odds:po:" + f, round(100 * t_["po"], 1), src, "%.1f%%" % (100 * t_["po"]))
+            bye = self.L.put("odds:bye:" + f, round(100 * t_["bye"], 1), src, "%.1f%%" % (100 * t_["bye"]))
+            dv = self.L.put("odds:div:" + f, float(div_shown[f]), src + ", largest-remainder by division", div_shown[f] + "%")
+            ti = self.L.put("odds:title:" + f, float(title_shown[f]), src + ", largest-remainder", title_shown[f] + "%")
+            rows.append('<tr>%s<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td><td class="num">%s</td></tr>'
+                        % (self.fr_cell(f), po, bye, dv, ti))
+        top = order[0]
+        runs = self.L.put("odds:runs", int(sim["runs"]), src, "{:,}".format(int(sim["runs"])))
+        lead = [("Stuart", "%s leads the forecast at %s to make the playoffs." % (
+            e(self.owner[top]), self.L.put("odds:po:" + top, round(100 * teams[top]["po"], 1), src, "%.1f%%" % (100 * teams[top]["po"]))))]
+        table = ('<div class="tablebox"><table><thead><tr><th>Franchise</th><th>Playoffs</th><th>First-round bye</th>'
+                 '<th>Wins division</th><th>Title</th></tr></thead><tbody>%s</tbody></table></div>'
+                 '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
+                 'in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group '
+                 'still adds up to the whole.</p>'
+                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs))
+        extra = "".join(self.gap(g, "odds", why) for g, why in problems)      # preview problems only, at this point
+        return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
+                            % self.week, self.desk(lead, mb=True) + extra + table)
+
     def prior_preview_audit(self):
         g = self.T.get("t.grade.games")
         if not g:
@@ -468,7 +541,7 @@ class Issue:
         table = ('<div class="tablebox"><table><thead><tr><th>Owner</th><th>Posts</th></tr></thead><tbody>%s</tbody></table>'
                  '</div><p class="caption">Owner posts in the archived league Discord channels in that window; bot posts '
                  'excluded.</p>' % box)
-        return self.section("coffee", "Coffee Shop Talk", 7, "Coffee Shop Talk <small>&mdash; Kenny Mayne reads the chat</small>",
+        return self.section("coffee", "Coffee Shop Talk", 8, "Coffee Shop Talk <small>&mdash; Kenny Mayne reads the chat</small>",
                             intro + gap + table)
 
     # ------------------------------------------------------------ 8. corrections
@@ -476,18 +549,18 @@ class Issue:
         posts = self.ctx["mfl"].get("elias") or []
         rep = self.ctx.get("eliasReport")
         if not posts:
-            return self.section("elias", "Elias changes", 8, "Elias changes", self.gap(
+            return self.section("elias", "Elias changes", 9, "Elias changes", self.gap(
                 "elias:not-posted", "elias", "Elias has not posted official Week %d changes yet. The Thursday and Friday "
                 "runs re-check and will update this draft." % self.week))
         moved = (rep or {}).get("teams") or []
         if not moved:
             note = ("Elias posted %s official stat change(s) for Week %d; none moved a UPS team score from the numbers "
                     "in this draft." % (self.L.put("elias:count", len(posts), "MFL site news"), self.week))
-            return self.section("elias", "Elias changes", 8, "Elias changes", self.desk([("Rich", note)]))
+            return self.section("elias", "Elias changes", 9, "Elias changes", self.desk([("Rich", note)]))
         rows = "".join('<tr>%s<td class="num">%s</td><td class="num">%s</td></tr>' % (
             self.fr_cell(t["fid"]), self.L.put("elias:before:" + t["fid"], round(t["before"], 1), "scores_published"),
             self.score(t["fid"])) for t in moved)
-        return self.section("elias", "Elias changes", 8, "Elias changes <small>&mdash; official corrections</small>",
+        return self.section("elias", "Elias changes", 9, "Elias changes <small>&mdash; official corrections</small>",
                             self.desk([("Rich", "Elias moved %d team score(s) after the first scores; every number in this "
                                                 "draft uses the corrected ones." % len(moved))], mb=True)
                             + '<div class="tablebox"><table><thead><tr><th>Owner</th><th>First</th><th>Corrected</th></tr>'
@@ -496,7 +569,7 @@ class Issue:
     # ------------------------------------------------------------ assembly
     def render(self, generated_at):
         segs = [self.seg_open(), self.seg_boomer(), self.seg_desk(), self.seg_plays(), self.seg_bb(), self.seg_landscape(),
-                self.seg_coffee(), self.seg_elias()]
+                self.seg_odds(), self.seg_coffee(), self.seg_elias()]
         sha, combined = wire.style_sha()
         runtime = wire.read(wire.RUNTIME_JS)
         aid = "%d-wk%02d-ups-center" % (self.season, self.week)

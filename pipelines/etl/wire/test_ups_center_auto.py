@@ -42,7 +42,8 @@ def build(ctx=None, pack=None, local=True):
 print("1. Week 4 renders in the real UPS Center format and validates against its sources")
 res, rep, _ = build()
 ids = re.findall(r'<section class="wire-sec" id="([^"]+)"', res["html"])
-check("eight segments in show order", ids == ["open", "boomer", "desk", "plays", "bb", "landscape", "coffee", "elias"], ids)
+check("nine segments in show order (the Playoff Picture follows the landscape)",
+      ids == ["open", "boomer", "desk", "plays", "bb", "landscape", "odds", "coffee", "elias"], ids)
 check(".uc show markup: desk cards, game deck with one page per division, play cards, bust/bargain lists",
       all(x in res["html"] for x in ('class="wire-wrap uc"', 'class="lt stuart"', 'class="lt boomer"',
                                      'data-wire-gamedeck', 'class="play"', 'class="bbl"'))
@@ -358,6 +359,98 @@ finally:
 check("a crash becomes a FAILED status with a plain reason, and alerts past the deadline (never silent)",
       cst["status"] == "failed" and "FileNotFoundError" in cst["reasons"][0] and cst.get("alert")
       and "Nothing was published or posted" in cst["alert"]["text"], cst)
+
+print("11. Builder A: the job runs the forecast; odds are shown fresh or blocked, never silently missing")
+import datetime as _dt
+import season_sim as SS                      # noqa: E402
+_iso = lambda ts: _dt.datetime.fromtimestamp(ts, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+_REAL = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "data", "season_sim_2026_live_wk05.json")))
+FINAL = CTX["timing"]["finalAt"]
+
+
+def forecast(through=4, gen=None, prev=True, prev_through=4, prev_inputs=None):
+    """SYNTHETIC test forecast: the real Week 5 file's team odds, relabelled to cover the fixture's Week 4."""
+    f = {"simFile": "season_sim_2026_live_wk04.json", "previewFile": "week_preview_2026_wk05.json",
+         "sim": {"throughWeek": through, "runs": 10000, "generatedAtUtc": _iso(gen or FINAL + 3600),
+                 "teams": {r["franchiseId"]: {"po": r["currentPlayoffOdds"], "bye": r["currentByeOdds"],
+                                              "div": r["currentDivisionOdds"], "title": r["currentTitleOdds"],
+                                              "division": r["division"]} for r in _REAL["teams"]}},
+         "preview": None}
+    if prev:
+        f["preview"] = {"week": prev_through + 1, "throughWeek": prev_through, "runs": 10000,
+                        "generatedAtUtc": _iso(FINAL + 3600), "inputsAtUtc": _iso(prev_inputs or FINAL + 3000)}
+    return f
+
+
+def with_fc(fc):
+    c = copy.deepcopy(CTX)
+    c["forecast"] = fc
+    return c
+
+
+r0, v0, _ = build()
+check("no forecast at all -> a Playoff Picture blocker (odds:missing) and the draft is not publishable",
+      {"odds:missing", "odds:preview-missing"} <= {g["id"] for g in r0["gaps"]} and v0["ok"] and not v0["publishable"]
+      and 'data-editor-gap="odds:missing"' in r0["html"], [g["id"] for g in r0["gaps"]])
+r1, v1, c1 = build(with_fc(forecast()))
+odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
+check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
+      v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 49, (v1["errors"], len(odds_claims)))
+by_div = {}
+for f_, row in c1["forecast"]["sim"]["teams"].items():
+    by_div.setdefault(row["division"], []).append(r1["claims"]["odds:div:" + f_]["value"])
+check("each division's printed odds total exactly 100.0, and title odds total 100.0 across the league",
+      all(abs(sum(v) - 100.0) < 1e-9 for v in by_div.values())
+      and abs(sum(x["value"] for k, x in r1["claims"].items() if k.startswith("odds:title:")) - 100.0) < 1e-9, by_div)
+r2, v2, _ = build(with_fc(forecast(through=3)))
+check("a forecast through the wrong week is a blocker (odds:stale), never shown as current",
+      any(g["id"] == "odds:stale" for g in r2["gaps"]) and not any(k.startswith("odds:po:") for k in r2["claims"]) and v2["ok"])
+r3, v3, _ = build(with_fc(forecast(gen=FINAL - 600)))
+check("a forecast run before the week went final is a blocker (odds:stale)", any(g["id"] == "odds:stale" for g in r3["gaps"]))
+r4, v4, _ = build(with_fc(forecast(prev_inputs=FINAL - 600)))
+check("a stale next-week preview is flagged on its own (odds:preview-stale) while current odds still show",
+      any(g["id"] == "odds:preview-stale" for g in r4["gaps"]) and any(k.startswith("odds:po:") for k in r4["claims"]) and v4["ok"])
+bad_claims = copy.deepcopy(r1["claims"])
+k0 = sorted(k for k in bad_claims if k.startswith("odds:po:"))[0]
+bad_claims[k0]["value"] = round(bad_claims[k0]["value"] + 0.1, 1)
+check("an odds number that disagrees with the forecast file fails validation",
+      any(k0 in x for x in VAL.validate(dict(r1, claims=bad_claims), c1, copy.deepcopy(PACK))["errors"]))
+gone = dict(r1, claims={k: x for k, x in r1["claims"].items() if not k.startswith("odds:")},
+            html=re.sub(r'<section class="wire-sec" id="odds"[\s\S]*?</section>', "", r1["html"]))
+check("a draft with neither odds nor an odds blocker fails (the Playoff Picture cannot silently disappear)",
+      any("silently disappear" in x for x in VAL.validate(gone, c1, copy.deepcopy(PACK))["errors"]))
+calls = []
+real_sh, real_state = AUTO.sh, AUTO.STATE_DIR
+wd = tempfile.mkdtemp()
+os.makedirs(os.path.join(wd, "site", "wire", "data"))
+AUTO.STATE_DIR = tempfile.mkdtemp()
+
+
+def fake_sh(cmd, cwd=None, check=False, env=None):
+    calls.append(cmd)
+    if "--out" in cmd:
+        open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w").write("{}")
+    return 0, ""
+
+
+AUTO.sh = fake_sh
+try:
+    why = AUTO.run_forecast(2026, 6, wd, log=lambda *a: None)
+    first = [c[1].split("/")[-1] for c in calls]
+    sim_cmd, prev_cmd = calls[0], calls[1]
+    calls.clear()
+    why2 = AUTO.run_forecast(2026, 6, wd, log=lambda *a: None)
+    calls.clear()
+    why3 = AUTO.run_forecast(2026, 14, wd, log=lambda *a: None)
+finally:
+    AUTO.sh, AUTO.STATE_DIR = real_sh, real_state
+check("the job runs season_sim --through-week 6, then week_preview --week 7 from the SAME cached inputs",
+      first == ["season_sim.py", "week_preview.py"] and not why
+      and sim_cmd[sim_cmd.index("--through-week") + 1] == "6" and prev_cmd[prev_cmd.index("--week") + 1] == "7"
+      and "--reuse-cache" in prev_cmd and sim_cmd[sim_cmd.index("--cache-dir") + 1] == prev_cmd[prev_cmd.index("--live-cache") + 1]
+      and sim_cmd[sim_cmd.index("--runs") + 1] == prev_cmd[prev_cmd.index("--runs") + 1] == "10000", calls)
+check("a rerun keeps the existing forecast files (both scripts refuse to overwrite; nothing re-run)", not why2)
+check("after the last regular-season week there is no next week to preview", not why3)
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
