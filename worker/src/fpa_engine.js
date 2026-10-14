@@ -111,6 +111,7 @@ export async function fpaLoadMfl({ yr, wMin, wMax, lid, fetchJson, nowMs, curren
   ]);
   const endWeek = parseInt(str(league && league.league && league.league.endWeek), 10);
   if (!(endWeek >= 1 && endWeek <= 18)) throw new FpaUpstreamError("league settings");
+  const lastRegular = parseInt(str(league && league.league && league.league.lastRegularSeasonWeek), 10);
   const plist = arr(players && players.players && players.players.player);
   if (!plist.length) throw new FpaUpstreamError("players");
 
@@ -145,7 +146,8 @@ export async function fpaLoadMfl({ yr, wMin, wMax, lid, fetchJson, nowMs, curren
     scoresByWeek[w] = arr(ps.playerScore);
   });
   if (badScores.length) throw new FpaUpstreamError("player scores", badScores);
-  return { yr: String(yr), endWeek, players: plist, schedByWeek, scoresByWeek, readAtMs: nowMs };
+  return { yr: String(yr), endWeek, lastRegularSeasonWeek: lastRegular >= 1 && lastRegular < endWeek ? lastRegular : null,
+    players: plist, schedByWeek, scoresByWeek, readAtMs: nowMs };
 }
 
 // Game-day team for each MFL player, from nflverse weekly rows (D1) joined through
@@ -469,6 +471,70 @@ export function fpaDetail(E, ctx, agg, team, grp, snaps) {
 // compute, so every window and every drill is the number the live path gives.
 // A missing or invalid file, another engine version, or a season that is not
 // complete → the live path, exactly as before.
+// ── Stats → Sched: who each team plays, from the same read (#1270) ──────────
+// UPS playoff weeks. MFL's setting when it was read live; a stored season keeps only
+// endWeek, and every UPS season 2017–2026 has had 3 playoff weeks (lastRegularSeasonWeek
+// = endWeek − 3: Wks 14–16 through 2020, 15–17 since; checked against MFL 2026-10-13).
+export function fpaPlayoffWeeks(mfl) {
+  const end = mfl.endWeek, lrs = Number(mfl.lastRegularSeasonWeek);
+  const first = lrs >= 1 && lrs < end ? lrs + 1 : Math.max(1, end - 2);
+  const out = []; for (let w = first; w <= end; w++) out.push(w);
+  return out;
+}
+
+// Every team's league weeks 1..endWeek: its game (opponent, home, kickoff, state) or a bye.
+// MFL team codes, like the rest of the engine. NFL weeks past the league's endWeek
+// (Week 18) are not UPS weeks and are left out.
+export function fpaScheduleOf(E) {
+  const out = {};
+  for (const t of Object.keys(E.teamsAll).sort()) {
+    const rows = [];
+    for (let w = 1; w <= E.endWeek; w++) {
+      const g = E.gameOf[t] && E.gameOf[t][w];
+      rows.push(g ? { wk: w, opp: g.opp, home: g.home, kickoff: g.kickoff, status: g.status } : { wk: w, bye: true });
+    }
+    out[t] = rows;
+  }
+  return out;
+}
+
+// League average points allowed per team-game, per position (all defenses' totals ÷
+// their final games): the reference a "points allowed" number is read against.
+export function fpaLeaguePerGame(agg, groups) {
+  const out = {};
+  for (const g of groups) {
+    let pts = 0, n = 0;
+    for (const t in agg) { const c = agg[t] && agg[t][g]; if (c && c.raw && c.raw.games) { pts += c.raw.total || 0; n += c.raw.games; } }
+    out[g] = n ? Math.round((pts / n) * 10) / 10 : null;
+  }
+  return out;
+}
+
+// The response older app builds read (season, pos → team rows of weekly opponent
+// ratios with season and playoff averages, nflverse team codes, sorted by the season
+// average). Kept so a phone that hasn't updated still works; every number now comes
+// from this engine: final, scored games only; game-day teams; the league's own weeks;
+// no NFL Week 18; playoff weeks from the league's settings.
+export function fpaSchedLegacy({ yr, grp, agg, schedule, playoffWeeks }) {
+  const nflv = (t) => MFL_TO_NFLV[t] || t;
+  const rate = (t) => { const c = agg[t] && agg[t][grp]; return c && c.adj ? c.adj : null; };
+  const avg = (xs) => { const v = xs.filter((x) => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 1000) / 1000 : null; };
+  const pw = new Set(playoffWeeks);
+  const teams = Object.keys(schedule).map((t) => {
+    const weeks = schedule[t].map((x) => {
+      if (x.bye) return { wk: x.wk, opp: null, ratio: null, rank: null };
+      const r = rate(x.opp);
+      return { wk: x.wk, opp: nflv(x.opp), ratio: r ? r.ratio : null, rank: r ? r.rank : null };
+    });
+    return { team: nflv(t), weeks,
+      seasonAvg: avg(weeks.map((x) => x.ratio)),
+      playoffAvg: avg(weeks.filter((x) => pw.has(x.wk)).map((x) => x.ratio)) };
+  });
+  teams.sort((a, b) => (b.seasonAvg || 0) - (a.seasonAvg || 0) || (a.team < b.team ? -1 : 1));
+  const rated = Object.keys(agg).filter((t) => rate(t)).length;
+  return { ok: true, season: String(yr), pos: grp, projected: false, ratingSeason: String(yr), defsRated: rated, teams };
+}
+
 export const FPA_STORE_FORMAT = 1;
 export function fpaStorePath(yr) { return "/" + FPA_ENGINE_VERSION + "/" + yr + ".json"; }
 const idOf = (x) => typeof x.id === "string" ? x.id : str(x.id);
@@ -694,23 +760,31 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   const url = new URL(request.url);
   const path = url.pathname;
   const isDetail = path === "/api/fpa-detail";
+  // Stats → Sched (#1270): the schedule plus every defense's ratings through the latest
+  // completed game, for all positions in one answer (v=2). Without v=2 it answers in
+  // the shape older app builds read (season + pos), from the same numbers.
+  const isSched = path === "/api/fantasy-sos";
+  const schedV2 = isSched && str(url.searchParams.get("v")) === "2";
   const now = nowMs || Date.now();
   const doFetch = fetchImpl || fetch;
-  const yr = str(url.searchParams.get("YEAR") || String(fpaCurrentSeason(now))).replace(/\D/g, "");
-  const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
-  const wMaxRaw = parseInt(url.searchParams.get("week_max") || "0", 10) || 0;
+  const yr = str(url.searchParams.get("YEAR") || (isSched ? url.searchParams.get("season") : "") || String(fpaCurrentSeason(now))).replace(/\D/g, "");
+  const wMin = isSched ? 1 : Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
+  const wMaxRaw = isSched ? 0 : (parseInt(url.searchParams.get("week_max") || "0", 10) || 0);
   const auto = wMaxRaw <= 0;
+  const legacyGrp = isSched && !schedV2 ? fpaPosGroup(url.searchParams.get("pos") || "RB") : "";
   const posFilter = str(url.searchParams.get("pos")).toUpperCase().split(/[,\s]+/).filter(Boolean);
   const team = str(url.searchParams.get("team")).toUpperCase();
   const grp = isDetail ? fpaPosGroup(posFilter[0] || "") : "";
   if (!/^\d{4}$/.test(yr)) return jsonOut(400, { ok: false, error: "YEAR must be a 4-digit season" });
   if (isDetail && (!team || !grp)) return jsonOut(400, { ok: false, error: "team and pos are required" });
+  if (isSched && !schedV2 && !legacyGrp) return jsonOut(400, { ok: false, error: "pos must be one of " + FPA_GROUPS.join(", ") });
 
   const cur = fpaCurrentSeason(now), past = Number(yr) < cur;
   const asOf = new Date(now).toISOString();
   if (Number(yr) > cur) {
     // A season that hasn't started: say so, never fetch (MFL answers 404 HTML).
-    return jsonOut(200, { ok: true, engine: FPA_ENGINE_VERSION, year: yr, season: { state: "not_started" }, teams: {}, weeksUsed: [], groups: FPA_GROUPS, as_of: asOf, ...(isDetail ? { team, pos: grp, weeks: [], schedule: [] } : {}) });
+    if (isSched && !schedV2) return jsonOut(200, { ok: true, season: yr, pos: legacyGrp, projected: false, ratingSeason: yr, defsRated: 0, teams: [] });
+    return jsonOut(200, { ok: true, engine: FPA_ENGINE_VERSION, year: yr, season: { state: "not_started" }, teams: {}, weeksUsed: [], groups: FPA_GROUPS, as_of: asOf, ...(isDetail ? { team, pos: grp, weeks: [], schedule: [] } : {}), ...(isSched ? { view: "schedule", schedule: {}, playoffWeeks: [], league: {} } : {}) });
   }
 
   const sp = new URLSearchParams(url.searchParams);
@@ -756,7 +830,7 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   const lo = Math.min(wMin, mfl.endWeek);
   const E = fpaCompute(mfl, seasonCtx, { wMin: lo, wMax: hi, nowMs: now, baseline: FPA_BASELINE });
   const facts = fpaSeasonFacts(E);
-  const groups = isDetail ? [grp] : (posFilter.length ? FPA_GROUPS.filter((g) => posFilter.indexOf(g) >= 0) : FPA_GROUPS);
+  const groups = isDetail ? [grp] : (isSched ? FPA_GROUPS : (posFilter.length ? FPA_GROUPS.filter((g) => posFilter.indexOf(g) >= 0) : FPA_GROUPS));
   const agg = fpaAggregate(E, groups);
   const weeksUsed = [];
   for (let w = lo; w <= hi; w++) if ((E.weekGames[w] || []).some((g) => g.status === "final")) weeksUsed.push(w);
@@ -770,7 +844,13 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
     as_of: asOf, mfl_read_at: new Date(mfl.readAtMs).toISOString(),
   };
   let payload;
-  if (!isDetail) {
+  if (isSched) {
+    const schedule = fpaScheduleOf(E), playoffWeeks = fpaPlayoffWeeks(mfl);
+    payload = schedV2
+      ? { ...base, view: "schedule", groups, teams: agg, teamGames: facts.teamGames, pending: facts.pending,
+          schedule, playoffWeeks, league: { perGame: fpaLeaguePerGame(agg, groups) } }
+      : fpaSchedLegacy({ yr, grp: legacyGrp, agg, schedule, playoffWeeks });
+  } else if (!isDetail) {
     payload = { ...base, groups, teams: agg, pending: facts.pending, teamGames: facts.teamGames };
   } else {
     if (!E.teamsAll[team]) return jsonOut(400, { ok: false, error: "unknown team " + team });
