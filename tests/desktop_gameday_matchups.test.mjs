@@ -403,6 +403,14 @@ console.log("\n4. injury tags: the shared resolver (MFL first, the official repo
   });
 }
 
+console.log("\n4b. the page's CSS parses as written");
+await check("no comment closes early and swallows a rule (the injury/lock/bye badge row keeps its padding)", () => {
+  const css = /<style>([\s\S]*?)<\/style>/.exec(GAMEDAY)[1].replace(/\/\*[\s\S]*?\*\//g, "");
+  const junk = css.split("}").map((x) => x.split("{")[0].trim()).filter((sel) => /;/.test(sel));
+  assert.deepStrictEqual(junk, [], "text outside any comment where a selector should be");
+  assert.match(css, /\}\s*\.gd-slot-inj-row \{ padding: 0 14px 8px 14px;/);
+});
+
 console.log("\n5. the lock, bye and IR-slot rules are unchanged");
 {
   // Sunday 14:00 UTC: HOU @ JAC (London, 13:30 UTC) has kicked off; nothing else has.

@@ -64,9 +64,11 @@
   /* Big and bold on purpose (Keith): this is the one signal that should
      outweigh everything else on the card when it's real. Solid fill, not an
      outline chip like .gd-badge/.gd-chip elsewhere — those are informational,
-     this is a warning. tier-out (Out/IR-*/Suspended/Retired/Holdout/Doubtful)
-     is red; tier-q (Questionable) is amber and uses dark text since amber on
-     dark text reads poorly reversed. */
+     this is a warning. tier-out (Out, every IR kind, Suspended, Retired, Holdout,
+     Doubtful) is red; tier-q (Questionable) is amber and uses dark text since
+     amber on dark text reads poorly reversed. (This comment used to read
+     "IR-" + "*" + "/Suspended", which ENDED the comment early and silently dropped
+     the .gd-slot-inj-row rule below: badge rows had no padding. Fixed 2026-10-14.) */
   .gd-slot-inj-row { padding: 0 14px 8px 14px; margin-top: -2px; }
   .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
   .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
