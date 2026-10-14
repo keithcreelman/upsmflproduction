@@ -533,8 +533,10 @@
       "“@ GBP · #30 vs QBs” = Green Bay is 30th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
       "Only final games count, and a player counts for the team he played for that day. " +
       MU_ABOUT_EVIDENCE +
-      '</div></details></div>' + injHtml;
+      '</div><div class="ups-m-mu-about-spread">' + MU_ABOUT_SPREAD + '</div></details></div>' + injHtml;
   }
+  // Where the spread comes from (Keith's wording, 2026-10-14; #1284 / #1262).
+  var MU_ABOUT_SPREAD = "Spread is the current Vegas line from nflverse, the same source used by Stats → Vegas. If no line is available, the spread is left blank.";
   // The measured size of green vs red (2019–2025 games, leak-free; review #1249 L2b).
   var MU_ABOUT_EVIDENCE = "On 2019–2025 games, a player facing one of the 10 teams allowing the most to his position scored about 1 point more than facing one of the 10 allowing the least (QB about 2).";
 

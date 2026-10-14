@@ -185,6 +185,10 @@ console.log("1. rank and color by MFL points allowed per game (Keith 2026-10-13)
     assert.ok(about.split(/(?<=\.)\s+/).length <= 3, about);
     assert.ok(/scored about 1 point more than facing one of the 10 allowing the least \(QB about 2\)\./.test(about), about);
   });
+  await check("About also says where the spread comes from, in Keith's words (2026-10-14)", () => {
+    const sp = e.text(e.mount.querySelector(".ups-m-mu-note details .ups-m-mu-about-spread"));
+    assert.strictEqual(sp, "Spread is the current Vegas line from nflverse, the same source used by Stats → Vegas. If no line is available, the spread is left blank.");
+  });
   await check("a pronounced Details button on every line: \"Details ▾\", then \"Hide ▴\"; the line is a button with aria-expanded and focus comes back", async () => {
     const b = e.line(ALLEN);
     assert.strictEqual(b.tagName, "BUTTON"); assert.strictEqual(b.getAttribute("aria-expanded"), "false");
