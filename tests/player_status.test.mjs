@@ -3,13 +3,14 @@
 //
 // The report designation (Out / Doubtful / Questionable) comes from this
 // week's official NFL injury report; the roster designation (IR, IR-R, PUP …)
-// from MFL's injuries export. A feed that can't be read, a report for another
+// from MFL's injuries export; and (2026-10-14, additive) MFL's own game
+// designation rides apart in `mfl`, labeled with the export's week. A feed that can't be read, a report for another
 // week, or one over 36 h old is UNAVAILABLE — never "no designation".
 // Pure assembly first, then the real route with the network stubbed.
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, callWorker, quiet } from "./fixtures/fcfs_worker_harness.mjs";
-import { assemble, parseCsv, STALE_HOURS } from "../worker/src/player_status.js";
+import { assemble, parseCsv, mflReturnDate, STALE_HOURS } from "../worker/src/player_status.js";
 
 const HEAD = "season,season_type,game_type,team,week,gsis_id,position,full_name,first_name,last_name,report_primary_injury,report_secondary_injury,report_status,practice_primary_injury,practice_secondary_injury,practice_status";
 const line = (team, week, gsis, status, inj, prac) => `2026,REG,REG,${team},${week},${gsis},WR,"Last, First",F,L,${inj || ""},,${status || ""},${inj || ""},,${prac || ""}`;
@@ -118,11 +119,37 @@ test("fail closed: an unreadable or empty id map means nobody can be matched —
   }
 });
 
-test("MFL's own Q / D / Out never become a designation (it keeps them long after they lapse)", () => {
+test("MFL's own Q / D / Out never become an OFFICIAL designation: they ride in `mfl` only (it keeps them after they lapse)", () => {
   const a = assemble({ reportRows: parseCsv(csv(line("BUF", 5, "00-0000001", "Out", "Ankle", ""))), reportModified: FRESH,
                        mflPayload: mflPayload(5, [{ id: "104", status: "Questionable", details: "Hamstring", exp_return: "Sep 13, 2026" }]),
                        gsisToMfl: MAP, now: NOW });
-  t.equal(a.players["104"], undefined);
+  t.deepEqual(Object.keys(a.players["104"]), ["mfl"], "no report, no prior, no roster");
+  t.equal(a.players["101"].report.status, "Out", "the official report is unchanged");
+  t.equal(a.players["101"].mfl, undefined);
+});
+
+test("`mfl` (Keith 2026-10-14): MFL's Q / D / Out with the export's week and time, the description and the expected return", () => {
+  const rows = [
+    { id: "101", status: "Questionable", details: "Ankle", exp_return: "Oct 18, 2026" },
+    { id: "0102", status: "out", details: " Knee - ACL ", exp_return: "Nov 8, 2026" },
+    { id: "103", status: "Doubtful", details: "", exp_return: "" },
+    { id: "104", status: "IR-R", details: "Knee", exp_return: "Nov 15, 2026" },
+    { id: "105", status: "Probable", details: "Rest" },
+    { id: "106", status: "Questionable", details: "Hip", exp_return: "Week 7" }];
+  const a = assemble({ reportRows: parseCsv(csv(line("BUF", 6, "00-0000001", "", "Ankle", "Limited Participation in Practice"))), reportModified: FRESH,
+                       mflPayload: mflPayload(6, rows), gsisToMfl: MAP, now: NOW });
+  const at = "2026-10-10T14:01:03.000Z";
+  t.deepEqual(a.players["101"].mfl, { status: "Questionable", week: 6, updated_utc: at, details: "Ankle", exp_return: "Oct 18, 2026", return_date: "2026-10-18" });
+  t.deepEqual(a.players["101"].report, { status: null, injury: "Ankle", practice: "Limited Participation in Practice", team: "BUF" }, "the official line stays beside it");
+  t.deepEqual(a.players["102"].mfl, { status: "Out", week: 6, updated_utc: at, details: "Knee - ACL", exp_return: "Nov 8, 2026", return_date: "2026-11-08" }, "case and a padded id normalized");
+  t.deepEqual([a.players["103"].mfl.details, a.players["103"].mfl.exp_return, a.players["103"].mfl.return_date], [null, null, null], "blank stays blank, never invented");
+  t.deepEqual([a.players["104"].mfl, a.players["104"].roster.chip], [undefined, "IR-R"], "a roster kind is `roster`, not `mfl`");
+  t.equal(a.players["105"], undefined, "only Questionable / Doubtful / Out");
+  t.deepEqual([a.players["106"].mfl.exp_return, a.players["106"].mfl.return_date], ["Week 7", null], "an unparsed return stays as MFL wrote it");
+  t.deepEqual([a.mfl_feed.ok, a.mfl_feed.week, a.mfl_feed.updated_utc, a.mfl_feed.count], [true, 6, at, 4]);
+  const down = assemble({ reportRows: parseCsv(csv(line("BUF", 6, "00-0000001", "Out", "Ankle", ""))), reportModified: FRESH, mflError: "HTTP 500", gsisToMfl: MAP, now: NOW });
+  t.deepEqual([down.mfl_feed.ok, down.mfl_feed.reason], [false, "unreadable: HTTP 500"], "MFL down: said so, never 'no designation'");
+  t.equal(mflReturnDate("Sept 3, 2026"), "2026-09-03"); t.equal(mflReturnDate("Feb 31x"), null); t.equal(mflReturnDate(null), null);
 });
 
 test("the route: /api/player-status joins by the verified id map and says when each feed was updated", async () => {
@@ -137,7 +164,7 @@ test("the route: /api/player-status joins by the verified id map and says when e
     if (s.includes("nflverse-data/releases/download/injuries/injuries_2026.csv"))
       return report == null ? new Response("boom", { status: 502 }) : new Response(report, { status: 200, headers: { "last-modified": new Date(Date.now() - 3600e3).toUTCString() } });
     if (s.includes("api.myfantasyleague.com/2026/export") && s.includes("TYPE=injuries"))
-      return new Response(JSON.stringify(mflPayload(5, [{ id: "101", status: "IR-R", details: "Calf" }])), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify(mflPayload(5, [{ id: "101", status: "IR-R", details: "Calf" }, { id: "102", status: "Questionable", details: "Ankle", exp_return: "Oct 11, 2026" }])), { status: 200, headers: { "content-type": "application/json" } });
     return real(u);
   };
   const get = async () => { const r = quiet(); try { return await callWorker(env, "GET", "/api/player-status?season=2026&L=74598"); } finally { r(); } };
@@ -149,6 +176,9 @@ test("the route: /api/player-status joins by the verified id map and says when e
     t.equal(a.json.players["103"], undefined, "an unaccepted map row resolves nobody");
     t.deepEqual(a.json.mapped_mfl_ids, ["101"], "anyone not in this list is 'no verified NFL id', never 'not on the report'");
     t.ok(a.json.report_feed.updated_utc && a.json.roster_feed.updated_utc === "2026-10-10T14:01:03.000Z");
+    t.deepEqual([a.json.players["102"].mfl.status, a.json.players["102"].mfl.week, a.json.players["102"].mfl.return_date, a.json.players["102"].report],
+      ["Questionable", 5, "2026-10-11", undefined], "MFL's own designation is served (by MFL id, no map needed), apart from the report");
+    t.deepEqual([a.json.mfl_feed.ok, a.json.mfl_feed.week, a.json.mfl_feed.count], [true, 5, 1]);
     report = null;
     const b = await get();
     t.deepEqual([b.json.report_feed.ok, b.json.report_feed.current, b.json.players["101"].report], [false, false, undefined],
