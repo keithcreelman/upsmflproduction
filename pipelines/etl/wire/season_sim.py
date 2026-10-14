@@ -33,8 +33,8 @@ THE MODEL, and where every piece comes from:
     for 1 and 2; weeks 15-17; single matchups.
 
 WHAT IT CANNOT SEE: trades and waiver moves after today, owners' real lineup
-choices (it starts the projected-best lineup every week), and any head-to-head
-tiebreak inside a division (it goes straight to points). A preseason projection,
+choices (it starts the projected-best lineup every week). Division ties follow
+MFL's standingsSort, head-to-head included (since 2026-10-14). A preseason projection,
 not a prophecy -- say so wherever it is printed.
 
 Stdlib only, invoked by path.
@@ -337,10 +337,41 @@ def _within_var_of_projections(wp, reg_end):
     return sum(vs) / len(vs)
 
 
-def _div_winner_key(t):
-    # MFL 2026 standingsSort: PCT, DIVPCT, H2H, PTS, ALL_PLAY_PCT, PWR.
-    # Pairwise H2H between tied teams is skipped (goes to PTS) -- see docstring.
-    return (-t["pct"], -t["divpct"], -t["pf"], -t["ap_pct"])
+def division_winner(members, st, h2h):
+    """The ONE division champion, by MFL's 2026 standingsSort: PCT, DIVPCT, H2H,
+    PTS, ALL_PLAY_PCT (then franchise id, so the answer is always unique).
+
+    `st[f]` carries pct / divpct / pf / ap_pct; `h2h[a][b]` is a's wins over b in
+    their division games (a tie counts half to each). H2H is the combined record
+    of the teams STILL TIED on PCT and DIVPCT against each other -- division
+    rivals meet five times, so between two tied teams it always decides.
+    Before 2026-10-14 this skipped H2H and went straight to points (Keith's
+    Week 5 review asked for the league's tiebreakers in the correct order)."""
+    key = lambda f: (round(st[f]["pct"], 9), round(st[f]["divpct"], 9))
+    best = max(key(f) for f in members)
+    tied = [f for f in members if key(f) == best]
+    if len(tied) == 1:
+        return tied[0]
+    def h2h_pct(f):
+        w = sum(h2h.get(f, {}).get(g, 0.0) for g in tied if g != f)
+        l = sum(h2h.get(g, {}).get(f, 0.0) for g in tied if g != f)
+        return w / (w + l) if (w + l) else 0.5
+    return sorted(tied, key=lambda f: (-round(h2h_pct(f), 9), -st[f]["pf"], -st[f]["ap_pct"], f))[0]
+
+
+def display_percentages(probs, decimals=1):
+    """{key: probability} whose values sum to 1 -> {key: percent string} that sums to
+    EXACTLY 100 at `decimals` places (largest-remainder rounding: round every value
+    down, then give the leftover units to the largest remainders, ties by key).
+    For groups that must total 100% -- one division's title odds. Never used to
+    hide a sum that is not 1: callers check the raw sum first."""
+    unit = 10 ** decimals
+    raw = {k: v * 100 * unit for k, v in probs.items()}
+    floor = {k: int(raw[k] // 1) for k in raw}
+    left = 100 * unit - sum(floor.values())
+    for k in sorted(raw, key=lambda k: (-(raw[k] - floor[k]), k))[:max(0, left)]:
+        floor[k] += 1
+    return {k: ("%." + str(decimals) + "f") % (floor[k] / unit) for k in floor}
 
 
 def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None,
@@ -367,6 +398,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         shock = ({f: rng.gauss(*posterior[f]) for f in fids} if posterior
                  else {f: rng.gauss(0, sigma_s) for f in fids})
         rec = {f: {"w": 0, "l": 0, "t": 0, "dw": 0, "dl": 0, "apw": 0, "apl": 0, "pf": 0.0} for f in fids}
+        h2h = {f: {} for f in fids}                       # division games only: h2h[a][b] = a's wins over b
         drawn = {}
         for wk in range(1, reg_end + 1):
             score = actual[wk] if wk in actual else {f: wp[f][wk] + shock[f] + rng.gauss(0, sigma_w) for f in fids}
@@ -378,13 +410,17 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
                 rec[f]["apl"] += len(fids) - 1 - i
                 rec[f]["pf"] += score[f]
             for a, b in sched.get(wk, []):
+                same_div = teams[a]["division"] == teams[b]["division"]
                 if score[a] == score[b]:
                     rec[a]["t"] += 1; rec[b]["t"] += 1
+                    if same_div:
+                        h2h[a][b] = h2h[a].get(b, 0.0) + 0.5; h2h[b][a] = h2h[b].get(a, 0.0) + 0.5
                     continue
                 win, lose = (a, b) if score[a] > score[b] else (b, a)
                 rec[win]["w"] += 1; rec[lose]["l"] += 1
-                if teams[a]["division"] == teams[b]["division"]:
+                if same_div:
                     rec[win]["dw"] += 1; rec[lose]["dl"] += 1
+                    h2h[win][lose] = h2h[win].get(lose, 0.0) + 1
         st = {}
         for f in fids:
             r = rec[f]
@@ -407,7 +443,10 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         divs = {}
         for f in fids:
             divs.setdefault(teams[f]["division"], []).append(f)
-        dws = [sorted(members, key=lambda f: _div_winner_key(st[f]))[0] for members in divs.values()]
+        dws = [division_winner(members, st, h2h) for members in divs.values()]
+        # Invariant, every simulated season: exactly one champion per division.
+        if len(dws) != len(divs) or len({teams[f]["division"] for f in dws}) != len(divs):
+            raise AssertionError("season_sim: division winners %r do not cover each division once" % dws)
         dws_sorted = sorted(dws, key=seed_key)
         wild = sorted((f for f in fids if f not in dws), key=seed_key)[:2]
         seeds = dws_sorted[:2] + sorted(dws_sorted[2:] + wild, key=seed_key)
@@ -445,7 +484,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         # games inside the SAME simulated seasons -- week_preview.py uses it for
         # "playoff odds with a win vs with a loss" in next week's matchups.
         if hook is not None:
-            hook(st, champ, runner, seeds, drawn)
+            hook(st, champ, runner, seeds, drawn, set(dws))
     for f in fids:
         agg[f]["ap_samples"].sort()
     agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],

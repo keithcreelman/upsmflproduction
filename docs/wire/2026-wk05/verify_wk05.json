@@ -7,7 +7,7 @@
  {
   "check": "index.json lists Week 5 as draft only",
   "ok": true,
-  "detail": "[{'id': '2026-wk05-ups-center', 'familyId': 'weekly', 'season': 2026, 'week': 5, 'kicker': 'Week 5', 'title': 'UPS Center: Week 5', 'dek': 'A third of the season is gone and the league is splitting in three: Bear Dunn and three 90% teams at the top, three 3\u201310 teams on life support, and a crowded mi"
+  "detail": "[{'id': '2026-wk05-ups-center', 'familyId': 'weekly', 'season': 2026, 'week': 5, 'kicker': 'Week 5', 'title': 'UPS Center: Week 5', 'dek': 'Bear Dunn is pulling away, three 3\u201310 teams are standing in historically dangerous territory, and the contenders in between are finding out which players their "
  },
  {
   "check": "heat table: Bear Dunn all-play 45-10",
@@ -70,7 +70,7 @@
   "detail": "B. Cross"
  },
  {
-  "check": "story: Cutting 6-7",
+  "check": "odds text: Martel 9-4 and Cutting 6-7 (MFL)",
   "ok": true,
   "detail": ""
  },
@@ -82,62 +82,62 @@
  {
   "check": "odds: Bear Dunn playoffs 99.5%, since Wk3 +6.1",
   "ok": true,
-  "detail": "('99.5%', '+6.1', '95.7%')"
+  "detail": "('99.5%', '+6.1', '29.3%')"
  },
  {
-  "check": "odds: Brian Cutting playoffs 95.3%, since Wk3 +2.6",
+  "check": "odds: Brian Cutting playoffs 95.2%, since Wk3 +2.5",
   "ok": true,
-  "detail": "('95.3%', '+2.6', '49.6%')"
+  "detail": "('95.2%', '+2.5', '28.6%')"
  },
  {
   "check": "odds: Shawn Blake playoffs 93.8%, since Wk3 +21.2",
   "ok": true,
-  "detail": "('93.8%', '+21.2', '84.5%')"
+  "detail": "('93.8%', '+21.2', '16.0%')"
  },
  {
-  "check": "odds: Eric Martel playoffs 90.0%, since Wk3 +1.5",
+  "check": "odds: Eric Martel playoffs 90.1%, since Wk3 +1.6",
   "ok": true,
-  "detail": "('90.0%', '+1.5', '50.2%')"
+  "detail": "('90.1%', '+1.6', '12.9%')"
  },
  {
-  "check": "odds: Keith Creelman playoffs 84.8%, since Wk3 +1.3",
+  "check": "odds: Keith Creelman playoffs 84.2%, since Wk3 +0.7",
   "ok": true,
-  "detail": "('84.8%', '+1.3', '83.0%')"
+  "detail": "('84.2%', '+0.7', '4.7%')"
  },
  {
-  "check": "odds: Chris Klingenberg playoffs 54.1%, since Wk3 +13.2",
+  "check": "odds: Chris Klingenberg playoffs 54.0%, since Wk3 +13.2",
   "ok": true,
-  "detail": "('54.1%', '+13.2', '3.0%')"
+  "detail": "('54.0%', '+13.2', '3.8%')"
  },
  {
-  "check": "odds: Derrick Whitman playoffs 39.9%, since Wk3 -14.6",
+  "check": "odds: Derrick Whitman playoffs 39.8%, since Wk3 -14.7",
   "ok": true,
-  "detail": "('39.9%', '\u221214.6', '14.0%')"
+  "detail": "('39.8%', '\u221214.7', '2.4%')"
  },
  {
   "check": "odds: Eric Mannila playoffs 14.0%, since Wk3 -6.1",
   "ok": true,
-  "detail": "('14.0%', '\u22126.1', '1.4%')"
+  "detail": "('14.0%', '\u22126.1', '1.0%')"
  },
  {
-  "check": "odds: Ryan Bousquet playoffs 19.2%, since Wk3 +3.2",
+  "check": "odds: Ryan Bousquet playoffs 19.8%, since Wk3 +3.9",
   "ok": true,
-  "detail": "('19.2%', '+3.2', '15.5%')"
+  "detail": "('19.8%', '+3.9', '0.8%')"
  },
  {
   "check": "odds: Matt Gerardi playoffs 5.1%, since Wk3 -8.6",
   "ok": true,
-  "detail": "('5.1%', '\u22128.6', '1.5%')"
+  "detail": "('5.1%', '\u22128.6', '0.3%')"
  },
  {
   "check": "odds: Brian Cross playoffs 2.5%, since Wk3 -9.4",
   "ok": true,
-  "detail": "('2.5%', '\u22129.4', '0.2%')"
+  "detail": "('2.5%', '\u22129.4', '0.1%')"
  },
  {
   "check": "odds: Josh Martel playoffs 2.0%, since Wk3 -10.4",
   "ok": true,
-  "detail": "('2.0%', '\u221210.4', '1.6%')"
+  "detail": "('2.0%', '\u221210.4', '0.1%')"
  },
  {
   "check": "odds: run is through Week 5 with 10,000 runs",
@@ -145,7 +145,7 @@
   "detail": ""
  },
  {
-  "check": "odds: inputs time printed (Tue Oct 13, 9:56 PM ET)",
+  "check": "odds: input cutoff printed (Tue Oct 13, 9:56 PM ET) matches the preview's recorded cutoff 2026-10-14T01:56:56Z",
   "ok": true,
   "detail": ""
  },
@@ -170,7 +170,7 @@
   "detail": ""
  },
  {
-  "check": "survival text: 0 for 8 and 2017 line",
+  "check": "survival text: 8 teams, none made it; 2017 line",
   "ok": true,
   "detail": ""
  },
@@ -270,7 +270,7 @@
   "detail": ""
  },
  {
-  "check": "no never-material terms in the reader-visible text (NFL 'ACL' from the IR record expected)",
+  "check": "no never-material terms in the reader-visible text (an NFL 'ACL' from an IR record would be allowed)",
   "ok": true,
   "detail": "[]"
  },
@@ -283,6 +283,81 @@
   "check": "same verified highlight links",
   "ok": true,
   "detail": "['https://www.nfl.com/videos/drake-maye-s-best-plays-from-5-td-game-vs-raiders-week-5', 'https://www.nfl.com/videos/puka-nacua-s-best-plays-from-147-yard-game-vs-bills-week-5']"
+ },
+ {
+  "check": "division tests pass (one winner per division per season, tiebreak order, totals, rounding)",
+  "ok": true,
+  "detail": " division 03: raw odds total 1.000000000000 (=1); shown 95.7/1.4/2.9 total exactly 100.0\n4. the display rounding rule\n  ok   largest-remainder rounding: 95.654/2.996/1.350 -> 95.7/3.0/1.3, total exactly 100.0 (plain rounding would show 100.1)\n  ok   thirds show as 33.4/33.3/33.3 (the leftover tenth "
+ },
+ {
+  "check": "division 03: raw total 1, shown 95.7/2.9/1.4 = 100.0, all printed",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "division 00: raw total 1, shown 48.3/51.5/0.2 = 100.0, all printed",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "division 01: raw total 1, shown 84.5/13.9/1.6 = 100.0, all printed",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "division 02: raw total 1, shown 82.2/16.2/1.6 = 100.0, all printed",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "preview and forecast are the same simulated seasons (playoff odds identical to 4 dp)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Whitman: 39.8% today, 32.1% in seasons where he loses to Cutting, 51.3% where he wins",
+  "ok": true,
+  "detail": "(0.3211, 0.5132)"
+ },
+ {
+  "check": "Warren appears in Bousquet's started lineup every week",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "v2 text: Bousquet 4-9 with a replacement back, 12 all-play wins instead of 20",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "PIT early-down carries: Dowdle 15 of 37 with him; Warren 43 of 47 without",
+  "ok": true,
+  "detail": "(15, 37, 43, 47)"
+ },
+ {
+  "check": "no Steelers RB carry inside the 5 in Weeks 1-5",
+  "ok": true,
+  "detail": "0"
+ },
+ {
+  "check": "same-season pairs 2020-25: All-Play 88%, points 86%, record 85% over 216 pairs (got [88, 86, 85] over 216)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "survival text states those three rates",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Klingenberg did not post in the chat window",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Blake's Week 5 roster has exactly two quarterbacks (Allen, Purdy)",
+  "ok": true,
+  "detail": "{'15698', '13589'}"
  },
  {
   "check": "pipelines/etl/wire/season_sim.py has no INSERT/UPDATE/DELETE/POST",

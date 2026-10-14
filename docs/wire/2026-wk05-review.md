@@ -218,3 +218,87 @@ The scripts are in `docs/wire/2026-wk05/build/`. Data caches are not committed; 
 5. `verify_wk05.py`
 
 The Coffee Shop quote check reads the local sources snapshot in `~/Library/Caches/upsmfl-ups-center-auto/`; raw chat stays off the repo.
+
+---
+
+## 8. Revision 2 (Keith's writing review, 2026-10-14)
+
+Keith's verdict: "The new analysis is much better, but the writing quality and host chemistry are not ready." It stays a draft.
+
+### 8.1 Division probabilities: investigated, one real bug fixed, tests added
+
+**The totals.** Every simulated season assigns exactly one division winner (`dws` takes one team per division). So each division's raw title odds sum to exactly 1, which `test_season_sim_divisions.py` checks on the published file. The trio Keith summed (Bousquet, Creelman, Eric Martel) spans two divisions:
+- **Maddie Mondays:** Creelman 82.2 + Bousquet 16.2 + Josh Martel 1.6 = 100.0.
+- **Outlast PG Time:** Eric Martel 51.5 + Cutting 48.3 + Cross 0.2 = 100.0.
+- The old table showed "E. Martel" and "J. Martel" without divisions. The new table groups by division and prints each total.
+
+**The bug.** The division tiebreak skipped head-to-head. MFL's 2026 order is `PCT, DIVPCT, H2H, PTS, ALL_PLAY_PCT`, but `_div_winner_key` went from division record straight to points.
+- **Fixed:** `season_sim.division_winner()` applies MFL's order, with head-to-head among the teams still tied.
+- **Invariant:** `simulate()` now raises if any season crowns other than one winner per division.
+- **One rule in one place:** `week_preview`'s hook receives `simulate()`'s own winners instead of re-deriving them with the old rule.
+
+**Rerun on the identical cached inputs** (fetched 2026-10-14 01:56:56Z):
+- division odds moved by at most 1.4 points (Eric Martel 50.2 → 51.5, Cutting 49.6 → 48.2, Creelman 83.0 → 82.2, Bousquet 15.5 → 16.2);
+- playoff odds moved by at most 0.6 points;
+- the forecast and the preview now run the same 10,000 seasons, so the table and the Week 6 scenarios are the same simulated seasons.
+
+**Display rule.** `season_sim.display_percentages()` uses largest-remainder rounding: round every value down, then give the leftover tenths to the largest remainders, ties by key. It applies to division and title odds, so every division shows exactly 100.0% and the league's title odds total exactly 100.0%. It is never used to hide a raw sum that is not 1.
+
+**Tests (`pipelines/etl/wire/test_season_sim_divisions.py`, 20 checks, in `check-wire.yml`):**
+- the tiebreak order, rule by rule;
+- 5,000 random tie-heavy states, each with exactly one winner;
+- every one of 3,000 simulated seasons crowning exactly one champion per division;
+- a scripted season where points-first and MFL's order disagree, and MFL's wins;
+- the published Week 5 totals;
+- the rounding rule.
+
+### 8.2 Bowers' Week 3 lineup: verified from MFL, claim kept
+
+Source: MFL `export?TYPE=weeklyResults&L=74598&W=3&JSON=1`, re-fetched 2026-10-14, franchise 0009 (Bear Dunn).
+- **Week 3:** in all three Week 3 matchups (vs 0003, 0002, 0010), Bowers (16641) is `status: nonstarter`, 36.0, with `shouldStart: 1`. He is not among the 18 starters. Sam LaPorta started at tight end and scored 9.1; Mike Gesicki (14.4) was also on the bench. Bear won all three games.
+- **Weeks 4 and 5:** Bowers is a starter.
+- **"Better run"** means each tight-end season's best three straight games played, scored by 2026 UPS rules from box scores, 1999–2026.
+
+### 8.3 Historical statements rewritten
+
+- **Bottom three by All-Play:** "Since 2017, only 4 of the 24 teams ranked 10th through 12th in All-Play after Week 5 went on to make the playoffs."
+- **The paired comparison** was redone as same-season pairs: every 2020–2025 playoff team against every non-playoff team from the same season, 216 pairs, standings after Week 5, ties counting half.
+  - All-Play 88%, points 86%, record 85%.
+  - The earlier version pooled across seasons (88/87/85).
+- **Whitman's Week 6 numbers** are a scenario, stated as one: 39.8% today, 32.1% in the simulated seasons where he loses to Cutting, 51.3% where he wins.
+
+### 8.4 Coffee Shop attribution
+
+The quote "Forced to start this week. Bryce and Mahomes on bye" was posted by **Shawn Blake** (message 1558921157116305433), explaining Matt Gerardi's situation. It was not posted by Gerardi. The issue attributes it to Blake.
+
+### 8.5 Verification after the rewrite
+
+- **Builder:** 571 claims registered; every visible number is registered or comes from a reused validated segment. About 5,141 words on the page.
+- **Independent verifier:** 75 of 75 pass. New checks:
+  - the division totals as printed;
+  - the forecast and preview agreeing to 4 decimals;
+  - the Whitman scenario;
+  - Bousquet 4–9 with a replacement back;
+  - Pittsburgh early-down splits;
+  - no Steelers back with a carry inside the 5;
+  - the same-season pair rates;
+  - Klingenberg's zero posts;
+  - Blake's two-quarterback roster.
+
+### 8.6 Independent editorial pass and layout
+
+**Editorial pass.** One agent read only for clarity, chemistry, humor, transitions and whether each section says why its information matters. Applied:
+- the handoffs now carry the story forward;
+- a repeated "sturdy" line was cut;
+- quote punctuation was fixed;
+- the opening now names each contender's exposure;
+- "close to a record" became "almost never happens" (one game since 1999 beats it).
+
+Not applied: one inference about Dowdle's role that the play-by-play does not support.
+
+**Layout.** Playwright at 320 px and 375 px (WebKit) and 1280 px (Chromium):
+- no page-level horizontal scroll;
+- every table fits its box.
+
+The heat table's "Reading" label now sits under each team name, and the full-season All-Play record is in parentheses, so the table fits at 320 px.
+

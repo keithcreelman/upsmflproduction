@@ -110,13 +110,6 @@ def _regressed(raw, k):
     return dict((f, mean + k * (raw[f] - mean)) for f in raw)
 
 
-def _div_winners(teams, st):
-    divs = {}
-    for f in teams:
-        divs.setdefault(teams[f]["division"], []).append(f)
-    return set(sorted(m, key=lambda f: S._div_winner_key(st[f]))[0] for m in divs.values())
-
-
 def run_state(prep, actual, k, runs, seed, week=None):
     """Official refresh-only simulation of one input state. With `week`, also
     conditions every one of that week's games inside the same seasons."""
@@ -133,14 +126,13 @@ def run_state(prep, actual, k, runs, seed, week=None):
     # win/loss split can be taken apart afterwards (see split_result()).
     samples = dict((g, []) for g in cond)
 
-    def hook(st, champ, runner, seeds, drawn):
+    def hook(st, champ, runner, seeds, drawn, dw):          # dw: simulate()'s own division winners (H2H applied)
         if not week:
             return
         sc = drawn[week]
         for f in teams:
             wk_scores[f].append(sc[f])
         po = set(seeds)
-        dw = _div_winners(teams, st)
         wk_ap = dict((f, sum(1 for g in teams if g != f and sc[f] > sc[g])) for f in teams)
         for (a, b), c in cond.items():
             samples[(a, b)].append((sc[a], sc[b], sc[a] > sc[b], a in po, b in po, wk_ap[a], wk_ap[b]))

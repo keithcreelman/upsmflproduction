@@ -5,13 +5,13 @@
  "throughWeek": 5,
  "generatedAtUtc": "2026-10-14T01:56:56Z",
  "provisional": true,
- "runs": 8000,
+ "runs": 10000,
  "seed": 20260911,
  "model": {
   "regress": 0.7,
   "sigmaWeekly": 30.01,
-  "sigmaSeason": 9.76,
-  "teamWeekSd": 31.55,
+  "sigmaSeason": 9.79,
+  "teamWeekSd": 31.56,
   "assumptions": [
    "each team starts its best legal lineup by its week projection (replacement-level free agents fill empty slots)",
    "players MFL lists Out/IR/Suspended, plus season_sim REPORTED_ABSENCES, are removed; Questionable and Doubtful players are assumed to play",
@@ -27,7 +27,7 @@
    "injuryFeedWeek": "6",
    "sleeperProjectionsUpdated": "2026-10-14T01:40:36Z",
    "preseasonInputs": "2026-09-12T18:57:32Z",
-   "afterWeekSnapshot": null
+   "afterWeekSnapshot": "2026-10-14T03:21:17Z"
   },
   "evCoverage": {
    "source": "Sleeper weekly projections (RotoWire stat lines) scored with UPS rules; MFL decides availability",
@@ -99,22 +99,6 @@
      "mflBackup": []
     },
     {
-     "pid": "17031",
-     "player": "Sanders, Shedeur",
-     "rotowireAverageWhenPlaying": 14.5,
-     "mflSaysOut": [],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": [
-      12,
-      13,
-      14,
-      15,
-      16,
-      17
-     ]
-    },
-    {
      "pid": "13113",
      "player": "Watson, Deshaun",
      "rotowireAverageWhenPlaying": 15.4,
@@ -132,16 +116,20 @@
      "mflBackup": []
     },
     {
-     "pid": "17593",
-     "player": "Klein, Marlin",
-     "rotowireAverageWhenPlaying": 2.5,
-     "mflSaysOut": [
-      1,
-      2
-     ],
+     "pid": "17031",
+     "player": "Sanders, Shedeur",
+     "rotowireAverageWhenPlaying": 14.5,
+     "mflSaysOut": [],
      "mflSaysPlays": [],
      "mflStarter": [],
-     "mflBackup": []
+     "mflBackup": [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ]
     },
     {
      "pid": "15800",
@@ -152,6 +140,18 @@
       1,
       2
      ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17593",
+     "player": "Klein, Marlin",
+     "rotowireAverageWhenPlaying": 2.5,
+     "mflSaysOut": [
+      1,
+      2
+     ],
+     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -204,18 +204,6 @@
      "mflBackup": []
     },
     {
-     "pid": "16627",
-     "player": "McConkey, Ladd",
-     "rotowireAverageWhenPlaying": 13.5,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      4,
-      5
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "17492",
      "player": "Donaldson, CJ",
      "rotowireAverageWhenPlaying": 2.2,
@@ -224,6 +212,18 @@
       5
      ],
      "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16627",
+     "player": "McConkey, Ladd",
+     "rotowireAverageWhenPlaying": 13.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4,
+      5
+     ],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -247,17 +247,6 @@
      "mflSaysPlays": [
       8,
       15
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
-     "pid": "16678",
-     "player": "Vaki, Sione",
-     "rotowireAverageWhenPlaying": 3.9,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      1
      ],
      "mflStarter": [],
      "mflBackup": []
@@ -296,6 +285,17 @@
      "mflBackup": []
     },
     {
+     "pid": "16678",
+     "player": "Vaki, Sione",
+     "rotowireAverageWhenPlaying": 3.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
      "pid": "16757",
      "player": "Vidal, Kimani",
      "rotowireAverageWhenPlaying": 3.1,
@@ -318,17 +318,6 @@
      "mflBackup": []
     },
     {
-     "pid": "16384",
-     "player": "Bagent, Tyson",
-     "rotowireAverageWhenPlaying": 17.0,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      3
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "10948",
      "player": "Keenum, Case",
      "rotowireAverageWhenPlaying": 13.5,
@@ -340,9 +329,42 @@
      ]
     },
     {
+     "pid": "16384",
+     "player": "Bagent, Tyson",
+     "rotowireAverageWhenPlaying": 17.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      3
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16630",
+     "player": "Williams, Isaiah",
+     "rotowireAverageWhenPlaying": 3.4,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
      "pid": "12658",
      "player": "Shepard, Sterling",
      "rotowireAverageWhenPlaying": 4.6,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17059",
+     "player": "Gordon II, Ollie",
+     "rotowireAverageWhenPlaying": 12.1,
      "mflSaysOut": [
       3
      ],
@@ -362,17 +384,6 @@
      "mflBackup": []
     },
     {
-     "pid": "16387",
-     "player": "Brooks, Chris",
-     "rotowireAverageWhenPlaying": 3.5,
-     "mflSaysOut": [
-      3
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "16633",
      "player": "Whittington, Jordan",
      "rotowireAverageWhenPlaying": 1.9,
@@ -384,9 +395,9 @@
      "mflBackup": []
     },
     {
-     "pid": "16604",
-     "player": "Lloyd, MarShawn",
-     "rotowireAverageWhenPlaying": 8.2,
+     "pid": "16387",
+     "player": "Brooks, Chris",
+     "rotowireAverageWhenPlaying": 3.5,
      "mflSaysOut": [
       3
      ],
@@ -406,17 +417,6 @@
      "mflBackup": []
     },
     {
-     "pid": "16630",
-     "player": "Williams, Isaiah",
-     "rotowireAverageWhenPlaying": 3.4,
-     "mflSaysOut": [
-      3
-     ],
-     "mflSaysPlays": [],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "17082",
      "player": "Bryant, Pat",
      "rotowireAverageWhenPlaying": 8.8,
@@ -428,9 +428,9 @@
      "mflBackup": []
     },
     {
-     "pid": "17059",
-     "player": "Gordon II, Ollie",
-     "rotowireAverageWhenPlaying": 12.1,
+     "pid": "16604",
+     "player": "Lloyd, MarShawn",
+     "rotowireAverageWhenPlaying": 8.2,
      "mflSaysOut": [
       3
      ],
@@ -461,13 +461,13 @@
      "mflBackup": []
     },
     {
-     "pid": "13604",
-     "player": "Barkley, Saquon",
-     "rotowireAverageWhenPlaying": 14.9,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
+     "pid": "17567",
+     "player": "Delp, Oscar",
+     "rotowireAverageWhenPlaying": 2.1,
+     "mflSaysOut": [
       4
      ],
+     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -483,13 +483,13 @@
      "mflBackup": []
     },
     {
-     "pid": "17567",
-     "player": "Delp, Oscar",
-     "rotowireAverageWhenPlaying": 2.1,
-     "mflSaysOut": [
+     "pid": "13604",
+     "player": "Barkley, Saquon",
+     "rotowireAverageWhenPlaying": 14.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
       4
      ],
-     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -527,13 +527,13 @@
      ]
     },
     {
-     "pid": "13793",
-     "player": "Valdes-Scantling, Marquez",
-     "rotowireAverageWhenPlaying": 1.7,
-     "mflSaysOut": [
+     "pid": "13635",
+     "player": "Moore, D.J.",
+     "rotowireAverageWhenPlaying": 15.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
       5
      ],
-     "mflSaysPlays": [],
      "mflStarter": [],
      "mflBackup": []
     },
@@ -549,17 +549,6 @@
      "mflBackup": []
     },
     {
-     "pid": "13635",
-     "player": "Moore, D.J.",
-     "rotowireAverageWhenPlaying": 15.1,
-     "mflSaysOut": [],
-     "mflSaysPlays": [
-      5
-     ],
-     "mflStarter": [],
-     "mflBackup": []
-    },
-    {
      "pid": "15717",
      "player": "Pierce, Dameon",
      "rotowireAverageWhenPlaying": 5.0,
@@ -571,15 +560,15 @@
      "mflBackup": []
     },
     {
-     "pid": "16617",
-     "player": "Coleman, Keon",
-     "rotowireAverageWhenPlaying": 7.3,
-     "mflSaysOut": [],
+     "pid": "13793",
+     "player": "Valdes-Scantling, Marquez",
+     "rotowireAverageWhenPlaying": 1.7,
+     "mflSaysOut": [
+      5
+     ],
      "mflSaysPlays": [],
      "mflStarter": [],
-     "mflBackup": [
-      5
-     ]
+     "mflBackup": []
     },
     {
      "pid": "17072",
@@ -593,15 +582,15 @@
      ]
     },
     {
-     "pid": "13148",
-     "player": "Ogunbowale, Dare",
-     "rotowireAverageWhenPlaying": 4.2,
-     "mflSaysOut": [
-      6
-     ],
+     "pid": "16617",
+     "player": "Coleman, Keon",
+     "rotowireAverageWhenPlaying": 7.3,
+     "mflSaysOut": [],
      "mflSaysPlays": [],
      "mflStarter": [],
-     "mflBackup": []
+     "mflBackup": [
+      5
+     ]
     },
     {
      "pid": "17043",
@@ -615,9 +604,9 @@
      "mflBackup": []
     },
     {
-     "pid": "17088",
-     "player": "Wease, Theo",
-     "rotowireAverageWhenPlaying": 2.8,
+     "pid": "14122",
+     "player": "Slayton, Darius",
+     "rotowireAverageWhenPlaying": 2.7,
      "mflSaysOut": [
       6
      ],
@@ -626,9 +615,20 @@
      "mflBackup": []
     },
     {
-     "pid": "14122",
-     "player": "Slayton, Darius",
-     "rotowireAverageWhenPlaying": 2.7,
+     "pid": "13148",
+     "player": "Ogunbowale, Dare",
+     "rotowireAverageWhenPlaying": 4.2,
+     "mflSaysOut": [
+      6
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17088",
+     "player": "Wease, Theo",
+     "rotowireAverageWhenPlaying": 2.8,
      "mflSaysOut": [
       6
      ],
@@ -692,9 +692,9 @@
      "mflBackup": []
     },
     {
-     "pid": "16608",
-     "player": "Holani, George",
-     "rotowireAverageWhenPlaying": 6.3,
+     "pid": "16169",
+     "player": "Charbonnet, Zach",
+     "rotowireAverageWhenPlaying": 10.1,
      "mflSaysOut": [],
      "mflSaysPlays": [],
      "mflStarter": [],
@@ -703,9 +703,9 @@
      ]
     },
     {
-     "pid": "16169",
-     "player": "Charbonnet, Zach",
-     "rotowireAverageWhenPlaying": 10.1,
+     "pid": "16608",
+     "player": "Holani, George",
+     "rotowireAverageWhenPlaying": 6.3,
      "mflSaysOut": [],
      "mflSaysPlays": [],
      "mflStarter": [],
@@ -722,68 +722,68 @@
    "a": "0001",
    "b": "0012",
    "division": false,
-   "pA": 0.3645,
+   "pA": 0.3629,
    "pAClosedForm": 0.354,
-   "aPoWin": 0.2723,
-   "aPoLoss": 0.1424,
-   "bPoWin": 0.6184,
-   "bPoLoss": 0.4084,
-   "aDivWin": 0.2051,
-   "aDivLoss": 0.1239,
-   "bDivWin": 0.0376,
-   "bDivLoss": 0.0158,
+   "aPoWin": 0.2844,
+   "aPoLoss": 0.1494,
+   "bPoWin": 0.6131,
+   "bPoLoss": 0.4128,
+   "aDivWin": 0.218,
+   "aDivLoss": 0.1304,
+   "bDivWin": 0.038,
+   "bDivLoss": 0.0149,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.3775,
-      "runs": 967
+      "playoffOdds": 0.4008,
+      "runs": 1190
      },
      "middle": {
-      "playoffOdds": 0.2604,
-      "runs": 2243
+      "playoffOdds": 0.2622,
+      "runs": 2826
      },
      "bottomFour": {
-      "playoffOdds": 0.1188,
-      "runs": 4790
+      "playoffOdds": 0.128,
+      "runs": 5984
      }
     },
-    "sameScoreEffect": 0.0368,
+    "sameScoreEffect": 0.0407,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.2283,
-     "runs": 92,
-     "shareOfLosses": 0.0181
+     "playoffOdds": 0.2703,
+     "runs": 111,
+     "shareOfLosses": 0.0174
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.7481,
-      "runs": 1925
+      "playoffOdds": 0.7498,
+      "runs": 2434
      },
      "middle": {
-      "playoffOdds": 0.5911,
-      "runs": 2969
+      "playoffOdds": 0.5813,
+      "runs": 3685
      },
      "bottomFour": {
-      "playoffOdds": 0.367,
-      "runs": 3106
+      "playoffOdds": 0.3703,
+      "runs": 3881
      }
     },
-    "sameScoreEffect": 0.0515,
+    "sameScoreEffect": 0.0462,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.7308,
-     "runs": 52,
-     "shareOfLosses": 0.0178
+     "playoffOdds": 0.7042,
+     "runs": 71,
+     "shareOfLosses": 0.0196
     }
    },
-   "stakes": 0.3399,
+   "stakes": 0.3353,
    "favorite": "0012",
    "underdog": "0001",
-   "favoriteP": 0.6355,
+   "favoriteP": 0.6371,
    "sides": {
     "favorite": {
      "O": 146.7,
@@ -812,13 +812,13 @@
    "scoreRange": {
     "0001": {
      "proj": 196.0,
-     "p10": 156.2,
-     "p90": 237.3
+     "p10": 155.4,
+     "p90": 236.9
     },
     "0012": {
      "proj": 212.7,
-     "p10": 171.3,
-     "p90": 252.6
+     "p10": 170.9,
+     "p90": 252.8
     }
    }
   },
@@ -826,68 +826,68 @@
    "a": "0008",
    "b": "0012",
    "division": false,
-   "pA": 0.5229,
+   "pA": 0.52,
    "pAClosedForm": 0.5138,
-   "aPoWin": 0.9027,
-   "aPoLoss": 0.7899,
-   "bPoWin": 0.6377,
-   "bPoLoss": 0.4545,
-   "aDivWin": 0.8838,
-   "aDivLoss": 0.7736,
-   "bDivWin": 0.0406,
-   "bDivLoss": 0.0196,
+   "aPoWin": 0.8967,
+   "aPoLoss": 0.7827,
+   "bPoWin": 0.6375,
+   "bPoLoss": 0.4508,
+   "aDivWin": 0.876,
+   "aDivLoss": 0.7635,
+   "bDivWin": 0.0417,
+   "bDivLoss": 0.0185,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9369,
-      "runs": 2157
+      "playoffOdds": 0.93,
+      "runs": 2685
      },
      "middle": {
-      "playoffOdds": 0.8711,
-      "runs": 2972
+      "playoffOdds": 0.8642,
+      "runs": 3711
      },
      "bottomFour": {
-      "playoffOdds": 0.7597,
-      "runs": 2871
+      "playoffOdds": 0.7536,
+      "runs": 3604
      }
     },
-    "sameScoreEffect": 0.047,
+    "sameScoreEffect": 0.0449,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.9112,
-     "runs": 169,
-     "shareOfLosses": 0.0443
+     "playoffOdds": 0.9032,
+     "runs": 217,
+     "shareOfLosses": 0.0452
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.7481,
-      "runs": 1925
+      "playoffOdds": 0.7498,
+      "runs": 2434
      },
      "middle": {
-      "playoffOdds": 0.5911,
-      "runs": 2969
+      "playoffOdds": 0.5813,
+      "runs": 3685
      },
      "bottomFour": {
-      "playoffOdds": 0.367,
-      "runs": 3106
+      "playoffOdds": 0.3703,
+      "runs": 3881
      }
     },
-    "sameScoreEffect": 0.0159,
-    "sameScoreCoverage": 0.9,
+    "sameScoreEffect": 0.0218,
+    "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.7833,
-     "runs": 203,
-     "shareOfLosses": 0.0485
+     "playoffOdds": 0.7652,
+     "runs": 247,
+     "shareOfLosses": 0.0475
     }
    },
-   "stakes": 0.296,
+   "stakes": 0.3007,
    "favorite": "0008",
    "underdog": "0012",
-   "favoriteP": 0.5229,
+   "favoriteP": 0.52,
    "sides": {
     "favorite": {
      "O": 148.6,
@@ -918,13 +918,13 @@
    "scoreRange": {
     "0008": {
      "proj": 214.3,
-     "p10": 173.1,
-     "p90": 255.1
+     "p10": 173.6,
+     "p90": 254.9
     },
     "0012": {
      "proj": 212.7,
-     "p10": 171.3,
-     "p90": 252.6
+     "p10": 170.9,
+     "p90": 252.8
     }
    }
   },
@@ -932,68 +932,68 @@
    "a": "0002",
    "b": "0005",
    "division": false,
-   "pA": 0.5261,
+   "pA": 0.525,
    "pAClosedForm": 0.5236,
-   "aPoWin": 0.4856,
-   "aPoLoss": 0.2968,
-   "bPoWin": 0.9536,
-   "bPoLoss": 0.8534,
-   "aDivWin": 0.1756,
-   "aDivLoss": 0.105,
-   "bDivWin": 0.5877,
-   "bDivLoss": 0.4272,
+   "aPoWin": 0.4897,
+   "aPoLoss": 0.2958,
+   "bPoWin": 0.9514,
+   "bPoLoss": 0.8562,
+   "aDivWin": 0.1743,
+   "aDivLoss": 0.1002,
+   "bDivWin": 0.6004,
+   "bDivLoss": 0.4385,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.5771,
-      "runs": 2315
+      "playoffOdds": 0.5834,
+      "runs": 2888
      },
      "middle": {
-      "playoffOdds": 0.3981,
-      "runs": 2906
+      "playoffOdds": 0.4052,
+      "runs": 3655
      },
      "bottomFour": {
-      "playoffOdds": 0.2433,
-      "runs": 2779
+      "playoffOdds": 0.2343,
+      "runs": 3457
      }
     },
-    "sameScoreEffect": 0.0547,
+    "sameScoreEffect": 0.0548,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.5,
-     "runs": 216,
-     "shareOfLosses": 0.057
+     "playoffOdds": 0.5441,
+     "runs": 261,
+     "shareOfLosses": 0.0549
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9741,
-      "runs": 2085
+      "playoffOdds": 0.974,
+      "runs": 2615
      },
      "middle": {
-      "playoffOdds": 0.9317,
-      "runs": 2901
+      "playoffOdds": 0.9328,
+      "runs": 3631
      },
      "bottomFour": {
       "playoffOdds": 0.8205,
-      "runs": 3014
+      "runs": 3754
      }
     },
-    "sameScoreEffect": 0.0412,
-    "sameScoreCoverage": 0.9,
+    "sameScoreEffect": 0.0405,
+    "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.9552,
-     "runs": 201,
-     "shareOfLosses": 0.0478
+     "playoffOdds": 0.9494,
+     "runs": 257,
+     "shareOfLosses": 0.049
     }
    },
-   "stakes": 0.289,
+   "stakes": 0.2891,
    "favorite": "0002",
    "underdog": "0005",
-   "favoriteP": 0.5261,
+   "favoriteP": 0.525,
    "sides": {
     "favorite": {
      "O": 154.1,
@@ -1024,120 +1024,13 @@
    "scoreRange": {
     "0002": {
      "proj": 215.6,
-     "p10": 175.1,
-     "p90": 256.1
+     "p10": 175.5,
+     "p90": 256.4
     },
     "0005": {
      "proj": 212.9,
-     "p10": 173.5,
-     "p90": 254.0
-    }
-   }
-  },
-  {
-   "a": "0001",
-   "b": "0011",
-   "division": false,
-   "pA": 0.3339,
-   "pAClosedForm": 0.3367,
-   "aPoWin": 0.2778,
-   "aPoLoss": 0.1456,
-   "bPoWin": 0.1758,
-   "bPoLoss": 0.0704,
-   "aDivWin": 0.2127,
-   "aDivLoss": 0.1239,
-   "bDivWin": 0.0178,
-   "bDivLoss": 0.0037,
-   "aSplit": {
-    "runs": 8000,
-    "byWeekAllPlay": {
-     "topThree": {
-      "playoffOdds": 0.3775,
-      "runs": 967
-     },
-     "middle": {
-      "playoffOdds": 0.2604,
-      "runs": 2243
-     },
-     "bottomFour": {
-      "playoffOdds": 0.1188,
-      "runs": 4790
-     }
-    },
-    "sameScoreEffect": 0.0353,
-    "sameScoreCoverage": 0.8,
-    "lossTopThree": {
-     "playoffOdds": 0.26,
-     "runs": 100,
-     "shareOfLosses": 0.0188
-    }
-   },
-   "bSplit": {
-    "runs": 8000,
-    "byWeekAllPlay": {
-     "topThree": {
-      "playoffOdds": 0.2631,
-      "runs": 2231
-     },
-     "middle": {
-      "playoffOdds": 0.1348,
-      "runs": 2937
-     },
-     "bottomFour": {
-      "playoffOdds": 0.0501,
-      "runs": 2832
-     }
-    },
-    "sameScoreEffect": 0.0273,
-    "sameScoreCoverage": 0.8,
-    "lossTopThree": {
-     "playoffOdds": 0.2078,
-     "runs": 77,
-     "shareOfLosses": 0.0288
-    }
-   },
-   "stakes": 0.2376,
-   "favorite": "0011",
-   "underdog": "0001",
-   "favoriteP": 0.6661,
-   "sides": {
-    "favorite": {
-     "O": 153.0,
-     "D": 51.1,
-     "K": 12.5
-    },
-    "underdog": {
-     "O": 123.4,
-     "D": 53.7,
-     "K": 12.6
-    }
-   },
-   "underdogAhead": [
-    "D",
-    "K"
-   ],
-   "flip": {
-    "pid": "14832",
-    "player": "CeeDee Lamb",
-    "nflTeam": "DAL",
-    "owner": "0011",
-    "status": "Questionable",
-    "proj": 22.3,
-    "lineupLoss": 11.5,
-    "favPBase": 0.6633,
-    "favPWithout": 0.5955,
-    "kickoff": 1792369200
-   },
-   "scoreRange": {
-    "0001": {
-     "proj": 196.0,
-     "p10": 156.2,
-     "p90": 237.3
-    },
-    "0011": {
-     "proj": 214.8,
-     "p10": 174.4,
-     "p90": 255.7
+     "p10": 172.9,
+     "p90": 253.7
     }
    }
   },
@@ -1145,68 +1038,68 @@
    "a": "0002",
    "b": "0004",
    "division": false,
-   "pA": 0.3974,
+   "pA": 0.3983,
    "pAClosedForm": 0.3977,
-   "aPoWin": 0.5061,
-   "aPoLoss": 0.3236,
-   "bPoWin": 0.9772,
-   "bPoLoss": 0.9229,
-   "aDivWin": 0.1891,
-   "aDivLoss": 0.1112,
-   "bDivWin": 0.5509,
-   "bDivLoss": 0.4099,
+   "aPoWin": 0.5132,
+   "aPoLoss": 0.3211,
+   "bPoWin": 0.9762,
+   "bPoLoss": 0.9161,
+   "aDivWin": 0.1878,
+   "aDivLoss": 0.1069,
+   "bDivWin": 0.543,
+   "bDivLoss": 0.3909,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.5771,
-      "runs": 2315
+      "playoffOdds": 0.5834,
+      "runs": 2888
      },
      "middle": {
-      "playoffOdds": 0.3981,
-      "runs": 2906
+      "playoffOdds": 0.4052,
+      "runs": 3655
      },
      "bottomFour": {
-      "playoffOdds": 0.2433,
-      "runs": 2779
+      "playoffOdds": 0.2343,
+      "runs": 3457
      }
     },
-    "sameScoreEffect": 0.044,
+    "sameScoreEffect": 0.0536,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.547,
-     "runs": 457,
-     "shareOfLosses": 0.0948
+     "playoffOdds": 0.5469,
+     "runs": 554,
+     "shareOfLosses": 0.0921
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9859,
-      "runs": 3404
+      "playoffOdds": 0.9853,
+      "runs": 4272
      },
      "middle": {
-      "playoffOdds": 0.9622,
-      "runs": 2776
+      "playoffOdds": 0.9575,
+      "runs": 3483
      },
      "bottomFour": {
-      "playoffOdds": 0.889,
-      "runs": 1820
+      "playoffOdds": 0.8815,
+      "runs": 2245
      }
     },
-    "sameScoreEffect": 0.0174,
+    "sameScoreEffect": 0.0219,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.9674,
-     "runs": 337,
-     "shareOfLosses": 0.106
+     "playoffOdds": 0.9714,
+     "runs": 419,
+     "shareOfLosses": 0.1052
     }
    },
-   "stakes": 0.2368,
+   "stakes": 0.2522,
    "favorite": "0004",
    "underdog": "0002",
-   "favoriteP": 0.6026,
+   "favoriteP": 0.6017,
    "sides": {
     "favorite": {
      "O": 165.4,
@@ -1235,13 +1128,120 @@
    "scoreRange": {
     "0002": {
      "proj": 215.6,
-     "p10": 175.1,
-     "p90": 256.1
+     "p10": 175.5,
+     "p90": 256.4
     },
     "0004": {
      "proj": 227.1,
-     "p10": 186.3,
+     "p10": 186.2,
      "p90": 267.2
+    }
+   }
+  },
+  {
+   "a": "0001",
+   "b": "0011",
+   "division": false,
+   "pA": 0.3381,
+   "pAClosedForm": 0.3368,
+   "aPoWin": 0.2893,
+   "aPoLoss": 0.152,
+   "bPoWin": 0.1745,
+   "bPoLoss": 0.0713,
+   "aDivWin": 0.2277,
+   "aDivLoss": 0.1287,
+   "bDivWin": 0.0181,
+   "bDivLoss": 0.005,
+   "aSplit": {
+    "runs": 10000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.4008,
+      "runs": 1190
+     },
+     "middle": {
+      "playoffOdds": 0.2622,
+      "runs": 2826
+     },
+     "bottomFour": {
+      "playoffOdds": 0.128,
+      "runs": 5984
+     }
+    },
+    "sameScoreEffect": 0.0371,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.2821,
+     "runs": 117,
+     "shareOfLosses": 0.0177
+    }
+   },
+   "bSplit": {
+    "runs": 10000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.2607,
+      "runs": 2758
+     },
+     "middle": {
+      "playoffOdds": 0.1359,
+      "runs": 3635
+     },
+     "bottomFour": {
+      "playoffOdds": 0.0507,
+      "runs": 3607
+     }
+    },
+    "sameScoreEffect": 0.0172,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.1809,
+     "runs": 94,
+     "shareOfLosses": 0.0278
+    }
+   },
+   "stakes": 0.2405,
+   "favorite": "0011",
+   "underdog": "0001",
+   "favoriteP": 0.6619,
+   "sides": {
+    "favorite": {
+     "O": 153.0,
+     "D": 51.1,
+     "K": 12.5
+    },
+    "underdog": {
+     "O": 123.4,
+     "D": 53.7,
+     "K": 12.6
+    }
+   },
+   "underdogAhead": [
+    "D",
+    "K"
+   ],
+   "flip": {
+    "pid": "14832",
+    "player": "CeeDee Lamb",
+    "nflTeam": "DAL",
+    "owner": "0011",
+    "status": "Questionable",
+    "proj": 22.3,
+    "lineupLoss": 11.5,
+    "favPBase": 0.6632,
+    "favPWithout": 0.5954,
+    "kickoff": 1792369200
+   },
+   "scoreRange": {
+    "0001": {
+     "proj": 196.0,
+     "p10": 155.4,
+     "p90": 236.9
+    },
+    "0011": {
+     "proj": 214.8,
+     "p10": 173.5,
+     "p90": 255.3
     }
    }
   },
@@ -1249,68 +1249,68 @@
    "a": "0007",
    "b": "0012",
    "division": false,
-   "pA": 0.3556,
+   "pA": 0.3607,
    "pAClosedForm": 0.3531,
-   "aPoWin": 0.0341,
+   "aPoWin": 0.0352,
    "aPoLoss": 0.0111,
-   "bPoWin": 0.6113,
-   "bPoLoss": 0.4162,
-   "aDivWin": 0.0264,
-   "aDivLoss": 0.0091,
-   "bDivWin": 0.0384,
-   "bDivLoss": 0.0137,
+   "bPoWin": 0.6089,
+   "bPoLoss": 0.4189,
+   "aDivWin": 0.0274,
+   "aDivLoss": 0.0092,
+   "bDivWin": 0.0389,
+   "bDivLoss": 0.013,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.0659,
-      "runs": 895
+      "playoffOdds": 0.0704,
+      "runs": 1151
      },
      "middle": {
-      "playoffOdds": 0.0248,
-      "runs": 2254
+      "playoffOdds": 0.0231,
+      "runs": 2814
      },
      "bottomFour": {
-      "playoffOdds": 0.008,
-      "runs": 4851
+      "playoffOdds": 0.0086,
+      "runs": 6035
      }
     },
-    "sameScoreEffect": 0.0067,
-    "sameScoreCoverage": 0.8,
+    "sameScoreEffect": 0.0066,
+    "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.0513,
-     "runs": 78,
-     "shareOfLosses": 0.0151
+     "playoffOdds": 0.0532,
+     "runs": 94,
+     "shareOfLosses": 0.0147
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.7481,
-      "runs": 1925
+      "playoffOdds": 0.7498,
+      "runs": 2434
      },
      "middle": {
-      "playoffOdds": 0.5911,
-      "runs": 2969
+      "playoffOdds": 0.5813,
+      "runs": 3685
      },
      "bottomFour": {
-      "playoffOdds": 0.367,
-      "runs": 3106
+      "playoffOdds": 0.3703,
+      "runs": 3881
      }
     },
-    "sameScoreEffect": 0.0248,
+    "sameScoreEffect": 0.0224,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.7288,
-     "runs": 59,
-     "shareOfLosses": 0.0207
+     "playoffOdds": 0.7089,
+     "runs": 79,
+     "shareOfLosses": 0.0219
     }
    },
-   "stakes": 0.2181,
+   "stakes": 0.2141,
    "favorite": "0012",
    "underdog": "0007",
-   "favoriteP": 0.6444,
+   "favoriteP": 0.6393,
    "sides": {
     "favorite": {
      "O": 146.7,
@@ -1341,13 +1341,13 @@
    "scoreRange": {
     "0007": {
      "proj": 195.9,
-     "p10": 154.5,
-     "p90": 235.7
+     "p10": 154.8,
+     "p90": 235.9
     },
     "0012": {
      "proj": 212.7,
-     "p10": 171.3,
-     "p90": 252.6
+     "p10": 170.9,
+     "p90": 252.8
     }
    }
   },
@@ -1355,68 +1355,68 @@
    "a": "0002",
    "b": "0006",
    "division": false,
-   "pA": 0.7111,
-   "pAClosedForm": 0.6999,
-   "aPoWin": 0.4438,
-   "aPoLoss": 0.2787,
-   "bPoWin": 0.0493,
-   "bPoLoss": 0.0155,
-   "aDivWin": 0.1624,
-   "aDivLoss": 0.0922,
-   "bDivWin": 0.003,
-   "bDivLoss": 0.0014,
+   "pA": 0.7078,
+   "pAClosedForm": 0.6998,
+   "aPoWin": 0.4462,
+   "aPoLoss": 0.2799,
+   "bPoWin": 0.0483,
+   "bPoLoss": 0.015,
+   "aDivWin": 0.1599,
+   "aDivLoss": 0.0886,
+   "bDivWin": 0.0031,
+   "bDivLoss": 0.0018,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.5771,
-      "runs": 2315
+      "playoffOdds": 0.5834,
+      "runs": 2888
      },
      "middle": {
-      "playoffOdds": 0.3981,
-      "runs": 2906
+      "playoffOdds": 0.4052,
+      "runs": 3655
      },
      "bottomFour": {
-      "playoffOdds": 0.2433,
-      "runs": 2779
+      "playoffOdds": 0.2343,
+      "runs": 3457
      }
     },
-    "sameScoreEffect": 0.0317,
+    "sameScoreEffect": 0.0216,
     "sameScoreCoverage": 0.8,
     "lossTopThree": {
-     "playoffOdds": 0.5714,
-     "runs": 49,
-     "shareOfLosses": 0.0212
+     "playoffOdds": 0.5846,
+     "runs": 65,
+     "shareOfLosses": 0.0222
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.0848,
-      "runs": 719
+      "playoffOdds": 0.0822,
+      "runs": 888
      },
      "middle": {
-      "playoffOdds": 0.0381,
-      "runs": 2045
+      "playoffOdds": 0.0361,
+      "runs": 2602
      },
      "bottomFour": {
-      "playoffOdds": 0.012,
-      "runs": 5236
+      "playoffOdds": 0.0123,
+      "runs": 6510
      }
     },
-    "sameScoreEffect": 0.0136,
-    "sameScoreCoverage": 0.8,
+    "sameScoreEffect": 0.0143,
+    "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.093,
-     "runs": 86,
-     "shareOfLosses": 0.0151
+     "playoffOdds": 0.0796,
+     "runs": 113,
+     "shareOfLosses": 0.016
     }
    },
-   "stakes": 0.1989,
+   "stakes": 0.1996,
    "favorite": "0002",
    "underdog": "0006",
-   "favoriteP": 0.7111,
+   "favoriteP": 0.7078,
    "sides": {
     "favorite": {
      "O": 154.1,
@@ -1441,20 +1441,20 @@
     "status": "",
     "proj": 27.5,
     "lineupLoss": 19.5,
-    "favPBase": 0.6999,
-    "favPWithout": 0.5864,
+    "favPBase": 0.6998,
+    "favPWithout": 0.5863,
     "kickoff": 1792369200
    },
    "scoreRange": {
     "0002": {
      "proj": 215.6,
-     "p10": 175.1,
-     "p90": 256.1
+     "p10": 175.5,
+     "p90": 256.4
     },
     "0006": {
      "proj": 192.2,
-     "p10": 151.1,
-     "p90": 231.5
+     "p10": 151.6,
+     "p90": 231.8
     }
    }
   },
@@ -1462,68 +1462,68 @@
    "a": "0008",
    "b": "0011",
    "division": false,
-   "pA": 0.4951,
+   "pA": 0.4987,
    "pAClosedForm": 0.4951,
-   "aPoWin": 0.897,
-   "aPoLoss": 0.8017,
-   "bPoWin": 0.1884,
-   "bPoLoss": 0.0919,
-   "aDivWin": 0.8771,
-   "aDivLoss": 0.7863,
-   "bDivWin": 0.0186,
-   "bDivLoss": 0.0076,
+   "aPoWin": 0.8875,
+   "aPoLoss": 0.7967,
+   "bPoWin": 0.1875,
+   "bPoLoss": 0.0914,
+   "aDivWin": 0.8663,
+   "aDivLoss": 0.778,
+   "bDivWin": 0.0199,
+   "bDivLoss": 0.0074,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9369,
-      "runs": 2157
+      "playoffOdds": 0.93,
+      "runs": 2685
      },
      "middle": {
-      "playoffOdds": 0.8711,
-      "runs": 2972
+      "playoffOdds": 0.8642,
+      "runs": 3711
      },
      "bottomFour": {
-      "playoffOdds": 0.7597,
-      "runs": 2871
+      "playoffOdds": 0.7536,
+      "runs": 3604
      }
     },
-    "sameScoreEffect": 0.0163,
+    "sameScoreEffect": 0.0069,
     "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.9417,
-     "runs": 223,
-     "shareOfLosses": 0.0552
+     "playoffOdds": 0.9247,
+     "runs": 279,
+     "shareOfLosses": 0.0557
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.2631,
-      "runs": 2231
+      "playoffOdds": 0.2607,
+      "runs": 2758
      },
      "middle": {
-      "playoffOdds": 0.1348,
-      "runs": 2937
+      "playoffOdds": 0.1359,
+      "runs": 3635
      },
      "bottomFour": {
-      "playoffOdds": 0.0501,
-      "runs": 2832
+      "playoffOdds": 0.0507,
+      "runs": 3607
      }
     },
-    "sameScoreEffect": 0.0187,
-    "sameScoreCoverage": 0.9,
+    "sameScoreEffect": 0.0121,
+    "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.2116,
-     "runs": 241,
-     "shareOfLosses": 0.0608
+     "playoffOdds": 0.2082,
+     "runs": 293,
+     "shareOfLosses": 0.0588
     }
    },
-   "stakes": 0.1918,
+   "stakes": 0.1869,
    "favorite": "0011",
    "underdog": "0008",
-   "favoriteP": 0.5049,
+   "favoriteP": 0.5013,
    "sides": {
     "favorite": {
      "O": 153.0,
@@ -1549,19 +1549,19 @@
     "proj": 22.3,
     "lineupLoss": 11.5,
     "favPBase": 0.5049,
-    "favPWithout": 0.4334,
+    "favPWithout": 0.4335,
     "kickoff": 1792369200
    },
    "scoreRange": {
     "0008": {
      "proj": 214.3,
-     "p10": 173.1,
-     "p90": 255.1
+     "p10": 173.6,
+     "p90": 254.9
     },
     "0011": {
      "proj": 214.8,
-     "p10": 174.4,
-     "p90": 255.7
+     "p10": 173.5,
+     "p90": 255.3
     }
    }
   },
@@ -1569,68 +1569,68 @@
    "a": "0003",
    "b": "0005",
    "division": false,
-   "pA": 0.3456,
-   "pAClosedForm": 0.3533,
-   "aPoWin": 0.0901,
-   "aPoLoss": 0.0292,
-   "bPoWin": 0.9352,
-   "bPoLoss": 0.8358,
-   "aDivWin": 0.0286,
-   "aDivLoss": 0.0078,
-   "bDivWin": 0.5641,
-   "bDivLoss": 0.3881,
+   "pA": 0.3428,
+   "pAClosedForm": 0.3534,
+   "aPoWin": 0.0939,
+   "aPoLoss": 0.0289,
+   "bPoWin": 0.935,
+   "bPoLoss": 0.8369,
+   "aDivWin": 0.0303,
+   "aDivLoss": 0.0084,
+   "bDivWin": 0.5738,
+   "bDivLoss": 0.4034,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.1511,
-      "runs": 953
+      "playoffOdds": 0.1564,
+      "runs": 1170
      },
      "middle": {
-      "playoffOdds": 0.0724,
-      "runs": 2182
+      "playoffOdds": 0.0738,
+      "runs": 2736
      },
      "bottomFour": {
-      "playoffOdds": 0.0206,
-      "runs": 4865
+      "playoffOdds": 0.0208,
+      "runs": 6094
      }
     },
-    "sameScoreEffect": 0.0198,
-    "sameScoreCoverage": 0.8,
+    "sameScoreEffect": 0.0234,
+    "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.1047,
-     "runs": 86,
-     "shareOfLosses": 0.0164
+     "playoffOdds": 0.1308,
+     "runs": 107,
+     "shareOfLosses": 0.0163
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9741,
-      "runs": 2085
+      "playoffOdds": 0.974,
+      "runs": 2615
      },
      "middle": {
-      "playoffOdds": 0.9317,
-      "runs": 2901
+      "playoffOdds": 0.9328,
+      "runs": 3631
      },
      "bottomFour": {
       "playoffOdds": 0.8205,
-      "runs": 3014
+      "runs": 3754
      }
     },
-    "sameScoreEffect": 0.0315,
+    "sameScoreEffect": 0.0289,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.9873,
-     "runs": 79,
-     "shareOfLosses": 0.0286
+     "playoffOdds": 0.9717,
+     "runs": 106,
+     "shareOfLosses": 0.0309
     }
    },
-   "stakes": 0.1603,
+   "stakes": 0.1631,
    "favorite": "0005",
    "underdog": "0003",
-   "favoriteP": 0.6544,
+   "favoriteP": 0.6572,
    "sides": {
     "favorite": {
      "O": 144.1,
@@ -1654,20 +1654,20 @@
     "status": "Questionable",
     "proj": 15.9,
     "lineupLoss": 10.4,
-    "favPBase": 0.6467,
-    "favPWithout": 0.7053,
+    "favPBase": 0.6466,
+    "favPWithout": 0.7052,
     "kickoff": 1792355100
    },
    "scoreRange": {
     "0003": {
      "proj": 196.1,
-     "p10": 155.4,
+     "p10": 155.3,
      "p90": 235.8
     },
     "0005": {
      "proj": 212.9,
-     "p10": 173.5,
-     "p90": 254.0
+     "p10": 172.9,
+     "p90": 253.7
     }
    }
   },
@@ -1675,68 +1675,68 @@
    "a": "0001",
    "b": "0009",
    "division": false,
-   "pA": 0.25,
-   "pAClosedForm": 0.257,
-   "aPoWin": 0.294,
-   "aPoLoss": 0.155,
-   "bPoWin": 0.997,
-   "bPoLoss": 0.988,
-   "aDivWin": 0.2255,
-   "aDivLoss": 0.1295,
-   "bDivWin": 0.9687,
-   "bDivLoss": 0.923,
+   "pA": 0.252,
+   "pAClosedForm": 0.2571,
+   "aPoWin": 0.3044,
+   "aPoLoss": 0.1627,
+   "bPoWin": 0.9972,
+   "bPoLoss": 0.9881,
+   "aDivWin": 0.2393,
+   "aDivLoss": 0.1362,
+   "bDivWin": 0.9683,
+   "bDivLoss": 0.9222,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.3775,
-      "runs": 967
+      "playoffOdds": 0.4008,
+      "runs": 1190
      },
      "middle": {
-      "playoffOdds": 0.2604,
-      "runs": 2243
+      "playoffOdds": 0.2622,
+      "runs": 2826
      },
      "bottomFour": {
-      "playoffOdds": 0.1188,
-      "runs": 4790
+      "playoffOdds": 0.128,
+      "runs": 5984
      }
     },
-    "sameScoreEffect": 0.0238,
-    "sameScoreCoverage": 0.7,
+    "sameScoreEffect": 0.0285,
+    "sameScoreCoverage": 0.8,
     "lossTopThree": {
-     "playoffOdds": 0.4067,
-     "runs": 150,
+     "playoffOdds": 0.4011,
+     "runs": 187,
      "shareOfLosses": 0.025
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9994,
-      "runs": 3201
+      "playoffOdds": 0.9993,
+      "runs": 4015
      },
      "middle": {
-      "playoffOdds": 0.9955,
-      "runs": 2913
+      "playoffOdds": 0.9961,
+      "runs": 3596
      },
      "bottomFour": {
-      "playoffOdds": 0.9857,
-      "runs": 1886
+      "playoffOdds": 0.9858,
+      "runs": 2389
      }
     },
-    "sameScoreEffect": 0.0016,
+    "sameScoreEffect": 0.0018,
     "sameScoreCoverage": 0.8,
     "lossTopThree": {
      "playoffOdds": 1.0,
-     "runs": 112,
-     "shareOfLosses": 0.056
+     "runs": 133,
+     "shareOfLosses": 0.0528
     }
    },
-   "stakes": 0.148,
+   "stakes": 0.1508,
    "favorite": "0009",
    "underdog": "0001",
-   "favoriteP": 0.75,
+   "favoriteP": 0.748,
    "sides": {
     "favorite": {
      "O": 158.4,
@@ -1760,20 +1760,20 @@
     "status": "Questionable",
     "proj": 24.2,
     "lineupLoss": 17.6,
-    "favPBase": 0.743,
-    "favPWithout": 0.6465,
+    "favPBase": 0.7429,
+    "favPWithout": 0.6464,
     "kickoff": 1792109700
    },
    "scoreRange": {
     "0001": {
      "proj": 196.0,
-     "p10": 156.2,
-     "p90": 237.3
+     "p10": 155.4,
+     "p90": 236.9
     },
     "0009": {
      "proj": 225.1,
-     "p10": 185.5,
-     "p90": 265.3
+     "p10": 185.3,
+     "p90": 265.6
     }
    }
   },
@@ -1781,68 +1781,68 @@
    "a": "0010",
    "b": "0005",
    "division": false,
-   "pA": 0.6084,
+   "pA": 0.6059,
    "pAClosedForm": 0.6101,
-   "aPoWin": 0.962,
-   "aPoLoss": 0.8975,
-   "bPoWin": 0.9448,
-   "bPoLoss": 0.8726,
-   "aDivWin": 0.8814,
-   "aDivLoss": 0.783,
-   "bDivWin": 0.5985,
-   "bDivLoss": 0.442,
+   "aPoWin": 0.9644,
+   "aPoLoss": 0.8967,
+   "bPoWin": 0.9449,
+   "bPoLoss": 0.8731,
+   "aDivWin": 0.8845,
+   "aDivLoss": 0.7843,
+   "bDivWin": 0.6108,
+   "bDivLoss": 0.4534,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9822,
-      "runs": 3148
+      "playoffOdds": 0.983,
+      "runs": 3934
      },
      "middle": {
-      "playoffOdds": 0.94,
-      "runs": 2902
+      "playoffOdds": 0.9437,
+      "runs": 3626
      },
      "bottomFour": {
-      "playoffOdds": 0.8585,
-      "runs": 1950
+      "playoffOdds": 0.8557,
+      "runs": 2440
      }
     },
-    "sameScoreEffect": 0.016,
+    "sameScoreEffect": 0.0203,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.99,
-     "runs": 299,
-     "shareOfLosses": 0.0954
+     "playoffOdds": 0.9864,
+     "runs": 369,
+     "shareOfLosses": 0.0936
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9741,
-      "runs": 2085
+      "playoffOdds": 0.974,
+      "runs": 2615
      },
      "middle": {
-      "playoffOdds": 0.9317,
-      "runs": 2901
+      "playoffOdds": 0.9328,
+      "runs": 3631
      },
      "bottomFour": {
       "playoffOdds": 0.8205,
-      "runs": 3014
+      "runs": 3754
      }
     },
-    "sameScoreEffect": 0.0045,
+    "sameScoreEffect": 0.0027,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.9728,
-     "runs": 368,
-     "shareOfLosses": 0.0756
+     "playoffOdds": 0.9715,
+     "runs": 456,
+     "shareOfLosses": 0.0753
     }
    },
-   "stakes": 0.1367,
+   "stakes": 0.1395,
    "favorite": "0010",
    "underdog": "0005",
-   "favoriteP": 0.6084,
+   "favoriteP": 0.6059,
    "sides": {
     "favorite": {
      "O": 161.3,
@@ -1872,12 +1872,12 @@
     "0010": {
      "proj": 225.4,
      "p10": 184.5,
-     "p90": 265.1
+     "p90": 264.9
     },
     "0005": {
      "proj": 212.9,
-     "p10": 173.5,
-     "p90": 254.0
+     "p10": 172.9,
+     "p90": 253.7
     }
    }
   },
@@ -1885,68 +1885,68 @@
    "a": "0003",
    "b": "0004",
    "division": false,
-   "pA": 0.2409,
-   "pAClosedForm": 0.2435,
-   "aPoWin": 0.1038,
-   "aPoLoss": 0.0333,
-   "bPoWin": 0.9699,
-   "bPoLoss": 0.9107,
-   "aDivWin": 0.0348,
-   "aDivLoss": 0.0087,
-   "bDivWin": 0.5235,
-   "bDivLoss": 0.4048,
+   "pA": 0.2388,
+   "pAClosedForm": 0.2436,
+   "aPoWin": 0.1026,
+   "aPoLoss": 0.0351,
+   "bPoWin": 0.9673,
+   "bPoLoss": 0.9045,
+   "aDivWin": 0.0343,
+   "aDivLoss": 0.0101,
+   "bDivWin": 0.5145,
+   "bDivLoss": 0.3802,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.1511,
-      "runs": 953
+      "playoffOdds": 0.1564,
+      "runs": 1170
      },
      "middle": {
-      "playoffOdds": 0.0724,
-      "runs": 2182
+      "playoffOdds": 0.0738,
+      "runs": 2736
      },
      "bottomFour": {
-      "playoffOdds": 0.0206,
-      "runs": 4865
+      "playoffOdds": 0.0208,
+      "runs": 6094
      }
     },
-    "sameScoreEffect": 0.0167,
-    "sameScoreCoverage": 0.7,
+    "sameScoreEffect": 0.0156,
+    "sameScoreCoverage": 0.8,
     "lossTopThree": {
-     "playoffOdds": 0.1713,
-     "runs": 181,
-     "shareOfLosses": 0.0298
+     "playoffOdds": 0.1847,
+     "runs": 222,
+     "shareOfLosses": 0.0292
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9859,
-      "runs": 3404
+      "playoffOdds": 0.9853,
+      "runs": 4272
      },
      "middle": {
-      "playoffOdds": 0.9622,
-      "runs": 2776
+      "playoffOdds": 0.9575,
+      "runs": 3483
      },
      "bottomFour": {
-      "playoffOdds": 0.889,
-      "runs": 1820
+      "playoffOdds": 0.8815,
+      "runs": 2245
      }
     },
-    "sameScoreEffect": 0.0067,
+    "sameScoreEffect": 0.0056,
     "sameScoreCoverage": 0.8,
     "lossTopThree": {
      "playoffOdds": 1.0,
-     "runs": 113,
-     "shareOfLosses": 0.0586
+     "runs": 136,
+     "shareOfLosses": 0.057
     }
    },
-   "stakes": 0.1297,
+   "stakes": 0.1303,
    "favorite": "0004",
    "underdog": "0003",
-   "favoriteP": 0.7591,
+   "favoriteP": 0.7612,
    "sides": {
     "favorite": {
      "O": 165.4,
@@ -1970,127 +1970,20 @@
     "status": "Questionable",
     "proj": 15.9,
     "lineupLoss": 10.4,
-    "favPBase": 0.7565,
+    "favPBase": 0.7564,
     "favPWithout": 0.8046,
     "kickoff": 1792355100
    },
    "scoreRange": {
     "0003": {
      "proj": 196.1,
-     "p10": 155.4,
+     "p10": 155.3,
      "p90": 235.8
     },
     "0004": {
      "proj": 227.1,
-     "p10": 186.3,
+     "p10": 186.2,
      "p90": 267.2
-    }
-   }
-  },
-  {
-   "a": "0007",
-   "b": "0011",
-   "division": false,
-   "pA": 0.3296,
-   "pAClosedForm": 0.3358,
-   "aPoWin": 0.0353,
-   "aPoLoss": 0.0114,
-   "bPoWin": 0.1704,
-   "bPoLoss": 0.08,
-   "aDivWin": 0.0269,
-   "aDivLoss": 0.0095,
-   "bDivWin": 0.0166,
-   "bDivLoss": 0.0061,
-   "aSplit": {
-    "runs": 8000,
-    "byWeekAllPlay": {
-     "topThree": {
-      "playoffOdds": 0.0659,
-      "runs": 895
-     },
-     "middle": {
-      "playoffOdds": 0.0248,
-      "runs": 2254
-     },
-     "bottomFour": {
-      "playoffOdds": 0.008,
-      "runs": 4851
-     }
-    },
-    "sameScoreEffect": 0.0054,
-    "sameScoreCoverage": 0.8,
-    "lossTopThree": {
-     "playoffOdds": 0.0568,
-     "runs": 88,
-     "shareOfLosses": 0.0164
-    }
-   },
-   "bSplit": {
-    "runs": 8000,
-    "byWeekAllPlay": {
-     "topThree": {
-      "playoffOdds": 0.2631,
-      "runs": 2231
-     },
-     "middle": {
-      "playoffOdds": 0.1348,
-      "runs": 2937
-     },
-     "bottomFour": {
-      "playoffOdds": 0.0501,
-      "runs": 2832
-     }
-    },
-    "sameScoreEffect": -0.0019,
-    "sameScoreCoverage": 0.9,
-    "lossTopThree": {
-     "playoffOdds": 0.3067,
-     "runs": 75,
-     "shareOfLosses": 0.0284
-    }
-   },
-   "stakes": 0.1143,
-   "favorite": "0011",
-   "underdog": "0007",
-   "favoriteP": 0.6704,
-   "sides": {
-    "favorite": {
-     "O": 153.0,
-     "D": 51.1,
-     "K": 12.5
-    },
-    "underdog": {
-     "O": 119.6,
-     "D": 57.4,
-     "K": 12.6
-    }
-   },
-   "underdogAhead": [
-    "D",
-    "K"
-   ],
-   "flip": {
-    "pid": "14832",
-    "player": "CeeDee Lamb",
-    "nflTeam": "DAL",
-    "owner": "0011",
-    "status": "Questionable",
-    "proj": 22.3,
-    "lineupLoss": 11.5,
-    "favPBase": 0.6642,
-    "favPWithout": 0.5964,
-    "kickoff": 1792369200
-   },
-   "scoreRange": {
-    "0007": {
-     "proj": 195.9,
-     "p10": 154.5,
-     "p90": 235.7
-    },
-    "0011": {
-     "proj": 214.8,
-     "p10": 174.4,
-     "p90": 255.7
     }
    }
   },
@@ -2098,68 +1991,68 @@
    "a": "0010",
    "b": "0004",
    "division": false,
-   "pA": 0.4789,
-   "pAClosedForm": 0.4844,
-   "aPoWin": 0.9695,
-   "aPoLoss": 0.9067,
-   "bPoWin": 0.9794,
-   "bPoLoss": 0.9298,
-   "aDivWin": 0.8938,
-   "aDivLoss": 0.7961,
-   "bDivWin": 0.5646,
-   "bDivLoss": 0.419,
+   "pA": 0.4764,
+   "pAClosedForm": 0.4845,
+   "aPoWin": 0.9702,
+   "aPoLoss": 0.9081,
+   "bPoWin": 0.9771,
+   "bPoLoss": 0.9251,
+   "aDivWin": 0.8929,
+   "aDivLoss": 0.8014,
+   "bDivWin": 0.554,
+   "bDivLoss": 0.4037,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9822,
-      "runs": 3148
+      "playoffOdds": 0.983,
+      "runs": 3934
      },
      "middle": {
-      "playoffOdds": 0.94,
-      "runs": 2902
+      "playoffOdds": 0.9437,
+      "runs": 3626
      },
      "bottomFour": {
-      "playoffOdds": 0.8585,
-      "runs": 1950
+      "playoffOdds": 0.8557,
+      "runs": 2440
      }
     },
-    "sameScoreEffect": 0.0269,
+    "sameScoreEffect": 0.0245,
     "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.9776,
-     "runs": 535,
-     "shareOfLosses": 0.1283
+     "playoffOdds": 0.9779,
+     "runs": 679,
+     "shareOfLosses": 0.1297
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9859,
-      "runs": 3404
+      "playoffOdds": 0.9853,
+      "runs": 4272
      },
      "middle": {
-      "playoffOdds": 0.9622,
-      "runs": 2776
+      "playoffOdds": 0.9575,
+      "runs": 3483
      },
      "bottomFour": {
-      "playoffOdds": 0.889,
-      "runs": 1820
+      "playoffOdds": 0.8815,
+      "runs": 2245
      }
     },
-    "sameScoreEffect": 0.0131,
-    "sameScoreCoverage": 0.8,
+    "sameScoreEffect": 0.0126,
+    "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.9868,
-     "runs": 532,
-     "shareOfLosses": 0.1389
+     "playoffOdds": 0.9894,
+     "runs": 659,
+     "shareOfLosses": 0.1383
     }
    },
-   "stakes": 0.1124,
+   "stakes": 0.1141,
    "favorite": "0004",
    "underdog": "0010",
-   "favoriteP": 0.5211,
+   "favoriteP": 0.5236,
    "sides": {
     "favorite": {
      "O": 165.4,
@@ -2184,7 +2077,7 @@
     "status": "Questionable",
     "proj": 24.1,
     "lineupLoss": 3.8,
-    "favPBase": 0.5156,
+    "favPBase": 0.5155,
     "favPWithout": 0.4916,
     "kickoff": 1792342800
    },
@@ -2192,118 +2085,119 @@
     "0010": {
      "proj": 225.4,
      "p10": 184.5,
-     "p90": 265.1
+     "p90": 264.9
     },
     "0004": {
      "proj": 227.1,
-     "p10": 186.3,
+     "p10": 186.2,
      "p90": 267.2
     }
    }
   },
   {
-   "a": "0008",
-   "b": "0009",
+   "a": "0007",
+   "b": "0011",
    "division": false,
-   "pA": 0.3991,
-   "pAClosedForm": 0.4039,
-   "aPoWin": 0.9073,
-   "aPoLoss": 0.8101,
-   "bPoWin": 0.9973,
-   "bPoLoss": 0.9909,
-   "aDivWin": 0.8888,
-   "aDivLoss": 0.793,
-   "bDivWin": 0.9736,
-   "bDivLoss": 0.9327,
+   "pA": 0.336,
+   "pAClosedForm": 0.3359,
+   "aPoWin": 0.0354,
+   "aPoLoss": 0.0119,
+   "bPoWin": 0.1699,
+   "bPoLoss": 0.0798,
+   "aDivWin": 0.0277,
+   "aDivLoss": 0.0098,
+   "bDivWin": 0.0172,
+   "bDivLoss": 0.0068,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9369,
-      "runs": 2157
+      "playoffOdds": 0.0704,
+      "runs": 1151
      },
      "middle": {
-      "playoffOdds": 0.8711,
-      "runs": 2972
+      "playoffOdds": 0.0231,
+      "runs": 2814
      },
      "bottomFour": {
-      "playoffOdds": 0.7597,
-      "runs": 2871
+      "playoffOdds": 0.0086,
+      "runs": 6035
      }
     },
-    "sameScoreEffect": 0.0148,
+    "sameScoreEffect": 0.0039,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 0.9328,
-     "runs": 372,
-     "shareOfLosses": 0.0774
+     "playoffOdds": 0.0556,
+     "runs": 108,
+     "shareOfLosses": 0.0163
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9994,
-      "runs": 3201
+      "playoffOdds": 0.2607,
+      "runs": 2758
      },
      "middle": {
-      "playoffOdds": 0.9955,
-      "runs": 2913
+      "playoffOdds": 0.1359,
+      "runs": 3635
      },
      "bottomFour": {
-      "playoffOdds": 0.9857,
-      "runs": 1886
+      "playoffOdds": 0.0507,
+      "runs": 3607
      }
     },
-    "sameScoreEffect": -0.001,
+    "sameScoreEffect": -0.0083,
     "sameScoreCoverage": 0.9,
     "lossTopThree": {
-     "playoffOdds": 1.0,
-     "runs": 281,
-     "shareOfLosses": 0.088
+     "playoffOdds": 0.2955,
+     "runs": 88,
+     "shareOfLosses": 0.0262
     }
    },
-   "stakes": 0.1036,
-   "favorite": "0009",
-   "underdog": "0008",
-   "favoriteP": 0.6009,
+   "stakes": 0.1136,
+   "favorite": "0011",
+   "underdog": "0007",
+   "favoriteP": 0.664,
    "sides": {
     "favorite": {
-     "O": 158.4,
-     "D": 60.4,
+     "O": 153.0,
+     "D": 51.1,
      "K": 12.5
     },
     "underdog": {
-     "O": 148.6,
-     "D": 54.5,
-     "K": 12.7
+     "O": 119.6,
+     "D": 57.4,
+     "K": 12.6
     }
    },
    "underdogAhead": [
+    "D",
     "K"
    ],
    "flip": {
-    "pid": "16185",
-    "player": "Jaxon Smith-Njigba",
-    "nflTeam": "SEA",
-    "owner": "0009",
+    "pid": "14832",
+    "player": "CeeDee Lamb",
+    "nflTeam": "DAL",
+    "owner": "0011",
     "status": "Questionable",
-    "proj": 24.2,
-    "lineupLoss": 17.6,
-    "favPBase": 0.5961,
-    "favPWithout": 0.4867,
-    "kickoff": 1792109700
+    "proj": 22.3,
+    "lineupLoss": 11.5,
+    "favPBase": 0.6641,
+    "favPWithout": 0.5964,
+    "kickoff": 1792369200
    },
    "scoreRange": {
-    "0008": {
-     "proj": 214.3,
-     "p10": 173.1,
-     "p90": 255.1
+    "0007": {
+     "proj": 195.9,
+     "p10": 154.8,
+     "p90": 235.9
     },
-    "0009": {
-     "proj": 225.1,
-     "p10": 185.5,
-     "p90": 265.3
+    "0011": {
+     "proj": 214.8,
+     "p10": 173.5,
+     "p90": 255.3
     }
    }
   },
@@ -2311,68 +2205,68 @@
    "a": "0010",
    "b": "0006",
    "division": false,
-   "pA": 0.7731,
+   "pA": 0.7727,
    "pAClosedForm": 0.7717,
-   "aPoWin": 0.9533,
-   "aPoLoss": 0.8804,
-   "bPoWin": 0.0485,
-   "bPoLoss": 0.0184,
-   "aDivWin": 0.8702,
-   "aDivLoss": 0.7499,
-   "bDivWin": 0.0017,
+   "aPoWin": 0.9556,
+   "aPoLoss": 0.8768,
+   "bPoWin": 0.048,
+   "bPoLoss": 0.0179,
+   "aDivWin": 0.8728,
+   "aDivLoss": 0.7505,
+   "bDivWin": 0.0031,
    "bDivLoss": 0.0019,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9822,
-      "runs": 3148
+      "playoffOdds": 0.983,
+      "runs": 3934
      },
      "middle": {
-      "playoffOdds": 0.94,
-      "runs": 2902
+      "playoffOdds": 0.9437,
+      "runs": 3626
      },
      "bottomFour": {
-      "playoffOdds": 0.8585,
-      "runs": 1950
+      "playoffOdds": 0.8557,
+      "runs": 2440
      }
     },
-    "sameScoreEffect": 0.0165,
-    "sameScoreCoverage": 0.7,
+    "sameScoreEffect": 0.0147,
+    "sameScoreCoverage": 0.8,
     "lossTopThree": {
      "playoffOdds": 1.0,
-     "runs": 74,
-     "shareOfLosses": 0.0408
+     "runs": 91,
+     "shareOfLosses": 0.04
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.0848,
-      "runs": 719
+      "playoffOdds": 0.0822,
+      "runs": 888
      },
      "middle": {
-      "playoffOdds": 0.0381,
-      "runs": 2045
+      "playoffOdds": 0.0361,
+      "runs": 2602
      },
      "bottomFour": {
-      "playoffOdds": 0.012,
-      "runs": 5236
+      "playoffOdds": 0.0123,
+      "runs": 6510
      }
     },
-    "sameScoreEffect": 0.0104,
-    "sameScoreCoverage": 0.7,
+    "sameScoreEffect": 0.0105,
+    "sameScoreCoverage": 0.8,
     "lossTopThree": {
-     "playoffOdds": 0.1,
-     "runs": 120,
+     "playoffOdds": 0.0933,
+     "runs": 150,
      "shareOfLosses": 0.0194
     }
    },
-   "stakes": 0.103,
+   "stakes": 0.1089,
    "favorite": "0010",
    "underdog": "0006",
-   "favoriteP": 0.7731,
+   "favoriteP": 0.7727,
    "sides": {
     "favorite": {
      "O": 161.3,
@@ -2404,12 +2298,118 @@
     "0010": {
      "proj": 225.4,
      "p10": 184.5,
-     "p90": 265.1
+     "p90": 264.9
     },
     "0006": {
      "proj": 192.2,
-     "p10": 151.1,
-     "p90": 231.5
+     "p10": 151.6,
+     "p90": 231.8
+    }
+   }
+  },
+  {
+   "a": "0008",
+   "b": "0009",
+   "division": false,
+   "pA": 0.4008,
+   "pAClosedForm": 0.4039,
+   "aPoWin": 0.9024,
+   "aPoLoss": 0.8016,
+   "bPoWin": 0.9975,
+   "bPoLoss": 0.991,
+   "aDivWin": 0.8822,
+   "aDivLoss": 0.7817,
+   "bDivWin": 0.9735,
+   "bDivLoss": 0.9316,
+   "aSplit": {
+    "runs": 10000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.93,
+      "runs": 2685
+     },
+     "middle": {
+      "playoffOdds": 0.8642,
+      "runs": 3711
+     },
+     "bottomFour": {
+      "playoffOdds": 0.7536,
+      "runs": 3604
+     }
+    },
+    "sameScoreEffect": 0.0237,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 0.915,
+     "runs": 447,
+     "shareOfLosses": 0.0746
+    }
+   },
+   "bSplit": {
+    "runs": 10000,
+    "byWeekAllPlay": {
+     "topThree": {
+      "playoffOdds": 0.9993,
+      "runs": 4015
+     },
+     "middle": {
+      "playoffOdds": 0.9961,
+      "runs": 3596
+     },
+     "bottomFour": {
+      "playoffOdds": 0.9858,
+      "runs": 2389
+     }
+    },
+    "sameScoreEffect": -0.0001,
+    "sameScoreCoverage": 0.9,
+    "lossTopThree": {
+     "playoffOdds": 1.0,
+     "runs": 355,
+     "shareOfLosses": 0.0886
+    }
+   },
+   "stakes": 0.1073,
+   "favorite": "0009",
+   "underdog": "0008",
+   "favoriteP": 0.5992,
+   "sides": {
+    "favorite": {
+     "O": 158.4,
+     "D": 60.4,
+     "K": 12.5
+    },
+    "underdog": {
+     "O": 148.6,
+     "D": 54.5,
+     "K": 12.7
+    }
+   },
+   "underdogAhead": [
+    "K"
+   ],
+   "flip": {
+    "pid": "16185",
+    "player": "Jaxon Smith-Njigba",
+    "nflTeam": "SEA",
+    "owner": "0009",
+    "status": "Questionable",
+    "proj": 24.2,
+    "lineupLoss": 17.6,
+    "favPBase": 0.5961,
+    "favPWithout": 0.4867,
+    "kickoff": 1792109700
+   },
+   "scoreRange": {
+    "0008": {
+     "proj": 214.3,
+     "p10": 173.6,
+     "p90": 254.9
+    },
+    "0009": {
+     "proj": 225.1,
+     "p10": 185.3,
+     "p90": 265.6
     }
    }
   },
@@ -2417,68 +2417,68 @@
    "a": "0003",
    "b": "0006",
    "division": false,
-   "pA": 0.5385,
-   "pAClosedForm": 0.5353,
-   "aPoWin": 0.0713,
-   "aPoLoss": 0.0257,
-   "bPoWin": 0.0398,
-   "bPoLoss": 0.0128,
-   "aDivWin": 0.0214,
-   "aDivLoss": 0.0076,
-   "bDivWin": 0.0024,
-   "bDivLoss": 0.0014,
+   "pA": 0.5345,
+   "pAClosedForm": 0.5352,
+   "aPoWin": 0.0732,
+   "aPoLoss": 0.026,
+   "bPoWin": 0.0369,
+   "bPoLoss": 0.014,
+   "aDivWin": 0.023,
+   "aDivLoss": 0.0077,
+   "bDivWin": 0.0028,
+   "bDivLoss": 0.0017,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.1511,
-      "runs": 953
+      "playoffOdds": 0.1564,
+      "runs": 1170
      },
      "middle": {
-      "playoffOdds": 0.0724,
-      "runs": 2182
+      "playoffOdds": 0.0738,
+      "runs": 2736
      },
      "bottomFour": {
-      "playoffOdds": 0.0206,
-      "runs": 4865
+      "playoffOdds": 0.0208,
+      "runs": 6094
      }
     },
-    "sameScoreEffect": 0.0045,
-    "sameScoreCoverage": 0.9,
+    "sameScoreEffect": -0.0011,
+    "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.1714,
-     "runs": 35,
-     "shareOfLosses": 0.0095
+     "playoffOdds": 0.2195,
+     "runs": 41,
+     "shareOfLosses": 0.0088
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.0848,
-      "runs": 719
+      "playoffOdds": 0.0822,
+      "runs": 888
      },
      "middle": {
-      "playoffOdds": 0.0381,
-      "runs": 2045
+      "playoffOdds": 0.0361,
+      "runs": 2602
      },
      "bottomFour": {
-      "playoffOdds": 0.012,
-      "runs": 5236
+      "playoffOdds": 0.0123,
+      "runs": 6510
      }
     },
-    "sameScoreEffect": 0.0121,
-    "sameScoreCoverage": 0.9,
+    "sameScoreEffect": 0.0093,
+    "sameScoreCoverage": 1.0,
     "lossTopThree": {
-     "playoffOdds": 0.0,
-     "runs": 27,
-     "shareOfLosses": 0.0063
+     "playoffOdds": 0.0294,
+     "runs": 34,
+     "shareOfLosses": 0.0064
     }
    },
-   "stakes": 0.0726,
+   "stakes": 0.0701,
    "favorite": "0003",
    "underdog": "0006",
-   "favoriteP": 0.5385,
+   "favoriteP": 0.5345,
    "sides": {
     "favorite": {
      "O": 124.7,
@@ -2502,20 +2502,20 @@
     "status": "Questionable",
     "proj": 15.9,
     "lineupLoss": 10.4,
-    "favPBase": 0.5353,
+    "favPBase": 0.5352,
     "favPWithout": 0.4702,
     "kickoff": 1792355100
    },
    "scoreRange": {
     "0003": {
      "proj": 196.1,
-     "p10": 155.4,
+     "p10": 155.3,
      "p90": 235.8
     },
     "0006": {
      "proj": 192.2,
-     "p10": 151.1,
-     "p90": 231.5
+     "p10": 151.6,
+     "p90": 231.8
     }
    }
   },
@@ -2523,68 +2523,68 @@
    "a": "0007",
    "b": "0009",
    "division": false,
-   "pA": 0.2482,
+   "pA": 0.2483,
    "pAClosedForm": 0.2563,
-   "aPoWin": 0.0388,
-   "aPoLoss": 0.0128,
-   "bPoWin": 0.997,
+   "aPoWin": 0.0407,
+   "aPoLoss": 0.0129,
+   "bPoWin": 0.9972,
    "bPoLoss": 0.9879,
-   "aDivWin": 0.0307,
-   "aDivLoss": 0.0101,
-   "bDivWin": 0.9676,
-   "bDivLoss": 0.926,
+   "aDivWin": 0.0318,
+   "aDivLoss": 0.0105,
+   "bDivWin": 0.9677,
+   "bDivLoss": 0.9235,
    "aSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.0659,
-      "runs": 895
+      "playoffOdds": 0.0704,
+      "runs": 1151
      },
      "middle": {
-      "playoffOdds": 0.0248,
-      "runs": 2254
+      "playoffOdds": 0.0231,
+      "runs": 2814
      },
      "bottomFour": {
-      "playoffOdds": 0.008,
-      "runs": 4851
+      "playoffOdds": 0.0086,
+      "runs": 6035
      }
     },
-    "sameScoreEffect": 0.0024,
+    "sameScoreEffect": 0.0044,
     "sameScoreCoverage": 0.8,
     "lossTopThree": {
-     "playoffOdds": 0.052,
-     "runs": 173,
-     "shareOfLosses": 0.0288
+     "playoffOdds": 0.05,
+     "runs": 220,
+     "shareOfLosses": 0.0293
     }
    },
    "bSplit": {
-    "runs": 8000,
+    "runs": 10000,
     "byWeekAllPlay": {
      "topThree": {
-      "playoffOdds": 0.9994,
-      "runs": 3201
+      "playoffOdds": 0.9993,
+      "runs": 4015
      },
      "middle": {
-      "playoffOdds": 0.9955,
-      "runs": 2913
+      "playoffOdds": 0.9961,
+      "runs": 3596
      },
      "bottomFour": {
-      "playoffOdds": 0.9857,
-      "runs": 1886
+      "playoffOdds": 0.9858,
+      "runs": 2389
      }
     },
-    "sameScoreEffect": 0.0006,
+    "sameScoreEffect": 0.0017,
     "sameScoreCoverage": 0.8,
     "lossTopThree": {
      "playoffOdds": 1.0,
-     "runs": 97,
-     "shareOfLosses": 0.0488
+     "runs": 130,
+     "shareOfLosses": 0.0524
     }
    },
-   "stakes": 0.0351,
+   "stakes": 0.0371,
    "favorite": "0009",
    "underdog": "0007",
-   "favoriteP": 0.7518,
+   "favoriteP": 0.7517,
    "sides": {
     "favorite": {
      "O": 158.4,
@@ -2609,19 +2609,19 @@
     "proj": 24.2,
     "lineupLoss": 17.6,
     "favPBase": 0.7437,
-    "favPWithout": 0.6474,
+    "favPWithout": 0.6473,
     "kickoff": 1792109700
    },
    "scoreRange": {
     "0007": {
      "proj": 195.9,
-     "p10": 154.5,
-     "p90": 235.7
+     "p10": 154.8,
+     "p90": 235.9
     },
     "0009": {
      "proj": 225.1,
-     "p10": 185.5,
-     "p90": 265.3
+     "p10": 185.3,
+     "p90": 265.6
     }
    }
   }
@@ -2766,14 +2766,14 @@
    "owner": "Ryan Bousquet",
    "preseasonPlayoff": 0.3401,
    "preseasonTitle": 0.0284,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.1898,
+   "afterWeekPlayoff": 0.1984,
+   "enteringPlayoff": 0.1984,
    "enteringTitle": 0.0081,
-   "enteringDivision": 0.1535,
-   "combinedPlayoffChange": -0.1504,
+   "enteringDivision": 0.1622,
+   "combinedPlayoffChange": -0.1417,
    "combinedTitleChange": -0.0203,
-   "enteringPlayoffMflOffense": 0.0756,
-   "switchEffect": 0.1141,
+   "enteringPlayoffMflOffense": 0.0771,
+   "switchEffect": 0.1213,
    "switchWhy": {
     "lineupPerWeekBefore": 165.7,
     "lineupPerWeekNow": 201.2,
@@ -2844,14 +2844,14 @@
    "owner": "Derrick Whitman",
    "preseasonPlayoff": 0.5149,
    "preseasonTitle": 0.0736,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.3961,
-   "enteringTitle": 0.0235,
-   "enteringDivision": 0.1421,
-   "combinedPlayoffChange": -0.1188,
-   "combinedTitleChange": -0.0501,
-   "enteringPlayoffMflOffense": 0.5661,
-   "switchEffect": -0.17,
+   "afterWeekPlayoff": 0.3976,
+   "enteringPlayoff": 0.3976,
+   "enteringTitle": 0.0239,
+   "enteringDivision": 0.1391,
+   "combinedPlayoffChange": -0.1173,
+   "combinedTitleChange": -0.0497,
+   "enteringPlayoffMflOffense": 0.5702,
+   "switchEffect": -0.1726,
    "switchWhy": {
     "lineupPerWeekBefore": 185.8,
     "lineupPerWeekNow": 204.8,
@@ -2891,18 +2891,18 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "17543",
-      "player": "Kenyon Sadiq",
-      "perWeekBefore": 5.4,
-      "perWeekNow": 9.2,
-      "lineupImpactPerWeek": 2.3,
-      "note": "MFL projection changed"
-     },
-     {
       "pid": "14802",
       "player": "Jonathan Taylor",
       "perWeekBefore": 16.5,
       "perWeekNow": 18.8,
+      "lineupImpactPerWeek": 2.3,
+      "note": "MFL projection changed"
+     },
+     {
+      "pid": "17543",
+      "player": "Kenyon Sadiq",
+      "perWeekBefore": 5.4,
+      "perWeekNow": 9.2,
       "lineupImpactPerWeek": 2.3,
       "note": "MFL projection changed"
      },
@@ -2922,14 +2922,14 @@
    "owner": "Matt Gerardi",
    "preseasonPlayoff": 0.2039,
    "preseasonTitle": 0.0171,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.0503,
-   "enteringTitle": 0.0026,
-   "enteringDivision": 0.015,
-   "combinedPlayoffChange": -0.1537,
-   "combinedTitleChange": -0.0145,
-   "enteringPlayoffMflOffense": 0.037,
-   "switchEffect": 0.0133,
+   "afterWeekPlayoff": 0.0512,
+   "enteringPlayoff": 0.0512,
+   "enteringTitle": 0.0031,
+   "enteringDivision": 0.0159,
+   "combinedPlayoffChange": -0.1527,
+   "combinedTitleChange": -0.014,
+   "enteringPlayoffMflOffense": 0.0373,
+   "switchEffect": 0.0139,
    "switchWhy": {
     "lineupPerWeekBefore": 170.6,
     "lineupPerWeekNow": 201.9,
@@ -3000,14 +3000,14 @@
    "owner": "Brian Cutting",
    "preseasonPlayoff": 0.696,
    "preseasonTitle": 0.1501,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.9556,
-   "enteringTitle": 0.2866,
-   "enteringDivision": 0.4949,
-   "combinedPlayoffChange": 0.2596,
-   "combinedTitleChange": 0.1365,
-   "enteringPlayoffMflOffense": 0.8316,
-   "switchEffect": 0.124,
+   "afterWeekPlayoff": 0.9523,
+   "enteringPlayoff": 0.9523,
+   "enteringTitle": 0.2864,
+   "enteringDivision": 0.4824,
+   "combinedPlayoffChange": 0.2563,
+   "combinedTitleChange": 0.1363,
+   "enteringPlayoffMflOffense": 0.8282,
+   "switchEffect": 0.1241,
    "switchWhy": {
     "lineupPerWeekBefore": 203.7,
     "lineupPerWeekNow": 247.7,
@@ -3078,14 +3078,14 @@
    "owner": "Eric Martel",
    "preseasonPlayoff": 0.5929,
    "preseasonTitle": 0.1163,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.9009,
-   "enteringTitle": 0.1294,
-   "enteringDivision": 0.5032,
-   "combinedPlayoffChange": 0.308,
-   "combinedTitleChange": 0.0131,
-   "enteringPlayoffMflOffense": 0.9344,
-   "switchEffect": -0.0335,
+   "afterWeekPlayoff": 0.9014,
+   "enteringPlayoff": 0.9014,
+   "enteringTitle": 0.1287,
+   "enteringDivision": 0.5154,
+   "combinedPlayoffChange": 0.3085,
+   "combinedTitleChange": 0.0124,
+   "enteringPlayoffMflOffense": 0.9362,
+   "switchEffect": -0.0348,
    "switchWhy": {
     "lineupPerWeekBefore": 204.1,
     "lineupPerWeekNow": 227.9,
@@ -3141,10 +3141,10 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "16583",
-      "player": "Michael Penix Jr.",
-      "perWeekBefore": 12.4,
-      "perWeekNow": 14.3,
+      "pid": "17070",
+      "player": "Luther Burden",
+      "perWeekBefore": 8.8,
+      "perWeekNow": 12.0,
       "lineupImpactPerWeek": 1.3,
       "note": "MFL projection changed"
      }
@@ -3156,14 +3156,14 @@
    "owner": "Brian Cross",
    "preseasonPlayoff": 0.3797,
    "preseasonTitle": 0.0544,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.0253,
-   "enteringTitle": 0.0015,
-   "enteringDivision": 0.0019,
-   "combinedPlayoffChange": -0.3544,
-   "combinedTitleChange": -0.0529,
-   "enteringPlayoffMflOffense": 0.0226,
-   "switchEffect": 0.0026,
+   "afterWeekPlayoff": 0.0247,
+   "enteringPlayoff": 0.0247,
+   "enteringTitle": 0.0013,
+   "enteringDivision": 0.0022,
+   "combinedPlayoffChange": -0.355,
+   "combinedTitleChange": -0.0531,
+   "enteringPlayoffMflOffense": 0.0215,
+   "switchEffect": 0.0032,
    "switchWhy": {
     "lineupPerWeekBefore": 168.7,
     "lineupPerWeekNow": 198.0,
@@ -3219,10 +3219,10 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "17053",
-      "player": "Woody Marks",
-      "perWeekBefore": 5.8,
-      "perWeekNow": 8.7,
+      "pid": "16187",
+      "player": "Josh Downs",
+      "perWeekBefore": 9.0,
+      "perWeekNow": 10.2,
       "lineupImpactPerWeek": 1.2,
       "note": "MFL projection changed"
      }
@@ -3234,14 +3234,14 @@
    "owner": "Josh Martel",
    "preseasonPlayoff": 0.5221,
    "preseasonTitle": 0.0775,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.0192,
+   "afterWeekPlayoff": 0.0198,
+   "enteringPlayoff": 0.0198,
    "enteringTitle": 0.0008,
-   "enteringDivision": 0.0152,
-   "combinedPlayoffChange": -0.5029,
+   "enteringDivision": 0.0158,
+   "combinedPlayoffChange": -0.5023,
    "combinedTitleChange": -0.0767,
    "enteringPlayoffMflOffense": 0.0349,
-   "switchEffect": -0.0156,
+   "switchEffect": -0.0151,
    "switchWhy": {
     "lineupPerWeekBefore": 174.0,
     "lineupPerWeekNow": 190.0,
@@ -3312,14 +3312,14 @@
    "owner": "Keith Creelman",
    "preseasonPlayoff": 0.5444,
    "preseasonTitle": 0.1011,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.8489,
-   "enteringTitle": 0.0469,
-   "enteringDivision": 0.8313,
-   "combinedPlayoffChange": 0.3045,
-   "combinedTitleChange": -0.0542,
-   "enteringPlayoffMflOffense": 0.9455,
-   "switchEffect": -0.0966,
+   "afterWeekPlayoff": 0.842,
+   "enteringPlayoff": 0.842,
+   "enteringTitle": 0.0468,
+   "enteringDivision": 0.822,
+   "combinedPlayoffChange": 0.2976,
+   "combinedTitleChange": -0.0543,
+   "enteringPlayoffMflOffense": 0.944,
+   "switchEffect": -0.102,
    "switchWhy": {
     "lineupPerWeekBefore": 199.8,
     "lineupPerWeekNow": 213.2,
@@ -3390,14 +3390,14 @@
    "owner": "Bear Dunn",
    "preseasonPlayoff": 0.7433,
    "preseasonTitle": 0.1806,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.9948,
-   "enteringTitle": 0.2956,
-   "enteringDivision": 0.9573,
-   "combinedPlayoffChange": 0.2515,
-   "combinedTitleChange": 0.115,
-   "enteringPlayoffMflOffense": 0.9976,
-   "switchEffect": -0.0029,
+   "afterWeekPlayoff": 0.9949,
+   "enteringPlayoff": 0.9949,
+   "enteringTitle": 0.2933,
+   "enteringDivision": 0.9567,
+   "combinedPlayoffChange": 0.2516,
+   "combinedTitleChange": 0.1127,
+   "enteringPlayoffMflOffense": 0.9974,
+   "switchEffect": -0.0025,
    "switchWhy": {
     "lineupPerWeekBefore": 223.0,
     "lineupPerWeekNow": 243.5,
@@ -3468,14 +3468,14 @@
    "owner": "Shawn Blake",
    "preseasonPlayoff": 0.6649,
    "preseasonTitle": 0.1023,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.9367,
-   "enteringTitle": 0.1571,
-   "enteringDivision": 0.8429,
-   "combinedPlayoffChange": 0.2718,
-   "combinedTitleChange": 0.0548,
-   "enteringPlayoffMflOffense": 0.9705,
-   "switchEffect": -0.0338,
+   "afterWeekPlayoff": 0.9377,
+   "enteringPlayoff": 0.9377,
+   "enteringTitle": 0.1603,
+   "enteringDivision": 0.845,
+   "combinedPlayoffChange": 0.2728,
+   "combinedTitleChange": 0.058,
+   "enteringPlayoffMflOffense": 0.97,
+   "switchEffect": -0.0323,
    "switchWhy": {
     "lineupPerWeekBefore": 210.1,
     "lineupPerWeekNow": 228.8,
@@ -3531,10 +3531,10 @@
       "note": "MFL projection changed"
      },
      {
-      "pid": "16269",
-      "player": "Brenton Strange",
-      "perWeekBefore": 9.1,
-      "perWeekNow": 12.4,
+      "pid": "17052",
+      "player": "Bhayshul Tuten",
+      "perWeekBefore": 8.3,
+      "perWeekNow": 12.2,
       "lineupImpactPerWeek": 2.5,
       "note": "MFL projection changed"
      }
@@ -3546,14 +3546,14 @@
    "owner": "Eric Mannila",
    "preseasonPlayoff": 0.4339,
    "preseasonTitle": 0.0552,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.1406,
-   "enteringTitle": 0.0104,
-   "enteringDivision": 0.0131,
-   "combinedPlayoffChange": -0.2933,
-   "combinedTitleChange": -0.0448,
-   "enteringPlayoffMflOffense": 0.1934,
-   "switchEffect": -0.0527,
+   "afterWeekPlayoff": 0.1396,
+   "enteringPlayoff": 0.1396,
+   "enteringTitle": 0.0099,
+   "enteringDivision": 0.0137,
+   "combinedPlayoffChange": -0.2943,
+   "combinedTitleChange": -0.0453,
+   "enteringPlayoffMflOffense": 0.1945,
+   "switchEffect": -0.0549,
    "switchWhy": {
     "lineupPerWeekBefore": 179.7,
     "lineupPerWeekNow": 203.0,
@@ -3624,14 +3624,14 @@
    "owner": "Chris Klingenberg",
    "preseasonPlayoff": 0.3638,
    "preseasonTitle": 0.0435,
-   "afterWeekPlayoff": null,
-   "enteringPlayoff": 0.5419,
-   "enteringTitle": 0.0375,
+   "afterWeekPlayoff": 0.5404,
+   "enteringPlayoff": 0.5404,
+   "enteringTitle": 0.0374,
    "enteringDivision": 0.0296,
-   "combinedPlayoffChange": 0.1781,
-   "combinedTitleChange": -0.006,
-   "enteringPlayoffMflOffense": 0.3907,
-   "switchEffect": 0.1511,
+   "combinedPlayoffChange": 0.1766,
+   "combinedTitleChange": -0.0061,
+   "enteringPlayoffMflOffense": 0.3887,
+   "switchEffect": 0.1517,
    "switchWhy": {
     "lineupPerWeekBefore": 182.9,
     "lineupPerWeekNow": 217.5,
@@ -3707,19 +3707,19 @@
      "fid": "0005",
      "owner": "Eric Martel",
      "record": "9-4",
-     "divisionOdds": 0.5032
+     "divisionOdds": 0.5154
     },
     {
      "fid": "0004",
      "owner": "Brian Cutting",
      "record": "6-7",
-     "divisionOdds": 0.4949
+     "divisionOdds": 0.4824
     },
     {
      "fid": "0006",
      "owner": "Brian Cross",
      "record": "3-10",
-     "divisionOdds": 0.0019
+     "divisionOdds": 0.0022
     }
    ],
    "gamesThisWeek": []
@@ -3732,19 +3732,19 @@
      "fid": "0010",
      "owner": "Shawn Blake",
      "record": "9-4",
-     "divisionOdds": 0.8429
+     "divisionOdds": 0.845
     },
     {
      "fid": "0002",
      "owner": "Derrick Whitman",
      "record": "7-6",
-     "divisionOdds": 0.1421
+     "divisionOdds": 0.1391
     },
     {
      "fid": "0003",
      "owner": "Matt Gerardi",
      "record": "3-10",
-     "divisionOdds": 0.015
+     "divisionOdds": 0.0159
     }
    ],
    "gamesThisWeek": []
@@ -3757,19 +3757,19 @@
      "fid": "0008",
      "owner": "Keith Creelman",
      "record": "9-4",
-     "divisionOdds": 0.8313
+     "divisionOdds": 0.822
     },
     {
      "fid": "0001",
      "owner": "Ryan Bousquet",
      "record": "6-7",
-     "divisionOdds": 0.1535
+     "divisionOdds": 0.1622
     },
     {
      "fid": "0007",
      "owner": "Josh Martel",
      "record": "3-10",
-     "divisionOdds": 0.0152
+     "divisionOdds": 0.0158
     }
    ],
    "gamesThisWeek": []
@@ -3782,7 +3782,7 @@
      "fid": "0009",
      "owner": "Bear Dunn",
      "record": "11-2",
-     "divisionOdds": 0.9573
+     "divisionOdds": 0.9567
     },
     {
      "fid": "0012",
@@ -3794,7 +3794,7 @@
      "fid": "0011",
      "owner": "Eric Mannila",
      "record": "6-7",
-     "divisionOdds": 0.0131
+     "divisionOdds": 0.0137
     }
    ],
    "gamesThisWeek": []
