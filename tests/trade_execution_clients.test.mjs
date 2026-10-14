@@ -109,8 +109,9 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // AGAIN but NOT site/shared/trade_3way_view.js (generic, no staged-specific markup of its
   // own -- see that file's own removal-era comments), so the two diverge further. This
   // assertion tracks the CURRENT true pairing, not a fixed pin -- update it again whenever
-  // either file's own real content changes and bumps its stamp.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.01.3"],
+  // either file's own real content changes and bumps its stamp. 2026-10-12: views/trade.js
+  // greys out lineup-penalty forfeited picks in both builders (2026.10.12.8; unverified-restrictions warning 2026.10.12.9).
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.12.9"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   // Numeric, component-by-component comparison -- a lexicographic string compare (the
