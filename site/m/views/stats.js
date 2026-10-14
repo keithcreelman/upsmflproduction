@@ -1955,7 +1955,11 @@
     var who = FPA_PLURAL[fpa.pos];
     var title = fpa.team + " " + noun + " vs " + who;
     if (fpa.week == null) {
-      var back = '<button type="button" class="ups-m-fpa-backbtn" data-fpaback="list"><span aria-hidden="true">‹</span> All ' + noun + "s</button>";
+      // Opened from Sched (#1270): Back returns to that team's schedule, so say so.
+      var hs = null;
+      try { hs = window.history && window.history.state; } catch (e) {}
+      var fromSched = hs && hs.upsFpa && hs.upsFpa.fromSched && hs.upsFpa.team === fpa.team && hs.upsFpa.week == null ? hs.upsFpa.fromSched : "";
+      var back = '<button type="button" class="ups-m-fpa-backbtn" data-fpaback="list"><span aria-hidden="true">‹</span> ' + (fromSched ? U.escapeHtml(fromSched) + " schedule" : "All " + noun + "s") + "</button>";
       var head = back + '<h3 class="ups-m-fpa-title" tabindex="-1">' + U.escapeHtml(title) + "</h3>";
       if (!dd) {
         if (fpa.derr[k]) return head + fpaErrorHtml(fpa.derr[k] === "mfl" ? "MFL didn’t answer" : "").replace("points against", U.escapeHtml(fpa.team) + "’s breakdown");
@@ -2211,59 +2215,413 @@
     if (y) y.addEventListener("change", function () { mpace.season = this.value; mpace.data = null; M.route.renderRoute(); });
   }
 
-  // ── Schedule (fantasy Strength-of-Schedule heatmap) inner tab ──
-  // /api/fantasy-sos: per NFL team × week, the opponent defense's adjusted
-  // generosity to the chosen position (>1 = easy, <1 = tough). Compact
-  // horizontally-scrollable heatmap; offseason projects from prior-season ratings.
-  var msched = { year: 0, pos: "RB", view: "season", data: null };
-  function schedYear() { return String(msched.year || curSeason()); }
-  function schedYears() { var c = parseInt(curSeason(), 10) || new Date().getUTCFullYear(); var a = []; for (var y = c; y >= 2020; y--) a.push(y); return a; }
+  // ── Sched (Stats → Sched): who each NFL team plays, week by week ──
+  // Review #1270 (six reviewers, 2026-10-13) and Keith's rulings: a DESCRIPTIVE schedule.
+  // Each opponent carries what it has allowed to the position so far: the Pts Agst
+  // engine's Full season, through the latest completed game. "Points allowed" shows MFL
+  // points per game; "vs usual" compares them with what those players usually score.
+  // Avg = the opponents in the chosen weeks, averaged (byes skipped). There is no
+  // easy/tough wording: the 2019–2025 backtest found the old schedule ranking no better
+  // than chance. Same restrained color rule as Pts Agst (FPA_COLOR_K). The position is
+  // shared with Pts Agst for the app session (fpa.pos). One request per season:
+  // /api/fantasy-sos?v=2 answers all nine positions, so a position tap never fetches.
+  var msched = {
+    year: "",                          // "" = this season (the worker decides which that is)
+    weeks: "",                         // "" = Rest of season while games remain, else All weeks; "rest" | "all" | "playoffs" | "custom"
+    from: 1, to: 0,                    // Custom only; to 0 = the last league week
+    show: "pts",                       // "pts" = Points allowed | "vs" = vs usual
+    sort: { key: "", dir: "desc" },    // "" = Avg, most allowed first; "team" | "avg"
+    team: null,                        // the drill: one team's schedule
+    cache: {}, err: {}, inflight: {},
+    fellBack: "", opened: false, gen: null,
+    scrollList: 0, scrollDrill: 0, scrollX: 0, focusNext: null, noteOpen: false
+  };
+  function schedKey() { return msched.year || "cur"; }
+  function schedData() { var h = msched.cache[schedKey()]; return h ? h.d : null; }
   function loadSched() {
-    return fetch(API.workerUrl("/api/fantasy-sos?season=" + encodeURIComponent(schedYear()) + "&pos=" + encodeURIComponent(msched.pos)), { mode: "cors", credentials: "omit" })
-      .then(function (r) { return r.json(); })
-      .then(function (d) { msched.data = (d && d.ok) ? d : { teams: [] }; return msched.data; })
-      .catch(function () { msched.data = { teams: [] }; return msched.data; });
+    return fpaLoad(msched.cache, msched.err, msched.inflight, schedKey(),
+      "/api/fantasy-sos?" + (msched.year ? "season=" + encodeURIComponent(msched.year) + "&" : "") + "v=2");
   }
-  function schedColor(ratio) {
-    if (ratio == null) return "background:var(--bg-elev);color:var(--fg-muted)";
-    var t = Math.max(0, Math.min(1, (ratio - 0.8) / 0.4));
-    return "background:hsl(" + Math.round(t * 120) + ",55%,34%);color:#fff";
+  function schedLive() {
+    if (view.inner !== "sched") return false;
+    var r = M.route && M.route.currentRoute ? M.route.currentRoute() : "league/stats";
+    return /^league\/stats(\/|$)/.test(r);
   }
-  function schedToolbar() {
-    var yopts = schedYears().map(function (y) { return '<option value="' + y + '"' + (String(y) === schedYear() ? " selected" : "") + ">" + y + "</option>"; }).join("");
-    var chips = POS_FPA.map(function (p) { return '<button class="ups-m-pos-chip' + (msched.pos === p[0] ? " on" : "") + '" data-spos="' + p[0] + '">' + p[1] + "</button>"; }).join("");
-    var vchips = [["season", "Full"], ["playoffs", "Playoffs"]].map(function (p) { return '<button class="ups-m-pos-chip' + (msched.view === p[0] ? " on" : "") + '" data-sview="' + p[0] + '">' + p[1] + "</button>"; }).join("");
-    return '<div class="ups-m-players-toolbar">' +
-      '<div class="ups-m-auc-sec-head">Strength of Schedule <span class="ct">green = easy matchup · red = tough</span></div>' +
-      '<div class="ups-m-st-filters"><select class="ups-m-players-filter" id="ups-m-sched-year">' + yopts + "</select>" +
-      '<span class="ups-m-pos-chips inline">' + vchips + "</span></div>" +
-      '<div class="ups-m-pos-chips">' + chips + "</div></div>";
+  function schedEnd(d) { return (d && d.season && d.season.endWeek) || 17; }
+  // The first league week with a game still to finish; 0 once every week is final.
+  function schedNowWeek(d) {
+    var s = (d && d.season) || {}, st = s.weeks || {};
+    if (s.state !== "in_season") return 0;
+    for (var w = 1; w <= schedEnd(d); w++) if (st[w] !== "final") return w;
+    return 0;
   }
-  function schedHtml() {
-    if (!msched.data) return '<div class="ups-m-loading">Loading…</div>';
-    var teams = (msched.data.teams || []).slice();
-    if (!teams.length) return '<div class="ups-m-stub"><div>No schedule data.</div></div>';
-    var agg = msched.view === "playoffs" ? "playoffAvg" : "seasonAvg";
-    teams.sort(function (a, b) { return (b[agg] || 0) - (a[agg] || 0); });
-    var wks = []; for (var w = 1; w <= 18; w++) wks.push(w);
-    var note = (msched.data.projected ? "projected — " + msched.data.ratingSeason + " defense ratings · " : "") + (msched.view === "playoffs" ? "sorted easiest-first by playoff (Wk 15–17) avg" : "sorted easiest-first by season avg");
-    var head = '<div class="ups-m-sched-row head"><span class="tm">' + U.escapeHtml(String(msched.data.season || schedYear())) + "</span>" +
-      wks.map(function (wk) { return '<span class="cell' + ((wk >= 15 && wk <= 17) ? " po" : "") + '">' + wk + "</span>"; }).join("") + '<span class="ag">Avg</span></div>';
-    var body = teams.map(function (t, i) {
-      var byW = {}; (t.weeks || []).forEach(function (x) { byW[x.wk] = x; });
-      return '<div class="ups-m-sched-row"><span class="tm">' + (i + 1) + " " + U.escapeHtml(t.team) + "</span>" +
-        wks.map(function (wk) { var c = byW[wk]; if (!c || c.opp == null) return '<span class="cell bye">—</span>'; return '<span class="cell" style="' + schedColor(c.ratio) + '" title="vs ' + U.escapeHtml(c.opp) + " · " + (c.ratio != null ? c.ratio : "—") + '">' + U.escapeHtml(c.opp) + "</span>"; }).join("") +
-        '<span class="ag" style="' + schedColor(t[agg]) + '">' + (t[agg] != null ? t[agg] : "—") + "</span></div>";
+  function schedMode(d) {
+    var m = msched.weeks;
+    if (m === "rest" && !schedNowWeek(d)) m = "";
+    if (m === "playoffs" && !((d && d.playoffWeeks) || []).length) m = "";
+    return m || (schedNowWeek(d) ? "rest" : "all");
+  }
+  // The weeks shown: league weeks only (no NFL Week 18).
+  function schedWeeks(d) {
+    var m = schedMode(d), end = schedEnd(d), lo = 1, hi = end, a = [];
+    if (m === "playoffs") return ((d && d.playoffWeeks) || []).slice();
+    if (m === "rest") lo = schedNowWeek(d) || 1;
+    if (m === "custom") { lo = Math.min(Math.max(1, msched.from || 1), end); hi = msched.to ? Math.min(Math.max(lo, msched.to), end) : end; }
+    for (var w = lo; w <= hi; w++) a.push(w);
+    return a;
+  }
+  // One opponent's numbers at the chosen position, and the ratio its color is tested on:
+  // per-game points vs the league's per-game average, or vs usual.
+  function schedOpp(d, opp) {
+    var c = d.teams && d.teams[opp] && d.teams[opp][fpa.pos];
+    if (!c) return null;
+    var tg = (d.teamGames || {})[opp], lg = d.league && d.league.perGame ? d.league.perGame[fpa.pos] : null;
+    var pg = c.raw ? c.raw.perGame : null, ratio = c.adj ? c.adj.ratio : null;
+    return { pg: pg, ratio: ratio, lg: lg, ptsR: pg != null && lg ? pg / lg : null,
+      games: tg && tg.games != null ? tg.games : ((c.raw && c.raw.games) || 0) };
+  }
+  function schedVal(o) {
+    if (!o) return { v: null, r: null };
+    return msched.show === "vs" ? { v: o.ratio, r: o.ratio } : { v: o.pg, r: o.ptsR };
+  }
+  function schedFmt(v) { return v == null ? "—" : (msched.show === "vs" ? fpaSigned(fpaPct(v), "%") : fpaDec(v)); }
+  function schedCls(r, games) { var p = r == null ? 0 : Math.round((r - 1) * 100); return !p || !fpaColored(r, games) ? "" : (p > 0 ? " up" : " dn"); }
+  function schedRows(d) {
+    var wks = schedWeeks(d), sched = d.schedule || {}, rows = [];
+    Object.keys(sched).forEach(function (tm) {
+      var byWk = {}, bye = null;
+      (sched[tm] || []).forEach(function (g) { byWk[g.wk] = g; if (g.bye) bye = g.wk; });
+      // Avg: every opponent in these weeks (one played twice counts twice). Its color is
+      // tested on all those opponents' games together, each opponent once.
+      var sum = 0, n = 0, rsum = 0, rn = 0, games = 0, seen = {};
+      var cells = wks.map(function (w) {
+        var g = byWk[w];
+        if (!g) return { wk: w, none: true };
+        if (g.bye) return { wk: w, bye: true };
+        var o = schedOpp(d, g.opp), sv = schedVal(o);
+        if (sv.v != null) { sum += sv.v; n++; }
+        if (sv.r != null) { rsum += sv.r; rn++; if (!seen[g.opp]) { seen[g.opp] = 1; games += o.games; } }
+        return { wk: w, g: g, o: o, v: sv.v, r: sv.r };
+      });
+      rows.push({ tm: tm, bye: bye, cells: cells, avg: n ? sum / n : null, avgR: rn ? rsum / rn : null, avgGames: games });
+    });
+    var key = msched.sort.key || "avg", dir = msched.sort.key ? msched.sort.dir : "desc";
+    rows.sort(function (a, b) {
+      var az = a.tm < b.tm ? -1 : 1;
+      if (key === "team") return dir === "asc" ? az : -az;
+      if (a.avg == null || b.avg == null) return a.avg == null && b.avg == null ? az : (a.avg == null ? 1 : -1);
+      return (dir === "asc" ? a.avg - b.avg : b.avg - a.avg) || az;
+    });
+    return rows;
+  }
+
+  // ── Sched: list ── controls scroll away; the position chips and the week headings are
+  // pinned. The week strip swipes sideways; the team and Avg columns stay in place.
+  function schedToolbar(d) {
+    var yrs = (fpa.years || []).slice(), shown = d ? String(d.year) : (msched.year || "");
+    if (shown && yrs.indexOf(shown) < 0) { yrs.push(shown); yrs.sort().reverse(); }
+    var opt = function (v, l, on) { return '<option value="' + U.escapeHtml(v) + '"' + (on ? " selected" : "") + ">" + U.escapeHtml(l) + "</option>"; };
+    var sel = function (id, label, opts) { return '<label class="ups-m-st-sel"><span>' + label + '</span><select class="ups-m-players-filter" id="' + id + '">' + opts + "</select></label>"; };
+    var m = schedMode(d), po = (d && d.playoffWeeks) || [];
+    var html = sel("ups-m-sched-year", "Season", (yrs.length ? yrs : [shown || "—"]).map(function (y) { return opt(y, y, y === shown); }).join("")) +
+      sel("ups-m-sched-weeks", "Weeks",
+        (schedNowWeek(d) ? opt("rest", "Rest of season", m === "rest") : "") + opt("all", "All weeks", m === "all") +
+        (po.length ? opt("playoffs", "Playoffs (" + fpaWeeksLabel(po[0], po[po.length - 1]) + ")", m === "playoffs") : "") +
+        opt("custom", "Custom weeks", m === "custom"));
+    if (m === "custom") {
+      var end = schedEnd(d), to = msched.to || end, f = "", t = "";
+      for (var w = 1; w <= end; w++) { f += opt(String(w), "Wk " + w, w === msched.from); t += opt(String(w), "Wk " + w, w === to); }
+      html += sel("ups-m-sched-from", "From", f) + sel("ups-m-sched-to", "To", t);
+    }
+    var vs = msched.show === "vs";
+    var show = '<div class="ups-m-sched-show" role="group" aria-label="Show">' +
+      '<button type="button" data-schedshow="pts" aria-pressed="' + (vs ? "false" : "true") + '"' + (vs ? "" : ' class="on"') + ">Points allowed</button>" +
+      '<button type="button" data-schedshow="vs" aria-pressed="' + (vs ? "true" : "false") + '"' + (vs ? ' class="on"' : "") + ">vs usual</button></div>";
+    return '<div class="ups-m-st-tools ups-m-sched-tools"><div class="ups-m-st-filters ups-m-sched-filters">' + html + "</div>" + show +
+      '<div id="ups-m-sched-notes">' + schedNotes(d) + "</div></div>";
+  }
+  // One plain line: which weeks, what the number is, the default order. Then three sentences.
+  function schedNotes(d) {
+    if (!d || !Object.keys(d.schedule || {}).length) return "";
+    var wks = schedWeeks(d), who = U.escapeHtml(FPA_PLURAL[fpa.pos]), used = d.weeksUsed || [];
+    var lg = d.league && d.league.perGame ? d.league.perGame[fpa.pos] : null;
+    var span = wks.length ? fpaWeeksLabel(wks[0], wks[wks.length - 1]) : "";
+    var basis = used.length ? " (" + fpaWeeksLabel(used[0], used[used.length - 1]) + ")" : "";
+    var done = d.season && d.season.state === "complete", yr = U.escapeHtml(String(d.year)), txt;
+    if (!used.length) txt = "<b>" + span + "</b> · No " + yr + " games have been played yet, so opponents have no numbers yet.";
+    else if (msched.show === "vs") txt = "<b>" + span + "</b> · how far above or below usual opponents " + (done ? "held " + who + " over the " + yr + " season" : "have held " + who + " so far" + basis) + ". Default order: most above usual first.";
+    else txt = "<b>" + span + "</b> · points opponents " + (done ? "allowed to " + who + " over the " + yr + " season" : "have allowed to " + who + " so far" + basis) + ", per game" + (lg != null ? "; league average " + fpaDec(lg) : "") + ". Default order: most allowed first.";
+    var inProg = d.weeks_in_progress || [];
+    if (inProg.length) txt += ' <span class="ups-m-st-live"></span>Wk ' + inProg[inProg.length - 1] + " games still being played aren’t counted yet.";
+    if (msched.fellBack) txt = "No " + U.escapeHtml(msched.fellBack) + " games yet, so this is " + U.escapeHtml(String(d.year)) + ". " + txt;
+    return '<div class="ups-m-st-basis' + (msched.fellBack ? " warn" : "") + '" id="ups-m-sched-window">' + txt + "</div>" +
+      '<div class="ups-m-st-setnote">This describes what each opponent has allowed in games already played. It isn’t a forecast of what a team will score; it doesn’t account for that team’s offense, injuries or future changes. Color appears only when the difference remains large after adjusting for small sample sizes. ' +
+      '<details class="ups-m-st-more"' + (msched.noteOpen ? " open" : "") + "><summary>About these numbers</summary><div>" +
+      "Each opponent’s number is its Pts Agst full season so far. Avg averages the opponents in these weeks, skipping byes; an opponent played twice counts twice. " +
+      "Tap a team for its whole schedule, then an opponent for its breakdown." +
+      "</div></details></div>";
+  }
+  function schedHead(d, wks) {
+    var now = schedNowWeek(d), po = d.playoffWeeks || [];
+    var key = msched.sort.key || "avg", dir = msched.sort.key ? msched.sort.dir : "desc";
+    var btn = function (k, label, title) {
+      var on = key === k;
+      return '<span class="' + (k === "team" ? "tm" : "ag") + '" role="columnheader" aria-sort="' + (on ? (dir === "asc" ? "ascending" : "descending") : "none") + '">' +
+        '<button type="button" class="ups-m-st-sort' + (on ? " on" : "") + '" data-schedsort="' + k + '" title="' + title + '"' +
+        ' aria-label="Sort by ' + label + (on ? (dir === "asc" ? (k === "team" ? ", A to Z" : ", lowest first") : (k === "team" ? ", Z to A" : ", highest first")) : "") + '">' + label +
+        '<i aria-hidden="true">' + (on ? (dir === "asc" ? "▲" : "▼") : "⇅") + "</i></button></span>";
+    };
+    var cells = wks.map(function (w) {
+      var tag = w === now ? "now" : (po.indexOf(w) >= 0 ? "playoff" : "");
+      return '<span class="wk' + (tag === "now" ? " now" : (tag ? " po" : "")) + '" role="columnheader">Wk ' + w + (tag ? "<small>" + tag + "</small>" : "") + "</span>";
     }).join("");
-    return '<div class="ups-m-sched-note">' + U.escapeHtml(note) + '</div><div class="ups-m-sched-wrap">' + head + body + "</div>";
+    return '<div class="ups-m-sched-hscroll" id="ups-m-sched-hscroll"><div class="ups-m-sched-row head" role="row" style="--n:' + wks.length + '">' +
+      btn("team", "Team", "NFL team, A to Z") + btn("avg", "Avg", "The opponents in these weeks, averaged") + cells + "</div></div>";
   }
+  function schedPinHtml(d) {
+    var chips = POS_FPA.map(function (p) {
+      var on = fpa.pos === p[0];
+      return '<button type="button" class="ups-m-pos-chip' + (on ? " on" : "") + '" data-schedpos="' + p[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + p[1] + "</button>";
+    }).join("");
+    var wks = d ? schedWeeks(d) : [];
+    return '<div class="ups-m-st-pin ups-m-sched-pin">' +
+      '<div class="ups-m-pos-chips ups-m-fpa-chips" role="group" aria-label="Position">' + chips + "</div>" +
+      (d && wks.length && Object.keys(d.schedule || {}).length ? schedHead(d, wks) : "") + "</div>";
+  }
+  function schedErrorHtml(why) {
+    return '<div class="ups-m-stub ups-m-fpa-err" role="alert"><div>Couldn’t load the schedule' + (why ? " (" + U.escapeHtml(why) + ")" : "") + ".</div>" +
+      '<button type="button" class="ups-m-st-searchall" data-sched="retry">Retry</button></div>';
+  }
+  function schedListBody(d) {
+    var k = schedKey();
+    if (!d) {
+      if (msched.err[k]) return schedErrorHtml(msched.err[k] === "mfl" ? "MFL didn’t answer" : "");
+      return '<div class="ups-m-loading" role="status">Loading the schedule…</div>';
+    }
+    if (!Object.keys(d.schedule || {}).length) return '<div class="ups-m-stub" role="status"><div>The ' + U.escapeHtml(String(d.year)) + " schedule isn’t available yet.</div></div>";
+    var wks = schedWeeks(d), rows = schedRows(d), live = d.season && d.season.state === "in_season";
+    var unit = msched.show === "vs" ? " vs usual" : " points allowed per game";
+    var body = rows.map(function (r) {
+      var cells = r.cells.map(function (c) {
+        if (c.none) return '<span class="c none"></span>';
+        if (c.bye) return '<span class="c bye">BYE</span>';
+        return '<span class="c' + (live && c.g.status === "final" ? " off" : "") + '"><b>' + (c.g.home ? "vs " : "@") + U.escapeHtml(c.g.opp) + "</b>" +
+          '<span class="ups-m-tr' + schedCls(c.r, c.o && c.o.games) + '">' + schedFmt(c.v) + "</span></span>";
+      }).join("");
+      var label = r.tm + (r.bye ? ", bye week " + r.bye : "") + ". " + (r.avg == null ? "No opponent numbers yet" : "Opponents average " + schedFmt(r.avg).replace("−", "minus ") + unit) +
+        " in " + fpaWeeksLabel(wks[0], wks[wks.length - 1]).replace("Wks", "weeks").replace("Wk", "week").replace("–", " to ") + ". Opens " + r.tm + "’s schedule.";
+      return '<div class="ups-m-sched-row" role="button" tabindex="0" data-schedteam="' + U.escapeHtml(r.tm) + '" aria-label="' + U.escapeHtml(label) + '" style="--n:' + wks.length + '">' +
+        '<span class="tm"><b>' + U.escapeHtml(r.tm) + "</b><small>" + (r.bye ? "Bye Wk " + r.bye : "No bye") + "</small></span>" +
+        '<span class="ag"><span class="ups-m-tr' + schedCls(r.avgR, r.avgGames) + '">' + schedFmt(r.avg) + "</span></span>" + cells + "</div>";
+    }).join("");
+    var key = msched.sort.key, dir = msched.sort.dir;
+    var order = key === "team" ? "A to Z" + (dir === "asc" ? "" : ", reversed") : (key === "avg" && dir === "asc" ? "Avg, lowest first" : "Avg, highest first");
+    var foot = rows.length + " teams · " + order + (wks.length > 4 ? ". Swipe the weeks sideways for more" : "") + ".";
+    return '<div class="ups-m-sched-scroll" id="ups-m-sched-scroll">' + body + "</div>" +
+      '<div class="ups-m-fa-more">' + U.escapeHtml(foot) + "</div>";
+  }
+
+  // ── Sched: one team's schedule; an opponent opens its Pts Agst breakdown ──
+  function schedDrillHtml(d) {
+    var tm = msched.team, who = FPA_PLURAL[fpa.pos], live = d.season && d.season.state === "in_season";
+    var back = '<button type="button" class="ups-m-fpa-backbtn" data-schedback="1"><span aria-hidden="true">‹</span> All teams</button>';
+    var head = back + '<h3 class="ups-m-fpa-title" tabindex="-1">' + U.escapeHtml(tm) + " schedule · " + U.escapeHtml(who) + "</h3>";
+    var games = (d.schedule || {})[tm];
+    if (!games) return head + '<div class="ups-m-stub"><div>No ' + U.escapeHtml(String(d.year)) + " schedule for " + U.escapeHtml(tm) + ".</div></div>";
+    var wks = schedWeeks(d), row = schedRows(d).filter(function (r) { return r.tm === tm; })[0] || {};
+    var po = d.playoffWeeks || [], lg = d.league && d.league.perGame ? d.league.perGame[fpa.pos] : null;
+    var sum = (wks.length ? fpaWeeksLabel(wks[0], wks[wks.length - 1]) + ": " : "") +
+      (row.avg == null ? "no opponent numbers yet" : "opponents average " + schedFmt(row.avg) + (msched.show === "vs" ? " vs usual" : " per game" + (lg != null ? " (league " + fpaDec(lg) + ")" : ""))) +
+      (row.bye ? " · bye Wk " + row.bye : "");
+    var rows = games.map(function (g) {
+      if (g.bye) return '<div class="ups-m-fpa-wk2 off"><span class="wk">Wk ' + g.wk + '</span><span class="op">Bye</span><span class="v"></span><span class="v"></span><span class="ch"></span></div>';
+      var o = schedOpp(d, g.opp), pct = o && o.ratio != null ? fpaPct(o.ratio) : null;
+      var played = live && g.status === "final";
+      var when = played ? "played" : (g.status === "live" ? "in progress" : (g.status === "awaiting" ? "over · score pending" : (g.status === "final" ? "" : fpaDay(g.kickoff))));
+      var sub = (po.indexOf(g.wk) >= 0 ? "Playoffs" + (when ? " · " : "") : "") + when;
+      var label = "Week " + g.wk + ", " + (g.home ? "vs " : "at ") + g.opp + ". " + (o ? "Allowed " + fpaDec(o.pg) + " per game" + (pct != null ? ", " + fpaSigned(pct, " percent") + " vs usual" : "") : "No numbers yet") +
+        ". " + (sub ? sub + ". " : "") + "Opens " + g.opp + "’s breakdown.";
+      return '<div class="ups-m-fpa-wk2' + (played ? " off" : "") + '" role="button" tabindex="0" data-schedopp="' + U.escapeHtml(g.opp) + '" data-schedwk="' + g.wk + '" aria-label="' + U.escapeHtml(label) + '">' +
+        '<span class="wk">Wk ' + g.wk + '</span><span class="op">' + (g.home ? "vs " : "@") + U.escapeHtml(g.opp) + (sub ? "<small>" + U.escapeHtml(sub) + "</small>" : "") + "</span>" +
+        '<span class="v"><span class="ups-m-tr' + (o ? schedCls(o.ptsR, o.games) : "") + '">' + (o ? fpaDec(o.pg) : "—") + "</span></span>" +
+        '<span class="v"><span class="ups-m-tr' + (o ? schedCls(o.ratio, o.games) : "") + '">' + (pct == null ? "—" : fpaSigned(pct, "%")) + "</span></span>" +
+        '<span class="ch" aria-hidden="true">›</span></div>';
+    }).join("");
+    var each = "Each opponent’s numbers are its season " + (d.season && d.season.state === "complete" ? "totals" : "so far") + ", per game, not that one game. Tap one for its breakdown.";
+    return head + '<div class="ups-m-fpa-sum">' + U.escapeHtml(sum) + "<br>" + U.escapeHtml(each) + "</div>" +
+      '<div class="ups-m-fpa-wk2 head" role="row"><span class="wk">Wk</span><span class="op">Opponent</span><span class="v">Allowed</span><span class="v">vs usual</span><span class="ch"></span></div>' +
+      '<div class="ups-m-fpa-wklist">' + rows + "</div>";
+  }
+
+  // ── Sched: wiring ──
+  function schedGo(opts) {
+    delete msched.err[schedKey()];
+    if (opts && opts.resetX) msched.scrollX = 0;
+    M.route.renderRoute();
+  }
+  // The opponent's Pts Agst breakdown, full season (what Sched shows), in history so Back
+  // (or the on-screen "‹ BUF schedule") returns to this team's schedule.
+  function schedOpenOpp(opp) {
+    msched.scrollDrill = window.scrollY || 0;
+    if (fpa.year !== msched.year || fpaRange() !== "full") { fpa.year = msched.year; fpa.range = "full"; fpa.wkMin = 1; fpa.wkMax = 0; }
+    fpa.team = opp; fpa.week = null; fpa.scrollTo = 0; fpa.focusNext = ".ups-m-fpa-title";
+    view.inner = "fpa";
+    try { if (window.history && window.history.pushState) window.history.pushState({ upsFpa: { team: opp, week: null, pos: fpa.pos, fromSched: msched.team } }, ""); } catch (e) {}
+    M.route.renderRoute();
+  }
+  function schedBack() {
+    var st = null;
+    try { st = window.history && window.history.state; } catch (e) {}
+    if (st && st.upsSched && st.upsSched.team === msched.team) { window.history.back(); return; }
+    msched.focusNext = '[data-schedteam="' + msched.team + '"]'; msched.team = null; msched.scrollTo = msched.scrollList;
+    M.route.renderRoute();
+  }
+  if (window.addEventListener) window.addEventListener("popstate", function (e) {
+    var r = M.route && M.route.currentRoute ? M.route.currentRoute() : "league/stats";
+    if (!/^league\/stats(\/|$)/.test(r)) return;
+    var st = e.state, s = st && st.upsSched ? st.upsSched : null;
+    if (view.inner === "fpa") {
+      if (!s) return;
+      // Back from an opponent's breakdown opened here: this team's schedule again.
+      fpa.team = null; fpa.week = null;
+      view.inner = "sched"; msched.team = s.team; msched.scrollTo = msched.scrollDrill; msched.focusNext = ".ups-m-fpa-title";
+      msched.restoring = true; M.route.renderRoute();
+      return;
+    }
+    if (view.inner !== "sched") return;
+    if (st && !s) return;   // another overlay's entry (player search, sheet)
+    var team = s ? s.team : null;
+    if (team === msched.team) return;
+    msched.focusNext = team ? ".ups-m-fpa-title" : (msched.team ? '[data-schedteam="' + msched.team + '"]' : null);
+    msched.scrollTo = team ? 0 : msched.scrollList;
+    msched.team = team; msched.restoring = true;
+    M.route.renderRoute();
+  });
   function bindSched(mount) {
-    var y = document.getElementById("ups-m-sched-year");
-    if (y) y.addEventListener("change", function () { msched.year = this.value; msched.data = null; M.route.renderRoute(); });
-    var ps = mount.querySelectorAll("[data-spos]");
-    for (var i = 0; i < ps.length; i++) ps[i].addEventListener("click", function () { msched.pos = this.getAttribute("data-spos"); msched.data = null; M.route.renderRoute(); });
-    var vs = mount.querySelectorAll("[data-sview]");
-    for (var j = 0; j < vs.length; j++) vs[j].addEventListener("click", function () { msched.view = this.getAttribute("data-sview"); paint(mount); });
+    var root = document.getElementById("ups-m-sched-root");
+    if (!root || root.__upsSchedBound) return;
+    root.__upsSchedBound = true;
+    var onSel = function (id, fn) { var el = document.getElementById(id); if (el) el.addEventListener("change", function () { fn(this.value); }); };
+    onSel("ups-m-sched-year", function (v) { msched.year = v; msched.fellBack = ""; msched.weeks = ""; msched.from = 1; msched.to = 0; msched.team = null; schedGo({ resetX: true }); });
+    onSel("ups-m-sched-weeks", function (v) {
+      var cur = schedWeeks(schedData());
+      msched.weeks = v;
+      if (v === "custom") { msched.from = cur[0] || 1; msched.to = cur[cur.length - 1] || 0; }
+      schedGo({ resetX: true });
+    });
+    onSel("ups-m-sched-from", function (v) { msched.from = parseInt(v, 10) || 1; if (msched.to && msched.to < msched.from) msched.to = msched.from; schedGo({ resetX: true }); });
+    onSel("ups-m-sched-to", function (v) { msched.to = parseInt(v, 10) || 0; if (msched.to && msched.to < msched.from) msched.from = msched.to; schedGo({ resetX: true }); });
+    var notes = document.getElementById("ups-m-sched-notes");
+    if (notes) notes.addEventListener("click", function (e) { var t = e.target; if (t && t.closest && t.closest("summary")) msched.noteOpen = !msched.noteOpen; });
+    var act = function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return false;
+      var el;
+      if ((el = t.closest("[data-schedpos]"))) {
+        var p = el.getAttribute("data-schedpos");
+        if (p !== fpa.pos) { fpa.pos = p; msched.noteOpen = false; msched.keepPin = true; schedGo(); }
+        return true;
+      }
+      if ((el = t.closest("[data-schedshow]"))) {
+        var v = el.getAttribute("data-schedshow");
+        if (v !== msched.show) { msched.show = v === "vs" ? "vs" : "pts"; schedGo(); }
+        return true;
+      }
+      if ((el = t.closest("[data-schedsort]"))) {
+        var k = el.getAttribute("data-schedsort"), cur = msched.sort, curKey = cur.key || "avg", curDir = cur.key ? cur.dir : "desc";
+        if (k !== curKey) msched.sort = { key: k, dir: k === "team" ? "asc" : "desc" };
+        else msched.sort = { key: k, dir: curDir === "asc" ? "desc" : "asc" };
+        if (msched.sort.key === "avg" && msched.sort.dir === "desc") msched.sort = { key: "", dir: "desc" };
+        msched.keepPin = true; schedGo();
+        return true;
+      }
+      if ((el = t.closest("[data-schedteam]"))) {
+        msched.scrollList = window.scrollY || 0;
+        msched.team = el.getAttribute("data-schedteam"); msched.scrollTo = 0; msched.focusNext = ".ups-m-fpa-title";
+        try { if (window.history && window.history.pushState) window.history.pushState({ upsSched: { team: msched.team } }, ""); } catch (e2) {}
+        M.route.renderRoute();
+        return true;
+      }
+      if ((el = t.closest("[data-schedopp]"))) { schedOpenOpp(el.getAttribute("data-schedopp")); return true; }
+      if ((el = t.closest("[data-schedback]"))) { schedBack(); return true; }
+      if ((el = t.closest('[data-sched="retry"]'))) { schedGo(); return true; }
+      return false;
+    };
+    root.addEventListener("click", function (e) { act(e); });
+    root.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var t = e.target;
+      if (!t || !t.getAttribute || t.getAttribute("role") !== "button") return;
+      if (act(e)) e.preventDefault();
+    });
+    // The week headings follow the rows sideways (one direction only: the rows lead).
+    var body = document.getElementById("ups-m-sched-scroll"), hs = document.getElementById("ups-m-sched-hscroll");
+    if (body) {
+      if (msched.scrollX) body.scrollLeft = msched.scrollX;
+      if (hs) hs.scrollLeft = body.scrollLeft;
+      body.addEventListener("scroll", function () { msched.scrollX = body.scrollLeft; if (hs) hs.scrollLeft = body.scrollLeft; }, { passive: true });
+    }
+  }
+  function schedFocusKey(a) {
+    if (!a || !a.getAttribute || !a.closest || !a.closest("#ups-m-sched-root")) return null;
+    if (a.id) return "#" + a.id;
+    var attrs = ["data-schedteam", "data-schedopp", "data-schedpos", "data-schedshow", "data-schedsort", "data-schedback", "data-sched"];
+    for (var i = 0; i < attrs.length; i++) { var v = a.getAttribute(attrs[i]); if (v != null) return "[" + attrs[i] + '="' + v + '"]' + (attrs[i] === "data-schedopp" ? '[data-schedwk="' + a.getAttribute("data-schedwk") + '"]' : ""); }
+    if (a.classList && a.classList.contains("ups-m-fpa-title")) return ".ups-m-fpa-title";
+    return null;
+  }
+  function schedPaint(mount) {
+    var keep = null;
+    try { keep = schedFocusKey(document.activeElement); } catch (e) {}
+    var d = schedData(), drill = !!(msched.team && d);
+    var inner = drill ? schedDrillHtml(d) : (schedToolbar(d) + schedPinHtml(d) + schedListBody(d));
+    mount.innerHTML = subTabs("stats") + innerSwitch() + '<div id="ups-m-sched-root" class="ups-m-sched-root' + (drill ? " drill" : "") + '">' + inner + "</div>";
+    settleChrome(mount); bindInner(mount); bindSched(mount);
+    try {
+      if (msched.scrollTo != null) { window.scrollTo(0, msched.scrollTo); msched.scrollTo = null; }
+      else if (msched.keepPin) {
+        var tbl = mount.querySelector(".ups-m-sched-scroll"), pin = mount.querySelector(".ups-m-sched-pin");
+        if (tbl && pin) { var gap = tbl.getBoundingClientRect().top - pin.getBoundingClientRect().bottom; if (gap < 0) window.scrollTo(0, (window.scrollY || 0) + gap); }
+      }
+      msched.keepPin = false;
+      var f = msched.focusNext ? mount.querySelector(msched.focusNext) : null;
+      if (f) msched.focusNext = null;
+      else if (keep) f = mount.querySelector(keep);
+      if (f && f.focus) f.focus({ preventScroll: true });
+    } catch (e) {}
+    msched.restoring = false;
+  }
+  function schedRender(mount) {
+    // Pull-to-refresh / "Refresh data" starts a new app load: drop every Sched copy.
+    if (msched.gen !== M.state.loadingPromise) { msched.gen = M.state.loadingPromise; msched.cache = {}; msched.err = {}; }
+    // Back from another part of the app (not another Stats board, not Back): the list.
+    var fromElsewhere = !mount.querySelector || !mount.querySelector(".ups-m-stseg-bar");
+    if (fromElsewhere && !msched.restoring) { msched.team = null; msched.err = {}; }
+    schedPaint(mount);
+    var k = schedKey();
+    var after = function () {
+      // A late answer never paints over another screen, board or season.
+      if (!schedLive() || schedKey() !== k) return;
+      var d = schedData();
+      // First open, nothing played this season yet: the previous season, labeled.
+      if (d && !msched.opened) {
+        msched.opened = true;
+        if (!msched.year && d.season && d.season.state === "not_started") {
+          msched.fellBack = String(d.year); msched.year = String((parseInt(d.year, 10) || 0) - 1);
+          schedRender(mount); return;
+        }
+      }
+      schedPaint(mount);
+    };
+    var h = msched.cache[k];
+    if (!msched.err[k] && (!h || (h.live && Date.now() - h.at > FPA_STALE_MS))) loadSched().then(after);
+    if (!fpa.years) loadFpaYears().then(function () {
+      var sel = schedLive() && document.getElementById("ups-m-sched-year");
+      if (!sel) return;
+      var d = schedData(), shown = d ? String(d.year) : (msched.year || sel.value);
+      var yrs = (fpa.years || []).slice(); if (shown && yrs.indexOf(shown) < 0) { yrs.push(shown); yrs.sort().reverse(); }
+      if (yrs.length) sel.innerHTML = yrs.map(function (y) { return '<option value="' + U.escapeHtml(y) + '"' + (y === shown ? " selected" : "") + ">" + U.escapeHtml(y) + "</option>"; }).join("");
+    });
   }
 
   function paint(mount) {
@@ -2283,11 +2641,7 @@
       settleChrome(mount); bindInner(mount); bindVegas(mount);
       return;
     }
-    if (view.inner === "sched") {
-      mount.innerHTML = subTabs("stats") + innerSwitch() + schedToolbar() + schedHtml();
-      settleChrome(mount); bindInner(mount); bindSched(mount);
-      return;
-    }
+    if (view.inner === "sched") { schedPaint(mount); return; }
     var tab = curTab(), b = basis();
     mount.innerHTML = subTabs("stats") + innerSwitch() + toolbar(tab, b) + listShell(tab, b);
     settleChrome(mount); bindInner(mount); bind(mount);
@@ -2316,13 +2670,7 @@
       loadVegas().then(function () { if (view.inner === "vegas") paint(mount); });
       return;
     }
-    if (view.inner === "sched") {
-      if (msched.data) { paint(mount); return; }
-      mount.innerHTML = subTabs("stats") + innerSwitch() + schedToolbar() + '<div class="ups-m-loading">Loading schedule…</div>';
-      bindInner(mount); bindSched(mount);
-      loadSched().then(function () { if (view.inner === "sched") paint(mount); });
-      return;
-    }
+    if (view.inner === "sched") { schedRender(mount); return; }
     var tab = curTab();
     /* Six side-loaders feed the optional column sets (SoS, Boom/Bust, EPA,
      * Market, Routes, NGS). Each used to call paint(), which rebuilds the WHOLE
