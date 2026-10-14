@@ -345,7 +345,7 @@ bear = (h3("3. Bear Dunn&rsquo;s two pass catchers") + desk(
      "this year kept about %s%% of their pace. For Smith-Njigba that would be about %s points a game." % (
         n("j.box", jm_["pts"]), e(js["above"][0]["name"]), js["above"][0]["season"], n("j.a0", js["above"][0]["pts"]), n("rg.wr", rg["WR"]["mean"], "%d"),
         n("j.ppg74", jsn_pts / 5 * rg["WR"]["mean"] / 100))),
-    ("Stuart", "Then there is Brock Bowers, back from a knee injury in Week 3. He scored %s, %s and %s on %s, %s and %s targets. Bear did not trust the knee at first. In Week 3 he started Sam "
+    ("Stuart", "Then there is Brock Bowers, back from a knee injury in Week 3. He scored %s, %s and %s on %s, %s and %s targets. Bear did not start him right away. In Week 3 he started Sam "
      "LaPorta at tight end, who scored %s, while Bowers&rsquo; %s sat on the bench. Bear won all three games anyway, and Bowers has started every week since." % (
         n("b.u3", bw["3"]["ups"]), n("b.u4", bw["4"]["ups"]), n("b.u5", bw["5"]["ups"]), n("b.t3", bw["3"]["tgt"], "%d"), n("b.t4", bw["4"]["tgt"], "%d"), n("b.t5", bw["5"]["tgt"], "%d"),
         n("b.lap", 9.1), n("b.u3b", bw["3"]["ups"]))),

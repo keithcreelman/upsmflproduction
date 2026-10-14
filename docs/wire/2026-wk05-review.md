@@ -239,7 +239,7 @@ Keith's verdict: "The new analysis is much better, but the writing quality and h
 
 **Rerun on the identical cached inputs** (fetched 2026-10-14 01:56:56Z):
 - division odds moved by at most 1.4 points (Eric Martel 50.2 → 51.5, Cutting 49.6 → 48.2, Creelman 83.0 → 82.2, Bousquet 15.5 → 16.2);
-- playoff odds moved by at most 0.6 points;
+- playoff odds moved by at most 0.67 points (Bousquet 19.2 → 19.8), shown as 0.7 in the article (the division figures above are raw values);
 - the forecast and the preview now run the same 10,000 seasons, so the table and the Week 6 scenarios are the same simulated seasons.
 
 **Display rule.** `season_sim.display_percentages()` uses largest-remainder rounding: round every value down, then give the leftover tenths to the largest remainders, ties by key. It applies to division and title odds, so every division shows exactly 100.0% and the league's title odds total exactly 100.0%. It is never used to hide a raw sum that is not 1.
