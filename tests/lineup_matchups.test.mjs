@@ -398,5 +398,117 @@ await check("spreadReadAt = when the file was fetched from GitHub (its Date, les
   assert.strictEqual(LM.lmuReadAt({ headers: new Headers({ date: new Date(at + 3600000).toUTCString() }) }, at), at);
 });
 
+console.log("\n6. Week 1 (#1278): last season from the Pts Agst store (#1258) when it's usable, else live as before");
+// The 2025 mini season of section 3, written as a store file with the engine's own
+// encoder (fpaStoreEncode), from the same MFL replies and the same D1 context the live
+// path reads. env.FPA_STORE answers the file's path; anything else is a 404.
+const LID = "74598";
+const replies25 = (S) => {
+  const raw = { league: { league: { endWeek: String(S.endWeek) } }, players: { players: { player: S.players } }, sched: {}, scores: {} };
+  for (let w = 1; w <= S.endWeek; w++) {
+    raw.sched[w] = { nflSchedule: { week: String(w), matchup: S.sched[w] } };
+    raw.scores[w] = { playerScores: { week: String(w), playerScore: S.scores[w] } };
+  }
+  return raw;
+};
+const ctx25 = await F.fpaLoadSeasonContext(async (sql, ...b) => (await dbFrom({}).UPS_MFL_DB.prepare(sql).bind(...b).all()).results, "2025");
+const READ_AT = Date.parse("2026-02-20T15:00:00Z");
+const store25 = F.fpaStoreEncode({ yr: "2025", lid: LID, endWeek: 17, raw: replies25(S25), ctx: ctx25, readAtMs: READ_AT, builtAtMs: READ_AT, snapPids: null });
+function binOf(files) {
+  const b = { reads: 0, fetch: async (req) => {
+    b.reads++;
+    const f = files[new URL(req.url).pathname];
+    if (f instanceof Error) throw f;
+    if (f === undefined) return new Response("not found", { status: 404 });
+    return new Response(typeof f === "string" ? f : JSON.stringify(f), { headers: { "content-type": "application/json" } });
+  } };
+  return b;
+}
+const withStore = (files, rows) => ({ ...dbFrom(rows || {}), FPA_STORE: binOf(files) });
+const P25 = F.fpaStorePath("2025");
+const SEASONS = { 2025: S25, 2026: S26 };
+const envS = withStore({ [P25]: store25 });
+const W1s = await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: envS });
+const same = (a, b) => {
+  for (const k of ["priorSeason", "ratingYear", "ratingsBasis", "weeksUsed", "weeksAvailable", "season", "ratingWindow", "matchups", "horizon", "horizonWeeks", "defRatings", "playerWindow", "attribution", "spreadState"]) assert.deepStrictEqual(a[k], b[k], k);
+};
+await check("stored vs live: identical ranks, Allowed/Usual, players' averages, matchups and labels (2025 from the store vs 2025 from MFL)", () => {
+  assert.strictEqual(W1s.status, 200);
+  assert.deepStrictEqual([W1s.json.ratingsSource, W1.json.ratingsSource], ["stored", "live"]);
+  same(W1s.json, W1.json);
+  assert.ok(Object.keys(W1s.json.defRatings).length === 4 && Object.keys(W1s.json.playerWindow).length >= 4);
+  assert.strictEqual(W1s.json.defRatings.AAA.QB.games, 17);   // MFL's repeated "week 18" still never counted
+  assert.strictEqual(W1s.json.mfl_read_at, new Date(READ_AT).toISOString());   // when MFL was read for the store
+});
+await check("reads drop from 41 to 5: 2026 Wk 1–4 schedules + the venue list; no 2025 MFL read and no D1 query for the context", () => {
+  assert.strictEqual(W1.calls.length, 41);
+  assert.strictEqual(W1s.calls.length, 5, W1s.calls.map((c) => c.u).join("\n"));
+  assert.ok(!W1s.calls.some((c) => /\/2025\//.test(c.u)));
+  assert.deepStrictEqual(W1s.calls.filter((c) => /myfantasyleague/.test(c.u)).map((c) => new URL(c.u).searchParams.get("W")).sort(), ["1", "2", "3", "4"]);
+  assert.strictEqual(envS.queries.length, 0);
+  assert.strictEqual(envS.FPA_STORE.reads, 1);
+});
+await check("an unusable store → live, the same answer and the same 41 reads (missing file, another engine, another league, a week missing, not JSON, the binding throws)", async () => {
+  const bad = {
+    missing: {},
+    engine: { [P25]: { ...store25, engine: "fpa1-old" } },
+    league: { [P25]: { ...store25, lid: "11111" } },
+    weekMissing: { [P25]: { ...store25, scores: { ...store25.scores, 9: [] } } },
+    notJson: { [P25]: "<html>oops</html>" },
+    throws: { [P25]: new Error("asset binding down") },
+  };
+  for (const k in bad) {
+    const env = withStore(bad[k]);
+    const r = await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env });
+    assert.strictEqual(r.status, 200, k);
+    assert.strictEqual(r.json.ratingsSource, "live", k);
+    same(r.json, W1.json);
+    assert.strictEqual(r.calls.length, 41, k);
+  }
+});
+await check("no binding at all (a worker without the store) → live, as before", async () => {
+  const r = await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: dbFrom({}) });
+  assert.strictEqual(r.json.ratingsSource, "live"); same(r.json, W1.json); assert.strictEqual(r.calls.length, 41);
+});
+await check("the file is opened once per worker isolate; an unusable one is retried, never kept", async () => {
+  const env = withStore({ [P25]: store25 });
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env });
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env });
+  assert.strictEqual(env.FPA_STORE.reads, 1);
+  const envBad = withStore({});
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: envBad });
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: envBad });
+  assert.strictEqual(envBad.FPA_STORE.reads, 2);
+});
+await check("only Week 1's last-season path uses it: once a 2026 game is final, and a past season's later week, are read live", async () => {
+  const after = Date.parse("2026-09-10T05:00:00Z");
+  const s = { ...S26, sched: { ...S26.sched, 1: [game("AAA", "BBB", K26, "0"), game("CCC", "DDD", String(Number(K26) + 86400 * 3), "3600")] }, scores: { 1: [{ id: "1", score: "18" }, { id: "2", score: "25" }] } };
+  const env = withStore({ [P25]: store25 });
+  const r = await run("YEAR=2026&W=1", { 2025: S25, 2026: s }, { nowMs: after, env });
+  assert.deepStrictEqual([r.json.ratingYear, r.json.ratingsSource], ["2026", "live"]);
+  const r2 = await run("YEAR=2025&W=5", SEASONS, { nowMs: N26, env });
+  assert.deepStrictEqual([r2.json.ratingYear, r2.json.priorSeason, r2.json.ratingsSource], ["2025", false, "live"]);
+  assert.strictEqual(env.FPA_STORE.reads, 0);
+});
+await check("the real 2025 store shipped by #1258: Lineup's Week 1 numbers = the Pts Agst board's stored 2025 (32 teams × 9 positions), with no 2025 MFL read", async () => {
+  const file = JSON.parse(fs.readFileSync(new URL("../worker/fpa_store/" + F.FPA_ENGINE_VERSION + "/2025.json", import.meta.url), "utf8"));
+  const env = withStore({ [P25]: file });
+  const r = await run("YEAR=2026&W=1", { 2026: S26 }, { nowMs: N26, env });   // no 2025 MFL data at all: live would fail
+  assert.strictEqual(r.status, 200); assert.strictEqual(r.json.ratingsSource, "stored"); assert.strictEqual(r.json.ratingsBasis, "2025 season");
+  assert.strictEqual(r.calls.length, 5);
+  F.fpaStoreForget();
+  const board = await (await F.handleFpaRequest(new Request("https://w.test/api/fantasy-points-against?YEAR=2025"), withStore({ [P25]: file }), null, { jsonOut, nowMs: N26, lid: LID, fetchImpl: async () => { throw new Error("no MFL read expected"); } })).json();
+  let n = 0;
+  for (const t in board.teams) for (const g in board.teams[t]) {
+    const c = board.teams[t][g], d = r.json.defRatings[t] && r.json.defRatings[t][g];
+    if (!c.raw.games) continue;
+    assert.ok(d, t + " " + g);
+    assert.deepStrictEqual([d.rank, d.of, d.ratio, d.games, d.perGame, d.usual], [c.adj ? c.adj.rank : null, c.adj ? c.adj.of : null, c.adj ? c.adj.ratio : null, c.raw.games, c.raw.perGame, c.raw.oppNorm], t + " " + g);
+    n++;
+  }
+  assert.strictEqual(n, 32 * 9);
+  assert.strictEqual(r.json.mfl_read_at, new Date(file.readAtMs).toISOString());
+});
+
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
