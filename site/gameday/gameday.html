@@ -64,23 +64,13 @@
   /* Big and bold on purpose (Keith): this is the one signal that should
      outweigh everything else on the card when it's real. Solid fill, not an
      outline chip like .gd-badge/.gd-chip elsewhere — those are informational,
-     this is a warning. Submit Lineup's tags (#1276, the mobile Lineup rule):
-     tier-out (OUT) red, tier-d (D = Doubtful) orange, tier-q (Q) amber — from
-     the official NFL report — and tier-res (IR, IR-R, PUP, NFI, SUSP, RET) /
-     tier-ho (HOLD), MFL's roster designations, in their own tone. Amber and
-     orange use dark text since they read poorly reversed. */
+     this is a warning. tier-out (Out/IR-*/Suspended/Retired/Holdout/Doubtful)
+     is red; tier-q (Questionable) is amber and uses dark text since amber on
+     dark text reads poorly reversed. */
   .gd-slot-inj-row { padding: 0 14px 8px 14px; margin-top: -2px; }
-  .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; border: 1.5px solid transparent; }
+  .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
   .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
-  .gd-inj-badge.tier-d { color: #1f1206; background: #fb923c; }
   .gd-inj-badge.tier-q { color: #1a1206; background: var(--warn); }
-  .gd-inj-badge.tier-res { color: #fff; background: #9333ea; }
-  .gd-inj-badge.tier-ho { color: #fff; background: #2563eb; }
-  /* Last week's final designation ("W5 OUT"): outlined and dashed, so it never reads as this week's. */
-  .gd-inj-badge.prior { background: transparent; border-style: dashed; }
-  .gd-inj-badge.prior.tier-out { color: #fca5a5; border-color: var(--danger); }
-  .gd-inj-badge.prior.tier-d { color: #fdba74; border-color: #fb923c; }
-  .gd-inj-badge.prior.tier-q { color: var(--warn); border-color: var(--warn); }
   /* Locked = his NFL game has kicked off; canon §B4 says he can't be
      substituted in or out from that moment. Neutral color on purpose (unlike
      the injury badges above) -- a lock is often GOOD news (he already went
@@ -114,12 +104,10 @@
   .gd-mu-detail .r { padding: 2px 0; line-height: 1.45; }
   .gd-mu-detail b { color: var(--fg); font-weight: 800; }
   .gd-mu-wx { opacity: 0.9; }
-  .gd-mu-inj { color: var(--fg); }
   .gd-hz { white-space: nowrap; color: var(--fg); }
-  /* The screen's notes (what the rank is, MFL read time, which injury report) + About. */
+  /* The screen's note (what the rank is, the weeks, MFL read time) + About. */
   .gd-mu-note { font-size: 12px; line-height: 1.45; color: var(--muted); margin-top: 10px; }
   .gd-mu-note.warn { color: var(--warn); }
-  .gd-mu-note.inj { margin-top: 4px; }
   .gd-mu-retry { background: transparent; border: 1px solid var(--line); color: var(--accent); border-radius: 6px;
     min-height: 30px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   .gd-mu-about { margin-top: 3px; }
@@ -629,8 +617,6 @@
     var ko = STATE.kickoffs && STATE.kickoffs[String(team || "").toUpperCase()];
     return !!(ko && Date.now() / 1000 >= ko);
   }
-  // One MFL status → one badge. (Submit Lineup's rows carry row.inj instead —
-  // the official-report rule below, #1276 — and injBadgeHtml draws those.)
   // A player MFL's injuries export has NO entry for is not in this map at
   // all (the export lists only players WITH a designation) — so any
   // non-empty injStatus is itself the signal, never a healthy/blank case
@@ -646,17 +632,9 @@
     if (/^QUESTIONABLE/.test(st)) return { label: st, tier: "q" };
     return null;   // e.g. "Probable" — not a real risk signal, no badge
   }
-  // A row's injury tags as badges: row.inj.chips (the Lineup rule below), or, for a
-  // row that carries a single MFL status instead (row.injStatus / row.injLabel), that
-  // one badge. inline = for the bench row (no wrapping line).
-  function injBadgeHtml(row, inline) {
-    var cs = row && row.inj ? row.inj.chips : [];
-    if (row && !row.inj) { var b = injBadgeInfo(row.injStatus); if (b) cs = [{ t: b.label, cls: b.tier, title: row.injLabel || b.label }]; }
-    if (!cs.length) return "";
-    var h = cs.map(function (c) {
-      return '<span class="gd-inj-badge tier-' + c.cls + (c.prior ? " prior" : "") + '" title="' + esc(c.title) + '">' + esc(c.t) + '</span>';
-    }).join(" ");
-    return inline ? " " + h : '<div class="gd-slot-inj-row">' + h + '</div>';
+  function injBadgeHtml(row) {
+    var b = row ? injBadgeInfo(row.injStatus) : null;
+    return b ? '<div class="gd-slot-inj-row"><span class="gd-inj-badge tier-' + b.tier + '" title="' + esc(row.injLabel || b.label) + '">' + esc(b.label) + '</span></div>' : '';
   }
   // The injury feed the page reads, as the shared client model (see
   // LS.createInjuryStore): one store, bucketed by season+week, queried by
@@ -666,168 +644,14 @@
     return { store: injStore(), overrides: window.UPS_INJURY_OVERRIDES, season: CTX.year, week: STATE.lineupWeek };
   }
 
-  // ── Injury status on Submit Lineup (#1276): the mobile Lineup rule (site/m/views/lineup.js
-  // + player_sheet.js UPS_MOBILE_PLAYER_STATUS, Keith 2026-10-13), from the worker's
-  // GET /api/player-status. Q / D / OUT come from the OFFICIAL NFL injury report, and
-  // only from a report for the week this lineup is for; IR / IR-R / PUP / NFI / SUSP
-  // from MFL. Until his team's report for this week is out, his LAST final official
-  // designation shows, labeled with its week ("W5 OUT") and outlined. MFL's own
-  // Q / D / Out are not used here: its export keeps them after they lapse. No tag never
-  // means "healthy" — the screen's note says when the report isn't out or couldn't be
-  // read. Lock, bye and IR-slot rules don't read any of this (kickoffs, MFL's bye list
-  // and the roster's own status decide those). The Live Scoring tab keeps its own feed.
-  var PST = { season: "", state: "idle", data: null, at: 0, loading: false, mapped: null };
-  var PST_TTL = 5 * 60 * 1000;          // an older read is never shown as current
-  var PST_RETRY_MS = 60 * 1000;         // a failed read is tried again on a render after a minute
-  function pstFresh() { return PST.state === "ok" && !!PST.data && (Date.now() - PST.at) <= PST_TTL; }
-  function pstSig() { var r = injCurrentReport(); return PST.state + ":" + r.state + ":" + (r.week || "") + ":" + PST.at; }
-  function loadInjuries() {
-    var season = String(CTX.year || "");
-    if (!season || PST.loading) return;
-    var now = Date.now();
-    if (PST.season === season && PST.state === "ok" && now - PST.at < PST_TTL) return;
-    if (PST.season === season && PST.state === "error" && now - PST.at < PST_RETRY_MS) return;
-    if (PST.season !== season) { PST.data = null; PST.state = "loading"; PST.mapped = null; }
-    PST.season = season; PST.loading = true;
-    var before = pstSig();
-    fetch(workerUrl("/api/player-status?season=" + encodeURIComponent(season) + "&L=" + encodeURIComponent(CTX.leagueId || "")), { mode: "cors", credentials: "omit" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        PST.data = j && j.ok ? j : null; PST.state = PST.data ? "ok" : "error";
-        PST.mapped = null;
-        if (PST.data && PST.data.mapped_mfl_ids) { PST.mapped = {}; PST.data.mapped_mfl_ids.forEach(function (id) { PST.mapped[String(id)] = 1; }); }
-      }, function () { PST.data = null; PST.state = "error"; PST.mapped = null; })
-      .then(function () {
-        PST.at = Date.now(); PST.loading = false;
-        if (pstSig() !== before) render();
-      });
-  }
-  // MFL and nflverse spell some teams differently; either is accepted.
-  var NFLV_TO_MFL = { GB: "GBP", JAX: "JAC", KC: "KCC", LA: "LAR", LV: "LVR", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB" };
-  function clockEt(iso) {
-    var d = iso ? new Date(iso) : null;
-    if (!d || isNaN(d.getTime())) return "";
-    try { return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET"; }
-    catch (e) { return d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
-  }
-  var INJ_SEV = { Out: "out", Doubtful: "d", Questionable: "q" };
-  var INJ_SHORT = { Out: "OUT", Doubtful: "D", Questionable: "Q" };
-  // MFL's roster designations while the status can't be read: roster kinds only, never its Q/D/Out.
-  var INJ_FALLBACK = { "IR": ["IR", "Injured reserve"], "IR-R": ["IR-R", "Injured reserve – designated to return"], "IR-PUP": ["PUP", "Physically unable to perform"],
-    "IR-NFI": ["NFI", "Non-football injury list"], "SUSPENDED": ["SUSP", "Suspended"], "HOLDOUT": ["HOLD", "Holdout"], "RETIRED": ["RET", "Retired"] };
-  function injWhy(feed) {
-    var r = s(feed && feed.reason);
-    if (/not out yet/.test(r) || /has no Wk \d+ rows/.test(r)) return r;
-    if (/id map/.test(r)) return "players couldn’t be matched to it (the NFL id map couldn’t be read)";
-    if (/not updated for/.test(r)) return "the report hasn’t been updated for " + r.replace(/^.*not updated for /, "");
-    if (/current NFL week unknown/.test(r)) return "the current NFL week couldn’t be read";
-    return "it couldn’t be read";
-  }
-  // → { chips: [{ t, cls, title, prior? }], report: "line", roster: "line" | "" } — the
-  // shared status read for one player (player_sheet.js PSTAT.info, line for line).
-  function pstInfo(pid, team) {
-    pid = s(pid); team = s(team).toUpperCase(); team = NFLV_TO_MFL[team] || team;
-    var out = { chips: [], report: "", roster: "" };
-    var d = pstFresh() ? PST.data : null;
-    var p = d && d.players ? d.players[pid] : null;
-    if (d) {
-      var f = d.report_feed || {};
-      var when = clockEt(f.updated_utc);
-      if (!f.current) out.report = "Injury report unavailable: " + injWhy(f) + ". No tag doesn’t mean healthy.";
-      else if (p && p.report) {
-        var r = p.report;
-        if (r.status) out.chips.push({ t: INJ_SHORT[r.status], cls: INJ_SEV[r.status], title: "Wk " + f.week + " injury report: " + r.status });
-        out.report = "Wk " + f.week + " injury report: " + (r.status || "listed, no game status") + (r.injury ? " — " + r.injury : "") +
-          (r.practice ? " · practice: " + r.practice.replace(/ (Participation )?in Practice$/i, "").replace(/^Did Not Participate$/i, "did not practice") : "") +
-          " (NFL report, updated " + when + ").";
-      }
-      else if (!PST.mapped) out.report = "Couldn’t tell whether he’s on the Wk " + f.week + " injury report.";
-      else if (!PST.mapped[pid]) out.report = "No verified NFL id, so he can’t be matched to the injury report.";
-      else if (!team || team === "FA" || team === "FA*") out.report = "Free agent: not on an NFL team’s injury report.";
-      else if ((f.teams_mfl || []).indexOf(team) >= 0) out.report = "Not on " + team + "’s Wk " + f.week + " injury report (NFL, updated " + when + ").";
-      else out.report = "No Wk " + f.week + " injury report for " + team + " (a bye, or not out yet).";
-      if (p && p.roster) {
-        var ro = p.roster, rf = d.roster_feed || {};
-        out.chips.unshift({ t: ro.chip, cls: ro.chip === "HOLD" ? "ho" : "res", title: "NFL roster: " + ro.label });
-        out.roster = "Roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : "") + " — MFL, updated " + clockEt(rf.updated_utc) + ".";
-      }
-      else if (d.roster_feed && !d.roster_feed.ok) out.roster = "Roster designations (IR, PUP …) couldn’t be read.";
-    } else {
-      out.report = PST.state === "error" ? "Injury status couldn’t be loaded. No tag doesn’t mean healthy." : "Checking this week’s injury report…";
-      // MFL's own injuries export (already on this page, read for the lineup week): roster kinds only.
-      var fb = INJ_FALLBACK[LS.injuryStatusFor(lineupInjOpts(), pid)];
-      if (fb) { out.chips.push({ t: fb[0], cls: fb[0] === "HOLD" ? "ho" : "res", title: "NFL roster: " + fb[1] }); out.roster = "Roster: " + fb[1] + " — MFL."; }
-    }
-    return out;
-  }
-  // "ok" only for a fresh, current report (with its week); otherwise why not.
-  function injCurrentReport() {
-    if (!pstFresh()) return { state: PST.state === "error" ? "unavailable" : "loading" };
-    var f = PST.data.report_feed || {};
-    if (!f.current) return { state: "unavailable" };
-    return { state: "ok", week: parseInt(f.week, 10) || 0 };
-  }
-  // The report's week vs this lineup's week: Q/D/OUT only when they match.
-  function injReport() {
-    var r = injCurrentReport(), wk = parseInt(STATE.lineupWeek, 10) || 0;
-    if (r.state === "ok" && wk && r.week !== wk) return { state: "otherweek", week: r.week };
-    return r;
-  }
-  function injPrior(pid) {
-    if (!pstFresh()) return null;
-    var p = (PST.data.players || {})[s(pid)];
-    return p && p.prior && p.prior.status ? p.prior : null;
-  }
-  function injPriorWeeks() {
-    if (!pstFresh()) return [];
-    var f = PST.data.report_feed || {};
-    return f.prior_weeks && f.prior_weeks.length ? f.prior_weeks : [];
-  }
-  var INJ_GAME_CLS = { out: 1, d: 1, q: 1 };
-  function injPriorChip(p) {
-    return { t: "W" + p.week + " " + INJ_SHORT[p.status], cls: INJ_SEV[p.status], prior: true, title: "Wk " + p.week + " injury report (final): " + p.status };
-  }
-  function injPriorLine(p) {
-    return "Wk " + p.week + " injury report (final): " + p.status + (p.injury ? " — " + p.injury : "") +
-      ". Wk " + STATE.lineupWeek + "’s isn’t out yet for his team.";
-  }
-  // A player's tags for THIS lineup's week (site/m/views/lineup.js injInfo, line for line).
-  function injInfo(pid, team) {
-    var i = pstInfo(pid, team), rep = injReport(), wk = parseInt(STATE.lineupWeek, 10) || 0;
-    if (rep.state === "otherweek") {
-      // A current report for an EARLIER week than this lineup's: its designations are
-      // last week's, so they're shown as such; a LATER week's are not shown at all.
-      var older = rep.week < wk;
-      var chips = i.chips.map(function (c) { return !INJ_GAME_CLS[c.cls] ? c : (older ? { t: "W" + rep.week + " " + c.t, cls: c.cls, prior: true, title: c.title + " (final)" } : null); })
-        .filter(Boolean);
-      return { chips: chips, report: older ? "" : "The newest NFL injury report is Wk " + rep.week + ", not Wk " + wk + ".", roster: i.roster, priorWeek: older ? rep.week : 0 };
-    }
-    var hasGame = i.chips.some(function (c) { return INJ_GAME_CLS[c.cls]; });
-    var p = !hasGame ? injPrior(pid) : null;
-    if (p && wk && p.week < wk) return { chips: i.chips.concat([injPriorChip(p)]), report: injPriorLine(p), roster: i.roster, priorWeek: p.week };
-    return i;
-  }
-  // The one line on the screen that says which report the tags come from.
-  function injNoteText() {
-    var rep = injReport(), wk = STATE.lineupWeek;
-    if (PST.state === "error") return "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
-    if (rep.state === "loading" || PST.state === "idle" || PST.state === "loading") return "Checking this week’s injury report…";
-    var pw = injPriorWeeks();
-    var marked = "“W" + pw.join("/W") + "”";
-    if (rep.state === "ok") return "Injury tags: NFL injury report Wk " + rep.week + "; IR/PUP from MFL." + (pw.length ? " Teams yet to report for Wk " + wk + " show last week’s final tags, marked " + marked + "." : " No tag: not on the report, or a bye.");
-    if (rep.state === "otherweek" && rep.week < (parseInt(wk, 10) || 0)) return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet, so Q/D/OUT tags are marked “W" + rep.week + "” (last week’s final report); IR/PUP from MFL.";
-    if (rep.state === "otherweek") return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet (the newest is Wk " + rep.week + "), so no Q/D/OUT tags; IR/PUP from MFL. No tag doesn’t mean healthy.";
-    return "Injury tags: Wk " + (wk || "") + "’s NFL report isn’t out yet, so Q/D/OUT tags" + (pw.length ? " are last week’s final report, marked " + marked : " will show once it is") + "; IR/PUP from MFL. No tag doesn’t mean healthy.";
-  }
-
   function buildRows() {
     return getMyRoster().map(function (r) {
       var p = playerById(r.id) || {};
       var cy = parseInt(r.contractYear, 10);
       var row = { id: r.id, name: nameFromMfl(p.name) || ("Player " + r.id), pos: s(p.position).toUpperCase(),
         team: s(p.team), salary: r.salary, group: posGroup(p.position),
-        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0 };
-      row.inj = injInfo(r.id, row.team);   // tags only: nothing below (eligible / bye / locked) reads it
+        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
+        injStatus: LS.injuryStatusFor(lineupInjOpts(), r.id), injLabel: LS.injuryLabelFor(lineupInjOpts(), r.id) };
       row.bye = isOnBye(row.team);
       row.eligible = eligibleRow(row);
       row.locked = isKickedOff(row.team);
@@ -977,7 +801,7 @@
     (isLocked ? '<div class="gd-slot-inj-row"><span class="gd-lock-badge">🔒 Locked — kickoff passed</span></div>' : "") +
     (isBye ? '<div class="gd-slot-inj-row"><span class="gd-bye-badge">BYE · Week ' + esc(STATE.byesWeek || STATE.lineupWeek) + ' — bench him; MFL won’t accept a bye-week starter</span></div>' : "") +
     (current ? injBadgeHtml(currentRow) : "") +
-    (current ? slotMatchupHtml(current, currentRow) : "");
+    (current ? slotMatchupHtml(current) : "");
   }
   // ── Submit Lineup matchup info (#1276): the released mobile design (site/m/views/lineup.js
   // "Matchup info", #1257, Keith's rulings 2026-10-13), from the worker's GET
@@ -1126,8 +950,8 @@
   function fmtAvg(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
   // The matchup line — a real button with a visible "Details" pill — and, when open, its
   // card. Several cards can be open at once, so opening one never moves the line you
-  // clicked. row = the lineup row (for the injury line), when there is one.
-  function slotMatchupHtml(pid, row) {
+  // clicked.
+  function slotMatchupHtml(pid) {
     var mu = matchupFor(pid); if (!mu) return "";
     var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
     var open = !!(STATE.muOpen && STATE.muOpen[pid]);
@@ -1140,12 +964,6 @@
       '<span class="gd-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
-    // His line from this week's report (on it or not), or last week's final one while
-    // his team's isn't out; otherwise the screen's injury note says so once, not on
-    // every card.
-    var inj = row && row.inj ? row.inj : injInfo(pid, mu.team);
-    if (inj.report && (injReport().state === "ok" || inj.priorWeek)) rows.push('<div class="r gd-mu-inj">' + esc(inj.report) + '</div>');
-    if (inj.roster) rows.push('<div class="r gd-mu-inj">' + esc(inj.roster) + '</div>');
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + esc(line) + '</div>');
     var wx = wxText(mu.weather, mu.kickoff);
@@ -1178,18 +996,17 @@
     }
     return compact + '<div class="gd-mu-detail" id="' + did + '">' + rows.join("") + '</div>';
   }
-  // The notes for the whole screen: what the rank is, which games, when MFL was read,
-  // and the injury report's week. On a failure, the reason and a way to try again.
+  // The note for the whole screen: what the rank is, which games, when MFL was read.
+  // On a failure, the reason and a way to try again.
   function matchupNoteHtml() {
     var c = muCtx(); if (!c.week) return "";
     var e = muEntry(), d = e && e.d;
-    var inj = injNoteText(), injHtml = inj ? '<div class="gd-mu-note inj">' + esc(inj) + '</div>' : "";
     if (!d) {
       if (e && e.err) {
         return '<div class="gd-mu-note warn" role="status">Matchup numbers couldn’t be read' + (e.err === "mfl" ? " from MFL" : "") +
-          ' right now. <button type="button" class="gd-mu-retry" id="gd-mu-retry">Try again</button></div>' + injHtml;
+          ' right now. <button type="button" class="gd-mu-retry" id="gd-mu-retry">Try again</button></div>';
       }
-      return '<div class="gd-mu-note" role="status">Loading matchups…</div>' + injHtml;
+      return '<div class="gd-mu-note" role="status">Loading matchups…</div>';
     }
     var lead;
     if (d.priorSeason) lead = "No " + c.year + " games yet, so the ranks are from the " + d.ratingYear + " season.";
@@ -1203,7 +1020,7 @@
       "“@ GBP · #30 vs QBs” = Green Bay is 30th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
       "Only final games count, and a player counts for the team he played for that day. " +
       MU_ABOUT_EVIDENCE +
-      '</div></details></div>' + injHtml;
+      '</div></details></div>';
   }
   // The measured size of green vs red (2019–2025 games, leak-free; review #1249 L2b).
   var MU_ABOUT_EVIDENCE = "On 2019–2025 games, a player facing one of the 10 teams allowing the most to his position scored about 1 point more than facing one of the 10 allowing the least (QB about 2).";
@@ -1316,7 +1133,6 @@
 
   function renderLineup(el) {
     loadMatchups();   // lazy: opponent/kickoff/spread + the Pts Agst numbers for that opponent
-    loadInjuries();   // lazy: official NFL report Q/D/OUT + MFL IR/PUP (GET /api/player-status)
     var rows = buildRows();
     if (!rows.length) {
       el.innerHTML = '<div class="gd-stub">No roster found' + (STATE.viewerFranchiseId ? " for " + esc(STATE.viewerFranchiseId) : " — sign in to MFL") + '.</div>';
@@ -1406,15 +1222,16 @@
     var showBench = !!STATE.showBench;
     var benchHtml = '<div class="gd-bench-head"><button type="button" class="gd-bench-toggle" id="gd-bench-toggle">' + (showBench ? "▾" : "▸") + ' Bench &amp; matchups (' + benchRows.length + ')</button></div>' +
       (showBench ? '<div class="gd-bench">' + (benchRows.length ? benchRows.map(function (r) {
+        var badge = injBadgeInfo(r.injStatus);
         return '<div class="gd-bench-row"><div class="gd-bench-id"><span class="nm">' + esc(r.name) + '</span>' +
           '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span>' +
-          injBadgeHtml(r, true) +
+          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '" title="' + esc(r.injLabel || badge.label) + '">' + esc(badge.label) + '</span>' : '') +
           // A benched player already kicked off can never be started now --
           // say so here too, since he's simply absent from every slot's
           // dropdown (no other cue would explain why he doesn't show up there).
           (r.locked ? ' <span class="gd-lock-badge">🔒 Locked</span>' : '') +
           (r.bye ? ' <span class="gd-bye-badge" title="His NFL team is on a bye in Week ' + esc(STATE.byesWeek || STATE.lineupWeek) + ' — MFL won’t accept him as a starter.">BYE</span>' : '') + '</div>' +
-          '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id, r);
+          '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
       }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
 
     var html =
