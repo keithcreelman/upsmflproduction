@@ -210,8 +210,13 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
       navigator.clipboard.writeText(txt).then(done, function () { window.getSelection().selectAllChildren(document.getElementById("log")); });
     } catch (e) { window.getSelection().selectAllChildren(document.getElementById("log")); }
   });
+  // Load YouTube's player script from here rather than a static tag, so the
+  // page also works on preview hosts that only run inline scripts.
+  var api = document.createElement("script");
+  api.src = "https://www.youtube.com/iframe_api";
+  api.onerror = function () { log("YouTube player script FAILED to load"); setStatus(1, "YouTube unavailable here; read on.", false); handOff("script failed"); };
+  document.head.appendChild(api);
 })();
 </script>
-<script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
