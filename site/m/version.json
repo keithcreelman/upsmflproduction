@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.13.9",
-  "label": "Sched: who each NFL team plays, with what each opponent has allowed to the position so far (Points allowed or vs usual) and an Avg for the weeks you pick; opens on QB, shared with Pts Agst."
+  "build": "2026.10.14.3",
+  "label": "Lineup: About now says where the spread comes from (the current Vegas line from nflverse, the same as Stats → Vegas; blank when there's no line)."
 }

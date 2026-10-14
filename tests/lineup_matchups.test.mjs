@@ -14,20 +14,22 @@ let fails = 0;
 const check = async (n, fn) => { try { await fn(); console.log("  ok   " + n); } catch (e) { fails++; console.log("  FAIL " + n + "\n         " + (e && e.message)); } };
 const jsonOut = (status, payload) => new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json" } });
 
-// nflverse games.csv: the header, then rows as needed (only location matters here).
-const CSV_HEAD = "game_id,season,game_type,week,gameday,weekday,gametime,away_team,away_score,home_team,home_score,location";
-const csvRow = (yr, wk, away, home, loc) => [yr + "_" + String(wk).padStart(2, "0") + "_" + away + "_" + home, yr, "REG", wk, "", "", "", away, "", home, "", loc].join(",");
+// nflverse games.csv: the header, then rows as needed (location, and the line where a
+// test gives one; the real file's columns are in fixtures/lineup_spread_2026_wk6.json).
+const CSV_HEAD = "game_id,season,game_type,week,gameday,weekday,gametime,away_team,away_score,home_team,home_score,location,spread_line,total_line";
+const csvRow = (yr, wk, away, home, loc, spread, total) => [yr + "_" + String(wk).padStart(2, "0") + "_" + away + "_" + home, yr, "REG", wk, "", "", "", away, "", home, "", loc,
+  spread == null ? "" : spread, total == null ? "" : total].join(",");
 // MFL as a fixture saw it, per season. Past the league's last week MFL answers with that
 // last week again (what it really does). Open-Meteo answers `weather` (or fails).
 function mflFrom(bySeason, opts) {
   opts = opts || {};
   const calls = [];
   const fetchImpl = async (u, o) => {
-    calls.push({ u, method: (o && o.method) || "GET" });
+    calls.push({ u, method: (o && o.method) || "GET", o });
     const x = new URL(u);
     if (x.hostname === "raw.githubusercontent.com") {
       const csv = opts.csv === undefined ? CSV_HEAD + "\n" : opts.csv;
-      return { ok: csv != null, text: async () => csv };
+      return { ok: csv != null, text: async () => csv, headers: opts.csvHeaders ? new Headers(opts.csvHeaders) : undefined };
     }
     if (x.hostname.indexOf("open-meteo") >= 0) {
       const w = opts.weather === undefined ? null : opts.weather;
@@ -139,7 +141,8 @@ await check("&last=3 = the last three weeks of that window (Wks 3–5), same eng
 await check("fields every reader uses are still there (mobile Lineup + Players picker, desktop Game Day)", () => {
   const j = R.json;
   for (const k of ["matchups", "defRatings", "playerWindow", "horizon", "weather", "weeksAvailable", "priorSeason", "ratingsBasis"]) assert.ok(k in j, k);
-  for (const k of ["opp", "isHome", "kickoff", "spread"]) assert.ok(k in j.matchups.BUF, k);
+  for (const k of ["opp", "isHome", "kickoff", "spread", "total", "implied"]) assert.ok(k in j.matchups.BUF, k);
+  for (const k of ["spreadSource", "spreadState", "spreadReadAt"]) assert.ok(k in j, k);
   for (const k of ["rank", "of", "ratio"]) assert.ok(k in j.defRatings.BUF.QB, k);
   const any = Object.values(j.playerWindow)[0]; for (const k of ["total", "games", "avg"]) assert.ok(k in any, k);
   for (const k of ["wk", "opp", "isHome"]) assert.ok(k in j.horizon.BUF[0], k);
@@ -170,12 +173,10 @@ await check("a game not played yet counts for nothing (BBB and DDD: 1 game each)
   const r = await run("YEAR=2026&W=2", { 2026: MINI }, { nowMs: NOW, rows: miniRows });
   assert.strictEqual(r.json.defRatings.BBB.QB.games, 1); assert.strictEqual(r.json.defRatings.DDD.QB.games, 1); assert.strictEqual(r.json.defRatings.AAA.QB.games, 2);
 });
-await check("the spread is MFL's number for that team; blank, 0, or the two sides not agreeing → null", async () => {
+await check("MFL's own spread field is never used (#1262): BBB carries 3.5 in MFL, nflverse has no line → null", async () => {
   const r = await run("YEAR=2026&W=2", { 2026: MINI }, { nowMs: NOW, rows: miniRows });
-  assert.strictEqual(r.json.matchups.BBB.spread, 3.5); assert.strictEqual(r.json.matchups.DDD.spread, -3.5); assert.strictEqual(r.json.matchups.AAA.spread, null);
-  const odd = { ...MINI, sched: { ...MINI.sched, 2: [{ ...game("AAA", "CCC", pastKo, "0"), team: [{ id: "AAA", isHome: "0", spread: "-7" }, { id: "CCC", isHome: "1", spread: "-5.5" }] }] } };
-  const r2 = await run("YEAR=2026&W=2", { 2026: odd }, { nowMs: NOW, rows: miniRows });
-  assert.strictEqual(r2.json.matchups.AAA.spread, null); assert.strictEqual(r2.json.matchups.CCC.spread, null);
+  assert.strictEqual(r.json.matchups.BBB.spread, null); assert.strictEqual(r.json.matchups.DDD.spread, null); assert.strictEqual(r.json.matchups.AAA.spread, null);
+  assert.strictEqual(r.json.spreadState, "none"); assert.strictEqual(r.json.spreadSource, null);
 });
 await check("horizonWeeks = the weeks read for 'Next', so a bye week shows as a bye", async () => {
   const r = await run("YEAR=2026&W=1", { 2026: MINI }, { nowMs: NOW, rows: miniRows });
@@ -273,13 +274,240 @@ await check("the response cache sits on its own key host with the version, never
     await run("YEAR=2026&W=2&last=1", { 2026: MINI }, { nowMs: NOW, env, over: { "2026:playerScores1": null } });
     const lmu = puts.filter((u) => /upsmfl-lineup\.local/.test(u));
     assert.strictEqual(lmu.length, 1, puts.join("\n"));
-    assert.ok(/\/api\/lineup-matchups\?YEAR=2026&W=2&v=lmu2-/.test(lmu[0]), lmu[0]);
+    assert.ok(/\/api\/lineup-matchups\?YEAR=2026&W=2&v=lmu3-/.test(lmu[0]), lmu[0]);
     assert.ok(env.queries.length > 0 && env.queries.every((q) => /^\s*(WITH|SELECT)\b/i.test(q)));
   } finally { globalThis.caches = saved; }
 });
 await check("bad input is a 400 (YEAR not 4 digits, W missing)", async () => {
   assert.strictEqual((await run("YEAR=26&W=2", { 2026: MINI }, { nowMs: NOW })).status, 400);
   assert.strictEqual((await run("YEAR=2026", { 2026: MINI }, { nowMs: NOW })).status, 400);
+});
+
+console.log("\n5. the line (#1262): nflverse games.csv, the Vegas board's source, never MFL's");
+// Real reads 2026-10-14 01:44 UTC: games.csv rows (every 2026 Wk 6 game, plus a few
+// rows of other weeks) and production /api/vegas?YEAR=2026&W=6 (Stats → Vegas).
+const SPX = JSON.parse(fs.readFileSync(new URL("./fixtures/lineup_spread_2026_wk6.json", import.meta.url), "utf8"));
+const W6 = await run("YEAR=2026&W=6", REAL, { ...realOpts, csv: SPX.csv });
+const mflCode = (t) => F.NFLV_TO_MFL[t] || t;
+const H6 = SPX.csv.slice(0, SPX.csv.indexOf("\n")).split(",");
+const wk6Rows = SPX.csv.trim().split("\n").slice(1).map((l) => l.split(",")).filter((c) => c[0].startsWith("2026_06_"));
+const col = (c, name) => c[H6.indexOf(name)];
+const mflSched6 = () => REAL[2026].sched[6].map((g) => ({ ...g, team: g.team.map((t) => ({ ...t, spread: String(SPX.mflSpreadSeen[t.id]) })) }));
+await check("every Wk 6 team's spread, total and implied points equal Stats → Vegas (production /api/vegas, same minute): 28 teams", () => {
+  assert.strictEqual(W6.status, 200);
+  assert.strictEqual(SPX.vegasTeams.length, 28);
+  for (const v of SPX.vegasTeams) {
+    const m = W6.json.matchups[mflCode(v.team)];
+    assert.ok(m, v.team);
+    assert.deepStrictEqual([m.opp, m.isHome, m.spread, m.total, m.implied], [mflCode(v.opp), v.home, v.spread, v.total, v.implied], v.team);
+  }
+  assert.strictEqual(Object.keys(W6.json.matchups).length, 28);
+  assert.deepStrictEqual([W6.json.spreadSource, W6.json.spreadState], ["nflverse", "ok"]);
+});
+await check("betting sign: favorite negative. nflverse spread_line is + for a HOME favorite, so home = −line, away = +line (LAR −12.5 vs ARI; SEA −2.5 at DEN)", () => {
+  const m = W6.json.matchups;
+  assert.deepStrictEqual([m.LAR.spread, m.ARI.spread, m.LAR.isHome], [-12.5, 12.5, true]);
+  assert.deepStrictEqual([m.SEA.spread, m.DEN.spread, m.DEN.isHome], [-2.5, 2.5, true]);
+  // Independent check from the same rows: in every Wk 6 game the team with the
+  // negative spread is the moneyline favorite, and the two spreads cancel.
+  assert.strictEqual(wk6Rows.length, 14);
+  for (const c of wk6Rows) {
+    const a = mflCode(col(c, "away_team")), h = mflCode(col(c, "home_team"));
+    assert.strictEqual(m[a].spread + m[h].spread, 0, c[0]);
+    const fav = Number(col(c, "away_moneyline")) < Number(col(c, "home_moneyline")) ? a : h;
+    assert.ok(m[fav].spread < 0, c[0] + " favorite " + fav + " " + m[fav].spread);
+  }
+});
+await check("implied points = the Vegas board's formula (home T/2 + S/2, away T/2 − S/2), and a game's two teams add up to its total", () => {
+  for (const c of wk6Rows) {
+    const S = Number(col(c, "spread_line")), T = Number(col(c, "total_line"));
+    const a = W6.json.matchups[mflCode(col(c, "away_team"))], h = W6.json.matchups[mflCode(col(c, "home_team"))];
+    assert.strictEqual(h.implied, Math.round((T / 2 + S / 2) * 10) / 10, c[0]);
+    assert.strictEqual(a.implied, Math.round((T / 2 - S / 2) * 10) / 10, c[0]);
+    assert.ok(Math.abs(a.implied + h.implied - T) <= 0.1 + 1e-9, c[0]);
+  }
+});
+await check("MFL's spread is ignored even when it is there: production read NOS +1.5 from MFL; the line is NO −1.5 (NO is the moneyline favorite)", async () => {
+  assert.strictEqual(SPX.mflSpreadSeen.NOS, 1.5); assert.strictEqual(SPX.mflSpreadSeen.NYG, -1.5);
+  const r = await run("YEAR=2026&W=6", REAL, { ...realOpts, csv: SPX.csv, over: { "2026:nflSchedule6": { nflSchedule: { week: "6", matchup: mflSched6() } } } });
+  assert.strictEqual(r.json.matchups.NOS.spread, -1.5); assert.strictEqual(r.json.matchups.NYG.spread, 1.5);
+  const differ = Object.keys(SPX.mflSpreadSeen).filter((t) => SPX.mflSpreadSeen[t] !== r.json.matchups[t].spread);
+  assert.ok(differ.length >= 2, differ.join(","));
+});
+await check("games.csv unreadable (GitHub down, or not the CSV): no spread for anyone (never MFL's), spreadState 'unavailable', still 200", async () => {
+  for (const csv of [null, "<!DOCTYPE html><title>500</title>"]) {
+    const r = await run("YEAR=2026&W=6", REAL, { ...realOpts, csv, over: { "2026:nflSchedule6": { nflSchedule: { week: "6", matchup: mflSched6() } } } });
+    assert.strictEqual(r.status, 200);
+    assert.ok(Object.values(r.json.matchups).every((m) => m.spread === null && m.total === null && m.implied === null));
+    assert.deepStrictEqual([r.json.spreadSource, r.json.spreadState, r.json.spreadReadAt], [null, "unavailable", null]);
+  }
+});
+await check("no line posted yet (Wk 8: blank spread_line): spread null, spreadState 'none', spreadSource null", async () => {
+  const r = await run("YEAR=2026&W=8", REAL, { ...realOpts, csv: SPX.csv });
+  assert.strictEqual(r.status, 200);
+  assert.ok(Object.values(r.json.matchups).every((m) => m.spread === null && m.implied === null));
+  assert.deepStrictEqual([r.json.spreadSource, r.json.spreadState, r.json.spreadReadAt], [null, "none", null]);
+});
+await check("only some games have a line (2 of Wk 7's 14 in this file): those four teams get theirs, the rest null, spreadState 'partial'", async () => {
+  const r = await run("YEAR=2026&W=7", REAL, { ...realOpts, csv: SPX.csv });
+  const withLine = Object.keys(r.json.matchups).filter((t) => r.json.matchups[t].spread != null).sort();
+  assert.deepStrictEqual(withLine, ["CHI", "NEP", "NOS", "PIT"]);
+  assert.deepStrictEqual(["CHI", "NEP", "PIT", "NOS"].map((t) => r.json.matchups[t].spread), [-1.5, 1.5, -2.5, 2.5]);
+  assert.deepStrictEqual([r.json.spreadSource, r.json.spreadState], ["nflverse", "partial"]);
+});
+await check("only the asked week's rows count: the file's 2025 Wk 6, 2026 Wk 5 and Wk 7 rows don't touch Wk 6", () => {
+  const g = LM.lmuWeekGames(SPX.csv, "2026", 6);
+  assert.strictEqual(Object.keys(g.lines).length, 28);
+  assert.strictEqual(g.lines.PHI.opp, "CAR");   // 2025 Wk 6 had PHI @ NYG
+  assert.deepStrictEqual([...g.neutral].sort(), ["HOU", "JAC"]);   // London
+  assert.deepStrictEqual(LM.lmuWeekGames(SPX.csv, "2026", 9).lines, {});
+});
+await check("a line only lands on the same game: nflverse listing another opponent → no line for that team", () => {
+  const lines = { AAA: { opp: "ZZZ", spread: -3, total: 44, implied: 23.5 }, BBB: { opp: "AAA", spread: 3, total: 44, implied: 20.5 } };
+  const m = LM.lmuMatchups([game("AAA", "BBB", pastKo, "0")], NOW, lines);
+  assert.strictEqual(m.AAA.spread, null); assert.strictEqual(m.BBB.spread, 3);
+});
+await check("a pick'em (spread_line 0) is a real line: 0 for both (never −0), implied = half the total; a missing total keeps the spread, no implied", () => {
+  const csv = CSV_HEAD + "\n" + csvRow(2026, 2, "AAA", "BBB", "Home", 0, 45) + "\n" + csvRow(2026, 2, "CCC", "DDD", "Home", -3) + "\n";
+  const g = LM.lmuWeekGames(csv, 2026, 2);
+  assert.ok(Object.is(g.lines.BBB.spread, 0) && Object.is(g.lines.AAA.spread, 0));
+  assert.deepStrictEqual([g.lines.AAA.implied, g.lines.BBB.implied], [22.5, 22.5]);
+  assert.deepStrictEqual([g.lines.CCC.spread, g.lines.DDD.spread, g.lines.CCC.total, g.lines.CCC.implied], [-3, 3, null, null]);
+});
+await check("one games.csv read (the same URL and 30-minute edge copy as /api/vegas); reads unchanged: 26 for Wk 5 and for Wk 6", () => {
+  const gh = W6.calls.filter((c) => /raw\.githubusercontent\.com/.test(c.u));
+  assert.strictEqual(gh.length, 1);
+  const src = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
+  const at = src.indexOf('path === "/api/vegas"');
+  assert.ok(at > 0 && src.slice(at, at + 1500).indexOf('fetch("' + gh[0].u + '", { cf: { cacheTtl: ' + gh[0].o.cf.cacheTtl + ",") > 0, "same URL and TTL as /api/vegas");
+  assert.strictEqual(gh[0].o.cf.cacheTtl, 1800);
+  assert.strictEqual(R.calls.length, 26); assert.strictEqual(W6.calls.length, 26, W6.calls.map((c) => c.u).join("\n"));
+});
+await check("spreadReadAt = when the file was fetched from GitHub (its Date, less Age for an edge copy), not when the answer was built", async () => {
+  const at = FIX.nowMs - 600000;   // ten minutes before the answer
+  assert.strictEqual(LM.lmuReadAt({ headers: new Headers({ date: new Date(at).toUTCString() }) }, at + 60000), at);
+  assert.strictEqual(LM.lmuReadAt({ headers: new Headers({ date: new Date(at + 600000).toUTCString(), age: "900" }) }, at + 600000), at - 300000);
+  assert.strictEqual(LM.lmuReadAt({}, at), at);
+  // Whole seconds: the same edge copy read 0.3 s apart gives the same time.
+  const hdr = (n) => ({ headers: new Headers({ date: new Date(n).toUTCString(), age: String(Math.floor((n - at) / 1000)) }) });
+  assert.strictEqual(LM.lmuReadAt(hdr(at + 5000), at + 5300), LM.lmuReadAt(hdr(at + 5000), at + 5000));
+  const r = await run("YEAR=2026&W=6", REAL, { ...realOpts, csv: SPX.csv, csvHeaders: { date: new Date(at).toUTCString() } });
+  assert.strictEqual(r.json.spreadReadAt, new Date(at).toISOString());
+  assert.notStrictEqual(r.json.spreadReadAt, r.json.as_of);
+  // A Date in the future (a clock off) is not believed: the answer's own time instead.
+  assert.strictEqual(LM.lmuReadAt({ headers: new Headers({ date: new Date(at + 3600000).toUTCString() }) }, at), at);
+});
+
+console.log("\n6. Week 1 (#1278): last season from the Pts Agst store (#1258) when it's usable, else live as before");
+// The 2025 mini season of section 3, written as a store file with the engine's own
+// encoder (fpaStoreEncode), from the same MFL replies and the same D1 context the live
+// path reads. env.FPA_STORE answers the file's path; anything else is a 404.
+const LID = "74598";
+const replies25 = (S) => {
+  const raw = { league: { league: { endWeek: String(S.endWeek) } }, players: { players: { player: S.players } }, sched: {}, scores: {} };
+  for (let w = 1; w <= S.endWeek; w++) {
+    raw.sched[w] = { nflSchedule: { week: String(w), matchup: S.sched[w] } };
+    raw.scores[w] = { playerScores: { week: String(w), playerScore: S.scores[w] } };
+  }
+  return raw;
+};
+const ctx25 = await F.fpaLoadSeasonContext(async (sql, ...b) => (await dbFrom({}).UPS_MFL_DB.prepare(sql).bind(...b).all()).results, "2025");
+const READ_AT = Date.parse("2026-02-20T15:00:00Z");
+const store25 = F.fpaStoreEncode({ yr: "2025", lid: LID, endWeek: 17, raw: replies25(S25), ctx: ctx25, readAtMs: READ_AT, builtAtMs: READ_AT, snapPids: null });
+function binOf(files) {
+  const b = { reads: 0, fetch: async (req) => {
+    b.reads++;
+    const f = files[new URL(req.url).pathname];
+    if (f instanceof Error) throw f;
+    if (f === undefined) return new Response("not found", { status: 404 });
+    return new Response(typeof f === "string" ? f : JSON.stringify(f), { headers: { "content-type": "application/json" } });
+  } };
+  return b;
+}
+const withStore = (files, rows) => ({ ...dbFrom(rows || {}), FPA_STORE: binOf(files) });
+const P25 = F.fpaStorePath("2025");
+const SEASONS = { 2025: S25, 2026: S26 };
+const envS = withStore({ [P25]: store25 });
+const W1s = await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: envS });
+const same = (a, b) => {
+  for (const k of ["priorSeason", "ratingYear", "ratingsBasis", "weeksUsed", "weeksAvailable", "season", "ratingWindow", "matchups", "horizon", "horizonWeeks", "defRatings", "playerWindow", "attribution", "spreadState"]) assert.deepStrictEqual(a[k], b[k], k);
+};
+await check("stored vs live: identical ranks, Allowed/Usual, players' averages, matchups and labels (2025 from the store vs 2025 from MFL)", () => {
+  assert.strictEqual(W1s.status, 200);
+  assert.deepStrictEqual([W1s.json.ratingsSource, W1.json.ratingsSource], ["stored", "live"]);
+  same(W1s.json, W1.json);
+  assert.ok(Object.keys(W1s.json.defRatings).length === 4 && Object.keys(W1s.json.playerWindow).length >= 4);
+  assert.strictEqual(W1s.json.defRatings.AAA.QB.games, 17);   // MFL's repeated "week 18" still never counted
+  assert.strictEqual(W1s.json.mfl_read_at, new Date(READ_AT).toISOString());   // when MFL was read for the store
+});
+await check("reads drop from 41 to 5: 2026 Wk 1–4 schedules + the venue list; no 2025 MFL read and no D1 query for the context", () => {
+  assert.strictEqual(W1.calls.length, 41);
+  assert.strictEqual(W1s.calls.length, 5, W1s.calls.map((c) => c.u).join("\n"));
+  assert.ok(!W1s.calls.some((c) => /\/2025\//.test(c.u)));
+  assert.deepStrictEqual(W1s.calls.filter((c) => /myfantasyleague/.test(c.u)).map((c) => new URL(c.u).searchParams.get("W")).sort(), ["1", "2", "3", "4"]);
+  assert.strictEqual(envS.queries.length, 0);
+  assert.strictEqual(envS.FPA_STORE.reads, 1);
+});
+await check("an unusable store → live, the same answer and the same 41 reads (missing file, another engine, another league, a week missing, not JSON, the binding throws)", async () => {
+  const bad = {
+    missing: {},
+    engine: { [P25]: { ...store25, engine: "fpa1-old" } },
+    league: { [P25]: { ...store25, lid: "11111" } },
+    weekMissing: { [P25]: { ...store25, scores: { ...store25.scores, 9: [] } } },
+    notJson: { [P25]: "<html>oops</html>" },
+    throws: { [P25]: new Error("asset binding down") },
+  };
+  for (const k in bad) {
+    const env = withStore(bad[k]);
+    const r = await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env });
+    assert.strictEqual(r.status, 200, k);
+    assert.strictEqual(r.json.ratingsSource, "live", k);
+    same(r.json, W1.json);
+    assert.strictEqual(r.calls.length, 41, k);
+  }
+});
+await check("no binding at all (a worker without the store) → live, as before", async () => {
+  const r = await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: dbFrom({}) });
+  assert.strictEqual(r.json.ratingsSource, "live"); same(r.json, W1.json); assert.strictEqual(r.calls.length, 41);
+});
+await check("the file is opened once per worker isolate; an unusable one is retried, never kept", async () => {
+  const env = withStore({ [P25]: store25 });
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env });
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env });
+  assert.strictEqual(env.FPA_STORE.reads, 1);
+  const envBad = withStore({});
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: envBad });
+  await run("YEAR=2026&W=1", SEASONS, { nowMs: N26, env: envBad });
+  assert.strictEqual(envBad.FPA_STORE.reads, 2);
+});
+await check("only Week 1's last-season path uses it: once a 2026 game is final, and a past season's later week, are read live", async () => {
+  const after = Date.parse("2026-09-10T05:00:00Z");
+  const s = { ...S26, sched: { ...S26.sched, 1: [game("AAA", "BBB", K26, "0"), game("CCC", "DDD", String(Number(K26) + 86400 * 3), "3600")] }, scores: { 1: [{ id: "1", score: "18" }, { id: "2", score: "25" }] } };
+  const env = withStore({ [P25]: store25 });
+  const r = await run("YEAR=2026&W=1", { 2025: S25, 2026: s }, { nowMs: after, env });
+  assert.deepStrictEqual([r.json.ratingYear, r.json.ratingsSource], ["2026", "live"]);
+  const r2 = await run("YEAR=2025&W=5", SEASONS, { nowMs: N26, env });
+  assert.deepStrictEqual([r2.json.ratingYear, r2.json.priorSeason, r2.json.ratingsSource], ["2025", false, "live"]);
+  assert.strictEqual(env.FPA_STORE.reads, 0);
+});
+await check("the real 2025 store shipped by #1258: Lineup's Week 1 numbers = the Pts Agst board's stored 2025 (32 teams × 9 positions), with no 2025 MFL read", async () => {
+  const file = JSON.parse(fs.readFileSync(new URL("../worker/fpa_store/" + F.FPA_ENGINE_VERSION + "/2025.json", import.meta.url), "utf8"));
+  const env = withStore({ [P25]: file });
+  const r = await run("YEAR=2026&W=1", { 2026: S26 }, { nowMs: N26, env });   // no 2025 MFL data at all: live would fail
+  assert.strictEqual(r.status, 200); assert.strictEqual(r.json.ratingsSource, "stored"); assert.strictEqual(r.json.ratingsBasis, "2025 season");
+  assert.strictEqual(r.calls.length, 5);
+  F.fpaStoreForget();
+  const board = await (await F.handleFpaRequest(new Request("https://w.test/api/fantasy-points-against?YEAR=2025"), withStore({ [P25]: file }), null, { jsonOut, nowMs: N26, lid: LID, fetchImpl: async () => { throw new Error("no MFL read expected"); } })).json();
+  let n = 0;
+  for (const t in board.teams) for (const g in board.teams[t]) {
+    const c = board.teams[t][g], d = r.json.defRatings[t] && r.json.defRatings[t][g];
+    if (!c.raw.games) continue;
+    assert.ok(d, t + " " + g);
+    assert.deepStrictEqual([d.rank, d.of, d.ratio, d.games, d.perGame, d.usual], [c.adj ? c.adj.rank : null, c.adj ? c.adj.of : null, c.adj ? c.adj.ratio : null, c.raw.games, c.raw.perGame, c.raw.oppNorm], t + " " + g);
+    n++;
+  }
+  assert.strictEqual(n, 32 * 9);
+  assert.strictEqual(r.json.mfl_read_at, new Date(file.readAtMs).toISOString());
 });
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
