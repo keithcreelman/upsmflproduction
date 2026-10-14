@@ -37,6 +37,12 @@ The schedule is a LaunchAgent on Keith's Mac, `com.upsmfl.ups-center-auto`, like
    - Both read one cached input snapshot, so the Playoff Picture and the next-week scenarios are the same simulated seasons.
    - Both refuse to overwrite, so a rerun keeps the files it made.
    - A failure is recorded in the run's reasons and never stops the draft. The issue then shows a blocker box.
+   - **Consistency** (merge gate, 2026-10-14). The odds print only if the forecast holds together:
+     - every franchise appears once, and every value is a probability;
+     - bye ≤ division ≤ playoffs, and title ≤ playoffs (byes go only to division winners, and every division winner is in the field);
+     - the playoff odds total the six-team field, byes total two, titles total one, and each division's title odds total one;
+     - the Week N+1 scenario cells sum to the forecast's playoff, division and bye counts for every team, since they are the same simulated seasons.
+     - Otherwise an `odds:inconsistent` box replaces the table. Its text names the teams and has no numbers in it.
 4. **Inputs:** league chat (`ingest_discord_chat.py --incremental`, which only reads Discord), then xFP (`wire_xfp.py fetch`).
 5. **Build and check:**
    - `wire.py build --pack`;
@@ -86,7 +92,7 @@ It is the real show markup (`.uc`), the same as Weeks 1–4:
 | Plays of the Week | play cards; NFL.com link (page title checked) or NFL-channel YouTube (oEmbed) | no verified link |
 | Above and below | bust/bargain lists, each row with its **projection capture time and kickoff** | no pregame evidence, or a row that cannot be matched to a pregame capture (postgame numbers are never used) |
 | League landscape | standings in the **site's order** (§F.1); the prior-preview audit | the site's order differs from §F.1; no preview to grade; a head-to-head tiebreak needed |
-| Playoff Picture | the job's `season_sim_<s>_live_wkNN.json`: playoffs, bye, division and title odds; division and title rounded to keep each group at 100.0% | **odds missing or stale** (not through this week, or run before the week went final): a blocker box replaces the table; next-week preview missing or stale: its own box |
+| Playoff Picture | the job's `season_sim_<s>_live_wkNN.json`: playoffs, bye, division and title odds; division and title rounded to keep each group at 100.0% | **odds missing, stale or internally inconsistent** (not through this week, run before the week went final, or failing the consistency checks above): a blocker box replaces the table; next-week preview missing or stale: its own box |
 | Coffee Shop | post counts; the number of usable chat lines | **always**: Kenny's jokes are an editor's job (owner dossier). The verbatim, linked candidates appear only in the **local** review copy, because raw chat stays off the public repo. Family, health and similar lines are withheld from both. |
 | Elias changes | MFL Official Statistics Changes vs the first numbers | Elias not posted yet |
 
@@ -105,8 +111,8 @@ Every printed value is a **claim** with a source. A claim kind with no independe
 | post counts | recounted |
 | graded preview rows | the finals and "called it" result, against MFL |
 | pack facts | equal to the pack |
-| odds | the job's forecast file. Playoffs and bye to one decimal; division and title under the same largest-remainder rounding (`season_sim.display_percentages`). A draft with **neither odds nor an odds blocker fails**, so the Playoff Picture cannot silently disappear. |
-| **every number on the page** | must be the printed form of a registered claim (a stray number fails) |
+| odds | the job's forecast file. Playoffs and bye to one decimal; division and title under the same largest-remainder rounding (`season_sim.display_percentages`). A draft with **neither odds nor an odds blocker fails**, so the Playoff Picture cannot silently disappear. Printed odds are also re-checked for consistency by separate code that works in whole simulated seasons (`forecast_inconsistent`). |
+| **every number on the page** | must be the printed form of a registered claim (a stray number fails), and **every claim must name its source** |
 
 A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft with editor items is pushed but marked not publishable.
 
@@ -116,7 +122,20 @@ A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft
 - `ups_center_pr` refuses `gh pr merge`, `ready` and `close`.
 - The pipeline has no Discord write. Tests assert both.
 - Publication and the announcement stay with Keith's review of the specific issue, through the existing `preflight --stage publish|announce` steps.
+- `wire.py verify`, which CI runs on every Wire PR and on main, fails a `status: live` page that still has an EDITOR REVIEW box. A blocker box is therefore a hard stop, not only a warning.
+
+## Replay (no publish)
+
+To re-run a finished week's build and check the job without touching anything:
+
+    python3 pipelines/etl/wire/ups_center_auto.py replay --season 2026 --week 5 \
+        --workdir <throwaway checkout of the code under test> --out <folder> [--inputs <recorded forecast inputs>]
+
+- **What it runs:** the D1 == MFL check, the forecast (from scratch, into `--out`), the pack build, the sources snapshot, render and validate.
+- **What it never does:** stop at the duplicate check, fetch or reset git, commit, push, open a PR or GitHub issue, notify, ingest chat, write the job's state folder, or write the site.
+- **`--inputs`:** replays the forecast on recorded MFL responses with `season_sim --reuse-cache`, which refetches nothing however old the files are. Any input the recording lacked is fetched live and listed under `inputsFetchedLive` in `replay.json`.
+- **Week 5, 2026-10-14:** replayed on the inputs the published forecast used. Every playoff, bye, division and title probability, and all 428 Week 6 scenario cells, came out identical to the published files. The only differences were the run timestamp and the order of one unprinted diagnostic list. The 112-check Week 5 verifier passes against the replayed files.
 
 ## Tests
 
-`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (78 checks), with synthetic chat. The Builder A checks use a synthetic forecast relabelled from the real Week 5 file. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.
+`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (94 checks), with synthetic chat. The Builder A checks use a synthetic forecast relabelled from the real Week 5 files (odds and scenario cells). They include five kinds of inconsistent forecast, the replay's no-publish guarantees and the live-page rule in `verify`. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.

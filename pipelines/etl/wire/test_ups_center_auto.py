@@ -583,6 +583,11 @@ finally:
     SS.LIVE_SEASON, SS.PINNED_CACHE, SS.urllib.request.urlopen = saved_pin
 check("season_sim --reuse-cache reads a recorded input however old, with no network (a live run refetches after 3 h)",
       got == {"recorded": True})
+import wire as W                             # noqa: E402
+gapped = r0["html"]
+check("wire.py verify (CI on every PR and on main) refuses a LIVE page that still carries an EDITOR REVIEW box",
+      "odds:missing" in W.live_editor_items(gapped.replace("status: draft", "status: live", 1))
+      and W.live_editor_items(gapped) == [])
 src_auto = open(os.path.join(HERE, "ups_center_auto.py"), encoding="utf-8").read()
 rw = src_auto[src_auto.index("def replay_week"):src_auto.index("def crashed")]
 check("the replay code path has no publish, announce, PR or alert call in it",

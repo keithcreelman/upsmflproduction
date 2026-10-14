@@ -467,6 +467,7 @@ class Issue:
             members = sorted(divs[d])
             if abs(sum(teams[f]["div"] for f in members) - 1) > tol(len(members)):
                 out.append("The division title odds for %s do not add up to the whole." % ", ".join(name(f) for f in members))
+                continue
             shown = season_sim.display_percentages({f: teams[f]["div"] for f in members})
             if abs(sum(float(x) for x in shown.values()) - 100) > 1e-9:
                 out.append("The printed division title odds for %s do not total the whole." % ", ".join(name(f) for f in members))
