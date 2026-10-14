@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UPS Center Clip Check</title>
+<!--
+  Test page only (Keith 2026-10-14). It is not part of any article and is not
+  deployed (docs/ is not copied to Pages). It embeds two YouTube videos with
+  YouTube's own visible player, by video ID; no audio or video is downloaded,
+  extracted, edited or stored. Open it on an iPhone to:
+    1. hear both excerpts and set their exact start and stop;
+    2. see whether a tap on Start can start the opening player;
+    3. see whether the Boomer player can start with no second tap;
+    4. see the same player inside a frame sandboxed exactly like the MFL loader's.
+-->
+<style>
+:root {
+  --bg: #F3ECE3; --surface: #FFFCF8; --ink: #211A1D; --mute: #5B4E53; --line: #DCCDBC;
+  --accent: #5F3F7A; --on-accent: #FFFFFF; --good: #2F6B3A; --bad: #9A2B1F;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #17131C; --surface: #221B29; --ink: #EFE8F3; --mute: #B6A9BD; --line: #3A3044;
+  --accent: #C7A6E6; --on-accent: #1A1320; --good: #8FD19A; --bad: #F2998A; color-scheme: dark } }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 0 16px; }
+.wrap { max-width: 640px; margin: 0 auto; padding-block: 20px 120px; }
+h1 { font-size: 1.6rem; margin: .2rem 0 .3rem; }
+h2 { font-size: 1.15rem; margin: 1.8rem 0 .5rem; padding-top: .4rem; border-top: 2px solid var(--accent); }
+p { margin: .4rem 0; }
+.fine { color: var(--mute); font-size: .86rem; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: .7rem 0; }
+.player { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+.player iframe, .player > div { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+button { font: 600 1rem/1.1 inherit; min-height: 44px; padding: .55rem 1rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: .5rem 0; }
+.status { font-weight: 600; }
+.status.good { color: var(--good); } .status.bad { color: var(--bad); }
+.tune { display: grid; grid-template-columns: auto 1fr auto auto; gap: 6px 8px; align-items: center; }
+.tune output { font-variant-numeric: tabular-nums; font-weight: 700; }
+.tune button { min-height: 36px; padding: .3rem .7rem; }
+.desk { border-left: 4px solid var(--accent); padding: 8px 12px; background: var(--surface); border-radius: 6px; margin: .5rem 0; }
+.desk b { display: block; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.spacer { height: 70vh; display: flex; align-items: flex-end; color: var(--mute); font-size: .9rem; }
+#dock { position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
+#log { white-space: pre-wrap; font: 12px/1.45 ui-monospace, Menlo, monospace; max-height: 260px; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.mfl { width: 100%; aspect-ratio: 16 / 9; border: 2px dashed var(--line); border-radius: 8px; background: #000; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>UPS Center clip check</h1>
+  <p class="fine">A test page, not the issue. Both clips use YouTube&rsquo;s own player; nothing is downloaded or stored. Turn your ringer on. Your results collect in the log at the bottom; tap Copy results and paste them back to me.</p>
+
+  <h2>1. The opening: SportsCenter theme</h2>
+  <p>Tap Start. The opening excerpt should play. When it ends, the page moves to Stuart and Rich.</p>
+  <div class="row"><button class="primary" id="start" type="button">&#9654; Start UPS Center</button><span class="status" id="s1">Not started</span></div>
+  <div class="card">
+    <div class="player"><div id="p1"></div></div>
+    <div class="tune" style="margin-top:8px">
+      <span>Start</span><output id="o1s"></output><button type="button" data-n="1s-">&minus;0.5s</button><button type="button" data-n="1s+">+0.5s</button>
+      <span>Stop</span><output id="o1e"></output><button type="button" data-n="1e-">&minus;0.5s</button><button type="button" data-n="1e+">+0.5s</button>
+    </div>
+    <div class="row"><button type="button" id="replay1">Replay this excerpt</button></div>
+    <p class="fine">Video: &ldquo;SportsCenter Opening Theme (Mid 1990s &ndash; 2000s)&rdquo;, uploaded by Sir Mix-A-Lot Rare Music (a fan channel, not ESPN), 0:59 long. My cut ends as the ESPN SportsCenter logo resolves, before the anchors appear at about 0:46. I picked it by picture only; please judge it by ear.</p>
+  </div>
+  <div id="desk" class="card" hidden>
+    <div class="desk"><b>Stuart</b>Five weeks down, and this league has started drawing lines&hellip;</div>
+    <div class="desk"><b>Rich</b>That last part matters most, because it never shows up in the standings&hellip;</div>
+    <p class="fine">This is where the issue would hand off to the opening dialogue.</p>
+  </div>
+
+  <div class="spacer">Scroll down to Boomer&rsquo;s section &darr;</div>
+
+  <h2 id="boomerH">2. Boomer: Fastest Three Minutes entrance</h2>
+  <p>When this player comes on screen it tries to start <b>once</b>, with no new tap. Scroll back up and down again: it should not restart.</p>
+  <div class="card">
+    <div class="player" id="boomerBox"><div id="p2"></div></div>
+    <div class="row"><span class="status" id="s2">Waiting for you to reach it</span></div>
+    <div class="tune">
+      <span>Start</span><output id="o2s"></output><button type="button" data-n="2s-">&minus;0.5s</button><button type="button" data-n="2s+">+0.5s</button>
+      <span>Stop</span><output id="o2e"></output><button type="button" data-n="2e-">&minus;0.5s</button><button type="button" data-n="2e+">+0.5s</button>
+    </div>
+    <div class="row"><button type="button" id="replay2">Replay this excerpt</button></div>
+    <p class="fine">Video: &ldquo;Oct 26 2003 Chris Berman Fastest 3 minutes halftime Show ESPN NFL&rdquo;, uploaded by Pro Football Daily (a fan channel), 4:08 long. My cut runs from Berman&rsquo;s toss to the &ldquo;Fastest 3 Minutes&rdquo; graphic through the first matchup card. It stops before NFL game footage starts at about 0:23.</p>
+  </div>
+
+  <h2>3. The same player inside an MFL-style frame</h2>
+  <p>This frame uses exactly the sandbox MFL&rsquo;s UPS Wire loader puts around every article (scripts and pop-ups allowed, no same-origin access). In Chrome and WebKit on the Mac the player inside stays black and does not respond to a tap.</p>
+  <iframe class="mfl" id="mfl" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" title="MFL-style sandboxed frame"></iframe>
+
+  <h2>Your results</h2>
+  <div class="row"><button type="button" id="copy">Copy results</button><span class="fine" id="copied"></span></div>
+  <div id="log"></div>
+</div>
+
+<div id="dock"><button type="button" id="stop">&#9632; Stop sound</button></div>
+
+<script>
+(function () {
+  "use strict";
+  var CLIPS = {
+    1: { id: "LBkoVMYrzho", start: 0, end: 45 },
+    2: { id: "_qqFKcRcyJA", start: 14, end: 23 }
+  };
+  var t0 = Date.now(), lines = [];
+  function log(m) {
+    lines.push(((Date.now() - t0) / 1000).toFixed(1) + "s  " + m);
+    document.getElementById("log").textContent = lines.join("\n");
+  }
+  log("device: " + navigator.userAgent);
+  function show(n) {
+    document.getElementById("o" + n + "s").textContent = CLIPS[n].start.toFixed(1) + "s";
+    document.getElementById("o" + n + "e").textContent = CLIPS[n].end.toFixed(1) + "s";
+  }
+  show(1); show(2);
+  [].forEach.call(document.querySelectorAll("[data-n]"), function (b) {
+    b.addEventListener("click", function () {
+      var k = b.getAttribute("data-n"), n = +k[0], which = k[1] === "s" ? "start" : "end";
+      CLIPS[n][which] = Math.max(0, CLIPS[n][which] + (k[2] === "+" ? 0.5 : -0.5));
+      show(n); log("clip " + n + " " + which + " -> " + CLIPS[n][which] + "s");
+    });
+  });
+  function setStatus(n, text, good) {
+    var el = document.getElementById("s" + n);
+    el.textContent = text; el.className = "status " + (good === true ? "good" : good === false ? "bad" : "");
+  }
+
+  var P = {}, ready = {}, played1 = false, started2 = false, opened = false, handed = false;
+  var NAMES = { "-1": "unstarted", 0: "ended", 1: "playing", 2: "paused", 3: "buffering", 5: "cued" };
+  function cue(n) {
+    P[n].cueVideoById({ videoId: CLIPS[n].id, startSeconds: CLIPS[n].start, endSeconds: CLIPS[n].end });
+  }
+  function play(n, why) {
+    if (!ready[n]) { log("clip " + n + ": player not ready (" + why + ")"); return; }
+    P[n].loadVideoById({ videoId: CLIPS[n].id, startSeconds: CLIPS[n].start, endSeconds: CLIPS[n].end });
+    log("clip " + n + ": play requested (" + why + ")");
+    setTimeout(function () {
+      var s = P[n].getPlayerState();
+      if (s === 1 || s === 3) { setStatus(n, "Playing", true); }
+      else { setStatus(n, "Did not start by itself. Tap ▶ on the video, or read on.", false); log("clip " + n + ": BLOCKED (state " + NAMES[s] + ")"); if (n === 1) handOff("blocked"); }
+    }, 2500);
+  }
+  function handOff(why) {
+    if (handed) return;
+    handed = true;
+    var d = document.getElementById("desk");
+    d.hidden = false;
+    d.scrollIntoView({ behavior: "smooth", block: "start" });
+    log("opening -> Stuart and Rich (" + why + ")");
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    log("YouTube player script loaded");
+    [1, 2].forEach(function (n) {
+      P[n] = new YT.Player("p" + n, {
+        videoId: CLIPS[n].id,
+        playerVars: { start: CLIPS[n].start, end: CLIPS[n].end, playsinline: 1, rel: 0, iv_load_policy: 3, controls: 1 },
+        events: {
+          onReady: function () { ready[n] = true; log("clip " + n + ": player ready"); },
+          onError: function (e) { log("clip " + n + ": ERROR " + e.data); setStatus(n, "YouTube error " + e.data, false); if (n === 1) handOff("error"); },
+          onStateChange: function (e) {
+            log("clip " + n + ": " + (NAMES[e.data] || e.data) + " at " + (P[n].getCurrentTime ? P[n].getCurrentTime().toFixed(1) : "?") + "s");
+            if (e.data === 1) setStatus(n, "Playing", true);
+            if (n === 1 && e.data === 1) played1 = true;
+            if (n === 1 && e.data === 0 && played1) { setStatus(1, "Finished", true); handOff("excerpt ended"); }
+          }
+        }
+      });
+    });
+  };
+
+  document.getElementById("start").addEventListener("click", function () {
+    opened = true;
+    log("Start tapped");
+    play(1, "Start tap");
+  });
+  document.getElementById("replay1").addEventListener("click", function () { handed = false; play(1, "replay tap"); });
+  document.getElementById("replay2").addEventListener("click", function () { play(2, "replay tap"); });
+  document.getElementById("stop").addEventListener("click", function () {
+    [1, 2].forEach(function (n) { if (ready[n]) P[n].pauseVideo(); });
+    log("Stop sound tapped: both players paused");
+  });
+
+  // Boomer: one automatic attempt the first time the player is mostly on screen.
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (ents) {
+      ents.forEach(function (en) {
+        if (!en.isIntersecting || en.intersectionRatio < 0.6) return;
+        if (started2) { log("clip 2: back on screen, not replayed"); return; }
+        started2 = true;
+        log("clip 2: reached" + (opened ? " (after Start)" : " (Start never tapped)"));
+        play(2, "reached, no new tap");
+      });
+    }, { threshold: [0, 0.6, 1] }).observe(document.getElementById("boomerBox"));
+  }
+
+  // MFL-style frame: the plain YouTube embed inside the loader's sandbox.
+  var emb = '<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" ' +
+    'src="https://www.youtube-nocookie.com/embed/' + CLIPS[2].id + '?start=' + CLIPS[2].start + '&end=' + CLIPS[2].end + '&playsinline=1&rel=0" ' +
+    'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen title="YouTube"></iframe>';
+  document.getElementById("mfl").srcdoc = '<!doctype html><html><body style="margin:0;background:#000">' + emb + '</body></html>';
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var txt = "clip 1 " + CLIPS[1].start + "-" + CLIPS[1].end + "s, clip 2 " + CLIPS[2].start + "-" + CLIPS[2].end + "s\n" + lines.join("\n");
+    var done = function () { document.getElementById("copied").textContent = "Copied"; };
+    try {
+      navigator.clipboard.writeText(txt).then(done, function () { window.getSelection().selectAllChildren(document.getElementById("log")); });
+    } catch (e) { window.getSelection().selectAllChildren(document.getElementById("log")); }
+  });
+})();
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
