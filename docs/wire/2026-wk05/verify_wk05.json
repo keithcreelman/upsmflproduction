@@ -525,6 +525,21 @@
   "detail": ""
  },
  {
+  "check": "since 2017: 4 of 24 teams ranked 10th-12th in All-Play after Week 5 made the playoffs",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Bear Dunn 2017: division winner, 6th seed, finished 3rd (bracket API)",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "1999-2025: 39 games after a 20-target game, 9.3 targets on average",
+  "ok": true,
+  "detail": ""
+ },
+ {
   "check": "pipelines/etl/wire/season_sim.py has no INSERT/UPDATE/DELETE/POST",
   "ok": true,
   "detail": ""

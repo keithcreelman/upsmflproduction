@@ -307,7 +307,7 @@ heat = (desk(
      % (n("em.bear", 89.3), n("em.ppw12", em["ppw12"]), ordn("em.rk3", em["rk3"]), n("em.ppw3", em["ppw3"]), rec("em.rec2", em["W"], em["L"]))),
     ("Stuart", "And Monday night showed how thin that cushion has become. Martel&rsquo;s HammerTime went into the night %s points ahead of Chris Klingenberg&rsquo;s Hawks, with nobody "
      "left to play. Klingenberg still had three: Matthew Stafford, Kyren Williams and Dalton Kincaid." % n("mnf.lead", MNF_LEAD)),
-    ("Kenny", "With the Rams and Bills tied in overtime at 11:31, Eric filed a request: %s. A reasonable ask. He needed one bad throw." % Q_ERIC),
+    ("Kenny", "With the Rams and Bills tied in overtime at 11:31 PM, Eric filed a request: %s. A reasonable ask. He needed one bad throw." % Q_ERIC),
     ("Stuart", "Stafford never threw it. As cool as the other side of the pillow: %s of %s, %s yards, %s touchdowns, no turnovers, %s points. Kyren Williams added %s, including the "
      "touchdown that forced overtime, and the Hawks won by %s, the closest game of the week." % (
         n("mnf.cmp", STAF["completions"], "%d"), n("mnf.att", STAF["attempts"], "%d"), n("mnf.yds", STAF["passing_yards"], "%d"), n("mnf.td", STAF["passing_tds"], "%d"),
@@ -490,10 +490,10 @@ targets = (h3("4. Twenty-four targets") + desk(
      "This season has three 20-target games, and all three belong to UPS rosters: Nacua&rsquo;s, plus CeeDee Lamb&rsquo;s %s in Week 4 and Malik Nabers&rsquo; %s in Week 5, both for Eric Mannila."
      % (n("p.marsh", 28, "%d"), n("p.lamb", 21, "%d"), n("p.nab", 20, "%d"))),
     ("Stuart", "So does Keith get that again on Sunday?"),
-    ("Rich", "Not that much. In the next game after a 20-target game, players averaged %s targets (%s cases). Lamb followed his %s with %s targets and %s points. Nacua missed Weeks 2 and 3 with "
+    ("Rich", "Not that much. From 1999 through 2025, in the %s games that followed a 20-target game, players averaged %s targets. Lamb followed his %s with %s targets and %s points. Nacua missed Weeks 2 and 3 with "
      "a hip injury and has scored %s and %s since, so the role is real even if the volume falls back. And Keith needs it: he plays Bear, Klingenberg and Mannila, and his lead in the division rests on his record. "
      "Sweep them and he is at %s; lose all three and he is at %s." % (
-        n("p.next", tg["next_mean"]), n("p.n", tg["next_n"], "%d"), n("p.lamb2", 21, "%d"), n("p.lamb_t", 5, "%d"), n("p.lamb_u", U["CeeDee Lamb"]["weeks"]["5"]["ups"]),
+        n("p.n", tg["next_n"], "%d"), n("p.next", tg["next_mean"]), n("p.lamb2", 21, "%d"), n("p.lamb_t", 5, "%d"), n("p.lamb_u", U["CeeDee Lamb"]["weeks"]["5"]["ups"]),
         n("p.u4", pk["4"]["ups"]), n("p.u5", pk["5"]["ups"]), pct("sc.kc30", KC30["po"]), pct("sc.kc03", KC03["po"]))),
 ))
 players = desk(("Stuart", "Four stories are shaping this race, and the first one is a toe in Pittsburgh."), mb=True) + pit + cutting + bear + targets
@@ -581,6 +581,11 @@ bb_inner = inner(trim_lists(bb_sec))
 coffee_auto = inner(auto_sec("coffee"))
 post_table = re.search(r'<div class="tablebox">[\s\S]*</p>$', coffee_auto.strip()).group(0); post_table = compact(post_table)
 elias_inner = inner(auto_sec("elias"))
+assert "Elias has not posted official Week 5 changes yet" in elias_inner          # still pending at build time
+# Reader-facing (Keith's final review, 2026-10-14): the issue may publish before Elias (standing rule:
+# Elias is post-publication); scores are never called Elias-final until the corrections are applied.
+elias_inner = box("Not yet Elias-final.", "Elias has not posted the official Week 5 stat changes yet. When it does, every change is added here, "
+                  "and the league hears about it if any All-Play record moves.")
 
 # ================================================================== 7. WEEK 5 IN BRIEF (Boomer as connected highlights)
 _pwk = lambda nm, wk: next(r for r in pw if r["name"] == nm and r["week"] == wk)
@@ -645,7 +650,7 @@ tail = re.sub(r'<div class="wire-method">[\s\S]*?</details></div>', (
     '<div><b>Routes.</b> Route participation for 2026 is not available in our sources yet, so role changes are measured by snaps, carries and targets.</div>'
     '<div><b>Forecast.</b> Division titles follow MFL&rsquo;s tiebreak order (record, division record, head-to-head, points, All-Play); every simulated season crowns exactly one winner per division. '
     'Division and title odds are rounded so each group totals exactly 100.0%.</div>'
-    '<div><b>Status.</b> Draft for review. Not published or announced.</div></div></details></div>'), tail)
+    '<div><b>Status.</b> Scores are MFL&rsquo;s Week 5 results as of Tue Oct 13 and are not yet Elias-final; official changes will be added to the Elias segment when posted.</div></div></details></div>'), tail)
 doc = head + body + "\n" + tail
 
 # ================================================================== numeric audit
@@ -679,6 +684,51 @@ for part in (plays_inner, bb_inner, elias_inner):
 if bad:
     print("UNREGISTERED NUMBERS:", sorted(set(bad))[:60]); sys.exit(1)
 open(ART, "w", encoding="utf-8").write(doc)
-json.dump([dict(key=k, shown=s, source=src) for k, s, src in CLAIMS], open(os.path.join(DIR, "claims_wk05.json"), "w"), indent=1)
+# Every printed number names its source (Keith's final review, 2026-10-14). The
+# numeric audit above already guarantees each number is registered; this labels
+# the registrations that relied on the n() default, by key family, and fails
+# the build if any family is unmapped.
+SOURCE_BY_FAMILY = {
+    "L": "MFL weeklyResults (head-to-head losses)",
+    "lost": "MFL weeklyResults (best possible vs started lineup)",
+    "bench": "MFL weeklyResults (best possible minus started points)",
+    "luck": "MFL weeklyResults (wins minus weekly all-play expectation)",
+    "kl": "MFL weeklyResults (wins minus weekly all-play expectation)",
+    "cut": "MFL weeklyResults", "em": "MFL weeklyResults", "bear": "MFL weeklyResults",
+    "henry": "MFL weeklyResults", "hu5": "MFL weeklyResults", "wa5": "MFL weeklyResults",
+    "k": "MFL weeklyResults", "r5": "MFL weeklyResults",
+    "man": "MFL weeklyResults (weekly all-play)",
+    "bl5": "MFL weeklyResults (best possible lineups)",
+    "ger": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)",
+    "b": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules",
+    "bm": "MFL weeklyResults; nflverse weekly stats 2026",
+    "bq": "MFL weeklyResults; replacement level from MFL rostered players",
+    "c": "MFL weeklyResults; edge over replacement from MFL rostered players",
+    "ww": "MFL weeklyResults; edge over replacement from MFL rostered players",
+    "gs": "MFL weeklyResults; edge over replacement from MFL rostered players",
+    "d": "nflverse play-by-play 2026 (PIT); MFL weeklyResults",
+    "t": "nflverse play-by-play 2026 (PIT); MFL weeklyResults",
+    "w": "nflverse play-by-play 2026 (PIT); MFL weeklyResults",
+    "g": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules",
+    "j": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules",
+    "rg": "nflverse box scores 1999-2025 rescored with 2026 UPS rules",
+    "p": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults",
+    "mnf": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats",
+    "fix": "season_sim: pre-fix vs post-fix forecast on identical inputs",
+    "o": "forecast, largest-remainder",
+    "sc": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)",
+    "le3": "D1 history 2021-25 (records after Week 5) + MFL playoff brackets",
+    "b3": "D1 history 2017-25 (all-play after Week 5) + MFL playoff brackets",
+    "pr": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets",
+    "s": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets",
+}
+SOURCE_BY_KEY = {"sc.minn": "builder rule: minimum 100 simulated seasons", "sc.minn2": "builder rule: minimum 100 simulated seasons"}
+LABELLED = []
+for k, s, src in CLAIMS:
+    if not src:
+        src = SOURCE_BY_KEY.get(k) or SOURCE_BY_FAMILY.get(k.split(".")[0])
+    assert src, "claim %s has no source" % k
+    LABELLED.append((k, s, src))
+json.dump([dict(key=k, shown=s, source=src) for k, s, src in LABELLED], open(os.path.join(DIR, "claims_wk05.json"), "w"), indent=1)
 words = {sid: len(vis(b).split()) for sid, t, sub, b in S}
 print("written", ART, len(doc), "bytes; claims", len(CLAIMS), "; words by segment", words, "total", sum(words.values()))

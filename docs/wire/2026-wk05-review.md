@@ -425,3 +425,80 @@ Every Week 6 outlook now names all three opponents and uses record plus score:
 - Boomer's four lines are connected highlight stories.
 - Kenny only reads receipts and closes with understated lines.
 - No host speaks another's catchphrase.
+
+## 10. Final editorial review (Keith, 2026-10-14)
+
+### Sound
+
+Keith's ruling: Week 5 stays silent.
+- He wanted only the two exact clips: no generic or generated music, no separate YouTube play buttons, no ads, and no change to the MFL security sandbox.
+- No embedding, downloading, extracting or rehosting of the clips.
+- Draft #1295 is closed, with its findings in `docs/wire/broadcast-mode.md` on its branch.
+- The future enhancement, which needs licensed local files for the two transitions, is #1297.
+
+### Edits in the final pass
+- **Kenny's Monday-night line** now says "11:31 PM".
+- **The 20-target history** now names its span: "From 1999 through 2025, in the 39 games that followed a 20-target game, players averaged 9.3 targets." It covers only games before this season; Lamb's 2026 follow-up is cited separately.
+- **The Elias segment and the method panel are now reader-facing.** They say "Not yet Elias-final", replacing the draft-only editor box, since Elias is a post-publication update under the standing rule.
+
+### Sourcing audit
+- **Every printed number is labeled.** All 673 numbers are in `claims_wk05.json`, each with a named source. The build now fails if any claim lacks one; 363 earlier registrations had relied on the default and are now labeled by key family.
+- **Probabilities:**
+  - forecast numbers trace to `season_sim_2026_live_wk05.json`;
+  - scenario rates trace to `week_preview_2026_wk06.json`, the same 10,000 seasons;
+  - division and title odds use the documented largest-remainder rounding.
+- **Independent verifier: 111 of 111 pass.** Every playoff, division, scenario and Week 6 rate is recomputed independently. Three history checks were added in this pass:
+  - since 2017, 4 of the 24 teams ranked 10th–12th in All-Play made the playoffs;
+  - Bear 2017 was a division winner, the 6th seed, and finished 3rd;
+  - 1999–2025: 39 follow-up games averaged 9.3 targets.
+- **Not independently recomputed, but sourced and disclosed:** the claims that need box scores rescored with 2026 UPS rules. The method panel discloses the scorer's validation against MFL (81% exact, 91% within a point). These claims are:
+  - the running back and receiver five-game history (Holmes 176.9, McCaffrey 166.0, Welker 170.7);
+  - the retention rates (about 80% and 74%);
+  - Bowers' run ranking against 2,685 tight-end seasons.
+
+### Division-title probabilities
+Raw simulated totals are exactly 1.0 in every division, and the displayed values total exactly 100.0%:
+
+| Division | Displayed values |
+|---|---|
+| DOG POUND 4 LIFE | 95.7 / 2.9 / 1.4 |
+| LEGION OF BOOM | 84.5 / 13.9 / 1.6 |
+| Maddie Mondays | 82.2 / 16.2 / 1.6 |
+| Outlast PG Time | 51.5 / 48.3 / 0.2 |
+
+`test_season_sim_divisions.py` passes all 20 checks.
+
+### Bowers, Weeks 3–5
+Re-fetched live from MFL `weeklyResults` on 2026-10-14 (franchise 0009, player 16641):
+
+| Week | Games | Bowers | Bear's results |
+|---|---|---|---|
+| 3 | 3 | Nonstarter (bench) with 36.0 in all three; LaPorta started at TE (9.1), Gesicki also on the bench (14.4) | Won all three |
+| 4 | 2 | Started both, 24.6 | |
+| 5 | 3 | Started all three, 30.0 | |
+
+### Publication checklist
+1. **Keith's explicit approval** of this final issue. Nothing merges or publishes before it.
+2. **Before publishing, check Dowdle's Wednesday–Friday practice reports.** Change the Pittsburgh lines only if his status materially changes (ruled out or IR). "Our forecast already counts Dowdle as available" stays true otherwise.
+3. **Deadline: Thursday about 12:15 PM ET.** That is 8 hours before Week 6's first kickoff (Seattle at Denver, 8:15 PM ET), when `ups_center_due` starts flagging the issue as overdue; the 12:30 PM alert is expected if the issue is not live. If publication slips past the first kickoff, refresh the Week 6 forecast and preview, rebuild, and re-verify before going live.
+4. **Pre-publish runs:**
+   - `ups_center_due.py preflight --season 2026 --week 5 --candidate`;
+   - the builder;
+   - `verify_wk05.py` (111);
+   - `wire.py restyle`, `index` and `verify`;
+   - `check_inline_js.mjs`;
+   - both UPS Center suites and the division tests;
+   - the layout check at 320 and 375 px.
+5. **Publish commit (wire-meta only):** `status: live`, `publishedAt: <UTC now>`, `featured: yes`; then `wire.py index` and `verify`.
+6. **Squash-merge #1244 with Keith's go.** Pages deploys automatically.
+7. **After the merge:**
+   - confirm the live page and the live index show Week 5 as live;
+   - run `preflight --stage announce`, which must say live and not yet announced.
+8. **Announcement:** a separate go from Keith, plus the wording.
+   - One post in #league-announcements, with the card, the "Challenge this" button and a thread.
+   - Record the `ups_wire_threads` row, and confirm the duplicate guard blocks a second post.
+9. **Elias** (post-publication, pre-authorized):
+   - when the Week 5 changes post, run `elias.py check`;
+   - apply any moved score to the live article and merge;
+   - message the league only if an All-Play record changes.
+10. **Untouched:** #1189, the MFL loader, league data, and any production write beyond the publish merge.

@@ -257,6 +257,25 @@ for hw, lo, hi, nm in ((3, 1, 3, "top three"), (3, 4, 9, "middle six"), (2, 1, 3
     ok("Josh grid %d-%d %s: %s (%d seasons)" % (hw, 3 - hw, nm, P(r_), n_), n_ >= 100 and ("%d–%d %s" % (hw, 3 - hw, nm)) in jt and P(r_) in jt.split("%d–%d %s" % (hw, 3 - hw, nm))[1][:80])
 r_, n_ = rate(J, 1, 1, 3)
 ok("Josh grid 1-2 top three is too rare to price (%d seasons) and says so" % n_, n_ < 100 and re.search(r"1–2 top three \S+ All-Play [^r]*rare %d of 10,000" % n_, jt))
+print("12. remaining historical claims, recomputed independently (final review)")
+lo = []
+for s_ in range(2017, 2026):
+    ws_ = {f: apw(s_, f) for f in sc[s_]}
+    for f in sc[s_]:
+        rk = 1 + sum(1 for g in ws_ if ws_[g] > ws_[f])
+        if rk >= 10: lo.append(f in made[s_])
+ok("since 2017: %d of %d teams ranked 10th-12th in All-Play after Week 5 made the playoffs" % (sum(lo), len(lo)), (sum(lo), len(lo)) == (4, 24)
+   and "only 4 of the 24 teams ranked 10th through 12th in All-Play after Week 5 went on to make the playoffs" in text(sec["survival"]))
+s17 = [x for x in br["2017"]["seeds"] if x["franchise_id"] == "0009"][0]
+ok("Bear Dunn 2017: division winner, 6th seed, finished 3rd (bracket API)", (s17["path"], s17["seed"], s17["final_finish"]) == ("DIV", 6, 3)
+   and "He won his division, entered the playoffs as the 6th seed and finished 3rd" in text(sec["survival"]))
+allp = pl.concat([ps.select(["player_id", "season", "week", "targets"]), p26.select(["player_id", "season", "week", "targets"])]).sort(["player_id", "season", "week"])
+seq = collections.defaultdict(list)
+for r in allp.iter_rows(named=True): seq[(r["player_id"], r["season"])].append(r)
+nx = [rs[i + 1]["targets"] or 0 for rs in seq.values() for i, r in enumerate(rs)
+      if (r["targets"] or 0) >= 20 and r["season"] < 2026 and i + 1 < len(rs)]
+ok("1999-2025: %d games after a 20-target game, %.1f targets on average" % (len(nx), sum(nx) / len(nx)), len(nx) == 39 and round(sum(nx) / len(nx), 1) == 9.3
+   and "From 1999 through 2025, in the 39 games that followed a 20-target game, players averaged 9.3 targets" in text(sec["players"]))
 print("9. no production writes in the code paths used")
 for f in ("pipelines/etl/wire/season_sim.py", "pipelines/etl/wire/week_preview.py", "pipelines/etl/wire/ev_projections.py"):
     s = open(os.path.join(WT, f)).read()

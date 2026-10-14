@@ -132,7 +132,7 @@
  {
   "key": "o.div.03.tot",
   "shown": "100.0",
-  "source": ""
+  "source": "forecast, largest-remainder"
  },
  {
   "key": "o.0010.div",
@@ -167,7 +167,7 @@
  {
   "key": "o.div.01.tot",
   "shown": "100.0",
-  "source": ""
+  "source": "forecast, largest-remainder"
  },
  {
   "key": "o.0008.div",
@@ -202,7 +202,7 @@
  {
   "key": "o.div.02.tot",
   "shown": "100.0",
-  "source": ""
+  "source": "forecast, largest-remainder"
  },
  {
   "key": "o.0005.div",
@@ -237,7 +237,7 @@
  {
   "key": "o.div.00.tot",
   "shown": "100.0",
-  "source": ""
+  "source": "forecast, largest-remainder"
  },
  {
   "key": "o.0009.po3",
@@ -362,7 +362,7 @@
  {
   "key": "sc.path.0012",
   "shown": "5",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.0012.30m",
@@ -377,7 +377,7 @@
  {
   "key": "sc.path.0002",
   "shown": "35",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.0002.30m",
@@ -392,7 +392,7 @@
  {
   "key": "sc.path.0001",
   "shown": "82",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.0001.30m",
@@ -407,7 +407,7 @@
  {
   "key": "sc.path.0011",
   "shown": "10",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.0011.30m",
@@ -422,7 +422,7 @@
  {
   "key": "sc.path.0003",
   "shown": "31",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.0003.30m",
@@ -482,7 +482,7 @@
  {
   "key": "cut.opt",
   "shown": "284.2",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "o.blake.wk3",
@@ -507,7 +507,7 @@
  {
   "key": "henry.wk5",
   "shown": "22.6",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "o.whit.wk3",
@@ -547,7 +547,7 @@
  {
   "key": "sc.bpath",
   "shown": "82",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.b30m",
@@ -562,12 +562,12 @@
  {
   "key": "fix.max",
   "shown": "0.7",
-  "source": ""
+  "source": "season_sim: pre-fix vs post-fix forecast on identical inputs"
  },
  {
   "key": "sc.minn",
   "shown": "100",
-  "source": ""
+  "source": "builder rule: minimum 100 simulated seasons"
  },
  {
   "key": "meta.remaining",
@@ -942,242 +942,242 @@
  {
   "key": "bench.0004",
   "shown": "54.0",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0004",
   "shown": "5",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0004",
   "shown": "7",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0004",
   "shown": "-1.2",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0005",
   "shown": "34.9",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0005",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0005",
   "shown": "4",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0005",
   "shown": "+0.6",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0012",
   "shown": "34.1",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0012",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0012",
   "shown": "7",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0012",
   "shown": "-1.3",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0009",
   "shown": "31.5",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0009",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0009",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0009",
   "shown": "-0.1",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0011",
   "shown": "30.7",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0011",
   "shown": "3",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0011",
   "shown": "7",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0011",
   "shown": "+1.2",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0008",
   "shown": "27.2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0008",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0008",
   "shown": "4",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0008",
   "shown": "+1.2",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0002",
   "shown": "24.0",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0002",
   "shown": "3",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0002",
   "shown": "6",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0002",
   "shown": "-0.5",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0003",
   "shown": "23.9",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0003",
   "shown": "4",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0003",
   "shown": "10",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0003",
   "shown": "-0.5",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0010",
   "shown": "23.4",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0010",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0010",
   "shown": "4",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0010",
   "shown": "-0.9",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0006",
   "shown": "22.7",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0006",
   "shown": "3",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0006",
   "shown": "10",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0006",
   "shown": "-0.5",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0007",
   "shown": "20.8",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0007",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0007",
   "shown": "10",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0007",
   "shown": "+0.6",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bench.0001",
   "shown": "19.6",
-  "source": ""
+  "source": "MFL weeklyResults (best possible minus started points)"
  },
  {
   "key": "lost.0001",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults (best possible vs started lineup)"
  },
  {
   "key": "L.0001",
   "shown": "7",
-  "source": ""
+  "source": "MFL weeklyResults (head-to-head losses)"
  },
  {
   "key": "luck.0001",
   "shown": "+1.2",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bear.ap3.w",
@@ -1192,17 +1192,17 @@
  {
   "key": "bear.ppw3",
   "shown": "274.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "em.bear",
   "shown": "89.3",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "em.ppw12",
   "shown": "260.8",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "em.rk3",
@@ -1212,7 +1212,7 @@
  {
   "key": "em.ppw3",
   "shown": "221.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "em.rec2.w",
@@ -1227,67 +1227,67 @@
  {
   "key": "mnf.lead",
   "shown": "53.3",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.cmp",
   "shown": "40",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.att",
   "shown": "54",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.yds",
   "shown": "383",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.td",
   "shown": "3",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.staf",
   "shown": "39.3",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.kyren",
   "shown": "19.4",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "mnf.margin",
   "shown": "9.6",
-  "source": ""
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
  },
  {
   "key": "cut.bench",
   "shown": "54.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "cut.lost",
   "shown": "5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "cut.L",
   "shown": "7",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "cut.luck",
   "shown": "1.2",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "kl.luck",
   "shown": "1.3",
-  "source": ""
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
  },
  {
   "key": "bou.rk12",
@@ -1312,27 +1312,27 @@
  {
   "key": "man.apw0",
   "shown": "5",
-  "source": ""
+  "source": "MFL weeklyResults (weekly all-play)"
  },
  {
   "key": "man.apw1",
   "shown": "0",
-  "source": ""
+  "source": "MFL weeklyResults (weekly all-play)"
  },
  {
   "key": "man.apw2",
   "shown": "6",
-  "source": ""
+  "source": "MFL weeklyResults (weekly all-play)"
  },
  {
   "key": "man.apw3",
   "shown": "11",
-  "source": ""
+  "source": "MFL weeklyResults (weekly all-play)"
  },
  {
   "key": "man.apw4",
   "shown": "1",
-  "source": ""
+  "source": "MFL weeklyResults (weekly all-play)"
  },
  {
   "key": "ger.rk12",
@@ -1347,27 +1347,27 @@
  {
   "key": "ger.ap3w",
   "shown": "3",
-  "source": ""
+  "source": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)"
  },
  {
   "key": "ger.ap3n",
   "shown": "33",
-  "source": ""
+  "source": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)"
  },
  {
   "key": "k.willis",
   "shown": "21.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "k.ger",
   "shown": "161.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "ger.miss",
   "shown": "17.6",
-  "source": ""
+  "source": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)"
  },
  {
   "key": "ger.po",
@@ -1377,302 +1377,302 @@
  {
   "key": "ww.0010.p1",
   "shown": "+121",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0010.p2",
   "shown": "+110",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0010.top2",
   "shown": "32.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0010.sw",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0011.p1",
   "shown": "+93",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0011.p2",
   "shown": "+91",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0011.top2",
   "shown": "31.9",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0011.sw",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0012.p1",
   "shown": "+101",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0012.p2",
   "shown": "+74",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0012.top2",
   "shown": "30.7",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0012.sw",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0004.p1",
   "shown": "+125",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0004.p2",
   "shown": "+76",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0004.top2",
   "shown": "29.8",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0004.sw",
   "shown": "1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0003.p1",
   "shown": "+76",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0003.p2",
   "shown": "+68",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0003.top2",
   "shown": "29.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0003.sw",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0006.p1",
   "shown": "+66",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0006.p2",
   "shown": "+65",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0006.top2",
   "shown": "25.3",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0006.sw",
   "shown": "0",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0009.p1",
   "shown": "+120",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0009.p2",
   "shown": "+85",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0009.top2",
   "shown": "25.1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0009.sw",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0005.p1",
   "shown": "+89",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0005.p2",
   "shown": "+78",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0005.top2",
   "shown": "24.1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0005.sw",
   "shown": "3",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0001.p1",
   "shown": "+62",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0001.p2",
   "shown": "+60",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0001.top2",
   "shown": "24.1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0001.sw",
   "shown": "2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0008.p1",
   "shown": "+83",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0008.p2",
   "shown": "+78",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0008.top2",
   "shown": "23.9",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0008.sw",
   "shown": "4",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0002.p1",
   "shown": "+76",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0002.p2",
   "shown": "+64",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0002.top2",
   "shown": "23.6",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0002.sw",
   "shown": "4",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0007.p1",
   "shown": "+48",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0007.p2",
   "shown": "+43",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0007.top2",
   "shown": "19.4",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "ww.0007.sw",
   "shown": "1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.b",
   "shown": "32.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.m",
   "shown": "31.9",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.al",
   "shown": "24.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.pu",
   "shown": "22.0",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.al3",
   "shown": "17.1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.pu3",
   "shown": "43.3",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.lb4",
   "shown": "77.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.lb5",
   "shown": "18.7",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.wr",
   "shown": "10.9",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.rb",
   "shown": "10.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.bear",
   "shown": "25.1",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "c.js4",
   "shown": "13.2",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "o.kc.po2",
@@ -1687,112 +1687,112 @@
  {
   "key": "t.e1",
   "shown": "20",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.e1n",
   "shown": "37",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.e2",
   "shown": "43",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.e2n",
   "shown": "47",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.d1",
   "shown": "15",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.t1",
   "shown": "10",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.t1n",
   "shown": "17",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.t2",
   "shown": "17",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.t2n",
   "shown": "17",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.s1",
   "shown": "3",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.s1n",
   "shown": "4",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.s2",
   "shown": "9",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.s2n",
   "shown": "10",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.r1w",
   "shown": "0",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.r1d",
   "shown": "1",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.r2w",
   "shown": "3",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.g1",
   "shown": "0",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.g2",
   "shown": "0",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.p1",
   "shown": "9.9",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "t.p2",
   "shown": "26.2",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "bq.p12",
   "shown": "172.9",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.p3",
   "shown": "217.3",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.r13.w",
@@ -1817,22 +1817,22 @@
  {
   "key": "bq.w12",
   "shown": "9.9",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.w3",
   "shown": "26.2",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.wr",
   "shown": "16.3",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.rise",
   "shown": "44.4",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.cf.w",
@@ -1857,12 +1857,12 @@
  {
   "key": "bq.apcf",
   "shown": "12",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "bq.ap",
   "shown": "20",
-  "source": ""
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
  },
  {
   "key": "o.bou.po",
@@ -1882,92 +1882,92 @@
  {
   "key": "d.e",
   "shown": "15",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "d.en",
   "shown": "37",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "d.t",
   "shown": "7",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "d.tn",
   "shown": "17",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "w.e",
   "shown": "43",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "w.en",
   "shown": "47",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "w.ups5",
   "shown": "39.6",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "d.u1",
   "shown": "3.7",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "d.u2",
   "shown": "6.6",
-  "source": ""
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
  },
  {
   "key": "g.pts",
   "shown": "161.7",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.car",
   "shown": "105",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.ryd",
   "shown": "504",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.rtd",
   "shown": "7",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.rec",
   "shown": "27",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.a0",
   "shown": "176.9",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.a1",
   "shown": "166.0",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "rg.rb",
   "shown": "80",
-  "source": ""
+  "source": "nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "g.ppg80",
   "shown": "25.9",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "cut.rec2.w",
@@ -1982,22 +1982,22 @@
  {
   "key": "wa5",
   "shown": "10.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "hu5",
   "shown": "29.8",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "gs.pts",
   "shown": "14.0",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "gs.edge",
   "shown": "18.5",
-  "source": ""
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
  },
  {
   "key": "g.wn",
@@ -2037,97 +2037,97 @@
  {
   "key": "j.pts",
   "shown": "156.5",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.rec",
   "shown": "37",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.tgt",
   "shown": "50",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.yds",
   "shown": "583",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.td",
   "shown": "7",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.box",
   "shown": "154.5",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.a0",
   "shown": "170.7",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "rg.wr",
   "shown": "74",
-  "source": ""
+  "source": "nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "j.ppg74",
   "shown": "23.2",
-  "source": ""
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
  },
  {
   "key": "b.u3",
   "shown": "36.0",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.u4",
   "shown": "24.6",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.u5",
   "shown": "30.0",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.t3",
   "shown": "13",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.t4",
   "shown": "11",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.t5",
   "shown": "10",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.lap",
   "shown": "9.1",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.u3b",
   "shown": "36.0",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.gap",
   "shown": "16.1",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.better",
   "shown": "28",
-  "source": ""
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
  },
  {
   "key": "b.n",
@@ -2137,82 +2137,82 @@
  {
   "key": "p.tgt",
   "shown": "24",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.rec",
   "shown": "17",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.yds",
   "shown": "138",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.ups",
   "shown": "41.7",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.bills",
   "shown": "37",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.rams",
   "shown": "34",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.marsh",
   "shown": "28",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.lamb",
   "shown": "21",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.nab",
   "shown": "20",
-  "source": ""
- },
- {
-  "key": "p.next",
-  "shown": "9.3",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.n",
   "shown": "39",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.next",
+  "shown": "9.3",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.lamb2",
   "shown": "21",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.lamb_t",
   "shown": "5",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.lamb_u",
   "shown": "2.9",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.u4",
   "shown": "30.9",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "p.u5",
   "shown": "41.7",
-  "source": ""
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
  },
  {
   "key": "sc.kc30",
@@ -2232,22 +2232,22 @@
  {
   "key": "s.0009.m",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0009.n",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0009.m2",
   "shown": "8",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0009.n2",
   "shown": "8",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0004.po",
@@ -2257,22 +2257,22 @@
  {
   "key": "s.0004.m",
   "shown": "9",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0004.n",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0004.m2",
   "shown": "7",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0004.n2",
   "shown": "15",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0010.po",
@@ -2282,22 +2282,22 @@
  {
   "key": "s.0010.m",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0010.n",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0010.m2",
   "shown": "10",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0010.n2",
   "shown": "13",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0005.po",
@@ -2307,22 +2307,22 @@
  {
   "key": "s.0005.m",
   "shown": "16",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0005.n",
   "shown": "20",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0005.m2",
   "shown": "10",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0005.n2",
   "shown": "13",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0008.po",
@@ -2332,22 +2332,22 @@
  {
   "key": "s.0008.m",
   "shown": "16",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0008.n",
   "shown": "20",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0008.m2",
   "shown": "10",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0008.n2",
   "shown": "13",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0012.po",
@@ -2357,22 +2357,22 @@
  {
   "key": "s.0012.m",
   "shown": "6",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0012.n",
   "shown": "17",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0012.m2",
   "shown": "7",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0012.n2",
   "shown": "15",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0002.po",
@@ -2382,22 +2382,22 @@
  {
   "key": "s.0002.m",
   "shown": "16",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0002.n",
   "shown": "20",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0002.m2",
   "shown": "7",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0002.n2",
   "shown": "15",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0001.po",
@@ -2407,22 +2407,22 @@
  {
   "key": "s.0001.m",
   "shown": "2",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0001.n",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0001.m2",
   "shown": "7",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0001.n2",
   "shown": "15",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0011.po",
@@ -2432,22 +2432,22 @@
  {
   "key": "s.0011.m",
   "shown": "6",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0011.n",
   "shown": "17",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0011.m2",
   "shown": "7",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0011.n2",
   "shown": "15",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0003.po",
@@ -2457,22 +2457,22 @@
  {
   "key": "s.0003.m",
   "shown": "2",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0003.n",
   "shown": "18",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0003.m2",
   "shown": "0",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0003.n2",
   "shown": "8",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0006.po",
@@ -2482,22 +2482,22 @@
  {
   "key": "s.0006.m",
   "shown": "3",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0006.n",
   "shown": "17",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0006.m2",
   "shown": "0",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0006.n2",
   "shown": "8",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0007.po",
@@ -2507,22 +2507,22 @@
  {
   "key": "s.0007.m",
   "shown": "3",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0007.n",
   "shown": "17",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0007.m2",
   "shown": "0",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "s.0007.n2",
   "shown": "8",
-  "source": ""
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
  },
  {
   "key": "sc.jrec.3top.w",
@@ -2627,7 +2627,7 @@
  {
   "key": "sc.jn.3bot5",
   "shown": "4",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.jrec.2top.w",
@@ -2732,7 +2732,7 @@
  {
   "key": "sc.jn.2bot3",
   "shown": "21",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.jrec.1top.w",
@@ -2767,7 +2767,7 @@
  {
   "key": "sc.jn.1top",
   "shown": "28",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.jrec.1mid.w",
@@ -2927,32 +2927,32 @@
  {
   "key": "le3.n",
   "shown": "8",
-  "source": ""
+  "source": "D1 history 2021-25 (records after Week 5) + MFL playoff brackets"
  },
  {
   "key": "b3.m",
   "shown": "4",
-  "source": ""
+  "source": "D1 history 2017-25 (all-play after Week 5) + MFL playoff brackets"
  },
  {
   "key": "b3.n",
   "shown": "24",
-  "source": ""
+  "source": "D1 history 2017-25 (all-play after Week 5) + MFL playoff brackets"
  },
  {
   "key": "pr.ap",
   "shown": "88",
-  "source": ""
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
  },
  {
   "key": "pr.pf",
   "shown": "86",
-  "source": ""
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
  },
  {
   "key": "pr.h2h",
   "shown": "85",
-  "source": ""
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
  },
  {
   "key": "b17.w",
@@ -2977,7 +2977,7 @@
  {
   "key": "sc.jpath",
   "shown": "80",
-  "source": ""
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
  },
  {
   "key": "sc.j30",
@@ -3007,12 +3007,12 @@
  {
   "key": "sc.minn2",
   "shown": "100",
-  "source": ""
+  "source": "builder rule: minimum 100 simulated seasons"
  },
  {
   "key": "pr.n",
   "shown": "216",
-  "source": ""
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
  },
  {
   "key": "cut.res5",
@@ -3022,346 +3022,346 @@
  {
   "key": "r5.00080003.w",
   "shown": "271.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080003.l",
   "shown": "161.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080003.m",
   "shown": "110.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00040011.w",
   "shown": "268.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00040011.l",
   "shown": "167.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00040011.m",
   "shown": "100.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00100007.w",
   "shown": "261.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00100007.l",
   "shown": "171.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00100007.m",
   "shown": "90.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090005.w",
   "shown": "280.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090005.l",
   "shown": "190.7",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090005.m",
   "shown": "89.3",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00040012.w",
   "shown": "268.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00040012.l",
   "shown": "200.3",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00040012.m",
   "shown": "68.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00010003.w",
   "shown": "228.8",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00010003.l",
   "shown": "161.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00010003.m",
   "shown": "67.7",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080002.w",
   "shown": "271.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080002.l",
   "shown": "211.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080002.m",
   "shown": "60.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090006.w",
   "shown": "280.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090006.l",
   "shown": "223.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090006.m",
   "shown": "56.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00060011.w",
   "shown": "223.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00060011.l",
   "shown": "167.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00060011.m",
   "shown": "56.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00020007.w",
   "shown": "211.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00020007.l",
   "shown": "171.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00020007.m",
   "shown": "40.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00100001.w",
   "shown": "261.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00100001.l",
   "shown": "228.8",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00100001.m",
   "shown": "32.7",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00060012.w",
   "shown": "223.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00060012.l",
   "shown": "200.3",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00060012.m",
   "shown": "23.6",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00050011.w",
   "shown": "190.7",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00050011.l",
   "shown": "167.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00050011.m",
   "shown": "22.8",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00010002.w",
   "shown": "228.8",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00010002.l",
   "shown": "211.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00010002.m",
   "shown": "17.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090004.w",
   "shown": "280.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090004.l",
   "shown": "268.4",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00090004.m",
   "shown": "11.6",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080010.w",
   "shown": "271.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080010.l",
   "shown": "261.5",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00080010.m",
   "shown": "10.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00070003.w",
   "shown": "171.0",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00070003.l",
   "shown": "161.1",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00070003.m",
   "shown": "9.9",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00120005.w",
   "shown": "200.3",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00120005.l",
   "shown": "190.7",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "r5.00120005.m",
   "shown": "9.6",
-  "source": ""
+  "source": "MFL weeklyResults"
  },
  {
   "key": "bm.pair",
   "shown": "92.7",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.maye",
   "shown": "51.8",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.gyds",
   "shown": "151",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.gcar",
   "shown": "25",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.gibbs",
   "shown": "40.9",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.ptgt",
   "shown": "24",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.prec",
   "shown": "17",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.pups",
   "shown": "41.7",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.wtd1",
   "shown": "80",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.wtd2",
   "shown": "50",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.wups",
   "shown": "39.6",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.bear",
   "shown": "280.0",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.bur",
   "shown": "35.4",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bm.bow",
   "shown": "30.0",
-  "source": ""
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
  },
  {
   "key": "bl5.n",
   "shown": "8",
-  "source": ""
+  "source": "MFL weeklyResults (best possible lineups)"
  }
 ]
