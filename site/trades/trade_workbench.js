@@ -810,6 +810,33 @@
     return safeStr(asset.pick_display || asset.description || asset.asset_id);
   }
 
+  // A future pick a lineup penalty has taken out of trading (worker flag from
+  // ups_lineup_pick_reservations; Keith 2026-10-12). Shown greyed out with its
+  // label, never selectable. The worker refuses it at Send/Accept regardless.
+  function isForfeitedPick(asset) {
+    return !!(asset && safeStr(asset.type).toUpperCase() === "PICK" && asset.forfeited);
+  }
+
+  // The worker could not read the lineup-penalty forfeit list (meta.forfeit_marks.ok
+  // not true): no pick can be shown as plainly available. Picks stay selectable and the
+  // worker re-checks at Send/Accept/Execute/Recheck (Keith 2026-10-12).
+  var PICK_RESTRICTIONS_UNVERIFIED = "Pick restrictions could not be verified. The server will recheck before this trade can be sent.";
+  function pickRestrictionsVerified() {
+    return !!(state.data && state.data.meta && state.data.meta.pick_restrictions_verified);
+  }
+  function hasFuturePick(assets) {
+    return (assets || []).some(function (a) {
+      return a && safeStr(a.type).toUpperCase() === "PICK" && /^FP_/i.test(safeStr(a.pick_key || a.asset_id).replace(/^pick:/i, ""));
+    });
+  }
+  function pickRestrictionsWarningEl() {
+    var warn = document.createElement("div");
+    warn.className = "twb-pick-unverified";
+    warn.setAttribute("role", "status");
+    warn.textContent = PICK_RESTRICTIONS_UNVERIFIED;
+    return warn;
+  }
+
   function isUntradeableSixthRoundPick(asset) {
     if (!asset || safeStr(asset.type).toUpperCase() !== "PICK") return false;
     return safeInt(resolvePickMeta(asset).round, 0) === 6;
@@ -894,7 +921,7 @@
   function isTradeEligibleAsset(asset) {
     if (!asset) return false;
     if (isTaggedTradeIneligibleAsset(asset)) return false;
-    if (safeStr(asset.type).toUpperCase() === "PICK") return !isUntradeableSixthRoundPick(asset);
+    if (safeStr(asset.type).toUpperCase() === "PICK") return !isUntradeableSixthRoundPick(asset) && !isForfeitedPick(asset);
     return true;
   }
 
@@ -914,6 +941,7 @@
     if (safeStr(asset.type).toUpperCase() === "PICK" && isUntradeableSixthRoundPick(asset)) {
       return "Ineligible: 6th-round picks cannot be traded";
     }
+    if (isForfeitedPick(asset)) return safeStr(asset.forfeit_label) || "Forfeited — lineup penalty";
     return "";
   }
 
@@ -1031,6 +1059,8 @@
       // Resolve the name via the local franchise lookup (handles cases
       // where Worker couldn't attach a name from MFL's assets export).
       asset.original_owner_fid = safeStr(raw.original_owner_fid);
+      asset.forfeited = raw.forfeited === true;
+      asset.forfeit_label = asset.forfeited ? safeStr(raw.forfeit_label) : "";
       asset.original_owner_name = safeStr(raw.original_owner_name)
         || (asset.original_owner_fid ? getFranchiseNameById(asset.original_owner_fid) : "");
       asset.pick_display = shortPickLabel(
@@ -1289,6 +1319,8 @@
 
     return {
       meta: {
+        // true only when the worker says it READ the forfeit list (#1229).
+        pick_restrictions_verified: !!(raw.meta && raw.meta.forfeit_marks && raw.meta.forfeit_marks.ok === true),
         league_id: safeStr(raw.league_id || raw.leagueId),
         season: safeInt(raw.season || raw.year, 0),
         generated_at: safeStr(raw.generated_at || raw.generatedAt || ""),
@@ -4866,7 +4898,7 @@
     var i;
     for (i = 0; i < assets.length; i += 1) {
       var asset = assets[i];
-      if (!isTradeEligibleAsset(asset)) continue;
+      if (!isTradeEligibleAsset(asset) && !isForfeitedPick(asset)) continue;
       if (view === "picks") {
         if (asset.type === "PICK" && assetMatchesFilters(asset)) out.push(asset);
         continue;
@@ -5009,7 +5041,7 @@
       var j;
       for (j = 0; j < assets.length; j += 1) {
         var a = assets[j];
-        if (!a || !isTradeEligibleAsset(a)) continue;
+        if (!a || (!isTradeEligibleAsset(a) && !isForfeitedPick(a))) continue;
         if (!assetMatchesFilters(a, team.franchise_id)) continue;
         out.push({ team: team, asset: a });
       }
@@ -5051,6 +5083,7 @@
       "Search results across all teams: " + shown.length + (matches.length > cap ? " of " + matches.length : "") +
       ". Click one to set the trade partner and add it to the offer.";
     panel.appendChild(helper);
+    if (!pickRestrictionsVerified() && hasFuturePick(shown.map(function (m) { return m.asset; }))) panel.appendChild(pickRestrictionsWarningEl());
 
     var list = document.createElement("div");
     list.className = "twb-discovery-list";
@@ -5060,7 +5093,15 @@
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "twb-discovery-item";
-      btn.setAttribute("data-action", "choose-discovery-match");
+      var forfeitedMatch = isForfeitedPick(m.asset);
+      if (forfeitedMatch) {
+        // Shown so the owner sees WHY the pick isn't on offer; not clickable.
+        btn.className += " is-forfeited";
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+      } else {
+        btn.setAttribute("data-action", "choose-discovery-match");
+      }
       btn.setAttribute("data-team-id", m.team.franchise_id);
       btn.setAttribute("data-asset-id", m.asset.asset_id);
 
@@ -5070,7 +5111,7 @@
       var meta = m.team.franchise_name + " · " +
         (m.asset.type === "PLAYER"
           ? moneyFmt(m.asset.salary) + " · Yrs " + (m.asset.years == null ? "-" : m.asset.years)
-          : "Draft Pick");
+          : (forfeitedMatch ? getTradeIneligibleReason(m.asset) : "Draft Pick"));
       btn.innerHTML = '<span class="twb-discovery-item-title">' + escapeHtml(title) + '</span>' +
         '<span class="twb-discovery-item-meta">' + escapeHtml(meta) + "</span>";
       list.appendChild(btn);
@@ -5148,6 +5189,7 @@
       return node;
     }
 
+    if (!pickRestrictionsVerified() && hasFuturePick(visibleAssets)) groupsWrap.appendChild(pickRestrictionsWarningEl());
     var grouped = groupAssets(visibleAssets);
     var i;
     for (i = 0; i < grouped.length; i += 1) {
@@ -5283,6 +5325,7 @@
     if (selected) tr.className = "twb-row-selected";
     if (asset.taxi) tr.className = (tr.className ? tr.className + " " : "") + "twb-row-taxi";
     if (!eligible) tr.className = (tr.className ? tr.className + " " : "") + "twb-row-ineligible";
+    if (isForfeitedPick(asset)) tr.className += " twb-row-forfeited";
 
     var tdSelect = document.createElement("td");
     tdSelect.className = "twb-col-select";
@@ -5291,7 +5334,9 @@
     cb.type = "checkbox";
     cb.className = "twb-asset-select";
     cb.checked = selected;
-    cb.disabled = !eligible;
+    // An ineligible asset can't be ADDED; one already in the offer (e.g. a
+    // counter prefilled from MFL) can still be removed.
+    cb.disabled = !eligible && !selected;
     cb.setAttribute("data-action", "toggle-asset");
     cb.setAttribute("data-team-id", teamId);
     cb.setAttribute("data-asset-id", asset.asset_id);
@@ -7532,7 +7577,9 @@
   }
   function tw3TeamAssets(fid) {
     var team = getTeamById(pad4(fid));
-    return ((team && team.assets) || []).filter(tw3IsTradeable);
+    return ((team && team.assets) || []).filter(function (a) {
+      return tw3IsTradeable(a) || (isForfeitedPick(a) && !!tw3PickToken(a));
+    });
   }
   function tw3AssetToken(asset) {
     if (asset.type === "PLAYER") return "P_" + safeStr(asset.player_id).replace(/\D/g, "");
@@ -7724,6 +7771,13 @@
   }
   function tw3AssetRowHtml(giver, asset) {
     var aid = asset.asset_id;
+    if (isForfeitedPick(asset)) {
+      return '<div class="twb-3w-assetwrap">' +
+        '<button type="button" class="twb-3w-asset is-forfeited" disabled aria-disabled="true" data-3w-giver="' + giver + '" data-3w-aid="' + escapeHtml(aid) + '">' +
+          '<span class="nm">' + escapeHtml(tw3AssetName(asset)) + "</span>" +
+          '<span class="mt">' + escapeHtml(getTradeIneligibleReason(asset)) + "</span>" +
+        "</button></div>";
+    }
     var on = !!(tw3.give[giver] || {})[aid];
     return '<div class="twb-3w-assetwrap">' +
       '<button type="button" class="twb-3w-asset' + (on ? " on" : "") + '" data-3w-giver="' + giver + '" data-3w-aid="' + escapeHtml(aid) + '">' +
@@ -7739,10 +7793,13 @@
       return '<div class="twb-3w-col is-empty"><div class="twb-3w-colhead">' + placeholder + '</div><div class="twb-3w-colempty">Pick a team above.</div></div>';
     }
     var label = slot === "a" ? "You send" : (tw3NameOf(fid) + " sends");
-    var rows = tw3TeamAssets(fid).map(function (a) { return tw3AssetRowHtml(fid, a); }).join("");
+    var colAssets = tw3TeamAssets(fid);
+    var rows = colAssets.map(function (a) { return tw3AssetRowHtml(fid, a); }).join("");
     var count = Object.keys(tw3.give[fid] || {}).length;
+    var unverified = !pickRestrictionsVerified() && hasFuturePick(colAssets)
+      ? '<div class="twb-pick-unverified" role="status">' + escapeHtml(PICK_RESTRICTIONS_UNVERIFIED) + "</div>" : "";
     return '<div class="twb-3w-col"><div class="twb-3w-colhead">' + escapeHtml(label) +
-      ' <span class="twb-3w-cnt" data-3w-cnt="' + fid + '">' + count + " selected</span></div>" +
+      ' <span class="twb-3w-cnt" data-3w-cnt="' + fid + '">' + count + " selected</span></div>" + unverified +
       '<div class="twb-3w-assets">' + (rows || '<div class="twb-3w-colempty">No tradeable assets.</div>') + "</div></div>";
   }
   function tw3SummaryHtml() {
@@ -7877,6 +7934,7 @@
     var assetBtns = body.querySelectorAll(".twb-3w-asset");
     for (var j = 0; j < assetBtns.length; j += 1) {
       assetBtns[j].addEventListener("click", function () {
+        if (this.disabled || this.classList.contains("is-forfeited")) return;
         var giver = this.getAttribute("data-3w-giver"), aid = this.getAttribute("data-3w-aid");
         var wrap = this.parentNode;
         tw3.give[giver] = tw3.give[giver] || {};

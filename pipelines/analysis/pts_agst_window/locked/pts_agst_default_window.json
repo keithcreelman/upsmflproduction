@@ -1,0 +1,193 @@
+{
+ "final_defaults_sha256": "6de73509faa80d8195f7c0bfc15b4762d95f1f54db9904f9c611721a6b9713b2",
+ "material_gain": 0.02,
+ "positions": {
+  "DB": {
+   "ci_vs_coin_2019_2024": [
+    0.007758985727451595,
+    0.03307955476316682
+   ],
+   "ci_vs_coin_2025": [
+    0.00331,
+    0.05683
+   ],
+   "gain_vs_full_2019_2024": 0.0003663093115827687,
+   "gain_vs_full_2025": 0.00343,
+   "k": 50,
+   "material": false,
+   "pct": 52,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.52087,
+   "rank_acc_2025": 0.52946,
+   "signal": true,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Last 3"
+  },
+  "DL": {
+   "ci_vs_coin_2019_2024": [
+    0.034783245459871104,
+    0.05939156135344481
+   ],
+   "ci_vs_coin_2025": [
+    0.04095,
+    0.1017
+   ],
+   "gain_vs_full_2019_2024": 0.0,
+   "gain_vs_full_2025": 0.0,
+   "k": 20,
+   "material": false,
+   "pct": 55,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.54669,
+   "rank_acc_2025": 0.57051,
+   "signal": true,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Season to date"
+  },
+  "LB": {
+   "ci_vs_coin_2019_2024": [
+    0.003835946924004796,
+    0.02891545519395866
+   ],
+   "ci_vs_coin_2025": [
+    -0.0235,
+    0.02795
+   ],
+   "gain_vs_full_2019_2024": 0.0002790780786837699,
+   "gain_vs_full_2025": -0.00286,
+   "k": null,
+   "material": false,
+   "pct": 51,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.5163,
+   "rank_acc_2025": 0.50179,
+   "signal": false,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Previous season"
+  },
+  "PK": {
+   "ci_vs_coin_2019_2024": [
+    0.009573519383098139,
+    0.03740461950917717
+   ],
+   "ci_vs_coin_2025": [
+    -0.01635,
+    0.04855
+   ],
+   "gain_vs_full_2019_2024": 0.0,
+   "gain_vs_full_2025": 0.0,
+   "k": null,
+   "material": false,
+   "pct": 52,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.52262,
+   "rank_acc_2025": 0.51602,
+   "signal": false,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Season to date"
+  },
+  "PN": {
+   "ci_vs_coin_2019_2024": [
+    -0.004737535468179954,
+    0.02138042318403044
+   ],
+   "ci_vs_coin_2025": [
+    -0.01158,
+    0.04157
+   ],
+   "gain_vs_full_2019_2024": 0.008144460404504117,
+   "gain_vs_full_2025": -0.00087,
+   "k": null,
+   "material": false,
+   "pct": 51,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.50799,
+   "rank_acc_2025": 0.51596,
+   "signal": false,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Last 3"
+  },
+  "QB": {
+   "ci_vs_coin_2019_2024": [
+    0.02149350315854348,
+    0.0459700082067096
+   ],
+   "ci_vs_coin_2025": [
+    0.03641,
+    0.08871
+   ],
+   "gain_vs_full_2019_2024": 0.0010867367569753483,
+   "gain_vs_full_2025": -0.00117,
+   "k": 50,
+   "material": false,
+   "pct": 54,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.53409,
+   "rank_acc_2025": 0.56094,
+   "signal": true,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Last 6"
+  },
+  "RB": {
+   "ci_vs_coin_2019_2024": [
+    0.016941789748045166,
+    0.044825718786923985
+   ],
+   "ci_vs_coin_2025": [
+    -0.01528,
+    0.04681
+   ],
+   "gain_vs_full_2019_2024": 0.004985702764132238,
+   "gain_vs_full_2025": 0.003,
+   "k": null,
+   "material": false,
+   "pct": 53,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.53198,
+   "rank_acc_2025": 0.51702,
+   "signal": false,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Previous season"
+  },
+  "TE": {
+   "ci_vs_coin_2019_2024": [
+    0.010572523803635492,
+    0.03921927193816599
+   ],
+   "ci_vs_coin_2025": [
+    0.00656,
+    0.05852
+   ],
+   "gain_vs_full_2019_2024": 0.001352547708046492,
+   "gain_vs_full_2025": -0.00215,
+   "k": 30,
+   "material": false,
+   "pct": 53,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.52415,
+   "rank_acc_2025": 0.53375,
+   "signal": true,
+   "statistical_default": "Season to date",
+   "winner_2019_2024": "Last 8"
+  },
+  "WR": {
+   "ci_vs_coin_2019_2024": [
+    -0.00283069955201104,
+    0.0232048374905518
+   ],
+   "ci_vs_coin_2025": null,
+   "gain_vs_full_2019_2024": 0.006256262372003163,
+   "gain_vs_full_2025": 0.00343,
+   "k": null,
+   "material": false,
+   "pct": 51,
+   "product_default": "full",
+   "rank_acc_2019_2024": 0.51018,
+   "rank_acc_2025": 0.52117,
+   "signal": false,
+   "statistical_default": "Last 8",
+   "winner_2019_2024": "Last 8"
+  }
+ },
+ "selection_sha256": "af5a2637709829b4f5aff1ff8328367c4d09417ba6b12b42235ac7226bbc9cc9"
+}

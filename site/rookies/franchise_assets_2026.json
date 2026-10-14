@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-11T15:57:40.360302+00:00",
+    "generated_at_utc": "2026-10-13T17:07:43.461550+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3609,30 +3609,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16457",
-          "display": "Christian Izien",
-          "player_id": "16457",
-          "position": "S",
-          "nfl_team": "DET",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17667",
-          "display": "Harold Perkins",
-          "player_id": "17667",
-          "position": "LB",
-          "nfl_team": "ATL",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15484",
           "display": "Jonathon Cooper",
           "player_id": "15484",
@@ -4019,7 +3995,7 @@
           "display": "Marvin Harrison Jr.",
           "player_id": "16614",
           "position": "WR",
-          "nfl_team": "ARI",
+          "nfl_team": "HOU",
           "salary": 14000,
           "contract_year": 1,
           "contract_status": "Rookie-Draft",

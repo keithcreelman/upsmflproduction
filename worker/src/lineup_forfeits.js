@@ -79,6 +79,33 @@ export async function forfeitedPickTokens(env, leagueId) {
   }
 }
 
+// War Room DISPLAY: flag each future pick a lineup penalty has taken out of
+// trading, so every offer builder shows it greyed out with a short label
+// instead of letting an owner build an offer the server will refuse (Keith
+// 2026-10-12). Display only — checkForfeitedPicks at Send/Accept/Execute
+// stays the authority and fails closed. Mutates `picks` in place: sets
+// { forfeited, forfeit_state, forfeit_label } on a match and clears stale
+// marks otherwise. Unreadable → nothing marked, { ok:false }.
+export const FORFEIT_LABELS = { forfeited: "Forfeited — lineup penalty", on_hold: "On hold — lineup penalty" };
+export async function markForfeitedPicks(env, leagueId, picks, tokenOf) {
+  const list = (picks || []).filter((p) => p && typeof p === "object");
+  for (const p of list) { delete p.forfeited; delete p.forfeit_state; delete p.forfeit_label; }
+  const fps = list.map((p) => ({ p, canon: canonFpToken(tokenOf(p)) })).filter((x) => x.canon);
+  if (!fps.length) return { ok: true, marked: 0 };
+  const live = await forfeitedPickTokens(env, leagueId);
+  if (!live.ok) return { ok: false, marked: 0 };
+  let marked = 0;
+  for (const { p, canon } of fps) {
+    const r = live.set.get(canon);
+    if (!r) continue;
+    // needs_selection: every candidate is held until Keith chooses one.
+    const st = r.state === "needs_selection" ? "on_hold" : "forfeited";
+    p.forfeited = true; p.forfeit_state = st; p.forfeit_label = FORFEIT_LABELS[st];
+    marked += 1;
+  }
+  return { ok: true, marked };
+}
+
 const flatten = (tokens) => (Array.isArray(tokens) ? tokens.map((t) => ({ token: t, sender: null }))
   : Object.entries(tokens || {}).flatMap(([fid, ts]) => (ts || []).map((t) => ({ token: t, sender: _fid(fid) }))));
 

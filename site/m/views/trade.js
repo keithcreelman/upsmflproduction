@@ -294,7 +294,8 @@
       .then(function (data) {
         var inv = {
           players: (data && data.players) || [],
-          future_picks: (data && data.future_picks) || []
+          future_picks: (data && data.future_picks) || [],
+          forfeit_check: (data && data.forfeit_check) || ""
         };
         builderState.inv[key] = inv;
         return inv;
@@ -322,6 +323,24 @@
   function futurePickToken(fp) {
     return "FP_" + U.pad4(fp.original_fid) + "_" + fp.year + "_" + fp.round;
   }
+  // A future pick a lineup penalty has taken out of trading (the worker flags
+  // it in /api/franchise-assets; Keith 2026-10-12): shown greyed out with this
+  // label, never selectable. The worker refuses it at Send/Accept regardless.
+  function forfeitLabel(fp) {
+    return (fp && fp.forfeited === true) ? (U.safeStr(fp.forfeit_label) || "Forfeited — lineup penalty") : "";
+  }
+  // The worker couldn't read the forfeit list (forfeit_check not "ok"): never show the
+  // picks as plainly available. They stay selectable; the worker re-checks at
+  // Send/Accept/Execute/Recheck (Keith 2026-10-12).
+  function pickRestrictionsWarningHtml(inv) {
+    if (!inv || !(inv.future_picks || []).length || inv.forfeit_check === "ok") return "";
+    return '<div class="ups-m-tb-warn ups-m-tb-pickwarn" role="status">Pick restrictions could not be verified. The server will recheck before this trade can be sent.</div>';
+  }
+  function forfeitedPickHtml(attrs, name, label) {
+    return '<button class="ups-m-tb-asset is-forfeited" disabled aria-disabled="true" ' + attrs + '>' +
+      '<span class="nm">' + U.escapeHtml(name) + '</span>' +
+      '<span class="mt">' + U.escapeHtml(label) + '</span></button>';
+  }
   function futurePickToSelectedAsset(fp) {
     var token = futurePickToken(fp);
     return {
@@ -341,7 +360,7 @@
       if (idMap["P_" + p.player_id]) out.push(playerToSelectedAsset(p));
     });
     (inv.future_picks || []).forEach(function (fp) {
-      if (idMap[futurePickToken(fp)]) out.push(futurePickToSelectedAsset(fp));
+      if (idMap[futurePickToken(fp)] && !forfeitLabel(fp)) out.push(futurePickToSelectedAsset(fp));
     });
     return out;
   }
@@ -501,6 +520,12 @@
     }).join("");
     var pickHtml = picks.map(function (fp) {
       var id = futurePickToken(fp);
+      var lockedLabel = forfeitLabel(fp);
+      if (lockedLabel) {
+        delete idMap[id]; // a counter prefilled with it can't carry it
+        return forfeitedPickHtml('data-id="' + U.escapeHtml(id) + '" data-name="pick ' + U.escapeHtml(String(fp.year)) + '"',
+          fp.display || (fp.year + " R" + fp.round), lockedLabel);
+      }
       var on = !!idMap[id];
       return '<button class="ups-m-tb-asset' + (on ? ' on' : '') + '" data-id="' + U.escapeHtml(id) +
         '" data-name="pick ' + U.escapeHtml(String(fp.year)) + '">' +
@@ -513,7 +538,7 @@
       '<input class="ups-m-tb-search" id="ups-m-tb-search" type="search" placeholder="Search players…" autocomplete="off" />' +
       '<div class="ups-m-tb-assets">' +
         (rowsHtml || '<div class="ups-m-auc-empty">No players.</div>') +
-        (pickHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + pickHtml : '') +
+        (pickHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + pickRestrictionsWarningHtml(inv) + pickHtml : '') +
       '</div>' +
       '<div class="ups-m-tb-cap">' +
         '<label>' + capLabel + ' ($000s) <span class="mx" id="ups-m-tb-capmax"></span></label>' +
@@ -548,6 +573,7 @@
     var assetBtns = body.querySelectorAll(".ups-m-tb-asset");
     for (var i = 0; i < assetBtns.length; i++) {
       assetBtns[i].addEventListener("click", function () {
+        if (this.disabled || this.classList.contains("is-forfeited")) return;
         var id = this.getAttribute("data-id");
         if (idMap[id]) { delete idMap[id]; this.classList.remove("on"); }
         else { idMap[id] = true; this.classList.add("on"); }
@@ -1388,7 +1414,7 @@
     return fetch(inventoryUrl(key), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        var inv = { players: (data && data.players) || [], future_picks: (data && data.future_picks) || [] };
+        var inv = { players: (data && data.players) || [], future_picks: (data && data.future_picks) || [], forfeit_check: (data && data.forfeit_check) || "" };
         b3.inv[key] = inv; return inv;
       });
   }
@@ -1632,18 +1658,24 @@
     function sectionHtml(giver, idx) {
       var inv = b3.inv[U.pad4(giver)] || { players: [], future_picks: [] };
       var label = idx === 0 ? "You send" : franchiseName(giver) + " sends";
-      var count = Object.keys(b3.give[giver] || {}).length;
       var playersHtml = (inv.players || []).map(function (p) {
         var meta = [p.position, p.nfl_team, (U.safeInt(p.salary, 0) > 0 ? U.fmtUsd(p.salary) : null), (p.taxi ? "Taxi" : null)].filter(Boolean).join(" · ");
         return assetRowHtml(giver, "P_" + p.player_id, p.display || ("Player #" + p.player_id), meta, p);
       }).join("");
       var picksHtml = (inv.future_picks || []).map(function (fp) {
-        return assetRowHtml(giver, futurePickToken(fp), fp.display || (fp.year + " R" + fp.round), "Future pick");
+        var token = futurePickToken(fp), lockedLabel = forfeitLabel(fp);
+        if (lockedLabel) {
+          if (b3.give[giver]) delete b3.give[giver][token];
+          return '<div class="ups-m-3w-assetwrap">' + forfeitedPickHtml('data-giver="' + giver + '" data-token="' + U.escapeHtml(token) + '"',
+            fp.display || (fp.year + " R" + fp.round), lockedLabel) + '</div>';
+        }
+        return assetRowHtml(giver, token, fp.display || (fp.year + " R" + fp.round), "Future pick");
       }).join("");
+      var count = Object.keys(b3.give[giver] || {}).length; // after any forfeited pick is dropped
       return '<div class="ups-m-3w-leg">' +
         '<div class="ups-m-tb-subhead">' + U.escapeHtml(label) + ' <span class="cnt" data-cnt="' + giver + '">' + count + ' selected</span></div>' +
         '<div class="ups-m-tb-assets">' + (playersHtml || '<div class="ups-m-auc-empty">No players.</div>') +
-          (picksHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + picksHtml : '') + '</div>' +
+          (picksHtml ? '<div class="ups-m-tb-subhead">Future picks</div>' + pickRestrictionsWarningHtml(inv) + picksHtml : '') + '</div>' +
       '</div>';
     }
     body.innerHTML =
@@ -1659,6 +1691,7 @@
     var assetBtns = body.querySelectorAll(".ups-m-tb-asset");
     for (var i = 0; i < assetBtns.length; i++) {
       assetBtns[i].addEventListener("click", function () {
+        if (this.disabled || this.classList.contains("is-forfeited")) return;
         var giver = this.getAttribute("data-giver"), token = this.getAttribute("data-token");
         var wrap = this.parentNode; // .ups-m-3w-assetwrap
         b3.give[giver] = b3.give[giver] || {};

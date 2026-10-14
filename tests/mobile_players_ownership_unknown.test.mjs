@@ -142,7 +142,7 @@ async function boot({ rosters = FX.mfl_rosters, league = "ok", mode = "bbid" } =
     route: { registerView: (n, fn) => (views[n] = fn), renderRoute: () => views.players(mount, []), currentRoute: () => "players", navigate() {} },
     hotCold: { get: () => null, isLoading: () => false, fetch: () => Promise.resolve() },
     lineupIntel: { load() {}, projLoaded: () => false, projFor: () => null, fmtProj: (v) => String(v), matchupFor: () => null,
-      priorSeason: () => false, rankCls: () => "", weeksAvailable: () => 0, muData: () => null,
+      priorSeason: () => false, weeksAvailable: () => 0, muData: () => null,
       kickoffs: { load() {}, loaded: () => true, kickedOff: () => false, kickoffFor: () => null } },
     isCommishOverride: () => false,
   };

@@ -17,6 +17,13 @@ This public repository is the UPS platform source. Do not store private chat, cr
 - Before claiming release, distinguish local tests, CI, deployed asset/worker, and authenticated owner behavior. Do not perform a real roster, cap, trade, or Discord write as a smoke test.
 - Keep draft PRs reviewable. Present the exact diff, preview, test result, and remaining risk before merging or publishing. Keith makes league-rule, production-setting, financial-data, publication, and final release decisions.
 
+## Database queries (D1): efficiency is required
+Production D1 is shared and metered. Keith wants to return to Cloudflare's Free plan: 5M rows read and 100k rows written per day. Write every query and every write as if that limit applies. Rules and examples are in `docs/D1_QUERY_RULES.md`. The essentials:
+- **Measure before shipping** a new or changed query: `rows_read` from `wrangler d1 execute ups-mfl-db --remote --json --command "…"` (meta) and `EXPLAIN QUERY PLAN`. Filter and join only on indexed columns. Over ~100k rows per run needs an index, a precompute or a stored copy, and a note in the PR.
+- **Write only what changed.** Don't rewrite finished seasons or unchanged rows; every upserted row and index entry counts as written.
+- **No production D1 by default** in tests or scripts. Production access is an explicit opt-in (the #1239 pattern).
+- **Check usage** with `python3 scripts/d1_usage.py [1h|1d]` (reads), and `wrangler d1 info ups-mfl-db` for total rows written: the per-query view can't see bulk `--file` imports.
+
 ## Reply format
 1. **Plain English:** what an owner will notice.
 2. **Technical why:** source → transformation → storage → API → UI, and why this design.

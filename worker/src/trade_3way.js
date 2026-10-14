@@ -34,6 +34,7 @@ import { makeLedger, EXEC, findExecutedTrade, isMflExecuted, franchiseHasUnresol
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
+import { mflCookieHeader } from "./mfl_cookie.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -105,7 +106,7 @@ export function toMflAsset(a) {
 export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments, mflTokens = false, returnForfeited = null, commentTag = "[Commish-processed: 3-way]", cookieAuth = false }) {
   const apiKey = safeStr(env.MFL_APIKEY);
   const cookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE);
-  const cookie = cookieRaw ? (cookieRaw.includes("=") ? cookieRaw : `MFL_USER_ID=${cookieRaw}`) : "";
+  const cookie = mflCookieHeader(cookieRaw);
   if (cookieAuth ? !cookie : !apiKey) return { ok: false, step: "config", error: cookieAuth ? "MFL_COOKIE missing" : "MFL_APIKEY missing" };
   const keyQs = cookieAuth ? "" : `&APIKEY=${encodeURIComponent(apiKey)}`;
   const authHeaders = cookieAuth ? { Cookie: cookie } : {};
@@ -132,7 +133,7 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
   proposeForm.set("OFFEREDTO", padFid(toFid));
   proposeForm.set("WILL_GIVE_UP", giveMfl);
   proposeForm.set("WILL_RECEIVE", receiveMfl);
-  proposeForm.set("COMMENTS", commentTag + " " + safeStr(comments));
+  proposeForm.set("COMMENTS", `${commentTag} ${safeStr(comments)}`.trim());
   let proposeResp = "", proposeStatus = 0;
   try {
     const r = await fetch(proposeUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker", ...authHeaders }, body: proposeForm.toString() });

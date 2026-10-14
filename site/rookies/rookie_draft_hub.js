@@ -4456,20 +4456,28 @@
                   const taxiPill = it.taxi
                     ? `<span class="taxi-pill" title="Taxi squad — salary doesn't count vs cap, but real for trade math">TAXI</span>`
                     : "";
+                  // A pick a lineup penalty took out of trading (worker flag,
+                  // Keith 2026-10-12): shown greyed with its label, not addable.
+                  // The worker refuses it at Send/Accept regardless.
+                  const forfeited = it.forfeited === true;
+                  const forfeitNote = forfeited
+                    ? `<span class="small" style="color:var(--warn); font-weight:700; white-space:nowrap;">${escapeHtml(it.forfeit_label || "Forfeited — lineup penalty")}</span>`
+                    : "";
                   return `
-                  <div class="trade-asset-row${it.taxi ? " is-taxi" : ""}" data-asset-id="${escapeHtml(it.asset_id)}" data-display="${escapeHtml(it.display)}" data-kind="${k}"
+                  <div class="trade-asset-row${it.taxi ? " is-taxi" : ""}${forfeited ? " is-forfeited" : ""}"${forfeited ? ' aria-disabled="true"' : ""} data-asset-id="${escapeHtml(it.asset_id)}" data-display="${escapeHtml(it.display)}" data-kind="${k}"
                        data-player-id="${escapeHtml(it.player_id || '')}"
                        data-position="${escapeHtml(it.position || '')}"
                        data-salary="${escapeHtml(String(it.salary || ''))}"
                        data-taxi="${it.taxi ? '1' : '0'}"
-                       style="cursor:pointer; font-size:12px; border-bottom:1px solid var(--border);">
+                       style="cursor:${forfeited ? "not-allowed; opacity:0.55" : "pointer"}; font-size:12px; border-bottom:1px solid var(--border);">
                     <div style="padding:4px 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                       <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        ${escapeHtml(it.display)}
+                        ${forfeited ? `<span style="text-decoration:line-through;">${escapeHtml(it.display)}</span>` : escapeHtml(it.display)}
                         ${it.position ? `<span class="small" style="color:var(--muted); margin-left:6px;">${escapeHtml(it.position)}</span>` : ""}
                         ${taxiPill}
                       </div>
                       ${it.salary ? `<span class="small" style="color:var(--muted); white-space:nowrap;">$${Math.round(it.salary).toLocaleString()}</span>` : ""}
+                      ${forfeitNote}
                     </div>
                   </div>`;
                 }).join("")}
@@ -4488,7 +4496,13 @@
             })() : "";
         // Draft picks first — they're the most-traded asset on draft day,
         // so prioritize them visually. Players follow below.
-        pickerEl.innerHTML = stubBanner +
+        // The worker couldn't read the lineup-penalty forfeit list (forfeit_check not
+        // "ok", including the offline stub): say so instead of showing every future pick
+        // as plainly available. The server re-checks before the trade is sent (Keith 2026-10-12).
+        const pickWarn = ((data.future_picks || []).length && data.forfeit_check !== "ok")
+          ? `<div class="small pick-unverified" role="status" style="color:var(--warn); font-weight:700; margin:6px 0; padding:4px 6px; background:rgba(251,191,36,0.10); border-radius:3px;">Pick restrictions could not be verified. The server will recheck before this trade can be sent.</div>`
+          : "";
+        pickerEl.innerHTML = stubBanner + pickWarn +
           renderGroup("Draft Picks", allPicks, "pick") +
           renderGroup("Players", data.players, "player");
 
@@ -4505,6 +4519,7 @@
         // Wire click-to-add
         pickerEl.querySelectorAll(".trade-asset-row").forEach(row => {
           row.addEventListener("click", () => {
+            if (row.classList.contains("is-forfeited")) return;
             const existing = basket[side].find(x => x.asset_id === row.dataset.assetId);
             if (existing) return;
             basket[side].push({

@@ -46,6 +46,7 @@ function fakeAbilitiesSite(state, { clobber = false } = {}) {
       if (clobber && posts.length === 1) state.boxes.ABIL_0002_HOME = !state.boxes.ABIL_0002_HOME; // MFL changed something else
       return { ok: true, status: 200, text: async () => "saved" };
     }
+    if (u.pathname.endsWith("/logout") && u.searchParams.get("BECOME") === "0000") return { ok: true, status: 200, headers: new Headers(), text: async () => "" };   // commissioner switch
     if (u.pathname.endsWith("/options") && u.searchParams.get("O") === "93") return { ok: true, status: 200, text: async () => abilitiesHtml(state) };
     throw new Error("unexpected " + url);
   };
@@ -193,6 +194,10 @@ test("run: replies once in the thread tagging both owners → lockout off → re
   t.deepEqual({ from: h.deps.lastExec.fromFid, to: h.deps.lastExec.toFid, give: h.deps.lastExec.give, receive: h.deps.lastExec.receive, raw: h.deps.lastExec.mflTokens },
     { from: "0009", to: "0004", give: ["FP_0004_2027_4", "111"], receive: ["222", "BB_3000"], raw: true });
   t.deepEqual(h.deps.lastExec.returnForfeited, { canonical: "FP_0004_2027_4", toFid: "0004" });
+  // The note MFL keeps on the reversing trade says plainly what happened and why.
+  t.equal(h.deps.lastExec.commentTag, RV.reversalNote({ holderName: "Pure Greatness", ownerName: "Bear Down", pick: { year: 2027, round: 4 }, week: RES.week, tradeUnix: TRADE_UNIX }));
+  t.match(h.deps.lastExec.commentTag, /^TRADE REVERSED by the commissioner \(UPS lineup rule G3\): this undoes the \w{3} \d{1,2} trade between Pure Greatness and Bear Down\. It included Pure Greatness's 2027 fourth-round pick, which was forfeited as a lineup-violation penalty \(Week \d+\) and cannot be traded\. Every player, pick and cap dollar goes back to its original team\.$/);
+  t.equal(h.deps.lastExec.comments, "");
   const row = d.raw.prepare("SELECT * FROM ups_lineup_forfeit_reversals").get();
   t.equal(row.state, "reversed"); t.equal(row.lockout_turned_off, 1); t.equal(row.lockout_restored, 1); t.equal(row.mfl_trade_id, "55555"); t.equal(row.discord_message_id, "999");
   t.equal(d.raw.prepare("SELECT state FROM ups_lineup_pick_reservations").get().state, "reserved", "the pick is with its team again, still forfeited");
@@ -323,6 +328,7 @@ function fakeTradesSite(st, { clobber = false } = {}) {
       if (clobber && posts.length === 1) st.deadline = "changed";
       return { ok: true, status: 200, text: async () => "ok" };
     }
+    if (String(url).includes("BECOME=0000")) return { ok: true, status: 200, headers: new Headers(), text: async () => "" };   // commissioner switch
     if (String(url).includes("C=TRADES")) return { ok: true, status: 200, text: async () => tradesHtml(st) };
     throw new Error("unexpected " + url);
   } };

@@ -15,6 +15,8 @@
 // MFL emails every owner whenever lockout changes (MFL help, "Commissioner Lockout").
 // Callers are responsible for when this may run; this module only does it safely.
 
+import { mflCookieHeader, becomeCommissioner, sessionIdentity } from "./mfl_cookie.js";
+
 const _s = (v) => String(v == null ? "" : v);
 
 export function abilitiesUrl(season, leagueId) {
@@ -24,13 +26,21 @@ export function abilitiesUrl(season, leagueId) {
 function cookieHeader(env) {
   const raw = _s(env && env.MFL_COOKIE).trim();
   if (!raw) return "";
-  return raw.includes("=") ? raw : `MFL_USER_ID=${raw}`;
+  return mflCookieHeader(raw);
 }
 
 const decodeEntities = (t) => _s(t)
   .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
   .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
   .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+// Every MFL page carries the league's custom-header <script> blocks, and those hold
+// "<form" / "<input" text inside JS strings (seen 2026-10-13 on the live test-league
+// page: 3 such "<form" openers, no closing tag). Parse markup only, or the first
+// fake "<form" swallows the real form and its action/method.
+export const stripNonMarkup = (html) => _s(html)
+  .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+  .replace(/<style\b[\s\S]*?<\/style\s*>/gi, "")
+  .replace(/<!--[\s\S]*?-->/g, "");
 const textOf = (html) => decodeEntities(_s(html).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 
 // Attributes of one start tag: name="v", name='v', name=v, or bare boolean attrs.
@@ -104,7 +114,7 @@ export function parseForm(formHtml) {
 // (ok:false) unless there is exactly one form mentioning "Commissioner Lockout" and
 // exactly one radio group right after that label with one "Yes…" and one "No…".
 export function parseAbilitiesPage(html) {
-  const page = _s(html);
+  const page = stripNonMarkup(html);
   const forms = [...page.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => /Commissioner\s+Lockout/i.test(textOf(f)));
   if (forms.length !== 1) return { ok: false, error: forms.length ? "several_lockout_forms" : "lockout_form_not_found" };
   const formHtml = forms[0];
@@ -158,34 +168,103 @@ export function diffFields(beforeFields, afterFields, excludeName) {
 export const PAGES = {
   abilities: { url: (season, leagueId) => abilitiesUrl(season, leagueId), formText: /Commissioner\s+Lockout/i },
   trades: { url: (season, leagueId) => `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/csetup?L=${encodeURIComponent(_s(leagueId))}&C=TRADES`, formText: /Future\s+Draft\s+Pick|Trade/i },
+  // Setup → Delete Transactions: one checkbox per transaction RECORD. Kept raw so the rows can be read.
+  delete_transactions: { url: (season, leagueId) => `https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/options?L=${encodeURIComponent(_s(leagueId))}&O=67`,
+    formAction: /\/delete_transactions\b/i, submit: /Delete\s+Transactions/i, keepMarkup: true },
 };
 
-async function loadPage(env, { season, leagueId, page, fetchImpl }) {
+// The stored session, switched to the league's COMMISSIONER identity for this call
+// only (an MFL session starts in owner mode; setup pages refuse it).
+async function commissionerCookie(env, { season, leagueId, fetchImpl }) {
+  const base = cookieHeader(env);
+  if (!base) return { ok: false, error: "no_commissioner_cookie" };
+  const r = await becomeCommissioner(base, { season, leagueId, fetchImpl });
+  // Everything here but `cookieFor` is sanitized (names, scopes, attributes, lengths,
+  // fingerprints); `cookieFor` builds the per-URL header and is never returned.
+  const elevation = { set_cookie_names: r.set_cookie_names, set_cookies: r.set_cookies, session_cookie: r.session_cookie,
+    user_id_changed: r.user_id_changed, identity_after_switch: r.identity_after_switch, hops: r.hops, hop_log: r.hop_log, attempts: r.attempts };
+  return r.ok ? { ok: true, cookieFor: r.cookieFor, elevation } : { ok: false, error: r.error, elevation };
+}
+
+// MFL sometimes redirects a setup page to "/" right after a GOOD commissioner switch
+// (2026-10-13: 4 times in one supervised run; the next try read fine). A redirect that is
+// not to the login page gets up to PAGE_ATTEMPTS tries, each after a fresh switch; a
+// login redirect (signed out) is reported at once.
+export const PAGE_ATTEMPTS = 3;
+export const PAGE_RETRY_DELAY_MS = 300;
+const _sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Commissioner read of a setup page (switch + retries). Success carries `cookie` (session
+// values) — never return it to a caller.
+export async function loadSetupPage(env, opts) { return loadPage(env, opts); }
+
+async function loadPage(env, opts) {
+  const tries = [];
+  let r = null;
+  for (let n = 1; n <= PAGE_ATTEMPTS; n += 1) {
+    if (n > 1) await _sleep(PAGE_RETRY_DELAY_MS);
+    // A retry never reuses the session MFL just turned away: it switches afresh.
+    r = await loadPageOnce(env, n === 1 ? opts : { ...opts, cookie: undefined });
+    tries.push({ attempt: n, outcome: r.ok ? "ok" : r.error, location_path: r.location_path || null });
+    if (r.ok || r.error !== "redirected") break;
+  }
+  return tries.length > 1 ? { ...r, page_attempts: tries } : r;
+}
+
+async function loadPageOnce(env, { season, leagueId, page, fetchImpl, cookie }) {
   const cfg = PAGES[page];
   if (!cfg) return { ok: false, error: "unknown_page" };
-  const ck = cookieHeader(env);
-  if (!ck) return { ok: false, error: "no_commissioner_cookie" };
-  const url = cfg.url(season, leagueId);
-  let status = 0, html = "";
-  try {
-    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: ck, "User-Agent": "upsmflproduction-worker" } });
-    status = r.status; html = await r.text();
-  } catch (e) { return { ok: false, error: `fetch_failed: ${e && e.message}` }; }
-  if (status !== 200) return { ok: false, error: `http_${status}` };
-  if (page === "abilities") {
-    const p = parseAbilitiesPage(html);
-    return p.ok ? { ok: true, url, form: p.form, lockout: p.lockout } : { ok: false, error: p.error };
+  let ck = cookie, elevation;
+  if (!ck) {
+    const c = await commissionerCookie(env, { season, leagueId, fetchImpl });
+    if (!c.ok) return { ok: false, error: c.error, elevation: c.elevation };
+    ck = c.cookieFor; elevation = c.elevation;
   }
-  const forms = [...html.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => cfg.formText.test(textOf(f)) && /save/i.test(f));
-  if (forms.length !== 1) return { ok: false, error: forms.length ? "several_forms" : "form_not_found" };
-  return { ok: true, url, form: parseForm(forms[0]) };
+  const url = cfg.url(season, leagueId);
+  let status = 0, html = "", location = "";
+  try {
+    // Never follow a redirect: MFL sends a signed-out request to its login page, which
+    // must read as "not signed in", not as a page whose form is missing.
+    const r = await (fetchImpl || fetch)(url, { headers: { Cookie: typeof ck === "function" ? ck(url) : ck, "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
+    status = r.status;
+    location = _s(r.headers && typeof r.headers.get === "function" ? r.headers.get("location") : "");
+    html = status >= 300 && status < 400 ? "" : await r.text();
+  } catch (e) { return { ok: false, error: `fetch_failed: ${e && e.message}` }; }
+  if (status >= 300 && status < 400) {
+    let to = ""; try { to = new URL(location, url).pathname; } catch (_) { to = ""; }
+    return { ok: false, error: /\/login\b/i.test(to) ? "redirected_to_login" : "redirected", http: status, location_path: to, elevation };
+  }
+  if (status !== 200) return { ok: false, error: `http_${status}` };
+  const markup = stripNonMarkup(html);
+  const text = textOf(markup);
+  const identity = sessionIdentity(html);
+  if (/Commissioner\s+Access\s+Required/i.test(text)) return { ok: false, error: "commissioner_access_required", identity, elevation };
+  if (/<input\b[^>]*type\s*=\s*["']?password/i.test(markup) && /\blog\s*in\b/i.test(text) && !cfg.formText.test(text)) return { ok: false, error: "login_page", identity, elevation };
+  if (page === "abilities") {
+    const p = parseAbilitiesPage(markup);
+    return p.ok ? { ok: true, url, form: p.form, lockout: p.lockout, cookie: ck, identity, elevation } : { ok: false, error: p.error, identity, elevation };
+  }
+  const forms = [...markup.matchAll(/<form\b[\s\S]*?<\/form>/gi)].map((m) => m[0]).filter((f) => (cfg.formAction ? cfg.formAction.test(/^<form\b[^>]*>/i.exec(f)[0]) : cfg.formText.test(textOf(f))) && (cfg.submit || /save/i).test(f));
+  if (forms.length !== 1) return { ok: false, error: forms.length ? "several_forms" : "form_not_found", identity, elevation };
+  return { ok: true, url, form: parseForm(forms[0]), cookie: ck, identity, elevation, ...(cfg.keepMarkup ? { markup: forms[0] } : {}) };
 }
 
 // Read-only: the Abilities Setup page's lockout state + a summary of the form (no submit).
 export async function inspectAbilities(env, { season, leagueId, fetchImpl }) {
+  // BEFORE the switch: who MFL serves the stored session as, from the league home page
+  // (a plain read — no redirect followed, nothing submitted).
+  let before = { identity: "no_cookie" };
+  const base = cookieHeader(env);
+  if (base) {
+    try {
+      const r = await (fetchImpl || fetch)(`https://www48.myfantasyleague.com/${encodeURIComponent(_s(season))}/home/${encodeURIComponent(_s(leagueId))}`,
+        { headers: { Cookie: base, "User-Agent": "upsmflproduction-worker" }, redirect: "manual" });
+      before = r.status >= 300 && r.status < 400 ? { http: r.status, identity: "redirected" } : { http: r.status, identity: sessionIdentity(await r.text()) };
+    } catch (e) { before = { identity: "unreadable" }; }
+  }
   const p = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
-  if (!p.ok) return { ok: false, error: p.error };
-  return { ok: true, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
+  if (!p.ok) return { ok: false, error: p.error, http: p.http, location_path: p.location_path, identity_before: before, identity: p.identity, elevation: p.elevation, page_attempts: p.page_attempts };
+  return { ok: true, identity_before: before, identity: p.identity, elevation: p.elevation, page_attempts: p.page_attempts, lockout: p.lockout.current, form_action: p.form.action, method: p.form.method, field_count: p.form.fields.length,
     lockout_field: p.lockout.name, radio_groups: Object.keys(p.form.radios).length };
 }
 
@@ -211,7 +290,7 @@ async function redact(fields) {
 // (session-like values hashed), the page fingerprint, and the radio choices.
 export async function snapshotPage(env, { season, leagueId, page, fetchImpl }) {
   const p = await loadPage(env, { season, leagueId, page, fetchImpl });
-  if (!p.ok) return p;
+  if (!p.ok) return p;   // failure results never carry the cookie
   const radios = {};
   for (const [k, opts] of Object.entries(p.form.radios)) radios[k] = opts.map((o) => ({ value: o.value, checked: o.checked }));
   return { ok: true, page, field_count: p.form.fields.length, digest: await pageDigest(p.form.fields),
@@ -227,7 +306,6 @@ export async function snapshotPage(env, { season, leagueId, page, fetchImpl }) {
 // else nothing is written (Keith 2026-10-12: stop if a page differs from its snapshot).
 export async function setPageFields(env, { season, leagueId, page, changes, fetchImpl, expectDigest }) {
   const f = fetchImpl || fetch;
-  const ck = cookieHeader(env);
   const before = await loadPage(env, { season, leagueId, page, fetchImpl: f });
   if (!before.ok) return { ok: false, step: "load", error: before.error };
   if (expectDigest && (await pageDigest(before.form.fields)) !== expectDigest) return { ok: false, step: "precheck", error: "page_differs_from_snapshot" };
@@ -250,9 +328,10 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
   if (!diffFields(before.form.fields, target, "").length) return { ok: true, changed: false };
   const action = new URL(before.form.action || before.url, before.url);
   if (!/(^|\.)myfantasyleague\.com$/i.test(action.hostname)) return { ok: false, step: "validate", error: "form_action_off_site" };
+  const ck = before.cookie;   // the commissioner session from the load above (per-URL header builder)
   const submit = async (fields) => {
     const body = new URLSearchParams(); for (const [k, v] of fields) body.append(k, v);
-    const headers = { Cookie: ck, "User-Agent": "upsmflproduction-worker" };
+    const headers = { Cookie: typeof ck === "function" ? ck(action.toString()) : ck, "User-Agent": "upsmflproduction-worker" };
     if (before.form.method === "POST") {
       return f(action.toString(), { method: "POST", headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" }, body: body.toString() });
     }
@@ -260,8 +339,8 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
     return f(u.toString(), { headers });
   };
   try { await submit(target); } catch (e) { return { ok: false, step: "submit", error: `fetch_failed: ${e && e.message}` }; }
-  const after = await loadPage(env, { season, leagueId, page, fetchImpl: f });
-  if (!after.ok) return { ok: false, step: "verify", error: `reload_failed: ${after.error}` };
+  const after = await loadPage(env, { season, leagueId, page, fetchImpl: f, cookie: ck });
+  if (!after.ok) return { ok: false, step: "verify", submitted: true, error: `reload_failed: ${after.error}` };
   const others = names.reduce((acc, n) => acc.filter(([k]) => k !== n), before.form.fields);
   const othersAfter = names.reduce((acc, n) => acc.filter(([k]) => k !== n), after.form.fields);
   const diff = diffFields(others, othersAfter, "");
@@ -269,13 +348,13 @@ export async function setPageFields(env, { season, leagueId, page, changes, fetc
     let restored = false;
     try {
       await submit(before.form.fields);
-      const again = await loadPage(env, { season, leagueId, page, fetchImpl: f });
+      const again = await loadPage(env, { season, leagueId, page, fetchImpl: f, cookie: ck });
       restored = !!(again.ok && !diffFields(before.form.fields, again.form.fields, "").length);
     } catch (_) { restored = false; }
-    return { ok: false, step: "verify", error: "other_settings_changed", diff: diff.slice(0, 20), restored };
+    return { ok: false, step: "verify", submitted: true, error: "other_settings_changed", diff: diff.slice(0, 20), restored };
   }
   const wrong = diffFields(target, after.form.fields, "");
-  if (wrong.length) return { ok: false, step: "verify", error: "change_did_not_take", diff: wrong.slice(0, 20) };
+  if (wrong.length) return { ok: false, step: "verify", submitted: true, error: "change_did_not_take", diff: wrong.slice(0, 20) };
   return { ok: true, changed: true, page, before: before.form.fields.filter(([k]) => names.includes(k)), after: after.form.fields.filter(([k]) => names.includes(k)),
     digest_after: await pageDigest(after.form.fields) };
 }
@@ -288,6 +367,17 @@ export async function setLockout(env, { season, leagueId, on, fetchImpl, expectD
   if (before.lockout.current === want) return { ok: true, changed: false, from: want, to: want };
   const r = await setPageFields(env, { season, leagueId, page: "abilities", fetchImpl, expectDigest,
     changes: { [before.lockout.name]: on ? before.lockout.yesValue : before.lockout.noValue } });
+  if (!r.ok && r.submitted && r.error && r.error.startsWith("reload_failed")) {
+    // The change was sent but its check read failed: read the page again before calling it
+    // a failure — a false "lockout still OFF" alarm is as bad as a missed one. It counts as
+    // done only if lockout now reads as wanted AND every other field is as it was.
+    const again = await loadPage(env, { season, leagueId, page: "abilities", fetchImpl });
+    if (again.ok && again.lockout.current === want &&
+        (await pageDigest(again.form.fields, again.lockout.name)) === (await pageDigest(before.form.fields, before.lockout.name))) {
+      return { ok: true, changed: true, from: before.lockout.current, to: want, digest_after: await pageDigest(again.form.fields), verified_by_reread: true };
+    }
+    return { ...r, reread: again.ok ? { lockout: again.lockout.current } : { error: again.error } };
+  }
   if (!r.ok) return r;
   return { ok: true, changed: true, from: before.lockout.current, to: want, digest_after: r.digest_after };
 }

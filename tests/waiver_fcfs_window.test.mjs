@@ -112,7 +112,7 @@ function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
     route: { registerView: (n, fn) => { if (n === "players") ctx.__render = fn; }, renderRoute: () => ctx.__render(mount, []), navigate() {}, currentRoute: () => "players" },
     hotCold: { get: () => ({ hot: {}, cold: {} }), isLoading: () => false, fetch: () => Promise.resolve() },
     lineupIntel: { load() {}, projLoaded: () => false, projFor: () => null, fmtProj: (v) => String(v), matchupFor: () => null, priorSeason: () => false,
-      rankCls: () => "", weeksAvailable: () => 0, muData: () => null,
+      weeksAvailable: () => 0, muData: () => null,
       kickoffs: { load() {}, loaded: () => kickoffsLoaded, kickedOff: (team) => ctx.__isKickedOff(team), kickoffFor: (team) => kickoffs[team] || null } },
     waivers: {
       mode: () => ctx.__waiverMode(), writeEnabled: () => true, stateKnown: () => true, nativeLink: () => "",
