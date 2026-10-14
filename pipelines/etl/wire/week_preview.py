@@ -110,13 +110,6 @@ def _regressed(raw, k):
     return dict((f, mean + k * (raw[f] - mean)) for f in raw)
 
 
-def _div_winners(teams, st):
-    divs = {}
-    for f in teams:
-        divs.setdefault(teams[f]["division"], []).append(f)
-    return set(sorted(m, key=lambda f: S._div_winner_key(st[f]))[0] for m in divs.values())
-
-
 def run_state(prep, actual, k, runs, seed, week=None):
     """Official refresh-only simulation of one input state. With `week`, also
     conditions every one of that week's games inside the same seasons."""
@@ -132,16 +125,29 @@ def run_state(prep, actual, k, runs, seed, week=None):
     # all-play wins THAT week, and whether each made the playoffs -- so the
     # win/loss split can be taken apart afterwards (see split_result()).
     samples = dict((g, []) for g in cond)
+    # WEEK SCENARIOS (Keith 2026-10-14): a team's week is two numbers, not one --
+    # how many of its head-to-head games it won AND where its score ranked in the
+    # whole league (which is what moves All-Play, the wild-card and seeding
+    # metric). Counted per team as (h2h wins, games, league rank that week) in
+    # the same simulated seasons, so any tiering is an exact sum of cells.
+    opps = dict((f, [b if a == f else a for a, b in games if f in (a, b)]) for f in teams)
+    scen = {}
 
-    def hook(st, champ, runner, seeds, drawn):
+    def hook(st, champ, runner, seeds, drawn, dw):          # dw: simulate()'s own division winners (H2H applied)
         if not week:
             return
         sc = drawn[week]
         for f in teams:
             wk_scores[f].append(sc[f])
         po = set(seeds)
-        dw = _div_winners(teams, st)
         wk_ap = dict((f, sum(1 for g in teams if g != f and sc[f] > sc[g])) for f in teams)
+        top2 = set(seeds[:2])
+        for f in teams:
+            if not opps[f]:
+                continue
+            key = (f, sum(1 for o in opps[f] if sc[f] > sc[o]), len(teams) - wk_ap[f])
+            c = scen.setdefault(key, [0, 0, 0, 0])
+            c[0] += 1; c[1] += f in po; c[2] += f in dw; c[3] += f in top2
         for (a, b), c in cond.items():
             samples[(a, b)].append((sc[a], sc[b], sc[a] > sc[b], a in po, b in po, wk_ap[a], wk_ap[b]))
             c["n"] += 1
@@ -158,8 +164,12 @@ def run_state(prep, actual, k, runs, seed, week=None):
     odds = dict((f, {"playoff": agg[f]["po"] / runs, "division": agg[f]["div"] / runs,
                      "bye": agg[f]["bye"] / runs, "title": agg[f]["title"] / runs,
                      "endingAp": agg[f]["ap_pct"] / runs}) for f in teams)
+    week_scen = {}
+    for (f, hw, rank), (n, po_n, div_n, bye_n) in sorted(scen.items()):
+        week_scen.setdefault(f, {"games": len(opps[f]), "opponents": opps[f], "cells": []})["cells"].append(
+            {"h2hWins": hw, "rank": rank, "runs": n, "playoff": po_n, "division": div_n, "bye": bye_n})
     return {"wp": wp, "sigma_w": sigma_w, "sigma_s": sigma_s, "odds": odds,
-            "cond": cond, "wk_scores": wk_scores, "samples": samples}
+            "cond": cond, "wk_scores": wk_scores, "samples": samples, "weekScenarios": week_scen}
 
 
 def split_result(rows, side, n_teams=12, bins=10, min_cell=40):
@@ -539,6 +549,9 @@ def build(season, week, runs, seed, live_cache, k=S.REGRESS_DEFAULT, reuse_cache
         },
         "games": games, "injuryWatch": watch[:12],
         "movement": movement, "divisionWatch": div_watch,
+        # Counts, not rates: cells are (head-to-head wins, league scoring rank 1-12)
+        # for this week inside the same simulated seasons; rate = playoff / runs.
+        "weekScenarios": now["weekScenarios"],
         "leagueLineupPerWeek": {"now": league_now, "rotowireNow": league_rw,
                                 "weeks": [weeks[0], weeks[-1]]},
     }
