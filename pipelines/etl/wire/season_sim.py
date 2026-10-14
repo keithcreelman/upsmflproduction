@@ -734,7 +734,8 @@ def apply_ev_offense(season, proj, pos, end, cache_dir=None):
     cov["availabilityDisagreements"] = sorted(
         (dict({"pid": pid, "player": (mfl_players.get(pid) or {}).get("name"),
                "rotowireAverageWhenPlaying": round(ref[pid], 1) if pid in ref else None}, **d)
-         for pid, d in disagree.items()), key=lambda x: -sum(len(x[k]) for k in ("mflSaysOut", "mflSaysPlays", "mflStarter", "mflBackup")))
+         for pid, d in disagree.items()),
+        key=lambda x: (-sum(len(x[k]) for k in ("mflSaysOut", "mflSaysPlays", "mflStarter", "mflBackup")), x["pid"]))
     cov["nameMatchedPlayers"] = len(name_matched)
     if newest:
         cov["sleeperUpdatedAt"] = datetime.fromtimestamp(newest / 1000.0, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

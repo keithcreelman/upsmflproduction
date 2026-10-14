@@ -253,7 +253,7 @@ def projection_shift(prep_pre, prep, fid, weeks, names):
     rows_now = prep["rosters"][fid]
     pids = set(r["pid"] for r in rows_now) | set(r["pid"] for r in prep_pre["rosters"].get(fid, []))
     cands = []
-    for pid in pids:
+    for pid in sorted(pids):                     # sorted: a set's order changes run to run (string hashing)
         pre_t = sum(prep_pre["proj"][w].get(pid, 0.0) for w in weeks) / n
         now_t = sum(prep["proj"][w].get(pid, 0.0) for w in weeks) / n if any(r["pid"] == pid for r in rows_now) else 0.0
         if abs(now_t - pre_t) >= 1.0:
@@ -297,7 +297,8 @@ def projection_shift(prep_pre, prep, fid, weeks, names):
             note = "MFL projection changed"
         out.append({"pid": pid, "player": names(pid), "perWeekBefore": round(pre_t, 1), "perWeekNow": round(now_t, 1),
                     "lineupImpactPerWeek": round(impact, 1), "note": note})
-    out.sort(key=lambda x: -abs(x["lineupImpactPerWeek"]))
+    # ties broken by player id, so a replay on the same inputs lists the same six players
+    out.sort(key=lambda x: (-abs(x["lineupImpactPerWeek"]), x["pid"]))
     return {"lineupPerWeekBefore": round(pre_avg, 1), "lineupPerWeekNow": round(now_avg, 1),
             "exactBefore": pre_avg, "exactNow": now_avg,
             "sidesBefore": dict((k, round(v, 1)) for k, v in sides_before.items()),
