@@ -13,7 +13,7 @@
 import fs from "fs";
 import assert from "assert";
 import * as F from "../worker/src/fpa_engine.js";
-import { runBoth, replayFetch, replayD1, storeBinding, jsonOut, normalize, sweepPaths } from "../pipelines/etl/scripts/fpa_store_harness.mjs";
+import { runBoth, runBothSos, replayFetch, replayD1, storeBinding, jsonOut, normalize, sweepPaths } from "../pipelines/etl/scripts/fpa_store_harness.mjs";
 import { encodeSeason, serialize, seasonComplete, STORE_ROOT } from "../pipelines/etl/scripts/build_fpa_season_store.mjs";
 
 let fails = 0;
@@ -140,9 +140,10 @@ function inputsFromFile(s) {
   for (const m in c.multi) for (const wk in c.multi[m]) teamRows.push({ m, t: c.multi[m][wk], lo: null, hi: null, wk: Number(wk) });
   for (const w in c.plays) for (const t in c.plays[w]) playRows.push({ week: Number(w), team: t, plays: c.plays[w][t] });
   for (const t in c.pace) paceRows.push({ team: t, off_plays_pg: c.pace[t].off, def_plays_pg: c.pace[t].def });
-  const idRows = Object.keys(s.snaps.ids).map((m) => ({ mfl_id: m, pfr_id: s.snaps.ids[m] }));
+  // A file built with --no-snaps (2011–2016) has snaps null: its drills read snaps from D1.
+  const idRows = s.snaps ? Object.keys(s.snaps.ids).map((m) => ({ mfl_id: m, pfr_id: s.snaps.ids[m] })) : [];
   const snapRows = [];
-  for (const p in s.snaps.wk) for (const w in s.snaps.wk[p]) snapRows.push({ pfr_id: p, week: Number(w), off_snaps: s.snaps.wk[p][w][0], def_snaps: s.snaps.wk[p][w][1] });
+  if (s.snaps) for (const p in s.snaps.wk) for (const w in s.snaps.wk[p]) snapRows.push({ pfr_id: p, week: Number(w), off_snaps: s.snaps.wk[p][w][0], def_snaps: s.snaps.wk[p][w][1] });
   return { raw, rec: { teamRows, playRows, paceRows, idRows, snapRows } };
 }
 // (The build already proved every window and every drill of each season against the
@@ -151,20 +152,28 @@ function inputsFromFile(s) {
 for (const f of committed) {
   const yr = f.slice(0, 4), t = fs.readFileSync(dir + "/" + f, "utf8"), s = JSON.parse(t);
   const latest = f === committed[committed.length - 1];
-  await check(`${yr}: the committed file is valid and complete; stored = live for the Full season list, weeks 3–9 and ${latest ? "EVERY drill" : "one drill per position"}`, async () => {
-    assert.strictEqual(F.fpaStoreProblem(s, yr, LID), null);
-    assert.ok(F.fpaStoreOpen(s, yr, LID, NOW), "does not open as a complete season");
+  const lid = F.fpaLeagueId(yr), noSnaps = s.snaps == null;
+  await check(`${yr}: the committed file is valid and complete (league ${lid}); stored = live for the Full season list, weeks 3–9, ${noSnaps ? "no drills (built without snaps)" : latest ? "EVERY drill" : "one drill per position"} and Sched Δ (season, regular, playoffs)`, async () => {
+    assert.strictEqual(F.fpaStoreProblem(s, yr, lid), null);
+    assert.ok(F.fpaStoreOpen(s, yr, lid, NOW), "does not open as a complete season");
+    assert.ok(!noSnaps || Number(yr) < 2017, "only 2011–2016 are stored without snaps");
     assert.ok(Number(yr) < F.fpaCurrentSeason(NOW));
     F.fpaStoreForget();
     const { raw, rec } = inputsFromFile(s);
     const teams = Array.from(new Set(Object.values(s.sched).flat().flatMap((m) => m[2].map((x) => x[0])))).sort();
     assert.strictEqual(teams.length, 32);
-    const drills = latest ? sweepPaths(yr, s.endWeek, teams).drill
+    const drills = noSnaps ? [] : latest ? sweepPaths(yr, s.endWeek, teams).drill
       : F.FPA_GROUPS.map((g, i) => `/api/fpa-detail?YEAR=${yr}&team=${teams[(i * 7 + Number(yr)) % 32]}&pos=${g}&week_min=1`);
     const paths = [`/api/fantasy-points-against?YEAR=${yr}&week_min=1`, `/api/fantasy-points-against?YEAR=${yr}&week_min=3&week_max=9`, ...drills];
     for (const p of paths) {
-      const r = await runBoth(p, { raw, rec, files: filesFor(yr, t), nowMs: NOW, lid: LID });
+      const r = await runBoth(p, { raw, rec, files: filesFor(yr, t), nowMs: NOW, lid });
       assert.ok(r.same && r.storedSource === "stored" && !r.mflReads && !r.d1Reads, p);
+    }
+    const lrs = s.endWeek - 3;
+    for (const [a, b] of [[1, s.endWeek], [1, lrs], [lrs + 1, s.endWeek]]) {
+      F.fpaStoreForget();
+      const r = await runBothSos(`/api/sos-adjusted-points?seasons=${yr}&week_min=${a}&week_max=${b}`, { raw, rec, files: filesFor(yr, t), nowMs: NOW });
+      assert.ok(r.same && r.storedSource === "stored" && !r.mflReads && !r.d1Reads && r.status[1] === 200, "sos " + yr + " " + a + "-" + b);
     }
   });
 }
