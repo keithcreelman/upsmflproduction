@@ -4567,7 +4567,8 @@ table.asw-table{width:auto;min-width:0}
     state.sortKey = null;
     bodyEl.innerHTML = '<div class="asw-loading" role="status">Loading ' + escapeHtml(seasons.slice().sort().join(" + ") + " " + tab.label) + '…</div>';
     metaEl.textContent = "";
-    if (countEl) countEl.textContent = "";
+    var cntEl = document.getElementById("asw-count");   // (looked up here: runQuery also runs on its own in tests)
+    if (cntEl) cntEl.textContent = "";
     // Server-side min_games=1 — real game-count filtering is done per-column
     // in the header filter row (type a number into G). Keep limit=500 so
     // multi-season queries still fit the D1 row cap.
