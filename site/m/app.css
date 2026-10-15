@@ -895,8 +895,8 @@ button.ups-m-busy::before,
 .ups-m-mu-inj { color: var(--fg); }
 .ups-m-mu-note.inj { margin-top: 4px; }
 .ups-m-mu-about-spread, .ups-m-mu-about-inj { margin-top: 6px; }
-/* The red "Injury sources disagree" note (player_sheet.css .ups-m-inj-warn) in a matchup's Details. */
-.ups-m-mu-detail .ups-m-mu-injwarn { margin: 0 0 4px; }
+/* The red "Injury sources disagree" note (player_sheet.css .ups-m-inj-warn, its own padding) in a matchup's Details. */
+.ups-m-mu-detail .ups-m-mu-injwarn { margin: 2px 0 4px; padding: 6px 9px; }
 /* The injury chip (the shared .ups-m-inj-chip, player_sheet.css) on Lineup: under the
    slot's position label, after a bench player's team. */
 .ups-m-inj-chip.lu { margin-left: 0; padding: 0 4px; font-size: 10.5px; line-height: 15px; border-radius: 4px; }

@@ -64,9 +64,9 @@
   /* Big and bold on purpose (Keith): this is the one signal that should
      outweigh everything else on the card when it's real. Solid fill, not an
      outline chip like .gd-badge/.gd-chip elsewhere — those are informational,
-     this is a warning. tier-out (Out, every IR kind, Suspended, Retired, Holdout,
-     Doubtful) is red; tier-q (Questionable) is amber and uses dark text since
-     amber on dark text reads poorly reversed. (This comment used to read
+     this is a warning. tier-out (Out) is red; tier-q (Questionable) is amber
+     and uses dark text since amber on dark text reads poorly reversed; D,
+     the roster kinds (IR, PUP, NFI, SUSP, RET) and HOLD have their own tones below. (This comment used to read
      "IR-" + "*" + "/Suspended", which ENDED the comment early and silently dropped
      the .gd-slot-inj-row rule below: badge rows had no padding. Fixed 2026-10-14.) */
   .gd-slot-inj-row { padding: 0 14px 8px 14px; margin-top: -2px; }
@@ -321,7 +321,7 @@
 
 <script src="../shared/live_scoring.js"></script>
 <script src="../shared/injury_overrides.js"></script>
-<script src="../shared/injury_status.js"></script>
+<script src="../shared/injury_status.js?v=2026.10.15.4"></script>
 <script>
 (function () {
   "use strict";
@@ -635,20 +635,16 @@
     var ko = STATE.kickoffs && STATE.kickoffs[String(team || "").toUpperCase()];
     return !!(ko && Date.now() / 1000 >= ko);
   }
-  // A player MFL's injuries export has NO entry for is not in this map at
-  // all (the export lists only players WITH a designation) — so any
-  // non-empty injStatus is itself the signal, never a healthy/blank case
-  // to filter out. Two tiers: OUT-class (won't help you — Out, every IR
-  // flavor per mfl_injuries_export_no_L_and_retired_flag_lag.md's real
-  // vocabulary IR-PUP/IR-NFI/IR-R, Suspended, Retired, Holdout, Doubtful)
-  // vs Questionable (uncertain, still probably plays). Keith: "Players need
-  // to show OUT, Questionable etc. Big and Bold."
+  // Only when site/shared/injury_status.js didn't load: MFL's own export token as the same
+  // plain designation the resolver shows (Keith 2026-10-15: Q, D, OUT, IR, PUP, SUSP). A player
+  // the export has NO entry for isn't in this map at all (it lists only players WITH a
+  // designation). Keith: "Players need to show OUT, Questionable etc. Big and Bold."
   function injBadgeInfo(status) {
+    var MAP = { OUT: ["OUT", "out"], DOUBTFUL: ["D", "d"], QUESTIONABLE: ["Q", "q"], IR: ["IR", "res"], "IR-R": ["IR", "res"],
+      "IR-PUP": ["PUP", "res"], "IR-NFI": ["NFI", "res"], SUSPENDED: ["SUSP", "res"], RETIRED: ["RET", "res"], HOLDOUT: ["HOLD", "ho"] };
     var st = LS.injuryToken(status);   // one normalizer for every surface: no stray edge punctuation, "" when absent
-    if (!st) return null;
-    if (/^(OUT|IR|SUSPENDED|RETIRED|HOLDOUT|DOUBTFUL)/.test(st)) return { label: st, tier: "out" };
-    if (/^QUESTIONABLE/.test(st)) return { label: st, tier: "q" };
-    return null;   // e.g. "Probable" — not a real risk signal, no badge
+    var b = st ? MAP[st] : null;
+    return b ? { label: b[0], tier: b[1] } : null;   // e.g. "Probable" — not a real risk signal, no badge
   }
   // A row's injury tags as badges: row.inj.chips (the shared resolver, below), or — only if
   // site/shared/injury_status.js didn't load — the one MFL status as before. inline = the
@@ -658,7 +654,7 @@
     if (row && !row.inj) { var b = injBadgeInfo(row.injStatus); if (b) cs = [{ t: b.label, cls: b.tier, title: row.injLabel || b.label }]; }
     if (!cs.length) return "";
     var h = cs.map(function (c) {
-      return '<span class="gd-inj-badge tier-' + c.cls + '" title="' + esc(c.title) + '">' + esc(c.t) + '</span>';
+      return '<span class="gd-inj-badge tier-' + c.cls + '" title="' + esc(c.title) + '" role="img" aria-label="' + esc(c.title) + '">' + esc(c.t) + '</span>';
     }).join("");
     return inline ? " " + h : '<div class="gd-slot-inj-row">' + h + '</div>';
   }

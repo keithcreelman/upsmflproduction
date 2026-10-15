@@ -10,6 +10,7 @@
 // a screen line only when a source is unavailable.
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
+import { assemble } from "../worker/src/player_status.js";
 
 const box = {};
 new Function("window", fs.readFileSync(new URL("../site/shared/injury_status.js", import.meta.url), "utf8"))(box);
@@ -37,7 +38,7 @@ function clean(r, label) {
   for (const c of r.chips) t.ok(ALLOWED.test(c.t), label + ": the chip is just a designation: " + c.t);
   const all = r.chips.map((c) => c.t + " " + c.title).concat(r.lines, r.warning ? [r.warning.title].concat(r.warning.lines) : []).join(" | ");
   t.ok(!/est\. return|expected return|Sep 13|Oct 18|Nov 15|return date|stale|dashed/i.test(all), label + ": no expected-return dates or stale wording: " + all);
-  t.ok(!/read at|updated|\d:\d\d [AP]M|ET\b/.test(all), label + ": no read times: " + all);
+  t.ok(!/read at|updated (at|Mon|Tue|Wed|Thu|Fri|Sat|Sun)|\d{1,2}:\d\d|\bET\b/.test(all), label + ": no read times: " + all);
   t.ok(!/healthy|wrong|incorrect|out of date|error in/i.test(all), label + ": never calls a source wrong or the player healthy: " + all);
   t.ok(!r.chips.some((c) => c.prior), label + ": no dashed (prior) chip");
 }
@@ -103,18 +104,33 @@ test("5. IR / PUP: MFL's roster designation is the chip (IR-R shows IR), never c
 });
 
 test("6. either source unavailable: the other's chip, no warning (nothing to compare), the page says which couldn't be read", () => {
-  const mflDown = R(read({ 1: { report: { status: "Out", injury: "Knee" } } }, { mfl_feed: { ok: false, reason: "unreadable: HTTP 500" } }), "1", "DEN");
+  // A worker without MFL's field (an older deploy): MFL unknown, the current report still read.
+  // (The worker's own MFL failure makes the report non-current too: see "the worker's real states".)
+  const mflDown = R(read({ 1: { report: { status: "Out", injury: "Knee" } } }, { mfl_feed: null }), "1", "DEN");
   t.deepEqual([tags(mflDown), mflDown.warning], [["OUT"], null]);
   t.deepEqual(mflDown.lines, ["MFL: Couldn’t be read", "Official NFL report: Out for Week 6 (Knee)"]);
-  t.equal(IS.noteText(read({}, { mfl_feed: { ok: false } }), { now: NOW }), "MFL’s injury list couldn’t be read; tags come from the official NFL report.");
+  t.equal(IS.noteText(read({}, { mfl_feed: null }), { now: NOW }), "MFL’s injury list couldn’t be read; tags come from the official NFL report.");
   const oldServer = R(read({ 1: {} }, { mfl_feed: null }), "1", "SEA");
   t.deepEqual([oldServer.warning, oldServer.lines[0]], [null, "MFL: Couldn’t be read"], "a server without MFL's field: unknown, never 'No designation'");
   const nflDown = R(read({ 1: { mfl: mfl("Questionable") } }, { report_feed: { ok: false, current: false, reason: "unreadable: HTTP 502" } }), "1", "DEN");
   t.deepEqual([tags(nflDown), nflDown.warning], [["Q"], null]);
   t.deepEqual(nflDown.lines, ["MFL: Questionable (Ankle)", "Official NFL report: Couldn’t be read"]);
-  t.equal(IS.noteText(read({}, { report_feed: { ok: false, current: false } }), { now: NOW }), "The official NFL report couldn’t be read; tags are MFL’s alone.");
+  t.equal(IS.noteText(read({}, { report_feed: { ok: false, current: false } }), { now: NOW }), "The official NFL report can’t be checked right now; tags are MFL’s alone.");
   t.equal(IS.noteText(read({}, { mfl_feed: { ok: false }, report_feed: { ok: false, current: false } }), { now: NOW }),
-    "Neither MFL’s injury list nor the official NFL report could be read, so injury tags may be missing.");
+    "Injury status couldn’t be read, so injury tags may be missing.");
+  // MFL unreadable and the report readable but not this week's (the worker takes the week from MFL):
+  // never "tags come from the official NFL report" while nothing can be tagged from it.
+  t.equal(IS.noteText(read({}, { mfl_feed: { ok: false }, report_feed: { ok: true, current: false, reason: "current NFL week unknown" } }), { now: NOW }),
+    "Injury status couldn’t be read, so injury tags may be missing.");
+  const both = R(read({ 1: {} }, { mfl_feed: { ok: false }, roster_feed: { ok: false } }), "1", "SEA");
+  t.deepEqual(both.lines.filter((l) => /^MFL/.test(l)), ["MFL: Couldn’t be read"], "one MFL line when MFL can't be read, not two");
+  const stale = R(read({ 1: { mfl: mfl("Questionable") } }, { report_feed: { ok: true, current: false, reason: "the newest report is not updated for 31.2 h" } }), "1", "DEN");
+  t.equal(stale.lines[1], "Official NFL report: Not updated recently", "no raw hours on the player page");
+  t.equal(IS.noteText(read({}, { report_feed: { ok: true, current: false, reason: "report not updated for 40 h" } }), { now: NOW }),
+    "The official NFL report can’t be checked right now; tags are MFL’s alone.", "a report too old to use is said on the screen, not only on the player page");
+  // a report entry from a feed that isn't current is never used (no chip, no disagreement)
+  const notCur = R(read({ 1: { report: { status: "Out", injury: "Knee" } } }, { report_feed: { current: false, reason: "report not updated for 40 h" } }), "1", "DEN");
+  t.deepEqual([tags(notCur), notCur.warning], [[], null]);
   const notOut = R(read({ 1: { mfl: mfl("Doubtful") } }, { report_feed: { current: false, week: 5, reason: "the newest report is Wk 5; Wk 6's is not out yet" } }), "1", "DEN");
   t.deepEqual([tags(notOut), notOut.warning, notOut.lines[1]], [["D"], null, "Official NFL report: Not posted yet"]);
   t.equal(IS.noteText(read({}, { report_feed: { current: false, week: 5, reason: "not out yet" } }), { now: NOW }), "", "a report not posted yet isn't a failure");
@@ -128,6 +144,40 @@ test("6. either source unavailable: the other's chip, no warning (nothing to com
   t.equal(IS.noteText({ state: "error" }, { fallback: true, now: NOW }), "Injury status couldn’t be loaded; tags are MFL’s from this page’s own read.");
   t.equal(IS.noteText({ state: "loading" }, { now: NOW }), "Checking injury status…");
   for (const [r, l] of [[mflDown, "MFL down"], [nflDown, "NFL down"], [notOut, "not out"], [failed, "failed"], [oldServer, "old server"]]) clean(r, l);
+});
+
+test("the worker's real states (worker/src/player_status.js assemble()): MFL down, a report too old or unmatchable, all well", () => {
+  const rows = [{ season_type: "REG", week: "6", team: "DEN", gsis_id: "00-0000001", report_status: "Out", report_primary_injury: "Knee", practice_status: "Did Not Participate In Practice" }];
+  const mflPayload = { injuries: { week: "6", timestamp: "1791979264", injury: [{ id: "2", status: "Questionable", details: "Ankle" }, { id: "3", status: "IR", details: "Foot" }] } };
+  const real = (args) => {
+    const d = Object.assign({ ok: true, generated_utc: new Date(NOW).toISOString(), mapped_mfl_ids: ["1", "2", "3"] },
+      assemble(Object.assign({ reportRows: rows, reportModified: new Date(NOW - 3600e3).toUTCString(), gsisToMfl: { "00-0000001": "1" }, mflPayload, now: NOW }, args)));
+    return { state: "ok", data: d, at: NOW };
+  };
+  // MFL's export fails: no week, so the report can't be current; nothing can be tagged.
+  const down = real({ mflError: "HTTP 500", mflPayload: null });
+  t.deepEqual([down.data.mfl_feed.ok, down.data.report_feed.current], [false, false], "the worker's own MFL-down state");
+  t.equal(IS.noteText(down, { now: NOW }), "Injury status couldn’t be read, so injury tags may be missing.", "never 'tags come from the official NFL report' here");
+  const d1 = R(down, "1", "DEN");
+  t.deepEqual([tags(d1), d1.warning, d1.lines], [[], null, ["MFL: Couldn’t be read", "Official NFL report: The current NFL week couldn’t be read"]], "one MFL line, no roster line on top");
+  // a report 40 hours old: MFL's chip stands, no disagreement, the screen says the report can't be checked
+  const old = real({ reportModified: new Date(NOW - 40 * 3600e3).toUTCString() });
+  t.equal(IS.noteText(old, { now: NOW }), "The official NFL report can’t be checked right now; tags are MFL’s alone.");
+  const o2 = R(old, "2", "DEN");
+  t.deepEqual([tags(o2), o2.warning, o2.lines], [["Q"], null, ["MFL: Questionable (Ankle)", "Official NFL report: Not updated recently"]]);
+  t.deepEqual(tags(R(old, "1", "DEN")), [], "the old report's Out isn't used");
+  // the NFL id map can't be read
+  const nomap = real({ mapError: "boom", gsisToMfl: {} });
+  t.equal(IS.noteText(nomap, { now: NOW }), "The official NFL report can’t be checked right now; tags are MFL’s alone.");
+  t.equal(R(nomap, "2", "DEN").lines[1], "Official NFL report: Players couldn’t be matched to it");
+  // all well: no line; Q vs the report's silence on DEN → the warning; IR never compared
+  const ok = real({});
+  t.equal(IS.noteText(ok, { now: NOW }), "");
+  const q = R(ok, "2", "DEN");
+  t.deepEqual([tags(q), q.warning && q.warning.lines], [["Q"], ["MFL: Questionable (Ankle)", "Official NFL report: Not listed for Week 6"]]);
+  t.deepEqual([tags(R(ok, "3", "DEN")), R(ok, "3", "DEN").warning], [["IR"], null]);
+  t.deepEqual(tags(R(ok, "1", "DEN")), ["OUT"], "the report's Out, MFL silent: the report's chip (and the warning)");
+  for (const [rd, pid, l] of [[down, "1", "down"], [old, "2", "old"], [nomap, "2", "nomap"], [ok, "2", "ok"]]) clean(R(rd, pid, "DEN"), l);
 });
 
 // ── the guards around "not listed" and the warning ──

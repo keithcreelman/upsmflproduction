@@ -838,7 +838,7 @@
     // The one chip (a plain designation: Q, D, OUT, IR, PUP, SUSP), colored by severity.
     function resolvedChipsHtml(res, extra) {
       return (res && res.chips || []).map(function (c) {
-        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
+        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '" role="img" aria-label="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
       }).join("");
     }
     // The red "Injury sources disagree" block (Keith 2026-10-15): each source stated plainly,
@@ -849,10 +849,13 @@
         w.lines.map(function (l) { return "<div>" + U.escapeHtml(l) + "</div>"; }).join("") + "</div>";
     }
     function aboutText() { var IS = window.UPSInjuryStatus; return IS && IS.aboutText ? IS.aboutText() : ""; }
-    // A line ONLY when a source is unavailable or still loading ("" when all is well).
+    // A line ONLY when a source is unavailable or still loading ("" when all is well). It
+    // mentions the app's own MFL read only when that read covers the week, as resolve() uses it.
     function noteText(week) {
-      var IS = window.UPSInjuryStatus;
-      return IS ? IS.noteText(st, { week: parseInt(week, 10) || null, fallback: !!window.UPS_MOBILE.state.injuryStore }) : "";
+      var IS = window.UPSInjuryStatus; if (!IS) return "";
+      var S = window.UPS_MOBILE.state, wk = parseInt(week, 10) || parseInt(screenWeek(), 10) || 0, store = S.injuryStore;
+      var fb = !!(wk && store && store.known && store.known((S.ctx || {}).year, wk));
+      return IS.noteText(st, { week: wk || null, fallback: fb });
     }
     // The week a screen that isn't Lineup resolves for: Lineup's week once Lineup has set it,
     // else the app's startup answer from the same /api/current-lineup-week (lineupWeekResolution),

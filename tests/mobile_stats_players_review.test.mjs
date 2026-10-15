@@ -1357,6 +1357,13 @@ test("Route down and Lineup not opened yet: the app's lineup week (from startup)
   t.deepEqual(searchChips(v.searchList(), DAK), list, "search: the same");
   v.ctx.UPS_MOBILE.sheet.open(DAK); await settle(); await settle();
   t.deepEqual(sheetChips(v.getEl("ups-m-sheet-head").innerHTML), list, "sheet: the same");
+  // The app's own MFL read covers only an earlier week: no chips, and the note never claims them.
+  const v2 = boot({ search: true, status: 500 });
+  v2.M.state.lineupWeekResolution = { ok: true, week: 5, source: "live_scoring" };
+  v2.M.state.injuryStore = { known: (s, w) => String(w) === "4", status: (s, w, id) => (String(id) === DAK ? "IR" : ""), detail: () => "Knee" };
+  await openTab(v2, "QB");
+  t.deepEqual(listChips(v2.getEl("ups-m-st-listwrap").innerHTML, DAK), []);
+  t.match(v2.getEl("ups-m-st-notes").innerHTML, /<div class="ups-m-st-injline">Injury status couldn’t be loaded, so no injury tags are shown\.<\/div>/, "not 'tags are MFL’s from this page’s own read'");
 });
 test("Lineup's week ahead of MFL's list, known only from startup (Lineup not opened): list, search and sheet show the same solid chip", async () => {
   const MQ = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: null, return_date: null };
@@ -1401,14 +1408,18 @@ test("same player, same tags: Stats → Players list = Search = the player sheet
   }
   const pids = Object.keys(seen);
   t.ok(pids.length >= 25, pids.length + " listed players with a Week 6 status");
-  let same = 0, tagged = 0, warned = 0;
+  let same = 0, tagged = 0, warned = 0, irSlot = 0;
+  // His fantasy roster slot: search shows it as a tag, so an IR chip on his IR slot isn't repeated there.
+  const slotOf = {}; for (const rows of Object.values(FX.rosters)) for (const r of rows) slotOf[r[0]] = r[1];
   for (const pid of pids) {
     v.ctx.UPS_MOBILE.sheet.open(pid); await settle(); await settle();
     const sheet = sheetChips(v.getEl("ups-m-sheet-head").innerHTML);
     v.ctx.UPS_MOBILE.playerSearch.openWith(nameOf(pid)); await settle();
     const search = searchChips(v.searchList(), pid);
     t.deepEqual(sheet, seen[pid], nameOf(pid) + ": list = sheet");
-    t.deepEqual(search, seen[pid], nameOf(pid) + ": list = search");
+    const dedup = slotOf[pid] === "INJURED_RESERVE" && seen[pid].length === 1 && seen[pid][0] === "IR:res";
+    t.deepEqual(search, dedup ? [] : seen[pid], nameOf(pid) + (dedup ? ": search shows his IR slot tag, not a second IR" : ": list = search"));
+    if (dedup) { irSlot++; t.match(v.searchList(), new RegExp('data-pid="' + pid + '">[\\s\\S]*?<span class="tag ir">IR</span>')); }
     t.ok(seen[pid].length <= 1, nameOf(pid) + ": one chip at most");
     const res = v.ctx.UPS_MOBILE_PLAYER_STATUS.resolve(pid, (PLAYERS.find((p) => p.id === pid) || {}).team, null);
     t.equal(!!sheetWarning(v.getEl("ups-m-sheet-head").innerHTML), !!res.disagree, nameOf(pid) + ": the sheet's warning exactly when the sources disagree");
@@ -1418,6 +1429,7 @@ test("same player, same tags: Stats → Players list = Search = the player sheet
     for (const c of seen[pid]) { const m = /:([a-z]+)(:prior)?$/.exec(c); kinds.add(m[1] + (m[2] ? "-dashed" : "")); }
   }
   t.equal(same, pids.length);
+  t.ok(irSlot >= 1, irSlot + " on an IR slot with MFL's IR (the one exception, checked above)");
   t.ok(tagged >= 20, tagged + " of them tagged");
   // The real read's report covers only DEN and SEA; the synthetic tests above check a disagreement on
   // list = search = sheet (one chip, the warning only on the sheet).
@@ -1485,6 +1497,41 @@ test("status in the sheet (Keith 2026-10-14/15): one plain chip, MFL first; each
   t.match(PS2.warningHtml(PS2.resolve(PURDY, "SF", null)), /<b>Injury sources disagree<\/b><div>MFL: Questionable \(Toe\)<\/div><div>Official NFL report: Out for Week 5 \(Toe\)<\/div>/);
   t.equal(PS2.aboutText(), ABOUT_INJ);
   t.equal(typeof PS2.currentReport, "function", "Live Scoring's official-report reader stays");
+});
+
+test("an open player sheet repaints when a fresh read changes only the warning (MFL's Q vs the report's Out → Doubtful)", async () => {
+  const MQ = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: null, return_date: null };
+  let payload = STATUS_OK({ [PURDY]: { mfl: MQ, report: { status: "Out", injury: "Toe", team: "SF" } } });
+  const v = boot({ status: () => payload });
+  const PS = v.ctx.UPS_MOBILE_PLAYER_STATUS;
+  await PS.load("2026");
+  payload = STATUS_OK({ [PURDY]: { mfl: MQ, report: { status: "Doubtful", injury: "Toe", team: "SF" } } });
+  const inflight = PS.load("2026", true);            // a refresh in flight; the old read stays current meanwhile
+  v.ctx.UPS_MOBILE.sheet.open(PURDY);
+  const before = v.getEl("ups-m-sheet-head").innerHTML;
+  t.deepEqual(sheetWarning(before), ["Injury sources disagree", "MFL: Questionable (Toe)", "Official NFL report: Out for Week 5 (Toe)"]);
+  await inflight; await settle(); await settle();
+  const after = v.getEl("ups-m-sheet-head").innerHTML;
+  t.deepEqual(sheetChips(after), ["Q:q"], "the chip is unchanged (MFL's Q)");
+  t.deepEqual(sheetWarning(after), ["Injury sources disagree", "MFL: Questionable (Toe)", "Official NFL report: Doubtful for Week 5 (Toe)"], "repainted though only the warning changed");
+});
+
+test("search: on his fantasy IR slot an IR chip isn't repeated beside the slot's IR tag; the list and sheet keep it (Keith: never two tags for one designation)", async () => {
+  const toIr = (r) => { for (const f of r.franchise) for (const p of f.player) if (p.id === DAK) p.status = "INJURED_RESERVE"; };
+  t.ok(Object.values(FX.rosters).some((rows) => rows.some((r) => r[0] === DAK)), "Dak is rostered in the fixture");
+  for (const [read, want] of [[STATUS_OK({ [DAK]: { roster: { status: "IR", label: "Injured reserve", chip: "IR", detail: "Knee" } } }), []],
+                              [STATUS_OK({ [DAK]: { mfl: { status: "Questionable", week: 5, details: "Knee" } } }), ["Q:q"]]]) {
+    const v = boot({ search: true, rosters: rostersPayload(toIr), status: () => read });
+    await v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
+    v.ctx.UPS_MOBILE.playerSearch.openWith(nameOf(DAK)); await settle(); await settle();
+    const row = new RegExp('data-pid="' + DAK + '">([\\s\\S]*?)</button>').exec(v.searchList())[1];
+    t.match(row, /<span class="tag ir">IR<\/span>/, "his IR slot tag");
+    t.deepEqual(chipList(row), want, want.length ? "a different designation still shows" : "no second IR");
+    if (!want.length) {
+      v.ctx.UPS_MOBILE.sheet.open(DAK); await settle(); await settle();
+      t.deepEqual(sheetChips(v.getEl("ups-m-sheet-head").innerHTML), ["IR:res"], "the sheet still shows MFL's IR");
+    }
+  }
 });
 
 test("status fallback: with the route unavailable, MFL's designations from the app's own MFL read still show, labeled as such", async () => {

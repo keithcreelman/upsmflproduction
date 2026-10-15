@@ -380,6 +380,7 @@ console.log("\n4. injury tags: the shared resolver (one plain chip, MFL first; a
     e.line(COLEMAN).click(); await settle();
     assert.deepStrictEqual(warnText(COLEMAN), ["Injury sources disagree", "MFL: No designation", "Official NFL report: Out for Week 6 (Ankle)"]);
     assert.deepStrictEqual(injLines(COLEMAN), ["Practice (official report): did not practice"]);
+    assert.strictEqual(e.card(COLEMAN).children[0], e.card(COLEMAN).querySelector(".gd-mu-injwarn"), "the warning comes first in Details, the practice line after it (as on the sheet)");
     assert.deepStrictEqual(badges(e.benchRow(DAVIS).querySelectorAll(".gd-inj-badge")), ["IR"]);
     assert.ok(/\btier-res\b/.test(e.benchRow(DAVIS).querySelector(".gd-inj-badge").attrs.class));
   });

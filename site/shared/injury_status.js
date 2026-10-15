@@ -59,8 +59,9 @@
     var r = str(feed && feed.reason);
     if (/not out yet/.test(r) || /has no Wk \d+ rows/.test(r)) return "Not posted yet";
     if (/id map/.test(r)) return "Players couldn’t be matched to it";
-    if (/not updated for/.test(r)) return "Not updated for " + r.replace(/^.*not updated for /, "");
+    if (/not updated for/.test(r)) return "Not updated recently";
     if (/current NFL week unknown/.test(r)) return "The current NFL week couldn’t be read";
+    if (/age unknown/.test(r)) return "Couldn’t confirm it’s current";
     return "Couldn’t be read";
   }
   function practiceText(p) {
@@ -143,7 +144,7 @@
 
     // ── the player page's lines: what each source has (the warning already says both when they disagree) ──
     if (ro) out.lines.push(rosterLine(ro));
-    else if (rof && rof.ok === false) out.lines.push("MFL roster designations (IR, PUP …) couldn’t be read.");
+    else if (rof && rof.ok === false && mf && mf.ok) out.lines.push("MFL roster designations (IR, PUP …) couldn’t be read.");
     if (!out.disagree) {
       // (A roster designation is MFL's word on him: never followed by "MFL: No designation".)
       if (m) out.lines.push(mflLine(m));
@@ -184,10 +185,15 @@
       if (read && read.state === "error") return opts.fallback ? "Injury status couldn’t be loaded; tags are MFL’s from this page’s own read." : "Injury status couldn’t be loaded, so no injury tags are shown.";
       return "Checking injury status…";
     }
-    var mfBad = !(read.data.mfl_feed && read.data.mfl_feed.ok), rfBad = !!(read.data.report_feed && read.data.report_feed.ok === false);
-    if (mfBad && rfBad) return "Neither MFL’s injury list nor the official NFL report could be read, so injury tags may be missing.";
+    // MFL unreadable: the report only stands in for it when it is this week's (the worker
+    // takes the current week from MFL, so without MFL the report is never current). The
+    // report can't be checked when it's unreadable, too old, of unknown age or can't be
+    // matched to players; "not posted yet for this week" is normal and gets no line.
+    var rf = read.data.report_feed || {}, mfBad = !(read.data.mfl_feed && read.data.mfl_feed.ok);
+    var rfDown = rf.ok === false || (!rf.current && !/not out yet|has no Wk \d+ rows/.test(str(rf.reason)));
+    if (mfBad && !rf.current) return "Injury status couldn’t be read, so injury tags may be missing.";
     if (mfBad) return "MFL’s injury list couldn’t be read; tags come from the official NFL report.";
-    if (rfBad) return "The official NFL report couldn’t be read; tags are MFL’s alone.";
+    if (rfDown) return "The official NFL report can’t be checked right now; tags are MFL’s alone.";
     return "";
   }
 

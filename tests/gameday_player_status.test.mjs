@@ -281,19 +281,23 @@ check("both surfaces read the season+week store (source-level), and neither keep
   assert.doesNotMatch(SCORES, /injuriesByPid/, "the scoreboard no longer reads the boot-time, week-less map");
   assert.match(SCORES, /fetchJson\(sbExportUrl\("injuries"\)\)/, "the mobile scoreboard refreshes the feed itself, so a long-open app picks up the new week");
 });
-check("the badge markup: no leading or duplicate punctuation, the description rides in the tooltip, blank status = no badge", () => {
+check("the badge markup (only when injury_status.js didn't load): the same plain designation as the resolver, no punctuation, the description in the tooltip, blank status = no badge", () => {
   const store = storeWith(WEEK3_OUT);
   const d = desktopSandbox(store, {}, 2026, 3);
   const html = (row) => { d.row = row; vm.runInContext("out = injBadgeHtml(row)", d); return d.out; };
   const withDetail = html({ injStatus: LS.injuryStatusFor(vm.runInContext("lineupInjOpts()", d), PID), injLabel: LS.injuryLabelFor(vm.runInContext("lineupInjOpts()", d), PID) });
-  assert.match(withDetail, /<span class="gd-inj-badge tier-out" title="OUT: Concussion">OUT<\/span>/);
+  assert.match(withDetail, /<span class="gd-inj-badge tier-out" title="OUT: Concussion" role="img" aria-label="OUT: Concussion">OUT<\/span>/);
   assert.doesNotMatch(withDetail, />\s*[:;,.\-–—]/, "no punctuation before the badge text");
   const stray = html({ injStatus: ":Out", injLabel: "" });
   assert.match(stray, />OUT<\/span>/); assert.doesNotMatch(stray, /:OUT|:Out/i);
   assert.strictEqual(html({ injStatus: "", injLabel: "" }), "", "no designation renders nothing — never a bare OUT");
   assert.strictEqual(html({ injStatus: "Probable" }), "", "a non-risk word draws no badge");
   const html2 = html({ injStatus: "Questionable", injLabel: "QUESTIONABLE: Hamstring" });
-  assert.match(html2, /tier-q" title="QUESTIONABLE: Hamstring">QUESTIONABLE</);
+  assert.match(html2, /tier-q" title="QUESTIONABLE: Hamstring"[^>]*>Q</);
+  // Keith 2026-10-15: Q, D, OUT, IR, PUP, SUSP — never MFL's raw word, and D / IR kinds no longer drawn as OUT.
+  const one = (s) => { const m = /class="gd-inj-badge tier-(\w+)"[^>]*>([^<]*)</.exec(html({ injStatus: s, injLabel: s })); return m ? m[2] + ":" + m[1] : ""; };
+  assert.deepStrictEqual(["Doubtful", "IR", "IR-R", "IR-PUP", "IR-NFI", "Suspended", "Retired", "Holdout"].map(one),
+    ["D:d", "IR:res", "IR:res", "PUP:res", "NFI:res", "SUSP:res", "RET:res", "HOLD:ho"]);
 });
 
 // ── 7. nothing is hardcoded; the override list can't regress ────────────────────────────────

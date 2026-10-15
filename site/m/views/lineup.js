@@ -442,9 +442,13 @@
     var PS = PSx();
     return PS && PS.resolve ? PS.resolve(pid, team, parseInt(M.state.lineupWeek, 10) || null) : { chips: [], warning: null, lines: [], disagree: false, label: "" };
   }
-  function injChipsHtml(pid, team) {
-    var PS = PSx();
-    return PS && PS.resolvedChipsHtml ? PS.resolvedChipsHtml(injInfo(pid, team), "lu") : "";
+  // slotTag: the row's fantasy-slot tag ("IR" for his IR slot). Keith 2026-10-15: never two tags
+  // for the same designation, so his IR chip isn't repeated beside it (the sheet still has it).
+  function injChipsHtml(pid, team, slotTag) {
+    var PS = PSx(); if (!PS || !PS.resolvedChipsHtml) return "";
+    var res = injInfo(pid, team);
+    if (slotTag === "IR" && res.chips.length && res.chips[0].t === "IR") return "";
+    return PS.resolvedChipsHtml(res, "lu");
   }
   // "  ·  Q" for a dropdown choice (plain text).
   function injOptText(pid, team) {
@@ -480,7 +484,7 @@
     // What MFL and the official NFL report each say about him, always, as on the player sheet:
     // the red "Injury sources disagree" note first when they disagree, then the other lines.
     var pl = DATA.playerById(pid), inj = injInfo(pid, pl && pl.team), PS = PSx();
-    if (inj.warning && PS && PS.warningHtml) rows.push(PS.warningHtml(inj, "r ups-m-inj-warn ups-m-mu-injwarn"));
+    if (inj.warning && PS && PS.warningHtml) rows.push(PS.warningHtml(inj, "ups-m-inj-warn ups-m-mu-injwarn"));
     inj.lines.forEach(function (l) { rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(l) + '</div>'); });
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
@@ -1053,7 +1057,7 @@
       var tag = benchBlockedTag(r);
       return '<div class="ups-m-bench-row' + (tag ? " blocked" : "") + '"><div class="ups-m-bench-id"><span class="nm">' + U.escapeHtml(r.name) + '</span>' +
         '<span class="meta">' + U.escapeHtml(r.pos || "—") + ' · ' + U.escapeHtml(r.team || "—") + '</span>' +
-        (tag ? '<span class="ups-m-bench-tag ' + tag.cls + '">' + tag.label + '</span>' : "") + injChipsHtml(r.id, r.team) + '</div>' +
+        (tag ? '<span class="ups-m-bench-tag ' + tag.cls + '">' + tag.label + '</span>' : "") + injChipsHtml(r.id, r.team, tag && tag.label) + '</div>' +
         '<div class="ups-m-bench-proj">' + U.escapeHtml(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
     }).join("") : '<div class="ups-m-bench-empty">No bench players.</div>';
     return head + '<div class="ups-m-bench">' + body + '</div>';

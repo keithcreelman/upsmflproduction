@@ -283,11 +283,14 @@
 
   // The injury chip from the shared resolver, the same as Stats → Players, Lineup, the player
   // sheet and desktop Game Day: one plain designation, leading the team · owner line. The
-  // TAXI / IR tags after the owner are his FANTASY roster slot, a different thing.
+  // TAXI / IR tags after the owner are his FANTASY roster slot, a different thing; on his IR
+  // slot an IR chip isn't repeated (Keith 2026-10-15: never two tags for one designation).
   function statusOf() { var PS = window.UPS_MOBILE_PLAYER_STATUS; return PS && PS.resolve ? PS : null; }
   function chipsHtml(r) {
-    var PS = statusOf();
-    return PS && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm") : "";
+    var PS = statusOf(); if (!PS || !r.pid) return "";
+    var res = PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null);
+    if (r.rosterStatus === "INJURED_RESERVE" && res.chips.length && res.chips[0].t === "IR") return "";
+    return PS.resolvedChipsHtml(res, "sm");
   }
   // A line only when the injury status is unavailable or loading (no tag isn't "healthy"); a
   // status read when there's no fresh one. The open list is repainted whenever a read lands:

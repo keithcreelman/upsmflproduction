@@ -99,7 +99,7 @@ function boot(opts) {
   const M = {
     util: U,
     data: { playerById: (id) => PBYID[String(id)] || null,
-      getRosterFor: () => FX.starters.concat(FX.bench).map((id) => ({ id, status: "ROSTER", salary: 1000, contractYear: "2" })) },
+      getRosterFor: () => FX.starters.concat(FX.bench).map((id) => ({ id, status: (opts.slots || {})[id] || "ROSTER", salary: 1000, contractYear: "2" })) },
     api: { workerUrl: (p) => "https://w.test" + p, getStoredMflUserId: () => "",
       mflExportUrl: (type, extra) => { let s = "https://w.test/api/mfl-export?TYPE=" + type; for (const k in extra || {}) s += "&" + k + "=" + extra[k]; return s; } },
     state: { ctx: { year: "2026", leagueId: "74598" }, viewerFranchiseId: "0001" },
@@ -248,6 +248,8 @@ console.log("\n2. injury status (Keith 2026-10-14/15): one plain chip, MFL first
     e.line(ALLEN).click(); await settle();
     assert.deepStrictEqual(warn(e, ALLEN), ["Injury sources disagree", "MFL: Questionable (Ankle)", "Official NFL report: Not listed for Week 6"]);
     assert.strictEqual(e.card(ALLEN).querySelector(".ups-m-inj-warn").getAttribute("role"), "note");
+    assert.ok(!/(^|\s)r(\s|$)/.test(e.card(ALLEN).querySelector(".ups-m-inj-warn").attrs.class), "not a .r line (its 2px 0 padding would put the text against the red border)");
+    assert.match(read("site/m/app.css"), /\.ups-m-mu-detail \.ups-m-mu-injwarn \{[^}]*padding: 6px 9px/, "the red box keeps its own padding in Details");
     assert.ok(e.card(ALLEN).children.indexOf(e.card(ALLEN).querySelector(".ups-m-inj-warn")) === 0, "the warning comes first in Details");
     assert.deepStrictEqual(injLines(e, ALLEN), [], "the warning already says both");
   });
@@ -280,6 +282,14 @@ console.log("\n2. injury status (Keith 2026-10-14/15): one plain chip, MFL first
     assert.ok(!/return|Oct 11|passed|estimate/i.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
     const opt = e.mount.querySelectorAll("option").find((o) => o.attrs.value === THOMAS);
     assert.ok(/·\s+D\s+·/.test(opt.textContent), opt.textContent);
+  });
+  await check("his fantasy IR slot: an IR chip isn't repeated beside the slot's IR tag; a different designation still shows (Keith: never two tags for one designation)", async () => {
+    const ei = boot({ slots: { [DAVIS]: "INJURED_RESERVE", [CHASE]: "INJURED_RESERVE" } }); await ei.open(); await ei.bench();
+    const row = (name) => ei.mount.querySelectorAll(".ups-m-bench-row").find((x) => new RegExp(name).test(x.textContent));
+    assert.deepStrictEqual(row("Davis").querySelectorAll(".ups-m-bench-tag").map((x) => ei.text(x)), ["IR"]);
+    assert.deepStrictEqual(row("Davis").querySelectorAll(".ups-m-inj-chip").map((x) => ei.text(x)), [], "MFL's IR-R isn't a second IR");
+    assert.deepStrictEqual(row("Chase").querySelectorAll(".ups-m-inj-chip").map((x) => ei.text(x)), ["OUT"], "on his IR slot, the report's OUT still shows");
+    assert.deepStrictEqual(tags(e.benchChips("Davis")), ["IR"], "off the IR slot, MFL's IR shows as usual");
   });
   await check("every chip on the screen: a plain designation, never dashed, at most one per player", () => {
     const all = e.mount.querySelectorAll(".ups-m-inj-chip");

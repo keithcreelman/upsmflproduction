@@ -185,7 +185,7 @@ await check("player_sheet.js statusHtml(): PSTAT.resolve(pid, team, lineupWeek) 
   assert.match(SHEET, /function statusHtml\(\) \{\s*var res = PSTAT\.resolve\(pid, team, window\.UPS_MOBILE\.state\.lineupWeek \|\| null\);\s*return \{ chips: PSTAT\.resolvedChipsHtml\(res\), lines: res\.lines, warning: PSTAT\.warningHtml\(res\) \};\s*\}/);
   assert.match(SHEET, /\(U\.escapeHtml\(name\) \|\| \('Player ' \+ U\.escapeHtml\(pid\)\)\) \+ stNow\.chips \+/);
   assert.match(SHEET, /stNow\.warning \+\s*'<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' \+ stNow\.lines\.map\(function \(l\) \{ return '<div>' \+ U\.escapeHtml\(l\) \+ '<\/div>'; \}\)/);
-  assert.match(GAMEDAY, /<script src="\.\.\/shared\/injury_status\.js"><\/script>/);
+  assert.match(GAMEDAY, /<script src="\.\.\/shared\/injury_status\.js\?v=[0-9.]+"><\/script>/, "Game Day loads the resolver cache-busted, so a cached old one can't bring back prefixed tags");
   assert.match(read("site/m/index.html"), /<script src="\.\.\/shared\/injury_status\.js\?v=[0-9.]+"><\/script>[\s\S]*<script src="\.\/player_sheet\.js\?v=/);
 });
 
@@ -348,15 +348,23 @@ const READS = [
     { key: "MFL Q on DEN, no verified NFL id: never \"not listed\"", team: "DEN", mfl: { status: "Questionable" }, unmapped: true,
       chips: ["Q"], warning: null, lines: ["MFL: Questionable", "Official NFL report: No verified NFL id, so he can’t be matched"] },
   ] },
-  { name: "MFL's injury list unreadable", feeds: { mfl_feed: { ok: false, reason: "unreadable: HTTP 500" } }, note: "MFL’s injury list couldn’t be read; tags come from the official NFL report.", cases: [
-    { key: "6. MFL unreadable, the report Out", team: "DEN", report: { status: "Out", injury: "Knee", team: "DEN" },
-      chips: ["OUT"], warning: null, lines: ["MFL: Couldn’t be read", "Official NFL report: Out for Week " + W + " (Knee)"] },
-    { key: "6. MFL unreadable, not on SEA's report", team: "SEA",
-      chips: [], warning: null, lines: ["MFL: Couldn’t be read", "Official NFL report: Not listed for Week " + W] },
+  // MFL's export failing, as the worker sends it (worker/src/player_status.js assemble()): no MFL
+  // week, so the report can't be this week's either, and MFL's roster designations are unknown too.
+  { name: "MFL's injury list unreadable", feeds: { mfl_feed: { ok: false, reason: "unreadable: HTTP 500" }, roster_feed: { ok: false, reason: "unreadable: HTTP 500" },
+      report_feed: { ok: true, current: false, reason: "current NFL week unknown (MFL unreadable)" } },
+    note: "Injury status couldn’t be read, so injury tags may be missing.", cases: [
+    { key: "6. MFL unreadable: nothing can be tagged", team: "DEN",
+      chips: [], warning: null, lines: ["MFL: Couldn’t be read", "Official NFL report: The current NFL week couldn’t be read"] },
   ] },
-  { name: "the official report unreadable", feeds: { report_feed: { ok: false, current: false, reason: "unreadable: HTTP 502", teams: [], teams_mfl: [] } }, note: "The official NFL report couldn’t be read; tags are MFL’s alone.", cases: [
+  { name: "the official report unreadable", feeds: { report_feed: { ok: false, current: false, reason: "unreadable: HTTP 502", teams: [], teams_mfl: [] } },
+    note: "The official NFL report can’t be checked right now; tags are MFL’s alone.", cases: [
     { key: "6. the report unreadable, MFL Q", team: "DEN", mfl: { status: "Questionable", details: "Hip" },
       chips: ["Q"], warning: null, lines: ["MFL: Questionable (Hip)", "Official NFL report: Couldn’t be read"] },
+  ] },
+  { name: "the official report too old", feeds: { report_feed: { ok: true, current: false, reason: "report not updated for 40 h" } },
+    note: "The official NFL report can’t be checked right now; tags are MFL’s alone.", cases: [
+    { key: "6. the report too old, MFL Q (its old Out never used)", team: "DEN", mfl: { status: "Questionable", details: "Hip" }, report: { status: "Out", injury: "Knee", team: "DEN" },
+      chips: ["Q"], warning: null, lines: ["MFL: Questionable (Hip)", "Official NFL report: Not updated recently"] },
   ] },
 ];
 await check("constructed fixtures: one roster with room for every case, a team with a posted report and one without", () => {
@@ -367,7 +375,7 @@ for (const RD of READS) {
   const SYN = clone(SNAPSHOT);
   Object.assign(SYN.player_status.report_feed, { ok: true, week: W, current_week: W, current: true, reason: null, teams: ["DEN", "SEA"], teams_mfl: ["DEN", "SEA"], prior_weeks: [] }, RD.feeds.report_feed || {});
   Object.assign(SYN.player_status.mfl_feed, { ok: true, week: W, reason: null }, RD.feeds.mfl_feed || {});
-  Object.assign(SYN.player_status.roster_feed, { ok: true, week: W, reason: null });
+  Object.assign(SYN.player_status.roster_feed, { ok: true, week: W, reason: null }, RD.feeds.roster_feed || {});
   SYN.player_status.players = {};
   RD.cases.forEach((c, i) => {
     const pid = c.pid = synPids[i];
@@ -376,6 +384,7 @@ for (const RD of READS) {
     if (c.mfl && !RD.feeds.mfl_feed) e.mfl = { week: W, updated_utc: SYN.player_status.mfl_feed.updated_utc, details: null, ...c.mfl };
     if (c.roster) e.roster = c.roster;
     if (c.report && !RD.feeds.report_feed) e.report = c.report;
+    else if (c.report) e.report = c.report;   // the too-old variant: an entry the resolver must not use
     if (Object.keys(e).length) SYN.player_status.players[pid] = e;
   });
   // Every roster player has a verified NFL id except the one case that says otherwise.
