@@ -99,6 +99,9 @@ const subst = (m, expr) => {
 for (let pass = 0; pass < 3 && body.includes('${'); pass++) body = body.replace(/\$\{([^}]*)\}/g, subst);
 if (body.includes('${')) { console.error('unsubstituted placeholder remains'); process.exit(1); }
 
-// The two bind params, in order: min_games then limit.
-body = body.replace('a.games >= ?', 'a.games >= 1').replace('LIMIT ?', 'LIMIT 500');
+// The bind params, in order: min_games, limit, offset (paging, 2026-10-10). A
+// placeholder left over would make D1 refuse the statement ("Wrong number of
+// parameter bindings"), so any that remains outside a comment is fatal here.
+body = body.replace('a.games >= ?', 'a.games >= 1').replace('LIMIT ?', 'LIMIT 500').replace('OFFSET ?', 'OFFSET 0');
+if (/\?/.test(body.replace(/--[^\n]*/g, ''))) { console.error('unbound ? placeholder remains'); process.exit(1); }
 process.stdout.write((explain ? 'EXPLAIN QUERY PLAN ' : '') + body.trim() + '\n');
