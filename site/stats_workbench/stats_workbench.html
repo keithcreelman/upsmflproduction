@@ -552,6 +552,83 @@ table.asw-table{font-size:13px}
   .asw-pagehead{padding-top:18px}
   .asw-table td.name,.asw-table th.name-col{width:150px;min-width:150px}
 }
+
+/* ── Player Stats, desktop redesign (Keith 2026-10-15; docs/STATS_UI_CONTRACT.md) ─────────
+   Desktop-first for the MFL frame and 1024 / 1280 / 1440: a compact control bar (Season ·
+   Window · Position, then Stat group), search and sort with More filters, one source band,
+   a focused table with a frozen Player column, About last. The page never scrolls sideways;
+   the table scrolls inside its own region. */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.asw-ctl-f[hidden],.asw-more[hidden]{display:none!important}
+/* A focused group is a handful of columns: the table takes the width it needs, not the page's. */
+table.asw-table{width:auto;min-width:0}
+.asw-table th.num,.asw-table td.num{min-width:68px}
+.asw-pagehead{padding:18px 0 0;margin-bottom:10px}
+.asw-standfirst{max-width:96ch;margin-top:6px}
+.asw-viewtabs{margin-bottom:12px}
+.asw-ctl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px;margin:0 0 10px}
+.asw-ctl-f{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.asw-ctl-lbl{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.asw-ctl select,.asw-ctl input[type="text"]{font:500 13px/1.2 "Inter Tight",system-ui,sans-serif;letter-spacing:0;text-transform:none;color:var(--text);
+  background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:6px 8px;min-height:32px}
+.asw-ctl select:focus-visible,.asw-ctl input:focus-visible,.asw-ctl button:focus-visible,.asw-more button:focus-visible,
+.asw-table th[data-col-key]:focus-visible,.asw-pname:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.asw-weeks-pair{display:flex;align-items:center;gap:6px}
+.asw-to{text-transform:none;letter-spacing:0;font-size:12px}
+.asw-ctl-pos{flex:1 1 auto}
+.asw-ctl .asw-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin:0;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--panel)}
+.asw-ctl .asw-tab{border:0;border-radius:6px;padding:6px 10px;min-height:30px;font-size:12.5px;font-weight:600;background:none;color:var(--muted)}
+.asw-ctl .asw-tab:hover{color:var(--text);background:var(--panel-alt)}
+.asw-ctl .asw-tab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border:0}
+.asw-ctl .asw-tabs-sep{display:inline-block;width:1px;height:18px;background:var(--border-strong);margin:0 4px}
+.asw-ctl .asw-tab .asw-subtab-group{border-left-color:rgba(10,18,34,.35)}
+.asw-ctl-groups{align-items:center;gap:8px 12px}
+.asw-groups{display:flex;flex-wrap:wrap;gap:6px}
+.asw-group{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text);cursor:pointer}
+.asw-group:hover{border-color:var(--border-strong)}
+.asw-group[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.asw-ctl2{align-items:flex-end;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.asw-search-f input{min-width:260px}
+.asw-sort-dir,.asw-more-btn{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;min-height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text);cursor:pointer}
+.asw-more-btn[aria-expanded="true"]{border-color:var(--accent)}
+.asw-more-btn .chev{margin-left:6px;font-size:9px;opacity:.7}
+.asw-more-n{color:var(--accent)}
+.asw-count{margin-left:auto;align-self:center;font-size:12px;color:var(--muted)}
+.asw-more{border:1px solid var(--border);border-radius:8px;background:var(--panel);padding:12px 14px;margin:0 0 10px}
+.asw-more .asw-controls{padding:0;margin:0 0 10px;border:0;align-items:flex-start;gap:18px}
+.asw-more .asw-controls select[multiple]{min-width:200px;max-height:130px}
+.asw-hint{font-size:10.5px;letter-spacing:0;text-transform:none;color:var(--muted);font-weight:500}
+.asw-more-tools{display:flex;align-items:center;align-self:center}
+.asw-check{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:8px!important;text-transform:none!important;letter-spacing:0!important;font-size:12.5px!important;color:var(--text)!important;cursor:pointer}
+.asw-check input{min-width:0!important;width:16px!important;height:16px;padding:0!important;margin:0}
+.asw-more .asw-cols-bar{padding:10px 0 0;margin:0;border-top:1px solid var(--border)}
+.asw-band{margin:0 0 8px;padding:6px 0 0;font-size:12px;color:var(--muted)}
+.asw-band .asw-meta{font:500 12px/1.5 "Inter Tight",system-ui,sans-serif;color:var(--muted);margin:0 0 4px}
+.asw-band .asw-meta b{color:var(--text);font-weight:700}
+.asw-band .asw-datanote{background:none;border:0;border-left:2px solid var(--border-strong);border-radius:0;padding:2px 0 2px 8px;margin:2px 0;font-size:12px;color:var(--muted)}
+.asw-band .asw-datanote > span:first-child{display:none}
+.asw-compare-bar[hidden]{display:none!important}
+.asw-table .asw-pname{all:unset;cursor:pointer;font-weight:600;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.asw-table .asw-pname:hover{text-decoration:underline}
+.asw-table .asw-psub{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.asw-table td.name{padding-top:5px;padding-bottom:5px}
+/* Without the compare column the frozen #/Player columns start at the left edge. */
+.asw-table.no-sel th.rank-col,.asw-table.no-sel td.rank-col{left:0}
+.asw-table.no-sel td.name,.asw-table.no-sel th.name-col{left:40px}
+.asw-table td.name,.asw-table th.name-col{width:210px;min-width:210px;max-width:210px;box-shadow:2px 0 0 var(--border-strong)}
+.asw-table th[data-col-key]{white-space:nowrap}
+.asw-about{margin:14px 0 24px;border-top:1px solid var(--border);padding-top:10px;font-size:12.5px;color:var(--muted)}
+.asw-about summary{cursor:pointer;color:var(--text);font-weight:600;font-size:13px}
+.asw-about p{margin:8px 0;max-width:110ch;line-height:1.55}
+.asw-defs{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:8px 0;max-width:120ch}
+.asw-defs dt{color:var(--text);font-weight:600}
+.asw-defs dd{margin:0;line-height:1.5}
+.asw-about-ver{font-size:11px}
+.asw-drawer{width:min(800px,92vw)}
+@media (max-width: 900px){
+  .asw-search-f input{min-width:180px}
+  .asw-count{margin-left:0;width:100%}
+}
 </style>
 </head>
 <body>
@@ -563,7 +640,7 @@ table.asw-table{font-size:13px}
   <div class="asw-pagehead-top">
     <div>
       <div class="asw-eyebrow">UPS · Advanced Stats</div>
-      <h1 id="asw-page-title">Player Stats <span id="asw-version" class="asw-version" title="Module version"></span></h1>
+      <h1 id="asw-page-title">Player Stats</h1>
     </div>
     <div class="asw-head-actions">
       <!-- Whole-league player search — every MFL player, rostered or free
@@ -591,91 +668,100 @@ table.asw-table{font-size:13px}
 
 <section id="asw-view-player-stats">
 
-<!-- Primary position tabs -->
-<div class="asw-tabs" id="asw-tabs">
-  <span class="asw-tabs-label">Offense</span>
-  <button type="button" class="asw-tab" data-tab="qb" aria-pressed="true">QB</button>
-  <button type="button" class="asw-tab" data-tab="rb">RB</button>
-  <button type="button" class="asw-tab" data-tab="wr">WR</button>
-  <button type="button" class="asw-tab" data-tab="te">TE</button>
-  <button type="button" class="asw-tab" data-tab="flex_o">Flex·O</button>
-  <span class="asw-tabs-sep"></span>
-  <span class="asw-tabs-label">Defense</span>
-  <button type="button" class="asw-tab" data-tab="dl">DL</button>
-  <button type="button" class="asw-tab" data-tab="lb">LB</button>
-  <button type="button" class="asw-tab" data-tab="db">DB</button>
-  <button type="button" class="asw-tab" data-tab="flex_idp">Flex·IDP</button>
-  <span class="asw-tabs-sep"></span>
-  <span class="asw-tabs-label">Special</span>
-  <button type="button" class="asw-tab" data-tab="pk">PK</button>
-  <button type="button" class="asw-tab" data-tab="pn">PN</button>
-</div>
-
-<!-- Filter row — collapsed by default into a summary pill (Phase C).
-     Click the pill to expand the full Seasons / Team / Scope / Search
-     controls. Click away or hit "Hide" to collapse again. -->
-<div class="asw-controls collapsed" id="asw-controls">
-  <button type="button" class="asw-filters-pill" id="asw-filters-pill" title="Click to edit filters">
-    <span>⚙ Filters</span>
-    <span class="summary" id="asw-filters-summary"></span>
-    <span class="chev">▾</span>
-  </button>
-  <label>Seasons
-    <select id="asw-seasons" multiple size="4" style="min-width:110px; max-height:100px"></select>
-    <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
+<!-- Player Stats, desktop redesign (Keith 2026-10-15; docs/STATS_UI_CONTRACT.md). Top to
+     bottom: primary controls (Season · Window · Position · Stat group) → search and sort →
+     the source/freshness band → the focused table → About. Uncommon choices sit behind
+     More filters. Every id the script wires is kept. -->
+<div class="asw-ctl" id="asw-ctl">
+  <label class="asw-ctl-f">Season
+    <select id="asw-season" aria-describedby="asw-season-note"></select>
   </label>
-  <label>Team
-    <select id="asw-team" multiple size="6" style="min-width:180px; max-height:140px">
-      <option value="__ALL__" selected>All (league-wide)</option>
-      <option value="__ROSTERED__">All (Rostered)</option>
-      <option value="FA">Free Agents</option>
-    </select>
-    <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select · Franchises below</span>
-  </label>
-  <label>Scope
-    <select id="asw-scope" style="min-width:180px">
-      <option value="mfl_reg">MFL Reg (wks 1-14)</option>
-      <option value="mfl_playoffs">MFL Playoffs (wks 15-17)</option>
-      <option value="mfl_total" selected>MFL Total (wks 1-17)</option>
-      <option value="full">Full + NFL Playoffs (1-22)</option>
+  <label class="asw-ctl-f">Window
+    <select id="asw-scope">
+      <option value="mfl_reg">MFL Reg (Wks 1–14)</option>
+      <option value="mfl_playoffs">MFL Playoffs (Wks 15–17)</option>
+      <option value="mfl_total" selected>MFL Total (Wks 1–17)</option>
+      <option value="full">Full + NFL playoffs (Wks 1–22)</option>
       <option value="custom">Custom weeks…</option>
     </select>
   </label>
-  <label id="asw-weeks-label" hidden>Weeks
-    <div style="display:flex;gap:6px;align-items:center">
-      <select id="asw-week-start" style="min-width:70px"></select>
-      <span style="color:var(--muted);font-size:11px">to</span>
-      <select id="asw-week-end"   style="min-width:70px"></select>
+  <div class="asw-ctl-f" id="asw-weeks-label" hidden>
+    <span class="asw-ctl-lbl" id="asw-weeks-lbl">Weeks</span>
+    <span class="asw-weeks-pair" role="group" aria-labelledby="asw-weeks-lbl">
+      <select id="asw-week-start" aria-label="First week"></select>
+      <span class="asw-to">to</span>
+      <select id="asw-week-end" aria-label="Last week"></select>
+    </span>
+  </div>
+  <div class="asw-ctl-f asw-ctl-pos">
+    <span class="asw-ctl-lbl" id="asw-pos-lbl">Position</span>
+    <div class="asw-tabs" id="asw-tabs" role="group" aria-labelledby="asw-pos-lbl">
+      <button type="button" class="asw-tab" data-tab="qb" aria-pressed="true">QB</button>
+      <button type="button" class="asw-tab" data-tab="rb">RB</button>
+      <button type="button" class="asw-tab" data-tab="wr">WR</button>
+      <button type="button" class="asw-tab" data-tab="te">TE</button>
+      <button type="button" class="asw-tab" data-tab="flex_o" title="RB, WR and TE together">Flex</button>
+      <span class="asw-tabs-sep" aria-hidden="true"></span>
+      <button type="button" class="asw-tab" data-tab="dl">DL</button>
+      <button type="button" class="asw-tab" data-tab="lb">LB</button>
+      <button type="button" class="asw-tab" data-tab="db">DB</button>
+      <button type="button" class="asw-tab" data-tab="flex_idp" title="DL, LB and DB together">IDP Flex</button>
+      <span class="asw-tabs-sep" aria-hidden="true"></span>
+      <button type="button" class="asw-tab" data-tab="pk">PK</button>
+      <button type="button" class="asw-tab" data-tab="pn">PN</button>
     </div>
-  </label>
-  <label>Search
-    <input type="text" id="asw-search" placeholder="name, team, or position…">
-  </label>
+  </div>
+</div>
+<div class="asw-ctl asw-ctl-groups">
+  <span class="asw-ctl-lbl" id="asw-groups-lbl">Stat group</span>
+  <div class="asw-groups" id="asw-groups" role="group" aria-labelledby="asw-groups-lbl"></div>
 </div>
 
-<!-- Column-group toggle chips + filter-row toggle -->
-<div class="asw-cols-bar" id="asw-cols-bar">
-  <span class="asw-cols-label">Columns</span>
-  <!-- group chips injected by JS, then the filter toggle block appended -->
+<!-- Search and sort, then More filters (the uncommon choices). -->
+<div class="asw-ctl asw-ctl2">
+  <label class="asw-ctl-f asw-search-f">Find in this list
+    <input type="text" id="asw-search" placeholder="Name, NFL team or position" autocomplete="off">
+  </label>
+  <label class="asw-ctl-f">Sort by
+    <select id="asw-sort"></select>
+  </label>
+  <button type="button" class="asw-sort-dir" id="asw-sort-dir" aria-label="Sort direction: high to low">▼ High to low</button>
+  <button type="button" class="asw-more-btn" id="asw-more-btn" aria-expanded="false" aria-controls="asw-more">More filters <span class="asw-more-n" id="asw-more-n"></span><span class="chev" aria-hidden="true">▾</span></button>
+  <span class="asw-count" id="asw-count" role="status"></span>
+</div>
+<div class="asw-more" id="asw-more" hidden>
+  <div class="asw-controls" id="asw-controls">
+    <label>Fantasy team
+      <select id="asw-team" multiple size="6">
+        <option value="__ALL__" selected>All (league-wide)</option>
+        <option value="__ROSTERED__">All rostered</option>
+        <option value="FA">Free agents</option>
+      </select>
+      <span class="asw-hint">⌘/Ctrl-click for more than one · franchises below</span>
+    </label>
+    <label>Add seasons
+      <select id="asw-seasons" multiple size="6"></select>
+      <span class="asw-hint">⌘/Ctrl-click to add a season: totals are added together</span>
+    </label>
+    <div class="asw-more-tools">
+      <label class="asw-check"><input type="checkbox" id="asw-compare-mode"> Select players to compare</label>
+    </div>
+  </div>
+  <!-- Custom columns and tools (presets, the column picker, value filters, scatter, heat, CSV). -->
+  <div class="asw-cols-bar" id="asw-cols-bar">
+    <span class="asw-cols-label">Custom columns</span>
+  </div>
 </div>
 
-<!-- Known-empty-source warning for whatever columns are currently visible.
-     Filled by renderDataNote(); hidden when every visible column has data. -->
-<div id="asw-datanote-slot"></div>
+<!-- Source and freshness band: the context line, then one line per note that applies. -->
+<div class="asw-band" id="asw-band" aria-label="Sources and freshness">
+  <div class="asw-meta" id="asw-meta"></div>
+  <div id="asw-datanote-slot"></div>
+  <div id="asw-ownership-slot"></div>
+  <div id="asw-source-freshness-slot"></div>
+</div>
 
-<!-- Live MFL ownership couldn't be confirmed (a failed, empty or partial
-     /api/mfl-league-state read). Filled by renderOwnershipNote(); empty while
-     every roster was read. -->
-<div id="asw-ownership-slot"></div>
-
-<!-- Side-loaded ETL source freshness (FTN charting / game-script splits) --
-     separate from the box-score freshness line in #asw-meta below and from
-     the data-availability banner above; never implies one certifies the
-     other. Filled by renderSourceFreshnessNote(); hidden unless a visible
-     column actually depends on one of these sources. -->
-<div id="asw-source-freshness-slot"></div>
-
-<!-- Sticky compare bar — appears above the table when 1+ players selected -->
+<!-- Compare bar: only while players are selected (More filters → Select players to compare). -->
 <div class="asw-compare-bar" id="asw-compare-bar" hidden>
   <span class="asw-compare-bar-label">Compare</span>
   <span id="asw-compare-chips" style="display:inline-flex;flex-wrap:wrap;gap:6px"></span>
@@ -683,12 +769,14 @@ table.asw-table{font-size:13px}
   <button type="button" class="asw-compare-primary" id="asw-compare-go">Compare →</button>
 </div>
 
-<div class="asw-meta" id="asw-meta"></div>
-<!-- Top horizontal scrollbar (B7/Keith 2026-06-20): scroll left↔right from the
-     top instead of the bottom; stays put while the table body scrolls. Width of
-     the inner spacer is synced to the table width after each render. -->
 <div class="asw-topscroll" id="asw-topscroll"><div id="asw-topscroll-spacer"></div></div>
 <div class="asw-table-wrap" id="asw-table-wrap"><div id="asw-body"></div></div>
+
+<details class="asw-about" id="asw-about">
+  <summary>About these numbers</summary>
+  <div id="asw-about-body"></div>
+  <p class="asw-about-ver">Stats Workbench <span id="asw-version" class="asw-version" title="Module version"></span></p>
+</details>
 </section>
 
 <!-- Fantasy Points Against view — lazy-rendered on first switch by the FPA module below. -->
@@ -707,7 +795,7 @@ table.asw-table{font-size:13px}
 
 <!-- Drill-down drawer (slides in on row click) -->
 <div class="asw-drawer-scrim" id="asw-drawer-scrim" hidden></div>
-<aside class="asw-drawer" id="asw-drawer" aria-hidden="true">
+<aside class="asw-drawer" id="asw-drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="asw-drawer-title">
   <div class="asw-drawer-head">
     <h2 id="asw-drawer-title">Player</h2>
     <span class="asw-drawer-sub" id="asw-drawer-sub"></span>
@@ -774,7 +862,7 @@ table.asw-table{font-size:13px}
 
   // ---------- Per-view masthead copy ----------
   var VIEW_META = {
-    "player-stats": { title:"Player Stats", desc:'NFL on-field counts (nflverse) plus snap share and PFR advanced, joined to this league’s own MFL scoring. The position rail picks who’s listed; Columns picks what’s measured. Click any player for week-by-week and by-season trends, then “Full profile” for the full UPS card.' },
+    "player-stats": { title:"Player Stats", desc:"Every NFL player at a position for the season and weeks you choose, joined to this league’s MFL scoring. Pick a stat group; click a player for his weeks." },
     "fpa":          { title:"Fantasy Points Against", desc:"Points each NFL defense has allowed to every fantasy position, per game, compared with what the same players usually score. It describes games already played; it is not a forecast. Click a team for the week-by-week players." },
     "adp":          { title:"ADP · Dynasty Value", desc:"Multi-source consensus draft position and dynasty trade value (FantasyCalc, KeepTradeCut, DynastyProcess, Sleeper), blended into one board with tiering." },
     "vegas":        { title:"Vegas Implied Points", desc:"Team totals implied by the live betting market — the cleanest public read on how many points a real offense is expected to score." },
@@ -785,12 +873,8 @@ table.asw-table{font-size:13px}
     var m = VIEW_META[view] || VIEW_META["player-stats"];
     var t = document.getElementById("asw-page-title");
     var d = document.getElementById("asw-page-desc");
-    // Keep the version badge — it's a live node other code writes into.
-    if (t) {
-      var badge = document.getElementById("asw-version");
-      t.textContent = m.title + " ";
-      if (badge) t.appendChild(badge);
-    }
+    // The version badge lives in About (Keith 2026-10-15: no machinery in the heading).
+    if (t) t.textContent = m.title;
     if (d) d.textContent = m.desc;
   }
 
@@ -1067,11 +1151,11 @@ table.asw-table{font-size:13px}
     // by MFL id; #1271). Descriptive: what the teams he faced allowed to OTHER players at
     // his position over the same final games. Uncolored on purpose: neither column is
     // good or bad, and neither is a forecast. Missing = "—", never 0.
-    mfl_points_sos:      { label:"Sched Δ",  num:true, fmt:"sdelta",
+    mfl_points_sos:      { label:"Sched Δ",  num:true, fmt:"sdelta", noHeat:true,
       title:"Sched Δ = his points ÷ Opp − his points, over the same final games, on MFL’s own scores (in playoff weeks they can differ from MFL Pts, which reads a table missing playoff scores). Negative goes with a positive Opp: the teams he faced allowed his position more than usual. It describes the schedule he had; it isn’t a forecast.",
       titleFn:function(r){ return sosCellTitle(sosRowFor(r), r); },
       compute:function(r){ var s=sosRowFor(r); return s && s.delta != null ? s.delta : null; } },
-    mfl_sched_opp:       { label:"Opp ±%",  num:true, fmt:"spct",
+    mfl_sched_opp:       { label:"Opp ±%",  num:true, fmt:"spct", noHeat:true,
       title:"Opp = what the teams he faced allowed to other players at his position, against those players’ usual (Pts Agst’s vs usual for the same weeks, his own games left out), averaged over his games. +10% = 10% more than usual.",
       titleFn:function(r){ return sosCellTitle(sosRowFor(r), r); },
       compute:function(r){ var s=sosRowFor(r); return s && s.opp != null ? Math.round((s.opp - 1) * 100) : null; } },
@@ -1437,14 +1521,20 @@ table.asw-table{font-size:13px}
       compute: function(r){ return (r.fg_att||0) - (r.fg_made||0); } },
     fg_pct:              { label:"FG%",      num:true, fmt:"pct",
       compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
-    fg_0_39:             { label:"0-39",     cls:"dim",
-      compute: function(r){ return r.fg_att_0_39 ? (r.fg_made_0_39||0) + "/" + r.fg_att_0_39 : null; } },
-    fg_40_49:            { label:"40-49",    cls:"dim",
-      compute: function(r){ return r.fg_att_40_49 ? (r.fg_made_40_49||0) + "/" + r.fg_att_40_49 : null; } },
-    fg_50_59:            { label:"50-59",    cls:"dim",
-      compute: function(r){ return r.fg_att_50_59 ? (r.fg_made_50_59||0) + "/" + r.fg_att_50_59 : null; } },
-    fg_60plus:           { label:"60+",      cls:"dim",
-      compute: function(r){ return r.fg_att_60plus ? (r.fg_made_60plus||0) + "/" + r.fg_att_60plus : null; } },
+    // made/attempted as text; sortValue sorts them as numbers (made, then attempts) — as text
+    // "4/4" sorted above "21/23" (found by the redesign's sort sweep, 2026-10-15).
+    fg_0_39:             { label:"0-39",     num:true, cls:"dim", title:"Field goals made / attempted from 0–39 yards",
+      compute: function(r){ return r.fg_att_0_39 ? (r.fg_made_0_39||0) + "/" + r.fg_att_0_39 : null; },
+      sortValue: function(r){ return r.fg_att_0_39 ? (r.fg_made_0_39||0) + r.fg_att_0_39 / 1000 : null; } },
+    fg_40_49:            { label:"40-49",    num:true, cls:"dim", title:"Field goals made / attempted from 40–49 yards",
+      compute: function(r){ return r.fg_att_40_49 ? (r.fg_made_40_49||0) + "/" + r.fg_att_40_49 : null; },
+      sortValue: function(r){ return r.fg_att_40_49 ? (r.fg_made_40_49||0) + r.fg_att_40_49 / 1000 : null; } },
+    fg_50_59:            { label:"50-59",    num:true, cls:"dim", title:"Field goals made / attempted from 50–59 yards",
+      compute: function(r){ return r.fg_att_50_59 ? (r.fg_made_50_59||0) + "/" + r.fg_att_50_59 : null; },
+      sortValue: function(r){ return r.fg_att_50_59 ? (r.fg_made_50_59||0) + r.fg_att_50_59 / 1000 : null; } },
+    fg_60plus:           { label:"60+",      num:true, cls:"dim", title:"Field goals made / attempted from 60+ yards",
+      compute: function(r){ return r.fg_att_60plus ? (r.fg_made_60plus||0) + "/" + r.fg_att_60plus : null; },
+      sortValue: function(r){ return r.fg_att_60plus ? (r.fg_made_60plus||0) + r.fg_att_60plus / 1000 : null; } },
     avg_fg_make:         { label:"Avg Make",  num:true, fmt:"dec1",
       title:"Avg distance of MADE FGs (bucket-midpoint: 0-39≈25y, 40-49≈44.5y, 50-59≈54y, 60+≈62y)",
       compute: function(r){
@@ -1508,8 +1598,11 @@ table.asw-table{font-size:13px}
   };
 
   // Identity columns — every tab shares these. Flex tabs prepend "position".
-  var IDENT_BASIC = ["player_name", "team", "mfl_franchise_name", "pos_rank"];
-  var IDENT_FLEX  = ["player_name", "team", "mfl_franchise_name", "position", "pos_rank"];
+  // One Player column (frozen): the name, with NFL team · fantasy owner beneath it (and the
+  // position on the Flex tabs). Pos Rk is a number, so it lives in Fantasy points (and leads
+  // Custom columns). docs/STATS_UI_CONTRACT.md §4.
+  var IDENT_BASIC = ["player_name"];
+  var IDENT_FLEX  = ["player_name"];
 
   // The position THIS LEAGUE uses. MFL's own value wins; nflverse's is the
   // fallback for anyone MFL doesn't list.
@@ -1745,6 +1838,92 @@ table.asw-table{font-size:13px}
     },
   };
 
+  // ---------- Stat groups (Stats UI contract, docs/STATS_UI_CONTRACT.md §2–3) ----------
+  // A position shows ONE group at a time (Keith 2026-10-15): Fantasy points first and the
+  // default, then the groups that position has. At most STAT_GROUP_MAX numbers each, so the
+  // group's own sort column is on screen at 1024px without sliding the table. `sort` is the
+  // group's default; `src` names the sources the band lists for it. The old multi-group
+  // picker stays under More filters → Custom columns (state.group === "custom").
+  var STAT_GROUP_MAX = 8;
+  var SG_SRC = {
+    mfl:   "MFL scoring (this league’s rules)",
+    box:   "nflverse box scores",
+    snaps: "nflverse snap counts",
+    pbp:   "nflverse play-by-play",
+    pfr:   "PFR charting (nflverse)",
+    ngs:   "NFL Next Gen Stats (nflverse)",
+    cons:  "MFL weekly scores",
+    sched: "Pts Agst engine on MFL’s own weekly scores"
+  };
+  function sgFantasy() { return { id: "fantasy", label: "Fantasy points", cols: ["pos_rank", "mfl_points", "mfl_ppg", "games"], sort: "mfl_points", src: ["mfl", "box"] }; }
+  function sgBoom()    { return { id: "boom", label: "Boom/Bust", title: "Boom/Bust and consistency", cols: ["cons_floor", "cons_ceil", "cons_score", "cons_boom", "cons_bust", "l4w_delta"], sort: "cons_score", src: ["cons"] }; }
+  function sgSched()   { return { id: "schedule", label: "Schedule", title: "Schedule context: Sched Δ and Opp ±%", cols: ["mfl_points", "mfl_ppg", "mfl_points_sos", "mfl_sched_opp", "games"], sort: "mfl_points", src: ["sched", "mfl"] }; }
+  var SG_RECEIVING = ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t", "receiving_adot"];
+  var SG_IDP_FRONT = ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_pass_def", "def_ints", "def_ff"];
+  var STAT_GROUPS = {
+    qb: [sgFantasy(),
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "pass_att", "rush_att"], sort: "off_snaps_total", src: ["snaps", "box"] },
+      { id: "passing",   label: "Passing",   cols: ["pass_att", "pass_cmp", "cmp_pct", "pass_yds", "pass_tds", "pass_ints", "ypa", "pass_sacks"], sort: "pass_yds", src: ["box"] },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds", src: ["box"] },
+      { id: "redzone",   label: "Red zone",  cols: ["pass_att_i20", "pass_att_ez", "team_rz_plays", "team_rz_pass_rate"], sort: "pass_att_i20", src: ["pbp"] },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_tt", "ngs_agg"], sort: "ngs_agg", src: ["ngs"] },
+      sgBoom(), sgSched()],
+    rb: [sgFantasy(),
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "rush_share", "targets", "target_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a", "ybc_per_a", "yac_per_a", "rush_brtkl"], sort: "rush_yds", src: ["box", "pfr"] },
+      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t"], sort: "rec_yds", src: ["box"] },
+      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "rush_att_i5", "rz_rush_share", "gl_rush_share", "targets_i20", "rec_i20", "targets_ez"], sort: "rush_att_i20", src: ["pbp"] },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_ryoe_pa", "ngs_eff", "ngs_box8"], sort: "ngs_ryoe_pa", src: ["ngs"] },
+      sgBoom(), sgSched()],
+    wr: [sgFantasy(),
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
+      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds", src: ["box", "pfr"] },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds"], sort: "rush_yds", src: ["box"] },
+      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20", src: ["pbp"] },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep", src: ["ngs"] },
+      sgBoom(), sgSched()],
+    te: [sgFantasy(),
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
+      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds", src: ["box", "pfr"] },
+      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20", src: ["pbp"] },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep", src: ["ngs"] },
+      sgBoom(), sgSched()],
+    flex_o: [sgFantasy(),
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "targets", "target_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds", src: ["box"] },
+      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r"], sort: "rec_yds", src: ["box"] },
+      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "targets_i20", "rec_i20", "targets_ez"], sort: "targets_i20", src: ["pbp"] },
+      sgBoom(), sgSched()],
+    dl: [sgFantasy(),
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
+      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_press_rate", "def_ff", "def_fr"], sort: "def_sacks", src: ["box", "pfr"] },
+      sgBoom(), sgSched()],
+    lb: [sgFantasy(),
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
+      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total", src: ["box", "pfr"] },
+      sgBoom(), sgSched()],
+    db: [sgFantasy(),
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
+      { id: "idp",   label: "IDP",   title: "Tackles and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_pass_def", "def_ints", "def_completions_allowed", "def_yards_allowed", "def_passer_rating_allowed", "def_missed_tackle_pct"], sort: "def_tackles_total", src: ["box", "pfr"] },
+      sgBoom(), sgSched()],
+    flex_idp: [sgFantasy(),
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
+      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total", src: ["box", "pfr"] },
+      sgBoom(), sgSched()],
+    pk: [sgFantasy(),
+      { id: "kicking", label: "Kicking", cols: ["fg_made", "fg_miss", "fg_pct", "fg_0_39", "fg_40_49", "fg_50_59", "fg_60plus", "xp_made"], sort: "fg_made", src: ["box", "pbp"] },
+      sgBoom(), sgSched()],
+    pn: [sgFantasy(),
+      { id: "punting", label: "Punting", cols: ["punts", "punt_avg", "punt_net_avg", "punt_inside20", "punt_i20_pct", "punt_tb", "punt_long"], sort: "punts", src: ["box", "pbp"] },
+      sgBoom(), sgSched()]
+  };
+  function statGroupsFor(tabId) { return STAT_GROUPS[tabId] || [sgFantasy()]; }
+  function statGroupById(tabId, id) {
+    var gs = statGroupsFor(tabId);
+    for (var i = 0; i < gs.length; i++) if (gs[i].id === id) return gs[i];
+    return null;
+  }
+
   // (Dynasty/ADP value columns + contract Salary/AAV/Yrs were removed from Player
   // Stats — ADP has its own sub-tab. Team Pace moved to its own Pace sub-tab too.)
   // Consistency / boom-bust group — injected right after MFL Details on every tab,
@@ -1832,13 +2011,42 @@ table.asw-table{font-size:13px}
   // page wasn't even looking at 2026. Mirrors the try-current-year pattern
   // already used by this file's Fantasy-Points-Against and Vegas widgets.
   var defaultSeason = THIS_YEAR;
+  var seasonOneSel = document.getElementById("asw-season");
   for (var y = THIS_YEAR; y >= MIN_SEASON; y--) {
     var opt = document.createElement("option");
     opt.value = String(y);
     opt.textContent = String(y);
     if (y === defaultSeason) opt.selected = true;
     seasonsSel.appendChild(opt);
+    if (seasonOneSel) {
+      var o1 = document.createElement("option");
+      o1.value = String(y); o1.textContent = String(y);
+      seasonOneSel.appendChild(o1);
+    }
   }
+  // Season (primary) is one season; "Add seasons" under More filters can add more, and then
+  // this shows them all ("2024 + 2025", added together) until one is picked again.
+  function syncSeasonOne() {
+    if (!seasonOneSel) return;
+    var picked = [];
+    for (var i = 0; i < seasonsSel.options.length; i++) if (seasonsSel.options[i].selected) picked.push(seasonsSel.options[i].value);
+    var multi = seasonOneSel.querySelector('option[value="__multi__"]');
+    if (picked.length > 1) {
+      if (!multi) { multi = document.createElement("option"); multi.value = "__multi__"; seasonOneSel.insertBefore(multi, seasonOneSel.firstChild); }
+      multi.textContent = picked.slice().sort().join(" + ");
+      seasonOneSel.value = "__multi__";
+    } else {
+      if (multi) multi.remove();
+      seasonOneSel.value = picked[0] || String(defaultSeason);
+    }
+  }
+  if (seasonOneSel) seasonOneSel.addEventListener("change", function () {
+    var v = seasonOneSel.value;
+    if (v === "__multi__") return;
+    for (var i = 0; i < seasonsSel.options.length; i++) seasonsSel.options[i].selected = seasonsSel.options[i].value === v;
+    seasonsSel.dispatchEvent(new Event("change"));
+  });
+  seasonsSel.addEventListener("change", syncSeasonOne);
 
   // ---------- Live MFL ownership + contract overlay ----------
   var fidToName = {};
@@ -2572,6 +2780,8 @@ table.asw-table{font-size:13px}
     activeSubTab: "all",   // only relevant for DL/DB
     visibleGroups: new Set(),
     viewName: "standard",  // preset view: standard | advanced | analytics | custom
+    group: "fantasy",      // the stat group shown (STAT_GROUPS id), or "custom" (More filters → Custom columns)
+    compareMode: false,    // More filters → "Select players to compare" shows the checkbox column
     scatterOn: false,      // scatter discovery view (swaps the table for an SVG scatter)
     scatterX: null, scatterY: null,   // scatter axes (null → per-tab defaults)
     rowsByWorkerPos: {},   // cache keyed by workerPos ("skill"|"qb"|"idp"|"kicker"|"punter")
@@ -2716,21 +2926,27 @@ table.asw-table{font-size:13px}
     var set = groupsForView(tab, view);
     if (set) state.visibleGroups = set;
     state.viewName = set ? view : "custom";
+    state.group = "custom";   // a column preset from More filters replaces the stat group
     persistView(tabId);
   }
   function persistView(tabId) {
     try {
+      localStorage.setItem("asw.group." + tabId, state.group);
       localStorage.setItem("asw.view." + tabId, state.viewName);
       if (state.viewName === "custom") localStorage.setItem("asw.groups." + tabId, Array.from(state.visibleGroups).join(","));
     } catch (e) { /* private mode */ }
   }
   // On tab activation: restore the tab's saved view (falls back to Standard).
   function restoreViewForTab(tabId) {
-    var saved = null, savedGroups = null;
+    var saved = null, savedGroups = null, savedGroup = null;
     try {
       saved = localStorage.getItem("asw.view." + tabId);
       savedGroups = localStorage.getItem("asw.groups." + tabId);
+      savedGroup = localStorage.getItem("asw.group." + tabId);
     } catch (e) { /* private mode */ }
+    // The stat group: the one last used on this position, else Fantasy points (the old
+    // per-tab column presets only apply once Custom columns is chosen again).
+    state.group = savedGroup === "custom" || statGroupById(tabId, savedGroup) ? savedGroup : "fantasy";
     if (saved === "custom" && savedGroups) {
       state.visibleGroups = new Set(savedGroups.split(",").filter(Boolean));
       state.viewName = "custom";
@@ -2744,6 +2960,7 @@ table.asw-table{font-size:13px}
   // Mark the current state Custom (manual group change) + sync chips in place.
   function markViewCustom() {
     state.viewName = "custom";
+    state.group = "custom";
     persistView(state.activeTab);
     refreshViewChips();
   }
@@ -2831,10 +3048,21 @@ table.asw-table{font-size:13px}
   // ---------- Build the visible column list (respecting group toggles) ----------
   // Returns an array of "blocks" — each block is { groupId, groupLabel, colKeys }.
   // Identity block always first (no group label in the group header row).
+  // The table's column blocks: the Player column, then the stat group's columns — or, with
+  // Custom columns (More filters), Pos Rk and the picked column groups as before.
+  function currentStatGroup() {
+    return state.group === "custom" ? null : (statGroupById(state.activeTab, state.group) || statGroupsFor(state.activeTab)[0]);
+  }
   function buildBlocks() {
     var tab = TABS[state.activeTab];
     var blocks = [];
-    blocks.push({ groupId: "ident", groupLabel: null, colKeys: tab.ident.slice() });
+    var sg = currentStatGroup();
+    if (sg) {
+      blocks.push({ groupId: "ident", groupLabel: null, colKeys: tab.ident.slice() });
+      blocks.push({ groupId: sg.id, groupLabel: sg.label, colKeys: sg.cols.slice() });
+      return blocks;
+    }
+    blocks.push({ groupId: "ident", groupLabel: null, colKeys: tab.ident.concat(["pos_rank"]) });
     (tab.groups || []).forEach(function(g){
       if (!state.visibleGroups.has(g.id)) return;
       blocks.push({ groupId: g.id, groupLabel: g.label, colKeys: g.cols.slice() });
@@ -3266,9 +3494,11 @@ table.asw-table{font-size:13px}
     var blocks = buildBlocks();
     var cols = flatCols(blocks);
 
-    // Ensure a valid sort key
+    // Ensure a valid sort key: the group's own default when the current one isn't on screen.
     if (!state.sortKey || cols.indexOf(state.sortKey) < 0) {
-      state.sortKey = cols.indexOf(tab.defaultSort) >= 0 ? tab.defaultSort : cols[0];
+      var sgNow = currentStatGroup();
+      var dflt = sgNow ? sgNow.sort : tab.defaultSort;
+      state.sortKey = cols.indexOf(dflt) >= 0 ? dflt : (cols[1] || cols[0]);
       state.sortDir = (COLS[state.sortKey] && COLS[state.sortKey].num) ? "desc" : "asc";
     }
 
@@ -3329,9 +3559,11 @@ table.asw-table{font-size:13px}
     }
 
     // Sort
+    var sortDef = COLS[state.sortKey] || {};
+    var sortOf = sortDef.sortValue ? function (r) { return sortDef.sortValue(r); } : function (r) { return getVal(r, state.sortKey); };
     rows.sort(function(a, b){
-      var av = getVal(a, state.sortKey);
-      var bv = getVal(b, state.sortKey);
+      var av = sortOf(a);
+      var bv = sortOf(b);
       if (av == null) av = state.sortDir === "asc" ? Infinity : -Infinity;
       if (bv == null) bv = state.sortDir === "asc" ? Infinity : -Infinity;
       if (typeof av === "string" || typeof bv === "string") {
@@ -3348,8 +3580,9 @@ table.asw-table{font-size:13px}
     // Rank column: position in the CURRENT sort, so it renumbers as you sort
     // or filter. Purely presentational — it is not a COLS entry and never
     // enters sort/filter/heat/CSV logic.
-    var SEL_TH_GROUP = '<th class="sel-col"></th><th class="rank-col"></th>';
-    var SEL_TH_COL   = '<th class="sel-col" title="Select for comparison"></th>' +
+    var SEL = state.compareMode;   // the compare checkboxes only while More filters → "Select players to compare" is on
+    var SEL_TH_GROUP = (SEL ? '<th class="sel-col"></th>' : "") + '<th class="rank-col"></th>';
+    var SEL_TH_COL   = (SEL ? '<th class="sel-col" title="Select for comparison"><span class="sr">Compare</span></th>' : "") +
                        '<th class="rank-col" title="Rank in the current sort">#</th>';
 
     // Group header row
@@ -3388,14 +3621,14 @@ table.asw-table{font-size:13px}
           ? ((DEAD_PREFIX[dead.kind] || "N/A — ") + dead.why + (def.title ? ("\n\n" + def.title) : ""))
           : (def.title || "");
         var titleAttr = titleText ? ' title="' + titleText.replace(/"/g, "&quot;") + '"' : "";
-        colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'">'+def.label+'</th>';
+        colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'" tabindex="0" scope="col">'+def.label+'</th>';
       });
     });
 
     // Filter row (third thead row). Only rendered when filtersVisible is true.
     var filterRow = "";
     if (state.filtersVisible) {
-      filterRow = '<th class="sel-col"></th><th class="rank-col"></th>';
+      filterRow = (SEL ? '<th class="sel-col"></th>' : "") + '<th class="rank-col"></th>';
       blocks.forEach(function(b, bi){
         b.colKeys.forEach(function(k, ci){
           var def = COLS[k] || {};
@@ -3423,7 +3656,7 @@ table.asw-table{font-size:13px}
     if (state.heatOn) {
       cols.forEach(function(k){
         var def = COLS[k] || {};
-        if (!def.num) return;
+        if (!def.num || def.noHeat) return;   // Sched Δ / Opp ±% are never colored (contract §8)
         var vals = [];
         for (var i = 0; i < rows.length; i++) {
           var v = getVal(rows[i], k);
@@ -3464,9 +3697,9 @@ table.asw-table{font-size:13px}
     var body = rows.map(function(r, rowIdx){
       var gid = r.gsis_id || "";
       var checked = state.compareSet.has(gid) ? " checked" : "";
-      var selCell = '<td class="sel-col">' +
-        '<input type="checkbox" class="asw-compare-check" data-compare-gsis="'+gid+'"'+checked+'>' +
-        '</td>' +
+      var selCell = (SEL ? '<td class="sel-col">' +
+        '<input type="checkbox" class="asw-compare-check" data-compare-gsis="'+gid+'"'+checked+' aria-label="Compare ' + escapeHtml(r.player_name || "") + '">' +
+        '</td>' : "") +
         '<td class="rank-col">' + (rowIdx + 1) + '</td>';
       var cells = selCell;
       blocks.forEach(function(b, bi){
@@ -3480,6 +3713,7 @@ table.asw-table{font-size:13px}
           var hc = state.heatOn ? heatClass(k, v) : "";
           var tip = def.titleFn ? def.titleFn(r) : "";
           var tipAttr = tip ? ' title="'+String(tip).replace(/"/g,"&quot;")+'"' : "";
+          if (k === "player_name") { cells += playerCellHtml(r, cls); return; }
           cells += '<td class="'+cls.join(" ")+hc+'"'+tipAttr+'>'+fmtCell(v, def.fmt)+'</td>';
         });
       });
@@ -3505,13 +3739,13 @@ table.asw-table{font-size:13px}
       wireEmptySearchHandoff(bodyEl);
     } else {
     bodyEl.innerHTML = rows.length || state.filtersVisible
-      ? '<table class="asw-table' + (state.heatOn ? ' heat' : '') + '">' +
+      ? '<table class="asw-table' + (state.heatOn ? ' heat' : '') + (SEL ? '' : ' no-sel') + '">' +
           '<thead>' +
             theadGroup +
             '<tr class="asw-col-row">'+colRow+'</tr>' +
             theadFilter +
           '</thead>' +
-          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 2)+'" class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</td></tr>') +'</tbody>' +
+          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + (SEL ? 2 : 1))+'" class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</td></tr>') +'</tbody>' +
         '</table>'
       : '<div class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</div>';
     wireEmptySearchHandoff(bodyEl);
@@ -3527,14 +3761,16 @@ table.asw-table{font-size:13px}
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
     // The denominator counts rows already narrowed by position/sub-tab (the
     // "universe" for this tab), so the fraction stays meaningful.
+    // The denominator uses the same position rule as the rows (effPos: MFL's position first).
+    // It used r.position (nflverse's), so a list could read "206 of 205 players".
     var universe = allRows.slice();
     if (posFilter && posFilter.length) {
-      universe = universe.filter(function(r){ return posFilter.indexOf(r.position) >= 0; });
+      universe = universe.filter(function(r){ return posFilter.indexOf(effPos(r)) >= 0; });
     }
     if (tab.subTabs) {
       var st = tab.subTabs.find(function(x){ return x.id === state.activeSubTab; }) || tab.subTabs[0];
       if (st && st.positions && st.positions.length) {
-        universe = universe.filter(function(r){ return st.positions.indexOf(r.position) >= 0; });
+        universe = universe.filter(function(r){ return st.positions.indexOf(effPos(r)) >= 0; });
       }
     }
     var total = universe.length;
@@ -3555,7 +3791,8 @@ table.asw-table{font-size:13px}
     var covSeasons = getSelectedSeasons();
     var maxSeason = covSeasons.length ? Math.max.apply(null, covSeasons) : null;
     var nowY = new Date().getUTCFullYear();
-    var coverage = maxSeason ? (" · data through " + maxSeason) : "";
+    // (The season itself leads the band; only the current season adds its finalized week.)
+    var coverage = "";
     if (state.lastApiCount === 500) {
       coverage += " · top 500 by yardage — deep bench may be cut off";
     } else if (maxSeason === nowY && state.lastPending) {
@@ -3616,10 +3853,22 @@ table.asw-table{font-size:13px}
         coverage += " (refresh pending)";
       }
     }
-    metaEl.textContent = (state.lastQuery || "") + " · " + countLabel + (searchQ ? " (search)" : "") + filterHint + coverage;
+    // The band: what's listed, the sources the visible group reads, how far they're final, when read.
+    var sgBand = currentStatGroup();
+    var srcText = sgBand ? " · Sources: " + sgBand.src.map(function (x) { return SG_SRC[x]; }).join("; ") : " · Custom columns: sources under About";
+    metaEl.innerHTML = '<b>' + escapeHtml(state.lastQuery || "") + '</b>' + escapeHtml(srcText + coverage) +
+      (state.lastReadAt ? escapeHtml(" · read " + state.lastReadAt) : "");
+    countEl.textContent = countLabel + (searchQ ? " (search)" : "") + filterHint;
+    renderGroupsBar();
+    renderSortControl(cols);
+    renderAbout(cols);
+    updateMoreCount();
 
     // Wire sort (column-header clicks)
     bodyEl.querySelectorAll("th[data-col-key]").forEach(function(el){
+      el.addEventListener("keydown", function(e){
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); }
+      });
       el.addEventListener("click", function(){
         var key = el.getAttribute("data-col-key");
         if (state.sortKey === key) {
@@ -3713,6 +3962,120 @@ table.asw-table{font-size:13px}
         });
       });
     }
+  }
+
+  // ---------- Desktop redesign: the controls that mirror the table (docs/STATS_UI_CONTRACT.md) ----------
+  var countEl       = document.getElementById("asw-count");
+  var groupsEl      = document.getElementById("asw-groups");
+  var sortSel       = document.getElementById("asw-sort");
+  var sortDirBtn    = document.getElementById("asw-sort-dir");
+  var moreBtn       = document.getElementById("asw-more-btn");
+  var moreEl        = document.getElementById("asw-more");
+  var moreNEl       = document.getElementById("asw-more-n");
+  var aboutBodyEl   = document.getElementById("asw-about-body");
+  var compareModeEl = document.getElementById("asw-compare-mode");
+
+  // The Player cell: the name is a real button (the row opens his detail either way), with
+  // NFL team · fantasy owner beneath it; the Flex tabs lead with his position.
+  function playerCellHtml(r, cls) {
+    var tab = TABS[state.activeTab];
+    var sub = [];
+    if (tab.ident === IDENT_FLEX) sub.push(effPos(r) || "—");
+    sub.push(fmtCell(getVal(r, "team"), null));
+    sub.push(fmtCell(getVal(r, "mfl_franchise_name"), null));
+    var name = String(r.player_name || "—");
+    return '<td class="' + cls.join(" ") + '"><button type="button" class="asw-pname" title="' + escapeHtml("Open " + name + "’s weeks") + '">' +
+      escapeHtml(name) + '</button><span class="asw-psub">' + escapeHtml(sub.join(" · ")) + '</span></td>';
+  }
+
+  // Stat group buttons for the active position (plus "Custom" while Custom columns is on).
+  function renderGroupsBar() {
+    if (!groupsEl) return;
+    var gs = statGroupsFor(state.activeTab);
+    var cur = state.group;
+    var html = gs.map(function (g) {
+      return '<button type="button" class="asw-group" data-group="' + g.id + '" aria-pressed="' + (cur === g.id ? "true" : "false") + '"' +
+        (g.title ? ' title="' + escapeHtml(g.title) + '"' : "") + '>' + escapeHtml(g.label) + '</button>';
+    }).join("");
+    if (cur === "custom") html += '<button type="button" class="asw-group" data-group="custom" aria-pressed="true" title="Columns picked under More filters">Custom columns</button>';
+    if (groupsEl.innerHTML !== html) groupsEl.innerHTML = html;
+  }
+  if (groupsEl) groupsEl.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("[data-group]") : null;
+    if (!b) return;
+    var id = b.getAttribute("data-group");
+    if (id === "custom") { openMore(true); return; }
+    if (id === state.group) return;
+    state.group = id;
+    persistView(state.activeTab);
+    render();
+  });
+
+  // "Sort by" mirrors the header sort: the visible columns, then the direction in words.
+  function renderSortControl(cols) {
+    if (!sortSel) return;
+    var opts = cols.map(function (k) {
+      var def = COLS[k] || { label: k };
+      return '<option value="' + k + '"' + (k === state.sortKey ? " selected" : "") + '>' + escapeHtml(k === "player_name" ? "Player name" : def.label) + '</option>';
+    }).join("");
+    if (sortSel.innerHTML !== opts) sortSel.innerHTML = opts;
+    sortSel.value = state.sortKey || "";
+    var asc = state.sortDir === "asc";
+    var word = state.sortKey === "player_name" ? (asc ? "A to Z" : "Z to A") : (asc ? "Low to high" : "High to low");
+    sortDirBtn.textContent = (asc ? "▲ " : "▼ ") + word;
+    sortDirBtn.setAttribute("aria-label", "Sort direction: " + word.toLowerCase() + ". Change it");
+  }
+  if (sortSel) sortSel.addEventListener("change", function () {
+    state.sortKey = sortSel.value;
+    state.sortDir = (COLS[state.sortKey] && COLS[state.sortKey].num) ? "desc" : "asc";
+    render();
+  });
+  if (sortDirBtn) sortDirBtn.addEventListener("click", function () {
+    state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+    render();
+  });
+
+  // More filters: the uncommon choices. The count beside it says how many are in use.
+  function openMore(open) {
+    if (!moreEl || !moreBtn) return;
+    if (open) moreEl.removeAttribute("hidden"); else moreEl.setAttribute("hidden", "");
+    moreBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (moreBtn) moreBtn.addEventListener("click", function () { openMore(moreEl.hasAttribute("hidden")); });
+  function updateMoreCount() {
+    if (!moreNEl) return;
+    var n = 0;
+    if (getSelectedTeams().length) n++;
+    if (getSelectedSeasons().length > 1) n++;
+    if (state.group === "custom") n++;
+    n += countActiveFilters();
+    if (state.heatOn) n++;
+    if (state.scatterOn) n++;
+    if (state.compareMode) n++;
+    moreNEl.textContent = n ? "(" + n + ")" : "";
+  }
+  if (compareModeEl) compareModeEl.addEventListener("change", function () {
+    state.compareMode = !!compareModeEl.checked;
+    if (!state.compareMode) clearCompareSet();
+    render();
+  });
+
+  // About: what the page is, then a definition for every column on screen and the sources.
+  function renderAbout(cols) {
+    if (!aboutBodyEl) return;
+    var sg = currentStatGroup();
+    var defs = cols.filter(function (k) { return k !== "player_name"; }).map(function (k) {
+      var d = COLS[k] || { label: k };
+      return '<dt>' + escapeHtml(d.label) + '</dt><dd>' + escapeHtml(d.title || "—") + '</dd>';
+    }).join("");
+    var srcs = sg ? sg.src.map(function (x) { return SG_SRC[x]; }) : [];
+    var html = '<p>Every player at the position for the season and weeks chosen above. MFL Pts and PPG use this league’s scoring; ' +
+      'the other columns are NFL statistics. A number reads “—” when its source has nothing for him, never 0; hover a heading or a cell for why.</p>' +
+      (sg ? '<p><b>' + escapeHtml(sg.title || sg.label) + '.</b> Sources: ' + escapeHtml(srcs.join("; ")) + '.</p>' : '<p><b>Custom columns.</b> Picked under More filters.</p>') +
+      '<dl class="asw-defs">' + defs + '</dl>' +
+      '<p>Sched Δ and Opp ±% describe the schedule a player has faced; they are never colored and aren’t a forecast. ' +
+      'Heat (More filters) colors each number by its rank among the players listed: green top fifth, red bottom fifth.</p>';
+    if (aboutBodyEl.innerHTML !== html) aboutBodyEl.innerHTML = html;
   }
 
   // Focus hand-off across renders (filter-row typing restores caret position)
@@ -4037,7 +4400,7 @@ table.asw-table{font-size:13px}
   function updateFilterToggleLabel() {
     if (!_filterToggleBtn) return;
     var n = countActiveFilters();
-    _filterToggleBtn.textContent = n ? "☰ Filters (" + n + ")" : "☰ Filters";
+    _filterToggleBtn.textContent = n ? "☰ Value filters (" + n + ")" : "☰ Value filters";
     if (_filterClearBtn) _filterClearBtn.style.display = n ? "" : "none";
   }
 
@@ -4122,9 +4485,10 @@ table.asw-table{font-size:13px}
     var s = getScope();
     if (s === "custom") {
       var r = getCustomWeekRange();
-      return "Wks " + r.lo + "-" + r.hi;
+      return "Wks " + r.lo + "–" + r.hi;
     }
-    return (SCOPE_RANGES[s] && SCOPE_RANGES[s].label) || s;
+    var sr = SCOPE_RANGES[s];
+    return sr ? sr.label + " (Wks " + sr.min + "–" + sr.max + ")" : s;
   }
   function getScopeQueryParams(){
     var s = getScope();
@@ -4191,8 +4555,9 @@ table.asw-table{font-size:13px}
     var scope = getScope();
     var teams = getSelectedTeams();
     state.sortKey = null;
-    bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
+    bodyEl.innerHTML = '<div class="asw-loading" role="status">Loading ' + escapeHtml(seasons.slice().sort().join(" + ") + " " + tab.label) + '…</div>';
     metaEl.textContent = "";
+    if (countEl) countEl.textContent = "";
     // Server-side min_games=1 — real game-count filtering is done per-column
     // in the header filter row (type a number into G). Keep limit=500 so
     // multi-season queries still fit the D1 row cap.
@@ -4354,6 +4719,7 @@ table.asw-table{font-size:13px}
         teamLabel = " · " + teams.length + " teams";
       }
       state.lastQuery = tab.label + " · " + seasonLabel + " · " + getScopeLabel() + teamLabel;
+      state.lastReadAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET";
       render();
     }).catch(function(e){
       bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
@@ -4372,7 +4738,10 @@ table.asw-table{font-size:13px}
     state.filters = {};
     invalidatePredicateCache();
     state.scatterX = state.scatterY = null;   // scatter axes reset to the new tab's defaults
+    var keepGroup = state.group;
     restoreViewForTab(tabId);
+    // Keep the stat group across positions when the new one has it (WR Receiving → TE Receiving).
+    if (keepGroup !== "custom" && statGroupById(tabId, keepGroup)) state.group = keepGroup;
     tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
       btn.setAttribute("aria-pressed", btn.getAttribute("data-tab") === tabId ? "true" : "false");
     });
@@ -4539,7 +4908,7 @@ table.asw-table{font-size:13px}
         var cells = players.map(function(p){
           var v = getVal(p, k);
           var cls = ["num"];
-          if (typeof v === "number" && !isNaN(v) && numericVals.length > 1) {
+          if (typeof v === "number" && !isNaN(v) && numericVals.length > 1 && !def.noHeat) {
             if (v === best && best !== worst) cls.push("best");
             else if (v === worst && best !== worst) cls.push("worst");
           }
@@ -4587,6 +4956,11 @@ table.asw-table{font-size:13px}
   function exportCsv() {
     var rows = state.lastRows || [];
     var cols = state.lastCols || [];
+    // The Player cell shows NFL team and owner beneath the name; the file keeps them as columns.
+    if (cols.indexOf("player_name") >= 0) {
+      var who = ["player_name"].concat(TABS[state.activeTab].ident === IDENT_FLEX ? ["position"] : [], ["team", "mfl_franchise_name"]);
+      cols = who.concat(cols.filter(function (k) { return who.indexOf(k) < 0; }));
+    }
     if (!rows.length || !cols.length) return;
     var header = cols.map(function(k){
       return csvEscape((COLS[k] && COLS[k].label) || k);
@@ -4773,7 +5147,10 @@ table.asw-table{font-size:13px}
     pn:       ["punts", "punt_yds", "punt_inside20"],
   };
 
+  var drawerReturnFocus = null;
   function closeDrawer() {
+    var back = drawerReturnFocus; drawerReturnFocus = null;
+    if (back && back.focus && document.body.contains(back)) setTimeout(function () { try { back.focus(); } catch (e) {} }, 0);
     drawerEl.classList.remove("open");
     drawerScrim.classList.remove("open");
     drawerScrim.setAttribute("hidden", "");
@@ -4785,6 +5162,9 @@ table.asw-table{font-size:13px}
   }
 
   function openDrawer(playerRow) {
+    // A dialog: focus moves to Close and returns to the row's name when it closes.
+    if (!drawerReturnFocus) drawerReturnFocus = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    setTimeout(function () { try { drawerCloseBtn.focus(); } catch (e) {} }, 30);
     drawerScrim.removeAttribute("hidden");
     drawerScrim.classList.add("open");
     drawerEl.classList.add("open");
@@ -5083,8 +5463,8 @@ table.asw-table{font-size:13px}
     var mkt = marketByMfl[String(playerRow.mfl_pid)];
     if (mkt) {
       if (mkt.own != null) chips.push("Own " + mkt.own.toFixed(0) + "%");
-      if (mkt.rank != null) chips.push("Xpert #" + mkt.rank);
-      if (mkt.inj) chips.push("⚕ " + mkt.inj);
+      // No expert rank (removed from Stats, Keith 2026-10-09/10) and no injury word from the
+      // market feed: injury tags come from the shared resolver only (#1311), not shown here.
     }
     if (chips.length) {
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' +
@@ -5319,6 +5699,7 @@ table.asw-table{font-size:13px}
       }
       // Preset views: view= names the preset; groups= is only written for
       // custom (old URLs carrying groups= without view= parse as custom).
+      params.set("grp", state.group || "fantasy");
       params.set("view", state.viewName || "standard");
       if (state.viewName === "custom") {
         var groups = Array.from(state.visibleGroups).sort();
@@ -5405,6 +5786,7 @@ table.asw-table{font-size:13px}
 
     var viewParam = params.get("view");
     var groupsParam = params.get("groups");
+    var grpParam = params.get("grp");
     if (viewParam && viewParam !== "custom" && groupsForView(TABS[state.activeTab], viewParam)) {
       state.visibleGroups = groupsForView(TABS[state.activeTab], viewParam);
       state.viewName = viewParam;
@@ -5416,6 +5798,11 @@ table.asw-table{font-size:13px}
       touched = true;
     }
 
+    // The stat group (grp=). An older link without grp= that named Advanced, Analytics or a
+    // custom column set opens with those columns; a Standard (or no) view opens Fantasy points.
+    if (grpParam && (grpParam === "custom" || statGroupById(state.activeTab, grpParam))) { state.group = state.urlGroup = grpParam; touched = true; }
+    else if ((viewParam && viewParam !== "standard") || groupsParam) state.group = "custom";
+    else state.group = "fantasy";
     var sortParam = params.get("sort");
     if (sortParam) {
       var parts = sortParam.split(".");
@@ -5436,7 +5823,9 @@ table.asw-table{font-size:13px}
   var urlApplied = readStateFromUrl();
   if (!urlApplied || state.visibleGroups.size === 0) {
     restoreViewForTab(state.activeTab);   // saved per-tab view (falls back to Standard)
+    if (state.urlGroup) state.group = state.urlGroup;   // a link's grp= wins over the saved group
   }
+  syncSeasonOne();
   // Highlight the active tab (readStateFromUrl doesn't touch aria-pressed on tabs)
   tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
     btn.setAttribute("aria-pressed", btn.getAttribute("data-tab") === state.activeTab ? "true" : "false");
