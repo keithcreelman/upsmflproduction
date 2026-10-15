@@ -46,7 +46,8 @@ function schedule(resp) {
 // Byes: the teams with no game that week in the fixture (Week 6: Goff's DET among them).
 const BYES = { 6: ["CIN", "DET", "MIA", "MIN"], 7: ["BUF", "LAC", "JAC", "WAS"] };
 // /api/player-status: before the flip, Week 6's report (Taylor Q); after it, Week 7's isn't
-// out yet, so the worker gives his Week 6 final designation as `prior`.
+// out yet, so the worker gives his Week 6 final designation as `prior`. MFL's own export
+// (mfl_feed, 2026-10-14) has no designation for him either week.
 function statusBody(week) {
   const players = {};
   if (week === 6) players[TAYLOR] = { report: { status: "Questionable", injury: "Hamstring", practice: "Limited Participation in Practice" } };
@@ -54,7 +55,8 @@ function statusBody(week) {
   return { ok: true, season: 2026, players, mapped_mfl_ids: ROSTER,
     report_feed: { ok: true, week: 6, current_week: week, current: week === 6, updated_utc: "2026-10-18T15:00:00Z", reason: week === 6 ? null : "Wk 7's report is not out yet",
       teams_mfl: week === 6 ? ["IND"] : [], prior_weeks: week === 6 ? [] : [6] },
-    roster_feed: { ok: true, updated_utc: "2026-10-18T15:00:00Z" } };
+    roster_feed: { ok: true, updated_utc: "2026-10-18T15:00:00Z" },
+    mfl_feed: { ok: true, week, updated_utc: "2026-10-18T15:00:00Z", count: 0 } };
 }
 
 // opts.now; opts.lineup(w) → body override for GET /api/lineup; opts.hold: RegExp of
@@ -112,6 +114,7 @@ function boot(opts) {
   c.addEventListener = (t, fn) => { (winL[t] = winL[t] || []).push(fn); };
   c.Date = class extends Date { constructor(...a) { if (a.length) super(...a); else super(now); } static now() { return now; } };
   c.UPS_MOBILE = M;
+  vm.runInContext(read("site/shared/injury_status.js"), c);
   vm.runInContext("(function () { var M = window.UPS_MOBILE, U = M.util, API = M.api, DATA = M.data;\n" + PSTAT_SRC + "\n})();", c);
   vm.runInContext(read("site/m/front_office_lineup.js"), c);
   vm.runInContext(read("site/shared/live_scoring.js"), c);
@@ -133,6 +136,15 @@ function boot(opts) {
   env.starters = () => Object.values(env.slots()).filter(Boolean).sort();
   env.line = (pid) => mount.querySelector('.ups-m-slot-mu[data-mu-pid="' + pid + '"]');
   env.slotOf = (pid) => mount.querySelectorAll(".ups-m-slot").find((s) => (s.querySelector("select") || {}).value === pid) || null;
+  // A starter's first injury tag: on its own line right under his slot (2026-10-14).
+  env.tagOf = (pid) => {
+    const s = env.slotOf(pid); if (!s) return null;
+    const sib = s.parentNode.children;
+    for (let i = sib.indexOf(s) + 1; i < sib.length && !/(^|\s)ups-m-slot(\s|$)/.test(sib[i].attrs.class || ""); i++) {
+      const c = sib[i].querySelector(".ups-m-inj-chip"); if (c) return c;
+    }
+    return null;
+  };
   env.footer = () => mount.querySelector("#ups-m-lineup-submit");
   env.choice = () => doc.getElementById("ups-m-lu-wk-choice");
   env.msg = () => env.text(mount.querySelector(".ups-m-lineup-msg:not([id])") || mount.querySelectorAll(".ups-m-lineup-msg").find((m) => !m.getAttribute("id")));
@@ -198,7 +210,7 @@ async function flipped(how) {
   // Open Tuesday 06:00 UTC: Week 6 is still the lineup week (its last game kicked off at
   // 00:15 UTC; the worker flips at 07:15 UTC), so every Week 6 starter is locked.
   const e = boot({ now: T("2026-10-20T06:00:00Z") }); await e.open();
-  const before = { locked: e.mount.querySelectorAll(".ups-m-slot.locked").length, allen: e.text(e.line(ALLEN)), taylor: e.text(e.slotOf(TAYLOR).querySelector(".ups-m-inj-chip")) };
+  const before = { locked: e.mount.querySelectorAll(".ups-m-slot.locked").length, allen: e.text(e.line(ALLEN)), taylor: e.text(e.tagOf(TAYLOR)) };
   const n = e.log.length;
   e.tickTo("2026-10-20T07:20:00Z"); e.liveWeek = 7;
   if (how === "timer") await e.fire();
@@ -211,10 +223,10 @@ async function flipped(how) {
 }
 {
   const { e, before, after, onEvent } = await flipped("timer");
-  await check("before: Week 6, every starter with a Week 6 game locked (17; Goff's DET is on bye), Allen's Week 6 game, Taylor's Week 6 report tag (Q)", () => {
+  await check("before: Week 6, every starter with a Week 6 game locked (17; Goff's DET is on bye), Allen's Week 6 game, Taylor's Week 6 report tag (NFL: Q (Wk 6))", () => {
     assert.strictEqual(before.locked, 17);
     assert.ok(before.allen.indexOf("@ LVR") === 0, before.allen);
-    assert.strictEqual(before.taylor, "Q");
+    assert.strictEqual(before.taylor, "NFL: Q (Wk 6)");
   });
   await check("the 5-minute timer sees Week 7 and reads Week 7: the lineup, projections, kickoffs, byes, matchups and the injury status", () => {
     for (const u of ["/api/current-lineup-week", "/api/lineup?W=7", "/api/mfl-export?TYPE=projectedScores&W=7", "/api/mfl-export?TYPE=nflSchedule&W=7",
@@ -229,8 +241,9 @@ async function flipped(how) {
     assert.ok(e.text(e.mount).indexOf("BYE · Week 7 — bench him") >= 0);
     assert.strictEqual(e.mount.querySelectorAll(".ups-m-slot.locked").length, 0);
   });
-  await check("the injury tag follows the week: Taylor's Week 6 final tag is now labeled \"W6 Q\", never this week's", () => {
-    assert.strictEqual(e.text(e.slotOf(TAYLOR).querySelector(".ups-m-inj-chip")), "W6 Q");
+  await check("the injury tag follows the week: Taylor's Week 6 final tag is now labeled \"NFL: Q (Wk 6 final)\" and dashed, never this week's", () => {
+    assert.strictEqual(e.text(e.tagOf(TAYLOR)), "NFL: Q (Wk 6 final)");
+    assert.ok(/\bprior\b/.test(e.tagOf(TAYLOR).attrs.class));
   });
   await check("one line says so: \"Week 6 is over: this screen now shows Week 7.\"", () => {
     assert.strictEqual(e.msg(), "Week 6 is over: this screen now shows Week 7.");

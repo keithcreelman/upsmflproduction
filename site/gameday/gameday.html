@@ -64,13 +64,29 @@
   /* Big and bold on purpose (Keith): this is the one signal that should
      outweigh everything else on the card when it's real. Solid fill, not an
      outline chip like .gd-badge/.gd-chip elsewhere — those are informational,
-     this is a warning. tier-out (Out/IR-*/Suspended/Retired/Holdout/Doubtful)
-     is red; tier-q (Questionable) is amber and uses dark text since amber on
-     dark text reads poorly reversed. */
+     this is a warning. tier-out (Out, every IR kind, Suspended, Retired, Holdout,
+     Doubtful) is red; tier-q (Questionable) is amber and uses dark text since
+     amber on dark text reads poorly reversed. (This comment used to read
+     "IR-" + "*" + "/Suspended", which ENDED the comment early and silently dropped
+     the .gd-slot-inj-row rule below: badge rows had no padding. Fixed 2026-10-14.) */
   .gd-slot-inj-row { padding: 0 14px 8px 14px; margin-top: -2px; }
   .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
   .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
   .gd-inj-badge.tier-q { color: #1a1206; background: var(--warn); }
+  /* Submit Lineup's tags name their source and week (site/shared/injury_status.js, Keith
+     2026-10-14): MFL's Q / D / OUT first, the NFL report's when MFL has none, both when
+     they disagree. D (Doubtful) orange; MFL roster designations (IR, IR-R, PUP, NFI, SUSP,
+     RET) their own tone, HOLD blue; "na" = the other source has nothing (neutral); a tag
+     from an earlier week (e.g. "NFL: OUT (Wk 5 final)") dashed, never read as this week's. */
+  .gd-inj-badge.tier-d { color: #1f1206; background: #fb923c; }
+  .gd-inj-badge.tier-res { color: #fff; background: #9333ea; }
+  .gd-inj-badge.tier-ho { color: #fff; background: #2563eb; }
+  .gd-inj-badge.tier-na { color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-soft); font-weight: 800; }
+  .gd-inj-badge.prior { background: transparent; box-shadow: none; outline: 1.5px dashed currentColor; outline-offset: -1.5px; }
+  .gd-inj-badge.prior.tier-out { color: #fca5a5; }
+  .gd-inj-badge.prior.tier-d { color: #fdba74; }
+  .gd-inj-badge.prior.tier-q { color: var(--warn); }
+  .gd-slot-inj-row .gd-inj-badge, .gd-bench-id .gd-inj-badge { margin: 2px 6px 2px 0; }
   /* Locked = his NFL game has kicked off; canon §B4 says he can't be
      substituted in or out from that moment. Neutral color on purpose (unlike
      the injury badges above) -- a lock is often GOOD news (he already went
@@ -104,10 +120,12 @@
   .gd-mu-detail .r { padding: 2px 0; line-height: 1.45; }
   .gd-mu-detail b { color: var(--fg); font-weight: 800; }
   .gd-mu-wx { opacity: 0.9; }
+  .gd-mu-inj { color: var(--fg); }
   .gd-hz { white-space: nowrap; color: var(--fg); }
   /* The screen's note (what the rank is, the weeks, MFL read time) + About. */
   .gd-mu-note { font-size: 12px; line-height: 1.45; color: var(--muted); margin-top: 10px; }
   .gd-mu-note.warn { color: var(--warn); }
+  .gd-mu-note.inj { margin-top: 4px; }
   .gd-mu-retry { background: transparent; border: 1px solid var(--line); color: var(--accent); border-radius: 6px;
     min-height: 30px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   .gd-mu-about { margin-top: 3px; }
@@ -304,6 +322,7 @@
 
 <script src="../shared/live_scoring.js"></script>
 <script src="../shared/injury_overrides.js"></script>
+<script src="../shared/injury_status.js"></script>
 <script>
 (function () {
   "use strict";
@@ -632,9 +651,17 @@
     if (/^QUESTIONABLE/.test(st)) return { label: st, tier: "q" };
     return null;   // e.g. "Probable" — not a real risk signal, no badge
   }
-  function injBadgeHtml(row) {
-    var b = row ? injBadgeInfo(row.injStatus) : null;
-    return b ? '<div class="gd-slot-inj-row"><span class="gd-inj-badge tier-' + b.tier + '" title="' + esc(row.injLabel || b.label) + '">' + esc(b.label) + '</span></div>' : '';
+  // A row's injury tags as badges: row.inj.chips (the shared resolver, below), or — only if
+  // site/shared/injury_status.js didn't load — the one MFL status as before. inline = the
+  // bench row (no wrapping line).
+  function injBadgeHtml(row, inline) {
+    var cs = row && row.inj ? row.inj.chips : [];
+    if (row && !row.inj) { var b = injBadgeInfo(row.injStatus); if (b) cs = [{ t: b.label, cls: b.tier, title: row.injLabel || b.label }]; }
+    if (!cs.length) return "";
+    var h = cs.map(function (c) {
+      return '<span class="gd-inj-badge tier-' + c.cls + (c.prior ? " prior" : "") + '" title="' + esc(c.title) + '">' + esc(c.t) + '</span>';
+    }).join("");
+    return inline ? " " + h : '<div class="gd-slot-inj-row">' + h + '</div>';
   }
   // The injury feed the page reads, as the shared client model (see
   // LS.createInjuryStore): one store, bucketed by season+week, queried by
@@ -643,6 +670,29 @@
   function lineupInjOpts() {
     return { store: injStore(), overrides: window.UPS_INJURY_OVERRIDES, season: CTX.year, week: STATE.lineupWeek };
   }
+  // ── Injury status on Submit Lineup: the ONE resolver (site/shared/injury_status.js), the
+  // same as mobile Lineup and the player sheet (Keith 2026-10-14). MFL's current Q / D / OUT
+  // first; the official NFL report beside it (the tag when MFL has none, always in Details);
+  // IR / PUP from MFL; every tag and line naming its source and week; both shown when they
+  // disagree; no tag never "healthy". From GET /api/player-status; while that has no fresh
+  // read, MFL's export as this page read it (injStore, the lineup week). Lock, bye and IR-slot
+  // rules read none of this (kickoffs, MFL's bye list and the roster's own status decide them).
+  var INJ = null;
+  function injIS() { return window.UPSInjuryStatus || null; }
+  function injLoader() {
+    return INJ || (INJ = injIS().createLoader(function (season) {
+      return workerUrl("/api/player-status?season=" + encodeURIComponent(season) + "&L=" + encodeURIComponent(CTX.leagueId || ""));
+    }));
+  }
+  function loadInjuries() { if (injIS()) injLoader().load(CTX.year, render); }
+  function injResolve(pid, team) {
+    var IS = injIS(), o = lineupInjOpts();
+    return IS.resolve(injLoader().read(), pid, team, { week: parseInt(STATE.lineupWeek, 10) || null, fallback: IS.fromMflStore(o.store, o.season, o.week, pid) });
+  }
+  function injNoteText() {
+    var IS = injIS(); if (!IS) return "";
+    return IS.noteText(injLoader().read(), { week: parseInt(STATE.lineupWeek, 10) || null, fallback: true });
+  }
 
   function buildRows() {
     return getMyRoster().map(function (r) {
@@ -650,8 +700,10 @@
       var cy = parseInt(r.contractYear, 10);
       var row = { id: r.id, name: nameFromMfl(p.name) || ("Player " + r.id), pos: s(p.position).toUpperCase(),
         team: s(p.team), salary: r.salary, group: posGroup(p.position),
-        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0,
-        injStatus: LS.injuryStatusFor(lineupInjOpts(), r.id), injLabel: LS.injuryLabelFor(lineupInjOpts(), r.id) };
+        isTaxi: /taxi/i.test(r.status || ""), isIr: /ir|injured/i.test(r.status || ""), isExpired: cy === 0 };
+      // Tags only: nothing below (eligible / bye / locked) reads them.
+      if (injIS()) row.inj = injResolve(r.id, row.team);
+      else { row.injStatus = LS.injuryStatusFor(lineupInjOpts(), r.id); row.injLabel = LS.injuryLabelFor(lineupInjOpts(), r.id); }
       row.bye = isOnBye(row.team);
       row.eligible = eligibleRow(row);
       row.locked = isKickedOff(row.team);
@@ -801,7 +853,7 @@
     (isLocked ? '<div class="gd-slot-inj-row"><span class="gd-lock-badge">🔒 Locked — kickoff passed</span></div>' : "") +
     (isBye ? '<div class="gd-slot-inj-row"><span class="gd-bye-badge">BYE · Week ' + esc(STATE.byesWeek || STATE.lineupWeek) + ' — bench him; MFL won’t accept a bye-week starter</span></div>' : "") +
     (current ? injBadgeHtml(currentRow) : "") +
-    (current ? slotMatchupHtml(current) : "");
+    (current ? slotMatchupHtml(current, currentRow) : "");
   }
   // ── Submit Lineup matchup info (#1276): the released mobile design (site/m/views/lineup.js
   // "Matchup info", #1257, Keith's rulings 2026-10-13), from the worker's GET
@@ -950,8 +1002,8 @@
   function fmtAvg(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
   // The matchup line — a real button with a visible "Details" pill — and, when open, its
   // card. Several cards can be open at once, so opening one never moves the line you
-  // clicked.
-  function slotMatchupHtml(pid) {
+  // clicked. row = the lineup row (its injury lines), when there is one.
+  function slotMatchupHtml(pid, row) {
     var mu = matchupFor(pid); if (!mu) return "";
     var loc = (mu.isHome ? "vs " : "@ ") + mu.opp, when = fmtKick(mu.kickoff);
     var open = !!(STATE.muOpen && STATE.muOpen[pid]);
@@ -964,6 +1016,10 @@
       '<span class="gd-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
+    // What MFL and the official NFL report each say about him, always (source + week on
+    // every line; a disagreement spelled out).
+    var inj = row && row.inj ? row.inj : (injIS() ? injResolve(pid, mu.team) : null);
+    if (inj) inj.lines.forEach(function (l) { rows.push('<div class="r gd-mu-inj">' + esc(l) + '</div>'); });
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + esc(line) + '</div>');
     var wx = wxText(mu.weather, mu.kickoff);
@@ -996,17 +1052,18 @@
     }
     return compact + '<div class="gd-mu-detail" id="' + did + '">' + rows.join("") + '</div>';
   }
-  // The note for the whole screen: what the rank is, which games, when MFL was read.
-  // On a failure, the reason and a way to try again.
+  // The notes for the whole screen: what the rank is, which games, when MFL was read, and
+  // where the injury tags come from. On a failure, the reason and a way to try again.
   function matchupNoteHtml() {
     var c = muCtx(); if (!c.week) return "";
     var e = muEntry(), d = e && e.d;
+    var inj = injNoteText(), injHtml = inj ? '<div class="gd-mu-note inj">' + esc(inj) + '</div>' : "";
     if (!d) {
       if (e && e.err) {
         return '<div class="gd-mu-note warn" role="status">Matchup numbers couldn’t be read' + (e.err === "mfl" ? " from MFL" : "") +
-          ' right now. <button type="button" class="gd-mu-retry" id="gd-mu-retry">Try again</button></div>';
+          ' right now. <button type="button" class="gd-mu-retry" id="gd-mu-retry">Try again</button></div>' + injHtml;
       }
-      return '<div class="gd-mu-note" role="status">Loading matchups…</div>';
+      return '<div class="gd-mu-note" role="status">Loading matchups…</div>' + injHtml;
     }
     var lead;
     if (d.priorSeason) lead = "No " + c.year + " games yet, so the ranks are from the " + d.ratingYear + " season.";
@@ -1020,7 +1077,7 @@
       "“@ GBP · #30 vs QBs” = Green Bay is 30th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
       "Only final games count, and a player counts for the team he played for that day. " +
       MU_ABOUT_EVIDENCE +
-      '</div></details></div>';
+      '</div></details></div>' + injHtml;
   }
   // The measured size of green vs red (2019–2025 games, leak-free; review #1249 L2b).
   var MU_ABOUT_EVIDENCE = "On 2019–2025 games, a player facing one of the 10 teams allowing the most to his position scored about 1 point more than facing one of the 10 allowing the least (QB about 2).";
@@ -1133,6 +1190,7 @@
 
   function renderLineup(el) {
     loadMatchups();   // lazy: opponent/kickoff/spread + the Pts Agst numbers for that opponent
+    loadInjuries();   // lazy: MFL's Q/D/OUT + the official NFL report (GET /api/player-status)
     var rows = buildRows();
     if (!rows.length) {
       el.innerHTML = '<div class="gd-stub">No roster found' + (STATE.viewerFranchiseId ? " for " + esc(STATE.viewerFranchiseId) : " — sign in to MFL") + '.</div>';
@@ -1222,16 +1280,15 @@
     var showBench = !!STATE.showBench;
     var benchHtml = '<div class="gd-bench-head"><button type="button" class="gd-bench-toggle" id="gd-bench-toggle">' + (showBench ? "▾" : "▸") + ' Bench &amp; matchups (' + benchRows.length + ')</button></div>' +
       (showBench ? '<div class="gd-bench">' + (benchRows.length ? benchRows.map(function (r) {
-        var badge = injBadgeInfo(r.injStatus);
         return '<div class="gd-bench-row"><div class="gd-bench-id"><span class="nm">' + esc(r.name) + '</span>' +
           '<span class="meta">' + esc(r.pos || "—") + ' · ' + esc(r.team || "—") + '</span>' +
-          (badge ? ' <span class="gd-inj-badge tier-' + badge.tier + '" title="' + esc(r.injLabel || badge.label) + '">' + esc(badge.label) + '</span>' : '') +
+          injBadgeHtml(r, true) +
           // A benched player already kicked off can never be started now --
           // say so here too, since he's simply absent from every slot's
           // dropdown (no other cue would explain why he doesn't show up there).
           (r.locked ? ' <span class="gd-lock-badge">🔒 Locked</span>' : '') +
           (r.bye ? ' <span class="gd-bye-badge" title="His NFL team is on a bye in Week ' + esc(STATE.byesWeek || STATE.lineupWeek) + ' — MFL won’t accept him as a starter.">BYE</span>' : '') + '</div>' +
-          '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
+          '<div class="gd-bench-proj" title="Projected points">' + esc(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id, r);
       }).join("") : '<div class="gd-bench-empty">No bench players.</div>') + '</div>' : '');
 
     var html =

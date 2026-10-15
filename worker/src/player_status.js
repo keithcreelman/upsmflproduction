@@ -8,6 +8,12 @@
 //   roster — the NFL roster designation (IR, IR – designated to return, PUP,
 //            NFI, Suspended …) from MFL's injuries export, the source the
 //            league's IR rules already use.
+//   mfl    — (2026-10-14, additive) MFL's own game designation (Q / D / Out) from
+//            that same export, with its week, time, description and expected
+//            return. Keith 2026-10-14: on Lineup, the player sheet and Game Day it
+//            is the primary owner-facing status, labeled as MFL's, with the
+//            official report beside it (site/shared/injury_status.js). It never
+//            feeds `report` / `prior`, and lineup-violation booking doesn't read it.
 //
 // WHY two sources. MFL's export mixes both kinds in one `status` field and
 // keeps game designations long after they lapse: on 2026-10-10 (Wk 5) 66 of
@@ -114,6 +120,40 @@ export function priorFrom(rows, currentWeek, currentTeams) {
   return out;
 }
 
+// MFL's own game designation (Questionable / Doubtful / Out) from the same export, kept
+// with the export's week and time, the description and MFL's expected return (Keith
+// 2026-10-14: MFL's current Q/D/OUT is the PRIMARY owner-facing status on Lineup, the
+// player sheet and Game Day; the official report above is the supporting source, shown
+// beside it and in Details). Kept apart from `report` and `prior`, which stay the
+// official report only — and nothing that books a lineup violation reads this field.
+export const MFL_GAME = { QUESTIONABLE: "Questionable", DOUBTFUL: "Doubtful", OUT: "Out" };
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+// MFL's "Oct 18, 2026" → "2026-10-18"; anything else → null (shown as MFL wrote it).
+export function mflReturnDate(s) {
+  const m = /^\s*([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),\s*(\d{4})\s*$/.exec(String(s || ""));
+  const mo = m && MONTHS[m[1].toLowerCase()];
+  if (!mo) return null;
+  const d = parseInt(m[2], 10);
+  if (!(d >= 1 && d <= 31)) return null;
+  return `${m[3]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+export function mflGameFrom(payload) {
+  const node = payload && payload.injuries;
+  if (!node) return { ok: false, week: null, ts: null, byMfl: {} };
+  const week = parseInt(node.week, 10) || null, ts = parseInt(node.timestamp, 10) || null;
+  const updated_utc = ts ? new Date(ts * 1000).toISOString() : null;
+  const byMfl = {};
+  for (const r of [].concat(node.injury || [])) {
+    if (!r || r.id == null) continue;
+    const status = MFL_GAME[String(r.status || "").trim().toUpperCase()];
+    if (!status) continue;                               // roster kinds go to `roster`; anything else isn't a game status
+    const exp = String(r.exp_return || "").trim() || null;
+    byMfl[String(parseInt(r.id, 10))] = { status, week, updated_utc, details: String(r.details || "").trim() || null,
+      exp_return: exp, return_date: mflReturnDate(exp) };
+  }
+  return { ok: true, week, ts, byMfl };
+}
+
 export function rosterFrom(payload) {
   const node = payload && payload.injuries;
   if (!node) return { ok: false, week: null, ts: null, byMfl: {} };
@@ -177,11 +217,22 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
     report_feed.prior_weeks = [...new Set(Object.values(pri).map((r) => r.week))].sort((a, b) => a - b);
   }
   for (const [m, r] of Object.entries(roster.byMfl)) (players[m] = players[m] || {}).roster = r;
+  // MFL's own Q / D / Out, by MFL id (no id map needed), with its week and time.
+  const mflGame = mflError ? { ok: false, week: null, ts: null, byMfl: {} } : mflGameFrom(mflPayload);
+  for (const [m, r] of Object.entries(mflGame.byMfl)) (players[m] = players[m] || {}).mfl = r;
   return {
     report_feed,
     roster_feed: { ok: roster.ok, source: "MFL injuries export", week: roster.week,
                    updated_utc: roster.ts ? new Date(roster.ts * 1000).toISOString() : null,
                    reason: roster.ok ? null : "unreadable: " + (mflError || "no injuries node") },
+    // read_utc = when WE read MFL's export (this answer's time). updated_utc is MFL's own file
+    // timestamp, kept for diagnosis only: successive reads disagree (8:01 vs 10:01 AM ET on
+    // 2026-10-14), so screens show the read time instead (site/shared/injury_status.js).
+    mfl_feed: { ok: mflGame.ok, source: "MFL injuries export (Questionable / Doubtful / Out)", week: mflGame.week,
+                read_utc: new Date(now).toISOString(),
+                updated_utc: mflGame.ts ? new Date(mflGame.ts * 1000).toISOString() : null,
+                count: Object.keys(mflGame.byMfl).length,
+                reason: mflGame.ok ? null : "unreadable: " + (mflError || "no injuries node") },
     players,
   };
 }

@@ -120,7 +120,8 @@ function makeEl(id) {
 const STATUS_OK = (players = {}, feed = {}) => ({ ok: true, season: 2026,
   report_feed: Object.assign({ ok: true, current: true, week: 5, current_week: 5, updated_utc: "2026-10-10T13:33:06.000Z", reason: null,
     teams_mfl: ["ARI", "ATL", "BAL", "BUF", "CHI", "CIN", "CLE", "DAL", "DEN", "DET", "GBP", "HOU", "IND", "JAC", "LAR", "LAC", "LVR", "MIA", "MIN", "NEP", "NOS", "NYG", "NYJ", "PHI", "PIT", "SEA", "SFO", "TBB", "TEN", "WAS"] }, feed),
-  roster_feed: { ok: true, week: 5, updated_utc: "2026-10-10T14:01:03.000Z", reason: null }, players, mapped_mfl_ids: PLAYERS.map((p) => p.id) });
+  roster_feed: { ok: true, week: 5, updated_utc: "2026-10-10T14:01:03.000Z", reason: null },
+  mfl_feed: { ok: true, week: 5, read_utc: "2026-10-10T14:55:00.000Z", updated_utc: "2026-10-10T14:01:03.000Z", reason: null, count: 0 }, players, mapped_mfl_ids: PLAYERS.map((p) => p.id) });
 function boot(opt = {}) {
   const ctx = vm.createContext({ console, setTimeout, clearTimeout, Promise, URL, Date, Math, JSON });
   ctx.window = ctx;
@@ -131,7 +132,7 @@ function boot(opt = {}) {
   ctx.dispatchEvent = (e) => { (winListeners[e.type] || []).forEach((fn) => fn(e)); return true; };
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
   // the shared contract parser the app loads (index.html: ../shared/cap_math.js)
-  for (const f of ["site/shared/cap_math.js", "site/m/season_scoring.js", "site/m/front_office_lineup.js"]) vm.runInContext(read(f), ctx);
+  for (const f of ["site/shared/cap_math.js", "site/m/season_scoring.js", "site/m/front_office_lineup.js", "site/shared/injury_status.js"]) vm.runInContext(read(f), ctx);
   const state = {
     ctx: { year: opt.year || "2026", leagueId: "74598" }, players: { players: { player: PLAYERS } },
     rosters: "rosters" in opt ? opt.rosters : rostersPayload(),
@@ -1283,46 +1284,64 @@ test("status chips: this week's NFL report (Q/D/OUT) and the roster designation 
   t.ok(css && /font-size: 11px/.test(css[0]) && /margin: 0 4px 0 0/.test(css[0]), "readable at 320px");
 });
 
-test("status in the sheet: the report line with practice + time; 'not on his team's report' only when that report was read; an unreadable or stale feed says so", async () => {
+test("status in the sheet (Keith 2026-10-14): MFL's Q/D/OUT first, the official report beside it, every tag and line naming its source and week; an unreadable or stale feed says so", async () => {
   const head = async (opt, pid) => { const v = boot(opt); await v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026"); v.ctx.UPS_MOBILE.sheet.open(pid); await settle(); await settle(); return v.getEl("ups-m-sheet-head").innerHTML; };
-  const q = await head({ status: STATUS_OK({ [PURDY]: { report: { status: "Questionable", injury: "Toe", practice: "Limited Participation in Practice", team: "SF" } } }) }, PURDY);
-  t.match(q, /<div class="name">[^<]*<span class="ups-m-inj-chip q"[^>]*>Q<\/span><\/div>/);
-  t.match(q, /Wk 5 injury report: Questionable — Toe · practice: Limited \(NFL report, updated Sat 9:33 AM ET\)\./);
-  // no designation: SFO reported this week and he isn't on it
+  const MFL_Q = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: "Oct 12, 2026", return_date: "2026-10-12" };
+  // MFL Q and the official Wk 5 report Q: one tag (MFL's), both lines
+  const q = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q, report: { status: "Questionable", injury: "Toe", practice: "Limited Participation in Practice", team: "SF" } } }) }, PURDY);
+  t.match(q, /<div class="name">[^<]*<span class="ups-m-inj-chip q prior"[^>]*>MFL: Q · est\. return passed<\/span><\/div>/, "MFL's estimated return has passed: said on the tag, dashed");
+  t.match(q, /<div>MFL still lists him Questionable — Toe \(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\)\. Its expected return \(Oct 12\) has passed; that’s an estimate, so this doesn’t mean he’s healthy or that the designation is wrong\.<\/div>/);
+  t.doesNotMatch(q, /MFL[^<]*10:01/, "MFL's own (unstable) file time is never shown");
+  const fut = await head({ status: STATUS_OK({ [PURDY]: { mfl: Object.assign({}, MFL_Q, { exp_return: "Oct 19, 2026", return_date: "2026-10-19" }) } }) }, PURDY);
+  t.match(fut, /<span class="ups-m-inj-chip q"[^>]*>MFL: Q<\/span>/, "a future return: solid, no week on MFL's tag");
+  t.match(fut, /<div>MFL: Questionable — Toe · Expected return: Oct 19 \(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\)\.<\/div>/);
+  t.match(q, /<div>NFL Wk 5 report: Questionable — Toe · practice: limited \(updated Sat 9:33 AM ET\)\.<\/div>/);
+  // MFL Q, but SFO's posted report doesn't list him: both shown
+  const dis = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q } }) }, PURDY);
+  t.match(dis, />MFL: Q · est\. return passed<\/span><span class="ups-m-inj-chip na"[^>]*>NFL Wk 5: not listed<\/span>/);
+  t.match(dis, /MFL and the NFL Wk 5 report disagree: MFL lists Questionable \(its estimated return has passed\); the report doesn’t list him\./);
+  // MFL nothing, the report says Out: the report's tag and "MFL: none"
+  const out = await head({ status: STATUS_OK({ [PURDY]: { report: { status: "Out", injury: "Toe", practice: "Did Not Participate In Practice", team: "SF" } } }) }, PURDY);
+  t.match(out, />NFL: OUT \(Wk 5\)<\/span><span class="ups-m-inj-chip na"[^>]*>MFL: none<\/span>/);
+  // no designation anywhere: SFO reported this week and he isn't on it; MFL has none
   const none = await head({}, PURDY);
-  t.match(none, /Not on SFO’s Wk 5 injury report \(NFL, updated Sat 9:33 AM ET\)\./);
-  t.doesNotMatch(none, /ups-m-inj-chip/, "no chip, and the line says why");
+  t.match(none, /<div>MFL: no designation \(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\)\.<\/div><div>NFL Wk 5 report: not listed \(SFO’s report, updated Sat 9:33 AM ET\)\.<\/div>/);
+  t.doesNotMatch(none, /ups-m-inj-chip/, "no chip, and the lines say what each source has");
   // his team's report wasn't read (a bye): no claim either way
   const bye = await head({ status: STATUS_OK({}, { teams_mfl: ["DAL"] }) }, PURDY);
-  t.match(bye, /No Wk 5 injury report for SFO \(a bye, or not out yet\)\./);
-  // the route is down: unavailable, and MFL's own Q/D/Out are NOT shown in its place
+  t.match(bye, /NFL Wk 5 report: not out yet for SFO \(or a bye\)\./);
+  // the route is down (and no app MFL read to fall back on): said so, no tag
   const down = await head({ status: 500 }, PURDY);
   t.match(down, /Injury status couldn’t be loaded\. No tag doesn’t mean healthy\./);
   t.doesNotMatch(down, /ups-m-inj-chip/);
-  // a stale report (last week's): no Q/D/OUT, said in words
+  // a stale report (last week's) + an MFL roster designation: the roster tag, the report said in words
   const stale = await head({ status: STATUS_OK({ [PURDY]: { roster: { status: "IR", label: "Injured reserve", chip: "IR", detail: "Toe" } } },
     { current: false, week: 4, reason: "the newest report is Wk 4; Wk 5's is not out yet" }) }, PURDY);
-  t.match(stale, /Injury report unavailable: the newest report is Wk 4; Wk 5&#39;s is not out yet\. No tag doesn’t mean healthy\./);
-  t.match(stale, /<span class="ups-m-inj-chip res"[^>]*>IR<\/span>/, "the roster designation still shows");
-  t.match(stale, /Roster: Injured reserve \(Toe\) — MFL, updated Sat 10:01 AM ET\./);
+  t.match(stale, /NFL injury report unavailable: the newest report is Wk 4; Wk 5&#39;s is not out yet\./);
+  t.match(stale, /<span class="ups-m-inj-chip res"[^>]*>MFL: IR<\/span>/, "the roster designation still shows, as MFL's");
+  t.match(stale, /MFL roster: Injured reserve \(Toe\) \(MFL status read at Sat 10:55 AM ET\)\./);
   // no verified NFL id
   const nid = await head({ status: Object.assign(STATUS_OK({}), { mapped_mfl_ids: PLAYERS.map((p) => p.id).filter((id) => id !== PURDY) }) }, PURDY);
-  t.match(nid, /No verified NFL id, so he can’t be matched to the injury report\./, "not in the matched list (unaccepted, or signed since the map was built)");
+  t.match(nid, /NFL report: no verified NFL id, so he can’t be matched to it\./, "not in the matched list (unaccepted, or signed since the map was built)");
   const nolist = await head({ status: Object.assign(STATUS_OK({}), { mapped_mfl_ids: undefined }) }, PURDY);
-  t.match(nolist, /Couldn’t tell whether he’s on the Wk 5 injury report\./, "no matched list: never 'not on the report'");
-  // the list's team can be nflverse's spelling (SF): still matched to SFO's report
+  t.match(nolist, /NFL Wk 5 report: couldn’t tell whether he’s on it\./, "no matched list: never 'not on the report'");
+  // the team can be nflverse's spelling (SF): still matched to SFO's report
   const v2 = boot(); await v2.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
+  t.ok(v2.ctx.UPS_MOBILE_PLAYER_STATUS.resolve(PURDY, "SF").lines.some((l) => /not listed \(SFO’s report/.test(l)));
+  // Stats → Players keeps its own rule (out of scope for the resolver): info() unchanged
   t.match(v2.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SF").report, /Not on SFO’s Wk 5 injury report/);
 });
 
-test("status fallback: with the route unavailable, MFL's ROSTER designations still show, its lapsed Q/D/Out never do", async () => {
-  for (const [desig, want] of [["IR-PUP", /<span class="ups-m-inj-chip res"[^>]*>PUP<\/span>/], ["QUESTIONABLE", null]]) {
+test("status fallback: with the route unavailable, MFL's designations from the app's own MFL read still show, labeled as such", async () => {
+  for (const [desig, want] of [["IR-PUP", /<span class="ups-m-inj-chip res"[^>]*>MFL: PUP<\/span>/], ["Questionable", /<span class="ups-m-inj-chip q"[^>]*>MFL: Q<\/span>/]]) {
     const v = boot({ status: 500 });
-    v.M.data.irEligibilityFor = () => ({ known: true, eligible: desig !== "QUESTIONABLE", designation: desig });
+    v.M.state.lineupWeek = 5;
+    v.M.state.injuryStore = { known: (s, w) => String(w) === "5", status: (s, w, id) => (String(id) === PURDY ? desig.toUpperCase() : ""), detail: () => "Toe" };
     await v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
     v.ctx.UPS_MOBILE.sheet.open(PURDY); await settle(); await settle();
     const h = v.getEl("ups-m-sheet-head").innerHTML;
-    if (want) t.match(h, want); else t.doesNotMatch(h, /ups-m-inj-chip/, "MFL's Questionable can be weeks old: not shown");
+    t.match(h, want);
+    t.match(h, /\(this page’s (MFL read|read of MFL’s Wk 5 list)\)\./);
   }
 });
 
@@ -1344,13 +1363,13 @@ test("status from the sheet's OTHER entry points (Rosters, Lineup, Search open i
   const open = async (v) => { v.ctx.UPS_MOBILE.sheet.open(PURDY); await settle(); await settle(); return v.getEl("ups-m-sheet-head").innerHTML; };
   // 1. opened before any status read has answered (the read hangs)
   const slow = await open(boot({ status: "hold" }));
-  t.match(slow, /Checking this week’s injury report…/, "says it's checking");
+  t.match(slow, /Checking injury status…/, "says it's checking");
   t.doesNotMatch(slow, /Not on |ups-m-inj-chip (q|d|out)"/, "no 'not on the report', no game-status chip while nothing has been read");
   // 2. opened first from another view: the sheet itself reads the status, then shows it
   const v = boot({ status: () => OUT });
   const h = await open(v);
-  t.match(h, /<span class="ups-m-inj-chip out"[^>]*>OUT<\/span>/);
-  t.match(h, /Wk 5 injury report: Out — Toe/);
+  t.match(h, /<span class="ups-m-inj-chip out"[^>]*>NFL: OUT \(Wk 5\)<\/span>/);
+  t.match(h, /NFL Wk 5 report: Out — Toe/);
   // 3. the app sat open: the last read is older than the 5-minute window and its refresh is in flight
   const PS = v.ctx.UPS_MOBILE_PLAYER_STATUS;
   const v2 = boot({ status: () => STATUS_OK({}) });
