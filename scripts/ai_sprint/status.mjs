@@ -2,7 +2,7 @@
 // AI sprint status, read deterministically (docs/AI_SPRINT_PROTOCOL.md).
 //
 //   gh api repos/keithcreelman/upsmflproduction/issues/<n>/comments --paginate --slurp > comments.json
-//   node scripts/ai_sprint/status.mjs comments.json
+//   node scripts/ai_sprint/status.mjs comments.json --issue <sprint issue number>
 //
 // Prints the current authenticated status line and Keith's rulings for an issue
 // or PR, and lists every comment it ignored and why. It reads a file; it makes
@@ -14,6 +14,8 @@
 //     edited. Everyone else's status lines are ignored, however new they are.
 //   * A ruling is a comment by Keith's exact identity whose first line is not a
 //     status line. A comment merely lacking a status line is not a ruling.
+//   * A status line must name the expected sprint issue, `claude builder` or
+//     `codex reviewer`, and round 1/2 or 2/2. Anything else is ignored.
 //   * Severity depends only on the category and the concrete scenario, never on
 //     the round in which a finding was noticed or whether the code changed.
 
@@ -51,7 +53,9 @@ export const MATERIAL_CATEGORIES = Object.freeze({
 const PLAUSIBLE_PATH_ENOUGH = new Set([2, 3, 6]);
 
 // `AI-SPRINT v2 | issue #N | round R/2 | <agent> <role> | <STATE> | head <sha7> | tested <sha7|none> | next <who>`
-const STATUS_RE = /^AI-SPRINT (v\d+) \| issue #(\d+) \| round (\d)\/(\d) \| (claude|codex) (builder|reviewer) \| ([A-Z-]+) \| head ([0-9a-f]{7,40}) \| tested ([0-9a-f]{7,40}|none) \| next (claude|codex|keith)$/;
+// Only the two real roles and the two real rounds parse: `claude reviewer`,
+// `round 0/2`, `round 3/2` or `round 0/9` are not status lines.
+const STATUS_RE = /^AI-SPRINT (v\d+) \| issue #([1-9]\d*) \| round ([12])\/2 \| (claude builder|codex reviewer) \| ([A-Z-]+) \| head ([0-9a-f]{7,40}) \| tested ([0-9a-f]{7,40}|none) \| next (claude|codex|keith)$/;
 
 export function firstLine(body) {
   return String(body ?? "").replace(/^﻿/, "").split(/\r?\n/, 1)[0].trim();
@@ -64,9 +68,10 @@ export function looksLikeStatus(body) {
 export function parseStatusLine(line) {
   const m = STATUS_RE.exec(String(line).trim());
   if (!m) return null;
-  const [, version, issue, round, max, agent, role, state, head, tested, next] = m;
+  const [, version, issue, round, agentRole, state, head, tested, next] = m;
   if (!STATES.includes(state)) return null;
-  return { version, issue: Number(issue), round: Number(round), max: Number(max), agent, role, state, head, tested, next };
+  const [agent, role] = agentRole.split(" ");
+  return { version, issue: Number(issue), round: Number(round), max: 2, agent, role, state, head, tested, next };
 }
 
 export function isTrusted(user, allow = TRUSTED_AUTHORS) {
@@ -83,9 +88,12 @@ function edited(c) {
 
 const byCreated = (a, b) => String(a.created_at).localeCompare(String(b.created_at)) || (a.id ?? 0) - (b.id ?? 0);
 
-// The newest valid status from a trusted author. Everything else that looks
-// like a status line is reported in `ignored` with the reason.
-export function currentStatus(comments, allow = TRUSTED_AUTHORS) {
+// The newest valid status for sprint issue `issue` from a trusted author.
+// Everything else that looks like a status line is reported in `ignored` with
+// the reason. The expected issue is required: a status for another sprint,
+// pasted or posted on the wrong PR, must never become this sprint's state.
+export function currentStatus(comments, { issue, allow = TRUSTED_AUTHORS } = {}) {
+  if (!Number.isInteger(issue) || issue <= 0) throw new Error("currentStatus needs the expected sprint issue number ({ issue })");
   const ignored = [];
   let current = null;
   for (const c of [...comments].sort(byCreated)) {
@@ -96,7 +104,8 @@ export function currentStatus(comments, allow = TRUSTED_AUTHORS) {
     const version = (/^AI-SPRINT (v\d+)\b/.exec(firstLine(c.body)) || [])[1];
     if (version && version !== PROTOCOL_VERSION) { ignored.push({ id: c.id, who, reason: `superseded protocol version ${version}` }); continue; }
     const s = parseStatusLine(firstLine(c.body));
-    if (!s) { ignored.push({ id: c.id, who, reason: "malformed status line" }); continue; }
+    if (!s) { ignored.push({ id: c.id, who, reason: "malformed status line (format, role or round)" }); continue; }
+    if (s.issue !== issue) { ignored.push({ id: c.id, who, reason: `names issue #${s.issue}, expected #${issue}` }); continue; }
     current = { ...s, comment: c.id, at: c.created_at, url: c.html_url };
   }
   return { current, ignored };
@@ -127,15 +136,19 @@ export function flattenComments(json) {
 }
 
 function main(argv) {
-  if (!argv[0]) {
-    console.error("usage: node scripts/ai_sprint/status.mjs <comments.json>   (from gh api .../issues/<n>/comments --paginate --slurp)");
+  const at = argv.indexOf("--issue");
+  const issue = at >= 0 ? Number(argv[at + 1]) : NaN;
+  const file = argv.find((a, i) => !a.startsWith("--") && argv[i - 1] !== "--issue");
+  if (!file || !Number.isInteger(issue) || issue <= 0) {
+    console.error("usage: node scripts/ai_sprint/status.mjs <comments.json> --issue <sprint issue number>\n" +
+      "  comments.json from: gh api repos/keithcreelman/upsmflproduction/issues/<pr or issue>/comments --paginate --slurp");
     return 2;
   }
-  const comments = flattenComments(fs.readFileSync(argv[0], "utf8"));
-  const { current, ignored } = currentStatus(comments);
+  const comments = flattenComments(fs.readFileSync(file, "utf8"));
+  const { current, ignored } = currentStatus(comments, { issue });
   console.log(current
-    ? `Current status (comment ${current.comment}, ${current.at}):\n  round ${current.round}/${current.max} · ${current.agent} ${current.role} · ${current.state} · head ${current.head} · tested ${current.tested} · next ${current.next}`
-    : "No valid status line from a trusted author.");
+    ? `Sprint issue #${current.issue} -- current status (comment ${current.comment}, ${current.at}):\n  issue #${current.issue} · round ${current.round}/${current.max} · ${current.agent} ${current.role} · ${current.state} · head ${current.head} · tested ${current.tested} · next ${current.next}`
+    : `Sprint issue #${issue}: no valid status line from a trusted author.`);
   const rulings = keithRulings(comments);
   console.log(`\nKeith's comments (rulings only once recorded): ${rulings.length}`);
   for (const r of rulings) console.log(`  ${r.at}${r.edited ? " (edited)" : ""}: ${r.text.split("\n")[0].slice(0, 120)}`);
