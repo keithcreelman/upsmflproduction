@@ -225,7 +225,11 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
     roster_feed: { ok: roster.ok, source: "MFL injuries export", week: roster.week,
                    updated_utc: roster.ts ? new Date(roster.ts * 1000).toISOString() : null,
                    reason: roster.ok ? null : "unreadable: " + (mflError || "no injuries node") },
+    // read_utc = when WE read MFL's export (this answer's time). updated_utc is MFL's own file
+    // timestamp, kept for diagnosis only: successive reads disagree (8:01 vs 10:01 AM ET on
+    // 2026-10-14), so screens show the read time instead (site/shared/injury_status.js).
     mfl_feed: { ok: mflGame.ok, source: "MFL injuries export (Questionable / Doubtful / Out)", week: mflGame.week,
+                read_utc: new Date(now).toISOString(),
                 updated_utc: mflGame.ts ? new Date(mflGame.ts * 1000).toISOString() : null,
                 count: Object.keys(mflGame.byMfl).length,
                 reason: mflGame.ok ? null : "unreadable: " + (mflError || "no injuries node") },

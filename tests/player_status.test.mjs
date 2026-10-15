@@ -147,6 +147,7 @@ test("`mfl` (Keith 2026-10-14): MFL's Q / D / Out with the export's week and tim
   t.equal(a.players["105"], undefined, "only Questionable / Doubtful / Out");
   t.deepEqual([a.players["106"].mfl.exp_return, a.players["106"].mfl.return_date], ["Week 7", null], "an unparsed return stays as MFL wrote it");
   t.deepEqual([a.mfl_feed.ok, a.mfl_feed.week, a.mfl_feed.updated_utc, a.mfl_feed.count], [true, 6, at, 4]);
+  t.equal(a.mfl_feed.read_utc, new Date(NOW).toISOString(), "OUR read time — what the screens show (MFL's own file time isn't stable)");
   const down = assemble({ reportRows: parseCsv(csv(line("BUF", 6, "00-0000001", "Out", "Ankle", ""))), reportModified: FRESH, mflError: "HTTP 500", gsisToMfl: MAP, now: NOW });
   t.deepEqual([down.mfl_feed.ok, down.mfl_feed.reason], [false, "unreadable: HTTP 500"], "MFL down: said so, never 'no designation'");
   t.equal(mflReturnDate("Sept 3, 2026"), "2026-09-03"); t.equal(mflReturnDate("Feb 31x"), null); t.equal(mflReturnDate(null), null);

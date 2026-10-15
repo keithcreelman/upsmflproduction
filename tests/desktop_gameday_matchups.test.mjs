@@ -65,7 +65,7 @@ function statusBody(o) {
   return { ok: true, season: 2026, players, mapped_mfl_ids: ALL,
     report_feed: { ok: true, week: o.current ? 6 : 5, current_week: 6, current: o.current, updated_utc: "2026-10-14T20:00:00Z",
       reason: o.current ? null : "the newest report is Wk 5; Wk 6's is not out yet", teams_mfl: o.current ? ["IND", "BUF", "NEP"] : [], prior_weeks: o.current ? [] : [5] },
-    roster_feed: { ok: true, week: o.mflWeek, updated_utc: at }, mfl_feed: { ok: true, week: o.mflWeek, updated_utc: at, count: 2 } };
+    roster_feed: { ok: true, week: o.mflWeek, updated_utc: at }, mfl_feed: { ok: true, week: o.mflWeek, read_utc: "2026-10-14T12:58:00.000Z", updated_utc: at, count: 2 } };
 }
 // MFL's own injuries export for Week 6, as this page reads it (the resolver's fallback while
 // /api/player-status can't be read): a Questionable, a Doubtful and an IR-R.
@@ -356,11 +356,11 @@ console.log("\n4. injury tags: the shared resolver (MFL first, the official repo
     assert.ok(/\btier-q\b/.test(b[0].attrs.class) && /\btier-na\b/.test(b[1].attrs.class), b.map((x) => x.attrs.class).join(" | "));
   });
   await check("they agree (Taylor): one tag, MFL's", () => { assert.deepStrictEqual(badges(e.slotBadges(TAYLOR)), ["MFL: Q"]); });
-  await check("a return date already past: \"MFL: Q · return passed\", dashed; Details says it may be out of date (Thomas, back Sep 13)", async () => {
+  await check("MFL's estimated return already passed: \"MFL: Q · est. return passed\", dashed; Details says only the estimate passed (Thomas, back Sep 13)", async () => {
     const b = e.slotBadges(THOMAS).filter((x) => /gd-inj-badge/.test(x.attrs.class))[0];
-    assert.strictEqual(e.text(b), "MFL: Q · return passed"); assert.ok(/\bprior\b/.test(b.attrs.class), b.attrs.class);
+    assert.strictEqual(e.text(b), "MFL: Q · est. return passed"); assert.ok(/\bprior\b/.test(b.attrs.class), b.attrs.class);
     e.line(THOMAS).click(); await settle();
-    assert.ok(/^MFL still lists him Questionable — Hamstring, with an expected return of Sep 13, which has passed, so the designation may be out of date \(MFL’s Wk 6 list, updated .+ ET\)\./.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
+    assert.ok(/^MFL still lists him Questionable — Hamstring \(MFL’s Wk 6 list; MFL status read at Wed 8:58 AM ET\)\. Its expected return \(Sep 13\) has passed; that’s an estimate, so this doesn’t mean he’s healthy or that the designation is wrong\./.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
   });
   await check("MFL nothing, the official report Out (Coleman, bench): \"NFL: OUT (Wk 6)\" and \"MFL: none\"; IR-R stays MFL's (Davis: \"MFL: IR-R\")", () => {
     assert.deepStrictEqual(badges(e.benchRow(COLEMAN).querySelectorAll(".gd-inj-badge")), ["NFL: OUT (Wk 6)", "MFL: none"]);
@@ -373,12 +373,12 @@ console.log("\n4. injury tags: the shared resolver (MFL first, the official repo
   await check("Details: both sources with their weeks, MFL's description and return, the disagreement in words", async () => {
     e.line(ALLEN).click(); await settle();
     const t = e.text(e.card(ALLEN));
-    assert.ok(t.indexOf("MFL: Questionable — Ankle; expected back Oct 18 (MFL’s Wk 6 list, updated ") === 0, t);
+    assert.ok(t.indexOf("MFL: Questionable — Ankle · Expected return: Oct 18 (MFL’s Wk 6 list; MFL status read at Wed 8:58 AM ET).") === 0, t);
     assert.ok(/NFL Wk 6 report: not listed \(BUF’s report, updated .+ ET\)\./.test(t), t);
     assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL lists Questionable; the report doesn’t list him.") >= 0, t);
   });
   await check("one note says where the tags come from; no tag isn't 'healthy'", () => {
-    assert.ok(/^Tags: MFL’s list first \(its Wk 6 list, updated .+ ET; dashed = MFL’s return date has passed\); where MFL has none, the NFL report — Wk 6’s for 3 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.injNote()), e.injNote());
+    assert.ok(/^Tags: MFL first \(its Wk 6 list; MFL status read at Wed 8:58 AM ET; dashed = MFL’s estimated return has passed\); where MFL has none, the NFL report — Wk 6’s for 3 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.injNote()), e.injNote());
   });
   await check("the status is read once, not on every repaint, from /api/player-status", async () => {
     await e.repaint(); await e.repaint();

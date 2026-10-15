@@ -57,7 +57,7 @@ function statusBody(o) {
     report_feed: { ok: true, week: o.week, current_week: o.mflWeek, current: o.current, updated_utc: "2026-10-14T20:00:00Z", reason: o.current ? null : "the newest report is Wk 5; Wk 6's is not out yet",
       teams_mfl: o.prior && o.current ? ["IND"] : ["IND", "CIN", "BUF", "NEP"], prior_weeks: o.prior ? [5] : [] },
     roster_feed: { ok: true, week: o.mflWeek, updated_utc: at },
-    mfl_feed: { ok: true, week: o.mflWeek, updated_utc: at, count: 3 } };
+    mfl_feed: { ok: true, week: o.mflWeek, read_utc: "2026-10-14T12:58:00.000Z", updated_utc: at, count: 3 } };   // read_utc: OUR read (8:58 AM ET); updated_utc: MFL's file time, never shown
 }
 
 // opts.lm(u) → { status, body } overrides /api/lineup-matchups; opts.status → the
@@ -264,25 +264,25 @@ console.log("\n2. injury status (Keith 2026-10-14): MFL first, the official repo
   await check("Details always shows both sources, each with its week; MFL's description and expected return; the disagreement in words", async () => {
     e.line(ALLEN).click(); await settle();
     const t = e.text(e.card(ALLEN));
-    assert.ok(t.indexOf("MFL: Questionable — Ankle; expected back Oct 18 (MFL’s Wk 6 list, updated ") === 0, t);
+    assert.ok(t.indexOf("MFL: Questionable — Ankle · Expected return: Oct 18 (MFL’s Wk 6 list; MFL status read at Wed 8:58 AM ET).") === 0, t);
     assert.ok(/NFL Wk 6 report: not listed \(BUF’s report, updated .+ ET\)\./.test(t), t);
     assert.ok(t.indexOf("MFL and the NFL Wk 6 report disagree: MFL lists Questionable; the report doesn’t list him.") >= 0, t);
     e.line(TAYLOR).click(); await settle();
     const t2 = e.text(e.card(TAYLOR));
-    assert.ok(/MFL: Questionable — Hamstring; expected back Oct 18 \(MFL’s Wk 6 list, updated .+ ET\)\.\s*NFL Wk 6 report: Questionable — Hamstring · practice: limited \(updated .+ ET\)\./.test(t2), t2);
+    assert.ok(/MFL: Questionable — Hamstring · Expected return: Oct 18 \(MFL’s Wk 6 list; MFL status read at Wed 8:58 AM ET\)\.\s*NFL Wk 6 report: Questionable — Hamstring · practice: limited \(updated .+ ET\)\./.test(t2), t2);
     assert.ok(!/disagree/.test(t2));
   });
-  await check("a return date already past: the tag says so, dashed (\"MFL: D · return passed\"); Details says it may be out of date (Thomas: back Oct 11)", async () => {
+  await check("MFL's estimated return already passed: the tag stays, dashed (\"MFL: D · est. return passed\"); Details says only the estimate passed (Thomas: back Oct 11)", async () => {
     e.line(THOMAS).click(); await settle();
     const ch = e.slotChips(THOMAS)[0];
-    assert.strictEqual(e.text(ch), "MFL: D · return passed"); assert.ok(/\bprior\b/.test(cls(ch)) && /dashed/.test(ch.getAttribute("style")), cls(ch));
-    assert.ok(/MFL still lists him Doubtful — Knee, with an expected return of Oct 11, which has passed, so the designation may be out of date \(MFL’s Wk 6 list, updated .+ ET\)\./.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
+    assert.strictEqual(e.text(ch), "MFL: D · est. return passed"); assert.ok(/\bprior\b/.test(cls(ch)) && /dashed/.test(ch.getAttribute("style")), cls(ch));
+    assert.ok(/MFL still lists him Doubtful — Knee \(MFL’s Wk 6 list; MFL status read at Wed 8:58 AM ET\)\. Its expected return \(Oct 11\) has passed; that’s an estimate, so this doesn’t mean he’s healthy or that the designation is wrong\./.test(e.text(e.card(THOMAS))), e.text(e.card(THOMAS)));
     const opt = e.mount.querySelectorAll("option").find((o) => o.attrs.value === THOMAS);
-    assert.ok(/·\s+MFL: D \(return passed\)\s+·/.test(opt.textContent), opt.textContent);
+    assert.ok(/·\s+MFL: D \(est\. return passed\)\s+·/.test(opt.textContent), opt.textContent);
     assert.ok(/NFL Wk 6 report: not out yet for ATL \(or a bye\)\./.test(e.text(e.card(THOMAS))));
   });
   await check("one note says where the tags come from, and that no tag isn't 'healthy'", () => {
-    assert.ok(/^Tags: MFL’s list first \(its Wk 6 list, updated .+ ET; dashed = MFL’s return date has passed\); where MFL has none, the NFL report — Wk 6’s for 4 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.text(e.mount.querySelector(".ups-m-mu-note.inj"))),
+    assert.ok(/^Tags: MFL first \(its Wk 6 list; MFL status read at Wed 8:58 AM ET; dashed = MFL’s estimated return has passed\); where MFL has none, the NFL report — Wk 6’s for 4 teams so far\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e.text(e.mount.querySelector(".ups-m-mu-note.inj"))),
       e.text(e.mount.querySelector(".ups-m-mu-note.inj")));
   });
   await check("the status is read once, not on every repaint", async () => {
@@ -298,14 +298,14 @@ console.log("\n2. injury status (Keith 2026-10-14): MFL first, the official repo
     e5.line(TAYLOR).click(); await settle();
     const t = e5.text(e5.card(TAYLOR));
     assert.ok(/NFL injury report unavailable: the newest report is Wk 5; Wk 6's is not out yet\.\s*NFL Wk 5 final: Questionable — Hamstring\./.test(t), t);
-    assert.ok(/^Tags: MFL’s list first \(its Wk 6 list, updated .+ ET; dashed = MFL’s return date has passed\); where MFL has none, the NFL’s last final report \(Wk 5\): Wk 6’s isn’t out yet\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e5.text(e5.mount.querySelector(".ups-m-mu-note.inj"))));
+    assert.ok(/^Tags: MFL first \(its Wk 6 list; MFL status read at Wed 8:58 AM ET; dashed = MFL’s estimated return has passed\); where MFL has none, the NFL’s last final report \(Wk 5\): Wk 6’s isn’t out yet\. Details shows both\. No tag doesn’t mean healthy\.$/.test(e5.text(e5.mount.querySelector(".ups-m-mu-note.inj"))));
   });
   await check("MFL's list still on last week (Wk 5) for a Wk 6 lineup: its tags are dashed and Details names the Wk 5 list, never this week's", async () => {
     const e3 = boot({ status: statusBody({ week: 5, current: true, mflWeek: 5 }) }); await e3.open();
     const ch = e3.slotChips(TAYLOR);
     assert.strictEqual(e3.text(ch[0]), "MFL: Q"); assert.ok(/\bprior\b/.test(ch[0].attrs.class));
     e3.line(TAYLOR).click(); await settle();
-    assert.ok(/\(MFL’s Wk 5 list, updated /.test(e3.text(e3.card(TAYLOR))), e3.text(e3.card(TAYLOR)));
+    assert.ok(/\(MFL’s Wk 5 list; MFL status read at /.test(e3.text(e3.card(TAYLOR))), e3.text(e3.card(TAYLOR)));
   });
   await check("status unreadable: MFL's designations from the app's own MFL read, labeled so; the note says the status couldn't be loaded", async () => {
     const e4 = boot({ status: { fail: true } });

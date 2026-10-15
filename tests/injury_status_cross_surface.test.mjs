@@ -131,7 +131,7 @@ async function mobile(fid) {
   // The dropdown choices (every slot lists every startable bench player): the injury part.
   for (const o of mount.querySelectorAll(".ups-m-slot-sel option")) {
     const pid = o.attrs.value; if (!pid || !out[pid] || out[pid].opt != null) continue;
-    const m = /·\s+((?:MFL|NFL)[^·]*?(?:\s(?:MFL|NFL)[^·]*?)*)\s+·\s+[\d.]+ pts/.exec(o.textContent.replace(/\s+·\s+return passed/g, " (return passed)"));
+    const m = /·\s+((?:MFL|NFL)[^·]*?(?:\s(?:MFL|NFL)[^·]*?)*)\s+·\s+[\d.]+ pts/.exec(o.textContent.replace(/\s+·\s+est\. return passed/g, " (est. return passed)"));
     out[pid].opt = m ? m[1].trim() : "";
   }
   return { out, log, writes, note: (mount.querySelector(".ups-m-mu-note.inj") || { textContent: "" }).textContent };
@@ -212,7 +212,7 @@ const mflOnly = table.filter((r) => ps[r.pid] && ps[r.pid].mfl && !ps[r.pid].rep
 await check("players MFL tags that the official report doesn't (yet) list: MFL's tag (never claiming a week); the NFL line says why there's nothing", () => {
   assert.ok(mflOnly.length >= 10, mflOnly.length);
   for (const r of mflOnly) {
-    assert.ok(/^MFL: (Q|D|OUT)( · return passed)?$/.test(r.tags[0].t), r.pid + " " + JSON.stringify(r.tags));
+    assert.ok(/^MFL: (Q|D|OUT)( · est\. return passed)?$/.test(r.tags[0].t), r.pid + " " + JSON.stringify(r.tags));
     assert.ok(!/Wk/.test(r.tags[0].t), "an MFL tag never claims a week");
     assert.ok(r.lines.some((l) => /^NFL (Wk 6 report: (not out yet for|not listed)|report: free agent)/.test(l)), r.lines.join(" | "));
   }
@@ -237,12 +237,12 @@ const pastRows = [];
 for (const [fid, rs] of Object.entries(FX.rosters)) for (const r of rs) {
   const x = PS_ALL[r.id]; if (x && x.mfl && x.mfl.return_date && x.mfl.return_date < today) pastRows.push({ fid, pid: r.id, status: r.status, mfl: x.mfl });
 }
-await check("UPS-rostered players whose MFL return date has passed: \"MFL: Q · return passed\", dashed, the line says it may be out of date — same on mobile Lineup and the sheet (Game Day too, when it lists him)", async () => {
+await check("UPS-rostered players whose MFL estimated return has passed: \"MFL: Q · est. return passed\", dashed, the line says only the estimate passed — same on mobile Lineup and the sheet (Game Day too, when it lists him)", async () => {
   assert.ok(pastRows.length >= 1, "today's snapshot has " + pastRows.length);
   for (const r of pastRows) {
     const s = S.one(r.pid), mo = MOBILE_OUT[r.fid][r.pid], de = DESKTOP_OUT[r.fid][r.pid];
-    assert.ok(/^MFL: (Q|D|OUT) · return passed$/.test(s.chips.find((c) => /^MFL: (Q|D|OUT)/.test(c.t)).t) && s.chips.some((c) => /return passed/.test(c.t) && c.prior), JSON.stringify(s.chips));
-    assert.ok(s.lines.some((l) => /^MFL still lists him .+, with an expected return of .+, which has passed, so the designation may be out of date \(MFL’s Wk 6 list, updated .+\)\.$/.test(l)), s.lines.join(" | "));
+    assert.ok(/^MFL: (Q|D|OUT) · est\. return passed$/.test(s.chips.find((c) => /^MFL: (Q|D|OUT)/.test(c.t)).t) && s.chips.some((c) => /est\. return passed/.test(c.t) && c.prior), JSON.stringify(s.chips));
+    assert.ok(s.lines.some((l) => /^MFL still lists him .+ \(MFL’s Wk 6 list; MFL status read at .+ ET\)\. Its expected return \(.+\) has passed; that’s an estimate, so this doesn’t mean he’s healthy or that the designation is wrong\.$/.test(l)), s.lines.join(" | "));
     assert.ok(mo, r.pid + " on mobile Lineup's bench"); assert.deepStrictEqual(mo.chips, s.chips, "mobile Lineup vs the sheet");
     if (mo.lines) assert.deepStrictEqual(mo.lines, s.lines);
     if (isActive(r)) { assert.ok(de, "on Game Day"); assert.deepStrictEqual(de.chips, s.chips); } else assert.strictEqual(de, undefined, "Game Day doesn't list taxi / IR-slot players");
