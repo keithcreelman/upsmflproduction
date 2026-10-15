@@ -201,9 +201,12 @@ test("two simultaneous submissions of one slot: one reaches MFL, one announcemen
   const first = send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
   for (let i = 0; i < 50 && !w.edge.liveDraft.length; i++) await new Promise((r) => setTimeout(r, 0));
   t.equal(w.edge.liveDraft.length, 1, "the first request is inside MFL");
-  const second = await send(w, `${Q}&MFL_USER_ID=tok-commish`, pick());
-  t.equal(second.status, 409, "refused while the first is in flight");
+  // (raced against a timer so a route that lets the second request through to MFL fails here instead of hanging)
+  const secondP = send(w, `${Q}&MFL_USER_ID=tok-commish`, pick());
+  const second = await Promise.race([secondP, new Promise((r) => setTimeout(() => r({ status: "still waiting on MFL" }), 2000))]);
   open();
+  await secondP;
+  t.equal(second.status, 409, "refused while the first is in flight");
   t.equal((await first).status, 200);
   t.equal(w.edge.liveDraft.length, 1);
   t.equal(w.posts().length, 1);
