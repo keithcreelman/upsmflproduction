@@ -1302,6 +1302,32 @@ test("Stats → Players tags come from the shared resolver (#1276): MFL first, t
   t.ok(css && /font-size: 11px/.test(css[0]), "readable at 320px");
   t.ok(line && /flex-wrap: wrap/.test(line[0]), "a long tag wraps instead of being cut");
 });
+test("Lineup's week ahead of MFL's list (Tuesday): the list, search and sheet all dash MFL's older tag the same way", async () => {
+  const MQ = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: null, return_date: null };
+  const v = boot({ search: true, status: () => STATUS_OK({ [PURDY]: { mfl: MQ, report: { status: "Questionable", injury: "Toe", team: "SF" } } }) });
+  v.M.state.lineupWeek = 6;                                   // Lineup has moved on to Wk 6; MFL's list is still Wk 5
+  await openTab(v, "QB");
+  const list = listChips(v.getEl("ups-m-st-listwrap").innerHTML, PURDY);
+  t.deepEqual(list, ["MFL: Q:q:prior"], "MFL's Wk 5 tag, dashed on a Wk 6 screen");
+  v.ctx.UPS_MOBILE.playerSearch.openWith(nameOf(PURDY)); await settle();
+  t.deepEqual(searchChips(v.searchList(), PURDY), list, "search: the same");
+  v.ctx.UPS_MOBILE.sheet.open(PURDY); await settle(); await settle();
+  t.deepEqual(sheetChips(v.getEl("ups-m-sheet-head").innerHTML), list, "sheet: the same");
+});
+test("Search opened first (Stats never visited): it reads the status itself, says it's checking meanwhile, then shows the tags", async () => {
+  let release; const gate = new Promise((r) => (release = r));
+  const OUT = STATUS_OK({ [PURDY]: { report: { status: "Out", injury: "Toe", team: "SF" } } });
+  const v = boot({ search: true, status: () => OUT });
+  const realFetch = v.ctx.fetch;
+  const asked = [];
+  v.ctx.fetch = async (u, o) => { if (/player-status/.test(String(u))) { asked.push(String(u)); await gate; } return realFetch(u, o); };
+  v.ctx.UPS_MOBILE.playerSearch.openWith(nameOf(PURDY)); await settle();
+  t.match(v.searchList(), /<div class="ups-m-psr-basis ups-m-psr-inj">Checking injury status…<\/div>/, "no finding yet, said so");
+  t.deepEqual(searchChips(v.searchList(), PURDY), [], "and no tag while nothing has been read");
+  t.ok(asked.some((u) => /\/api\/player-status\?season=2026/.test(u)), "search asked for the status itself");
+  release(); await settle(); await settle();
+  t.deepEqual(searchChips(v.searchList(), PURDY), ["NFL: OUT (Wk 5):out", "MFL: none:na"], "repainted with the tags once the read lands");
+});
 // Keith 2026-10-15: the Players list, Search, the sheet (and Lineup, Game Day) agree for the same player
 // and read. The real Week 6 /api/player-status read (tests/fixtures/injury_status_2026_wk6.json: MFL Q/D/OUT
 // with future and passed returns, the Wk 6 report for DEN/SEA, Wk 4/5 finals, IR/PUP, disagreements).
