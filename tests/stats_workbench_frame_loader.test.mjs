@@ -22,7 +22,7 @@ async function run(o) {
     createElement: () => {
       const el = { attrs: {}, style: {}, ev: {}, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ev[t] = f; },
         getBoundingClientRect: () => ({ top: o.top }),
-        contentDocument: { documentElement: { get scrollHeight() { return o.content; } } },
+        contentDocument: { body: { get scrollHeight() { return o.content; } }, documentElement: { get scrollHeight() { return Math.max(o.content, 824); } } },
         contentWindow: { ResizeObserver: class { constructor(f) { observer = f; } observe() {} } } };
       return el;
     } };

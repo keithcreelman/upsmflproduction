@@ -49,7 +49,10 @@ check("the meta line surfaces \"finalized through Week N\" for the current seaso
 });
 check("static/offseason coverage messages are untouched (this is additive, not a replacement)", () => {
   assert.match(HTML, /hasn.t started — showing no rows yet/);
-  assert.match(HTML, /top 500 by yardage/);
+  // The 500-row cap is said once, in the note under the band, worded for the position
+  // (desktop redesign #1312: "top 500 by yardage" was repeated and wrong for IDP).
+  assert.match(HTML, /The list is the stats source’s top 500 " \+ poolWord/);
+  assert.match(HTML, /skill: "RB, WR and TE", idp: "defensive players"/);
 });
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

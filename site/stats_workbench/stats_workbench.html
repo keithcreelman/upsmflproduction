@@ -561,11 +561,13 @@ table.asw-table{font-size:13px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .asw-ctl-f[hidden],.asw-more[hidden]{display:none!important}
 /* A focused group is a handful of columns: the table takes the width it needs, not the page's. */
-table.asw-table{width:auto;min-width:0}
+#asw-view-player-stats table.asw-table{width:auto;min-width:0}
 /* The table is a region one window tall: its header row stays in view while its rows scroll,
    and the frozen Player column stays put when it scrolls sideways. In MFL the page is an app
    pane (mfl_hpm_embed_loader.js), so "a window" is the pane. */
 #asw-view-player-stats .asw-table-wrap{max-height:calc(100vh - 16px);overflow:auto}
+#asw-view-player-stats .asw-topscroll{display:none}   /* the region has its own scrollbar */
+:root{color-scheme:dark} html[data-theme="light"]{color-scheme:light}
 .asw-table th.num,.asw-table td.num{min-width:68px}
 .asw-pagehead{padding:18px 0 0;margin-bottom:10px}
 .asw-standfirst{max-width:96ch;margin-top:6px}
@@ -607,12 +609,19 @@ table.asw-table{width:auto;min-width:0}
 .asw-more-tools{display:flex;align-items:center;align-self:center}
 .asw-check{display:inline-flex!important;flex-direction:row!important;align-items:center;gap:8px!important;text-transform:none!important;letter-spacing:0!important;font-size:12.5px!important;color:var(--text)!important;cursor:pointer}
 .asw-check input{min-width:0!important;width:16px!important;height:16px;padding:0!important;margin:0}
-.asw-more .asw-cols-bar{padding:10px 0 0;margin:0;border-top:1px solid var(--border)}
+.asw-more .asw-cols-bar{padding:0 0 10px;margin:0}
+.asw-more-h{font:700 11px/1.4 "Inter Tight",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;padding-top:10px;border-top:1px solid var(--border)}
+.asw-more-h:first-child{margin-top:0;padding-top:0;border-top:0}
+.asw-more-h .asw-hint{margin-left:8px;letter-spacing:0;text-transform:none}
+.asw-more-vf,.asw-more-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.asw-more .asw-chip,.asw-more .asw-filter-toggle,.asw-more .asw-filter-clear,.asw-drawer-head .asw-chip,#asw-drawer-view-toggle button{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font:600 12px/1 "Inter Tight",system-ui,sans-serif;cursor:pointer}
+.asw-more .asw-chip[aria-pressed="true"],.asw-more .asw-filter-toggle[aria-pressed="true"],#asw-drawer-view-toggle button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .asw-band{margin:0 0 8px;padding:6px 0 0;font-size:12px;color:var(--muted)}
 .asw-band .asw-meta{font:500 12px/1.5 "Inter Tight",system-ui,sans-serif;color:var(--muted);margin:0 0 4px}
 .asw-band .asw-meta b{color:var(--text);font-weight:700}
 .asw-band .asw-datanote{background:none;border:0;border-left:2px solid var(--border-strong);border-radius:0;padding:2px 0 2px 8px;margin:2px 0;font-size:12px;color:var(--muted)}
-.asw-band .asw-datanote > span:first-child{display:none}
+.asw-band .asw-datanote > span:first-child{margin-right:6px}
+.asw-band .asw-datanote:not(.asw-def-note):not(.asw-source-freshness){border-left-color:var(--warn);color:var(--text)}
 .asw-compare-bar[hidden]{display:none!important}
 .asw-table .asw-pname{all:unset;cursor:pointer;font-weight:600;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .asw-table .asw-pname:hover{text-decoration:underline}
@@ -623,9 +632,14 @@ table.asw-table{width:auto;min-width:0}
 @media (prefers-reduced-motion: reduce){.asw-drawer,.asw-drawer.open{transition:none}}
 .asw-table .asw-psub{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .asw-table td.name{padding-top:5px;padding-bottom:5px}
-/* Without the compare column the frozen #/Player columns start at the left edge. */
+/* Without the compare column the frozen #/Player columns start at the left edge. The # column
+   is exactly 40px (it drew 44 with padding, and Player slid 4px over it). */
+.asw-table th.rank-col,.asw-table td.rank-col{box-sizing:border-box;width:40px;min-width:40px;max-width:40px;padding-left:4px;padding-right:6px}
+.asw-table th.sel-col,.asw-table td.sel-col{box-sizing:border-box}
 .asw-table.no-sel th.rank-col,.asw-table.no-sel td.rank-col{left:0}
 .asw-table.no-sel td.name,.asw-table.no-sel th.name-col{left:40px}
+/* Hovering a row: the frozen cells stay opaque, so the numbers behind them never show through. */
+.asw-table tbody tr:hover td.sel-col,.asw-table tbody tr:hover td.rank-col,.asw-table tbody tr:hover td.name{background:linear-gradient(var(--row-hover),var(--row-hover)),var(--bg)}
 .asw-table td.name,.asw-table th.name-col{width:210px;min-width:210px;max-width:210px;box-shadow:2px 0 0 var(--border-strong)}
 .asw-table th[data-col-key]{white-space:nowrap}
 .asw-about{margin:14px 0 24px;border-top:1px solid var(--border);padding-top:10px;font-size:12.5px;color:var(--muted)}
@@ -635,7 +649,7 @@ table.asw-table{width:auto;min-width:0}
 .asw-defs dt{color:var(--text);font-weight:600}
 .asw-defs dd{margin:0;line-height:1.5}
 .asw-about-ver{font-size:11px}
-.asw-drawer{width:min(800px,92vw)}
+@media (min-width: 821px){.asw-drawer{width:min(860px,92vw)}}
 @media (max-width: 900px){
   .asw-search-f input{min-width:180px}
   .asw-count{margin-left:0;width:100%}
@@ -741,6 +755,7 @@ table.asw-table{width:auto;min-width:0}
   <span class="asw-count" id="asw-count" role="status"></span>
 </div>
 <div class="asw-more" id="asw-more" hidden>
+  <h3 class="asw-more-h">Filters</h3>
   <div class="asw-controls" id="asw-controls">
     <label>Fantasy team
       <select id="asw-team" multiple size="6">
@@ -754,13 +769,15 @@ table.asw-table{width:auto;min-width:0}
       <select id="asw-seasons" multiple size="6"></select>
       <span class="asw-hint">⌘/Ctrl-click to add a season: totals are added together</span>
     </label>
-    <div class="asw-more-tools">
-      <label class="asw-check"><input type="checkbox" id="asw-compare-mode"> Select players to compare</label>
-    </div>
+    <div class="asw-more-vf" id="asw-more-vf"></div>
   </div>
-  <!-- Custom columns and tools (presets, the column picker, value filters, scatter, heat, CSV). -->
+  <h3 class="asw-more-h">Columns <span class="asw-hint">instead of a stat group: a preset, a saved set or your own picks</span></h3>
   <div class="asw-cols-bar" id="asw-cols-bar">
-    <span class="asw-cols-label">Custom columns</span>
+    <span class="asw-cols-label">Column sets</span>
+  </div>
+  <h3 class="asw-more-h">Tools</h3>
+  <div class="asw-more-tools" id="asw-more-tools">
+    <label class="asw-check"><input type="checkbox" id="asw-compare-mode"> Select players to compare</label>
   </div>
 </div>
 
@@ -1150,8 +1167,8 @@ table.asw-table{width:auto;min-width:0}
         var mfl = r.mfl_position || "", nfl = r.position || "";
         return (mfl && nfl && mfl !== nfl) ? ("MFL: " + mfl + "  ·  nflverse: " + nfl) : "";
       } },
-    pos_rank:            { label:"Pos Rk",   num:true, cls:"dim",
-      title:"Rank within position by MFL PPG, over the current query (matches the mobile app).",
+    pos_rank:            { label:"PPG Rk",   num:true, cls:"dim", invertRank:true,
+      title:"Rank within his position by MFL points per game in these weeks (#1 = most; matches the mobile app’s PPG Rk).",
       compute: function(r){ return (state.rankByGsis && state.rankByGsis[r.gsis_id]) || null; } },
     // MFL Details (league-specific scoring + contract)
     mfl_points:          { label:"MFL Pts",  num:true, fmt:"dec1",
@@ -1349,12 +1366,12 @@ table.asw-table{width:auto;min-width:0}
     l4w_delta:    { label:"L4W Δ", num:true, fmt:"delta", title:"Last-4-weeks average fantasy points MINUS season PPG — the momentum read. Positive (green) = trending up; negative = fading.",
       compute:function(r){ var c=consistByGsis[String(r.gsis_id)]; if(!c || !c.weeks || c.weeks.length < 5 || c.ppg == null) return null; var w=c.weeks.slice(-4); var a=w.reduce(function(s,v){return s+v;},0)/w.length; return Math.round((a - c.ppg)*10)/10; } },
     // Usage — offense
-    games:               { label:"G", title:"Games he played in the weeks chosen (nflverse box scores)",        num:true },
+    games:               { label:"G", title:"Games with an nflverse box-score line in these weeks (a game where he recorded no stat isn’t counted)",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
-    off_snap_rate:       { label:"Snap%", title:"His offensive snaps ÷ his team’s, in the games he played on offense",    num:true, fmt:"pct0" },
+    off_snap_rate:       { label:"Snap%", title:"Average per-game share of his team’s offensive snaps (a game he played only on special teams counts as 0%)",    num:true, fmt:"pct0" },
     // Usage — defense
     def_snaps_total:     { label:"Snaps",    num:true, title:"Defensive snaps" },
-    def_snap_rate:       { label:"Snap%", title:"His defensive snaps ÷ his team’s, in the games he played on defense",    num:true, fmt:"pct0" },
+    def_snap_rate:       { label:"Snap%", title:"Average per-game share of his team’s defensive snaps (a game he played only on special teams counts as 0%)",    num:true, fmt:"pct0" },
     // Team pace (nflverse PBP, REG) — context for a player's opportunity.
     team_plays_pg:       { label:"Pace",     num:true, fmt:"dec1", title:"Team offensive plays per game (REG) — the team's pace" },
     team_def_plays_pg:   { label:"Def Pace", num:true, fmt:"dec1", title:"Plays the team's defense faces per game (REG)" },
@@ -1521,11 +1538,11 @@ table.asw-table{width:auto;min-width:0}
     // IDP coverage
     def_completions_allowed: { label:"Cmp Allow", title:"Completions allowed on throws into his coverage (PFR charting)", num:true },
     def_yards_allowed:   { label:"Yds Allow", title:"Yards allowed on throws into his coverage (PFR charting)", num:true },
-    def_passer_rating_allowed: { label:"PsRat Allow", title:"Passer rating on throws into his coverage (PFR charting)", num:true, fmt:"dec1" },
+    def_passer_rating_allowed: { label:"PsRat Allow", title:"Passer rating allowed on throws into his coverage, averaged over his games (PFR charting)", num:true, fmt:"dec1" },
     def_adot:            { label:"cADOT",    num:true, fmt:"dec1", title:"ADOT allowed in coverage (PFR)" },
     // IDP missed tackles (invertRank — fewer missed tackles is better)
     def_missed_tackles:  { label:"Missed",   num:true, invertRank:true, title:"Missed tackles (PFR, 2018+)" },
-    def_missed_tackle_pct:{label:"Miss%", title:"Missed tackles ÷ (tackles + missed tackles), PFR charting",    num:true, fmt:"pct0", invertRank:true },
+    def_missed_tackle_pct:{label:"Miss%", title:"PFR’s missed-tackle rate, averaged over his games (PFR’s tackles include assists)",    num:true, fmt:"pct0", invertRank:true },
     // Kicker
     fg_made:             { label:"FGM", title:"Field goals made",      num:true },
     fg_miss:             { label:"FG Miss", title:"Field goals missed",  num:true, invertRank:true,
@@ -1853,7 +1870,7 @@ table.asw-table{width:auto;min-width:0}
   // A position shows ONE group at a time (Keith 2026-10-15): Fantasy points first and the
   // default, then the groups that position has. At most STAT_GROUP_MAX numbers each, so the
   // group's own sort column is on screen at 1024px without sliding the table. `sort` is the
-  // group's default; `src` names the sources the band lists for it. The old multi-group
+  // group's default; the band and About list the sources of the columns shown (colSource). The old multi-group
   // picker stays under More filters → Custom columns (state.group === "custom").
   var STAT_GROUP_MAX = 8;
   var SG_SRC = {
@@ -1861,71 +1878,109 @@ table.asw-table{width:auto;min-width:0}
     box:   "nflverse box scores",
     snaps: "nflverse snap counts",
     pbp:   "nflverse play-by-play",
-    pfr:   "PFR charting (nflverse)",
-    ngs:   "NFL Next Gen Stats (nflverse)",
+    pfr:   "PFR charting, per game",
+    pfrs:  "PFR season charting (whole season, not the weeks chosen)",
+    ngs:   "NFL Next Gen Stats (whole season, not the weeks chosen)",
     cons:  "MFL weekly scores",
-    sched: "Pts Agst engine on MFL’s own weekly scores"
+    sched: "Pts Agst engine on MFL’s own weekly scores",
+    epa:   "nflfastR play-by-play",
+    routes:"nflverse route participation",
+    ftn:   "FTN charting",
+    splits:"game-script splits",
+    mkt:   "MFL market (all MFL leagues)",
+    prof:  "player profile (draft, combine)",
+    xfp:   "xFP model (2025)",
+    sep:   "PFF separation (2025)"
   };
-  function sgFantasy() { return { id: "fantasy", label: "Fantasy points", cols: ["pos_rank", "mfl_points", "mfl_ppg", "games"], sort: "mfl_points", src: ["mfl", "box"] }; }
-  function sgBoom()    { return { id: "boom", label: "Boom/Bust", title: "Boom/Bust and consistency", cols: ["cons_floor", "cons_ceil", "cons_score", "cons_boom", "cons_bust", "l4w_delta"], sort: "cons_score", src: ["cons"] }; }
-  function sgSched()   { return { id: "schedule", label: "Schedule", title: "Schedule context: Sched Δ and Opp ±%", cols: ["mfl_points", "mfl_points_sos", "mfl_sched_opp", "games"], sort: "mfl_points", src: ["sched", "mfl"] }; }
+  // Which source a column comes from (worker/src/index.js): the band and About list the sources
+  // of the columns on screen, in either mode. PFR's season table ignores the weeks chosen.
+  var SRC_SEASON_PFR = { receiving_adot:1, receiving_air_yards:1, receiving_yac_per_r:1, receiving_drop_pct:1, ybc_per_a:1, yac_per_a:1,
+    passing_adot:1, passing_air_yards:1, passing_yards_after_catch:1, def_adot:1 };
+  function colSource(k) {
+    if (k === "player_name") return null;
+    if (k === "mfl_points_sos" || k === "mfl_sched_opp") return "sched";
+    if (/^mfl_/.test(k) || k === "pos_rank") return "mfl";
+    if (/^cons_/.test(k) || k === "l4w_delta") return "cons";
+    if (SRC_SEASON_PFR[k]) return "pfrs";
+    if (/^ngs_/.test(k)) return "ngs";
+    if (/^epa_/.test(k)) return "epa";
+    if (/^rt_/.test(k)) return "routes";
+    if (/^ftn_/.test(k)) return "ftn";
+    if (/^split_/.test(k)) return "splits";
+    if (/^mkt_/.test(k)) return "mkt";
+    if (/^prof_/.test(k)) return "prof";
+    if (/^xfp_/.test(k)) return "xfp";
+    if (/^sep_/.test(k)) return "sep";
+    if (/^(off|def)_snap/.test(k)) return "snaps";
+    if (/^(receiving|passing)_|brtkl|_per_br$|^def_(pressures|press_rate|missed|completions_allowed|yards_allowed|passer_rating_allowed)/.test(k)) return "pfr";
+    if (/_i20|_i5|_ez$|^rz_|^gl_|^team_rz|^ez_|^punt_|^team_(plays|def_plays|fourth|stall)|^pace_/.test(k)) return "pbp";
+    return "box";
+  }
+  function sourcesFor(cols) {
+    var seen = {}, out = [];
+    (cols || []).forEach(function (k) { var x = colSource(k); if (x && !seen[x]) { seen[x] = 1; out.push(x); } });
+    return out;
+  }
+  function sgFantasy() { return { id: "fantasy", label: "Fantasy points", cols: ["pos_rank", "mfl_points", "mfl_ppg", "games"], sort: "mfl_points" }; }
+  function sgBoom()    { return { id: "boom", label: "Boom/Bust", title: "Boom/Bust and consistency", cols: ["cons_floor", "cons_ceil", "cons_score", "cons_boom", "cons_bust", "l4w_delta"], sort: "cons_score" }; }
+  function sgSched()   { return { id: "schedule", label: "Schedule context", title: "Sched Δ and Opp ±%: what the teams he faced allowed his position vs usual", cols: ["mfl_points", "mfl_points_sos", "mfl_sched_opp", "games"], sort: "mfl_points" }; }
   var SG_RECEIVING = ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t", "receiving_adot"];
   var SG_IDP_FRONT = ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_pass_def", "def_ints", "def_ff"];
   var STAT_GROUPS = {
     qb: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "pass_att", "rush_att"], sort: "off_snaps_total", src: ["snaps", "box"] },
-      { id: "passing",   label: "Passing",   cols: ["pass_att", "pass_cmp", "cmp_pct", "pass_yds", "pass_tds", "pass_ints", "ypa", "pass_sacks"], sort: "pass_yds", src: ["box"] },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds", src: ["box"] },
-      { id: "redzone",   label: "Red zone",  cols: ["pass_att_i20", "pass_att_ez", "team_rz_plays", "team_rz_pass_rate"], sort: "pass_att_i20", src: ["pbp"] },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_tt", "ngs_agg"], sort: "ngs_agg", src: ["ngs"] },
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "pass_att", "rush_att"], sort: "off_snaps_total" },
+      { id: "passing",   label: "Passing",   cols: ["pass_att", "pass_cmp", "cmp_pct", "pass_yds", "pass_tds", "pass_ints", "ypa", "pass_sacks"], sort: "pass_yds" },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds" },
+      { id: "redzone",   label: "Red zone",  cols: ["pass_att_i20", "pass_att_ez", "team_rz_plays", "team_rz_pass_rate"], sort: "pass_att_i20" },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_tt", "ngs_agg"], sort: "ngs_agg" },
       sgBoom(), sgSched()],
     rb: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "rush_share", "targets", "target_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a", "ybc_per_a", "yac_per_a", "rush_brtkl"], sort: "rush_yds", src: ["box", "pfr"] },
-      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t"], sort: "rec_yds", src: ["box"] },
-      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "rush_att_i5", "rz_rush_share", "gl_rush_share", "targets_i20", "rec_i20", "targets_ez"], sort: "rush_att_i20", src: ["pbp"] },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_ryoe_pa", "ngs_eff", "ngs_box8"], sort: "ngs_ryoe_pa", src: ["ngs"] },
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "rush_share", "targets", "target_share"], sort: "off_snaps_total" },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a", "ybc_per_a", "yac_per_a", "rush_brtkl"], sort: "rush_yds" },
+      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t"], sort: "rec_yds" },
+      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "rush_att_i5", "rz_rush_share", "gl_rush_share", "targets_i20", "rec_i20", "targets_ez"], sort: "rush_att_i20" },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_ryoe_pa", "ngs_eff", "ngs_box8"], sort: "ngs_ryoe_pa" },
       sgBoom(), sgSched()],
     wr: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
-      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds", src: ["box", "pfr"] },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds"], sort: "rush_yds", src: ["box"] },
-      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20", src: ["pbp"] },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep", src: ["ngs"] },
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total" },
+      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds" },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds"], sort: "rush_yds" },
+      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20" },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep" },
       sgBoom(), sgSched()],
     te: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
-      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds", src: ["box", "pfr"] },
-      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20", src: ["pbp"] },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep", src: ["ngs"] },
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total" },
+      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds" },
+      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20" },
+      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep" },
       sgBoom(), sgSched()],
     flex_o: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "targets", "target_share"], sort: "off_snaps_total", src: ["snaps", "box"] },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds", src: ["box"] },
-      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r"], sort: "rec_yds", src: ["box"] },
-      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "targets_i20", "rec_i20", "targets_ez"], sort: "targets_i20", src: ["pbp"] },
+      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "targets", "target_share"], sort: "off_snaps_total" },
+      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds" },
+      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r"], sort: "rec_yds" },
+      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "targets_i20", "rec_i20", "targets_ez"], sort: "targets_i20" },
       sgBoom(), sgSched()],
     dl: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
-      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_press_rate", "def_ff", "def_fr"], sort: "def_sacks", src: ["box", "pfr"] },
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_press_rate", "def_ff", "def_fr"], sort: "def_sacks" },
       sgBoom(), sgSched()],
     lb: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
-      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total", src: ["box", "pfr"] },
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total" },
       sgBoom(), sgSched()],
     db: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
-      { id: "idp",   label: "IDP",   title: "Tackles and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_pass_def", "def_ints", "def_completions_allowed", "def_yards_allowed", "def_passer_rating_allowed", "def_missed_tackle_pct"], sort: "def_tackles_total", src: ["box", "pfr"] },
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      { id: "idp",   label: "IDP",   title: "Tackles and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_pass_def", "def_ints", "def_completions_allowed", "def_yards_allowed", "def_passer_rating_allowed", "def_missed_tackle_pct"], sort: "def_tackles_total" },
       sgBoom(), sgSched()],
     flex_idp: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total", src: ["snaps", "box"] },
-      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total", src: ["box", "pfr"] },
+      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total" },
       sgBoom(), sgSched()],
     pk: [sgFantasy(),
-      { id: "kicking", label: "Kicking", cols: ["fg_made", "fg_miss", "fg_pct", "fg_0_39", "fg_40_49", "fg_50_59", "fg_60plus", "xp_made"], sort: "fg_made", src: ["box", "pbp"] },
+      { id: "kicking", label: "Kicking", cols: ["fg_made", "fg_miss", "fg_pct", "fg_0_39", "fg_40_49", "fg_50_59", "fg_60plus", "xp_made"], sort: "fg_made" },
       sgBoom(), sgSched()],
     pn: [sgFantasy(),
-      { id: "punting", label: "Punting", cols: ["punts", "punt_avg", "punt_net_avg", "punt_inside20", "punt_i20_pct", "punt_tb", "punt_long"], sort: "punts", src: ["box", "pbp"] },
+      { id: "punting", label: "Punting", cols: ["punts", "punt_avg", "punt_net_avg", "punt_inside20", "punt_i20_pct", "punt_tb", "punt_long"], sort: "punts" },
       sgBoom(), sgSched()]
   };
   function statGroupsFor(tabId) { return STAT_GROUPS[tabId] || [sgFantasy()]; }
@@ -3116,6 +3171,15 @@ table.asw-table{width:auto;min-width:0}
     top.addEventListener("scroll", function () { if (lock) return; lock = true; wrap.scrollLeft = top.scrollLeft; lock = false; });
     wrap.addEventListener("scroll", function () { if (lock) return; lock = true; top.scrollLeft = wrap.scrollLeft; lock = false; });
     window.addEventListener("resize", syncTopScroll);
+    // The table is a region one window tall. Scrolling down over it moves the PAGE until the
+    // table's top reaches the top of the window, then its rows (it trapped the wheel before).
+    wrap.addEventListener("wheel", function (e) {
+      if (!(e.deltaY > 0) || wrap.scrollTop > 0) return;
+      var t = wrap.getBoundingClientRect().top;
+      if (t <= 1) return;
+      e.preventDefault();
+      window.scrollBy(0, Math.min(e.deltaY, t));
+    }, { passive: false });
   }
 
   // ---------- Scatter discovery view (Phase 4) ----------
@@ -3294,8 +3358,8 @@ table.asw-table{width:auto;min-width:0}
     // The worker caps a query at 500 rows; past that the board is silently
     // truncated, which matters most on the deep pools (skill / IDP).
     if (apiRowCount >= 500) {
-      notes.push("<b>Showing the first 500 players.</b> This position pool is larger than the query cap, " +
-                 "so the tail is cut off — narrow by team or scope to see further down.");
+      var poolWord = { skill: "RB, WR and TE", idp: "defensive players" }[TABS[state.activeTab].workerPos] || "players";
+      notes.push("<b>The list is the stats source’s top 500 " + poolWord + ".</b> A deeper player may be missing; narrow with Window or More filters → Fantasy team.");
     }
 
     slot.innerHTML = notes.length
@@ -3509,8 +3573,15 @@ table.asw-table{width:auto;min-width:0}
     if (!state.sortKey || cols.indexOf(state.sortKey) < 0) {
       var sgNow = currentStatGroup();
       var dflt = sgNow ? sgNow.sort : tab.defaultSort;
-      state.sortKey = cols.indexOf(dflt) >= 0 ? dflt : (cols[1] || cols[0]);
-      state.sortDir = (COLS[state.sortKey] && COLS[state.sortKey].num) ? "desc" : "asc";
+      var pend = state.pendingSort;   // a link's sort= (runQuery clears sortKey before the first render)
+      if (pend && cols.indexOf(pend.key) >= 0) { state.sortKey = pend.key; state.sortDir = pend.dir; }
+      else {
+        // Custom columns without the tab's default: MFL Pts, else the first number after PPG Rk (never PPG Rk worst-first)
+        var firstNum = cols.filter(function (k) { return k !== "pos_rank" && COLS[k] && COLS[k].num; })[0];
+        state.sortKey = cols.indexOf(dflt) >= 0 ? dflt : (cols.indexOf("mfl_points") >= 0 ? "mfl_points" : (firstNum || cols[0]));
+        state.sortDir = (COLS[state.sortKey] && COLS[state.sortKey].num) ? "desc" : "asc";
+      }
+      state.pendingSort = null;
     }
 
     // Filter rows
@@ -3554,7 +3625,9 @@ table.asw-table{width:auto;min-width:0}
 
     // Per-column filters (only apply to currently visible columns — a filter
     // on a hidden column is parked, not lost, until the group is re-enabled)
-    var activeCols = cols.filter(function(k){
+    // Value filters apply to the columns on screen, plus team / owner / position (shown beneath
+    // the name, so an older link's f.team / f.mfl_franchise_name / f.position still filters).
+    var activeCols = cols.concat(["team", "mfl_franchise_name", "position"].filter(function (k) { return cols.indexOf(k) < 0; })).filter(function(k){
       var p = predicateFor(k);
       return p && !p.invalid;
     });
@@ -3562,7 +3635,7 @@ table.asw-table{width:auto;min-width:0}
       rows = rows.filter(function(r){
         for (var i = 0; i < activeCols.length; i++) {
           var k = activeCols[i];
-          var v = getVal(r, k);
+          var v = COLS[k] && COLS[k].sortValue ? COLS[k].sortValue(r) : getVal(r, k);   // "21/23" filters on made
           if (!predicateFor(k).test(v)) return false;
         }
         return true;
@@ -3805,7 +3878,9 @@ table.asw-table{width:auto;min-width:0}
     // (The season itself leads the band; only the current season adds its finalized week.)
     var coverage = "";
     if (state.lastApiCount === 500) {
-      coverage += " · top 500 by yardage — deep bench may be cut off";
+      // (said once, in the note under the band)
+    } else if (maxSeason && maxSeason < nowY) {
+      coverage += " · final";
     } else if (maxSeason === nowY && state.lastPending) {
       // The current season's board has never been built at all yet (no
       // precompute row) — distinct from "0 rows because the season hasn't
@@ -3865,8 +3940,7 @@ table.asw-table{width:auto;min-width:0}
       }
     }
     // The band: what's listed, the sources the visible group reads, how far they're final, when read.
-    var sgBand = currentStatGroup();
-    var srcText = sgBand ? " · Sources: " + sgBand.src.map(function (x) { return SG_SRC[x]; }).join("; ") : " · Custom columns: sources under About";
+    var srcText = " · Sources: " + sourcesFor(cols).map(function (x) { return SG_SRC[x]; }).join("; ");
     metaEl.innerHTML = '<b>' + escapeHtml(state.lastQuery || "") + '</b>' + escapeHtml(srcText + coverage) +
       (state.lastReadAt ? escapeHtml(" · read " + state.lastReadAt) : "");
     countEl.textContent = countLabel + (searchQ ? " (search)" : "") + filterHint;
@@ -4092,10 +4166,10 @@ table.asw-table{width:auto;min-width:0}
       var d = COLS[k] || { label: k };
       return '<dt>' + escapeHtml(d.label) + '</dt><dd>' + escapeHtml(d.title || "—") + '</dd>';
     }).join("");
-    var srcs = sg ? sg.src.map(function (x) { return SG_SRC[x]; }) : [];
-    var html = '<p>Every player at the position for the season and weeks chosen above. MFL Pts and PPG use this league’s scoring; ' +
-      'the other columns are NFL statistics. A number reads “—” when its source has nothing for him, never 0; hover a heading or a cell for why.</p>' +
-      (sg ? '<p><b>' + escapeHtml(sg.title || sg.label) + '.</b> Sources: ' + escapeHtml(srcs.join("; ")) + '.</p>' : '<p><b>Custom columns.</b> Picked under More filters.</p>') +
+    var srcs = sourcesFor(cols).map(function (x) { return SG_SRC[x]; });
+    var html = '<p>Every player at the position for the season and weeks chosen above. MFL Pts, PPG, PPG Rk, Boom/Bust and Schedule context use this league’s MFL scores; ' +
+      'the rest are NFL statistics. A number reads “—” when its source has nothing for him, never 0; hover a heading or a cell for why.</p>' +
+      '<p><b>' + escapeHtml(sg ? (sg.title || sg.label) : "Custom columns") + '.</b> Sources: ' + escapeHtml(srcs.join("; ")) + '.</p>' +
       '<dl class="asw-defs">' + defs + '</dl>' +
       '<p>Sched Δ and Opp ±% describe the schedule a player has faced; they are never colored and aren’t a forecast. ' +
       'Heat (More filters) colors each number by its rank among the players listed: green top fifth, red bottom fifth.</p>';
@@ -4197,6 +4271,7 @@ table.asw-table{width:auto;min-width:0}
     resetBtn.textContent = "Reset to defaults";
     resetBtn.addEventListener("click", function(){
       resetVisibleGroupsForTab(state.activeTab);  // = the Standard preset
+      state.group = "custom";                      // still Custom columns (the picker's own reset)
       persistView(state.activeTab);
       refreshViewChips();
       renderColsPopover(tab, containerEl);
@@ -4284,6 +4359,7 @@ table.asw-table{width:auto;min-width:0}
         }
         state.visibleGroups = new Set(v.groups || []);
         state.viewName = "custom";
+        state.group = "custom";   // a saved column set replaces the stat group
         persistView(state.activeTab);
         refreshViewChips();
         render();
@@ -4357,14 +4433,14 @@ table.asw-table{width:auto;min-width:0}
     document.addEventListener("keydown", function(e){
       if (e.key === "Escape" && popover.classList.contains("open")) { popover.classList.remove("open"); trigger.setAttribute("aria-expanded", "false"); trigger.focus(); }
     });
-    // Right side: filter toggle + clear
-    var spacer = document.createElement("span");
-    spacer.className = "asw-cols-spacer";
-    colsBarEl.appendChild(spacer);
+    // Value filters go under More filters → Filters; Scatter / Heat / CSV under Tools.
+    var vfEl = document.getElementById("asw-more-vf") || colsBarEl;
+    var toolsEl = document.getElementById("asw-more-tools") || colsBarEl;
+    [vfEl, toolsEl].forEach(function (el) { el.querySelectorAll(".asw-tool-btn").forEach(function (b) { b.remove(); }); });
 
     _filterToggleBtn = document.createElement("button");
     _filterToggleBtn.type = "button";
-    _filterToggleBtn.className = "asw-filter-toggle";
+    _filterToggleBtn.className = "asw-filter-toggle asw-tool-btn";
     _filterToggleBtn.setAttribute("aria-pressed", state.filtersVisible ? "true" : "false");
     _filterToggleBtn.title = "Show inline column filters — type >150, <5, 10%, 150-300, etc.";
     _filterToggleBtn.addEventListener("click", function(){
@@ -4372,12 +4448,12 @@ table.asw-table{width:auto;min-width:0}
       _filterToggleBtn.setAttribute("aria-pressed", state.filtersVisible ? "true" : "false");
       render();
     });
-    colsBarEl.appendChild(_filterToggleBtn);
+    vfEl.appendChild(_filterToggleBtn);
 
     var scatterBtn = document.createElement("button");
     scatterBtn.type = "button";
-    scatterBtn.className = "asw-filter-toggle";
-    scatterBtn.textContent = "⚬ Scatter";
+    scatterBtn.className = "asw-filter-toggle asw-tool-btn";
+    scatterBtn.textContent = "Scatter";
     scatterBtn.setAttribute("aria-pressed", state.scatterOn ? "true" : "false");
     scatterBtn.title = "Swap the table for a usage-vs-efficiency scatter of the same filtered rows — spot the archetypes. Pick any X/Y stat; click a dot for the player drawer.";
     scatterBtn.addEventListener("click", function(){
@@ -4385,12 +4461,12 @@ table.asw-table{width:auto;min-width:0}
       scatterBtn.setAttribute("aria-pressed", state.scatterOn ? "true" : "false");
       render();
     });
-    colsBarEl.appendChild(scatterBtn);
+    toolsEl.appendChild(scatterBtn);
 
     var heatBtn = document.createElement("button");
     heatBtn.type = "button";
-    heatBtn.className = "asw-filter-toggle";
-    heatBtn.textContent = "🔥 Heat";
+    heatBtn.className = "asw-filter-toggle asw-tool-btn";
+    heatBtn.textContent = "Heat";
     heatBtn.setAttribute("aria-pressed", state.heatOn ? "true" : "false");
     heatBtn.title = "Color each numeric cell by its position-group percentile rank. Green = top quintile, red = bottom. Stats where lower is better (Drops, INTs, Sacks, Miss%) are auto-inverted.";
     heatBtn.addEventListener("click", function(){
@@ -4398,19 +4474,19 @@ table.asw-table{width:auto;min-width:0}
       heatBtn.setAttribute("aria-pressed", state.heatOn ? "true" : "false");
       render();
     });
-    colsBarEl.appendChild(heatBtn);
+    toolsEl.appendChild(heatBtn);
 
     var csvBtn = document.createElement("button");
     csvBtn.type = "button";
-    csvBtn.className = "asw-filter-toggle";
-    csvBtn.textContent = "📥 CSV";
+    csvBtn.className = "asw-filter-toggle asw-tool-btn";
+    csvBtn.textContent = "Download CSV";
     csvBtn.title = "Export the currently visible rows and columns to a CSV file";
     csvBtn.addEventListener("click", exportCsv);
-    colsBarEl.appendChild(csvBtn);
+    toolsEl.appendChild(csvBtn);
 
     _filterClearBtn = document.createElement("button");
     _filterClearBtn.type = "button";
-    _filterClearBtn.className = "asw-filter-clear";
+    _filterClearBtn.className = "asw-filter-clear asw-tool-btn";
     _filterClearBtn.textContent = "Clear";
     _filterClearBtn.title = "Clear all column filters";
     _filterClearBtn.addEventListener("click", function(){
@@ -4419,7 +4495,7 @@ table.asw-table{width:auto;min-width:0}
       updateFilterToggleLabel();
       render();
     });
-    colsBarEl.appendChild(_filterClearBtn);
+    vfEl.appendChild(_filterClearBtn);
 
     updateFilterToggleLabel();
   }
@@ -5849,6 +5925,7 @@ table.asw-table{width:auto;min-width:0}
       var parts = sortParam.split(".");
       state.sortKey = parts[0] || null;
       state.sortDir = parts[1] === "asc" ? "asc" : "desc";
+      state.pendingSort = parts[0] ? { key: parts[0], dir: state.sortDir } : null;   // applied at the first render
       touched = true;
     }
     if (params.get("heat") === "1") { state.heatOn = true; touched = true; }

@@ -38,8 +38,10 @@
       iframe.style.height = Math.max(600, Math.round(h)) + "px";
     } catch (e) {}
   }
+  // The page's own height: its body (the document is never shorter than the frame, so measuring
+  // it would never let the frame shrink back for a short board).
   function contentHeight(iframe) {
-    try { return iframe.contentDocument.documentElement.scrollHeight; } catch (e) { return 0; }
+    try { var d = iframe.contentDocument; return (d.body && d.body.scrollHeight) || d.documentElement.scrollHeight; } catch (e) { return 0; }
   }
 
   fetch(htmlUrl, { cache: "no-store", credentials: "omit" })

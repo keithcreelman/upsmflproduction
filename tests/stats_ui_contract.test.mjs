@@ -38,9 +38,11 @@ function evalLiteral(start, endMarker) {
 const COLS = evalLiteral("  var COLS = {");
 const TAB_IDS = Object.keys(evalLiteral("  var TABS = {"));
 const SG = (() => {
+  // (the page's own column→source rule, run on every column key)
   const a = SCRIPT.indexOf("  var STAT_GROUP_MAX"), b = SCRIPT.indexOf("  function statGroupById(");
-  const ctx = vm.createContext({});
-  vm.runInContext(SCRIPT.slice(a, b) + "\nthis.out = JSON.stringify({ STAT_GROUPS: STAT_GROUPS, MAX: STAT_GROUP_MAX, SG_SRC: SG_SRC });", ctx);
+  const ctx = vm.createContext({ COLS_FOR_SRC: COLS });
+  vm.runInContext(SCRIPT.slice(a, b) + "\nvar SRC = {}; Object.keys(STAT_GROUPS).forEach(function (t) { SRC[t] = {}; STAT_GROUPS[t].forEach(function (g) { SRC[t][g.id] = sourcesFor(g.cols).map(function (x) { return SG_SRC[x]; }); }); });" +
+    "\nthis.out = JSON.stringify({ STAT_GROUPS: STAT_GROUPS, MAX: STAT_GROUP_MAX, SG_SRC: SG_SRC, SRC: SRC, colSrc: Object.keys(COLS_FOR_SRC).reduce(function (o, k) { o[k] = colSource(k); return o; }, {}) });", ctx);
   return JSON.parse(ctx.out);   // (copied into this realm: deepStrictEqual compares prototypes)
 })();
 const WANT_GROUPS = {
@@ -69,8 +71,17 @@ await check("at most 8 numbers per group; every column exists, is a number, has 
       assert.ok(typeof d.title === "string" && d.title.length >= 8, k + " has no definition (title)");
     }
     assert.ok(g.cols.includes(g.sort), t + "/" + g.id + ": its sort " + g.sort + " is one of its columns");
-    for (const s of g.src) assert.ok(SG.SG_SRC[s], t + "/" + g.id + " source " + s);
+    assert.ok(SG.SRC[t][g.id].length >= 1, t + "/" + g.id + " names a source");
   }
+});
+await check("sources: whole-season ones say so; Sched Δ / Opp ±% are the Pts Agst engine; snaps, play-by-play and PFR per game are told apart (contract §6)", () => {
+  const src = SG.colSrc;
+  for (const k of ["receiving_adot", "receiving_drop_pct", "ybc_per_a", "yac_per_a"]) assert.strictEqual(src[k], "pfrs", k);
+  for (const k of ["ngs_sep", "ngs_tt", "ngs_ryoe_pa"]) assert.strictEqual(src[k], "ngs", k);
+  assert.match(SG.SG_SRC.pfrs, /whole season, not the weeks chosen/); assert.match(SG.SG_SRC.ngs, /whole season, not the weeks chosen/);
+  assert.deepStrictEqual(["mfl_points_sos", "mfl_sched_opp", "mfl_points", "pos_rank", "cons_boom", "off_snap_rate", "def_pressures", "rush_brtkl", "targets_i20", "punt_net_avg", "fg_made"].map((k) => src[k]),
+    ["sched", "sched", "mfl", "mfl", "cons", "snaps", "pfr", "pfr", "pbp", "pbp", "box"]);
+  for (const k of Object.keys(COLS)) assert.ok(k === "player_name" || SG.SG_SRC[src[k]], k + " has a named source");
 });
 await check("points per game only in Fantasy points (never beside box-score or schedule numbers)", () => {
   for (const t of TAB_IDS) for (const g of SG.STAT_GROUPS[t]) if (g.id !== "fantasy") assert.ok(!g.cols.includes("mfl_ppg"), t + "/" + g.id);
@@ -160,12 +171,12 @@ function route(url) {
   if (/league-years/.test(name)) return { ok: true, years: [2025, 2026] };
   return null;
 }
-async function boot(hash) {
+async function boot(hash, seed) {
   const doc = richen(makeDocument());
   doc.body.innerHTML = BODY;
   const calls = [], writes = [];
   let hashNow = hash || "";
-  const store = {};
+  const store = Object.assign({}, seed || {});
   const c = vm.createContext({ console: { log() {}, warn() {}, error() {}, info() {} }, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, Promise, URL, URLSearchParams, JSON, Math, Date, Intl,
     String, Number, Object, Array, RegExp, Set, Map, Error, isNaN, isFinite, parseInt, parseFloat, encodeURIComponent, decodeURIComponent, Symbol, Infinity, NaN });
   c.window = c; c.document = doc; c.self = c; c.parent = { postMessage() {} };
@@ -213,7 +224,7 @@ await check("it boots on Fantasy points with the controls in place", () => {
   assert.deepStrictEqual(E.headers(), ["player_name", "pos_rank", "mfl_points", "mfl_ppg", "games"]);
   assert.deepStrictEqual(E.sorted(), ["mfl_points", "descending"]);
   assert.strictEqual(E.$("#asw-season").value, "2025");
-  assert.match(E.meta(), /^QB · 2025 · MFL Total \(Wks 1–17\) · Sources: MFL scoring \(this league’s rules\); nflverse box scores · read \d{1,2}:\d\d [AP]M ET$/);
+  assert.match(E.meta(), /^QB · 2025 · MFL Total \(Wks 1–17\) · Sources: MFL scoring \(this league’s rules\); nflverse box scores · final · read \d{1,2}:\d\d [AP]M ET$/);
 });
 for (const tab of TAB_IDS) {
   await E.click(E.$('#asw-tabs [data-tab="' + tab + '"]'));
@@ -234,7 +245,7 @@ for (const tab of TAB_IDS) {
       inOrder(E.col(g.sort), "ascending", tab + "/" + g.id + "/" + g.sort);
       sorted += 2;
       const m = E.meta();
-      assert.ok(m.startsWith(LABEL[tab] + " · 2025 · MFL Total (Wks 1–17) · Sources: " + g.src.map((s) => SG.SG_SRC[s]).join("; ")), m);
+      assert.ok(m.startsWith(LABEL[tab] + " · 2025 · MFL Total (Wks 1–17) · Sources: " + SG.SRC[tab][g.id].join("; ") + " · final · read "), m);
       const rows = E.$$("#asw-body tbody tr");
       assert.ok(rows.length >= 3, rows.length + " rows");
       for (const tr of rows) {
@@ -370,7 +381,7 @@ await check("Custom columns (More filters → a preset): the group reads 'Custom
   assert.strictEqual(E.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group"), "custom");
   assert.deepStrictEqual(E.headers().slice(0, 2), ["player_name", "pos_rank"]);
   assert.ok(E.headers().length > 9);
-  assert.match(E.meta(), / · Custom columns: sources under About/);
+  assert.match(E.meta(), / · Sources: .*PFR season charting \(whole season, not the weeks chosen\)/, "Custom columns name their sources too");
   assert.match(E.hash(), /grp=custom/);
   await E.click(E.$('#asw-groups [data-group="fantasy"]'));
   assert.deepStrictEqual(E.headers(), ["player_name", "pos_rank", "mfl_points", "mfl_ppg", "games"], "a stat group again");
@@ -396,6 +407,37 @@ await check("an older link (view=advanced, no grp=) opens its custom columns; a 
   assert.strictEqual(B.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group"), "fantasy");
   const C = await boot("#tab=rb&seasons=2025&scope=mfl_total&grp=redzone");
   assert.deepStrictEqual(C.headers(), ["player_name"].concat(SG.STAT_GROUPS.rb.find((g) => g.id === "redzone").cols));
+});
+await check("More filters is three sections: Filters (team, seasons, value filters) · Columns · Tools (compare, scatter, heat, CSV)", () => {
+  const hs = E.$$("#asw-more .asw-more-h").map((h) => h.textContent.split(/\s+instead/)[0].trim());
+  assert.deepStrictEqual(hs, ["Filters", "Columns", "Tools"]);
+  assert.ok(E.$("#asw-more-vf .asw-filter-toggle"), "value filters under Filters");
+  assert.deepStrictEqual(E.$$("#asw-more-tools .asw-filter-toggle").map((b) => b.textContent.trim()), ["Scatter", "Heat", "Download CSV"]);
+  assert.strictEqual(E.$$("#asw-cols-bar .asw-filter-toggle").length, 0, "no tools among the column sets");
+});
+await check("a saved column set (More filters → Columns) switches to Custom columns and shows its columns", async () => {
+  const N = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=fantasy", { "asw.namedViews.wr": JSON.stringify([{ name: "Mine", groups: ["red_zone"] }]) });
+  const chip = N.$$("#asw-cols-bar .asw-named-view").find((c) => /^Mine/.test(c.textContent));
+  assert.ok(chip, "the saved set is listed");
+  chip.getBoundingClientRect = () => ({ right: 1000 }); await N.click(chip);
+  assert.strictEqual(N.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group"), "custom");
+  assert.ok(N.headers().includes("targets_i20"), N.headers().join());
+});
+await check("Custom columns never open sorted worst-first by PPG Rk; a link's sort= is applied; old team filters still filter", async () => {
+  const A = await boot("#tab=flex_o&seasons=2025&scope=mfl_total&grp=custom&view=analytics");
+  assert.notDeepStrictEqual(A.sorted() && A.sorted()[0], "pos_rank");
+  assert.deepStrictEqual(A.sorted(), ["mfl_points", "descending"]);
+  const B = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=receiving&sort=rec_tds.asc");
+  assert.deepStrictEqual(B.sorted(), ["rec_tds", "ascending"]);
+  const all = (await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=fantasy")).$$("#asw-body tbody tr").length;
+  const T = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=fantasy&fv=1&f.team=" + encodeURIComponent(FX["leaderboard:skill"].rows.find((r) => r.mfl_position === "WR").current_team || "SEA"));
+  const n = T.$$("#asw-body tbody tr").length;
+  assert.ok(n >= 1 && n < all, n + " of " + all);
+});
+await check("a kicker's made/attempted cells filter by made (\">=1\" keeps kickers with a make)", async () => {
+  const K = await boot("#tab=pk&seasons=2025&scope=mfl_total&grp=kicking&fv=1&f.fg_40_49=" + encodeURIComponent(">=1"));
+  const vals = K.col("fg_40_49");
+  assert.ok(vals.length >= 1 && vals.every((v) => /^\d+\/\d+$/.test(v) && +v.split("/")[0] >= 1), vals.join(" "));
 });
 await check("nothing was written: every request was a GET", () => { assert.deepStrictEqual(E.writes, []); assert.ok(E.calls.length > 20); });
 
