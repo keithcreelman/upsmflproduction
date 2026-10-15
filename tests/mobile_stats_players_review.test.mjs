@@ -1444,6 +1444,7 @@ test("status in the sheet (Keith 2026-10-14/15): one plain chip, MFL first; each
   // MFL Q and the official Wk 5 report Q: one chip, both lines, no warning, no dates
   const q = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q, report: { status: "Questionable", injury: "Toe", practice: "Limited Participation in Practice", team: "SF" } } }) }, PURDY);
   t.match(q, /<div class="name">[^<]*<span class="ups-m-inj-chip q"[^>]*>Q<\/span><\/div>/, "the plain designation beside the name");
+  t.match(q, /<span class="ups-m-inj-chip q" title="Questionable \(Toe\)" role="img" aria-label="Questionable \(Toe\)">Q<\/span>/, "a screen reader hears the full status, not just 'Q'");
   t.deepEqual(lines(q), ["MFL: Questionable (Toe)", "Official NFL report: Questionable for Week 5 (Toe) · practice: limited"]);
   t.equal(sheetWarning(q), null);
   t.doesNotMatch(q, /Sep 13|return|passed|estimate|read at|updated|ET\b/, "no expected-return dates and no read times");
