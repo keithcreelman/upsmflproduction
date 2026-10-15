@@ -502,3 +502,40 @@ Re-fetched live from MFL `weeklyResults` on 2026-10-14 (franchise 0009, player 1
    - apply any moved score to the live article and merge;
    - message the league only if an All-Play record changes.
 10. **Untouched:** #1189, the MFL loader, league data, and any production write beyond the publish merge.
+
+---
+
+## 11. Elias correction (Thu Oct 15, post-publication, pre-authorized)
+
+**Plain English.** Elias posted 13 official Week 5 stat changes on Wed Oct 14 at 11:12 PM ET. Two of them moved UPS scores:
+- **Bear Dunn:** 280.0 → 280.5 (Alex Singleton, assists 2 → 3).
+- **Keith Creelman:** 271.5 → 272.5 (Zach Allen, QB hits 1 → 3).
+
+No result flipped and no All-Play record moved, so no league message is due. The live article now shows the corrected scores, and its Elias note says what changed.
+
+**What changed on the page:**
+- the six Week 5 result rows for those teams, with their margins:
+  - Bear vs Martel: 89.3 → 89.8;
+  - Bear vs Cross: 56.1 → 56.6;
+  - Bear vs Cutting: 11.6 → 12.1;
+  - Keith vs Gerardi: 110.4 → 111.4;
+  - Keith vs Whitman: 60.1 → 61.1;
+  - Keith vs Blake: 10.0 → 11.0;
+- Boomer's top score (280.5);
+- Stuart's Weeks 3–5 average for Bear (274.9 → 275.1);
+- Rich's "beat by 89.8";
+- the Elias segment and the method status (now Elias-final).
+
+**What did not change:**
+- **Bench points:** each team's best possible lineup rose by the same amount.
+- **Rankings, All-Play, and the Heat Check and Survival Line tables:** unchanged.
+- **The playoff odds and Week 6 scenarios:** still Tuesday's simulation. The note says so.
+
+**Technical.**
+- `elias.py check --season 2026 --week 5` found 13 changes: 2 player scores, 2 team scores, 0 results flipped, All-Play unchanged.
+- MFL's corrected `weeklyResults` W5 and standings differ from the recorded ones only for 0008 and 0009 (score, best possible lineup, points for).
+- `build/elias_correct_wk05.py` applied 11 replacements, each asserted to match once.
+- `build/check_elias_wk05.py` re-derives every Week 5 result row (18), the top score, Bear's three-week average, the margin and the note from MFL's corrected results.
+  - The corrected article passes.
+  - The pre-correction article fails exactly the 12 changed items.
+- Every number on the page that changed is one of the intended ones (number-by-number diff). `wire.py verify` passes.
