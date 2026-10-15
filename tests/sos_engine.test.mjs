@@ -106,12 +106,12 @@ function expected({ players, sched, scores, teamOf, lo, hi, nowMs }) {
   for (const p in usual) usual[p] = usual[p].reduce((a, b) => a + b, 0) / usual[p].length;
   const out = {};
   for (const g of games) {
-    const o = out[g.pid] || (out[g.pid] = { grp: g.grp, raw: 0, gp: 0, rated: 0, rsum: 0 });
+    const o = out[g.pid] || (out[g.pid] = { grp: g.grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
     o.raw += g.pts; o.gp++;
     const others = games.filter((x) => x.def === g.def && x.grp === g.grp && x.pid !== g.pid);
     const exp = others.reduce((a, x) => a + usual[x.pid], 0), pts = others.reduce((a, x) => a + x.pts, 0);
     if (!others.length || !(exp > 1e-9) || !(pts / exp > 0)) continue;
-    o.rated++; o.rsum += pts / exp;
+    o.rated++; o.rsum += pts / exp; o.others += others.length;
   }
   return { out, games };
 }
@@ -133,14 +133,14 @@ const r1 = (v) => Math.round(v * 10) / 10;
 function rowOf(o) {
   const opp = o.rated ? o.rsum / o.rated : null;
   const adj = opp ? o.raw / opp : null;
-  return { pos: o.grp, raw: r1(o.raw), gp: o.gp, rated: o.rated, opp: opp == null ? null : Math.round(opp * 1000) / 1000, adj: adj == null ? null : r1(adj), delta: adj == null ? null : r1(adj - o.raw) };
+  return { pos: o.grp, raw: r1(o.raw), gp: o.gp, rated: o.rated, others: o.others, opp: opp == null ? null : Math.round(opp * 1000) / 1000, adj: adj == null ? null : r1(adj), delta: adj == null ? null : r1(adj - o.raw) };
 }
 function sameRows(got, exp, label) {
   const ek = Object.keys(exp).sort(), gk = Object.keys(got).sort();
   assert.deepStrictEqual(gk, ek, label + ": player set");
   for (const k of ek) {
     const e = rowOf(exp[k]), g = got[k];
-    for (const f of ["pos", "gp", "rated"]) assert.strictEqual(g[f], e[f], label + " " + k + " " + f);
+    for (const f of ["pos", "gp", "rated", "others"]) assert.strictEqual(g[f], e[f], label + " " + k + " " + f);
     for (const f of ["raw", "adj", "delta"]) {
       if (e[f] == null) assert.strictEqual(g[f], null, label + " " + k + " " + f + " must be null, not " + g[f]);
       else assert.ok(Math.abs(g[f] - e[f]) <= 0.1 + 1e-9, label + " " + k + " " + f + " " + g[f] + " vs " + e[f]);
@@ -299,8 +299,8 @@ await check("2020 answers from its stored copy (no MFL reads for it); 2025 live;
   const e20 = expected({ players, sched, scores, teamOf, lo: 15, hi: 16, nowMs: FX25.nowMs }).out;
   const sum = {};
   for (const src of [e20, E25.out]) for (const p in src) {
-    const a = sum[p] || (sum[p] = { grp: src[p].grp, raw: 0, gp: 0, rated: 0, rsum: 0 });
-    a.raw += src[p].raw; a.gp += src[p].gp; a.rated += src[p].rated; a.rsum += src[p].rsum;
+    const a = sum[p] || (sum[p] = { grp: src[p].grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
+    a.raw += src[p].raw; a.gp += src[p].gp; a.rated += src[p].rated; a.rsum += src[p].rsum; a.others += src[p].others;
   }
   sameRows(r.body.by_mfl, sum, "2020+2025");
   const both = Object.keys(e20).filter((p) => E25.out[p]);

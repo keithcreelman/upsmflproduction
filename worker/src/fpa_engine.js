@@ -354,7 +354,8 @@ export function fpaAggregate(E, groups) {
 // ÷ opp. Descriptive: what his opponents allowed over these weeks, not a forecast.
 // A game is unrated when no other player at his position faced that team in the
 // window, or when the others' usual isn't positive; opp is null with no rated game.
-// Returns pid → { grp, raw, gp, rated, rsum } as unrounded sums, so seasons add up.
+// Returns pid → { grp, raw, gp, rated, rsum, others } as unrounded sums, so seasons add
+// up; others = the other players' games behind his rated games' ratings (the sample size).
 export function fpaPlayerSchedule(E) {
   const tot = new Map(), mine = new Map();
   for (const x of E.pg) {
@@ -365,7 +366,7 @@ export function fpaPlayerSchedule(E) {
   }
   const out = {};
   for (const x of E.pg) {
-    const p = out[x.pid] || (out[x.pid] = { grp: x.grp, raw: 0, gp: 0, rated: 0, rsum: 0 });
+    const p = out[x.pid] || (out[x.pid] = { grp: x.grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
     p.raw += x.pts; p.gp++;
     const k = x.def + "|" + x.grp, t = tot.get(k), m = mine.get(x.pid + "|" + k) || { pts: 0, exp: 0, n: 0 };
     if (!t || t.n - m.n <= 0) continue;
@@ -373,7 +374,7 @@ export function fpaPlayerSchedule(E) {
     if (!(exp > 1e-9)) continue;
     const r = (t.pts - m.pts) / exp;
     if (!(r > 0)) continue;
-    p.rated++; p.rsum += r;
+    p.rated++; p.rsum += r; p.others += t.n - m.n;
   }
   return out;
 }
@@ -381,7 +382,7 @@ export function fpaPlayerSchedule(E) {
 export function fpaScheduleRow(p) {
   const opp = p.rated > 0 ? p.rsum / p.rated : null;
   const adj = opp != null && opp > 0 ? p.raw / opp : null;
-  return { pos: p.grp, raw: r1(p.raw), gp: p.gp, rated: p.rated,
+  return { pos: p.grp, raw: r1(p.raw), gp: p.gp, rated: p.rated, others: p.others,
     opp: opp != null ? Math.round(opp * 1000) / 1000 : null,
     adj: adj != null ? r1(adj) : null,
     delta: adj != null ? r1(adj - p.raw) : null };
@@ -1018,8 +1019,8 @@ export async function handleSosRequest(request, env, ctx, { jsonOut, nowMs, fetc
     }
     let n = 0;
     for (const pid in rows) {
-      const r = rows[pid], a = acc[pid] || (acc[pid] = { grp: r.grp, raw: 0, gp: 0, rated: 0, rsum: 0 });
-      a.raw += r.raw; a.gp += r.gp; a.rated += r.rated; a.rsum += r.rsum; n++;
+      const r = rows[pid], a = acc[pid] || (acc[pid] = { grp: r.grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
+      a.raw += r.raw; a.gp += r.gp; a.rated += r.rated; a.rsum += r.rsum; a.others += r.others; n++;
     }
     per[p.yr] = {
       state: weeksInProgress.length || weeksNotPlayed.length ? "partial" : "complete", source,

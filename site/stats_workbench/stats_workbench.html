@@ -1069,9 +1069,11 @@ table.asw-table{font-size:13px}
     // good or bad, and neither is a forecast. Missing = "—", never 0.
     mfl_points_sos:      { label:"Sched Δ",  num:true, fmt:"sdelta",
       title:"Sched Δ = his points ÷ Opp − his points, over the same final games. Negative: the teams he faced allowed his position more than usual; positive: less. It describes the schedule he had; it isn't a forecast.",
+      titleFn:function(r){ return sosCellTitle(sosRowFor(r)); },
       compute:function(r){ var s=sosRowFor(r); return s && s.delta != null ? s.delta : null; } },
     mfl_sched_opp:       { label:"Opp ±%",  num:true, fmt:"spct",
       title:"What the teams he faced allowed to other players at his position, against those players' usual (Pts Agst's Allowed ÷ Usual for the same weeks, his own games left out), averaged over his games. +10% = 10% more than usual.",
+      titleFn:function(r){ return sosCellTitle(sosRowFor(r)); },
       compute:function(r){ var s=sosRowFor(r); return s && s.opp != null ? Math.round((s.opp - 1) * 100) : null; } },
     // Consistency / boom-bust (side-loaded /api/player-consistency, by gsis_id).
     cons_floor:          { label:"Floor",   num:true, fmt:"dec1", title:"Lowest weekly fantasy score in the window (scoring games only)",
@@ -1873,6 +1875,13 @@ table.asw-table{font-size:13px}
   var sosByMfl = {};
   function sosKey(id){ var n = parseInt(String(id == null ? "" : id), 10); return isFinite(n) ? String(n) : ""; }
   function sosRowFor(r){ var k = sosKey(r && r.mfl_pid); return k ? sosByMfl[k] : null; }
+  // A cell's hover text: what the number rests on (his rated games, and how many other
+  // players' games rate those opponents), or why it's blank.
+  function sosCellTitle(s){
+    if (!s) return "No final games for him in these weeks.";
+    if (s.opp == null) return s.gp + " game" + (s.gp === 1 ? "" : "s") + "; no other player at his position faced those teams in these weeks, so there's nothing to compare.";
+    return (s.raw != null ? s.raw.toFixed(1) + " pts in " : "") + s.gp + " game" + (s.gp === 1 ? "" : "s") + "; opponents rated on " + s.rated + " of them, from " + s.others + " other player-game" + (s.others === 1 ? "" : "s") + " (Opp ×" + s.opp.toFixed(2) + ").";
+  }
   var consistByGsis = {};   // /api/player-consistency by gsis_id — floor/ceil/consistency/boom/bust/weeks
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
   var sepByGsis = {};       // PFF route-separation by gsis_id — man/zone/overall score+pct+routes (static JSON)
@@ -3093,7 +3102,9 @@ table.asw-table{font-size:13px}
       if (np.length) t += "; " + (np.length > 1 ? "Wks " + np[0] + "–" + np[np.length - 1] : "Wk " + np[0]) + " not played yet";
       parts.push(t);
     });
-    return head + (parts.length ? " " + parts.join(" · ") + "." : "");
+    var shortest = Object.keys(per).map(function (y) { return (per[y] && per[y].weeksUsed || []).length; }).filter(function (n) { return n > 0; });
+    var few = shortest.length && Math.max.apply(null, shortest) < 6 ? " Few weeks: each opponent is rated on only a handful of games, so values swing widely (hover a cell for the count)." : "";
+    return head + (parts.length ? " " + parts.join(" · ") + "." : "") + few;
   }
   function renderSosNote(cols) {
     var slot = document.getElementById("asw-source-freshness-slot");

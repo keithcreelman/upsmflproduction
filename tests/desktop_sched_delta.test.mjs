@@ -24,7 +24,7 @@ function extractCol(key) {
   for (; i < SRC.length; i++) { if (SRC[i] === "{") depth++; else if (SRC[i] === "}") { depth--; if (depth === 0) break; } }
   return SRC.slice(SRC.indexOf("{", start), i + 1);
 }
-const helpers = SRC.slice(SRC.indexOf("  function sosKey(id)"), SRC.indexOf("\n", SRC.indexOf("  function sosRowFor(r)")));
+const helpers = SRC.slice(SRC.indexOf("  function sosKey(id)"), SRC.indexOf("\n", SRC.indexOf("  function sosRowFor(r)"))) + "\n" + extractFn("sosCellTitle");
 function cols(byMfl) {
   const ctx = vm.createContext({ sosByMfl: byMfl });
   vm.runInContext(helpers + "\nvar C = { sos: " + extractCol("mfl_points_sos") + ", opp: " + extractCol("mfl_sched_opp") + " };", ctx);
@@ -34,7 +34,7 @@ const fmt = (v, f) => { const ctx = vm.createContext({}); vm.runInContext(extrac
 const note = (sos, c) => { const ctx = vm.createContext({}); vm.runInContext(extractFn("sosNoteText") + "\nvar out = sosNoteText(" + JSON.stringify(sos) + ", " + JSON.stringify(c) + ");", ctx); return ctx.out; };
 
 console.log("1. the two columns");
-const BY = { "9431": { pos: "QB", raw: 86.1, gp: 3, rated: 3, opp: 1.083, adj: 79.5, delta: -6.6 }, "15237": { pos: "QB", raw: 30, gp: 1, rated: 0, opp: null, adj: null, delta: null } };
+const BY = { "9431": { pos: "QB", raw: 86.1, gp: 3, rated: 3, others: 6, opp: 1.083, adj: 79.5, delta: -6.6 }, "15237": { pos: "QB", raw: 30, gp: 1, rated: 0, others: 0, opp: null, adj: null, delta: null } };
 check("labels Sched Δ / Opp ±%, uncolored formats", () => {
   const C = cols(BY);
   assert.strictEqual(C.sos.label, "Sched Δ"); assert.strictEqual(C.opp.label, "Opp ±%");
@@ -57,6 +57,13 @@ check("cells are signed text with no good/bad color: +3.4, −2.1 as -2.1, 0, +8
   assert.strictEqual(fmt(8, "spct"), "+8%"); assert.strictEqual(fmt(-5, "spct"), "-5%");
   assert.ok(!/asw-trend|up|dn/.test(fmt(3.4, "sdelta") + fmt(-5, "spct")));
 });
+check("each cell's hover says what it rests on, or why it's blank", () => {
+  const C = cols(BY);
+  assert.strictEqual(C.sos.titleFn({ mfl_pid: 9431 }), "86.1 pts in 3 games; opponents rated on 3 of them, from 6 other player-games (Opp ×1.08).");
+  assert.strictEqual(C.opp.titleFn({ mfl_pid: 9431 }), C.sos.titleFn({ mfl_pid: 9431 }));
+  assert.match(C.sos.titleFn({ mfl_pid: 15237 }), /^1 game; no other player at his position faced those teams in these weeks/);
+  assert.strictEqual(C.sos.titleFn({ mfl_pid: 1 }), "No final games for him in these weeks.");
+});
 check("tooltips describe; no easy / tough / inflated / understates; say it isn't a forecast", () => {
   const C = cols(BY);
   for (const t of [C.sos.title, C.opp.title]) assert.ok(!/\beasy\b|\btough\b|inflat|understat|generous|hard schedule/i.test(t), t);
@@ -78,7 +85,13 @@ check("hidden when neither column shows, and while loading", () => {
 check("complete season: the definition and the weeks used", () => {
   const t = note({ status: "ok", perSeason: { 2025: { state: "complete", weeksUsed: [15, 16, 17], weeksInProgress: [], weeksNotPlayed: [], window: { clipped_to_end: false } } } }, SHOW);
   assert.match(t, /^Sched Δ \/ Opp ±%: what the teams he faced allowed to other players at his position, against their usual \(Pts Agst, final games\)\. It describes his schedule; it isn't a forecast\./);
-  assert.match(t, /2025: Wks 15–17\.$/);
+  assert.match(t, /2025: Wks 15–17\. Few weeks/);
+});
+check("short windows (under 6 weeks used) add one sentence on small samples; full seasons don't", () => {
+  const few = note({ status: "ok", perSeason: { 2025: { state: "complete", weeksUsed: [15, 16, 17], window: {} } } }, SHOW);
+  assert.match(few, / Few weeks: each opponent is rated on only a handful of games, so values swing widely \(hover a cell for the count\)\.$/);
+  const full = note({ status: "ok", perSeason: { 2025: { state: "complete", weeksUsed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], window: {} } } }, SHOW);
+  assert.ok(!/Few weeks/.test(full));
 });
 check("in-season: a week in progress and the weeks not played yet are named", () => {
   const t = note({ status: "ok", perSeason: { 2026: { state: "partial", weeksUsed: [1, 2, 3, 4, 5, 6], weeksInProgress: [6], weeksNotPlayed: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], window: {} } } }, SHOW);
