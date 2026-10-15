@@ -1,0 +1,9 @@
+# Python packages the safe offline suite needs (two nflverse fetcher tests import
+# them). Pinned to the versions the suite passed with on 2026-10-15. Installed by
+# .github/workflows/safe-tests.yml before the network is cut; their own
+# dependencies resolve normally and the job log prints `pip freeze`.
+nflreadpy==0.1.5
+pandas==3.0.3
+pyarrow==24.0.0
+numpy==2.4.5
+polars==1.41.2
