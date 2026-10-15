@@ -30,8 +30,18 @@
 //   --json <path>             write machine-readable results
 //   --summary <path>          write the Markdown report (default: $GITHUB_STEP_SUMMARY if set)
 //   --expect-no-network       fail unless the only network interface is loopback (CI)
+//   --tested-sha <sha>        fail unless this full SHA is the commit actually checked out (CI passes $GITHUB_SHA)
+//   --pr-head <sha>           fail unless the checkout is that PR head, or a merge commit whose second
+//                             parent is it (GitHub's pull_request merge result); the report names both
+//   --allow-dirty             local only, never in CI: run over uncommitted work after backing every
+//                             modified and untracked file up, then compare them byte for byte
+//
+// By default the runner refuses to start when the worktree has uncommitted
+// changes: a test that rewrote one of those files could destroy work git cannot
+// give back. Run in a clean checkout or worktree instead.
 
 import { spawn, spawnSync, execFileSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -354,10 +364,103 @@ export function networkInterfacesSummary() {
   return Object.keys(ifaces).sort();
 }
 
-function gitStatus() {
+// ---------------------------------------------------------------------------
+// Working-tree protection. Fails closed: if git cannot report the tree, main()
+// throws and the run exits 2.
+
+// `git status --porcelain=v1 -z`: "XY path\0", and a rename or copy carries its
+// original path as the next field.
+export function parsePorcelainZ(out) {
+  const entries = [];
+  const parts = out.split("\0");
+  for (let i = 0; i < parts.length; i++) {
+    const rec = parts[i];
+    if (!rec) continue;
+    entries.push({ xy: rec.slice(0, 2), path: rec.slice(3) });
+    if (rec[0] === "R" || rec[0] === "C") i++;
+  }
+  return entries;
+}
+
+function fingerprint(abs) {
   try {
-    return execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
-  } catch { return []; }
+    const st = fs.lstatSync(abs);
+    if (st.isSymbolicLink()) return "symlink:" + fs.readlinkSync(abs);
+    if (!st.isFile()) return "other";
+    return "sha256:" + crypto.createHash("sha256").update(fs.readFileSync(abs)).digest("hex");
+  } catch {
+    return "missing";
+  }
+}
+
+// Every path git reports as modified, staged, deleted or untracked, with a
+// byte-level fingerprint of what is on disk now.
+export function snapshotTree(root = ROOT) {
+  const out = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { cwd: root, encoding: "utf8" });
+  const map = new Map();
+  for (const e of parsePorcelainZ(out)) map.set(e.path, { xy: e.xy, fp: fingerprint(path.join(root, e.path)) });
+  return map;
+}
+
+export function compareSnapshots(before, after) {
+  const changes = [];
+  for (const [p, b] of before) {
+    const a = after.get(p);
+    if (!a) changes.push(`${p}: was uncommitted ("${b.xy.trim()}") before the run and no longer is (reverted or deleted)`);
+    else if (a.fp !== b.fp || a.xy !== b.xy) changes.push(`${p}: changed during the run`);
+  }
+  for (const [p, a] of after) {
+    if (!before.has(p)) changes.push(`${p}: ${a.xy === "??" ? "created" : "modified"} during the run`);
+  }
+  return changes;
+}
+
+function backupDirty(snapshot, root = ROOT) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ups-safe-tests-backup-"));
+  for (const [p] of snapshot) {
+    const src = path.join(root, p);
+    try {
+      if (!fs.lstatSync(src).isFile()) continue;
+      fs.mkdirSync(path.dirname(path.join(dir, p)), { recursive: true });
+      fs.copyFileSync(src, path.join(dir, p));
+    } catch { /* deleted in the worktree: nothing to back up */ }
+  }
+  return dir;
+}
+
+// ---------------------------------------------------------------------------
+// Provenance: which commit did this run actually test?
+// On pull_request, actions/checkout checks out GitHub's merge commit
+// (refs/pull/N/merge = $GITHUB_SHA), not the PR head. Its parents are
+// [base, PR head]. The report names all three so nobody calls a merge-result run
+// "CI on the exact head".
+export function verifyProvenance({ head, parents = [], testedSha, prHead }) {
+  const r = { ok: true, problems: [], kind: "local checkout", head, prHead: prHead ?? null, base: null };
+  const full = /^[0-9a-f]{40}$/;
+  if (testedSha !== undefined) {
+    if (!full.test(testedSha)) { r.ok = false; r.problems.push(`--tested-sha must be a full 40-character SHA (got "${testedSha}")`); }
+    else if (testedSha !== head) { r.ok = false; r.problems.push(`reported tested SHA ${testedSha} differs from the commit actually checked out (${head})`); }
+  }
+  if (prHead !== undefined) {
+    if (!full.test(prHead)) { r.ok = false; r.problems.push(`--pr-head must be a full 40-character SHA (got "${prHead}")`); }
+    else if (head === prHead) r.kind = "pr-head";
+    else if (parents.length === 2 && parents[1] === prHead) { r.kind = "merge-result"; r.base = parents[0]; }
+    else { r.ok = false; r.problems.push(`checked-out ${head} is neither PR head ${prHead} nor a merge commit whose second parent is it (parents: ${parents.join(", ") || "none"})`); }
+  }
+  return r;
+}
+
+export function describeProvenance(p) {
+  const s = (x) => (x ? x.slice(0, 8) : "?");
+  if (p.kind === "merge-result") return `merge result \`${s(p.head)}\`: GitHub's merge of PR head \`${s(p.prHead)}\` into base \`${s(p.base)}\` (not the PR head alone)`;
+  if (p.kind === "pr-head") return `PR head \`${s(p.head)}\` itself`;
+  return `local checkout at \`${s(p.head)}\``;
+}
+
+function readProvenance(root = ROOT) {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+  const parents = execFileSync("git", ["rev-list", "--parents", "-n", "1", "HEAD"], { cwd: root, encoding: "utf8" }).trim().split(/\s+/).slice(1);
+  return { head, parents };
 }
 
 async function pool(items, n, fn) {
@@ -388,6 +491,9 @@ function markdownReport(r) {
   L.push("");
   L.push(`**${r.counts.passed} passed · ${r.counts.failed} failed · ${r.counts.timedOut} timed out · ${r.counts.excluded} excluded (named below) · ${r.counts.run} run** in ${(r.ms / 1000).toFixed(1)}s`);
   L.push("");
+  L.push(`**Tested:** ${r.provenance.description}`);
+  if (r.provenance.kind === "merge-result") L.push(`<br>PR head \`${r.provenance.prHead}\` · tested merge commit \`${r.provenance.tested}\` · base \`${r.provenance.base}\``);
+  L.push("");
   if (r.problems.length) {
     L.push("### What failed");
     for (const p of r.problems) L.push(`- ${p}`);
@@ -413,7 +519,7 @@ function markdownReport(r) {
     grouped.set(k, { b, n: (grouped.get(k)?.n || 0) + 1 });
   }
   for (const [k, { b, n }] of [...grouped].slice(0, 30)) L.push(`  - ${b.known ? "known" : "**unexpected**"}: \`${k}\` ×${n}`);
-  L.push(`- Working tree after the run: ${r.pollution.length ? `${r.pollution.length} change(s) left behind ❌` : "unchanged ✅"}`);
+  L.push(`- Working tree after the run (byte-level): ${r.pollution.length ? `${r.pollution.length} change(s) ❌` : "unchanged ✅"}`);
   for (const p of r.pollution.slice(0, 20)) L.push(`  - \`${p}\``);
   L.push(`- Environment variables withheld from tests: ${r.droppedEnvCount} (secrets and opt-ins are never passed)`);
   L.push("");
@@ -457,6 +563,9 @@ function parseArgs(argv) {
     const k = argv[i];
     if (k === "--list") a.list = true;
     else if (k === "--expect-no-network") a.expectNoNetwork = true;
+    else if (k === "--allow-dirty") a.allowDirty = true;
+    else if (k === "--tested-sha") a.testedSha = argv[++i];
+    else if (k === "--pr-head") a.prHead = argv[++i];
     else if (k === "--only") a.only = argv[++i];
     else if (k === "--files") a.files = argv[++i].split(",").filter(Boolean);
     else if (k === "--concurrency") a.concurrency = Number(argv[++i]) || 1;
@@ -519,11 +628,35 @@ async function main() {
     canaries.push({ name: "OS network isolation: loopback is the only interface (--expect-no-network)", ok: external.length === 0, output: `interfaces: ${ifaces.join(", ")}` });
   }
 
+  const prov = verifyProvenance({ ...readProvenance(), testedSha: args.testedSha, prHead: args.prHead });
+  if (args.testedSha !== undefined || args.prHead !== undefined) {
+    canaries.push({ name: "Provenance: the reported tested SHA is the commit actually checked out", ok: prov.ok, output: prov.ok ? describeProvenance(prov) : prov.problems.join("\n") });
+  }
+
+  const inCI = Boolean(process.env.GITHUB_ACTIONS || process.env.CI);
+  const before = snapshotTree();
+  let backupDir = null;
+  if (args.allowDirty && inCI) {
+    canaries.push({ name: "Working tree: --allow-dirty is refused in CI", ok: false, output: "CI checkouts are clean; --allow-dirty is for local runs only." });
+  } else if (before.size && !args.allowDirty) {
+    canaries.push({
+      name: "Working tree: clean before the run",
+      ok: false,
+      output: `${before.size} uncommitted change(s): ${[...before.keys()].slice(0, 8).join(", ")}${before.size > 8 ? ", ..." : ""}\n` +
+        "The suite will not run tests over uncommitted work: a test that rewrote one of these files could destroy it. " +
+        "Commit or stash it, or run in a clean worktree (git worktree add). Locally, --allow-dirty backs the files up and compares them byte for byte.",
+    });
+  } else if (before.size) {
+    backupDir = backupDirty(before);
+    canaries.push({ name: `Working tree: ${before.size} uncommitted file(s) backed up (--allow-dirty)`, ok: true, output: backupDir });
+  } else {
+    canaries.push({ name: "Working tree: clean before the run", ok: true, output: "" });
+  }
+
   canaries.push(...(await runCanaries(sandbox)));
   const canaryFailed = canaries.filter((c) => !c.ok);
   for (const c of canaryFailed) problems.push(`Guard check failed: ${c.name}\n\n  ${tail(c.output, 15).replace(/\n/g, "\n  ")}`);
 
-  const before = new Set(gitStatus());
   let tests = [];
   if (canaryFailed.length) {
     problems.push("No tests were run because a guard check failed.");
@@ -567,8 +700,14 @@ async function main() {
     const targets = [...new Set(unexpected.filter((b) => b.test === t).map((b) => `${b.what} ${b.target}`))];
     problems.push(`\`${t}\` tried to reach the network (blocked): ${targets.join("; ")}. Stub the call, or name it under known_network_attempts in tests/safe_suite.json with a reason.`);
   }
-  const pollution = gitStatus().filter((l) => !before.has(l));
-  if (pollution.length) problems.push(`Tests changed the working tree (a test must not write into the repo): ${pollution.join(", ")}`);
+  const pollution = compareSnapshots(before, snapshotTree());
+  if (pollution.length) {
+    problems.push(`Tests changed the working tree (a test must not write into the repo): ${pollution.join("; ")}` +
+      (backupDir ? `. Your files as they were before the run are in ${backupDir}` : ""));
+  } else if (backupDir) {
+    fs.rmSync(backupDir, { recursive: true, force: true });
+    backupDir = null;
+  }
   for (const t of tests.filter((x) => !x.ok)) {
     problems.push(`\`${t.path}\` ${t.timedOut ? "timed out" : `failed (exit ${t.code ?? t.signal})`}`);
     if (process.env.GITHUB_ACTIONS) {
@@ -593,6 +732,8 @@ async function main() {
     network,
     blocked,
     pollution,
+    backupDir,
+    provenance: { kind: prov.kind, tested: prov.head, prHead: prov.prHead, base: prov.base, ok: prov.ok, description: describeProvenance(prov) },
     droppedEnvCount: sandbox.dropped.length,
     skipped,
     documented,
@@ -611,6 +752,7 @@ async function main() {
   console.log("");
   console.log(`Safe offline tests: ${result.ok ? "PASS" : "FAIL"} -- ${counts.passed} passed, ${counts.failed} failed, ${counts.timedOut} timed out, ${counts.excluded} excluded, ${(result.ms / 1000).toFixed(1)}s`);
   console.log(`Network: ${network}`);
+  console.log(`Tested: ${result.provenance.description.replace(/`/g, "")} [tested=${prov.head}${prov.prHead ? ` pr_head=${prov.prHead}` : ""}${prov.base ? ` base=${prov.base}` : ""}]`);
   console.log(`Blocked network attempts: ${blocked.length}; working tree changes: ${pollution.length}; env vars withheld: ${sandbox.dropped.length}`);
   if (problems.length) {
     console.log("\nProblems:");
@@ -623,6 +765,13 @@ async function main() {
   return result.ok ? 0 : 1;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Compare real paths: invoked through a symlink (macOS /var -> /private/var, a
+// symlinked checkout) a plain path comparison is false and the script would
+// silently do nothing and exit 0 -- a pass that tested nothing.
+const invokedDirectly = (() => {
+  try { return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); }
+  catch { return false; }
+})();
+if (invokedDirectly) {
   main().then((code) => process.exit(code), (err) => { console.error(err); process.exit(2); });
 }

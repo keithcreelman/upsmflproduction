@@ -6,7 +6,16 @@ One command runs every approved offline test in this repository, locally and in 
 node scripts/safe_tests/run.mjs
 ```
 
-`--list` shows what would run and what is excluded without running anything. `--only <text>` runs the planned tests whose path contains the text. The GitHub check **Safe offline tests** (`.github/workflows/safe-tests.yml`) runs the same command on every pull request and writes the report to the job summary.
+`--list` shows what would run and what is excluded without running anything. `--only <text>` runs the planned tests whose path contains the text.
+
+**Run it on a clean worktree.** By default the runner refuses to start when `git status` shows any modified, staged, deleted or untracked file, because a test that rewrote one of them could destroy work git cannot give back. Commit or stash first, or use a separate worktree (`git worktree add`). For a local run over uncommitted work, `--allow-dirty` first copies every such file to a backup folder, then compares them byte for byte after the run and fails (keeping the backup) if anything changed. `--allow-dirty` is refused in CI.
+
+## In CI
+
+The GitHub check **Safe offline tests** (`.github/workflows/safe-tests.yml`) runs the same command and writes the report to the job summary.
+- **When:** `pull_request` only: a PR is opened, gets a new push, or is reopened. There is no manual dispatch and no `pull_request_target`. A PR that was already open when the workflow landed on `main` shows the check only after its next push (or a close and reopen).
+- **What it tests:** `actions/checkout` checks out GitHub's merge result (`refs/pull/N/merge`, `$GITHUB_SHA`): the PR head merged into the base branch at that moment, not the PR head alone. The runner receives `--tested-sha $GITHUB_SHA --pr-head <head>`. It fails before any test runs if the tested SHA is not the commit actually checked out, or if that commit is neither the PR head nor a merge whose second parent is the PR head. The summary's **Tested** line names the merge commit, the PR head and the base. Quote both SHAs; never call it "CI on the exact head". If `main` moves after the run, the tested merge result is out of date until the next push.
+- **Python packages:** pinned in `scripts/safe_tests/requirements.txt` (the versions the suite passed with). They are installed from PyPI before the network is cut, and the job log prints `pip freeze`.
 
 The command never reads production, writes to MFL, D1, Discord or GitHub, deploys, reads the Keychain, or calls a paid API. That is enforced by the layers below, not by trusting each test.
 
@@ -51,9 +60,14 @@ Other manifest sections:
 5. **Network guards.** Every Node process loads `scripts/safe_tests/guards/no_network.mjs` (via `NODE_OPTIONS`). Every Python process loads `scripts/safe_tests/guards/python/sitecustomize.py` (via `PYTHONPATH`). Any connection, DNS lookup or UDP send to a host other than loopback fails like a dead network and is logged. Loopback stays open for local fixture servers.
 6. **CI network namespace.** In GitHub Actions the whole suite runs inside a network namespace whose only interface is loopback. It runs as the runner user with every supplementary group dropped (no Docker socket) and `no-new-privs`, so `sudo` cannot leave it. `--expect-no-network` fails the run if any other interface exists.
 7. **Proof before running.** Canary scripts try external targets that are harmless even if reached: `192.0.2.1` (TEST-NET-1, never routed) and `.invalid` names. They confirm the guards block them, loopback works, the command stubs exit 97 and no secret-looking variable is present. If any check fails, no test runs.
-8. **After the run.** The working tree must be unchanged, and each blocked network attempt is reported against the test that made it.
+8. **After the run.** The working tree must be byte-for-byte unchanged (see "Run it on a clean worktree"), and each blocked network attempt is reported against the test that made it.
 
-`tests/safe_tests_runner.test.mjs` exercises these promises on every run. It checks that a failing fixture turns the run red, a swallowed network call is caught, planted secrets never reach a Node or Python test, and every file a stock `node --test` or `pytest` would collect is classified.
+`tests/safe_tests_runner.test.mjs` exercises these promises on every run, inside throwaway git repos. It checks that:
+- a failing fixture turns the run red, and a swallowed network call is caught;
+- planted secrets never reach a Node or Python test;
+- every file a stock `node --test` or `pytest` would collect is classified;
+- a dirty worktree is refused, and with `--allow-dirty` a test that rewrites an already-dirty file is caught;
+- the tested SHA is checked against a real merge commit.
 
 ### What the guards do not stop (locally)
 

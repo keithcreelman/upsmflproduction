@@ -15,13 +15,23 @@ name: Safe offline tests
 #     docker socket) and no-new-privs set (sudo cannot regain root to leave the
 #     namespace). The runner refuses to start a test unless its own guards
 #     prove external connections are blocked.
-# pull_request (never pull_request_target): the job runs the PR's code with no
-# secrets and a read-only token, the safe combination for a public repo.
+#
+# Trigger: pull_request only (never pull_request_target, no manual dispatch):
+# the job runs the PR's code with no secrets and a read-only token, the safe
+# combination for a public repo. It runs when a PR is opened, gets a new push,
+# or is reopened. A PR that was already open when this workflow landed shows the
+# check only after its next push (or a close and reopen).
+#
+# What it tests: actions/checkout checks out GitHub's merge result
+# (refs/pull/N/merge = $GITHUB_SHA), i.e. the PR head merged into the base at
+# that moment -- not the PR head alone. The runner is told both SHAs, fails
+# before any test if the tested SHA is not the commit actually checked out or
+# if its second parent is not the PR head, and prints both in the summary.
+#
 # Actions are pinned to full commit SHAs (tag in the trailing comment).
 
 on:
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -49,12 +59,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Public packages from PyPI, before the network is cut. Same pins as
-      # nflverse-stats-refresh.yml; two nflverse fetcher tests import them.
+      # Public packages from PyPI, before the network is cut. Pinned in
+      # scripts/safe_tests/requirements.txt; the freeze is printed for the record.
       - name: Install Python test dependencies
-        run: pip install --quiet nflreadpy==0.1.5 pandas pyarrow
+        run: |
+          pip install --quiet -r scripts/safe_tests/requirements.txt
+          pip freeze
 
       - name: Run the safe offline suite (loopback-only network namespace)
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -eu
           NODE_BIN="$(command -v node)"
@@ -62,5 +76,5 @@ jobs:
             ip link set lo up
             exec setpriv --reuid="$1" --regid="$2" --clear-groups --no-new-privs -- \
               env -i PATH="$3" HOME="$4" GITHUB_ACTIONS=true GITHUB_STEP_SUMMARY="$5" LANG=C.UTF-8 \
-              "$6" scripts/safe_tests/run.mjs --expect-no-network
-          ' sh "$(id -u)" "$(id -g)" "$PATH" "$HOME" "$GITHUB_STEP_SUMMARY" "$NODE_BIN"
+              "$6" scripts/safe_tests/run.mjs --expect-no-network --tested-sha "$7" --pr-head "$8"
+          ' sh "$(id -u)" "$(id -g)" "$PATH" "$HOME" "$GITHUB_STEP_SUMMARY" "$NODE_BIN" "$GITHUB_SHA" "$PR_HEAD_SHA"

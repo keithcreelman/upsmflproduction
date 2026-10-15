@@ -19,9 +19,12 @@ Source → ingestion → validation → storage → API → UI. Why this design;
 - Base: `main` at `<sha>` on <date>. Overlapping PRs and worktrees checked:
 
 ## Tests and CI
-- Local: `node scripts/safe_tests/run.mjs` at `<sha>` → paste the summary line (passed / failed / excluded):
+- Local: `node scripts/safe_tests/run.mjs` on a clean worktree at `<sha>` → paste the summary line (passed / failed / excluded):
 - Targeted tests added or changed:
-- CI **Safe offline tests** on the exact head `<sha>`: link
+- CI **Safe offline tests**, copied from the run's "Tested" line. CI tests GitHub's merge result, not the head alone:
+  - PR head reviewed: `<sha>`
+  - merge result tested: `<sha>` (base `<sha>`; current `main` is `<sha>`, moved by _ commits, touching this PR's files: yes / no)
+  - run: link
 - D1: new or changed query → `rows_read` + `EXPLAIN QUERY PLAN`; or "none"
 
 ## Preview and proof
@@ -40,7 +43,7 @@ What was not tested and why (real Safari, authenticated MFL, production data, de
 - Rollback:
 
 ## Review record
-- Rounds used: _/2. Last reviewer verdict: CLEAN / CHANGES at `<sha>`
+- Rounds used: _/2. Last reviewer verdict: CLEAN / CHANGES at head `<sha>` (authenticated status comment: link)
 - Open material findings: none / MAT-…
 - Disputed (Keith decides): none / …
 - Minor findings for Keith's final review (not fixed): MIN-…
