@@ -1,0 +1,93 @@
+{
+  "discover": {
+    "node": [
+      "tests/*.test.mjs",
+      "tests/*_test.js"
+    ],
+    "python": [
+      "pipelines/**/test_*.py"
+    ]
+  },
+  "exclude": [
+    {
+      "path": "pipelines/etl/scripts/test_asof_leakage.py",
+      "category": "prod-read-opt-in",
+      "reason": "Reads production D1 via wrangler d1 execute --remote, but only with --allow-prod-d1 or UPS_ALLOW_PROD_D1_READS=1; the suite never opts in. Its offline twin test_asof_leakage_offline_default.py runs instead and proves a default run makes no D1 call.",
+      "issue": "#1239"
+    },
+    {
+      "path": "tests/worker_syntax_check.test.mjs",
+      "category": "needs-network",
+      "reason": "Section 1 downloads eslint@9 from the npm registry at run time (npx --yes). deploy-worker.yml already runs that eslint gate on worker changes; the offline node --check half could be split out later."
+    },
+    {
+      "path": "tests/deployed_clients_compat.mjs",
+      "category": "needs-unavailable-input",
+      "reason": "Old-client compatibility check that needs copies of the deployed site bundles fetched beforehand into DEPLOYED_DIR / HISTORICAL_DIR. Without them it prints SKIPPED and exits 0, which would look like a pass while testing nothing. It is not a *.test.mjs file, so discovery never reaches it; listed so it is named."
+    },
+    {
+      "path": "scripts/hall_test_summaries.sh",
+      "category": "send-capable",
+      "reason": "Despite the name it is not a test: it POSTs to the production worker (/admin/hall/test-summary) with COMMISH_API_KEY. Never discovered (not a test file pattern) and on the runner's never-run list; named here so nobody mistakes it for one."
+    },
+    {
+      "path": "scripts/smoke_test_operational.sh",
+      "category": "not-a-test",
+      "reason": "Manual local smoke script: starts the rulebook API on 127.0.0.1 and curls it. It first runs scripts/validate_release.sh, which fails on main today (44 absolute-path matches), so it is not part of the suite."
+    }
+  ],
+  "partial": [
+    {
+      "path": "pipelines/etl/scripts/test_check_roster_anomalies.py",
+      "argv": [
+        "--no-backtest"
+      ],
+      "category": "known-failing",
+      "reason": "Sections 1-5 (incident replay, unexplained variant, revert-in-window, false-positive control, no-fail-open) run. Section 6, the backtest over committed MFL snapshots, fails on main today: 30 of 174 snapshot days flag a drop (17.2%, ceiling 10%), mostly in-season September-October days. That is a data finding about the nightly roster check, not a code regression; it needs its own review before it can gate PRs."
+    }
+  ],
+  "known_network_attempts": [
+    {
+      "path": "tests/leaderboard_paging.test.mjs",
+      "targets": [
+        "https://www48.myfantasyleague.com/",
+        "https://api.myfantasyleague.com/"
+      ],
+      "reason": "The worker route under test also calls MFL's export API through the global fetch, which this test does not stub; the route degrades when that read fails and the assertions do not depend on it. Outside the suite this test makes a real MFL production read, so the guard blocks it every run. Fix: stub fetch in the test."
+    },
+    {
+      "path": "tests/players_data_paths.test.mjs",
+      "targets": [
+        "https://www48.myfantasyleague.com/",
+        "https://api.myfantasyleague.com/"
+      ],
+      "reason": "The worker route under test also calls MFL's export API through the global fetch, which this test does not stub; the route degrades when that read fails and the assertions do not depend on it. Outside the suite this test makes a real MFL production read, so the guard blocks it every run. Fix: stub fetch in the test."
+    }
+  ],
+  "tripwire_reviewed": [
+    {
+      "path": "pipelines/etl/scripts/test_roast_bot_fire_ab_safety.py",
+      "reason": "Safety test: it blocks sockets and subprocess itself, removes real tokens and sets a FAKE ANTHROPIC_API_KEY so it can prove the A/B script refuses to send."
+    },
+    {
+      "path": "pipelines/etl/wire/test_ups_center_auto.py",
+      "reason": "The match is a regex inside an assertion that the UPS Center checker has no wrangler deploy / write path; the test never runs wrangler."
+    },
+    {
+      "path": "tests/leaderboard_precompute.test.mjs",
+      "reason": "The match is an assertion that the migration file WARNS against `wrangler d1 migrations apply`; the test only reads the SQL file."
+    },
+    {
+      "path": "tests/safe_tests_runner.test.mjs",
+      "reason": "The runner's own test: the matches are string literals fed to tripwireText() to prove the tripwire fires, and planted fake variable names proving secrets never reach a test. It executes only fixtures under tests/fixtures/safe_tests/."
+    }
+  ],
+  "env": {},
+  "serial": [],
+  "timeouts_seconds": {
+    "tests/mobile_players_controls.test.mjs": {
+      "seconds": 480,
+      "reason": "CPU-bound: about 55s on a laptop but 156s on the shared 4-core GitHub runner (first CI run, 2026-10-15), too close to the 180s default."
+    }
+  }
+}

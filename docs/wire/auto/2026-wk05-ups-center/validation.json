@@ -1,0 +1,52 @@
+{
+ "ok": true,
+ "publishable": false,
+ "errors": [],
+ "warnings": [
+  "unchecked claim kind box:Drake Maye",
+  "unchecked claim kind box:Puka Nacua",
+  "unchecked claim kind usage:Omarion Hampton",
+  "unchecked claim kind usage:Amon-Ra St. Brown",
+  "unchecked claim kind usage:George Kittle",
+  "unchecked claim kind usage:Jaylen Waddle",
+  "unchecked claim kind usage:RJ Harvey",
+  "unchecked claim kind usage:Mike Evans",
+  "unchecked claim kind usage:Matthew Stafford",
+  "unchecked claim kind usage:Puka Nacua",
+  "unchecked claim kind usage:Jahmyr Gibbs",
+  "unchecked claim kind usage:Jacoby Brissett"
+ ],
+ "checkedClaims": {
+  "score": 12,
+  "margin": 18,
+  "pts": 22,
+  "box": 2,
+  "fact": 8,
+  "proj": 20,
+  "diff": 20,
+  "usage": 10,
+  "count": 3,
+  "rec": 12,
+  "ap": 12,
+  "pf": 12,
+  "wkap": 12,
+  "posts": 13
+ },
+ "gaps": [
+  {
+   "id": "landscape:preview-audit",
+   "section": "landscape",
+   "why": "No preview was published for Week 5, so there is nothing to grade."
+  },
+  {
+   "id": "coffee:kenny",
+   "section": "coffee",
+   "why": "Kenny Mayne&rsquo;s lines are an editor&rsquo;s job: choose from the verbatim candidates and follow the owner dossier. 0 message(s) ruled out by an editor or touching family, health or similar were withheld and must not be used. 76 candidate line(s) are listed, verbatim and linked, in the local review copy only (raw chat stays off the public repo)."
+  },
+  {
+   "id": "elias:not-posted",
+   "section": "elias",
+   "why": "Elias has not posted official Week 5 changes yet. The Thursday and Friday runs re-check and will update this draft."
+  }
+ ]
+}

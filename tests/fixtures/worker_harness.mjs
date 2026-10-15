@@ -34,6 +34,9 @@ export function makeWorkerEnv(over) {
     DISCORD_BOT_TOKEN: "test-token", TRADE_3WAY_ENABLED: "1",
     // the extension-eligibility clock: a mid-August instant, i.e. inside the standard window (before the 2026-09-06 contract deadline)
     TWR_TEST_NOW_MS: String(Date.parse("2026-08-20T16:00:00Z")),
+    // #1237: the worker no longer falls back to the calendar year for a write that names no season; it reads the
+    // ACTIVE season from MFL (league_year.js), which this harness's MFL doesn't model. Pin it (the operator pin, env.YEAR).
+    YEAR: "2026",
     ...(over || {}),
   };
 }

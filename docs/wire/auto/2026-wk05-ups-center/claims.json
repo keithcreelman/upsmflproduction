@@ -1,0 +1,962 @@
+{
+ "ap:0001": {
+  "shown": "20&ndash;35",
+  "source": "MFL leagueStandings",
+  "value": "20-35"
+ },
+ "ap:0002": {
+  "shown": "32&ndash;23",
+  "source": "MFL leagueStandings",
+  "value": "32-23"
+ },
+ "ap:0003": {
+  "shown": "16&ndash;39",
+  "source": "MFL leagueStandings",
+  "value": "16-39"
+ },
+ "ap:0004": {
+  "shown": "31&ndash;24",
+  "source": "MFL leagueStandings",
+  "value": "31-24"
+ },
+ "ap:0005": {
+  "shown": "37&ndash;18",
+  "source": "MFL leagueStandings",
+  "value": "37-18"
+ },
+ "ap:0006": {
+  "shown": "14&ndash;41",
+  "source": "MFL leagueStandings",
+  "value": "14-41"
+ },
+ "ap:0007": {
+  "shown": "11&ndash;44",
+  "source": "MFL leagueStandings",
+  "value": "11-44"
+ },
+ "ap:0008": {
+  "shown": "32&ndash;23",
+  "source": "MFL leagueStandings",
+  "value": "32-23"
+ },
+ "ap:0009": {
+  "shown": "45&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "45-10"
+ },
+ "ap:0010": {
+  "shown": "40&ndash;15",
+  "source": "MFL leagueStandings",
+  "value": "40-15"
+ },
+ "ap:0011": {
+  "shown": "23&ndash;32",
+  "source": "MFL leagueStandings",
+  "value": "23-32"
+ },
+ "ap:0012": {
+  "shown": "29&ndash;26",
+  "source": "MFL leagueStandings",
+  "value": "29-26"
+ },
+ "box:Drake Maye": {
+  "shown": "26-of-34 for 374, 4 TD; 7 carries for 25 and 1 TD",
+  "source": "pack playcard (nflverse box score)",
+  "value": "26-of-34 for 374, 4 TD; 7 carries for 25 and 1 TD"
+ },
+ "box:Puka Nacua": {
+  "shown": "2 carries for 9; 17 catches on 24 targets for 138 and 1 TD",
+  "source": "pack playcard (nflverse box score)",
+  "value": "2 carries for 9; 17 catches on 24 targets for 138 and 1 TD"
+ },
+ "count:candidates": {
+  "shown": "76",
+  "source": "D1 ups_discord_messages window (usable lines)",
+  "value": 76
+ },
+ "count:graded": {
+  "shown": "65",
+  "source": "D1 evidence (starters graded)",
+  "value": 65
+ },
+ "count:ungraded": {
+  "shown": "124",
+  "source": "D1 evidence (starters not graded)",
+  "value": 124
+ },
+ "diff:11671": {
+  "shown": "+22.2",
+  "source": "pack t.bb.off.bargain",
+  "value": "+22.2"
+ },
+ "diff:11721": {
+  "shown": "-4.4",
+  "source": "pack t.bb.idp.bust",
+  "value": "-4.4"
+ },
+ "diff:12225": {
+  "shown": "-3.8",
+  "source": "pack t.bb.idp.bust",
+  "value": "-3.8"
+ },
+ "diff:12616": {
+  "shown": "+17.2",
+  "source": "pack t.bb.off.bargain",
+  "value": "+17.2"
+ },
+ "diff:13251": {
+  "shown": "+6.8",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+6.8"
+ },
+ "diff:13299": {
+  "shown": "-7.8",
+  "source": "pack t.bb.off.bust",
+  "value": "-7.8"
+ },
+ "diff:14910": {
+  "shown": "+5.3",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+5.3"
+ },
+ "diff:15284": {
+  "shown": "-7.7",
+  "source": "pack t.bb.off.bust",
+  "value": "-7.7"
+ },
+ "diff:15287": {
+  "shown": "-8.7",
+  "source": "pack t.bb.off.bust",
+  "value": "-8.7"
+ },
+ "diff:15346": {
+  "shown": "-3.7",
+  "source": "pack t.bb.idp.bust",
+  "value": "-3.7"
+ },
+ "diff:15805": {
+  "shown": "-3.9",
+  "source": "pack t.bb.idp.bust",
+  "value": "-3.9"
+ },
+ "diff:15861": {
+  "shown": "+10.3",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+10.3"
+ },
+ "diff:16013": {
+  "shown": "+8.5",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+8.5"
+ },
+ "diff:16162": {
+  "shown": "+20.3",
+  "source": "pack t.bb.off.bargain",
+  "value": "+20.3"
+ },
+ "diff:16211": {
+  "shown": "+21.3",
+  "source": "pack t.bb.off.bargain",
+  "value": "+21.3"
+ },
+ "diff:16457": {
+  "shown": "-8.1",
+  "source": "pack t.bb.idp.bust",
+  "value": "-8.1"
+ },
+ "diff:17044": {
+  "shown": "-8.9",
+  "source": "pack t.bb.off.bust",
+  "value": "-8.9"
+ },
+ "diff:17068": {
+  "shown": "-7.2",
+  "source": "pack t.bb.off.bust",
+  "value": "-7.2"
+ },
+ "diff:17132": {
+  "shown": "+7.6",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+7.6"
+ },
+ "diff:9431": {
+  "shown": "+21.9",
+  "source": "pack t.bb.off.bargain",
+  "value": "+21.9"
+ },
+ "fact:f.team.0002.best_available": {
+  "shown": "232.8",
+  "source": "pack f.team.0002.best_available",
+  "value": 232.8
+ },
+ "fact:f.team.0003.best_available": {
+  "shown": "188.4",
+  "source": "pack f.team.0003.best_available",
+  "value": 188.4
+ },
+ "fact:f.team.0004.best_available": {
+  "shown": "315.9",
+  "source": "pack f.team.0004.best_available",
+  "value": 315.9
+ },
+ "fact:f.team.0005.best_available": {
+  "shown": "225.3",
+  "source": "pack f.team.0005.best_available",
+  "value": 225.3
+ },
+ "fact:f.team.0007.best_available": {
+  "shown": "214.7",
+  "source": "pack f.team.0007.best_available",
+  "value": 214.7
+ },
+ "fact:f.team.0010.best_available": {
+  "shown": "280.6",
+  "source": "pack f.team.0010.best_available",
+  "value": 280.6
+ },
+ "fact:f.team.0011.best_available": {
+  "shown": "196.2",
+  "source": "pack f.team.0011.best_available",
+  "value": 196.2
+ },
+ "fact:f.team.0012.best_available": {
+  "shown": "243.1",
+  "source": "pack f.team.0012.best_available",
+  "value": 243.1
+ },
+ "margin:0001:0002": {
+  "shown": "17.4",
+  "source": "MFL weeklyResults W5",
+  "value": 17.4
+ },
+ "margin:0001:0003": {
+  "shown": "67.7",
+  "source": "MFL weeklyResults W5",
+  "value": 67.7
+ },
+ "margin:0002:0007": {
+  "shown": "40.4",
+  "source": "MFL weeklyResults W5",
+  "value": 40.4
+ },
+ "margin:0004:0011": {
+  "shown": "100.5",
+  "source": "MFL weeklyResults W5",
+  "value": 100.5
+ },
+ "margin:0004:0012": {
+  "shown": "68.1",
+  "source": "MFL weeklyResults W5",
+  "value": 68.1
+ },
+ "margin:0005:0011": {
+  "shown": "22.8",
+  "source": "MFL weeklyResults W5",
+  "value": 22.8
+ },
+ "margin:0006:0011": {
+  "shown": "56.0",
+  "source": "MFL weeklyResults W5",
+  "value": 56.0
+ },
+ "margin:0006:0012": {
+  "shown": "23.6",
+  "source": "MFL weeklyResults W5",
+  "value": 23.6
+ },
+ "margin:0007:0003": {
+  "shown": "9.9",
+  "source": "MFL weeklyResults W5",
+  "value": 9.9
+ },
+ "margin:0008:0002": {
+  "shown": "60.1",
+  "source": "MFL weeklyResults W5",
+  "value": 60.1
+ },
+ "margin:0008:0003": {
+  "shown": "110.4",
+  "source": "MFL weeklyResults W5",
+  "value": 110.4
+ },
+ "margin:0008:0010": {
+  "shown": "10.0",
+  "source": "MFL weeklyResults W5",
+  "value": 10.0
+ },
+ "margin:0009:0004": {
+  "shown": "11.6",
+  "source": "MFL weeklyResults W5",
+  "value": 11.6
+ },
+ "margin:0009:0005": {
+  "shown": "89.3",
+  "source": "MFL weeklyResults W5",
+  "value": 89.3
+ },
+ "margin:0009:0006": {
+  "shown": "56.1",
+  "source": "MFL weeklyResults W5",
+  "value": 56.1
+ },
+ "margin:0010:0001": {
+  "shown": "32.7",
+  "source": "MFL weeklyResults W5",
+  "value": 32.7
+ },
+ "margin:0010:0007": {
+  "shown": "90.5",
+  "source": "MFL weeklyResults W5",
+  "value": 90.5
+ },
+ "margin:0012:0005": {
+  "shown": "9.6",
+  "source": "MFL weeklyResults W5",
+  "value": 9.6
+ },
+ "pf:0001": {
+  "shown": "997.7",
+  "source": "MFL leagueStandings",
+  "value": 997.7
+ },
+ "pf:0002": {
+  "shown": "1,106.2",
+  "source": "MFL leagueStandings",
+  "value": 1106.2
+ },
+ "pf:0003": {
+  "shown": "961.9",
+  "source": "MFL leagueStandings",
+  "value": 961.9
+ },
+ "pf:0004": {
+  "shown": "1,151.0",
+  "source": "MFL leagueStandings",
+  "value": 1151.0
+ },
+ "pf:0005": {
+  "shown": "1,187.2",
+  "source": "MFL leagueStandings",
+  "value": 1187.2
+ },
+ "pf:0006": {
+  "shown": "1,008.5",
+  "source": "MFL leagueStandings",
+  "value": 1008.5
+ },
+ "pf:0007": {
+  "shown": "931.2",
+  "source": "MFL leagueStandings",
+  "value": 931.2
+ },
+ "pf:0008": {
+  "shown": "1,144.8",
+  "source": "MFL leagueStandings",
+  "value": 1144.8
+ },
+ "pf:0009": {
+  "shown": "1,296.8",
+  "source": "MFL leagueStandings",
+  "value": 1296.8
+ },
+ "pf:0010": {
+  "shown": "1,242.5",
+  "source": "MFL leagueStandings",
+  "value": 1242.5
+ },
+ "pf:0011": {
+  "shown": "1,046.9",
+  "source": "MFL leagueStandings",
+  "value": 1046.9
+ },
+ "pf:0012": {
+  "shown": "1,041.0",
+  "source": "MFL leagueStandings",
+  "value": 1041.0
+ },
+ "posts:Bear Dunn": {
+  "shown": "5",
+  "source": "D1 ups_discord_messages window",
+  "value": 5
+ },
+ "posts:Brian Cross": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Brian Cutting": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Chris Klingenberg": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Derrick Whitman": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Eric Mannila": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Eric Martel": {
+  "shown": "15",
+  "source": "D1 ups_discord_messages window",
+  "value": 15
+ },
+ "posts:Josh Martel": {
+  "shown": "19",
+  "source": "D1 ups_discord_messages window",
+  "value": 19
+ },
+ "posts:Keith Creelman": {
+  "shown": "25",
+  "source": "D1 ups_discord_messages window",
+  "value": 25
+ },
+ "posts:Matt Gerardi": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Ryan Bousquet": {
+  "shown": "9",
+  "source": "D1 ups_discord_messages window",
+  "value": 9
+ },
+ "posts:Shawn Blake": {
+  "shown": "28",
+  "source": "D1 ups_discord_messages window",
+  "value": 28
+ },
+ "posts:total": {
+  "shown": "101",
+  "source": "D1 ups_discord_messages window",
+  "value": 101
+ },
+ "proj:11671": {
+  "shown": "7.3",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 7.3
+  }
+ },
+ "proj:11721": {
+  "shown": "4.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791749100,
+   "value": 4.9
+  }
+ },
+ "proj:12225": {
+  "shown": "4.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 4.8
+  }
+ },
+ "proj:12616": {
+  "shown": "15.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 15.1
+  }
+ },
+ "proj:13251": {
+  "shown": "10.0",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 10.0
+  }
+ },
+ "proj:13299": {
+  "shown": "17.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 17.9
+  }
+ },
+ "proj:14910": {
+  "shown": "9.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791749100,
+   "value": 9.9
+  }
+ },
+ "proj:15284": {
+  "shown": "12.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791749100,
+   "value": 12.7
+  }
+ },
+ "proj:15287": {
+  "shown": "24.2",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 24.2
+  }
+ },
+ "proj:15346": {
+  "shown": "6.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791850500,
+   "value": 6.7
+  }
+ },
+ "proj:15805": {
+  "shown": "7.4",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 7.4
+  }
+ },
+ "proj:15861": {
+  "shown": "6.2",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791749100,
+   "value": 6.2
+  }
+ },
+ "proj:16013": {
+  "shown": "7.0",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791850500,
+   "value": 7.0
+  }
+ },
+ "proj:16162": {
+  "shown": "20.6",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 20.6
+  }
+ },
+ "proj:16211": {
+  "shown": "20.4",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791850500,
+   "value": 20.4
+  }
+ },
+ "proj:16457": {
+  "shown": "8.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791750300,
+   "value": 8.9
+  }
+ },
+ "proj:17044": {
+  "shown": "13.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791749100,
+   "value": 13.8
+  }
+ },
+ "proj:17068": {
+  "shown": "8.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791749100,
+   "value": 8.1
+  }
+ },
+ "proj:17132": {
+  "shown": "6.4",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791764400,
+   "value": 6.4
+  }
+ },
+ "proj:9431": {
+  "shown": "17.4",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1791746311,
+   "kickoff": 1791850500,
+   "value": 17.4
+  }
+ },
+ "pts:Aidan Hutchinson": {
+  "shown": "3.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 3.5
+ },
+ "pts:Amon-Ra St. Brown": {
+  "shown": "15.5",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 15.5
+ },
+ "pts:Brandon Jones": {
+  "shown": "15.2",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 15.2
+ },
+ "pts:Budda Baker": {
+  "shown": "16.8",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 16.8
+ },
+ "pts:Christian Izien": {
+  "shown": "0.8",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 0.8
+ },
+ "pts:Drake Maye": {
+  "shown": "51.8",
+  "source": "pack playcard (src_weekly)",
+  "value": 51.8
+ },
+ "pts:George Kittle": {
+  "shown": "10.1",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 10.1
+ },
+ "pts:Gregory Rousseau": {
+  "shown": "3.0",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 3.0
+ },
+ "pts:Jacoby Brissett": {
+  "shown": "32.3",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 32.3
+ },
+ "pts:Jahmyr Gibbs": {
+  "shown": "40.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 40.9
+ },
+ "pts:Jaylen Waddle": {
+  "shown": "5.0",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 5.0
+ },
+ "pts:Jaylen Warren": {
+  "shown": "39.6",
+  "source": "pack t.performers (src_weekly)",
+  "value": 39.6
+ },
+ "pts:Khalil Mack": {
+  "shown": "0.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 0.5
+ },
+ "pts:Leonard Williams": {
+  "shown": "1.0",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 1.0
+ },
+ "pts:Malaki Starks": {
+  "shown": "14.0",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 14.0
+ },
+ "pts:Matthew Stafford": {
+  "shown": "39.3",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 39.3
+ },
+ "pts:Mike Evans": {
+  "shown": "29.5",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 29.5
+ },
+ "pts:Nate Landman": {
+  "shown": "15.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 15.5
+ },
+ "pts:Nik Bonitto": {
+  "shown": "16.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 16.5
+ },
+ "pts:Omarion Hampton": {
+  "shown": "4.9",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 4.9
+ },
+ "pts:Puka Nacua": {
+  "shown": "41.7",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 41.7
+ },
+ "pts:RJ Harvey": {
+  "shown": "0.9",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 0.9
+ },
+ "rec:0001": {
+  "shown": "6&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "6-7"
+ },
+ "rec:0002": {
+  "shown": "7&ndash;6",
+  "source": "MFL leagueStandings",
+  "value": "7-6"
+ },
+ "rec:0003": {
+  "shown": "3&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "3-10"
+ },
+ "rec:0004": {
+  "shown": "6&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "6-7"
+ },
+ "rec:0005": {
+  "shown": "9&ndash;4",
+  "source": "MFL leagueStandings",
+  "value": "9-4"
+ },
+ "rec:0006": {
+  "shown": "3&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "3-10"
+ },
+ "rec:0007": {
+  "shown": "3&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "3-10"
+ },
+ "rec:0008": {
+  "shown": "9&ndash;4",
+  "source": "MFL leagueStandings",
+  "value": "9-4"
+ },
+ "rec:0009": {
+  "shown": "11&ndash;2",
+  "source": "MFL leagueStandings",
+  "value": "11-2"
+ },
+ "rec:0010": {
+  "shown": "9&ndash;4",
+  "source": "MFL leagueStandings",
+  "value": "9-4"
+ },
+ "rec:0011": {
+  "shown": "6&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "6-7"
+ },
+ "rec:0012": {
+  "shown": "6&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "6-7"
+ },
+ "score:0001": {
+  "shown": "228.8",
+  "source": "MFL weeklyResults W5",
+  "value": 228.8
+ },
+ "score:0002": {
+  "shown": "211.4",
+  "source": "MFL weeklyResults W5",
+  "value": 211.4
+ },
+ "score:0003": {
+  "shown": "161.1",
+  "source": "MFL weeklyResults W5",
+  "value": 161.1
+ },
+ "score:0004": {
+  "shown": "268.4",
+  "source": "MFL weeklyResults W5",
+  "value": 268.4
+ },
+ "score:0005": {
+  "shown": "190.7",
+  "source": "MFL weeklyResults W5",
+  "value": 190.7
+ },
+ "score:0006": {
+  "shown": "223.9",
+  "source": "MFL weeklyResults W5",
+  "value": 223.9
+ },
+ "score:0007": {
+  "shown": "171.0",
+  "source": "MFL weeklyResults W5",
+  "value": 171.0
+ },
+ "score:0008": {
+  "shown": "271.5",
+  "source": "MFL weeklyResults W5",
+  "value": 271.5
+ },
+ "score:0009": {
+  "shown": "280.0",
+  "source": "MFL weeklyResults W5",
+  "value": 280.0
+ },
+ "score:0010": {
+  "shown": "261.5",
+  "source": "MFL weeklyResults W5",
+  "value": 261.5
+ },
+ "score:0011": {
+  "shown": "167.9",
+  "source": "MFL weeklyResults W5",
+  "value": 167.9
+ },
+ "score:0012": {
+  "shown": "200.3",
+  "source": "MFL weeklyResults W5",
+  "value": 200.3
+ },
+ "usage:Amon-Ra St. Brown": {
+  "shown": "11 targets, 92 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "11 targets, 92 air yards"
+ },
+ "usage:George Kittle": {
+  "shown": "6 targets, 29 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "6 targets, 29 air yards"
+ },
+ "usage:Jacoby Brissett": {
+  "shown": "47 passes, 477 air yards, 2 carries, 1 target",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "47 passes, 477 air yards, 2 carries, 1 target"
+ },
+ "usage:Jahmyr Gibbs": {
+  "shown": "25 carries, 6 targets",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "25 carries, 6 targets"
+ },
+ "usage:Jaylen Waddle": {
+  "shown": "5 targets, 23 air yards, 1 carry",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "5 targets, 23 air yards, 1 carry"
+ },
+ "usage:Matthew Stafford": {
+  "shown": "54 passes, 346 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "54 passes, 346 air yards"
+ },
+ "usage:Mike Evans": {
+  "shown": "10 targets, 157 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "10 targets, 157 air yards"
+ },
+ "usage:Omarion Hampton": {
+  "shown": "14 carries, 1 target",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "14 carries, 1 target"
+ },
+ "usage:Puka Nacua": {
+  "shown": "24 targets, 184 air yards, 2 carries",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "24 targets, 184 air yards, 2 carries"
+ },
+ "usage:RJ Harvey": {
+  "shown": "3 carries, 1 target",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "3 carries, 1 target"
+ },
+ "wkap:0001": {
+  "shown": "7&ndash;4",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "7-4"
+ },
+ "wkap:0002": {
+  "shown": "5&ndash;6",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "5-6"
+ },
+ "wkap:0003": {
+  "shown": "0&ndash;11",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "0-11"
+ },
+ "wkap:0004": {
+  "shown": "9&ndash;2",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "9-2"
+ },
+ "wkap:0005": {
+  "shown": "3&ndash;8",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "3-8"
+ },
+ "wkap:0006": {
+  "shown": "6&ndash;5",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "6-5"
+ },
+ "wkap:0007": {
+  "shown": "2&ndash;9",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "2-9"
+ },
+ "wkap:0008": {
+  "shown": "10&ndash;1",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "10-1"
+ },
+ "wkap:0009": {
+  "shown": "11&ndash;0",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "11-0"
+ },
+ "wkap:0010": {
+  "shown": "8&ndash;3",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "8-3"
+ },
+ "wkap:0011": {
+  "shown": "1&ndash;10",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "1-10"
+ },
+ "wkap:0012": {
+  "shown": "4&ndash;7",
+  "source": "MFL weeklyResults W5 (all-play)",
+  "value": "4-7"
+ }
+}

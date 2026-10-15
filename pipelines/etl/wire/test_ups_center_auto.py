@@ -42,7 +42,8 @@ def build(ctx=None, pack=None, local=True):
 print("1. Week 4 renders in the real UPS Center format and validates against its sources")
 res, rep, _ = build()
 ids = re.findall(r'<section class="wire-sec" id="([^"]+)"', res["html"])
-check("eight segments in show order", ids == ["open", "boomer", "desk", "plays", "bb", "landscape", "coffee", "elias"], ids)
+check("eleven segments in show order (Playoff Picture, Heat Check and Survival Line follow the landscape)",
+      ids == ["open", "boomer", "desk", "plays", "bb", "landscape", "odds", "heat", "survival", "coffee", "elias"], ids)
 check(".uc show markup: desk cards, game deck with one page per division, play cards, bust/bargain lists",
       all(x in res["html"] for x in ('class="wire-wrap uc"', 'class="lt stuart"', 'class="lt boomer"',
                                      'data-wire-gamedeck', 'class="play"', 'class="bbl"'))
@@ -358,6 +359,425 @@ finally:
 check("a crash becomes a FAILED status with a plain reason, and alerts past the deadline (never silent)",
       cst["status"] == "failed" and "FileNotFoundError" in cst["reasons"][0] and cst.get("alert")
       and "Nothing was published or posted" in cst["alert"]["text"], cst)
+
+print("11. Builder A: the job runs the forecast; odds are shown fresh or blocked, never silently missing")
+import datetime as _dt
+import season_sim as SS                      # noqa: E402
+_iso = lambda ts: _dt.datetime.fromtimestamp(ts, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+_REAL = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "data", "season_sim_2026_live_wk05.json")))
+_REALQ = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "data", "week_preview_2026_wk06.json")))
+_TOTALS = {f: {"cells": len(sc["cells"]), **{k: sum(c[k] for c in sc["cells"]) for k in ("runs", "playoff", "division", "bye")}}
+           for f, sc in _REALQ["weekScenarios"].items()}
+FINAL = CTX["timing"]["finalAt"]
+
+
+def forecast(through=4, gen=None, prev=True, prev_through=4, prev_inputs=None):
+    """SYNTHETIC test forecast: the real Week 5 file's team odds, relabelled to cover the fixture's Week 4."""
+    f = {"simFile": "season_sim_2026_live_wk04.json", "previewFile": "week_preview_2026_wk05.json",
+         "sim": {"throughWeek": through, "runs": 10000, "seed": 20260911, "generatedAtUtc": _iso(gen or FINAL + 3600),
+                 "teams": {r["franchiseId"]: {"po": r["currentPlayoffOdds"], "bye": r["currentByeOdds"],
+                                              "div": r["currentDivisionOdds"], "title": r["currentTitleOdds"],
+                                              "division": r["division"]} for r in _REAL["teams"]}},
+         "preview": None}
+    if prev:
+        f["preview"] = {"week": prev_through + 1, "throughWeek": prev_through, "runs": 10000, "seed": 20260911,
+                        "generatedAtUtc": _iso(FINAL + 3600), "inputsAtUtc": _iso(prev_inputs or FINAL + 3000),
+                        "scenarioTotals": copy.deepcopy(_TOTALS)}
+    return f
+
+
+def with_fc(fc):
+    c = copy.deepcopy(CTX)
+    c["forecast"] = fc
+    return c
+
+
+r0, v0, _ = build()
+check("no forecast at all -> a Playoff Picture blocker (odds:missing) and the draft is not publishable",
+      {"odds:missing", "odds:preview-missing"} <= {g["id"] for g in r0["gaps"]} and v0["ok"] and not v0["publishable"]
+      and 'data-editor-gap="odds:missing"' in r0["html"], [g["id"] for g in r0["gaps"]])
+r1, v1, c1 = build(with_fc(forecast()))
+odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
+check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
+      v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 49, (v1["errors"], len(odds_claims)))
+by_div = {}
+for f_, row in c1["forecast"]["sim"]["teams"].items():
+    by_div.setdefault(row["division"], []).append(r1["claims"]["odds:div:" + f_]["value"])
+check("each division's printed odds total exactly 100.0, and title odds total 100.0 across the league",
+      all(abs(sum(v) - 100.0) < 1e-9 for v in by_div.values())
+      and abs(sum(x["value"] for k, x in r1["claims"].items() if k.startswith("odds:title:")) - 100.0) < 1e-9, by_div)
+r2, v2, _ = build(with_fc(forecast(through=3)))
+check("a forecast through the wrong week is a blocker (odds:stale), never shown as current",
+      any(g["id"] == "odds:stale" for g in r2["gaps"]) and not any(k.startswith("odds:po:") for k in r2["claims"]) and v2["ok"])
+r3, v3, _ = build(with_fc(forecast(gen=FINAL - 600)))
+check("a forecast run before the week went final is a blocker (odds:stale)", any(g["id"] == "odds:stale" for g in r3["gaps"]))
+r4, v4, _ = build(with_fc(forecast(prev_inputs=FINAL - 600)))
+check("a stale next-week preview is flagged on its own (odds:preview-stale) while current odds still show",
+      any(g["id"] == "odds:preview-stale" for g in r4["gaps"]) and any(k.startswith("odds:po:") for k in r4["claims"]) and v4["ok"])
+bad_claims = copy.deepcopy(r1["claims"])
+k0 = sorted(k for k in bad_claims if k.startswith("odds:po:"))[0]
+bad_claims[k0]["value"] = round(bad_claims[k0]["value"] + 0.1, 1)
+check("an odds number that disagrees with the forecast file fails validation",
+      any(k0 in x for x in VAL.validate(dict(r1, claims=bad_claims), c1, copy.deepcopy(PACK))["errors"]))
+gone = dict(r1, claims={k: x for k, x in r1["claims"].items() if not k.startswith("odds:")},
+            html=re.sub(r'<section class="wire-sec" id="odds"[\s\S]*?</section>', "", r1["html"]))
+check("a draft with neither odds nor an odds blocker fails (the Playoff Picture cannot silently disappear)",
+      any("silently disappear" in x for x in VAL.validate(gone, c1, copy.deepcopy(PACK))["errors"]))
+calls = []
+real_sh, real_state = AUTO.sh, AUTO.STATE_DIR
+wd = tempfile.mkdtemp()
+os.makedirs(os.path.join(wd, "site", "wire", "data"))
+AUTO.STATE_DIR = tempfile.mkdtemp()
+
+
+def fake_sh(cmd, cwd=None, check=False, env=None):
+    calls.append(cmd)
+    if "--out" in cmd:
+        open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w").write("{}")
+    return 0, ""
+
+
+AUTO.sh = fake_sh
+try:
+    why = AUTO.run_forecast(2026, 6, wd, log=lambda *a: None)
+    first = [c[1].split("/")[-1] for c in calls]
+    sim_cmd, prev_cmd = calls[0], calls[1]
+    calls.clear()
+    why2 = AUTO.run_forecast(2026, 6, wd, log=lambda *a: None)
+    calls.clear()
+    why3 = AUTO.run_forecast(2026, 14, wd, log=lambda *a: None)
+finally:
+    AUTO.sh, AUTO.STATE_DIR = real_sh, real_state
+check("the job runs season_sim --through-week 6, then week_preview --week 7 from the SAME cached inputs",
+      first == ["season_sim.py", "week_preview.py"] and not why
+      and sim_cmd[sim_cmd.index("--through-week") + 1] == "6" and prev_cmd[prev_cmd.index("--week") + 1] == "7"
+      and "--reuse-cache" in prev_cmd and sim_cmd[sim_cmd.index("--cache-dir") + 1] == prev_cmd[prev_cmd.index("--live-cache") + 1]
+      and sim_cmd[sim_cmd.index("--runs") + 1] == prev_cmd[prev_cmd.index("--runs") + 1] == "10000", calls)
+check("a rerun keeps the existing forecast files (both scripts refuse to overwrite; nothing re-run)", not why2)
+check("after the last regular-season week there is no next week to preview", not why3)
+
+print("11b. Builder A merge gates (Keith 2026-10-14): inconsistent odds block visibly; replay publishes nothing")
+check("the recorded Week 5 forecast is internally consistent: scenario cells sum to the playoff, division and bye counts",
+      not ISSUE.Issue(copy.deepcopy(PACK), with_fc(forecast())).forecast_inconsistencies()
+      and not VAL.forecast_inconsistent(with_fc(forecast()), 4))
+
+
+def broken(mutate):
+    fc = forecast()
+    mutate(fc)
+    r, v, c = build(with_fc(fc))
+    gap = [g for g in r["gaps"] if g["id"] == "odds:inconsistent"]
+    return gap, r, v, c
+
+
+def _bump_div(fc):
+    fc["sim"]["teams"]["0009"]["div"] = round(fc["sim"]["teams"]["0009"]["div"] - 0.0100, 4)
+
+
+def _bye_over_div(fc):
+    t = fc["sim"]["teams"]["0002"]
+    t["bye"] = round(t["div"] + 0.05, 4)
+
+
+def _cells_off(fc):
+    fc["preview"]["scenarioTotals"]["0012"]["playoff"] += 1
+
+
+def _other_seasons(fc):
+    fc["preview"]["seed"] = 1
+
+
+def _field(fc):
+    for t in fc["sim"]["teams"].values():
+        t["po"] = round(min(1.0, t["po"] * 1.05), 4)
+
+
+for label, mut in (("a division whose title odds do not total 100%", _bump_div),
+                   ("a team with better bye odds than division odds (byes go only to division winners)", _bye_over_div),
+                   ("Week N+1 scenario cells that do not sum to the forecast's playoff count", _cells_off),
+                   ("scenarios simulated from different seasons than the odds", _other_seasons),
+                   ("playoff odds that do not total the six-team field", _field)):
+    gap, r, v, c = broken(mut)
+    check("BLOCKED, visibly: " + label + " -> odds:inconsistent box, no odds printed, not publishable",
+          gap and 'data-editor-gap="odds:inconsistent"' in r["html"] and not any(k.startswith("odds:po:") for k in r["claims"])
+          and v["ok"] and not v["publishable"] and not re.search(r"\d", gap[0]["why"].split("Week")[0]),
+          ([g["id"] for g in r["gaps"]], v["errors"]))
+fc_bad = forecast()
+_cells_off(fc_bad)
+check("the validator recomputes consistency on its own: odds printed beside mismatched scenario cells fail",
+      any("inconsistent forecast" in x for x in VAL.validate(r1, with_fc(fc_bad), copy.deepcopy(PACK))["errors"]))
+nosrc = copy.deepcopy(r1["claims"])
+nosrc[sorted(nosrc)[0]]["source"] = ""
+check("every printed number must carry a source: a claim with an empty source fails",
+      any("no source" in x for x in VAL.validate(dict(r1, claims=nosrc), c1, copy.deepcopy(PACK))["errors"]))
+check("every claim in the rendered fixture carries a source", all(str(x["source"]).strip() for x in r1["claims"].values()))
+
+# replay: the whole build from the D1 == MFL check through validation, against a fake shell that records every command
+calls = []
+wd, out = tempfile.mkdtemp(), tempfile.mkdtemp()
+os.makedirs(os.path.join(wd, "site", "wire", "packs", "2026"))
+os.makedirs(os.path.join(wd, "site", "wire", "data"))
+json.dump(PACK, open(os.path.join(wd, "site", "wire", "packs", "2026", "2026-wk04-recap.pack.json"), "w"))
+inputs = tempfile.mkdtemp()
+open(os.path.join(inputs, "recorded.json"), "w").write("{}")
+
+
+def replay_sh(cmd, cwd=None, check=False, env=None):
+    calls.append(list(cmd))
+    if "season_sim.py" in " ".join(cmd):
+        sim = dict(_REAL, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+        json.dump(sim, open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w"))
+    elif "week_preview.py" in " ".join(cmd):
+        q = dict(_REALQ, week=5, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+        q["model"] = dict(q["model"], cutoffs=dict(q["model"]["cutoffs"], rostersProjectionsInjuries=_iso(FINAL + 3000)))
+        json.dump(q, open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w"))
+    elif cmd[:2] == ["git", "rev-parse"]:
+        return 0, "abc123\n"
+    return 0, ""
+
+
+def replay_gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, history=False):
+    c = copy.deepcopy(CTX)
+    if history:
+        c["history"] = json.load(open(os.path.join(FX, "history.json")))
+    if data_dir:
+        c["forecast"] = AUTO.SRC.load_forecast(season, week, data_dir)
+    return c
+
+
+saved = (AUTO.sh, AUTO.STATE_DIR, AUTO.SRC.gather, AUTO.SRC.d1_matches_mfl, AUTO.SRC.week_timing, AUTO.notify)
+state = tempfile.mkdtemp()
+notes = []
+AUTO.sh, AUTO.STATE_DIR = replay_sh, state
+AUTO.SRC.gather, AUTO.SRC.d1_matches_mfl = replay_gather, (lambda probe: [])
+AUTO.SRC.week_timing = lambda season, week: copy.deepcopy(CTX["timing"])
+AUTO.notify = lambda *a: notes.append(a)
+try:
+    rp = AUTO.replay_week(2026, 4, wd, out, inputs=inputs, now=FINAL + 7200, log=lambda *a: None)
+finally:
+    AUTO.sh, AUTO.STATE_DIR, AUTO.SRC.gather, AUTO.SRC.d1_matches_mfl, AUTO.SRC.week_timing, AUTO.notify = saved
+flat = [" ".join(c) for c in calls]
+sim_c = next(c for c in calls if "season_sim.py" in " ".join(c))
+check("replay runs the forecast from scratch on the recorded inputs, pinned (season_sim --reuse-cache, a copy of them)",
+      "--reuse-cache" in sim_c and sim_c[sim_c.index("--cache-dir") + 1] == os.path.join(out, "inputs")
+      and os.listdir(inputs) == ["recorded.json"] and any("week_preview.py" in x and "--reuse-cache" in x for x in flat), flat)
+check("replay renders and validates the draft with the Playoff Picture (odds shown, no odds blocker)",
+      rp["ok"] and rp["status"] in ("ready", "ready-with-gaps") and not any(g.startswith("odds:") for g in rp["gaps"])
+      and os.path.exists(os.path.join(out, "2026-wk04-ups-center.html")), rp)
+check("replay publishes nothing: no git commit/push/reset/fetch, no gh, no chat ingest, no notification, no job state",
+      not any(x.startswith(("git commit", "git push", "git reset", "git fetch", "git checkout", "gh ")) or "ingest_discord_chat" in x
+              or "osascript" in x for x in flat) and not notes and not os.listdir(state)
+      and rp["published"] is False and rp["announced"] is False and rp["prOrAlert"] is None, flat)
+check("replay writes only to its own folder (the throwaway checkout gets the pack build, never an article or index)",
+      not os.path.exists(os.path.join(wd, "site", "wire", "articles")) and not os.path.exists(os.path.join(wd, "site", "wire", "index.json"))
+      and os.path.exists(os.path.join(out, "replay.json")))
+pin = tempfile.mkdtemp()
+url = "https://api.myfantasyleague.com/2026/export?TYPE=rosters&JSON=1"
+cached = os.path.join(pin, SS.hashlib.sha1(url.encode()).hexdigest()[:16] + ".json")
+json.dump({"recorded": True}, open(cached, "w"))
+os.utime(cached, (T0 - 30 * 86400, T0 - 30 * 86400))                    # a month old: a live run would refetch it
+saved_pin = (SS.LIVE_SEASON, SS.PINNED_CACHE, SS.urllib.request.urlopen)
+SS.LIVE_SEASON, SS.PINNED_CACHE = 2026, True
+SS.urllib.request.urlopen = lambda *a, **k: (_ for _ in ()).throw(AssertionError("network"))
+try:
+    got = SS.fetch(url, pin)
+finally:
+    SS.LIVE_SEASON, SS.PINNED_CACHE, SS.urllib.request.urlopen = saved_pin
+check("season_sim --reuse-cache reads a recorded input however old, with no network (a live run refetches after 3 h)",
+      got == {"recorded": True})
+import wire as W                             # noqa: E402
+gapped = r0["html"]
+check("wire.py verify (CI on every PR and on main) refuses a LIVE page that still carries an EDITOR REVIEW box",
+      "odds:missing" in W.live_editor_items(gapped.replace("status: draft", "status: live", 1))
+      and W.live_editor_items(gapped) == [])
+src_auto = open(os.path.join(HERE, "ups_center_auto.py"), encoding="utf-8").read()
+rw = src_auto[src_auto.index("def replay_week"):src_auto.index("def crashed")]
+check("the replay code path has no publish, announce, PR or alert call in it",
+      not any(x in rw for x in ("PR.sync", "alert_issue", "notify(", "status: live", "git\", \"push", "/messages")), rw[:200])
+print("12. Builder B: Heat Check, Survival Line and story leads from the season snapshot")
+import ups_center_stories as STORIES      # noqa: E402
+HIST4 = json.load(open(os.path.join(FX, "history.json")))
+HIST5 = json.load(open(os.path.join(FX, "..", "2026_wk05", "history.json")))
+H5 = STORIES.heat({"history": HIST5})
+S5, M5 = STORIES.survival({"history": HIST5})
+pub = {"0009": ("32-1", "45-10", 3, 1, "Dominant", 31.5, 2, 2, -0.1, (18, 18), (8, 8)),
+       "0004": ("17-16", "31-24", 5, 4, "Holding", 54.0, 5, 7, -1.2, (9, 18), (7, 15)),
+       "0005": ("19-14", "37-18", 1, 6, "Cooling", 34.9, 2, 4, 0.6, (16, 20), (10, 13)),
+       "0003": ("3-30", "16-39", 7, 12, "Sinking", 23.9, 4, 10, -0.5, (2, 18), (0, 8)),
+       "0007": ("4-29", "11-44", 8, 11, "Sinking", 20.8, 2, 10, 0.6, (3, 17), (0, 8))}
+got = {f: ("%d-%d" % H5[f]["ap3"], "%d-%d" % H5[f]["ap"], H5[f]["rkFirst"], H5[f]["rkLast"], H5[f]["label"], H5[f]["bench"],
+           H5[f]["lostBest"], H5[f]["losses"], H5[f]["luck"], S5[f]["apHist"], S5[f]["winHist"]) for f in pub}
+check("on the real Week 5 snapshot it reproduces the published issue (Bear 32-1 Dominant, Cutting 54.0 bench, 0/8 at three wins ...)",
+      got == pub, {f: (got[f], pub[f]) for f in pub if got[f] != pub[f]})
+check("Week 5 win bands are exactly the published ones (10 or more ... 3 or fewer) at 13 decisions",
+      [b[0] for b in STORIES.win_buckets(13)] == ["10 or more", "8–9", "6–7", "4–5", "3 or fewer"] and M5["decisions"] == 13)
+c12 = copy.deepcopy(CTX)
+c12["history"] = HIST4
+r12, v12, _ = build(c12)
+check("with the snapshot, Heat Check and Survival Line render, every number validates, and leads are an editor box",
+      v12["ok"] and 'id="heat"' in r12["html"] and 'id="survival"' in r12["html"]
+      and any(g["id"] == "stories:leads" for g in r12["gaps"]) and not v12["publishable"]
+      and sum(1 for k in r12["claims"] if k.startswith(("heat:", "hist:"))) >= 12 * 9, (v12["errors"][:3], [g["id"] for g in r12["gaps"]]))
+check("without a current forecast the Survival Line shows no categories and says why",
+      "No categories: the playoff forecast is not current" in r12["html"] and "Contender" not in r12["html"])
+c13 = with_fc(forecast())
+c13["history"] = HIST4
+r13, v13, _ = build(c13)
+check("with a current forecast the Survival Line adds categories, validated against the same odds",
+      v13["ok"] and "Contender" in r13["html"] and "No categories" not in r13["html"], v13["errors"][:3])
+leads = re.search(r'data-editor-gap="stories:leads"[\s\S]*?</div>', r12["html"]).group(0)
+leads_text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", leads[leads.index(">") + 1:]))
+items = re.findall(r"<li>([\s\S]*?)</li>", leads)
+check("story leads point at rows for the editor: each is 'Look at <team>: <table row>', at least three",
+      len(items) >= 3 and all(x.startswith("Look at ") and "(" in x and x.endswith(").") for x in items), items)
+check("story leads are not findings: no numbers, no dialogue, no verdicts, no publication-ready claims",
+      not re.search(r"\d", leads_text) and 'class="lt' not in leads
+      and not re.search(r"\b(best(?! lineup)|worst|luck|hottest|coldest|will|should|made the playoffs|rose|fell)\b", leads_text, re.I)
+      and "not for publication" in leads_text, leads_text[:400])
+check("leads register no claims of their own (every claim keeps a real source)",
+      all(str(x["source"]).strip() for x in r12["claims"].values()) and v12["ok"])
+import wire as W2                            # noqa: E402
+check("a page cannot go live with the leads box still on it (wire.py verify)",
+      "stories:leads" in W2.live_editor_items(r12["html"].replace("status: draft", "status: live", 1)))
+check("Survival categories re-use the Playoff Picture's odds with the forecast as their source",
+      all(r13["claims"]["odds:po:" + f]["source"].startswith("season_sim live") for f in c13["forecast"]["sim"]["teams"]))
+tam = copy.deepcopy(r12["claims"])
+kb = sorted(k for k in tam if k.startswith("heat:bench:"))[0]
+tam[kb]["value"] = round(tam[kb]["value"] + 1.0, 1)
+check("a Heat Check number that disagrees with the season snapshot fails validation",
+      any(kb in x for x in VAL.validate(dict(r12, claims=tam), c12, copy.deepcopy(PACK))["errors"]))
+tam2 = copy.deepcopy(r12["claims"])
+kh = sorted(k for k in tam2 if k.startswith("hist:apMade:"))[0]
+tam2[kh]["value"] = tam2[kh]["value"] + 1
+check("a Survival Line history count that disagrees with D1 + the brackets fails validation",
+      any(kh in x for x in VAL.validate(dict(r12, claims=tam2), c12, copy.deepcopy(PACK))["errors"]))
+tam3 = copy.deepcopy(r12["claims"])
+tam3["rule:dom"]["value"] = 27
+check("a changed definition (the Dominant cutoff) fails validation", any("rule:dom" in x for x in VAL.validate(dict(r12, claims=tam3), c12, copy.deepcopy(PACK))["errors"]))
+r14, v14, _ = build()
+check("no snapshot -> Heat Check and Survival Line blockers, never empty segments",
+      {"heat:no-history", "survival:no-history"} <= {g["id"] for g in r14["gaps"]} and v14["ok"])
+_auto = open(os.path.join(HERE, "ups_center_auto.py")).read()
+check("the job gathers the season snapshot (history=True) for the real build and for a replay",
+      _auto[_auto.index("def run_week"):_auto.index("def replay_week")].count("history=True") == 1
+      and _auto[_auto.index("def replay_week"):_auto.index("def crashed")].count("history=True") == 1)
+
+print("13. post-build check (ups_center_check.py; GitHub Actions on every automated draft PR)")
+import ups_center_check as CHK            # noqa: E402
+
+
+def draft_branch(**over):
+    """The files the job commits on wire/auto/<id>, for the fixture week with a current forecast."""
+    q = dict(_REALQ, week=5, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+    q["model"] = dict(q["model"], cutoffs=dict(q["model"]["cutoffs"], rostersProjectionsInjuries=_iso(FINAL + 3000)))
+    files = {"article": r1["html"], "claims": copy.deepcopy(r1["claims"]), "validation": json.loads(json.dumps(v1, default=str)),
+             "run": json.loads(json.dumps(AUTO.run_record(2026, 4, AID, c1, FINAL + 3600, "abc123"), default=str)),
+             "sim": dict(copy.deepcopy(_REAL), throughWeek=4, generatedAtUtc=_iso(FINAL + 3600)), "preview": copy.deepcopy(q),
+             "index": {"articles": [{"id": AID, "path": "articles/2026/%s.html" % AID, "status": "draft"}]}}
+    files.update(over)
+    return files
+
+
+DPR = {"number": 1300, "state": "OPEN", "isDraft": True, "headRefName": "wire/auto/" + AID, "baseRefName": "main"}
+QUIET = {"mainIndex": {"articles": []}, "pagesIndex": {"articles": []}, "pageStatus": 404, "threads": [], "messages": []}
+
+
+def run_check(files=None, pr=DPR, auto=True, live=None, week=4):
+    return CHK.check_draft(2026, week, files or draft_branch(), pr, auto, dict(QUIET, **(live or {})))
+
+
+def failed(res, group=None):
+    return [r for r in res if r["ok"] is False and (group is None or r["group"] == group)]
+
+
+ok_run = run_check()
+check("a clean automated draft passes every check, all eight groups present",
+      not failed(ok_run) and {r["group"] for r in ok_run} == {g for g, _ in CHK.GROUPS}, failed(ok_run))
+check("the run record carries the build's recorded inputs and no chat (timing + forecast only)",
+      set(draft_branch()["run"]) == {"id", "season", "week", "builtAtUtc", "code", "timing", "forecast", "why"}
+      and "chat" not in json.dumps(draft_branch()["run"]))
+rep = CHK.report(2026, 4, ok_run, DPR)
+check("the report is one PR comment with its own marker (edited in place on later runs)",
+      rep.startswith(CHK.COMMENT_MARK % AID) and "Every check passed" in rep and "Nothing was published" in rep)
+
+
+def sim_with(**changes):
+    s_ = dict(copy.deepcopy(_REAL), throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+    s_.update(changes)
+    return s_
+
+
+def bump(field, fid, by):
+    s_ = sim_with()
+    t = next(t for t in s_["teams"] if t["franchiseId"] == fid)
+    t[field] = round(t[field] + by, 4)
+    return s_
+
+
+cells_off = draft_branch()["preview"]
+cells_off["weekScenarios"]["0012"]["cells"][0]["playoff"] += 1
+nosrc = draft_branch()
+nosrc["claims"][sorted(nosrc["claims"])[0]]["source"] = ""
+wrong = draft_branch()
+kpo = sorted(k for k in wrong["claims"] if k.startswith("odds:po:"))[0]
+wrong["claims"][kpo]["value"] = round(wrong["claims"][kpo]["value"] + 0.1, 1)
+g0 = v1["gaps"][0]["id"]
+nobox = draft_branch(article=re.sub(r'<div class="editor-gap" data-editor-gap="%s"[\s\S]*?</div>' % re.escape(g0), "", r1["html"], count=1))
+pubable = draft_branch()
+pubable["validation"]["publishable"] = True
+CASES = [
+    ("no draft PR", dict(pr=None), "draft"),
+    ("the PR is no longer a draft", dict(pr=dict(DPR, isDraft=False)), "draft"),
+    ("no run record on the branch", dict(files=draft_branch(run=None)), "draft"),
+    ("forecast through the wrong week", dict(files=draft_branch(sim=sim_with(throughWeek=3))), "fresh"),
+    ("forecast run before the week went final", dict(files=draft_branch(sim=sim_with(generatedAtUtc=_iso(FINAL - 60)))), "fresh"),
+    ("committed forecast is not the one the draft recorded",
+     dict(files=draft_branch(sim=sim_with(generatedAtUtc=_iso(FINAL + 9999)))), "fresh"),
+    ("playoff odds that do not make six teams", dict(files=draft_branch(sim=bump("currentPlayoffOdds", "0009", -0.01))), "six"),
+    ("a division that does not total 100%", dict(files=draft_branch(sim=bump("currentDivisionOdds", "0009", -0.01))), "divisions"),
+    ("scenario cells off by one season", dict(files=draft_branch(preview=cells_off)), "cells"),
+    ("a claim with no source", dict(files=nosrc), "sourced"),
+    ("a number on the page that is not a claim",
+     dict(files=draft_branch(article=r1["html"].replace("<p>Stu, Rich", "<p>Exactly 412.5 points. Stu, Rich", 1))), "sourced"),
+    ("a printed probability that differs from the committed forecast", dict(files=wrong), "sourced"),
+    ("an editor item without its EDITOR REVIEW box", dict(files=nobox), "boxes"),
+    ("a draft marked publishable while editor items remain", dict(files=pubable), "boxes"),
+    ("the article flipped to status: live", dict(files=draft_branch(article=r1["html"].replace("status: draft", "status: live", 1))),
+     "unpublished"),
+    ("Pages already serves the article", dict(live={"pageStatus": 200}), "unpublished"),
+    ("an announcement already recorded (ups_wire_threads)", dict(live={"threads": [AID]}), "unpublished"),
+    ("an announcement post in #league-announcements",
+     dict(live={"messages": [{"id": "1", "timestamp": "t", "content": "UPS Center: Week 4 is live", "embeds": []}]}), "unpublished"),
+    ("main's index already lists it", dict(live={"mainIndex": {"articles": [{"id": AID, "path": "articles/2026/%s.html" % AID, "status": "live"}]}}), "unpublished"),
+    ("ups_wire_threads could not be read (never assumed safe)", dict(live={"threads": None}), "unpublished"),
+    ("Discord could not be read (never assumed safe)", dict(live={"messages": None}), "unpublished"),
+]
+for label, kw, group in CASES:
+    res = run_check(**kw)
+    check("FAILS on: %s (group %s)" % (label, group), failed(res, group), [(r["group"], r["check"]) for r in failed(res)])
+ed = run_check(auto=False)
+check("an editor-owned draft is still checked (forecast, boxes, publication) and says what it did not check",
+      not failed(ed) and any(r["group"] == "sourced" and r["ok"] is None for r in ed)
+      and any(r["group"] == "unpublished" and r["ok"] for r in ed))
+late = run_check(week=15, files=draft_branch(index={"articles": [{"id": "2026-wk15-ups-center", "status": "draft"}]}))
+check("after the regular season the forecast groups say 'not applicable' instead of passing silently",
+      all(r["ok"] is None for r in late if r["group"] in ("fresh", "six", "divisions", "cells")))
+chk_src = open(os.path.join(HERE, "ups_center_check.py"), encoding="utf-8").read()
+check("the checker has no write path: no D1 write, no Discord post, no merge/ready/close, no publish",
+      not re.search(r"d1_exec_file|INSERT |UPDATE |DELETE |method=\"POST\"|\"merge\"|\"ready\"|\"close\"|status: live\"|"
+                    r"wrangler\", \"deploy|/webhooks/", chk_src.replace('"PATCH", "repos/%s/issues/comments', "")))
+wf = open(os.path.join(HERE, "..", "..", "..", ".github", "workflows", "ups-center-post-build-check.yml"), encoding="utf-8").read()
+check("the workflow runs on every automated draft PR and by hand with season and week",
+      "pull_request_target:" in wf and "workflow_dispatch:" in wf and "season:" in wf and "week:" in wf
+      and "startsWith(github.event.pull_request.head.ref, 'wire/auto/')" in wf and "github.event.pull_request.draft" in wf)
+check("the workflow never checks out or runs the draft branch (checker and workflow come from main)",
+      "ref: main" in wf and "head.sha }}\n" not in wf.split("actions/checkout")[1].split("setup-node")[0]
+      and "github.event.pull_request.head.ref }}" not in wf.split("run:")[-1])
+check("the workflow fails on a mismatch, posts on the PR, and keeps the report as an artifact",
+      "--comment" in wf and "actions/upload-artifact" in wf and "if: always()" in wf and "|| true" not in wf
+      and "continue-on-error" not in wf)
+check("the workflow can only read: contents read, PR comments; no deploy, no write secrets used for writes",
+      "contents: read" in wf and "contents: write" not in wf and "wrangler deploy" not in wf and "d1 execute" not in wf)
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

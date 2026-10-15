@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.14.5",
-  "label": "Injury tags on Lineup and the player sheet: MFL's current Q/D/OUT first, the official NFL report beside it (the tag when MFL has none, always in Details), IR/PUP from MFL; every tag names its source and week, and both show when they disagree (#1276)."
+  "build": "2026.10.15.2",
+  "label": "Injury tags: MFL's status first (labeled MFL, with its expected return; dashed when that estimate has passed), the official NFL report beside it, both shown when they disagree. Same on Lineup, the player sheet and desktop Game Day."
 }

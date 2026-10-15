@@ -1,0 +1,3367 @@
+[
+ {
+  "key": "bear.ap1.w",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "bear.ap1.l",
+  "shown": "8",
+  "source": "MFL"
+ },
+ {
+  "key": "bear.ap25.w",
+  "shown": "42",
+  "source": "MFL"
+ },
+ {
+  "key": "bear.ap25.l",
+  "shown": "2",
+  "source": "MFL"
+ },
+ {
+  "key": "o.em.rk3",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "o.bou.rk3",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "o.ger.po",
+  "shown": "5.1",
+  "source": "forecast"
+ },
+ {
+  "key": "meta.runs",
+  "shown": "10,000",
+  "source": "season_sim runs"
+ },
+ {
+  "key": "o.0001.title",
+  "shown": "0.8",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0002.title",
+  "shown": "2.4",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0003.title",
+  "shown": "0.3",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0004.title",
+  "shown": "28.6",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0005.title",
+  "shown": "12.9",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0006.title",
+  "shown": "0.1",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0007.title",
+  "shown": "0.1",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0008.title",
+  "shown": "4.7",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0009.title",
+  "shown": "29.3",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0010.title",
+  "shown": "16.0",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0011.title",
+  "shown": "1.0",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0012.title",
+  "shown": "3.8",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0009.div",
+  "shown": "95.7",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0009.bye",
+  "shown": "83.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0012.div",
+  "shown": "2.9",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0012.bye",
+  "shown": "1.8",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0011.div",
+  "shown": "1.4",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0011.bye",
+  "shown": "0.5",
+  "source": "forecast"
+ },
+ {
+  "key": "o.div.03.tot",
+  "shown": "100.0",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0010.div",
+  "shown": "84.5",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0010.bye",
+  "shown": "40.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0002.div",
+  "shown": "13.9",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0002.bye",
+  "shown": "3.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0003.div",
+  "shown": "1.6",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0003.bye",
+  "shown": "0.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.div.01.tot",
+  "shown": "100.0",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0008.div",
+  "shown": "82.2",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0008.bye",
+  "shown": "5.8",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0001.div",
+  "shown": "16.2",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0001.bye",
+  "shown": "0.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0007.div",
+  "shown": "1.6",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0007.bye",
+  "shown": "0.0",
+  "source": "forecast"
+ },
+ {
+  "key": "o.div.02.tot",
+  "shown": "100.0",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0005.div",
+  "shown": "51.5",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0005.bye",
+  "shown": "30.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0004.div",
+  "shown": "48.3",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0004.bye",
+  "shown": "35.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0006.div",
+  "shown": "0.2",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0006.bye",
+  "shown": "0.0",
+  "source": "forecast"
+ },
+ {
+  "key": "o.div.00.tot",
+  "shown": "100.0",
+  "source": "forecast, largest-remainder"
+ },
+ {
+  "key": "o.0009.po3",
+  "shown": "99.5",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0009.d2",
+  "shown": "+6.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0004.po3",
+  "shown": "95.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0004.d2",
+  "shown": "+2.5",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0010.po3",
+  "shown": "93.8",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0010.d2",
+  "shown": "+21.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0005.po3",
+  "shown": "90.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0005.d2",
+  "shown": "+1.6",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0008.po3",
+  "shown": "84.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0008.d2",
+  "shown": "+0.7",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0012.po3",
+  "shown": "54.0",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0012.d2",
+  "shown": "+13.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0002.po3",
+  "shown": "39.8",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0002.d2",
+  "shown": "-14.7",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0001.po3",
+  "shown": "19.8",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0001.d2",
+  "shown": "+3.9",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0011.po3",
+  "shown": "14.0",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0011.d2",
+  "shown": "-6.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0003.po3",
+  "shown": "5.1",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0003.d2",
+  "shown": "-8.6",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0006.po3",
+  "shown": "2.5",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0006.d2",
+  "shown": "-9.4",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0007.po3",
+  "shown": "2.0",
+  "source": "forecast"
+ },
+ {
+  "key": "o.0007.d2",
+  "shown": "-10.4",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0012",
+  "shown": "5",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.0012.30m",
+  "shown": "57.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0012.21t",
+  "shown": "74.8",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0002",
+  "shown": "35",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.0002.30m",
+  "shown": "45.3",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0002.21t",
+  "shown": "54.1",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0001",
+  "shown": "82",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.0001.30m",
+  "shown": "33.3",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0001.21t",
+  "shown": "35.4",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0011",
+  "shown": "10",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.0011.30m",
+  "shown": "11.2",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0011.21t",
+  "shown": "22.1",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.path.0003",
+  "shown": "31",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.0003.30m",
+  "shown": "10.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.0003.21t",
+  "shown": "18.3",
+  "source": "forecast"
+ },
+ {
+  "key": "o.bear.po",
+  "shown": "99.5",
+  "source": "forecast"
+ },
+ {
+  "key": "o.bear.bye",
+  "shown": "83.2",
+  "source": "forecast"
+ },
+ {
+  "key": "k.bear.po",
+  "shown": "99.5",
+  "source": "forecast"
+ },
+ {
+  "key": "em.rec.w",
+  "shown": "9",
+  "source": "MFL"
+ },
+ {
+  "key": "em.rec.l",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "cut.rec.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "cut.rec.l",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "cut.recq.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "cut.recq.l",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "cut.opt",
+  "shown": "284.2",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "o.blake.wk3",
+  "shown": "72.6",
+  "source": "forecast"
+ },
+ {
+  "key": "o.blake.po",
+  "shown": "93.8",
+  "source": "forecast"
+ },
+ {
+  "key": "blake.w45.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "blake.w45.l",
+  "shown": "1",
+  "source": "MFL"
+ },
+ {
+  "key": "henry.wk5",
+  "shown": "22.6",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "o.whit.wk3",
+  "shown": "54.4",
+  "source": "forecast"
+ },
+ {
+  "key": "o.whit.po",
+  "shown": "39.8",
+  "source": "forecast"
+ },
+ {
+  "key": "whit.w45.w",
+  "shown": "2",
+  "source": "MFL"
+ },
+ {
+  "key": "whit.w45.l",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "o.kling.po",
+  "shown": "54.0",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.k21t",
+  "shown": "74.8",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.k30m",
+  "shown": "57.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.bpath",
+  "shown": "82",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.b30m",
+  "shown": "33.3",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.b21t",
+  "shown": "35.4",
+  "source": "forecast"
+ },
+ {
+  "key": "fix.max",
+  "shown": "0.7",
+  "source": "season_sim: pre-fix vs post-fix forecast on identical inputs"
+ },
+ {
+  "key": "sc.minn",
+  "shown": "100",
+  "source": "builder rule: minimum 100 simulated seasons"
+ },
+ {
+  "key": "meta.remaining",
+  "shown": "24",
+  "source": "MFL schedule"
+ },
+ {
+  "key": "meta.keep",
+  "shown": "70",
+  "source": "season_sim k"
+ },
+ {
+  "key": "ap3.0009.w",
+  "shown": "32",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0009.l",
+  "shown": "1",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0009.w",
+  "shown": "45",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0009.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0009",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0009",
+  "shown": "1",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0010.w",
+  "shown": "27",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0010.l",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0010.w",
+  "shown": "40",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0010.l",
+  "shown": "15",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0010",
+  "shown": "2",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0010",
+  "shown": "2",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0012.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0012.l",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0012.w",
+  "shown": "29",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0012.l",
+  "shown": "26",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0012",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0012",
+  "shown": "8",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0005.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0005.l",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0005.w",
+  "shown": "37",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0005.l",
+  "shown": "18",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0005",
+  "shown": "1",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0005",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0008.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0008.l",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0008.w",
+  "shown": "32",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0008.l",
+  "shown": "23",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0008",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0008",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0011.w",
+  "shown": "18",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0011.l",
+  "shown": "15",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0011.w",
+  "shown": "23",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0011.l",
+  "shown": "32",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0011",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0011",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0004.w",
+  "shown": "17",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0004.l",
+  "shown": "16",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0004.w",
+  "shown": "31",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0004.l",
+  "shown": "24",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0004",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0004",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0001.w",
+  "shown": "16",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0001.l",
+  "shown": "17",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0001.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0001.l",
+  "shown": "35",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0001",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0001",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0002.w",
+  "shown": "15",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0002.l",
+  "shown": "18",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0002.w",
+  "shown": "32",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0002.l",
+  "shown": "23",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0002",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0002",
+  "shown": "9",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0006.w",
+  "shown": "8",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0006.l",
+  "shown": "25",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0006.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0006.l",
+  "shown": "41",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0006",
+  "shown": "9",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0006",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0007.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0007.l",
+  "shown": "29",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0007.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0007.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0007",
+  "shown": "8",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0007",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0003.w",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "ap3.0003.l",
+  "shown": "30",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0003.w",
+  "shown": "16",
+  "source": "MFL"
+ },
+ {
+  "key": "ap.0003.l",
+  "shown": "39",
+  "source": "MFL"
+ },
+ {
+  "key": "rk12.0003",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "rk3.0003",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "bench.0004",
+  "shown": "54.0",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0004",
+  "shown": "5",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0004",
+  "shown": "7",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0004",
+  "shown": "-1.2",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0005",
+  "shown": "34.9",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0005",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0005",
+  "shown": "4",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0005",
+  "shown": "+0.6",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0012",
+  "shown": "34.1",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0012",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0012",
+  "shown": "7",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0012",
+  "shown": "-1.3",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0009",
+  "shown": "31.5",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0009",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0009",
+  "shown": "2",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0009",
+  "shown": "-0.1",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0011",
+  "shown": "30.7",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0011",
+  "shown": "3",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0011",
+  "shown": "7",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0011",
+  "shown": "+1.2",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0008",
+  "shown": "27.2",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0008",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0008",
+  "shown": "4",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0008",
+  "shown": "+1.2",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0002",
+  "shown": "24.0",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0002",
+  "shown": "3",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0002",
+  "shown": "6",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0002",
+  "shown": "-0.5",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0003",
+  "shown": "23.9",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0003",
+  "shown": "4",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0003",
+  "shown": "10",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0003",
+  "shown": "-0.5",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0010",
+  "shown": "23.4",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0010",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0010",
+  "shown": "4",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0010",
+  "shown": "-0.9",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0006",
+  "shown": "22.7",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0006",
+  "shown": "3",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0006",
+  "shown": "10",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0006",
+  "shown": "-0.5",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0007",
+  "shown": "20.8",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0007",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0007",
+  "shown": "10",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0007",
+  "shown": "+0.6",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bench.0001",
+  "shown": "19.6",
+  "source": "MFL weeklyResults (best possible minus started points)"
+ },
+ {
+  "key": "lost.0001",
+  "shown": "2",
+  "source": "MFL weeklyResults (best possible vs started lineup)"
+ },
+ {
+  "key": "L.0001",
+  "shown": "7",
+  "source": "MFL weeklyResults (head-to-head losses)"
+ },
+ {
+  "key": "luck.0001",
+  "shown": "+1.2",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bear.ap3.w",
+  "shown": "32",
+  "source": "MFL"
+ },
+ {
+  "key": "bear.ap3.l",
+  "shown": "1",
+  "source": "MFL"
+ },
+ {
+  "key": "bear.ppw3",
+  "shown": "274.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "em.bear",
+  "shown": "89.3",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "em.ppw12",
+  "shown": "260.8",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "em.rk3",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "em.ppw3",
+  "shown": "221.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "em.rec2.w",
+  "shown": "9",
+  "source": "MFL"
+ },
+ {
+  "key": "em.rec2.l",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "mnf.lead",
+  "shown": "53.3",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.cmp",
+  "shown": "40",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.att",
+  "shown": "54",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.yds",
+  "shown": "383",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.td",
+  "shown": "3",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.staf",
+  "shown": "39.3",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.kyren",
+  "shown": "19.4",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "mnf.margin",
+  "shown": "9.6",
+  "source": "MFL weeklyResults + MFL player NFL teams; nflverse play-by-play and weekly stats"
+ },
+ {
+  "key": "cut.bench",
+  "shown": "54.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "cut.lost",
+  "shown": "5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "cut.L",
+  "shown": "7",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "cut.luck",
+  "shown": "1.2",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "kl.luck",
+  "shown": "1.3",
+  "source": "MFL weeklyResults (wins minus weekly all-play expectation)"
+ },
+ {
+  "key": "bou.rk12",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "bou.rk3",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "man.rk12",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "man.rk3",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "man.apw0",
+  "shown": "5",
+  "source": "MFL weeklyResults (weekly all-play)"
+ },
+ {
+  "key": "man.apw1",
+  "shown": "0",
+  "source": "MFL weeklyResults (weekly all-play)"
+ },
+ {
+  "key": "man.apw2",
+  "shown": "6",
+  "source": "MFL weeklyResults (weekly all-play)"
+ },
+ {
+  "key": "man.apw3",
+  "shown": "11",
+  "source": "MFL weeklyResults (weekly all-play)"
+ },
+ {
+  "key": "man.apw4",
+  "shown": "1",
+  "source": "MFL weeklyResults (weekly all-play)"
+ },
+ {
+  "key": "ger.rk12",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "ger.rk3",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "ger.ap3w",
+  "shown": "3",
+  "source": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)"
+ },
+ {
+  "key": "ger.ap3n",
+  "shown": "33",
+  "source": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)"
+ },
+ {
+  "key": "k.willis",
+  "shown": "21.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "k.ger",
+  "shown": "161.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "ger.miss",
+  "shown": "17.6",
+  "source": "MFL weeklyResults; MFL pre-kickoff projections (validated automated segment)"
+ },
+ {
+  "key": "ger.po",
+  "shown": "5.1",
+  "source": "forecast"
+ },
+ {
+  "key": "ww.0010.p1",
+  "shown": "+121",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0010.p2",
+  "shown": "+110",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0010.top2",
+  "shown": "32.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0010.sw",
+  "shown": "2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0011.p1",
+  "shown": "+93",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0011.p2",
+  "shown": "+91",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0011.top2",
+  "shown": "31.9",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0011.sw",
+  "shown": "2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0012.p1",
+  "shown": "+101",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0012.p2",
+  "shown": "+74",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0012.top2",
+  "shown": "30.7",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0012.sw",
+  "shown": "2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0004.p1",
+  "shown": "+125",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0004.p2",
+  "shown": "+76",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0004.top2",
+  "shown": "29.8",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0004.sw",
+  "shown": "1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0003.p1",
+  "shown": "+76",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0003.p2",
+  "shown": "+68",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0003.top2",
+  "shown": "29.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0003.sw",
+  "shown": "2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0006.p1",
+  "shown": "+66",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0006.p2",
+  "shown": "+65",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0006.top2",
+  "shown": "25.3",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0006.sw",
+  "shown": "0",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0009.p1",
+  "shown": "+120",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0009.p2",
+  "shown": "+85",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0009.top2",
+  "shown": "25.1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0009.sw",
+  "shown": "2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0005.p1",
+  "shown": "+89",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0005.p2",
+  "shown": "+78",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0005.top2",
+  "shown": "24.1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0005.sw",
+  "shown": "3",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0001.p1",
+  "shown": "+62",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0001.p2",
+  "shown": "+60",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0001.top2",
+  "shown": "24.1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0001.sw",
+  "shown": "2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0008.p1",
+  "shown": "+83",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0008.p2",
+  "shown": "+78",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0008.top2",
+  "shown": "23.9",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0008.sw",
+  "shown": "4",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0002.p1",
+  "shown": "+76",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0002.p2",
+  "shown": "+64",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0002.top2",
+  "shown": "23.6",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0002.sw",
+  "shown": "4",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0007.p1",
+  "shown": "+48",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0007.p2",
+  "shown": "+43",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0007.top2",
+  "shown": "19.4",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "ww.0007.sw",
+  "shown": "1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.b",
+  "shown": "32.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.m",
+  "shown": "31.9",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.al",
+  "shown": "24.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.pu",
+  "shown": "22.0",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.al3",
+  "shown": "17.1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.pu3",
+  "shown": "43.3",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.lb4",
+  "shown": "77.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.lb5",
+  "shown": "18.7",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.wr",
+  "shown": "10.9",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.rb",
+  "shown": "10.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.bear",
+  "shown": "25.1",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "c.js4",
+  "shown": "13.2",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "o.kc.po2",
+  "shown": "84.2",
+  "source": "forecast"
+ },
+ {
+  "key": "o.whit.po2",
+  "shown": "39.8",
+  "source": "forecast"
+ },
+ {
+  "key": "t.e1",
+  "shown": "20",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.e1n",
+  "shown": "37",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.e2",
+  "shown": "43",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.e2n",
+  "shown": "47",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.d1",
+  "shown": "15",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.t1",
+  "shown": "10",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.t1n",
+  "shown": "17",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.t2",
+  "shown": "17",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.t2n",
+  "shown": "17",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.s1",
+  "shown": "3",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.s1n",
+  "shown": "4",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.s2",
+  "shown": "9",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.s2n",
+  "shown": "10",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.r1w",
+  "shown": "0",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.r1d",
+  "shown": "1",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.r2w",
+  "shown": "3",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.g1",
+  "shown": "0",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.g2",
+  "shown": "0",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.p1",
+  "shown": "9.9",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "t.p2",
+  "shown": "26.2",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "bq.p12",
+  "shown": "172.9",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.p3",
+  "shown": "217.3",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.r13.w",
+  "shown": "2",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.r13.l",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.r45.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.r45.l",
+  "shown": "1",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.w12",
+  "shown": "9.9",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.w3",
+  "shown": "26.2",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.wr",
+  "shown": "16.3",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.rise",
+  "shown": "44.4",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.cf.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.cf.l",
+  "shown": "9",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.rec.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.rec.l",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "bq.apcf",
+  "shown": "12",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "bq.ap",
+  "shown": "20",
+  "source": "MFL weeklyResults; replacement level from MFL rostered players"
+ },
+ {
+  "key": "o.bou.po",
+  "shown": "19.8",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.b30",
+  "shown": "40.2",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.b03",
+  "shown": "12.8",
+  "source": "forecast"
+ },
+ {
+  "key": "d.e",
+  "shown": "15",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "d.en",
+  "shown": "37",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "d.t",
+  "shown": "7",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "d.tn",
+  "shown": "17",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "w.e",
+  "shown": "43",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "w.en",
+  "shown": "47",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "w.ups5",
+  "shown": "39.6",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "d.u1",
+  "shown": "3.7",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "d.u2",
+  "shown": "6.6",
+  "source": "nflverse play-by-play 2026 (PIT); MFL weeklyResults"
+ },
+ {
+  "key": "g.pts",
+  "shown": "161.7",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.car",
+  "shown": "105",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.ryd",
+  "shown": "504",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.rtd",
+  "shown": "7",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.rec",
+  "shown": "27",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.a0",
+  "shown": "176.9",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.a1",
+  "shown": "166.0",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "rg.rb",
+  "shown": "80",
+  "source": "nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "g.ppg80",
+  "shown": "25.9",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "cut.rec2.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "cut.rec2.l",
+  "shown": "7",
+  "source": "MFL"
+ },
+ {
+  "key": "wa5",
+  "shown": "10.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "hu5",
+  "shown": "29.8",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "gs.pts",
+  "shown": "14.0",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "gs.edge",
+  "shown": "18.5",
+  "source": "MFL weeklyResults; edge over replacement from MFL rostered players"
+ },
+ {
+  "key": "g.wn",
+  "shown": "39.8",
+  "source": "forecast"
+ },
+ {
+  "key": "g.wl",
+  "shown": "32.1",
+  "source": "forecast"
+ },
+ {
+  "key": "g.ww",
+  "shown": "51.3",
+  "source": "forecast"
+ },
+ {
+  "key": "g.cw",
+  "shown": "97.6",
+  "source": "forecast"
+ },
+ {
+  "key": "g.cl",
+  "shown": "91.6",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.w21t",
+  "shown": "54.1",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.w30m",
+  "shown": "45.3",
+  "source": "forecast"
+ },
+ {
+  "key": "j.pts",
+  "shown": "156.5",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.rec",
+  "shown": "37",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.tgt",
+  "shown": "50",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.yds",
+  "shown": "583",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.td",
+  "shown": "7",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.box",
+  "shown": "154.5",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.a0",
+  "shown": "170.7",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "rg.wr",
+  "shown": "74",
+  "source": "nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "j.ppg74",
+  "shown": "23.2",
+  "source": "nflverse weekly stats 2026; nflverse box scores 1999-2025 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.u3",
+  "shown": "36.0",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.u4",
+  "shown": "24.6",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.u5",
+  "shown": "30.0",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.t3",
+  "shown": "13",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.t4",
+  "shown": "11",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.t5",
+  "shown": "10",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.lap",
+  "shown": "9.1",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.u3b",
+  "shown": "36.0",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.gap",
+  "shown": "16.1",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.better",
+  "shown": "28",
+  "source": "MFL weeklyResults (lineups, points); nflverse weekly stats (targets); nflverse box scores 1999-2026 rescored with 2026 UPS rules"
+ },
+ {
+  "key": "b.n",
+  "shown": "2,685",
+  "source": "nflverse TE seasons"
+ },
+ {
+  "key": "p.tgt",
+  "shown": "24",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.rec",
+  "shown": "17",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.yds",
+  "shown": "138",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.ups",
+  "shown": "41.7",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.bills",
+  "shown": "37",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.rams",
+  "shown": "34",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.marsh",
+  "shown": "28",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.lamb",
+  "shown": "21",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.nab",
+  "shown": "20",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.n",
+  "shown": "39",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.next",
+  "shown": "9.3",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.lamb2",
+  "shown": "21",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.lamb_t",
+  "shown": "5",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.lamb_u",
+  "shown": "2.9",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.u4",
+  "shown": "30.9",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "p.u5",
+  "shown": "41.7",
+  "source": "nflverse weekly stats 1999-2026 (targets; 2003-08 not tracked); MFL weeklyResults"
+ },
+ {
+  "key": "sc.kc30",
+  "shown": "92.9",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.kc03",
+  "shown": "74.5",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0009.po",
+  "shown": "99.5",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0009.m",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0009.n",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0009.m2",
+  "shown": "8",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0009.n2",
+  "shown": "8",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0004.po",
+  "shown": "95.2",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0004.m",
+  "shown": "9",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0004.n",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0004.m2",
+  "shown": "7",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0004.n2",
+  "shown": "15",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0010.po",
+  "shown": "93.8",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0010.m",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0010.n",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0010.m2",
+  "shown": "10",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0010.n2",
+  "shown": "13",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0005.po",
+  "shown": "90.1",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0005.m",
+  "shown": "16",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0005.n",
+  "shown": "20",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0005.m2",
+  "shown": "10",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0005.n2",
+  "shown": "13",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0008.po",
+  "shown": "84.2",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0008.m",
+  "shown": "16",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0008.n",
+  "shown": "20",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0008.m2",
+  "shown": "10",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0008.n2",
+  "shown": "13",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0012.po",
+  "shown": "54.0",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0012.m",
+  "shown": "6",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0012.n",
+  "shown": "17",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0012.m2",
+  "shown": "7",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0012.n2",
+  "shown": "15",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0002.po",
+  "shown": "39.8",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0002.m",
+  "shown": "16",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0002.n",
+  "shown": "20",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0002.m2",
+  "shown": "7",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0002.n2",
+  "shown": "15",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0001.po",
+  "shown": "19.8",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0001.m",
+  "shown": "2",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0001.n",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0001.m2",
+  "shown": "7",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0001.n2",
+  "shown": "15",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0011.po",
+  "shown": "14.0",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0011.m",
+  "shown": "6",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0011.n",
+  "shown": "17",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0011.m2",
+  "shown": "7",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0011.n2",
+  "shown": "15",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0003.po",
+  "shown": "5.1",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0003.m",
+  "shown": "2",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0003.n",
+  "shown": "18",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0003.m2",
+  "shown": "0",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0003.n2",
+  "shown": "8",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0006.po",
+  "shown": "2.5",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0006.m",
+  "shown": "3",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0006.n",
+  "shown": "17",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0006.m2",
+  "shown": "0",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0006.n2",
+  "shown": "8",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0007.po",
+  "shown": "2.0",
+  "source": "forecast"
+ },
+ {
+  "key": "s.0007.m",
+  "shown": "3",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0007.n",
+  "shown": "17",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0007.m2",
+  "shown": "0",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "s.0007.n2",
+  "shown": "8",
+  "source": "D1 history (all-play rank 2017-25; win totals 2021-25) + MFL playoff brackets"
+ },
+ {
+  "key": "sc.jrec.3top.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.3top.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.lo.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.lo.l",
+  "shown": "46",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.hi.w",
+  "shown": "22",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3top.hi.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.3top",
+  "shown": "7.9",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.3mid.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.3mid.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.3mid",
+  "shown": "3.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.3bot5.w",
+  "shown": "6",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.3bot5.l",
+  "shown": "10",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.hi.w",
+  "shown": "15",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.3bot5.hi.l",
+  "shown": "51",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jn.3bot5",
+  "shown": "4",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.jrec.2top.w",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.2top.l",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.lo.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.lo.l",
+  "shown": "46",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.hi.w",
+  "shown": "22",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2top.hi.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.2top",
+  "shown": "5.5",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.2mid.w",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.2mid.l",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.2mid",
+  "shown": "1.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.2bot3.w",
+  "shown": "5",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.2bot3.l",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.hi.w",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.2bot3.hi.l",
+  "shown": "53",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jn.2bot3",
+  "shown": "21",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.jrec.1top.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.1top.l",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.lo.w",
+  "shown": "20",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.lo.l",
+  "shown": "46",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.hi.w",
+  "shown": "22",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1top.hi.l",
+  "shown": "44",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jn.1top",
+  "shown": "28",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.jrec.1mid.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.1mid.l",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.1mid",
+  "shown": "2.0",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.1bot3.w",
+  "shown": "4",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.1bot3.l",
+  "shown": "12",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.hi.w",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.1bot3.hi.l",
+  "shown": "53",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.1bot3",
+  "shown": "0.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.0mid.w",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.0mid.l",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.lo.w",
+  "shown": "14",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.lo.l",
+  "shown": "52",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.hi.w",
+  "shown": "19",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0mid.hi.l",
+  "shown": "47",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.0mid",
+  "shown": "1.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.jrec.0bot3.w",
+  "shown": "3",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jrec.0bot3.l",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.lo.w",
+  "shown": "11",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.lo.l",
+  "shown": "55",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.hi.w",
+  "shown": "13",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.jap.0bot3.hi.l",
+  "shown": "53",
+  "source": "MFL"
+ },
+ {
+  "key": "sc.j.0bot3",
+  "shown": "0.6",
+  "source": "forecast"
+ },
+ {
+  "key": "s.ger",
+  "shown": "5.1",
+  "source": "forecast"
+ },
+ {
+  "key": "s.cross",
+  "shown": "2.5",
+  "source": "forecast"
+ },
+ {
+  "key": "s.jm",
+  "shown": "2.0",
+  "source": "forecast"
+ },
+ {
+  "key": "le3.n",
+  "shown": "8",
+  "source": "D1 history 2021-25 (records after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "b3.m",
+  "shown": "4",
+  "source": "D1 history 2017-25 (all-play after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "b3.n",
+  "shown": "24",
+  "source": "D1 history 2017-25 (all-play after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "pr.ap",
+  "shown": "88",
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "pr.pf",
+  "shown": "86",
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "pr.h2h",
+  "shown": "85",
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "b17.w",
+  "shown": "11",
+  "source": "D1"
+ },
+ {
+  "key": "b17.l",
+  "shown": "44",
+  "source": "D1"
+ },
+ {
+  "key": "b17.seed",
+  "shown": "6",
+  "source": "bracket"
+ },
+ {
+  "key": "b17.fin",
+  "shown": "3",
+  "source": "bracket"
+ },
+ {
+  "key": "sc.jpath",
+  "shown": "80",
+  "source": "week_preview weekScenarios (same 10,000 simulated seasons as the forecast)"
+ },
+ {
+  "key": "sc.j30",
+  "shown": "6.7",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.j03",
+  "shown": "0.8",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.j30t",
+  "shown": "7.9",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.j30m",
+  "shown": "3.7",
+  "source": "forecast"
+ },
+ {
+  "key": "k.hawks",
+  "shown": "54.0",
+  "source": "forecast"
+ },
+ {
+  "key": "sc.minn2",
+  "shown": "100",
+  "source": "builder rule: minimum 100 simulated seasons"
+ },
+ {
+  "key": "pr.n",
+  "shown": "216",
+  "source": "D1 history 2020-25 (standings after Week 5) + MFL playoff brackets"
+ },
+ {
+  "key": "cut.res5",
+  "shown": "2&ndash;1",
+  "source": "MFL"
+ },
+ {
+  "key": "r5.00080003.w",
+  "shown": "271.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080003.l",
+  "shown": "161.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080003.m",
+  "shown": "110.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00040011.w",
+  "shown": "268.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00040011.l",
+  "shown": "167.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00040011.m",
+  "shown": "100.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00100007.w",
+  "shown": "261.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00100007.l",
+  "shown": "171.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00100007.m",
+  "shown": "90.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090005.w",
+  "shown": "280.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090005.l",
+  "shown": "190.7",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090005.m",
+  "shown": "89.3",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00040012.w",
+  "shown": "268.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00040012.l",
+  "shown": "200.3",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00040012.m",
+  "shown": "68.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00010003.w",
+  "shown": "228.8",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00010003.l",
+  "shown": "161.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00010003.m",
+  "shown": "67.7",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080002.w",
+  "shown": "271.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080002.l",
+  "shown": "211.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080002.m",
+  "shown": "60.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090006.w",
+  "shown": "280.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090006.l",
+  "shown": "223.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090006.m",
+  "shown": "56.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00060011.w",
+  "shown": "223.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00060011.l",
+  "shown": "167.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00060011.m",
+  "shown": "56.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00020007.w",
+  "shown": "211.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00020007.l",
+  "shown": "171.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00020007.m",
+  "shown": "40.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00100001.w",
+  "shown": "261.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00100001.l",
+  "shown": "228.8",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00100001.m",
+  "shown": "32.7",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00060012.w",
+  "shown": "223.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00060012.l",
+  "shown": "200.3",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00060012.m",
+  "shown": "23.6",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00050011.w",
+  "shown": "190.7",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00050011.l",
+  "shown": "167.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00050011.m",
+  "shown": "22.8",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00010002.w",
+  "shown": "228.8",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00010002.l",
+  "shown": "211.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00010002.m",
+  "shown": "17.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090004.w",
+  "shown": "280.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090004.l",
+  "shown": "268.4",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00090004.m",
+  "shown": "11.6",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080010.w",
+  "shown": "271.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080010.l",
+  "shown": "261.5",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00080010.m",
+  "shown": "10.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00070003.w",
+  "shown": "171.0",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00070003.l",
+  "shown": "161.1",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00070003.m",
+  "shown": "9.9",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00120005.w",
+  "shown": "200.3",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00120005.l",
+  "shown": "190.7",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "r5.00120005.m",
+  "shown": "9.6",
+  "source": "MFL weeklyResults"
+ },
+ {
+  "key": "bm.pair",
+  "shown": "92.7",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.maye",
+  "shown": "51.8",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.gyds",
+  "shown": "151",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.gcar",
+  "shown": "25",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.gibbs",
+  "shown": "40.9",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.ptgt",
+  "shown": "24",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.prec",
+  "shown": "17",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.pups",
+  "shown": "41.7",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.wtd1",
+  "shown": "80",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.wtd2",
+  "shown": "50",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.wups",
+  "shown": "39.6",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.bear",
+  "shown": "280.0",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.bur",
+  "shown": "35.4",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bm.bow",
+  "shown": "30.0",
+  "source": "MFL weeklyResults; nflverse weekly stats 2026"
+ },
+ {
+  "key": "bl5.n",
+  "shown": "8",
+  "source": "MFL weeklyResults (best possible lineups)"
+ }
+]

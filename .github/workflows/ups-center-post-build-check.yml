@@ -1,0 +1,106 @@
+name: UPS Center post-build check
+
+# Every automated UPS Center draft (branch wire/auto/<season>-wkNN-ups-center, opened or updated by
+# the scheduled builder, pipelines/etl/wire/ups_center_auto.py) is checked here, in GitHub Actions,
+# so the check needs neither Keith's Mac nor the Claude app (Keith 2026-10-15). It is permanent: every
+# future week's draft gets the same checks.
+#
+# It reads the draft's committed files as DATA (git show of the PR's head commit: the article, its
+# claims, validation, run record and forecast files -- the recorded inputs the draft was built from)
+# plus live publication state, posts one report on the draft PR (edited in place on later runs),
+# keeps the report as an artifact, and FAILS on any mismatch. It never publishes, announces, or
+# writes to MFL, D1 or Discord: D1 is one SELECT through wire_data.d1 (which refuses anything else),
+# Discord is one GET.
+#
+# pull_request_target, not pull_request: this workflow and the checker come from main, never from the
+# draft branch, so a draft cannot change the checks that judge it. The branch is never checked out.
+# It runs only while the PR is a draft: publication (ready for review, status: live) is a later stage
+# with its own gates (ups_center_due.py preflight, wire.py verify).
+#
+# Manual run: Actions -> "UPS Center post-build check" -> Run workflow (season, week); or locally:
+#   python3 pipelines/etl/wire/ups_center_check.py --season 2026 --week 6
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season"
+        required: true
+        default: "2026"
+      week:
+        description: "Week the draft covers"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write          # PR comments go through the issues API
+
+concurrency:
+  group: ups-center-post-build-check-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft &&
+       startsWith(github.event.pull_request.head.ref, 'wire/auto/') &&
+       !endsWith(github.event.pull_request.head.ref, '-sandbox') &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4          # main: the checker. The draft branch is fetched and read, never checked out.
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"               # wrangler, for the read-only ups_wire_threads SELECT
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Which draft
+        id: which
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          IN_SEASON: ${{ inputs.season }}
+          IN_WEEK: ${{ inputs.week }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re
+          ref = os.environ.get("HEAD_REF") or ""
+          if ref:
+              m = re.fullmatch(r"wire/auto/(\d{4})-wk(\d{2})-ups-center", ref)
+              if not m:
+                  raise SystemExit("not an automated UPS Center draft branch: %r" % ref)
+              season, week = m.group(1), str(int(m.group(2)))
+          else:
+              season, week = os.environ["IN_SEASON"].strip(), os.environ["IN_WEEK"].strip()
+              if not (re.fullmatch(r"\d{4}", season) and re.fullmatch(r"\d{1,2}", week)):
+                  raise SystemExit("season and week must be numbers")
+          print("season=%s" % season)
+          print("week=%d" % int(week))
+          print("aid=%s-wk%02d-ups-center" % (season, int(week)))
+          PY
+      - name: Check the draft (reads only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SEASON: ${{ steps.which.outputs.season }}
+          WEEK: ${{ steps.which.outputs.week }}
+        run: |
+          python3 pipelines/etl/wire/ups_center_check.py --season "$SEASON" --week "$WEEK" \
+            ${HEAD_SHA:+--ref "$HEAD_SHA"} --out-dir post-build-check --comment
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ups-center-post-build-check-${{ steps.which.outputs.aid }}-run${{ github.run_id }}
+          path: post-build-check/
+          if-no-files-found: error
