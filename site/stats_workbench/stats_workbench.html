@@ -1063,11 +1063,16 @@ table.asw-table{font-size:13px}
       title:"Total MFL fantasy points over the selected season/scope" },
     mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec1",
       title:"MFL points ÷ games with a score (excludes inactives/byes; computed server-side)" },
-    // Strength-of-Schedule-adjusted MFL points (side-loaded /api/sos-adjusted-points, by gsis_id).
-    // raw ÷ avg generosity of the defenses faced — easy schedule adjusts DOWN, tough adjusts UP.
-    mfl_points_sos:      { label:"SoS Δ",  num:true, fmt:"delta",
-      title:"Strength-of-Schedule delta = SoS-adjusted points − raw points. NEGATIVE = easy schedule (faced generous defenses, raw is inflated); POSITIVE = hard schedule (faced tough defenses, raw understates them).",
-      compute:function(r){ var s=sosByGsis[String(r.gsis_id)]; return (s && s.sos != null && s.raw != null) ? Math.round((s.sos - s.raw)*10)/10 : null; } },
+    // Schedule faced (side-loaded /api/sos-adjusted-points: the Pts Agst engine, joined
+    // by MFL id; #1271). Descriptive: what the teams he faced allowed to OTHER players at
+    // his position over the same final games. Uncolored on purpose: neither column is
+    // good or bad, and neither is a forecast. Missing = "—", never 0.
+    mfl_points_sos:      { label:"Sched Δ",  num:true, fmt:"sdelta",
+      title:"Sched Δ = his points ÷ Opp − his points, over the same final games. Negative: the teams he faced allowed his position more than usual; positive: less. It describes the schedule he had; it isn't a forecast.",
+      compute:function(r){ var s=sosRowFor(r); return s && s.delta != null ? s.delta : null; } },
+    mfl_sched_opp:       { label:"Opp ±%",  num:true, fmt:"spct",
+      title:"What the teams he faced allowed to other players at his position, against those players' usual (Pts Agst's Allowed ÷ Usual for the same weeks, his own games left out), averaged over his games. +10% = 10% more than usual.",
+      compute:function(r){ var s=sosRowFor(r); return s && s.opp != null ? Math.round((s.opp - 1) * 100) : null; } },
     // Consistency / boom-bust (side-loaded /api/player-consistency, by gsis_id).
     cons_floor:          { label:"Floor",   num:true, fmt:"dec1", title:"Lowest weekly fantasy score in the window (scoring games only)",
       compute:function(r){ var c=consistByGsis[String(r.gsis_id)]; return c && c.floor != null ? c.floor : null; } },
@@ -1530,7 +1535,7 @@ table.asw-table{font-size:13px}
       label: "QB", workerPos: "qb", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "pass_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"pass_volume",    label:"Passing · Volume",  cols:["pass_att","pass_cmp","cmp_pct","pass_yds","pass_tds","ypa"], defaultOn:true },
         { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks","pass_sack_yds"], defaultOn:false },
@@ -1548,7 +1553,7 @@ table.asw-table{font-size:13px}
       label: "RB", workerPos: "skill", positionFilter: ["RB","FB"],
       ident: IDENT_BASIC, defaultSort: "rush_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume",  cols:["rush_att","rush_yds","rush_tds","y_per_a"], defaultOn:true },
         { id:"rush_efficiency",label:"Rushing · Efficiency", cols:["ybc_per_a","yac_per_a"], defaultOn:false },
@@ -1574,7 +1579,7 @@ table.asw-table{font-size:13px}
       label: "WR", workerPos: "skill", positionFilter: ["WR"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -1597,7 +1602,7 @@ table.asw-table{font-size:13px}
       label: "TE", workerPos: "skill", positionFilter: ["TE"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -1619,7 +1624,7 @@ table.asw-table{font-size:13px}
       label: "Flex·O", workerPos: "skill", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume", cols:["rush_att","rush_yds","rush_tds"], defaultOn:true },
@@ -1648,7 +1653,7 @@ table.asw-table{font-size:13px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_sacks",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -1661,7 +1666,7 @@ table.asw-table{font-size:13px}
       positionFilter: ["LB","OLB","ILB","MLB"],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -1681,7 +1686,7 @@ table.asw-table{font-size:13px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ints","def_pass_def","def_ff","def_fr","def_tds"], defaultOn:false },
@@ -1694,7 +1699,7 @@ table.asw-table{font-size:13px}
       label: "Flex·IDP", workerPos: "idp", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -1709,7 +1714,7 @@ table.asw-table{font-size:13px}
       label: "PK", workerPos: "kicker", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "fg_made",
       groups: [
-        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",        label:"Usage",    cols:["games"], defaultOn:true },
         { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_make","avg_fg_att"], defaultOn:true },
         { id:"fg_distance",  label:"FG by Distance", cols:["fg_0_39","fg_40_49","fg_50_59","fg_60plus"], defaultOn:false },
@@ -1720,7 +1725,7 @@ table.asw-table{font-size:13px}
       label: "PN", workerPos: "punter", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "punts",
       groups: [
-        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_points_sos"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg","punt_avg_spot"], defaultOn:false },
@@ -1863,8 +1868,11 @@ table.asw-table{font-size:13px}
 
   // Strength-of-Schedule-adjusted MFL points keyed by gsis_id — side-loaded per
   // query (it depends on the selected seasons + week window) and read by the
-  // mfl_points_sos compute column. Repopulated inside runQuery().
-  var sosByGsis = {};
+  // mfl_points_sos / mfl_sched_opp (#1271): /api/sos-adjusted-points by MFL id, and what
+  // the answer said about each season (or why it failed). Repopulated inside runQuery().
+  var sosByMfl = {};
+  function sosKey(id){ var n = parseInt(String(id == null ? "" : id), 10); return isFinite(n) ? String(n) : ""; }
+  function sosRowFor(r){ var k = sosKey(r && r.mfl_pid); return k ? sosByMfl[k] : null; }
   var consistByGsis = {};   // /api/player-consistency by gsis_id — floor/ceil/consistency/boom/bust/weeks
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
   var sepByGsis = {};       // PFF route-separation by gsis_id — man/zone/overall score+pct+routes (static JSON)
@@ -2748,6 +2756,13 @@ table.asw-table{font-size:13px}
       var d = Number(v); if (d === 0) return "0";
       return '<span class="asw-trend ' + (d > 0 ? "up" : "dn") + '">' + (d > 0 ? "+" : "") + d.toFixed(1) + "</span>";
     }
+    if (fmt === "sdelta") {
+      // Signed and uncolored: a description, not good or bad (Sched Δ, #1271).
+      var sd = Number(v); return (sd > 0 ? "+" : "") + sd.toFixed(1);
+    }
+    if (fmt === "spct") {
+      var sp = Number(v); return (sp > 0 ? "+" : "") + sp.toFixed(0) + "%";
+    }
     if (fmt === "epa") {
       // EPA per play — positive green (efficient), negative red.
       var e = Number(v);
@@ -3054,9 +3069,35 @@ table.asw-table{font-size:13px}
   // with 2026 as if alike. Silent when no EPA / red-zone column is showing.
   var RZ_COLS = { rush_att_i20:1, rush_att_i5:1, targets_i20:1, rec_i20:1, targets_ez:1, pass_att_i20:1, pass_att_ez:1,
                   rz_rush_share:1, gl_rush_share:1, rz_target_share:1, rz_rec_share:1, ez_target_share:1, team_rz_plays:1, team_rz_pass_rate:1 };
+  // Sched Δ / Opp ±% (#1271): one line + short sentences on what the two columns are and
+  // which weeks each season actually used, or why they read "—". "" when neither shows.
+  function sosNoteText(sos, cols) {
+    var shown = (cols || []).some(function (k) { return k === "mfl_points_sos" || k === "mfl_sched_opp"; });
+    if (!shown || !sos || sos.status === "loading") return "";
+    var head = "Sched Δ / Opp ±%: what the teams he faced allowed to other players at his position, against their usual (Pts Agst, final games). It describes his schedule; it isn't a forecast.";
+    if (sos.status !== "ok") {
+      var why = sos.error === "too_many_live_seasons" ? (sos.detail || "too many seasons need a live MFL read")
+        : sos.error === "mfl_unavailable" ? "MFL couldn't be read" + (sos.season ? " for " + sos.season : "") + (sos.detail ? " (" + sos.detail + ")" : "")
+        : "the answer didn't load (" + (sos.error || "error") + ")";
+      return head + " Both read — : " + why + ". Nothing is filled in from another season.";
+    }
+    var per = sos.perSeason || {}, parts = [];
+    Object.keys(per).sort().forEach(function (y) {
+      var p = per[y] || {};
+      if (p.state === "not_started") { parts.push(y + " hasn't started"); return; }
+      if (p.state === "outside_season") { parts.push(y + " has no weeks in this range (its season ended at Wk " + p.endWeek + ")"); return; }
+      var w = p.weeksUsed || [], t = y + ": " + (w.length ? "Wks " + w[0] + (w.length > 1 ? "–" + w[w.length - 1] : "") : "no final games");
+      if (p.window && p.window.clipped_to_end) t += " (season ended at Wk " + p.endWeek + "; playoffs Wks " + (p.playoffWeeks || []).join(", ") + ")";
+      if ((p.weeksNotFinal || []).length) t += "; Wk " + p.weeksNotFinal.join(", ") + " not final yet, those games not counted";
+      parts.push(t);
+    });
+    return head + (parts.length ? " " + parts.join(" · ") + "." : "");
+  }
   function renderDefinitionNote(cols) {
     var slot = document.getElementById("asw-source-freshness-slot");
     if (!slot) return;
+    var sosLine = sosNoteText(state.sos, cols);
+    if (sosLine) slot.insertAdjacentHTML("beforeend", '<div class="asw-datanote asw-def-note asw-sos-note"><span>ℹ</span><span>' + escapeHtml(sosLine) + "</span></div>");
     var epaShown = (cols || []).some(function (k) { return /^epa_/.test(k); });
     var rzShown = (cols || []).some(function (k) { return RZ_COLS[k]; });
     var lines = [];
@@ -4133,13 +4174,25 @@ table.asw-table{font-size:13px}
       getScopeQueryParams() +
       "&min_games=1" +
       "&limit=500";
-    // SoS-adjusted MFL points — side-load per query with the SAME seasons +
-    // week window so the adjusted total lines up with the displayed raw points.
+    // Sched Δ / Opp (#1271) — side-load per query with the SAME seasons + week window.
+    // A failed or refused answer is kept and SAID (state.sos), never shown as zeros.
+    state.sos = { status: "loading" };
     var sosFetch = fetch(API_BASE + "/api/sos-adjusted-points?seasons=" +
         encodeURIComponent(seasons.join(",")) + getScopeQueryParams())
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ sosByGsis = (j && j.by_gsis) || {}; })
-      .catch(function(){ sosByGsis = {}; });
+      .then(function(r){
+        return r.json().then(function(j){ return { ok: r.ok, status: r.status, j: j }; },
+                             function(){ return { ok: false, status: r.status, j: null }; });
+      })
+      .then(function(x){
+        if (x.ok && x.j && x.j.ok) {
+          sosByMfl = x.j.by_mfl || {};
+          state.sos = { status: "ok", perSeason: x.j.per_season || {} };
+        } else {
+          sosByMfl = {};
+          state.sos = { status: "error", error: (x.j && x.j.error) || ("HTTP " + x.status), detail: (x.j && x.j.detail) || "", season: (x.j && x.j.season) || "" };
+        }
+      })
+      .catch(function(){ sosByMfl = {}; state.sos = { status: "error", error: "unreachable", detail: "" }; });
     // Consistency / boom-bust — same seasons + week window, joined by gsis_id.
     var consistFetch = fetch(API_BASE + "/api/player-consistency?seasons=" +
         encodeURIComponent(seasons.join(",")) + getScopeQueryParams())
