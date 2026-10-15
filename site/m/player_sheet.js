@@ -851,7 +851,7 @@
     // The week a screen that isn't Lineup resolves for: Lineup's week once the app knows it,
     // else the read's own week. The sheet, Stats → Players and search all use this, so the
     // same player gets the same tags (dashed or not) on each of them at the same read.
-    function screenWeek() { return window.UPS_MOBILE.state.lineupWeek || null; }
+    function screenWeek() { return window.UPS_MOBILE.state.lineupWeek || null; }   // the sheet's statusHtml() passes this same expression
     return { load: load, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
       resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, noteText: noteText, screenWeek: screenWeek,
       state: function () { return st.state; }, _st: st, TTL: TTL };
@@ -2896,7 +2896,7 @@
     // health — the lines say what each source has.
     var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
     function statusHtml() {
-      var res = PSTAT.resolve(pid, team, PSTAT.screenWeek());
+      var res = PSTAT.resolve(pid, team, window.UPS_MOBILE.state.lineupWeek || null);   // = PSTAT.screenWeek()
       return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines };
     }
     function headHtml(stNow) {
