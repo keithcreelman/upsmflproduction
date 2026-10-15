@@ -13256,6 +13256,17 @@ export default {
             -- — a WR nflverse lists at CB is on the skill board, an LB it lists
             -- at RB on the IDP board. Without an accepted map row (or an MFL
             -- position) it is nflverse's pos_group, as before.
+            --
+            -- COST (#1266, measured 2026-10-15). The second half used to start
+            -- from player_id_map and checked, per map row, whether the player
+            -- had a box-score row off this board. D1 answered that with the
+            -- (season, pos_group) index, so every map row re-read the season's
+            -- off-board rows: ~17M rows read per run in production (2025:
+            -- skill ~33M, idp ~51M on a copy of the same rows), up from
+            -- ~0.3M before 2026-10-10. Starting from the season's distinct
+            -- off-board players and probing the map by gsis_id returns the
+            -- same set (identical boards on all 20 board x window shapes for
+            -- 2025) for 378k (skill), 284k (idp), 235k (qb) rows in production.
             elig AS (
               SELECT DISTINCT w.gsis_id
                 FROM nfl_player_weekly w
@@ -13264,12 +13275,14 @@ export default {
                                   WHERE m.gsis_id = w.gsis_id AND m.accepted = 1
                                     AND ${mflBoardSql("m.mfl_position")} <> '${pos}')
               UNION
-              SELECT m.gsis_id
-                FROM player_id_map m
-               WHERE m.accepted = 1 AND ${mflBoardSql("m.mfl_position")} = '${pos}'
-                 AND EXISTS (SELECT 1 FROM nfl_player_weekly w
-                              WHERE w.gsis_id = m.gsis_id AND w.season IN (${seasonList})
-                                AND w.pos_group IS NOT NULL AND w.pos_group NOT IN (${posList}))
+              SELECT o.gsis_id
+                FROM (SELECT DISTINCT w.gsis_id
+                        FROM nfl_player_weekly w
+                       WHERE w.season IN (${seasonList})
+                         AND w.pos_group IS NOT NULL AND w.pos_group NOT IN (${posList})) o
+               WHERE EXISTS (SELECT 1 FROM player_id_map m
+                              WHERE m.gsis_id = o.gsis_id AND m.accepted = 1
+                                AND ${mflBoardSql("m.mfl_position")} = '${pos}')
             ),
             -- The verified MFL<->NFL id map (migration 0170) for the players in
             -- play: preferred wherever this query needs an MFL id or a pfr id.
