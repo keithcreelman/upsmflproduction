@@ -107,6 +107,7 @@ await check("layout: the page never scrolls sideways; the table scrolls in its o
   assert.match(SRC, /\.asw-ctl-f\[hidden\],\.asw-more\[hidden\]\{display:none!important\}/);
   assert.match(SRC, /\.asw-ctl\{display:flex;flex-wrap:wrap;/, "controls wrap instead of widening the page");
   assert.match(SRC, /\.asw-table\.no-sel td\.name,\.asw-table\.no-sel th\.name-col\{left:40px\}/, "the frozen Player column without the compare column");
+  assert.match(SRC, /#asw-view-player-stats \.asw-table-wrap\{max-height:calc\(100vh - 16px\);overflow:auto\}/, "the table is a region one window tall, so its header row stays in view");
   assert.match(SRC, /<aside class="asw-drawer" id="asw-drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="asw-drawer-title">/);
 });
 

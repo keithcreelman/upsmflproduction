@@ -562,6 +562,10 @@ table.asw-table{font-size:13px}
 .asw-ctl-f[hidden],.asw-more[hidden]{display:none!important}
 /* A focused group is a handful of columns: the table takes the width it needs, not the page's. */
 table.asw-table{width:auto;min-width:0}
+/* The table is a region one window tall: its header row stays in view while its rows scroll,
+   and the frozen Player column stays put when it scrolls sideways. In MFL the page is an app
+   pane (mfl_hpm_embed_loader.js), so "a window" is the pane. */
+#asw-view-player-stats .asw-table-wrap{max-height:calc(100vh - 16px);overflow:auto}
 .asw-table th.num,.asw-table td.num{min-width:68px}
 .asw-pagehead{padding:18px 0 0;margin-bottom:10px}
 .asw-standfirst{max-width:96ch;margin-top:6px}
