@@ -1113,7 +1113,7 @@
       if (more.length) more.unshift(rankLine); else line.unshift(rankLine);
     }
     // Where the tags come from (the shared resolver's note, the same words as Lineup's).
-    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS && PS.noteText ? PS.noteText(PS.screenWeek(), "Tap a player for both.") : "";
+    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS && PS.noteText ? PS.noteText(PS.screenWeek ? PS.screenWeek() : null, "Tap a player for both.") : "";
     var open = view.noteOpen ? " open" : "";
     return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(line.join(" ")) +
       (inj ? '<div class="ups-m-st-injline">' + U.escapeHtml(inj) + "</div>" : "") +
@@ -1130,7 +1130,7 @@
   // being cut at 320px.
   function injChips(r) {
     var PS = window.UPS_MOBILE_PLAYER_STATUS;
-    return PS && PS.resolve && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek()), "sm") : "";
+    return PS && PS.resolve && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm") : "";
   }
   function rowHtml(r, cols, tab, viewerFid) {
     var own = ownerOf(r.pid);

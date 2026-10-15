@@ -163,6 +163,15 @@ test("MFL says Out (lapsed) but the official report doesn't list him → no tag 
   t.equal(old.projFinal, 45.5, "before: 45.5; after: 31.5");
 });
 
+test("MFL's own Out in the status read (what Stats, search, the sheet and Lineup show as 'MFL: OUT') never reaches Live Scoring: no tag, full projection", async () => {
+  const players = Object.assign({}, FX.playerStatus.players, { "90002": { mfl: { status: "Out", week: 6, updated_utc: FX.playerStatus.generated_utc, details: "Ankle", exp_return: null, return_date: null } } });
+  const st = Object.assign(STATUS({}, players), { mfl_feed: { ok: true, week: 6, read_utc: FX.playerStatus.generated_utc, updated_utc: FX.playerStatus.generated_utc, count: 1, reason: null } });
+  const v = await open({ status: () => st });
+  const rows = rowsOf(v.mount.innerHTML);
+  t.equal(rows["90002"].tag, "", "no tag from MFL's designation"); t.equal(rows["90002"].proj, "12.0", "no injury discount: only the official report moves live odds");
+  t.deepEqual(JSON.parse(JSON.stringify(v.PS.resolve("90002", "BUF", 6).chips.map((c) => c.t))), ["MFL: OUT", "NFL Wk 6: not listed"], "while the other screens' resolver shows it, beside the report that doesn't list him (the deliberate difference)");
+});
+
 // ═══ 2. no current report → no Q/D/OUT and no game-status discount, said in one line ═══
 test("report unavailable (the route fails) → no Q/D/OUT tag, no game-status discount, the unavailable line; MFL IR/PUP/Suspended still tagged", async () => {
   const v = await open({ status: 500 });

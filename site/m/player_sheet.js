@@ -830,7 +830,8 @@
     function resolve(pid, team, week) {
       var IS = window.UPSInjuryStatus;
       if (!IS) return { chips: [], lines: [], disagree: false, label: "" };
-      var wk = parseInt(week, 10) || 0, ctx = window.UPS_MOBILE.state.ctx || {};
+      // No week from the caller (the sheet before Lineup has been opened): the app's lineup week.
+      var wk = parseInt(week, 10) || parseInt(screenWeek(), 10) || 0, ctx = window.UPS_MOBILE.state.ctx || {};
       var fb = wk ? IS.fromMflStore(window.UPS_MOBILE.state.injuryStore, ctx.year, wk, pid) : null;
       return IS.resolve(st, pid, team, { week: wk || null, fallback: fb });
     }
@@ -848,12 +849,20 @@
       var IS = window.UPSInjuryStatus;
       return IS ? IS.noteText(st, { week: parseInt(week, 10) || null, fallback: !!window.UPS_MOBILE.state.injuryStore, detailsText: detailsText || "" }) : "";
     }
-    // The week a screen that isn't Lineup resolves for: Lineup's week once the app knows it,
-    // else the read's own week. The sheet, Stats → Players and search all use this, so the
-    // same player gets the same tags (dashed or not) on each of them at the same read.
-    function screenWeek() { return window.UPS_MOBILE.state.lineupWeek || null; }   // the sheet's statusHtml() passes this same expression
+    // The week a screen that isn't Lineup resolves for: Lineup's week once Lineup has set it,
+    // else the app's startup answer from the same /api/current-lineup-week (lineupWeekResolution),
+    // else none (the read's own week). resolve() falls back to it when a caller passes no week.
+    function screenWeek() {
+      var S = window.UPS_MOBILE.state, r = S.lineupWeekResolution;
+      return S.lineupWeek || (r && parseInt(r.week, 10)) || null;
+    }
+    // For a phone still running an older Stats script for a few minutes after a release (the
+    // CDN can pair it with this file): the SAME resolver tags and note, never the old rule.
+    function chipsHtml(pid, team, extra) { return resolvedChipsHtml(resolve(pid, team, null), extra); }
+    function listLine() { return noteText(screenWeek(), "Tap a player for both."); }
     return { load: load, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
       resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, noteText: noteText, screenWeek: screenWeek,
+      chipsHtml: chipsHtml, listLine: listLine,
       state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
   window.UPS_MOBILE_PLAYER_STATUS = PSTAT;

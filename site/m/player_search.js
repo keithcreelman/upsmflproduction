@@ -288,21 +288,21 @@
   function chipsHtml(r) {
     var PS = statusOf();
     if (!PS || !r.pid) return "";
-    var h = PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek()), "sm");
+    var h = PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm");
     return h ? '<span class="inj">' + h + "</span>" : "";
   }
   // The resolver's note (where the tags come from; no tag isn't "healthy"), and a status
-  // read when there's no fresh one, repainting the open list when it lands.
+  // read when there's no fresh one. The open list is repainted whenever a read lands: a
+  // refresh of a read older than 5 minutes stays "ok" → "ok", so a state change can't be the test.
   function statusNoteHtml() {
     var PS = statusOf();
     if (!PS) return "";
-    return '<div class="ups-m-psr-basis ups-m-psr-inj">' + U.escapeHtml(PS.noteText(PS.screenWeek(), "Tap a player for both.")) + "</div>";
+    return '<div class="ups-m-psr-basis ups-m-psr-inj">' + U.escapeHtml(PS.noteText(PS.screenWeek ? PS.screenWeek() : null, "Tap a player for both.")) + "</div>";
   }
   function loadStatus() {
     var PS = statusOf(), year = (M.state.ctx || {}).year;
     if (!PS || !year) return;
-    var before = PS.state();
-    PS.load(year).then(function () { if (isOpen() && PS.state() !== before) repaint(true); });
+    PS.load(year).then(function () { if (isOpen()) repaint(true); });
   }
 
   // PPG and PPG rank exactly as the sheet's Actions tab shows them (same
