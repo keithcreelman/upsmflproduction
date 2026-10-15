@@ -24,7 +24,7 @@ import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
-import { resolveLiveLeagueYear } from "./league_year.js";
+import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
@@ -3646,19 +3646,26 @@ const _faaAuctionStartUnix = async (env, season) => {
   }
 };
 
-// ── WHICH LEAGUE YEAR the */5 drop pipeline runs as ─────────────────────────
-// The LIVE MFL league year, never the calendar year: NFL Week 17 runs into January and MFL keeps last season's league
-// live until the rollover (the next year's league 404s until then) — see league_year.js. One bounded raw `TYPE=league`
-// read per year asked; no cookie (the export and its history are public). Unresolved → { ok: false }: run nothing.
-const _liveDropLeagueYear = (env, leagueId) => resolveLiveLeagueYear({
-  leagueId, nowMs: Date.now(), pinnedYear: env && env.YEAR,
-  readLeague: async (year) => {
-    const res = await fetchBounded(
-      `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1&_=${Date.now()}`,
-      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 0, cacheEverything: false } }, 8000);
-    return { status: res.status, text: await res.text() };
-  },
-});
+// ── WHICH SEASON the */5 drop pipeline runs as ──────────────────────────────
+// The ACTIVE season (league_year.js resolveActiveSeason, #1237), never the calendar year: the old season stays until
+// its own last week is PROVABLY final AND the new league is live, so a drop made in the 2026 league during Week 17
+// (Jan 1–5) is recorded as 2026 even if the 2027 league is created early (#1207 switched on the 2027 export alone).
+// Unresolved → { ok: false }: run nothing this tick. Kept per isolate for 10 minutes (1 minute while unresolved); a
+// completed season is remembered for good. Reads are public MFL exports, no cookie, bounded to 8 s each.
+const _activeSeasonMemo = new Map(), _seasonCompleteMemo = new Map();
+async function activeSeason(leagueId, env) {
+  const pin = String((env && env.YEAR) || "").replace(/\D/g, "");
+  if (pin) return { ok: true, season: pin, source: "env.YEAR" };   // the operator pin: no read, no memo
+  const lid = String(leagueId || "").replace(/\D/g, "") || "74598", now = Date.now();
+  const memo = _activeSeasonMemo.get(lid);
+  if (memo && now >= memo.at && now < memo.until) return memo.r;
+  const fetchImpl = (u, ttl) => fetchBounded(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: ttl } }, 8000);
+  const r = await resolveActiveSeason({ leagueId: lid, nowMs: now, completeMemo: _seasonCompleteMemo,
+    ...mflSeasonReaders({ leagueId: lid, fetchImpl }) });
+  _activeSeasonMemo.set(lid, { r, at: now, until: now + (r.ok ? 600e3 : 60e3) });
+  return r;
+}
+const _liveDropLeagueYear = (env, leagueId) => activeSeason(leagueId, env);
 
 // ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
 // The ONLY reliable "this auction really completed" signal, established on prod
@@ -7336,7 +7343,7 @@ export default {
         if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
-              // WHICH SEASON: the LIVE MFL league year (league_year.js), never `season` (the calendar year). NFL Week 17
+              // WHICH SEASON: the ACTIVE season (activeSeason, league_year.js), never `season` (the calendar year). NFL Week 17
               // runs into January and MFL keeps the 2026 league live until its rollover — 2027's exports 404 until then —
               // so from Jan 1 the calendar year scanned a league that doesn't exist and every drop made in the live one was
               // missed. Every route below records, prices (on that season's own week calendar) and posts as dropSeason; a
@@ -7346,7 +7353,7 @@ export default {
               // rows stay held (and listed by every drop route), and the recorder's 2-day lookback catches up once it resolves.
               const live = await _liveDropLeagueYear(env, leagueId);
               if (!live.ok) {
-                console.error(`[scheduled */5] drop-tracker SKIPPED: live MFL league year unresolved (${live.reason}) — nothing recorded, posted or charged this tick under a guessed season; retried every tick.`);
+                console.error(`[scheduled */5] drop-tracker SKIPPED: active season unresolved (${live.reason}) — nothing recorded, posted or charged this tick under a guessed season; retried every tick.`);
                 return;
               }
               const dropSeason = live.season;
