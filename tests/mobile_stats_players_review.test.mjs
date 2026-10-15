@@ -623,8 +623,8 @@ test("a partial coverage week says 'in progress' in words, never a '*' and never
   t.doesNotMatch(rc2.notes + rc2.head, /in progress/);
 });
 
-test("sheet status wording: an id-map failure isn't blamed on the report; a file ahead of MFL's week says so", async () => {
-  const src = read("site/m/player_sheet.js");
+test("status wording (the shared resolver, used by the sheet, the list and search): an id-map failure isn't blamed on the report; a file ahead of MFL's week says so", async () => {
+  const src = read("site/shared/injury_status.js");
   t.match(src, /if \(\/id map\/\.test\(r\)\) return "players couldn’t be matched to it \(the NFL id map couldn’t be read\)";/);
   t.match(src, /has no Wk \\d\+ rows/);
 });
@@ -1258,43 +1258,99 @@ test("game log Usage view: his snaps, his share of his team's offensive snaps th
   t.match(html, /Usage: nflverse snap counts\. Snap% = his offensive snaps ÷ his team’s offensive snaps that game/);
 });
 
-const listChips = (html, pid) => { const m = new RegExp('data-pid="' + pid + '">[\\s\\S]*?<span class="tm">([\\s\\S]*?)</span></span></span>').exec(html); return m ? [...m[1].matchAll(/class="ups-m-inj-chip ([a-z]+) sm"[^>]*>([^<]*)</g)].map((x) => x[2] + ":" + x[1]) : null; };
-test("status chips: this week's NFL report (Q/D/OUT) and the roster designation (IR-R …) as separate chips on the list, with the source times", async () => {
+// The Stats list's tags: their own line under the team (.inj), "text:class[:prior]" each.
+const chipList = (inner) => [...String(inner || "").matchAll(/class="ups-m-inj-chip ([a-z]+)( prior)?( sm)?"[^>]*>([^<]*)(?:<|$)/g)].map((x) => x[4] + ":" + x[1] + (x[2] ? ":prior" : ""));
+const listChips = (html, pid) => {
+  const row = new RegExp('data-pid="' + pid + '">([\\s\\S]*?)(?=<div class="ups-m-st-row|$)').exec(html);
+  if (!row) return null;
+  const inj = /<span class="inj">([\s\S]*?)<\/span><\/span><\/span>/.exec(row[1]);
+  return inj ? chipList(inj[1]) : [];
+};
+const listTeamLine = (html, pid) => { const m = new RegExp('data-pid="' + pid + '">[\\s\\S]*?<span class="tm">([\\s\\S]*?)</span>(?:<span class="inj">|</span>)').exec(html); return m ? m[1] : null; };
+const sheetChips = (head) => { const m = /<div class="name">([\s\S]*?)<\/div>/.exec(head); return m ? chipList(m[1]) : null; };
+const searchChips = (html, pid) => { const m = new RegExp('data-pid="' + pid + '">([\\s\\S]*?)</button>').exec(html); if (!m) return null; const inj = /<span class="inj">([\s\S]*?)<\/span><\/span>/.exec(m[1]); return inj ? chipList(inj[1]) : []; };
+test("Stats → Players tags come from the shared resolver (#1276): MFL first, the NFL report beside it, IR/PUP from MFL, on their own line — the same as the sheet", async () => {
   let payload = STATUS_OK({ [PURDY]: { report: { status: "Questionable", injury: "Toe", practice: "Limited Participation in Practice", team: "SF" } },
     [DAK]: { roster: { status: "IR-R", label: "Injured reserve – designated to return", chip: "IR-R", detail: "Hamstring" },
              report: { status: "Doubtful", injury: "Hamstring", practice: "Did Not Participate In Practice", team: "DAL" } } });
-  const v = boot({ status: () => payload });
+  const v = boot({ search: true, status: () => payload });
   const html = await openTab(v, "QB");
   const list = v.getEl("ups-m-st-listwrap").innerHTML || html;
-  t.deepEqual(listChips(list, PURDY), ["Q:q"]);
-  t.deepEqual(listChips(list, DAK), ["IR-R:res", "D:d"], "roster designation and report designation, apart");
-  t.ok(/<span class="tm"><span class="ups-m-inj-chip/.test(list), "chips LEAD the team line: never cut by a long name, never over the numbers");
-  t.match(v.getEl("ups-m-st-notes").innerHTML, /Tags: NFL injury report Wk 5 \(Sat 9:33 AM ET\); IR\/PUP from MFL \(Sat 10:01 AM ET\)\. No tag: not on the report, a bye, or unmatched — tap him for which\./, "the list says what the tags are, when each source was updated, and what no tag means");
-  // a status CHANGE: the next read (after the 5-minute cache, or forced) shows OUT;
-  // while it is in flight the last good read stays on screen (chips don't blink off)
-  payload = STATUS_OK({ [PURDY]: { report: { status: "Out", injury: "Toe", practice: "Did Not Participate In Practice", team: "SF" } } });
+  t.deepEqual(listChips(list, PURDY), ["NFL: Q (Wk 5):q", "MFL: none:na"], "MFL has nothing: the report's tag, named as the NFL's, and 'MFL: none' beside it");
+  t.deepEqual(listChips(list, DAK), ["MFL: IR-R:res", "NFL: D (Wk 5):d"], "MFL's roster designation and the report's game status, apart");
+  t.doesNotMatch(listTeamLine(list, PURDY), /ups-m-inj-chip/, "tags are NOT on the one-line, ellipsised team line (a long tag would be cut at 320px)");
+  t.match(v.getEl("ups-m-st-notes").innerHTML, /<div class="ups-m-st-injline">Tags: MFL first \(its Wk 5 list; MFL status read at Sat 10:55 AM ET; dashed = MFL’s estimated return has passed\); where MFL has none, the NFL report — Wk 5’s for 30 teams so far\. Tap a player for both\. No tag doesn’t mean healthy\.<\/div>/,
+    "the list says where the tags come from, MFL's read time, and that no tag doesn't mean healthy");
+  // the sheet shows the same tags for the same read
+  v.ctx.UPS_MOBILE.sheet.open(DAK); await settle(); await settle();
+  t.deepEqual(sheetChips(v.getEl("ups-m-sheet-head").innerHTML), listChips(list, DAK), "list = sheet");
+  // MFL's own Q with a passed estimate: dashed on the list too
+  payload = STATUS_OK({ [PURDY]: { mfl: { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: "Sep 13, 2026", return_date: "2026-09-13" } } });
   const inflight = v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026", true);
-  t.deepEqual(JSON.parse(JSON.stringify(v.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SFO").chips.map((c) => c.t))), ["Q"], "old read kept during the refresh");
+  t.deepEqual(JSON.parse(JSON.stringify(v.ctx.UPS_MOBILE_PLAYER_STATUS.resolve(PURDY, "SFO").chips.map((c) => c.t))), ["NFL: Q (Wk 5)", "MFL: none"], "old read kept during the refresh: tags don't blink off");
   await inflight; v.render(); await settle();
   const list2 = v.getEl("ups-m-st-listwrap").innerHTML;
-  t.deepEqual(listChips(list2, PURDY), ["OUT:out"]);
-  t.deepEqual(listChips(list2, DAK), [], "dropped from the report and the roster designation lifted: no chip");
-  // 320px: chip text is 11px like the rest of the list
-  const css = /\.ups-m-st-row \.nm \.tm \.ups-m-inj-chip\.sm \{[^}]*\}/.exec(CSS);
-  t.ok(css && /font-size: 11px/.test(css[0]) && /margin: 0 4px 0 0/.test(css[0]), "readable at 320px");
+  t.deepEqual(listChips(list2, PURDY), ["MFL: Q · est. return passed:q:prior", "NFL Wk 5: not listed:na"], "MFL first; its passed estimate dashed; SFO's posted report doesn't list him, said beside it");
+  t.deepEqual(listChips(list2, DAK), [], "dropped from the report and the roster designation lifted: no tag (and the note says no tag isn't healthy)");
+  // the disagreement reads the same in search and on the sheet
+  v.ctx.UPS_MOBILE.playerSearch.openWith(nameOf(PURDY)); await settle();
+  t.deepEqual(searchChips(v.searchList(), PURDY), listChips(list2, PURDY), "list = search (disagreement)");
+  v.ctx.UPS_MOBILE.sheet.open(PURDY); await settle(); await settle();
+  t.deepEqual(sheetChips(v.getEl("ups-m-sheet-head").innerHTML), listChips(list2, PURDY), "list = sheet (disagreement)");
+  // 320px: the tags wrap on their own line, 11px like the rest of the list
+  const css = /\.ups-m-st-row \.nm \.inj \.ups-m-inj-chip\.sm \{[^}]*\}/.exec(CSS), line = /\.ups-m-st-row \.nm \.inj \{[^}]*\}/.exec(CSS);
+  t.ok(css && /font-size: 11px/.test(css[0]), "readable at 320px");
+  t.ok(line && /flex-wrap: wrap/.test(line[0]), "a long tag wraps instead of being cut");
 });
-
+// Keith 2026-10-15: the Players list, Search, the sheet (and Lineup, Game Day) agree for the same player
+// and read. The real Week 6 /api/player-status read (tests/fixtures/injury_status_2026_wk6.json: MFL Q/D/OUT
+// with future and passed returns, the Wk 6 report for DEN/SEA, Wk 4/5 finals, IR/PUP, disagreements).
+const WK6 = JSON.parse(read("tests/fixtures/injury_status_2026_wk6.json")).player_status;
+test("same player, same tags: Stats → Players list = Search = the player sheet, for every listed player with a status in the real Week 6 read", async () => {
+  const v = boot({ search: true, status: () => Object.assign({}, WK6, { mapped_mfl_ids: Object.keys(WK6.players).concat(WK6.mapped_mfl_ids || []) }) });
+  const withStatus = new Set(Object.keys(WK6.players));
+  const seen = {}, kinds = new Set();
+  for (const tab of ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"]) {
+    await openTab(v, tab);
+    const list = v.getEl("ups-m-st-listwrap").innerHTML;
+    for (const r of rowsOf(list)) if (withStatus.has(r.pid) && !seen[r.pid]) seen[r.pid] = listChips(list, r.pid);
+  }
+  const pids = Object.keys(seen);
+  t.ok(pids.length >= 25, pids.length + " listed players with a Week 6 status");
+  let same = 0, tagged = 0;
+  for (const pid of pids) {
+    v.ctx.UPS_MOBILE.sheet.open(pid); await settle(); await settle();
+    const sheet = sheetChips(v.getEl("ups-m-sheet-head").innerHTML);
+    v.ctx.UPS_MOBILE.playerSearch.openWith(nameOf(pid)); await settle();
+    const search = searchChips(v.searchList(), pid);
+    t.deepEqual(sheet, seen[pid], nameOf(pid) + ": list = sheet");
+    t.deepEqual(search, seen[pid], nameOf(pid) + ": list = search");
+    if (sheet && search) same++;
+    if (seen[pid].length) tagged++;
+    for (const c of seen[pid]) { const m = /:([a-z]+)(:prior)?$/.exec(c); kinds.add(m[1] + (m[2] ? "-dashed" : "")); }
+  }
+  t.equal(same, pids.length);
+  t.ok(tagged >= 20, tagged + " of them tagged");
+  // The real read's report covers only DEN and SEA, so no LISTED player has a disagreement tag;
+  // the synthetic test above checks those ("NFL Wk 5: not listed", "MFL: none") on list = search = sheet.
+  for (const k of ["q", "d", "out", "res", "q-dashed", "out-dashed"]) t.ok(kinds.has(k), "covers " + k + " (got " + [...kinds].join(",") + ")");
+  t.match(searchBasis(v.searchList()) ? v.searchList() : "", /<div class="ups-m-psr-basis ups-m-psr-inj">Tags: MFL first[^<]*Tap a player for both\. No tag doesn’t mean healthy\.<\/div>/, "search says where the tags come from, and that no tag isn't healthy");
+});
 test("status in the sheet (Keith 2026-10-14): MFL's Q/D/OUT first, the official report beside it, every tag and line naming its source and week; an unreadable or stale feed says so", async () => {
   const head = async (opt, pid) => { const v = boot(opt); await v.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026"); v.ctx.UPS_MOBILE.sheet.open(pid); await settle(); await settle(); return v.getEl("ups-m-sheet-head").innerHTML; };
-  const MFL_Q = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: "Oct 12, 2026", return_date: "2026-10-12" };
+  // MFL's return dates relative to today (ET): the resolver judges "passed" against the real clock.
+  const etDay = (d) => { const iso = new Date(Date.now() + d * 86400000).toLocaleDateString("en-CA", { timeZone: "America/New_York" }); const [y, m, dd] = iso.split("-").map(Number);
+    const text = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] + " " + dd; return { iso, text, raw: text + ", " + y }; };
+  const PAST = etDay(-3), FUT = etDay(4);
+  const MFL_Q = { status: "Questionable", week: 5, updated_utc: "2026-10-10T14:01:03.000Z", details: "Toe", exp_return: PAST.raw, return_date: PAST.iso };
   // MFL Q and the official Wk 5 report Q: one tag (MFL's), both lines
   const q = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q, report: { status: "Questionable", injury: "Toe", practice: "Limited Participation in Practice", team: "SF" } } }) }, PURDY);
   t.match(q, /<div class="name">[^<]*<span class="ups-m-inj-chip q prior"[^>]*>MFL: Q · est\. return passed<\/span><\/div>/, "MFL's estimated return has passed: said on the tag, dashed");
-  t.match(q, /<div>MFL still lists him Questionable — Toe \(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\)\. Its expected return \(Oct 12\) has passed; that’s an estimate, so this doesn’t mean he’s healthy or that the designation is wrong\.<\/div>/);
+  t.match(q, new RegExp("<div>MFL still lists him Questionable — Toe \\(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\\)\\. Its expected return \\(" + PAST.text + "\\) has passed; that’s an estimate, so this doesn’t mean he’s healthy or that the designation is wrong\\.</div>"));
   t.doesNotMatch(q, /MFL[^<]*10:01/, "MFL's own (unstable) file time is never shown");
-  const fut = await head({ status: STATUS_OK({ [PURDY]: { mfl: Object.assign({}, MFL_Q, { exp_return: "Oct 19, 2026", return_date: "2026-10-19" }) } }) }, PURDY);
+  const fut = await head({ status: STATUS_OK({ [PURDY]: { mfl: Object.assign({}, MFL_Q, { exp_return: FUT.raw, return_date: FUT.iso }) } }) }, PURDY);
   t.match(fut, /<span class="ups-m-inj-chip q"[^>]*>MFL: Q<\/span>/, "a future return: solid, no week on MFL's tag");
-  t.match(fut, /<div>MFL: Questionable — Toe · Expected return: Oct 19 \(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\)\.<\/div>/);
+  t.match(fut, new RegExp("<div>MFL: Questionable — Toe · Expected return: " + FUT.text + " \\(MFL’s Wk 5 list; MFL status read at Sat 10:55 AM ET\\)\\.</div>"));
   t.match(q, /<div>NFL Wk 5 report: Questionable — Toe · practice: limited \(updated Sat 9:33 AM ET\)\.<\/div>/);
   // MFL Q, but SFO's posted report doesn't list him: both shown
   const dis = await head({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q } }) }, PURDY);
@@ -1328,8 +1384,9 @@ test("status in the sheet (Keith 2026-10-14): MFL's Q/D/OUT first, the official 
   // the team can be nflverse's spelling (SF): still matched to SFO's report
   const v2 = boot(); await v2.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
   t.ok(v2.ctx.UPS_MOBILE_PLAYER_STATUS.resolve(PURDY, "SF").lines.some((l) => /not listed \(SFO’s report/.test(l)));
-  // Stats → Players keeps its own rule (out of scope for the resolver): info() unchanged
-  t.match(v2.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SF").report, /Not on SFO’s Wk 5 injury report/);
+  // One rule everywhere (2026-10-15): the old report-only helpers are gone; Live Scoring keeps currentReport().
+  for (const k of ["info", "chipsHtml", "listLine"]) t.equal(typeof v2.ctx.UPS_MOBILE_PLAYER_STATUS[k], "undefined", k + " removed");
+  t.equal(typeof v2.ctx.UPS_MOBILE_PLAYER_STATUS.currentReport, "function", "Live Scoring's official-report reader stays");
 });
 
 test("status fallback: with the route unavailable, MFL's designations from the app's own MFL read still show, labeled as such", async () => {
@@ -1375,9 +1432,10 @@ test("status from the sheet's OTHER entry points (Rosters, Lineup, Search open i
   const v2 = boot({ status: () => STATUS_OK({}) });
   await v2.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
   v2.ctx.UPS_MOBILE_PLAYER_STATUS._st.at -= v2.ctx.UPS_MOBILE_PLAYER_STATUS.TTL + 1000;
-  const stale = JSON.parse(JSON.stringify(v2.ctx.UPS_MOBILE_PLAYER_STATUS.info(PURDY, "SFO")));
-  t.equal(stale.report, "Checking this week’s injury report…", "an old 'not on SFO's report' is never shown as this week's finding");
-  t.match(v2.ctx.UPS_MOBILE_PLAYER_STATUS.listLine(), /Checking this week’s injury report — no tags until it’s read\./);
+  const stale = JSON.parse(JSON.stringify(v2.ctx.UPS_MOBILE_PLAYER_STATUS.resolve(PURDY, "SFO")));
+  t.deepEqual(stale.chips, [], "no tag from an old read");
+  t.equal(stale.lines[0], "Checking injury status…", "an old 'not on SFO's report' is never shown as this week's finding");
+  t.equal(v2.ctx.UPS_MOBILE_PLAYER_STATUS.noteText(null, "Tap a player for both."), "Checking injury status…", "the Stats list and search note say the same");
   // 4. ...and that refresh fails
   const v3 = boot({ status: (() => { let n = 0; return () => (n++ ? 500 : STATUS_OK({})); })() });
   await v3.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");

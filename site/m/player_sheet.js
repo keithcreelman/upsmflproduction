@@ -2896,7 +2896,7 @@
     // health — the lines say what each source has.
     var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
     function statusHtml() {
-      var res = PSTAT.resolve(pid, team, window.UPS_MOBILE.state.lineupWeek || null);   // = PSTAT.screenWeek()
+      var res = PSTAT.resolve(pid, team, window.UPS_MOBILE.state.lineupWeek || null);
       return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines };
     }
     function headHtml(stNow) {

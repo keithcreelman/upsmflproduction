@@ -48,7 +48,8 @@ function boot(opt = {}) {
   ctx.window = ctx;
   ctx.addEventListener = () => {};
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, asArray };", ctx);
-  for (const f of ["site/shared/live_scoring.js", "site/shared/injury_overrides.js"]) vm.runInContext(read(f), ctx);
+  // + the shared resolver, as index.html loads it: the other screens' tags come from it (Live Scoring's never do).
+  for (const f of ["site/shared/live_scoring.js", "site/shared/injury_overrides.js", "site/shared/injury_status.js"]) vm.runInContext(read(f), ctx);
   const state = Object.assign({ ctx: { year: "2026", leagueId: "74598" }, viewerFranchiseId: "0001",
     franchises: FX.franchises, lineupWeek: 6, sbExpand: "me", sbApExpand: "0002" }, opt.state || {});
   const byId = Object.fromEntries(FX.players.map((p) => [p.id, p]));
@@ -199,7 +200,7 @@ test("a read older than 5 minutes is never used: refresh in flight → 'checking
   t.equal(rowsOf(v.mount.innerHTML)["90001"].tag, "OUT");
   v.PS._st.at -= v.PS.TTL + 1000;
   t.equal(v.PS.currentReport().state, "loading", "stale = no finding");
-  t.deepEqual(JSON.parse(JSON.stringify(v.PS.info("90001", "BUF").chips.map((c) => c.t))), [], "the sheet shows no chip for the same stale read");
+  t.deepEqual(JSON.parse(JSON.stringify(v.PS.resolve("90001", "BUF").chips.map((c) => c.t))), [], "the sheet, Stats list and search show no tag for the same stale read");
   v.paint(); await settle();
   let html = v.mount.innerHTML;
   t.deepEqual(gameTagged(rowsOf(html)), []); t.equal(rowsOf(html)["90001"].proj, "20.0");
@@ -213,7 +214,7 @@ test("a read older than 5 minutes is never used: refresh in flight → 'checking
   t.deepEqual(gameTagged(rowsOf(html)), []); t.equal(rowsOf(html)["90001"].proj, "20.0");
   rosterKindsStand(rowsOf(html), teamProj(html));
   t.match(noteOf(html), UNAVAILABLE);
-  t.match(v2.PS.listLine(), /^Injury tags unavailable/, "the Stats list says the same");
+  t.match(v2.PS.noteText(null, "Tap a player for both."), /^Injury status couldn’t be loaded[.;][\s\S]*No tag doesn’t mean healthy\.$/, "the Stats list and search say the same");
 });
 
 test("a report that isn't current (too old, or MFL's week unknown) → unavailable: no Q/D/OUT, no discount", async () => {
