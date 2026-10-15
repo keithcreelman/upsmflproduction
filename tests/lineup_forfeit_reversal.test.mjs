@@ -360,7 +360,9 @@ test("Trades Setup: changes ONLY the named field, refuses unknown fields, restor
 const worker = (await import("../worker/src/index.js")).default;
 test("the supervised-test harness is gone: its routes 404; a real-league run needs confirm + the switch", async () => {
   const d = db();
-  const env = { UPS_MFL_DB: d, COMMISH_API_KEY: "admin-key", MFL_COOKIE: "c", MFL_APIKEY: "k", LINEUP_FORFEIT_REVERSAL_ENABLED: "0" };
+  // YEAR: the operator pin. An /admin write that names no season otherwise reads the ACTIVE season from MFL (#1237),
+  // which this stub doesn't model.
+  const env = { UPS_MFL_DB: d, COMMISH_API_KEY: "admin-key", MFL_COOKIE: "c", MFL_APIKEY: "k", LINEUP_FORFEIT_REVERSAL_ENABLED: "0", YEAR: "2026" };
   const mflUrls = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (u) => { mflUrls.push(String(u)); return { ok: true, status: 200, text: async () => "", json: async () => ({}) }; };
