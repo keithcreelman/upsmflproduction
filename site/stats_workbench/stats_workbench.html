@@ -1068,12 +1068,12 @@ table.asw-table{font-size:13px}
     // his position over the same final games. Uncolored on purpose: neither column is
     // good or bad, and neither is a forecast. Missing = "—", never 0.
     mfl_points_sos:      { label:"Sched Δ",  num:true, fmt:"sdelta",
-      title:"Sched Δ = his points ÷ Opp − his points, over the same final games. Negative: the teams he faced allowed his position more than usual; positive: less. It describes the schedule he had; it isn't a forecast.",
-      titleFn:function(r){ return sosCellTitle(sosRowFor(r)); },
+      title:"Sched Δ = his points ÷ Opp − his points, over the same final games, on MFL’s own scores (in playoff weeks they can differ from MFL Pts, which reads a table missing playoff scores). Negative goes with a positive Opp: the teams he faced allowed his position more than usual. It describes the schedule he had; it isn’t a forecast.",
+      titleFn:function(r){ return sosCellTitle(sosRowFor(r), r); },
       compute:function(r){ var s=sosRowFor(r); return s && s.delta != null ? s.delta : null; } },
     mfl_sched_opp:       { label:"Opp ±%",  num:true, fmt:"spct",
-      title:"What the teams he faced allowed to other players at his position, against those players' usual (Pts Agst's Allowed ÷ Usual for the same weeks, his own games left out), averaged over his games. +10% = 10% more than usual.",
-      titleFn:function(r){ return sosCellTitle(sosRowFor(r)); },
+      title:"Opp = what the teams he faced allowed to other players at his position, against those players’ usual (Pts Agst’s vs usual for the same weeks, his own games left out), averaged over his games. +10% = 10% more than usual.",
+      titleFn:function(r){ return sosCellTitle(sosRowFor(r), r); },
       compute:function(r){ var s=sosRowFor(r); return s && s.opp != null ? Math.round((s.opp - 1) * 100) : null; } },
     // Consistency / boom-bust (side-loaded /api/player-consistency, by gsis_id).
     cons_floor:          { label:"Floor",   num:true, fmt:"dec1", title:"Lowest weekly fantasy score in the window (scoring games only)",
@@ -1877,11 +1877,12 @@ table.asw-table{font-size:13px}
   function sosRowFor(r){ var k = sosKey(r && r.mfl_pid); return k ? sosByMfl[k] : null; }
   // A cell's hover text: what the number rests on (his rated games, and how many other
   // players' games rate those opponents), or why it's blank.
-  function sosCellTitle(s){
-    if (!s) return "No final games for him in these weeks.";
-    if (s.opp == null) return s.gp + " game" + (s.gp === 1 ? "" : "s") + "; no other player at his position faced those teams in these weeks, so there's nothing to compare.";
-    return (s.raw != null ? s.raw.toFixed(1) + " pts in " : "") + s.gp + " game" + (s.gp === 1 ? "" : "s") + "; opponents rated on " + s.rated + " of them" +
-      (s.others != null ? ", from " + s.others + " other player-game" + (s.others === 1 ? "" : "s") : "") + " (Opp ×" + s.opp.toFixed(2) + ").";
+  function sosCellTitle(s, r){
+    if (!s) return (r && !sosKey(r.mfl_pid)) ? "No MFL id for this player, so no schedule numbers." : "No final games for him in these weeks.";
+    if (s.opp == null) return s.gp + " game" + (s.gp === 1 ? "" : "s") + "; no other player at his position with 2+ games in these weeks faced those teams, so there's nothing to compare.";
+    var pct = Math.round((s.opp - 1) * 100);
+    return (s.raw != null ? s.raw.toFixed(1) + " MFL pts in " : "") + s.gp + " final game" + (s.gp === 1 ? "" : "s") + "; opponents rated on " + s.rated + " of them" +
+      (s.others != null ? ", from " + s.others + " other player-game" + (s.others === 1 ? "" : "s") : "") + " (Opp " + (pct > 0 ? "+" : pct < 0 ? "−" : "") + Math.abs(pct) + "%).";
   }
   var consistByGsis = {};   // /api/player-consistency by gsis_id — floor/ceil/consistency/boom/bust/weeks
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}
@@ -2768,10 +2769,10 @@ table.asw-table{font-size:13px}
     }
     if (fmt === "sdelta") {
       // Signed and uncolored: a description, not good or bad (Sched Δ, #1271).
-      var sd = Number(v); return (sd > 0 ? "+" : "") + sd.toFixed(1);
+      var sd = Number(v); return (sd > 0 ? "+" : sd < 0 ? "−" : "") + Math.abs(sd).toFixed(1);
     }
     if (fmt === "spct") {
-      var sp = Number(v); return (sp > 0 ? "+" : "") + sp.toFixed(0) + "%";
+      var sp = Number(v); return (sp > 0 ? "+" : sp < 0 ? "−" : "") + Math.abs(sp).toFixed(0) + "%";
     }
     if (fmt === "epa") {
       // EPA per play — positive green (efficient), negative red.
@@ -3084,13 +3085,13 @@ table.asw-table{font-size:13px}
   function sosNoteText(sos, cols) {
     var shown = (cols || []).some(function (k) { return k === "mfl_points_sos" || k === "mfl_sched_opp"; });
     if (!shown || !sos || sos.status === "loading") return "";
-    var head = "Sched Δ / Opp ±%: what the teams he faced allowed to other players at his position, against their usual (Pts Agst, final games). It describes his schedule; it isn't a forecast.";
+    var head = "Sched Δ / Opp ±%: what the teams he faced allowed his position vs usual (Pts Agst, final games, MFL’s own scores — not always MFL Pts in playoff weeks). Describes his schedule; not a forecast.";
     if (sos.status !== "ok") {
       var why = sos.error === "too_many_live_seasons" ? (sos.detail || "too many seasons need a live MFL read")
         : sos.error === "old_server" ? "the server is still on the previous version; reload in a minute"
         : sos.error === "mfl_unavailable" ? "MFL couldn't be read" + (sos.season ? " for " + sos.season : "") + (sos.detail ? " (" + sos.detail + ")" : "")
         : "the answer didn't load (" + (sos.error || "error") + ")";
-      return head + " Both read — : " + String(why).replace(/[.\s]+$/, "") + ". Nothing is filled in from another season.";
+      return head + " Both show “—”: " + String(why).replace(/[.\s]+$/, "") + ". Nothing is filled in from another season.";
     }
     var per = sos.perSeason || {}, parts = [];
     Object.keys(per).sort().forEach(function (y) {
@@ -3098,14 +3099,21 @@ table.asw-table{font-size:13px}
       if (p.state === "not_started") { parts.push(y + " hasn't started"); return; }
       if (p.state === "outside_season") { parts.push(y + " has no weeks in this range (its season ended at Wk " + p.endWeek + ")"); return; }
       var w = p.weeksUsed || [], t = y + ": " + (w.length ? "Wks " + w[0] + (w.length > 1 ? "–" + w[w.length - 1] : "") : "no final games");
-      if (p.window && p.window.clipped_to_end) t += " (season ended at Wk " + p.endWeek + "; playoffs Wks " + (p.playoffWeeks || []).join(", ") + ")";
+      if (p.window && p.window.clipped_to_end) {
+        var pw = p.playoffWeeks || [], missed = pw.filter(function (x) { return x < (p.window.week_min || 0); });
+        t += " (season ended at Wk " + p.endWeek + (pw.length ? "; its playoffs were Wks " + pw[0] + "–" + pw[pw.length - 1] + (missed.length ? ", Wk " + missed.join(", ") + " not in this range" : "") : "") + ")";
+      }
       var ip = p.weeksInProgress || [], np = p.weeksNotPlayed || [];
       if (ip.length) t += "; Wk " + ip.join(", ") + " in progress, only its finished games count";
       if (np.length) t += "; " + (np.length > 1 ? "Wks " + np[0] + "–" + np[np.length - 1] : "Wk " + np[0]) + " not played yet";
       parts.push(t);
     });
-    var shortest = Object.keys(per).map(function (y) { return (per[y] && per[y].weeksUsed || []).length; }).filter(function (n) { return n > 0; });
-    var few = shortest.length && Math.max.apply(null, shortest) < 6 ? " Few weeks: each opponent is rated on only a handful of games, so values swing widely (hover a cell for the count)." : "";
+    // Every season used fewer than 6 weeks → small samples; a single week → nothing to compare
+    // (each player's usual would be that game), so every value reads —.
+    var used = Object.keys(per).map(function (y) { return (per[y] && per[y].weeksUsed || []).length; }).filter(function (n) { return n > 0; });
+    var longest = used.length ? Math.max.apply(null, used) : 0;
+    var few = !longest ? "" : longest < 2 ? " One week: each player’s usual would be that game, so there’s nothing to compare; both show “—”."
+      : longest < 6 ? " Few weeks: each opponent is rated on a handful of games, so values swing widely." : "";
     return head + (parts.length ? " " + parts.join(" · ") + "." : "") + few;
   }
   function renderSosNote(cols) {

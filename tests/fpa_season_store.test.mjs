@@ -14,7 +14,7 @@ import fs from "fs";
 import assert from "assert";
 import * as F from "../worker/src/fpa_engine.js";
 import { runBoth, runBothSos, replayFetch, replayD1, storeBinding, jsonOut, normalize, sweepPaths } from "../pipelines/etl/scripts/fpa_store_harness.mjs";
-import { encodeSeason, serialize, seasonComplete, STORE_ROOT } from "../pipelines/etl/scripts/build_fpa_season_store.mjs";
+import { encodeSeason, serialize, seasonComplete, proveSeason, STORE_ROOT } from "../pipelines/etl/scripts/build_fpa_season_store.mjs";
 
 let fails = 0;
 const check = async (n, fn) => { try { await fn(); console.log("  ok   " + n); } catch (e) { fails++; console.log("  FAIL " + n + "\n         " + (e && e.stack || e).toString().split("\n").slice(0, 3).join("\n         ")); } };
@@ -177,6 +177,21 @@ for (const f of committed) {
     }
   });
 }
+
+await check("a pre-2017 season built with --no-snaps: stored under its own league id (2016 → 27191) with no snaps, and the build's self-check proves the lists and Sched Δ stored = live, catching a tampered file", async () => {
+  const S16 = await seasonFrom(miniRaw(), miniRec(), "2016");
+  const st16 = encodeSeason("2016", S16, { nowMs: NOW, builtAtMs: NOW, noSnaps: true });
+  assert.strictEqual(st16.lid, "27191"); assert.strictEqual(st16.snaps, null);
+  assert.strictEqual(F.fpaStoreProblem(st16, "2016", "27191"), null); assert.notStrictEqual(F.fpaStoreProblem(st16, "2016", "74598"), null);
+  const t16 = serialize(st16);
+  const teams = ["AAA", "BBB", "CCC", "DDD"];
+  const ok = await proveSeason("2016", S16, st16, t16, { nowMs: NOW, teams, allDrillWindows: true, noSnaps: true });
+  assert.strictEqual(ok.drill, 0); assert.strictEqual(ok.sos, 4); assert.strictEqual(ok.diff, 0); assert.ok(ok.list > 0);
+  assert.strictEqual(ok.storedReadsMfl + ok.storedReadsD1 + ok.notStored, 0);
+  const bad = JSON.parse(t16); bad.scores[2] = bad.scores[2].map((r) => (r[0] === "1" ? [r[0], "3"] : r));
+  const tampered = await proveSeason("2016", S16, bad, serialize(bad), { nowMs: NOW, teams, allDrillWindows: true, noSnaps: true });
+  assert.ok(tampered.diff > 0, "a stored file that disagrees with MFL is caught");
+});
 
 console.log("\n2. an in-progress season is never stored or served from storage");
 const FIX = JSON.parse(fs.readFileSync(new URL("./fixtures/fpa_qb_2026_wk5_2026_10_12.json", import.meta.url), "utf8"));

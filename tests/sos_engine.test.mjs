@@ -75,9 +75,11 @@ async function call(url, fx, { over, nowMs, env } = {}) {
 
 // ── the expected answer, worked out independently from the raw replies ──
 const NFLV = { GB: "GBP", KC: "KCC", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB", LV: "LVR", JAX: "JAC", LA: "LAR" };
+// nflverse files relocated teams under today's code; MFL's schedule uses that season's (SDC, STL, RAM, OAK).
+const OLD_CODES = { LAC: ["LAC", "SDC"], LA: ["LAR", "STL", "RAM"], LV: ["LVR", "OAK"] };
 const GRP = { QB: "QB", RB: "RB", FB: "RB", HB: "RB", WR: "WR", TE: "TE", PK: "PK", K: "PK", PN: "PN", P: "PN",
   DT: "DL", DE: "DL", NT: "DL", DL: "DL", LB: "LB", OLB: "LB", ILB: "LB", MLB: "LB", CB: "DB", S: "DB", FS: "DB", SS: "DB", DB: "DB" };
-function expected({ players, sched, scores, teamOf, lo, hi, nowMs }) {
+function expected({ players, sched, scores, teamOf, lo, hi, nowMs, noAliases }) {
   const pos = {}, mflTeam = {};
   for (const p of players) { pos[p.id] = GRP[String(p.position).toUpperCase()] || ""; mflTeam[p.id] = String(p.team).toUpperCase(); }
   const games = [];   // player-games: { pid, w, pts, grp, def }
@@ -95,20 +97,21 @@ function expected({ players, sched, scores, teamOf, lo, hi, nowMs }) {
       const pts = parseFloat(s.score); if (isNaN(pts) || !pos[s.id]) continue;
       let own = "";
       const nv = teamOf(s.id, w);
-      if (nv && opp[NFLV[nv] || nv]) own = NFLV[nv] || nv;
+      if (nv) for (const c of (!noAliases && OLD_CODES[nv]) || [NFLV[nv] || nv]) if (opp[c]) { own = c; break; }
       if (!own && opp[mflTeam[s.id]]) own = mflTeam[s.id];
       if (!own || !fin[own]) continue;
       games.push({ pid: s.id, w, pts, grp: pos[s.id], def: opp[own] });
     }
   }
-  const usual = {};
+  const usual = {}, nGames = {};
   for (const g of games) (usual[g.pid] = usual[g.pid] || []).push(g.pts);
-  for (const p in usual) usual[p] = usual[p].reduce((a, b) => a + b, 0) / usual[p].length;
+  for (const p in usual) { nGames[p] = usual[p].length; usual[p] = usual[p].reduce((a, b) => a + b, 0) / usual[p].length; }
   const out = {};
   for (const g of games) {
     const o = out[g.pid] || (out[g.pid] = { grp: g.grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
     o.raw += g.pts; o.gp++;
-    const others = games.filter((x) => x.def === g.def && x.grp === g.grp && x.pid !== g.pid);
+    // only players with 2+ games in the window rate a team (one game = his usual IS that game)
+    const others = games.filter((x) => x.def === g.def && x.grp === g.grp && x.pid !== g.pid && nGames[x.pid] >= 2);
     const exp = others.reduce((a, x) => a + usual[x.pid], 0), pts = others.reduce((a, x) => a + x.pts, 0);
     if (!others.length || !(exp > 1e-9) || !(pts / exp > 0)) continue;
     o.rated++; o.rsum += pts / exp; o.others += others.length;
@@ -141,12 +144,11 @@ function sameRows(got, exp, label) {
   for (const k of ek) {
     const e = rowOf(exp[k]), g = got[k];
     for (const f of ["pos", "gp", "rated", "others"]) assert.strictEqual(g[f], e[f], label + " " + k + " " + f);
-    for (const f of ["raw", "adj", "delta"]) {
+    // exactly the shown values (one display step off fails): raw / adj / delta to 0.1, opp to 0.001
+    for (const f of ["raw", "adj", "delta", "opp"]) {
       if (e[f] == null) assert.strictEqual(g[f], null, label + " " + k + " " + f + " must be null, not " + g[f]);
-      else assert.ok(Math.abs(g[f] - e[f]) <= 0.1 + 1e-9, label + " " + k + " " + f + " " + g[f] + " vs " + e[f]);
+      else assert.ok(g[f] != null && Math.abs(g[f] - e[f]) < 1e-9, label + " " + k + " " + f + " " + g[f] + " vs " + e[f]);
     }
-    if (e.opp == null) assert.strictEqual(g.opp, null, label + " " + k + " opp must be null");
-    else assert.ok(Math.abs(g.opp - e.opp) <= 0.0011, label + " " + k + " opp " + g.opp + " vs " + e.opp);
   }
 }
 
@@ -356,8 +358,9 @@ await check("edge cache: a complete answer is stored (1 day for a finished seaso
     await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17&cb=123", FX25);
     assert.strictEqual(puts.length, 1);
     assert.ok(puts[0].key.startsWith("https://upsmfl-fpa.local/api/sos-adjusted-points?"), puts[0].key);
-    assert.ok(puts[0].key.includes("&v=" + F.FPA_ENGINE_VERSION + "&s=" + F.SOS_VERSION) && !/cb=/.test(puts[0].key), puts[0].key);
-    assert.strictEqual(F.SOS_VERSION, "sos2", "the answer gained 'others': its cache key must not reuse sos1 answers");
+    assert.ok(puts[0].key.includes("&v=" + F.FPA_ENGINE_VERSION) && puts[0].key.includes("&s=" + F.SOS_VERSION) && !/cb=/.test(puts[0].key), puts[0].key);
+    assert.strictEqual(F.SOS_VERSION, "sos3", "the arithmetic changed (2+ games to rate, relocated teams): its cache key must not reuse older answers");
+    assert.ok(puts[0].key.includes("&c=" + F.FPA_CALC_REV), "and the engine's arithmetic revision");
     assert.strictEqual(puts[0].cc, "public, max-age=86400");
     await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25, { over: { playerScores16: null } });
     await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25, { env: {} });
@@ -366,13 +369,68 @@ await check("edge cache: a complete answer is stored (1 day for a finished seaso
   } finally { delete globalThis.caches; }
 });
 
+console.log("\n5b. relocated teams, cache times, stored copies, the auto window, hosts");
+await check("relocated team (MFL's OAK, nflverse's LV): his games go to OAK's opponents on game day, not his later MFL team's", async () => {
+  const fx = JSON.parse(JSON.stringify(FX20).replace(/"LVR"/g, '"OAK"'));
+  const g2m = {}; for (const m in fx.ffIds) g2m[fx.ffIds[m]] = m;
+  const lvRow = fx.weekly.find((r) => r.team === "LV" && r.week === 14 && g2m[r.gsis_id] && fx.scores[14].some((x) => x.id === g2m[r.gsis_id]));
+  assert.ok(lvRow, "fixture has a Raiders QB with a Wk 14 score");
+  const pid = g2m[lvRow.gsis_id];
+  for (const p of fx.players) if (p.id === pid) p.team = "MIA";               // MFL now lists him elsewhere
+  const r = await call("/api/sos-adjusted-points?seasons=2020&week_min=14&week_max=16", fx, { nowMs: FX25.nowMs });
+  const e = expected({ players: fx.players, sched: fx.sched, scores: fx.scores, teamOf: teamOfFixture(fx), lo: 14, hi: 16, nowMs: FX25.nowMs });
+  sameRows(r.body.by_mfl, e.out, "2020 with OAK");
+  const noAlias = expected({ players: fx.players, sched: fx.sched, scores: fx.scores, teamOf: teamOfFixture(fx), lo: 14, hi: 16, nowMs: FX25.nowMs, noAliases: true });
+  assert.notDeepStrictEqual(rowOf(noAlias.out[pid] || { grp: "QB", raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 }), rowOf(e.out[pid]), "the case really depends on the old code");
+  assert.strictEqual(r.body.per_season["2020"].attribution.unattributed, 0);
+});
+await check("current season's answer is cached 2 min while a week is unsettled and 1 h once it's 4 days past; a finished one 1 day", async () => {
+  const puts = [];
+  globalThis.caches = { default: { match: async () => null, put: async (req, res) => { if (/\/api\/sos-adjusted-points\?/.test(req.url)) puts.push(res.headers.get("Cache-Control")); } } };
+  try {
+    const lastKo = Math.max(...FX25.sched[17].map((m) => Number(m.kickoff))) * 1000;
+    await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25, { nowMs: lastKo + 6 * 3600 * 1000 });       // Dec/Jan: 2025 is current
+    await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25, { nowMs: lastKo + 5 * 86400 * 1000 });
+    await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25);                                          // Oct 2026: finished
+    assert.deepStrictEqual(puts, ["public, max-age=120", "public, max-age=3600", "public, max-age=86400"]);
+  } finally { delete globalThis.caches; }
+});
+await check("an unusable stored copy (another engine's) → read live, and said so; a usable one is opened once per request", async () => {
+  const bad = Object.assign({}, store2020, { engine: "old-engine" });
+  const env = { UPS_MFL_DB: fakeDb(FX20), FPA_STORE: { fetch: async () => new Response(JSON.stringify(bad), { status: 200 }) } };
+  const r = await call("/api/sos-adjusted-points?seasons=2020&week_min=14&week_max=16", FX20, { nowMs: FX25.nowMs, env });
+  assert.strictEqual(r.status, 200); assert.strictEqual(r.body.per_season["2020"].source, "live"); assert.ok(r.calls.some((u) => /\/2020\//.test(u)));
+  let opens = 0;
+  const env2 = storeEnv(FX25), f0 = env2.FPA_STORE.fetch; env2.FPA_STORE.fetch = async (q) => { if (/\/2020\.json$/.test(new URL(q.url).pathname)) opens++; return f0(q); };
+  await call("/api/sos-adjusted-points?seasons=2020,2025&week_min=15&week_max=17", FX25, { env: env2 });
+  assert.strictEqual(opens, 1, "the stored 2020 is read once, not once to plan and again to load");
+});
+await check("no week_max: through the latest week with a final game (here mid-Wk 17 → 17; before Wk 16 → 15), and said to be automatic", async () => {
+  const k16 = Math.min(...FX25.sched[16].map((m) => Number(m.kickoff))) * 1000;
+  const sched = JSON.parse(JSON.stringify(FX25.sched));
+  for (const w of [16, 17]) for (const m of sched[w]) m.gameSecondsRemaining = "3600";
+  const early = await call("/api/sos-adjusted-points?seasons=2025&week_min=15", { ...FX25, sched }, { nowMs: k16 - 3600 * 1000 });
+  assert.deepStrictEqual(early.body.window, { week_min: 15, week_max: null, auto: true });
+  assert.strictEqual(early.body.per_season["2025"].window.week_max, 15);
+  const g = FX25.sched[17].slice().sort((x, y) => Number(y.kickoff) - Number(x.kickoff))[0], now = Number(g.kickoff) * 1000 + 3600 * 1000;
+  const mid = await call("/api/sos-adjusted-points?seasons=2025&week_min=15", FX25, { nowMs: now });
+  assert.strictEqual(mid.body.per_season["2025"].window.week_max, 17);
+});
+await check("hosts: UPS's pre-2017 ids on MFL's api host; 74598 and any other league (a test league) stay on www48", () => {
+  assert.ok(F.fpaUrls("2016", "27191").league.startsWith("https://api.myfantasyleague.com/2016/"));
+  assert.ok(F.fpaUrls("2026", "74598").scores(3).startsWith("https://www48.myfantasyleague.com/2026/"));
+  assert.ok(F.fpaUrls("2026", "12345").players.startsWith("https://www48.myfantasyleague.com/2026/"));
+  for (const [y, id] of Object.entries({ 2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191" })) assert.strictEqual(F.fpaLeagueId(y), id);
+});
+
 console.log("\n6. never zero for unknown; the words");
-await check("one-week window: a QB who was the only QB his opponent faced is unrated → Opp and Δ null, never 0", async () => {
+await check("one-week window: nobody can be rated (each usual would be that game) → every Opp and Δ is null, never 1.00 / 0.0", async () => {
   const r = await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=15", FX25);
-  const qb = Object.values(r.body.by_mfl).filter((x) => x.pos === "QB");
-  const unrated = qb.filter((x) => x.rated === 0);
-  assert.ok(unrated.length >= 10, "unrated QBs " + unrated.length);
-  for (const x of unrated) { assert.strictEqual(x.opp, null); assert.strictEqual(x.delta, null); assert.strictEqual(x.adj, null); assert.ok(x.raw != null); }
+  const rows = Object.values(r.body.by_mfl);
+  assert.ok(rows.length >= 150, rows.length + " players");
+  for (const x of rows) { assert.strictEqual(x.rated, 0); assert.strictEqual(x.opp, null); assert.strictEqual(x.delta, null); assert.strictEqual(x.adj, null); assert.ok(x.raw != null); }
+  const two = await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=16", FX25);
+  assert.ok(Object.values(two.body.by_mfl).some((x) => x.opp != null && x.opp !== 1), "two weeks rate again");
 });
 await check("the definition is descriptive: says it isn't a forecast; no easy / tough / inflated / understates", () => {
   assert.ok(/isn't a forecast/.test(F.SOS_DEFINITION));

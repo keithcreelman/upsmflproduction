@@ -20,6 +20,11 @@
 // real arithmetic on fixtures.
 
 export const FPA_ENGINE_VERSION = "fpa2-2026-10-13";
+// The arithmetic's revision, in every answer cache key. FPA_ENGINE_VERSION names the stored
+// INPUTS (worker/fpa_store/<version>/); a fix to the arithmetic that leaves the inputs alone
+// bumps this instead, so no cached answer from the old arithmetic is served.
+// c2 (2026-10-15, #1305): relocated teams' old codes (SDC / STL / RAM / OAK) matched.
+export const FPA_CALC_REV = "c2";
 
 export const FPA_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"];
 // For these the listed team is the OFFENSE the players faced (an IDP scores
@@ -42,6 +47,13 @@ export function fpaPosGroup(p) {
 
 // nflverse team codes → MFL's. Anything else is the same in both (ARI, BAL, …).
 export const NFLV_TO_MFL = { GB: "GBP", KC: "KCC", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB", LV: "LVR", JAX: "JAC", LA: "LAR" };
+// nflverse files a relocated team under TODAY's code in every season (LAC, LA, LV), while
+// MFL's schedule for that season uses the code it had then: San Diego SDC through 2016,
+// St. Louis STL through 2015 and RAM in 2016, Oakland OAK through 2019 (checked against
+// MFL's 2011–2026 schedules, 2026-10-15). A game-day team is matched to the first of these
+// that has a game that week.
+export const NFLV_ALIASES = { LAC: ["LAC", "SDC"], LA: ["LAR", "STL", "RAM"], LV: ["LVR", "OAK"] };
+export function fpaTeamCandidates(nv) { return NFLV_ALIASES[nv] || [NFLV_TO_MFL[nv] || nv]; }
 // MFL → nflverse, for the D1 pace / plays tables (which use nflverse codes).
 export const MFL_TO_NFLV = { GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" };
 
@@ -61,11 +73,13 @@ export class FpaUpstreamError extends Error {
 // for 74598 then). Same ids as pipelines/etl/scripts/build_historical_records.py.
 export const FPA_LEAGUE_IDS = { 2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191" };
 export function fpaLeagueId(yr) { return FPA_LEAGUE_IDS[Number(yr)] || "74598"; }
+const FPA_OLD_IDS = new Set(Object.values(FPA_LEAGUE_IDS));
 
 export function fpaUrls(yr, lid, tag) {
   const t = tag ? "&ups=" + tag : "";
-  // League 74598 is hosted on www48; the earlier ids are read through MFL's api host.
-  const h = String(lid) === "74598" ? "www48" : "api";
+  // League 74598 is hosted on www48; UPS's earlier ids are read through MFL's api host.
+  // Any other id (a test league) stays on www48 as before.
+  const h = FPA_OLD_IDS.has(String(lid)) ? "api" : "www48";
   return {
     league: `https://${h}.myfantasyleague.com/${yr}/export?TYPE=league&L=${lid}&JSON=1${t}`,
     players: `https://${h}.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1${t}`,
@@ -271,8 +285,7 @@ export function fpaCompute(mfl, ctx, { wMin, wMax, nowMs, baseline }) {
       let own = "", src = "";
       const nv = nflvTeamFor(ctx, pid, w);
       if (nv) {
-        const cand = NFLV_TO_MFL[nv] || nv;
-        if (gameOf[cand] && gameOf[cand][w]) { own = cand; src = "gameDay"; }
+        for (const cand of fpaTeamCandidates(nv)) if (gameOf[cand] && gameOf[cand][w]) { own = cand; src = "gameDay"; break; }
       }
       if (!own && gameOf[info.team] && gameOf[info.team][w]) { own = info.team; src = "mflTeam"; }
       if (!own) { attribution.unattributed++; continue; }
@@ -352,14 +365,19 @@ export function fpaAggregate(E, groups) {
 // (Allowed ÷ Usual with his own games left out, so his points never rate his own
 // opponents). opp = the mean of those ratings over his rated games; adj = his points
 // ÷ opp. Descriptive: what his opponents allowed over these weeks, not a forecast.
-// A game is unrated when no other player at his position faced that team in the
-// window, or when the others' usual isn't positive; opp is null with no rated game.
+// A game is unrated when no other player at his position with 2+ games in the window
+// faced that team, or when the others' usual isn't positive (or their rating isn't above
+// 0); opp is null with no rated game.
 // Returns pid → { grp, raw, gp, rated, rsum, others } as unrounded sums, so seasons add
 // up; others = the other players' games behind his rated games' ratings (the sample size).
 export function fpaPlayerSchedule(E) {
   const tot = new Map(), mine = new Map();
   for (const x of E.pg) {
     const u = E.usualFor(x.pid, x.def); if (!u) continue;
+    // A player with one game in the window has that game as his usual, so his game would
+    // rate its team at exactly 1 (a one-week window rated everyone 1.00, Δ 0.0). Only
+    // players with 2+ games here rate a team; with none, the game is unrated.
+    if (u.n < 2) continue;
     const k = x.def + "|" + x.grp, mk = x.pid + "|" + k;
     const t = tot.get(k) || { pts: 0, exp: 0, n: 0 }; t.pts += x.pts; t.exp += u.avg; t.n++; tot.set(k, t);
     const m = mine.get(mk) || { pts: 0, exp: 0, n: 0 }; m.pts += x.pts; m.exp += u.avg; m.n++; mine.set(mk, m);
@@ -807,13 +825,14 @@ async function fpaSnaps(env, yr, pids, lo, hi) {
 
 // One season's inputs for the engine: MFL's replies (stored copy for a finished season,
 // else live) and the game-day context. Throws FpaUpstreamError when an MFL read fails.
-export async function fpaLoadSeason(env, ctx, { yr, lid, wMin, wMax, nowMs, past, doFetch }) {
+export async function fpaLoadSeason(env, ctx, { yr, lid, wMin, wMax, nowMs, past, doFetch, preStored }) {
   const fetchJson = (u, ttl) => doFetch(u, { cf: { cacheTtlByStatus: { "200-299": ttl, "404": 60, "500-599": 0 }, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } })
     .then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
   const load = (fj) => fpaLoadMfl({ yr, wMin, wMax, lid, fetchJson: fj, nowMs, currentSeason: !past, tag: FPA_MFL_TAG });
   // A finished season: the same loader, answered from its stored copy. The current
   // season is never read from storage.
-  let stored = past ? await fpaStoredSeason(env, yr, lid, nowMs) : null;
+  // preStored: a caller that already opened the stored copy passes it (undefined = look it up).
+  let stored = past ? (preStored !== undefined ? preStored : await fpaStoredSeason(env, yr, lid, nowMs)) : null;
   let mfl = null;
   if (stored) {
     try { mfl = await load(stored.fetchJson); mfl.readAtMs = stored.readAtMs; } catch (_) { stored = null; mfl = null; }
@@ -858,7 +877,7 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   const sp = new URLSearchParams(url.searchParams);
   ["NO_CACHE", "cb", "_"].forEach((k) => sp.delete(k));
   const sorted = new URLSearchParams([...sp.entries()].sort((a, b) => a[0].localeCompare(b[0])));
-  const cacheKey = FPA_CACHE_HOST + path + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION;
+  const cacheKey = FPA_CACHE_HOST + path + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION + "&c=" + FPA_CALC_REV;
   const noCache = str(url.searchParams.get("NO_CACHE")) === "1";
   if (!noCache) {
     const hit = await fpaCacheMatch(cacheKey);
@@ -937,7 +956,7 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
 // stated per season with no players from it, never filled in from another season.
 // In the answer and in its edge-cache key: change it whenever the answer's fields or
 // numbers change, or a finished season keeps serving the old answer for a day.
-export const SOS_VERSION = "sos2";
+export const SOS_VERSION = "sos3";
 export const SOS_MIN_SEASON = 2011;
 // A season read live from MFL costs ~36 outside fetches; Workers Free allows 50 a request.
 export const SOS_MAX_LIVE_SEASONS = 1;
@@ -965,7 +984,7 @@ export async function handleSosRequest(request, env, ctx, { jsonOut, nowMs, fetc
   const sp = new URLSearchParams(url.searchParams);
   ["NO_CACHE", "cb", "_"].forEach((k) => sp.delete(k));
   const sorted = new URLSearchParams([...sp.entries()].sort((a, b) => a[0].localeCompare(b[0])));
-  const cacheKey = FPA_CACHE_HOST + url.pathname + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION + "&s=" + SOS_VERSION;
+  const cacheKey = FPA_CACHE_HOST + url.pathname + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION + "&c=" + FPA_CALC_REV + "&s=" + SOS_VERSION;
   if (str(url.searchParams.get("NO_CACHE")) !== "1") {
     const hit = await fpaCacheMatch(cacheKey);
     if (hit) return new Response(await hit.text(), { status: 200, headers: fpaHeaders(jsonOut, hit.headers.get("X-UPS-FPA-Source") || "live", "hit") });
@@ -992,7 +1011,7 @@ export async function handleSosRequest(request, env, ctx, { jsonOut, nowMs, fetc
     if (p.notStarted) { per[p.yr] = { state: "not_started", players: 0 }; continue; }
     let L;
     try {
-      L = await fpaLoadSeason(env, ctx, { yr: p.yr, lid: p.lid, wMin, wMax: auto ? 99 : wMaxRaw, nowMs: now, past: p.past, doFetch });
+      L = await fpaLoadSeason(env, ctx, { yr: p.yr, lid: p.lid, wMin, wMax: auto ? 99 : wMaxRaw, nowMs: now, past: p.past, doFetch, preStored: p.stored });
     } catch (e) {
       if (e instanceof FpaUpstreamError) return jsonOut(502, { ok: false, error: "mfl_unavailable", season: p.yr, detail: e.message, failedWeeks: e.weeks, as_of: asOf });
       throw e;
