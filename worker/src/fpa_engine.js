@@ -1007,11 +1007,14 @@ export async function handleSosRequest(request, env, ctx, { jsonOut, nowMs, fetc
     const hi = auto ? Math.min(mfl.endWeek, Math.max(lo, ws.latestFinal)) : Math.min(mfl.endWeek, wMaxRaw);
     const E = fpaCompute(mfl, seasonCtx, { wMin: lo, wMax: hi, nowMs: now, baseline: FPA_BASELINE });
     const rows = fpaPlayerSchedule(E);
-    const weeksUsed = [], weeksNotFinal = [];
+    // weeksUsed: weeks with at least one final game (a week in progress counts its
+    // finished games only). In progress = some games started, not all final; not played
+    // = none started yet.
+    const weeksUsed = [], weeksInProgress = [], weeksNotPlayed = [];
     for (let w = lo; w <= hi; w++) {
-      const gs = E.weekGames[w] || [];
-      if (gs.some((g) => g.status === "final")) weeksUsed.push(w);
-      if (gs.some((g) => g.status !== "final")) weeksNotFinal.push(w);
+      if ((E.weekGames[w] || []).some((g) => g.status === "final")) weeksUsed.push(w);
+      if (E.weekState[w] === "partial") weeksInProgress.push(w);
+      else if (E.weekState[w] === "scheduled") weeksNotPlayed.push(w);
     }
     let n = 0;
     for (const pid in rows) {
@@ -1019,9 +1022,9 @@ export async function handleSosRequest(request, env, ctx, { jsonOut, nowMs, fetc
       a.raw += r.raw; a.gp += r.gp; a.rated += r.rated; a.rsum += r.rsum; n++;
     }
     per[p.yr] = {
-      state: weeksNotFinal.length ? "partial" : "complete", source,
+      state: weeksInProgress.length || weeksNotPlayed.length ? "partial" : "complete", source,
       window: { week_min: lo, week_max: hi, requested_max: auto ? null : wMaxRaw, clipped_to_end: !auto && wMaxRaw > mfl.endWeek },
-      weeksUsed, weeksNotFinal, endWeek: mfl.endWeek, playoffWeeks,
+      weeksUsed, weeksInProgress, weeksNotPlayed, endWeek: mfl.endWeek, playoffWeeks,
       lastCompleteWeek: ws.lastComplete, latestFinalWeek: ws.latestFinal,
       mfl_read_at: new Date(mfl.readAtMs).toISOString(), players: n,
       attribution: { ...E.attribution, context: ctxState },

@@ -76,16 +76,18 @@ check("hidden when neither column shows, and while loading", () => {
   assert.strictEqual(note({ status: "loading" }, SHOW), "");
 });
 check("complete season: the definition and the weeks used", () => {
-  const t = note({ status: "ok", perSeason: { 2025: { state: "complete", weeksUsed: [15, 16, 17], weeksNotFinal: [], window: { clipped_to_end: false } } } }, SHOW);
+  const t = note({ status: "ok", perSeason: { 2025: { state: "complete", weeksUsed: [15, 16, 17], weeksInProgress: [], weeksNotPlayed: [], window: { clipped_to_end: false } } } }, SHOW);
   assert.match(t, /^Sched Δ \/ Opp ±%: what the teams he faced allowed to other players at his position, against their usual \(Pts Agst, final games\)\. It describes his schedule; it isn't a forecast\./);
   assert.match(t, /2025: Wks 15–17\.$/);
 });
-check("in-season: a week not final is named and not counted", () => {
-  const t = note({ status: "ok", perSeason: { 2026: { state: "partial", weeksUsed: [1, 2, 3, 4, 5, 6], weeksNotFinal: [6], window: {} } } }, SHOW);
-  assert.match(t, /2026: Wks 1–6; Wk 6 not final yet, those games not counted\./);
+check("in-season: a week in progress and the weeks not played yet are named", () => {
+  const t = note({ status: "ok", perSeason: { 2026: { state: "partial", weeksUsed: [1, 2, 3, 4, 5, 6], weeksInProgress: [6], weeksNotPlayed: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], window: {} } } }, SHOW);
+  assert.match(t, /2026: Wks 1–6; Wk 6 in progress, only its finished games count; Wks 7–17 not played yet\./);
+  const u = note({ status: "ok", perSeason: { 2026: { state: "partial", weeksUsed: [1, 2, 3, 4, 5], weeksInProgress: [], weeksNotPlayed: [6, 7], window: {} } } }, SHOW);
+  assert.match(u, /2026: Wks 1–5; Wks 6–7 not played yet\./);
 });
 check("2020 'MFL Playoffs' (15–17): says the season ended at Wk 16 and its playoffs were 14–16", () => {
-  const t = note({ status: "ok", perSeason: { 2020: { state: "complete", weeksUsed: [15, 16], weeksNotFinal: [], endWeek: 16, playoffWeeks: [14, 15, 16], window: { clipped_to_end: true } } } }, SHOW);
+  const t = note({ status: "ok", perSeason: { 2020: { state: "complete", weeksUsed: [15, 16], weeksInProgress: [], weeksNotPlayed: [], endWeek: 16, playoffWeeks: [14, 15, 16], window: { clipped_to_end: true } } } }, SHOW);
   assert.match(t, /2020: Wks 15–16 \(season ended at Wk 16; playoffs Wks 14, 15, 16\)\./);
 });
 check("a season not started, or with no weeks in range, is said, not filled in", () => {

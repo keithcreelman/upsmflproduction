@@ -3088,7 +3088,9 @@ table.asw-table{font-size:13px}
       if (p.state === "outside_season") { parts.push(y + " has no weeks in this range (its season ended at Wk " + p.endWeek + ")"); return; }
       var w = p.weeksUsed || [], t = y + ": " + (w.length ? "Wks " + w[0] + (w.length > 1 ? "–" + w[w.length - 1] : "") : "no final games");
       if (p.window && p.window.clipped_to_end) t += " (season ended at Wk " + p.endWeek + "; playoffs Wks " + (p.playoffWeeks || []).join(", ") + ")";
-      if ((p.weeksNotFinal || []).length) t += "; Wk " + p.weeksNotFinal.join(", ") + " not final yet, those games not counted";
+      var ip = p.weeksInProgress || [], np = p.weeksNotPlayed || [];
+      if (ip.length) t += "; Wk " + ip.join(", ") + " in progress, only its finished games count";
+      if (np.length) t += "; " + (np.length > 1 ? "Wks " + np[0] + "–" + np[np.length - 1] : "Wk " + np[0]) + " not played yet";
       parts.push(t);
     });
     return head + (parts.length ? " " + parts.join(" · ") + "." : "");

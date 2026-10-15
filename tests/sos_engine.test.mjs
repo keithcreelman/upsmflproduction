@@ -159,7 +159,7 @@ await check("200, engine + view stamps, the definition, and 2025 stated: complet
   assert.strictEqual(P25.body.definition, F.SOS_DEFINITION);
   const s = P25.body.per_season["2025"];
   assert.strictEqual(s.state, "complete"); assert.strictEqual(s.source, "live");
-  assert.deepStrictEqual(s.weeksUsed, [15, 16, 17]); assert.deepStrictEqual(s.weeksNotFinal, []);
+  assert.deepStrictEqual(s.weeksUsed, [15, 16, 17]); assert.deepStrictEqual(s.weeksInProgress, []); assert.deepStrictEqual(s.weeksNotPlayed, []);
   assert.deepStrictEqual(s.window, { week_min: 15, week_max: 17, requested_max: 17, clipped_to_end: false });
   assert.deepStrictEqual(s.playoffWeeks, [15, 16, 17]); assert.strictEqual(s.endWeek, 17);
 });
@@ -216,7 +216,7 @@ await check("Wks 15–16 never read Wk 17, and changing Wk 17 changes nothing in
   const e = expected({ players: FX25.players, sched: FX25.sched, scores: FX25.scores, teamOf: teamOfFixture(FX25), lo: 15, hi: 16, nowMs: FX25.nowMs });
   sameRows(a.body.by_mfl, e.out, "2025 Wks 15–16");
 });
-await check("mid-Week-17 (one game still being played): its players aren't counted; 17 is stated as not final", async () => {
+await check("mid-Week-17 (one game still being played): its players aren't counted; 17 is stated as in progress", async () => {
   const g = FX25.sched[17].slice().sort((x, y) => Number(y.kickoff) - Number(x.kickoff))[0];
   const now = Number(g.kickoff) * 1000 + 60 * 60 * 1000;   // an hour into the last game
   const sched = JSON.parse(JSON.stringify(FX25.sched));
@@ -225,13 +225,27 @@ await check("mid-Week-17 (one game still being played): its players aren't count
   // 2025 is the current season at that moment (late Dec / early Jan).
   const r25 = await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", fx, { nowMs: now });
   const s = r25.body.per_season["2025"];
-  assert.strictEqual(s.state, "partial"); assert.deepStrictEqual(s.weeksNotFinal, [17]); assert.deepStrictEqual(s.weeksUsed, [15, 16, 17]);
+  assert.strictEqual(s.state, "partial"); assert.deepStrictEqual(s.weeksInProgress, [17]); assert.deepStrictEqual(s.weeksNotPlayed, []); assert.deepStrictEqual(s.weeksUsed, [15, 16, 17]);
   const e = expected({ players: FX25.players, sched, scores: FX25.scores, teamOf: teamOfFixture(FX25), lo: 15, hi: 17, nowMs: now });
   sameRows(r25.body.by_mfl, e.out, "mid-Wk-17");
   const live = g.team.map((t) => t.id);
   assert.ok(e.games.length < E25.games.length);
   assert.ok(Object.keys(r25.body.by_mfl).length > 0);
   assert.ok(live.every((t) => !e.games.some((x) => x.w === 17 && (x.def === t))), "a player who faced a team still playing was counted");
+});
+
+await check("before Week 16 kicks off: Wk 15 counts, Wks 16–17 are stated as not played yet (never as in progress)", async () => {
+  const k16 = Math.min(...FX25.sched[16].map((m) => Number(m.kickoff)));
+  const now = k16 * 1000 - 3600 * 1000;
+  const sched = JSON.parse(JSON.stringify(FX25.sched));
+  for (const w of [16, 17]) for (const m of sched[w]) m.gameSecondsRemaining = "3600";
+  const r = await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", { ...FX25, sched }, { nowMs: now });
+  const s = r.body.per_season["2025"];
+  assert.strictEqual(s.state, "partial"); assert.deepStrictEqual(s.weeksUsed, [15]);
+  assert.deepStrictEqual(s.weeksInProgress, []); assert.deepStrictEqual(s.weeksNotPlayed, [16, 17]);
+  assert.ok(!r.calls.some((u) => /TYPE=playerScores/.test(u) && /W=1[67]\b/.test(u)), "read scores for weeks not started");
+  const e = expected({ players: FX25.players, sched, scores: FX25.scores, teamOf: teamOfFixture(FX25), lo: 15, hi: 15, nowMs: now });
+  sameRows(r.body.by_mfl, e.out, "Wk 15 only");
 });
 
 console.log("\n3. a 16-week season (2020: playoffs 14–16; MFL answers Wk 17 with Wk 16 again)");
