@@ -113,7 +113,8 @@ check("failures say why both columns read —, and that nothing is filled in", (
   assert.match(note({ status: "error", error: "mfl_unavailable", season: "2025", detail: "MFL read failed: player scores (weeks 16)" }, SHOW),
     /Both read — : MFL couldn't be read for 2025 \(MFL read failed: player scores \(weeks 16\)\)\. Nothing is filled in from another season\./);
   assert.match(note({ status: "error", error: "too_many_live_seasons", detail: "Seasons 2015, 2016 each need a live MFL read; choose at most 1 of them at a time." }, SHOW),
-    /Both read — : Seasons 2015, 2016 each need a live MFL read; choose at most 1 of them at a time\./);
+    /Both read — : Seasons 2015, 2016 each need a live MFL read; choose at most 1 of them at a time\. Nothing is filled in/);
+  assert.ok(!/\.\./.test(note({ status: "error", error: "too_many_live_seasons", detail: "Seasons 2015, 2016 each need a live MFL read; choose at most 1 of them at a time." }, SHOW)), "no double period");
   assert.match(note({ status: "error", error: "HTTP 500" }, SHOW), /Both read — : the answer didn't load \(HTTP 500\)\./);
   assert.match(note({ status: "error", error: "old_server" }, SHOW), /Both read — : the server is still on the previous version; reload in a minute\./);
 });
