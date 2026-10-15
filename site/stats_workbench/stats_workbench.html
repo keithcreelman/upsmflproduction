@@ -581,7 +581,9 @@ table.asw-table{width:auto;min-width:0}
 .asw-ctl .asw-tab:hover{color:var(--text);background:var(--panel-alt)}
 .asw-ctl .asw-tab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border:0}
 .asw-ctl .asw-tabs-sep{display:inline-block;width:1px;height:18px;background:var(--border-strong);margin:0 4px}
-.asw-ctl .asw-tab .asw-subtab-group{border-left-color:rgba(10,18,34,.35)}
+.asw-ctl-pos .asw-subtab-group{display:inline-flex;align-items:center;gap:4px;margin:6px 0 0;padding:0;border:0}
+.asw-ctl-pos .asw-subtab{font:600 11.5px/1 "Inter Tight",system-ui,sans-serif;min-height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text);cursor:pointer}
+.asw-ctl-pos .asw-subtab[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .asw-ctl-groups{align-items:center;gap:8px 12px}
 .asw-groups{display:flex;flex-wrap:wrap;gap:6px}
 .asw-group{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text);cursor:pointer}
@@ -1338,21 +1340,21 @@ table.asw-table{width:auto;min-width:0}
     l4w_delta:    { label:"L4W Δ", num:true, fmt:"delta", title:"Last-4-weeks average fantasy points MINUS season PPG — the momentum read. Positive (green) = trending up; negative = fading.",
       compute:function(r){ var c=consistByGsis[String(r.gsis_id)]; if(!c || !c.weeks || c.weeks.length < 5 || c.ppg == null) return null; var w=c.weeks.slice(-4); var a=w.reduce(function(s,v){return s+v;},0)/w.length; return Math.round((a - c.ppg)*10)/10; } },
     // Usage — offense
-    games:               { label:"G",        num:true },
+    games:               { label:"G", title:"Games he played in the weeks chosen (nflverse box scores)",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
-    off_snap_rate:       { label:"Snap%",    num:true, fmt:"pct0" },
+    off_snap_rate:       { label:"Snap%", title:"His offensive snaps ÷ his team’s, in the games he played on offense",    num:true, fmt:"pct0" },
     // Usage — defense
     def_snaps_total:     { label:"Snaps",    num:true, title:"Defensive snaps" },
-    def_snap_rate:       { label:"Snap%",    num:true, fmt:"pct0" },
+    def_snap_rate:       { label:"Snap%", title:"His defensive snaps ÷ his team’s, in the games he played on defense",    num:true, fmt:"pct0" },
     // Team pace (nflverse PBP, REG) — context for a player's opportunity.
     team_plays_pg:       { label:"Pace",     num:true, fmt:"dec1", title:"Team offensive plays per game (REG) — the team's pace" },
     team_def_plays_pg:   { label:"Def Pace", num:true, fmt:"dec1", title:"Plays the team's defense faces per game (REG)" },
     pace_sos:            { label:"Pace SoS", num:true, fmt:"dec1", title:"Avg offensive plays/game of the opponents on the team's schedule (schedule-adjusted pace; high = faster schedule = more plays)" },
     // Receiving volume
-    targets:             { label:"Tgt",      num:true },
-    receptions:          { label:"Rec",      num:true },
-    rec_yds:             { label:"RecYd",    num:true },
-    rec_tds:             { label:"RecTD",    num:true },
+    targets:             { label:"Tgt", title:"Passes thrown to him (targets)",      num:true },
+    receptions:          { label:"Rec", title:"Receptions",      num:true },
+    rec_yds:             { label:"RecYd", title:"Receiving yards",    num:true },
+    rec_tds:             { label:"RecTD", title:"Receiving touchdowns",    num:true },
     // Receiving efficiency
     y_per_t:             { label:"Y/T",      num:true, fmt:"dec2",
       title:"Yards per target",
@@ -1360,7 +1362,7 @@ table.asw-table{width:auto;min-width:0}
     y_per_r:             { label:"Y/R",      num:true, fmt:"dec1",
       title:"Yards per reception",
       compute: function(r){ return r.receptions ? r.rec_yds / r.receptions : null; } },
-    rec_per_t:           { label:"Catch%",   num:true, fmt:"pct",
+    rec_per_t:           { label:"Catch%", title:"Catch rate: receptions ÷ targets",   num:true, fmt:"pct",
       compute: function(r){ return r.targets ? r.receptions / r.targets : null; } },
     // Receiving advanced (PFR, season-level)
     receiving_adot:      { label:"ADOT",     num:true, fmt:"dec1",
@@ -1382,9 +1384,9 @@ table.asw-table{width:auto;min-width:0}
       title:"Receptions per broken tackle",
       compute: function(r){ return (r.receiving_broken_tackles||0) > 0 ? r.receptions / r.receiving_broken_tackles : null; } },
     // Rushing volume
-    rush_att:            { label:"RuAtt",    num:true },
-    rush_yds:            { label:"RuYd",     num:true },
-    rush_tds:            { label:"RuTD",     num:true },
+    rush_att:            { label:"RuAtt", title:"Rushing attempts (carries)",    num:true },
+    rush_yds:            { label:"RuYd", title:"Rushing yards",     num:true },
+    rush_tds:            { label:"RuTD", title:"Rushing touchdowns",     num:true },
     // Rushing efficiency
     y_per_a:             { label:"Y/A",      num:true, fmt:"dec2",
       title:"Yards per carry",
@@ -1465,17 +1467,17 @@ table.asw-table{width:auto;min-width:0}
     team_rz_pass_rate:   { label:"Tm RZ Pass%", num:true, fmt:"pct",
       title:"Of the team's red-zone plays, what share were passes. High rate = pass-heavy RZ offense (QB context)." },
     // Passing volume
-    pass_att:            { label:"Att",      num:true },
-    pass_cmp:            { label:"Cmp",      num:true },
-    pass_yds:            { label:"PaYd",     num:true },
-    pass_tds:            { label:"PaTD",     num:true },
-    cmp_pct:             { label:"Cmp%",     num:true, fmt:"pct",
+    pass_att:            { label:"Att", title:"Pass attempts (a sack isn’t one)",      num:true },
+    pass_cmp:            { label:"Cmp", title:"Completions",      num:true },
+    pass_yds:            { label:"PaYd", title:"Passing yards",     num:true },
+    pass_tds:            { label:"PaTD", title:"Passing touchdowns",     num:true },
+    cmp_pct:             { label:"Cmp%", title:"Completion percentage: completions ÷ pass attempts",     num:true, fmt:"pct",
       compute: function(r){ return r.pass_att ? r.pass_cmp / r.pass_att : null; } },
     ypa:                 { label:"Y/A",      num:true, fmt:"dec1",
       title:"Yards per attempt",
       compute: function(r){ return r.pass_att ? r.pass_yds / r.pass_att : null; } },
     // Passing turnovers / sacks (all invertRank — lower is better for a QB)
-    pass_ints:           { label:"Int",      num:true, invertRank:true },
+    pass_ints:           { label:"Int", title:"Interceptions thrown",      num:true, invertRank:true },
     int_pct:             { label:"Int%",     num:true, fmt:"pct", invertRank:true,
       compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
     pass_sacks:          { label:"Sacks",    num:true, invertRank:true, title:"Times sacked" },
@@ -1493,33 +1495,33 @@ table.asw-table{width:auto;min-width:0}
     passing_drops:       { label:"RecDrops", num:true, invertRank:true, title:"Drops by this QB's receivers" },
     // IDP tackles
     def_tackles_total:   { label:"Tkl",      num:true, title:"Solo tackles" },
-    def_tackles_ast:     { label:"Ast",      num:true },
-    def_tfl:             { label:"TFL",      num:true },
+    def_tackles_ast:     { label:"Ast", title:"Assisted tackles",      num:true },
+    def_tfl:             { label:"TFL", title:"Tackles for loss",      num:true },
     // IDP pass rush
-    def_sacks:           { label:"Sk",       num:true, fmt:"dec1" },
-    def_pass_def:        { label:"PD",       num:true },
+    def_sacks:           { label:"Sk", title:"Sacks (a shared sack counts 0.5)",       num:true, fmt:"dec1" },
+    def_pass_def:        { label:"PD", title:"Passes defended: thrown passes he broke up or intercepted",       num:true },
     def_pressures:       { label:"Press",    num:true, title:"Pass-rush pressures (PFR, 2018+)" },
     def_press_rate:      { label:"Press%",   num:true, fmt:"pct",
       title:"Pressures per defensive snap (PFR, 2018+)",
       compute: function(r){ return r.def_snaps_total ? (r.def_pressures||0) / r.def_snaps_total : null; } },
     // IDP turnovers
-    def_ff:              { label:"FF",       num:true },
+    def_ff:              { label:"FF", title:"Forced fumbles",       num:true },
     def_fr:              { label:"FR",       num:true, title:"Fumble recoveries" },
-    def_ints:            { label:"Int",      num:true },
+    def_ints:            { label:"Int", title:"Interceptions",      num:true },
     def_tds:             { label:"DefTD",    num:true },
     // IDP coverage
-    def_completions_allowed: { label:"Cmp Allow", num:true },
-    def_yards_allowed:   { label:"Yds Allow", num:true },
-    def_passer_rating_allowed: { label:"PsRat Allow", num:true, fmt:"dec1" },
+    def_completions_allowed: { label:"Cmp Allow", title:"Completions allowed on throws into his coverage (PFR charting)", num:true },
+    def_yards_allowed:   { label:"Yds Allow", title:"Yards allowed on throws into his coverage (PFR charting)", num:true },
+    def_passer_rating_allowed: { label:"PsRat Allow", title:"Passer rating on throws into his coverage (PFR charting)", num:true, fmt:"dec1" },
     def_adot:            { label:"cADOT",    num:true, fmt:"dec1", title:"ADOT allowed in coverage (PFR)" },
     // IDP missed tackles (invertRank — fewer missed tackles is better)
     def_missed_tackles:  { label:"Missed",   num:true, invertRank:true, title:"Missed tackles (PFR, 2018+)" },
-    def_missed_tackle_pct:{label:"Miss%",    num:true, fmt:"pct0", invertRank:true },
+    def_missed_tackle_pct:{label:"Miss%", title:"Missed tackles ÷ (tackles + missed tackles), PFR charting",    num:true, fmt:"pct0", invertRank:true },
     // Kicker
-    fg_made:             { label:"FGM",      num:true },
-    fg_miss:             { label:"FG Miss",  num:true, invertRank:true,
+    fg_made:             { label:"FGM", title:"Field goals made",      num:true },
+    fg_miss:             { label:"FG Miss", title:"Field goals missed",  num:true, invertRank:true,
       compute: function(r){ return (r.fg_att||0) - (r.fg_made||0); } },
-    fg_pct:              { label:"FG%",      num:true, fmt:"pct",
+    fg_pct:              { label:"FG%", title:"Field goals made ÷ attempted",      num:true, fmt:"pct",
       compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
     // made/attempted as text; sortValue sorts them as numbers (made, then attempts) — as text
     // "4/4" sorted above "21/23" (found by the redesign's sort sweep, 2026-10-15).
@@ -1549,13 +1551,13 @@ table.asw-table{width:auto;min-width:0}
         if (!a) return null;
         return ((r.fg_att_0_39||0)*25 + (r.fg_att_40_49||0)*44.5 + (r.fg_att_50_59||0)*54 + (r.fg_att_60plus||0)*62) / a;
       } },
-    xp_made:             { label:"XPM",      num:true },
+    xp_made:             { label:"XPM", title:"Extra points made",      num:true },
     xp_miss:             { label:"XP Miss",  num:true, invertRank:true,
       compute: function(r){ return (r.xp_att||0) - (r.xp_made||0); } },
     xp_pct:              { label:"XP%",      num:true, fmt:"pct",
       compute: function(r){ return r.xp_att ? r.xp_made / r.xp_att : null; } },
     // Punter
-    punts:               { label:"Punts",    num:true },
+    punts:               { label:"Punts", title:"Punts in the weeks chosen",    num:true },
     punt_yds:            { label:"PuntYd",   num:true },
     punt_long:           { label:"Long",     num:true, title:"Longest punt (yards)" },
     punt_avg:            { label:"Avg",      num:true, fmt:"dec1",
@@ -1857,7 +1859,7 @@ table.asw-table{width:auto;min-width:0}
   };
   function sgFantasy() { return { id: "fantasy", label: "Fantasy points", cols: ["pos_rank", "mfl_points", "mfl_ppg", "games"], sort: "mfl_points", src: ["mfl", "box"] }; }
   function sgBoom()    { return { id: "boom", label: "Boom/Bust", title: "Boom/Bust and consistency", cols: ["cons_floor", "cons_ceil", "cons_score", "cons_boom", "cons_bust", "l4w_delta"], sort: "cons_score", src: ["cons"] }; }
-  function sgSched()   { return { id: "schedule", label: "Schedule", title: "Schedule context: Sched Δ and Opp ±%", cols: ["mfl_points", "mfl_ppg", "mfl_points_sos", "mfl_sched_opp", "games"], sort: "mfl_points", src: ["sched", "mfl"] }; }
+  function sgSched()   { return { id: "schedule", label: "Schedule", title: "Schedule context: Sched Δ and Opp ±%", cols: ["mfl_points", "mfl_points_sos", "mfl_sched_opp", "games"], sort: "mfl_points", src: ["sched", "mfl"] }; }
   var SG_RECEIVING = ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t", "receiving_adot"];
   var SG_IDP_FRONT = ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_pass_def", "def_ints", "def_ff"];
   var STAT_GROUPS = {
@@ -4408,15 +4410,19 @@ table.asw-table{width:auto;min-width:0}
   // (Phase A cleanup: dropped the separate sub-tabs row. DL/DB get an
   // inline chip cluster rendered inside their own tab button — only
   // shows when that tab is active via CSS [aria-pressed="true"].)
+  // Desktop redesign: the DE/DT and CB/S chips are their own small group right after the
+  // Position control (they were buttons nested inside the DL/DB button: invalid HTML, and a
+  // keyboard or screen-reader user couldn't reach them on their own).
   function renderSubTabs() {
-    // Clear any existing sub-chip groups first
-    tabsEl.querySelectorAll(".asw-subtab-group").forEach(function(g){ g.remove(); });
+    var host = tabsEl.parentNode;
+    host.querySelectorAll(".asw-subtab-group").forEach(function(g){ g.remove(); });
     var tab = TABS[state.activeTab];
     if (!tab.subTabs) return;
-    var parentBtn = tabsEl.querySelector('[data-tab="' + state.activeTab + '"]');
-    if (!parentBtn) return;
+    var parentBtn = host;
     var group = document.createElement("span");
     group.className = "asw-subtab-group";
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-label", tab.label + " positions");
     tab.subTabs.forEach(function(st){
       var btn = document.createElement("button");
       btn.type = "button";
