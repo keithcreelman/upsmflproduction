@@ -414,6 +414,8 @@ await check("More filters is three sections: Filters (team, seasons, value filte
   assert.ok(E.$("#asw-more-vf .asw-filter-toggle"), "value filters under Filters");
   assert.deepStrictEqual(E.$$("#asw-more-tools .asw-filter-toggle").map((b) => b.textContent.trim()), ["Scatter", "Heat", "Download CSV"]);
   assert.strictEqual(E.$$("#asw-cols-bar .asw-filter-toggle").length, 0, "no tools among the column sets");
+  assert.ok(E.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group") !== "custom");
+  assert.strictEqual(E.$$('#asw-cols-bar .asw-view-chip[aria-pressed="true"]').length, 0, "with a stat group showing, no column set looks chosen");
 });
 await check("a saved column set (More filters → Columns) switches to Custom columns and shows its columns", async () => {
   const N = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=fantasy", { "asw.namedViews.wr": JSON.stringify([{ name: "Mine", groups: ["red_zone"] }]) });

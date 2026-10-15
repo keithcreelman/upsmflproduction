@@ -3032,7 +3032,7 @@ table.asw-table{font-size:13px}
   }
   function refreshViewChips() {
     colsBarEl.querySelectorAll(".asw-view-chip").forEach(function(ch){
-      ch.setAttribute("aria-pressed", ch.getAttribute("data-view") === state.viewName ? "true" : "false");
+      ch.setAttribute("aria-pressed", state.group === "custom" && ch.getAttribute("data-view") === state.viewName ? "true" : "false");
     });
     var sv = colsBarEl.querySelector(".asw-save-view");
     if (sv) sv.style.display = state.viewName === "custom" ? "" : "none";
@@ -4087,6 +4087,7 @@ table.asw-table{font-size:13px}
         (g.title ? ' title="' + escapeHtml(g.title) + '"' : "") + '>' + escapeHtml(g.label) + '</button>';
     }).join("");
     if (cur === "custom") html += '<button type="button" class="asw-group" data-group="custom" aria-pressed="true" title="Columns picked under More filters">Custom columns</button>';
+    refreshViewChips();   // a column set looks chosen only in Custom columns
     var sig = state.activeTab + "|" + gs.map(function (g) { return g.id; }).join() + (cur === "custom" ? "|custom" : "");
     if (groupsEl.getAttribute("data-sig") === sig) {
       // the same buttons: just move the pressed state, so keyboard focus stays where it is
@@ -4313,7 +4314,7 @@ table.asw-table{font-size:13px}
       chip.type = "button";
       chip.className = "asw-chip asw-view-chip";
       chip.setAttribute("data-view", v[0]);
-      chip.setAttribute("aria-pressed", state.viewName === v[0] ? "true" : "false");
+      chip.setAttribute("aria-pressed", state.group === "custom" && state.viewName === v[0] ? "true" : "false");   // a stat group: no set pressed
       chip.textContent = v[1];
       chip.title = v[2];
       chip.addEventListener("click", function(){
