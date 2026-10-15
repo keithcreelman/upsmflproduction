@@ -102,6 +102,14 @@ await check("the screen's order: heading → Season · Window · Position → St
   assert.ok(!/asw-filters-pill/.test(sec), "the old Filters pill is gone");
   assert.match(SRC, /<h1 id="asw-page-title">Player Stats<\/h1>/, "no version badge in the heading (it's in About)");
 });
+await check("accessibility (contract §10): focus ring on names, the closed drawer out of the tab order, a focus trap, light-theme contrast", () => {
+  assert.match(SRC, /\.asw-table \.asw-pname:focus-visible\{outline:2px solid var\(--accent\)/);
+  assert.match(SRC, /\.asw-drawer\{visibility:hidden;transition:transform \.22s ease,visibility 0s linear \.22s\}\n\.asw-drawer\.open\{visibility:visible;/);
+  assert.match(SCRIPT, /drawerEl\.addEventListener\("keydown", function \(e\) \{\n    if \(e\.key !== "Tab"/);
+  assert.match(SRC, /html\[data-theme="light"\]\{[\s\S]*?--muted:rgba\(14,17,24,\.62\)/, "light muted text ≥ 4.5:1 on white and the light panel");
+  assert.match(SRC, /\.asw-ctl \.asw-tab\[aria-pressed="true"\]\{background:var\(--accent\);color:var\(--bg\)/);
+  assert.ok(!/aria-describedby="asw-season-note"/.test(SRC), "no reference to a missing element");
+});
 await check("layout: the page never scrolls sideways; the table scrolls in its own region; [hidden] wins; the drawer is a dialog", () => {
   assert.match(SRC, /\.asw-compare-bar\[hidden\]\{display:none!important\}/);
   assert.match(SRC, /\.asw-ctl-f\[hidden\],\.asw-more\[hidden\]\{display:none!important\}/);
@@ -339,8 +347,13 @@ await check("compare: checkboxes only while 'Select players to compare' is on; t
 await check("keyboard: a header sorts with Enter; the name opens the drawer, a dialog that takes focus", async () => {
   const th = E.$('#asw-body th[data-col-key="rec_tds"]');
   assert.strictEqual(th.getAttribute("tabindex"), "0");
-  th.dispatch("keydown", { key: "Enter" }); await settle(10);
+  th.focus(); th.dispatch("keydown", { key: "Enter" }); await settle(10);
   assert.deepStrictEqual(E.sorted(), ["rec_tds", "descending"]);
+  assert.strictEqual(E.doc.activeElement && E.doc.activeElement.getAttribute("data-col-key"), "rec_tds", "focus stays on the header after a keyboard sort");
+  const gb = E.$('#asw-groups [data-group="usage"]'); gb.focus(); gb.click(); await settle(10);
+  assert.strictEqual(E.doc.activeElement, gb, "choosing a stat group keeps focus on its button (updated in place)");
+  assert.strictEqual(gb.getAttribute("aria-pressed"), "true");
+  await E.click(E.$('#asw-groups [data-group="receiving"]'));
   const nameBtn = E.$("#asw-body tbody tr .asw-pname");
   nameBtn.focus(); nameBtn.click(); await settle(30); await new Promise((r) => setTimeout(r, 60));   // (a real click focuses the button)
   assert.ok(E.$("#asw-drawer").classList.contains("open"));

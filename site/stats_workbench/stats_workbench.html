@@ -38,7 +38,7 @@
 html[data-theme="light"]{
   --bg:#fff; --panel:#fff; --panel-alt:#f6f7f9;
   --border:rgba(14,17,24,.11); --border-strong:rgba(14,17,24,.2);
-  --text:#0e1118; --muted:rgba(14,17,24,.55); --accent:#1d4ed8;
+  --text:#0e1118; --muted:rgba(14,17,24,.62); --accent:#1d4ed8;
   --ok:#0f8a5f; --warn:#a86a00; --err:#c02626; --smash:#0f8a5f; --hit:#1d4ed8;
   --contrib:#6b7280; --bust:#c02626;
   --row-hover:rgba(29,78,216,.05);
@@ -583,7 +583,7 @@ table.asw-table{width:auto;min-width:0}
 .asw-ctl .asw-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin:0;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--panel)}
 .asw-ctl .asw-tab{border:0;border-radius:6px;padding:6px 10px;min-height:30px;font-size:12.5px;font-weight:600;background:none;color:var(--muted)}
 .asw-ctl .asw-tab:hover{color:var(--text);background:var(--panel-alt)}
-.asw-ctl .asw-tab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border:0}
+.asw-ctl .asw-tab[aria-pressed="true"]{background:var(--accent);color:var(--bg);border:0}
 .asw-ctl .asw-tabs-sep{display:inline-block;width:1px;height:18px;background:var(--border-strong);margin:0 4px}
 .asw-ctl-pos .asw-subtab-group{display:inline-flex;align-items:center;gap:4px;margin:6px 0 0;padding:0;border:0}
 .asw-ctl-pos .asw-subtab{font:600 11.5px/1 "Inter Tight",system-ui,sans-serif;min-height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text);cursor:pointer}
@@ -616,6 +616,11 @@ table.asw-table{width:auto;min-width:0}
 .asw-compare-bar[hidden]{display:none!important}
 .asw-table .asw-pname{all:unset;cursor:pointer;font-weight:600;color:var(--text);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .asw-table .asw-pname:hover{text-decoration:underline}
+.asw-table .asw-pname:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:2px}
+/* Closed, the drawer is out of the tab order (it only slid off screen); it hides after sliding out. */
+.asw-drawer{visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s}
+.asw-drawer.open{visibility:visible;transition:transform .22s ease}
+@media (prefers-reduced-motion: reduce){.asw-drawer,.asw-drawer.open{transition:none}}
 .asw-table .asw-psub{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .asw-table td.name{padding-top:5px;padding-bottom:5px}
 /* Without the compare column the frozen #/Player columns start at the left edge. */
@@ -680,7 +685,7 @@ table.asw-table{width:auto;min-width:0}
      More filters. Every id the script wires is kept. -->
 <div class="asw-ctl" id="asw-ctl">
   <label class="asw-ctl-f">Season
-    <select id="asw-season" aria-describedby="asw-season-note"></select>
+    <select id="asw-season"></select>
   </label>
   <label class="asw-ctl-f">Window
     <select id="asw-scope">
@@ -3877,6 +3882,7 @@ table.asw-table{width:auto;min-width:0}
       });
       el.addEventListener("click", function(){
         var key = el.getAttribute("data-col-key");
+        var hadFocus = document.activeElement === el;   // a keyboard sort keeps focus on its header
         if (state.sortKey === key) {
           state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
         } else {
@@ -3884,6 +3890,7 @@ table.asw-table{width:auto;min-width:0}
           state.sortDir = (COLS[key] && COLS[key].num) ? "desc" : "asc";
         }
         render();
+        if (hadFocus) { var again = bodyEl.querySelector('th[data-col-key="' + key + '"]'); if (again) again.focus(); }
       });
     });
 
@@ -3904,6 +3911,8 @@ table.asw-table{width:auto;min-width:0}
           x.classList.remove("is-active");
         });
         tr.classList.add("is-active");
+        var nameBtn = tr.querySelector(".asw-pname");
+        if (nameBtn && !(document.activeElement && tr.contains(document.activeElement))) drawerReturnFocus = nameBtn;
         openDrawer(rowObj);
       });
     });
@@ -4004,7 +4013,14 @@ table.asw-table{width:auto;min-width:0}
         (g.title ? ' title="' + escapeHtml(g.title) + '"' : "") + '>' + escapeHtml(g.label) + '</button>';
     }).join("");
     if (cur === "custom") html += '<button type="button" class="asw-group" data-group="custom" aria-pressed="true" title="Columns picked under More filters">Custom columns</button>';
-    if (groupsEl.innerHTML !== html) groupsEl.innerHTML = html;
+    var sig = state.activeTab + "|" + gs.map(function (g) { return g.id; }).join() + (cur === "custom" ? "|custom" : "");
+    if (groupsEl.getAttribute("data-sig") === sig) {
+      // the same buttons: just move the pressed state, so keyboard focus stays where it is
+      groupsEl.querySelectorAll("[data-group]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-group") === cur ? "true" : "false"); });
+      return;
+    }
+    groupsEl.setAttribute("data-sig", sig);
+    groupsEl.innerHTML = html;
   }
   if (groupsEl) groupsEl.addEventListener("click", function (e) {
     var b = e.target && e.target.closest ? e.target.closest("[data-group]") : null;
@@ -4048,6 +4064,7 @@ table.asw-table{width:auto;min-width:0}
     moreBtn.setAttribute("aria-expanded", open ? "true" : "false");
   }
   if (moreBtn) moreBtn.addEventListener("click", function () { openMore(moreEl.hasAttribute("hidden")); });
+  if (moreEl) moreEl.addEventListener("keydown", function (e) { if (e.key === "Escape") { openMore(false); moreBtn.focus(); } });
   function updateMoreCount() {
     if (!moreNEl) return;
     var n = 0;
@@ -4059,6 +4076,7 @@ table.asw-table{width:auto;min-width:0}
     if (state.scatterOn) n++;
     if (state.compareMode) n++;
     moreNEl.textContent = n ? "(" + n + ")" : "";
+    moreBtn.setAttribute("aria-label", n ? "More filters, " + n + " in use" : "More filters");
   }
   if (compareModeEl) compareModeEl.addEventListener("change", function () {
     state.compareMode = !!compareModeEl.checked;
@@ -4323,9 +4341,12 @@ table.asw-table{width:auto;min-width:0}
     renderColsPopover(tab, region);
     colsBarEl.appendChild(popover);
 
+    trigger.setAttribute("aria-haspopup", "true");
+    trigger.setAttribute("aria-expanded", "false");
     trigger.addEventListener("click", function(e){
       e.stopPropagation();
       popover.classList.toggle("open");
+      trigger.setAttribute("aria-expanded", popover.classList.contains("open") ? "true" : "false");
     });
     // Close on outside click or Esc
     document.addEventListener("click", function handler(e){
@@ -4334,7 +4355,7 @@ table.asw-table{width:auto;min-width:0}
       popover.classList.remove("open");
     });
     document.addEventListener("keydown", function(e){
-      if (e.key === "Escape" && popover.classList.contains("open")) popover.classList.remove("open");
+      if (e.key === "Escape" && popover.classList.contains("open")) { popover.classList.remove("open"); trigger.setAttribute("aria-expanded", "false"); trigger.focus(); }
     });
     // Right side: filter toggle + clear
     var spacer = document.createElement("span");
@@ -5663,6 +5684,15 @@ table.asw-table{width:auto;min-width:0}
 
   drawerCloseBtn.addEventListener("click", closeDrawer);
   drawerScrim.addEventListener("click", closeDrawer);
+  // A modal dialog: Tab and Shift+Tab stay inside the drawer while it is open.
+  drawerEl.addEventListener("keydown", function (e) {
+    if (e.key !== "Tab" || !drawerEl.classList.contains("open")) return;
+    var f = Array.prototype.filter.call(drawerEl.querySelectorAll('button, select, input, a[href], [tabindex="0"]'), function (x) { return !x.disabled && x.offsetParent !== null; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
   document.addEventListener("keydown", function(e){
     if (e.key === "Escape" && drawerEl.classList.contains("open")) closeDrawer();
   });
