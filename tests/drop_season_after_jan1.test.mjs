@@ -16,6 +16,11 @@
 //      FA Auction opens is season 2027, booked to 2028, as before.
 //   d. the live league year can't be determined → the drop pipeline runs NOTHING (no row, card or charge under a guessed
 //      season) and says so every tick; the first tick that resolves records the drop under the right season and price.
+//   e. (#1237, Keith 2026-10-15) the pipeline now runs as the ACTIVE season (league_year.js resolveActiveSeason): the 2027
+//      league created EARLY (Dec 15) must not move Week 17's drops to 2027 — the ticks stay on 2026 until every Week 17
+//      game is provably final (clock 0 + both teams' MFL points, nobody playing), then run as 2027. A postponed game
+//      keeps them on 2026. The fake MFL below therefore also plays each week's games (clock, possession, scores) and
+//      serves the league's endWeek, the 2025 league, playerScores, and liveScoring for the asked week.
 //   node tests/drop_season_after_jan1.test.mjs
 import { makeD1 } from "./fixtures/d1_sqlite.mjs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
@@ -38,6 +43,7 @@ const historyTo = (y) => Array.from({ length: y - 2009 }, (_, i) => String(2010 
 
 // ── MFL, per league year. state: ok | 404 (year not opened) | invalid (league not renewed) | 500 (MFL can't answer) ──
 const MFL = {
+  "2025": { state: "ok", leagueState: "ok", history: historyTo(2026), txs: [] },
   "2026": { state: "ok", leagueState: "ok", history: historyTo(2026), txs: [
     { type: "BBID_WAIVER", franchise: "0005", timestamp: ET("2026-12-24T09:00:00-05:00"), transaction: "18000,|20000|" },   // Week 16 waiver pickups
     { type: "BBID_WAIVER", franchise: "0010", timestamp: ET("2026-12-24T09:00:00-05:00"), transaction: "18003,|20000|" },
@@ -67,7 +73,27 @@ function nflSchedule(w, year) {       // 2026: Wed Sep 9 opener, then Thu 8:15 P
   const shift = (Number(year || 2026) - 2026) * 364 * 86400;
   const ko = (d, h, m) => String(Math.floor(RealDate.UTC(2026, 8, d, h, m) / 1000) + shift);
   const thu = w === 1 ? ko(10, 0, 20) : ko(18 + 7 * (w - 2), 0, 15), sun = ko(13 + 7 * (w - 1), 17, 0), mon = ko(15 + 7 * (w - 1), 0, 15);
-  return { nflSchedule: { week: String(w), matchup: [{ kickoff: thu, team: [{ id: "KCC" }, { id: "BAL" }] }, { kickoff: sun, team: [{ id: "BUF" }, { id: "MIA" }] }, { kickoff: mon, team: [{ id: "NYG" }, { id: "DAL" }] }] } };
+  const games = [[thu, "KCC", "BAL"], [sun, "BUF", "MIA"], [mon, "NYG", "DAL"]].map(([ko, a, b]) => {
+    const moved = POSTPONED[`${year || 2026}:${w}:${a}`];
+    return game(moved || ko, a, b);
+  });
+  return { nflSchedule: { week: String(w), matchup: games } };
+}
+// A game as MFL's nflSchedule shows it at NOW: clock 3600 before kickoff, running (with the ball) for 3 h 15 min, then 0.
+const GAME_MS = 3.25 * 3600e3, POINTS_LAG_MS = 20 * 60e3;
+const POSTPONED = {};                  // "year:week:awayTeam" → its new kickoff (unix s)
+function game(ko, a, b) {
+  const k = Number(ko) * 1000, live = NOW >= k && NOW < k + GAME_MS, over = NOW >= k + GAME_MS;
+  return { kickoff: String(ko), gameSecondsRemaining: over ? "0" : (live ? "900" : "3600"),
+    team: [{ id: a, score: NOW >= k ? "17" : "", hasPossession: live ? "1" : "0" }, { id: b, score: NOW >= k ? "13" : "", hasPossession: "0" }] };
+}
+// MFL fantasy points posted that week: one player per NFL team, once that team's game has been over 20 minutes.
+function playerScores(w, year) {
+  const rows = [];
+  for (const m of nflSchedule(w, year).nflSchedule.matchup) {
+    if (NOW >= Number(m.kickoff) * 1000 + GAME_MS + POINTS_LAG_MS) for (const t of m.team) rows.push({ id: "T_" + t.id, score: "9.5" });
+  }
+  return { playerScores: { week: String(w), playerScore: rows.length ? rows : { id: "", score: "" } } };
 }
 const liveWeek = (year) => { let w = 1; for (let k = 1; k <= 18; k++) if (Number(nflSchedule(k, year).nflSchedule.matchup[0].kickoff) * 1000 <= NOW) w = k; return w; };
 const DISCORD = { posts: [] };
@@ -92,7 +118,7 @@ globalThis.fetch = async (input, init) => {
     if (Y.state === "500") return json({ error: "MFL boom" }, 500);
     if (type === "league") {
       if (Y.leagueState === "500") return json({ error: "MFL boom" }, 500);
-      return json({ version: "1.0", league: { id: "74598", name: "UPS Salary Cap Dynasty",
+      return json({ version: "1.0", league: { id: u.searchParams.get("L") || "74598", name: "UPS Salary Cap Dynasty", endWeek: "17",
         franchises: { franchise: [["0003", "Gride"], ["0005", "HammerTime"], ["0008", "Real Deal Creel"], ["0010", "Blake Bombers"]].map(([id, name]) => ({ id, name, email: id + "@ups.test" })) },
         history: { league: Y.history.map((y) => ({ year: y, url: `https://www48.myfantasyleague.com/${y}/home/74598` })) } } });
     }
@@ -100,8 +126,10 @@ globalThis.fetch = async (input, init) => {
       const tt = u.searchParams.get("TRANS_TYPE"), days = Number(u.searchParams.get("DAYS")) || 0;
       return json({ transactions: { transaction: Y.txs.filter((x) => Number(x.timestamp) <= NOW / 1000 && (!tt || x.type === tt) && (!days || Number(x.timestamp) >= NOW / 1000 - days * 86400)) } });
     }
-    if (type === "liveScoring") return json({ liveScoring: { week: String(liveWeek(Number(year))) } });
-    if (type === "players") return json({ players: { player: [["18000", "Pickup, Late"], ["18003", "Drop, Gap"], ["18004", "Drop, Outage"], ["19000", "Auction, Vet"]].map(([id, name]) => ({ id, name, position: "WR", team: "KCC" })) } });
+    if (type === "liveScoring") return json({ liveScoring: { week: String(u.searchParams.get("W") || liveWeek(Number(year))) } });
+    if (type === "playerScores") return json(playerScores(Number(u.searchParams.get("W")), Number(year)));
+    if (type === "players") return json({ players: { player: [["18000", "Pickup, Late"], ["18003", "Drop, Gap"], ["18004", "Drop, Outage"], ["19000", "Auction, Vet"]].map(([id, name]) => ({ id, name, position: "WR", team: "KCC" }))
+      .concat(["KCC", "BAL", "BUF", "MIA", "NYG", "DAL"].map((tm) => ({ id: "T_" + tm, name: "Team, " + tm, position: "PK", team: tm }))) } });
     if (type === "salaryAdjustments") return json({ salaryAdjustments: { salaryAdjustment: [] } });
     return json({ error: "test: no such export " + type }, 503);
   }
@@ -306,7 +334,7 @@ async function refusedTick(reason) {
   const d0 = DISCORD.posts.length, i0 = IMPORTS.length, before = allRows(dbD);
   const k = await tick(envD);
   t.deepEqual(k.drops, [], "no drop route ran — nothing recorded, posted or charged under a guessed season");
-  t.ok(k.errors.some((e) => /\[scheduled \*\/5\] drop-tracker SKIPPED: live MFL league year unresolved/.test(e) && reason.test(e)), "said so: " + k.errors.join(" | ").slice(0, 400));
+  t.ok(k.errors.some((e) => /\[scheduled \*\/5\] drop-tracker SKIPPED: active season unresolved/.test(e) && reason.test(e)), "said so: " + k.errors.join(" | ").slice(0, 400));
   t.deepEqual(allRows(dbD), before); t.equal(DISCORD.posts.length, d0); t.equal(IMPORTS.length, i0);
 }
 test("d1. Sat 2027-01-02, MFL answers 500 for 2027 (does it exist yet? unknown) → the drop pipeline runs nothing, loudly", async () => {
@@ -344,6 +372,59 @@ test("d4. the first tick that resolves (MFL has opened 2027 but not renewed the 
   t.equal(DISCORD.posts.length, d0 + 1); t.match(JSON.stringify(DISCORD.posts.at(-1)), /Drop: Outage Drop[\s\S]*Cap Penalty: \$5K/);
   t.deepEqual(IMPORTS, []);
   delete MFL["2027"];
+});
+
+// ═════════ e. (#1237) the 2027 league created EARLY: Week 17's drops stay 2026 until Week 17 is provably final ═════════
+const dbE = makeDb({ season: "2026", faaOpen: "2026-07-25T12:00" }), envE = makeEnv(dbE);
+const earlyRenewal = () => { MFL["2027"] = { state: "ok", leagueState: "ok", history: historyTo(2027), txs: [] }; MFL["2026"].history = historyTo(2027); MFL["2025"].history = historyTo(2027); };
+const undoRenewal = () => { delete MFL["2027"]; MFL["2026"].history = historyTo(2026); MFL["2025"].history = historyTo(2026); for (const k in POSTPONED) delete POSTPONED[k]; };
+const MNF17 = Number(nflSchedule(17, 2026).nflSchedule.matchup[2].kickoff) * 1000;   // Mon Jan 4 8:15 PM ET = Tue 2027-01-05 01:15 UTC
+test("e0. the fixture's Week 17: Thu Dec 31, Sun Jan 3, Mon Jan 4 (8:15 PM ET) — the same calendar as the real 2026 Week 17", () => {
+  t.equal(new RealDate(MNF17).toISOString(), "2027-01-05T00:15:00.000Z");
+});
+test("e1. Sat 2027-01-02, 2027 created Dec 15: every drop route runs as 2026 (the old rule would have said 2027) → the Saturday drop is season 2026", async () => {
+  earlyRenewal();
+  MFL["2026"].txs = only("18004");
+  NOW = RealDate.parse("2027-01-02T15:05:00Z");
+  const old = await resolveLiveLeagueYear({ leagueId: "74598", nowMs: NOW, readLeague: async (y) => { const r = await globalThis.fetch(`https://api.myfantasyleague.com/${y}/export?TYPE=league&L=74598&JSON=1`); return { status: r.status, text: await r.text() }; } });
+  t.equal(old.season, "2027", "#1207's rule alone would have moved to 2027");
+  const d0 = DISCORD.posts.length;
+  const k = await tick(envE);
+  t.deepEqual(k.drops.map((c) => [c.path, c.year]), DROP_ROUTES.map((p) => [p, "2026"]));
+  const rows = rowsOf(dbE, "18004");
+  t.equal(rows.length, 1);
+  t.deepEqual(priced(rows[0]), { season: "2026", earned: 10000, guaranteed: 15000, penalty: 5000, basis: "guarantee_minus_earned", applies_to_season: 2027 });
+  t.equal(DISCORD.posts.length, d0 + 1);
+  t.deepEqual(IMPORTS, [], "nothing written to MFL");
+});
+for (const [label, iso, why] of [
+  ["Mon night, MNF in progress (clock running, a team with the ball)", MNF17 + 2 * 3600e3, "still playing"],
+  ["MNF over (clock 0) but MFL hasn't posted its points yet", MNF17 + GAME_MS + 2 * 60e3, "no points yet"],
+]) {
+  test(`e2. ${label} → 2026`, async () => {
+    NOW = iso;   // each case > 10 minutes after the last tick: the isolate's memo has expired
+    const k = await tick(envE);
+    t.deepEqual(k.drops.map((c) => c.year), DROP_ROUTES.map(() => "2026"), why);
+  });
+}
+test("e3. MNF final and its points posted (Week 17 provably complete) + 2027 live → the next tick runs as 2027; no 2026 row changes", async () => {
+  const before = allRows(dbE);
+  NOW = MNF17 + GAME_MS + POINTS_LAG_MS + 15 * 60e3;
+  const k = await tick(envE);
+  t.deepEqual(k.drops.map((c) => [c.path, c.year]), DROP_ROUTES.map((p) => [p, "2027"]));
+  t.deepEqual(allRows(dbE), before);
+});
+// A second league (its own memo in the worker isolate): the same early renewal, but Monday's game is postponed.
+const dbE4 = makeDb({ season: "2026", faaOpen: "2026-07-25T12:00" }), envE4 = { ...makeEnv(dbE4), LEAGUE_ID: "74599" };
+test("e4. Week 17's Monday game POSTPONED (kickoff moved to Wed Jan 6, 8:15 PM ET): Tue Jan 5 noon ET — still 2026, whatever the old kickoff says", async () => {
+  POSTPONED["2026:17:NYG"] = String(Math.floor(RealDate.parse("2027-01-07T01:15:00Z") / 1000));
+  NOW = RealDate.parse("2027-01-05T17:00:00Z");
+  const k = await tick(envE4);
+  t.deepEqual(k.drops.map((c) => c.year), DROP_ROUTES.map(() => "2026"));
+  // … and once it has been played (Thu Jan 7, its points posted): 2027.
+  NOW = RealDate.parse("2027-01-07T06:00:00Z");
+  t.deepEqual((await tick(envE4)).drops.map((c) => c.year), DROP_ROUTES.map(() => "2027"));
+  undoRenewal();
 });
 
 await run("drop_season_after_jan1");
