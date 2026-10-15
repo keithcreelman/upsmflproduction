@@ -84,5 +84,10 @@
   ],
   "env": {},
   "serial": [],
-  "timeouts_seconds": {}
+  "timeouts_seconds": {
+    "tests/mobile_players_controls.test.mjs": {
+      "seconds": 480,
+      "reason": "CPU-bound: about 55s on a laptop but 156s on the shared 4-core GitHub runner (first CI run, 2026-10-15), too close to the 180s default."
+    }
+  }
 }

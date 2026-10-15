@@ -108,12 +108,18 @@ export function loadManifest(file = MANIFEST_PATH) {
       if (UNSAFE_ARG_PATTERN.test(a)) errors.push(`${p.path}: argument "${a}" looks like a production opt-in or write flag and may not be set by the suite`);
     }
   }
+  for (const [file, to] of Object.entries(m.timeouts_seconds || {})) {
+    if (!to || !Number.isFinite(to.seconds) || to.seconds <= 0 || !to.reason) errors.push(`${file}: timeouts_seconds entries are {seconds, reason}`);
+    else if (!fs.existsSync(path.join(ROOT, file))) errors.push(`${file}: timeouts_seconds file does not exist`);
+  }
   for (const k of m.known_network_attempts || []) {
     if (!k.path || !Array.isArray(k.targets) || !k.targets.length || !k.reason) errors.push(`known_network_attempts entry needs path, targets[] and reason: ${JSON.stringify(k)}`);
     else if (!fs.existsSync(path.join(ROOT, k.path))) errors.push(`${k.path}: known_network_attempts file does not exist`);
   }
   return { manifest: m, errors };
 }
+
+export const DEFAULT_TIMEOUT_SECONDS = 180;
 
 // Arguments the manifest may never pass to a test.
 export const UNSAFE_ARG_PATTERN = /^--?(allow-prod|prod|remote|live|apply|yes|send|post|publish|deploy|write|commit|fire)/i;
@@ -531,7 +537,7 @@ async function main() {
       const blockLog = path.join(sandbox.blocks, t.path.replace(/[\\/]/g, "__") + ".jsonl");
       const env = { ...sandbox.env, ...(manifest.env?.[t.path] || {}), SAFE_TESTS_BLOCK_LOG: blockLog };
       if (!cmd) return { ...t, ok: false, code: null, ms: 0, output: "python3 not found" };
-      const r = await runProcess(cmd, cargs, { env, timeoutMs: (timeouts[t.path] || 180) * 1000 });
+      const r = await runProcess(cmd, cargs, { env, timeoutMs: (timeouts[t.path]?.seconds || DEFAULT_TIMEOUT_SECONDS) * 1000 });
       const ok = r.code === 0 && !r.timedOut;
       process.stdout.write(`${ok ? "ok  " : "FAIL"} ${t.path} (${(r.ms / 1000).toFixed(1)}s)\n`);
       return { ...t, ...r, ok, blockLog };

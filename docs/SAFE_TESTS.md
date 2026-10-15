@@ -40,6 +40,7 @@ Other manifest sections:
 - `known_network_attempts`: a test that tries an external host, survives the block and passes. Each target is named. Any other blocked attempt fails the run.
 - `tripwire_reviewed`: a file whose source matches a production-tooling pattern only as test data, with the reason a person checked it.
 - `env`: non-secret variables a test needs. Names that look like secrets or opt-ins are refused.
+- `timeouts_seconds`: `{seconds, reason}` for a test that needs more than the 180-second default.
 
 ## How it stays offline
 
