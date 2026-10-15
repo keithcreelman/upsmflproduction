@@ -1328,7 +1328,16 @@ test("Search on a read older than 5 minutes: the refresh lands and the open list
   t.equal(n, 2, "search refreshed the old read");
   t.deepEqual(searchChips(v.searchList(), PURDY), ["NFL: OUT (Wk 5):out", "MFL: none:na"], "and repainted with the fresh tags");
   t.doesNotMatch(v.searchList(), /Checking injury status…/);
-  t.doesNotMatch((/<span class="sub">([\s\S]*?)<\/span>(?=<span class="inj">)/.exec(v.searchList()) || [])[1] || "", /ups-m-inj-chip/, "tags on their own line, not in the ellipsized team · owner line");
+  // The tag line is a sibling of the team · owner line, never inside it (that one is ellipsized).
+  const row = new RegExp('data-pid="' + PURDY + '">([\\s\\S]*?)</button>').exec(v.searchList())[1];
+  let depth = 0, insideSub = null;
+  for (const m of row.slice(row.indexOf('<span class="sub">')).matchAll(/<span\b[^>]*>|<\/span>/g)) {
+    if (m[0].startsWith("</")) { depth--; if (depth === 0) break; continue; }
+    if (/class="inj"/.test(m[0])) { insideSub = depth > 0; break; }
+    depth++;
+  }
+  t.ok(insideSub === null || insideSub === false, "tags on their own line, not inside the ellipsized team · owner line");
+  t.ok(/<\/span><span class="inj">/.test(row) && row.indexOf('<span class="inj">') > row.indexOf('<span class="sub">'), "the tag line follows it");
 });
 test("Route down and Lineup not opened yet: the app's lineup week (from startup) still lets MFL's own read show IR, the same on the list, search and sheet", async () => {
   const v = boot({ search: true, status: 500 });
@@ -1455,10 +1464,15 @@ test("status in the sheet (Keith 2026-10-14): MFL's Q/D/OUT first, the official 
   t.ok(v2.ctx.UPS_MOBILE_PLAYER_STATUS.resolve(PURDY, "SF").lines.some((l) => /not listed \(SFO’s report/.test(l)));
   // One rule everywhere (2026-10-15): the old report-only info() is gone; chipsHtml / listLine stay only as names
   // an older cached Stats script calls, and give exactly the resolver's tags and note. Live Scoring keeps currentReport().
-  const PS2 = v2.ctx.UPS_MOBILE_PLAYER_STATUS;
+  const v3 = boot({ status: STATUS_OK({ [PURDY]: { mfl: MFL_Q, report: { status: "Out", injury: "Toe", team: "SF" } } }) });
+  await v3.ctx.UPS_MOBILE_PLAYER_STATUS.load("2026");
+  const PS2 = v3.ctx.UPS_MOBILE_PLAYER_STATUS;
   t.equal(typeof PS2.info, "undefined", "info removed");
-  t.equal(PS2.chipsHtml(PURDY, "SF", "sm"), PS2.resolvedChipsHtml(PS2.resolve(PURDY, "SF", null), "sm"), "chipsHtml = the resolver's tags");
+  const shim = PS2.chipsHtml(PURDY, "SF", "sm");
+  t.ok(/MFL: Q/.test(shim) && /NFL: OUT \(Wk 5\)/.test(shim), "a tagged player: " + shim.replace(/<[^>]+>/g, " "));
+  t.equal(shim, PS2.resolvedChipsHtml(PS2.resolve(PURDY, "SF", null), "sm"), "chipsHtml = the resolver's tags");
   t.equal(PS2.listLine(), PS2.noteText(PS2.screenWeek(), "Tap a player for both."), "listLine = the resolver's note");
+  t.match(PS2.listLine(), /^Tags: MFL first/);
   t.equal(typeof PS2.currentReport, "function", "Live Scoring's official-report reader stays");
 });
 
