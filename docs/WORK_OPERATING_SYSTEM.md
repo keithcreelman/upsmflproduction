@@ -40,6 +40,10 @@ If no safe interactive preview exists, say so before seeking sign-off and give a
 
 Continue the current session while working on the same outcome and files. Start a new session for an independent project, an unrelated bug, or after the old context becomes unreliable. Before switching, update the issue/PR with current commit, completed work, evidence, open decisions, and the next action. A new session first verifies those facts. Dispatch can carry a phone message to the desktop, but the issue/PR is the durable record.
 
+## AI sprints and tests
+
+When Claude builds and Codex reviews, follow `docs/AI_SPRINT_PROTOCOL.md`: roles, the status line, the two-round limit, stop states and approval gates. Codex reads the same rules through `AGENTS.md`. Run the test suite only with `node scripts/safe_tests/run.mjs` (`docs/SAFE_TESTS.md`); the **Safe offline tests** check runs it on every pull request.
+
 ## Learning and interview note
 
 For meaningful architecture changes, add a short explanation to the PR or linked design note:
