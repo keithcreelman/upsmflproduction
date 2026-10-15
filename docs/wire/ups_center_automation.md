@@ -134,6 +134,31 @@ A draft with any error is **not** pushed. The run is BLOCKED and alerts. A draft
 - Publication and the announcement stay with Keith's review of the specific issue, through the existing `preflight --stage publish|announce` steps.
 - `wire.py verify`, which CI runs on every Wire PR and on main, fails a `status: live` page that still has an EDITOR REVIEW box. A blocker box is therefore a hard stop, not only a warning.
 
+## Post-build check (GitHub Actions, every draft)
+
+Keith 2026-10-15: a production validation cannot depend on the Claude app or his Mac staying open. Every automated draft is therefore checked in GitHub Actions by `.github/workflows/ups-center-post-build-check.yml`, running `pipelines/etl/wire/ups_center_check.py`. The check is permanent and applies to every week.
+
+- **When it runs:** whenever the job opens or updates a draft PR from `wire/auto/<season>-wkNN-ups-center` (`pull_request_target`, draft PRs only, sandbox branches skipped). It can also be run by hand: Actions → "UPS Center post-build check" → Run workflow with the season and week, or locally with `python3 pipelines/etl/wire/ups_center_check.py --season 2026 --week 6`.
+- **What it reads:** the draft's committed files at the PR's head commit, read as data with `git show`; the branch is never checked out or run, and the workflow and checker come from `main`. These are the same recorded inputs the draft was built from:
+  - the article, `claims.json`, `validation.json`;
+  - `run.json`, the build's run record: when the week went final and the forecast it rendered from, with no chat;
+  - the two forecast files and the branch's index.
+
+  It also reads live publication state: main's index, the Pages index and page, `ups_wire_threads` (one SELECT through `wire_data.d1`, which refuses anything else) and #league-announcements (one Discord GET).
+- **What it checks:**
+  1. the draft was created (an open DRAFT PR into main, with its files, clean validation and a draft index entry);
+  2. the forecast is fresh (through this week, run after the week went final, the next-week preview from the same seasons, and the committed files are the ones the draft recorded);
+  3. six playoff teams in every simulated season, two byes, one champion, and bye ≤ division ≤ playoffs;
+  4. every division totals 100%, in seasons and as printed;
+  5. the scenario cells sum to each team's playoff, division and bye counts;
+  6. every displayed number has a source, and every printed probability equals the committed forecast;
+  7. every editor-review box is a registered editor item and blocks publication (not publishable, and `wire.py verify` refuses the page as live);
+  8. the article is still a draft and no announcement exists.
+- **Output:** one report comment on the draft PR, edited in place on later runs, and the same report kept as a workflow artifact (`report.md`, `report.json`). **Any mismatch fails the workflow.** A check it cannot complete, such as an unreadable D1 or Discord, fails. It is never assumed safe.
+- **Never writes:** no publish, no announcement, no MFL, D1 or Discord write. The only writes are its own report and the PR comment.
+- **Editor-owned drafts:** if the head commit has no `Ups-Center-Auto` trailer, the draft is checked the same way except the claim ledger (check 6 and the claim/box pairing in 7), which describes the automation's own render. The report says which checks it skipped.
+- **The build itself** still runs on Keith's Mac (the LaunchAgent above), because it needs the Mac's local credentials and tools. Once it has pushed the draft, the Mac can sleep; the check runs in the cloud.
+
 ## Replay (no publish)
 
 To re-run a finished week's build and check the job without touching anything:
@@ -148,4 +173,4 @@ To re-run a finished week's build and check the job without touching anything:
 
 ## Tests
 
-`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (109 checks), with synthetic chat. The Builder A checks use a synthetic forecast relabelled from the real Week 5 files (odds and scenario cells). They include five kinds of inconsistent forecast, the replay's no-publish guarantees and the live-page rule in `verify`. The Builder B checks use recorded season snapshots (scores, results and franchise IDs only) and include a Week 5 regression that reproduces the published issue's Heat Check and Survival Line exactly. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.
+`python3 pipelines/etl/wire/test_ups_center_auto.py` runs offline against Week 4 sources recorded 2026-10-08 (140 checks), with synthetic chat. The Builder A checks use a synthetic forecast relabelled from the real Week 5 files (odds and scenario cells). They include five kinds of inconsistent forecast, the replay's no-publish guarantees and the live-page rule in `verify`. The Builder B checks use recorded season snapshots (scores, results and franchise IDs only) and include a Week 5 regression that reproduces the published issue's Heat Check and Survival Line exactly. The post-build check's tests cover a clean draft passing all eight groups, 21 separate ways to fail (from no draft PR to an unreadable D1 or Discord), an editor-owned draft, the post-season, and static guards that the checker and its workflow have no write path and never run the draft branch. The checks include the chat exclusions, catch-up and sandbox. It also runs in `check-wire.yml`.

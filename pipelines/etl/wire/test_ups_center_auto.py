@@ -662,5 +662,122 @@ check("the job gathers the season snapshot (history=True) for the real build and
       _auto[_auto.index("def run_week"):_auto.index("def replay_week")].count("history=True") == 1
       and _auto[_auto.index("def replay_week"):_auto.index("def crashed")].count("history=True") == 1)
 
+print("13. post-build check (ups_center_check.py; GitHub Actions on every automated draft PR)")
+import ups_center_check as CHK            # noqa: E402
+
+
+def draft_branch(**over):
+    """The files the job commits on wire/auto/<id>, for the fixture week with a current forecast."""
+    q = dict(_REALQ, week=5, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+    q["model"] = dict(q["model"], cutoffs=dict(q["model"]["cutoffs"], rostersProjectionsInjuries=_iso(FINAL + 3000)))
+    files = {"article": r1["html"], "claims": copy.deepcopy(r1["claims"]), "validation": json.loads(json.dumps(v1, default=str)),
+             "run": json.loads(json.dumps(AUTO.run_record(2026, 4, AID, c1, FINAL + 3600, "abc123"), default=str)),
+             "sim": dict(copy.deepcopy(_REAL), throughWeek=4, generatedAtUtc=_iso(FINAL + 3600)), "preview": copy.deepcopy(q),
+             "index": {"articles": [{"id": AID, "path": "articles/2026/%s.html" % AID, "status": "draft"}]}}
+    files.update(over)
+    return files
+
+
+DPR = {"number": 1300, "state": "OPEN", "isDraft": True, "headRefName": "wire/auto/" + AID, "baseRefName": "main"}
+QUIET = {"mainIndex": {"articles": []}, "pagesIndex": {"articles": []}, "pageStatus": 404, "threads": [], "messages": []}
+
+
+def run_check(files=None, pr=DPR, auto=True, live=None, week=4):
+    return CHK.check_draft(2026, week, files or draft_branch(), pr, auto, dict(QUIET, **(live or {})))
+
+
+def failed(res, group=None):
+    return [r for r in res if r["ok"] is False and (group is None or r["group"] == group)]
+
+
+ok_run = run_check()
+check("a clean automated draft passes every check, all eight groups present",
+      not failed(ok_run) and {r["group"] for r in ok_run} == {g for g, _ in CHK.GROUPS}, failed(ok_run))
+check("the run record carries the build's recorded inputs and no chat (timing + forecast only)",
+      set(draft_branch()["run"]) == {"id", "season", "week", "builtAtUtc", "code", "timing", "forecast", "why"}
+      and "chat" not in json.dumps(draft_branch()["run"]))
+rep = CHK.report(2026, 4, ok_run, DPR)
+check("the report is one PR comment with its own marker (edited in place on later runs)",
+      rep.startswith(CHK.COMMENT_MARK % AID) and "Every check passed" in rep and "Nothing was published" in rep)
+
+
+def sim_with(**changes):
+    s_ = dict(copy.deepcopy(_REAL), throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+    s_.update(changes)
+    return s_
+
+
+def bump(field, fid, by):
+    s_ = sim_with()
+    t = next(t for t in s_["teams"] if t["franchiseId"] == fid)
+    t[field] = round(t[field] + by, 4)
+    return s_
+
+
+cells_off = draft_branch()["preview"]
+cells_off["weekScenarios"]["0012"]["cells"][0]["playoff"] += 1
+nosrc = draft_branch()
+nosrc["claims"][sorted(nosrc["claims"])[0]]["source"] = ""
+wrong = draft_branch()
+kpo = sorted(k for k in wrong["claims"] if k.startswith("odds:po:"))[0]
+wrong["claims"][kpo]["value"] = round(wrong["claims"][kpo]["value"] + 0.1, 1)
+g0 = v1["gaps"][0]["id"]
+nobox = draft_branch(article=re.sub(r'<div class="editor-gap" data-editor-gap="%s"[\s\S]*?</div>' % re.escape(g0), "", r1["html"], count=1))
+pubable = draft_branch()
+pubable["validation"]["publishable"] = True
+CASES = [
+    ("no draft PR", dict(pr=None), "draft"),
+    ("the PR is no longer a draft", dict(pr=dict(DPR, isDraft=False)), "draft"),
+    ("no run record on the branch", dict(files=draft_branch(run=None)), "draft"),
+    ("forecast through the wrong week", dict(files=draft_branch(sim=sim_with(throughWeek=3))), "fresh"),
+    ("forecast run before the week went final", dict(files=draft_branch(sim=sim_with(generatedAtUtc=_iso(FINAL - 60)))), "fresh"),
+    ("committed forecast is not the one the draft recorded",
+     dict(files=draft_branch(sim=sim_with(generatedAtUtc=_iso(FINAL + 9999)))), "fresh"),
+    ("playoff odds that do not make six teams", dict(files=draft_branch(sim=bump("currentPlayoffOdds", "0009", -0.01))), "six"),
+    ("a division that does not total 100%", dict(files=draft_branch(sim=bump("currentDivisionOdds", "0009", -0.01))), "divisions"),
+    ("scenario cells off by one season", dict(files=draft_branch(preview=cells_off)), "cells"),
+    ("a claim with no source", dict(files=nosrc), "sourced"),
+    ("a number on the page that is not a claim",
+     dict(files=draft_branch(article=r1["html"].replace("<p>Stu, Rich", "<p>Exactly 412.5 points. Stu, Rich", 1))), "sourced"),
+    ("a printed probability that differs from the committed forecast", dict(files=wrong), "sourced"),
+    ("an editor item without its EDITOR REVIEW box", dict(files=nobox), "boxes"),
+    ("a draft marked publishable while editor items remain", dict(files=pubable), "boxes"),
+    ("the article flipped to status: live", dict(files=draft_branch(article=r1["html"].replace("status: draft", "status: live", 1))),
+     "unpublished"),
+    ("Pages already serves the article", dict(live={"pageStatus": 200}), "unpublished"),
+    ("an announcement already recorded (ups_wire_threads)", dict(live={"threads": [AID]}), "unpublished"),
+    ("an announcement post in #league-announcements",
+     dict(live={"messages": [{"id": "1", "timestamp": "t", "content": "UPS Center: Week 4 is live", "embeds": []}]}), "unpublished"),
+    ("main's index already lists it", dict(live={"mainIndex": {"articles": [{"id": AID, "path": "articles/2026/%s.html" % AID, "status": "live"}]}}), "unpublished"),
+    ("ups_wire_threads could not be read (never assumed safe)", dict(live={"threads": None}), "unpublished"),
+    ("Discord could not be read (never assumed safe)", dict(live={"messages": None}), "unpublished"),
+]
+for label, kw, group in CASES:
+    res = run_check(**kw)
+    check("FAILS on: %s (group %s)" % (label, group), failed(res, group), [(r["group"], r["check"]) for r in failed(res)])
+ed = run_check(auto=False)
+check("an editor-owned draft is still checked (forecast, boxes, publication) and says what it did not check",
+      not failed(ed) and any(r["group"] == "sourced" and r["ok"] is None for r in ed)
+      and any(r["group"] == "unpublished" and r["ok"] for r in ed))
+late = run_check(week=15, files=draft_branch(index={"articles": [{"id": "2026-wk15-ups-center", "status": "draft"}]}))
+check("after the regular season the forecast groups say 'not applicable' instead of passing silently",
+      all(r["ok"] is None for r in late if r["group"] in ("fresh", "six", "divisions", "cells")))
+chk_src = open(os.path.join(HERE, "ups_center_check.py"), encoding="utf-8").read()
+check("the checker has no write path: no D1 write, no Discord post, no merge/ready/close, no publish",
+      not re.search(r"d1_exec_file|INSERT |UPDATE |DELETE |method=\"POST\"|\"merge\"|\"ready\"|\"close\"|status: live\"|"
+                    r"wrangler\", \"deploy|/webhooks/", chk_src.replace('"PATCH", "repos/%s/issues/comments', "")))
+wf = open(os.path.join(HERE, "..", "..", "..", ".github", "workflows", "ups-center-post-build-check.yml"), encoding="utf-8").read()
+check("the workflow runs on every automated draft PR and by hand with season and week",
+      "pull_request_target:" in wf and "workflow_dispatch:" in wf and "season:" in wf and "week:" in wf
+      and "startsWith(github.event.pull_request.head.ref, 'wire/auto/')" in wf and "github.event.pull_request.draft" in wf)
+check("the workflow never checks out or runs the draft branch (checker and workflow come from main)",
+      "ref: main" in wf and "head.sha }}\n" not in wf.split("actions/checkout")[1].split("setup-node")[0]
+      and "github.event.pull_request.head.ref }}" not in wf.split("run:")[-1])
+check("the workflow fails on a mismatch, posts on the PR, and keeps the report as an artifact",
+      "--comment" in wf and "actions/upload-artifact" in wf and "if: always()" in wf and "|| true" not in wf
+      and "continue-on-error" not in wf)
+check("the workflow can only read: contents read, PR comments; no deploy, no write secrets used for writes",
+      "contents: read" in wf and "contents: write" not in wf and "wrangler deploy" not in wf and "d1 execute" not in wf)
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

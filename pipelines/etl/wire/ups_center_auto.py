@@ -26,6 +26,8 @@ One run, for the newest finished week (or --week):
   6. ups_center_pr.sync: create / update / no-op / editor-owned comment -- one PR
   7. tell Keith (macOS notification + status file); BLOCKED or failed runs past
      the alert point open or update one GitHub issue for the week, readable
+  8. (in GitHub Actions, not here) the post-build check, ups_center_check.py, runs on the draft
+     PR from its committed files and run.json, posts its report there and fails on any mismatch
 
 Nothing here can publish: the article is always status: draft, ups_center_pr refuses
 `gh pr merge/ready/close`, and no Discord write exists in this pipeline (the chat
@@ -160,6 +162,17 @@ def run_forecast(season, week, workdir, log=print, data_dir=None, cache_dir=None
     return reasons
 
 
+def run_record(season, week, aid, ctx, now, code):
+    """docs/wire/auto/<id>/run.json, committed with the draft: the build's recorded inputs that the
+    post-build check (ups_center_check.py, in GitHub Actions) needs and cannot recompute -- when the
+    week went final and the forecast the draft was rendered from. No chat, no tokens."""
+    t = ctx.get("timing") or {}
+    return {"id": aid, "season": season, "week": week, "builtAtUtc": SRC.iso(now), "code": code,
+            "timing": {"finalAt": t.get("finalAt"), "deadline": t.get("deadline")},
+            "forecast": ctx.get("forecast"),
+            "why": "Recorded inputs for ups_center_check.py (the post-build check reads these, never live feeds)."}
+
+
 def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since=None, log=print, sandbox=False,
              missed=(), code_ref=None):
     """One idempotent pass for one week. Returns a status dict (also written to STATE_DIR).
@@ -266,6 +279,9 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     open(article_path, "w").write(res["html"])
     json.dump(res["claims"], open(os.path.join(out_dir, "claims.json"), "w"), indent=1, sort_keys=True, default=str)
     json.dump(report, open(os.path.join(out_dir, "validation.json"), "w"), indent=1, default=str)
+    rc_sha, code_sha = sh(["git", "rev-parse", "HEAD"], workdir)
+    json.dump(run_record(season, week, aid, ctx, now, code_sha.strip()), open(os.path.join(out_dir, "run.json"), "w"),
+              indent=1, default=str)
     json.dump(ctx, open(os.path.join(STATE_DIR, aid + ".sources.json"), "w"), default=str)
     sh([py, "pipelines/etl/wire/wire.py", "index"], workdir, check=True)
     local_path = os.path.join(STATE_DIR, aid + ".review-source.html")
@@ -371,6 +387,8 @@ def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print
     open(os.path.join(out_dir, aid + ".html"), "w").write(res["html"])
     json.dump(res["claims"], open(os.path.join(out_dir, "claims.json"), "w"), indent=1, sort_keys=True, default=str)
     json.dump(report, open(os.path.join(out_dir, "validation.json"), "w"), indent=1, default=str)
+    json.dump(run_record(season, week, aid, ctx, now, res_out["code"]), open(os.path.join(out_dir, "run.json"), "w"),
+              indent=1, default=str)
     json.dump(ctx, open(os.path.join(out_dir, "sources.json"), "w"), default=str)
     res_out.update(claims=res["claimsDigest"], gaps=[g["id"] for g in res["gaps"]], errors=report["errors"],
                    ok=report["ok"], publishable=report["publishable"])
