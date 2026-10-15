@@ -1880,7 +1880,8 @@ table.asw-table{font-size:13px}
   function sosCellTitle(s){
     if (!s) return "No final games for him in these weeks.";
     if (s.opp == null) return s.gp + " game" + (s.gp === 1 ? "" : "s") + "; no other player at his position faced those teams in these weeks, so there's nothing to compare.";
-    return (s.raw != null ? s.raw.toFixed(1) + " pts in " : "") + s.gp + " game" + (s.gp === 1 ? "" : "s") + "; opponents rated on " + s.rated + " of them, from " + s.others + " other player-game" + (s.others === 1 ? "" : "s") + " (Opp ×" + s.opp.toFixed(2) + ").";
+    return (s.raw != null ? s.raw.toFixed(1) + " pts in " : "") + s.gp + " game" + (s.gp === 1 ? "" : "s") + "; opponents rated on " + s.rated + " of them" +
+      (s.others != null ? ", from " + s.others + " other player-game" + (s.others === 1 ? "" : "s") : "") + " (Opp ×" + s.opp.toFixed(2) + ").";
   }
   var consistByGsis = {};   // /api/player-consistency by gsis_id — floor/ceil/consistency/boom/bust/weeks
   var epaByGsis = {};       // /api/player-epa by gsis_id — {pass,rush,rec}.{epa,cpoe,succ,plays/tgt}

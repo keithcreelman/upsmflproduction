@@ -935,7 +935,9 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
 // rating over all his rated games. Any MFL read that fails fails the whole answer (502,
 // season named); a season that hasn't started, or a window outside a season's weeks, is
 // stated per season with no players from it, never filled in from another season.
-export const SOS_VERSION = "sos1";
+// In the answer and in its edge-cache key: change it whenever the answer's fields or
+// numbers change, or a finished season keeps serving the old answer for a day.
+export const SOS_VERSION = "sos2";
 export const SOS_MIN_SEASON = 2011;
 // A season read live from MFL costs ~36 outside fetches; Workers Free allows 50 a request.
 export const SOS_MAX_LIVE_SEASONS = 1;

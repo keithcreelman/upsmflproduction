@@ -357,6 +357,7 @@ await check("edge cache: a complete answer is stored (1 day for a finished seaso
     assert.strictEqual(puts.length, 1);
     assert.ok(puts[0].key.startsWith("https://upsmfl-fpa.local/api/sos-adjusted-points?"), puts[0].key);
     assert.ok(puts[0].key.includes("&v=" + F.FPA_ENGINE_VERSION + "&s=" + F.SOS_VERSION) && !/cb=/.test(puts[0].key), puts[0].key);
+    assert.strictEqual(F.SOS_VERSION, "sos2", "the answer gained 'others': its cache key must not reuse sos1 answers");
     assert.strictEqual(puts[0].cc, "public, max-age=86400");
     await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25, { over: { playerScores16: null } });
     await call("/api/sos-adjusted-points?seasons=2025&week_min=15&week_max=17", FX25, { env: {} });

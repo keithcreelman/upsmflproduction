@@ -63,6 +63,8 @@ check("each cell's hover says what it rests on, or why it's blank", () => {
   assert.strictEqual(C.opp.titleFn({ mfl_pid: 9431 }), C.sos.titleFn({ mfl_pid: 9431 }));
   assert.match(C.sos.titleFn({ mfl_pid: 15237 }), /^1 game; no other player at his position faced those teams in these weeks/);
   assert.strictEqual(C.sos.titleFn({ mfl_pid: 1 }), "No final games for him in these weeks.");
+  const C2 = cols({ "9431": { pos: "QB", raw: 86.1, gp: 3, rated: 3, opp: 1.083, adj: 79.5, delta: -6.6 } });
+  assert.strictEqual(C2.sos.titleFn({ mfl_pid: 9431 }), "86.1 pts in 3 games; opponents rated on 3 of them (Opp ×1.08).", "an answer without the count never prints undefined");
 });
 check("tooltips describe; no easy / tough / inflated / understates; say it isn't a forecast", () => {
   const C = cols(BY);
