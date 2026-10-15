@@ -281,6 +281,30 @@
     return '<span class="own">' + U.escapeHtml(r.owner || "Rostered") + "</span>" + extra;
   }
 
+  // Injury / roster tags from the shared resolver, the same as Stats → Players, Lineup, the
+  // player sheet and desktop Game Day (#1276), on their own line so a long tag wraps. The
+  // TAXI / IR tags beside the owner are his FANTASY roster slot, a different thing.
+  function statusOf() { var PS = window.UPS_MOBILE_PLAYER_STATUS; return PS && PS.resolve ? PS : null; }
+  function chipsHtml(r) {
+    var PS = statusOf();
+    if (!PS || !r.pid) return "";
+    var h = PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek()), "sm");
+    return h ? '<span class="inj">' + h + "</span>" : "";
+  }
+  // The resolver's note (where the tags come from; no tag isn't "healthy"), and a status
+  // read when there's no fresh one, repainting the open list when it lands.
+  function statusNoteHtml() {
+    var PS = statusOf();
+    if (!PS) return "";
+    return '<div class="ups-m-psr-basis ups-m-psr-inj">' + U.escapeHtml(PS.noteText(PS.screenWeek(), "Tap a player for both.")) + "</div>";
+  }
+  function loadStatus() {
+    var PS = statusOf(), year = (M.state.ctx || {}).year;
+    if (!PS || !year) return;
+    var before = PS.state();
+    PS.load(year).then(function () { if (isOpen() && PS.state() !== before) repaint(true); });
+  }
+
   // PPG and PPG rank exactly as the sheet's Actions tab shows them (same
   // rounding, same "#4 QB" / "unranked" / "—").
   function rowHtml(r) {
@@ -294,6 +318,7 @@
       '<span class="body">' +
         '<span class="nm">' + U.escapeHtml(r.name) + "</span>" +
         '<span class="sub">' + (r.team ? U.escapeHtml(r.team) + " · " : "") + ownerHtml(r) + "</span>" +
+        chipsHtml(r) +
       "</span>" +
       '<span class="num">' + ppg + rank + "</span>" +
     "</button>";
@@ -318,7 +343,7 @@
           '<div class="s">Rostered, taxi, IR or free agent — ' + recs.length +
           ' players. Try a name, an NFL team like SFO, or an owner.</div></div>';
       }
-      return basisHtml() + '<div class="ups-m-psr-sec">Recently viewed</div>' +
+      return basisHtml() + statusNoteHtml() + '<div class="ups-m-psr-sec">Recently viewed</div>' +
         have.map(rowHtml).join("");
     }
 
@@ -332,7 +357,7 @@
     var more = hits.length > capped.length
       ? '<div class="ups-m-psr-more">Showing ' + capped.length + " of " + hits.length + " matches</div>"
       : "";
-    return basisHtml() + capped.map(rowHtml).join("") + more;
+    return basisHtml() + statusNoteHtml() + capped.map(rowHtml).join("") + more;
   }
   // What the PPG and rank on these rows are, for which weeks, and how fresh:
   // the same line the sheet shows under its points.
@@ -455,6 +480,7 @@
     // market. A failed read changes nothing, so the old "MFL read" time stays
     // on screen and the staleness shows.
     if (M.data.refreshSeasonScoringIfStale) M.data.refreshSeasonScoringIfStale(5 * 60 * 1000);
+    loadStatus();
   }
 
   function teardown() {

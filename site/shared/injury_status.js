@@ -255,6 +255,8 @@
   }
 
   // The one line on a screen that says where the tags come from (≤ 3 short sentences).
+  // opts.detailsText: where a screen shows both sources (default "Details shows both.";
+  // Stats → Players and search say "Tap a player for both.").
   function noteText(read, opts) {
     opts = opts || {};
     var now = opts.now != null ? opts.now : Date.now();
@@ -278,7 +280,7 @@
     } else if (rf.ok || rf.reason) {
       b = (rf.prior_weeks || []).length ? "; where MFL has none, the NFL’s last final report (Wk " + rf.prior_weeks.join("/") + "): Wk " + wk + "’s isn’t out yet." : "; the NFL report is unavailable (" + why(rf) + ").";
     } else b = "; the NFL report is unavailable.";
-    return a + b + " Details shows both. No tag doesn’t mean healthy.";
+    return a + b + " " + (opts.detailsText || "Details shows both.") + " No tag doesn’t mean healthy.";
   }
 
   // A small loader for a page that has no status loader of its own (desktop Game Day).

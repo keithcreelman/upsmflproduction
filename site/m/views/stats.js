@@ -1112,7 +1112,8 @@
       var rankLine = "# = PPG rank on actual MFL points, " + SSMOD().weeksLabel(b.ss.seasonWeeks) + ".";
       if (more.length) more.unshift(rankLine); else line.unshift(rankLine);
     }
-    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS ? PS.listLine() : "";
+    // Where the tags come from (the shared resolver's note, the same words as Lineup's).
+    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS && PS.noteText ? PS.noteText(PS.screenWeek(), "Tap a player for both.") : "";
     var open = view.noteOpen ? " open" : "";
     return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(line.join(" ")) +
       (inj ? '<div class="ups-m-st-injline">' + U.escapeHtml(inj) + "</div>" : "") +
@@ -1121,11 +1122,15 @@
   }
 
 
-  // The status chips lead the team line, so a long name never hides them and
-  // they never push the numbers (readable at 320px).
+  // Injury / roster tags from the shared resolver (site/shared/injury_status.js, via the
+  // app's one status loader): MFL's Q / D / OUT first, the official NFL report beside it,
+  // IR / PUP from MFL, a disagreement shown both ways — the same tags, word for word, as
+  // Lineup, the player sheet, search and desktop Game Day (#1276). They sit on their own
+  // line under the team so a long tag ("MFL: Q · est. return passed") wraps instead of
+  // being cut at 320px.
   function injChips(r) {
     var PS = window.UPS_MOBILE_PLAYER_STATUS;
-    return PS && r.pid ? PS.chipsHtml(r.pid, r.team, "sm") : "";
+    return PS && PS.resolve && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek()), "sm") : "";
   }
   function rowHtml(r, cols, tab, viewerFid) {
     var own = ownerOf(r.pid);
@@ -1136,13 +1141,14 @@
     // CB/S). On QB it repeated "QB" on every row and cost the name 32px.
     // On DL/DB it leads the team line ("DE · HOU · Blake Bombers"): as a chip
     // left of the name it cut 146 of 150 names at 320px.
+    var chips = injChips(r);
     var badge = (tab.id === "DL" || tab.id === "DB")
       ? '<span class="pos ' + tab.id.toLowerCase() + '">' + U.escapeHtml(r.pos) + "</span> · " : "";
     return '<div class="ups-m-st-row' + (own.known && own.fid && own.fid === viewerFid ? " mine" : "") + '" data-pid="' + U.escapeHtml(r.pid) + '">' +
       '<span class="rk">' + (r.rank || "–") + "</span>" +
       '<span class="nm">' +
         '<span class="t"><span class="pn">' + U.escapeHtml(r.name) + "</span>" +
-        '<span class="tm">' + injChips(r) + badge + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
+        '<span class="tm">' + badge + U.escapeHtml(r.team) + ownTag + "</span>" + (chips ? '<span class="inj">' + chips + "</span>" : "") + "</span></span>" +
       cols.map(function (c) {
         var v = c.g(r);
         var dot = (c === C.pts && r.live && v != null) ? '<span class="ups-m-st-live" aria-label="includes the week in progress"></span>' : "";

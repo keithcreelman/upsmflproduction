@@ -793,84 +793,11 @@
         .catch(function () { st.data = null; st.state = "error"; st.at = Date.now(); st.p = null; st.mapped = null; return st; });
       return st.p;
     }
-    // MFL and nflverse spell six teams differently; either is accepted.
-    var NFLV_TO_MFL = { GB: "GBP", JAX: "JAC", KC: "KCC", LA: "LAR", LV: "LVR", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB" };
-    function clockEt(iso) {
-      var d = iso ? new Date(iso) : null;
-      if (!d || isNaN(d.getTime())) return "";
-      try { return d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }) + " ET"; }
-      catch (e) { return d.toISOString().slice(0, 16).replace("T", " ") + " UTC"; }
-    }
-    var SEV = { Out: "out", Doubtful: "d", Questionable: "q" };
-    var SHORT = { Out: "OUT", Doubtful: "D", Questionable: "Q" };
-    // MFL's roster designations when the route itself is unavailable: roster
-    // kinds only, never its Q/D/Out.
-    var FALLBACK = { "IR": ["IR", "Injured reserve"], "IR-R": ["IR-R", "Injured reserve – designated to return"], "IR-PUP": ["PUP", "Physically unable to perform"],
-      "IR-NFI": ["NFI", "Non-football injury list"], "SUSPENDED": ["SUSP", "Suspended"], "HOLDOUT": ["HOLD", "Holdout"], "RETIRED": ["RET", "Retired"] };
-    function why(feed) {
-      var r = U.safeStr(feed && feed.reason);
-      if (/not out yet/.test(r) || /has no Wk \d+ rows/.test(r)) return r;
-      if (/id map/.test(r)) return "players couldn’t be matched to it (the NFL id map couldn’t be read)";
-      if (/not updated for/.test(r)) return "the report hasn’t been updated for " + r.replace(/^.*not updated for /, "");
-      if (/current NFL week unknown/.test(r)) return "the current NFL week couldn’t be read";
-      return "it couldn’t be read";
-    }
-    // → { chips: [{ t, cls, title }], report: "line", roster: "line" | "" }
-    function info(pid, team) {
-      pid = U.safeStr(pid); team = U.safeStr(team).toUpperCase(); team = NFLV_TO_MFL[team] || team;
-      var out = { chips: [], report: "", roster: "" };
-      var fresh = st.state === "ok" && !!st.data && (Date.now() - st.at) <= TTL;
-      var d = fresh ? st.data : null;
-      var p = d && d.players ? d.players[pid] : null;
-      if (d) {
-        var f = d.report_feed || {};
-        var when = clockEt(f.updated_utc);
-        if (!f.current) out.report = "Injury report unavailable: " + why(f) + ". No tag doesn’t mean healthy.";
-        else if (p && p.report) {
-          var r = p.report;
-          if (r.status) out.chips.push({ t: SHORT[r.status], cls: SEV[r.status], title: "Wk " + f.week + " injury report: " + r.status });
-          out.report = "Wk " + f.week + " injury report: " + (r.status || "listed, no game status") + (r.injury ? " — " + r.injury : "") +
-            (r.practice ? " · practice: " + r.practice.replace(/ (Participation )?in Practice$/i, "").replace(/^Did Not Participate$/i, "did not practice") : "") +
-            " (NFL report, updated " + when + ").";
-        }
-        // Matching needs his verified NFL id: without one (or without the list
-        // of matched players) "not on the report" can't be said.
-        else if (!st.mapped) out.report = "Couldn’t tell whether he’s on the Wk " + f.week + " injury report.";
-        else if (!st.mapped[pid]) out.report = "No verified NFL id, so he can’t be matched to the injury report.";
-        else if (!team || team === "FA" || team === "FA*") out.report = "Free agent: not on an NFL team’s injury report.";
-        else if ((f.teams_mfl || []).indexOf(team) >= 0) out.report = "Not on " + team + "’s Wk " + f.week + " injury report (NFL, updated " + when + ").";
-        else out.report = "No Wk " + f.week + " injury report for " + team + " (a bye, or not out yet).";
-        if (p && p.roster) {
-          var ro = p.roster, rf = d.roster_feed || {};
-          out.chips.unshift({ t: ro.chip, cls: ro.chip === "HOLD" ? "ho" : "res", title: "NFL roster: " + ro.label });
-          out.roster = "Roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : "") + " — MFL, updated " + clockEt(rf.updated_utc) + ".";
-        }
-        else if (d.roster_feed && !d.roster_feed.ok) out.roster = "Roster designations (IR, PUP …) couldn’t be read.";
-      } else {
-        out.report = st.state === "error" ? "Injury status couldn’t be loaded. No tag doesn’t mean healthy."
-          : "Checking this week’s injury report…";   // loading, or an old read being refreshed: no finding yet
-        var e = DATA.irEligibilityFor ? DATA.irEligibilityFor(pid) : null;
-        var fb = e && e.known ? FALLBACK[U.safeStr(e.designation).toUpperCase()] : null;
-        if (fb) { out.chips.push({ t: fb[0], cls: fb[0] === "HOLD" ? "ho" : "res", title: "NFL roster: " + fb[1] }); out.roster = "Roster: " + fb[1] + " — MFL."; }
-      }
-      return out;
-    }
-    function chipsHtml(pid, team, extra) {
-      return info(pid, team).chips.map(function (c) {
-        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
-      }).join("");
-    }
-    // One line for the Stats list: what the tags are and how fresh.
-    function listLine() {
-      if (st.state === "error") return "Injury tags unavailable — no tag doesn’t mean healthy.";
-      if (st.state !== "ok" || !st.data || (Date.now() - st.at) > TTL) return "Checking this week’s injury report — no tags until it’s read.";
-      var f = st.data.report_feed || {}, rf = st.data.roster_feed || {};
-      var a = f.current ? "Tags: NFL injury report Wk " + f.week + " (" + clockEt(f.updated_utc) + ")" : "Injury report unavailable (" + why(f) + "), so no Q/D/OUT tags — no tag doesn’t mean healthy";
-      return a + (rf.ok ? "; IR/PUP from MFL (" + clockEt(rf.updated_utc) + ")." : "; IR/PUP couldn’t be read.") +
-        (f.current ? " No tag: not on the report, a bye, or unmatched — tap him for which." : "");
-    }
-    // For Live Scoring, which needs the report's week and only the game status
-    // (same rule as info and listLine): "ok" only for a fresh, current report.
+    // For Live Scoring ONLY (views/scores.js), on purpose: its Q / D / OUT tags and its
+    // injury discounts to live projections and win odds come from the OFFICIAL NFL report
+    // alone, so a preliminary or lapsed MFL designation never moves a live win probability
+    // (Keith 2026-10-15). Every other screen shows MFL first through resolve() below.
+    // "ok" only for a fresh, current report.
     function currentReport() {
       if (st.state !== "ok" || !st.data || (Date.now() - st.at) > TTL) return { state: st.state === "error" ? "unavailable" : "loading" };
       var f = st.data.report_feed || {}, players = st.data.players || {};
@@ -895,10 +822,10 @@
     // ── What an owner is told (Keith 2026-10-14): the shared resolver, site/shared/injury_status.js,
     // on this same read — MFL's current Q / D / OUT first, the official report beside it and
     // always in the lines, IR / PUP from MFL, every tag and line naming its source and week,
-    // a disagreement shown both ways. Used by this sheet and Lineup (desktop Game Day calls
-    // the same resolver), so a player reads the same everywhere. info / chipsHtml / listLine /
-    // currentReport above stay as they are for Stats → Players and Live Scoring.
-    // week: the week the screen is for (Lineup's week; the sheet passes it too when known).
+    // a disagreement shown both ways. Used by this sheet, Lineup, Stats → Players and player
+    // search (desktop Game Day calls the same resolver), so a player reads the same everywhere.
+    // Live Scoring alone keeps currentReport() above (see there).
+    // week: the week the screen is for (Lineup's week; every other screen passes screenWeek()).
     // While there's no fresh read, MFL's own export as this app read it (M.state.injuryStore).
     function resolve(pid, team, week) {
       var IS = window.UPSInjuryStatus;
@@ -917,12 +844,16 @@
           (style ? ' style="' + style + '"' : "") + ' title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
       }).join("");
     }
-    function noteText(week) {
+    function noteText(week, detailsText) {
       var IS = window.UPSInjuryStatus;
-      return IS ? IS.noteText(st, { week: parseInt(week, 10) || null, fallback: !!window.UPS_MOBILE.state.injuryStore }) : "";
+      return IS ? IS.noteText(st, { week: parseInt(week, 10) || null, fallback: !!window.UPS_MOBILE.state.injuryStore, detailsText: detailsText || "" }) : "";
     }
-    return { load: load, info: info, chipsHtml: chipsHtml, listLine: listLine, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
-      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, noteText: noteText,
+    // The week a screen that isn't Lineup resolves for: Lineup's week once the app knows it,
+    // else the read's own week. The sheet, Stats → Players and search all use this, so the
+    // same player gets the same tags (dashed or not) on each of them at the same read.
+    function screenWeek() { return window.UPS_MOBILE.state.lineupWeek || null; }
+    return { load: load, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
+      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, noteText: noteText, screenWeek: screenWeek,
       state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
   window.UPS_MOBILE_PLAYER_STATUS = PSTAT;
@@ -2965,7 +2896,7 @@
     // health — the lines say what each source has.
     var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
     function statusHtml() {
-      var res = PSTAT.resolve(pid, team, window.UPS_MOBILE.state.lineupWeek || null);
+      var res = PSTAT.resolve(pid, team, PSTAT.screenWeek());
       return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines };
     }
     function headHtml(stNow) {
