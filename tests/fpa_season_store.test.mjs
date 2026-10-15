@@ -189,8 +189,10 @@ await check("a pre-2017 season built with --no-snaps: stored under its own leagu
   assert.strictEqual(ok.drill, 0); assert.strictEqual(ok.sos, 4); assert.strictEqual(ok.diff, 0); assert.ok(ok.list > 0);
   assert.strictEqual(ok.storedReadsMfl + ok.storedReadsD1 + ok.notStored, 0);
   const bad = JSON.parse(t16); bad.scores[2] = bad.scores[2].map((r) => (r[0] === "1" ? [r[0], "3"] : r));
-  const tampered = await proveSeason("2016", S16, bad, serialize(bad), { nowMs: NOW, teams, allDrillWindows: true, noSnaps: true });
+  const seen = [];
+  const tampered = await proveSeason("2016", S16, bad, serialize(bad), { nowMs: NOW, teams, allDrillWindows: true, noSnaps: true, onDiff: (p) => seen.push(p) });
   assert.ok(tampered.diff > 0, "a stored file that disagrees with MFL is caught");
+  assert.ok(seen.some((p) => /^sos 1-3$/.test(p)), "…by the Sched Δ comparison itself, not only the lists (" + seen.slice(0, 3).join(", ") + ")");
 });
 
 console.log("\n2. an in-progress season is never stored or served from storage");

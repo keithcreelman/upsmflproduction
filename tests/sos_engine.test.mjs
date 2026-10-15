@@ -400,10 +400,17 @@ await check("an unusable stored copy (another engine's) → read live, and said 
   const env = { UPS_MFL_DB: fakeDb(FX20), FPA_STORE: { fetch: async () => new Response(JSON.stringify(bad), { status: 200 }) } };
   const r = await call("/api/sos-adjusted-points?seasons=2020&week_min=14&week_max=16", FX20, { nowMs: FX25.nowMs, env });
   assert.strictEqual(r.status, 200); assert.strictEqual(r.body.per_season["2020"].source, "live"); assert.ok(r.calls.some((u) => /\/2020\//.test(u)));
-  let opens = 0;
-  const env2 = storeEnv(FX25), f0 = env2.FPA_STORE.fetch; env2.FPA_STORE.fetch = async (q) => { if (/\/2020\.json$/.test(new URL(q.url).pathname)) opens++; return f0(q); };
-  await call("/api/sos-adjusted-points?seasons=2020,2025&week_min=15&week_max=17", FX25, { env: env2 });
-  assert.strictEqual(opens, 1, "the stored 2020 is read once, not once to plan and again to load");
+  // Four stored seasons (more than the 3 opened copies kept in memory): each file is still read once.
+  const files = {}; for (const y of ["2017", "2018", "2019", "2020"]) files[y] = fs.readFileSync(new URL(y + ".json", STORE_DIR), "utf8");
+  const opens = {};
+  const env2 = { UPS_MFL_DB: fakeDb(FX25), FPA_STORE: { fetch: async (q) => {
+    const m = new URL(q.url).pathname.match(/\/(\d{4})\.json$/); const y = m && m[1];
+    opens[y] = (opens[y] || 0) + 1;
+    return files[y] ? new Response(files[y], { status: 200 }) : new Response("not found", { status: 404 });
+  } } };
+  const r2 = await call("/api/sos-adjusted-points?seasons=2017,2018,2019,2020,2025&week_min=15&week_max=17", FX25, { env: env2 });
+  assert.strictEqual(r2.status, 200);
+  for (const y of ["2017", "2018", "2019", "2020"]) { assert.strictEqual(r2.body.per_season[y].source, "stored", y); assert.strictEqual(opens[y], 1, y + " read " + opens[y] + " times"); }
 });
 await check("no week_max: through the latest week with a final game (here mid-Wk 17 → 17; before Wk 16 → 15), and said to be automatic", async () => {
   const k16 = Math.min(...FX25.sched[16].map((m) => Number(m.kickoff))) * 1000;
