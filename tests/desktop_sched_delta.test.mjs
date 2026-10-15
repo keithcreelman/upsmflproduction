@@ -110,8 +110,9 @@ check("the fetch keeps a failed or refused answer (state.sos error) instead of s
   assert.ok(!/by_gsis/.test(block) && !/sosByGsis/.test(SRC));
 });
 check("the note is drawn into the definitions slot on every render", () => {
-  assert.match(SRC, /var sosLine = sosNoteText\(state\.sos, cols\);/);
-  assert.match(SRC, /renderSourceFreshnessNote\(cols\);\s*\n\s*renderDefinitionNote\(cols\);/);
+  assert.match(extractFn("renderSosNote"), /var sosLine = sosNoteText\(state\.sos, cols\);/);
+  assert.match(SRC, /renderSourceFreshnessNote\(cols\);\s*\n\s*renderDefinitionNote\(cols\);\s*\n\s*renderSosNote\(cols\);/);
+  assert.ok(!/sosNoteText/.test(extractFn("renderDefinitionNote")), "the EPA / red-zone note stays on its own");
 });
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");

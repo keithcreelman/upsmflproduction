@@ -3093,11 +3093,15 @@ table.asw-table{font-size:13px}
     });
     return head + (parts.length ? " " + parts.join(" · ") + "." : "");
   }
-  function renderDefinitionNote(cols) {
+  function renderSosNote(cols) {
     var slot = document.getElementById("asw-source-freshness-slot");
     if (!slot) return;
     var sosLine = sosNoteText(state.sos, cols);
     if (sosLine) slot.insertAdjacentHTML("beforeend", '<div class="asw-datanote asw-def-note asw-sos-note"><span>ℹ</span><span>' + escapeHtml(sosLine) + "</span></div>");
+  }
+  function renderDefinitionNote(cols) {
+    var slot = document.getElementById("asw-source-freshness-slot");
+    if (!slot) return;
     var epaShown = (cols || []).some(function (k) { return /^epa_/.test(k); });
     var rzShown = (cols || []).some(function (k) { return RZ_COLS[k]; });
     var lines = [];
@@ -3494,6 +3498,7 @@ table.asw-table{font-size:13px}
     renderOwnershipNote();
     renderSourceFreshnessNote(cols);
     renderDefinitionNote(cols);
+    renderSosNote(cols);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
