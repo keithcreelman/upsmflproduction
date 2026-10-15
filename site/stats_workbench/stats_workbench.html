@@ -3087,6 +3087,7 @@ table.asw-table{font-size:13px}
     var head = "Sched Δ / Opp ±%: what the teams he faced allowed to other players at his position, against their usual (Pts Agst, final games). It describes his schedule; it isn't a forecast.";
     if (sos.status !== "ok") {
       var why = sos.error === "too_many_live_seasons" ? (sos.detail || "too many seasons need a live MFL read")
+        : sos.error === "old_server" ? "the server is still on the previous version; reload in a minute"
         : sos.error === "mfl_unavailable" ? "MFL couldn't be read" + (sos.season ? " for " + sos.season : "") + (sos.detail ? " (" + sos.detail + ")" : "")
         : "the answer didn't load (" + (sos.error || "error") + ")";
       return head + " Both read — : " + why + ". Nothing is filled in from another season.";
@@ -4203,12 +4204,13 @@ table.asw-table{font-size:13px}
                              function(){ return { ok: false, status: r.status, j: null }; });
       })
       .then(function(x){
-        if (x.ok && x.j && x.j.ok) {
-          sosByMfl = x.j.by_mfl || {};
+        if (x.ok && x.j && x.j.ok && x.j.by_mfl) {
+          sosByMfl = x.j.by_mfl;
           state.sos = { status: "ok", perSeason: x.j.per_season || {} };
         } else {
           sosByMfl = {};
-          state.sos = { status: "error", error: (x.j && x.j.error) || ("HTTP " + x.status), detail: (x.j && x.j.detail) || "", season: (x.j && x.j.season) || "" };
+          // ok but no by_mfl = the old answer (a server not yet updated): say so, show nothing.
+          state.sos = { status: "error", error: (x.j && x.j.ok) ? "old_server" : ((x.j && x.j.error) || ("HTTP " + x.status)), detail: (x.j && x.j.detail) || "", season: (x.j && x.j.season) || "" };
         }
       })
       .catch(function(){ sosByMfl = {}; state.sos = { status: "error", error: "unreachable", detail: "" }; });

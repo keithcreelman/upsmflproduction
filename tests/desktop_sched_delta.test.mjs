@@ -115,6 +115,7 @@ check("failures say why both columns read —, and that nothing is filled in", (
   assert.match(note({ status: "error", error: "too_many_live_seasons", detail: "Seasons 2015, 2016 each need a live MFL read; choose at most 1 of them at a time." }, SHOW),
     /Both read — : Seasons 2015, 2016 each need a live MFL read; choose at most 1 of them at a time\./);
   assert.match(note({ status: "error", error: "HTTP 500" }, SHOW), /Both read — : the answer didn't load \(HTTP 500\)\./);
+  assert.match(note({ status: "error", error: "old_server" }, SHOW), /Both read — : the server is still on the previous version; reload in a minute\./);
 });
 
 console.log("\n3. wiring");
@@ -123,7 +124,8 @@ check("the fetch keeps a failed or refused answer (state.sos error) instead of s
   const block = SRC.slice(i, SRC.indexOf("var consistFetch", i));
   assert.ok(/getScopeQueryParams\(\)/.test(block), "same week window as the board");
   assert.ok(/state\.sos = \{ status: "error"/.test(block) && /x\.j\.error/.test(block) && /x\.j\.detail/.test(block));
-  assert.ok(/sosByMfl = x\.j\.by_mfl \|\| \{\}/.test(block));
+  assert.ok(/x\.ok && x\.j && x\.j\.ok && x\.j\.by_mfl\)/.test(block) && /sosByMfl = x\.j\.by_mfl;/.test(block), "an old answer without by_mfl is not taken as data");
+  assert.ok(/\(x\.j && x\.j\.ok\) \? "old_server"/.test(block));
   assert.ok(!/by_gsis/.test(block) && !/sosByGsis/.test(SRC));
 });
 check("the note is drawn into the definitions slot on every render", () => {
