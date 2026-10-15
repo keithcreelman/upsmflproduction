@@ -16,8 +16,8 @@ import assert from "node:assert";
 import { makeDocument, settle } from "./fixtures/tree_dom.mjs";
 
 const read = (p) => fs.readFileSync(new URL("../" + p, import.meta.url), "utf8");
-const HTML = read(process.env.WORKBENCH_HTML ? "" : "site/stats_workbench/stats_workbench.html").length ? read("site/stats_workbench/stats_workbench.html") : "";
-const SRC = process.env.WORKBENCH_HTML ? fs.readFileSync(process.env.WORKBENCH_HTML, "utf8") : HTML;
+// WORKBENCH_HTML=<path> runs the same checks on another copy of the page (mutation checks).
+const SRC = process.env.WORKBENCH_HTML ? fs.readFileSync(process.env.WORKBENCH_HTML, "utf8") : read("site/stats_workbench/stats_workbench.html");
 const FX = JSON.parse(read("tests/fixtures/stats_workbench_2025.json"));
 const SCRIPT = (() => { const m = [...SRC.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((x) => x[1]); return m[m.length - 1]; })();
 
@@ -243,6 +243,24 @@ for (const tab of TAB_IDS) {
 }
 await check("the whole sweep ran: every position × group, each default sort both ways", () => {
   assert.strictEqual(views, Object.values(SG.STAT_GROUPS).reduce((n, gs) => n + gs.length, 0)); assert.strictEqual(sorted, views * 2);
+});
+await check("every column sorts as a number, both ways, '—' last: all of PK Kicking and DB IDP (made/attempted as numbers, not text)", async () => {
+  for (const [tab, grp] of [["pk", "kicking"], ["db", "idp"], ["wr", "receiving"]]) {
+    await E.click(E.$('#asw-tabs [data-tab="' + tab + '"]')); await E.click(E.$('#asw-groups [data-group="' + grp + '"]'));
+    for (const k of E.headers().slice(1)) {
+      const th = () => E.$('#asw-body th[data-col-key="' + k + '"]');
+      th().click(); await settle(5);
+      if (E.sorted()[1] !== "descending") { th().click(); await settle(5); }
+      assert.deepStrictEqual(E.sorted(), [k, "descending"], tab + "/" + k);
+      inOrder(E.col(k), "descending", tab + "/" + k);
+      th().click(); await settle(5);
+      assert.deepStrictEqual(E.sorted(), [k, "ascending"], tab + "/" + k);
+      inOrder(E.col(k), "ascending", tab + "/" + k);
+    }
+  }
+  await E.click(E.$('#asw-tabs [data-tab="pk"]')); await E.click(E.$('#asw-groups [data-group="kicking"]'));
+  assert.ok(E.col("fg_40_49").some((v) => /^\d+\/\d+$/.test(v)), "the distance cells show made/attempted");
+  await E.click(E.$('#asw-groups [data-group="schedule"]'));   // leave PK where the sweep left it
 });
 await check("switching position keeps the stat group when the new one has it (WR Receiving → TE Receiving); else the group last used there; Fantasy points the first time", async () => {
   await E.click(E.$('#asw-tabs [data-tab="wr"]')); await E.click(E.$('#asw-groups [data-group="receiving"]'));
