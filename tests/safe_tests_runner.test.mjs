@@ -45,6 +45,12 @@ test("a deliberately failing test makes the run fail and is named in the report"
   t.match(r.md, /always_fails\.mjs/);
 });
 
+test("a run that selects nothing fails instead of passing vacuously", () => {
+  const r = spawnSync(process.execPath, [RUNNER, "--only", "no-such-test-anywhere-xyz"], { encoding: "utf8", timeout: 60000 });
+  t.equal(r.status, 1, r.stdout + r.stderr);
+  t.match(r.stdout, /no planned test matches/);
+});
+
 test("an all-passing run exits 0", () => {
   const r = nested([FIX + "always_passes.mjs"]);
   t.equal(r.status, 0, r.out.slice(-800));

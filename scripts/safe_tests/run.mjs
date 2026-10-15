@@ -226,9 +226,14 @@ export function buildSandbox(parentEnv = process.env) {
   if (realGit) {
     const blocked = GIT_NETWORK_SUBCOMMANDS.join("|");
     fs.writeFileSync(path.join(bin, "git"), `#!/bin/sh
-# [safe-tests] git wrapper: local subcommands only.
+# [safe-tests] git wrapper: local subcommands only. Global options that take a
+# separate value (-C dir, -c key=value, ...) are skipped with their value, so
+# \`git -C . push\` is still recognized as a push.
+skip=0
 for a in "$@"; do
+  if [ "$skip" = 1 ]; then skip=0; continue; fi
   case "$a" in
+    -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--config-env|--super-prefix) skip=1; continue ;;
     -*) continue ;;
     ${blocked}) echo "[safe-tests] blocked: 'git $a' talks to a remote and is not available in the safe offline suite." >&2; exit 97 ;;
     *) break ;;
@@ -324,10 +329,12 @@ async function runCanaries(sandbox) {
     shims.push(`${name}: exit ${r.status}`);
     if (r.status !== 97) results.push({ name: `PATH stub for ${name}`, ok: false, output: `${name} exited ${r.status}, expected 97\n${r.stdout}${r.stderr}` });
   }
-  const gitPush = spawnSync("/bin/sh", ["-c", "git push --dry-run origin HEAD"], { env, cwd: ROOT, encoding: "utf8" });
+  const pushes = ["git push --dry-run origin HEAD", "git -C . push --dry-run origin HEAD", "git -c core.pager=cat fetch --dry-run origin"]
+    .map((cmd) => spawnSync("/bin/sh", ["-c", cmd], { env, cwd: ROOT, encoding: "utf8" }).status);
+  const gitPush = { status: pushes.every((s) => s === 97) ? 97 : pushes.find((s) => s !== 97) };
   const gitLog = spawnSync("/bin/sh", ["-c", "git rev-parse --is-inside-work-tree"], { env, cwd: ROOT, encoding: "utf8" });
   results.push({
-    name: "PATH stubs: wrangler/curl/security/gh/npx exit 97; git push blocked; local git works",
+    name: "PATH stubs: wrangler/curl/security/gh/npx exit 97; git push/fetch blocked (also behind -C/-c); local git works",
     ok: shims.every((s) => s.endsWith("exit 97")) && gitPush.status === 97 && gitLog.status === 0,
     output: `${shims.join(", ")}; git push: exit ${gitPush.status}; git rev-parse: exit ${gitLog.status}`,
   });
@@ -471,6 +478,9 @@ async function main() {
     run = args.files.filter((f) => !neverRun(f)).map((f) => ({ path: f, lang: f.endsWith(".py") ? "python" : "node" }));
   } else if (args.only) {
     run = run.filter((t) => t.path.includes(args.only));
+    if (!run.length) problems.push(`--only ${args.only}: no planned test matches`);
+  } else if (!run.length) {
+    problems.push("Discovery found no tests: tests/safe_suite.json globs are broken. An empty run is a failure, not a pass.");
   }
 
   const reviewed = new Set((manifest.tripwire_reviewed || []).map((r) => r.path));
@@ -495,14 +505,15 @@ async function main() {
 
   const sandbox = buildSandbox();
   let network = "not isolated by the OS on this machine; the Node/Python guards and PATH stubs are the network barrier";
+  const canaries = [];
   if (args.expectNoNetwork) {
     const ifaces = networkInterfacesSummary();
     const external = ifaces.filter((n) => n !== "lo" && n !== "lo0");
-    if (external.length) problems.push(`--expect-no-network: found network interface(s) ${external.join(", ")}; expected loopback only`);
-    network = `isolated network namespace, interfaces: ${ifaces.join(", ") || "(none)"}`;
+    network = external.length ? `NOT isolated: interfaces ${ifaces.join(", ")}` : `isolated network namespace, interfaces: ${ifaces.join(", ") || "(none)"}`;
+    canaries.push({ name: "OS network isolation: loopback is the only interface (--expect-no-network)", ok: external.length === 0, output: `interfaces: ${ifaces.join(", ")}` });
   }
 
-  const canaries = await runCanaries(sandbox);
+  canaries.push(...(await runCanaries(sandbox)));
   const canaryFailed = canaries.filter((c) => !c.ok);
   for (const c of canaryFailed) problems.push(`Guard check failed: ${c.name}\n\n  ${tail(c.output, 15).replace(/\n/g, "\n  ")}`);
 
