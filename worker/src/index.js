@@ -3654,11 +3654,13 @@ const _faaAuctionStartUnix = async (env, season) => {
 // completed season is remembered for good. Reads are public MFL exports, no cookie, bounded to 8 s each.
 const _activeSeasonMemo = new Map(), _seasonCompleteMemo = new Map();
 async function activeSeason(leagueId, env) {
+  const pin = String((env && env.YEAR) || "").replace(/\D/g, "");
+  if (pin) return { ok: true, season: pin, source: "env.YEAR" };   // the operator pin: no read, no memo
   const lid = String(leagueId || "").replace(/\D/g, "") || "74598", now = Date.now();
   const memo = _activeSeasonMemo.get(lid);
   if (memo && now >= memo.at && now < memo.until) return memo.r;
   const fetchImpl = (u, ttl) => fetchBounded(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: ttl } }, 8000);
-  const r = await resolveActiveSeason({ leagueId: lid, nowMs: now, pinnedYear: env && env.YEAR, completeMemo: _seasonCompleteMemo,
+  const r = await resolveActiveSeason({ leagueId: lid, nowMs: now, completeMemo: _seasonCompleteMemo,
     ...mflSeasonReaders({ leagueId: lid, fetchImpl }) });
   _activeSeasonMemo.set(lid, { r, at: now, until: now + (r.ok ? 600e3 : 60e3) });
   return r;
