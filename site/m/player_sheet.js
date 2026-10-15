@@ -819,10 +819,10 @@
       var f = st.data.report_feed || {};
       return f.prior_weeks && f.prior_weeks.length ? f.prior_weeks : [];
     }
-    // ── What an owner is told (Keith 2026-10-14): the shared resolver, site/shared/injury_status.js,
-    // on this same read — MFL's current Q / D / OUT first, the official report beside it and
-    // always in the lines, IR / PUP from MFL, every tag and line naming its source and week,
-    // a disagreement shown both ways. Used by this sheet, Lineup, Stats → Players and player
+    // ── What an owner is told (Keith 2026-10-14 / 10-15): the shared resolver,
+    // site/shared/injury_status.js, on this same read — one plain designation chip, MFL's
+    // first; the official report checked against it; a disagreement called out on the
+    // player page; IR / PUP from MFL. Used by this sheet, Lineup, Stats → Players and player
     // search (desktop Game Day calls the same resolver), so a player reads the same everywhere.
     // Live Scoring alone keeps currentReport() above (see there).
     // week: the week the screen is for (Lineup's week; every other screen passes screenWeek()).
@@ -835,19 +835,24 @@
       var fb = wk ? IS.fromMflStore(window.UPS_MOBILE.state.injuryStore, ctx.year, wk, pid) : null;
       return IS.resolve(st, pid, team, { week: wk || null, fallback: fb });
     }
-    // The chips for a resolved status. "na" (the other source has nothing) is drawn neutral,
-    // and a tag from an earlier week dashed, so neither ever reads as this week's call.
+    // The one chip (a plain designation: Q, D, OUT, IR, PUP, SUSP), colored by severity.
     function resolvedChipsHtml(res, extra) {
       return (res && res.chips || []).map(function (c) {
-        var style = c.cls === "na" ? "color:var(--fg-muted);background:transparent;border-color:var(--line)"
-          : (c.prior ? "background:transparent;border-style:dashed" : "");
-        return '<span class="ups-m-inj-chip ' + c.cls + (c.prior ? " prior" : "") + (extra ? " " + extra : "") + '"' +
-          (style ? ' style="' + style + '"' : "") + ' title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
+        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
       }).join("");
     }
-    function noteText(week, detailsText) {
+    // The red "Injury sources disagree" block (Keith 2026-10-15): each source stated plainly,
+    // information only. cls: the surface's own class for the block.
+    function warningHtml(res, cls) {
+      var w = res && res.warning; if (!w) return "";
+      return '<div class="' + (cls || "ups-m-inj-warn") + '" role="note"><b>' + U.escapeHtml(w.title) + "</b>" +
+        w.lines.map(function (l) { return "<div>" + U.escapeHtml(l) + "</div>"; }).join("") + "</div>";
+    }
+    function aboutText() { var IS = window.UPSInjuryStatus; return IS && IS.aboutText ? IS.aboutText() : ""; }
+    // A line ONLY when a source is unavailable or still loading ("" when all is well).
+    function noteText(week) {
       var IS = window.UPSInjuryStatus;
-      return IS ? IS.noteText(st, { week: parseInt(week, 10) || null, fallback: !!window.UPS_MOBILE.state.injuryStore, detailsText: detailsText || "" }) : "";
+      return IS ? IS.noteText(st, { week: parseInt(week, 10) || null, fallback: !!window.UPS_MOBILE.state.injuryStore }) : "";
     }
     // The week a screen that isn't Lineup resolves for: Lineup's week once Lineup has set it,
     // else the app's startup answer from the same /api/current-lineup-week (lineupWeekResolution),
@@ -859,9 +864,9 @@
     // For a phone still running an older Stats script for a few minutes after a release (the
     // CDN can pair it with this file): the SAME resolver tags and note, never the old rule.
     function chipsHtml(pid, team, extra) { return resolvedChipsHtml(resolve(pid, team, null), extra); }
-    function listLine() { return noteText(screenWeek(), "Tap a player for both."); }
+    function listLine() { return noteText(screenWeek()); }
     return { load: load, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
-      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, noteText: noteText, screenWeek: screenWeek,
+      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, warningHtml: warningHtml, noteText: noteText, aboutText: aboutText, screenWeek: screenWeek,
       chipsHtml: chipsHtml, listLine: listLine,
       state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
@@ -2892,21 +2897,16 @@
       ? '<img class="ups-m-sheet-photo" src="' + U.escapeHtml(photoUrl) + '" alt="' + U.escapeHtml(name || pid) + '" onerror="' + photoOnError + '">'
       : '<div class="ups-m-sheet-photo-placeholder"></div>';
 
-    // NFL designation chips right beside the name (Keith 2026-08-15: "make him
-    // stand out more with a red S or something ... do the same with any injury
-    // designation (Q, Out, whatever)"; a suspension once went unnoticed here).
-    // Status chips beside the name and lines under it, from the shared resolver
-    // (PSTAT.resolve → site/shared/injury_status.js; Keith 2026-10-14): MFL's
-    // current Q / D / OUT first, the official NFL report beside it and always in
-    // the lines, IR / PUP from MFL, each naming its source and week ("MFL: Q (Wk 6)",
-    // "NFL Wk 5 final: Out"), the same words as Lineup and desktop Game Day.
-    // Severity drives the color: OUT red, D amber, Q yellow; IR / IR-R / PUP / NFI /
-    // SUSP / RET the reserve tone; HOLD its own. No chip is never a claim of
-    // health — the lines say what each source has.
+    // The injury chip beside the name and the lines under it, from the shared resolver
+    // (PSTAT.resolve → site/shared/injury_status.js), the same as every other screen:
+    // one plain designation (Q, D, OUT, IR, PUP, SUSP), MFL's first; when MFL and the
+    // official NFL report disagree, a red "Injury sources disagree" block states each
+    // (Keith 2026-10-15). OUT red, D amber, Q yellow; IR / PUP / NFI / SUSP / RET the
+    // reserve tone; HOLD its own. No chip is never a claim of health.
     var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
     function statusHtml() {
       var res = PSTAT.resolve(pid, team, window.UPS_MOBILE.state.lineupWeek || null);
-      return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines };
+      return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines, warning: PSTAT.warningHtml(res) };
     }
     function headHtml(stNow) {
       return '<div class="ups-m-sheet-head-row">' +
@@ -2914,6 +2914,7 @@
         '<div class="ups-m-sheet-head-text">' +
           '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + stNow.chips + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
+          stNow.warning +
           '<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' + stNow.lines.map(function (l) { return '<div>' + U.escapeHtml(l) + '</div>'; }).join("") + '</div>' +
           ownerChipHtml(pid) +
         '</div>' +
@@ -2960,7 +2961,7 @@
     PSTAT.load(ctxYear).then(function () {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       var now = statusHtml();
-      if (now.chips !== stFirst.chips || now.lines.join(" ") !== stFirst.lines.join(" ")) head.innerHTML = headHtml(now);
+      if (now.chips !== stFirst.chips || now.warning !== stFirst.warning || now.lines.join(" ") !== stFirst.lines.join(" ")) head.innerHTML = headHtml(now);
     });
     loadWeeklyBox(pid).then(function (res) {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on

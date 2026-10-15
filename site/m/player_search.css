@@ -217,8 +217,7 @@
    a league-wide search has no place in it. */
 body.ups-m-embed .ups-m-header-search { display: none; }
 
-/* Injury / roster tags (the shared .ups-m-inj-chip, player_sheet.css) from the shared
-   resolver: their own line under team · owner, wrapping, never cut (#1276). */
-.ups-m-psr-row .inj { display: flex; flex-wrap: wrap; gap: 3px; }
-.ups-m-psr-row .inj .ups-m-inj-chip.sm { margin: 0; padding: 0 4px; font-size: 11px; line-height: 15px; border-radius: 4px; letter-spacing: .02em; }
+/* The injury chip (the shared .ups-m-inj-chip, player_sheet.css): one plain designation
+   leading the team · owner line (Keith 2026-10-15). */
+.ups-m-psr-row .sub .ups-m-inj-chip.sm { margin: 0 4px 0 0; padding: 0 3px; font-size: 11px; line-height: 13px; border-radius: 4px; letter-spacing: .02em; vertical-align: 1px; }
 .ups-m-psr-inj { margin-top: -4px; }

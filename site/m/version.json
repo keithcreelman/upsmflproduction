@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.15.3",
-  "label": "Stats → Players and player search show the same injury tags as Lineup and the player sheet: MFL's status first, the official NFL report beside it, both shown when they disagree."
+  "build": "2026.10.15.4",
+  "label": "Injury tags show just the designation (Q, D, OUT, IR, PUP, SUSP), one per player, MFL's first. When MFL and the official NFL report disagree, the player page says so in red. No expected-return dates."
 }

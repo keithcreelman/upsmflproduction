@@ -73,19 +73,13 @@
   .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
   .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
   .gd-inj-badge.tier-q { color: #1a1206; background: var(--warn); }
-  /* Submit Lineup's tags name their source and week (site/shared/injury_status.js, Keith
-     2026-10-14): MFL's Q / D / OUT first, the NFL report's when MFL has none, both when
-     they disagree. D (Doubtful) orange; MFL roster designations (IR, IR-R, PUP, NFI, SUSP,
-     RET) their own tone, HOLD blue; "na" = the other source has nothing (neutral); a tag
-     from an earlier week (e.g. "NFL: OUT (Wk 5 final)") dashed, never read as this week's. */
+  /* Submit Lineup's one tag is a plain designation (site/shared/injury_status.js, Keith
+     2026-10-15): Q, D, OUT, IR, PUP, SUSP; MFL's first, the NFL report's when MFL has none.
+     D (Doubtful) orange; MFL roster designations (IR, PUP, NFI, SUSP, RET) their own tone,
+     HOLD blue. A disagreement is the red note in Details, never a second tag. */
   .gd-inj-badge.tier-d { color: #1f1206; background: #fb923c; }
   .gd-inj-badge.tier-res { color: #fff; background: #9333ea; }
   .gd-inj-badge.tier-ho { color: #fff; background: #2563eb; }
-  .gd-inj-badge.tier-na { color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-soft); font-weight: 800; }
-  .gd-inj-badge.prior { background: transparent; box-shadow: none; outline: 1.5px dashed currentColor; outline-offset: -1.5px; }
-  .gd-inj-badge.prior.tier-out { color: #fca5a5; }
-  .gd-inj-badge.prior.tier-d { color: #fdba74; }
-  .gd-inj-badge.prior.tier-q { color: var(--warn); }
   .gd-slot-inj-row .gd-inj-badge, .gd-bench-id .gd-inj-badge { margin: 2px 6px 2px 0; }
   /* Locked = his NFL game has kicked off; canon §B4 says he can't be
      substituted in or out from that moment. Neutral color on purpose (unlike
@@ -121,11 +115,16 @@
   .gd-mu-detail b { color: var(--fg); font-weight: 800; }
   .gd-mu-wx { opacity: 0.9; }
   .gd-mu-inj { color: var(--fg); }
+  /* "Injury sources disagree" (Keith 2026-10-15): red, each source stated; information only. */
+  .gd-mu-detail .gd-mu-injwarn { margin: 2px 0 6px; padding: 6px 9px; border: 1px solid rgba(248,113,113,.65); border-left-width: 4px; border-radius: 6px;
+    background: rgba(220,38,38,.14); color: #fecaca; line-height: 1.4; }
+  .gd-mu-detail .gd-mu-injwarn b { display: block; color: #fca5a5; font-weight: 800; margin-bottom: 2px; }
   .gd-hz { white-space: nowrap; color: var(--fg); }
   /* The screen's note (what the rank is, the weeks, MFL read time) + About. */
   .gd-mu-note { font-size: 12px; line-height: 1.45; color: var(--muted); margin-top: 10px; }
   .gd-mu-note.warn { color: var(--warn); }
   .gd-mu-note.inj { margin-top: 4px; }
+  .gd-mu-about-inj { margin-top: 6px; }
   .gd-mu-retry { background: transparent; border: 1px solid var(--line); color: var(--accent); border-radius: 6px;
     min-height: 30px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   .gd-mu-about { margin-top: 3px; }
@@ -659,7 +658,7 @@
     if (row && !row.inj) { var b = injBadgeInfo(row.injStatus); if (b) cs = [{ t: b.label, cls: b.tier, title: row.injLabel || b.label }]; }
     if (!cs.length) return "";
     var h = cs.map(function (c) {
-      return '<span class="gd-inj-badge tier-' + c.cls + (c.prior ? " prior" : "") + '" title="' + esc(c.title) + '">' + esc(c.t) + '</span>';
+      return '<span class="gd-inj-badge tier-' + c.cls + '" title="' + esc(c.title) + '">' + esc(c.t) + '</span>';
     }).join("");
     return inline ? " " + h : '<div class="gd-slot-inj-row">' + h + '</div>';
   }
@@ -671,10 +670,10 @@
     return { store: injStore(), overrides: window.UPS_INJURY_OVERRIDES, season: CTX.year, week: STATE.lineupWeek };
   }
   // ── Injury status on Submit Lineup: the ONE resolver (site/shared/injury_status.js), the
-  // same as mobile Lineup and the player sheet (Keith 2026-10-14). MFL's current Q / D / OUT
-  // first; the official NFL report beside it (the tag when MFL has none, always in Details);
-  // IR / PUP from MFL; every tag and line naming its source and week; both shown when they
-  // disagree; no tag never "healthy". From GET /api/player-status; while that has no fresh
+  // same as mobile Lineup and the player sheet (Keith 2026-10-14/15). One plain tag (Q, D,
+  // OUT, IR, PUP, SUSP): MFL's current designation first, the official NFL report's when MFL
+  // has none. When the two disagree, Details opens with the red "Injury sources disagree"
+  // note stating each; no tag never "healthy". From GET /api/player-status; while that has no fresh
   // read, MFL's export as this page read it (injStore, the lineup week). Lock, bye and IR-slot
   // rules read none of this (kickoffs, MFL's bye list and the roster's own status decide them).
   var INJ = null;
@@ -689,10 +688,13 @@
     var IS = injIS(), o = lineupInjOpts();
     return IS.resolve(injLoader().read(), pid, team, { week: parseInt(STATE.lineupWeek, 10) || null, fallback: IS.fromMflStore(o.store, o.season, o.week, pid) });
   }
+  // A line only when the injury status is unavailable or loading ("" when all is well).
   function injNoteText() {
     var IS = injIS(); if (!IS) return "";
     return IS.noteText(injLoader().read(), { week: parseInt(STATE.lineupWeek, 10) || null, fallback: true });
   }
+  // The one explanation, under About.
+  function injAbout() { var IS = injIS(); return IS && IS.aboutText ? IS.aboutText() : ""; }
 
   function buildRows() {
     return getMyRoster().map(function (r) {
@@ -1016,9 +1018,13 @@
       '<span class="gd-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
-    // What MFL and the official NFL report each say about him, always (source + week on
-    // every line; a disagreement spelled out).
+    // What MFL and the official NFL report each say about him, always, as on the player sheet:
+    // the red "Injury sources disagree" note first when they disagree, then the other lines.
     var inj = row && row.inj ? row.inj : (injIS() ? injResolve(pid, mu.team) : null);
+    if (inj && inj.warning) {
+      rows.push('<div class="r gd-mu-injwarn" role="note"><b>' + esc(inj.warning.title) + '</b>' +
+        inj.warning.lines.map(function (l) { return '<div>' + esc(l) + '</div>'; }).join("") + '</div>');
+    }
     if (inj) inj.lines.forEach(function (l) { rows.push('<div class="r gd-mu-inj">' + esc(l) + '</div>'); });
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + esc(line) + '</div>');
@@ -1077,6 +1083,7 @@
       "“@ GBP · #30 vs QBs” = Green Bay is 30th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
       "Only final games count, and a player counts for the team he played for that day. " +
       MU_ABOUT_EVIDENCE +
+      (injAbout() ? '</div><div class="gd-mu-about-inj">' + esc(injAbout()) : "") +
       '</div></details></div>' + injHtml;
   }
   // The measured size of green vs red (2019–2025 games, leak-free; review #1249 L2b).

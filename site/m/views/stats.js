@@ -1112,22 +1112,24 @@
       var rankLine = "# = PPG rank on actual MFL points, " + SSMOD().weeksLabel(b.ss.seasonWeeks) + ".";
       if (more.length) more.unshift(rankLine); else line.unshift(rankLine);
     }
-    // Where the tags come from (the shared resolver's note, the same words as Lineup's).
-    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS && PS.noteText ? PS.noteText(PS.screenWeek ? PS.screenWeek() : null, "Tap a player for both.") : "";
+    // Injury tags: a line only when a source is unavailable or loading; the one explanation is
+    // its own paragraph under About, on every set (Keith 2026-10-15).
+    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS && PS.noteText ? PS.noteText(PS.screenWeek ? PS.screenWeek() : null) : "";
+    var injAbout = PS && PS.aboutText ? PS.aboutText() : "";
+    var about = (more.length ? "<div>" + U.escapeHtml(more.join(" ")) + "</div>" : "") +
+      (injAbout ? '<div class="ups-m-st-injabout">' + U.escapeHtml(injAbout) + "</div>" : "");
     var open = view.noteOpen ? " open" : "";
     return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(line.join(" ")) +
       (inj ? '<div class="ups-m-st-injline">' + U.escapeHtml(inj) + "</div>" : "") +
-      (more.length ? '<details class="ups-m-st-more"' + open + '><summary>About these numbers</summary><div>' + U.escapeHtml(more.join(" ")) + "</div></details>" : "") +
+      (about ? '<details class="ups-m-st-more"' + open + "><summary>About these numbers</summary>" + about + "</details>" : "") +
       "</div>";
   }
 
 
-  // Injury / roster tags from the shared resolver (site/shared/injury_status.js, via the
-  // app's one status loader): MFL's Q / D / OUT first, the official NFL report beside it,
-  // IR / PUP from MFL, a disagreement shown both ways — the same tags, word for word, as
-  // Lineup, the player sheet, search and desktop Game Day (#1276). They sit on their own
-  // line under the team so a long tag ("MFL: Q · est. return passed") wraps instead of
-  // being cut at 320px.
+  // The injury chip from the shared resolver (site/shared/injury_status.js, via the app's one
+  // status loader): one plain designation (Q, D, OUT, IR, PUP, SUSP), MFL's first — the same
+  // as Lineup, the player sheet, search and desktop Game Day. It leads the team line, so a
+  // long name never hides it and it never pushes the numbers (readable at 320px).
   function injChips(r) {
     var PS = window.UPS_MOBILE_PLAYER_STATUS;
     return PS && PS.resolve && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm") : "";
@@ -1148,7 +1150,7 @@
       '<span class="rk">' + (r.rank || "–") + "</span>" +
       '<span class="nm">' +
         '<span class="t"><span class="pn">' + U.escapeHtml(r.name) + "</span>" +
-        '<span class="tm">' + badge + U.escapeHtml(r.team) + ownTag + "</span>" + (chips ? '<span class="inj">' + chips + "</span>" : "") + "</span></span>" +
+        '<span class="tm">' + chips + badge + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
       cols.map(function (c) {
         var v = c.g(r);
         var dot = (c === C.pts && r.live && v != null) ? '<span class="ups-m-st-live" aria-label="includes the week in progress"></span>' : "";

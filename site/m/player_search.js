@@ -281,23 +281,20 @@
     return '<span class="own">' + U.escapeHtml(r.owner || "Rostered") + "</span>" + extra;
   }
 
-  // Injury / roster tags from the shared resolver, the same as Stats → Players, Lineup, the
-  // player sheet and desktop Game Day (#1276), on their own line so a long tag wraps. The
-  // TAXI / IR tags beside the owner are his FANTASY roster slot, a different thing.
+  // The injury chip from the shared resolver, the same as Stats → Players, Lineup, the player
+  // sheet and desktop Game Day: one plain designation, leading the team · owner line. The
+  // TAXI / IR tags after the owner are his FANTASY roster slot, a different thing.
   function statusOf() { var PS = window.UPS_MOBILE_PLAYER_STATUS; return PS && PS.resolve ? PS : null; }
   function chipsHtml(r) {
     var PS = statusOf();
-    if (!PS || !r.pid) return "";
-    var h = PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm");
-    return h ? '<span class="inj">' + h + "</span>" : "";
+    return PS && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm") : "";
   }
-  // The resolver's note (where the tags come from; no tag isn't "healthy"), and a status
-  // read when there's no fresh one. The open list is repainted whenever a read lands: a
-  // refresh of a read older than 5 minutes stays "ok" → "ok", so a state change can't be the test.
+  // A line only when the injury status is unavailable or loading (no tag isn't "healthy"); a
+  // status read when there's no fresh one. The open list is repainted whenever a read lands:
+  // a refresh of a read older than 5 minutes stays "ok" → "ok", so a state change can't be the test.
   function statusNoteHtml() {
-    var PS = statusOf();
-    if (!PS) return "";
-    return '<div class="ups-m-psr-basis ups-m-psr-inj">' + U.escapeHtml(PS.noteText(PS.screenWeek ? PS.screenWeek() : null, "Tap a player for both.")) + "</div>";
+    var PS = statusOf(), t = PS ? PS.noteText(PS.screenWeek ? PS.screenWeek() : null) : "";
+    return t ? '<div class="ups-m-psr-basis ups-m-psr-inj">' + U.escapeHtml(t) + "</div>" : "";
   }
   function loadStatus() {
     var PS = statusOf(), year = (M.state.ctx || {}).year;
@@ -317,8 +314,7 @@
       '<span class="pos ' + U.escapeHtml(r.group.toLowerCase()) + '">' + U.escapeHtml(r.group) + "</span>" +
       '<span class="body">' +
         '<span class="nm">' + U.escapeHtml(r.name) + "</span>" +
-        '<span class="sub">' + (r.team ? U.escapeHtml(r.team) + " · " : "") + ownerHtml(r) + "</span>" +
-        chipsHtml(r) +
+        '<span class="sub">' + chipsHtml(r) + (r.team ? U.escapeHtml(r.team) + " · " : "") + ownerHtml(r) + "</span>" +
       "</span>" +
       '<span class="num">' + ppg + rank + "</span>" +
     "</button>";
