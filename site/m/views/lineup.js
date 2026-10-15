@@ -413,19 +413,19 @@
   }
   function fmtAvg(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
 
-  // ── Injury status (Keith 2026-10-13: "I need to see a player's injury status") ──
-  // The app's ONE status loader (player_sheet.js UPS_MOBILE_PLAYER_STATUS), the same as
-  // Stats → Players, the player sheet and Live Scoring: Q / D / OUT from this week's
-  // OFFICIAL NFL injury report, IR / PUP / NFI / Suspended from MFL. MFL's own Q/D/Out
-  // aren't used (its export keeps them for weeks after they lapse). No chip never means
-  // "healthy": the note says when the report isn't out or couldn't be read. Q/D/OUT
-  // only from a report for the week this lineup is for.
+  // ── Injury status (Keith 2026-10-13: "I need to see a player's injury status"; rules
+  // 2026-10-14) ──
+  // The app's ONE status loader (player_sheet.js UPS_MOBILE_PLAYER_STATUS) and the ONE
+  // resolver (site/shared/injury_status.js), the same as the player sheet and desktop Game
+  // Day: MFL's current Q / D / OUT first, the official NFL report beside it (the tag when
+  // MFL has nothing; always in Details), IR / PUP from MFL, every tag naming its source and
+  // week ("MFL: Q (Wk 6)", "NFL: OUT (Wk 5 final)"), and both shown when they disagree.
+  // No chip never means "healthy": the note and Details say what each source has.
   var injWait = false;
   function PSx() { return window.UPS_MOBILE_PLAYER_STATUS || null; }
   function injSig() {
     var PS = PSx(); if (!PS) return "";
-    var r = PS.currentReport ? PS.currentReport() : {};
-    return PS.state() + ":" + r.state + ":" + (r.week || "") + ":" + (r.at || "");
+    return PS.state() + ":" + (PS._st ? PS._st.at : "");
   }
   function loadInjuries() {
     var PS = PSx();
@@ -437,69 +437,23 @@
       if (injSig() !== before) renderRoute();
     }, function () { injWait = false; });
   }
-  // The report's week vs this lineup's week: Q/D/OUT only when they match.
-  function injReport() {
-    var PS = PSx(); if (!PS || !PS.currentReport) return { state: "none" };
-    var r = PS.currentReport(), wk = parseInt(M.state.lineupWeek, 10) || 0;
-    if (r.state === "ok" && wk && r.week !== wk) return { state: "otherweek", week: r.week };
-    return r;
-  }
-  var GAME_CLS = { out: 1, d: 1, q: 1 };
-  var PRIOR_SHORT = { Out: "OUT", Doubtful: "D", Questionable: "Q" }, PRIOR_CLS = { Out: "out", Doubtful: "d", Questionable: "q" };
-  // Until his team's report for this week is out (the first one comes mid-week), his
-  // LAST final official designation, labeled with its week ("W5 OUT") and outlined, so
-  // it's never read as this week's (Keith 2026-10-13: "I need to see a player's
-  // injury status"). Source: the same official report, via the worker's `prior`.
-  function priorChip(p) {
-    return { t: "W" + p.week + " " + PRIOR_SHORT[p.status], cls: PRIOR_CLS[p.status] + " prior",
-      title: "Wk " + p.week + " injury report (final): " + p.status, prior: p };
-  }
-  function priorLine(p) {
-    return "Wk " + p.week + " injury report (final): " + p.status + (p.injury ? " — " + p.injury : "") +
-      ". Wk " + M.state.lineupWeek + "’s isn’t out yet for his team.";
-  }
+  // → { chips, lines, disagree, label } for this lineup's week.
   function injInfo(pid, team) {
-    var PS = PSx(); if (!PS) return { chips: [], report: "", roster: "" };
-    var i = PS.info(pid, team), rep = injReport(), wk = parseInt(M.state.lineupWeek, 10) || 0;
-    var chips = i.chips, report = i.report;
-    if (rep.state === "otherweek") {
-      // A current report for an EARLIER week than this lineup's (it lags the lineup
-      // week): its designations are last week's, so they're shown as such.
-      var older = rep.week < wk;
-      chips = i.chips.map(function (c) { return !GAME_CLS[c.cls] ? c : (older ? { t: "W" + rep.week + " " + c.t, cls: c.cls + " prior", title: c.title + " (final)" } : null); })
-        .filter(Boolean);
-      report = older ? "" : "The newest NFL injury report is Wk " + rep.week + ", not Wk " + wk + ".";
-      return { chips: chips, report: report, roster: i.roster, priorWeek: older ? rep.week : 0 };
-    }
-    var hasGame = chips.some(function (c) { return GAME_CLS[c.cls]; });
-    var p = !hasGame && PS.prior ? PS.prior(pid) : null;
-    if (p && wk && p.week < wk) return { chips: chips.concat([priorChip(p)]), report: priorLine(p), roster: i.roster, priorWeek: p.week };
-    return i;
+    var PS = PSx();
+    return PS && PS.resolve ? PS.resolve(pid, team, parseInt(M.state.lineupWeek, 10) || null) : { chips: [], lines: [], disagree: false, label: "" };
   }
   function injChipsHtml(pid, team) {
-    return injInfo(pid, team).chips.map(function (c) {
-      return '<span class="ups-m-inj-chip ' + c.cls + ' lu" title="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
-    }).join("");
+    var PS = PSx();
+    return PS && PS.resolvedChipsHtml ? PS.resolvedChipsHtml(injInfo(pid, team), "lu") : "";
   }
-  // The weeks of the last-week designations in the current read (for the note).
-  function injPriorWeeks() { var PS = PSx(); return PS && PS.priorWeeks ? PS.priorWeeks() : []; }
-  // " · OUT" for a dropdown choice (plain text).
+  // " · MFL: Q (Wk 6)" for a dropdown choice (plain text).
   function injOptText(pid, team) {
-    var ch = injInfo(pid, team).chips;
-    return ch.length ? "  ·  " + ch.map(function (c) { return c.t; }).join(" ") : "";
+    var IS = window.UPSInjuryStatus;
+    return IS ? IS.optText(injInfo(pid, team)) : "";
   }
   function injNoteText() {
-    var PS = PSx(); if (!PS) return "";
-    var rep = injReport(), wk = M.state.lineupWeek;
-    var st = PS.state();
-    if (st === "error") return "Injury status couldn’t be loaded. No tag doesn’t mean healthy.";
-    if (rep.state === "loading" || st === "idle" || st === "loading") return "Checking this week’s injury report…";
-    var pw = injPriorWeeks();
-    var marked = "“W" + pw.join("/W") + "”";
-    if (rep.state === "ok") return "Injury tags: NFL injury report Wk " + rep.week + "; IR/PUP from MFL." + (pw.length ? " Teams yet to report for Wk " + wk + " show last week’s final tags, marked " + marked + "." : " No tag: not on the report, or a bye.");
-    if (rep.state === "otherweek" && rep.week < (parseInt(wk, 10) || 0)) return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet, so Q/D/OUT tags are marked “W" + rep.week + "” (last week’s final report); IR/PUP from MFL.";
-    if (rep.state === "otherweek") return "Injury tags: Wk " + wk + "’s NFL report isn’t out yet (the newest is Wk " + rep.week + "), so no Q/D/OUT tags; IR/PUP from MFL. No tag doesn’t mean healthy.";
-    return "Injury tags: Wk " + (wk || "") + "’s NFL report isn’t out yet, so Q/D/OUT tags" + (pw.length ? " are last week’s final report, marked " + marked : " will show once it is") + "; IR/PUP from MFL. No tag doesn’t mean healthy.";
+    var PS = PSx();
+    return PS && PS.noteText ? PS.noteText(M.state.lineupWeek) : "";
   }
 
   // Compact, tappable matchup line (with a visible "Details" button) + the detail card.
@@ -517,12 +471,10 @@
       '<span class="ups-m-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
-    // His line from this week's report (on it or not), or last week's final one while
-    // his team's isn't out; otherwise the screen's injury note says so once, not on
-    // every card.
-    var pl = DATA.playerById(pid), inj = injInfo(pid, pl && pl.team);
-    if (inj.report && (injReport().state === "ok" || inj.priorWeek)) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.report) + '</div>');
-    if (inj.roster) rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(inj.roster) + '</div>');
+    // What MFL and the official NFL report each say about him, always (source + week on
+    // every line; a disagreement spelled out).
+    var pl = DATA.playerById(pid);
+    injInfo(pid, pl && pl.team).lines.forEach(function (l) { rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(l) + '</div>'); });
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
     var wx = wxText(mu.weather, mu.kickoff);
@@ -854,7 +806,8 @@
 
     var labelCls = slot.flex ? "pos flex" : "pos";
     var note = slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "";
-    if (currentRow) { var ic = injChipsHtml(currentRow.id, currentRow.team); if (ic) note += '<span class="inj">' + ic + '</span>'; }
+    var injRow = "";
+    if (currentRow) { var ic = injChipsHtml(currentRow.id, currentRow.team); if (ic) injRow = '<div class="ups-m-slot-lock-row ups-m-slot-inj">' + ic + '</div>'; }
     var selCls = "ups-m-slot-sel" + (filled ? "" : " empty");
     var emptyHint = cands.length ? "" : ' data-none="1"';
     var cur = current ? projFor(current) : null;
@@ -873,7 +826,7 @@
       '</div>' +
       '<select class="' + selCls + '" data-slot="' + U.escapeHtml(slot.id) + '"' + lockAttr + '>' + opts + '</select>' +
       projCell +
-    '</div>' + lockBadge + (current ? slotMatchupHtml(current) : "");
+    '</div>' + lockBadge + injRow + (current ? slotMatchupHtml(current) : "");
   }
 
   function renderSection(side, title, count, rows, draft, used) {

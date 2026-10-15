@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.14.3",
-  "label": "Lineup: About now says where the spread comes from (the current Vegas line from nflverse, the same as Stats → Vegas; blank when there's no line)."
+  "build": "2026.10.15.2",
+  "label": "Injury tags: MFL's status first (labeled MFL, with its expected return; dashed when that estimate has passed), the official NFL report beside it, both shown when they disagree. Same on Lineup, the player sheet and desktop Game Day."
 }

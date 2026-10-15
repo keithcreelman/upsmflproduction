@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.14.3";
+  var BUILD = "2026.10.15.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -268,7 +268,7 @@
 
   // ---------- State ----------
   var state = {
-    ctx: { leagueId: LEAGUE_ID_DEFAULT, year: String(new Date().getUTCFullYear()), embed: false },
+    ctx: { leagueId: LEAGUE_ID_DEFAULT, year: "", embed: false },   // year: set by fetchSeason (#1237), never the calendar
     league: null,
     franchises: [],
     viewerFranchiseId: "",
@@ -367,12 +367,11 @@
     var qs = new URLSearchParams(window.location.search);
     var leagueId = qs.get("L") || window.UPS_M_LEAGUE_ID || LEAGUE_ID_DEFAULT;
     var year = qs.get("YEAR") || qs.get("year") || window.UPS_M_YEAR || "";
-    if (!year) {
-      var now = new Date();
-      year = String(now.getUTCFullYear());
-    }
     state.ctx.leagueId = String(leagueId).replace(/\D/g, "") || LEAGUE_ID_DEFAULT;
-    state.ctx.year = String(year).replace(/\D/g, "") || String(new Date().getUTCFullYear());
+    // An explicit year is used as given. Otherwise there is none until fetchSeason(), the
+    // first step of loadAllData, reads the active season from the worker (#1237).
+    state.ctx.year = String(year).replace(/\D/g, "").slice(0, 4);
+    state.ctx.yearExplicit = !!state.ctx.year;
     // Embed mode: a stripped-down chrome for one-off deep links (e.g. the
     // desktop header's Add/Drop link) opened in their own tab. Left in the
     // URL on purpose (unlike MFL_USER_ID below, embed=1 is not sensitive) so
@@ -435,6 +434,35 @@
       } catch (e) {}
     }
   }
+
+  // ---------- Season (#1237) ----------
+  // The season comes from the worker's GET /api/active-season, never from the calendar. The
+  // worker decides from MFL alone (worker/src/league_year.js resolveActiveSeason): the old
+  // season stays until its last scheduled week is complete (2026: UPS Week 17, through the
+  // Monday Jan 4 night game) AND the new league is live, so creating 2027 early changes
+  // nothing. If the season can't be resolved, nothing loads and the screen says so (the
+  // load fails with seasonUnresolved); it never guesses a year. Asked once per app open.
+  var seasonSettled = false;
+  function fetchSeason() {
+    if (seasonSettled || state.ctx.yearExplicit) return Promise.resolve(state.ctx.year);
+    var fail = function (why) {
+      var e = new Error("Couldn’t tell which season is active from MFL (" + why + "), so nothing is shown. The app never guesses the season from the date.");
+      e.seasonUnresolved = true;
+      throw e;
+    };
+    return fetch(workerUrl("/api/active-season?L=" + encodeURIComponent(state.ctx.leagueId)), { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (j) {
+          var y = j && j.ok === true ? String(j.season || "") : "";
+          if (!/^\d{4}$/.test(y)) fail((j && (j.reason || j.error)) || ("HTTP " + r.status));
+          state.ctx.year = y;
+          state.ctx.seasonSource = String(j.source || "");
+          seasonSettled = true;
+          return y;
+        });
+      }, function () { fail("the worker couldn’t be reached"); });
+  }
+
   function getStoredMflUserId() {
     try {
       var v = window.localStorage && window.localStorage.getItem("ups_mfl_user_id");
@@ -486,7 +514,8 @@
   // derive salary for trade-acquired taxi players whose `drafted` field
   // only carries the trade year, not the original pick.
   function fetchHistoricalDraftIndex(curYear) {
-    var seasonInt = parseInt(curYear, 10) || (new Date().getUTCFullYear());
+    var seasonInt = parseInt(curYear, 10);
+    if (!(seasonInt > 0)) return Promise.resolve({});   // no season, no guess (#1237)
     var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
     var fetches = years.map(function (y) {
       return fetchJson(mflExportUrlForYear("draftResults", y))
@@ -592,7 +621,8 @@
   // - latestYearWithData lets the FA browser fall back to prior-season
   //   ranks without conflating years.
   function fetchAdvancedStatsLeaderboard(year) {
-    var seasonInt = parseInt(year, 10) || (new Date().getUTCFullYear());
+    var seasonInt = parseInt(year, 10);
+    if (!(seasonInt > 0)) return Promise.resolve({ byYear: {}, latestYearWithData: 0 });   // no season, no guess (#1237)
     var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
     var fetches = years.map(function (y) {
       return fetchAdvancedStatsLeaderboardForSeason(y).then(function (m) {
@@ -1173,7 +1203,8 @@
     // mid-flight to avoid applying the wrong team's notes.
     var startFid = state.viewerFranchiseId;
     state.loadingPromiseFid = startFid;
-    var p = Promise.all([
+    // The season first (from MFL, #1237): every read below uses state.ctx.year.
+    var p = fetchSeason().then(function () { return Promise.all([
       fetchJson(mflExportUrl("league")),
       fetchJson(mflExportUrl("rosters")),
       fetchJson(mflExportUrl("salaries")),
@@ -1227,7 +1258,7 @@
       fetch(workerUrl("/api/current-lineup-week"), { mode: "cors", credentials: "omit" })
         .then(function (r) { return r.ok ? r.json() : null; })
         .catch(function () { return null; })
-    ]).then(function (results) {
+    ]); }).then(function (results) {
       state.league = results[0];
       state.rosters = results[1];
       state.salaries = results[2];
@@ -3056,6 +3087,14 @@
       // without this the user has zero way out during the load window.
       if (state.ctx.embed) updateHeader();
       loadAllData().then(function () { renderRoute(); }).catch(function (e) {
+        if (e && e.seasonUnresolved) {
+          // #1237: no season, no data, no guess. Try again asks the worker again.
+          main.innerHTML = '<div class="ups-m-error" role="alert" id="ups-m-season-fail">' + escapeHtml(e.message) +
+            '<div style="margin-top:10px"><button type="button" class="ups-m-lineup-tool" id="ups-m-season-retry">Try again</button></div></div>';
+          var again = document.getElementById("ups-m-season-retry");
+          if (again) again.addEventListener("click", function () { state.loadingPromise = null; renderRoute(); });
+          return;
+        }
         main.innerHTML = '<div class="ups-m-error">Failed to load: ' + escapeHtml(e && e.message || String(e)) + '</div>';
       });
       return;
