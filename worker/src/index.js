@@ -24,7 +24,7 @@ import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
-import { resolveLiveLeagueYear } from "./league_year.js";
+import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
@@ -411,7 +411,11 @@ async function snapshotMflToR2(env, nowUtc) {
   const bucket = env.UPS_MFL_BACKUPS;
   if (!bucket) throw new Error("R2 binding UPS_MFL_BACKUPS missing");
   const leagueId = String(env.LEAGUE_ID || "74598");
-  const season = String(env.YEAR || nowUtc.getUTCFullYear());
+  // #1237: the ACTIVE season's league (never the calendar's: from Jan 1 that was a 2027 league that 404s while
+  // Week 17 is played in 2026's). Unresolved → no snapshot today, loudly (the callers log it).
+  const snapAct = await activeSeason(leagueId, env);
+  if (!snapAct.ok) throw new Error(`active season unresolved (${snapAct.reason}) — no snapshot under a guessed season`);
+  const season = snapAct.season;
   const y = nowUtc.getUTCFullYear();
   const m = String(nowUtc.getUTCMonth() + 1).padStart(2, "0");
   const d = String(nowUtc.getUTCDate()).padStart(2, "0");
@@ -1097,7 +1101,10 @@ async function processAuctionPoll(env, opts = {}) {
     }
   }
   const leagueId = String(env.LEAGUE_ID || "74598");
-  const season = Number(env.YEAR || new Date().getUTCFullYear());
+  // #1237: the ACTIVE season, never the calendar; unresolved → nothing polled or recorded this tick.
+  const pollAct = await activeSeason(leagueId, env);
+  if (!pollAct.ok) { console.error(`[auction-poll] SKIPPED: active season unresolved (${pollAct.reason})`); return { skipped: "season_unresolved", reason: pollAct.reason }; }
+  const season = Number(pollAct.season);
   const apiKey = String(env.MFL_APIKEY || "").trim();
 
   const baseUrl = `https://www48.myfantasyleague.com/${season}/export`;
@@ -3646,19 +3653,33 @@ const _faaAuctionStartUnix = async (env, season) => {
   }
 };
 
-// ── WHICH LEAGUE YEAR the */5 drop pipeline runs as ─────────────────────────
-// The LIVE MFL league year, never the calendar year: NFL Week 17 runs into January and MFL keeps last season's league
-// live until the rollover (the next year's league 404s until then) — see league_year.js. One bounded raw `TYPE=league`
-// read per year asked; no cookie (the export and its history are public). Unresolved → { ok: false }: run nothing.
-const _liveDropLeagueYear = (env, leagueId) => resolveLiveLeagueYear({
-  leagueId, nowMs: Date.now(), pinnedYear: env && env.YEAR,
-  readLeague: async (year) => {
-    const res = await fetchBounded(
-      `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1&_=${Date.now()}`,
-      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 0, cacheEverything: false } }, 8000);
-    return { status: res.status, text: await res.text() };
-  },
-});
+// ── WHICH SEASON the */5 drop pipeline runs as ──────────────────────────────
+// The ACTIVE season (league_year.js resolveActiveSeason, #1237), never the calendar year: the old season stays until
+// its own last week is PROVABLY final AND the new league is live, so a drop made in the 2026 league during Week 17
+// (Jan 1–5) is recorded as 2026 even if the 2027 league is created early (#1207 switched on the 2027 export alone).
+// Unresolved → { ok: false }: run nothing this tick. Kept per isolate for 10 minutes (1 minute while unresolved); a
+// completed season is remembered for good. Reads are public MFL exports, no cookie, bounded to 8 s each.
+const _activeSeasonMemo = new Map(), _seasonCompleteMemo = new Map();
+async function activeSeason(leagueId, env) {
+  const pin = String((env && env.YEAR) || "").replace(/\D/g, "");
+  if (pin) return { ok: true, season: pin, source: "env.YEAR" };   // the operator pin: no read, no memo
+  const lid = String(leagueId || "").replace(/\D/g, "") || "74598", now = Date.now();
+  const memo = _activeSeasonMemo.get(lid);
+  if (memo && now >= memo.at && now < memo.until) return memo.r;
+  const fetchImpl = (u, ttl) => fetchBounded(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: ttl } }, 8000);
+  const r = await resolveActiveSeason({ leagueId: lid, nowMs: now, completeMemo: _seasonCompleteMemo,
+    ...mflSeasonReaders({ leagueId: lid, fetchImpl }) });
+  _activeSeasonMemo.set(lid, { r, at: now, until: now + (r.ok ? 600e3 : 60e3) });
+  return r;
+}
+const _liveDropLeagueYear = (env, leagueId) => activeSeason(leagueId, env);
+// #1237: READ routes the phone and Game Day call without naming a season. A request that names none means the active
+// season, or answers 503 season_unresolved (never a calendar year). WRITE routes resolve it themselves, after their own
+// credential checks (_strictSeason in fetch()); the cron jobs use _tickSeason in scheduled().
+// #1237: /admin GET routes that WRITE (commit=1), so they get the active season like an /admin POST.
+const ADMIN_GET_WRITES = new Set(["/admin/sync-src-draft-picks"]);
+const ACTIVE_SEASON_PATHS = new Set(["/api/active-season", "/api/current-lineup-week", "/api/lineup", "/api/me", "/api/player-bundle",
+  "/api/trade-bait-notes", "/api/taxi-callups"]);
 
 // ── AUCTION-DATA TRUTH: MFL's completed-auction results (O=102) ────────────
 // The ONLY reliable "this auction really completed" signal, established on prod
@@ -7172,6 +7193,16 @@ export default {
   // Announcement for each (batched per-team). MFL's salaryAdjustments export
   // is the dedup ledger — runs are idempotent by ups_drop_penalty:{ledger_key}.
   async scheduled(event, env, ctx) {
+    // #1237: every job below that needs a season runs as the ACTIVE season (activeSeason: the old season until its last
+    // week is provably final AND the new league is live), never the calendar. Unresolved → that job is skipped this tick,
+    // loudly (the error lands in the job's own catch/log) and runs on the next tick that resolves. Memoized per isolate.
+    const _tickSeason = async (job) => {
+      const r = await activeSeason(String(env.LEAGUE_ID || "74598"), env);
+      if (r.ok) return r.season;
+      const e = new Error(`active season unresolved (${r.reason}) — ${job} SKIPPED this tick, nothing run under a guessed season`);
+      e.seasonUnresolved = true;
+      throw e;
+    };
     // ── Cloudflare-cron proof-of-life ──────────────────────────────────────
     // First thing, EVERY invocation, best-effort: stamp ups_bot_heartbeat
     // bot='cron_cf' so Commish Settings can tell "CF cron is alive" apart from
@@ -7316,7 +7347,6 @@ export default {
       // dropped_at_unix) + discord_posted flag, so re-running every 5 min
       // is cheap when there are no new drops.
       try {
-        const season = String(env.YEAR || new Date().getUTCFullYear());
         const leagueId = String(env.LEAGUE_ID || "74598");
         // Internal admin endpoints — invoked via env.SELF.fetch so
         // Cloudflare's workers.dev fetch-loop guard (error 1042) doesn't
@@ -7336,7 +7366,7 @@ export default {
         if (dropEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
-              // WHICH SEASON: the LIVE MFL league year (league_year.js), never `season` (the calendar year). NFL Week 17
+              // WHICH SEASON: the ACTIVE season (activeSeason, league_year.js), never `season` (the calendar year). NFL Week 17
               // runs into January and MFL keeps the 2026 league live until its rollover — 2027's exports 404 until then —
               // so from Jan 1 the calendar year scanned a league that doesn't exist and every drop made in the live one was
               // missed. Every route below records, prices (on that season's own week calendar) and posts as dropSeason; a
@@ -7346,7 +7376,7 @@ export default {
               // rows stay held (and listed by every drop route), and the recorder's 2-day lookback catches up once it resolves.
               const live = await _liveDropLeagueYear(env, leagueId);
               if (!live.ok) {
-                console.error(`[scheduled */5] drop-tracker SKIPPED: live MFL league year unresolved (${live.reason}) — nothing recorded, posted or charged this tick under a guessed season; retried every tick.`);
+                console.error(`[scheduled */5] drop-tracker SKIPPED: active season unresolved (${live.reason}) — nothing recorded, posted or charged this tick under a guessed season; retried every tick.`);
                 return;
               }
               const dropSeason = live.season;
@@ -7489,6 +7519,7 @@ export default {
         if (addEnabled && commishApiKey && env.UPS_MFL_DB && env.SELF) {
           ctx.waitUntil((async () => {
             try {
+              const season = await _tickSeason("add tracker");   // #1237
               const addScanRes = await env.SELF.fetch(
                 `${origin}/admin/adds/scan-and-record?L=${leagueId}&YEAR=${season}&APIKEY=${encodeURIComponent(commishApiKey)}`,
                 { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season, league_id: leagueId, days: 2 }) }
@@ -7678,7 +7709,7 @@ export default {
         // block, so this ledger crashed with a ReferenceError (swallowed by the
         // catch below) on EVERY 5-min tick since the refactor — found by the new
         // eslint no-undef gate, not by any runtime signal.
-        const season = String(env.YEAR || new Date().getUTCFullYear());
+        const season = await _tickSeason("transactions ledger");
         const leagueId = String(env.LEAGUE_ID || "74598");
         const origin = "https://self.invalid";
         const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
@@ -7724,7 +7755,7 @@ export default {
         if (env.UPS_MFL_DB) {
           ctx.waitUntil((async () => {
             try {
-              const fpSeason = String(env.YEAR || new Date().getUTCFullYear());
+              const fpSeason = await _tickSeason("lineup booking fast path");
               const fpLeague = String(env.LEAGUE_ID || "74598");
               const fpWeek = await _injuryPollWeek(fpSeason);
               if (!fpWeek) return;
@@ -7802,7 +7833,7 @@ export default {
           return;
         }
         const mode = etHour === 9 ? "morning" : "evening";
-        const season = String(env.YEAR || new Date().getUTCFullYear());
+        const season = await _tickSeason("fa nightly report");
         const leagueId = String(env.LEAGUE_ID || "74598");
         ctx.waitUntil((async () => {
           try {
@@ -7845,7 +7876,7 @@ export default {
     // nothing. Hourly is enough: the route waits out a 30-minute grace so a
     // War Room accept always settles its own trade first.
     try {
-      const tsSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const tsSeason = await _tickSeason("trade settlement sweep");
       const tsLeague = String(env.LEAGUE_ID || "74598");
       const tsKey = String(env.COMMISH_API_KEY || "").trim();
       if (tsKey && env.SELF && env.UPS_MFL_DB) {
@@ -7860,7 +7891,7 @@ export default {
           } catch (e) { console.log("[settlement-sweep] failed:", String(e?.message || e)); }
         })());
       }
-    } catch (_) { /* a sweep fault must never break the hourly cron */ }
+    } catch (e) { if (e && e.seasonUnresolved) console.error(`[scheduled hourly] settlement sweep: ${e.message}`); /* a sweep fault must never break the hourly cron */ }
 
     // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
     // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
@@ -7883,7 +7914,7 @@ export default {
       // env.YEAR / env.LEAGUE_ID, NOT the request-scoped YEAR / L — those are
       // parsed off the URL in fetch() and simply do not exist here. Same
       // pattern as every other job on this cron.
-      const injSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const injSeason = await _tickSeason("injury poll");
       const injLeague = String(env.LEAGUE_ID || "74598");
       if (env.UPS_MFL_DB) {
         ctx.waitUntil((async () => {
@@ -7976,7 +8007,7 @@ export default {
     if (env.UPS_MFL_DB) {
       ctx.waitUntil((async () => {
         try {
-          const irnSeason = String(env.YEAR || new Date().getUTCFullYear());
+          const irnSeason = await _tickSeason("IR native announce");
           const irnLeague = String(env.LEAGUE_ID || "74598");
           const db = env.UPS_MFL_DB;
 
@@ -8094,7 +8125,7 @@ export default {
     // poll is the one that must never be skipped, because its history cannot
     // be backfilled. These two can miss an hour and recover on the next tick.
     try {
-      const lcSeason = String(env.YEAR || new Date().getUTCFullYear());
+      const lcSeason = await _tickSeason("lineup DMs + violation booking");
       const lcLeague = String(env.LEAGUE_ID || "74598");
       if (env.UPS_MFL_DB) {
         ctx.waitUntil((async () => {
@@ -8195,7 +8226,7 @@ export default {
       if (inDraftWindow) {
         const dpKey = String(env.MFL_APIKEY || "").trim();
         const dpLeague = String(env.LEAGUE_ID || "74598");
-        const dpYr = parseInt(String(env.YEAR || new Date().getUTCFullYear()), 10) || new Date().getUTCFullYear();
+        const dpYr = parseInt(await _tickSeason("rookie draft-picks sync"), 10);   // #1237: unresolved → throws, skipped below
         if (dpKey && env.SELF && env.UPS_MFL_DB) {
           const dpSeasons = [dpYr, dpYr - 1, dpYr - 2, dpYr - 3];
           ctx.waitUntil((async () => {
@@ -8271,7 +8302,7 @@ export default {
         ctx.waitUntil((async () => {
           try {
             const leagueId = String(env.UPS_LEAGUE_ID || env.L || "74598");
-            const season = String(env.UPS_SEASON || new Date().getUTCFullYear());
+            const season = await _tickSeason("taxi call-up confirm");
             // Same self-fetch bug as the deadline-reminder sweep: a Worker cannot
             // fetch its own public workers.dev hostname (404). Must go through the
             // SELF service binding. Hostname is irrelevant for a service binding.
@@ -8380,7 +8411,7 @@ export default {
     // 14:05 UTC in EST) will deliver the reminder. The sweep is
     // idempotent — sentKeys dedup prevents double-sending.
     try {
-      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const season = await _tickSeason("deadline reminders");
       const leagueId = String(env.LEAGUE_ID || "74598");
       // ROOT CAUSE, found 2026-08-05 20:05Z. The dispatch marker below proved the
       // block WAS running and the fetch WAS happening — and returning **404**:
@@ -8447,7 +8478,7 @@ export default {
     // Drops every non-extended expired rookie (canon §A1 → ERA pool).
     // Idempotent: ups_deadline_lock_log row gates the action.
     try {
-      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const season = await _tickSeason("tag-deadline midnight lock");
       const leagueId = String(env.LEAGUE_ID || "74598");
       // Internal call — must go through the SELF service binding, not the public
       // hostname (a Worker fetching its own workers.dev URL 404s). Same bug that
@@ -8477,7 +8508,7 @@ export default {
     // First hourly cron at-or-after 6 AM ET day-after-deadline (= 10:00
     // UTC during EDT). DMs commish the locked tag contracts list.
     try {
-      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const season = await _tickSeason("tag-deadline 6 AM DM");
       const leagueId = String(env.LEAGUE_ID || "74598");
       // Internal call — must go through the SELF service binding, not the public
       // hostname (a Worker fetching its own workers.dev URL 404s). Same bug that
@@ -8534,9 +8565,24 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname || "/";
       const L = url.searchParams.get("L") || "";
-      const defaultSeason = String(new Date().getUTCFullYear());
       const pathYearMatch = String(path || "").match(/\/(\d{4})(?:\/|$)/);
-      const YEAR = String(
+      // #1237: a request that names its season (?YEAR=, a /YYYY/ path) uses it. On ACTIVE_SEASON_PATHS one that names
+      // none (?season=/?year= count as naming it there) means the ACTIVE season, never a calendar year, and answers 503
+      // season_unresolved when that can't be resolved. Every other route keeps its old default until it is moved too:
+      // the WRITE routes resolve the active season themselves (_strictSeason), the rest are read-only (#1289's list).
+      const namedSeason = String(url.searchParams.get("YEAR") || (pathYearMatch ? pathYearMatch[1] : "") || "").replace(/\D/g, "").slice(0, 4);
+      let defaultSeason = String(new Date().getUTCFullYear());
+      if (ACTIVE_SEASON_PATHS.has(path)) {
+        defaultSeason = String(namedSeason || url.searchParams.get("season") || url.searchParams.get("year") || "").replace(/\D/g, "").slice(0, 4);
+        const act = defaultSeason ? null : await activeSeason(L, env);
+        if (act && (!act.ok || path === "/api/active-season")) {
+          return new Response(JSON.stringify(act.ok ? { ok: true, season: act.season, source: act.source }
+            : { ok: false, error: "season_unresolved", reason: act.reason, note: "The active season couldn't be read from MFL; nothing was guessed. Name it with ?YEAR= to proceed." }),
+          { status: act.ok ? 200 : 503, headers: { "content-type": "application/json", "Cache-Control": "no-store", ...corsHeaders } });
+        }
+        if (act) defaultSeason = act.season;
+      }
+      let YEAR = String(   // narrowed below for /admin writes (#1237)
         url.searchParams.get("YEAR") ||
           (pathYearMatch ? pathYearMatch[1] : defaultSeason) ||
           defaultSeason
@@ -8569,6 +8615,28 @@ export default {
             headers: { "content-type": "application/json", ...corsHeaders },
           });
         }
+        // #1237: an /admin WRITE that names no season means the ACTIVE season, read only here, after the credential check
+        // above; never the calendar (which also made every handler's own "2026"/"2025"/calendar fallback after YEAR
+        // unreachable — they stay so). A season named in the URL (?YEAR=, /YYYY/) or the JSON body ("season"/"YEAR", four
+        // digits) is used as given. Unresolved → 503, nothing run. Admin GETs keep the old default (read-only diagnostics
+        // stay usable while MFL is down; #1289 lists them), except ADMIN_GET_WRITES.
+        if (!namedSeason && (!["GET", "HEAD", "OPTIONS"].includes(request.method) || ADMIN_GET_WRITES.has(path))) {
+          let bodySeason = "";
+          try {
+            const bj = await request.clone().json();
+            bodySeason = [bj && bj.season, bj && bj.YEAR].map((v) => String(v == null ? "" : v).trim()).find((v) => /^20\d\d$/.test(v)) || "";
+          } catch (_) { /* no JSON body */ }
+          if (bodySeason) YEAR = bodySeason;
+          else {
+            const adminAct = await activeSeason(L, env);
+            if (!adminAct.ok) {
+              return new Response(JSON.stringify({ ok: false, error: "season_unresolved", reason: adminAct.reason,
+                note: "The active season couldn't be read from MFL, so nothing was run. Name it with ?YEAR= to proceed." }),
+              { status: 503, headers: { "content-type": "application/json", "Cache-Control": "no-store", ...corsHeaders } });
+            }
+            YEAR = adminAct.season;
+          }
+        }
       }
 
       // ---------- App-view beacon (passive usage tracking, Keith 2026-07-18) ----------
@@ -8586,9 +8654,12 @@ export default {
           const fid = String(b.franchise_id || "").replace(/\D/g, "").padStart(4, "0").slice(-4) || "0000";
           const surface = String(b.surface || "unknown").slice(0, 40);
           const leagueId = String(b.league_id || L || "74598").replace(/\D/g, "") || "74598";
-          const season = (String(b.season || YEAR).match(/\d{4}/) || [defaultSeason])[0];
+          // #1237: the page's own season, a named one, or the active season; unresolved → not recorded (never the calendar).
+          let season = (String(b.season || namedSeason || "").match(/\d{4}/) || [""])[0];
+          if (!season) { const act = await activeSeason(leagueId, env); season = act.ok ? act.season : ""; }
           const day = new Date().toISOString().slice(0, 10);
-          if (env.UPS_MFL_DB) {
+          if (!season) console.warn("[app-view] not recorded: active season unresolved");
+          else if (env.UPS_MFL_DB) {
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_app_views (league_id, season, franchise_id, surface, day, hits, first_seen_utc, last_seen_utc)
                VALUES (?,?,?,?,?,1,datetime('now'),datetime('now'))
@@ -8946,7 +9017,7 @@ export default {
         const hit = commishProofCache.get(cacheKey);
         if (hit && nowMs - hit.ts < 10 * 60 * 1000) return { ok: hit.ok, reason: hit.ok ? "ok_session_cached" : "not_commish_cached" };
         const leagueIdArg = String(url.searchParams.get("L") || "74598");
-        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const yearArg = String(url.searchParams.get("YEAR") || YEAR);   // #1237: YEAR = the active season for an /admin write
         try {
           const commishSet = new Set(
             String(env.COMMISH_FRANCHISE_IDS || "0008").split(",")
@@ -9993,7 +10064,7 @@ export default {
 
         let body = {};
         try { body = (await request.json()) || {}; } catch (_) { body = {}; }
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const playerId = safeStr(body?.player_id || url.searchParams.get("player_id")).replace(/\D/g, "");
         const kind = safeStr(body?.kind || "init").toLowerCase();
@@ -10103,7 +10174,7 @@ export default {
         if (!authOk) return jsonOut(403, { error: "Need COMMISH_API_KEY or TEST_SYNC_API_KEY" });
         if (!env.UPS_MFL_DB) return jsonOut(500, { error: "UPS_MFL_DB missing" });
 
-        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const yearArg = String(url.searchParams.get("YEAR") || YEAR);   // #1237: YEAR = the active season for an /admin write
         const leagueId = String(url.searchParams.get("L") || "74598");
 
         // Find rows with all three ppg_* NULL.
@@ -10260,7 +10331,7 @@ export default {
         const mflCookie = String(env.MFL_COOKIE || "").trim();
         if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE missing" });
 
-        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const yearArg = String(url.searchParams.get("YEAR") || YEAR);   // #1237: YEAR = the active season for an /admin write
         const leagueId = String(url.searchParams.get("L") || "74598");
         const dryRun = (url.searchParams.get("dry_run") || "") === "1";
 
@@ -10285,7 +10356,7 @@ export default {
         const mflCookie = String(env.MFL_COOKIE || "").trim();
         if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE missing" });
 
-        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const yearArg = String(url.searchParams.get("YEAR") || YEAR);   // #1237: YEAR = the active season for an /admin write
         const leagueId = String(url.searchParams.get("L") || "74598");
         const dryRun = (url.searchParams.get("dry_run") || "") === "1";
 
@@ -10319,7 +10390,7 @@ export default {
         const mflCookie = String(env.MFL_COOKIE || "").trim();
         if (!mflCookie) return jsonOut(500, { error: "MFL_COOKIE missing" });
 
-        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const yearArg = String(url.searchParams.get("YEAR") || YEAR);   // #1237: YEAR = the active season for an /admin write
         const leagueArg = String(url.searchParams.get("L") || "74598");
         const oArg = String(url.searchParams.get("O") || "44").replace(/\D/g, "") || "44";
         const wantRaw = (url.searchParams.get("raw") || "") === "1";
@@ -10501,7 +10572,7 @@ export default {
       // with a manage link (delete is web-UI only).
       if (path === "/admin/auction/push-mfl-calendar" && request.method === "POST") {
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
-        const yearArg = String(url.searchParams.get("YEAR") || new Date().getUTCFullYear());
+        const yearArg = String(url.searchParams.get("YEAR") || YEAR);   // #1237: YEAR = the active season for an /admin write
         const leagueId = String(url.searchParams.get("L") || "74598");
         const commit = String(url.searchParams.get("commit") || "") === "1";
 
@@ -10718,7 +10789,7 @@ export default {
           try { rbody = (await request.json()) || {}; } catch (_) { rbody = {}; }
 
           const TEST_LEAGUE_ID = "25625";   // NEVER prod (74598) — hardcoded on purpose
-          const simSeason = safeStr(rbody?.season || url.searchParams.get("YEAR") || YEAR || "");
+          const simSeason = safeStr(rbody?.season || namedSeason || "");
           // Default: Patrick Mahomes (MFL 13116) — a real id, so the players
           // export resolves a real name/POS/team in the rendered copy.
           const simPid = (safeStr(rbody?.player_id || url.searchParams.get("player_id")) || "13116").replace(/\D/g, "");
@@ -12664,7 +12735,10 @@ export default {
         // this; I reintroduced it in the same handler. Fourth TDZ in this file.
         const _preNum = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
         const lbPreSeason = seasons.length === 1 ? _preNum(seasons[0]) : 0;
-        const lbCurSeason = _preNum(YEAR) || new Date().getUTCFullYear();
+        // #1237: the CURRENT season is the active one (named YEAR, else MFL), never the calendar. Unknown → every
+        // requested season is treated as possibly current: freshness proof required, 5-minute cache.
+        const lbAct = namedSeason ? { ok: true, season: namedSeason } : await activeSeason(L || "74598", env);
+        const lbCurSeason = lbAct.ok ? _preNum(lbAct.season) : lbPreSeason;
         // The CURRENT season is now eligible too (it was `< lbCurSeason`). A
         // completed season is frozen, so storing it raised no freshness
         // question; the live season changes every time the ETL lands a week, so
@@ -13700,7 +13774,7 @@ export default {
           // zone error that 500s the whole endpoint. Shipped exactly that on
           // 2026-08-24 and caught it verifying the deploy.
           const _lbNum = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : 0; };
-          const lbCurrentSeason = _lbNum(YEAR) || new Date().getUTCFullYear();
+          const lbCurrentSeason = lbAct.ok ? _lbNum(lbAct.season) : 0;   // 0 = unknown → nothing counts as completed
           const lbAllCompleted = seasons.length > 0 &&
             seasons.every((sn) => _lbNum(sn) > 0 && _lbNum(sn) < lbCurrentSeason);
           const lbTtl = lbAllCompleted ? 2592000 : 300;   // 30d vs 5m
@@ -15351,6 +15425,18 @@ export default {
       };
       const _rdhLeagueId = () => safeStr(L || "74598");
       const _rdhYear = () => safeStr(YEAR || String(new Date().getUTCFullYear()));
+      // #1237: the season a WRITE means. A named one (?YEAR=, /YYYY/) as given; otherwise the ACTIVE season, never the
+      // calendar; unresolved → { res: 503 } and the write fails closed. Called by each write route AFTER its own
+      // credential check, so a request without credentials still gets its 401/403 and costs no MFL read.
+      const _strictSeason = async (given) => {
+        const g = String(given == null ? "" : given).trim();
+        if (/^20\d\d$/.test(g)) return { season: g };
+        if (namedSeason) return { season: namedSeason };
+        const act = await activeSeason(L || _rdhLeagueId(), env);
+        return act.ok ? { season: act.season } : { res: jsonOut(503, { ok: false, error: "season_unresolved", status: "season_unresolved", reason: act.reason,
+          message: "Couldn't tell which season is active from MFL, so nothing was changed. Try again in a moment.",
+          note: "The active season couldn't be read from MFL, so nothing was written. Name it with ?YEAR= to proceed." }) };
+      };
       const _rdhCommishFids = () => {
         // Commish allowlist (Keith 2026-06-06: only 0008 + 0000, NOT 0001):
         //   0008 — Keith / Real Deal Creel (actual UPS commish team)
@@ -15634,9 +15720,10 @@ export default {
       // to the substring before the first '='. Symptom: "not a member of
       // league NNNN" because MFL looked up the truncated token + missed.
       const _rdhMflCookieValue = (mflUserId) => encodeURIComponent(String(mflUserId || ""));
-      const _rdhDetectFranchise = async (mflUserId) => {
+      const _rdhDetectFranchise = async (mflUserId, seasonOverride) => {
         const leagueId = _rdhLeagueId();
-        const year = _rdhYear();
+        // #1237: a season (four digits) checks that season's myleagues. resolveTradeCaller passes the LEAGUE id second — not a season.
+        const year = /^20\d\d$/.test(String(seasonOverride || "")) ? String(seasonOverride) : _rdhYear();
         try {
           // MFL routes export endpoints exclusively through api.myfantasyleague.com.
           // Hitting www48.myfantasyleague.com returns:
@@ -16423,7 +16510,7 @@ export default {
         let body = {};
         try { body = await request.json(); } catch (_) {}
         const scopeLeagueId = safeStr(body?.league_id || L || "");
-        const scopeSeason = safeStr(body?.season || YEAR || "");
+        const scopeSeason = safeStr(body?.season || body?.year || namedSeason || "");
         const scopeWeek = body?.week != null ? Number(body.week) : null;
         const dryRun = body?.dry_run === true || body?.dry_run === 1;
         if (!scopeLeagueId || !scopeSeason) {
@@ -16652,7 +16739,12 @@ export default {
       if (path === "/api/submit-lineup" && request.method === "POST") {
         try {
           const leagueId = _rdhLeagueId();
-          const year = _rdhYear();
+          // #1237: never a calendar year for a lineup write. The active season (or the one named) is read only for a
+          // caller with credentials; one without gets the same 400/401 below and costs no MFL read.
+          const credPresent = !!(((request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i) || [])[1] || browserMflUserId);
+          const ssLineup = credPresent ? await _strictSeason() : { season: "" };
+          if (ssLineup.res) return ssLineup.res;
+          const year = ssLineup.season;
           let body = {};
           try { body = await request.json(); } catch (_) {}
           const fidReq = _rdhPadFid(safeStr(body.franchiseId || body.franchise_id || ""));
@@ -16684,6 +16776,7 @@ export default {
           let weekResolveError = "";
           let weekSourceDetail = "";
           try {
+            if (!year) throw new Error("no credentials, so no season was resolved");
             const resolved = await resolveCurrentLineupWeek(year, leagueId);
             if (resolved.week > 0) {
               weekCurrent = String(resolved.week);
@@ -16723,7 +16816,7 @@ export default {
           if (!mflUserId) {
             return jsonOut(401, { ok: false, error: "MFL_USER_ID cookie required (sign in to MFL first)", ...weekDiag });
           }
-          const det = await _rdhDetectFranchise(mflUserId);
+          const det = await _rdhDetectFranchise(mflUserId, year);
           if (det && det.error) return jsonOut(401, { ok: false, error: det.error, ...weekDiag });
           if (!det || _rdhPadFid(det.franchise_id) !== fidReq) {
             return jsonOut(403, {
@@ -17016,7 +17109,7 @@ export default {
       if (path === "/api/submit-trade-bait" && request.method === "POST") {
         try {
           const leagueId = _rdhLeagueId();
-          const year = _rdhYear();
+          let year = "";   // #1237: resolved below, after the credential check (_strictSeason), never the calendar
           let body = {};
           try { body = await request.json(); } catch (_) {}
           const fidReq = _rdhPadFid(safeStr(body.franchiseId || body.franchise_id || ""));
@@ -17062,7 +17155,10 @@ export default {
           if (!mflUserId) {
             return jsonOut(401, { ok: false, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
           }
-          const det = await _rdhDetectFranchise(mflUserId);
+          const ssBait = await _strictSeason();
+          if (ssBait.res) return ssBait.res;
+          year = ssBait.season;
+          const det = await _rdhDetectFranchise(mflUserId, year);
           if (det && det.error) return jsonOut(401, { ok: false, error: det.error });
           if (!det || _rdhPadFid(det.franchise_id) !== fidReq) {
             return jsonOut(403, {
@@ -22186,7 +22282,9 @@ const mflToSleeper = {};
         const silenceDiscord = body.silence_discord === true || body.silenceDiscord === true;
         if (!fid || !playerId) return jsonOut(400, { error: "franchise_id and player_id required" });
         const leagueId = _rdhLeagueId();
-        const year = _rdhYear();
+        const ssDraft = await _strictSeason();   // #1237: never the calendar for a write
+        if (ssDraft.res) return ssDraft.res;
+        const year = ssDraft.season;
 
         // Verify franchise is on the clock + figure out the slot.
         let onClockRound = null, onClockSlot = null;
@@ -22477,7 +22575,9 @@ const mflToSleeper = {};
         const apiKey = safeStr(env.MFL_APIKEY || "");
         if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
         const leagueId = _rdhLeagueId();
-        const year = _rdhYear();
+        const ssDraft = await _strictSeason();   // #1237: never the calendar for a write
+        if (ssDraft.res) return ssDraft.res;
+        const year = ssDraft.season;
         const importUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeProposal&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
         const form = new URLSearchParams();
         form.set("FRANCHISE_ID", fromFid);
@@ -22677,7 +22777,9 @@ const mflToSleeper = {};
         const apiKey = safeStr(env.MFL_APIKEY || "");
         if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
         const leagueId = _rdhLeagueId();
-        const year = _rdhYear();
+        const ssDraft = await _strictSeason();   // #1237: never the calendar for a write
+        if (ssDraft.res) return ssDraft.res;
+        const year = ssDraft.season;
         const dryRun = body.dry_run === true;
 
         // Fetch current draftResults so we can preserve R1-R5 ownership.
@@ -22850,7 +22952,9 @@ const mflToSleeper = {};
         const apiKey = safeStr(env.MFL_APIKEY || "");
         if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
         const leagueId = _rdhLeagueId();
-        const year = _rdhYear();
+        const ssDraft = await _strictSeason();   // #1237: never the calendar for a write
+        if (ssDraft.res) return ssDraft.res;
+        const year = ssDraft.season;
 
         // Reuse asset-id translator from /api/trade
         const _toMflAsset = (a) => {
@@ -36821,8 +36925,7 @@ const mflToSleeper = {};
             ""
         );
         const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+          namedSeason ||
             body.season ||
             body.year ||
             context.season ||
@@ -36951,9 +37054,9 @@ const mflToSleeper = {};
             context.leagueId ||
             ""
         );
-        const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+        // #1237: a named season (?YEAR=, then the report's own), else the ACTIVE season; never the calendar.
+        let season = safeStr(
+          namedSeason ||
             body.season ||
             body.year ||
             context.season ||
@@ -36961,7 +37064,11 @@ const mflToSleeper = {};
             ""
         );
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
-        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        if (!season) {
+          const ssBug = await _strictSeason();
+          if (ssBug.res) return ssBug.res;
+          season = ssBug.season;
+        }
 
         const moduleName = safeStr(body.module || body.screen || "other").toLowerCase();
         const issueType = safeStr(body.issue_type || body.type || "other").toLowerCase();
@@ -37584,7 +37691,10 @@ const mflToSleeper = {};
         const allowSet = new Set(allowCsv.split(",").map((x) => padFranchiseId(x)).filter((x) => x && x !== "0000"));
         const allowed = (w) => !allowSet.size || allowSet.has(padFranchiseId(w.from_franchise_id)) || allowSet.has(padFranchiseId(w.to_franchise_id));
         const mode = safeStr(url.searchParams.get("mode") || "full");
-        const season = String(env.YEAR || new Date().getUTCFullYear());
+        // #1237: the ACTIVE season (never the calendar); unresolved → nothing checked or revoked this tick.
+        const tsAct = namedSeason ? { ok: true, season: namedSeason } : await activeSeason(String(env.LEAGUE_ID || "74598"), env);
+        if (!tsAct.ok) return jsonOut(503, { ok: false, error: "season_unresolved", reason: tsAct.reason });
+        const season = tsAct.season;
         const leagueId = String(env.LEAGUE_ID || "74598");
         const tickNowIso = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
         const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -38636,11 +38746,26 @@ const mflToSleeper = {};
           return map;
         },
       };
+      // #1237: the season a trade-module WRITE means when the request names none (?YEAR=/season=, /YYYY/, body "season"):
+      // the ACTIVE season, never the calendar. The modules (trade_authz.js) authenticate the caller themselves, so this reads
+      // MFL only for a request that carries credentials; one with none keeps the old default and gets the module's own 401
+      // before anything is written (the default season is never used for a refused request). Reads keep YEAR.
+      const _tradeModuleSeason = async () => {
+        if (["GET", "HEAD", "OPTIONS"].includes(request.method) || namedSeason || url.searchParams.get("season")) return { season: YEAR };
+        let bodySeason = "";
+        try { const bj = await request.clone().json(); bodySeason = safeStr(bj && bj.season); } catch (_) { /* no JSON body */ }
+        if (bodySeason) return { season: YEAR };
+        const cookieTok = ((request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i) || [])[1];
+        if (!browserMflUserId && !cookieTok && !safeStr(url.searchParams.get("APIKEY"))) return { season: YEAR };
+        return _strictSeason();
+      };
       if (path === "/api/trades/3way" || path.startsWith("/api/trades/3way/")) {
         const cookieMatch3w = (request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i);
+        const ss3w = await _tradeModuleSeason();
+        if (ss3w.res) return ss3w.res;
         const resp3w = await handle3WayHttp({
           request, url, path, env, ctx, corsHeaders,
-          defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR,
+          defaultLeagueId: _rdhLeagueId(), defaultSeason: ss3w.season,
           browserMflUserId, cookieMflUserId: (cookieMatch3w && cookieMatch3w[1]) || "",
           deps: threeWayDeps,
         });
@@ -38654,9 +38779,11 @@ const mflToSleeper = {};
       // carry no 3-way-specific assumption), so it's reused here rather than duplicated.
       if (path === "/api/trades/2way" || path.startsWith("/api/trades/2way/")) {
         const cookieMatch2ws = (request.headers.get("Cookie") || "").match(/MFL_USER_ID=([^;]+)/i);
+        const ss2w = await _tradeModuleSeason();
+        if (ss2w.res) return ss2w.res;
         const resp2ws = await handle2WayStagedHttp({
           request, url, path, env, ctx, corsHeaders,
-          defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR,
+          defaultLeagueId: _rdhLeagueId(), defaultSeason: ss2w.season,
           browserMflUserId, cookieMflUserId: (cookieMatch2ws && cookieMatch2ws[1]) || "",
           deps: threeWayDeps,
         });
@@ -38680,7 +38807,7 @@ const mflToSleeper = {};
         let body = null;
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
         const leagueId = safeStr(body?.league_id || L || "");
-        const season = safeStr(body?.season || YEAR || "");
+        const season = safeStr(body?.season || body?.year || namedSeason || "");
         if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing league_id/season." });
         const declaredFid = padFranchiseId(body?.from_franchise_id || "");
         const previewAuth = await tradeCaller(body, declaredFid);
@@ -38920,7 +39047,7 @@ const mflToSleeper = {};
         let body = null;
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
         const leagueId = safeStr(body?.league_id || L || "");
-        const season = safeStr(body?.season || YEAR || "");
+        const season = safeStr(body?.season || body?.year || namedSeason || "");
         const extReqs = Array.isArray(body?.extension_requests) ? body.extension_requests : [];
         if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing league_id/season." });
         if (!extReqs.length) return jsonOut(200, { ok: true, applied: 0, reason: "no_extension_requests" });
@@ -38939,7 +39066,7 @@ const mflToSleeper = {};
         let body = null;
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
         const leagueId = safeStr(body?.league_id || L || "");
-        const season = safeStr(body?.season || YEAR || "");
+        const season = safeStr(body?.season || body?.year || namedSeason || "");
         if (!leagueId || !season) return jsonOut(400, { ok: false, error: "Missing league_id/season." });
         const movements = (Array.isArray(body?.movements) ? body.movements : []).map((m) => ({
           from: m && m.from, to: m && m.to,
@@ -38959,7 +39086,7 @@ const mflToSleeper = {};
 
         const payload = body?.payload && typeof body.payload === "object" ? body.payload : null;
         const leagueId = safeStr(body?.league_id || payload?.league_id || L || "");
-        const season = safeStr(body?.season || payload?.season || YEAR || "");
+        let season = safeStr(body?.season || payload?.season || namedSeason || "");   // #1237: none → the active season, after the caller is proven
         const fromFranchiseId = padFranchiseId(body?.from_franchise_id || payload?.ui?.left_team_id || "");
         const toFranchiseId = padFranchiseId(body?.to_franchise_id || payload?.ui?.right_team_id || "");
         const offerId = safeStr(body?.offer_id || body?.proposal_id || body?.id || "");
@@ -38971,7 +39098,6 @@ const mflToSleeper = {};
         const directMfl = true;
 
         if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
-        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
         if (!fromFranchiseId) return jsonOut(400, { ok: false, error: "from_franchise_id is required" });
         if (!toFranchiseId) return jsonOut(400, { ok: false, error: "to_franchise_id is required" });
         if (fromFranchiseId === toFranchiseId) return jsonOut(400, { ok: false, error: "Teams must be different" });
@@ -38980,6 +39106,11 @@ const mflToSleeper = {};
         // there is no fallback to the commissioner cookie for an ordinary owner request.
         const proposeAuth = await tradeCaller(body, fromFranchiseId);
         if (!proposeAuth.ok) return tradeDeny(proposeAuth);
+        if (!season) {   // #1237: none named → the ACTIVE season, read only now that the caller is proven; never the calendar
+          const ssPropose = await _strictSeason();
+          if (ssPropose.res) return ssPropose.res;
+          season = ssPropose.season;
+        }
         if (proposeAuth.caller.fid !== fromFranchiseId) return tradeForbidden("You can only send an offer as your own team.");
         if (proposeAuth.caller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
         if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
@@ -39685,7 +39816,7 @@ const mflToSleeper = {};
         }
 
         const leagueId = safeStr(body?.league_id || L || "");
-        const season = safeStr(body?.season || YEAR || "");
+        let season = safeStr(body?.season || body?.year || namedSeason || "");   // #1237: none → the active season, after the caller is proven
         const offerId = safeStr(body?.offer_id || body?.proposal_id);
         const action = offerStatusNormalized(body?.action, "");
         const actingFranchiseId = padFranchiseId(body?.acting_franchise_id || body?.franchise_id || "");
@@ -39757,7 +39888,6 @@ const mflToSleeper = {};
           : [];
 
         if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
-        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
 
         // Identity: a PROVEN caller. acting_franchise_id / franchise_id in the body is only a
         // claim of who to act as (honoured for the commissioner alone); there is no fallback to
@@ -39766,6 +39896,11 @@ const mflToSleeper = {};
         if (!actionAuth.ok) return tradeDeny(actionAuth);
         const actionCaller = actionAuth.caller;
         if (actionCaller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
+        if (!season) {   // #1237: none named → the ACTIVE season, read only now that the caller is proven; never the calendar
+          const ssAction = await _strictSeason();
+          if (ssAction.res) return ssAction.res;
+          season = ssAction.season;
+        }
 
         if (directMfl) {
           if (!viewerCookieHeader) {
@@ -41554,7 +41689,7 @@ const mflToSleeper = {};
         const replayGate = await tradeAdminGate(body);
         if (replayGate.deny) return replayGate.deny;
         const leagueId = safeStr(body?.league_id || L || "");
-        const season = safeStr(body?.season || YEAR || "");
+        const season = safeStr(body?.season || body?.year || namedSeason || "");
         const outboxId = safeStr(body?.outbox_id);
         const tradeId = safeStr(body?.trade_id || body?.mfl_trade_id || "").replace(/\D/g, "");
         const payloadHash = safeStr(body?.payload_hash);
@@ -41879,7 +42014,9 @@ const mflToSleeper = {};
         const reconcileGate = await tradeAdminGate(body);
         if (reconcileGate.deny) return reconcileGate.deny;
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "");
-        const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const ssRecon = await _strictSeason(safeStr(body?.season || body?.YEAR || ""));   // #1237: never the calendar
+        if (ssRecon.res) return ssRecon.res;
+        const season = ssRecon.season;
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
         if (reconcileGate.caller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
@@ -42123,7 +42260,9 @@ const mflToSleeper = {};
       }
 
       if (path === "/acquisition-hub/rookie-draft/action" && request.method === "POST") {
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a write needs its season named (every live caller sends ?YEAR=); none → refused, never the calendar.
+        const season = namedSeason;
+        if (!season) return jsonNoStore(400, { ok: false, error: "season_required", message: "Name the season with ?YEAR= — it is never guessed." });
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         let body = {};
@@ -42189,7 +42328,9 @@ const mflToSleeper = {};
       }
 
       if (path === "/acquisition-hub/rookie-draft/reconcile-contracts" && request.method === "POST") {
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a write needs its season named (every live caller sends ?YEAR=); none → refused, never the calendar.
+        const season = namedSeason;
+        if (!season) return jsonNoStore(400, { ok: false, error: "season_required", message: "Name the season with ?YEAR= — it is never guessed." });
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         const adminState = await getLeagueAdminState(leagueId, season);
@@ -42298,7 +42439,9 @@ const mflToSleeper = {};
       }
 
       if (path === "/acquisition-hub/free-agent-auction/action" && request.method === "POST") {
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a write needs its season named (every live caller sends ?YEAR=); none → refused, never the calendar.
+        const season = namedSeason;
+        if (!season) return jsonNoStore(400, { ok: false, error: "season_required", message: "Name the season with ?YEAR= — it is never guessed." });
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         let body = {};
@@ -42366,7 +42509,9 @@ const mflToSleeper = {};
       }
 
       if (path === "/acquisition-hub/expired-rookie-auction/action" && request.method === "POST") {
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a write needs its season named (every live caller sends ?YEAR=); none → refused, never the calendar.
+        const season = namedSeason;
+        if (!season) return jsonNoStore(400, { ok: false, error: "season_required", message: "Name the season with ?YEAR= — it is never guessed." });
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         let body = {};
@@ -42406,7 +42551,9 @@ const mflToSleeper = {};
       // Owner identity rides the forwarded MFL_USER_ID (→ viewerCookieHeader);
       // body.auction_type picks free-agent (FA Auction) vs expired-rookie (ERA).
       if ((path === "/api/auction/bid" || path === "/api/auction/nominate") && request.method === "POST") {
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a write needs its season named (every live caller sends ?YEAR=); none → refused, never the calendar.
+        const season = namedSeason;
+        if (!season) return jsonNoStore(400, { ok: false, error: "season_required", message: "Name the season with ?YEAR= — it is never guessed." });
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
         const nativeLink = `https://www48.myfantasyleague.com/${season}/options?LEAGUE_ID=${leagueId}&O=43`;
@@ -42542,7 +42689,7 @@ const mflToSleeper = {};
         const s = String(v == null ? "" : v).trim().toLowerCase();
         return s === "1" || s === "true" || s === "yes" || s === "y";
       };
-      const _wvSeason = () => safeStr(YEAR || env.YEAR || new Date().getUTCFullYear());
+      // #1237: callers name the season; one that doesn't gets the active season (_strictSeason) or a 503, never the calendar.
       const _wvLeague = () => safeStr(L || env.LEAGUE_ID || "74598");
 
       // The in-app write switch is per-LEAGUE, not global.
@@ -44034,7 +44181,9 @@ const mflToSleeper = {};
       // cookie is present — a small viewer block with the caller's
       // pending-claim counts under the same known/rounds contract as §1.
       if (path === "/api/waivers/state" && request.method === "GET") {
-        const wvSeason = _wvSeason();
+        const wvSs = await _strictSeason();
+        if (wvSs.res) return wvSs.res;
+        const wvSeason = wvSs.season;
         const wvLeagueId = _wvLeague();
         const nowUnix = Math.floor(Date.now() / 1000);
         // Edge-cache the PUBLIC payload only. The viewer block is per-owner, so
@@ -44406,7 +44555,9 @@ const mflToSleeper = {};
       // "empty" become the same thing again — which is the bug this contract
       // exists to kill. mfl_status / mfl_response carry the real upstream detail.
       if (path === "/api/waivers/pending" && request.method === "GET") {
-        const wvSeason = _wvSeason();
+        const wvSs = await _strictSeason();
+        if (wvSs.res) return wvSs.res;
+        const wvSeason = wvSs.season;
         const wvLeagueId = _wvLeague();
         if (!_wvOwnerCookieHeader) {
           return jsonNoStore(401, {
@@ -44466,7 +44617,7 @@ const mflToSleeper = {};
       //
       // Body: { franchise_id, rounds:[{round,picks:[{add_pid,bid_dollars,drop_pid}]}], dry_run? }
       if (path === "/api/waivers/bbid-plan" && request.method === "POST") {
-        const wvSeason = _wvSeason();
+        let wvSeason = namedSeason;   // #1237: none named → the active season, resolved after the owner-session check below
         const wvLeagueId = _wvLeague();
         let wbody = {};
         try { wbody = (await request.json()) || {}; } catch (_) { wbody = {}; }
@@ -44481,7 +44632,7 @@ const mflToSleeper = {};
           return jsonNoStore(503, {
             ok: false,
             error: "waivers_inapp_disabled",
-            native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+            native_link: _wvNativeAddDropLink(wvSeason || YEAR, wvLeagueId),   // a link only
           });
         }
         if (!_wvOwnerCookieHeader) {
@@ -44491,7 +44642,12 @@ const mflToSleeper = {};
             message: "Missing MFL owner session — refresh the page so the client forwards your MFL_USER_ID, then retry.",
           });
         }
-        const det = await _rdhDetectFranchise(_wvViewerMflUserId);
+        if (!wvSeason) {   // #1237: the ACTIVE season, read only for a caller with an owner session; never the calendar
+          const wvSs = await _strictSeason();
+          if (wvSs.res) return wvSs.res;
+          wvSeason = wvSs.season;
+        }
+        const det = await _rdhDetectFranchise(_wvViewerMflUserId, wvSeason);
         const detFid = padFranchiseId(det && det.franchise_id);
         if (!detFid) {
           return jsonNoStore(401, { ok: false, error: "MISSING_VIEWER_COOKIE", detail: safeStr(det && det.error) });
@@ -44988,7 +45144,7 @@ const mflToSleeper = {};
       //
       // Body: { franchise_id, add_pid, drop_pids?:[pid], dry_run? }
       if (path === "/api/waivers/fcfs" && request.method === "POST") {
-        const wvSeason = _wvSeason();
+        let wvSeason = namedSeason;   // #1237: none named → the active season, resolved after the owner-session check below
         const wvLeagueId = _wvLeague();
         let fbody = {};
         try { fbody = (await request.json()) || {}; } catch (_) { fbody = {}; }
@@ -44999,7 +45155,7 @@ const mflToSleeper = {};
           return jsonNoStore(503, {
             ok: false,
             error: "waivers_inapp_disabled",
-            native_link: _wvNativeAddDropLink(wvSeason, wvLeagueId),
+            native_link: _wvNativeAddDropLink(wvSeason || YEAR, wvLeagueId),   // a link only
           });
         }
         if (!_wvOwnerCookieHeader) {
@@ -45009,7 +45165,12 @@ const mflToSleeper = {};
             message: "Missing MFL owner session — refresh the page so the client forwards your MFL_USER_ID, then retry.",
           });
         }
-        const fdet = await _rdhDetectFranchise(_wvViewerMflUserId);
+        if (!wvSeason) {   // #1237: the ACTIVE season, read only for a caller with an owner session; never the calendar
+          const wvSs = await _strictSeason();
+          if (wvSs.res) return wvSs.res;
+          wvSeason = wvSs.season;
+        }
+        const fdet = await _rdhDetectFranchise(_wvViewerMflUserId, wvSeason);
         const fcfsDetFid = padFranchiseId(fdet && fdet.franchise_id);
         if (!fcfsDetFid) {
           return jsonNoStore(401, { ok: false, error: "MISSING_VIEWER_COOKIE", detail: safeStr(fdet && fdet.error) });
@@ -47247,7 +47408,9 @@ const mflToSleeper = {};
       }
 
       if (path === "/acquisition-hub/admin/refresh" && request.method === "POST") {
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a write needs its season named (every live caller sends ?YEAR=); none → refused, never the calendar.
+        const season = namedSeason;
+        if (!season) return jsonNoStore(400, { ok: false, error: "season_required", message: "Name the season with ?YEAR= — it is never guessed." });
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         const adminState = await getLeagueAdminState(leagueId, season);
         if (!adminState.ok || !adminState.isAdmin) {
@@ -48535,7 +48698,7 @@ const mflToSleeper = {};
           ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
           had_api_key: !!sessionByApiKey,
         };
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const dryRun = !!body?.dry_run;
         const rows = Array.isArray(body?.rows) ? body.rows : [];
@@ -48832,7 +48995,7 @@ const mflToSleeper = {};
           ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
           had_api_key: !!sessionByApiKey,
         };
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         // Default to dry_run=true. Caller must explicitly pass false to commit.
         const dryRun = body?.dry_run === false ? false : true;
@@ -49099,7 +49262,7 @@ const mflToSleeper = {};
         if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const dryRun = !!body?.dry_run;
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
@@ -49257,7 +49420,7 @@ const mflToSleeper = {};
         if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const deleteMarker = body?.delete_marker !== false;
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
@@ -49675,9 +49838,10 @@ const mflToSleeper = {};
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const target = safeStr(body?.target || "test").toLowerCase();
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "season required (body season or ?YEAR=)" });   // #1237: never the calendar
         const limit = Math.max(1, Math.min(50, safeInt(body?.limit, 20)));
         const dryRun = !!body?.dry_run;
         // Repost/correct mode: given specific event ids, delete their old Discord
@@ -52658,7 +52822,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const dryRun = !!body?.dry_run;
         const limit = safeInt(body?.limit, 0);
@@ -53160,7 +53324,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const days = Math.max(1, Math.min(90, safeInt(body?.days, 7)));
         const dryRun = !!body?.dry_run;
@@ -53832,7 +53996,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
         if (!env.UPS_MFL_DB) return jsonOut(500, { ok: false, error: "UPS_MFL_DB missing" });
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const explicitPids = Array.isArray(body?.player_ids) ? body.player_ids.map((x) => String(x).replace(/\D/g, "")).filter(Boolean) : [];
         const explicitFidMap = body?.franchise_ids_map && typeof body.franchise_ids_map === "object" ? body.franchise_ids_map : {};
@@ -54283,7 +54447,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const channelId = safeStr(body?.channel_id || body?.channelId || "").replace(/\D/g, "") ||
           contractDiscordPrimaryChannelId();
@@ -54611,7 +54775,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         if (!sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
-        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const targetSeason = safeStr(body?.season || namedSeason || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const dryRun = !!body?.dry_run;
         const limit = safeInt(body?.limit, 0);
@@ -55903,8 +56067,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ""
         );
         const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+          namedSeason ||
             body.season ||
             body.year ||
             ""
@@ -56005,8 +56168,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ""
         );
         const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+          namedSeason ||
             body.season ||
             body.year ||
             ""
@@ -57767,8 +57929,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ""
         );
         const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+          namedSeason ||
             body.season ||
             body.year ||
             ""
@@ -57902,8 +58063,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ""
         );
         const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+          namedSeason ||
             body.season ||
             body.year ||
             ""
@@ -58015,8 +58175,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             ""
         );
         const season = safeStr(
-          url.searchParams.get("YEAR") ||
-            YEAR ||
+          namedSeason ||
             body.season ||
             body.year ||
             ""
@@ -58145,7 +58304,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           body = {};
         }
 
-        const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        // #1237: a named season as given; none → the ACTIVE season (the credential gate above has run), never the calendar.
+        const ssRwb = await _strictSeason(safeStr(body?.season || body?.YEAR || ""));
+        if (ssRwb.res) return ssRwb.res;
+        const season = ssRwb.season;
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "");
         const action = safeStr(body?.action || url.searchParams.get("action")).toLowerCase();
         const playerId = String(body?.player_id || url.searchParams.get("player_id") || "").replace(/\D/g, "");
@@ -59478,8 +59640,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const season = safeStr(
           body?.season ||
             body?.YEAR ||
-            url.searchParams.get("YEAR") ||
-            YEAR ||
+            namedSeason ||
             ""
         );
         const tradeId = safeStr(
@@ -59686,7 +59847,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         }
 
         const leagueId = String(L || "").trim();
-        const year = String(YEAR || new Date().getUTCFullYear()).trim();
+        let year = String(namedSeason || YEAR).trim();   // the admin check reads with it; the dispatched season is strict (below)
         const adminState = await getLeagueAdminState(leagueId, year);
         if (!adminState.ok) {
           return new Response(
@@ -59710,6 +59871,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           );
         }
 
+        if (!namedSeason) {   // #1237: none named → the ACTIVE season, after the admin check; never the calendar
+          const ssMymJson = await _strictSeason();
+          if (ssMymJson.res) return ssMymJson.res;
+          year = ssMymJson.season;
+        }
         const dispatchOut = await dispatchRepoEvent("refresh-mym-json", {
           league_id: leagueId,
           year,
@@ -59777,7 +59943,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         }
 
         const leagueId = String(L || body.L || body.leagueId || "").trim();
-        const year = String(YEAR || body.YEAR || body.year || "").trim();
+        // #1237: the season named (?YEAR=, /YYYY/, then the body's YEAR/year); none → the ACTIVE season once the caller is
+        // proven below; never the calendar (it used to outrank the body's season).
+        let year = String(namedSeason || body.YEAR || body.year || "").trim();
         const playerId = String(body.player_id || body.playerId || "").trim();
         const playerName = String(body.player_name || body.playerName || "").trim();
         const franchiseId = String(body.franchise_id || body.franchiseId || "").trim();
@@ -59816,6 +59984,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           contractCaller = contractCallerRes.caller;
         }
         const contractCallerIsCommish = sessionByApiKey || !!(contractCaller && contractCaller.isCommish);
+        if (!/^20\d\d$/.test(year)) {   // #1237: none (or not a season) named → the ACTIVE season, read only now; never the calendar
+          const ssContract = await _strictSeason();
+          if (ssContract.res) return ssContract.res;
+          year = ssContract.season;
+        }
 
         // Untag lock (Keith 2026-06-01): the TAG label locks at the tag deadline
         // (canon §C8.2 + processTagDeadlineMidnightLock). An untag submission past

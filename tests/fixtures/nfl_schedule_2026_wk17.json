@@ -1,0 +1,119 @@
+{
+ "_about": "MFL export?TYPE=nflSchedule&W=17 for 2026 (api.myfantasyleague.com), read 2026-10-14. UPS Week 17 = NFL Week 17, played by all 12 teams. Kickoffs are unix seconds (UTC).",
+ "season": 2026,
+ "week": 17,
+ "games": [
+  {
+   "kickoff": 1798766100,
+   "teams": [
+    "BAL",
+    "CIN"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "BUF",
+    "MIA"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "DEN",
+    "NEP"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "MIN",
+    "NYJ"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "IND",
+    "CLE"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "PIT",
+    "TEN"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "WAS",
+    "JAC"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "KCC",
+    "LAC"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "NYG",
+    "DAL"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "LAR",
+    "TBB"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "NOS",
+    "ATL"
+   ]
+  },
+  {
+   "kickoff": 1798999200,
+   "teams": [
+    "SEA",
+    "CAR"
+   ]
+  },
+  {
+   "kickoff": 1799010300,
+   "teams": [
+    "LVR",
+    "ARI"
+   ]
+  },
+  {
+   "kickoff": 1799011500,
+   "teams": [
+    "DET",
+    "CHI"
+   ]
+  },
+  {
+   "kickoff": 1799025600,
+   "teams": [
+    "PHI",
+    "SFO"
+   ]
+  },
+  {
+   "kickoff": 1799111700,
+   "teams": [
+    "HOU",
+    "GBP"
+   ]
+  }
+ ]
+}

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.14.3",
-  "label": "Lineup: About now says where the spread comes from (the current Vegas line from nflverse, the same as Stats → Vegas; blank when there's no line)."
+  "build": "2026.10.15.1",
+  "label": "The app's season comes from MFL, never the calendar: it stays on 2026 until the last game of UPS Week 17 is provably final (clock at 0 and both teams' points posted), even if the 2027 league is created early, and moves to 2027 only once the 2027 league is live. If the season can't be read, the app says so instead of guessing (#1237)."
 }

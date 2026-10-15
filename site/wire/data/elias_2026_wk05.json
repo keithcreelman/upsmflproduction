@@ -1,0 +1,258 @@
+{
+ "allplayChanged": false,
+ "allplayChanges": [],
+ "checkedAtUtc": "2026-10-15T12:21:36Z",
+ "games": [
+  {
+   "a": "0003",
+   "after": [
+    161.1,
+    272.5
+   ],
+   "b": "0008",
+   "before": [
+    161.1,
+    271.5
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0002",
+   "after": [
+    211.4,
+    272.5
+   ],
+   "b": "0008",
+   "before": [
+    211.4,
+    271.5
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0008",
+   "after": [
+    272.5,
+    261.5
+   ],
+   "b": "0010",
+   "before": [
+    271.5,
+    261.5
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0005",
+   "after": [
+    190.7,
+    280.5
+   ],
+   "b": "0009",
+   "before": [
+    190.7,
+    280.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0004",
+   "after": [
+    268.4,
+    280.5
+   ],
+   "b": "0009",
+   "before": [
+    268.4,
+    280.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0006",
+   "after": [
+    223.9,
+    280.5
+   ],
+   "b": "0009",
+   "before": [
+    223.9,
+    280.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  }
+ ],
+ "officialChanges": [
+  {
+   "from": 2.0,
+   "game": "Cleveland Browns at New York Jets",
+   "player": "Sam Kamara",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 4.0,
+   "game": "Cleveland Browns at New York Jets",
+   "player": "Adin Huntington",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 0.0,
+   "game": "New York Giants at Washington Commanders",
+   "player": "Tyrone Tracy",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Fumbles",
+   "to": 1.0
+  },
+  {
+   "from": 0.0,
+   "game": "New York Giants at Washington Commanders",
+   "player": "Colson Yankoff",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Forced Fumbles",
+   "to": 1.0
+  },
+  {
+   "from": 0.0,
+   "game": "Chicago Bears at Green Bay Packers",
+   "player": "Brenton Cox",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 1.0
+  },
+  {
+   "from": 2.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Alex Singleton",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 4.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Ja'Quan McMillian",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 3.0
+  },
+  {
+   "from": 1.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Ja'Quan McMillian",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 0.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Eyioma Uwazurike",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 1.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Zach Allen",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 3.0
+  },
+  {
+   "from": 1.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Jonah Elliss",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 0.0
+  },
+  {
+   "from": 0.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Jonah Elliss",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 0.0,
+   "game": "Denver Broncos at Los Angeles Chargers",
+   "player": "Daiyan Henley",
+   "publishedText": "Wed Oct 14 11:12:15 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 1.0
+  }
+ ],
+ "players": [
+  {
+   "after": 10.5,
+   "before": 9.5,
+   "delta": 1.0,
+   "elias": [
+    {
+     "from": 1.0,
+     "stat": "Quarterback Hits",
+     "to": 3.0
+    }
+   ],
+   "fid": "0008",
+   "pid": "14153",
+   "player": "Zach Allen",
+   "status": "starter"
+  },
+  {
+   "after": 7.5,
+   "before": 7.0,
+   "delta": 0.5,
+   "elias": [
+    {
+     "from": 2.0,
+     "stat": "Assists",
+     "to": 3.0
+    }
+   ],
+   "fid": "0009",
+   "pid": "14412",
+   "player": "Alex Singleton",
+   "status": "starter"
+  }
+ ],
+ "published": [
+  "Wed Oct 14, 11:12 PM ET"
+ ],
+ "rankChanges": [],
+ "resultsFlipped": 0,
+ "season": 2026,
+ "teams": [
+  {
+   "after": 272.5,
+   "before": 271.5,
+   "delta": 1.0,
+   "fid": "0008"
+  },
+  {
+   "after": 280.5,
+   "before": 280.0,
+   "delta": 0.5,
+   "fid": "0009"
+  }
+ ],
+ "week": 5
+}

@@ -132,12 +132,82 @@ def withhold(chat):
     return chat
 
 
-def gather(season, week, now=None, chat_since=None, pack=None):
+def load_forecast(season, week, data_dir):
+    """The week's forecast files, compacted (Builder A, Keith 2026-10-14: "odds can never
+    silently disappear"). None for a file that does not exist -- the issue then shows a
+    blocker box instead of a Playoff Picture, never an empty space."""
+    sim_p = os.path.join(data_dir, "season_sim_%d_live_wk%02d.json" % (season, week))
+    prev_p = os.path.join(data_dir, "week_preview_%d_wk%02d.json" % (season, week + 1))
+    out = {"simFile": os.path.basename(sim_p), "previewFile": os.path.basename(prev_p), "sim": None, "preview": None}
+    if os.path.exists(sim_p):
+        s = json.load(open(sim_p, encoding="utf-8"))
+        out["sim"] = {"throughWeek": s.get("throughWeek"), "runs": s.get("runs"), "seed": s.get("seed"),
+                      "generatedAtUtc": s.get("generatedAtUtc"),
+                      "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
+                                                   "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
+                                                   "division": t["division"]} for t in s["teams"]}}
+    if os.path.exists(prev_p):
+        q = json.load(open(prev_p, encoding="utf-8"))
+        # Each team's Week N+1 scenario cells, summed: the same simulated seasons as the sim, so these
+        # must equal the sim's counts exactly (the issue blocks the odds when they do not).
+        totals = {}
+        for fid, sc in (q.get("weekScenarios") or {}).items():
+            cells = sc.get("cells") or []
+            totals[fid] = {"cells": len(cells), **{k: sum(int(c.get(k) or 0) for c in cells)
+                                                   for k in ("runs", "playoff", "division", "bye")}}
+        out["preview"] = {"week": q.get("week"), "throughWeek": q.get("throughWeek"), "generatedAtUtc": q.get("generatedAtUtc"),
+                          "runs": q.get("runs"), "seed": q.get("seed"),
+                          "inputsAtUtc": ((q.get("model") or {}).get("cutoffs") or {}).get("rostersProjectionsInjuries"),
+                          "scenarioTotals": totals}
+    return out
+
+
+HISTORY_FIRST_AP = 2017      # all-play history: the 12-team era with the playoff bracket the API serves
+HISTORY_FIRST_WINS = 2021    # win-total history: three head-to-head games a week (13 decisions through Week 5)
+
+
+def season_history(season, week):
+    """Builder B: this season's weeks 1..N (scores, best possible lineups, results) and every past
+    season's weeks 1..N, plus who made each past playoff field. Nothing after week N of any past
+    season is read, so the history describes the same point in a season. `season IN (...)` lists
+    keep D1 on the (season, week, ...) primary key: measured 2026-10-14 for Week 5, rows_read
+    60 / 156 (this season) and 558 / 790 (history) for 60 / 156 / 540 / 780 rows returned."""
+    past_ap = ",".join(str(s) for s in range(HISTORY_FIRST_AP, int(season)))
+    past_w = ",".join(str(s) for s in range(HISTORY_FIRST_WINS, int(season)))
+    out = {"week": int(week), "firstAp": HISTORY_FIRST_AP, "firstWins": HISTORY_FIRST_WINS}
+    out["seasonScores"] = D.d1(
+        "SELECT week, franchise_id, team_score, team_opt_pts FROM src_franchise_weekly_score WHERE season = %d AND week <= %d "
+        "AND COALESCE(is_playoff,0) = 0" % (int(season), int(week)))
+    out["seasonGames"] = D.d1(
+        "SELECT week, franchise_id, opponent_franchise_id, result FROM src_schedule WHERE season = %d AND week <= %d "
+        "AND COALESCE(is_playoff,0) = 0" % (int(season), int(week)))
+    out["pastScores"] = D.d1(
+        "SELECT season, week, franchise_id, team_score FROM src_franchise_weekly_score WHERE season IN (%s) AND week <= %d "
+        "AND COALESCE(is_playoff,0) = 0" % (past_ap, int(week))) if past_ap else []
+    out["pastResults"] = D.d1(
+        "SELECT season, franchise_id, result FROM src_schedule WHERE season IN (%s) AND week <= %d "
+        "AND COALESCE(is_playoff,0) = 0" % (past_w, int(week))) if past_w else []
+    out["made"] = {}
+    for s in range(HISTORY_FIRST_AP, int(season)):
+        seeds = (_get(WORKER + "/api/playoff-bracket?YEAR=%d" % s) or {}).get("seeds") or []
+        field = sorted(x["franchise_id"] for x in seeds if x.get("path") != "HAWK")
+        if len(field) != 6:
+            raise RuntimeError("playoff field for %d has %d teams, expected 6" % (s, len(field)))
+        out["made"][str(s)] = field
+    return out
+
+
+def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, history=False):
     """The snapshot. `chat_since` (unix) starts the Coffee Shop window; default = the
-    previous issue's publishedAt from the repo index, else the week's first kickoff."""
+    previous issue's publishedAt from the repo index, else the week's first kickoff.
+    `data_dir` (the job's site/wire/data) adds the week's forecast as ctx["forecast"]."""
     now = int(now or datetime.now(timezone.utc).timestamp())
     ctx = {"season": int(season), "week": int(week), "gatheredAtUtc": iso(now), "mfl": {}, "d1": {}, "site": {}}
     ctx["timing"] = week_timing(season, week)
+    if data_dir:
+        ctx["forecast"] = load_forecast(int(season), int(week), data_dir)
+    if history:
+        ctx["history"] = season_history(int(season), int(week))
 
     # ---- MFL: the source of truth for the live season
     wr = _get(MFL % (season, "weeklyResults", "&W=%d" % week))["weeklyResults"]
