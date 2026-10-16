@@ -93,7 +93,7 @@ function makeDb() {
   const subCols = "id INTEGER, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, submitted_at_utc TEXT, dry_run INTEGER";
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
   // 17052: a 2026 rookie on his 2nd of 3 call-ups, never on an active roster at a season's end → his cut stays cap-free (§D2)
-  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0)");
+  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT, nfl_week INTEGER)");
   db.raw.exec("INSERT INTO ups_taxi_callups (player_id, pending) VALUES ('17052', 0), ('17052', 0)");
   db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
   db.raw.exec(`INSERT INTO ups_settings (key, value) VALUES ('taxi_prior_active_2026', '["16000"]')`);
@@ -194,7 +194,7 @@ test("5. every drop path counts weeks with _completedWeeksForDrop — the new-dr
   t.match(SRC, /const rcWeekAuthority = await _completedWeeksForDrop\(rs, leagueId, Number\(r\.dropped_at_unix\) \|\| 0\);/);
   t.match(SRC, /const weekAuthority = await _completedWeeksForDrop\(apSeason, apLeagueId, ts\);/);
   t.equal((SRC.match(/_completedWeeksAtLiveRule\(/g) || []).length, 2, "the definition and its one caller, _completedWeeksForDrop");
-  t.match(SRC, /taxiNeverPromoted: sc\.taxiNeverPromoted\[safeStr\(r\.player_id\)\],/, "the recompute passes the call-up status");
+  t.match(SRC, /taxiNeverPromoted: \(await _taxiNeverPromotedMap\(env, \[safeStr\(r\.player_id\)\], \{ season: rs, leagueId, atUnix: Number\(r\.dropped_at_unix\) \|\| 0 \}\)\)/, "the recompute passes the call-up status, as of the drop");
 });
 
 await run("drop_scan_prices_at_drop_instant");

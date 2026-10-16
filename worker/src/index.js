@@ -50366,12 +50366,8 @@ const mflToSleeper = {};
         const rowSeasonOf = (r) => safeStr(r && r.season) || targetSeason;
         const seasonInputs = {};
         const seasonCtx = (season) => (seasonInputs[season] = seasonInputs[season] || (async () => {
-          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), txs: [], acqUnresolved: false, taxiNeverPromoted: {} };
+          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), txs: [], acqUnresolved: false };
           if (!recompute) return ctx;
-          //   - taxiNeverPromoted — the call-up status the recorder priced with (_taxiNeverPromotedMap). Without it a recompute
-          //     re-priced a taxi call-up's $0 cut by the normal formula and wrote that charge; "unresolved" now leaves the
-          //     row untouched (week_authority_unresolved → skipped below).
-          ctx.taxiNeverPromoted = await _taxiNeverPromotedMap(env, rows.filter((r) => rowSeasonOf(r) === season).map((r) => safeStr(r.player_id)), { season, leagueId });
           if (rows.some((r) => rowSeasonOf(r) === season && _nflWeekForUnix(Number(r.dropped_at_unix) || 0, season) > 0)) {
             try {
               const rcTxRes = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
@@ -50413,7 +50409,10 @@ const mflToSleeper = {};
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
-                taxiNeverPromoted: sc.taxiNeverPromoted[safeStr(r.player_id)],
+                // The call-up status the recorder priced with (_taxiNeverPromotedMap), as of THIS drop (a call-up week counts
+                // from his game's kickoff). Without it a recompute re-priced a taxi call-up's $0 cut by the normal formula and
+                // wrote that charge; "unresolved" leaves the row untouched (week_authority_unresolved → skipped below).
+                taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [safeStr(r.player_id)], { season: rs, leagueId, atUnix: Number(r.dropped_at_unix) || 0 }))[safeStr(r.player_id)],
               }, { season: rs, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
                    acquisitionWeek: _acquisitionWeekAsOf(sc.txs, rs, r.player_id, Number(r.dropped_at_unix) || 0),
                    acquisitionWeekUnresolved: sc.acqUnresolved });
