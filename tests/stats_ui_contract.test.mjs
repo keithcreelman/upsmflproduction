@@ -1,14 +1,18 @@
 // The Stats UI contract on the desktop Player Stats page (docs/STATS_UI_CONTRACT.md; Keith
-// 2026-10-15). Two parts:
-//   A. the contract's static rules, read from the page: stat groups per position (Fantasy points
-//      first, at most 8 numbers, every column defined, points per game only in Fantasy points),
-//      Sched Δ / Opp ±% never colored, American spelling, the order of the screen.
+// 2026-10-15, and his first-principles review the same day: docs/STATS_DESKTOP_REVIEW.md). Three parts:
+//   A. the contract's static rules, read from the page: stat groups per position (Scoring first,
+//      box-score groups as volume, at most 8 numbers, every column defined, PPG only in Scoring),
+//      one schedule measure (Opp. allowed, never colored; Sched Δ off the page), American
+//      spelling, the order of the screen.
 //   B. the REAL page script (site/stats_workbench/stats_workbench.html) run in node:vm on a tree
 //      DOM, fed a trimmed copy of production's own 2025 answers (tests/fixtures/
 //      stats_workbench_2025.json, read 2026-10-15 by GET): every position × every stat group,
-//      each default sort both ways ("—" last), every window, one season, an old season, two
-//      seasons together, More filters, compare mode, keyboard sorting, the drawer, the count,
-//      Custom columns, and not one non-GET request.
+//      each default sort both ways ("—" last), About for each, every window, one season, an old
+//      season, two seasons together, More filters, compare mode, keyboard sorting, the drawer,
+//      the count, Custom columns.
+//   C. Table · Heatmap · Scatter (switching asks the server nothing), the Fantasy team select,
+//      the status banner's causes (older server ≠ unpublished ≠ stored copy ≠ request failure ≠
+//      source limit ≠ no match), Reset, the About dialog — and not one non-GET request.
 //   node tests/stats_ui_contract.test.mjs
 import fs from "node:fs";
 import vm from "node:vm";
@@ -45,20 +49,27 @@ const SG = (() => {
     "\nthis.out = JSON.stringify({ STAT_GROUPS: STAT_GROUPS, MAX: STAT_GROUP_MAX, SG_SRC: SG_SRC, SRC: SRC, colSrc: Object.keys(COLS_FOR_SRC).reduce(function (o, k) { o[k] = colSource(k); return o; }, {}) });", ctx);
   return JSON.parse(ctx.out);   // (copied into this realm: deepStrictEqual compares prototypes)
 })();
+// (ids kept for old links; on screen: Scoring · Opportunity · … · Efficiency · Red zone · Consistency · Schedule)
 const WANT_GROUPS = {
-  qb: ["fantasy", "usage", "passing", "rushing", "redzone", "nextgen", "boom", "schedule"],
-  rb: ["fantasy", "usage", "rushing", "receiving", "redzone", "nextgen", "boom", "schedule"],
-  wr: ["fantasy", "usage", "receiving", "rushing", "redzone", "nextgen", "boom", "schedule"],
-  te: ["fantasy", "usage", "receiving", "redzone", "nextgen", "boom", "schedule"],
-  flex_o: ["fantasy", "usage", "rushing", "receiving", "redzone", "boom", "schedule"],
+  qb: ["fantasy", "usage", "passing", "rushing", "efficiency", "redzone", "boom", "schedule"],
+  rb: ["fantasy", "usage", "rushing", "receiving", "efficiency", "redzone", "boom", "schedule"],
+  wr: ["fantasy", "usage", "receiving", "efficiency", "redzone", "boom", "schedule"],
+  te: ["fantasy", "usage", "receiving", "efficiency", "redzone", "boom", "schedule"],
+  flex_o: ["fantasy", "usage", "rushing", "receiving", "efficiency", "redzone", "boom", "schedule"],
   dl: ["fantasy", "usage", "idp", "boom", "schedule"], lb: ["fantasy", "usage", "idp", "boom", "schedule"],
   db: ["fantasy", "usage", "idp", "boom", "schedule"], flex_idp: ["fantasy", "usage", "idp", "boom", "schedule"],
   pk: ["fantasy", "kicking", "boom", "schedule"], pn: ["fantasy", "punting", "boom", "schedule"],
 };
 console.log("A. the contract's static rules");
-await check("every position has its stat groups, Fantasy points first and the default (contract §2)", () => {
+await check("every position has its stat groups, Scoring first and the default (contract §2)", () => {
   assert.deepStrictEqual(Object.keys(SG.STAT_GROUPS).sort(), TAB_IDS.slice().sort());
   for (const t of TAB_IDS) assert.deepStrictEqual(SG.STAT_GROUPS[t].map((g) => g.id), WANT_GROUPS[t], t);
+  for (const t of TAB_IDS) assert.deepStrictEqual([SG.STAT_GROUPS[t][0].label, SG.STAT_GROUPS[t][1].label, SG.STAT_GROUPS[t].slice(-2)[0].label, SG.STAT_GROUPS[t].slice(-1)[0].label],
+    ["Scoring", t === "pk" || t === "pn" ? SG.STAT_GROUPS[t][1].label : "Opportunity", "Consistency", "Schedule"], t);
+  for (const t of ["qb", "rb", "wr", "te", "flex_o"]) {
+    const box = SG.STAT_GROUPS[t].filter((g) => ["passing", "rushing", "receiving"].includes(g.id));
+    for (const g of box) assert.ok(!g.cols.some((k) => /pct|per_|ypa|adot|ngs_|_rate|share/.test(k)), t + "/" + g.id + " is volume only (rates live in Efficiency)");
+  }
 });
 await check("at most 8 numbers per group; every column exists, is a number, has a label and a one-line definition; no duplicates", () => {
   assert.strictEqual(SG.MAX, 8);
@@ -74,23 +85,33 @@ await check("at most 8 numbers per group; every column exists, is a number, has 
     assert.ok(SG.SRC[t][g.id].length >= 1, t + "/" + g.id + " names a source");
   }
 });
-await check("sources: whole-season ones say so; Sched Δ / Opp ±% are the Pts Agst engine; snaps, play-by-play and PFR per game are told apart (contract §6)", () => {
+await check("sources: whole-season ones say so; Opp. allowed is the Pts Agst engine; snaps, play-by-play and PFR per game are told apart (contract §6)", () => {
   const src = SG.colSrc;
   for (const k of ["receiving_adot", "receiving_drop_pct", "ybc_per_a", "yac_per_a"]) assert.strictEqual(src[k], "pfrs", k);
   for (const k of ["ngs_sep", "ngs_tt", "ngs_ryoe_pa"]) assert.strictEqual(src[k], "ngs", k);
   assert.match(SG.SG_SRC.pfrs, /whole season, not the weeks chosen/); assert.match(SG.SG_SRC.ngs, /whole season, not the weeks chosen/);
-  assert.deepStrictEqual(["mfl_points_sos", "mfl_sched_opp", "mfl_points", "pos_rank", "cons_boom", "off_snap_rate", "def_pressures", "rush_brtkl", "targets_i20", "punt_net_avg", "fg_made"].map((k) => src[k]),
-    ["sched", "sched", "mfl", "mfl", "cons", "snaps", "pfr", "pfr", "pbp", "pbp", "box"]);
+  assert.deepStrictEqual(["mfl_sched_opp", "mfl_points", "pos_rank", "cons_boom", "off_snap_rate", "def_pressures", "rush_brtkl", "targets_i20", "punt_net_avg", "fg_made"].map((k) => src[k]),
+    ["sched", "mfl", "mfl", "cons", "snaps", "pfr", "pfr", "pbp", "pbp", "box"]);
   for (const k of Object.keys(COLS)) assert.ok(k === "player_name" || SG.SG_SRC[src[k]], k + " has a named source");
 });
 await check("points per game only in Fantasy points (never beside box-score or schedule numbers)", () => {
   for (const t of TAB_IDS) for (const g of SG.STAT_GROUPS[t]) if (g.id !== "fantasy") assert.ok(!g.cols.includes("mfl_ppg"), t + "/" + g.id);
 });
-await check("Sched Δ and Opp ±% are never colored: no heat, no best/worst, signed text (contract §8)", () => {
-  for (const k of ["mfl_points_sos", "mfl_sched_opp"]) { assert.strictEqual(COLS[k].noHeat, true, k); assert.ok(!COLS[k].cls, k + " has no class"); }
-  assert.match(SCRIPT, /if \(!def\.num \|\| def\.noHeat\) return;/, "heat skips them");
-  assert.match(SCRIPT, /numericVals\.length > 1 && !def\.noHeat\)/, "compare's best/worst skips them");
-  for (const t of TAB_IDS) assert.deepStrictEqual(SG.STAT_GROUPS[t].find((g) => g.id === "schedule").cols.filter((k) => /sos|sched/.test(k)), ["mfl_points_sos", "mfl_sched_opp"], t);
+await check("one schedule measure, Opp. allowed, only in Schedule; Sched Δ is off the owner page; never colored (contract §2, §10)", () => {
+  assert.ok(!COLS.mfl_points_sos, "Sched Δ is not a column on this page (the API keeps it)");
+  assert.strictEqual(COLS.mfl_sched_opp.noHeat, true); assert.ok(!COLS.mfl_sched_opp.cls, "no class");
+  assert.match(SCRIPT, /if \(!def\.num \|\| def\.noHeat\) return;/, "heat skips it");
+  assert.match(SCRIPT, /numericVals\.length > 1 && !def\.noHeat\)/, "compare's best/worst skips it");
+  for (const t of TAB_IDS) {
+    for (const g of SG.STAT_GROUPS[t]) assert.deepStrictEqual(g.cols.filter((k) => /sos|sched/.test(k)), g.id === "schedule" ? ["mfl_sched_opp"] : [], t + "/" + g.id);
+    assert.deepStrictEqual(SG.STAT_GROUPS[t].find((g) => g.id === "schedule").cols, ["mfl_points", "games", "mfl_sched_opp"], t);
+  }
+  assert.strictEqual(COLS.mfl_sched_opp.label, "Opp. allowed");
+  assert.match(COLS.mfl_sched_opp.title, /already faced/); assert.match(COLS.mfl_sched_opp.title, /not a forecast/);
+  // no custom column group offers Sched Δ either
+  const tabs = evalLiteral("  var TABS = {");
+  for (const t of Object.keys(tabs)) for (const v of Object.values(tabs[t].views || {})) for (const g of (v.groups || [])) assert.ok(!(g.cols || []).includes("mfl_points_sos"), t + ": a custom group still offers Sched Δ");
+  assert.ok(!/Sched Δ|Sched &Delta;/.test(SRC.slice(SRC.indexOf("<body")).replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "")), "no 'Sched Δ' words on the page");
 });
 await check("words: no easy/tough schedule wording, nothing called a forecast, American spelling (contract §11)", () => {
   const visible = Object.values(COLS).map((d) => (d.label || "") + " " + (d.title || "")).join(" | ") + " | " +
@@ -101,17 +122,25 @@ await check("words: no easy/tough schedule wording, nothing called a forecast, A
   // (aria-labelledby is an HTML attribute, not a word on screen.)
   for (const w of ["colour", "favour", "behaviour", "labelled", "analyse", "centre", "organis", "optimis", "defence"]) assert.ok(!new RegExp("\\b" + w, "i").test(body.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "").replace(/aria-labelledby/g, "")), w);
 });
-await check("the screen's order: heading → Season · Window · Position → Stat group → search and sort → More filters → band → table → About (contract §1)", () => {
-  const sec = SRC.slice(SRC.indexOf('<section id="asw-view-player-stats">'), SRC.indexOf("</section>", SRC.indexOf('<section id="asw-view-player-stats">')));
+await check("the screen's order: title + About button → Season · Window · Position · Fantasy team → Table | Heatmap | Scatter + stat groups → Find · More filters · Reset → status banner → the view (contract §1)", () => {
+  const secAt = SRC.indexOf('<section id="asw-view-player-stats">');
+  const sec = SRC.slice(secAt, SRC.indexOf("</section>", secAt));
   const at = (s) => { const i = sec.indexOf(s); assert.ok(i >= 0, s); return i; };
-  const order = ['id="asw-season"', 'id="asw-scope"', 'id="asw-tabs"', 'id="asw-groups"', 'id="asw-search"', 'id="asw-sort"', 'id="asw-more-btn"', 'id="asw-more"', 'id="asw-band"', 'id="asw-table-wrap"', 'id="asw-about"'].map(at);
+  const order = ['id="asw-season"', 'id="asw-scope"', 'id="asw-tabs"', 'id="asw-team1"', 'id="asw-viewsw"', 'id="asw-groups"', 'id="asw-search"', 'id="asw-more-btn"', 'id="asw-reset-btn"', 'id="asw-more"', 'id="asw-status"', 'id="asw-why"', 'id="asw-table-wrap"'].map(at);
   for (let i = 1; i < order.length; i++) assert.ok(order[i] > order[i - 1], "out of order at " + i);
-  const more = sec.slice(at('id="asw-more"'), at('id="asw-band"'));
-  for (const id of ["asw-team", "asw-seasons", "asw-cols-bar", "asw-compare-mode"]) assert.ok(more.includes('id="' + id + '"'), id + " is under More filters");
+  const row1 = sec.slice(at('id="asw-season"'), at('id="asw-viewsw"'));
+  assert.ok(!/asw-more-btn|asw-reset-btn|asw-search/.test(row1), "row 1 is only Season · Window · Position · Fantasy team");
+  const more = sec.slice(at('id="asw-more"'), at('id="asw-status"'));
+  for (const id of ["asw-seasons", "asw-cols-bar", "asw-compare-mode", "asw-more-vf"]) assert.ok(more.includes('id="' + id + '"'), id + " is under More filters");
   assert.match(sec, /<div class="asw-more" id="asw-more" hidden>/, "More filters starts closed");
   assert.match(sec, /aria-expanded="false" aria-controls="asw-more"/);
-  assert.ok(!/asw-filters-pill/.test(sec), "the old Filters pill is gone");
+  for (const gone of ['id="asw-sort"', 'id="asw-sort-dir"', 'id="asw-about"', "asw-filters-pill"]) assert.ok(!sec.includes(gone), gone + " is gone");
+  const tb = SRC.indexOf('class="asw-titlebar"');
+  assert.ok(tb > 0 && tb < secAt && SRC.indexOf('id="asw-about-btn"') > tb && SRC.indexOf('id="asw-about-btn"') < secAt, "About these numbers sits beside the title");
+  assert.match(SRC, /<div class="asw-modal" id="asw-about-modal" role="dialog" aria-modal="true" aria-labelledby="asw-about-title" hidden>/, "About is a closed dialog, not text above the table");
   assert.match(SRC, /<h1 id="asw-page-title">Player Stats<\/h1>/, "no version badge in the heading (it's in About)");
+  assert.match(sec, /<button type="button" class="asw-vw" data-show="table" aria-pressed="true">Table<\/button>/);
+  for (const v of ["heatmap", "scatter"]) assert.match(sec, new RegExp('class="asw-vw" data-show="' + v + '" aria-pressed="false"'));
 });
 await check("accessibility (contract §10): focus ring on names, the closed drawer out of the tab order, a focus trap, light-theme contrast", () => {
   assert.match(SRC, /\.asw-table \.asw-pname:focus-visible\{outline:2px solid var\(--accent\)/);
@@ -152,6 +181,7 @@ function richen(doc) {
   Object.defineProperty(P, "textContent", { get: tc.get, set(v) { this.childNodes = []; this.children = []; this.__html = ""; const t = doc.createElement("#text"); t.text = String(v); t.parentNode = this; this.childNodes.push(t); } });
   Object.defineProperty(P, "className", { get() { return this.attrs.class || ""; }, set(v) { this.attrs.class = String(v); } });
   Object.defineProperty(P, "id", { get() { return this.attrs.id || ""; }, set(v) { this.attrs.id = String(v); } });
+  Object.defineProperty(P, "hidden", { get() { return "hidden" in this.attrs; }, set(v) { if (v) this.attrs.hidden = ""; else delete this.attrs.hidden; } });   // (reflects the attribute, as in a browser)
   Object.defineProperty(P, "innerText", { get() { return this.textContent; }, set(v) { this.textContent = v; } });
   Object.defineProperty(P, "selected", { get() { return "selected" in this.attrs; }, set(v) { if (v) this.attrs.selected = ""; else delete this.attrs.selected; if (v && this.parentNode && this.parentNode.tagName === "SELECT" && !("multiple" in this.parentNode.attrs)) { this.parentNode.options.forEach((o) => { if (o !== this) delete o.attrs.selected; }); delete this.parentNode.__props.v; } } });
   Object.defineProperty(P, "checked", { get() { return !!this.__props.checked || ("checked" in this.attrs && this.__props.checked !== false); }, set(v) { this.__props.checked = !!v; } });
@@ -171,7 +201,8 @@ function route(url) {
   if (/league-years/.test(name)) return { ok: true, years: [2025, 2026] };
   return null;
 }
-async function boot(hash, seed) {
+// over(url) → undefined (the recorded answer) or { status, body } for this boot only.
+async function boot(hash, seed, over) {
   const doc = richen(makeDocument());
   doc.body.innerHTML = BODY;
   const calls = [], writes = [];
@@ -193,6 +224,8 @@ async function boot(hash, seed) {
   c.fetch = (url, init) => {
     const m = (init && init.method) || "GET"; calls.push({ m, url: String(url) });
     if (m !== "GET") { writes.push(String(url)); return Promise.reject(new Error("write refused")); }
+    const o = over && over(String(url));
+    if (o) return Promise.resolve({ ok: o.status < 400, status: o.status, json: () => Promise.resolve(JSON.parse(JSON.stringify(o.body))), text: () => Promise.resolve(JSON.stringify(o.body)) });
     const body = route(String(url));
     return Promise.resolve({ ok: !!body, status: body ? 200 : 404, json: () => Promise.resolve(JSON.parse(JSON.stringify(body || { ok: false }))), text: () => Promise.resolve(JSON.stringify(body || {})) });
   };
@@ -206,6 +239,9 @@ async function boot(hash, seed) {
   env.sorted = () => { const t = $$("#asw-body thead tr.asw-col-row th").find((x) => x.getAttribute("aria-sort")); return t ? [t.getAttribute("data-col-key"), t.getAttribute("aria-sort")] : null; };
   env.col = (k) => { const ths = $$("#asw-body thead tr.asw-col-row th"); const i = ths.findIndex((t) => t.getAttribute("data-col-key") === k); return $$("#asw-body tbody tr").map((tr) => tr.children[i] && tr.children[i].textContent.trim()); };
   env.meta = () => $("#asw-meta").textContent;
+  env.status = () => ($("#asw-status").hasAttribute("hidden") ? "" : $("#asw-status").textContent);
+  env.why = async () => { const b = $("#asw-why-btn"); if (b && $("#asw-why").hasAttribute("hidden")) { b.click(); await settle(5); } return $("#asw-why").textContent; };
+  env.lb = () => calls.filter((x) => /advanced-stats-leaderboard/.test(x.url)).length;
   return env;
 }
 const num = (t) => { t = String(t || "").replace(/−/g, "-").replace(/[%,+]/g, ""); if (t === "—" || !t) return null; const m = /^-?\d+(\.\d+)?/.exec(t); return m ? parseFloat(m[0]) : null; };
@@ -236,12 +272,9 @@ for (const tab of TAB_IDS) {
       assert.strictEqual(E.$$('#asw-groups [aria-pressed="true"]').map((b) => b.getAttribute("data-group")).join(), g.id, "the group button is pressed");
       assert.strictEqual(E.$$('#asw-tabs .asw-tab[aria-pressed="true"]').map((b) => b.getAttribute("data-tab")).join(), tab, "the position button is pressed");
       assert.deepStrictEqual(E.sorted(), [g.sort, "descending"], "the group's default sort");
-      assert.strictEqual(E.$("#asw-sort").value, g.sort, "Sort by says the same");
-      assert.match(E.$("#asw-sort-dir").textContent, /^▼ High to low$/);
       inOrder(E.col(g.sort), "descending", tab + "/" + g.id + "/" + g.sort);
       E.$('#asw-body th[data-col-key="' + g.sort + '"]').click(); await settle(10);
       assert.deepStrictEqual(E.sorted(), [g.sort, "ascending"]);
-      assert.match(E.$("#asw-sort-dir").textContent, /^▲ Low to high$/);
       inOrder(E.col(g.sort), "ascending", tab + "/" + g.id + "/" + g.sort);
       sorted += 2;
       const m = E.meta();
@@ -254,8 +287,12 @@ for (const tab of TAB_IDS) {
       }
       if (tab === "flex_o" || tab === "flex_idp") assert.match(rows[0].querySelector(".asw-psub").textContent, /^[A-Z]{1,3} · /, "the Flex tabs lead with the position");
       assert.ok(!rows.some((tr) => tr.querySelector(".asw-compare-check")), "no compare checkboxes unless asked");
+      await E.click(E.$("#asw-about-btn"));
+      assert.ok(!E.$("#asw-about-modal").hasAttribute("hidden"), "About opens");
       const about = E.$("#asw-about-body").textContent;
       for (const k of g.cols) assert.ok(about.includes(COLS[k].label + COLS[k].title), "About defines " + k);
+      E.$("#asw-about-close").click(); await settle(5);
+      assert.ok(E.$("#asw-about-modal").hasAttribute("hidden"), "About closes");
       const cnt = /^(\d+) of (\d+) players$|^(\d+) players?$/.exec(E.$("#asw-count").textContent);
       assert.ok(cnt && !(cnt[1] && +cnt[1] > +cnt[2]), "count: " + E.$("#asw-count").textContent);
     });
@@ -312,7 +349,8 @@ await check("every window asks the server for its weeks and the band names them;
     const before = E.calls.length;
     await E.change("#asw-scope", w);
     const lb = E.calls.slice(before).find((x) => /advanced-stats-leaderboard/.test(x.url));
-    assert.ok(lb && new URL(lb.url).searchParams.get("week_min") === String(lo) && new URL(lb.url).searchParams.get("week_max") === String(hi), w + ": " + (lb && lb.url));
+    if (w === "mfl_total") assert.ok(!lb, "MFL Total was read when the page opened: not asked for again this visit");
+    else assert.ok(lb && new URL(lb.url).searchParams.get("week_min") === String(lo) && new URL(lb.url).searchParams.get("week_max") === String(hi), w + ": " + (lb && lb.url));
     assert.ok(E.meta().startsWith("WR · 2025 · " + label), E.meta());
     assert.strictEqual(E.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group"), "receiving");
   }
@@ -328,6 +366,7 @@ await check("Season: one season at a time; an old season is asked for as itself 
     const before = E.calls.length;
     await E.change("#asw-season", y);
     const lb = E.calls.slice(before).find((x) => /advanced-stats-leaderboard/.test(x.url));
+    if (y === "2025") { assert.ok(!lb, "2025 was already read this visit"); assert.ok(E.meta().startsWith("WR · 2025 · "), E.meta()); continue; }
     assert.strictEqual(new URL(lb.url).searchParams.get("seasons"), y);
     assert.ok(E.meta().startsWith("WR · " + y + " · "), E.meta());
   }
@@ -393,12 +432,14 @@ await check("the count's total uses the same position rule as the rows (was '206
   assert.match(E.$("#asw-count").textContent, /^0 of \d+ players \(search\)$/);
   E.$("#asw-search").value = ""; E.$("#asw-search").dispatch("input"); await settle(5);
 });
-await check("heat (a link with heat=1) never colors Sched Δ or Opp ±%", async () => {
+await check("an old heat=1 link opens the Heatmap view; Opp. allowed is never in it or colored", async () => {
   const H = await boot("#tab=qb&seasons=2025&scope=mfl_total&grp=schedule&heat=1");
-  const ths = H.$$("#asw-body thead tr.asw-col-row th"), idx = ["mfl_points_sos", "mfl_sched_opp"].map((k) => ths.findIndex((t) => t.getAttribute("data-col-key") === k));
-  assert.ok(idx.every((i) => i > 0));
-  assert.ok(H.$$("#asw-body td").some((td) => /pct-q/.test(td.attrs.class || "")), "heat is on for other columns");
-  for (const tr of H.$$("#asw-body tbody tr")) for (const i of idx) assert.ok(!/pct-q/.test(tr.children[i].attrs.class || ""), "colored");
+  assert.strictEqual(H.$('.asw-vw[aria-pressed="true"]').getAttribute("data-show"), "heatmap");
+  assert.ok(H.$("#asw-body .asw-heatmap"), "the heatmap table");
+  assert.ok(!H.headers().includes("mfl_sched_opp"));
+  const T = await boot("#tab=qb&seasons=2025&scope=mfl_total&grp=schedule");
+  assert.ok(T.headers().includes("mfl_sched_opp"));
+  assert.ok(!T.$$("#asw-body td").some((td) => /pct-q/.test(td.attrs.class || "")), "the Table view colors nothing");
 });
 await check("an older link (view=advanced, no grp=) opens its custom columns; a Standard link opens Fantasy points", async () => {
   const A = await boot("#tab=wr&seasons=2025&scope=mfl_total&view=advanced");
@@ -408,11 +449,12 @@ await check("an older link (view=advanced, no grp=) opens its custom columns; a 
   const C = await boot("#tab=rb&seasons=2025&scope=mfl_total&grp=redzone");
   assert.deepStrictEqual(C.headers(), ["player_name"].concat(SG.STAT_GROUPS.rb.find((g) => g.id === "redzone").cols));
 });
-await check("More filters is three sections: Filters (team, seasons, value filters) · Columns · Tools (compare, scatter, heat, CSV)", () => {
-  const hs = E.$$("#asw-more .asw-more-h").map((h) => h.textContent.split(/\s+instead/)[0].trim());
+await check("More filters is three sections: Filters (added seasons, value filters) · Columns · Tools (compare, CSV); Heatmap and Scatter are views, not tools", () => {
+  const hs = E.$$("#asw-more .asw-more-h").map((h) => h.textContent.trim().split(/\s+/)[0]);
   assert.deepStrictEqual(hs, ["Filters", "Columns", "Tools"]);
   assert.ok(E.$("#asw-more-vf .asw-filter-toggle"), "value filters under Filters");
-  assert.deepStrictEqual(E.$$("#asw-more-tools .asw-filter-toggle").map((b) => b.textContent.trim()), ["Scatter", "Heat", "Download CSV"]);
+  assert.deepStrictEqual(E.$$("#asw-more-tools .asw-filter-toggle").map((b) => b.textContent.trim()), ["Download CSV"]);
+  assert.ok(E.$("#asw-more-tools #asw-compare-mode"), "compare");
   assert.strictEqual(E.$$("#asw-cols-bar .asw-filter-toggle").length, 0, "no tools among the column sets");
   assert.ok(E.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group") !== "custom");
   assert.strictEqual(E.$$('#asw-cols-bar .asw-view-chip[aria-pressed="true"]').length, 0, "with a stat group showing, no column set looks chosen");
@@ -440,6 +482,173 @@ await check("a kicker's made/attempted cells filter by made (\">=1\" keeps kicke
   const K = await boot("#tab=pk&seasons=2025&scope=mfl_total&grp=kicking&fv=1&f.fg_40_49=" + encodeURIComponent(">=1"));
   const vals = K.col("fg_40_49");
   assert.ok(vals.length >= 1 && vals.every((v) => /^\d+\/\d+$/.test(v) && +v.split("/")[0] >= 1), vals.join(" "));
+});
+
+// ── C. Keith's 2026-10-15 review: views, banner causes, Reset ──
+console.log("\nC. views, the status banner, Reset");
+const HEAT = evalLiteral("  var HEAT_SETS = {"), SCQ = evalLiteral("  var SCATTER_Q = {");
+// The recorded league state is trimmed to these players' rosters; told so, the page trusts it as complete.
+const LS = FX["mfl-league-state"];
+const OWN = (u) => /mfl-league-state/.test(u) ? { status: 200, body: Object.assign({}, LS, { rostered_count: Object.keys(LS.pid_to_fid).length }) } : undefined;
+await check("Table → Heatmap → Scatter → Table asks the server nothing and keeps Season, Window, Position, Fantasy team, Find and the stat group; the link says which view", async () => {
+  const V = await boot("#tab=wr&seasons=2025&scope=mfl_reg&grp=receiving", null, OWN);
+  await V.change("#asw-team1", "__ROSTERED__");
+  V.$('#asw-body th[data-col-key="rec_tds"]').click(); await settle(5); V.$('#asw-body th[data-col-key="rec_tds"]').click(); await settle(5);
+  assert.deepStrictEqual(V.sorted(), ["rec_tds", "ascending"]);
+  const n = V.$$("#asw-body tbody tr").length, calls = V.calls.length;
+  await V.click(V.$('.asw-vw[data-show="heatmap"]'));
+  assert.ok(V.$("#asw-body .asw-heatmap")); assert.match(V.hash(), /show=heatmap/);
+  assert.ok(V.$("#asw-groups").hasAttribute("hidden"), "stat groups belong to the Table view");
+  assert.ok(!V.$("#asw-heat-legend").hasAttribute("hidden"));
+  assert.strictEqual(V.$$("#asw-body tbody tr").length, n, "the same players");
+  await V.click(V.$('.asw-vw[data-show="scatter"]'));
+  assert.ok(V.$("#asw-body svg"), "the scatter"); assert.match(V.hash(), /show=scatter/);
+  assert.ok(!V.$("#asw-scatter-q-wrap").hasAttribute("hidden"));
+  V.$("#asw-search").value = "a"; V.$("#asw-search").dispatch("input"); await settle(5);
+  await V.click(V.$('.asw-vw[data-show="table"]'));
+  assert.deepStrictEqual(V.headers(), ["player_name"].concat(SG.STAT_GROUPS.wr.find((g) => g.id === "receiving").cols));
+  assert.deepStrictEqual([V.$("#asw-season").value, V.$("#asw-scope").value, V.$("#asw-team1").value, V.$("#asw-search").value], ["2025", "mfl_reg", "__ROSTERED__", "a"]);
+  assert.ok(V.$$("#asw-body tbody tr").length < n, "Find carried over to the table");
+  assert.deepStrictEqual(V.sorted(), ["rec_tds", "ascending"], "the sort chosen in the table survives a trip through the other views (nothing re-run)");
+  assert.strictEqual(V.calls.length, calls, "no request on a view switch: " + V.calls.slice(calls).map((x) => x.url).join(" "));
+  const W = await boot("#tab=wr&seasons=2025&scope=mfl_total&show=scatter&sq=play_pts");
+  assert.strictEqual(W.$('.asw-vw[aria-pressed="true"]').getAttribute("data-show"), "scatter");
+  assert.strictEqual(W.$("#asw-scatter-q").value, "play_pts", "the link's question");
+});
+await check("Fantasy team is a primary single select that filters without asking the server (Free agents → only FA)", async () => {
+  const T = await boot("#tab=wr&seasons=2025&scope=mfl_total", null, OWN);
+  T.$('#asw-body th[data-col-key="games"]').click(); await settle(5);
+  const sortBefore = T.sorted();
+  const all = T.$$("#asw-body tbody tr").length, lb = T.lb();
+  const fa = T.$$("#asw-body tbody tr .asw-psub").filter((x) => / · FA$/.test(x.textContent.trim())).length;
+  await T.change("#asw-team1", "FA");
+  const rows = T.$$("#asw-body tbody tr");
+  assert.ok(fa > 0 && rows.length === fa && rows.length < all, rows.length + " of " + all + " (" + fa + " FA)");
+  assert.ok(rows.every((tr) => / · FA$/.test(tr.querySelector(".asw-psub").textContent.trim())), "only free agents");
+  assert.strictEqual(T.lb(), lb, "the list wasn't asked for again");
+  assert.deepStrictEqual(T.sorted(), sortBefore, "the sort is kept (nothing re-run)");
+  assert.deepStrictEqual(T.$("#asw-team").selectedOptions.map((o) => o.value), ["FA"], "the More filters copy agrees");
+  await T.change("#asw-team1", "__ALL__");
+  assert.strictEqual(T.$$("#asw-body tbody tr").length, all);
+});
+await check("Heatmap: one fixed profile per position; each cell's fifth follows the value; players under half the most games are shown uncolored and the legend says so", async () => {
+  let thinSeen = 0;
+  for (const tab of TAB_IDS) {
+    const G = (await boot("#tab=" + tab + "&seasons=2025&scope=mfl_total")).col("games").map(Number);
+    const floor = Math.max(1, Math.round(Math.max(...G) / 2)), under = G.filter((g) => g < floor).length;
+    const H = await boot("#tab=" + tab + "&seasons=2025&scope=mfl_total&show=heatmap");
+    assert.deepStrictEqual(H.headers(), HEAT[tab], tab);
+    assert.ok(HEAT[tab].length <= 8 && !HEAT[tab].includes("mfl_sched_opp"), tab);
+    const rows = H.$$("#asw-body tbody tr");
+    const thin = rows.filter((tr) => /thin/.test(tr.attrs.class || ""));
+    assert.strictEqual(thin.length, under, tab + ": unranked = players under " + floor + " games (half the most, " + Math.max(...G) + ")");
+    thinSeen += thin.length;
+    for (const tr of thin) assert.ok(tr.children.slice(2).every((td) => /pct-q0/.test(td.attrs.class || "")), tab + ": an unranked row is uncolored");
+    const ranked = rows.filter((tr) => !/thin/.test(tr.attrs.class || ""));
+    assert.ok(ranked.length >= 3, tab + " ranks " + ranked.length);
+    // sorted by PPG (high first): the PPG column's fifth never rises going down the ranked rows
+    const q = ranked.map((tr) => +/pct-q(\d)/.exec(tr.children[2].attrs.class)[1]);
+    for (let i = 1; i < q.length; i++) assert.ok(q[i] <= q[i - 1], tab + ": fifth " + q[i - 1] + " then " + q[i]);
+    if (ranked.length >= 5) assert.ok(q[0] === 5 && q[q.length - 1] === 1, tab + ": top and bottom fifths " + q[0] + "/" + q[q.length - 1]);
+    if (thin.length) assert.ok(H.$("#asw-heat-legend").textContent.includes("uncolored: under " + floor + " games, not ranked"), tab);
+  }
+  assert.ok(thinSeen > 0, "the recorded answers include players under the floor");
+});
+await check("Scatter: every position has a question; dots are the listed players with enough games; the note counts the rest", async () => {
+  for (const tab of TAB_IDS) {
+    assert.ok(SCQ[tab] && SCQ[tab].length >= 1, tab);
+    for (const q of SCQ[tab]) { assert.ok(COLS[q.x] && COLS[q.y], tab + "/" + q.id + " axes exist"); assert.ok(q.x !== "mfl_sched_opp" && q.y !== "mfl_sched_opp"); }
+    const S = await boot("#tab=" + tab + "&seasons=2025&scope=mfl_total&show=scatter");
+    assert.deepStrictEqual(S.$("#asw-scatter-q").options.map((o) => o.value), SCQ[tab].map((q) => q.id), tab);
+    const dots = S.$$("#asw-body circle").length;
+    const note = S.$("#asw-body .asw-scatter-note").textContent;
+    const m = /(\d+) players with (\d+)\+ games(?: \((\d+) with fewer aren’t drawn\))?/.exec(note);
+    assert.ok(m, tab + ": the note counts the players");
+    assert.strictEqual(+m[1], dots, tab + ": one dot per counted player");
+    if (tab === "wr") {   // a rate question (Y/T) needs volume: nobody drawn has under a tenth of the most targets listed
+      assert.strictEqual(SCQ.wr[0].vol, "targets");
+      const wr = FX["leaderboard:skill"].rows.filter((r) => r.mfl_position === "WR");
+      const most = Math.max(...wr.map((r) => +r.targets || 0)), tgt = Object.fromEntries(wr.map((r) => [r.gsis_id, +r.targets || 0]));
+      const drawn = S.$$("#asw-body .asw-sc-dot").map((g) => g.getAttribute("data-gsis"));
+      assert.ok(drawn.length && drawn.every((g) => tgt[g] >= most / 10), "a dot under a tenth of the most targets");
+      // a full-time receiver with two targets (one 42-yard catch): 21 yards a target, not drawn, and the note says so
+      const lb = JSON.parse(JSON.stringify(FX["leaderboard:skill"])), base = lb.rows.find((r) => r.mfl_position === "WR");
+      lb.rows.push(Object.assign({}, base, { gsis_id: "00-THIN", mfl_pid: 99999, player_name: "Thin Volume", targets: 2, receptions: 1, rec_yds: 42, rec_tds: 0 }));
+      const S2 = await boot("#tab=wr&seasons=2025&scope=mfl_total&show=scatter", null, (u) => /advanced-stats-leaderboard/.test(u) && /pos=skill/.test(u) ? { status: 200, body: lb } : undefined);
+      assert.ok(!S2.$$("#asw-body .asw-sc-dot").some((g) => g.getAttribute("data-gsis") === "00-THIN"), "two targets: not drawn");
+      assert.match(S2.$("#asw-body .asw-scatter-note").textContent, /1 with under a tenth of the most Tgt aren’t drawn either/);
+      await S2.change("#asw-scatter-q", "play_pts");
+      assert.ok(S2.$$("#asw-body .asw-sc-dot").some((g) => g.getAttribute("data-gsis") === "00-THIN"), "a question about playing time, not a rate, draws him");
+    }
+    assert.ok(dots >= 3, tab + ": " + dots + " dots");
+  }
+});
+await check("the banner: a server on the older version is said as that — never 'not published' — and the empty column is hidden", async () => {
+  const B = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=schedule", null,
+    (u) => /sos-adjusted-points/.test(u) ? { status: 200, body: { ok: true, engine: "fpa", seasons: [2025] } } : undefined);
+  assert.ok(!B.headers().includes("mfl_sched_opp"), "Opp. allowed is hidden: " + B.headers().join());
+  assert.match(B.status(), /Schedule stats unavailable — the stats server is older than this page/);
+  const why = await B.why();
+  assert.match(why, /Server and page versions differ/); assert.match(why, /Not unpublished data/);
+  assert.ok(!/hasn.t published|not published/i.test(B.status() + why), "never 'not published' for a version mismatch");
+  assert.ok(B.$("#asw-status").classList.contains("err"));
+});
+await check("the banner: a failed request, an unpublished source, a refused stored copy, a source limit and filters that leave nobody are each named as themselves", async () => {
+  const R = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=schedule", null,
+    (u) => /sos-adjusted-points/.test(u) ? { status: 503, body: { ok: false, error: "engine_busy" } } : undefined);
+  assert.match(R.status(), /Schedule stats couldn’t be loaded/); assert.match(await R.why(), /A request failed/);
+  const U = await boot("#tab=wr&seasons=2015&scope=mfl_total&grp=efficiency", null,
+    (u) => /player-ngs/.test(u) ? { status: 200, body: { ok: true, seasons: [2015], count: 0, by_gsis: {} } } : undefined);
+  assert.ok(!U.headers().includes("ngs_sep") && !U.headers().includes("ngs_yacoe"), U.headers().join());
+  assert.match(U.status() + (await U.why()), /not published for this selection[\s\S]*starts in 2016/);
+  assert.ok(!/older than this page/.test(U.status()), "not called a version problem");
+  const S = await boot("#tab=wr&seasons=2019&scope=mfl_total", null,
+    (u) => /advanced-stats-leaderboard/.test(u) ? { status: 503, body: { error: "stored_board_unavailable", reason: "checksum mismatch" } } : undefined);
+  assert.match(S.status(), /The stored 2019 stats couldn’t be read/);
+  const sw = await S.why();
+  assert.match(sw, /Stored copy missing or invalid/); assert.match(sw, /checksum mismatch/); assert.match(sw, /never recalculated/);
+  assert.match(S.$("#asw-body").textContent, /The stored 2019 stats couldn’t be read \(checksum mismatch\)/, "the table area says it too");
+  assert.ok(!/No stats for 2019|hasn.t published/.test(S.$("#asw-body").textContent + S.status()));
+  const F = await boot("#tab=wr&seasons=2025&scope=mfl_total", null,
+    (u) => /advanced-stats-leaderboard/.test(u) ? { status: 500, body: { error: "internal" } } : undefined);
+  assert.match(F.status(), /The player list couldn’t be loaded/); assert.match(await F.why(), /A request failed/);
+  // the source says more exists (a live list cut at 500) → named as a source limit; a whole list isn't
+  const cut = JSON.parse(JSON.stringify(FX["leaderboard:skill"])); cut.count = 500; cut.next_offset = 500;
+  const L = await boot("#tab=wr&seasons=2025&scope=mfl_total", null, (u) => /advanced-stats-leaderboard/.test(u) ? { status: 200, body: cut } : OWN(u));
+  assert.match(L.status(), /The list stops at 500 players/, L.status());
+  assert.match(await L.why(), /Left out by a source limit[\s\S]*Not one of your filters/);
+  const W = await boot("#tab=wr&seasons=2025&scope=mfl_total", null, OWN);
+  assert.ok(!/stops at/.test(W.status()), "a whole list isn't called cut off: " + W.status());
+  const N = await boot("#tab=wr&seasons=2025&scope=mfl_total&fv=1&f.mfl_points=" + encodeURIComponent(">99999"));
+  assert.match(N.status(), /No players match these filters/);
+  assert.match(await N.why(), /No players match the filters[\s\S]*Not missing data: \d+ players were loaded/);
+});
+await check("Reset: Season, Window, Fantasy team, Find, More filters, view and stat group back to their defaults; Position stays", async () => {
+  const dflt = (await boot("#tab=te")).$("#asw-season").value;
+  const Z = await boot("#tab=te&seasons=2024&scope=mfl_reg&grp=receiving&show=heatmap&fv=1&f.mfl_points=" + encodeURIComponent(">10"), null, OWN);
+  await Z.change("#asw-team1", "FA");
+  Z.$("#asw-search").value = "k"; Z.$("#asw-search").dispatch("input"); await settle(5);
+  await Z.click(Z.$("#asw-reset-btn"));
+  assert.strictEqual(Z.$('#asw-tabs .asw-tab[aria-pressed="true"]').getAttribute("data-tab"), "te");
+  assert.deepStrictEqual([Z.$("#asw-season").value, Z.$("#asw-scope").value, Z.$("#asw-team1").value, Z.$("#asw-search").value], [dflt, "mfl_total", "__ALL__", ""]);
+  assert.strictEqual(Z.$('.asw-vw[aria-pressed="true"]').getAttribute("data-show"), "table");
+  assert.strictEqual(Z.$('#asw-groups [aria-pressed="true"]').getAttribute("data-group"), "fantasy");
+  assert.ok(!/f\.mfl_points|show=|grp=receiving/.test(Z.hash()), Z.hash());
+  assert.strictEqual(Z.status().includes("No players match"), false);
+});
+await check("About: a button beside the title opens a dialog with meaning, source, season and weeks, freshness, limitations, past or future; Esc closes it and returns focus", async () => {
+  const A = await boot("#tab=wr&seasons=2025&scope=mfl_total&grp=schedule");
+  assert.ok(A.$("#asw-about-modal").hasAttribute("hidden"), "closed until asked");
+  A.$("#asw-about-btn").focus(); await A.click(A.$("#asw-about-btn"));
+  assert.strictEqual(A.doc.activeElement && A.doc.activeElement.id, "asw-about-close", "focus moves into the dialog");
+  const t = A.$("#asw-about-body").textContent;
+  for (const h of ["What you’re looking at", "Source", "Season and weeks", "Freshness", "Limitations", "Past or future?"]) assert.ok(t.includes(h), h);
+  assert.match(t, /2025 · MFL Total \(Wks 1–17\) · WR · all players/);
+  assert.match(t, /Opp\. allowed: what the teams he faced allowed his position vs usual[\s\S]*not a forecast/);
+  assert.match(t, /Nothing on this page is a forecast/);
+  A.$("#asw-about-modal").dispatch("keydown", { key: "Escape" }); await settle(5);
+  assert.ok(A.$("#asw-about-modal").hasAttribute("hidden"));
+  assert.strictEqual(A.doc.activeElement && A.doc.activeElement.id, "asw-about-btn", "focus back on the button");
 });
 await check("nothing was written: every request was a GET", () => { assert.deepStrictEqual(E.writes, []); assert.ok(E.calls.length > 20); });
 

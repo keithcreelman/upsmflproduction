@@ -654,6 +654,86 @@ table.asw-table{font-size:13px}
   .asw-search-f input{min-width:180px}
   .asw-count{margin-left:0;width:100%}
 }
+
+/* ── Player Stats v2 (Keith 2026-10-15 review; docs/STATS_DESKTOP_REVIEW.md) ───────────────
+   One title row with About beside it; one filter row; the view row (Table | Heatmap | Scatter);
+   filters in use + freshness; one status banner with "See why"; the view. */
+.asw-pagehead{padding:14px 0 0;margin-bottom:6px}
+.asw-titlebar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.asw-pagehead h1{font-size:28px;line-height:1;margin:0}
+.asw-standfirst:empty{display:none}
+.asw-about-btn{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--border-strong);background:transparent;color:var(--text);cursor:pointer}
+.asw-about-btn:hover{border-color:var(--accent)}
+.asw-about-btn:focus-visible,.asw-vw:focus-visible,.asw-reset-btn:focus-visible,.asw-status button:focus-visible,.asw-modal-close:focus-visible,.asw-inuse button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.asw-viewtabs{margin-bottom:10px}
+#asw-view-player-stats .asw-ctl{gap:8px 14px;margin:0 0 8px;flex-wrap:wrap}
+#asw-view-player-stats .asw-ctl .asw-tab{padding:6px 8px}
+.asw-ctl-acts{display:flex;align-items:flex-end;gap:6px}
+#asw-view-player-stats .asw-ctl-pos{flex:0 0 auto}
+.asw-reset-btn{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;min-height:32px;padding:0 6px;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer}
+.asw-reset-btn:hover{color:var(--text)}
+#asw-team1{max-width:180px}
+.asw-ctl2{display:flex;align-items:center!important;flex-wrap:wrap;gap:8px 10px!important;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.asw-viewsw{display:inline-flex;flex-shrink:0;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+.asw-vw{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;min-height:30px;padding:0 12px;border:0;border-right:1px solid var(--border);background:var(--panel-alt);color:var(--muted);cursor:pointer}
+.asw-vw:last-child{border-right:0}
+.asw-vw[aria-pressed="true"]{background:var(--text);color:var(--bg)}
+.asw-ctl2 .asw-groups{gap:5px}
+.asw-ctl2 .asw-group{min-height:28px;padding:0 10px;font-size:12px}
+.asw-heat-legend{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--muted)}
+.asw-heat-legend i{display:inline-block;width:16px;height:12px;border-radius:2px}
+.asw-heat-legend[hidden],.asw-scatter-q[hidden],.asw-status[hidden],.asw-why[hidden],.asw-modal[hidden],.asw-modal-scrim[hidden],.asw-groups[hidden]{display:none!important}
+.asw-scatter-q{display:inline-flex;align-items:center;gap:6px}
+.asw-spacer{flex:1 1 auto}
+.asw-inuse{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;min-height:30px;margin:6px 0 4px;font-size:12px;color:var(--muted)}
+.asw-inuse .asw-search-f input{font:500 13px/1.2 "Inter Tight",system-ui,sans-serif;color:var(--text);background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:5px 8px;min-height:30px;min-width:220px}
+.asw-inuse .asw-search-f input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.asw-inuse .asw-count{margin:0;white-space:nowrap;color:var(--muted)}
+.asw-inuse .asw-count:not(:empty)::after{content:" · "}
+.asw-inuse-chips{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
+.asw-inuse button{font:600 11.5px/1 "Inter Tight",system-ui,sans-serif;min-height:22px;padding:0 9px;border-radius:999px;border:1px solid var(--border);background:var(--panel-alt);color:var(--text);cursor:pointer}
+.asw-fresh{white-space:nowrap}
+#asw-view-player-stats .asw-ctl select{max-width:190px}
+#asw-view-player-stats #asw-scatter-q{max-width:440px}
+#asw-season{min-width:76px}
+@media (max-width:1180px){#asw-view-player-stats .asw-ctl .asw-tab{padding:6px 6px;font-size:12px}#asw-view-player-stats .asw-ctl{gap:8px 10px}#asw-team1{max-width:150px}}
+.asw-status{display:flex;align-items:center;gap:10px;margin:4px 0 8px;padding:6px 10px;border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:6px;background:var(--panel);font-size:12.5px;color:var(--text)}
+.asw-status.err{border-left-color:var(--err)}
+.asw-status.info{border-left-color:var(--border-strong);color:var(--muted)}
+.asw-status b{font-weight:700}
+.asw-status button{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;padding:0}
+.asw-status .asw-status-n{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.asw-why{position:relative;z-index:40;margin:-4px 0 10px;max-width:720px;padding:12px 14px;border:1px solid var(--border-strong);border-radius:8px;background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.35);font-size:12.5px}
+.asw-why h3{margin:0 0 8px;font:700 13px/1.3 "Inter Tight",system-ui,sans-serif;color:var(--text)}
+.asw-why section{padding:8px 0;border-top:1px solid var(--border)}
+.asw-why section:first-of-type{border-top:0;padding-top:0}
+.asw-why h4{margin:0 0 4px;font:700 12.5px/1.3 "Inter Tight",system-ui,sans-serif;color:var(--text)}
+.asw-why dl{display:grid;grid-template-columns:110px 1fr;gap:3px 10px;margin:0}
+.asw-why dt{color:var(--muted);font-weight:600}
+.asw-why dd{margin:0;color:var(--text)}
+.asw-why .asw-why-close{position:absolute;top:8px;right:10px;border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer}
+.asw-modal-scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:80}
+.asw-modal{position:fixed;z-index:90;top:6vh;left:50%;transform:translateX(-50%);width:min(760px,92vw);max-height:84vh;overflow:auto;background:var(--panel);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);padding:14px 18px}
+.asw-modal-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.asw-modal-head h2{margin:0;font:700 16px/1.3 "Inter Tight",system-ui,sans-serif;color:var(--text)}
+.asw-modal-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+.asw-modal-body h3{margin:12px 0 4px;font:700 11px/1.4 "Inter Tight",system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.asw-modal-body p,.asw-modal-body li{font-size:12.5px;line-height:1.55;color:var(--text);margin:4px 0}
+.asw-modal-body ul{margin:4px 0;padding-left:18px}
+.asw-modal-body .asw-defs{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:4px 0}
+.asw-modal-body .asw-defs dt{color:var(--text);font-weight:600;font-size:12.5px}
+.asw-modal-body .asw-defs dd{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.asw-about-ver{font-size:11px;color:var(--muted);margin:12px 0 0}
+/* Heatmap: a fixed profile per position, each cell colored by its rank among the players listed. */
+.asw-heatmap td.num,.asw-heatmap th.num{text-align:center;min-width:76px}
+.asw-heatmap td.pct-q0{color:var(--muted)}
+.asw-heatmap td.pct-q1{background:var(--heat-1-bg);color:var(--heat-1-fg);font-weight:700}
+.asw-heatmap td.pct-q2{background:var(--heat-2-bg);color:var(--heat-2-fg)}
+.asw-heatmap td.pct-q3{background:var(--heat-3-bg);color:var(--heat-3-fg)}
+.asw-heatmap td.pct-q4{background:var(--heat-4-bg);color:var(--heat-4-fg)}
+.asw-heatmap td.pct-q5{background:var(--heat-5-bg);color:var(--heat-5-fg);font-weight:700}
+.asw-heatmap tr.thin td.num{opacity:.75}
+.asw-scatter-wrap .asw-scatter-note{font-size:12px;color:var(--muted);margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -663,9 +743,11 @@ table.asw-table{font-size:13px}
      heading always names the board you're actually looking at. -->
 <header class="asw-pagehead">
   <div class="asw-pagehead-top">
-    <div>
-      <div class="asw-eyebrow">UPS · Advanced Stats</div>
+    <div class="asw-titlebar">
       <h1 id="asw-page-title">Player Stats</h1>
+      <!-- What the numbers on screen mean, one click away (Keith 2026-10-15): a compact dialog, never
+           permanent text above the table. Player Stats only. -->
+      <button type="button" class="asw-about-btn" id="asw-about-btn" aria-haspopup="dialog" aria-controls="asw-about-modal"><span aria-hidden="true">ⓘ</span> About these numbers</button>
     </div>
     <div class="asw-head-actions">
       <!-- Whole-league player search — every MFL player, rostered or free
@@ -680,33 +762,31 @@ table.asw-table{font-size:13px}
   </div>
   <p class="asw-standfirst" id="asw-page-desc"></p>
 </header>
-
-<!-- Stats page sub-tabs: Player Stats (this workbench) vs Fantasy Points Against. -->
+<!-- Stats page sub-tabs: Player Stats (this workbench) vs the other boards. -->
 <div class="asw-viewtabs" id="asw-viewtabs" role="tablist" aria-label="Stats views">
   <button type="button" class="asw-viewtab" data-view="player-stats" aria-selected="true" role="tab">Player Stats</button>
-  <button type="button" class="asw-viewtab" data-view="fpa" aria-selected="false" role="tab">Fantasy Points Against</button>
+  <button type="button" class="asw-viewtab" data-view="fpa" aria-selected="false" role="tab">Pts Agst</button>
   <button type="button" class="asw-viewtab" data-view="adp" aria-selected="false" role="tab">ADP</button>
   <button type="button" class="asw-viewtab" data-view="vegas" aria-selected="false" role="tab">Vegas</button>
   <button type="button" class="asw-viewtab" data-view="pace" aria-selected="false" role="tab">Pace</button>
   <button type="button" class="asw-viewtab" data-view="schedule" aria-selected="false" role="tab">Schedule</button>
 </div>
-
 <section id="asw-view-player-stats">
-
-<!-- Player Stats, desktop redesign (Keith 2026-10-15; docs/STATS_UI_CONTRACT.md). Top to
-     bottom: primary controls (Season · Window · Position · Stat group) → search and sort →
-     the source/freshness band → the focused table → About. Uncommon choices sit behind
-     More filters. Every id the script wires is kept. -->
+<!-- Player Stats, desktop (Keith 2026-10-15 review; docs/STATS_DESKTOP_REVIEW.md, docs/STATS_UI_CONTRACT.md).
+     Top to bottom: one filter row (Season · Window · Position · Fantasy team · More filters · Reset) →
+     the view row (Table | Heatmap | Scatter, the view's own control, Find, the count) → filters in use
+     and freshness → one status banner when something is limited or failed → the view → the drawer.
+     Switching views re-renders the rows already loaded: no request, nothing reset. -->
 <div class="asw-ctl" id="asw-ctl">
   <label class="asw-ctl-f">Season
     <select id="asw-season"></select>
   </label>
   <label class="asw-ctl-f">Window
     <select id="asw-scope">
-      <option value="mfl_reg">MFL Reg (Wks 1–14)</option>
-      <option value="mfl_playoffs">MFL Playoffs (Wks 15–17)</option>
-      <option value="mfl_total" selected>MFL Total (Wks 1–17)</option>
-      <option value="full">Full + NFL playoffs (Wks 1–22)</option>
+      <option value="mfl_reg">MFL Reg · Wks 1–14</option>
+      <option value="mfl_playoffs">MFL Playoffs · Wks 15–17</option>
+      <option value="mfl_total" selected>MFL Total · Wks 1–17</option>
+      <option value="full">+ NFL playoffs · Wks 1–22</option>
       <option value="custom">Custom weeks…</option>
     </select>
   </label>
@@ -730,40 +810,52 @@ table.asw-table{font-size:13px}
       <button type="button" class="asw-tab" data-tab="dl">DL</button>
       <button type="button" class="asw-tab" data-tab="lb">LB</button>
       <button type="button" class="asw-tab" data-tab="db">DB</button>
-      <button type="button" class="asw-tab" data-tab="flex_idp" title="DL, LB and DB together">IDP Flex</button>
+      <button type="button" class="asw-tab" data-tab="flex_idp" title="DL, LB and DB together">IDP</button>
       <span class="asw-tabs-sep" aria-hidden="true"></span>
       <button type="button" class="asw-tab" data-tab="pk">PK</button>
       <button type="button" class="asw-tab" data-tab="pn">PN</button>
     </div>
   </div>
-</div>
-<div class="asw-ctl asw-ctl-groups">
-  <span class="asw-ctl-lbl" id="asw-groups-lbl">Stat group</span>
-  <div class="asw-groups" id="asw-groups" role="group" aria-labelledby="asw-groups-lbl"></div>
-</div>
-
-<!-- Search and sort, then More filters (the uncommon choices). -->
-<div class="asw-ctl asw-ctl2">
-  <label class="asw-ctl-f asw-search-f">Find in this list
-    <input type="text" id="asw-search" placeholder="Name, NFL team or position" autocomplete="off">
+  <label class="asw-ctl-f">Fantasy team
+    <select id="asw-team1">
+      <option value="__ALL__" selected>All players</option>
+      <option value="__ROSTERED__">Rostered</option>
+      <option value="FA">Free agents</option>
+    </select>
   </label>
-  <label class="asw-ctl-f">Sort by
-    <select id="asw-sort"></select>
+</div>
+<div class="asw-ctl asw-ctl2" id="asw-ctl2">
+  <div class="asw-viewsw" id="asw-viewsw" role="group" aria-label="View">
+    <button type="button" class="asw-vw" data-show="table" aria-pressed="true">Table</button>
+    <button type="button" class="asw-vw" data-show="heatmap" aria-pressed="false" title="How he compares with the others listed, across scoring, opportunity, efficiency and consistency">Heatmap</button>
+    <button type="button" class="asw-vw" data-show="scatter" aria-pressed="false" title="Is his production volume or efficiency? One dot per player">Scatter</button>
+  </div>
+  <div class="asw-groups" id="asw-groups" role="group" aria-label="Stat group"></div>
+  <span class="asw-heat-legend" id="asw-heat-legend" hidden></span>
+  <label class="asw-scatter-q" id="asw-scatter-q-wrap" hidden><span class="asw-ctl-lbl">Question</span>
+    <select id="asw-scatter-q"></select>
   </label>
-  <button type="button" class="asw-sort-dir" id="asw-sort-dir" aria-label="Sort direction: high to low">▼ High to low</button>
+</div>
+<!-- Find, the filters in use (each removable), the count and how far the numbers go. -->
+<div class="asw-inuse" id="asw-inuse">
+  <label class="asw-search-f"><span class="sr">Find in this list</span>
+    <input type="text" id="asw-search" placeholder="Find a player in this list" autocomplete="off">
+  </label>
   <button type="button" class="asw-more-btn" id="asw-more-btn" aria-expanded="false" aria-controls="asw-more">More filters <span class="asw-more-n" id="asw-more-n"></span><span class="chev" aria-hidden="true">▾</span></button>
-  <span class="asw-count" id="asw-count" role="status"></span>
+  <span class="asw-inuse-chips" id="asw-inuse-chips"></span>
+  <span class="asw-spacer"></span>
+  <span class="asw-count" id="asw-count" role="status"></span><span class="asw-fresh" id="asw-fresh"></span>
+  <button type="button" class="asw-reset-btn" id="asw-reset-btn" title="Season, Window, Fantasy team, More filters, Find, view and stat group back to their defaults (Position stays)">Reset</button>
 </div>
 <div class="asw-more" id="asw-more" hidden>
   <h3 class="asw-more-h">Filters</h3>
   <div class="asw-controls" id="asw-controls">
-    <label>Fantasy team
+    <label hidden>Fantasy teams
       <select id="asw-team" multiple size="6">
         <option value="__ALL__" selected>All (league-wide)</option>
         <option value="__ROSTERED__">All rostered</option>
         <option value="FA">Free agents</option>
       </select>
-      <span class="asw-hint">⌘/Ctrl-click for more than one · franchises below</span>
     </label>
     <label>Add seasons
       <select id="asw-seasons" multiple size="6"></select>
@@ -771,7 +863,7 @@ table.asw-table{font-size:13px}
     </label>
     <div class="asw-more-vf" id="asw-more-vf"></div>
   </div>
-  <h3 class="asw-more-h">Columns <span class="asw-hint">instead of a stat group: a preset, a saved set or your own picks</span></h3>
+  <h3 class="asw-more-h">Columns <span class="asw-hint">choose your own instead of a stat group</span></h3>
   <div class="asw-cols-bar" id="asw-cols-bar">
     <span class="asw-cols-label">Column sets</span>
   </div>
@@ -780,15 +872,17 @@ table.asw-table{font-size:13px}
     <label class="asw-check"><input type="checkbox" id="asw-compare-mode"> Select players to compare</label>
   </div>
 </div>
-
-<!-- Source and freshness band: the context line, then one line per note that applies. -->
-<div class="asw-band" id="asw-band" aria-label="Sources and freshness">
+<!-- One status line, only when something is limited or failed; "See why" names the exact cause. -->
+<div class="asw-status" id="asw-status" hidden></div>
+<div class="asw-why" id="asw-why" role="dialog" aria-modal="false" aria-labelledby="asw-why-title" hidden></div>
+<!-- The notes the page computes (sources, freshness, ownership, definitions) feed the banner and
+     About; the old paragraph slots stay off screen for the code that fills them. -->
+<div class="asw-band" id="asw-band" hidden>
   <div class="asw-meta" id="asw-meta"></div>
   <div id="asw-datanote-slot"></div>
   <div id="asw-ownership-slot"></div>
   <div id="asw-source-freshness-slot"></div>
 </div>
-
 <!-- Compare bar: only while players are selected (More filters → Select players to compare). -->
 <div class="asw-compare-bar" id="asw-compare-bar" hidden>
   <span class="asw-compare-bar-label">Compare</span>
@@ -796,17 +890,17 @@ table.asw-table{font-size:13px}
   <button type="button" class="asw-compare-clear" id="asw-compare-clear">Clear</button>
   <button type="button" class="asw-compare-primary" id="asw-compare-go">Compare →</button>
 </div>
-
 <div class="asw-topscroll" id="asw-topscroll"><div id="asw-topscroll-spacer"></div></div>
 <div class="asw-table-wrap" id="asw-table-wrap"><div id="asw-body"></div></div>
-
-<details class="asw-about" id="asw-about">
-  <summary>About these numbers</summary>
-  <div id="asw-about-body"></div>
-  <p class="asw-about-ver">Stats Workbench <span id="asw-version" class="asw-version" title="Module version"></span></p>
-</details>
 </section>
-
+<!-- About these numbers: a compact dialog opened from beside the title. -->
+<div class="asw-modal-scrim" id="asw-about-scrim" hidden></div>
+<div class="asw-modal" id="asw-about-modal" role="dialog" aria-modal="true" aria-labelledby="asw-about-title" hidden>
+  <div class="asw-modal-head"><h2 id="asw-about-title">About these numbers</h2>
+    <button type="button" class="asw-modal-close" id="asw-about-close" aria-label="Close">×</button></div>
+  <div class="asw-modal-body" id="asw-about-body"></div>
+  <p class="asw-about-ver">Stats Workbench <span id="asw-version" class="asw-version" title="Module version"></span></p>
+</div>
 <!-- Fantasy Points Against view — lazy-rendered on first switch by the FPA module below. -->
 <section id="asw-view-fpa" hidden></section>
 
@@ -890,7 +984,7 @@ table.asw-table{font-size:13px}
 
   // ---------- Per-view masthead copy ----------
   var VIEW_META = {
-    "player-stats": { title:"Player Stats", desc:"Every NFL player at a position for the season and weeks you choose, joined to this league’s MFL scoring. Pick a stat group; click a player for his weeks." },
+    "player-stats": { title:"Player Stats", desc:"" },   // what it is lives in About these numbers (Keith 2026-10-15)
     "fpa":          { title:"Fantasy Points Against", desc:"Points each NFL defense has allowed to every fantasy position, per game, compared with what the same players usually score. It describes games already played; it is not a forecast. Click a team for the week-by-week players." },
     "adp":          { title:"ADP · Dynasty Value", desc:"Multi-source consensus draft position and dynasty trade value (FantasyCalc, KeepTradeCut, DynastyProcess, Sleeper), blended into one board with tiering." },
     "vegas":        { title:"Vegas Implied Points", desc:"Team totals implied by the live betting market — the cleanest public read on how many points a real offense is expected to score." },
@@ -904,6 +998,8 @@ table.asw-table{font-size:13px}
     // The version badge lives in About (Keith 2026-10-15: no machinery in the heading).
     if (t) t.textContent = m.title;
     if (d) d.textContent = m.desc;
+    var ab = document.getElementById("asw-about-btn");
+    if (ab) ab.hidden = view !== "player-stats";
   }
 
   // ---------- Known-empty data sources ----------
@@ -1177,14 +1273,11 @@ table.asw-table{font-size:13px}
       title:"MFL points ÷ games with a score (excludes inactives/byes; computed server-side)" },
     // Schedule faced (side-loaded /api/sos-adjusted-points: the Pts Agst engine, joined
     // by MFL id; #1271). Descriptive: what the teams he faced allowed to OTHER players at
-    // his position over the same final games. Uncolored on purpose: neither column is
-    // good or bad, and neither is a forecast. Missing = "—", never 0.
-    mfl_points_sos:      { label:"Sched Δ",  num:true, fmt:"sdelta", noHeat:true,
-      title:"Sched Δ = his points ÷ Opp − his points, over the same final games, on MFL’s own scores (in playoff weeks they can differ from MFL Pts, which reads a table missing playoff scores). Negative goes with a positive Opp: the teams he faced allowed his position more than usual. It describes the schedule he had; it isn’t a forecast.",
-      titleFn:function(r){ return sosCellTitle(sosRowFor(r), r); },
-      compute:function(r){ var s=sosRowFor(r); return s && s.delta != null ? s.delta : null; } },
-    mfl_sched_opp:       { label:"Opp ±%",  num:true, fmt:"spct", noHeat:true,
-      title:"Opp = what the teams he faced allowed to other players at his position, against those players’ usual (Pts Agst’s vs usual for the same weeks, his own games left out), averaged over his games. +10% = 10% more than usual.",
+    // his position over the same final games. Uncolored on purpose: it is neither good nor
+    // bad, and not a forecast. Missing = "—", never 0. The API's Sched Δ (the same idea
+    // restated in his points) is not offered on this page (Keith 2026-10-15).
+    mfl_sched_opp:       { label:"Opp. allowed", num:true, fmt:"spct", noHeat:true,
+      title:"Opponents allowed vs usual: how much more (+) or less (−) the defenses he faced gave up to his position than they usually do, over these weeks (his own games left out). It describes the schedule he already faced; it is not a forecast.",
       titleFn:function(r){ return sosCellTitle(sosRowFor(r), r); },
       compute:function(r){ var s=sosRowFor(r); return s && s.opp != null ? Math.round((s.opp - 1) * 100) : null; } },
     // Consistency / boom-bust (side-loaded /api/player-consistency, by gsis_id).
@@ -1658,7 +1751,7 @@ table.asw-table{font-size:13px}
       label: "QB", workerPos: "qb", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "pass_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"pass_volume",    label:"Passing · Volume",  cols:["pass_att","pass_cmp","cmp_pct","pass_yds","pass_tds","ypa"], defaultOn:true },
         { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks","pass_sack_yds"], defaultOn:false },
@@ -1676,7 +1769,7 @@ table.asw-table{font-size:13px}
       label: "RB", workerPos: "skill", positionFilter: ["RB","FB"],
       ident: IDENT_BASIC, defaultSort: "rush_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume",  cols:["rush_att","rush_yds","rush_tds","y_per_a"], defaultOn:true },
         { id:"rush_efficiency",label:"Rushing · Efficiency", cols:["ybc_per_a","yac_per_a"], defaultOn:false },
@@ -1702,7 +1795,7 @@ table.asw-table{font-size:13px}
       label: "WR", workerPos: "skill", positionFilter: ["WR"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -1725,7 +1818,7 @@ table.asw-table{font-size:13px}
       label: "TE", workerPos: "skill", positionFilter: ["TE"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -1747,7 +1840,7 @@ table.asw-table{font-size:13px}
       label: "Flex·O", workerPos: "skill", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume", cols:["rush_att","rush_yds","rush_tds"], defaultOn:true },
@@ -1776,7 +1869,7 @@ table.asw-table{font-size:13px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_sacks",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -1789,7 +1882,7 @@ table.asw-table{font-size:13px}
       positionFilter: ["LB","OLB","ILB","MLB"],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -1809,7 +1902,7 @@ table.asw-table{font-size:13px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ints","def_pass_def","def_ff","def_fr","def_tds"], defaultOn:false },
@@ -1822,7 +1915,7 @@ table.asw-table{font-size:13px}
       label: "Flex·IDP", workerPos: "idp", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -1837,7 +1930,7 @@ table.asw-table{font-size:13px}
       label: "PK", workerPos: "kicker", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "fg_made",
       groups: [
-        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",        label:"Usage",    cols:["games"], defaultOn:true },
         { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_make","avg_fg_att"], defaultOn:true },
         { id:"fg_distance",  label:"FG by Distance", cols:["fg_0_39","fg_40_49","fg_50_59","fg_60plus"], defaultOn:false },
@@ -1848,7 +1941,7 @@ table.asw-table{font-size:13px}
       label: "PN", workerPos: "punter", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "punts",
       groups: [
-        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_points_sos","mfl_sched_opp"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg"], defaultOn:true },
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg","punt_avg_spot"], defaultOn:false },
@@ -1898,7 +1991,7 @@ table.asw-table{font-size:13px}
     passing_adot:1, passing_air_yards:1, passing_yards_after_catch:1, def_adot:1 };
   function colSource(k) {
     if (k === "player_name") return null;
-    if (k === "mfl_points_sos" || k === "mfl_sched_opp") return "sched";
+    if (k === "mfl_sched_opp") return "sched";
     if (/^mfl_/.test(k) || k === "pos_rank") return "mfl";
     if (/^cons_/.test(k) || k === "l4w_delta") return "cons";
     if (SRC_SEASON_PFR[k]) return "pfrs";
@@ -1921,59 +2014,62 @@ table.asw-table{font-size:13px}
     (cols || []).forEach(function (k) { var x = colSource(k); if (x && !seen[x]) { seen[x] = 1; out.push(x); } });
     return out;
   }
-  function sgFantasy() { return { id: "fantasy", label: "Fantasy points", cols: ["pos_rank", "mfl_points", "mfl_ppg", "games"], sort: "mfl_points" }; }
-  function sgBoom()    { return { id: "boom", label: "Boom/Bust", title: "Boom/Bust and consistency", cols: ["cons_floor", "cons_ceil", "cons_score", "cons_boom", "cons_bust", "l4w_delta"], sort: "cons_score" }; }
-  function sgSched()   { return { id: "schedule", label: "Schedule context", title: "Sched Δ and Opp ±%: what the teams he faced allowed his position vs usual", cols: ["mfl_points", "mfl_points_sos", "mfl_sched_opp", "games"], sort: "mfl_points" }; }
-  var SG_RECEIVING = ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t", "receiving_adot"];
+  function sgFantasy() { return { id: "fantasy", label: "Scoring", title: "Points in this league’s MFL scoring: total, per game, games, and rank by points per game", cols: ["pos_rank", "mfl_points", "mfl_ppg", "games"], sort: "mfl_points" }; }
+  function sgBoom()    { return { id: "boom", label: "Consistency", title: "Week to week: floor, ceiling, steadiness, boom and bust weeks, and the last four weeks against the window", cols: ["cons_floor", "cons_ceil", "cons_score", "cons_boom", "cons_bust", "l4w_delta"], sort: "cons_score" }; }
+  // One schedule measure, in plain words: what his opponents allowed his position against their usual.
+  // Sched Δ (the same idea in points) is not on the owner page (Keith 2026-10-15).
+  function sgSched()   { return { id: "schedule", label: "Schedule", title: "The schedule he has already faced: what his opponents allowed to his position against their usual. Not a forecast.", cols: ["mfl_points", "games", "mfl_sched_opp"], sort: "mfl_points" }; }
+  var SG_RECEIVING = ["targets", "receptions", "rec_yds", "rec_tds"];
   var SG_IDP_FRONT = ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_pass_def", "def_ints", "def_ff"];
+  function sgUsage(cols) { return { id: "usage", label: "Opportunity", title: "How much he played and how much of the work he got", cols: cols, sort: cols[1] }; }
   var STAT_GROUPS = {
     qb: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "pass_att", "rush_att"], sort: "off_snaps_total" },
-      { id: "passing",   label: "Passing",   cols: ["pass_att", "pass_cmp", "cmp_pct", "pass_yds", "pass_tds", "pass_ints", "ypa", "pass_sacks"], sort: "pass_yds" },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds" },
-      { id: "redzone",   label: "Red zone",  cols: ["pass_att_i20", "pass_att_ez", "team_rz_plays", "team_rz_pass_rate"], sort: "pass_att_i20" },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_tt", "ngs_agg"], sort: "ngs_agg" },
+      sgUsage(["games", "off_snaps_total", "off_snap_rate", "pass_att", "rush_att"]),
+      { id: "passing",    label: "Passing",    cols: ["pass_att", "pass_cmp", "pass_yds", "pass_tds", "pass_ints", "pass_sacks"], sort: "pass_yds" },
+      { id: "rushing",    label: "Rushing",    cols: ["rush_att", "rush_yds", "rush_tds"], sort: "rush_yds" },
+      { id: "efficiency", label: "Efficiency", title: "Per play, with the volume beside it", cols: ["pass_att", "cmp_pct", "ypa", "passing_adot", "y_per_a", "ngs_tt", "ngs_agg"], sort: "pass_att" },
+      { id: "redzone",    label: "Red zone",   cols: ["pass_att_i20", "pass_att_ez", "team_rz_plays", "team_rz_pass_rate"], sort: "pass_att_i20" },
       sgBoom(), sgSched()],
     rb: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "rush_share", "targets", "target_share"], sort: "off_snaps_total" },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a", "ybc_per_a", "yac_per_a", "rush_brtkl"], sort: "rush_yds" },
-      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r", "y_per_t"], sort: "rec_yds" },
-      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "rush_att_i5", "rz_rush_share", "gl_rush_share", "targets_i20", "rec_i20", "targets_ez"], sort: "rush_att_i20" },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_ryoe_pa", "ngs_eff", "ngs_box8"], sort: "ngs_ryoe_pa" },
+      sgUsage(["games", "off_snaps_total", "off_snap_rate", "rush_att", "rush_share", "targets", "target_share"]),
+      { id: "rushing",    label: "Rushing",    cols: ["rush_att", "rush_yds", "rush_tds", "rush_brtkl"], sort: "rush_yds" },
+      { id: "receiving",  label: "Receiving",  cols: SG_RECEIVING.slice(), sort: "rec_yds" },
+      { id: "efficiency", label: "Efficiency", title: "Per carry and per target, with the volume beside it", cols: ["rush_att", "y_per_a", "ybc_per_a", "yac_per_a", "ngs_ryoe_pa", "rec_per_t", "y_per_t"], sort: "rush_att" },
+      { id: "redzone",    label: "Red zone",   cols: ["rush_att_i20", "rush_att_i5", "rz_rush_share", "gl_rush_share", "targets_i20", "rec_i20", "targets_ez"], sort: "rush_att_i20" },
       sgBoom(), sgSched()],
     wr: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total" },
-      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds" },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds"], sort: "rush_yds" },
-      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20" },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep" },
+      sgUsage(["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"]),
+      { id: "receiving",  label: "Receiving",  cols: SG_RECEIVING.slice(), sort: "rec_yds" },
+      { id: "efficiency", label: "Efficiency", title: "Per target, with the volume beside it", cols: ["targets", "rec_per_t", "y_per_t", "y_per_r", "receiving_adot", "ngs_sep", "ngs_yacoe"], sort: "targets" },
+      { id: "redzone",    label: "Red zone",   cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20" },
       sgBoom(), sgSched()],
     te: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"], sort: "off_snaps_total" },
-      { id: "receiving", label: "Receiving", cols: SG_RECEIVING.slice(), sort: "rec_yds" },
-      { id: "redzone",   label: "Red zone",  cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20" },
-      { id: "nextgen",   label: "Next Gen",  cols: ["ngs_sep", "ngs_cush", "ngs_yacoe"], sort: "ngs_sep" },
+      sgUsage(["games", "off_snaps_total", "off_snap_rate", "targets", "target_share", "rec_share"]),
+      { id: "receiving",  label: "Receiving",  cols: SG_RECEIVING.slice(), sort: "rec_yds" },
+      { id: "efficiency", label: "Efficiency", title: "Per target, with the volume beside it", cols: ["targets", "rec_per_t", "y_per_t", "y_per_r", "receiving_adot", "ngs_sep", "ngs_yacoe"], sort: "targets" },
+      { id: "redzone",    label: "Red zone",   cols: ["targets_i20", "rec_i20", "targets_ez", "rz_target_share", "rz_rec_share", "ez_target_share"], sort: "targets_i20" },
       sgBoom(), sgSched()],
     flex_o: [sgFantasy(),
-      { id: "usage",     label: "Usage",     cols: ["games", "off_snaps_total", "off_snap_rate", "rush_att", "targets", "target_share"], sort: "off_snaps_total" },
-      { id: "rushing",   label: "Rushing",   cols: ["rush_att", "rush_yds", "rush_tds", "y_per_a"], sort: "rush_yds" },
-      { id: "receiving", label: "Receiving", cols: ["targets", "receptions", "rec_yds", "rec_tds", "rec_per_t", "y_per_r"], sort: "rec_yds" },
-      { id: "redzone",   label: "Red zone",  cols: ["rush_att_i20", "targets_i20", "rec_i20", "targets_ez"], sort: "targets_i20" },
+      sgUsage(["games", "off_snaps_total", "off_snap_rate", "rush_att", "targets", "target_share"]),
+      { id: "rushing",    label: "Rushing",    cols: ["rush_att", "rush_yds", "rush_tds"], sort: "rush_yds" },
+      { id: "receiving",  label: "Receiving",  cols: SG_RECEIVING.slice(), sort: "rec_yds" },
+      { id: "efficiency", label: "Efficiency", title: "Per carry and per target, with the volume beside them", cols: ["rush_att", "y_per_a", "targets", "rec_per_t", "y_per_t", "y_per_r"], sort: "targets" },
+      { id: "redzone",    label: "Red zone",   cols: ["rush_att_i20", "targets_i20", "rec_i20", "targets_ez"], sort: "targets_i20" },
       sgBoom(), sgSched()],
     dl: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      sgUsage(["games", "def_snaps_total", "def_snap_rate"]),
       { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_tfl", "def_sacks", "def_pressures", "def_press_rate", "def_ff", "def_fr"], sort: "def_sacks" },
       sgBoom(), sgSched()],
     lb: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      sgUsage(["games", "def_snaps_total", "def_snap_rate"]),
       { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total" },
       sgBoom(), sgSched()],
     db: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      sgUsage(["games", "def_snaps_total", "def_snap_rate"]),
       { id: "idp",   label: "IDP",   title: "Tackles and coverage", cols: ["def_tackles_total", "def_tackles_ast", "def_pass_def", "def_ints", "def_completions_allowed", "def_yards_allowed", "def_passer_rating_allowed", "def_missed_tackle_pct"], sort: "def_tackles_total" },
       sgBoom(), sgSched()],
     flex_idp: [sgFantasy(),
-      { id: "usage", label: "Usage", cols: ["games", "def_snaps_total", "def_snap_rate"], sort: "def_snaps_total" },
+      sgUsage(["games", "def_snaps_total", "def_snap_rate"]),
       { id: "idp",   label: "IDP",   title: "Tackles, pass rush and coverage", cols: SG_IDP_FRONT.slice(), sort: "def_tackles_total" },
       sgBoom(), sgSched()],
     pk: [sgFantasy(),
@@ -1983,6 +2079,8 @@ table.asw-table{font-size:13px}
       { id: "punting", label: "Punting", cols: ["punts", "punt_avg", "punt_net_avg", "punt_inside20", "punt_i20_pct", "punt_tb", "punt_long"], sort: "punts" },
       sgBoom(), sgSched()]
   };
+  // An older link's grp=nextgen opens Efficiency (Next Gen joined the per-play numbers there).
+  var STAT_GROUP_ALIAS = { nextgen: "efficiency" };
   function statGroupsFor(tabId) { return STAT_GROUPS[tabId] || [sgFantasy()]; }
   function statGroupById(tabId, id) {
     var gs = statGroupsFor(tabId);
@@ -2144,7 +2242,7 @@ table.asw-table{font-size:13px}
 
   // Strength-of-Schedule-adjusted MFL points keyed by gsis_id — side-loaded per
   // query (it depends on the selected seasons + week window) and read by the
-  // mfl_points_sos / mfl_sched_opp (#1271): /api/sos-adjusted-points by MFL id, and what
+  // mfl_sched_opp (#1271): /api/sos-adjusted-points by MFL id, and what
   // the answer said about each season (or why it failed). Repopulated inside runQuery().
   var sosByMfl = {};
   function sosKey(id){ var n = parseInt(String(id == null ? "" : id), 10); return isFinite(n) ? String(n) : ""; }
@@ -2334,14 +2432,18 @@ table.asw-table{font-size:13px}
 
   // Team <select> option per franchise, added once and renamed in place (a
   // re-read must not append a second copy of every team).
+  // Both team selects: More filters' multi-select and the primary Fantasy team select.
   function upsertTeamOption(fid) {
-    for (var i = 0; i < teamSel.options.length; i++) {
-      if (teamSel.options[i].value === fid) { teamSel.options[i].textContent = fidToName[fid]; return; }
-    }
-    var o = document.createElement("option");
-    o.value = fid;
-    o.textContent = fidToName[fid];
-    teamSel.appendChild(o);
+    [teamSel, document.getElementById("asw-team1")].forEach(function (sel) {
+      if (!sel || !sel.options || typeof sel.appendChild !== "function") return;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === fid) { sel.options[i].textContent = fidToName[fid]; return; }
+      }
+      var o = document.createElement("option");
+      o.value = fid;
+      o.textContent = fidToName[fid];
+      sel.appendChild(o);
+    });
   }
 
   // Every read REPLACES the roster overlay: the latest read is the only
@@ -2862,6 +2964,15 @@ table.asw-table{font-size:13px}
     lastApiCount: 0,       // worker row count for the last query (A1 coverage / 500-cap signal)
     sourceFreshness: null, // /api/data-freshness payload (etl + weeklyCoverage), set once sourceFreshnessPromise resolves
     rowsOwnershipComplete: undefined, // was the active rows' ownership read confirmed complete? (runQuery; undefined until one lands)
+    // v2 (Keith 2026-10-15): the view shown over the SAME loaded rows, and what the status banner knows.
+    show: "table",         // "table" | "heatmap" | "scatter" — switching never fetches
+    scatterQ: null,        // the Scatter question (SCATTER_Q id); null → the position's first
+    side: {},              // side answers' status by source key: "ok" | { err: "HTTP 503" | "network" | "old_server" }
+    lbCache: {},           // leaderboard answers by URL for this visit (a season still being played: 5 minutes)
+    sideCache: {},         // side answers by URL, the same rule
+    loadError: null,       // { cause: "stored"|"request", text, detail } when the list itself couldn't be read
+    hiddenCols: [],        // columns hidden because nothing in this selection has them (with why), for the banner
+    issues: [],            // the status banner's causes, most serious first
   };
 
   // ---------- Per-column filter expressions ----------
@@ -3192,8 +3303,41 @@ table.asw-table{font-size:13px}
     db: ["def_snaps_total","def_pass_def"], flex_idp: ["def_snaps_total","def_tackles_total"],
     pk: ["fg_att","fg_pct"], pn: ["punts","punt_net_avg"],
   };
+  // Scatter answers one question at a time (Keith 2026-10-15): each preset names it. Custom axes stay
+  // available inside the view (the X / Y pickers), and override the preset until the position changes.
+  var SCATTER_Q = {
+    // vol: a rate needs volume behind it — players with under a tenth of the most (of that volume) in the
+    // list aren't drawn, so one 21-yard catch doesn't set the scale.
+    qb: [{ id: "vol_eff", label: "Volume or efficiency? · Pass attempts × Yards per attempt", x: "pass_att", y: "ypa", vol: "pass_att" },
+         { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
+    rb: [{ id: "vol_eff", label: "Volume or efficiency? · Rush share × Yards per carry", x: "rush_share", y: "y_per_a", vol: "rush_att" },
+         { id: "recv", label: "Receiving role × points · Target share × PPG", x: "target_share", y: "mfl_ppg" },
+         { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
+    wr: [{ id: "vol_eff", label: "Volume or efficiency? · Target share × Yards per target", x: "target_share", y: "y_per_t", vol: "targets" },
+         { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
+    te: [{ id: "vol_eff", label: "Volume or efficiency? · Target share × Yards per target", x: "target_share", y: "y_per_t", vol: "targets" },
+         { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
+    flex_o: [{ id: "vol_pts", label: "Opportunity × points · Target share × PPG", x: "target_share", y: "mfl_ppg" },
+             { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
+    dl: [{ id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "def_snap_rate", y: "mfl_ppg" },
+         { id: "rush", label: "Pass rush × points · Pressures × PPG", x: "def_pressures", y: "mfl_ppg" }],
+    lb: [{ id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "def_snap_rate", y: "mfl_ppg" },
+         { id: "tkl", label: "Tackles × points · Tackles × PPG", x: "def_tackles_total", y: "mfl_ppg" }],
+    db: [{ id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "def_snap_rate", y: "mfl_ppg" },
+         { id: "tkl", label: "Tackles × points · Tackles × PPG", x: "def_tackles_total", y: "mfl_ppg" }],
+    flex_idp: [{ id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "def_snap_rate", y: "mfl_ppg" },
+               { id: "tkl", label: "Tackles × points · Tackles × PPG", x: "def_tackles_total", y: "mfl_ppg" }],
+    pk: [{ id: "vol_acc", label: "Volume or accuracy? · FG made × FG %", x: "fg_made", y: "fg_pct", vol: "fg_made" }],
+    pn: [{ id: "vol_q", label: "Volume or quality? · Punts × Net average", x: "punts", y: "punt_net_avg" }],
+  };
+  function scatterPreset() {
+    var qs = SCATTER_Q[state.activeTab] || [];
+    for (var i = 0; i < qs.length; i++) if (qs[i].id === state.scatterQ) return qs[i];
+    return qs[0] || null;
+  }
   function scatterAxes() {
-    var d = SCATTER_DEFAULTS[state.activeTab] || ["games","mfl_ppg"];
+    var pr = scatterPreset();
+    var d = pr ? [pr.x, pr.y] : (SCATTER_DEFAULTS[state.activeTab] || ["games","mfl_ppg"]);
     var x = state.scatterX && COLS[state.scatterX] ? state.scatterX : d[0];
     var y = state.scatterY && COLS[state.scatterY] ? state.scatterY : d[1];
     if (!COLS[x]) x = "games";
@@ -3213,7 +3357,16 @@ table.asw-table{font-size:13px}
       }).filter(Boolean).join("");
       return '<select id="'+id+'" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;max-width:180px">'+opts+'</select>';
     }
+    var floor = sampleFloor(rows);
+    var below = 0, thinVol = 0;
+    var pr = !(state.scatterX || state.scatterY) ? scatterPreset() : null;
+    var volKey = pr && pr.vol && pr.x === xKey && pr.y === yKey ? pr.vol : null;
+    var volMin = 0;
+    if (volKey) rows.forEach(function (r) { var v = Number(getVal(r, volKey)) || 0; if (v > volMin) volMin = v; });
+    volMin = volMin / 10;
     var pts = rows.map(function(r){
+      if ((Number(getVal(r, "games")) || 0) < floor) { below++; return null; }
+      if (volKey && (Number(getVal(r, volKey)) || 0) < volMin) { thinVol++; return null; }
       var x = getVal(r, xKey), y = getVal(r, yKey);
       if (x == null || y == null || isNaN(x) || isNaN(y)) return null;
       return { x: Number(x), y: Number(y), r: r };
@@ -3237,40 +3390,56 @@ table.asw-table{font-size:13px}
     var mx = med(xs), my = med(ys);
     var fx = function(v){ return fmtCell(v, COLS[xKey].fmt).replace(/<[^>]*>/g,""); };
     var fy = function(v){ return fmtCell(v, COLS[yKey].fmt).replace(/<[^>]*>/g,""); };
-    // label the top-N interesting dots (extremes by distance from median)
-    var labeled = pts.slice().sort(function(a,b){
-      function d(p){ return Math.abs(p.x-mx)/(xMax-xMin) + Math.abs(p.y-my)/(yMax-yMin); }
-      return d(b) - d(a);
-    }).slice(0, Math.min(14, pts.length));
-    var labeledSet = new Set(labeled.map(function(p){ return p.r.gsis_id; }));
+    // Label the 12 highest scorers (PPG): the players an owner looks for first.
+    var labeled = pts.slice().sort(function(a,b){ return (Number(b.r.mfl_ppg) || 0) - (Number(a.r.mfl_ppg) || 0); }).slice(0, Math.min(12, pts.length));
+    // Place each label right of its dot, else left; a label that would overlap one already placed is
+    // left off (the dot's tooltip still names him).
+    var placed = [], labelOf = {};
+    labeled.forEach(function (p) {
+      var nm = p.r.player_name || "", short = nm.split(" ").length > 1 ? nm.split(" ").slice(-1)[0] : nm;
+      var w = short.length * 5.6 + 2, cx = sx(p.x), cy = sy(p.y);
+      var tries = [{ x: cx + 6, a: "start", l: cx + 6, r: cx + 6 + w }, { x: cx - 6, a: "end", l: cx - 6 - w, r: cx - 6 }];
+      for (var t = 0; t < tries.length; t++) {
+        var c = tries[t], box = { l: c.l, r: c.r, t: cy - 7, b: cy + 5 };
+        if (box.l < PL || box.r > W - PR) continue;
+        if (placed.some(function (o) { return box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t; })) continue;
+        placed.push(box);
+        labelOf[p.r.gsis_id] = '<text x="' + c.x + '" y="' + (cy + 3) + '" text-anchor="' + c.a + '" font-size="9.5" fill="var(--muted)">' + escapeHtml(short) + '</text>';
+        break;
+      }
+    });
     var dots = pts.map(function(p){
       var nm = p.r.player_name || "";
-      var lbl = labeledSet.has(p.r.gsis_id)
-        ? '<text x="'+(sx(p.x)+6)+'" y="'+(sy(p.y)+3)+'" font-size="9.5" fill="var(--muted)">'+escapeHtml((nm.split(" ").length>1?nm.split(" ").slice(-1)[0]:nm))+'</text>' : "";
+      var lbl = "";
       return '<g class="asw-sc-dot" data-gsis="'+escapeHtml(String(p.r.gsis_id||""))+'" style="cursor:pointer">' +
         '<circle cx="'+sx(p.x)+'" cy="'+sy(p.y)+'" r="4.2" fill="var(--accent)" fill-opacity="0.75" stroke="var(--bg)" stroke-width="1">' +
         '<title>'+escapeHtml(nm)+' — '+escapeHtml(COLS[xKey].label)+': '+fx(p.x)+' · '+escapeHtml(COLS[yKey].label)+': '+fy(p.y)+'</title></circle>' + lbl + '</g>';
     }).join("");
+    var ticks = function (v, isX) {
+      return isX ? '<text x="'+sx(v)+'" y="'+(H-PB+14)+'" text-anchor="middle" font-size="10" fill="var(--muted)">'+escapeHtml(fx(v))+'</text>'
+                 : '<text x="'+(PL-6)+'" y="'+(sy(v)+3)+'" text-anchor="end" font-size="10" fill="var(--muted)">'+escapeHtml(fy(v))+'</text>';
+    };
+    var tickHtml = [Math.min.apply(null, xs), mx, Math.max.apply(null, xs)].map(function (v) { return ticks(v, true); }).join("") +
+                   [Math.min.apply(null, ys), my, Math.max.apply(null, ys)].map(function (v) { return ticks(v, false); }).join("");
     var svg =
-      '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' +
+      '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;background:var(--panel);border:1px solid var(--border);border-radius:8px">' + tickHtml +
         '<line x1="'+sx(mx)+'" y1="'+PT+'" x2="'+sx(mx)+'" y2="'+(H-PB)+'" stroke="var(--border)" stroke-dasharray="4 4"/>' +
         '<line x1="'+PL+'" y1="'+sy(my)+'" x2="'+(W-PR)+'" y2="'+sy(my)+'" stroke="var(--border)" stroke-dasharray="4 4"/>' +
-        '<text x="'+(W-PR-4)+'" y="'+(PT+12)+'" text-anchor="end" font-size="10" fill="var(--muted)">high usage · high efficiency</text>' +
-        '<text x="'+(PL+4)+'" y="'+(H-PB-6)+'" font-size="10" fill="var(--muted)">low usage · low efficiency</text>' +
+
         '<text x="'+((PL+W-PR)/2)+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" fill="var(--text)">'+escapeHtml(COLS[xKey].label)+' →</text>' +
         '<text x="14" y="'+((PT+H-PB)/2)+'" text-anchor="middle" font-size="11" fill="var(--text)" transform="rotate(-90 14 '+((PT+H-PB)/2)+')">'+escapeHtml(COLS[yKey].label)+' →</text>' +
-        dots +
+        dots + '<g pointer-events="none">' + Object.keys(labelOf).map(function (k) { return labelOf[k]; }).join("") + '</g>' +
       '</svg>';
-    return '<div style="padding:8px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-        '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700">Scatter</span>' +
-        'X ' + pickerHtml("asw-sc-x", xKey) + ' Y ' + pickerHtml("asw-sc-y", yKey) +
-        '<span style="color:var(--muted);font-size:11px">' + pts.length + ' players · dashed lines = medians · click a dot for the player drawer</span>' +
-      '</div>' + svg;
+    return '<div class="asw-scatter-wrap"><div style="padding:6px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)">' +
+        'Custom axes: X ' + pickerHtml("asw-sc-x", xKey) + ' Y ' + pickerHtml("asw-sc-y", yKey) + '</div>' + svg +
+        '<p class="asw-scatter-note">Each dot is one player in this list (the same Season, Window, Position, Fantasy team and filters as the table). ' +
+        pts.length + ' players with ' + floor + '+ games' + (below ? ' (' + below + ' with fewer aren’t drawn)' : '') +
+        (thinVol ? ' · ' + thinVol + ' with under a tenth of the most ' + escapeHtml((COLS[volKey] && COLS[volKey].label) || volKey) + ' aren’t drawn either' : '') + ' · named: the highest PPG where the name fits · dashed lines: their medians · click a dot for his player view.</p></div>';
   }
   function wireScatter(rows) {
     var xSel = document.getElementById("asw-sc-x"), ySel = document.getElementById("asw-sc-y");
-    if (xSel) xSel.addEventListener("change", function(){ state.scatterX = xSel.value; render(); });
-    if (ySel) ySel.addEventListener("change", function(){ state.scatterY = ySel.value; render(); });
+    if (xSel) xSel.addEventListener("change", function(){ state.scatterX = xSel.value; state.scatterY = state.scatterY || (ySel && ySel.value); render(); });
+    if (ySel) ySel.addEventListener("change", function(){ state.scatterY = ySel.value; state.scatterX = state.scatterX || (xSel && xSel.value); render(); });
     var byGsis = {};
     rows.forEach(function(r){ if (r.gsis_id) byGsis[String(r.gsis_id)] = r; });
     bodyEl.querySelectorAll(".asw-sc-dot").forEach(function(g){
@@ -3383,18 +3552,18 @@ table.asw-table{font-size:13px}
   // with 2026 as if alike. Silent when no EPA / red-zone column is showing.
   var RZ_COLS = { rush_att_i20:1, rush_att_i5:1, targets_i20:1, rec_i20:1, targets_ez:1, pass_att_i20:1, pass_att_ez:1,
                   rz_rush_share:1, gl_rush_share:1, rz_target_share:1, rz_rec_share:1, ez_target_share:1, team_rz_plays:1, team_rz_pass_rate:1 };
-  // Sched Δ / Opp ±% (#1271): one line + short sentences on what the two columns are and
-  // which weeks each season actually used, or why they read "—". "" when neither shows.
+  // Opp. allowed (#1271): one line + short sentences on what it is and which weeks each
+  // season actually used, or why it reads "—". "" when it isn't showing.
   function sosNoteText(sos, cols) {
-    var shown = (cols || []).some(function (k) { return k === "mfl_points_sos" || k === "mfl_sched_opp"; });
+    var shown = (cols || []).some(function (k) { return k === "mfl_sched_opp"; });
     if (!shown || !sos || sos.status === "loading") return "";
-    var head = "Sched Δ / Opp ±%: what the teams he faced allowed his position vs usual (Pts Agst, final games, MFL’s own scores — not always MFL Pts in playoff weeks). Describes his schedule; not a forecast.";
+    var head = "Opp. allowed: what the teams he faced allowed his position vs usual (Pts Agst, final games, MFL’s own scores — not always MFL Pts in playoff weeks). The schedule already faced; not a forecast.";
     if (sos.status !== "ok") {
       var why = sos.error === "too_many_live_seasons" ? (sos.detail || "too many seasons need a live MFL read")
         : sos.error === "old_server" ? "the server is still on the previous version; reload in a minute"
         : sos.error === "mfl_unavailable" ? "MFL couldn't be read" + (sos.season ? " for " + sos.season : "") + (sos.detail ? " (" + sos.detail + ")" : "")
         : "the answer didn't load (" + (sos.error || "error") + ")";
-      return head + " Both show “—”: " + String(why).replace(/[.\s]+$/, "") + ". Nothing is filled in from another season.";
+      return head + " It shows “—”: " + String(why).replace(/[.\s]+$/, "") + ". Nothing is filled in from another season.";
     }
     var per = sos.perSeason || {}, parts = [];
     Object.keys(per).sort().forEach(function (y) {
@@ -3415,7 +3584,7 @@ table.asw-table{font-size:13px}
     // (each player's usual would be that game), so every value reads —.
     var used = Object.keys(per).map(function (y) { return (per[y] && per[y].weeksUsed || []).length; }).filter(function (n) { return n > 0; });
     var longest = used.length ? Math.max.apply(null, used) : 0;
-    var few = !longest ? "" : longest < 2 ? " One week: each player’s usual would be that game, so there’s nothing to compare; both show “—”."
+    var few = !longest ? "" : longest < 2 ? " One week: each player’s usual would be that game, so there’s nothing to compare; it shows “—”."
       : longest < 6 ? " Few weeks: each opponent is rated on a handful of games, so values swing widely." : "";
     return head + (parts.length ? " " + parts.join(" · ") + "." : "") + few;
   }
@@ -3548,6 +3717,9 @@ table.asw-table{font-size:13px}
   // verbatim for a REAL, rostered player search that just happened to be on
   // the wrong tab, indistinguishable from an actually-empty position group.
   function emptySearchHtml(tab, searchQ) {
+    if (state.loadError) return '<span class="asw-err">' + escapeHtml(state.loadError.cause === "stored"
+      ? "The stored " + getSelectedSeasons().join(" + ") + " stats couldn’t be read" + (state.loadError.detail ? " (" + state.loadError.detail + ")" : "") + ", so nothing is shown rather than a different calculation."
+      : "The player list couldn’t be loaded (" + state.loadError.text + "). Change any control or reload to try again.") + "</span>";
     // Emptied by the Team filter on an unconfirmed ownership read — say so,
     // not "no rows match" (which would read as "no free agents").
     if (getSelectedTeams().length && ownershipNoteHtml(getSelectedTeams(), state.rowsOwnershipComplete)) {
@@ -3562,6 +3734,306 @@ table.asw-table{font-size:13px}
     return 'No ' + escapeHtml(tab.label) + ' matches for &ldquo;' + escapeHtml(searchQ) + '&rdquo;.' + hint +
       '<button type="button" class="asw-search-all-btn" data-act="gsearch-open">' +
       '<span class="ic">⌕</span> Search all players</button>';
+  }
+
+  // ---------- Heatmap view (Keith 2026-10-15) ----------
+  // "How does he compare with the others at his position, across the board?" A fixed profile per
+  // position — scoring, opportunity, efficiency, consistency — each cell colored by its rank among
+  // the players listed (bottom fifth → top fifth), the value in the cell. No column picking here.
+  var HEAT_SETS = {
+    qb: ["mfl_ppg", "off_snap_rate", "pass_att", "cmp_pct", "ypa", "pass_tds", "rush_yds", "cons_score"],
+    rb: ["mfl_ppg", "off_snap_rate", "rush_share", "target_share", "y_per_a", "y_per_t", "cons_boom", "cons_score"],
+    wr: ["mfl_ppg", "off_snap_rate", "target_share", "y_per_t", "rec_per_t", "receiving_adot", "cons_boom", "cons_score"],
+    te: ["mfl_ppg", "off_snap_rate", "target_share", "y_per_t", "rec_per_t", "receiving_adot", "cons_boom", "cons_score"],
+    flex_o: ["mfl_ppg", "off_snap_rate", "target_share", "rush_share", "y_per_t", "y_per_a", "cons_boom", "cons_score"],
+    dl: ["mfl_ppg", "def_snap_rate", "def_tackles_total", "def_sacks", "def_tfl", "def_pressures", "cons_boom", "cons_score"],
+    lb: ["mfl_ppg", "def_snap_rate", "def_tackles_total", "def_sacks", "def_tfl", "def_pass_def", "cons_boom", "cons_score"],
+    db: ["mfl_ppg", "def_snap_rate", "def_tackles_total", "def_pass_def", "def_ints", "def_tfl", "cons_boom", "cons_score"],
+    flex_idp: ["mfl_ppg", "def_snap_rate", "def_tackles_total", "def_sacks", "def_tfl", "def_pass_def", "cons_boom", "cons_score"],
+    pk: ["mfl_ppg", "fg_made", "fg_pct", "fg_50_59", "xp_made", "cons_score"],
+    pn: ["mfl_ppg", "punts", "punt_net_avg", "punt_i20_pct", "cons_score"],
+  };
+  function sampleFloor(rows) {
+    var mx = 0;
+    rows.forEach(function (r) { var g = Number(getVal(r, "games")) || 0; if (g > mx) mx = g; });
+    return Math.max(1, Math.round(mx / 2));
+  }
+  function heatSet() { return (HEAT_SETS[state.activeTab] || ["mfl_ppg"]).filter(function (k) { return COLS[k]; }); }
+  function heatValue(r, k) { var d = COLS[k] || {}; var v = d.sortValue ? d.sortValue(r) : getVal(r, k); return typeof v === "number" && !isNaN(v) ? v : null; }
+  // Quintile edges per measure over the rows listed; null when fewer than 4 players have it.
+  function heatEdges(rows, keys) {
+    var out = {};
+    keys.forEach(function (k) {
+      var vals = rows.map(function (r) { return heatValue(r, k); }).filter(function (v) { return v != null; }).sort(function (a, b) { return a - b; });
+      if (vals.length < 4) return;
+      var q = function (f) { var i = (vals.length - 1) * f, lo = Math.floor(i), hi = Math.ceil(i); return vals[lo] + (vals[hi] - vals[lo]) * (i - lo); };
+      out[k] = { b1: q(0.2), b2: q(0.4), b3: q(0.6), b4: q(0.8), invert: !!(COLS[k] && COLS[k].invertRank) };
+    });
+    return out;
+  }
+  function heatQuintile(edges, k, v) {
+    var b = edges[k]; if (!b || v == null) return 0;
+    var q = v <= b.b1 ? 1 : v <= b.b2 ? 2 : v <= b.b3 ? 3 : v <= b.b4 ? 4 : 5;
+    return b.invert ? 6 - q : q;
+  }
+  // → { html, rows }: rows in the order drawn (the row wiring maps <tr> index → row).
+  function buildHeatmapHtml(rows, tab, searchQ) {
+    var keys = heatSet();
+    var sortKey = keys.indexOf(state.sortKey) >= 0 ? state.sortKey : "mfl_ppg";
+    var dir = keys.indexOf(state.sortKey) >= 0 ? state.sortDir : "desc";
+    var sorted = rows.slice().sort(function (a, b) {
+      var av = heatValue(a, sortKey), bv = heatValue(b, sortKey);
+      if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1;
+      return dir === "asc" ? av - bv : bv - av;
+    });
+    if (!sorted.length) return { html: '<div class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</div>', rows: sorted };
+    var floor = sampleFloor(sorted);
+    var ranked = sorted.filter(function (r) { return (Number(getVal(r, "games")) || 0) >= floor; });
+    var edges = heatEdges(ranked, keys);
+    state.heatFloor = floor;
+    var head = '<th class="rank-col" title="Rank in the current sort">#</th><th class="name-col" scope="col">Player</th>' + keys.map(function (k) {
+      var d = COLS[k] || { label: k };
+      var srt = k === sortKey ? ' aria-sort="' + (dir === "asc" ? "ascending" : "descending") + '"' : "";
+      return '<th class="num" data-col-key="' + k + '" tabindex="0" scope="col"' + srt + ' title="' + escapeHtml(d.title || d.label) + '">' + escapeHtml(d.label) + '</th>';
+    }).join("");
+    var body = sorted.map(function (r, i) {
+      var thin = (Number(getVal(r, "games")) || 0) < floor;
+      return '<tr' + (thin ? ' class="thin" title="Fewer than ' + floor + ' games: shown, not ranked"' : '') + '><td class="rank-col">' + (i + 1) + '</td>' + playerCellHtml(r, ["name"]) + keys.map(function (k) {
+        var v = heatValue(r, k), q = thin ? 0 : heatQuintile(edges, k, v);
+        return '<td class="num pct-q' + q + '">' + fmtCell(getVal(r, k), (COLS[k] || {}).fmt) + '</td>';
+      }).join("") + '</tr>';
+    }).join("");
+    return { rows: sorted, html: '<table class="asw-table asw-heatmap no-sel"><thead><tr class="asw-col-row">' + head + '</tr></thead><tbody>' + body + '</tbody></table>' };
+  }
+
+  // ---------- Status banner (Keith 2026-10-15) ----------
+  // One line beneath the controls, only when something is limited or failed, naming the REAL cause;
+  // "See why" opens the detail. Causes are told apart — a server on an older version is never
+  // reported as "the source hasn't published it".
+  var SIDE_OF_SRC = { sched: "sos", cons: "cons", epa: "epa", routes: "routes", ngs: "ngs", ftn: "ftn", splits: "splits", sep: "sep", xfp: "xfp", mkt: "market", prof: "profile" };
+  var SIDE_LABEL = { sos: "Schedule (Pts Agst engine)", cons: "Consistency", epa: "EPA", routes: "Routes", ngs: "Next Gen", ftn: "FTN charting", splits: "Game-script splits", sep: "PFF separation", xfp: "xFP model", market: "MFL market", profile: "Player profile" };
+  var SRC_SEASONS = { ngs: { from: 2016 }, routes: { from: 2016 }, ftn: { from: 2022 }, xfp: { only: 2025 }, sep: { only: 2025 } };
+  var CAUSE_NAME = { version: "Server and page versions differ", unpublished: "The source hasn’t published it", stored: "Stored copy missing or invalid",
+    nomatch: "No players match the filters", limit: "Left out by a source limit", request: "A request failed", definitions: "Source definitions differ",
+    partial: "Incomplete for this selection", sample: "Small sample", unknown: "Cause not identified" };
+  var CAUSE_TODO = { version: "Nothing to do here: it clears when the server update ships. Reload to check.", unpublished: "Pick a season or window the source covers.",
+    stored: "Report it: the stored copy is rebuilt and shipped with the next update.", request: "Change any control or reload to try again.",
+    unknown: "Report it with the season, window and position." };
+  function windowRange() {
+    var sc = getScope();
+    if (sc === "custom") return getCustomWeekRange();
+    var pr = SCOPE_RANGES[sc] || SCOPE_RANGES.mfl_total;
+    return { lo: pr.min, hi: pr.max };
+  }
+  // Why a column has no value for anyone in this selection.
+  function deadCause(k, availability) {
+    var src = colSource(k), side = SIDE_OF_SRC[src], seasons = getSelectedSeasons();
+    if (src === "sched" && state.sos && state.sos.status === "error") {
+      return state.sos.error === "old_server"
+        ? { cause: "version", text: "The stats server answered in its older format (it has no per-player schedule yet)." }
+        : { cause: "request", text: "The schedule request failed (" + state.sos.error + ")." };
+    }
+    var st = side ? state.side[side] : null;
+    if (st && st.err) return st.err === "old_server"
+      ? { cause: "version", text: SIDE_LABEL[side] + ": the server answered in an older format." }
+      : { cause: "request", text: SIDE_LABEL[side] + " couldn’t be loaded (" + st.err + ")." };
+    var cov = SRC_SEASONS[src];
+    if (cov && cov.from && Math.min.apply(null, seasons) < cov.from) return { cause: "unpublished", text: (SG_SRC[src] || src) + " starts in " + cov.from + "." };
+    if (cov && cov.only && seasons.indexOf(cov.only) < 0) return { cause: "unpublished", text: (SG_SRC[src] || src) + " exists only for " + cov.only + "." };
+    if (src === "mfl" || src === "cons") {
+      var w = windowRange();
+      if (Math.max.apply(null, seasons) <= 2020 && w.lo >= 14) return { cause: "stored", text: "MFL’s weekly scores for weeks 14–17 of 2011–2020 aren’t stored yet (tracked in #1307)." };
+    }
+    var srcKey = COL_SOURCE[k];
+    if (srcKey) {
+      var sf = sourceFreshnessFor(srcKey), d = deadReason(k, state.activeTab, availability);
+      if (sf.state === "failed") return { cause: "request", text: d ? d.why : "Its last refresh failed." };
+      if (sf.state === "never_run" || sf.state === "unavailable") return { cause: "unpublished", text: d ? d.why : "Nothing published yet." };
+    }
+    if (state.lastBuiltForWeek != null && state.lastBuiltForWeek > 0 && state.lastBuiltForWeek < COVERAGE_EARLY_SEASON_WEEKS) {
+      return { cause: "unpublished", text: "No player has it yet this season (through Week " + state.lastBuiltForWeek + ")." };
+    }
+    return { cause: "unknown", text: "No player in this list has a value for it, and the page couldn’t tell why." };
+  }
+  // Empty for a reason the page already knows (a failed or older-format answer, a season the source
+  // doesn't cover): hidden even in a short list, where the sample rule above wouldn't call it broken.
+  function knownEmpty(k, availability) {
+    var cov = availability && availability[k];
+    if (!cov || !cov.total || cov.nonNull !== 0) return false;
+    var src = colSource(k), side = SIDE_OF_SRC[src], seasons = getSelectedSeasons(), c = SRC_SEASONS[src];
+    if (src === "sched" && state.sos && state.sos.status === "error") return true;
+    if (side && state.side[side] && state.side[side].err) return true;
+    if (c && c.from && Math.min.apply(null, seasons) < c.from) return true;
+    if (c && c.only && seasons.indexOf(c.only) < 0) return true;
+    return false;
+  }
+  function colLabels(keys) {
+    var l = keys.map(function (k) { return (COLS[k] && COLS[k].label) || k; });
+    return l.length <= 3 ? l.join(", ") : l.slice(0, 3).join(", ") + " +" + (l.length - 3);
+  }
+  function activeFilterWords() {
+    var w = [], teams = getSelectedTeams();
+    if (teams.length) w.push("Fantasy team: " + teams.map(function (t) { return t === "FA" ? "Free agents" : t === "__ROSTERED__" ? "Rostered" : (fidToName[padFid(t)] || t); }).join(", "));
+    Object.keys(state.filters).forEach(function (k) { var v = (state.filters[k] || "").trim(); if (v) w.push(((COLS[k] && COLS[k].label) || k) + " " + v); });
+    if ((searchEl.value || "").trim()) w.push("Find “" + searchEl.value.trim() + "”");
+    if (state.activeSubTab && state.activeSubTab !== "all") w.push(state.activeSubTab.toUpperCase() + " only");
+    return w;
+  }
+  function computeIssues(cols, loadedCount, shownCount) {
+    var out = [], seasons = getSelectedSeasons(), w = windowRange();
+    if (state.loadError) {
+      var stored = state.loadError.cause === "stored";
+      out.push({ sev: "err", cause: state.loadError.cause, title: stored ? "The stored " + seasons.join(" + ") + " stats couldn’t be read" : "The player list couldn’t be loaded",
+        detail: state.loadError.detail || state.loadError.text, affects: "The whole list",
+        not: stored ? "Not a live calculation: a finished season is shown only from its stored copy, never recalculated." : "",
+        todo: stored ? CAUSE_TODO.stored : CAUSE_TODO.request });
+    }
+    var byCause = {};
+    state.hiddenCols.forEach(function (h) {
+      var g = byCause[h.why.cause] || (byCause[h.why.cause] = { keys: [], texts: [] });
+      g.keys.push(h.key); if (g.texts.indexOf(h.why.text) < 0) g.texts.push(h.why.text);
+    });
+    Object.keys(byCause).forEach(function (c) {
+      var g = byCause[c], sched = g.keys.indexOf("mfl_sched_opp") >= 0;
+      var what = sched && g.keys.length === 1 ? "Schedule stats" : colLabels(g.keys);
+      var title = c === "version" ? what + " unavailable — the stats server is older than this page"
+        : c === "request" ? what + " couldn’t be loaded"
+        : c === "unpublished" ? what + ": not published for this selection"
+        : c === "stored" ? what + ": not stored for this selection"
+        : what + ": no values in this selection";
+      out.push({ sev: c === "version" || c === "request" || c === "stored" ? "err" : "warn", cause: c, title: title, detail: g.texts.join(" "),
+        affects: colLabels(g.keys) + " — hidden from the table",
+        not: c === "version" ? "Not unpublished data: the source has it; this page needs the newer server." : c === "unpublished" ? "Not a fault of this page or the server." : "",
+        todo: CAUSE_TODO[c] || "" });
+    });
+    // MFL's own weekly scores have a known gap in playoff weeks (#1307): say what the numbers cover.
+    var mflOn = cols.some(function (k) { var x = colSource(k); return x === "mfl" || x === "cons" || x === "sched"; });
+    if (mflOn && !state.loadError && w.hi >= 14) {
+      var maxS = Math.max.apply(null, seasons), minS = Math.min.apply(null, seasons);
+      if (minS <= 2020 && w.lo < 14) out.push({ sev: "warn", cause: "partial", title: "MFL points cover weeks " + w.lo + "–13 here",
+        detail: "MFL’s weekly scores for weeks 14–17 of 2011–2020 aren’t stored yet, so MFL Pts, PPG, Consistency and Schedule for " + seasons.join(" + ") + " leave those weeks out (tracked in #1307).",
+        affects: "MFL Pts, PPG, PPG Rk, Consistency, Schedule", not: "Not a calculation error.", todo: "Use MFL Reg (Wks 1–14) for like-for-like comparisons." });
+      else if (maxS >= 2021 && w.hi >= 15) out.push({ sev: "info", cause: "partial", title: "Playoff-week MFL points are stored for rostered players only",
+        detail: "For 2021–2025, MFL’s weekly scores in weeks 15–17 are stored only for players on a roster that week, so a free agent’s playoff weeks count nothing (tracked in #1307).",
+        affects: "MFL Pts, PPG, Consistency for weeks 15–17", not: "", todo: "Use MFL Reg (Wks 1–14) to compare free agents." });
+    }
+    if (!state.loadError && loadedCount && !shownCount) out.push({ sev: "warn", cause: "nomatch", title: "No players match these filters",
+      detail: activeFilterWords().join(" · ") || "The current filters.", affects: "The list",
+      not: "Not missing data: " + loadedCount + " players were loaded before the filters.", todo: "Loosen a filter or press Reset." });
+    if (!state.loadError && !loadedCount && state.lastQuery) out.push({ sev: "warn", cause: "unpublished", title: "No games in this selection",
+      detail: seasons.join(" + ") + " · " + getScopeLabel() + ": no player at this position has a game in these weeks.", affects: "The list", not: "", todo: "Pick another season or window." });
+    if (state.lastApiCapped) out.push({ sev: "warn", cause: "limit", title: "The list stops at " + state.lastApiCount + " players",
+      detail: "The stats source returns at most 500 players per position group for this request; players below the cutoff aren’t listed.",
+      affects: "The deepest players in this group", not: "Not one of your filters.", todo: "Narrow with Window or Fantasy team." });
+    if (state.rowsOwnershipComplete === false) out.push({ sev: "warn", cause: "request", title: "Fantasy teams couldn’t all be read",
+      detail: OWNERSHIP_UNKNOWN_MSG + " Players not found on a roster show “owner unknown”, and a Fantasy team filter lists nobody rather than a partial list.",
+      affects: "Fantasy team names and the Fantasy team filter", not: "", todo: "It retries with the next change; reload if it stays." });
+    var epaOn = cols.some(function (k) { return /^epa_/.test(k); }), rzOn = cols.some(function (k) { return colSource(k) === "pbp"; });
+    if (epaOn && state.epaMixed) out.push({ sev: "warn", cause: "definitions", title: "EPA can’t be added across these seasons",
+      detail: "The seasons chosen were built under different EPA play definitions, so their EPA isn’t added together.", affects: "EPA columns", not: "", todo: "Choose seasons on one definition." });
+    if (rzOn && state.rzMixed) out.push({ sev: "warn", cause: "definitions", title: "Red-zone counts can’t be added across these seasons",
+      detail: "Some seasons were rebuilt under the newer red-zone rules and some weren’t.", affects: "Red-zone columns", not: "", todo: "Choose seasons on one rule." });
+    var cov = state.lastSourceCoverage;
+    if (cov && cov.complete === false && state.lastBuiltForWeek) out.push({ sev: "info", cause: "partial", title: "Week " + state.lastBuiltForWeek + " is still coming in",
+      detail: (cov.teams_reported != null && cov.teams_expected ? cov.teams_reported + " of " + cov.teams_expected + " teams have reported. " : "") + "Totals include that week’s games so far.",
+      affects: "Every count", not: "", todo: "" });
+    var thin = cols.filter(function (k) { var d = deadReason(k, state.activeTab, null); return d && d.kind === "insufficient_sample"; });
+    if (thin.length) out.push({ sev: "info", cause: "sample", title: colLabels(thin) + ": too few weeks yet",
+      detail: thin.map(function (k) { return deadReason(k, state.activeTab, null).why; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(" "),
+      affects: colLabels(thin), not: "Not a source problem.", todo: "" });
+    var rank = { err: 0, warn: 1, info: 2 };
+    return out.sort(function (a, b) { return rank[a.sev] - rank[b.sev]; });
+  }
+  var statusEl = document.getElementById("asw-status"), whyEl = document.getElementById("asw-why");
+  function renderStatus(issues) {
+    state.issues = issues;
+    if (!statusEl) return;
+    if (!issues.length) { statusEl.hidden = true; statusEl.innerHTML = ""; if (whyEl) whyEl.hidden = true; return; }
+    var top = issues[0], icon = top.sev === "info" ? "ⓘ" : "⚠";
+    var more = issues.length - 1, hidden = state.hiddenCols.length;
+    var tail = [more ? "+" + more + " more" : "", hidden ? hidden + " column" + (hidden === 1 ? "" : "s") + " hidden" : ""].filter(Boolean).join(" · ");
+    var html = '<span aria-hidden="true">' + icon + '</span><b>' + escapeHtml(top.title) + '</b>' +
+      '<button type="button" id="asw-why-btn" aria-expanded="' + (whyEl && !whyEl.hidden ? "true" : "false") + '" aria-controls="asw-why">See why</button>' +
+      (tail ? '<span class="asw-status-n">' + escapeHtml(tail) + '</span>' : "");
+    if (statusEl.innerHTML !== html) statusEl.innerHTML = html;
+    statusEl.className = "asw-status" + (top.sev === "err" ? " err" : top.sev === "info" ? " info" : "");
+    statusEl.hidden = false;
+    if (whyEl && !whyEl.hidden) fillWhy();
+  }
+  function fillWhy() {
+    if (!whyEl) return;
+    whyEl.innerHTML = '<button type="button" class="asw-why-close" aria-label="Close">×</button><h3 id="asw-why-title" tabindex="-1">Why</h3>' + state.issues.map(function (x) {
+      return '<section><h4>' + escapeHtml(x.title) + '</h4><dl>' +
+        '<dt>Cause</dt><dd>' + escapeHtml(CAUSE_NAME[x.cause] || x.cause) + '</dd>' +
+        (x.detail ? '<dt>What happened</dt><dd>' + escapeHtml(x.detail) + '</dd>' : "") +
+        (x.affects ? '<dt>Affects</dt><dd>' + escapeHtml(x.affects) + '</dd>' : "") +
+        (x.not ? '<dt>It is not</dt><dd>' + escapeHtml(x.not) + '</dd>' : "") +
+        (x.todo ? '<dt>What to do</dt><dd>' + escapeHtml(x.todo) + '</dd>' : "") + '</dl></section>';
+    }).join("");
+  }
+  function toggleWhy(open) {
+    if (!whyEl) return;
+    var want = open === undefined ? whyEl.hidden : !!open;
+    if (want) { fillWhy(); whyEl.hidden = false; var h = whyEl.querySelector("#asw-why-title"); if (h) h.focus(); }
+    else { whyEl.hidden = true; var b = document.getElementById("asw-why-btn"); if (b) b.focus(); }
+    var b2 = document.getElementById("asw-why-btn"); if (b2) b2.setAttribute("aria-expanded", want ? "true" : "false");
+  }
+  if (whyEl) whyEl.addEventListener("keydown", function (e) { if (e.key === "Escape") toggleWhy(false); });
+  // (delegated: the banner and the panel are re-filled on render)
+  if (statusEl) statusEl.addEventListener("click", function (e) { if (e.target && e.target.id === "asw-why-btn") toggleWhy(); });
+  if (whyEl) whyEl.addEventListener("click", function (e) { if (e.target && /asw-why-close/.test(e.target.className || "")) toggleWhy(false); });
+
+  // ---------- Filters in use + freshness (one muted line) ----------
+  function freshText() {
+    var seasons = getSelectedSeasons(), w = windowRange(), cur = Math.max.apply(null, seasons) >= THIS_YEAR;
+    var t = w.lo === w.hi ? "Wk " + w.lo : "Wks " + w.lo + "–" + w.hi;
+    if (!cur) t += " · final";
+    else if (state.lastFinalizedThroughWeek != null) t += " · final through Wk " + state.lastFinalizedThroughWeek + (state.lastBuiltForWeek && state.lastBuiltForWeek > state.lastFinalizedThroughWeek ? " (Wk " + state.lastBuiltForWeek + " in progress)" : "");
+    if (state.lastReadAt) t += " · read " + state.lastReadAt;
+    return t;
+  }
+  function renderInuse() {
+    var chipsEl = document.getElementById("asw-inuse-chips"), freshEl = document.getElementById("asw-fresh");
+    if (!chipsEl) return;
+    var chips = [];
+    var seasons = getSelectedSeasons();
+    if (seasons.length > 1) chips.push({ id: "seasons", label: "Seasons added: " + seasons.slice().sort().join(" + ") });
+    if (state.group === "custom") chips.push({ id: "custom", label: "Custom columns" });
+    Object.keys(state.filters).forEach(function (k) { var v = (state.filters[k] || "").trim(); if (v) chips.push({ id: "f." + k, label: ((COLS[k] && COLS[k].label) || k) + " " + v }); });
+    if (state.compareMode) chips.push({ id: "compare", label: "Comparing" });
+    var html = chips.length ? '<span>In use:</span>' + chips.map(function (c) { return '<button type="button" data-inuse="' + escapeHtml(c.id) + '" aria-label="Remove ' + escapeHtml(c.label) + '">' + escapeHtml(c.label) + ' ×</button>'; }).join("") : "";
+    if (chipsEl.innerHTML !== html) chipsEl.innerHTML = html;
+    if (freshEl) freshEl.textContent = state.lastQuery ? freshText() : "";
+  }
+  document.getElementById("asw-inuse").addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("[data-inuse]") : null;
+    if (!b) return;
+    var id = b.getAttribute("data-inuse");
+    if (id === "seasons") { var keep = seasonOneSel && seasonOneSel.value !== "__multi__" ? seasonOneSel.value : String(Math.max.apply(null, getSelectedSeasons())); for (var i = 0; i < seasonsSel.options.length; i++) seasonsSel.options[i].selected = seasonsSel.options[i].value === keep; syncSeasonOne(); runQuery(); return; }
+    if (id === "custom") { state.group = "fantasy"; render(); return; }
+    if (id === "compare") { state.compareMode = false; if (compareModeEl) compareModeEl.checked = false; clearCompareSet(); render(); return; }
+    if (id.indexOf("f.") === 0) { delete state.filters[id.slice(2)]; invalidatePredicateCache(); updateFilterToggleLabel(); render(); }
+  });
+
+  // ---------- The view row: Table | Heatmap | Scatter ----------
+  function renderViewControls() {
+    document.querySelectorAll(".asw-vw").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-show") === state.show ? "true" : "false"); });
+    if (groupsEl) groupsEl.hidden = state.show !== "table";
+    var leg = document.getElementById("asw-heat-legend"), qw = document.getElementById("asw-scatter-q-wrap"), qs = document.getElementById("asw-scatter-q");
+    if (leg) {
+      leg.hidden = state.show !== "heatmap";
+      var lh = 'Rank among the players listed: bottom fifth <i class="pct-q1" style="background:var(--heat-1-bg)"></i><i style="background:var(--heat-2-bg)"></i><i style="background:var(--heat-3-bg)"></i><i style="background:var(--heat-4-bg)"></i><i style="background:var(--heat-5-bg)"></i> top fifth' +
+        (state.heatFloor > 1 ? ' · uncolored: under ' + state.heatFloor + ' games, not ranked' : '');
+      if (leg.innerHTML !== lh) leg.innerHTML = lh;
+    }
+    if (qw && qs) {
+      qw.hidden = state.show !== "scatter";
+      var list = SCATTER_Q[state.activeTab] || [], pr = scatterPreset();
+      var custom = !!(state.scatterX || state.scatterY);
+      var oh = list.map(function (q) { return '<option value="' + q.id + '"' + (!custom && pr && q.id === pr.id ? " selected" : "") + '>' + escapeHtml(q.label) + '</option>'; }).join("") +
+        (custom ? '<option value="__custom" selected>Custom axes</option>' : "");
+      if (qs.innerHTML !== oh) qs.innerHTML = oh;
+    }
   }
 
   function render() {
@@ -3608,6 +4080,31 @@ table.asw-table{font-size:13px}
     // make every other column on the page look "broken" from a sample of one.
     var coverageRows = rows.slice();
     var availability = computeColumnAvailability(coverageRows, cols);
+    var loadedCount = coverageRows.length;
+    // Table: a column that nothing in this selection has is hidden, and the banner says exactly why
+    // (Keith 2026-10-15). "Too few weeks yet" stays visible, marked; it's a fact, not a failure.
+    state.hiddenCols = [];
+    if (state.show === "table" && loadedCount) {
+      var deadNow = cols.filter(function (k) {
+        if (k === "player_name" || k === "pos_rank") return false;
+        var dd = deadReason(k, state.activeTab, availability);
+        return (dd && dd.kind === "broken") || knownEmpty(k, availability);
+      });
+      if (deadNow.length) {
+        state.hiddenCols = deadNow.map(function (k) { return { key: k, why: deadCause(k, availability) }; });
+        blocks.forEach(function (b) { b.colKeys = b.colKeys.filter(function (k) { return deadNow.indexOf(k) < 0; }); });
+        blocks = blocks.filter(function (b) { return b.colKeys.length; });
+        cols = flatCols(blocks);
+        if (cols.indexOf(state.sortKey) < 0) {
+          var sgH = currentStatGroup();
+          var firstNumH = cols.filter(function (k) { return k !== "pos_rank" && COLS[k] && COLS[k].num; })[0];
+          state.sortKey = sgH && cols.indexOf(sgH.sort) >= 0 ? sgH.sort : (cols.indexOf("mfl_points") >= 0 ? "mfl_points" : (firstNumH || cols[0]));
+          state.sortDir = (COLS[state.sortKey] && COLS[state.sortKey].num) ? "desc" : "asc";
+        }
+      }
+    }
+    // Fantasy team: applied here, to the rows already loaded — choosing a team never asks the server again.
+    rows = filterRowsByTeams(rows, getSelectedTeams());
 
     // Search — name + NFL team + position (B6), mirrors the mobile auction search.
     // Token-matched (2026-08-29), not raw indexOf: a plain substring test never
@@ -3740,7 +4237,7 @@ table.asw-table{font-size:13px}
     if (state.heatOn) {
       cols.forEach(function(k){
         var def = COLS[k] || {};
-        if (!def.num || def.noHeat) return;   // Sched Δ / Opp ±% are never colored (contract §8)
+        if (!def.num || def.noHeat) return;   // Opp. allowed is never colored (contract §10)
         var vals = [];
         for (var i = 0; i < rows.length; i++) {
           var v = getVal(rows[i], k);
@@ -3815,11 +4312,16 @@ table.asw-table{font-size:13px}
     var theadGroup = state.heatOn
       ? '<tr class="asw-group-row">'+groupRow+'</tr>'
       : "";
-    if (state.scatterOn) {
-      // Scatter discovery view — swaps the table for a usage-vs-efficiency
-      // scatter of the SAME filtered rows. Click a dot → the player drawer.
+    if (state.show === "scatter") {
+      // Scatter — the SAME filtered rows as dots, one question at a time. Click a dot → the player drawer.
       bodyEl.innerHTML = rows.length ? buildScatterHtml(rows) : '<div class="asw-empty asw-empty-search">' + emptySearchHtml(tab, searchQ) + '</div>';
       wireScatter(rows);
+      wireEmptySearchHandoff(bodyEl);
+    } else if (state.show === "heatmap") {
+      // Heatmap — the SAME filtered rows, one fixed profile per position, ranked among those listed.
+      var hm = buildHeatmapHtml(rows, tab, searchQ);
+      rows = hm.rows;
+      bodyEl.innerHTML = hm.html;
       wireEmptySearchHandoff(bodyEl);
     } else {
     bodyEl.innerHTML = rows.length || state.filtersVisible
@@ -3841,6 +4343,10 @@ table.asw-table{font-size:13px}
     renderDefinitionNote(cols);
     renderSosNote(cols);
     syncTopScroll();   // size + show the top horizontal scrollbar for this table
+    var onScreen = state.show === "heatmap" ? heatSet() : state.show === "scatter" ? scatterAxes() : cols;
+    renderStatus(computeIssues(onScreen, loadedCount, rows.length));
+    renderInuse();
+    renderViewControls();
 
     // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
     // The denominator counts rows already narrowed by position/sub-tab (the
@@ -3946,7 +4452,8 @@ table.asw-table{font-size:13px}
     countEl.textContent = countLabel + (searchQ ? " (search)" : "") + filterHint;
     renderGroupsBar();
     renderSortControl(cols);
-    renderAbout(cols);
+    state.lastOnScreen = onScreen;
+    if (aboutModal && !aboutModal.hidden) renderAbout(onScreen);
     updateMoreCount();
 
     // Wire sort (column-header clicks)
@@ -4142,13 +4649,10 @@ table.asw-table{font-size:13px}
   if (moreEl) moreEl.addEventListener("keydown", function (e) { if (e.key === "Escape") { openMore(false); moreBtn.focus(); } });
   function updateMoreCount() {
     if (!moreNEl) return;
-    var n = 0;
-    if (getSelectedTeams().length) n++;
+    var n = 0;   // Fantasy team, the view and the stat group are on screen; More filters counts the rest
     if (getSelectedSeasons().length > 1) n++;
     if (state.group === "custom") n++;
     n += countActiveFilters();
-    if (state.heatOn) n++;
-    if (state.scatterOn) n++;
     if (state.compareMode) n++;
     moreNEl.textContent = n ? "(" + n + ")" : "";
     moreBtn.setAttribute("aria-label", n ? "More filters, " + n + " in use" : "More filters");
@@ -4159,23 +4663,102 @@ table.asw-table{font-size:13px}
     render();
   });
 
-  // About: what the page is, then a definition for every column on screen and the sources.
-  function renderAbout(cols) {
+  // About these numbers (Keith 2026-10-15): one click from the title, never permanent text. What the
+  // numbers on screen mean, their source, the season and weeks, freshness, limitations, and that
+  // they describe games already played.
+  var aboutModal = document.getElementById("asw-about-modal"), aboutScrim = document.getElementById("asw-about-scrim");
+  var aboutBtn = document.getElementById("asw-about-btn"), aboutClose = document.getElementById("asw-about-close");
+  function renderAbout(onScreen) {
     if (!aboutBodyEl) return;
-    var sg = currentStatGroup();
-    var defs = cols.filter(function (k) { return k !== "player_name"; }).map(function (k) {
-      var d = COLS[k] || { label: k };
-      return '<dt>' + escapeHtml(d.label) + '</dt><dd>' + escapeHtml(d.title || "—") + '</dd>';
-    }).join("");
-    var srcs = sourcesFor(cols).map(function (x) { return SG_SRC[x]; });
-    var html = '<p>Every player at the position for the season and weeks chosen above. MFL Pts, PPG, PPG Rk, Boom/Bust and Schedule context use this league’s MFL scores; ' +
-      'the rest are NFL statistics. A number reads “—” when its source has nothing for him, never 0; hover a heading or a cell for why.</p>' +
-      '<p><b>' + escapeHtml(sg ? (sg.title || sg.label) : "Custom columns") + '.</b> Sources: ' + escapeHtml(srcs.join("; ")) + '.</p>' +
-      '<dl class="asw-defs">' + defs + '</dl>' +
-      '<p>Sched Δ and Opp ±% describe the schedule a player has faced; they are never colored and aren’t a forecast. ' +
-      'Heat (More filters) colors each number by its rank among the players listed: green top fifth, red bottom fifth.</p>';
+    var keys = (onScreen || []).filter(function (k) { return k !== "player_name" && COLS[k]; });
+    var tab = TABS[state.activeTab], sg = currentStatGroup(), seasons = getSelectedSeasons(), w = windowRange();
+    var what = state.show === "heatmap"
+      ? "Heatmap: each " + tab.label + " listed, ranked against the others listed on " + keys.length + " measures — scoring, opportunity, efficiency and consistency. Each cell is colored by its fifth: darkest green is the top fifth, red the bottom fifth. The value is in the cell. Only players with " + (state.heatFloor || 1) + "+ games (half the most anyone played) are ranked; the rest are shown uncolored."
+      : state.show === "scatter"
+        ? "Scatter: " + (scatterPreset() && !(state.scatterX || state.scatterY) ? scatterPreset().label.split(" · ")[0] : "Custom axes") + " Each dot is one player in the list; the dashed lines are the list’s medians, so the top-right players are above the middle on both."
+        : (function (t) { return /[.!?]$/.test(t) ? t : t + "."; })(sg ? (sg.title || sg.label) : "Custom columns");
+    var defs = keys.map(function (k) { var d = COLS[k]; return '<dt>' + escapeHtml(d.label) + '</dt><dd>' + escapeHtml(d.title || "—") + '</dd>'; }).join("");
+    var srcs = sourcesFor(keys).map(function (x) { return SG_SRC[x]; });
+    var teams = getSelectedTeams();
+    var teamWords = !teams.length ? "all players" : teams.map(function (t) { return t === "FA" ? "free agents" : t === "__ROSTERED__" ? "rostered players" : (fidToName[padFid(t)] || t); }).join(", ");
+    var lim = [];
+    if (keys.some(function (k) { var x = colSource(k); return x === "pfrs" || x === "ngs"; })) lim.push("PFR’s season table and Next Gen cover the whole season, not only the weeks chosen.");
+    if (keys.some(function (k) { return k === "mfl_sched_opp"; })) lim.push((sosNoteText(state.sos, keys) || "Opp. allowed describes the schedule already faced; not a forecast.") + " Over a full season most players are within about ±4%; it matters most over a few weeks.");
+    if (keys.some(function (k) { var x = colSource(k); return x === "mfl" || x === "cons" || x === "sched"; }) && w.hi >= 14) {
+      if (Math.min.apply(null, seasons) <= 2020) lim.push("MFL’s weekly scores for weeks 14–17 of 2011–2020 aren’t stored yet, so MFL points here stop at Week 13 (#1307).");
+      else if (w.hi >= 15) lim.push("MFL’s playoff-week scores (15–17) are stored for rostered players only (#1307).");
+    }
+    if (state.lastApiCapped) lim.push("This list stops at " + state.lastApiCount + " players: the source’s limit for one request.");
+    lim.push("Rates from a few plays swing a lot; check the volume beside them.");
+    lim.push("“—” means the source has no record for him — never zero.");
+    var html =
+      '<h3>What you’re looking at</h3><p>' + escapeHtml(what) + '</p>' + (defs ? '<dl class="asw-defs">' + defs + '</dl>' : "") +
+      '<h3>Source</h3><p>' + escapeHtml(srcs.length ? srcs.join("; ") : "MFL scoring (this league’s rules)") + '.</p>' +
+      '<h3>Season and weeks</h3><p>' + escapeHtml(seasons.slice().sort().join(" + ") + (seasons.length > 1 ? " (added together)" : "") + " · " + getScopeLabel() +
+        (getScope() === "custom" ? " (Wks " + w.lo + "–" + w.hi + ")" : "") + " · " + tab.label + " · " + teamWords) + '.</p>' +
+      '<h3>Freshness</h3><p>' + escapeHtml(state.lastQuery ? freshText() : "Loading.") + '.</p>' +
+      '<h3>Limitations</h3><ul>' + lim.map(function (x) { return "<li>" + escapeHtml(x) + "</li>"; }).join("") + '</ul>' +
+      '<h3>Past or future?</h3><p>Everything here describes games already played. Nothing on this page is a forecast.</p>';
     if (aboutBodyEl.innerHTML !== html) aboutBodyEl.innerHTML = html;
   }
+  function openAbout(open) {
+    if (!aboutModal) return;
+    if (open) {
+      renderAbout(state.lastOnScreen || []);
+      aboutModal.hidden = false; if (aboutScrim) aboutScrim.hidden = false;
+      if (aboutBtn) aboutBtn.setAttribute("aria-expanded", "true");
+      if (aboutClose) aboutClose.focus();
+    } else {
+      aboutModal.hidden = true; if (aboutScrim) aboutScrim.hidden = true;
+      if (aboutBtn) { aboutBtn.setAttribute("aria-expanded", "false"); aboutBtn.focus(); }
+    }
+  }
+  if (aboutBtn) aboutBtn.addEventListener("click", function () { openAbout(true); });
+  if (aboutClose) aboutClose.addEventListener("click", function () { openAbout(false); });
+  if (aboutScrim) aboutScrim.addEventListener("click", function () { openAbout(false); });
+  if (aboutModal) aboutModal.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { e.preventDefault(); openAbout(false); return; }
+    if (e.key !== "Tab") return;
+    var f = Array.prototype.filter.call(aboutModal.querySelectorAll("button, a[href], [tabindex]:not([tabindex='-1'])"), function (x) { return !x.disabled; });
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+
+  // ---------- View switch, Scatter question, Fantasy team, Reset (Keith 2026-10-15) ----------
+  // None of these asks the server again: they re-render the rows already loaded.
+  document.querySelectorAll(".asw-vw").forEach(function (b) {
+    b.addEventListener("click", function () { state.show = b.getAttribute("data-show"); render(); });
+  });
+  var scatterQSel = document.getElementById("asw-scatter-q");
+  if (scatterQSel) scatterQSel.addEventListener("change", function () {
+    if (scatterQSel.value === "__custom") return;
+    state.scatterQ = scatterQSel.value; state.scatterX = state.scatterY = null; render();
+  });
+  var team1Sel = document.getElementById("asw-team1");
+  function syncTeamFromPrimary() {
+    var v = team1Sel ? team1Sel.value : "__ALL__";
+    for (var i = 0; i < teamSel.options.length; i++) teamSel.options[i].selected = teamSel.options[i].value === v;
+  }
+  function syncPrimaryFromTeams() {
+    if (!team1Sel) return;
+    var t = getSelectedTeams();
+    team1Sel.value = t.length === 1 ? t[0] : "__ALL__";
+  }
+  if (team1Sel) team1Sel.addEventListener("change", function () { syncTeamFromPrimary(); render(); });
+  var resetBtnTop = document.getElementById("asw-reset-btn");
+  if (resetBtnTop) resetBtnTop.addEventListener("click", function () {
+    for (var i = 0; i < seasonsSel.options.length; i++) seasonsSel.options[i].selected = seasonsSel.options[i].value === String(defaultSeason);
+    syncSeasonOne();
+    scopeSel.value = "mfl_total"; updateCustomPickerVisibility();
+    if (team1Sel) team1Sel.value = "__ALL__"; syncTeamFromPrimary();
+    state.filters = {}; invalidatePredicateCache(); state.filtersVisible = false; updateFilterToggleLabel();
+    searchEl.value = "";
+    state.group = "fantasy"; state.show = "table"; state.scatterQ = null; state.scatterX = state.scatterY = null;
+    state.compareMode = false; if (compareModeEl) compareModeEl.checked = false; clearCompareSet();
+    openMore(false); if (whyEl) whyEl.hidden = true;
+    runQuery();
+  });
 
   // Focus hand-off across renders (filter-row typing restores caret position)
   var pendingFocus = null;
@@ -4451,32 +5034,6 @@ table.asw-table{font-size:13px}
     });
     vfEl.appendChild(_filterToggleBtn);
 
-    var scatterBtn = document.createElement("button");
-    scatterBtn.type = "button";
-    scatterBtn.className = "asw-filter-toggle asw-tool-btn";
-    scatterBtn.textContent = "Scatter";
-    scatterBtn.setAttribute("aria-pressed", state.scatterOn ? "true" : "false");
-    scatterBtn.title = "Swap the table for a usage-vs-efficiency scatter of the same filtered rows — spot the archetypes. Pick any X/Y stat; click a dot for the player drawer.";
-    scatterBtn.addEventListener("click", function(){
-      state.scatterOn = !state.scatterOn;
-      scatterBtn.setAttribute("aria-pressed", state.scatterOn ? "true" : "false");
-      render();
-    });
-    toolsEl.appendChild(scatterBtn);
-
-    var heatBtn = document.createElement("button");
-    heatBtn.type = "button";
-    heatBtn.className = "asw-filter-toggle asw-tool-btn";
-    heatBtn.textContent = "Heat";
-    heatBtn.setAttribute("aria-pressed", state.heatOn ? "true" : "false");
-    heatBtn.title = "Color each numeric cell by its position-group percentile rank. Green = top quintile, red = bottom. Stats where lower is better (Drops, INTs, Sacks, Miss%) are auto-inverted.";
-    heatBtn.addEventListener("click", function(){
-      state.heatOn = !state.heatOn;
-      heatBtn.setAttribute("aria-pressed", state.heatOn ? "true" : "false");
-      render();
-    });
-    toolsEl.appendChild(heatBtn);
-
     var csvBtn = document.createElement("button");
     csvBtn.type = "button";
     csvBtn.className = "asw-filter-toggle asw-tool-btn";
@@ -4655,6 +5212,24 @@ table.asw-table{font-size:13px}
   }
 
   // ---------- Fetch for the current tab's workerPos ----------
+  // One answer per URL for this visit: switching back to a position, a view or a stat group never asks
+  // again. A season still being played is re-read after 5 minutes (Keith 2026-10-15: ordinary
+  // navigation must not multiply reads). Resolves { ok, status, j }; a network failure → status 0.
+  function cachedJson(cache, url, seasons) {
+    var live = (seasons || []).some(function (y) { return y >= THIS_YEAR; });
+    var h = cache[url];
+    if (h && (!live || Date.now() - h.at < 5 * 60 * 1000)) return h.p;
+    var pr = fetch(url).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }, function () { return { ok: r.ok, status: r.status, j: null }; });
+    }, function () { return { ok: false, status: 0, j: null }; });
+    cache[url] = { p: pr, at: Date.now() };
+    pr.then(function (x) { if (!x.ok && cache[url] && cache[url].p === pr) delete cache[url]; });   // a failure is retried next time
+    return pr;
+  }
+  function sideStatus(key, x) {
+    state.side[key] = x && x.ok ? "ok" : { err: x && x.status ? "HTTP " + x.status : "network" };
+    return x && x.ok ? x.j : null;
+  }
   function runQuery() {
     var tab = TABS[state.activeTab];
     var reqTab = state.activeTab;   // guard: drop this fetch if the user switches tabs before it resolves
@@ -4679,12 +5254,9 @@ table.asw-table{font-size:13px}
     // Sched Δ / Opp (#1271) — side-load per query with the SAME seasons + week window.
     // A failed or refused answer is kept and SAID (state.sos), never shown as zeros.
     state.sos = { status: "loading" };
-    var sosFetch = fetch(API_BASE + "/api/sos-adjusted-points?seasons=" +
-        encodeURIComponent(seasons.join(",")) + getScopeQueryParams())
-      .then(function(r){
-        return r.json().then(function(j){ return { ok: r.ok, status: r.status, j: j }; },
-                             function(){ return { ok: false, status: r.status, j: null }; });
-      })
+    state.loadError = null;
+    var sosFetch = cachedJson(state.sideCache, API_BASE + "/api/sos-adjusted-points?seasons=" +
+        encodeURIComponent(seasons.join(",")) + getScopeQueryParams(), seasons)
       .then(function(x){
         if (x.ok && x.j && x.j.ok && x.j.by_mfl) {
           sosByMfl = x.j.by_mfl;
@@ -4695,18 +5267,17 @@ table.asw-table{font-size:13px}
           state.sos = { status: "error", error: (x.j && x.j.ok) ? "old_server" : ((x.j && x.j.error) || ("HTTP " + x.status)), detail: (x.j && x.j.detail) || "", season: (x.j && x.j.season) || "" };
         }
       })
-      .catch(function(){ sosByMfl = {}; state.sos = { status: "error", error: "unreachable", detail: "" }; });
+      .catch(function(){ sosByMfl = {}; state.sos = { status: "error", error: "unreachable", detail: "" }; })
+      .then(function(){ state.side.sos = state.sos.status === "ok" ? "ok" : { err: state.sos.error }; });
     // Consistency / boom-bust — same seasons + week window, joined by gsis_id.
-    var consistFetch = fetch(API_BASE + "/api/player-consistency?seasons=" +
-        encodeURIComponent(seasons.join(",")) + getScopeQueryParams())
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ consistByGsis = (j && j.by_gsis) || {}; })
+    var consistFetch = cachedJson(state.sideCache, API_BASE + "/api/player-consistency?seasons=" +
+        encodeURIComponent(seasons.join(",")) + getScopeQueryParams(), seasons)
+      .then(function(x){ var j = sideStatus("cons", x); consistByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ consistByGsis = {}; });
     // EPA / efficiency — keyed by gsis_id, re-aggregated across the seasons.
-    var epaFetch = fetch(API_BASE + "/api/player-epa?seasons=" +
-        encodeURIComponent(seasons.join(",")))
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
+    var epaFetch = cachedJson(state.sideCache, API_BASE + "/api/player-epa?seasons=" +
+        encodeURIComponent(seasons.join(",")), seasons)
+      .then(function(x){ var j = sideStatus("epa", x);
         epaByGsis = (j && j.by_gsis) || {};
         // 2026-10-11: the worker never adds seasons built under different EPA
         // play definitions together (by_gsis comes back empty, flagged); keep
@@ -4715,49 +5286,47 @@ table.asw-table{font-size:13px}
         state.epaDefinitions = (j && j.definitions) || null;
       })
       .catch(function(){ epaByGsis = {}; state.epaMixed = false; state.epaDefinitions = null; });
-    var routesFetch = fetch(API_BASE + "/api/player-routes?seasons=" +
-        encodeURIComponent(seasons.join(",")))
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ routesByGsis = (j && j.by_gsis) || {}; })
+    var routesFetch = cachedJson(state.sideCache, API_BASE + "/api/player-routes?seasons=" +
+        encodeURIComponent(seasons.join(",")), seasons)
+      .then(function(x){ var j = sideStatus("routes", x); routesByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ routesByGsis = {}; });
-    var ngsFetch = fetch(API_BASE + "/api/player-ngs?seasons=" +
-        encodeURIComponent(seasons.join(",")))
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ ngsByGsis = (j && j.by_gsis) || {}; })
+    var ngsFetch = cachedJson(state.sideCache, API_BASE + "/api/player-ngs?seasons=" +
+        encodeURIComponent(seasons.join(",")), seasons)
+      .then(function(x){ var j = sideStatus("ngs", x); ngsByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ ngsByGsis = {}; });
-    var ftnFetch = fetch(API_BASE + "/api/player-ftn?seasons=" +
-        encodeURIComponent(seasons.join(",")))
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ ftnByGsis = (j && j.by_gsis) || {}; })
+    var ftnFetch = cachedJson(state.sideCache, API_BASE + "/api/player-ftn?seasons=" +
+        encodeURIComponent(seasons.join(",")), seasons)
+      .then(function(x){ var j = sideStatus("ftn", x); ftnByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ ftnByGsis = {}; });
-    var splitsFetch = fetch(API_BASE + "/api/player-splits?seasons=" +
-        encodeURIComponent(seasons.join(",")))
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ splitsByGsis = (j && j.by_gsis) || {}; })
+    var splitsFetch = cachedJson(state.sideCache, API_BASE + "/api/player-splits?seasons=" +
+        encodeURIComponent(seasons.join(",")), seasons)
+      .then(function(x){ var j = sideStatus("splits", x); splitsByGsis = (j && j.by_gsis) || {}; })
       .catch(function(){ splitsByGsis = {}; });
     // PFF Route Separation — static 2025 export (Pages JSON), keyed by gsis_id.
     // Loaded once; only populated for the rows that have a 2025 separation row.
-    var sepFetch = fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/pff_separation_2025.json")
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
+    var sepFetch = cachedJson(state.sideCache, "https://keithcreelman.github.io/upsmflproduction/stats_workbench/pff_separation_2025.json", [])
+      .then(function(x){ var j = sideStatus("sep", x);
         sepByGsis = {};
         var arr = (j && j.players) || [];
         for (var si = 0; si < arr.length; si++){ var p = arr[si]; if (p && p.gsis_id) sepByGsis[String(p.gsis_id)] = p; }
       })
       .catch(function(){ sepByGsis = {}; });
     // Expected Fantasy Points — static 2025 export (Pages JSON), keyed by gsis_id.
-    var xfpFetch = fetch("https://keithcreelman.github.io/upsmflproduction/stats_workbench/nfl_xfp_2025.json")
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){
+    var xfpFetch = cachedJson(state.sideCache, "https://keithcreelman.github.io/upsmflproduction/stats_workbench/nfl_xfp_2025.json", [])
+      .then(function(x){ var j = sideStatus("xfp", x);
         xfpByGsis = {};
         var arr = (j && j.players) || [];
         for (var xi = 0; xi < arr.length; xi++){ var p = arr[xi]; if (p && p.gsis_id) xfpByGsis[String(p.gsis_id)] = p; }
       })
       .catch(function(){ xfpByGsis = {}; });
     Promise.all([
-      fetch(url).then(function(r){
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
+      cachedJson(state.lbCache, url, seasons).then(function(x){
+        if (x.ok && x.j) return x.j;
+        // A finished season is served only from its stored copy (#1266); a refusal says why.
+        var err = new Error(x.status ? "HTTP " + x.status : "network");
+        err.stored = !!(x.j && x.j.error === "stored_board_unavailable");
+        err.detail = x.j && x.j.reason ? String(x.j.reason) : "";
+        throw err;
       }),
       refreshLeagueState(),   // retries a failed / partial read; re-reads a complete one older than OWNERSHIP_REFRESH_MS
       currentTeamsPromise,
@@ -4781,6 +5350,8 @@ table.asw-table{font-size:13px}
       // Coverage signal (A1): the worker LIMITs at 500; j.count === 500 means
       // the long tail was truncated. Stash pre-team-filter count for the meta line.
       state.lastApiCount = (j && typeof j.count === "number") ? j.count : rows.length;
+      // Cut off only when the worker says there is more (a stored finished-season board is whole).
+      state.lastApiCapped = !!(j && (j.next_offset != null || (j.limit != null && j.count >= j.limit)));
       // Freshness (2026-09-28): the worker reports built_for_week (what the
       // precompute covers) / authoritative_week (the real completed week,
       // derived from live MFL scoring, independent of D1) / stale for the
@@ -4801,8 +5372,7 @@ table.asw-table{font-size:13px}
       state.lastPending = !!(j && j.pending);
       var ownComplete = ownership.complete;   // the read these rows are overlaid from
       rows = applyLiveOwnership(rows);
-      rows = filterRowsByTeams(rows, teams);   // Team filter — [] when ownership isn't confirmed complete
-      state.rowsByWorkerPos[workerPos] = rows;   // cache is keyed by pos — safe to keep even if superseded
+      state.rowsByWorkerPos[workerPos] = rows;   // every player; the Fantasy team filter is applied in render()   // cache is keyed by pos — safe to keep even if superseded
       // A newer tab switch already replaced the active view: keep the cached rows
       // above, but don't clobber the active tab's rank map / meta line / render
       // with this stale position's data (was the "PN tab shows 'QB ·'" bug).
@@ -4831,8 +5401,13 @@ table.asw-table{font-size:13px}
       state.lastReadAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET";
       render();
     }).catch(function(e){
-      bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
-      metaEl.textContent = "";
+      // The list itself couldn't be read: kept in state, so every later render says it (banner + body).
+      state.loadError = { cause: e && e.stored ? "stored" : "request", text: (e && e.message) || String(e), detail: e && e.detail ? e.detail : "" };
+      state.rowsByWorkerPos[workerPos] = [];
+      state.lastApiCount = 0; state.lastApiCapped = false;
+      if (state.activeTab !== reqTab) return;
+      state.lastQuery = tab.label + " · " + seasons.join(" + ") + " · " + getScopeLabel();
+      render();
     });
   }
 
@@ -4847,6 +5422,7 @@ table.asw-table{font-size:13px}
     state.filters = {};
     invalidatePredicateCache();
     state.scatterX = state.scatterY = null;   // scatter axes reset to the new tab's defaults
+    state.scatterQ = null;                    // and its question to the position's first
     var keepGroup = state.group;
     restoreViewForTab(tabId);
     // Keep the stat group across positions when the new one has it (WR Receiving → TE Receiving).
@@ -4869,9 +5445,8 @@ table.asw-table{font-size:13px}
   });
   // Initial visibility sync (default scope is mfl_total → picker hidden)
   updateCustomPickerVisibility();
-  [seasonsSel, teamSel].forEach(function(el){
-    el.addEventListener("change", runQuery);
-  });
+  seasonsSel.addEventListener("change", runQuery);
+  teamSel.addEventListener("change", function () { syncPrimaryFromTeams(); render(); });
 
   // ---------- Phase C: filter pill (collapsed summary → expanded controls) ----------
   var filtersControlsEl = document.getElementById("asw-controls");
@@ -5824,7 +6399,8 @@ table.asw-table{font-size:13px}
         if (groups.length) params.set("groups", groups.join(","));
       }
       if (state.sortKey) params.set("sort", state.sortKey + "." + state.sortDir);
-      if (state.heatOn) params.set("heat", "1");
+      if (state.show && state.show !== "table") params.set("show", state.show);
+      if (state.show === "scatter" && state.scatterQ) params.set("sq", state.scatterQ);
       if (state.filtersVisible) params.set("fv", "1");
       Object.keys(state.filters).forEach(function(k){
         var v = (state.filters[k] || "").trim();
@@ -5897,7 +6473,8 @@ table.asw-table{font-size:13px}
         for (var j = 0; j < teamSel.options.length; j++) {
           teamSel.options[j].selected = !!wants[teamSel.options[j].value];
         }
-        runQuery();
+        syncPrimaryFromTeams();
+        render();
       });
       touched = true;
     }
@@ -5918,6 +6495,7 @@ table.asw-table{font-size:13px}
 
     // The stat group (grp=). An older link without grp= that named Advanced, Analytics or a
     // custom column set opens with those columns; a Standard (or no) view opens Fantasy points.
+    if (grpParam && STAT_GROUP_ALIAS[grpParam]) grpParam = STAT_GROUP_ALIAS[grpParam];
     if (grpParam && (grpParam === "custom" || statGroupById(state.activeTab, grpParam))) { state.group = state.urlGroup = grpParam; touched = true; }
     else if ((viewParam && viewParam !== "standard") || groupsParam) state.group = "custom";
     else state.group = "fantasy";
@@ -5929,7 +6507,10 @@ table.asw-table{font-size:13px}
       state.pendingSort = parts[0] ? { key: parts[0], dir: state.sortDir } : null;   // applied at the first render
       touched = true;
     }
-    if (params.get("heat") === "1") { state.heatOn = true; touched = true; }
+    var showP = params.get("show");
+    if (showP === "heatmap" || showP === "scatter" || showP === "table") { state.show = showP; touched = true; }
+    else if (params.get("heat") === "1") { state.show = "heatmap"; touched = true; }   // an older Heat link opens the Heatmap
+    if (params.get("sq")) { state.scatterQ = params.get("sq"); touched = true; }
     if (params.get("fv") === "1")   { state.filtersVisible = true; touched = true; }
     params.forEach(function(v, k){
       if (k.indexOf("f.") === 0) { state.filters[k.slice(2)] = v; touched = true; }
