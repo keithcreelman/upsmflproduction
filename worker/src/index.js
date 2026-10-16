@@ -3125,19 +3125,8 @@ const _nflWeekForUnix = (unixSec, year) => {
 // (18−W); players whose contract started preseason / Week 1 (or in an earlier
 // season) are absent → the caller treats them as continuing (acquisitionWeek 1,
 // eligible 17). Trades are excluded on purpose — see the block comment below.
-// player_id -> true when the player has confirmed taxi call-up history and has
-// NOT been permanently promoted, i.e. the §D2 cap-free cut still applies even
-// though MFL currently reports him on the active roster. Mirrors the derivation
-// behind /api/taxi-callups: `used` counts confirmed (pending=0) call-ups and
-// permanence is `used >= 4`, aggregated across seasons and franchises.
-//
-// Only ever returns entries for players who appear in ups_taxi_callups, so a
-// player who has never been on taxi is simply absent — callers must treat a
-// missing key as "not exempt", never as "never promoted".
-//
-// Fails CLOSED: any DB error yields {} and every player is priced normally.
-// A wrong $0 is far worse than a wrong charge, which is at least visible and
-// reversible by the commissioner.
+// (A taxi call-up's cap-free cut — which players still have it, and what an unreadable call-up history does — is
+// _taxiPermanentPromotion / _taxiNeverPromotedMap, under "Taxi call-up status" below.)
 // ── A CONTRACT CHANGE THE DAILY SNAPSHOT CANNOT HAVE SEEN ────────────────
 // /admin/drops/scan-and-record prices a drop from the R2 roster snapshot
 // (taken once a day, 09:05 UTC) on or before the drop. A MYAC, extension, MYM
@@ -46363,9 +46352,15 @@ const mflToSleeper = {};
             });
           });
         }
-        // Per-week earning denominator for an in-season drop (canon §D1) —
-        // the same map the drop scanner feeds _computeDropPenalty.
-        const apAcqWeekMap = _acquisitionWeekMapFromTxs(apTxs, apSeason);
+        // Taxi call-up status of every player these claims DROPPED, from the resolver the drop ledger prices with
+        // (_taxiNeverPromotedMap). true | "unresolved" is passed to the calculator as is: "unresolved" holds the cut
+        // unpriced, and the card reads "unknown — needs review", never $0.
+        const apDropPids = new Set();
+        for (const r of apRows) {
+          const tx = apMoveByKey.get(`${padFranchiseId(r.franchise_id)}|${safeStr(r.player_id)}|${safeInt(r.acquired_at_unix, 0)}`);
+          for (const dpid of (tx ? [tx.dropped_pid].concat(tx.unpaired_drops || []) : [])) if (safeStr(dpid)) apDropPids.add(safeStr(dpid));
+        }
+        const apTaxiNeverPromoted = await _taxiNeverPromotedMap(env, [...apDropPids], { season: apSeason, leagueId: apLeagueId });
 
         // ── MFL truth #2: player meta, for the DROPPED side. ups_add_events
         // only knows the added player; the displaced one comes from the
@@ -46654,10 +46649,6 @@ const mflToSleeper = {};
           return ko > 0 ? apFmtEtStamp(new Date(ko * 1000)) : "";
         };
         const apWeek1Kickoff = await apWeekKickoffUnix(1);
-        // ET-aware Week-1 boundary DATE (not the raw unix kickoff above) for
-        // resolveCompletedPayableWeeks' date-math fallback — see that
-        // function's header for why ET matters here.
-        const apWeek1BoundaryIso = await _week1BoundaryIsoET(apSeason);
         const apWeek3Label = await apKickoffLabel(3);
         const apWeek5Label = await apKickoffLabel(5);
         const apDeadlineLabel = apFmtEtStamp(apContractDeadline);
@@ -46717,39 +46708,53 @@ const mflToSleeper = {};
               };
               const preDrop = await apResolvePreDrop(dpid, ts);
               if (preDrop) {
+                // The drop LEDGER's own inputs, as of this drop's instant, so the card announces the number
+                // /admin/drops/scan-and-record books (Keith 2026-10-16: Devin Neal's 9/17 cut was announced $2.3K
+                // and booked $2,382):
+                //   - completed weeks: the recorder's live rule AT THE DROP (_completedWeeksAtLiveRule: a week counts
+                //     once its last game kicked off + 7h), which held re-pricing and every post-discord recompute
+                //     use. Not resolveCompletedPayableWeeks: it answers "now" when posted on the drop's UTC day and
+                //     walks kickoff to kickoff otherwise, so a retried, replayed or late post priced a Thursday-
+                //     morning cut one week short ($2,500 for Neal's).
+                //   - acquisition week: of the contract this drop ENDED (_acquisitionWeekAsOf), not the latest add.
+                //   - taxi call-up status: _taxiNeverPromotedMap's answer, passed as is.
                 const dropDateIso = new Date(ts * 1000).toISOString();
-                const weekAuthority = await resolveCompletedPayableWeeks(apSeason, apLeagueId, {
-                  dropDateIso,
-                  week1ThursdayIso: apWeek1BoundaryIso,
-                  regularSeasonWeeks: 17,
-                });
+                const weekAuthority = await _completedWeeksAtLiveRule(apSeason, ts, 17);
+                const acquisitionWeek = _acquisitionWeekAsOf(apTxs, apSeason, dpid, ts);
+                const taxiNeverPromoted = apTaxiNeverPromoted[dpid];
                 const calc = _computeDropPenalty({
                   contractStatus: preDrop.contract_status,
                   salary: preDrop.salary,
                   contractInfo: preDrop.contract_info,
                   contractYear: preDrop.contract_year,
                   isTaxi: preDrop.is_taxi,
+                  taxiNeverPromoted,
                 }, {
                   season: apSeason,
                   dropDateIso,
-                  acquisitionWeek: apAcqWeekMap[dpid],
+                  acquisitionWeek,
                   completedPayableWeeks: weekAuthority.weeks,
                 });
-                if (calc.basis === "week_authority_unresolved") {
-                  // Historical completed-payable-week authority could not be
-                  // resolved (a real per-week kickoff couldn't be looked up
-                  // live) — this is a DISPLAY path, so per the requirement
-                  // that preview/display paths return unavailable rather than
-                  // a guessed number, reuse the SAME `known: false` shape this
-                  // function already uses for "pre-drop contract not found"
-                  // (below) rather than inventing a second "unknown" concept.
-                  // waiver_run_post.js already excludes known:false rows from
-                  // penalty sums and prints unknown_reason instead of a
-                  // number — no change needed there.
+                // Returned by dry_run (drop_pricing) so a reviewer sees what priced the card, not just its rounded $K.
+                const pricingInputs = {
+                  completed_payable_weeks: weekAuthority.weeks,
+                  weeks_source: weekAuthority.source,
+                  acquisition_week: acquisitionWeek || null,
+                  taxi_never_promoted: taxiNeverPromoted === undefined ? null : taxiNeverPromoted,
+                  contract_source: preDrop.contract_source,
+                };
+                if (DROP_UNPRICED_BASES.has(safeStr(calc.basis))) {
+                  // UNPRICED — the ledger HOLDS this cut (week_authority_unresolved: the completed weeks or a taxi
+                  // player's call-up history could not be read) or will not price it without a verified contract.
+                  // A display path never guesses: the same `known: false` shape as "pre-drop contract not found"
+                  // (below), which waiver_run_post.js keeps out of the penalty sums and renders as "Cap penalty:
+                  // unknown — needs review" with unknown_reason, never $0.
                   side.penalty = {
                     known: false,
                     unknown_reason: calc.review_reason
                       || "Completed-payable-week authority could not be resolved for this drop — not priced.",
+                    basis: safeStr(calc.basis),
+                    pricing_inputs: pricingInputs,
                   };
                 } else {
                   side.penalty = {
@@ -46766,6 +46771,7 @@ const mflToSleeper = {};
                     earned: calc.earned != null ? (Number(calc.earned) || 0) : null,
                     contract_source: preDrop.contract_source,
                     pre_drop_contract_info: preDrop.contract_info,
+                    pricing_inputs: pricingInputs,
                   };
                   // Which cap year (canon §6) — read for capYearNote. A penalty
                   // > 0 with cap_year_ok:false still posts; it just carries a
@@ -47151,6 +47157,12 @@ const mflToSleeper = {};
             contract_deadline_error: apDeadlineError,
             week3_kickoff_et: apWeek3Label,
             week5_kickoff_et: apWeek5Label,
+            // Every dropped player's EXACT pricing and the inputs behind it (the cards print it rounded to $0.1K),
+            // so a dry run can be checked against the drop ledger's row dollar for dollar.
+            drop_pricing: apReportTeams.flatMap((t) => t.moves.flatMap((m) => [
+              ...(m.dropped ? [{ ...m.dropped, penalty: m.penalty }] : []),
+              ...(m.also_dropped || []),
+            ].map((d) => ({ franchise_id: t.franchise_id, added_player_id: m.player_id, player_id: d.player_id, name: d.name, ...(d.penalty || { known: false }) })))),
             runs: apPlans,
           });
         }
