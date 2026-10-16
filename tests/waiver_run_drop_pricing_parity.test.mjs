@@ -35,9 +35,13 @@ const TXS = [
 ];
 const rookie = (id, k, cy) => ({ id, salary: String(k * 1000), status: "ROSTER", contractStatus: "Rookie-Draft",
   contractInfo: `CL 3| TCV ${3 * k}K| AAV ${k}K`, contractYear: String(cy) });
+// Section E's Sunday 9/20 run: four 2026 rookies, each on his 3rd confirmed call-up, on four teams.
+const SUNDAY_ROOKIES = [["0005", "17075", "ROSTER"], ["0007", "17076", "ROSTER"], ["0003", "17077", "INJURED_RESERVE"], ["0010", "17078", "TAXI_SQUAD"]];
 const snapshotFor = (day) => (day >= "2026-09-10" && day <= "2026-09-17"
   ? { rosters: { franchise: [{ id: "0005", player: [rookie("17046", 2, 2)] }, { id: "0007", player: [rookie("17134", 5, 2)] }, { id: "0003", player: [rookie("17052", 2, 3)] }] } }
-  : null);
+  : (day >= "2026-09-18" && day <= "2026-09-20"
+    ? { rosters: { franchise: SUNDAY_ROOKIES.map(([id, pid, status]) => ({ id, player: [{ ...rookie(pid, 2, 3), status }] })) } }
+    : null));
 // MFL's nflSchedule: Week 1 Wed Sep 9 8:20 PM ET, then Thursday 8:15 PM ET openers, Sunday 1 PM, Monday 8:15 PM ET closers
 function nflSchedule(w) {
   const ko = (d, h, m) => String(Math.floor(RealDate.UTC(2026, 8, d, h, m) / 1000));
@@ -64,7 +68,11 @@ globalThis.fetch = async (input, init) => {
     }
     if (type === "liveScoring") return MFL.liveScoringDown ? json({ error: "MFL down" }, 500) : json({ liveScoring: { week: String(liveWeek()) } });
     if (type === "players") return json({ players: { player: [["17046", "Neal, Devin", "RB"], ["17134", "Williams, Kyle", "WR"], ["17052", "Callup, Taxi", "WR"],
-      ["20001", "Add, One", "WR"], ["20002", "Add, Two", "RB"], ["20003", "Add, Three", "TE"]].map(([id, name, position]) => ({ id, name, position, team: "KCC" })) } });
+      ["20001", "Add, One", "WR"], ["20002", "Add, Two", "RB"], ["20003", "Add, Three", "TE"],
+      ["17075", "Sunday, Buffalo", "WR"], ["17076", "Thursday, Kansas", "WR"], ["17077", "Reserve, Injured", "WR"], ["17078", "Squad, Taxi", "WR"],
+      ["20101", "Sun, One", "WR"], ["20102", "Sun, Two", "WR"], ["20103", "Sun, Three", "WR"], ["20104", "Sun, Four", "WR"]]
+      .map(([id, name, position]) => ({ id, name, position, team: id === "17075" ? "BUF" : "KCC" })) } });
+    if (type === "rosters") return json(snapshotFor(new RealDate(NOW).toISOString().slice(0, 10)) || { rosters: { franchise: [] } });
     if (type === "league") return json({ league: { franchises: { franchise: [["0003", "Team Three"], ["0005", "Gride"], ["0007", "Team Seven"]].map(([id, name]) => ({ id, name })) } } });
     if (type === "salaries") return json({ salaries: { leagueUnit: { player: ["20001", "20002", "20003"].map((id) => ({ id, salary: "1000", contractStatus: "Vet-WW", contractYear: "1", contractInfo: "CL 1| TCV 1K| AAV 1K" })) } } });
     if (type === "injuries") return json({ injuries: { injury: [] } });
@@ -85,7 +93,7 @@ function makeDb({ priorActiveCached }) {
     UNIQUE (season, league_id, player_id, dropped_at_unix))`);
   const subCols = "id INTEGER, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, submitted_at_utc TEXT, dry_run INTEGER";
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
-  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0)");
+  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT, nfl_week INTEGER)");
   const callups = { "17046": 3, "17134": 1, "17052": 2 };
   for (const [pid, n] of Object.entries(callups)) for (let i = 0; i < n; i++) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending) VALUES (?, 0)").run(pid);
   // taxiPriorActivePids' own D1 cache: who ended 2025 on an active / IR roster. Absent → it reads MFL's 2025/2024 exports.
@@ -237,13 +245,53 @@ test("D. the poster calls the ledger's helpers, not its own week count, acquisit
   const SRC = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
   const i = SRC.indexOf('if (path === "/admin/adds/post-discord" && request.method === "POST")');
   const POSTER = SRC.slice(i, SRC.indexOf("const apResults = [];", i));
-  t.match(POSTER, /await _taxiNeverPromotedMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId \}\)/);
+  t.match(POSTER, /_taxiNeverPromotedMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId, atUnix: ts \}\)/, "as of each claim's drop");
   t.match(POSTER, /taxiNeverPromoted,\n/, "passed to the calculator as is (true | 'unresolved')");
   t.match(POSTER, /await _completedWeeksAtLiveRule\(apSeason, ts, 17\)/);
   t.match(POSTER, /_acquisitionWeekAsOf\(apTxs, apSeason, dpid, ts\)/);
   t.doesNotMatch(POSTER, /resolveCompletedPayableWeeks\(|_acquisitionWeekMapFromTxs\(/, "no second week rule, no latest-add acquisition map");
   // and the ledger's held re-pricing counts weeks with the same helper
   t.match(SRC, /const hWeeks = await _completedWeeksAtLiveRule\(hSeason, dropUnix, 17\);/);
+});
+
+// ═════════ E. a call-up week counts from HIS game's kickoff — the preview, the ledger and the card agree ═════════
+// Keith 2026-10-16 ("a call-up week counts from lineup lock"). Sunday 9/20, 9 AM ET blind-bid run, Week 2 under way:
+// KCC played Thursday night, BUF plays at 1 PM. Each dropped rookie has 3 confirmed call-ups and no prior-season roster.
+//   17075 BUF, active         → Week 2 not yet his → 3 used: cap-free ($0 taxi_callup_exempt)
+//   17076 KCC, active         → Week 2 is his 4th activation: permanent → $4,500 − $118 = $4,382
+//   17077 KCC, on IR          → IR still burns the week (canon §B2): permanent → $4,382
+//   17078 KCC, on taxi        → on taxi at the cut: $0 (taxi_exempt)
+test("E. 3rd call-up, cut Sunday 9 AM: preview, drop ledger and waiver card give the same price for each — the 4th week counts from his own kickoff", async () => {
+  const SUN = ET("2026-09-20T09:00:00-04:00");
+  const added = [["0005", "20101", "17075"], ["0007", "20102", "17076"], ["0003", "20103", "17077"], ["0010", "20104", "17078"]];
+  for (const [fid, add, drop] of added) TXS.push({ type: "BBID_WAIVER", franchise: fid, timestamp: String(SUN), transaction: `${add},|1000|${drop},` });
+  const db = makeDb({ priorActiveCached: true }), env = makeEnv(db);
+  for (const [, , pid] of added) for (let i = 0; i < 3; i += 1) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending) VALUES (?, 0)").run(pid);
+  for (const [fid, add] of added) {
+    db.raw.prepare(`INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
+      source, bid_dollars, acquisition_week, detected_at_utc) VALUES ('2026', '74598', ?, ?, ?, ?, ?, ?, 'bbid', 1000, 2, ?)`)
+      .run(add, "Add " + add, fid, "Team " + fid, SUN, new RealDate(SUN * 1000).toISOString(), new RealDate(SUN * 1000 + 60000).toISOString());
+  }
+  NOW = RealDate.parse("2026-09-20T13:06:00Z");
+  const preview = {};
+  for (const [, , pid] of added) {
+    const r = await worker.fetch(new Request(`https://w.test/api/cap-penalty/preview?L=74598&YEAR=2026&player_id=${pid}&drop_date=${new RealDate(SUN * 1000).toISOString()}`),
+      env, { waitUntil() {}, passThroughOnException() {} });
+    preview[pid] = await r.json();
+    t.equal(r.status, 200, JSON.stringify(preview[pid]).slice(0, 200));
+  }
+  const card = await poster(env);
+  const s = await scan(env);
+  TXS.length = 3;
+  t.equal(s.status, 200, s.text.slice(0, 300));
+  const want = { "17075": [0, "taxi_callup_exempt"], "17076": [4382, "guarantee_minus_earned"], "17077": [4382, "guarantee_minus_earned"], "17078": [0, "taxi_exempt"] };
+  for (const [pid, [penalty, basis]] of Object.entries(want)) {
+    t.deepEqual([preview[pid].penalty, preview[pid].basis], [penalty, basis], `${pid} preview`);
+    t.deepEqual([ledger(db, pid).penalty_amount, ledger(db, pid).penalty_basis], [penalty, basis], `${pid} drop ledger`);
+    const a = announced(card, pid);
+    t.deepEqual([a.penalty, a.basis], [penalty, basis], `${pid} waiver card`);
+  }
+  t.deepEqual(DISCORD_CALLS, []);
 });
 
 await run("waiver_run_drop_pricing_parity");
