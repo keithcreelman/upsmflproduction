@@ -45272,39 +45272,37 @@ const mflToSleeper = {};
         // does not tell us the ceiling, say so instead of inventing a number.
         const WV_ROSTER_MAX = _wvRosterLimit(lgRes && lgRes.ok ? lgRes.data : null);
         if (wvRoster.ok) {
-          for (const rd of plan) {
-            if (!rd.picks.length) continue;
-            const adds = rd.picks.length;
-            const drops = rd.picks.filter((p) => p.drop_pid).length;
-            const projected = wvRoster.slot_count + adds - drops;
-            if (WV_ROSTER_MAX && projected > WV_ROSTER_MAX) {
+          // The most this plan can add if MFL awards the costliest claim in every group — never "every claim won"
+          // (_waiverClaimWorstCase; canon §A4: at most one award per group).
+          const wc = _waiverClaimWorstCase(plan, wvRoster, { conditional: wvLimits.conditional });
+          const lead = !wc.conditional
+            ? "If MFL awards every claim,"
+            : (wc.groups.length === 1
+              ? `If MFL awards one of your group ${wc.groups[0]} claims (it awards at most one per group),`
+              : `If MFL awards one claim in each of your ${wc.groups.length} groups (the most it can — one per group),`);
+          const projected = wvRoster.slot_count + wc.max_new_active;
+          if (WV_ROSTER_MAX && projected > WV_ROSTER_MAX) {
+            warnings.push({
+              code: "ROSTER_HEADROOM",
+              message: `${lead} you'd be at ${projected} active players (MFL's limit is ${WV_ROSTER_MAX}; taxi and IR are not counted). Heads-up only — MFL decides at award time.`,
+              projected_active: projected,
+              roster_size_limit: WV_ROSTER_MAX,
+            });
+          } else if (!WV_ROSTER_MAX && wc.max_new_active > 0) {
+            warnings.push({
+              code: "ROSTER_HEADROOM_UNKNOWN",
+              message: `${lead} you'd be at ${projected} active players (you have ${wvRoster.slot_count}, excluding taxi and IR). MFL did not report its roster limit, so we can't tell you how close that is — MFL enforces it at award time.`,
+              projected_active: projected,
+              roster_size_limit: null,
+            });
+          }
+          if (wvCapDollars > 0) {
+            const projectedCap = wvRoster.salary_total + wc.max_cap_added;
+            if (projectedCap > wvCapDollars) {
               warnings.push({
-                code: "ROSTER_HEADROOM",
-                message: `Round ${rd.round}: winning all ${adds} claim${adds === 1 ? "" : "s"} would put you at ${projected} active players (MFL's limit is ${WV_ROSTER_MAX}; taxi and IR are not counted). Heads-up only — MFL decides at award time.`,
-                projected_active: projected,
-                roster_size_limit: WV_ROSTER_MAX,
+                code: "CAP_ROOM",
+                message: `${lead} you'd be roughly ${usd(projectedCap - wvCapDollars)} over the ${usd(wvCapDollars)} cap (estimate — excludes salary adjustments). MFL enforces the cap at award time.`,
               });
-            } else if (!WV_ROSTER_MAX && adds > drops) {
-              warnings.push({
-                code: "ROSTER_HEADROOM_UNKNOWN",
-                message: `Round ${rd.round}: winning all ${adds} claim${adds === 1 ? "" : "s"} would add ${adds - drops} to your active roster (you have ${wvRoster.slot_count}, excluding taxi and IR). MFL did not report its roster limit, so we can't tell you how close that is — MFL enforces it at award time.`,
-                projected_active: projected,
-                roster_size_limit: null,
-              });
-            }
-            if (wvCapDollars > 0) {
-              const addMoney = rd.picks.reduce((n, p) => n + (p.bid_dollars || 0), 0);
-              const dropMoney = rd.picks.reduce((n, p) => {
-                const row = p.drop_pid ? wvRoster.by_pid.get(p.drop_pid) : null;
-                return n + (row ? row.salary : 0);
-              }, 0);
-              const projectedCap = wvRoster.salary_total + addMoney - dropMoney;
-              if (projectedCap > wvCapDollars) {
-                warnings.push({
-                  code: "CAP_ROOM",
-                  message: `Round ${rd.round}: winning every claim would put you roughly ${usd(projectedCap - wvCapDollars)} over the ${usd(wvCapDollars)} cap (estimate — excludes salary adjustments). MFL enforces the cap at award time.`,
-                });
-              }
             }
           }
         }
@@ -51961,6 +51959,37 @@ const mflToSleeper = {};
         });
       }
 
+
+// ── Waiver-claim advisories: the MOST a claim plan can add (canon §A4 conditional blind bidding) ──
+// Owners group their bids; within a group MFL awards AT MOST ONE claim, and groups don't outrank each other. The
+// advisories used to count every claim in a group as won: four claims in group 1 read "winning all 4 claims would put
+// you at 33 active players" and "roughly $4,000 over the cap" when one pickup was the most MFL could award (Keith
+// 2026-10-16). Worst case per group = the one claim that would cost the most room if it is the one awarded; groups add
+// up. A claim whose player or drop an earlier group's worst case already used can't also be awarded (MFL refuses a drop
+// that is no longer on the roster). Only a drop that holds an active spot frees one (taxi and IR players don't hold
+// one), and dropping a taxi player frees no cap (taxi salary isn't on the cap). conditional === false — MFL says the
+// league doesn't bid conditionally — counts every claim.
+// plan: [{ round, picks: [{ add_pid, bid_dollars, drop_pid }] }]; roster: _wvLoadFranchiseRoster's by_pid.
+function _waiverClaimWorstCase(plan, roster, opts) {
+  const conditional = !(opts && opts.conditional === false);
+  const held = (pid) => (pid && roster && roster.by_pid ? roster.by_pid.get(pid) : null) || null;
+  const newActive = (p) => { const d = held(p.drop_pid); return d && !d.taxi && !d.ir ? 0 : 1; };
+  const capAdded = (p) => { const d = held(p.drop_pid); return (Number(p.bid_dollars) || 0) - (d && !d.taxi ? (Number(d.salary) || 0) : 0); };
+  const worst = (deltaOf) => {
+    const usedAdds = new Set(), usedDrops = new Set();
+    let total = 0;
+    for (const rd of plan || []) {
+      const live = (rd.picks || []).filter((p) => !usedAdds.has(p.add_pid) && !(p.drop_pid && usedDrops.has(p.drop_pid)));
+      const taken = conditional
+        ? [live.reduce((best, p) => (deltaOf(p) > (best ? deltaOf(best) : 0) ? p : best), null)].filter(Boolean)
+        : live.filter((p) => deltaOf(p) > 0);
+      for (const p of taken) { total += deltaOf(p); usedAdds.add(p.add_pid); if (p.drop_pid) usedDrops.add(p.drop_pid); }
+    }
+    return total;
+  };
+  const groups = (plan || []).filter((rd) => (rd.picks || []).length).map((rd) => rd.round);
+  return { conditional, groups, max_new_active: worst(newActive), max_cap_added: worst(capAdded) };
+}
 
 // Denied claims for a run, from MFL's Previously Processed Waivers page.
 //
