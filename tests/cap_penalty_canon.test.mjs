@@ -94,5 +94,21 @@ t('taxiNeverPromoted falsy-but-truthy-ish "false" string -> normal',
     contractInfo:'CL 3| TCV 90K| AAV 30K| Y1-30K, Y2-30K, Y3-30K',contractYear:'2',
     isTaxi:false,taxiNeverPromoted:'false'},{}).penalty, 37500);
 
+console.log('\n-- 2026-10-16: the call-up exemption needs the rookie entry contract; unknown history is HELD, not $0 --');
+// Kyle Williams (0007): a 2025 2.08 rookie, permanently promoted (active at the end of 2025). The shared resolver gives no
+// exemption, so the normal formula applies: 75% x $15K = $11,250 − ($5,000 in 2025 + 5/17 x $5,000) = $4,779.
+const kyle = {contractStatus:'Rookie-Draft',salary:5000,contractInfo:'CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K',contractYear:'2',isTaxi:false};
+const kOpts = {dropDateIso:'2026-10-16T12:00:00Z', season:'2026', completedPayableWeeks:5, week1ThursdayIso:'2026-09-09'};
+t('Kyle Williams, permanent (no exemption): $4,779', _computeDropPenalty({...kyle},kOpts).penalty, 4779);
+t('a real call-up on the entry contract stays cap-free', _computeDropPenalty({...kyle,taxiNeverPromoted:true},kOpts).penalty, 0);
+t('legacy "Rookie" spelling is the entry contract too', _computeDropPenalty({...kyle,contractStatus:'Rookie',taxiNeverPromoted:true},kOpts).basis, 'taxi_callup_exempt');
+t('converted contract (MYAC / extension) ends the exemption', _computeDropPenalty({...kyle,contractStatus:'Rookie-Ext',taxiNeverPromoted:true},kOpts).penalty, 4779);
+const held = _computeDropPenalty({...kyle,taxiNeverPromoted:'unresolved'},kOpts);
+t('unknown call-up history on the entry contract: penalty null (HELD)', held.penalty, null);
+t('  … held under the scan\'s re-pricing basis', held.basis, 'week_authority_unresolved');
+t('  … and says it is not $0', /NOT a \$0/.test(held.review_reason), true);
+t('unknown history never leaks to a veteran', _computeDropPenalty({contractStatus:'Veteran',salary:30000,
+    contractInfo:'CL 3| TCV 90K| AAV 30K| Y1-30K, Y2-30K, Y3-30K',contractYear:'2',isTaxi:false,taxiNeverPromoted:'unresolved'},{}).penalty, 37500);
+
 console.log('\n'+(fail? 'FAILURES: '+fail : 'ALL '+pass+' PASS'));
 process.exit(fail?1:0);

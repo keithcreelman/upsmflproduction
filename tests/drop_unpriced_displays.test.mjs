@@ -114,6 +114,33 @@ test("MOBILE player sheet: '(penalty under review)', and the drop confirmation s
   t.match(m.confirms[1], /Estimated cap penalty: \$4\.5K/); t.match(m.confirms[1], /Room left: \$12K/, "a priced drop still previews its cap room");
 });
 
+test("MOBILE (Keith 2026-10-16): NO penalty back at all is 'under review' — never 'no penalty', never sorted cheapest, never a free cap preview", () => {
+  const m = mobile();
+  m.ctx.DATA.dropPenaltyFor = () => null;   // the penalty module did not load / could not read the row
+  const rows = m.run("dropCandidateRows()");
+  t.ok(rows.every((r) => r.unpriced && r.penaltyAmt === null), "every row unpriced, none $0");
+  const h = m.run("dropRowPenaltyHtml(" + JSON.stringify(rows[0]) + ", DATA.computeCap())");
+  t.match(h, /penalty under review/); t.match(h, /Cap room after: unknown/); t.doesNotMatch(h, NOT_ZERO);
+  t.equal(m.run('dropPenalty("17752")'), null, "the bid sheet's drop line: unknown, not $0");
+  m.ctx.DATA.dropPenaltyFor = () => ({ note: "no amount" });   // a result without a number is no better
+  t.equal(m.run('dropPenalty("17752")'), null);
+  t.ok(m.run("dropCandidateRows()").every((r) => r.unpriced));
+  m.run('handleDrop("17752", "Dohnte Meyers", ' + JSON.stringify(ROSTER[1]) + ', null)');
+  t.match(m.confirms[0], /Cap room after the drop: unknown until the penalty is priced/, "no cap-room math on a missing number");
+  t.doesNotMatch(m.confirms[0], /Room left/);
+});
+
+test("MOBILE drop picker: a local ESTIMATE (the worker's batch hasn't landed) says 'est.' — only the worker's own number reads plain", () => {
+  const m = mobile();
+  m.ctx.DATA.dropPenaltyFor = (r) => ({ amount: r.id === "17752" ? 4500 : 0, authoritative: false });
+  const rows = m.run("dropCandidateRows()");
+  const h = (id) => m.run("dropRowPenaltyHtml(" + JSON.stringify(rows.find((r) => r.id === id)) + ", DATA.computeCap())");
+  t.match(h("17752"), /est\. \$4\.5K penalty/); t.match(h("17752"), /Cap room after: est\. \$11\.5K/);
+  t.match(h("17207"), /est\. no penalty/);
+  const auth = mobile().run("dropCandidateRows()");
+  t.doesNotMatch(mobile().run("dropRowPenaltyHtml(" + JSON.stringify(auth.find((r) => r.id === "17752")) + ", DATA.computeCap())"), /est\./, "the worker's number reads plain");
+});
+
 test("SHARED cap_math (profile modal, Team Operations): an unpriced worker row is '—' (null), never a locally guessed number", async () => {
   const ctx = vm.createContext({ console, setTimeout, Event: function (n) { this.type = n; } });
   ctx.window = ctx; ctx.dispatchEvent = () => {};

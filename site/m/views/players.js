@@ -1029,8 +1029,11 @@
     return DATA.getRosterFor(fid).map(function (r) {
       var p = DATA.playerById(r.id);
       var penalty = DATA.dropPenaltyFor(r, M.state.ctx.year);
-      var unpriced = !!(penalty && penalty.unpriced);
-      var pAmt = unpriced ? null : ((penalty && typeof penalty.amount === "number") ? penalty.amount : 0);
+      // Unpriced = the worker could not price it, OR no penalty came back at all (the penalty module did not
+      // load, or a row it could not read). Neither is a $0: "no penalty" is said only for a real, priced $0
+      // (Keith 2026-10-16 — a missing number must never read as a free cut).
+      var unpriced = !penalty || !!penalty.unpriced || typeof penalty.amount !== "number";
+      var pAmt = unpriced ? null : penalty.amount;
       return {
         id: r.id,
         name: nameFor(p) || ("Player " + r.id),
@@ -1061,10 +1064,12 @@
         '<div class="after">Cap room after: unknown until it is priced</div>';
     }
     var roomAfter = cap.capRoom + Math.max(0, r.salary) - r.penaltyAmt;
+    // Not yet the worker's own number (its batch hasn't landed): the local estimate says so.
+    var est = r.authoritative ? "" : "est. ";
     return (r.penaltyAmt > 0
-        ? '<span class="penalty">' + U.fmtUsd(r.penaltyAmt) + ' penalty</span>'
-        : '<span class="penalty ok">no penalty</span>') +
-      '<div class="after">Cap room after: ' + U.fmtUsd(roomAfter) + '</div>';
+        ? '<span class="penalty">' + est + U.fmtUsd(r.penaltyAmt) + ' penalty</span>'
+        : '<span class="penalty ok">' + est + 'no penalty</span>') +
+      '<div class="after">Cap room after: ' + est + U.fmtUsd(roomAfter) + '</div>';
   }
 
   // ══ "No drop" gating ═══════════════════════════════════════════════════
@@ -1468,8 +1473,9 @@
     var row = DATA.getRosterFor(fid).filter(function (r) { return String(r.id) === String(pid); })[0];
     if (!row) return 0;
     var p = DATA.dropPenaltyFor(row, M.state.ctx.year);
-    if (p && p.unpriced) return null;   // the worker could not price it yet — NOT $0
-    return (p && typeof p.amount === "number") ? p.amount : 0;
+    // the worker could not price it yet, or no penalty came back at all — NOT $0
+    if (!p || p.unpriced || typeof p.amount !== "number") return null;
+    return p.amount;
   }
   function dropPenaltyShortText(pid) {
     var pen = dropPenalty(pid);
