@@ -5,9 +5,13 @@ page as #1312 left it (on top of #1305) and proposes what an owner sees instead.
 review: nothing merges or deploys from it.
 
 ## The owner's questions (what the page is for)
-1. Who has performed best? 2. How much has he played? 3. Is it sustainable or driven by opportunity?
-4. How does he compare with others at his position? 5. What schedule has he already faced?
-6. What changed over the selected weeks? 7. Should I open his detailed view?
+1. Who has performed best?
+2. How much has he played?
+3. Is it sustainable or driven by opportunity?
+4. How does he compare with others at his position?
+5. What schedule has he already faced?
+6. What changed over the selected weeks?
+7. Should I open his detailed view?
 
 Each question gets ONE place to answer it — a view, a stat group, or the player drawer — never all
 seven as simultaneous columns.
@@ -96,7 +100,7 @@ Classification: **Keep** (primary) · **View** (dedicated view) · **More** (Mor
 | Red zone | **Keep** |
 | IDP / Kicking / Punting | **Keep** |
 | Boom/Bust | **Keep** as **Consistency** (floor, ceiling, boom %, bust %, recent vs window) |
-| Schedule context (Pts, Sched Δ, Opp ±%, G) | **Replace** with **Schedule** (PPG, G, one measure — see §5) |
+| Schedule context (Pts, Sched Δ, Opp ±%, G) | **Replace** with **Schedule** (MFL Pts, G, one measure — see §5) |
 | Custom columns | **More** → "Choose columns…" |
 | xFP (2025 only), PFF separation (2025 only), market, dynasty profile, FTN charting | **More** (custom columns) — not in any default group |
 
@@ -154,9 +158,10 @@ See `wire_table.png`, `wire_heatmap.png`, `wire_scatter.png` (1280 px) in the re
 | Availability | Every season 2011–2025 (stored Pts Agst inputs) and the current season (live); any window. Older playoff weeks are thin (#1307) | same |
 | Cost | Finished seasons: 0 D1 (stored); current season: one ~60k-row answer per season/window | same answer |
 
-**Recommendation:** remove both from the general table. Keep ONE measure — **"Opp. allowed vs usual"**
-(Opp ±% with a plain name) — in the **Schedule** stat group with PPG and G, labeled as the schedule
-already faced, not a projection. Remove Sched Δ from the owner page (keep it in the API for
+**Recommendation (built in the preview):** remove both from the general table. Keep ONE measure —
+**"Opp. allowed"** (header; its definition reads "Opponents allowed vs usual", i.e. Opp ±% with a plain
+name) — in the **Schedule** stat group with MFL Pts and G, described as the schedule already faced,
+not a forecast. It appears nowhere else, including Custom columns. Remove Sched Δ from the owner page (keep it in the API for
 research). It earns its place mainly for short windows; over a full season it rarely moves a
 comparison, and the About text says so.
 
@@ -171,7 +176,7 @@ comparison, and the About text says so.
 ## 7. Changes to #1305 and #1312
 **#1305 (Sched Δ data):** keep the engine, the stored 2011–2025 inputs and `/api/sos-adjusted-points`
 unchanged. Its page changes are replaced: no Sched Δ column on the owner page; Opp ±% appears only in
-the Schedule group as "Opp. allowed vs usual"; the Sched explanation paragraph goes to About.
+the Schedule group as "Opp. allowed"; the Sched explanation paragraph goes to About.
 
 **#1312 (desktop redesign):** superseded by this branch (`claude/stats-desktop-v2`, stacked on it):
 About moves to a top modal; the filter row gains Fantasy team (single select); Find, More filters and a small Reset share one row; a Table ·
