@@ -521,7 +521,17 @@
     var rows = [], first = null, capped = false;
     function page(offset, n) {
       return fetch(API.workerUrl(base + (offset ? "&offset=" + offset : "")), { mode: "cors", credentials: "omit" })
-        .then(function (r) { return r.ok ? r.json() : { rows: [] }; })
+        .then(function (r) {
+          if (r.ok) return r.json();
+          // A finished season is served only from its stored copy (#1266); when that copy can't
+          // be used the worker says why, and the list says so instead of looking empty.
+          return r.json().catch(function () { return null; }).then(function (j) {
+            var e = new Error("HTTP " + r.status);
+            e.reason = j && j.error === "stored_board_unavailable" ? String(j.reason || "") : "";
+            e.stored = !!(j && j.error === "stored_board_unavailable");
+            throw e;
+          });
+        })
         .then(function (j) {
           var got = (j && j.rows) || [];
           if (!first) first = j || {};
@@ -549,7 +559,12 @@
         };
         return rows;
       })
-      .catch(function () { cache[key] = []; metaCache[key] = { count: 0, limit: PAGE, capped: false, readAt: Date.now(), failed: true }; return []; });
+      .catch(function (e) {
+        cache[key] = [];
+        metaCache[key] = { count: 0, limit: PAGE, capped: false, readAt: Date.now(), failed: true,
+                           storedFailed: !!(e && e.stored), failReason: (e && e.reason) || "" };
+        return [];
+      });
   }
 
   // League sub-tab bar (same pattern as league.js/auction.js, with Stats).
@@ -1017,6 +1032,8 @@
     var cols = set.cols.map(function (k) { return C[k]; });
     var srcs = {}; cols.forEach(function (c) { srcs[c.src] = 1; });
     var line = [], more = [];
+    if (meta && meta.storedFailed) line.push("The stored " + b.season + " stats couldn’t be read" + (meta.failReason ? " (" + meta.failReason + ")" : "") + ", so the box-score columns read —.");
+    else if (meta && meta.failed) line.push("The " + b.season + " stats couldn’t be loaded, so the box-score columns read —. Tap refresh to retry.");
     if (srcs.box || srcs.pfr || srcs.snap || srcs.rz) { var cn = covNote(meta); if (cn) line.push(cn); }
     if (srcs.box || srcs.pfr) line.push("Box score: nflverse" + (meta && meta.coverage ? ", Wks 1–" + meta.coverage : "") + ".");
     if (srcs.pfr) more.push("Cmp/Tgt, Yds and Press are PFR charting via nflverse; — means PFR has no record for him.");

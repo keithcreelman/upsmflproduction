@@ -206,7 +206,8 @@ async function main() {
     if (!check) { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file, text); }
   }
   if (!check && fs.existsSync(STORE_ROOT)) {
-    for (const d of fs.readdirSync(STORE_ROOT)) if (d !== F.FPA_ENGINE_VERSION && fs.statSync(path.join(STORE_ROOT, d)).isDirectory()) {
+    // Only Pts Agst engine folders (fpa*): the Player Stats store lives beside them (lb1/, #1266).
+    for (const d of fs.readdirSync(STORE_ROOT)) if (d !== F.FPA_ENGINE_VERSION && /^fpa/.test(d) && fs.statSync(path.join(STORE_ROOT, d)).isDirectory()) {
       fs.rmSync(path.join(STORE_ROOT, d), { recursive: true }); console.log("removed old engine folder " + d);
     }
   }
