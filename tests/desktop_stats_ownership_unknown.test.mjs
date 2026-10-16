@@ -117,7 +117,7 @@ function boot(firstRead) {
       calls.leagueState++;
       return answer();
     }
-    if (u.pathname === "/api/advanced-stats-leaderboard") return json(200, { rows: clone(LB), count: LB.length });
+    if (u.pathname === "/api/advanced-stats-leaderboard") return ctx.__lb ? ctx.__lb(u) : json(200, { rows: clone(LB), count: LB.length });
     if (u.pathname === "/api/mfl-export") return json(200, { players: { player: FX.mfl_players } });
     return new Response("not stubbed", { status: 404 });
   };
@@ -131,6 +131,7 @@ function boot(firstRead) {
     getSelectedSeasons: () => [2026], getScope: () => "mfl_total",
     getScopeQueryParams: () => "&week_min=1&week_max=17", getScopeLabel: () => "MFL Total",
     render() { if (typeof ctx.renderOwnershipNote === "function") ctx.renderOwnershipNote(); },
+    renderDataNote() { ctx.__dataNotes = (ctx.__dataNotes || 0) + 1; },
     fetch, Date: FakeDate, URL, setTimeout, clearTimeout,
     console: QUIET,
   };
@@ -339,6 +340,35 @@ test("source: drawers / compare use the one label; runQuery + search + ADP re-re
   t.match(fnSrc(SRC, "adpLoad"), /refreshLeagueState\(\)/, "ADP board re-reads on load");
   t.match(SRC, /<div id="asw-ownership-slot"><\/div>/, "the note's slot exists in the page");
   t.match(fnSrc(SRC, "render"), /renderOwnershipNote\(\);/, "render() fills it");
+});
+
+test("a finished season whose stored copy can't be used says why — never 'No stats', never a cached board (#1266)", async () => {
+  const v = boot(viaRoute());
+  await v.query();                                   // a good board first: the cache for this position holds rows
+  t.ok((v.ctx.state.rowsByWorkerPos.skill || []).length > 0);
+  v.ctx.__lb = () => json(503, { ok: false, error: "stored_board_unavailable", reason: "2026/skill_1-17.json.gz checksum mismatch" });
+  const rows = await v.query();
+  t.deepEqual(pids(rows), [], "the earlier board isn't shown under this query");
+  t.match(v.els["asw-body"].innerHTML, /The stored 2026 stats couldn’t be read \(2026\/skill_1-17\.json\.gz checksum mismatch\), so nothing is shown rather than a different calculation\./);
+  t.match(v.ctx.emptySearchHtml(v.ctx.TABS.rb, ""), /couldn’t be read/, "a later render says it too, not 'No rows match filters.'");
+  v.ctx.__lb = () => json(500, { ok: false });
+  await v.query();
+  t.match(v.els["asw-body"].innerHTML, /Query failed: HTTP 500/, "any other failure is said too");
+  v.ctx.__lb = null;
+  await v.query();
+  t.equal(v.ctx.state.loadError, "", "the next good query clears it");
+  t.ok(v.ctx.state.rowsByWorkerPos.skill.length > 0);
+});
+
+test("the 500-player note appears only when the worker says there is more (a stored board can be bigger) (#1266)", async () => {
+  const v = boot(viaRoute());
+  const big = Array.from({ length: 729 }, (_, i) => ({ ...clone(LB[0]), gsis_id: "00-S" + i, mfl_pid: String(50000 + i) }));
+  v.ctx.__lb = () => json(200, { rows: big, count: 729, limit: null, next_offset: null, source: "stored" });
+  await v.query();
+  t.equal(v.ctx.state.lastApiCapped, false, "729 stored rows: not cut off");
+  v.ctx.__lb = () => json(200, { rows: big.slice(0, 500), count: 500, limit: 500, next_offset: 500 });
+  await v.query();
+  t.equal(v.ctx.state.lastApiCapped, true, "a full page with more behind it: cut off");
 });
 
 await run("desktop_stats_ownership_unknown");

@@ -2565,6 +2565,8 @@ table.asw-table{font-size:13px}
     compareRows: {},       // cached leaderboard rows keyed by gsis_id for the compare drawer
     rankByGsis: {},        // gsis_id → pos rank by MFL PPG (B2, mirrors mobile buildLeaderboardMap)
     lastApiCount: 0,       // worker row count for the last query (A1 coverage / 500-cap signal)
+    lastApiCapped: false,  // the worker said there is more (next_offset, or a full page)
+    loadError: "",         // why the last query failed — shown instead of an empty list
     sourceFreshness: null, // /api/data-freshness payload (etl + weeklyCoverage), set once sourceFreshnessPromise resolves
     rowsOwnershipComplete: undefined, // was the active rows' ownership read confirmed complete? (runQuery; undefined until one lands)
   };
@@ -2958,6 +2960,10 @@ table.asw-table{font-size:13px}
   function renderDataNote(cols, apiRowCount, availability) {
     var slot = document.getElementById("asw-datanote-slot");
     if (!slot) return;
+    if (state.loadError) {
+      slot.innerHTML = '<div class="asw-datanote"><span>⚠</span><span>' + escapeHtml(state.loadError) + "</span></div>";
+      return;
+    }
     var notes = [];
 
     // Only genuinely-BROKEN sources earn a banner. "Doesn't apply to this
@@ -3028,7 +3034,7 @@ table.asw-table{font-size:13px}
     }
     // The worker caps a query at 500 rows; past that the board is silently
     // truncated, which matters most on the deep pools (skill / IDP).
-    if (apiRowCount >= 500) {
+    if (state.lastApiCapped) {
       notes.push("<b>Showing the first 500 players.</b> This position pool is larger than the query cap, " +
                  "so the tail is cut off — narrow by team or scope to see further down.");
     }
@@ -3177,6 +3183,7 @@ table.asw-table{font-size:13px}
   // verbatim for a REAL, rostered player search that just happened to be on
   // the wrong tab, indistinguishable from an actually-empty position group.
   function emptySearchHtml(tab, searchQ) {
+    if (state.loadError) return '<span class="asw-err">' + escapeHtml(state.loadError) + "</span>";
     // Emptied by the Team filter on an unconfirmed ownership read — say so,
     // not "no rows match" (which would read as "no free agents").
     if (getSelectedTeams().length && ownershipNoteHtml(getSelectedTeams(), state.rowsOwnershipComplete)) {
@@ -3487,7 +3494,7 @@ table.asw-table{font-size:13px}
     var maxSeason = covSeasons.length ? Math.max.apply(null, covSeasons) : null;
     var nowY = new Date().getUTCFullYear();
     var coverage = maxSeason ? (" · data through " + maxSeason) : "";
-    if (state.lastApiCount === 500) {
+    if (state.lastApiCapped) {
       coverage += " · top 500 by yardage — deep bench may be cut off";
     } else if (maxSeason === nowY && state.lastPending) {
       // The current season's board has never been built at all yet (no
@@ -4122,6 +4129,7 @@ table.asw-table{font-size:13px}
     var scope = getScope();
     var teams = getSelectedTeams();
     state.sortKey = null;
+    state.loadError = "";
     bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
     metaEl.textContent = "";
     // Server-side min_games=1 — real game-count filtering is done per-column
@@ -4200,8 +4208,17 @@ table.asw-table{font-size:13px}
       .catch(function(){ xfpByGsis = {}; });
     Promise.all([
       fetch(url).then(function(r){
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
+        if (r.ok) return r.json();
+        // A finished season is served only from its stored copy (#1266); when that copy can't be
+        // used the worker says why, and the page says it instead of an empty list.
+        return r.json().catch(function(){ return null; }).then(function(e){
+          var err = new Error("HTTP " + r.status);
+          if (e && e.error === "stored_board_unavailable") {
+            err.stored = "The stored " + seasons.join(", ") + " stats couldn’t be read (" + (e.reason || "unknown reason") +
+              "), so nothing is shown rather than a different calculation.";
+          }
+          throw err;
+        });
       }),
       refreshLeagueState(),   // retries a failed / partial read; re-reads a complete one older than OWNERSHIP_REFRESH_MS
       currentTeamsPromise,
@@ -4225,6 +4242,9 @@ table.asw-table{font-size:13px}
       // Coverage signal (A1): the worker LIMITs at 500; j.count === 500 means
       // the long tail was truncated. Stash pre-team-filter count for the meta line.
       state.lastApiCount = (j && typeof j.count === "number") ? j.count : rows.length;
+      // Cut off only when the worker says there is more: a stored finished-season board is the
+      // whole board in one answer (#1266), however many players it has.
+      state.lastApiCapped = !!(j && (j.next_offset != null || (j.limit != null && j.count >= j.limit)));
       // Freshness (2026-09-28): the worker reports built_for_week (what the
       // precompute covers) / authoritative_week (the real completed week,
       // derived from live MFL scoring, independent of D1) / stale for the
@@ -4274,8 +4294,15 @@ table.asw-table{font-size:13px}
       state.lastQuery = tab.label + " · " + seasonLabel + " · " + getScopeLabel() + teamLabel;
       render();
     }).catch(function(e){
-      bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
+      // Kept in state so a later render (ownership arriving, a sort) shows the failure too —
+      // never a cached board from another season, never "no stats for this season".
+      state.loadError = (e && e.stored) || ("Query failed: " + (e && e.message || e));
+      state.rowsByWorkerPos[workerPos] = [];
+      state.lastApiCount = 0; state.lastApiCapped = false;
+      if (state.activeTab !== reqTab) return;
+      bodyEl.innerHTML = '<div class="asw-err">' + escapeHtml(state.loadError) + '</div>';
       metaEl.textContent = "";
+      renderDataNote([], 0, null);
     });
   }
 
