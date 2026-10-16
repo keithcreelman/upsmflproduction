@@ -3073,10 +3073,11 @@ async function resolveCompletedPayableWeeks(season, leagueId, opts) {
 }
 
 // Completed payable weeks AT A PAST INSTANT by the rule the drop recorder applies to every NEW drop — the live authority
-// (resolveCurrentLineupWeek): a week counts once its last game has kicked off + _LINEUP_WEEK_GRACE_SEC. Used to price a drop
-// that was HELD (an MFL read failed when it was recorded), so it is charged exactly what it would have been charged on time.
+// (resolveCurrentLineupWeek): a week counts once its last game has kicked off + _LINEUP_WEEK_GRACE_SEC. Every drop is priced
+// with it, through _completedWeeksForDrop below, so a drop recorded late or HELD (an MFL read failed when it was recorded) is
+// charged exactly what it would have been charged on time.
 // (The historical walk above is kickoff-to-kickoff, so between Monday night and Thursday it reads one week fewer than the
-// recorder did.) null when the schedule can't be read — the drop then stays held.
+// recorder did.) null when the schedule can't be read.
 // Stamped into a HELD drop's notes when the recorder prices it, so post-discord can still find a PREVIOUS season's held-then-
 // priced row after the cron's season has rolled over (Jan 1; NFL Week 17 runs into January).
 const _HELD_REPRICED_MARK = "[repriced-after-hold]";
@@ -3109,6 +3110,30 @@ async function _completedWeeksAtLiveRule(season, atUnix, regularSeasonWeeks) {
   if (!(last > 0)) return { weeks: null, source: "unresolved" };
   const done = at >= last + _LINEUP_WEEK_GRACE_SEC ? started : started - 1;
   return { weeks: Math.max(0, Math.min(rsw, done)), source: "live_rule_at_instant" };
+}
+
+// Completed payable weeks for PRICING A DROP, as of the drop. The ONE count every drop path uses — the recorder (new and
+// held drops), the post-discord recompute and the waiver-run card — so a drop is priced the same whenever it is recorded
+// or announced (Keith 2026-10-16). The recorder used to price a NEW drop with the live count at its */5 tick: a drop first
+// recorded after the next week boundary (scan or MFL down across Tuesday ~3 AM ET) booked one more week of earned salary
+// than its own drop instant had, and more than its waiver card said.
+//   1. The live rule at the drop instant (_completedWeeksAtLiveRule), from MFL's NFL schedule.
+//   2. No schedule — every offseason until the NFL publishes the new season's (MFL answers 404 for that year's
+//      nflSchedule; canon cuts run from the March rollover): the live-scoring authority NOW, but only its 0. Completed
+//      weeks never go down, so none complete now means none at the earlier drop. Any other answer can't be carried back
+//      to the drop instant → null, and the drop is HELD until the schedule can be read.
+// (One case the fallback cannot tell apart, exactly as the old tick-time count could not: the schedule unreadable between
+// Week 1's last game + grace and Week 2's first kickoff, where live scoring has not rolled and still reads 0.)
+async function _completedWeeksForDrop(season, leagueId, dropUnix) {
+  const atDrop = await _completedWeeksAtLiveRule(season, dropUnix, 17);
+  if (atDrop.weeks !== null) return atDrop;
+  const at = Number(dropUnix) || 0;
+  if (at > 0 && at <= Math.floor(Date.now() / 1000)) {
+    try {
+      if ((await resolveAuthoritativeCompletedWeek(season, leagueId)) === 0) return { weeks: 0, source: "none_complete_now" };
+    } catch (_) { /* held */ }
+  }
+  return atDrop;
 }
 
 // Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
@@ -3532,10 +3557,13 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
         };
         const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
+          // A taxi cut is $0 whatever was earned, so it is priced even when the completed weeks could not be read — but then
+          // this year's earned is UNKNOWN, not the prior years alone: null, never a partial figure stored as earned_to_date.
+          const taxiEarned = ctx.weekAuthorityUnresolved ? { earned: null, currentYearEarned: null } : {};
           // Exemption checks (priority order):
           // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
           if (isTaxi) {
-            return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
+            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
           }
           // 1a. Taxi player mid-CALL-UP. `isTaxi` above is MFL's roster status
           // at drop time, so during a temporary call-up it reads false and the
@@ -3565,7 +3593,7 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
                        + "(call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
           }
           if (taxiNeverPromoted === true && onEntryContract) {
-            return { ...ctx, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
+            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
           }
 
           // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
@@ -46865,15 +46893,15 @@ const mflToSleeper = {};
                 // The drop LEDGER's own inputs, as of this drop's instant, so the card announces the number
                 // /admin/drops/scan-and-record books (Keith 2026-10-16: Devin Neal's 9/17 cut was announced $2.3K
                 // and booked $2,382):
-                //   - completed weeks: the recorder's live rule AT THE DROP (_completedWeeksAtLiveRule: a week counts
-                //     once its last game kicked off + 7h), which held re-pricing and every post-discord recompute
-                //     use. Not resolveCompletedPayableWeeks: it answers "now" when posted on the drop's UTC day and
+                //   - completed weeks: _completedWeeksForDrop, the recorder's live rule AT THE DROP (a week counts
+                //     once its last game kicked off + 7h) that the recorder prices every drop with. Not
+                //     resolveCompletedPayableWeeks: it answers "now" when posted on the drop's UTC day and
                 //     walks kickoff to kickoff otherwise, so a retried, replayed or late post priced a Thursday-
                 //     morning cut one week short ($2,500 for Neal's).
                 //   - acquisition week: of the contract this drop ENDED (_acquisitionWeekAsOf), not the latest add.
                 //   - taxi call-up status: _taxiNeverPromotedMap's answer, passed as is.
                 const dropDateIso = new Date(ts * 1000).toISOString();
-                const weekAuthority = await _completedWeeksAtLiveRule(apSeason, ts, 17);
+                const weekAuthority = await _completedWeeksForDrop(apSeason, apLeagueId, ts);
                 const acquisitionWeek = _acquisitionWeekAsOf(apTxs, apSeason, dpid, ts);
                 const taxiNeverPromoted = await apTaxiAt(dpid, ts);
                 const calc = _computeDropPenalty({
@@ -50338,8 +50366,12 @@ const mflToSleeper = {};
         const rowSeasonOf = (r) => safeStr(r && r.season) || targetSeason;
         const seasonInputs = {};
         const seasonCtx = (season) => (seasonInputs[season] = seasonInputs[season] || (async () => {
-          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), txs: [], acqUnresolved: false };
+          const ctx = { auctionStart: await _faaAuctionStartUnix(env, season), txs: [], acqUnresolved: false, taxiNeverPromoted: {} };
           if (!recompute) return ctx;
+          //   - taxiNeverPromoted — the call-up status the recorder priced with (_taxiNeverPromotedMap). Without it a recompute
+          //     re-priced a taxi call-up's $0 cut by the normal formula and wrote that charge; "unresolved" now leaves the
+          //     row untouched (week_authority_unresolved → skipped below).
+          ctx.taxiNeverPromoted = await _taxiNeverPromotedMap(env, rows.filter((r) => rowSeasonOf(r) === season).map((r) => safeStr(r.player_id)), { season, leagueId });
           if (rows.some((r) => rowSeasonOf(r) === season && _nflWeekForUnix(Number(r.dropped_at_unix) || 0, season) > 0)) {
             try {
               const rcTxRes = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
@@ -50368,19 +50400,20 @@ const mflToSleeper = {};
           const sc = await seasonCtx(rs);
           if (recompute) {
             try {
-              // Completed weeks by the RECORDER's own rule at the DROP instant (_completedWeeksAtLiveRule: a week counts once its
+              // Completed weeks by the RECORDER's own rule at the DROP instant (_completedWeeksForDrop: a week counts once its
               // last game is over + the grace period) — for every row, held-then-priced or recorded on time — so a recompute
               // reproduces what the recorder charged. This used the historical kickoff-to-kickoff walk, which doesn't count the
               // week that ended Monday night until Thursday's kickoff: a Tuesday or Wednesday drop was re-priced with one week
               // less earned and its correct stored penalty rewritten one week too high (Shipley's $5,712 → $6,558). An
               // unreadable schedule → weeks null → week_authority_unresolved → skipped below, the stored row left untouched.
-              const rcWeekAuthority = await _completedWeeksAtLiveRule(rs, Number(r.dropped_at_unix) || 0, 17);
+              const rcWeekAuthority = await _completedWeeksForDrop(rs, leagueId, Number(r.dropped_at_unix) || 0);
               const rc = _computeDropPenalty({
                 contractStatus: r.pre_drop_contract_status,
                 salary: r.pre_drop_salary,
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
+                taxiNeverPromoted: sc.taxiNeverPromoted[safeStr(r.player_id)],
               }, { season: rs, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
                    acquisitionWeek: _acquisitionWeekAsOf(sc.txs, rs, r.player_id, Number(r.dropped_at_unix) || 0),
                    acquisitionWeekUnresolved: sc.acqUnresolved });
@@ -53682,7 +53715,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // A drop recorded UNPRICED because an authority it depends on (completed weeks, the acquisition week, or a taxi player's call-up history) could not be
         // resolved — penalty_basis 'week_authority_unresolved', never charged — is NOT "already recorded, done". Every tick
         // re-prices it from its own stored pre-drop contract, as of its own drop: the recorder's own live week rule at that
-        // instant (_completedWeeksAtLiveRule), and the acquisition week of the contract it ENDED, from ITS season's
+        // instant (_completedWeeksForDrop), and the acquisition week of the contract it ENDED, from ITS season's
         // transactions. Until that succeeds it stays held: listed in every drop route's response, never posted as a $0.
         //   - Two seasons are read (this one and the last), and this runs before the new-drop pulls, so a drop held across
         //     Jan 1 (NFL Week 17 runs into January; the cron's season is the calendar year) is still found and priced, and a
@@ -53783,7 +53816,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           const brief = { id: h.id, season: hSeason, pid, name: safeStr(h.player_name), fid: padFranchiseId(h.franchise_id),
                           dropped_at_iso: safeStr(h.dropped_at_iso), ledger_key: safeStr(h.ledger_key) };
           try {
-            const hWeeks = await _completedWeeksAtLiveRule(hSeason, dropUnix, 17);
+            const hWeeks = await _completedWeeksForDrop(hSeason, leagueId, dropUnix);
             const hAcqWk = _acquisitionWeekAsOf(acq.txs, hSeason, pid, dropUnix);
             const rp = computeDropPenalty({
               contractStatus: h.pre_drop_contract_status,
@@ -53935,24 +53968,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // after Labor Day" is a day late). Resolved once for the whole scan.
         const scanWeek1Iso = await _week1BoundaryIsoET(targetSeason);
 
-        // Completed-payable-week authority for this scan tick, resolved ONCE
-        // (not per-row): every drop in this batch is being priced as of "now",
-        // so this is "now" mode — ONLY the live-scoring authority (or the
-        // certain-fact pre-kickoff-preseason carve-out) may answer; there is
-        // NO date-math fallback for a live/current calculation (see the
-        // function's header comment). THIS IS A REAL-CHARGE PATH — if the
-        // authority cannot resolve, weeks stays null (source
-        // "unresolved_live") and every in-season pricing below fails closed
-        // via _computeDropPenalty's week_authority_unresolved branch rather
-        // than guessing $0.
-        const scanWeekAuthority = await resolveCompletedPayableWeeks(targetSeason, leagueId, {
-          week1ThursdayIso: scanWeek1Iso || undefined,
-          regularSeasonWeeks: 17,
-        });
-        if (scanWeekAuthority.weeks === null) {
-          console.error(`[drop-penalty scan] week authority unresolved — pricing refused for this batch, source=${scanWeekAuthority.source}`);
-        }
-
+        // Completed payable weeks: per drop, AS OF THAT DROP (_completedWeeksForDrop) — the count held re-pricing, the
+        // post-discord recompute and the waiver-run card use. Not the live count at this tick: the 2-day lookback can
+        // record a drop after the next week boundary, and it was then charged a week of earned salary it never had.
+        // THIS IS A REAL-CHARGE PATH — unresolved → null → week_authority_unresolved: HELD, re-priced by a later tick.
 
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
@@ -54003,6 +54022,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               exempt: false, exempt_reason: "",
             };
             if (preDrop) {
+              const dropWeeks = await _completedWeeksForDrop(targetSeason, leagueId, drop.ts);
               penaltyInfo = computeDropPenalty({
                 contractStatus: preDrop.contract_status,
                 salary: preDrop.salary,
@@ -54013,7 +54033,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: _acquisitionWeekAsOf(acqTxs, targetSeason, drop.pid, drop.ts),
                    acquisitionWeekUnresolved: acqWeekUnresolved,
                    week1ThursdayIso: scanWeek1Iso || undefined,
-                   completedPayableWeeks: scanWeekAuthority.weeks });
+                   completedPayableWeeks: dropWeeks.weeks });
             }
 
             // Which cap year this penalty belongs to (canon §6 penalty timing).

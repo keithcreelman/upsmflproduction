@@ -198,23 +198,16 @@ test("A6. the cards read the ledger's numbers: Neal $2.4K ($4.5K − $2.1K), Kyl
   t.deepEqual(DISCORD_CALLS, [], "a dry run never contacts Discord");
 });
 
-// ═════════ B. the drop is HELD by the ledger at the run, and priced as of its own instant on a later tick ═════════
-test("B. MFL's live scoring is down at 9:06 AM: the ledger HOLDS the two priced cuts and prices them on the next tick — to the card's number", async () => {
+// ═════════ B. the ledger records the run LATE ═════════
+test("B. the drop scan is down until Tue 9/22 (Week 2 complete by then): it books what Thursday's card announced, priced as of the 9 AM cut", async () => {
   const dbB = makeDb({ priorActiveCached: true }), envB = makeEnv(dbB);
-  NOW = RealDate.parse("2026-09-17T13:06:00Z"); MFL.liveScoringDown = true;
-  const p = await poster(envB);                       // the card does not need live scoring: it prices as of the drop
-  const s1 = await scan(envB);
-  t.equal(s1.status, 200, s1.text.slice(0, 400));
-  t.deepEqual(["17046", "17134"].map((pid) => ledger(dbB, pid).penalty_basis), ["week_authority_unresolved", "week_authority_unresolved"]);
-  MFL.liveScoringDown = false; NOW = RealDate.parse("2026-09-18T14:00:00Z");   // the next day, after Week 2 opened
-  const s2 = await scan(envB);
-  t.equal(s2.json.repriced_count, 2, s2.text.slice(0, 400));
-  for (const pid of ["17046", "17134"]) sameAsLedger(announced(p, pid), ledger(dbB, pid), pid);
-  t.equal(ledger(dbB, "17046").penalty_amount, 2382);
-  // The call-up rookie's cut is $0 / taxi_callup_exempt on both. (The ledger recorded it at the tick whose week count was
-  // unreadable, so its stored earned_to_date leaves out the current-year week; a $0 card prints no earned figure.)
-  const a = announced(p, "17052"), row = ledger(dbB, "17052");
-  t.deepEqual([a.penalty, a.basis, a.exempt], [row.penalty_amount, row.penalty_basis, row.penalty_exempt === 1]);
+  NOW = RealDate.parse("2026-09-17T13:06:00Z");
+  const p = await poster(envB);
+  NOW = RealDate.parse("2026-09-22T16:00:00Z");
+  const s = await scan(envB);
+  t.equal(s.status, 200, s.text.slice(0, 400));
+  for (const pid of ["17046", "17134", "17052"]) sameAsLedger(announced(p, pid), ledger(dbB, pid), pid);
+  t.equal(ledger(dbB, "17046").penalty_amount, 2382, "not $2,265: the tick's live count (2 weeks) is no longer what prices a late-recorded cut");
 });
 
 // ═════════ C. the taxi call-up history cannot be read ═════════
@@ -247,11 +240,11 @@ test("D. the poster calls the ledger's helpers, not its own week count, acquisit
   const POSTER = SRC.slice(i, SRC.indexOf("const apResults = [];", i));
   t.match(POSTER, /_taxiNeverPromotedMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId, atUnix: ts \}\)/, "as of each claim's drop");
   t.match(POSTER, /taxiNeverPromoted,\n/, "passed to the calculator as is (true | 'unresolved')");
-  t.match(POSTER, /await _completedWeeksAtLiveRule\(apSeason, ts, 17\)/);
+  t.match(POSTER, /await _completedWeeksForDrop\(apSeason, apLeagueId, ts\)/);
   t.match(POSTER, /_acquisitionWeekAsOf\(apTxs, apSeason, dpid, ts\)/);
   t.doesNotMatch(POSTER, /resolveCompletedPayableWeeks\(|_acquisitionWeekMapFromTxs\(/, "no second week rule, no latest-add acquisition map");
   // and the ledger's held re-pricing counts weeks with the same helper
-  t.match(SRC, /const hWeeks = await _completedWeeksAtLiveRule\(hSeason, dropUnix, 17\);/);
+  t.match(SRC, /const hWeeks = await _completedWeeksForDrop\(hSeason, leagueId, dropUnix\);/);
 });
 
 // ═════════ E. a call-up week counts from HIS game's kickoff — the preview, the ledger and the card agree ═════════
