@@ -3306,14 +3306,16 @@ table.asw-table{font-size:13px}
   // Scatter answers one question at a time (Keith 2026-10-15): each preset names it. Custom axes stay
   // available inside the view (the X / Y pickers), and override the preset until the position changes.
   var SCATTER_Q = {
-    qb: [{ id: "vol_eff", label: "Volume or efficiency? · Pass attempts × Yards per attempt", x: "pass_att", y: "ypa" },
+    // vol: a rate needs volume behind it — players with under a tenth of the most (of that volume) in the
+    // list aren't drawn, so one 21-yard catch doesn't set the scale.
+    qb: [{ id: "vol_eff", label: "Volume or efficiency? · Pass attempts × Yards per attempt", x: "pass_att", y: "ypa", vol: "pass_att" },
          { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
-    rb: [{ id: "vol_eff", label: "Volume or efficiency? · Rush share × Yards per carry", x: "rush_share", y: "y_per_a" },
+    rb: [{ id: "vol_eff", label: "Volume or efficiency? · Rush share × Yards per carry", x: "rush_share", y: "y_per_a", vol: "rush_att" },
          { id: "recv", label: "Receiving role × points · Target share × PPG", x: "target_share", y: "mfl_ppg" },
          { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
-    wr: [{ id: "vol_eff", label: "Volume or efficiency? · Target share × Yards per target", x: "target_share", y: "y_per_t" },
+    wr: [{ id: "vol_eff", label: "Volume or efficiency? · Target share × Yards per target", x: "target_share", y: "y_per_t", vol: "targets" },
          { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
-    te: [{ id: "vol_eff", label: "Volume or efficiency? · Target share × Yards per target", x: "target_share", y: "y_per_t" },
+    te: [{ id: "vol_eff", label: "Volume or efficiency? · Target share × Yards per target", x: "target_share", y: "y_per_t", vol: "targets" },
          { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
     flex_o: [{ id: "vol_pts", label: "Opportunity × points · Target share × PPG", x: "target_share", y: "mfl_ppg" },
              { id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "off_snap_rate", y: "mfl_ppg" }],
@@ -3325,7 +3327,7 @@ table.asw-table{font-size:13px}
          { id: "tkl", label: "Tackles × points · Tackles × PPG", x: "def_tackles_total", y: "mfl_ppg" }],
     flex_idp: [{ id: "play_pts", label: "Playing time × points · Snap % × PPG", x: "def_snap_rate", y: "mfl_ppg" },
                { id: "tkl", label: "Tackles × points · Tackles × PPG", x: "def_tackles_total", y: "mfl_ppg" }],
-    pk: [{ id: "vol_acc", label: "Volume or accuracy? · FG made × FG %", x: "fg_made", y: "fg_pct" }],
+    pk: [{ id: "vol_acc", label: "Volume or accuracy? · FG made × FG %", x: "fg_made", y: "fg_pct", vol: "fg_made" }],
     pn: [{ id: "vol_q", label: "Volume or quality? · Punts × Net average", x: "punts", y: "punt_net_avg" }],
   };
   function scatterPreset() {
@@ -3356,9 +3358,15 @@ table.asw-table{font-size:13px}
       return '<select id="'+id+'" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;max-width:180px">'+opts+'</select>';
     }
     var floor = sampleFloor(rows);
-    var below = 0;
+    var below = 0, thinVol = 0;
+    var pr = !(state.scatterX || state.scatterY) ? scatterPreset() : null;
+    var volKey = pr && pr.vol && pr.x === xKey && pr.y === yKey ? pr.vol : null;
+    var volMin = 0;
+    if (volKey) rows.forEach(function (r) { var v = Number(getVal(r, volKey)) || 0; if (v > volMin) volMin = v; });
+    volMin = volMin / 10;
     var pts = rows.map(function(r){
       if ((Number(getVal(r, "games")) || 0) < floor) { below++; return null; }
+      if (volKey && (Number(getVal(r, volKey)) || 0) < volMin) { thinVol++; return null; }
       var x = getVal(r, xKey), y = getVal(r, yKey);
       if (x == null || y == null || isNaN(x) || isNaN(y)) return null;
       return { x: Number(x), y: Number(y), r: r };
@@ -3425,7 +3433,8 @@ table.asw-table{font-size:13px}
     return '<div class="asw-scatter-wrap"><div style="padding:6px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)">' +
         'Custom axes: X ' + pickerHtml("asw-sc-x", xKey) + ' Y ' + pickerHtml("asw-sc-y", yKey) + '</div>' + svg +
         '<p class="asw-scatter-note">Each dot is one player in this list (the same Season, Window, Position, Fantasy team and filters as the table). ' +
-        pts.length + ' players with ' + floor + '+ games' + (below ? ' (' + below + ' with fewer aren’t drawn)' : '') + ' · named: the highest PPG where the name fits · dashed lines: their medians · click a dot for his player view.</p></div>';
+        pts.length + ' players with ' + floor + '+ games' + (below ? ' (' + below + ' with fewer aren’t drawn)' : '') +
+        (thinVol ? ' · ' + thinVol + ' with under a tenth of the most ' + escapeHtml((COLS[volKey] && COLS[volKey].label) || volKey) + ' aren’t drawn either' : '') + ' · named: the highest PPG where the name fits · dashed lines: their medians · click a dot for his player view.</p></div>';
   }
   function wireScatter(rows) {
     var xSel = document.getElementById("asw-sc-x"), ySel = document.getElementById("asw-sc-y");

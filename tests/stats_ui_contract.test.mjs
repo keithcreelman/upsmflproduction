@@ -561,9 +561,25 @@ await check("Scatter: every position has a question; dots are the listed players
     const S = await boot("#tab=" + tab + "&seasons=2025&scope=mfl_total&show=scatter");
     assert.deepStrictEqual(S.$("#asw-scatter-q").options.map((o) => o.value), SCQ[tab].map((q) => q.id), tab);
     const dots = S.$$("#asw-body circle").length;
-    const m = /(\d+) players with (\d+)\+ games(?: \((\d+) with fewer aren’t drawn\))?/.exec(S.$("#asw-body .asw-scatter-note").textContent);
+    const note = S.$("#asw-body .asw-scatter-note").textContent;
+    const m = /(\d+) players with (\d+)\+ games(?: \((\d+) with fewer aren’t drawn\))?/.exec(note);
     assert.ok(m, tab + ": the note counts the players");
     assert.strictEqual(+m[1], dots, tab + ": one dot per counted player");
+    if (tab === "wr") {   // a rate question (Y/T) needs volume: nobody drawn has under a tenth of the most targets listed
+      assert.strictEqual(SCQ.wr[0].vol, "targets");
+      const wr = FX["leaderboard:skill"].rows.filter((r) => r.mfl_position === "WR");
+      const most = Math.max(...wr.map((r) => +r.targets || 0)), tgt = Object.fromEntries(wr.map((r) => [r.gsis_id, +r.targets || 0]));
+      const drawn = S.$$("#asw-body .asw-sc-dot").map((g) => g.getAttribute("data-gsis"));
+      assert.ok(drawn.length && drawn.every((g) => tgt[g] >= most / 10), "a dot under a tenth of the most targets");
+      // a full-time receiver with two targets (one 42-yard catch): 21 yards a target, not drawn, and the note says so
+      const lb = JSON.parse(JSON.stringify(FX["leaderboard:skill"])), base = lb.rows.find((r) => r.mfl_position === "WR");
+      lb.rows.push(Object.assign({}, base, { gsis_id: "00-THIN", mfl_pid: 99999, player_name: "Thin Volume", targets: 2, receptions: 1, rec_yds: 42, rec_tds: 0 }));
+      const S2 = await boot("#tab=wr&seasons=2025&scope=mfl_total&show=scatter", null, (u) => /advanced-stats-leaderboard/.test(u) && /pos=skill/.test(u) ? { status: 200, body: lb } : undefined);
+      assert.ok(!S2.$$("#asw-body .asw-sc-dot").some((g) => g.getAttribute("data-gsis") === "00-THIN"), "two targets: not drawn");
+      assert.match(S2.$("#asw-body .asw-scatter-note").textContent, /1 with under a tenth of the most Tgt aren’t drawn either/);
+      await S2.change("#asw-scatter-q", "play_pts");
+      assert.ok(S2.$$("#asw-body .asw-sc-dot").some((g) => g.getAttribute("data-gsis") === "00-THIN"), "a question about playing time, not a rate, draws him");
+    }
     assert.ok(dots >= 3, tab + ": " + dots + " dots");
   }
 });
