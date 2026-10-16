@@ -526,12 +526,17 @@ await check("Fantasy team is a primary single select that filters without asking
   assert.strictEqual(T.$$("#asw-body tbody tr").length, all);
 });
 await check("Heatmap: one fixed profile per position; each cell's fifth follows the value; players under half the most games are shown uncolored and the legend says so", async () => {
+  let thinSeen = 0;
   for (const tab of TAB_IDS) {
+    const G = (await boot("#tab=" + tab + "&seasons=2025&scope=mfl_total")).col("games").map(Number);
+    const floor = Math.max(1, Math.round(Math.max(...G) / 2)), under = G.filter((g) => g < floor).length;
     const H = await boot("#tab=" + tab + "&seasons=2025&scope=mfl_total&show=heatmap");
     assert.deepStrictEqual(H.headers(), HEAT[tab], tab);
     assert.ok(HEAT[tab].length <= 8 && !HEAT[tab].includes("mfl_sched_opp"), tab);
     const rows = H.$$("#asw-body tbody tr");
     const thin = rows.filter((tr) => /thin/.test(tr.attrs.class || ""));
+    assert.strictEqual(thin.length, under, tab + ": unranked = players under " + floor + " games (half the most, " + Math.max(...G) + ")");
+    thinSeen += thin.length;
     for (const tr of thin) assert.ok(tr.children.slice(2).every((td) => /pct-q0/.test(td.attrs.class || "")), tab + ": an unranked row is uncolored");
     const ranked = rows.filter((tr) => !/thin/.test(tr.attrs.class || ""));
     assert.ok(ranked.length >= 3, tab + " ranks " + ranked.length);
@@ -539,8 +544,9 @@ await check("Heatmap: one fixed profile per position; each cell's fifth follows 
     const q = ranked.map((tr) => +/pct-q(\d)/.exec(tr.children[2].attrs.class)[1]);
     for (let i = 1; i < q.length; i++) assert.ok(q[i] <= q[i - 1], tab + ": fifth " + q[i - 1] + " then " + q[i]);
     if (ranked.length >= 5) assert.ok(q[0] === 5 && q[q.length - 1] === 1, tab + ": top and bottom fifths " + q[0] + "/" + q[q.length - 1]);
-    if (thin.length) assert.match(H.$("#asw-heat-legend").textContent, /uncolored: under \d+ games, not ranked/, tab);
+    if (thin.length) assert.ok(H.$("#asw-heat-legend").textContent.includes("uncolored: under " + floor + " games, not ranked"), tab);
   }
+  assert.ok(thinSeen > 0, "the recorded answers include players under the floor");
 });
 await check("Scatter: every position has a question; dots are the listed players with enough games; the note counts the rest", async () => {
   for (const tab of TAB_IDS) {
