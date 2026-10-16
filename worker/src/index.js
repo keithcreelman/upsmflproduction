@@ -605,6 +605,93 @@ async function _hourlyPreDropContract(bucket, pid, franchiseId, dropUnix, maxHou
   return null;
 }
 
+// ── The contract a DROP ended: ONE lookup for the drop ledger and the waiver-run card ──
+// The card (/admin/adds/post-discord) used its own copy of the drop ledger's (/admin/drops/scan-and-record) R2 walk, and
+// the two disagreed (2026-10-16): the card skipped a BLANK roster entry and walked back to an OLDER contract where the
+// ledger stops and books the cut unpriced (an unstamped contract is never priced as $0), and the card never checked for
+// a MYAC, extension, MYM or restructure submitted after the snapshot — the Colbie Young case, where the ledger books the
+// new contract. Both routes now read through this, in the ledger's order:
+//   1. the newest hourly roster copy taken before the drop, on the dropping team's roster (_hourlyPreDropContract);
+//   2. the daily snapshot of the drop's UTC day, walking back up to 7 days, never one taken after the drop: the first
+//      entry for the player, BLANK INCLUDED (the calculator calls a blank contract unstamped and leaves it unpriced);
+//   3. the newest real contract submission for that player and team between that snapshot and the drop.
+// One reader per request (its daily snapshots are cached). Each call → { contract } | { contract: null } (in no snapshot)
+// | { contract: null, error } (the submission tables could not be read: the ledger retries next tick, the card says unknown).
+function _preDropContractReader(env) {
+  const bucket = env && env.UPS_MFL_BACKUPS;
+  const daily = new Map();   // dateStr → { data, takenAt }
+  const loadDaily = async (dateStr) => {
+    if (daily.has(dateStr)) return daily.get(dateStr);
+    let data = null, takenAt = "";
+    if (bucket) {
+      try {
+        const obj = await bucket.get(`snapshots/${dateStr}/rosters.json`);
+        if (obj) {
+          data = JSON.parse(await obj.text());
+          // R2's own upload time. Unknown → the START of the snapshot's day, so every same-day submission counts as
+          // possibly newer (re-applying one the snapshot already holds is a no-op).
+          const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
+          takenAt = up && Number.isFinite(up.getTime()) ? up.toISOString() : `${dateStr}T00:00:00.000Z`;
+        }
+      } catch (_) { data = null; }
+    }
+    const v = { data, takenAt };
+    daily.set(dateStr, v);
+    return v;
+  };
+  const list = (v) => (Array.isArray(v) ? v : (v ? [v] : []));
+  const fromSnapshots = async (pid, franchiseId, dropUnix) => {
+    const hourly = await _hourlyPreDropContract(bucket, pid, franchiseId, dropUnix, 36);
+    if (hourly) return hourly;
+    const dropMs = dropUnix * 1000;
+    for (let lag = 0; lag <= 7; lag += 1) {
+      const dateStr = new Date(dropMs - lag * 86400000).toISOString().slice(0, 10);
+      const { data, takenAt } = await loadDaily(dateStr);
+      if (!data) continue;
+      const takenMs = Date.parse(takenAt);
+      if (Number.isFinite(takenMs) && takenMs > dropMs) continue;   // taken after the drop
+      for (const f of list(data.rosters && data.rosters.franchise)) {
+        for (const p of list(f && f.player)) {
+          if (String(p && p.id || "").replace(/\D/g, "") !== pid) continue;
+          return {
+            contract_status: String(p.contractStatus || "").trim(),
+            salary: Number(p.salary) || 0,
+            contract_year: Number(p.contractYear) || 0,
+            contract_info: String(p.contractInfo || "").trim(),
+            is_taxi: String(p.status || "").trim() === "TAXI_SQUAD",
+            snapshot_source: dateStr,
+            snapshot_taken_at: takenAt,
+          };
+        }
+      }
+    }
+    return null;
+  };
+  return async ({ season, leagueId, pid, franchiseId, dropUnix }) => {
+    const want = String(pid || "").replace(/\D/g, "");
+    const at = Number(dropUnix) || 0;
+    let c = want && at > 0 ? await fromSnapshots(want, franchiseId, at) : null;
+    if (!c) return { contract: null };
+    // A snapshot is a picture at one moment. A contract submitted after it and before the drop IS the contract dropped.
+    const newer = await _contractSubmittedBetween(env, {
+      season, leagueId, playerId: want, franchiseId, afterIso: c.snapshot_taken_at, beforeIso: new Date(at * 1000).toISOString(),
+    });
+    if (newer && newer.error) return { contract: null, error: newer.error };
+    if (newer) {
+      c = {
+        ...c,
+        contract_status: String(newer.new_contract_status || "").trim() || c.contract_status,
+        salary: Number(newer.new_salary) || c.salary,
+        contract_year: Number(newer.new_contract_year) || c.contract_year,
+        contract_info: String(newer.new_contract_info || "").trim(),
+        snapshot_source: `${newer.table}:${newer.id}`,
+        superseded_snapshot: c.snapshot_source,
+      };
+    }
+    return { contract: c };
+  };
+}
+
 // ── Tag / rookie-extension deadline lock pipeline ─────────────────────
 // Two scheduled actions fire idempotently off the hourly cron once the
 // season's tag/extension deadline (midnight ET Thu→Fri before Memorial
@@ -46670,30 +46757,16 @@ const mflToSleeper = {};
         //   1. ups_drop_events — the drop ledger snapshotted the contract at
         //      drop time and is what the drop announcement itself priced, so
         //      agreeing with it is the point.
-        //   2. the R2 daily roster snapshot, walked back up to 7 days (the
-        //      same reader /admin/drops/scan-and-record uses).
-        // Neither → UNKNOWN. We do NOT print "No Cap Penalty" for a contract
-        // we could not read; silence is not the same as zero
-        // (rule_no_fail_open_guards).
-        const apR2 = env.UPS_MFL_BACKUPS;
-        const apSnapshotByDate = new Map();
-        const apSnapshotTakenMs = new Map();   // dateStr → R2 upload time (ms) — a snapshot taken after a drop is not used for it
-        const apLoadSnapshotRosters = async (dateStr) => {
-          if (apSnapshotByDate.has(dateStr)) return apSnapshotByDate.get(dateStr);
-          let data = null;
-          if (apR2) {
-            try {
-              const obj = await apR2.get(`snapshots/${dateStr}/rosters.json`);
-              if (obj) {
-                data = JSON.parse(await obj.text());
-                const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
-                if (up && Number.isFinite(up.getTime())) apSnapshotTakenMs.set(dateStr, up.getTime());
-              }
-            } catch (_) { data = null; }
-          }
-          apSnapshotByDate.set(dateStr, data);
-          return data;
-        };
+        //   2. the drop ledger's OWN lookup (_preDropContractReader: hourly and
+        //      daily R2 roster snapshots, then any contract submitted after the
+        //      snapshot) — for a card built before the ledger has written its row.
+        // Neither → UNKNOWN, and so is a blank (unstamped) contract or a
+        // submission check that could not be read. We do NOT print "No Cap
+        // Penalty" for a contract we could not read; silence is not the same as
+        // zero (rule_no_fail_open_guards).
+        const apReadPreDrop = _preDropContractReader(env);
+        // cacheKey → why that drop is not priced (shown on the card instead of a number)
+        const apPreDropUnpriced = new Map();
         const apPreDropCache = new Map();
         const apResolvePreDrop = async (pid, ts, fid) => {
           const cacheKey = `${pid}|${ts}`;
@@ -46725,39 +46798,18 @@ const mflToSleeper = {};
               };
             }
           } catch (_) { out = null; }
-          // The same order the drop ledger reads (scan-and-record's findPreDropContract): the newest HOURLY roster copy
-          // taken before the drop, on this team's roster — a player claimed since the morning's daily snapshot is only
-          // there (2026-10-16: Flournoy's and Bourne's cards read "Cap penalty: unknown") — then the daily snapshots.
           if (!out) {
-            const hourly = await _hourlyPreDropContract(apR2, pid, fid, safeInt(ts, 0), 36);
-            if (hourly) out = { ...hourly, contract_source: `r2_${hourly.snapshot_source}` };
-          }
-          if (!out) {
-            const dropAt = new Date(safeInt(ts, 0) * 1000);
-            for (let lag = 0; lag <= 7 && !out; lag += 1) {
-              const dateStr = new Date(dropAt.getTime() - lag * 86400000).toISOString().slice(0, 10);
-              const snap = await apLoadSnapshotRosters(dateStr);
-              if (!snap) continue;
-              if ((apSnapshotTakenMs.get(dateStr) || 0) > dropAt.getTime()) continue;   // taken after the drop
-              for (const f of asArray(snap?.rosters?.franchise)) {
-                for (const p of asArray(f?.player)) {
-                  if (safeStr(p?.id).replace(/\D/g, "") !== safeStr(pid)) continue;
-                  // Same rule as above: a roster entry carrying neither a
-                  // contractInfo nor a real salary tells us nothing, so keep
-                  // walking back rather than pricing an empty contract.
-                  if (!safeStr(p?.contractInfo) && !((Number(p?.salary) || 0) > 0)) continue;
-                  out = {
-                    contract_status: safeStr(p?.contractStatus),
-                    salary: Number(p?.salary) || 0,
-                    contract_year: Number(p?.contractYear) || 0,
-                    contract_info: safeStr(p?.contractInfo),
-                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
-                    contract_source: `r2_snapshot:${dateStr}`,
-                  };
-                  break;
-                }
-                if (out) break;
-              }
+            const pre = await apReadPreDrop({ season: apSeason, leagueId: apLeagueId, pid: safeStr(pid), franchiseId: fid, dropUnix: safeInt(ts, 0) });
+            const c = pre.contract;
+            if (pre.error) {
+              apPreDropUnpriced.set(cacheKey, "Whether this contract changed after the roster snapshot (a MYAC, extension, MYM or restructure) "
+                + "could not be checked — this drop has NOT been priced. The drop ledger prices it once that check can be read.");
+            } else if (c && !safeStr(c.contract_info) && !((Number(c.salary) || 0) > 0)) {
+              apPreDropUnpriced.set(cacheKey, "MFL has no contract stamped for this player (salary and contractInfo are empty) — "
+                + "unpriced, NOT a cap-free cut. It needs a verified contract.");
+            } else if (c) {
+              const src = safeStr(c.snapshot_source);
+              out = { ...c, contract_source: c.superseded_snapshot ? src : (/^\d{4}-\d{2}-\d{2}$/.test(src) ? `r2_snapshot:${src}` : `r2_${src}`) };
             }
           }
           apPreDropCache.set(cacheKey, out);
@@ -47056,7 +47108,8 @@ const mflToSleeper = {};
               } else {
                 side.penalty = {
                   known: false,
-                  unknown_reason: "Pre-drop contract not found in ups_drop_events or the R2 roster snapshots — this drop has NOT been priced.",
+                  unknown_reason: apPreDropUnpriced.get(`${dpid}|${ts}`)
+                    || "Pre-drop contract not found in ups_drop_events or the R2 roster snapshots — this drop has NOT been priced.",
                 };
               }
               return side;
@@ -53741,70 +53794,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const parseContractData = _parseContractData;
         const computeDropPenalty = _computeDropPenalty;
 
-        // ── R2 snapshot reader ──
-        const r2Bucket = env.UPS_MFL_BACKUPS;
-        const snapshotRostersByDate = new Map(); // dateStr → parsed rosters JSON
-        const snapshotTakenAtByDate = new Map(); // dateStr → ISO instant R2 stored it
-        const loadSnapshotRosters = async (dateStr) => {
-          if (snapshotRostersByDate.has(dateStr)) return snapshotRostersByDate.get(dateStr);
-          let data = null;
-          let takenAt = "";
-          if (r2Bucket) {
-            try {
-              const obj = await r2Bucket.get(`snapshots/${dateStr}/rosters.json`);
-              if (obj) {
-                const text = await obj.text();
-                data = JSON.parse(text);
-                // R2's own upload time. Unknown → the START of the snapshot's
-                // day, so every same-day submission counts as possibly newer
-                // (re-applying one the snapshot already holds is a no-op).
-                const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
-                takenAt = up && Number.isFinite(up.getTime()) ? up.toISOString() : `${dateStr}T00:00:00.000Z`;
-              }
-            } catch (_) {}
-          }
-          snapshotRostersByDate.set(dateStr, data);
-          snapshotTakenAtByDate.set(dateStr, takenAt);
-          return data;
-        };
-
-        const findPreDropContract = async (pid, dropTs, fid) => {
-          // The newest HOURLY roster copy taken before the drop, on the dropping team's roster — a player claimed since the
-          // morning's daily snapshot is only there (2026-10-16: Flournoy and Bourne recorded "no_pre_drop_contract").
-          const hourly = await _hourlyPreDropContract(r2Bucket, pid, fid, dropTs, 36);
-          if (hourly) return hourly;
-          // Then the day-of-drop daily snapshot, walking back up to 7 days — never one taken AFTER the drop (a late or
-          // self-healed snapshot): by then he is off this roster, or on another team's with another contract.
-          const drop = new Date(dropTs * 1000);
-          for (let lag = 0; lag <= 7; lag += 1) {
-            const probe = new Date(drop.getTime() - lag * 86400000);
-            const dateStr = probe.toISOString().slice(0, 10);
-            const snap = await loadSnapshotRosters(dateStr);
-            if (!snap) continue;
-            const takenMs = Date.parse(snapshotTakenAtByDate.get(dateStr) || "");
-            if (Number.isFinite(takenMs) && takenMs > dropTs * 1000) continue;
-            const fr = snap?.rosters?.franchise || [];
-            const frs = Array.isArray(fr) ? fr : [fr];
-            for (const f of frs) {
-              const players = f?.player || [];
-              const plist = Array.isArray(players) ? players : [players];
-              for (const p of plist) {
-                if (safeStr(p?.id).replace(/\D/g, "") === pid) {
-                  return {
-                    contract_status: safeStr(p?.contractStatus),
-                    salary: Number(p?.salary) || 0,
-                    contract_year: Number(p?.contractYear) || 0,
-                    contract_info: safeStr(p?.contractInfo),
-                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
-                    snapshot_source: dateStr,
-                    snapshot_taken_at: snapshotTakenAtByDate.get(dateStr) || `${dateStr}T00:00:00.000Z`,
-                  };
-                }
-              }
-            }
-          }
-          return null;
-        };
+        // ── Pre-drop contract: the shared reader (_preDropContractReader) — the waiver-run card reads through the same one ──
+        const readPreDropContract = _preDropContractReader(env);
 
         // ── HELD rows: re-priced FIRST, independent of this tick's new-drop pulls ──
         // A drop recorded UNPRICED because an authority it depends on (completed weeks, the acquisition week, or a taxi player's call-up history) could not be
@@ -54084,32 +54075,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
 
             const meta = pidMeta.get(drop.pid) || {};
             const dropIso = new Date(drop.ts * 1000).toISOString();
-            let preDrop = await findPreDropContract(drop.pid, drop.ts, drop.fid);
-            if (preDrop) {
-              // The snapshot is a once-a-day picture. A contract submitted after
-              // it and before the drop IS the contract that was dropped.
-              const newer = await _contractSubmittedBetween(env, {
-                season: targetSeason, leagueId, playerId: drop.pid, franchiseId: drop.fid,
-                afterIso: preDrop.snapshot_taken_at, beforeIso: dropIso,
-              });
-              if (newer && newer.error) {
-                // Cannot tell whether the snapshot is current → do not price it.
-                // Not recorded, so the next hourly scan retries it.
-                skipped.push({ ...drop, reason: "contract_submission_check_failed", detail: newer.error });
-                continue;
-              }
-              if (newer) {
-                preDrop = {
-                  ...preDrop,
-                  contract_status: safeStr(newer.new_contract_status) || preDrop.contract_status,
-                  salary: Number(newer.new_salary) || preDrop.salary,
-                  contract_year: Number(newer.new_contract_year) || preDrop.contract_year,
-                  contract_info: safeStr(newer.new_contract_info),
-                  snapshot_source: `${newer.table}:${newer.id}`,
-                  superseded_snapshot: preDrop.snapshot_source,
-                };
-              }
+            // Snapshots (hourly, then daily), then any contract submitted after the snapshot and before the drop.
+            const pre = await readPreDropContract({ season: targetSeason, leagueId, pid: drop.pid, franchiseId: drop.fid, dropUnix: drop.ts });
+            if (pre.error) {
+              // Cannot tell whether the snapshot is current → do not price it.
+              // Not recorded, so the next hourly scan retries it.
+              skipped.push({ ...drop, reason: "contract_submission_check_failed", detail: pre.error });
+              continue;
             }
+            const preDrop = pre.contract;
             let penaltyInfo = {
               tcv: null, cl: null, aav: null, cy: null,
               yearsRemaining: null, yearsPlayed: null, earned: null,
