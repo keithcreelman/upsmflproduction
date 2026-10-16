@@ -150,7 +150,7 @@ test("FAILS CLOSED: schedule or his NFL team unreadable → held ('unresolved');
   const c = third({ teams: {} });
   t.deepEqual(await c._taxiNeverPromotedMap(c.env, ["17075"], { ...CTX, atUnix: SUN_AFTER }), { "17075": "unresolved" }, "not in MFL's answer: unknown, not 'no game'");
 });
-test("no game this week (bye, NFL free agent) → not yet; no pricing instant → the confirmed rows alone; MFL's players read only for a 3rd call-up", async () => {
+test("no game this week (bye, NFL free agent) → never a call-up week (Keith 2026-10-16); no pricing instant → the confirmed rows alone; MFL's players read only for a 3rd call-up", async () => {
   const bye = third({ teams: { "17075": "SEA" } });
   t.deepEqual(await bye._taxiNeverPromotedMap(bye.env, ["17075"], { ...CTX, atUnix: SUN_AFTER }), { "17075": true });
   const fa = third({ teams: { "17075": "FA" } });

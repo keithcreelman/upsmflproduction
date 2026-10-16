@@ -210,10 +210,22 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
 // the same day that every rookie active at any point in 2025 was already
 // permanent, so that exclusion needs no separate test.
 //
-// SOURCE: MFL weeklyResults for each completed week (every game's clock at 0).
-// A player listed under a franchise there was on that team's active roster;
-// taxi and IR players are not listed. 2024-2025 came from the backfill, so this
-// only counts 2026 on.
+// SOURCE: MFL weeklyResults for each week (a player listed under a franchise
+// there was on that team's active roster; taxi and IR players are not listed)
+// PLUS that week's MFL rosters (TYPE=rosters&W=N — historical per week): a
+// player on INJURED_RESERVE there used the week too. 2024-2025 came from the
+// backfill, so this only counts 2026 on.
+//
+// Keith's rulings, 2026-10-16:
+//   - IR COUNTS (canon §B2: "the active roster (or on IR)… Putting a called-up
+//     player on IR does NOT avoid burning the week"). weeklyResults alone never
+//     saw an IR week.
+//   - A BYE WEEK IS NOT ACTIVE: a week his NFL team has no game (or he is an NFL
+//     free agent) is never a call-up week. His team is read from MFL's players
+//     export when the count runs.
+//   - A week is recorded 10 minutes after its LAST kickoff (the late Monday game
+//     when there are two) — every lineup has locked by then — instead of the
+//     next morning once every game was final (_taxiCallupWeekDue drives it).
 //
 // Taxi-eligible = UPS Rookie Draft Round 2+, inside the 3-league-year window,
 // still on the Rookie-Draft contract: the /roster-workbench taxi_eligible test.
@@ -226,6 +238,37 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
 // FAILS CLOSED. An export that does not answer stops the count at the last week
 // that did, and an unreadable contract or draft list counts nothing: a week is
 // never guessed, and nobody is charged a call-up on a guess.
+const TAXI_CALLUP_WEEK_RECORD_DELAY_SEC = 10 * 60;
+const _taxiCallupWeeksMarkerKey = (season) => `taxi_callup_weeks_through_${String(season || "").replace(/\D/g, "")}`;
+// The week the counter should record now, or 0: the latest week (1–17) whose last kickoff + 10 minutes has passed,
+// unless ups_settings already says the count got that far. Called every */5 tick, so it is cached kickoffs and one
+// ups_settings read; the counter itself then runs once per week.
+async function _taxiCallupWeekDue(env, season, nowSec) {
+  let due = 0;
+  for (let w = 1; w <= 17; w += 1) {
+    const last = await nflWeekLastKickoffUnix(season, w);
+    if (!(last > 0) || nowSec < last + TAXI_CALLUP_WEEK_RECORD_DELAY_SEC) break;
+    due = w;
+  }
+  if (!due || !env || !env.UPS_MFL_DB) return 0;
+  const row = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(_taxiCallupWeeksMarkerKey(season)).first();
+  return (Number(row && row.value) || 0) >= due ? 0 : due;
+}
+// Runs the counter (a real write) and records how far it got, so _taxiCallupWeekDue stops asking for that week. A run
+// that stopped early records only the weeks it counted; the next tick retries the rest.
+async function _runTaxiCallupWeekCount(env, season, leagueId, tag) {
+  const ws = await syncTaxiCallupWeeks(env, season, leagueId, { dryRun: false });
+  if (!ws.ok) { console.error(`[scheduled ${tag}] taxi-callup weeks: ${ws.error} ${ws.message || ""}`); return ws; }
+  if (ws.inserts.length || ws.superseded.length) {
+    console.log(`[scheduled ${tag}] taxi-callup weeks: +${ws.inserts.length} weeks, ${ws.superseded.length} promote clicks superseded, through W${ws.counted_through_week}`);
+  }
+  if (ws.counted_through_week) {
+    await env.UPS_MFL_DB.prepare(
+      "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+    ).bind(_taxiCallupWeeksMarkerKey(season), String(ws.counted_through_week), new Date().toISOString()).run();
+  }
+  return ws;
+}
 async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
   opts = opts || {};
   const dryRun = !!opts.dryRun;
@@ -251,9 +294,10 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
   const apiKey = String(env.MFL_APIKEY || "").trim();
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
 
-  // 1. Completed weeks, in order, stopping at the first that is not over (or
-  //    whose schedule does not answer).
+  // 1. Countable weeks, in order — its last kickoff + TAXI_CALLUP_WEEK_RECORD_DELAY_SEC has passed — stopping at the
+  //    first that is not (or whose schedule does not answer). Each week's teams with a game are kept for the bye rule.
   const nowSec = Math.floor(Date.now() / 1000);
+  const playingByWeek = new Map();
   const completed = [];
   let lastKickoff = 0;
   let stoppedAt = null;
@@ -262,12 +306,13 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     const games = arr(s && s.nflSchedule && s.nflSchedule.matchup);
     if (!games.length) { stoppedAt = { week: w, reason: s ? "no_games_listed" : "schedule_unreadable" }; break; }
     let weekLast = 0;
-    const over = games.every((g) => {
+    const allKnown = games.every((g) => {
       const ko = parseInt(g && g.kickoff, 10) || 0;
       if (ko > weekLast) weekLast = ko;
-      return ko > 0 && ko < nowSec && String(g && g.gameSecondsRemaining) === "0";
+      return ko > 0;
     });
-    if (!over) { stoppedAt = { week: w, reason: "week_not_complete" }; break; }
+    if (!allKnown || nowSec < weekLast + TAXI_CALLUP_WEEK_RECORD_DELAY_SEC) { stoppedAt = { week: w, reason: "week_not_locked" }; break; }
+    playingByWeek.set(w, new Set(games.flatMap((g) => arr(g && g.team).map((t) => String((t && t.id) || "").toUpperCase())).filter(Boolean)));
     completed.push(w);
     lastKickoff = weekLast;
   }
@@ -307,6 +352,17 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     universe.add(pid);
   }
 
+  // 2b. Each eligible player's NFL team, for the bye rule. Unreadable → nothing is counted (never a guess).
+  const teamOf = new Map();
+  if (universe.size) {
+    const pl = await getJson(`https://api.myfantasyleague.com/${yr}/export?TYPE=players&PLAYERS=${[...universe].join(",")}&JSON=1`);
+    if (!(pl && pl.players)) return { ok: false, error: "players_unreadable", message: "Could not read the players' NFL teams (the bye rule needs them); nothing was counted." };
+    for (const p of arr(pl.players.player)) {
+      const id = String((p && p.id) || "").replace(/\D/g, "");
+      if (id) teamOf.set(id, String((p && p.team) || "").toUpperCase());
+    }
+  }
+
   // 3. Weeks already counted this season.
   const haveRes = await db.prepare(
     "SELECT player_id, nfl_week FROM ups_taxi_callups WHERE season = ? AND pending = 0 AND nfl_week IS NOT NULL"
@@ -324,25 +380,35 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
       ? arr(root.matchup).flatMap((m) => arr(m && m.franchise)).concat(arr(root.franchise))
       : [];
     if (!franchises.length) { stoppedAt = { week: w, reason: "weekly_results_unreadable" }; break; }
-    const seen = new Set();
-    for (const fr of franchises) {
-      const fid = pad4(fr && fr.id);
+    // IR: that week's rosters (historical per week). Unreadable → stop here, like weeklyResults.
+    const wkRosters = await getJson(`https://www48.myfantasyleague.com/${yr}/export?TYPE=rosters&L=${lg}&W=${w}&JSON=1${apiQs}`);
+    const rosterFrs = arr(wkRosters && wkRosters.rosters && wkRosters.rosters.franchise);
+    if (!rosterFrs.length) { stoppedAt = { week: w, reason: "weekly_rosters_unreadable" }; break; }
+    const onWeek = [];   // [fid, pid, basis]
+    for (const fr of franchises) for (const p of arr(fr && fr.player)) onWeek.push([pad4(fr && fr.id), p && p.id, "weeklyResults active roster"]);
+    for (const fr of rosterFrs) {
       for (const p of arr(fr && fr.player)) {
-        const pid = String((p && p.id) || "").replace(/\D/g, "");
-        if (!pid || !universe.has(pid) || seen.has(pid)) continue;
-        seen.add(pid);
-        if (have.has(`${pid}|${w}`)) continue;
-        const base = running.has(pid) ? running.get(pid) : (usedBy.get(pid) || 0);
-        if (base >= 4) continue;
-        const idx = base + 1;
-        running.set(pid, idx);
-        inserts.push({ player_id: pid, franchise_id: fid, week: w, callup_index: idx, became_permanent: idx >= 4 });
+        if (String((p && p.status) || "").toUpperCase() === "INJURED_RESERVE") onWeek.push([pad4(fr && fr.id), p && p.id, "weekly rosters INJURED_RESERVE"]);
       }
+    }
+    const playing = playingByWeek.get(w) || new Set();
+    const seen = new Set();
+    for (const [fid, rawPid, basis] of onWeek) {
+      const pid = String(rawPid || "").replace(/\D/g, "");
+      if (!pid || !universe.has(pid) || seen.has(pid)) continue;
+      seen.add(pid);
+      if (!playing.has(teamOf.get(pid) || "")) continue;   // bye / NFL free agent: not an active week
+      if (have.has(`${pid}|${w}`)) continue;
+      const base = running.has(pid) ? running.get(pid) : (usedBy.get(pid) || 0);
+      if (base >= 4) continue;
+      const idx = base + 1;
+      running.set(pid, idx);
+      inserts.push({ player_id: pid, franchise_id: fid, week: w, callup_index: idx, became_permanent: idx >= 4, basis });
     }
     countedThrough.push(w);
   }
   if (!countedThrough.length) {
-    return { ok: false, error: "weekly_results_unreadable", stopped_at: stoppedAt, message: "Could not read MFL weekly results; nothing was counted." };
+    return { ok: false, error: (stoppedAt && stoppedAt.reason) || "weekly_results_unreadable", stopped_at: stoppedAt, message: "Could not read MFL's weekly results or weekly rosters; nothing was counted." };
   }
 
   // 5. Promote clicks the weekly count now covers.
@@ -368,7 +434,7 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
          (league_id, season, franchise_id, player_id, nfl_week, callup_index, became_permanent, pending, source, raw_payload_json)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'mfl-weekly-sync', ?)`
     ).bind(lg, String(yr), x.franchise_id, x.player_id, x.week, x.callup_index, x.became_permanent ? 1 : 0,
-      JSON.stringify({ basis: "weeklyResults active roster", week: x.week })));
+      JSON.stringify({ basis: x.basis, week: x.week })));
     for (const s of superseded) {
       stmts.push(db.prepare("UPDATE ups_taxi_callups SET pending = 2 WHERE id = ? AND pending = 1").bind(s.id));
     }
@@ -3204,7 +3270,8 @@ const _taxiPermanentPromotion = (used, markedPermanent, priorActive) =>
 // it is set, a candidate on his 3rd call-up whose OWN NFL team has kicked off in the week under way at that
 // instant is permanent — unless that season-week is already one of his confirmed rows (never counted
 // twice). Whether he was on taxi at that instant is the caller's isTaxi (a taxi cut is exempt before this
-// is read). A bye week (no game that week) counts only once the counter writes it.
+// is read). IR counts; a bye week (no game that week, or an NFL free agent) is never a call-up week — the weekly
+// counter skips it too (Keith 2026-10-16).
 const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
   const out = {};
   const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
@@ -3282,7 +3349,7 @@ const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
     if (!teams || !Object.keys(kickoffs).length) { out[pid] = "unresolved"; continue; }
     const team = teams[pid];
     if (team === undefined) { out[pid] = "unresolved"; continue; }   // not in MFL's answer: unknown
-    const ko = Number(kickoffs[team]) || 0;                 // no game this week (bye, NFL free agent): not yet
+    const ko = Number(kickoffs[team]) || 0;                 // no game this week (bye, NFL free agent): not an active week
     if (ko > 0 && ko <= at && _taxiPermanentPromotion(counted[pid].used + 1, counted[pid].marked, false)) delete out[pid];
   }
   return out;
@@ -7450,6 +7517,26 @@ export default {
         console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
       }
 
+      // Taxi call-up weeks: each week recorded 10 minutes after its LAST kickoff (Keith 2026-10-16: "10 minutes after the
+      // last MNF kickoff of the week in case there are multiple games"), not the next morning. The check is cached
+      // kickoffs and one ups_settings read; the counter runs once per week, behind the same flag as the 13:05 UTC backstop.
+      try {
+        if (env.UPS_MFL_DB) {
+          ctx.waitUntil((async () => {
+            try {
+              const season = await _tickSeason("taxi call-up weeks");
+              if (!(await _taxiCallupWeekDue(env, season, Math.floor(Date.now() / 1000)))) return;
+              if (!(await getFeatureFlag(env, "TAXI_CALLUP_WEEKLY_SYNC_ENABLED"))) return;
+              await _runTaxiCallupWeekCount(env, season, String(env.UPS_LEAGUE_ID || env.L || "74598"), "*/5");
+            } catch (e) {
+              console.error(`[scheduled */5] taxi-callup weeks failed: ${e && e.message}`);
+            }
+          })());
+        }
+      } catch (e) {
+        console.error(`[scheduled */5] taxi-callup weeks dispatch failed: ${e && e.message}`);
+      }
+
       // Drop tracker — scan MFL FREE_AGENT txs, record to D1, optionally
       // post to Discord. Idempotent via UNIQUE(season, league_id, player_id,
       // dropped_at_unix) + discord_posted flag, so re-running every 5 min
@@ -8423,11 +8510,8 @@ export default {
             // before the confirm pass below looks at pending rows.
             if (await getFeatureFlag(env, "TAXI_CALLUP_WEEKLY_SYNC_ENABLED")) {
               try {
-                const ws = await syncTaxiCallupWeeks(env, season, leagueId, { dryRun: false });
-                if (!ws.ok) console.error(`[scheduled hourly] taxi-callup weeks: ${ws.error} ${ws.message || ""}`);
-                else if (ws.inserts.length || ws.superseded.length) {
-                  console.log(`[scheduled hourly] taxi-callup weeks: +${ws.inserts.length} weeks, ${ws.superseded.length} promote clicks superseded, through W${ws.counted_through_week}`);
-                }
+                // The daily backstop: the */5 tick records each week 10 minutes after its last kickoff.
+                await _runTaxiCallupWeekCount(env, season, leagueId, "hourly");
               } catch (e) {
                 console.error(`[scheduled hourly] taxi-callup weeks failed: ${e && e.message}`);
               }
