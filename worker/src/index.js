@@ -53,6 +53,7 @@ import { checkForfeitedPicks, reconcileForfeitedPicks, selectForfeitedPick, mark
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
 import { checkRestructureCap, checkRestructureWindow, RESTRUCTURE_MAX_PER_SEASON } from "./restructure_cap.js";
 import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, computeMflScoresFingerprint } from "./leaderboard_coverage.js";
+import { lbStoreRequest, lbServeStored } from "./leaderboard_store.js";
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
@@ -12642,6 +12643,22 @@ export default {
         if (!seasons.length) return jsonOut(400, { error: "missing seasons" });
         if (!pos) return jsonOut(400, { error: "missing pos (skill|qb|idp|kicker|punter)" });
         if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
+
+        // FINISHED SEASONS come from their stored copy (#1266, worker/src/leaderboard_store.js):
+        // one season inside LB_STORE's range, a preset window, no filter the stored board can't
+        // reproduce. 0 D1 rows, every player, the whole board in one answer (next_offset null).
+        // A copy that is missing, corrupt or built by other code answers 503 with the reason —
+        // never the live query. Ahead of the edge cache on purpose: a cached answer (including
+        // the empty ones a preview worker left in the shared cache on 2026-10-10) never stands
+        // in for the stored board.
+        const lbStoreKey = lbStoreRequest({ seasons, pos, weeksParam, teamFilter, includePost, minGames,
+          weekMin: weekMinParam, weekMax: weekMaxParam, noPrecompute: safeStr(url.searchParams.get("NO_PRECOMPUTE")) === "1" });
+        if (lbStoreKey) {
+          // The stored answer is the whole board, so a later page is always the empty last one.
+          if (offset > 0) return jsonOut(200, { seasons, pos, include_post: false, min_games: 1, team: null,
+            count: 0, limit: null, offset, next_offset: null, source: "stored", rows: [] });
+          return await lbServeStored(env, lbStoreKey, { corsHeaders });
+        }
 
         // Edge cache (2026-08-05). Narrowing the CTEs cut this query's CPU by
         // ~64%, which is what was tripping D1's CPU limit — but the SQL is only

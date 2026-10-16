@@ -208,7 +208,10 @@ function boot(opt = {}) {
     requests.push({ url: String(url), method: (o && o.method) || "GET" });
     const u = new URL(url);
     let body = {};
-    if (u.pathname === "/api/advanced-stats-leaderboard") body = opt.leaderboard ? opt.leaderboard(u.searchParams.get("pos"), Number(u.searchParams.get("offset") || 0)) : leaderboard(u.searchParams.get("pos"));
+    if (u.pathname === "/api/advanced-stats-leaderboard") {
+      body = opt.leaderboard ? opt.leaderboard(u.searchParams.get("pos"), Number(u.searchParams.get("offset") || 0)) : leaderboard(u.searchParams.get("pos"));
+      if (body && body.__status) return { ok: false, status: body.__status, json: async () => body.__json };   // a refusal (#1266)
+    }
     else if (u.pathname === "/api/player-routes") body = { by_gsis: opt.routes || {} };
     else if (u.pathname === "/api/player-weekly-box") {
       if (opt.weeklyBox === 404) return { ok: false, status: 404, json: async () => ({}) };
@@ -1655,6 +1658,21 @@ test("a season after its last week stays named: 'Actual 2026 MFL points … (fin
   const v = boot({ search: true, lineupWeek: { ok: true, week: 6, source: "live_scoring_week_complete" } });
   v.ctx.UPS_MOBILE.playerSearch.openWith("dak prescott");
   t.match(searchBasis(v.searchList()).text, /^Actual 2026 MFL points, UPS scoring · Wks 1–5 \(final\) · Rank needs 3\+ MFL wks · MFL read /);
+});
+
+test("a finished season whose stored copy can't be used says so on the list — it never just looks empty (#1266)", async () => {
+  const refuse = (reason) => (pos) => (pos === "idp" ? { __status: 503, __json: { ok: false, error: "stored_board_unavailable", reason } } : leaderboard(pos));
+  const v = boot({ leaderboard: refuse("2026/idp_1-17.json.gz checksum mismatch") });
+  await openTab(v, "LB");
+  const tk = await chooseSet(v, "tackles");
+  t.match(tk.notes, /The stored 2026 stats couldn’t be read \(2026\/idp_1-17\.json\.gz checksum mismatch\), so the box-score columns read —\./);
+  const v2 = boot({ leaderboard: (pos) => (pos === "idp" ? { __status: 500, __json: { ok: false } } : leaderboard(pos)) });
+  await openTab(v2, "LB");
+  const tk2 = await chooseSet(v2, "tackles");
+  t.match(tk2.notes, /The 2026 stats couldn’t be loaded, so the box-score columns read —\. Tap refresh to retry\./, "any other failed read is said too");
+  const ok = boot();
+  await openTab(ok, "LB");
+  t.doesNotMatch((await chooseSet(ok, "tackles")).notes, /couldn’t be (read|loaded)/, "a good read says nothing");
 });
 
 await run("mobile_stats_players_review");
