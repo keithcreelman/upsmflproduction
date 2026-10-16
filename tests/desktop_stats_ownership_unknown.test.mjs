@@ -50,7 +50,7 @@ const REGION_END = SRC.indexOf("var gsearch = { indexPromise");
 const REGION = SRC.slice(REGION_START, REGION_END);
 const GSEARCH = SRC.slice(REGION_END, SRC.indexOf("function gsearchListEl()"));
 const COMPUTE = (/mfl_franchise_name:\s*\{\s*label:"MFL Team"[\s\S]*?compute:\s*(function\s*\(r\)\s*\{[^\n]*?\})\s*\}/.exec(SRC) || [])[1];
-const PAGE_FNS = ["getSelectedTeams", "computePosRanks", "runQuery", "escapeHtml", "emptySearchHtml",
+const PAGE_FNS = ["getSelectedTeams", "computePosRanks", "runQuery", "cachedJson", "sideStatus", "escapeHtml", "emptySearchHtml",
   "gsearchNormSpaced", "gsearchNormTight", "gsearchQueryTokens"].map((n) => fnSrc(SRC, n)).join("\n");
 
 // The REAL worker route, run against stubbed MFL exports.
@@ -126,7 +126,7 @@ function boot(firstRead) {
     API_BASE: "https://w.test", LEAGUE_ID: "74598", THIS_YEAR: 2026,
     document: { createElement: () => ({}), getElementById: el },
     teamSel, bodyEl: el("asw-body"), metaEl: el("asw-meta"),
-    state: { activeTab: "rb", rowsByWorkerPos: {}, sortKey: null },
+    state: { activeTab: "rb", rowsByWorkerPos: {}, sortKey: null, lbCache: {}, sideCache: {}, side: {} },
     TABS: { rb: { label: "RB", workerPos: "skill" } },
     getSelectedSeasons: () => [2026], getScope: () => "mfl_total",
     getScopeQueryParams: () => "&week_min=1&week_max=17", getScopeLabel: () => "MFL Total",
@@ -145,7 +145,8 @@ function boot(firstRead) {
       teamSel.options.forEach((o) => { o.selected = values.length ? values.includes(o.value) : o.value === "__ALL__"; });
       return v;
     },
-    async query() { ctx.runQuery(); await settle(); return ctx.state.rowsByWorkerPos.skill || []; },
+    // runQuery loads every player; render() applies the Fantasy team filter to them (Keith 2026-10-15) — the same call here
+    async query() { ctx.runQuery(); await settle(); return ctx.filterRowsByTeams(ctx.state.rowsByWorkerPos.skill || [], ctx.getSelectedTeams()); },
     note: () => (els["asw-ownership-slot"] || { innerHTML: "" }).innerHTML,
   };
   return v;
@@ -331,7 +332,7 @@ test("source: drawers / compare use the one label; runQuery + search + ADP re-re
   t.equal((SRC.match(/mflTeamLabel\((p|playerRow)\)/g) || []).length, 2, "compare + player drawer");
   const rq = fnSrc(SRC, "runQuery");
   t.match(rq, /refreshLeagueState\(\)/, "runQuery re-reads (not the page-load promise)");
-  t.match(rq, /filterRowsByTeams\(rows, teams\)/);
+  t.match(fnSrc(SRC, "render"), /rows = filterRowsByTeams\(rows, getSelectedTeams\(\)\);/, "the Fantasy team filter runs on the rows already loaded (Keith 2026-10-15: choosing a team never re-asks)");
   t.match(fnSrc(SRC, "gsearchBuildIndex"), /refreshLeagueState\(\)/);
   t.match(SRC, /var adpOwnUnknown = !!\(adp\.team && adp\.team !== "__ALL__"\) && !ownership\.complete;/, "ADP Team filter gated");
   t.match(SRC, /rows = adpOwnUnknown \? \[\] :/);
