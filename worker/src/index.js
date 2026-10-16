@@ -3439,6 +3439,7 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
             // rosters). HELD like any other unresolved authority: re-priced by /admin/drops/scan-and-record once
             // it can be read, and shown "under review" — never a guessed $0, never a guessed charge.
             return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
+                     hold_reason: "taxi_history_unresolved",
                      needs_review: true, review_reason: "Whether this taxi player was ever permanently promoted could not be read "
                        + "(call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
           }
@@ -53633,8 +53634,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             }, { dropDateIso: safeStr(h.dropped_at_iso), season: hSeason, acquisitionWeek: hAcqWk,
                  acquisitionWeekUnresolved: acq.unresolved, completedPayableWeeks: hWeeks.weeks });
             if (rp.basis === "week_authority_unresolved") {
-              stillHeld.push({ ...brief, reason: (heldTaxiNeverPromoted[hSeason] || {})[pid] === "unresolved" ? "taxi_history_unresolved"
-                : acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}` });
+              stillHeld.push({ ...brief, reason: rp.hold_reason || (acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}`) });
               continue;
             }
             const note = `${_HELD_REPRICED_MARK} Priced ${scanNowIso} after being HELD unpriced (acquisition week ${hAcqWk || "1 (continuing)"}, `
