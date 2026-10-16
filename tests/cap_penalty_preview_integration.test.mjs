@@ -84,16 +84,18 @@ console.log('\n-- PART A: static proof, from the real source text --');
     assert.ok(resolveIdx >= 0 && loopIdx >= 0 && resolveIdx < loopIdx, 'resolve must precede the batch loop in source order');
   });
 
-  // Same static proof for the hourly scanner (/admin/drops/scan-and-record).
-  const scanStart = 'const scanWeekAuthority = await resolveCompletedPayableWeeks(targetSeason, leagueId, {';
+  // The hourly scanner (/admin/drops/scan-and-record) no longer prices a tick's drops with ONE live count: each drop is
+  // priced with the completed weeks AS OF ITS OWN DROP (_completedWeeksForDrop), so a drop recorded after the next week
+  // boundary is not charged a week it never had (Keith 2026-10-16; executable proof in
+  // tests/drop_scan_prices_at_drop_instant.test.mjs).
+  const scanFrom = src.indexOf('if (path === "/admin/drops/scan-and-record" && request.method === "POST")');
   const scanLoopMarker = 'for (const drop of drops) {';
-  const si = src.indexOf(scanStart);
-  const sLoop = src.indexOf(scanLoopMarker, si);
-  check('A6. scanner also resolves week authority ONCE, before its per-drop loop', () => {
-    assert.ok(si >= 0 && sLoop >= 0 && si < sLoop, 'scanner resolve must precede its per-drop loop');
-    const between = src.slice(si, sLoop);
-    const count = (between.match(/resolveCompletedPayableWeeks\(/g) || []).length;
-    assert.strictEqual(count, 1, 'expected exactly 1 scanner-side call, found ' + count);
+  const sLoop = src.indexOf(scanLoopMarker, scanFrom);
+  const sEnd = src.indexOf('const capYear = _dropPenaltyCapSeason({', sLoop);
+  check('A6. scanner prices each new drop as of its own drop instant, never with a per-tick live count', () => {
+    assert.ok(scanFrom >= 0 && sLoop > scanFrom && sEnd > sLoop, 'scanner route, loop and pricing block found');
+    assert.strictEqual((src.slice(scanFrom, sEnd).match(/resolveCompletedPayableWeeks\(/g) || []).length, 0, 'no live "now" count in the scanner');
+    assert.ok(src.slice(sLoop, sEnd).includes('await _completedWeeksForDrop(targetSeason, leagueId, drop.ts)'), 'per-drop, as of drop.ts');
   });
 }
 
@@ -193,7 +195,8 @@ async function runPreviewBatch(roster, { liveBehavior, dropDateIso }) {
   };
 }
 
-// Same shape for the scanner (worker/src/index.js ~line 50031-50071).
+// A once-per-tick consumer of the live count — the scanner's shape until 2026-10-16 (it now prices each drop as of its own
+// drop; see A6). Kept as the second consumer for B3: the shared calculator gives both the same numbers.
 async function runScannerTick(roster, { liveBehavior, dropDateIso }) {
   setLive(liveBehavior);
   const counted = countedResolver();
