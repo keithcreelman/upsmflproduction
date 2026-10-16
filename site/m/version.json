@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.15.2",
-  "label": "Injury tags: MFL's status first (labeled MFL, with its expected return; dashed when that estimate has passed), the official NFL report beside it, both shown when they disagree. Same on Lineup, the player sheet and desktop Game Day."
+  "build": "2026.10.16.1",
+  "label": "Drop penalties: a rookie the taxi tracker already counts as permanently promoted is no longer shown as a free cut (Kyle Williams), and a drop whose penalty didn't load reads “under review”, never “no penalty”."
 }

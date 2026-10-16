@@ -3183,11 +3183,36 @@ const _contractSubmittedBetween = async (env, { season, leagueId, playerId, fran
   return best;
 };
 
-const _taxiNeverPromotedMap = async (env, playerIds) => {
+// ── Taxi call-up status: ONE answer for the penalty and the taxi tracker (canon §B2/§D2) ──
+//
+// WHY (Keith 2026-10-16): Kyle Williams (0007, UPS pick 2.08 in 2025, on the active roster at the end
+// of 2025) read "no penalty" in the phone's conditional-drop list. The taxi tracker (/api/taxi-callups)
+// already called him PERMANENTLY promoted, but the penalty counted call-up rows alone — one 2025 row,
+// "1 of 3" — and priced his cut as a taxi cap-free cut. The rulebook and the tracker say $4,779.
+// The same gap priced Devin Neal's 2026-09-17 cut at $0 (3 call-ups in 2025, then IR at season end).
+//
+// Permanent (no cap-free cut) when ANY of:
+//   - 4 or more confirmed call-ups (canon §B2: the 4th activation makes it permanent);
+//   - a confirmed call-up row marked became_permanent;
+//   - on an active or IR roster at the end of a prior season (taxiPriorActivePids; Keith 2026-09-17:
+//     every rookie active at any point in 2025 is already permanent).
+// /api/taxi-callups and /roster-workbench use this same predicate. The contract test — an explicit
+// MYAC / extension / restructure also ends it — is in _computeDropPenaltyRaw, which sees the contract.
+const _taxiPermanentPromotion = (used, markedPermanent, priorActive) =>
+  (Number(used) || 0) >= 4 || Number(markedPermanent) === 1 || priorActive === true;
+
+// → { [pid]: true | "unresolved" }. true = 1–3 confirmed call-ups and not permanent: a taxi player
+// whose cut is still cap-free. "unresolved" = the call-up table or the prior-season rosters could
+// not be read, so that is NOT known — the calculator holds the cut unpriced, never a guessed $0 and
+// never a guessed charge (rule_no_fail_open_guards). A player absent from the map has no call-up
+// history: the normal formula applies.
+const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
   const out = {};
-  if (!env || !env.UPS_MFL_DB) return out;
   const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
   if (!ids.length) return out;
+  const unresolvedAll = () => { for (const id of ids) out[id] = "unresolved"; return out; };
+  if (!env || !env.UPS_MFL_DB) return unresolvedAll();
+  const counted = {};
   try {
     // D1 caps bound parameters at 100 per statement; chunk well under it.
     const chunkSize = 80;
@@ -3196,20 +3221,36 @@ const _taxiNeverPromotedMap = async (env, playerIds) => {
       const placeholders = chunk.map(() => "?").join(",");
       const rows = await env.UPS_MFL_DB.prepare(
         `SELECT player_id,
-                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used
+                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
+                MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END) AS marked
            FROM ups_taxi_callups
           WHERE player_id IN (${placeholders})
           GROUP BY player_id`
       ).bind(...chunk).all();
       for (const row of rows?.results || []) {
         const pid = String(row?.player_id || "");
-        if (!pid) continue;
-        const used = Number(row?.used || 0);
-        if (used > 0 && used < 4) out[pid] = true;
+        if (pid && Number(row?.used || 0) > 0) counted[pid] = { used: Number(row.used), marked: Number(row.marked || 0) };
       }
     }
   } catch (_) {
-    return {};
+    return unresolvedAll();
+  }
+  const candidates = Object.keys(counted).filter((pid) => !_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, false));
+  if (!candidates.length) return out;
+  const season = String((ctx && ctx.season) || "").replace(/\D/g, "");
+  const leagueId = String((ctx && ctx.leagueId) || "74598").replace(/\D/g, "") || "74598";
+  let priorActive = null;
+  try {
+    priorActive = season ? await taxiPriorActivePids(env, "", leagueId, season) : null;
+  } catch (_) { priorActive = null; }
+  // An EMPTY set is how taxiPriorActivePids reports an unreadable MFL export (it never caches one), so it
+  // is not "nobody was promoted": the candidates' cuts stay unpriced until the rosters can be read.
+  if (!priorActive || !priorActive.size) {
+    for (const pid of candidates) out[pid] = "unresolved";
+    return out;
+  }
+  for (const pid of candidates) {
+    if (!_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, priorActive.has(pid))) out[pid] = true;
   }
   return out;
 };
@@ -3389,7 +3430,19 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
           // It is deliberately NOT defaulted true: a player with no call-up
           // history at all must not be exempted, so an absent value means "not
           // a taxi call-up case" and this branch is skipped.
-          if (taxiNeverPromoted === true) {
+          // Only on his ROOKIE ENTRY contract: an explicit MYAC / extension / restructure also makes the
+          // promotion permanent (canon §B2), and that changes the contract status. "Rookie" is the pre-2026
+          // spelling of "Rookie-Draft" (the contract status vocabulary changed in 2026).
+          const onEntryContract = /^rookie(-draft)?$/i.test(_s(contractStatus));
+          if (taxiNeverPromoted === "unresolved" && onEntryContract) {
+            // Whether he was ever permanently promoted could not be read (the call-up table or the prior-season
+            // rosters). HELD like any other unresolved authority: re-priced by /admin/drops/scan-and-record once
+            // it can be read, and shown "under review" — never a guessed $0, never a guessed charge.
+            return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
+                     needs_review: true, review_reason: "Whether this taxi player was ever permanently promoted could not be read "
+                       + "(call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
+          }
+          if (taxiNeverPromoted === true && onEntryContract) {
             return { ...ctx, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
           }
 
@@ -16199,7 +16252,7 @@ export default {
           `SELECT player_id,
                   SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                  AS used,
                   SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)            AS pending_count,
-                  (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                           AS permanent
+                  MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                           AS marked
              FROM ups_taxi_callups`;
         const out = {};
         try {
@@ -16224,7 +16277,7 @@ export default {
                   used: Number(row?.used || 0),
                   pending: Number(row?.pending_count || 0),
                   max: 3,
-                  permanent_promotion: Number(row?.permanent || 0) === 1,
+                  permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
                 };
               }
             }
@@ -16240,7 +16293,7 @@ export default {
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
-                permanent_promotion: Number(row?.permanent || 0) === 1,
+                permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
           }
@@ -47887,7 +47940,7 @@ const mflToSleeper = {};
               `SELECT player_id,
                       SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
                       SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
-                      (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                         AS permanent
+                      MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                         AS marked
                  FROM ups_taxi_callups
                 GROUP BY player_id`
             ).all();
@@ -47898,7 +47951,7 @@ const mflToSleeper = {};
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
-                permanent_promotion: Number(row?.permanent || 0) === 1,
+                permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
           } catch (e) {
@@ -53459,7 +53512,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         };
 
         // ── HELD rows: re-priced FIRST, independent of this tick's new-drop pulls ──
-        // A drop recorded UNPRICED because an authority it depends on (completed weeks, or the acquisition week) could not be
+        // A drop recorded UNPRICED because an authority it depends on (completed weeks, the acquisition week, or a taxi player's call-up history) could not be
         // resolved — penalty_basis 'week_authority_unresolved', never charged — is NOT "already recorded, done". Every tick
         // re-prices it from its own stored pre-drop contract, as of its own drop: the recorder's own live week rule at that
         // instant (_completedWeeksAtLiveRule), and the acquisition week of the contract it ENDED, from ITS season's
@@ -53555,7 +53608,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             console.error(`[drop-penalty scan] ${hs} acquisition weeks unresolved — its held drops stay held: ${(e && e.message) || e}`);
           }
         }
-        const heldTaxiNeverPromoted = heldRows.length ? await _taxiNeverPromotedMap(env, heldRows.map((h) => safeStr(h.player_id))) : {};
+        // Per held season: whether a call-up ended in a permanent promotion depends on that season's prior rosters.
+        const heldTaxiNeverPromoted = {};
+        for (const hs of [...new Set(heldRows.map((h) => safeStr(h.season)))]) {
+          heldTaxiNeverPromoted[hs] = await _taxiNeverPromotedMap(env, heldRows.filter((h) => safeStr(h.season) === hs).map((h) => safeStr(h.player_id)), { season: hs, leagueId });
+        }
         for (const h of heldRows) {
           const hSeason = safeStr(h.season);
           const pid = safeStr(h.player_id);
@@ -53572,11 +53629,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractInfo: h.pre_drop_contract_info,
               contractYear: h.pre_drop_contract_year,
               isTaxi: Number(h.pre_drop_taxi) === 1,
-              taxiNeverPromoted: heldTaxiNeverPromoted[pid] === true,
+              taxiNeverPromoted: (heldTaxiNeverPromoted[hSeason] || {})[pid],
             }, { dropDateIso: safeStr(h.dropped_at_iso), season: hSeason, acquisitionWeek: hAcqWk,
                  acquisitionWeekUnresolved: acq.unresolved, completedPayableWeeks: hWeeks.weeks });
             if (rp.basis === "week_authority_unresolved") {
-              stillHeld.push({ ...brief, reason: acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}` });
+              stillHeld.push({ ...brief, reason: (heldTaxiNeverPromoted[hSeason] || {})[pid] === "unresolved" ? "taxi_history_unresolved"
+                : acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}` });
               continue;
             }
             const note = `${_HELD_REPRICED_MARK} Priced ${scanNowIso} after being HELD unpriced (acquisition week ${hAcqWk || "1 (continuing)"}, `
@@ -53708,7 +53766,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // call-up awareness as the preview: `preDrop.is_taxi` is MFL's roster
         // status, which reads false for a taxi player dropped mid-call-up and
         // silently costs him the §D2 exemption.
-        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid));
+        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid), { season: targetSeason, leagueId });
 
         // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
         // after Labor Day" is a day late). Resolved once for the whole scan.
@@ -53788,7 +53846,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-                taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
+                taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)],
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: _acquisitionWeekAsOf(acqTxs, targetSeason, drop.pid, drop.ts),
                    acquisitionWeekUnresolved: acqWeekUnresolved,
                    week1ThursdayIso: scanWeek1Iso || undefined,
@@ -54712,7 +54770,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               if (id) pvAllPids.push(id);
             }
           }
-          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids);
+          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids, { season: pvSeason, leagueId: pvLeague });
           const penaltyFor = (pl) => {
             const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
@@ -54721,7 +54779,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractInfo: safeStr(pl.contractInfo),
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
-              taxiNeverPromoted: pvTaxiNeverPromoted[pid] === true,
+              taxiNeverPromoted: pvTaxiNeverPromoted[pid],
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
             const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk, acquisitionWeekUnresolved: pvAcqSource === "unresolved" });
