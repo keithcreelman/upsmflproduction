@@ -493,6 +493,8 @@ const OWN = (u) => /mfl-league-state/.test(u) ? { status: 200, body: Object.assi
 await check("Table → Heatmap → Scatter → Table asks the server nothing and keeps Season, Window, Position, Fantasy team, Find and the stat group; the link says which view", async () => {
   const V = await boot("#tab=wr&seasons=2025&scope=mfl_reg&grp=receiving", null, OWN);
   await V.change("#asw-team1", "__ROSTERED__");
+  V.$('#asw-body th[data-col-key="rec_tds"]').click(); await settle(5); V.$('#asw-body th[data-col-key="rec_tds"]').click(); await settle(5);
+  assert.deepStrictEqual(V.sorted(), ["rec_tds", "ascending"]);
   const n = V.$$("#asw-body tbody tr").length, calls = V.calls.length;
   await V.click(V.$('.asw-vw[data-show="heatmap"]'));
   assert.ok(V.$("#asw-body .asw-heatmap")); assert.match(V.hash(), /show=heatmap/);
@@ -507,6 +509,7 @@ await check("Table → Heatmap → Scatter → Table asks the server nothing and
   assert.deepStrictEqual(V.headers(), ["player_name"].concat(SG.STAT_GROUPS.wr.find((g) => g.id === "receiving").cols));
   assert.deepStrictEqual([V.$("#asw-season").value, V.$("#asw-scope").value, V.$("#asw-team1").value, V.$("#asw-search").value], ["2025", "mfl_reg", "__ROSTERED__", "a"]);
   assert.ok(V.$$("#asw-body tbody tr").length < n, "Find carried over to the table");
+  assert.deepStrictEqual(V.sorted(), ["rec_tds", "ascending"], "the sort chosen in the table survives a trip through the other views (nothing re-run)");
   assert.strictEqual(V.calls.length, calls, "no request on a view switch: " + V.calls.slice(calls).map((x) => x.url).join(" "));
   const W = await boot("#tab=wr&seasons=2025&scope=mfl_total&show=scatter&sq=play_pts");
   assert.strictEqual(W.$('.asw-vw[aria-pressed="true"]').getAttribute("data-show"), "scatter");
@@ -514,6 +517,8 @@ await check("Table → Heatmap → Scatter → Table asks the server nothing and
 });
 await check("Fantasy team is a primary single select that filters without asking the server (Free agents → only FA)", async () => {
   const T = await boot("#tab=wr&seasons=2025&scope=mfl_total", null, OWN);
+  T.$('#asw-body th[data-col-key="games"]').click(); await settle(5);
+  const sortBefore = T.sorted();
   const all = T.$$("#asw-body tbody tr").length, lb = T.lb();
   const fa = T.$$("#asw-body tbody tr .asw-psub").filter((x) => / · FA$/.test(x.textContent.trim())).length;
   await T.change("#asw-team1", "FA");
@@ -521,6 +526,7 @@ await check("Fantasy team is a primary single select that filters without asking
   assert.ok(fa > 0 && rows.length === fa && rows.length < all, rows.length + " of " + all + " (" + fa + " FA)");
   assert.ok(rows.every((tr) => / · FA$/.test(tr.querySelector(".asw-psub").textContent.trim())), "only free agents");
   assert.strictEqual(T.lb(), lb, "the list wasn't asked for again");
+  assert.deepStrictEqual(T.sorted(), sortBefore, "the sort is kept (nothing re-run)");
   assert.deepStrictEqual(T.$("#asw-team").selectedOptions.map((o) => o.value), ["FA"], "the More filters copy agrees");
   await T.change("#asw-team1", "__ALL__");
   assert.strictEqual(T.$$("#asw-body tbody tr").length, all);
