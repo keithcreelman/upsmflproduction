@@ -2835,6 +2835,46 @@
       });
   }
 
+  // When each claimed player can actually be claimed (Keith 2026-10-17):
+  // GET /api/waivers/availability, the worker's one answer, the same one the
+  // phone app shows. A claim on a player MFL will refuse at the next run
+  // (dropped too recently, game locked) is flagged on its row.
+  function loadWaiverAvailability(force) {
+    if (state.waiverAvailLoading) return;
+    if (state.waiverAvail && !force) return;
+    state.waiverAvailLoading = true;
+    var ctx = state.ctx || {};
+    fetch(workerUrl("/api/waivers/availability") + "?L=" + encodeURIComponent(ctx.leagueId) + "&YEAR=" + encodeURIComponent(ctx.year),
+      { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; })
+      .then(function (j) {
+        state.waiverAvailLoading = false;
+        if (j && j.ok) { state.waiverAvail = j; state.waiverAvailError = ""; }
+        else if (!state.waiverAvail) state.waiverAvailError = "the availability check didn't load";
+        if (state.openPanel === "waivers") renderWaiversPanel();
+      });
+  }
+  function waiverAvailFor(pid) {
+    var av = state.waiverAvail;
+    if (!av) return null;
+    var p = playerById(pid) || {};
+    var team = safeStr(p.team).toUpperCase();
+    return (av.players && av.players[String(pid)]) || (team && av.by_team && av.by_team[team]) || av.no_game || null;
+  }
+  // One line under a claimed player's name when MFL would refuse him at the
+  // next run, or when it couldn't be confirmed.
+  function waiverAvailWarnHtml(pid) {
+    if (!state.waiverAvail) {
+      return state.waiverAvailError ? '<div class="tops-note">Availability could not be confirmed — ' + escapeHtml(state.waiverAvailError) + '.</div>' : "";
+    }
+    var st = waiverAvailFor(pid);
+    if (!st || !(st.code === "waivers_later" || st.code === "game_locked" || st.code === "not_before_kickoff" || st.code === "unknown")) return "";
+    var refuse = st.code !== "unknown";
+    return '<div class="tops-wv-avail" title="' + escapeHtml((st.lines || []).join("\n")) + '">' + escapeHtml(st.headline || "") +
+      (refuse ? ". MFL will refuse this claim at the next run." : "") + '</div>';
+  }
+
   function loadWaiverPending(force) {
     if (state.waiverPendingLoading) return;
     if (state.waiverPending && !force) return;
@@ -3079,7 +3119,7 @@
             return '<tr>'
               + '<td class="tops-wv-ord">' + (i + 1) + '</td>'
               + '<td><span class="tops-wv-name" tabindex="0" role="button" data-wv-profile="' + escapeHtml(p.add_pid) + '">'
-              +   escapeHtml(label) + '</span></td>'
+              +   escapeHtml(label) + '</span>' + waiverAvailWarnHtml(p.add_pid) + '</td>'
               + '<td class="num">' + escapeHtml(fmtUsd(Number(p.bid_dollars || 0))) + '</td>'
               + '<td>' + escapeHtml(p.drop_pid ? waiverPlayerLabel(p.drop_pid) : "No drop") + '</td>'
               + '</tr>';
@@ -3259,6 +3299,7 @@
       state.waiverPendingError = "";
       loadWaiverState(true);
       loadWaiverPending(true);
+      loadWaiverAvailability(true);
       renderWaiversPanel();
     });
   }
@@ -3266,6 +3307,7 @@
   function openWaiversPanel() {
     loadWaiverState();
     loadWaiverPending();
+    loadWaiverAvailability();
     renderWaiversPanel();
   }
 

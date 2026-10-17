@@ -23,6 +23,7 @@ import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
+import { parseDropLockSetting, dropsFromTransactions, resolveWaiverAvailability } from "./waiver_availability.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
@@ -44764,6 +44765,148 @@ const mflToSleeper = {};
           try { ctx.waitUntil(caches.default.put(wvCacheKey, wvResp.clone())); } catch (_) {}
         }
         return wvResp;
+      }
+
+      // ── GET /api/waivers/availability ─────────────────────────────────────
+      // WHEN can each free agent actually be claimed (Keith 2026-10-17, Demario
+      // Davis: a claim failed in Friday's run with nothing saying he was locked
+      // or until when). Public and read-only; every surface renders these states
+      // (worker/src/waiver_availability.js) and none re-derives them.
+      //
+      // Inputs, all read live and each one failing VISIBLY (state "unknown" with
+      // the reason, never a guessed run):
+      //   - MFL's dropped-player lock setting (csetup ADDDROP, commissioner
+      //     mode; cached 6 h, only once read);
+      //   - the last 8 days of MFL transactions (each player's latest drop);
+      //   - the waiver run schedule (the same calendar walk as /api/waivers/state);
+      //   - this NFL week's kickoffs (the game lock).
+      // Payload: by_team (every free agent without a recent drop, by NFL team),
+      // no_game (bye week / no NFL team) and players (recent drops). Cost: about
+      // 5 MFL GETs per edge-cache miss, no D1.
+      if (path === "/api/waivers/availability" && request.method === "GET") {
+        const avSs = await _strictSeason();
+        if (avSs.res) return avSs.res;
+        const avSeason = avSs.season;
+        const avLeagueId = _wvLeague();
+        const avNow = Math.floor(Date.now() / 1000);
+        const avCacheKey = new Request(
+          `https://upsmfl-waivers.local/availability?L=${encodeURIComponent(avLeagueId)}&YEAR=${encodeURIComponent(avSeason)}`,
+          { method: "GET" }
+        );
+        try {
+          const hit = await caches.default.match(avCacheKey);
+          if (hit) return hit;
+        } catch (_) {}
+
+        // MFL's "Dropped Players Are Locked Until" setting. The page needs the
+        // commissioner session (owner mode silently serves the league skin, which
+        // parseDropLockSetting reports as unreadable, never as "no lock").
+        const avRuleKey = new Request(
+          `https://upsmfl-waivers.local/drop-lock-rule?L=${encodeURIComponent(avLeagueId)}&YEAR=${encodeURIComponent(avSeason)}`,
+          { method: "GET" }
+        );
+        const avReadRule = async () => {
+          try {
+            const hit = await caches.default.match(avRuleKey);
+            if (hit) return await hit.json();
+          } catch (_) {}
+          if (!cookieHeader) return { known: false, reason: "MFL session missing on the server" };
+          let rule;
+          try {
+            const commish = await establishCommishCookieHeader(cookieHeader, avSeason, avLeagueId);
+            const r = await fetch(
+              `https://www48.myfantasyleague.com/${encodeURIComponent(avSeason)}/csetup?L=${encodeURIComponent(avLeagueId)}&C=ADDDROP`,
+              { headers: { Cookie: commish, "User-Agent": "upsmflproduction-worker", Accept: "text/html" },
+                redirect: "follow", cf: { cacheTtl: 0, cacheEverything: false } }
+            );
+            rule = r.ok ? parseDropLockSetting(await r.text()) : { known: false, reason: `setup page HTTP ${r.status}` };
+          } catch (e) {
+            rule = { known: false, reason: "setup page fetch failed" };
+          }
+          if (rule.known) {
+            rule.read_at_unix = Math.floor(Date.now() / 1000);
+            try {
+              const resp = new Response(JSON.stringify(rule), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=21600" } });
+              ctx.waitUntil(caches.default.put(avRuleKey, resp));
+            } catch (_) {}
+          }
+          return rule;
+        };
+
+        const [avCal, avLg, avTx, avWk, avRule, avWeek1] = await Promise.all([
+          mflExportJson(avSeason, avLeagueId, "calendar", {}, { useCookie: true }),
+          mflExportJson(avSeason, avLeagueId, "league", {}, { useCookie: true }),
+          mflExportJson(avSeason, avLeagueId, "transactions", { DAYS: "8" }, { useCookie: true }),
+          resolveCurrentLineupWeek(avSeason, avLeagueId).catch(() => ({ week: 0 })),
+          avReadRule(),
+          nflWeekFirstKickoffUnix(avSeason, 1),
+        ]);
+        const avLimits = _wvWaiverLimits(avLg && avLg.ok ? avLg.data : null);
+        const avCalOk = !!(avCal && avCal.ok);
+        const avWin = _wvWaiverWindow(
+          avCalOk ? normalizeMflCalendar(avCal.data) : [],
+          avNow,
+          { calendar_unavailable: !avCalOk, waiver_type: avLimits.waiver_type || "", week1_kickoff_unix: avWeek1 || 0 }
+        );
+        const avRuns = avCalOk
+          ? Array.from(new Set(
+              avWin.events.filter((e) => e.type === "WAIVER_BBID").map((e) => e.start_unix)
+                .concat(_wvLeagueScheduleRuns(avWin.events, avNow - 9 * 86400, avNow + 21 * 86400))
+            )).sort((a, b) => a - b)
+          : [];
+
+        // This NFL week's kickoffs, by team.
+        const avWeekNo = avWk && avWk.week > 0 ? avWk.week : 0;
+        const [avKick, avLast] = avWeekNo
+          ? await Promise.all([nflWeekKickoffsByTeam(avSeason, avWeekNo), nflWeekLastKickoffUnix(avSeason, avWeekNo)])
+          : [{}, 0];
+        const avWeekKnown = !!(avWeekNo && Object.keys(avKick || {}).length && avLast);
+
+        // Each player's latest drop in the last 8 days.
+        const avTxRows = avTx && avTx.ok && avTx.data && avTx.data.transactions
+          ? (avTx.data.transactions.transaction || []) : null;
+        const avDrops = avTxRows ? dropsFromTransactions(avTxRows) : {};
+        const avDropPids = Object.keys(avDrops);
+        let avTeams = {};
+        if (avDropPids.length) {
+          try {
+            const pmap = await fetchPlayersByIdsChunked(avSeason, avLeagueId, avDropPids);
+            for (const pid of avDropPids) avTeams[pid] = safeStr(pmap && pmap[pid] && pmap[pid].nfl_team).toUpperCase();
+          } catch (_) { avTeams = {}; }
+        }
+        const avNames = {};
+        const avFr = avLg && avLg.ok && avLg.data && avLg.data.league && avLg.data.league.franchises
+          ? avLg.data.league.franchises.franchise : null;
+        for (const f of (Array.isArray(avFr) ? avFr : avFr ? [avFr] : [])) {
+          if (f && f.id) avNames[padFranchiseId(f.id)] = safeStr(f.name);
+        }
+
+        const av = resolveWaiverAvailability({
+          now_unix: avNow,
+          rule: avRule,
+          runs: avCalOk && avRuns.length ? { known: true, list: avRuns } : { known: false, reason: "the waiver calendar couldn't be read" },
+          window: { mode: avWin.mode, mode_reason: avWin.mode_reason, fcfs_closes_unix: avWin.fcfs_closes_unix },
+          week: avWeekKnown
+            ? { known: true, week: avWeekNo, kickoffs: avKick, last_kickoff_unix: avLast }
+            : { known: false, reason: "this week's NFL kickoffs couldn't be read" },
+          drops: avTxRows ? { known: true, by_player: avDrops } : { known: false, reason: "MFL's transaction log couldn't be read" },
+          teams: avTeams,
+          franchise_names: avNames,
+        });
+        const avPayload = {
+          ok: true, league_id: avLeagueId, season: avSeason,
+          window: { mode: avWin.mode, mode_reason: avWin.mode_reason, fcfs_closes_unix: avWin.fcfs_closes_unix },
+          ...av,
+        };
+        const avResp = jsonOut(200, avPayload);
+        // Never cached past the next instant a state can change (a run, a
+        // kickoff), and an answer with an unreadable input is never cached.
+        const avTtl = Math.max(5, Math.min(60, (av.changes_at_unix || avNow + 60) - avNow));
+        avResp.headers.set("Cache-Control", `public, max-age=${avTtl}`);
+        if (av.known) {
+          try { ctx.waitUntil(caches.default.put(avCacheKey, avResp.clone())); } catch (_) {}
+        }
+        return avResp;
       }
 
       // ── GET /api/hot-cold ──────────────────────────────────────────────────

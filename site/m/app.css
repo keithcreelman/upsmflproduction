@@ -4824,6 +4824,21 @@ a.ups-m-bid-btn {
 /* FCFS: a free agent whose game has kicked off can't be added this week. */
 .ups-m-fa-add.locked { background: transparent; color: var(--fg-muted); border: 1px dashed var(--line-soft); cursor: default; font-weight: 600; text-align: center; line-height: 1.2; padding: 6px 10px; }
 .ups-m-fa-add.locked .why { display: block; font-size: 11px; font-weight: 500; white-space: nowrap; }
+/* Waiver availability (Keith 2026-10-17): the status badge that replaces Bid /
+   Add while MFL would refuse him at the next run, and the sheet's explanation. */
+.ups-m-fa-add.avail { background: transparent; color: var(--warn); border: 1px solid currentColor; font-weight: 700; padding: 6px 10px; white-space: nowrap; }
+.ups-m-fa-add.avail.st-game_locked, .ups-m-fa-add.avail.st-closed { color: var(--fg-muted); border-style: dashed; }
+.ups-m-fa-add.avail.st-unknown { color: var(--fg-muted); border-style: dotted; }
+.ups-m-fa-add.avail.loading { color: var(--fg-muted); border: 1px dotted var(--line-soft); font-weight: 500; cursor: default; }
+.ups-m-acq-avail { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--bg-elev, rgba(255,255,255,0.03)); }
+.ups-m-acq-avail .hd { font-weight: 700; font-size: 14px; line-height: 1.35; }
+.ups-m-acq-avail.st-waivers_later .hd, .ups-m-acq-avail.st-not_before_kickoff .hd { color: var(--warn); }
+.ups-m-acq-avail.st-unknown .hd, .ups-m-acq-avail.st-game_locked .hd { color: var(--fg-muted); }
+.ups-m-acq-avail details { margin-top: 6px; }
+.ups-m-acq-avail summary { font-size: 12px; color: var(--fg-muted); cursor: pointer; }
+.ups-m-acq-avail ul { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.45; color: var(--fg-muted); }
+.ups-m-acq-avail li + li { margin-top: 3px; }
+.ups-m-avail-warn { margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--warn); }
 /* Below the PPG-rank minimum: the real PPG stays, the rank slot says why. */
 .ups-m-fa-stat.unranked { color: var(--fg-muted); font-style: italic; }
 .ups-m-bid-context {
