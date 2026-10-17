@@ -548,7 +548,8 @@ check('[wiring] F3: the League/Divisions/Playoffs toggle carries a dedicated cla
   assert.ok(/ups-m-mode-toggle/.test(fn));
   assert.ok(/aria-pressed/.test(fn));
   assert.ok(/b\("playoffs", "Playoffs"\)/.test(fn));
-  assert.ok(/b\("league", "League"\)/.test(fn) && /b\("divisions", "Divisions"\)/.test(fn));
+  // Standings v3 (#1329): Seeds replaces League; Weekly is added
+  assert.ok(/b\("seeds", "Seeds"\)/.test(fn) && /b\("divisions", "Divisions"\)/.test(fn) && /b\("weekly", "Weekly"\)/.test(fn));
 });
 check('mobile bracket loader never permanently caches a failed fetch as success (fails closed, retries after a cooldown, distinct from a legitimate empty bracket)', () => {
   const fn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function loadPlayoffBracketForYear(year) {'), MOBILE_LEAGUE.indexOf('function loadPlayoffBracketForYear(year) {') + 1200);

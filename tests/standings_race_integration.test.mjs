@@ -66,7 +66,8 @@ check('the shared module IS where every one of those functions actually lives', 
 });
 check('both pages call into window.UPS_STANDINGS_RACE.race(...) rather than reimplementing it', () => {
   assert.ok(/window\.UPS_STANDINGS_RACE\.race\(/.test(DESKTOP));
-  assert.ok(/window\.UPS_STANDINGS_RACE\.race\(/.test(MOBILE_LEAGUE));
+  // mobile (Standings v3) reaches it through one helper that hands race() the WHOLE response
+  assert.ok(/var RACE = function \(\) \{ return window\.UPS_STANDINGS_RACE \|\| null; \};/.test(MOBILE_LEAGUE) && /R\.race\(resp\)/.test(MOBILE_LEAGUE));
 });
 
 check('the shared module is a pure IIFE with no DOM access, no fetch, and no application-state mutation', () => {
@@ -87,19 +88,21 @@ check('desktop status chips carry visible text and an aria-label — never emoji
 });
 check('mobile status chips say "projected" until the season ends (port decision 3)', () => {
   assert.ok(/'Projected playoff status: ' : 'Playoff status: '/.test(MOBILE_LEAGUE));
-  assert.ok(/statusChipHtml\(rr && rr\.status, projected\)/.test(MOBILE_LEAGUE));
-  assert.ok(/season_complete: state\.standingsByYear\[y\]\.season_complete/.test(MOBILE_LEAGUE));
+  // v3: projected until the REGULAR SEASON is complete (seeds are final then), from the worker's own flags
+  assert.ok(/statusChipHtml\(st, !final\)/.test(MOBILE_LEAGUE));
+  assert.ok(/if \(rs && rs\.complete\) return "regular_over";/.test(MOBILE_LEAGUE));
 });
 check('neither page coerces a failed weekly / weeklyScores (null) into [] before the race module sees it', () => {
   assert.ok(/race\(\{ rows: baseRows, weekly: resp\.weekly, weeklyScores: resp\.weeklyScores,/.test(DESKTOP));
   assert.ok(!/race\(\{[^}]*weekly: resp\.weekly \|\| \[\]/.test(DESKTOP));
-  assert.ok(/weekly: state\.standingsByYear\[y\]\.weekly,\n/.test(MOBILE_LEAGUE));
-  assert.ok(!/weekly: state\.standingsByYear\[y\]\.weekly \|\| \[\]/.test(MOBILE_LEAGUE));
+  assert.ok(/R\.race\(resp\)/.test(MOBILE_LEAGUE), 'mobile hands race() the response untouched');
+  assert.ok(!/\.weekly \|\| \[\]|\.weeklyScores \|\| \[\]/.test(MOBILE_LEAGUE));
 });
 check('mobile keeps the WORKER\'s seed order in-season — no second ladder (it re-sorted by division winner → H2H% → PF)', () => {
   assert.ok(!/Number\(b\.h2h_pct \|\| 0\) - Number\(a\.h2h_pct \|\| 0\)/.test(MOBILE_LEAGUE));
-  assert.ok(/if \(hasFinishData\) \{\n\s+rows\.forEach\(function \(r, i\) \{ r\._workerOrder = i; \}\);/.test(MOBILE_LEAGUE));
-  assert.ok(/All-Play % → Overall → season PF → head-to-head/.test(MOBILE_LEAGUE));
+  const seedsFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderSeedsMode('), MOBILE_LEAGUE.indexOf('// ── Final standings'));
+  assert.ok(seedsFn.length > 500 && !/\.sort\(/.test(seedsFn), 'the Seeds view renders the worker rows in the order sent');
+  assert.ok(/Ladder: All-Play %, then record, then Points For, then head-to-head among the tied teams/.test(MOBILE_LEAGUE));
   assert.ok(!/AP% → Total PF|Seeds derived AP % → Overall PCT → PF/.test(MOBILE_LEAGUE + DESKTOP), 'no reversed or stale ladder text on either page');
 });
 check('desktop dividers key off playoff_seed (2 / 6), not row index, and only render under canonical seed sort', () => {
@@ -109,7 +112,10 @@ check('desktop dividers key off playoff_seed (2 / 6), not row index, and only re
   assert.ok(/Hawktuah Bowl · seeds 7–12/.test(DESKTOP));
 });
 check('mobile dividers are gated off in-season fallback order, never drawn against a final_finish-sorted table', () => {
-  assert.ok(/canonicalSeedOrder = !hasFinishData/.test(MOBILE_LEAGUE));
+  // v3: dividers live only in the in-season Seeds view; the final-standings table (finish order) has none
+  const finalFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderFinalStandings('), MOBILE_LEAGUE.indexOf('// ── Divisions'));
+  assert.ok(finalFn.length > 300 && !/seed-divider/.test(finalFn));
+  assert.ok(/Number\(r\.playoff_seed\) === 6\) trs\.push\('<tr class="seed-divider hawk-divider">/.test(MOBILE_LEAGUE));
 });
 check('mobile AP GB / status chip / form derive from playoff_seed and playoff_status, never from raw seed position alone (no OUT status anywhere)', () => {
   assert.ok(!/>OUT</.test(MOBILE_LEAGUE) && !/"OUT"/.test(MOBILE_LEAGUE));

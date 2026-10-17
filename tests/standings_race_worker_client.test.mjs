@@ -38,7 +38,7 @@ async function mobileStandings(env) {
   };
   const fetch = async (url) => {
     const u = new URL(url, "https://keithcreelman.github.io");
-    if (u.pathname === "/api/standings") return workerFetch(callWorker, env)(u.href);
+    if (u.pathname === "/api/standings" || u.pathname === "/api/historical-finishes") return workerFetch(callWorker, env)(u.href);
     return { ok: false, status: 404, json: async () => null };   // champions panels, historical finishes: none
   };
   const ctx = { window: { UPS_MOBILE: M }, document: { getElementById: () => null, addEventListener() {}, body: { style: {} } },
@@ -110,23 +110,25 @@ test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as 
   t.notEqual(ok.byFranchise["0006"].apGB, null, "control: clean flags give a real AP games back");
 });
 
-test("A2 projectedPlayoffGroups on the real response: a failed weeklyScores query seeds nobody; null weekly scores → games back unavailable (not 0.0); ties keep the worker's order", async () => {
+test("A2 projectedPlayoffGroups on the real response: games back come from the worker's rows; null weekly scores → unavailable (not 0.0); ties keep the worker's order", async () => {
   const RACE = raceModule();
   const okResp = await standings(makeLadderSeason());
   const ok = RACE.projectedPlayoffGroups(okResp.rows, okResp.weeklyScores);
   t.deepEqual(ok.byes.map((e) => e.franchise_id), ["0001", "0003"]);
   t.ok(ok.inTheHunt.every((e) => typeof e.apGB === "number"), "control: real games-back figures");
+  // A failed weeklyScores query now means the worker seeds nobody (standings_basis 'unavailable')...
   const bad = await standings(makeLadderSeason({ failScores: true }));
   t.equal(bad.weeklyScores, null);
-  t.equal(bad.standings_basis, "unavailable", "the worker seeds nobody when the weekly scores can't be read (#1330)");
+  t.equal(bad.standings_basis, "unavailable");
   t.ok(bad.rows.every((r) => r.playoff_seed === null));
-  // The client, handed seeded rows with null weekly scores, never invents 0.0 games back.
+  // ...and the client, handed seeded rows with null weekly scores, still never invents 0.0 games back.
   const g = RACE.projectedPlayoffGroups(okResp.rows, null);
   t.deepEqual(g.inTheHunt.map((e) => [e.franchise_id, e.apGB]), [["0006", 6], ["0008", 10]], "the worker's own ap_back, in the worker's ladder order (never a client 0.0)");
   t.ok(g.wildCards.every((e) => e.apGB === 0), "seeds 1-6 are 0 games back by definition");
   const rows = okResp.rows.slice(); const i6 = rows.findIndex((r) => r.franchise_id === "0006"), i8 = rows.findIndex((r) => r.franchise_id === "0008");
   [rows[i6], rows[i8]] = [rows[i8], rows[i6]];                 // pretend the worker ranked 0008 ahead
   t.deepEqual(RACE.projectedPlayoffGroups(rows, null).inTheHunt.map((e) => e.franchise_id), ["0008", "0006"]);
+  // and the mobile Playoffs view hands the worker's weeklyScores over untouched
   const LEAGUE = fs.readFileSync(new URL("../site/m/views/league.js", import.meta.url), "utf8");
   t.ok(/projectedPlayoffGroups\(stdResp\.rows \|\| \[\], stdResp\.weeklyScores\)/.test(LEAGUE));
   t.ok(!/stdResp\.weeklyScores \|\| \[\]/.test(LEAGUE));
@@ -162,26 +164,30 @@ test("desktop: a recorded season says 'Seeds: the recorded final standings.' and
   t.ok(!/league rule §F\.1/.test(html));
 });
 
-// ═══ the mobile view ═══
-test("mobile: rows in the WORKER's seed order, chips marked projected, the league ladder named", async () => {
+// ═══ the mobile view (Standings v3: Seeds / Divisions / Weekly / Playoffs) ═══
+test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the cut line and the ladder explained", async () => {
   const html = await mobileStandings(makeLadderSeason());
-  const order = [...html.matchAll(/data-fid="(\d{4})"/g)].map((m) => m[1]);
+  const order = [...html.matchAll(/<tr class="race-row[^"]*" data-fid="(\d{4})"/g)].map((m) => m[1]);
   t.deepEqual(order, ["0001", "0003", "0004", "0002", "0007", "0005", "0006", "0008"], "seed order (worker), not division winners → H2H% → PF");
   t.match(html, /aria-label="Projected playoff status: Bye">BYE<small>proj<\/small>/);
-  t.match(html, /Ordered by playoff seed — All-Play % → Overall → season PF → head-to-head \(league rule\)\./);
-  t.match(html, /<th>GB<\/th><th>PF<\/th>/, "main's PF label kept, GB added (decision 4)");
+  t.match(html, /BYE \/ DIV \/ WC say where a team would be if the season ended today/);
+  t.match(html, /<th class="num">AP%<\/th><th class="num">W-L<\/th><th class="num">Back<\/th>/);
+  t.match(html, /Playoff line · 7-12 play the Hawktuah Bowl/);
+  t.match(html, /<summary>How seeds work<\/summary>/);
+  t.match(html, /Ladder: All-Play %, then record, then Points For, then head-to-head among the tied teams/);
+  t.match(html, /<b>Tiebreaks:<\/b> .*Real|<b>Tiebreak/, "the summary names the tiebreaks that decided places");
 });
-test("mobile: weekly results unreadable → said in the legend; GB '—'; never 0-0", async () => {
+test("mobile: weekly results unreadable → no team is ranked, and it says so (never 0-0, never a plausible table)", async () => {
   const html = await mobileStandings(makeLadderSeason({ failScores: true }));
-  t.match(html, /Weekly results couldn’t be read — GB, form and luck show —\./);
-  const gb = [...html.matchAll(/<tr class="[^"]*race-row"[\s\S]*?<\/tr>/g)].map((m) => [...m[0].matchAll(/<td class="num">([^<]*)<\/td>/g)].map((x) => x[1]));
-  t.ok(gb.length === 8 && gb.every((cells) => cells.includes("0.0") || cells.includes("—")), "seeded teams 0.0 by definition; the rest —");
-  t.ok(gb.some((cells) => cells.includes("—")));
+  t.match(html, /Seeds unavailable\.<\/b> The weekly results couldn’t be verified, so no team is ranked\./);
+  t.ok(!/ups-m-seeds-table/.test(html), "no seeds table");
 });
-test("mobile: a recorded season is ordered and labelled as recorded", async () => {
+test("mobile: a recorded season shows the recorded final standings, labeled, with no draft-order claim", async () => {
   const html = await mobileStandings(makeLadderSeason({ recorded: true }));
-  t.match(html, /Ordered by the recorded final standings\./);
-  t.ok(!/league rule/.test(html));
+  t.match(html, /2026 · final standings/);
+  t.match(html, /Recorded final standings\./);
+  t.ok(!/draft order/i.test(html), "finish order is not draft order");
+  t.ok(!/league rule|if the season ended today/.test(html));
 });
 
 await run("standings_race_worker_client");

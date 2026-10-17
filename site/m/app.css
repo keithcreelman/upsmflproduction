@@ -5101,3 +5101,39 @@ a.ups-m-bid-btn {
   .ups-m-claims-foot .ups-m-bid-btn.ghost { flex: 1 1 0; min-width: 0; padding: 0 8px; }
   .ups-m-claims-foot .ups-m-bid-btn.primary { flex: 1 0 100%; }
 }
+
+/* Standings v3 (2026-10-17, #1329): Seeds / Divisions / Weekly. Four modes must fit 320px without sideways
+   scroll, so the toggle shares the row evenly; the seeds table keeps four data columns. */
+.ups-m-mode-toggle.ups-m-action-chips { display: flex; gap: 4px; }
+.ups-m-mode-toggle .ups-m-subtab { flex: 1 1 0; min-width: 0; padding: 6px 4px; font-size: 12px; }
+.ups-m-fresh { margin: 2px 14px 0; font-size: 11px; color: var(--fg-muted); }
+.ups-m-standings-summary { font-size: 12.5px; line-height: 1.45; padding: 10px 12px; }
+.ups-m-standings-summary .line + .line { margin-top: 4px; }
+.ups-m-standings-summary b { color: var(--fg); }
+.ups-m-seeds-table td.team .name-text { font-weight: 600; }
+.ups-m-seeds-table th.num, .ups-m-seeds-table td.num { width: 42px; }
+.ups-m-seeds-table td.rank, .ups-m-seeds-table th:first-child { width: 30px; }
+.ups-m-standings-table td.num { font-variant-numeric: tabular-nums; }
+.ups-m-move { display: inline-block; margin-left: 3px; font-size: 9px; font-weight: 800; vertical-align: 1px; }
+.ups-m-move.up { color: var(--ok); }
+.ups-m-move.down { color: var(--danger); }
+.ups-m-how { margin: 0 12px 12px; padding: 10px 12px; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; font-size: 12px; line-height: 1.45; }
+.ups-m-how summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
+.ups-m-how ol { margin: 6px 0 6px 18px; padding: 0; }
+.ups-m-how .sub { color: var(--fg-muted); }
+.ups-m-week-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 12px 0; }
+.ups-m-week-chip { min-width: 40px; min-height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-elev); color: var(--fg); font: 600 13px/1 inherit; }
+.ups-m-week-chip.po { border-style: dashed; }
+.ups-m-week-chip.season { margin-left: auto; }
+.ups-m-week-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ups-m-sheet .ups-m-card-title .sub { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--fg-muted); }
+.ups-m-sheet .ups-m-cap-kv .val .sub { font-size: 11px; color: var(--fg-muted); font-weight: 400; }
+.ups-m-standings-table tr.you-row td { box-shadow: none; }
+.ups-m-standings-table tr.you-row td:first-child { box-shadow: inset 3px 0 0 #7de8d9; }
+.ups-m-standings-table tr.seed-divider td { white-space: normal; }
+@media (max-width: 359px) {
+  .ups-m-seeds-table th, .ups-m-seeds-table td { padding-left: 4px; padding-right: 4px; }
+  .ups-m-seeds-table th.num, .ups-m-seeds-table td.num { width: 38px; }
+  .ups-m-card { margin: 10px 8px; padding: 12px 10px; }
+}
+.ups-m-apline { font-size: 10px; color: var(--fg-muted); margin-top: 1px; }
