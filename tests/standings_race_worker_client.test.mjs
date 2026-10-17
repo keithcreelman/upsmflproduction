@@ -129,9 +129,11 @@ test("A2 projectedPlayoffGroups on the real response: games back come from the w
   [rows[i6], rows[i8]] = [rows[i8], rows[i6]];                 // pretend the worker ranked 0008 ahead
   t.deepEqual(RACE.projectedPlayoffGroups(rows, null).inTheHunt.map((e) => e.franchise_id), ["0008", "0006"]);
   // and the mobile Playoffs view hands the worker's weeklyScores over untouched
+  // Mobile v3's Playoffs mode draws the projected BRACKET from the worker's bracket seeds (A2's chalk helper,
+  // validated seeds; never re-seeded) and never coerces missing weekly scores to [].
   const LEAGUE = fs.readFileSync(new URL("../site/m/views/league.js", import.meta.url), "utf8");
-  t.ok(/projectedPlayoffGroups\(stdResp\.rows \|\| \[\], stdResp\.weeklyScores\)/.test(LEAGUE));
-  t.ok(!/stdResp\.weeklyScores \|\| \[\]/.test(LEAGUE));
+  t.ok(/R\.projectChalkBracket\(seeds\)/.test(LEAGUE));
+  t.ok(!/\.weeklyScores \|\| \[\]/.test(LEAGUE));
 });
 
 // ═══ the desktop page ═══

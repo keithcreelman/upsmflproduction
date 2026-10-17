@@ -607,40 +607,6 @@
       .then(function () { state.bracketLoading = null; renderRoute(); });
   }
 
-  function playoffGroupRowHtml(entry) {
-    var chip = statusChipHtml(entry.status, true);
-    var gb = entry.apGB == null ? "—" : entry.apGB.toFixed(1);
-    var rec = (entry.overall.w || 0) + "-" + (entry.overall.l || 0) + (entry.overall.t ? "-" + entry.overall.t : "");
-    return '<div class="ups-m-playoff-row" data-fid="' + U.escapeHtml(entry.franchise_id) + '" tabindex="0" role="button" aria-label="' + U.escapeHtml(entry.franchise_name) + ' details">' +
-      '<div class="rank">' + (entry.seed != null ? "#" + entry.seed : "—") + '</div>' +
-      '<div class="team"><span class="name-text">' + U.escapeHtml(entry.franchise_name) + '</span>' + chip + '</div>' +
-      '<div class="num">' + rec + '</div>' +
-      '<div class="num">' + fmtPct(entry.allplay_pct) + '</div>' +
-      '<div class="num">' + gb + '</div>' +
-    '</div>';
-  }
-  function playoffGroupSectionHtml(title, entries) {
-    if (!entries.length) return "";
-    return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(title) + '</div>' +
-      '<div class="ups-m-playoff-group-head"><div class="rank">#</div><div class="team">Team</div><div class="num">W-L</div><div class="num">AP%</div><div class="num">GB</div></div>' +
-      '<div class="ups-m-playoff-group">' + entries.map(playoffGroupRowHtml).join("") + '</div></div>';
-  }
-  // Pre-playoff presentation: four stacked groups from projectedPlayoffGroups
-  // (BYES / DIVISION WINNERS / WILD CARDS / IN THE HUNT) — same race helper
-  // (statusForRow / apGamesBack, via projectedPlayoffGroups) the A1 tables
-  // already use, never a separate computation.
-  function renderPrePlayoffGroups(groups) {
-    // F4 (Phase II-A2 correction pass): owner-facing copy only — the
-    // previous legend text was a developer note that literally named the
-    // very elimination language it was trying to disclaim, defeating
-    // its own intent.
-    return playoffGroupSectionHtml("BYES", groups.byes) +
-      playoffGroupSectionHtml("DIVISION WINNERS", groups.divisionWinners) +
-      playoffGroupSectionHtml("WILD CARDS", groups.wildCards) +
-      playoffGroupSectionHtml("IN THE HUNT", groups.inTheHunt) +
-      '<div class="ups-m-standings-legend">Projected from current seeds. AP GB shows All-Play wins behind the sixth seed.</div>';
-  }
-
   // Playoff-period / completed-season presentation: real matchup cards
   // from /api/playoff-bracket, grouped/labeled via the SAME shared
   // bracket-topology function A5's desktop projected bracket uses
@@ -695,6 +661,30 @@
     return html || '<div class="ups-m-stub"><div>No playoff games recorded yet.</div></div>';
   }
 
+  // Projected bracket (A2's chalk helper over the worker's validated seeds; never re-seeded here).
+  function renderProjectedBracket(seeds, bresp) {
+    var R = window.UPS_STANDINGS_RACE;
+    var p = R.projectChalkBracket(seeds);
+    if (!p || p.status !== "ok") {
+      var why = bresp && bresp.seeding_status === "unavailable" ? "the weekly results couldn’t be verified" : (p && p.reason) || "no seeds yet";
+      return '<div class="ups-m-stub" role="alert"><div>Projected bracket unavailable: ' + U.escapeHtml(why) + '.</div></div>';
+    }
+    function team(e) { return e ? '<span class="seed">#' + e.seed + '</span> ' + U.escapeHtml(e.franchise_name || e.franchise_id) : "TBD"; }
+    function side(label, s, sideKey, byeNote) {
+      var r1 = s.r1.map(function (g) { return '<li>' + team(g.a) + ' <span class="vs">vs</span> ' + team(g.b) + '</li>'; }).join("");
+      var byes = s.semis.map(function (g) { return team(g.a); }).join(" and ");
+      var place = pickLabelsForGame(sideKey, "placement");
+      return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(label) + ' · projected</div>' +
+        '<div class="sub">Round 1 (first playoff week)</div><ul class="ups-m-proj-games">' + r1 + '</ul>' +
+        '<div class="sub">' + U.escapeHtml(byeNote) + ': ' + byes + '</div>' +
+        (place ? '<div class="sub">Round 1 losers play each other next week · ' + U.escapeHtml(place) + '</div>' : "") + '</div>';
+    }
+    return '<div class="ups-m-card ups-m-standings-summary"><div class="line"><b>If the season ended today.</b> Projection: the higher seed wins every game. Seeds come from Seeds; nothing here is final until the games are played.</div></div>' +
+      side("UPS Championship", p.champ, "champ", "Byes (straight to the semifinals)") +
+      side("Hawktuah Bowl", p.hawk, "hawk", "Byes") +
+      '<div class="ups-m-standings-legend">Draft order from the finish: Hawktuah Bowl champion 1.01 … 6th 1.08 (5th-place game winner 1.07) … champion 1.12.</div>';
+  }
+
   // Top-level Playoffs-mode render — loading / actual-cards / projected-
   // groups / unavailable are FOUR distinct, textually-distinguishable
   // states (never a false empty picture while the fetch is in flight,
@@ -729,10 +719,9 @@
     if (mode === "actual") {
       body = renderActualMatchupCards(seeds, matchups, bresp.playoff_weeks);
     } else if (mode === "projected") {
-      var stdResp = state.standingsByYear[y] || { rows: [], weeklyScores: [] };
-      // weeklyScores passes through as-is: a failed query (null) makes AP games back unavailable, never a preseason 0.0
-      var groups = window.UPS_STANDINGS_RACE.projectedPlayoffGroups(stdResp.rows || [], stdResp.weeklyScores);
-      body = renderPrePlayoffGroups(groups);
+      // In season the seed list already lives in Seeds; here the owner sees the BRACKET those seeds make, if the
+      // season ended today (higher seed wins every game -- a projection, labeled as one), and what each game decides.
+      body = renderProjectedBracket(seeds, bresp);
     } else {
       body = '<div class="ups-m-stub"><div>No playoff data for ' + U.escapeHtml(y) + '.</div></div>';
     }

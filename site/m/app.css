@@ -5137,3 +5137,6 @@ a.ups-m-bid-btn {
   .ups-m-card { margin: 10px 8px; padding: 12px 10px; }
 }
 .ups-m-apline { font-size: 10px; color: var(--fg-muted); margin-top: 1px; }
+.ups-m-proj-games { margin: 4px 0 8px 18px; padding: 0; font-size: 13px; line-height: 1.6; }
+.ups-m-proj-games .seed, .ups-m-card .sub .seed { color: var(--fg-muted); font-weight: 700; }
+.ups-m-proj-games .vs { color: var(--fg-muted); font-size: 11px; }
