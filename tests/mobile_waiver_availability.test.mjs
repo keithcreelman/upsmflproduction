@@ -198,6 +198,9 @@ test("every surface agrees with the server at every instant of the four cases (M
     }
   }
   t.ok(instants >= 40, `${instants} instants checked`);
+  // The guard sits on both ways in: Bid (a new claim) and Add now (first-come).
+  t.match(sliceFn(PL, "function openBidFor("), /if \(!stagedRoundsFor\(pid\)\.length && refuseUnlessAvailable\(pid\)\) return;/);
+  t.match(sliceFn(PL, "function startFcfsAdd("), /if \(refuseUnlessAvailable\(pid\)\) return;/);
 });
 
 await run("mobile_waiver_availability");
