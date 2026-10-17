@@ -750,6 +750,11 @@
       var rows = [];
       if (bundle.is_free_agent) {
         rows.push('<div><span class="lbl">Status</span><span style="color:#fbbf24;font-weight:600">Free Agent</span></div>');
+        // When he can actually be claimed (GET /api/waivers/availability,
+        // filled in by wireAvailabilityAsync). Keith 2026-10-17.
+        rows.push('<div><span class="lbl">Waivers</span><span class="upm-avail small muted" data-upm-avail-pid="' +
+          escapeHtml(String(pid)) + '" data-upm-avail-team="' + escapeHtml(String(nflTeam || pp.team || "").toUpperCase()) +
+          '">Checking when he can be claimed…</span></div>');
       } else if (bundle.is_not_rostered) {
         rows.push('<div><span class="lbl">Status</span><span class="muted" style="font-weight:600">Not on any roster</span> <span class="small muted">(retired / out of league)</span></div>');
       } else if (cr.team_name) {
@@ -1867,6 +1872,43 @@
     return feedSection + ctxItems.join("");
   }
 
+  // Waiver availability for a free agent (Keith 2026-10-17, Demario Davis):
+  // the worker's one answer to "when can he actually be claimed?" — MFL's
+  // dropped-player lock, the run schedule and the game lock — the same state
+  // the phone app shows. Rendered as given; nothing is re-derived here. A
+  // failed read says so ("couldn't be confirmed"), never a guessed run.
+  function wireAvailabilityAsync(body, ctx, pid) {
+    var el = body.querySelector("[data-upm-avail-pid]");
+    if (!el || !pid) return;
+    var team = el.getAttribute("data-upm-avail-team") || "";
+    var apiBase = (ctx.apiBase || "").replace(/\/+$/, "");
+    var url = apiBase + "/api/waivers/availability?"
+      + (ctx.leagueId ? "L=" + encodeURIComponent(ctx.leagueId) : "")
+      + (ctx.year ? "&YEAR=" + encodeURIComponent(ctx.year) : "");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (av) {
+        if (!el.parentNode) return;
+        var st = (av && av.ok) ? ((av.players && av.players[String(pid)]) || (team && av.by_team && av.by_team[team]) || av.no_game) : null;
+        if (!st) throw new Error("no answer");
+        el.classList.remove("muted");
+        el.textContent = st.headline || "";
+        if (st.lines && st.lines.length) el.setAttribute("title", st.lines.join("\n"));
+        if (st.lines && st.lines.length && (st.code === "waivers_later" || st.code === "game_locked" || st.code === "not_before_kickoff" || st.code === "unknown")) {
+          var ul = document.createElement("ul");
+          ul.className = "small muted upm-avail-why";
+          ul.style.cssText = "margin:4px 0 0;padding-left:18px;";
+          st.lines.forEach(function (l) { var li = document.createElement("li"); li.textContent = l; ul.appendChild(li); });
+          el.parentNode.appendChild(ul);
+        }
+      })
+      .catch(function (err) {
+        if (!el.parentNode) return;
+        el.textContent = "Availability could not be confirmed — the waiver check didn't load (" +
+          (err && err.message ? err.message : String(err)) + ").";
+      });
+  }
+
   // Async news fetch + render. Called from openPlayerProfile after the
   // tab panels are wired. Fills #upm-news-feed-list in place.
   function wireNewsAsync(body, ctx, pid) {
@@ -2451,6 +2493,7 @@
       // News feed kicks off async — placeholder shows until /api/player-news
       // returns. Defensive: skip silently if pid is empty.
       wireNewsAsync(bodyContent, ctx, pid);
+      wireAvailabilityAsync(bodyContent, ctx, pid);
     }).catch(function (err) {
       if (bodyEl.getAttribute("data-upm-pid") !== pidAtFire) return;   // a newer profile opened over this one
       var bodyContent = bodyEl.querySelector("#upm-profile-body")

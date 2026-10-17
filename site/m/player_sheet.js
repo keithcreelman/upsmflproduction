@@ -924,6 +924,11 @@
     var info = WUI.modeInfo();
     var staged = WUI.stagedRoundsFor(pid);
     var parts = [];
+    // When he can actually be claimed, and why (Keith 2026-10-17): the same
+    // server answer the Market badge shows, with its reasons.
+    if (WUI.availability && WUI.availPanelHtml && (info.mode === "bbid" || info.mode === "fcfs")) {
+      parts.push(WUI.availPanelHtml(WUI.availability(pid)));
+    }
     if (staged.length) {
       parts.push('<div class="ups-m-acq-note staged">Claimed in ' +
         (staged.length > 1 ? "groups " : "group ") + U.escapeHtml(staged.join(", ")) +
@@ -932,7 +937,8 @@
     if (info.detail) {
       parts.push('<div class="ups-m-acq-note">' + U.escapeHtml(info.detail) + '</div>');
     }
-    if (cta.html) {
+    // A status badge (cta.avail / cta.loading) is the panel above, already.
+    if (cta.html && !cta.avail && !cta.loading) {
       parts.push('<div class="ups-m-sheet-actions">' + cta.html + '</div>');
     } else if (cta.readOnly && info.nativeLink &&
                (info.mode === "bbid" || info.mode === "fcfs")) {
@@ -2983,6 +2989,13 @@
   // The cap batch can land after the sheet opened (boot still loading): repaint
   // the contract block so "Loading…" turns into the worker's numbers.
   window.addEventListener("ups-cap-penalty-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
+  });
+
+  // The availability answer landed or changed (app.js fetchWaiverAvailability):
+  // repaint the acquisition block so "Checking…" becomes the real status.
+  window.addEventListener("ups-waiver-availability", function () {
     var ov = document.getElementById("ups-m-sheet-overlay");
     if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
   });

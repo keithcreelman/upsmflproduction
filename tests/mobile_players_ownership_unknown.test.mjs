@@ -134,6 +134,9 @@ async function boot({ rosters = FX.mfl_rosters, league = "ok", mode = "bbid" } =
     actions: { reloadData: ctx.reloadData, submitDrop: nowrite("submitDrop"), submitOTBToggle: nowrite("submitOTBToggle") },
     waivers: {
       mode: () => ({ mode, label: mode, detail: "", writeEnabled: true, nativeLink: "" }), writeEnabled: () => true,
+      // The worker's availability answer for an ordinary free agent in this window.
+      availability: () => (mode === "fcfs" ? { code: "available_now", badge: "", headline: "Available now", lines: [] }
+        : { code: "waivers", badge: "", headline: "Waivers — next run", eligible_run_label: "Friday's run", lines: [] }),
       stateKnown: () => true, nativeLink: () => "", limits: () => ({ min: 1000, step: 1000, maxRounds: 8, conditional: true, conditionalKnown: true }),
       getPlan: () => [], setPlan: () => rec.writes.push("setPlan"), pickCount: () => 0, clearCount: () => 0, isDirty: () => false,
       getPending: () => ({ known: true, rounds: [] }), fetchPending: () => Promise.resolve({ known: true, rounds: [] }),

@@ -1223,7 +1223,7 @@ These are invariants that must hold across the data layer for any 2026 contract 
 
 ## H. STILL-OPEN ITEMS for Section 2
 
-1. **MFL waiver lock duration** — verify in MFL settings how long a player is on waivers / locked when added.
+1. ~~**MFL waiver lock duration** — verify in MFL settings how long a player is on waivers / locked when added.~~ — **CLOSED 2026-10-17 (Keith):** see §B "dropped-player lock".
 2. **MFL `TagOrExpiredRookie` auction type ambiguity** — UPS infers ERA vs Tag context by date. ERA + Tag are typically run together (Apr-May), separate from FA Auction (Jul-Aug).
 3. **In-season MYM exact deadline** (carries from Section 1).
 4. **Suspension opt-out rule** — verify in Discord whether the OG rule still applies or has been simplified to "drop to suspended status, auto 50%."
@@ -1461,12 +1461,20 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 
 **RESOLVED (Keith 2026-08-13, live incident):** FCFS does **not** open after the Thu/Fri/Sat runs — those always immediately re-lock. Only the Sunday run opens FCFS, and only from NFL Week 1 onward; pre-season Sundays (the weeks right after FA Auction close, before Week 1 kickoff) also immediately re-lock, same as Thu/Fri/Sat. This replaces the "immediately after each waiver run" wording that used to be in the table above — that phrasing was too loose and caused a live bug where the app opened FCFS on a plain Thursday run.
 
-> **OPEN — waiver lock duration (Keith 2026-04-28):** separate from the above, the precise number of hours a specific dropped player stays locked before becoming claimable depends on drop timing relative to a waiver run.
->
-> **Scenario A:** Player dropped at 9 AM Thursday DURING the waiver run.
-> **Scenario B:** Player dropped at 10 PM Thursday (standalone drop after waiver run).
->
-> These are treated differently by MFL, and confusion is widespread. **Action item:** research MFL's exact lock-duration behavior for both scenarios and document the rules + any edge cases that could cause issues.
+**RESOLVED — dropped-player lock (Keith 2026-10-17, #1326).** A dropped player is locked until the **first waiver run that starts more than 24 hours after the drop**. This is MFL's league setting (setup → Add/Drop): *"Dropped Players Are Locked Until: The first waivers run after 1 day(s)."* It replaces the open item from 2026-04-28.
+- **Strictly after.** A run that starts exactly 24 hours after the drop is too early. Demario Davis was dropped in Thursday's 9:00 AM run (2026-10-15). MFL refused him in Friday's 9:00 AM run ("Player Is Locked"), and he was claimed in Saturday's.
+- **Elapsed hours, not calendar days.** Across the November daylight-saving change, a Saturday 9:00 AM EDT drop is eligible for Sunday's 9:00 AM EST run, 25 hours later.
+- **Drop time → first run he can be claimed in:**
+  - Thursday 8:30 AM → Friday.
+  - Thursday 9:00 AM, in the run (the old Scenario A) → Saturday.
+  - Thursday 10 PM (Scenario B) → Saturday.
+  - Friday before 9 AM → Saturday; Friday after 9 AM → Sunday.
+  - Saturday after 9 AM, or any Sunday or Monday drop → the next Thursday. There are no Monday–Wednesday runs.
+- **The lock ends at a run.** In Sunday's first-come window, a recently dropped player can't be added even after 24 hours; his first chance is the next waiver run.
+- **Kickoff.** Once his game kicks off, no move on him until the NFL week ends. MFL setting: "Prevent Owners From Making ANY Roster Moves After Kickoff Of That Player's Game Until The End Of The Week" = Yes. If no eligible run comes before his game, his first chance is the Thursday run after that week.
+- **The same for every team,** including the team that dropped him. Re-adding your own drop limits only an MYM; see the reacquisition cooldown.
+- **In the app:** the waiver badges ("Sat waiver", "Game locked", "Thu waiver") come from one resolver, `worker/src/waiver_availability.js`. It reads MFL's setting live, so the display follows MFL if the setting changes.
+- **Evidence:** a replay of MFL's 2022–2026 transaction log. Of 1,434 adds of a previously dropped player, none came earlier than this rule allows, and 265 came at exactly the first run it allows.
 
 ---
 
@@ -1506,7 +1514,7 @@ There is **no automatic fine for late dues** — the $3K/week cap fine was retir
 
 1. **2026 ERA window + FA Auction start/close exact dates** — historical ranges documented above; live 2026 dates need MFL `TYPE=calendar&L=74598` confirmation OR addition to `event_window_matrix.csv` with audit trail.
 2. **2025 ERA post-draft anomaly** — auction_date for 2025 ERA picks is 2025-05-26/27 (after rookie draft May 25). Either ERA was held post-draft in 2025 or the date represents something else. Worth confirming.
-3. **MFL waiver lock duration** — exact hours from drop → waiver clear (verify in MFL settings).
+3. ~~**MFL waiver lock duration** — exact hours from drop → waiver clear (verify in MFL settings).~~ — **CLOSED 2026-10-17 (Keith):** the first waiver run more than 24 hours after the drop; see §B "dropped-player lock".
 4. **Earning checkpoints (25%/50%/75%)** — confirm convention is calendar month-end vs NFL week boundary.
 5. **Roster Lock Date future** — Keith may eliminate this; consolidate into auction-start auto-unlock.
 
@@ -2639,7 +2647,7 @@ Consolidated parking lot for things flagged across Sections 1–3 + Section 6 th
 
 5. **Suspension opt-out rule current state** — verify in Discord whether the OG "owner declares before contract deadline" rule still applies, or whether it was simplified to "drop player to suspended status, see 50% discount automatically." Possibly extend to "drop to taxi" since that auto-removes salary.
 6. **Pre-2025 in-season restructure ban** — verify exact year via forum/Discord (Keith said "before 2025 — verify").
-7. **MFL waiver lock duration + lock semantics** — research MFL behavior precisely. Specifically: 9 AM Thu drop during waiver run vs 10 PM Thu standalone drop have different lock durations. Document the rule + edge cases.
+7. ~~**MFL waiver lock duration + lock semantics** — research MFL behavior precisely. Specifically: 9 AM Thu drop during waiver run vs 10 PM Thu standalone drop have different lock durations. Document the rule + edge cases.~~ — **CLOSED 2026-10-17 (Keith):** both go to Saturday's run; documented with the edge cases in §B "dropped-player lock".
 8. **Cut-then-rebid prohibition future** — Keith wants to consider eliminating; auto-unlock at auction start would handle the underlying compile-cut-list need.
 9. **Comprehensive UPS site / homepage review** (Keith L3, L20) — go through every home-page message + every doc + every script to identify possible issues / inconsistencies. Schedule a dedicated session.
 10. **Jail Bird Rule** — vague by design (commissioner discretion). Aaron Hernandez canonical case; "released by NFL" alone is not sufficient. No formal definition needed but flag at decision time.
