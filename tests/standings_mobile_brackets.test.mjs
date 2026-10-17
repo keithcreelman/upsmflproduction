@@ -157,7 +157,7 @@ test("Tale of the Tape: header, Quick edge, Ceiling / Typical / Floor, Full comp
   t.match(p, /2025 playoffs wk 16: Pure Greatness won, 255\.2–196\.8/, "the winner's score first");
   const k = R.ownerSeries(JSON.parse(HIST), "Keith Creelman", "Brian Cutting");
   const kp = plain(tapeOpen.tapeHtml(tape, { kind: "final", aOwner: "Keith Creelman", bOwner: "Brian Cutting", series: k }));
-  t.match(kp, /MFL kept no game-by-game schedule for 2010, 2011, 2014, 2015, 2016, 2017, 2018, 2019, so those seasons count playoff games only\./);
+  t.match(kp, /MFL kept no game-by-game schedule for 2010, 2011, 2013, 2014, 2015, 2016, 2017, 2018, 2019, so those seasons count playoff games only\./);
   t.ok(!/defen[cs]e/i.test(p.replace(/defensive players/g, "")), "points faced are never 'defense'");
   t.ok(!/will win|favorite|predicted winner|projected winner/i.test(p), "no predicted winner");
 });
