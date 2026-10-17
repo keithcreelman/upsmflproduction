@@ -1,0 +1,2396 @@
+{
+"_about": "UPS 2026 after Week 5 (regular season, Elias-final as of 2026-10-17 14:45 UTC). D1 rows read-only from production src_schedule / src_franchise_weekly_score / src_standings / src_league_season_meta; MFL league + leagueStandings exports (L=74598) fetched the same hour. Public league data only.",
+"season": 2026,
+"standingsSort": "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR,",
+"lastRegularSeasonWeek": 14,
+"franchises": [
+{
+"franchise_id": "0001",
+"franchise_name": "L.A. Looks",
+"division": "02"
+},
+{
+"franchise_id": "0002",
+"franchise_name": "CBP",
+"division": "01"
+},
+{
+"franchise_id": "0003",
+"franchise_name": "Gride",
+"division": "01"
+},
+{
+"franchise_id": "0004",
+"franchise_name": "Pure Greatness",
+"division": "00"
+},
+{
+"franchise_id": "0005",
+"franchise_name": "HammerTime 🔨 ⏰",
+"division": "00"
+},
+{
+"franchise_id": "0006",
+"franchise_name": "The Long Haulers",
+"division": "00"
+},
+{
+"franchise_id": "0007",
+"franchise_name": "Sex Manther",
+"division": "02"
+},
+{
+"franchise_id": "0008",
+"franchise_name": "Real Deal Creel",
+"division": "02"
+},
+{
+"franchise_id": "0009",
+"franchise_name": "C-Town Chivalry",
+"division": "03"
+},
+{
+"franchise_id": "0010",
+"franchise_name": "Blake Bombers",
+"division": "01"
+},
+{
+"franchise_id": "0011",
+"franchise_name": "Cleon Ca$h",
+"division": "03"
+},
+{
+"franchise_id": "0012",
+"franchise_name": "Hawks",
+"division": "03"
+}
+],
+"divisions": [
+{
+"id": "00",
+"name": "Outlast PG Time"
+},
+{
+"id": "01",
+"name": "LEGION OF BOOM"
+},
+{
+"id": "02",
+"name": "Maddie Mondays"
+},
+{
+"id": "03",
+"name": "DOG POUND 4 LIFE"
+}
+],
+"weekly_scores": [
+{
+"week": 1,
+"franchise_id": "0003",
+"team_score": 230.1,
+"team_opt_pts": 283.6,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0002",
+"team_score": 251.4,
+"team_opt_pts": 270.7,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0010",
+"team_score": 180.8,
+"team_opt_pts": 198.3,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0005",
+"team_score": 312.8,
+"team_opt_pts": 329.1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0004",
+"team_score": 258.5,
+"team_opt_pts": 292.7,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0006",
+"team_score": 220,
+"team_opt_pts": 244.7,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0008",
+"team_score": 246.9,
+"team_opt_pts": 272.7,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0007",
+"team_score": 228.3,
+"team_opt_pts": 245.1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0001",
+"team_score": 166.6,
+"team_opt_pts": 185.3,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0009",
+"team_score": 190.3,
+"team_opt_pts": 229.5,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0012",
+"team_score": 153.7,
+"team_opt_pts": 188.9,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0011",
+"team_score": 223.9,
+"team_opt_pts": 240.4,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"team_score": 208.6,
+"team_opt_pts": 225.2,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"team_score": 208.7,
+"team_opt_pts": 244.7,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"team_score": 199.6,
+"team_opt_pts": 285.5,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"team_score": 178,
+"team_opt_pts": 221.9,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"team_score": 215.3,
+"team_opt_pts": 223.7,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"team_score": 303.4,
+"team_opt_pts": 327.5,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"team_score": 201.2,
+"team_opt_pts": 224,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"team_score": 281.8,
+"team_opt_pts": 287.6,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"team_score": 236.1,
+"team_opt_pts": 261.1,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"team_score": 144.2,
+"team_opt_pts": 194.1,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"team_score": 172.2,
+"team_opt_pts": 180.5,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"team_score": 179.2,
+"team_opt_pts": 196.2,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"team_score": 153.8,
+"team_opt_pts": 156.8,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"team_score": 254.8,
+"team_opt_pts": 304.8,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"team_score": 227,
+"team_opt_pts": 265,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"team_score": 216.2,
+"team_opt_pts": 240.8,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"team_score": 213.6,
+"team_opt_pts": 251.7,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"team_score": 245.9,
+"team_opt_pts": 271.9,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"team_score": 224.8,
+"team_opt_pts": 270.8,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"team_score": 218.9,
+"team_opt_pts": 252.5,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"team_score": 165.4,
+"team_opt_pts": 180.1,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"team_score": 207.1,
+"team_opt_pts": 232.6,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"team_score": 212.9,
+"team_opt_pts": 268.4,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"team_score": 205.2,
+"team_opt_pts": 215.6,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0003",
+"team_score": 208.3,
+"team_opt_pts": 227.5,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0002",
+"team_score": 214.5,
+"team_opt_pts": 247.5,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0010",
+"team_score": 250.9,
+"team_opt_pts": 281.1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0005",
+"team_score": 250.2,
+"team_opt_pts": 291.8,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0004",
+"team_score": 211.6,
+"team_opt_pts": 258.3,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0006",
+"team_score": 181.4,
+"team_opt_pts": 198.3,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0008",
+"team_score": 206.3,
+"team_opt_pts": 246.2,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0007",
+"team_score": 194.3,
+"team_opt_pts": 214.9,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0001",
+"team_score": 216,
+"team_opt_pts": 228.4,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0009",
+"team_score": 289.9,
+"team_opt_pts": 328.7,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0012",
+"team_score": 223.9,
+"team_opt_pts": 253.3,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0011",
+"team_score": 294.7,
+"team_opt_pts": 329,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"team_score": 161.1,
+"team_opt_pts": 188.4,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"team_score": 272.5,
+"team_opt_pts": 286.2,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"team_score": 171,
+"team_opt_pts": 214.7,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"team_score": 228.8,
+"team_opt_pts": 253,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"team_score": 211.4,
+"team_opt_pts": 232.8,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"team_score": 261.5,
+"team_opt_pts": 280.6,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"team_score": 190.7,
+"team_opt_pts": 225.3,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"team_score": 280.5,
+"team_opt_pts": 304,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"team_score": 200.3,
+"team_opt_pts": 243.1,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"team_score": 167.9,
+"team_opt_pts": 196.2,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"team_score": 268.4,
+"team_opt_pts": 315.9,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"team_score": 223.9,
+"team_opt_pts": 241.3,
+"is_playoff": 0
+}
+],
+"games": [
+{
+"week": 1,
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"team_score": 230.1,
+"opponent_score": 251.4,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"team_score": 251.4,
+"opponent_score": 230.1,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"team_score": 230.1,
+"opponent_score": 180.8,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"team_score": 180.8,
+"opponent_score": 230.1,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"team_score": 251.4,
+"opponent_score": 180.8,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"team_score": 180.8,
+"opponent_score": 251.4,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"team_score": 312.8,
+"opponent_score": 258.5,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"team_score": 258.5,
+"opponent_score": 312.8,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"team_score": 312.8,
+"opponent_score": 220,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"team_score": 220,
+"opponent_score": 312.8,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"team_score": 258.5,
+"opponent_score": 220,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"team_score": 220,
+"opponent_score": 258.5,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"team_score": 246.9,
+"opponent_score": 228.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"team_score": 228.3,
+"opponent_score": 246.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"team_score": 246.9,
+"opponent_score": 166.6,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"team_score": 166.6,
+"opponent_score": 246.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"team_score": 228.3,
+"opponent_score": 166.6,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"team_score": 166.6,
+"opponent_score": 228.3,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"team_score": 190.3,
+"opponent_score": 153.7,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"team_score": 153.7,
+"opponent_score": 190.3,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"team_score": 190.3,
+"opponent_score": 223.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"team_score": 223.9,
+"opponent_score": 190.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"team_score": 153.7,
+"opponent_score": 223.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 1,
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"team_score": 223.9,
+"opponent_score": 153.7,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"opponent_franchise_id": "0005",
+"team_score": 208.6,
+"opponent_score": 208.7,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"opponent_franchise_id": "0003",
+"team_score": 208.7,
+"opponent_score": 208.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"opponent_franchise_id": "0004",
+"team_score": 208.6,
+"opponent_score": 199.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"opponent_franchise_id": "0003",
+"team_score": 199.6,
+"opponent_score": 208.6,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"opponent_franchise_id": "0006",
+"team_score": 208.6,
+"opponent_score": 178,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"opponent_franchise_id": "0003",
+"team_score": 178,
+"opponent_score": 208.6,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"opponent_franchise_id": "0005",
+"team_score": 215.3,
+"opponent_score": 208.7,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"opponent_franchise_id": "0002",
+"team_score": 208.7,
+"opponent_score": 215.3,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"opponent_franchise_id": "0004",
+"team_score": 215.3,
+"opponent_score": 199.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"opponent_franchise_id": "0002",
+"team_score": 199.6,
+"opponent_score": 215.3,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"opponent_franchise_id": "0006",
+"team_score": 215.3,
+"opponent_score": 178,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"opponent_franchise_id": "0002",
+"team_score": 178,
+"opponent_score": 215.3,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"opponent_franchise_id": "0005",
+"team_score": 303.4,
+"opponent_score": 208.7,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"opponent_franchise_id": "0010",
+"team_score": 208.7,
+"opponent_score": 303.4,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"opponent_franchise_id": "0004",
+"team_score": 303.4,
+"opponent_score": 199.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"opponent_franchise_id": "0010",
+"team_score": 199.6,
+"opponent_score": 303.4,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"opponent_franchise_id": "0006",
+"team_score": 303.4,
+"opponent_score": 178,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"opponent_franchise_id": "0010",
+"team_score": 178,
+"opponent_score": 303.4,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"opponent_franchise_id": "0009",
+"team_score": 201.2,
+"opponent_score": 281.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"opponent_franchise_id": "0008",
+"team_score": 281.8,
+"opponent_score": 201.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"opponent_franchise_id": "0012",
+"team_score": 201.2,
+"opponent_score": 236.1,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"opponent_franchise_id": "0008",
+"team_score": 236.1,
+"opponent_score": 201.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"opponent_franchise_id": "0011",
+"team_score": 201.2,
+"opponent_score": 144.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"opponent_franchise_id": "0008",
+"team_score": 144.2,
+"opponent_score": 201.2,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"opponent_franchise_id": "0009",
+"team_score": 172.2,
+"opponent_score": 281.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"opponent_franchise_id": "0007",
+"team_score": 281.8,
+"opponent_score": 172.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"opponent_franchise_id": "0012",
+"team_score": 172.2,
+"opponent_score": 236.1,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"opponent_franchise_id": "0007",
+"team_score": 236.1,
+"opponent_score": 172.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"opponent_franchise_id": "0011",
+"team_score": 172.2,
+"opponent_score": 144.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"opponent_franchise_id": "0007",
+"team_score": 144.2,
+"opponent_score": 172.2,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"opponent_franchise_id": "0009",
+"team_score": 179.2,
+"opponent_score": 281.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"opponent_franchise_id": "0001",
+"team_score": 281.8,
+"opponent_score": 179.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"opponent_franchise_id": "0012",
+"team_score": 179.2,
+"opponent_score": 236.1,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"opponent_franchise_id": "0001",
+"team_score": 236.1,
+"opponent_score": 179.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"opponent_franchise_id": "0011",
+"team_score": 179.2,
+"opponent_score": 144.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"opponent_franchise_id": "0001",
+"team_score": 144.2,
+"opponent_score": 179.2,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"opponent_franchise_id": "0009",
+"team_score": 153.8,
+"opponent_score": 254.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"opponent_franchise_id": "0003",
+"team_score": 254.8,
+"opponent_score": 153.8,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"opponent_franchise_id": "0012",
+"team_score": 153.8,
+"opponent_score": 227,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"opponent_franchise_id": "0003",
+"team_score": 227,
+"opponent_score": 153.8,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"opponent_franchise_id": "0011",
+"team_score": 153.8,
+"opponent_score": 216.2,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"opponent_franchise_id": "0003",
+"team_score": 216.2,
+"opponent_score": 153.8,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"opponent_franchise_id": "0009",
+"team_score": 213.6,
+"opponent_score": 254.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"opponent_franchise_id": "0002",
+"team_score": 254.8,
+"opponent_score": 213.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"opponent_franchise_id": "0012",
+"team_score": 213.6,
+"opponent_score": 227,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"opponent_franchise_id": "0002",
+"team_score": 227,
+"opponent_score": 213.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"opponent_franchise_id": "0011",
+"team_score": 213.6,
+"opponent_score": 216.2,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"opponent_franchise_id": "0002",
+"team_score": 216.2,
+"opponent_score": 213.6,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"opponent_franchise_id": "0009",
+"team_score": 245.9,
+"opponent_score": 254.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"opponent_franchise_id": "0010",
+"team_score": 254.8,
+"opponent_score": 245.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"opponent_franchise_id": "0012",
+"team_score": 245.9,
+"opponent_score": 227,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"opponent_franchise_id": "0010",
+"team_score": 227,
+"opponent_score": 245.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"opponent_franchise_id": "0011",
+"team_score": 245.9,
+"opponent_score": 216.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"opponent_franchise_id": "0010",
+"team_score": 216.2,
+"opponent_score": 245.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"opponent_franchise_id": "0008",
+"team_score": 224.8,
+"opponent_score": 218.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"opponent_franchise_id": "0005",
+"team_score": 218.9,
+"opponent_score": 224.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"opponent_franchise_id": "0007",
+"team_score": 224.8,
+"opponent_score": 165.4,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"opponent_franchise_id": "0005",
+"team_score": 165.4,
+"opponent_score": 224.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"opponent_franchise_id": "0001",
+"team_score": 224.8,
+"opponent_score": 207.1,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"opponent_franchise_id": "0005",
+"team_score": 207.1,
+"opponent_score": 224.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"opponent_franchise_id": "0008",
+"team_score": 212.9,
+"opponent_score": 218.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"opponent_franchise_id": "0004",
+"team_score": 218.9,
+"opponent_score": 212.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"opponent_franchise_id": "0007",
+"team_score": 212.9,
+"opponent_score": 165.4,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"opponent_franchise_id": "0004",
+"team_score": 165.4,
+"opponent_score": 212.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"opponent_franchise_id": "0001",
+"team_score": 212.9,
+"opponent_score": 207.1,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"opponent_franchise_id": "0004",
+"team_score": 207.1,
+"opponent_score": 212.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"opponent_franchise_id": "0008",
+"team_score": 205.2,
+"opponent_score": 218.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"opponent_franchise_id": "0006",
+"team_score": 218.9,
+"opponent_score": 205.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"opponent_franchise_id": "0007",
+"team_score": 205.2,
+"opponent_score": 165.4,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"opponent_franchise_id": "0006",
+"team_score": 165.4,
+"opponent_score": 205.2,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"opponent_franchise_id": "0001",
+"team_score": 205.2,
+"opponent_score": 207.1,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"opponent_franchise_id": "0006",
+"team_score": 207.1,
+"opponent_score": 205.2,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"team_score": 208.3,
+"opponent_score": 214.5,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"team_score": 214.5,
+"opponent_score": 208.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"team_score": 208.3,
+"opponent_score": 250.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"team_score": 250.9,
+"opponent_score": 208.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"team_score": 214.5,
+"opponent_score": 250.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"team_score": 250.9,
+"opponent_score": 214.5,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"team_score": 250.2,
+"opponent_score": 211.6,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"team_score": 211.6,
+"opponent_score": 250.2,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"team_score": 250.2,
+"opponent_score": 181.4,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"team_score": 181.4,
+"opponent_score": 250.2,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"team_score": 211.6,
+"opponent_score": 181.4,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"team_score": 181.4,
+"opponent_score": 211.6,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"team_score": 206.3,
+"opponent_score": 194.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"team_score": 194.3,
+"opponent_score": 206.3,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"team_score": 206.3,
+"opponent_score": 216,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"team_score": 216,
+"opponent_score": 206.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"team_score": 194.3,
+"opponent_score": 216,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"team_score": 216,
+"opponent_score": 194.3,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"team_score": 289.9,
+"opponent_score": 223.9,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"team_score": 223.9,
+"opponent_score": 289.9,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"team_score": 289.9,
+"opponent_score": 294.7,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"team_score": 294.7,
+"opponent_score": 289.9,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"team_score": 223.9,
+"opponent_score": 294.7,
+"result": "L",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 4,
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"team_score": 294.7,
+"opponent_score": 223.9,
+"result": "W",
+"is_divisional": 1,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"opponent_franchise_id": "0008",
+"team_score": 161.1,
+"opponent_score": 272.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"opponent_franchise_id": "0003",
+"team_score": 272.5,
+"opponent_score": 161.1,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"opponent_franchise_id": "0007",
+"team_score": 161.1,
+"opponent_score": 171,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"opponent_franchise_id": "0003",
+"team_score": 171,
+"opponent_score": 161.1,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"opponent_franchise_id": "0001",
+"team_score": 161.1,
+"opponent_score": 228.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"opponent_franchise_id": "0003",
+"team_score": 228.8,
+"opponent_score": 161.1,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"opponent_franchise_id": "0008",
+"team_score": 211.4,
+"opponent_score": 272.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"opponent_franchise_id": "0002",
+"team_score": 272.5,
+"opponent_score": 211.4,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"opponent_franchise_id": "0007",
+"team_score": 211.4,
+"opponent_score": 171,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"opponent_franchise_id": "0002",
+"team_score": 171,
+"opponent_score": 211.4,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"opponent_franchise_id": "0001",
+"team_score": 211.4,
+"opponent_score": 228.8,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"opponent_franchise_id": "0002",
+"team_score": 228.8,
+"opponent_score": 211.4,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"opponent_franchise_id": "0008",
+"team_score": 261.5,
+"opponent_score": 272.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"opponent_franchise_id": "0010",
+"team_score": 272.5,
+"opponent_score": 261.5,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"opponent_franchise_id": "0007",
+"team_score": 261.5,
+"opponent_score": 171,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"opponent_franchise_id": "0010",
+"team_score": 171,
+"opponent_score": 261.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"opponent_franchise_id": "0001",
+"team_score": 261.5,
+"opponent_score": 228.8,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"opponent_franchise_id": "0010",
+"team_score": 228.8,
+"opponent_score": 261.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"opponent_franchise_id": "0009",
+"team_score": 190.7,
+"opponent_score": 280.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"opponent_franchise_id": "0005",
+"team_score": 280.5,
+"opponent_score": 190.7,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"opponent_franchise_id": "0012",
+"team_score": 190.7,
+"opponent_score": 200.3,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"opponent_franchise_id": "0005",
+"team_score": 200.3,
+"opponent_score": 190.7,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"opponent_franchise_id": "0011",
+"team_score": 190.7,
+"opponent_score": 167.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"opponent_franchise_id": "0005",
+"team_score": 167.9,
+"opponent_score": 190.7,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"opponent_franchise_id": "0009",
+"team_score": 268.4,
+"opponent_score": 280.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"opponent_franchise_id": "0004",
+"team_score": 280.5,
+"opponent_score": 268.4,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"opponent_franchise_id": "0012",
+"team_score": 268.4,
+"opponent_score": 200.3,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"opponent_franchise_id": "0004",
+"team_score": 200.3,
+"opponent_score": 268.4,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"opponent_franchise_id": "0011",
+"team_score": 268.4,
+"opponent_score": 167.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"opponent_franchise_id": "0004",
+"team_score": 167.9,
+"opponent_score": 268.4,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"opponent_franchise_id": "0009",
+"team_score": 223.9,
+"opponent_score": 280.5,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"opponent_franchise_id": "0006",
+"team_score": 280.5,
+"opponent_score": 223.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"opponent_franchise_id": "0012",
+"team_score": 223.9,
+"opponent_score": 200.3,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"opponent_franchise_id": "0006",
+"team_score": 200.3,
+"opponent_score": 223.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"opponent_franchise_id": "0011",
+"team_score": 223.9,
+"opponent_score": 167.9,
+"result": "W",
+"is_divisional": 0,
+"is_playoff": 0
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"opponent_franchise_id": "0006",
+"team_score": 167.9,
+"opponent_score": 223.9,
+"result": "L",
+"is_divisional": 0,
+"is_playoff": 0
+}
+],
+"src_standings": [
+{
+"franchise_id": "0001",
+"h2h_w": 6,
+"h2h_l": 7,
+"h2h_t": 0,
+"h2h_pct": 0.4615,
+"div_w": 2,
+"div_l": 2,
+"allplay_w": 20,
+"allplay_l": 35,
+"allplay_t": 0,
+"allplay_pct": 0.3636,
+"pf": 997.7
+},
+{
+"franchise_id": "0002",
+"h2h_w": 7,
+"h2h_l": 6,
+"h2h_t": 0,
+"h2h_pct": 0.5385,
+"div_w": 3,
+"div_l": 1,
+"allplay_w": 32,
+"allplay_l": 23,
+"allplay_t": 0,
+"allplay_pct": 0.5818,
+"pf": 1106.2
+},
+{
+"franchise_id": "0003",
+"h2h_w": 3,
+"h2h_l": 10,
+"h2h_t": 0,
+"h2h_pct": 0.2308,
+"div_w": 1,
+"div_l": 3,
+"allplay_w": 16,
+"allplay_l": 39,
+"allplay_t": 0,
+"allplay_pct": 0.2909,
+"pf": 961.9
+},
+{
+"franchise_id": "0004",
+"h2h_w": 6,
+"h2h_l": 7,
+"h2h_t": 0,
+"h2h_pct": 0.4615,
+"div_w": 2,
+"div_l": 2,
+"allplay_w": 31,
+"allplay_l": 24,
+"allplay_t": 0,
+"allplay_pct": 0.5636,
+"pf": 1151
+},
+{
+"franchise_id": "0005",
+"h2h_w": 9,
+"h2h_l": 4,
+"h2h_t": 0,
+"h2h_pct": 0.6923,
+"div_w": 4,
+"div_l": 0,
+"allplay_w": 37,
+"allplay_l": 18,
+"allplay_t": 0,
+"allplay_pct": 0.6727,
+"pf": 1187.2
+},
+{
+"franchise_id": "0006",
+"h2h_w": 3,
+"h2h_l": 10,
+"h2h_t": 0,
+"h2h_pct": 0.2308,
+"div_w": 0,
+"div_l": 4,
+"allplay_w": 14,
+"allplay_l": 41,
+"allplay_t": 0,
+"allplay_pct": 0.2545,
+"pf": 1008.5
+},
+{
+"franchise_id": "0007",
+"h2h_w": 3,
+"h2h_l": 10,
+"h2h_t": 0,
+"h2h_pct": 0.2308,
+"div_w": 1,
+"div_l": 3,
+"allplay_w": 11,
+"allplay_l": 44,
+"allplay_t": 0,
+"allplay_pct": 0.2,
+"pf": 931.2
+},
+{
+"franchise_id": "0008",
+"h2h_w": 9,
+"h2h_l": 4,
+"h2h_t": 0,
+"h2h_pct": 0.6923,
+"div_w": 3,
+"div_l": 1,
+"allplay_w": 32,
+"allplay_l": 23,
+"allplay_t": 0,
+"allplay_pct": 0.5818,
+"pf": 1145.8
+},
+{
+"franchise_id": "0009",
+"h2h_w": 11,
+"h2h_l": 2,
+"h2h_t": 0,
+"h2h_pct": 0.8462,
+"div_w": 2,
+"div_l": 2,
+"allplay_w": 45,
+"allplay_l": 10,
+"allplay_t": 0,
+"allplay_pct": 0.8182,
+"pf": 1297.3
+},
+{
+"franchise_id": "0010",
+"h2h_w": 9,
+"h2h_l": 4,
+"h2h_t": 0,
+"h2h_pct": 0.6923,
+"div_w": 2,
+"div_l": 2,
+"allplay_w": 40,
+"allplay_l": 15,
+"allplay_t": 0,
+"allplay_pct": 0.7273,
+"pf": 1242.5
+},
+{
+"franchise_id": "0011",
+"h2h_w": 6,
+"h2h_l": 7,
+"h2h_t": 0,
+"h2h_pct": 0.4615,
+"div_w": 4,
+"div_l": 0,
+"allplay_w": 23,
+"allplay_l": 32,
+"allplay_t": 0,
+"allplay_pct": 0.4182,
+"pf": 1046.9
+},
+{
+"franchise_id": "0012",
+"h2h_w": 6,
+"h2h_l": 7,
+"h2h_t": 0,
+"h2h_pct": 0.4615,
+"div_w": 0,
+"div_l": 4,
+"allplay_w": 29,
+"allplay_l": 26,
+"allplay_t": 0,
+"allplay_pct": 0.5273,
+"pf": 1041
+}
+],
+"season_meta": {
+"season": 2026,
+"league_id": "74598",
+"mfl_server": "www48",
+"last_regular_season_week": 14,
+"total_weeks": 17,
+"reg_weeks": 14,
+"playoff_weeks": 3,
+"notes": "synced by sync_config_to_d1.py"
+},
+"mfl_leagueStandings": [
+{
+"id": "0009",
+"h2hw": "11",
+"h2hl": "2",
+"divw": "2",
+"divl": "2",
+"pf": "1297.3",
+"all_play_wlt": "45-10-0",
+"all_play_pct": ".818",
+"op": "1004.6",
+"dp": "292.7"
+},
+{
+"id": "0005",
+"h2hw": "9",
+"h2hl": "4",
+"divw": "4",
+"divl": "0",
+"pf": "1187.2",
+"all_play_wlt": "37-18-0",
+"all_play_pct": ".673",
+"op": "878.0",
+"dp": "309.2"
+},
+{
+"id": "0008",
+"h2hw": "9",
+"h2hl": "4",
+"divw": "3",
+"divl": "1",
+"pf": "1145.8",
+"all_play_wlt": "32-23-0",
+"all_play_pct": ".582",
+"op": "803.0",
+"dp": "342.8"
+},
+{
+"id": "0010",
+"h2hw": "9",
+"h2hl": "4",
+"divw": "2",
+"divl": "2",
+"pf": "1242.5",
+"all_play_wlt": "40-15-0",
+"all_play_pct": ".727",
+"op": "917.0",
+"dp": "325.5"
+},
+{
+"id": "0002",
+"h2hw": "7",
+"h2hl": "6",
+"divw": "3",
+"divl": "1",
+"pf": "1106.2",
+"all_play_wlt": "32-23-0",
+"all_play_pct": ".582",
+"op": "843.6",
+"dp": "262.6"
+},
+{
+"id": "0011",
+"h2hw": "6",
+"h2hl": "7",
+"divw": "4",
+"divl": "0",
+"pf": "1046.9",
+"all_play_wlt": "23-32-0",
+"all_play_pct": ".418",
+"op": "783.3",
+"dp": "263.6"
+},
+{
+"id": "0004",
+"h2hw": "6",
+"h2hl": "7",
+"divw": "2",
+"divl": "2",
+"pf": "1151.0",
+"all_play_wlt": "31-24-0",
+"all_play_pct": ".564",
+"op": "918.3",
+"dp": "232.7"
+},
+{
+"id": "0001",
+"h2hw": "6",
+"h2hl": "7",
+"divw": "2",
+"divl": "2",
+"pf": "997.7",
+"all_play_wlt": "20-35-0",
+"all_play_pct": ".364",
+"op": "758.1",
+"dp": "239.6"
+},
+{
+"id": "0012",
+"h2hw": "6",
+"h2hl": "7",
+"divw": "0",
+"divl": "4",
+"pf": "1041.0",
+"all_play_wlt": "29-26-0",
+"all_play_pct": ".527",
+"op": "815.7",
+"dp": "225.3"
+},
+{
+"id": "0003",
+"h2hw": "3",
+"h2hl": "10",
+"divw": "1",
+"divl": "3",
+"pf": "961.9",
+"all_play_wlt": "16-39-0",
+"all_play_pct": ".291",
+"op": "742.0",
+"dp": "219.9"
+},
+{
+"id": "0007",
+"h2hw": "3",
+"h2hl": "10",
+"divw": "1",
+"divl": "3",
+"pf": "931.2",
+"all_play_wlt": "11-44-0",
+"all_play_pct": ".200",
+"op": "635.9",
+"dp": "295.3"
+},
+{
+"id": "0006",
+"h2hw": "3",
+"h2hl": "10",
+"divw": "0",
+"divl": "4",
+"pf": "1008.5",
+"all_play_wlt": "14-41-0",
+"all_play_pct": ".255",
+"op": "734.9",
+"dp": "273.6"
+}
+]
+}
