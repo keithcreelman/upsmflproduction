@@ -21,10 +21,11 @@ const RAW_2026 = [
   ["WAIVER_BBID", 1786626000, null, 21], ["WAIVER_LOCK", 1789434000, null, 17], ["WAIVER_NONE", 1799114400, null, 0],
 ].map(([type, s, e, h]) => ({ type, start_time: String(s), end_time: e ? String(e) : "", happens: h ? String(h) : "", title: "", id: "x" }));
 
-// 0008's roster: 29 players in active spots, 2 on taxi, 1 on IR — exactly $300,000 on the cap (IR counts, taxi doesn't).
+// 0008's roster: 29 players in active spots, 2 on taxi, 1 on IR — exactly $300,000 on the cap by MFL's count
+// ($297,000 active + 50% of a $6,000 IR salary; taxi off the cap; no salary adjustments).
 const ROSTER = [];
 for (let i = 0; i < 29; i += 1) ROSTER.push({ id: String(10000 + i), status: "ROSTER", salary: i === 0 ? "17000" : "10000" });
-ROSTER.push({ id: "12000", status: "TAXI_SQUAD", salary: "5000" }, { id: "12001", status: "TAXI_SQUAD", salary: "2000" }, { id: "12002", status: "INJURED_RESERVE", salary: "3000" });
+ROSTER.push({ id: "12000", status: "TAXI_SQUAD", salary: "5000" }, { id: "12001", status: "TAXI_SQUAD", salary: "2000" }, { id: "12002", status: "INJURED_RESERVE", salary: "6000" });
 let CONDITIONAL = "1";
 const IMPORTS = [];
 const json = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json" } });
@@ -35,8 +36,9 @@ globalThis.fetch = async (input) => {
   if (type === "myleagues") return json({ leagues: { league: [{ league_id: LEAGUE, franchise_id: "0008", name: "UPS" }] } });
   if (type === "calendar") return json({ calendar: { event: RAW_2026 } });
   if (type === "league") return json({ league: { id: LEAGUE, rosterSize: "30", salaryCapAmount: "300000", bbidMinimum: "1000", bbidIncrement: "1000",
-    maxWaiverRounds: "5", bbidConditional: CONDITIONAL, currentWaiverType: "BBID_FCFS", franchises: { franchise: [{ id: "0008", name: "Real Deal Creel" }] } } });
+    maxWaiverRounds: "5", bbidConditional: CONDITIONAL, currentWaiverType: "BBID_FCFS", includeIRWithSalary: "50", franchises: { franchise: [{ id: "0008", name: "Real Deal Creel" }] } } });
   if (type === "rosters") return json({ rosters: { franchise: [{ id: "0008", player: ROSTER }] } });
+  if (type === "salaryAdjustments") return json({ salaryAdjustments: {} });
   if (type === "liveScoring") return json({ liveScoring: { week: "6", matchup: [] } });
   if (type === "nflSchedule") return json({ nflSchedule: { week: u.searchParams.get("W"), matchup: [] } });
   return json({ error: { $t: "test: no such call" } }, 503);
@@ -64,20 +66,20 @@ test("A1. Keith's submit — 4 claims in group 1, no drops: one pickup at most �
   t.equal(r.status, 200, r.text.slice(0, 400));
   t.equal(r.body.dry_run, true);
   t.equal(r.warn.ROSTER_HEADROOM, undefined, "29 + 1 = 30, MFL's limit — not over it");
-  t.equal(r.warn.CAP_ROOM, "If MFL awards one of your group 1 claims (it awards at most one per group), you'd be roughly $1,000 over the $300,000 cap (estimate — excludes salary adjustments). MFL enforces the cap at award time.");
+  t.equal(r.warn.CAP_ROOM, "If MFL awards one of your group 1 claims (it awards at most one per group), you'd be about $1,000 over the $300,000 cap. MFL cap room now: $0 (salary adjustments included, IR counted at 50%). MFL enforces the cap when waivers process.");
   t.deepEqual(IMPORTS, [], "dry run: nothing sent to MFL");
 });
 test("A2. two groups, each with a no-drop claim: two pickups at most → 31 active, and the costliest claim of each group on the cap", async () => {
   const r = await submit([{ round: 1, picks: [pick("20001", 1000), pick("20002", 3000)] }, { round: 2, picks: [pick("20003", 2000)] }]);
   t.equal(r.warn.ROSTER_HEADROOM, "If MFL awards one claim in each of your 2 groups (the most it can — one per group), you'd be at 31 active players (MFL's limit is 30; taxi and IR are not counted). Heads-up only — MFL decides at award time.");
-  t.match(r.warn.CAP_ROOM, /you'd be roughly \$5,000 over the \$300,000 cap/, "$3K (group 1's costliest) + $2K");
+  t.match(r.warn.CAP_ROOM, /you'd be about \$5,000 over the \$300,000 cap/, "$3K (group 1's costliest) + $2K");
 });
 test("A3. a league MFL reports as NOT conditional: every claim can land, so all four count", async () => {
   CONDITIONAL = "0";
   const r = await submit([{ round: 1, picks: [pick("20001", 1000), pick("20002", 1000), pick("20003", 1000), pick("20004", 1000)] }]);
   CONDITIONAL = "1";
   t.match(r.warn.ROSTER_HEADROOM, /^If MFL awards every claim, you'd be at 33 active players/);
-  t.match(r.warn.CAP_ROOM, /roughly \$4,000 over/);
+  t.match(r.warn.CAP_ROOM, /about \$4,000 over/);
 });
 
 // ═════════ B. the worst-case rules ═════════
