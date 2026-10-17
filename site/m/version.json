@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.17.3",
-  "label": "Standings: teams in playoff-seed order with each seed's reason, BYE / DIV / WC chips, All-Play games back, and a team sheet (draft build; restamp at release)."
+  "build": "2026.10.17.4",
+  "label": "Standings: playoff-seed order with reasons, chips and games back, a team sheet, and a Playoffs mode with the projected bracket (draft build; restamp at release)."
 }
