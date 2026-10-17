@@ -90,9 +90,10 @@
     }
     var a = t.a, b = t.b, e = t.edges || {};
     var aN = U.escapeHtml(a.name), bN = U.escapeHtml(b.name);
-    var label = ctx.kind === "projected" ? "Projected matchup — if the season ended today" : ctx.kind === "final" ? "Final" : "Current matchup";
+    var label = ctx.kind === "projected" ? "Projected matchup — if the season ended today"
+      : (ctx.kind === "final" ? "Final" + (ctx.result ? ": " + ctx.result : "") : "Scheduled") + (ctx.throughWeek ? " · numbers from before the game (through Week " + ctx.throughWeek + ")" : "");
     var head = '<div class="ups-m-card tape-head">' +
-      '<div class="tape-kind' + (ctx.kind === "projected" ? " proj" : "") + '">' + U.escapeHtml(label) + (ctx.roundLabel ? ' · ' + U.escapeHtml(ctx.roundLabel) : '') + '</div>' +
+      '<div class="tape-kind' + (ctx.kind === "projected" ? " proj" : "") + '">' + U.escapeHtml(ctx.kind === "projected" ? label + (ctx.roundLabel ? " · " + ctx.roundLabel : "") : (ctx.roundLabel ? ctx.roundLabel + " · " : "") + label) + '</div>' +
       '<div class="tape-teams">' +
         '<div class="tape-team"><span class="tape-seed">' + U.escapeHtml(ctx.aSeed || "") + '</span><span class="tape-name">' + aN + '</span><span class="tape-owner">' + U.escapeHtml(ctx.aOwner || "") + '</span>' +
           '<span class="tape-recs">H2H ' + rec(a.record) + ' · All-Play ' + rec(a.ap) + '</span></div>' +
