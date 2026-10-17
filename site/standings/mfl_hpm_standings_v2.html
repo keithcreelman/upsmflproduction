@@ -1217,7 +1217,8 @@
     .summary-card b { color: var(--gold); }
     .err-box { background: rgba(255, 138, 101, 0.08); border: 1px solid rgba(255, 138, 101, 0.45); border-left: 3px solid var(--warn); border-radius: 6px; padding: 12px 16px; color: var(--text); font-size: 13px; line-height: 1.5; }
     .err-box b { color: var(--warn); }
-    .err-box .sub { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .err-box .psub { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .psub { color: var(--muted); font-size: 11px; line-height: 1.45; text-transform: none; letter-spacing: 0; font-weight: 400; }
     .retry-btn, .link-btn { background: transparent; border: 1px solid var(--teal); color: var(--teal); border-radius: 5px; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; margin-left: 8px; }
     .link-btn { margin: 8px 0 0; }
     .pic-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
@@ -1241,7 +1242,6 @@
     li.cut-line.playoff-line { color: var(--warn); }
     li.cut-line.playoff-line::before, li.cut-line.playoff-line::after { border-top: 2px solid var(--warn); }
     .panel { background: rgba(5, 24, 52, 0.45); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; }
-    .panel .sub { color: var(--muted); font-size: 11px; line-height: 1.45; }
     .panel ul { margin: 6px 0; padding-left: 18px; }
     .div-mini + .div-mini { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
     .div-mini-name { font-weight: 800; color: var(--teal); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
@@ -1272,6 +1272,7 @@
     table.heat th { padding: 2px 6px; }
     table.heat td.hc { width: 30px; height: 24px; padding: 0; text-align: center; font-weight: 800; border-radius: 3px; font-variant-numeric: tabular-nums; }
     table.heat td.hteam { white-space: nowrap; padding-right: 10px; font-weight: 700; border: 0; }
+    table.leaders-table td:first-child, table.week-table td:nth-child(2), table.hunt-table td:nth-child(2) { white-space: nowrap; }
     .heat-key { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); margin: 6px 0 0; }
     .heat-key span.sw { display: inline-block; width: 18px; height: 12px; border-radius: 2px; }
     figure.chart { margin: 0 0 22px; background: rgba(5, 24, 52, 0.35); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
@@ -1281,6 +1282,7 @@
     figure.chart svg { display: block; width: 100%; height: auto; max-width: 860px; }
     figure.chart svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
     figure.chart svg text.lbl { fill: var(--text); font-size: 11px; }
+    figure.chart svg text.lbl, figure.chart svg text.halo { paint-order: stroke; stroke: #0b2550; stroke-width: 3px; stroke-linejoin: round; }
     figure.chart svg text.lbl.hl { font-weight: 800; }
     figure.chart svg .grid { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; }
     figure.chart svg .axis { stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
@@ -1296,7 +1298,7 @@
     figure.chart svg .dot.out.hl { fill: #0b2550; stroke: var(--gold); stroke-width: 2.5; }
     .chart-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--muted); margin-top: 6px; }
     .chart-legend .k { display: inline-flex; align-items: center; gap: 5px; }
-    .chart-legend svg { width: 12px; height: 12px; }
+    figure.chart .chart-legend svg { width: 12px; height: 12px; display: inline-block; flex: none; }
     details.chart-table { margin-top: 8px; font-size: 12px; }
     details.chart-table > summary { cursor: pointer; color: var(--teal); font-weight: 700; }
     .hist-cell .cell-sub { display: block; font-size: 9px; font-weight: 400; opacity: 0.85; white-space: nowrap; max-width: 92px; overflow: hidden; text-overflow: ellipsis; margin: 0 auto; }
@@ -1909,7 +1911,7 @@
       var why = null;
       if (race) Object.keys(race.byFranchise).some(function (k) { var w = race.byFranchise[k].whySeed; if (w && w.blocked && w.text) { why = w.text; return true; } return false; });
       return '<div class="err-box" role="alert"><b>' + escapeHtml(why || "Seeds unavailable: the regular-season results couldn’t be checked.") + '</b> No team is ranked until the weekly results can be verified.'
-        + (problemsText(resp.regular_season) ? '<span class="sub">' + escapeHtml(problemsText(resp.regular_season)) + '</span>' : '') + '</div>';
+        + (problemsText(resp.regular_season) ? '<span class="psub">' + escapeHtml(problemsText(resp.regular_season)) + '</span>' : '') + '</div>';
     }
     return "";
   }
@@ -2072,7 +2074,7 @@
       var fid = pad4(r.franchise_id);
       var you = VIEWER_FID && fid === VIEWER_FID;
       return '<tr class="hunt-row' + (you ? ' you-row' : '') + '" tabindex="0" role="button" aria-expanded="false" data-toggle="' + fid + '">'
-        + '<td class="num" title="Place in the worker’s order (outside the top six)">' + pos[fid] + '</td>'
+        + '<td class="num" title="Place in the league order (outside the top six)">' + pos[fid] + '</td>'
         + '<td>' + escapeHtml(nameOf(r)) + tkoMark(r) + moveHtml(r.order_change) + '</td>'
         + '<td class="num">' + recStr(recordOf(r)) + '</td>'
         + '<td class="num">' + recStr(allPlayOf(r)) + '</td>'
@@ -2130,7 +2132,7 @@
         + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("") + '</div>';
     }).join("");
     return '<section class="panel"><h3>Division leaders</h3>' + blocks
-      + '<div class="sub" style="margin-top:6px">GB = games behind the division leader · Order = record, then division record, then head-to-head (MFL’s rule).</div></section>';
+      + '<div class="psub" style="margin-top:6px">GB = games behind the division leader · Order = record, then division record, then head-to-head (MFL’s rule).</div></section>';
   }
   function nextOutHtml(resp, race, rows) {
     var rs = resp.regular_season || {};
@@ -2139,7 +2141,7 @@
     var rr = race && race.byFranchise[pad4(out.franchise_id)];
     return '<section class="panel"><h3>Next team out</h3>'
       + '<div style="font-size:14px;font-weight:800">' + escapeHtml(nameOf(out)) + moveHtml(out.order_change) + '</div>'
-      + '<div class="sub">' + recStr(recordOf(out)) + ' · All-Play ' + recStr(allPlayOf(out)) + ' (' + fmtPct(allPlayOf(out) && allPlayOf(out).pct) + ')' + (out.ap_back != null ? ' · Back ' + escapeHtml(String(out.ap_back)) : '') + '</div>'
+      + '<div class="psub">' + recStr(recordOf(out)) + ' · All-Play ' + recStr(allPlayOf(out)) + ' (' + fmtPct(allPlayOf(out) && allPlayOf(out).pct) + ')' + (out.ap_back != null ? ' · Back ' + escapeHtml(String(out.ap_back)) : '') + '</div>'
       + (rr && rr.whySeed && !rr.whySeed.blocked ? '<div style="margin-top:4px">' + escapeHtml(rr.whySeed.text) + '</div>' : '')
       + '</section>';
   }
@@ -2149,9 +2151,9 @@
     if (!s[1] || !s[6]) return "";
     function t(n) { return n + " " + escapeHtml(nameOf(s[n])); }
     return '<section class="panel"><h3>Bracket' + (final ? '' : ' <span class="h-sub">· projected</span>') + '</h3>'
-      + '<div class="sub">Round 1' + (final ? '' : ' if the season ended today') + ':</div>'
+      + '<div class="psub">Round 1' + (final ? '' : ' if the season ended today') + ':</div>'
       + '<ul><li>' + t(3) + ' v ' + t(6) + '</li><li>' + t(4) + ' v ' + t(5) + '</li></ul>'
-      + '<div class="sub">' + t(1) + ' plays the 4–5 winner; ' + t(2) + ' plays the 3–6 winner.</div>'
+      + '<div class="psub">' + t(1) + ' plays the 4–5 winner; ' + t(2) + ' plays the 3–6 winner.</div>'
       + '<button type="button" class="link-btn" data-goto="bracket">' + (final ? 'See the bracket →' : 'See the projected bracket →') + '</button>'
       + '</section>';
   }
@@ -2184,7 +2186,7 @@
     var left = '<div class="pic-col"><h3>' + (final ? "Seeds" : "Seeds <span class=\"h-sub\">· if the season ended today</span>") + '</h3>'
       + '<ol class="seed-list">' + items.join("") + '</ol>'
       + huntTableHtml(resp, race, sf, rows, outside, !final)
-      + '<div class="note">Seeds and reasons are the worker’s (league rule §F.1); tap a team for its week-by-week, scoring and division race.' + (final ? '' : ' BYE / DIV / WC say where a team would be if the season ended today.') + '</div>'
+      + '<div class="note">Seeds and reasons follow the league’s seeding ladder (rule §F.1); click a team for its week-by-week, scoring and division race.' + (final ? '' : ' BYE / DIV / WC say where a team would be if the season ended today.') + '</div>'
       + '</div>';
     var right = '<div class="pic-col">' + divisionLeadersHtml(resp, rows, final) + nextOutHtml(resp, race, rows) + bracketTeaserHtml(rows, final) + '</div>';
     host.innerHTML = bar + pictureSummaryHtml(resp, rows, final) + '<div class="pic-grid">' + left + right + '</div>' + tkoFootnote(resp);
@@ -2225,7 +2227,7 @@
       + '<div class="note">Fin = place after the playoffs (1 champion · 7 Hawktuah Bowl champion) · DIV = division winner · ' + escapeHtml(era) + ' Recorded final standings.</div></div>';
     var right = '<div class="pic-col"><section class="panel"><h3>' + y + ' champions</h3>'
       + '<div><b>UPS champion:</b> ' + (champ ? escapeHtml(nameOf(champ)) : "—") + '</div>'
-      + (y >= 2011 ? '<div style="margin-top:4px"><b>Hawktuah Bowl champion:</b> ' + (hawk ? escapeHtml(nameOf(hawk)) : "—") + '</div>' : '<div class="sub" style="margin-top:4px">2010’s toilet bracket had the loser advance, so no Hawktuah Bowl champion is marked.</div>')
+      + (y >= 2011 ? '<div style="margin-top:4px"><b>Hawktuah Bowl champion:</b> ' + (hawk ? escapeHtml(nameOf(hawk)) : "—") + '</div>' : '<div class="psub" style="margin-top:4px">2010’s toilet bracket had the loser advance, so no Hawktuah Bowl champion is marked.</div>')
       + (divWinners.length ? '<div style="margin-top:8px"><b>Division winners:</b> ' + divWinners.map(function (r) { return escapeHtml(nameOf(r)); }).join(", ") + '</div>' : '')
       + '</section>'
       + '<section class="panel"><h3>More</h3><button type="button" class="link-btn" data-goto="bracket">See the ' + y + ' bracket →</button></section></div>';
@@ -2344,13 +2346,13 @@
     var cols = [];
     function c(label, key, num, cell, title) { cols.push({ label: label, key: key, num: num, cell: cell, title: title }); }
     c("Seed", "seed", true, function (r) { return r._seedShown != null ? '<strong>' + r._seedShown + '</strong>' : '<span class="dim">—</span>'; },
-      ctx.finished ? "The recorded regular-season seed (2014 on)" : "The worker’s playoff seed");
+      ctx.finished ? "The recorded regular-season seed (2014 on)" : "The playoff seed (the league ladder)");
     if (ctx.finished) c("Fin", "fin", true, function (r) { return r.fin < 99 ? String(r.fin) : "—"; }, "Recorded finish after the playoffs (1 champion · 7 Hawktuah Bowl champion)");
     var raceData = ctx.raceData, resp = ctx.resp;
     // projected = !raceData.seedsFinal: "if the season ended today" until the REGULAR season is complete
     if (ctx.showRace) c("Status", null, false, function (r) { return statusChipHtml(r._status, raceData.projected && !resp.preseason); });
     c("Team", "franchise_name", false, function (r) {
-      return (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + tkoMark(r)
+      return (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + tkoMark(r)
         + (ctx.finished && r.is_division_leader ? '<span class="tag">DIV</span>' : '') + moveHtml(ctx.finished ? null : r.order_change)
         + '<span class="owner-sub">' + escapeHtml([r.owner_name, divisionLabel(r)].filter(Boolean).join(" · ")) + '</span>';
     });
@@ -2480,7 +2482,7 @@
     // Scored / Faced need every regular-season week: anything short of 'ok' is an explanation, never a table.
     if ((state.show === "scored" || state.show === "faced") && !sfOk) {
       host.innerHTML = bar + '<div class="err-box" role="alert"><b>' + (state.show === "scored" ? "Scored" : "Faced") + ' isn’t shown:</b> ' + escapeHtml(sfReason(sf)) + '.'
-        + (problemsText(sf) ? '<span class="sub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div>';
+        + (problemsText(sf) ? '<span class="psub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div>';
       wireShow(host, resp, fins, finsError);
       return;
     }
@@ -2604,7 +2606,7 @@
         var tag = r.is_division_leader && !unavailable ? '<span class="leader-pill">' + (final ? "WON" : "LEADS") + '</span>' : '';
         var you = VIEWER_FID && fid === VIEWER_FID;
         return '<tr' + (you ? ' class="you-row"' : (r.is_division_leader ? ' class="leader-row"' : '')) + '>'
-          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="">' : '') + escapeHtml(nameOf(r)) + tag + tkoMark(r) + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span></td>'
+          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') + escapeHtml(nameOf(r)) + tag + tkoMark(r) + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span></td>'
           + '<td class="num">' + recStr(rc) + '</td>'
           + '<td class="num">' + recStr(dv) + '</td>'
           + '<td class="num">' + (gb == null || gb === 0 ? "—" : fmtGB(gb).replace(/\.0$/, "")) + '</td>'
@@ -2635,7 +2637,7 @@
     var TOK = { PCT: "record", DIVPCT: "division record", H2H: "head-to-head", PTS: "Points For", ALL_PLAY_PCT: "All-Play %", PWR: "power rank" };
     var notes = '<div class="note">Div = record against the two division rivals (each played five times) · GB = games behind the division leader · '
       + (finished ? 'Order: the season’s MFL standings sort (' + tokens.map(function (t) { return TOK[t] || t; }).join(" → ") + ').' : 'Order = record, then division record, then head-to-head (MFL’s rule).')
-      + (divScoped ? ' <strong>' + scopeLabel() + '</strong>: numbers cover weeks ' + rng[0] + '–' + rng[1] + '; the order is the worker’s full-season division order.' : '') + '</div>';
+      + (divScoped ? ' <strong>' + scopeLabel() + '</strong>: numbers cover weeks ' + rng[0] + '–' + rng[1] + '; the order is the full-season division order.' : '') + '</div>';
     host.innerHTML = bar + (unavailable ? '<div class="err-box" role="alert"><b>Division order unavailable:</b> the weekly results couldn’t be verified.</div>' : '')
       + '<div class="div-grid">' + cards + '</div>' + notes + tkoFootnote(resp) + DEFERRED_NOTE;
   }
@@ -2668,7 +2670,7 @@
     var cw = M.completedWeeks(resp);
     if (cw.status === "preseason" || (cw.status === "ok" && !cw.regular.length && !cw.playoff.length)) { host.innerHTML = bar + '<div class="banner" role="status">No completed weeks yet.</div>'; return; }
     if (cw.status !== "ok") {
-      host.innerHTML = bar + '<div class="err-box" role="alert"><b>Weekly results couldn’t be verified, so nothing is ranked.</b>' + (problemsText(cw) ? '<span class="sub">' + escapeHtml(problemsText(cw)) + '</span>' : '') + '</div>';
+      host.innerHTML = bar + '<div class="err-box" role="alert"><b>Weekly results couldn’t be verified, so nothing is ranked.</b>' + (problemsText(cw) ? '<span class="psub">' + escapeHtml(problemsText(cw)) + '</span>' : '') + '</div>';
       return;
     }
     var weeks = cw.regular.concat(cw.playoff);
@@ -2691,7 +2693,7 @@
   }
   function weekTableHtml(M, resp, wk) {
     var t = M.weekTable(resp, wk);
-    if (!t || t.status !== "ok") return '<div class="err-box" role="alert"><b>Week ' + escapeHtml(String(wk)) + ' couldn’t be verified, so nothing is ranked.</b>' + (problemsText(t) ? '<span class="sub">' + escapeHtml(problemsText(t)) + '</span>' : '') + '</div>';
+    if (!t || t.status !== "ok") return '<div class="err-box" role="alert"><b>Week ' + escapeHtml(String(wk)) + ' couldn’t be verified, so nothing is ranked.</b>' + (problemsText(t) ? '<span class="psub">' + escapeHtml(problemsText(t)) + '</span>' : '') + '</div>';
     var by = rowsByFid(resp.rows);
     function nm(f) { return nameOf(by[pad4(f)] || { franchise_id: f }); }
     var ids = t.top.franchise_ids || [];
@@ -2728,7 +2730,7 @@
   function seasonWeeklyHtml(M, resp, cw) {
     var all = state.weeklyAll && cw.playoff.length > 0;
     var s = M.seasonWeeklyLeaders ? M.seasonWeeklyLeaders(resp, { weeks: all ? "all" : "regular" }) : null;
-    if (!s || s.status !== "ok") return '<div class="err-box" role="alert"><b>Season weekly leaders unavailable.</b>' + (problemsText(s) ? '<span class="sub">' + escapeHtml(problemsText(s)) + '</span>' : '') + '</div>';
+    if (!s || s.status !== "ok") return '<div class="err-box" role="alert"><b>Season weekly leaders unavailable.</b>' + (problemsText(s) ? '<span class="psub">' + escapeHtml(problemsText(s)) + '</span>' : '') + '</div>';
     var by = rowsByFid(resp.rows);
     function nm(f) { return nameOf(by[pad4(f)] || { franchise_id: f }); }
     var weeks = all ? cw.regular.concat(cw.playoff) : cw.regular.slice();
@@ -2776,12 +2778,13 @@
       heat = heatToggle + '<div class="table-scroll"><table class="' + (state.heat === "table" ? "data-table" : "heat") + '"><caption class="dim" style="caption-side:bottom;text-align:left;font-size:11px;padding-top:6px">Weekly scoring rank, 1 = the week’s top score' + (state.heat === "table" ? " (score in brackets)" : "; the number is the rank, brighter = higher") + '.</caption><thead><tr><th scope="col">Team</th>' + headW + '</tr></thead><tbody>' + bodyRows + '</tbody></table></div>'
         + (state.heat === "table" ? '' : '<div class="heat-key" aria-hidden="true">1st <span class="sw" style="background:rgba(125,232,217,0.80)"></span><span class="sw" style="background:rgba(125,232,217,0.43)"></span><span class="sw" style="background:rgba(125,232,217,0.06)"></span> ' + n + 'th</div>');
     }
-    return scopeCtl + '<div class="wk-grid">'
-      + '<div><h3 class="sec-h">Season leaders <span class="dim" style="font-weight:400">· ' + (all ? "all weeks" : "regular season") + '</span></h3>'
-      + '<div class="table-scroll"><table class="data-table leaders-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col" title="Weeks with the league’s top score">Top-score weeks</th><th class="num" scope="col">Top 3</th><th class="num" scope="col">Bottom 3</th><th class="num" scope="col" title="Average weekly scoring rank (1 best)">Avg rank</th><th class="num" scope="col">Best / worst rank</th><th class="num" scope="col">High week</th><th class="num" scope="col">Low week</th></tr></thead><tbody>' + trs + '</tbody></table></div></div>'
+    return scopeCtl
+      + '<h3 class="sec-h">Season leaders <span class="dim" style="font-weight:400">· ' + (all ? "all weeks" : "regular season") + '</span></h3>'
+      + '<div class="table-scroll" style="margin-bottom:18px"><table class="data-table leaders-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col" title="Weeks with the league’s top score">Top-score weeks</th><th class="num" scope="col">Top 3</th><th class="num" scope="col">Bottom 3</th><th class="num" scope="col" title="Average weekly scoring rank (1 best)">Avg rank</th><th class="num" scope="col">Best / worst rank</th><th class="num" scope="col">High week</th><th class="num" scope="col">Low week</th></tr></thead><tbody>' + trs + '</tbody></table></div>'
+      + '<div class="wk-grid">'
+      + '<div><h3 class="sec-h">Scoring rank by week</h3>' + heat + '</div>'
       + '<div><h3 class="sec-h">Top score each week</h3><ol class="top-weeks">' + tops + '</ol></div>'
       + '</div>'
-      + '<h3 class="sec-h" style="margin-top:18px">Scoring rank by week</h3>' + heat
       + '<div class="note">Top 3 / Bottom 3 = weeks among the three highest / lowest scores · ties share a rank · descriptive only; seeds come from the league ladder.</div>';
   }
 
@@ -2831,7 +2834,7 @@
     g.push('<text x="' + (ml + pw / 2) + '" y="' + (H - 4) + '" text-anchor="middle">Week</text>');
     g.push('<text transform="translate(12 ' + (mt + ph / 2) + ') rotate(-90)" text-anchor="middle">Place (1 = top seed)</text>');
     var cutY = mt + ((6.5 - 1) / Math.max(1, n - 1)) * ph;
-    g.push('<line class="cut" x1="' + ml + '" x2="' + (ml + pw) + '" y1="' + cutY.toFixed(1) + '" y2="' + cutY.toFixed(1) + '"/><text x="' + (ml + 4) + '" y="' + (cutY - 4).toFixed(1) + '" style="fill:var(--warn)">Playoff line</text>');
+    g.push('<line class="cut" x1="' + ml + '" x2="' + (ml + pw) + '" y1="' + cutY.toFixed(1) + '" y2="' + cutY.toFixed(1) + '"/><text class="halo" x="' + (ml + 4) + '" y="' + (cutY - 4).toFixed(1) + '" style="fill:var(--warn)">Playoff line</text>');
     var hl = state.team;
     var series = rows.map(function (r) {
       var fid = pad4(r.franchise_id);
@@ -2858,17 +2861,26 @@
       var fid = pad4(r.franchise_id);
       return '<tr><td>' + escapeHtml(nameOf(r)) + '</td>' + weeks.map(function (w) { var i = sbw[w].map(pad4).indexOf(fid); return '<td class="num">' + (i < 0 ? "—" : (i < 6 ? String(i + 1) : "(" + (i + 1) + ")")) + '</td>'; }).join("") + '</tr>';
     }).join("");
-    return chartFigure(title, "The worker’s seed order after each completed week (1 = top seed). Places 1–6 are the playoff field; (7)–(12) in the table are outside it.",
+    return chartFigure(title, "The seed order after each completed week (1 = top seed). Places 1–6 are the playoff field; (7)–(12) in the table are outside it.",
       svg, shapeLegendHtml(true), '<table class="data-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>');
   }
-  // Point labels that don't sit on top of each other: greedy, nudged down 13px on a collision.
-  function placeLabels(items) {
+  // Point labels that don't sit on top of each other: each label is a box (estimated text width, on the side of the
+  // point with room); a box that would overlap one already placed tries the slots below / above its point in turn.
+  function placeLabels(items, rightEdge) {
     var placed = [];
+    var slots = [-8, 16, -21, 29, -34, 42];
     items.forEach(function (it) {
-      var ly = it.y - 8, tries = 0;
-      while (tries < 6 && placed.some(function (p) { return Math.abs(p.y - ly) < 12 && Math.abs(p.x - it.x) < 110; })) { ly += 13; tries++; }
-      placed.push({ x: it.x, y: ly });
-      it.ly = ly;
+      var w = String(it.p.name).length * 6.2 + 4;
+      it.right = it.x + 8 + w < rightEdge;
+      var x0 = it.right ? it.x + 8 : it.x - 8 - w, x1 = x0 + w;
+      var chosen = it.y + slots[0];
+      for (var i = 0; i < slots.length; i++) {
+        var ly = it.y + slots[i];
+        var hit = placed.some(function (b) { return Math.abs(b.y - ly) < 12 && x0 < b.x1 && b.x0 < x1; });
+        if (!hit) { chosen = ly; break; }
+      }
+      placed.push({ x0: x0, x1: x1, y: chosen });
+      it.ly = chosen;
     });
     return items;
   }
@@ -2905,9 +2917,9 @@
       var cls = "dot " + (p.inField === false ? "out" : "in") + (isHl ? " hl" : "");
       g.push('<circle class="' + cls + '" cx="' + sx(p.x).toFixed(1) + '" cy="' + sy(p.y).toFixed(1) + '" r="' + (isHl ? 6 : 5) + '"><title>' + svgEsc(p.name + ": " + o.xLabel + " " + o.xFmt(p.x) + ", " + o.yLabel + " " + o.yFmt(p.y)) + '</title></circle>');
     });
-    var labels = placeLabels(o.points.filter(function (p) { return o.labelFids.indexOf(p.fid) >= 0; }).map(function (p) { return { p: p, x: sx(p.x), y: sy(p.y) }; }));
+    var labels = placeLabels(o.points.filter(function (p) { return o.labelFids.indexOf(p.fid) >= 0; }).map(function (p) { return { p: p, x: sx(p.x), y: sy(p.y) }; }), ml + pw);
     labels.forEach(function (l) {
-      var right = l.x < ml + pw - 120;
+      var right = l.right;
       g.push('<text class="lbl' + (l.p.fid === state.team ? ' hl' : '') + '" x="' + (l.x + (right ? 8 : -8)).toFixed(1) + '" y="' + l.ly.toFixed(1) + '" text-anchor="' + (right ? "start" : "end") + '">' + svgEsc(l.p.name) + '</text>');
     });
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + svgEsc(o.aria) + '" style="max-width:600px">' + g.join("") + '</svg>';
@@ -2932,7 +2944,7 @@
     var inField = function (r) { return finished ? undefined : (r.playoff_seed != null && Number(r.playoff_seed) <= 6); };
     var charts = [seedPathChartHtml(resp)];
     if (sf.status !== "ok") {
-      charts.push('<figure class="chart"><figcaption><div class="ct">All-Play % vs record % · Points For vs points faced</div></figcaption><div class="err-box" role="alert"><b>Not drawn:</b> ' + escapeHtml(sfReason(sf)) + '.' + (problemsText(sf) ? '<span class="sub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div></figure>');
+      charts.push('<figure class="chart"><figcaption><div class="ct">All-Play % vs record % · Points For vs points faced</div></figcaption><div class="err-box" role="alert"><b>Not drawn:</b> ' + escapeHtml(sfReason(sf)) + '.' + (problemsText(sf) ? '<span class="psub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div></figure>');
     } else {
       var pts = rows.map(function (r) {
         var s = sf.byFranchise[pad4(r.franchise_id)];
