@@ -177,8 +177,8 @@ test("Picture: division leaders in the worker's division order, with GB and the 
   const worker = RESP_2026.rows.filter((r) => r.division === "03").sort((a, b) => a.division_rank - b.division_rank).map((r) => r.franchise_name);
   t.deepEqual(names, worker, "the worker's division_rank order");
   t.deepEqual(names, ["C-Town Chivalry", "Cleon Ca$h", "Hawks"]);
-  t.match(div03[2], /Cleon Ca\$h over Hawks: same record, a better division record \(4-0 vs 0-4\)\./);
-  t.ok(!/same record, a better record/.test(panel), "no reason line when record (PCT) decided it");
+  t.match(div03[2], /Cleon Ca\$h over Hawks: same H2H record, a better division record \(4-0 vs 0-4\)\./);
+  t.ok(!/same H2H record, a better H2H record/.test(panel), "no reason line when the H2H record (PCT) decided it");
 });
 test("Picture: 'Seeds unavailable: <reason>' when the worker seeds nobody; preseason says so; a failed fetch offers a retry", async () => {
   const bad = await page("year=2026", { env: ENV_BAD });
@@ -280,7 +280,7 @@ test("Divisions: the worker's division order (division_rank), GB, the non-record
     const names = [...card[1].matchAll(/<tr[^>]*><td>([^<]+)/g)].map((m) => m[1]);
     t.deepEqual(names, RESP_2026.rows.filter((r) => r.division === d).sort((a, b) => a.division_rank - b.division_rank).map((r) => r.franchise_name), "division " + d);
   }
-  t.match(p.html, /<div class="reason">Cleon Ca\$h over Hawks: same record, a better division record \(4-0 vs 0-4\)\.<\/div>/);
+  t.match(p.html, /<div class="reason">Cleon Ca\$h over Hawks: same H2H record, a better division record \(4-0 vs 0-4\)\.<\/div>/);
   t.match(p.html, /Order = record, then division record, then head-to-head \(MFL’s rule\)\./);
 });
 

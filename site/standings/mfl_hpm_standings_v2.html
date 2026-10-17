@@ -1847,8 +1847,8 @@
     ["H2H record", "Head-to-head wins and losses against your scheduled opponents. A week can hold two or three games (37 in 14 weeks)."],
     ["PF per week", "Points For divided by weeks played: one score a week."],
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
-    ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then record, then Points For, then head-to-head. Regular-season weeks only."],
-    ["Division order", "Record, then division record, then head-to-head (MFL’s rule)."],
+    ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
+    ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["Back", "All-Play wins behind the 6th seed (ties count half)."],
     ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins."],
     ["Scored vs Faced", "Scored is what your lineup put up; Faced is what your opponents put up against you: schedule, not skill."],
@@ -2129,7 +2129,7 @@
         if (!below) return;
         var a = regOf(r), b = regOf(below);
         var det = vb.step === "DIVPCT" && a && b ? " (" + recStr(a.division) + " vs " + recStr(b.division) + ")" : "";
-        reasons.push(nameOf(r) + " over " + nameOf(below) + ": same record, " + (DIV_STEP_WORDS[vb.step] || vb.step) + det + ".");
+        reasons.push(nameOf(r) + " over " + nameOf(below) + ": same H2H record, " + (DIV_STEP_WORDS[vb.step] || vb.step) + det + ".");
       });
       return '<div class="div-mini"><div class="div-mini-name">' + escapeHtml(d.name) + '</div>'
         + '<table class="mini"><thead><tr><th>Team</th><th class="num">H2H</th><th class="num" title="H2H record against the two division rivals">Div</th><th class="num" title="H2H games behind the division leader">GB</th></tr></thead><tbody>' + trs + '</tbody></table>'
@@ -2523,7 +2523,7 @@
     if (!wk.ok) noteBits.push('<div class="note">Playoff records show <strong>?</strong>: ' + escapeHtml(wk.reason) + '.</div>');
     var colNote = state.show === "faced"
       ? '<p class="col-note"><strong>Faced: schedule, not skill.</strong> What your opponents scored against you in the regular season; rank 1 = faced the most points per game.</p>'
-      : (state.show === "scored" ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, record, then season Points For.</p>' : '');
+      : (state.show === "scored" ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>' : '');
     host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + tkoFootnote(resp) + DEFERRED_NOTE;
     wireSortClicks(host, state.overall, function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
     wireDisclosureToggles(host);
@@ -2629,7 +2629,7 @@
         if (!below) return;
         var a = regOf(r), b = regOf(below);
         var det = vb.step === "DIVPCT" && a && b ? " (" + recStr(a.division) + " vs " + recStr(b.division) + ")" : "";
-        reasons.push(nameOf(r) + " over " + nameOf(below) + ": same record, " + (DIV_STEP_WORDS[vb.step] || vb.step) + det + ".");
+        reasons.push(nameOf(r) + " over " + nameOf(below) + ": same H2H record, " + (DIV_STEP_WORDS[vb.step] || vb.step) + det + ".");
       });
       return '<section class="div-card">'
         + '<header class="div-card-header"><div class="div-card-brand">' + divBannerHtml(k, d.name) + '</div>'
