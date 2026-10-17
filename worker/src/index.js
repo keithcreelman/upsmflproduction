@@ -44998,17 +44998,32 @@ const mflToSleeper = {};
           rule: avRule,
           runs: avCalOk && avRuns.length ? { known: true, list: avRuns } : { known: false, reason: "the waiver calendar couldn't be read" },
           window: { mode: avWin.mode, mode_reason: avWin.mode_reason, fcfs_closes_unix: avWin.fcfs_closes_unix },
+          // rollover = when the league moves to the next scoring week, by the
+          // Lineup week's own rule (resolveCurrentLineupWeek): a game lock
+          // lasts until then.
           week: avWeekKnown
-            ? { known: true, week: avWeekNo, kickoffs: avKick, last_kickoff_unix: avLast }
+            ? { known: true, week: avWeekNo, kickoffs: avKick, last_kickoff_unix: avLast, rollover_unix: avLast + _LINEUP_WEEK_GRACE_SEC }
             : { known: false, reason: "this week's NFL kickoffs couldn't be read" },
           drops: avTxRows ? { known: true, by_player: avDrops } : { known: false, reason: "MFL's transaction log couldn't be read" },
           teams: avTeams,
           franchise_names: avNames,
+          // Runs MFL has posted (their BBID_AUTO_PROCESS_WAIVERS marker), so the
+          // app knows when a run's results are in and re-reads rosters itself.
+          processed_runs: (avTxRows ? (Array.isArray(avTxRows) ? avTxRows : [avTxRows]) : [])
+            .filter((x) => safeStr(x && x.type).toUpperCase() === "BBID_AUTO_PROCESS_WAIVERS")
+            .map((x) => Number(x.timestamp) || 0).filter(Boolean),
         });
         const avPayload = {
           ok: true, league_id: avLeagueId, season: avSeason,
           window: { mode: avWin.mode, mode_reason: avWin.mode_reason, fcfs_closes_unix: avWin.fcfs_closes_unix },
           ...av,
+          // Who the last run awarded: the app compares its rosters with this
+          // to know whether they already show that run.
+          last_run_adds: av.last_run_unix && avTxRows
+            ? (Array.isArray(avTxRows) ? avTxRows : [avTxRows])
+                .filter((x) => safeStr(x && x.type).toUpperCase() === "BBID_WAIVER" && Number(x.timestamp) === av.last_run_unix)
+                .flatMap((x) => safeStr(x.transaction).split("|")[0].split(",").map((p) => p.trim()).filter(Boolean))
+            : [],
         };
         const avResp = jsonOut(200, avPayload);
         // Never cached past the next instant a state can change (a run, a
