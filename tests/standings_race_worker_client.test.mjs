@@ -63,10 +63,13 @@ test("race(): seed explanations are the worker's seed_reason, word for word — 
   t.equal(out.projected, true, "season_complete is false");
   const why = (fid) => out.byFranchise[fid].whySeed.text;
   t.equal(why("0001"), "Seed 1: in the bye pool (the two best division winners); ranked ahead of Gride on Overall record.");
-  t.equal(why("0004"), "Seed 3: in the seeds 3–6 pool; ranked ahead of CBP on head-to-head.");
-  t.equal(why("0007"), "Seed 5: in the seeds 3–6 pool; ranked ahead of HammerTime on season Points For.");
-  t.match(why("0006"), /^Outside the top six — .* behind CBP \(the last wild card\) on All-Play %\.$/);
-  t.equal(out.byFranchise["0004"].whySeed.decidingCriterion, "head_to_head");
+  // below the team above (vs_above), and -- when a tiebreak, not All-Play, put it ahead of the team below -- that too
+  t.equal(why("0004"), "Seed 3: behind Gride on All-Play %. Ahead of CBP on head-to-head (same All-Play %, Overall record and season Points For).");
+  t.equal(why("0007"), "Seed 5: behind CBP on All-Play %. Ahead of HammerTime on season Points For (same All-Play % and Overall record).");
+  t.equal(why("0005"), "Seed 6: behind Sex Manther on season Points For (same All-Play % and Overall record).");
+  t.match(why("0006"), /^Outside the top six — 6 AP wins back; behind CBP \(the last wild card\) on All-Play %\.$/);
+  t.equal(out.byFranchise["0004"].whySeed.decidingCriterion, "all_play");
+  t.equal(out.byFranchise["0004"].whySeed.aheadOf.step, "head_to_head");
 });
 test("race(): a FAILED weekly or weeklyScores query (worker sends null + weekly_errors) is unavailable — never preseason zeros", async () => {
   const RACE = raceModule();
@@ -85,7 +88,7 @@ test("race(): a FAILED weekly or weeklyScores query (worker sends null + weekly_
 });
 test("race(): a RECORDED season is labelled recorded — no ladder step claimed", async () => {
   const out = raceModule().race(await standings(makeLadderSeason({ recorded: true })));
-  t.ok(Object.values(out.byFranchise).every((r) => /from the recorded final standings\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
+  t.ok(Object.values(out.byFranchise).every((r) => /^From the recorded final standings \(see the finish and the recorded seed\)\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
 });
 
 test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as po: null) makes BOTH regular-season tables incomplete", async () => {
@@ -119,7 +122,7 @@ test("A2 projectedPlayoffGroups on the real response: a failed weeklyScores quer
   t.ok(bad.rows.every((r) => r.playoff_seed === null));
   // The client, handed seeded rows with null weekly scores, never invents 0.0 games back.
   const g = RACE.projectedPlayoffGroups(okResp.rows, null);
-  t.deepEqual(g.inTheHunt.map((e) => [e.franchise_id, e.apGB]), [["0006", null], ["0008", null]], "unavailable, and in the worker's ladder order");
+  t.deepEqual(g.inTheHunt.map((e) => [e.franchise_id, e.apGB]), [["0006", 6], ["0008", 10]], "the worker's own ap_back, in the worker's ladder order (never a client 0.0)");
   t.ok(g.wildCards.every((e) => e.apGB === 0), "seeds 1-6 are 0 games back by definition");
   const rows = okResp.rows.slice(); const i6 = rows.findIndex((r) => r.franchise_id === "0006"), i8 = rows.findIndex((r) => r.franchise_id === "0008");
   [rows[i6], rows[i8]] = [rows[i8], rows[i6]];                 // pretend the worker ranked 0008 ahead
@@ -137,7 +140,7 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   t.match(html, /<span class="status-chip bye projected"[^>]*>BYE<small> proj\.<\/small><\/span>/);
   t.match(html, /Seeds: All-Play % → Overall → season Points For → head-to-head \(league rule §F\.1\)/);
   t.match(html, /Seeds and BYE \/ DIV \/ WC are projected until the season ends\./);
-  t.match(html, /Seed 3: in the seeds 3–6 pool; ranked ahead of CBP on head-to-head\./);
+  t.match(html, /Seed 3: behind Gride on All-Play %\. Ahead of CBP on head-to-head/);
   t.ok(!/Seeds derived AP % → Overall PCT → PF/.test(html), "the old stale note is gone");
   t.match(html, /<th[^>]*>.*Avg PF/, "main's Avg PF label kept (decision 4)");
   t.match(html, /AP GB/, "AP GB added beside it");
@@ -155,7 +158,8 @@ test("desktop: a recorded season says 'Seeds: the recorded final standings.' and
   await settle();
   const html = plain(p.html());
   t.match(html, /Seeds: the recorded final standings\./);
-  t.match(html, /Seed 1 — from the recorded final standings\./);
+  t.match(html, /From the recorded final standings \(see the finish and the recorded seed\)\./);
+  t.ok(!/Seed 1 — from the recorded/.test(html), "no seed number from the recompute (#1329)");
   t.ok(!/league rule §F\.1/.test(html));
 });
 

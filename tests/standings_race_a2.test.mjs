@@ -244,14 +244,14 @@ check('13. pre-playoff mobile groups produce 2/2/2/6 with the controlled fixture
   assert.strictEqual(g.wildCards[0].status, 'WC');
   g.inTheHunt.forEach((e) => assert.strictEqual(e.status, null, 'never OUT/eliminated language — status is null for unseeded teams'));
 });
-check('14. IN THE HUNT sorts by AP GB ascending, with a deterministic tie-break', () => {
+// v3 (2026-10-17): IN THE HUNT is no longer re-sorted by client-computed AP games back — it keeps the worker's
+// order (its ladder); the games-back figure is shown, never used to re-rank.
+check('14. IN THE HUNT keeps the worker\'s row order — never re-sorted by AP games back', () => {
   const g = RACE.projectedPlayoffGroups(ROWS_2026, []);
-  const gbs = g.inTheHunt.map((e) => e.apGB);
-  for (let i = 1; i < gbs.length; i++) assert.ok(gbs[i] >= gbs[i - 1], 'AP GB must be non-decreasing: ' + gbs.join(','));
-  // Hotel (0008) and Juliet (0010) are tied on AP (both 8-12) -> deterministic franchise_id tie-break, not source order.
-  const hotelIdx = g.inTheHunt.findIndex((e) => e.franchise_id === '0008');
-  const julietIdx = g.inTheHunt.findIndex((e) => e.franchise_id === '0010');
-  assert.ok(hotelIdx < julietIdx, '"0008" must sort before "0010" as a deterministic string tie-break');
+  assert.deepStrictEqual(g.inTheHunt.map((e) => e.franchise_id), ['0007', '0008', '0009', '0010', '0011', '0012'], 'the rows\' own order, though 0008 (8 AP wins) sits ahead of 0009 (10)');
+  assert.deepStrictEqual(g.inTheHunt.map((e) => e.apGB), [1, 5, 3, 5, 7, 9], 'games back still shown, from seed 6 (13 AP wins)');
+  const reversed = ROWS_2026.slice().reverse();
+  assert.deepStrictEqual(RACE.projectedPlayoffGroups(reversed, []).inTheHunt.map((e) => e.franchise_id), ['0012', '0011', '0010', '0009', '0008', '0007'], 'whatever order the worker sends');
 });
 
 // ── 15. completed 2025 mobile data -> real matchup cards (via buildActualBracketResult's `games` list) ──

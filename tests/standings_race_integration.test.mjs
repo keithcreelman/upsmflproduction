@@ -214,7 +214,8 @@ check('D1/D3 status machine: deriveRegSeasonApTable exposes ok/preseason/incompl
   const tableFn = extractBracedFn(RACE_MODULE, 'function deriveRegSeasonApTable(weeklyScores, expectedFids) {');
   assert.ok(/'preseason'/.test(tableFn) && /'incomplete'/.test(tableFn) && /'conflict'/.test(tableFn) && /'ok'/.test(tableFn));
   assert.ok(/conflictWeeks/.test(tableFn), 'conflicting duplicate scores must be detected, not silently last-wins');
-  const whyFn = extractBracedFn(RACE_MODULE, 'function whySeedForRow(row, rows, weeklyScores) {');
+  // v3: whySeedForRow takes the response's { standings_basis, regular_season } as a 4th (context) argument.
+  const whyFn = extractBracedFn(RACE_MODULE, 'function whySeedForRow(row, rows, weeklyScores, context) {');
   assert.ok(/apGamesBack\(list, weeklyScores\)/.test(whyFn), 'the unseeded branch must pass weeklyScores through, not call apGamesBack(list) alone');
 });
 
