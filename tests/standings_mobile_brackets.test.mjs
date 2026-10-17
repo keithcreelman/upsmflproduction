@@ -83,7 +83,7 @@ test("UPS Playoffs, projected: rounds stacked top to bottom, byes, seeds, advanc
   t.match(p, /Round 1 Projected 4 Real Deal Creel advances \(proj\.\) 5 CBP/);
   t.match(p, /First-round byes: 1 C-Town Chivalry · 2 Blake Bombers/);
   t.match(p, /Semifinal Projected 1 C-Town Chivalry advances \(proj\.\) 4 Real Deal Creel winner of 4 v 5 \(projected\)/);
-  t.match(p, /5th-place game · Round 1 losers Projected 5 CBP advances \(proj\.\) 6 Pure Greatness Winner 5th \(pick 1\.07\) · loser 6th \(pick 1\.08\)/);
+  t.match(p, /5th-place game · Round 1 losers Projected 5 CBP advances \(proj\.\) 6 Pure Greatness Winner 5th \(pick 1\.07\) · loser 6th \(pick 1\.08\)/, "the better seed is listed first");
   t.match(p, /Championship Projected 1 C-Town Chivalry advances \(proj\.\) 2 Blake Bombers Winner 1st \(pick 1\.12\) · loser 2nd \(pick 1\.11\)/);
   t.match(p, /3rd-place game · semifinal losers Projected .* Winner 3rd \(pick 1\.10\) · loser 4th \(pick 1\.09\)/);
   const games = [...html.matchAll(/<div class="ups-m-bk-game[^"]*"([^>]*)>/g)];
@@ -120,7 +120,8 @@ test("a finished season (2025): real results, Final tags, winners checked, nothi
 test("Seeds option: 1-12 in order, each with the worker's seed explanation, and the playoff line", async () => {
   const b = await boot();
   const p = plain(await b.show({ mode: "playoffs", side: "seeds", year: 2026 }));
-  t.match(p, /Seeds and why 1 C-Town Chivalry Seed 1: .* 4 Real Deal Creel Seed 4: behind HammerTime 🔨 ⏰ on All-Play %\. Ahead of CBP on H2H record \(same All-Play %\)\./);
+  t.match(p, /Seeds and why 1 C-Town Chivalry Seed 1: .* 4 Real Deal Creel Seed 4: behind HammerTime on All-Play %\. Ahead of CBP on H2H record \(same All-Play %\)\./);
+  t.match(p, /H2 Cleon Ca\$h Outside the top six — 8 AP wins back; .* Directly behind Hawks on All-Play %\./, "a Hawk Tuah seed says what put it there");
   t.match(p, /6 Pure Greatness .* Playoff line · H1–H6 play the Hawk Tuah Bowl H1 Hawks/);
 });
 test("Tale of the Tape: header, Quick edge, Ceiling / Typical / Floor, Full comparison — ranks, edges, no prediction", async () => {
@@ -136,10 +137,10 @@ test("Tale of the Tape: header, Quick edge, Ceiling / Typical / Floor, Full comp
   const tape = R.matchupTape(resp, "0005", "0004", { offenseIdp: opdp });
   const series = R.ownerSeries(JSON.parse(HIST), "Eric Martel", "Brian Cutting", { current: { season: 2026, games: tape.meetings } });
   const p = plain(tapeOpen.tapeHtml(tape, { kind: "projected", roundLabel: "Round 1 · Week 15", aSeed: "3", bSeed: "6", aOwner: "Eric Martel", bOwner: "Brian Cutting", series }));
-  t.match(p, /Projected matchup — if the season ended today · Round 1 · Week 15 3 HammerTime 🔨 ⏰ Eric Martel H2H 9-4 · All-Play 37-18 vs 6 Pure Greatness Brian Cutting H2H 6-7 · All-Play 31-24/);
-  t.match(p, /This season: Week 1 — HammerTime 🔨 ⏰ won, 312\.8–258\.5 · Week 4 — HammerTime 🔨 ⏰ won, 250\.2–211\.6/);
+  t.match(p, /Projected matchup — if the season ended today · Round 1 · Week 15 3 HammerTime Eric Martel H2H 9-4 · All-Play 37-18 vs 6 Pure Greatness Brian Cutting H2H 6-7 · All-Play 31-24/);
+  t.match(p, /This season: Week 1 — HammerTime won, 312\.8–258\.5 · Week 4 — HammerTime won, 250\.2–211\.6/);
   t.equal(order(p, ["1 · Quick edge", "2 · Ceiling / Typical / Floor", "3 · Full comparison"]), "ok", "the three sections, in Keith's order");
-  t.match(p, /Edges: HammerTime 🔨 ⏰ 3, Pure Greatness 2 \(of 5\)\. What has happened so far, not a prediction\./);
+  t.match(p, /Edges: HammerTime 3, Pure Greatness 2 \(of 5\)\. What has happened so far, not a prediction\./);
   t.match(p, /▲ 237\.4 3rd Season scoring average regular season, per week 230\.2 4th/);
   t.match(p, /221\.9 6th Last 3 weeks average Weeks 3–5 ▲ 231\.0 4th/);
   t.match(p, /▲ 19-14 Last 3 weeks All-Play 17-16/);

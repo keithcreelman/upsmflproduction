@@ -679,6 +679,11 @@
   }
   // One bracket game (shared-module game shape). Tapping it, or its Tale of the Tape button, opens the matchup sheet.
   function bkGameHtml(g, o) {
+    // The better seed is always listed first (the shared module orders a game's two sides by franchise id or by feed).
+    if (g && g.a && g.b && Number(g.b.seed) < Number(g.a.seed)) {
+      g = { a: g.b, b: g.a, scoreA: g.scoreB, scoreB: g.scoreA, winner: g.winner, loser: g.loser, pending: g.pending, projected: g.projected, status: g.status };
+      o = Object.assign({}, o, { srcA: o.srcB, srcB: o.srcA });
+    }
     var proj = o.kind === "projected";
     var done = !proj && g && !g.pending;
     var tag = proj ? '<span class="ups-m-bk-tag proj">Projected</span>' : (done ? '<span class="ups-m-bk-tag final">Final</span>' : '<span class="ups-m-bk-tag">Not final</span>');
