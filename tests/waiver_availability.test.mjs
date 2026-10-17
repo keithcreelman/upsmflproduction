@@ -76,6 +76,22 @@ test("Demario Davis's real sequence: dropped in Thursday's 9:00:00 AM run → Fr
   t.equal(before.players["14943"].code, "waivers_later"); t.equal(before.players["14943"].eligible_run_unix, SAT_RUN);
 });
 
+test("each player's LATEST drop counts, and a re-add cancels it (MFL's own add/drop strings)", () => {
+  const d = dropsFromTransactions([
+    { type: "FREE_AGENT", franchise: "0001", timestamp: "100", transaction: "|501," },
+    { type: "BBID_WAIVER", franchise: "0002", timestamp: "200", transaction: "501,|1000|" },     // picked up again
+    { type: "FREE_AGENT", franchise: "0003", timestamp: "50", transaction: "|502," },
+    { type: "BBID_WAIVER", franchise: "0004", timestamp: "300", transaction: "503,|2000|502," },  // dropped again, in a claim
+    { type: "TRADE", franchise: "0005", timestamp: "400", franchise1_gave_up: "504," },
+  ]);
+  t.equal(d["501"], undefined, "dropped, then claimed: no drop lock");
+  t.deepEqual(d["502"], { dropped_at_unix: 300, franchise_id: "0004", via: "waiver_claim" }, "the later drop wins");
+  t.equal(d["503"], undefined); t.equal(d["504"], undefined, "a trade is not a drop");
+  // Real: Ryan Flournoy (16778) — claimed by Blake Bombers in Thursday's run, dropped by them in Friday's.
+  const real = dropsFromTransactions(J("transactions_2026_10_08_16.json").transaction);
+  t.deepEqual(real["16778"], { dropped_at_unix: FRI_RUN, franchise_id: "0010", via: "waiver_claim" });
+});
+
 test("boundaries: just before (eligible), exactly equal (not), just after (not) — strictly after drop + 86,400 s", () => {
   const at = (dropAt) => resolve({ now: dropAt + 60, drops: { 1: drop(dropAt) }, teams: { 1: "NYJ" } }).players["1"];
   t.equal(at(THU_RUN - 1).eligible_run_unix, FRI_RUN, "dropped 8:59:59 Thu → lock ends 8:59:59 Fri → Friday's run");
