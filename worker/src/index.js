@@ -19510,6 +19510,9 @@ export default {
           // week: matchups incl. double/triple-headers, per-player scores,
           // W/L results). liveScoring is current-week-only; this is the rest.
           "weeklyResults",
+          // leagueStandings — keyless season standings; the Standings matchup sheet reads each team's offensive-player
+          // ("op") and IDP ("dp") points from it (#1329). Public and read-only, like weeklyResults.
+          "leagueStandings",
           // User-specific endpoints: MUST go to api.myfantasyleague.com
           // (MFL rejects them on shards). Authenticate with the per-user
           // APIKEY param read from window._apiKey_ in the browser. See
