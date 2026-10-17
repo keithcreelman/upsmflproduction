@@ -106,7 +106,11 @@
   // can't be computed without remaining-schedule data. Reads
   // playoff_status directly; never infers status from seed number alone.
   var STATUS_MAP = { bye: 'BYE', division_winner: 'DIV', wild_card: 'WC' };
+  // A RECORDED (finished) season's playoff_status/playoff_seed on /api/standings are a recompute under today's
+  // rule, not the recorded seeds (wrong in 14 of 16 seasons, #1329), so no status is claimed for them.
+  function isRecordedRow(row) { return !!(row && row.seed_reason && row.seed_reason.basis === 'recorded_final_standings'); }
   function statusForRow(row) {
+    if (isRecordedRow(row)) return null;
     var st = row && row.playoff_status;
     return STATUS_MAP.hasOwnProperty(st) ? STATUS_MAP[st] : null;
   }
@@ -320,6 +324,11 @@
   function apGamesBack(rows, weeklyScores) {
     var list = Array.isArray(rows) ? rows : [];
     var out = {};
+    // Recorded seasons: "behind the 6th seed" would use the recompute's 6th seed (see isRecordedRow) -- unavailable.
+    if (list.some(isRecordedRow)) {
+      list.forEach(function (r) { if (isRowObject(r)) out[pad4(r.franchise_id)] = null; });
+      return out;
+    }
     var allWorker = list.length > 0 && list.every(function (r) { return !isRowObject(r) || hasOwn(r, 'ap_back'); });
     if (allWorker) {
       list.forEach(function (r) {
@@ -799,9 +808,10 @@
     var seed = Number(row.playoff_seed);
     var seeded = seed >= 1 && seed <= 6;
     if (reason && reason.basis === 'recorded_final_standings') {
+      // No seed number: this row's playoff_seed is the recompute, not the recorded seed (see isRecordedRow).
       return {
         blocked: false, basis: 'recorded_final_standings', pool: null, decidingCriterion: null, vsAbove: null,
-        text: (seeded ? 'Seed ' + seed : 'Outside the top six') + ' — from the recorded final standings.'
+        text: 'From the recorded final standings (see the finish and the recorded seed).'
       };
     }
     var ctxBasis = context && context.standings_basis;
