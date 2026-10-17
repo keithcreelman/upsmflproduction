@@ -531,10 +531,11 @@ check('seed explanation: AP unavailable for an outside team is said, never a zer
 check('seed explanation: a season with RECORDED final standings is labeled so — no ladder step is claimed', () => {
   const rec = (r) => Object.assign({}, r, { seed_reason: { basis: 'recorded_final_standings' } });
   const why3 = RACE.whySeedForRow(rec(byFid(SEASON_2020, '0008')), SEASON_2020.map(rec));
-  assert.strictEqual(why3.text, 'Seed 3 — from the recorded final standings.');
+  // no seed number: the recorded row's playoff_seed is the recompute, not the recorded seed (#1329)
+  assert.strictEqual(why3.text, 'From the recorded final standings (see the finish and the recorded seed).');
   assert.strictEqual(why3.decidingCriterion, null);
   assert.strictEqual(why3.basis, 'recorded_final_standings');
-  assert.strictEqual(RACE.whySeedForRow(rec(byFid(SEASON_2020, '0002')), SEASON_2020.map(rec)).text, 'Outside the top six — from the recorded final standings.');
+  assert.strictEqual(RACE.whySeedForRow(rec(byFid(SEASON_2020, '0002')), SEASON_2020.map(rec)).text, 'From the recorded final standings (see the finish and the recorded seed).');
 });
 check('seed explanation: no seed_reason on the row (an older worker) → blocked, never guessed', () => {
   const why = RACE.whySeedForRow(byFid(SEASON_2020, '0008'), SEASON_2020);

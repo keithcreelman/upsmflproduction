@@ -464,7 +464,7 @@ test("PART 1 #4 whySeed: the worker's vs_above explains why a team is BELOW its 
   t.equal(txt(out), "Outside the top six — 2 AP wins back; behind Pure Greatness (the last wild card) on All-Play %. Blake Bombers is in the field as a division winner.");
   // recorded: never a step
   const rec = { ...base, seed_reason: { basis: "recorded_final_standings" }, playoff_seed: 3 };
-  t.deepEqual([RACE.whySeedForRow(rec, []).text, RACE.whySeedForRow(rec, []).decidingCriterion], ["Seed 3 — from the recorded final standings.", null]);
+  t.deepEqual([RACE.whySeedForRow(rec, []).text, RACE.whySeedForRow(rec, []).decidingCriterion], ["From the recorded final standings (see the finish and the recorded seed).", null]);
   // unavailable: the worker's first problem, in words
   const unavailable = (R) => {
     t.equal(RESP_BAD_FLAG.standings_basis, "unavailable");
