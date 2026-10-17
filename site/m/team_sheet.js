@@ -52,11 +52,6 @@
     var n = Number(v || 0);
     return isFinite(n) ? n.toFixed(3).replace(/^0\./, ".") : ".000";
   }
-  function fmtSignedLuck(v) {
-    if (v == null || isNaN(v)) return "—";
-    var n = Number(v);
-    return (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(3).replace(/^0\./, ".");
-  }
   function rec(w, l, t) { return (w || 0) + "-" + (l || 0) + (t ? "-" + t : ""); }
 
   function gameLogHtml(log) {
@@ -86,15 +81,71 @@
       '<table class="ups-m-standings-table"><thead><tr><th class="team">Team</th><th class="num">Overall</th><th class="num">AP GB</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
-  // open(fid, opts) — opts: { row (an /api/standings row), raceRow
-  // (UPS_STANDINGS_RACE.race(...).byFranchise[fid]), year, trigger (the
-  // element that was tapped, for focus-restore on close) }
+  function pts(v) { var n = Number(v); return v == null || !isFinite(n) ? "—" : n.toFixed(1); }
+  function signed(v, digits) {
+    if (v == null || !isFinite(Number(v))) return "—";
+    var n = Number(v);
+    return (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(digits == null ? 1 : digits);
+  }
+  function ordinalRank(n) {
+    if (!n) return "—";
+    var s = ["th", "st", "nd", "rd"], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+  // Scored = what the manager controls; Faced = the schedule drawn (never called "defense": in UPS, MFL's
+  // Defense column is the points your IDP players score); Luck = record vs what the weekly scores earned.
+  function scoredFacedHtml(sf, status) {
+    if (!sf) {
+      return '<div class="ups-m-card"><div class="ups-m-card-title">Scored · Faced · Luck</div><div class="ups-m-stub"><div>' +
+        (status === "preseason" ? "No games played yet." : "Weekly results couldn\u2019t be verified, so these aren\u2019t shown.") + '</div></div></div>';
+    }
+    var s = sf.scored || {}, f = sf.faced || {}, o = sf.overall || {};
+    var l3 = s.last3 || null;
+    return '<div class="ups-m-card"><div class="ups-m-card-title">Scored <span class="sub">· what the manager controls</span></div>' +
+        '<div class="ups-m-cap-grid">' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Points For</div><div class="val">' + pts(s.pf) + ' <span class="sub">' + ordinalRank(s.pfRank) + '</span></div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Per week</div><div class="val">' + pts(s.pfPerWeek) + '</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Avg weekly rank</div><div class="val">' + (s.avgWeeklyRank == null ? "—" : Number(s.avgWeeklyRank).toFixed(1)) + '</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Best / worst week</div><div class="val">' + (s.highWeek ? "W" + s.highWeek.week + " " + pts(s.highWeek.score) : "—") + ' / ' + (s.lowWeek ? "W" + s.lowWeek.week + " " + pts(s.lowWeek.score) : "—") + '</div></div>' +
+        '</div>' +
+        (l3 ? '<div class="sub">Last 3 weeks: average rank ' + (l3.avgRank == null ? "—" : Number(l3.avgRank).toFixed(1)) + ', All-Play ' + rec(l3.ap && l3.ap.w, l3.ap && l3.ap.l, l3.ap && l3.ap.t) + '. Recent form describes what happened; it predicts the rest of the season less well than the full season does.</div>' : '') +
+      '</div>' +
+      '<div class="ups-m-card"><div class="ups-m-card-title">Faced <span class="sub">· schedule, not skill</span></div>' +
+        '<div class="ups-m-cap-grid">' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Opponents per game</div><div class="val">' + pts(f.paPerGame) + ' <span class="sub">' + (f.paRank ? ordinalRank(f.paRank) + " most" : "") + '</span></div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Opponents vs their usual</div><div class="val">' + signed(f.oppVsUsual) + '</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Close games (&lt;10)</div><div class="val">' + (f.closeGames ? rec(f.closeGames.w, f.closeGames.l, f.closeGames.t) : "—") + '</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Schedule luck</div><div class="val">' + signed(o.luck) + ' <span class="sub">wins</span></div></div>' +
+        '</div>' +
+        '<div class="sub">Luck = actual wins (' + (o.record ? rec(o.record.w, o.record.l, o.record.t) : "—") + ') minus expected wins (' + (o.expectedWins == null ? "—" : Number(o.expectedWins).toFixed(1)) + ': for each game, the share of the league you outscored that week). A positive number means the matchups helped.</div>' +
+      '</div>';
+  }
+  function historyHtml(h, gameLog) {
+    if (!h || h.status !== "ok" || !h.weeks || !h.weeks.length) return '<div class="ups-m-card">' + gameLogHtml(gameLog) + '</div>';
+    var seedAfter = {};
+    (h.seedByWeek || []).forEach(function (s) { seedAfter[s.week] = s; });
+    var rows = h.weeks.map(function (w) {
+      var res = (w.games || []).map(function (g) { return g.result; }).join("") || "—";
+      var sa = seedAfter[w.week];
+      return '<tr><td>' + (w.isPlayoff ? "P" : "") + w.week + '</td><td class="num">' + pts(w.score) + '</td><td class="num">' + (w.rank || "—") + '</td>' +
+        '<td class="num">' + rec(w.ap && w.ap.w, w.ap && w.ap.l, w.ap && w.ap.t) + '</td><td class="num">' + U.escapeHtml(res) + '</td>' +
+        '<td class="num">' + (sa ? (sa.seed ? sa.seed : (sa.orderIndex != null ? "(" + (sa.orderIndex + 1) + ")" : "—")) : "—") + '</td></tr>';
+    }).join("");
+    return '<div class="ups-m-card"><div class="ups-m-card-title">Week by week</div>' +
+      '<table class="ups-m-standings-table"><thead><tr><th>Wk</th><th class="num">Pts</th><th class="num">Rk</th><th class="num">Wk AP</th><th class="num">Games</th><th class="num">Seed</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="ups-m-standings-legend">Rk = scoring rank that week · Seed = seed after that week; (8) = 8th, outside the field</div></div>';
+  }
+
+  // open(fid, opts) — opts: { row (an /api/standings row), raceRow (UPS_STANDINGS_RACE.race(...).byFranchise[fid]),
+  // scoredFaced (UPS_STANDINGS_RACE.scoredFaced(resp).byFranchise[fid]) + scoredFacedStatus, history
+  // (UPS_STANDINGS_RACE.teamWeeklyHistory(resp, fid)), year, trigger (focus-restore on close), seasonState }
   function open(fid, opts) {
     var mount = ensureMount();
     if (!mount) return;
     opts = opts || {};
     var row = opts.row || {};
     var rr = opts.raceRow || {};
+    var reg = row.regular_season || null;
     lastTrigger = opts.trigger || document.activeElement;
 
     var head = document.getElementById("ups-m-team-sheet-head");
@@ -110,17 +161,17 @@
         '</div>' +
       '</div>';
 
+    var ap = reg ? reg.all_play : { w: row.allplay_w, l: row.allplay_l, t: row.allplay_t, pct: row.allplay_pct };
+    var ovr = reg ? reg.record : { w: row.h2h_w, l: row.h2h_l, t: row.h2h_t, pct: row.h2h_pct };
     body.innerHTML =
-      '<div class="ups-m-card">' +
+      '<div class="ups-m-card">' + whySeedHtml(rr.whySeed) +
         '<div class="ups-m-cap-grid">' +
-          '<div class="ups-m-cap-kv"><div class="lbl">Overall</div><div class="val">' + rec(row.h2h_w, row.h2h_l, row.h2h_t) + ' (' + fmtPct(row.h2h_pct) + ')</div></div>' +
-          '<div class="ups-m-cap-kv"><div class="lbl">All-Play</div><div class="val">' + rec(row.allplay_w, row.allplay_l, row.allplay_t) + ' (' + fmtPct(row.allplay_pct) + ')</div></div>' +
-          '<div class="ups-m-cap-kv"><div class="lbl">Luck</div><div class="val">' + fmtSignedLuck(rr.luck) + '</div></div>' +
-          '<div class="ups-m-cap-kv"><div class="lbl">Expected wins</div><div class="val">' + (rr.expectedWins == null ? "—" : rr.expectedWins.toFixed(1)) + '</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Record</div><div class="val">' + rec(ovr.w, ovr.l, ovr.t) + ' (' + fmtPct(ovr.pct) + ')</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">All-Play</div><div class="val">' + rec(ap.w, ap.l, ap.t) + ' (' + fmtPct(ap.pct) + ')</div></div>' +
         '</div>' +
       '</div>' +
-      '<div class="ups-m-card">' + whySeedHtml(rr.whySeed) + '</div>' +
-      '<div class="ups-m-card">' + gameLogHtml(rr.gameLog) + '</div>' +
+      (opts.seasonState === "final" ? "" : scoredFacedHtml(opts.scoredFaced, opts.scoredFacedStatus)) +
+      historyHtml(opts.history, rr.gameLog) +
       (rr.divisionRace && rr.divisionRace.length ? '<div class="ups-m-card">' + divisionRaceHtml(rr.divisionRace) + '</div>' : '');
 
     foot.innerHTML = '<button class="btn" id="ups-m-team-sheet-roster" type="button">View roster →</button>';

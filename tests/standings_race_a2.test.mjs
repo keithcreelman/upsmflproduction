@@ -529,14 +529,15 @@ check('[wiring] mobile renderPlayoffsMode calls window.UPS_STANDINGS_RACE.projec
   const slice = MOBILE_LEAGUE.slice(start, start + 2500);
   assert.ok(/window\.UPS_STANDINGS_RACE\.projectionMode\(\{\s*seasonComplete:\s*bresp\.season_complete,\s*matchups:\s*matchups,\s*seeds:\s*seeds\s*\}\)/.test(slice));
   assert.ok(/mode === "actual"/.test(slice) && /mode === "projected"/.test(slice));
-  assert.ok(/renderActualMatchupCards/.test(slice) && /renderPrePlayoffGroups/.test(slice));
+  // Standings v3 (#1329): in season the projected BRACKET replaces the four groups (a duplicate of Seeds)
+  assert.ok(/renderActualMatchupCards/.test(slice) && /renderProjectedBracket/.test(slice));
 });
 check('[wiring] F4: mobile pre-playoff legend is owner-facing copy — no developer note, and never the words OUT/eliminated anywhere on the page', () => {
-  const groupsFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderPrePlayoffGroups(groups) {'), MOBILE_LEAGUE.indexOf('function renderPrePlayoffGroups(groups) {') + 700);
-  assert.ok(/Projected from current seeds/.test(groupsFn));
+  const projFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderProjectedBracket(seeds, bresp) {'), MOBILE_LEAGUE.indexOf('function renderProjectedBracket(seeds, bresp) {') + 2600);
+  assert.ok(/If the season ended today\./.test(projFn) && /Projection: the higher seed wins every game/.test(projFn));
   assert.ok(!/>OUT</.test(MOBILE_LEAGUE) && !/"OUT"/.test(MOBILE_LEAGUE) && !/\beliminated\b/i.test(MOBILE_LEAGUE));
   const cardsFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderActualMatchupCards('), MOBILE_LEAGUE.indexOf('function renderActualMatchupCards(') + 1500);
-  assert.ok(!/Projected from current seeds/.test(cardsFn), 'the projected legend must never render alongside actual matchup cards');
+  assert.ok(!/If the season ended today/.test(cardsFn), 'the projected legend must never render alongside actual matchup cards');
 });
 check('[wiring] F7: the mobile final-round card label never repeats the side name twice', () => {
   const fn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderActualMatchupCards('), MOBILE_LEAGUE.indexOf('function renderActualMatchupCards(') + 1500);
@@ -548,7 +549,8 @@ check('[wiring] F3: the League/Divisions/Playoffs toggle carries a dedicated cla
   assert.ok(/ups-m-mode-toggle/.test(fn));
   assert.ok(/aria-pressed/.test(fn));
   assert.ok(/b\("playoffs", "Playoffs"\)/.test(fn));
-  assert.ok(/b\("league", "League"\)/.test(fn) && /b\("divisions", "Divisions"\)/.test(fn));
+  // Standings v3 (#1329): Seeds replaces League; Weekly is added
+  assert.ok(/b\("seeds", "Seeds"\)/.test(fn) && /b\("divisions", "Divisions"\)/.test(fn) && /b\("weekly", "Weekly"\)/.test(fn));
 });
 check('mobile bracket loader never permanently caches a failed fetch as success (fails closed, retries after a cooldown, distinct from a legitimate empty bracket)', () => {
   const fn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function loadPlayoffBracketForYear(year) {'), MOBILE_LEAGUE.indexOf('function loadPlayoffBracketForYear(year) {') + 1200);
