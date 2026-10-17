@@ -16,6 +16,7 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 import {
   DAY_SEC, parseDropLockSetting, dropsFromTransactions, resolveWaiverAvailability, runLabel,
 } from "../worker/src/waiver_availability.js";
+import { CASES, stateAt as at, control } from "./fixtures/waiver_availability/timeline.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FX = path.join(ROOT, "tests/fixtures/waiver_availability");
@@ -39,16 +40,25 @@ for (let k = 0; k < 46; k++) {
 }
 const RULE = { known: true, mode: "first_run_after", days: 1, prevent_gametime_moves: true, text: "Dropped players are locked until the first waivers run after 1 day(s)." };
 const W6 = J("nfl_2026_w6.json");   // NFL week 6, 2026: SEA–DEN Thu 10-15 8:15 PM … MNF 10-19
+const W7 = J("nfl_2026_w7.json");   // NFL week 7, 2026: Thu 10-22 8:15 PM … MNF 10-26
+// The league moves to the next scoring week 7 hours after the week's last kickoff
+// (resolveCurrentLineupWeek); the route passes that as week.rollover_unix.
+const GRACE = 7 * 3600;
+const ROLL6 = W6.last_kickoff_unix + GRACE;   // Tue Oct 20, 3:15 AM ET
+const weekAt = (t) => (t < ROLL6
+  ? { known: true, week: 6, kickoffs: W6.kickoffs, last_kickoff_unix: W6.last_kickoff_unix, rollover_unix: ROLL6 }
+  : { known: true, week: 7, kickoffs: W7.kickoffs, last_kickoff_unix: W7.last_kickoff_unix, rollover_unix: W7.last_kickoff_unix + GRACE });
 const NAMES = { "0008": "Real Deal Creel", "0010": "Blake Bombers", "0007": "Sex Manther" };
 
-function resolve({ now, drops = {}, teams = {}, rule = RULE, week, mode = "bbid", runs = RUNS, fcfsCloses = null, dropsKnown = true }) {
+function resolve({ now, drops = {}, teams = {}, rule = RULE, week, mode = "bbid", runs = RUNS, fcfsCloses = null, dropsKnown = true, processed = null }) {
   return resolveWaiverAvailability({
     now_unix: now, rule,
     runs: runs ? { known: true, list: runs } : { known: false, reason: "the waiver calendar couldn't be read" },
     window: { mode, fcfs_closes_unix: fcfsCloses },
-    week: week === undefined ? { known: true, week: 6, kickoffs: W6.kickoffs, last_kickoff_unix: W6.last_kickoff_unix } : week,
+    week: week === undefined ? weekAt(now) : week,
     drops: dropsKnown ? { known: true, by_player: drops } : { known: false, reason: "MFL's transaction log couldn't be read" },
     teams, franchise_names: NAMES,
+    processed_runs: processed || (runs || []).filter((r) => r <= now),
   });
 }
 const drop = (at, fid = "0008", via = "drop") => ({ dropped_at_unix: at, franchise_id: fid, via });
@@ -132,14 +142,18 @@ test("already game-locked: Zach Allen (DEN) dropped Thu 8:00 PM, 14 min before h
   t.equal(r.by_team.NYJ.code, "waivers");
 });
 
-test("after the Monday 9:00 PM re-lock, a player whose Sunday game is over can be bid on: his claim goes to Thursday's run, after the week", () => {
+test("a game lock lasts the rest of the scoring week — after the Monday 9:00 PM re-lock too — and clears when the league rolls over", () => {
   const mon9pm = et(2026, 10, 19, 21, 0);
-  const nyj = resolve({ now: mon9pm }).by_team.NYJ;   // NYJ played Sun 10-18 1:00 PM; the week's last kickoff is MNF 10-19
-  t.equal(nyj.code, "waivers"); t.equal(nyj.eligible_run_unix, NEXT_THU);
-  t.ok(nyj.lines.includes("His game (NYJ) was Sun Oct 18, 1:00 PM ET; that NFL week is over by this run."));
+  const nyj = resolve({ now: mon9pm + 1 }).by_team.NYJ;   // NYJ played Sun 10-18 1:00 PM; the week's last kickoff is MNF 10-19
+  t.equal(nyj.code, "game_locked"); t.equal(nyj.eligible_run_unix, NEXT_THU); t.equal(nyj.bid_opens_unix, ROLL6);
+  t.ok(nyj.lines.includes("The league moves to the next week Tue Oct 20, 3:15 AM ET."));
+  t.ok(nyj.lines.includes("You can enter a claim from Tue Oct 20, 3:15 AM ET, in time for Thursday's run."));
+  t.equal(resolve({ now: ROLL6 - 1 }).by_team.NYJ.code, "game_locked");
+  const after = resolve({ now: ROLL6 + 1 }).by_team.NYJ;
+  t.equal(after.code, "waivers"); t.equal(after.eligible_run_unix, NEXT_THU, "Week 7: Bid, in time for Thursday's run");
+  t.equal(resolve({ now: ROLL6 - 60 }).changes_at_unix, ROLL6, "the rollover is a change instant (the app re-reads then)");
   const sunFcfs = resolve({ now: et(2026, 10, 18, 14, 0), mode: "fcfs", fcfsCloses: et(2026, 10, 19, 21, 0) }).by_team.NYJ;
-  t.equal(sunFcfs.code, "game_locked", "but inside Sunday's FCFS window, after kickoff, he can't be added now");
-  t.equal(sunFcfs.eligible_run_unix, NEXT_THU);
+  t.equal(sunFcfs.code, "game_locked", "inside Sunday's FCFS window too");
 });
 
 test("no owner-specific restriction: the state is the same whoever dropped him (MFL has none; UPS's re-add rule limits only an MYM)", () => {
@@ -203,6 +217,48 @@ test("FCFS window: everyone else is Available now; a player dropped Sunday morni
   t.equal(r.players["1"].code, "waivers_later"); t.equal(r.players["1"].eligible_run_unix, NEXT_THU); t.equal(r.players["1"].badge, "Thu waiver");
 });
 
+// ── Keith's four cases, clock-controlled (2026-10-17) ─────────────────────────
+// One second before and after every event: the drop, the 24-hour mark, each
+// run, kickoff, the Monday re-lock, the weekly rollover and the next claim
+// deadline. The badge names the first run that can AWARD him; Bid returns
+// early enough to SUBMIT a claim before that run.
+for (const [name, dropAt, team, steps] of CASES) {
+  test(`timeline ${name}: 1 s before and after each event`, () => {
+    for (const [label, ev, eB, rB, eA, rA] of steps) {
+      for (const [when, t0, e, r] of [["before", ev - 1, eB, rB], ["after", ev + 1, eA, rA]]) {
+        const st = at(t0, dropAt, team);
+        t.equal(control(st), e, `${when} ${label}`);
+        if (r) t.equal(st.eligible_run_unix, r, `${when} ${label}: the first run that can award him`);
+      }
+    }
+  });
+}
+
+test("Bid returns early enough: wherever a badge names a run, a claim can be entered before it — at bid_opens, and not a second earlier", () => {
+  let checked = 0;
+  for (const [, dropAt, team, steps] of CASES) {
+    for (const [, ev] of steps) {
+      const st = at(ev + 1, dropAt, team);
+      if (!st.bid_opens_unix) continue;
+      checked++;
+      t.ok(st.bid_opens_unix < st.eligible_run_unix, "claims open before the run that can award him");
+      t.notEqual(control(at(st.bid_opens_unix - 1, dropAt, team)), "Bid", "not before");
+      const open = at(st.bid_opens_unix + 1, dropAt, team);
+      t.equal(control(open), "Bid", "Bid from bid_opens");
+      t.equal(open.eligible_run_unix, st.eligible_run_unix, "…for the run the badge named");
+    }
+  }
+  t.ok(checked >= 8, `${checked} badge states checked`);
+});
+
+test("a run MFL hasn't posted yet: re-read every 20 s; once posted, the answer says so (the app then re-reads rosters itself)", () => {
+  const pending = resolve({ now: SAT_RUN + 10, processed: RUNS.filter((r) => r < SAT_RUN) });
+  t.equal(pending.last_run_unix, SAT_RUN); t.equal(pending.last_run_processed, false);
+  t.equal(pending.changes_at_unix, SAT_RUN + 30, "look again in 20 s");
+  const posted = resolve({ now: SAT_RUN + 50 });
+  t.equal(posted.last_run_processed, true); t.equal(posted.changes_at_unix, SUN_RUN);
+});
+
 test("historical replay, 2022–2026: of 1,434 adds of a previously dropped player, none came before the resolver's first eligible run", () => {
   const fx = J("drop_readd_2022_2026.json");
   let early = 0, exact = 0;
@@ -226,6 +282,9 @@ test("the route serves the one resolver and caches only a fully-read answer; the
   t.match(SRC, /csetup\?L=\$\{encodeURIComponent\(avLeagueId\)\}&C=ADDDROP/);
   t.match(SRC, /if \(av\.known\) \{\s*try \{ ctx\.waitUntil\(caches\.default\.put\(avCacheKey/);
   t.match(SRC, /if \(rule\.known\) \{\s*rule\.read_at_unix/, "only a READ setting is cached");
+  t.match(SRC, /rollover_unix: avLast \+ _LINEUP_WEEK_GRACE_SEC/, "the game lock ends when the Lineup week rolls over (one definition)");
+  t.match(SRC, /=== "BBID_AUTO_PROCESS_WAIVERS"\)/, "runs MFL has posted come from its own log");
+  t.match(SRC, /last_run_adds: av\.last_run_unix && avTxRows/, "and who the last run awarded");
   const APP = fs.readFileSync(path.join(ROOT, "site/m/app.js"), "utf8");
   t.match(APP, /availability: waiverAvailabilityFor,/);
   const PL = fs.readFileSync(path.join(ROOT, "site/m/views/players.js"), "utf8");

@@ -2130,7 +2130,7 @@
     if (state.waiverAvailPromise) return state.waiverAvailPromise;
     var url = workerUrl("/api/waivers/availability") +
       "?L=" + encodeURIComponent(state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(state.ctx.year);
-    var before = state.waiverAvail ? state.waiverAvail.now_unix + "|" + JSON.stringify(state.waiverAvail.players) : "";
+    var before = waiverAvailSignature(state.waiverAvail);
     // Retried like fetchWaiverState: one dropped request must not leave every
     // free agent on "Can't confirm" until a pull-to-refresh.
     function attempt(n) {
@@ -2148,16 +2148,51 @@
         state.waiverAvailTriedAt = Date.now();
         if (j && j.ok) { state.waiverAvail = j; state.waiverAvailError = ""; }
         else if (!state.waiverAvail) state.waiverAvailError = "the availability check didn't load";
-        var after = state.waiverAvail ? state.waiverAvail.now_unix + "|" + JSON.stringify(state.waiverAvail.players) : "";
+        var after = waiverAvailSignature(state.waiverAvail);
         if (after !== before || !state.waiverAvail) {
           try { window.dispatchEvent(new CustomEvent("ups-waiver-availability")); } catch (_) {}
           try { renderRoute(); } catch (_) {}
         }
+        scheduleWaiverAvailabilityTick();
         return state.waiverAvail;
       });
     state.waiverAvailPromise = p;
     return p;
   }
+  // What the screen shows, without the read time: a re-read that changes no
+  // state repaints nothing.
+  function waiverAvailSignature(av) {
+    return av ? JSON.stringify([av.players, av.by_team, av.no_game, av.next_run_unix, av.last_run_unix, av.last_run_processed]) : "";
+  }
+  // Time moves the answer on by itself (Keith 2026-10-17): a run, a kickoff,
+  // the first-come close and the weekly rollover all happen while the app sits
+  // open. Re-read at the instant the server says the answer can change
+  // (changes_at_unix, +2 s), or every 30 s while reads are failing.
+  function scheduleWaiverAvailabilityTick() {
+    if (state.waiverAvailTimer) { clearTimeout(state.waiverAvailTimer); state.waiverAvailTimer = null; }
+    var av = state.waiverAvail;
+    var wait = av && av.changes_at_unix ? av.changes_at_unix * 1000 + 2000 - Date.now() : (state.waiverAvailError ? 30000 : 0);
+    if (!wait) return;
+    wait = Math.max(5000, Math.min(wait, 6 * 3600 * 1000));
+    state.waiverAvailTimer = setTimeout(function () { state.waiverAvailTimer = null; fetchWaiverAvailability(true); }, wait);
+  }
+  // After a run MFL has posted, re-read the rosters once by ourselves — the
+  // same reload pull-to-refresh runs — so a claimed player leaves the free
+  // agents and a dropped one arrives. Held while the owner is in the middle
+  // of something (a bid, a drop, the Claims screen); tried again shortly.
+  function reloadRostersAfterRun(ran) {
+    if (state.autoReloadRun === ran) return;
+    var busy = ["ups-m-bid-overlay", "ups-m-claims-overlay", "ups-m-drop-overlay"].some(function (id) { return !!document.getElementById(id); });
+    if (busy) { setTimeout(function () { try { renderRoute(); } catch (_) {} }, 20000); return; }
+    state.autoReloadRun = ran;
+    reloadData().then(function () {
+      state.rostersSyncedRun = ran;
+      try { renderRoute(); } catch (_) {}
+    }, function () {
+      setTimeout(function () { if (state.autoReloadRun === ran) state.autoReloadRun = 0; }, 60000);
+    });
+  }
+
   // One free agent's state: players[pid] (a recent drop) || by_team[his NFL
   // team] || no_game (bye week, or no NFL team). null = still loading.
   //   code: available_now · waivers · waivers_later · game_locked ·
@@ -2172,27 +2207,34 @@
       // Still failing: try again in the background, at most every 30 s.
       if (!state.waiverAvailTriedAt || Date.now() - state.waiverAvailTriedAt > 30000) fetchWaiverAvailability(true);
       return { code: "unknown", badge: "Can't confirm", lines: [],
-        headline: "Availability could not be confirmed — " + state.waiverAvailError + ". Pull down to refresh." };
+        headline: "Availability could not be confirmed — " + state.waiverAvailError + ". Trying again automatically." };
     }
     var nowS = Date.now() / 1000;
     if (av.changes_at_unix && nowS >= av.changes_at_unix &&
         (!state.waiverAvailTriedAt || Date.now() - state.waiverAvailTriedAt > 15000)) {
       fetchWaiverAvailability(true);
     }
-    // The latest run at or before now, by this payload (or the run it said
-    // was next, if that has since passed).
-    var ran = 0, ranLabel = "";
+    // A waiver run moves players on and off rosters. The latest run at or
+    // before now (or the one this answer said was next, if that has passed):
+    // rosters read before it, or within 15 minutes after it, may be pre-run.
+    var ran = 0, ranLabel = "", posted = false;
     if (av.next_run_unix && nowS >= av.next_run_unix) { ran = av.next_run_unix; ranLabel = av.next_run_label; }
-    else if (av.last_run_unix && nowS >= av.last_run_unix) { ran = av.last_run_unix; ranLabel = av.last_run_label; }
-    // MFL posts a run's results within minutes (Fri 10-16: a player won at
-    // 9:00 was moved to IR at 9:04:36). Rosters read before run + 5 min may
-    // predate it.
-    if (ran && (state.rostersReadAt || 0) / 1000 < ran + 300) {
-      var processing = nowS < ran + 300;
-      return { code: "unknown", badge: "Refresh", lines: [], stale: true,
-        headline: "Availability could not be confirmed — " + (ranLabel || "a waiver run") +
-          (processing ? " is processing. Pull down to refresh in a few minutes."
-                      : " has processed since your rosters loaded. Pull down to refresh.") };
+    else if (av.last_run_unix && nowS >= av.last_run_unix) { ran = av.last_run_unix; ranLabel = av.last_run_label; posted = av.last_run_processed === true; }
+    // The rosters on screen already show that run when every player it
+    // awarded (last_run_adds, from MFL's log) is on a roster here.
+    var reflected = posted && (av.last_run_adds || []).every(function (apid) {
+      var o = ownerOfPid(apid);
+      return !!(o && o.known && !o.free);
+    });
+    if (ran && !reflected && ran > (state.rostersSyncedRun || 0) && (state.rostersReadAt || 0) / 1000 < ran + 900) {
+      // MFL has posted the run (or 15 minutes have passed): re-read rosters
+      // now. Before that: say it's processing; the 20-second re-read and
+      // then the reload happen by themselves (no pull-to-refresh needed).
+      var waited = nowS >= ran + 900;
+      if (posted || waited) reloadRostersAfterRun(ran);
+      return { code: "unknown", badge: "Updating", lines: [], stale: true,
+        headline: "Availability could not be confirmed yet — " + (ranLabel || "a waiver run") +
+          (posted || waited ? " is in; updating the rosters now." : " is processing; this updates by itself.") };
     }
     var t = String(team || "").toUpperCase();
     return (av.players && av.players[String(pid)]) || (t && av.by_team && av.by_team[t]) || av.no_game || null;

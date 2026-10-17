@@ -44,45 +44,107 @@ export function makeEnv(flags) {
 }
 
 // A current season that exercises every step of the seeding ladder (worker/src/seeding.js) through /api/standings.
-// 8 teams, 4 divisions of 2. Division winners (by Overall within the division): 0001, 0003, 0005, 0007.
-//   bye pool:   0001 vs 0003 — tied All-Play .700, 0001 ahead on Overall (.800 v .700)
-//   seeds 3-6:  0004 v 0002 — tied All-Play, Overall AND Points For; 0004 beat 0002 → head-to-head
-//               0002 v 0007 — All-Play .650 v .550
-//               0007 v 0005 — tied All-Play and Overall; Points For 950 v 900
+// 8 teams, 4 divisions of 2. Built from WEEKLY scores and games (the current season is seeded from those, regular-
+// season weeks only -- worker/src/standings_truth.js), four weeks, one game each:
+//   weeks 1 and 3 (P1): 0001 200 > 0003 190 > 0004 170 > 0002 160 > 0007 150 > 0005 140 > 0006 110 > 0008 100
+//   weeks 2 and 4 (P2): 0003 200 > 0001 190 > 0002 170 > 0004 160 > 0005 148 > 0007 146 > 0006 110 > 0008 100
+// Division winners (on record): 0001 (4-0), 0003 (3-1), 0005 (2-2 v 1-3), 0007 (2-2 v 0-4).
+//   bye pool:   0001 vs 0003 — All-Play tied 26-2, 0001 ahead on Overall (4-0 v 3-1)
+//   seeds 3-6:  0004 v 0002 — tied All-Play (18-10), Overall (2-2) AND Points For (660); 0004 won 2 of 3 → head-to-head
+//               0002 v 0007 — All-Play 18-10 v 10-18
+//               0007 v 0005 — tied All-Play (10-18) and Overall (2-2); Points For 592 v 576
 //   outside:    0006, 0008 — behind the last wild card (0002) on All-Play
 export const LADDER_TEAMS = [
-  ["0001", "A", 0.700, 0.800, 1000], ["0002", "A", 0.650, 0.500, 1100],
-  ["0003", "B", 0.700, 0.700, 1200], ["0004", "B", 0.650, 0.500, 1100],
-  ["0005", "C", 0.550, 0.600, 900],  ["0006", "C", 0.400, 0.400, 800],
-  ["0007", "D", 0.550, 0.600, 950],  ["0008", "D", 0.400, 0.400, 800],
+  ["0001", "A", 26 / 28, 1.00, 780], ["0002", "A", 18 / 28, 0.50, 660],
+  ["0003", "B", 26 / 28, 0.75, 780], ["0004", "B", 18 / 28, 0.50, 660],
+  ["0005", "C", 10 / 28, 0.50, 576], ["0006", "C", 4 / 28, 0.25, 440],
+  ["0007", "D", 10 / 28, 0.50, 592], ["0008", "D", 0 / 28, 0.00, 400],
 ];
-// Week 1: every team plays once (0004 beat 0002 — the head-to-head that splits their tie) and posts a score.
+const LADDER_P1 = { "0001": 200, "0003": 190, "0004": 170, "0002": 160, "0007": 150, "0005": 140, "0006": 110, "0008": 100 };
+const LADDER_P2 = { "0003": 200, "0001": 190, "0002": 170, "0004": 160, "0005": 148, "0007": 146, "0006": 110, "0008": 100 };
+const LADDER_WEEKS = [
+  { week: 1, scores: LADDER_P1, games: [["0001", "0003"], ["0004", "0002"], ["0006", "0008"], ["0007", "0005"]] },
+  { week: 2, scores: LADDER_P2, games: [["0003", "0004"], ["0002", "0005"], ["0001", "0006"], ["0007", "0008"]] },
+  { week: 3, scores: LADDER_P1, games: [["0001", "0007"], ["0003", "0006"], ["0005", "0008"], ["0004", "0002"]] },
+  { week: 4, scores: LADDER_P2, games: [["0002", "0004"], ["0005", "0007"], ["0001", "0006"], ["0003", "0008"]] },
+];
 // failGames / failWeekly / failScores make that /api/standings query throw (D1 error), as #1201's tests do.
-// po: the is_playoff value written for week 1 (default 0); null or a stray value models a malformed flag in D1.
+// po: the is_playoff value written for WEEK 1's rows (default 0); null or a stray value models a malformed flag in D1.
 export function makeLadderSeason({ recorded = false, failGames = false, failWeekly = false, failScores = false, po = 0 } = {}) {
-  const env = makeWorkerEnv({});
+  const divisions = Object.fromEntries(LADDER_TEAMS.map(([fid, div]) => [fid, div]));
+  const s = weeklySeason({ weeks: LADDER_WEEKS, divisions, lastRegularSeasonWeek: 14 });
+  for (const r of s.games) if (r.week === 1) r.is_playoff = po;
+  for (const r of s.weeklyScores) if (r.week === 1) r.is_playoff = po === null ? 0 : po;   // NOT NULL column: a NULL flag can only exist in src_schedule
+  const env = loadSeason(makeWorkerEnv({}), s);
   const db = env.UPS_MFL_DB.raw;
-  db.exec(SCHEMA);
-  db.prepare("INSERT INTO src_league_season_meta (season, league_id, mfl_server) VALUES (2026, '74598', 'www48')").run();
-  for (const [fid, div, ap, ov, pf] of LADDER_TEAMS) {
-    db.prepare("INSERT INTO src_franchises (season, franchise_id, team_name, division) VALUES (2026, ?, ?, ?)").run(fid, "Team " + fid, div);
-    db.prepare("INSERT INTO src_standings (season, franchise_id, h2h_w, h2h_l, h2h_t, h2h_pct, allplay_pct, pf) VALUES (2026, ?, 1, 1, 0, ?, ?, ?)").run(fid, ov, ap, pf);
-    if (recorded) db.prepare("INSERT INTO src_final_standings (season, franchise_id, final_finish) VALUES (2026, ?, 1)").run(fid);
-  }
-  const g = db.prepare("INSERT INTO src_schedule (season, week, franchise_id, opponent_franchise_id, team_score, opponent_score, is_divisional, is_playoff) VALUES (2026, 1, ?, ?, ?, ?, 0, ?)");
-  const sc = db.prepare("INSERT INTO src_franchise_weekly_score (season, week, franchise_id, team_score, team_opt_pts, is_playoff) VALUES (2026, 1, ?, ?, ?, ?)");
-  for (const [a, b, as, bs] of [["0004", "0002", 120, 100], ["0001", "0003", 130, 125], ["0005", "0007", 110, 115], ["0006", "0008", 95, 90]]) {
-    g.run(a, b, as, bs, po); g.run(b, a, bs, as, po);
-    const spo = po === null ? 0 : po;   // NOT NULL column: a NULL flag can only exist in src_schedule
-    sc.run(a, as, as + 10, spo); sc.run(b, bs, bs + 10, spo);
-  }
+  if (recorded) for (const [fid] of LADDER_TEAMS) db.prepare("INSERT INTO src_final_standings (season, franchise_id, final_finish) VALUES (2026, ?, 1)").run(fid);
   const needles = [];
-  if (failGames) needles.push("WHERE season = ? AND COALESCE(is_playoff, 0) = 0");
-  if (failWeekly) needles.push("FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week");
+  if (failGames || failWeekly) needles.push("FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0");
   if (failScores) needles.push("FROM src_franchise_weekly_score WHERE season = ?");
   if (needles.length) {
     const prep = env.UPS_MFL_DB.prepare.bind(env.UPS_MFL_DB);
     env.UPS_MFL_DB.prepare = (sql) => { if (needles.some((n) => sql.includes(n))) throw new Error("D1_ERROR: simulated failure"); return prep(sql); };
   }
   return env;
+}
+
+// A season built from weekly scores, the way the live sync writes it: one score per franchise per week
+// (src_franchise_weekly_score), each game from both sides (src_schedule, result from the scores), and
+// src_standings totals summed over EVERY week given (playoff weeks included, as the sync does).
+//   weeks: [{ week, po, scores: { fid: score }, games: [[a, b], ...] }]
+//   divisions: { fid: division }
+export function weeklySeason({ weeks, divisions, lastRegularSeasonWeek = 14, season = 2026 }) {
+  const pad = (v) => String(v).padStart(4, "0");
+  const fids = Object.keys(divisions).map(pad);
+  const franchises = fids.map((f) => ({ franchise_id: f, franchise_name: "Team " + f, division: divisions[f] ?? divisions[Number(f)] }));
+  const weeklyScores = [], games = [];
+  for (const wk of weeks) {
+    for (const [f, s] of Object.entries(wk.scores)) weeklyScores.push({ season, week: wk.week, franchise_id: pad(f), team_score: s, team_opt_pts: s + 10, is_playoff: wk.po ?? 0 });
+    for (const [a, b] of wk.games || []) {
+      const as = wk.scores[a], bs = wk.scores[b];
+      const div = franchises.find((x) => x.franchise_id === pad(a)).division === franchises.find((x) => x.franchise_id === pad(b)).division ? 1 : 0;
+      for (const [x, y, xs, ys] of [[a, b, as, bs], [b, a, bs, as]]) {
+        games.push({ season, week: wk.week, franchise_id: pad(x), opponent_franchise_id: pad(y), team_score: xs, opponent_score: ys, result: xs > ys ? "W" : xs < ys ? "L" : "T", is_divisional: div, is_playoff: wk.po ?? 0 });
+      }
+    }
+  }
+  return { season, lastRegularSeasonWeek, franchises, weeklyScores, games };
+}
+
+// Load a season (weeklySeason's shape, or the recorded tests/fixtures/standings_2026_wk5.json) into the
+// worker harness D1, with src_standings totals the way the live sync computes them (all weeks).
+export function loadSeason(env, s) {
+  const db = env.UPS_MFL_DB.raw;
+  db.exec(SCHEMA);
+  const season = s.season;
+  const lastReg = s.lastRegularSeasonWeek;
+  db.prepare("INSERT INTO src_league_season_meta (season, league_id, mfl_server, last_regular_season_week, playoff_weeks) VALUES (?, '74598', 'www48', ?, 3)").run(season, lastReg);
+  const fr = s.franchises;
+  const ws = s.weeklyScores || s.weekly_scores;
+  for (const f of fr) db.prepare("INSERT INTO src_franchises (season, franchise_id, team_name, division) VALUES (?, ?, ?, ?)").run(season, f.franchise_id, f.franchise_name, f.division);
+  for (const r of ws) db.prepare("INSERT INTO src_franchise_weekly_score (season, week, franchise_id, team_score, team_opt_pts, is_playoff) VALUES (?, ?, ?, ?, ?, ?)").run(season, r.week, r.franchise_id, r.team_score, r.team_opt_pts ?? 0, r.is_playoff);
+  for (const g of s.games) db.prepare("INSERT INTO src_schedule (season, week, franchise_id, opponent_franchise_id, team_score, opponent_score, result, is_divisional, is_playoff) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(season, g.week, g.franchise_id, g.opponent_franchise_id, g.team_score, g.opponent_score, g.result || null, g.is_divisional ?? 0, g.is_playoff);
+  // src_standings as the sync writes it: every week it was given, playoff weeks included.
+  for (const f of fr) {
+    const mine = ws.filter((r) => r.franchise_id === f.franchise_id);
+    let w = 0, l = 0, t = 0, dw = 0, dl = 0, apw = 0, apl = 0, apt = 0, pf = 0;
+    for (const r of mine) {
+      pf += Number(r.team_score);
+      for (const o of ws) if (o.week === r.week && o.franchise_id !== f.franchise_id) { if (r.team_score > o.team_score) apw++; else if (r.team_score < o.team_score) apl++; else apt++; }
+    }
+    for (const g of s.games.filter((x) => x.franchise_id === f.franchise_id)) {
+      const k = g.team_score > g.opponent_score ? "w" : g.team_score < g.opponent_score ? "l" : "t";
+      if (k === "w") w++; else if (k === "l") l++; else t++;
+      if (g.is_divisional) { if (k === "w") dw++; else if (k === "l") dl++; }
+    }
+    const pct = (a, b, c) => (a + b + c ? (a + 0.5 * c) / (a + b + c) : 0);
+    db.prepare("INSERT INTO src_standings (season, franchise_id, h2h_w, h2h_l, h2h_t, h2h_pct, div_w, div_l, div_pct, allplay_w, allplay_l, allplay_t, allplay_pct, pf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(season, f.franchise_id, w, l, t, pct(w, l, t), dw, dl, pct(dw, dl, 0), apw, apl, apt, pct(apw, apl, apt), Math.round(pf * 100) / 100);
+  }
+  return env;
+}
+
+// The recorded 2026-after-Week-5 season (tests/fixtures/standings_2026_wk5.json) in loadSeason's shape.
+export function recorded2026(rec) {
+  return { season: rec.season, lastRegularSeasonWeek: rec.lastRegularSeasonWeek, franchises: rec.franchises, weeklyScores: rec.weekly_scores, games: rec.games, standingsSort: rec.standingsSort, divisions: rec.divisions };
 }
