@@ -852,9 +852,14 @@
       };
     }
     if (above) {
+      // ...and, when a TIEBREAK (not plain All-Play) put it ahead of the team below, say that too: it answers
+      // "why is he ahead of a team with the same All-Play %?"
+      var aheadTie = reason.position === 'ahead' && rival && reason.step && reason.step !== 'all_play' &&
+        reason.step !== 'name' && reason.step !== 'franchise_id' && STEP_LABEL[reason.step];
       return {
         blocked: false, basis: 'ladder', pool: reason.pool || null, decidingCriterion: above.step || null, vsAbove: vsAbove,
-        text: belowSentence('Seed ' + seed + ': behind ')
+        aheadOf: aheadTie ? { franchise_id: pad4(reason.rival_franchise_id), name: rival, step: reason.step } : null,
+        text: belowSentence('Seed ' + seed + ': behind ') + (aheadTie ? ' Ahead of ' + rival + ' on ' + stepPhrase(reason.step) + '.' : '')
       };
     }
     var poolLabel = POOL_LABEL[reason.pool] || 'its pool';
