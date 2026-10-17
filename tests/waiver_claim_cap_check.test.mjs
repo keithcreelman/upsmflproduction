@@ -45,7 +45,10 @@ globalThis.fetch = async (input) => {
   if (type === "nflSchedule") return json({ nflSchedule: { week: u.searchParams.get("W"), matchup: [] } });
   return json({ error: { $t: "test: no such call" } }, 503);
 };
-const env = { UPS_MFL_DB: makeD1({}), COMMISH_API_KEY: "admin", MFL_COOKIE: "COMMISH", MFL_APIKEY: "k" };
+// FA_AUCTION_START_AT: a drop after the FA Auction opened books its dead money to NEXT season (canon §6), so this season's room
+// is checkable; without it the check says "unverified" (see B4).
+const env = { UPS_MFL_DB: makeD1({}), COMMISH_API_KEY: "admin", MFL_COOKIE: "COMMISH", MFL_APIKEY: "k",
+  FA_AUCTION_START_AT: String(Math.floor(Date.parse("2026-07-25T12:00:00-04:00") / 1000)) };
 const realNow = Date.now;
 async function submit(rounds) {
   const NOW = Date.parse("2026-10-14T12:00:00-04:00");
@@ -75,11 +78,26 @@ test("A1. the report's shape — IR on the roster, dead money in adjustments: MF
   t.deepEqual([r.body.cap_check.used_now, r.body.cap_check.room_now, r.body.cap_check.worst_room], [293000, 7000, 4000]);
   t.deepEqual(IMPORTS, [], "dry run: nothing sent to MFL");
 });
-test("A2. dead money that really does put the claim over: the heads-up says so, with MFL's room now", async () => {
+test("A2. dead money leaves no room: under the hard cap MFL won't award the claim, and the note says so with MFL's room now", async () => {
   setTeam(288000, [], [12000]);                           // MFL: 300,000 used → $0 room
   const r = await submit(claim(2000));
-  t.equal(r.warn.CAP_ROOM, "If MFL awards one of your group 1 claims (it awards at most one per group), you'd be about $2,000 over the $300,000 cap. "
-    + "MFL cap room now: $0 (salary adjustments included). MFL enforces the cap when waivers process.");
+  t.equal(r.warn.CAP_ROOM, "MFL won't award your $2,000 claim in group 1 under the hard cap: it needs about $2,000 more cap room than you have. "
+    + "MFL cap room now: $0 (salary adjustments included).");
+});
+test("A2b. the dropped player's salary counts: a $5,000 claim that drops a $2,000 player costs $3,000 — with $1,000 of room MFL won't award it", async () => {
+  setTeam(287000, [], [12000]);                           // MFL: 299,000 used → $1,000 room
+  S.active[1] = 8000; S.active.push(2000);                // the same total, with a $2,000 player to drop (pid 10027)
+  const r = await submit(claim(5000, "10027"));
+  t.equal(r.warn.CAP_ROOM, "MFL won't award your $5,000 claim in group 1 under the hard cap: after its drop frees $2,000, it needs about $2,000 more cap room than you have. "
+    + "MFL cap room now: $1,000 (salary adjustments included).");
+  const ok = await submit(claim(3000, "10027"));           // $3,000 − $2,000 = $1,000: fits exactly
+  t.equal(ok.warn.CAP_ROOM, undefined);
+});
+test("A2c. claims that each fit can't all win: one note that MFL won't award the one that no longer fits", async () => {
+  setTeam(296000, [], []);                                // $4,000 room
+  const r = await submit([{ round: 1, picks: [{ add_pid: "20001", bid_dollars: 3000 }] }, { round: 2, picks: [{ add_pid: "20002", bid_dollars: 2000 }] }]);
+  t.equal(r.warn.CAP_ROOM, "Your claims fit one at a time, but one in each of your 2 groups would need about $1,000 more cap room than you have — MFL won't award a claim that no longer fits when its turn comes. "
+    + "MFL cap room now: $4,000 (salary adjustments included).");
 });
 test("A3. MFL's salary adjustments unreadable: no number at all — UPS says it couldn't verify (never treats the adjustments as $0)", async () => {
   setTeam(288000, [], [12000]); S.adjustmentsDown = true;

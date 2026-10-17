@@ -21,10 +21,10 @@ const RAW_2026 = [
   ["WAIVER_BBID", 1786626000, null, 21], ["WAIVER_LOCK", 1789434000, null, 17], ["WAIVER_NONE", 1799114400, null, 0],
 ].map(([type, s, e, h]) => ({ type, start_time: String(s), end_time: e ? String(e) : "", happens: h ? String(h) : "", title: "", id: "x" }));
 
-// 0008's roster: 29 players in active spots, 2 on taxi, 1 on IR — exactly $300,000 on the cap by MFL's count
-// ($297,000 active + 50% of a $6,000 IR salary; taxi off the cap; no salary adjustments).
+// 0008's roster: 29 players in active spots, 2 on taxi, 1 on IR — $2,000 of cap room by MFL's count
+// ($295,000 active + 50% of a $6,000 IR salary; taxi off the cap; no salary adjustments).
 const ROSTER = [];
-for (let i = 0; i < 29; i += 1) ROSTER.push({ id: String(10000 + i), status: "ROSTER", salary: i === 0 ? "17000" : "10000" });
+for (let i = 0; i < 29; i += 1) ROSTER.push({ id: String(10000 + i), status: "ROSTER", salary: i === 0 ? "15000" : "10000" });
 ROSTER.push({ id: "12000", status: "TAXI_SQUAD", salary: "5000" }, { id: "12001", status: "TAXI_SQUAD", salary: "2000" }, { id: "12002", status: "INJURED_RESERVE", salary: "6000" });
 let CONDITIONAL = "1";
 const IMPORTS = [];
@@ -61,25 +61,27 @@ async function submit(rounds) {
 const pick = (add_pid, bid_dollars, drop_pid) => ({ add_pid, bid_dollars, ...(drop_pid ? { drop_pid } : {}) });
 
 // ═════════ A. the real route ═════════
-test("A1. Keith's submit — 4 claims in group 1, no drops: one pickup at most → 30 active (no roster heads-up), $1,000 over (not $4,000)", async () => {
+test("A1. Keith's submit — 4 claims in group 1, no drops: one pickup at most → 30 active (no roster heads-up); each $1,000 claim fits his $2,000 of room (no cap note)", async () => {
   const r = await submit([{ round: 1, picks: [pick("20001", 1000), pick("20002", 1000), pick("20003", 1000), pick("20004", 1000)] }]);
   t.equal(r.status, 200, r.text.slice(0, 400));
   t.equal(r.body.dry_run, true);
   t.equal(r.warn.ROSTER_HEADROOM, undefined, "29 + 1 = 30, MFL's limit — not over it");
-  t.equal(r.warn.CAP_ROOM, "If MFL awards one of your group 1 claims (it awards at most one per group), you'd be about $1,000 over the $300,000 cap. MFL cap room now: $0 (salary adjustments included, IR counted at 50%). MFL enforces the cap when waivers process.");
+  t.equal(r.warn.CAP_ROOM, undefined, "one $1,000 pickup at most, and $2,000 of room");
   t.deepEqual(IMPORTS, [], "dry run: nothing sent to MFL");
 });
-test("A2. two groups, each with a no-drop claim: two pickups at most → 31 active, and the costliest claim of each group on the cap", async () => {
+test("A2. two groups, each with a no-drop claim: two pickups at most → 31 active; the $3,000 claim can't be awarded, and the claims that fit don't fit together", async () => {
   const r = await submit([{ round: 1, picks: [pick("20001", 1000), pick("20002", 3000)] }, { round: 2, picks: [pick("20003", 2000)] }]);
   t.equal(r.warn.ROSTER_HEADROOM, "If MFL awards one claim in each of your 2 groups (the most it can — one per group), you'd be at 31 active players (MFL's limit is 30; taxi and IR are not counted). Heads-up only — MFL decides at award time.");
-  t.match(r.warn.CAP_ROOM, /you'd be about \$5,000 over the \$300,000 cap/, "$3K (group 1's costliest) + $2K");
+  t.equal(r.warn.CAP_ROOM, "MFL won't award your $3,000 claim in group 1 under the hard cap: it needs about $1,000 more cap room than you have. "
+    + "Your other claims fit one at a time, but one in each of your 2 groups would need about $1,000 more cap room than you have — MFL won't award a claim that no longer fits when its turn comes. "
+    + "MFL cap room now: $2,000 (salary adjustments included, IR counted at 50%).");
 });
 test("A3. a league MFL reports as NOT conditional: every claim can land, so all four count", async () => {
   CONDITIONAL = "0";
   const r = await submit([{ round: 1, picks: [pick("20001", 1000), pick("20002", 1000), pick("20003", 1000), pick("20004", 1000)] }]);
   CONDITIONAL = "1";
   t.match(r.warn.ROSTER_HEADROOM, /^If MFL awards every claim, you'd be at 33 active players/);
-  t.match(r.warn.CAP_ROOM, /about \$4,000 over/);
+  t.match(r.warn.CAP_ROOM, /^Your claims fit one at a time, but all of them would need about \$2,000 more cap room than you have/);
 });
 
 // ═════════ B. the worst-case rules ═════════
