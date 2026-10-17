@@ -1752,7 +1752,7 @@
   function seedBadge(seedInfo) {
     if (!seedInfo) return '<span class="seed-badge none">—</span>';
     if (seedInfo.side === "champ") return '<span class="seed-badge champ" title="UPS Championship seed">🏆 ' + seedInfo.seed + '</span>';
-    return '<span class="seed-badge hawk" title="Hawktuah Bowl seed">🦅 ' + seedInfo.seed + '</span>';
+    return '<span class="seed-badge hawk" title="Hawk Tuah Bowl seed">🦅 ' + seedInfo.seed + '</span>';
   }
 
   // ────────────────────────────────────────────────────────────────────────
@@ -1817,7 +1817,7 @@
         + '<td class="num">' + fmtGB(d.ap_gb) + '</td>'
         + '</tr>';
     }).join("");
-    return '<table class="mini"><thead><tr><th>Team</th><th class="num">W-L</th><th class="num" title="Games behind the division leader">GB</th><th class="num">AP</th><th class="num" title="All-Play wins behind the division leader (descriptive)">AP GB</th></tr></thead><tbody>' + trs + '</tbody></table>'
+    return '<table class="mini"><thead><tr><th>Team</th><th class="num">H2H</th><th class="num" title="H2H games behind the division leader">GB</th><th class="num">AP</th><th class="num" title="All-Play wins behind the division leader (descriptive)">AP GB</th></tr></thead><tbody>' + trs + '</tbody></table>'
       + '<div class="dim" style="font-size:10px;margin-top:3px">Order = record, then division record, then head-to-head (MFL’s rule).</div>';
   }
 
@@ -1843,7 +1843,7 @@
   }
   var ABOUT_ITEMS = [
     ["All-Play", "Your score against all 11 other teams every week (11 results a week). All-Play % is the share you beat."],
-    ["Record", "Head-to-head wins and losses. A week can hold two or three games (37 games in 14 weeks)."],
+    ["H2H record", "Head-to-head wins and losses against your scheduled opponents. A week can hold two or three games (37 in 14 weeks)."],
     ["PF per week", "Points For divided by weeks played: one score a week."],
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
     ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then record, then Points For, then head-to-head. Regular-season weeks only."],
@@ -1930,7 +1930,7 @@
       + (l3 ? '<dt>Last 3 weeks</dt><dd>avg rank ' + fmtDec(l3.avgRank, 1) + ', All-Play ' + recStr(l3.ap) + '</dd>' : '')
       + '<dt>Faced per game</dt><dd>' + fmtPts(f.paPerGame) + (f.paRank ? ' (' + ordinal(f.paRank) + ' most)' : '') + '</dd>'
       + '<dt>Opp. vs their usual</dt><dd>' + fmtSigned(f.oppVsUsual) + '</dd>'
-      + '<dt>Close games (&lt;10)</dt><dd>' + (f.closeGames ? recStr(f.closeGames) : "—") + '</dd>'
+      + '<dt>Close H2H games (&lt;10)</dt><dd>' + (f.closeGames ? recStr(f.closeGames) : "—") + '</dd>'
       + '<dt>Expected wins · luck</dt><dd>' + fmtDec(o.expectedWins, 1) + ' · ' + fmtSigned(o.luck) + '</dd>'
       + '</dl><div class="dim" style="font-size:10px;margin-top:3px">Regular season. Faced is schedule, not skill.</div>';
   }
@@ -2002,14 +2002,14 @@
     all_play: "a better All-Play %",
     overall: "a better record",
     points_for: "more Points For",
-    head_to_head: "the head-to-head games between them",
+    head_to_head: "the H2H games between them",
     name: "a tie on every step (listed alphabetically)",
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
     division_winner_in_field: "division winners are in the field"
   };
   var DIV_STEP_WORDS = {
-    PCT: "a better record", DIVPCT: "a better division record", H2H: "the head-to-head games between them",
+    PCT: "a better H2H record", DIVPCT: "a better division record", H2H: "the H2H games between them",
     PTS: "more Points For", ALL_PLAY_PCT: "a better All-Play %", name: "a tie on every step",
     name_after_pwr_unavailable: "a tie on every step MFL publishes"
   };
@@ -2086,7 +2086,7 @@
         + '</tr>'
         + '<tr hidden data-for="' + fid + '"><td colspan="6">' + teamDetailHtml(resp, race, sf, fid, null) + '</td></tr>';
     }).join("");
-    return '<h3>In the hunt <span class="h-sub">· 7–12' + (projected ? ', Hawktuah Bowl if the season ended today' : ', Hawktuah Bowl') + '</span></h3>'
+    return '<h3>In the hunt <span class="h-sub">· 7–12' + (projected ? ', Hawk Tuah Bowl if the season ended today' : ', Hawk Tuah Bowl') + '</span></h3>'
       + '<div class="table-scroll"><table class="data-table hunt-table"><thead><tr><th class="num" scope="col">#</th><th scope="col">Team</th><th class="num" scope="col">W-L</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="All-Play wins behind the 6th seed">Back</th></tr></thead><tbody>' + trs + '</tbody></table></div>';
   }
   // Division leaders: each division in the order of its leader's seed, teams in the worker's division order.
@@ -2131,11 +2131,11 @@
         reasons.push(nameOf(r) + " over " + nameOf(below) + ": same record, " + (DIV_STEP_WORDS[vb.step] || vb.step) + det + ".");
       });
       return '<div class="div-mini"><div class="div-mini-name">' + escapeHtml(d.name) + '</div>'
-        + '<table class="mini"><thead><tr><th>Team</th><th class="num">W-L</th><th class="num" title="Record against the two division rivals">Div</th><th class="num" title="Games behind the division leader">GB</th></tr></thead><tbody>' + trs + '</tbody></table>'
+        + '<table class="mini"><thead><tr><th>Team</th><th class="num">W-L</th><th class="num" title="Record against the two division rivals">Div</th><th class="num" title="H2H games behind the division leader">GB</th></tr></thead><tbody>' + trs + '</tbody></table>'
         + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("") + '</div>';
     }).join("");
     return '<section class="panel"><h3>Division leaders</h3>' + blocks
-      + '<div class="psub" style="margin-top:6px">GB = games behind the division leader · Order = record, then division record, then head-to-head (MFL’s rule).</div></section>';
+      + '<div class="psub" style="margin-top:6px">GB = H2H games behind the division leader · Order = H2H record, then division record, then the H2H games between the tied teams (MFL’s rule).</div></section>';
   }
   function nextOutHtml(resp, race, rows) {
     var rs = resp.regular_season || {};
@@ -2184,7 +2184,7 @@
     seeded.forEach(function (r) {
       items.push(seedCardHtml(resp, race, sf, r, !final));
       if (Number(r.playoff_seed) === 2) items.push('<li class="cut-line bye-line" role="separator" aria-label="First-round byes above">First-round byes above</li>');
-      if (Number(r.playoff_seed) === 6) items.push('<li class="cut-line playoff-line" role="separator" aria-label="Playoff line">Playoff line · 7–12 play the Hawktuah Bowl</li>');
+      if (Number(r.playoff_seed) === 6) items.push('<li class="cut-line playoff-line" role="separator" aria-label="Playoff line">Playoff line · 7–12 play the Hawk Tuah Bowl</li>');
     });
     var left = '<div class="pic-col"><h3>' + (final ? "Seeds" : "Seeds <span class=\"h-sub\">· if the season ended today</span>") + '</h3>'
       + '<ol class="seed-list">' + items.join("") + '</ol>'
@@ -2215,7 +2215,7 @@
       if (isHawk) hawk = r;
       if (r.is_division_leader) divWinners.push(r);
       var you = VIEWER_FID && fid === VIEWER_FID;
-      var badge = (isChamp ? '<span title="UPS champion" aria-label="UPS champion">🏆</span> ' : '') + (isHawk ? '<span title="Hawktuah Bowl champion" aria-label="Hawktuah Bowl champion">🚽</span> ' : '');
+      var badge = (isChamp ? '<span title="UPS champion" aria-label="UPS champion">🏆</span> ' : '') + (isHawk ? '<span title="Hawk Tuah Bowl champion" aria-label="Hawk Tuah Bowl champion">🚽</span> ' : '');
       return '<tr' + (you ? ' class="you-row"' : '') + '><td class="num"><strong>' + (f < 99 ? f : "—") + '</strong></td>'
         + '<td>' + badge + escapeHtml(nameOf(r)) + (r.is_division_leader ? '<span class="tag">DIV</span>' : '') + '<span class="owner-sub">' + escapeHtml((fr && fr.owner_name) || r.owner_name || "") + '</span></td>'
         + (showSeed ? '<td class="num">' + (recordedSeedOf(fr) || "—") + '</td>' : '')
@@ -2227,10 +2227,10 @@
       : "Seed = the recorded regular-season seed.";
     var left = '<div class="pic-col"><h3>' + y + ' · final standings</h3>'
       + '<div class="table-scroll"><table class="data-table final-table"><thead><tr><th class="num" scope="col">Fin</th><th scope="col">Team</th>' + (showSeed ? '<th class="num" scope="col">Seed</th>' : '') + '<th class="num" scope="col">W-L</th><th class="num" scope="col">AP %</th></tr></thead><tbody>' + trs + '</tbody></table></div>'
-      + '<div class="note">Fin = place after the playoffs (1 champion · 7 Hawktuah Bowl champion) · DIV = division winner · ' + escapeHtml(era) + ' Recorded final standings.</div></div>';
+      + '<div class="note">Fin = place after the playoffs (1 champion · 7 Hawk Tuah Bowl champion) · DIV = division winner · ' + escapeHtml(era) + ' Recorded final standings.</div></div>';
     var right = '<div class="pic-col"><section class="panel"><h3>' + y + ' champions</h3>'
       + '<div><b>UPS champion:</b> ' + (champ ? escapeHtml(nameOf(champ)) : "—") + '</div>'
-      + (y >= 2011 ? '<div style="margin-top:4px"><b>Hawktuah Bowl champion:</b> ' + (hawk ? escapeHtml(nameOf(hawk)) : "—") + '</div>' : '<div class="psub" style="margin-top:4px">2010’s toilet bracket had the loser advance, so no Hawktuah Bowl champion is marked.</div>')
+      + (y >= 2011 ? '<div style="margin-top:4px"><b>Hawk Tuah Bowl champion:</b> ' + (hawk ? escapeHtml(nameOf(hawk)) : "—") + '</div>' : '<div class="psub" style="margin-top:4px">2010’s toilet bracket had the loser advance, so no Hawk Tuah Bowl champion is marked.</div>')
       + (divWinners.length ? '<div style="margin-top:8px"><b>Division winners:</b> ' + divWinners.map(function (r) { return escapeHtml(nameOf(r)); }).join(", ") + '</div>' : '')
       + '</section>'
       + '<section class="panel"><h3>More</h3><button type="button" class="link-btn" data-goto="bracket">See the ' + y + ' bracket →</button></section></div>';
@@ -2350,7 +2350,7 @@
     function c(label, key, num, cell, title) { cols.push({ label: label, key: key, num: num, cell: cell, title: title }); }
     c("Seed", "seed", true, function (r) { return r._seedShown != null ? '<strong>' + r._seedShown + '</strong>' : '<span class="dim">—</span>'; },
       ctx.finished ? "The recorded regular-season seed (2014 on)" : "The playoff seed (the league ladder)");
-    if (ctx.finished) c("Fin", "fin", true, function (r) { return r.fin < 99 ? String(r.fin) : "—"; }, "Recorded finish after the playoffs (1 champion · 7 Hawktuah Bowl champion)");
+    if (ctx.finished) c("Fin", "fin", true, function (r) { return r.fin < 99 ? String(r.fin) : "—"; }, "Recorded finish after the playoffs (1 champion · 7 Hawk Tuah Bowl champion)");
     var raceData = ctx.raceData, resp = ctx.resp;
     // projected = !raceData.seedsFinal: "if the season ended today" until the REGULAR season is complete
     if (ctx.showRace) c("Status", null, false, function (r) { return statusChipHtml(r._status, raceData.projected && !resp.preseason); });
@@ -2373,7 +2373,7 @@
       c("Opp. pts/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Points your opponents scored per head-to-head game");
       c("Rank", "_paRank", true, function (r) { return r._paRank ? ordinal(r._paRank) : "—"; }, "1 = faced the most points per game");
       c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you");
-      c("Close games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "Games decided by fewer than 10 points (your W-L in them)");
+      c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)");
       return cols;
     }
     c("W-L-T", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season record" : "Record");
@@ -2504,7 +2504,7 @@
       if (!scoped) bodyParts.push(buildDisclosureHtml(resp, raceData, sf, fid, colCount, { finished: finished, fin: fins ? fins[fid] : null }).replace('<tr class="disclosure-row">', '<tr class="disclosure-row" hidden data-for="' + fid + '">'));
       if (canonicalSeedOrder && showRace) {
         if (Number(r.playoff_seed) === 2) bodyParts.push('<tr class="seed-divider"><td colspan="' + colCount + '"></td></tr>');
-        if (Number(r.playoff_seed) === 6) bodyParts.push('<tr class="seed-divider hawk-divider"><td colspan="' + colCount + '">Playoff line · Hawktuah Bowl · seeds 7–12</td></tr>');
+        if (Number(r.playoff_seed) === 6) bodyParts.push('<tr class="seed-divider hawk-divider"><td colspan="' + colCount + '">Playoff line · Hawk Tuah Bowl · seeds 7–12</td></tr>');
       }
     });
     var meta = resp.meta || {};
@@ -2513,7 +2513,7 @@
     var seedNote = recordedSeeds
       ? ' Seeds: the recorded final standings.' + (finsError ? ' (Not shown: ' + finsError + '.)' : '')
       : (resp.standings_basis === "unavailable" ? ' ' + (seedGateText(raceData) || 'Seeds unavailable.')
-        : ' Seeds: All-Play % → Overall → season Points For → head-to-head (league rule §F.1); open a team for the step that decided its seed.'
+        : ' Seeds: All-Play % → H2H record → season Points For → H2H between the tied teams (league rule §F.1); open a team for the step that decided its seed.'
           + (showRace && raceData.projected && !resp.preseason ? ' Seeds and BYE / DIV / WC are projected (if the season ended today) until the regular season ends.' : ''));
     if (scoped) noteBits.push('<div class="note"><strong>' + scopeLabel() + '</strong> — weeks ' + rng[0] + '–' + rng[1] + ' (computed from weekly results; expected wins and luck cover the whole regular season and are hidden here). Seeds are the full-season ones. Click any header to sort.</div>');
     else noteBits.push('<div class="note">' + (meta.last_regular_season_week ? 'Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). ' : '') + 'Click any column header to sort; open a team for details.' + seedNote + '</div>');
@@ -2633,7 +2633,7 @@
       return '<section class="div-card">'
         + '<header class="div-card-header"><div class="div-card-brand">' + divBannerHtml(k, d.name) + '</div>'
         + '<div class="div-card-ap">All-Play<span class="val">' + fmtPct(games ? (apW + 0.5 * apT) / games : null) + '</span></div></header>'
-        + '<div class="div-card-body"><div class="table-scroll"><table class="data-table div-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">W-L</th><th class="num" scope="col" title="Record against the two division rivals">Div</th><th class="num" scope="col" title="Games behind the division leader">GB</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="Points For per week">PF/week</th>' + (inSeason ? '<th class="num" scope="col">Seed</th>' : '') + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
+        + '<div class="div-card-body"><div class="table-scroll"><table class="data-table div-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">W-L</th><th class="num" scope="col" title="Record against the two division rivals">Div</th><th class="num" scope="col" title="H2H games behind the division leader">GB</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="Points For per week">PF/week</th>' + (inSeason ? '<th class="num" scope="col">Seed</th>' : '') + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
         + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("") + '</div></section>';
     }).join("");
     var tokens = String(resp.standings_sort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR").split(",").map(function (t) { return t.trim().toUpperCase(); }).filter(Boolean);
@@ -3051,7 +3051,7 @@
     // F6: the projected champion card uses a dedicated `.projected-champ`
     // treatment (dashed border, muted gradient) and the label text says
     // "Projected champion" outright — never the real "UPS Champion"/
-    // "Hawktuah Champ" text, which is reserved for a completed season.
+    // "Hawk Tuah Bowl champion" text, which is reserved for a completed season.
     var champHtml = champEntry
       ? ('<div class="champion-card projected-champ' + (hawk ? ' hawk-champ' : '') + '">'
         + '<div class="champion-label">Projected champion</div>'
@@ -3060,10 +3060,10 @@
         + '</div>')
       : '<div class="champion-card projected-champ"><div class="champion-label">Projected champion</div><div class="champion-pending" style="margin-top:10px">— TBD —</div></div>';
     var consBits = [];
-    if (side.third) consBits.push(gameCardLabeledGeneric(hawk ? "Projected · Toilet 3rd-place" : "Projected · 3rd-place (1.09 / 1.10)", projGameCard(side.third)));
-    if (side.placement) consBits.push(gameCardLabeledGeneric(hawk ? "Projected · Toilet placement" : "Projected · 5th–6th (1.07 / 1.08)", projGameCard(side.placement)));
+    if (side.third) consBits.push(gameCardLabeledGeneric(hawk ? "Projected · Hawk Tuah Bowl 3rd-place game" : "Projected · 3rd-place (1.09 / 1.10)", projGameCard(side.third)));
+    if (side.placement) consBits.push(gameCardLabeledGeneric(hawk ? "Projected · Hawk Tuah Bowl 5th-place game" : "Projected · 5th–6th (1.07 / 1.08)", projGameCard(side.placement)));
     var consHtml = consBits.length
-      ? ('<div class="bracket-consolation"><div class="bracket-consolation-label">' + (hawk ? "Toilet side · placement games" : "Consolation rounds") + '</div><div class="bracket-consolation-row">' + consBits.join("") + '</div></div>')
+      ? ('<div class="bracket-consolation"><div class="bracket-consolation-label">' + (hawk ? "Hawk Tuah Bowl · placement games" : "Consolation rounds") + '</div><div class="bracket-consolation-row">' + consBits.join("") + '</div></div>')
       : "";
     return ''
       + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '">'
@@ -3071,8 +3071,8 @@
       +   '<div class="bracket">'
       +     '<div class="bracket-col"><div class="bracket-col-header">Round 1<span class="wk">projected</span></div><div class="bracket-col-r1">' + r1Html + '</div></div>'
       +     '<div class="bracket-col"><div class="bracket-col-header">Semifinals<span class="wk">projected</span></div><div class="bracket-col-semis">' + semisHtml + '</div></div>'
-      +     '<div class="bracket-col"><div class="bracket-col-header">' + (hawk ? "Hawktuah Bowl" : "Championship") + '<span class="wk">projected</span></div><div class="bracket-col-final">' + finalHtml + '</div></div>'
-      +     '<div class="bracket-col"><div class="bracket-col-header">' + (hawk ? "Toilet Champ" : "Trophy") + '</div><div class="bracket-col-champion">' + champHtml + '</div></div>'
+      +     '<div class="bracket-col"><div class="bracket-col-header">' + (hawk ? "Hawk Tuah Bowl" : "Championship") + '<span class="wk">projected</span></div><div class="bracket-col-final">' + finalHtml + '</div></div>'
+      +     '<div class="bracket-col"><div class="bracket-col-header">' + (hawk ? "Hawk Tuah Bowl champion" : "Trophy") + '</div><div class="bracket-col-champion">' + champHtml + '</div></div>'
       +   '</div>'
       +   consHtml
       + '</section>';
@@ -3120,7 +3120,7 @@
           var banner = '<div class="banner">' + escapeHtml(projectedBannerText(stdResp)) + ' — chalk (higher seed wins every game). Locks for real once Week 15 kicks off.</div>';
           host.innerHTML = banner
             + renderProjectedBracketSide("UPS Championship — seeds 1-6", proj.champ, champByes, false)
-            + renderProjectedBracketSide("Hawktuah Bowl — seeds 7-12", proj.hawk, hawkByes, true)
+            + renderProjectedBracketSide("Hawk Tuah Bowl — seeds 7-12", proj.hawk, hawkByes, true)
             + '<div class="note">Modern bracket: top 2 division winners earn seeds 1-2 (BYE). Wild cards = top 2 non-DW by AP%. This projection assumes the higher seed wins every remaining game — a real bracket routinely does not.</div>'
             + DEFERRED_NOTE;
         });
@@ -3338,22 +3338,22 @@
           }
           var champSeed = seedMap[pad4(side.champFid)];
           champHtml = '<div class="champion-card' + (hawk ? ' hawk-champ' : '') + '">'
-            + '<div class="champion-label">' + (hawk ? "Hawktuah Champ" : "UPS Champion") + '</div>'
+            + '<div class="champion-label">' + (hawk ? "Hawk Tuah Bowl champion" : "UPS Champion") + '</div>'
             + '<div class="champion-icon">' + (hawk ? "🦅" : "🏆") + '</div>'
             + '<div class="champion-name">' + escapeHtml(champName || side.champFid) + (champSeed ? ' <span style="color:var(--gold);font-size:11px">#' + champSeed.seed + '</span>' : "") + '</div>'
             + '<div class="champion-owner">' + escapeHtml(champOwner || "") + '</div>'
             + '</div>';
         } else {
-          champHtml = '<div class="champion-card"><div class="champion-label">' + (hawk ? "Hawktuah Champ" : "UPS Champion") + '</div><div class="champion-pending" style="margin-top:10px">— pending —</div></div>';
+          champHtml = '<div class="champion-card"><div class="champion-label">' + (hawk ? "Hawk Tuah Bowl champion" : "UPS Champion") + '</div><div class="champion-pending" style="margin-top:10px">— pending —</div></div>';
         }
 
         // Consolation strip beneath the bracket.
         var consBits = [];
         if (side.thirdPlaceGame) {
-          consBits.push(gameCardLabeled(hawk ? ("Week " + WK_FINAL + " · Toilet 3rd-place") : ("Week " + WK_FINAL + " · 3rd-place (1.09 / 1.10)"), side.thirdPlaceGame));
+          consBits.push(gameCardLabeled(hawk ? ("Week " + WK_FINAL + " · Hawk Tuah Bowl 3rd-place game") : ("Week " + WK_FINAL + " · 3rd-place (1.09 / 1.10)"), side.thirdPlaceGame));
         }
         if (side.placementGame) {
-          consBits.push(gameCardLabeled(hawk ? ("Week " + WK_SEMI + " · Toilet placement") : ("Week " + WK_SEMI + " · 5th–6th (1.07 / 1.08)"), side.placementGame));
+          consBits.push(gameCardLabeled(hawk ? ("Week " + WK_SEMI + " · Hawk Tuah Bowl 5th-place game") : ("Week " + WK_SEMI + " · 5th–6th (1.07 / 1.08)"), side.placementGame));
         }
         side.otherW17.forEach(function (g) {
           consBits.push(gameCardLabeled("Week " + WK_FINAL + " · additional", g));
@@ -3361,7 +3361,7 @@
         var consHtml = "";
         if (consBits.length) {
           consHtml = '<div class="bracket-consolation">'
-            + '<div class="bracket-consolation-label">' + (hawk ? "Toilet side · placement games" : "Consolation rounds") + '</div>'
+            + '<div class="bracket-consolation-label">' + (hawk ? "Hawk Tuah Bowl · placement games" : "Consolation rounds") + '</div>'
             + '<div class="bracket-consolation-row">' + consBits.join("") + '</div>'
             + '</div>';
         }
@@ -3379,11 +3379,11 @@
           +       '<div class="bracket-col-semis">' + semisHtml + '</div>'
           +     '</div>'
           +     '<div class="bracket-col">'
-          +       '<div class="bracket-col-header">' + (hawk ? "Hawktuah Bowl" : "Championship") + '<span class="wk">Week ' + WK_FINAL + '</span></div>'
+          +       '<div class="bracket-col-header">' + (hawk ? "Hawk Tuah Bowl" : "Championship") + '<span class="wk">Week ' + WK_FINAL + '</span></div>'
           +       '<div class="bracket-col-final">' + finalHtml + '</div>'
           +     '</div>'
           +     '<div class="bracket-col">'
-          +       '<div class="bracket-col-header">' + (hawk ? "Toilet Champ" : "Trophy") + '</div>'
+          +       '<div class="bracket-col-header">' + (hawk ? "Hawk Tuah Bowl champion" : "Trophy") + '</div>'
           +       '<div class="bracket-col-champion">' + champHtml + '</div>'
           +     '</div>'
           +   '</div>'
@@ -3415,13 +3415,13 @@
       var html = "";
       if (champSide) {
         html += champIsConf
-          ? renderConferenceBracket("UPS Championship — Conference Format", champSide, champSeeds, false, resp)
+          ? renderConferenceBracket("UPS Championship — conference format", champSide, champSeeds, false, resp)
           : renderSide("UPS Championship — seeds 1-6", champSide, false);
       }
       if (hawkSide) {
         html += hawkIsConf
-          ? renderConferenceBracket("Hawktuah / Toilet — Conference Format", hawkSide, hawkSeeds, true, resp)
-          : renderSide("Hawktuah Bowl — seeds 7-12", hawkSide, true);
+          ? renderConferenceBracket("Hawk Tuah Bowl (toilet bowl) — conference format", hawkSide, hawkSeeds, true, resp)
+          : renderSide("Hawk Tuah Bowl — seeds 7-12", hawkSide, true);
       }
       var noteSuffix = (champIsConf || hawkIsConf)
         ? 'Conference-era bracket (2011-2013): each conference seeds top 3 by '
@@ -3574,7 +3574,7 @@
     // Title game block (UPS Championship for the champ side, or "Hawktuah Final" for hawk side).
     var titleBlock;
     if (titleGame) {
-      var trophyLabel = hawk ? "Hawktuah Bowl Champion" : "UPS Champion";
+      var trophyLabel = hawk ? "Hawk Tuah Bowl Champion" : "UPS Champion";
       var trophyIcon  = hawk ? "🦅" : "🏆";
       var champ = null, runnerUp = null;
       if (overallChampFid) {
@@ -3588,7 +3588,7 @@
       }
       titleBlock = ''
         + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '" style="margin-top:10px">'
-        +   '<h3>' + trophyIcon + ' ' + (hawk ? "Hawktuah Bowl" : "UPS Championship") + ' · Week ' + WK_FINAL + '</h3>'
+        +   '<h3>' + trophyIcon + ' ' + (hawk ? "Hawk Tuah Bowl" : "UPS Championship") + ' · Week ' + WK_FINAL + '</h3>'
         +   '<div class="bracket-consolation-row" style="grid-template-columns:1fr 1fr">'
         +     '<div>' + gameCard(titleGame) + '</div>'
         +     '<div class="champion-card' + (hawk ? ' hawk-champ' : '') + '">'
@@ -3599,11 +3599,11 @@
         +     '</div>'
         +   '</div>'
         +   (thirdGame
-            ? '<div style="margin-top:10px"><div class="round-label" style="margin-bottom:4px">' + (hawk ? 'Week ' + WK_FINAL + ' · Toilet 3rd-place' : 'Week ' + WK_FINAL + ' · 3rd-place (1.09 / 1.10)') + '</div>' + gameCard(thirdGame) + '</div>'
+            ? '<div style="margin-top:10px"><div class="round-label" style="margin-bottom:4px">' + (hawk ? 'Week ' + WK_FINAL + ' · Hawk Tuah Bowl 3rd-place game' : 'Week ' + WK_FINAL + ' · 3rd-place (1.09 / 1.10)') + '</div>' + gameCard(thirdGame) + '</div>'
             : "")
         + '</section>';
     } else {
-      titleBlock = '<div class="banner" style="margin-top:10px">' + (hawk ? "Hawktuah" : "UPS Championship") + ' Week ' + WK_FINAL + ' pending.</div>';
+      titleBlock = '<div class="banner" style="margin-top:10px">' + (hawk ? "Hawk Tuah Bowl" : "UPS Championship") + ' Week ' + WK_FINAL + ' pending.</div>';
     }
 
     return ''
@@ -3927,7 +3927,7 @@
   // year's bracket shape (modern flat, conference-era split, etc.).
   //
   // Pick mapping per league_context §1 — the ONE table is the shared module's BRACKET_FINISH_SLOTS (finish → pick):
-  //   finish 7 (Hawktuah Bowl winner) 1.01 · 8 (its loser) 1.02 · 9 / 10 (Toilet 3rd-place game) 1.03 / 1.04
+  //   finish 7 (Hawk Tuah Bowl winner) 1.01 · 8 (its loser) 1.02 · 9 / 10 (Toilet 3rd-place game) 1.03 / 1.04
   //   finish 11 / 12 (Toilet placement game, two Round 1 losers) 1.05 / 1.06
   //   finish 5 / 6 (championship placement game, two Round 1 losers) 1.07 / 1.08
   //   finish 3 / 4 (championship 3rd-place game, the semifinal losers) 1.10 / 1.09
@@ -4013,7 +4013,7 @@
       host.innerHTML = ''
         + '<div class="methodology">'
         + '<strong>Draft Order Finish</strong> maps each playoff outcome to the next-year rookie draft pick per <code>league_context_v1.md §1</code>. '
-        + 'Toilet Bowl winner picks first (1.01), UPS Champion picks last (1.12). '
+        + 'Hawk Tuah Bowl winner picks first (1.01), UPS Champion picks last (1.12). '
         + 'Picks 1.05/1.06 + 1.07/1.08 are decided by Week ' + WK_SEMI + ' placement games between Week ' + WK_R1 + ' losers. '
         + '1.09/1.10 are decided by the Week ' + WK_FINAL + ' championship 3rd-place game.'
         + '</div>'
@@ -4033,7 +4033,7 @@
   //   franchise id and labeled the row with its most frequent owner, so a slot that changed hands credited one
   //   owner's titles to another (Eric Martel's 2024 title sat under "Kyle Creelman · BTNH").
   // ────────────────────────────────────────────────────────────────────────
-  // Hawktuah Bowl champion = finish 7 (the toilet-bracket winner picks 1.01), from 2011; 2010's toilet bracket had
+  // Hawk Tuah Bowl champion = finish 7 (the toilet-bracket winner picks 1.01), from 2011; 2010's toilet bracket had
   // the loser advance. Finish 12 is last place, not a title.
   function isHawktuahTitle(season, finish) { return Number(season) >= 2011 && Number(finish) === 7; }
   function renderHistorical(host) {
@@ -4068,7 +4068,7 @@
         else if (isHawktuahTitle(season, finish)) cls += " hawktuah";
         var who = recs.map(function (x) { return [x.owner_name || "owner not recorded", x.franchise_name || ("Franchise " + pad4(x.franchise_id))].join(" · "); }).join(" / ");
         var title = season + " · " + who + " · Final " + (finish == null ? "—" : finish) + (r.regular_season_finish ? " · Reg " + r.regular_season_finish : "") + (r.division ? " · Div " + r.division : "")
-          + (finish === 1 ? " · UPS champion" : (isHawktuahTitle(season, finish) ? " · Hawktuah Bowl champion" : ""));
+          + (finish === 1 ? " · UPS champion" : (isHawktuahTitle(season, finish) ? " · Hawk Tuah Bowl champion" : ""));
         // the visible label: the team in "by owner" rows (the owner is the row), the owner in "by slot" rows
         var sub = bySlot ? (r.owner_name || "—") : (r.franchise_name || ("F" + pad4(r.franchise_id)));
         return '<td class="' + cls + '" title="' + escapeHtml(title) + '" aria-label="' + escapeHtml(title) + '">' + (finish == null ? "—" : finish)
@@ -4087,7 +4087,7 @@
         + '<button type="button" class="mode-btn" data-group="slot" aria-pressed="' + bySlot + '">By franchise slot</button></div>';
       host.innerHTML = groupCtl + '<div style="overflow-x:auto"><table class="hist-table compact"><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table></div>'
         + '<div class="note">Each cell is that season’s finish after the playoffs, labeled with that season’s ' + (bySlot ? "owner" : "team") + ' (hover for owner, team and regular-season finish). '
-        + '1 = UPS champion · 2 = runner-up · 3 = third · 7 = Hawktuah Bowl champion (from 2011; 2010’s toilet bracket had the loser advance) · 12 = last place.</div>'
+        + '1 = UPS champion · 2 = runner-up · 3 = third · 7 = Hawk Tuah Bowl champion (from 2011; 2010’s toilet bracket had the loser advance) · 12 = last place.</div>'
         + DEFERRED_NOTE;
       host.querySelectorAll("[data-group]").forEach(function (b) {
         b.addEventListener("click", function () { state.histGroup = b.getAttribute("data-group"); pushQs(); renderHistorical(host); });
@@ -4218,7 +4218,7 @@
         }).join("")
       + '</div>';
   }
-  // { "<era_start>|<owner>": Hawktuah Bowl titles } from /api/historical-finishes (finish 7, from 2011), the owner
+  // { "<era_start>|<owner>": Hawk Tuah Bowl titles } from /api/historical-finishes (finish 7, from 2011), the owner
   // of record being that season's owner_name — the same per-season owner /api/eras groups by.
   function hawktuahTitlesByEraOwner(finRows) {
     var out = {};
@@ -4290,7 +4290,7 @@
       + '<th>H2H</th>'
       + th("idx",            "Idx",     true)
       + th("championships",  "🏆 Titles", true)
-      + th("hawktuah_titles", "🚽 Hawktuah titles", true)
+      + th("hawktuah_titles", "🚽 Hawk Tuah Bowl titles", true)
       + th("avg_finish",     "Avg Fin", true)
       + '</tr>';
     var body = summaryRows.map(function (r) {
@@ -4350,7 +4350,7 @@
       var currentYear = (new Date().getUTCFullYear());
       var fsBanner = hasFS ? "" : '<div class="banner">⚠ <code>src_final_standings</code> not loaded — championship + hawktuah counts show 0 until migration 0033 runs.</div>';
       var prefix = fsBanner + DRAFT_CONTENT_BANNER
-        + '<div class="note">🚽 Hawktuah titles = Hawktuah Bowl championships (finish 7, from 2011)' + (hawk ? '' : ' — not shown: the historical finishes couldn’t be loaded') + '. 🏆 Titles = UPS championships.</div>';
+        + '<div class="note">🚽 Hawk Tuah Bowl titles = Hawk Tuah Bowl championships (finish 7, from 2011)' + (hawk ? '' : ' — not shown: the historical finishes couldn’t be loaded') + '. 🏆 Titles = UPS championships.</div>';
 
       // Picker first; then either the cross-era summary, or the
       // existing per-era card filtered to a single era.
@@ -4424,7 +4424,7 @@
           if ((b.ap_pct || 0) !== (a.ap_pct || 0)) return (b.ap_pct || 0) - (a.ap_pct || 0);
           return (b.ap_w || 0) - (a.ap_w || 0);
         });
-        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num" title="Points-For Index — owner PF-per-season ÷ era mean PF-per-season. 1.22 = +22% above era pace. Normalized by seasons played so partial-tenure owners aren\'t penalized.">Idx</th><th class="num" title="UPS championships">🏆 Titles</th><th class="num" title="Hawktuah Bowl championships (finish 7, from 2011)">🚽 Hawktuah titles</th><th class="num">Avg Fin</th></tr>';
+        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num" title="Points-For Index — owner PF-per-season ÷ era mean PF-per-season. 1.22 = +22% above era pace. Normalized by seasons played so partial-tenure owners aren\'t penalized.">Idx</th><th class="num" title="UPS championships">🏆 Titles</th><th class="num" title="Hawk Tuah Bowl championships (finish 7, from 2011)">🚽 Hawk Tuah Bowl titles</th><th class="num">Avg Fin</th></tr>';
         var pfPerSeasonMean = eraPfPerSeasonMean(rows);
         var lbBody = byPctAll.map(function (r) {
           var partial = (r.seasons_played || 0) < 3;
