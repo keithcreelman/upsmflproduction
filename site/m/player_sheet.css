@@ -528,7 +528,7 @@
 }
 
 /* NFL designation chip beside the player name on the sheet header.
-   Severity-coloured, not letter-coloured: OUT / IR / IR-PUP / IR-NFI /
+   Severity-colored, not letter-colored: OUT / IR / IR-PUP / IR-NFI /
    SUSPENDED / RETIRED share the red tier because they all mean "not playing".
    Rendered only when the injuries feed actually READ — absence of a chip means
    "no designation or we couldn't tell", never "healthy". */
@@ -611,3 +611,9 @@
 .ups-m-gl-views button { font: 600 12px/1 inherit; min-height: 32px; padding: 0 12px; border: 0; background: transparent; color: var(--fg-muted); }
 .ups-m-gl-views button.on { background: var(--accent); color: var(--bg); }
 @media (max-width: 360px) { .ups-m-stat-table th, .ups-m-stat-table td { padding: 5px 4px; } }
+
+/* "Injury sources disagree" (Keith 2026-10-15): a prominent red note on the player page,
+   each source stated plainly; information only. */
+.ups-m-inj-warn { margin-top: 6px; padding: 6px 9px; border: 1px solid rgba(248,113,113,.65); border-left-width: 4px; border-radius: 8px;
+  background: rgba(220,38,38,.14); color: #fecaca; font-size: 12px; line-height: 1.4; }
+.ups-m-inj-warn b { display: block; color: #fca5a5; font-weight: 700; margin-bottom: 2px; }

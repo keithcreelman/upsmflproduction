@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.17.1",
-  "label": "Waivers say when a player can actually be claimed: a recently dropped player shows the first run MFL will accept a claim for him (\"Sat waiver\"), and game-locked players say when they open again."
+  "build": "2026.10.17.2",
+  "label": "Injury tags are simpler: one tag per player (Q, D, OUT, IR, PUP or SUSP), the same on Stats, search, Lineup and the player page. When MFL and the official NFL report disagree, the player page says so in a red box."
 }
