@@ -501,10 +501,10 @@ check('seed explanation: seeded rows say the WORKER\'s step, pool and neighbor �
   const why = (fid) => RACE.whySeedForRow(byFid(S20, fid), S20);
   assert.strictEqual(why('0010').text, 'Seed 1: in the bye pool (the two best division winners); ranked ahead of Sex Manther on All-Play %.');
   assert.strictEqual(why('0007').text, 'Seed 2: in the bye pool (the two best division winners); behind Blake Bombers on All-Play %.');
-  assert.strictEqual(why('0008').text, 'Seed 3: in the seeds 3–6 pool; ranked ahead of C-Town Chivalry on Overall record.');
+  assert.strictEqual(why('0008').text, 'Seed 3: in the seeds 3–6 pool; ranked ahead of C-Town Chivalry on H2H record.');
   assert.strictEqual(why('0008').decidingCriterion, 'overall');
   assert.strictEqual(why('0008').basis, 'ladder');
-  for (const [step, words] of [['points_for', 'season Points For'], ['head_to_head', 'head-to-head'], ['overall', 'Overall record'], ['all_play', 'All-Play %']]) {
+  for (const [step, words] of [['points_for', 'season Points For'], ['head_to_head', 'the H2H games between them'], ['overall', 'H2H record'], ['all_play', 'All-Play %']]) {
     const r = Object.assign({}, byFid(S20, '0006'), { seed_reason: Object.assign({}, byFid(S20, '0006').seed_reason, { step }) });
     assert.ok(RACE.whySeedForRow(r, S20).text.endsWith('on ' + words + '.'), step);
   }

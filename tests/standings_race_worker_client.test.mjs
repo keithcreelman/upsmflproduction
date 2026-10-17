@@ -62,11 +62,11 @@ test("race(): seed explanations are the worker's seed_reason, word for word — 
   t.equal(out.weeklyUnreadable, false);
   t.equal(out.projected, true, "season_complete is false");
   const why = (fid) => out.byFranchise[fid].whySeed.text;
-  t.equal(why("0001"), "Seed 1: in the bye pool (the two best division winners); ranked ahead of Gride on Overall record.");
+  t.equal(why("0001"), "Seed 1: in the bye pool (the two best division winners); ranked ahead of Gride on H2H record.");
   // below the team above (vs_above), and -- when a tiebreak, not All-Play, put it ahead of the team below -- that too
-  t.equal(why("0004"), "Seed 3: behind Gride on All-Play %. Ahead of CBP on head-to-head (same All-Play %, Overall record and season Points For).");
-  t.equal(why("0007"), "Seed 5: behind CBP on All-Play %. Ahead of HammerTime on season Points For (same All-Play % and Overall record).");
-  t.equal(why("0005"), "Seed 6: behind Sex Manther on season Points For (same All-Play % and Overall record).");
+  t.equal(why("0004"), "Seed 3: behind Gride on All-Play %. Ahead of CBP on the H2H games between them (same All-Play %, H2H record and season Points For).");
+  t.equal(why("0007"), "Seed 5: behind CBP on All-Play %. Ahead of HammerTime on season Points For (same All-Play % and H2H record).");
+  t.equal(why("0005"), "Seed 6: behind Sex Manther on season Points For (same All-Play % and H2H record).");
   t.match(why("0006"), /^Outside the top six — 6 AP wins back; behind CBP \(the last wild card\) on All-Play %\.$/);
   t.equal(out.byFranchise["0004"].whySeed.decidingCriterion, "all_play");
   t.equal(out.byFranchise["0004"].whySeed.aheadOf.step, "head_to_head");
@@ -144,7 +144,7 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   t.match(html, /<span class="status-chip bye projected"[^>]*>BYE<small> proj\.<\/small><\/span>/);
   t.match(html, /Seeds: All-Play % → Overall → season Points For → head-to-head \(league rule §F\.1\)/);
   t.match(html, /Seeds and BYE \/ DIV \/ WC are projected until the season ends\./);
-  t.match(html, /Seed 3: behind Gride on All-Play %\. Ahead of CBP on head-to-head/);
+  t.match(html, /Seed 3: behind Gride on All-Play %\. Ahead of CBP on the H2H games between them/);
   t.ok(!/Seeds derived AP % → Overall PCT → PF/.test(html), "the old stale note is gone");
   t.match(html, /<th[^>]*>.*Avg PF/, "main's Avg PF label kept (decision 4)");
   t.match(html, /AP GB/, "AP GB added beside it");

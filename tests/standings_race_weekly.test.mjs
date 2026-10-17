@@ -444,7 +444,7 @@ test("PART 1 #3 the division race keeps the worker's division order (MFL standin
 test("PART 1 #4 whySeed: the worker's vs_above explains why a team is BELOW its neighbor; recorded and unavailable say so", () => {
   const check = (R) => {
     const why = (fid) => R.race(RESP).byFranchise[fid].whySeed;
-    t.equal(why("0002").text, "Seed 5: behind Real Deal Creel on Overall record (same All-Play %).");
+    t.equal(why("0002").text, "Seed 5: behind Real Deal Creel on H2H record (same All-Play %).");
     t.equal(why("0002").decidingCriterion, "overall");
     t.deepEqual(why("0002").vsAbove, { franchise_id: "0008", name: "Real Deal Creel", step: "overall" });
     t.equal(why("0005").text, "Seed 3: behind Blake Bombers on All-Play %.");
@@ -457,8 +457,8 @@ test("PART 1 #4 whySeed: the worker's vs_above explains why a team is BELOW its 
   const base = clone(RESP.rows.find((r) => r.franchise_id === "0002"));
   const withAbove = (step, seed) => ({ ...base, playoff_seed: seed == null ? 5 : seed, seed_reason: { ...base.seed_reason, vs_above: { franchise_id: "0008", name: "Real Deal Creel", step } } });
   const txt = (row) => RACE.whySeedForRow(row, RESP.rows, RESP.weeklyScores).text;
-  t.equal(txt(withAbove("points_for")), "Seed 5: behind Real Deal Creel on season Points For (same All-Play % and Overall record).");
-  t.equal(txt(withAbove("head_to_head")), "Seed 5: behind Real Deal Creel on head-to-head (same All-Play %, Overall record and season Points For).");
+  t.equal(txt(withAbove("points_for")), "Seed 5: behind Real Deal Creel on season Points For (same All-Play % and H2H record).");
+  t.equal(txt(withAbove("head_to_head")), "Seed 5: behind Real Deal Creel on the H2H games between them (same All-Play %, H2H record and season Points For).");
   t.equal(txt(withAbove("bye_requires_division_title", 3)), "Seed 3: behind Real Deal Creel. A first-round bye needs a division title.");
   t.ok(/not a league rule/.test(txt(withAbove("name"))));
   const out = clone(RESP.rows.find((r) => r.franchise_id === "0012"));
