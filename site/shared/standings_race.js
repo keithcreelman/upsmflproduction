@@ -750,9 +750,10 @@
   // worker/src/seeding.js seedLadderSteps). Nothing here compares two teams.
   var STEP_LABEL = {
     all_play: 'All-Play %',
-    overall: 'Overall record',
+    // Owner-facing words (#1329): canon §F.1 calls the second step "Overall"; the screens call that record "H2H".
+    overall: 'H2H record',
     points_for: 'season Points For',
-    head_to_head: 'head-to-head',
+    head_to_head: 'the H2H games between them',
     name: 'the name-order fallback after every league step tied — not a league rule',
     franchise_id: 'the franchise-id fallback after every league step tied — not a league rule',
     head_to_head_unavailable: 'a tie that reached head-to-head, which can’t be shown because the regular-season games couldn’t be read'
@@ -766,8 +767,8 @@
   // isn't read as "worse on All-Play %" (canon §F.1 order: All-Play % → Overall → Points For → head-to-head).
   var SAME_BEFORE = {
     overall: 'same All-Play %',
-    points_for: 'same All-Play % and Overall record',
-    head_to_head: 'same All-Play %, Overall record and season Points For'
+    points_for: 'same All-Play % and H2H record',
+    head_to_head: 'same All-Play %, H2H record and season Points For'
   };
   function stepPhrase(step) {
     var label = STEP_LABEL[step] || step;
@@ -797,7 +798,7 @@
   //   recorded season  → "Seed 3 — from the recorded final standings." (no ladder step is ever claimed)
   //   basis unavailable → blocked, "Seeds unavailable: <the worker's first problem, in words>."
   //   ladder + seed_reason.vs_above (the team directly above in the worker's order, and the step that kept this
-  //     team BELOW it) → "Seed 5: behind Real Deal Creel on Overall record (same All-Play %)."; the structural steps
+  //     team BELOW it) → "Seed 5: behind Real Deal Creel on H2H record (same All-Play %)."; the structural steps
   //     read "A first-round bye needs a division title." / "<name> is in the field as a division winner."
   //   ladder without vs_above (seed 1, or an older worker) → the seed_reason rival wording.
   //   no seed reason at all (a worker that predates it) → blocked, never a guessed one.
