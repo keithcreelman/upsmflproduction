@@ -2131,9 +2131,18 @@
     var url = workerUrl("/api/waivers/availability") +
       "?L=" + encodeURIComponent(state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(state.ctx.year);
     var before = state.waiverAvail ? state.waiverAvail.now_unix + "|" + JSON.stringify(state.waiverAvail.players) : "";
-    var p = fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .catch(function () { return null; })
+    // Retried like fetchWaiverState: one dropped request must not leave every
+    // free agent on "Can't confirm" until a pull-to-refresh.
+    function attempt(n) {
+      return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (j) {
+          if ((j && j.ok) || n >= 2) return j;
+          return new Promise(function (res) { setTimeout(res, n === 0 ? 600 : 1500); }).then(function () { return attempt(n + 1); });
+        });
+    }
+    var p = attempt(0)
       .then(function (j) {
         state.waiverAvailPromise = null;
         state.waiverAvailTriedAt = Date.now();
@@ -2160,6 +2169,8 @@
     var av = state.waiverAvail;
     if (!av) {
       if (!state.waiverAvailError) return null;
+      // Still failing: try again in the background, at most every 30 s.
+      if (!state.waiverAvailTriedAt || Date.now() - state.waiverAvailTriedAt > 30000) fetchWaiverAvailability(true);
       return { code: "unknown", badge: "Can't confirm", lines: [],
         headline: "Availability could not be confirmed — " + state.waiverAvailError + ". Pull down to refresh." };
     }

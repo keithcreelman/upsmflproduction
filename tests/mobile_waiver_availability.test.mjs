@@ -51,6 +51,26 @@ test("one lookup: a recent drop, else his NFL team's state, else no-game; null w
     /^Availability could not be confirmed — the availability check didn't load\. Pull down to refresh\.$/);
 });
 
+test("a failed read is retried (twice at once, then in the background every 30 s), so one dropped request can't leave 'Can't confirm' up", async () => {
+  const ctx = vm.createContext({ JSON, String, Object, Promise, console, encodeURIComponent });
+  let calls = 0;
+  ctx.fetch = () => { calls++; return calls < 3 ? Promise.reject(new Error("offline")) : Promise.resolve({ ok: true, json: () => Promise.resolve(PAYLOAD) }); };
+  ctx.setTimeout = (fn) => fn();
+  ctx.Date = { now: () => (FRI_RUN - 1200) * 1000 };
+  ctx.window = { dispatchEvent() {} }; ctx.CustomEvent = function () {};
+  ctx.renders = 0; ctx.renderRoute = () => { ctx.renders++; };
+  ctx.workerUrl = (p) => "https://w.test" + p;
+  ctx.state = { ctx: { leagueId: "74598", year: "2026" } };
+  vm.runInContext(sliceFn(APP, "function fetchWaiverAvailability(") + "\nthis.go = fetchWaiverAvailability;", ctx);
+  await ctx.go(true);
+  t.equal(calls, 3, "two failures, then the third attempt lands");
+  t.equal(ctx.state.waiverAvail, PAYLOAD); t.equal(ctx.state.waiverAvailError, "");
+  t.equal(ctx.renders, 1, "the screen repaints once with the answer");
+  const stale = loadApp({ nowSec: FRI_RUN - 1200, rostersReadSec: 0, payload: null, error: "the availability check didn't load" });
+  stale.forPid("1", "NYJ");
+  t.equal(stale.refetches, 1, "still failing → re-read in the background");
+});
+
 test("after a waiver run: re-read, and say the rosters may be pre-run until they're refreshed", () => {
   const during = loadApp({ nowSec: FRI_RUN + 60, rostersReadSec: FRI_RUN - 1500 });
   const st = during.forPid("10816", "NYJ");
