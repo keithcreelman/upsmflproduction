@@ -283,6 +283,8 @@ function bidHarness({ full = false, players = PLAYERS_JS, fx = FX } = {}) {
     hotCold: { get: () => ({ hot: { "17167": 9.5, "14717": 4.1 }, cold: {} }), isLoading: () => false, fetch: () => Promise.resolve() },
     waivers: {
       mode: () => ({ mode: "bbid", label: "Bid", detail: "Blind bids run at MFL's next scheduled run", writeEnabled: true, nativeLink: "" }),
+      // The worker's availability answer: an ordinary free agent, eligible for the next run.
+      availability: () => ({ code: "waivers", badge: "", headline: "Waivers — next run: Friday's run, Oct 16 at 9:00 AM ET", eligible_run_label: "Friday's run, Oct 16 at 9:00 AM ET", lines: [] }),
       writeEnabled: () => true, stateKnown: () => true, nativeLink: () => "",
       limits: () => ({ min: 1000, step: 1000, maxRounds: 8, conditional: true, conditionalKnown: true }),
       getPlan: () => plan, setPlan: (p) => { plan = JSON.parse(JSON.stringify(p)); },

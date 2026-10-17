@@ -116,6 +116,16 @@ test("already game-locked: Zach Allen (DEN) dropped Thu 8:00 PM, 14 min before h
   t.equal(r.by_team.NYJ.code, "waivers");
 });
 
+test("after the Monday 9:00 PM re-lock, a player whose Sunday game is over can be bid on: his claim goes to Thursday's run, after the week", () => {
+  const mon9pm = et(2026, 10, 19, 21, 0);
+  const nyj = resolve({ now: mon9pm }).by_team.NYJ;   // NYJ played Sun 10-18 1:00 PM; the week's last kickoff is MNF 10-19
+  t.equal(nyj.code, "waivers"); t.equal(nyj.eligible_run_unix, NEXT_THU);
+  t.ok(nyj.lines.includes("His game (NYJ) was Sun Oct 18, 1:00 PM ET; that NFL week is over by this run."));
+  const sunFcfs = resolve({ now: et(2026, 10, 18, 14, 0), mode: "fcfs", fcfsCloses: et(2026, 10, 19, 21, 0) }).by_team.NYJ;
+  t.equal(sunFcfs.code, "game_locked", "but inside Sunday's FCFS window, after kickoff, he can't be added now");
+  t.equal(sunFcfs.eligible_run_unix, NEXT_THU);
+});
+
 test("no owner-specific restriction: the state is the same whoever dropped him (MFL has none; UPS's re-add rule limits only an MYM)", () => {
   const a = resolve({ now: FRI_RUN - 60, drops: { 1: drop(THU_RUN, "0008") }, teams: { 1: "NYJ" } }).players["1"];
   const b = resolve({ now: FRI_RUN - 60, drops: { 1: drop(THU_RUN, "0010") }, teams: { 1: "NYJ" } }).players["1"];
