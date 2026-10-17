@@ -188,7 +188,8 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   t.match(plain(D.how()), /Hawk Tuah Bowl champion \(7th\) 1\.01 .* 5th-place game winner \(5th\) 1\.07 · its loser \(6th\) 1\.08/);
   t.match(plain(D.about(false)), /“proj” = where a team would be if the season ended today\./);
   const why = plain(D.why(await standings(makeLadderSeason())));
-  t.match(why, /Decided by a tiebreak: .* over .*: same All-Play, /, "the drawer names the tiebreaks that decided places");
+  t.match(why, /Decided by a tiebreak:<\/b>.*<li>L\.A\. Looks over Gride: same All-Play, a better H2H record \(4-0 vs 3-1\)\.<\/li><li>Pure Greatness over CBP: same All-Play, the H2H games between them\.<\/li>/, "the drawer names the tiebreaks that decided places");
+  t.match(why, /<b>Next out:<\/b> Team 0006, 6 All-Play wins behind HammerTime \(6th\)\./);
   t.ok(!/\bGames\b|\bprize\b/i.test(html + D.how() + D.about(false) + D.weekly()), "no 'Games' label and no 'prize' anywhere");
 });
 test("mobile: weekly results unreadable → no team is ranked, and it says so (never 0-0, never a plausible table)", async () => {
