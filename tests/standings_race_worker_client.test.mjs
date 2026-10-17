@@ -88,7 +88,7 @@ test("race(): a FAILED weekly or weeklyScores query (worker sends null + weekly_
 });
 test("race(): a RECORDED season is labelled recorded — no ladder step claimed", async () => {
   const out = raceModule().race(await standings(makeLadderSeason({ recorded: true })));
-  t.ok(Object.values(out.byFranchise).every((r) => /^From the recorded final standings \(see the finish and the recorded seed\)\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
+  t.ok(Object.values(out.byFranchise).every((r) => /from the recorded final standings\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
 });
 
 test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as po: null) makes BOTH regular-season tables incomplete", async () => {
@@ -143,17 +143,22 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   const html = plain(p.html());
   t.match(html, /<span class="status-chip bye projected"[^>]*>BYE<small> proj\.<\/small><\/span>/);
   t.match(html, /Seeds: All-Play % → Overall → season Points For → head-to-head \(league rule §F\.1\)/);
-  t.match(html, /Seeds and BYE \/ DIV \/ WC are projected until the season ends\./);
+  // v3: projected until the REGULAR season ends (race().seedsFinal), not the whole season
+  t.match(html, /Seeds and BYE \/ DIV \/ WC are projected \(if the season ended today\) until the regular season ends\./);
   t.match(html, /Seed 3: behind Gride on All-Play %\. Ahead of CBP on head-to-head/);
   t.ok(!/Seeds derived AP % → Overall PCT → PF/.test(html), "the old stale note is gone");
-  t.match(html, /<th[^>]*>.*Avg PF/, "main's Avg PF label kept (decision 4)");
-  t.match(html, /AP GB/, "AP GB added beside it");
+  // v3 (Standings desktop): "Avg PF / Avg PA" were per-GAME averages in multi-game weeks; they are now PF per week and
+  // PA per game, labeled, and the games-back figure is the worker's ap_back ("Back").
+  t.match(html, /<th[^>]*>PF\/week<\/th>/, "PF per week, labeled");
+  t.match(html, /<th[^>]*>PA\/game<\/th>/, "PA per game, labeled");
+  t.ok(!/Avg PF|Avg PA/.test(html), "the per-game Avg PF / Avg PA labels are gone");
+  t.match(html, /<th[^>]*title="All-Play wins behind the 6th seed"[^>]*>Back<\/th>/, "All-Play wins back beside it");
 });
 test("desktop: weekly results unreadable → race values '—' with a note; the Playoffs column '?' (#1201)", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason({ failWeekly: true })) });
   await settle();
   const html = plain(p.html());
-  t.match(html, /AP GB, Luck, Form and the AP-rank trend show — : the weekly results couldn’t be read\./);
+  t.match(html, /Expected wins and luck show —: the weekly results couldn’t be read\./);
   t.match(html, /Playoff records show <strong>\?<\/strong>: the weekly results couldn't be read\./);
   t.match(html, /Weekly results couldn’t be read\./, "the disclosure's week-by-week log says so — not 'No games played yet.'");
 });
@@ -162,8 +167,10 @@ test("desktop: a recorded season says 'Seeds: the recorded final standings.' and
   await settle();
   const html = plain(p.html());
   t.match(html, /Seeds: the recorded final standings\./);
-  t.match(html, /From the recorded final standings \(see the finish and the recorded seed\)\./);
-  t.ok(!/Seed 1 — from the recorded/.test(html), "no seed number from the recompute (#1329)");
+  // v3: a finished season's /api/standings playoff_seed is a legacy recompute, so the disclosure states the RECORDED
+  // finish (and the recorded seed when there is one) — never "Seed 1 — ..." from the legacy seed.
+  t.match(html, /Finished 1st — from the recorded final standings\./);
+  t.ok(!/Seed \d+ — from the recorded final standings/.test(html), "the legacy recompute is never shown as the seed");
   t.ok(!/league rule §F\.1/.test(html));
 });
 

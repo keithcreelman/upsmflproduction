@@ -93,7 +93,8 @@ check('mobile status chips say "projected" until the season ends (port decision 
   assert.ok(/if \(rs && rs\.complete\) return "regular_over";/.test(MOBILE_LEAGUE));
 });
 check('neither page coerces a failed weekly / weeklyScores (null) into [] before the race module sees it', () => {
-  assert.ok(/race\(\{ rows: baseRows, weekly: resp\.weekly, weeklyScores: resp\.weeklyScores,/.test(DESKTOP));
+  // v3: desktop hands race() the WHOLE response too (it needs standings_basis and regular_season)
+  assert.ok(/window\.UPS_STANDINGS_RACE\.race\(resp\)/.test(DESKTOP), 'desktop hands race() the response untouched');
   assert.ok(!/race\(\{[^}]*weekly: resp\.weekly \|\| \[\]/.test(DESKTOP));
   assert.ok(/R\.race\(resp\)/.test(MOBILE_LEAGUE), 'mobile hands race() the response untouched');
   assert.ok(!/\.weekly \|\| \[\]|\.weeklyScores \|\| \[\]/.test(MOBILE_LEAGUE));
