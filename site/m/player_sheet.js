@@ -2633,8 +2633,9 @@
     var curSalary = Number(rosterRow && rosterRow.salary) || 0;
     var cyRem = U.safeInt(rosterRow && rosterRow.contractYear, -1);
     var capDelta = cyRem === 0 ? 0 : (penaltyAmt - curSalary);
-    // An UNPRICED drop's cost is unknown — never previewed as if it were free.
-    var capLine = (penalty && penalty.unpriced) ? "\nCap room after the drop: unknown until the penalty is priced." : capPreviewLine(capDelta);
+    // An UNPRICED drop's cost is unknown — never previewed as if it were free. Nor is one with no penalty at all.
+    var priced = !!penalty && !penalty.unpriced && typeof penalty.amount === "number";
+    var capLine = !priced ? "\nCap room after the drop: unknown until the penalty is priced." : capPreviewLine(capDelta);
     if (!window.confirm("Drop " + name + "?" + penaltyLine + capLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
     setBusy(btn, true, "Dropping…");
     ACT.submitDrop(pid, name).then(function (resp) {

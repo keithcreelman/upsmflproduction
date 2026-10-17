@@ -316,7 +316,9 @@ test("worker source: no calendar-year default left for a season (`env.YEAR || ne
 
 // ── 4. the phone ──
 const APP_FNS = ["safeStr", "safeInt", "pad4", "asArray", "fetchJson", "mflExportUrl", "mflExportUrlForYear", "detectContext", "fetchSeason", "loadAllData"];
-const APP_SRC = APP_FNS.map((n) => sliceFn(APP, "function " + n + "(")).join("\n") + "\n" + (APP.match(/  var seasonSettled = [^\n]*\n/) || [""])[0];
+const APP_SRC = APP_FNS.map((n) => sliceFn(APP, "function " + n + "(")).join("\n") + "\n" + (APP.match(/  var seasonSettled = [^\n]*\n/) || [""])[0] +
+  // mflExportUrlForYear's fresh-read-after-a-move state (its own top-level vars in app.js)
+  (APP.match(/  var FRESH_READ_MS = [\s\S]*?  var freshReadsUntil = 0;\n/) || [""])[0];
 const fetchers = [...new Set([...APP_SRC.matchAll(/\b(fetch[A-Z]\w*)\s*\(/g)].map((m) => m[1]))]
   .filter((n) => n !== "fetchJson" && !new RegExp("function " + n + "\\(").test(APP_SRC));
 const STUBS = fetchers.map((n) => "function " + n + "() { return Promise.resolve(null); }").join("\n") + `

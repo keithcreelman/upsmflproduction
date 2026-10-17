@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.15.4";
+  var BUILD = "2026.10.17.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -471,6 +471,15 @@
   }
 
   // ---------- Data fetch ----------
+  // Fresh reads right after a move (Keith 2026-10-16). The worker's /api/mfl-export keeps each MFL answer for 60 seconds
+  // (cf cacheTtl), so the reload that follows a move (IR, taxi, drop, claim, trade, tag, draft) or a pull-to-refresh got
+  // the pre-move roster back: Will Shipley still showed on the active roster after being placed on IR. For FRESH_READ_MS
+  // after reloadData(), the exports a move can change carry a unique `_`, so they miss that cache and come straight from
+  // MFL. MFL ignores the parameter (checked 10-16: identical rosters with and without it), and the worker's own MFL reader
+  // busts its cache the same way. Every other read keeps the shared 60-second cache.
+  var FRESH_READ_MS = 20000;
+  var FRESH_AFTER_MOVE_TYPES = { rosters: 1, salaries: 1, salaryAdjustments: 1, tradeBait: 1, transactions: 1, pendingTrades: 1, draftResults: 1, freeAgents: 1 };
+  var freshReadsUntil = 0;
   function mflExportUrl(type, extra) {
     return mflExportUrlForYear(type, state.ctx.year, extra);
   }
@@ -487,6 +496,7 @@
         }
       }
     }
+    if (FRESH_AFTER_MOVE_TYPES[type] && Date.now() < freshReadsUntil) url += "&_=" + Date.now();
     return url;
   }
 
@@ -1381,6 +1391,7 @@
   // Re-fetch league data after a roster mutation. Same shape as loadAllData
   // but skips the franchise resolution (we already know the viewer).
   function reloadData() {
+    freshReadsUntil = Date.now() + FRESH_READ_MS;   // the reload after a move reads the roster fresh (see mflExportUrl)
     state.loadingPromise = null;
     state.loaded = false;
     // rosterOwnership() is keyed on the state.rosters object, so it rebuilds by

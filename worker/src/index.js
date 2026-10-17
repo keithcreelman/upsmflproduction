@@ -210,10 +210,22 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
 // the same day that every rookie active at any point in 2025 was already
 // permanent, so that exclusion needs no separate test.
 //
-// SOURCE: MFL weeklyResults for each completed week (every game's clock at 0).
-// A player listed under a franchise there was on that team's active roster;
-// taxi and IR players are not listed. 2024-2025 came from the backfill, so this
-// only counts 2026 on.
+// SOURCE: MFL weeklyResults for each week (a player listed under a franchise
+// there was on that team's active roster; taxi and IR players are not listed)
+// PLUS that week's MFL rosters (TYPE=rosters&W=N — historical per week): a
+// player on INJURED_RESERVE there used the week too. 2024-2025 came from the
+// backfill, so this only counts 2026 on.
+//
+// Keith's rulings, 2026-10-16:
+//   - IR COUNTS (canon §B2: "the active roster (or on IR)… Putting a called-up
+//     player on IR does NOT avoid burning the week"). weeklyResults alone never
+//     saw an IR week.
+//   - A BYE WEEK IS NOT ACTIVE: a week his NFL team has no game (or he is an NFL
+//     free agent) is never a call-up week. His team is read from MFL's players
+//     export when the count runs.
+//   - A week is recorded 10 minutes after its LAST kickoff (the late Monday game
+//     when there are two) — every lineup has locked by then — instead of the
+//     next morning once every game was final (_taxiCallupWeekDue drives it).
 //
 // Taxi-eligible = UPS Rookie Draft Round 2+, inside the 3-league-year window,
 // still on the Rookie-Draft contract: the /roster-workbench taxi_eligible test.
@@ -226,6 +238,37 @@ async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
 // FAILS CLOSED. An export that does not answer stops the count at the last week
 // that did, and an unreadable contract or draft list counts nothing: a week is
 // never guessed, and nobody is charged a call-up on a guess.
+const TAXI_CALLUP_WEEK_RECORD_DELAY_SEC = 10 * 60;
+const _taxiCallupWeeksMarkerKey = (season) => `taxi_callup_weeks_through_${String(season || "").replace(/\D/g, "")}`;
+// The week the counter should record now, or 0: the latest week (1–17) whose last kickoff + 10 minutes has passed,
+// unless ups_settings already says the count got that far. Called every */5 tick, so it is cached kickoffs and one
+// ups_settings read; the counter itself then runs once per week.
+async function _taxiCallupWeekDue(env, season, nowSec) {
+  let due = 0;
+  for (let w = 1; w <= 17; w += 1) {
+    const last = await nflWeekLastKickoffUnix(season, w);
+    if (!(last > 0) || nowSec < last + TAXI_CALLUP_WEEK_RECORD_DELAY_SEC) break;
+    due = w;
+  }
+  if (!due || !env || !env.UPS_MFL_DB) return 0;
+  const row = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(_taxiCallupWeeksMarkerKey(season)).first();
+  return (Number(row && row.value) || 0) >= due ? 0 : due;
+}
+// Runs the counter (a real write) and records how far it got, so _taxiCallupWeekDue stops asking for that week. A run
+// that stopped early records only the weeks it counted; the next tick retries the rest.
+async function _runTaxiCallupWeekCount(env, season, leagueId, tag) {
+  const ws = await syncTaxiCallupWeeks(env, season, leagueId, { dryRun: false });
+  if (!ws.ok) { console.error(`[scheduled ${tag}] taxi-callup weeks: ${ws.error} ${ws.message || ""}`); return ws; }
+  if (ws.inserts.length || ws.superseded.length) {
+    console.log(`[scheduled ${tag}] taxi-callup weeks: +${ws.inserts.length} weeks, ${ws.superseded.length} promote clicks superseded, through W${ws.counted_through_week}`);
+  }
+  if (ws.counted_through_week) {
+    await env.UPS_MFL_DB.prepare(
+      "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
+    ).bind(_taxiCallupWeeksMarkerKey(season), String(ws.counted_through_week), new Date().toISOString()).run();
+  }
+  return ws;
+}
 async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
   opts = opts || {};
   const dryRun = !!opts.dryRun;
@@ -251,9 +294,10 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
   const apiKey = String(env.MFL_APIKEY || "").trim();
   const apiQs = apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "";
 
-  // 1. Completed weeks, in order, stopping at the first that is not over (or
-  //    whose schedule does not answer).
+  // 1. Countable weeks, in order — its last kickoff + TAXI_CALLUP_WEEK_RECORD_DELAY_SEC has passed — stopping at the
+  //    first that is not (or whose schedule does not answer). Each week's teams with a game are kept for the bye rule.
   const nowSec = Math.floor(Date.now() / 1000);
+  const playingByWeek = new Map();
   const completed = [];
   let lastKickoff = 0;
   let stoppedAt = null;
@@ -262,12 +306,13 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     const games = arr(s && s.nflSchedule && s.nflSchedule.matchup);
     if (!games.length) { stoppedAt = { week: w, reason: s ? "no_games_listed" : "schedule_unreadable" }; break; }
     let weekLast = 0;
-    const over = games.every((g) => {
+    const allKnown = games.every((g) => {
       const ko = parseInt(g && g.kickoff, 10) || 0;
       if (ko > weekLast) weekLast = ko;
-      return ko > 0 && ko < nowSec && String(g && g.gameSecondsRemaining) === "0";
+      return ko > 0;
     });
-    if (!over) { stoppedAt = { week: w, reason: "week_not_complete" }; break; }
+    if (!allKnown || nowSec < weekLast + TAXI_CALLUP_WEEK_RECORD_DELAY_SEC) { stoppedAt = { week: w, reason: "week_not_locked" }; break; }
+    playingByWeek.set(w, new Set(games.flatMap((g) => arr(g && g.team).map((t) => String((t && t.id) || "").toUpperCase())).filter(Boolean)));
     completed.push(w);
     lastKickoff = weekLast;
   }
@@ -307,6 +352,17 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     universe.add(pid);
   }
 
+  // 2b. Each eligible player's NFL team, for the bye rule. Unreadable → nothing is counted (never a guess).
+  const teamOf = new Map();
+  if (universe.size) {
+    const pl = await getJson(`https://api.myfantasyleague.com/${yr}/export?TYPE=players&PLAYERS=${[...universe].join(",")}&JSON=1`);
+    if (!(pl && pl.players)) return { ok: false, error: "players_unreadable", message: "Could not read the players' NFL teams (the bye rule needs them); nothing was counted." };
+    for (const p of arr(pl.players.player)) {
+      const id = String((p && p.id) || "").replace(/\D/g, "");
+      if (id) teamOf.set(id, String((p && p.team) || "").toUpperCase());
+    }
+  }
+
   // 3. Weeks already counted this season.
   const haveRes = await db.prepare(
     "SELECT player_id, nfl_week FROM ups_taxi_callups WHERE season = ? AND pending = 0 AND nfl_week IS NOT NULL"
@@ -324,25 +380,35 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
       ? arr(root.matchup).flatMap((m) => arr(m && m.franchise)).concat(arr(root.franchise))
       : [];
     if (!franchises.length) { stoppedAt = { week: w, reason: "weekly_results_unreadable" }; break; }
-    const seen = new Set();
-    for (const fr of franchises) {
-      const fid = pad4(fr && fr.id);
+    // IR: that week's rosters (historical per week). Unreadable → stop here, like weeklyResults.
+    const wkRosters = await getJson(`https://www48.myfantasyleague.com/${yr}/export?TYPE=rosters&L=${lg}&W=${w}&JSON=1${apiQs}`);
+    const rosterFrs = arr(wkRosters && wkRosters.rosters && wkRosters.rosters.franchise);
+    if (!rosterFrs.length) { stoppedAt = { week: w, reason: "weekly_rosters_unreadable" }; break; }
+    const onWeek = [];   // [fid, pid, basis]
+    for (const fr of franchises) for (const p of arr(fr && fr.player)) onWeek.push([pad4(fr && fr.id), p && p.id, "weeklyResults active roster"]);
+    for (const fr of rosterFrs) {
       for (const p of arr(fr && fr.player)) {
-        const pid = String((p && p.id) || "").replace(/\D/g, "");
-        if (!pid || !universe.has(pid) || seen.has(pid)) continue;
-        seen.add(pid);
-        if (have.has(`${pid}|${w}`)) continue;
-        const base = running.has(pid) ? running.get(pid) : (usedBy.get(pid) || 0);
-        if (base >= 4) continue;
-        const idx = base + 1;
-        running.set(pid, idx);
-        inserts.push({ player_id: pid, franchise_id: fid, week: w, callup_index: idx, became_permanent: idx >= 4 });
+        if (String((p && p.status) || "").toUpperCase() === "INJURED_RESERVE") onWeek.push([pad4(fr && fr.id), p && p.id, "weekly rosters INJURED_RESERVE"]);
       }
+    }
+    const playing = playingByWeek.get(w) || new Set();
+    const seen = new Set();
+    for (const [fid, rawPid, basis] of onWeek) {
+      const pid = String(rawPid || "").replace(/\D/g, "");
+      if (!pid || !universe.has(pid) || seen.has(pid)) continue;
+      seen.add(pid);
+      if (!playing.has(teamOf.get(pid) || "")) continue;   // bye / NFL free agent: not an active week
+      if (have.has(`${pid}|${w}`)) continue;
+      const base = running.has(pid) ? running.get(pid) : (usedBy.get(pid) || 0);
+      if (base >= 4) continue;
+      const idx = base + 1;
+      running.set(pid, idx);
+      inserts.push({ player_id: pid, franchise_id: fid, week: w, callup_index: idx, became_permanent: idx >= 4, basis });
     }
     countedThrough.push(w);
   }
   if (!countedThrough.length) {
-    return { ok: false, error: "weekly_results_unreadable", stopped_at: stoppedAt, message: "Could not read MFL weekly results; nothing was counted." };
+    return { ok: false, error: (stoppedAt && stoppedAt.reason) || "weekly_results_unreadable", stopped_at: stoppedAt, message: "Could not read MFL's weekly results or weekly rosters; nothing was counted." };
   }
 
   // 5. Promote clicks the weekly count now covers.
@@ -368,7 +434,7 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
          (league_id, season, franchise_id, player_id, nfl_week, callup_index, became_permanent, pending, source, raw_payload_json)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'mfl-weekly-sync', ?)`
     ).bind(lg, String(yr), x.franchise_id, x.player_id, x.week, x.callup_index, x.became_permanent ? 1 : 0,
-      JSON.stringify({ basis: "weeklyResults active roster", week: x.week })));
+      JSON.stringify({ basis: x.basis, week: x.week })));
     for (const s of superseded) {
       stmts.push(db.prepare("UPDATE ups_taxi_callups SET pending = 2 WHERE id = ? AND pending = 1").bind(s.id));
     }
@@ -472,6 +538,158 @@ async function snapshotMflToR2(env, nowUtc) {
     `[snapshotMflToR2] ${dateKey}: ${meta.parts.length - failed.length}/${meta.parts.length} OK` +
       (failed.length ? ` — failed: ${failed.map((p) => p.name).join(", ")}` : "")
   );
+}
+
+// ── HOURLY roster copies: the contract a player held when he was cut, even between daily snapshots ──
+// The daily snapshot (09:05 UTC) is what prices a drop (scan-and-record) and its waiver card. A player picked up AFTER
+// it and cut before the next one is in no daily snapshot, so his cut was recorded "no_pre_drop_contract" and his card
+// said "Cap penalty: unknown" (2026-10-16: Ryan Flournoy and Kendrick Bourne, claimed Thu 9 AM ET, cut Fri 9 AM ET —
+// and that Friday's daily snapshot was never written). Every hourly tick keeps MFL's rosters export (it carries each
+// player's salary and contract) at snapshots/hourly/<YYYY-MM-DD>/<HH>.json, and deletes the copy from 10 days back, so a
+// drop up to a week old can still be priced. One rosters read and two R2 writes an hour.
+const HOURLY_ROSTERS_KEEP_DAYS = 10;
+const _hourlyRostersKey = (d) => `snapshots/hourly/${d.toISOString().slice(0, 10)}/${String(d.getUTCHours()).padStart(2, "0")}.json`;
+async function snapshotRostersHourlyToR2(env, nowUtc) {
+  const bucket = env.UPS_MFL_BACKUPS;
+  if (!bucket) throw new Error("R2 binding UPS_MFL_BACKUPS missing");
+  const leagueId = String(env.LEAGUE_ID || "74598");
+  const snapAct = await activeSeason(leagueId, env);
+  if (!snapAct.ok) throw new Error(`active season unresolved (${snapAct.reason}) — no hourly roster copy under a guessed season`);
+  const res = await fetch(`https://www48.myfantasyleague.com/${snapAct.season}/export?TYPE=rosters&L=${leagueId}&JSON=1`,
+    { headers: { "User-Agent": "upsmflproduction-worker-hourly-rosters" }, cf: { cacheTtl: 0 } });
+  if (!res.ok) throw new Error(`rosters HTTP ${res.status}`);
+  const data = await res.json();
+  if (!(data && data.rosters && data.rosters.franchise)) throw new Error("rosters export had no franchises");
+  await bucket.put(_hourlyRostersKey(nowUtc), JSON.stringify(data), {
+    httpMetadata: { contentType: "application/json; charset=utf-8" },
+    customMetadata: { mfl_league_id: leagueId, season: String(snapAct.season), taken_at_utc: nowUtc.toISOString() },
+  });
+  try { await bucket.delete(_hourlyRostersKey(new Date(nowUtc.getTime() - HOURLY_ROSTERS_KEEP_DAYS * 86400000))); } catch (_) { /* next hour retries */ }
+}
+
+// The contract a FRANCHISE's player held just before `dropUnix`, from the hourly roster copies taken at or before the
+// drop, newest first, up to `maxHours` back. Only that franchise's roster counts (a player cut, re-claimed and cut again
+// the same day was on two contracts). null when no copy has him. A copy's R2 upload time is its "taken at", so a
+// contract change submitted after it is still found by _contractSubmittedBetween.
+async function _hourlyPreDropContract(bucket, pid, franchiseId, dropUnix, maxHours) {
+  if (!bucket || !pid || !franchiseId || !(dropUnix > 0)) return null;
+  const want = String(pid).replace(/\D/g, ""), fid = String(franchiseId).replace(/\D/g, "").padStart(4, "0");
+  for (let h = 0; h <= (maxHours || 36); h += 1) {
+    const at = new Date((dropUnix - h * 3600) * 1000);
+    let obj = null;
+    try { obj = await bucket.get(_hourlyRostersKey(at)); } catch (_) { obj = null; }
+    if (!obj) continue;
+    const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
+    if (!up || !Number.isFinite(up.getTime()) || up.getTime() > dropUnix * 1000) continue;   // taken after the drop
+    let snap = null;
+    try { snap = JSON.parse(await obj.text()); } catch (_) { continue; }
+    const frs = snap && snap.rosters && snap.rosters.franchise;
+    for (const f of (Array.isArray(frs) ? frs : (frs ? [frs] : []))) {
+      if (String(f && f.id || "").replace(/\D/g, "").padStart(4, "0") !== fid) continue;
+      const pl = f.player;
+      for (const p of (Array.isArray(pl) ? pl : (pl ? [pl] : []))) {
+        if (String(p && p.id || "").replace(/\D/g, "") !== want) continue;
+        if (!String(p.contractInfo || "").trim() && !(Number(p.salary) > 0)) return null;   // blank: unstamped, not a contract
+        return {
+          contract_status: String(p.contractStatus || "").trim(),
+          salary: Number(p.salary) || 0,
+          contract_year: Number(p.contractYear) || 0,
+          contract_info: String(p.contractInfo || "").trim(),
+          is_taxi: String(p.status || "") === "TAXI_SQUAD",
+          snapshot_source: `hourly:${up.toISOString()}`,
+          snapshot_taken_at: up.toISOString(),
+        };
+      }
+    }
+  }
+  return null;
+}
+
+// ── The contract a DROP ended: ONE lookup for the drop ledger and the waiver-run card ──
+// The card (/admin/adds/post-discord) used its own copy of the drop ledger's (/admin/drops/scan-and-record) R2 walk, and
+// the two disagreed (2026-10-16): the card skipped a BLANK roster entry and walked back to an OLDER contract where the
+// ledger stops and books the cut unpriced (an unstamped contract is never priced as $0), and the card never checked for
+// a MYAC, extension, MYM or restructure submitted after the snapshot — the Colbie Young case, where the ledger books the
+// new contract. Both routes now read through this, in the ledger's order:
+//   1. the newest hourly roster copy taken before the drop, on the dropping team's roster (_hourlyPreDropContract);
+//   2. the daily snapshot of the drop's UTC day, walking back up to 7 days, never one taken after the drop: the first
+//      entry for the player, BLANK INCLUDED (the calculator calls a blank contract unstamped and leaves it unpriced);
+//   3. the newest real contract submission for that player and team between that snapshot and the drop.
+// One reader per request (its daily snapshots are cached). Each call → { contract } | { contract: null } (in no snapshot)
+// | { contract: null, error } (the submission tables could not be read: the ledger retries next tick, the card says unknown).
+function _preDropContractReader(env) {
+  const bucket = env && env.UPS_MFL_BACKUPS;
+  const daily = new Map();   // dateStr → { data, takenAt }
+  const loadDaily = async (dateStr) => {
+    if (daily.has(dateStr)) return daily.get(dateStr);
+    let data = null, takenAt = "";
+    if (bucket) {
+      try {
+        const obj = await bucket.get(`snapshots/${dateStr}/rosters.json`);
+        if (obj) {
+          data = JSON.parse(await obj.text());
+          // R2's own upload time. Unknown → the START of the snapshot's day, so every same-day submission counts as
+          // possibly newer (re-applying one the snapshot already holds is a no-op).
+          const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
+          takenAt = up && Number.isFinite(up.getTime()) ? up.toISOString() : `${dateStr}T00:00:00.000Z`;
+        }
+      } catch (_) { data = null; }
+    }
+    const v = { data, takenAt };
+    daily.set(dateStr, v);
+    return v;
+  };
+  const list = (v) => (Array.isArray(v) ? v : (v ? [v] : []));
+  const fromSnapshots = async (pid, franchiseId, dropUnix) => {
+    const hourly = await _hourlyPreDropContract(bucket, pid, franchiseId, dropUnix, 36);
+    if (hourly) return hourly;
+    const dropMs = dropUnix * 1000;
+    for (let lag = 0; lag <= 7; lag += 1) {
+      const dateStr = new Date(dropMs - lag * 86400000).toISOString().slice(0, 10);
+      const { data, takenAt } = await loadDaily(dateStr);
+      if (!data) continue;
+      const takenMs = Date.parse(takenAt);
+      if (Number.isFinite(takenMs) && takenMs > dropMs) continue;   // taken after the drop
+      for (const f of list(data.rosters && data.rosters.franchise)) {
+        for (const p of list(f && f.player)) {
+          if (String(p && p.id || "").replace(/\D/g, "") !== pid) continue;
+          return {
+            contract_status: String(p.contractStatus || "").trim(),
+            salary: Number(p.salary) || 0,
+            contract_year: Number(p.contractYear) || 0,
+            contract_info: String(p.contractInfo || "").trim(),
+            is_taxi: String(p.status || "").trim() === "TAXI_SQUAD",
+            snapshot_source: dateStr,
+            snapshot_taken_at: takenAt,
+          };
+        }
+      }
+    }
+    return null;
+  };
+  return async ({ season, leagueId, pid, franchiseId, dropUnix }) => {
+    const want = String(pid || "").replace(/\D/g, "");
+    const at = Number(dropUnix) || 0;
+    let c = want && at > 0 ? await fromSnapshots(want, franchiseId, at) : null;
+    if (!c) return { contract: null };
+    // A snapshot is a picture at one moment. A contract submitted after it and before the drop IS the contract dropped.
+    const newer = await _contractSubmittedBetween(env, {
+      season, leagueId, playerId: want, franchiseId, afterIso: c.snapshot_taken_at, beforeIso: new Date(at * 1000).toISOString(),
+    });
+    if (newer && newer.error) return { contract: null, error: newer.error };
+    if (newer) {
+      c = {
+        ...c,
+        contract_status: String(newer.new_contract_status || "").trim() || c.contract_status,
+        salary: Number(newer.new_salary) || c.salary,
+        contract_year: Number(newer.new_contract_year) || c.contract_year,
+        contract_info: String(newer.new_contract_info || "").trim(),
+        snapshot_source: `${newer.table}:${newer.id}`,
+        superseded_snapshot: c.snapshot_source,
+      };
+    }
+    return { contract: c };
+  };
 }
 
 // ── Tag / rookie-extension deadline lock pipeline ─────────────────────
@@ -3007,10 +3225,11 @@ async function resolveCompletedPayableWeeks(season, leagueId, opts) {
 }
 
 // Completed payable weeks AT A PAST INSTANT by the rule the drop recorder applies to every NEW drop — the live authority
-// (resolveCurrentLineupWeek): a week counts once its last game has kicked off + _LINEUP_WEEK_GRACE_SEC. Used to price a drop
-// that was HELD (an MFL read failed when it was recorded), so it is charged exactly what it would have been charged on time.
+// (resolveCurrentLineupWeek): a week counts once its last game has kicked off + _LINEUP_WEEK_GRACE_SEC. Every drop is priced
+// with it, through _completedWeeksForDrop below, so a drop recorded late or HELD (an MFL read failed when it was recorded) is
+// charged exactly what it would have been charged on time.
 // (The historical walk above is kickoff-to-kickoff, so between Monday night and Thursday it reads one week fewer than the
-// recorder did.) null when the schedule can't be read — the drop then stays held.
+// recorder did.) null when the schedule can't be read.
 // Stamped into a HELD drop's notes when the recorder prices it, so post-discord can still find a PREVIOUS season's held-then-
 // priced row after the cron's season has rolled over (Jan 1; NFL Week 17 runs into January).
 const _HELD_REPRICED_MARK = "[repriced-after-hold]";
@@ -3043,6 +3262,30 @@ async function _completedWeeksAtLiveRule(season, atUnix, regularSeasonWeeks) {
   if (!(last > 0)) return { weeks: null, source: "unresolved" };
   const done = at >= last + _LINEUP_WEEK_GRACE_SEC ? started : started - 1;
   return { weeks: Math.max(0, Math.min(rsw, done)), source: "live_rule_at_instant" };
+}
+
+// Completed payable weeks for PRICING A DROP, as of the drop. The ONE count every drop path uses — the recorder (new and
+// held drops), the post-discord recompute and the waiver-run card — so a drop is priced the same whenever it is recorded
+// or announced (Keith 2026-10-16). The recorder used to price a NEW drop with the live count at its */5 tick: a drop first
+// recorded after the next week boundary (scan or MFL down across Tuesday ~3 AM ET) booked one more week of earned salary
+// than its own drop instant had, and more than its waiver card said.
+//   1. The live rule at the drop instant (_completedWeeksAtLiveRule), from MFL's NFL schedule.
+//   2. No schedule — every offseason until the NFL publishes the new season's (MFL answers 404 for that year's
+//      nflSchedule; canon cuts run from the March rollover): the live-scoring authority NOW, but only its 0. Completed
+//      weeks never go down, so none complete now means none at the earlier drop. Any other answer can't be carried back
+//      to the drop instant → null, and the drop is HELD until the schedule can be read.
+// (One case the fallback cannot tell apart, exactly as the old tick-time count could not: the schedule unreadable between
+// Week 1's last game + grace and Week 2's first kickoff, where live scoring has not rolled and still reads 0.)
+async function _completedWeeksForDrop(season, leagueId, dropUnix) {
+  const atDrop = await _completedWeeksAtLiveRule(season, dropUnix, 17);
+  if (atDrop.weeks !== null) return atDrop;
+  const at = Number(dropUnix) || 0;
+  if (at > 0 && at <= Math.floor(Date.now() / 1000)) {
+    try {
+      if ((await resolveAuthoritativeCompletedWeek(season, leagueId)) === 0) return { weeks: 0, source: "none_complete_now" };
+    } catch (_) { /* held */ }
+  }
+  return atDrop;
 }
 
 // Week-1 boundary DATE (YYYY-MM-DD, ET) taken from MFL's real schedule, for the
@@ -3125,19 +3368,8 @@ const _nflWeekForUnix = (unixSec, year) => {
 // (18−W); players whose contract started preseason / Week 1 (or in an earlier
 // season) are absent → the caller treats them as continuing (acquisitionWeek 1,
 // eligible 17). Trades are excluded on purpose — see the block comment below.
-// player_id -> true when the player has confirmed taxi call-up history and has
-// NOT been permanently promoted, i.e. the §D2 cap-free cut still applies even
-// though MFL currently reports him on the active roster. Mirrors the derivation
-// behind /api/taxi-callups: `used` counts confirmed (pending=0) call-ups and
-// permanence is `used >= 4`, aggregated across seasons and franchises.
-//
-// Only ever returns entries for players who appear in ups_taxi_callups, so a
-// player who has never been on taxi is simply absent — callers must treat a
-// missing key as "not exempt", never as "never promoted".
-//
-// Fails CLOSED: any DB error yields {} and every player is priced normally.
-// A wrong $0 is far worse than a wrong charge, which is at least visible and
-// reversible by the commissioner.
+// (A taxi call-up's cap-free cut — which players still have it, and what an unreadable call-up history does — is
+// _taxiPermanentPromotion / _taxiNeverPromotedMap, under "Taxi call-up status" below.)
 // ── A CONTRACT CHANGE THE DAILY SNAPSHOT CANNOT HAVE SEEN ────────────────
 // /admin/drops/scan-and-record prices a drop from the R2 roster snapshot
 // (taken once a day, 09:05 UTC) on or before the drop. A MYAC, extension, MYM
@@ -3183,11 +3415,47 @@ const _contractSubmittedBetween = async (env, { season, leagueId, playerId, fran
   return best;
 };
 
-const _taxiNeverPromotedMap = async (env, playerIds) => {
+// ── Taxi call-up status: ONE answer for the penalty and the taxi tracker (canon §B2/§D2) ──
+//
+// WHY (Keith 2026-10-16): Kyle Williams (0007, UPS pick 2.08 in 2025, on the active roster at the end
+// of 2025) read "no penalty" in the phone's conditional-drop list. The taxi tracker (/api/taxi-callups)
+// already called him PERMANENTLY promoted, but the penalty counted call-up rows alone — one 2025 row,
+// "1 of 3" — and priced his cut as a taxi cap-free cut. The rulebook and the tracker say $4,779.
+// The same gap priced Devin Neal's 2026-09-17 cut at $0 (3 call-ups in 2025, then IR at season end).
+//
+// Permanent (no cap-free cut) when ANY of:
+//   - 4 or more confirmed call-ups (canon §B2: the 4th activation makes it permanent);
+//   - a confirmed call-up row marked became_permanent;
+//   - on an active or IR roster at the end of a prior season (taxiPriorActivePids; Keith 2026-09-17:
+//     every rookie active at any point in 2025 is already permanent).
+// /api/taxi-callups and /roster-workbench use this same predicate. The contract test — an explicit
+// MYAC / extension / restructure also ends it — is in _computeDropPenaltyRaw, which sees the contract.
+const _taxiPermanentPromotion = (used, markedPermanent, priorActive) =>
+  (Number(used) || 0) >= 4 || Number(markedPermanent) === 1 || priorActive === true;
+
+// → { [pid]: true | "unresolved" }. true = 1–3 call-ups and not permanent: a taxi player whose cut is
+// still cap-free. "unresolved" = the call-up table, the prior-season rosters or (for the week under way)
+// the schedule or his NFL team could not be read, so that is NOT known — the calculator holds the cut
+// unpriced, never a guessed $0 and never a guessed charge (rule_no_fail_open_guards). A player absent
+// from the map has no call-up history or is permanent: the normal formula applies.
+//
+// THE WEEK UNDER WAY (Keith 2026-10-16: "a call-up week counts from lineup lock"). Canon §B2: a week is
+// used when he is on the active roster or IR when rosters and lineups lock, and the 4th makes him
+// permanent. The weekly counter (syncTaxiCallupWeeks) writes a week only after the week is OVER, so from
+// his game's kickoff until that row lands, a player on his 4th active week still read "3 used" and his cut
+// was priced as a free taxi cut. ctx.atUnix = the PRICING INSTANT (the drop, or now for a preview): when
+// it is set, a candidate on his 3rd call-up whose OWN NFL team has kicked off in the week under way at that
+// instant is permanent — unless that season-week is already one of his confirmed rows (never counted
+// twice). Whether he was on taxi at that instant is the caller's isTaxi (a taxi cut is exempt before this
+// is read). IR counts; a bye week (no game that week, or an NFL free agent) is never a call-up week — the weekly
+// counter skips it too (Keith 2026-10-16).
+const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
   const out = {};
-  if (!env || !env.UPS_MFL_DB) return out;
   const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
   if (!ids.length) return out;
+  const unresolvedAll = () => { for (const id of ids) out[id] = "unresolved"; return out; };
+  if (!env || !env.UPS_MFL_DB) return unresolvedAll();
+  const counted = {};
   try {
     // D1 caps bound parameters at 100 per statement; chunk well under it.
     const chunkSize = 80;
@@ -3196,22 +3464,93 @@ const _taxiNeverPromotedMap = async (env, playerIds) => {
       const placeholders = chunk.map(() => "?").join(",");
       const rows = await env.UPS_MFL_DB.prepare(
         `SELECT player_id,
-                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used
+                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
+                MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END) AS marked
            FROM ups_taxi_callups
           WHERE player_id IN (${placeholders})
           GROUP BY player_id`
       ).bind(...chunk).all();
       for (const row of rows?.results || []) {
         const pid = String(row?.player_id || "");
-        if (!pid) continue;
-        const used = Number(row?.used || 0);
-        if (used > 0 && used < 4) out[pid] = true;
+        if (pid && Number(row?.used || 0) > 0) counted[pid] = { used: Number(row.used), marked: Number(row.marked || 0) };
       }
     }
   } catch (_) {
-    return {};
+    return unresolvedAll();
+  }
+  const candidates = Object.keys(counted).filter((pid) => !_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, false));
+  if (!candidates.length) return out;
+  const season = String((ctx && ctx.season) || "").replace(/\D/g, "");
+  const leagueId = String((ctx && ctx.leagueId) || "74598").replace(/\D/g, "") || "74598";
+  let priorActive = null;
+  try {
+    priorActive = season ? await taxiPriorActivePids(env, "", leagueId, season) : null;
+  } catch (_) { priorActive = null; }
+  // An EMPTY set is how taxiPriorActivePids reports an unreadable MFL export (it never caches one), so it
+  // is not "nobody was promoted": the candidates' cuts stay unpriced until the rosters can be read.
+  if (!priorActive || !priorActive.size) {
+    for (const pid of candidates) out[pid] = "unresolved";
+    return out;
+  }
+  for (const pid of candidates) {
+    if (!_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, priorActive.has(pid))) out[pid] = true;
+  }
+  // The week under way can only turn a 3rd call-up into the 4th: nobody else's answer depends on it.
+  const at = Number(ctx && ctx.atUnix) || 0;
+  const onThird = Object.keys(out).filter((pid) => out[pid] === true && counted[pid].used + 1 >= 4);
+  if (!(at > 0) || !onThird.length || !season) return out;
+  const hold = () => { for (const pid of onThird) out[pid] = "unresolved"; return out; };
+  // The week under way at the instant: the latest week whose first game has kicked off (weeks 1–17, the
+  // weeks the counter counts).
+  let week = 0;
+  for (let w = 1; w <= 18; w += 1) {
+    let ko = 0;
+    try { ko = await nflWeekFirstKickoffUnix(season, w); } catch (_) { ko = 0; }
+    if (!(ko > 0)) return hold();
+    if (ko > at) break;
+    week = w;
+  }
+  if (!week || week > 17) return out;
+  let already;
+  try {
+    const rows = await env.UPS_MFL_DB.prepare(
+      `SELECT player_id FROM ups_taxi_callups
+        WHERE season = ? AND nfl_week = ? AND pending = 0 AND player_id IN (${onThird.map(() => "?").join(",")})`
+    ).bind(season, week, ...onThird).all();
+    already = new Set((rows?.results || []).map((r) => String(r?.player_id || "")));
+  } catch (_) { return hold(); }
+  const teams = await _taxiPlayerNflTeams(season, onThird.filter((pid) => !already.has(pid)));
+  const kickoffs = await nflWeekKickoffsByTeam(season, week);
+  for (const pid of onThird) {
+    if (already.has(pid)) continue;                        // this week is already one of his rows
+    if (!teams || !Object.keys(kickoffs).length) { out[pid] = "unresolved"; continue; }
+    const team = teams[pid];
+    if (team === undefined) { out[pid] = "unresolved"; continue; }   // not in MFL's answer: unknown
+    const ko = Number(kickoffs[team]) || 0;                 // no game this week (bye, NFL free agent): not an active week
+    if (ko > 0 && ko <= at && _taxiPermanentPromotion(counted[pid].used + 1, counted[pid].marked, false)) delete out[pid];
   }
   return out;
+};
+
+// NFL team code per player ({ pid: "GBP" }, "" for an NFL free agent) from MFL's public players export —
+// the codes nflWeekKickoffsByTeam uses. null when MFL does not answer (the caller holds the cut).
+const _taxiPlayerNflTeams = async (season, playerIds) => {
+  const ids = (playerIds || []).filter(Boolean);
+  if (!ids.length) return {};
+  try {
+    const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(season)}/export?TYPE=players&PLAYERS=${ids.join(",")}&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300 } });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    if (!(j && j.players)) return null;
+    const out = {};
+    const list = Array.isArray(j.players.player) ? j.players.player : (j.players.player ? [j.players.player] : []);
+    for (const p of list) {
+      const id = String((p && p.id) || "").replace(/\D/g, "");
+      if (id) out[id] = String((p && p.team) || "").toUpperCase().replace(/^FA\*?$/, "");
+    }
+    return out;
+  } catch (_) { return null; }
 };
 
 // TRADE IS DELIBERATELY NOT AN ACQUISITION HERE. Do not "fix" this.
@@ -3370,10 +3709,13 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
         };
         const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
+          // A taxi cut is $0 whatever was earned, so it is priced even when the completed weeks could not be read — but then
+          // this year's earned is UNKNOWN, not the prior years alone: null, never a partial figure stored as earned_to_date.
+          const taxiEarned = ctx.weekAuthorityUnresolved ? { earned: null, currentYearEarned: null } : {};
           // Exemption checks (priority order):
           // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
           if (isTaxi) {
-            return { ...ctx, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
+            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
           }
           // 1a. Taxi player mid-CALL-UP. `isTaxi` above is MFL's roster status
           // at drop time, so during a temporary call-up it reads false and the
@@ -3389,8 +3731,21 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
           // It is deliberately NOT defaulted true: a player with no call-up
           // history at all must not be exempted, so an absent value means "not
           // a taxi call-up case" and this branch is skipped.
-          if (taxiNeverPromoted === true) {
-            return { ...ctx, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
+          // Only on his ROOKIE ENTRY contract: an explicit MYAC / extension / restructure also makes the
+          // promotion permanent (canon §B2), and that changes the contract status. "Rookie" is the pre-2026
+          // spelling of "Rookie-Draft" (the contract status vocabulary changed in 2026).
+          const onEntryContract = /^rookie(-draft)?$/i.test(_s(contractStatus));
+          if (taxiNeverPromoted === "unresolved" && onEntryContract) {
+            // Whether he was ever permanently promoted could not be read (the call-up table or the prior-season
+            // rosters). HELD like any other unresolved authority: re-priced by /admin/drops/scan-and-record once
+            // it can be read, and shown "under review" — never a guessed $0, never a guessed charge.
+            return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
+                     hold_reason: "taxi_history_unresolved",
+                     needs_review: true, review_reason: "Whether this taxi player was ever permanently promoted could not be read "
+                       + "(call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
+          }
+          if (taxiNeverPromoted === true && onEntryContract) {
+            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
           }
 
           // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
@@ -7342,6 +7697,26 @@ export default {
         console.error(`[scheduled */5] auction poll dispatch failed: ${e && e.message}`);
       }
 
+      // Taxi call-up weeks: each week recorded 10 minutes after its LAST kickoff (Keith 2026-10-16: "10 minutes after the
+      // last MNF kickoff of the week in case there are multiple games"), not the next morning. The check is cached
+      // kickoffs and one ups_settings read; the counter runs once per week, behind the same flag as the 13:05 UTC backstop.
+      try {
+        if (env.UPS_MFL_DB) {
+          ctx.waitUntil((async () => {
+            try {
+              const season = await _tickSeason("taxi call-up weeks");
+              if (!(await _taxiCallupWeekDue(env, season, Math.floor(Date.now() / 1000)))) return;
+              if (!(await getFeatureFlag(env, "TAXI_CALLUP_WEEKLY_SYNC_ENABLED"))) return;
+              await _runTaxiCallupWeekCount(env, season, String(env.UPS_LEAGUE_ID || env.L || "74598"), "*/5");
+            } catch (e) {
+              console.error(`[scheduled */5] taxi-callup weeks failed: ${e && e.message}`);
+            }
+          })());
+        }
+      } catch (e) {
+        console.error(`[scheduled */5] taxi-callup weeks dispatch failed: ${e && e.message}`);
+      }
+
       // Drop tracker — scan MFL FREE_AGENT txs, record to D1, optionally
       // post to Discord. Idempotent via UNIQUE(season, league_id, player_id,
       // dropped_at_unix) + discord_posted flag, so re-running every 5 min
@@ -8174,12 +8549,23 @@ export default {
     // MFL public exports for our league to R2. This runs in parallel with
     // the existing drop-penalty scan below — independent try/catch so one
     // failure doesn't kill the other.
+    // SELF-HEALING (2026-10-16): the 09:05 firing used to be the day's ONLY chance. That day's snapshot was never written
+    // and nothing retried, so every drop of a player claimed since the previous morning went unpriced. Every hourly tick
+    // from 09 UTC now takes it if today's _snapshot_meta.json is still missing (one R2 HEAD an hour once it exists).
+    // A late snapshot is safe: both pre-drop readers skip a snapshot taken after the drop.
     try {
       const nowUtc = new Date();
-      const isDailySnapshotHour = nowUtc.getUTCHours() === 9;
-      if (isDailySnapshotHour && env.UPS_MFL_BACKUPS) {
-        ctx.waitUntil(snapshotMflToR2(env, nowUtc).catch((e) =>
-          console.error(`[scheduled] snapshotMflToR2 failed: ${e && e.message}`)
+      if (nowUtc.getUTCHours() >= 9 && env.UPS_MFL_BACKUPS) {
+        ctx.waitUntil((async () => {
+          const metaKey = `snapshots/${nowUtc.toISOString().slice(0, 10)}/_snapshot_meta.json`;
+          if (await env.UPS_MFL_BACKUPS.head(metaKey)) return;
+          if (nowUtc.getUTCHours() > 9) console.error(`[scheduled] daily snapshot ${metaKey} missing at ${nowUtc.toISOString()} — taking it now`);
+          await snapshotMflToR2(env, nowUtc);
+        })().catch((e) => console.error(`[scheduled] snapshotMflToR2 failed: ${e && e.message}`)));
+      }
+      if (env.UPS_MFL_BACKUPS) {
+        ctx.waitUntil(snapshotRostersHourlyToR2(env, nowUtc).catch((e) =>
+          console.error(`[scheduled] hourly roster copy failed: ${e && e.message}`)
         ));
       }
     } catch (e) {
@@ -8315,11 +8701,8 @@ export default {
             // before the confirm pass below looks at pending rows.
             if (await getFeatureFlag(env, "TAXI_CALLUP_WEEKLY_SYNC_ENABLED")) {
               try {
-                const ws = await syncTaxiCallupWeeks(env, season, leagueId, { dryRun: false });
-                if (!ws.ok) console.error(`[scheduled hourly] taxi-callup weeks: ${ws.error} ${ws.message || ""}`);
-                else if (ws.inserts.length || ws.superseded.length) {
-                  console.log(`[scheduled hourly] taxi-callup weeks: +${ws.inserts.length} weeks, ${ws.superseded.length} promote clicks superseded, through W${ws.counted_through_week}`);
-                }
+                // The daily backstop: the */5 tick records each week 10 minutes after its last kickoff.
+                await _runTaxiCallupWeekCount(env, season, leagueId, "hourly");
               } catch (e) {
                 console.error(`[scheduled hourly] taxi-callup weeks failed: ${e && e.message}`);
               }
@@ -13256,6 +13639,17 @@ export default {
             -- — a WR nflverse lists at CB is on the skill board, an LB it lists
             -- at RB on the IDP board. Without an accepted map row (or an MFL
             -- position) it is nflverse's pos_group, as before.
+            --
+            -- COST (#1266, measured 2026-10-15). The second half used to start
+            -- from player_id_map and checked, per map row, whether the player
+            -- had a box-score row off this board. D1 answered that with the
+            -- (season, pos_group) index, so every map row re-read the season's
+            -- off-board rows: ~17M rows read per run in production (2025:
+            -- skill ~33M, idp ~51M on a copy of the same rows), up from
+            -- ~0.3M before 2026-10-10. Starting from the season's distinct
+            -- off-board players and probing the map by gsis_id returns the
+            -- same set (identical boards on all 20 board x window shapes for
+            -- 2025) for 378k (skill), 284k (idp), 235k (qb) rows in production.
             elig AS (
               SELECT DISTINCT w.gsis_id
                 FROM nfl_player_weekly w
@@ -13264,12 +13658,14 @@ export default {
                                   WHERE m.gsis_id = w.gsis_id AND m.accepted = 1
                                     AND ${mflBoardSql("m.mfl_position")} <> '${pos}')
               UNION
-              SELECT m.gsis_id
-                FROM player_id_map m
-               WHERE m.accepted = 1 AND ${mflBoardSql("m.mfl_position")} = '${pos}'
-                 AND EXISTS (SELECT 1 FROM nfl_player_weekly w
-                              WHERE w.gsis_id = m.gsis_id AND w.season IN (${seasonList})
-                                AND w.pos_group IS NOT NULL AND w.pos_group NOT IN (${posList}))
+              SELECT o.gsis_id
+                FROM (SELECT DISTINCT w.gsis_id
+                        FROM nfl_player_weekly w
+                       WHERE w.season IN (${seasonList})
+                         AND w.pos_group IS NOT NULL AND w.pos_group NOT IN (${posList})) o
+               WHERE EXISTS (SELECT 1 FROM player_id_map m
+                              WHERE m.gsis_id = o.gsis_id AND m.accepted = 1
+                                AND ${mflBoardSql("m.mfl_position")} = '${pos}')
             ),
             -- The verified MFL<->NFL id map (migration 0170) for the players in
             -- play: preferred wherever this query needs an MFL id or a pfr id.
@@ -16186,7 +16582,7 @@ export default {
           `SELECT player_id,
                   SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                  AS used,
                   SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)            AS pending_count,
-                  (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                           AS permanent
+                  MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                           AS marked
              FROM ups_taxi_callups`;
         const out = {};
         try {
@@ -16211,7 +16607,7 @@ export default {
                   used: Number(row?.used || 0),
                   pending: Number(row?.pending_count || 0),
                   max: 3,
-                  permanent_promotion: Number(row?.permanent || 0) === 1,
+                  permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
                 };
               }
             }
@@ -16227,7 +16623,7 @@ export default {
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
-                permanent_promotion: Number(row?.permanent || 0) === 1,
+                permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
           }
@@ -44703,13 +45099,15 @@ const mflToSleeper = {};
           });
         }
 
-        const [lgRes, wvRoster, beforeRead] = await Promise.all([
+        const [lgRes, wvRoster, beforeRead, wvAdjRes] = await Promise.all([
           mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
           _wvLoadFranchiseRoster(wvSeason, wvLeagueId, wvFid),
           // Advisory only — see the §2 note above. Nothing this read returns can
           // cause a write, so a failed/unparseable read (known:false) costs the
           // owner nothing beyond a less informative response.
           _wvReadPendingWaivers(_wvOwnerCookieHeader, wvSeason, wvLeagueId),
+          // The cap advisory's third input (with roster salaries and IR's share): MFL's salary adjustments.
+          mflExportJson(wvSeason, wvLeagueId, "salaryAdjustments", {}, { useCookie: true }),
         ]);
         let wvLimits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
         // F12: an owner's LEGAL bid must never be rejected because WE could not
@@ -44848,7 +45246,7 @@ const mflToSleeper = {};
         // ── Warnings (ADVISORY ONLY — Contract v2 §6, never block) ──
         // MFL enforces the cap and the roster max natively at award time; these
         // exist so an owner is not surprised when a claim quietly loses to "no
-        // room". Cap math here is an ESTIMATE — it excludes salaryAdjustments.
+        // room". The cap figure is MFL's own arithmetic (_waiverCapCheck) or none.
         // Nothing here may ever disable a submit or remove the no-drop option:
         // our arithmetic is the thing most likely to be wrong.
         const warnings = [];
@@ -44876,39 +45274,75 @@ const mflToSleeper = {};
         // does not tell us the ceiling, say so instead of inventing a number.
         const WV_ROSTER_MAX = _wvRosterLimit(lgRes && lgRes.ok ? lgRes.data : null);
         if (wvRoster.ok) {
-          for (const rd of plan) {
-            if (!rd.picks.length) continue;
-            const adds = rd.picks.length;
-            const drops = rd.picks.filter((p) => p.drop_pid).length;
-            const projected = wvRoster.slot_count + adds - drops;
-            if (WV_ROSTER_MAX && projected > WV_ROSTER_MAX) {
-              warnings.push({
-                code: "ROSTER_HEADROOM",
-                message: `Round ${rd.round}: winning all ${adds} claim${adds === 1 ? "" : "s"} would put you at ${projected} active players (MFL's limit is ${WV_ROSTER_MAX}; taxi and IR are not counted). Heads-up only — MFL decides at award time.`,
-                projected_active: projected,
-                roster_size_limit: WV_ROSTER_MAX,
-              });
-            } else if (!WV_ROSTER_MAX && adds > drops) {
-              warnings.push({
-                code: "ROSTER_HEADROOM_UNKNOWN",
-                message: `Round ${rd.round}: winning all ${adds} claim${adds === 1 ? "" : "s"} would add ${adds - drops} to your active roster (you have ${wvRoster.slot_count}, excluding taxi and IR). MFL did not report its roster limit, so we can't tell you how close that is — MFL enforces it at award time.`,
-                projected_active: projected,
-                roster_size_limit: null,
-              });
+          // The most this plan can add if MFL awards the costliest claim in every group — never "every claim won"
+          // (_waiverClaimWorstCase; canon §A4: at most one award per group).
+          const wc = _waiverClaimWorstCase(plan, wvRoster, { conditional: wvLimits.conditional });
+          const lead = !wc.conditional
+            ? "If MFL awards every claim,"
+            : (wc.groups.length === 1
+              ? `If MFL awards one of your group ${wc.groups[0]} claims (it awards at most one per group),`
+              : `If MFL awards one claim in each of your ${wc.groups.length} groups (the most it can — one per group),`);
+          const projected = wvRoster.slot_count + wc.max_new_active;
+          if (WV_ROSTER_MAX && projected > WV_ROSTER_MAX) {
+            warnings.push({
+              code: "ROSTER_HEADROOM",
+              message: `${lead} you'd be at ${projected} active players (MFL's limit is ${WV_ROSTER_MAX}; taxi and IR are not counted). Heads-up only — MFL decides at award time.`,
+              projected_active: projected,
+              roster_size_limit: WV_ROSTER_MAX,
+            });
+          } else if (!WV_ROSTER_MAX && wc.max_new_active > 0) {
+            warnings.push({
+              code: "ROSTER_HEADROOM_UNKNOWN",
+              message: `${lead} you'd be at ${projected} active players (you have ${wvRoster.slot_count}, excluding taxi and IR). MFL did not report its roster limit, so we can't tell you how close that is — MFL enforces it at award time.`,
+              projected_active: projected,
+              roster_size_limit: null,
+            });
+          }
+        }
+        // Cap: MFL's own arithmetic (_waiverCapCheck), or — when any input can't be read — no number, just that UPS
+        // could not verify it. Only for a submit that claims someone.
+        let wvCapCheck = null;
+        if (plan.some((rd) => rd.picks.length)) {
+          const anyDrop = plan.some((rd) => rd.picks.some((p) => p.drop_pid));
+          let dropPenaltyHitsThisSeason = false;
+          if (anyDrop) {
+            const capYear = _dropPenaltyCapSeason({ season: wvSeason, dropUnix: Math.floor(Date.now() / 1000),
+              auctionStartUnix: (await _faaAuctionStartUnix(env, wvSeason)).unix });
+            dropPenaltyHitsThisSeason = capYear.ok ? String(capYear.applies_to_season) === String(wvSeason) : null;
+          }
+          wvCapCheck = _waiverCapCheck({
+            plan, roster: wvRoster, capDollars: wvCapDollars,
+            irPercent: wvLeagueRoot.includeIRWithSalary == null || wvLeagueRoot.includeIRWithSalary === "" ? null : Number(wvLeagueRoot.includeIRWithSalary),
+            adjustmentsTotal: _mflSalaryAdjustmentsTotal(wvAdjRes && wvAdjRes.ok ? wvAdjRes.data : null, wvFid),
+            conditional: wvLimits.conditional, anyDrop, dropPenaltyHitsThisSeason,
+          });
+          if (!wvCapCheck.verified) {
+            warnings.push({
+              code: "CAP_UNVERIFIED",
+              message: `UPS couldn't independently verify your post-award cap space because ${wvCapCheck.reason}. MFL will enforce the cap when waivers process.`,
+            });
+          } else {
+            // Hard cap: name each claim MFL won't award, and whether the ones that fit alone fit together.
+            const c = wvCapCheck;
+            const shortTxt = (cl) => (cl.freed > 0 ? `after its drop frees ${usd(cl.freed)}, ` : "") + `it needs about ${usd(cl.net - c.room_now)} more cap room than you have`;
+            const over = c.claims.filter((cl) => !cl.fits);
+            const parts = [];
+            if (over.length === 1) {
+              parts.push(`MFL won't award your ${usd(over[0].bid)} claim in group ${over[0].round} under the hard cap: ${shortTxt(over[0])}.`);
+            } else if (over.length > 1) {
+              const byGroup = new Map();
+              for (const cl of over) byGroup.set(cl.round, (byGroup.get(cl.round) || []).concat(usd(cl.net)));
+              parts.push(`MFL won't award ${over.length} of your claims under the hard cap — each costs more than your cap room (cost after any drop — `
+                + [...byGroup].map(([r, costs]) => `group ${r}: ${costs.join(", ")}`).join("; ") + ").");
             }
-            if (wvCapDollars > 0) {
-              const addMoney = rd.picks.reduce((n, p) => n + (p.bid_dollars || 0), 0);
-              const dropMoney = rd.picks.reduce((n, p) => {
-                const row = p.drop_pid ? wvRoster.by_pid.get(p.drop_pid) : null;
-                return n + (row ? row.salary : 0);
-              }, 0);
-              const projectedCap = wvRoster.salary_total + addMoney - dropMoney;
-              if (projectedCap > wvCapDollars) {
-                warnings.push({
-                  code: "CAP_ROOM",
-                  message: `Round ${rd.round}: winning every claim would put you roughly ${usd(projectedCap - wvCapDollars)} over the ${usd(wvCapDollars)} cap (estimate — excludes salary adjustments). MFL enforces the cap at award time.`,
-                });
-              }
+            if (c.together_room < 0 && (c.together_groups > 1 || !c.conditional)) {
+              parts.push(`${over.length ? "Your other claims" : "Your claims"} fit one at a time, but `
+                + (c.conditional ? `one in each of your ${c.together_groups} groups` : "all of them")
+                + ` would need about ${usd(-c.together_room)} more cap room than you have — MFL won't award a claim that no longer fits when its turn comes.`);
+            }
+            if (parts.length) {
+              const basis = c.ir_percent != null ? `salary adjustments included, IR counted at ${c.ir_percent}%` : "salary adjustments included";
+              warnings.push({ code: "CAP_ROOM", message: `${parts.join(" ")} MFL cap room now: ${usd(c.room_now)} (${basis}).` });
             }
           }
         }
@@ -44978,6 +45412,7 @@ const mflToSleeper = {};
             rounds_cleared: roundsCleared,
             picks_total: picksTotal,
             warnings,
+            cap_check: wvCapCheck,
             would_send: wouldSend,
             would_write: wouldWrite,
             limits: {
@@ -45130,6 +45565,7 @@ const mflToSleeper = {};
           rounds_untouched: roundsUntouched,
           picks_total: picksTotal,
           warnings,
+          cap_check: wvCapCheck,
           // The FULL post-write state from MFL, known-good. This is the one
           // response a client may adopt wholesale.
           verified: { known: true, rounds: afterRead.rounds },
@@ -46296,9 +46732,20 @@ const mflToSleeper = {};
             });
           });
         }
-        // Per-week earning denominator for an in-season drop (canon §D1) —
-        // the same map the drop scanner feeds _computeDropPenalty.
-        const apAcqWeekMap = _acquisitionWeekMapFromTxs(apTxs, apSeason);
+        // Taxi call-up status of every player these claims DROPPED, from the resolver the drop ledger prices with
+        // (_taxiNeverPromotedMap), AS OF EACH CLAIM'S DROP (a call-up week counts from his game's kickoff), so one
+        // answer per run instant. true | "unresolved" is passed to the calculator as is: "unresolved" holds the cut
+        // unpriced, and the card reads "unknown — needs review", never $0.
+        const apDropPids = new Set();
+        for (const r of apRows) {
+          const tx = apMoveByKey.get(`${padFranchiseId(r.franchise_id)}|${safeStr(r.player_id)}|${safeInt(r.acquired_at_unix, 0)}`);
+          for (const dpid of (tx ? [tx.dropped_pid].concat(tx.unpaired_drops || []) : [])) if (safeStr(dpid)) apDropPids.add(safeStr(dpid));
+        }
+        const apTaxiByInstant = new Map();
+        const apTaxiAt = async (pid, ts) => {
+          if (!apTaxiByInstant.has(ts)) apTaxiByInstant.set(ts, _taxiNeverPromotedMap(env, [...apDropPids], { season: apSeason, leagueId: apLeagueId, atUnix: ts }));
+          return (await apTaxiByInstant.get(ts))[pid];
+        };
 
         // ── MFL truth #2: player meta, for the DROPPED side. ups_add_events
         // only knows the added player; the displaced one comes from the
@@ -46350,27 +46797,18 @@ const mflToSleeper = {};
         //   1. ups_drop_events — the drop ledger snapshotted the contract at
         //      drop time and is what the drop announcement itself priced, so
         //      agreeing with it is the point.
-        //   2. the R2 daily roster snapshot, walked back up to 7 days (the
-        //      same reader /admin/drops/scan-and-record uses).
-        // Neither → UNKNOWN. We do NOT print "No Cap Penalty" for a contract
-        // we could not read; silence is not the same as zero
-        // (rule_no_fail_open_guards).
-        const apR2 = env.UPS_MFL_BACKUPS;
-        const apSnapshotByDate = new Map();
-        const apLoadSnapshotRosters = async (dateStr) => {
-          if (apSnapshotByDate.has(dateStr)) return apSnapshotByDate.get(dateStr);
-          let data = null;
-          if (apR2) {
-            try {
-              const obj = await apR2.get(`snapshots/${dateStr}/rosters.json`);
-              if (obj) data = JSON.parse(await obj.text());
-            } catch (_) { data = null; }
-          }
-          apSnapshotByDate.set(dateStr, data);
-          return data;
-        };
+        //   2. the drop ledger's OWN lookup (_preDropContractReader: hourly and
+        //      daily R2 roster snapshots, then any contract submitted after the
+        //      snapshot) — for a card built before the ledger has written its row.
+        // Neither → UNKNOWN, and so is a blank (unstamped) contract or a
+        // submission check that could not be read. We do NOT print "No Cap
+        // Penalty" for a contract we could not read; silence is not the same as
+        // zero (rule_no_fail_open_guards).
+        const apReadPreDrop = _preDropContractReader(env);
+        // cacheKey → why that drop is not priced (shown on the card instead of a number)
+        const apPreDropUnpriced = new Map();
         const apPreDropCache = new Map();
-        const apResolvePreDrop = async (pid, ts) => {
+        const apResolvePreDrop = async (pid, ts, fid) => {
           const cacheKey = `${pid}|${ts}`;
           if (apPreDropCache.has(cacheKey)) return apPreDropCache.get(cacheKey);
           let out = null;
@@ -46401,30 +46839,17 @@ const mflToSleeper = {};
             }
           } catch (_) { out = null; }
           if (!out) {
-            const dropAt = new Date(safeInt(ts, 0) * 1000);
-            for (let lag = 0; lag <= 7 && !out; lag += 1) {
-              const dateStr = new Date(dropAt.getTime() - lag * 86400000).toISOString().slice(0, 10);
-              const snap = await apLoadSnapshotRosters(dateStr);
-              if (!snap) continue;
-              for (const f of asArray(snap?.rosters?.franchise)) {
-                for (const p of asArray(f?.player)) {
-                  if (safeStr(p?.id).replace(/\D/g, "") !== safeStr(pid)) continue;
-                  // Same rule as above: a roster entry carrying neither a
-                  // contractInfo nor a real salary tells us nothing, so keep
-                  // walking back rather than pricing an empty contract.
-                  if (!safeStr(p?.contractInfo) && !((Number(p?.salary) || 0) > 0)) continue;
-                  out = {
-                    contract_status: safeStr(p?.contractStatus),
-                    salary: Number(p?.salary) || 0,
-                    contract_year: Number(p?.contractYear) || 0,
-                    contract_info: safeStr(p?.contractInfo),
-                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
-                    contract_source: `r2_snapshot:${dateStr}`,
-                  };
-                  break;
-                }
-                if (out) break;
-              }
+            const pre = await apReadPreDrop({ season: apSeason, leagueId: apLeagueId, pid: safeStr(pid), franchiseId: fid, dropUnix: safeInt(ts, 0) });
+            const c = pre.contract;
+            if (pre.error) {
+              apPreDropUnpriced.set(cacheKey, "Whether this contract changed after the roster snapshot (a MYAC, extension, MYM or restructure) "
+                + "could not be checked — this drop has NOT been priced. The drop ledger prices it once that check can be read.");
+            } else if (c && !safeStr(c.contract_info) && !((Number(c.salary) || 0) > 0)) {
+              apPreDropUnpriced.set(cacheKey, "MFL has no contract stamped for this player (salary and contractInfo are empty) — "
+                + "unpriced, NOT a cap-free cut. It needs a verified contract.");
+            } else if (c) {
+              const src = safeStr(c.snapshot_source);
+              out = { ...c, contract_source: c.superseded_snapshot ? src : (/^\d{4}-\d{2}-\d{2}$/.test(src) ? `r2_snapshot:${src}` : `r2_${src}`) };
             }
           }
           apPreDropCache.set(cacheKey, out);
@@ -46587,10 +47012,6 @@ const mflToSleeper = {};
           return ko > 0 ? apFmtEtStamp(new Date(ko * 1000)) : "";
         };
         const apWeek1Kickoff = await apWeekKickoffUnix(1);
-        // ET-aware Week-1 boundary DATE (not the raw unix kickoff above) for
-        // resolveCompletedPayableWeeks' date-math fallback — see that
-        // function's header for why ET matters here.
-        const apWeek1BoundaryIso = await _week1BoundaryIsoET(apSeason);
         const apWeek3Label = await apKickoffLabel(3);
         const apWeek5Label = await apKickoffLabel(5);
         const apDeadlineLabel = apFmtEtStamp(apContractDeadline);
@@ -46648,41 +47069,55 @@ const mflToSleeper = {};
                 nfl_team: safeStr(dMeta.nfl_team),
                 penalty: null,
               };
-              const preDrop = await apResolvePreDrop(dpid, ts);
+              const preDrop = await apResolvePreDrop(dpid, ts, run.franchise_id);
               if (preDrop) {
+                // The drop LEDGER's own inputs, as of this drop's instant, so the card announces the number
+                // /admin/drops/scan-and-record books (Keith 2026-10-16: Devin Neal's 9/17 cut was announced $2.3K
+                // and booked $2,382):
+                //   - completed weeks: _completedWeeksForDrop, the recorder's live rule AT THE DROP (a week counts
+                //     once its last game kicked off + 7h) that the recorder prices every drop with. Not
+                //     resolveCompletedPayableWeeks: it answers "now" when posted on the drop's UTC day and
+                //     walks kickoff to kickoff otherwise, so a retried, replayed or late post priced a Thursday-
+                //     morning cut one week short ($2,500 for Neal's).
+                //   - acquisition week: of the contract this drop ENDED (_acquisitionWeekAsOf), not the latest add.
+                //   - taxi call-up status: _taxiNeverPromotedMap's answer, passed as is.
                 const dropDateIso = new Date(ts * 1000).toISOString();
-                const weekAuthority = await resolveCompletedPayableWeeks(apSeason, apLeagueId, {
-                  dropDateIso,
-                  week1ThursdayIso: apWeek1BoundaryIso,
-                  regularSeasonWeeks: 17,
-                });
+                const weekAuthority = await _completedWeeksForDrop(apSeason, apLeagueId, ts);
+                const acquisitionWeek = _acquisitionWeekAsOf(apTxs, apSeason, dpid, ts);
+                const taxiNeverPromoted = await apTaxiAt(dpid, ts);
                 const calc = _computeDropPenalty({
                   contractStatus: preDrop.contract_status,
                   salary: preDrop.salary,
                   contractInfo: preDrop.contract_info,
                   contractYear: preDrop.contract_year,
                   isTaxi: preDrop.is_taxi,
+                  taxiNeverPromoted,
                 }, {
                   season: apSeason,
                   dropDateIso,
-                  acquisitionWeek: apAcqWeekMap[dpid],
+                  acquisitionWeek,
                   completedPayableWeeks: weekAuthority.weeks,
                 });
-                if (calc.basis === "week_authority_unresolved") {
-                  // Historical completed-payable-week authority could not be
-                  // resolved (a real per-week kickoff couldn't be looked up
-                  // live) — this is a DISPLAY path, so per the requirement
-                  // that preview/display paths return unavailable rather than
-                  // a guessed number, reuse the SAME `known: false` shape this
-                  // function already uses for "pre-drop contract not found"
-                  // (below) rather than inventing a second "unknown" concept.
-                  // waiver_run_post.js already excludes known:false rows from
-                  // penalty sums and prints unknown_reason instead of a
-                  // number — no change needed there.
+                // Returned by dry_run (drop_pricing) so a reviewer sees what priced the card, not just its rounded $K.
+                const pricingInputs = {
+                  completed_payable_weeks: weekAuthority.weeks,
+                  weeks_source: weekAuthority.source,
+                  acquisition_week: acquisitionWeek || null,
+                  taxi_never_promoted: taxiNeverPromoted === undefined ? null : taxiNeverPromoted,
+                  contract_source: preDrop.contract_source,
+                };
+                if (DROP_UNPRICED_BASES.has(safeStr(calc.basis))) {
+                  // UNPRICED — the ledger HOLDS this cut (week_authority_unresolved: the completed weeks or a taxi
+                  // player's call-up history could not be read) or will not price it without a verified contract.
+                  // A display path never guesses: the same `known: false` shape as "pre-drop contract not found"
+                  // (below), which waiver_run_post.js keeps out of the penalty sums and renders as "Cap penalty:
+                  // unknown — needs review" with unknown_reason, never $0.
                   side.penalty = {
                     known: false,
                     unknown_reason: calc.review_reason
                       || "Completed-payable-week authority could not be resolved for this drop — not priced.",
+                    basis: safeStr(calc.basis),
+                    pricing_inputs: pricingInputs,
                   };
                 } else {
                   side.penalty = {
@@ -46699,6 +47134,7 @@ const mflToSleeper = {};
                     earned: calc.earned != null ? (Number(calc.earned) || 0) : null,
                     contract_source: preDrop.contract_source,
                     pre_drop_contract_info: preDrop.contract_info,
+                    pricing_inputs: pricingInputs,
                   };
                   // Which cap year (canon §6) — read for capYearNote. A penalty
                   // > 0 with cap_year_ok:false still posts; it just carries a
@@ -46712,7 +47148,8 @@ const mflToSleeper = {};
               } else {
                 side.penalty = {
                   known: false,
-                  unknown_reason: "Pre-drop contract not found in ups_drop_events or the R2 roster snapshots — this drop has NOT been priced.",
+                  unknown_reason: apPreDropUnpriced.get(`${dpid}|${ts}`)
+                    || "Pre-drop contract not found in ups_drop_events or the R2 roster snapshots — this drop has NOT been priced.",
                 };
               }
               return side;
@@ -47084,6 +47521,12 @@ const mflToSleeper = {};
             contract_deadline_error: apDeadlineError,
             week3_kickoff_et: apWeek3Label,
             week5_kickoff_et: apWeek5Label,
+            // Every dropped player's EXACT pricing and the inputs behind it (the cards print it rounded to $0.1K),
+            // so a dry run can be checked against the drop ledger's row dollar for dollar.
+            drop_pricing: apReportTeams.flatMap((t) => t.moves.flatMap((m) => [
+              ...(m.dropped ? [{ ...m.dropped, penalty: m.penalty }] : []),
+              ...(m.also_dropped || []),
+            ].map((d) => ({ franchise_id: t.franchise_id, added_player_id: m.player_id, player_id: d.player_id, name: d.name, ...(d.penalty || { known: false }) })))),
             runs: apPlans,
           });
         }
@@ -47874,7 +48317,7 @@ const mflToSleeper = {};
               `SELECT player_id,
                       SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
                       SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
-                      (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4)                         AS permanent
+                      MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                         AS marked
                  FROM ups_taxi_callups
                 GROUP BY player_id`
             ).all();
@@ -47885,7 +48328,7 @@ const mflToSleeper = {};
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
-                permanent_promotion: Number(row?.permanent || 0) === 1,
+                permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
           } catch (e) {
@@ -50135,19 +50578,23 @@ const mflToSleeper = {};
           const sc = await seasonCtx(rs);
           if (recompute) {
             try {
-              // Completed weeks by the RECORDER's own rule at the DROP instant (_completedWeeksAtLiveRule: a week counts once its
+              // Completed weeks by the RECORDER's own rule at the DROP instant (_completedWeeksForDrop: a week counts once its
               // last game is over + the grace period) — for every row, held-then-priced or recorded on time — so a recompute
               // reproduces what the recorder charged. This used the historical kickoff-to-kickoff walk, which doesn't count the
               // week that ended Monday night until Thursday's kickoff: a Tuesday or Wednesday drop was re-priced with one week
               // less earned and its correct stored penalty rewritten one week too high (Shipley's $5,712 → $6,558). An
               // unreadable schedule → weeks null → week_authority_unresolved → skipped below, the stored row left untouched.
-              const rcWeekAuthority = await _completedWeeksAtLiveRule(rs, Number(r.dropped_at_unix) || 0, 17);
+              const rcWeekAuthority = await _completedWeeksForDrop(rs, leagueId, Number(r.dropped_at_unix) || 0);
               const rc = _computeDropPenalty({
                 contractStatus: r.pre_drop_contract_status,
                 salary: r.pre_drop_salary,
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
+                // The call-up status the recorder priced with (_taxiNeverPromotedMap), as of THIS drop (a call-up week counts
+                // from his game's kickoff). Without it a recompute re-priced a taxi call-up's $0 cut by the normal formula and
+                // wrote that charge; "unresolved" leaves the row untouched (week_authority_unresolved → skipped below).
+                taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [safeStr(r.player_id)], { season: rs, leagueId, atUnix: Number(r.dropped_at_unix) || 0 }))[safeStr(r.player_id)],
               }, { season: rs, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
                    acquisitionWeek: _acquisitionWeekAsOf(sc.txs, rs, r.player_id, Number(r.dropped_at_unix) || 0),
                    acquisitionWeekUnresolved: sc.acqUnresolved });
@@ -51554,6 +52001,114 @@ const mflToSleeper = {};
         });
       }
 
+
+// ── Waiver-claim advisories: the MOST a claim plan can add (canon §A4 conditional blind bidding) ──
+// Owners group their bids; within a group MFL awards AT MOST ONE claim, and groups don't outrank each other. The
+// advisories used to count every claim in a group as won: four claims in group 1 read "winning all 4 claims would put
+// you at 33 active players" and "roughly $4,000 over the cap" when one pickup was the most MFL could award (Keith
+// 2026-10-16). Worst case per group = the one claim that would cost the most room if it is the one awarded; groups add
+// up. A claim whose player or drop an earlier group's worst case already used can't also be awarded (MFL refuses a drop
+// that is no longer on the roster). Only a drop that holds an active spot frees one (taxi and IR players don't hold
+// one), and dropping a taxi player frees no cap (taxi salary isn't on the cap); an IR player frees only the share of
+// his salary MFL counts (opts.irPercent — league includeIRWithSalary). conditional === false — MFL says the league
+// doesn't bid conditionally — counts every claim.
+// plan: [{ round, picks: [{ add_pid, bid_dollars, drop_pid }] }]; roster: _wvLoadFranchiseRoster's by_pid.
+function _waiverClaimWorstCase(plan, roster, opts) {
+  const conditional = !(opts && opts.conditional === false);
+  const irShare = Number.isFinite(opts && opts.irPercent) ? opts.irPercent / 100 : 1;
+  const held = (pid) => (pid && roster && roster.by_pid ? roster.by_pid.get(pid) : null) || null;
+  const newActive = (p) => { const d = held(p.drop_pid); return d && !d.taxi && !d.ir ? 0 : 1; };
+  const freed = (d) => (!d || d.taxi ? 0 : (Number(d.salary) || 0) * (d.ir ? irShare : 1));
+  const capAdded = (p) => (Number(p.bid_dollars) || 0) - freed(held(p.drop_pid));
+  const worst = (deltaOf) => {
+    const usedAdds = new Set(), usedDrops = new Set();
+    let total = 0;
+    for (const rd of plan || []) {
+      const live = (rd.picks || []).filter((p) => !usedAdds.has(p.add_pid) && !(p.drop_pid && usedDrops.has(p.drop_pid)));
+      const taken = conditional
+        ? [live.reduce((best, p) => (deltaOf(p) > (best ? deltaOf(best) : 0) ? p : best), null)].filter(Boolean)
+        : live.filter((p) => deltaOf(p) > 0);
+      for (const p of taken) { total += deltaOf(p); usedAdds.add(p.add_pid); if (p.drop_pid) usedDrops.add(p.drop_pid); }
+    }
+    return total;
+  };
+  const groups = (plan || []).filter((rd) => (rd.picks || []).length).map((rd) => rd.round);
+  return { conditional, groups, max_new_active: worst(newActive), max_cap_added: worst(capAdded) };
+}
+
+// One franchise's MFL salary-adjustment total from TYPE=salaryAdjustments (positive = dead money, negative = credit).
+// null — never 0 — when the payload isn't an adjustments export: an unreadable list is not "no adjustments".
+function _mflSalaryAdjustmentsTotal(data, franchiseId) {
+  if (!data || typeof data !== "object" || !("salaryAdjustments" in data)) return null;
+  const root = data.salaryAdjustments || {};
+  const rows = Array.isArray(root.salaryAdjustment) ? root.salaryAdjustment : (root.salaryAdjustment ? [root.salaryAdjustment] : []);
+  const fid = String(franchiseId || "").replace(/\D/g, "").padStart(4, "0");
+  let total = 0;
+  for (const r of rows) {
+    if (String((r && (r.franchise_id || r.franchise)) || "").replace(/\D/g, "").padStart(4, "0") !== fid) continue;
+    const amt = Number(r && r.amount);
+    if (!Number.isFinite(amt)) return null;   // an amount we can't read is not $0
+    total += amt;
+  }
+  return total;
+}
+
+// ── Waiver-claim CAP advisory: MFL's own cap arithmetic, or no number at all ──
+// 2026-10-17: a claim read "you'd be roughly $2,000 over the $300,000 cap" while MFL showed about $6,000 of room. The
+// advisory added every active AND IR salary at 100% and left out MFL's salary adjustments. MFL counts:
+//   cap used = active-roster salaries + includeIRWithSalary% of IR salaries + salary adjustments (dead money, trade
+//              settlements; a credit is negative). Taxi salaries are off the cap.
+// That is what this computes, from MFL's own exports read at submit time. The $300,000 is a HARD cap whenever waivers run
+// (canon §6.A1; Keith 2026-10-17: over the cap, MFL won't award the player), so the result is per claim — its bid less
+// what its drop frees, against the room now — and then whether the claims that fit alone, one per group, fit together.
+// A won claim's drop frees what MFL counts for that player; its dead money lands on NEXT season's cap once the FA Auction
+// has opened (canon §6) — dropPenaltyHitsThisSeason says otherwise (or unknown), and then nothing here can price it.
+// NEVER A GUESS: any input missing → verified:false with the reason, and the owner is told UPS could not verify —
+// never an over-cap conclusion and never a zero standing in for a missing adjustment. MFL enforces the cap regardless.
+// in: { plan, roster (_wvLoadFranchiseRoster), capDollars, irPercent (null = MFL didn't say), adjustmentsTotal
+//       (null = unreadable), conditional, anyDrop, dropPenaltyHitsThisSeason (true | false | null = unknown) }
+function _waiverCapCheck(inp) {
+  const unverified = (reason) => ({ verified: false, reason });
+  const roster = inp && inp.roster;
+  if (!roster || !roster.ok || !roster.by_pid) return unverified("your roster couldn't be read from MFL");
+  const cap = Number(inp.capDollars) || 0;
+  if (!(cap > 0)) return unverified("MFL didn't report the salary cap");
+  if (inp.adjustmentsTotal == null || !Number.isFinite(Number(inp.adjustmentsTotal))) return unverified("MFL salary adjustments are not included");
+  let active = 0, ir = 0;
+  for (const row of roster.by_pid.values()) {
+    if (row.taxi) continue;
+    if (row.ir) ir += Number(row.salary) || 0; else active += Number(row.salary) || 0;
+  }
+  const irDrop = (inp.plan || []).some((rd) => (rd.picks || []).some((p) => { const d = p.drop_pid && roster.by_pid.get(p.drop_pid); return d && d.ir; }));
+  const irPct = inp.irPercent == null || inp.irPercent === "" ? NaN : Number(inp.irPercent);   // missing is unknown, never 0%
+  if ((ir > 0 || irDrop) && !(Number.isFinite(irPct) && irPct >= 0 && irPct <= 100)) return unverified("MFL didn't report how much of an IR salary counts against the cap");
+  if (inp.anyDrop && inp.dropPenaltyHitsThisSeason !== false) return unverified("a dropped player's dead money for this season isn't included");
+  const share = Number.isFinite(irPct) ? irPct : 100;
+  const wc = _waiverClaimWorstCase(inp.plan, roster, { conditional: inp.conditional, irPercent: share });
+  const usedNow = Math.round(active + (ir > 0 ? ir * irPct / 100 : 0) + Number(inp.adjustmentsTotal));
+  const roomNow = cap - usedNow;
+  // THE HARD CAP (canon §6.A1: $300,000, FA Auction start → season end — every waiver run): MFL does not award a claim
+  // that would put the team over, so no claim can leave an owner "over". Each claim is judged on its OWN net cost — its bid
+  // less what its drop frees (an active player in full, an IR player at the league's share, a taxi player nothing) —
+  // against the room now; then the claims that fit alone, one per group, against the room together.
+  const claims = [];
+  for (const rd of inp.plan || []) {
+    for (const p of rd.picks || []) {
+      const d = p.drop_pid ? roster.by_pid.get(p.drop_pid) : null;
+      const freed = Math.round(!d || d.taxi ? 0 : (Number(d.salary) || 0) * (d.ir ? share / 100 : 1));
+      const net = (Number(p.bid_dollars) || 0) - freed;
+      claims.push({ round: rd.round, add_pid: p.add_pid, drop_pid: p.drop_pid || null, bid: Number(p.bid_dollars) || 0, freed, net, fits: net <= roomNow });
+    }
+  }
+  const fitPlan = (inp.plan || []).map((rd) => ({ ...rd, picks: (rd.picks || []).filter((p) => claims.find((c) => c.round === rd.round && c.add_pid === p.add_pid && c.fits)) }));
+  const together = _waiverClaimWorstCase(fitPlan, roster, { conditional: inp.conditional, irPercent: share });
+  return {
+    verified: true, cap_dollars: cap, used_now: usedNow, room_now: roomNow,
+    worst_added: Math.round(wc.max_cap_added), worst_room: roomNow - Math.round(wc.max_cap_added),
+    claims, together_groups: together.groups.length, together_room: roomNow - Math.round(together.max_cap_added),
+    ir_percent: ir > 0 || irDrop ? irPct : null, adjustments_total: Number(inp.adjustmentsTotal), groups: wc.groups, conditional: wc.conditional,
+  };
+}
 
 // Denied claims for a run, from MFL's Previously Processed Waivers page.
 //
@@ -53387,69 +53942,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const parseContractData = _parseContractData;
         const computeDropPenalty = _computeDropPenalty;
 
-        // ── R2 snapshot reader ──
-        const r2Bucket = env.UPS_MFL_BACKUPS;
-        const snapshotRostersByDate = new Map(); // dateStr → parsed rosters JSON
-        const snapshotTakenAtByDate = new Map(); // dateStr → ISO instant R2 stored it
-        const loadSnapshotRosters = async (dateStr) => {
-          if (snapshotRostersByDate.has(dateStr)) return snapshotRostersByDate.get(dateStr);
-          let data = null;
-          let takenAt = "";
-          if (r2Bucket) {
-            try {
-              const obj = await r2Bucket.get(`snapshots/${dateStr}/rosters.json`);
-              if (obj) {
-                const text = await obj.text();
-                data = JSON.parse(text);
-                // R2's own upload time. Unknown → the START of the snapshot's
-                // day, so every same-day submission counts as possibly newer
-                // (re-applying one the snapshot already holds is a no-op).
-                const up = obj.uploaded instanceof Date ? obj.uploaded : (obj.uploaded ? new Date(obj.uploaded) : null);
-                takenAt = up && Number.isFinite(up.getTime()) ? up.toISOString() : `${dateStr}T00:00:00.000Z`;
-              }
-            } catch (_) {}
-          }
-          snapshotRostersByDate.set(dateStr, data);
-          snapshotTakenAtByDate.set(dateStr, takenAt);
-          return data;
-        };
-
-        const findPreDropContract = async (pid, dropTs) => {
-          // Try the day-of-drop snapshot first, then walk back up to 7 days.
-          const drop = new Date(dropTs * 1000);
-          for (let lag = 0; lag <= 7; lag += 1) {
-            const probe = new Date(drop.getTime() - lag * 86400000);
-            const dateStr = probe.toISOString().slice(0, 10);
-            const snap = await loadSnapshotRosters(dateStr);
-            if (!snap) continue;
-            const fr = snap?.rosters?.franchise || [];
-            const frs = Array.isArray(fr) ? fr : [fr];
-            for (const f of frs) {
-              const players = f?.player || [];
-              const plist = Array.isArray(players) ? players : [players];
-              for (const p of plist) {
-                if (safeStr(p?.id).replace(/\D/g, "") === pid) {
-                  return {
-                    contract_status: safeStr(p?.contractStatus),
-                    salary: Number(p?.salary) || 0,
-                    contract_year: Number(p?.contractYear) || 0,
-                    contract_info: safeStr(p?.contractInfo),
-                    is_taxi: safeStr(p?.status) === "TAXI_SQUAD",
-                    snapshot_source: dateStr,
-                    snapshot_taken_at: snapshotTakenAtByDate.get(dateStr) || `${dateStr}T00:00:00.000Z`,
-                  };
-                }
-              }
-            }
-          }
-          return null;
-        };
+        // ── Pre-drop contract: the shared reader (_preDropContractReader) — the waiver-run card reads through the same one ──
+        const readPreDropContract = _preDropContractReader(env);
 
         // ── HELD rows: re-priced FIRST, independent of this tick's new-drop pulls ──
-        // A drop recorded UNPRICED because an authority it depends on (completed weeks, or the acquisition week) could not be
+        // A drop recorded UNPRICED because an authority it depends on (completed weeks, the acquisition week, or a taxi player's call-up history) could not be
         // resolved — penalty_basis 'week_authority_unresolved', never charged — is NOT "already recorded, done". Every tick
         // re-prices it from its own stored pre-drop contract, as of its own drop: the recorder's own live week rule at that
-        // instant (_completedWeeksAtLiveRule), and the acquisition week of the contract it ENDED, from ITS season's
+        // instant (_completedWeeksForDrop), and the acquisition week of the contract it ENDED, from ITS season's
         // transactions. Until that succeeds it stays held: listed in every drop route's response, never posted as a $0.
         //   - Two seasons are read (this one and the last), and this runs before the new-drop pulls, so a drop held across
         //     Jan 1 (NFL Week 17 runs into January; the cron's season is the calendar year) is still found and priced, and a
@@ -53542,7 +54042,6 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             console.error(`[drop-penalty scan] ${hs} acquisition weeks unresolved — its held drops stay held: ${(e && e.message) || e}`);
           }
         }
-        const heldTaxiNeverPromoted = heldRows.length ? await _taxiNeverPromotedMap(env, heldRows.map((h) => safeStr(h.player_id))) : {};
         for (const h of heldRows) {
           const hSeason = safeStr(h.season);
           const pid = safeStr(h.player_id);
@@ -53551,7 +54050,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           const brief = { id: h.id, season: hSeason, pid, name: safeStr(h.player_name), fid: padFranchiseId(h.franchise_id),
                           dropped_at_iso: safeStr(h.dropped_at_iso), ledger_key: safeStr(h.ledger_key) };
           try {
-            const hWeeks = await _completedWeeksAtLiveRule(hSeason, dropUnix, 17);
+            const hWeeks = await _completedWeeksForDrop(hSeason, leagueId, dropUnix);
             const hAcqWk = _acquisitionWeekAsOf(acq.txs, hSeason, pid, dropUnix);
             const rp = computeDropPenalty({
               contractStatus: h.pre_drop_contract_status,
@@ -53559,11 +54058,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractInfo: h.pre_drop_contract_info,
               contractYear: h.pre_drop_contract_year,
               isTaxi: Number(h.pre_drop_taxi) === 1,
-              taxiNeverPromoted: heldTaxiNeverPromoted[pid] === true,
+              // As of ITS drop, in ITS season (prior rosters; a call-up week counts from his game's kickoff).
+              taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [pid], { season: hSeason, leagueId, atUnix: dropUnix }))[pid],
             }, { dropDateIso: safeStr(h.dropped_at_iso), season: hSeason, acquisitionWeek: hAcqWk,
                  acquisitionWeekUnresolved: acq.unresolved, completedPayableWeeks: hWeeks.weeks });
             if (rp.basis === "week_authority_unresolved") {
-              stillHeld.push({ ...brief, reason: acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}` });
+              stillHeld.push({ ...brief, reason: rp.hold_reason || (acq.unresolved ? "acquisition_week_unresolved" : `completed_weeks_unresolved:${hWeeks.source}`) });
               continue;
             }
             const note = `${_HELD_REPRICED_MARK} Priced ${scanNowIso} after being HELD unpriced (acquisition week ${hAcqWk || "1 (continuing)"}, `
@@ -53694,31 +54194,18 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // This is the path that posts the REAL charge, so it needs the same
         // call-up awareness as the preview: `preDrop.is_taxi` is MFL's roster
         // status, which reads false for a taxi player dropped mid-call-up and
-        // silently costs him the §D2 exemption.
-        const scanTaxiNeverPromoted = await _taxiNeverPromotedMap(env, drops.map((d) => d.pid));
+        // silently costs him the §D2 exemption. Read per NEW drop, as of that drop (a call-up week counts from his
+        // game's kickoff), so an already-recorded drop costs no read.
+        const scanTaxiAt = async (pid, ts) => (await _taxiNeverPromotedMap(env, [pid], { season: targetSeason, leagueId, atUnix: ts }))[String(pid)];
 
         // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
         // after Labor Day" is a day late). Resolved once for the whole scan.
         const scanWeek1Iso = await _week1BoundaryIsoET(targetSeason);
 
-        // Completed-payable-week authority for this scan tick, resolved ONCE
-        // (not per-row): every drop in this batch is being priced as of "now",
-        // so this is "now" mode — ONLY the live-scoring authority (or the
-        // certain-fact pre-kickoff-preseason carve-out) may answer; there is
-        // NO date-math fallback for a live/current calculation (see the
-        // function's header comment). THIS IS A REAL-CHARGE PATH — if the
-        // authority cannot resolve, weeks stays null (source
-        // "unresolved_live") and every in-season pricing below fails closed
-        // via _computeDropPenalty's week_authority_unresolved branch rather
-        // than guessing $0.
-        const scanWeekAuthority = await resolveCompletedPayableWeeks(targetSeason, leagueId, {
-          week1ThursdayIso: scanWeek1Iso || undefined,
-          regularSeasonWeeks: 17,
-        });
-        if (scanWeekAuthority.weeks === null) {
-          console.error(`[drop-penalty scan] week authority unresolved — pricing refused for this batch, source=${scanWeekAuthority.source}`);
-        }
-
+        // Completed payable weeks: per drop, AS OF THAT DROP (_completedWeeksForDrop) — the count held re-pricing, the
+        // post-discord recompute and the waiver-run card use. Not the live count at this tick: the 2-day lookback can
+        // record a drop after the next week boundary, and it was then charged a week of earned salary it never had.
+        // THIS IS A REAL-CHARGE PATH — unresolved → null → week_authority_unresolved: HELD, re-priced by a later tick.
 
         // For each drop, check if already in D1; if not, look up + compute + insert.
         const written = [];
@@ -53736,32 +54223,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
 
             const meta = pidMeta.get(drop.pid) || {};
             const dropIso = new Date(drop.ts * 1000).toISOString();
-            let preDrop = await findPreDropContract(drop.pid, drop.ts);
-            if (preDrop) {
-              // The snapshot is a once-a-day picture. A contract submitted after
-              // it and before the drop IS the contract that was dropped.
-              const newer = await _contractSubmittedBetween(env, {
-                season: targetSeason, leagueId, playerId: drop.pid, franchiseId: drop.fid,
-                afterIso: preDrop.snapshot_taken_at, beforeIso: dropIso,
-              });
-              if (newer && newer.error) {
-                // Cannot tell whether the snapshot is current → do not price it.
-                // Not recorded, so the next hourly scan retries it.
-                skipped.push({ ...drop, reason: "contract_submission_check_failed", detail: newer.error });
-                continue;
-              }
-              if (newer) {
-                preDrop = {
-                  ...preDrop,
-                  contract_status: safeStr(newer.new_contract_status) || preDrop.contract_status,
-                  salary: Number(newer.new_salary) || preDrop.salary,
-                  contract_year: Number(newer.new_contract_year) || preDrop.contract_year,
-                  contract_info: safeStr(newer.new_contract_info),
-                  snapshot_source: `${newer.table}:${newer.id}`,
-                  superseded_snapshot: preDrop.snapshot_source,
-                };
-              }
+            // Snapshots (hourly, then daily), then any contract submitted after the snapshot and before the drop.
+            const pre = await readPreDropContract({ season: targetSeason, leagueId, pid: drop.pid, franchiseId: drop.fid, dropUnix: drop.ts });
+            if (pre.error) {
+              // Cannot tell whether the snapshot is current → do not price it.
+              // Not recorded, so the next hourly scan retries it.
+              skipped.push({ ...drop, reason: "contract_submission_check_failed", detail: pre.error });
+              continue;
             }
+            const preDrop = pre.contract;
             let penaltyInfo = {
               tcv: null, cl: null, aav: null, cy: null,
               yearsRemaining: null, yearsPlayed: null, earned: null,
@@ -53769,17 +54239,18 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               exempt: false, exempt_reason: "",
             };
             if (preDrop) {
+              const dropWeeks = await _completedWeeksForDrop(targetSeason, leagueId, drop.ts);
               penaltyInfo = computeDropPenalty({
                 contractStatus: preDrop.contract_status,
                 salary: preDrop.salary,
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-                taxiNeverPromoted: scanTaxiNeverPromoted[String(drop.pid)] === true,
+                taxiNeverPromoted: await scanTaxiAt(drop.pid, drop.ts),
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: _acquisitionWeekAsOf(acqTxs, targetSeason, drop.pid, drop.ts),
                    acquisitionWeekUnresolved: acqWeekUnresolved,
                    week1ThursdayIso: scanWeek1Iso || undefined,
-                   completedPayableWeeks: scanWeekAuthority.weeks });
+                   completedPayableWeeks: dropWeeks.weeks });
             }
 
             // Which cap year this penalty belongs to (canon §6 penalty timing).
@@ -54699,7 +55170,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               if (id) pvAllPids.push(id);
             }
           }
-          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids);
+          // As of the previewed cut — now, or the ?drop_date= what-if: a call-up week counts from his game's kickoff.
+          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids, { season: pvSeason, leagueId: pvLeague, atUnix: pvDropTs });
           const penaltyFor = (pl) => {
             const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
@@ -54708,7 +55180,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractInfo: safeStr(pl.contractInfo),
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
-              taxiNeverPromoted: pvTaxiNeverPromoted[pid] === true,
+              taxiNeverPromoted: pvTaxiNeverPromoted[pid],
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
             const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk, acquisitionWeekUnresolved: pvAcqSource === "unresolved" });
