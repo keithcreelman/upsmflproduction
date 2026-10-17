@@ -123,7 +123,7 @@ test("a played game's Tale of the Tape: the result, and the numbers from before 
   t.match(html, /data-tape-a="0004" data-tape-b="0007" data-tape-side="champ" data-tape-week="17" data-tape-result="Pure Greatness won 233\.7–192\.1" data-tape-kind="final" data-tape-round="Championship · Week 17"/);
   t.ok(!/data-tape-week="\d+"[^>]*data-tape-kind="projected"/.test(html));
   const sh = b.ctx.window.UPS_MOBILE.standingsSheet;
-  const p = plain(sh.tapeHtml({ status: "ok", a: null }, {}) || "");
+  const p = plain(sh.tapeHtml({ status: "incomplete", a: null }, {}));
   t.match(p, /couldn’t be verified/, "a broken tape says so");
 });
 test("Seeds option: 1-12 in order, each with the worker's seed explanation, and the playoff line", async () => {
