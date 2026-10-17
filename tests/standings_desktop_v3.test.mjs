@@ -38,7 +38,7 @@ const ENV_PRE = (() => { const env = makeWorkerEnv({}); env.UPS_MFL_DB.raw.exec(
 //   Round 1 (Wk 2): 6 beats 3, 4 beats 5 · Toilet: 9 beats 12, 11 beats 10
 //   Wk 3: semis 4 beats 1, 2 beats 6; placement 5 beats 3 (finish 5 → 1.07, 3 → finish 6 → 1.08)
 //         Toilet semis 7 beats 11, 9 beats 8; Toilet placement 10 beats 12
-//   Wk 4: final 2 beats 4; 3rd place 6 beats 1 (finish 3 → 1.10); Hawktuah Bowl 9 beats 7 (finish 7 → 1.01);
+//   Wk 4: final 2 beats 4; 3rd place 6 beats 1 (finish 3 → 1.10); Hawk Tuah Bowl 9 beats 7 (finish 7 → 1.01);
 //         Toilet 3rd place 8 beats 11
 const F = (n) => pad4(n);
 const DIVS = { "00": [1, 5, 9], "01": [2, 6, 10], "02": [3, 7, 11], "03": [4, 8, 12] };
@@ -69,7 +69,7 @@ const ENV_2025 = finishedEnv();
 const ENV_2025_WK3 = finishedEnv({ throughWeek: 3, finishes: false });   // the bracket in progress: no Week 4 yet
 
 // History: franchise slot 0005 changes hands — Kyle Creelman (BTNH) 2018-2021, Eric Martel (HammerTime) 2022-2024,
-// Eric's 2024 title. 0001 (Shawn Blake) wins the 2015 Hawktuah Bowl (finish 7) and finishes 12th in 2017; a 2010
+// Eric's 2024 title. 0001 (Shawn Blake) wins the 2015 Hawk Tuah Bowl (finish 7) and finishes 12th in 2017; a 2010
 // finish 7 (the loser-advances toilet bracket) is not a Hawktuah title.
 const HIST = [];
 for (let y = 2010; y <= 2024; y++) {
@@ -153,9 +153,9 @@ test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 
 });
 test("Picture: projected chips, the bye line after seed 2 and the playoff line after seed 6; one-line reasons from race().whySeed", async () => {
   const p = await page("year=2026");
-  const order = [...p.raw.matchAll(/data-fid="(\d{4})"|(First-round byes above)<\/li>|(Playoff line · 7–12 play the Hawktuah Bowl)<\/li>/g)].map((m) => m[1] || m[2] || m[3]);
+  const order = [...p.raw.matchAll(/data-fid="(\d{4})"|(First-round byes above)<\/li>|(Playoff line · 7–12 play the Hawk Tuah Bowl)<\/li>/g)].map((m) => m[1] || m[2] || m[3]);
   const cards = order.filter((x) => /^\d{4}$/.test(x) || /First|Playoff/.test(x));
-  t.deepEqual(cards.slice(0, 8), ["0009", "0010", "First-round byes above", "0005", "0008", "0002", "0004", "Playoff line · 7–12 play the Hawktuah Bowl"]);
+  t.deepEqual(cards.slice(0, 8), ["0009", "0010", "First-round byes above", "0005", "0008", "0002", "0004", "Playoff line · 7–12 play the Hawk Tuah Bowl"]);
   t.match(p.html, /<span class="status-chip bye projected"[^>]*aria-label="Projected playoff status: Bye">BYE<small> proj\.<\/small><\/span>/);
   t.match(p.html, /Seeds <span class="h-sub">· if the season ended today<\/span>/);
   const card8 = /<li class="seed-card[^"]*" data-fid="0008">([\s\S]*?)<div class="seed-detail"/.exec(p.html)[1];
@@ -202,9 +202,9 @@ test("Picture, finished season: the recorded final standings (finish, recorded s
   t.ok(rows[0].team.startsWith("🏆 " + nm("0002")), "finish 1 = the UPS champion: " + rows[0].team);
   t.equal(rows[0].seed, "2", "the RECORDED seed (regular_season_finish), not /api/standings' legacy recompute");
   t.notEqual(legacy.rows.find((r) => r.franchise_id === "0002").playoff_seed, 2, "control: the legacy recompute disagrees here");
-  t.ok(rows[6].team.startsWith("🚽 " + nm("0009")), "finish 7 = the Hawktuah Bowl champion: " + rows[6].team);
+  t.ok(rows[6].team.startsWith("🚽 " + nm("0009")), "finish 7 = the Hawk Tuah Bowl champion: " + rows[6].team);
   t.match(p.html, new RegExp("<b>UPS champion:<\\/b> " + nm("0002").replace(/[$()]/g, "\\$&")));
-  t.match(p.html, new RegExp("<b>Hawktuah Bowl champion:<\\/b> " + nm("0009").replace(/[$()]/g, "\\$&")));
+  t.match(p.html, new RegExp("<b>Hawk Tuah Bowl champion:<\\/b> " + nm("0009").replace(/[$()]/g, "\\$&")));
   t.match(p.html, /<b>Division winners:<\/b> /);
   t.ok(!/draft order|\bpicks?\b/i.test(p.text), "finish order is not draft order");
   t.ok(!/if the season ended today|proj\./.test(noAbout(p.html)), "nothing projected about a finished season");
@@ -226,7 +226,7 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.equal(L.cell("0012", "Back"), "2");
   t.deepEqual(["Seed", "Status", "Team", "W-L-T", "Div", "Playoffs", "All-Play", "AP %", "Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
   t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="faced"[^>]*>Faced<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button>/);
-  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="14">Playoff line · Hawktuah Bowl · seeds 7–12<\/td><\/tr>/);
+  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="14">Playoff line · Hawk Tuah Bowl · seeds 7–12<\/td><\/tr>/);
   t.ok(p.urls.every((u) => !u.startsWith("/api/playoff-bracket")), "the current season's seeds never come from /api/playoff-bracket");
 });
 test("Full League Scored / Faced: the shared module's scoredFaced numbers; Faced is 'schedule, not skill' and never 'Defense'", async () => {
@@ -454,9 +454,9 @@ test("fix (d): Historical Finishes labels every cell with THAT season's owner an
   t.equal(s5[seasons.indexOf(2024)].text, "1 Eric Martel", "by slot: the cell names that season's owner");
   t.equal(s5[seasons.indexOf(2019)].text, "2 Kyle Creelman");
   t.match(slot.html, /data-group="slot" aria-pressed="true">By franchise slot<\/button>/);
-  // the legend: 7 is the Hawktuah Bowl champion (from 2011), 12 is last place
-  t.match(slot.html, /7 = Hawktuah Bowl champion \(from 2011; 2010’s toilet bracket had the loser advance\) · 12 = last place/);
-  t.ok(!/12 = Hawktuah/.test(slot.html));
+  // the legend: 7 is the Hawk Tuah Bowl champion (from 2011), 12 is last place
+  t.match(slot.html, /7 = Hawk Tuah Bowl champion \(from 2011; 2010’s toilet bracket had the loser advance\) · 12 = last place/);
+  t.ok(!/12 = Hawk Tuah/.test(slot.html));
   const shawn = cellsOf((await page("view=historical&year=2026", { env: ENV_HIST })).raw, "Shawn Blake");
   t.match(shawn[seasons.indexOf(2015)].cls, /hawktuah/, "2015 finish 7 = a Hawktuah title");
   t.ok(!/hawktuah/.test(shawn[seasons.indexOf(2017)].cls), "2017 finish 12 is not");
@@ -465,7 +465,7 @@ test("fix (d): Historical Finishes labels every cell with THAT season's owner an
 test("fix (e): 3-Year Eras counts 'Hawktuah titles' = finish 7 (2011 on), not finish 12", async () => {
   const check = async (src) => {
     const p = await page("view=eras&year=2026", { env: ENV_HIST, src });
-    t.match(p.html, /data-era-sort="hawktuah_titles">🚽 Hawktuah titles<\/th>/);
+    t.match(p.html, /data-era-sort="hawktuah_titles">🚽 Hawk Tuah Bowl titles<\/th>/);
     const row = (era, owner) => { const m = new RegExp("<tr[^>]*><td>Era \\d \\(" + era + "–\\d{4}\\)<\\/td><td>" + owner + "[\\s\\S]*?<\\/tr>").exec(p.html); return m ? [...m[0].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => text(c[1]).trim()) : null; };
     const r1416 = row(2014, "Shawn Blake");
     t.ok(r1416, "Shawn Blake 2014-16 row");

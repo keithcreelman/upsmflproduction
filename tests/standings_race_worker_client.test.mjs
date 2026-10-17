@@ -144,7 +144,7 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   await settle();
   const html = plain(p.html());
   t.match(html, /<span class="status-chip bye projected"[^>]*>BYE<small> proj\.<\/small><\/span>/);
-  t.match(html, /Seeds: All-Play % → Overall → season Points For → head-to-head \(league rule §F\.1\)/);
+  t.match(html, /Seeds: All-Play % → H2H record → season Points For → H2H between the tied teams \(league rule §F\.1\)/);
   // v3: projected until the REGULAR season ends (race().seedsFinal), not the whole season
   t.match(html, /Seeds and BYE \/ DIV \/ WC are projected \(if the season ended today\) until the regular season ends\./);
   t.match(html, /Seed 3: behind Gride on All-Play %\. Ahead of CBP on the H2H games between them/);
