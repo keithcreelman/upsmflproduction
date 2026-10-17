@@ -22,7 +22,11 @@ const restoreConsole = quiet();
 const TEST_CH = "111", LIVE_PARENT = "222", LIVE_CH = "333";
 
 // The harness MFL + Discord, with every outbound call recorded and MFL's live_draft endpoint modelled:
-// edge.answer() decides its reply ({ status, body } or { throw }), edge.gate (a promise) holds it open.
+// edge.answer() decides its reply ({ status, body } or { throw }), edge.gate (a promise) holds it open. Like MFL, a
+// successful answer puts the player on the draft board, unless the answer says noRecord (MFL said OK and drafted no
+// one) or recordAs (another player landed in the slot). edge.failBoardAfterPick makes the board unreadable after a pick;
+// edge.staleOnClock serves the worker's ordinary (edge-cached) board read from before any pick, while its fresh read-back
+// (the one carrying a cache-buster) sees the live board.
 function fresh(over) {
   over = over || {};
   const env = makeWorkerEnv({ DISCORD_DRAFT_TEST_CHANNEL_ID: TEST_CH, DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID: LIVE_PARENT, DISCORD_DRAFT_CHANNEL_ID: LIVE_CH, ...(over.env || {}) });
@@ -30,16 +34,27 @@ function fresh(over) {
   mfl.install();
   const inner = globalThis.fetch;
   const calls = [];
-  const edge = { liveDraft: [], answer: null, gate: null };
+  const edge = { liveDraft: [], answer: null, gate: null, failBoardAfterPick: false, staleOnClock: false };
+  const boardAtStart = JSON.parse(JSON.stringify(mfl.st.draftPicks));
   globalThis.fetch = async (input, init) => {
     const u = new URL(String((input && input.url) || input));
     calls.push({ host: u.hostname, path: u.pathname, method: ((init && init.method) || "GET").toUpperCase() });
     if (/myfantasyleague\.com$/.test(u.hostname) && /\/live_draft$/.test(u.pathname)) {
-      edge.liveDraft.push(Object.fromEntries(u.searchParams));
+      const q = Object.fromEntries(u.searchParams);
+      edge.liveDraft.push(q);
       if (edge.gate) await edge.gate;
       const a = edge.answer ? edge.answer() : { status: 200, body: { status: "OK" } };
       if (a.throw) throw new Error(a.throw);
+      const accepted = a.status >= 200 && a.status < 300 && !/error/i.test(JSON.stringify(a.body));
+      if (accepted && !a.noRecord) {
+        const dp = mfl.st.draftPicks.find((p) => Number(p.round) === Number(q.ROUND) && Number(p.pick) === Number(q.PICK));
+        if (dp) dp.player = a.recordAs || q.PLAYER_PICK;
+      }
       return new Response(JSON.stringify(a.body), { status: a.status, headers: { "content-type": "application/json" } });
+    }
+    if (edge.failBoardAfterPick && edge.liveDraft.length && u.searchParams.get("TYPE") === "draftResults") return new Response("{}", { status: 503 });
+    if (edge.staleOnClock && u.searchParams.get("TYPE") === "draftResults" && !u.searchParams.has("_")) {
+      return new Response(JSON.stringify({ draftResults: { draftUnit: { draftPick: boardAtStart } } }), { status: 200, headers: { "content-type": "application/json" } });
     }
     return inner(input, init);
   };
@@ -185,6 +200,7 @@ test("an owner can't rehearse or mute a pick (403, nothing sent); the commission
 // ════════════════════════════ once per slot ════════════════════════════
 test("the same pick sent twice reaches MFL once and is announced once", async () => {
   const w = fresh();   // (MFL's draft results stay unchanged between the two, as a short edge cache would serve them)
+  w.edge.staleOnClock = true;
   const a = await send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
   const b = await send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
   const c = await send(w, `${Q}&MFL_USER_ID=tok-commish`, pick({ player_id: "16193" }));   // the commissioner, a different player, same slot
@@ -251,6 +267,38 @@ test("MFL refuses the pick: nothing drafted, the slot is released, and a correct
   t.equal(w.edge.liveDraft.length, 2); t.equal(w.edge.liveDraft[1].PLAYER_PICK, "16193");
   t.equal(w.posts().length, 1);
   t.equal(w.claims()[0].state, "done"); t.equal(w.claims()[0].player_id, "16193");
+});
+
+test("MFL answers OK but its board doesn't show the pick: not announced (502 pick_not_recorded), the slot released for a retry", async () => {
+  const w = fresh();
+  w.edge.answer = () => ({ status: 200, body: { status: "OK" }, noRecord: true });
+  const a = await send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
+  t.equal(a.status, 502); t.equal(a.json.code, "pick_not_recorded");
+  t.equal(w.edge.liveDraft.length, 1); t.equal(w.posts().length, 0);
+  t.equal(w.claims()[0].state, "released");
+  w.edge.answer = null;
+  const b = await send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
+  t.equal(b.status, 200); t.equal(w.edge.liveDraft.length, 2);
+  t.equal(w.posts().length, 1); t.equal(w.claims()[0].state, "done");
+});
+
+test("MFL answers OK but another player is in the slot: not announced (502 pick_not_recorded)", async () => {
+  const w = fresh();
+  w.edge.answer = () => ({ status: 200, body: { status: "OK" }, recordAs: "99999" });
+  const a = await send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
+  t.equal(a.status, 502); t.equal(a.json.code, "pick_not_recorded");
+  t.equal(w.posts().length, 0); t.equal(w.claims()[0].state, "released");
+});
+
+test("MFL answers OK but its board can't be read back: the slot is held and nothing is announced", async () => {
+  const w = fresh();
+  w.edge.failBoardAfterPick = true;
+  const a = await send(w, `${Q}&MFL_USER_ID=tok-B`, pick());
+  t.equal(a.status, 502); t.equal(a.json.code, "pick_outcome_unknown");
+  t.equal(w.posts().length, 0); t.equal(w.claims()[0].state, "mfl_unknown");
+  w.edge.failBoardAfterPick = false;
+  const b = await send(w, `${Q}&MFL_USER_ID=tok-commish`, pick());
+  t.equal(b.status, 409); t.equal(w.edge.liveDraft.length, 1); t.equal(w.posts().length, 0);
 });
 
 test("no clear answer from MFL holds the slot: never resent from here and never announced", async () => {

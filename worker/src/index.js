@@ -22871,6 +22871,36 @@ const mflToSleeper = {};
           try { return await pickClaims.settle(pickClaim.ref, pickClaim.token, to, detail); }
           catch (e) { console.error(`[api/pick] could not record ${to} for ${slotLabel}: ${e?.message || e}`); return false; }
         };
+        // MFL's board for the on-the-clock slot, read fresh (no cache), a few times over ~2.5 s: "recorded" (this player is
+        // in the slot), "taken" (another player is), "open" (still unmade) or "unreadable".
+        const pickOnBoard = async () => {
+          let last = "unreadable";
+          for (const wait of [0, 400, 800, 1200]) {
+            if (wait) await new Promise((res) => setTimeout(res, wait));
+            try {
+              const r = await fetch(
+                `https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1&_=${Date.now()}`,
+                { cf: { cacheTtl: 0, cacheEverything: false }, headers: { "User-Agent": "upsmflproduction-worker" } }
+              );
+              if (!r.ok) { last = "unreadable"; continue; }
+              const data = await r.json();
+              let units = data?.draftResults?.draftUnit || [];
+              if (!Array.isArray(units)) units = [units];
+              let slot = null;
+              for (const u of units) {
+                let arr = u.draftPick || u.pick || [];
+                if (!Array.isArray(arr)) arr = [arr];
+                for (const dp of arr) if (Number(dp.round) === Number(onClockRound) && Number(dp.pick) === Number(onClockSlot)) slot = dp;
+              }
+              if (!slot) { last = "unreadable"; continue; }
+              const who = safeStr(slot.player);
+              if (who === String(playerId)) return "recorded";
+              if (who) return "taken";
+              last = "open";
+            } catch (_) { last = "unreadable"; }
+          }
+          return last;
+        };
         // ── DRY-RUN short-circuit ──
         // Build the full request, validate everything, post a [DRY-RUN] preview
         // to the test Discord channel — but DON'T fire the MFL fetch. Lets the
@@ -22915,6 +22945,19 @@ const mflToSleeper = {};
           await settlePick(refused ? PICK_STATE.RELEASED : PICK_STATE.MFL_UNKNOWN, `MFL ${mflStatus}: ${safeStr(mflResp).slice(0, 300)}`);
         }
         if (mflOk) {
+          // A 2xx from MFL is not proof the pick was made: in the 2026-10-17 test-league run MFL answered 200 to both
+          // picks and drafted no one. The board is the proof, so read the slot back before the pick counts as made,
+          // before anything is announced, and before the claim closes. Not recorded: the slot is released for a corrected
+          // retry (MFL itself refuses a second pick in a made slot). Board unreadable: the slot stays held.
+          const onBoard = await pickOnBoard();
+          if (onBoard !== "recorded") {
+            const unknown = onBoard === "unreadable";
+            await settlePick(unknown ? PICK_STATE.MFL_UNKNOWN : PICK_STATE.RELEASED, `MFL ${mflStatus}, board ${onBoard}: ${safeStr(mflResp).slice(0, 300)}`);
+            const message = unknown
+              ? `MFL answered, but its draft board couldn't be read to confirm ${slotLabel}. Nothing was announced; check the board before trying again.`
+              : `MFL didn't record ${slotLabel}: its draft board shows ${onBoard === "taken" ? "a different player in that slot" : "the slot still open"}. Nothing was announced.`;
+            return jsonOut(502, { ok: false, code: unknown ? "pick_outcome_unknown" : "pick_not_recorded", slot: slotLabel, error: message, message, mfl_status: mflStatus, mfl_response: mflResp });
+          }
           await settlePick(PICK_STATE.MFL_ACCEPTED, `MFL ${mflStatus}`);
           let dRes = null;
           let threadInfo = null;
