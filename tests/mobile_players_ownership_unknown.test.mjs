@@ -39,7 +39,9 @@ const REQUIRED = ["safeStr", "safeInt", "pad4", "escapeHtml", "fmtUsd", "asArray
   "mflExportUrlForYear", "loadAllData", "reloadData", "parseLeague", "findFranchiseById", "getAllRosteredPids", "playerById"];
 const OPTIONAL = ["rosterOwnership", "ownerOfPid"];   // the shared ownership rule (absent before this fix)
 const APP_SRC = REQUIRED.map((n) => sliceFn(APP, "function " + n + "(")).join("\n") + "\n" +
-  OPTIONAL.map((n) => sliceFn(APP, "function " + n + "(", true)).join("\n");
+  OPTIONAL.map((n) => sliceFn(APP, "function " + n + "(", true)).join("\n") + "\n" +
+  // mflExportUrlForYear / reloadData's fresh-read-after-a-move state (top-level vars in app.js)
+  (APP.match(/  var FRESH_READ_MS = [\s\S]*?  var freshReadsUntil = 0;\n/) || [""])[0];
 // loadAllData's other sources (tag tracking, injuries, waiver state, …) answer null — this test is about rosters.
 const fetchers = [...new Set([...APP_SRC.matchAll(/\b(fetch[A-Z]\w*)\s*\(/g)].map((m) => m[1]))]
   .filter((n) => n !== "fetchJson" && !new RegExp("function " + n + "\\(").test(APP_SRC));
