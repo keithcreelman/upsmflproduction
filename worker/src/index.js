@@ -45099,13 +45099,15 @@ const mflToSleeper = {};
           });
         }
 
-        const [lgRes, wvRoster, beforeRead] = await Promise.all([
+        const [lgRes, wvRoster, beforeRead, wvAdjRes] = await Promise.all([
           mflExportJson(wvSeason, wvLeagueId, "league", {}, { useCookie: true }),
           _wvLoadFranchiseRoster(wvSeason, wvLeagueId, wvFid),
           // Advisory only — see the §2 note above. Nothing this read returns can
           // cause a write, so a failed/unparseable read (known:false) costs the
           // owner nothing beyond a less informative response.
           _wvReadPendingWaivers(_wvOwnerCookieHeader, wvSeason, wvLeagueId),
+          // The cap advisory's third input (with roster salaries and IR's share): MFL's salary adjustments.
+          mflExportJson(wvSeason, wvLeagueId, "salaryAdjustments", {}, { useCookie: true }),
         ]);
         let wvLimits = _wvWaiverLimits(lgRes && lgRes.ok ? lgRes.data : null);
         // F12: an owner's LEGAL bid must never be rejected because WE could not
@@ -45244,7 +45246,7 @@ const mflToSleeper = {};
         // ── Warnings (ADVISORY ONLY — Contract v2 §6, never block) ──
         // MFL enforces the cap and the roster max natively at award time; these
         // exist so an owner is not surprised when a claim quietly loses to "no
-        // room". Cap math here is an ESTIMATE — it excludes salaryAdjustments.
+        // room". The cap figure is MFL's own arithmetic (_waiverCapCheck) or none.
         // Nothing here may ever disable a submit or remove the no-drop option:
         // our arithmetic is the thing most likely to be wrong.
         const warnings = [];
@@ -45296,13 +45298,51 @@ const mflToSleeper = {};
               roster_size_limit: null,
             });
           }
-          if (wvCapDollars > 0) {
-            const projectedCap = wvRoster.salary_total + wc.max_cap_added;
-            if (projectedCap > wvCapDollars) {
-              warnings.push({
-                code: "CAP_ROOM",
-                message: `${lead} you'd be roughly ${usd(projectedCap - wvCapDollars)} over the ${usd(wvCapDollars)} cap (estimate — excludes salary adjustments). MFL enforces the cap at award time.`,
-              });
+        }
+        // Cap: MFL's own arithmetic (_waiverCapCheck), or — when any input can't be read — no number, just that UPS
+        // could not verify it. Only for a submit that claims someone.
+        let wvCapCheck = null;
+        if (plan.some((rd) => rd.picks.length)) {
+          const anyDrop = plan.some((rd) => rd.picks.some((p) => p.drop_pid));
+          let dropPenaltyHitsThisSeason = false;
+          if (anyDrop) {
+            const capYear = _dropPenaltyCapSeason({ season: wvSeason, dropUnix: Math.floor(Date.now() / 1000),
+              auctionStartUnix: (await _faaAuctionStartUnix(env, wvSeason)).unix });
+            dropPenaltyHitsThisSeason = capYear.ok ? String(capYear.applies_to_season) === String(wvSeason) : null;
+          }
+          wvCapCheck = _waiverCapCheck({
+            plan, roster: wvRoster, capDollars: wvCapDollars,
+            irPercent: wvLeagueRoot.includeIRWithSalary == null || wvLeagueRoot.includeIRWithSalary === "" ? null : Number(wvLeagueRoot.includeIRWithSalary),
+            adjustmentsTotal: _mflSalaryAdjustmentsTotal(wvAdjRes && wvAdjRes.ok ? wvAdjRes.data : null, wvFid),
+            conditional: wvLimits.conditional, anyDrop, dropPenaltyHitsThisSeason,
+          });
+          if (!wvCapCheck.verified) {
+            warnings.push({
+              code: "CAP_UNVERIFIED",
+              message: `UPS couldn't independently verify your post-award cap space because ${wvCapCheck.reason}. MFL will enforce the cap when waivers process.`,
+            });
+          } else {
+            // Hard cap: name each claim MFL won't award, and whether the ones that fit alone fit together.
+            const c = wvCapCheck;
+            const shortTxt = (cl) => (cl.freed > 0 ? `after its drop frees ${usd(cl.freed)}, ` : "") + `it needs about ${usd(cl.net - c.room_now)} more cap room than you have`;
+            const over = c.claims.filter((cl) => !cl.fits);
+            const parts = [];
+            if (over.length === 1) {
+              parts.push(`MFL won't award your ${usd(over[0].bid)} claim in group ${over[0].round} under the hard cap: ${shortTxt(over[0])}.`);
+            } else if (over.length > 1) {
+              const byGroup = new Map();
+              for (const cl of over) byGroup.set(cl.round, (byGroup.get(cl.round) || []).concat(usd(cl.net)));
+              parts.push(`MFL won't award ${over.length} of your claims under the hard cap — each costs more than your cap room (cost after any drop — `
+                + [...byGroup].map(([r, costs]) => `group ${r}: ${costs.join(", ")}`).join("; ") + ").");
+            }
+            if (c.together_room < 0 && (c.together_groups > 1 || !c.conditional)) {
+              parts.push(`${over.length ? "Your other claims" : "Your claims"} fit one at a time, but `
+                + (c.conditional ? `one in each of your ${c.together_groups} groups` : "all of them")
+                + ` would need about ${usd(-c.together_room)} more cap room than you have — MFL won't award a claim that no longer fits when its turn comes.`);
+            }
+            if (parts.length) {
+              const basis = c.ir_percent != null ? `salary adjustments included, IR counted at ${c.ir_percent}%` : "salary adjustments included";
+              warnings.push({ code: "CAP_ROOM", message: `${parts.join(" ")} MFL cap room now: ${usd(c.room_now)} (${basis}).` });
             }
           }
         }
@@ -45372,6 +45412,7 @@ const mflToSleeper = {};
             rounds_cleared: roundsCleared,
             picks_total: picksTotal,
             warnings,
+            cap_check: wvCapCheck,
             would_send: wouldSend,
             would_write: wouldWrite,
             limits: {
@@ -45524,6 +45565,7 @@ const mflToSleeper = {};
           rounds_untouched: roundsUntouched,
           picks_total: picksTotal,
           warnings,
+          cap_check: wvCapCheck,
           // The FULL post-write state from MFL, known-good. This is the one
           // response a client may adopt wholesale.
           verified: { known: true, rounds: afterRead.rounds },
@@ -51967,14 +52009,17 @@ const mflToSleeper = {};
 // 2026-10-16). Worst case per group = the one claim that would cost the most room if it is the one awarded; groups add
 // up. A claim whose player or drop an earlier group's worst case already used can't also be awarded (MFL refuses a drop
 // that is no longer on the roster). Only a drop that holds an active spot frees one (taxi and IR players don't hold
-// one), and dropping a taxi player frees no cap (taxi salary isn't on the cap). conditional === false — MFL says the
-// league doesn't bid conditionally — counts every claim.
+// one), and dropping a taxi player frees no cap (taxi salary isn't on the cap); an IR player frees only the share of
+// his salary MFL counts (opts.irPercent — league includeIRWithSalary). conditional === false — MFL says the league
+// doesn't bid conditionally — counts every claim.
 // plan: [{ round, picks: [{ add_pid, bid_dollars, drop_pid }] }]; roster: _wvLoadFranchiseRoster's by_pid.
 function _waiverClaimWorstCase(plan, roster, opts) {
   const conditional = !(opts && opts.conditional === false);
+  const irShare = Number.isFinite(opts && opts.irPercent) ? opts.irPercent / 100 : 1;
   const held = (pid) => (pid && roster && roster.by_pid ? roster.by_pid.get(pid) : null) || null;
   const newActive = (p) => { const d = held(p.drop_pid); return d && !d.taxi && !d.ir ? 0 : 1; };
-  const capAdded = (p) => { const d = held(p.drop_pid); return (Number(p.bid_dollars) || 0) - (d && !d.taxi ? (Number(d.salary) || 0) : 0); };
+  const freed = (d) => (!d || d.taxi ? 0 : (Number(d.salary) || 0) * (d.ir ? irShare : 1));
+  const capAdded = (p) => (Number(p.bid_dollars) || 0) - freed(held(p.drop_pid));
   const worst = (deltaOf) => {
     const usedAdds = new Set(), usedDrops = new Set();
     let total = 0;
@@ -51989,6 +52034,80 @@ function _waiverClaimWorstCase(plan, roster, opts) {
   };
   const groups = (plan || []).filter((rd) => (rd.picks || []).length).map((rd) => rd.round);
   return { conditional, groups, max_new_active: worst(newActive), max_cap_added: worst(capAdded) };
+}
+
+// One franchise's MFL salary-adjustment total from TYPE=salaryAdjustments (positive = dead money, negative = credit).
+// null — never 0 — when the payload isn't an adjustments export: an unreadable list is not "no adjustments".
+function _mflSalaryAdjustmentsTotal(data, franchiseId) {
+  if (!data || typeof data !== "object" || !("salaryAdjustments" in data)) return null;
+  const root = data.salaryAdjustments || {};
+  const rows = Array.isArray(root.salaryAdjustment) ? root.salaryAdjustment : (root.salaryAdjustment ? [root.salaryAdjustment] : []);
+  const fid = String(franchiseId || "").replace(/\D/g, "").padStart(4, "0");
+  let total = 0;
+  for (const r of rows) {
+    if (String((r && (r.franchise_id || r.franchise)) || "").replace(/\D/g, "").padStart(4, "0") !== fid) continue;
+    const amt = Number(r && r.amount);
+    if (!Number.isFinite(amt)) return null;   // an amount we can't read is not $0
+    total += amt;
+  }
+  return total;
+}
+
+// ── Waiver-claim CAP advisory: MFL's own cap arithmetic, or no number at all ──
+// 2026-10-17: a claim read "you'd be roughly $2,000 over the $300,000 cap" while MFL showed about $6,000 of room. The
+// advisory added every active AND IR salary at 100% and left out MFL's salary adjustments. MFL counts:
+//   cap used = active-roster salaries + includeIRWithSalary% of IR salaries + salary adjustments (dead money, trade
+//              settlements; a credit is negative). Taxi salaries are off the cap.
+// That is what this computes, from MFL's own exports read at submit time. The $300,000 is a HARD cap whenever waivers run
+// (canon §6.A1; Keith 2026-10-17: over the cap, MFL won't award the player), so the result is per claim — its bid less
+// what its drop frees, against the room now — and then whether the claims that fit alone, one per group, fit together.
+// A won claim's drop frees what MFL counts for that player; its dead money lands on NEXT season's cap once the FA Auction
+// has opened (canon §6) — dropPenaltyHitsThisSeason says otherwise (or unknown), and then nothing here can price it.
+// NEVER A GUESS: any input missing → verified:false with the reason, and the owner is told UPS could not verify —
+// never an over-cap conclusion and never a zero standing in for a missing adjustment. MFL enforces the cap regardless.
+// in: { plan, roster (_wvLoadFranchiseRoster), capDollars, irPercent (null = MFL didn't say), adjustmentsTotal
+//       (null = unreadable), conditional, anyDrop, dropPenaltyHitsThisSeason (true | false | null = unknown) }
+function _waiverCapCheck(inp) {
+  const unverified = (reason) => ({ verified: false, reason });
+  const roster = inp && inp.roster;
+  if (!roster || !roster.ok || !roster.by_pid) return unverified("your roster couldn't be read from MFL");
+  const cap = Number(inp.capDollars) || 0;
+  if (!(cap > 0)) return unverified("MFL didn't report the salary cap");
+  if (inp.adjustmentsTotal == null || !Number.isFinite(Number(inp.adjustmentsTotal))) return unverified("MFL salary adjustments are not included");
+  let active = 0, ir = 0;
+  for (const row of roster.by_pid.values()) {
+    if (row.taxi) continue;
+    if (row.ir) ir += Number(row.salary) || 0; else active += Number(row.salary) || 0;
+  }
+  const irDrop = (inp.plan || []).some((rd) => (rd.picks || []).some((p) => { const d = p.drop_pid && roster.by_pid.get(p.drop_pid); return d && d.ir; }));
+  const irPct = inp.irPercent == null || inp.irPercent === "" ? NaN : Number(inp.irPercent);   // missing is unknown, never 0%
+  if ((ir > 0 || irDrop) && !(Number.isFinite(irPct) && irPct >= 0 && irPct <= 100)) return unverified("MFL didn't report how much of an IR salary counts against the cap");
+  if (inp.anyDrop && inp.dropPenaltyHitsThisSeason !== false) return unverified("a dropped player's dead money for this season isn't included");
+  const share = Number.isFinite(irPct) ? irPct : 100;
+  const wc = _waiverClaimWorstCase(inp.plan, roster, { conditional: inp.conditional, irPercent: share });
+  const usedNow = Math.round(active + (ir > 0 ? ir * irPct / 100 : 0) + Number(inp.adjustmentsTotal));
+  const roomNow = cap - usedNow;
+  // THE HARD CAP (canon §6.A1: $300,000, FA Auction start → season end — every waiver run): MFL does not award a claim
+  // that would put the team over, so no claim can leave an owner "over". Each claim is judged on its OWN net cost — its bid
+  // less what its drop frees (an active player in full, an IR player at the league's share, a taxi player nothing) —
+  // against the room now; then the claims that fit alone, one per group, against the room together.
+  const claims = [];
+  for (const rd of inp.plan || []) {
+    for (const p of rd.picks || []) {
+      const d = p.drop_pid ? roster.by_pid.get(p.drop_pid) : null;
+      const freed = Math.round(!d || d.taxi ? 0 : (Number(d.salary) || 0) * (d.ir ? share / 100 : 1));
+      const net = (Number(p.bid_dollars) || 0) - freed;
+      claims.push({ round: rd.round, add_pid: p.add_pid, drop_pid: p.drop_pid || null, bid: Number(p.bid_dollars) || 0, freed, net, fits: net <= roomNow });
+    }
+  }
+  const fitPlan = (inp.plan || []).map((rd) => ({ ...rd, picks: (rd.picks || []).filter((p) => claims.find((c) => c.round === rd.round && c.add_pid === p.add_pid && c.fits)) }));
+  const together = _waiverClaimWorstCase(fitPlan, roster, { conditional: inp.conditional, irPercent: share });
+  return {
+    verified: true, cap_dollars: cap, used_now: usedNow, room_now: roomNow,
+    worst_added: Math.round(wc.max_cap_added), worst_room: roomNow - Math.round(wc.max_cap_added),
+    claims, together_groups: together.groups.length, together_room: roomNow - Math.round(together.max_cap_added),
+    ir_percent: ir > 0 || irDrop ? irPct : null, adjustments_total: Number(inp.adjustmentsTotal), groups: wc.groups, conditional: wc.conditional,
+  };
 }
 
 // Denied claims for a run, from MFL's Previously Processed Waivers page.
