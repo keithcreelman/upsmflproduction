@@ -691,8 +691,10 @@
     var bWin = !!(g && g.winner && g.b && g.winner.franchise_id === g.b.franchise_id);
     var canTape = !!(g && g.a && g.b);
     var round = o.title + (o.week ? " · Week " + o.week : "");
+    var result = done && g.winner ? (g.winner.franchise_name || g.winner.franchise_id) + " won " + Number(aWin ? g.scoreA : g.scoreB).toFixed(1) + "–" + Number(aWin ? g.scoreB : g.scoreA).toFixed(1) : "";
     var attrs = canTape
       ? ' data-tape-a="' + U.escapeHtml(g.a.franchise_id) + '" data-tape-b="' + U.escapeHtml(g.b.franchise_id) + '" data-tape-side="' + o.sideKey + '"' +
+        (proj || !o.week ? '' : ' data-tape-week="' + o.week + '"') + (result ? ' data-tape-result="' + U.escapeHtml(result) + '"' : '') +
         ' data-tape-kind="' + (proj ? "projected" : (done ? "final" : "scheduled")) + '" data-tape-round="' + U.escapeHtml(round) + '"' +
         ' role="button" tabindex="0" aria-label="' + U.escapeHtml(round + ": " + (g.a.franchise_name || g.a.franchise_id) + " vs " + (g.b.franchise_name || g.b.franchise_id) + ". Open the Tale of the Tape") + '"'
       : '';
@@ -862,7 +864,8 @@
     Array.prototype.forEach.call(mount.querySelectorAll("[data-tape-a]"), function (el) {
       var go = function () {
         openTape(y, el.getAttribute("data-tape-a"), el.getAttribute("data-tape-b"), {
-          side: el.getAttribute("data-tape-side"), kind: el.getAttribute("data-tape-kind"), round: el.getAttribute("data-tape-round")
+          side: el.getAttribute("data-tape-side"), kind: el.getAttribute("data-tape-kind"), round: el.getAttribute("data-tape-round"),
+          week: Number(el.getAttribute("data-tape-week")) || null, result: el.getAttribute("data-tape-result") || ""
         }, el);
       };
       el.addEventListener("click", go);
@@ -882,13 +885,15 @@
     var a = U.pad4(aFid), b = U.pad4(bFid);
     var ownerA = (by[a] && by[a].owner_name) || "", ownerB = (by[b] && by[b].owner_name) || "";
     function body() {
-      var t = R.matchupTape(resp, a, b, { offenseIdp: state.offIdpByYear[y] || null });
+      // A played (or scheduled) game: the teams as they stood before it, so the tape reads the same before and after.
+      var through = meta.kind !== "projected" && meta.week ? meta.week - 1 : null;
+      var t = R.matchupTape(resp, a, b, { offenseIdp: state.offIdpByYear[y] || null, throughWeek: through });
       var hist = state.h2hHistory;
       var current = (hist && t.status === "ok" && Number(y) > Number(hist.through_season))
         ? { season: Number(y), games: t.meetings.map(function (g) { return { week: g.week, isPlayoff: g.isPlayoff, aScore: g.aScore, bScore: g.bScore }; }) } : null;
       var series = hist === undefined ? { status: "loading" } : R.ownerSeries(hist, ownerA, ownerB, { current: current });
       return M.standingsSheet.tapeHtml(t, {
-        kind: meta.kind, roundLabel: meta.round, aSeed: seedText(seedOf[a], meta.side), bSeed: seedText(seedOf[b], meta.side),
+        kind: meta.kind, roundLabel: meta.round, result: meta.result, throughWeek: through, aSeed: seedText(seedOf[a], meta.side), bSeed: seedText(seedOf[b], meta.side),
         aOwner: ownerA, bOwner: ownerB, series: series, offenseIdpLoading: !Object.prototype.hasOwnProperty.call(state.offIdpByYear, String(y))
       });
     }

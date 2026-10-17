@@ -117,6 +117,15 @@ test("a finished season (2025): real results, Final tags, winners checked, nothi
   t.match(hawk, /The recorded Hawk Tuah Bowl seeds\./);
   t.match(hawk, /Hawk Tuah Bowl final Final H1 Cleon Ca\$h 294\.4 ✓ won H3 Hawks 157\.8 Winner 7th \(pick 1\.01\)/);
 });
+test("a played game's Tale of the Tape: the result, and the numbers from before the game (2025 final: Weeks 1-16)", async () => {
+  const b = await boot();
+  const html = await b.show({ mode: "playoffs", side: "champ", year: 2025 });
+  t.match(html, /data-tape-a="0004" data-tape-b="0007" data-tape-side="champ" data-tape-week="17" data-tape-result="Pure Greatness won 233\.7–192\.1" data-tape-kind="final" data-tape-round="Championship · Week 17"/);
+  t.ok(!/data-tape-week="\d+"[^>]*data-tape-kind="projected"/.test(html));
+  const sh = b.ctx.window.UPS_MOBILE.standingsSheet;
+  const p = plain(sh.tapeHtml({ status: "incomplete", a: null }, {}));
+  t.match(p, /couldn’t be verified/, "a broken tape says so");
+});
 test("Seeds option: 1-12 in order, each with the worker's seed explanation, and the playoff line", async () => {
   const b = await boot();
   const p = plain(await b.show({ mode: "playoffs", side: "seeds", year: 2026 }));
