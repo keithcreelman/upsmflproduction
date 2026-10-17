@@ -1765,6 +1765,9 @@
   //    extras.offenseIdp = { fid: { op, dp } } from MFL leagueStandings (offensive-player and IDP points). It is used
   //    only when every team has numeric op and dp that add up to that team's regular-season Points For (within 0.15);
   //    otherwise offense and idp are null and offenseIdpStatus says why ('missing' | 'mismatch').
+  //    extras.throughWeek = N describes the teams as they stood BEFORE a played game: only weeks <= N count, and a
+  //    week-specific problem in a later week (e.g. a stat correction that reached one table and not the other) is
+  //    outside the view. A malformed playoff flag in any week still blocks everything (F3).
   function median(list) {
     var xs = list.slice().sort(function (p, q) { return p - q; });
     var n = xs.length;
@@ -1803,6 +1806,14 @@
       var A = hasId(fidA) ? pad4(fidA) : null, B = hasId(fidB) ? pad4(fidB) : null;
       if (!A || !B || A === B || !read.expected.hasOwnProperty(A) || !read.expected.hasOwnProperty(B)) {
         return viewResult({ status: 'unavailable', problems: [{ code: 'unknown_franchise' }] }, nulls);
+      }
+      var through = extras && extras.throughWeek != null ? strictNum(extras.throughWeek) : null;
+      if (through != null && !isWeekNum(through)) return viewResult({ status: 'unavailable', problems: [{ code: 'bad_through_week' }] }, nulls);
+      if (through != null) {
+        var F3 = { malformed_playoff_flag: true, mixed_playoff_flags: true, playoff_flag_mismatch: true };
+        read.problems = read.problems.filter(function (p) { return F3[p.code] || p.week == null || !(Number(p.week) > through); });
+        read.allWeeks = read.allWeeks.filter(function (w) { return w <= through; });
+        read.regularWeeks = read.regularWeeks.filter(function (w) { return w <= through; });
       }
       var st = scopeStatus(read, read.allWeeks);
       if (st.status === 'ok' && !read.regularWeeks.length) st = { status: 'incomplete', problems: [{ code: 'no_regular_season_weeks' }] };

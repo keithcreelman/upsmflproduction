@@ -69,6 +69,18 @@ test("bad input never produces numbers: unknown team, same team, a malformed pla
   const k = await resp(); k.weekly = null;
   t.equal(R.matchupTape(k, "0005", "0004").status, "unavailable");
 });
+test("throughWeek: the tape before a played game; a later week's score mismatch is outside it, a malformed flag never is", async () => {
+  const j = await resp();
+  const g = j.weekly.find((m) => m.w === 5 && m.fid === "0005"); g.ts = Math.round((g.ts + 1) * 10) / 10;   // Week 5: the two tables disagree
+  t.equal(R.matchupTape(j, "0005", "0004").status, "incomplete", "the whole season can't be verified");
+  const m = R.matchupTape(j, "0005", "0004", { throughWeek: 4 });
+  t.equal(m.status, "ok", "but the tape before a Week 5 game can");
+  t.deepEqual(m.weeks.regular, [1, 2, 3, 4]); t.deepEqual(m.weeks.last3, [2, 3, 4]);
+  t.deepEqual(m.meetings.map((x) => x.week), [1, 4], "meetings before the game only");
+  const k = await resp(); k.weeklyScores.find((r) => r.w === 5).po = "x";
+  t.equal(R.matchupTape(k, "0005", "0004", { throughWeek: 4 }).status, "incomplete", "a malformed playoff flag in any week blocks the tape (F3)");
+  t.equal(R.matchupTape(await resp(), "0005", "0004", { throughWeek: 0 }).status, "unavailable");
+});
 test("owner head-to-head follows the person: owner of record per season, exact names, the live season added", async () => {
   const s = R.ownerSeries(HIST, "Eric Martel", "Brian Cutting", { current: { season: 2026, games: [{ week: 1, aScore: 312.8, bScore: 258.5 }, { week: 4, aScore: 250.2, bScore: 211.6 }] } });
   t.equal(s.status, "ok");
