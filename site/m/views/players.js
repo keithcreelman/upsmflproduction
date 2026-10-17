@@ -3064,6 +3064,15 @@
     });
   }
 
+  // The availability answer changed (a run, a kickoff, the weekly rollover —
+  // app.js re-reads it on its own): an open Claims screen repaints its
+  // warnings. (The Market repaints with the route; the sheet listens too.)
+  if (window.addEventListener) {
+    window.addEventListener("ups-waiver-availability", function () {
+      if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen({ keepScroll: true });
+    });
+  }
+
   // ══ Public surface for the other mobile views ══════════════════════════
   // player_sheet.js (unrostered players) and views/home.js both drive the
   // waiver UI through this rather than duplicating window logic.
@@ -3073,6 +3082,10 @@
     // When he can be claimed, and the sheet's explanation of it.
     availability: availabilityFor,
     availPanelHtml: availPanelHtml,
+    // The Claims-screen / bid-sheet warning and the stale-button guard, from
+    // the same answer (exported so every surface can be checked to agree).
+    availWarnHtml: availWarnHtml,
+    refuseUnlessAvailable: refuseUnlessAvailable,
     // §5 — surfaces ask this before drawing any write control of their own.
     writeEnabled: writeEnabled,
     nativeLink: nativeLink,

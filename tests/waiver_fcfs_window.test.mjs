@@ -73,8 +73,12 @@ function waiverStateAt(now) {
 // TBB home Sun 1:00 PM ET, PIT @ CLE Thu 8:15 PM ET. KCC = no game this week.
 const KICKOFFS_WK4 = { IND: 1791120600, WAS: 1791120600, TBB: 1791133200, GBP: 1791133200, PIT: 1790900100, CLE: 1790900100 };
 const KICKOFFS_WK8 = { TBB: et("2026-11-01T13:00:00-05:00"), IND: et("2026-11-01T13:00:00-05:00") };
+// Week 4's last kickoff (MNF, Mon Oct 5 8:15 PM ET, MFL nflSchedule): the league moves to Week 5
+// 7 hours later (resolveCurrentLineupWeek), when game locks clear.
+const WK4_LAST_KICKOFF = 1791245700;
 
 function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
+  const lastKickoff = kickoffs === KICKOFFS_WK4 ? WK4_LAST_KICKOFF : Math.max(0, ...Object.values(kickoffs));
   const ctx = vm.createContext({ console, setTimeout, clearTimeout, Promise, JSON });
   ctx.window = ctx;
   const util = ["function safeStr(", "function safeInt(", "function pad4(", "function escapeHtml(", "function fmtUsd(", "function asArray("]
@@ -89,7 +93,7 @@ function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
     runs: { known: true, list: [ws.last_bbid_run_unix].concat(ws.bbid_runs_upcoming || []).filter(Boolean) },
     window: { mode: ws.mode, fcfs_closes_unix: ws.fcfs_closes_unix },
     week: kickoffsLoaded
-      ? { known: true, week: 4, kickoffs, last_kickoff_unix: Math.max(0, ...Object.values(kickoffs)) }
+      ? { known: true, week: 4, kickoffs, last_kickoff_unix: lastKickoff, rollover_unix: lastKickoff + 7 * 3600 }
       : { known: false, reason: "this week's NFL kickoffs couldn't be read" },
     drops: { known: true, by_player: {} }, teams: {}, franchise_names: {},
   });
@@ -168,14 +172,17 @@ test("Sunday opening, 1s either side of the 9:00 AM ET run: Bid → Add now", ()
   t.equal(after.writes.length, 0);
 });
 
-test("Monday re-lock, 1s either side of 9:00 PM ET: Add now → Bid", () => {
+test("Monday re-lock, 1s either side of 9:00 PM ET: Add now → Bid; a player whose game was Sunday stays Game locked until the week rolls over", () => {
   const before = harness(et("2026-10-05T20:59:59-04:00"));
   t.equal(before.btn("4"), "Add now", "20:59:59 — a bye-week player is still addable");
   t.equal(before.btn("2"), "Game locked", "…a player whose game was Sunday is locked");
   const after = harness(et("2026-10-05T21:00:00-04:00"));
   t.equal(after.mode(), "bbid");
   t.equal(after.btn("4"), "Bid", "21:00:00 — back to blind bids");
-  t.equal(after.btn("2"), "Bid", "and the locked player can be bid on again (his claim goes to Thursday's run, after the week)");
+  t.equal(after.btn("2"), "Game locked", "the player whose game was Sunday stays locked for the rest of the scoring week (Keith 2026-10-17)");
+  const roll = WK4_LAST_KICKOFF + 7 * 3600;
+  t.equal(harness(roll - 1).btn("2"), "Game locked", "1 s before the week rolls over (Tue 3:15 AM)");
+  t.equal(harness(roll + 1, { kickoffs: {} }).btn("2"), "Bid", "1 s after: Week 5, the lock is gone and he can be claimed for Thursday's run");
 });
 
 test("player kickoff inside the window, 1s either side: Add now → Game locked", () => {
