@@ -1553,6 +1553,14 @@
       state.selectedFid = U.pad4(fid);
       state.rostersMode = "team";
     },
+    // Which Standings view to show (the offline tests drive the views through this; taps do the same).
+    setStandingsView: function (o) {
+      o = o || {};
+      if (o.mode) state.standingsMode = o.mode;
+      if (o.side) state.playoffSide = o.side;
+      if (o.year != null) state.standingsYear = String(o.year);
+      if (o.week != null) { state.weeklyScope = o.week === "season" ? "season" : "week"; if (o.week !== "season") state.weeklyWeek = Number(o.week); }
+    },
     // The Standings drawers' content (also read by the offline tests, which can't tap a button).
     standingsDrawers: {
       how: howSeedingHtml,
