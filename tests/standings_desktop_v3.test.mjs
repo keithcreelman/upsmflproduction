@@ -224,7 +224,7 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.equal(L.cell("0009", "PF/week"), c.pf_per_week.toFixed(1));
   t.equal(L.cell("0009", "PA/game"), c.pa_per_game.toFixed(1));
   t.equal(L.cell("0012", "Back"), "2");
-  t.deepEqual(["Seed", "Status", "Team", "W-L-T", "Div", "Playoffs", "All-Play", "AP %", "Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
+  t.deepEqual(["Seed", "Status", "Team", "H2H", "Div", "Playoffs", "All-Play", "AP %", "Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
   t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="faced"[^>]*>Faced<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button>/);
   t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="14">Playoff line · Hawk Tuah Bowl · seeds 7–12<\/td><\/tr>/);
   t.ok(p.urls.every((u) => !u.startsWith("/api/playoff-bracket")), "the current season's seeds never come from /api/playoff-bracket");
