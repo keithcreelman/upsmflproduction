@@ -106,6 +106,26 @@ test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as 
   t.notEqual(ok.byFranchise["0006"].apGB, null, "control: clean flags give a real AP games back");
 });
 
+test("A2 projectedPlayoffGroups on the real response: failed weeklyScores → games back unavailable (not 0.0); outside teams in the worker's order", async () => {
+  const RACE = raceModule();
+  const ok = RACE.projectedPlayoffGroups((await standings(makeLadderSeason())).rows, (await standings(makeLadderSeason())).weeklyScores);
+  t.deepEqual(ok.byes.map((e) => e.franchise_id), ["0001", "0003"]);
+  t.ok(ok.inTheHunt.every((e) => typeof e.apGB === "number"), "control: real games-back figures");
+  const bad = await standings(makeLadderSeason({ failScores: true }));
+  t.equal(bad.weeklyScores, null);
+  const g = RACE.projectedPlayoffGroups(bad.rows, bad.weeklyScores);
+  t.deepEqual(g.inTheHunt.map((e) => [e.franchise_id, e.apGB]), [["0006", null], ["0008", null]], "unavailable, and in the worker's ladder order");
+  t.ok(g.wildCards.every((e) => e.apGB === 0), "seeds 1-6 are 0 games back by definition");
+  // equal games back → the WORKER's order (its ladder), not franchise-id order
+  const rows = bad.rows.slice(); const i6 = rows.findIndex((r) => r.franchise_id === "0006"), i8 = rows.findIndex((r) => r.franchise_id === "0008");
+  [rows[i6], rows[i8]] = [rows[i8], rows[i6]];                 // pretend the worker ranked 0008 ahead
+  t.deepEqual(RACE.projectedPlayoffGroups(rows, bad.weeklyScores).inTheHunt.map((e) => e.franchise_id), ["0008", "0006"]);
+  // and the mobile Playoffs view hands the worker's weeklyScores over untouched
+  const LEAGUE = fs.readFileSync(new URL("../site/m/views/league.js", import.meta.url), "utf8");
+  t.ok(/projectedPlayoffGroups\(stdResp\.rows \|\| \[\], stdResp\.weeklyScores\)/.test(LEAGUE));
+  t.ok(!/stdResp\.weeklyScores \|\| \[\]/.test(LEAGUE));
+});
+
 // ═══ the desktop page ═══
 test("desktop: projected status chips, the league ladder note, and the worker's seed reason in each disclosure", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason()) });

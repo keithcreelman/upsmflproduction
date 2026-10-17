@@ -634,6 +634,34 @@
     }
     .matchup-team.winner .matchup-score { padding-right: 24px; }
     .matchup-team.loser { opacity: 0.6; }
+    /* F6 (Phase II-A2 correction pass): projected (chalk) advancement —
+       visually distinct from a real .winner (no gold bar, no "W" badge,
+       a "chalk pick" text tag instead) so a projected row can never be
+       mistaken for an actual completed result. */
+    .matchup-team.projected-leader {
+      color: var(--text);
+      font-weight: 600;
+      background: rgba(90, 170, 200, 0.10);
+      border-left: 3px dashed var(--teal);
+    }
+    .matchup-team.projected-leader::after {
+      content: "chalk pick";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: 1px solid var(--teal);
+      color: var(--teal);
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .matchup-team.projected-leader .matchup-score { padding-right: 56px; }
+    .matchup-team.projected-trail { opacity: 0.6; }
     .matchup-team.bye-row {
       font-style: italic;
       color: var(--dim);
@@ -703,6 +731,13 @@
       color: var(--muted);
       font-size: 11px;
       font-style: italic;
+    }
+    /* F6: projected champion card — dashed teal border, muted gradient,
+       distinct from both the real UPS gold and Hawktuah copper looks. */
+    .champion-card.projected-champ {
+      background: linear-gradient(135deg, rgba(90,170,200,0.14), rgba(90,170,200,0.05));
+      border: 2px dashed var(--teal);
+      box-shadow: 0 4px 14px rgba(90,170,200,0.12);
     }
     /* Consolation row underneath the main bracket. */
     .bracket-consolation {
@@ -2044,15 +2079,136 @@
   //   • Final = W17 game between the two W16 semi winners → trophy card
   //   • 3rd-place = W17 game between the two W16 semi losers
   // ────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────
+  // Phase II-A2 — PROJECTED bracket (pre-playoff, chalk). Entirely
+  // separate rendering path from the real-results renderSide() above —
+  // touches none of its code, so real/completed-season bracket rendering
+  // is byte-for-byte unchanged. Consumes window.UPS_STANDINGS_RACE's
+  // projectChalkBracket() output directly (game.a/b/winner/loser are seed
+  // objects {seed, franchise_id, franchise_name} — never scores, since
+  // chalk never plays a game).
+  // ────────────────────────────────────────────────────────────────────────
+  // F6 (Phase II-A2 correction pass): projected advancement must NEVER
+  // reuse the actual-winner `.winner` class (which renders the gold "W"
+  // badge and gold-bar styling reserved for a real, played result) —
+  // chalk's "leader" gets a visually distinct `.projected-leader` class
+  // instead (dashed teal accent, "chalk pick" text tag, no "W").
+  function projTeamRow(seedEntry, isLeader) {
+    if (!seedEntry) return '<div class="matchup-team bye-row" style="color:var(--dim)">TBD</div>';
+    return '<div class="matchup-team ' + (isLeader ? "projected-leader" : "projected-trail") + '">'
+      + '<span class="matchup-seed">#' + seedEntry.seed + '</span>'
+      + '<span class="matchup-name">' + escapeHtml(seedEntry.franchise_name || seedEntry.franchise_id) + '</span>'
+      + '<span class="matchup-score">TBD</span>'
+      + '</div>';
+  }
+  function projGameCard(game) {
+    if (!game || !game.a || !game.b) return '<div class="matchup"><div class="matchup-team bye-row" style="color:var(--dim)">TBD</div></div>';
+    var aWin = game.winner === game.a;
+    return '<div class="matchup">' + projTeamRow(game.a, aWin) + projTeamRow(game.b, !aWin) + '</div>';
+  }
+  function projByeCard(seedEntry) {
+    return '<div class="matchup bye">'
+      + '<div class="matchup-team bye-row">'
+      + '<span class="matchup-seed">#' + seedEntry.seed + '</span>'
+      + '<span class="matchup-name" style="text-transform:none;font-style:normal;color:var(--muted);font-size:11px">' + escapeHtml(seedEntry.franchise_name || seedEntry.franchise_id) + '</span>'
+      + '<span style="font-size:9px;letter-spacing:0.1em;color:var(--gold)">BYE</span>'
+      + '</div></div>';
+  }
+  function renderProjectedBracketSide(label, side, byeSeeds, hawk, weekLabels) {
+    var r1Html = side.r1.map(function (g) { return '<div class="bracket-slot has-connector">' + projGameCard(g) + '</div>'; }).join("")
+      + byeSeeds.map(function (s) { return '<div class="bracket-slot has-connector">' + projByeCard(s) + '</div>'; }).join("");
+    var semisHtml = side.semis.map(function (g) { return '<div class="bracket-slot has-connector">' + projGameCard(g) + '</div>'; }).join("");
+    var finalHtml = '<div class="bracket-slot has-connector">' + projGameCard(side.final) + '</div>';
+    var champEntry = side.final ? side.final.winner : null;
+    // F6: the projected champion card uses a dedicated `.projected-champ`
+    // treatment (dashed border, muted gradient) and the label text says
+    // "Projected champion" outright — never the real "UPS Champion"/
+    // "Hawktuah Champ" text, which is reserved for a completed season.
+    var champHtml = champEntry
+      ? ('<div class="champion-card projected-champ' + (hawk ? ' hawk-champ' : '') + '">'
+        + '<div class="champion-label">Projected champion</div>'
+        + '<div class="champion-icon">' + (hawk ? "🦅" : "🏆") + '</div>'
+        + '<div class="champion-name">' + escapeHtml(champEntry.franchise_name || champEntry.franchise_id) + ' <span style="color:var(--gold);font-size:11px">#' + champEntry.seed + '</span></div>'
+        + '</div>')
+      : '<div class="champion-card projected-champ"><div class="champion-label">Projected champion</div><div class="champion-pending" style="margin-top:10px">— TBD —</div></div>';
+    var consBits = [];
+    if (side.third) consBits.push(gameCardLabeledGeneric(hawk ? "Projected · Toilet 3rd-place" : "Projected · 3rd-place (1.09 / 1.10)", projGameCard(side.third)));
+    if (side.placement) consBits.push(gameCardLabeledGeneric(hawk ? "Projected · Toilet placement" : "Projected · 5th–6th (1.07 / 1.08)", projGameCard(side.placement)));
+    var consHtml = consBits.length
+      ? ('<div class="bracket-consolation"><div class="bracket-consolation-label">' + (hawk ? "Toilet side · placement games" : "Consolation rounds") + '</div><div class="bracket-consolation-row">' + consBits.join("") + '</div></div>')
+      : "";
+    return ''
+      + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '">'
+      +   '<h3>' + (hawk ? "🦅 " : "🏆 ") + escapeHtml(label) + ' <span class="partial-badge">PROJECTED</span></h3>'
+      +   '<div class="bracket">'
+      +     '<div class="bracket-col"><div class="bracket-col-header">Round 1<span class="wk">projected</span></div><div class="bracket-col-r1">' + r1Html + '</div></div>'
+      +     '<div class="bracket-col"><div class="bracket-col-header">Semifinals<span class="wk">projected</span></div><div class="bracket-col-semis">' + semisHtml + '</div></div>'
+      +     '<div class="bracket-col"><div class="bracket-col-header">' + (hawk ? "Hawktuah Bowl" : "Championship") + '<span class="wk">projected</span></div><div class="bracket-col-final">' + finalHtml + '</div></div>'
+      +     '<div class="bracket-col"><div class="bracket-col-header">' + (hawk ? "Toilet Champ" : "Trophy") + '</div><div class="bracket-col-champion">' + champHtml + '</div></div>'
+      +   '</div>'
+      +   consHtml
+      + '</section>';
+  }
+  function gameCardLabeledGeneric(label, cardHtml) {
+    return '<div><div class="round-label" style="margin-bottom:4px">' + escapeHtml(label) + '</div>' + cardHtml + '</div>';
+  }
+  // "PROJECTED · through Week N" — N = the last week with actual REGULAR-
+  // SEASON data (weekProgress's maxWk, reused unmodified from the Overall
+  // view). Never a playoff week (chalk projection only fires before
+  // playoffs exist at all), and never invented — if maxWk can't be
+  // trusted (0), the banner omits the week number entirely rather than
+  // showing "Week 0".
+  function projectedBannerText(resp) {
+    var wp = weekProgress(resp);
+    return wp.maxWk > 0 ? ("PROJECTED · through Week " + wp.maxWk) : "PROJECTED";
+  }
+
   function renderBracket(host) {
+    // F1 (Phase II-A2 correction pass): /api/playoff-bracket is the ONLY
+    // required request — /api/standings (fetched separately, below, and
+    // only in the projected branch) is purely cosmetic (the "through
+    // Week N" banner suffix) and its failure must never block a valid
+    // actual OR projected bracket.
     fetchD1("/api/playoff-bracket", state.year).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load bracket for " + state.year + ".");
       var seeds = resp.seeds || [];
       var matchups = resp.matchups || [];
-      if (!matchups.length) {
+      // F9 (Phase II-A2 correction pass): the ONE shared gating decision
+      // — window.UPS_STANDINGS_RACE.projectionMode() — replaces this
+      // page's own ad hoc "!matchups.length && !season_complete" check;
+      // mobile's renderPlayoffsMode consumes the identical helper.
+      var mode = (window.UPS_STANDINGS_RACE && window.UPS_STANDINGS_RACE.projectionMode)
+        ? window.UPS_STANDINGS_RACE.projectionMode({ seasonComplete: resp.season_complete, matchups: matchups, seeds: seeds })
+        : (matchups.length ? "actual" : "unavailable");
+      if (mode === "projected") {
+        var proj = window.UPS_STANDINGS_RACE.projectChalkBracket(seeds);
+        // Non-fatal standings fetch, purely for the banner's week number.
+        // A rejection (network/HTTP error — fetchD1 rejects on either)
+        // resolves to null here rather than propagating, so it can never
+        // replace this valid projected bracket with the generic fetch-
+        // error view; projectedBannerText(null) degrades to bare
+        // "PROJECTED" (weekProgress() is already null-safe).
+        fetchD1("/api/standings", state.year).catch(function () { return null; }).then(function (stdResp) {
+          var champByes = seeds.filter(function (s) { return Number(s.seed) === 1 || Number(s.seed) === 2; });
+          var hawkByes = seeds.filter(function (s) { return Number(s.seed) === 7 || Number(s.seed) === 8; });
+          var banner = '<div class="banner">' + escapeHtml(projectedBannerText(stdResp)) + ' — chalk (higher seed wins every game). Locks for real once Week 15 kicks off.</div>';
+          host.innerHTML = banner
+            + renderProjectedBracketSide("UPS Championship — seeds 1-6", proj.champ, champByes, false)
+            + renderProjectedBracketSide("Hawktuah Bowl — seeds 7-12", proj.hawk, hawkByes, true)
+            + '<div class="note">Modern bracket: top 2 division winners earn seeds 1-2 (BYE). Wild cards = top 2 non-DW by AP%. This projection assumes the higher seed wins every remaining game — a real bracket routinely does not.</div>'
+            + DEFERRED_NOTE;
+        });
+        return;
+      }
+      if (mode !== "actual") {
+        // Preseason / partial season / invalid seeds — honest seed-table
+        // fallback, never a fabricated or broken bracket.
         host.innerHTML = '<div class="banner">Bracket locks Week 15. Seeds so far:</div>' + renderSeedTable(seeds) + DEFERRED_NOTE;
         return;
       }
+      // mode === "actual": real results exist. Everything from here down
+      // is the pre-A2 real-results rendering path, untouched, and never
+      // dependent on /api/standings.
       var seedMap = buildSeedMap(seeds);
       var champSeeds = seeds.slice(0, 6);
       var hawkSeeds  = seeds.slice(6, 12);
@@ -2856,125 +3012,82 @@
   //   1.11 = Championship runner-up
   //   1.12 = UPS champion
   // ────────────────────────────────────────────────────────────────────────
+  // F2 (Phase II-A2 correction pass): renderDraftOrder no longer has its
+  // own inline pick-assignment arithmetic for real results. BOTH the
+  // actual and projected branches below get their picks EXCLUSIVELY from
+  // window.UPS_STANDINGS_RACE — buildActualBracketResult()/
+  // projectChalkBracket(), both driven by the one BRACKET_FINISH_SLOTS
+  // table — and their "why" text from the shared pickWhyText() helper.
+  // This removes the old dual-mapping risk (the previous inline logic
+  // had a demonstrated bug: 1.10 was assigned once from the placement
+  // game, then silently overwritten by the 3rd-place game a few lines
+  // later) and the shared table's slot list can never disagree with
+  // itself the way two hand-written arithmetic blocks could.
+  function renderDraftOrderTable(host, seeds, picks, playoffWeeks, opts) {
+    var seedMap = buildSeedMap(seeds);
+    var projected = !!(opts && opts.projected);
+    var pickOrder = ["1.01","1.02","1.03","1.04","1.05","1.06","1.07","1.08","1.09","1.10","1.11","1.12"];
+    var rowsHtml = pickOrder.map(function (p) {
+      var fid = picks[p];
+      var seedInfo = fid ? seedMap[pad4(fid)] : null;
+      var seedBadge = seedInfo
+        ? '<span class="seed-badge ' + seedInfo.side + '">' + (seedInfo.side === "champ" ? "🏆" : "🦅") + ' ' + seedInfo.seed + '</span>'
+        : '<span class="seed-badge none">—</span>';
+      var info = fid ? (seeds.find(function (s) { return pad4(s.franchise_id) === pad4(fid); }) || {}) : {};
+      var why = fid && window.UPS_STANDINGS_RACE ? window.UPS_STANDINGS_RACE.pickWhyText(p, projected) : null;
+      var pendingText = projected ? "—" : "pending";
+      var pickStyle = p === "1.01" ? 'background:rgba(110,60,30,0.15)' : (p === "1.12" ? 'background:rgba(231,190,89,0.12)' : "");
+      return '<tr style="' + pickStyle + '">'
+        + '<td class="num" style="font-weight:800;color:var(--gold);font-size:13px">' + p + '</td>'
+        + '<td>' + seedBadge + '</td>'
+        + '<td>' + (info.franchise_name ? escapeHtml(info.franchise_name) : "<span style='color:var(--dim)'>" + pendingText + "</span>") + '</td>'
+        + '<td>' + escapeHtml(info.owner_name || "") + '</td>'
+        + '<td style="font-size:11px;color:var(--muted);font-style:italic">' + escapeHtml(why || "—") + '</td>'
+        + '</tr>';
+    }).join("");
+    return '<div style="overflow-x:auto"><table><thead><tr>'
+      + '<th class="num">Pick</th><th>Seed</th><th>Team</th><th>Owner</th><th>Why' + (projected ? " (projected)" : "") + '</th>'
+      + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+  }
   function renderDraftOrder(host) {
     fetchD1("/api/playoff-bracket", state.year).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load bracket for " + state.year + ".");
       var seeds = resp.seeds || [];
       var matchups = resp.matchups || [];
-      var seedMap = buildSeedMap(seeds);
       var playoffWeeks = resp.playoff_weeks && resp.playoff_weeks.length === 3 ? resp.playoff_weeks : [15, 16, 17];
       var WK_R1 = playoffWeeks[0], WK_SEMI = playoffWeeks[1], WK_FINAL = playoffWeeks[2];
-      if (!matchups.length) {
+      // F9: the same shared gating decision renderBracket() uses.
+      var mode = (window.UPS_STANDINGS_RACE && window.UPS_STANDINGS_RACE.projectionMode)
+        ? window.UPS_STANDINGS_RACE.projectionMode({ seasonComplete: resp.season_complete, matchups: matchups, seeds: seeds })
+        : (matchups.length ? "actual" : "unavailable");
+      if (mode === "projected") {
+        var draftProj = window.UPS_STANDINGS_RACE.projectChalkBracket(seeds);
+        var draftYear = window.UPS_STANDINGS_RACE.nextDraftYear(state.year);
+        host.innerHTML = '<div class="banner"><span class="partial-badge">PROJECTED</span> ' + escapeHtml("Projected " + draftYear + " rookie draft order — chalk (higher seed wins every remaining game).") + '</div>'
+          + '<div class="methodology"><strong>Projected Draft Order</strong> assumes every remaining playoff game is won by the higher (numerically lower) seed. A real bracket routinely produces upsets — this is a placeholder, not a forecast, and updates automatically once real games are played.</div>'
+          + renderDraftOrderTable(host, seeds, draftProj.picks, playoffWeeks, { projected: true })
+          + '<div class="note">All 12 picks shown are <strong>PROJECTED</strong> — none are final. Locks for real once Week ' + WK_FINAL + ' completes.</div>'
+          + DEFERRED_NOTE;
+        return;
+      }
+      if (mode !== "actual") {
         host.innerHTML = '<div class="banner">Draft order is set once the playoff bracket completes (final game in Week ' + WK_FINAL + ').</div>' + DEFERRED_NOTE;
         return;
       }
-      // Dedupe + scope to each side.
-      var champIds = new Set(seeds.slice(0, 6).map(function (s) { return pad4(s.franchise_id); }));
-      var hawkIds  = new Set(seeds.slice(6, 12).map(function (s) { return pad4(s.franchise_id); }));
-      var seen = {}, games = [];
-      matchups.forEach(function (m) {
-        var k = m.week + "|" + [pad4(m.franchise_id), pad4(m.opponent_franchise_id)].sort().join("-");
-        if (seen[k]) return;
-        seen[k] = true;
-        games.push(m);
-      });
-      function side(g, ids) {
-        return ids.has(pad4(g.franchise_id)) && ids.has(pad4(g.opponent_franchise_id));
+      // mode === "actual": real results. buildActualBracketResult() does
+      // ALL of the dedup/classification/pick-assignment work — a
+      // conflicting/invalid actual bracket (status !== "ok") fails
+      // closed to an honest message rather than rendering anything
+      // partially fabricated. A still-in-progress bracket (some slots
+      // undecided) renders only the picks it actually has — the "pending"
+      // placeholder already handles the rest.
+      var actual = window.UPS_STANDINGS_RACE
+        ? window.UPS_STANDINGS_RACE.buildActualBracketResult(seeds, matchups, playoffWeeks)
+        : { status: "unavailable", reason: "shared module not loaded" };
+      if (actual.status !== "ok") {
+        host.innerHTML = '<div class="banner">Draft order unavailable' + (actual.reason ? (": " + escapeHtml(actual.reason)) : ".") + '</div>' + DEFERRED_NOTE;
+        return;
       }
-      function winner(g) { return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.franchise_id) : pad4(g.opponent_franchise_id); }
-      function loser(g)  { return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.opponent_franchise_id) : pad4(g.franchise_id); }
-
-      function pickResults(ids) {
-        var r1   = games.filter(function (g) { return Number(g.week) === WK_R1 && side(g, ids); });
-        var semi = games.filter(function (g) { return Number(g.week) === WK_SEMI && side(g, ids); });
-        var fin  = games.filter(function (g) { return Number(g.week) === WK_FINAL && side(g, ids); });
-        var r1Win = new Set(), r1Lose = new Set();
-        r1.forEach(function (g) { r1Win.add(winner(g)); r1Lose.add(loser(g)); });
-        // Classify W-semi games: placement (both R1 losers) vs semi (everyone else).
-        var placement = null, semis = [];
-        semi.forEach(function (g) {
-          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
-          if (r1Lose.has(a) && r1Lose.has(b)) placement = g;
-          else semis.push(g);
-        });
-        var semiWin = new Set(), semiLose = new Set();
-        semis.forEach(function (g) { semiWin.add(winner(g)); semiLose.add(loser(g)); });
-        // Final week: title vs 3rd-place.
-        var title = null, third = null, other = [];
-        fin.forEach(function (g) {
-          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
-          if (semiWin.has(a) && semiWin.has(b)) title = g;
-          else if (semiLose.has(a) && semiLose.has(b)) third = g;
-          else other.push(g);
-        });
-        return { r1: r1, semi: semis, placement: placement, fin: fin, title: title, third: third, other: other,
-                 r1Win: r1Win, r1Lose: r1Lose, semiWin: semiWin, semiLose: semiLose };
-      }
-      var champ = pickResults(champIds);
-      var hawk  = pickResults(hawkIds);
-
-      // Build pick → franchise_id map.
-      var picks = {}; // key like "1.12" -> { fid, label, why }
-      // 1.12 = UPS champion
-      if (champ.title) picks["1.12"] = { fid: winner(champ.title), why: "Won UPS Championship" };
-      // 1.11 = UPS runner-up
-      if (champ.title) picks["1.11"] = { fid: loser(champ.title), why: "Lost UPS Championship" };
-      // 1.10 = Champ semifinal winner whose semi-WIN didn't reach final?  Actually:
-      //        "championship semifinal winner (consolation winner — gets later pick because they advanced + got money)"
-      //        That implies the W16 game between R1 LOSERS (placement). Winner = 1.10.
-      if (champ.placement) picks["1.10"] = { fid: winner(champ.placement), why: "Won championship-side W" + WK_SEMI + " placement (1.07/1.08 → 1.10)" };
-      // 1.09 = championship semifinal loser
-      // Per doc: "1.09 = championship semifinal loser" → loser of the 3rd-place W17 game (semi losers).
-      if (champ.third) picks["1.09"] = { fid: loser(champ.third), why: "Lost championship 3rd-place game" };
-      //         The semi-loser who WINS the 3rd-place game maps to 1.10? Re-check.
-      //         Re-reading: 1.10 = "semifinal winner (consolation winner)" — winner of the consolation W17 game.
-      //         1.09 = "semifinal loser" — loser of consolation. Both come from the third-place W17 game.
-      if (champ.third) picks["1.10"] = { fid: winner(champ.third), why: "Won championship 3rd-place (consolation) game" };
-      // 1.07 + 1.08 = decided by W (final-1) game between two W-R1 champ losers
-      //   1.07 = winner of that game
-      //   1.08 = loser of that game
-      if (champ.placement) {
-        picks["1.08"] = { fid: loser(champ.placement), why: "Lost championship W" + WK_SEMI + " placement (1.07/1.08)" };
-        picks["1.07"] = { fid: winner(champ.placement), why: "Won championship W" + WK_SEMI + " placement (1.07/1.08)" };
-        // 1.07/1.08 vs 1.10 — doc says 1.05/1.06 from TOILET-side W(N-1), 1.07/1.08 from CHAMP-side W(N-1).
-        // So 1.07 = champ W16 placement winner, 1.08 = champ W16 placement loser. That conflicts with 1.10.
-        // Re-resolve: 1.10 comes from CHAMPIONSHIP 3RD-PLACE (W17). 1.07/1.08 from CHAMPIONSHIP placement (W16).
-      }
-      // Hawktuah side:
-      // 1.01 = Toilet Bowl champion (won Toilet final)
-      if (hawk.title) picks["1.01"] = { fid: winner(hawk.title), why: "Won Hawktuah Bowl (Toilet champ)" };
-      // 1.02 = Toilet Bowl runner-up
-      if (hawk.title) picks["1.02"] = { fid: loser(hawk.title), why: "Lost Hawktuah Bowl final" };
-      // 1.03 = Toilet semifinal winner (winner of W17 toilet 3rd-place is the consolation winner)
-      if (hawk.third) picks["1.03"] = { fid: winner(hawk.third), why: "Won Toilet 3rd-place (consolation)" };
-      // 1.04 = Toilet semifinal loser (loser of W17 toilet 3rd-place)
-      if (hawk.third) picks["1.04"] = { fid: loser(hawk.third), why: "Lost Toilet 3rd-place" };
-      // 1.05 + 1.06 = W16 placement on hawk side
-      if (hawk.placement) {
-        picks["1.05"] = { fid: winner(hawk.placement), why: "Won Toilet W" + WK_SEMI + " placement (1.05/1.06)" };
-        picks["1.06"] = { fid: loser(hawk.placement), why: "Lost Toilet W" + WK_SEMI + " placement (1.05/1.06)" };
-      }
-
-      // Render the table.
-      var pickOrder = ["1.01","1.02","1.03","1.04","1.05","1.06","1.07","1.08","1.09","1.10","1.11","1.12"];
-      var rowsHtml = pickOrder.map(function (p) {
-        var rec = picks[p];
-        var fid = rec && rec.fid;
-        var seedInfo = fid ? seedMap[pad4(fid)] : null;
-        var seedBadge = seedInfo
-          ? '<span class="seed-badge ' + seedInfo.side + '">' + (seedInfo.side === "champ" ? "🏆" : "🦅") + ' ' + seedInfo.seed + '</span>'
-          : '<span class="seed-badge none">—</span>';
-        var info = fid ? (resp.seeds.find(function (s) { return pad4(s.franchise_id) === pad4(fid); }) || {}) : {};
-        var pickStyle = p === "1.01" ? 'background:rgba(110,60,30,0.15)' : (p === "1.12" ? 'background:rgba(231,190,89,0.12)' : "");
-        return '<tr style="' + pickStyle + '">'
-          + '<td class="num" style="font-weight:800;color:var(--gold);font-size:13px">' + p + '</td>'
-          + '<td>' + seedBadge + '</td>'
-          + '<td>' + (info.franchise_name ? escapeHtml(info.franchise_name) : "<span style='color:var(--dim)'>pending</span>") + '</td>'
-          + '<td>' + escapeHtml(info.owner_name || "") + '</td>'
-          + '<td style="font-size:11px;color:var(--muted);font-style:italic">' + escapeHtml((rec && rec.why) || "—") + '</td>'
-          + '</tr>';
-      }).join("");
-
       host.innerHTML = ''
         + '<div class="methodology">'
         + '<strong>Draft Order Finish</strong> maps each playoff outcome to the next-year rookie draft pick per <code>league_context_v1.md §1</code>. '
@@ -2982,9 +3095,7 @@
         + 'Picks 1.05/1.06 + 1.07/1.08 are decided by Week ' + WK_SEMI + ' placement games between Week ' + WK_R1 + ' losers. '
         + '1.09/1.10 are decided by the Week ' + WK_FINAL + ' championship 3rd-place game.'
         + '</div>'
-        + '<div style="overflow-x:auto"><table><thead><tr>'
-        + '<th class="num">Pick</th><th>Seed</th><th>Team</th><th>Owner</th><th>Why</th>'
-        + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>'
+        + renderDraftOrderTable(host, seeds, actual.picks, playoffWeeks, { projected: false })
         + '<div class="note">'
         + (state.year === (new Date().getUTCFullYear()) ? "If picks show 'pending', the bracket hasn't fully completed yet."
           : "Final draft order for " + state.year + " (used in the " + (state.year + 1) + " rookie draft).")
