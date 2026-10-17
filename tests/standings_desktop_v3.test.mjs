@@ -138,7 +138,7 @@ test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 
   t.match(p.html, /<b>Next out:<\/b> Hawks, 2 All-Play wins behind Pure Greatness \(6th\)\./);
   t.match(p.text, /Next team out Hawks/);
   t.match(p.html, /<b>If the season ended today, byes:<\/b> C-Town Chivalry and Blake Bombers\./);
-  t.match(p.html, /<b>Tiebreak:<\/b> Real Deal Creel over CBP: same All-Play, a better record \(9-4 vs 7-6\)\./);
+  t.match(p.html, /<b>Tiebreak:<\/b> Real Deal Creel over CBP: same All-Play, a better H2H record \(9-4 vs 7-6\)\./);
   // in the hunt: positions 7-12 in the worker's order, each with its Back (ap_back) and ▲▼ (order_change)
   const hunt = [...p.raw.matchAll(/<tr class="hunt-row[^"]*"[^>]*data-toggle="(\d{4})">([\s\S]*?)<\/tr>/g)].map((m) => [m[1], [...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => text(c[1]).trim())]);
   const outside = RESP_2026.rows.filter((r) => r.playoff_seed == null);
