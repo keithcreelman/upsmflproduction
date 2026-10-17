@@ -884,6 +884,8 @@
   border-bottom: 1px dotted var(--hair);
 }
 .tops-wv-name:hover { color: var(--teal); border-bottom-color: var(--teal); }
+/* A claim MFL would refuse at the next run (waiver availability, Keith 2026-10-17). */
+.tops-wv-avail { margin-top: 3px; font-size: 12px; line-height: 1.35; color: var(--warn, #ffb86b); }
 .tops-wv-cleared {
   color: var(--warn);
   font-size: var(--t-meta);

@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.16.2",
-  "label": "Moves show up right away: after placing a player on IR, a taxi move, a drop, a claim, a trade or a tag, the app reads your roster fresh from MFL instead of a copy up to a minute old."
+  "build": "2026.10.17.1",
+  "label": "Waivers say when a player can actually be claimed: a recently dropped player shows the first run MFL will accept a claim for him (\"Sat waiver\"), and game-locked players say when they open again."
 }
