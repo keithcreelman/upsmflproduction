@@ -43,6 +43,51 @@ export function makeEnv(flags) {
   return env;
 }
 
+// A current season that exercises every step of the seeding ladder (worker/src/seeding.js) through /api/standings.
+// 8 teams, 4 divisions of 2. Built from WEEKLY scores and games (the current season is seeded from those, regular-
+// season weeks only -- worker/src/standings_truth.js), four weeks, one game each:
+//   weeks 1 and 3 (P1): 0001 200 > 0003 190 > 0004 170 > 0002 160 > 0007 150 > 0005 140 > 0006 110 > 0008 100
+//   weeks 2 and 4 (P2): 0003 200 > 0001 190 > 0002 170 > 0004 160 > 0005 148 > 0007 146 > 0006 110 > 0008 100
+// Division winners (on record): 0001 (4-0), 0003 (3-1), 0005 (2-2 v 1-3), 0007 (2-2 v 0-4).
+//   bye pool:   0001 vs 0003 — All-Play tied 26-2, 0001 ahead on Overall (4-0 v 3-1)
+//   seeds 3-6:  0004 v 0002 — tied All-Play (18-10), Overall (2-2) AND Points For (660); 0004 won 2 of 3 → head-to-head
+//               0002 v 0007 — All-Play 18-10 v 10-18
+//               0007 v 0005 — tied All-Play (10-18) and Overall (2-2); Points For 592 v 576
+//   outside:    0006, 0008 — behind the last wild card (0002) on All-Play
+export const LADDER_TEAMS = [
+  ["0001", "A", 26 / 28, 1.00, 780], ["0002", "A", 18 / 28, 0.50, 660],
+  ["0003", "B", 26 / 28, 0.75, 780], ["0004", "B", 18 / 28, 0.50, 660],
+  ["0005", "C", 10 / 28, 0.50, 576], ["0006", "C", 4 / 28, 0.25, 440],
+  ["0007", "D", 10 / 28, 0.50, 592], ["0008", "D", 0 / 28, 0.00, 400],
+];
+const LADDER_P1 = { "0001": 200, "0003": 190, "0004": 170, "0002": 160, "0007": 150, "0005": 140, "0006": 110, "0008": 100 };
+const LADDER_P2 = { "0003": 200, "0001": 190, "0002": 170, "0004": 160, "0005": 148, "0007": 146, "0006": 110, "0008": 100 };
+const LADDER_WEEKS = [
+  { week: 1, scores: LADDER_P1, games: [["0001", "0003"], ["0004", "0002"], ["0006", "0008"], ["0007", "0005"]] },
+  { week: 2, scores: LADDER_P2, games: [["0003", "0004"], ["0002", "0005"], ["0001", "0006"], ["0007", "0008"]] },
+  { week: 3, scores: LADDER_P1, games: [["0001", "0007"], ["0003", "0006"], ["0005", "0008"], ["0004", "0002"]] },
+  { week: 4, scores: LADDER_P2, games: [["0002", "0004"], ["0005", "0007"], ["0001", "0006"], ["0003", "0008"]] },
+];
+// failGames / failWeekly / failScores make that /api/standings query throw (D1 error), as #1201's tests do.
+// po: the is_playoff value written for WEEK 1's rows (default 0); null or a stray value models a malformed flag in D1.
+export function makeLadderSeason({ recorded = false, failGames = false, failWeekly = false, failScores = false, po = 0 } = {}) {
+  const divisions = Object.fromEntries(LADDER_TEAMS.map(([fid, div]) => [fid, div]));
+  const s = weeklySeason({ weeks: LADDER_WEEKS, divisions, lastRegularSeasonWeek: 14 });
+  for (const r of s.games) if (r.week === 1) r.is_playoff = po;
+  for (const r of s.weeklyScores) if (r.week === 1) r.is_playoff = po === null ? 0 : po;   // NOT NULL column: a NULL flag can only exist in src_schedule
+  const env = loadSeason(makeWorkerEnv({}), s);
+  const db = env.UPS_MFL_DB.raw;
+  if (recorded) for (const [fid] of LADDER_TEAMS) db.prepare("INSERT INTO src_final_standings (season, franchise_id, final_finish) VALUES (2026, ?, 1)").run(fid);
+  const needles = [];
+  if (failGames || failWeekly) needles.push("FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0");
+  if (failScores) needles.push("FROM src_franchise_weekly_score WHERE season = ?");
+  if (needles.length) {
+    const prep = env.UPS_MFL_DB.prepare.bind(env.UPS_MFL_DB);
+    env.UPS_MFL_DB.prepare = (sql) => { if (needles.some((n) => sql.includes(n))) throw new Error("D1_ERROR: simulated failure"); return prep(sql); };
+  }
+  return env;
+}
+
 // A season built from weekly scores, the way the live sync writes it: one score per franchise per week
 // (src_franchise_weekly_score), each game from both sides (src_schedule, result from the scores), and
 // src_standings totals summed over EVERY week given (playoff weeks included, as the sync does).
