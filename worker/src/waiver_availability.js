@@ -26,7 +26,13 @@
 // A player whose game has kicked off can't be added until his NFL week ends
 // (MFL setting "Prevent Owners From Making ANY Roster Moves After Kickoff Of
 // That Player's Game Until The End Of The Week" = Yes). 2026: none of 131
-// in-season awards went to a player after his game kicked off.
+// in-season awards went to a player after his game kicked off. The app shows
+// "Game locked" from his kickoff until the league moves to the next scoring
+// week, then clears it and re-reads his drop (Keith 2026-10-17).
+//
+// TWO MOMENTS, never confused (Keith 2026-10-17): the badge names the first
+// run that can AWARD the player; Bid returns early enough to SUBMIT a claim
+// before that run (bid_opens_unix says when).
 //
 // FAIL VISIBLY. An input that couldn't be read (the setting, the transaction
 // log, the waiver calendar, the NFL schedule) yields state "unknown" with the
@@ -183,6 +189,15 @@ export function resolveWaiverAvailability(input) {
   const nextRun = runAfter(now);
   const lastRun = runs.filter((r) => r <= now).pop() || null;
   const weekEnd = n(week.last_kickoff_unix);
+  // When the league moves to the next scoring week: the Lineup week's own rule
+  // (resolveCurrentLineupWeek, 7 hours after the week's last kickoff), passed
+  // in by the route. A game lock lasts from his kickoff until then.
+  const rollover = n(week.rollover_unix) || weekEnd;
+  // MFL has posted a run once its BBID_AUTO_PROCESS_WAIVERS marker is in the
+  // transaction log (Sat 10-17: within 43 s of 9:00). Until then, rosters may
+  // still be the pre-run ones.
+  const processedRuns = new Set(((input && input.processed_runs) || []).map(n));
+  const lastRunProcessed = lastRun ? processedRuns.has(lastRun) : null;
   const changes = [];
 
   const unknown = (reason, extra) => ({
@@ -200,9 +215,15 @@ export function resolveWaiverAvailability(input) {
     if (!ko) return `${team} has no game this NFL week.`;
     return `His game (${team}): ${etLabel(ko)}${rel ? ` — ${rel}` : ""}.`;
   };
-  // After a game lock, the first run after the NFL week's last kickoff (that is
-  // also after any drop lock).
-  const runAfterWeek = (lockEnd) => runAfter(Math.max(weekEnd, n(lockEnd)));
+  // After a game lock, the first run after the week rolls over (that is also
+  // after any drop lock).
+  const runAfterWeek = (lockEnd) => runAfter(Math.max(rollover, n(lockEnd)));
+  // The run before r: once it has run, r is the next run, so a claim entered
+  // then goes to r.
+  const prevRun = (r) => runs.filter((x) => x < r).pop() || 0;
+  // "You can enter a claim from …, in time for <run>."
+  const claimsOpenLine = (opens, r) => (opens && r && opens > now)
+    ? `You can enter a claim from ${etLabel(opens)}, in time for ${runName(r)}.` : "";
 
   const stateFor = (team, drop) => {
     if (win.mode === "blackout" || win.mode === "closed") return closed();
@@ -237,34 +258,34 @@ export function resolveWaiverAvailability(input) {
       return unknown("no waiver run is scheduled after his drop lock ends", base);
     }
 
-    // "Game locked": his game has kicked off, and MFL allows no move on him
-    // until the NFL week ends. It matters when the run his claim would go to
-    // is still inside that week — and, in the FCFS window, right now (no
-    // first-come add after kickoff). A claim entered after the Monday 9:00 PM
-    // re-lock goes to Thursday's run, after the week ends, so it is fine.
-    const gameLocked = () => {
+    // "Game locked": from his kickoff until the league moves to the next
+    // scoring week, in every window — blind-bid, first-come, and after the
+    // Monday 9:00 PM re-lock (Keith 2026-10-17). At the rollover the lock
+    // clears and his drop, if any, is re-read for the first remaining run.
+    if (ko && now >= ko && now < rollover) {
       const r = runAfterWeek(lockEnd);
+      const opens = r ? Math.max(rollover, prevRun(r)) : null;
       return {
         ...base, code: "game_locked", badge: "Game locked",
-        eligible_run_unix: r, eligible_run_label: runLabel(r),
+        eligible_run_unix: r, eligible_run_label: runLabel(r), bid_opens_unix: opens,
         headline: `Game locked — ${r ? `eligible again for ${runLabel(r)}` : "no waiver run is scheduled after this week"}`,
         lines: [
           `His game (${team}) kicked off ${etLabel(ko)}.`,
-          "League setting (MFL): once a player's game kicks off, no roster moves on him until the NFL week ends.",
+          "League setting (MFL): once a player's game kicks off, no roster moves on him for the rest of the scoring week.",
+          `The league moves to the next week ${etLabel(rollover)}.`,
           ...(dropActive ? dropLines : []),
           r ? `First eligible run: ${runLabel(r)}.` : "No waiver run is scheduled after this week.",
-        ],
+          claimsOpenLine(opens, r),
+        ].filter(Boolean),
       };
-    };
-    const weekOverBy = (r) => !!(r && weekEnd && r > weekEnd);
+    }
 
     // FCFS window: an unlocked player is first-come, first-served until kickoff.
     if (win.mode === "fcfs" && !dropActive) {
-      if (ko && now >= ko) return gameLocked();
       const until = [ko, n(win.fcfs_closes_unix)].filter(Boolean).sort((a, b) => a - b)[0] || 0;
       return {
         ...base, code: "available_now", badge: "",
-        eligible_run_unix: null, eligible_run_label: "",
+        eligible_run_unix: null, eligible_run_label: "", bid_opens_unix: null,
         headline: "Available now",
         lines: [
           `First-come, first-served free agency is open${until ? ` until ${etLabel(until)}` : ""}.`,
@@ -277,23 +298,22 @@ export function resolveWaiverAvailability(input) {
     const target = dropActive ? firstRun : nextRun;
     if (!target) return unknown("no waiver run is scheduled", base);
 
-    if (ko && now >= ko && !weekOverBy(target)) return gameLocked();
-    if (ko && now < ko) {
-      // No run he can be claimed in comes before his game.
-      if (target >= ko) {
-        const r = runAfterWeek(lockEnd);
-        return {
-          ...base, code: "not_before_kickoff", badge: r ? runBadge(r) : "Locked",
-          eligible_run_unix: r, eligible_run_label: runLabel(r),
-          headline: `Not eligible before kickoff — ${r ? `first eligible run: ${runLabel(r)}` : "no later waiver run is scheduled"}`,
-          lines: [
-            ...(dropActive ? dropLines : []),
-            `${dropActive ? "The first run he could be claimed in" : "The next run"} is ${runLabel(target)}.`,
-            kickoffLine(team, ko, "before that run. From kickoff, MFL locks him until the NFL week ends"),
-            r ? `First eligible run: ${runLabel(r)}.` : "No later waiver run is scheduled.",
-          ].filter(Boolean),
-        };
-      }
+    // No run he can be claimed in comes before his game.
+    if (ko && now < ko && target >= ko) {
+      const r = runAfterWeek(lockEnd);
+      const opens = r ? Math.max(rollover, prevRun(r)) : null;
+      return {
+        ...base, code: "not_before_kickoff", badge: r ? runBadge(r) : "Locked",
+        eligible_run_unix: r, eligible_run_label: runLabel(r), bid_opens_unix: opens,
+        headline: `Not eligible before kickoff — ${r ? `first eligible run: ${runLabel(r)}` : "no later waiver run is scheduled"}`,
+        lines: [
+          ...(dropActive ? dropLines : []),
+          `${dropActive ? "The first run he could be claimed in" : "The next run"} is ${runLabel(target)}.`,
+          kickoffLine(team, ko, "before that run. From kickoff, MFL locks him for the rest of the scoring week"),
+          r ? `First eligible run: ${runLabel(r)}.` : "No later waiver run is scheduled.",
+          claimsOpenLine(opens, r),
+        ].filter(Boolean),
+      };
     }
 
     // Blind-bid waivers (or FCFS while a drop lock is still on).
@@ -317,6 +337,10 @@ export function resolveWaiverAvailability(input) {
       lines.push("First-come, first-served adds are open, but not for him until his lock ends at a waiver run.");
     }
     lines.push(`First eligible run: ${runLabel(target)}.`);
+    // A later run: claims open once the run before it has run — or, inside the
+    // FCFS window (no blind bids), at the Monday 9:00 PM re-lock.
+    const opens = later ? Math.max(prevRun(target), win.mode === "fcfs" ? n(win.fcfs_closes_unix) : 0) : null;
+    if (later) lines.push(claimsOpenLine(opens, target));
     if (team) {
       lines.push(ko && ko <= target
         ? `His game (${team}) was ${etLabel(ko)}; that NFL week is over by this run.`
@@ -325,7 +349,7 @@ export function resolveWaiverAvailability(input) {
     return {
       ...base, code: later ? "waivers_later" : "waivers",
       badge: later ? runBadge(target) : "",
-      eligible_run_unix: target, eligible_run_label: runLabel(target),
+      eligible_run_unix: target, eligible_run_label: runLabel(target), bid_opens_unix: opens,
       headline: later ? `Waivers — eligible for ${runLabel(target)}` : `Waivers — next run: ${runLabel(target)}`,
       lines: lines.filter(Boolean),
     };
@@ -363,6 +387,9 @@ export function resolveWaiverAvailability(input) {
   if (nextRun) changes.push(nextRun);
   for (const ko of Object.values(week.kickoffs || {})) if (n(ko) > now) changes.push(n(ko));
   if (n(win.fcfs_closes_unix) > now) changes.push(n(win.fcfs_closes_unix));
+  if (rollover > now) changes.push(rollover);
+  // A run MFL hasn't posted yet: look again in 20 s.
+  if (lastRun && lastRunProcessed === false && now - lastRun < 3600) changes.push(now + 20);
   const changesAt = changes.length ? Math.min(...changes) : null;
 
   return {
@@ -373,9 +400,10 @@ export function resolveWaiverAvailability(input) {
     next_run_label: runLabel(nextRun),
     last_run_unix: lastRun,
     last_run_label: runLabel(lastRun),
+    last_run_processed: lastRunProcessed,
     rule: { known: !!rule.known, mode: rule.mode || null, days: rule.known ? n(rule.days) : null,
       text: s(rule.text), reason: s(rule.reason), prevent_gametime_moves: rule.prevent_gametime_moves == null ? null : !!rule.prevent_gametime_moves },
-    week: { known: !!week.known, week: n(week.week) || null, last_kickoff_unix: weekEnd || null, reason: s(week.reason) },
+    week: { known: !!week.known, week: n(week.week) || null, last_kickoff_unix: weekEnd || null, rollover_unix: rollover || null, reason: s(week.reason) },
     by_team,
     no_game,
     players,

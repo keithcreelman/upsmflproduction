@@ -93,7 +93,8 @@ test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as 
   // "x" reaches both tables (AP via weeklyScores, Overall via weekly); NULL can only be in src_schedule (Overall)
   for (const [po, apIncomplete] of [["x", true], [null, false]]) {
     const j = await standings(makeLadderSeason({ po }));
-    t.ok(j.weekly.every((m) => m.po === null), "the worker passes the bad flag through as null (#1201), never 0");
+    t.ok(j.weekly.filter((m) => m.w === 1).every((m) => m.po === null), "the worker passes the bad flag through as null (#1201), never 0");
+    t.equal(j.standings_basis, "unavailable", "and seeds nobody from data it can't trust");
     const fids = j.rows.map((r) => r.franchise_id);
     t.equal(RACE.deriveRegSeasonOverallTable(j.weekly, fids).status, "incomplete", "Overall: " + po);
     t.equal(RACE.deriveRegSeasonApTable(j.weeklyScores, fids).status, apIncomplete ? "incomplete" : "ok", "AP: " + po);

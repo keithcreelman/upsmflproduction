@@ -2,7 +2,8 @@ import { handleHallRequest } from "./hall.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
-import { seedLadder, seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
+import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
+import { seedCurrentSeason } from "./standings_truth.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -20876,59 +20877,14 @@ export default {
               conference_name: (divEntry && divEntry.conference_id) ? (leagueMeta.conferences[divEntry.conference_id] || null) : null,
             };
           });
-          // Mark division leaders using the year-specific MFL `standingsSort`
-          // chain (e.g. 2011 was PCT,DIVPCT,PTS,H2H,PWR; 2014+ moved H2H
-          // before PTS). The pairwise H2H step requires schedule data we
-          // don't have at this layer — those ties fall through to PTS / AP%.
-          const cmpDesc2 = (a, b) => (Number(b || 0) - Number(a || 0));
-          const sortFnFromStandingsSort = (sortStr) => {
-            const tokens = (sortStr || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
-              .split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
-            const tokenToField = {
-              PCT: "h2h_pct",
-              DIVPCT: "div_pct",
-              PTS: "pf",
-              ALL_PLAY_PCT: "allplay_pct",
-              PWR: "pwr",
-              // H2H requires pairwise data — skipped in this comparator.
-            };
-            return (a, b) => {
-              for (const tk of tokens) {
-                const field = tokenToField[tk];
-                if (!field) continue;
-                const d = cmpDesc2(a[field], b[field]);
-                if (d !== 0) return d;
-              }
-              return 0;
-            };
-          };
-          const sortFn = sortFnFromStandingsSort(leagueMeta.standingsSort);
-          const byDiv = new Map();
-          for (const r of rows) {
-            if (r.division == null) continue;
-            const k = String(r.division);
-            if (!byDiv.has(k)) byDiv.set(k, []);
-            byDiv.get(k).push(r);
-          }
-          const divisionWinnerIds = new Set();
-          for (const [, group] of byDiv.entries()) {
-            group.sort(sortFn);
-            group.forEach((r, i) => {
-              r.is_division_leader = (i === 0);
-              r.division_rank = i + 1;
-              if (i === 0) divisionWinnerIds.add(String(r.franchise_id));
-            });
-          }
-
-          // Playoff-seed annotation (canon §F.1/§F.2, worker/src/seeding.js):
-          // the standings page mirrors the playoff bracket. Division winners
-          // always make the field; seeds 1-2 = the two best division winners;
-          // seeds 3-6 = the other division winners + 2 wild cards; everyone
-          // else follows. Every list is ordered All-Play % → Overall → season
-          // Points For → head-to-head (2026-10-08: this used to break ties on
-          // the per-game PF average before Overall). Seasons with recorded final
-          // standings keep their previous order (legacyStandingsTiebreak): a
-          // change to historical seed records is a separate decision.
+          // Which path seeds this season:
+          //   recorded -- a finished season with recorded final standings (2010-2025). Unchanged here: its order and
+          //               seeds are the pre-2026-10-08 ones, and changing historical seed records is a separate decision.
+          //   preseason -- nothing played: no leaders, no seeds (a 0-0 table ranks nobody).
+          //   current  -- seeded ONLY from the regular-season weekly rows (worker/src/standings_truth.js), the same
+          //               computation /api/playoff-bracket uses. If those rows can't be trusted there are no seeds at
+          //               all, and the response says what's wrong. (2026-10-17: the live sync folds playoff weeks into
+          //               src_standings, so its totals would have moved the seeds during the playoffs.)
           let recordedSeason = false;
           try {
             const fr = await db.prepare(
@@ -20936,95 +20892,7 @@ export default {
             ).bind(yr).first();
             recordedSeason = !!(fr && fr.x);
           } catch (_) {}
-          let regGames = [];
-          let regGamesOk = false;
-          if (!recordedSeason) {
-            try {
-              const gRs = await db.prepare(
-                `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
-                   FROM src_schedule
-                  WHERE season = ? AND COALESCE(is_playoff, 0) = 0
-                    AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
-              ).bind(yr).all();
-              regGames = gRs.results || [];
-              regGamesOk = true;
-            } catch (_) {}
-          }
-          const ladder = recordedSeason ? null : seedLadderSteps(rows, regGames);
-          const seedTiebreak = recordedSeason ? legacyStandingsTiebreak : ladder.cmp;
-          const field = modernField(rows, divisionWinnerIds, seedTiebreak);
-          const topTwoDW = field.byes;
-          const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
-          const seeds3to6 = field.seeds3to6;
-          const nonPlayoff = field.outside;
 
-          topTwoDW.forEach((r, i) => {
-            r.playoff_seed = i + 1;
-            r.playoff_status = "bye";
-            r.is_wild_card = false;
-          });
-          seeds3to6.forEach((r, i) => {
-            r.playoff_seed = i + 3;
-            r.playoff_status = wildCardIds.has(String(r.franchise_id)) ? "wild_card" : "division_winner";
-            r.is_wild_card = wildCardIds.has(String(r.franchise_id));
-          });
-          nonPlayoff.forEach((r) => {
-            r.playoff_seed = null;
-            r.playoff_status = "non_playoff";
-            r.is_wild_card = false;
-          });
-
-          // WHY each team sits where it does: the ladder step that separated it from the team next to it in its pool
-          // (seeds 1-2: the other bye; seeds 3-6: the neighbouring seed; everyone else: the last wild card, the cut line).
-          // Pages show this; they never re-derive the ladder (Keith 2026-10-09). Seasons with recorded final standings
-          // make no ladder claim at all. Without the regular-season games read, a tie that reached head-to-head can't be
-          // explained, so it says so instead of naming the name-order fallback.
-          if (recordedSeason) {
-            rows.forEach((r) => { r.seed_reason = { basis: "recorded_final_standings" }; });
-          } else {
-            const reasonVs = (team, rival, pool) => {
-              let step = ladder.decidingStep(team, rival);
-              if (!regGamesOk && (step === "head_to_head" || step === "name" || step === "franchise_id")) step = "head_to_head_unavailable";
-              return {
-                basis: "ladder", pool, step,
-                position: ladder.cmp(team, rival) < 0 ? "ahead" : "behind",
-                rival_franchise_id: String(rival.franchise_id).padStart(4, "0"),
-                rival_name: rival.franchise_name || null,
-                rival_seed: rival.playoff_seed == null ? null : rival.playoff_seed,
-              };
-            };
-            const poolReasons = (list, pool) => list.forEach((r, i) => {
-              const rival = i < list.length - 1 ? list[i + 1] : list[i - 1];
-              r.seed_reason = rival ? reasonVs(r, rival, pool) : { basis: "ladder", pool, step: null };
-            });
-            poolReasons(topTwoDW, "bye");
-            poolReasons(seeds3to6, "seeds3to6");
-            const cutLine = field.wildCards.length ? field.wildCards[field.wildCards.length - 1] : null;
-            nonPlayoff.forEach((r) => {
-              r.seed_reason = cutLine ? reasonVs(r, cutLine, "outside") : { basis: "ladder", pool: "outside", step: null };
-            });
-          }
-
-          // Final sort for the standings page: playoff seeds 1-6 in order,
-          // then non-playoff teams by the same ladder. Matches what the
-          // bracket renders so the standings page is self-consistent.
-          rows.sort((a, b) => {
-            const sa = a.playoff_seed;
-            const sb = b.playoff_seed;
-            if (sa != null && sb != null) return sa - sb;
-            if (sa != null) return -1;
-            if (sb != null) return 1;
-            return seedTiebreak(a, b);
-          });
-
-          // Season-complete heuristic: any Week 17 playoff row in src_schedule.
-          let seasonComplete = false;
-          try {
-            const wkR = await db.prepare(
-              "SELECT 1 AS x FROM src_schedule WHERE season = ? AND is_playoff = 1 AND week = 17 LIMIT 1"
-            ).bind(yr).first();
-            seasonComplete = !!(wkR && wkR.x);
-          } catch (_) {}
           // `po` (playoff flag) is 1 or 0 ONLY when D1 holds exactly 1 or 0. Anything
           // else (NULL, a stray value) is sent as null, never guessed as regular
           // season: the standings race module (site/shared/standings_race.js) fails
@@ -21036,39 +20904,136 @@ export default {
           // Per-week matchup rows (played games only) so the client can compute
           // scoped standings — Full / Regular / Playoffs / Custom — over any week
           // range. See docs/STANDINGS_SCOPE_BUILD.md.
-          let weekly = [];
+          let weeklyRaw = null;
           try {
             const wk = await db.prepare(
               "SELECT week, franchise_id, team_score, opponent_franchise_id, opponent_score, is_divisional, is_playoff " +
               "FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
             ).bind(yr).all();
-            weekly = (wk.results || []).map((r) => ({
-              w: Number(r.week) || 0,
-              fid: String(r.franchise_id || "").padStart(4, "0"),
-              ts: Number(r.team_score) || 0,
-              opp: String(r.opponent_franchise_id || "").padStart(4, "0"),
-              os: Number(r.opponent_score) || 0,
-              div: Number(r.is_divisional) === 1 ? 1 : 0,
-              po: poFlag(r.is_playoff),
-            }));
-          } catch (e) { weekly = null; weeklyErrors.weekly = String((e && e.message) || e); }
+            weeklyRaw = wk.results || [];
+          } catch (e) { weeklyErrors.weekly = String((e && e.message) || e); }
+          const weekly = weeklyRaw && weeklyRaw.map((r) => ({
+            w: Number(r.week) || 0,
+            fid: String(r.franchise_id || "").padStart(4, "0"),
+            ts: Number(r.team_score) || 0,
+            opp: String(r.opponent_franchise_id || "").padStart(4, "0"),
+            os: Number(r.opponent_score) || 0,
+            div: Number(r.is_divisional) === 1 ? 1 : 0,
+            po: poFlag(r.is_playoff),
+          }));
           // EVERY franchise's weekly score (incl. playoff byes — a team scores even
           // with no H2H matchup), + optimal points for efficiency. This is what
           // all-play and scoped scoring should use so counts are consistent.
-          let weeklyScores = [];
+          let weeklyScoresRaw = null;
           try {
             const ws = await db.prepare(
               "SELECT week, franchise_id, team_score, team_opt_pts, is_playoff " +
               "FROM src_franchise_weekly_score WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
             ).bind(yr).all();
-            weeklyScores = (ws.results || []).map((r) => ({
-              w: Number(r.week) || 0,
-              fid: String(r.franchise_id || "").padStart(4, "0"),
-              ts: Number(r.team_score) || 0,
-              opt: Number(r.team_opt_pts) || 0,
-              po: poFlag(r.is_playoff),
-            }));
-          } catch (e) { weeklyScores = null; weeklyErrors.weeklyScores = String((e && e.message) || e); }
+            weeklyScoresRaw = ws.results || [];
+          } catch (e) { weeklyErrors.weeklyScores = String((e && e.message) || e); }
+          const weeklyScores = weeklyScoresRaw && weeklyScoresRaw.map((r) => ({
+            w: Number(r.week) || 0,
+            fid: String(r.franchise_id || "").padStart(4, "0"),
+            ts: Number(r.team_score) || 0,
+            opt: Number(r.team_opt_pts) || 0,
+            po: poFlag(r.is_playoff),
+          }));
+
+          const seasonMeta = (metaRs.results && metaRs.results[0]) || null;
+          const lastRegWeek = seasonMeta && Number(seasonMeta.last_regular_season_week) > 0 ? Number(seasonMeta.last_regular_season_week) : null;
+          let standingsBasis;
+          let current = null;
+          if (recordedSeason) {
+            standingsBasis = "recorded_final_standings";
+            // Division leaders by the season's MFL standingsSort, read off src_standings (H2H skipped). Unchanged.
+            const cmpDesc2 = (a, b) => (Number(b || 0) - Number(a || 0));
+            const tokens = (leagueMeta.standingsSort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
+              .split(",").map((tk) => tk.trim().toUpperCase()).filter(Boolean);
+            const tokenToField = { PCT: "h2h_pct", DIVPCT: "div_pct", PTS: "pf", ALL_PLAY_PCT: "allplay_pct", PWR: "pwr" };
+            const sortFn = (a, b) => {
+              for (const tk of tokens) {
+                const field = tokenToField[tk];
+                if (!field) continue;
+                const d = cmpDesc2(a[field], b[field]);
+                if (d !== 0) return d;
+              }
+              return 0;
+            };
+            const byDiv = new Map();
+            for (const r of rows) {
+              if (r.division == null) continue;
+              const k = String(r.division);
+              if (!byDiv.has(k)) byDiv.set(k, []);
+              byDiv.get(k).push(r);
+            }
+            const divisionWinnerIds = new Set();
+            for (const [, group] of byDiv.entries()) {
+              group.sort(sortFn);
+              group.forEach((r, i) => {
+                r.is_division_leader = (i === 0);
+                r.division_rank = i + 1;
+                if (i === 0) divisionWinnerIds.add(String(r.franchise_id));
+              });
+            }
+            const field = modernField(rows, divisionWinnerIds, legacyStandingsTiebreak);
+            const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
+            field.byes.forEach((r, i) => { r.playoff_seed = i + 1; r.playoff_status = "bye"; r.is_wild_card = false; });
+            field.seeds3to6.forEach((r, i) => {
+              r.playoff_seed = i + 3;
+              r.playoff_status = wildCardIds.has(String(r.franchise_id)) ? "wild_card" : "division_winner";
+              r.is_wild_card = wildCardIds.has(String(r.franchise_id));
+            });
+            field.outside.forEach((r) => { r.playoff_seed = null; r.playoff_status = "non_playoff"; r.is_wild_card = false; });
+            rows.forEach((r) => { r.seed_reason = { basis: "recorded_final_standings" }; });
+            rows.sort((a, b) => {
+              const sa = a.playoff_seed, sb = b.playoff_seed;
+              if (sa != null && sb != null) return sa - sb;
+              if (sa != null) return -1;
+              if (sb != null) return 1;
+              return legacyStandingsTiebreak(a, b);
+            });
+          } else if (preseason) {
+            standingsBasis = "preseason";
+            rows.forEach((r) => {
+              Object.assign(r, { is_division_leader: false, division_rank: null, playoff_seed: null, playoff_status: null, is_wild_card: false, seed_reason: { basis: "preseason" } });
+            });
+          } else {
+            current = (weeklyRaw && weeklyScoresRaw)
+              ? seedCurrentSeason({
+                  franchises: rows.map((r) => ({ franchise_id: r.franchise_id, franchise_name: r.franchise_name, division: r.division })),
+                  weeklyScores: weeklyScoresRaw, games: weeklyRaw, lastRegularSeasonWeek: lastRegWeek,
+                  standingsSort: leagueMeta.standingsSort, ladder: { seedLadderSteps, modernField },
+                })
+              : { status: "incomplete", problems: [{ code: "weekly_unreadable", errors: weeklyErrors }], problem_count: 1, throughWeek: null, lastRegularSeasonWeek: lastRegWeek, complete: false, order: [], teams: {} };
+            // Season rows exist but no weekly rows: contradictory, never "preseason".
+            if (current.status === "preseason") {
+              current = { ...current, status: "incomplete", problems: [{ code: "standings_without_weekly_rows" }], problem_count: 1 };
+            }
+            if (current.status === "ok") {
+              standingsBasis = "regular_season_ladder";
+              const idx = {};
+              for (const r of rows) {
+                const tm = current.teams[String(r.franchise_id).padStart(4, "0")];
+                Object.assign(r, tm);
+                idx[r.franchise_id] = tm.order_index;
+                delete r.order_index;
+              }
+              rows.sort((a, b) => idx[a.franchise_id] - idx[b.franchise_id]);
+            } else {
+              standingsBasis = "unavailable";
+              rows.forEach((r) => {
+                Object.assign(r, { is_division_leader: false, division_rank: null, playoff_seed: null, playoff_status: "unavailable", is_wild_card: false, seed_reason: { basis: "unavailable" } });
+              });
+              rows.sort((a, b) => String(a.franchise_name || "").localeCompare(String(b.franchise_name || "")));
+            }
+          }
+
+          // Season complete: a game in the final playoff week (meta: last regular week + playoff weeks; the 2010-2020
+          // seasons ended in Week 16, so a hard-coded Week 17 left them "in season" forever).
+          const finalWeek = lastRegWeek && seasonMeta && Number(seasonMeta.playoff_weeks) > 0
+            ? lastRegWeek + Number(seasonMeta.playoff_weeks) : 17;
+          const seasonComplete = !!(weeklyRaw && weeklyRaw.some((r) => poFlag(r.is_playoff) === 1 && Number(r.week) === finalWeek));
           return new Response(JSON.stringify({
             ok: true,
             year: yr,
@@ -21078,6 +21043,13 @@ export default {
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
+            standings_basis: standingsBasis,
+            regular_season: current ? {
+              status: current.status, through_week: current.throughWeek,
+              last_regular_season_week: current.lastRegularSeasonWeek, complete: current.complete,
+              next_out: current.next_out || null, problems: current.problems, problem_count: current.problem_count,
+              seed_by_week: current.seed_by_week || null,
+            } : null,
             rows,
             weekly,
             weeklyScores,
@@ -21237,25 +21209,10 @@ export default {
             }
           }
 
-          // 2) Wild card pool: non-division-winners ranked by the canon §F.1
-          //    ladder, All-Play % → Overall → Points For → head-to-head
-          //    (worker/src/seeding.js, shared with /api/standings). `h2h_pct`
-          //    in src_standings is the overall regular-season record despite
-          //    the column name.
-          let regGames = [];
-          try {
-            const gRs = await db.prepare(
-              `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
-                 FROM src_schedule
-                WHERE season = ? AND COALESCE(is_playoff, 0) = 0
-                  AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
-            ).bind(yr).all();
-            regGames = gRs.results || [];
-          } catch (_) {}
-          const seedCmp = seedLadder(rawRows, regGames);
-          const modern = modernField(rawRows, divisionWinnerIds, seedCmp);
-          const wildCards = modern.wildCards;
-          const wildCardIds = new Set(wildCards.map((r) => String(r.franchise_id)));
+          // 2) The current season (no recorded finishes) is seeded below by the SAME computation /api/standings
+          //    uses (worker/src/standings_truth.js): regular-season weekly rows only, MFL standingsSort for the
+          //    division winners, then the canon §F.1 ladder. Recorded seasons use their recorded finishes.
+          let current = null;
 
           // 3) Determine playoff field. Two paths:
           //    (a) Conference era (has_conferences true, 2011-2013 in UPS):
@@ -21344,11 +21301,45 @@ export default {
             champSeeds = championshipTeams.slice().sort(standingsCmp);
             hawkSeeds  = consolationTeams.slice().sort(standingsCmp);
           } else {
-            // Modern era without canonical: 4 DW + 2 WC, every list on the
-            // §F.1 ladder (it used to skip Overall here). Seeds 7-12 follow the
-            // same ladder so the Hawktuah side matches the standings page.
-            champSeeds = modern.byes.concat(modern.seeds3to6);
-            hawkSeeds = modern.outside;
+            // Modern era, current season: 4 DW + 2 WC on the §F.1 ladder, seeds 7-12 on the same ladder (the
+            // Hawktuah side matches the standings page). If the weekly rows can't be trusted there is NO bracket
+            // seeding at all -- seeding_status says why -- rather than seeds from totals that may include playoffs.
+            let weeklyScoresRaw = null, gamesRaw = null;
+            try {
+              const [wsR, gR] = await Promise.all([
+                db.prepare("SELECT week, franchise_id, team_score, is_playoff FROM src_franchise_weekly_score WHERE season = ? AND COALESCE(team_score, 0) > 0").bind(yr).all(),
+                db.prepare("SELECT week, franchise_id, opponent_franchise_id, team_score, opponent_score, is_playoff FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0").bind(yr).all(),
+              ]);
+              weeklyScoresRaw = wsR.results || []; gamesRaw = gR.results || [];
+            } catch (_) {}
+            const metaRow = await db.prepare("SELECT last_regular_season_week FROM src_league_season_meta WHERE season = ?").bind(yr).first();
+            current = (weeklyScoresRaw && gamesRaw)
+              ? seedCurrentSeason({
+                  franchises: rawRows.map((r) => ({ franchise_id: r.franchise_id, franchise_name: r.franchise_name, division: r.division })),
+                  weeklyScores: weeklyScoresRaw, games: gamesRaw,
+                  lastRegularSeasonWeek: metaRow && metaRow.last_regular_season_week,
+                  standingsSort: leagueMeta.standingsSort, ladder: { seedLadderSteps, modernField },
+                })
+              : { status: "incomplete", problems: [{ code: "weekly_unreadable" }], problem_count: 1, order: [], teams: {} };
+            if (current.status === "preseason" && rawRows.length) current = { ...current, status: "incomplete", problems: [{ code: "standings_without_weekly_rows" }], problem_count: 1 };
+            if (current.status === "ok") {
+              const byFid = new Map(rawRows.map((r) => [String(r.franchise_id).padStart(4, "0"), r]));
+              divisionWinnerIds.clear();
+              for (const [fid, tm] of Object.entries(current.teams)) {
+                const r = byFid.get(fid);
+                r.is_division_leader = tm.is_division_leader;
+                r.division_rank = tm.division_rank;
+                r.regular_season = tm.regular_season;
+                r.seed_reason = tm.seed_reason;
+                if (tm.is_division_leader) divisionWinnerIds.add(String(r.franchise_id));
+              }
+              const ordered = current.order.map((fid) => byFid.get(fid));
+              champSeeds = ordered.slice(0, 6);
+              hawkSeeds = ordered.slice(6);
+            } else {
+              champSeeds = [];
+              hawkSeeds = [];
+            }
           }
 
           // 4) Assemble the final seed list with metadata.
@@ -21423,6 +21414,8 @@ export default {
             playoff_weeks: playoffWeeks,
             has_final_standings: hasFS,
             season_complete: seasonComplete,
+            seeding_status: canonicalFinish ? "recorded_final_standings" : (current ? (current.status === "ok" ? "regular_season_ladder" : "unavailable") : "computed"),
+            ...(current && current.status !== "ok" ? { seeding_problems: current.problems } : {}),
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
@@ -44929,17 +44922,32 @@ const mflToSleeper = {};
           rule: avRule,
           runs: avCalOk && avRuns.length ? { known: true, list: avRuns } : { known: false, reason: "the waiver calendar couldn't be read" },
           window: { mode: avWin.mode, mode_reason: avWin.mode_reason, fcfs_closes_unix: avWin.fcfs_closes_unix },
+          // rollover = when the league moves to the next scoring week, by the
+          // Lineup week's own rule (resolveCurrentLineupWeek): a game lock
+          // lasts until then.
           week: avWeekKnown
-            ? { known: true, week: avWeekNo, kickoffs: avKick, last_kickoff_unix: avLast }
+            ? { known: true, week: avWeekNo, kickoffs: avKick, last_kickoff_unix: avLast, rollover_unix: avLast + _LINEUP_WEEK_GRACE_SEC }
             : { known: false, reason: "this week's NFL kickoffs couldn't be read" },
           drops: avTxRows ? { known: true, by_player: avDrops } : { known: false, reason: "MFL's transaction log couldn't be read" },
           teams: avTeams,
           franchise_names: avNames,
+          // Runs MFL has posted (their BBID_AUTO_PROCESS_WAIVERS marker), so the
+          // app knows when a run's results are in and re-reads rosters itself.
+          processed_runs: (avTxRows ? (Array.isArray(avTxRows) ? avTxRows : [avTxRows]) : [])
+            .filter((x) => safeStr(x && x.type).toUpperCase() === "BBID_AUTO_PROCESS_WAIVERS")
+            .map((x) => Number(x.timestamp) || 0).filter(Boolean),
         });
         const avPayload = {
           ok: true, league_id: avLeagueId, season: avSeason,
           window: { mode: avWin.mode, mode_reason: avWin.mode_reason, fcfs_closes_unix: avWin.fcfs_closes_unix },
           ...av,
+          // Who the last run awarded: the app compares its rosters with this
+          // to know whether they already show that run.
+          last_run_adds: av.last_run_unix && avTxRows
+            ? (Array.isArray(avTxRows) ? avTxRows : [avTxRows])
+                .filter((x) => safeStr(x && x.type).toUpperCase() === "BBID_WAIVER" && Number(x.timestamp) === av.last_run_unix)
+                .flatMap((x) => safeStr(x.transaction).split("|")[0].split(",").map((p) => p.trim()).filter(Boolean))
+            : [],
         };
         const avResp = jsonOut(200, avPayload);
         // Never cached past the next instant a state can change (a run, a
