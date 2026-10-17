@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.17.2",
-  "label": "Injury tags are simpler: one tag per player (Q, D, OUT, IR, PUP or SUSP), the same on Stats, search, Lineup and the player page. When MFL and the official NFL report disagree, the player page says so in a red box."
+  "build": "2026.10.17.3",
+  "label": "Waiver badges keep themselves current: a game lock lasts until the league moves to the next week, Bid comes back in time to claim for the first run that can award the player, and after a waiver run the app re-reads rosters by itself."
 }
