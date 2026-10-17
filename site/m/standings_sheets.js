@@ -139,12 +139,17 @@
     return head + quick + ctf + full;
   }
   function wk(w) { return w ? ' <span class="tape-rk">Wk ' + w + '</span>' : ''; }
+  // "<winner> won, <winner's score>–<loser's score>" (a tie: "tie, a–b").
+  function wonText(g, aN, bN) {
+    if (g.result === "T") return "tie, " + p1(g.aScore) + "–" + p1(g.bScore);
+    var aWon = g.result === "W";
+    return (aWon ? aN : bN) + " won, " + p1(aWon ? g.aScore : g.bScore) + "–" + p1(aWon ? g.bScore : g.aScore);
+  }
   function metText(t, aN, bN) {
     var m = t.meetings || [];
     if (!m.length) return "They haven’t played each other this season.";
     return "This season: " + m.map(function (g) {
-      var who = g.result === "W" ? aN : g.result === "L" ? bN : "Tie";
-      return (g.isPlayoff ? "Playoff week " : "Week ") + g.week + " — " + who + (g.result === "T" ? "" : " won") + ", " + p1(g.aScore) + "–" + p1(g.bScore);
+      return (g.isPlayoff ? "Playoff week " : "Week ") + g.week + " — " + wonText(g, aN, bN);
     }).join(" · ");
   }
   function seriesHtml(s, aN, bN, aOwner, bOwner) {
@@ -155,13 +160,15 @@
     var tog = s.seasonsTogether || [];
     var span = tog.length ? tog[0] + (tog.length > 1 ? "–" + tog[tog.length - 1] : "") : "";
     var games = s.games.slice().reverse().slice(0, 12).map(function (g) {
-      var res = g.result === "W" ? aN : g.result === "L" ? bN : "Tie";
-      return '<li>' + g.season + (g.isPlayoff ? ' playoffs wk ' : ' wk ') + g.week + ': ' + res + ' ' + p1(g.aScore) + '–' + p1(g.bScore) + '</li>';
+      return '<li>' + g.season + (g.isPlayoff ? ' playoffs wk ' : ' wk ') + g.week + ': ' + wonText(g, aN, bN) + '</li>';
     }).join("");
+    var pairing = s.pairingSeasons || [];
+    var noSchedule = tog.filter(function (y) { return pairing.indexOf(y) < 0; });
     return '<div class="tape-series">' + title +
       '<div class="tape-series-rec">Regular season <b>' + rec(s.regular) + '</b> · Playoffs <b>' + rec(s.playoff) + '</b> <span class="tape-rk">(' + aN + ' first)</span></div>' +
-      '<div class="tape-foot">Seasons both were owner of record: ' + U.escapeHtml(span) + '. Regular-season games exist for ' + U.escapeHtml((s.pairingSeasons || []).join(", ") || "no shared season") +
-        ' (MFL kept no game-by-game schedule for 2010–2011 and 2013–2019; those seasons count playoff games only). A team’s earlier owners’ games are not included.</div>' +
+      '<div class="tape-foot">Seasons both were owner of record: ' + U.escapeHtml(span) + '.' +
+        (noSchedule.length ? ' MFL kept no game-by-game schedule for ' + U.escapeHtml(noSchedule.join(", ")) + ', so those seasons count playoff games only.' : '') +
+        ' A team’s earlier owners’ games are not included.</div>' +
       '<ul class="tape-series-list">' + games + '</ul>' + (s.games.length > 12 ? '<div class="tape-foot">Latest 12 of ' + s.games.length + ' games.</div>' : '') + '</div>';
   }
 
