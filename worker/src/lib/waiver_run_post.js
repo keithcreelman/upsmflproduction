@@ -639,6 +639,10 @@ export function parseWaiverMisses(rows) {
     });
   }
   const out = [];
+  // ONE miss per team and player. MFL lists a request again in every ROUND it re-evaluates, repeating each
+  // denied option's row, so the 2026-10-16 report showed Real Deal Creel's two misses six times each ("16 not granted"
+  // for five). A team that submitted the same player in two requests is still one miss.
+  const seen = new Set();
   for (const sub of bySubmission.values()) {
     const denied = sub.options.filter((o) => o.reason);
     if (!denied.length) continue;
@@ -658,6 +662,14 @@ export function parseWaiverMisses(rows) {
       const deniedPlayer = d.added || namedInReason || parsePlayerCell(wanted[0] || "");
       const deniedName = _s(deniedPlayer && deniedPlayer.name);
       const grantedName = _s(granted && granted.added && granted.added.name);
+      // Not a miss when this team GOT him in this run: a later row of a request MFL already granted (2026-10-16: "✖
+      // Christian Kirk — Not Granted … fell through to ✅ Christian Kirk").
+      if (deniedName && (deniedName === grantedName || _s((wonBy.get(deniedName) || {}).team) === sub.franchise_name)) continue;
+      // Keyed on the player, not the reason: a later round's "Is Not Available" for the same player is the same miss, and
+      // the first row (MFL lists rounds in order) carries the reason that decided it.
+      const seenKey = `${sub.franchise_name}||${deniedName || _s(d.reason)}`;
+      if (seen.has(seenKey)) continue;
+      seen.add(seenKey);
       // Rank is the owner's OWN ordering in the request, so "#3" means their
       // third choice — not an MFL priority score.
       const notReached = wanted

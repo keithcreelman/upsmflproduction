@@ -1112,20 +1112,27 @@
       var rankLine = "# = PPG rank on actual MFL points, " + SSMOD().weeksLabel(b.ss.seasonWeeks) + ".";
       if (more.length) more.unshift(rankLine); else line.unshift(rankLine);
     }
-    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS ? PS.listLine() : "";
+    // Injury tags: a line only when a source is unavailable or loading; the one explanation is
+    // its own paragraph under About, on every set (Keith 2026-10-15).
+    var PS = window.UPS_MOBILE_PLAYER_STATUS, inj = PS && PS.noteText ? PS.noteText(PS.screenWeek ? PS.screenWeek() : null) : "";
+    var injAbout = PS && PS.aboutText ? PS.aboutText() : "";
+    var about = (more.length ? "<div>" + U.escapeHtml(more.join(" ")) + "</div>" : "") +
+      (injAbout ? '<div class="ups-m-st-injabout">' + U.escapeHtml(injAbout) + "</div>" : "");
     var open = view.noteOpen ? " open" : "";
     return '<div class="ups-m-st-setnote" id="ups-m-st-setnote">' + U.escapeHtml(line.join(" ")) +
       (inj ? '<div class="ups-m-st-injline">' + U.escapeHtml(inj) + "</div>" : "") +
-      (more.length ? '<details class="ups-m-st-more"' + open + '><summary>About these numbers</summary><div>' + U.escapeHtml(more.join(" ")) + "</div></details>" : "") +
+      (about ? '<details class="ups-m-st-more"' + open + "><summary>About these numbers</summary>" + about + "</details>" : "") +
       "</div>";
   }
 
 
-  // The status chips lead the team line, so a long name never hides them and
-  // they never push the numbers (readable at 320px).
+  // The injury chip from the shared resolver (site/shared/injury_status.js, via the app's one
+  // status loader): one plain designation (Q, D, OUT, IR, PUP, SUSP), MFL's first — the same
+  // as Lineup, the player sheet, search and desktop Game Day. It leads the team line, so a
+  // long name never hides it and it never pushes the numbers (readable at 320px).
   function injChips(r) {
     var PS = window.UPS_MOBILE_PLAYER_STATUS;
-    return PS && r.pid ? PS.chipsHtml(r.pid, r.team, "sm") : "";
+    return PS && PS.resolve && r.pid ? PS.resolvedChipsHtml(PS.resolve(r.pid, r.team, PS.screenWeek ? PS.screenWeek() : null), "sm") : "";
   }
   function rowHtml(r, cols, tab, viewerFid) {
     var own = ownerOf(r.pid);
@@ -1136,13 +1143,14 @@
     // CB/S). On QB it repeated "QB" on every row and cost the name 32px.
     // On DL/DB it leads the team line ("DE · HOU · Blake Bombers"): as a chip
     // left of the name it cut 146 of 150 names at 320px.
+    var chips = injChips(r);
     var badge = (tab.id === "DL" || tab.id === "DB")
       ? '<span class="pos ' + tab.id.toLowerCase() + '">' + U.escapeHtml(r.pos) + "</span> · " : "";
     return '<div class="ups-m-st-row' + (own.known && own.fid && own.fid === viewerFid ? " mine" : "") + '" data-pid="' + U.escapeHtml(r.pid) + '">' +
       '<span class="rk">' + (r.rank || "–") + "</span>" +
       '<span class="nm">' +
         '<span class="t"><span class="pn">' + U.escapeHtml(r.name) + "</span>" +
-        '<span class="tm">' + injChips(r) + badge + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
+        '<span class="tm">' + chips + badge + U.escapeHtml(r.team) + ownTag + "</span></span></span>" +
       cols.map(function (c) {
         var v = c.g(r);
         var dot = (c === C.pts && r.live && v != null) ? '<span class="ups-m-st-live" aria-label="includes the week in progress"></span>' : "";

@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.15.2";
+  var BUILD = "2026.10.17.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -471,6 +471,15 @@
   }
 
   // ---------- Data fetch ----------
+  // Fresh reads right after a move (Keith 2026-10-16). The worker's /api/mfl-export keeps each MFL answer for 60 seconds
+  // (cf cacheTtl), so the reload that follows a move (IR, taxi, drop, claim, trade, tag, draft) or a pull-to-refresh got
+  // the pre-move roster back: Will Shipley still showed on the active roster after being placed on IR. For FRESH_READ_MS
+  // after reloadData(), the exports a move can change carry a unique `_`, so they miss that cache and come straight from
+  // MFL. MFL ignores the parameter (checked 10-16: identical rosters with and without it), and the worker's own MFL reader
+  // busts its cache the same way. Every other read keeps the shared 60-second cache.
+  var FRESH_READ_MS = 20000;
+  var FRESH_AFTER_MOVE_TYPES = { rosters: 1, salaries: 1, salaryAdjustments: 1, tradeBait: 1, transactions: 1, pendingTrades: 1, draftResults: 1, freeAgents: 1 };
+  var freshReadsUntil = 0;
   function mflExportUrl(type, extra) {
     return mflExportUrlForYear(type, state.ctx.year, extra);
   }
@@ -487,6 +496,7 @@
         }
       }
     }
+    if (FRESH_AFTER_MOVE_TYPES[type] && Date.now() < freshReadsUntil) url += "&_=" + Date.now();
     return url;
   }
 
@@ -1203,6 +1213,9 @@
     // mid-flight to avoid applying the wrong team's notes.
     var startFid = state.viewerFranchiseId;
     state.loadingPromiseFid = startFid;
+    // When this load's MFL reads began: a waiver run after it can have moved
+    // players on or off rosters (waiverAvailabilityFor).
+    state.rostersReadAt = Date.now();
     // The season first (from MFL, #1237): every read below uses state.ctx.year.
     var p = fetchSeason().then(function () { return Promise.all([
       fetchJson(mflExportUrl("league")),
@@ -1381,6 +1394,7 @@
   // Re-fetch league data after a roster mutation. Same shape as loadAllData
   // but skips the franchise resolution (we already know the viewer).
   function reloadData() {
+    freshReadsUntil = Date.now() + FRESH_READ_MS;   // the reload after a move reads the roster fresh (see mflExportUrl)
     state.loadingPromise = null;
     state.loaded = false;
     // rosterOwnership() is keyed on the state.rosters object, so it rebuilds by
@@ -2093,12 +2107,95 @@
           // this one is a harmless no-op there (wrong/empty localStorage key)
           // rather than the fix for that path.
           reconcileWaiverPlanAfterRun();
+          // Availability follows every waiver-state read (boot, pull-to-refresh,
+          // back to the app), so the two never describe different moments.
+          fetchWaiverAvailability(true);
         }
         return state.waiverState;
       })
       .catch(function () { state.waiverStatePromise = null; return state.waiverState; });
     state.waiverStatePromise = p;
     return p;
+  }
+
+  // ── Waiver availability (Keith 2026-10-17, Demario Davis) ───────────────
+  // GET /api/waivers/availability says WHEN each free agent can actually be
+  // claimed: MFL's dropped-player lock ("locked until the first waivers run
+  // after 1 day"), the run schedule and the game lock, resolved once on the
+  // server (worker/src/waiver_availability.js). Every surface reads
+  // waiverAvailabilityFor(pid) and renders that state; nothing in the app
+  // re-derives the rule. Public, so no MFL_USER_ID rides along.
+  function fetchWaiverAvailability(force) {
+    if (!force && state.waiverAvail) return Promise.resolve(state.waiverAvail);
+    if (state.waiverAvailPromise) return state.waiverAvailPromise;
+    var url = workerUrl("/api/waivers/availability") +
+      "?L=" + encodeURIComponent(state.ctx.leagueId) + "&YEAR=" + encodeURIComponent(state.ctx.year);
+    var before = state.waiverAvail ? state.waiverAvail.now_unix + "|" + JSON.stringify(state.waiverAvail.players) : "";
+    // Retried like fetchWaiverState: one dropped request must not leave every
+    // free agent on "Can't confirm" until a pull-to-refresh.
+    function attempt(n) {
+      return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (j) {
+          if ((j && j.ok) || n >= 2) return j;
+          return new Promise(function (res) { setTimeout(res, n === 0 ? 600 : 1500); }).then(function () { return attempt(n + 1); });
+        });
+    }
+    var p = attempt(0)
+      .then(function (j) {
+        state.waiverAvailPromise = null;
+        state.waiverAvailTriedAt = Date.now();
+        if (j && j.ok) { state.waiverAvail = j; state.waiverAvailError = ""; }
+        else if (!state.waiverAvail) state.waiverAvailError = "the availability check didn't load";
+        var after = state.waiverAvail ? state.waiverAvail.now_unix + "|" + JSON.stringify(state.waiverAvail.players) : "";
+        if (after !== before || !state.waiverAvail) {
+          try { window.dispatchEvent(new CustomEvent("ups-waiver-availability")); } catch (_) {}
+          try { renderRoute(); } catch (_) {}
+        }
+        return state.waiverAvail;
+      });
+    state.waiverAvailPromise = p;
+    return p;
+  }
+  // One free agent's state: players[pid] (a recent drop) || by_team[his NFL
+  // team] || no_game (bye week, or no NFL team). null = still loading.
+  //   code: available_now · waivers · waivers_later · game_locked ·
+  //         not_before_kickoff · closed · unknown
+  // Past the instant the answer was good until (a run, a kickoff), it is
+  // re-read; past a RUN, rosters may have changed too, so it says so and asks
+  // for a refresh rather than show a pre-run answer as current.
+  function waiverAvailabilityFor(pid, team) {
+    var av = state.waiverAvail;
+    if (!av) {
+      if (!state.waiverAvailError) return null;
+      // Still failing: try again in the background, at most every 30 s.
+      if (!state.waiverAvailTriedAt || Date.now() - state.waiverAvailTriedAt > 30000) fetchWaiverAvailability(true);
+      return { code: "unknown", badge: "Can't confirm", lines: [],
+        headline: "Availability could not be confirmed — " + state.waiverAvailError + ". Pull down to refresh." };
+    }
+    var nowS = Date.now() / 1000;
+    if (av.changes_at_unix && nowS >= av.changes_at_unix &&
+        (!state.waiverAvailTriedAt || Date.now() - state.waiverAvailTriedAt > 15000)) {
+      fetchWaiverAvailability(true);
+    }
+    // The latest run at or before now, by this payload (or the run it said
+    // was next, if that has since passed).
+    var ran = 0, ranLabel = "";
+    if (av.next_run_unix && nowS >= av.next_run_unix) { ran = av.next_run_unix; ranLabel = av.next_run_label; }
+    else if (av.last_run_unix && nowS >= av.last_run_unix) { ran = av.last_run_unix; ranLabel = av.last_run_label; }
+    // MFL posts a run's results within minutes (Fri 10-16: a player won at
+    // 9:00 was moved to IR at 9:04:36). Rosters read before run + 5 min may
+    // predate it.
+    if (ran && (state.rostersReadAt || 0) / 1000 < ran + 300) {
+      var processing = nowS < ran + 300;
+      return { code: "unknown", badge: "Refresh", lines: [], stale: true,
+        headline: "Availability could not be confirmed — " + (ranLabel || "a waiver run") +
+          (processing ? " is processing. Pull down to refresh in a few minutes."
+                      : " has processed since your rosters loaded. Pull down to refresh.") };
+    }
+    var t = String(team || "").toUpperCase();
+    return (av.players && av.players[String(pid)]) || (t && av.by_team && av.by_team[t]) || av.no_game || null;
   }
 
   // ── Reconcile the saved plan with MFL after a waiver run ─────────────────
@@ -3879,6 +3976,8 @@
     // (Market rows, player sheet, Claims screen, Home card) reads from.
     waivers: {
       fetchState: fetchWaiverState,
+      fetchAvailability: fetchWaiverAvailability,
+      availability: waiverAvailabilityFor,
       fetchPending: fetchPendingClaims,
       submitPlan: submitWaiverPlan,
       submitFcfs: submitFcfs,

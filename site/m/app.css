@@ -894,12 +894,12 @@ button.ups-m-busy::before,
 .ups-m-mu-more.on { background: var(--accent); color: #0a1222; }
 .ups-m-mu-inj { color: var(--fg); }
 .ups-m-mu-note.inj { margin-top: 4px; }
-.ups-m-mu-about-spread { margin-top: 6px; }
-/* Injury/roster status chips (the shared .ups-m-inj-chip, player_sheet.css) on Lineup:
-   under the slot's position label, after a bench player's team. */
+.ups-m-mu-about-spread, .ups-m-mu-about-inj { margin-top: 6px; }
+/* The red "Injury sources disagree" note (player_sheet.css .ups-m-inj-warn, its own padding) in a matchup's Details. */
+.ups-m-mu-detail .ups-m-mu-injwarn { margin: 2px 0 4px; padding: 6px 9px; }
+/* The injury chip (the shared .ups-m-inj-chip, player_sheet.css) on Lineup: under the
+   slot's position label, after a bench player's team. */
 .ups-m-inj-chip.lu { margin-left: 0; padding: 0 4px; font-size: 10.5px; line-height: 15px; border-radius: 4px; }
-/* Last week's final designation ("W5 OUT"): outlined, so it never reads as this week's. */
-.ups-m-inj-chip.lu.prior { background: transparent; border-style: dashed; }
 .ups-m-slot-tag .inj { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 3px; }
 .ups-m-bench-id .ups-m-inj-chip.lu { margin-left: 6px; vertical-align: 1px; }
 .ups-m-mu-note { font-size: 12px; line-height: 1.45; color: var(--fg-muted); margin-top: 8px; }
@@ -1328,9 +1328,10 @@ button.ups-m-busy::before,
 .ups-m-st-row .nm .pn { font-size: 14px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* One line, ellipsised: the owner is secondary and not worth a second line. */
 .ups-m-st-row .nm .tm { font-size: 11px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Status chips lead the team line (2026-10-10): small, never truncated by a long name, never over the numbers. */
+/* The injury chip (one plain designation: Q, D, OUT, IR, PUP, SUSP) leads the team line:
+   small, never truncated by a long name, never over the numbers (Keith 2026-10-15). */
+.ups-m-st-more .ups-m-st-injabout { margin-top: 6px; }
 .ups-m-st-row .nm .tm .ups-m-inj-chip.sm { margin: 0 4px 0 0; padding: 0 3px; font-size: 11px; line-height: 13px; border-radius: 4px; letter-spacing: .02em; vertical-align: 1px; }
-.ups-m-st-row .nm .tm .ups-m-inj-chip.sm + .ups-m-inj-chip.sm { margin-left: 0; }
 .ups-m-st-injline { margin-top: 2px; font-size: 11px; color: var(--fg-muted); }
 .ups-m-st-row .nm .tm .own.fa { color: var(--accent); font-weight: 700; }
 .ups-m-st-row .nm .tm .own.me { color: var(--fg); font-weight: 600; }
@@ -4824,6 +4825,21 @@ a.ups-m-bid-btn {
 /* FCFS: a free agent whose game has kicked off can't be added this week. */
 .ups-m-fa-add.locked { background: transparent; color: var(--fg-muted); border: 1px dashed var(--line-soft); cursor: default; font-weight: 600; text-align: center; line-height: 1.2; padding: 6px 10px; }
 .ups-m-fa-add.locked .why { display: block; font-size: 11px; font-weight: 500; white-space: nowrap; }
+/* Waiver availability (Keith 2026-10-17): the status badge that replaces Bid /
+   Add while MFL would refuse him at the next run, and the sheet's explanation. */
+.ups-m-fa-add.avail { background: transparent; color: var(--warn); border: 1px solid currentColor; font-weight: 700; padding: 6px 10px; white-space: nowrap; }
+.ups-m-fa-add.avail.st-game_locked, .ups-m-fa-add.avail.st-closed { color: var(--fg-muted); border-style: dashed; }
+.ups-m-fa-add.avail.st-unknown { color: var(--fg-muted); border-style: dotted; }
+.ups-m-fa-add.avail.loading { color: var(--fg-muted); border: 1px dotted var(--line-soft); font-weight: 500; cursor: default; }
+.ups-m-acq-avail { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line-soft); background: var(--bg-elev, rgba(255,255,255,0.03)); }
+.ups-m-acq-avail .hd { font-weight: 700; font-size: 14px; line-height: 1.35; }
+.ups-m-acq-avail.st-waivers_later .hd, .ups-m-acq-avail.st-not_before_kickoff .hd { color: var(--warn); }
+.ups-m-acq-avail.st-unknown .hd, .ups-m-acq-avail.st-game_locked .hd { color: var(--fg-muted); }
+.ups-m-acq-avail details { margin-top: 6px; }
+.ups-m-acq-avail summary { font-size: 12px; color: var(--fg-muted); cursor: pointer; }
+.ups-m-acq-avail ul { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.45; color: var(--fg-muted); }
+.ups-m-acq-avail li + li { margin-top: 3px; }
+.ups-m-avail-warn { margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--warn); }
 /* Below the PPG-rank minimum: the real PPG stays, the rank slot says why. */
 .ups-m-fa-stat.unranked { color: var(--fg-muted); font-style: italic; }
 .ups-m-bid-context {

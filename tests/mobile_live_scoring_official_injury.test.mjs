@@ -48,7 +48,8 @@ function boot(opt = {}) {
   ctx.window = ctx;
   ctx.addEventListener = () => {};
   vm.runInContext(UTIL_SRC + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, asArray };", ctx);
-  for (const f of ["site/shared/live_scoring.js", "site/shared/injury_overrides.js"]) vm.runInContext(read(f), ctx);
+  // + the shared resolver, as index.html loads it: the other screens' tags come from it (Live Scoring's never do).
+  for (const f of ["site/shared/live_scoring.js", "site/shared/injury_overrides.js", "site/shared/injury_status.js"]) vm.runInContext(read(f), ctx);
   const state = Object.assign({ ctx: { year: "2026", leagueId: "74598" }, viewerFranchiseId: "0001",
     franchises: FX.franchises, lineupWeek: 6, sbExpand: "me", sbApExpand: "0002" }, opt.state || {});
   const byId = Object.fromEntries(FX.players.map((p) => [p.id, p]));
@@ -162,6 +163,17 @@ test("MFL says Out (lapsed) but the official report doesn't list him → no tag 
   t.equal(old.projFinal, 45.5, "before: 45.5; after: 31.5");
 });
 
+test("MFL's own Out in the status read (what Stats, search, the sheet and Lineup show as 'OUT') never reaches Live Scoring: no tag, full projection", async () => {
+  const players = Object.assign({}, FX.playerStatus.players, { "90002": { mfl: { status: "Out", week: 6, updated_utc: FX.playerStatus.generated_utc, details: "Ankle", exp_return: null, return_date: null } } });
+  const st = Object.assign(STATUS({}, players), { mfl_feed: { ok: true, week: 6, read_utc: FX.playerStatus.generated_utc, updated_utc: FX.playerStatus.generated_utc, count: 1, reason: null } });
+  const v = await open({ status: () => st });
+  const rows = rowsOf(v.mount.innerHTML);
+  t.equal(rows["90002"].tag, "", "no tag from MFL's designation"); t.equal(rows["90002"].proj, "12.0", "no injury discount: only the official report moves live odds");
+  const other = JSON.parse(JSON.stringify(v.PS.resolve("90002", "BUF", 6)));
+  t.deepEqual(other.chips.map((c) => c.t), ["OUT"], "while the other screens' resolver shows MFL's OUT (the deliberate difference)");
+  t.deepEqual(other.warning, { title: "Injury sources disagree", lines: ["MFL: Out (Ankle)", "Official NFL report: Not listed for Week 6"] }, "…and the sheet's warning that the report doesn't list him");
+});
+
 // ═══ 2. no current report → no Q/D/OUT and no game-status discount, said in one line ═══
 test("report unavailable (the route fails) → no Q/D/OUT tag, no game-status discount, the unavailable line; MFL IR/PUP/Suspended still tagged", async () => {
   const v = await open({ status: 500 });
@@ -199,7 +211,7 @@ test("a read older than 5 minutes is never used: refresh in flight → 'checking
   t.equal(rowsOf(v.mount.innerHTML)["90001"].tag, "OUT");
   v.PS._st.at -= v.PS.TTL + 1000;
   t.equal(v.PS.currentReport().state, "loading", "stale = no finding");
-  t.deepEqual(JSON.parse(JSON.stringify(v.PS.info("90001", "BUF").chips.map((c) => c.t))), [], "the sheet shows no chip for the same stale read");
+  t.deepEqual(JSON.parse(JSON.stringify(v.PS.resolve("90001", "BUF").chips.map((c) => c.t))), [], "the sheet, Stats list and search show no tag for the same stale read");
   v.paint(); await settle();
   let html = v.mount.innerHTML;
   t.deepEqual(gameTagged(rowsOf(html)), []); t.equal(rowsOf(html)["90001"].proj, "20.0");
@@ -213,7 +225,7 @@ test("a read older than 5 minutes is never used: refresh in flight → 'checking
   t.deepEqual(gameTagged(rowsOf(html)), []); t.equal(rowsOf(html)["90001"].proj, "20.0");
   rosterKindsStand(rowsOf(html), teamProj(html));
   t.match(noteOf(html), UNAVAILABLE);
-  t.match(v2.PS.listLine(), /^Injury tags unavailable/, "the Stats list says the same");
+  t.match(v2.PS.noteText(null), /^Injury status couldn’t be loaded[.;,]/, "the Stats list and search say the same");
 });
 
 test("a report that isn't current (too old, or MFL's week unknown) → unavailable: no Q/D/OUT, no discount", async () => {

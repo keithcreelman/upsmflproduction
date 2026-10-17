@@ -24,6 +24,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
+import { resolveWaiverAvailability } from "../worker/src/waiver_availability.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.isAbsolute(p) ? p : path.join(ROOT, p), "utf8");
@@ -81,6 +82,17 @@ function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
   vm.runInContext(util + "\nthis.__util = { safeStr, safeInt, pad4, escapeHtml, fmtUsd, asArray };", ctx);
   // app.js's own waiverMode, over the worker's window at `now`.
   ctx.state = { waiverState: waiverStateAt(now), ctx: { year: "2026", leagueId: "74598" } };
+  const ws = windowFn(RAW_2026, now, { calendar_unavailable: false, waiver_type: "BBID_FCFS", week1_kickoff_unix: WEEK1 });
+  const avail = resolveWaiverAvailability({
+    now_unix: now,
+    rule: { known: true, mode: "first_run_after", days: 1 },
+    runs: { known: true, list: [ws.last_bbid_run_unix].concat(ws.bbid_runs_upcoming || []).filter(Boolean) },
+    window: { mode: ws.mode, fcfs_closes_unix: ws.fcfs_closes_unix },
+    week: kickoffsLoaded
+      ? { known: true, week: 4, kickoffs, last_kickoff_unix: Math.max(0, ...Object.values(kickoffs)) }
+      : { known: false, reason: "this week's NFL kickoffs couldn't be read" },
+    drops: { known: true, by_player: {} }, teams: {}, franchise_names: {},
+  });
   const months = APP.match(/var WAIVER_MONTHS = \[[^\]]*\];/)[0];
   vm.runInContext(months + "\n" + ["function waiverWriteEnabled(", "function waiverStateKnown(", "function waiverNativeLink(", "function waiverWhen(",
     "function waiverMode("].map((f) => sliceFn(APP, f)).join("\n") + "\nthis.__waiverMode = waiverMode;", ctx);
@@ -116,6 +128,9 @@ function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
       kickoffs: { load() {}, loaded: () => kickoffsLoaded, kickedOff: (team) => ctx.__isKickedOff(team), kickoffFor: (team) => kickoffs[team] || null } },
     waivers: {
       mode: () => ctx.__waiverMode(), writeEnabled: () => true, stateKnown: () => true, nativeLink: () => "",
+      // The worker's availability answer at `now` (worker/src/waiver_availability.js), on the same window
+      // and kickoffs: the game lock is the server's, not a second copy in the Market.
+      availability: (pid, team) => avail.players[pid] || avail.by_team[String(team || "").toUpperCase()] || avail.no_game,
       limits: () => ({ min: 1000, step: 1000, maxRounds: 8, conditional: true, conditionalKnown: true }),
       getPlan: () => [], setPlan() {}, pickCount: () => 0, clearCount: () => 0, isDirty: () => false, getPending: () => ({ known: true, rounds: [] }),
       fetchPending: () => Promise.resolve({ known: true, rounds: [] }), adoptVerified: () => false, lastRun: () => ({ known: false }), targetRun: () => null,
@@ -134,7 +149,7 @@ function harness(now, { kickoffs = KICKOFFS_WK4, kickoffsLoaded = true } = {}) {
   const btn = (pid) => {
     const chunk = mount.innerHTML.split('<div class="ups-m-fa-row').slice(1).find((c) => c.includes('data-pid="' + pid + '"') || c.includes(byId[pid].name.split(", ").reverse().join(" "))) || "";
     const m = chunk.match(/<(button|span) class="ups-m-fa-add[^"]*"[^>]*>([\s\S]*?)<\/\1>/);
-    return m ? m[2].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() : "(none)";
+    return m ? m[2].replace(/<[^>]+>/g, "").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim() : "(none)";
   };
   const strip = () => ((mount.innerHTML.match(/<div class="ups-m-waiver-strip[^"]*"><span class="txt">([^<]*)/) || [])[1] || "")
     .replace(/&#39;/g, "'").replace(/&amp;/g, "&");
@@ -156,22 +171,22 @@ test("Sunday opening, 1s either side of the 9:00 AM ET run: Bid → Add now", ()
 test("Monday re-lock, 1s either side of 9:00 PM ET: Add now → Bid", () => {
   const before = harness(et("2026-10-05T20:59:59-04:00"));
   t.equal(before.btn("4"), "Add now", "20:59:59 — a bye-week player is still addable");
-  t.equal(before.btn("2"), "Locked game started", "…a player whose game was Sunday is locked");
+  t.equal(before.btn("2"), "Game locked", "…a player whose game was Sunday is locked");
   const after = harness(et("2026-10-05T21:00:00-04:00"));
   t.equal(after.mode(), "bbid");
   t.equal(after.btn("4"), "Bid", "21:00:00 — back to blind bids");
-  t.equal(after.btn("2"), "Bid", "and the locked player can be bid on again");
+  t.equal(after.btn("2"), "Bid", "and the locked player can be bid on again (his claim goes to Thursday's run, after the week)");
 });
 
-test("player kickoff inside the window, 1s either side: Add now → Locked (game started)", () => {
+test("player kickoff inside the window, 1s either side: Add now → Game locked", () => {
   t.equal(harness(et("2026-10-04T09:29:59-04:00")).btn("1"), "Add now", "London game: IND player at 09:29:59");
-  t.equal(harness(et("2026-10-04T09:30:00-04:00")).btn("1"), "Locked game started", "IND player at kickoff 09:30:00");
+  t.equal(harness(et("2026-10-04T09:30:00-04:00")).btn("1"), "Game locked", "IND player at kickoff 09:30:00");
   t.equal(harness(et("2026-10-04T12:59:59-04:00")).btn("2"), "Add now", "TBB player at 12:59:59");
-  t.equal(harness(et("2026-10-04T13:00:00-04:00")).btn("2"), "Locked game started", "TBB player at 13:00:00");
-  t.equal(harness(et("2026-10-04T09:00:01-04:00")).btn("3"), "Locked game started", "Thursday-night PIT player: locked all window");
+  t.equal(harness(et("2026-10-04T13:00:00-04:00")).btn("2"), "Game locked", "TBB player at 13:00:00");
+  t.equal(harness(et("2026-10-04T09:00:01-04:00")).btn("3"), "Game locked", "Thursday-night PIT player: locked all window");
   t.equal(harness(et("2026-10-04T15:00:00-04:00")).btn("4"), "Add now", "no game this week (KCC): addable all window");
-  t.equal(harness(et("2026-10-04T13:00:00-04:00"), { kickoffsLoaded: false }).btn("2"), "Add now",
-    "kickoffs not loaded yet: the button shows (MFL and the worker still refuse a locked player)");
+  t.equal(harness(et("2026-10-04T13:00:00-04:00"), { kickoffsLoaded: false }).btn("2"), "Can't confirm",
+    "kickoffs unreadable: availability can't be confirmed, so no Add button (Keith 2026-10-17: fail visibly)");
 });
 
 test("daylight saving (DST ends Sun Nov 1 2026): the window keeps 9:00 AM / 9:00 PM New York time", () => {

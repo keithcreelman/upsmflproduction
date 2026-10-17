@@ -228,11 +228,14 @@
   function injStatusFor(pid) {
     return LS.injuryStatusFor({ store: M.state.injuryStore, overrides: window.UPS_INJURY_OVERRIDES, season: sbYear(), week: sbWeek() }, pid);
   }
-  // What the board tags and discounts by (Keith 2026-10-12), from the same two
-  // sources as the Stats → Players list and the player sheet:
+  // What the board tags and discounts by (Keith 2026-10-12; kept on purpose 2026-10-15):
+  // Live Scoring is the ONE screen that does NOT use the MFL-first resolver the Stats →
+  // Players list, search, the player sheet, Lineup and desktop Game Day show. Its tags
+  // and its injury discounts feed live projections and win odds, so only the official
+  // report may move them; a preliminary or lapsed MFL tag must not.
   //   • Q / D / OUT: this week's OFFICIAL NFL injury report (/api/player-status
-  //     via UPS_MOBILE_PLAYER_STATUS). MFL's own Q/D/Out are never shown or
-  //     used: its export keeps them for weeks after they lapse. While the
+  //     via UPS_MOBILE_PLAYER_STATUS.currentReport). MFL's own Q/D/Out are never
+  //     shown or used here: its export keeps them for weeks after they lapse. While the
   //     report is loading, stale, unavailable or for another week, no player
   //     gets a Q/D/OUT tag or an injury discount, and a line says so.
   //   • IR / IR-R / PUP / NFI / Suspended / Holdout / Retired: MFL's roster

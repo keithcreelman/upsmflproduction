@@ -417,10 +417,10 @@
   // 2026-10-14) ──
   // The app's ONE status loader (player_sheet.js UPS_MOBILE_PLAYER_STATUS) and the ONE
   // resolver (site/shared/injury_status.js), the same as the player sheet and desktop Game
-  // Day: MFL's current Q / D / OUT first, the official NFL report beside it (the tag when
-  // MFL has nothing; always in Details), IR / PUP from MFL, every tag naming its source and
-  // week ("MFL: Q (Wk 6)", "NFL: OUT (Wk 5 final)"), and both shown when they disagree.
-  // No chip never means "healthy": the note and Details say what each source has.
+  // Day: one plain chip (Q, D, OUT, IR, PUP, SUSP), MFL's designation first, the official
+  // NFL report's when MFL has none. When the two disagree, Details opens with the red
+  // "Injury sources disagree" note stating each (information only; Keith 2026-10-15).
+  // No chip never means "healthy": Details says what each source has.
   var injWait = false;
   function PSx() { return window.UPS_MOBILE_PLAYER_STATUS || null; }
   function injSig() {
@@ -437,23 +437,33 @@
       if (injSig() !== before) renderRoute();
     }, function () { injWait = false; });
   }
-  // → { chips, lines, disagree, label } for this lineup's week.
+  // → { chips, warning, lines, disagree, label } for this lineup's week.
   function injInfo(pid, team) {
     var PS = PSx();
-    return PS && PS.resolve ? PS.resolve(pid, team, parseInt(M.state.lineupWeek, 10) || null) : { chips: [], lines: [], disagree: false, label: "" };
+    return PS && PS.resolve ? PS.resolve(pid, team, parseInt(M.state.lineupWeek, 10) || null) : { chips: [], warning: null, lines: [], disagree: false, label: "" };
   }
-  function injChipsHtml(pid, team) {
-    var PS = PSx();
-    return PS && PS.resolvedChipsHtml ? PS.resolvedChipsHtml(injInfo(pid, team), "lu") : "";
+  // slotTag: the row's fantasy-slot tag ("IR" for his IR slot). Keith 2026-10-15: never two tags
+  // for the same designation, so his IR chip isn't repeated beside it (the sheet still has it).
+  function injChipsHtml(pid, team, slotTag) {
+    var PS = PSx(); if (!PS || !PS.resolvedChipsHtml) return "";
+    var res = injInfo(pid, team);
+    if (slotTag === "IR" && res.chips.length && res.chips[0].t === "IR") return "";
+    return PS.resolvedChipsHtml(res, "lu");
   }
-  // " · MFL: Q (Wk 6)" for a dropdown choice (plain text).
+  // "  ·  Q" for a dropdown choice (plain text).
   function injOptText(pid, team) {
     var IS = window.UPSInjuryStatus;
     return IS ? IS.optText(injInfo(pid, team)) : "";
   }
+  // A line only when the injury status is unavailable or loading ("" when all is well).
   function injNoteText() {
     var PS = PSx();
     return PS && PS.noteText ? PS.noteText(M.state.lineupWeek) : "";
+  }
+  // The one explanation, under About.
+  function injAbout() {
+    var PS = PSx();
+    return PS && PS.aboutText ? PS.aboutText() : "";
   }
 
   // Compact, tappable matchup line (with a visible "Details" button) + the detail card.
@@ -471,10 +481,11 @@
       '<span class="ups-m-mu-more' + (open ? " on" : "") + '" aria-hidden="true">' + (open ? "Hide ▴" : "Details ▾") + '</span></button>';
     if (!open) return compact;
     var rows = [];
-    // What MFL and the official NFL report each say about him, always (source + week on
-    // every line; a disagreement spelled out).
-    var pl = DATA.playerById(pid);
-    injInfo(pid, pl && pl.team).lines.forEach(function (l) { rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(l) + '</div>'); });
+    // What MFL and the official NFL report each say about him, always, as on the player sheet:
+    // the red "Injury sources disagree" note first when they disagree, then the other lines.
+    var pl = DATA.playerById(pid), inj = injInfo(pid, pl && pl.team), PS = PSx();
+    if (inj.warning && PS && PS.warningHtml) rows.push(PS.warningHtml(inj, "ups-m-inj-warn ups-m-mu-injwarn"));
+    inj.lines.forEach(function (l) { rows.push('<div class="r ups-m-mu-inj">' + U.escapeHtml(l) + '</div>'); });
     var line = lineText(mu.spread);
     if (line) rows.push('<div class="r">' + U.escapeHtml(line) + '</div>');
     var wx = wxText(mu.weather, mu.kickoff);
@@ -533,7 +544,8 @@
       "“@ GBP · #30 vs QBs” = Green Bay is 30th of 32 in MFL points allowed per game to quarterbacks (#1 = the most). " +
       "Only final games count, and a player counts for the team he played for that day. " +
       MU_ABOUT_EVIDENCE +
-      '</div><div class="ups-m-mu-about-spread">' + MU_ABOUT_SPREAD + '</div></details></div>' + injHtml;
+      '</div><div class="ups-m-mu-about-spread">' + MU_ABOUT_SPREAD + '</div>' +
+      (injAbout() ? '<div class="ups-m-mu-about-inj">' + U.escapeHtml(injAbout()) + '</div>' : "") + '</details></div>' + injHtml;
   }
   // Where the spread comes from (Keith's wording, 2026-10-14; #1284 / #1262).
   var MU_ABOUT_SPREAD = "Spread is the current Vegas line from nflverse, the same source used by Stats → Vegas. If no line is available, the spread is left blank.";
@@ -1045,7 +1057,7 @@
       var tag = benchBlockedTag(r);
       return '<div class="ups-m-bench-row' + (tag ? " blocked" : "") + '"><div class="ups-m-bench-id"><span class="nm">' + U.escapeHtml(r.name) + '</span>' +
         '<span class="meta">' + U.escapeHtml(r.pos || "—") + ' · ' + U.escapeHtml(r.team || "—") + '</span>' +
-        (tag ? '<span class="ups-m-bench-tag ' + tag.cls + '">' + tag.label + '</span>' : "") + injChipsHtml(r.id, r.team) + '</div>' +
+        (tag ? '<span class="ups-m-bench-tag ' + tag.cls + '">' + tag.label + '</span>' : "") + injChipsHtml(r.id, r.team, tag && tag.label) + '</div>' +
         '<div class="ups-m-bench-proj">' + U.escapeHtml(fmtProj(projFor(r.id))) + '</div></div>' + slotMatchupHtml(r.id);
     }).join("") : '<div class="ups-m-bench-empty">No bench players.</div>';
     return head + '<div class="ups-m-bench">' + body + '</div>';

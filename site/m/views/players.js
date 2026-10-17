@@ -612,6 +612,7 @@
   // tapped it. That is the "disjointed between that and edit".
   function openBidFor(pid) {
     if (refuseUnlessFreeAgent(pid)) return;
+    if (!stagedRoundsFor(pid).length && refuseUnlessAvailable(pid)) return;
     // Reconcile a run-stale board BEFORE anything is staged on top of it.
     //
     // A bid staged from the Market never opens the Claims screen, so without
@@ -641,6 +642,80 @@
   // control renders at all — the surfaces show the read-only view plus the
   // MFL native link instead. `info.writeEnabled` already folds the kill
   // switch together with the window, so this is the whole check.
+  // ── When can he actually be claimed? (Keith 2026-10-17, Demario Davis) ──
+  // The server's answer (app.js M.waivers.availability → GET
+  // /api/waivers/availability: MFL's dropped-player lock, the run schedule,
+  // the game lock). Rendered here, never re-derived. The one thing added on
+  // the client is what the server can't know: a claim THIS owner already has
+  // waiting at MFL for the run he's eligible in → "Claim pending".
+  // null = still loading.
+  function availabilityFor(pid) {
+    if (!(M.waivers && M.waivers.availability)) return null;
+    var pl = DATA.playerById(pid);
+    var st = M.waivers.availability(pid, pl && pl.team);
+    if (!st) return null;
+    if (st.code === "waivers" && heldAtMfl(pid)) {
+      var out = {};
+      for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k)) out[k] = st[k];
+      out.code = "claim_pending";
+      out.headline = "Claim pending for " + st.eligible_run_label;
+      return out;
+    }
+    return st;
+  }
+  // Is a claim for him in what MFL is holding for this owner (a known read)?
+  function heldAtMfl(pid) {
+    var pi = pendingInfo();
+    if (!pi.known) return false;
+    return pi.rounds.some(function (g) {
+      return (g.picks || []).some(function (p) { return String(p.add_pid) === String(pid); });
+    });
+  }
+  // States in which MFL would refuse him at the next run (or now, in FCFS):
+  // these get the status badge INSTEAD of Bid / Add, which reappear on their
+  // own once he is eligible for the next run.
+  var AVAIL_NOT_NOW = { waivers_later: 1, game_locked: 1, not_before_kickoff: 1, unknown: 1, closed: 1 };
+  function availBlocks(av) { return !!(av && AVAIL_NOT_NOW[av.code]); }
+  // The list badge ("Sat waiver", "Game locked", "Can't confirm"). Tapping it
+  // opens the player sheet, which carries the full explanation.
+  function availChipHtml(pid, av) {
+    if (!av) {
+      return '<span class="ups-m-fa-add avail loading" title="Checking when he can be claimed">Checking…</span>';
+    }
+    return '<button class="ups-m-fa-add avail st-' + U.escapeHtml(av.code) + '" data-act="waiver-why" data-pid="' +
+      U.escapeHtml(String(pid)) + '" title="' + U.escapeHtml(av.headline || "") + '">' +
+      U.escapeHtml(av.badge || "Can't confirm") + '</button>';
+  }
+  // The explanation itself: the headline and, on tap, the reasons. Shown
+  // open when he can't be claimed in the next run.
+  function availPanelHtml(av) {
+    if (!av) return '<div class="ups-m-acq-avail loading"><div class="hd">Checking when he can be claimed…</div></div>';
+    var lines = (av.lines || []).map(function (l) { return "<li>" + U.escapeHtml(l) + "</li>"; }).join("");
+    return '<div class="ups-m-acq-avail st-' + U.escapeHtml(av.code) + '">' +
+      '<div class="hd">' + U.escapeHtml(av.headline || "") + '</div>' +
+      (lines ? '<details' + (availBlocks(av) ? " open" : "") + '><summary>Why</summary><ul>' + lines + '</ul></details>' : "") +
+      '</div>';
+  }
+  // A one-line warning for a claim already staged on a player MFL would
+  // refuse at the next run (bid sheet, Claims screen).
+  function availWarnHtml(pid) {
+    var av = availabilityFor(pid);
+    if (!availBlocks(av)) return "";
+    var refuse = av.code === "waivers_later" || av.code === "game_locked" || av.code === "not_before_kickoff";
+    return '<div class="ups-m-avail-warn">' + U.escapeHtml(av.headline || "") +
+      (refuse ? ". MFL will refuse this claim at the next run." : "") + '</div>';
+  }
+  // The Bid / Add entry points re-check it too: a button drawn before the
+  // answer changed (a kickoff, a fresh drop) must not start a claim MFL
+  // will refuse. Editing a claim already staged stays possible (to fix or
+  // remove it); the bid sheet then carries the warning.
+  function refuseUnlessAvailable(pid) {
+    var av = availabilityFor(pid);
+    if (av && !availBlocks(av)) return false;
+    M.ui.showToast(av ? av.headline : "Still checking when " + nameForPid(pid) + " can be claimed — try again in a moment.", "err");
+    return true;
+  }
+
   // "Locked" chip: an immediate add isn't legal right now (his game has kicked
   // off) or transactions are closed. Two short lines so it fits at 320px.
   function lockedChipHtml(why, title) {
@@ -669,6 +744,16 @@
           : lockedChipHtml("waivers not open", info.detail || "Waivers haven't opened yet.")
       };
     }
+    // When can he actually be claimed? A player MFL would refuse at the next
+    // run (dropped too recently, game locked, no run before his kickoff) or
+    // whose availability couldn't be confirmed gets the status badge, not a
+    // control — in read-only mode too, since the status is still true.
+    if (info.mode === "bbid" || info.mode === "fcfs") {
+      var av = availabilityFor(pid);
+      if (!av || availBlocks(av)) {
+        return { mode: info.mode, locked: !!av, loading: !av, avail: av, html: availChipHtml(pid, av) };
+      }
+    }
     if (!info.writeEnabled) return { mode: info.mode, html: "", readOnly: true };
     if (info.mode === "bbid") {
       if (!waiverLimits()) return { mode: "unknown", html: "" };
@@ -687,22 +772,9 @@
       };
     }
     if (info.mode === "fcfs") {
-      // Inside the FCFS window a player is addable only until HIS game kicks
-      // off (league setting lockout = Yes; MFL refuses him after that, and the
-      // worker's /api/waivers/fcfs says so too). Same per-team kickoffs the
-      // Lineup view locks slots by. Until they load, the button shows — MFL
-      // and the worker still refuse a locked player — rather than wrongly
-      // locking everyone.
-      var KO = M.lineupIntel && M.lineupIntel.kickoffs;
-      var pl = DATA.playerById(pid);
-      if (KO && KO.kickedOff(pl && pl.team)) {
-        var reopen = (M.state.waiverState && M.state.waiverState.window && M.state.waiverState.window.fcfs_closes_label) || "";
-        return {
-          mode: "fcfs", locked: true,
-          html: lockedChipHtml("game started", "His game has kicked off — MFL locks him for the rest of this week" +
-            (reopen ? ". He goes back on waivers " + reopen + " — bid then" : "") + ".")
-        };
-      }
+      // His game having kicked off is part of the availability answer above
+      // ("Game locked"), from the same NFL schedule the worker's
+      // /api/waivers/fcfs refuses a locked player by.
       return {
         mode: "fcfs",
         html: '<button class="ups-m-fa-add" data-act="waiver-add" data-pid="' +
@@ -1029,8 +1101,11 @@
     return DATA.getRosterFor(fid).map(function (r) {
       var p = DATA.playerById(r.id);
       var penalty = DATA.dropPenaltyFor(r, M.state.ctx.year);
-      var unpriced = !!(penalty && penalty.unpriced);
-      var pAmt = unpriced ? null : ((penalty && typeof penalty.amount === "number") ? penalty.amount : 0);
+      // Unpriced = the worker could not price it, OR no penalty came back at all (the penalty module did not
+      // load, or a row it could not read). Neither is a $0: "no penalty" is said only for a real, priced $0
+      // (Keith 2026-10-16 — a missing number must never read as a free cut).
+      var unpriced = !penalty || !!penalty.unpriced || typeof penalty.amount !== "number";
+      var pAmt = unpriced ? null : penalty.amount;
       return {
         id: r.id,
         name: nameFor(p) || ("Player " + r.id),
@@ -1061,10 +1136,12 @@
         '<div class="after">Cap room after: unknown until it is priced</div>';
     }
     var roomAfter = cap.capRoom + Math.max(0, r.salary) - r.penaltyAmt;
+    // Not yet the worker's own number (its batch hasn't landed): the local estimate says so.
+    var est = r.authoritative ? "" : "est. ";
     return (r.penaltyAmt > 0
-        ? '<span class="penalty">' + U.fmtUsd(r.penaltyAmt) + ' penalty</span>'
-        : '<span class="penalty ok">no penalty</span>') +
-      '<div class="after">Cap room after: ' + U.fmtUsd(roomAfter) + '</div>';
+        ? '<span class="penalty">' + est + U.fmtUsd(r.penaltyAmt) + ' penalty</span>'
+        : '<span class="penalty ok">' + est + 'no penalty</span>') +
+      '<div class="after">Cap room after: ' + est + U.fmtUsd(roomAfter) + '</div>';
   }
 
   // ══ "No drop" gating ═══════════════════════════════════════════════════
@@ -1415,6 +1492,7 @@
             (bidView.editRef ? ' · currently group ' + U.safeInt(bidView.editRef.round, 0) : '') +
             (info.detail ? ' · ' + U.escapeHtml(info.detail) : '') + '</div>' +
           bidContextHtml(bidView.addPid) +
+          availWarnHtml(bidView.addPid) +
         '</div>' +
         '<div class="ups-m-bid-body">' +
           '<div class="ups-m-bid-label"><label for="ups-m-bid-amt">Bid amount ($K)</label></div>' +
@@ -1468,8 +1546,9 @@
     var row = DATA.getRosterFor(fid).filter(function (r) { return String(r.id) === String(pid); })[0];
     if (!row) return 0;
     var p = DATA.dropPenaltyFor(row, M.state.ctx.year);
-    if (p && p.unpriced) return null;   // the worker could not price it yet — NOT $0
-    return (p && typeof p.amount === "number") ? p.amount : 0;
+    // the worker could not price it yet, or no penalty came back at all — NOT $0
+    if (!p || p.unpriced || typeof p.amount !== "number") return null;
+    return p.amount;
   }
   function dropPenaltyShortText(pid) {
     var pen = dropPenalty(pid);
@@ -2200,6 +2279,7 @@
                 ' · <strong>' + U.escapeHtml(U.fmtUsd(p.bid_dollars)) + '</strong>' +
                 (p.drop_pid ? ' · drop ' + U.escapeHtml(nameForPid(p.drop_pid)) : ' · no drop') +
               '</div>' +
+              availWarnHtml(p.add_pid) +
             '</div>' +
             '<div class="ctl">' +
               '<button class="mv" data-act="claim-up" ' + (i === 0 ? 'disabled' : '') + ' aria-label="Move up">▲</button>' +
@@ -2882,6 +2962,7 @@
   function startFcfsAdd(pid) {
     if (!M.state.viewerFranchiseId) return;
     if (refuseUnlessFreeAgent(pid)) return;
+    if (refuseUnlessAvailable(pid)) return;
     if (!writeEnabled()) { openNativeWaiverPage(); return; }
     var fid = M.state.viewerFranchiseId;
     var cap = DATA.computeCap(fid);
@@ -2989,6 +3070,9 @@
   M.waiverUI = {
     cta: acquisitionCta,
     modeInfo: waiverModeInfo,
+    // When he can be claimed, and the sheet's explanation of it.
+    availability: availabilityFor,
+    availPanelHtml: availPanelHtml,
     // §5 — surfaces ask this before drawing any write control of their own.
     writeEnabled: writeEnabled,
     nativeLink: nativeLink,
@@ -3225,7 +3309,7 @@
       });
     }
     // Waiver controls: Bid / Add on a row, and the Claims chip in the strip.
-    var waiverBtns = mount.querySelectorAll('[data-act="waiver-bid"],[data-act="waiver-add"],[data-act="open-claims"]');
+    var waiverBtns = mount.querySelectorAll('[data-act="waiver-bid"],[data-act="waiver-add"],[data-act="open-claims"],[data-act="waiver-why"]');
     for (var wI = 0; wI < waiverBtns.length; wI++) {
       waiverBtns[wI].addEventListener("click", function (e) {
         e.stopPropagation();
@@ -3233,6 +3317,7 @@
         var wpid = this.getAttribute("data-pid");
         if (act === "waiver-bid") openBidFor(wpid);
         else if (act === "waiver-add") startFcfsAdd(wpid);
+        else if (act === "waiver-why") { if (M.sheet) M.sheet.open(wpid); }
         else openClaimsScreen();
       });
     }
