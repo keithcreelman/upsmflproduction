@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-16T14:15:16.153333+00:00",
+    "generated_at_utc": "2026-10-17T13:11:57.430387+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1346,18 +1346,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14905",
-          "display": "CJ Henderson",
-          "player_id": "14905",
-          "position": "CB",
-          "nfl_team": "ATL",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_13322",
           "display": "Chuck Clark",
           "player_id": "13322",
@@ -1474,6 +1462,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17167",
+          "display": "Jonas Sanker",
+          "player_id": "17167",
+          "position": "S",
+          "nfl_team": "NOS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2984,6 +2984,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_13284",
+          "display": "Trey Hendrickson",
+          "player_id": "13284",
+          "position": "DE",
+          "nfl_team": "BAL",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16241",
           "display": "Devon Witherspoon",
           "player_id": "16241",
@@ -3112,18 +3124,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_11721",
-          "display": "Khalil Mack",
-          "player_id": "11721",
-          "position": "DE",
-          "nfl_team": "LAC",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4083,7 +4083,7 @@
           "salary": 11000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -4279,6 +4279,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_10816",
+          "display": "Demario Davis",
+          "player_id": "10816",
+          "position": "LB",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15346",
           "display": "Gregory Rousseau",
           "player_id": "15346",
@@ -4315,11 +4327,11 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15428",
-          "display": "Jamien Sherwood",
-          "player_id": "15428",
-          "position": "LB",
-          "nfl_team": "NYJ",
+          "asset_id": "P_16585",
+          "display": "Joe Milton",
+          "player_id": "16585",
+          "position": "QB",
+          "nfl_team": "PHI",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -5246,6 +5258,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17527",
+          "display": "Josh Cameron",
+          "player_id": "17527",
+          "position": "WR",
+          "nfl_team": "JAC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
