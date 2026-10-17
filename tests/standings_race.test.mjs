@@ -497,7 +497,7 @@ check('seed explanation: the module has NO comparator of its own — compareSeed
   assert.ok(!/function\s+compareSeedPair\s*\(/.test(SRC) && !/CRITERION_LABEL/.test(SRC));
   assert.ok(!/AP% → Total PF|Total regular-season PF/.test(SRC), 'no trace of the reversed AP → PF → Overall order');
 });
-check('seed explanation: seeded rows say the WORKER\'s step, pool and neighbour — each step worded', () => {
+check('seed explanation: seeded rows say the WORKER\'s step, pool and neighbor — each step worded', () => {
   const why = (fid) => RACE.whySeedForRow(byFid(S20, fid), S20);
   assert.strictEqual(why('0010').text, 'Seed 1: in the bye pool (the two best division winners); ranked ahead of Sex Manther on All-Play %.');
   assert.strictEqual(why('0007').text, 'Seed 2: in the bye pool (the two best division winners); behind Blake Bombers on All-Play %.');
@@ -528,7 +528,7 @@ check('seed explanation: AP unavailable for an outside team is said, never a zer
   assert.strictEqual(RACE.whySeedForRow(unseededRow, [seed6Row, unseededRow, otherRow], ws).text, 'Outside the top six — AP games back unavailable.');
   assert.strictEqual(RACE.whySeedForRow(unseededRow, [seed6Row, unseededRow, otherRow], null).text, 'Outside the top six — AP games back unavailable.', 'a failed weeklyScores query (null)');
 });
-check('seed explanation: a season with RECORDED final standings is labelled so — no ladder step is claimed', () => {
+check('seed explanation: a season with RECORDED final standings is labeled so — no ladder step is claimed', () => {
   const rec = (r) => Object.assign({}, r, { seed_reason: { basis: 'recorded_final_standings' } });
   const why3 = RACE.whySeedForRow(rec(byFid(SEASON_2020, '0008')), SEASON_2020.map(rec));
   assert.strictEqual(why3.text, 'Seed 3 — from the recorded final standings.');
