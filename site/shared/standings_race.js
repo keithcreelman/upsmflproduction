@@ -894,7 +894,7 @@
   //
   // BRACKET TOPOLOGY (verified against real, live /api/playoff-bracket
   // data for a completed season — 2025 — not assumed): each 6-team side
-  // (seeds 1-6 for the UPS championship side, 7-12 for the Hawktuah Bowl
+  // (seeds 1-6 for the UPS championship side, 7-12 for the Hawk Tuah Bowl
   // side, using within-side relative positions 1-6) is a standard
   // single-elimination bracket with the top 2 byed to the semifinal
   // round:
@@ -907,7 +907,7 @@
   // This exact topology (and the finish/pick assignment below) was
   // verified by replaying it against real 2025 matchup data and
   // confirming it reproduces the real bracket's actual picks, including
-  // 1.01 = Cleon Ca$h (finish 7, the real 2025 Hawktuah Bowl champion).
+  // 1.01 = Cleon Ca$h (finish 7, the real 2025 Hawk Tuah Bowl champion).
   //
   // FINISH / PICK ASSIGNMENT — as of the Phase II-A2 correction pass, this
   // table is the ONE authoritative pick mapper for BOTH the real desktop
@@ -980,7 +980,7 @@
   }
   // Builds one 6-team side's full bracket topology (see the module
   // comment above) entirely by chalk. `base` = 0 for the UPS
-  // championship side (seeds 1-6), 6 for the Hawktuah side (7-12).
+  // championship side (seeds 1-6), 6 for the Hawk Tuah Bowl side (7-12).
   function chalkBracketSide(bySeedNum, base) {
     function s(n) { return bySeedNum[base + n]; }
     var r1a = chalkGame(s(3), s(6));
@@ -1221,8 +1221,8 @@
   // a "1.0N"/"1.1N" string; `projected` prefixes the text when the pick
   // came from projectChalkBracket() rather than real results.
   var GAME_DISPLAY_NAME = {
-    champ: { final: 'the UPS Championship', third: 'the championship 3rd-place game', placement: 'the championship placement game' },
-    hawk:  { final: 'the Hawktuah Bowl', third: 'the Toilet 3rd-place game', placement: 'the Toilet placement game' }
+    champ: { final: 'the UPS Championship', third: 'the championship 3rd-place game', placement: 'the 5th-place game' },
+    hawk:  { final: 'the Hawk Tuah Bowl', third: 'the Hawk Tuah Bowl 3rd-place game', placement: 'the Hawk Tuah Bowl 5th-place game' }
   };
   function pickWhyText(pick, projected) {
     var slot = null;
@@ -1580,16 +1580,17 @@
   // c. seasonWeeklyLeaders(payload, { weeks: 'regular' | 'all' }) → { status, problems, weeks: [{ week, isPlayoff,
   //    top_franchise_ids, score, margin_over_second }], byFranchise: { fid: { topWeeks, top3, bottom3, avgRank,
   //    bestRank, worstRank, highScore {week,score}, lowScore {week,score} } } }. weeklyScores only.
-  //    'regular' (the default) = regular-season weeks. 'all' adds the playoff weeks: the league's weekly high-score
-  //    prize covers all 17 weeks, playoffs included. Ties: every team on the top score gets the week; bottom3 =
-  //    at most two teams scored lower; high/low score ties go to the earliest week.
+  //    'regular' (the default) = regular-season weeks; 'playoff' = the playoff weeks only; 'all' = both. Which weeks
+  //    count for the league's weekly high-score payout is an open rule question (#1329), so nothing here calls a top
+  //    score a prize. Ties: every team on the top score gets the week; bottom3 = at most two teams scored lower;
+  //    high/low score ties go to the earliest week.
   function seasonWeeklyLeaders(payload, opts) {
     var nulls = { weeks: null, byFranchise: null };
     return safeView(function () {
       var mode = (opts && opts.weeks != null) ? opts.weeks : 'regular';
-      if (mode !== 'regular' && mode !== 'all') return viewResult({ status: 'unavailable', problems: [{ code: 'bad_weeks_option', value: String(mode) }] }, nulls);
+      if (mode !== 'regular' && mode !== 'all' && mode !== 'playoff') return viewResult({ status: 'unavailable', problems: [{ code: 'bad_weeks_option', value: String(mode) }] }, nulls);
       var read = readSeasonWeeks(payload, false);
-      var scope = mode === 'all' ? read.allWeeks : read.regularWeeks;
+      var scope = mode === 'all' ? read.allWeeks : mode === 'playoff' ? read.playoffWeeks : read.regularWeeks;
       var st = scopeStatus(read, scope);
       if (st.status === 'preseason') return viewResult(st, { weeks: [], byFranchise: {} });
       if (st.status === 'ok' && !scope.length) st = { status: 'incomplete', problems: [{ code: 'no_weeks_in_scope' }] };
@@ -1746,6 +1747,209 @@
     }, nulls);
   }
 
+  // f. matchupTape(payload, fidA, fidB, extras) → the Tale of the Tape for one playoff or Hawk Tuah Bowl matchup.
+  //    Descriptive only: it says which side has been stronger in each category and never predicts a winner.
+  //    { status, problems, weeks: { regular: [..], last3: [..] }, a, b, meetings: [{ week, isPlayoff, aScore, bScore,
+  //      result }], edges: { <category>: 'a' | 'b' | 'even' }, quickEdges: { a, b, even }, offenseIdpStatus }
+  //    a / b: { franchise_id, name, record {w,l,t,pct} (regular-season H2H games), ap {w,l,t,pct},
+  //      avg {value, rank}, last3 {avg, rank, ap}, apPerWeek {value, rank}, consistency {spread, rank},
+  //      ceiling { high {value, week, rank}, top3 {value, rank}, median {value, rank}, bottom3 {value, rank},
+  //                low {value, week, rank} },
+  //      offense {perWeek, rank} | null, idp {perWeek, rank} | null, faced {perGame, rank} }
+  //    Ranks are among every team in the response and share ties: 1 = highest, except consistency (1 = the smallest
+  //    week-to-week spread, the population standard deviation of the weekly scores) and faced (1 = faced the most
+  //    points per game; schedule, never skill). Season numbers use regular-season weeks. last3 = the three most
+  //    recent completed weeks of any kind (regular or playoff); it describes recent results and predicts the rest of
+  //    a season less well than the full season does (#1329 backtest), so nothing ranks it above the season.
+  //    extras.offenseIdp = { fid: { op, dp } } from MFL leagueStandings (offensive-player and IDP points). It is used
+  //    only when every team has numeric op and dp that add up to that team's regular-season Points For (within 0.15);
+  //    otherwise offense and idp are null and offenseIdpStatus says why ('missing' | 'mismatch').
+  function median(list) {
+    var xs = list.slice().sort(function (p, q) { return p - q; });
+    var n = xs.length;
+    if (!n) return null;
+    return n % 2 ? xs[(n - 1) / 2] : (xs[n / 2 - 1] + xs[n / 2]) / 2;
+  }
+  function meanOf(list) {
+    if (!list.length) return null;
+    var c = 0;
+    list.forEach(function (x) { c += hundredths(x); });
+    return Math.round(c / list.length) / 100;
+  }
+  function spreadOf(list) {
+    if (!list.length) return null;
+    var m = list.reduce(function (p, q) { return p + q; }, 0) / list.length;
+    var v = list.reduce(function (p, q) { return p + (q - m) * (q - m); }, 0) / list.length;
+    return round2(Math.sqrt(v));
+  }
+  // 1 + teams strictly better (compared in hundredths, so float noise never splits a tie).
+  function rankAmong(values, fid, lowerIsBetter) {
+    var mine = values[fid];
+    if (mine == null) return null;
+    var better = 0;
+    Object.keys(values).forEach(function (o) {
+      if (o === fid || values[o] == null) return;
+      var a = hundredths(values[o]), b = hundredths(mine);
+      if (lowerIsBetter ? a < b : a > b) better++;
+    });
+    return better + 1;
+  }
+  function matchupTape(payload, fidA, fidB, extras) {
+    var nulls = { weeks: null, a: null, b: null, meetings: null, edges: null, quickEdges: null, offenseIdpStatus: null };
+    return safeView(function () {
+      var read = readSeasonWeeks(payload, true);
+      if (read.unavailable) return viewResult({ status: 'unavailable', problems: read.problems }, nulls);
+      var A = hasId(fidA) ? pad4(fidA) : null, B = hasId(fidB) ? pad4(fidB) : null;
+      if (!A || !B || A === B || !read.expected.hasOwnProperty(A) || !read.expected.hasOwnProperty(B)) {
+        return viewResult({ status: 'unavailable', problems: [{ code: 'unknown_franchise' }] }, nulls);
+      }
+      var st = scopeStatus(read, read.allWeeks);
+      if (st.status === 'ok' && !read.regularWeeks.length) st = { status: 'incomplete', problems: [{ code: 'no_regular_season_weeks' }] };
+      if (st.status !== 'ok') return viewResult(st, nulls);
+      var stats = {};
+      read.allWeeks.forEach(function (w) { stats[w] = weekStats(read, w); });
+      var reg = read.regularWeeks, last = read.allWeeks.slice(-3), n = reg.length;
+      var per = {};
+      read.order.forEach(function (f) {
+        var scores = reg.map(function (w) { return stats[w][f].score; });
+        var desc = scores.slice().sort(function (p, q) { return q - p; });
+        var ap = { w: 0, l: 0, t: 0 }, rec = { w: 0, l: 0, t: 0 }, games = 0, paC = 0, pfC = 0, high = null, low = null;
+        reg.forEach(function (w) {
+          var s = stats[w][f];
+          pfC += hundredths(s.score);
+          ap = { w: ap.w + s.ap.w, l: ap.l + s.ap.l, t: ap.t + s.ap.t };
+          if (!high || s.score > high.score) high = { week: w, score: s.score };
+          if (!low || s.score < low.score) low = { week: w, score: s.score };
+          s.games.forEach(function (g) {
+            games++; paC += hundredths(g.os);
+            rec[g.result === 'W' ? 'w' : g.result === 'L' ? 'l' : 't']++;
+          });
+        });
+        var l3ap = { w: 0, l: 0, t: 0 };
+        last.forEach(function (w) { var a = stats[w][f].ap; l3ap = { w: l3ap.w + a.w, l: l3ap.l + a.l, t: l3ap.t + a.t }; });
+        per[f] = {
+          pfCents: pfC, record: withPct(rec), ap: withPct(ap),
+          avg: meanOf(scores), last3avg: meanOf(last.map(function (w) { return stats[w][f].score; })), last3ap: withPct(l3ap),
+          apPerWeek: ratio2(2 * ap.w + ap.t, 2 * n), spread: spreadOf(scores),
+          high: high, low: low, top3: meanOf(desc.slice(0, 3)), bottom3: meanOf(desc.slice(-3)), median: median(scores),
+          faced: games ? Math.round(paC / games) / 100 : null
+        };
+      });
+      function col(key, sub) {
+        var out = {};
+        read.order.forEach(function (f) { var v = per[f][key]; out[f] = (sub && v) ? v[sub] : v; });
+        return out;
+      }
+      // Offensive-player and IDP points (MFL leagueStandings op / dp), checked against the weekly scores.
+      var oi = extras && extras.offenseIdp, offenseIdpStatus = 'ok', offense = {}, idp = {};
+      if (!oi || typeof oi !== 'object') offenseIdpStatus = 'missing';
+      else read.order.forEach(function (f) {
+        var e = oi[f] || oi[Number(f)] || null;
+        var op = e ? strictNum(e.op) : null, dp = e ? strictNum(e.dp) : null;
+        if (!isFiniteNum(op) || !isFiniteNum(dp)) { if (offenseIdpStatus === 'ok') offenseIdpStatus = 'missing'; return; }
+        if (Math.abs(hundredths(op) + hundredths(dp) - per[f].pfCents) > 15) { offenseIdpStatus = 'mismatch'; return; }
+        offense[f] = round2(op / n); idp[f] = round2(dp / n);
+      });
+      if (offenseIdpStatus !== 'ok') { offense = null; idp = null; }
+      var cols = {
+        avg: col('avg'), last3: col('last3avg'), apPerWeek: col('apPerWeek'), spread: col('spread'),
+        high: col('high', 'score'), top3: col('top3'), median: col('median'), bottom3: col('bottom3'), low: col('low', 'score'),
+        faced: col('faced'), l3ap: {}
+      };
+      read.order.forEach(function (f) { cols.l3ap[f] = per[f].last3ap.pct; });
+      function side(f) {
+        var p = per[f];
+        return {
+          franchise_id: f, name: read.names[f], record: p.record, ap: p.ap,
+          avg: { value: p.avg, rank: rankAmong(cols.avg, f) },
+          last3: { avg: p.last3avg, rank: rankAmong(cols.last3, f), ap: p.last3ap },
+          apPerWeek: { value: p.apPerWeek, rank: rankAmong(cols.apPerWeek, f) },
+          consistency: { spread: p.spread, rank: rankAmong(cols.spread, f, true) },
+          ceiling: {
+            high: { value: p.high ? p.high.score : null, week: p.high ? p.high.week : null, rank: rankAmong(cols.high, f) },
+            top3: { value: p.top3, rank: rankAmong(cols.top3, f) },
+            median: { value: p.median, rank: rankAmong(cols.median, f) },
+            bottom3: { value: p.bottom3, rank: rankAmong(cols.bottom3, f) },
+            low: { value: p.low ? p.low.score : null, week: p.low ? p.low.week : null, rank: rankAmong(cols.low, f) }
+          },
+          offense: offense ? { perWeek: offense[f], rank: rankAmong(offense, f) } : null,
+          idp: idp ? { perWeek: idp[f], rank: rankAmong(idp, f) } : null,
+          faced: { perGame: p.faced, rank: rankAmong(cols.faced, f) }
+        };
+      }
+      function edge(av, bv, lowerIsBetter) {
+        if (av == null || bv == null) return null;
+        var x = hundredths(av), y = hundredths(bv);
+        if (x === y) return 'even';
+        return (lowerIsBetter ? x < y : x > y) ? 'a' : 'b';
+      }
+      var a = side(A), b = side(B);
+      var edges = {
+        avg: edge(a.avg.value, b.avg.value), last3: edge(a.last3.avg, b.last3.avg), last3ap: edge(a.last3.ap.pct, b.last3.ap.pct),
+        apPerWeek: edge(a.apPerWeek.value, b.apPerWeek.value), consistency: edge(a.consistency.spread, b.consistency.spread, true),
+        high: edge(a.ceiling.high.value, b.ceiling.high.value), top3: edge(a.ceiling.top3.value, b.ceiling.top3.value),
+        median: edge(a.ceiling.median.value, b.ceiling.median.value), bottom3: edge(a.ceiling.bottom3.value, b.ceiling.bottom3.value),
+        low: edge(a.ceiling.low.value, b.ceiling.low.value),
+        offense: offense ? edge(a.offense.perWeek, b.offense.perWeek) : null, idp: idp ? edge(a.idp.perWeek, b.idp.perWeek) : null
+      };
+      var quick = { a: 0, b: 0, even: 0 };
+      ['avg', 'last3', 'last3ap', 'apPerWeek', 'consistency'].forEach(function (k) { if (edges[k]) quick[edges[k]]++; });
+      var meetings = [];
+      read.allWeeks.forEach(function (w) {
+        (stats[w][A].games || []).forEach(function (g) {
+          if (g.opp === B) meetings.push({ week: w, isPlayoff: read.weeks[w].po === true, aScore: g.ts, bScore: g.os, result: g.result });
+        });
+      });
+      return viewResult(st, { weeks: { regular: reg.slice(), last3: last }, a: a, b: b, meetings: meetings, edges: edges, quickEdges: quick, offenseIdpStatus: offenseIdpStatus });
+    }, nulls);
+  }
+  // g. ownerSeries(history, ownerA, ownerB, opts) → the head-to-head games between two OWNERS of record, following
+  //    each person across franchise ids and team names (an ownership change never hands a new owner the old owner's
+  //    games). history = site/standings/h2h_history.json: { through_season, regular_season_pairings: [seasons],
+  //    owners: { season: { fid: owner_name } }, games: [[season, week, fid, opp, fidScore, oppScore, isPlayoff]] }.
+  //    opts.current = { season, games: [{ week, isPlayoff, aScore, bScore }] } adds the live season (matchupTape's
+  //    meetings, owner A's side first) when it is after through_season.
+  //    → { status, games: [{ season, week, isPlayoff, aScore, bScore, result }], regular {w,l,t}, playoff {w,l,t},
+  //        seasonsTogether: [seasons both owned a team], pairingSeasons: [the seasons whose regular-season games exist] }
+  //    Exact owner-name match only. MFL never exported the regular-season pairings of 2010-2011 and 2013-2019, so
+  //    those seasons can only contribute playoff games; the result says which seasons were covered.
+  function ownerSeries(history, ownerA, ownerB, opts) {
+    var none = { status: 'unavailable', games: null, regular: null, playoff: null, seasonsTogether: null, pairingSeasons: null };
+    if (!history || typeof history !== 'object' || !history.owners || !Array.isArray(history.games)) return none;
+    var oa = ownerA == null ? '' : String(ownerA), ob = ownerB == null ? '' : String(ownerB);
+    if (!oa || !ob || oa === ob) return none;
+    var together = [];
+    Object.keys(history.owners).forEach(function (season) {
+      var m = history.owners[season] || {}, hasA = false, hasB = false;
+      Object.keys(m).forEach(function (f) { if (m[f] === oa) hasA = true; if (m[f] === ob) hasB = true; });
+      if (hasA && hasB) together.push(Number(season));
+    });
+    var games = [];
+    history.games.forEach(function (g) {
+      if (!Array.isArray(g) || g.length < 7) return;
+      var season = g[0], m = history.owners[String(season)] || {};
+      var o1 = m[pad4(g[2])], o2 = m[pad4(g[3])];
+      var aFirst = o1 === oa && o2 === ob, bFirst = o1 === ob && o2 === oa;
+      if (!aFirst && !bFirst) return;
+      var as = aFirst ? g[4] : g[5], bs = aFirst ? g[5] : g[4];
+      games.push({ season: season, week: g[1], isPlayoff: !!g[6], aScore: as, bScore: bs, result: as > bs ? 'W' : as < bs ? 'L' : 'T' });
+    });
+    var cur = opts && opts.current;
+    if (cur && Number(cur.season) > Number(history.through_season) && Array.isArray(cur.games)) {
+      if (together.indexOf(Number(cur.season)) < 0) together.push(Number(cur.season));
+      cur.games.forEach(function (g) {
+        games.push({ season: Number(cur.season), week: g.week, isPlayoff: !!g.isPlayoff, aScore: g.aScore, bScore: g.bScore, result: g.aScore > g.bScore ? 'W' : g.aScore < g.bScore ? 'L' : 'T' });
+      });
+    }
+    games.sort(function (x, y) { return (x.season - y.season) || (x.week - y.week); });
+    var reg = { w: 0, l: 0, t: 0 }, po = { w: 0, l: 0, t: 0 };
+    games.forEach(function (g) { var r = g.isPlayoff ? po : reg; r[g.result === 'W' ? 'w' : g.result === 'L' ? 'l' : 't']++; });
+    together.sort(function (x, y) { return x - y; });
+    var pairing = (history.regular_season_pairings || []).map(Number);
+    if (cur && Number(cur.season) > Number(history.through_season)) pairing = pairing.concat([Number(cur.season)]);
+    return { status: 'ok', games: games, regular: reg, playoff: po, seasonsTogether: together, pairingSeasons: pairing.filter(function (s) { return together.indexOf(s) >= 0; }) };
+  }
+
   // ── top-level composition ───────────────────────────────────────────
   // race(payload) -> { byFranchise: { <fid>: {...} }, seed2FranchiseId,
   //   seed6FranchiseId, hasSeed6, preseason, standingsBasis, seedsFinal,
@@ -1875,6 +2079,9 @@
     weekTable: weekTable,
     seasonWeeklyLeaders: seasonWeeklyLeaders,
     teamWeeklyHistory: teamWeeklyHistory,
-    scoredFaced: scoredFaced
+    scoredFaced: scoredFaced,
+    // Playoff / Hawk Tuah Bowl matchup sheet (descriptive; never a prediction).
+    matchupTape: matchupTape,
+    ownerSeries: ownerSeries
   };
 })(typeof window !== 'undefined' ? window : this);

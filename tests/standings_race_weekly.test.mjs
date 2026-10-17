@@ -174,7 +174,7 @@ test("seasonWeeklyLeaders: 2026 Weeks 1-5 top scores — HammerTime 1, Blake Bom
   t.deepEqual(RACE.seasonWeeklyLeaders(RESP, { weeks: "all" }).weeks, L.weeks, "no playoff weeks yet: all = regular");
   t.equal(RACE.seasonWeeklyLeaders(RESP, { weeks: "playoffs" }).status, "unavailable", "an unknown option is refused, not guessed");
 });
-test("seasonWeeklyLeaders: 'all' adds playoff weeks (the weekly high-score prize covers all 17); 'regular' leaves them out", () => {
+test("seasonWeeklyLeaders: 'all' adds playoff weeks, 'playoff' is the playoff weeks alone, 'regular' leaves them out (which weeks pay is a rule question, #1329)", () => {
   const p = clone(RESP);
   p.regular_season.last_regular_season_week = 5;
   for (const f of FIDS) p.weeklyScores.push({ w: 6, fid: f, ts: f === "0007" ? 333.3 : 100 + Number(f), opt: 0, po: 1 });
@@ -183,6 +183,8 @@ test("seasonWeeklyLeaders: 'all' adds playoff weeks (the weekly high-score prize
   t.deepEqual(all.weeks[5], { week: 6, isPlayoff: true, top_franchise_ids: ["0007"], score: 333.3, margin_over_second: r2(333.3 - 112) });
   t.equal(all.byFranchise["0007"].topWeeks, 1); t.equal(reg.byFranchise["0007"].topWeeks, 0);
   t.equal(reg.weeks.length, 5);
+  const po = RACE.seasonWeeklyLeaders(p, { weeks: "playoff" });
+  t.equal(po.status, "ok"); t.deepEqual(po.weeks.map((x) => x.week), [6]); t.equal(po.byFranchise["0007"].topWeeks, 1);
 });
 
 // ════════ d. teamWeeklyHistory ════════
