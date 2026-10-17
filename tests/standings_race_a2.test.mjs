@@ -533,7 +533,7 @@ check('[wiring] mobile renderPlayoffsMode calls window.UPS_STANDINGS_RACE.projec
   assert.ok(/renderActualMatchupCards/.test(slice) && /renderProjectedBracket/.test(slice));
 });
 check('[wiring] F4: mobile pre-playoff legend is owner-facing copy — no developer note, and never the words OUT/eliminated anywhere on the page', () => {
-  const projFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderProjectedBracket(seeds, bresp) {'), MOBILE_LEAGUE.indexOf('function renderProjectedBracket(seeds, bresp) {') + 2600);
+  const projFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderProjectedBracket(seeds, bresp, sideKey) {'), MOBILE_LEAGUE.indexOf('function renderProjectedBracket(seeds, bresp, sideKey) {') + 1400);
   assert.ok(/If the season ended today\./.test(projFn) && /Projection: the higher seed wins every game/.test(projFn));
   assert.ok(!/>OUT</.test(MOBILE_LEAGUE) && !/"OUT"/.test(MOBILE_LEAGUE) && !/\beliminated\b/i.test(MOBILE_LEAGUE));
   const cardsFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderActualMatchupCards('), MOBILE_LEAGUE.indexOf('function renderActualMatchupCards(') + 1500);
@@ -541,8 +541,12 @@ check('[wiring] F4: mobile pre-playoff legend is owner-facing copy — no develo
 });
 check('[wiring] F7: the mobile final-round card label never repeats the side name twice', () => {
   const fn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderActualMatchupCards('), MOBILE_LEAGUE.indexOf('function renderActualMatchupCards(') + 1500);
-  assert.ok(/label \+ " · Title Game"/.test(fn));
-  assert.ok(!/hawk"\s*\?\s*"Hawktuah Bowl"\s*:\s*"Championship"/.test(fn), 'the old side-name-repeating ternary must be gone');
+  // v3.1 (#1329): one vertical bracket per side (UPS Playoffs / Hawk Tuah Bowl switch); the last round is titled
+  // "Championship" or "Hawk Tuah Bowl final" once, never "<side> · <side>".
+  assert.ok(/sideBracketHtml\(side, sideKey, "actual"/.test(fn));
+  const sideFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function sideBracketHtml('), MOBILE_LEAGUE.indexOf('function sideBracketHtml(') + 3200);
+  assert.ok(/title: hawk \? "Hawk Tuah Bowl final" : "Championship"/.test(sideFn));
+  assert.ok(!/Hawk Tuah Bowl · Hawk Tuah Bowl|Hawktuah/.test(MOBILE_LEAGUE), 'no repeated side name, and the owner-facing name is "Hawk Tuah Bowl"');
 });
 check('[wiring] F3: the League/Divisions/Playoffs toggle carries a dedicated class for the >=44px touch-target CSS fix', () => {
   const fn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderStandingsModeToggle(mode) {'), MOBILE_LEAGUE.indexOf('function renderStandingsModeToggle(mode) {') + 1300);

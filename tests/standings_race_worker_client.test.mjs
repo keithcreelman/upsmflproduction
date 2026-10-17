@@ -28,6 +28,7 @@ const utilSrc = ["safeStr", "safeInt", "pad4", "escapeHtml", "asArray"].map((nam
   if (!m) throw new Error("app.js: no " + name);
   return m[0];
 }).join("");
+let lastMobile = null;   // the mobile app object of the latest mobileStandings() run (drawer content lives there)
 async function mobileStandings(env) {
   const views = {};
   const mount = { innerHTML: "", querySelectorAll: () => [], querySelector: () => null, addEventListener() {} };
@@ -36,6 +37,7 @@ async function mobileStandings(env) {
     api: { workerUrl: (p) => "https://w.test" + p }, data: {},
     route: { registerView: (n, fn) => (views[n] = fn), renderRoute: () => views.league(mount, ["standings"]), navigate() {} },
   };
+  lastMobile = M;
   const fetch = async (url) => {
     const u = new URL(url, "https://keithcreelman.github.io");
     if (u.pathname === "/api/standings" || u.pathname === "/api/historical-finishes") return workerFetch(callWorker, env)(u.href);
@@ -173,12 +175,21 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   const order = [...html.matchAll(/<tr class="race-row[^"]*" data-fid="(\d{4})"/g)].map((m) => m[1]);
   t.deepEqual(order, ["0001", "0003", "0004", "0002", "0007", "0005", "0006", "0008"], "seed order (worker), not division winners → H2H% → PF");
   t.match(html, /aria-label="Projected playoff status: Bye">BYE<small>proj<\/small>/);
-  t.match(html, /BYE \/ DIV \/ WC say where a team would be if the season ended today/);
-  t.match(html, /<th class="num">AP%<\/th><th class="num">W-L<\/th><th class="num">Back<\/th>/);
-  t.match(html, /Playoff line · 7-12 play the Hawktuah Bowl/);
-  t.match(html, /<summary>How seeds work<\/summary>/);
-  t.match(html, /Ladder: All-Play %, then record, then Points For, then head-to-head among the tied teams/);
-  t.match(html, /<b>Tiebreaks:<\/b> .*Real|<b>Tiebreak/, "the summary names the tiebreaks that decided places");
+  t.match(html, /<th class="num">AP%<\/th><th class="num">H2H<\/th><th class="num">Back<\/th>/, "H2H, not W-L or Games");
+  t.match(html, /Playoff line · H1–H6 play the Hawk Tuah Bowl/);
+  // v3.1 (#1329 review): the Hawk Tuah Bowl seeds show on the first page (7th and 8th of this 8-team fixture = H1, H2)
+  t.match(html, /<td class="rank">H1<\/td><td class="team"><span class="name-text">[^<]+<\/span>/);
+  t.match(html, /data-jump-side="hawk">Hawk Tuah Bowl<\/button>/, "a Hawk Tuah Bowl button beside the seeds");
+  // explanations are behind three compact buttons, not on the page
+  t.match(html, /data-info="how"[^>]*>How seeding works<\/button><button[^>]*data-info="why"[^>]*>Why this order<\/button><button[^>]*data-info="about"[^>]*>About<\/button>/);
+  t.ok(!/Ladder: All-Play %|say where a team would be/.test(html), "no explanatory paragraphs on the page itself");
+  const D = lastMobile.leagueView.standingsDrawers;
+  t.match(plain(D.how()), /Ladder: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams\. Only regular-season weeks count\./);
+  t.match(plain(D.how()), /Hawk Tuah Bowl champion \(7th\) 1\.01 .* 5th-place game winner \(5th\) 1\.07 · its loser \(6th\) 1\.08/);
+  t.match(plain(D.about(false)), /“proj” = where a team would be if the season ended today\./);
+  const why = plain(D.why(await standings(makeLadderSeason())));
+  t.match(why, /Decided by a tiebreak: .* over .*: same All-Play, /, "the drawer names the tiebreaks that decided places");
+  t.ok(!/\bGames\b|\bprize\b/i.test(html + D.how() + D.about(false) + D.weekly()), "no 'Games' label and no 'prize' anywhere");
 });
 test("mobile: weekly results unreadable → no team is ranked, and it says so (never 0-0, never a plausible table)", async () => {
   const html = await mobileStandings(makeLadderSeason({ failScores: true }));

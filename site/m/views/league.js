@@ -1552,6 +1552,13 @@
     presetRoster: function (fid) {
       state.selectedFid = U.pad4(fid);
       state.rostersMode = "team";
+    },
+    // The Standings drawers' content (also read by the offline tests, which can't tap a button).
+    standingsDrawers: {
+      how: howSeedingHtml,
+      about: aboutSeedsHtml,
+      why: function (resp) { return whyOrderHtml(resp, (resp.rows || []).slice()); },
+      weekly: aboutWeeklyHtml
     }
   };
 
