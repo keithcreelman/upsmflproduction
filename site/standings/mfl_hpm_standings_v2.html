@@ -1447,6 +1447,20 @@
     }
     return [start, end];
   }
+  // Whether this /api/standings payload's per-week rows can be trusted. The worker sends a FAILED weekly / weeklyScores
+  // query as null + weekly_errors (never [], which reads as "nothing played yet") and an unrecognized playoff flag as
+  // po: null (never guessed as regular season). A scoped table or a playoff record built from either would be a confident
+  // 0-0 or "—", so those views refuse instead and say why. A genuinely empty season ([] / []) is trusted: it IS 0-0.
+  //   → { ok: true } | { ok: false, reason }
+  function weeklyStatus(resp) {
+    var errs = resp && resp.weekly_errors;
+    if (!resp || !Array.isArray(resp.weekly) || !Array.isArray(resp.weeklyScores) || (errs && Object.keys(errs).length)) {
+      return { ok: false, reason: "the weekly results couldn't be read" };
+    }
+    var unflagged = resp.weekly.concat(resp.weeklyScores).some(function (m) { return !m || !(m.po === 0 || m.po === 1); });
+    if (unflagged) return { ok: false, reason: "some weekly results aren't marked regular season or playoff" };
+    return { ok: true };
+  }
   function computeScopedRows(baseRows, weekly, weeklyScores, start, end) {
     var byId = {};
     var out = (baseRows || []).map(function (r) {
@@ -1519,15 +1533,18 @@
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
       var seedMap = buildSeedMap(brk && brk.seeds);
       var scoped = state.scope !== "full";
+      var wk = weeklyStatus(resp);
+      if (scoped && !wk.ok) return showError(host, scopeLabel() + " standings for " + state.year + " can't be computed: " + wk.reason + ". Full Season is unaffected.");
       var rng = scopeWeekRange(resp);
-      var baseRows = scoped ? computeScopedRows(resp.rows || [], resp.weekly || [], resp.weeklyScores || [], rng[0], rng[1]) : (resp.rows || []);
+      var baseRows = scoped ? computeScopedRows(resp.rows || [], resp.weekly, resp.weeklyScores, rng[0], rng[1]) : (resp.rows || []);
       // Attach a numeric seed so the Seed column is sortable (unseeded → 99, sorts last).
       baseRows.forEach(function (r) { r.seed = seedMap[pad4(r.franchise_id)] || 99; });
       // Playoff record (bracket W-L) over the active week range — its own column,
       // computed from playoff-flagged matchups so it works for Full + scoped views.
       (function () {
+        if (!wk.ok) { baseRows.forEach(function (r) { r.po_w = null; r.po_l = null; r.po_unknown = true; }); return; }
         var po = {};
-        (resp.weekly || []).forEach(function (m) {
+        resp.weekly.forEach(function (m) {
           if (!m.po || m.w < rng[0] || m.w > rng[1]) return;
           var fid = pad4(m.fid); var p = po[fid] || (po[fid] = { w: 0, l: 0 });
           if (m.ts > m.os) p.w++; else if (m.ts < m.os) p.l++;
@@ -1563,7 +1580,7 @@
           + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
           + '<td class="num">' + fmtPct(r.h2h_pct) + '</td>'
           + '<td>' + rec(r.div_w, r.div_l) + '</td>'
-          + '<td>' + ((r.po_w || r.po_l) ? rec(r.po_w, r.po_l) : '—') + '</td>'
+          + '<td>' + (r.po_unknown ? '<span title="Playoff record unavailable: ' + escapeHtml(wk.reason) + '">?</span>' : ((r.po_w || r.po_l) ? rec(r.po_w, r.po_l) : '—')) + '</td>'
           + '<td>' + rec(r.allplay_w, r.allplay_l, r.allplay_t) + '</td>'
           + '<td class="num">' + fmtPct(r.allplay_pct) + '</td>'
           + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
@@ -1577,6 +1594,7 @@
         : (meta.last_regular_season_week
           ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>'
           : '<div class="note">Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>');
+      if (!wk.ok) note += '<div class="note">Playoff records show <strong>?</strong>: ' + escapeHtml(wk.reason) + '.</div>';
       host.innerHTML = '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + note + tkoFootnote(resp) + DEFERRED_NOTE;
       wireSortClicks(host, state.overall, function () { renderOverall(host); });
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
@@ -1592,9 +1610,11 @@
     fetchD1("/api/standings", state.year).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
       var divScoped = state.scope !== "full";
+      var divWk = weeklyStatus(resp);
+      if (divScoped && !divWk.ok) return showError(host, scopeLabel() + " division standings for " + state.year + " can't be computed: " + divWk.reason + ". Full Season is unaffected.");
       var divRng = scopeWeekRange(resp);
       var rows = divScoped
-        ? computeScopedRows(resp.rows || [], resp.weekly || [], resp.weeklyScores || [], divRng[0], divRng[1])
+        ? computeScopedRows(resp.rows || [], resp.weekly, resp.weeklyScores, divRng[0], divRng[1])
         : (resp.rows || []);
       if (!rows.some(function (r) { return !!r.division; })) {
         host.innerHTML = '<div class="banner">Division alignment not available for ' + state.year + ' yet.</div>';
