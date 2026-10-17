@@ -44,16 +44,18 @@ async function openSheet(fid) {
 test("Real Deal Creel's sheet: seed sentence, Scored, Faced (schedule, not skill), luck and week by week", async () => {
   const { body, head } = await openSheet("0008");
   t.match(head, /Real Deal Creel/);
-  t.match(body, /Seed 4: behind HammerTime.* on All-Play %\. Ahead of CBP on Overall record \(same All-Play %\)\./);
-  t.match(body, /Record 9-4 \(\.692\)/);
+  t.match(body, /Seed 4: behind HammerTime.* on All-Play %\. Ahead of CBP on H2H record \(same All-Play %\)\./);
+  t.match(body, /H2H record 9-4 \(\.692\)/);
   t.match(body, /All-Play 32-23 \(\.582\)/);
   t.match(body, /Points For 1145\.8 5th/);                 // 5th of 12: C-Town, Blake, HammerTime, Pure Greatness ahead
   t.match(body, /Per week 229\.2/);
   t.match(body, /Faced · schedule, not skill/);
-  t.match(body, /Opponents per game 211\.1 11th most/);
+  t.match(body, /Points faced per H2H game 211\.1 11th most/);
   t.match(body, /Schedule luck \+1\.2 wins/);
   t.match(body, /expected wins \(7\.8/);
-  t.match(body, /5 272\.5 2 10-1 WWW 4/, "Week 5 row: score, rank, weekly All-Play, results, seed after the week");
+  t.match(body, /5 272\.5 2 10-1 WWW 4/, "Week 5 row: score, rank, weekly All-Play, H2H results, seed after the week");
+  t.match(body, /Wk Pts Rk Wk AP H2H Seed/, "the column says H2H, not Games");
+  t.ok(!/\bGames\b/.test(body), "no 'Games' label");
   t.ok(!/defen[cs]e/i.test(body), "points faced are never called defense");
 });
 

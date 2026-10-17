@@ -174,7 +174,7 @@ test("seasonWeeklyLeaders: 2026 Weeks 1-5 top scores — HammerTime 1, Blake Bom
   t.deepEqual(RACE.seasonWeeklyLeaders(RESP, { weeks: "all" }).weeks, L.weeks, "no playoff weeks yet: all = regular");
   t.equal(RACE.seasonWeeklyLeaders(RESP, { weeks: "playoffs" }).status, "unavailable", "an unknown option is refused, not guessed");
 });
-test("seasonWeeklyLeaders: 'all' adds playoff weeks (the weekly high-score prize covers all 17); 'regular' leaves them out", () => {
+test("seasonWeeklyLeaders: 'all' adds playoff weeks, 'playoff' is the playoff weeks alone, 'regular' leaves them out (which weeks pay is a rule question, #1329)", () => {
   const p = clone(RESP);
   p.regular_season.last_regular_season_week = 5;
   for (const f of FIDS) p.weeklyScores.push({ w: 6, fid: f, ts: f === "0007" ? 333.3 : 100 + Number(f), opt: 0, po: 1 });
@@ -183,6 +183,8 @@ test("seasonWeeklyLeaders: 'all' adds playoff weeks (the weekly high-score prize
   t.deepEqual(all.weeks[5], { week: 6, isPlayoff: true, top_franchise_ids: ["0007"], score: 333.3, margin_over_second: r2(333.3 - 112) });
   t.equal(all.byFranchise["0007"].topWeeks, 1); t.equal(reg.byFranchise["0007"].topWeeks, 0);
   t.equal(reg.weeks.length, 5);
+  const po = RACE.seasonWeeklyLeaders(p, { weeks: "playoff" });
+  t.equal(po.status, "ok"); t.deepEqual(po.weeks.map((x) => x.week), [6]); t.equal(po.byFranchise["0007"].topWeeks, 1);
 });
 
 // ════════ d. teamWeeklyHistory ════════
@@ -442,7 +444,7 @@ test("PART 1 #3 the division race keeps the worker's division order (MFL standin
 test("PART 1 #4 whySeed: the worker's vs_above explains why a team is BELOW its neighbor; recorded and unavailable say so", () => {
   const check = (R) => {
     const why = (fid) => R.race(RESP).byFranchise[fid].whySeed;
-    t.equal(why("0002").text, "Seed 5: behind Real Deal Creel on Overall record (same All-Play %).");
+    t.equal(why("0002").text, "Seed 5: behind Real Deal Creel on H2H record (same All-Play %).");
     t.equal(why("0002").decidingCriterion, "overall");
     t.deepEqual(why("0002").vsAbove, { franchise_id: "0008", name: "Real Deal Creel", step: "overall" });
     t.equal(why("0005").text, "Seed 3: behind Blake Bombers on All-Play %.");
@@ -455,8 +457,8 @@ test("PART 1 #4 whySeed: the worker's vs_above explains why a team is BELOW its 
   const base = clone(RESP.rows.find((r) => r.franchise_id === "0002"));
   const withAbove = (step, seed) => ({ ...base, playoff_seed: seed == null ? 5 : seed, seed_reason: { ...base.seed_reason, vs_above: { franchise_id: "0008", name: "Real Deal Creel", step } } });
   const txt = (row) => RACE.whySeedForRow(row, RESP.rows, RESP.weeklyScores).text;
-  t.equal(txt(withAbove("points_for")), "Seed 5: behind Real Deal Creel on season Points For (same All-Play % and Overall record).");
-  t.equal(txt(withAbove("head_to_head")), "Seed 5: behind Real Deal Creel on head-to-head (same All-Play %, Overall record and season Points For).");
+  t.equal(txt(withAbove("points_for")), "Seed 5: behind Real Deal Creel on season Points For (same All-Play % and H2H record).");
+  t.equal(txt(withAbove("head_to_head")), "Seed 5: behind Real Deal Creel on the H2H games between them (same All-Play %, H2H record and season Points For).");
   t.equal(txt(withAbove("bye_requires_division_title", 3)), "Seed 3: behind Real Deal Creel. A first-round bye needs a division title.");
   t.ok(/not a league rule/.test(txt(withAbove("name"))));
   const out = clone(RESP.rows.find((r) => r.franchise_id === "0012"));

@@ -580,7 +580,7 @@
     }).join("");
   }
 
-  // ---------- Phase II-A2 — Playoffs mode (mobile A6) ----------
+  // ---------- Playoffs: vertical brackets (Standings v3, #1329) ----------
   // Bracket fetch, cached per year like state.standingsByYear — but a
   // FAILED fetch is never cached as permanent "no data": it's retried
   // automatically after a short cooldown (state.bracketErrorAt), so a
@@ -589,6 +589,7 @@
   state.bracketByYear = state.bracketByYear || {};
   state.bracketLoading = state.bracketLoading || null;
   state.bracketErrorAt = state.bracketErrorAt || {};
+  state.playoffSide = state.playoffSide || "champ"; // "champ" (UPS Playoffs) | "hawk" (Hawk Tuah Bowl) | "seeds"
   var BRACKET_RETRY_COOLDOWN_MS = 20000;
   function loadPlayoffBracketForYear(year) {
     var y = String(year);
@@ -607,11 +608,55 @@
       .then(function () { state.bracketLoading = null; renderRoute(); });
   }
 
-  // Playoff-period / completed-season presentation: real matchup cards
-  // from /api/playoff-bracket, grouped/labeled via the SAME shared
-  // bracket-topology function A5's desktop projected bracket uses
-  // (window.UPS_STANDINGS_RACE.buildActualBracketResult) — not scattered
-  // mobile conditionals.
+  // Tale of the Tape inputs, both lazy (only when a matchup is opened) and free of D1 reads:
+  //  · offensive-player / IDP points: MFL's public leagueStandings (op / dp) through the worker's export proxy;
+  //    seasons before 2017 were other MFL leagues, so they show "not available";
+  //  · head-to-head history of finished seasons: the static site/standings/h2h_history.json.
+  state.offIdpByYear = state.offIdpByYear || {};
+  state.offIdpLoading = state.offIdpLoading || {};
+  function loadOffenseIdp(year) {
+    var y = String(year);
+    if (Object.prototype.hasOwnProperty.call(state.offIdpByYear, y)) return Promise.resolve(state.offIdpByYear[y]);
+    if (state.offIdpLoading[y]) return state.offIdpLoading[y];
+    if (Number(y) < 2017) { state.offIdpByYear[y] = null; return Promise.resolve(null); }
+    state.offIdpLoading[y] = fetch(API.workerUrl("/api/mfl-export?TYPE=leagueStandings&L=74598&YEAR=" + encodeURIComponent(y) + "&JSON=1"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var fr = j && j.leagueStandings && j.leagueStandings.franchise;
+        fr = Array.isArray(fr) ? fr : (fr ? [fr] : null);
+        var map = null;
+        if (fr) { map = {}; fr.forEach(function (f) { if (f && f.id != null) map[U.pad4(f.id)] = { op: f.op, dp: f.dp }; }); }
+        return map;
+      })
+      .catch(function () { return null; })
+      .then(function (m) { state.offIdpByYear[y] = m; delete state.offIdpLoading[y]; return m; });
+    return state.offIdpLoading[y];
+  }
+  function loadH2hHistory() {
+    if (state.h2hHistory !== undefined) return Promise.resolve(state.h2hHistory);
+    if (state._h2hLoading) return state._h2hLoading;
+    state._h2hLoading = fetch("/upsmflproduction/standings/h2h_history.json", { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; })
+      .then(function (j) { state.h2hHistory = j; state._h2hLoading = null; return j; });
+    return state._h2hLoading;
+  }
+
+  // Seeds read 1-6 on the UPS Playoffs side and H1-H6 on the Hawk Tuah Bowl side (overall 7th-12th).
+  function seedText(seed, sideKey) {
+    var n = Number(seed);
+    if (!n) return "";
+    return sideKey === "hawk" || n >= 7 ? "H" + (n - 6) : String(n);
+  }
+  function finishOrd(n) { return ordinal(n); }
+  // What a game decides, from the shared finish/pick table (never a hand-written copy).
+  function decidesLine(sideKey, gameKey) {
+    var slots = (window.UPS_STANDINGS_RACE.BRACKET_FINISH_SLOTS || []).filter(function (s) { return s.side === sideKey && s.game === gameKey; });
+    var w = slots.filter(function (s) { return s.role === "winner"; })[0], l = slots.filter(function (s) { return s.role === "loser"; })[0];
+    if (!w || !l) return "";
+    return "Winner " + finishOrd(w.finish) + " (pick " + w.pick + ") · loser " + finishOrd(l.finish) + " (pick " + l.pick + ")";
+  }
+  // Kept for the desktop-parity wiring tests: the winner/loser pick of one game.
   function pickLabelsForGame(sideKey, gameKey) {
     var slots = (window.UPS_STANDINGS_RACE.BRACKET_FINISH_SLOTS || []).filter(function (s) { return s.side === sideKey && s.game === gameKey; });
     var winnerSlot = slots.filter(function (s) { return s.role === "winner"; })[0];
@@ -619,77 +664,151 @@
     if (!winnerSlot) return null; // R1/semis games don't directly decide a single pick — don't fabricate one
     return "Winner → " + winnerSlot.pick + (loserSlot ? " · Loser → " + loserSlot.pick : "");
   }
-  function matchupCardHtml(game, roundLabel, pickLabel) {
-    function teamHtml(seedEntry, score, isWinner) {
-      if (!seedEntry) return '<div class="ups-m-matchup-team dim">TBD</div>';
-      return '<div class="ups-m-matchup-team' + (isWinner ? " winner" : "") + '">' +
-        '<span class="seed">#' + seedEntry.seed + '</span>' +
-        '<span class="name">' + U.escapeHtml(seedEntry.franchise_name || seedEntry.franchise_id) + '</span>' +
-        '<span class="score">' + (score == null ? "—" : Number(score).toFixed(1)) + '</span>' +
-      '</div>';
-    }
-    var aWin = !!(game.winner && game.a && game.winner.franchise_id === game.a.franchise_id);
-    var bWin = !!(game.winner && game.b && game.winner.franchise_id === game.b.franchise_id);
-    return '<div class="ups-m-matchup-card">' +
-      '<div class="ups-m-matchup-meta">' + U.escapeHtml(roundLabel) + (game.week ? " · Week " + game.week : "") +
-        (game.pending ? ' · <span class="pending">pending</span>' : ' · <span class="final">final</span>') + '</div>' +
-      teamHtml(game.a, game.scoreA, aWin) +
-      teamHtml(game.b, game.scoreB, bWin) +
-      (pickLabel ? '<div class="ups-m-matchup-determines">Determines: ' + U.escapeHtml(pickLabel) + '</div>' : "") +
+  // One team line in a bracket game. kind "projected": no score, "advances (proj.)" on the chalk winner;
+  // kind "actual": the score, "✓ won" on the winner of a decided game.
+  function bkTeamHtml(e, score, isWin, o, src) {
+    if (!e) return '<div class="ups-m-bk-team tbd"><span class="seed"></span><span class="nm">' + U.escapeHtml(src || "To be decided") + '</span></div>';
+    var proj = o.kind === "projected";
+    var you = M.state.viewerFranchiseId && U.pad4(e.franchise_id) === M.state.viewerFranchiseId;
+    return '<div class="ups-m-bk-team' + (isWin ? " win" : "") + (you ? " you" : "") + '">' +
+      '<span class="seed">' + U.escapeHtml(seedText(e.seed, o.sideKey)) + '</span>' +
+      '<span class="nm">' + U.escapeHtml(e.franchise_name || e.franchise_id) + (src ? '<span class="src">' + U.escapeHtml(src) + '</span>' : '') + '</span>' +
+      (proj ? '' : '<span class="sc">' + (score == null ? "—" : Number(score).toFixed(1)) + '</span>') +
+      (isWin ? (proj ? '<span class="adv proj">advances (proj.)</span>' : '<span class="adv">✓ won</span>') : '') +
     '</div>';
   }
-  function renderActualMatchupCards(seeds, matchups, playoffWeeksRaw) {
+  // One bracket game (shared-module game shape). Tapping it, or its Tale of the Tape button, opens the matchup sheet.
+  function bkGameHtml(g, o) {
+    // The better seed is always listed first (the shared module orders a game's two sides by franchise id or by feed).
+    if (g && g.a && g.b && Number(g.b.seed) < Number(g.a.seed)) {
+      g = { a: g.b, b: g.a, scoreA: g.scoreB, scoreB: g.scoreA, winner: g.winner, loser: g.loser, pending: g.pending, projected: g.projected, status: g.status };
+      o = Object.assign({}, o, { srcA: o.srcB, srcB: o.srcA });
+    }
+    var proj = o.kind === "projected";
+    var done = !proj && g && !g.pending;
+    var tag = proj ? '<span class="ups-m-bk-tag proj">Projected</span>' : (done ? '<span class="ups-m-bk-tag final">Final</span>' : '<span class="ups-m-bk-tag">Not final</span>');
+    var aWin = !!(g && g.winner && g.a && g.winner.franchise_id === g.a.franchise_id);
+    var bWin = !!(g && g.winner && g.b && g.winner.franchise_id === g.b.franchise_id);
+    var canTape = !!(g && g.a && g.b);
+    var round = o.title + (o.week ? " · Week " + o.week : "");
+    var attrs = canTape
+      ? ' data-tape-a="' + U.escapeHtml(g.a.franchise_id) + '" data-tape-b="' + U.escapeHtml(g.b.franchise_id) + '" data-tape-side="' + o.sideKey + '"' +
+        ' data-tape-kind="' + (proj ? "projected" : (done ? "final" : "scheduled")) + '" data-tape-round="' + U.escapeHtml(round) + '"' +
+        ' role="button" tabindex="0" aria-label="' + U.escapeHtml(round + ": " + (g.a.franchise_name || g.a.franchise_id) + " vs " + (g.b.franchise_name || g.b.franchise_id) + ". Open the Tale of the Tape") + '"'
+      : '';
+    return '<div class="ups-m-bk-game' + (proj ? " proj" : "") + (o.minor ? " minor" : "") + '"' + attrs + '>' +
+      '<div class="ups-m-bk-meta"><span>' + U.escapeHtml(o.title) + '</span>' + tag + '</div>' +
+      bkTeamHtml(g && g.a, g && g.scoreA, aWin, o, o.srcA) +
+      bkTeamHtml(g && g.b, g && g.scoreB, bWin, o, o.srcB) +
+      ((o.decides || canTape) ? '<div class="ups-m-bk-foot"><span class="decides">' + U.escapeHtml(o.decides || "") + '</span>' +
+        (canTape ? '<button type="button" class="ups-m-bk-tape" tabindex="-1" aria-hidden="true">Tale of the Tape</button>' : '') + '</div>' : '') +
+    '</div>';
+  }
+  function bkRoundHtml(title, week, inner) {
+    return '<section class="ups-m-bk-round"><h3 class="ups-m-bk-rh">' + U.escapeHtml(title) + (week ? ' <span>Week ' + week + '</span>' : '') + '</h3>' + inner + '</section>';
+  }
+  function bkEmpty(text) { return '<div class="ups-m-bk-empty">' + U.escapeHtml(text) + '</div>'; }
+  var BK_ARROW = '<div class="ups-m-bk-arrow" aria-hidden="true">↓ winners advance</div>';
+  function playoffWeeksOf(raw) {
+    return (Array.isArray(raw) && raw.length === 3) ? raw.map(Number).sort(function (a, b) { return a - b; }) : [15, 16, 17];
+  }
+  // One side's bracket, top to bottom: Round 1 (+ byes) → semifinals (+ 5th-place game) → final (+ 3rd-place game).
+  // side = the shared module's { r1, semis, placement, final, third }; byes = the side's top two seeds.
+  function sideBracketHtml(side, sideKey, kind, weeks, byes) {
+    var hawk = sideKey === "hawk", proj = kind === "projected";
+    var w1 = weeks[0], w2 = weeks[1], w3 = weeks[2];
+    var r1 = side.r1 || [], semis = side.semis || [];
+    function feederText(g) { return g && g.a && g.b ? "winner of " + seedText(g.a.seed, sideKey) + " v " + seedText(g.b.seed, sideKey) + " (projected)" : ""; }
+    var r1Html = r1.length ? r1.map(function (g) { return bkGameHtml(g, { kind: kind, sideKey: sideKey, title: "Round 1", week: w1 }); }).join("") : bkEmpty("Round 1 games appear once MFL sets them.");
+    var byeHtml = (byes && byes.length) ? '<div class="ups-m-bk-byes"><b>First-round byes:</b> ' + byes.map(function (e) {
+      return '<span class="seed">' + U.escapeHtml(seedText(e.seed, sideKey)) + '</span> ' + U.escapeHtml(e.franchise_name || e.franchise_id);
+    }).join(" · ") + '</div>' : "";
+    // Projected semifinals: seed 1 meets the winner of 4 v 5, seed 2 the winner of 3 v 6 (the shared chalk bracket).
+    var semiHtml = semis.length ? semis.map(function (g, i) {
+      return bkGameHtml(g, { kind: kind, sideKey: sideKey, title: "Semifinal", week: w2, srcB: proj ? feederText(i === 0 ? r1[1] : r1[0]) : "" });
+    }).join("") : bkEmpty("Set after Week " + w1 + "’s games.");
+    var placeHtml = side.placement ? bkGameHtml(side.placement, { kind: kind, sideKey: sideKey, title: "5th-place game · Round 1 losers", week: w2, minor: true, decides: decidesLine(sideKey, "placement") }) : "";
+    var finalHtml = side.final ? bkGameHtml(side.final, { kind: kind, sideKey: sideKey, title: hawk ? "Hawk Tuah Bowl final" : "Championship", week: w3, decides: decidesLine(sideKey, "final") }) : bkEmpty("Set after Week " + w2 + "’s games.");
+    var thirdHtml = side.third ? bkGameHtml(side.third, { kind: kind, sideKey: sideKey, title: "3rd-place game · semifinal losers", week: w3, minor: true, decides: decidesLine(sideKey, "third") }) : "";
+    return '<div class="ups-m-bk ' + sideKey + '">' +
+      bkRoundHtml("Round 1", w1, r1Html + byeHtml) + BK_ARROW +
+      bkRoundHtml("Semifinals", w2, semiHtml + placeHtml) + BK_ARROW +
+      bkRoundHtml(hawk ? "Final" : "Championship", w3, finalHtml + thirdHtml) +
+    '</div>';
+  }
+  function sideSeeds(seeds, sideKey) {
+    var v = window.UPS_STANDINGS_RACE.validateBracketSeeds(seeds);
+    if (!v.ok) return [];
+    return v.seeds.filter(function (s) { return sideKey === "hawk" ? s.seed >= 7 : s.seed <= 6; }).sort(function (a, b) { return a.seed - b.seed; });
+  }
+  // Real results (playoff weeks under way, or a finished season): only decided games carry a winner; a round MFL
+  // hasn't set yet says so (never a projection drawn over real results).
+  function renderActualMatchupCards(seeds, matchups, playoffWeeksRaw, sideKey, complete) {
     var result = window.UPS_STANDINGS_RACE.buildActualBracketResult(seeds, matchups, playoffWeeksRaw);
     if (result.status !== "ok") {
       return '<div class="ups-m-stub"><div>Playoff bracket data unavailable' + (result.reason ? (": " + U.escapeHtml(result.reason)) : ".") + '</div></div>';
     }
-    function sideHtml(label, side, sideKey) {
-      var cards = [];
-      side.r1.forEach(function (g) { cards.push(matchupCardHtml(g, label + " · Round 1", null)); });
-      side.semis.forEach(function (g) { cards.push(matchupCardHtml(g, label + " · Semifinal", null)); });
-      if (side.placement) cards.push(matchupCardHtml(side.placement, label + " · Placement", pickLabelsForGame(sideKey, "placement")));
-      // F7 (Phase II-A2 correction pass): "Title Game" here, never the
-      // side's own name again — `label` is already "UPS Championship" /
-      // "Hawktuah Bowl", so repeating it produced a literal duplicate
-      // ("Hawktuah Bowl · Hawktuah Bowl") on the real 2025 final card.
-      if (side.final) cards.push(matchupCardHtml(side.final, label + " · Title Game", pickLabelsForGame(sideKey, "final")));
-      if (side.third) cards.push(matchupCardHtml(side.third, label + " · 3rd place", pickLabelsForGame(sideKey, "third")));
-      if (!cards.length) return "";
-      return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(label) + '</div>' + cards.join("") + '</div>';
-    }
-    var html = sideHtml("UPS Championship", result.champ, "champ") + sideHtml("Hawktuah Bowl", result.hawk, "hawk");
-    return html || '<div class="ups-m-stub"><div>No playoff games recorded yet.</div></div>';
+    var side = sideKey === "hawk" ? result.hawk : result.champ;
+    var byes = sideSeeds(seeds, sideKey).slice(0, 2);
+    return '<div class="ups-m-bk-status">' + (complete ? '<b>Final results.</b>' : '<b>Results so far.</b> Later rounds fill in as games are played; nothing here is projected.') + '</div>' +
+      sideBracketHtml(side, sideKey, "actual", playoffWeeksOf(playoffWeeksRaw), byes);
   }
-
   // Projected bracket (A2's chalk helper over the worker's validated seeds; never re-seeded here).
-  function renderProjectedBracket(seeds, bresp) {
+  function renderProjectedBracket(seeds, bresp, sideKey) {
     var R = window.UPS_STANDINGS_RACE;
     var p = R.projectChalkBracket(seeds);
     if (!p || p.status !== "ok") {
       var why = bresp && bresp.seeding_status === "unavailable" ? "the weekly results couldn’t be verified" : (p && p.reason) || "no seeds yet";
       return '<div class="ups-m-stub" role="alert"><div>Projected bracket unavailable: ' + U.escapeHtml(why) + '.</div></div>';
     }
-    function team(e) { return e ? '<span class="seed">#' + e.seed + '</span> ' + U.escapeHtml(e.franchise_name || e.franchise_id) : "TBD"; }
-    function side(label, s, sideKey, byeNote) {
-      var r1 = s.r1.map(function (g) { return '<li>' + team(g.a) + ' <span class="vs">vs</span> ' + team(g.b) + '</li>'; }).join("");
-      var byes = s.semis.map(function (g) { return team(g.a); }).join(" and ");
-      var place = pickLabelsForGame(sideKey, "placement");
-      return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(label) + ' · projected</div>' +
-        '<div class="sub">Round 1 (first playoff week)</div><ul class="ups-m-proj-games">' + r1 + '</ul>' +
-        '<div class="sub">' + U.escapeHtml(byeNote) + ': ' + byes + '</div>' +
-        (place ? '<div class="sub">Round 1 losers play each other next week · ' + U.escapeHtml(place) + '</div>' : "") + '</div>';
+    var side = sideKey === "hawk" ? p.hawk : p.champ;
+    return '<div class="ups-m-bk-status proj"><b>If the season ended today.</b> Projection: the higher seed wins every game. Nothing here is decided until it’s played.</div>' +
+      sideBracketHtml(side, sideKey, "projected", playoffWeeksOf(bresp && bresp.playoff_weeks), side.semis.map(function (g) { return g.a; }));
+  }
+  // The Hawk Tuah Bowl's own seeds, order and tiebreaks, above its bracket.
+  function hawkIntroHtml(seeds, y, recorded) {
+    var list = sideSeeds(seeds, "hawk");
+    var raw = {};
+    (seeds || []).forEach(function (s) { if (s && s.franchise_id != null) raw[U.pad4(s.franchise_id)] = s; });
+    var lis = list.map(function (s) {
+      var r = raw[s.franchise_id] || {};
+      var ap = r.regular_season && r.regular_season.all_play;
+      var va = r.seed_reason && r.seed_reason.vs_above;
+      var tie = (!recorded && va && va.step && va.step !== "all_play" && s.seed > 7) ? ' <span class="why">behind ' + U.escapeHtml(va.name || "") + ': ' + U.escapeHtml(STEP_WORDS[va.step] || va.step) + '</span>' : '';
+      return '<li><span class="seed">' + seedText(s.seed, "hawk") + '</span> ' + U.escapeHtml(s.franchise_name) + (ap ? ' <span class="sub">' + recStr(ap) + ' AP</span>' : '') + tie + '</li>';
+    }).join("");
+    return '<div class="ups-m-card ups-m-hawk-intro"><div class="ups-m-card-title">Hawk Tuah Bowl <span class="sub">· the toilet bowl</span></div>' +
+      '<div class="line">' + (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then H2H record, then Points For.') +
+        ' H1 and H2 get a first-round bye. The winner finishes 7th and picks 1.01 in the ' + (Number(y) + 1) + ' rookie draft.</div>' +
+      (lis ? '<ol class="ups-m-hawk-seeds">' + lis + '</ol>' : '') + '</div>';
+  }
+  // The compact Seeds option of the Playoffs view: 1-12 in order, each with its seed explanation.
+  function playoffSeedsListHtml(bresp, resp, recorded) {
+    var R = RACE();
+    var rr = (!recorded && resp && R) ? raceFor(resp) : null;
+    var v = window.UPS_STANDINGS_RACE.validateBracketSeeds(bresp.seeds || []);
+    if (!v.ok) return '<div class="ups-m-stub"><div>Seeds unavailable.</div></div>';
+    var lis = v.seeds.slice().sort(function (a, b) { return a.seed - b.seed; }).map(function (s) {
+      var why = rr && rr.byFranchise[s.franchise_id] && rr.byFranchise[s.franchise_id].whySeed;
+      var txt = recorded ? "Recorded seed (MFL’s bracket)." : (why && !why.blocked ? why.text : "");
+      return '<li class="' + (s.seed >= 7 ? "hawk" : "") + '"><span class="seed">' + seedText(s.seed) + '</span><div><div class="nm">' + U.escapeHtml(s.franchise_name) + '</div>' +
+        (txt ? '<div class="why">' + U.escapeHtml(txt) + '</div>' : '') + '</div></li>' +
+        (s.seed === 6 ? '<li class="line">Playoff line · H1–H6 play the Hawk Tuah Bowl</li>' : '');
+    }).join("");
+    return '<div class="ups-m-card"><div class="ups-m-card-title">' + (recorded ? "Recorded seeds" : "Seeds and why") + '</div><ol class="ups-m-seed-why">' + lis + '</ol></div>';
+  }
+  function renderPlayoffSideToggle(side) {
+    function b(key, label) {
+      return '<button type="button" class="ups-m-seg' + (key === side ? " active" : "") + '" aria-pressed="' + (key === side) + '" data-po-side="' + key + '">' + label + '</button>';
     }
-    return '<div class="ups-m-card ups-m-standings-summary"><div class="line"><b>If the season ended today.</b> Projection: the higher seed wins every game. Seeds come from Seeds; nothing here is final until the games are played.</div></div>' +
-      side("UPS Championship", p.champ, "champ", "Byes (straight to the semifinals)") +
-      side("Hawktuah Bowl", p.hawk, "hawk", "Byes") +
-      '<div class="ups-m-standings-legend">Draft order from the finish: Hawktuah Bowl champion 1.01 … 6th 1.08 (5th-place game winner 1.07) … champion 1.12.</div>';
+    return '<div class="ups-m-segs" role="group" aria-label="Bracket">' + b("champ", "UPS Playoffs") + b("hawk", "Hawk Tuah Bowl") + b("seeds", "Seeds") + '</div>';
   }
 
-  // Top-level Playoffs-mode render — loading / actual-cards / projected-
-  // groups / unavailable are FOUR distinct, textually-distinguishable
-  // states (never a false empty picture while the fetch is in flight,
-  // and a failed fetch is never indistinguishable from a legitimately
-  // empty bracket — see loadPlayoffBracketForYear's cooldown-retry above).
+  // Top-level Playoffs-mode render — loading / actual / projected /
+  // unavailable are FOUR distinct, textually-distinguishable states (never a
+  // false empty picture while the fetch is in flight, and a failed fetch is
+  // never indistinguishable from a legitimately empty bracket — see
+  // loadPlayoffBracketForYear's cooldown-retry above).
   function renderPlayoffsMode(mount, year, y) {
     if (!state.bracketByYear[y] && state.bracketLoading !== y) loadPlayoffBracketForYear(year);
     var shell = standingsShell(year, y, "playoffs");
@@ -711,35 +830,70 @@
     }
     var seeds = bresp.seeds || [];
     var matchups = bresp.matchups || [];
+    var side = state.playoffSide;
     // F9 (Phase II-A2 correction pass): the SAME shared gating decision
     // desktop's renderBracket()/renderDraftOrder() use — never a mobile-
     // local "matchups.length / !season_complete" conditional pair.
     var mode = window.UPS_STANDINGS_RACE.projectionMode({ seasonComplete: bresp.season_complete, matchups: matchups, seeds: seeds });
+    var recorded = bresp.season_complete === true;
     var body;
-    if (mode === "actual") {
-      body = renderActualMatchupCards(seeds, matchups, bresp.playoff_weeks);
+    if (side === "seeds") {
+      body = (mode === "unavailable" && !seeds.length) ? '<div class="ups-m-stub"><div>No seeds for ' + U.escapeHtml(y) + '.</div></div>' : playoffSeedsListHtml(bresp, state.standingsByYear[y], recorded);
+    } else if (mode === "actual") {
+      body = (side === "hawk" ? hawkIntroHtml(seeds, y, recorded) : "") + renderActualMatchupCards(seeds, matchups, bresp.playoff_weeks, side, recorded);
     } else if (mode === "projected") {
-      // In season the seed list already lives in Seeds; here the owner sees the BRACKET those seeds make, if the
-      // season ended today (higher seed wins every game -- a projection, labeled as one), and what each game decides.
-      body = renderProjectedBracket(seeds, bresp);
+      // In season: the bracket the worker's seeds make if the season ended today (higher seed wins every game, labeled
+      // as a projection) and what each game decides.
+      body = (side === "hawk" ? hawkIntroHtml(seeds, y, false) : "") + renderProjectedBracket(seeds, bresp, side);
     } else {
       body = '<div class="ups-m-stub"><div>No playoff data for ' + U.escapeHtml(y) + '.</div></div>';
     }
-    mount.innerHTML = shell + body;
+    mount.innerHTML = shell + renderPlayoffSideToggle(side) + body;
     bindYearPicker(mount);
     bindStandingsModeToggle(mount);
-    // Playoff-group rows can open the same A1 team sheet as League mode —
-    // never a separate/duplicated team-detail surface.
-    Array.prototype.forEach.call(mount.querySelectorAll(".ups-m-playoff-row[data-fid]"), function (rowEl) {
-      var openSheet = function () {
-        var stdResp2 = state.standingsByYear[y];
-        if (stdResp2) openTeam(rowEl.getAttribute("data-fid"), stdResp2, year, rowEl);
+    Array.prototype.forEach.call(mount.querySelectorAll("[data-po-side]"), function (b) {
+      b.addEventListener("click", function () { state.playoffSide = b.getAttribute("data-po-side"); renderRoute(); });
+    });
+    bindTapeGames(mount, year, y);
+  }
+
+  // ── Tale of the Tape (a full-width sheet over the bracket) ──
+  function bindTapeGames(mount, year, y) {
+    Array.prototype.forEach.call(mount.querySelectorAll("[data-tape-a]"), function (el) {
+      var go = function () {
+        openTape(y, el.getAttribute("data-tape-a"), el.getAttribute("data-tape-b"), {
+          side: el.getAttribute("data-tape-side"), kind: el.getAttribute("data-tape-kind"), round: el.getAttribute("data-tape-round")
+        }, el);
       };
-      rowEl.addEventListener("click", openSheet);
-      rowEl.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); openSheet(); }
+      el.addEventListener("click", go);
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); go(); }
       });
     });
+  }
+  var tapeToken = 0;
+  function openTape(y, aFid, bFid, meta, trigger) {
+    var R = RACE(), resp = state.standingsByYear[y];
+    if (!R || !R.matchupTape || !resp || !M.standingsSheet) return;
+    var token = ++tapeToken;
+    var by = rowByFid(resp.rows);
+    var seedOf = {};
+    ((state.bracketByYear[y] || {}).seeds || []).forEach(function (s) { if (s) seedOf[U.pad4(s.franchise_id)] = s.seed; });
+    var a = U.pad4(aFid), b = U.pad4(bFid);
+    var ownerA = (by[a] && by[a].owner_name) || "", ownerB = (by[b] && by[b].owner_name) || "";
+    function body() {
+      var t = R.matchupTape(resp, a, b, { offenseIdp: state.offIdpByYear[y] || null });
+      var hist = state.h2hHistory;
+      var current = (hist && t.status === "ok" && Number(y) > Number(hist.through_season))
+        ? { season: Number(y), games: t.meetings.map(function (g) { return { week: g.week, isPlayoff: g.isPlayoff, aScore: g.aScore, bScore: g.bScore }; }) } : null;
+      var series = hist === undefined ? { status: "loading" } : R.ownerSeries(hist, ownerA, ownerB, { current: current });
+      return M.standingsSheet.tapeHtml(t, {
+        kind: meta.kind, roundLabel: meta.round, aSeed: seedText(seedOf[a], meta.side), bSeed: seedText(seedOf[b], meta.side),
+        aOwner: ownerA, bOwner: ownerB, series: series, offenseIdpLoading: !Object.prototype.hasOwnProperty.call(state.offIdpByYear, String(y))
+      });
+    }
+    M.standingsSheet.open({ title: "Tale of the Tape", sub: nm(by[a]) + " vs " + nm(by[b]), body: body(), trigger: trigger });
+    Promise.all([loadOffenseIdp(y), loadH2hHistory()]).then(function () { if (token === tapeToken) M.standingsSheet.setBody(body()); });
   }
 
   // ---------- Standings v3 (2026-10-17, #1329) ----------
@@ -749,16 +903,16 @@
   var RACE = function () { return window.UPS_STANDINGS_RACE || null; };
   var STEP_WORDS = {
     all_play: "a better All-Play %",
-    overall: "a better record",
+    overall: "a better H2H record",
     points_for: "more Points For",
-    head_to_head: "the head-to-head games between them",
+    head_to_head: "the H2H games between them",
     name: "a tie on every step (listed alphabetically)",
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
     division_winner_in_field: "division winners are in the field"
   };
   var DIV_STEP_WORDS = {
-    PCT: "a better record", DIVPCT: "a better division record", H2H: "the head-to-head games between them",
+    PCT: "a better H2H record", DIVPCT: "a better division record", H2H: "the H2H games between them",
     PTS: "more Points For", ALL_PLAY_PCT: "a better All-Play %", name: "a tie on every step",
     name_after_pwr_unavailable: "a tie on every step MFL publishes"
   };
@@ -841,6 +995,67 @@
     });
   }
 
+  // ── Explanations live in drawers, opened from compact buttons at the top of each view ──
+  function infoButtonsHtml(keys) {
+    return '<div class="ups-m-info-row">' + keys.map(function (k) {
+      return '<button type="button" class="ups-m-info-btn" data-info="' + k[0] + '" aria-haspopup="dialog">' + U.escapeHtml(k[1]) + '</button>';
+    }).join("") + '</div>';
+  }
+  function bindInfoButtons(mount, contentFor) {
+    Array.prototype.forEach.call(mount.querySelectorAll("[data-info]"), function (b) {
+      b.addEventListener("click", function () {
+        var c = contentFor(b.getAttribute("data-info"));
+        if (c && M.standingsSheet) M.standingsSheet.open({ title: c.title, body: c.body, trigger: b });
+      });
+    });
+  }
+  function howSeedingHtml() {
+    return '<ol class="ups-m-drawer-list">' +
+      '<li>The four division winners make the playoffs. A division is won on H2H record, then division record, then the H2H games between the tied teams (MFL’s order).</li>' +
+      '<li>The two best division winners are seeds 1 and 2 and get a first-round bye.</li>' +
+      '<li>Seeds 3–6 are the other two division winners and the two best other teams (wild cards), in ladder order.</li>' +
+      '<li>Ladder: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Only regular-season weeks count.</li>' +
+      '<li>The other six teams play the Hawk Tuah Bowl (the toilet bowl), seeded H1–H6 in standings order. H1 and H2 get a first-round bye.</li>' +
+      '</ol>' +
+      '<div class="ups-m-drawer-p"><b>Draft order comes from the final finish.</b> Hawk Tuah Bowl champion (7th) 1.01 · 8th 1.02 · 9th 1.03 · 10th 1.04 · 11th 1.05 · 12th 1.06 · 5th-place game winner (5th) 1.07 · its loser (6th) 1.08 · 4th 1.09 · 3rd 1.10 · runner-up 1.11 · champion 1.12.</div>' +
+      '<div class="ups-m-drawer-p sub">All-Play = your score against all 11 other teams every week (11 results a week). League rule §F.1.</div>';
+  }
+  function aboutSeedsHtml(final) {
+    return '<dl class="ups-m-drawer-dl">' +
+      '<dt>AP%</dt><dd>All-Play %: the share of the other 11 teams you outscored, every regular-season week.</dd>' +
+      '<dt>H2H</dt><dd>Head-to-head record: your games against your scheduled opponents (two or three a week).</dd>' +
+      '<dt>Back</dt><dd>All-Play wins behind the 6th seed (ties count half).</dd>' +
+      '<dt>▲▼</dt><dd>Places gained or lost since last week.</dd>' +
+      '<dt>BYE · DIV · WC</dt><dd>First-round bye · division winner · wild card.' + (final ? '' : ' “proj” = where a team would be if the season ended today.') + '</dd>' +
+      '<dt>H1–H6</dt><dd>Hawk Tuah Bowl seed (7th–12th).</dd>' +
+      '</dl><div class="ups-m-drawer-p sub">Final MFL scores only. MFL can change a score with a stat correction. Tap a team for its details.</div>';
+  }
+  // Every place in the order that a tiebreak (not All-Play %) decided, the next team out, and the byes.
+  function whyOrderHtml(resp, rows) {
+    var by = rowByFid(rows);
+    var lines = [];
+    var seeded = rows.filter(function (r) { return r.playoff_seed != null; }).sort(function (a, b) { return a.playoff_seed - b.playoff_seed; });
+    var final = seasonState(resp) !== "in_season";
+    if (seeded.length >= 2) lines.push('<b>' + (final ? "Byes:" : "Byes if the season ended today:") + '</b> ' + U.escapeHtml(seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm).join(" and ")) + ' (the two best division winners).');
+    var rs = resp.regular_season || {};
+    var out = rs.next_out ? by[U.pad4(rs.next_out)] : null;
+    if (out && seeded[5] && !final) lines.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (out.ap_back != null ? ", " + U.escapeHtml(String(out.ap_back)) + " All-Play win" + (out.ap_back === 1 ? "" : "s") + " behind " + U.escapeHtml(nm(seeded[5])) + " (6th)" : "") + '.');
+    var ties = [];
+    rows.forEach(function (r) {
+      var va = r.seed_reason && r.seed_reason.vs_above;
+      if (!va || !va.step || va.step === "all_play") return;
+      var up = by[U.pad4(va.franchise_id)];
+      if (!up) return;
+      var rr = regRec(r), ru = regRec(up), detail = "";
+      if (va.step === "overall" && rr && ru) detail = "(" + recStr(ru.record) + " vs " + recStr(rr.record) + ")";
+      if (va.step === "points_for" && rr && ru) detail = "(" + fmtPts(ru.points_for) + " vs " + fmtPts(rr.points_for) + ")";
+      var same = va.step === "overall" || va.step === "points_for" || va.step === "head_to_head" ? "same All-Play, " : "";
+      ties.push('<li>' + U.escapeHtml(nm(up)) + " over " + U.escapeHtml(nm(r)) + ": " + same + U.escapeHtml(STEP_WORDS[va.step] || va.step) + (detail ? " " + U.escapeHtml(detail) : "") + '.</li>');
+    });
+    lines.push(ties.length ? '<b>Decided by a tiebreak:</b><ul class="ups-m-drawer-list">' + ties.join("") + '</ul>' : '<b>Tiebreaks:</b> none — every place is decided by All-Play %.');
+    return lines.map(function (l) { return '<div class="ups-m-drawer-p">' + l + '</div>'; }).join("");
+  }
+
   function renderStandings(mount) {
     if (!state.championsByYear && !state._championsLoading) loadChampions();
     if (!state.finalFinishByYear && !state._finalFinishLoading) loadFinalFinishes();
@@ -872,52 +1087,42 @@
   }
 
   // ── Seeds (in season) ──
-  function summaryCardHtml(resp, rows) {
+  // Facts that stay on the page: the byes and the next team out. Everything explanatory is in a drawer.
+  function factsHtml(resp, rows) {
     var by = rowByFid(rows);
     var seeded = rows.filter(function (r) { return r.playoff_seed != null; }).sort(function (a, b) { return a.playoff_seed - b.playoff_seed; });
     if (seeded.length < 6) return "";
     var final = seasonState(resp) !== "in_season";
-    var lines = [];
-    var byes = seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm);
-    lines.push('<b>' + (final ? "Byes:" : "If the season ended today, byes:") + '</b> ' + U.escapeHtml(byes.join(" and ")) + ".");
     var rs = resp.regular_season || {};
     var out = rs.next_out ? by[U.pad4(rs.next_out)] : null;
-    var sixth = seeded[5];
-    if (out && sixth && !final) {
-      var back = out.ap_back;
-      lines.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (back != null ? ", " + U.escapeHtml(String(back)) + " All-Play win" + (back === 1 ? "" : "s") + " behind " + U.escapeHtml(nm(sixth)) + " (6th)" : "") + ".");
-    }
-    // Ties that decided a place: show the step whenever it wasn't All-Play (that's the "why is he ahead?" question).
-    var ties = [];
-    rows.forEach(function (r) {
-      var va = r.seed_reason && r.seed_reason.vs_above;
-      if (!va || !va.step || va.step === "all_play") return;
-      var up = by[U.pad4(va.franchise_id)];
-      if (!up) return;
-      var rr = regRec(r), ru = regRec(up);
-      var detail = "";
-      if (va.step === "overall" && rr && ru) detail = "(" + recStr(ru.record) + " vs " + recStr(rr.record) + ")";
-      if (va.step === "points_for" && rr && ru) detail = "(" + fmtPts(ru.points_for) + " vs " + fmtPts(rr.points_for) + ")";
-      var same = va.step === "overall" || va.step === "points_for" || va.step === "head_to_head" ? "same All-Play, " : "";
-      ties.push(U.escapeHtml(nm(up)) + " over " + U.escapeHtml(nm(r)) + ": " + same + U.escapeHtml(STEP_WORDS[va.step] || va.step) + (detail ? " " + U.escapeHtml(detail) : "") + ".");
-    });
-    if (ties.length) lines.push('<b>Tiebreak' + (ties.length > 1 ? "s" : "") + ':</b> ' + ties.slice(0, 3).join(" "));
-    return '<div class="ups-m-card ups-m-standings-summary">' + lines.map(function (l) { return '<div class="line">' + l + '</div>'; }).join("") + '</div>';
+    var bits = ['<b>Byes:</b> ' + U.escapeHtml(seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm).join(" and "))];
+    if (out && !final) bits.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (out.ap_back != null ? ", " + U.escapeHtml(String(out.ap_back)) + " AP win" + (out.ap_back === 1 ? "" : "s") + " back" : ""));
+    return '<div class="ups-m-facts">' + bits.join(' · ') + '</div>';
   }
-  function howSeedsWorkHtml() {
-    return '<details class="ups-m-how"><summary>How seeds work</summary><ol>' +
-      '<li>The four division winners make the playoffs. Division winners are decided by record, then division record, then head-to-head (MFL’s order).</li>' +
-      '<li>The two best division winners get seeds 1 and 2 and a first-round bye.</li>' +
-      '<li>The other two division winners and the two best other teams (wild cards) are seeds 3-6, in ladder order.</li>' +
-      '<li>Ladder: All-Play %, then record, then Points For, then head-to-head among the tied teams. Only regular-season weeks count.</li>' +
-      '</ol><div class="sub">All-Play = your score against all 11 other teams every week (11 games a week). Seeds 7-12 play the Hawktuah Bowl; finish 7 picks 1.01.</div></details>';
+  function bindSeedsInfo(mount, resp, rows, final) {
+    bindInfoButtons(mount, function (k) {
+      if (k === "how") return { title: "How seeding works", body: howSeedingHtml() };
+      if (k === "why") return { title: "Why this order", body: whyOrderHtml(resp, rows) };
+      if (k === "about") return { title: "About the seeds table", body: aboutSeedsHtml(final) };
+      return null;
+    });
+  }
+  function bindJumps(mount) {
+    Array.prototype.forEach.call(mount.querySelectorAll("[data-jump-side]"), function (b) {
+      b.addEventListener("click", function () {
+        state.standingsMode = "playoffs";
+        state.playoffSide = b.getAttribute("data-jump-side");
+        renderRoute();
+      });
+    });
   }
   function renderSeedsMode(mount, year, y, resp) {
     var rows = (resp.rows || []).slice();
     var shell = standingsShell(year, y, "seeds");
+    var info = infoButtonsHtml([["how", "How seeding works"], ["why", "Why this order"], ["about", "About"]]);
     if (resp.preseason || resp.standings_basis === "preseason") {
-      mount.innerHTML = shell + '<div class="ups-m-stub"><div>No games played yet. Seeds start after Week 1.</div></div>' + howSeedsWorkHtml();
-      bindShell(mount);
+      mount.innerHTML = shell + info + '<div class="ups-m-stub"><div>No games played yet. Seeds start after Week 1.</div></div>';
+      bindShell(mount); bindSeedsInfo(mount, resp, rows, false);
       return;
     }
     if (resp.standings_basis === "unavailable") {
@@ -931,31 +1136,34 @@
     }
     var final = seasonState(resp) !== "in_season";
     var trs = [];
-    rows.forEach(function (r) {
+    rows.forEach(function (r, i) {
       var fid = U.pad4(r.franchise_id);
       var reg = regRec(r);
       var st = RACE() ? RACE().statusForRow(r) : null;
       var you = M.state.viewerFranchiseId && fid === M.state.viewerFranchiseId;
       var ap = reg ? reg.all_play : { w: r.allplay_w, l: r.allplay_l, t: r.allplay_t, pct: r.allplay_pct };
       var rec = reg ? reg.record : { w: r.h2h_w, l: r.h2h_l, t: r.h2h_t };
-      trs.push('<tr class="race-row' + (you ? " you-row" : "") + '" data-fid="' + fid + '" tabindex="0" role="button" aria-label="' + U.escapeHtml(nm(r)) + ' details">' +
-        '<td class="rank">' + (r.playoff_seed != null ? r.playoff_seed : "—") + '</td>' +
+      // Rows arrive in the worker's order: seeds 1-6, then the Hawk Tuah Bowl seeds H1-H6 (7th-12th).
+      var seedCell = r.playoff_seed != null ? String(r.playoff_seed) : (i >= 6 && i < 12 ? "H" + (i - 5) : "—");
+      trs.push('<tr class="race-row' + (you ? " you-row" : "") + (r.playoff_seed == null ? " hawk-row" : "") + '" data-fid="' + fid + '" tabindex="0" role="button" aria-label="' + U.escapeHtml(nm(r)) + ' details">' +
+        '<td class="rank">' + seedCell + '</td>' +
         '<td class="team"><span class="name-text">' + U.escapeHtml(nm(r)) + '</span>' + moveHtml(r) + statusChipHtml(st, !final) + '</td>' +
         '<td class="num">' + fmtPct(ap.pct) + '</td>' +
         '<td class="num">' + recStr(rec) + '</td>' +
         '<td class="num">' + (r.ap_back == null ? "—" : U.escapeHtml(String(r.ap_back))) + '</td>' +
       '</tr>');
       if (Number(r.playoff_seed) === 2) trs.push('<tr class="seed-divider"><td colspan="5">First-round byes above</td></tr>');
-      if (Number(r.playoff_seed) === 6) trs.push('<tr class="seed-divider hawk-divider"><td colspan="5">Playoff line · 7-12 play the Hawktuah Bowl</td></tr>');
+      if (Number(r.playoff_seed) === 6) trs.push('<tr class="seed-divider hawk-divider"><td colspan="5">Playoff line · H1–H6 play the Hawk Tuah Bowl</td></tr>');
     });
-    var legend = 'AP% = All-Play % (your score vs all 11 others, every week) · W-L = record · Back = All-Play wins behind the 6th seed · ▲▼ = since last week' +
-      (final ? '' : ' · BYE / DIV / WC say where a team would be if the season ended today') + ' · tap a team for details';
-    mount.innerHTML = shell + summaryCardHtml(resp, rows) +
+    var jumps = '<div class="ups-m-jumps"><button type="button" class="ups-m-jump" data-jump-side="champ">Playoff bracket</button>' +
+      '<button type="button" class="ups-m-jump hawk" data-jump-side="hawk">Hawk Tuah Bowl</button></div>';
+    mount.innerHTML = shell + info + jumps +
       '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(y) + (final ? ' · final seeds' : ' · seeds if the season ended today') + '</div>' +
-      '<table class="ups-m-standings-table ups-m-seeds-table"><thead><tr><th>Seed</th><th class="team">Team</th><th class="num">AP%</th><th class="num">W-L</th><th class="num">Back</th></tr></thead>' +
-      '<tbody>' + trs.join("") + '</tbody></table>' +
-      '<div class="ups-m-standings-legend">' + U.escapeHtml(legend) + '</div></div>' + howSeedsWorkHtml();
+      '<table class="ups-m-standings-table ups-m-seeds-table"><thead><tr><th>Seed</th><th class="team">Team</th><th class="num">AP%</th><th class="num">H2H</th><th class="num">Back</th></tr></thead>' +
+      '<tbody>' + trs.join("") + '</tbody></table>' + factsHtml(resp, rows) + '</div>';
     bindShell(mount);
+    bindSeedsInfo(mount, resp, rows, final);
+    bindJumps(mount);
     bindTeamRows(mount, "tr.race-row[data-fid]", resp, year);
   }
 
@@ -979,7 +1187,7 @@
       var f = finishes[fid] || 0;
       var champ = isChampion(r, year) || f === 1;
       var you = M.state.viewerFranchiseId && fid === M.state.viewerFranchiseId;
-      var badge = (champ ? '<span class="div-crown" title="Champion">🏆</span> ' : "") + (f === 7 && Number(y) >= 2011 ? '<span class="div-crown" title="Hawktuah Bowl champion">🚽</span> ' : "");
+      var badge = (champ ? '<span class="div-crown" title="Champion">🏆</span> ' : "") + (f === 7 && Number(y) >= 2011 ? '<span class="div-crown" title="Hawk Tuah Bowl champion">🚽</span> ' : "");
       return '<tr class="' + (champ ? "champion" : "") + (you ? " you-row" : "") + (r.is_division_leader ? " div-winner" : "") + '">' +
         '<td class="rank">' + (f || "—") + '</td>' +
         '<td class="team">' + badge + U.escapeHtml(nm(r)) + (r.is_division_leader ? ' <span class="ups-m-div-tag">DIV</span>' : "") + '</td>' +
@@ -991,12 +1199,20 @@
     var era = Number(y) <= 2013
       ? '2010-2013 used different playoff formats (2011-2013: conference brackets), so the recorded regular-season rank isn’t shown as a seed.'
       : 'Seed = the recorded regular-season seed.';
-    mount.innerHTML = shell +
+    mount.innerHTML = shell + infoButtonsHtml([["about", "About"]]) +
       '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(y) + ' · final standings</div>' +
-      '<table class="ups-m-standings-table"><thead><tr><th>Fin</th><th class="team">Team</th>' + (showSeed ? '<th class="num">Seed</th>' : "") + '<th class="num">W-L</th><th class="num">AP%</th></tr></thead>' +
+      '<table class="ups-m-standings-table"><thead><tr><th>Fin</th><th class="team">Team</th>' + (showSeed ? '<th class="num">Seed</th>' : "") + '<th class="num">H2H</th><th class="num">AP%</th></tr></thead>' +
       '<tbody>' + trs + '</tbody></table>' +
-      '<div class="ups-m-standings-legend">Fin = place after the playoffs (1 champion · 7 Hawktuah Bowl champion) · DIV = division winner · ' + U.escapeHtml(era) + ' Recorded final standings.</div></div>';
+      '<div class="ups-m-facts">Recorded final standings.</div></div>';
     bindShell(mount);
+    bindInfoButtons(mount, function () {
+      return { title: "About final standings", body: '<dl class="ups-m-drawer-dl">' +
+        '<dt>Fin</dt><dd>Place after the playoffs: 1 champion · 7 Hawk Tuah Bowl champion (🚽).</dd>' +
+        '<dt>Seed</dt><dd>' + U.escapeHtml(era) + '</dd>' +
+        '<dt>H2H · AP%</dt><dd>The recorded regular-season head-to-head record and All-Play %.</dd>' +
+        '<dt>DIV</dt><dd>Division winner.</dd></dl>' +
+        '<div class="ups-m-drawer-p sub">These are the stored results. Corrections found in the #1329 history audit are waiting on the commissioner’s ruling.</div>' };
+    });
   }
 
   // ── Divisions ──
@@ -1040,7 +1256,7 @@
           '<td class="num">' + fmtPct(reg ? reg.all_play.pct : r.allplay_pct) + '</td>' +
         '</tr>';
       }).join("");
-      // One reason line when a tie (not plain record) decided an order inside the division.
+      // One reason line when a tie (not plain H2H record) decided an order inside the division.
       var reasons = [];
       if (inSeason) d.teams.forEach(function (r) {
         var vb = r.division_reason && r.division_reason.vs_below;
@@ -1049,47 +1265,71 @@
         if (!below) return;
         var a = regRec(r), b = regRec(below);
         var det = vb.step === "DIVPCT" && a && b ? "(" + recStr(a.division) + " vs " + recStr(b.division) + ")" : "";
-        reasons.push(U.escapeHtml(nm(r)) + " over " + U.escapeHtml(nm(below)) + ": same record, " + U.escapeHtml(DIV_STEP_WORDS[vb.step] || vb.step) + (det ? " " + U.escapeHtml(det) : "") + ".");
+        reasons.push(U.escapeHtml(nm(r)) + " over " + U.escapeHtml(nm(below)) + ": same H2H record, " + U.escapeHtml(DIV_STEP_WORDS[vb.step] || vb.step) + (det ? " " + U.escapeHtml(det) : "") + ".");
       });
       return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(d.name) + '</div>' +
-        '<table class="ups-m-standings-table"><thead><tr><th class="team">Team</th><th class="num">W-L</th><th class="num">Div</th><th class="num">GB</th><th class="num">AP%</th></tr></thead><tbody>' + trs + '</tbody></table>' +
-        (reasons.length ? '<div class="ups-m-standings-legend">' + reasons.join(" ") + '</div>' : "") + '</div>';
+        '<table class="ups-m-standings-table"><thead><tr><th class="team">Team</th><th class="num">H2H</th><th class="num">Div</th><th class="num">GB</th><th class="num">AP%</th></tr></thead><tbody>' + trs + '</tbody></table>' +
+        (reasons.length ? '<div class="ups-m-facts">' + reasons.join(" ") + '</div>' : "") + '</div>';
     }).join("");
-    mount.innerHTML = shell + (unavailable ? '<div class="ups-m-stub" role="alert"><div>Division order unavailable: the weekly results couldn’t be verified.</div></div>' : "") + cards +
-      '<div class="ups-m-standings-legend">Div = record against the two division rivals (each played five times) · GB = games behind the division leader · Order = record, then division record, then head-to-head (MFL’s rule)</div>';
+    mount.innerHTML = shell + infoButtonsHtml([["about", "About divisions"]]) + (unavailable ? '<div class="ups-m-stub" role="alert"><div>Division order unavailable: the weekly results couldn’t be verified.</div></div>' : "") + cards;
     bindShell(mount);
+    bindInfoButtons(mount, function () {
+      return { title: "About divisions", body: '<dl class="ups-m-drawer-dl">' +
+        '<dt>H2H</dt><dd>Head-to-head record.</dd>' +
+        '<dt>Div</dt><dd>H2H record against the two division rivals (each played five times).</dd>' +
+        '<dt>GB</dt><dd>H2H games behind the division leader.</dd>' +
+        '<dt>Order</dt><dd>H2H record, then division record, then the H2H games between the tied teams (MFL’s rule).</dd>' +
+        '<dt>LEADS · WON</dt><dd>Division leader now · division winner (season over).</dd></dl>' };
+    });
     bindTeamRows(mount, "tr.race-row[data-fid]", resp, year);
   }
 
   // ── Weekly ──
+  function aboutWeeklyHtml() {
+    return '<dl class="ups-m-drawer-dl">' +
+      '<dt>Rk</dt><dd>Scoring rank that week (1 = highest; ties share a rank).</dd>' +
+      '<dt>Pts</dt><dd>MFL’s final score for the week. A stat correction can change it.</dd>' +
+      '<dt>Wk AP</dt><dd>That week’s All-Play record: your score against all 11 other teams.</dd>' +
+      '<dt>H2H</dt><dd>Head-to-head record that week (two or three games a week).</dd>' +
+      '<dt>Top score</dt><dd>The week’s highest score and its margin over the second-highest.</dd>' +
+      '<dt>Season summary</dt><dd>Top = weeks with the top score · Top 3 / Bot 3 = weeks among the three highest / lowest scores · Avg rk = average weekly scoring rank. Regular-season and playoff weeks are counted separately.</dd>' +
+      '</dl>';
+  }
   function renderWeeklyMode(mount, year, y, resp) {
-    var shell = standingsShell(year, y, "weekly");
+    var shell = standingsShell(year, y, "weekly") + infoButtonsHtml([["weekly", "About weekly"]]);
     var R = RACE();
+    var bindAbout = function () { bindInfoButtons(mount, function () { return { title: "About weekly", body: aboutWeeklyHtml() }; }); };
     if (!R || !R.weekTable || !R.completedWeeks) {
       mount.innerHTML = shell + '<div class="ups-m-stub"><div>Weekly results unavailable (shared module not loaded).</div></div>';
-      bindShell(mount);
+      bindShell(mount); bindAbout();
       return;
     }
     var cw = R.completedWeeks(resp);
     if (cw.status === "preseason" || (cw.status === "ok" && !cw.regular.length && !cw.playoff.length)) {
       mount.innerHTML = shell + '<div class="ups-m-stub"><div>No completed weeks yet.</div></div>';
-      bindShell(mount);
+      bindShell(mount); bindAbout();
       return;
     }
     if (cw.status !== "ok") {
       mount.innerHTML = shell + '<div class="ups-m-stub" role="alert"><div>Weekly results couldn’t be verified, so nothing is ranked.</div></div>';
-      bindShell(mount);
+      bindShell(mount); bindAbout();
       return;
     }
     var weeks = cw.regular.concat(cw.playoff);
     var wk = state.weeklyWeek && weeks.indexOf(state.weeklyWeek) >= 0 ? state.weeklyWeek : cw.regular[cw.regular.length - 1] || weeks[weeks.length - 1];
-    var chips = '<div class="ups-m-week-chips" role="group" aria-label="Week">' + weeks.map(function (w) {
-      var po = cw.playoff.indexOf(w) >= 0;
-      return '<button type="button" class="ups-m-week-chip' + (w === wk && state.weeklyScope === "week" ? " active" : "") + (po ? " po" : "") + '" data-week="' + w + '" aria-pressed="' + (w === wk && state.weeklyScope === "week") + '">' + (po ? "P" : "") + w + '</button>';
-    }).join("") + '<button type="button" class="ups-m-week-chip season' + (state.weeklyScope === "season" ? " active" : "") + '" data-week="season" aria-pressed="' + (state.weeklyScope === "season") + '">Season</button></div>';
-    var body = state.weeklyScope === "season" ? seasonLeadersHtml(R, resp) : weekTableHtml(R, resp, wk);
+    var season = state.weeklyScope === "season";
+    function chip(w) {
+      var on = w === wk && !season;
+      return '<button type="button" class="ups-m-week-chip' + (on ? " active" : "") + '" data-week="' + w + '" aria-pressed="' + on + '">' + w + '</button>';
+    }
+    var chips = '<div class="ups-m-week-groups">' +
+      '<div class="ups-m-week-group"><span class="lbl">Regular season</span><div class="ups-m-week-chips" role="group" aria-label="Regular-season week">' + cw.regular.map(chip).join("") + '</div></div>' +
+      (cw.playoff.length ? '<div class="ups-m-week-group po"><span class="lbl">Playoff weeks</span><div class="ups-m-week-chips" role="group" aria-label="Playoff week">' + cw.playoff.map(chip).join("") + '</div></div>' : '') +
+      '<div class="ups-m-week-group"><div class="ups-m-week-chips"><button type="button" class="ups-m-week-chip season' + (season ? " active" : "") + '" data-week="season" aria-pressed="' + season + '">Season summary</button></div></div>' +
+    '</div>';
+    var body = season ? seasonLeadersHtml(R, resp, cw) : weekTableHtml(R, resp, wk);
     mount.innerHTML = shell + chips + body;
-    bindShell(mount);
+    bindShell(mount); bindAbout();
     Array.prototype.forEach.call(mount.querySelectorAll("[data-week]"), function (b) {
       b.addEventListener("click", function () {
         var v = b.getAttribute("data-week");
@@ -1099,13 +1339,6 @@
       });
     });
     bindTeamRows(mount, "tr.race-row[data-fid]", resp, year);
-  }
-  // Season All-Play rank after this week and its change (descriptive; not the seed).
-  function apRankLine(r) {
-    if (!r || r.seasonApRank == null) return "";
-    var c = r.apRankChange;
-    var mv = c ? ' <span class="ups-m-move ' + (c > 0 ? "up" : "down") + '">' + (c > 0 ? "▲" : "▼") + Math.abs(c) + '</span>' : "";
-    return '<div class="ups-m-apline">Season All-Play rank ' + r.seasonApRank + mv + '</div>';
   }
   function weekTableHtml(R, resp, wk) {
     var t = R.weekTable(resp, wk);
@@ -1120,21 +1353,21 @@
     var trs = t.rows.map(function (r) {
       var fid = U.pad4(r.franchise_id);
       var you = M.state.viewerFranchiseId && fid === M.state.viewerFranchiseId;
-      var games = (r.games || []).map(function (g) { return g.result; }).join("");
+      var played = (r.games || []).length > 0;
       return '<tr class="race-row' + (you ? " you-row" : "") + '" data-fid="' + fid + '" tabindex="0" role="button" aria-label="' + U.escapeHtml(nm(by[fid] || r)) + ' details">' +
         '<td class="rank">' + r.rank + '</td>' +
-        '<td class="team">' + U.escapeHtml(nm(by[fid] || r)) + apRankLine(r) + '</td>' +
+        '<td class="team">' + U.escapeHtml(nm(by[fid] || r)) + '</td>' +
         '<td class="num">' + fmtPts(r.score) + '</td>' +
         '<td class="num">' + recStr(r.ap) + '</td>' +
-        '<td class="num">' + (games ? recStr(r.record) : "—") + '</td>' +
+        '<td class="num">' + (played ? recStr(r.record) : "—") + '</td>' +
       '</tr>';
     }).join("");
-    return card + '<div class="ups-m-card"><table class="ups-m-standings-table"><thead><tr><th>Rk</th><th class="team">Team</th><th class="num">Pts</th><th class="num">Wk AP</th><th class="num">Games</th></tr></thead><tbody>' + trs + '</tbody></table>' +
-      '<div class="ups-m-standings-legend">Rk = scoring rank that week · Wk AP = that week’s score against all 11 others · Games = head-to-head results that week · ▲▼ = change in season All-Play rank' + (t.isPlayoff ? ' · playoff week: not part of the regular-season All-Play' : '') + ' · scores are MFL’s and can change with stat corrections</div></div>';
+    return card + '<div class="ups-m-card"><table class="ups-m-standings-table"><thead><tr><th>Rk</th><th class="team">Team</th><th class="num">Pts</th><th class="num">Wk AP</th><th class="num">H2H</th></tr></thead><tbody>' + trs + '</tbody></table>' +
+      (t.isPlayoff ? '<div class="ups-m-facts">Playoff week: not part of the regular-season All-Play.</div>' : '') + '</div>';
   }
-  function seasonLeadersHtml(R, resp) {
-    var s = R.seasonWeeklyLeaders ? R.seasonWeeklyLeaders(resp, { weeks: "regular" }) : null;
-    if (!s || s.status !== "ok") return '<div class="ups-m-stub" role="alert"><div>Season weekly leaders unavailable.</div></div>';
+  function leadersTableHtml(R, resp, mode, title) {
+    var s = R.seasonWeeklyLeaders ? R.seasonWeeklyLeaders(resp, { weeks: mode }) : null;
+    if (!s || s.status !== "ok") return '<div class="ups-m-stub" role="alert"><div>' + U.escapeHtml(title) + ': unavailable.</div></div>';
     var by = rowByFid(resp.rows);
     var list = Object.keys(s.byFranchise).map(function (fid) { return { fid: U.pad4(fid), v: s.byFranchise[fid] }; });
     // Descriptive list: most top-score weeks first, then best average weekly rank.
@@ -1150,11 +1383,15 @@
       '</tr>';
     }).join("");
     var weeksLine = s.weeks.map(function (w) {
-      return 'W' + w.week + ' ' + U.escapeHtml((w.top_franchise_ids || []).map(function (f) { return nm(by[U.pad4(f)]); }).join(" & ")) + ' ' + fmtPts(w.score);
+      return 'Wk ' + w.week + ' ' + U.escapeHtml((w.top_franchise_ids || []).map(function (f) { return nm(by[U.pad4(f)]); }).join(" & ")) + ' ' + fmtPts(w.score);
     }).join(" · ");
-    return '<div class="ups-m-card ups-m-standings-summary"><div class="line"><b>Top score each week:</b> ' + weeksLine + '</div></div>' +
-      '<div class="ups-m-card"><table class="ups-m-standings-table"><thead><tr><th class="team">Team</th><th class="num">Top</th><th class="num">Top 3</th><th class="num">Bot 3</th><th class="num">Avg rk</th></tr></thead><tbody>' + trs + '</tbody></table>' +
-      '<div class="ups-m-standings-legend">Regular-season weeks · Top = weeks with the league’s top score · Top 3 / Bot 3 = weeks among the three highest / lowest scores · Avg rk = average weekly scoring rank (1 best)</div></div>';
+    var span = s.weeks.length ? " (Weeks " + s.weeks[0].week + (s.weeks.length > 1 ? "–" + s.weeks[s.weeks.length - 1].week : "") + ")" : "";
+    return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(title + span) + '</div>' +
+      '<table class="ups-m-standings-table"><thead><tr><th class="team">Team</th><th class="num">Top</th><th class="num">Top 3</th><th class="num">Bot 3</th><th class="num">Avg rk</th></tr></thead><tbody>' + trs + '</tbody></table>' +
+      '<div class="ups-m-facts"><b>Top score each week:</b> ' + weeksLine + '</div></div>';
+  }
+  function seasonLeadersHtml(R, resp, cw) {
+    return leadersTableHtml(R, resp, "regular", "Regular season") + (cw && cw.playoff && cw.playoff.length ? leadersTableHtml(R, resp, "playoff", "Playoff weeks") : "");
   }
 
   function renderStandingsModeToggle(mode) {
@@ -1164,7 +1401,7 @@
              '" data-sw-mode="' + key + '">' + label + '</a>';
     }
     // "ups-m-mode-toggle" scopes the >=44px touch-target CSS to this control only.
-    return '<div class="ups-m-action-chips ups-m-mode-toggle">' + b("seeds", "Seeds") + b("divisions", "Divisions") + b("weekly", "Weekly") + b("playoffs", "Playoffs") + '</div>';
+    return '<div class="ups-m-action-chips ups-m-mode-toggle">' + b("seeds", "Seeds") + b("playoffs", "Playoffs") + b("weekly", "Weekly") + b("divisions", "Divisions") + '</div>';
   }
   function bindStandingsModeToggle(mount) {
     Array.prototype.forEach.call(mount.querySelectorAll("[data-sw-mode]"), function (el) {
@@ -1320,6 +1557,21 @@
     presetRoster: function (fid) {
       state.selectedFid = U.pad4(fid);
       state.rostersMode = "team";
+    },
+    // Which Standings view to show (the offline tests drive the views through this; taps do the same).
+    setStandingsView: function (o) {
+      o = o || {};
+      if (o.mode) state.standingsMode = o.mode;
+      if (o.side) state.playoffSide = o.side;
+      if (o.year != null) state.standingsYear = String(o.year);
+      if (o.week != null) { state.weeklyScope = o.week === "season" ? "season" : "week"; if (o.week !== "season") state.weeklyWeek = Number(o.week); }
+    },
+    // The Standings drawers' content (also read by the offline tests, which can't tap a button).
+    standingsDrawers: {
+      how: howSeedingHtml,
+      about: aboutSeedsHtml,
+      why: function (resp) { return whyOrderHtml(resp, (resp.rows || []).slice()); },
+      weekly: aboutWeeklyHtml
     }
   };
 

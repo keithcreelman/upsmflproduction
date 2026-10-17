@@ -112,9 +112,9 @@
       '</div>' +
       '<div class="ups-m-card"><div class="ups-m-card-title">Faced <span class="sub">· schedule, not skill</span></div>' +
         '<div class="ups-m-cap-grid">' +
-          '<div class="ups-m-cap-kv"><div class="lbl">Opponents per game</div><div class="val">' + pts(f.paPerGame) + ' <span class="sub">' + (f.paRank ? ordinalRank(f.paRank) + " most" : "") + '</span></div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Points faced per H2H game</div><div class="val">' + pts(f.paPerGame) + ' <span class="sub">' + (f.paRank ? ordinalRank(f.paRank) + " most" : "") + '</span></div></div>' +
           '<div class="ups-m-cap-kv"><div class="lbl">Opponents vs their usual</div><div class="val">' + signed(f.oppVsUsual) + '</div></div>' +
-          '<div class="ups-m-cap-kv"><div class="lbl">Close games (&lt;10)</div><div class="val">' + (f.closeGames ? rec(f.closeGames.w, f.closeGames.l, f.closeGames.t) : "—") + '</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">Close H2H games (&lt;10)</div><div class="val">' + (f.closeGames ? rec(f.closeGames.w, f.closeGames.l, f.closeGames.t) : "—") + '</div></div>' +
           '<div class="ups-m-cap-kv"><div class="lbl">Schedule luck</div><div class="val">' + signed(o.luck) + ' <span class="sub">wins</span></div></div>' +
         '</div>' +
         '<div class="sub">Luck = actual wins (' + (o.record ? rec(o.record.w, o.record.l, o.record.t) : "—") + ') minus expected wins (' + (o.expectedWins == null ? "—" : Number(o.expectedWins).toFixed(1)) + ': for each game, the share of the league you outscored that week). A positive number means the matchups helped.</div>' +
@@ -132,8 +132,8 @@
         '<td class="num">' + (sa ? (sa.seed ? sa.seed : (sa.orderIndex != null ? "(" + (sa.orderIndex + 1) + ")" : "—")) : "—") + '</td></tr>';
     }).join("");
     return '<div class="ups-m-card"><div class="ups-m-card-title">Week by week</div>' +
-      '<table class="ups-m-standings-table"><thead><tr><th>Wk</th><th class="num">Pts</th><th class="num">Rk</th><th class="num">Wk AP</th><th class="num">Games</th><th class="num">Seed</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<div class="ups-m-standings-legend">Rk = scoring rank that week · Seed = seed after that week; (8) = 8th, outside the field</div></div>';
+      '<table class="ups-m-standings-table"><thead><tr><th>Wk</th><th class="num">Pts</th><th class="num">Rk</th><th class="num">Wk AP</th><th class="num">H2H</th><th class="num">Seed</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="ups-m-standings-legend">Rk = scoring rank that week · H2H = that week’s results · Seed = seed after that week; (8) = 8th, outside the field</div></div>';
   }
 
   // open(fid, opts) — opts: { row (an /api/standings row), raceRow (UPS_STANDINGS_RACE.race(...).byFranchise[fid]),
@@ -166,7 +166,7 @@
     body.innerHTML =
       '<div class="ups-m-card">' + whySeedHtml(rr.whySeed) +
         '<div class="ups-m-cap-grid">' +
-          '<div class="ups-m-cap-kv"><div class="lbl">Record</div><div class="val">' + rec(ovr.w, ovr.l, ovr.t) + ' (' + fmtPct(ovr.pct) + ')</div></div>' +
+          '<div class="ups-m-cap-kv"><div class="lbl">H2H record</div><div class="val">' + rec(ovr.w, ovr.l, ovr.t) + ' (' + fmtPct(ovr.pct) + ')</div></div>' +
           '<div class="ups-m-cap-kv"><div class="lbl">All-Play</div><div class="val">' + rec(ap.w, ap.l, ap.t) + ' (' + fmtPct(ap.pct) + ')</div></div>' +
         '</div>' +
       '</div>' +

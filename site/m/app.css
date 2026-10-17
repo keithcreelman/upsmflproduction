@@ -1771,9 +1771,11 @@ button.ups-m-busy::before,
   letter-spacing: 0.05em;
   vertical-align: 1px;
 }
-.ups-m-status-chip.bye { background: rgba(255,215,0,0.16); color: #ffe7a1; border: 1px solid rgba(255,215,0,0.4); }
-.ups-m-status-chip.div { background: rgba(206,147,216,0.16); color: #ce93d8; border: 1px solid rgba(206,147,216,0.45); }
-.ups-m-status-chip.wc { background: rgba(255,255,255,0.06); color: var(--fg-muted); border: 1px solid rgba(255,255,255,0.16); }
+/* #1329: the app palette, not a pale purple. The text (BYE / DIV / WC, "proj") always carries the meaning; color only
+   helps. Gold = bye (the playoff-line gold), teal = division winner, accent blue = wild card. */
+.ups-m-status-chip.bye { background: rgba(255,215,0,0.16); color: #ffe7a1; border: 1px solid rgba(255,215,0,0.55); }
+.ups-m-status-chip.div { background: rgba(45,212,191,0.14); color: #7de8d9; border: 1px solid rgba(45,212,191,0.55); }
+.ups-m-status-chip.wc { background: rgba(91,141,255,0.14); color: #a9c3ff; border: 1px solid rgba(91,141,255,0.55); }
 .ups-m-status-chip.projected { border-style: dashed; }
 .ups-m-status-chip.projected small { font-weight: 400; opacity: .8; margin-left: 2px; font-size: 0.85em; }
 .ups-m-form3 { display: inline-flex; gap: 2px; margin-top: 2px; }
@@ -4925,8 +4927,8 @@ a.ups-m-bid-btn {
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #2b1d33;
-  background: rgba(206, 147, 216, 0.85);
+  color: #0e1320;
+  background: var(--teal);
   vertical-align: middle;
 }
 
@@ -5140,3 +5142,116 @@ a.ups-m-bid-btn {
 .ups-m-proj-games { margin: 4px 0 8px 18px; padding: 0; font-size: 13px; line-height: 1.6; }
 .ups-m-proj-games .seed, .ups-m-card .sub .seed { color: var(--fg-muted); font-weight: 700; }
 .ups-m-proj-games .vs { color: var(--fg-muted); font-size: 11px; }
+
+/* Standings v3.1 (2026-10-17, #1329 review): explanations in drawers, Hawk Tuah Bowl seeds, vertical brackets,
+   Tale of the Tape. Everything fits 320px with no sideways scroll. */
+.ups-m-info-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 12px 0; }
+.ups-m-info-btn { min-height: 34px; padding: 0 11px; border-radius: 17px; border: 1px solid var(--line-soft); background: var(--bg-elev); color: var(--fg); font: 600 12px/1 inherit; }
+.ups-m-info-btn::before { content: "ⓘ "; color: var(--accent); }
+.ups-m-jumps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 12px 0; }
+.ups-m-jump { min-height: 44px; border-radius: 10px; border: 1px solid rgba(255,215,0,0.55); background: rgba(255,215,0,0.08); color: var(--fg); font: 700 13px/1.2 inherit; }
+.ups-m-jump::after { content: " →"; color: var(--fg-muted); }
+.ups-m-jump.hawk { border-color: rgba(255,184,107,0.6); background: rgba(255,184,107,0.08); }
+.ups-m-jump.hawk::before { content: "🚽 "; }
+.ups-m-facts { margin-top: 8px; font-size: 12px; line-height: 1.45; color: var(--fg-muted); }
+.ups-m-facts b { color: var(--fg); }
+.ups-m-standings-table tr.hawk-row td.rank { color: var(--warn); font-weight: 800; }
+/* Full-width drawer (bottom sheet) for explanations and the Tale of the Tape. */
+#ups-m-info-sheet-overlay { padding: 0; align-items: flex-end; }
+.ups-m-sheet.ups-m-info-sheet { max-width: 100%; width: 100%; border-radius: 16px 16px 0 0; max-height: 92vh; max-height: 92dvh; padding-bottom: var(--safe-bot); }
+.ups-m-info-sheet .ups-m-sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px 16px; font-size: 13px; line-height: 1.5; }
+.ups-m-info-sheet .ups-m-card { margin: 0 0 10px; }
+.ups-m-drawer-list { margin: 4px 0 8px 18px; padding: 0; }
+.ups-m-drawer-list li + li { margin-top: 4px; }
+.ups-m-drawer-p { margin: 8px 0; }
+.ups-m-drawer-p.sub, .ups-m-drawer-dl dd { color: var(--fg-muted); }
+.ups-m-drawer-dl { margin: 0; }
+.ups-m-drawer-dl dt { font-weight: 700; margin-top: 8px; }
+.ups-m-drawer-dl dd { margin: 2px 0 0; }
+/* Playoffs: side switch + vertical bracket */
+.ups-m-segs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 8px 12px 0; padding: 3px; border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--line); }
+.ups-m-seg { min-height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--fg-muted); font: 700 12px/1.1 inherit; padding: 0 4px; }
+.ups-m-seg.active { background: var(--accent); color: #fff; }
+.ups-m-bk-status { margin: 8px 12px 0; padding: 8px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4; background: var(--bg-elev); border: 1px solid var(--line); }
+.ups-m-bk-status.proj { border-style: dashed; border-color: var(--line-soft); }
+.ups-m-bk { margin: 6px 12px 12px; }
+.ups-m-bk-round { margin-top: 6px; }
+.ups-m-bk-rh { margin: 8px 0 6px; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--fg); }
+.ups-m-bk-rh span { color: var(--fg-muted); font-weight: 600; letter-spacing: 0; text-transform: none; margin-left: 4px; }
+.ups-m-bk-game { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ups-m-bk-game.proj { border-style: dashed; border-color: var(--line-soft); }
+.ups-m-bk-game.minor { background: transparent; }
+.ups-m-bk-game:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ups-m-bk-meta { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11px; color: var(--fg-muted); margin-bottom: 4px; }
+.ups-m-bk-tag { font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line-soft); color: var(--fg-muted); white-space: nowrap; }
+.ups-m-bk-tag.proj { border-style: dashed; }
+.ups-m-bk-tag.final { border-color: rgba(139,229,139,0.6); color: var(--ok); }
+.ups-m-bk-team { display: flex; align-items: center; gap: 8px; min-height: 30px; font-size: 14px; }
+.ups-m-bk-team .seed { flex: 0 0 26px; text-align: center; font-size: 12px; font-weight: 800; color: var(--fg-muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 0; }
+.ups-m-bk.hawk .ups-m-bk-team .seed { color: var(--warn); border-color: rgba(255,184,107,0.45); }
+.ups-m-bk-team .nm { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ups-m-bk-team .nm .src { display: block; font-size: 11px; color: var(--fg-muted); }
+.ups-m-bk-team .sc { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-weight: 700; }
+.ups-m-bk-team .adv { flex: 0 0 auto; font-size: 10px; font-weight: 800; color: var(--ok); white-space: nowrap; }
+.ups-m-bk-team .adv.proj { color: var(--fg-muted); font-weight: 700; }
+.ups-m-bk-team.win .nm { font-weight: 700; }
+.ups-m-bk-team.you .nm { box-shadow: inset 3px 0 0 #7de8d9; padding-left: 6px; }
+.ups-m-bk-team.tbd .nm { color: var(--fg-muted); font-style: italic; }
+.ups-m-bk-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.ups-m-bk-foot .decides { font-size: 11px; color: var(--fg-muted); line-height: 1.3; }
+.ups-m-bk-tape { flex: 0 0 auto; min-height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--accent); background: rgba(91,141,255,0.12); color: #cfdcff; font: 700 11px/1 inherit; pointer-events: none; }
+.ups-m-bk-byes { font-size: 12px; color: var(--fg-muted); margin: 0 0 6px; line-height: 1.6; }
+.ups-m-bk-byes b { color: var(--fg); }
+.ups-m-bk-byes .seed { display: inline-block; min-width: 22px; text-align: center; font-weight: 800; border: 1px solid var(--line); border-radius: 5px; margin-left: 2px; }
+.ups-m-bk-arrow { text-align: center; font-size: 11px; color: var(--fg-muted); margin: 2px 0; }
+.ups-m-bk-empty { font-size: 12px; color: var(--fg-muted); padding: 8px 10px; border: 1px dashed var(--line); border-radius: 10px; margin-bottom: 8px; }
+.ups-m-hawk-intro .line { font-size: 12.5px; line-height: 1.45; }
+.ups-m-hawk-seeds, .ups-m-seed-why { list-style: none; margin: 8px 0 0; padding: 0; }
+.ups-m-hawk-seeds li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.ups-m-hawk-seeds .seed, .ups-m-seed-why .seed { min-width: 26px; text-align: center; font-weight: 800; color: var(--warn); }
+.ups-m-hawk-seeds .sub, .ups-m-hawk-seeds .why, .ups-m-seed-why .why { font-size: 11px; color: var(--fg-muted); }
+.ups-m-seed-why li { display: flex; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.ups-m-seed-why li .seed { color: var(--fg); }
+.ups-m-seed-why li.hawk .seed { color: var(--warn); }
+.ups-m-seed-why li.line { display: block; text-align: center; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); border-top: 2px solid #ffd700; }
+.ups-m-seed-why .nm { font-weight: 600; }
+/* Weekly: regular-season and playoff weeks are separate chip groups. */
+.ups-m-week-groups { margin: 4px 0 0; }
+.ups-m-week-group { margin: 6px 12px 0; }
+.ups-m-week-group .lbl { display: block; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-muted); margin-bottom: 4px; }
+.ups-m-week-group .ups-m-week-chips { margin: 0; }
+.ups-m-week-group.po .ups-m-week-chip { border-style: dashed; }
+.ups-m-week-chip.season { margin-left: 0; }
+/* Tale of the Tape */
+.tape-head .tape-kind { font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--fg-muted); margin-bottom: 8px; }
+.tape-head .tape-kind.proj { color: var(--warn); }
+.tape-teams { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: start; }
+.tape-team { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tape-team:last-child { text-align: right; align-items: flex-end; }
+.tape-seed { font-size: 11px; font-weight: 800; color: var(--fg-muted); }
+.tape-name { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.tape-owner { font-size: 11px; color: var(--fg-muted); }
+.tape-recs { font-size: 11px; color: var(--fg); }
+.tape-vs { align-self: center; font-size: 11px; color: var(--fg-muted); font-weight: 700; }
+.tape-met { margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--fg-muted); }
+.tape-sum { font-size: 12px; margin-bottom: 6px; }
+.tape-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tape-table td, .tape-table th { padding: 6px 2px; border-top: 1px solid var(--line); vertical-align: top; font-size: 12.5px; }
+.tape-table .tape-k { width: 38%; text-align: center; font-weight: 600; color: var(--fg-muted); font-size: 11.5px; line-height: 1.25; }
+.tape-table .tape-note { display: block; font-weight: 400; font-size: 10px; }
+.tape-table .tape-v { width: 31%; font-variant-numeric: tabular-nums; }
+.tape-table td.tape-v:last-child { text-align: right; }
+.tape-table .tape-v.edge b { color: #7de8d9; }
+.tape-table .tape-edge { color: #7de8d9; font-size: 10px; }
+.tape-table .tape-rk { color: var(--fg-muted); font-size: 11px; white-space: nowrap; }
+.tape-table .tape-na { color: var(--fg-muted); font-size: 12px; text-align: center; }
+.tape-foot { margin-top: 6px; font-size: 11px; line-height: 1.4; color: var(--fg-muted); }
+.tape-series { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.tape-series-t { font-weight: 700; font-size: 12.5px; }
+.tape-series-rec { font-size: 12.5px; margin-top: 4px; }
+.tape-series-list { margin: 6px 0 0 16px; padding: 0; font-size: 12px; line-height: 1.5; }
+@media (max-width: 359px) {
+  .ups-m-info-btn { padding: 0 8px; font-size: 11.5px; }
+  .tape-table td, .tape-table th { font-size: 11.5px; }
+  .tape-name { font-size: 14px; }
+}
