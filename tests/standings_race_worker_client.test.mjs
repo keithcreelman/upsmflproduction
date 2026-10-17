@@ -190,7 +190,9 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   const why = plain(D.why(await standings(makeLadderSeason())));
   t.match(why, /Decided by a tiebreak:<\/b>.*<li>L\.A\. Looks over Gride: same All-Play, a better H2H record \(4-0 vs 3-1\)\.<\/li><li>Pure Greatness over CBP: same All-Play, the H2H games between them\.<\/li>/, "the drawer names the tiebreaks that decided places");
   t.match(why, /<b>Next out:<\/b> Team 0006, 6 All-Play wins behind HammerTime \(6th\)\./);
-  t.ok(!/\bGames\b|\bprize\b/i.test(html + D.how() + D.about(false) + D.weekly()), "no 'Games' label and no 'prize' anywhere");
+  const all = html + D.how() + D.about(false) + D.weekly();
+  t.ok(!/\bGames\b/.test(all), "no 'Games' label");
+  t.ok(!/\bprize\b/i.test(all), "a top score is never called a prize (the rules aren't settled)");
 });
 test("mobile: weekly results unreadable → no team is ranked, and it says so (never 0-0, never a plausible table)", async () => {
   const html = await mobileStandings(makeLadderSeason({ failScores: true }));

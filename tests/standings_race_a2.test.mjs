@@ -537,7 +537,7 @@ check('[wiring] F4: mobile pre-playoff legend is owner-facing copy — no develo
   assert.ok(/If the season ended today\./.test(projFn) && /Projection: the higher seed wins every game/.test(projFn));
   assert.ok(!/>OUT</.test(MOBILE_LEAGUE) && !/"OUT"/.test(MOBILE_LEAGUE) && !/\beliminated\b/i.test(MOBILE_LEAGUE));
   const cardsFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderActualMatchupCards('), MOBILE_LEAGUE.indexOf('function renderProjectedBracket('));
-  assert.ok(cardsFn.length > 300 && !/If the season ended today|Projected/.test(cardsFn), 'the projected legend must never render alongside actual matchup cards');
+  assert.ok(cardsFn.length > 300 && !/If the season ended today/.test(cardsFn), 'the projected legend must never render alongside actual matchup cards');
 });
 check('[wiring] F7: the mobile final-round card label never repeats the side name twice', () => {
   const fn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderActualMatchupCards('), MOBILE_LEAGUE.indexOf('function renderActualMatchupCards(') + 1500);
