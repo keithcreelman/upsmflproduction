@@ -161,8 +161,8 @@ test("Picture: projected chips, the bye line after seed 2 and the playoff line a
   const card8 = /<li class="seed-card[^"]*" data-fid="0008">([\s\S]*?)<div class="seed-detail"/.exec(p.html)[1];
   const why = /<div class="seed-why">([^<]*)<\/div>/.exec(card8)[1];
   t.match(why, /CBP/, "Real Deal Creel's reason names CBP");
-  t.match(why, /Overall record/, "...and the Overall-record tiebreak");
-  t.equal(why, "Seed 4: behind HammerTime on All-Play %. Ahead of CBP on Overall record (same All-Play %).");
+  t.match(why, /H2H record/, "...and the H2H-record tiebreak (canon's Overall step)");
+  t.equal(why, "Seed 4: behind HammerTime on All-Play %. Ahead of CBP on H2H record (same All-Play %).");
   t.match(card8, /9-4 · All-Play 32-23 \(58\.2%\)/, "record and All-Play from the worker's regular_season");
   t.match(p.text, /Through Week 5 of 14 · final scores/, "freshness: through which week");
   t.match(p.html, /<section class="panel"><h3>Bracket <span class="h-sub">· projected<\/span><\/h3>/, "the bracket link is labeled projected");
@@ -242,7 +242,7 @@ test("Full League Scored / Faced: the shared module's scoredFaced numbers; Faced
   t.match(scored.html, /<strong>Scored<\/strong> — what each lineup put up in the regular season\. Descriptive/);
   const faced = await page("view=league&year=2026&show=faced");
   const Fc = leagueTable(faced.raw);
-  t.deepEqual(Fc.heads, ["Seed", "Status", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close games"]);
+  t.deepEqual(Fc.heads, ["Seed", "Status", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close H2H games"]);
   for (const r of RESP_2026.rows) {
     const f = sf.byFranchise[r.franchise_id].faced;
     t.equal(Fc.cell(r.franchise_id, "Opp. pts/game"), f.paPerGame.toFixed(1));
