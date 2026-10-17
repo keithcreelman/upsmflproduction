@@ -63,6 +63,7 @@ import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
+import { makePickClaims, PICK_STATE, discordPostNotSent } from "./draft_pick_claim.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
@@ -22666,6 +22667,7 @@ const mflToSleeper = {};
       if (path === "/api/pick" && request.method === "POST") {
         let body = {};
         try { body = await request.json(); } catch (_) {}
+        if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
         const fid = _rdhPadFid(body.franchise_id || "");
         const playerId = safeStr(body.player_id || "");
         const simulate = body.simulate !== false; // default true (safer)
@@ -22679,6 +22681,31 @@ const mflToSleeper = {};
         const silenceDiscord = body.silence_discord === true || body.silenceDiscord === true;
         if (!fid || !playerId) return jsonOut(400, { error: "franchise_id and player_id required" });
         const leagueId = _rdhLeagueId();
+        // This route acts on the configured league only. Checked before anything else, so a request for any other league
+        // never reaches MFL or Discord.
+        const homeLeagueId = safeStr(env.LEAGUE_ID || "74598");
+        const bodyLeagueId = safeStr(body.league_id || "");
+        if (leagueId !== homeLeagueId || (bodyLeagueId && bodyLeagueId !== homeLeagueId)) {
+          const message = "Draft picks can only be made in the UPS league.";
+          return jsonOut(403, { ok: false, code: "wrong_league", error: message, message });
+        }
+        // Who is calling, proven BEFORE any MFL read, MFL write or Discord post (the same caller model as trades:
+        // worker/src/trade_authz.js). A preview (simulate, no commissioner switches) writes and posts nothing and
+        // stays open: the hub's default mock-draft mode calls it for any viewer. Anything else needs the signed-in
+        // owner of `franchise_id`, or the commissioner acting for them. Rehearsing (dry_run) and muting the
+        // announcement (silence_discord) are commissioner tools: an owner sending either is refused, never ignored,
+        // because ignoring a rehearsal flag would turn a rehearsal into a real pick.
+        const pickNeedsCaller = !simulate || dryRun || silenceDiscord;
+        let pickCaller = null;
+        if (pickNeedsCaller) {
+          const pickAuth = await tradeCaller(body, fid);
+          if (!pickAuth.ok) return tradeDeny(pickAuth);
+          pickCaller = pickAuth.caller;
+          if (pickCaller.fid !== fid) return tradeForbidden("You can only make your own team's pick.");
+          if ((dryRun || silenceDiscord) && !isAdminCaller(pickCaller)) {
+            return tradeForbidden("Only the commissioner can rehearse a pick or mute its announcement.");
+          }
+        }
         const ssDraft = await _strictSeason();   // #1237: never the calendar for a write
         if (ssDraft.res) return ssDraft.res;
         const year = ssDraft.season;
@@ -22814,6 +22841,66 @@ const mflToSleeper = {};
         // body is unused on the GET request, but the variable is referenced
         // by the dry_run preview block below.
         const form = liveDraftParams;
+        // ── Claim the slot BEFORE anything leaves the worker ──
+        // One claim per slot (and one per rehearsal of a slot): only the request that takes it may call MFL or post,
+        // so a repeated or concurrent submission can never draft or announce twice. If the claim can't be recorded,
+        // nothing is sent (fail closed). See worker/src/draft_pick_claim.js.
+        if (!pickCaller) return jsonOut(401, { ok: false, code: "unauthenticated", error: "Sign in to MFL to do that.", message: "Sign in to MFL to do that." });
+        const pickActor = pickCaller.kind === "admin" ? "admin" : `${pickCaller.isCommish ? "commish" : "owner"}:${pickCaller.sessionFid}`;
+        let pickClaims, pickClaim;
+        try {
+          pickClaims = makePickClaims(env.UPS_MFL_DB);
+          pickClaim = await pickClaims.claim({
+            leagueId, season: year, mode: dryRun ? "dry_run" : "live",
+            round: onClockRound, pick: onClockSlot, franchiseId: fid, playerId, actor: pickActor,
+          });
+        } catch (e) {
+          console.error(`[api/pick] claim unavailable for ${slotLabel}: ${e?.message || e}`);
+          const message = "Couldn't record this pick safely right now, so nothing was sent to MFL or Discord. Try again in a moment.";
+          return jsonOut(503, { ok: false, code: "pick_claim_unavailable", error: message, message });
+        }
+        if (!pickClaim.acquired) {
+          const message = dryRun
+            ? `${slotLabel} was already rehearsed; nothing was posted again.`
+            : `${slotLabel} has already been submitted (or is being submitted right now). Nothing was sent again; check the board.`;
+          return jsonOut(409, { ok: false, code: "pick_already_submitted", state: safeStr(pickClaim.row && pickClaim.row.state), slot: slotLabel, error: message, message });
+        }
+        // Record the outcome against the claim. A failed write here never reopens the slot: the row stays `claimed`,
+        // which still refuses every other attempt.
+        const settlePick = async (to, detail) => {
+          try { return await pickClaims.settle(pickClaim.ref, pickClaim.token, to, detail); }
+          catch (e) { console.error(`[api/pick] could not record ${to} for ${slotLabel}: ${e?.message || e}`); return false; }
+        };
+        // MFL's board for the on-the-clock slot, read fresh (no cache), a few times over ~2.5 s: "recorded" (this player is
+        // in the slot), "taken" (another player is), "open" (still unmade) or "unreadable".
+        const pickOnBoard = async () => {
+          let last = "unreadable";
+          for (const wait of [0, 400, 800, 1200]) {
+            if (wait) await new Promise((res) => setTimeout(res, wait));
+            try {
+              const r = await fetch(
+                `https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1&_=${Date.now()}`,
+                { cf: { cacheTtl: 0, cacheEverything: false }, headers: { "User-Agent": "upsmflproduction-worker" } }
+              );
+              if (!r.ok) { last = "unreadable"; continue; }
+              const data = await r.json();
+              let units = data?.draftResults?.draftUnit || [];
+              if (!Array.isArray(units)) units = [units];
+              let slot = null;
+              for (const u of units) {
+                let arr = u.draftPick || u.pick || [];
+                if (!Array.isArray(arr)) arr = [arr];
+                for (const dp of arr) if (Number(dp.round) === Number(onClockRound) && Number(dp.pick) === Number(onClockSlot)) slot = dp;
+              }
+              if (!slot) { last = "unreadable"; continue; }
+              const who = safeStr(slot.player);
+              if (who === String(playerId)) return "recorded";
+              if (who) return "taken";
+              last = "open";
+            } catch (_) { last = "unreadable"; }
+          }
+          return last;
+        };
         // ── DRY-RUN short-circuit ──
         // Build the full request, validate everything, post a [DRY-RUN] preview
         // to the test Discord channel — but DON'T fire the MFL fetch. Lets the
@@ -22823,6 +22910,8 @@ const mflToSleeper = {};
         if (dryRun) {
           const ch = _rdhDiscordChannel(false);
           const dRes = await _rdhPostDiscord(ch, `[DRY-RUN — would have posted to #live] ${discordContent}`);
+          // A test post that provably didn't go out frees the rehearsal to be tried again; anything else holds it.
+          await settlePick(discordPostNotSent(dRes) ? PICK_STATE.RELEASED : PICK_STATE.DONE, JSON.stringify({ discord: dRes || null }));
           return jsonOut(200, {
             ok: true, simulated: false, dry_run: true,
             slot: slotLabel, round: onClockRound, pick: onClockSlot,
@@ -22844,10 +22933,32 @@ const mflToSleeper = {};
           mflStatus = r.status;
           mflResp = await r.text();
         } catch (e) {
-          return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+          // No answer: the pick may or may not have been recorded. Hold the slot (never resent from here).
+          await settlePick(PICK_STATE.MFL_UNKNOWN, `MFL fetch failed: ${e?.message || String(e)}`);
+          return jsonOut(502, { ok: false, code: "pick_outcome_unknown", error: `MFL fetch failed: ${e?.message || String(e)}. Check the board before trying again.` });
         }
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+        if (!mflOk) {
+          // MFL answered and refused (an error message, or a 4xx): nothing was drafted, so the slot is released for a
+          // corrected retry. A 5xx proves nothing either way, so the slot stays held.
+          const refused = mflStatus >= 200 && mflStatus < 500;
+          await settlePick(refused ? PICK_STATE.RELEASED : PICK_STATE.MFL_UNKNOWN, `MFL ${mflStatus}: ${safeStr(mflResp).slice(0, 300)}`);
+        }
         if (mflOk) {
+          // A 2xx from MFL is not proof the pick was made: in the 2026-10-17 test-league run MFL answered 200 to both
+          // picks and drafted no one. The board is the proof, so read the slot back before the pick counts as made,
+          // before anything is announced, and before the claim closes. Not recorded: the slot is released for a corrected
+          // retry (MFL itself refuses a second pick in a made slot). Board unreadable: the slot stays held.
+          const onBoard = await pickOnBoard();
+          if (onBoard !== "recorded") {
+            const unknown = onBoard === "unreadable";
+            await settlePick(unknown ? PICK_STATE.MFL_UNKNOWN : PICK_STATE.RELEASED, `MFL ${mflStatus}, board ${onBoard}: ${safeStr(mflResp).slice(0, 300)}`);
+            const message = unknown
+              ? `MFL answered, but its draft board couldn't be read to confirm ${slotLabel}. Nothing was announced; check the board before trying again.`
+              : `MFL didn't record ${slotLabel}: its draft board shows ${onBoard === "taken" ? "a different player in that slot" : "the slot still open"}. Nothing was announced.`;
+            return jsonOut(502, { ok: false, code: unknown ? "pick_outcome_unknown" : "pick_not_recorded", slot: slotLabel, error: message, message, mfl_status: mflStatus, mfl_response: mflResp });
+          }
+          await settlePick(PICK_STATE.MFL_ACCEPTED, `MFL ${mflStatus}`);
           let dRes = null;
           let threadInfo = null;
           if (!silenceDiscord) {
@@ -22866,6 +22977,7 @@ const mflToSleeper = {};
             // "🔕 Discord muted" in the toast.
             dRes = { ok: false, silenced: true };
           }
+          await settlePick((dRes && (dRes.ok || dRes.silenced)) ? PICK_STATE.DONE : PICK_STATE.ANNOUNCE_FAILED, JSON.stringify({ discord: dRes || null }));
           return jsonOut(200, {
             ok: true, simulated: false,
             slot: slotLabel, round: onClockRound, pick: onClockSlot,
