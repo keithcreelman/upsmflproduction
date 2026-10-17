@@ -88,7 +88,7 @@ test("race(): a FAILED weekly or weeklyScores query (worker sends null + weekly_
 });
 test("race(): a RECORDED season is labelled recorded — no ladder step claimed", async () => {
   const out = raceModule().race(await standings(makeLadderSeason({ recorded: true })));
-  t.ok(Object.values(out.byFranchise).every((r) => /from the recorded final standings\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
+  t.ok(Object.values(out.byFranchise).every((r) => /^From the recorded final standings \(see the finish and the recorded seed\)\.$/.test(r.whySeed.text) && r.whySeed.decidingCriterion === null));
 });
 
 test("race() F3 through the real route: a MALFORMED playoff flag in D1 (sent as po: null) makes BOTH regular-season tables incomplete", async () => {
@@ -162,7 +162,8 @@ test("desktop: a recorded season says 'Seeds: the recorded final standings.' and
   await settle();
   const html = plain(p.html());
   t.match(html, /Seeds: the recorded final standings\./);
-  t.match(html, /Seed 1 — from the recorded final standings\./);
+  t.match(html, /From the recorded final standings \(see the finish and the recorded seed\)\./);
+  t.ok(!/Seed 1 — from the recorded/.test(html), "no seed number from the recompute (#1329)");
   t.ok(!/league rule §F\.1/.test(html));
 });
 
