@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-10-15 16:28:06",
+    "generated_at": "2026-10-18 23:29:54",
     "source": "contract-activity-log",
-    "count": 160,
+    "count": 161,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "2f4567493b1e649c30c42224",
+      "submission_id": "2f4567493b1e649c30c42224",
+      "activity_scope": "contract_mutation",
+      "activity_type": "MYM",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16295",
+      "player_name": "Conner, Chamarri",
+      "position": "S",
+      "salary": 1000,
+      "contract_year": 2,
+      "contract_status": "Vet-MYM",
+      "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+      "tcv": 2000,
+      "aav": 1000,
+      "guaranteed": 1000,
+      "submitted_at_utc": "2026-10-18T23:29:37.509Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1561521679107231797",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "4cf033bb44dd0cf20f36263e",
       "submission_id": "4cf033bb44dd0cf20f36263e",
