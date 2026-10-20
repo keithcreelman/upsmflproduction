@@ -27,7 +27,7 @@ test("every resolver state at every instant of Keith's four cases maps to a dist
         const st = MK.statusFor(s);
         seen[s.code] = st.label;
         if (s.code === "available_now") t.equal(st.label, "Add now", name + " / " + ev);
-        if (s.code === "waivers") { t.equal(st.label, "Claim now", name + " / " + ev); t.ok(st.sub && st.sub === s.eligible_run_label, "names the run the claim goes to: " + st.sub); }
+        if (s.code === "waivers") { t.equal(st.label, "Claim now", name + " / " + ev); t.ok(st.sub && st.sub === MK.compactRun(s.eligible_run_label) && /run$/.test(st.sub), "names the run the claim goes to: " + st.sub); }
         if (s.code === "waivers_later") { t.equal(st.label, "Can't claim yet"); t.ok(/^first eligible: /.test(st.sub), "names the first run that can award him: " + st.sub); }
         if (s.code === "game_locked") { t.equal(st.label, "Game locked"); t.ok(/first eligible: /.test(st.sub), st.sub); }
         t.ok(st.title.length > 0, "the resolver's headline and reasons ride along");
@@ -49,6 +49,12 @@ test("Demario Davis (dropped in Thursday's run): Can't claim yet → first eligi
   const ko = MK.statusFor(stateAt(W6.kickoffs.NYJ + 60, THU_RUN, "NYJ"));
   t.equal(ko.label, "Game locked");
   t.equal(MK.statusFor(stateAt(ROLL6 + 60, THU_RUN, "NYJ")).label, "Claim now", "after the weekly rollover: claim for Thursday");
+});
+
+test("run labels are shortened for the cell, never changed", () => {
+  t.equal(MK.compactRun("Thursday's run, Oct 22 at 9:00 AM ET"), "Thu Oct 22 run");
+  t.equal(MK.compactRun("Saturday's run, Oct 17 at 9:00 AM ET"), "Sat Oct 17 run");
+  t.equal(MK.compactRun("something else"), "something else", "an unexpected label passes through untouched");
 });
 
 test("“Waivers later” = drop-locked, game-locked or no run before his game — never claimable-now players", () => {

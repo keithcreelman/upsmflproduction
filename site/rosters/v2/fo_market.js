@@ -73,9 +73,14 @@
   function statusFor(a) {
     var m = AVAIL[a && a.code] || AVAIL.unknown;
     var code = a && a.code;
-    var sub = code === "waivers" ? (a.eligible_run_label || "") :
-      (code === "waivers_later" || code === "game_locked" || code === "not_before_kickoff") ? (a.eligible_run_label ? "first eligible: " + a.eligible_run_label : (a.badge || "")) : "";
+    var sub = code === "waivers" ? compactRun(a.eligible_run_label) :
+      (code === "waivers_later" || code === "game_locked" || code === "not_before_kickoff") ? (a.eligible_run_label ? "first eligible: " + compactRun(a.eligible_run_label) : (a.badge || "")) : "";
     return { label: m.label, cls: m.cls, sub: sub, title: [a && a.headline].concat((a && a.lines) || []).filter(Boolean).join("\n") };
+  }
+  // "Thursday's run, Oct 22 at 9:00 AM ET" → "Thu Oct 22 run" for the cell (the full label stays in the tooltip).
+  function compactRun(label) {
+    var m = /^([A-Z][a-z]{2})[a-z]*'s run, ([A-Z][a-z]{2} \d{1,2})/.exec(String(label || ""));
+    return m ? m[1] + " " + m[2] + " run" : String(label || "");
   }
   function isLater(code) { return code === "waivers_later" || code === "game_locked" || code === "not_before_kickoff"; }
   function availabilityFor(pid, team) {
@@ -237,7 +242,7 @@
       '<label class="fo-field fo-inline">Team <select data-mk-team><option value="">Any</option>' + teams.map(function (t) {
         return '<option value="' + H.esc(t.fid) + '"' + (view.team === t.fid ? " selected" : "") + ">" + H.esc(t.name) + "</option>";
       }).join("") + "</select></label>" +
-      '<label class="fo-field fo-inline"><input type="checkbox" data-mk-hideout' + (view.hideOut ? " checked" : "") + "> Hide Out / IR</label>" +
+      '<button type="button" class="fo-subview-chip' + (view.hideOut ? " active" : "") + '" data-mk-hideout aria-pressed="' + view.hideOut + '">Hide Out / IR</button>' +
       '<label class="fo-field fo-inline fo-mk-search">Find <input type="search" data-mk-q value="' + H.esc(view.q) + '" placeholder="Player, NFL team or owner" autocomplete="off"></label>' +
       "</div>";
     var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when he can be added or claimed (the league's waiver check, same as the phone). Rostered: his team, and whether it lists him on the trade block.", "") +
@@ -279,8 +284,9 @@
     if (!el || el.__mkWired) return;
     el.__mkWired = true;
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-mk-scope],[data-mk-pos],[data-mk-sort]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-mk-scope],[data-mk-pos],[data-mk-sort],[data-mk-hideout]") : null;
       if (!t) return;
+      if (t.hasAttribute("data-mk-hideout")) view.hideOut = !view.hideOut;
       if (t.hasAttribute("data-mk-scope")) view.scope = t.getAttribute("data-mk-scope");
       if (t.hasAttribute("data-mk-pos")) view.pos = t.getAttribute("data-mk-pos");
       if (t.hasAttribute("data-mk-sort")) {
@@ -292,7 +298,6 @@
     el.addEventListener("change", function (e) {
       var t = e.target;
       if (t.hasAttribute("data-mk-team")) view.team = t.value;
-      if (t.hasAttribute("data-mk-hideout")) view.hideOut = !!t.checked;
       render();
     });
     var timer = null;
@@ -318,7 +323,7 @@
   }
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("market");
-  root.UPS_FO_MARKET = { AVAIL: AVAIL, statusFor: statusFor, isLater: isLater, _view: view };
+  root.UPS_FO_MARKET = { AVAIL: AVAIL, statusFor: statusFor, isLater: isLater, compactRun: compactRun, _view: view };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA;
     if (!H || !FO || !DATA) return;
