@@ -110,6 +110,14 @@ const seedAddEvent = (db, pid = "16619", fid = "0004", note = "fresh read had no
   db.prepare("INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, acquired_at_unix, acquired_at_iso, source, contract_annotated, detected_at_utc, notes) VALUES ('2026','74598',?,?,?,?,?, 'fcfs', 3, ?, ?)")
     .run(pid, "Test Player", fid, TS, new Date(TS * 1000).toISOString(), new Date().toISOString(), note);
 const stamp = (env, body) => callWorker(env, "POST", `/admin/adds/stamp-ww-contracts?L=74598&YEAR=2026&APIKEY=${ADMIN_KEY}`, { body: { season: "2026", league_id: "74598", days: 30, ...(body || {}) } });
+// The reconcile pass only reads add events acquired within `days` (30 above) of the WORKER's clock. On the real clock the fixture's
+// Sep-20 pickup left that window at 2026-10-20T15:07:42Z, so nothing reconciled — and the "stays open" cases passed for that reason
+// alone. Tests of that pass run at a pinned instant: NOW() (three days after the pickup), unless they say otherwise.
+const atClock = async (unix, fn) => {
+  const RealDate = Date, ms = unix * 1000;
+  globalThis.Date = class extends RealDate { constructor(...a) { super(...(a.length ? a : [ms])); } static now() { return ms; } };
+  try { return await fn(); } finally { globalThis.Date = RealDate; }
+};
 const salRow = (mfl, pid = "16619") => { const r = mfl.st.salaries.find((x) => x.id === pid) || {}; return { salary: String(r.salary || ""), contractStatus: String(r.contractStatus || ""), contractYear: String(r.contractYear || ""), contractInfo: String(r.contractInfo || "") }; };
 
 test("STAMPER: a new no-bid FCFS acquisition — dry run writes nothing; the real run writes the canonical contract, verifies it by re-read, records the audit and closes the add event", async () => {
@@ -134,7 +142,7 @@ test("STAMPER: a new no-bid FCFS acquisition — dry run writes nothing; the rea
   t.equal(again.status, 200); t.equal(again.json.count, 0); t.equal(mfl.writes("salaries").length, 1, "no second import");
   t.equal(db.prepare("SELECT COUNT(*) n FROM ups_auction_contract_finalizations").get().n, 1, "no duplicate ledger record");
 });
-test("STAMPER (reconcile): a refused / open FCFS add event is closed ONLY when MFL already holds exactly the canonical contract for the acquiring franchise — nothing is written to MFL, and anything else stays open", async () => {
+test("STAMPER (reconcile): a refused / open FCFS add event is closed ONLY when MFL already holds exactly the canonical contract for the acquiring franchise — nothing is written to MFL, and anything else stays open", () => atClock(NOW(), async () => {
   { const { env, mfl, db } = fcfsWorld(); pickup(mfl, { salary: "1000", status: "Vet-WW", year: "1", info: "CL 1| TCV 1K| AAV 1K" }); seedAddEvent(db);
     const r = await stamp(env); t.equal(r.status, 200); t.equal(r.json.fcfs_reconciled, 1, "closed with the contract we can SEE");
     t.equal(mfl.writes("salaries").length, 0, "reconcile never writes to MFL"); const ev = db.prepare("SELECT contract_annotated, notes FROM ups_add_events").get(); t.equal(ev.contract_annotated, 1); t.match(ev.notes, /fcfs_contract_verified/);
@@ -145,7 +153,9 @@ test("STAMPER (reconcile): a refused / open FCFS add event is closed ONLY when M
     const r = await stamp(env); t.equal(r.json.fcfs_reconciled, 0, "a different holder is not the acquirer"); t.equal(db.prepare("SELECT contract_annotated n FROM ups_add_events").get().n, 3); }
   { const { env, mfl, db } = fcfsWorld(); pickup(mfl, { salary: "1000", status: "Vet-WW", year: "1", info: "CL 1| TCV 1K| AAV 1K" }); seedAddEvent(db);
     const r = await stamp(env, { dry_run: true }); t.equal(r.json.fcfs_reconciled ?? 0, 0, "a dry run reconciles nothing"); t.equal(db.prepare("SELECT contract_annotated n FROM ups_add_events").get().n, 3); }
-});
+  await atClock(TS + 31 * 86400, async () => { const { env, mfl, db } = fcfsWorld(); pickup(mfl, { salary: "1000", status: "Vet-WW", year: "1", info: "CL 1| TCV 1K| AAV 1K" }); seedAddEvent(db);
+    const r = await stamp(env); t.equal(r.json.fcfs_reconciled, 0, "older than the 30-day look-back: left for a wider manual call"); t.equal(db.prepare("SELECT contract_annotated n FROM ups_add_events").get().n, 3); });
+}));
 test("STAMPER: MFL's award state (salary set, everything else blank) is completed; a salary that is NOT $1,000 is a needs-review row — never silently 'fixed'", async () => {
   { const { env, mfl } = fcfsWorld(); pickup(mfl, { salary: "1000" }); const r = await stamp(env); t.equal(r.json.verified_count, 1); t.deepEqual(salRow(mfl), CANON); }
   { const { env, mfl } = fcfsWorld(); pickup(mfl, { salary: "5000" }); const r = await stamp(env);
