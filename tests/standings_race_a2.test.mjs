@@ -485,7 +485,7 @@ check('neither desktop nor mobile re-declares its own copy of an A2 shared funct
 check('[wiring] desktop renderBracket calls window.UPS_STANDINGS_RACE.projectionMode with season_complete/matchups/seeds, not its own conditional', () => {
   const start = DESKTOP.indexOf('function renderBracket(host) {');
   assert.ok(start >= 0);
-  const slice = DESKTOP.slice(start, start + 3000);
+  const slice = DESKTOP.slice(start, start + 3600);   // #1329 decision 2 added the bracket's season picker above it
   assert.ok(/window\.UPS_STANDINGS_RACE\.projectionMode\(\{\s*seasonComplete:\s*resp\.season_complete,\s*matchups:\s*matchups,\s*seeds:\s*seeds\s*\}\)/.test(slice));
   assert.ok(/mode === "projected"/.test(slice) && /mode !== "actual"/.test(slice));
 });

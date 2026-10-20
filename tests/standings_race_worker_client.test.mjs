@@ -156,13 +156,15 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   t.ok(!/Avg PF|Avg PA/.test(html), "the per-game Avg PF / Avg PA labels are gone");
   t.match(html, /<th[^>]*title="All-Play wins behind the 6th seed"[^>]*>Back<\/th>/, "All-Play wins back beside it");
 });
-test("desktop: weekly results unreadable → race values '—' with a note; the Playoffs column '?' (#1201)", async () => {
+test("desktop: weekly results unreadable → race values '—' with a note; nothing shows a confident playoff record (#1201)", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason({ failWeekly: true })) });
   await settle();
   const html = plain(p.html());
   t.match(html, /Expected wins and luck show —: the weekly results couldn’t be read\./);
-  t.match(html, /Playoff records show <strong>\?<\/strong>: the weekly results couldn't be read\./);
-  t.match(html, /Weekly results couldn’t be read\./, "the disclosure's week-by-week log says so — not 'No games played yet.'");
+  // decision 2 removed the Playoffs column ("seems useless"), so no playoff record can be shown as a confident 0-0
+  t.ok(!/<th[^>]*>Playoffs<\/th>/.test(html), "no Playoffs column");
+  t.match(html, /Scoring summary not shown: the weekly results couldn’t be read\./, "each team's details say so — not 'No games played yet.'");
+  t.ok(!/No games played yet\./.test(html));
 });
 test("desktop: a recorded season says 'Seeds: the recorded final standings.' and each disclosure says recorded", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason({ recorded: true })) });

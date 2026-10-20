@@ -110,7 +110,7 @@ check('desktop dividers key off playoff_seed (2 / 6), not row index, and only re
   assert.ok(/canonicalSeedOrder\s*=\s*sortHdrs\.sortKey === "seed" && sortHdrs\.sortDir === "asc"/.test(DESKTOP));
   assert.ok(/Number\(r\.playoff_seed\) === 2/.test(DESKTOP));
   assert.ok(/Number\(r\.playoff_seed\) === 6/.test(DESKTOP));
-  assert.ok(/Hawk Tuah Bowl · seeds 7–12/.test(DESKTOP));
+  assert.ok(/Playoff line · H1–H6 play the Hawk Tuah Bowl/.test(DESKTOP));
 });
 check('mobile dividers are gated off in-season fallback order, never drawn against a final_finish-sorted table', () => {
   // v3: dividers live only in the in-season Seeds view; the final-standings table (finish order) has none

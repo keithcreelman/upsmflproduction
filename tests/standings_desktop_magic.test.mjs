@@ -53,7 +53,9 @@ test("Playoff Picture: every seed card 1-6 carries its magic number; each divisi
   t.equal((p.html().match(/class="seed-magic"/g) || []).length, 6, "seeds 1-6 only");
   t.equal((p.html().match(/class="magic-line"/g) || []).length, 4, "one per division");
   t.match(h, /Magic number 20 : C-Town Chivalry H2H wins \+ Cleon Ca\$h H2H losses\./);
-  t.match(h, /Magic number = this team’s future wins plus the named rival’s future losses that put the rival out of reach/);
+  // decision 2: the definition moved off the page into About these numbers (on-screen notes stay short)
+  t.match(h, /Magic number This team’s future wins plus the named rival’s future losses that put the rival out of reach/);
+  t.match(h, /Magic numbers are explained under About these numbers\./);
   t.deepEqual(reads, ["?TYPE=schedule&L=74598&JSON=1&YEAR=2026"], "MFL's schedule read once, through the export proxy");
 });
 test("Divisions tab: a magic-number line under each division", async () => {
@@ -62,7 +64,8 @@ test("Divisions tab: a magic-number line under each division", async () => {
   const h = text(p.html());
   t.match(h, /Magic number 23 : Blake Bombers H2H wins \+ CBP H2H losses\./);
   t.match(h, /Magic number 22 : HammerTime H2H wins \+ Pure Greatness H2H losses\./);
-  t.match(h, /the rival named is the one who can finish highest\./);
+  t.match(h, /Division: H2H, against the rival who can finish highest \(the rival named\)\./);
+  t.match(h, /Magic numbers are explained under About these numbers\./);
 });
 test("MFL's schedule fails: division lines say why (no number); the wild-card numbers still show", async () => {
   const { p } = page("view=picture&year=2026", "fail");

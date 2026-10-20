@@ -7,6 +7,10 @@
 // Every expected value is read independently (the worker's own response, or the fixture rows), never from the page.
 // Each review fix (#7 a-g) is checked, and where practical the check is shown to FAIL on a copy of the page with that
 // one fix reverted (mutant pages, as tests/standings_race_weekly.test.mjs does for the shared module).
+// Decision 2 (Keith's desktop review, #1329 comment 6296703323): short team details (seed sentence + scoring tiles; week
+// by week moved to Weekly → Team by week), one row treatment, aligned seed cells with H1-H6, no division columns in Full
+// League, "Opponent" for "Faced", Weekly sub-views (the heat map in its own box), one Trends chart at a time, and a
+// season picker in the bracket with finished seasons checked against their recorded champions.
 //   node scripts/safe_tests/run.mjs --only standings_desktop_v3
 import fs from "node:fs";
 import vm from "node:vm";
@@ -25,6 +29,9 @@ const plain = (html) => html.replace(/&#39;/g, "'").replace(/&quot;/g, '"').repl
 const text = (html) => plain(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
 const pad4 = (v) => String(v).padStart(4, "0");
 const noAbout = (h) => h.replace(/<details class="about">[\s\S]*?<\/details>/g, "");   // the definitions list
+// the number in a seed cell (1-6, H1-H6 or —)
+const seedNOf = (cell) => { const m = /<span class="seed-n[^"]*"[^>]*>([^<]*)<\/span>/.exec(cell || ""); return m ? m[1] : null; };
+const hLabel = (n) => (n > 6 ? "H" + (n - 6) : String(n));
 
 // ── the seasons ──
 const ENV_2026 = loadSeason(makeWorkerEnv({}), recorded2026(REC));
@@ -121,9 +128,10 @@ function leagueTable(raw) {
   const heads = [...tbl[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]).trim());
   const body = tbl[2].replace(/<tr class="disclosure-row"[\s\S]*?(?=<tr class="(?:you-row )?race-row"|<tr class="seed-divider|$)/g, "");
   const rows = [...body.matchAll(/<tr class="(?:you-row )?race-row"([^>]*)>([\s\S]*?)<\/tr>/g)]
-    .map((m) => ({ fid: (/data-fid="(\d{4})"/.exec(m[1]) || [])[1] || null, cells: [...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => text(c[1]).trim()) }));
+    .map((m) => { const raw = [...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => c[1]); return { fid: (/data-fid="(\d{4})"/.exec(m[1]) || [])[1] || null, raw, cells: raw.map((c) => text(c).trim()) }; });
   const col = (label) => heads.indexOf(label);
-  return { heads, rows, col, cell: (fid, label) => (rows.find((r) => r.fid === fid) || { cells: [] }).cells[col(label)] };
+  const row = (fid) => rows.find((r) => r.fid === fid) || { cells: [], raw: [] };
+  return { heads, rows, col, cell: (fid, label) => row(fid).cells[col(label)], rawCell: (fid, label) => row(fid).raw[col(label)], seed: (fid) => seedNOf(row(fid).raw[col("Seed")]) };
 }
 
 // ═══ Playoff Picture ═══
@@ -145,7 +153,7 @@ test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 
   t.deepEqual(hunt.map((h) => h[0]), outside.map((r) => r.franchise_id));
   hunt.forEach(([fid, cells], i) => {
     const r = outside[i];
-    t.equal(cells[0], String(7 + i));
+    t.equal(cells[0], "H" + (1 + i), "the Hawk Tuah Bowl seed (7th-12th = H1-H6, as on the phone)");
     t.equal(cells[5], String(r.ap_back), fid + " Back");
     if (r.order_change) t.match(cells[1], new RegExp((r.order_change > 0 ? "▲" : "▼") + Math.abs(r.order_change)));
   });
@@ -153,9 +161,9 @@ test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 
 });
 test("Picture: projected chips, the bye line after seed 2 and the playoff line after seed 6; one-line reasons from race().whySeed", async () => {
   const p = await page("year=2026");
-  const order = [...p.raw.matchAll(/data-fid="(\d{4})"|(First-round byes above)<\/li>|(Playoff line · 7–12 play the Hawk Tuah Bowl)<\/li>/g)].map((m) => m[1] || m[2] || m[3]);
+  const order = [...p.raw.matchAll(/data-fid="(\d{4})"|(First-round byes above)<\/li>|(Playoff line · H1–H6 play the Hawk Tuah Bowl)<\/li>/g)].map((m) => m[1] || m[2] || m[3]);
   const cards = order.filter((x) => /^\d{4}$/.test(x) || /First|Playoff/.test(x));
-  t.deepEqual(cards.slice(0, 8), ["0009", "0010", "First-round byes above", "0005", "0008", "0002", "0004", "Playoff line · 7–12 play the Hawk Tuah Bowl"]);
+  t.deepEqual(cards.slice(0, 8), ["0009", "0010", "First-round byes above", "0005", "0008", "0002", "0004", "Playoff line · H1–H6 play the Hawk Tuah Bowl"]);
   t.match(p.html, /<span class="status-chip bye projected"[^>]*aria-label="Projected playoff status: Bye">BYE<small> proj\.<\/small><\/span>/);
   t.match(p.html, /Seeds <span class="h-sub">· if the season ended today<\/span>/);
   const card8 = /<li class="seed-card[^"]*" data-fid="0008">([\s\S]*?)<div class="seed-detail"/.exec(p.html)[1];
@@ -194,9 +202,13 @@ test("Picture: 'Seeds unavailable: <reason>' when the worker seeds nobody; prese
 test("Picture, finished season: the recorded final standings (finish, recorded seed, champions, division winners), never a draft-order claim", async () => {
   const p = await page("year=2025", { env: ENV_2025 });
   t.match(p.html, /Recorded final standings\./);
-  const rows = [...p.raw.matchAll(/<tr(?: class="you-row")?><td class="num"><strong>(\d+)<\/strong><\/td><td>([\s\S]*?)<\/td><td class="num">([^<]*)<\/td>/g)]
-    .map((m) => ({ fin: Number(m[1]), team: text(m[2]).trim(), seed: m[3] }));
+  const rows = [...p.raw.matchAll(/<tr(?: class="you-row")?><td class="num"><strong>(\d+)<\/strong><\/td><td>([\s\S]*?)<\/td><td class="seed-col">([\s\S]*?)<\/td>/g)]
+    .map((m) => ({ fin: Number(m[1]), team: text(m[2]).trim(), seed: seedNOf(m[3]), seedCell: m[3] }));
   t.deepEqual(rows.map((r) => r.fin), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "recorded finish order");
+  // recorded seeds 7-12 read H1-H6; a division winner's DIV chip sits in the same aligned Seed cell (not projected)
+  t.equal(rows[6].seed, "H3", "finish 7 = recorded seed 9 = H3");
+  t.match(p.raw, /<td class="seed-col"><span class="seed-cell"><span class="seed-n">\d<\/span><span class="status-chip div" title="Division winner" aria-label="Playoff status: Division winner">DIV<\/span><\/span><\/td>/, "a DIV chip beside the recorded seed");
+  t.ok(!/<span class="tag">DIV<\/span>/.test(p.raw), "no separate DIV tag on the team name from 2014 on");
   const legacy = (await callWorker(ENV_2025, "GET", "/api/standings?year=2025")).json;
   const nm = (fid) => legacy.rows.find((r) => r.franchise_id === fid).franchise_name;   // the season's MFL names
   t.ok(rows[0].team.startsWith("🏆 " + nm("0002")), "finish 1 = the UPS champion: " + rows[0].team);
@@ -217,39 +229,62 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.ok(L, "the table renders");
   t.deepEqual(L.rows.map((r) => r.fid), RESP_2026.rows.map((r) => r.franchise_id), "default order = the worker's");
   t.equal(L.heads.filter((h) => h === "Seed").length, 1, "one Seed column");
-  for (const r of RESP_2026.rows) t.equal(L.cell(r.franchise_id, "Seed"), r.playoff_seed == null ? "—" : String(r.playoff_seed));
+  RESP_2026.rows.forEach((r, i) => t.equal(L.seed(r.franchise_id), r.playoff_seed == null ? hLabel(i + 1) : String(r.playoff_seed), r.franchise_id + " seed (H1-H6 = 7th-12th in the worker's order)"));
+  // the seed number and its BYE / DIV / WC chip share one aligned cell (decision 2)
+  t.match(L.rawCell("0009", "Seed"), /^<span class="seed-cell"><span class="seed-n">1<\/span><span class="status-chip bye projected"/);
+  t.match(L.rawCell("0012", "Seed"), /^<span class="seed-cell"><span class="seed-n hawk" title="Hawk Tuah Bowl seed H1 \(7th\)">H1<\/span><span><\/span><\/span>$/);
   t.ok(L.heads.includes("PF/week") && L.heads.includes("PA/game"), "labeled per week / per game");
   t.ok(!/Avg PF|Avg PA/.test(p.html));
   const c = RESP_2026.rows.find((r) => r.franchise_id === "0009").regular_season;
   t.equal(L.cell("0009", "PF/week"), c.pf_per_week.toFixed(1));
   t.equal(L.cell("0009", "PA/game"), c.pa_per_game.toFixed(1));
   t.equal(L.cell("0012", "Back"), "2");
-  t.deepEqual(["Seed", "Status", "Team", "H2H", "Div", "Playoffs", "All-Play", "AP %", "Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
-  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="faced"[^>]*>Faced<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button>/);
-  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="14">Playoff line · Hawk Tuah Bowl · seeds 7–12<\/td><\/tr>/);
+  // decision 2: no Playoffs column, no division column, no division under the team name (the Divisions tab has them)
+  t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
+  for (const r of RESP_2026.rows) {
+    t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner only, no division: " + r.franchise_id);
+    if (r.division_name) t.ok(!L.cell(r.franchise_id, "Team").includes(r.division_name), "no division name under " + r.franchise_id);
+  }
+  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="opponent"[^>]*>Opponent<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button>/);
+  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="11">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
+  // a team's details: the seed sentence, the scoring tiles and a link to Weekly → Team by week; no week-by-week table
+  // ("will be absurd by week 14") and no division race
+  const dis = /<tr class="disclosure-row" hidden data-for="0009">([\s\S]*?)<\/td><\/tr>/.exec(p.raw)[1];
+  t.match(dis, /<div class="why-seed">Seed 1: /);
+  t.equal((dis.match(/<div class="stat-tile"/g) || []).length, 8, "eight scoring tiles");
+  t.match(dis, /<dt>Opponent pts\/game<\/dt>/);
+  t.match(dis, /<button type="button" class="link-btn" data-wbw="0009">Week by week →<\/button>/);
+  t.ok(!/Week-by-week|Division race|<th[^>]*>Games<\/th>|<th[^>]*>GB<\/th>/.test(dis), "no week-by-week table and no division race in the details");
   t.ok(p.urls.every((u) => !u.startsWith("/api/playoff-bracket")), "the current season's seeds never come from /api/playoff-bracket");
 });
-test("Full League Scored / Faced: the shared module's scoredFaced numbers; Faced is 'schedule, not skill' and never 'Defense'", async () => {
+test("Full League Scored / Opponent: the shared module's scoredFaced numbers; Opponent is 'schedule, not skill', never 'Faced' or 'Defense'", async () => {
   const RACE = (() => { const w = {}; new Function("window", fs.readFileSync(new URL("../site/shared/standings_race.js", import.meta.url), "utf8"))(w); return w.UPS_STANDINGS_RACE; })();
   const sf = RACE.scoredFaced(RESP_2026);
   t.equal(sf.status, "ok");
   const scored = await page("view=league&year=2026&show=scored");
   const S = leagueTable(scored.raw);
-  t.deepEqual(S.heads, ["Seed", "Status", "Team", "PF", "PF/week", "PF rank", "Avg wk rank", "Best week", "Worst week", "Last 3 avg rank"]);
+  t.deepEqual(S.heads, ["Seed", "Team", "PF", "PF/week", "PF rank", "Avg wk rank", "Best week", "Worst week", "Last 3 avg rank"]);
   const s9 = sf.byFranchise["0009"].scored;
   t.equal(S.cell("0009", "PF rank"), "1st");
   t.equal(S.cell("0009", "Best week"), "W" + s9.highWeek.week + " " + s9.highWeek.score.toFixed(1));
   t.match(scored.html, /<strong>Scored<\/strong> — what each lineup put up in the regular season\. Descriptive/);
-  const faced = await page("view=league&year=2026&show=faced");
+  const faced = await page("view=league&year=2026&show=opponent");
   const Fc = leagueTable(faced.raw);
-  t.deepEqual(Fc.heads, ["Seed", "Status", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close H2H games"]);
+  t.deepEqual(Fc.heads, ["Seed", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close H2H games"]);
   for (const r of RESP_2026.rows) {
     const f = sf.byFranchise[r.franchise_id].faced;
     t.equal(Fc.cell(r.franchise_id, "Opp. pts/game"), f.paPerGame.toFixed(1));
     t.match(Fc.cell(r.franchise_id, "Rank"), new RegExp("^" + f.paRank + "(st|nd|rd|th)$"));
   }
-  t.match(faced.html, /<strong>Faced: schedule, not skill\.<\/strong>/);
-  for (const v of [faced, scored, await page("view=league&year=2026"), await page("year=2026")]) t.ok(!/defen[cs]e/i.test(v.html), "never 'Defense' (in UPS, MFL's Defense = your IDP players' points)");
+  t.match(faced.html, /<strong>Opponent: schedule, not skill\.<\/strong>/);
+  t.match(faced.html, /data-show="opponent" aria-pressed="true">Opponent<\/button>/);
+  // the old ?show=faced link still opens the Opponent columns
+  t.deepEqual(leagueTable((await page("view=league&year=2026&show=faced")).raw).heads, Fc.heads);
+  const views = [faced, scored, await page("view=league&year=2026"), await page("year=2026"), await page("view=trends&year=2026&chart=pf"), await page("view=weekly&year=2026&wv=team")];
+  for (const v of views) {
+    t.ok(!/defen[cs]e/i.test(v.html), "never 'Defense' (in UPS, MFL's Defense = your IDP players' points)");
+    t.ok(!/\bfaced\b/i.test(v.text), "'Faced' is now 'Opponent' on desktop");
+  }
 });
 test("Full League: the Scope control still works for historical use (Regular Season) and is not the default", async () => {
   const def = await page("view=league&year=2026");
@@ -265,8 +300,8 @@ test("Full League, finished season: Seed = the recorded seed, Fin = the recorded
   const p = await page("view=league&year=2025", { env: ENV_2025 });
   const L = leagueTable(p.raw);
   t.deepEqual(L.rows.map((r) => Number(L.cell(r.fid, "Fin"))), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "recorded finish order");
-  for (let n = 1; n <= 12; n++) t.equal(L.cell(F(n), "Seed"), String(n), "recorded seed " + n);
-  t.ok(!L.heads.includes("Status") && !L.heads.includes("Back"), "no in-season status or games-back for a finished season");
+  for (let n = 1; n <= 12; n++) t.equal(L.seed(F(n)), hLabel(n), "recorded seed " + n);
+  t.ok(!L.heads.includes("Back") && !/status-chip [a-z]+ projected/.test(p.raw), "no projected status or games-back for a finished season");
   t.match(p.html, /Seeds: the recorded final standings\./);
   t.match(p.html, /Recorded seed 2 · finished 1st — from the recorded final standings\./);
   t.ok(!/Seed \d+ — from the recorded final standings/.test(p.html), "the legacy recompute is never shown as a seed");
@@ -277,11 +312,31 @@ test("Divisions: the worker's division order (division_rank), GB, the non-record
   const p = await page("view=divisions&year=2026");
   for (const d of ["00", "01", "02", "03"]) {
     const card = new RegExp('<div class="div-card-name">Division ' + d + '<\\/div>[\\s\\S]*?<tbody>([\\s\\S]*?)<\\/tbody>').exec(p.html);
-    const names = [...card[1].matchAll(/<tr[^>]*><td>([^<]+)/g)].map((m) => m[1]);
+    const names = [...card[1].matchAll(/<span class="tc-name">([^<]+)<\/span>/g)].map((m) => m[1]);
     t.deepEqual(names, RESP_2026.rows.filter((r) => r.division === d).sort((a, b) => a.division_rank - b.division_rank).map((r) => r.franchise_name), "division " + d);
   }
   t.match(p.html, /<div class="reason">Cleon Ca\$h over Hawks: same H2H record, a better division record \(4-0 vs 0-4\)\.<\/div>/);
   t.match(p.html, /Order = record, then division record, then head-to-head \(MFL’s rule\)\./);
+});
+test("decision 2: one row treatment (no per-cell borders), and every Seed cell aligns the number with its BYE / DIV / WC chip", async () => {
+  // the CSS: a background for the viewer's row and a bar on the FIRST cell of a leader row; no per-cell border, outline
+  // or inset shadow on every cell, and keyboard focus only (a click doesn't outline a row)
+  t.match(PAGE_SOURCE, /tr\.you-row > td \{ background: rgba\(125, 232, 217, 0\.09\); \}/);
+  t.match(PAGE_SOURCE, /tr\.leader-row > td:first-child \{ box-shadow: inset 3px 0 0 var\(--gold\); \}/);
+  t.ok(!/tr\.you-row td \{[^}]*box-shadow/.test(PAGE_SOURCE), "the old per-cell teal shadow is gone");
+  t.ok(!/tr\.leader-row td:first-child \{ border-left/.test(PAGE_SOURCE), "the old border on the leader's first cell is gone");
+  t.ok(!/tr\.race-row:focus \{ outline: 2px/.test(PAGE_SOURCE), "a click no longer outlines the row");
+  t.match(PAGE_SOURCE, /\.seed-cell \{ display: inline-grid; grid-template-columns: 26px auto; align-items: center;/);
+  const p = await page("view=divisions&year=2026");
+  const row = (name) => new RegExp('<tr(?: class="([^"]*)")?><td><div class="team-cell">(?:(?!</tr>)[\\s\\S])*?<span class="tc-name">' + name.replace(/[$()]/g, "\\$&") + '<\\/span>([\\s\\S]*?)<\\/tr>').exec(p.raw);
+  const ctown = row("C-Town Chivalry");
+  t.equal(ctown[1], "leader-row", "the division leader's row");
+  t.match(ctown[2], /<td class="seed-col"><span class="seed-cell"><span class="seed-n">1<\/span><span class="status-chip bye projected"[^>]*>BYE<small> proj\.<\/small><\/span><\/span><\/td>/);
+  const cbp = row("CBP");
+  t.equal(cbp[1], undefined, "no row class for an ordinary row");
+  t.match(cbp[2], /<span class="seed-n">5<\/span><span class="status-chip wc projected"/, "blue WC beside the number");
+  const hawks = row("Hawks");
+  t.match(hawks[2], /<span class="seed-n hawk" title="Hawk Tuah Bowl seed H1 \(7th\)">H1<\/span><span><\/span>/, "orange H1 for the first team outside the field");
 });
 
 // ═══ Weekly ═══
@@ -302,12 +357,21 @@ test("Weekly Week 5: top score C-Town Chivalry 280.5, +8.0 over Real Deal Creel;
   // the picker: completed regular-season weeks, and the Season view
   t.match(p.html, /<span class="wp-label">Regular season<\/span><button[^>]*data-week="1"[^>]*>1<\/button>[\s\S]*data-week="5" aria-pressed="true"/);
   t.ok(!/data-week="6"/.test(p.html), "only completed weeks");
+  // decision 2: one thing at a time — the Weekly sub-views, One week by default
+  t.match(p.html, /<div class="seg" role="group" aria-label="Weekly view"><span class="seg-label">Show:<\/span><button type="button" class="mode-btn" data-wview="week" aria-pressed="true">One week<\/button><button type="button" class="mode-btn" data-wview="leaders" aria-pressed="false">Season leaders<\/button><button type="button" class="mode-btn" data-wview="heat" aria-pressed="false">Heat map<\/button><button type="button" class="mode-btn" data-wview="team" aria-pressed="false">Team by week<\/button><\/div>/);
+  t.ok(!/<table class="heat">|leaders-table|wbw-table/.test(p.raw), "no other Weekly visual on this page");
 });
-test("Weekly Season: top-score weeks per team, each week's top score, and a team × week heat map whose every cell is the rank (with a table toggle)", async () => {
-  const p = await page("view=weekly&year=2026&week=season");
+test("Weekly Season leaders, then the heat map on its own page: every cell is the rank (with a table toggle), inside its own box", async () => {
+  const p = await page("view=weekly&year=2026&week=season");   // the old Season link opens Season leaders
+  t.match(p.html, /data-wview="leaders" aria-pressed="true"/);
+  t.ok(!/<table class="heat">/.test(p.raw), "the heat map has its own sub-view now");
+  const h = await page("view=weekly&year=2026&wv=heat");
+  t.ok(!/leaders-table/.test(h.raw), "...with nothing else beside it");
+  t.match(h.raw, /<div class="heat-box"><table class="heat">/, "a table wider than the page scrolls inside this box");
+  t.match(PAGE_SOURCE, /\.heat-box \{ overflow-x: auto; max-width: 100%;/);
   const weeks = [1, 2, 3, 4, 5];
   const rank = (w, f) => 1 + REC.weekly_scores.filter((r) => r.week === w && r.team_score > REC.weekly_scores.find((x) => x.week === w && x.franchise_id === f).team_score).length;
-  const heat = /<table class="heat">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/.exec(p.raw);
+  const heat = /<table class="heat">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/.exec(h.raw);
   t.ok(heat, "the heat map renders");
   const rows = [...heat[1].matchAll(/<tr><td class="hteam">([^<]+)<\/td>([\s\S]*?)<\/tr>/g)];
   t.equal(rows.length, 12);
@@ -318,9 +382,10 @@ test("Weekly Season: top-score weeks per team, each week's top score, and a team
     t.deepEqual(cells.map((c) => Number(c[2])), weeks.map((w) => rank(w, fid)), plain(m[1]) + " weekly ranks");
     t.ok(cells.every((c) => /: \d+(st|nd|rd|th) \(/.test(plain(c[1]))), "each cell's title says the rank and score in words");
   }
-  t.match(p.html, /<button type="button" class="mode-btn" data-hm="heat" aria-pressed="true">Heat map<\/button><button type="button" class="mode-btn" data-hm="table" aria-pressed="false">Table<\/button>/);
-  const tbl = await page("view=weekly&year=2026&week=season&hm=table");
+  t.match(h.html, /<button type="button" class="mode-btn" data-hm="heat" aria-pressed="true">Heat map<\/button><button type="button" class="mode-btn" data-hm="table" aria-pressed="false">Table<\/button>/);
+  const tbl = await page("view=weekly&year=2026&wv=heat&hm=table");
   t.ok(!/<table class="heat">/.test(tbl.raw) && /<td class="num">\d+ <span class="dim">\([\d.]+\)<\/span><\/td>/.test(tbl.raw), "the table view: rank (score), no color");
+  t.match(tbl.raw, /<div class="heat-box"><table class="data-table">/, "the table view scrolls inside the same box");
   t.match(p.html, /<li><span class="wk">W5<\/span><span>C-Town Chivalry<\/span><span>280\.5 <span class="dim">\(\+8\.0\)<\/span><\/span><\/li>/, "each week's top score");
   const lead = /<table class="data-table leaders-table">[\s\S]*?<tbody><tr[^>]*><td>([^<]+)<\/td><td class="num">(\d+)<\/td>/.exec(p.html);
   t.equal(lead[1], "C-Town Chivalry");
@@ -332,13 +397,50 @@ test("Weekly: playoff weeks are labeled separately from the regular season", asy
   const po = await page("view=weekly&year=2025&week=3", { env: ENV_2025 });
   t.match(po.html, /<b>Playoff week 3 top score:<\/b>/);
   t.match(po.html, /playoff week: not part of the regular-season All-Play/);
+  // the heat map: regular season by default; All weeks adds the playoff weeks as P-columns
+  const reg = await page("view=weekly&year=2025&wv=heat", { env: ENV_2025 });
+  const heads = (raw) => [.../<thead><tr><th scope="col" class="hteam">Team<\/th>([\s\S]*?)<\/tr><\/thead>/.exec(raw)[1].matchAll(/<th class="num" scope="col">([^<]+)<\/th>/g)].map((m) => m[1]);
+  t.deepEqual(heads(reg.raw), ["1"]);
+  const all = await page("view=weekly&year=2025&wv=heat&wkall=1", { env: ENV_2025 });
+  t.deepEqual(heads(all.raw), ["1", "P2", "P3", "P4"]);
+  t.match(all.html, /data-wkall="1" aria-pressed="true">All weeks \(incl\. playoffs\)<\/button>/);
+});
+test("Weekly Team by week (moved out of the team details): each week's score, rank, All-Play, every H2H game on its own line, and the seed after the week", async () => {
+  const p = await page("view=weekly&year=2026&wv=team&team=0008");
+  t.match(p.html, /<select id="wbwTeam" class="team-select">[\s\S]*<option value="0008" selected>Real Deal Creel<\/option>/);
+  t.match(p.html, /<h3 class="sec-h">Real Deal Creel <span class="dim" style="font-weight:400">· week by week<\/span><\/h3>/);
+  const body = /<table class="data-table wbw-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/.exec(p.raw)[1];
+  const rows = [...body.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((m) => m[1]);
+  t.equal(rows.length, 5, "one row per completed week");
+  const sbw = RESP_2026.regular_season.seed_by_week;
+  rows.forEach((r, i) => {
+    const w = i + 1;
+    const games = REC.games.filter((g) => g.week === w && g.franchise_id === "0008");
+    t.equal((r.match(/<span class="g">/g) || []).length, games.length, "week " + w + ": every H2H game, one per line");
+    const s = REC.weekly_scores.find((x) => x.week === w && x.franchise_id === "0008").team_score;
+    t.match(r, new RegExp('^<td class="num">' + w + '<\\/td><td class="num">' + s.toFixed(1) + '<\\/td>'));
+    const idx = sbw[w].indexOf("0008");
+    t.equal(seedNOf(r), hLabel(idx + 1), "week " + w + " seed after the week (the worker's seed_by_week)");
+  });
+  t.match(PAGE_SOURCE, /table\.wbw-table td\.games \{ white-space: nowrap;/, "a game never wraps mid-line");
+  // the details' link opens it for that team
+  t.match((await page("view=league&year=2026")).raw, /<button type="button" class="link-btn" data-wbw="0008">Week by week →<\/button>/);
 });
 
 // ═══ Trends ═══
-test("Trends: three inline-SVG charts (seed order by week, All-Play vs record, PF vs points faced), each with axes, a caption and a table", async () => {
-  const p = await page("view=trends&year=2026");
-  const figs = [...p.raw.matchAll(/<figure class="chart">([\s\S]*?)<\/figure>/g)].map((m) => m[1]);
-  t.equal(figs.length, 3);
+test("Trends: ONE chart at a time, picked with the Chart control (seed order by week, All-Play vs record, PF vs opponents' points), each with axes, a caption and a table", async () => {
+  const figs = [];
+  for (const [q, key] of [["", "seed"], ["&chart=ap", "ap"], ["&chart=pf", "pf"]]) {
+    const p = await page("view=trends&year=2026" + q);
+    const f = [...p.raw.matchAll(/<figure class="chart">([\s\S]*?)<\/figure>/g)].map((m) => m[1]);
+    t.equal(f.length, 1, "one chart on the page (" + key + ")");
+    figs.push(f[0]);
+    t.match(p.raw, /<div class="seg" role="group" aria-label="Chart"><span class="seg-label">Chart:<\/span><button type="button" class="mode-btn" data-chart="seed" aria-pressed="(true|false)">Seed by week<\/button><button type="button" class="mode-btn" data-chart="ap" aria-pressed="(true|false)">All-Play vs record<\/button><button type="button" class="mode-btn" data-chart="pf" aria-pressed="(true|false)">Points For vs opponents<\/button><\/div>/);
+    t.match(p.raw, new RegExp('data-chart="' + key + '" aria-pressed="true"'), key + " is the pressed chart");
+    t.equal((p.raw.match(/aria-pressed="true"/g) || []).length, 1, "only that one pressed");
+  }
+  // a finished season opens on All-Play vs record (seed-by-week history isn't kept for finished seasons)
+  t.match((await page("view=trends&year=2025", { env: ENV_2025 })).raw, /data-chart="ap" aria-pressed="true"/);
   for (const f of figs) {
     t.match(f, /<svg viewBox="[^"]+" role="img" aria-label="[^"]+"/, "an accessible SVG");
     t.match(f, /<details class="chart-table"><summary>Show table<\/summary>/, "a table equivalent behind a toggle");
@@ -353,7 +455,8 @@ test("Trends: three inline-SVG charts (seed order by week, All-Play vs record, P
   t.match(figs[0], /<text class="lbl" x="[^"]+" y="[^"]+">1  C-Town Chivalry<\/text>/, "end labels name the team");
   t.match(figs[1], /Above the line = record better than scoring \(schedule luck\)\./);
   t.match(figs[1], />All-Play %<\/text>/); t.match(figs[1], />Record %<\/text>/); t.match(figs[1], /record = All-Play<\/text>/);
-  t.match(figs[2], />Points For per week<\/text>/); t.match(figs[2], />Points faced per game<\/text>/);
+  t.match(figs[2], />Points For per week<\/text>/); t.match(figs[2], />Opponents’ points per game<\/text>/);
+  t.match(figs[2], /Opponent points are schedule, not skill\./);
   // status by shape and words, not color alone
   t.match(figs[1], /<circle class="dot out"/); t.match(figs[1], /<circle class="dot in"/);
   t.match(figs[1], /Outside the field<\/span>/);
@@ -479,16 +582,19 @@ test("fix (e): 3-Year Eras counts 'Hawktuah titles' = finish 7 (2011 on), not fi
   const sb = worker.eras.find((e) => e.era_start === 2017).rows.find((r) => r.owner_name === "Shawn Blake");
   t.equal(sb.hawktuah_wins, 1, "control: the worker's hawktuah_wins counts finish 12 (2017) — the page doesn't use it");
 });
-test("fix (f): the division race in a team's drilldown keeps the worker's order (no re-sort by All-Play games back)", async () => {
+test("fix (f): a division's teams keep the worker's order (no re-sort by All-Play); since decision 2 the team details hold no division race", async () => {
+  // The division race left the team details (decision 2: Full League has no division information; the Picture's
+  // Division leaders panel and the Divisions tab show each division). The order check moves to that panel.
   const check = async (src) => {
-    const p = await page("view=league&year=2026", { src });
-    const dis = /<tr class="disclosure-row" hidden data-for="0009">([\s\S]*?)<\/td><\/tr>(?=<tr class)/.exec(p.raw)[1];
-    const race = /<h4>Division race<\/h4><table class="mini">[\s\S]*?<tbody>([\s\S]*?)<\/tbody>/.exec(dis)[1];
-    const names = [...race.matchAll(/<tr><td>(?:<span[^>]*>👑<\/span> )?([^<]+)<\/td>/g)].map((m) => plain(m[1]));
+    const p = await page("year=2026", { src });
+    const panel = /<section class="panel"><h3>Division leaders<\/h3>([\s\S]*?)<\/section>/.exec(p.html)[1];
+    const div03 = /Division 03<\/div>([\s\S]*?)<\/table>/.exec(panel)[1];
+    const names = [...div03.matchAll(/<tr[^>]*><td>([^<]+)/g)].map((m) => m[1]);
     t.deepEqual(names, ["C-Town Chivalry", "Cleon Ca$h", "Hawks"], "division_rank order (Cleon Ca$h wins the tie on division record)");
   };
-  await catches("fix (f)", "var trs = dr.map(function (d) {",
-    "var trs = dr.slice().sort(function (a, b) { return (a.ap_gb == null ? 99 : a.ap_gb) - (b.ap_gb == null ? 99 : b.ap_gb); }).map(function (d) {", check);
+  await catches("fix (f)", "        .sort(function (a, b) { return ((a.r.division_rank || 99) - (b.r.division_rank || 99)) || (a.i - b.i); })",
+    "        .sort(function (a, b) { return (Number((allPlayOf(b.r) || {}).pct) || 0) - (Number((allPlayOf(a.r) || {}).pct) || 0); })", check);
+  for (const q of ["view=league&year=2026", "year=2026"]) t.ok(!/Division race|divisionRace/.test((await page(q)).raw), "no division race in the team details: " + q);
 });
 test("fix (g): the Full League seed comes from /api/standings for the current season, even when /api/playoff-bracket disagrees", async () => {
   // a bracket response whose seeds are reversed — the page must not read it for the current season
@@ -502,7 +608,7 @@ test("fix (g): the Full League seed comes from /api/standings for the current se
   };
   const p = await page("view=overall&year=2026", { fetch });
   const L = leagueTable(p.raw);
-  for (const r of RESP_2026.rows) t.equal(L.cell(r.franchise_id, "Seed"), r.playoff_seed == null ? "—" : String(r.playoff_seed), r.franchise_id);
+  RESP_2026.rows.forEach((r, i) => t.equal(L.seed(r.franchise_id), r.playoff_seed == null ? hLabel(i + 1) : String(r.playoff_seed), r.franchise_id));
   t.ok(!p.urls.some((u) => u.startsWith("/api/playoff-bracket")), "no second seed source is even requested");
   t.match(p.raw, /data-view="league" aria-selected="true"/, "the old ?view=overall link opens Full League");
 });
@@ -518,6 +624,38 @@ test("History groups the older views as sub-tabs; old ?view= links still land on
   t.ok(!/Fetch failed|Something went wrong/.test(b.html));
   const pic = await page("year=2026");
   t.ok(!/data-sub=/.test(pic.raw), "no History sub-tabs outside History");
+});
+test("Playoff bracket: its own season picker (decision 2), and a finished season's bracket checked against the recorded champions", async () => {
+  const b = await page("view=bracket&year=2026");
+  t.match(b.raw, /<div class="bracket-bar" role="group" aria-label="Bracket season"><span class="bb-title">2026 playoff bracket<\/span><label class="seg"><span class="seg-label">Season:<\/span><select id="bracketYear"/);
+  t.match(b.raw, /<select id="bracketYear"[^>]*>[\s\S]*<option value="2026" selected>2026<\/option>[\s\S]*<option value="2010">2010<\/option><\/select>/, "every season 2010-2026");
+  t.match(b.raw, /data-byear="2025" aria-label="Show the 2025 bracket">◀ 2025<\/button>/);
+  // a finished season: the real games, names from the seeds when the schedule rows carry none, and its champions
+  const p = await page("view=bracket&year=2025", { env: ENV_2025 });
+  t.match(p.raw, /<option value="2025" selected>2025<\/option>/);
+  const bracket = (await callWorker(ENV_2025, "GET", "/api/playoff-bracket?year=2025")).json;   // the names the bracket's seeds carry
+  const nm = (fid) => bracket.seeds.find((r) => r.franchise_id === fid).franchise_name;
+  t.ok(bracket.matchups.every((m) => !m.franchise_name), "control: this fixture's schedule rows carry no team names");
+  const champ = (label) => { const m = new RegExp('<div class="champion-label">' + label + '<\\/div><div class="champion-icon">[^<]*<\\/div><div class="champion-name">([^<]*)').exec(plain(p.raw)); return m && m[1].trim(); };
+  t.equal(champ("UPS Champion"), nm("0002"), "finish 1");
+  t.equal(champ("Hawk Tuah Bowl champion"), nm("0009"), "finish 7");
+  t.ok(!/<span class="matchup-name">\d{4}<\/span>/.test(p.raw), "no bare franchise ids in the game cards");
+  t.ok(!/results by week/.test(p.html), "both sides match the record, so both draw as brackets");
+  // where the drawn champion disagrees with the record (older formats), that side lists its games by week and names
+  // the RECORDED champion: here the record says 0007 won the Hawk Tuah Bowl (finish 7) instead of 0009.
+  const real = workerFetch(callWorker, ENV_2025);
+  const swapped = async (url) => {
+    const r = await real(url);
+    if (new URL(url).pathname !== "/api/historical-finishes") return r;
+    const j = await r.json();
+    const rows = j.rows.map((x) => (x.season === 2025 && x.franchise_id === "0009" ? { ...x, final_finish: 8 } : x.season === 2025 && x.franchise_id === "0007" ? { ...x, final_finish: 7 } : x));
+    return { ok: true, status: 200, json: async () => ({ ...j, rows }) };
+  };
+  const s = await page("view=bracket&year=2025", { fetch: swapped });
+  t.match(s.html, /🦅 Hawk Tuah Bowl — results by week<\/h3><div class="psub"[^>]*>2025’s toilet bracket doesn’t follow today’s rounds, so its games are listed by week; the champion is the recorded final standing\.<\/div>/);
+  const hs = /Hawk Tuah Bowl — results by week([\s\S]*?)<\/section>/.exec(s.html)[1];
+  t.match(hs, new RegExp('<div class="champion-name">' + nm("0007").replace(/[$()]/g, "\\$&") + ' <span'), "the recorded Hawk Tuah Bowl champion");
+  t.match(s.html, /🏆 UPS Championship — seeds 1-6<\/h3>/, "the championship side still draws as a bracket");
 });
 
 await run("standings_desktop_v3");
