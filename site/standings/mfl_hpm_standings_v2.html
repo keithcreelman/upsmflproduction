@@ -1237,6 +1237,8 @@
     .seed-team { font-size: 14px; font-weight: 800; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .seed-stats { font-size: 12px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
     .seed-why { font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.45; }
+    .seed-magic, .magic-line { font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+    .magic-line { font-size: 11.5px; }
     .seed-detail { padding: 0 12px 12px; }
     li.cut-line { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 0; }
     li.cut-line::before, li.cut-line::after { content: ""; flex: 1 1 auto; height: 0; }
@@ -1835,6 +1837,72 @@
     if (rs && rs.complete) return "regular_over";
     return "in_season";
   }
+  // ── Magic numbers (#1329) ──
+  // The shared module counts them (standings_race.js magicNumbers). The division races need MFL's schedule (each
+  // team's number of H2H games), read through the worker's export proxy only while the regular season is being
+  // played, and waited for at most 2.5 s. A failed or slow read leaves the division numbers unavailable (never
+  // guessed); a slow one is kept for the next view.
+  var MAGIC_SCHEDULE = "/api/mfl-export?TYPE=schedule&L=74598&JSON=1&YEAR=";
+  function magicSeasonOf(resp) {
+    return !!resp && !resp.preseason && resp.standings_basis === "regular_season_ladder" && seasonStateOf(resp) === "in_season";
+  }
+  function magicOf(resp, sched) {
+    var R = window.UPS_STANDINGS_RACE;
+    if (!magicSeasonOf(resp) || !R || !R.magicNumbers) return null;
+    var m = R.magicNumbers(resp, sched || null);
+    return m && m.status === "ok" ? m : null;
+  }
+  var MAGIC_REASON = {
+    schedule_unavailable: "MFL’s schedule couldn’t be read, so it isn’t shown.",
+    schedule_unreadable: "MFL’s schedule couldn’t be read, so it isn’t shown.",
+    schedule_incomplete: "MFL’s schedule is missing a week, so it isn’t shown.",
+    schedule_mismatch: "MFL’s schedule doesn’t match the games already played, so it isn’t shown.",
+    division_leaders_unreadable: "the division leaders couldn’t be read, so it isn’t shown."
+  };
+  function magicReasonText(code, slow) { return slow ? "MFL’s schedule hasn’t arrived yet; it shows the next time this view opens." : (MAGIC_REASON[code] || "not available right now."); }
+  // A seed card's magic line (inner HTML): division number on BYE / DIV cards, wild-card number on WC cards.
+  function seedMagicInner(mg, fid, by, slow) {
+    var e = mg && mg.byFid[fid];
+    if (!e) return "";
+    if (e.kind === "division") {
+      if (e.clinched) return '<b>✓ Clinched the division.</b>';
+      if (e.magic == null) return 'Division magic number: ' + escapeHtml(magicReasonText(mg.division.reason, slow));
+      return 'Division magic number <b>' + e.magic + '</b>: its H2H wins + ' + escapeHtml(nameOf(by[e.vs])) + ' H2H losses.';
+    }
+    if (e.clinched) return '<b>✓ Clinched a playoff spot.</b>';
+    if (e.magic == null) return "";
+    return 'Wild-card magic number <b>' + e.magic + '</b>: its All-Play wins + ' + escapeHtml(nameOf(by[e.vs])) + ' All-Play losses.';
+  }
+  // A division's magic line (inner HTML).
+  function divMagicInner(mg, k, by, slow) {
+    if (!mg) return "";
+    var d = mg.division.status === "ok" ? mg.division.byDivision[k] : null;
+    if (d && d.clinched) return '<b>✓ ' + escapeHtml(nameOf(by[d.leader])) + '</b> has clinched the division.';
+    if (d) return 'Magic number <b>' + d.magic + '</b>: ' + escapeHtml(nameOf(by[d.leader])) + ' H2H wins + ' + escapeHtml(nameOf(by[d.vs])) + ' H2H losses.';
+    return 'Magic number: ' + escapeHtml(magicReasonText(mg.division.reason, slow));
+  }
+  var MAGIC_NOTE = 'Magic number = this team’s future wins plus the named rival’s future losses that put the rival out of reach (a tie would go to the tiebreak, so it doesn’t count). Division: H2H, against the rival who can finish highest. Wild card: All-Play (11 results a week), against the first team out; ✓ appears only when no division race can knock the team out.';
+  // MFL's schedule for a season: one read at a time, kept once it arrives; resolves to the export, null (failed), or
+  // { slow: true } after 2.5 s (the read carries on and is kept for the next view).
+  function scheduleFor(year) {
+    var endpoint = MAGIC_SCHEDULE + encodeURIComponent(year);
+    if (state.cache[endpoint + "|"]) return Promise.resolve(state.cache[endpoint + "|"]);
+    state.schedReads = state.schedReads || {};
+    var read = state.schedReads[year] || (state.schedReads[year] = fetchD1(endpoint, null)
+      .then(function (j) { return j && j.schedule ? j : null; }, function () { return null; })
+      .then(function (j) { delete state.schedReads[year]; return j; }));
+    var timer = null;
+    var slow = new Promise(function (res) { timer = setTimeout(function () { res({ slow: true }); }, 2500); });
+    return Promise.race([read, slow]).then(function (j) { clearTimeout(timer); return j; });
+  }
+  // draw(mg, slow) — mg is null outside a regular season being played.
+  function withMagic(resp, draw) {
+    if (!magicSeasonOf(resp)) { draw(null, false); return Promise.resolve(); }
+    return scheduleFor(state.year).then(function (j) {
+      var slow = !!(j && j.slow);
+      draw(magicOf(resp, slow ? null : j), slow);
+    });
+  }
   function freshnessText(resp) {
     var rs = resp && resp.regular_season, st = seasonStateOf(resp);
     if (st === "final") return state.year + " · season complete";
@@ -2052,8 +2120,9 @@
     if (ties.length) lines.push('<b>Tiebreak' + (ties.length > 1 ? "s" : "") + ':</b> ' + ties.slice(0, 3).join(" "));
     return '<div class="summary-card" role="status">' + lines.map(function (l) { return '<div class="line">' + l + '</div>'; }).join("") + '</div>';
   }
-  function seedCardHtml(resp, race, sf, r, projected) {
+  function seedCardHtml(resp, race, sf, r, projected, magic) {
     var fid = pad4(r.franchise_id);
+    var mline = magic && magic.mg && magic.mg.byFid[fid] ? '<div class="seed-magic">' + seedMagicInner(magic.mg, fid, magic.by, magic.slow) + '</div>' : '';
     var rr = race && race.byFranchise[fid];
     var rc = recordOf(r), ap = allPlayOf(r);
     var you = VIEWER_FID && fid === VIEWER_FID;
@@ -2065,6 +2134,7 @@
       +     '<div class="seed-team"><span class="tn">' + escapeHtml(nameOf(r)) + '</span>' + tkoMark(r) + statusChipHtml(statusOf(r), projected) + moveHtml(r.order_change) + '</div>'
       +     '<div class="seed-stats">' + recStr(rc) + ' · All-Play ' + recStr(ap) + ' (' + fmtPct(ap && ap.pct) + ')' + (regOf(r) ? ' · ' + fmtPts(regOf(r).pf_per_week) + ' PF/week' : '') + '</div>'
       +     '<div class="seed-why">' + escapeHtml(why) + '</div>'
+      +     mline
       +   '</div>'
       + '</div>'
       + '<div class="seed-detail" hidden data-for="' + fid + '">' + teamDetailHtml(resp, race, sf, fid, null) + '</div>'
@@ -2091,7 +2161,7 @@
       + '<div class="table-scroll"><table class="data-table hunt-table"><thead><tr><th class="num" scope="col">#</th><th scope="col">Team</th><th class="num" scope="col">H2H</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="All-Play wins behind the 6th seed">Back</th></tr></thead><tbody>' + trs + '</tbody></table></div>';
   }
   // Division leaders: each division in the order of its leader's seed, teams in the worker's division order.
-  function divisionLeadersHtml(resp, rows, final) {
+  function divisionLeadersHtml(resp, rows, final, magic) {
     var by = rowsByFid(rows);
     var divs = {}, keys = [];
     rows.forEach(function (r) {
@@ -2133,7 +2203,8 @@
       });
       return '<div class="div-mini"><div class="div-mini-name">' + escapeHtml(d.name) + '</div>'
         + '<table class="mini"><thead><tr><th>Team</th><th class="num">H2H</th><th class="num" title="H2H record against the two division rivals">Div</th><th class="num" title="H2H games behind the division leader">GB</th></tr></thead><tbody>' + trs + '</tbody></table>'
-        + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("") + '</div>';
+        + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("")
+        + (magic && magic.mg ? '<div class="magic-line">' + divMagicInner(magic.mg, k, magic.by, magic.slow) + '</div>' : '') + '</div>';
     }).join("");
     return '<section class="panel"><h3>Division leaders</h3>' + blocks
       + '<div class="psub" style="margin-top:6px">GB = H2H games behind the division leader · Order = H2H record, then division record, then the H2H games between the tied teams (MFL’s rule).</div></section>';
@@ -2168,10 +2239,13 @@
         return loadFinishes(state.year).then(function (fins) { drawFinalPicture(host, resp, fins); },
           function () { showFailure(host, "the " + state.year + " recorded final standings"); });
       }
-      drawPicture(host, resp);
+      return drawPicture(host, resp);
     }, function () { showFailure(host, "the " + state.year + " standings"); }).catch(drawFailed(host));
   }
   function drawPicture(host, resp) {
+    return withMagic(resp, function (mg, slow) { drawPictureWith(host, resp, mg, slow); });
+  }
+  function drawPictureWith(host, resp, mg, slow) {
     var race = window.UPS_STANDINGS_RACE ? window.UPS_STANDINGS_RACE.race(resp) : null;
     var bar = viewBarHtml(resp, "");
     var gate = seedGateHtml(resp, race);
@@ -2182,17 +2256,18 @@
     var seeded = rows.filter(function (r) { return r.playoff_seed != null; });     // the worker's order, as sent
     var outside = rows.filter(function (r) { return r.playoff_seed == null; });
     var items = [];
+    var magic = mg ? { mg: mg, by: rowsByFid(rows), slow: slow } : null;
     seeded.forEach(function (r) {
-      items.push(seedCardHtml(resp, race, sf, r, !final));
+      items.push(seedCardHtml(resp, race, sf, r, !final, magic));
       if (Number(r.playoff_seed) === 2) items.push('<li class="cut-line bye-line" role="separator" aria-label="First-round byes above">First-round byes above</li>');
       if (Number(r.playoff_seed) === 6) items.push('<li class="cut-line playoff-line" role="separator" aria-label="Playoff line">Playoff line · 7–12 play the Hawk Tuah Bowl</li>');
     });
     var left = '<div class="pic-col"><h3>' + (final ? "Seeds" : "Seeds <span class=\"h-sub\">· if the season ended today</span>") + '</h3>'
       + '<ol class="seed-list">' + items.join("") + '</ol>'
       + huntTableHtml(resp, race, sf, rows, outside, !final)
-      + '<div class="note">Seeds and reasons follow the league’s seeding ladder (rule §F.1); click a team for its week-by-week, scoring and division race.' + (final ? '' : ' BYE / DIV / WC say where a team would be if the season ended today.') + '</div>'
+      + '<div class="note">Seeds and reasons follow the league’s seeding ladder (rule §F.1); click a team for its week-by-week, scoring and division race.' + (final ? '' : ' BYE / DIV / WC say where a team would be if the season ended today.') + (magic ? ' ' + MAGIC_NOTE : '') + '</div>'
       + '</div>';
-    var right = '<div class="pic-col">' + divisionLeadersHtml(resp, rows, final) + nextOutHtml(resp, race, rows) + bracketTeaserHtml(rows, final) + '</div>';
+    var right = '<div class="pic-col">' + divisionLeadersHtml(resp, rows, final, magic) + nextOutHtml(resp, race, rows) + bracketTeaserHtml(rows, final) + '</div>';
     host.innerHTML = bar + pictureSummaryHtml(resp, rows, final) + '<div class="pic-grid">' + left + right + '</div>' + tkoFootnote(resp);
     wireToggles(host);
     wireGoto(host);
@@ -2572,10 +2647,11 @@
       var divScoped = state.scope !== "full";
       var divWk = weeklyStatus(resp);
       if (divScoped && !divWk.ok) return showError(host, scopeLabel() + " division standings for " + state.year + " can't be computed: " + divWk.reason + ". Full Season is unaffected.");
-      drawDivisions(host, resp, divScoped);
+      if (divScoped) drawDivisions(host, resp, divScoped, null, false);
+      else return withMagic(resp, function (mg, slow) { drawDivisions(host, resp, divScoped, mg, slow); });
     }, function () { showFailure(host, "the " + state.year + " standings"); }).catch(drawFailed(host));
   }
-  function drawDivisions(host, resp, divScoped) {
+  function drawDivisions(host, resp, divScoped, mg, slow) {
     var bar = viewBarHtml(resp, "");
     var rng = scopeWeekRange(resp);
     var scopedBy = divScoped ? rowsByFid(computeScopedRows(resp.rows || [], resp.weekly, resp.weeklyScores, rng[0], rng[1])) : null;
@@ -2635,13 +2711,15 @@
         + '<header class="div-card-header"><div class="div-card-brand">' + divBannerHtml(k, d.name) + '</div>'
         + '<div class="div-card-ap">All-Play<span class="val">' + fmtPct(games ? (apW + 0.5 * apT) / games : null) + '</span></div></header>'
         + '<div class="div-card-body"><div class="table-scroll"><table class="data-table div-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">H2H</th><th class="num" scope="col" title="Record against the two division rivals">Div</th><th class="num" scope="col" title="H2H games behind the division leader">GB</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="Points For per week">PF/week</th>' + (inSeason ? '<th class="num" scope="col">Seed</th>' : '') + '</tr></thead><tbody>' + trs + '</tbody></table></div>'
-        + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("") + '</div></section>';
+        + reasons.map(function (t) { return '<div class="reason">' + escapeHtml(t) + '</div>'; }).join("")
+        + (mg ? '<div class="magic-line">' + divMagicInner(mg, k, by, slow) + '</div>' : '') + '</div></section>';
     }).join("");
     var tokens = String(resp.standings_sort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR").split(",").map(function (t) { return t.trim().toUpperCase(); }).filter(Boolean);
     var TOK = { PCT: "record", DIVPCT: "division record", H2H: "head-to-head", PTS: "Points For", ALL_PLAY_PCT: "All-Play %", PWR: "power rank" };
     var notes = '<div class="note">Div = record against the two division rivals (each played five times) · GB = games behind the division leader · '
       + (finished ? 'Order: the season’s MFL standings sort (' + tokens.map(function (t) { return TOK[t] || t; }).join(" → ") + ').' : 'Order = record, then division record, then head-to-head (MFL’s rule).')
-      + (divScoped ? ' <strong>' + scopeLabel() + '</strong>: numbers cover weeks ' + rng[0] + '–' + rng[1] + '; the order is the full-season division order.' : '') + '</div>';
+      + (divScoped ? ' <strong>' + scopeLabel() + '</strong>: numbers cover weeks ' + rng[0] + '–' + rng[1] + '; the order is the full-season division order.' : '')
+      + (mg ? ' · Magic number = the leader’s future H2H wins plus the named rival’s future H2H losses that clinch the division outright (a tie would go to the tiebreak); the rival named is the one who can finish highest.' : '') + '</div>';
     host.innerHTML = bar + (unavailable ? '<div class="err-box" role="alert"><b>Division order unavailable:</b> the weekly results couldn’t be verified.</div>' : '')
       + '<div class="div-grid">' + cards + '</div>' + notes + tkoFootnote(resp) + DEFERRED_NOTE;
   }
