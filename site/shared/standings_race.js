@@ -1186,6 +1186,80 @@
     var assigned = assignFinishesAndPicks(champSide, hawkSide);
     return { status: 'ok', champ: champSide, hawk: hawkSide, picks: assigned.picks, finishes: assigned.finishes, games: champGames.concat(hawkGames) };
   }
+  // verifyActualSide(result, sideKey, seedsRaw, opts) — a FINISHED season's side, drawn by
+  // buildActualBracketResult into today's rounds, is shown as a bracket only when it is that season's bracket
+  // (#1329 decision 2, item 2: older formats don't fit today's rounds). opts: { season, hasConferences }.
+  // The recorded champion comes from the seeds' final_finish (the worker's recorded final standings): 1 = UPS
+  // champion; 7 = Hawk Tuah Bowl champion from 2011 (2010's toilet bracket had the loser advance: no title).
+  //   → { draw, reason, recordedChampion (fid | null), noTitle, games (the side's games, week order) }
+  //   draw false + reason: 'no_title' (2010 toilet side) · 'conference_format' (every Round 1 game is inside one
+  //   conference, the 2011-2013 conference brackets) · 'incomplete' (no decided final) · 'champion_mismatch' (the
+  //   drawn champion isn't the recorded one) · 'seeds_unreadable' (the season's seeds don't validate — 2013 has two
+  //   teams at seed 7 — so the games are split by recorded finish, 1-6 and 7-12, from opts.matchups, with no seed
+  //   numbers). With no recorded finish to check against, the side draws as before (reason 'unverified').
+  //   A Round 1 of exactly today's pairs (3 v 6 and 4 v 5; H3 v H6 and H4 v H5) is never treated as a conference
+  //   bracket, even in a season that had conferences.
+  function verifyActualSide(result, sideKey, seedsRaw, opts) {
+    var hawk = sideKey === 'hawk';
+    var season = opts && opts.season != null ? strictNum(opts.season) : NaN;
+    var out = { draw: false, reason: 'unavailable', recordedChampion: null, noTitle: false, games: [] };
+    var seeds = Array.isArray(seedsRaw) ? seedsRaw.filter(isRowObject) : [];
+    var info = {};
+    seeds.forEach(function (s) { if (hasId(s.franchise_id)) info[pad4(s.franchise_id)] = s; });
+    var want = hawk ? 7 : 1;
+    var rec = seeds.filter(function (s) { return strictNum(s.final_finish) === want; });
+    var recordedChampion = rec.length === 1 && hasId(rec[0].franchise_id) ? pad4(rec[0].franchise_id) : null;
+    var noTitle = hawk && season === 2010;
+    if (!result || result.status !== 'ok') {
+      // Seeds that don't validate: list the side's games by recorded finish (both teams 1-6, or both 7-12).
+      var fin = function (f) { var x = info[f]; var n = x ? strictNum(x.final_finish) : NaN; return Number.isInteger(n) && n >= 1 && n <= 12 ? n : null; };
+      var finished = Object.keys(info).filter(function (f) { return fin(f) != null; });
+      if (finished.length < 12 || !Array.isArray(opts && opts.matchups)) return out;
+      var seen = {};
+      opts.matchups.forEach(function (m) {
+        if (!isRowObject(m) || !hasId(m.franchise_id) || !hasId(m.opponent_franchise_id)) return;
+        var a = pad4(m.franchise_id), b = pad4(m.opponent_franchise_id), w = strictNum(m.week);
+        var fa = fin(a), fb = fin(b);
+        if (fa == null || fb == null || !isWeekNum(w) || (hawk ? !(fa >= 7 && fb >= 7) : !(fa <= 6 && fb <= 6))) return;
+        var key = w + '|' + [a, b].sort().join('-');
+        var ts = strictNum(m.team_score), os = strictNum(m.opponent_score);
+        if (seen[key] || !isFiniteNum(ts) || !isFiniteNum(os)) return;
+        var ea = { franchise_id: a, franchise_name: info[a].franchise_name || ('Franchise ' + a), seed: null };
+        var eb = { franchise_id: b, franchise_name: info[b].franchise_name || ('Franchise ' + b), seed: null };
+        seen[key] = { week: w, a: ea, b: eb, scoreA: ts, scoreB: os, winner: ts > os ? ea : os > ts ? eb : null, loser: ts > os ? eb : os > ts ? ea : null, pending: false, status: 'final', _fa: fa, _fb: fb };
+      });
+      out.games = Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (x, y) { return (x.week - y.week) || (Math.min(x._fa, x._fb) - Math.min(y._fa, y._fb)); });
+      out.games.forEach(function (g) { delete g._fa; delete g._fb; });
+      out.recordedChampion = noTitle ? null : recordedChampion; out.noTitle = noTitle; out.reason = 'seeds_unreadable';
+      return out;
+    }
+    var side = hawk ? result.hawk : result.champ;
+    out.games = (result.games || []).filter(function (g) {
+      var sa = g && g.a && Number(g.a.seed); return hawk ? sa >= 7 : sa <= 6;
+    }).sort(function (x, y) {
+      return (x.week - y.week) || (Math.min(x.a.seed, x.b.seed) - Math.min(y.a.seed, y.b.seed));
+    });
+    if (noTitle) { out.noTitle = true; out.reason = 'no_title'; return out; }
+    out.recordedChampion = recordedChampion;
+    var modern = hawk ? { '9-12': 1, '10-11': 1 } : { '3-6': 1, '4-5': 1 };
+    var todaysRound1 = !!(side && side.r1 && side.r1.length === 2 && side.r1.every(function (g) {
+      return g && g.a && g.b && modern.hasOwnProperty([Number(g.a.seed), Number(g.b.seed)].sort(function (x, y) { return x - y; }).join('-'));
+    }));
+    if (opts && opts.hasConferences && !todaysRound1 && side && side.r1 && side.r1.length) {
+      var intra = side.r1.every(function (g) {
+        var a = g && g.a && info[pad4(g.a.franchise_id)], b = g && g.b && info[pad4(g.b.franchise_id)];
+        return a && b && a.conference_id != null && a.conference_id !== '' && a.conference_id === b.conference_id;
+      });
+      if (intra) { out.reason = 'conference_format'; return out; }
+    }
+    var drawn = side && side.final && side.final.winner ? pad4(side.final.winner.franchise_id) : null;
+    if (!out.recordedChampion) { out.draw = !!drawn; out.reason = drawn ? 'unverified' : 'incomplete'; return out; }
+    if (!drawn) { out.reason = 'incomplete'; return out; }
+    if (drawn !== out.recordedChampion) { out.reason = 'champion_mismatch'; return out; }
+    out.draw = true; out.reason = null;
+    return out;
+  }
+
   // ── F9 (Phase II-A2 correction pass) — the ONE shared gating decision
   // both the desktop and mobile Playoffs surfaces consume, replacing each
   // page's own ad hoc "!matchups.length && !season_complete" conditionals.
@@ -1322,8 +1396,9 @@
   }
   // One validating pass over the response's weekly rows. Row-level problems
   // (F3) go in `problems` and poison every view; a week that is merely short
-  // (a franchise missing, a regular-season team with no game) is recorded on
-  // that week and poisons only the views that cover it.
+  // (a franchise missing, a regular-season team with no game) or whose game
+  // scores disagree with its team scores is recorded on that week and poisons
+  // only the views that cover it.
   function readSeasonWeeks(payload, needGames) {
     var problems = [];
     var expected = {}, order = [], names = {};
@@ -1378,7 +1453,10 @@
         var W = weeks[w];
         if (!W || !W.scores.hasOwnProperty(fid)) { problems.push({ code: 'game_without_week_score', week: w, franchise_id: fid }); return; }
         if (W.po !== po) problems.push({ code: 'playoff_flag_mismatch', week: w, franchise_id: fid });
-        if (W.scores[fid] !== ts || (W.scores.hasOwnProperty(opp) && W.scores[opp] !== os)) problems.push({ code: 'game_score_mismatch', week: w, franchise_id: fid, opponent_franchise_id: opp });
+        // A game whose score disagrees with that week's team scores (e.g. a stat correction that reached one table and
+        // not the other — 2025 Week 17) is a fault of THAT week: it fails every view covering the week and no other
+        // (Keith, #1329 decision 2: "fail only the affected Week 17 data"). Every other week still passes each check.
+        if (W.scores[fid] !== ts || (W.scores.hasOwnProperty(opp) && W.scores[opp] !== os)) W.problems.push({ code: 'game_score_mismatch', week: w, franchise_id: fid, opponent_franchise_id: opp });
         var g = W.games[fid] || (W.games[fid] = {});
         if (g.hasOwnProperty(opp)) {
           if (g[opp].ts !== ts || g[opp].os !== os) problems.push({ code: 'conflicting_game', week: w, franchise_id: fid, opponent_franchise_id: opp });
@@ -1619,9 +1697,11 @@
     }, nulls);
   }
 
-  // d. teamWeeklyHistory(payload, fid) → { status, problems, weeks: [{ week, isPlayoff, score, rank, ap, games,
-  //    cumulativeAp {w,l,t,pct} (regular season through that week), seasonApRank (descriptive, NOT the seed) }],
-  //    seedByWeek: [{ week, orderIndex, seed, inField }] }. seedByWeek is the WORKER's seed order after each completed
+  // d. teamWeeklyHistory(payload, fid) → { status, problems, weeks: [{ week, isPlayoff, unavailable, score, rank, ap,
+  //    games, cumulativeAp {w,l,t,pct} (regular season through that week), seasonApRank (descriptive, NOT the seed) }],
+  //    seedByWeek: [{ week, orderIndex, seed, inField }], unavailableWeeks: [{ week, problems }] }. A week that fails
+  //    its own checks is listed with unavailable: true and null values (its problems attached); the other weeks still
+  //    show, and the running All-Play stops (null) from the first unverified regular-season week on. seedByWeek is the WORKER's seed order after each completed
   //    week (payload.regular_season.seed_by_week; [] when absent): seed = orderIndex + 1 inside the top six, else null.
   //    A week the worker couldn't seed reads orderIndex/seed/inField null.
   function seedHistoryFor(payload, fid) {
@@ -1636,30 +1716,78 @@
     });
   }
   function teamWeeklyHistory(payload, fid) {
-    var nulls = { weeks: null, seedByWeek: [] };
+    var nulls = { weeks: null, seedByWeek: [], unavailableWeeks: [] };
     return safeView(function () {
       var read = readSeasonWeeks(payload, true);
       if (read.unavailable) return viewResult({ status: 'unavailable', problems: read.problems }, nulls);
       var p = hasId(fid) ? pad4(fid) : null;
       if (!p || !read.expected.hasOwnProperty(p)) return viewResult({ status: 'unavailable', problems: [{ code: 'unknown_franchise' }] }, nulls);
       var seedByWeek = seedHistoryFor(payload, p);
-      var st = scopeStatus(read, read.allWeeks);
-      if (st.status === 'preseason') return viewResult(st, { weeks: [], seedByWeek: seedByWeek });
-      if (st.status !== 'ok') return viewResult(st, { weeks: null, seedByWeek: seedByWeek });
+      // Row-level (season-wide) problems still fail the whole view. A week with its own problem is listed as
+      // unavailable and the other weeks still show; the running All-Play stops at the first unverified regular week.
+      var st = scopeStatus(read, []);
+      if (st.status === 'preseason') return viewResult(st, { weeks: [], seedByWeek: seedByWeek, unavailableWeeks: [] });
+      if (st.status !== 'ok') return viewResult(st, { weeks: null, seedByWeek: seedByWeek, unavailableWeeks: [] });
+      var bad = {}, unavailableWeeks = [];
+      read.allWeeks.forEach(function (w) {
+        if (read.weeks[w].problems.length) { bad[w] = true; unavailableWeeks.push({ week: w, problems: capProblems(read.weeks[w].problems) }); }
+      });
+      var firstBadRegular = null;
+      read.regularWeeks.forEach(function (w) { if (bad[w] && firstBadRegular == null) firstBadRegular = w; });
       var statsByWeek = {};
-      read.allWeeks.forEach(function (w) { statsByWeek[w] = weekStats(read, w); });
-      var through = cumulativeApThrough(read, statsByWeek);
+      read.allWeeks.forEach(function (w) { if (!bad[w]) statsByWeek[w] = weekStats(read, w); });
+      var through = cumulativeApThrough(read, statsByWeek, firstBadRegular == null ? null : firstBadRegular - 1);
       var weeks = read.allWeeks.map(function (w) {
+        var isPlayoff = read.weeks[w].po === true;
+        if (bad[w]) return { week: w, isPlayoff: isPlayoff, unavailable: true, problems: capProblems(read.weeks[w].problems), score: null, rank: null, ap: null, games: null, cumulativeAp: null, seasonApRank: null };
         var s = statsByWeek[w][p];
-        var cum = through(w);
+        var cum = (firstBadRegular != null && w >= firstBadRegular) ? null : through(w);
         var ranks = seasonApRankMap(cum, read.order);
         return {
-          week: w, isPlayoff: read.weeks[w].po === true, score: s.score, rank: s.rank, ap: s.ap, games: s.games,
+          week: w, isPlayoff: isPlayoff, unavailable: false, score: s.score, rank: s.rank, ap: s.ap, games: s.games,
           cumulativeAp: cum ? withPct(cum[p]) : null, seasonApRank: ranks ? ranks[p] : null
         };
       });
-      return viewResult(st, { weeks: weeks, seedByWeek: seedByWeek });
+      return viewResult(st, { weeks: weeks, seedByWeek: seedByWeek, unavailableWeeks: unavailableWeeks });
     }, nulls);
+  }
+
+  // describeProblems(problems) → plain sentences for why a view can't be shown, the same words on both screens
+  // (#1329 decision 2: say what is wrong, and which week, never a week that is fine). Grouped by kind and week; a game
+  // reported from both sides counts once. Unknown kinds fall back to their code in words.
+  function describeProblems(problems) {
+    var list = Array.isArray(problems) ? problems.filter(isRowObject) : [];
+    var order = [], groups = {};
+    list.forEach(function (p) {
+      var key = String(p.code) + '|' + (p.week == null ? '' : p.week);
+      if (!groups[key]) { groups[key] = { code: String(p.code || ''), week: p.week == null ? null : p.week, items: [] }; order.push(key); }
+      groups[key].items.push(p);
+    });
+    function games(items) {
+      var seen = {};
+      items.forEach(function (p) { if (hasId(p.franchise_id) && hasId(p.opponent_franchise_id)) seen[[pad4(p.franchise_id), pad4(p.opponent_franchise_id)].sort().join('-')] = true; });
+      return Object.keys(seen).length || items.length;
+    }
+    function teams(items) {
+      var seen = {};
+      items.forEach(function (p) {
+        (Array.isArray(p.missing) ? p.missing : []).concat(Array.isArray(p.franchise_ids) ? p.franchise_ids : []).forEach(function (f) { seen[pad4(f)] = true; });
+      });
+      return Object.keys(seen).length;
+    }
+    function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+    return order.map(function (key) {
+      var g = groups[key], wk = g.week != null ? 'Week ' + g.week : null;
+      if (g.code === 'game_score_mismatch') {
+        var n = games(g.items);
+        return (wk ? wk + ': ' : '') + plural(n, 'game score doesn’t', 'game scores don’t') + ' match the teams’ final weekly scores.';
+      }
+      if (g.code === 'partial_week') return (wk ? wk + ' is' : 'A week is') + ' missing scores for ' + plural(teams(g.items), 'team', 'teams') + '.';
+      if (g.code === 'missing_games') return (wk ? wk + ' has' : 'A week has') + ' no game for ' + plural(teams(g.items), 'team', 'teams') + '.';
+      if (g.code === 'week_gap') return (wk || 'A week') + ' is missing from the results.';
+      var words = g.code.replace(/_/g, ' ');
+      return words.charAt(0).toUpperCase() + words.slice(1) + (wk ? ' (' + wk + ')' : '') + '.';
+    });
   }
 
   // e. scoredFaced(payload) → regular season only → { status, problems, byFranchise: { fid: {
@@ -2298,6 +2426,9 @@
     ownerSeries: ownerSeries,
     // Magic numbers for the division and wild-card races (current regular season; descriptive).
     magicNumbers: magicNumbers,
-    scheduleGameCounts: scheduleGameCounts
+    scheduleGameCounts: scheduleGameCounts,
+    // Plain words for a view's problems, and the finished-season bracket check (#1329 decision 2 items 1-2).
+    describeProblems: describeProblems,
+    verifyActualSide: verifyActualSide
   };
 })(typeof window !== 'undefined' ? window : this);
