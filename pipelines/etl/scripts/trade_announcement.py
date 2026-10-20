@@ -108,7 +108,7 @@ def _format_pick_with_sender(pk, sender_fid: str, franchises: dict) -> str:
     orig_raw = (getattr(pk, "original_owner", "") or "").strip()
     orig = orig_raw.zfill(4) if orig_raw else sender_fid.zfill(4)
     team_name = franchises.get(orig, f"Franchise {orig}")
-    if year == CURRENT_YEAR and 1 <= slot <= 12:
+    if year == CURRENT_YEAR and 1 <= slot <= 12 and not getattr(pk, "slot_is_projected", False):
         return f"{year} {_possessive(team_name)} Pick {rnd}.{slot:02d}"
     return f"{year} {_possessive(team_name)} {_ordinal(rnd)} Round Pick"
 
@@ -179,6 +179,9 @@ def _build_side_block(side, sender_fid: str, franchises: dict) -> str:
     from trade_grader import rookie_contract_line  # local import, like _format_player's
     for pk in side.picks_given:
         line = f"  • {_format_pick_with_sender(pk, sender_fid, franchises)}"
+        odds = getattr(pk, "odds_text", "")
+        if odds:  # future pick: bracket odds, never a predicted slot (#1343 decision 2)
+            line += f"\n      _Bracket odds: {odds}_"
         contract = rookie_contract_line(pk)
         if contract:
             line += f"\n      _{contract}_"

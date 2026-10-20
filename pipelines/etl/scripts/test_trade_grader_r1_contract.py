@@ -120,9 +120,12 @@ class ContractIsShown(unittest.TestCase):
     def test_line_for_a_future_pick_shows_the_slot_range(self):
         line = rookie_contract_line(pick("FP_0010_2027_1"))
         self.assertIn("set by draft slot", line)
-        self.assertIn("$10,000/yr x 3 = $30,000 at ~1.06", line)
-        self.assertIn("$15,000 at 1.12 to $45,000 at 1.01", line)
-        self.assertIn("4th-year option $15,000 (Year 3 $10,000 + $5,000), not guaranteed", line)
+        # Decision 2 wording: a range by slot, and the average-slot figure is
+        # labeled as an average, never a predicted finish.
+        self.assertIn("$15,000 at 1.12 to $45,000 at 1.01 over 3 years", line)
+        self.assertIn("near the average slot, not a predicted finish", line)
+        self.assertIn("4th-year option = Year 3 + $5,000 ($10,000 to $20,000), not guaranteed", line)
+        self.assertNotIn("~1.", line)
 
     def test_no_contract_line_for_later_rounds(self):
         for token in ("DP_1_0", "DP_2_5", "FP_0010_2027_2", "FP_0010_2027_4"):

@@ -28,7 +28,10 @@ from pick_valuation import (
     pick_expected_points as _pick_points,
     pick_rookie_salary_aav as _rookie_aav,
     rookie_contract_terms as _rookie_contract_terms,
-    predict_future_slot as _predict_slot,
+    project_future_pick as _project_future_pick,
+    expected_points_over as _points_over,
+    describe_pick_odds as _describe_pick_odds,
+    SeasonState,
     dollars_per_point as _dpp,
     probability_match as _prob_match,
 )
@@ -136,6 +139,14 @@ def _player_production_pts(player: "PlayerInfo") -> tuple[float, int]:
     return prod, salary_remaining
 
 
+def pick_label(pk: "PickInfo") -> str:
+    """'2026 1.10' for a known slot; '2027 round 1' for a future pick (its odds
+    are shown separately: never a predicted slot)."""
+    if pk.slot_is_projected or not pk.predicted_slot:
+        return f"{pk.year} round {pk.round}"
+    return f"{pk.year} {pk.round}.{pk.predicted_slot:02d}"
+
+
 def rookie_contract_line(pk: "PickInfo") -> str:
     """The R1 rookie contract a pick carries, as one display line ("" for R2+).
 
@@ -153,8 +164,10 @@ def rookie_contract_line(pk: "PickInfo") -> str:
     if pk.slot_is_projected:
         top, bottom = _rookie_contract_terms(1, 1), _rookie_contract_terms(1, 12)
         return (f"Rookie contract (not in the grade): set by draft slot, "
-                f"${t['aav']:,}/yr x {t['years']} = ${t['tcv']:,} at ~1.{pk.predicted_slot:02d} "
-                f"(${bottom['tcv']:,} at 1.12 to ${top['tcv']:,} at 1.01); {option}")
+                f"${bottom['tcv']:,} at 1.12 to ${top['tcv']:,} at 1.01 over {t['years']} years "
+                f"(${t['aav']:,}/yr x {t['years']} = ${t['tcv']:,} near the average slot, "
+                f"not a predicted finish); 4th-year option = Year 3 + $5,000 "
+                f"(${bottom['option_salary']:,} to ${top['option_salary']:,}), not guaranteed")
     return (f"Rookie contract (not in the grade): 1.{pk.predicted_slot:02d} "
             f"${t['aav']:,}/yr x {t['years']} = ${t['tcv']:,}; {option}")
 
@@ -294,7 +307,21 @@ class PickInfo:
     expected_points: float = 0.0  # 3yr rookie production expectation
     predicted_slot: int = 0        # slot used for valuation (1-12)
     rookie_aav: int = 0            # per-year rookie salary if drafted (cap checks + display only)
-    slot_is_projected: bool = False  # future pick: predicted_slot is an estimate
+    slot_is_projected: bool = False  # future pick: predicted_slot is the rounded average slot
+    projection: object = None      # pick_valuation.FuturePickProjection for future picks
+
+    @property
+    def odds_text(self) -> str:
+        """Owner-facing bracket odds ("" for a pick whose slot is known)."""
+        return _describe_pick_odds(self.projection) if self.projection is not None else ""
+
+    @property
+    def value_issues(self) -> list:
+        """Projection problems that change this pick's value (rounds 1-3 only;
+        rounds 4+ are valued the same at every slot)."""
+        if self.projection is None or self.round > 3:
+            return []
+        return list(self.projection.issues)
 
 
 @dataclass
@@ -321,6 +348,9 @@ class TradeAnalysis:
     comments: str = ""
     side_a: TradeSide = None
     side_b: TradeSide = None
+    # Inputs the grade could not trust. Non-empty = the grade is PROVISIONAL and
+    # must not be presented as final (Keith 2026-10-20, #1343 decision 2).
+    provisional_reasons: list = field(default_factory=list)
 
 
 def display_name(mfl_name: str) -> str:
@@ -465,9 +495,43 @@ def load_future_picks() -> dict:
 
 # ── Trade Parser ───────────────────────────────────────────────────────────
 
-def parse_asset_string(asset_str: str, players_map: dict, franchises: dict) -> tuple:
+def future_pick_info(token: str, franchises: dict, season_state=None) -> "PickInfo":
+    """A future pick FP_<original franchise>_<year>_<round>, valued over bracket odds.
+
+    The ORIGINAL franchise (the token's, not whoever holds the pick) sets the
+    slot. Unreadable parts are named in the projection's issues, never guessed.
+    """
+    parts = token.split("_")
+    owner = parts[1] if len(parts) > 1 else ""
+    year_raw = parts[2] if len(parts) > 2 else ""
+    try:
+        rnd = int(parts[3])
+    except (IndexError, ValueError):
+        rnd = 1
+    proj = _project_future_pick(owner, year_raw, rnd, season_state)
+    if not str(token).count("_") >= 3:
+        proj.issues.append(f"future-pick token {token!r} is malformed")
+    pts = _points_over(proj.dist, rnd)
+    slot = proj.slot or max(1, min(12, round(proj.average_slot)))
+    return PickInfo(
+        year=proj.pick_year or 0,
+        round=rnd,
+        original_owner=owner,
+        original_owner_name=franchises.get(owner, "Unknown"),
+        estimated_value=int(pts * _dpp()),
+        expected_points=pts,
+        predicted_slot=slot,
+        rookie_aav=_rookie_aav(rnd, slot),
+        slot_is_projected=proj.slot is None,
+        projection=proj,
+    )
+
+
+def parse_asset_string(asset_str: str, players_map: dict, franchises: dict,
+                       season_state=None) -> tuple:
     """Parse MFL asset string like '14783,FP_0006_2027_1,BB_20000,' into
-    (players, picks, salary_bb)."""
+    (players, picks, salary_bb). season_state: the current season's standings
+    as of the trade (pick_valuation.SeasonState), for future-pick odds."""
     players = []
     picks = []
     salary = 0
@@ -482,23 +546,7 @@ def parse_asset_string(asset_str: str, players_map: dict, franchises: dict) -> t
 
         if token.startswith("FP_"):
             # Future pick: FP_FRANCHISE_YEAR_ROUND
-            parts = token.split("_")
-            if len(parts) >= 4:
-                owner = parts[1]
-                year = int(parts[2])
-                rnd = int(parts[3])
-                slot = _predict_slot(owner) if rnd <= 3 else 7
-                picks.append(PickInfo(
-                    year=year,
-                    round=rnd,
-                    original_owner=owner,
-                    original_owner_name=franchises.get(owner, "Unknown"),
-                    estimated_value=_pick_value(year, rnd, original_owner=owner),
-                    expected_points=_pick_points(year, rnd, original_owner=owner),
-                    predicted_slot=slot,
-                    rookie_aav=_rookie_aav(rnd, slot),
-                    slot_is_projected=True,
-                ))
+            picks.append(future_pick_info(token, franchises, season_state))
         elif token.startswith("DP_"):
             # Current year draft pick: DP_ROUND_PICK (both 0-indexed in MFL)
             parts = token.split("_")
@@ -870,6 +918,11 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
     ln("                    THE GRADES")
     ln("==========================================================")
     ln()
+    if analysis.provisional_reasons:
+        ln("  PROVISIONAL GRADE -- not final. Inputs it could not trust:")
+        for reason in analysis.provisional_reasons:
+            ln(f"    - {reason}")
+        ln()
 
     for side in [a, b]:
         ln(f"  {side.franchise_name} -- GRADE: {side.grade} ({side.grade_score:+.0f}%)")
@@ -923,15 +976,15 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             return max((p.expected_ppg or 0) * GAMES_PER_SEASON * 3 for p in players)
 
         def _format_pick(pk, compare_pts=None):
-            slot_str = f"~{pk.round}.{pk.predicted_slot:02d}" if pk.predicted_slot else f"Rd {pk.round}"
             per_season = pk.expected_points / 3 if pk.expected_points else 0
             per_game = per_season / GAMES_PER_SEASON if per_season else 0
             contract = rookie_contract_line(pk)
             salary = (f"\n        {contract}" if contract
                       else f", rookie ${pk.rookie_aav:,}/yr (taxi-eligible)")
-            base = (f"      {pk.year} {slot_str} pick — est. {pk.expected_points:.0f} pts / 3yr "
-                    f"(~{per_game:.1f} PPG avg){salary}")
-            if compare_pts and pk.predicted_slot:
+            odds = f"\n        Bracket odds: {pk.odds_text}" if pk.odds_text else ""
+            base = (f"      {pick_label(pk)} pick — est. {pk.expected_points:.0f} pts / 3yr "
+                    f"(~{per_game:.1f} PPG avg){odds}{salary}")
+            if compare_pts and pk.predicted_slot and not pk.slot_is_projected:
                 label = f"{pk.round}.{pk.predicted_slot:02d}"
                 p = _prob_match(label, compare_pts)
                 if p > 0:
@@ -1033,11 +1086,10 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             pick_pts = sum(pk.expected_points for pk in side.picks_received)
             pick_descs = []
             for pk in side.picks_received:
-                slot = f"{pk.round}.{pk.predicted_slot:02d}" if pk.predicted_slot else f"Rd {pk.round}"
                 per_game = (pk.expected_points / 3) / GAMES_PER_SEASON
                 # Probability of matching the opposing player (if any)
                 match_note = ""
-                if side.players_given and pk.predicted_slot:
+                if side.players_given and pk.predicted_slot and not pk.slot_is_projected:
                     thr = max(
                         (p.expected_ppg or 0) * GAMES_PER_SEASON * 3
                         for p in side.players_given)
@@ -1046,7 +1098,7 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
                     if prob > 0:
                         target_ppg = max(p.expected_ppg for p in side.players_given)
                         match_note = f", {prob:.0%} chance to match {target_ppg:.1f} PPG"
-                pick_descs.append(f"{pk.year} ~{slot} pick (~{per_game:.1f} PPG avg{match_note})")
+                pick_descs.append(f"{pick_label(pk)} pick (~{per_game:.1f} PPG avg{match_note})")
             drivers.append((pick_pts,
                             f"+{pick_pts:>4.0f} pts  Picks: {'; '.join(pick_descs)}"))
         if v.get("salary_freed", 0) > 0:
@@ -1071,8 +1123,7 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             pick_pts = sum(pk.expected_points for pk in side.picks_given)
             pick_descs = []
             for pk in side.picks_given:
-                slot = f"{pk.round}.{pk.predicted_slot:02d}" if pk.predicted_slot else f"Rd {pk.round}"
-                pick_descs.append(f"{pk.year} ~{slot}")
+                pick_descs.append(pick_label(pk))
             drivers.append((-pick_pts,
                             f"-{pick_pts:>4.0f} pts  Picks given: {', '.join(pick_descs)}"))
         if v.get("salary_committed", 0) > 0:
@@ -1140,6 +1191,8 @@ def generate_roast_context(analysis: TradeAnalysis, comparables: dict,
     ctx.append(f"\n=== GRADES ===")
     ctx.append(f"{a.franchise_name}: {a.grade} (score: {a.grade_score:+.1f}%)")
     ctx.append(f"{b.franchise_name}: {b.grade} (score: {b.grade_score:+.1f}%)")
+    if analysis.provisional_reasons:
+        ctx.append("PROVISIONAL, not final: " + "; ".join(analysis.provisional_reasons))
 
     ctx.append(f"\n=== KEY NUMBERS ===")
     for p in b.players_given:
@@ -1424,6 +1477,74 @@ def fetch_prior_season_ppg(players) -> dict:
     return {mid: {"ppg": v["ppg"], "season": _date.today().year - 1} for mid, v in w.items()}
 
 
+STANDINGS_MAX_LAG_SECONDS = 6 * 3600
+
+
+def load_season_state(trade_ts: int, now: float | None = None) -> "SeasonState":
+    """The current season's standings from MFL, trusted only near the trade.
+
+    Read right after the trade (the bot's case) they can only hold weeks that
+    finished before it. Read more than STANDINGS_MAX_LAG_SECONDS later, with
+    games played, they may include later weeks, so they are marked unavailable
+    instead of being used (a re-grade of an old in-season trade is provisional).
+    """
+    import time as _time
+    season = int(MFL_BASE.rstrip("/").split("/")[-2])
+    now = _time.time() if now is None else now
+    try:
+        rows = mfl_fetch("leagueStandings")["leagueStandings"]["franchise"]
+        if isinstance(rows, dict):
+            rows = [rows]
+        ap = {r["id"]: float(r["all_play_pct"]) for r in rows}
+        pf = {r["id"]: float(r["pf"]) for r in rows}
+        games = [sum(int(x) for x in str(r["all_play_wlt"]).split("-")) for r in rows]
+    except Exception as exc:
+        return SeasonState(season, "unavailable",
+                           reason=f"MFL leagueStandings unavailable ({exc.__class__.__name__})")
+    teams = len(rows)
+    weeks = round(statistics_mean(games) / (teams - 1)) if teams > 1 else 0
+    if weeks == 0:
+        return SeasonState(season, "offseason", as_of=str(int(now)))
+    if trade_ts and now - int(trade_ts) > STANDINGS_MAX_LAG_SECONDS:
+        hours = (now - int(trade_ts)) / 3600
+        return SeasonState(season, "unavailable",
+                           reason=(f"{season} standings were read {hours:.0f}h after the trade "
+                                   f"and may include later weeks"))
+    return SeasonState(season, "in_season", weeks_completed=weeks,
+                       allplay_pct=ap, points_for=pf, as_of=str(int(now)))
+
+
+def statistics_mean(values) -> float:
+    values = list(values)
+    return sum(values) / len(values) if values else 0.0
+
+
+def provisional_reasons(*sides: "TradeSide") -> list:
+    """Every input problem that changes a pick's value in this trade."""
+    out = []
+    for side in sides:
+        for pk in side.picks_given:
+            for issue in pk.value_issues:
+                out.append(f"{pk.year} round {pk.round} pick ({pk.original_owner or 'unknown'}): {issue}")
+    return out
+
+
+def provisional_banner(reasons: list) -> str:
+    """Fixed (not model-written) warning shown above the roast when the grade
+    used inputs it could not trust (Keith 2026-10-20, #1343 decision 2)."""
+    if not reasons:
+        return ""
+    text = "; ".join(dict.fromkeys(reasons))
+    if len(text) > 700:
+        text = text[:697] + "..."
+    return f"⚠️ **Provisional grade, not final.** Inputs the grader could not trust: {text}"
+
+
+def with_provisional_banner(roast_text: str, reasons: list) -> str:
+    banner = provisional_banner(reasons)
+    return f"{banner}\n\n{roast_text}" if banner else roast_text
+
+
 def grade_sides(side_a: "TradeSide", side_b: "TradeSide") -> None:
     """Score both sides with one symmetric function and set value_pts, grade_score
     and grade on each. Zero-sum by construction: side_a's score == -side_b's."""
@@ -1450,17 +1571,27 @@ def grade_sides(side_a: "TradeSide", side_b: "TradeSide") -> None:
 def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
                   rosters: dict, rollover: dict, auction_pool: dict,
                   team_caps: dict, future_picks: dict,
-                  tv_model: dict = None) -> TradeAnalysis:
-    """Full analysis of a single trade transaction."""
+                  tv_model: dict = None, season_state=None) -> TradeAnalysis:
+    """Full analysis of a single trade transaction.
+
+    season_state: the current season's standings as of the trade. When omitted
+    they are read from MFL now (see load_season_state).
+    """
 
     fid_a = trade_txn["franchise"]
     fid_b = trade_txn["franchise2"]
+    trade_ts = int(trade_txn.get("timestamp", 0) or 0)
+    if season_state is None and any(
+            tok.strip().startswith("FP_")
+            for key in ("franchise1_gave_up", "franchise2_gave_up")
+            for tok in (trade_txn.get(key) or "").split(",")):
+        season_state = load_season_state(trade_ts)
 
     # Parse assets
     a_gave_players, a_gave_picks, a_gave_sal = parse_asset_string(
-        trade_txn.get("franchise1_gave_up", ""), players_map, franchises)
+        trade_txn.get("franchise1_gave_up", ""), players_map, franchises, season_state)
     b_gave_players, b_gave_picks, b_gave_sal = parse_asset_string(
-        trade_txn.get("franchise2_gave_up", ""), players_map, franchises)
+        trade_txn.get("franchise2_gave_up", ""), players_map, franchises, season_state)
 
     # Enrich players
     for p in a_gave_players + b_gave_players:
@@ -1538,6 +1669,7 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
         comments=trade_txn.get("comments", ""),
         side_a=side_a,
         side_b=side_b,
+        provisional_reasons=provisional_reasons(side_a, side_b),
     )
 
 
