@@ -198,7 +198,7 @@
     if (!H || !FO || !DATA) return;
     wire();
     H.registerAbout("picks", "<h3>Draft picks</h3><p>MFL’s future picks: whose pick each is (the row) and who holds it now. Future picks can be traded through next season; round 6 picks can’t (§A6). Your own picks are checked for lineup-penalty forfeits; other teams’ forfeits are greyed in the Trade War Room. Pick positions aren’t projected here.</p>");
-    H.registerAbout("moves", "<h3>Activity</h3><p><b>Claims MFL holds</b> are read with your MFL session and checked against the league’s waiver check; “MFL will refuse this claim” means the player can’t be awarded at that run (dropped-player lock or his game has started). Claims are edited in the phone app. <b>Recent moves</b> are MFL’s transaction log for the last 14 days.</p>");
+    H.registerAbout("moves", "<h3>Activity</h3><p><b>Claims MFL holds</b> are read with your MFL session and checked against the league’s waiver check; “MFL will refuse this claim” means the player can’t be awarded at that run (dropped-player lock or the player’s game has started). Claims are edited in the phone app. <b>Recent moves</b> are MFL’s transaction log for the last 14 days.</p>");
   });
   document.addEventListener("fo:tab", function (e) {
     if (!H) return;
