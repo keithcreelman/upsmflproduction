@@ -994,3 +994,22 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 }
 .fo-root .fo-cap-planonly strong { color: var(--text); font-weight: 600; }
 
+
+/* ── Injury chip + "sources disagree" box (#1338: shared resolver, #1311 vocabulary) ── */
+.fo-inj {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; line-height: 16px; letter-spacing: 0.3px; vertical-align: 1px;
+  border: 1px solid transparent;
+}
+.fo-inj.upf-inj-q   { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.4); }
+.fo-inj.upf-inj-d   { color: #fb923c; background: rgba(251, 146, 60, 0.12); border-color: rgba(251, 146, 60, 0.45); }
+.fo-inj.upf-inj-out { color: #f87171; background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.45); }
+.fo-inj.upf-inj-res { color: #fca5a5; background: rgba(248, 113, 113, 0.2); border-color: rgba(248, 113, 113, 0.55); }
+.fo-inj.upf-inj-ho  { color: #c4b5fd; background: rgba(196, 181, 253, 0.12); border-color: rgba(196, 181, 253, 0.4); }
+.upf-inj-warning {
+  margin-top: 8px; padding: 6px 10px; border-radius: 6px; font-size: 12px; line-height: 1.45;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.55); color: var(--text);
+}
+.upf-inj-warning strong { color: #f87171; display: block; margin-bottom: 2px; }
+.fo-basis { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.fo-basis.warn { color: var(--warn); }
