@@ -2568,6 +2568,12 @@
 
   // ── Bootstrap ───────────────────────────────────────────────────────
   async function init() {
+    // #1338: the Front Office's one-read-per-source data layer (fo_data.js) uses
+    // the same worker, league and season as everything below, and the viewer's
+    // session only for the viewer's own reads (claims held by MFL).
+    if (window.UPS_FO_DATA) {
+      window.UPS_FO_DATA.configure({ apiBase: WORKER_BASE, leagueId: LEAGUE_ID, season: SEASON, sessionQuery: appendViewerSessionQuery });
+    }
     if (IS_DRY_RUN) {
       const banner = $("#fo-dryrun-banner");
       if (banner) banner.hidden = false;
@@ -2605,10 +2611,40 @@
     renderRosterTable();
     loadRosterIndicators(); // async — decorate rows with NFL status + news flags
     loadContractDeadline(); // async — Sept contract deadline gates the MYAC window
+    injuryRead();           // async — the shared injury chip's status read (#1338)
+    exposeFrontOfficeApi();
+    try { document.dispatchEvent(new CustomEvent("fo:ready")); } catch (e) {}
     const sumEl = $("#fo-contract-summary");
     if (sumEl) sumEl.addEventListener("click", function (e) {
       if (e.target && e.target.closest && e.target.closest(".fo-adj-info")) showAdjPopup();
     });
+  }
+
+  // Read-only view of what the Front Office has loaded, for the views added in
+  // #1338 (Overview, Roster performance, Bye planner, Market, Trades, Activity).
+  // They read the SAME rosters, contracts and cap the ledger shows, never a
+  // second copy, and open players in the same slide-over. No write helper is
+  // exposed here.
+  function exposeFrontOfficeApi() {
+    window.UPS_FO = {
+      season: SEASON, leagueId: LEAGUE_ID, workerBase: WORKER_BASE,
+      teams: function () { return STATE.teams || []; },
+      me: function () { return STATE.me || {}; },
+      viewerFid: function () { return pad4((STATE.me && STATE.me.franchise_id) || ""); },
+      isAdmin: function () { return !!(STATE.me && STATE.me.isAdmin); },
+      capFor: function (fid) {
+        var team = (STATE.teams || []).filter(function (t) { return t.fid === pad4(fid); });
+        return team.length ? capSnapshotForTeams(team) : null;
+      },
+      capCeiling: CAP_CEILING,
+      contractDeadline: function () { return STATE.contractDeadline || null; },
+      weekKickoffs: function () { return STATE.weekKickoffs || null; },
+      eligibility: function (p) { try { return rosterContractEligibility(p); } catch (e) { return null; } },
+      capPenalty: function (pid) { return STATE.capPenaltyFeed === "ok" && STATE.capPenaltyByPid ? (STATE.capPenaltyByPid[String(pid)] || null) : null; },
+      injury: function (p) { return injuryResFor(p); },
+      openPlayer: function (pid, fid, subtab) { openSlideover(String(pid), pad4(fid), subtab); },
+      escapeHtml: escapeHtml, fmtUSD: fmtUSD
+    };
   }
 
   async function loadMe() {
@@ -3389,21 +3425,11 @@
     return html;
   }
 
-  // ── NFL game status + news flags (decorate roster rows) ─────────────
-  // NFL game status (O/Q/D) comes straight from MFL's injuries export; the
-  // news flag from /api/player-news (same feed the News tab uses). Both load
-  // after the table first renders, then trigger one re-render.
-  // Keys are the LOWERCASED status string exactly as MFL sends it. The second
-  // group is the set observed live 2026-08-15 across 339 rows — "ir-pup",
-  // "ir-nfi", "holdout" and "retired" were missing, so they fell through to the
-  // `charAt(0)` fallback below and painted a bare "I"/"I"/"H"/"R" chip. A
-  // suspended player (James Pearce Jr., pid 17115) showed nothing at all,
-  // because the feed itself was never being read (see loadRosterIndicators).
-  var NFL_STATUS_ABBR = {
-    out: "O", questionable: "Q", doubtful: "D", probable: "P", ir: "IR", pup: "PUP", nfi: "NFI",
-    suspended: "S", suspension: "S", "injured reserve": "IR", "covid-19": "C",
-    "ir-pup": "PUP", "ir-nfi": "NFI", holdout: "HO", retired: "RET",
-  };
+  // ── NFL designation (MFL export) + news flags (decorate roster rows) ─────
+  // MFL's injuries export, read at boot, feeds the §B3 IR gate below and is the
+  // injury chip's stand-in until /api/player-status lands (injuryResFor). The
+  // news flag comes from /api/player-news. Both load after the table first
+  // renders, then trigger one re-render.
   // Raw MFL designation for a player, or "" when the export has no row for
   // them. Uppercased to match the mobile predicate + the worker's §B3 gate,
   // which both compare against uppercase tokens. Callers that need to know
@@ -3412,53 +3438,37 @@
   function nflDesignation(pid) {
     return safeStr(STATE.nflStatus[String(pid)]).trim().toUpperCase();
   }
-  function nflStatusBadge(pid) {
-    var s = STATE.nflStatus[String(pid)];
-    if (!s) return "";
-    var key = String(s).toLowerCase();
-    var abbr = NFL_STATUS_ABBR[key] || String(s).charAt(0).toUpperCase();
-    // Everything that keeps a player OFF the field reads in the "out" colour.
-    // That now explicitly includes IR-PUP / IR-NFI / suspended / holdout /
-    // retired / COVID, all of which previously fell through to the amber
-    // "questionable" bucket and read like a game-time decision. A suspension is
-    // not a game-time decision, and neither is a retirement.
-    var kls = (key.indexOf("out") >= 0 || key.indexOf("ir") === 0 || key.indexOf("reserve") >= 0 ||
-               key.indexOf("pup") >= 0 || key.indexOf("suspend") >= 0 || key.indexOf("nfi") >= 0 ||
-               key.indexOf("covid") >= 0 || key.indexOf("retired") >= 0) ? "out"
-      : (key.indexOf("doubt") >= 0 ? "doubtful" : "questionable");
-    // Tooltip carries the FULL status plus MFL's own free-text colour, so the
-    // two-or-three-character chip is never the whole story: "S" alone doesn't
-    // tell you it's an eight-game ban ending Nov 8. Both extra fields are
-    // optional — append only what the feed actually sent, never a placeholder.
-    var meta = STATE.nflStatusMeta[String(pid)] || {};
-    var tip = "NFL game status: " + String(s);
-    if (meta.details) tip += " · " + meta.details;
-    if (meta.exp_return) tip += " · expected back " + meta.exp_return;
-    return ' <span class="fo-nfl-status fo-nfl-' + kls + '" title="' + escapeHtml(tip) + '">' + escapeHtml(abbr) + "</span>";
+  // ── Injury chip: the shared resolver (site/shared/injury_status.js) ──
+  // #1338 parity with the released phone sheet (#1311): ONE chip per player
+  // (MFL's roster designation, else MFL's Q/D/OUT, else the current official
+  // report), the released vocabulary (Q, D, OUT, IR, PUP, NFI, SUSP, HOLD, RET),
+  // no expected-return dates, and the red "Injury sources disagree" box on the
+  // player panel. The read is /api/player-status (5-minute freshness); until it
+  // lands, MFL's injuries export read at boot stands in, labelled as this
+  // page's read. STATE.nflStatus still drives the §B3 IR gate (nflDesignation).
+  function injuryRead() {
+    var D = window.UPS_FO_DATA;
+    return D && typeof D.injury === "function" ? D.injury(onInjuryRead) : null;
   }
-  // Modal-header variant. The roster row stays silent when there is no
-  // designation (35 rows of "unknown" chips is noise), but the player modal has
-  // room to be HONEST about the difference between:
-  //   • MFL says this player carries nothing  → render nothing
-  //   • we could not read MFL at all          → say so
-  //   • MFL's report is empty league-wide     → say so
-  // Never let case 2 or 3 look like case 1 — that is the whole reason the badge
-  // exists next to a "Place on IR" button.
-  function nflStatusBadgeDetailed(pid) {
-    var badge = nflStatusBadge(pid);
-    if (badge) return badge;
-    if (STATE.nflStatusFeed === "error") {
-      return ' <span class="fo-nfl-status fo-nfl-unknown" title="MFL&#39;s injury report could not be read, so this player&#39;s NFL designation is unknown.">NFL ?</span>';
-    }
-    if (STATE.nflStatusFeed === "pending") {
-      return ' <span class="fo-nfl-status fo-nfl-unknown" title="Still loading MFL&#39;s injury report…">NFL …</span>';
-    }
-    if (STATE.nflStatusFeed === "ok" && STATE.nflStatusRows === 0) {
-      return ' <span class="fo-nfl-status fo-nfl-unknown" title="MFL&#39;s injury report came back empty for the entire NFL, which is not a credible reading — so no NFL designation is known for any player.">NFL —</span>';
-    }
-    return "";
+  function onInjuryRead() {
+    try { renderRosterTable(); } catch (e) {}
+    try { refreshSlideoverHead(); } catch (e) {}
+    try { document.dispatchEvent(new CustomEvent("fo:injury")); } catch (e) {}
   }
-
+  function injuryResFor(p) {
+    var F = window.UPS_PLAYER_FACTS;
+    if (!F || !p) return null;
+    var meta = STATE.nflStatusMeta[String(p.id)] || {};
+    return F.injury(injuryRead(), p.id, p.nflTeam, F.fallbackFromMfl(STATE.nflStatus[String(p.id)], meta.details));
+  }
+  function injuryChipHtml(p) {
+    var F = window.UPS_PLAYER_FACTS, r = injuryResFor(p);
+    return r && F && r.chips.length ? " " + F.chipHtml(r, escapeHtml, "fo-inj") : "";
+  }
+  function slideoverInjuryHtml(p) {
+    var F = window.UPS_PLAYER_FACTS, r = injuryResFor(p);
+    return r && F ? F.warningHtml(r, escapeHtml) : "";
+  }
   // ── §B3 IR eligibility — CLIENT-SIDE PREVIEW ONLY ───────────────────
   // The real gate is server-side (worker roster-action returns IR_NOT_ELIGIBLE
   // / IR_ELIGIBILITY_UNKNOWN). This exists so the button does not lie about
@@ -3806,13 +3816,11 @@
       STATE.contractLadderServer = (data && data.contract_ladder) || null;
     } catch (e) {}
   }
-  function renderContractSummary() {
-    const el = $("#fo-contract-summary");
-    if (!el) return;
-    const single = STATE.selectedTeamId !== "__all__";
-    const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
-    if (!teams.length) { el.innerHTML = ""; return; }
-    const nTeams = teams.length;
+  // One team's (or the league's) roster counts and cap, the Cap Allocation card's
+  // exact math (taxi $0, IR ×0.5, expired $0; adjustments rounded per canon §6).
+  // Shared by the summary strip and, through window.UPS_FO.capFor, the new views
+  // (#1338) so every Front Office cap number is this one.
+  function capSnapshotForTeams(teams) {
     let activeN = 0, taxiN = 0, irN = 0, salaryCap = 0, irAlloc = 0, loadedN = 0, loadedUnavailableN = 0, threeYrN = 0, adjTotal = 0;
     const irEligible = [];
     teams.forEach(function (team) {
@@ -3838,7 +3846,22 @@
       adjTotal += capAdjTotal(s);
     });
     const capAlloc = salaryCap + adjTotal;
-    const capSpace = (CAP_CEILING * nTeams) - capAlloc;
+    return { activeN: activeN, taxiN: taxiN, irN: irN, salaryCap: salaryCap, irAlloc: irAlloc, loadedN: loadedN,
+      loadedUnavailableN: loadedUnavailableN, threeYrN: threeYrN, adjTotal: adjTotal, irEligible: irEligible,
+      capAlloc: capAlloc, capSpace: (CAP_CEILING * teams.length) - capAlloc, activeMax: activeMaxFO() * teams.length,
+      activeMin: ACTIVE_MIN * teams.length, taxiMax: TAXI_MAX * teams.length };
+  }
+  function renderContractSummary() {
+    const el = $("#fo-contract-summary");
+    if (!el) return;
+    const single = STATE.selectedTeamId !== "__all__";
+    const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
+    if (!teams.length) { el.innerHTML = ""; return; }
+    const nTeams = teams.length;
+    const t = capSnapshotForTeams(teams);
+    const activeN = t.activeN, taxiN = t.taxiN, irN = t.irN, salaryCap = t.salaryCap, irAlloc = t.irAlloc,
+      loadedN = t.loadedN, loadedUnavailableN = t.loadedUnavailableN, threeYrN = t.threeYrN, adjTotal = t.adjTotal,
+      irEligible = t.irEligible, capAlloc = t.capAlloc, capSpace = t.capSpace;
     const card = function (val, lbl, subHtml, cls) {
       return '<div class="fo-sum-card"><div class="fo-sum-val ' + (cls || "") + '">' + val + "</div>" +
         '<div class="fo-sum-lbl">' + escapeHtml(lbl) + "</div>" +
@@ -4117,7 +4140,7 @@
     return `
       <tr data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">
         <td>
-          <div>${escapeHtml(p.name)}${nflStatusBadge(p.id)}${newsFlagBadge(p.id)}</div>
+          <div>${escapeHtml(p.name)}${injuryChipHtml(p)}${newsFlagBadge(p.id)}</div>
           <div class="small"><span class="fo-pos ${escapeHtml(pos)}">${escapeHtml(p.position)}</span> · ${escapeHtml(p.nflTeam || "FA")}</div>
         </td>
         <td class="col-md">${escapeHtml(p.franchise)}</td>
@@ -4171,11 +4194,10 @@
     // worker (auditable in D1).
     const me = STATE.me || {};
     const commishOverride = !!me.isAdmin && pad4(me.franchise_id) !== pad4(p.fid);
-    // NFL designation sits right on the name (same badge as the roster row),
-    // with the honest unknown/empty variants — a "Place on IR" button in the
-    // Actions tab below is only readable if the designation driving it is
-    // visible. See nflStatusBadgeDetailed.
-    return escapeHtml(p.name) + nflStatusBadgeDetailed(p.id) +
+    // The injury chip sits right on the name: the shared resolver's one chip
+    // (#1311, same as the phone sheet). Its "sources disagree" box and source
+    // lines render under the header (slideoverInjuryHtml).
+    return escapeHtml(p.name) + injuryChipHtml(p) +
       (commishOverride
         ? ` <span class="fo-commish-badge" title="Acting on behalf of ${escapeHtml(p.franchise)} — all submits will set commish_override_flag=1.">👑 commish override</span>`
         : "");
@@ -4203,8 +4225,20 @@
         ? `<span class="fo-ctype pending">PENDING</span> · ${fmtUSD(p.salary)} (contract not yet recorded by MFL)`
         : `<span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span> · ` +
           `${fmtUSD(p.salary)} (${p.years || 0}yr rem)`);
+    var injEl = $("#fo-slideover-inj");
+    if (injEl) injEl.innerHTML = slideoverInjuryHtml(p);
     $$("#fo-slideover-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === STATE.slideoverSubtab); });
     renderSlideoverBody();
+  }
+  // Repaint the open panel's name chip + injury box after a status read lands.
+  function refreshSlideoverHead() {
+    if (!STATE.slideoverPid) return;
+    var p = findPlayer(STATE.slideoverPid, STATE.slideoverFid);
+    if (!p) return;
+    var titleEl = $("#fo-slideover-title");
+    if (titleEl) titleEl.innerHTML = slideoverTitleHtml(p);
+    var injEl = $("#fo-slideover-inj");
+    if (injEl) injEl.innerHTML = slideoverInjuryHtml(p);
   }
 
   function closeSlideover() {
@@ -4575,23 +4609,65 @@
       (wcOk ? "" : '<p class="fo-form-note" style="margin-top:6px;">APW shows "—" when it isn\'t available for that season.</p>');
   }
 
+  // ── This season, from MFL's own scoring (#1338) ─────────────────────
+  // The phone sheet's numbers, word for word: MFL playerScores W=ALL (league
+  // scoring, a week in progress included), PPG per MFL-scored week, rank by PPG
+  // within the lineup group among every player MFL scored with at least half the
+  // final weeks. The league database copy (player bundle) serves EARLIER seasons
+  // only, each under its own year: it lags MFL by a sync and, in season, has
+  // missed free agents' and taxi weeks before (season_scoring.js header).
+  var __foGroupOf = { src: null, fn: null };
+  function foGroupOf(playersPayload) {
+    if (__foGroupOf.src === playersPayload && __foGroupOf.fn) return __foGroupOf.fn;
+    var LN = window.UPS_FRONT_OFFICE_LINEUP, pos = {};
+    var list = (playersPayload && playersPayload.players && playersPayload.players.player) || [];
+    (Array.isArray(list) ? list : [list]).forEach(function (pl) { if (pl && pl.id) pos[String(pl.id)] = pl.position; });
+    __foGroupOf = { src: playersPayload, fn: function (pid) {
+      var g = LN ? LN.posGroup(safeStr(pos[pid]).toUpperCase()) : "";
+      return g && g !== "OTH" ? g : "";
+    } };
+    return __foGroupOf.fn;
+  }
+  async function foSeasonFacts(p) {
+    var D = window.UPS_FO_DATA, F = window.UPS_PLAYER_FACTS;
+    if (!D || !F) return { basis: { ok: false, warn: true, text: "Points unavailable: the scoring module didn't load." }, line: null, ss: null };
+    var r = await Promise.all([D.load("scores"), D.load("players")]);
+    var ss = r[0].state === "ok" ? r[0].data : null;
+    var groupOf = r[1].state === "ok" ? foGroupOf(r[1].data) : function () { return ""; };
+    return { ss: ss, basis: F.basis(ss), line: ss ? F.season(ss, p.id, groupOf, { last: 4 }) : null };
+  }
+  function foSeasonFactsHtml(f) {
+    var tile = function (v, l, t) { return '<div class="fo-sum-card"' + (t ? ' title="' + escapeHtml(t) + '"' : "") + '><div class="fo-sum-val">' + escapeHtml(v) + '</div><div class="fo-sum-lbl">' + escapeHtml(l) + "</div></div>"; };
+    var line = f.line, fmt = window.UPS_PLAYER_FACTS ? window.UPS_PLAYER_FACTS.fmt1 : function (v) { return String(v); };
+    var tiles = "";
+    if (line) {
+      tiles = '<div class="fo-contract-summary">' +
+        tile(fmt(line.pts), "Pts · " + line.weeks) +
+        tile(line.ppg != null ? fmt(line.ppg) : "—", "PPG · " + line.games + " MFL wk" + (line.games === 1 ? "" : "s"), "Points per MFL scored week; MFL wks = weeks MFL posted a score (0.0 counts), not NFL games") +
+        tile(line.rankLabel, "PPG rank") +
+        (line.last ? tile(line.last.ppg != null ? fmt(line.last.ppg) : "—", "Last " + line.last.n + " · " + (line.last.weeks || "no final weeks"), "Final weeks only; shown for context — season PPG is the better guide (#1338 backtest)") : "") +
+        "</div>";
+    }
+    return '<div class="fo-card-head"><h2 style="margin:0;">This season</h2></div>' + tiles +
+      '<p class="fo-basis' + (f.basis.warn ? " warn" : "") + '">' + escapeHtml(f.basis.text) + "</p>";
+  }
+
   async function renderStatsTab(p) {
     var body = $("#fo-slideover-body");
     if (!body) return;
     body.innerHTML = '<div class="fo-form-note">Loading stats…</div>';
-    var bundle = await loadPlayerBundle(p.id);
+    var got = await Promise.all([loadPlayerBundle(p.id), foSeasonFacts(p)]);
+    var bundle = got[0], facts = got[1];
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "stats") return; // user moved on
-    var career = (bundle && Array.isArray(bundle.career_summary)) ? bundle.career_summary.slice() : [];
-    if (!career.length) {
-      body.innerHTML = '<div class="fo-form-note">No scoring history in the bundle for this player (rookie / pre-NFL, or load failed).</div>';
-      return;
-    }
+    var cur = safeInt(SEASON, 0);
+    var career = (bundle && Array.isArray(bundle.career_summary)) ? bundle.career_summary.filter(function (r) { return safeInt(r.season, 0) !== cur; }) : [];
     career.sort(function (a, b) { return safeInt(b.season, 0) - safeInt(a.season, 0); });
     var lev = (bundle && bundle.leverage_coefs) || {};
-    body.innerHTML =
-      '<div class="fo-card-head"><h2 style="margin:0;">Scoring — Career &amp; Season Splits</h2></div>' +
-      foStatHeadlineHtml(career, lev) +
-      foStatSeasonTableHtml(career, lev);
+    body.innerHTML = foSeasonFactsHtml(facts) +
+      '<div class="fo-card-head" style="margin-top:14px;"><h2 style="margin:0;">Earlier seasons</h2>' +
+      '<span class="small" style="color:var(--muted);">League history database · each row is its own season</span></div>' +
+      (career.length ? foStatHeadlineHtml(career, lev) + foStatSeasonTableHtml(career, lev)
+        : '<div class="fo-form-note">No earlier UPS seasons for this player (rookie, or the history couldn’t load).</div>');
   }
 
   // ── Game Log sub-tab inside slide-over ──────────────────────────────
@@ -4656,30 +4732,46 @@
     var body = $("#fo-slideover-body");
     if (!body) return;
     body.innerHTML = '<div class="fo-form-note">Loading game log…</div>';
-    var bundle = await loadPlayerBundle(p.id);
+    var got = await Promise.all([loadPlayerBundle(p.id), foSeasonFacts(p)]);
+    var bundle = got[0], facts = got[1];
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "gamelog") return; // user moved on
     var wbs = (bundle && bundle.weekly_by_season) || {};
-    var seasons = Object.keys(wbs).sort(function (a, b) { return Number(b) - Number(a); });
-    if (!seasons.length) {
-      body.innerHTML = '<div class="fo-form-note">No weekly scoring data in the bundle for this player.</div>';
-      return;
-    }
-    var opts = seasons.map(function (s) { return '<option value="' + s + '">' + s + "</option>"; }).join("");
+    // This season's weeks come from MFL (foGameLogMflHtml); the database copy only for earlier seasons.
+    var cur = String(safeInt(SEASON, 0));
+    var seasons = [cur].concat(Object.keys(wbs).filter(function (s) { return s !== cur; }).sort(function (a, b) { return Number(b) - Number(a); }));
+    var opts = seasons.map(function (s) { return '<option value="' + s + '">' + s + (s === cur ? " (MFL)" : "") + "</option>"; }).join("");
+    var renderSeason = function (s) { return s === cur ? foGameLogMflHtml(p, facts) : foGameLogScoringHtml(s, bundle); };
     body.innerHTML =
       '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">Game Log</h2>' +
       '<label class="small" style="color:var(--muted); margin-left:auto;">Season ' +
       '<select id="fo-gl-season" style="margin-left:4px; background:var(--panel-alt); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:3px 6px;">' +
       opts + "</select></label></div>" +
-      '<div id="fo-gl-body">' + foGameLogScoringHtml(seasons[0], bundle) + "</div>" +
+      '<div id="fo-gl-body">' + renderSeason(seasons[0]) + "</div>" +
       '<div class="fo-form-note" style="margin-top:8px;">' +
-      '<strong>Z</strong> = standard deviations above (+) or below (−) the average starter at the position that week (0 = average). ' +
+      'Earlier seasons: <strong>Z</strong> = standard deviations above (+) or below (−) the average starter at the position that week (0 = average). ' +
       'Tiers: <strong>Elite</strong> Z ≥ 1.0 · <strong>Plus</strong> 0.25–1.0 · <strong>Neutral</strong> −0.5–0.25 · <strong>Dud</strong> below −0.5. ' +
       '<span class="fo-gl-ptag">P</span> = playoff week.</div>';
     var sel = body.querySelector("#fo-gl-season");
     if (sel) sel.addEventListener("change", function () {
       var b2 = document.querySelector("#fo-gl-body");
-      if (b2) b2.innerHTML = foGameLogScoringHtml(sel.value, bundle);
+      if (b2) b2.innerHTML = renderSeason(sel.value);
     });
+  }
+  // This season's weeks straight from MFL: points per week; no row = MFL posted no score (bye, inactive or not
+  // played yet), never 0. Z-scores and tiers are the database's and appear for earlier seasons only.
+  function foGameLogMflHtml(p, facts) {
+    var ss = facts && facts.ss;
+    var st = ss && ss.known ? ss.byPid[String(p.id)] : null;
+    var weeks = ss && ss.known ? ss.seasonWeeks : [];
+    var head = '<p class="fo-basis' + (facts && facts.basis.warn ? " warn" : "") + '">' + escapeHtml(facts ? facts.basis.text : "") + "</p>";
+    if (!weeks.length) return head;
+    var live = (ss.liveWeeks || []).reduce(function (m, w) { m[w] = 1; return m; }, {});
+    var rows = weeks.map(function (w) {
+      var v = st && st.weeks ? st.weeks[w] : undefined;
+      return "<tr><td>" + w + (live[w] ? ' <span class="small" style="color:var(--warn);">in progress</span>' : "") + "</td>" +
+        '<td class="num">' + (v == null ? '<span class="small" style="color:var(--muted);">no MFL score</span>' : escapeHtml((Math.round(v * 10) / 10).toFixed(1))) + "</td></tr>";
+    }).join("");
+    return head + '<table class="fo-table"><thead><tr><th>Wk</th><th class="num">MFL pts</th></tr></thead><tbody>' + rows + "</tbody></table>";
   }
 
   // ── Transaction Log sub-tab inside slide-over ───────────────────────
@@ -4969,6 +5061,15 @@
   // the rest entirely. Tag is owned by the Tagging tab — only Untag
   // belongs in this modal (and only when currently tagged).
   function renderActionsTab(p) {
+    // Another team's player: no contract or roster actions (the phone sheet's
+    // rule, #1338). The worker re-checks every write anyway; the panel should
+    // not offer a button the viewer can't use. The commissioner keeps them.
+    const viewerFid = pad4((STATE.me && STATE.me.franchise_id) || "");
+    if (viewerFid && !(STATE.me && STATE.me.isAdmin) && pad4(p.fid) !== viewerFid) {
+      return '<div class="fo-form-note">' + escapeHtml(p.franchise || "Another team") + "’s player: contract and roster actions are for his owner.</div>" +
+        actionRow("Trade", "Open the Trade War Room.",
+          `<button class="btn small" data-action="trade" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">Open in Trade War Room</button>`);
+    }
     const elig = rosterContractEligibility(p);
     // Worker fields first; client-side §C4.6 synthesis as fallback.
     // Keith 2026-05-19 checkpoint 2: MHJ-class players where worker
@@ -5127,8 +5228,8 @@
     }
 
     rows.push(actionRow("Trade",
-      "Hand off to Trade Hub (no direct submit from FO).",
-      `<button class="btn small" data-action="trade" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">Open in Trade Hub</button>`));
+      "Open the Trade War Room (no direct submit from Front Office).",
+      `<button class="btn small" data-action="trade" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">Open in Trade War Room</button>`));
 
     if (!rows.length) {
       return '<div class="fo-form-note">No contract actions are currently available for this player.</div>';
