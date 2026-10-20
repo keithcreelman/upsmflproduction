@@ -1962,6 +1962,207 @@
     return { status: 'ok', games: games, regular: reg, playoff: po, seasonsTogether: together, pairingSeasons: pairing.filter(function (s) { return together.indexOf(s) >= 0; }) };
   }
 
+  // ── Magic numbers (current regular season; descriptive) ─────────────
+  // The proverbial magic number: this team's future wins plus a rival's future losses that put the rival out of reach.
+  //   Division — MFL decides a division on H2H win % first (standingsSort PCT, canon §F.2): the leader against the
+  //     division rival who can still finish highest (the fewest H2H losses). It needs every team's number of
+  //     scheduled regular-season H2H games (two or three a week), read from MFL's schedule export; without a
+  //     schedule that matches the games already played, the division numbers are unavailable, never assumed.
+  //   Wild card — seeds 3-6 go by All-Play % (canon §F.1): each wild-card team against the first team out (the
+  //     worker's next_out). All-Play gives every team one result against each other team every week, so no schedule
+  //     is needed.
+  // Both count to finishing STRICTLY ahead (a tie goes to a tiebreak that later weeks decide):
+  //   magic = floor(G_rival − L_rival − W_team − (T_team + T_rival) / 2) + 1, G = the rival's games in the season.
+  // Clinched:
+  //   division     — the division magic number reached 0 (no rival can even tie).
+  //   playoff spot — a separate, sound check. A division is won on H2H and a wild card on All-Play, so a team that
+  //     loses its division race can drop into the wild-card race above a wild-card team; a wild-card magic number of
+  //     0 is therefore not a clinch by itself. A team has clinched a spot when, in the worst case for it, at most one
+  //     other team that could still finish level with or above it on All-Play could also miss its division title.
+  // magicNumbers(payload, mflSchedule) -> { status, reason, throughWeek, lastRegularWeek, apGamesLeft,
+  //   division: { status, reason, byDivision: { <div>: { leader, vs, magic, clinched } } },
+  //   wildCard: { status, reason, vs, teams: [{ franchise_id, magic, clinched }] },
+  //   byFid: { <fid of seeds 1-6>: { kind: 'division' | 'wild_card', magic, vs, clinched, clinchedDivision,
+  //            clinchedSpot } } }
+  // status: 'ok' | 'preseason' | 'final' (nothing to clinch: the regular season is over or recorded) | 'unavailable'.
+  // A division or wild-card part that can't be computed says so in its own status/reason; nothing is guessed.
+  function scheduleGameCounts(sched, lastReg, fids) {
+    var ws = sched && sched.schedule && sched.schedule.weeklySchedule;
+    ws = Array.isArray(ws) ? ws : (isRowObject(ws) ? [ws] : null);
+    if (!ws) return { status: 'unavailable', reason: 'schedule_unavailable' };
+    var known = {}, total = {}, byWeek = {};
+    fids.forEach(function (f) { known[f] = true; total[f] = 0; });
+    for (var i = 0; i < ws.length; i++) {
+      var W = ws[i];
+      var wk = isRowObject(W) ? strictNum(W.week) : NaN;
+      if (!isWeekNum(wk)) return { status: 'unavailable', reason: 'schedule_unreadable' };
+      if (wk > lastReg) continue;
+      if (byWeek[wk]) return { status: 'unavailable', reason: 'schedule_unreadable' };
+      var counts = byWeek[wk] = {};
+      var ms = W.matchup;
+      ms = Array.isArray(ms) ? ms : (isRowObject(ms) ? [ms] : []);
+      for (var j = 0; j < ms.length; j++) {
+        var fr = ms[j] && ms[j].franchise;
+        if (!Array.isArray(fr) || fr.length !== 2 || !isRowObject(fr[0]) || !isRowObject(fr[1]) || !hasId(fr[0].id) || !hasId(fr[1].id)) {
+          return { status: 'unavailable', reason: 'schedule_unreadable' };
+        }
+        var a = pad4(fr[0].id), b = pad4(fr[1].id);
+        if (a === b || !known[a] || !known[b]) return { status: 'unavailable', reason: 'schedule_unreadable' };
+        counts[a] = (counts[a] || 0) + 1; counts[b] = (counts[b] || 0) + 1;
+        total[a]++; total[b]++;
+      }
+    }
+    // Every regular-season week is on the schedule and gives every team at least one game.
+    for (var w = 1; w <= lastReg; w++) {
+      if (!byWeek[w] || fids.some(function (f) { return !byWeek[w][f]; })) return { status: 'unavailable', reason: 'schedule_incomplete' };
+    }
+    return { status: 'ok', reason: null, total: total, byWeek: byWeek };
+  }
+  function magicCount(team, rival, rivalGames) {
+    return Math.floor(rivalGames - rival.l - team.w - (team.t + rival.t) / 2) + 1;
+  }
+  function wholeRecord(rec) {
+    if (!isRowObject(rec)) return null;
+    var w = strictNum(rec.w), l = strictNum(rec.l), t = strictNum(rec.t);
+    if (!Number.isInteger(w) || !Number.isInteger(l) || !Number.isInteger(t) || w < 0 || l < 0 || t < 0) return null;
+    return { w: w, l: l, t: t };
+  }
+  function magicNumbers(payload, mflSchedule) {
+    var out = { status: 'unavailable', reason: null, throughWeek: null, lastRegularWeek: null, apGamesLeft: null,
+      division: { status: 'unavailable', reason: null, byDivision: {} },
+      wildCard: { status: 'unavailable', reason: null, vs: null, teams: [] },
+      byFid: {} };
+    function stop(status, reason) {
+      out.status = status; out.reason = reason;
+      out.division.reason = reason; out.wildCard.reason = reason;
+      if (status !== 'unavailable') { out.division.status = status; out.wildCard.status = status; }
+      return out;
+    }
+    if (!isRowObject(payload)) return stop('unavailable', 'no_standings');
+    var rows = Array.isArray(payload.rows) ? payload.rows : [];
+    if (payload.standings_basis === 'recorded_final_standings' || rows.some(isRecordedRow)) return stop('final', 'season_over');
+    if (payload.preseason === true || payload.standings_basis === 'preseason') return stop('preseason', 'no_games_yet');
+    if (payload.standings_basis !== 'regular_season_ladder') return stop('unavailable', 'seeds_unavailable');
+    var rs = payload.regular_season;
+    if (!isRowObject(rs) || rs.status !== 'ok') return stop('unavailable', 'regular_season_unverified');
+    var k = strictNum(rs.through_week), lastReg = strictNum(rs.last_regular_season_week);
+    if (!isWeekNum(lastReg)) return stop('unavailable', 'regular_season_unverified');
+    if (k === 0) return stop('preseason', 'no_games_yet');
+    if (!isWeekNum(k)) return stop('unavailable', 'regular_season_unverified');
+    if (rs.complete === true || k >= lastReg) return stop('final', 'regular_season_over');
+    out.throughWeek = k; out.lastRegularWeek = lastReg;
+    var n = rows.length;
+    if (n < 8) return stop('unavailable', 'too_few_teams');
+    var teams = {}, fids = [], bad = false;
+    rows.forEach(function (r) {
+      if (!isRowObject(r) || !hasId(r.franchise_id)) { bad = true; return; }
+      var fid = pad4(r.franchise_id);
+      var reg = r.regular_season;
+      var rec = wholeRecord(reg && reg.record), ap = wholeRecord(reg && reg.all_play);
+      // Every team has n-1 All-Play results a week; the H2H record must cover the games the worker counted.
+      if (teams[fid] || !rec || !ap || ap.w + ap.l + ap.t !== (n - 1) * k) { bad = true; return; }
+      var games = strictNum(reg.games);
+      if (reg.games != null && games !== rec.w + rec.l + rec.t) { bad = true; return; }
+      if (r.division == null || String(r.division) === '') { bad = true; return; }
+      teams[fid] = { fid: fid, division: String(r.division), leader: r.is_division_leader === true,
+        rank: strictNum(r.division_rank), seed: r.playoff_seed == null ? null : strictNum(r.playoff_seed),
+        status: statusForRow(r), rec: rec, ap: ap };
+      fids.push(fid);
+    });
+    if (bad) return stop('unavailable', 'records_unreadable');
+    out.status = 'ok';
+    var apGames = (n - 1) * lastReg;
+    out.apGamesLeft = (n - 1) * (lastReg - k);
+    var divs = {};
+    fids.forEach(function (f) { var d = teams[f].division; (divs[d] || (divs[d] = [])).push(teams[f]); });
+
+    // Division races (H2H).
+    var counts = scheduleGameCounts(mflSchedule, lastReg, fids);
+    var h2hGames = null;
+    if (counts.status !== 'ok') { out.division.reason = counts.reason; }
+    else {
+      var mismatch = fids.some(function (f) {
+        var played = 0;
+        for (var w = 1; w <= k; w++) played += counts.byWeek[w][f] || 0;
+        var r = teams[f].rec;
+        return played !== r.w + r.l + r.t;
+      });
+      if (mismatch) out.division.reason = 'schedule_mismatch';
+      else h2hGames = counts.total;
+    }
+    if (h2hGames) {
+      var divOk = Object.keys(divs).every(function (d) {
+        var leaders = divs[d].filter(function (x) { return x.leader; });
+        if (leaders.length !== 1 || divs[d].length < 2) return false;
+        var L = leaders[0], best = null;
+        divs[d].forEach(function (x) {
+          if (x === L) return;
+          var m = magicCount(L.rec, x.rec, h2hGames[x.fid]);
+          if (!best || m > best.m || (m === best.m && (x.rank || 99) < (best.x.rank || 99))) best = { x: x, m: m };
+        });
+        out.division.byDivision[d] = { leader: L.fid, vs: best.x.fid, magic: Math.max(0, best.m), clinched: best.m <= 0 };
+        return true;
+      });
+      if (divOk) { out.division.status = 'ok'; out.division.reason = null; }
+      else { out.division.byDivision = {}; out.division.reason = 'division_leaders_unreadable'; }
+    }
+
+    // The wild-card race (All-Play).
+    var nextOut = hasId(rs.next_out) ? pad4(rs.next_out) : null;
+    var wc = fids.map(function (f) { return teams[f]; }).filter(function (x) { return x.status === 'WC'; })
+      .sort(function (a, b) { return a.seed - b.seed; });
+    if (!nextOut || !teams[nextOut] || teams[nextOut].seed != null || wc.length !== 2) out.wildCard.reason = 'wild_card_race_unreadable';
+    else {
+      var B = teams[nextOut];
+      out.wildCard.status = 'ok'; out.wildCard.reason = null; out.wildCard.vs = nextOut;
+      out.wildCard.teams = wc.map(function (A) {
+        var m = magicCount(A.ap, B.ap, apGames);
+        return { franchise_id: A.fid, magic: Math.max(0, m), reachedZero: m <= 0 };
+      });
+    }
+
+    // Playoff spot clinched (sound; see the header). Division candidates: a team is out of its division race only
+    // when some rival's current H2H win total already beats the most it can reach.
+    function h2hMax(x) { return h2hGames ? h2hGames[x.fid] - x.rec.l - x.rec.t / 2 : null; }
+    function canWinDivision(x) {
+      if (!h2hGames) return true; // no schedule: assume anyone can (the cautious side)
+      return !divs[x.division].some(function (y) { return y !== x && y.rec.w + y.rec.t / 2 > h2hMax(x); });
+    }
+    function clinchedSpot(A) {
+      var dA = out.division.byDivision[A.division];
+      if (dA && dA.leader === A.fid && dA.clinched) return true;
+      var aMin = A.ap.w + A.ap.t / 2;
+      var threats = fids.filter(function (f) { var x = teams[f]; return x !== A && apGames - x.ap.l - x.ap.t / 2 >= aMin; });
+      var nonWinners = 0;
+      Object.keys(divs).forEach(function (d) {
+        var T = threats.filter(function (f) { return teams[f].division === d; });
+        var cand = divs[d].filter(function (x) { return x !== A && canWinDivision(x); });
+        if (d === A.division && !cand.length) { nonWinners = -Infinity; return; } // A must win its division
+        if (!T.length) return;
+        var nonThreatCanWin = cand.some(function (x) { return T.indexOf(x.fid) < 0; });
+        nonWinners += T.length - (nonThreatCanWin || !cand.length ? 0 : 1);
+      });
+      return nonWinners <= 1;
+    }
+    fids.forEach(function (f) {
+      var x = teams[f];
+      if (x.seed == null || !(x.seed >= 1 && x.seed <= 6)) return;
+      var spot = clinchedSpot(x);
+      if (x.status === 'BYE' || x.status === 'DIV') {
+        var dv = out.division.byDivision[x.division];
+        var mine = dv && dv.leader === f ? dv : null;
+        out.byFid[f] = { kind: 'division', magic: mine ? mine.magic : null, vs: mine ? mine.vs : null,
+          clinched: !!(mine && mine.clinched), clinchedDivision: !!(mine && mine.clinched), clinchedSpot: spot };
+      } else if (x.status === 'WC') {
+        var e = out.wildCard.teams.filter(function (t) { return t.franchise_id === f; })[0] || null;
+        if (e) e.clinched = spot;
+        out.byFid[f] = { kind: 'wild_card', magic: e ? e.magic : null, vs: e ? out.wildCard.vs : null,
+          clinched: spot, clinchedDivision: false, clinchedSpot: spot };
+      }
+    });
+    return out;
+  }
+
   // ── top-level composition ───────────────────────────────────────────
   // race(payload) -> { byFranchise: { <fid>: {...} }, seed2FranchiseId,
   //   seed6FranchiseId, hasSeed6, preseason, standingsBasis, seedsFinal,
@@ -2094,6 +2295,9 @@
     scoredFaced: scoredFaced,
     // Playoff / Hawk Tuah Bowl matchup sheet (descriptive; never a prediction).
     matchupTape: matchupTape,
-    ownerSeries: ownerSeries
+    ownerSeries: ownerSeries,
+    // Magic numbers for the division and wild-card races (current regular season; descriptive).
+    magicNumbers: magicNumbers,
+    scheduleGameCounts: scheduleGameCounts
   };
 })(typeof window !== 'undefined' ? window : this);
