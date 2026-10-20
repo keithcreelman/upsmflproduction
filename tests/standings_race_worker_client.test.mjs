@@ -181,7 +181,12 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   t.match(html, /<td class="rank">H1<\/td><td class="team"><span class="name-text">[^<]+<\/span>/);
   t.match(html, /data-jump-side="hawk">Hawk Tuah Bowl<\/button>/, "a Hawk Tuah Bowl button beside the seeds");
   // explanations are behind three compact buttons, not on the page
-  t.match(html, /data-info="how"[^>]*>How seeding works<\/button><button[^>]*data-info="why"[^>]*>Why this order<\/button><button[^>]*data-info="about"[^>]*>About<\/button>/);
+  t.match(html, /data-info="how"[^>]*>How seeding works<\/button><button[^>]*data-info="why"[^>]*>Why this order<\/button><button[^>]*data-info="magic"[^>]*>Magic numbers<\/button><button[^>]*data-info="about"[^>]*>About<\/button>/);
+  // Magic numbers (#1329): an M# column for seeds 1-6. This fixture has no MFL schedule, so the division rows say —
+  // (never a guessed number) while the wild-card rows, which need no schedule, show theirs.
+  t.match(html, /<th class="num">Back<\/th><th class="num magic" title="Magic number">M#<\/th>/);
+  t.match(html, /data-fid="0001"[\s\S]*?<td class="num magic">—<\/td>/, "a division row without a schedule: —");
+  t.match(html, /data-fid="0004"[\s\S]*?<td class="num magic"><span class="ups-m-magic">\d+<\/span><\/td>/, "a wild-card row: its number");
   t.ok(!/Ladder: All-Play %|say where a team would be/.test(html), "no explanatory paragraphs on the page itself");
   const D = lastMobile.leagueView.standingsDrawers;
   t.match(plain(D.how()), /Ladder: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams\. Only regular-season weeks count\./);

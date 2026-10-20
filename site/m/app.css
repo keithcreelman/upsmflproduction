@@ -5255,3 +5255,13 @@ a.ups-m-bid-btn {
   .tape-table td, .tape-table th { font-size: 11.5px; }
   .tape-name { font-size: 14px; }
 }
+
+/* Standings v3.2 (2026-10-20, #1329): magic numbers. One narrow M# column on the seeds table (seeds 1-6), a line under
+   each division card; ✓ = clinched (text, not color alone). */
+.ups-m-seeds-table th.magic, .ups-m-seeds-table td.magic { width: 30px; }
+.ups-m-magic { font-weight: 800; color: var(--fg); font-variant-numeric: tabular-nums; }
+.ups-m-magic.ok { color: var(--ok); }
+.ups-m-facts.magic-line { margin-top: 6px; }
+@media (max-width: 359px) {
+  .ups-m-seeds-table th.magic, .ups-m-seeds-table td.magic { width: 26px; }
+}

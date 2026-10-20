@@ -642,6 +642,90 @@
     return state._h2hLoading;
   }
 
+  // Magic numbers: the division races need every team's number of scheduled H2H games (two or three a week), from
+  // MFL's public schedule export through the worker's export proxy (no D1 reads). Loaded only while the regular season
+  // is being played; a failed read is retried after a minute and, until then, the division numbers say unavailable.
+  state.scheduleByYear = state.scheduleByYear || {};
+  state.scheduleErrorAt = state.scheduleErrorAt || {};
+  function magicSeason(resp) {
+    return !!resp && !resp.preseason && resp.standings_basis === "regular_season_ladder" && seasonState(resp) === "in_season";
+  }
+  function loadScheduleForYear(year) {
+    var y = String(year);
+    if (state.scheduleByYear[y] || state.scheduleLoading === y) return;
+    if (state.scheduleErrorAt[y] && Date.now() - state.scheduleErrorAt[y] < 60000) return;
+    state.scheduleLoading = y;
+    fetch(API.workerUrl("/api/mfl-export?TYPE=schedule&L=74598&YEAR=" + encodeURIComponent(y) + "&JSON=1"), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (j && j.schedule) { state.scheduleByYear[y] = j; delete state.scheduleErrorAt[y]; }
+        else state.scheduleErrorAt[y] = Date.now();
+      })
+      .catch(function () { state.scheduleErrorAt[y] = Date.now(); })
+      .then(function () { state.scheduleLoading = null; renderRoute(); });
+  }
+  // { m: magicNumbers result | null, loading: the schedule is still on its way }
+  function magicFor(resp, y) {
+    if (!magicSeason(resp) || !RACE() || !RACE().magicNumbers) return { m: null, loading: false };
+    var sched = state.scheduleByYear[String(y)] || null;
+    if (!sched) loadScheduleForYear(y);
+    return { m: RACE().magicNumbers(resp, sched), loading: !sched && state.scheduleLoading === String(y) };
+  }
+  // The M# cell for a seeded row: the number, ✓ when clinched, … while the schedule loads, — when unavailable.
+  function magicCell(mg, fid) {
+    var e = mg.m && mg.m.byFid[fid];
+    if (!e) return "";
+    if (e.clinched) return '<span class="ups-m-magic ok" aria-label="clinched">✓</span>';
+    if (e.magic == null) return e.kind === "division" && mg.loading ? '<span class="ups-m-magic" aria-label="loading">…</span>' : "—";
+    return '<span class="ups-m-magic">' + e.magic + '</span>';
+  }
+  var MAGIC_REASON = {
+    schedule_unavailable: "MFL’s schedule couldn’t be read, so the division numbers aren’t shown.",
+    schedule_unreadable: "MFL’s schedule couldn’t be read, so the division numbers aren’t shown.",
+    schedule_incomplete: "MFL’s schedule is missing a week, so the division numbers aren’t shown.",
+    schedule_mismatch: "MFL’s schedule doesn’t match the games already played, so the division numbers aren’t shown.",
+    division_leaders_unreadable: "The division leaders couldn’t be read, so the division numbers aren’t shown.",
+    wild_card_race_unreadable: "The wild-card race couldn’t be read, so the wild-card numbers aren’t shown."
+  };
+  function magicReason(code, loading) {
+    if (loading) return "Loading MFL’s schedule…";
+    return MAGIC_REASON[code] || "Not available right now.";
+  }
+  // The Magic numbers drawer: each race in words.
+  function magicDrawerHtml(resp, rows, mg) {
+    var by = rowByFid(rows);
+    var m = mg.m;
+    if (!m || m.status !== "ok") return '<div class="ups-m-drawer-p">Magic numbers appear while the regular season is being played.</div>';
+    var left = (m.lastRegularWeek - m.throughWeek);
+    var out = ['<div class="ups-m-drawer-p sub">Through Week ' + m.throughWeek + ' of ' + m.lastRegularWeek + ' · ' + left + ' week' + (left === 1 ? '' : 's') + ' left.</div>'];
+    var divLines = [];
+    if (m.division.status === "ok") {
+      rows.filter(function (r) { return r.is_division_leader; }).forEach(function (r) {
+        var d = m.division.byDivision[String(r.division)];
+        if (!d) return;
+        var vs = by[d.vs];
+        divLines.push('<li><b>' + U.escapeHtml(nm(r)) + '</b> ' + (d.clinched ? '✓ clinched the division.' :
+          '<span class="ups-m-magic">' + d.magic + '</span>: its H2H wins + ' + U.escapeHtml(nm(vs)) + ' H2H losses.') + '</li>');
+      });
+    }
+    out.push('<div class="ups-m-drawer-p"><b>Division (H2H)</b></div>' + (divLines.length ? '<ul class="ups-m-drawer-list">' + divLines.join("") + '</ul>' :
+      '<div class="ups-m-drawer-p sub">' + U.escapeHtml(magicReason(m.division.reason, mg.loading)) + '</div>'));
+    var wcLines = [];
+    if (m.wildCard.status === "ok") {
+      var vsOut = by[m.wildCard.vs];
+      m.wildCard.teams.forEach(function (x) {
+        var r = by[x.franchise_id];
+        wcLines.push('<li><b>' + U.escapeHtml(nm(r)) + '</b> ' + (x.clinched ? '✓ clinched a playoff spot.' :
+          '<span class="ups-m-magic">' + x.magic + '</span>: its All-Play wins + ' + U.escapeHtml(nm(vsOut)) + ' All-Play losses' +
+          (x.reachedZero ? ' (0: ahead of every team outside the top 6 for good; a division race can still move a leader into the wild-card race)' : '') + '.') + '</li>');
+      });
+    }
+    out.push('<div class="ups-m-drawer-p"><b>Wild card (All-Play, vs the first team out)</b></div>' + (wcLines.length ? '<ul class="ups-m-drawer-list">' + wcLines.join("") + '</ul>' :
+      '<div class="ups-m-drawer-p sub">' + U.escapeHtml(magicReason(m.wildCard.reason, false)) + '</div>'));
+    out.push('<div class="ups-m-drawer-p sub">A magic number counts this team’s future wins plus the named rival’s future losses; at 0 the rival can’t catch up. Ties count half and never finish the job. All-Play gives ' + (rows.length - 1) + ' results a week, so those numbers run larger.</div>');
+    return out.join("");
+  }
+
   // Seeds read 1-6 on the UPS Playoffs side and H1-H6 on the Hawk Tuah Bowl side (overall 7th-12th).
   function seedText(seed, sideKey) {
     var n = Number(seed);
@@ -1025,11 +1109,12 @@
       '<div class="ups-m-drawer-p"><b>Draft order comes from the final finish.</b> Hawk Tuah Bowl champion (7th) 1.01 · 8th 1.02 · 9th 1.03 · 10th 1.04 · 11th 1.05 · 12th 1.06 · 5th-place game winner (5th) 1.07 · its loser (6th) 1.08 · 4th 1.09 · 3rd 1.10 · runner-up 1.11 · champion 1.12.</div>' +
       '<div class="ups-m-drawer-p sub">All-Play = your score against all 11 other teams every week (11 results a week). League rule §F.1.</div>';
   }
-  function aboutSeedsHtml(final) {
+  function aboutSeedsHtml(final, magic) {
     return '<dl class="ups-m-drawer-dl">' +
       '<dt>AP%</dt><dd>All-Play %: the share of the other 11 teams you outscored, every regular-season week.</dd>' +
       '<dt>H2H</dt><dd>Head-to-head record: your games against your scheduled opponents (two or three a week).</dd>' +
       '<dt>Back</dt><dd>All-Play wins behind the 6th seed (ties count half).</dd>' +
+      (magic ? '<dt>M#</dt><dd>Magic number. BYE and DIV rows: to win the division (H2H). WC rows: to stay ahead of the first team out (All-Play). ✓ = clinched. Details: Magic numbers.</dd>' : '') +
       '<dt>▲▼</dt><dd>Places gained or lost since last week.</dd>' +
       '<dt>BYE · DIV · WC</dt><dd>First-round bye · division winner · wild card.' + (final ? '' : ' “proj” = where a team would be if the season ended today.') + '</dd>' +
       '<dt>H1–H6</dt><dd>Hawk Tuah Bowl seed (7th–12th).</dd>' +
@@ -1104,11 +1189,12 @@
     if (out && !final) bits.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (out.ap_back != null ? ", " + U.escapeHtml(String(out.ap_back)) + " AP win" + (out.ap_back === 1 ? "" : "s") + " back" : ""));
     return '<div class="ups-m-facts">' + bits.join(' · ') + '</div>';
   }
-  function bindSeedsInfo(mount, resp, rows, final) {
+  function bindSeedsInfo(mount, resp, rows, final, mg) {
     bindInfoButtons(mount, function (k) {
       if (k === "how") return { title: "How seeding works", body: howSeedingHtml() };
       if (k === "why") return { title: "Why this order", body: whyOrderHtml(resp, rows) };
-      if (k === "about") return { title: "About the seeds table", body: aboutSeedsHtml(final) };
+      if (k === "magic") return { title: "Magic numbers", body: magicDrawerHtml(resp, rows, mg || { m: null, loading: false }) };
+      if (k === "about") return { title: "About the seeds table", body: aboutSeedsHtml(final, !!(mg && mg.m && mg.m.status === "ok")) };
       return null;
     });
   }
@@ -1124,7 +1210,9 @@
   function renderSeedsMode(mount, year, y, resp) {
     var rows = (resp.rows || []).slice();
     var shell = standingsShell(year, y, "seeds");
-    var info = infoButtonsHtml([["how", "How seeding works"], ["why", "Why this order"], ["about", "About"]]);
+    var mg = magicFor(resp, y);
+    var showMagic = !!(mg.m && mg.m.status === "ok");
+    var info = infoButtonsHtml([["how", "How seeding works"], ["why", "Why this order"]].concat(showMagic ? [["magic", "Magic numbers"]] : []).concat([["about", "About"]]));
     if (resp.preseason || resp.standings_basis === "preseason") {
       mount.innerHTML = shell + info + '<div class="ups-m-stub"><div>No games played yet. Seeds start after Week 1.</div></div>';
       bindShell(mount); bindSeedsInfo(mount, resp, rows, false);
@@ -1156,18 +1244,20 @@
         '<td class="num">' + fmtPct(ap.pct) + '</td>' +
         '<td class="num">' + recStr(rec) + '</td>' +
         '<td class="num">' + (r.ap_back == null ? "—" : U.escapeHtml(String(r.ap_back))) + '</td>' +
+        (showMagic ? '<td class="num magic">' + (r.playoff_seed != null ? (magicCell(mg, fid) || "—") : "") + '</td>' : "") +
       '</tr>');
-      if (Number(r.playoff_seed) === 2) trs.push('<tr class="seed-divider"><td colspan="5">First-round byes above</td></tr>');
-      if (Number(r.playoff_seed) === 6) trs.push('<tr class="seed-divider hawk-divider"><td colspan="5">Playoff line · H1–H6 play the Hawk Tuah Bowl</td></tr>');
+      var span = showMagic ? 6 : 5;
+      if (Number(r.playoff_seed) === 2) trs.push('<tr class="seed-divider"><td colspan="' + span + '">First-round byes above</td></tr>');
+      if (Number(r.playoff_seed) === 6) trs.push('<tr class="seed-divider hawk-divider"><td colspan="' + span + '">Playoff line · H1–H6 play the Hawk Tuah Bowl</td></tr>');
     });
     var jumps = '<div class="ups-m-jumps"><button type="button" class="ups-m-jump" data-jump-side="champ">Playoff bracket</button>' +
       '<button type="button" class="ups-m-jump hawk" data-jump-side="hawk">Hawk Tuah Bowl</button></div>';
     mount.innerHTML = shell + info + jumps +
       '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(y) + (final ? ' · final seeds' : ' · seeds if the season ended today') + '</div>' +
-      '<table class="ups-m-standings-table ups-m-seeds-table"><thead><tr><th>Seed</th><th class="team">Team</th><th class="num">AP%</th><th class="num">H2H</th><th class="num">Back</th></tr></thead>' +
+      '<table class="ups-m-standings-table ups-m-seeds-table"><thead><tr><th>Seed</th><th class="team">Team</th><th class="num">AP%</th><th class="num">H2H</th><th class="num">Back</th>' + (showMagic ? '<th class="num magic" title="Magic number">M#</th>' : '') + '</tr></thead>' +
       '<tbody>' + trs.join("") + '</tbody></table>' + factsHtml(resp, rows) + '</div>';
     bindShell(mount);
-    bindSeedsInfo(mount, resp, rows, final);
+    bindSeedsInfo(mount, resp, rows, final, mg);
     bindJumps(mount);
     bindTeamRows(mount, "tr.race-row[data-fid]", resp, year);
   }
@@ -1233,6 +1323,8 @@
     var unavailable = resp.standings_basis === "unavailable";
     var final = seasonState(resp) !== "in_season";
     var by = rowByFid(resp.rows);
+    var mg = magicFor(resp, y);
+    var showMagic = !!(mg.m && mg.m.status === "ok");
     var byDiv = {};
     rows.forEach(function (r) {
       var k = String(r.division);
@@ -1272,9 +1364,17 @@
         var det = vb.step === "DIVPCT" && a && b ? "(" + recStr(a.division) + " vs " + recStr(b.division) + ")" : "";
         reasons.push(U.escapeHtml(nm(r)) + " over " + U.escapeHtml(nm(below)) + ": same H2H record, " + U.escapeHtml(DIV_STEP_WORDS[vb.step] || vb.step) + (det ? " " + U.escapeHtml(det) : "") + ".");
       });
+      var magicLine = "";
+      if (showMagic) {
+        var dm = mg.m.division.status === "ok" ? mg.m.division.byDivision[k] : null;
+        if (dm && dm.clinched) magicLine = '<b>✓ ' + U.escapeHtml(nm(by[dm.leader])) + '</b> has clinched the division.';
+        else if (dm) magicLine = '<b>Magic number <span class="ups-m-magic">' + dm.magic + '</span>:</b> ' + U.escapeHtml(nm(by[dm.leader])) + ' H2H wins + ' + U.escapeHtml(nm(by[dm.vs])) + ' H2H losses.';
+        else magicLine = '<b>Magic number:</b> ' + U.escapeHtml(magicReason(mg.m.division.reason, mg.loading));
+      }
       return '<div class="ups-m-card"><div class="ups-m-card-title">' + U.escapeHtml(d.name) + '</div>' +
         '<table class="ups-m-standings-table"><thead><tr><th class="team">Team</th><th class="num">H2H</th><th class="num">Div</th><th class="num">GB</th><th class="num">AP%</th></tr></thead><tbody>' + trs + '</tbody></table>' +
-        (reasons.length ? '<div class="ups-m-facts">' + reasons.join(" ") + '</div>' : "") + '</div>';
+        (reasons.length ? '<div class="ups-m-facts">' + reasons.join(" ") + '</div>' : "") +
+        (magicLine ? '<div class="ups-m-facts magic-line">' + magicLine + '</div>' : "") + '</div>';
     }).join("");
     mount.innerHTML = shell + infoButtonsHtml([["about", "About divisions"]]) + (unavailable ? '<div class="ups-m-stub" role="alert"><div>Division order unavailable: the weekly results couldn’t be verified.</div></div>' : "") + cards;
     bindShell(mount);
@@ -1284,6 +1384,7 @@
         '<dt>Div</dt><dd>H2H record against the two division rivals (each played five times).</dd>' +
         '<dt>GB</dt><dd>H2H games behind the division leader.</dd>' +
         '<dt>Order</dt><dd>H2H record, then division record, then the H2H games between the tied teams (MFL’s rule).</dd>' +
+        (showMagic ? '<dt>Magic number</dt><dd>The leader’s future H2H wins plus the named rival’s future H2H losses that clinch the division outright (a tie would go to the tiebreak). The rival named is the one who can still finish highest.</dd>' : '') +
         '<dt>LEADS · WON</dt><dd>Division leader now · division winner (season over).</dd></dl>' };
     });
     bindTeamRows(mount, "tr.race-row[data-fid]", resp, year);
@@ -1576,7 +1677,12 @@
       how: howSeedingHtml,
       about: aboutSeedsHtml,
       why: function (resp) { return whyOrderHtml(resp, (resp.rows || []).slice()); },
-      weekly: aboutWeeklyHtml
+      weekly: aboutWeeklyHtml,
+      // Pure (no fetch): the Magic numbers drawer for a response and an MFL schedule export (or null).
+      magic: function (resp, sched) {
+        var R = RACE();
+        return magicDrawerHtml(resp, (resp.rows || []).slice(), { m: R && R.magicNumbers ? R.magicNumbers(resp, sched || null) : null, loading: false });
+      }
     }
   };
 
