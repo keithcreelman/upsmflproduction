@@ -87,9 +87,32 @@
     Object.keys(src).forEach(function (pid) { if (src[pid].games > 0) out[pid] = src[pid].ppg; });
     return out;
   }
+  // A PPG rank counts every player MFL scored at the position, free agents included, so it needs MFL's players
+  // list. groupFn() is a new function whenever the rosters or that list change, so a rank map built before the
+  // list arrived is never reused after it (Market opened after Roster showed every free agent "unranked").
+  var gFn = { teams: null, n: -1, players: null, fn: null };
+  function groupFn() {
+    var f = FO(), teams = (f && f.teams()) || [];
+    var n = teams.reduce(function (a, t) { return a + (t.players || []).length; }, 0);
+    playerIndex();
+    if (!gFn.fn || gFn.teams !== teams || gFn.n !== n || gFn.players !== idx.src) {
+      gFn = { teams: teams, n: n, players: idx.src, fn: function (pid) { return groupOf(pid); } };
+    }
+    return gFn.fn;
+  }
+  function playersState() { var d = D(), e = d && d.get("players"); return e ? e.state : ""; }
+  // Until the players list is read (or if it fails) no rank is shown, never a rank among rostered players only.
   function seasonLine(pid, last) {
     var F = root.UPS_PLAYER_FACTS, ss = scoring();
-    return F && ss ? F.season(ss, pid, groupOf, { last: last || 0 }) : null;
+    if (!F || !ss) return null;
+    var line = F.season(ss, pid, groupFn(), { last: last || 0 });
+    var ps = playersState();
+    if (line && ps !== "ok") {
+      line.rank = null;
+      line.rankLabel = line.games > 0 && ps !== "error" ? "…" : "—";
+      if (line.last) line.last.rank = null;
+    }
+    return line;
   }
 
   // Front Office rows → the shapes the shared models take (trade_fit / bye_planner).

@@ -24,15 +24,19 @@
     return ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
   }
 
-  var rankMemo = { ss: null, n: null, map: null };
+  // One rank map per (scoring read, window): a page that lists the season AND the last-n rank for every player
+  // must not rebuild either map per player.
+  var rankMemo = { ss: null, groupOf: null, maps: {} };
   function rankMapFor(ss, groupOf, n) {
     var SS = root.UPS_MOBILE_SEASON_SCORING;
     if (!SS || !ss || !ss.known) return {};
     n = n || 0;
-    if (rankMemo.ss === ss && rankMemo.n === n && rankMemo.map) return rankMemo.map;
-    var min = ss.rankMinimum ? ss.rankMinimum(n) : 1;
-    rankMemo = { ss: ss, n: n, map: SS.rankMap(ss.windowFor(n), groupOf, min) };
-    return rankMemo.map;
+    if (rankMemo.ss !== ss || rankMemo.groupOf !== groupOf) rankMemo = { ss: ss, groupOf: groupOf, maps: {} };
+    if (!rankMemo.maps[n]) {
+      var min = ss.rankMinimum ? ss.rankMinimum(n) : 1;
+      rankMemo.maps[n] = SS.rankMap(ss.windowFor(n), groupOf, min);
+    }
+    return rankMemo.maps[n];
   }
 
   /* basis(ss) → { ok, warn, text } — the line under the numbers, word for word the phone's
