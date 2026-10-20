@@ -1996,10 +1996,18 @@
   function drawFailed(host) {
     return function (e) { showError(host, "Something went wrong drawing this view (" + ((e && e.message) || e) + ")."); };
   }
+  // Why a view can't be shown, in the shared module's words (the same sentences as the phone, #1329 decision 2).
   function problemsText(view) {
-    return ((view && view.problems) || []).slice(0, 3).map(function (p) {
+    var M = window.UPS_STANDINGS_RACE, probs = (view && view.problems) || [];
+    if (M && M.describeProblems) return M.describeProblems(probs).join(" ");
+    return probs.slice(0, 3).map(function (p) {
       return String((p && p.code) || "").replace(/_/g, " ") + (p && p.week ? " (Week " + p.week + ")" : "");
     }).join(" · ");
+  }
+  // True when every problem belongs to week wk: only then may a message say the other weeks are fine.
+  function onlyWeek(view, wk) {
+    var probs = (view && view.problems) || [];
+    return probs.length > 0 && probs.every(function (p) { return p && Number(p.week) === Number(wk); });
   }
   function scoredFacedOf(resp) {
     var M = window.UPS_STANDINGS_RACE;
@@ -2840,7 +2848,7 @@
   }
   function weekTableHtml(M, resp, wk) {
     var t = M.weekTable(resp, wk);
-    if (!t || t.status !== "ok") return '<div class="err-box" role="alert"><b>Week ' + escapeHtml(String(wk)) + ' couldn’t be verified, so nothing is ranked.</b>' + (problemsText(t) ? '<span class="psub">' + escapeHtml(problemsText(t)) + '</span>' : '') + '</div>';
+    if (!t || t.status !== "ok") return '<div class="err-box" role="alert"><b>Week ' + escapeHtml(String(wk)) + ' can’t be shown.</b>' + (onlyWeek(t, wk) ? '<span class="psub">' + escapeHtml(problemsText(t) + " The other weeks are unaffected.") + '</span>' : (problemsText(t) ? '<span class="psub">' + escapeHtml(problemsText(t)) + '</span>' : '')) + '</div>';
     var by = rowsByFid(resp.rows);
     function nm(f) { return nameOf(by[pad4(f)] || { franchise_id: f }); }
     var ids = t.top.franchise_ids || [];
@@ -2912,20 +2920,24 @@
   // page scrolls inside the box, never the page.
   function heatMapHtml(M, resp, cw) {
     var weeks = weeksShown(cw);
-    var tables = {};
-    var broken = null;
-    weeks.forEach(function (w) { var t = M.weekTable(resp, w); if (!t || t.status !== "ok") broken = broken || w; else tables[w] = t; });
-    if (broken != null) {
-      var bt = M.weekTable(resp, broken);
-      return '<div class="err-box" role="alert"><b>Heat map unavailable:</b> the season’s weekly results couldn’t be verified, so nothing is ranked.' + (problemsText(bt) ? '<span class="psub">' + escapeHtml(problemsText(bt)) + '</span>' : '') + '</div>';
+    // A week that can't be verified is a column of "—" with the reason under the map; every other week still shows
+    // (#1329 decision 2: fail only the affected week). Nothing to show at all is an error box.
+    var tables = {}, brokenWeeks = [], brokenWhy = [];
+    weeks.forEach(function (w) {
+      var t = M.weekTable(resp, w);
+      if (!t || t.status !== "ok") { brokenWeeks.push(w); var why = problemsText(t); if (why && brokenWhy.indexOf(why) < 0) brokenWhy.push(why); }
+      else tables[w] = t;
+    });
+    if (brokenWeeks.length === weeks.length) {
+      return '<div class="err-box" role="alert"><b>Heat map unavailable:</b> no week of this view could be verified.' + (brokenWhy.length ? '<span class="psub">' + escapeHtml(brokenWhy.join(" ")) + '</span>' : '') + '</div>';
     }
     var teamRows = (resp.rows || []).slice();
     if (isFinishedSeason(resp)) teamRows.sort(function (a, b) { return String(nameOf(a)).localeCompare(String(nameOf(b))); });
     var n = teamRows.length;
     var rankOf = {};
-    weeks.forEach(function (w) { tables[w].rows.forEach(function (r) { rankOf[w + "|" + pad4(r.franchise_id)] = r; }); });
+    weeks.forEach(function (w) { if (tables[w]) tables[w].rows.forEach(function (r) { rankOf[w + "|" + pad4(r.franchise_id)] = r; }); });
     var asTable = state.heat === "table";
-    var headW = weeks.map(function (w) { return '<th class="num" scope="col">' + (cw.playoff.indexOf(w) >= 0 ? "P" : "") + w + '</th>'; }).join("");
+    var headW = weeks.map(function (w) { return '<th class="num' + (tables[w] ? '' : ' dim') + '" scope="col"' + (tables[w] ? '' : ' title="Can’t be shown — see the note under the map"') + '>' + (cw.playoff.indexOf(w) >= 0 ? "P" : "") + w + (tables[w] ? '' : '*') + '</th>'; }).join("");
     var heatToggle = '<div class="seg" role="group" aria-label="Heat map display" style="margin-bottom:8px"><button type="button" class="mode-btn" data-hm="heat" aria-pressed="' + (!asTable) + '">Heat map</button><button type="button" class="mode-btn" data-hm="table" aria-pressed="' + asTable + '">Table</button></div>';
     var bodyRows = teamRows.map(function (tr) {
       var fid = pad4(tr.franchise_id);
@@ -2940,6 +2952,7 @@
     return '<h3 class="sec-h">Scoring rank by week <span class="dim" style="font-weight:400">· ' + (weeks.length === cw.regular.length ? "regular season" : "all weeks") + ', ' + weeks.length + ' week' + (weeks.length === 1 ? '' : 's') + '</span></h3>'
       + heatToggle
       + '<div class="heat-box"><table class="' + (asTable ? "data-table" : "heat") + '"><thead><tr><th scope="col" class="hteam">Team</th>' + headW + '</tr></thead><tbody>' + bodyRows + '</tbody></table></div>'
+      + (brokenWeeks.length ? '<div class="note" role="note"><b>* ' + brokenWeeks.map(function (w) { return (cw.playoff.indexOf(w) >= 0 ? "P" : "Week ") + w; }).join(", ") + ' can’t be shown:</b> ' + escapeHtml(brokenWhy.join(" ")) + ' The other weeks are unaffected.</div>' : '')
       + '<div class="note">Weekly scoring rank, 1 = the week’s top score' + (asTable ? " (score in brackets)." : "; the number is the rank, brighter = higher. Hover a cell for the score.") + '</div>'
       + (asTable ? '' : '<div class="heat-key" aria-hidden="true">1st <span class="sw" style="background:rgba(125,232,217,0.80)"></span><span class="sw" style="background:rgba(125,232,217,0.43)"></span><span class="sw" style="background:rgba(125,232,217,0.06)"></span> ' + n + 'th</div>');
   }
@@ -2959,7 +2972,13 @@
     var seedAfter = {};
     (h.seedByWeek || []).forEach(function (sb) { seedAfter[sb.week] = sb; });
     var anySeed = (h.seedByWeek || []).length > 0;
+    var M2 = window.UPS_STANDINGS_RACE;
+    var cols = 6 + (anySeed ? 1 : 0);
     var trs = h.weeks.map(function (w) {
+      if (w.unavailable) {
+        var why = M2 && M2.describeProblems ? M2.describeProblems(w.problems).join(" ") : "";
+        return '<tr class="unavailable-row"><td class="num">' + (w.isPlayoff ? "P" : "") + w.week + '</td><td colspan="' + (cols - 1) + '" class="dim">Can’t be shown' + (why ? ": " + escapeHtml(why) : ".") + '</td></tr>';
+      }
       var games = (w.games || []).map(function (g) { return '<span class="g">' + g.result + ' ' + fmtPts(g.ts) + '–' + fmtPts(g.os) + ' v ' + escapeHtml(g.opp_name || nm(g.opp)) + '</span>'; }).join("");
       var sa = seedAfter[w.week];
       return '<tr><td class="num">' + (w.isPlayoff ? "P" : "") + w.week + '</td><td class="num">' + fmtPts(w.score) + '</td><td class="num">' + (w.rank || "—") + '</td>'
