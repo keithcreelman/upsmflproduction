@@ -173,9 +173,16 @@ def _build_side_block(side, sender_fid: str, franchises: dict) -> str:
     # Players given (bullets)
     for p in side.players_given:
         bullets.append(_format_player(p))
-    # Picks given (bullets)
+    # Picks given (bullets). An R1 pick's rookie contract rides on the same
+    # bullet (so trimming keeps or drops them together); it is shown, never
+    # graded (Keith 2026-10-20, #1343 decision 1).
+    from trade_grader import rookie_contract_line  # local import, like _format_player's
     for pk in side.picks_given:
-        bullets.append(f"  • {_format_pick_with_sender(pk, sender_fid, franchises)}")
+        line = f"  • {_format_pick_with_sender(pk, sender_fid, franchises)}"
+        contract = rookie_contract_line(pk)
+        if contract:
+            line += f"\n      _{contract}_"
+        bullets.append(line)
     # Placeholder if nothing in the gives-up list
     if not bullets:
         bullets.append("  • (nothing)")

@@ -27,7 +27,7 @@ from pick_valuation import (
     pick_value as _pick_value,
     pick_expected_points as _pick_points,
     pick_rookie_salary_aav as _rookie_aav,
-    expected_rookie_salary_aav as _expected_rookie_aav,
+    rookie_contract_terms as _rookie_contract_terms,
     predict_future_slot as _predict_slot,
     dollars_per_point as _dpp,
     probability_match as _prob_match,
@@ -136,15 +136,27 @@ def _player_production_pts(player: "PlayerInfo") -> tuple[float, int]:
     return prod, salary_remaining
 
 
-def _pick_effective_salary(pk: "PickInfo") -> int:
-    """Effective rookie salary commitment for grade math.
+def rookie_contract_line(pk: "PickInfo") -> str:
+    """The R1 rookie contract a pick carries, as one display line ("" for R2+).
 
-    R1 picks: full rookie TCV (almost always promoted).
-    R2+ picks: 0 (taxi-eligible — only pay if promoted, which correlates with hit).
+    Shown next to the pick, never subtracted from the grade (Keith 2026-10-20,
+    #1343 decision 1): every round is graded on football value, as R2-R6
+    already were. The salary still drives cap-feasibility (trade_announcement's
+    net salary change). A future pick's slot is projected, so its contract is
+    shown at that slot alongside the full 1.01-1.12 range.
     """
-    if pk.round == 1:
-        return pk.rookie_aav * 3  # R1 TCV = AAV x 3-year rookie contract
-    return 0
+    if pk.round != 1 or not pk.predicted_slot:
+        return ""
+    t = _rookie_contract_terms(1, pk.predicted_slot)
+    option = (f"4th-year option ${t['option_salary']:,} (Year 3 ${t['aav']:,} + $5,000), "
+              f"not guaranteed")
+    if pk.slot_is_projected:
+        top, bottom = _rookie_contract_terms(1, 1), _rookie_contract_terms(1, 12)
+        return (f"Rookie contract (not in the grade): set by draft slot, "
+                f"${t['aav']:,}/yr x {t['years']} = ${t['tcv']:,} at ~1.{pk.predicted_slot:02d} "
+                f"(${bottom['tcv']:,} at 1.12 to ${top['tcv']:,} at 1.01); {option}")
+    return (f"Rookie contract (not in the grade): 1.{pk.predicted_slot:02d} "
+            f"${t['aav']:,}/yr x {t['years']} = ${t['tcv']:,}; {option}")
 
 
 def _salary_to_pts(dollars: float) -> float:
@@ -168,7 +180,10 @@ def _compute_side_value_pts(side: "TradeSide") -> dict:
       - Salary commitment on acquired players (in point-equiv)
       - Budget bucks given (in point-equiv)
 
-    Net = received - given. Trade is zero-sum: side_a.net + side_b.net ~ 0.
+    Picks of every round count on football value only: a rookie contract is
+    shown beside the pick (rookie_contract_line) but never charged here, so an
+    earlier pick is always worth more and a trade is exactly zero-sum:
+    side_a.net == -side_b.net.
     """
     # Players: multi-year production + multi-year remaining salary
     def _player_parts(players):
@@ -183,10 +198,6 @@ def _compute_side_value_pts(side: "TradeSide") -> dict:
     prod_received, salary_recv_from_acquired = _player_parts(side.players_received)
     prod_lost, salary_freed_from_given = _player_parts(side.players_given)
 
-    # Picks: taxi-adjusted salary (R1 = full TCV, R2+ = 0)
-    pick_salary_recv = sum(_pick_effective_salary(pk) for pk in side.picks_received)
-    pick_salary_given = sum(_pick_effective_salary(pk) for pk in side.picks_given)
-
     received_pts = (
         prod_received
         + sum(pk.expected_points for pk in side.picks_received)
@@ -197,11 +208,8 @@ def _compute_side_value_pts(side: "TradeSide") -> dict:
         prod_lost
         + sum(pk.expected_points for pk in side.picks_given)
         + _salary_to_pts(salary_recv_from_acquired)    # salary committed on acquired players
-        + _salary_to_pts(pick_salary_recv)             # salary committed on acquired R1 picks
         + _salary_to_pts(side.salary_given)            # BB given
     )
-    # Note: pick_salary_given (R1 picks given up) doesn't reduce your cost — you
-    # were committed anyway. Ignored here.
     return {
         "received_pts": received_pts,
         "given_pts": given_pts,
@@ -209,7 +217,7 @@ def _compute_side_value_pts(side: "TradeSide") -> dict:
         "prod_received": prod_received,
         "prod_lost": prod_lost,
         "salary_freed": salary_freed_from_given,
-        "salary_committed": salary_recv_from_acquired + pick_salary_recv,
+        "salary_committed": salary_recv_from_acquired,
     }
 
 # ── Paths ──────────────────────────────────────────────────────────────────
@@ -285,7 +293,8 @@ class PickInfo:
     estimated_value: float = 0.0
     expected_points: float = 0.0  # 3yr rookie production expectation
     predicted_slot: int = 0        # slot used for valuation (1-12)
-    rookie_aav: int = 0            # per-year rookie salary if drafted
+    rookie_aav: int = 0            # per-year rookie salary if drafted (cap checks + display only)
+    slot_is_projected: bool = False  # future pick: predicted_slot is an estimate
 
 
 @dataclass
@@ -487,9 +496,8 @@ def parse_asset_string(asset_str: str, players_map: dict, franchises: dict) -> t
                     estimated_value=_pick_value(year, rnd, original_owner=owner),
                     expected_points=_pick_points(year, rnd, original_owner=owner),
                     predicted_slot=slot,
-                    # Same slot distribution as expected_points; the ~slot
-                    # label is display only.
-                    rookie_aav=_expected_rookie_aav(rnd, owner),
+                    rookie_aav=_rookie_aav(rnd, slot),
+                    slot_is_projected=True,
                 ))
         elif token.startswith("DP_"):
             # Current year draft pick: DP_ROUND_PICK (both 0-indexed in MFL)
@@ -900,6 +908,10 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             ln(f"    Budget Bucks Given:      {-_salary_to_pts(side.salary_given):>+8.0f} pts  (${side.salary_given:,})")
         ln(f"    {'─' * 45}")
         ln(f"    Net Value:               {v.get('net_pts', 0):>+8.0f} pts")
+        for pk in side.picks_received:
+            contract = rookie_contract_line(pk)
+            if contract:
+                ln(f"    {pk.year} R1: {contract}")
         ln()
 
         # Opposite side's player 3yr-production threshold for probability-of-match.
@@ -914,9 +926,11 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             slot_str = f"~{pk.round}.{pk.predicted_slot:02d}" if pk.predicted_slot else f"Rd {pk.round}"
             per_season = pk.expected_points / 3 if pk.expected_points else 0
             per_game = per_season / GAMES_PER_SEASON if per_season else 0
-            taxi = " (taxi-eligible)" if pk.round >= 2 else ""
+            contract = rookie_contract_line(pk)
+            salary = (f"\n        {contract}" if contract
+                      else f", rookie ${pk.rookie_aav:,}/yr (taxi-eligible)")
             base = (f"      {pk.year} {slot_str} pick — est. {pk.expected_points:.0f} pts / 3yr "
-                    f"(~{per_game:.1f} PPG avg), rookie ${pk.rookie_aav:,}/yr{taxi}")
+                    f"(~{per_game:.1f} PPG avg){salary}")
             if compare_pts and pk.predicted_slot:
                 label = f"{pk.round}.{pk.predicted_slot:02d}"
                 p = _prob_match(label, compare_pts)
@@ -1410,6 +1424,29 @@ def fetch_prior_season_ppg(players) -> dict:
     return {mid: {"ppg": v["ppg"], "season": _date.today().year - 1} for mid, v in w.items()}
 
 
+def grade_sides(side_a: "TradeSide", side_b: "TradeSide") -> None:
+    """Score both sides with one symmetric function and set value_pts, grade_score
+    and grade on each. Zero-sum by construction: side_a's score == -side_b's."""
+    a_val = _compute_side_value_pts(side_a)
+    b_val = _compute_side_value_pts(side_b)
+
+    # Denominator: total points moved in the trade (sum of both sides' given).
+    trade_size_pts = a_val["given_pts"] + b_val["given_pts"]
+    if trade_size_pts > 0:
+        side_a.grade_score = (a_val["net_pts"] / trade_size_pts) * 100
+        side_b.grade_score = (b_val["net_pts"] / trade_size_pts) * 100
+    else:
+        side_a.grade_score = 0
+        side_b.grade_score = 0
+
+    # Stash the breakdowns for downstream display.
+    side_a.value_pts = a_val
+    side_b.value_pts = b_val
+
+    side_a.grade = compute_grade(side_a.grade_score)
+    side_b.grade = compute_grade(side_b.grade_score)
+
+
 def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
                   rosters: dict, rollover: dict, auction_pool: dict,
                   team_caps: dict, future_picks: dict,
@@ -1494,26 +1531,7 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
                             p.expected_ppg = ppg_
                             p.ppg_basis = basis_
 
-    # Symmetric points-based grade math (replaces old asymmetric dollar formulas).
-    # Both sides are scored with one function; grades are zero-sum by construction.
-    a_val = _compute_side_value_pts(side_a)
-    b_val = _compute_side_value_pts(side_b)
-
-    # Denominator: total points moved in the trade (sum of both sides' given).
-    trade_size_pts = a_val["given_pts"] + b_val["given_pts"]
-    if trade_size_pts > 0:
-        side_a.grade_score = (a_val["net_pts"] / trade_size_pts) * 100
-        side_b.grade_score = (b_val["net_pts"] / trade_size_pts) * 100
-    else:
-        side_a.grade_score = 0
-        side_b.grade_score = 0
-
-    # Stash the breakdowns for downstream display.
-    side_a.value_pts = a_val
-    side_b.value_pts = b_val
-
-    side_a.grade = compute_grade(side_a.grade_score)
-    side_b.grade = compute_grade(side_b.grade_score)
+    grade_sides(side_a, side_b)
 
     return TradeAnalysis(
         timestamp=int(trade_txn.get("timestamp", 0)),

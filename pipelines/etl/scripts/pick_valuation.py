@@ -21,7 +21,7 @@ Public API:
     pick_expected_points(year, round_, original_owner="", slot=None, ...) -> float
     pick_rookie_salary_aav(round_, slot) -> int
     pick_rookie_salary_tcv(round_, slot, years=3) -> int
-    expected_rookie_salary_aav(round_, original_owner) -> int
+    rookie_contract_terms(round_, slot) -> dict   # display + cap checks, never the grade
     pick_value(...) -> int   # legacy dollar approximation (points x $/point)
     slot_for_finish(finish) -> int
     playoff_probability(franchise_id) -> float
@@ -78,10 +78,24 @@ def pick_rookie_salary_tcv(round_: int, slot: int, years: int = ROOKIE_CONTRACT_
     return pick_rookie_salary_aav(round_, slot) * years
 
 
-def expected_rookie_salary_aav(round_: int, original_owner: str, weeks_played: int = 0) -> int:
-    """Rookie AAV averaged over the future pick's slot distribution."""
-    dist = future_slot_distribution(original_owner, weeks_played)
-    return round(sum(p * pick_rookie_salary_aav(round_, s) for s, p in dist.items()))
+# Canon §A1: a 1st-round rookie's 4th-year team option costs the original
+# Year 3 salary + $5,000. Rookie salaries are flat (Y1 = Y2 = Y3 = AAV).
+ROOKIE_OPTION_RAISE = 5000
+
+
+def rookie_contract_terms(round_: int, slot: int) -> dict:
+    """The rookie contract a pick at this slot carries.
+
+    For display and cap-feasibility checks only: the trade grade values every
+    pick on football value and never subtracts this salary (Keith 2026-10-20,
+    #1343 decision 1). option_salary is R1 only and is not guaranteed.
+    """
+    aav = pick_rookie_salary_aav(round_, slot)
+    terms = {"round": round_, "slot": slot, "aav": aav,
+             "years": ROOKIE_CONTRACT_YEARS, "tcv": aav * ROOKIE_CONTRACT_YEARS}
+    if round_ == 1:
+        terms["option_salary"] = aav + ROOKIE_OPTION_RAISE
+    return terms
 
 
 # ── Fallbacks ──────────────────────────────────────────────────────────────
