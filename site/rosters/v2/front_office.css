@@ -203,6 +203,8 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 /* Horizontal scroll container for the wide roster table. */
 .fo-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .fo-table-scroll .fo-table { min-width: 820px; }
+/* Cap plan: the wide league table scrolls inside its card at 1024px instead of widening the page. */
+#fo-cap-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .fo-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .fo-table th, .fo-table td {
   padding: 8px 10px; text-align: left;
