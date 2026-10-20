@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-10-18 23:29:54",
+    "generated_at": "2026-10-20 02:02:02",
     "source": "contract-activity-log",
-    "count": 161,
+    "count": 162,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "5ff93b108d30bf0108c6c4ac",
+      "submission_id": "5ff93b108d30bf0108c6c4ac",
+      "activity_scope": "contract_mutation",
+      "activity_type": "MYM",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "player_id": "17469",
+      "player_name": "Daniels, Jalon",
+      "position": "QB",
+      "salary": 10000,
+      "contract_year": 3,
+      "contract_status": "Rookie-MYM",
+      "contract_info": "CL 3| TCV 30K| AAV 10K| Y1-10K, Y2-10K, Y3-10K| GTD: 22.5K",
+      "tcv": 30000,
+      "aav": 10000,
+      "guaranteed": 22500,
+      "submitted_at_utc": "2026-10-20T02:01:40.854Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1561922333554507890",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "2f4567493b1e649c30c42224",
       "submission_id": "2f4567493b1e649c30c42224",
