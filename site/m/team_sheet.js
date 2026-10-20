@@ -124,7 +124,13 @@
     if (!h || h.status !== "ok" || !h.weeks || !h.weeks.length) return '<div class="ups-m-card">' + gameLogHtml(gameLog) + '</div>';
     var seedAfter = {};
     (h.seedByWeek || []).forEach(function (s) { seedAfter[s.week] = s; });
+    var R = window.UPS_STANDINGS_RACE;
     var rows = h.weeks.map(function (w) {
+      // A week that failed its own checks (e.g. 2025 Week 17) is listed with the reason; the other weeks still show.
+      if (w.unavailable) {
+        var why = R && R.describeProblems ? R.describeProblems(w.problems).join(" ") : "";
+        return '<tr class="unavailable"><td>' + (w.isPlayoff ? "P" : "") + w.week + '</td><td colspan="5" class="sub">Can’t be shown' + (why ? ": " + U.escapeHtml(why) : ".") + '</td></tr>';
+      }
       var res = (w.games || []).map(function (g) { return g.result; }).join("") || "—";
       var sa = seedAfter[w.week];
       return '<tr><td>' + (w.isPlayoff ? "P" : "") + w.week + '</td><td class="num">' + pts(w.score) + '</td><td class="num">' + (w.rank || "—") + '</td>' +

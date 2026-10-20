@@ -829,7 +829,30 @@
   }
   // Real results (playoff weeks under way, or a finished season): only decided games carry a winner; a round MFL
   // hasn't set yet says so (never a projection drawn over real results).
-  function renderActualMatchupCards(seeds, matchups, playoffWeeksRaw, sideKey, complete) {
+  // A finished season's side, when it isn't drawn as a bracket (#1329 decision 2, item 2): its games by week, with the
+  // champion from the recorded final standings. check = UPS_STANDINGS_RACE.verifyActualSide(...).
+  function byWeekSideHtml(check, sideKey, y, seeds) {
+    var hawk = sideKey === "hawk";
+    var weeks = [];
+    check.games.forEach(function (g) { if (weeks.indexOf(g.week) < 0) weeks.push(g.week); });
+    var rounds = weeks.map(function (w) {
+      return bkRoundHtml("Week " + w, null, check.games.filter(function (g) { return g.week === w; }).map(function (g) {
+        return bkGameHtml(g, { kind: "actual", sideKey: sideKey, title: "Week " + w, week: w });
+      }).join(""));
+    }).join("");
+    var champName = "";
+    (seeds || []).forEach(function (s) { if (s && check.recordedChampion && U.pad4(s.franchise_id) === check.recordedChampion) champName = s.franchise_name || s.franchise_id; });
+    var why = check.reason === "seeds_unreadable"
+      ? U.escapeHtml(y) + "’s recorded seeds don’t form a bracket, so its games are listed by week (split by the recorded final standings)."
+      : U.escapeHtml(y) + "’s " + (hawk ? "toilet bracket" : "bracket") + " doesn’t follow today’s rounds, so its games are listed by week.";
+    var champ = check.noTitle ? "None marked: 2010’s toilet bracket had the loser advance."
+      : (champName ? '<b>' + U.escapeHtml(champName) + '</b> <span class="sub">· recorded final standings</span>' : "Not recorded.");
+    return '<div class="ups-m-bk-status"><b>Final results, by week.</b> ' + why + '</div>' +
+      '<div class="ups-m-bk-champ"><span class="lbl">' + (hawk ? "🚽 Hawk Tuah Bowl champion" : "🏆 UPS champion") + '</span> ' + champ + '</div>' +
+      '<div class="ups-m-bk ' + sideKey + ' by-week">' + (rounds || bkEmpty("No games recorded for this side.")) + '</div>';
+  }
+  function renderActualMatchupCards(seeds, matchups, playoffWeeksRaw, sideKey, complete, check, y) {
+    if (complete && check && !check.draw && check.reason !== "unavailable") return byWeekSideHtml(check, sideKey, y, seeds);
     var result = window.UPS_STANDINGS_RACE.buildActualBracketResult(seeds, matchups, playoffWeeksRaw);
     if (result.status !== "ok") {
       return '<div class="ups-m-stub"><div>Playoff bracket data unavailable' + (result.reason ? (": " + U.escapeHtml(result.reason)) : ".") + '</div></div>';
@@ -852,7 +875,7 @@
       sideBracketHtml(side, sideKey, "projected", playoffWeeksOf(bresp && bresp.playoff_weeks), side.semis.map(function (g) { return g.a; }));
   }
   // The Hawk Tuah Bowl's own seeds, order and tiebreaks, above its bracket.
-  function hawkIntroHtml(seeds, y, recorded) {
+  function hawkIntroHtml(seeds, y, recorded, oldFormat) {
     var list = sideSeeds(seeds, "hawk");
     var raw = {};
     (seeds || []).forEach(function (s) { if (s && s.franchise_id != null) raw[U.pad4(s.franchise_id)] = s; });
@@ -864,8 +887,10 @@
       return '<li><span class="seed">' + seedText(s.seed, "hawk") + '</span> ' + U.escapeHtml(s.franchise_name) + (ap ? ' <span class="sub">' + recStr(ap) + ' AP</span>' : '') + tie + '</li>';
     }).join("");
     return '<div class="ups-m-card ups-m-hawk-intro"><div class="ups-m-card-title">Hawk Tuah Bowl <span class="sub">· the toilet bowl</span></div>' +
-      '<div class="line">' + (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then H2H record, then Points For.') +
-        ' H1 and H2 get a first-round bye. The winner finishes 7th and picks 1.01 in the ' + (Number(y) + 1) + ' rookie draft.</div>' +
+      '<div class="line">' + (oldFormat
+        ? 'The recorded Hawk Tuah Bowl seeds. ' + U.escapeHtml(y) + '’s toilet bracket used an older format than today’s, so its games are listed by week below.'
+        : (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then H2H record, then Points For.') +
+          ' H1 and H2 get a first-round bye. The winner finishes 7th and picks 1.01 in the ' + (Number(y) + 1) + ' rookie draft.') + '</div>' +
       (lis ? '<ol class="ups-m-hawk-seeds">' + lis + '</ol>' : '') + '</div>';
   }
   // The compact Seeds option of the Playoffs view: 1-12 in order, each with its seed explanation.
@@ -926,7 +951,14 @@
     if (side === "seeds") {
       body = (mode === "unavailable" && !seeds.length) ? '<div class="ups-m-stub"><div>No seeds for ' + U.escapeHtml(y) + '.</div></div>' : playoffSeedsListHtml(bresp, state.standingsByYear[y], recorded);
     } else if (mode === "actual") {
-      body = (side === "hawk" ? hawkIntroHtml(seeds, y, recorded) : "") + renderActualMatchupCards(seeds, matchups, bresp.playoff_weeks, side, recorded);
+      // A finished season: draw a side only when its rounds fit today's format and its champion is the recorded one.
+      var R0 = window.UPS_STANDINGS_RACE, check = null;
+      if (recorded && R0.verifyActualSide) {
+        check = R0.verifyActualSide(R0.buildActualBracketResult(seeds, matchups, bresp.playoff_weeks), side, seeds,
+          { season: Number(y), hasConferences: !!bresp.has_conferences, matchups: matchups });
+      }
+      var oldFormat = !!(check && !check.draw && check.reason !== "unavailable");
+      body = (side === "hawk" ? hawkIntroHtml(seeds, y, recorded, oldFormat) : "") + renderActualMatchupCards(seeds, matchups, bresp.playoff_weeks, side, recorded, check, y);
     } else if (mode === "projected") {
       // In season: the bracket the worker's seeds make if the season ended today (higher seed wins every game, labeled
       // as a projection) and what each game decides.
@@ -1417,7 +1449,7 @@
       return;
     }
     if (cw.status !== "ok") {
-      mount.innerHTML = shell + '<div class="ups-m-stub" role="alert"><div>Weekly results couldn’t be verified, so nothing is ranked.</div></div>';
+      mount.innerHTML = shell + '<div class="ups-m-stub" role="alert"><div><b>Weekly results couldn’t be verified, so nothing is ranked.</b>' + problemsLineHtml(cw, null) + '</div></div>';
       bindShell(mount); bindAbout();
       return;
     }
@@ -1446,9 +1478,19 @@
     });
     bindTeamRows(mount, "tr.race-row[data-fid]", resp, year);
   }
+  // Why a view can't be shown, in the shared module's words; "the other weeks are unaffected" only when every problem
+  // belongs to this one week (#1329 decision 2: never imply a week that is fine is wrong).
+  function problemsLineHtml(view, wk) {
+    var R = RACE();
+    var probs = (view && view.problems) || [];
+    var lines = R && R.describeProblems ? R.describeProblems(probs) : [];
+    if (!lines.length) return "";
+    var onlyThisWeek = wk != null && probs.every(function (p) { return p && Number(p.week) === Number(wk); });
+    return '<br><span class="sub">' + U.escapeHtml(lines.join(" ") + (onlyThisWeek ? " The other weeks are unaffected." : "")) + '</span>';
+  }
   function weekTableHtml(R, resp, wk) {
     var t = R.weekTable(resp, wk);
-    if (!t || t.status !== "ok") return '<div class="ups-m-stub" role="alert"><div>Week ' + U.escapeHtml(String(wk)) + ' couldn’t be verified, so nothing is ranked.</div></div>';
+    if (!t || t.status !== "ok") return '<div class="ups-m-stub" role="alert"><div><b>Week ' + U.escapeHtml(String(wk)) + ' can’t be shown.</b>' + problemsLineHtml(t, wk) + '</div></div>';
     var by = rowByFid(resp.rows);
     var topNames = (t.top.franchise_ids || []).map(function (f) { return nm(by[U.pad4(f)]); }).join(" & ");
     var second = t.top.second_franchise_id ? nm(by[U.pad4(t.top.second_franchise_id)]) : "";
