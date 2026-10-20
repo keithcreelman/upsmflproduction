@@ -35,6 +35,10 @@ const ROSTERS = {
            { id: "14000", salary: 9000, contractStatus: "Vet-WW", contractInfo: "CL 2| TCV 18K| AAV 9K| Y1-9K, Y2-9K", contractYear: 1 }], // year 2 of a WW deal from 2025
 };
 const AFTER_WEEK5 = "2026-10-20T16:00:00Z";    // a Tuesday after Week 5 is complete (the authority counts a week once the next one kicks off)
+// Every preview runs at a PINNED "now", the day after that what-if. The worker answers a drop date on today's UTC day from live
+// scoring (resolveCompletedPayableWeeks "now" mode), which this harness does not serve, and any other day from the kickoff schedule
+// below. On the real 2026-10-20 the what-if became "today": earned_through_week came back null and the tests failed for that one day.
+const PINNED_NOW = Date.parse("2026-10-21T16:00:00Z");
 // MFL's nflSchedule export (the completed-week authority reads it): 2026 opened Wed Sep 9 (8:20 PM ET), then Thursday 8:15 PM ET
 // openers; a Sunday 1 PM slate; Monday 8:15 PM ET closers.
 function nflSchedule(w) {
@@ -58,11 +62,16 @@ async function preview({ failTransactions = false, dropDate = AFTER_WEEK5 } = {}
     if (failTransactions && /TYPE=transactions/.test(url)) return json({ error: "MFL boom" }, 500);
     return stub(u, init);
   };
+  const RealDate = globalThis.Date;
+  globalThis.Date = class extends RealDate {
+    constructor(...a) { super(...(a.length ? a : [PINNED_NOW])); }
+    static now() { return PINNED_NOW; }
+  };
   try {
     const r = await callWorker(env, "GET", `/api/cap-penalty/preview?L=74598&YEAR=2026&drop_date=${encodeURIComponent(dropDate)}`);
     t.equal(r.status, 200, r.text.slice(0, 300));
     return r.json;
-  } finally { globalThis.fetch = stub; mfl.restore(); }
+  } finally { globalThis.Date = RealDate; globalThis.fetch = stub; mfl.restore(); }
 }
 
 test("WORKER: each row carries its own window — Week-5 blind bids 13 weeks, the auction contract 17, a traded Week-3 pickup 15, a later contract year 17", async () => {
@@ -77,6 +86,7 @@ test("WORKER: each row carries its own window — Week-5 blind bids 13 weeks, th
   t.equal(p["14000"].eligible_weeks, 17, "year 2 of a 2025 WW deal began in Week 1 of 2026");
   // the earning these windows drive: one share per completed week from the acquisition week on, rounded ONCE
   const done = j.earned_through_week;
+  t.equal(j.week_authority_source, "kickoff_schedule_walk", "a what-if date on another day is priced from the kickoff schedule, not live scoring");
   t.ok(done >= 5, "the what-if date is after Week 5: " + done);
   t.equal(p["16601"].current_year_earned, Math.round(((done - 4) / 13) * 11000));
   t.equal(p["17752"].current_year_earned, Math.round(((done - 4) / 13) * 6000));
