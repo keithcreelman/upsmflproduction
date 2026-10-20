@@ -8,10 +8,10 @@
    no_game. States are kept apart, word for word:
      available_now        Add now (first come, first served)
      waivers              Claim now — goes to the next run (named)
-     waivers_later        Can't claim yet — first run that can award him, and
+     waivers_later        Can't claim yet — first run that can award the player, and
                           when a claim can be entered (drop lock)
      game_locked          Game locked until the NFL week rolls over
-     not_before_kickoff   No run before his game; first eligible run named
+     not_before_kickoff   No run before the player's game; first eligible run named
      closed / unknown     No add/drops now / couldn't confirm
    Rostered players show their team; MFL's trade-bait list marks "On the block".
    Points, PPG and rank are the shared (phone) season line.
@@ -35,7 +35,7 @@
     waivers: { cls: "claim", label: "Claim now" },
     waivers_later: { cls: "later", label: "Can't claim yet" },
     game_locked: { cls: "locked", label: "Game locked" },
-    not_before_kickoff: { cls: "later", label: "After his game" },
+    not_before_kickoff: { cls: "later", label: "After kickoff" },
     closed: { cls: "locked", label: "Locked" },
     unknown: { cls: "unknown", label: "Can't confirm" }
   };
@@ -69,7 +69,7 @@
     return out;
   }
   // One resolver answer → what the Status cell says (pure). "sub" names the run: the run a claim goes to now, or
-  // the first run that can award him when he can't be claimed yet.
+  // the first run that can award the player when a claim can't go in yet.
   function statusFor(a) {
     var m = AVAIL[a && a.code] || AVAIL.unknown;
     var code = a && a.code;
@@ -186,7 +186,7 @@
   function availCell(r) {
     if (r.fid) {
       return '<span class="fo-av fo-av-rostered">' + (r.mine ? "Your team" : H.esc(r.owner)) + "</span>" +
-        (r.bait && r.bait === r.fid ? ' <span class="fo-av fo-av-bait" title="Listed on MFL’s trade block by his team">On the block</span>' : "");
+        (r.bait && r.bait === r.fid ? ' <span class="fo-av fo-av-bait" title="Listed on MFL’s trade block by the owning team">On the block</span>' : "");
     }
     var a = availabilityFor(r.pid, r.team);
     if (a.pending) return '<span class="fo-muted">checking…</span>';
@@ -245,9 +245,9 @@
       '<button type="button" class="fo-subview-chip' + (view.hideOut ? " active" : "") + '" data-mk-hideout aria-pressed="' + view.hideOut + '">Hide Out / IR</button>' +
       '<label class="fo-field fo-inline fo-mk-search">Find <input type="search" data-mk-q value="' + H.esc(view.q) + '" placeholder="Player, NFL team or owner" autocomplete="off"></label>' +
       "</div>";
-    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when he can be added or claimed (the league's waiver check, same as the phone). Rostered: his team, and whether it lists him on the trade block.", "") +
+    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when the player can be added or claimed (the league's waiver check, same as the phone). Rostered: the owning team, and whether it lists the player on the trade block.", "") +
       th("pts", "Pts", "MFL points, league scoring, every week MFL posted", "num") + th("ppg", "PPG", "Points per MFL-scored week", "num") +
-      th("rank", "Rank", "PPG rank at his position among every player MFL scored with at least half the final weeks", "num") +
+      th("rank", "Rank", "PPG rank at the player's position among every player MFL scored with at least half the final weeks", "num") +
       th("l4", "L4", "PPG over the last 4 final weeks (context)", "num col-lo") +
       th("proj", week ? "Wk " + week + " proj" : "Proj", "MFL's projection for this lineup week — a forecast", "num") +
       th("", "Bye", "NFL bye week", "num col-md") + th("age", "Age", "From MFL's birthdate", "num col-md") +
@@ -329,8 +329,8 @@
     if (!H || !FO || !DATA) return;
     wire();
     H.registerAbout("market", "<h3>Market</h3><ul>" +
-      "<li><b>Status</b> for a free agent is the league’s one waiver check (the phone’s badges): <b>Add now</b> (first come, first served), <b>Claim now</b> (goes to the named run), <b>Can’t claim yet</b> (dropped-player lock: the first run that can award him is named, and when a claim can be entered), <b>Game locked</b> (his game has started; until the NFL week rolls over), <b>Locked</b> (no add/drops right now).</li>" +
-      "<li><b>On the block:</b> his team lists him on MFL’s trade block.</li>" +
+      "<li><b>Status</b> for a free agent is the league’s one waiver check (the phone’s badges): <b>Add now</b> (first come, first served), <b>Claim now</b> (goes to the named run), <b>Can’t claim yet</b> (dropped-player lock: the first run that can award the player is named, and when a claim can be entered), <b>Game locked</b> (the player’s game has started; until the NFL week rolls over), <b>Locked</b> (no add/drops right now).</li>" +
+      "<li><b>On the block:</b> the owning team lists the player on MFL’s trade block.</li>" +
       "<li>Points, PPG and rank: MFL’s own scoring, same as the phone. The top 200 rows show; filters narrow the list.</li>" +
       "<li>Nothing here sends a claim, add or offer: bids and adds are made in the phone app, trades in the Trade War Room.</li></ul>");
   });
