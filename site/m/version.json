@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.17.3",
-  "label": "Waiver badges keep themselves current: a game lock lasts until the league moves to the next week, Bid comes back in time to claim for the first run that can award the player, and after a waiver run the app re-reads rosters by itself."
+  "build": "2026.10.20.2",
+  "label": "Standings (preview build): seeds first with Hawk Tuah Bowl seeds and magic numbers; vertical brackets with a Tale of the Tape; older seasons whose brackets don't fit today's rounds listed by week with the recorded champion; a week whose scores disagree is the only one held back."
 }

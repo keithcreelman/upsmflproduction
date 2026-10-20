@@ -2,6 +2,8 @@
 // weekly or weeklyScores query return incomplete, never preseason, all the way from #1201's worker response"). The REAL
 // /api/standings route (worker harness + the production D1 schemas) feeds the REAL site/standings/mfl_hpm_standings_v2.html
 // script. A scoped table or a playoff record built from a failed query used to read as a confident 0-0 / "—".
+// #1329 decision 2 removed Full League's Playoffs column (Keith: "seems useless"), so no playoff record is shown at all:
+// these checks now hold that the column stays gone (nothing can read as a confident 0-0) and the scoped views refuse.
 //   node tests/standings_weekly_fail_closed_client.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
@@ -24,15 +26,18 @@ async function page(env, query) {
   await settle();
   return p.html().replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");   // read it as the owner does
 }
-// the Playoffs column cell of each rendered row (9th <td>: #, Seed, Team, Owner, Division, W-L-T, PCT, Div, Playoffs)
-const playoffCells = (html) => [...html.matchAll(/<tr>((?:<td[^>]*>[\s\S]*?<\/td>){9})/g)].map((m) => [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)][8][1]);
+// the Full League header labels
+function headers(html) {
+  const thead = /<thead>([\s\S]*?)<\/thead>/.exec(html);
+  return thead ? [...thead[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => m[1].replace(/<[^>]+>/g, "").trim()) : [];
+}
 
-test("control: a readable season renders the Regular Season table and real playoff records", async () => {
+test("control: a readable season renders the Regular Season table; Full Season has no Playoffs column", async () => {
   const html = await page(makeEnv({ 1: 0, 2: 0, 15: 1 }), "view=overall&year=2026&scope=regular");
   t.ok(/<table>/.test(html), "the scoped table renders");
   t.ok(!/can't be computed/.test(html));
   const full = await page(makeEnv({ 1: 0, 2: 0, 15: 1 }), "view=overall&year=2026");
-  t.deepEqual(playoffCells(full).sort(), ["0-1", "0-1", "1-0", "1-0"], "week 15's games are each team's playoff record");
+  t.ok(headers(full).includes("H2H") && !headers(full).includes("Playoffs"), "the H2H record, no Playoffs column: " + headers(full).join(", "));
 });
 
 test("weekly query FAILS: the scoped views refuse (no 0-0 table); Full Season still renders with playoff records '?'", async () => {
@@ -44,8 +49,7 @@ test("weekly query FAILS: the scoped views refuse (no 0-0 table); Full Season st
     }
     const full = await page(failing(makeEnv({ 1: 0, 2: 0, 15: 1 }), needle), "view=overall&year=2026");
     t.ok(/<table>/.test(full), label + ": Full Season renders from the standings rows");
-    t.deepEqual([...new Set(playoffCells(full).map((c) => c.replace(/<[^>]+>/g, "")))], ["?"], label + ": every playoff record is ? — not — (0-0)");
-    t.match(full, /Playoff records show <strong>\?<\/strong>: the weekly results couldn't be read\./);
+    t.ok(!headers(full).includes("Playoffs") && !/Playoff records show/.test(full), label + ": no playoff record anywhere, so none reads as a confident 0-0");
     const div = await page(failing(makeEnv({ 1: 0, 2: 0, 15: 1 }), needle), "view=divisions&year=2026&scope=regular");
     t.match(div, /Regular Season division standings for 2026 can't be computed/, label + ": divisions refuse too");
   }
@@ -56,7 +60,7 @@ test("UNFLAGGED weeks (po null from the worker): scoped views refuse; playoff re
   const html = await page(env, "view=overall&year=2026&scope=regular");
   t.match(html, /can't be computed: some weekly results aren't marked regular season or playoff/);
   const full = await page(makeEnv({ 1: 0, 2: null, 3: "x", 15: 1 }), "view=overall&year=2026");
-  t.deepEqual([...new Set(playoffCells(full).map((c) => c.replace(/<[^>]+>/g, "")))], ["?"]);
+  t.ok(/<table>/.test(full) && !headers(full).includes("Playoffs"), "Full Season renders, with no playoff record to get wrong");
 });
 
 test("a genuinely EMPTY season ([] / [], no error) is trusted: the scoped table renders — that IS 0-0", async () => {

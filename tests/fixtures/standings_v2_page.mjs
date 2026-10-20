@@ -2,6 +2,9 @@
 // fetch (typically the real worker via tests/fixtures/worker_harness.mjs callWorker), with a deliberately small DOM: every
 // element records its innerHTML, so a test reads what a view actually rendered. The page boots from its own query string
 // (?view=&year=&scope=), exactly as in the browser.
+//   opts.parent        — true: the page runs as an iframe; every window.parent.postMessage(msg) is kept in .messages
+//   opts.contentHeight — the height getBoundingClientRect() reports for every element (default 0)
+//   opts.pageSrc       — run this page source instead of the file (a test reverting one fix, to prove it matters)
 import fs from "node:fs";
 import vm from "node:vm";
 
@@ -16,7 +19,7 @@ function srcScripts(html) {
   return [...html.matchAll(/<script[^>]*\bsrc="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1]);
 }
 
-function makeEl(id) {
+function makeEl(id, height) {
   const listeners = {};
   return {
     id: id || "", innerHTML: "", textContent: "", value: "", style: {}, dataset: {}, children: [], hidden: false,
@@ -25,20 +28,22 @@ function makeEl(id) {
     removeEventListener() {}, setAttribute() {}, getAttribute() { return null; }, removeAttribute() {},
     appendChild(c) { this.children.push(c); return c; }, insertBefore(c) { this.children.push(c); return c; },
     querySelector() { return null; }, querySelectorAll() { return []; }, closest() { return null; },
-    focus() {}, scrollIntoView() {}, getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0 }; },
+    focus() {}, scrollIntoView() {}, getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: height || 0 }; },
   };
 }
 
-// opts: { query: "view=overall&year=2026&scope=regular", fetch: async (url) => Response-like, shared: { "../shared/x.js": src } }
+// opts: { query: "view=overall&year=2026&scope=regular", fetch: async (url) => Response-like, parent, contentHeight, pageSrc }
 export function loadStandingsPage(opts) {
+  const PAGE_SRC = opts.pageSrc || PAGE;
   const els = new Map();
-  const byId = (id) => { if (!els.has(id)) els.set(id, makeEl(id)); return els.get(id); };
-  const body = makeEl("body");
+  const byId = (id) => { if (!els.has(id)) els.set(id, makeEl(id, opts.contentHeight)); return els.get(id); };
+  const body = makeEl("body", opts.contentHeight);
   const document = {
-    body, documentElement: makeEl("html"), title: "",
+    body, documentElement: makeEl("html", opts.contentHeight), title: "",
     getElementById: byId, querySelector: () => null, querySelectorAll: () => [],
-    createElement: (tag) => makeEl(tag), createTextNode: (t) => ({ textContent: t }), addEventListener() {},
+    createElement: (tag) => makeEl(tag, opts.contentHeight), createTextNode: (t) => ({ textContent: t }), addEventListener() {},
   };
+  const messages = [];
   const href = "https://keithcreelman.github.io/upsmflproduction/standings/mfl_hpm_standings_v2.html?" + (opts.query || "");
   const window = {
     location: { href, search: "?" + (opts.query || ""), hash: "" }, history: { replaceState() {}, pushState() {} },
@@ -46,18 +51,19 @@ export function loadStandingsPage(opts) {
   };
   const ctx = { window, document, fetch: opts.fetch, console, setTimeout, clearTimeout, Promise, URL, URLSearchParams, Date, Math, JSON };
   window.document = document;
+  if (opts.parent) window.parent = { postMessage(msg, origin) { messages.push({ msg, origin }); } };
   vm.createContext(ctx);
   // the page's own <script src> modules under ../shared/ (none on main; A1 adds standings_race.js), then its inline script
-  for (const src of srcScripts(PAGE)) {
+  for (const src of srcScripts(PAGE_SRC)) {
     const m = /^\.\.\/shared\/([\w.-]+\.js)/.exec(src);
     if (!m) continue;
     vm.runInContext(fs.readFileSync(new URL("../../site/shared/" + m[1], import.meta.url), "utf8"), ctx);
   }
-  for (const code of inlineScripts(PAGE)) vm.runInContext(code, ctx);
+  for (const code of inlineScripts(PAGE_SRC)) vm.runInContext(code, ctx);
   return {
     // every element's rendered HTML, concatenated (views write into a host element the page looked up by id)
     html: () => [body.innerHTML, ...[...els.values()].map((e) => e.innerHTML)].join("\n"),
-    els, ctx,
+    els, ctx, messages,
   };
 }
 
@@ -69,5 +75,8 @@ export function workerFetch(callWorker, env) {
     return { ok: r.status >= 200 && r.status < 300, status: r.status, json: async () => r.json, text: async () => r.text };
   };
 }
+
+// The page's own source, for tests that run a copy with one fix reverted.
+export const PAGE_SOURCE = PAGE;
 
 export const settle = async (n = 30) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
