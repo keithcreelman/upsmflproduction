@@ -4,7 +4,8 @@
 //   node tests/standings_seed_reason.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
-import { SCHEMA } from "./fixtures/standings_d1.mjs";
+import fs from "node:fs";
+import { SCHEMA, loadSeason, recorded2026 } from "./fixtures/standings_d1.mjs";
 import { seedLadder, seedLadderSteps, SEED_STEPS } from "../worker/src/seeding.js";
 
 const restore = quiet();
@@ -60,26 +61,51 @@ test("seedLadderSteps: the comparator is identical to seedLadder, and names the 
   t.deepEqual(SEED_STEPS, ["all_play", "overall", "points_for", "head_to_head", "name", "franchise_id"]);
 });
 
+// The current season is seeded from its REGULAR-SEASON WEEKLY rows (worker/src/standings_truth.js, 2026-10-17), so the
+// route tests use the recorded 2026 season after Week 5 (tests/fixtures/standings_2026_wk5.json). The head-to-head and
+// points-for steps are covered on generated seasons in tests/standings_truth.test.mjs.
+const REC = JSON.parse(fs.readFileSync(new URL("./fixtures/standings_2026_wk5.json", import.meta.url), "utf8"));
+mfl.st.league = { standingsSort: REC.standingsSort };
+function recordedEnv({ failGames = false } = {}) {
+  const env = loadSeason(makeWorkerEnv({}), recorded2026(REC));
+  if (failGames) {
+    const prep = env.UPS_MFL_DB.prepare.bind(env.UPS_MFL_DB);
+    env.UPS_MFL_DB.prepare = (sql) => { if (/FROM src_schedule WHERE season = \? AND COALESCE\(team_score, 0\) > 0/.test(sql)) throw new Error("D1_ERROR: simulated games failure"); return prep(sql); };
+  }
+  return env;
+}
+
 test("current season: every row carries the step that seeded it, through the real /api/standings route", async () => {
-  const j = await standings(makeSeason());
+  const j = await standings(recordedEnv());
+  t.equal(j.standings_basis, "regular_season_ladder");
+  t.equal(j.regular_season.status, "ok"); t.equal(j.regular_season.through_week, 5); t.equal(j.regular_season.next_out, "0012");
   const R = byFid(j);
-  t.deepEqual(brief(R["0001"]), [1, "bye", "overall", "ahead", "0003"]);
-  t.deepEqual(brief(R["0003"]), [2, "bye", "overall", "behind", "0001"]);
-  t.deepEqual(brief(R["0004"]), [3, "seeds3to6", "head_to_head", "ahead", "0002"]);
-  t.deepEqual(brief(R["0002"]), [4, "seeds3to6", "all_play", "ahead", "0007"]);
-  t.deepEqual(brief(R["0007"]), [5, "seeds3to6", "points_for", "ahead", "0005"]);
-  t.deepEqual(brief(R["0005"]), [6, "seeds3to6", "points_for", "behind", "0007"]);
-  t.deepEqual(brief(R["0006"]), [null, "outside", "all_play", "behind", "0002"], "outside: behind the last wild card");
-  t.deepEqual(brief(R["0008"]), [null, "outside", "all_play", "behind", "0002"]);
+  t.deepEqual(j.rows.map((r) => r.franchise_id), ["0009", "0010", "0005", "0008", "0002", "0004", "0012", "0011", "0001", "0003", "0006", "0007"]);
+  t.deepEqual(brief(R["0009"]), [1, "bye", "all_play", "ahead", "0010"]);
+  t.deepEqual(brief(R["0010"]), [2, "bye", "all_play", "behind", "0009"]);
+  t.deepEqual(brief(R["0008"]), [4, "seeds3to6", "overall", "ahead", "0002"], "Creel over CBP: both 32-23 All-Play, 9-4 vs 7-6");
+  t.deepEqual(brief(R["0004"]), [6, "seeds3to6", "all_play", "behind", "0002"]);
+  t.deepEqual(brief(R["0012"]), [null, "outside", "all_play", "behind", "0004"], "outside: behind the last wild card");
+  t.deepEqual([R["0002"].seed_reason.vs_above.franchise_id, R["0002"].seed_reason.vs_above.step], ["0008", "overall"]);
   t.ok(j.rows.every((r) => r.seed_reason.basis === "ladder"));
-  t.equal(R["0004"].seed_reason.rival_seed, 4);
+  t.equal(R["0012"].ap_back, 2);
+  t.equal(R["0002"].seed_reason.rival_seed, 6);
+  // The bracket reads the same computation.
+  const b = await callWorker(recordedEnv(), "GET", "/api/playoff-bracket?year=2026");
+  t.equal(b.json.seeding_status, "regular_season_ladder");
+  t.deepEqual(b.json.seeds.map((s) => s.franchise_id), j.rows.map((r) => r.franchise_id));
 });
 
-test("the regular-season games can't be read: a tie that reached head-to-head says so — never 'name order'", async () => {
-  const R = byFid(await standings(makeSeason({ failGames: true })));
-  t.equal(R["0002"].seed_reason.step === "head_to_head_unavailable" || R["0004"].seed_reason.step === "head_to_head_unavailable", true);
-  t.ok(!Object.values(R).some((r) => r.seed_reason.step === "name" || r.seed_reason.step === "head_to_head"));
-  t.equal(R["0001"].seed_reason.step, "overall", "steps before head-to-head are unaffected");
+test("the regular-season games can't be read: no seeds at all, and the response says why", async () => {
+  const j = await standings(recordedEnv({ failGames: true }));
+  t.equal(j.standings_basis, "unavailable");
+  t.equal(j.regular_season.status, "incomplete");
+  t.ok(j.regular_season.problems.some((p) => p.code === "weekly_unreadable"));
+  t.ok(j.rows.every((r) => r.playoff_seed === null && r.playoff_status === "unavailable" && r.is_division_leader === false));
+  t.equal(j.weekly, null); t.ok(j.weekly_errors && j.weekly_errors.weekly);
+  const b = await callWorker(recordedEnv({ failGames: true }), "GET", "/api/playoff-bracket?year=2026");
+  t.equal(b.json.seeding_status, "unavailable");
+  t.deepEqual(b.json.seeds, []);
 });
 
 test("a season with RECORDED final standings: basis 'recorded_final_standings', no ladder step claimed", async () => {
