@@ -176,9 +176,9 @@
     if (!se) { H.loading(wrap, "Reading MFL’s scores…"); return; }
     var rows = perfRows();
     var multi = FO.selectedTeam() === "__all__";
-    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Lineup", "Where he sits in this week's best legal lineup by season PPG (taxi, IR and players ruled Out excluded)", "") +
+    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Lineup", "Slot in this week's best legal lineup by season PPG (taxi, IR and players ruled Out excluded)", "") +
       th("pts", "Pts", "MFL points, league scoring, every week MFL posted", "num") + th("ppg", "PPG", "Points per MFL-scored week (0.0 counts; a bye doesn't)", "num") +
-      th("rank", "Rank", "PPG rank at his lineup position among every player MFL scored, with at least half the final weeks", "num") +
+      th("rank", "Rank", "PPG rank at the player's lineup position among every player MFL scored, with at least half the final weeks", "num") +
       th("l4", "L4", "PPG over the last 4 final weeks — context only; season PPG is the better guide", "num col-lo") +
       th("", week ? "Wk " + week : "Next", "Opponent and kickoff for this lineup week (MFL schedule)", "") +
       th("proj", week ? "Wk " + week + " proj" : "Proj", "MFL's projection for this lineup week — a forecast, not a result", "num") +
@@ -355,7 +355,7 @@
     if (!H || !FO || !DATA) return;
     wirePerf(); wireBye();
     H.registerAbout("roster", "<h3>Roster → Performance</h3><ul>" +
-      "<li><b>Lineup:</b> where he sits in this week’s best legal 18-player lineup by season PPG (taxi, IR and players ruled Out don’t start).</li>" +
+      "<li><b>Lineup:</b> the player’s slot in this week’s best legal 18-player lineup by season PPG (taxi, IR and players ruled Out don’t start).</li>" +
       "<li><b>Pts / PPG / Rank:</b> MFL’s own league scoring; PPG per MFL-scored week; rank at the lineup position among every player MFL scored with at least half the final weeks. Same as the phone.</li>" +
       "<li><b>L4:</b> PPG over the last 4 final weeks. Context only: in a 2022–2025 backtest, season PPG predicted the rest of the season better than the last 3–4 weeks at every position but punter.</li>" +
       "<li><b>Wk N / Wk N proj / Bye:</b> MFL’s NFL schedule, MFL’s projection for that week (a forecast) and MFL’s bye weeks.</li>" +
