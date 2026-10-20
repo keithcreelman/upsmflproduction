@@ -29,6 +29,8 @@ test("pick holders: whose pick (original team) → who holds it now, exactly as 
   const h = A.holders(FX.futureDraftPicks);
   t.equal(h["2027"]["0008"]["1"], "0006", "Real Deal Creel's 2027 R1 is held by The Long Haulers");
   t.equal(h["2027"]["0005"]["1"], "0008", "HammerTime's 2027 R1 is held by Real Deal Creel");
+  t.equal(JSON.stringify(A.roundsOf(h["2027"])), JSON.stringify(["1", "2", "3", "4", "5"]),
+    "the grid's columns are the rounds MFL lists: no empty Round 6 column (MFL keeps no untradeable R6 picks)");
   t.equal(h["2027"]["0008"]["2"], "0008", "R2 still Real Deal Creel's own");
   let n = 0; for (const o of Object.values(h["2027"])) n += Object.keys(o).length;
   t.ok(n >= 55, n + " picks placed");

@@ -45,6 +45,12 @@
     });
     return out;
   }
+  // The rounds MFL lists for one year (Round 6 isn't tradeable, so MFL keeps no future Round 6 picks).
+  function roundsOf(yearHold) {
+    var seen = {};
+    Object.keys(yearHold || {}).forEach(function (o) { Object.keys(yearHold[o]).forEach(function (r) { seen[r] = 1; }); });
+    return Object.keys(seen).sort(function (x, y) { return x - y; });
+  }
   function renderPicks() {
     var el = document.getElementById("fo-picks-body");
     if (!el) return;
@@ -80,7 +86,7 @@
       "<div><h4>Your picks held by other teams</h4><p>" + (away.length ? away.map(function (p) { return p.y + " R" + p.r + " → " + H.esc(H.teamName(p.h)); }).join(", ") : "none") + "</p></div></div>" +
       (forfeitKnown ? "" : '<p class="fo-basis warn">Lineup-penalty forfeits couldn’t be checked for your picks right now; the Trade War Room greys any forfeited pick.</p>') : "";
     var tables = years.map(function (y) {
-      var rounds = ["1", "2", "3", "4", "5", "6"];
+      var rounds = roundsOf(hold[y]);
       var rows = teams.map(function (t) {
         var row = (hold[y] && hold[y][t.fid]) || {};
         return '<tr class="' + (t.fid === me ? "fo-tf-me" : "") + '"><th scope="row">' + H.esc(t.name) + "</th>" + rounds.map(function (r) {
@@ -93,10 +99,10 @@
         }).join("") + "</tr>";
       }).join("");
       return '<h4 class="fo-tf-h">' + H.esc(y) + ' picks — whose pick (row) and who holds it now</h4><div class="fo-table-scroll"><table class="fo-table fo-pk-table"><thead><tr><th scope="col">Original team</th>' +
-        rounds.map(function (r) { return '<th scope="col" class="num">R' + r + (r === "6" ? '<span class="fo-muted"> *</span>' : "") + "</th>"; }).join("") + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+        rounds.map(function (r) { return '<th scope="col" class="num">R' + r + "</th>"; }).join("") + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
     }).join("");
     el.innerHTML = '<div class="fo-card"><div class="fo-card-head"><h2>Draft picks</h2><span class="small fo-muted">MFL future picks · tradeable through next season (§A6)</span></div>' +
-      summary + tables + '<p class="fo-basis">* Round 6 picks can’t be traded (the player can, once drafted). ✕ = forfeited (your team only). Pick positions (1.01–1.12) aren’t projected here.</p></div>';
+      summary + tables + '<p class="fo-basis">Every team keeps its Round 6 pick: it can’t be traded (the player can, once drafted). ✕ = forfeited (your team only). Pick positions (1.01–1.12) aren’t projected here.</p></div>';
   }
 
   // ── Activity ──────────────────────────────────────────────────────
@@ -192,7 +198,7 @@
   function active() { var a = document.querySelector(".fo-section.active"); return a ? a.getAttribute("data-section") : ""; }
 
   if (root.UPS_FO_HUB) { root.UPS_FO_HUB.registerView("picks"); root.UPS_FO_HUB.registerView("moves"); }
-  root.UPS_FO_ACTIVITY = { holders: holders, txLines: function (tx, me, since, scope) { var keep = moves.scope; moves.scope = scope || "league"; try { return txLines(tx, me, since); } finally { moves.scope = keep; } } };
+  root.UPS_FO_ACTIVITY = { holders: holders, roundsOf: roundsOf, txLines: function (tx, me, since, scope) { var keep = moves.scope; moves.scope = scope || "league"; try { return txLines(tx, me, since); } finally { moves.scope = keep; } } };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA;
     if (!H || !FO || !DATA) return;
