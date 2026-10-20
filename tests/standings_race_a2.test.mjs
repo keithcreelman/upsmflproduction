@@ -526,7 +526,7 @@ check('[wiring] F6: projected bracket rendering never applies the real `.winner`
 check('[wiring] mobile renderPlayoffsMode calls window.UPS_STANDINGS_RACE.projectionMode with the same input shape as desktop', () => {
   const start = MOBILE_LEAGUE.indexOf('function renderPlayoffsMode(mount, year, y) {');
   assert.ok(start >= 0);
-  const slice = MOBILE_LEAGUE.slice(start, start + 2500);
+  const slice = MOBILE_LEAGUE.slice(start, start + 3500); // longer since the finished-season record check (#1329 decision 2)
   assert.ok(/window\.UPS_STANDINGS_RACE\.projectionMode\(\{\s*seasonComplete:\s*bresp\.season_complete,\s*matchups:\s*matchups,\s*seeds:\s*seeds\s*\}\)/.test(slice));
   assert.ok(/mode === "actual"/.test(slice) && /mode === "projected"/.test(slice));
   // Standings v3 (#1329): in season the projected BRACKET replaces the four groups (a duplicate of Seeds)
