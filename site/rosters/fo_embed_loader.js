@@ -237,7 +237,11 @@
       "m/season_scoring.js",
       "shared/player_facts.js",
       "rosters/v2/fo_data.js",
+      "shared/trade_fit.js",
+      "shared/bye_planner.js",
       "shared/player_profile_master.js",
+      "rosters/v2/fo_hub.js",
+      "rosters/v2/fo_overview.js",
       "rosters/v2/front_office.js"
     ];
     function candidatesFor(path) {
