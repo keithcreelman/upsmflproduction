@@ -28,7 +28,7 @@
     return L;
   }
 
-  // Why a rostered player can't start in week w, or "" when he can.
+  // Why a rostered player can't start in week w, or "" when the player can.
   function unavailableReason(p, w, byes, currentWeek) {
     var st = str(p.status || "ROSTER").toUpperCase();
     if (st === "TAXI_SQUAD") return "taxi";
