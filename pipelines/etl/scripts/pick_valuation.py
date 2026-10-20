@@ -2,11 +2,12 @@
 pick_valuation.py — Empirical rookie-pick valuation for trade grader.
 
 Two layers:
-  1. Expected POINTS — the primary value signal. Comes from an exponential
-     curve fit to expected_points_3yr (trade_value_model_2026.json), smoothing
-     slot-level noise (~14-pick samples per slot).
-  2. Rookie SALARY — the cost side. Comes from the league's actual rookie
-     scale (empirical from 11 years of history):
+  1. Expected POINTS, the value in the grade: the pick curve
+     A * exp(-B * overall pick) from the repo's valuation snapshot
+     (data/valuation/trade_valuation_snapshot.json, decision 3). It is fitted
+     by build_valuation_snapshot.py, never here, and nothing substitutes for it:
+     with no snapshot loaded every value raises ValuationUnavailable.
+  2. Rookie SALARY, shown and used for cap checks, not graded (decision 1):
        R1: linear $15K (1.01) -> $5K (1.11), floor $5K
        R2: $5K flat
        R3+: $2K flat
@@ -44,10 +45,6 @@ from pathlib import Path
 # ── Paths ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
-TRADE_VALUE_MODEL = Path(
-    "/Users/keithcreelman/Documents/New project/site/trade-value/trade_value_model_2026.json"
-)
-CAREER_STATS = ETL_ROOT / "data" / "franchise_career_stats.json"
 INSEASON_COEFFICIENTS = ETL_ROOT / "config" / "future_pick_inseason_coefficients.json"
 
 # ── Draft order (canon docs/league_context_v1.md §A1) ──────────────────────
@@ -123,124 +120,63 @@ def rookie_contract_terms(round_: int, slot: int) -> dict:
     return terms
 
 
-# ── Fallbacks ──────────────────────────────────────────────────────────────
-FALLBACK_DEEP_ROUND_PTS = {4: 60.0, 5: 30.0, 6: 15.0}
+# ── Rounds 4-6 ─────────────────────────────────────────────────────────────
+# Fixed 3-season point values (a rule, not a fallback). Unchanged by decision 3;
+# changing them needs its own ruling (#1343).
+DEEP_ROUND_POINTS = {4: 60.0, 5: 30.0, 6: 15.0}
 
-# ── Module state ───────────────────────────────────────────────────────────
+
+class ValuationUnavailable(RuntimeError):
+    """A grade-affecting valuation input is not loaded (no snapshot, no curve)."""
+
+
+# ── Module state: set only from the validated valuation snapshot ──────────
+# (valuation_snapshot.load_for_grading -> use_snapshot). Nothing here reads a
+# file or substitutes a default; an unset value raises ValuationUnavailable.
 _CURVE_A: float | None = None
 _CURVE_B: float | None = None
 _DOLLARS_PER_POINT: float | None = None
 _CAREER_CACHE: dict | None = None
 
 
-def _fit_exponential_curve(pairs: list[tuple[int, float]]) -> tuple[float, float]:
-    """Fit pts = A * exp(-B * pick) via log-linear least-squares (stdlib only)."""
-    pairs = [(x, y) for (x, y) in pairs if y > 0]
-    if len(pairs) < 3:
-        return 500.0, 0.03
-    xs = [float(p[0]) for p in pairs]
-    log_ys = [math.log(p[1]) for p in pairs]
-    mean_x = statistics.mean(xs)
-    mean_ly = statistics.mean(log_ys)
-    cov = sum((xs[i] - mean_x) * (log_ys[i] - mean_ly) for i in range(len(xs))) / len(xs)
-    var_x = statistics.pvariance(xs)
-    if var_x == 0:
-        return 500.0, 0.03
-    slope = cov / var_x
-    intercept = mean_ly - slope * mean_x
-    return math.exp(intercept), -slope
-
-
-def _load():
+def use_valuation(curve_a: float, curve_b: float, dpp: float, career: dict) -> None:
     global _CURVE_A, _CURVE_B, _DOLLARS_PER_POINT, _CAREER_CACHE
-    if _CURVE_A is not None:
-        return
-    try:
-        data = json.loads(TRADE_VALUE_MODEL.read_text())
-    except Exception:
-        data = {}
-    pairs: list[tuple[int, float]] = []
-    for p in data.get("picks", []):
-        rnd = p.get("pick_round")
-        slot = p.get("pick_slot")
-        pts = p.get("expected_points_3yr")
-        if rnd in (1, 2, 3) and slot and pts:
-            overall = (rnd - 1) * 12 + slot
-            pairs.append((overall, pts))
-    _CURVE_A, _CURVE_B = _fit_exponential_curve(pairs)
-    ratios = [
-        p["salary"] / p["total_points"]
-        for p in data.get("players", [])
-        if (p.get("salary") or 0) >= 3000
-        and (p.get("total_points") or 0) >= 100
-        and (p.get("games_played") or 0) >= 8
-    ]
-    _DOLLARS_PER_POINT = statistics.median(ratios) if ratios else 60.0
-    try:
-        _CAREER_CACHE = json.loads(CAREER_STATS.read_text())
-    except Exception:
-        _CAREER_CACHE = {}
+    _CURVE_A, _CURVE_B, _DOLLARS_PER_POINT = float(curve_a), float(curve_b), float(dpp)
+    _CAREER_CACHE = career
+
+
+def use_snapshot(snapshot: dict) -> None:
+    """Point every valuation at one validated snapshot."""
+    use_valuation(snapshot["pick_curve"]["A"], snapshot["pick_curve"]["B"],
+                  snapshot["dollars_per_point"]["value"], snapshot["career"])
+
+
+def clear_valuation() -> None:
+    global _CURVE_A, _CURVE_B, _DOLLARS_PER_POINT, _CAREER_CACHE
+    _CURVE_A = _CURVE_B = _DOLLARS_PER_POINT = _CAREER_CACHE = None
+
+
+def _require_curve() -> None:
+    if _CURVE_A is None or _CURVE_B is None:
+        raise ValuationUnavailable("pick curve not loaded (no valuation snapshot)")
+
+
+def _career() -> dict:
+    return _CAREER_CACHE if isinstance(_CAREER_CACHE, dict) else {}
 
 
 # ── Expected points (primary metric) ───────────────────────────────────────
 
 def dollars_per_point() -> float:
-    """Public accessor for the league's $/point rate (salary <-> pts conversion)."""
-    _load()
-    return _DOLLARS_PER_POINT or 60.0
+    """The league's $/point rate (salary <-> points), from the snapshot."""
+    if _DOLLARS_PER_POINT is None:
+        raise ValuationUnavailable("dollars per point not loaded (no valuation snapshot)")
+    return _DOLLARS_PER_POINT
 
 
 def _smoothed_points_r123(overall_pick: int) -> float:
-    _load()
+    _require_curve()
     return _CURVE_A * math.exp(-_CURVE_B * overall_pick)
-
-
-# Cache of per-slot historical player outcomes (from trade_value_model picks[].players[]).
-_SLOT_HISTORIES: dict[str, list[float]] | None = None  # "2.10" -> [pts_3yr, ...]
-
-
-def _load_slot_histories():
-    global _SLOT_HISTORIES
-    if _SLOT_HISTORIES is not None:
-        return
-    try:
-        data = json.loads(TRADE_VALUE_MODEL.read_text())
-    except Exception:
-        _SLOT_HISTORIES = {}
-        return
-    out: dict[str, list[float]] = {}
-    for p in data.get("picks", []):
-        label = p.get("pick_label")
-        if not label:
-            continue
-        pts_list = [pl.get("pts_3yr", 0) for pl in p.get("players", []) if pl.get("pts_3yr") is not None]
-        if pts_list:
-            out[label] = pts_list
-    _SLOT_HISTORIES = out
-
-
-def probability_match(slot_label: str, threshold_3yr_pts: float) -> float:
-    """Fraction of historical picks at this slot that produced >= threshold pts over 3yr.
-
-    Uses the ~14-player historical sample per slot from trade_value_model. Includes
-    adjacent slots (+/-2) for a slightly bigger sample. Returns 0.0 if no data.
-    """
-    _load_slot_histories()
-    if not _SLOT_HISTORIES:
-        return 0.0
-    try:
-        rnd, slot = slot_label.split(".")
-        rnd, slot = int(rnd), int(slot)
-    except Exception:
-        return 0.0
-    nearby: list[float] = []
-    for s in range(max(1, slot - 2), min(12, slot + 2) + 1):
-        label = f"{rnd}.{s:02d}"
-        nearby.extend(_SLOT_HISTORIES.get(label, []))
-    if not nearby:
-        return 0.0
-    hits = sum(1 for v in nearby if v >= threshold_3yr_pts)
-    return hits / len(nearby)
 
 
 def pick_expected_points(
@@ -257,7 +193,7 @@ def pick_expected_points(
     project_future_pick() and expected_points_over() instead.
     """
     if round_ >= 4:
-        return FALLBACK_DEEP_ROUND_PTS.get(round_, 5.0)
+        return DEEP_ROUND_POINTS[round_]
     if slot is None:
         return expected_points_over(bracket_distribution(0.5), round_)
     slot = max(1, min(12, int(slot)))
@@ -268,7 +204,7 @@ def pick_expected_points(
 def expected_points_over(dist: dict, round_: int) -> float:
     """Football value of a pick whose slot is uncertain: sum of P(slot) x value(slot)."""
     if round_ >= 4:
-        return FALLBACK_DEEP_ROUND_PTS.get(round_, 5.0)
+        return DEEP_ROUND_POINTS[round_]
     return sum(p * _smoothed_points_r123((round_ - 1) * 12 + s) for s, p in dist.items())
 
 
@@ -317,7 +253,9 @@ class FuturePickProjection:
     slot: int | None = None             # only when the deciding season is complete
     finish: int | None = None
     dist: dict = field(default_factory=dict)
-    issues: list = field(default_factory=list)
+    issues: list = field(default_factory=list)      # canon §D.2 conflicts: PROVISIONAL
+    blocking: list = field(default_factory=list)    # core input problems: NO GRADE
+    notes: list = field(default_factory=list)       # display-only (rounds 4+ odds)
 
     @property
     def average_slot(self) -> float:
@@ -325,30 +263,24 @@ class FuturePickProjection:
 
     @property
     def provisional(self) -> bool:
-        return bool(self.issues)
+        return bool(self.issues) and not self.blocking
 
 
 def _current_season() -> tuple[int | None, str]:
-    """The season being played or next to be played, from the career file."""
-    _load()
-    years = {int(v["current_year"]) for v in _CAREER_CACHE.values()
+    """The season being played or next to be played, from the snapshot's career block."""
+    years = {int(v["current_year"]) for v in _career().values()
              if isinstance(v, dict) and str(v.get("current_year") or "").isdigit()}
     if len(years) != 1:
-        return None, "career file has no single current_year"
+        return None, "valuation snapshot career block has no single current_year"
     return years.pop(), ""
 
 
-def ownership_history_issues(franchise_id: str) -> list[str]:
-    """Problems with the current owner's playoff record in the career file.
-
-    Checks the owner block exists and that its tenure agrees with every canon
-    §D.2 correction it touches (a season counted for a replacement owner, or
-    an auction-of-record season left out).
-    """
-    _load()
-    owner = (_CAREER_CACHE.get(franchise_id) or {}).get("owner")
+def owner_block_problems(franchise_id: str) -> list[str]:
+    """Structural problems with a franchise's owner block (missing, unreadable).
+    These block the grade; only canon §D.2 conflicts are provisional."""
+    owner = (_career().get(franchise_id) or {}).get("owner")
     if not isinstance(owner, dict):
-        return [f"no owner history for {franchise_id} in franchise_career_stats.json"]
+        return [f"no owner history for {franchise_id} in the valuation snapshot"]
     try:
         seasons = int(owner["seasons_count"])
         made = int(owner["playoff_appearances"])
@@ -356,9 +288,23 @@ def ownership_history_issues(franchise_id: str) -> list[str]:
         return [f"owner history for {franchise_id} lacks seasons_count / playoff_appearances"]
     if seasons < 0 or not 0 <= made <= seasons:
         return [f"owner history for {franchise_id} is inconsistent ({made} playoffs in {seasons} seasons)"]
-    tenure = owner.get("seasons_by_franchise")
-    if not isinstance(tenure, dict):
+    if not isinstance(owner.get("seasons_by_franchise"), dict):
         return [f"owner history for {franchise_id} has no seasons_by_franchise to check against canon §D.2"]
+    return []
+
+
+def ownership_history_issues(franchise_id: str) -> list[str]:
+    """Problems with the current owner's playoff record.
+
+    Structural problems first (see owner_block_problems), then every canon
+    §D.2 correction the tenure contradicts (a season counted for a
+    replacement owner, or an auction-of-record season left out).
+    """
+    problems = owner_block_problems(franchise_id)
+    if problems:
+        return problems
+    owner = _career()[franchise_id]["owner"]
+    tenure = owner["seasons_by_franchise"]
     issues = []
     name = owner.get("display", "")
     for fid, season, record_owner in KNOWN_OWNERSHIP_CORRECTIONS:
@@ -377,14 +323,13 @@ def owner_playoff_rate(franchise_id: str, k: int) -> tuple[float | None, list[st
     issues = ownership_history_issues(franchise_id)
     if issues:
         return None, issues
-    owner = _CAREER_CACHE[franchise_id]["owner"]
+    owner = _career()[franchise_id]["owner"]
     seasons, made = int(owner["seasons_count"]), int(owner["playoff_appearances"])
     return (made + k / 2) / (seasons + k), []
 
 
 def _season_finish(franchise_id: str, season: int) -> int | None:
-    _load()
-    for row in (_CAREER_CACHE.get(franchise_id) or {}).get("trend") or []:
+    for row in (_career().get(franchise_id) or {}).get("trend") or []:
         if row.get("season") == season and row.get("finish"):
             return int(row["finish"])
     return None
@@ -434,24 +379,28 @@ def project_future_pick(original_fid, pick_year, round_: int,
                         season_state: SeasonState | None = None) -> FuturePickProjection:
     """Bracket odds for a future pick, decided by its ORIGINAL franchise's finish.
 
-    Any input it cannot trust goes into .issues (the grade is then provisional)
-    and the pick is valued at league-average odds; it never falls back silently.
+    Two kinds of problem, never a silent fallback:
+      .blocking  a core input is missing or invalid (unknown franchise, bad
+                 year, no current season, no usable standings in season, no
+                 coefficients). The grade must not be produced (NO GRADE).
+      .issues    the owner's history conflicts with canon §D.2. The pick is
+                 valued at 50/50 odds and the grade is PROVISIONAL (decision 2).
     """
     fid = str(original_fid or "").strip()
     proj = FuturePickProjection(original_fid=fid, pick_year=None, round=int(round_))
-    _load()
-    if not re.fullmatch(r"\d{4}", fid) or fid not in _CAREER_CACHE:
-        proj.issues.append(f"original franchise {fid or '(blank)'} is not in franchise_career_stats.json")
+    career = _career()
+    if not re.fullmatch(r"\d{4}", fid) or fid not in career:
+        proj.blocking.append(f"original franchise {fid or '(blank)'} is not in the valuation snapshot")
     current, why = _current_season()
     if current is None:
-        proj.issues.append(why)
+        proj.blocking.append(why)
     try:
         proj.pick_year = int(pick_year)
     except (TypeError, ValueError):
-        proj.issues.append(f"pick year {pick_year!r} is unreadable")
+        proj.blocking.append(f"pick year {pick_year!r} is unreadable")
     if proj.pick_year is not None and current is not None and not (2012 <= proj.pick_year <= current + 6):
-        proj.issues.append(f"pick year {proj.pick_year} is out of range")
-    if proj.issues:
+        proj.blocking.append(f"pick year {proj.pick_year} is out of range")
+    if proj.blocking:
         proj.dist = bracket_distribution(0.5)
         return proj
 
@@ -461,7 +410,7 @@ def project_future_pick(original_fid, pick_year, round_: int,
         # The deciding season is over: the slot is set by its final finish.
         finish = _season_finish(fid, proj.deciding_season)
         if finish is None:
-            proj.issues.append(f"final finish of {fid} in {proj.deciding_season} is not in the career file")
+            proj.blocking.append(f"final finish of {fid} in {proj.deciding_season} is not in the valuation snapshot")
             proj.dist = bracket_distribution(0.5)
             return proj
         proj.basis, proj.finish, proj.slot = "set", finish, slot_for_finish(finish)
@@ -471,33 +420,42 @@ def project_future_pick(original_fid, pick_year, round_: int,
 
     k = PRIOR_SEASONS_NEXT if proj.seasons_ahead == 0 else PRIOR_SEASONS_LATER
     proj.prior_seasons = k
-    rate, issues = owner_playoff_rate(fid, k)
-    proj.issues.extend(issues)
+    structural = owner_block_problems(fid)
+    if structural:
+        proj.blocking.extend(structural)
+        proj.dist = bracket_distribution(0.5)
+        return proj
+    rate, conflicts = owner_playoff_rate(fid, k)
+    proj.issues.extend(conflicts)
     proj.owner_playoff_rate = rate
     p = rate if rate is not None else 0.5
     proj.basis = "offseason" if rate is not None else "league_average"
 
     if proj.seasons_ahead == 0:
+        # Rounds 1-3 are valued by slot, so a missing current season blocks the
+        # grade; rounds 4+ are worth the same at every slot, so it only dims
+        # the displayed odds.
+        problems = proj.blocking if proj.round <= 3 else proj.notes
         st = season_state
         if st is None:
-            proj.issues.append(f"{current} standings were not provided, so in-season form is unknown")
+            problems.append(f"{current} standings were not provided, so in-season form is unknown")
         elif st.status == "unavailable":
-            proj.issues.append(st.reason or f"{current} standings are unavailable")
+            problems.append(st.reason or f"{current} standings are unavailable")
         elif st.season != current:
-            proj.issues.append(f"standings are for {st.season}, but this pick is decided by {current}")
+            problems.append(f"standings are for {st.season}, but this pick is decided by {current}")
         elif st.status == "in_season" and st.weeks_completed >= 1:
-            missing = [f for f in (set(_CAREER_CACHE) | {fid})
+            missing = [f for f in (set(career) | {fid})
                        if f not in st.allplay_pct or f not in st.points_for]
             if missing:
-                proj.issues.append(f"{current} standings lack {', '.join(sorted(missing))}")
+                problems.append(f"{current} standings lack {', '.join(sorted(missing))}")
             else:
                 try:
                     p = inseason_playoff_probability(rate if rate is not None else 0.5, fid,
                                                      st.allplay_pct, st.points_for, st.weeks_completed)
                     proj.basis = "in_season"
                     proj.weeks_completed = st.weeks_completed
-                except LookupError as exc:
-                    proj.issues.append(f"in-season model unavailable ({exc})")
+                except (LookupError, KeyError, ValueError) as exc:
+                    problems.append(f"in-season model unavailable ({exc})")
     proj.p_playoff = p
     proj.dist = bracket_distribution(p)
     return proj
@@ -533,12 +491,14 @@ def describe_pick_odds(proj: FuturePickProjection) -> str:
         text += ". Offseason: owner playoff history only, which is a weak signal"
     else:
         text += ". League-average odds"
+    if proj.blocking:
+        return "UNAVAILABLE (" + "; ".join(proj.blocking) + ")"
     if proj.issues:
         text = "PROVISIONAL (" + "; ".join(proj.issues) + "): " + text
     return text
 
 
-# ── Legacy dollar approximation (for grade-math compatibility) ─────────────
+# ── Dollar approximation (display) ─────────────────────────────────────────
 
 def pick_value(
     year: int,
@@ -549,29 +509,24 @@ def pick_value(
     weeks_played: int = 0,
 ) -> int:
     """Dollar approximation: expected points x $/point (gross, display only)."""
-    _load()
     pts = pick_expected_points(year, round_, original_owner, slot, weeks_played)
-    return int(pts * (_DOLLARS_PER_POINT or 60.0))
+    return int(pts * dollars_per_point())
 
 
-# ── CLI sanity check ───────────────────────────────────────────────────────
+# ── CLI: what the committed snapshot values picks at ──────────────────────
 if __name__ == "__main__":
-    _load()
-    print(f"Fit curve: pts = {_CURVE_A:.1f} * exp(-{_CURVE_B:.4f} * overall_pick)")
-    print(f"$/point: ${_DOLLARS_PER_POINT:.1f}")
-    print()
-    print(f"{'Slot':<6} {'Overall':<8} {'Exp Pts (3yr)':<15} {'AAV':<8} {'Salary (3yr)':<14}")
-    print("-" * 60)
+    import time
+    import valuation_snapshot as vs
+    snap, failures = vs.load_for_grading(now=time.time())
+    if failures:
+        print(vs.no_grade_message(failures))
+        raise SystemExit(1)
+    print(f"Snapshot {snap['as_of']} ({snap['content_sha256'][:12]}): "
+          f"pts = {_CURVE_A:.1f} * exp(-{_CURVE_B:.4f} * overall pick); ${dollars_per_point():.2f}/pt")
     for rnd in (1, 2, 3):
-        for slot in range(1, 13):
-            overall = (rnd - 1) * 12 + slot
-            pts = _smoothed_points_r123(overall)
-            aav = pick_rookie_salary_aav(rnd, slot)
-            tcv = pick_rookie_salary_tcv(rnd, slot)
-            print(f"{rnd}.{slot:02d}   {overall:<8} {pts:<15.1f} ${aav:<7,} ${tcv:<13,}")
-        print()
+        print("  " + "  ".join(f"{rnd}.{s:02d} {pick_expected_points(0, rnd, slot=s):.0f}" for s in range(1, 13)))
     current, _ = _current_season()
     print(f"Next-season firsts (decided by {current}), offseason odds:")
-    for fid in sorted(_CAREER_CACHE.keys()):
+    for fid in sorted(_career()):
         proj = project_future_pick(fid, (current or 0) + 1, 1, SeasonState(current or 0, "offseason"))
         print(f"  {fid}: {expected_points_over(proj.dist, 1):6.0f} pts | {describe_pick_odds(proj)}")

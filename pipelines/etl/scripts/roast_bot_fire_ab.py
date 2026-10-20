@@ -103,8 +103,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from trade_grader import (
     fetch_trades, analyze_trade, load_franchises, load_players_map,
-    load_rosters, load_rollover, load_auction_pool, load_team_caps,
-    load_future_picks, load_trade_value_model,
+    load_rosters,
 )
 import trade_roast_context
 from trade_roast_context import (
@@ -547,11 +546,13 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
     # 1) Analyze trade
     print(f"  Running analyze_trade...")
     franchises = load_franchises()
-    analysis = analyze_trade(
-        trade,
-        load_players_map(), franchises, load_rosters(), load_rollover(),
-        load_auction_pool(), load_team_caps(), load_future_picks(), load_trade_value_model(),
-    )
+    analysis = analyze_trade(trade, load_players_map(), franchises, load_rosters())
+    if getattr(analysis, "no_grade", False):
+        # Decision 3 (#1343): NO GRADE stops before any embed, roast-model call or post.
+        import trade_grader as _tg
+        print(_tg.no_grade_report(analysis))
+        return {"model_label": model_label, "trade_ts": trade_ts, "no_grade": True,
+                "no_grade_reasons": list(analysis.no_grade_reasons)}
 
     # 2) Build announcement embed
     ts_int = int(trade.get("timestamp", 0))
