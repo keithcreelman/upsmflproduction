@@ -51,6 +51,16 @@ test("taxi and IR never start; a lasting designation holds every week; OUT only 
   t.ok(w7.out.some((o) => o.pid === "dl1" && o.reason === "injury"), "a suspension holds next week too");
 });
 
+test("an active-roster player MFL designates IR (not yet moved to the IR slot) can't start either week", () => {
+  const rows = roster();
+  rows.find((r) => r.pid === "k").chip = "IR";
+  const plan = BP.plan({ players: rows, values: vals(rows), byeWeekByTeam: {}, fromWeek: 6, toWeek: 7, currentWeek: 6, lineup: ctx.UPS_FRONT_OFFICE_LINEUP });
+  for (const w of plan.weeks) {
+    t.ok(w.empty.includes("PK1"), "Week " + w.week + ": the only K is designated IR, so the K slot is empty");
+    t.ok(w.out.some((o) => o.pid === "k" && o.reason === "injury"), "Week " + w.week + ": listed as out (injury)");
+  }
+});
+
 test("options for a short week are free agents with a game that week, best first", () => {
   const rows = roster();
   const fas = [{ pid: "fa_te_buf", pos: "TE", nflTeam: "BUF" }, { pid: "fa_te_den", pos: "TE", nflTeam: "DEN" }, { pid: "fa_te_hou", pos: "TE", nflTeam: "HOU" }];
