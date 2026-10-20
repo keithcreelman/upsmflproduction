@@ -72,8 +72,9 @@ def _rel(path: Path) -> str:
         return str(path)
 
 
-def load_snapshot(path: Path = SNAPSHOT_PATH):
+def load_snapshot(path: Path | None = None):
     """(snapshot | None, [Failure]). Duplicate keys (e.g. a player id twice) are corruption."""
+    path = SNAPSHOT_PATH if path is None else Path(path)
     label = f"valuation snapshot ({_rel(path)})"
     if not Path(path).exists():
         return None, [Failure(label, "file is missing")]
@@ -88,8 +89,9 @@ def _finite(x) -> bool:
 
 
 def validate_snapshot(snap: dict, *, now: float, league_season: int,
-                      live_weeks_completed: int | None = None, repo: Path = REPO) -> list:
+                      live_weeks_completed: int | None = None, repo: Path | None = None) -> list:
     """Every reason this snapshot cannot be graded on (empty = valid)."""
+    repo = REPO if repo is None else Path(repo)
     f = []
     label = "valuation snapshot"
     if snap.get("schema_version") != SCHEMA_VERSION:
@@ -179,9 +181,9 @@ def trade_coverage(snap: dict, player_ids) -> list:
 
 
 def load_for_grading(*, now: float, league_season: int, live_weeks_completed: int | None = None,
-                     path: Path = SNAPSHOT_PATH, repo: Path = REPO):
+                     path: Path | None = None, repo: Path | None = None):
     """(snapshot | None, [Failure]); on success the valuations are loaded into pick_valuation."""
-    snap, failures = load_snapshot(path)
+    snap, failures = load_snapshot(SNAPSHOT_PATH if path is None else path)
     if snap is not None:
         failures = validate_snapshot(snap, now=now, league_season=league_season,
                                      live_weeks_completed=live_weeks_completed, repo=repo)

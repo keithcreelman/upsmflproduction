@@ -1241,7 +1241,8 @@ def load_season_state(trade_ts: int, now: float | None = None) -> "SeasonState":
         return SeasonState(season, "offseason", as_of=str(int(now)))
     if trade_ts and now - int(trade_ts) > STANDINGS_MAX_LAG_SECONDS:
         hours = (now - int(trade_ts)) / 3600
-        return SeasonState(season, "unavailable",
+        # weeks_completed still tells the snapshot freshness check what is complete now.
+        return SeasonState(season, "unavailable", weeks_completed=weeks,
                            reason=(f"{season} standings were read {hours:.0f}h after the trade "
                                    f"and may include later weeks"))
     return SeasonState(season, "in_season", weeks_completed=weeks,
@@ -1354,6 +1355,8 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters:
     if season_state is None:
         season_state = load_season_state(trade_ts, now=now)
     live_weeks = season_state.weeks_completed if season_state.status == "in_season" else None
+    if season_state.status == "unavailable" and season_state.weeks_completed:
+        live_weeks = season_state.weeks_completed
     if snapshot is None:
         snapshot, failures = _vs.load_for_grading(now=now, league_season=LEAGUE_SEASON,
                                                   live_weeks_completed=live_weeks)
@@ -1366,6 +1369,12 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters:
         else:
             from pick_valuation import use_snapshot
             use_snapshot(snapshot)
+    if not failures and season_state.status == "unavailable" and live_weeks is None:
+        failures = [_vs.Failure("current-season standings",
+                                f"{season_state.reason or 'unavailable'}, so it cannot be confirmed that the "
+                                f"valuation snapshot covers the most recently completed week")]
+        from pick_valuation import clear_valuation
+        clear_valuation()
     if failures:
         return TradeAnalysis(**base, no_grade_reasons=[str(f) for f in failures])
 
@@ -1381,6 +1390,8 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters:
     side_b.players_given, side_b.picks_given, side_b.salary_given = b_gave_players, b_gave_picks, b_gave_sal
     side_b.players_received, side_b.picks_received, side_b.salary_received = a_gave_players, a_gave_picks, a_gave_sal
     if reasons:
+        from pick_valuation import clear_valuation
+        clear_valuation()          # NO GRADE leaves nothing loaded for a later caller
         return TradeAnalysis(**base, no_grade_reasons=reasons)
 
     for p in a_gave_players + b_gave_players:

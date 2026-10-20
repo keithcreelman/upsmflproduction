@@ -551,8 +551,9 @@ def fire_one(client, discord_token, giphy_key, model_label: str, model_id: str,
         # Decision 3 (#1343): NO GRADE stops before any embed, roast-model call or post.
         import trade_grader as _tg
         print(_tg.no_grade_report(analysis))
-        return {"model_label": model_label, "trade_ts": trade_ts, "no_grade": True,
-                "no_grade_reasons": list(analysis.no_grade_reasons)}
+        return {"ok": False, "model": model_label, "trade_ts": trade_ts, "no_grade": True,
+                "error": "VALUATION INPUTS UNAVAILABLE — NO GRADE (nothing generated or posted)",
+                "error_type": "NoGrade", "no_grade_reasons": list(analysis.no_grade_reasons)}
 
     # 2) Build announcement embed
     ts_int = int(trade.get("timestamp", 0))
