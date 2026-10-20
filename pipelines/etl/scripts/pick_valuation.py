@@ -12,17 +12,21 @@ Two layers:
        R3+: $2K flat
      AAV x 3-year rookie contract.
 
-Future picks are valued by predicting the owner's finish using a blend of
-historical tenure and current-season data, weighted toward owner early,
-toward current reality as the season progresses.
+Future picks are valued over a DISTRIBUTION of slots, not one predicted slot.
+The draft order follows the prior season's brackets (canon §A1), so the owner's
+history predicts which bracket the team lands in, and the slot is uniform
+inside that bracket. See future_slot_distribution().
 
 Public API:
     pick_expected_points(year, round_, original_owner="", slot=None, ...) -> float
     pick_rookie_salary_aav(round_, slot) -> int
     pick_rookie_salary_tcv(round_, slot, years=3) -> int
+    expected_rookie_salary_aav(round_, original_owner) -> int
     pick_value(...) -> int   # legacy dollar approximation (points x $/point)
-    predict_finish(franchise_id, weeks_played=0) -> float
-    predict_future_slot(franchise_id, weeks_played=0) -> int
+    slot_for_finish(finish) -> int
+    playoff_probability(franchise_id) -> float
+    future_slot_distribution(franchise_id, weeks_played=0) -> {slot: probability}
+    predict_future_slot(franchise_id, weeks_played=0) -> int   # display label only
 """
 
 import json
@@ -38,12 +42,23 @@ TRADE_VALUE_MODEL = Path(
 )
 CAREER_STATS = ETL_ROOT / "data" / "franchise_career_stats.json"
 
-# ── Owner tenure config ────────────────────────────────────────────────────
-OWNER_TENURE_START = {
-    "0002": 2023,  # Derrick Whitman
-    "0005": 2023,  # Eric Martel
-    "0006": 2025,  # Brian Cross
-}
+# ── Draft order (canon docs/league_context_v1.md §A1) ──────────────────────
+# Rounds 1-5 follow the prior season's brackets, NOT inverse finish. The
+# championship bracket (final finish 1-6) picks 7-12; the Hawk Tuah bracket
+# (finish 7-12) picks 1-6, and its winner, the 7th-place team, picks FIRST.
+# 5 and 6 are decided by a week-16 game: the winner (finish 5) picks 1.07.
+# Proven on 281 recorded picks, 2012-2025 (draft PR #1331's evidence fixture).
+SLOT_BY_FINISH = {1: 12, 2: 11, 3: 10, 4: 9, 5: 7, 6: 8,
+                  7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6}
+TOILET_SLOTS = (1, 2, 3, 4, 5, 6)        # Hawk Tuah bracket, finish 7-12
+PLAYOFF_SLOTS = (7, 8, 9, 10, 11, 12)    # championship bracket, finish 1-6
+
+# Owner history predicts the bracket but not the finish inside it, so the
+# owner's playoff rate is shrunk toward 50% by this many pseudo-seasons and the
+# slot is uniform within each bracket. 4 was within 0.01 of the lowest error
+# when predicting every 2013-2025 pick from the seasons before it
+# (pipelines/etl/scripts/backtest_pick_slot_model.py).
+PLAYOFF_PRIOR_SEASONS = 4
 
 # ── Rookie contract scale (from 11 years of league history) ────────────────
 # Returns AAV (per-year salary). Multiply by ROOKIE_CONTRACT_YEARS for TCV.
@@ -63,18 +78,14 @@ def pick_rookie_salary_tcv(round_: int, slot: int, years: int = ROOKIE_CONTRACT_
     return pick_rookie_salary_aav(round_, slot) * years
 
 
+def expected_rookie_salary_aav(round_: int, original_owner: str, weeks_played: int = 0) -> int:
+    """Rookie AAV averaged over the future pick's slot distribution."""
+    dist = future_slot_distribution(original_owner, weeks_played)
+    return round(sum(p * pick_rookie_salary_aav(round_, s) for s, p in dist.items()))
+
+
 # ── Fallbacks ──────────────────────────────────────────────────────────────
 FALLBACK_DEEP_ROUND_PTS = {4: 60.0, 5: 30.0, 6: 15.0}
-DEFAULT_FINISH = 6.5
-
-# ── Blending weights (owner vs current-season reality) ─────────────────────
-def _owner_weight(weeks_played: int) -> float:
-    if weeks_played <= 0: return 0.90
-    if weeks_played <= 4: return 0.65
-    if weeks_played <= 8: return 0.45
-    if weeks_played <= 12: return 0.25
-    if weeks_played <= 14: return 0.10
-    return 0.0
 
 # ── Module state ───────────────────────────────────────────────────────────
 _CURVE_A: float | None = None
@@ -200,48 +211,67 @@ def pick_expected_points(
     slot: int | None = None,
     weeks_played: int = 0,
 ) -> float:
-    """Expected 3-year fantasy points for a rookie drafted with this pick."""
+    """Expected 3-year fantasy points for a rookie drafted with this pick.
+
+    A known slot (a current-year pick) is valued at that slot. A future pick is
+    the probability-weighted average over its slot distribution, not the value
+    at one predicted slot.
+    """
     if round_ >= 4:
         return FALLBACK_DEEP_ROUND_PTS.get(round_, 5.0)
     if slot is None:
-        slot = predict_future_slot(original_owner, weeks_played) if original_owner else 7
+        dist = future_slot_distribution(original_owner, weeks_played)
+        return sum(p * _smoothed_points_r123((round_ - 1) * 12 + s) for s, p in dist.items())
     slot = max(1, min(12, int(slot)))
     overall = (round_ - 1) * 12 + slot
     return _smoothed_points_r123(overall)
 
 
-# ── Owner-based finish prediction ──────────────────────────────────────────
+# ── Future-pick slot distribution ──────────────────────────────────────────
 
-def _owner_historical_finish(franchise_id: str) -> float:
-    _load()
-    stats = _CAREER_CACHE.get(franchise_id, {})
-    seasons = stats.get("seasons", []) or []
-    tenure_start = OWNER_TENURE_START.get(franchise_id, 0)
-    relevant = [s for s in seasons if s.get("season", 0) >= tenure_start and s.get("finish")]
-    if not relevant:
-        return DEFAULT_FINISH
-    return sum(s["finish"] for s in relevant) / len(relevant)
+def slot_for_finish(finish: int) -> int:
+    """Rounds 1-5 draft slot earned by a final finish (canon §A1)."""
+    return SLOT_BY_FINISH[int(finish)]
 
 
-def _current_team_finish_estimate(franchise_id: str, weeks_played: int) -> float:
-    """Stub — returns owner historical for now. Wire in:
-      - weeks_played==0 (post-auction): rank by sum(exp_price - salary) on roster
-      - weeks_played>=1: use actual W/L record + points_for
+def playoff_probability(franchise_id: str) -> float:
+    """Chance the franchise's CURRENT OWNER makes the championship bracket.
+
+    From the owner block of franchise_career_stats.json (owner.playoff_appearances
+    over owner.seasons_count: actual seeding across every franchise and season of
+    the owner's tenure), shrunk toward 50% by PLAYOFF_PRIOR_SEASONS. An owner with
+    no record gets 50%, the league average.
     """
-    return _owner_historical_finish(franchise_id)
+    _load()
+    owner = (_CAREER_CACHE.get(franchise_id) or {}).get("owner") or {}
+    seasons = int(owner.get("seasons_count") or 0)
+    made = int(owner.get("playoff_appearances") or 0)
+    k = PLAYOFF_PRIOR_SEASONS
+    return (made + k / 2) / (seasons + k)
 
 
-def predict_finish(franchise_id: str, weeks_played: int = 0) -> float:
-    w_owner = _owner_weight(weeks_played)
-    owner = _owner_historical_finish(franchise_id)
-    current = _current_team_finish_estimate(franchise_id, weeks_played)
-    return w_owner * owner + (1 - w_owner) * current
+def future_slot_distribution(franchise_id: str, weeks_played: int = 0) -> dict[int, float]:
+    """{slot: probability} for a future pick originally owned by franchise_id.
+
+    Bracket first: P(championship bracket) = playoff_probability(), spread evenly
+    over 1.07-1.12; the rest is spread evenly over the Hawk Tuah slots 1.01-1.06.
+    weeks_played is accepted for callers but not used: current-season standings
+    are not wired in yet, so an in-season trade still uses owner history only.
+    """
+    p = playoff_probability(franchise_id) if franchise_id else 0.5
+    dist = {s: (1 - p) / len(TOILET_SLOTS) for s in TOILET_SLOTS}
+    dist.update({s: p / len(PLAYOFF_SLOTS) for s in PLAYOFF_SLOTS})
+    return dist
 
 
 def predict_future_slot(franchise_id: str, weeks_played: int = 0) -> int:
-    finish = predict_finish(franchise_id, weeks_played)
-    slot = round(13 - finish)
-    return max(1, min(12, slot))
+    """The expected slot, rounded: the '~1.05' label shown for a future pick.
+
+    Display only. Values come from the whole distribution, because a pick that
+    is either 1.02 or 1.10 is not worth the same as a sure 1.06.
+    """
+    dist = future_slot_distribution(franchise_id, weeks_played)
+    return max(1, min(12, round(sum(s * p for s, p in dist.items()))))
 
 
 # ── Legacy dollar approximation (for grade-math compatibility) ─────────────
@@ -284,13 +314,14 @@ if __name__ == "__main__":
             tcv = pick_rookie_salary_tcv(rnd, slot)
             print(f"{rnd}.{slot:02d}   {overall:<8} {pts:<15.1f} ${aav:<7,} ${tcv:<13,}")
         print()
-    print("Owner-based predicted slots (2027 picks):")
-    print(f"  {'FID':<5} {'Name':<22} {'AvgFin':<7} {'Slot':<5} {'R1 pts':<8} {'R2 pts':<8} {'R3 pts':<8}")
+    print("Future picks by original owner (2027 picks):")
+    print(f"  {'FID':<5} {'Name':<22} {'P(po)':<6} {'~Slot':<6} {'R1 pts':<8} {'R2 pts':<8} {'R3 pts':<8} {'R1 AAV':<8}")
     for fid in sorted(_CAREER_CACHE.keys()):
         name = _CAREER_CACHE[fid].get("franchise_name", "?")[:21]
-        f = _owner_historical_finish(fid)
+        p = playoff_probability(fid)
         s = predict_future_slot(fid)
         p1 = pick_expected_points(2027, 1, original_owner=fid)
         p2 = pick_expected_points(2027, 2, original_owner=fid)
         p3 = pick_expected_points(2027, 3, original_owner=fid)
-        print(f"  {fid:<5} {name:<22} {f:<7.1f} {s:<5} {p1:<8.0f} {p2:<8.0f} {p3:<8.0f}")
+        aav = expected_rookie_salary_aav(1, fid)
+        print(f"  {fid:<5} {name:<22} {p:<6.2f} {s:<6} {p1:<8.0f} {p2:<8.0f} {p3:<8.0f} ${aav:<7,}")

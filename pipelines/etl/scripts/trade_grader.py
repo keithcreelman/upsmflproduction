@@ -27,6 +27,7 @@ from pick_valuation import (
     pick_value as _pick_value,
     pick_expected_points as _pick_points,
     pick_rookie_salary_aav as _rookie_aav,
+    expected_rookie_salary_aav as _expected_rookie_aav,
     predict_future_slot as _predict_slot,
     dollars_per_point as _dpp,
     probability_match as _prob_match,
@@ -486,7 +487,9 @@ def parse_asset_string(asset_str: str, players_map: dict, franchises: dict) -> t
                     estimated_value=_pick_value(year, rnd, original_owner=owner),
                     expected_points=_pick_points(year, rnd, original_owner=owner),
                     predicted_slot=slot,
-                    rookie_aav=_rookie_aav(rnd, slot),
+                    # Same slot distribution as expected_points; the ~slot
+                    # label is display only.
+                    rookie_aav=_expected_rookie_aav(rnd, owner),
                 ))
         elif token.startswith("DP_"):
             # Current year draft pick: DP_ROUND_PICK (both 0-indexed in MFL)
