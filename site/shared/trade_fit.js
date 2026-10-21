@@ -34,6 +34,20 @@
    roster for every slot) is kept only as lineupRule "replacement", for the
    before/after comparison; no screen uses it.
 
+   THE SLOTS COME FROM MFL (Keith 2026-10-21). MFL's league settings
+   (export TYPE=league → starters) give a range per position and a total;
+   deriveSlots turns them into named slots: each position's minimum is a fixed
+   slot, and the remaining starters are Flex slots, each open to the
+   positions that still have room under their maximum. A Flex slot open to QB
+   is Superflex; one on defense is IDP Flex. For 74598 (QB 1-2, RB/WR 2-5,
+   TE 1-4, K 1, P 1, DL/LB/DB 2-3, 18 starters, 7 IDP) that is the released
+   engine's 18 slots exactly (QB, 2 RB, 2 WR, TE, 2 Flex, Superflex, K, P,
+   2 DL, 2 LB, 2 DB, IDP Flex). fillSlots fills them the engine's way: fixed
+   slots first with the best player at that position, then the Flex slots,
+   narrowest first, with the best player left. So a second TE who starts sits
+   in Flex, and a second QB sits in Superflex. Each starter is in exactly one
+   slot.
+
    STRENGTH at a position = the team's starters there (flex included), points
    a week above replacement. NEED = points a week the best lineup gains by
    adding the league's median starter at that position (handles Flex and
@@ -62,6 +76,97 @@
     if (!a.length) return null;
     var m = Math.floor(a.length / 2);
     return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  }
+
+  // MFL's position names in the league's starter ranges → the lineup groups.
+  var MFL_POS = { QB: ["QB"], RB: ["RB"], WR: ["WR"], TE: ["TE"], PK: ["PK"], PN: ["PN"], "DT+DE": ["DL"], DL: ["DL"], DT: ["DL"], DE: ["DL"],
+    LB: ["LB"], "CB+S": ["DB"], DB: ["DB"], CB: ["DB"], S: ["DB"] };
+  var OFFENSE_FLEX = ["QB", "RB", "WR", "TE"], IDP = ["DL", "LB", "DB"];
+  var SLOT_ROW = { FLEX: "Flex", SFLEX: "Superflex", DFLEX: "IDP Flex" };
+
+  // MFL starters node ({count, idp_starters, position:[{name, limit "1-2"}]}) → named slots, or null when MFL's
+  // settings can't be expressed as slots (an unknown position name, or ranges that don't reach the count).
+  // Each slot: {id, label, row, accepts[], flex}. row = the slot's line in the By Lineup Slot view.
+  function deriveSlots(starters) {
+    if (!starters || !starters.position) return null;
+    var list = Array.isArray(starters.position) ? starters.position : [starters.position];
+    var lim = {};
+    for (var i = 0; i < list.length; i++) {
+      var groups = MFL_POS[String(list[i].name || "").toUpperCase()];
+      var m = String(list[i].limit || "").match(/^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/);
+      if (!groups || groups.length !== 1 || !m) return null;
+      lim[groups[0]] = { min: +m[1], max: m[2] != null ? +m[2] : +m[1] };
+    }
+    var count = num(starters.count), idp = num(starters.idp_starters);
+    if (count == null) return null;
+    var sumMin = function (gs) { return gs.reduce(function (a, g) { return a + (lim[g] ? lim[g].min : 0); }, 0); };
+    var sumMax = function (gs) { return gs.reduce(function (a, g) { return a + (lim[g] ? lim[g].max : 0); }, 0); };
+    var idpSet = IDP.filter(function (g) { return lim[g]; });
+    var offSet = Object.keys(lim).filter(function (g) { return IDP.indexOf(g) === -1; });
+    if (idp == null) idp = idpSet.length ? sumMin(idpSet) : 0;
+    var off = count - idp;
+    // Display (and summing) order is the released engine's: offense fixed, offense Flex, K, P, IDP fixed, IDP Flex.
+    var slots = [];
+    function fixed(gs) {
+      gs.forEach(function (g) {
+        if (!lim[g]) return;
+        for (var k = 1; k <= lim[g].min; k++) slots.push({ id: g + k, label: g === "PK" ? "K" : g === "PN" ? "P" : g, row: g, accepts: [g], flex: false });
+      });
+    }
+    // Flex slots for one side: E extra starters among `gs`; slot j (narrowest first) accepts a group with room for
+    // at least E − j + 1 more (exact for nested ranges, which MFL's per-position limits always are).
+    function flex(gs, extra, kind) {
+      if (extra < 0 || extra > sumMax(gs) - sumMin(gs)) return false;
+      var n = { FLEX: 0, SFLEX: 0, DFLEX: 0 };
+      for (var j = 1; j <= extra; j++) {
+        var acc = gs.filter(function (g) { return lim[g].max - lim[g].min >= extra - j + 1; });
+        if (!acc.length) return false;
+        var row = kind === "D" ? "DFLEX" : (acc.indexOf("QB") !== -1 ? "SFLEX" : "FLEX");
+        n[row] += 1;
+        slots.push({ id: (row === "FLEX" ? "OF" : row === "SFLEX" ? "SF" : "DF") + n[row], label: SLOT_ROW[row], row: row, accepts: acc, flex: true });
+      }
+      return true;
+    }
+    var offFlexGroups = offSet.filter(function (g) { return OFFENSE_FLEX.indexOf(g) !== -1; });
+    var offFixedOnly = offSet.filter(function (g) { return OFFENSE_FLEX.indexOf(g) === -1; });
+    if (offFixedOnly.some(function (g) { return lim[g].max !== lim[g].min; })) return null;
+    fixed(OFFENSE_FLEX);
+    if (!flex(offFlexGroups, off - sumMin(offSet), "O")) return null;
+    fixed(["PK", "PN"]);
+    fixed(IDP);
+    if (!flex(idpSet, idp - sumMin(idpSet), "D")) return null;
+    return slots;
+  }
+
+  // Fill `slots` from rows ({id,pos,v}): fixed slots first with the best player at that position, then the Flex
+  // slots in order (narrowest first) with the best player left — the released engine's order (autoFillSlots).
+  function fillSlots(rows, slots, L) {
+    var byGroup = {};
+    rows.forEach(function (r) {
+      var g = L.posGroup(r.pos);
+      if (g === "OTH") return;
+      (byGroup[g] = byGroup[g] || []).push(r);
+    });
+    Object.keys(byGroup).forEach(function (g) { byGroup[g].sort(function (a, b) { return (b.v || 0) - (a.v || 0); }); });
+    var used = {}, draft = {};
+    function take(accepts) {
+      var best = null;
+      accepts.forEach(function (g) {
+        (byGroup[g] || []).forEach(function (r) { if (!used[r.id] && (!best || (r.v || 0) > (best.v || 0))) best = r; });
+      });
+      if (best) { used[best.id] = 1; return best.id; }
+      return "";
+    }
+    slots.forEach(function (s) { if (!s.flex) draft[s.id] = take(s.accepts); });
+    slots.forEach(function (s) { if (s.flex) draft[s.id] = take(s.accepts); });
+    return draft;
+  }
+  // A slot's replacement baseline: the best replacement-level free agent the slot accepts (the body the owned rule
+  // would start there). A Flex slot's comes from RB/WR/TE free agents, a Superflex slot's from QB/RB/WR/TE.
+  function slotBaseline(slot, repl) {
+    var best = null;
+    slot.accepts.forEach(function (g) { var v = repl[g] && repl[g][0]; if (v != null && (best == null || v > best)) best = v; });
+    return best || 0;
   }
 
   function lineupApi(opts) {
@@ -103,7 +208,8 @@
   //   rule "owned" (default): the rows fill every slot they can (the released engine: fixed slots first, then flex);
   //     a slot still empty takes the best unused replacement body that slot accepts.
   //   rule "replacement" (comparison only): replacement bodies join the pool and compete for every slot.
-  function bestLineup(rows, repl, L, rule) {
+  function bestLineup(rows, repl, L, rule, slotList) {
+    var SL = slotList || L.LINEUP_SLOTS;
     var pool = rows.slice();
     if (rule === "replacement") {
       GROUPS.forEach(function (g) {
@@ -112,11 +218,11 @@
     }
     var byId = {};
     pool.forEach(function (r) { byId[r.id] = r; });
-    var slots = L.autoFillSlots(pool, function (r) { return r.v || 0; });
+    var slots = fillSlots(pool, SL, L);
     var used = {};
     Object.keys(slots).forEach(function (k) { if (slots[k]) used[slots[k]] = 1; });
     var total = 0, starters = [];
-    L.LINEUP_SLOTS.forEach(function (s) {
+    SL.forEach(function (s) {
       var pid = slots[s.id];
       if (!pid && rule !== "replacement") {
         var best = null;
@@ -128,10 +234,10 @@
         });
         if (best) { used[best.id] = 1; byId[best.id] = best; slots[s.id] = pid = best.id; }
       }
-      if (!pid) { starters.push({ slot: s.id, pid: "", group: "", v: 0, empty: true }); return; }
+      if (!pid) { starters.push({ slot: s.id, slotRow: s.row || "", pid: "", group: "", v: 0, empty: true }); return; }
       var r = byId[pid];
       total += r.v || 0;
-      starters.push({ slot: s.id, pid: r.rep ? "" : pid, rep: !!r.rep, group: L.posGroup(r.pos), v: r.v || 0 });
+      starters.push({ slot: s.id, slotRow: s.row || "", pid: r.rep ? "" : pid, rep: !!r.rep, group: L.posGroup(r.pos), v: r.v || 0 });
     });
     return { total: total, slots: slots, starters: starters };
   }
@@ -154,10 +260,19 @@
     var teams = input.teams || [];
     var repl = replacementLevels(input.freeAgents, values, L);
     var rule = input.lineupRule === "replacement" ? "replacement" : "owned";
-    var model = { repl: repl, values: values, lineup: L, lineupRule: rule, teams: {}, order: [], medians: {}, typical: {}, generatedFrom: input.basis || null };
+    // The slots: MFL's league settings (deriveSlots) when the caller passes them; the engine's own 18 otherwise
+    // (tests and the phone-equivalent default). slotSource says which.
+    var slotList = input.slots || L.LINEUP_SLOTS.map(function (s) {
+      var row = !s.flex ? s.accepts[0] : (s.accepts.indexOf("QB") !== -1 ? "SFLEX" : s.side === "D" ? "DFLEX" : "FLEX");
+      return { id: s.id, label: s.flex ? SLOT_ROW[row] : s.label, row: row, accepts: s.accepts.slice(), flex: !!s.flex };
+    });
+    var model = { repl: repl, values: values, lineup: L, lineupRule: rule, slots: slotList, slotSource: input.slots ? "mfl" : "engine",
+      teams: {}, order: [], medians: {}, typical: {}, generatedFrom: input.basis || null };
+    model.slotBase = {};
+    slotList.forEach(function (s) { model.slotBase[s.id] = slotBaseline(s, repl); });
     var startersByGroup = {};
     teams.forEach(function (t) {
-      var best = bestLineup(teamRows(t, values, L), repl, L, rule);
+      var best = bestLineup(teamRows(t, values, L), repl, L, rule, slotList);
       var strength = {}, count = {};
       GROUPS.forEach(function (g) { strength[g] = 0; count[g] = 0; });
       best.starters.forEach(function (s) {
@@ -188,7 +303,7 @@
       tm.need = {};
       GROUPS.forEach(function (g) {
         var hyp = { id: "HYP:" + g, pos: g, v: model.typical[g] };
-        var with_ = bestLineup(teamRows(tm.team, values, L, null, [hyp]), repl, L, rule).total;
+        var with_ = bestLineup(teamRows(tm.team, values, L, null, [hyp]), repl, L, rule, slotList).total;
         tm.need[g] = round1(Math.max(0, with_ - tm.total));
       });
     });
@@ -218,7 +333,7 @@
   function addGain(model, fid, player) {
     var tm = model.teams[fid];
     var row = { id: player.pid, pos: player.pos, v: num(model.values[player.pid]) || 0 };
-    return bestLineup(teamRows(tm.team, model.values, model.lineup, null, [row]), model.repl, model.lineup, model.lineupRule).total - tm.total;
+    return bestLineup(teamRows(tm.team, model.values, model.lineup, null, [row]), model.repl, model.lineup, model.lineupRule, model.slots).total - tm.total;
   }
 
   // Team `fid`'s lineup after it sends `out` (pid) and receives `inPlayer` ({pid,pos}).
@@ -226,7 +341,7 @@
     var tm = model.teams[fid];
     var ex = {}; ex[outPid] = 1;
     var row = { id: inPlayer.pid, pos: inPlayer.pos, v: num(model.values[inPlayer.pid]) || 0 };
-    return bestLineup(teamRows(tm.team, model.values, model.lineup, ex, [row]), model.repl, model.lineup, model.lineupRule);
+    return bestLineup(teamRows(tm.team, model.values, model.lineup, ex, [row]), model.repl, model.lineup, model.lineupRule, model.slots);
   }
   function swapGain(model, fid, outPid, inPlayer) {
     return swapLineup(model, fid, outPid, inPlayer).total - model.teams[fid].total;
@@ -308,6 +423,7 @@
     GROUPS: GROUPS, REPLACEMENT_RANK_BY_GROUP: REPLACEMENT_RANK_BY_GROUP, REP_DEPTH: REP_DEPTH,
     UNAVAILABLE_CHIPS: UNAVAILABLE_CHIPS, FIT_EXCLUDED_GROUPS: FIT_EXCLUDED_GROUPS,
     availableNow: availableNow, replacementLevels: replacementLevels, bestLineup: bestLineup,
+    deriveSlots: deriveSlots, fillSlots: fillSlots, slotBaseline: slotBaseline, SLOT_ROW: SLOT_ROW,
     buildLeague: buildLeague, pairFits: pairFits, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, addGain: addGain
   };
   if (typeof window !== "undefined") window.UPS_TRADE_FIT = api;

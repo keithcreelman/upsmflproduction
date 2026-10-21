@@ -1073,7 +1073,7 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
 .fo-ov-empty { color: var(--muted); font-size: 13px; margin: 4px 0; }
 .fo-ov-sub { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
 .fo-ov-via { color: var(--muted); font-size: 11px; }
-.fo-ov-bar { display: grid; grid-template-columns: 56px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
+.fo-ov-bar { display: grid; grid-template-columns: 68px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
 .fo-ov-bar-lbl { color: var(--muted); font-weight: 600; }
 .fo-ov-bar-track { position: relative; height: 10px; background: var(--panel-alt); border-radius: 3px; }
 .fo-ov-bar-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); opacity: 0.6; }
@@ -1084,7 +1084,14 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
 .fo-ov-bar-total .fo-ov-bar-lbl, .fo-ov-bar-total .fo-ov-bar-val { color: var(--text); font-weight: 700; }
 .fo-ov-bar-minor { opacity: 0.7; }
 .fo-ov-rep { color: var(--warn); font-weight: 700; margin-left: 1px; }
-.fo-ls-views { margin: 0 0 8px; }
+.fo-ls-views, .fo-ls-by { margin: 0 0 8px; flex-wrap: wrap; }
+.fo-ls-by .fo-subview-chip { font-weight: 600; }
+.fo-ls-views .fo-subview-chip { padding: 4px 10px; }
+.fo-ls-actual { margin: 0 0 2px; font-size: 13px; }
+.fo-ls-mix { margin: 4px 0 8px; font-size: 12px; }
+.fo-ls-mix th, .fo-ls-mix td { padding: 2px 6px; }
+.fo-ls-flex { font-size: 12px; margin: 3px 0; }
+.fo-ls-issues { font-size: 12px; margin: 6px 0; color: var(--warn); }
 /* Cap card: four lines; the first two open their ledgers. */
 .fo-ov-cap { display: grid; gap: 1px; }
 .fo-ov-capline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; padding: 3px 0; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; }

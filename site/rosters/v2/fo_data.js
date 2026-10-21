@@ -63,6 +63,20 @@
     byes: function () { return getJson(mflExport("nflByeWeeks")).then(function (j) { if (!mflOk(j)) throw new Error("MFL byes unreadable"); return j; }); },
     tradeBait: function () { return getJson(mflExport("tradeBait", { INCLUDE_DRAFT_PICKS: 1 })).then(function (j) { if (!mflOk(j)) throw new Error("MFL trade bait unreadable"); return j; }); },
     picks: function () { return getJson(mflExport("futureDraftPicks")).then(function (j) { if (!mflOk(j)) throw new Error("MFL draft picks unreadable"); return j; }); },
+    // MFL's league settings: the starter ranges the lineup slots come from (trade_fit deriveSlots).
+    league: function () {
+      return getJson(mflExport("league")).then(function (j) {
+        if (!mflOk(j) || !j.league || !j.league.starters) throw new Error("MFL league settings unreadable");
+        return j;
+      });
+    },
+    // Every franchise's submitted lineup, every week so far (one read; starter_mix.js keeps completed weeks only).
+    weeklyResults: function () {
+      return getJson(mflExport("weeklyResults", { W: "YTD" })).then(function (j) {
+        if (!mflOk(j) || !(j.allWeeklyResults || j.weeklyResults)) throw new Error("MFL weekly results unreadable");
+        return j;
+      });
+    },
     transactions: function () { return getJson(mflExport("transactions")).then(function (j) { if (!mflOk(j)) throw new Error("MFL transactions unreadable"); return j; }); },
     waiverAvailability: function () { return getJson(worker("/api/waivers/availability")); },
     waiverState: function () { return getJson(worker("/api/waivers/state", null, true)); },

@@ -1,4 +1,4 @@
-/* Lineup strength vs the league — one table, four views (#1338). Pure: no fetch, no DOM.
+/* Lineup strength vs the league — two breakdowns of one lineup, four measures (#1338). Pure: no fetch, no DOM.
 
    ONE CALCULATION, SHARED WITH THE TRADE FINDER (Keith 2026-10-21). The table
    reads the lineups site/shared/trade_fit.js builds — the same model object
@@ -13,28 +13,45 @@
    rule, where a replacement competes for every slot — gives the before/after
    comparison; no screen uses it.)
 
-   ROWS. A position row holds the starters whose position is that group,
-   wherever they start (Flex, SuperFlex and D-Flex count for the player's own
-   position). OVERALL is all 18 slots, every required starter, so positions
-   weigh by the points they actually score (not an average of the rows).
+   TWO BREAKDOWNS of that one lineup (Keith 2026-10-21):
+     position  (By Position, the default) a row holds the starters whose
+               natural position is that group, wherever they start: a TE in
+               Flex counts under TE. These are the Trade finder's numbers.
+     slot      (By Lineup Slot) the same starters by the slot they fill in
+               MFL's lineup settings (trade_fit deriveSlots): QB, RB, WR, TE,
+               Flex, Superflex, DL, LB, DB, IDP Flex, K, P. A second TE who
+               starts is in Flex; a second QB is in Superflex. It never builds
+               another lineup: it reads trade_fit's own slot assignment.
+   Every starter is in exactly one row of each breakdown, and OVERALL is all the
+   required slots, so a breakdown's rows add up to Overall (PPG, and points
+   above replacement). Overall PPG, Rank and Index are the same in both.
 
-   VIEWS, all per row, all over the same 12 lineups:
-     above     starters' PPG above replacement (Σ PPG − the replacement PPG for
-               each starter) MINUS the league median of that — the original
-               chart (trade_fit strength / vsMedian).
-     ppg       starters' points per week (Σ PPG).
+   MEASURES, all per row, all over the same 12 lineups:
+     ppg       (PPG, the default) starters' points per week (Σ PPG).
+     rank      1st–12th by ppg (ties share the better rank).
+     above     (Above Replacement) starters' PPG above the applicable
+               replacement baseline, MINUS the league median of that (0 = the
+               middle team; trade_fit strength / vsMedian). By Position the
+               baseline is the starter's own position's replacement free
+               agent. By Lineup Slot it is the slot's: the best replacement-level
+               free agent the slot accepts (Flex from RB/WR/TE, Superflex from
+               QB/RB/WR/TE; trade_fit slotBaseline). So Overall above
+               replacement can differ between the breakdowns when a Flex or
+               Superflex starter's slot baseline differs from his position's.
      index     ppg ÷ the 12-team mean ppg × 100 (100 = league average).
-     rank      1–12 by ppg (ties share the better rank).
    NEED and the league's typical starter are trade_fit's own (model.teams[].need,
-   model.typical).
+   model.typical) and always by natural position: that is the trade to make.
 */
 (function () {
   "use strict";
 
   var POSITIONS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"];
   var ROWS = ["ALL"].concat(POSITIONS);
-  var LABELS = { ALL: "Overall", QB: "QB", RB: "RB", WR: "WR", TE: "TE", DL: "DL", LB: "LB", DB: "DB", PK: "K", PN: "P" };
-  var VIEWS = ["above", "ppg", "index", "rank"];
+  var SLOT_ORDER = ["QB", "RB", "WR", "TE", "FLEX", "SFLEX", "DL", "LB", "DB", "DFLEX", "PK", "PN"];
+  var LABELS = { ALL: "Overall", QB: "QB", RB: "RB", WR: "WR", TE: "TE", DL: "DL", LB: "LB", DB: "DB", PK: "K", PN: "P",
+    FLEX: "Flex", SFLEX: "Superflex", DFLEX: "IDP Flex" };
+  var VIEWS = ["ppg", "rank", "above", "index"];
+  var BREAKDOWNS = ["position", "slot"];
 
   function median(list) {
     var a = list.filter(function (x) { return x != null && isFinite(x); }).sort(function (x, y) { return x - y; });
@@ -51,27 +68,40 @@
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   }
 
-  // model = UPS_TRADE_FIT.buildLeague(...). Returns the table every view reads; population = the model's lineup rule.
-  function build(model) {
+  // The rows of the slot breakdown: the slot rows MFL's settings have, in display order.
+  function slotRows(model) {
+    var have = {};
+    ((model && model.slots) || []).forEach(function (s) { if (s.row) have[s.row] = 1; });
+    return ["ALL"].concat(SLOT_ORDER.filter(function (r) { return have[r]; }));
+  }
+
+  // model = UPS_TRADE_FIT.buildLeague(...); opts.by = "position" (default) | "slot". Returns the table every measure
+  // reads; population = the model's lineup rule.
+  function build(model, opts) {
+    var by = opts && opts.by === "slot" ? "slot" : "position";
     var order = (model && model.order) || [];
+    var rows = by === "slot" ? slotRows(model) : ROWS.slice();
+    var slotById = {};
+    ((model && model.slots) || []).forEach(function (s) { slotById[s.id] = s; });
     var teams = {};
     order.forEach(function (fid) {
       var tm = model.teams[fid], lu = tm.best;
       var row = {};
-      ROWS.forEach(function (r) { row[r] = { ppg: 0, above: 0, starters: 0, replacementStarters: 0 }; });
+      rows.forEach(function (r) { row[r] = { ppg: 0, above: 0, starters: 0, replacementStarters: 0 }; });
       row.replacementSlots = [];
       (lu.starters || []).forEach(function (s) {
-        if (s.rep) row.replacementSlots.push({ slot: s.slot, group: s.group, v: s.v });
-        var g = s.group;
-        var base = g && model.repl[g] ? (model.repl[g][0] || 0) : 0;
+        if (s.rep) row.replacementSlots.push({ slot: s.slot, group: s.group, slotRow: s.slotRow || "", v: s.v });
+        var g = s.group, slot = slotById[s.slot];
+        var key = by === "slot" ? (slot && slot.row) : g;
+        var base = by === "slot" ? ((model.slotBase || {})[s.slot] || 0) : (g && model.repl[g] ? (model.repl[g][0] || 0) : 0);
         row.ALL.ppg += s.v || 0;
         row.ALL.starters += 1;
         if (s.rep) row.ALL.replacementStarters += 1;
-        if (!g || !row[g]) return;               // an empty slot: counted in Overall at 0, in no position row
-        row[g].ppg += s.v || 0;
-        row[g].above += (s.v || 0) - base;
-        row[g].starters += 1;
-        if (s.rep) row[g].replacementStarters += 1;
+        if (!g || !key || !row[key]) return;     // an empty slot: counted in Overall at 0, in no other row
+        row[key].ppg += s.v || 0;
+        row[key].above += (s.v || 0) - base;
+        row[key].starters += 1;
+        if (s.rep) row[key].replacementStarters += 1;
         row.ALL.above += (s.v || 0) - base;
       });
       row.need = {};
@@ -81,13 +111,13 @@
       teams[fid] = row;
     });
     var league = {};
-    ROWS.forEach(function (r) {
+    rows.forEach(function (r) {
       var ppgs = order.map(function (fid) { return teams[fid][r].ppg; });
       var aboves = order.map(function (fid) { return teams[fid][r].above; });
       league[r] = { meanPpg: mean(ppgs), medianAbove: median(aboves), n: order.length };
     });
     order.forEach(function (fid) {
-      ROWS.forEach(function (r) {
+      rows.forEach(function (r) {
         var c = teams[fid][r], L = league[r];
         c.vsMedian = c.above - (L.medianAbove || 0);
         c.index = L.meanPpg ? c.ppg / L.meanPpg * 100 : null;
@@ -95,13 +125,13 @@
       });
     });
     // Each view's league-wide spread per row, so a bar shows where a team sits among the 12 in THAT row.
-    ROWS.forEach(function (r) {
+    rows.forEach(function (r) {
       var L = league[r];
       L.maxAbsVsMedian = Math.max.apply(null, order.map(function (fid) { return Math.abs(teams[fid][r].vsMedian); }).concat([1e-9]));
       L.maxAbsIndexDev = Math.max.apply(null, order.map(function (fid) { var x = teams[fid][r].index; return x == null ? 0 : Math.abs(x - 100); }).concat([1e-9]));
     });
-    return { population: (model && model.lineupRule) || "owned", rows: ROWS.slice(), labels: LABELS, order: order.slice(), teams: teams, league: league,
-      typical: (model && model.typical) || {}, slots: (model && model.lineup && model.lineup.LINEUP_SLOTS ? model.lineup.LINEUP_SLOTS.length : null) };
+    return { population: (model && model.lineupRule) || "owned", by: by, rows: rows, labels: LABELS, order: order.slice(), teams: teams, league: league,
+      typical: (model && model.typical) || {}, slots: (model && model.slots ? model.slots.length : null), slotSource: (model && model.slotSource) || null };
   }
 
   // One row of one team in one view → { text, frac (−1…1 for the bar), title }.
@@ -125,11 +155,11 @@
     }
     var v = Math.round(c.vsMedian * 10) / 10;
     return { text: (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1), frac: clamp(c.vsMedian / L.maxAbsVsMedian),
-      title: "Points a week above replacement, minus the league median" };
+      title: (table.by === "slot" ? "Points a week above the slot’s replacement free agent" : "Points a week above replacement") + ", minus the league median (0 = the middle team)" };
   }
   function clamp(x) { return !isFinite(x) ? 0 : Math.max(-1, Math.min(1, x)); }
 
-  var api = { ROWS: ROWS, POSITIONS: POSITIONS, LABELS: LABELS, VIEWS: VIEWS, build: build, cell: cell, ordinal: ordinal, mean: mean, median: median };
+  var api = { ROWS: ROWS, POSITIONS: POSITIONS, SLOT_ORDER: SLOT_ORDER, LABELS: LABELS, VIEWS: VIEWS, BREAKDOWNS: BREAKDOWNS, build: build, slotRows: slotRows, cell: cell, ordinal: ordinal, mean: mean, median: median };
   if (typeof window !== "undefined") window.UPS_LINEUP_STRENGTH = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })();
