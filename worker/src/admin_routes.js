@@ -112,6 +112,7 @@ export const ADMIN_ROUTES = {
   "/admin/tag-ingest": ["POST"],
   "/admin/taxi-callups/sync-weeks": ["POST"],
   "/admin/test-sync/prod-rosters": ["POST"],
+  "/admin/trade-lock/reconcile": ["POST"],
   "/admin/trade-offers/live-mfl-inventory": ["GET"],
   "/admin/trade-offers/pending-ids": ["GET"],
   "/admin/trade-sentinel/test-battery": ["POST"],
