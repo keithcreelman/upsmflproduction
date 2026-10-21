@@ -1389,7 +1389,13 @@
     var max = callup ? (U.safeInt(callup.max, 3) || 3) : 3;
     var totalSpent = used + pending;
     var ctx = "";
-    if (action === "promote_taxi") {
+    if (action === "promote_taxi" && DATA.taxiCallupsKnown && !DATA.taxiCallupsKnown()) {
+      // Counts not read (yet, or at all): say so — "0 of 3" here could talk an
+      // owner into a 4th call-up, which is a permanent promotion.
+      ctx =
+        "\n\nCall-ups used: unknown — the count couldn't be loaded." +
+        "\nA 4th call-up is a PERMANENT PROMOTION. Check the count on My Team → Taxi first.";
+    } else if (action === "promote_taxi") {
       var aboutToBeNth = totalSpent + 1;
       var usedLine =
         "\n\nCall-ups used: " + used + " of " + max +
@@ -2694,6 +2700,10 @@
       });
     }
     if (activeTab === "stats") {
+      // Earlier seasons' PPG rank and the fallback rows come from the stats
+      // leaderboards: read the first time any Stats tab opens (shared, kept for
+      // the app load); ups-advanced-stats-ready repaints this tab.
+      if (DATA.ensureAdvancedStats) DATA.ensureAdvancedStats();
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats">' +
           // MFL points don't wait for the bundle (it only adds earlier seasons'
@@ -2886,6 +2896,14 @@
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
 
+    // The Drop label, the contract-money block and the taxi buttons read the
+    // penalty batch and the call-up counts, which the app no longer reads at
+    // boot: one shared request per app load (app.js lazyRead). They repaint
+    // this sheet when they land (listeners below). The leaderboards wait for
+    // the Stats tab (renderTabBody).
+    if (DATA.ensureCapPenaltyPreview) DATA.ensureCapPenaltyPreview();
+    if (DATA.ensureTaxiCallups) DATA.ensureTaxiCallups();
+
     var player = DATA.playerById(pid);
     var name = fmtPlayerName(player && player.name);
     var pos = U.safeStr(player && player.position);
@@ -2986,11 +3004,29 @@
     });
   }
 
-  // The cap batch can land after the sheet opened (boot still loading): repaint
-  // the contract block so "Loading…" turns into the worker's numbers.
+  // The cap batch lands after the sheet opened (open() asks for it): repaint
+  // the contract block so "Loading…" turns into the worker's numbers, and the
+  // footer so the Drop label stops saying "est." (not while a trade-bait note
+  // is being typed there).
   window.addEventListener("ups-cap-penalty-ready", function () {
     var ov = document.getElementById("ups-m-sheet-overlay");
-    if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
+    if (!ov || !ov.classList.contains("open")) return;
+    if (activeTab === "actions") renderTabBody();
+    if (!footerState.editingOtb) rerenderFooter();
+  });
+
+  // The taxi call-up counts landed: the Demote / Promote buttons depend on them.
+  window.addEventListener("ups-taxi-callups-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (!ov || !ov.classList.contains("open")) return;
+    if (activeTab === "actions") renderTabBody();
+    if (!footerState.editingOtb) rerenderFooter();
+  });
+
+  // The stats leaderboards landed (the Stats tab asked): earlier seasons' rows.
+  window.addEventListener("ups-advanced-stats-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (ov && ov.classList.contains("open") && activeTab === "stats") renderTabBody();
   });
 
   // The availability answer landed or changed (app.js fetchWaiverAvailability):

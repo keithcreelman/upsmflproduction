@@ -164,6 +164,7 @@
   //   unavailable  MFL's scoring didn't load (or came back unreadable) → say
   //                so; no substitute number.
   var SSMOD = window.UPS_MOBILE_SEASON_SCORING || null;
+  var priorBoardWaiting = false;   // the market drew "loading last season's totals" (pointsBasis)
   function seasonScoring() { return DATA.getSeasonScoring ? DATA.getSeasonScoring() : null; }
   function pointsBasis() {
     var ss = seasonScoring();
@@ -171,6 +172,15 @@
     if (ss && ss.known) {
       var cur = U.safeInt(M.state.ctx && M.state.ctx.year, 0);
       var priorYear = cur - 1;
+      // Last season's board is a stats leaderboard, which the app reads only
+      // when a screen needs it: ask (one shared request per app load; a failed
+      // read is asked again after 30 s), and say it is loading rather than
+      // "no points" until it lands. The listener below repaints the market.
+      if (DATA.ensureAdvancedStats) DATA.ensureAdvancedStats();
+      if (DATA.advancedStatsKnown && !DATA.advancedStatsKnown()) {
+        priorBoardWaiting = true;
+        return { kind: "none", ss: ss, loading: true };
+      }
       var priorMap = DATA.getAdvancedStatsMap ? DATA.getAdvancedStatsMap(priorYear) : null;
       // A current-year leaderboard can contain preseason rows even before MFL
       // posts a score. Read the previous year explicitly, never infer it from
@@ -963,6 +973,8 @@
       if (asOf) txt += " · MFL as of " + asOf;
     } else if (b.kind === "prior") {
       txt = "No " + cur + " scores posted yet — points are " + b.year + " season totals";
+    } else if (b.kind === "none" && b.loading) {
+      txt = "No " + cur + " scores posted yet — loading last season's totals…";
     } else if (b.kind === "none") {
       txt = "No " + cur + " scores posted yet — no points to show";
     } else {
@@ -3071,6 +3083,20 @@
     window.addEventListener("ups-waiver-availability", function () {
       if (document.getElementById("ups-m-claims-overlay")) renderClaimsScreen({ keepScroll: true });
     });
+    // The drop-penalty batch is read when the market opens (render), not at
+    // boot. If a drop picker beat it to the screen, rebuild the picker with the
+    // worker's numbers (a list of buttons — nothing typed is lost).
+    window.addEventListener("ups-cap-penalty-ready", function () {
+      if (dropPicker && document.getElementById("ups-m-drop-overlay")) { var o = dropPicker; openDropPicker(o); }
+    });
+    // Last season's board landed while the market said "loading" (preseason
+    // only — pointsBasis). Repaint only then, so a Stats tab opened over the
+    // market doesn't reset the list underneath it.
+    window.addEventListener("ups-advanced-stats-ready", function () {
+      if (!priorBoardWaiting) return;
+      priorBoardWaiting = false;
+      if (String(M.route.currentRoute() || "").split("/")[0] === "players") M.route.renderRoute();
+    });
   }
 
   // ══ Public surface for the other mobile views ══════════════════════════
@@ -3389,6 +3415,9 @@
     // .catch inside M.lineupIntel, so nothing here is gated on them — a dead
     // worker just means no extra line and no window toggles.
     clampControls();   // this render's effective period + sort; the owner's choices are kept
+    // Claims and their drop pickers price drops from the penalty batch, which
+    // the app no longer reads at boot: one shared request per app load.
+    if (DATA.ensureCapPenaltyPreview) DATA.ensureCapPenaltyPreview();
     // FCFS: this week's kickoffs decide Add now vs Locked (lineup.js caches them).
     if (waiverModeInfo().mode === "fcfs" && M.lineupIntel && M.lineupIntel.kickoffs) M.lineupIntel.kickoffs.load();
     refreshScoresIfStale();
