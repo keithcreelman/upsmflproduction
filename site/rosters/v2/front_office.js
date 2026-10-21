@@ -2663,6 +2663,10 @@
       injury: function (p) { return injuryResFor(p); },
       openPlayer: function (pid, fid, subtab) { openSlideover(String(pid), pad4(fid), subtab); },
       show: function (section) { showSection(section); },
+      // The rows the Roster table shows under the current team / position / type / status filters.
+      visibleRows: function () { try { return applyFilters(allVisiblePlayers()); } catch (e) { return []; } },
+      groupByPosition: function () { return !!STATE.groupByPosition; },
+      selectedTeam: function () { return STATE.selectedTeamId || "__all__"; },
       warRoomUrl: warRoomUrl,
       leagueEvents: function () { return STATE.leagueEvents || null; },
       extensionDeadline: function (p) { try { return extensionDeadlineForPlayer(p); } catch (e) { return null; } },
@@ -4124,6 +4128,8 @@
       return;
     }
     tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : sorted.map(renderRosterRow).join("");
+    // The Performance column set (fo_roster.js, #1338) shows the same filtered rows.
+    try { document.dispatchEvent(new CustomEvent("fo:roster")); } catch (e) {}
 
     // Wire row clicks — entire row opens the slide-over. Manage button
     // was removed (Keith 2026-05-19: "redundancy, just need a note to

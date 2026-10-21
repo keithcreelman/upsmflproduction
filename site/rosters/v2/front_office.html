@@ -179,17 +179,20 @@
     <div class="fo-card">
       <div class="fo-card-head">
         <h2>Roster</h2>
+        <div class="fo-subview-chips" id="fo-colset" role="group" aria-label="Columns">
+          <button type="button" class="fo-subview-chip active" data-colset="perf" aria-pressed="true" title="MFL points, PPG, rank, next game, projection, bye">Performance</button>
+          <button type="button" class="fo-subview-chip" data-colset="contract" aria-pressed="false" title="Contract terms, guarantee, earned salary and drop penalty">Contract</button>
+        </div>
         <div class="fo-subview-chips" id="fo-group-toggle" role="tablist" aria-label="Roster grouping">
           <button type="button" class="fo-subview-chip" data-group="flat">Flat</button>
           <button type="button" class="fo-subview-chip active" data-group="position">By Position</button>
         </div>
         <span class="small" id="fo-roster-summary">Loading…</span>
       </div>
-      <p class="fo-row-hint">
-        💡 Click any row to open the player's slide-over (Actions · Bio · Stats · Game Log · Contract History · News).
-      </p>
+      <p class="fo-row-hint">Click a player for actions, stats, game log, contract history and news.</p>
       <div id="fo-contract-summary" class="fo-contract-summary"></div>
-      <div class="fo-table-scroll">
+      <div id="fo-perf-wrap" class="fo-perf-wrap"></div>
+      <div class="fo-table-scroll" id="fo-contract-table-wrap">
       <table class="fo-table" id="fo-roster-table">
         <thead>
           <tr>
@@ -366,6 +369,7 @@
 <script src="../../shared/player_profile_master.js?v=2026.10.20.1"></script>
 <script src="fo_hub.js?v=2026.10.20.2"></script>
 <script src="fo_overview.js?v=2026.10.20.2"></script>
+<script src="fo_roster.js?v=2026.10.20.1"></script>
 <script src="front_office.js?v=2026.10.20.v1.40.4"></script>
 </body>
 </html>
