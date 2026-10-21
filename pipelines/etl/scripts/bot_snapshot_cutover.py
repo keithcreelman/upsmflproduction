@@ -107,6 +107,9 @@ class Ops:
     def __init__(self, cfg: Config):
         self.cfg = cfg
 
+    def fetch(self, checkout: Path) -> None:
+        git(checkout, "fetch", "--quiet", self.cfg.remote, self.cfg.branch)
+
     def bot_pid(self) -> int:
         out = subprocess.run(["launchctl", "list"], capture_output=True, text=True).stdout
         for line in out.splitlines():
@@ -255,7 +258,7 @@ class Cutover:
         if git(co, "status", "--porcelain", "--untracked-files=no"):
             raise Stop("dirty", "the bot checkout has tracked changes; it is never pulled over them")
         try:
-            git(co, "fetch", "--quiet", self.cfg.remote, self.cfg.branch)
+            self.ops.fetch(co)
         except RuntimeError as exc:
             raise Stop("fetch", str(exc))
         return git(co, "rev-parse", f"{self.cfg.remote}/{self.cfg.branch}")

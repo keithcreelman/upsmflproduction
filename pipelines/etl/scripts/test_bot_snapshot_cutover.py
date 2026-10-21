@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The bot's snapshot cutover and the held-trade retry (Keith 2026-10-21, companion to #1357).
 
-bot_snapshot_cutover.py runs on throwaway git repositories (a bare "origin" and the bot's
-"checkout"), with a fake bot process: restart = a new pid, a "Trade polling started" log line
+bot_snapshot_cutover.py runs on a throwaway git repository: the bot's "checkout", whose
+refs/remotes/origin/main the test advances from a worktree (the safe suite allows no clone, fetch
+or push, so Ops.fetch is a no-op here), with a fake bot process: restart = a new pid, a "Trade polling started" log line
 and a heartbeat with that pid and commit. Each stage's failure is shown to leave the checkout,
 the runtime state and the running bot as they were (or restored) and to alert naming the stage.
 held_trades.py and the bot's retry hook are shown to retry a held trade exactly once, only on a
@@ -53,6 +54,9 @@ class FakeOps(bc.Ops):
         self.live_weeks, self.suite_rc, self.restart_works = live_weeks, 0, True
         self.fail_validate_in = set()            # "worktree" | "checkout"
 
+    def fetch(self, checkout):
+        pass                                     # the test moves refs/remotes/origin/main itself
+
     def bot_pid(self):
         return self.pid
 
@@ -95,48 +99,45 @@ class FakeOps(bc.Ops):
 class Env:
     def __init__(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="cutover-test-")).resolve()
-        self.origin = self.tmp / "origin.git"
-        seed = self.tmp / "seed"
-        seed.mkdir()
-        sh(seed, "init", "-q", "-b", "main")
-        (seed / "data/valuation").mkdir(parents=True)
-        (seed / bc.SNAPSHOT).write_text(snap("2026-10-20", 6))
-        (seed / bc.SCRIPTS).mkdir(parents=True)
-        (seed / bc.SCRIPTS / "trade_roast_bot.py").write_text("import held_trades\nimport trade_grader\n")
-        (seed / bc.SCRIPTS / "held_trades.py").write_text("X = 1\n")
-        (seed / bc.SCRIPTS / "trade_grader.py").write_text("import valuation_snapshot\n")
-        (seed / bc.SCRIPTS / "valuation_snapshot.py").write_text("Y = 1\n")
-        (seed / bc.SCRIPTS / "unrelated_report.py").write_text("Z = 1\n")
-        (seed / "README.md").write_text("seed\n")
-        (seed / ".gitignore").write_text("pipelines/etl/data/\n")
-        sh(seed, "add", "-A")
-        sh(seed, "commit", "-q", "-m", "seed")
-        sh(self.tmp, "clone", "-q", "--bare", str(seed), str(self.origin))
-        self.checkout = self.tmp / "checkout"
-        sh(self.tmp, "clone", "-q", str(self.origin), str(self.checkout))
-        self.dev = self.tmp / "dev"
-        sh(self.tmp, "clone", "-q", str(self.origin), str(self.dev))
-        data = self.checkout / "pipelines/etl/data"
+        self.checkout = co = self.tmp / "checkout"
+        co.mkdir()
+        sh(co, "init", "-q", "-b", "main")
+        (co / "data/valuation").mkdir(parents=True)
+        (co / bc.SNAPSHOT).write_text(snap("2026-10-20", 6))
+        (co / bc.SCRIPTS).mkdir(parents=True)
+        (co / bc.SCRIPTS / "trade_roast_bot.py").write_text("import held_trades\nimport trade_grader\n")
+        (co / bc.SCRIPTS / "held_trades.py").write_text("X = 1\n")
+        (co / bc.SCRIPTS / "trade_grader.py").write_text("import valuation_snapshot\n")
+        (co / bc.SCRIPTS / "valuation_snapshot.py").write_text("Y = 1\n")
+        (co / bc.SCRIPTS / "unrelated_report.py").write_text("Z = 1\n")
+        (co / "README.md").write_text("seed\n")
+        (co / ".gitignore").write_text("pipelines/etl/data/\n/dev/\n")
+        sh(co, "add", "-A")
+        sh(co, "commit", "-q", "-m", "seed")
+        sh(co, "update-ref", "refs/remotes/origin/main", "HEAD")
+        self.dev = self.tmp / "dev"                      # where "main on GitHub" gets new commits
+        sh(co, "worktree", "add", "-q", "-b", "upstream", str(self.dev), "HEAD")
+        data = co / "pipelines/etl/data"
         data.mkdir(parents=True)
         (data / "last_trade_timestamp.txt").write_text("1791320240")
         (data / "roast_tracker.json").write_text('{"m1": {"trade": 1}}')
         (data / "held_trades_no_grade.json").write_text("[]")
-        (self.checkout / "local_notes.db").write_bytes(b"untracked runtime file")
-        self.cfg = bc.Config(checkout=self.checkout, state_dir=self.tmp / "state", bot_log=self.tmp / "bot.log",
+        (co / "local_notes.db").write_bytes(b"untracked runtime file")
+        self.cfg = bc.Config(checkout=co, state_dir=self.tmp / "state", bot_log=self.tmp / "bot.log",
                              heartbeat=self.tmp / "heartbeat.json", restart_timeout=1, held_wait=0)
         self.ops = FakeOps(self.cfg)
         self.job = bc.Cutover(self.cfg, self.ops)
 
     def publish(self, files: dict, msg="update"):
-        sh(self.dev, "pull", "-q", "--ff-only")
         for rel, text in files.items():
             p = self.dev / rel
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(text)
         sh(self.dev, "add", "-A")
         sh(self.dev, "commit", "-q", "-m", msg)
-        sh(self.dev, "push", "-q", "origin", "main")
-        return sh(self.dev, "rev-parse", "HEAD")
+        tip = sh(self.dev, "rev-parse", "HEAD")
+        sh(self.checkout, "update-ref", "refs/remotes/origin/main", tip)   # = a push + the job's fetch
+        return tip
 
     def head(self):
         return sh(self.checkout, "rev-parse", "HEAD")
@@ -161,7 +162,7 @@ class Cutover(unittest.TestCase):
         self.assertEqual(self.e.runtime(), self.start_runtime)
         self.assertEqual(self.e.ops.restarts, restarts)
         self.assertEqual(self.e.ops.alerts[-1][0], stage)
-        self.assertEqual(sh(self.e.checkout, "worktree", "list").count("\n"), 0)   # temp worktree removed
+        self.assertEqual(sh(self.e.checkout, "worktree", "list").count("\n"), 1)   # only dev: temp worktree removed
 
     def test_week_7_snapshot_reaches_the_bot_and_a_second_run_does_nothing(self):
         target = self.e.publish({bc.SNAPSHOT: snap("2026-10-27", 7)}, "data(valuation): week 7")
@@ -178,7 +179,8 @@ class Cutover(unittest.TestCase):
         again = self.e.job.run()
         self.assertEqual(again["result"], "up_to_date")
         self.assertEqual(self.e.ops.restarts, 1)                              # no unnecessary restart
-        self.assertEqual(sh(self.e.origin, "rev-list", "--count", "main"), "2")   # the job never commits
+        self.assertEqual(sh(self.e.checkout, "rev-list", "--count", "origin/main"), "2")   # the job never commits
+        self.assertEqual(self.e.head(), target)
 
     def test_other_main_commits_without_a_new_snapshot_are_not_pulled(self):
         self.e.publish({"README.md": "docs only\n"})
