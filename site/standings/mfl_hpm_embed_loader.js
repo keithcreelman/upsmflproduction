@@ -115,16 +115,23 @@
   const src = new URL(scriptBaseHtml(script && script.src ? script.src : ""), window.location.href);
   src.searchParams.set("L", L);
   src.searchParams.set("SOURCE_L", SOURCE_L);
+  // The page reads ?year= (and, since Standings v3, ?YEAR= too); send both so an older or newer copy of either file
+  // still opens the right season.
   src.searchParams.set("YEAR", YEAR);
+  src.searchParams.set("year", YEAR);
   if (cacheKey) src.searchParams.set("v", cacheKey);
   iframe.src = src.toString();
+  iframe.setAttribute("title", "UPS Standings");
 
   mount.innerHTML = "";
   mount.appendChild(iframe);
 
+  // The standings page posts { type: "ups-standings-height", height } after each render and on resize, so the
+  // iframe grows and shrinks with its content. Only this iframe's own messages are honored.
   window.addEventListener("message", function (e) {
-    if (e.data && e.data.type === "ups-standings-height" && typeof e.data.height === "number") {
-      iframe.style.height = Math.max(400, e.data.height) + "px";
+    if (e.source && iframe.contentWindow && e.source !== iframe.contentWindow) return;
+    if (e.data && e.data.type === "ups-standings-height" && typeof e.data.height === "number" && isFinite(e.data.height)) {
+      iframe.style.height = Math.max(400, Math.min(20000, Math.ceil(e.data.height))) + "px";
     }
   });
 })();
