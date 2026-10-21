@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.3",
-  "label": "Taxi: one shared eligibility rule; a taxi-eligible player's cut is cap-free wherever he sits; Demote stays available after each temporary call-up."
+  "build": "2026.10.21.4",
+  "label": "Taxi: the 2025 legacy rule (active or IR in any 2025 week = permanent) replaces the old end-of-season rule; from 2026 only tracked call-ups count; owner-facing reasons."
 }
