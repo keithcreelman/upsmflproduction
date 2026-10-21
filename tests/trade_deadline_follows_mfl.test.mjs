@@ -126,6 +126,7 @@ test("GET /api/league-events end to end: MFL's calendar read with the worker ses
   const td = j.events.find((e) => e.event === "ups_trade_deadline");
   t.equal(td && td.date, "2026-11-24"); t.equal(td.time_et, "12:00"); t.equal(td.date_source, "mfl_calendar");
   t.equal(j.trade_lock.label, "Tue, Nov 24, 12:00 PM ET"); t.equal(j.trade_lock.state, "upcoming");
+  t.ok(/^\d{4}-\d{2}-\d{2}T/.test(j.trade_lock.verified_at_utc), "carries when MFL was last read: " + j.trade_lock.verified_at_utc);
   t.ok(/COOKIEVALUE/.test(sentCookie), "read with the worker's MFL session");
   await get();
   t.equal(calendarReads, 1, "a good read is reused for 5 minutes in the isolate (the phone calls this at boot)");

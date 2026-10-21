@@ -2665,6 +2665,7 @@ async function readMflTradeLock(env, season, leagueId, opts = {}) {
     }
   }
   return { ...mflTradeLock(read.events, { nowUnix, icsStarts: read.ics }), upstream_status: read.status,
+    verified_at_utc: new Date(read.at).toISOString(),       // when MFL was last read (the answer can be up to cacheMs old)
     source_url: `https://www48.myfantasyleague.com/${yr}/options?L=${lid}&O=123` };
 }
 
@@ -20581,6 +20582,7 @@ export default {
               state: tradeLock.state, start_unix: tradeLock.start_unix, end_unix: tradeLock.end_unix,
               date_et: tradeLock.date_et || null, time_et: tradeLock.time_et || null, label: tradeLock.label || null,
               events: tradeLock.events, reason: tradeLock.reason || "", source: "mfl_calendar",
+              verified_at_utc: tradeLock.verified_at_utc || null,
             },
           };
 
