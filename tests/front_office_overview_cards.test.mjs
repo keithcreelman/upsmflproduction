@@ -57,4 +57,15 @@ test("Lineup strength: four views, Overall + K + P, original view first; 'Contra
   for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "strengthCard(", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
 });
 
+test("an injury or league-events read that lands before fo:ready doesn't throw (render waits for boot)", () => {
+  t.ok(/function render\(\) \{\s*\/\/[^\n]*\n\s*if \(!H \|\| !FO \|\| !DATA\) return;/.test(SRC), "render is guarded");
+  let threw = null;
+  try { ctx.document.listeners = null; } catch (e) {}
+  const c2 = vm.createContext({ document: { _l: {}, addEventListener(n, f) { (this._l[n] = this._l[n] || []).push(f); }, getElementById() { return { innerHTML: "" }; } }, Intl, Date });
+  c2.window = c2;
+  vm.runInContext(SRC, c2);
+  try { (c2.document._l["fo:injury"] || []).forEach((f) => f()); (c2.document._l["fo:events"] || []).forEach((f) => f()); } catch (e) { threw = e; }
+  t.equal(threw, null, "no TypeError before boot");
+});
+
 await run("front_office_overview_cards");

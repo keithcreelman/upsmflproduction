@@ -104,6 +104,8 @@
   }
 
   function render() {
+    // fo:injury / fo:events can arrive before fo:ready on a slow network; boot renders once the hub is there.
+    if (!H || !FO || !DATA) return;
     var el = document.getElementById("fo-overview-body");
     if (!el) return;
     if (rendering) { queued = true; return; }
