@@ -17,7 +17,7 @@ from trade_grader import (
     load_rosters, load_rollover, load_auction_pool, load_team_caps,
     load_future_picks, load_trade_value_model, fetch_trades, analyze_trade,
     find_comparables, calculate_extension, estimate_production_value,
-    _parse_contract, TRADE_VALUE_MODEL,
+    _parse_contract, TRADE_VALUE_MODEL, rookie_contract_line,
 )
 
 
@@ -767,6 +767,7 @@ def build_trade_roast_context(trade_txn: dict,
             "slot_confidence": slot_confidence,
             "originating_owner_seasons": orig_owner_seasons,
             "value": pk.estimated_value,
+            "contract": rookie_contract_line(pk),  # R1 only; shown, never in the grade
             **rates,  # band, smash_pct, hit_pct, contrib_pct, bust_pct, usable_pct
         }
 
@@ -835,6 +836,40 @@ def build_trade_roast_context(trade_txn: dict,
     return context
 
 
+def render_pick_line(pk: dict) -> str:
+    # Pick line with historical band hit-rates and slot-confidence flag.
+    # smash = elite/star outcome, hit = solid starter, contrib = depth, bust = no impact.
+    # slot_confidence: low → hedge predictions ("could land in 1.05-08 if their
+    # season trajectory holds"); high → assert the band.
+    slot = pk.get("slot")
+    confidence = pk.get("slot_confidence", "unknown")
+    owner_seasons = pk.get("originating_owner_seasons", 0)
+    if slot:
+        if confidence == "high":
+            slot_str = f" (predicted slot {slot}, HIGH confidence — originating owner has {owner_seasons} consistent seasons)"
+        elif confidence == "low":
+            slot_str = f" (predicted slot {slot}, LOW confidence — originating owner only has {owner_seasons} season(s) of data; treat slot as tentative)"
+        else:
+            slot_str = f" (predicted slot {slot}, confidence unknown)"
+    else:
+        slot_str = ""
+    band = pk.get("band", "")
+    smash = pk.get("smash_pct", 0)
+    hit = pk.get("hit_pct", 0)
+    contrib = pk.get("contrib_pct", 0)
+    bust = pk.get("bust_pct", 0)
+    usable = pk.get("usable_pct", 0)
+    rates = ""
+    if band:
+        rates = (f" — historical band {band}: "
+                 f"smash {smash:.0%} / hit {hit:.0%} / "
+                 f"contrib {contrib:.0%} / bust {bust:.0%} / "
+                 f"usable {usable:.0%}")
+    contract = f" — {pk['contract']}" if pk.get("contract") else ""
+    return (f"  - {pk['year']} Round {pk['round']} pick{slot_str}"
+            f" (est. value ${pk['value']:,}){rates}{contract}")
+
+
 def context_to_prompt_text(ctx: dict) -> str:
     """Convert context dict to a readable text block for Claude's prompt."""
     lines = []
@@ -867,37 +902,7 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln(f"NOTE: {dc['owner_name']} ({dc['team_name']}) IS the defending champion — they won {dc['season']}.")
         ln("")
 
-    def render_pick(pk: dict) -> str:
-        # Pick line with historical band hit-rates and slot-confidence flag.
-        # smash = elite/star outcome, hit = solid starter, contrib = depth, bust = no impact.
-        # slot_confidence: low → hedge predictions ("could land in 1.05-08 if their
-        # season trajectory holds"); high → assert the band.
-        slot = pk.get("slot")
-        confidence = pk.get("slot_confidence", "unknown")
-        owner_seasons = pk.get("originating_owner_seasons", 0)
-        if slot:
-            if confidence == "high":
-                slot_str = f" (predicted slot {slot}, HIGH confidence — originating owner has {owner_seasons} consistent seasons)"
-            elif confidence == "low":
-                slot_str = f" (predicted slot {slot}, LOW confidence — originating owner only has {owner_seasons} season(s) of data; treat slot as tentative)"
-            else:
-                slot_str = f" (predicted slot {slot}, confidence unknown)"
-        else:
-            slot_str = ""
-        band = pk.get("band", "")
-        smash = pk.get("smash_pct", 0)
-        hit = pk.get("hit_pct", 0)
-        contrib = pk.get("contrib_pct", 0)
-        bust = pk.get("bust_pct", 0)
-        usable = pk.get("usable_pct", 0)
-        rates = ""
-        if band:
-            rates = (f" — historical band {band}: "
-                     f"smash {smash:.0%} / hit {hit:.0%} / "
-                     f"contrib {contrib:.0%} / bust {bust:.0%} / "
-                     f"usable {usable:.0%}")
-        return (f"  - {pk['year']} Round {pk['round']} pick{slot_str}"
-                f" (est. value ${pk['value']:,}){rates}")
+    render_pick = render_pick_line
 
     def _money(n: int) -> str:
         """Compact dollars: $14K when it's a clean thousand, else $14,000."""

@@ -36,6 +36,7 @@ from trade_grader import (
     # 3-way support: nav / production value for the net-value read, contract
     # parsing for the salary schedule, and the MFL "Last, First" formatter.
     estimate_production_value, nav_player, _parse_contract, display_name,
+    rookie_contract_line,
 )
 from trade_roast_context import (
     build_trade_roast_context, context_to_prompt_text,
@@ -1119,8 +1120,10 @@ def build_multiway_context_text(summary: dict) -> str:
     def render_pick(pk) -> str:
         orig_raw = (getattr(pk, "original_owner", "") or "").strip()
         oname = franchises.get(orig_raw.zfill(4) if orig_raw else "", "unknown")
+        contract = rookie_contract_line(pk)
         return (f"    - {pk.year} Round {pk.round} pick (originally {oname}'s, "
-                f"est. value ${pk.estimated_value:,.0f})")
+                f"est. value ${pk.estimated_value:,.0f})"
+                + (f" — {contract}" if contract else ""))
 
     for fid in order:
         d = fr[fid]
