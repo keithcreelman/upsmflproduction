@@ -1396,6 +1396,9 @@
     @media (max-width: 560px) {
       .fc-wide, .lg-wide { display: none; }
       .lg-narrow-note { display: block; }
+      th, td { padding: 6px 4px; }
+      .seed-cell { grid-template-columns: 20px auto; column-gap: 3px; }
+      .status-chip small { display: none; }   /* "proj.": the note under the table says seeds are projected */
       .fp-row { grid-template-columns: repeat(12, minmax(0, 1fr)); }
       .fp-row .fp-name { grid-column: 1 / -1; padding-top: 4px; }
       .fp-head .fp-name { display: none; }
