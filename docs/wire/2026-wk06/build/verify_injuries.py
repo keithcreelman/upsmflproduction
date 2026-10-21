@@ -121,7 +121,8 @@ txt = re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", seg)))
 txt = re.sub(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{1,2}:\d{2} (AM|PM) ET", " ", txt)
 txt = re.sub(r"Feb 15, 2027|\bWeek \d{1,2}\b|\bWeeks \d+[–-]\d+\b|\b20\d\d\b|\bWR\d|\bRB\d|\bTE\d|\bQB\d|\bDL\d|\bLB\d|\bDB\d", " ", txt)
 shown = set()
-for c in claims.values():
+nar = os.path.join(D, "narrative_claims.json")
+for c in list(claims.values()) + (list(json.load(open(nar)).values()) if os.path.exists(nar) else []):
     for x in re.findall(r"(?<![\w.])[-+−]?\d[\d,]*(?:\.\d+)?", H.unescape(re.sub(r"<[^>]+>", "", str(c["shown"])))):
         shown.add(x.replace(",", "").lstrip("+-−"))
 stray = sorted({x for x in re.findall(r"(?<![\w.])[-+−]?\d[\d,]*(?:\.\d+)?", txt) if x.replace(",", "").lstrip("+-−") not in shown})

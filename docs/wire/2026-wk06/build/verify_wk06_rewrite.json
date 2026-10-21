@@ -1,0 +1,52 @@
+[
+ {
+  "check": "no EDITOR REVIEW text and no data-editor-gap box",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "every automation claim names a source (395 claims)",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "every injury claim names a source (307 claims)",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "every narrative claim names a source (206 claims)",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "every number on the page is a registered claim",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "every printed probability equals the committed forecast (48 cells)",
+  "ok": true,
+  "detail": "[]"
+ },
+ {
+  "check": "segments run story, middle, odds, heat, brief, weeks, players, injuries, survival, elias",
+  "ok": true,
+  "detail": "['story', 'middle', 'odds', 'heat', 'brief', 'weeks', 'players', 'injuries', 'survival', 'elias']"
+ },
+ {
+  "check": "no 'five teams at 9\u20137' wording",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "the wording says exactly four teams at 9\u20137",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "American spelling",
+  "ok": true,
+  "detail": "[]"
+ }
+]
