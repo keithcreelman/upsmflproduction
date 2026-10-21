@@ -615,7 +615,7 @@
       "numbers": [
         {
           "label": "Deadline",
-          "value": "Thanksgiving"
+          "value": "Thanksgiving Day, first kickoff"
         },
         {
           "label": "Cap money",
@@ -1122,9 +1122,9 @@
           "approx": false
         },
         {
-          "when": "Tue Nov 24",
+          "when": "Thu Nov 26",
           "what": "Trade deadline",
-          "detail": "MFL stops accepting trades at 12:00 PM ET (its league calendar). Trading closes until the offseason. Remaining dues are due. Waivers still run, but nobody is trading you out of a hole.",
+          "detail": "Trading closes at kickoff of the first NFL game on Thanksgiving Day, 1:00 PM ET. Closed until the offseason. Remaining dues are due. Waivers still run, but nobody is trading you out of a hole.",
           "approx": false
         },
         {
@@ -1265,7 +1265,7 @@
           ],
           [
             "Trade deadline",
-            "Tue Nov 24, 12:00 PM ET (MFL's calendar)",
+            "Thu Nov 26, 1:00 PM ET (first Thanksgiving Day kickoff)",
             "No trades until the offseason."
           ],
           [
@@ -1286,7 +1286,7 @@
         },
         {
           "label": "Trade deadline",
-          "value": "Tue Nov 24, 12 PM ET"
+          "value": "Thu Nov 26, 1 PM ET"
         },
         {
           "label": "1st missed nomination",

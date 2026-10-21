@@ -21,7 +21,7 @@ function safeStr(v) { return String(v == null ? "" : v).trim(); }
 // The dates the commish fills in. Each value is a wall-clock "YYYY-MM-DDTHH:mm"
 // interpreted in America/New_York (ET) — no stored offset, DST-correct.
 export const AUCTION_CAL_FIELDS = [
-  { key: "trade_deadline_at", label: "Trade deadline",    help: "In-season trade deadline. → MFL TRADE event + app calendar." },
+  { key: "trade_deadline_at", label: "Trade deadline",    help: "Kickoff of the first NFL game on Thanksgiving Day (2026: Nov 26 13:00). → MFL TRADE event + app calendar. Delete any older TRADE event on MFL first: the earliest one is what MFL enforces." },
   { key: "rookie_draft_at",   label: "Rookie draft",      help: "Rookie draft start. → MFL DRAFT_START + app calendar." },
   { key: "era_open_at",       label: "ERA opens",         help: "Expired Rookie Auction opens. → MFL AUCTION_START + app calendar." },
   { key: "era_close_at",      label: "ERA closes",        help: "ERA close (optional). → the ERA AUCTION_START END_TIME." },

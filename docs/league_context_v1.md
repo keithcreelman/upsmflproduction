@@ -262,7 +262,7 @@ Critical: most contract concepts in this canon are **UPS layer constructs** that
 
 ### A6. Trade Acquisition
 
-- **Trade window:** offseason through **NFL Thanksgiving week kickoff** (the trade deadline). Then closed until next offseason.
+- **Trade window:** offseason through the trade deadline. **Trading closes at kickoff of the first NFL game on Thanksgiving Day (2026: Thu Nov 26, 1:00 PM ET).** Then closed until next offseason. MFL enforces it with one "No Trades Allowed" event on its league calendar at that instant. *(Keith 2026-10-21; it was "NFL Thanksgiving week kickoff", which in 2026 is Week 12's Wednesday game.)*
 - **Eligibility:**
   - Players with **1+ years remaining** on contract.
   - **Expired rookies** can be traded up to the extension deadline (date in event log). Other expired contracts cannot be traded.
@@ -881,7 +881,7 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
   - 4-week extension window if player is in final year (automatic; "pre-agreement" verbiage is stale — see Trade War Room module pre-trade extension flow in Section 6.E3).
   - Right to MYM **only if** the player was a recent WW/FCFS pickup AND is still in the 14-day MYM window. The MYM clock continues — does not reset on trade. Trading does NOT automatically make a player MYM-eligible.
   - Cannot extend or MYM a tagged player.
-- **Trade window:** offseason through NFL Thanksgiving week kickoff.
+- **Trade window:** offseason until kickoff of the first NFL game on Thanksgiving Day.
 
 ### T1.8 Rookie Draft Selection
 - **Source:** MFL draft results (`TYPE=draftResults`). Stored in `draftresults_combined`. **Pre-2018** legacy data lives in the local MFL DB as a table.
@@ -1266,7 +1266,7 @@ The UPS league year is a 12-month cycle anchored to the NFL season. **Dates belo
 | **2026-09-09** | **Wed** | **NFL Week 1 kickoff** (corrected from the `event_window_matrix.csv` placeholder — real schedule confirmed live, earliest kickoff unix 1788999600 = 2026-09-09 20:20 ET; Keith 2026-08-07) | `TYPE=nflSchedule&W=1` (live) |
 | **2026-09-24** | **Thu** | **UPS preseason MYM deadline** (= Week 3 kickoff Thu) | `event_window_matrix.csv` |
 | **2026-10-07** | **Wed** | **UPS preseason extension deadline** (day before Week 5 kickoff) | `event_window_matrix.csv` |
-| **2026-11-24** | **Tue** | **MFL stops accepting trades, 12:00 PM ET** — the earliest "No Trades Allowed" event on MFL's league calendar, which MFL enforces to the second (verified on the test league 2026-10-21). The app reads MFL's calendar for this time (`worker/src/trade_deadline.js`). Rule reconciliation pending (Keith 2026-10-21). | MFL League Calendar |
+| **2026-11-26** | **Thu** | **UPS trade deadline, 1:00 PM ET**: kickoff of the first NFL game on Thanksgiving Day (CHI @ DET). MFL's one "No Trades Allowed" event is at this instant (Unix 1795716000); the app reads MFL's calendar for it (`worker/src/trade_deadline.js`). | MFL League Calendar |
 
 ### NFL Week kickoffs (decoded from `ups_options_widget_schedule_2026.json`)
 
@@ -1285,7 +1285,7 @@ The UPS league year is a 12-month cycle anchored to the NFL season. **Dates belo
 | 9 | Thu | 2026-11-05 |
 | 10 | Thu | 2026-11-12 |
 | 11 | Thu | 2026-11-19 |
-| 12 | Thu | **2026-11-26** (Thanksgiving — trade deadline) |
+| 12 | Thu | **2026-11-26** (Thanksgiving: trade deadline at the day's first kickoff, 1:00 PM ET; Week 12 itself opens Wed 11-25) |
 | 13 | Thu | 2026-12-03 |
 | 14 | Thu | 2026-12-10 |
 | 15 | Thu | **2026-12-17** (UPS Playoffs Round 1 starts) |
@@ -1407,7 +1407,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **FA Auction completes** ~early-to-mid August (date TBD; depends on auction format option chosen).
 - **Min roster check (27)** at close.
 - **Waivers open: 1st Thursday after FA Auction completes** (Keith confirmed). BBID runs Thu/Fri/Sat/Sun 9 AM ET. **These pre-season Sundays still immediately re-lock, same as Thu/Fri/Sat — FCFS does NOT open yet.** FCFS itself does not start until NFL Week 1 (Keith 2026-08-13); see §A5 and §B.
-- **League dues: $250 a year, paid in two halves of $125** — the first by FA Auction start, the second by the trade deadline (NFL Thanksgiving week kickoff). The $250 covers both pieces: **$225 into the annual pot plus $25 into the Dynasty Pot** (see §4.B 2026). There is no separate Dynasty Pot collection; it rides along with the two halves.
+- **League dues: $250 a year, paid in two halves of $125** — the first by FA Auction start, the second by the trade deadline (kickoff of the first NFL game on Thanksgiving Day). The $250 covers both pieces: **$225 into the annual pot plus $25 into the Dynasty Pot** (see §4.B 2026). There is no separate Dynasty Pot collection; it rides along with the two halves.
   - **Corrected 2026-08-17 (Keith: "OLD use what we just created at 250").** The split had read "$100 of the $225 annual pot," left over from the $200-dues era — it totalled $200 against a $250 obligation and canon separately admitted it did not know when the remaining $25 was collected. Both gaps close at $125 + $125.
   - Venmo to treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; previously routed through @Keith-Creelman).
 
@@ -1436,7 +1436,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **(UPDATED 2026-05-08)** Earning is now per-completed-week (Section 6.B). The old "end of October = 25%" checkpoint is retired. By the start of Week 5, ~4/17 ≈ 24% of an auction salary is earned.
 
 ### November 2026 → Trade Deadline
-- **2026: MFL stops accepting trades Tue 2026-11-24 at 12:00 PM ET.** That is the earliest "No Trades Allowed" event on MFL's league calendar, and MFL enforces it to the second. No trades until next offseason after it. The app's Home calendar shows the time MFL enforces.
+- **2026-11-26 (Thu) 1:00 PM ET: UPS trade deadline.** Trading closes at kickoff of the first NFL game on Thanksgiving Day (CHI @ DET). No trades until next offseason after it. (Week 12 opens Wed 11-25 8:00 PM; that game is not the deadline.)
 - **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
 - **Second half of league dues — $125 of the $250** — due by the trade deadline. Venmo treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; @Keith-Creelman is no longer the route). *Amount corrected 2026-08-17 — this had read "$100 of the $200 base" from the pre-increase era.*
 
@@ -1504,7 +1504,7 @@ These are MANDATORY league events. Skipping or failing to engage = penalty risk.
 1. **Rookie Draft** (Memorial Day Sunday) — must participate or have proxy
 2. **Free Agent Auction** (last weekend of July) — must nominate exactly 2/day (ET calendar day; a minimum AND a maximum — see §A2), must be reachable
 3. **Lineup submissions** every fantasy week
-4. **League dues payment** — $250/yr, split $125 by FA Auction start and $125 by the trade deadline (Thanksgiving week kickoff)
+4. **League dues payment** — $250/yr, split $125 by FA Auction start and $125 by the trade deadline (first Thanksgiving Day kickoff)
 
 There is **no automatic fine for late dues** — the $3K/week cap fine was retired 2026-08-17 (§T4.4). Non-payment is a commissioner conversation.
 
