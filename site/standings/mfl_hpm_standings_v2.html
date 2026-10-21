@@ -2673,11 +2673,11 @@
     var trs = m.teams.map(function (t, i) {
       var you = VIEWER_FID && t.fid === VIEWER_FID;
       var likely = t.mode != null ? escapeHtml(placeLabel(t.mode)) + ' <span class="fc-dim">' + fcPct(t.place[t.mode]) + '</span>' : '—';
-      var line = i === 5 ? ' class="fc-cut' + (you ? ' you-row' : '') + '"' : (you ? ' class="you-row"' : '');
+      // the top-six line only on the order of average finish: without place counts the order isn't a finish order
+      var line = i === 5 && m.hasDetail ? ' class="fc-cut' + (you ? ' you-row' : '') + '"' : (you ? ' class="you-row"' : '');
       return '<tr' + line + ' data-fid="' + t.fid + '"><td class="num">' + (i + 1) + '</td>'
         + '<td>' + escapeHtml(t.name) + '<span class="owner-sub">' + escapeHtml(t.divName) + '</span>'
-        + '<span class="fc-likely-sub">Most likely ' + likely + '</span></td>'
-        + '<td class="fc-likely">' + likely + '</td>'
+        + (m.hasDetail ? '<span class="fc-likely-sub">Most likely ' + likely + '</span></td><td class="fc-likely">' + likely + '</td>' : '</td>')
         + '<td class="num"><b>' + fcPct(t.po) + '</b></td>'
         + '<td class="num fc-wide">' + fcPct(t.bye) + '</td>'
         + '<td class="num fc-wide">' + fcPct(t.div) + '</td>'
@@ -2686,7 +2686,7 @@
     }).join("");
     var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "No earlier forecast to compare with.";
     return '<h3 class="sec-h">Projected final standings</h3>'
-      + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="Expected place: the average finish over every simulated season">Proj</th><th scope="col">Team</th><th class="fc-likely" scope="col" title="The single most likely finish">Most likely</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
+      + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="' + (m.hasDetail ? 'Expected place: the average finish over every simulated season' : 'Order of projected All-Play %') + '">Proj</th><th scope="col">Team</th>' + (m.hasDetail ? '<th class="fc-likely" scope="col" title="The single most likely finish">Most likely</th>' : '') + '<th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
       + '<div class="note">' + (m.hasDetail ? "Proj = order of average finish (1–6 seeds, then H1–H6); the line marks the top six. " : "Ordered by projected All-Play %. ") + escapeHtml(since) + '</div>';
   }
   function fcPlacesHtml(m) {
