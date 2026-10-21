@@ -31,6 +31,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from trade_grader import (
     fetch_trades, load_franchises, analyze_trade,
     load_players_map, load_rosters, no_grade_report,
+    load_season_state, LEAGUE_SEASON,
     # 3-way support: nav / production value for the net-value read, contract
     # parsing for the salary schedule, and the MFL "Last, First" formatter.
     _parse_contract, display_name,
@@ -53,6 +54,8 @@ from content_engine import (
     generate_trade_roast, classify_reply, generate_clap_back,
     log_value_signal, log_data_error, save_to_archive,
 )
+import held_trades  # noqa: E402
+import valuation_snapshot as _vs  # noqa: E402
 
 # ── Config ─────────────────────────────────────────────────────────────────
 # Channel routing — env-driven, test by default. Set DISCORD_TRADE_CHANNEL_ID
@@ -557,23 +560,68 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
 _GIF_TAG_RE = re.compile(r"\[GIF:\s*([^\]]+?)\s*\]\s*$", re.IGNORECASE | re.MULTILINE)
 
 
-HELD_TRADES_FILE = SCRIPT_DIR.parent / "data" / "held_trades_no_grade.json"
+HELD_TRADES_FILE = held_trades.HELD_TRADES_FILE
 
 
 def hold_no_grade(trade_txn: dict, report: str) -> None:
-    """Record a NO GRADE trade locally (bot log + held file). Never posts."""
+    """Record a NO GRADE trade locally (bot log + held file). Never posts. A trade held
+    again (its one retry was NO GRADE too) updates its entry; it is never added twice."""
     print(f"[{datetime.now()}] {report}")
     try:
-        held = json.loads(HELD_TRADES_FILE.read_text()) if HELD_TRADES_FILE.exists() else []
-    except Exception:
-        held = []
-    held.append({"timestamp": trade_txn.get("timestamp"), "franchise": trade_txn.get("franchise"),
-                 "franchise2": trade_txn.get("franchise2"), "held_at": datetime.now(timezone.utc).isoformat(),
-                 "report": report})
-    try:
-        HELD_TRADES_FILE.write_text(json.dumps(held, indent=1))
+        held_trades.record_hold(trade_txn, report, HELD_TRADES_FILE)
     except Exception as exc:
-        print(f"[{datetime.now()}] could not write {HELD_TRADES_FILE}: {exc}")
+        print(f"[{datetime.now()}] could not record the held trade in {HELD_TRADES_FILE}: {exc}")
+
+
+def _snapshot_failures_now() -> list:
+    """What analyze_trade would refuse right now: the valuation snapshot against MFL's
+    live standings (sync: MFL read; run off-loop)."""
+    state = load_season_state(0)
+    if state.status == "unavailable" and not state.weeks_completed:
+        return [state.reason or "MFL leagueStandings unavailable"]
+    live = state.weeks_completed if (state.status == "in_season" or state.weeks_completed) else None
+    _snap, failures = _vs.load_for_grading(now=time.time(), league_season=LEAGUE_SEASON,
+                                           live_weeks_completed=live)
+    return failures
+
+
+async def retry_held_trades(channel, trades: list) -> list:
+    """Retry each held NO GRADE trade exactly once, after the snapshot validates again
+    (the weekly cutover). Never reads or moves the cursor; marks each entry started
+    before its one attempt (held_trades.py)."""
+    try:
+        todo = held_trades.pending(held_trades.load(HELD_TRADES_FILE))
+    except Exception as exc:
+        print(f"[{datetime.now()}] held trades unreadable, not retried: {exc}")
+        return []
+    if not todo:
+        return []
+    failures = await _in_executor("held-trade freshness check", 60, _snapshot_failures_now)
+    if failures:
+        print(f"[{datetime.now()}] {len(todo)} held trade(s) wait: the valuation snapshot does not "
+              f"validate yet ({'; '.join(str(f) for f in failures)[:300]})")
+        return []
+    by_ts = {str(t.get("timestamp")): t for t in trades}
+    groups = group_multiway_legs(trades)
+    done = []
+    for entry in todo:
+        multiway = entry.get("franchise") == "multiway"
+        found = groups.get(entry.get("franchise2")) if multiway else by_ts.get(str(entry.get("timestamp")))
+        if not found:
+            continue                                   # not in MFL's list right now: stays pending
+        held_trades.mark_started(entry, HELD_TRADES_FILE)     # BEFORE the attempt: at most once
+        try:
+            if multiway:
+                result = await analyze_and_post_multiway(channel, found, entry.get("franchise2"))
+            else:
+                result = await analyze_and_post(channel, found)
+            outcome = "posted" if result else "held_again"
+        except Exception as exc:
+            outcome = f"error: {exc.__class__.__name__}"
+        held_trades.mark_finished(entry, outcome, HELD_TRADES_FILE)
+        print(f"[{datetime.now()}] held trade {entry.get('timestamp')} retried once: {outcome}")
+        done.append((entry.get("timestamp"), outcome))
+    return done
 
 
 def _extract_gif_query(roast_text: str) -> tuple[str, str]:
@@ -829,6 +877,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     print(f"[{datetime.now()}] Posted to #{channel.name} (env={ROAST_BOT_ENV}, "
           f"announcement={announce_msg.id}, thread={thread.id}, "
           f"roast={roast_msg.id}, gif={gif_msg.id if gif_msg else 'none'})")
+    return True
 
 
 # Legacy build_report_block() + split_message() helpers removed in v9 — the
@@ -1635,6 +1684,10 @@ async def poll_for_trades():
                         f"{MAX_TRADE_ATTEMPTS} attempts (last error: {e}). "
                         f"Cursor advanced — no roast was posted for this trade.")
                 break  # retry (or skip) next poll; keep trades in order
+
+        # Held NO GRADE trades get their one retry once the snapshot validates again.
+        # The cursor is not touched: they were already behind it.
+        await retry_held_trades(channel, trades)
 
     except Exception as e:
         msg = str(e)
