@@ -249,7 +249,9 @@ check('13. pre-playoff mobile groups produce 2/2/2/6 with the controlled fixture
 check('14. IN THE HUNT keeps the worker\'s row order — never re-sorted by AP games back', () => {
   const g = RACE.projectedPlayoffGroups(ROWS_2026, []);
   assert.deepStrictEqual(g.inTheHunt.map((e) => e.franchise_id), ['0007', '0008', '0009', '0010', '0011', '0012'], 'the rows\' own order, though 0008 (8 AP wins) sits ahead of 0009 (10)');
-  assert.deepStrictEqual(g.inTheHunt.map((e) => e.apGB), [1, 5, 3, 5, 7, 9], 'games back still shown, from seed 6 (13 AP wins)');
+  // #1329 (Keith 2026-10-20): games back is measured from the LAST WILD CARD, Echo (seed 5, 14 AP wins), never from the
+  // division-winner 6th seed Foxtrot (13): division winners are protected, a team outside chases the wild card.
+  assert.deepStrictEqual(g.inTheHunt.map((e) => e.apGB), [2, 6, 4, 6, 8, 10], 'games back still shown, from the last wild card (14 AP wins)');
   const reversed = ROWS_2026.slice().reverse();
   assert.deepStrictEqual(RACE.projectedPlayoffGroups(reversed, []).inTheHunt.map((e) => e.franchise_id), ['0012', '0011', '0010', '0009', '0008', '0007'], 'whatever order the worker sends');
 });

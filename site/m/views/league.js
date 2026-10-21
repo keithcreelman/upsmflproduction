@@ -1022,6 +1022,12 @@
   // and reason (worker/src/standings_truth.js); this view never ranks a team itself. Finished seasons show the
   // recorded final standings (finish after the playoffs + the recorded regular-season seed), never a recomputed seed.
   var RACE = function () { return window.UPS_STANDINGS_RACE || null; };
+  // Back: the worker's ap_back, All-Play wins behind the last wild card (never a division winner, #1329). A negative
+  // figure can't come from the ladder; one from an older worker reads as unavailable, never as a number.
+  function wcBack(r) {
+    var v = r ? r.ap_back : null;
+    return (v == null || !isFinite(Number(v)) || Number(v) < 0) ? null : Number(v);
+  }
   var STEP_WORDS = {
     all_play: "a better All-Play %",
     overall: "a better H2H record",
@@ -1145,7 +1151,7 @@
     return '<dl class="ups-m-drawer-dl">' +
       '<dt>AP%</dt><dd>All-Play %: the share of the other 11 teams you outscored, every regular-season week.</dd>' +
       '<dt>H2H</dt><dd>Head-to-head record: your games against your scheduled opponents (two or three a week).</dd>' +
-      '<dt>Back</dt><dd>All-Play wins behind the 6th seed (ties count half).</dd>' +
+      '<dt>Back</dt><dd>All-Play wins behind the last wild card (ties count half). Division winners are protected, so it is never measured against one.</dd>' +
       (magic ? '<dt>M#</dt><dd>Magic number. BYE and DIV rows: to win the division (H2H). WC rows: to stay ahead of the first team out (All-Play). ✓ = clinched. Details: Magic numbers.</dd>' : '') +
       '<dt>▲▼</dt><dd>Places gained or lost since last week.</dd>' +
       '<dt>BYE · DIV · WC</dt><dd>First-round bye · division winner · wild card.' + (final ? '' : ' “proj” = where a team would be if the season ended today.') + '</dd>' +
@@ -1161,7 +1167,11 @@
     if (seeded.length >= 2) lines.push('<b>' + (final ? "Byes:" : "Byes if the season ended today:") + '</b> ' + U.escapeHtml(seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm).join(" and ")) + ' (the two best division winners).');
     var rs = resp.regular_season || {};
     var out = rs.next_out ? by[U.pad4(rs.next_out)] : null;
-    if (out && seeded[5] && !final) lines.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (out.ap_back != null ? ", " + U.escapeHtml(String(out.ap_back)) + " All-Play win" + (out.ap_back === 1 ? "" : "s") + " behind " + U.escapeHtml(nm(seeded[5])) + " (6th)" : "") + '.');
+    // Next out chases the last wild card, never a division winner (the worker's ap_back measures the same gap, #1329).
+    var cut = null;
+    seeded.forEach(function (r) { if (RACE() && RACE().statusForRow(r) === "WC" && (!cut || r.playoff_seed > cut.playoff_seed)) cut = r; });
+    var outBack = wcBack(out);
+    if (out && !final) lines.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (outBack != null && cut ? ", " + U.escapeHtml(String(outBack)) + " All-Play win" + (outBack === 1 ? "" : "s") + " behind " + U.escapeHtml(nm(cut)) + " (the last wild card)" : "") + '.');
     var ties = [];
     rows.forEach(function (r) {
       var va = r.seed_reason && r.seed_reason.vs_above;
@@ -1218,7 +1228,7 @@
     var rs = resp.regular_season || {};
     var out = rs.next_out ? by[U.pad4(rs.next_out)] : null;
     var bits = ['<b>Byes:</b> ' + U.escapeHtml(seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm).join(" and "))];
-    if (out && !final) bits.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (out.ap_back != null ? ", " + U.escapeHtml(String(out.ap_back)) + " AP win" + (out.ap_back === 1 ? "" : "s") + " back" : ""));
+    if (out && !final) bits.push('<b>Next out:</b> ' + U.escapeHtml(nm(out)) + (wcBack(out) != null ? ", " + U.escapeHtml(String(wcBack(out))) + " AP win" + (wcBack(out) === 1 ? "" : "s") + " back" : ""));
     return '<div class="ups-m-facts">' + bits.join(' · ') + '</div>';
   }
   function bindSeedsInfo(mount, resp, rows, final, mg) {
@@ -1275,7 +1285,7 @@
         '<td class="team"><span class="name-text">' + U.escapeHtml(nm(r)) + '</span>' + moveHtml(r) + statusChipHtml(st, !final) + '</td>' +
         '<td class="num">' + fmtPct(ap.pct) + '</td>' +
         '<td class="num">' + recStr(rec) + '</td>' +
-        '<td class="num">' + (r.ap_back == null ? "—" : U.escapeHtml(String(r.ap_back))) + '</td>' +
+        '<td class="num">' + (wcBack(r) == null ? "—" : U.escapeHtml(String(wcBack(r)))) + '</td>' +
         (showMagic ? '<td class="num magic">' + (r.playoff_seed != null ? (magicCell(mg, fid) || "—") : "") + '</td>' : "") +
       '</tr>');
       var span = showMagic ? 6 : 5;
