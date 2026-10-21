@@ -1296,6 +1296,7 @@
     .fp-h.hawk { color: var(--warn); }
     .fp-cell { text-align: center; font-size: 11px; line-height: 1; padding: 6px 0; border-radius: 3px; font-variant-numeric: tabular-nums; min-width: 0; }
     .fp-cell.mode { outline: 2px solid var(--teal); outline-offset: -2px; font-weight: 800; }
+    .fp-cell.zero { background: rgba(255, 255, 255, 0.04); color: var(--dim); }
     .pic-col h3, .panel h3, h3.sec-h { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
     .pic-col h3 .h-sub, .panel h3 .h-sub { color: var(--muted); font-weight: 600; letter-spacing: 0.02em; text-transform: none; }
     ol.seed-list { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -2695,15 +2696,14 @@
       return '<div class="fp-row" role="row"><span class="fp-name" role="rowheader">' + escapeHtml(t.name) + '</span>'
         + t.place.map(function (p, i) {
           var a = p > 0 ? 0.1 + 0.8 * Math.min(1, p / 0.6) : 0;
-          var bg = i < 6 ? "rgba(231,190,89," + a.toFixed(2) + ")" : "rgba(255,138,101," + a.toFixed(2) + ")";
-          var dark = a > 0.55;
-          return '<span class="fp-cell' + (i === t.mode ? " mode" : "") + '" role="cell" aria-label="' + escapeHtml(placeLabel(i)) + ': ' + fcPct(p) + '" style="background:' + bg + (dark ? ";color:#061a3a" : "") + '">'
-            + (p > 0 ? (p < 0.005 ? "·" : Math.round(p * 100)) : "") + '</span>';
+          var bg = !a ? "" : ' style="background:' + (i < 6 ? "rgba(231,190,89," : "rgba(255,138,101,") + a.toFixed(2) + ")" + (a > 0.55 ? ";color:#061a3a" : "") + '"';
+          return '<span class="fp-cell' + (i === t.mode ? " mode" : "") + (p > 0 ? "" : " zero") + '" role="cell" aria-label="' + escapeHtml(placeLabel(i)) + ': ' + fcPct(p) + '"' + bg + '>'
+            + (p > 0 ? (p < 0.005 ? "·" : Math.round(p * 100)) : "0") + '</span>';
         }).join("") + '</div>';
     }).join("");
     return '<h3 class="sec-h">Every finish, every team <span class="h-sub">· % of simulated seasons</span></h3>'
       + '<div class="fp-grid" role="table" aria-label="Chance of each finishing place">' + head + rows + '</div>'
-      + '<div class="note">1–6 are playoff seeds (1–2 byes); H1–H6 are the Hawk Tuah Bowl seeds. Each row and each column adds to 100 (· = under 1%). The outlined cell is the most likely finish.</div>';
+      + '<div class="note">1–6 are playoff seeds (1–2 byes); H1–H6 are the Hawk Tuah Bowl seeds. Each row and each column adds to 100 (· = under 1%; 0 = never). The outlined cell is the most likely finish.</div>';
   }
   function fcFinalsHtml(m) {
     function table(title, champKey, runKey, champLabel) {
