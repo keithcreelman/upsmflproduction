@@ -109,28 +109,40 @@ check('AP GB: seeds 1-6 return 0', () => {
     assert.strictEqual(gb[r.franchise_id], 0, 'seed ' + s + ' must be 0 GB');
   }
 });
-check('AP GB: outside top six returns max(0, seed6Wins - myWins)', () => {
+// #1329 (Keith 2026-10-20): games back is measured from the LAST WILD CARD. The four division winners are protected, so
+// a team outside the field chases the last wild card, never a division winner. In this fixture the 6th seed, Ulterior
+// Warrior (80-63), is a division winner and the last wild card is Good in Da Hood (seed 5, 85-58).
+check('AP GB: outside top six returns max(0, lastWildCardWins - myWins), never measured from the division-winner 6th seed', () => {
   const gb = RACE.apGamesBack(SEASON_2020);
-  // seed 6 = Ulterior Warrior, 80-63-0 -> 80 wins-equivalent
-  // Bash Bros 75-68-0 -> 75 -> 5.0 back
-  assert.strictEqual(gb['0002'], 5);
-  // Hawks 50-93-0 -> 50 -> 30.0 back
-  assert.strictEqual(gb['0012'], 30);
+  // Bash Bros 75-68-0 -> 75 -> 10.0 behind Good in Da Hood (85), not 5.0 behind Ulterior Warrior (80)
+  assert.strictEqual(gb['0002'], 10);
+  // Hawks 50-93-0 -> 50 -> 35.0 back
+  assert.strictEqual(gb['0012'], 35);
 });
-check('AP GB: a team exactly tied with seed 6 correctly shows 0.0 GB (not clamped away or null)', () => {
+check('AP GB: a team exactly tied with the last wild card correctly shows 0.0 GB (not clamped away or null)', () => {
   const rows = SEASON_2020.map((r) => Object.assign({}, r));
   const tied = byFid(rows, '0002');
-  tied.seed_ap = ap(80, 63, 0); // same as seed 6 (Ulterior Warrior)
+  tied.seed_ap = ap(85, 58, 0); // same as the last wild card (Good in Da Hood)
   const gb = RACE.apGamesBack(rows);
   assert.strictEqual(gb['0002'], 0);
 });
-check('AP GB: missing seed-6 row returns null for every franchise, never throws', () => {
-  const noSeed6 = SEASON_2020.map((r) => {
+check('AP GB: a non-division winner with a BETTER All-Play record than the division-winner 6th seed is still outside, and is measured from the last wild card (never negative)', () => {
+  const rows = SEASON_2020.map((r) => Object.assign({}, r));
+  byFid(rows, '0002').seed_ap = ap(82, 61, 0); // beats Ulterior Warrior (80-63, protected division winner), trails Good in Da Hood (85-58)
+  const gb = RACE.apGamesBack(rows);
+  assert.strictEqual(gb['0002'], 3, '85 - 82, never 80 - 82 = -2 (or a clamped 0)');
+  // and the worker's own figure: a negative one (a worker older than this rule) reads as unavailable, never a number
+  const fromWorker = SEASON_2020.map((r) => Object.assign({}, r, { ap_back: r.playoff_seed == null ? (r.franchise_id === '0002' ? -2 : 4) : null }));
+  assert.strictEqual(RACE.apGamesBack(fromWorker)['0002'], null);
+  assert.strictEqual(RACE.apGamesBack(fromWorker)['0003'], 4);
+});
+check('AP GB: no wild-card row returns null for every franchise, never throws (never falls back to the 6th seed)', () => {
+  const noWildCard = SEASON_2020.map((r) => {
     const c = Object.assign({}, r);
-    if (c.playoff_seed === 6) { c.playoff_seed = null; c.playoff_status = 'non_playoff'; }
+    if (c.playoff_status === 'wild_card') { c.playoff_seed = null; c.playoff_status = 'non_playoff'; }
     return c;
   });
-  const gb = RACE.apGamesBack(noSeed6);
+  const gb = RACE.apGamesBack(noWildCard);
   Object.keys(gb).forEach((fid) => assert.strictEqual(gb[fid], null));
 });
 check('AP GB: preseason payload (zero rows) does not throw', () => {
@@ -138,12 +150,12 @@ check('AP GB: preseason payload (zero rows) does not throw', () => {
   assert.deepStrictEqual(RACE.apGamesBack(undefined), {});
 });
 check('AP GB: uses the integer AP record, not rounded allplay_pct (near-identical % must not collapse a real gap)', () => {
-  // seed 6 at 80-63 (.559964..) vs a team at 79-63 (.556... — rounds the
-  // same to 3dp as a naive % compare would blur) must still show 1.0 GB,
+  // the last wild card at 85-58 (.594405..) vs a team at 84-58 (.591... — a
+  // naive % compare at low precision would blur them) must still show 1.0 GB,
   // not 0.
   const rows = SEASON_2020.map((r) => Object.assign({}, r));
   const near = byFid(rows, '0002');
-  near.seed_ap = ap(79, 63, 0);
+  near.seed_ap = ap(84, 58, 0);
   const gb = RACE.apGamesBack(rows);
   assert.strictEqual(gb['0002'], 1);
 });
@@ -516,13 +528,14 @@ check('seed explanation: the name/id fallback is disclaimed; a head-to-head tie 
   assert.ok(/couldn’t be read/.test(RACE.whySeedForRow(r('head_to_head_unavailable'), S20).text));
 });
 check('seed explanation: outside the top six — AP games back, then the worker\'s step against the last wild card', () => {
-  const why = RACE.whySeedForRow(byFid(S20, '0002'), S20); // The Bash Bros, 5.0 back
+  const why = RACE.whySeedForRow(byFid(S20, '0002'), S20); // The Bash Bros, 10.0 behind the last wild card it names
   assert.strictEqual(why.pool, 'outside');
-  assert.strictEqual(why.text, 'Outside the top six — 5 AP wins back; behind Good in Da Hood (the last wild card) on All-Play %.');
+  assert.strictEqual(why.text, 'Outside the top six — 10 AP wins back; behind Good in Da Hood (the last wild card) on All-Play %.');
 });
 check('seed explanation: AP unavailable for an outside team is said, never a zero', () => {
   const unseededRow = row({ franchise_id: '0099', franchise_name: 'NoAp', seed_ap: undefined, seed_reason: { basis: 'ladder', pool: 'outside', step: null } });
-  const seed6Row = row({ franchise_id: '0098', franchise_name: 'Seed6', playoff_seed: 6, playoff_status: 'division_winner', seed_ap: undefined });
+  // the yardstick is a wild card (#1329), so "unavailable" here comes from the missing week, not from a missing yardstick
+  const seed6Row = row({ franchise_id: '0098', franchise_name: 'Seed6', playoff_seed: 6, playoff_status: 'wild_card', seed_ap: undefined });
   const otherRow = row({ franchise_id: '0097', franchise_name: 'Other', seed_ap: undefined });
   const ws = [{ w: 1, fid: '0098', ts: 100, po: 0 }, { w: 1, fid: '0097', ts: 90, po: 0 }];   // week 1 missing 0099 → incomplete
   assert.strictEqual(RACE.whySeedForRow(unseededRow, [seed6Row, unseededRow, otherRow], ws).text, 'Outside the top six — AP games back unavailable.');
@@ -564,7 +577,7 @@ check('race(): end-to-end composition on the 2020 fixture — status / apGB / wh
   assert.strictEqual(blm.whySeed.decidingCriterion, 'overall', 'straight from the worker\'s seed_reason');
   const hawks = out.byFranchise['0012'];
   assert.strictEqual(hawks.status, null);
-  assert.strictEqual(hawks.apGB, 30);
+  assert.strictEqual(hawks.apGB, 35);
 });
 check('race(): every seed and BYE/DIV/WC is PROJECTED until season_complete', () => {
   assert.strictEqual(RACE.race({ rows: S20, weekly: [], weeklyScores: [] }).projected, true);
@@ -626,7 +639,8 @@ function contaminationRows() {
           allplay_w: 3, allplay_l: 39, allplay_t: 0, allplay_pct: 0.071 }), // deliberately CONTAMINATED full-season-shaped field — must never be used
     row({ franchise_id: '0002', franchise_name: 'PlayoffOnlyBetter', division: '00', playoff_seed: null, playoff_status: 'non_playoff', seed_ap: undefined,
           allplay_w: 39, allplay_l: 3, allplay_t: 0, allplay_pct: 0.929 }), // same — must never be used
-    row({ franchise_id: '0003', franchise_name: 'Seed6', division: '01', is_division_leader: true, playoff_seed: 6, playoff_status: 'division_winner', seed_ap: undefined })
+    // the yardstick is the LAST WILD CARD (#1329: a division winner is never what a team outside chases)
+    row({ franchise_id: '0003', franchise_name: 'Seed6', division: '01', is_division_leader: false, playoff_seed: 6, playoff_status: 'wild_card', seed_ap: undefined })
   ];
 }
 check('contamination: AP GB uses only Weeks 1-14 — adding Weeks 15-17 playoff scores does not change it', () => {

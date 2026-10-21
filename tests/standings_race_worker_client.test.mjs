@@ -69,7 +69,9 @@ test("race(): seed explanations are the worker's seed_reason, word for word — 
   t.equal(why("0004"), "Seed 3: behind Gride on All-Play %. Ahead of CBP on the H2H games between them (same All-Play %, H2H record and season Points For).");
   t.equal(why("0007"), "Seed 5: behind CBP on All-Play %. Ahead of HammerTime on season Points For (same All-Play % and H2H record).");
   t.equal(why("0005"), "Seed 6: behind Sex Manther on season Points For (same All-Play % and H2H record).");
-  t.match(why("0006"), /^Outside the top six — 6 AP wins back; behind CBP \(the last wild card\) on All-Play %\.$/);
+  // WC Back (#1329): 14 behind CBP, the last wild card it names (18 All-Play wins) — never the division-winner 6th seed
+  // HammerTime (10), which used to give 6
+  t.match(why("0006"), /^Outside the top six — 14 AP wins back; behind CBP \(the last wild card\) on All-Play %\.$/);
   t.equal(out.byFranchise["0004"].whySeed.decidingCriterion, "all_play");
   t.equal(out.byFranchise["0004"].whySeed.aheadOf.step, "head_to_head");
 });
@@ -125,7 +127,7 @@ test("A2 projectedPlayoffGroups on the real response: games back come from the w
   t.ok(bad.rows.every((r) => r.playoff_seed === null));
   // ...and the client, handed seeded rows with null weekly scores, still never invents 0.0 games back.
   const g = RACE.projectedPlayoffGroups(okResp.rows, null);
-  t.deepEqual(g.inTheHunt.map((e) => [e.franchise_id, e.apGB]), [["0006", 6], ["0008", 10]], "the worker's own ap_back, in the worker's ladder order (never a client 0.0)");
+  t.deepEqual(g.inTheHunt.map((e) => [e.franchise_id, e.apGB]), [["0006", 14], ["0008", 18]], "the worker's own ap_back (behind the last wild card, CBP), in the worker's ladder order (never a client 0.0)");
   t.ok(g.wildCards.every((e) => e.apGB === 0), "seeds 1-6 are 0 games back by definition");
   const rows = okResp.rows.slice(); const i6 = rows.findIndex((r) => r.franchise_id === "0006"), i8 = rows.findIndex((r) => r.franchise_id === "0008");
   [rows[i6], rows[i8]] = [rows[i8], rows[i6]];                 // pretend the worker ranked 0008 ahead
@@ -154,7 +156,7 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   t.match(html, /<th[^>]*>PF\/week<\/th>/, "PF per week, labeled");
   t.match(html, /<th[^>]*>PA\/game<\/th>/, "PA per game, labeled");
   t.ok(!/Avg PF|Avg PA/.test(html), "the per-game Avg PF / Avg PA labels are gone");
-  t.match(html, /<th[^>]*title="All-Play wins behind the 6th seed"[^>]*>Back<\/th>/, "All-Play wins back beside it");
+  t.match(html, /<th[^>]*title="All-Play wins behind the last wild card \(division winners are protected\)"[^>]*>WC Back<\/th>/, "All-Play wins behind the last wild card beside it (#1329)");
 });
 test("desktop: weekly results unreadable → race values '—' with a note; nothing shows a confident playoff record (#1201)", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason({ failWeekly: true })) });
@@ -203,7 +205,7 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   t.match(plain(D.about(false)), /“proj” = where a team would be if the season ended today\./);
   const why = plain(D.why(await standings(makeLadderSeason())));
   t.match(why, /Decided by a tiebreak:<\/b>.*<li>L\.A\. Looks over Gride: same All-Play, a better H2H record \(4-0 vs 3-1\)\.<\/li><li>Pure Greatness over CBP: same All-Play, the H2H games between them\.<\/li>/, "the drawer names the tiebreaks that decided places");
-  t.match(why, /<b>Next out:<\/b> Team 0006, 6 All-Play wins behind HammerTime \(6th\)\./);
+  t.match(why, /<b>Next out:<\/b> Team 0006, 14 All-Play wins behind CBP \(the last wild card\)\./, "#1329: never the division-winner 6th seed (HammerTime)");
   const all = html + D.how() + D.about(false) + D.weekly();
   t.ok(!/\bGames\b/.test(all), "no 'Games' label");
   t.ok(!/\bprize\b/i.test(all), "a top score is never called a prize (the rules aren't settled)");

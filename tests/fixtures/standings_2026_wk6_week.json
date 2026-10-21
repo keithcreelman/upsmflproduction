@@ -1,0 +1,502 @@
+{
+ "_about": "UPS 2026 Week 6 (regular season): every team's Week 6 score and its three head-to-head games, from MFL's public weeklyResults export (L=74598, W=6) read 2026-10-21 01:38 UTC. Appended to standings_2026_wk5.json it gives the standings after Week 6, where Real Deal Creel (division winner, All-Play 33-33) is the 6th seed and Hawks (34-32) is outside the field. mfl_h2h_after_week6 is MFL's own leagueStandings H2H record the same minute, for a cross-check. Public league data only.",
+ "week": 6,
+ "weekly_scores": [
+  {
+   "week": 6,
+   "franchise_id": "0001",
+   "team_score": 166.8,
+   "team_opt_pts": 188.3,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0002",
+   "team_score": 254.1,
+   "team_opt_pts": 274.0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0003",
+   "team_score": 165.6,
+   "team_opt_pts": 193.7,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0004",
+   "team_score": 212.8,
+   "team_opt_pts": 226.3,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0005",
+   "team_score": 231.8,
+   "team_opt_pts": 255.4,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0006",
+   "team_score": 201.3,
+   "team_opt_pts": 208.3,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0007",
+   "team_score": 150.9,
+   "team_opt_pts": 198.7,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0008",
+   "team_score": 162.7,
+   "team_opt_pts": 193.0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0009",
+   "team_score": 267.3,
+   "team_opt_pts": 280.7,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0010",
+   "team_score": 178.0,
+   "team_opt_pts": 220.6,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0011",
+   "team_score": 198.9,
+   "team_opt_pts": 216.7,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0012",
+   "team_score": 184.4,
+   "team_opt_pts": 210.5,
+   "is_playoff": 0
+  }
+ ],
+ "games": [
+  {
+   "week": 6,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0009",
+   "team_score": 166.8,
+   "opponent_score": 267.3,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0011",
+   "team_score": 166.8,
+   "opponent_score": 198.9,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0001",
+   "opponent_franchise_id": "0012",
+   "team_score": 166.8,
+   "opponent_score": 184.4,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0004",
+   "team_score": 254.1,
+   "opponent_score": 212.8,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0005",
+   "team_score": 254.1,
+   "opponent_score": 231.8,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0002",
+   "opponent_franchise_id": "0006",
+   "team_score": 254.1,
+   "opponent_score": 201.3,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0004",
+   "team_score": 165.6,
+   "opponent_score": 212.8,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0005",
+   "team_score": 165.6,
+   "opponent_score": 231.8,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0003",
+   "opponent_franchise_id": "0006",
+   "team_score": 165.6,
+   "opponent_score": 201.3,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0002",
+   "team_score": 212.8,
+   "opponent_score": 254.1,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0003",
+   "team_score": 212.8,
+   "opponent_score": 165.6,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0004",
+   "opponent_franchise_id": "0010",
+   "team_score": 212.8,
+   "opponent_score": 178.0,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0002",
+   "team_score": 231.8,
+   "opponent_score": 254.1,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0003",
+   "team_score": 231.8,
+   "opponent_score": 165.6,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0005",
+   "opponent_franchise_id": "0010",
+   "team_score": 231.8,
+   "opponent_score": 178.0,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0002",
+   "team_score": 201.3,
+   "opponent_score": 254.1,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0003",
+   "team_score": 201.3,
+   "opponent_score": 165.6,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0006",
+   "opponent_franchise_id": "0010",
+   "team_score": 201.3,
+   "opponent_score": 178.0,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0009",
+   "team_score": 150.9,
+   "opponent_score": 267.3,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0011",
+   "team_score": 150.9,
+   "opponent_score": 198.9,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0007",
+   "opponent_franchise_id": "0012",
+   "team_score": 150.9,
+   "opponent_score": 184.4,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0009",
+   "team_score": 162.7,
+   "opponent_score": 267.3,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0011",
+   "team_score": 162.7,
+   "opponent_score": 198.9,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0008",
+   "opponent_franchise_id": "0012",
+   "team_score": 162.7,
+   "opponent_score": 184.4,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0001",
+   "team_score": 267.3,
+   "opponent_score": 166.8,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0007",
+   "team_score": 267.3,
+   "opponent_score": 150.9,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0009",
+   "opponent_franchise_id": "0008",
+   "team_score": 267.3,
+   "opponent_score": 162.7,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0004",
+   "team_score": 178.0,
+   "opponent_score": 212.8,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0005",
+   "team_score": 178.0,
+   "opponent_score": 231.8,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0010",
+   "opponent_franchise_id": "0006",
+   "team_score": 178.0,
+   "opponent_score": 201.3,
+   "result": "L",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0001",
+   "team_score": 198.9,
+   "opponent_score": 166.8,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0007",
+   "team_score": 198.9,
+   "opponent_score": 150.9,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0011",
+   "opponent_franchise_id": "0008",
+   "team_score": 198.9,
+   "opponent_score": 162.7,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0001",
+   "team_score": 184.4,
+   "opponent_score": 166.8,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0007",
+   "team_score": 184.4,
+   "opponent_score": 150.9,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  },
+  {
+   "week": 6,
+   "franchise_id": "0012",
+   "opponent_franchise_id": "0008",
+   "team_score": 184.4,
+   "opponent_score": 162.7,
+   "result": "W",
+   "is_divisional": 0,
+   "is_playoff": 0
+  }
+ ],
+ "mfl_h2h_after_week6": {
+  "0009": [
+   14,
+   2
+  ],
+  "0005": [
+   11,
+   5
+  ],
+  "0002": [
+   10,
+   6
+  ],
+  "0011": [
+   9,
+   7
+  ],
+  "0008": [
+   9,
+   7
+  ],
+  "0010": [
+   9,
+   7
+  ],
+  "0012": [
+   9,
+   7
+  ],
+  "0004": [
+   8,
+   8
+  ],
+  "0001": [
+   6,
+   10
+  ],
+  "0006": [
+   5,
+   11
+  ],
+  "0003": [
+   3,
+   13
+  ],
+  "0007": [
+   3,
+   13
+  ]
+ }
+}
