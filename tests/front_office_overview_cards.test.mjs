@@ -30,6 +30,8 @@ test("Trade deadline = MFL's own lock as the worker reads it (trade_lock): today
   t.equal(OV.tradeDeadlineFromLock({ state: "unresolved" }, Date.now()).state, "unresolved", "never a guessed time");
   t.equal(OV.tradeDeadlineFromLock({ state: "none" }, Date.now()).state, "none");
   t.equal(OV.tradeDeadlineFromLock(null, Date.now()), null, "not read yet");
+  t.equal(OV.tradeDeadlineFromLock({ ...tue, verified_at_utc: "2026-10-21T17:02:00Z" }, ms("2026-10-21T13:05:00-04:00")).verified, "Wed, Oct 21, 1:02 PM ET", "when MFL was last verified");
+  t.ok(/MFL enforcement: trading stops /.test(SRC) && /Verified with MFL /.test(SRC), "the value is labeled MFL enforcement, with the verified time");
 });
 
 test("the card reads the worker's trade_lock (one source with the phone, Team Ops, reminders and Rules), not MFL's calendar directly", () => {

@@ -49,8 +49,10 @@
     var t = Number(lock.start_unix) * 1000;
     if (!(t > 0)) return { state: "unresolved" };
     var d0 = etParts(nowMs), d1 = etParts(t);
+    var v = Date.parse(lock.verified_at_utc || "");
     return { state: nowMs >= t + 1000 ? "closed" : "upcoming", startMs: t,
-      days: d0 != null && d1 != null ? Math.round((d1 - d0) / 86400000) : null, label: lock.label || etLabel(t) };
+      days: d0 != null && d1 != null ? Math.round((d1 - d0) / 86400000) : null, label: lock.label || etLabel(t),
+      verified: isFinite(v) ? etLabel(v) : "" };
   }
 
   function focusFid() {
@@ -352,9 +354,11 @@
     if (!td) body = stat("…", "reading MFL’s trade lock");
     else if (td.state === "unresolved") body = stat("—", "MFL’s trade lock couldn’t be read right now");
     else if (td.state === "none") body = stat("—", "no “No Trades Allowed” event on MFL’s calendar");
-    else if (td.state === "closed") body = stat("Closed", "MFL stopped trades " + td.label);
-    else body = stat(td.days === 0 ? "Today" : td.days + " day" + (td.days === 1 ? "" : "s"), "MFL stops trades " + td.label);
-    return card("Trade deadline", '<div class="fo-ov-stats">' + body + "</div>",
+    else if (td.state === "closed") body = stat("Closed", "MFL enforcement: trading stopped " + td.label);
+    else body = stat(td.days === 0 ? "Today" : td.days + " day" + (td.days === 1 ? "" : "s"), "MFL enforcement: trading stops " + td.label);
+    // The worker's read can be a few minutes old (it caches MFL's answer); say when it was verified.
+    var verified = td && td.verified ? '<p class="fo-ov-sub">Verified with MFL ' + H.esc(td.verified) + ".</p>" : "";
+    return card("Trade deadline", '<div class="fo-ov-stats">' + body + "</div>" + verified,
       '<a class="fo-go" href="' + H.esc(FO.warRoomUrl({})) + '" target="_top">Trade War Room ›</a>');
   }
 
