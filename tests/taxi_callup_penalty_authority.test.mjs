@@ -80,7 +80,7 @@ function load({ rows = [], legacy = new Set(), d1Throws = false, legacyThrows = 
   };
   const f = new Function("taxiLegacy2025Pids", "nflWeekFirstKickoffUnix", "nflWeekKickoffsByTeam", "fetch", "taxiPermanent",
     "TAXI_LEGACY_SEASON", "TAXI_TRACKED_FROM_SEASON",
-    LEGACY_HELPERS + RESOLVER + "\nreturn { _taxiPermanentPromotion, _taxiCutContextMap };");
+    LEGACY_HELPERS + RESOLVER + "\nreturn { _taxiPermanentPromotion, _taxiCutContextMap, _taxiLegacyFor };");
   const api = f(taxiLegacy2025Pids, nflWeekFirstKickoffUnix, nflWeekKickoffsByTeam, fetch, taxiPermanent, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON);
   // The cut's verdict, as _computeDropPenaltyRaw asks it for a player still on his Rookie-Draft contract.
   const verdicts = async (ids, ctx) => {
@@ -192,6 +192,17 @@ test("FAILS CLOSED: an unreadable call-up table, 2025 record, database or UPS dr
   t.deepEqual(await h.verdicts(["18000"], CTX), { "18000": true }, "a 2026 pick wasn't in the league in 2025: the 2025 record can't decide him");
   t.equal(h.calls.legacy.length, 0, "…so it isn't even read");
   delete DRAFTS[2026]["18000"];
+});
+
+test("every caller scopes the 2025 answer the same way: only 2023–2025 picks, only from 2026; unreadable → unknown for them alone", () => {
+  const { _taxiLegacyFor: F } = load({});
+  const S = new Set(["17001"]);
+  t.equal(F(S, "17001", 2026, 2025), true); t.equal(F(S, "17002", 2026, 2025), false);
+  t.equal(F(null, "17002", 2026, 2025), null, "a 2025 pick, record unreadable: unknown");
+  t.equal(F(null, "18000", 2026, 2026), false, "a 2026 pick: the 2025 record can't decide him");
+  t.equal(F(null, "15000", 2026, 2022), false, "a 2022 pick: outside it too");
+  t.equal(F(null, "17002", 2025, 2025), false, "before 2026 the legacy rule isn't applied");
+  t.equal(F(null, "17002", 2026, null), null, "draft year unknown: unknown");
 });
 
 // ── taxiLegacy2025Pids: the REAL reader, against fake MFL exports ──

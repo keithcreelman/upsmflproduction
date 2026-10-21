@@ -195,7 +195,7 @@ test("every application path reads the one verdict", () => {
   const W = read("worker/src/index.js");
   t.ok(/import \{ taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON \} from "\.\/taxi_rule\.js";/.test(W));
   t.ok(/taxi_status: taxiStatus,/.test(W) && /const isTaxiEligible = taxiStatus\.eligible === true;/.test(W), "/roster-workbench emits taxi_status; taxi_eligible is its answer");
-  t.ok(/legacy2025: taxiLegacy,/.test(W) && /const taxiLegacy = _taxiLegacyFor\(taxiLegacy2025, playerId, currentSeason\);/.test(W), "roster-workbench: the 2025 legacy rule, unknown when unreadable");
+  t.ok(/legacy2025: taxiLegacy,/.test(W) && /const taxiLegacy = _taxiLegacyFor\(taxiLegacy2025, playerId, currentSeason, upsYear\);/.test(W), "roster-workbench: the 2025 legacy rule, unknown when unreadable");
   t.ok(!/taxiPriorActivePids\(/.test(W), "no caller of the withdrawn 'ended a prior season active' reader");
   // Every call-up count counts DISTINCT qualifying scoring weeks recorded from 2026 — never rows or transactions.
   t.ok(!/SUM\(CASE WHEN pending = 0/.test(W), "no count of raw rows remains");
@@ -203,7 +203,7 @@ test("every application path reads the one verdict", () => {
   t.ok(/COUNT\(DISTINCT CASE WHEN pending = 0 AND \$\{TAXI_TRACKED_SQL\} AND nfl_week IS NOT NULL THEN season \|\| '-' \|\| nfl_week END\)/.test(W));
   // Demote write guard: same rule, full permanence predicate, fail closed.
   const guard = W.slice(W.indexOf('if (action === "demote_taxi") {'), W.indexOf("if (isMembershipRosterAction) {"));
-  t.ok(/taxiPermanent\(\{/.test(guard) && /legacy2025: _taxiLegacyFor\(legacy2025, playerId, season\)/.test(guard), "demote guard: 4th activation, marked row, 2025 legacy");
+  t.ok(/taxiPermanent\(\{/.test(guard) && /legacy2025: _taxiLegacyFor\(legacy2025, playerId, season, r1Gate\.draftYear\)/.test(guard), "demote guard: 4th activation, marked row, 2025 legacy");
   t.ok(/code: "TAXI_HISTORY_UNREADABLE"/.test(guard) && /if \(permanentAnswer !== false\)/.test(guard), "demote guard fails closed");
   t.ok(!/Number\(permRow\?\.used \|\| 0\) >= 4\) \{/.test(guard), "no used>=4-only check");
   t.ok(/const verdict = taxiEligibility\(\{/.test(W), "the demote gate's draft/window/release verdict is the shared rule");

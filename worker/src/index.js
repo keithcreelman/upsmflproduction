@@ -186,10 +186,16 @@ async function taxiLegacy2025Pids(env, leagueId) {
   }
   return out;
 }
-// The 2025 legacy answer for one player in a season's taxi decision: false before the tracked rule (2026), and
-// true / false / null (unreadable) from it on.
-const _taxiLegacyFor = (legacySet, pid, season) =>
-  (parseInt(season, 10) || 0) < TAXI_TRACKED_FROM_SEASON ? false : legacySet ? legacySet.has(String(pid)) : null;
+// The 2025 legacy answer for one player in a season's taxi decision: false before the tracked rule (2026) and for a
+// pick whose window didn't cover 2025 (upsYear outside 2023–2025: a 2026 pick wasn't in the league yet); otherwise
+// true / false / null (unreadable). Every caller scopes it the same way, so an unreadable 2025 record makes only the
+// players it could decide unknown.
+const _taxiLegacyFor = (legacySet, pid, season, upsYear) => {
+  if ((parseInt(season, 10) || 0) < TAXI_TRACKED_FROM_SEASON) return false;
+  const y = parseInt(upsYear, 10) || 0;
+  if (y && (y < TAXI_LEGACY_SEASON - 2 || y > TAXI_LEGACY_SEASON)) return false;
+  return legacySet ? legacySet.has(String(pid)) : null;
+};
 // Only call-ups recorded from the tracked rule's first season count (2024–2025 backfill rows don't: 2025 is the
 // legacy rule's, and nothing before it is). Used inside every call-up count's CASE.
 const TAXI_TRACKED_SQL = `CAST(season AS INTEGER) >= ${TAXI_TRACKED_FROM_SEASON}`;
@@ -3551,7 +3557,7 @@ const _taxiCutContextMap = async (env, playerIds, ctx) => {
   if (candidates.length) {
     let legacy2025 = null;
     try { legacy2025 = await taxiLegacy2025Pids(env, leagueId); } catch (_) { legacy2025 = null; }
-    for (const pid of candidates) out[pid].legacy2025 = _taxiLegacyFor(legacy2025, pid, season);
+    for (const pid of candidates) out[pid].legacy2025 = _taxiLegacyFor(legacy2025, pid, season, out[pid].upsYear);
   }
   // 4. The week under way can only turn a 3rd activation into the 4th.
   const at = Number(ctx && ctx.atUnix) || 0;
@@ -48779,7 +48785,7 @@ const mflToSleeper = {};
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
               // ONE verdict (worker/src/taxi_rule.js): draft round/year + window, release, permanent promotion
               // (the tracked rule: 4th activation recorded from 2026, or a marked row) and the 2025 legacy rule.
-              const taxiLegacy = _taxiLegacyFor(taxiLegacy2025, playerId, currentSeason);
+              const taxiLegacy = _taxiLegacyFor(taxiLegacy2025, playerId, currentSeason, upsYear);
               const taxiStatus = taxiEligibility({
                 upsRound, upsYear, season: currentSeason, contractStatus: type,
                 isTaxi, isIr, used: taxiCallup ? taxiCallup.used : 0, pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
@@ -59243,7 +59249,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               const legacy2025 = await taxiLegacy2025Pids(env, leagueId);
               permanentAnswer = taxiPermanent({
                 used: Number(permRow?.used || 0), marked: Number(permRow?.marked || 0),
-                legacy2025: _taxiLegacyFor(legacy2025, playerId, season),
+                legacy2025: _taxiLegacyFor(legacy2025, playerId, season, r1Gate.draftYear),
               });
             } catch (e) {
               console.warn("[taxi-callup] D1 permanent-promotion lookup failed:", e?.message || String(e));
