@@ -123,6 +123,9 @@ test("owner-facing readers: the MFL-page countdown, the phone Home calendar and 
   t.ok(/nm\.label \+ \(etTime\(e\)/.test(HM) && /whenLabel\(ctx\.next\.date\) \+ \(etTime\(ctx\.next\)/.test(HM), "Home: calendar row and the Events tile show the time");
   const TO = fs.readFileSync(new URL("../site/team_operations/team_operations.js", import.meta.url), "utf8");
   t.ok(/time: etTimeLabel\(ev\.time_et\)/.test(TO) && /tops-cal-t/.test(TO), "Team Operations: the calendar and 'inside a week' rows show the time");
+  const IX = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
+  t.equal((IX.match(/according to your league calendar\/\.test\(respLower\)/g) || []).length, 2,
+    "the commissioner trade route names MFL's calendar refusal (verified text) instead of calling it a lockout");
 });
 
 await run("trade_deadline_follows_mfl");

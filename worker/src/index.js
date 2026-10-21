@@ -23632,6 +23632,9 @@ const mflToSleeper = {};
           const respLower = String(proposeResp).toLowerCase();
           if (/duplicate/.test(respLower)) {
             hint = "MFL says this trade is already proposed but we couldn't find a matching pending offer to accept. Check Commissioner → Trades → Pending Trades in MFL and either accept manually or cancel the duplicate before retrying.";
+          } else if (/according to your league calendar/.test(respLower)) {
+            // MFL's own refusal while a "No Trades Allowed" calendar event is in force (verified on the test league 2026-10-21).
+            hint = "MFL's league calendar has stopped trades (the trade deadline: a \"No Trades Allowed\" event is in force).";
           } else if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
             hint = "Likely cause: MFL Commissioner Lockout is enabled. Disable in League → Commissioner Tools → Lockout to allow API trade writes.";
           } else if (/deadline|past|closed/.test(respLower)) {
@@ -23750,7 +23753,9 @@ const mflToSleeper = {};
         let acceptHint = "";
         if (!acceptOk) {
           const respLower = String(acceptResp).toLowerCase();
-          if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
+          if (/according to your league calendar/.test(respLower)) {
+            acceptHint = "MFL's league calendar has stopped trades (the trade deadline: a \"No Trades Allowed\" event is in force).";
+          } else if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
             acceptHint = "Likely cause: MFL Commissioner Lockout is enabled — propose succeeded but accept was rejected. Disable lockout in League → Commissioner Tools.";
           } else if (/already|duplicate/.test(respLower)) {
             acceptHint = "Likely cause: trade was already accepted (duplicate accept). Check MFL trade history.";
