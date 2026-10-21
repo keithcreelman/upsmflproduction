@@ -197,9 +197,10 @@ test("every application path reads the one verdict", () => {
   t.ok(/taxi_status: taxiStatus,/.test(W) && /const isTaxiEligible = taxiStatus\.eligible === true;/.test(W), "/roster-workbench emits taxi_status; taxi_eligible is its answer");
   t.ok(/legacy2025: taxiLegacy,/.test(W) && /const taxiLegacy = _taxiLegacyFor\(taxiLegacy2025, playerId, currentSeason\);/.test(W), "roster-workbench: the 2025 legacy rule, unknown when unreadable");
   t.ok(!/taxiPriorActivePids\(/.test(W), "no caller of the withdrawn 'ended a prior season active' reader");
-  // Every call-up count counts only rows recorded from 2026.
-  const counts = W.match(/SUM\(CASE WHEN pending = 0[^)]*\)/g) || [];
-  t.ok(counts.length >= 5 && counts.every((c) => /\$\{TAXI_TRACKED_SQL\}/.test(c)), "every used-count is the tracked rule's: " + counts.length);
+  // Every call-up count counts DISTINCT qualifying scoring weeks recorded from 2026 — never rows or transactions.
+  t.ok(!/SUM\(CASE WHEN pending = 0/.test(W), "no count of raw rows remains");
+  t.ok((W.match(/\$\{TAXI_USED_WEEKS_SQL\}/g) || []).length >= 7, "every used-count is distinct recorded weeks");
+  t.ok(/COUNT\(DISTINCT CASE WHEN pending = 0 AND \$\{TAXI_TRACKED_SQL\} AND nfl_week IS NOT NULL THEN season \|\| '-' \|\| nfl_week END\)/.test(W));
   // Demote write guard: same rule, full permanence predicate, fail closed.
   const guard = W.slice(W.indexOf('if (action === "demote_taxi") {'), W.indexOf("if (isMembershipRosterAction) {"));
   t.ok(/taxiPermanent\(\{/.test(guard) && /legacy2025: _taxiLegacyFor\(legacy2025, playerId, season\)/.test(guard), "demote guard: 4th activation, marked row, 2025 legacy");

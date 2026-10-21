@@ -104,7 +104,7 @@ function makeDb({ priorActiveCached }) {
   // Devin Neal's 3 and Kyle Williams' 1 were 2025 call-ups (the 2025 legacy rule decides them, not the count); the taxi
   // call-up rookie's 2 are 2026's, the tracked rule.
   const seasonOf = { "17046": "2025", "17134": "2025", "17052": "2026" };
-  for (const [pid, n] of Object.entries(callups)) for (let i = 0; i < n; i++) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending, season) VALUES (?, 0, ?)").run(pid, seasonOf[pid]);
+  for (const [pid, n] of Object.entries(callups)) for (let i = 0; i < n; i++) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending, season, nfl_week) VALUES (?, 0, ?, ?)").run(pid, seasonOf[pid], i + 1);
   // taxiLegacy2025Pids' own D1 cache: who was on an active roster or IR in some 2025 week. Absent → it reads MFL's 2025 exports.
   db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
   if (priorActiveCached) db.raw.prepare("INSERT INTO ups_settings (key, value) VALUES ('taxi_legacy_active_2025_v1', ?)").run(JSON.stringify(["17134", "17046"]));
@@ -273,7 +273,8 @@ test("E. 3rd call-up, cut Sunday 9 AM: preview, drop ledger and waiver card give
   const added = [["0005", "20101", "17075"], ["0007", "20102", "17076"], ["0003", "20103", "17077"], ["0010", "20104", "17078"]];
   for (const [fid, add, drop] of added) TXS.push({ type: "BBID_WAIVER", franchise: fid, timestamp: String(SUN), transaction: `${add},|1000|${drop},` });
   const db = makeDb({ priorActiveCached: true }), env = makeEnv(db);
-  for (const [, , pid] of added) for (let i = 0; i < 3; i += 1) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending, season) VALUES (?, 0, '2026')").run(pid);
+  // Three recorded qualifying weeks each — any three other than Week 2, the week under way (only the count matters here).
+  for (const [, , pid] of added) for (let i = 0; i < 3; i += 1) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending, season, nfl_week) VALUES (?, 0, '2026', ?)").run(pid, 15 + i);
   for (const [fid, add] of added) {
     db.raw.prepare(`INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
       source, bid_dollars, acquisition_week, detected_at_utc) VALUES ('2026', '74598', ?, ?, ?, ?, ?, ?, 'bbid', 1000, 2, ?)`)

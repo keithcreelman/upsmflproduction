@@ -193,6 +193,11 @@ const _taxiLegacyFor = (legacySet, pid, season) =>
 // Only call-ups recorded from the tracked rule's first season count (2024–2025 backfill rows don't: 2025 is the
 // legacy rule's, and nothing before it is). Used inside every call-up count's CASE.
 const TAXI_TRACKED_SQL = `CAST(season AS INTEGER) >= ${TAXI_TRACKED_FROM_SEASON}`;
+// A call-up is a QUALIFYING SCORING WEEK, never a transaction (Keith 2026-10-21): the player was active — or on IR —
+// for an official UPS scoring week (syncTaxiCallupWeeks records one row per player-week from MFL's weekly record).
+// Every "used" count therefore counts DISTINCT recorded weeks, so several moves in one week can never use more than
+// one call-up, and a promote click that never became an active week (pending, superseded) never counts.
+const TAXI_USED_WEEKS_SQL = `COUNT(DISTINCT CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} AND nfl_week IS NOT NULL THEN season || '-' || nfl_week END)`;
 
 // ── Taxi call-up WEEKS, counted from MFL's own weekly rosters (canon §B2) ────
 //
@@ -336,7 +341,7 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     .map((p) => String(p.id)));
   const counts = await db.prepare(
     `SELECT player_id,
-            SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS used,
+            ${TAXI_USED_WEEKS_SQL} AS used,
             MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN callup_index ELSE 0 END) AS max_idx
        FROM ups_taxi_callups GROUP BY player_id`
   ).all();
@@ -3519,7 +3524,7 @@ const _taxiCutContextMap = async (env, playerIds, ctx) => {
         const chunk = ids.slice(i, i + chunkSize);
         const rows = await env.UPS_MFL_DB.prepare(
           `SELECT player_id,
-                  SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS used,
+                  ${TAXI_USED_WEEKS_SQL} AS used,
                   MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END) AS marked
              FROM ups_taxi_callups
             WHERE player_id IN (${chunk.map(() => "?").join(",")})
@@ -16601,7 +16606,7 @@ export default {
         // Only call-ups recorded from 2026 count (TAXI_TRACKED_SQL); 2025 is the legacy rule's (below).
         const selectClause =
           `SELECT player_id,
-                  SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END)                AS used,
+                  ${TAXI_USED_WEEKS_SQL}                AS used,
                   SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_count,
                   MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END)  AS marked
              FROM ups_taxi_callups`;
@@ -16919,8 +16924,9 @@ export default {
       // Q20 (tracker): pending=1 rows in ups_taxi_callups represent
       // owner clicks awaiting NFL-week certification. This endpoint
       // walks them, fetches weeklyresults for the relevant week, and:
-      //   - Player appears in active lineup that week → flip pending=0,
-      //     compute callup_index, flip became_permanent if index >= 4.
+      //   - Player appears in active lineup that week → left for the weekly
+      //     count (syncTaxiCallupWeeks), the ONE writer of call-up weeks; a
+      //     week it already holds marks the click superseded (pending=2).
       //   - Player was demoted before the week locked OR doesn't appear
       //     in weeklyresults → DELETE the row (call-up didn't count).
       //
@@ -17054,36 +17060,11 @@ export default {
               out.cleared.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "week_already_counted" });
               continue;
             }
-            // Player was active for the week — confirm. callup_index =
-            // max confirmed index + 1; became_permanent on 4th.
-            const indexRow = await env.UPS_MFL_DB.prepare(
-              `SELECT COALESCE(MAX(callup_index), 0) AS max_idx
-                 FROM ups_taxi_callups
-                WHERE player_id = ? AND pending = 0 AND ${TAXI_TRACKED_SQL}`
-            ).bind(rPlayerId).first();
-            const nextIndex = Number(indexRow?.max_idx || 0) + 1;
-            const newPermanent = nextIndex >= 4 ? 1 : 0;
-            if (!dryRun) {
-              try {
-                await env.UPS_MFL_DB.prepare(
-                  `UPDATE ups_taxi_callups
-                      SET pending = 0,
-                          callup_index = ?,
-                          became_permanent = ?
-                    WHERE id = ?`
-                ).bind(nextIndex, newPermanent, rid).run();
-              } catch (e) {
-                out.errors.push({ id: rid, reason: "confirm_update_failed", detail: e?.message || String(e) });
-                continue;
-              }
-            }
-            out.confirmed.push({
-              id: rid,
-              player_id: rPlayerId,
-              week: weekToCheck,
-              callup_index: nextIndex,
-              became_permanent: newPermanent === 1,
-            });
+            // Listed for the week, but not (yet) one of the weekly count's rows. The confirm pass never charges a call-up
+            // itself (Keith 2026-10-21: a call-up is a qualifying scoring week — active or on IR, never a bye — and ONE
+            // writer records it): syncTaxiCallupWeeks charges the week from MFL's weekly record and then supersedes
+            // this click. Nothing is written here.
+            out.skipped.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "weekly_count_decides" });
           }
           out.totals = {
             confirmed: out.confirmed.length,
@@ -48545,7 +48526,7 @@ const mflToSleeper = {};
             // sidestep it entirely.
             const rows = await env.UPS_MFL_DB.prepare(
               `SELECT player_id,
-                      SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END)                AS used,
+                      ${TAXI_USED_WEEKS_SQL}                AS used,
                       SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_count,
                       MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END)  AS marked
                  FROM ups_taxi_callups
@@ -59255,7 +59236,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           if (env.UPS_MFL_DB) {
             try {
               const permRow = await env.UPS_MFL_DB.prepare(
-                `SELECT SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS used,
+                `SELECT ${TAXI_USED_WEEKS_SQL} AS used,
                         MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END) AS marked
                    FROM ups_taxi_callups WHERE player_id = ?`
               ).bind(playerId).first();
@@ -59621,9 +59602,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           try {
             const countRow = await env.UPS_MFL_DB.prepare(
               `SELECT
-                  SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS confirmed,
+                  ${TAXI_USED_WEEKS_SQL} AS confirmed,
                   SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_open,
-                  (SUM(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) >= 4) AS permanent
+                  (${TAXI_USED_WEEKS_SQL} >= 4) AS permanent
                  FROM ups_taxi_callups WHERE player_id = ?`
             ).bind(playerId).first();
             const confirmedCount = Number(countRow?.confirmed || 0);

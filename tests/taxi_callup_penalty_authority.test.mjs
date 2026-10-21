@@ -33,6 +33,7 @@ const LEGACY_READER = cut("const TAXI_LEGACY_2025_CACHE_KEY =", "// The 2025 leg
 const DRAFTS = { 2026: {}, 2025: { "17134": 2, "17046": 3, "17052": 2, "17000": 4, "16000": 3, "17075": 2 }, 2024: { "16639": 3 }, 2023: { "15000": 3 } };
 function load({ rows = [], legacy = new Set(), d1Throws = false, legacyThrows = false, noDb = false,
                 weekKickoff = {}, teamKickoffs = {}, teams = {}, scheduleDown = false, playersDown = false, draftDown = false }) {
+  WEEK_OF.clear();
   const calls = { legacy: [], players: 0 };
   const db = {
     prepare(sql) {
@@ -44,15 +45,15 @@ function load({ rows = [], legacy = new Set(), d1Throws = false, legacyThrows = 
           return { results: rows.filter((r) => r.pending === 0 && String(r.season) === String(season) && Number(r.nfl_week) === Number(week) && ids.includes(r.player_id)).map((r) => ({ player_id: r.player_id })) };
         }
         const ids = args;
-        const tracked = /CAST\(season AS INTEGER\) >= 2026/.test(sql);
-        if (!tracked) throw new Error("the call-up count must count only rows recorded from 2026: " + sql);
+        const weeks = /COUNT\(DISTINCT CASE WHEN pending = 0 AND CAST\(season AS INTEGER\) >= 2026 AND nfl_week IS NOT NULL THEN season \|\| '-' \|\| nfl_week END\) AS used/.test(sql);
+        if (!weeks) throw new Error("the call-up count must count DISTINCT qualifying weeks recorded from 2026: " + sql);
         const by = {};
         for (const r of rows) {
           if (!ids.includes(r.player_id)) continue;
-          const b = by[r.player_id] || (by[r.player_id] = { player_id: r.player_id, used: 0, marked: 0 });
-          if (r.pending === 0 && Number(r.season) >= 2026) { b.used++; b.marked = Math.max(b.marked, r.became_permanent || 0); }
+          const b = by[r.player_id] || (by[r.player_id] = { player_id: r.player_id, wk: new Set(), marked: 0 });
+          if (r.pending === 0 && Number(r.season) >= 2026 && r.nfl_week != null) { b.wk.add(r.season + "-" + r.nfl_week); b.marked = Math.max(b.marked, r.became_permanent || 0); }
         }
-        return { results: Object.values(by) };
+        return { results: Object.values(by).map((b) => ({ player_id: b.player_id, used: b.wk.size, marked: b.marked })) };
       } }) };
     },
   };
@@ -88,7 +89,12 @@ function load({ rows = [], legacy = new Set(), d1Throws = false, legacyThrows = 
   };
   return { ...api, env, calls, verdicts };
 }
-const row = (player_id, n, extra) => Array.from({ length: n }, () => ({ player_id, pending: 0, became_permanent: 0, season: "2026", ...(extra || {}) }));
+// Each row is one recorded scoring week; a player's weeks are numbered 1, 2, 3… across the calls building one load().
+const WEEK_OF = new Map();
+const row = (player_id, n, extra) => Array.from({ length: n }, () => {
+  const w = (WEEK_OF.get(player_id) || 0) + 1; WEEK_OF.set(player_id, w);
+  return { player_id, pending: 0, became_permanent: 0, season: "2026", nfl_week: w, ...(extra || {}) };
+});
 const CTX = { season: "2026", leagueId: "74598" };
 
 test("the rule: permanent at 4+ tracked call-ups, a row marked permanent, or the 2025 legacy rule — never for ending a season active", () => {
@@ -154,6 +160,12 @@ test("a trade keeps the COMPLETE call-up count: rows are read by player across f
   const L4 = load({ rows: [...row("17052", 2, { franchise_id: "0003" }), ...row("17052", 2, { franchise_id: "0007" })], legacy: new Set(["1"]) });
   t.deepEqual(await L4.verdicts(["17052"], CTX), { "17052": false }, "a 4th with the new team: permanent");
   t.ok(!/franchise_id = \?/.test(RESOLVER.slice(RESOLVER.indexOf("const _taxiCutContextMap"))), "the count is never scoped to one franchise");
+});
+
+test("several rows for ONE scoring week use one call-up; a row with no recorded week is no call-up", async () => {
+  const L = load({ rows: [...row("17052", 1, { nfl_week: 5 }), ...row("17052", 1, { nfl_week: 5, franchise_id: "0003" }), ...row("17052", 1, { nfl_week: null })], legacy: new Set(["1"]) });
+  const m = await L._taxiCutContextMap(L.env, ["17052"], CTX);
+  t.equal(m["17052"].used, 1);
 });
 
 test("pending rows (an un-confirmed promote click) are not call-ups", async () => {

@@ -1521,9 +1521,9 @@
     var msg = action === "promote_taxi"
       ? "Promote " + name + " to your active roster?\n\n" +
         (ts && ts.next_callup_permanent
-          ? "This would be activation " + nth + ": it makes the promotion PERMANENT — the player can never return to taxi and is no longer cap-free to cut."
-          : (nth ? "This would be call-up " + nth + " of 3 (temporary: you can demote after the week). " : "") + "Each taxi player gets 3 temporary call-ups; the 4th activation is permanent.") +
-        " Demoting before the next NFL week locks does not burn a call-up."
+          ? "All 3 temporary call-ups are used. If he is active (or on IR) for a scoring week, that week makes the promotion PERMANENT — he can never return to taxi and is no longer cap-free to cut."
+          : (nth ? "If he is active (or on IR) for a scoring week, that week uses call-up " + nth + " of 3 (temporary: you can demote after the week). " : "") + "Each taxi player gets 3 temporary call-ups; a 4th scoring week is permanent.") +
+        " A call-up is a scoring week, not a move: sending him back to taxi before his game uses nothing."
       : "Send " + name + " to your taxi squad?\n\nTaxi salary is off-cap. Demoting before the next NFL week locks does not burn a call-up.";
     if (!window.confirm(msg)) return;
     STATE.taxiBusy = pid; STATE.message = null; rerender();

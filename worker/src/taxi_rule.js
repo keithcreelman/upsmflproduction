@@ -2,13 +2,16 @@
 //
 //   - The UPS Rookie Draft round and year decide it, never MFL's NFL draft fields or its generic taxi flag.
 //   - Round 1 is never eligible; Round 2 or later is eligible during the first 3 LEAGUE years.
-//   - TRACKED RULE, from 2026 (Keith 2026-10-21): activations 1–3 are temporary call-ups, counted across the whole
-//     window, across trades and franchises; after each of them — the third included — the player may be demoted back
-//     to taxi. The next promotion after all three is permanent and ends eligibility for good. Ending a season on the
-//     active roster or IR does NOT by itself make him permanent. Only call-ups recorded in 2026 or later count.
+//   - TRACKED RULE, from 2026 (Keith 2026-10-21): a call-up is a QUALIFYING SCORING WEEK — the player active, or on IR,
+//     for an official UPS scoring week — never a transaction; several moves in one week use at most one, and a promotion
+//     reversed before his game uses none. Weeks 1–3 are temporary call-ups, counted across the whole window, across
+//     trades and franchises; after each — the third included — he may be demoted back to taxi. The 4th qualifying week
+//     is permanent and ends eligibility for good. Ending a season on the active roster or IR does NOT by itself make
+//     him permanent. Only weeks recorded in 2026 or later count (used = distinct recorded weeks).
 //   - LEGACY RULE, 2025 only (Keith 2026-09-17, restated 2026-10-21): call-ups were not reliably tracked in 2025, so
-//     a taxi-eligible player documented on an active roster or IR in ANY week of 2025 is permanently promoted, even
-//     if he finished 2025 back on taxi. A one-time rule for that season; it never rolls forward.
+//     a Round 2+ pick whom MFL's retained weekly record shows active or on IR for ANY 2025 scoring week (Weeks 1–17) is
+//     permanently promoted, even if he finished 2025 back on taxi; a move fully reversed before the weekly status
+//     doesn't count. A one-time rule for that season; it never rolls forward.
 //   - A cut / release ends the original eligibility; re-acquiring the player does not restore it
 //     (Keith 2026-08-03). MFL keeps a traded player's contract status, but a drop wipes it and a
 //     re-acquisition writes a fresh one, so "still exactly Rookie-Draft" means "never released".
@@ -57,7 +60,8 @@ export function taxiEligibility(i = {}) {
     eligible: false, reason: "", text: "", detail: "", reasons: [],
     callups_used: used, callups_pending: pending, callups_left: Math.max(0, TAXI_CALLUPS_MAX - used),
     permanent: legacy === true ? true : permanent, legacy_2025: legacy, can_demote: false,
-    // The activation a promote from taxi would be; the 4th is permanent.
+    // The qualifying week a promote from taxi would become IF he is active (or on IR) for a scoring week; the 4th is
+    // permanent. A promotion reversed before his game is no week at all (Keith 2026-10-21).
     next_callup: used + pending + 1, next_callup_permanent: used + pending + 1 > TAXI_CALLUPS_MAX,
   };
   const unknown = (reason, detail) =>

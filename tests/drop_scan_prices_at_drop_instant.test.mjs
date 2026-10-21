@@ -96,7 +96,7 @@ function makeDb() {
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
   // 17052: a 2026 rookie on his 2nd of 3 call-ups, never on an active roster at a season's end → his cut stays cap-free (§D2)
   db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT, nfl_week INTEGER)");
-  db.raw.exec("INSERT INTO ups_taxi_callups (player_id, pending, season) VALUES ('17052', 0, '2026'), ('17052', 0, '2026')");
+  db.raw.exec("INSERT INTO ups_taxi_callups (player_id, pending, season, nfl_week) VALUES ('17052', 0, '2026', 1), ('17052', 0, '2026', 2)");
   db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
   db.raw.exec(`INSERT INTO ups_settings (key, value) VALUES ('taxi_legacy_active_2025_v1', '["16000"]')`);
   return db;
