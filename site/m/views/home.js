@@ -79,6 +79,13 @@
     if (n <= 21) return "in " + n + "d";
     return prettyDate(d);
   }
+  // An event that carries MFL's exact time (the trade deadline: when MFL stops accepting trades) shows it.
+  function etTime(e) {
+    var m = U.safeStr(e && e.time_et).match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return "";
+    var h = parseInt(m[1], 10);
+    return (h % 12 || 12) + ":" + m[2] + " " + (h < 12 ? "AM" : "PM") + " ET";
+  }
   function whenTone(d) {
     var n = daysUntil(d);
     if (n == null) return "";
@@ -244,7 +251,7 @@
         ? (ctx.incoming + " received" + (ctx.outgoing ? " · " + ctx.outgoing + " out" : ""))
         : (ctx.outgoing ? (ctx.outgoing + " out") : "No offers");
     var taxiIrSub = cap ? ((cap.taxiCount || 0) + " taxi · " + (cap.irCount || 0) + " IR") : "Moves";
-    var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date)) : "No windows";
+    var eventsSub = ctx.next ? (eventMeta(ctx.next).label + " " + whenLabel(ctx.next.date) + (etTime(ctx.next) ? ", " + etTime(ctx.next) : "")) : "No windows";
     var wv = waiverTileInfo();
     return [
       { label: "My Roster", icon: "clipboard-list", tone: "field",  href: "#myteam/roster",    sub: rosterSub },
@@ -310,7 +317,7 @@
         '<span class="ups-m-cal-ic">' + ic(nm.icon, { size: 18 }) + '</span>' +
         '<span class="ups-m-cal-date"><span class="d">' + U.escapeHtml(prettyDate(e.date)) + '</span>' +
           '<span class="w">' + U.escapeHtml(whenLabel(e.date)) + '</span></span>' +
-        '<span class="ups-m-cal-body"><span class="ups-m-cal-evt">' + U.escapeHtml(nm.label) + '</span>' +
+        '<span class="ups-m-cal-body"><span class="ups-m-cal-evt">' + U.escapeHtml(nm.label + (etTime(e) ? " · " + etTime(e) : "")) + '</span>' +
           '<span class="ups-m-cal-go">' + (tone === "now" ? "Open now" : "Open") + '</span></span>' +
       '</a>';
     }).join("") + '</div>';

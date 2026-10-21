@@ -29,6 +29,7 @@ import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalend
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
+import { mflTradeLock, tradeEventWeeks } from "./trade_deadline.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -2621,6 +2622,44 @@ async function nflWeekFirstKickoffUnix(season, week) {
   // Only a real answer is cached. A failure must be retried, not remembered.
   if (earliest > 0) _nflWeekKickoffCache.set(key, { unix: earliest, at: Date.now() });
   return earliest;
+}
+
+// WHEN MFL STOPS ACCEPTING TRADES, for every owner-facing deadline (the Discord reminders, /api/league-events and,
+// through it, the phone Home chip, Team Operations and the MFL-page countdown widget). The rule lives in
+// trade_deadline.js (the earliest TRADE calendar event not yet ended; week-numbered events at that week's first
+// kickoff). This reads MFL's calendar with the worker's own session, read-only. opts.cacheMs keeps a good read for that
+// long in this isolate (the state is recomputed against the clock on every call); a failed read is never remembered.
+const _mflTradeLockReads = new Map();
+async function readMflTradeLock(env, season, leagueId, opts = {}) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const lid = String(leagueId || "").replace(/\D/g, "") || "74598";
+  const nowUnix = Number(opts.nowUnix) || Math.floor(Date.now() / 1000);
+  const fail = (reason, status) => ({ ...mflTradeLock([], { nowUnix }), reason, upstream_status: status || 0 });
+  if (!yr) return fail("season_missing");
+  const key = `${yr}|${lid}`;
+  let read = _mflTradeLockReads.get(key);
+  if (!read || !(opts.cacheMs > 0) || Date.now() - read.at > opts.cacheMs) {
+    read = null;
+    try {
+      const headers = { "User-Agent": "upsmflproduction-worker", Accept: "application/json" };
+      const ck = String(env && env.MFL_COOKIE || "").trim();
+      if (ck) headers.Cookie = mflCookieHeader(ck);
+      const res = await fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=calendar&L=${lid}&JSON=1&_=${Date.now()}`,
+        { headers, cf: { cacheTtl: 0, cacheEverything: false } });
+      if (!res.ok) return fail(`calendar_unreadable_http_${res.status}`, res.status);
+      const data = await res.json().catch(() => null);
+      if (!data || data.error) return fail("calendar_unreadable_" + (data && data.error ? "mfl_error" : "not_json"), res.status);
+      const events = normalizeMflCalendar(data);
+      const kick = {};
+      for (const w of tradeEventWeeks(events)) kick[w] = await nflWeekFirstKickoffUnix(yr, w);
+      read = { at: Date.now(), events, kick, status: res.status };
+      if (events.length && !Object.values(kick).some((u) => !(u > 0))) _mflTradeLockReads.set(key, read);
+    } catch (e) {
+      return fail("calendar_fetch_failed: " + String(e && e.message || e).slice(0, 120));
+    }
+  }
+  return { ...mflTradeLock(read.events, { nowUnix, weekKickoff: read.kick }), upstream_status: read.status,
+    source_url: `https://www48.myfantasyleague.com/${yr}/options?L=${lid}&O=123` };
 }
 
 // LAST kickoff of a week (the mirror of nflWeekFirstKickoffUnix above) — used
@@ -20515,12 +20554,15 @@ export default {
               WHERE nfl_season = ?
               ORDER BY date ASC`
           ).bind(season).all();
+          // The trade deadline row is MFL's own trade lock, read with the worker's session (5-minute isolate memo).
+          const tradeLock = await readMflTradeLock(env, season, L || "74598", { cacheMs: 5 * 60 * 1000 });
           const built = await buildLeagueEvents({
             rows: res.results || [],
             season,
             from: fromParam,
             limit: lim,
             kickoffFor: nflWeekFirstKickoffUnix,
+            tradeLock,
           });
           const out = {
             ok: true,
@@ -20528,6 +20570,12 @@ export default {
             events: built.events,
             preseason_ladder: built.ladder,
             preseason_ladder_basis: "mfl_nflSchedule_first_kickoff (Week 3 = MYM, Week 5 = Extension); stored league_events row is the marked fallback",
+            // When MFL stops accepting trades: the earliest "No Trades Allowed" event on MFL's calendar not yet ended.
+            trade_lock: {
+              state: tradeLock.state, start_unix: tradeLock.start_unix, end_unix: tradeLock.end_unix,
+              date_et: tradeLock.date_et || null, time_et: tradeLock.time_et || null, label: tradeLock.label || null,
+              events: tradeLock.events, reason: tradeLock.reason || "", source: "mfl_calendar",
+            },
           };
 
           // ── &kickoffs=1,3,5 → week_kickoffs: { "1": <unix>, "3": ..., "5": ... }
@@ -35451,9 +35499,9 @@ const mflToSleeper = {};
         );
 
       // WHEN MFL STOPS ACCEPTING TRADES, read from MFL itself (Keith 2026-10-09: "owner-facing reminders must accurately
-      // state when MFL will actually stop accepting trades"). MFL's trade deadline is a calendar event — EVENT_TYPE TRADE,
-      // shown on the League Calendar as "No Trades Allowed starts at …" — with no end, so the EARLIEST one in the season's
-      // calendar is the instant trading stops. (2026: MFL holds Tue 11-24 12:00 PM plus Wed 11-25 8:00 PM twice → Tue noon.)
+      // state when MFL will actually stop accepting trades"; 2026-10-21: every owner-facing deadline shows MFL's actual
+      // enforcement time). readMflTradeLock / trade_deadline.js: the earliest TRADE ("No Trades Allowed") event on MFL's
+      // calendar that has not ended. (2026: Tue 11-24 12:00 PM plus Wed 11-25 8:00 PM twice → Tue noon.)
       //
       // This replaced a resolver that read ESPN's scoreboard for Thanksgiving Day and called the first game the deadline
       // (Thu 11-26 1:00 PM), overriding both the commish calendar and MFL. Nothing here guesses: a calendar that can't be
@@ -35462,51 +35510,31 @@ const mflToSleeper = {};
       const resolveTradeDeadlineKickoffEt = async (season, leagueId) => {
         const seasonKey = safeStr(season);
         const lid = safeStr(leagueId || L || "74598");
+        const lock = await readMflTradeLock(env, seasonKey, lid);
+        const resolved = (lock.state === "upcoming" || lock.state === "closed") && lock.date_et && lock.time_et;
         const out = {
           season: safeInt(seasonKey, 0),
-          deadline_date_et: "",
-          deadline_time_et: "",
-          fallback_used: true,
+          deadline_date_et: resolved ? lock.date_et : "",
+          deadline_time_et: resolved ? lock.time_et : "",
+          fallback_used: !resolved,
           source: "mfl_calendar",
-          source_url: `https://www48.myfantasyleague.com/${encodeURIComponent(seasonKey)}/options?L=${encodeURIComponent(lid)}&O=123`,
+          source_url: lock.source_url || `https://www48.myfantasyleague.com/${encodeURIComponent(seasonKey)}/options?L=${encodeURIComponent(lid)}&O=123`,
           checked_at_utc: new Date().toISOString(),
           event_name: "",
-          event_id: "",
-          event_date_utc: "",
-          mfl_trade_events: [],
-          upstream_status: 0,
-          upstream_error: "",
+          event_id: resolved ? lock.event_id : "",
+          event_date_utc: resolved ? new Date(lock.start_unix * 1000).toISOString() : "",
+          mfl_trade_events: (lock.events || []).map((e) => {
+            const et = e.start_unix ? etDateTimeFromIso(new Date(e.start_unix * 1000).toISOString()) : {};
+            return { id: e.id, start_unix: e.start_unix, end_unix: e.end_unix, nfl_week: e.nfl_week, date_et: et.date_key || "", time_et: et.time_et || "" };
+          }),
+          upstream_status: safeInt(lock.upstream_status, 0),
+          upstream_error: resolved ? "" : (lock.reason || lock.state),
         };
-        if (!seasonKey) { out.upstream_error = "season_missing"; return out; }
-        try {
-          const res = await mflExportJson(seasonKey, lid, "calendar", {}, { useCookie: true });
-          out.upstream_status = safeInt(res && res.status, 0);
-          if (!res || !res.ok) { out.upstream_error = `calendar_unreadable_http_${out.upstream_status}`; return out; }
-          const all = normalizeMflCalendar(res.data);
-          // An empty calendar is not evidence that MFL has no trade deadline — it is what a failed login looks like.
-          if (!all.length) { out.upstream_error = "calendar_has_no_events"; return out; }
-          const trades = all.filter((e) => e.event_type === "TRADE" && Number(e.start_unix) > 0)
-            .sort((x, y) => Number(x.start_unix) - Number(y.start_unix));
-          out.mfl_trade_events = trades.map((e) => {
-            const et = etDateTimeFromIso(new Date(Number(e.start_unix) * 1000).toISOString());
-            return { id: safeStr(e.id), start_unix: Number(e.start_unix), date_et: et.date_key, time_et: et.time_et };
-          });
-          if (!trades.length) { out.upstream_error = "no_trade_event_on_mfl_calendar"; return out; }
-          const first = out.mfl_trade_events[0];
-          if (!first.date_et || !first.time_et) { out.upstream_error = "unresolved_event_time"; return out; }
-          return {
-            ...out,
-            deadline_date_et: first.date_et,
-            deadline_time_et: first.time_et,
-            fallback_used: false,
-            event_name: `MFL "No Trades Allowed" (${trades.length} TRADE event${trades.length === 1 ? "" : "s"} on the calendar; the earliest applies)`,
-            event_id: first.id,
-            event_date_utc: new Date(first.start_unix * 1000).toISOString(),
-          };
-        } catch (e) {
-          out.upstream_error = `calendar_fetch_failed: ${e?.message || String(e)}`;
-          return out;
+        if (resolved) {
+          const n = out.mfl_trade_events.length;
+          out.event_name = `MFL "No Trades Allowed" (${n} TRADE event${n === 1 ? "" : "s"} on the calendar; the earliest applies)`;
         }
+        return out;
       };
 
       const tradeDeadlineResolutionChanged = (previous, next) => {

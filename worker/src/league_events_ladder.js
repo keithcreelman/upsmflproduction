@@ -50,8 +50,13 @@ export const PRESEASON_LADDER = [
   { event: "preseason_extensiondeadline", week: 5, label: "Extension window closes at the first kickoff of NFL Week 5" },
 ];
 
+// The trade deadline row is MFL's own trade lock (Keith 2026-10-21: owner-facing deadlines show when MFL actually
+// stops accepting trades). The stored row is the commissioner's typed date, kept as stored_date.
+export const TRADE_DEADLINE_EVENT = "ups_trade_deadline";
+
 export const DATE_SOURCE = {
   SCHEDULE: "nfl_schedule_first_kickoff",
+  MFL_CALENDAR: "mfl_calendar",
   STORED: "stored_row",
   STORED_STALE: "stored_row_stale_fallback",
   UNRESOLVED: "unresolved",
@@ -92,9 +97,12 @@ function byDateThenEvent(a, b) {
  *                                 exactly one implementation of "when does the
  *                                 week start" and so this is testable offline.
  * @param {string}  [o.todayIso]   override for the from=today cutoff (tests)
+ * @param {object}  [o.tradeLock]  readMflTradeLock(...) result. When given, the trade deadline row is MFL's lock:
+ *                                 its ET date, time_et, start_unix and label; an unresolved lock (or MFL holding
+ *                                 no trade lock) gives date null — never the commissioner's typed date in its place.
  * @returns {Promise<{events: object[], ladder: object}>}
  */
-export async function buildLeagueEvents({ rows, season, from, limit, kickoffFor, todayIso }) {
+export async function buildLeagueEvents({ rows, season, from, limit, kickoffFor, todayIso, tradeLock }) {
   const yr = String(season == null ? "" : season).replace(/\D/g, "");
   const lim = Math.min(50, Math.max(1, parseInt(limit, 10) || 10));
   const stored = Array.isArray(rows) ? rows.filter((r) => r && r.event != null) : [];
@@ -151,6 +159,22 @@ export async function buildLeagueEvents({ rows, season, from, limit, kickoffFor,
   // stored row verbatim (the September ups_contract_deadline is COMMISH-OWNED
   // and is never touched here).
   const merged = [];
+  if (tradeLock && typeof tradeLock === "object") {
+    const row = storedByEvent.get(TRADE_DEADLINE_EVENT) || null;
+    const ok = (tradeLock.state === "upcoming" || tradeLock.state === "closed") && isoOf(tradeLock.date_et);
+    resolved.set(TRADE_DEADLINE_EVENT, {
+      event: TRADE_DEADLINE_EVENT,
+      date: ok ? isoOf(tradeLock.date_et) : null,
+      nfl_season: yr,
+      description: "MFL stops accepting trades (\u201cNo Trades Allowed\u201d on MFL's league calendar)",
+      date_source: ok ? DATE_SOURCE.MFL_CALENDAR : DATE_SOURCE.UNRESOLVED,
+      time_et: ok ? tradeLock.time_et : null,
+      start_unix: ok ? tradeLock.start_unix : null,
+      label: ok ? tradeLock.label : null,
+      trade_lock_state: tradeLock.state,
+      stored_date: row ? isoOf(row.date) || null : null,
+    });
+  }
   for (const r of stored) {
     const key = String(r.event);
     if (resolved.has(key)) continue;
@@ -165,6 +189,7 @@ export async function buildLeagueEvents({ rows, season, from, limit, kickoffFor,
   // A season that was never seeded still gets its ladder, so no future season
   // needs a seeding migration.
   for (const spec of PRESEASON_LADDER) merged.push(resolved.get(spec.event));
+  if (resolved.has(TRADE_DEADLINE_EVENT)) merged.push(resolved.get(TRADE_DEADLINE_EVENT));
 
   // ── from / limit, applied AFTER resolution ────────────────────────────────
   // The filter has to run on the RESOLVED date. Doing it in SQL against the
