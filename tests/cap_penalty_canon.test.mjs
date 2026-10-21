@@ -77,7 +77,7 @@ t('CL3 $1K/yr yr2, mid-season drop', mid.penalty, 1000);
 
 console.log('\n-- Keith 2026-10-21 (T5.2 / §D2): cap-free protection follows TAXI ELIGIBILITY, not the roster slot --');
 // taxiCut = _taxiCutContextMap's inputs as of the cut; the pricing asks the ONE taxi rule (worker/src/taxi_rule.js).
-const cut = (o) => ({ season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false, ...o });
+const cut = (o) => ({ season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false, legacy2025: false, ...o });
 const taxiInput={contractStatus:'Rookie-Draft',salary:2000,
   contractInfo:'CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K',contractYear:'3'};
 const onTaxi = _computeDropPenalty({...taxiInput,isTaxi:true,taxiCut:cut()},{});

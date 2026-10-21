@@ -244,7 +244,7 @@ test("DROP RULE: multi-year sub-$5K keeps its flat $1K but carries no earned ($1
   t.equal(final.basis, "tcv_under_5k_final_year_exempt"); t.equal(final.earned, null);
   const big = drop({ contractStatus: "Vet-FAA", salary: 25000, contractInfo: "CL 1| TCV 25K| AAV 25K", contractYear: "1" }, INSEASON);
   t.equal(big.basis, "guarantee_minus_earned"); t.equal(big.earned, Math.round(25000 * 2 / 17)); t.equal(big.earned_rule, undefined, "the rule is for sub-$5K only");
-  const taxi = drop({ contractStatus: "Rookie-Draft", salary: 1000, contractInfo: "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K", contractYear: "2", isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false } }, INSEASON);   // eligible taxi player (Keith 2026-10-21)
+  const taxi = drop({ contractStatus: "Rookie-Draft", salary: 1000, contractInfo: "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K", contractYear: "2", isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false, legacy2025: false } }, INSEASON);   // eligible taxi player (Keith 2026-10-21)
   t.equal(taxi.basis, "taxi_exempt"); t.notEqual(taxi.earned, null, "taxi D2a settlement still reads prior-year earned");
   const unresolved = drop(FCFS_IN, { season: "2026", dropDateIso: "2026-09-24T00:00:00Z", completedPayableWeeks: null });
   t.equal(unresolved.basis, "week_authority_unresolved"); t.equal(unresolved.penalty, null, "fail-closed stays fail-closed");

@@ -790,7 +790,7 @@ console.log('\n-- 15. IR player accrues normally (no IR-specific branch) --');
 
 console.log('\n-- 16. taxi: earned reported normally, penalty stays $0 via taxi_exempt --');
 {
-  const r = _computeDropPenalty({ ...stdContract(13000), contractStatus: 'Rookie-Draft', isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false } },
+  const r = _computeDropPenalty({ ...stdContract(13000), contractStatus: 'Rookie-Draft', isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false, legacy2025: false } },
     { dropDateIso: '2026-09-24T00:00:00Z', season: '2026', completedPayableWeeks: 2 });
   t('16a. taxi penalty is exempt $0', r.penalty, 0);
   t('16b. taxi basis is taxi_exempt', r.basis, 'taxi_exempt');

@@ -179,7 +179,7 @@ console.log('\n-- 11. IR continues accrual (no IR-specific branch in the formula
 
 console.log('\n-- 12. taxi: earned still reported, but penalty is exempt $0 --');
 {
-  const r = _computeDropPenalty({ ...stdContract(13000), contractStatus: 'Rookie-Draft', isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false } }, { dropDateIso: WEEK3_INPROGRESS, week1ThursdayIso: WK1, season: '2026', completedPayableWeeks: TWO_COMPLETED_WEEKS });
+  const r = _computeDropPenalty({ ...stdContract(13000), contractStatus: 'Rookie-Draft', isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false, legacy2025: false } }, { dropDateIso: WEEK3_INPROGRESS, week1ThursdayIso: WK1, season: '2026', completedPayableWeeks: TWO_COMPLETED_WEEKS });
   t('taxi penalty is exempt $0', r.penalty, 0);
   t('taxi basis is taxi_exempt', r.basis, 'taxi_exempt');
   t('taxi still reports a real earned figure (not suppressed to 0)', r.earned, 1529);

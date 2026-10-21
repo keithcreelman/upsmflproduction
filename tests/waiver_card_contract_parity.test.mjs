@@ -82,7 +82,7 @@ function makeDb({ submissionsReadable }) {
     // Blake Bombers MYAC'd 15500 to 3 years at 7 AM ET Friday — after the 5:05 AM snapshot, before the 9 AM cut
     db.raw.exec(`INSERT INTO ups_extension_submissions VALUES (727, '74598', '2026', '0010', '15500', 'Veteran', 6000, 3, 'CL 3| TCV 18K| AAV 6K', '2026-10-16T11:00:00Z', 0)`);
   }
-  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0)");
+  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT)");
   applyMigrations(db, ["0112_ups_add_events.sql"]);
   for (const [fid, pid, name] of [["0010", "20010", "Ten Add"], ["0003", "20003", "Three Add"]]) {
     db.raw.prepare(`INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,

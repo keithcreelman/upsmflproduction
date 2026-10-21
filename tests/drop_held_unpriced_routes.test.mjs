@@ -100,7 +100,7 @@ function makeDb(opts) {
     UNIQUE (season, league_id, player_id, dropped_at_unix))`);
   const subCols = "id INTEGER, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, submitted_at_utc TEXT, dry_run INTEGER";
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
-  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER)");
+  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, season TEXT)");
   if (opts && opts.capfree) {
     for (const c of ["capfree_route TEXT", "capfree_review_status TEXT", "capfree_mfl_designation TEXT", "capfree_evidence_json TEXT",
                      "capfree_settlement_amount INTEGER", "capfree_decided_at_utc TEXT", "capfree_decided_by TEXT"]) db.raw.exec(`ALTER TABLE ups_drop_events ADD COLUMN ${c}`);

@@ -3870,8 +3870,10 @@
       // Taxi eligibility = the ONE rule (site/shared/taxi_rule.js, twin of the worker's taxi_rule.js, canon §A1 /
       // §B2 / T2.4): UPS Rookie Draft Round 2 or later (never the NFL round), inside the first 3 league years,
       // never released (still exactly "Rookie-Draft": a cut wipes the contract and a re-acquisition writes a
-      // fresh one; a trade keeps it), not permanently promoted (4th activation, a marked call-up, or a prior
-      // season ended active — /api/taxi-callups). Activations 1–3 are temporary: demotion stays allowed.
+      // fresh one; a trade keeps it), not permanently promoted — the tracked rule (4th activation recorded from 2026,
+      // or a marked call-up: tracked_permanent) or the 2025 legacy rule (on an active roster or IR in any 2025 week:
+      // legacy_2025), both from /api/taxi-callups. Activations 1–3 are temporary: demotion stays allowed, after the
+      // third too. An older worker without those flags: permanent_promotion stands for both.
       // historicalDraftByPid is the merged UPS draft index of the last 3–4 drafts (windowIndexOnly).
       // An unreadable draft index or call-up history makes the answer UNKNOWN → not eligible here, no Demote.
       taxiStatusFor: function (playerId, contractStatus, isTaxi, isIr) {
@@ -3886,7 +3888,9 @@
           season: parseInt(state.ctx && state.ctx.year, 10), contractStatus: contractStatus,
           isTaxi: !!isTaxi, isIr: !!isIr, used: callup ? callup.used : 0, pending: callup ? callup.pending : 0,
           draftKnown: draftOk && !!state.historicalDraftByPid, windowIndexOnly: true,
-          permanent: state.taxiCallupsOk === false ? null : !!(callup && callup.permanent_promotion),
+          permanent: state.taxiCallupsOk === false ? null
+            : !!(callup && (callup.tracked_permanent != null ? callup.tracked_permanent : callup.permanent_promotion)),
+          legacy2025: state.taxiCallupsOk === false ? null : !!(callup && callup.legacy_2025),
         });
       },
       isTaxiEligibleFor: function (playerId, contractStatus) {
