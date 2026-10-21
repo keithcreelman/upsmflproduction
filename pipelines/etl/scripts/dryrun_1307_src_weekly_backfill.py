@@ -808,8 +808,10 @@ def cmd_build(args) -> int:
                                  "_class": cls, "_name_source": name_src})
             overall, posr = table_ranks(sc, group_of)
             for r in new_rows:
-                r["overall_rank"] = overall[r["player_id"]]
-                r["pos_rank"] = posr.get(r["player_id"])
+                # --weekly-ranks null: a tie's order is a definition still under review,
+                # so the score rows go in without weekly ranks (filled later, 1 write/row).
+                r["overall_rank"] = overall[r["player_id"]] if args.weekly_ranks == "table" else None
+                r["pos_rank"] = posr.get(r["player_id"]) if args.weekly_ranks == "table" else None
                 t = totals["after"][(s, r["player_id"])]
                 t[0] += r["score"]
                 t[1] += 1
@@ -1438,6 +1440,9 @@ def main(argv=None) -> int:
     b.add_argument("--d1", required=True)
     b.add_argument("--archive", required=True, help="decompressed mfl_database_2026-06-05.db")
     b.add_argument("--out", required=True)
+    b.add_argument("--weekly-ranks", choices=["table", "null"], default="table",
+                   help="new rows' pos_rank / overall_rank: src_weekly's own rule, or NULL until the rank "
+                        "definition is reviewed")
     b.add_argument("--unproven", choices=["null", "hold", "sync"], default="null",
                    help="rows whose status MFL cannot prove: write status NULL (default), hold them back, "
                         "or label them 'fa' like the live sync")

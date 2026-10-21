@@ -39,11 +39,15 @@ def hourly(days_back: int, per_hour: int, today: dict | None = None) -> dict:
 
 
 class Guard(unittest.TestCase):
-    def test_ceiling_leaves_ten_thousand_unused(self):
-        self.assertTrue(rb.guard(60_000, 27_000, 3_000)["ok"])          # exactly 90,000
-        g = rb.guard(60_000, 27_001, 3_000)
+    def test_ceiling_holds_forward_writes_and_the_full_rollback(self):
+        # used + forecast + forward + rollback reserve <= 90,000 leaves >= 10,000 unused.
+        self.assertTrue(rb.guard(60_000, 13_500, 13_500, 3_000)["ok"])   # exactly 90,000
+        g = rb.guard(60_000, 13_500, 13_501, 3_000)
         self.assertFalse(g["ok"])
-        self.assertEqual(g["unused_after"], 100_000 - 90_001)
+        self.assertEqual(g["unused_after_worst_case"], 100_000 - 90_001)
+        # Batch 1A: 2,664 inserts -> 10,656 forward and 10,656 reserved for its rollback.
+        self.assertEqual(rb.rollback_reserve(2_664, 0), 10_656)
+        self.assertFalse(rb.guard(70_000, 10_656, 10_656, 2_193)["ok"])  # fits without the reserve, not with it
 
     def test_forecast_uses_last_seven_complete_days_and_counts_the_current_hour(self):
         h = hourly(7, 1_000)
@@ -66,11 +70,22 @@ class Guard(unittest.TestCase):
         self.assertFalse(rb.in_window(at(23, 31)))
         self.assertEqual(rb.next_window(at(23, 45)), at(22, 5) + timedelta(days=1))
 
+    def test_writes_since_spans_the_utc_reset(self):
+        h = {"2026-10-21T22": 500, "2026-10-21T23": 700, "2026-10-22T00": 900, "2026-10-21T21": 5_000}
+        self.assertEqual(rb.writes_since(h, NOW), 2_100)
+
     def test_calendar_waits_instead_of_overrunning(self):
-        batches = [{"batch": 1, "billed_writes": 11_000}, {"batch": 2, "billed_writes": 14_420},
-                   {"batch": 3, "billed_writes": 11_000}]
-        # A heavy night fits batch 1 only; batch 2 waits for the lighter night; order kept.
-        self.assertEqual(rb.calendar(batches, [74_000, 74_000, 30_000], 2_193), [(0, [1]), (1, []), (2, [2, 3])])
+        b = lambda i, w: {"batch": i, "billed_writes": w, "rollback_reserve": w}
+        # Night 1 fits batch 1 with its reserve; batch 2 waits; order kept.
+        self.assertEqual(rb.calendar([b(1, 10_656), b(2, 14_420), b(3, 10_000)], [60_000, 62_000, 30_000], 2_193),
+                         [(0, [1]), (1, []), (2, [2, 3])])
+
+    def test_showable_is_the_player_card_rule(self):
+        basis = {"a": (361.1, 15), "b": (245.7, 14), "c": (60.5, 5), "d": (10.0, 1)}
+        totals = {"a": (361.10000001, 15), "b": (151.2, 8), "c": (60.5, 5)}
+        pts, ppg = rb.showable(totals, basis, 17)
+        self.assertEqual(pts, {"a", "c"})      # b: duplicate-inflated basis; d: no weekly rows
+        self.assertEqual(ppg, {"a"})           # c: 5 wks < half of 17
 
 
 class Statements(unittest.TestCase):
@@ -84,7 +99,7 @@ class Statements(unittest.TestCase):
             "UPDATE src_weekly SET overall_rank = 5, pos_rank = 2 WHERE season = 2025 AND week = 15 "
             "AND player_id = '1' AND (overall_rank IS NOT 5 OR pos_rank IS NOT 2);")["rows_written"], 1)
         d = rb.statement_expectation("DELETE FROM src_weekly WHERE season = 2011 AND week = 14 AND player_id IN ('1','2','3');")
-        self.assertEqual((d["kind"], d["changes"], d["rows_written"]), ("delete", 3, None))
+        self.assertEqual((d["kind"], d["rows"], d["changes"], d["rows_written"]), ("delete", 3, None, None))
 
     def test_meta_mismatch_stops(self):
         exp = {"kind": "insert", "rows": 80, "rows_written": 320, "changes": 80}
@@ -112,8 +127,8 @@ class NothingRemoteWithoutOptIn(unittest.TestCase):
             raise AssertionError("reached a remote call")
         self.saved = (rb.d1, rb.account_hourly_writes, rb.mfl_get, rb.load_batch)
         rb.d1 = rb.account_hourly_writes = rb.mfl_get = boom
-        rb.load_batch = lambda args: {"batch": 1, "season": 2025, "phases": ["B", "C"], "rows_inserted": 1,
-                                      "rows_updated": 1, "billed_writes": 5}
+        rb.load_batch = lambda args: {"batch": "1A", "season": 2025, "phases": ["B"], "rows_inserted": 1,
+                                      "rows_updated": 0, "billed_writes": 4, "rollback_reserve": 4}
 
     def tearDown(self):
         rb.d1, rb.account_hourly_writes, rb.mfl_get, rb.load_batch = self.saved
@@ -133,17 +148,59 @@ class NothingRemoteWithoutOptIn(unittest.TestCase):
                 self.assertEqual(rc, 0)
                 self.assertIn("Nothing was done", out)
 
+    def test_only_a_ready_batch_runs(self):
+        import json, tempfile
+        rb.load_batch = self.saved[3]
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"plan_version": 2, "batches": [{"batch": "1A", "status": "ready"}],
+                       "held": [{"batch": "1C", "status": "held"}]}, f)
+        for bid in ("1C", "2", "1B"):
+            with self.assertRaises(SystemExit):
+                rb.load_batch(SimpleNamespace(plan=f.name, batch=bid, artifacts=None))
+
+
     def test_reads_need_their_flag(self):
         for fn in (rb.cmd_preflight, rb.cmd_verify):
             rc, out = self.run_cmd(fn, allow_prod_d1_read=False)
             self.assertEqual(rc, 0)
             self.assertIn("SKIPPED", out)
+        rc, out = self.run_cmd(rb.cmd_panel_check, allow_prod_read=False)
+        self.assertIn("SKIPPED", out)
 
     def test_read_path_runs_select_only(self):
         rb.d1 = self.saved[0]
         for sql in ("DELETE FROM src_weekly", "UPDATE src_weekly SET x = 1", "INSERT INTO src_weekly VALUES (1)"):
             with self.assertRaises(ValueError):
                 rb.d1(sql)
+
+
+class AutomaticRollback(unittest.TestCase):
+    """A billing deviation on the 80-row calibration statement rolls back at once."""
+    def test_invariant_triggers_restore(self):
+        import tempfile
+        calls = []
+        def fake_d1(sql, allow_write=False):
+            calls.append(sql.split()[0])
+            if sql.startswith("INSERT"):
+                return [{"meta": {"rows_written": 400, "changes": 80}}]  # production bills 5/row
+            return [{"meta": {"rows_written": 1, "changes": 1}} for _ in sql.split(";\n") if _.strip()]
+        saved = (rb.d1, rb.preflight, rb.season_playoff_rows, rb.statements, rb.load_batch, rb.account_hourly_writes)
+        try:
+            rb.d1 = fake_d1
+            rb.preflight = lambda args, b, enforce_window=True: {"stops": [], "hourly_at_start": {}}
+            rb.season_playoff_rows = lambda season: ([], 0)
+            ins = "INSERT INTO src_weekly (a) VALUES\n" + ",\n".join(["(1)"] * 80) + "\nON CONFLICT (a) DO NOTHING;"
+            rb.statements = lambda args, b, key: [ins, ins] if key == "forward" else ["DELETE FROM src_weekly WHERE season = 2025 AND week = 15 AND player_id IN ('1');"]
+            rb.load_batch = lambda args: {"batch": "1A", "season": 2025, "billed_writes": 640,
+                                          "preimage": {"rows": 0, "sha256": rb.rows_hash([])}}
+            with tempfile.TemporaryDirectory() as d:
+                with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as cm:
+                    rb.cmd_apply(SimpleNamespace(plan="p", artifacts=d, batch="1A", execute=True,
+                                                 approval="https://github.com/keithcreelman/upsmflproduction/issues/1307#issuecomment-9"))
+            self.assertIn("rolled back", str(cm.exception))
+            self.assertEqual(calls, ["INSERT", "DELETE"])  # stopped after the first statement, then restored
+        finally:
+            rb.d1, rb.preflight, rb.season_playoff_rows, rb.statements, rb.load_batch, rb.account_hourly_writes = saved
 
 
 if __name__ == "__main__":

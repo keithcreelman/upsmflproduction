@@ -1,40 +1,50 @@
 #!/usr/bin/env python3
 """run_1307_src_weekly_batches.py -- guarded executor for the #1307 src_weekly repair.
 
-Runs the reviewed dry-run SQL (dryrun_1307_src_weekly_backfill.py, PR #1363)
-one season-batch at a time, ONLY inside a Free-plan write budget. Nothing
-remote happens unless a subcommand is given its opt-in flag; a write needs
---execute AND --approval <URL of Keith's GitHub comment approving that batch>.
+Runs reviewed dry-run SQL (dryrun_1307_src_weekly_backfill.py, PR #1363) one
+batch at a time, only inside a Free-plan write budget that also holds the
+batch's full rollback. Nothing remote happens without its opt-in flag; a write
+needs --execute AND --approval <URL of Keith's GitHub comment approving THAT batch>.
 
-Scope: phases A + B + C only (2011-2020 playoff weeks; 2021-2025 free agents in
-playoff weeks; 2021-2025 playoff rank fixes). Phase E, the rank-table rebuild,
-the 23 unresolved player-seasons and win_chunks are out of scope.
+PLAN v2 (Keith, 2026-10-21): authoritative scores are separated from disputed
+ranks. The only READY batch is 1A = phase B for 2025 (free agent / taxi / IR
+playoff score rows, weekly ranks NULL). 1C (2025 weekly rank updates) is HELD
+until the rank definition is reviewed; every other batch is PENDING and has no
+executable SQL in the plan. Phase E, the rank-table rebuild, the 23 unresolved
+player-seasons and win_chunks are out of scope.
 
-THE GUARD (all checks fail closed)
-  * Cloudflare's Free limits reset daily at 00:00 UTC (D1 pricing page), and
-    they are per ACCOUNT, so usage is summed over every D1 database.
-  * Before a batch: read today's account-wide rowsWritten since 00:00 UTC from
-    Cloudflare's GraphQL Analytics (d1AnalyticsAdaptiveGroups; control plane,
-    reads no D1 rows) and forecast the rest of the UTC day as the max, per
-    remaining hour, over the last 14 days. Refuse unless
-        used_today + batch_billed_writes + forecast_rest_of_day <= 90,000.
-  * batch_billed_writes counts inserts x 4 (table + PK index + 2 indexes) and
-    updates x 1 (unindexed columns), as measured on Miniflare D1 in #1363.
-  * Start only inside 22:05-23:30 UTC (no scheduled write-heavy job runs then;
-    see the runbook), and only if no write-heavy workflow or local job is running.
-  * During: every statement's meta.rows_written and meta.changes must equal its
-    expected value; the first deviation stops the batch.
-  * After: verify the season's playoff weeks row-for-row against the expected
-    after-state, wait for the metrics to settle, and stop if the account delta
-    exceeds this batch's writes plus the quiet-hour allowance.
+THE GUARD (every check fails closed)
+  * Cloudflare's Free limits reset at 00:00 UTC and are per ACCOUNT: usage is
+    summed over every D1 database (GraphQL d1AnalyticsAdaptiveGroups; control
+    plane, reads no D1 rows).
+  * A batch starts only if
+        used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000
+    forward_writes = inserts x 4 (table + PK + 2 indexes) + updates x 1 (measured);
+    rollback_reserve = inserts x 4 + updates x 1 (a DELETE may bill its index
+    entries too), so a full restore always fits the same UTC day;
+    forecast = per remaining hour, the max of the last 7 complete UTC days.
+  * Also: no hour today 5,000+ above its 7-day max; start 22:05-23:30 UTC; no
+    write-heavy job running; target weeks == dry-run preimage; season player
+    totals reconcile exactly to the approved "before" set; MFL unchanged.
+  * During: each statement's meta.rows_written / meta.changes must equal its
+    expected value. The first statement (80 rows) is the production billing
+    calibration.
+  * AUTOMATIC ROLLBACK (authorized by the batch approval) when the billed count
+    differs from plan, any row- or season-level invariant fails (after-state
+    hash, row count, any write error), or the post-batch reconciliation differs
+    from the approved result. A verified batch is never rolled back without a
+    separate decision (`rollback` subcommand).
+  * After: account delta since the batch started, minus this batch, must be
+    <= 3,000 (works across 00:00 UTC); otherwise no further batch that night.
 
 SUBCOMMANDS
-  plan      --artifacts DIR --out PLAN.json              offline: batch table
-  usage                                                  control-plane metrics only
-  preflight --plan P --artifacts DIR --batch N --allow-prod-d1-read
-  apply     --plan P --artifacts DIR --batch N --execute --approval URL
-  verify    --plan P --artifacts DIR --batch N --allow-prod-d1-read
-  rollback  --plan P --artifacts DIR --batch N --execute --approval URL
+  plan        --artifacts DIR --out PLAN.json         offline
+  usage       [--batch-writes N]                      control-plane metrics only
+  preflight   --plan P --artifacts DIR --batch ID --allow-prod-d1-read
+  apply       --plan P --artifacts DIR --batch ID --execute --approval URL
+  verify      --plan P --artifacts DIR --batch ID --allow-prod-d1-read
+  panel-check --plan P --batch ID --allow-prod-read
+  rollback    --plan P --artifacts DIR --batch ID --execute --approval URL
 """
 from __future__ import annotations
 
@@ -57,18 +67,21 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[2]
 D1_DB = "ups-mfl-db"
 ACCOUNT_ID = "ba1a1d492ec8a5485821eb8f0d5f32c2"
+WORKER = "https://upsmflproduction.keith-creelman.workers.dev"
 COLS = ["season", "week", "player_id", "pos_group", "status", "score", "is_reg",
         "roster_franchise_id", "roster_franchise_name", "pos_rank", "overall_rank", "win_chunks"]
 
 DAILY_CEILING = 90_000          # Free plan is 100,000/day; keep >= 10,000 unused
 FREE_PLAN_LIMIT = 100_000
-WINDOW_START = (22, 5)          # UTC; inside the window a batch may START
+WINDOW_START = (22, 5)          # UTC; a batch may START only inside the window
 WINDOW_LAST_START = (23, 30)
 SETTLE_MINUTES = 12             # GraphQL analytics lag
 OTHER_WRITES_ALLOWANCE = 3_000  # quiet-hour writes by other jobs while a batch runs
 FORECAST_DAYS = 7               # complete UTC days, all after the changed-only writer (#1267)
 ANOMALY_MARGIN = 5_000          # an hour today this far above its 7-day max = unscheduled heavy job
 UPDATES_PER_COMMAND = 25
+PLAN_VERSION = 2
+APPROVAL_RE = re.compile(r"^https://github\.com/keithcreelman/upsmflproduction/(issues|pull)/\d+#issuecomment-\d+$")
 LEAGUE_IDS = {2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191"}
 
 # Workflows / local jobs that write D1 in bulk; a batch never starts while one runs.
@@ -80,8 +93,9 @@ WRITE_HEAVY_WORKFLOWS = [
 WRITE_HEAVY_PROCESSES = ["upsmfl-live-season-sync", "upsmfl-ups-center-auto", "deadline_drop_2026",
                          "sync_live_weekly_scores_to_d1", "load_local_to_d1", "fetch_nflverse"]
 
-# Order: the most-used seasons first; one season per batch.
-BATCH_ORDER = [("BC", s) for s in range(2025, 2020, -1)] + [("A", s) for s in range(2020, 2010, -1)]
+
+class Invariant(Exception):
+    """A row-, season- or billing-level check failed after writing started."""
 
 
 def league_id(season: int) -> str:
@@ -98,6 +112,10 @@ def iso(dt: datetime) -> str:
 
 def sha256_file(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def ids_hash(ids) -> str:
+    return hashlib.sha256("\n".join(sorted(str(i) for i in ids)).encode()).hexdigest()
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -128,7 +146,7 @@ def rows_hash(rows: list) -> str:
 def statement_expectation(sql: str) -> dict:
     """What D1 must report for one reviewed statement: an INSERT of n rows bills
     4n rows written (table + 3 index entries) and changes n; an UPDATE of one row
-    bills 1 and changes 1; a DELETE of n keys changes n (billing not asserted)."""
+    bills 1 and changes 1; a DELETE of n keys changes at most n (billing not asserted)."""
     head = sql.lstrip()[:12].upper()
     if head.startswith("INSERT"):
         n = sql.count("\n(")
@@ -137,7 +155,7 @@ def statement_expectation(sql: str) -> dict:
         return {"kind": "update", "rows": 1, "rows_written": 1, "changes": 1}
     if head.startswith("DELETE"):
         n = sql.count(",") + 1
-        return {"kind": "delete", "rows": n, "rows_written": None, "changes": n}
+        return {"kind": "delete", "rows": n, "rows_written": None, "changes": None}
     raise ValueError(f"unexpected statement: {sql[:60]}")
 
 
@@ -150,9 +168,12 @@ def check_meta(expect: dict, meta: dict) -> str | None:
     return None
 
 
+def rollback_reserve(rows_inserted: int, rows_updated: int) -> int:
+    return 4 * rows_inserted + rows_updated
+
+
 def hourly_max(hourly: dict, now: datetime, days: int = FORECAST_DAYS) -> dict:
-    """{hour: max rowsWritten that UTC hour reached} over the last `days` COMPLETE
-    UTC days (account-wide)."""
+    """{hour: max rowsWritten that UTC hour reached} over the last `days` COMPLETE UTC days."""
     keep = {(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, days + 1)}
     by_hour = defaultdict(int)
     for key, v in hourly.items():
@@ -162,15 +183,13 @@ def hourly_max(hourly: dict, now: datetime, days: int = FORECAST_DAYS) -> dict:
 
 
 def forecast_rest_of_day(hourly: dict, now: datetime) -> int:
-    """Writes still to come today: for each remaining UTC hour (the current one
-    in full), the max that hour reached over the last 7 complete days."""
+    """Writes still to come today: each remaining UTC hour (the current one in
+    full) at its max over the last 7 complete days."""
     mx = hourly_max(hourly, now)
     return sum(mx[h] for h in range(now.hour, 24))
 
 
 def anomalous_hours_today(hourly: dict, now: datetime) -> list:
-    """Hours today already ANOMALY_MARGIN above their 7-day max: something
-    unscheduled is writing, so no batch starts today."""
     mx, today = hourly_max(hourly, now), now.strftime("%Y-%m-%d")
     return sorted(k for k, v in hourly.items() if k[:10] == today and v > mx[int(k[11:13])] + ANOMALY_MARGIN)
 
@@ -180,16 +199,21 @@ def used_today(hourly: dict, now: datetime) -> int:
     return sum(v for k, v in hourly.items() if k[:10] == today)
 
 
-def guard(used: int, batch_writes: int, forecast: int, ceiling: int = DAILY_CEILING) -> dict:
-    projected = used + batch_writes + forecast
-    return {"used_today": used, "batch_billed_writes": batch_writes, "forecast_rest_of_day": forecast,
-            "projected": projected, "ceiling": ceiling, "unused_after": FREE_PLAN_LIMIT - projected,
-            "ok": projected <= ceiling}
+def writes_since(hourly: dict, start: datetime) -> int:
+    """Account writes in every hour bucket from start's hour on (spans 00:00 UTC)."""
+    first = start.strftime("%Y-%m-%dT%H")
+    return sum(v for k, v in hourly.items() if k >= first)
+
+
+def guard(used: int, forward: int, reserve: int, forecast: int, ceiling: int = DAILY_CEILING) -> dict:
+    projected = used + forecast + forward + reserve
+    return {"used_today": used, "forecast_rest_of_day": forecast, "forward_writes": forward,
+            "rollback_reserve": reserve, "projected": projected, "ceiling": ceiling,
+            "unused_after_worst_case": FREE_PLAN_LIMIT - projected, "ok": projected <= ceiling}
 
 
 def in_window(now: datetime) -> bool:
-    hm = (now.hour, now.minute)
-    return WINDOW_START <= hm <= WINDOW_LAST_START
+    return WINDOW_START <= (now.hour, now.minute) <= WINDOW_LAST_START
 
 
 def next_window(now: datetime) -> datetime:
@@ -199,12 +223,49 @@ def next_window(now: datetime) -> datetime:
     return start if now < start else start + timedelta(days=1)
 
 
+def showable(totals: dict, basis: dict, season_weeks: int) -> tuple[set, set]:
+    """The player card's rule (#1353): a season's Pts Rk shows when the rank's own
+    basis (src_pointssummary points_total, games_played) equals the weekly total
+    (rounded to 0.1) and week count; its PPG Rk additionally needs half the
+    season's UPS weeks. totals / basis: {player_id: (pts, games)}."""
+    half = math.ceil(season_weeks / 2)
+    pts_ok = {pid for pid, (bp, bg) in basis.items()
+              if pid in totals and abs(float(bp) - round(totals[pid][0], 1)) < 0.05 and int(bg) == totals[pid][1]}
+    return pts_ok, {pid for pid in pts_ok if totals[pid][1] >= half}
+
+
+def mfl_facts(data) -> object:
+    """The parts of an MFL reply the plan depends on: each player's score, or
+    each franchise's lineup (player, status). Volatile fields are ignored."""
+    as_list = lambda v: v if isinstance(v, list) else ([] if v is None else [v])
+    if data is None:
+        return None
+    if "playerScores" in data:
+        return sorted((str(p.get("id")), str(p.get("score"))) for p in as_list(data["playerScores"].get("playerScore")))
+    wr = data.get("weeklyResults") or {}
+    frs = [f for m in as_list(wr.get("matchup")) for f in as_list(m.get("franchise"))] + as_list(wr.get("franchise"))
+    return sorted((str(f.get("id")), str(p.get("id")), str(p.get("status"))) for f in frs for p in as_list(f.get("player")))
+
+
+def calendar(batches: list, used_by_window: list, forecast: int) -> list:
+    """Likely nights, in order, if night i has used_by_window[i] writes by 22:05 UTC.
+    A batch that does not fit (with its rollback reserve) waits; order is kept."""
+    nights, i, todo = [], 0, list(batches)
+    while todo and i < len(used_by_window):
+        used, ran = used_by_window[i], []
+        while todo and guard(used, todo[0]["billed_writes"], todo[0]["rollback_reserve"], forecast)["ok"]:
+            used += todo[0]["billed_writes"]
+            ran.append(todo.pop(0)["batch"])
+        nights.append((i, ran))
+        i += 1
+    return nights
+
+
 # ──────────────────────────────────────────────────────────────────────
-# Remote reads: Cloudflare metrics, D1 keyed SELECTs, MFL
+# Remote reads: Cloudflare metrics, D1, MFL, worker
 # ──────────────────────────────────────────────────────────────────────
 
 def oauth_token() -> str:
-    # wrangler's OAuth token; `npx wrangler whoami` refreshes it.
     cfg = Path.home() / ".wrangler" / "config" / "default.toml"
     m = re.search(r'oauth_token\s*=\s*"([^"]+)"', cfg.read_text())
     if not m:
@@ -233,8 +294,8 @@ def account_hourly_writes(days: int = FORECAST_DAYS + 1) -> dict:
 
 
 def d1(sql: str, allow_write: bool = False) -> list:
-    """One `wrangler d1 execute --remote --json --command`; returns the per-statement
-    results. SELECT-only unless allow_write (set only by apply / rollback)."""
+    """One `wrangler d1 execute --remote --json --command`; per-statement results.
+    SELECT-only unless allow_write (set only by apply / rollback)."""
     if not allow_write and not re.match(r"^\s*SELECT\b", sql, re.I):
         raise ValueError("read path runs SELECT only")
     res = subprocess.run(["npx", "wrangler", "d1", "execute", D1_DB, "--remote", "--json", "--command", sql],
@@ -253,6 +314,20 @@ def season_playoff_rows(season: int) -> tuple[list, int]:
     return r["results"], int(r["meta"].get("rows_read") or 0)
 
 
+def season_reconciliation(season: int, season_weeks: int) -> dict:
+    """Season player totals (the card's rule: score IS NOT NULL) vs src_pointssummary.
+    Two keyed reads: about the season's rows + its src_pointssummary rows."""
+    a = d1(f"SELECT player_id, COUNT(*) AS g, SUM(score) AS pts FROM src_weekly "
+           f"WHERE season = {int(season)} AND score IS NOT NULL GROUP BY player_id")[0]
+    b = d1(f"SELECT player_id, games_played, points_total FROM src_pointssummary WHERE season = {int(season)}")[0]
+    totals = {str(r["player_id"]): (float(r["pts"] or 0), int(r["g"])) for r in a["results"]}
+    basis = {str(r["player_id"]): (float(r["points_total"] or 0), int(r["games_played"] or 0)) for r in b["results"]}
+    pts_ok, ppg_ok = showable(totals, basis, season_weeks)
+    return {"pts_showable": len(pts_ok), "ppg_showable": len(ppg_ok), "pts_sha256": ids_hash(pts_ok),
+            "ppg_sha256": ids_hash(ppg_ok), "hidden": sorted(set(basis) - pts_ok),
+            "rows_read": int(a["meta"].get("rows_read") or 0) + int(b["meta"].get("rows_read") or 0)}
+
+
 def mfl_get(season: int, params: dict):
     url = f"https://api.myfantasyleague.com/{season}/export?{urllib.parse.urlencode({**params, 'JSON': '1'})}"
     req = urllib.request.Request(url, headers={"User-Agent": "ups-1307-preflight/1.0 (read-only)"})
@@ -262,22 +337,16 @@ def mfl_get(season: int, params: dict):
     return url, data
 
 
-def mfl_facts(data) -> object:
-    """The parts of an MFL reply the plan depends on: each player's score, or
-    each franchise's lineup (player, status). Volatile fields are ignored."""
-    as_list = lambda v: v if isinstance(v, list) else ([] if v is None else [v])
-    if data is None:
-        return None
-    if "playerScores" in data:
-        return sorted((str(p.get("id")), str(p.get("score"))) for p in as_list(data["playerScores"].get("playerScore")))
-    wr = data.get("weeklyResults") or {}
-    frs = [f for m in as_list(wr.get("matchup")) for f in as_list(m.get("franchise"))] + as_list(wr.get("franchise"))
-    return sorted((str(f.get("id")), str(p.get("id")), str(p.get("status"))) for f in frs for p in as_list(f.get("player")))
-
-
 def cached_mfl(artifacts: Path, url: str):
     p = artifacts / "mflcache" / (re.sub(r"[^A-Za-z0-9]", "_", url.replace("https://", "")) + ".json")
     return json.loads(p.read_text()) if p.exists() else None
+
+
+def worker_bundle(pid: str) -> dict:
+    url = f"{WORKER}/api/player-bundle?pid={urllib.parse.quote(pid)}&L=74598"
+    req = urllib.request.Request(url, headers={"User-Agent": "ups-1307-panel-check/1.0 (read-only)"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        return json.loads(resp.read().decode())
 
 
 def running_write_jobs() -> list:
@@ -305,78 +374,70 @@ def load_jsonl(p: Path) -> list:
     return [json.loads(line) for line in p.read_text().splitlines() if line.strip()] if p.exists() else []
 
 
-def expected_after(artifacts: Path, phase: str, season: int) -> tuple[list, list]:
-    """(before rows, after rows) of the season's playoff weeks."""
-    snap = json.loads((artifacts / "d1_snapshot" / f"playoff_{season}.json").read_text())["rows"]
-    rows = {(r["week"], str(r["player_id"])): dict(r) for r in snap}
-    if phase == "BC":
-        for u in load_jsonl(artifacts / "out" / "proposed" / f"C_{season}.jsonl"):
-            rows[(u["week"], u["player_id"])].update(u["new"])
-    for r in load_jsonl(artifacts / "out" / "proposed" / f"{'A' if phase == 'A' else 'B'}_{season}.jsonl"):
-        rows[(r["week"], r["player_id"])] = {c: r[c] for c in COLS}
-    return snap, list(rows.values())
-
-
 def build_plan(artifacts: Path) -> dict:
-    rec = json.loads((artifacts / "out" / "reconciliation.json").read_text())
-    meas = json.loads((artifacts / "out" / "d1_measure.json").read_text())["phases"]
-    batches = []
-    for i, (phase, s) in enumerate(BATCH_ORDER, start=1):
-        files = ["A"] if phase == "A" else ["B", "C"]
-        stmts, rollback, sha = [], [], {}
-        for f in files:
-            p = artifacts / "out" / "statements" / f"{f}_{s}.json"
-            sha[f"statements/{p.name}"] = sha256_file(p)
-            d = json.loads(p.read_text())
-            stmts += [(f, x) for x in d["forward"]]
-            rollback = [(f, x) for x in d["rollback"]] + rollback  # undo C before B
-        exp = [statement_expectation(x) for _, x in stmts]
-        inserted = sum(e["rows"] for e in exp if e["kind"] == "insert")
-        updated = sum(e["rows"] for e in exp if e["kind"] == "update")
-        billed = sum(e["rows_written"] for e in exp)
-        measured = sum(meas[f"{f}_{s}"]["forward"]["rows_written"] for f in files)
-        if billed != measured:
-            raise SystemExit(f"plan: {phase} {s} expected {billed} != Miniflare-measured {measured}")
-        before, after = expected_after(artifacts, phase, s)
-        ps = rec["pointssummary"]["by_season"][str(s)]
-        weeks = sorted(int(w) for w in rec["seasons"][str(s)]["playoff_weeks"])
-        batches.append({
-            "batch": i, "phases": files, "season": s, "weeks": weeks,
-            "rows_inserted": inserted, "rows_updated": updated, "billed_writes": billed,
-            "statements": len(stmts), "statement_files_sha256": sha,
-            "reads": {"preflight_d1": max(1, len(before)), "during_writes": updated,
-                      "post_verify_d1": len(after), "mfl_gets": 2 * len(weeks)},
-            "preimage": {"rows": len(before), "sha256": rows_hash(before)},
-            "after": {"rows": len(after), "sha256": rows_hash(after),
-                      "null_status": sum(1 for r in after if r.get("status") is None)},
-            "reconciliation": {"pts_rank_shown_before": ps.get("rank_shown_before", 0),
-                               "pts_rank_shown_after": ps.get("rank_shown_after", 0),
-                               "ppg_rank_shown_before": ps.get("ppg_rank_shown_before", 0),
-                               "ppg_rank_shown_after": ps.get("ppg_rank_shown_after", 0),
-                               "ranked_player_seasons": ps.get("pointssummary_rows", 0)},
-            "rollback_rows_changed": sum(statement_expectation(x)["changes"] for _, x in rollback),
-        })
-    return {"issue": 1307, "dry_run_pr": 1363, "scope": "phases A + B + C; unproven fields NULL",
-            "daily_ceiling": DAILY_CEILING, "reset": "00:00 UTC daily (Cloudflare D1 pricing page)",
-            "window_utc": "start 22:05-23:30", "batches": batches,
-            "totals": {"billed_writes": sum(b["billed_writes"] for b in batches),
-                       "rows_inserted": sum(b["rows_inserted"] for b in batches),
-                       "rows_updated": sum(b["rows_updated"] for b in batches)}}
-
-
-def calendar(batches: list, used_by_window: list, rest_forecast: int) -> list:
-    """Likely nights, in order, if night i has used_by_window[i] writes on the
-    account by 22:05 UTC. A batch that does not fit waits for a lighter night;
-    batches never run out of order. -> [(night index, [batch ids])]."""
-    nights, i, todo = [], 0, list(batches)
-    while todo and i < len(used_by_window):
-        used, ran = used_by_window[i], []
-        while todo and guard(used, todo[0]["billed_writes"], rest_forecast)["ok"]:
-            used += todo[0]["billed_writes"]
-            ran.append(todo.pop(0)["batch"])
-        nights.append((i, ran))
-        i += 1
-    return nights
+    """v2: 1A ready (phase B 2025, weekly ranks NULL), 1C held, the rest pending."""
+    nul = artifacts / "out_ranks_null"
+    stf = nul / "statements" / "B_2025.json"
+    st = json.loads(stf.read_text())
+    exp = [statement_expectation(x) for x in st["forward"]]
+    inserted = sum(e["rows"] for e in exp)
+    billed = sum(e["rows_written"] for e in exp)
+    meas = json.loads((nul / "d1_measure_1a.json").read_text())
+    if billed != meas["totals"]["forward_rows_written"]:
+        raise SystemExit(f"plan: 1A expected {billed} != Miniflare-measured {meas['totals']['forward_rows_written']}")
+    snap = json.loads((artifacts / "d1_snapshot" / "playoff_2025.json").read_text())["rows"]
+    after = {(r["week"], str(r["player_id"])): dict(r) for r in snap}
+    new = load_jsonl(nul / "proposed" / "B_2025.jsonl")
+    if any(r["pos_rank"] is not None or r["overall_rank"] is not None for r in new):
+        raise SystemExit("plan: 1A rows must carry NULL weekly ranks")
+    for r in new:
+        after[(r["week"], r["player_id"])] = {c: r[c] for c in COLS}
+    rec = json.loads((artifacts / "recon_2025_1a.json").read_text())
+    c_upd = len(load_jsonl(artifacts / "out" / "proposed" / "C_2025.jsonl"))
+    batch_1a = {
+        "batch": "1A", "status": "ready", "phases": ["B"], "season": 2025, "weeks": [15, 16, 17],
+        "what": "insert every 2025 playoff-week player MFL scored but src_weekly lacks (free agent / taxi / "
+                "IR, status proven by MFL); pos_rank / overall_rank NULL",
+        "rows_inserted": inserted, "rows_updated": 0, "billed_writes": billed,
+        "rollback_reserve": rollback_reserve(inserted, 0), "statements": len(st["forward"]),
+        "statement_file": "out_ranks_null/statements/B_2025.json", "statement_file_sha256": sha256_file(stf),
+        "calibration": {"first_statement_rows": exp[0]["rows"], "first_statement_billed": exp[0]["rows_written"],
+                        "its_rollback_reserve": rollback_reserve(exp[0]["rows"], 0)},
+        "reads": {"preflight_d1": len(snap) + rec["season_rows_before"] + rec["pointssummary_rows"],
+                  "during_writes": 0,
+                  "post_verify_d1": len(after) + rec["season_rows_before"] + inserted + rec["pointssummary_rows"],
+                  "mfl_gets": 6, "panel_check_d1_bundle_gets": len(rec["panel_examples"])},
+        "preimage": {"rows": len(snap), "sha256": rows_hash(snap)},
+        "after": {"rows": len(after), "sha256": rows_hash(list(after.values())),
+                  "null_weekly_ranks": len(new), "null_status": sum(1 for r in new if r["status"] is None)},
+        "reconciliation": {
+            "season_weeks": 17,
+            "before": {"pts_showable": len(rec["before_ids"]), "pts_sha256": ids_hash(rec["before_ids"]),
+                       "ppg_showable": len(rec["ppg_before_ids"]), "ppg_sha256": ids_hash(rec["ppg_before_ids"])},
+            "after": {"pts_showable": len(rec["after_ids"]), "pts_sha256": ids_hash(rec["after_ids"]),
+                      "ppg_showable": len(rec["ppg_after_ids"]), "ppg_sha256": ids_hash(rec["ppg_after_ids"])},
+            "hidden_after": [h["player_id"] for h in rec["hidden"]],
+        },
+        "panel_examples": rec["panel_examples"],
+        "rollback": "delete exactly the inserted keys (statement file 'rollback'); restore is checked "
+                    "against the preimage hash",
+        "local_replay": {"miniflare": meas["totals"], "before": meas["before"], "after_forward": meas["after_forward"],
+                         "after_rollback": meas["after_rollback"]},
+    }
+    return {
+        "issue": 1307, "dry_run_pr": 1363, "plan_version": PLAN_VERSION,
+        "scope": "authoritative score rows only; ranks held for the rank-definition review",
+        "daily_ceiling": DAILY_CEILING, "reset": "00:00 UTC daily (Cloudflare D1 pricing page); account-wide",
+        "guard": "used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000",
+        "window_utc": "start 22:05-23:30",
+        "batches": [batch_1a],
+        "held": [{"batch": "1C", "status": "held", "phases": ["C"], "season": 2025, "rows_updated": c_upd,
+                  "billed_writes": c_upd, "reason": "weekly rank tie convention is part of the rank-definition "
+                  "review: 625 of the 630 changes only re-order tied scores by player id"}],
+        "pending": {"status": "pending; no executable SQL in this plan; to be regenerated after the "
+                              "rank-definition review", "phase_B_2021_2024_rows": 10728,
+                    "phase_A_2011_2020_rows": 34900, "phase_C_2021_2024_rows": 2433},
+    }
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -385,50 +446,53 @@ def calendar(batches: list, used_by_window: list, rest_forecast: int) -> list:
 
 def load_batch(args) -> dict:
     plan = json.loads(Path(args.plan).read_text())
+    if plan.get("plan_version") != PLAN_VERSION:
+        raise SystemExit("STOP: plan version mismatch")
     b = next((x for x in plan["batches"] if x["batch"] == args.batch), None)
-    if not b:
-        raise SystemExit(f"no batch {args.batch}")
-    art = Path(args.artifacts)
-    for rel, want in b["statement_files_sha256"].items():
-        if sha256_file(art / "out" / rel) != want:
-            raise SystemExit(f"STOP: {rel} differs from the reviewed plan")
+    if not b or b.get("status") != "ready":
+        raise SystemExit(f"STOP: batch {args.batch} is not a ready batch in this plan")
+    if getattr(args, "artifacts", None):
+        p = Path(args.artifacts) / b["statement_file"]
+        if sha256_file(p) != b["statement_file_sha256"]:
+            raise SystemExit(f"STOP: {b['statement_file']} differs from the reviewed plan")
     return b
 
 
-def batch_statements(art: Path, b: dict, key: str) -> list:
-    out = []
-    for f in b["phases"]:
-        out += json.loads((art / "out" / "statements" / f"{f}_{b['season']}.json").read_text())[key]
-    return out
+def statements(args, b: dict, key: str) -> list:
+    return json.loads((Path(args.artifacts) / b["statement_file"]).read_text())[key]
 
 
-def usage_report(batch_writes: int = 0, now: datetime | None = None) -> dict:
+def usage_report(forward: int = 0, reserve: int = 0, now: datetime | None = None) -> dict:
     now = now or utc_now()
     hourly = account_hourly_writes()
-    g = guard(used_today(hourly, now), batch_writes, forecast_rest_of_day(hourly, now))
+    g = guard(used_today(hourly, now), forward, reserve, forecast_rest_of_day(hourly, now))
     g["anomalous_hours_today"] = anomalous_hours_today(hourly, now)
     g["ok"] = g["ok"] and not g["anomalous_hours_today"]
-    g.update({"now_utc": iso(now), "in_window": in_window(now), "next_window_utc": iso(next_window(now))})
+    g.update({"now_utc": iso(now), "in_window": in_window(now), "next_window_utc": iso(next_window(now)),
+              "_hourly": hourly})
     return g
 
 
 def cmd_usage(args) -> int:
-    print(json.dumps(usage_report(args.batch_writes), indent=1))
+    g = usage_report(args.batch_writes, args.rollback_reserve)
+    g.pop("_hourly")
+    print(json.dumps(g, indent=1))
     return 0
 
 
-def preflight(args, b: dict) -> dict:
-    """Read-only. Returns the facts apply needs; raises SystemExit on any STOP."""
+def preflight(args, b: dict, enforce_window: bool = True) -> dict:
+    """Read-only. Returns the facts apply needs; facts['stops'] lists every STOP."""
     art = Path(args.artifacts)
     stops, facts = [], {"batch": b["batch"], "season": b["season"], "at_utc": iso(utc_now())}
-    g = usage_report(b["billed_writes"])
+    g = usage_report(b["billed_writes"], b["rollback_reserve"])
+    facts["hourly_at_start"] = g.pop("_hourly")
     facts["usage"] = g
-    if not g["in_window"] and not getattr(args, "ignore_window_for_readonly", False):
+    if enforce_window and not g["in_window"]:
         stops.append(f"outside the 22:05-23:30 UTC start window (next {g['next_window_utc']})")
     if g["anomalous_hours_today"]:
         stops.append(f"unscheduled heavy writes today in hours {g['anomalous_hours_today']}")
     if g["projected"] > g["ceiling"]:
-        stops.append(f"projected {g['projected']:,} > ceiling {g['ceiling']:,}")
+        stops.append(f"projected {g['projected']:,} (incl. rollback reserve) > ceiling {g['ceiling']:,}")
     busy = running_write_jobs()
     if busy:
         stops.append(f"write-heavy job running: {busy}")
@@ -436,10 +500,17 @@ def preflight(args, b: dict) -> dict:
     facts["d1_rows_read"] = read
     if len(rows) != b["preimage"]["rows"] or rows_hash(rows) != b["preimage"]["sha256"]:
         stops.append(f"target weeks changed since the dry run: {len(rows)} rows, hash {rows_hash(rows)[:12]}")
-    pre = art / "preimages" / f"batch_{b['batch']:02d}_{b['season']}.json"
+    pre = art / "preimages" / f"batch_{b['batch']}_{b['season']}.json"
     pre.parent.mkdir(exist_ok=True)
     pre.write_text(json.dumps({"captured_at_utc": facts["at_utc"], "rows": rows}))
     facts["preimage_file"] = str(pre)
+    rc = season_reconciliation(b["season"], b["reconciliation"]["season_weeks"])
+    facts["reconciliation_before"] = {k: v for k, v in rc.items() if k != "hidden"}
+    facts["d1_rows_read"] += rc["rows_read"]
+    want = b["reconciliation"]["before"]
+    if (rc["pts_sha256"], rc["ppg_sha256"]) != (want["pts_sha256"], want["ppg_sha256"]):
+        stops.append(f"season totals do not reconcile to the approved before-state "
+                     f"({rc['pts_showable']} / {rc['ppg_showable']} vs {want['pts_showable']} / {want['ppg_showable']})")
     for w in b["weeks"]:
         for params in ({"TYPE": "playerScores", "L": league_id(b["season"]), "W": str(w)},
                        {"TYPE": "weeklyResults", "L": league_id(b["season"]), "W": str(w), "MISSING_AS_BYE": "1"}):
@@ -454,52 +525,59 @@ def cmd_preflight(args) -> int:
     if not args.allow_prod_d1_read:
         print("SKIPPED: preflight reads production D1; pass --allow-prod-d1-read.")
         return 0
-    args.ignore_window_for_readonly = True
-    facts = preflight(args, load_batch(args))
+    facts = preflight(args, load_batch(args), enforce_window=False)
+    facts.pop("hourly_at_start", None)
     print(json.dumps(facts, indent=1))
     return 1 if facts["stops"] else 0
 
 
-def verify(args, b: dict) -> dict:
-    art = Path(args.artifacts)
-    _, after = expected_after(art, "A" if b["phases"] == ["A"] else "BC", b["season"])
+def verify(b: dict) -> dict:
     rows, read = season_playoff_rows(b["season"])
-    return {"rows": len(rows), "expected_rows": len(after), "rows_read": read,
-            "ok": rows_hash(rows) == b["after"]["sha256"]}
+    rc = season_reconciliation(b["season"], b["reconciliation"]["season_weeks"])
+    want = b["reconciliation"]["after"]
+    return {"rows": len(rows), "expected_rows": b["after"]["rows"], "rows_read": read + rc["rows_read"],
+            "after_hash_ok": len(rows) == b["after"]["rows"] and rows_hash(rows) == b["after"]["sha256"],
+            "reconciliation": {k: v for k, v in rc.items() if k != "rows_read"},
+            "reconciliation_ok": (rc["pts_sha256"], rc["ppg_sha256"]) == (want["pts_sha256"], want["ppg_sha256"])
+            and rc["hidden"] == sorted(b["reconciliation"]["hidden_after"])}
 
 
 def cmd_verify(args) -> int:
     if not args.allow_prod_d1_read:
         print("SKIPPED: verify reads production D1; pass --allow-prod-d1-read.")
         return 0
-    v = verify(args, load_batch(args))
+    v = verify(load_batch(args))
     print(json.dumps(v))
-    return 0 if v["ok"] else 1
+    return 0 if v["after_hash_ok"] and v["reconciliation_ok"] else 1
 
 
 def run_writes(stmts: list, log: Path) -> dict:
-    """Send statements (UPDATEs grouped UPDATES_PER_COMMAND per call), checking
-    every statement's meta; stop at the first deviation."""
+    """Inserts one per command (the first is the 80-row billing calibration);
+    UPDATEs / DELETEs grouped UPDATES_PER_COMMAND per command. Every statement's
+    meta is checked; the first deviation raises Invariant."""
     groups, cur = [], []
     for s in stmts:
-        if s.lstrip().upper().startswith("UPDATE"):
-            cur.append(s)
-            if len(cur) == UPDATES_PER_COMMAND:
-                groups.append(cur)
-                cur = []
-        else:
+        if s.lstrip().upper().startswith("INSERT"):
             if cur:
                 groups.append(cur)
                 cur = []
             groups.append([s])
+        else:
+            cur.append(s)
+            if len(cur) == UPDATES_PER_COMMAND:
+                groups.append(cur)
+                cur = []
     if cur:
         groups.append(cur)
     tot = {"statements": 0, "rows_written": 0, "rows_read": 0, "changes": 0}
     with open(log, "a") as lf:
         for grp in groups:
-            res = d1("\n".join(grp), allow_write=True)
+            try:
+                res = d1("\n".join(grp), allow_write=True)
+            except Exception as e:
+                raise Invariant(f"write error after {tot['statements']} statements: {str(e)[:300]}")
             if len(res) != len(grp):
-                raise SystemExit(f"STOP: D1 returned {len(res)} results for {len(grp)} statements")
+                raise Invariant(f"D1 returned {len(res)} results for {len(grp)} statements")
             for sql, r in zip(grp, res):
                 m = r.get("meta") or {}
                 tot["statements"] += 1
@@ -510,38 +588,72 @@ def run_writes(stmts: list, log: Path) -> dict:
                                      "meta": {k: m.get(k) for k in ("rows_written", "rows_read", "changes")}}) + "\n")
                 why = check_meta(statement_expectation(sql), m)
                 if why:
-                    raise SystemExit(f"STOP after statement {tot['statements']}: {why}; totals {tot}")
+                    raise Invariant(f"statement {tot['statements']}: {why}; totals {tot}")
     return tot
+
+
+def restore(args, b: dict, log: Path) -> dict:
+    """Undo the batch: delete exactly the inserted keys (idempotent), then require
+    the preimage hash."""
+    stmts = statements(args, b, "rollback")
+    with open(log, "a") as lf:
+        for grp in [stmts[i:i + UPDATES_PER_COMMAND] for i in range(0, len(stmts), UPDATES_PER_COMMAND)]:
+            res = d1("\n".join(grp), allow_write=True)
+            for sql, r in zip(grp, res):
+                lf.write(json.dumps({"rollback_sql_sha256": hashlib.sha256(sql.encode()).hexdigest(),
+                                     "meta": {k: (r.get("meta") or {}).get(k) for k in ("rows_written", "changes")}}) + "\n")
+    rows, _ = season_playoff_rows(b["season"])
+    ok = len(rows) == b["preimage"]["rows"] and rows_hash(rows) == b["preimage"]["sha256"]
+    with open(log, "a") as lf:
+        lf.write(json.dumps({"restored_rows": len(rows), "identical_to_preimage": ok}) + "\n")
+    return {"restored_rows": len(rows), "identical_to_preimage": ok}
+
+
+def approved(args) -> bool:
+    return bool(args.execute) and bool(APPROVAL_RE.match(args.approval or ""))
 
 
 def cmd_apply(args) -> int:
     b = load_batch(args)
-    if not args.execute or not re.match(r"^https://github\.com/keithcreelman/upsmflproduction/(issues|pull)/\d+#issuecomment-\d+$",
-                                        args.approval or ""):
+    if not approved(args):
         print("DRY: apply writes production D1 and needs --execute and --approval <Keith's comment URL> "
               "for this batch. Nothing was done.")
         return 0
     art = Path(args.artifacts)
     facts = preflight(args, b)
     if facts["stops"]:
+        facts.pop("hourly_at_start", None)
         print(json.dumps(facts, indent=1))
         raise SystemExit("STOP: preflight failed; nothing written")
-    log = art / "runs" / f"batch_{b['batch']:02d}_{b['season']}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.jsonl"
+    started = utc_now()
+    before_since = writes_since(facts.pop("hourly_at_start"), started)
+    log = art / "runs" / f"batch_{b['batch']}_{b['season']}_{started.strftime('%Y%m%dT%H%M%SZ')}.jsonl"
     log.parent.mkdir(exist_ok=True)
     log.write_text(json.dumps({"approval": args.approval, "preflight": facts}) + "\n")
-    tot = run_writes(batch_statements(art, b, "forward"), log)
-    if tot["rows_written"] != b["billed_writes"]:
-        raise SystemExit(f"STOP: batch billed {tot['rows_written']} != planned {b['billed_writes']}")
-    v = verify(args, b)
+    try:
+        tot = run_writes(statements(args, b, "forward"), log)
+        if tot["rows_written"] != b["billed_writes"]:
+            raise Invariant(f"batch billed {tot['rows_written']} != planned {b['billed_writes']}")
+        v = verify(b)
+        if not v["after_hash_ok"]:
+            raise Invariant(f"after-state differs from the plan: {v['rows']} rows")
+        if not v["reconciliation_ok"]:
+            raise Invariant(f"post-batch reconciliation differs from the approved result: {v['reconciliation']}")
+    except Invariant as e:
+        with open(log, "a") as lf:
+            lf.write(json.dumps({"invariant_failed": str(e), "automatic_rollback": True}) + "\n")
+        print(f"INVARIANT FAILED: {e}\nAutomatic rollback (authorized by the batch approval)...")
+        r = restore(args, b, log)
+        print(json.dumps(r))
+        raise SystemExit("STOPPED and rolled back" if r["identical_to_preimage"]
+                         else "STOPPED; rollback did NOT restore the preimage -- escalate to Keith")
     print(json.dumps({"writes": tot, "verify": v}))
-    if not v["ok"]:
-        raise SystemExit("STOP: after-state differs from the plan; consider rollback")
     time.sleep(SETTLE_MINUTES * 60)
-    after = usage_report()
-    other = after["used_today"] - facts["usage"]["used_today"] - tot["rows_written"]
-    result = {"account_used_before": facts["usage"]["used_today"], "account_used_after": after["used_today"],
+    after_since = writes_since(account_hourly_writes(), started)
+    other = after_since - before_since - tot["rows_written"]
+    result = {"account_writes_since_start_before": before_since, "after": after_since,
               "batch_rows_written": tot["rows_written"], "other_writes_meanwhile": other,
-              "ok": other <= OTHER_WRITES_ALLOWANCE and after["used_today"] <= DAILY_CEILING}
+              "ok": other <= OTHER_WRITES_ALLOWANCE}
     with open(log, "a") as lf:
         lf.write(json.dumps({"post": result, "verify": v}) + "\n")
     print(json.dumps(result))
@@ -551,41 +663,51 @@ def cmd_apply(args) -> int:
 
 
 def cmd_rollback(args) -> int:
+    """Discretionary rollback of a VERIFIED batch: needs its own approval."""
     b = load_batch(args)
-    if not args.execute or not re.match(r"^https://github\.com/keithcreelman/upsmflproduction/(issues|pull)/\d+#issuecomment-\d+$",
-                                        args.approval or ""):
+    if not approved(args):
         print("DRY: rollback writes production D1 and needs --execute and --approval <comment URL>. Nothing was done.")
         return 0
-    art = Path(args.artifacts)
-    g = usage_report(4 * b["rows_inserted"] + b["rows_updated"])  # deletes may bill index entries too
-    if not g["ok"]:
-        raise SystemExit(f"STOP: rollback could breach the daily ceiling ({g['projected']:,}); "
-                         f"run it after 00:00 UTC")
-    log = art / "runs" / f"rollback_{b['batch']:02d}_{b['season']}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.jsonl"
+    g = usage_report(b["rollback_reserve"], 0)
+    g.pop("_hourly")
+    if g["projected"] > g["ceiling"]:
+        raise SystemExit(f"STOP: rollback could breach the daily ceiling ({g['projected']:,})")
+    log = Path(args.artifacts) / "runs" / f"rollback_{b['batch']}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.jsonl"
     log.parent.mkdir(exist_ok=True)
     log.write_text(json.dumps({"approval": args.approval, "usage": g}) + "\n")
-    stmts = []
-    for f in reversed(b["phases"]):  # C restores before B deletes
-        stmts += json.loads((art / "out" / "statements" / f"{f}_{b['season']}.json").read_text())["rollback"]
-    for grp in [stmts[i:i + UPDATES_PER_COMMAND] for i in range(0, len(stmts), UPDATES_PER_COMMAND)]:
-        res = d1("\n".join(grp), allow_write=True)
-        with open(log, "a") as lf:
-            for sql, r in zip(grp, res):
-                lf.write(json.dumps({"sql_sha256": hashlib.sha256(sql.encode()).hexdigest(),
-                                     "meta": {k: (r.get("meta") or {}).get(k) for k in ("rows_written", "changes")}}) + "\n")
-    rows, _ = season_playoff_rows(b["season"])
-    ok = len(rows) == b["preimage"]["rows"] and rows_hash(rows) == b["preimage"]["sha256"]
-    print(json.dumps({"restored_rows": len(rows), "identical_to_preimage": ok}))
+    r = restore(args, b, log)
+    print(json.dumps(r))
+    return 0 if r["identical_to_preimage"] else 1
+
+
+def cmd_panel_check(args) -> int:
+    """After a verified batch: the player panel's inputs for the plan's example
+    players, from the live worker (read-only)."""
+    if not args.allow_prod_read:
+        print("SKIPPED: panel-check calls the production worker; pass --allow-prod-read.")
+        return 0
+    b = load_batch(args)
+    out, ok = [], True
+    for ex in b["panel_examples"]:
+        bundle = worker_bundle(ex["player_id"])
+        row = next((r for r in bundle.get("career_summary") or [] if int(r.get("season") or 0) == b["season"]), None)
+        got = row and [round(float(row["season_points"]), 1), int(row["games_played"]),
+                       row.get("pos_rank"), row.get("pos_ppg_rank")]
+        want = [ex["after"][0], ex["after"][1], ex["stored_rank"][0], ex["stored_rank"][1]]
+        shows = bool(row) and abs(ex["rank_basis"][0] - got[0]) < 0.05 and ex["rank_basis"][1] == got[1]
+        good = got == want and shows == ex["shows_after"]
+        ok &= good
+        out.append({"player_id": ex["player_id"], "name": ex["name"], "got": got, "want": want,
+                    "rank_shows": shows, "expected_shows": ex["shows_after"], "ok": good})
+    print(json.dumps(out, indent=1))
     return 0 if ok else 1
 
 
 def cmd_plan(args) -> int:
     plan = build_plan(Path(args.artifacts))
     Path(args.out).write_text(json.dumps(plan, indent=1) + "\n")
-    for b in plan["batches"]:
-        print(f"batch {b['batch']:2d} {'+'.join(b['phases']):3s} {b['season']} wks {b['weeks']} "
-              f"ins {b['rows_inserted']:,} upd {b['rows_updated']:,} billed {b['billed_writes']:,}")
-    print(json.dumps(plan["totals"]))
+    b = plan["batches"][0]
+    print(json.dumps({k: b[k] for k in ("batch", "rows_inserted", "billed_writes", "rollback_reserve", "statements")}))
     return 0
 
 
@@ -597,19 +719,22 @@ def main(argv=None) -> int:
     p.add_argument("--out", required=True)
     u = sub.add_parser("usage")
     u.add_argument("--batch-writes", type=int, default=0)
-    for name in ("preflight", "apply", "verify", "rollback"):
+    u.add_argument("--rollback-reserve", type=int, default=0)
+    for name in ("preflight", "apply", "verify", "rollback", "panel-check"):
         s = sub.add_parser(name)
         s.add_argument("--plan", required=True)
-        s.add_argument("--artifacts", required=True)
-        s.add_argument("--batch", type=int, required=True)
+        s.add_argument("--batch", required=True)
+        s.add_argument("--artifacts", required=name != "panel-check")
         if name in ("preflight", "verify"):
             s.add_argument("--allow-prod-d1-read", action="store_true")
+        elif name == "panel-check":
+            s.add_argument("--allow-prod-read", action="store_true")
         else:
             s.add_argument("--execute", action="store_true")
             s.add_argument("--approval", default="")
     args = ap.parse_args(argv)
     return {"plan": cmd_plan, "usage": cmd_usage, "preflight": cmd_preflight, "apply": cmd_apply,
-            "verify": cmd_verify, "rollback": cmd_rollback}[args.cmd](args)
+            "verify": cmd_verify, "rollback": cmd_rollback, "panel-check": cmd_panel_check}[args.cmd](args)
 
 
 if __name__ == "__main__":
