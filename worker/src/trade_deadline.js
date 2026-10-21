@@ -149,8 +149,9 @@ export function tradeDeadlineRule(season, weeks) {
   return { ...out, state: "resolved", nfl_week: w.week, start_unix: w.first, date_et: et.date_et, time_et: et.time_et, label: et.label };
 }
 
-// ── WORKER-OWNED RECONCILIATION (Keith 2026-10-21): the worker keeps MFL at exactly ONE week-based "No Trades Allowed"
-// event — START_TIME = the rule's NFL week (MFL's native "start of Week N") — and reads MFL's enforcement back.
+// ── RECONCILE AND MONITOR (Keith 2026-10-21): the target is exactly ONE week-based "No Trades Allowed" event —
+// START_TIME = the rule's NFL week (MFL's native "start of Week N"). The worker can create it and can find what's wrong;
+// it cannot edit or delete MFL events, so a commissioner removes incorrect or duplicate ones. MFL's enforcement is read back.
 //
 // What MFL's API can and cannot do (test league 25625, 2026-10-21):
 //   - import TYPE=calendarEvent EVENT_TYPE=TRADE START_TIME=<week> creates the week-based lock;

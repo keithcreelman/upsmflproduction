@@ -21,7 +21,7 @@ function safeStr(v) { return String(v == null ? "" : v).trim(); }
 // The dates the commish fills in. Each value is a wall-clock "YYYY-MM-DDTHH:mm"
 // interpreted in America/New_York (ET) — no stored offset, DST-correct.
 export const AUCTION_CAL_FIELDS = [
-  // trade_deadline_at retired (Keith 2026-10-21): the trade deadline is not a typed date. The worker owns MFL's
+  // trade_deadline_at retired (Keith 2026-10-21): the trade deadline is not a typed date. The worker reconciles MFL's
   // week-based TRADE lock (worker/src/trade_deadline.js planTradeLock, /admin/trade-lock/reconcile); a stored
   // value is ignored.
   { key: "rookie_draft_at",   label: "Rookie draft",      help: "Rookie draft start. → MFL DRAFT_START + app calendar." },

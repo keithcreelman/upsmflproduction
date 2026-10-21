@@ -75,7 +75,7 @@ test("plan: exactly one week-12 lock that MFL places at the rule's kickoff → a
 });
 
 // Fake MFL (calendar + ICS + import) and fake Discord for the route.
-let CAL2 = [], NEXT_ID = 960, IMPORTS2 = [], DMS = [], SCHED_UP2 = true;
+let CAL2 = [], NEXT_ID = 960, IMPORTS2 = [], DMS = [], SCHED_UP2 = true, EXTRA_ON_IMPORT = false;
 const icsOf = (evs) => evs.map((e) => {
   const st = Number(e.start_time) <= 30 ? (Number(e.start_time) === 12 ? WED_8PM : 0) : Number(e.start_time);
   const d = new Date(st * 1000).toISOString().replace(/[-:]/g, "").slice(0, 15);
@@ -88,11 +88,17 @@ globalThis.fetch = async (input, init) => {
     if (type === "calendar") return new Response(JSON.stringify({ calendar: { event: [{ id: "10", type: "WAIVER_NONE", start_time: "1799200000" }, ...CAL2] } }));
     if (type === "ics") return new Response("BEGIN:VCALENDAR\r\n" + icsOf(CAL2) + "\r\nEND:VCALENDAR");
     if (type === "nflSchedule") return SCHED_UP2 ? new Response(JSON.stringify(SCHED)) : new Response("<html></html>");
+    if (type === "myleagues") {   // the /admin front door asks MFL who the session is
+      const ck = String((init && init.headers && (init.headers.Cookie || init.headers.cookie)) || "");
+      const fid = /COMMISHTOKEN/.test(ck) ? "0008" : /OWNERTOKEN/.test(ck) ? "0003" : "";
+      return new Response(JSON.stringify(fid ? { leagues: { league: [{ league_id: "74598", franchise_id: fid }] } } : { error: "not logged in" }), { status: fid ? 200 : 200 });
+    }
   }
   if (/myfantasyleague\.com$/.test(u.hostname) && u.pathname.endsWith("/import")) {
     const f = Object.fromEntries(new URLSearchParams(init && init.body || ""));
     IMPORTS2.push(f);
     CAL2.push({ id: String(NEXT_ID++), type: f.EVENT_TYPE, start_time: f.START_TIME || "", end_time: f.END_TIME || "" });   // MFL adds, always
+    if (EXTRA_ON_IMPORT) CAL2.push({ id: String(NEXT_ID++), type: "TRADE", start_time: "12", end_time: "" });   // someone else adds one too
     return new Response("<status>OK</status>");
   }
   if (u.hostname === "discord.com") {
@@ -107,8 +113,8 @@ function env2(write) {
   return { UPS_MFL_DB: db, MFL_COOKIE: "COMMISH", COMMISH_API_KEY: "admin", LEAGUE_ID: "74598", DISCORD_BOT_TOKEN: "bot",
     COMMISH_DISCORD_USER_ID: "621530026831118346", TRADE_LOCK_RECONCILE_WRITE: write ? "1" : "0" };
 }
-async function reconcile(env, qs, year = "2026") {
-  const res = await worker.fetch(new Request("https://w.test/admin/trade-lock/reconcile?L=74598&YEAR=" + year + "&APIKEY=admin" + (qs || ""), { method: "POST" }),
+async function reconcile(env, qs, year = "2026", auth = "&APIKEY=admin") {
+  const res = await worker.fetch(new Request("https://w.test/admin/trade-lock/reconcile?L=74598&YEAR=" + year + auth + (qs || ""), { method: "POST" }),
     env, { waitUntil() {}, passThroughOnException() {} });
   return { status: res.status, json: await res.json() };
 }
@@ -125,25 +131,55 @@ test("route: report only reads (no import, no alert); write is refused while TRA
 test("route: write adds ONE Week-12 lock; a rerun adds nothing; Tue noon stays in force and the commissioner is told what to delete — once", async () => {
   CAL2 = [{ id: "901", type: "TRADE", start_time: String(TUE) }]; IMPORTS2 = []; DMS = [];
   const env = env2(true);
-  const a = await reconcile(env, "&write=1&alert=1");
+  const a = await reconcile(env, "&write=1&alert=1&confirm=week-12");
   t.equal(IMPORTS2.length, 1); t.equal(IMPORTS2[0].START_TIME, "12"); t.equal(IMPORTS2[0].EVENT_TYPE, "TRADE");
   t.equal(a.json.wrote.ok, true); t.equal(a.json.plan.keep.week, 12);
+  t.equal(a.json.wrote.identified, true); t.equal(a.json.wrote.created_id, "960", "the new lock found by diffing the calendar before and after");
   t.equal(a.json.lock.label, "Tue, Nov 24, 12:00 PM ET", "adding Wednesday does not move MFL's deadline while Tuesday remains");
   t.equal(a.json.plan.status, "needs_commissioner_cleanup"); t.equal(a.json.plan.remove.map((x) => x.id).join(), "901");
   t.equal(DMS.length, 1); t.match(DMS[0], /Delete on MFL's League Calendar[^\n]*#901 Tue, Nov 24, 12:00 PM ET \(earlier_than_rule_is_in_force\)/);
-  const b = await reconcile(env, "&write=1&alert=1");
+  const b = await reconcile(env, "&write=1&alert=1&confirm=week-12");
   t.equal(IMPORTS2.length, 1, "rerun: no second import (the worker reads before it writes)");
   t.equal(b.json.wrote, null); t.equal(DMS.length, 1, "same state → no repeat alert within a day");
 });
 
 test("route: after the commissioner deletes the stale lock → aligned at Wed Nov 25 8:00 PM ET, no alert; 2027 waits for the NFL schedule", async () => {
   CAL2 = [{ id: "960", type: "TRADE", start_time: "12", end_time: "" }]; IMPORTS2 = []; DMS = [];
-  const r = await reconcile(env2(true), "&write=1&alert=1");
+  const r = await reconcile(env2(true), "&write=1&alert=1&confirm=week-12");
   t.equal(r.json.plan.status, "aligned"); t.equal(r.json.lock.label, "Wed, Nov 25, 8:00 PM ET"); t.equal(IMPORTS2.length, 0); t.equal(DMS.length, 0);
   SCHED_UP2 = false; CAL2 = [];
-  const f = await reconcile(env2(true), "&write=1&alert=1", "2027");
+  const f = await reconcile(env2(true), "&alert=1", "2027");
   t.equal(f.json.plan.status, "waiting_for_nfl_schedule"); t.equal(IMPORTS2.length, 0, "no lock invented for 2027"); t.equal(DMS.length, 0);
   SCHED_UP2 = true;
+});
+
+test("write protection: commissioner only (an owner's MFL session is refused); explicit confirmation naming the week; one writer at a time", async () => {
+  CAL2 = [{ id: "901", type: "TRADE", start_time: String(TUE) }]; IMPORTS2 = []; DMS = []; EXTRA_ON_IMPORT = false;
+  t.equal((await reconcile(env2(true), "&write=1&force_write=1&confirm=week-12", "2026", "")).status, 401, "no credential → 401");
+  t.equal((await reconcile(env2(true), "&write=1&force_write=1&confirm=week-12", "2026", "&MFL_USER_ID=OWNERTOKEN")).status, 403, "a normal owner (0003) → 403, before any MFL write");
+  t.equal(IMPORTS2.length, 0);
+  const noConfirm = await reconcile(env2(true), "&write=1");
+  t.equal(noConfirm.status, 409); t.equal(noConfirm.json.error, "confirmation_required"); t.equal(noConfirm.json.expected, "week-12");
+  t.equal((await reconcile(env2(true), "&write=1&confirm=week-13")).status, 409, "a confirmation for the wrong week is refused");
+  t.equal(IMPORTS2.length, 0, "nothing written without the right confirmation");
+  const viaSession = await reconcile(env2(true), "&write=1&confirm=week-12", "2026", "&MFL_USER_ID=COMMISHTOKEN");
+  t.equal(viaSession.status, 200); t.equal(IMPORTS2.length, 1, "the commissioner's own MFL session may write");
+  // A second writer inside 10 minutes (another isolate that hasn't seen the new lock yet) is held, not sent.
+  CAL2 = [{ id: "901", type: "TRADE", start_time: String(TUE) }]; IMPORTS2 = [];
+  const env = env2(true);
+  env.UPS_MFL_DB.raw.prepare("INSERT INTO ups_bot_heartbeat VALUES ('trade_lock_write_2026_74598', ?, 'write', '')").run(Math.floor(Date.now() / 1000) - 60);
+  const held = await reconcile(env, "&write=1&confirm=week-12");
+  t.equal(IMPORTS2.length, 0); t.equal(held.json.wrote.held, "another_write_within_10_minutes_or_no_claim");
+});
+
+test("the created lock must be identified unambiguously; otherwise the result is HELD for review (never guessed)", async () => {
+  CAL2 = [{ id: "901", type: "TRADE", start_time: String(TUE) }]; IMPORTS2 = []; DMS = []; EXTRA_ON_IMPORT = true;
+  const r = await reconcile(env2(true), "&write=1&alert=1&confirm=week-12");
+  EXTRA_ON_IMPORT = false;
+  t.equal(IMPORTS2.length, 1); t.equal(r.json.wrote.identified, false); t.equal(r.json.wrote.created_id, null);
+  t.equal(r.json.wrote.held, "ambiguous_new_events"); t.equal(r.json.wrote.new_events.length, 2);
+  t.equal(DMS.length, 1); t.match(DMS[0], /needs review \(ambiguous_new_events\)/);
+  t.equal(r.json.plan.remove.some((x) => x.why === "duplicate"), true, "and the duplicate is named for deletion");
 });
 
 test("the Commish Settings push no longer plans or reports TRADE events; the hourly cron runs the reconcile before the reminders", async () => {

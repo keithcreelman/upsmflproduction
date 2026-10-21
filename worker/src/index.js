@@ -2694,11 +2694,15 @@ async function readTradeDeadlineRule(season) {
   return rule;
 }
 
-// ── Worker-owned trade lock (Keith 2026-10-21). One run: the rule's NFL week (readTradeDeadlineRule) → MFL's calendar +
-// ICS (fresh, the worker's commissioner session) → planTradeLock → when allowed to write and no week-based lock exists,
-// ONE import (TYPE=calendarEvent, EVENT_TYPE=TRADE, START_TIME=<week>) → read back. Never adds a lock while one for
-// the week exists (MFL would duplicate it), and never "fixes" a stale or duplicate lock by adding another: MFL's API
-// can't delete, so those go to the commissioner (one DM per distinct state, a daily reminder while it persists).
+// ── The worker RECONCILES AND MONITORS MFL's trade lock (Keith 2026-10-21). It cannot fully own MFL's calendar: MFL's API
+// can add an event but cannot edit or delete one. What it does, per run: the rule's NFL week (readTradeDeadlineRule) →
+// MFL's calendar + ICS (fresh, the worker's commissioner session) → planTradeLock →
+//   • creates the required week-based lock only when none exists (one import: TYPE=calendarEvent, EVENT_TYPE=TRADE,
+//     START_TIME=<week>), under a 10-minute D1 claim so two runs can't both create one, then identifies the new event by
+//     diffing the calendar before and after — exactly one new week lock, or the result is HELD for review, never guessed;
+//   • never creates a second lock for the week (MFL would duplicate it) and never "fixes" a wrong lock by adding another;
+//   • names every incorrect or duplicate event by id and alerts the commissioner, who deletes them in MFL's web
+//     calendar (commissioner mode) — the one thing only a commissioner can do. Not every drift is repairable by the worker.
 // Owner screens never read this result's plan: they read MFL's actual lock (readMflTradeLock) — what MFL enforces.
 async function reconcileTradeLock(env, { season, leagueId, write = false, alert = true } = {}) {
   const yr = String(season || "").replace(/\D/g, "");
@@ -2720,27 +2724,56 @@ async function reconcileTradeLock(env, { season, leagueId, write = false, alert 
   if (!mfl.ok) { out.error = `mfl_calendar_unreadable_http_${mfl.status}`; return out; }
   let plan = planTradeLock({ events: mfl.events, rule: out.rule, icsStarts: mfl.ics });
   if (write && plan.create && out.rule.state === "resolved") {
-    const form = new URLSearchParams(plan.create);
-    const r = await fetch(`https://www48.myfantasyleague.com/${yr}/import?TYPE=calendarEvent&L=${lid}&JSON=1`, {
-      method: "POST", headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString(), cf: { cacheTtl: 0 } });
-    const text = await r.text();
-    out.wrote = { sent: plan.create, http: r.status, ok: r.ok && !/<error|"error"/i.test(text), body: text.slice(0, 200) };
-    mfl = await readMfl().catch(() => ({ ok: false, status: 0 }));
-    if (mfl.ok) plan = planTradeLock({ events: mfl.events, rule: out.rule, icsStarts: mfl.ics });
+    // One writer at a time: an atomic 10-minute claim (a second click, a cron tick and a click can't both create a lock).
+    const db = env.UPS_MFL_DB, nowTs = Math.floor(Date.now() / 1000), claimKey = `trade_lock_write_${yr}_${lid}`;
+    let claimed = false;
+    if (db) {
+      try {
+        const c = await db.prepare(
+          `INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES (?, ?, 'write', '')
+           ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts, status = 'write' WHERE ups_bot_heartbeat.last_ts < ?`
+        ).bind(claimKey, nowTs, nowTs - 600).run();
+        claimed = Number(c && c.meta && c.meta.changes) === 1;
+      } catch (_) { claimed = false; }
+    }
+    if (!claimed) {
+      out.wrote = { sent: null, ok: false, held: "another_write_within_10_minutes_or_no_claim", identified: null };
+    } else {
+      const beforeIds = new Set(mfl.events.map((e) => String(e.id)));
+      const form = new URLSearchParams(plan.create);
+      const r = await fetch(`https://www48.myfantasyleague.com/${yr}/import?TYPE=calendarEvent&L=${lid}&JSON=1`, {
+        method: "POST", headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" }, body: form.toString(), cf: { cacheTtl: 0 } });
+      const text = await r.text();
+      out.wrote = { sent: plan.create, http: r.status, ok: r.ok && !/<error|"error"/i.test(text), body: text.slice(0, 200), created_id: null, identified: false };
+      mfl = await readMfl().catch(() => ({ ok: false, status: 0 }));
+      if (mfl.ok) {
+        // MFL returns no id: the new lock is the one TRADE event at the rule's week that wasn't there before.
+        const fresh = mfl.events.filter((e) => !beforeIds.has(String(e.id)));
+        const mine = fresh.filter((e) => e.event_type === "TRADE" && Number(e.start_unix) === Number(plan.create.START_TIME));
+        out.wrote.new_events = fresh.map((e) => ({ id: String(e.id), type: e.event_type, start_time: e.start_unix }));
+        if (mine.length === 1 && fresh.length === 1) { out.wrote.created_id = String(mine[0].id); out.wrote.identified = true; }
+        else out.wrote.held = mine.length === 0 ? "no_new_week_lock_seen" : "ambiguous_new_events";
+        plan = planTradeLock({ events: mfl.events, rule: out.rule, icsStarts: mfl.ics });
+      } else {
+        out.wrote.held = "calendar_unreadable_after_write";
+      }
+    }
   }
   out.plan = plan;
   out.lock = mfl.ok ? mflTradeLock(mfl.events, { icsStarts: mfl.ics }) : null;
   out.ok = true;
   // Alert the commissioner whenever MFL isn't at exactly the rule's one lock (once per distinct state, daily while it persists).
-  if (alert && out.rule.state === "resolved" && !plan.aligned) {
+  if (alert && out.rule.state === "resolved" && (!plan.aligned || (out.wrote && !out.wrote.identified))) {
     const lines = [
       `**Trade lock needs you (${yr}).** Rule: first kickoff of the NFL week that includes Thanksgiving = Week ${out.rule.nfl_week}, ${out.rule.label}.`,
       `MFL enforces now: ${out.lock && out.lock.label ? out.lock.label : "unknown"}${out.lock && out.lock.start_unix !== out.rule.start_unix ? " — NOT the rule" : ""}.`,
-      plan.create ? (write ? "The worker tried to add the Week-" + out.rule.nfl_week + " lock: " + (out.wrote && out.wrote.ok ? "added." : "FAILED.") : "No Week-" + out.rule.nfl_week + " lock exists; writing is off (TRADE_LOCK_RECONCILE_WRITE).") : "",
+      out.wrote ? (out.wrote.identified ? `The worker added the Week-${out.rule.nfl_week} lock: MFL event #${out.wrote.created_id}.`
+        : `The worker's write needs review (${out.wrote.held || (out.wrote.ok ? "unidentified" : "MFL refused")}). New events seen: ${(out.wrote.new_events || []).map((e) => "#" + e.id + " " + e.type + " " + e.start_time).join(", ") || "none"}.`)
+        : plan.create ? `No Week-${out.rule.nfl_week} lock exists; the worker is not allowed to write (TRADE_LOCK_RECONCILE_WRITE off).` : "",
       plan.remove.length ? "Delete on MFL's League Calendar (commissioner mode, Setup → League Calendar): " + plan.remove.map((r) => `#${r.id} ${r.label} (${r.why})`).join("; ") + "." : "",
       `https://www48.myfantasyleague.com/${yr}/options?L=${lid}&O=110`,
     ].filter(Boolean);
-    const signature = [plan.status, plan.keep ? plan.keep.id : "-", ...plan.remove.map((r) => r.id), plan.create ? "create" : ""];
+    const signature = [plan.status, plan.keep ? plan.keep.id : "-", ...plan.remove.map((r) => r.id), plan.create ? "create" : "", out.wrote && out.wrote.held ? "held:" + out.wrote.held : ""];
     out.alerted = await dmCommishOncePerBatch(env, "trade_lock_reconcile_" + yr, signature, lines.join("\n")).catch(() => 0);
   }
   return out;
@@ -8936,7 +8969,7 @@ export default {
       // all season (the 2026-05-14 one, sent by the old GitHub Actions path).
       // Hostname is irrelevant for a service binding; only path + query matter.
       const origin = "https://self.invalid";
-      // The worker-owned trade lock runs FIRST, every hour, so a reminder never goes out before MFL has been checked.
+      // The trade-lock reconcile/monitor runs FIRST, every hour, so a reminder never goes out before MFL has been checked.
       // TRADE_LOCK_RECONCILE_ENABLED=1 turns the run (read + commissioner alert) on; TRADE_LOCK_RECONCILE_WRITE=1 lets it
       // add the missing week-based lock. Window: from Aug 1 until a day after the rule's kickoff (MFL's read is cheap;
       // no D1 unless an alert is due). Owner screens and reminders keep reading MFL's ACTUAL lock either way.
@@ -11094,16 +11127,27 @@ export default {
       // MFL's API has NO calendar delete/update — the D1 side is idempotent
       // (upsert); the MFL side skips exact-duplicates and flags stale events
       // with a manage link (delete is web-UI only).
-      // POST /admin/trade-lock/reconcile — the worker-owned trade lock, on demand (Commish Settings, a deliberate run).
+      // POST /admin/trade-lock/reconcile — the trade-lock reconcile/monitor, on demand (Commish Settings, a deliberate run).
       //   default: report only (reads MFL, no import, no alert). &write=1 → add the week-based lock when none exists.
       //   &alert=1 → DM the commissioner when MFL isn't aligned. Writes refuse while TRADE_LOCK_RECONCILE_WRITE != "1"
       //   unless &force_write=1 (the commissioner's explicit go for one run).
       if (path === "/admin/trade-lock/reconcile" && request.method === "POST") {
         const yr = String(url.searchParams.get("YEAR") || YEAR);
         const lid = String(url.searchParams.get("L") || env.LEAGUE_ID || "74598");
+        // Who may call this at all is decided by the /admin front door (admin_authority.js): the commissioner API key or
+        // an MFL session MFL itself proves is a commissioner franchise of this league — never an owner session.
         const wantWrite = String(url.searchParams.get("write") || "") === "1";
         const writeAllowed = String(env.TRADE_LOCK_RECONCILE_WRITE || "0") === "1" || String(url.searchParams.get("force_write") || "") === "1";
         if (wantWrite && !writeAllowed) return jsonOut(409, { ok: false, error: "write_disabled", message: "TRADE_LOCK_RECONCILE_WRITE is off; pass force_write=1 for one deliberate run." });
+        // An explicit confirmation naming the week to be locked: a bare write=1 (a replayed or mistyped URL) is refused.
+        if (wantWrite) {
+          const rule = await readTradeDeadlineRule(yr);
+          const want = rule.state === "resolved" ? `week-${rule.nfl_week}` : "";
+          if (!want || String(url.searchParams.get("confirm") || "") !== want) {
+            return jsonOut(409, { ok: false, error: "confirmation_required", expected: want || null,
+              message: want ? `Confirm with &confirm=${want} (the lock MFL will be given).` : "The rule's NFL week is not established yet; nothing to write." });
+          }
+        }
         const r = await reconcileTradeLock(env, { season: yr, leagueId: lid, write: wantWrite, alert: String(url.searchParams.get("alert") || "") === "1" });
         return jsonOut(r.ok ? 200 : 502, r);
       }
@@ -11158,7 +11202,7 @@ export default {
         }
         const { events, missing } = buildCalendarEvents(cfg);
         const { rows: leagueRows, season: leagueSeason } = buildLeagueEventRows(cfg, yearArg);
-        // TRADE is not pushed from here (Keith 2026-10-21): the worker owns the week-based trade lock
+        // TRADE is not pushed from here (Keith 2026-10-21): the worker reconciles the week-based trade lock
         // (/admin/trade-lock/reconcile), so TRADE events are neither planned nor reported stale by this push.
         const MANAGED_TYPES = ["DRAFT_START", "AUCTION_START", "WAIVER_NONE"];
 

@@ -1,4 +1,4 @@
-# Trade deadline: the worker-owned MFL lock (runbook)
+# Trade deadline: the MFL trade lock, reconciled and monitored by the worker (runbook)
 
 **Status: draft. Production changes, including MFL's calendar, need Keith's separate go.** Nothing here has been done on league 74598.
 
@@ -8,13 +8,17 @@
 - **What is stored is the rule, not a time.** For each season the worker resolves the rule to an NFL **week** from the official NFL schedule (`tradeDeadlineRule`). For 2026 that is **Week 12**, which opens with GB @ LAR on **Wed Nov 25, 8:00 PM ET** (Unix 1795654800).
   - Commish Settings no longer has a typed trade-deadline field.
   - A future season has no week, and no lock is created, until the NFL schedule establishes it.
-- **The worker owns MFL's setting.** It keeps MFL's league calendar at **exactly one** week-based "No Trades Allowed" event: `START_TIME=12`, MFL's native "start of Week 12". MFL places and enforces that event at the week's first kickoff.
+- **The worker reconciles and monitors MFL's lock. It does not fully own MFL's calendar:** MFL's API can add an event but cannot edit or delete one.
+  - The target is **exactly one** week-based "No Trades Allowed" event: `START_TIME=12`, MFL's native "start of Week 12", which MFL places and enforces at the week's first kickoff.
+  - The worker **creates** that lock when none exists, and **never creates its own duplicate** (it reads first, holds a 10-minute claim, and identifies the new event).
+  - It **identifies incorrect or duplicate events** and **alerts the commissioner with their event ids**.
+  - **The commissioner performs every deletion** in MFL's web calendar (commissioner mode). The worker cannot repair every drift state by itself.
 - **Everything else reads MFL back.** Every screen and reminder shows the time MFL actually enforces, never the intended one.
   - When MFL disagrees with the rule, the commissioner is alerted, and owners still see what MFL enforces.
-- **The kickoff second (ruled).** MFL's native week-start event fires at 8:00:00 PM ET.
-  - A trade MFL records as completed within that second stands: MFL's completion record controls.
-  - From the moment MFL refuses (8:00:01 PM, as measured), every app surface shows the deadline as passed.
-  - There is no 7:59:59 override.
+- **The kickoff second (ruled).** MFL's native week-start event is used as is; there is no 7:59:59 override.
+  - A trade MFL records as completed stands: MFL's completion record controls.
+  - From the moment MFL refuses, every app surface shows the deadline as passed.
+  - **Pending:** on fixed-time events MFL accepted inside the start second and refused from the next. The same measurement for a **week-number** lock runs on the test league at Week 7's kickoff (Thu Oct 22, 2026, 8:15:00 PM ET). Until it confirms that, the one-second detail is not written into canon.
 
 ## What MFL's API can do (test league 25625, 2026-10-21)
 
@@ -55,7 +59,7 @@
 
 **Adding the Wednesday lock alone does not fix production.** The earliest active lock is what MFL enforces: Tuesday noon stays in force until it is deleted. The tests pin this.
 
-## The worker reconciliation (draft #1361)
+## The worker's reconcile-and-monitor (draft #1361)
 - **`planTradeLock`** (pure, `worker/src/trade_deadline.js`) takes the rule week, MFL's calendar and MFL's ICS, and returns one of:
   - `aligned`: exactly one active week-12 lock, placed by MFL at the rule's kickoff;
   - `needs_create`;
@@ -66,14 +70,17 @@
   Ended and start-less locks are ignored.
 - **`reconcileTradeLock`** (`worker/src/index.js`):
   1. rule → MFL calendar + ICS (fresh) → plan;
-  2. when allowed to write and no week lock exists, **one** import (`EVENT_TYPE=TRADE`, `START_TIME=<week>`);
-  3. read back;
+  2. when allowed to write and no week lock exists, take a **10-minute D1 claim** (an atomic upsert; a second writer is held), then **one** import (`EVENT_TYPE=TRADE`, `START_TIME=<week>`);
+  3. read back, and **identify the new event**: the calendar after minus the calendar before must be exactly one new `TRADE` event at the week. Anything else (none, two, or another event appearing) is **held for review** with the new ids listed, never guessed;
   4. DM the commissioner when not aligned. The DM lists MFL's current lock, the rule, the ids to delete and the link. It is sent once per distinct state, with a daily reminder while the state lasts (`dmCommishOncePerBatch`, one D1 heartbeat row).
 - **Schedule.** Hourly, August through December, inside the hourly cron and **awaited before the deadline-reminder sweep**, so no reminder goes out before MFL is checked.
   - Flags: `TRADE_LOCK_RECONCILE_ENABLED` (check + alert) and `TRADE_LOCK_RECONCILE_WRITE` (create). **Both ship `"0"`.**
 - **Cost per run:** 3 MFL reads (calendar, ICS, NFL schedule; the schedule is edge-cached an hour). D1: 0, or 1 read plus 1 write when an alert is due.
-- **On demand:** `POST /admin/trade-lock/reconcile?L=&YEAR=`. It reports only, by default. `&write=1` is refused unless WRITE=1 or `&force_write=1`. `&alert=1` sends the DM.
-  - Commish Settings → **Trade lock (worker-owned)** panel: "Check MFL", and "Add the Week N lock" when none exists.
+- **On demand:** `POST /admin/trade-lock/reconcile?L=&YEAR=`. It reports only, by default; `&alert=1` sends the DM.
+  - **Who:** the `/admin` front door admits only the commissioner API key, or an MFL session that MFL itself proves is a commissioner franchise of the league. An owner's session gets **403** and no credential gets **401**, before any MFL call (tested).
+  - **Confirmation:** `&write=1` needs WRITE=1 or `&force_write=1` **and** `&confirm=week-<N>` naming the week to lock. A bare or wrong confirmation gets 409, and nothing is written.
+  - **Idempotent:** reruns read first (0 imports when the lock exists); concurrent writers are stopped by the claim.
+  - Commish Settings → **Trade lock** panel: "Check MFL", and "Add the Week N lock" when none exists. It asks for a confirmation that names the week and league and warns that MFL can't undo it, then reports the created event id, or "needs review".
 - **Commish Settings push** no longer plans or reports TRADE events. The stored `trade_deadline_at` (2026-11-25T20:00) is ignored and left in D1 untouched.
 
 ## Every consumer reads MFL's actual lock
@@ -99,21 +106,23 @@ Needed because MFL's API can't delete. Production holds three wrong absolute loc
 Prevents future drift.
 
 ### Steps
-0. Release #1360, #1361 and the Front Office card PR with **both flags off**. This is code only, and the screens still show Tue noon.
-1. **Report (read-only):** Commish Settings → Trade lock → Check MFL (or `POST /admin/trade-lock/reconcile?L=74598&YEAR=2026`). Expect:
+0. **Before the go (read-only):**
+   - Week 7 boundary result on the test league.
+   - Test-league cleanup inventory.
+   - **Final production inventory, read immediately before execution:** the live production lock ids, MFL's resolved time for each, and the exact deletion list. This is a read of MFL's calendar and ICS for 74598; no write.
+1. Release #1360, #1361 and #1368 with **both flags off**. This is code only, and the screens still show Tue noon.
+2. **Report:** Commish Settings → Trade lock → Check MFL. Expect:
    - `needs_commissioner_cleanup`;
    - `create` = `{EVENT_TYPE: TRADE, START_TIME: 12}`;
-   - `remove` = the three current ids;
+   - `remove` = the inventory's ids;
    - MFL enforces "Tue, Nov 24, 12:00 PM ET".
-2. **Create the week lock:** Commish Settings → "Add the Week 12 lock" (one import). The report now shows `keep` = the new id, Week 12, Wed 8:00 PM ET. MFL **still enforces Tue noon**.
-3. **Commissioner cleanup:** in MFL's League Calendar setup (commissioner mode, `https://www48.myfantasyleague.com/2026/options?L=74598&O=110`), delete **the Tuesday noon lock and both absolute Wednesday 8:00 PM locks**. Keep only the new week-based one. MFL's page shows it as Wed 8:00 p.m. Use the exact ids from step 1.
-   - If you would rather keep the old Wednesday event than the week-based one, the worker reports `needs_commissioner_cleanup` until it is week-based. That is by design.
-4. **Report again:**
-   - status `aligned`;
-   - `lock.label` "Wed, Nov 25, 8:00 PM ET";
-   - `/api/league-events` `trade_lock.matches_rule: true`, one event.
-5. **Turn on** `TRADE_LOCK_RECONCILE_ENABLED=1` (hourly check + alerts). Recommended: `TRADE_LOCK_RECONCILE_WRITE=1`, so next season's lock is created automatically once the NFL schedule exists.
-6. **Merge #1361's rule text** the same day.
+3. **Create the week lock:** "Add the Week 12 lock" → confirm. The result names the new MFL event id (`wrote.identified: true`). If it says "needs review", stop. MFL **still enforces Tue noon**.
+4. **Commissioner cleanup** in MFL's League Calendar setup (commissioner mode, `https://www48.myfantasyleague.com/2026/options?L=74598&O=110`): delete exactly the ids in the inventory's deletion list (Tuesday noon and both absolute Wednesday 8:00 PM locks). Keep only the new week lock.
+5. **Report again:** `aligned`; `lock.label` "Wed, Nov 25, 8:00 PM ET"; `/api/league-events` `trade_lock.matches_rule: true`, one event.
+6. **Switches:**
+   - `TRADE_LOCK_RECONCILE_ENABLED=1` turns on the hourly check and alerts.
+   - `TRADE_LOCK_RECONCILE_WRITE=1` is optional: the worker would then create next season's lock once the NFL schedule exists, under the same claim and identification rules.
+7. **Merge #1361's rule text** the same day.
 
 Do all of this before Tue Nov 17, when the first reminder computed from MFL's current lock would go out. In any case, ship #1360 before Thu Nov 19: main's reminders use the wrong Thursday time.
 
