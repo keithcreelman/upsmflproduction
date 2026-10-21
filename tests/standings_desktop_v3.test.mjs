@@ -123,7 +123,7 @@ async function catches(label, find, replace, check) {
 const seedCards = (raw) => [...raw.matchAll(/<li class="seed-card[^"]*" data-fid="(\d{4})"/g)].map((m) => m[1]);
 // the Full League table: header labels and each team row's cells (disclosure rows dropped)
 function leagueTable(raw) {
-  const tbl = /<table><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table><\/div><div class="note">/.exec(raw);
+  const tbl = /<table class="lg-table"><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table><\/div><div class="note">/.exec(raw);
   if (!tbl) return null;
   const heads = [...tbl[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]).trim());
   const body = tbl[2].replace(/<tr class="disclosure-row"[\s\S]*?(?=<tr class="(?:you-row )?race-row"|<tr class="seed-divider|$)/g, "");

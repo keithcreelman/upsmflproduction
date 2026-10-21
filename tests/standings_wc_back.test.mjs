@@ -98,7 +98,7 @@ test("desktop Playoff Picture, Week 6: In the hunt 'WC Back' 5 / 10 / 16 / 18 / 
 });
 test("desktop Full League, Week 6: the 'WC Back' column — — for the six in the field, the last-wild-card gap for the six outside", async () => {
   const h = await desktop("view=league&year=2026");
-  const tbl = /<table><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/.exec(h);
+  const tbl = /<table class="lg-table"><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/.exec(h);
   const heads = [...tbl[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]).trim());
   t.ok(heads.includes("WC Back") && !heads.includes("Back"), heads.join(", "));
   const col = heads.indexOf("WC Back");

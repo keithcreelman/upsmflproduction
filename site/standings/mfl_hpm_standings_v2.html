@@ -1399,6 +1399,10 @@
       th, td { padding: 6px 4px; }
       .seed-cell { grid-template-columns: 20px auto; column-gap: 3px; }
       .status-chip small { display: none; }   /* "proj.": the note under the table says seeds are projected */
+    }
+    @media (max-width: 400px) {
+      .lg-table .team-logo { display: none; }
+      .lg-table th { letter-spacing: 0.02em; font-size: 10px; }
       .fp-row { grid-template-columns: repeat(12, minmax(0, 1fr)); }
       .fp-row .fp-name { grid-column: 1 / -1; padding-top: 4px; }
       .fp-head .fp-name { display: none; }
@@ -3027,7 +3031,7 @@
       ? '<p class="col-note"><strong>Opponent: schedule, not skill.</strong> What your opponents scored against you in the regular season; rank 1 = opponents scored the most per game.</p>'
       : (state.show === "scored" ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>' : '');
     noteBits.push('<div class="note lg-narrow-note">On a narrow screen the main columns show; a wider window adds the rest.</div>');
-    host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + tkoFootnote(resp) + DEFERRED_NOTE;
+    host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table class="lg-table"><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + tkoFootnote(resp) + DEFERRED_NOTE;
     wireSortClicks(host, state.overall, function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
     wireDisclosureToggles(host);
     wireWeekByWeek(host);
