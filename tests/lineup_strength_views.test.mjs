@@ -1,8 +1,10 @@
 // Overview → Lineup strength (#1338): one table over the 12 teams' OWNED-roster lineups (Keith 2026-10-21: a
 // replacement free agent fills a slot only when no available rostered player can play it) serves four views —
 // above replacement vs the league median (default), PPG, Index (100 = league mean) and Rank — with Overall = all
-// 18 required starting slots (weighted by points, never an average of rows) and K and P rows. The trade-fit
-// model's replacement-filled population stays available ("model") for the before/after comparison.
+// 18 required starting slots (weighted by points, never an average of rows) and K and P rows. The table reads the
+// trade-fit model's own lineups (Keith 2026-10-21: the Trade finder uses the same calculation), so the Overview and
+// the Trade finder show the same values; the old replacement-filled rule (lineupRule "replacement") is built only
+// for the before/after comparison.
 //   node tests/lineup_strength_views.test.mjs
 //   LINEUP_STRENGTH_JS=<path> node tests/lineup_strength_views.test.mjs   (defect check against another copy)
 import fs from "node:fs";
@@ -17,9 +19,10 @@ for (const f of ["site/m/front_office_lineup.js", "site/shared/trade_fit.js"]) v
 vm.runInContext(fs.readFileSync(process.env.LINEUP_STRENGTH_JS || path.join(ROOT, "site/shared/lineup_strength.js"), "utf8"), ctx);
 const TF = ctx.UPS_TRADE_FIT, LS = ctx.UPS_LINEUP_STRENGTH, L = ctx.UPS_FRONT_OFFICE_LINEUP;
 const FX = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/fixtures/trade_fit_2026_wk6.json"), "utf8"));
-const model = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents });
-const table = LS.build(model);                                   // owned roster (default)
-const modelTable = LS.build(model, { population: "model" });     // the trade-fit model's lineups (comparison)
+const model = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents });   // owned roster (default)
+const oldModel = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, lineupRule: "replacement" });
+const table = LS.build(model);
+const modelTable = LS.build(oldModel);                           // the old replacement-filled lineups (comparison)
 const avail = (p) => TF.availableNow(p);
 const close = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 
@@ -32,19 +35,23 @@ test("Overall is every required starting slot: 18 starters, its PPG = the whole 
     const posStarters = LS.POSITIONS.reduce((s, g) => s + row[g].starters, 0);
     t.equal(posStarters, 18, fid + ": every starter sits in exactly one position row (Flex, SuperFlex, D-Flex by the player's position)");
     t.equal(row.PK.starters, 1, fid + ": one kicker"); t.equal(row.PN.starters, 1, fid + ": one punter");
-    t.ok(close(row.ALL.ppg, LS.ownedLineup(model, model.teams[fid].team, null, avail).total), fid + ": Overall PPG = the owned lineup's total");
-    t.ok(close(modelTable.teams[fid].ALL.ppg, model.teams[fid].total), fid + ": the comparison population = the trade-fit lineup's total");
+    t.ok(close(row.ALL.ppg, model.teams[fid].total), fid + ": Overall PPG = the owned lineup's total (the Trade finder's lineup)");
+    t.ok(close(modelTable.teams[fid].ALL.ppg, oldModel.teams[fid].total), fid + ": the comparison population = the old replacement-filled lineup's total");
     t.ok(close(LS.POSITIONS.reduce((s, g) => s + row[g].ppg, 0), row.ALL.ppg), fid + ": position PPGs add up to Overall");
   }
 });
 
-test("the comparison population is the original chart: above replacement and vs-median equal trade_fit's", () => {
-  for (const fid of modelTable.order) {
-    for (const g of TF.GROUPS) {
-      t.ok(close(modelTable.teams[fid][g].above, model.teams[fid].strength[g]), fid + " " + g + " above replacement");
-      t.equal(Math.round(modelTable.teams[fid][g].vsMedian * 10) / 10, model.teams[fid].vsMedian[g], fid + " " + g + " vs median");
+test("one calculation: every position value equals the Trade finder's (trade_fit strength, vs-median and need)", () => {
+  for (const [tb, m, who] of [[table, model, "owned"], [modelTable, oldModel, "old rule"]]) {
+    for (const fid of tb.order) {
+      for (const g of TF.GROUPS) {
+        t.ok(close(tb.teams[fid][g].above, m.teams[fid].strength[g]), who + " " + fid + " " + g + " above replacement");
+        t.equal(Math.round(tb.teams[fid][g].vsMedian * 10) / 10, m.teams[fid].vsMedian[g], who + " " + fid + " " + g + " vs median");
+        t.equal(tb.teams[fid].need[g], m.teams[fid].need[g], who + " " + fid + " " + g + " need");
+      }
     }
   }
+  t.equal(table.population, "owned"); t.equal(modelTable.population, "replacement");
   for (const fid of table.order) {
     t.ok(close(table.teams[fid].ALL.above, LS.POSITIONS.reduce((s, g) => s + table.teams[fid][g].above, 0)), fid + ": Overall above replacement = sum of the rows");
   }
@@ -55,7 +62,7 @@ test("owned roster: a replacement fills a slot ONLY when no available rostered p
   let ownedRep = 0, modelRep = 0, displaced = 0;
   for (const fid of table.order) {
     const team = model.teams[fid].team;
-    const lu = LS.ownedLineup(model, team, null, avail);
+    const lu = model.teams[fid].best;
     const startersIds = new Set(lu.starters.filter((s) => s.pid).map((s) => s.pid));
     const bench = team.players.filter((p) => avail(p) && L.posGroup(p.pos) !== "OTH" && !startersIds.has(p.pid));
     for (const s of lu.starters.filter((x) => x.rep)) {
@@ -66,17 +73,18 @@ test("owned roster: a replacement fills a slot ONLY when no available rostered p
     const owned = new Set(team.players.filter((p) => avail(p)).map((p) => p.pid));
     t.ok(lu.starters.every((x) => x.rep || owned.has(x.pid)), fid + ": every starter is an available rostered player or a listed replacement");
     ownedRep += lu.starters.filter((x) => x.rep).length;
-    modelRep += model.teams[fid].best.starters.filter((x) => x.rep).length;
-    // In the trade-fit model, count replacements that started although an available rostered player could have.
-    const mIds = new Set(model.teams[fid].best.starters.filter((s) => s.pid).map((s) => s.pid));
+    modelRep += oldModel.teams[fid].best.starters.filter((x) => x.rep).length;
+    // Under the old rule, count replacements that started although an available rostered player could have.
+    const mIds = new Set(oldModel.teams[fid].best.starters.filter((s) => s.pid).map((s) => s.pid));
     const mBench = team.players.filter((p) => avail(p) && L.posGroup(p.pos) !== "OTH" && !mIds.has(p.pid));
-    for (const s of model.teams[fid].best.starters.filter((x) => x.rep)) {
+    for (const s of oldModel.teams[fid].best.starters.filter((x) => x.rep)) {
       const accepts = L.LINEUP_SLOTS.find((x) => x.id === s.slot).accepts;
       if (mBench.some((p) => accepts.includes(L.posGroup(p.pos)))) displaced += 1;
     }
   }
   t.ok(ownedRep <= modelRep, "owned lineups use no more replacements than the model (" + ownedRep + " vs " + modelRep + ")");
-  t.ok(displaced > 0, "the model really did start " + displaced + " replacements over available rostered players (what the ruling removes)");
+  t.ok(displaced > 0, "the old rule really did start " + displaced + " replacements over available rostered players (what the ruling removes)");
+  t.equal(ownedRep, 0, "this week every team fills all 18 slots from its own roster");
 });
 
 test("Index: 100 = the 12-team mean of the same row; Overall is weighted by points, not an average of indexes", () => {
