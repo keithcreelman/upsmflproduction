@@ -47,7 +47,8 @@
       eligible: false, reason: "", text: "", detail: "", reasons: [],
       callups_used: used, callups_pending: pending, callups_left: Math.max(0, TAXI_CALLUPS_MAX - used),
       permanent: legacy === true ? true : permanent, legacy_2025: legacy, can_demote: false,
-      // The activation a promote from taxi would be; the 4th is permanent.
+      // The qualifying week a promote from taxi would become IF he is active (or on IR) for a scoring week; the 4th is
+      // permanent. A promotion reversed before his game is no week at all (Keith 2026-10-21).
       next_callup: used + pending + 1, next_callup_permanent: used + pending + 1 > TAXI_CALLUPS_MAX,
     };
     const unknown = (reason, detail) =>

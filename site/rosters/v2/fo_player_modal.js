@@ -207,8 +207,8 @@
       spec.roster = "Taxi → active roster: " + active(1) + "; taxi " + t + " → " + (t - 1) + ".";
       spec.cap = "Cap hit $0 → " + usd(salary) + " (taxi salary is off the cap).";
       spec.reversible = nth > max
-        ? "No. This is call-up " + nth + ": the promotion becomes permanent and the player can’t return to taxi."
-        : "Yes, as a temporary call-up: Move to Taxi before the next lineup lock sends the player back. This is call-up " + nth + " of " + max + "; a 4th makes it permanent.";
+        ? "Only before his game. All " + max + " temporary call-ups are used: if he is active (or on IR) for a scoring week, that week makes the promotion permanent and he can’t return to taxi. Moving him back to taxi before his game uses nothing."
+        : "Yes. A call-up is a scoring week, not a move: if he is active (or on IR) for a scoring week, that week is call-up " + nth + " of " + max + " and he can still return to taxi after it; moving him back before his game uses nothing. A 4th scoring week makes it permanent.";
       spec.confirmLabel = "Promote"; spec.danger = nth > max;
     } else if (kind === "demote_taxi") {
       spec.title = "Move " + name + " to taxi";

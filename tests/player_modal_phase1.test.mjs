@@ -176,7 +176,8 @@ test("each write kind's confirmation names player, action, roster, salary/cap an
   t.equal(drop.cap, "This season’s $63,000 cap hit comes off. Drop penalty $21,000, charged to next season’s cap.");
   t.ok(/^No\./.test(drop.reversible) && drop.danger);
   t.ok(/couldn’t be priced/.test(M.writeSpec("drop_player", { ...facts, penalty: { amount: NaN } }).cap), "an unpriced penalty says so, never $0");
-  t.ok(/call-up 4: the promotion becomes permanent/.test(M.writeSpec("promote_taxi", facts).reversible), "the 4th call-up is flagged permanent");
+  t.ok(/All 3 temporary call-ups are used: if he is active \(or on IR\) for a scoring week, that week makes the promotion permanent/.test(M.writeSpec("promote_taxi", facts).reversible), "the 4th scoring week is flagged permanent");
+  t.ok(/before his game uses nothing/.test(M.writeSpec("promote_taxi", facts).reversible), "a promotion reversed before his game uses nothing");
   t.ok(/50% IR relief/.test(M.writeSpec("deactivate_ir", facts).cap) && /isn’t verified here/.test(M.writeSpec("deactivate_ir", facts).details.join(" ")));
   t.ok(/Dry run requested/.test(M.writeSpec("myac", { ...facts, dry: true }).details.join(" ")));
   // The roster-move actions the Actions tab sends are kinds with a spec.
