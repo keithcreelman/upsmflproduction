@@ -262,21 +262,27 @@ S.append(wrap("weeks", "Who Actually Won the Week", label(6, "Who Actually Won t
 
 # 7 -- Player and Team Stories
 S.append(wrap("players", "Player and Team Stories", label(7, "Player and Team Stories", "what changed and what happens next") + desk(
-    ("Stuart", "Four stories, and the first one threw for four touchdowns.")) +
+    ("Stuart", "Five stories, and the first one threw for four touchdowns.")) +
     h3("1. Brian Cross rides Trevor Lawrence") + desk(
     ("Stuart", "Brian Cross is {rec_cros}, and had a good week anyway: {law} from Trevor Lawrence, {ber} from Germie Bernard, and a 2&ndash;1 record."),
     ("Rich", "Lawrence and Bernard supplied {cros_law_ber} of Cross&rsquo;s {sc_cros}. Lawrence alone was {cros_law_share} of the score. Replace him with the best legal option on the bench, George Holani at {holani}, and Cross scores {cros_nolaw}. That still beats Matt Gerardi, by {cros_nolaw_gera}, but loses to Shawn Blake by {cros_nolaw_blak}. Lawrence turned 1&ndash;2 into 2&ndash;1."),
     ("Kenny", "Sunday, 7:34 PM, Brian Cross, on the subject of the couch: {q_cross} By his account he promoted Germie Bernard from the taxi squad. Bernard scored {ber}, Brian. It was a pretty good day."),
-    ("Rich", "A good week does not undo {rec_cros}. Cross is at {po_cros} to make the playoffs.")) +
+    ("Stuart", "Which makes Week 7 the problem."),
+    ("Rich", "Lawrence is on his bye in Week 7, and Cross&rsquo;s other quarterback, Jalen Hurts ({jh_ppg} a game), is on MFL injured reserve with a calf injury, expected back Feb 15, 2027. Cam Ward ({jh_rep} a game) is the next quarterback. Hurts and running back Jordan Mason, who is on IR-R, take Cross&rsquo;s best lineup from {cros_hl} to {cros_inj_lu} even before Week 7, last in the league. Week 7&rsquo;s byes take it to {cros_w7}."),
+    ("Stuart", "And if tight end Tyler Warren sits?"),
+    ("Rich", "Warren averages {tw_ppg} a game and is Questionable with a groin injury. His replacement, Cade Otton, averages {tw_rep} and scored {otton_w6} in Week 6, and Cross&rsquo;s Week 7 lineup falls to {cros_w7_warren}. Cross does not have the depth to absorb it. A good Lawrence week does not undo {rec_cros}, and Cross is at {po_cros} to make the playoffs.")) +
     h3("2. Derrick Whitman gets Tyler Shough") + desk(
     ("Stuart", "Derrick Whitman is {hi6}, went 3&ndash;0 with {sc_whit}, and the quarterback behind it was Tyler Shough with {sho}."),
     ("Rich", "In the Week 5 report, four of Whitman&rsquo;s seven wins rested on Shough. This week he decided none. Put the best legal bench option in his place, Omar Cooper Jr., and Whitman scores {whit_nosho} and still sweeps; the closest game is still a win by {whit_nosho_emar}. What Shough bought was margin."),
     ("Stuart", "So Whitman is real?"),
-    ("Rich", "Whitman is the cleanest case in the middle. This season the record is within {wvea_whit} wins of what the scores deserve, and a best lineup of {hl_whit} is fifth in the league. The forecast has Whitman at {po_whit} because Blake is better on paper, not because Whitman is lucky.")) +
+    ("Rich", "Whitman is the cleanest case in the middle. This season the record is within {wvea_whit} wins of what the scores deserve, and a best lineup of {hl_whit} is fifth in the league. The forecast has Whitman at {po_whit} because Blake is better on paper, not because Whitman is lucky."),
+    ("Stuart", "Is there a crack in it?"),
+    ("Rich", "Linebacker Edgerrin Cooper ({ec_ppg} a game) is on MFL injured reserve with an Achilles injury, expected back Feb 15, 2027. Akeem Davis-Gaither ({ec_rep}) steps in, and Foyesade Oluokun has his bye in Week 7. The best lineup goes from {ec_lu1} to {ec_lu2}, fifth in the league to seventh. That is workable, not a crisis, but Whitman leads Blake by one game and Blake&rsquo;s best lineup is {hl_blak}.")) +
     h3("3. Eric Mannila gets Malik Nabers") + desk(
     ("Stuart", "Eric Mannila went 3&ndash;0 on 12 catches, 15 targets and 165 yards from Malik Nabers, {nab} points."),
     ("Rich", "Last week&rsquo;s report found that CeeDee Lamb and Bijan Robinson supplied about a third of Mannila&rsquo;s edge, and that when they combined for {mann_w5_stars} Mannila lost all three games. This week they combined for {mann_stars}. Nabers supplied the cover. Take him out for the best legal bench option, Keon Coleman at {coleman}, and Mannila still scores {mann_nonab}, at least {mann_nonab_min} ahead of every opponent. Nabers made the sweep comfortable. He did not make it possible."),
-    ("Stuart", "Mannila&rsquo;s trouble is at quarterback, which comes up in the injuries.")) +
+    ("Stuart", "So what is the problem?"),
+    ("Rich", "The quarterback room. Jaxson Dart ({jd_ppg} a game) is on MFL injured reserve with a meniscus injury, expected back Jan 17, 2027, and receiver Romeo Doubs is on IR too. Together they take Mannila&rsquo;s best lineup from {mann_hl} to {mann_inj_lu}, eighth in the league to tenth. Justin Herbert ({jd_rep}) is the replacement, and free agent Drew Lock has averaged {jd_fa} in two games, {jd_fabeat} better. Mannila is {po_mann} to make the playoffs through a wild card that goes by All-Play, and a {r97} record does not cover that hole.")) +
     h3("4. Terry McLaurin, and the Blake problem that is not the one you think") + desk(
     ("Stuart", "Monday night. Terry McLaurin caught one pass for 27 yards for Shawn Blake, scored {mclaurin_w6} UPS points and left the game at San Francisco hurt."),
     ("Rich", "Let&rsquo;s be clear about what this is not. It is not a lineup mistake. McLaurin was healthy when Blake started him and he was hurt in the game. The question is how much the loss hurts, and whether Blake has the depth."),
@@ -288,24 +294,15 @@ S.append(wrap("players", "Player and Team Stories", label(7, "Player and Team St
     ("Kenny", "The model still has no projection for Shawn&rsquo;s final decision. It does have Blake at {po_blak} to make the playoffs."),
     ("Rich", "And that number barely moves. Run the same simulation, same inputs and same seed with McLaurin healthy and Blake is at {blake_cfpo}. The gap is {blake_po_gap} points. What moves Blake&rsquo;s season is the calendar. In Week 7, Josh Allen, Bhayshul Tuten and Brenton Strange are on their bye, and so is Washington. Brock Purdy is the only quarterback on the active roster, and the best lineup Blake can field is {blake_wk7}, {blake_wk7gap} below normal."),
     ("Stuart", "So is Blake in trouble?"),
-    ("Rich", "Not from McLaurin. From a bye week. Blake is one of four teams at {r97}, and Blake&rsquo;s {ap_blak} All-Play this season is the best of the four.")))) 
+    ("Rich", "Not from McLaurin. From a bye week. Blake is one of four teams at {r97}, and Blake&rsquo;s {ap_blak} All-Play this season is the best of the four.")) +
+    h3("5. Injury fallout") + desk(
+    ("Stuart", "Two more injury stories belong in the race, and one of them is the reason not to worry."),
+    ("Rich", "Start with the one that does not matter. Brian Cutting&rsquo;s Lamar Jackson ({lj_ppg} a game) is MFL-listed Questionable with an ankle injury and was officially Out in Week 6, and Davante Adams is on injured reserve. With both out, Cutting&rsquo;s best lineup goes from {hl_cutt} to {cutt_both_lu}. Aaron Rodgers ({lj_rep} a game, and {rodg_w4}, {rodg_w5} and {rodg_w6} in Weeks 4 to 6) covers Jackson, and Cutting stays third in the league. At {po_cutt} to make the playoffs and {bye_cutt} for a bye, that is depth doing its job."),
+    ("Stuart", "And the one that does?"),
+    ("Rich", "Matt Gerardi&rsquo;s. Deebo Samuel ({ds_ppg} a game) is Out with a hamstring injury. Mason Graham, the top-scoring defensive tackle in the league at {mg_ppg} a game, has not played in Weeks 4 to 6 and is Questionable with a knee injury, and running back Kyle Monangai ({km_ppg} a game) is Questionable too, expected back Oct 22, 2026. If those two sit, Gerardi&rsquo;s best lineup falls from {gera_hl} to {gera_inj_all}, seventh in the league to ninth. At {po_gera} that does not change a season, but it caps what one good week can do.")))) 
 
-# 8 -- Injury Watch
-S.append(wrap("injuries", "Injury Watch", label(8, "Injury Watch", "who is hurt and what it changes") + desk(
-    ("Rich", "We checked every starter-caliber injury on every roster, {n_board} of them. &ldquo;Starter-caliber&rdquo; means a player belongs in his team&rsquo;s best legal lineup when healthy, based on 2026 scoring, not that he started last week. Most change nothing. Five change a race. Terry McLaurin, the one everybody asked about, is in the Blake story above: depth enough."),
-    ("Stuart", "Start with the contenders."),
-    ("Rich", "Brian Cutting&rsquo;s Lamar Jackson ({lj_ppg} a game) is MFL-listed Questionable with an ankle injury; officially he was Out for Week 6. Aaron Rodgers ({lj_rep} a game) steps in, and Cutting&rsquo;s best lineup goes from {lj_lu1} to {lj_lu2}, a loss of {lj_drop}. It stays third in the league. Workable."),
-    ("Rich", "Derrick Whitman&rsquo;s Edgerrin Cooper ({ec_ppg} a game) is on MFL injured reserve with an Achilles injury, expected back Feb 15, 2027. Akeem Davis-Gaither ({ec_rep}) steps in, Whitman&rsquo;s lineup goes from {ec_lu1} to {ec_lu2}, and the rank slides from fifth to seventh. Linebacker Foyesade Oluokun is on his bye in Week 7."),
-    ("Rich", "Chris Klingenberg&rsquo;s Mike Evans ({me_ppg} a game) is MFL-listed Questionable with an Achilles injury; officially he was Questionable and played. Rhamondre Stevenson ({me_rep}) is next, the lineup goes from {me_lu1} to {me_lu2}, and Evans has his bye in Week 8. Free agent Tre Tucker ({me_fa} a game) is {me_fabeat} better than Stevenson, a waiver look for a team at {po_klin}."),
-    ("Rich", "Keith Creelman&rsquo;s Travis Etienne ({te_ppg} a game) is on MFL injured reserve with a hamstring injury, expected back Nov 8, 2026. TreVeyon Henderson ({te_rep}) steps in and the lineup goes from {te_lu1} to {te_lu2}, sixth to seventh. Saquon Barkley, Trey Benson and Will Shipley are also on the MFL injury list at running back."),
-    ("Stuart", "And Mannila?"),
-    ("Rich", "Eric Mannila&rsquo;s Jaxson Dart ({jd_ppg} a game) is on MFL injured reserve with a meniscus injury, expected back Jan 17, 2027. Justin Herbert ({jd_rep}) is next and the lineup goes from {jd_lu1} to {jd_lu2}, eighth to tenth. Free agent Drew Lock averages {jd_fa} in two games, {jd_fabeat} better than Herbert. At {po_mann}, that needs a waiver look."),
-    ("Rich", "The two biggest losses in the league are on the two bottom teams. Brian Cross loses tight end Tyler Warren ({tw_drop} a week) and Matt Gerardi loses Mason Graham ({mg_drop}). Neither moves a season at {po_cros} and {po_gera}."),
-    ("Stuart", "Every status here is MFL&rsquo;s listing as of Wed Oct 21, 8:01 AM ET. Official Week 7 designations had not posted for most teams when we checked at 9:47 AM ET; only New England and Chicago were in. They are not the same thing, and we will refresh before publication.")) +
-    det("Full injury board: all {n_board} starter-caliber injuries".replace("{n_board}", "20"), inner("injuries"))))
-
-# 9 -- Survival Line
-S.append(wrap("survival", "The Survival Line", label(9, "The Survival Line", "what a Week 6 position has meant") + desk(
+# 8 -- Survival Line
+S.append(wrap("survival", "The Survival Line", label(8, "The Survival Line", "what a Week 6 position has meant") + desk(
     ("Stuart", "Now the bottom. Josh Martel and Matt Gerardi are both {rec_jmar}, Brian Cross is {rec_cros}, and the forecast gives them {po_jmar}, {po_gera} and {po_cros}."),
     ("Rich", "History agrees. For Josh Martel and Matt Gerardi, {svap_jmar} teams in the same All-Play spot went on to make the playoffs, and {svw_jmar} with the same win total. For Cross, {svap_cros} and {svw_cros}."),
     ("Stuart", "Josh Martel first."),
@@ -313,12 +310,12 @@ S.append(wrap("survival", "The Survival Line", label(9, "The Survival Line", "wh
     ("Kenny", "Sunday, 1:40 PM, Josh Martel: {q_josh}. MarShawn Lloyd, projected {lloyd_proj}, scored {lloyd}. The committee has reviewed the evidence."),
     ("Stuart", "Matt Gerardi?"),
     ("Rich", "{sc_gera} and 0&ndash;3, with the best bargain of the week: Matthew Golden, projected {golden_proj}, scored {golden}. Cam Skattebo and D.J. Moore both scored {skattebo}."),
-    ("Stuart", "And Brian Cross, who just got a gift?"),
-    ("Rich", "Lawrence changed Cross&rsquo;s week, not his season: {sc_cros} and 2&ndash;1, against {cros_nolaw} and 1&ndash;2 without him. Cross is still {rec_cros} with {po_cros}. Teams in that spot do not get out of it on one good week.")) +
+    ("Stuart", "And Brian Cross?"),
+    ("Rich", "His week, and the Week 7 problem behind it, are in the player stories. What the table says is that teams in his spot, {svap_cros} and {svw_cros}, rarely get out of it.")) +
     det("The Survival Line table", inner("survival"))))
 
-# 10 -- Elias
-S.append(wrap("elias", "Elias changes", label(10, "Elias changes") + desk(
+# 9 -- Elias
+S.append(wrap("elias", "Elias changes", label(9, "Elias changes") + desk(
     ("Stuart", "Not yet Elias-final. The official Week 6 stat changes had not posted when this report was written (checked Wed Oct 21, 10:06 AM ET). The scores above are the ones MFL showed Wednesday morning."),
     ("Rich", "Same as last week: if Elias moves a UPS score, the report is corrected here, and the league hears about it only if an All-Play record changes. The Elias segment is the one piece still to come."))))
 

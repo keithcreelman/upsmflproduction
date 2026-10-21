@@ -858,15 +858,5 @@
   "check": "Washington is not in the Week 7 official-report data as fetched",
   "ok": true,
   "detail": ""
- },
- {
-  "check": "every number in the Injury Report is a registered claim",
-  "ok": true,
-  "detail": "[]"
- },
- {
-  "check": "every injury claim names a source",
-  "ok": true,
-  "detail": ""
  }
 ]

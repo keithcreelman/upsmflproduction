@@ -390,3 +390,36 @@ F.add("bear_w46", "%d–%d" % tuple(map(sum, zip(*[wap(BEAR, w) for w in range(4
 assert F["bear_w46"] == F["hc_bear"] and F["bear_w36"] == "43–1" and F["bear_w26"] == "53–2"
 assert [wrank(BEAR, w) for w in range(1, 7)] == [9, 2, 1, 2, 1, 1]
 assert [wap(BEAR, w) for w in (3, 5, 6)] == [(11, 0)] * 3
+
+# ---- combined injury effects behind the injury stories (injury_combined.py, from the validated lineup algorithm) ----
+IC = L("injury_combined.json")["teams"]
+CSRC = "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable)"
+x = IC["0006"]
+F.add("cros_hl", f1(x["now"]["healthy"]), CSRC)
+F.add("cros_inj_lu", f1(x["now"]["lineup"]), CSRC)
+F.add("cros_inj_drop", f1(x["now"]["drop"]), CSRC)
+F.add("cros_w7", f1(x["week7"]["lineup"]), CSRC + "; Week 7 byes removed")
+F.add("cros_w7_byes", f1(x["now"]["lineup"] - x["week7"]["lineup"]), "derived: injuries-only lineup minus Week 7 lineup")
+F.add("cros_w7_warren", f1(x["week7WarrenOut"]["lineup"]), CSRC + "; Week 7 byes removed and Warren out")
+assert (x["now"]["rankHealthy"], x["now"]["rankWithout"]) == (11, 12) and x["now"]["unavailableInBestLineup"] == ["Hurts, Jalen", "Mason, Jordan"]
+F.add("otton_w6", f1(team["0006"]["pl"][pid_of("0006", "Otton")]["s"]), MFLW6)
+x = IC["0011"]["now"]
+assert (x["rankHealthy"], x["rankWithout"]) == (8, 10) and x["unavailableInBestLineup"] == ["Dart, Jaxson", "Doubs, Romeo"]
+F.add("mann_hl", f1(x["healthy"]), CSRC); F.add("mann_inj_lu", f1(x["lineup"]), CSRC); F.add("mann_inj_drop", f1(x["drop"]), CSRC)
+x = IC["0004"]["withJacksonOut"]
+assert (x["rankHealthy"], x["rankWithout"]) == (3, 3)
+F.add("cutt_both_lu", f1(x["lineup"]), CSRC + "; Jackson and Adams both out")
+F.add("cutt_both_drop", f1(x["drop"]), CSRC)
+x = IC["0003"]
+assert (x["now"]["rankHealthy"], x["now"]["rankWithout"], x["withGrahamMonangaiOut"]["rankWithout"]) == (7, 7, 9)
+F.add("gera_hl", f1(x["now"]["healthy"]), CSRC); F.add("gera_inj_now", f1(x["now"]["lineup"]), CSRC)
+F.add("gera_inj_all", f1(x["withGrahamMonangaiOut"]["lineup"]), CSRC + "; Samuel out plus Graham and Monangai sitting")
+F.add("gera_inj_drop", f1(x["withGrahamMonangaiOut"]["drop"]), CSRC)
+cc = {c["player"]: c for c in inj["cases"]}
+F.add("km_ppg", f1(cc["Kyle Monangai"]["ppg"]), ISRC)
+F.add("ds_ppg", f1(cc["Deebo Samuel"]["ppg"]), ISRC)
+assert cc["Mason Graham"]["rankPPG"] == 1 and cc["Mason Graham"]["recent"] == ["DNP", "DNP", "DNP"]
+assert cc["Jalen Hurts"]["injury"]["expReturn"] == "Feb 15, 2027" and cc["Kyle Monangai"]["injury"]["expReturn"] == "Oct 22, 2026"
+assert cc["Jalen Hurts"]["byePressure"] == [["Trevor Lawrence", 7]]
+for i, w in enumerate((4, 5, 6)):
+    F.add("rodg_w%d" % w, cc["Lamar Jackson"]["replacement"]["recent"][i], ISRC)

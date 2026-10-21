@@ -116,7 +116,12 @@ ok("McLaurin MFL status Out, knee, expected Feb 15, 2027", feed[mc]["status"] ==
 ok("Washington is not in the Week 7 official-report data as fetched", not any(r.get("7", {}).get("team") == "WAS" for r in nv["report"].values()))
 # every number on the segment is a registered claim
 doc = open(sys.argv[1], encoding="utf-8").read()
-seg = re.search(r'<section class="wire-sec" id="injuries"[\s\S]*?</section>', doc).group(0)
+segm = re.search(r'<section class="wire-sec" id="injuries"[\s\S]*?</section>', doc)
+if not segm:
+    print('\nthe article no longer carries the injury board (removed 2026-10-21); this file stays as the private proof. %d checks, %d failed' % (len(res), len([1 for r in res if not r[1]])))
+    json.dump([dict(check=n, ok=o, detail=d) for n, o, d in res], open(os.path.join(D, 'verify_injuries.json'), 'w'), indent=1)
+    sys.exit(1 if [1 for r in res if not r[1]] else 0)
+seg = segm.group(0)
 txt = re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", seg)))
 txt = re.sub(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{1,2}:\d{2} (AM|PM) ET", " ", txt)
 txt = re.sub(r"Feb 15, 2027|\bWeek \d{1,2}\b|\bWeeks \d+[–-]\d+\b|\b20\d\d\b|\bWR\d|\bRB\d|\bTE\d|\bQB\d|\bDL\d|\bLB\d|\bDB\d", " ", txt)
