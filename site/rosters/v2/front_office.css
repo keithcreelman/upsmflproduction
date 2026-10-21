@@ -856,12 +856,7 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-stat-sub { font-size: 11px; color: var(--muted); }
 .fo-stat-career td { border-top: 2px solid var(--border); font-weight: 600; }
 
-/* Game Log sub-tab — week tier badges + playoff annotation */
-.fo-tier { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-.fo-tier.elite { background: rgba(74,222,128,0.15); color: var(--ok); }
-.fo-tier.plus { background: rgba(91,141,255,0.15); color: var(--accent); }
-.fo-tier.neutral { background: rgba(138,151,173,0.12); color: var(--muted); }
-.fo-tier.dud { background: rgba(248,113,113,0.15); color: var(--err); }
+/* Game Log sub-tab — playoff annotation */
 .fo-gl-ptag { color: var(--accent); font-weight: 700; font-size: 10px; }
 .fo-gl-po td { background: rgba(91,141,255,0.06); }
 
@@ -1193,3 +1188,45 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-act-grid { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); }
 @media (max-width: 1100px) { .fo-act-grid { grid-template-columns: 1fr; } }
 .fo-pk-table td { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Player modal Phase 1 (#1338): short action rows, write confirmation, unresolved rows ── */
+.fo-action-row-ctrl { flex-wrap: wrap; justify-content: flex-end; }
+.fo-act-more, .fo-act-why { margin-top: 3px; font-size: 11px; color: var(--muted); }
+.fo-act-why { display: inline-block; }
+.fo-act-more summary, .fo-act-why summary { cursor: pointer; color: var(--accent); width: max-content; }
+.fo-act-more > div, .fo-act-why > div { margin-top: 3px; max-width: 46ch; }
+@media (max-width: 520px) {
+  .fo-action-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .fo-action-row-ctrl { justify-content: flex-start; }
+}
+.fo-confirm-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.fo-confirm {
+  width: min(440px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); font-size: 13px;
+}
+.fo-confirm.danger { border-color: rgba(248, 113, 113, 0.6); }
+.fo-confirm h3 { margin: 0 0 10px; font-size: 16px; }
+.fo-confirm dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 10px; margin: 0; }
+.fo-confirm dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; padding-top: 2px; }
+.fo-confirm dd { margin: 0; }
+.fo-confirm-notes { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+.fo-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+@media (max-width: 400px) { .fo-confirm dl { grid-template-columns: 1fr; gap: 0 0; } .fo-confirm dd { margin-bottom: 6px; } }
+.fo-unres {
+  display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 9px;
+  font-size: 10px; line-height: 16px; white-space: nowrap; cursor: help;
+  color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45);
+}
+.fo-stat-group h3 { margin: 10px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.fo-stat-group .fo-stat-cards { margin-bottom: 4px; }
+.fo-stat-table { margin-top: 10px; }
+.fo-rk-note { color: var(--warn); cursor: help; margin-left: 1px; }
+.fo-stat-why, .fo-gl-coverage { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.fo-stat-why summary { cursor: pointer; color: var(--accent); }
+.fo-stat-why ul, .fo-gl-coverage { padding-left: 18px; }

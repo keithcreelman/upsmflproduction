@@ -1034,10 +1034,11 @@
       var weight = prospectRow.weight || pp.weight || null;
       var nflTeamCur = prospectRow.nfl_team || pp.team || null;
       var draftSummary = prospectRow.nfl_draft_summary;
+      // Only MFL's own round/pick make an NFL draft line; a missing round is unknown, never "UDFA" (#1338),
+      // and MFL's "FA" draft team (seen on drafted players) is left out.
       if (!draftSummary && pp.draft_round && pp.draft_pick) {
-        draftSummary = "R" + pp.draft_round + "." + pp.draft_pick + (pp.draft_team ? " · " + pp.draft_team : "");
-      } else if (!draftSummary && pp.team && draftYear) {
-        draftSummary = "UDFA · " + pp.team;
+        var dTeam = String(pp.draft_team || "").toUpperCase();
+        draftSummary = "R" + pp.draft_round + "." + pp.draft_pick + (dTeam && dTeam !== "FA" ? " · " + dTeam : "");
       }
       var facts = [];
       if (draftSummary) facts.push('<div><span class="lbl">' + (prospectRow.is_udfa ? "Status" : "NFL Draft") + '</span><strong style="color:' + (prospectRow.is_udfa ? "#8a97ad" : "#4ade80") + '">' + escapeHtml(draftSummary) + '</strong></div>');

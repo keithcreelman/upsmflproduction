@@ -15,7 +15,7 @@
   // front_office.html shell and injects it) and reads MFL's login cookie for the
   // viewer franchise, so no ?franchise_id= is needed inside the embed.
 
-  var BUILD = "2026.10.20.2";
+  var BUILD = "2026.10.20.3";
   if (window.__ups_fo_embed_loader === BUILD) {
     if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
     return;
@@ -224,7 +224,8 @@
     //   fail-closed when missing) → the phone's shared player-fact modules
     //   (#1338: injury_status = the one injury chip, front_office_lineup = the
     //   18-slot model, season_scoring = MFL's own season points, player_facts,
-    //   fo_data = the Front Office's one-read-per-source data layer)
+    //   fo_data = the Front Office's one-read-per-source data layer,
+    //   fo_player_modal = the player panel's bio / stats / game log / write-confirmation facts)
     //   → master modal → front_office.js last, which needs every global above the
     //   moment it runs. buildShell() skips every <script> in front_office.html, so
     //   THIS list is the only source of truth for what loads in the embed.
@@ -248,6 +249,7 @@
       "rosters/v2/fo_market.js",
       "rosters/v2/fo_trades.js",
       "rosters/v2/fo_activity.js",
+      "rosters/v2/fo_player_modal.js",
       "rosters/v2/front_office.js"
     ];
     function candidatesFor(path) {
