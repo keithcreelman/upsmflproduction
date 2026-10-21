@@ -20,6 +20,11 @@
 // real arithmetic on fixtures.
 
 export const FPA_ENGINE_VERSION = "fpa2-2026-10-13";
+// The arithmetic's revision, in every answer cache key. FPA_ENGINE_VERSION names the stored
+// INPUTS (worker/fpa_store/<version>/); a fix to the arithmetic that leaves the inputs alone
+// bumps this instead, so no cached answer from the old arithmetic is served.
+// c2 (2026-10-15, #1305): relocated teams' old codes (SDC / STL / RAM / OAK) matched.
+export const FPA_CALC_REV = "c2";
 
 export const FPA_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"];
 // For these the listed team is the OFFENSE the players faced (an IDP scores
@@ -42,6 +47,13 @@ export function fpaPosGroup(p) {
 
 // nflverse team codes → MFL's. Anything else is the same in both (ARI, BAL, …).
 export const NFLV_TO_MFL = { GB: "GBP", KC: "KCC", NE: "NEP", NO: "NOS", SF: "SFO", TB: "TBB", LV: "LVR", JAX: "JAC", LA: "LAR" };
+// nflverse files a relocated team under TODAY's code in every season (LAC, LA, LV), while
+// MFL's schedule for that season uses the code it had then: San Diego SDC through 2016,
+// St. Louis STL through 2015 and RAM in 2016, Oakland OAK through 2019 (checked against
+// MFL's 2011–2026 schedules, 2026-10-15). A game-day team is matched to the first of these
+// that has a game that week.
+export const NFLV_ALIASES = { LAC: ["LAC", "SDC"], LA: ["LAR", "STL", "RAM"], LV: ["LVR", "OAK"] };
+export function fpaTeamCandidates(nv) { return NFLV_ALIASES[nv] || [NFLV_TO_MFL[nv] || nv]; }
 // MFL → nflverse, for the D1 pace / plays tables (which use nflverse codes).
 export const MFL_TO_NFLV = { GBP: "GB", KCC: "KC", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", LVR: "LV", JAC: "JAX", LAR: "LA", OAK: "LV", SDC: "LAC", SD: "LAC", STL: "LA", ARZ: "ARI", BLT: "BAL", CLV: "CLE", HST: "HOU" };
 
@@ -57,13 +69,22 @@ export class FpaUpstreamError extends Error {
   }
 }
 
+// UPS played under other MFL league ids before 2017 (MFL answers "Invalid league ID"
+// for 74598 then). Same ids as pipelines/etl/scripts/build_historical_records.py.
+export const FPA_LEAGUE_IDS = { 2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191" };
+export function fpaLeagueId(yr) { return FPA_LEAGUE_IDS[Number(yr)] || "74598"; }
+const FPA_OLD_IDS = new Set(Object.values(FPA_LEAGUE_IDS));
+
 export function fpaUrls(yr, lid, tag) {
   const t = tag ? "&ups=" + tag : "";
+  // League 74598 is hosted on www48; UPS's earlier ids are read through MFL's api host.
+  // Any other id (a test league) stays on www48 as before.
+  const h = FPA_OLD_IDS.has(String(lid)) ? "api" : "www48";
   return {
-    league: `https://www48.myfantasyleague.com/${yr}/export?TYPE=league&L=${lid}&JSON=1${t}`,
-    players: `https://www48.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1${t}`,
+    league: `https://${h}.myfantasyleague.com/${yr}/export?TYPE=league&L=${lid}&JSON=1${t}`,
+    players: `https://${h}.myfantasyleague.com/${yr}/export?TYPE=players&L=${lid}&DETAILS=1&JSON=1${t}`,
     sched: (w) => `https://api.myfantasyleague.com/${yr}/export?TYPE=nflSchedule&W=${w}&JSON=1${t}`,
-    scores: (w) => `https://www48.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1${t}`,
+    scores: (w) => `https://${h}.myfantasyleague.com/${yr}/export?TYPE=playerScores&L=${lid}&W=${w}&JSON=1${t}`,
   };
 }
 
@@ -264,8 +285,7 @@ export function fpaCompute(mfl, ctx, { wMin, wMax, nowMs, baseline }) {
       let own = "", src = "";
       const nv = nflvTeamFor(ctx, pid, w);
       if (nv) {
-        const cand = NFLV_TO_MFL[nv] || nv;
-        if (gameOf[cand] && gameOf[cand][w]) { own = cand; src = "gameDay"; }
+        for (const cand of fpaTeamCandidates(nv)) if (gameOf[cand] && gameOf[cand][w]) { own = cand; src = "gameDay"; break; }
       }
       if (!own && gameOf[info.team] && gameOf[info.team][w]) { own = info.team; src = "mflTeam"; }
       if (!own) { attribution.unattributed++; continue; }
@@ -337,6 +357,53 @@ export function fpaAggregate(E, groups) {
     });
   }
   return out;
+}
+
+// Each player's schedule over the window (Player Stats "Sched Δ", #1271), from the
+// same final games Pts Agst counts. For each of his games, the team he faced is rated
+// by what it allowed to the OTHER players at his position against their usual
+// (Allowed ÷ Usual with his own games left out, so his points never rate his own
+// opponents). opp = the mean of those ratings over his rated games; adj = his points
+// ÷ opp. Descriptive: what his opponents allowed over these weeks, not a forecast.
+// A game is unrated when no other player at his position with 2+ games in the window
+// faced that team, or when the others' usual isn't positive (or their rating isn't above
+// 0); opp is null with no rated game.
+// Returns pid → { grp, raw, gp, rated, rsum, others } as unrounded sums, so seasons add
+// up; others = the other players' games behind his rated games' ratings (the sample size).
+export function fpaPlayerSchedule(E) {
+  const tot = new Map(), mine = new Map();
+  for (const x of E.pg) {
+    const u = E.usualFor(x.pid, x.def); if (!u) continue;
+    // A player with one game in the window has that game as his usual, so his game would
+    // rate its team at exactly 1 (a one-week window rated everyone 1.00, Δ 0.0). Only
+    // players with 2+ games here rate a team; with none, the game is unrated.
+    if (u.n < 2) continue;
+    const k = x.def + "|" + x.grp, mk = x.pid + "|" + k;
+    const t = tot.get(k) || { pts: 0, exp: 0, n: 0 }; t.pts += x.pts; t.exp += u.avg; t.n++; tot.set(k, t);
+    const m = mine.get(mk) || { pts: 0, exp: 0, n: 0 }; m.pts += x.pts; m.exp += u.avg; m.n++; mine.set(mk, m);
+  }
+  const out = {};
+  for (const x of E.pg) {
+    const p = out[x.pid] || (out[x.pid] = { grp: x.grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
+    p.raw += x.pts; p.gp++;
+    const k = x.def + "|" + x.grp, t = tot.get(k), m = mine.get(x.pid + "|" + k) || { pts: 0, exp: 0, n: 0 };
+    if (!t || t.n - m.n <= 0) continue;
+    const exp = t.exp - m.exp;
+    if (!(exp > 1e-9)) continue;
+    const r = (t.pts - m.pts) / exp;
+    if (!(r > 0)) continue;
+    p.rated++; p.rsum += r; p.others += t.n - m.n;
+  }
+  return out;
+}
+// The per-player answer from summed seasons: opp = mean rating over rated games.
+export function fpaScheduleRow(p) {
+  const opp = p.rated > 0 ? p.rsum / p.rated : null;
+  const adj = opp != null && opp > 0 ? p.raw / opp : null;
+  return { pos: p.grp, raw: r1(p.raw), gp: p.gp, rated: p.rated, others: p.others,
+    opp: opp != null ? Math.round(opp * 1000) / 1000 : null,
+    adj: adj != null ? r1(adj) : null,
+    delta: adj != null ? r1(adj - p.raw) : null };
 }
 
 // Week-level facts the screen states: which weeks are final, which games are left,
@@ -756,6 +823,26 @@ async function fpaSnaps(env, yr, pids, lo, hi) {
   }
 }
 
+// One season's inputs for the engine: MFL's replies (stored copy for a finished season,
+// else live) and the game-day context. Throws FpaUpstreamError when an MFL read fails.
+export async function fpaLoadSeason(env, ctx, { yr, lid, wMin, wMax, nowMs, past, doFetch, preStored }) {
+  const fetchJson = (u, ttl) => doFetch(u, { cf: { cacheTtlByStatus: { "200-299": ttl, "404": 60, "500-599": 0 }, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } })
+    .then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
+  const load = (fj) => fpaLoadMfl({ yr, wMin, wMax, lid, fetchJson: fj, nowMs, currentSeason: !past, tag: FPA_MFL_TAG });
+  // A finished season: the same loader, answered from its stored copy. The current
+  // season is never read from storage.
+  // preStored: a caller that already opened the stored copy passes it (undefined = look it up).
+  let stored = past ? (preStored !== undefined ? preStored : await fpaStoredSeason(env, yr, lid, nowMs)) : null;
+  let mfl = null;
+  if (stored) {
+    try { mfl = await load(stored.fetchJson); mfl.readAtMs = stored.readAtMs; } catch (_) { stored = null; mfl = null; }
+  }
+  if (!mfl) mfl = await load(fetchJson);
+  const source = stored ? "stored" : "live";
+  const { ctx: seasonCtx, state: ctxState } = stored ? { ctx: stored.ctx, state: "ok" } : await fpaSeasonContextCached(env, ctx, yr, past);
+  return { mfl, stored, source, seasonCtx, ctxState };
+}
+
 export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid, fetchImpl }) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -790,33 +877,21 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   const sp = new URLSearchParams(url.searchParams);
   ["NO_CACHE", "cb", "_"].forEach((k) => sp.delete(k));
   const sorted = new URLSearchParams([...sp.entries()].sort((a, b) => a[0].localeCompare(b[0])));
-  const cacheKey = FPA_CACHE_HOST + path + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION;
+  const cacheKey = FPA_CACHE_HOST + path + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION + "&c=" + FPA_CALC_REV;
   const noCache = str(url.searchParams.get("NO_CACHE")) === "1";
   if (!noCache) {
     const hit = await fpaCacheMatch(cacheKey);
     if (hit) { const body = await hit.text(); return new Response(body, { status: 200, headers: fpaHeaders(jsonOut, hit.headers.get("X-UPS-FPA-Source") || "live", "hit") }); }
   }
 
-  const fetchJson = (u, ttl) => doFetch(u, { cf: { cacheTtlByStatus: { "200-299": ttl, "404": 60, "500-599": 0 }, cacheEverything: true }, headers: { "User-Agent": "ups-worker", Accept: "application/json" } })
-    .then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
-  const load = (fj) => fpaLoadMfl({ yr, wMin, wMax: auto ? 99 : wMaxRaw, lid: lid || "74598", fetchJson: fj, nowMs: now, currentSeason: !past, tag: FPA_MFL_TAG });
-  // A finished season: the same loader, answered from its stored copy. The current
-  // season is never read from storage.
-  let stored = past ? await fpaStoredSeason(env, yr, lid || "74598", now) : null;
-  let mfl = null;
-  if (stored) {
-    try { mfl = await load(stored.fetchJson); mfl.readAtMs = stored.readAtMs; } catch (_) { stored = null; mfl = null; }
+  let loaded;
+  try {
+    loaded = await fpaLoadSeason(env, ctx, { yr, lid: lid || "74598", wMin, wMax: auto ? 99 : wMaxRaw, nowMs: now, past, doFetch });
+  } catch (e) {
+    if (e instanceof FpaUpstreamError) return jsonOut(502, { ok: false, error: "mfl_unavailable", detail: e.message, failedWeeks: e.weeks, as_of: asOf });
+    throw e;
   }
-  if (!mfl) {
-    try {
-      mfl = await load(fetchJson);
-    } catch (e) {
-      if (e instanceof FpaUpstreamError) return jsonOut(502, { ok: false, error: "mfl_unavailable", detail: e.message, failedWeeks: e.weeks, as_of: asOf });
-      throw e;
-    }
-  }
-  const source = stored ? "stored" : "live";
-  const { ctx: seasonCtx, state: ctxState } = stored ? { ctx: stored.ctx, state: "ok" } : await fpaSeasonContextCached(env, ctx, yr, past);
+  const { mfl, stored, source, seasonCtx, ctxState } = loaded;
 
   // The window: week_max omitted = FULL SEASON through the latest COMPLETED game:
   // every final game so far, including the final games of a week still being played
@@ -867,5 +942,127 @@ export async function handleFpaRequest(request, env, ctx, { jsonOut, nowMs, lid,
   const ttl = past ? 86400 : (allFinal && lastKo * 1000 <= now - 4 * 86400 * 1000 ? 3600 : 120);
   const body = JSON.stringify(payload);
   if (ctxState === "ok") fpaCachePut(ctx, cacheKey, body, ttl, source);
+  return new Response(body, { status: 200, headers: fpaHeaders(jsonOut, source, "miss") });
+}
+
+// ── Player Stats "Sched Δ": /api/sos-adjusted-points?seasons=&week_min=&week_max= (#1271) ──
+// Replaces the old D1 route, which read src_weekly: that table has only rostered players
+// in UPS playoff weeks (2021–2025) and no playoff weeks at all before 2021, and the query
+// read ~180k D1 rows per season. This answers from the same MFL reads and the same final
+// games as Pts Agst (stored copy for a finished season), for every player MFL scored.
+// Seasons are added together per player: points and games summed, opp = the mean
+// rating over all his rated games. Any MFL read that fails fails the whole answer (502,
+// season named); a season that hasn't started, or a window outside a season's weeks, is
+// stated per season with no players from it, never filled in from another season.
+// In the answer and in its edge-cache key: change it whenever the answer's fields or
+// numbers change, or a finished season keeps serving the old answer for a day.
+export const SOS_VERSION = "sos3";
+export const SOS_MIN_SEASON = 2011;
+// A season read live from MFL costs ~36 outside fetches; Workers Free allows 50 a request.
+export const SOS_MAX_LIVE_SEASONS = 1;
+export const SOS_DEFINITION = "Sched Δ = points ÷ Opp − points, over the same final games. " +
+  "Opp = what the teams he faced allowed to other players at his position, against those players' usual " +
+  "(Pts Agst's Allowed ÷ Usual for these weeks, his own games left out); 1.10 = 10% more than usual. " +
+  "It describes the schedule he had; it isn't a forecast.";
+
+export async function handleSosRequest(request, env, ctx, { jsonOut, nowMs, fetchImpl }) {
+  const url = new URL(request.url);
+  const now = nowMs || Date.now();
+  const doFetch = fetchImpl || fetch;
+  const asOf = new Date(now).toISOString();
+  const seasons = Array.from(new Set(str(url.searchParams.get("seasons")).split(",")
+    .map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4))).sort();
+  if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
+  if (seasons.length > 16) return jsonOut(400, { ok: false, error: "at most 16 seasons" });
+  const early = seasons.filter((s) => Number(s) < SOS_MIN_SEASON);
+  if (early.length) return jsonOut(400, { ok: false, error: "no UPS scores before " + SOS_MIN_SEASON, seasons: early });
+  const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
+  const wMaxRaw = parseInt(url.searchParams.get("week_max") || "0", 10) || 0;
+  const auto = wMaxRaw <= 0;
+  if (!auto && wMaxRaw < wMin) return jsonOut(400, { ok: false, error: "week_max is before week_min" });
+
+  const sp = new URLSearchParams(url.searchParams);
+  ["NO_CACHE", "cb", "_"].forEach((k) => sp.delete(k));
+  const sorted = new URLSearchParams([...sp.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+  const cacheKey = FPA_CACHE_HOST + url.pathname + "?" + sorted.toString() + "&v=" + FPA_ENGINE_VERSION + "&c=" + FPA_CALC_REV + "&s=" + SOS_VERSION;
+  if (str(url.searchParams.get("NO_CACHE")) !== "1") {
+    const hit = await fpaCacheMatch(cacheKey);
+    if (hit) return new Response(await hit.text(), { status: 200, headers: fpaHeaders(jsonOut, hit.headers.get("X-UPS-FPA-Source") || "live", "hit") });
+  }
+
+  const cur = fpaCurrentSeason(now);
+  const plan = [];
+  for (const yr of seasons) {
+    if (Number(yr) > cur) { plan.push({ yr, notStarted: true }); continue; }
+    const lid = fpaLeagueId(yr), past = Number(yr) < cur;
+    const stored = past ? await fpaStoredSeason(env, yr, lid, now) : null;
+    plan.push({ yr, lid, past, stored });
+  }
+  const live = plan.filter((p) => !p.notStarted && !p.stored).map((p) => p.yr);
+  if (live.length > SOS_MAX_LIVE_SEASONS) {
+    return jsonOut(400, { ok: false, error: "too_many_live_seasons", liveSeasons: live, as_of: asOf,
+      detail: "Seasons " + live.join(", ") + " each need a live MFL read; choose at most " + SOS_MAX_LIVE_SEASONS + " of them at a time." });
+  }
+
+  const acc = {}, per = {};
+  let ttl = 86400, cacheable = true;
+  const sources = new Set();
+  for (const p of plan) {
+    if (p.notStarted) { per[p.yr] = { state: "not_started", players: 0 }; continue; }
+    let L;
+    try {
+      L = await fpaLoadSeason(env, ctx, { yr: p.yr, lid: p.lid, wMin, wMax: auto ? 99 : wMaxRaw, nowMs: now, past: p.past, doFetch, preStored: p.stored });
+    } catch (e) {
+      if (e instanceof FpaUpstreamError) return jsonOut(502, { ok: false, error: "mfl_unavailable", season: p.yr, detail: e.message, failedWeeks: e.weeks, as_of: asOf });
+      throw e;
+    }
+    const { mfl, source, seasonCtx, ctxState } = L;
+    sources.add(source);
+    if (ctxState !== "ok") cacheable = false;
+    const playoffWeeks = fpaPlayoffWeeks(mfl);
+    if (wMin > mfl.endWeek) {
+      per[p.yr] = { state: "outside_season", endWeek: mfl.endWeek, playoffWeeks, players: 0, source };
+      continue;
+    }
+    const ws = fpaWeekStates(mfl, now);
+    const lo = wMin;
+    const hi = auto ? Math.min(mfl.endWeek, Math.max(lo, ws.latestFinal)) : Math.min(mfl.endWeek, wMaxRaw);
+    const E = fpaCompute(mfl, seasonCtx, { wMin: lo, wMax: hi, nowMs: now, baseline: FPA_BASELINE });
+    const rows = fpaPlayerSchedule(E);
+    // weeksUsed: weeks with at least one final game (a week in progress counts its
+    // finished games only). In progress = some games started, not all final; not played
+    // = none started yet.
+    const weeksUsed = [], weeksInProgress = [], weeksNotPlayed = [];
+    for (let w = lo; w <= hi; w++) {
+      if ((E.weekGames[w] || []).some((g) => g.status === "final")) weeksUsed.push(w);
+      if (E.weekState[w] === "partial") weeksInProgress.push(w);
+      else if (E.weekState[w] === "scheduled") weeksNotPlayed.push(w);
+    }
+    let n = 0;
+    for (const pid in rows) {
+      const r = rows[pid], a = acc[pid] || (acc[pid] = { grp: r.grp, raw: 0, gp: 0, rated: 0, rsum: 0, others: 0 });
+      a.raw += r.raw; a.gp += r.gp; a.rated += r.rated; a.rsum += r.rsum; a.others += r.others; n++;
+    }
+    per[p.yr] = {
+      state: weeksInProgress.length || weeksNotPlayed.length ? "partial" : "complete", source,
+      window: { week_min: lo, week_max: hi, requested_max: auto ? null : wMaxRaw, clipped_to_end: !auto && wMaxRaw > mfl.endWeek },
+      weeksUsed, weeksInProgress, weeksNotPlayed, endWeek: mfl.endWeek, playoffWeeks,
+      lastCompleteWeek: ws.lastComplete, latestFinalWeek: ws.latestFinal,
+      mfl_read_at: new Date(mfl.readAtMs).toISOString(), players: n,
+      attribution: { ...E.attribution, context: ctxState },
+    };
+    if (p.past) continue;
+    let lastKo = 0, allFinal = true;
+    for (let w = lo; w <= hi; w++) for (const g of E.weekGames[w] || []) { if (g.kickoff > lastKo) lastKo = g.kickoff; if (g.status !== "final") allFinal = false; }
+    ttl = Math.min(ttl, allFinal && lastKo * 1000 <= now - 4 * 86400 * 1000 ? 3600 : 120);
+  }
+  const by_mfl = {};
+  for (const pid in acc) by_mfl[pid] = fpaScheduleRow(acc[pid]);
+  const source = sources.size === 1 ? [...sources][0] : (sources.size ? "mixed" : "none");
+  const payload = { ok: true, engine: FPA_ENGINE_VERSION, view: SOS_VERSION, baseline: FPA_BASELINE,
+    definition: SOS_DEFINITION, seasons, window: { week_min: wMin, week_max: auto ? null : wMaxRaw, auto },
+    per_season: per, count: Object.keys(by_mfl).length, by_mfl, as_of: asOf };
+  const body = JSON.stringify(payload);
+  if (cacheable) fpaCachePut(ctx, cacheKey, body, ttl, source);
   return new Response(body, { status: 200, headers: fpaHeaders(jsonOut, source, "miss") });
 }

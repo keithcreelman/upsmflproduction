@@ -18,6 +18,12 @@
 //   --wrangler-cwd <dir>   a directory whose wrangler.toml binds ups-mfl-db (default worker/)
 //   --mfl-cache <dir>      keep MFL replies on disk (outside the repo) so a rerun after an
 //                          MFL 429 doesn't read the same exports again
+//   --no-snaps             store no snap counts (drills for that season read them from D1, as
+//                          without a stored copy). For 2011–2016 (#1271): the snap read scans
+//                          nfl_player_snaps by season (no season-first index), and Sched Δ
+//                          doesn't use snaps. The self-check then proves every list window and
+//                          the Sched Δ answers, not drills.
+// Each season is read under its own UPS league id (fpaLeagueId: 2011–2016 differ from 74598).
 //
 // Rebuild after any FPA_ENGINE_VERSION change (until then past seasons are computed
 // live, as before) or if a finished season's MFL scores or nflverse rows are corrected.
@@ -26,11 +32,11 @@ import path from "path";
 import { execFileSync } from "child_process";
 import { fileURLToPath, pathToFileURL } from "url";
 import * as F from "../../../worker/src/fpa_engine.js";
-import { runBoth, sweepPaths } from "./fpa_store_harness.mjs";
+import { runBoth, runBothSos, sweepPaths } from "./fpa_store_harness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 export const STORE_ROOT = path.join(ROOT, "worker", "fpa_store");
-const LID = "74598";
+const LID = (yr) => F.fpaLeagueId(yr);
 const SNAP_GROUPS = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB"]);   // K and P drills show no snaps
 
 // ── sources (read-only) ──
@@ -102,7 +108,7 @@ export function serialize(s) {
 }
 
 // Read one season the way the live engine does. Returns { raw, rec, mfl, ctx }.
-export async function readSeason(yr, { queryAll, nowMs, idRowsAll }) {
+export async function readSeason(yr, { queryAll, nowMs, idRowsAll, noSnaps }) {
   const raw = { league: null, players: null, sched: {}, scores: {} };
   const fetchJson = async (u) => {
     const j = await getJson(u);
@@ -111,7 +117,7 @@ export async function readSeason(yr, { queryAll, nowMs, idRowsAll }) {
     else if (T === "nflSchedule") raw.sched[w] = j; else if (T === "playerScores") raw.scores[w] = j;
     return j;
   };
-  const mfl = await F.fpaLoadMfl({ yr: String(yr), wMin: 1, wMax: 99, lid: LID, fetchJson, nowMs, currentSeason: false });
+  const mfl = await F.fpaLoadMfl({ yr: String(yr), wMin: 1, wMax: 99, lid: LID(yr), fetchJson, nowMs, currentSeason: false });
   const rec = { teamRows: null, playRows: null, paceRows: null, idRows: idRowsAll, snapRows: null };
   const recQuery = async (sql, ...b) => {
     const rows = queryAll(sql, ...b);
@@ -121,7 +127,7 @@ export async function readSeason(yr, { queryAll, nowMs, idRowsAll }) {
   const ctx = await F.fpaLoadSeasonContext(recQuery, String(yr));
   // The drill's snap read covers the season's weeks; the encoder keeps the rows of
   // players a drill can list (exact pfr match, as the live IN query does).
-  rec.snapRows = queryAll("SELECT pfr_id, week, off_snaps, def_snaps FROM nfl_player_snaps WHERE season = ?1 AND week BETWEEN 1 AND ?2", Number(yr), mfl.endWeek);
+  rec.snapRows = noSnaps ? [] : queryAll("SELECT pfr_id, week, off_snaps, def_snaps FROM nfl_player_snaps WHERE season = ?1 AND week BETWEEN 1 AND ?2", Number(yr), mfl.endWeek);
   return { raw, rec, mfl, ctx };
 }
 
@@ -135,25 +141,37 @@ export function seasonComplete(mfl, ctx, nowMs) {
   return { ok, why: ok ? "" : "state " + facts.seasonState + ", weeks not final: " + notFinal.join(",") + (pending.length ? " (" + pending.join("; ") + ")" : ""), teams: Object.keys(E.teamsAll).sort() };
 }
 
-export function encodeSeason(yr, { raw, rec, mfl, ctx }, { nowMs, builtAtMs }) {
+export function encodeSeason(yr, { raw, rec, mfl, ctx }, { nowMs, builtAtMs, noSnaps }) {
   const pInfo = F.fpaPlayerIndex(mfl.players), snapPids = new Set();
   for (const w in mfl.scoresByWeek) for (const s of mfl.scoresByWeek[w]) {
     const id = typeof s.id === "string" ? s.id : String(s.id).trim(), i = pInfo.get(id);
     if (i && SNAP_GROUPS.has(i.grp) && !isNaN(parseFloat(s.score))) snapPids.add(id);
   }
-  return F.fpaStoreEncode({ yr: String(yr), lid: LID, endWeek: mfl.endWeek, raw, ctx, readAtMs: nowMs, builtAtMs,
-    snapPids: [...snapPids].sort(), idRows: rec.idRows, snapRows: rec.snapRows });
+  return F.fpaStoreEncode({ yr: String(yr), lid: LID(yr), endWeek: mfl.endWeek, raw, ctx, readAtMs: nowMs, builtAtMs,
+    snapPids: noSnaps ? null : [...snapPids].sort(), idRows: rec.idRows, snapRows: rec.snapRows });
 }
 
 // The self-check: every list window and every drill, live vs stored, on these inputs.
-export async function proveSeason(yr, season, store, text, { nowMs, teams, allDrillWindows, onDiff }) {
+export async function proveSeason(yr, season, store, text, { nowMs, teams, allDrillWindows, onDiff, noSnaps }) {
   F.fpaStoreForget();
   const files = { [F.fpaStorePath(yr)]: text };
-  const { list, drill } = sweepPaths(yr, store.endWeek, teams, { allDrillWindows });
-  const out = { list: 0, drill: 0, diff: 0, storedReadsMfl: 0, storedReadsD1: 0, notStored: 0 };
+  const sw = sweepPaths(yr, store.endWeek, teams, { allDrillWindows });
+  const list = sw.list, drill = noSnaps ? [] : sw.drill;
+  const out = { list: 0, drill: 0, sos: 0, diff: 0, storedReadsMfl: 0, storedReadsD1: 0, notStored: 0 };
+  // Sched Δ (#1271): the whole season, the regular season, the playoffs, and a custom window.
+  const lrs = Number(season.mfl.lastRegularSeasonWeek) || store.endWeek - 3;
+  for (const [a, b] of [[1, store.endWeek], [1, lrs], [lrs + 1, store.endWeek], [3, 9]]) {
+    const r = await runBothSos(`/api/sos-adjusted-points?seasons=${yr}&week_min=${a}&week_max=${b}`, { raw: season.raw, rec: season.rec, files, nowMs });
+    out.sos++;
+    if (r.mflReads) out.storedReadsMfl++;
+    if (r.d1Reads) out.storedReadsD1++;
+    if (r.storedSource !== "stored") out.notStored++;
+    if (!r.same) { out.diff++; if (onDiff) onDiff("sos " + a + "-" + b, r); }
+  }
+  F.fpaStoreForget();
   for (const [kind, paths] of [["list", list], ["drill", drill]]) {
     for (const p of paths) {
-      const r = await runBoth(p, { raw: season.raw, rec: season.rec, files, nowMs, lid: LID });
+      const r = await runBoth(p, { raw: season.raw, rec: season.rec, files, nowMs, lid: LID(yr) });
       out[kind]++;
       if (r.mflReads) out.storedReadsMfl++;
       if (r.d1Reads) out.storedReadsD1++;
@@ -167,7 +185,7 @@ export async function proveSeason(yr, season, store, text, { nowMs, teams, allDr
 async function main() {
   const args = process.argv.slice(2);
   const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
-  const check = args.includes("--check");
+  const check = args.includes("--check"), noSnaps = args.includes("--no-snaps");
   const nowMs = Date.now(), cur = F.fpaCurrentSeason(nowMs);
   let seasons = [];
   const sv = opt("--seasons");
@@ -177,19 +195,19 @@ async function main() {
   if (opt("--mfl-cache")) { mflCache = path.resolve(opt("--mfl-cache")); fs.mkdirSync(mflCache, { recursive: true }); }
   const dir = path.join(STORE_ROOT, F.FPA_ENGINE_VERSION);
   console.log(`engine ${F.FPA_ENGINE_VERSION} · current season ${cur} · ${check ? "CHECK (no writes)" : "write " + path.relative(ROOT, dir)}`);
-  const idRowsAll = queryAll("SELECT mfl_id, pfr_id FROM ff_player_ids");
+  const idRowsAll = noSnaps ? [] : queryAll("SELECT mfl_id, pfr_id FROM ff_player_ids");
   const rows = [];
   let failed = 0;
   for (const yr of seasons) {
     if (yr >= cur) { console.log(`${yr}: REFUSED — not a finished season (current season is ${cur})`); failed++; continue; }
     let season;
-    try { season = await readSeason(yr, { queryAll, nowMs, idRowsAll }); }
+    try { season = await readSeason(yr, { queryAll, nowMs, idRowsAll, noSnaps }); }
     catch (e) { console.log(`${yr}: NOT STORED — could not read it (${e && e.message || e}); nothing written`); failed++; continue; }
     const done = seasonComplete(season.mfl, season.ctx, nowMs);
     if (!done.ok) { console.log(`${yr}: NOT STORED — ${done.why}`); failed++; continue; }
-    const store = encodeSeason(yr, season, { nowMs, builtAtMs: nowMs });
+    const store = encodeSeason(yr, season, { nowMs, builtAtMs: nowMs, noSnaps });
     const text = serialize(store);
-    const proof = await proveSeason(String(yr), season, store, text, { nowMs, teams: done.teams, allDrillWindows: true,
+    const proof = await proveSeason(String(yr), season, store, text, { nowMs, teams: done.teams, allDrillWindows: true, noSnaps,
       onDiff: (p, r) => console.log("  DIFF " + p + " status " + r.status.join("/")) });
     const bad = proof.diff || proof.storedReadsMfl || proof.storedReadsD1 || proof.notStored;
     const file = path.join(dir, yr + ".json");
@@ -200,8 +218,8 @@ async function main() {
       drift = !old ? "no committed file" : (strip(old) === strip(store) ? "same as committed" : "DIFFERS from committed");
     }
     rows.push({ yr, endWeek: store.endWeek, players: store.players.length, scoreRows: Object.values(store.scores).reduce((a, x) => a + x.length, 0),
-      kb: Math.round(text.length / 1024), list: proof.list, drill: proof.drill, diff: proof.diff, drift });
-    console.log(`${yr}: ${bad ? "FAILED self-check" : "ok"} · ${store.players.length} players · ${rows[rows.length - 1].scoreRows} score rows · ${rows[rows.length - 1].kb} KB · list ${proof.list} + drill ${proof.drill} answers, ${proof.diff} differ; stored path read MFL ${proof.storedReadsMfl}×, D1 ${proof.storedReadsD1}×${drift ? " · " + drift : ""}`);
+      kb: Math.round(text.length / 1024), list: proof.list, drill: proof.drill, sos: proof.sos, diff: proof.diff, drift });
+    console.log(`${yr}: ${bad ? "FAILED self-check" : "ok"} · ${store.players.length} players · ${rows[rows.length - 1].scoreRows} score rows · ${rows[rows.length - 1].kb} KB · list ${proof.list} + drill ${proof.drill} + sos ${proof.sos} answers, ${proof.diff} differ; stored path read MFL ${proof.storedReadsMfl}×, D1 ${proof.storedReadsD1}×${drift ? " · " + drift : ""}`);
     if (bad) { failed++; continue; }
     if (!check) { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file, text); }
   }

@@ -13,8 +13,8 @@
 import fs from "fs";
 import assert from "assert";
 import * as F from "../worker/src/fpa_engine.js";
-import { runBoth, replayFetch, replayD1, storeBinding, jsonOut, normalize, sweepPaths } from "../pipelines/etl/scripts/fpa_store_harness.mjs";
-import { encodeSeason, serialize, seasonComplete, STORE_ROOT } from "../pipelines/etl/scripts/build_fpa_season_store.mjs";
+import { runBoth, runBothSos, replayFetch, replayD1, storeBinding, jsonOut, normalize, sweepPaths } from "../pipelines/etl/scripts/fpa_store_harness.mjs";
+import { encodeSeason, serialize, seasonComplete, proveSeason, STORE_ROOT } from "../pipelines/etl/scripts/build_fpa_season_store.mjs";
 
 let fails = 0;
 const check = async (n, fn) => { try { await fn(); console.log("  ok   " + n); } catch (e) { fails++; console.log("  FAIL " + n + "\n         " + (e && e.stack || e).toString().split("\n").slice(0, 3).join("\n         ")); } };
@@ -140,9 +140,10 @@ function inputsFromFile(s) {
   for (const m in c.multi) for (const wk in c.multi[m]) teamRows.push({ m, t: c.multi[m][wk], lo: null, hi: null, wk: Number(wk) });
   for (const w in c.plays) for (const t in c.plays[w]) playRows.push({ week: Number(w), team: t, plays: c.plays[w][t] });
   for (const t in c.pace) paceRows.push({ team: t, off_plays_pg: c.pace[t].off, def_plays_pg: c.pace[t].def });
-  const idRows = Object.keys(s.snaps.ids).map((m) => ({ mfl_id: m, pfr_id: s.snaps.ids[m] }));
+  // A file built with --no-snaps (2011–2016) has snaps null: its drills read snaps from D1.
+  const idRows = s.snaps ? Object.keys(s.snaps.ids).map((m) => ({ mfl_id: m, pfr_id: s.snaps.ids[m] })) : [];
   const snapRows = [];
-  for (const p in s.snaps.wk) for (const w in s.snaps.wk[p]) snapRows.push({ pfr_id: p, week: Number(w), off_snaps: s.snaps.wk[p][w][0], def_snaps: s.snaps.wk[p][w][1] });
+  if (s.snaps) for (const p in s.snaps.wk) for (const w in s.snaps.wk[p]) snapRows.push({ pfr_id: p, week: Number(w), off_snaps: s.snaps.wk[p][w][0], def_snaps: s.snaps.wk[p][w][1] });
   return { raw, rec: { teamRows, playRows, paceRows, idRows, snapRows } };
 }
 // (The build already proved every window and every drill of each season against the
@@ -151,23 +152,48 @@ function inputsFromFile(s) {
 for (const f of committed) {
   const yr = f.slice(0, 4), t = fs.readFileSync(dir + "/" + f, "utf8"), s = JSON.parse(t);
   const latest = f === committed[committed.length - 1];
-  await check(`${yr}: the committed file is valid and complete; stored = live for the Full season list, weeks 3–9 and ${latest ? "EVERY drill" : "one drill per position"}`, async () => {
-    assert.strictEqual(F.fpaStoreProblem(s, yr, LID), null);
-    assert.ok(F.fpaStoreOpen(s, yr, LID, NOW), "does not open as a complete season");
+  const lid = F.fpaLeagueId(yr), noSnaps = s.snaps == null;
+  await check(`${yr}: the committed file is valid and complete (league ${lid}); stored = live for the Full season list, weeks 3–9, ${noSnaps ? "no drills (built without snaps)" : latest ? "EVERY drill" : "one drill per position"} and Sched Δ (season, regular, playoffs)`, async () => {
+    assert.strictEqual(F.fpaStoreProblem(s, yr, lid), null);
+    assert.ok(F.fpaStoreOpen(s, yr, lid, NOW), "does not open as a complete season");
+    assert.ok(!noSnaps || Number(yr) < 2017, "only 2011–2016 are stored without snaps");
     assert.ok(Number(yr) < F.fpaCurrentSeason(NOW));
     F.fpaStoreForget();
     const { raw, rec } = inputsFromFile(s);
     const teams = Array.from(new Set(Object.values(s.sched).flat().flatMap((m) => m[2].map((x) => x[0])))).sort();
     assert.strictEqual(teams.length, 32);
-    const drills = latest ? sweepPaths(yr, s.endWeek, teams).drill
+    const drills = noSnaps ? [] : latest ? sweepPaths(yr, s.endWeek, teams).drill
       : F.FPA_GROUPS.map((g, i) => `/api/fpa-detail?YEAR=${yr}&team=${teams[(i * 7 + Number(yr)) % 32]}&pos=${g}&week_min=1`);
     const paths = [`/api/fantasy-points-against?YEAR=${yr}&week_min=1`, `/api/fantasy-points-against?YEAR=${yr}&week_min=3&week_max=9`, ...drills];
     for (const p of paths) {
-      const r = await runBoth(p, { raw, rec, files: filesFor(yr, t), nowMs: NOW, lid: LID });
+      const r = await runBoth(p, { raw, rec, files: filesFor(yr, t), nowMs: NOW, lid });
       assert.ok(r.same && r.storedSource === "stored" && !r.mflReads && !r.d1Reads, p);
+    }
+    const lrs = s.endWeek - 3;
+    for (const [a, b] of [[1, s.endWeek], [1, lrs], [lrs + 1, s.endWeek]]) {
+      F.fpaStoreForget();
+      const r = await runBothSos(`/api/sos-adjusted-points?seasons=${yr}&week_min=${a}&week_max=${b}`, { raw, rec, files: filesFor(yr, t), nowMs: NOW });
+      assert.ok(r.same && r.storedSource === "stored" && !r.mflReads && !r.d1Reads && r.status[1] === 200, "sos " + yr + " " + a + "-" + b);
     }
   });
 }
+
+await check("a pre-2017 season built with --no-snaps: stored under its own league id (2016 → 27191) with no snaps, and the build's self-check proves the lists and Sched Δ stored = live, catching a tampered file", async () => {
+  const S16 = await seasonFrom(miniRaw(), miniRec(), "2016");
+  const st16 = encodeSeason("2016", S16, { nowMs: NOW, builtAtMs: NOW, noSnaps: true });
+  assert.strictEqual(st16.lid, "27191"); assert.strictEqual(st16.snaps, null);
+  assert.strictEqual(F.fpaStoreProblem(st16, "2016", "27191"), null); assert.notStrictEqual(F.fpaStoreProblem(st16, "2016", "74598"), null);
+  const t16 = serialize(st16);
+  const teams = ["AAA", "BBB", "CCC", "DDD"];
+  const ok = await proveSeason("2016", S16, st16, t16, { nowMs: NOW, teams, allDrillWindows: true, noSnaps: true });
+  assert.strictEqual(ok.drill, 0); assert.strictEqual(ok.sos, 4); assert.strictEqual(ok.diff, 0); assert.ok(ok.list > 0);
+  assert.strictEqual(ok.storedReadsMfl + ok.storedReadsD1 + ok.notStored, 0);
+  const bad = JSON.parse(t16); bad.scores[2] = bad.scores[2].map((r) => (r[0] === "1" ? [r[0], "3"] : r));
+  const seen = [];
+  const tampered = await proveSeason("2016", S16, bad, serialize(bad), { nowMs: NOW, teams, allDrillWindows: true, noSnaps: true, onDiff: (p) => seen.push(p) });
+  assert.ok(tampered.diff > 0, "a stored file that disagrees with MFL is caught");
+  assert.ok(seen.some((p) => /^sos 1-3$/.test(p)), "…by the Sched Δ comparison itself, not only the lists (" + seen.slice(0, 3).join(", ") + ")");
+});
 
 console.log("\n2. an in-progress season is never stored or served from storage");
 const FIX = JSON.parse(fs.readFileSync(new URL("./fixtures/fpa_qb_2026_wk5_2026_10_12.json", import.meta.url), "utf8"));

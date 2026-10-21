@@ -81,6 +81,20 @@ export async function runBoth(path, { raw, rec, files, nowMs, lid }) {
   };
 }
 
+// The same comparison for Player Stats "Sched Δ" (#1271): handleSosRequest, live vs stored.
+export async function runBothSos(path, { raw, rec, files, nowMs }) {
+  const mflLog = [], d1Log = [];
+  const live = await F.handleSosRequest(new Request("https://w.test" + path), { UPS_MFL_DB: replayD1(rec) }, null,
+    { jsonOut, nowMs, fetchImpl: replayFetch(raw) });
+  F.fpaStoreForget();
+  const stored = await F.handleSosRequest(new Request("https://w.test" + path), { FPA_STORE: storeBinding(files), UPS_MFL_DB: replayD1(rec, d1Log) }, null,
+    { jsonOut, nowMs, fetchImpl: replayFetch(raw, mflLog) });
+  const norm = (b) => { const j = JSON.parse(b); delete j.as_of; for (const y in j.per_season || {}) { delete j.per_season[y].mfl_read_at; delete j.per_season[y].source; } return JSON.stringify(j); };
+  const lb = await live.text(), sb = await stored.text();
+  return { same: live.status === stored.status && norm(lb) === norm(sb), status: [live.status, stored.status], live: lb, stored: sb,
+    storedSource: stored.headers.get("X-UPS-FPA-Source"), mflReads: mflLog.length, d1Reads: d1Log.length };
+}
+
 // Every request the screens can make for one season: the list for every window
 // (Full season, the desktop's 1–18, and each Custom week_min..week_max), one
 // position filter, and the drill for every team × position at Full season plus

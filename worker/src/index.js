@@ -1,5 +1,5 @@
 import { handleHallRequest } from "./hall.js";
-import { handleFpaRequest } from "./fpa_engine.js";
+import { handleFpaRequest, handleSosRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
@@ -19788,17 +19788,22 @@ export default {
       }
 
       // ── GET /api/sos-adjusted-points?seasons=&week_min=&week_max= ──
-      // Strength-of-Schedule-adjusted MFL fantasy points, per player (by gsis_id).
-      // For each (season, defense, pos_group) we compute MFL points allowed per
-      // game and divide by the league average for that position → a generosity
-      // ratio (>1 = the defense is easy). A player's schedule ease = the average
-      // generosity of the defenses they actually faced; SoS-adjusted points =
-      // raw points ÷ schedule ease (faced easy Ds → adjusted DOWN; tough Ds → UP).
-      // All D1 (src_weekly MFL scores + nfl_player_weekly opponents via the
-      // all-eras ff_player_ids map), so it covers every season, no live fetch.
+      // Player Stats "Sched Δ" (#1271), answered by the Pts Agst engine
+      // (worker/src/fpa_engine.js handleSosRequest): MFL's own scores for every
+      // player, final games only, game-day teams, each season's own weeks. It used
+      // to read src_weekly, which has only rostered players in UPS playoff weeks
+      // and no playoff weeks before 2021, with a ~180k-row D1 query per season.
+      if (path === "/api/sos-adjusted-points" && request.method === "GET") {
+        try {
+          return await handleSosRequest(request, env, ctx, { jsonOut });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // ── Edge cache for the read-only stat side-loads (2026-08-05) ─────────
       // The Stats workbench fires EIGHT of the routes below in parallel on
-      // boot (sos-adjusted-points, player-consistency/epa/routes/ngs/ftn/splits,
+      // boot (player-consistency/epa/routes/ngs/ftn/splits,
       // nfl-current-teams) on top of the leaderboard. Every one was an
       // uncached D1 query against a 355MB database, so a cold page load paid
       // D1's cold-storage penalty eight times over at once — measured at ~14s
@@ -19816,7 +19821,7 @@ export default {
       // group (ownership / adds / drops). It also wasn't part of the problem —
       // it answers in ~66ms.
       const STAT_CACHE_PATHS = new Set([
-        "/api/sos-adjusted-points", "/api/player-consistency", "/api/player-epa",
+        "/api/player-consistency", "/api/player-epa",
         "/api/player-routes", "/api/player-ngs", "/api/player-ftn",
         "/api/player-splits", "/api/team-pace", "/api/nfl-current-teams",
       ]);
@@ -19846,65 +19851,6 @@ export default {
         }
         return r;
       };
-
-      // Side-loaded by the Stats workbench leaderboard and joined on gsis_id.
-      if (path === "/api/sos-adjusted-points" && request.method === "GET") {
-        try {
-          const db = env.UPS_MFL_DB;
-          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
-          const seasons = safeStr(url.searchParams.get("seasons") || "")
-            .split(",").map((s) => s.replace(/\D/g, "")).filter((s) => s.length === 4);
-          if (!seasons.length) return jsonOut(400, { ok: false, error: "seasons required (CSV of 4-digit years)" });
-          const wMin = Math.max(1, parseInt(url.searchParams.get("week_min") || "1", 10) || 1);
-          const wMaxRaw = parseInt(url.searchParams.get("week_max") || "17", 10) || 17;
-          const wMax = Math.min(23, Math.max(wMin, wMaxRaw));
-          const seasonList = seasons.map((s) => parseInt(s, 10)).join(",");
-          const sql = `
-            WITH pw AS (
-              SELECT w.season, w.week, w.gsis_id, w.pos_group, w.opponent AS def, sw.score AS pts
-                FROM nfl_player_weekly w
-                JOIN ff_player_ids f ON f.gsis_id = w.gsis_id
-                JOIN src_weekly sw
-                  ON f.mfl_id = sw.player_id AND sw.season = w.season AND sw.week = w.week
-               WHERE w.season IN (${seasonList}) AND w.week BETWEEN ${wMin} AND ${wMax}
-                 AND w.pos_group IS NOT NULL AND w.opponent IS NOT NULL AND sw.score IS NOT NULL
-            ),
-            def_allowed AS (
-              SELECT season, def, pos_group, SUM(pts) AS pts, COUNT(DISTINCT week) AS gms
-                FROM pw GROUP BY season, def, pos_group
-            ),
-            lg AS (
-              SELECT season, pos_group, SUM(pts) AS pts, SUM(gms) AS gms
-                FROM def_allowed GROUP BY season, pos_group
-            ),
-            gen AS (
-              SELECT d.season, d.def, d.pos_group,
-                     (d.pts * 1.0 / NULLIF(d.gms, 0)) / NULLIF(l.pts * 1.0 / NULLIF(l.gms, 0), 0) AS g
-                FROM def_allowed d JOIN lg l ON l.season = d.season AND l.pos_group = d.pos_group
-            ),
-            ps AS (
-              SELECT p.gsis_id, SUM(p.pts) AS raw_pts, COUNT(*) AS gp, AVG(g.g) AS avg_gen
-                FROM pw p JOIN gen g ON g.season = p.season AND g.def = p.def AND g.pos_group = p.pos_group
-               GROUP BY p.gsis_id
-            )
-            SELECT gsis_id,
-                   ROUND(raw_pts, 1)                          AS raw,
-                   ROUND(avg_gen, 3)                          AS sched_ease,
-                   gp,
-                   ROUND(raw_pts / NULLIF(avg_gen, 0), 1)     AS sos
-              FROM ps
-             WHERE gp > 0`;
-          const r = await db.prepare(sql).all();
-          const by_gsis = {};
-          for (const x of (r?.results || [])) {
-            if (!x.gsis_id) continue;
-            by_gsis[x.gsis_id] = { raw: x.raw, sos: x.sos, sched_ease: x.sched_ease, gp: x.gp };
-          }
-          return statOk({ ok: true, seasons, window: { week_min: wMin, week_max: wMax }, count: Object.keys(by_gsis).length, by_gsis });
-        } catch (e) {
-          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
-        }
-      }
 
       // ── GET /api/player-consistency?seasons=&week_min=&week_max= ──
       // Week-to-week reliability from the MFL weekly fantasy scores (src_weekly),
