@@ -152,9 +152,16 @@ def inner(sid, drop_desk=True, drop_gap=False):
     return s
 
 
-NINE = '<div class="tablebox"><table><thead><tr><th>Team</th><th>Record</th><th>All-Play</th><th>Points for</th><th>Wins vs expected</th><th>Week 6</th></tr></thead><tbody>%s</tbody></table></div>'
-nine_rows = "".join('<tr><td>%s</td><td class="num">{rec_%s}</td><td class="num">{ap_%s}</td><td class="num">{pf_%s}</td><td class="num">{wve_%s}</td><td class="num">{sc_%s}, {wins6_%s}&ndash;{loss6_%s}</td></tr>'
-                    % (OWN[f], *([TAG[f]] * 7)) for f in ("0010", "0008", "0012", "0011"))
+def nine_block():
+    out = ['<div style="border:1px solid var(--line-2);border-radius:10px;background:var(--surface);padding:.2rem .8rem;margin:.2rem 0 .4rem">']
+    for f in ("0010", "0008", "0012", "0011"):
+        g = TAG[f]
+        out.append('<div style="padding:.5rem 0;border-top:1px solid var(--line)"><div style="font-weight:700">%s <span style="font-weight:400;color:var(--ink-mute)">{rec_%s}</span></div>'
+                   '<div style="font-size:.86rem;line-height:1.5;font-variant-numeric:tabular-nums">All-Play {ap_%s} &middot; Points for {pf_%s} &middot; Wins vs expected {wve_%s}<br>Week 6: {sc_%s}, went {wins6_%s}&ndash;{loss6_%s}</div></div>' % (OWN[f], g, g, g, g, g, g, g))
+    out.append("</div>")
+    return "".join(out).replace('border-top:1px solid var(--line)"><div style="font-weight:700">Shawn', 'border-top:0"><div style="font-weight:700">Shawn')
+
+
 for f in team:
     F.add("loss6_" + TAG[f], str(3 - R.wins[f]), R.MFLW6)
 
@@ -162,10 +169,15 @@ for f in team:
 S = []
 
 # 1 -- The Big Story
-BEAR_ROWS = "".join('<tr><td>Week %d</td><td class="num">{bw%d_sc}</td><td class="num">{bw%d_rk}</td><td class="num">{bw%d_ap}</td><td class="num">{bw%d_h2h}</td></tr>' % ((w,) * 5) for w in range(1, 7))
-BEAR_TAB = ('<div class="tablebox"><table><thead><tr><th>Bear Dunn</th><th>Score</th><th>League rank</th><th>All-Play</th><th>Head-to-head</th></tr></thead><tbody>'
-            + BEAR_ROWS + '<tr><td><b>Weeks 1&ndash;6</b></td><td class="num"><b>{bear_avg} avg</b></td><td class="num"></td><td class="num"><b>{ap_bear}</b></td><td class="num"><b>{rec_bear}</b></td></tr></tbody></table></div>'
-            '<p class="caption">Season to date, Weeks 1 to 6. League rank is Bear&rsquo;s score among the 12 teams that week.</p>')
+GRID = "display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"
+HEAD = GRID + ";border-top:0;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-family:var(--display)"
+cell = lambda s, b=False: '<span style="font-variant-numeric:tabular-nums;white-space:nowrap%s">%s</span>' % (";font-weight:700" if b else "", s)
+BEAR_ROWS = "".join('<div style="%s">%s</div>' % (GRID, "".join(cell(x) for x in ("Week %d" % w, "{bw%d_sc}" % w, "{bw%d_rk}" % w, "{bw%d_ap}" % w, "{bw%d_h2h}" % w))) for w in range(1, 7))
+BEAR_TAB = ('<div style="border:1px solid var(--line-2);border-radius:10px;background:var(--surface);padding:.45rem .7rem;margin:.2rem 0 .4rem">'
+            '<div style="%s">%s</div>' % (HEAD, "".join(cell(x) for x in ("Bear", "Score", "Rank", "All-Play", "H2H")))
+            + BEAR_ROWS + '<div style="%s">%s</div></div>' % (GRID, "".join(cell(x, True) for x in ("Wks 1&ndash;6", "{bear_avg}", "", "{ap_bear}", "{rec_bear}")))
+            + '<p class="caption">Season to date, Weeks 1 to 6; the last row is the six-week average score, All-Play and head-to-head record. Rank is Bear&rsquo;s score among the 12 teams that week.</p>')
+
 S.append(wrap("story", "The Big Story", label(1, "The Big Story", "Bear Dunn is lapping the league") + desk(
     ("Stuart", "Six weeks in, the question in this league is no longer whether anyone can catch Bear Dunn. It is what anyone is playing for. Start with the whole season, Weeks 1 to 6: Bear is {rec_bear}, {ap_bear} against the field, and averages {bear_avg} a week, {bear_avg_gap} more than the next-best team, Shawn Blake, at {blak_avg}.")) + BEAR_TAB + desk(
     ("Rich", "Has Bear been dominant since Week 1? Almost. Week 1 was the one miss: {bw1_sc}, {bw1_rk} in the league and {bw1_ap} against the field. Since then it is {bear_w26} over Weeks 2 to 6, and never lower than second in scoring. Week 6 itself was {bw6_sc}, the best score of the week, a 3&ndash;0 week and {bw6_ap} against the field."),
@@ -180,7 +192,7 @@ S.append(wrap("story", "The Big Story", label(1, "The Big Story", "Bear Dunn is 
 # 2 -- The Middle Gets Squeezed
 S.append(wrap("middle", "The Middle Gets Squeezed", label(2, "The Middle Gets Squeezed", "four teams at {r97}") + desk(
     ("Stuart", "Below Bear the standings pile up. Eric Martel is {rec_emar}, Derrick Whitman is {hi6}, Brian Cutting is {r88}, and there are exactly four teams at {r97}: Shawn Blake, Keith Creelman, Chris Klingenberg and Eric Mannila."),
-    ("Rich", "Same record, four different teams. The table shows how different.")) + NINE % nine_rows + '<p class="caption">Record, All-Play, points for and wins vs expected are season to date, Weeks 1 to 6. The last column is Week 6 alone.</p>' + desk(
+    ("Rich", "Same record, four different teams. The table shows how different.")) + nine_block() + '<p class="caption">Record, All-Play, points for and wins vs expected are season to date, Weeks 1 to 6. The last column is Week 6 alone.</p>' + desk(
     ("Rich", "Over Weeks 1 to 6, Blake is the strongest of the four on everything except the record: {ap_blak} in All-Play and {pf_blak} points, second only to Bear. His record is {wvea_blak} wins short of what his weekly scores predict, the largest gap in the league. Mannila is the mirror image. {ap_mann} in All-Play is the worst of the four, and the record is {wvea_mann} wins better than the scores predict, the most in the league."),
     ("Stuart", "And Week 6 shows how that happens. Mannila and Klingenberg each went 3&ndash;0."),
     ("Rich", "Against the same three teams. In Week 6, Ryan Bousquet, Keith Creelman and Josh Martel each played Bear, Mannila and Klingenberg, and the three of them went {dog09}. Mannila scored {sc_mann}, sixth in the league that week, and Klingenberg {sc_klin}, seventh. Their All-Play for Week 6 was {ap6_mann} and {ap6_klin}. Neither scored like a team that sweeps. Both swept."),
