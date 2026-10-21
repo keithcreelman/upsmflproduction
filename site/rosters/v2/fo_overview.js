@@ -5,8 +5,11 @@
    contracts and cap Front Office already loaded; MFL's season scores and
    players; MFL bye weeks and future picks; the league's waiver state,
    availability and (signed in) MFL's held claims; the shared injury chip.
-   Models: site/shared/bye_planner.js (lineup holes) and site/shared/
-   trade_fit.js (strength vs the league), both on the released 18-slot engine.
+   Models: site/shared/bye_planner.js (lineup holes), site/shared/trade_fit.js
+   + site/shared/lineup_strength.js (strength vs the league, four views on one
+   table), all on the released 18-slot engine. Cap: the Front Office's own cap
+   engine (UPS_FO.capFor / capLedger). Trade deadline: MFL's league calendar
+   ("No Trades Allowed"), read with the viewer's MFL session.
 */
 (function (root) {
   "use strict";
@@ -14,6 +17,39 @@
   var H, FO, DATA;
   var BLOCKING = { waivers_later: 1, game_locked: 1, not_before_kickoff: 1, closed: 1, unknown: 1 };
   var rendering = false, queued = false;
+  var lsView = "above";   // Lineup strength view for this visit; "above" is the original chart
+
+  function smoney(v) {   // signed dollars: +$9,000 / −$27,000 / $0
+    var n = Math.round(Number(v) || 0);
+    return (n > 0 ? "+" : n < 0 ? "−" : "") + H.money(Math.abs(n));
+  }
+  function etParts(ms) {
+    try {
+      var f = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(ms));
+      var o = {}; f.forEach(function (x) { o[x.type] = x.value; });
+      return Date.UTC(+o.year, +o.month - 1, +o.day);
+    } catch (e) { return null; }
+  }
+  function etLabel(ms) {
+    try {
+      return new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+    } catch (e) { return new Date(ms).toISOString(); }
+  }
+  // When MFL stops accepting trades: its calendar's "No Trades Allowed" (TRADE) events that haven't ended; the
+  // earliest start wins (an event with no end runs for the rest of the season). → {state, startMs, days} or null.
+  function tradeDeadlineFrom(cal, nowMs) {
+    var root_ = (cal && cal.calendar) || cal || {};
+    var evs = root_.event; evs = !evs ? [] : (Array.isArray(evs) ? evs : [evs]);
+    var trade = evs.map(function (e) {
+      return { type: String((e && (e.type || e.event_type)) || "").toUpperCase(), start: Number(e && e.start_time) * 1000 || null, end: Number(e && e.end_time) * 1000 || null };
+    }).filter(function (e) { return e.type === "TRADE" && e.start && (!e.end || e.end > nowMs); })
+      .sort(function (a, b) { return a.start - b.start; });
+    if (!trade.length) return null;
+    var t = trade[0];
+    var d0 = etParts(nowMs), d1 = etParts(t.start);
+    return { state: t.start <= nowMs ? "closed" : "upcoming", startMs: t.start, endMs: t.end, events: trade.length,
+      days: d0 != null && d1 != null ? Math.round((d1 - d0) / 86400000) : null, label: etLabel(t.start) };
+  }
 
   function focusFid() {
     var me = FO.viewerFid();
@@ -37,12 +73,6 @@
   function currentWeek(ss) {
     if (ss && ss.lineupWeek) return ss.lineupWeek;
     if (ss && ss.latestWeek) return ss.latestWeek + (ss.liveWeeks && ss.liveWeeks.length ? 0 : 1);
-    return null;
-  }
-
-  function event(name) {
-    var evs = FO.leagueEvents() || [];
-    for (var i = 0; i < evs.length; i++) if (String(evs[i].event || "") === name) return evs[i];
     return null;
   }
 
@@ -94,10 +124,8 @@
     var out = { list: [], info: [] };
 
     // ── status row ──
-    var capCls = cap && cap.capSpace < 0 ? "neg" : "pos";
     var row = '<div class="fo-ov-row">' +
-      card("Cap", '<div class="fo-ov-stats">' + stat(cap ? H.money(cap.capSpace) : "—", "cap space", capCls) +
-        stat(cap ? H.money(cap.capAlloc) : "—", "allocated of " + H.money(FO.capCeiling)) + "</div>", H.goLink("cap", "Cap plan")) +
+      capCard(fid, cap) +
       card("Roster", '<div class="fo-ov-stats">' + stat(cap ? cap.activeN + '<span class="fo-ov-of"> / ' + cap.activeMax + "</span>" : "—", "active (min " + (cap ? cap.activeMin : 27) + ")",
         cap && (cap.activeN > cap.activeMax || cap.activeN < cap.activeMin) ? "neg" : "") +
         stat(cap ? cap.taxiN + '<span class="fo-ov-of"> / ' + cap.taxiMax + "</span>" : "—", "taxi") +
@@ -163,10 +191,9 @@
     }
     if (mym.length) out.list.push(item("warn", "Mid-Year Multi window open for " + mym.length + " player" + (mym.length === 1 ? "" : "s") + ": " + mym.join(", ") + ".", H.goLink("mym", "MYM")));
     claimsItems(fid, out);
-    var td = event("ups_trade_deadline");
-    if (td && td.date) {
-      var days = Math.ceil((Date.parse(td.date + "T12:00:00-05:00") - Date.now()) / 86400000);
-      if (days >= 0 && days <= 14) out.list.push(item("warn", "Trade deadline in <b>" + days + " days</b> (league calendar: " + H.esc(td.date) + ").", H.goLink("trades", "Trade finder")));
+    var tdl = mflDeadline();
+    if (tdl && tdl.state === "upcoming" && tdl.days != null && tdl.days <= 14) {
+      out.list.push(item("warn", "MFL stops accepting trades in <b>" + tdl.days + " day" + (tdl.days === 1 ? "" : "s") + "</b> (" + H.esc(tdl.label) + ").", H.goLink("trades", "Trade finder")));
     }
 
     var needs = '<section class="fo-ov-card fo-ov-needs"><h3>Needs attention</h3>' +
@@ -177,30 +204,122 @@
 
     // ── strength vs the league ──
     var side = "";
-    if (TF && ss && teams.length) {
-      var model = H.leagueModel(0);
-      var tm = model && model.teams[fid];
-      if (tm) {
-        var groups = TF.GROUPS.filter(function (g) { return !TF.FIT_EXCLUDED_GROUPS[g]; });
-        var max = Math.max.apply(null, groups.map(function (g) { return Math.abs(tm.vsMedian[g]); }).concat([1]));
-        var bars = groups.map(function (g) {
-          var v = tm.vsMedian[g], w = Math.round(Math.abs(v) / max * 50);
-          return '<div class="fo-ov-bar"><span class="fo-ov-bar-lbl">' + g + '</span><span class="fo-ov-bar-track"><span class="fo-ov-bar-fill ' + (v >= 0 ? "pos" : "neg") +
-            '" style="' + (v >= 0 ? "left:50%;" : "right:50%;") + "width:" + w + '%"></span></span><span class="fo-ov-bar-val">' + H.signed1(v) + "</span></div>";
-        }).join("");
-        var sum = TF.teamSummary(model, fid);
-        var need = sum.needs[0];
-        side += card("Lineup strength vs the league",
-          '<p class="fo-ov-sub">Starters’ points a week above replacement, against the league median (season PPG).</p>' + bars +
-          (need ? '<p class="fo-ov-sub">Biggest need: <b>' + need + "</b> (+" + H.fmt1(tm.need[need]) + " pts a week from a typical starter).</p>" : ""),
-          H.goLink("trades", "Trade finder"));
-      }
-    }
+    if (TF && ss && teams.length) side += strengthCard(fid, TF);
     side += picksCard(fid);
-    side += expiringCard(team, fid);
 
     el.innerHTML = row + '<div class="fo-ov-grid"><div>' + needs + "</div><div>" + side + "</div></div>";
     if (ss) H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
+  }
+
+  var VIEW_TEXT = {
+    above: ["Above repl.", "Starters’ points a week above replacement, against the league median (season PPG)."],
+    ppg: ["PPG", "Starters’ points a week (season PPG). Bars: against the league average."],
+    index: ["Index", "Starters’ points a week as an index: 100 = league average."],
+    rank: ["Rank", "Rank among the 12 teams by starters’ points a week."]
+  };
+  function strengthCard(fid, TF) {
+    var LS = root.UPS_LINEUP_STRENGTH;
+    var model = H.leagueModel(0);
+    var tm = model && model.teams[fid];
+    if (!tm || !LS) return "";
+    var table = strengthTable(model);
+    var chips = '<div class="fo-subview-chips fo-ls-views" role="group" aria-label="Show lineup strength as">' + LS.VIEWS.map(function (v) {
+      return '<button type="button" class="fo-subview-chip' + (v === lsView ? " active" : "") + '" data-ls-view="' + v + '" aria-pressed="' + (v === lsView) + '">' + H.esc(VIEW_TEXT[v][0]) + "</button>";
+    }).join("") + "</div>";
+    var bars = LS.ROWS.map(function (r) {
+      var c = LS.cell(table, fid, r, lsView);
+      if (!c) return "";
+      var w = Math.round(Math.abs(c.frac) * 50), pos = c.frac >= 0;
+      var cls = r === "ALL" ? " fo-ov-bar-total" : (r === "PK" || r === "PN" ? " fo-ov-bar-minor" : "");
+      var tip = c.title + (r === "PK" || r === "PN" ? ". Kickers and punters are shown, never used for trade fits." : "");
+      return '<div class="fo-ov-bar' + cls + '" title="' + H.esc(tip) + '"><span class="fo-ov-bar-lbl">' + H.esc(LS.LABELS[r]) + '</span><span class="fo-ov-bar-track"><span class="fo-ov-bar-fill ' + (pos ? "pos" : "neg") +
+        '" style="' + (pos ? "left:50%;" : "right:50%;") + "width:" + w + '%"></span></span><span class="fo-ov-bar-val">' + H.esc(c.text) + "</span></div>";
+    }).join("");
+    var sum = TF.teamSummary(model, fid);
+    var need = sum.needs[0];
+    return card("Lineup strength vs the league", chips + '<p class="fo-ov-sub">' + H.esc(VIEW_TEXT[lsView][1]) + "</p>" + bars +
+      (need ? '<p class="fo-ov-sub">Biggest need: <b>' + need + "</b> (+" + H.fmt1(tm.need[need]) + " pts a week from a typical starter).</p>" : ""),
+      H.goLink("trades", "Trade finder"), "fo-ls");
+  }
+  var lsMemo = { model: null, table: null };
+  function strengthTable(model) {
+    if (lsMemo.model !== model) lsMemo = { model: model, table: root.UPS_LINEUP_STRENGTH.build(model) };
+    return lsMemo.table;
+  }
+
+  // ── Cap card + its two ledgers ─────────────────────────────────────
+  function capCard(fid, cap) {
+    var led = FO.capLedger ? FO.capLedger(fid) : null;
+    if (!cap) return card("Cap", '<p class="fo-ov-empty">Cap not loaded.</p>', H.goLink("cap", "Cap plan"));
+    var sal = led ? led.players.total : cap.salaryCap, adj = led ? led.adjustments.total : cap.adjTotal;
+    var line = function (label, value, attrs, cls) {
+      var tag = attrs ? "button" : "div";
+      return "<" + tag + (attrs ? ' type="button" ' + attrs : "") + ' class="fo-ov-capline' + (cls ? " " + cls : "") + '"><span>' + H.esc(label) + '</span><span class="fo-ov-capnum">' + value + (attrs ? ' <span aria-hidden="true">›</span>' : "") + "</span></" + tag + ">";
+    };
+    return card("Cap", '<div class="fo-ov-cap">' +
+      line("Player salaries", H.esc(H.money(sal)), 'data-ov-ledger="players" aria-haspopup="dialog" title="How player salaries add up"') +
+      line("Salary adjustments", H.esc(smoney(adj)), 'data-ov-ledger="adjustments" aria-haspopup="dialog" title="Cap penalties, traded salary and other adjustments"') +
+      line("Total allocated", H.esc(H.money(cap.capAlloc)) + ' <span class="fo-ov-of">of ' + H.esc(H.money(FO.capCeiling)) + "</span>", "", "total") +
+      line("Cap space", H.esc(H.money(cap.capSpace)), "", cap.capSpace < 0 ? "space neg" : "space pos") +
+      "</div>", H.goLink("cap", "Cap plan"));
+  }
+  function ledgerRow(label, amount, cls, signed) {
+    return '<tr class="' + (cls || "") + '"><th scope="row">' + label + '</th><td class="num">' + H.esc(signed ? smoney(amount) : H.money(amount)) + "</td></tr>";
+  }
+  function playersLedgerHtml(led) {
+    var P = led.players;
+    var rows = '<tr class="fo-led-head"><th scope="rowgroup" colspan="2">Salary on the roster</th></tr>' +
+      P.groups.filter(function (g) { return g.players.length || g.key !== "taxi"; }).map(function (g) {
+        return ledgerRow(H.esc(g.label) + ' <span class="fo-muted">(' + g.players.length + ")</span>", g.salary);
+      }).join("") +
+      ledgerRow("Total salary on the roster", P.grossSalary, "fo-led-sub") +
+      '<tr class="fo-led-head"><th scope="rowgroup" colspan="2">Salary relief</th></tr>' +
+      (P.relief.length ? P.relief.map(function (r) { return ledgerRow(H.esc(r.label) + ' <span class="fo-muted">(' + r.n + ")</span>", r.amount, "", true); }).join("")
+        : ledgerRow('<span class="fo-muted">None</span>', 0, "", true)) +
+      ledgerRow("Total cap-counting player salary", P.total, "fo-led-total");
+    var detail = P.groups.filter(function (g) { return g.players.length; }).map(function (g) {
+      return "<details><summary>" + H.esc(g.label) + " · " + g.players.length + " · counts " + H.esc(H.money(g.capHit)) + "</summary>" +
+        '<table class="fo-table fo-led-players"><thead><tr><th scope="col">Player</th><th scope="col" class="num">Salary</th><th scope="col" class="num">Counts on cap</th></tr></thead><tbody>' +
+        g.players.map(function (p) { return "<tr><td>" + H.esc(H.displayName(p.name)) + ' <span class="fo-muted">' + H.esc(p.position || "") + '</span></td><td class="num">' + H.esc(H.money(p.salary)) + '</td><td class="num">' + H.esc(H.money(p.capHit)) + "</td></tr>"; }).join("") +
+        "</tbody></table></details>";
+    }).join("");
+    return '<p class="fo-ov-sub">How ' + H.esc(led.name) + "’s player salary on the cap adds up. Same cap rules as the contract ledger: taxi salaries don’t count, IR counts half.</p>" +
+      '<table class="fo-table fo-led">' + rows + "</table>" + check(P.reconciles && P.total === led.capSnapshot.salaryCap, "Adds up, and equals the cap card’s player salaries.") +
+      '<h4 class="fo-tf-h">Players</h4>' + detail;
+  }
+  var CAT_NOTE = {
+    Drop: "Dead money from drops (canon §6). + counts against your cap.",
+    Trade: "Salary moved in trades. + you carry it; − another team carries it for you.",
+    Other: "Commissioner entries. + is a charge; − is a credit."
+  };
+  function adjustmentsLedgerHtml(led) {
+    var A = led.adjustments;
+    var rows = A.categories.map(function (c) {
+      var lines = '<tr class="fo-led-head"><th scope="rowgroup" colspan="2">' + H.esc(c.label) + ' <span class="fo-led-note">' + H.esc(CAT_NOTE[c.kind]) + "</span></th></tr>";
+      if (A.itemized) {
+        lines += c.items.length ? c.items.map(function (it) {
+          return ledgerRow((c.kind === "Drop" ? "Drop" : c.kind === "Trade" ? "Trade" : "Adjustment") + (it.player ? " · " + H.esc(H.displayName(it.player)) : "") + (it.when ? ' <span class="fo-muted">' + H.esc(it.when) + "</span>" : ""), it.amount, "", true);
+        }).join("") : ledgerRow('<span class="fo-muted">None</span>', 0, "", true);
+      } else {
+        lines += ledgerRow('<span class="fo-muted">Itemized list unavailable (MFL’s adjustments feed didn’t load); total from the worker</span>', c.exact, "", true);
+      }
+      if (c.kind === "Drop" && c.rounding) lines += ledgerRow("Rounding to the nearest $1,000 (canon §6)", c.rounding, "fo-led-round", true);
+      return lines + ledgerRow("Total " + H.esc(c.label.toLowerCase()), c.total, "fo-led-sub", true);
+    }).join("") + ledgerRow("Total adjustments", A.total, "fo-led-total", true);
+    var ns = led.nextSeason && (led.nextSeason.items || []).length ? '<h4 class="fo-tf-h">' + H.esc(String(led.nextSeasonYear || "Next season")) + " cap — not in this total</h4>" +
+      '<p class="fo-ov-sub">Drops after the FA Auction start count on next season’s cap and reach MFL at the rollover.</p><table class="fo-table fo-led">' +
+      led.nextSeason.items.map(function (it) { return ledgerRow((/rule ?2/i.test(String(it.kind || "")) ? "RULE 2 fine" : "Drop") + (it.player ? " · " + H.esc(H.displayName(it.player)) : ""), Number(it.amount) || 0, "", true); }).join("") + "</table>" : "";
+    return '<p class="fo-ov-sub">' + H.esc(led.name) + "’s " + H.esc(String(FO.season)) + " cap adjustments, from MFL’s salary adjustments. A + amount adds to your cap total; a − amount frees cap.</p>" +
+      '<table class="fo-table fo-led">' + rows + "</table>" + check(A.reconciles && A.total === led.capSnapshot.adjTotal, "Adds up, and equals the cap card’s salary adjustments.") + ns;
+  }
+  function check(ok, text) {
+    return ok ? '<p class="fo-led-check ok">✓ ' + H.esc(text) + "</p>" : '<p class="fo-led-check bad">These lines don’t add up to the cap card. Reload; if it persists, the cap card is the source of truth.</p>';
+  }
+  function openLedger(kind) {
+    var fid = focusFid(), led = fid && FO.capLedger ? FO.capLedger(fid) : null;
+    if (!led) return;
+    if (kind === "players") H.openDialog("Player salaries · " + H.money(led.players.total), playersLedgerHtml(led));
+    else H.openDialog("Salary adjustments · " + smoney(led.adjustments.total), adjustmentsLedgerHtml(led));
   }
 
   function weekCard(wk) {
@@ -214,10 +333,18 @@
       H.goLink("bye", "Bye planner") + " " + H.goLink("market", "Market"));
   }
 
+  function mflDeadline() {
+    var e = DATA.get("mflCalendar");
+    return e && e.state === "ok" ? tradeDeadlineFrom(e.data, Date.now()) : null;
+  }
   function deadlineCard() {
-    var td = event("ups_trade_deadline");
-    var days = td && td.date ? Math.ceil((Date.parse(td.date + "T12:00:00-05:00") - Date.now()) / 86400000) : null;
-    return card("Trade deadline", '<div class="fo-ov-stats">' + stat(days == null ? "—" : (days < 0 ? "Passed" : days + " days"), td && td.date ? "league calendar · " + td.date : "not in the league calendar") + "</div>",
+    var e = DATA.get("mflCalendar"), td = mflDeadline(), body;
+    if (!e) body = stat("…", "reading MFL’s calendar");
+    else if (e.state !== "ok") body = stat("—", "Sign in to MFL to see when MFL stops trades");
+    else if (!td) body = stat("—", "no “No Trades Allowed” event on MFL’s calendar");
+    else if (td.state === "closed") body = stat("Closed", "MFL stopped trades " + td.label);
+    else body = stat(td.days === 0 ? "Today" : td.days + " day" + (td.days === 1 ? "" : "s"), "MFL stops trades " + td.label);
+    return card("Trade deadline", '<div class="fo-ov-stats">' + body + "</div>",
       '<a class="fo-go" href="' + H.esc(FO.warRoomUrl({})) + '" target="_top">Trade War Room ›</a>');
   }
 
@@ -238,18 +365,8 @@
     return card("Draft picks", lines || '<p class="fo-ov-empty">No future picks.</p>', H.goLink("picks", "Draft picks"));
   }
 
-  function expiringCard(team, fid) {
-    if (!team) return "";
-    var exp = team.players.filter(function (p) { return !p.isTaxi && Number(p.years) === 1; })
-      .sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
-    if (!exp.length) return "";
-    var top = exp.slice(0, 6).map(function (p) { return H.playerButton(p.id, fid, H.displayName(p.name)) + ' <span class="fo-ov-via">' + H.esc(H.money(p.salary)) + "</span>"; }).join(", ");
-    return card("Contracts ending this season", '<p class="fo-ov-sub">' + exp.length + " player" + (exp.length === 1 ? "" : "s") + " in the final year: " + top + (exp.length > 6 ? ", …" : "") + "</p>",
-      H.goLink("extensions", "Extensions"));
-  }
-
   function load() {
-    var keys = ["scores", "players", "byes", "picks", "waiverState", "waiverAvailability", "waiverPending"];
+    var keys = ["scores", "players", "byes", "picks", "waiverState", "waiverAvailability", "waiverPending", "mflCalendar"];
     keys.forEach(function (k) { DATA.load(k).then(render); });
     var f = root.UPS_FO_DATA;
     if (f) f.injury(render);
@@ -261,11 +378,24 @@
     H.setupAbout();
     H.registerAbout("overview",
       "<h3>Overview</h3><p>Only items that need you, each with a link to where you act. Lineup and bye checks use your best legal 18-player lineup by season points per MFL week. " +
-      "Strength = your starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), against the league median.</p>");
+      "Strength = your starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), against the league median. " +
+      "PPG, Index (100 = league average) and Rank (1st–12th) read the same 12 best lineups; Overall is all 18 starting slots.</p>" +
+      "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
+    var el = document.getElementById("fo-overview-body");
+    if (el && !el.__foLedger) {
+      el.__foLedger = true;
+      el.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-ov-ledger],[data-ls-view]") : null;
+        if (!b) return;
+        if (b.hasAttribute("data-ov-ledger")) { openLedger(b.getAttribute("data-ov-ledger")); return; }
+        lsView = b.getAttribute("data-ls-view"); render();
+      });
+    }
     render();
     load();
   }
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("overview");
+  root.UPS_FO_OVERVIEW = { tradeDeadlineFrom: tradeDeadlineFrom };
   document.addEventListener("fo:ready", boot);
   document.addEventListener("fo:tab", function (e) { if (e.detail && e.detail.section === "overview") render(); });
   document.addEventListener("fo:events", render);

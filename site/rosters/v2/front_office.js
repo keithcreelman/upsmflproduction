@@ -2640,6 +2640,22 @@
         return team.length ? capSnapshotForTeams(team) : null;
       },
       capCeiling: CAP_CEILING,
+      // The Overview's Player salaries / Salary adjustments ledgers: the same cap hits and adjustment
+      // rounding as capFor (currentCapHit, roundToK), grouped by site/rosters/v2/fo_cap_ledger.js.
+      capLedger: function (fid) {
+        var L = window.UPS_FO_CAP_LEDGER;
+        var team = (STATE.teams || []).filter(function (t) { return t.fid === pad4(fid); })[0];
+        if (!L || !team) return null;
+        var adj = STATE.adjFeedOk ? ((STATE.adjByFid || {})[team.fid] || { cut: 0, trade: 0, other: 0, items: [] }) : null;
+        var out = L.build(team, { capHit: currentCapHit, roundCut: roundToK, adj: adj });
+        var snap = capSnapshotForTeams([team]);
+        out.capSnapshot = { salaryCap: snap.salaryCap, adjTotal: snap.adjTotal, capAlloc: snap.capAlloc, capSpace: snap.capSpace };
+        out.ceiling = CAP_CEILING;
+        out.capSpace = CAP_CEILING - out.allocated;
+        out.nextSeason = STATE.nextSeasonAdj && STATE.nextSeasonAdj.ok ? ((STATE.nextSeasonAdj.byFid || {})[team.fid] || null) : null;
+        out.nextSeasonYear = STATE.nextSeasonAdj ? STATE.nextSeasonAdj.nextSeason : null;
+        return out;
+      },
       contractDeadline: function () { return STATE.contractDeadline || null; },
       weekKickoffs: function () { return STATE.weekKickoffs || null; },
       eligibility: function (p) { try { return rosterContractEligibility(p); } catch (e) { return null; } },
@@ -2750,6 +2766,7 @@
       await applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
       mergeMflSalaryAdjustments(STATE.teams, mflAdj);
       STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
+      STATE.adjFeedOk = !!mflAdj.ok;       // false = MFL's feed failed; the worker's raw sums stand in (no items)
       STATE.nextSeasonAdj = nextSeasonAdj; // ledger-only next-season drop penalties
 
       // Keith 2026-05-19: applies to ALL taxi guys, not just Watson.

@@ -196,10 +196,16 @@
   var about = {};
   function registerAbout(section, html) { about[section] = html; }
   function openAbout(section) {
-    var wrap = document.getElementById("fo-about"), body = document.getElementById("fo-about-body");
-    if (!wrap || !body) return;
     var html = about[section] || about["*"] || "";
-    body.innerHTML = html + (section !== "*" && about["*"] ? '<hr class="fo-about-hr">' + about["*"] : "");
+    openDialog("About these numbers", html + (section !== "*" && about["*"] ? '<hr class="fo-about-hr">' + about["*"] : ""));
+  }
+  // The About dialog's frame (focus trap, Escape, backdrop) for any read-only detail, e.g. the cap ledgers.
+  function openDialog(title, html) {
+    var wrap = document.getElementById("fo-about"), body = document.getElementById("fo-about-body"), head = document.getElementById("fo-about-title");
+    if (!wrap || !body) return;
+    if (head) head.textContent = title || "";
+    body.innerHTML = html;
+    setupAbout();
     wrap.hidden = false;
     var panel = wrap.querySelector(".fo-about-panel");
     var opener = document.activeElement;
@@ -261,6 +267,6 @@
     scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel,
     playerButton: playerButton, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
     setFreshness: setFreshness, loading: loading, banner: banner,
-    registerAbout: registerAbout, openAbout: openAbout, closeAbout: closeAbout, setupAbout: setupAbout
+    registerAbout: registerAbout, openAbout: openAbout, openDialog: openDialog, closeAbout: closeAbout, setupAbout: setupAbout
   };
 })(typeof window !== "undefined" ? window : this);
