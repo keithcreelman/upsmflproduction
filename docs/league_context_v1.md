@@ -353,16 +353,14 @@ A rostered player is always in exactly one of three states.
   - Every owner's call-up usage is tracked and visible — eligibility is auditable. Source of truth: roster snapshots; the bot can answer "how many weeks has [player] been activated?" any time.
   - **Counter scope (Keith, 2026-05-16 review session — re-confirmation):** the 3-call-up budget is a **TOTAL across the player's entire taxi-eligibility window** (the 3-year window from B2 above), **NOT per-season**. A player who burns 2 call-ups in Year 1 has only 1 left across the remainder of their taxi-eligible career; a 4th activation at any point triggers permanent promotion.
   - **Implementation ownership (UPS, not MFL):** this is a **self-imposed UPS rule**. MFL does not enforce the 3-week budget. UPS owns: (a) a persistent counter per `(player_id, franchise_id)` tracked across the 3-year window, (b) worker increment logic on each call-up submit, (c) auto-promotion blocking on the 4th activation, (d) UI display of remaining call-ups on the taxi pane. Implementation tracker: see `AUDIT_FOLLOWUP_TRACKERS.md` (Q10 tracker).
-- **A cut / release ends taxi eligibility (Keith 2026-08-03; written into canon 2026-10-21, no rule change):** once a player is cut or released into the free-agent pool, his original taxi eligibility is gone for good. Re-acquiring him — by any team, by any method — does **not** restore it. A **trade does not** end it: the original rookie contract carries over to the new team. (In MFL a trade keeps the player's contract status, while a drop wipes it and a re-acquisition writes a new one, so "still on the original `Rookie-Draft` contract" is exactly "never released".)
-- **Players promoted before call-ups were tracked (Keith 2026-05-19 and 2026-09-17; written into canon 2026-10-21, no rule change):** a UPS rookie who ended a prior season on an active or IR roster is treated as **permanently promoted**, because call-ups weren't tracked before the 2026 season.
+- **A cut / release ends taxi eligibility — the sequence (Keith 2026-08-03; confirmed 2026-10-21):** (1) eligibility is determined **immediately before** the transaction; (2) if the player is eligible then, the release is processed as a **cap-free cut** (see Cut economics); (3) the completed release then **permanently ends** his taxi eligibility; (4) re-acquiring him — by any team, by any method — does **not** restore it; (5) a **trade is not a release** and does not by itself end eligibility: his existing eligibility state and his cumulative call-up history follow him to the new team. (In MFL a trade keeps the player's contract status, while a drop wipes it and a re-acquisition writes a new one, so "still on the original `Rookie-Draft` contract" is exactly "never released".)
+- **Players promoted before call-ups were tracked (written into canon 2026-10-21 from two existing rulings; no new rule):** a UPS rookie who **ended a prior season on an active or IR roster** is treated as **permanently promoted**. Sources: **Keith 2026-05-19** — "if active AND acquired before season 2026 → block demote" (any player on an active roster before the 2026 season is grandfathered into permanent promotion, because his call-ups pre-dated tracking); **Keith 2026-09-17** — "every rookie active at any point in 2025 is already permanent" (active weeks count; nobody active in 2025 is counted). Implemented since 2026-06-07 (#508, `taxiPriorActivePids`) as "ended a prior season on an active or IR roster".
 - **Cut economics:**
-  - **Taxi-squad players never *permanently* promoted (≤3 temporary call-ups) can still be cut cap-free.** Temporary call-ups do NOT trigger the "permanently promoted" flag, so cap-free cut remains available between activations and after a player returns to taxi.
+  - **Cap-free cut protection follows taxi ELIGIBILITY, not the roster slot (Keith 2026-10-21):** if the player is still taxi-eligible **immediately before the cut**, the cut is cap-free whether he is on the taxi squad, on the active roster, in a temporary call-up, or in any other roster status that has not permanently ended his eligibility — he does not have to be sitting in a taxi slot. Temporary call-ups (activations 1–3) do NOT end eligibility, so the cap-free cut remains available between activations and after a player returns to taxi. The release then ends his eligibility (see the sequence above).
   - **Once permanently promoted (4th activation OR an MYAC/extension/restructure that explicitly promotes), normal cut penalties apply going forward.**
 - **Demotion deadline:** contract deadline date. Mid-season trade-acquired rookies: planned automation will auto-demote (or owner-choice on trade).
 - **3-year clock end:** when a player's 3 league years on taxi expire, they're treated like any other expired rookie. If extended → promoted to active. If not → Expired Rookie Auction. **League years, not NFL years.**
-- **Tracking source of truth (Keith, 2026-05-16 review session):** **MFL natively handles taxi eligibility** — MFL knows which players are taxi-eligible based on their draft and contract metadata. UPS does NOT maintain a parallel D1 tracking table for the 3-year window itself.
-  - **Derivation path when UPS needs to compute eligibility independently (e.g., for a UI gate or a synthetic warning):** use the player's **UPS Rookie Draft** year and round (MFL `TYPE=draftResults` for the UPS league), **never** the NFL draft fields in MFL's `TYPE=players` payload (corrected 2026-10-21 to match the rule above and Keith's 2026-05-18 ruling: an NFL Round 3 pick taken in UPS Round 1 is not eligible; an NFL undrafted player taken in UPS Round 5 is). Compute `league_years_elapsed = current_league_year − ups_draft_year` and gate taxi-eligibility at `league_years_elapsed < 3` AND `ups_draft_round >= 2`, still on the original `Rookie-Draft` contract, and not permanently promoted.
-  - The taxi-eligible flag in MFL roster payloads is the authoritative source. The derivation above is only for UPS-side preview displays where the MFL flag isn't already in hand.
+- **Source of truth (Keith 2026-10-21; replaces the 2026-05-16 "MFL natively handles taxi eligibility" note):** **UPS Rookie Draft history and the UPS shared resolver are authoritative** (`worker/src/taxi_rule.js`; its browser copy `site/shared/taxi_rule.js`). Eligibility comes from the player's **UPS Rookie Draft** year and round — **never** from MFL's NFL draft year or round — plus the rules above (Round 2+, first 3 league years, never released, not permanently promoted). **MFL does not enforce the three-activation budget**; UPS tracks it (see Implementation ownership).
 
 ### B4. Weekly Starting Lineup (ADDED 2026-08-15 — was missing from canon)
 
@@ -691,7 +689,7 @@ The trade moves who owes the $1,103. It does not change the number.
 
 **Amari Cooper Rule (ADDED 2026-07-21):** a **retired** player may be cut cap-free **during the FA Auction**, and the freed salary is immediately available to bid with. Retirement must be genuine — an official announcement or a credible report, commissioner-verified; injury does not qualify and uses IR instead. A player cut this way cannot be nominated or bid on for the rest of that auction, and returns to the pool at the first waiver run after it closes. Every other cut-blocking rule during the auction is unchanged.
 - **1-year original-length contracts under $5K (Veteran or WW):** 0% guarantee. Cap-free cut anytime. Note: this only applies to **1-year original** contracts — a 2-year veteran under $5K can still incur penalty depending on cut timing.
-- **Taxi Squad (never *permanently* promoted):** 0% guarantee while on taxi. Cap-free cut. Temporary call-ups (≤3 weeks) do NOT trigger permanent promotion; the player can return to taxi and remain cap-free-cuttable. Permanent promotion (4th activation or explicit MYAC/extension/restructure) ends this — normal cut penalties apply going forward. See **B2** for the call-up budget rule.
+- **Taxi-eligible players (UPDATED 2026-10-21 — follows eligibility, not the roster slot):** a player who is still **taxi-eligible immediately before the cut** (§B2) is cut cap-free, whether he is on the taxi squad, on the active roster, in a temporary call-up or in any other status that has not ended his eligibility. Temporary call-ups (activations 1–3) do NOT end eligibility. Permanent promotion (4th activation or explicit MYAC/extension/restructure), an expired 3-league-year window or a prior release ends it — normal cut penalties apply. The completed release ends his taxi eligibility; re-acquiring him does not restore it. See **B2**.
 - **WW $5K+ in-season (UPDATED 2026-05-08):** Same 75% guarantee + per-week pro-rated earning as auction contracts (the old flat 35% WW penalty is RETIRED). The eligible-weeks denominator is `18 − pickup_week`. See Section 6.B for the canonical formula and D1 for an in-season worked example.
 - **Jail Bird Rule:** vague rule. Aaron Hernandez was the canonical case, but "released by NFL team" is NOT sufficient — players are released all the time. Commissioner discretion required for what qualifies as a "career derailed by legal case."
 - **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept. **Subject to the §D2a loaded-contract settlement below** — "cap-free" means free of the *penalty*, not free of salary the owner never actually paid.
@@ -1147,7 +1145,7 @@ It was ad-hoc enforcement aimed at a couple of specific owners, not a standing r
 ### T5.2 Cap-Free Cut (subcategories)
 - **Source:** Same as T5.1 but with commissioner override OR specific eligibility:
   - 1-year original-length Veteran or WW under $5K
-  - Taxi player never promoted (this is the "taxi-drop" mechanism in MFL — works for any taxi-eligible player, not just literal taxi-squad members at the moment of drop; legacy use was as a multi-drop tool)
+  - Taxi-eligible player, eligible immediately before the cut (this is the "taxi-drop" mechanism in MFL — works for any taxi-eligible player, not just literal taxi-squad members at the moment of drop; legacy use was as a multi-drop tool; §D2 and §B2 agree, 2026-10-21)
   - Jail Bird (commissioner discretion)
   - Retired player (auto-eligible)
   - Off-season suspension opt-out (special handling — see B3)
@@ -1158,8 +1156,8 @@ It was ad-hoc enforcement aimed at a couple of specific owners, not a standing r
 ### T5.3 Drop from Taxi (`TAXI` + `DROP`)
 - **Source:** MFL `import?TYPE=taxi_squad&DROP=...`.
 - **Initiator:** Owner.
-- **Eligibility:** Taxi player never promoted.
-- **Cap effect:** Cap-free.
+- **Eligibility:** A taxi-eligible player (eligible immediately before the cut; §B2).
+- **Cap effect:** Cap-free. The release ends his taxi eligibility.
 - **Contract impact:** Player off roster.
 
 ### T5.4 Trade-Away (covered by T1.7)
@@ -2161,7 +2159,7 @@ Applied to the cap of the season determined by cut-timing buckets (see Section 3
 | Case | Penalty |
 |---|---|
 | 1-yr Veteran/WW under $5K original | $0 (0% guarantee) |
-| Taxi player never promoted | $0 |
+| Taxi-eligible player (eligible immediately before the cut — taxi squad, active roster or call-up) | $0 |
 | Tag cut BEFORE FA Auction starts | $0 (tag nullified) |
 | Jail Bird (commissioner discretion) | $0 |
 | Retired player | $0 (cap relief — may trigger Calvin Johnson Rule comp) |
