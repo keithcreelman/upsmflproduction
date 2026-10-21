@@ -179,5 +179,6 @@ test("a finished season has nothing to forecast", async () => {
   t.match(text(plain(p.html())), /The 2026 season is finished, so there’s nothing left to forecast\./);
 });
 
-await run();
+await run("standings_forecast_desktop");
+mfl.restore();
 restore();
