@@ -901,14 +901,16 @@
   // asks "who wins a projected/actual GAME between two already-seeded
   // teams" — seed 1..12 is trusted input, not derived here.
   //
-  // BRACKET TOPOLOGY (verified against real, live /api/playoff-bracket
-  // data for a completed season — 2025 — not assumed): each 6-team side
+  // BRACKET TOPOLOGY (#1370 gate 2: MFL's own brackets, every 6-team side
+  // 2014-2025, tests/fixtures/bracket_reseed_vectors.json): each 6-team side
   // (seeds 1-6 for the UPS championship side, 7-12 for the Hawk Tuah Bowl
-  // side, using within-side relative positions 1-6) is a standard
-  // single-elimination bracket with the top 2 byed to the semifinal
-  // round:
+  // side, using within-side relative positions 1-6) is single elimination
+  // with the top 2 byed to the semifinal round, RE-SEEDED after round 1:
   //   Round 1 (week 1 of 3 playoff weeks):  3 vs 6,  4 vs 5
-  //   Semis   (week 2): 1 vs winner(4v5),  2 vs winner(3v6)
+  //   Semis   (week 2): 1 vs the LOWEST seed left,  2 vs the other winner
+  //     (a fixed "1 vs winner of 4/5" path is wrong whenever 6 beats 3:
+  //     2014, 2016, 2017, 2022; H6 in 2016 and 2021). The UPS Wire season
+  //     simulation (season_sim.bracket) plays the same rule.
   //   Placement (week 2, the other game — the two R1 LOSERS play each
   //     other for the lower two of the six positions)
   //   Final   (week 3): winner(semi1) vs winner(semi2)
@@ -980,26 +982,57 @@
     if (!b) return a;
     return Number(a.seed) < Number(b.seed) ? a : b;
   }
-  function chalkLoser(a, b) {
-    if (!a || !b) return null;
-    return chalkWinner(a, b) === a ? b : a;
+  // THE round-2 rule, shared by every bracket on desktop and phone (#1370
+  // gate 2): the side's top seed meets the LOWEST seed left after round 1
+  // (the larger seed number), the second seed meets the other winner.
+  // survivors = the two round-1 winners (seed entries); either missing →
+  // null (round 2 isn't set until both round-1 games are decided).
+  function reseedRoundTwo(top, second, survivors) {
+    var a = survivors && survivors[0], b = survivors && survivors[1];
+    if (!top || !second || !a || !b) return null;
+    var low = Number(a.seed) > Number(b.seed) ? a : b;
+    return [[top, low], [second, low === a ? b : a]];
   }
-  function chalkGame(a, b) {
-    return { a: a, b: b, winner: chalkWinner(a, b), loser: chalkLoser(a, b), scoreA: null, scoreB: null, pending: false, projected: true };
-  }
-  // Builds one 6-team side's full bracket topology (see the module
-  // comment above) entirely by chalk. `base` = 0 for the UPS
-  // championship side (seeds 1-6), 6 for the Hawk Tuah Bowl side (7-12).
-  function chalkBracketSide(bySeedNum, base) {
+  // One 6-team side's full bracket from any game decider: decide(a, b)
+  // returns the winning entry, or null while that game is undecided. `base`
+  // = 0 for the UPS championship side (seeds 1-6), 6 for the Hawk Tuah Bowl
+  // side (7-12). Undecided games leave later slots empty (a: null / b: null)
+  // instead of guessing.
+  function resolveBracketSide(bySeedNum, base, decide) {
     function s(n) { return bySeedNum[base + n]; }
-    var r1a = chalkGame(s(3), s(6));
-    var r1b = chalkGame(s(4), s(5));
-    var semi1 = chalkGame(s(1), r1b.winner);
-    var semi2 = chalkGame(s(2), r1a.winner);
-    var placement = chalkGame(r1a.loser, r1b.loser);
-    var finalGame = chalkGame(semi1.winner, semi2.winner);
-    var thirdGame = chalkGame(semi1.loser, semi2.loser);
+    function game(a, b) {
+      var w = a && b ? decide(a, b) : null;
+      var winner = w === a || w === b ? w : null;
+      return { a: a || null, b: b || null, winner: winner, loser: winner ? (winner === a ? b : a) : null, scoreA: null, scoreB: null, pending: !winner, projected: true };
+    }
+    var r1a = game(s(3), s(6));
+    var r1b = game(s(4), s(5));
+    var pairs = reseedRoundTwo(s(1), s(2), [r1a.winner, r1b.winner]);
+    var semi1 = pairs ? game(pairs[0][0], pairs[0][1]) : game(s(1), null);
+    var semi2 = pairs ? game(pairs[1][0], pairs[1][1]) : game(s(2), null);
+    var placement = game(r1a.loser, r1b.loser);
+    var finalGame = game(semi1.winner, semi2.winner);
+    var thirdGame = game(semi1.loser, semi2.loser);
     return { r1: [r1a, r1b], semis: [semi1, semi2], placement: placement, final: finalGame, third: thirdGame };
+  }
+  // The projected side: the shared resolver with chalk deciding every game.
+  function chalkBracketSide(bySeedNum, base) {
+    return resolveBracketSide(bySeedNum, base, chalkWinner);
+  }
+  // Does an ACTUAL side's round 2 follow the re-seeding rule? Given the
+  // side's decided round-1 games and its round-2 games (classified from real
+  // results), compare the real pairings with reseedRoundTwo(). → { ok, checked }
+  // checked false when round 1 isn't fully decided or round 2 isn't set yet.
+  function reseedCheck(side, top, second) {
+    var r1 = side && side.r1 ? side.r1 : [];
+    var semis = side && side.semis ? side.semis : [];
+    if (r1.length !== 2 || semis.length !== 2 || !r1[0].winner || !r1[1].winner) return { ok: true, checked: false };
+    var want = reseedRoundTwo(top, second, [r1[0].winner, r1[1].winner]);
+    if (!want) return { ok: true, checked: false };
+    function key(x, y) { return [pad4(x.franchise_id), pad4(y.franchise_id)].sort().join('-'); }
+    var have = {};
+    semis.forEach(function (g) { if (g && g.a && g.b) have[key(g.a, g.b)] = true; });
+    return { ok: !!(have[key(want[0][0], want[0][1])] && have[key(want[1][0], want[1][1])]), checked: true };
   }
   // ── F5 (Phase II-A2 correction pass) — one GAME's natural identity is
   // (week, sorted franchise-id pair), regardless of how many perspective
@@ -1204,7 +1237,8 @@
   //   conference, the 2011-2013 conference brackets) · 'incomplete' (no decided final) · 'champion_mismatch' (the
   //   drawn champion isn't the recorded one) · 'seeds_unreadable' (the season's seeds don't validate — 2013 has two
   //   teams at seed 7 — so the games are split by recorded finish, 1-6 and 7-12, from opts.matchups, with no seed
-  //   numbers). With no recorded finish to check against, the side draws as before (reason 'unverified').
+  //   numbers) · 'path_mismatch' (today's Round 1, but Round 2 didn't follow the re-seeding rule, reseedCheck).
+  //   With no recorded finish to check against, the side draws as before (reason 'unverified').
   //   A Round 1 of exactly today's pairs (3 v 6 and 4 v 5; H3 v H6 and H4 v H5) is never treated as a conference
   //   bracket, even in a season that had conferences.
   function verifyActualSide(result, sideKey, seedsRaw, opts) {
@@ -1259,6 +1293,13 @@
         return a && b && a.conference_id != null && a.conference_id !== '' && a.conference_id === b.conference_id;
       });
       if (intra) { out.reason = 'conference_format'; return out; }
+    }
+    if (todaysRound1) {
+      // Round 2 must follow the shared re-seeding rule (#1370 gate 2); a side that doesn't is listed by week.
+      var tops = seeds.filter(function (x) { var n = strictNum(x.seed); return n === (hawk ? 7 : 1) || n === (hawk ? 8 : 2); })
+        .sort(function (x, y) { return strictNum(x.seed) - strictNum(y.seed); })
+        .map(function (x) { return { seed: strictNum(x.seed), franchise_id: pad4(x.franchise_id) }; });
+      if (tops.length === 2 && !reseedCheck(side, tops[0], tops[1]).ok) { out.reason = 'path_mismatch'; return out; }
     }
     var drawn = side && side.final && side.final.winner ? pad4(side.final.winner.franchise_id) : null;
     if (!out.recordedChampion) { out.draw = !!drawn; out.reason = drawn ? 'unverified' : 'incomplete'; return out; }
@@ -2412,6 +2453,9 @@
     // Phase II-A2 — projected bracket / draft order / mobile Playoffs mode.
     validateBracketSeeds: validateBracketSeeds,
     chalkBracketSide: chalkBracketSide,
+    reseedRoundTwo: reseedRoundTwo,
+    resolveBracketSide: resolveBracketSide,
+    reseedCheck: reseedCheck,
     classifySideGamesFromMatchups: classifySideGamesFromMatchups,
     assignFinishesAndPicks: assignFinishesAndPicks,
     projectChalkBracket: projectChalkBracket,
