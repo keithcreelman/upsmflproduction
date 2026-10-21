@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.2",
-  "label": "Taxi: one shared eligibility rule; Demote stays available after each of the 3 temporary call-ups; unreadable call-up history shows no Demote."
+  "build": "2026.10.21.3",
+  "label": "Taxi: one shared eligibility rule; a taxi-eligible player's cut is cap-free wherever he sits; Demote stays available after each temporary call-up."
 }
