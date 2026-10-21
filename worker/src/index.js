@@ -1,5 +1,6 @@
 import { handleHallRequest } from "./hall.js";
 import { taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON } from "./taxi_rule.js";
+import { applyRankPending } from "./rank_pending.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
@@ -15460,7 +15461,8 @@ export default {
 
             const career = careerRes.results || [];
             if (career.length) {
-              bundle.career_summary = career;
+              // Season ranks still pending the clean recount come back null (#1307).
+              bundle.career_summary = career.map((row) => applyRankPending(pid, row));
               d1Satisfied = true;
               // Always attach leverage coefs when we have career data so
               // the client can compute Win Chunks Normalized per row
