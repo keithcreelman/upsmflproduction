@@ -7,13 +7,14 @@
 // MFL has no trade-deadline setting. Trading is stopped by League Calendar
 // events of type TRADE ("No Trades Allowed"). Verified on test league 25625,
 // 2026-10-21 (one TRADE event, START_TIME on the minute):
-//   - 6 s before the start MFL accepted a proposal; 20 s before, an accept
-//     executed the trade;
-//   - from 1 s after the start, MFL refused every trade action through the API
+//   - 20 s before the start an accept executed the trade; proposals that reached
+//     MFL inside the start second itself (MFL's clock 07:53:00) were accepted;
+//   - from the next second (07:53:01) MFL refused every trade action through the API
 //     — propose, accept, reject and revoke — with "Trades Are Not Allowed Now
 //     According To Your League Calendar"; MFL's own trade page offered only
 //     "reject completely";
-//   - pending offers stay listed; trading reopens when the event's end passes;
+//   - pending offers stay listed; trading reopens at the event's end (refused 2 s
+//     before it, accepted 1 s after);
 //   - a START_TIME that is a small number is an NFL WEEK: "13" is shown on the
 //     calendar as "No Trades Allowed starts at" Week 13's first kickoff.
 //
@@ -78,7 +79,8 @@ export function mflTradeLock(events, { nowUnix, weekKickoff = {} } = {}) {
   placed.sort((a, b) => a.start - b.start);
   const first = placed[0];
   const et = etParts(first.start);
-  return { ...out, state: first.start <= now ? "closed" : "upcoming", start_unix: first.start, end_unix: first.end,
+  // MFL still accepts inside the start second and refuses from the next one.
+  return { ...out, state: now > first.start ? "closed" : "upcoming", start_unix: first.start, end_unix: first.end,
     event_id: first.id, date_et: et.date_et, time_et: et.time_et, label: et.label, reason: "" };
 }
 

@@ -1,7 +1,7 @@
 // Every owner-facing trade deadline states when MFL actually stops accepting trades (Keith 2026-10-21): the earliest
 // "No Trades Allowed" (TRADE) event on MFL's league calendar that has not ended — worker/src/trade_deadline.js — served
 // on /api/league-events (phone Home chip, Team Operations, the MFL-page countdown) and used by the Discord reminders.
-// Boundaries are pinned to the second (test league 25625, 2026-10-21: accepted 6 s before the start, refused 1 s after).
+// Boundaries are pinned to the second (test league 25625, 2026-10-21: accepted inside the start second, refused 1 s after).
 //   node tests/trade_deadline_follows_mfl.test.mjs
 import { makeD1 } from "./fixtures/d1_sqlite.mjs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
@@ -31,9 +31,9 @@ test("today's production calendar → Tue, Nov 24, 12:00 PM ET (the earliest of 
   t.equal(r.events.length, 3, "all three TRADE events listed; the waiver event ignored");
 });
 
-test("the boundary, ±1 s: open one second before the start, closed at it and after (MFL refused at +1 s)", () => {
+test("the boundary, ±1 s, as MFL enforces it: open through the start second, closed from the next (test league 2026-10-21)", () => {
   t.equal(mflTradeLock(PROD, { nowUnix: TUE_NOON - 1 }).state, "upcoming");
-  t.equal(mflTradeLock(PROD, { nowUnix: TUE_NOON }).state, "closed");
+  t.equal(mflTradeLock(PROD, { nowUnix: TUE_NOON }).state, "upcoming", "MFL accepted proposals stamped 07:53:00 for a 07:53:00 start");
   t.equal(mflTradeLock(PROD, { nowUnix: TUE_NOON + 1 }).state, "closed");
   t.equal(mflTradeLock(PROD, { nowUnix: TUE_NOON + 1 }).label, "Tue, Nov 24, 12:00 PM ET", "after the deadline it still names it");
 });
