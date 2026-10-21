@@ -148,11 +148,17 @@
       league: { teamWeeks: leagueWeeks, avg: lavg, mix: leagueMix } };
   }
 
-  // A flex row's mix as [{g, n, pct}] (largest first) — "Flex: 60% WR · 30% RB · 10% TE".
+  // A flex row's mix as [{g, n, pct, whole}] (largest first) — "Flex: 60% WR · 30% RB · 10% TE". `whole` = pct in whole
+  // numbers that add up to exactly 100 (largest remainder), so a shown mix never reads 99% or 101%.
   function mixList(mixRow) {
     if (!mixRow || !mixRow.total) return [];
-    return Object.keys(mixRow.by).map(function (g) { return { g: g, n: mixRow.by[g], pct: mixRow.by[g] / mixRow.total * 100 }; })
+    var list = Object.keys(mixRow.by).map(function (g) { return { g: g, n: mixRow.by[g], pct: mixRow.by[g] / mixRow.total * 100 }; })
       .sort(function (a, b) { return b.n - a.n || (a.g < b.g ? -1 : 1); });
+    var left = 100;
+    list.forEach(function (x) { x.whole = Math.floor(x.pct); left -= x.whole; });
+    list.slice().sort(function (a, b) { return (b.pct - b.whole) - (a.pct - a.whole) || b.n - a.n; })
+      .slice(0, left).forEach(function (x) { x.whole += 1; });
+    return list;
   }
 
   var api = { GROUPS: GROUPS, lineupsByWeek: lineupsByWeek, placeWeek: placeWeek, build: build, mixList: mixList, label: label };

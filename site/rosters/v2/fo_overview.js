@@ -289,7 +289,7 @@
     }
     return mixMemo.mix;
   }
-  function pct(n) { return Math.round(n) + "%"; }
+  function pct(n) { return n + "%"; }
   function starterMixHtml(fid) {
     var SM = root.UPS_STARTER_MIX, e = DATA.get("weeklyResults"), ss = H.scoring();
     if (!e) { DATA.load("weeklyResults").then(render); return '<p class="fo-ov-empty">Reading the lineups MFL has on file…</p>'; }
@@ -303,7 +303,7 @@
     if (!t || !mix.weeks.length) return '<p class="fo-ov-empty">No completed weeks yet.</p>';
     var wkLabel = mix.weeks.length === 1 ? "Week 1" : "Weeks 1–" + mix.weeks[mix.weeks.length - 1];
     var head = '<p class="fo-ls-actual"><b>Actual starter mix</b> · ' + H.esc(wkLabel) + " · " + t.validWeeks.length + " of " + t.weeks + " weeks counted</p>" +
-      '<p class="fo-ov-sub">Starters per week from the lineups submitted to MFL, by each player’s own position. Not the modeled lineup above.</p>';
+      '<p class="fo-ov-sub">Starters per week from the lineups submitted to MFL, by each player’s own position. This is what was started, not the modeled lineup in By Position and By Lineup Slot.</p>';
     if (!t.validWeeks.length) {
       return head + issuesHtml(t) + '<p class="fo-ov-empty">No complete lineup to average.</p>';
     }
@@ -317,8 +317,8 @@
     var LS = root.UPS_LINEUP_STRENGTH;
     var flex = mix.flexRows.map(function (r) {
       var mine = SM.mixList(t.mix[r]), lg = SM.mixList(mix.league.mix[r]);
-      var parts = r === "SFLEX" ? qbSplit(mine) : mine.map(function (x) { return pct(x.pct) + " " + SM.label(x.g); });
-      var lparts = r === "SFLEX" ? qbSplit(lg) : lg.map(function (x) { return pct(x.pct) + " " + SM.label(x.g); });
+      var parts = r === "SFLEX" ? qbSplit(mine) : mine.map(function (x) { return pct(x.whole) + " " + SM.label(x.g); });
+      var lparts = r === "SFLEX" ? qbSplit(lg) : lg.map(function (x) { return pct(x.whole) + " " + SM.label(x.g); });
       return '<div class="fo-ls-flex" data-ls-flex="' + r + '"><b>' + H.esc(LS.LABELS[r] || r) + ":</b> " + H.esc(parts.join(" · ") || "—") +
         ' <span class="fo-muted">(league ' + H.esc(lparts.join(" · ") || "—") + ")</span></div>";
     }).join("");
@@ -330,9 +330,9 @@
     var SM = root.UPS_STARTER_MIX;
     var qb = list.filter(function (x) { return x.g === "QB"; })[0];
     var other = list.filter(function (x) { return x.g !== "QB"; });
-    var otherPct = other.reduce(function (a, x) { return a + x.pct; }, 0);
+    var otherPct = other.reduce(function (a, x) { return a + x.whole; }, 0);
     var out = [];
-    if (qb) out.push(pct(qb.pct) + " QB");
+    if (qb) out.push(pct(qb.whole) + " QB");
     if (other.length) out.push(pct(otherPct) + " non-QB (" + other.map(function (x) { return SM.label(x.g); }).join("/") + ")");
     return out;
   }

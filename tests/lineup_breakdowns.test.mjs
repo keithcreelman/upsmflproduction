@@ -213,6 +213,8 @@ test("actual starter mix: averages over completed weeks give fractional starters
   t.ok(close(sum(SM.GROUPS.map((g) => a.avg[g])), 18), "the weekly totals reconcile to the 18 required starters");
   t.equal(JSON.stringify(SM.mixList(a.mix.FLEX).map((x) => [x.g, x.n])), JSON.stringify([["WR", 8], ["RB", 2]]), "Flex: WR 8 of 10 starts, RB 2 of 10");
   t.ok(close(SM.mixList(a.mix.FLEX)[0].pct, 80), "Flex: 80% WR · 20% RB");
+  const thirds = SM.mixList({ total: 3, by: { WR: 1, RB: 1, TE: 1 } });
+  t.equal(sum(thirds.map((x) => x.whole)), 100, "shown whole percents always add to 100 (34/33/33, never 99)");
   t.equal(SM.mixList(a.mix.SFLEX).map((x) => x.g + " " + x.pct).join(","), "QB 100", "Superflex: 100% QB");
 });
 
@@ -280,7 +282,7 @@ test("the Overview card: PPG first and selected, Above Replacement spelled out, 
   t.ok(/<b>Actual starter mix<\/b> · Weeks 1–6 · 6 of 6 weeks counted/.test(mixHtml), "labeled Actual starter mix, with the weeks counted");
   t.ok(!/data-ls-view/.test(mixHtml), "no strength measures on the actual mix");
   t.ok(/data-ls-flex="SFLEX"><b>Superflex:<\/b> 100% QB/.test(mixHtml), "Real Deal Creel Superflex: 100% QB");
-  t.ok(/<b>Flex:<\/b> 83% WR/.test(mixHtml), "Flex composition");
+  t.ok(/<b>Flex:<\/b> 84% WR · 8% RB · 8% TE/.test(mixHtml), "Flex composition: 10, 1 and 1 of 12 starts, shown in whole percents that add to 100");
   deps.H.lineupSlotsState = () => "error";
   t.ok(/lineup settings couldn’t be read/.test(OV._strengthCard("0008", deps, "position", "ppg")), "MFL's settings unreadable → says so, no assumed slots");
 });
