@@ -4,6 +4,11 @@ keep the previous valid snapshot on failure, and report NO GRADE risk instead of
 
 Runs rebuild_valuation_snapshot.py on copies of the real 2026-10-20 MFL daily snapshot in a temporary folder (a Week 7
 copy has 11 more All-Play games per team). The clock is pinned. Offline: no MFL, no D1, no network, no git writes.
+
+Pinned (#1365): the starting snapshot, its inputs and the 2026-10-20 MFL folder are the frozen copies in
+tests/fixtures/valuation_snapshot_2026-10-20/, and every build and validation here resolves paths in that tree.
+The committed production snapshot is never read, so the automation's own weekly commits (or a registry
+refresh) cannot change these results.
   python3 pipelines/etl/scripts/test_rebuild_valuation_snapshot.py
 """
 import json
@@ -22,8 +27,27 @@ import valuation_snapshot as vs  # noqa: E402
 import trade_grader as tg  # noqa: E402
 
 BASE_DAY = "2026-10-20"
-BASE = REPO / "data" / "mfl-snapshots" / BASE_DAY
-COMMITTED = REPO / "data" / "valuation" / "trade_valuation_snapshot.json"
+PINNED_ROOT = REPO / "tests" / "fixtures" / "valuation_snapshot_2026-10-20"
+BASE = PINNED_ROOT / "data" / "mfl-snapshots" / BASE_DAY
+COMMITTED = PINNED_ROOT / "data" / "valuation" / "trade_valuation_snapshot.json"   # the pinned 10-20 / week 6 snapshot
+_SAVED = {}
+
+
+def setUpModule():
+    """Resolve every input, coefficient and recorded path in the pinned tree, not the live repo."""
+    _SAVED.update(bvs_repo=rb.bvs.REPO, inputs=rb.bvs.INPUT_DIR, coef=rb.bvs.COEFFICIENTS, vs_repo=vs.REPO,
+                  ident=rb.bvs.generator_identity)
+    identity = rb.bvs.generator_identity(False)          # the committed generator, read from the real checkout
+    rb.bvs.generator_identity = lambda allow_dirty=False: identity
+    rb.bvs.REPO = PINNED_ROOT
+    rb.bvs.INPUT_DIR = PINNED_ROOT / "pipelines" / "etl" / "inputs" / "valuation"
+    rb.bvs.COEFFICIENTS = PINNED_ROOT / "pipelines" / "etl" / "config" / "future_pick_inseason_coefficients.json"
+    vs.REPO = PINNED_ROOT
+
+
+def tearDownModule():
+    rb.bvs.REPO, rb.bvs.INPUT_DIR, rb.bvs.COEFFICIENTS, vs.REPO, rb.bvs.generator_identity = (
+        _SAVED["bvs_repo"], _SAVED["inputs"], _SAVED["coef"], _SAVED["vs_repo"], _SAVED["ident"])
 
 
 def utc(s):
@@ -42,8 +66,9 @@ def add_week(standings: dict) -> dict:
 class Env:
     """A temporary data/mfl-snapshots and a copy of the committed valuation snapshot."""
     def __init__(self):
-        # inside the repo (a dot-directory, removed after each test): the builder records inputs as repo paths
-        self.td = tempfile.TemporaryDirectory(prefix=".valuation-rebuild-test-", dir=REPO)
+        # inside the pinned tree (a dot-directory, removed after each test): the builder records inputs as paths
+        # relative to it
+        self.td = tempfile.TemporaryDirectory(prefix=".valuation-rebuild-test-", dir=PINNED_ROOT)
         self.root = Path(self.td.name)
         self.snaps = self.root / "mfl-snapshots"
         self.out = self.root / "trade_valuation_snapshot.json"
