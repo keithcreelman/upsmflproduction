@@ -565,7 +565,7 @@
       var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null, sn = snaps[w] || null;
       var snapTot = sn ? (Number(sn.off) || 0) + (Number(sn.def) || 0) + (Number(sn.st) || 0) : null;
       var label, cls = "", ttl = "";
-      if (has) label = (Math.round(pts[w] * 10) / 10).toFixed(1) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
+      if (has) label = window.UPS_MOBILE_SEASON_SCORING.fmt1(pts[w]) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
       else if (bye === w) { label = "BYE"; cls = "bye"; }
       else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; ttl = "Not played yet"; }
       // With snap counts: say what happened. A snap row with 0 snaps, or no
@@ -618,12 +618,14 @@
         '</div>';
   }
 
+  // Points/PPG text below: the ONE shared formatter, season_scoring.js fmt1 (decimal half-up: 19.35 → 19.4),
+  // the same function the desktop Front Office uses (Keith 2026-10-21).
   function statRowHtml(y, games, pts, ppg, ppgRank) {
     return '<tr>' +
       '<td>' + y + '</td>' +
       '<td>' + (games == null ? "—" : games) + '</td>' +
-      '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
-      '<td>' + (ppg == null ? "—" : (Math.round(ppg * 10) / 10).toFixed(1)) + '</td>' +
+      '<td>' + window.UPS_MOBILE_SEASON_SCORING.fmt1(pts) + '</td>' +
+      '<td>' + (ppg == null ? "—" : window.UPS_MOBILE_SEASON_SCORING.fmt1(ppg)) + '</td>' +
       // A string is a word in place of a number ("unranked", current season).
       '<td>' + (typeof ppgRank === "string" ? U.escapeHtml(ppgRank) : (ppgRank > 0 ? ppgRank : 0)) + '</td>' +
     '</tr>';
@@ -643,8 +645,8 @@
     var tile = function (v, l) { return '<div><b>' + U.escapeHtml(v) + '</b><small>' + U.escapeHtml(l) + '</small></div>'; };
     return '<div class="ups-m-sheet-block ups-m-sheet-pts">' +
       '<div class="ups-m-sheet-pts-row">' +
-        tile((Math.round(sp.pts * 10) / 10).toFixed(1), "Pts · " + sp.weeks) +
-        tile(sp.ppg != null ? (Math.round(sp.ppg * 10) / 10).toFixed(1) : "—", "PPG · " + sp.games + " MFL wk" + (sp.games === 1 ? "" : "s")) +
+        tile(window.UPS_MOBILE_SEASON_SCORING.fmt1(sp.pts), "Pts · " + sp.weeks) +
+        tile(sp.ppg != null ? window.UPS_MOBILE_SEASON_SCORING.fmt1(sp.ppg) : "—", "PPG · " + sp.games + " MFL wk" + (sp.games === 1 ? "" : "s")) +
         tile(sp.rankLabel, "PPG rank") +
       '</div>' +
       '<div class="ups-m-stat-basis">' + U.escapeHtml(basis.text) + '</div>' +
