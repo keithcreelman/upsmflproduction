@@ -135,7 +135,14 @@ SRC_ART = subprocess.check_output(["git", "show", "f4bc54fa:site/wire/articles/2
 
 
 def sec(html, sid):
-    return re.search(r'<section class="wire-sec" id="%s"[\s\S]*?</section>' % sid, html).group(0)
+    """The whole <section id=sid>...</section>, balanced (the Division desk nests <section> elements)."""
+    start = re.search(r'<section class="wire-sec" id="%s"' % sid, html).start()
+    depth, pos = 0, start
+    for m in re.finditer(r"<(/?)section\b", html[start:]):
+        depth += -1 if m.group(1) else 1
+        if depth == 0:
+            return html[start:start + m.end() + len(">") + html[start + m.end():].index(">")]
+    raise AssertionError(sid)
 
 
 def rows(html):
@@ -335,3 +342,51 @@ assert all(wins[x] == 0 for x in ("0001", "0007", "0008")) and all(wins[x] == 3 
 F.add("dog_pound_wins", "0", MFLW6)
 F.add("bye_week", "7", "MFL nflByeWeeks (committed: byes.json)")
 F.add("n_board", "20", "injury_wk07.json: 19 cases plus McLaurin")
+
+# ---- the common baseline: Weeks 1-6 for every team (D1 weekly scores and games, committed as season_weeks.json) ----
+SW = L("season_weeks.json")
+WSRC = "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)"
+wsc = {}
+for r in SW["scores"]:
+    wsc.setdefault(r["franchise_id"], {})[r["week"]] = r["team_score"]
+wgm = {}
+for g in SW["games"]:
+    wgm.setdefault((g["franchise_id"], g["week"]), []).append(g["result"])
+assert all(sorted(v) == [1, 2, 3, 4, 5, 6] for v in map(lambda d: sorted(d), wsc.values()))
+for f in wsc:                               # the weekly data must reproduce MFL's own standings
+    assert abs(sum(wsc[f].values()) - float(st[f]["pf"])) < 0.06
+    assert str(sum(wgm[(f, w)].count("W") for w in range(1, 7))) == st[f]["h2hw"]
+    assert str(sum(1 for w in range(1, 7) for g in wsc if g != f and wsc[g][w] < wsc[f][w])) == st[f]["all_play_wlt"].split("-")[0]
+assert all(wsc[f][6] == team[f]["score"] for f in team)
+
+
+def wap(f, w):
+    return (sum(1 for g in wsc if g != f and wsc[g][w] < wsc[f][w]), sum(1 for g in wsc if g != f and wsc[g][w] > wsc[f][w]))
+
+
+def wrank(f, w):
+    return 1 + sum(1 for g in wsc if wsc[g][w] > wsc[f][w])
+
+
+ORD = {1: "1st", 2: "2nd", 3: "3rd"}
+ordn = lambda n: ORD.get(n, "%dth" % n)
+BEAR = "0009"
+for w in range(1, 7):
+    a = wap(BEAR, w)
+    F.add("bw%d_sc" % w, f1(wsc[BEAR][w]), WSRC)
+    F.add("bw%d_rk" % w, ordn(wrank(BEAR, w)), WSRC)
+    F.add("bw%d_ap" % w, "%d–%d" % a, WSRC)
+    F.add("bw%d_h2h" % w, "%d–%d" % (wgm[(BEAR, w)].count("W"), wgm[(BEAR, w)].count("L")), WSRC)
+avg = {f: sum(v.values()) / 6 for f, v in wsc.items()}
+second = sorted(avg, key=avg.get)[-2]
+assert second == "0010"
+F.add("bear_avg", f1(avg[BEAR]), WSRC + ": points for / 6")
+F.add("blak_avg", f1(avg[second]), WSRC + ": points for / 6")
+F.add("bear_avg_gap", f1(round(avg[BEAR], 1) - round(avg[second], 1)), "derived: Bear's Weeks 1-6 average minus the next best")
+F.add("bear_pf", "{:,.1f}".format(sum(wsc[BEAR].values())), WSRC)
+F.add("bear_w26", "%d–%d" % tuple(map(sum, zip(*[wap(BEAR, w) for w in range(2, 7)]))), WSRC + ": Weeks 2-6 all-play")
+F.add("bear_w36", "%d–%d" % tuple(map(sum, zip(*[wap(BEAR, w) for w in range(3, 7)]))), WSRC + ": Weeks 3-6 all-play")
+F.add("bear_w46", "%d–%d" % tuple(map(sum, zip(*[wap(BEAR, w) for w in range(4, 7)]))), WSRC + ": Weeks 4-6 all-play (the Heat Check window)")
+assert F["bear_w46"] == F["hc_bear"] and F["bear_w36"] == "43–1" and F["bear_w26"] == "53–2"
+assert [wrank(BEAR, w) for w in range(1, 7)] == [9, 2, 1, 2, 1, 1]
+assert [wap(BEAR, w) for w in (3, 5, 6)] == [(11, 0)] * 3

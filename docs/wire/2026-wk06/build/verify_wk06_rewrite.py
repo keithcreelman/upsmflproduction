@@ -56,6 +56,44 @@ ok("no 'five teams at 9–7' wording", not re.search(r"\bfive\b[^.]{0,40}9.7", v
 ok("the wording says exactly four teams at 9–7", "exactly four teams at 9–7" in vis)
 bad = [w for w in ("colour", "defence", "labelled", "favourite", "centre") if w in vis.lower()]
 ok("American spelling", not bad, bad)
+
+# structure: balanced markup, every segment a direct child of the page wrapper, visible narrative outside every <details>
+from html.parser import HTMLParser
+VOID = {"img", "br", "hr", "meta", "link", "input", "source", "wbr", "col"}
+
+
+class Tree(HTMLParser):
+    def __init__(s):
+        super().__init__(); s.st = []; s.errs = []; s.top = []; s.sec = None; s.lt = {}; s.det = 0; s.detstack = []
+
+    def handle_starttag(s, t, a):
+        if t in VOID:
+            return
+        a = dict(a)
+        if t == "section" and "wire-sec" in (a.get("class") or ""):
+            s.top.append((a.get("id"), [x[1].get("class") for x in s.st][-1:]))
+            s.sec = a.get("id"); s.lt[s.sec] = 0
+        if t == "div" and (a.get("class") or "").startswith("lt ") and s.sec and not any(x[0] == "details" for x in s.st):
+            s.lt[s.sec] += 1
+        s.st.append((t, a))
+
+    def handle_endtag(s, t):
+        if t in VOID:
+            return
+        if s.st and s.st[-1][0] == t:
+            s.st.pop()
+        else:
+            s.errs.append((t, s.getpos()))
+            for i in range(len(s.st) - 1, -1, -1):
+                if s.st[i][0] == t:
+                    del s.st[i:]; break
+
+
+tr = Tree(); tr.feed(art)
+ok("markup is balanced (no stray or unclosed tags)", not tr.errs and not tr.st, (tr.errs[:3], [x[0] for x in tr.st[:5]]))
+ok("all ten segments are direct children of the page wrapper", all(p and "wire-wrap" in (p[0] or "") for _, p in tr.top), tr.top)
+thin = {k: v for k, v in tr.lt.items() if v < 2}
+ok("every segment has visible desk lines outside any expandable (min 2)", not thin and len(tr.lt) == 10, tr.lt)
 failed = [n for n, o, _ in res if not o]
 print("\n%d checks, %d failed" % (len(res), len(failed)))
 json.dump([dict(check=n, ok=o, detail=d) for n, o, d in res], open(os.path.join(D, "verify_wk06_rewrite.json"), "w"), indent=1)

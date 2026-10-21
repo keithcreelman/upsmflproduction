@@ -162,21 +162,28 @@ for f in team:
 S = []
 
 # 1 -- The Big Story
+BEAR_ROWS = "".join('<tr><td>Week %d</td><td class="num">{bw%d_sc}</td><td class="num">{bw%d_rk}</td><td class="num">{bw%d_ap}</td><td class="num">{bw%d_h2h}</td></tr>' % ((w,) * 5) for w in range(1, 7))
+BEAR_TAB = ('<div class="tablebox"><table><thead><tr><th>Bear Dunn</th><th>Score</th><th>League rank</th><th>All-Play</th><th>Head-to-head</th></tr></thead><tbody>'
+            + BEAR_ROWS + '<tr><td><b>Weeks 1&ndash;6</b></td><td class="num"><b>{bear_avg} avg</b></td><td class="num"></td><td class="num"><b>{ap_bear}</b></td><td class="num"><b>{rec_bear}</b></td></tr></tbody></table></div>'
+            '<p class="caption">Season to date, Weeks 1 to 6. League rank is Bear&rsquo;s score among the 12 teams that week.</p>')
 S.append(wrap("story", "The Big Story", label(1, "The Big Story", "Bear Dunn is lapping the league") + desk(
-    ("Stuart", "Six weeks in, the question in this league is no longer whether anyone can catch Bear Dunn. It is what anyone is playing for. Bear scored {sc_bear} in Week 6, the best score of the week, swept three games and beat all eleven teams in All-Play. That is the third 11&ndash;0 week in the last four, and over those four weeks Bear is {bear_4wk} against the field."),
-    ("Rich", "Bear is {rec_bear} overall and {ap_bear} against everybody. In the Dog Pound, Bear&rsquo;s division, the next two teams, Chris Klingenberg and Eric Mannila, are both {r97}. The forecast gives Bear {div_bear} to win the division and {po_bear} to make the playoffs, so the division is close to settled."),
+    ("Stuart", "Six weeks in, the question in this league is no longer whether anyone can catch Bear Dunn. It is what anyone is playing for. Start with the whole season, Weeks 1 to 6: Bear is {rec_bear}, {ap_bear} against the field, and averages {bear_avg} a week, {bear_avg_gap} more than the next-best team, Shawn Blake, at {blak_avg}.")) + BEAR_TAB + desk(
+    ("Rich", "Has Bear been dominant since Week 1? Almost. Week 1 was the one miss: {bw1_sc}, {bw1_rk} in the league and {bw1_ap} against the field. Since then it is {bear_w26} over Weeks 2 to 6, and never lower than second in scoring. Week 6 itself was {bw6_sc}, the best score of the week, a 3&ndash;0 week and {bw6_ap} against the field."),
+    ("Stuart", "And the stretch everyone is going to talk about?"),
+    ("Rich", "That is a separate measurement, a streak and not the season. Over the last four weeks, Weeks 3 to 6, Bear is {bear_w36} against the field, with a clean 11&ndash;0 in Weeks 3, 5 and 6."),
+    ("Rich", "On the standings page, the next two teams in the Dog Pound, Bear&rsquo;s division, Chris Klingenberg and Eric Mannila, are both {r97}. The forecast gives Bear {div_bear} to win the division and {po_bear} to make the playoffs, so the division is close to settled."),
     ("Stuart", "Then what is left?"),
     ("Rich", "The bye. The top two seeds skip the first round, and Bear is at {bye_bear} to take one. The other one is open: Eric Martel {bye_emar}, Brian Cutting {bye_cutt}, Shawn Blake {bye_blak}. Nobody else is above {bye_whit}."),
-    ("Kenny", "Bear&rsquo;s biggest margin of the week, {m_bear_jmar}, came against Josh Martel. Josh scored {sc_jmar}, the lowest score of the week, and also made {chat_josh} of the {chat_total} owner posts in the chat since last Thursday night, more than any other owner. Rich says correlation is not our department."),
+    ("Kenny", "In Week 6, Bear&rsquo;s biggest margin, {m_bear_jmar}, came against Josh Martel. Josh scored {sc_jmar}, the lowest score of the week, and also made {chat_josh} of the {chat_total} owner posts in the chat since last Thursday night, more than any other owner. Rich says correlation is not our department."),
     ("Stuart", "So one bye is spoken for, three teams are chasing the other, and the middle of the league is getting squeezed."))))
 
 # 2 -- The Middle Gets Squeezed
 S.append(wrap("middle", "The Middle Gets Squeezed", label(2, "The Middle Gets Squeezed", "four teams at {r97}") + desk(
     ("Stuart", "Below Bear the standings pile up. Eric Martel is {rec_emar}, Derrick Whitman is {hi6}, Brian Cutting is {r88}, and there are exactly four teams at {r97}: Shawn Blake, Keith Creelman, Chris Klingenberg and Eric Mannila."),
-    ("Rich", "Same record, four different teams. The table shows how different.")) + NINE % nine_rows + desk(
-    ("Rich", "Blake is the strongest of the four on everything except the record: {ap_blak} in All-Play and {pf_blak} points, second only to Bear. His record is {wvea_blak} wins short of what his weekly scores predict, the largest gap in the league. Mannila is the mirror image. {ap_mann} in All-Play is the worst of the four, and the record is {wvea_mann} wins better than the scores predict, the most in the league."),
+    ("Rich", "Same record, four different teams. The table shows how different.")) + NINE % nine_rows + '<p class="caption">Record, All-Play, points for and wins vs expected are season to date, Weeks 1 to 6. The last column is Week 6 alone.</p>' + desk(
+    ("Rich", "Over Weeks 1 to 6, Blake is the strongest of the four on everything except the record: {ap_blak} in All-Play and {pf_blak} points, second only to Bear. His record is {wvea_blak} wins short of what his weekly scores predict, the largest gap in the league. Mannila is the mirror image. {ap_mann} in All-Play is the worst of the four, and the record is {wvea_mann} wins better than the scores predict, the most in the league."),
     ("Stuart", "And Week 6 shows how that happens. Mannila and Klingenberg each went 3&ndash;0."),
-    ("Rich", "Against the same three teams. Ryan Bousquet, Keith Creelman and Josh Martel each played Bear, Mannila and Klingenberg, and the three of them went {dog09}. Mannila scored {sc_mann}, sixth in the league, and Klingenberg {sc_klin}, seventh. Their All-Play for the week was {ap6_mann} and {ap6_klin}. Neither scored like a team that sweeps. Both swept."),
+    ("Rich", "Against the same three teams. In Week 6, Ryan Bousquet, Keith Creelman and Josh Martel each played Bear, Mannila and Klingenberg, and the three of them went {dog09}. Mannila scored {sc_mann}, sixth in the league that week, and Klingenberg {sc_klin}, seventh. Their All-Play for Week 6 was {ap6_mann} and {ap6_klin}. Neither scored like a team that sweeps. Both swept."),
     ("Stuart", "So who is actually good?"),
     ("Rich", "Blake, first. Mannila, last. Between them, Chris Klingenberg is one All-Play win ahead of Keith Creelman, and Creelman is ahead on points. Keith also leads Maddie Mondays, which is why {po_keit} to make the playoffs is a better number than the All-Play record suggests: a division title is the way in.")) +
     det("Full standings after Week 6, and the Week 6 forecast graded", inner("landscape"))))
@@ -186,22 +193,22 @@ S.append(wrap("odds", "Playoff Picture", label(3, "Playoff Picture", "updated af
     ("Stuart", "{sims} simulated seasons, run fresh through Week 6. Rich, start with the part nobody is arguing about."),
     ("Rich", "Bear: {po_bear} to make the playoffs, {bye_bear} for a bye and {title_bear} for the title, the best title odds in the league. With the Dog Pound at {div_bear} for Bear, Klingenberg ({po_klin}) and Mannila ({po_mann}) are playing for a wild card, and wild cards go by All-Play. That is why Mannila, who is {r97} with the worst All-Play of the four, is at {po_mann} while Klingenberg, same record, is at {po_klin}."),
     ("Stuart", "Legion of Boom is the strange one. Derrick Whitman is {hi6}, a game ahead of Shawn Blake, and the forecast gives Blake the division, {div_blak} to {div_whit}."),
-    ("Rich", "The forecast plays each team&rsquo;s best lineup every week. Blake&rsquo;s best lineup averages {hl_blak}, second only to Bear&rsquo;s {hl_bear}. Whitman&rsquo;s is {hl_whit}, fifth. Whitman has the record and records count in a division race, so he keeps {div_whit}. But the 0&ndash;3 week was more a lineup problem than a talent problem, and the forecast is betting on talent."),
+    ("Rich", "The forecast plays each team&rsquo;s best lineup every week. Built from 2026 points per game with everyone healthy, Blake&rsquo;s best lineup is {hl_blak} a week, second only to Bear&rsquo;s {hl_bear}. Whitman&rsquo;s is {hl_whit}, fifth. Whitman has the record and records count in a division race, so he keeps {div_whit}. But the 0&ndash;3 week was more a lineup problem than a talent problem, and the forecast is betting on talent."),
     ("Stuart", "And Outlast PG Time?"),
-    ("Rich", "Eric Martel {div_emar}, Brian Cutting {div_cutt}. Martel is {rec_emar} and Cutting is {r88}, but Cutting&rsquo;s best lineup, {hl_cutt}, is third in the league, and the forecast has Cutting at {po_cutt} to make the playoffs and {title_cutt} to win the title, second only to Bear. Last week the forecast said good roster, bad Sundays. It still does."),
+    ("Rich", "Eric Martel {div_emar}, Brian Cutting {div_cutt}. Martel is {rec_emar} and Cutting is {r88}, but Cutting&rsquo;s best healthy lineup, {hl_cutt} a week, is third in the league, and the forecast has Cutting at {po_cutt} to make the playoffs and {title_cutt} to win the title, second only to Bear. Last week the forecast said good roster, bad Sundays. It still does."),
     ("Stuart", "Keith Creelman?"),
     ("Rich", "Keith Creelman is at {div_keit} to win Maddie Mondays and {po_keit} to make the playoffs, almost all of it through the division, which goes by record. Ryan Bousquet is at {div_bous} to win it. So Blake ({po_blak}) and Keith are the favorites for the next spots, Whitman ({po_whit}) and Klingenberg ({po_klin}) are close to coin flips, and Bousquet ({po_bous}) needs a run.")) +
     inner("odds")))
 
 # 4 -- Heat Check
-S.append(wrap("heat", "Heat Check", label(4, "Heat Check", "the season and the last three weeks") + desk(
-    ("Stuart", "Heat Check asks who is rising, who is cooling, and whether the record agrees. Start at the top. Bear Dunn is {hc_bear} against the field over Weeks 4 to 6, the only team the chart calls Dominant, and first in scoring over that stretch after ranking third in Weeks 1 to 3."),
-    ("Rich", "Shawn Blake is the opposite case. Holding, {hc_blak} over the last three weeks, third in scoring, {ap_blak} on the season, and a best lineup that ranks second in the league. Then 0&ndash;3 this week with {left_blak} points left on the bench. Losses this season that his best lineup would have won: {blw_blak}. The scores say contender. The results say otherwise."),
-    ("Stuart", "Eric Mannila and Chris Klingenberg are the mirror. Mannila is Rising: tenth in scoring over the first three weeks, sixth over the last three. Klingenberg is Holding, {hc_klin} over the last three, and slid from seventh in scoring to ninth. Both are {r97}."),
-    ("Rich", "Their records are better than their scores: {wvea_mann} wins better for Mannila, {wvea_klin} for Klingenberg. You still have to win the games you play. But those {r97} records carry more luck than Blake&rsquo;s."),
-    ("Stuart", "Then there is Keith Creelman&rsquo;s fall. {keit_w5} in Week 5, {sc_keit} in Week 6, a drop of {keit_drop}, the biggest in the league."),
+S.append(wrap("heat", "Heat Check", label(4, "Heat Check", "season to date, Weeks 1&ndash;6, and Weeks 4&ndash;6") + desk(
+    ("Stuart", "Heat Check asks who is rising, who is cooling, and whether the record agrees. It compares every team over the same two windows: the season to date, Weeks 1 to 6, and the recent stretch, Weeks 4 to 6. Start at the top. Bear Dunn is {ap_bear} on the season and {hc_bear} over Weeks 4 to 6, the only team the chart calls Dominant, and first in scoring over Weeks 4 to 6 after ranking third in Weeks 1 to 3."),
+    ("Rich", "Shawn Blake is the opposite case. Holding, {hc_blak} over Weeks 4 to 6, third in scoring over those weeks, {ap_blak} on the season, and a best lineup that ranks second in the league. Then 0&ndash;3 in Week 6 with {left_blak} points left on the bench. Losses this season that his best lineup would have won: {blw_blak}. The scores say contender. The results say otherwise."),
+    ("Stuart", "Eric Mannila and Chris Klingenberg are the mirror. Mannila is Rising: tenth in scoring over Weeks 1 to 3, sixth over Weeks 4 to 6. Klingenberg is Holding, {hc_klin} over Weeks 4 to 6, and slid from seventh in scoring to ninth. Both are {r97}."),
+    ("Rich", "Season to date, their records are better than their scores: {wvea_mann} wins better for Mannila, {wvea_klin} for Klingenberg. You still have to win the games you play. But those {r97} records carry more luck than Blake&rsquo;s."),
+    ("Stuart", "Then there is Keith Creelman&rsquo;s fall, week to week. {keit_w5} in Week 5, {sc_keit} in Week 6, a drop of {keit_drop}, the biggest in the league."),
     ("Rich", "Puka Nacua was the Week 5 engine with {nacua_w5}. In Week 6 he scored {nacua} against a projection of {nacua_w6_proj}."),
-    ("Stuart", "Eric Martel is Cooling: first in scoring over the first three weeks, fifth over the last three, though {rec_emar} and {ap_emar} still look sturdy. And at the bottom, Josh Martel is Sinking: {hc_jmar} against the field over three weeks, {ap_jmar} on the season, and {sc_jmar} in Week 6. The Survival Line has the rest.")) +
+    ("Stuart", "Eric Martel is Cooling: first in scoring over Weeks 1 to 3, fifth over Weeks 4 to 6, though {rec_emar} and {ap_emar} on the season still look sturdy. And at the bottom, Josh Martel is Sinking: {hc_jmar} against the field over Weeks 4 to 6, {ap_jmar} on the season, and {sc_jmar} in Week 6. The Survival Line has the rest.")) +
     det("The Heat Check tables", inner("heat", drop_gap=True))))
 
 # 5 -- Week 6 in Brief
@@ -253,7 +260,7 @@ S.append(wrap("players", "Player and Team Stories", label(7, "Player and Team St
     ("Stuart", "Derrick Whitman is {hi6}, went 3&ndash;0 with {sc_whit}, and the quarterback behind it was Tyler Shough with {sho}."),
     ("Rich", "In the Week 5 report, four of Whitman&rsquo;s seven wins rested on Shough. This week he decided none. Put the best legal bench option in his place, Omar Cooper Jr., and Whitman scores {whit_nosho} and still sweeps; the closest game is still a win by {whit_nosho_emar}. What Shough bought was margin."),
     ("Stuart", "So Whitman is real?"),
-    ("Rich", "Whitman is the cleanest case in the middle. The record is within {wvea_whit} wins of what the scores deserve, and a best lineup of {hl_whit} is fifth in the league. The forecast has Whitman at {po_whit} because Blake is better on paper, not because Whitman is lucky.")) +
+    ("Rich", "Whitman is the cleanest case in the middle. This season the record is within {wvea_whit} wins of what the scores deserve, and a best lineup of {hl_whit} is fifth in the league. The forecast has Whitman at {po_whit} because Blake is better on paper, not because Whitman is lucky.")) +
     h3("3. Eric Mannila gets Malik Nabers") + desk(
     ("Stuart", "Eric Mannila went 3&ndash;0 on 12 catches, 15 targets and 165 yards from Malik Nabers, {nab} points."),
     ("Rich", "Last week&rsquo;s report found that CeeDee Lamb and Bijan Robinson supplied about a third of Mannila&rsquo;s edge, and that when they combined for {mann_w5_stars} Mannila lost all three games. This week they combined for {mann_stars}. Nabers supplied the cover. Take him out for the best legal bench option, Keon Coleman at {coleman}, and Mannila still scores {mann_nonab}, at least {mann_nonab_min} ahead of every opponent. Nabers made the sweep comfortable. He did not make it possible."),
@@ -269,7 +276,7 @@ S.append(wrap("players", "Player and Team Stories", label(7, "Player and Team St
     ("Kenny", "The model still has no projection for Shawn&rsquo;s final decision. It does have Blake at {po_blak} to make the playoffs."),
     ("Rich", "And that number barely moves. Run the same simulation, same inputs and same seed with McLaurin healthy and Blake is at {blake_cfpo}. The gap is {blake_po_gap} points. What moves Blake&rsquo;s season is the calendar. In Week 7, Josh Allen, Bhayshul Tuten and Brenton Strange are on their bye, and so is Washington. Brock Purdy is the only quarterback on the active roster, and the best lineup Blake can field is {blake_wk7}, {blake_wk7gap} below normal."),
     ("Stuart", "So is Blake in trouble?"),
-    ("Rich", "Not from McLaurin. From a bye week. Blake is one of four teams at {r97}, and Blake&rsquo;s {ap_blak} All-Play is the best of the four.")))) 
+    ("Rich", "Not from McLaurin. From a bye week. Blake is one of four teams at {r97}, and Blake&rsquo;s {ap_blak} All-Play this season is the best of the four.")))) 
 
 # 8 -- Injury Watch
 S.append(wrap("injuries", "Injury Watch", label(8, "Injury Watch", "who is hurt and what it changes") + desk(
@@ -290,7 +297,7 @@ S.append(wrap("survival", "The Survival Line", label(9, "The Survival Line", "wh
     ("Stuart", "Now the bottom. Josh Martel and Matt Gerardi are both {rec_jmar}, Brian Cross is {rec_cros}, and the forecast gives them {po_jmar}, {po_gera} and {po_cros}."),
     ("Rich", "History agrees. For Josh Martel and Matt Gerardi, {svap_jmar} teams in the same All-Play spot went on to make the playoffs, and {svw_jmar} with the same win total. For Cross, {svap_cros} and {svw_cros}."),
     ("Stuart", "Josh Martel first."),
-    ("Rich", "Last in scoring at {sc_jmar}, {ap6_jmar} in All-Play for the week and {hc_jmar} over three weeks. The best lineup, {opt_jmar}, missed Mannila by {josh_miss}, so {left_jmar} points were left on the bench."),
+    ("Rich", "Last in scoring in Week 6, at {sc_jmar}, {ap6_jmar} in All-Play for the week, {hc_jmar} over Weeks 4 to 6 and {ap_jmar} on the season. The best lineup, {opt_jmar}, missed Mannila by {josh_miss}, so {left_jmar} points were left on the bench."),
     ("Kenny", "Sunday, 1:40 PM, Josh Martel: {q_josh}. MarShawn Lloyd, projected {lloyd_proj}, scored {lloyd}. The committee has reviewed the evidence."),
     ("Stuart", "Matt Gerardi?"),
     ("Rich", "{sc_gera} and 0&ndash;3, with the best bargain of the week: Matthew Golden, projected {golden_proj}, scored {golden}. Cam Skattebo and D.J. Moore both scored {skattebo}."),

@@ -15,7 +15,7 @@
   "detail": "[]"
  },
  {
-  "check": "every narrative claim names a source (206 claims)",
+  "check": "every narrative claim names a source (235 claims)",
   "ok": true,
   "detail": "[]"
  },
@@ -48,5 +48,20 @@
   "check": "American spelling",
   "ok": true,
   "detail": "[]"
+ },
+ {
+  "check": "markup is balanced (no stray or unclosed tags)",
+  "ok": true,
+  "detail": "([], [])"
+ },
+ {
+  "check": "all ten segments are direct children of the page wrapper",
+  "ok": true,
+  "detail": "[('story', ['wire-wrap uc']), ('middle', ['wire-wrap uc']), ('odds', ['wire-wrap uc']), ('heat', ['wire-wrap uc']), ('brief', ['wire-wrap uc']), ('weeks', ['wire-wrap uc']), ('players', ['wire-wrap uc']), ('injuries', ['wire-wrap uc']), ('survival', ['wire-wrap uc']), ('elias', ['wire-wrap uc'])]"
+ },
+ {
+  "check": "every segment has visible desk lines outside any expandable (min 2)",
+  "ok": true,
+  "detail": "{'story': 9, 'middle': 7, 'odds': 8, 'heat': 7, 'brief': 25, 'weeks': 15, 'players': 23, 'injuries': 10, 'survival': 9, 'elias': 2}"
  }
 ]

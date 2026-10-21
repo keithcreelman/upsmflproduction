@@ -49,20 +49,45 @@
   "source": "MFL leagueStandings (committed: st.json)",
   "value": "29–37"
  },
- "nar:bear_4wk": {
-  "shown": "43–1",
-  "source": "derived: 32–1 over Weeks 3–5 (published) plus 11–0 in Week 6",
-  "value": "43–1"
+ "nar:bear_avg": {
+  "shown": "260.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): points for / 6",
+  "value": "260.8"
+ },
+ "nar:bear_avg_gap": {
+  "shown": "24.0",
+  "source": "derived: Bear's Weeks 1-6 average minus the next best",
+  "value": "24.0"
  },
  "nar:bear_duo": {
   "shown": "59.1",
   "source": "derived: McCaffrey + Smith-Njigba, Week 6",
   "value": "59.1"
  },
+ "nar:bear_w26": {
+  "shown": "53–2",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): Weeks 2-6 all-play",
+  "value": "53–2"
+ },
+ "nar:bear_w36": {
+  "shown": "43–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): Weeks 3-6 all-play",
+  "value": "43–1"
+ },
+ "nar:bear_w46": {
+  "shown": "32–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): Weeks 4-6 all-play (the Heat Check window)",
+  "value": "32–1"
+ },
  "nar:ber": {
   "shown": "26.7",
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
   "value": "26.7"
+ },
+ "nar:blak_avg": {
+  "shown": "236.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): points for / 6",
+  "value": "236.8"
  },
  "nar:blak_swap_gain": {
   "shown": "30.6",
@@ -98,6 +123,126 @@
   "shown": "4 of 7",
   "source": "Heat Check table: losses the best lineup would have won, of all losses",
   "value": "4 of 7"
+ },
+ "nar:bw1_ap": {
+  "shown": "3–8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–8"
+ },
+ "nar:bw1_h2h": {
+  "shown": "1–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1–1"
+ },
+ "nar:bw1_rk": {
+  "shown": "9th",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "9th"
+ },
+ "nar:bw1_sc": {
+  "shown": "190.3",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "190.3"
+ },
+ "nar:bw2_ap": {
+  "shown": "10–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "10–1"
+ },
+ "nar:bw2_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw2_rk": {
+  "shown": "2nd",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "2nd"
+ },
+ "nar:bw2_sc": {
+  "shown": "281.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "281.8"
+ },
+ "nar:bw3_ap": {
+  "shown": "11–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "11–0"
+ },
+ "nar:bw3_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw3_rk": {
+  "shown": "1st",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1st"
+ },
+ "nar:bw3_sc": {
+  "shown": "254.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "254.8"
+ },
+ "nar:bw4_ap": {
+  "shown": "10–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "10–1"
+ },
+ "nar:bw4_h2h": {
+  "shown": "1–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1–1"
+ },
+ "nar:bw4_rk": {
+  "shown": "2nd",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "2nd"
+ },
+ "nar:bw4_sc": {
+  "shown": "289.9",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "289.9"
+ },
+ "nar:bw5_ap": {
+  "shown": "11–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "11–0"
+ },
+ "nar:bw5_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw5_rk": {
+  "shown": "1st",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1st"
+ },
+ "nar:bw5_sc": {
+  "shown": "280.5",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "280.5"
+ },
+ "nar:bw6_ap": {
+  "shown": "11–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "11–0"
+ },
+ "nar:bw6_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw6_rk": {
+  "shown": "1st",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1st"
+ },
+ "nar:bw6_sc": {
+  "shown": "267.3",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "267.3"
  },
  "nar:bye_bear": {
   "shown": "93.6%",
