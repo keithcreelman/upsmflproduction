@@ -101,10 +101,12 @@ ok("no Injury Watch page and no injury board", "Injury Watch" not in vis and "in
 terms = ("injured reserve", "Questionable", "Doubtful", "Achilles", "meniscus", "hamstring", "groin", "knee injury", "IR-R")
 where = {t: sorted(k for k, s in secs_all.items() if t in s) for t in terms}
 ok("injury terms appear only in Player and Team Stories", all(w in ([], ["players"]) for w in where.values()), where)
-names = ("Hurts", "Edgerrin Cooper", "Dart", "Doubs", "Lamar Jackson", "Davante Adams", "Mason Graham", "Monangai", "Deebo Samuel", "Tyler Warren", "McLaurin")
+names = ("Hurts", "Edgerrin Cooper", "Tyler Warren", "Jordan Mason")
 nodet = {m.group(1): re.sub(r"\s+", " ", VAL.visible_text("<body>" + re.sub(r"<details>[\s\S]*?</details>", "", m.group(0)))) for m in re.finditer(r'<section class="wire-sec" id="(\w+)"[\s\S]*?</section>(?=<section class="wire-sec"|<div class="wire-method")', art)}
-cnt = {n: sorted(k for k, s in nodet.items() if n in s) for n in names}
-ok("each injured player is discussed in one section, outside the folded supporting tables (McLaurin is also named in the Week 6 lineup swap)", all(len(v) <= 1 for n, v in cnt.items() if n != "McLaurin") and set(cnt["McLaurin"]) <= {"weeks", "players", "brief"}, cnt)
+cnt = {n: sorted(k for k, s in nodet.items() if n in s) for n in names + ("McLaurin",)}
+ok("each retained injury is told in one section (McLaurin is also named in the Week 6 lineup swap)", all(cnt[n] == ["players"] for n in names) and set(cnt["McLaurin"]) <= {"weeks", "players", "brief"}, cnt)
+gone = ("Dart", "Doubs", "Lamar Jackson", "Davante Adams", "Deebo Samuel", "Mason Graham", "Monangai", "Hufanga", "Etienne", "Injury fallout")
+ok("timeline gate: no stale or immaterial injury appears outside the folded tables", not [n for n in gone if any(n in s for s in nodet.values())], [n for n in gone if any(n in s for s in nodet.values())])
 failed = [n for n, o, _ in res if not o]
 print("\n%d checks, %d failed" % (len(res), len(failed)))
 json.dump([dict(check=n, ok=o, detail=d) for n, o, d in res], open(os.path.join(D, "verify_wk06_rewrite.json"), "w"), indent=1)

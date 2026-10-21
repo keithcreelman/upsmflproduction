@@ -329,11 +329,6 @@
   "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable); Week 7 byes removed and Warren out",
   "value": "171.8"
  },
- "nar:cutt_both_lu": {
-  "shown": "266.4",
-  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable); Jackson and Adams both out",
-  "value": "266.4"
- },
  "nar:diggs": {
   "shown": "17.0",
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
@@ -384,11 +379,6 @@
   "source": "derived: Bousquet, Josh Martel and Keith Creelman against Bear, Klingenberg and Mannila, Week 6",
   "value": "0–9"
  },
- "nar:ds_ppg": {
-  "shown": "14.1",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "14.1"
- },
  "nar:dsmith": {
   "shown": "21.1",
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
@@ -428,16 +418,6 @@
   "shown": "91.1",
   "source": "derived: Stroud + Walker + Penix, Week 6",
   "value": "91.1"
- },
- "nar:gera_hl": {
-  "shown": "241.5",
-  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable)",
-  "value": "241.5"
- },
- "nar:gera_inj_all": {
-  "shown": "221.6",
-  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable); Samuel out plus Graham and Monangai sitting",
-  "value": "221.6"
  },
  "nar:golden": {
   "shown": "26.4",
@@ -499,26 +479,6 @@
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
   "value": "8.4"
  },
- "nar:jd_fa": {
-  "shown": "22.4",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "22.4"
- },
- "nar:jd_fabeat": {
-  "shown": "10.3",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "10.3"
- },
- "nar:jd_ppg": {
-  "shown": "18.7",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "18.7"
- },
- "nar:jd_rep": {
-  "shown": "12.1",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "12.1"
- },
  "nar:jh_ppg": {
   "shown": "19.8",
   "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
@@ -579,11 +539,6 @@
   "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
   "value": "193.0"
  },
- "nar:km_ppg": {
-  "shown": "16.2",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "16.2"
- },
  "nar:law": {
   "shown": "39.7",
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
@@ -598,16 +553,6 @@
   "shown": "47.8",
   "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
   "value": "47.8"
- },
- "nar:lj_ppg": {
-  "shown": "24.3",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "24.3"
- },
- "nar:lj_rep": {
-  "shown": "19.8",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "19.8"
  },
  "nar:lloyd": {
   "shown": "1.0",
@@ -648,16 +593,6 @@
   "shown": "23.3",
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
   "value": "23.3"
- },
- "nar:mann_hl": {
-  "shown": "224.5",
-  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable)",
-  "value": "224.5"
- },
- "nar:mann_inj_lu": {
-  "shown": "217.9",
-  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable)",
-  "value": "217.9"
  },
  "nar:mann_nonab": {
   "shown": "181.7",
@@ -713,11 +648,6 @@
   "shown": "3.9",
   "source": "MFL weeklyResults W6 (committed: wr6.json)",
   "value": "3.9"
- },
- "nar:mg_ppg": {
-  "shown": "13.0",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "13.0"
  },
  "nar:mtaylor": {
   "shown": "9.5",
@@ -953,21 +883,6 @@
   "shown": "9–7",
   "source": "MFL leagueStandings (committed: st.json)",
   "value": "9–7"
- },
- "nar:rodg_w4": {
-  "shown": "27.2",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "27.2"
- },
- "nar:rodg_w5": {
-  "shown": "29.8",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "29.8"
- },
- "nar:rodg_w6": {
-  "shown": "18.6",
-  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
-  "value": "18.6"
  },
  "nar:sc_bear": {
   "shown": "267.3",

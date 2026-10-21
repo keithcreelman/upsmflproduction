@@ -15,7 +15,7 @@
   "detail": "[]"
  },
  {
-  "check": "every narrative claim names a source (237 claims)",
+  "check": "every narrative claim names a source (220 claims)",
   "ok": true,
   "detail": "[]"
  },
@@ -62,7 +62,7 @@
  {
   "check": "every segment has visible desk lines outside any expandable (min 2)",
   "ok": true,
-  "detail": "{'story': 9, 'middle': 7, 'odds': 8, 'heat': 7, 'brief': 25, 'weeks': 15, 'players': 33, 'survival': 9, 'elias': 2}"
+  "detail": "{'story': 9, 'middle': 7, 'odds': 8, 'heat': 7, 'brief': 25, 'weeks': 15, 'players': 27, 'survival': 9, 'elias': 2}"
  },
  {
   "check": "no Injury Watch page and no injury board",
@@ -72,11 +72,16 @@
  {
   "check": "injury terms appear only in Player and Team Stories",
   "ok": true,
-  "detail": "{'injured reserve': ['players'], 'Questionable': ['players'], 'Doubtful': [], 'Achilles': ['players'], 'meniscus': ['players'], 'hamstring': ['players'], 'groin': ['players'], 'knee injury': ['players'], 'IR-R': ['players']}"
+  "detail": "{'injured reserve': ['players'], 'Questionable': ['players'], 'Doubtful': [], 'Achilles': ['players'], 'meniscus': [], 'hamstring': [], 'groin': ['players'], 'knee injury': ['players'], 'IR-R': []}"
  },
  {
-  "check": "each injured player is discussed in one section, outside the folded supporting tables (McLaurin is also named in the Week 6 lineup swap)",
+  "check": "each retained injury is told in one section (McLaurin is also named in the Week 6 lineup swap)",
   "ok": true,
-  "detail": "{'Hurts': ['players'], 'Edgerrin Cooper': ['players'], 'Dart': ['players'], 'Doubs': ['players'], 'Lamar Jackson': ['players'], 'Davante Adams': ['players'], 'Mason Graham': ['players'], 'Monangai': ['players'], 'Deebo Samuel': ['players'], 'Tyler Warren': ['players'], 'McLaurin': ['players', 'weeks']}"
+  "detail": "{'Hurts': ['players'], 'Edgerrin Cooper': ['players'], 'Tyler Warren': ['players'], 'Jordan Mason': ['players'], 'McLaurin': ['players', 'weeks']}"
+ },
+ {
+  "check": "timeline gate: no stale or immaterial injury appears outside the folded tables",
+  "ok": true,
+  "detail": "[]"
  }
 ]
