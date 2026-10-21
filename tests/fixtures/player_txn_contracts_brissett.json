@@ -1,0 +1,390 @@
+{
+ "_about": "Jacoby Brissett (12616): /api/player-transactions events as the route emitted them on 2026-10-20 (comments stripped; contracts = the old per-season attachment), his src_contracts rows from /api/player-bundle contract_history, and MFL TYPE=auctionResults rows for him per season (read 2026-10-21). 2026-07-17 ,000 is a test lot (not in auctionResults); 2026-07-29 ,000 is the real win.",
+ "pid": "12616",
+ "events": [
+  {
+   "season": 2019,
+   "ts": 1566870026,
+   "date": "2019-08-27",
+   "kind": "auction",
+   "label": "Auction Won",
+   "detail": "$4,000",
+   "franchise_id": "0012",
+   "contract": {
+    "canonical_type": "Vet-FAA",
+    "cl": 1,
+    "tcv": 4000,
+    "aav": 4000,
+    "years": [
+     4000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Hawks",
+   "seq": 1
+  },
+  {
+   "season": 2020,
+   "ts": 1584498376,
+   "date": "2020-03-18",
+   "kind": "drop",
+   "label": "Dropped",
+   "detail": "",
+   "franchise_id": "0012",
+   "franchise_name": "Hawks",
+   "seq": 2
+  },
+  {
+   "season": 2022,
+   "ts": 1659455526,
+   "date": "2022-08-02",
+   "kind": "auction",
+   "label": "Auction Won",
+   "detail": "$6,000",
+   "franchise_id": "0001",
+   "contract": {
+    "canonical_type": "Vet-FAA-WW",
+    "cl": 1,
+    "tcv": 1000,
+    "aav": 1000,
+    "years": [
+     1000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Ulterior Warrior",
+   "seq": 3
+  },
+  {
+   "season": 2022,
+   "ts": 1668961823,
+   "date": "2022-11-20",
+   "kind": "trade",
+   "label": "Traded",
+   "detail": "",
+   "franchise_id": "0003",
+   "from_franchise_id": "0001",
+   "contract": {
+    "canonical_type": "Vet-WW",
+    "cl": 1,
+    "tcv": 1000,
+    "aav": 1000,
+    "years": [
+     1000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Gride",
+   "from_franchise_name": "Ulterior Warrior",
+   "seq": 4
+  },
+  {
+   "season": 2022,
+   "ts": 1669903200,
+   "date": "2022-12-01",
+   "kind": "drop",
+   "label": "Dropped (waiver)",
+   "detail": "",
+   "franchise_id": "0003",
+   "franchise_name": "Gride",
+   "seq": 5
+  },
+  {
+   "season": 2023,
+   "ts": 1691250217,
+   "date": "2023-08-05",
+   "kind": "auction",
+   "label": "Auction Won",
+   "detail": "$5,000",
+   "franchise_id": "0009",
+   "contract": {
+    "canonical_type": "Vet-FAA",
+    "cl": 1,
+    "tcv": 5000,
+    "aav": 5000,
+    "years": [
+     5000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "C-Town Chivalry",
+   "seq": 6
+  },
+  {
+   "season": 2024,
+   "ts": 1722225954,
+   "date": "2024-07-29",
+   "kind": "auction",
+   "label": "Auction Won",
+   "detail": "$3,000",
+   "franchise_id": "0008",
+   "contract": {
+    "canonical_type": "Vet-FAA-WW",
+    "cl": 1,
+    "tcv": 1000,
+    "aav": 1000,
+    "years": [
+     1000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Real Deal Creel",
+   "seq": 7
+  },
+  {
+   "season": 2024,
+   "ts": 1725541200,
+   "date": "2024-09-05",
+   "kind": "add",
+   "label": "Waiver Claim",
+   "detail": "$4,000",
+   "franchise_id": "0005",
+   "contract": {
+    "canonical_type": "Vet-WW-WW",
+    "cl": 1,
+    "tcv": 1000,
+    "aav": 1000,
+    "years": [
+     1000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "HammerTime \ud83d\udd28 \u23f0",
+   "seq": 8
+  },
+  {
+   "season": 2024,
+   "ts": 1727616319,
+   "date": "2024-09-29",
+   "kind": "add",
+   "label": "Free Agent Add",
+   "detail": "",
+   "franchise_id": "0004",
+   "contract": {
+    "canonical_type": "Vet-WW-WW",
+    "cl": 1,
+    "tcv": 1000,
+    "aav": 1000,
+    "years": [
+     1000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Pure Greatness",
+   "seq": 9
+  },
+  {
+   "season": 2024,
+   "ts": 1730466000,
+   "date": "2024-11-01",
+   "kind": "add",
+   "label": "Waiver Claim",
+   "detail": "$1,000",
+   "franchise_id": "0004",
+   "contract": {
+    "canonical_type": "Vet-WW-WW",
+    "cl": 1,
+    "tcv": 1000,
+    "aav": 1000,
+    "years": [
+     1000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Pure Greatness",
+   "seq": 10
+  },
+  {
+   "season": 2024,
+   "ts": 1730552400,
+   "date": "2024-11-02",
+   "kind": "drop",
+   "label": "Dropped (waiver)",
+   "detail": "",
+   "franchise_id": "0004",
+   "franchise_name": "Pure Greatness",
+   "seq": 11
+  },
+  {
+   "season": 2025,
+   "ts": 1760101200,
+   "date": "2025-10-10",
+   "kind": "add",
+   "label": "Waiver Claim",
+   "detail": "$5,000",
+   "franchise_id": "0010",
+   "contract": null,
+   "franchise_name": "Blake Bombers",
+   "seq": 12
+  },
+  {
+   "season": 2026,
+   "ts": 1784305186,
+   "date": "2026-07-17",
+   "kind": "auction",
+   "label": "Auction Won",
+   "detail": "$12,000",
+   "franchise_id": "0008",
+   "contract": {
+    "canonical_type": "Vet-FAA",
+    "cl": 1,
+    "tcv": 13000,
+    "aav": 13000,
+    "years": [
+     13000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Real Deal Creel",
+   "seq": 13
+  },
+  {
+   "season": 2026,
+   "ts": 1785328213,
+   "date": "2026-07-29",
+   "kind": "auction",
+   "label": "Auction Won",
+   "detail": "$13,000",
+   "franchise_id": "0008",
+   "contract": {
+    "canonical_type": "Vet-FAA",
+    "cl": 1,
+    "tcv": 13000,
+    "aav": 13000,
+    "years": [
+     13000
+    ],
+    "confidence": "ok"
+   },
+   "franchise_name": "Real Deal Creel",
+   "seq": 14
+  }
+ ],
+ "srcBySeason": {
+  "2026": {
+   "season": 2026,
+   "franchise_id": "0008",
+   "contract_length": 1,
+   "tcv": 13000,
+   "aav": 13000,
+   "contract_status": "Vet-FAA"
+  },
+  "2024": {
+   "season": 2024,
+   "franchise_id": "0005",
+   "contract_length": 1,
+   "tcv": 1000,
+   "aav": 1000,
+   "contract_status": "WW"
+  },
+  "2023": {
+   "season": 2023,
+   "franchise_id": "0009",
+   "contract_length": 1,
+   "tcv": 5000,
+   "aav": 5000,
+   "contract_status": "Veteran"
+  },
+  "2022": {
+   "season": 2022,
+   "franchise_id": "0001",
+   "contract_length": 1,
+   "tcv": 1000,
+   "aav": 1000,
+   "contract_status": "WW"
+  },
+  "2020": {
+   "season": 2020,
+   "franchise_id": "",
+   "contract_length": 0,
+   "tcv": 0,
+   "aav": 0,
+   "contract_status": ""
+  },
+  "2019": {
+   "season": 2019,
+   "franchise_id": "0012",
+   "contract_length": 1,
+   "tcv": 4000,
+   "aav": 4000,
+   "contract_status": "Veteran"
+  }
+ },
+ "auctionResultsBySeason": {
+  "2019": {
+   "auctionResults": {
+    "auctionUnit": {
+     "auction": [
+      {
+       "winningBid": "4000",
+       "player": "12616",
+       "franchise": "0012",
+       "timeStarted": "1566732620",
+       "lastBidTime": "1566783035"
+      }
+     ]
+    }
+   }
+  },
+  "2022": {
+   "auctionResults": {
+    "auctionUnit": {
+     "auction": [
+      {
+       "lastBidTime": "1659368937",
+       "timeStarted": "1659368937",
+       "franchise": "0001",
+       "player": "12616",
+       "winningBid": "6000"
+      }
+     ]
+    }
+   }
+  },
+  "2023": {
+   "auctionResults": {
+    "auctionUnit": {
+     "auction": [
+      {
+       "lastBidTime": "1691163205",
+       "timeStarted": "1691099161",
+       "player": "12616",
+       "franchise": "0009",
+       "winningBid": "5000"
+      }
+     ]
+    }
+   }
+  },
+  "2024": {
+   "auctionResults": {
+    "auctionUnit": {
+     "auction": [
+      {
+       "player": "12616",
+       "franchise": "0008",
+       "timeStarted": "1722139477",
+       "lastBidTime": "1722139477",
+       "winningBid": "3000"
+      }
+     ]
+    }
+   }
+  },
+  "2026": {
+   "auctionResults": {
+    "auctionUnit": {
+     "auction": [
+      {
+       "winningBid": "13000",
+       "lastBidTime": "1785241683",
+       "timeStarted": "1785090032",
+       "franchise": "0008",
+       "player": "12616"
+      }
+     ]
+    }
+   }
+  }
+ }
+}

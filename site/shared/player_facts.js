@@ -15,7 +15,9 @@
   "use strict";
 
   function str(v) { return v == null ? "" : String(v).trim(); }
-  function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
+  // Points/PPG text: the ONE shared formatter, site/m/season_scoring.js fmt1 (decimal half-up: 19.35 → 19.4),
+  // the same function the phone uses. This module already needs that file for every number it reports.
+  function fmt1(v) { var SS = root.UPS_MOBILE_SEASON_SCORING; return SS && SS.fmt1 ? SS.fmt1(v) : String(v); }
   // "9:38 AM" (viewer's clock) for a read time; "" when unknown.
   function clockLabel(ms) {
     if (!(ms > 0)) return "";

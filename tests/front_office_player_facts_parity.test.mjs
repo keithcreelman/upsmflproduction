@@ -124,7 +124,8 @@ test("Front Office uses the shared facts: no private chip letters, no return dat
   t.ok(/injuryChipHtml\(p\)/.test(sliceFn(FO, "function slideoverTitleHtml(")), "panel title uses the shared chip");
   t.ok(/slideoverInjuryHtml\(p\)/.test(sliceFn(FO, "function openSlideover(")), "panel shows the disagreement box");
   const stats = sliceFn(FO, "async function renderStatsTab(");
-  t.ok(/foSeasonFacts\(p\)/.test(stats) && /!== cur/.test(stats), "this season from MFL; the database copy only for earlier seasons");
+  // #1338 Phase 1: the table is built by UPS_FO_MODAL.seasonRows, which skips the database's copy of the current season.
+  t.ok(/foSeasonFacts\(p\)/.test(stats) && /if \(!yr \|\| yr === season\) return;/.test(read("site/rosters/v2/fo_player_modal.js")), "this season from MFL; the database copy only for earlier seasons");
   const actions = sliceFn(FO, "function renderActionsTab(");
   t.ok(/pad4\(p\.fid\) !== viewerFid/.test(actions), "another team's player gets no contract/roster buttons");
 });
