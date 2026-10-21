@@ -1402,7 +1402,8 @@
     }
     @media (max-width: 400px) {
       .lg-table .team-logo { display: none; }
-      .lg-table th { letter-spacing: 0.02em; font-size: 10px; }
+      .lg-table th { letter-spacing: 0.02em; font-size: 10px; white-space: normal; }
+      .lg-table .seed-cell { grid-template-columns: auto; row-gap: 2px; justify-items: start; }   /* seed above its chip */
       .fp-row { grid-template-columns: repeat(12, minmax(0, 1fr)); }
       .fp-row .fp-name { grid-column: 1 / -1; padding-top: 4px; }
       .fp-head .fp-name { display: none; }
