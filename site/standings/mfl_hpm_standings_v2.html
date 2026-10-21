@@ -1392,8 +1392,10 @@
     @media (max-width: 900px) {
       .pic-grid { grid-template-columns: minmax(0, 1fr); }
     }
+    .lg-narrow-note { display: none; }
     @media (max-width: 560px) {
-      .fc-wide { display: none; }
+      .fc-wide, .lg-wide { display: none; }
+      .lg-narrow-note { display: block; }
       .fp-row { grid-template-columns: repeat(12, minmax(0, 1fr)); }
       .fp-row .fp-name { grid-column: 1 / -1; padding-top: 4px; }
       .fp-head .fp-name { display: none; }
@@ -1415,7 +1417,7 @@
       <header class="head">
         <div>
           <div class="title">UPS Standings</div>
-          <div class="sub">Playoff picture · divisions · weekly scores · league history</div>
+          <div class="sub">Full league · divisions · playoff picture · forecast · league history</div>
           <div class="hist-warn" id="histWarn" role="status" hidden>
             <strong>Heads up:</strong> historical data is still being reviewed for accuracy and may not be fully correct yet.
           </div>
@@ -2477,21 +2479,25 @@
       return validDetail(c.standingsForecast, sim) ? { detail: c.standingsForecast } : { detail: null, why: "they’re incomplete in this forecast" };
     }, function () { return { detail: null, why: "their file couldn’t be loaded" }; });
   }
-  // The forecast must start where the standings are: every team's score in its last week and All-Play W-L-T through
-  // it, from the same weekly scores Full League and Weekly use; for the current week, also the Full League totals.
-  // Returns the differences ([] = it reconciles).
-  function forecastMismatches(sim, resp) {
-    var W = Number(sim.throughWeek), by = {}, out = [];
+  // The forecast must start where the standings are, from the same weekly scores Full League and Weekly use: every
+  // team's All-Play W-L-T through its last week (for the current week, also the Full League totals) and every H2H
+  // result of that week. → { hard: [...], corrections: [...] }. Any hard difference refuses the forecast. A score that
+  // changed after the run (a stat correction) without changing any of those results is a correction, shown in a note.
+  function forecastReconcile(sim, resp) {
+    var W = Number(sim.throughWeek), by = {}, out = [], corr = [];
     var rowsBy = rowsByFid(resp.rows);
     var fids = sim.teams.map(function (t) { return pad4(t.franchiseId); });
-    if (fids.length !== (resp.rows || []).length || fids.some(function (f) { return !rowsBy[f]; })) return ["the forecast’s teams aren’t this season’s teams"];
-    if (!Array.isArray(resp.weeklyScores)) return ["the weekly scores couldn’t be read"];
+    function hard(msg) { return { hard: [msg], corrections: [] }; }
+    if (fids.length !== (resp.rows || []).length || fids.some(function (f) { return !rowsBy[f]; })) return hard("the forecast’s teams aren’t this season’s teams");
+    if (!Array.isArray(resp.weeklyScores) || !Array.isArray(resp.weekly)) return hard("the weekly scores couldn’t be read");
     resp.weeklyScores.forEach(function (s) {
       if (s && Number(s.po) === 0 && Number(s.w) >= 1 && Number(s.w) <= W) (by[s.w] = by[s.w] || {})[pad4(s.fid)] = Number(s.ts);
     });
     for (var w = 1; w <= W; w++) {
-      if (!by[w] || fids.some(function (f) { return !(by[w][f] >= 0); })) return ["Week " + w + "’s scores are incomplete"];
+      if (!by[w] || fids.some(function (f) { return !(by[w][f] >= 0); })) return hard("Week " + w + "’s scores are incomplete");
     }
+    var simScore = {};
+    sim.teams.forEach(function (t) { simScore[pad4(t.franchiseId)] = Number(t.weekScore); });
     var current = W === Number((resp.regular_season || {}).through_week);
     sim.teams.forEach(function (t) {
       var f = pad4(t.franchiseId), aw = 0, al = 0, at = 0;
@@ -2503,11 +2509,19 @@
       }
       var name = nameOf(rowsBy[f]);
       if (aw !== t.currentApWins || al !== t.currentApLosses || at !== t.currentApTies) out.push(name + ": All-Play " + rec(aw, al, at) + " here, " + rec(t.currentApWins, t.currentApLosses, t.currentApTies) + " in the forecast");
-      if (Math.abs(by[W][f] - Number(t.weekScore)) > 0.051) out.push(name + ": Week " + W + " score " + by[W][f] + " here, " + t.weekScore + " in the forecast");
+      if (Math.abs(by[W][f] - simScore[f]) > 0.051) corr.push(name + " Week " + W + ": " + simScore[f].toFixed(1) + " → " + by[W][f].toFixed(1));
       var r = rowsBy[f];
       if (current && (r.allplay_w !== aw || r.allplay_l !== al || r.allplay_t !== at)) out.push(name + ": Full League All-Play " + rec(r.allplay_w, r.allplay_l, r.allplay_t) + ", weekly scores " + rec(aw, al, at));
     });
-    return out;
+    // Week W's H2H results under the forecast's scores must be the standings' results.
+    resp.weekly.forEach(function (g) {
+      if (!g || Number(g.w) !== W || Number(g.po) !== 0) return;
+      var a = pad4(g.fid), b = pad4(g.opp);
+      if (!(a in simScore) || !(b in simScore)) return;
+      var here = Math.sign(Number(g.ts) - Number(g.os)), there = Math.sign(simScore[a] - simScore[b]);
+      if (here !== there && a < b) out.push(nameOf(rowsBy[a]) + " v " + nameOf(rowsBy[b]) + ", Week " + W + ": the result differs");
+    });
+    return { hard: out, corrections: out.length ? [] : corr };
   }
   function fcPct(p) {
     if (p == null || isNaN(p)) return "—";
@@ -2707,7 +2721,7 @@
   }
   function drawForecast(host, resp, cur, prev, det) {
     var W = Number((resp.regular_season || {}).through_week);
-    var bad = forecastMismatches(cur, resp);
+    var recon = forecastReconcile(cur, resp), bad = recon.hard;
     if (bad.length) {
       host.innerHTML = fcBarHtml(cur, "") + '<div class="err-box" role="alert"><b>The Week ' + cur.throughWeek + ' forecast doesn’t start from these standings, so it isn’t shown.</b>'
         + '<span class="psub">' + escapeHtml(bad.slice(0, 3).join(" · ") + (bad.length > 3 ? " · and " + (bad.length - 3) + " more" : "")) + '</span></div>';
@@ -2724,8 +2738,10 @@
     else if (view === "finals") body = fcFinalsHtml(m);
     else if (view === "movement") body = fcMovementHtml(m);
     else body = fcTilesHtml(m) + fcOutlookHtml(m);
-    host.innerHTML = fcBarHtml(cur, fcNavHtml()) + stale + missing + body
-      + '<div class="note fc-recon">Starts from the Week ' + cur.throughWeek + ' standings: all ' + cur.teams.length + ' teams’ scores and All-Play match the Weekly' + (Number(cur.throughWeek) === W ? ' and Full League' : '') + ' views.</div>';
+    var reconNote = recon.corrections.length
+      ? 'Starts from the Week ' + cur.throughWeek + ' standings. It ran before a stat correction (' + recon.corrections.join("; ") + '); no win, loss or All-Play result changed.'
+      : 'Starts from the Week ' + cur.throughWeek + ' standings: all ' + cur.teams.length + ' teams’ scores and All-Play match the Weekly' + (Number(cur.throughWeek) === W ? ' and Full League' : '') + ' views.';
+    host.innerHTML = fcBarHtml(cur, fcNavHtml()) + stale + missing + body + '<div class="note fc-recon">' + escapeHtml(reconNote) + '</div>';
     host.querySelectorAll("[data-fcview]").forEach(function (b) {
       b.disabled = !m.hasDetail && (b.getAttribute("data-fcview") === "places" || b.getAttribute("data-fcview") === "finals");
       b.addEventListener("click", function () { state.fcview = b.getAttribute("data-fcview"); pushQs(); drawForecast(host, resp, cur, prev, det); notifyHeight(); });
@@ -2839,8 +2855,10 @@
   // Column sets for the Show control. Scored = what each lineup put up; Opponent = what opponents scored (schedule, not
   // skill — never called a defense: in UPS, MFL's IDP points are scored by your own players); Overall = the standings.
   // No division columns here (#1329 decision 2: the Divisions tab has them).
+  // cls "lg-wide": a secondary column, hidden at phone widths (≤560px) so the table never scrolls sideways.
   function leagueColumns(show, ctx) {
     var cols = [];
+    var W = "lg-wide";
     function c(label, key, num, cell, title, cls) { cols.push({ label: label, key: key, num: num, cell: cell, title: title, cls: cls }); }
     var raceData = ctx.raceData, resp = ctx.resp;
     // One Seed cell: the seed (H1-H6 outside the field) and, in season, the BYE / DIV / WC chip beside it. projected =
@@ -2856,32 +2874,32 @@
         + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span>';
     });
     if (show === "scored") {
-      c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For");
+      c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For", W);
       c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)");
       c("PF rank", "_pfRank", true, function (r) { return r._pfRank ? ordinal(r._pfRank) : "—"; }, "1 = most Points For");
-      c("Avg wk rank", "_avgRank", true, function (r) { return fmtDec(r._avgRank, 1); }, "Average weekly scoring rank (1 = highest score that week)");
-      c("Best week", "_best", true, function (r) { return r._bestW ? "W" + r._bestW.week + " " + fmtPts(r._bestW.score) : "—"; });
-      c("Worst week", "_worst", true, function (r) { return r._worstW ? "W" + r._worstW.week + " " + fmtPts(r._worstW.score) : "—"; });
-      c("Last 3 avg rank", "_l3Rank", true, function (r) { return fmtDec(r._l3Rank, 1); }, "Average weekly scoring rank over the last three regular-season weeks (descriptive)");
+      c("Avg wk rank", "_avgRank", true, function (r) { return fmtDec(r._avgRank, 1); }, "Average weekly scoring rank (1 = highest score that week)", W);
+      c("Best week", "_best", true, function (r) { return r._bestW ? "W" + r._bestW.week + " " + fmtPts(r._bestW.score) : "—"; }, null, W);
+      c("Worst week", "_worst", true, function (r) { return r._worstW ? "W" + r._worstW.week + " " + fmtPts(r._worstW.score) : "—"; }, null, W);
+      c("Last 3 avg rank", "_l3Rank", true, function (r) { return fmtDec(r._l3Rank, 1); }, "Average weekly scoring rank over the last three regular-season weeks (descriptive)", W);
       return cols;
     }
     if (show === "opponent") {
       c("Opp. pts/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Points your opponents scored per head-to-head game");
       c("Rank", "_paRank", true, function (r) { return r._paRank ? ordinal(r._paRank) : "—"; }, "1 = opponents scored the most points per game");
-      c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you");
-      c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)");
+      c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you", W);
+      c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)", W);
       return cols;
     }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
-    c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T");
+    c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); });
     if (ctx.current && !ctx.scoped) c("WC Back", "_back", true, function (r) { return r._back == null ? "—" : String(r._back); }, "All-Play wins behind the last wild card (division winners are protected)");
-    c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For");
-    c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)");
-    c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game");
+    c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For", W);
+    c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)", W);
+    c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game", W);
     if (!ctx.scoped) {
-      c("Exp. W", "_xw", true, function (r) { return fmtDec(r._xw, 1); }, "Expected wins: for each game, the share of the league you outscored that week");
-      c("Luck", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + fmtSigned(r._luck) + '</span>'; }, "Schedule luck: actual wins minus expected wins");
+      c("Exp. W", "_xw", true, function (r) { return fmtDec(r._xw, 1); }, "Expected wins: for each game, the share of the league you outscored that week", W);
+      c("Luck", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + fmtSigned(r._luck) + '</span>'; }, "Schedule luck: actual wins minus expected wins", W);
     }
     return cols;
   }
@@ -2973,7 +2991,7 @@
     }
     var cols = leagueColumns(state.show, ctx);
     var head = '<tr>' + cols.map(function (col) {
-      var th = col.key ? sortableHeader(col.label, col.key, sortHdrs, col.num ? "num" : null, col.title) : '<th scope="col"' + (col.title ? ' title="' + escapeHtml(col.title) + '"' : '') + '>' + escapeHtml(col.label) + '</th>';
+      var th = col.key ? sortableHeader(col.label, col.key, sortHdrs, col.num ? "num" : null, col.title) : '<th class="" scope="col"' + (col.title ? ' title="' + escapeHtml(col.title) + '"' : '') + '>' + escapeHtml(col.label) + '</th>';
       return col.cls ? th.replace('<th class="', '<th class="' + col.cls + ' ') : th;
     }).join("") + '</tr>';
     var colCount = cols.length;
@@ -2983,7 +3001,7 @@
       var isYou = VIEWER_FID && fid === VIEWER_FID;
       var rowAttrs = (isYou ? ' class="you-row race-row"' : ' class="race-row"')
         + (!scoped ? ' tabindex="0" role="button" aria-expanded="false" data-fid="' + fid + '"' : '');
-      bodyParts.push('<tr' + rowAttrs + '>' + cols.map(function (col) { return '<td' + (col.num ? ' class="num"' : (col.cls ? ' class="' + col.cls + '"' : '')) + '>' + col.cell(r) + '</td>'; }).join("") + '</tr>');
+      bodyParts.push('<tr' + rowAttrs + '>' + cols.map(function (col) { var k = (col.num ? "num" : "") + (col.num && col.cls ? " " : "") + (col.cls || ""); return '<td' + (k ? ' class="' + k + '"' : '') + '>' + col.cell(r) + '</td>'; }).join("") + '</tr>');
       if (!scoped) bodyParts.push(buildDisclosureHtml(resp, raceData, sf, fid, colCount, { finished: finished, fin: fins ? fins[fid] : null }).replace('<tr class="disclosure-row">', '<tr class="disclosure-row" hidden data-for="' + fid + '">'));
       if (canonicalSeedOrder && showRace) {
         if (Number(r.playoff_seed) === 2) bodyParts.push('<tr class="seed-divider"><td colspan="' + colCount + '"></td></tr>');
@@ -3005,6 +3023,7 @@
     var colNote = state.show === "opponent"
       ? '<p class="col-note"><strong>Opponent: schedule, not skill.</strong> What your opponents scored against you in the regular season; rank 1 = opponents scored the most per game.</p>'
       : (state.show === "scored" ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>' : '');
+    noteBits.push('<div class="note lg-narrow-note">On a narrow screen the main columns show; a wider window adds the rest.</div>');
     host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + tkoFootnote(resp) + DEFERRED_NOTE;
     wireSortClicks(host, state.overall, function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
     wireDisclosureToggles(host);
