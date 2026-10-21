@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-10-21T23:40:11.068Z",
+    "updated_at": "2026-10-21T23:50:47.883Z",
     "row_count": 68,
     "source": "worker-trade-offers"
   },
@@ -12667,28 +12667,28 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-10-21T23:40:11.068Z",
-      "updated_at": "2026-10-21T23:40:11.068Z",
+      "updated_at": "2026-10-21T23:50:47.883Z",
       "from_franchise_id": "0002",
       "to_franchise_id": "0006",
       "from_franchise_name": "CBP",
       "to_franchise_name": "The Long Haulers",
-      "message": "",
-      "comment": "",
-      "comments": "",
-      "raw_comment": "",
-      "will_give_up": "17544,16184,16696,FP_0002_2027_5",
-      "will_receive": "16175,15972,BB_7000",
+      "message": "Looking for Cap relief in the deal so I still have flexibility on the waiver wire. Willing to do a 3rd instead.",
+      "comment": "Looking for Cap relief in the deal so I still have flexibility on the waiver wire. Willing to do a 3rd instead.",
+      "comments": "Looking for Cap relief in the deal so I still have flexibility on the waiver wire. Willing to do a 3rd instead.",
+      "raw_comment": "Looking for Cap relief in the deal so I still have flexibility on the waiver wire. Willing to do a 3rd instead.",
+      "will_give_up": "17544,16184,16696,FP_0002_2027_3",
+      "will_receive": "16175,15972,BB_9000",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 4,
         "to_asset_count": 2,
         "from_trade_salary_k": 0,
-        "to_trade_salary_k": 7,
+        "to_trade_salary_k": 9,
         "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-10-21T23:40:06.466Z",
+        "generated_at": "2026-10-21T23:50:42.562Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -12753,11 +12753,11 @@
                 "pick_slot": null
               },
               {
-                "asset_id": "pick:FP_0002_2027_5",
+                "asset_id": "pick:FP_0002_2027_3",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2027 5th",
+                "description": "2027 3rd",
                 "position": null,
                 "nfl_team": null,
                 "salary": 0,
@@ -12765,9 +12765,9 @@
                 "contract_type": "Pick",
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": "FP_0002_2027_5",
+                "pick_key": "FP_0002_2027_3",
                 "pick_season": 2027,
-                "pick_round": 5,
+                "pick_round": 3,
                 "pick_slot": null
               }
             ],
@@ -12818,8 +12818,8 @@
                 "pick_slot": null
               }
             ],
-            "traded_salary_adjustment_dollars": 7000,
-            "traded_salary_adjustment_k": 7,
+            "traded_salary_adjustment_dollars": 9000,
+            "traded_salary_adjustment_k": 9,
             "traded_salary_adjustment_max_k": 9,
             "selected_non_taxi_salary_dollars": 18000
           }
@@ -12841,15 +12841,15 @@
             "salary_adjustment_total_dollars": 4000,
             "outgoing_dollars": 14000,
             "incoming_dollars": 11000,
-            "salary_trade_adjustment_dollars": -7000,
-            "net_salary_adjustment_dollars": -10000,
-            "new_salary_dollars": 285500,
+            "salary_trade_adjustment_dollars": -9000,
+            "net_salary_adjustment_dollars": -12000,
+            "new_salary_dollars": 283500,
             "trade_salary_adjustment_k": 0,
             "trade_salary_adjustment_max_k": 14,
-            "net_trade_salary_k": -7,
-            "net_cap_change_dollars": 10000,
+            "net_trade_salary_k": -9,
+            "net_cap_change_dollars": 12000,
             "available_salary_before_dollars": 500,
-            "available_salary_after_dollars": 10500,
+            "available_salary_after_dollars": 12500,
             "over_cap_dollars": 0
           },
           "right": {
@@ -12860,15 +12860,15 @@
             "salary_adjustment_total_dollars": 3500,
             "outgoing_dollars": 11000,
             "incoming_dollars": 14000,
-            "salary_trade_adjustment_dollars": 7000,
-            "net_salary_adjustment_dollars": 10000,
-            "new_salary_dollars": 266000,
-            "trade_salary_adjustment_k": 7,
+            "salary_trade_adjustment_dollars": 9000,
+            "net_salary_adjustment_dollars": 12000,
+            "new_salary_dollars": 268000,
+            "trade_salary_adjustment_k": 9,
             "trade_salary_adjustment_max_k": 9,
-            "net_trade_salary_k": 7,
-            "net_cap_change_dollars": -10000,
+            "net_trade_salary_k": 9,
+            "net_cap_change_dollars": -12000,
             "available_salary_before_dollars": 40500,
-            "available_salary_after_dollars": 30500,
+            "available_salary_after_dollars": 28500,
             "over_cap_dollars": 0
           },
           "has_over_cap": false
@@ -12881,11 +12881,11 @@
             {
               "season": 2026,
               "left_before_dollars": 295500,
-              "left_after_dollars": 285500,
-              "left_change_dollars": -10000,
+              "left_after_dollars": 283500,
+              "left_change_dollars": -12000,
               "right_before_dollars": 256000,
-              "right_after_dollars": 266000,
-              "right_change_dollars": 10000
+              "right_after_dollars": 268000,
+              "right_change_dollars": 12000
             },
             {
               "season": 2027,
@@ -12911,11 +12911,11 @@
           "status": "ready",
           "issues": []
         },
-        "comment": ""
+        "comment": "Looking for Cap relief in the deal so I still have flexibility on the waiver wire. Willing to do a 3rd instead."
       },
       "twb_meta": null,
-      "mfl_trade_id": "1261",
-      "trade_id": "1261",
+      "mfl_trade_id": "1262",
+      "trade_id": "1262",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
