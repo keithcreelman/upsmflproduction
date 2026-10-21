@@ -1096,7 +1096,7 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-ov-capline.space.pos .fo-ov-capnum { color: var(--ok); } .fo-ov-capline.space.neg .fo-ov-capnum { color: var(--err); }
 /* Cap ledgers (in the About dialog frame). */
 .fo-led { width: 100%; margin: 4px 0 8px; }
-.fo-led th, .fo-led td { padding: 4px 6px; text-align: left; font-weight: 400; }
+.fo-led th, .fo-led td { padding: 4px 6px; text-align: left; font-weight: 400; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--text); background: none; }
 .fo-led td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fo-led-head th { padding-top: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
 .fo-led-note { margin-left: 6px; font-weight: 400; text-transform: none; letter-spacing: 0; }
