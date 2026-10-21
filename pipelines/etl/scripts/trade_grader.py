@@ -638,6 +638,12 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict = None,
     ln()
     ln(f"TRADE: {a.franchise_name} <-> {b.franchise_name}")
     ln(f"DATE: April 2026 (Pre-Auction Window)")
+    if analysis.valuation_as_of:
+        ln(f"VALUATIONS: repo valuation snapshot as of {analysis.valuation_as_of}")
+    if analysis.regrade_label:
+        ln(analysis.regrade_label)
+    for note in analysis.display_notes:
+        ln(f"NOTE: {note}")
     ln()
 
     # ── What each side gave up ─────────────────────────────────────────

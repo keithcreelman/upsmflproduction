@@ -205,6 +205,10 @@ class ValidGrade(unittest.TestCase):
         self.assertTrue(an.valuation_as_of.startswith(AS_OF))
         self.assertTrue(an.regrade_label.startswith("PRESENT-DAY REGRADE"))     # a 10-06 trade on 10-20 data
         self.assertEqual(tg.no_grade_report(an), "")
+        report = tg.format_discord_report(an, {})
+        self.assertIn(f"VALUATIONS: repo valuation snapshot as of {AS_OF} (", report)
+        self.assertIn("PRESENT-DAY REGRADE: valuations as of 2026-10-20 postdate this trade", report)
+        self.assertIn("NOTE: ADP is not in valuation snapshot v1", report)
 
     def test_read_from_disk_like_the_bot(self):
         an = grade(None)
