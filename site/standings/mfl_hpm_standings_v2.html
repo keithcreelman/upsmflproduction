@@ -1281,6 +1281,7 @@
     .fc-div { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
     .fc-dim { color: var(--muted); font-size: 11px; }
     .fc-likely { white-space: nowrap; }
+    .fc-likely-sub { display: none; font-size: 11px; color: var(--text); margin-top: 2px; }
     .fc-delta { font-size: 11px; font-weight: 800; white-space: nowrap; color: var(--muted); }
     .fc-delta.up { color: #7cd992; }
     .fc-delta.down { color: var(--warn); }
@@ -1394,7 +1395,8 @@
     }
     .lg-narrow-note { display: none; }
     @media (max-width: 560px) {
-      .fc-wide, .lg-wide { display: none; }
+      .fc-wide, .lg-wide, table.fc-table th.fc-likely, table.fc-table td.fc-likely { display: none; }
+      .fc-likely-sub { display: block; }
       .lg-narrow-note { display: block; }
       th, td { padding: 6px 4px; }
       .seed-cell { grid-template-columns: 20px auto; column-gap: 3px; }
@@ -2672,7 +2674,8 @@
       var likely = t.mode != null ? escapeHtml(placeLabel(t.mode)) + ' <span class="fc-dim">' + fcPct(t.place[t.mode]) + '</span>' : '—';
       var line = i === 5 ? ' class="fc-cut' + (you ? ' you-row' : '') + '"' : (you ? ' class="you-row"' : '');
       return '<tr' + line + ' data-fid="' + t.fid + '"><td class="num">' + (i + 1) + '</td>'
-        + '<td>' + escapeHtml(t.name) + '<span class="owner-sub">' + escapeHtml(t.divName) + '</span></td>'
+        + '<td>' + escapeHtml(t.name) + '<span class="owner-sub">' + escapeHtml(t.divName) + '</span>'
+        + '<span class="fc-likely-sub">Most likely ' + likely + '</span></td>'
         + '<td class="fc-likely">' + likely + '</td>'
         + '<td class="num"><b>' + fcPct(t.po) + '</b></td>'
         + '<td class="num fc-wide">' + fcPct(t.bye) + '</td>'
@@ -2682,7 +2685,7 @@
     }).join("");
     var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "No earlier forecast to compare with.";
     return '<h3 class="sec-h">Projected final standings</h3>'
-      + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="Expected place: the average finish over every simulated season">Proj</th><th scope="col">Team</th><th scope="col" title="The single most likely finish">Most likely</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
+      + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="Expected place: the average finish over every simulated season">Proj</th><th scope="col">Team</th><th class="fc-likely" scope="col" title="The single most likely finish">Most likely</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
       + '<div class="note">' + (m.hasDetail ? "Proj = order of average finish (1–6 seeds, then H1–H6); the line marks the top six. " : "Ordered by projected All-Play %. ") + escapeHtml(since) + '</div>';
   }
   function fcPlacesHtml(m) {
