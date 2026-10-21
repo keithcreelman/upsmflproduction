@@ -215,6 +215,8 @@ test("actual starter mix: averages over completed weeks give fractional starters
   t.ok(close(SM.mixList(a.mix.FLEX)[0].pct, 80), "Flex: 80% WR · 20% RB");
   const thirds = SM.mixList({ total: 3, by: { WR: 1, RB: 1, TE: 1 } });
   t.equal(sum(thirds.map((x) => x.whole)), 100, "shown whole percents always add to 100 (34/33/33, never 99)");
+  const sixths = SM.mixList({ total: 6, by: { QB: 4, RB: 1, WR: 1 } });
+  t.equal(sixths.map((x) => x.g + " " + x.whole).join(", "), "QB 67, RB 17, WR 16", "4 of 6 shows 67%, not 66% (equal remainders go to the larger share)");
   t.equal(SM.mixList(a.mix.SFLEX).map((x) => x.g + " " + x.pct).join(","), "QB 100", "Superflex: 100% QB");
 });
 

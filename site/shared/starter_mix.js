@@ -156,7 +156,7 @@
       .sort(function (a, b) { return b.n - a.n || (a.g < b.g ? -1 : 1); });
     var left = 100;
     list.forEach(function (x) { x.whole = Math.floor(x.pct); left -= x.whole; });
-    list.slice().sort(function (a, b) { return (b.pct - b.whole) - (a.pct - a.whole) || b.n - a.n; })
+    list.slice().sort(function (a, b) { return Math.round((b.pct - b.whole) * 1e6) - Math.round((a.pct - a.whole) * 1e6) || b.n - a.n; })
       .slice(0, left).forEach(function (x) { x.whole += 1; });
     return list;
   }
