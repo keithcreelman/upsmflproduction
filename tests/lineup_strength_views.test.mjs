@@ -112,4 +112,20 @@ test("Rank: 1st–12th by the same PPG; every view reads one population", () => 
   t.equal(LS.ordinal(1) + LS.ordinal(2) + LS.ordinal(3) + LS.ordinal(11) + LS.ordinal(12), "1st2nd3rd11th12th");
 });
 
+test("a slot the roster can't fill takes a replacement, and it is listed (team's only kicker ruled out)", () => {
+  const teams = JSON.parse(JSON.stringify(FX.teams));
+  const t8 = teams.find((t) => t.fid === "0008");
+  const ks = t8.players.filter((p) => String(p.pos).toUpperCase() === "PK");
+  t.ok(ks.length >= 1, "fixture team has a kicker");
+  ks.forEach((p) => { p.chip = "OUT"; });
+  const m2 = TF.buildLeague({ teams, values: FX.values, freeAgents: FX.freeAgents });
+  const tb = LS.build(m2);
+  const slots = tb.teams["0008"].replacementSlots;
+  t.equal(JSON.stringify(slots.map((x) => x.slot)), JSON.stringify(["PK1"]), "only the K slot is filled by a replacement");
+  t.equal(tb.teams["0008"].PK.replacementStarters, 1, "the K row carries it");
+  t.equal(tb.teams["0008"].ALL.replacementStarters, 1, "and Overall");
+  t.ok(close(tb.teams["0008"].PK.ppg, m2.repl.PK[0]), "at the replacement kicker's PPG (" + m2.repl.PK[0] + ")");
+  t.equal(tb.teams["0008"].ALL.starters, 18, "still 18 starters");
+});
+
 await run("lineup_strength_views");
