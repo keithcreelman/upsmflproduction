@@ -14,11 +14,14 @@ from typing import Optional
 
 from trade_grader import (
     TradeAnalysis, PlayerInfo, mfl_fetch, load_franchises, load_players_map,
-    load_rosters, load_rollover, load_auction_pool, load_team_caps,
-    load_future_picks, load_trade_value_model, fetch_trades, analyze_trade,
-    find_comparables, calculate_extension, estimate_production_value,
-    _parse_contract, TRADE_VALUE_MODEL, rookie_contract_line,
+    load_rosters, fetch_trades, analyze_trade, no_grade_report,
+    calculate_extension, _parse_contract, rookie_contract_line,
 )
+
+
+class NoGradeError(RuntimeError):
+    """A grade-affecting valuation input failed (decision 3): there is no
+    grade, so there must be no roast context, no model call and no post."""
 
 
 def display_name(mfl_name: str) -> str:
@@ -277,11 +280,9 @@ def find_defending_champion(career_stats: dict) -> dict:
 
 
 def load_trade_value_model_full() -> dict:
-    """Load the full trade value model including owner_profiles and team_summary."""
-    if not TRADE_VALUE_MODEL.exists():
-        return {}
-    with open(TRADE_VALUE_MODEL) as f:
-        return json.load(f)
+    """Retired with the iCloud trade-value model (#1343 decision 3): owner
+    profiles and team tiers are not in valuation snapshot v1."""
+    return {}
 
 
 def load_discord_users() -> dict:
@@ -664,20 +665,14 @@ def build_trade_roast_context(trade_txn: dict,
     franchises = load_franchises()
     players_map = load_players_map()
     rosters = load_rosters()
-    rollover = load_rollover()
-    auction_pool = load_auction_pool()
-    team_caps = load_team_caps()
-    future_picks = load_future_picks()
-    tv_model = load_trade_value_model()
     tv_full = load_trade_value_model_full()
     career_stats = load_career_stats()
     discord_users = load_discord_users()
 
-    # Run core analysis
-    analysis = analyze_trade(
-        trade_txn, players_map, franchises, rosters,
-        rollover, auction_pool, team_caps, future_picks, tv_model
-    )
+    # Run core analysis. NO GRADE stops here: no context means no model call.
+    analysis = analyze_trade(trade_txn, players_map, franchises, rosters)
+    if analysis.no_grade:
+        raise NoGradeError(no_grade_report(analysis))
 
     a = analysis.side_a
     b = analysis.side_b
@@ -693,13 +688,7 @@ def build_trade_roast_context(trade_txn: dict,
     # H2H between the two teams
     h2h = get_h2h_record(career_stats, a.franchise_id, b.franchise_id)
 
-    # Auction comparables
     all_players = a.players_given + b.players_given
-    comparables = {}
-    for p in all_players:
-        if p.position and p.position not in comparables:
-            comparables[p.position] = find_comparables(
-                p, auction_pool, players_map, tv_model)
 
     # Extension projections
     extensions = {}
@@ -736,16 +725,8 @@ def build_trade_roast_context(trade_txn: dict,
             "years_remaining": yrs_remaining,
             "remaining_salaries": remaining_salaries,
             "salary_remaining_total": sum(remaining_salaries),
-            "expected_auction_price": int(p.exp_price) if p.exp_price else int(
-                estimate_production_value(p, auction_pool)),
             "ppg": ppg,
             "ppg_label": ppg_label,
-            "adp_overall": p.adp_overall or None,
-            "adp_pos_rank": p.adp_pos_rank or None,
-            "adp_trend30": p.adp_trend30 or 0,
-            "adp_sources": p.adp_sources or 0,
-            "trade_value": round(p.trade_value, 1),
-            "quality_score": round(p.quality_score, 1),
             "contract_info": p.contract_info,
             "contract_status": p.contract_status,
         }
@@ -815,7 +796,10 @@ def build_trade_roast_context(trade_txn: dict,
             "post_trade_cap": b.cap_space,
         },
         "h2h_between_teams": h2h,
-        "auction_comparables": comparables,
+        "auction_comparables": {},
+        "display_notes": list(analysis.display_notes),
+        "valuation_as_of": analysis.valuation_as_of,
+        "regrade_label": analysis.regrade_label,
         "extension_projections": extensions,
         "effective_cost_note": "",
         # Owner personality dossiers + anti-repetition ban list — computed HERE
@@ -923,15 +907,8 @@ def context_to_prompt_text(ctx: dict) -> str:
         return f"{base} ({years}; {_money(total)} remaining over {len(rem)} yrs)"
 
     def render_player(p: dict) -> str:
-        ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') else "")
-        adp_txt = ""
-        if p.get('adp_overall'):
-            trend = p.get('adp_trend30') or 0
-            trend_txt = f", 30d {'+' if trend > 0 else ''}{trend}" if trend else ""
-            adp_txt = (f", ADP {p['position']}{p['adp_pos_rank']} / #{p['adp_overall']} overall "
-                       f"({p.get('adp_sources', 0)}-source consensus{trend_txt})")
-        return (f"  - {p['name']} ({p['position']}) — {fmt_salary(p)}, "
-                f"expected auction price ${p['expected_auction_price']:,}{ppg_txt}{adp_txt}")
+        ppg_txt = (f", {p['ppg']} PPG ({p.get('ppg_label','proj')})" if p.get('ppg') is not None else "")
+        return f"  - {p['name']} ({p['position']}) — {fmt_salary(p)}{ppg_txt}"
 
     # ASSET DIRECTION LEDGER — one terse line per asset stating exactly where it
     # ended up. FIX A (Keith 2026-07-18): the 2026-07 roast told Ryan he "turned
@@ -1000,6 +977,12 @@ def context_to_prompt_text(ctx: dict) -> str:
         ln("GRADE STATUS: PROVISIONAL, not final. Inputs the grader could not trust: "
            + "; ".join(status.get("reasons") or []))
         ln("Say plainly that these grades are provisional. Do not present them as final.")
+    if ctx.get("valuation_as_of"):
+        ln(f"Valuations: repo valuation snapshot as of {ctx['valuation_as_of']}.")
+    if ctx.get("regrade_label"):
+        ln(ctx["regrade_label"])
+    for note in ctx.get("display_notes") or []:
+        ln(f"NOTE: {note} Do not invent these figures.")
 
     # Extension projections
     if ctx["extension_projections"]:
@@ -1033,8 +1016,6 @@ def context_to_prompt_text(ctx: dict) -> str:
         f = side["franchise"]
         ln(f"\n=== {label}: {f['franchise_name']} ===")
         ln(f"  Owner: {f['owner_name']} (since {f['owner_since']}, {f['owner_seasons']} season(s))")
-        ln(f"  Current tier: {f['tier']}")
-        ln(f"  Recent record: {f['recent_record']} (finish: #{f['recent_finish']})")
 
         # Owner's personal record (USE THIS FOR ROASTING)
         # Owner W/L — pct only (Keith 2026-05-22: cite percentage, not W-L count + pct).

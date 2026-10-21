@@ -7,7 +7,8 @@ side (N.01-N.06) or the playoff side (N.07-N.12), every slot inside a side
 equally likely. The chance comes from the current owner's playoff history
 (canon §D.2 tenure) pulled toward 50% (k = 4 next season, 6 further out),
 blended in season with that season's All-Play % and points for. Missing or
-untrusted inputs are named and make the grade provisional; nothing falls back
+owner histories that conflict with canon §D.2 make the grade provisional;
+missing or invalid core inputs block it (decision 3). Nothing falls back
 silently to x.06, which is what the grader did all of 2026.
 
 Offline: no D1, no network. Module state is pinned; nothing is read from the
@@ -225,51 +226,67 @@ class Wording(unittest.TestCase):
 
 
 class FailVisibly(unittest.TestCase):
+    """Decision 3 split: a missing or invalid core input BLOCKS the grade (NO
+    GRADE); only an owner history that conflicts with canon §D.2 is valued at
+    50/50 and PROVISIONAL (decision 2). Neither falls back to x.06."""
+
     def setUp(self):
         pin()
 
-    def assert_not_x06(self, proj):
+    def assert_blocked(self, proj, text):
         self.assertNotEqual(proj.dist, {6: 1.0})
-        self.assertTrue(proj.provisional)
-        self.assertTrue(pv.describe_pick_odds(proj).startswith("PROVISIONAL ("))
+        self.assertFalse(proj.provisional)
+        self.assertTrue(any(text in b for b in proj.blocking), proj.blocking)
+        self.assertTrue(pv.describe_pick_odds(proj).startswith("UNAVAILABLE ("))
 
     def test_missing_owner_history(self):
         broken = json.loads(json.dumps(CAREER)); del broken["0011"]["owner"]
         pin(broken)
-        proj = pv.project_future_pick("0011", 2027, 1, OFFSEASON)
-        self.assert_not_x06(proj)
-        self.assertIn("no owner history for 0011", proj.issues[0])
+        self.assert_blocked(pv.project_future_pick("0011", 2027, 1, OFFSEASON), "no owner history for 0011")
 
     def test_unknown_original_franchise(self):
-        proj = pv.project_future_pick("0099", 2027, 1, OFFSEASON)
-        self.assert_not_x06(proj)
-        self.assertIn("original franchise 0099", proj.issues[0])
+        self.assert_blocked(pv.project_future_pick("0099", 2027, 1, OFFSEASON), "original franchise 0099")
 
     def test_unreadable_pick_year(self):
         _pl, picks, _bb = tg.parse_asset_string("FP_0011_20X7_1,", {}, {}, OFFSEASON)
-        self.assert_not_x06(picks[0].projection)
-        self.assertIn("pick year '20X7' is unreadable", picks[0].projection.issues[0])
+        self.assert_blocked(picks[0].projection, "pick year '20X7' is unreadable")
 
-    def test_missing_current_season_standings(self):
-        for state in (None, pv.SeasonState(CURRENT, "unavailable", reason="MFL leagueStandings unavailable (URLError)")):
-            proj = pv.project_future_pick("0011", 2027, 1, state)
-            self.assert_not_x06(proj)
-        partial = in_season(4, {f: 0.5 for f in TEAMS[:6]}, {f: 800.0 for f in TEAMS[:6]})
-        self.assert_not_x06(pv.project_future_pick("0011", 2027, 1, partial))
+    def test_missing_current_season_standings_blocks_rounds_1_to_3(self):
+        states = (None, pv.SeasonState(CURRENT, "unavailable", reason="MFL leagueStandings unavailable (URLError)"),
+                  in_season(4, {f: 0.5 for f in TEAMS[:6]}, {f: 800.0 for f in TEAMS[:6]}))
+        for state in states:
+            self.assertTrue(pv.project_future_pick("0011", 2027, 1, state).blocking)
+            r4 = pv.project_future_pick("0011", 2027, 4, state)     # same value at every slot
+            self.assertFalse(r4.blocking)
+            self.assertTrue(r4.notes)
 
-    def test_missing_career_file(self):
+    def test_missing_career_block(self):
         pin({})
-        self.assert_not_x06(pv.project_future_pick("0011", 2027, 1, OFFSEASON))
+        self.assert_blocked(pv.project_future_pick("0011", 2027, 1, OFFSEASON), "not in the valuation snapshot")
+
+    def test_d2_conflict_is_provisional_not_blocked(self):
+        broken = json.loads(json.dumps(CAREER))
+        broken["0002"]["owner"]["seasons_by_franchise"]["0002"].remove(2017)
+        pin(broken)
+        proj = pv.project_future_pick("0002", 2027, 1, OFFSEASON)
+        self.assertEqual(proj.blocking, [])
+        self.assertTrue(proj.provisional)
+        self.assertEqual(proj.dist, pv.bracket_distribution(0.5))
+        self.assertIn("leaves out 2017 (0002)", proj.issues[0])
+        self.assertTrue(pv.describe_pick_odds(proj).startswith("PROVISIONAL ("))
 
     def test_provisional_reaches_the_grade_and_the_roast(self):
         from trade_grader import with_provisional_banner
-        _pl, r1, _ = tg.parse_asset_string("FP_0099_2027_1,", {}, {}, OFFSEASON)
-        _pl, r4, _ = tg.parse_asset_string("FP_0099_2027_4,", {}, {}, OFFSEASON)
+        broken = json.loads(json.dumps(CAREER))
+        broken["0002"]["owner"]["seasons_by_franchise"]["0002"].remove(2017)
+        pin(broken)
+        _pl, r1, _ = tg.parse_asset_string("FP_0002_2027_1,", {}, {}, OFFSEASON)
+        _pl, r4, _ = tg.parse_asset_string("FP_0002_2027_4,", {}, {}, OFFSEASON)
         a = tg.TradeSide("0001", "A", picks_given=r1 + r4)
         b = tg.TradeSide("0011", "B", picks_received=r1 + r4)
         reasons = tg.provisional_reasons(a, b)
         self.assertEqual(len(reasons), 1)                 # round 4+ value does not depend on the slot
-        self.assertIn("2027 round 1 pick (0099)", reasons[0])
+        self.assertIn("2027 round 1 pick (0002)", reasons[0])
         tg.grade_sides(a, b)
         report = tg.format_discord_report(tg.TradeAnalysis(side_a=a, side_b=b, provisional_reasons=reasons), {})
         self.assertIn("PROVISIONAL GRADE -- not final", report)

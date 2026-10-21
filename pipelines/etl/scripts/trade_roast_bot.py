@@ -30,12 +30,10 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from trade_grader import (
     fetch_trades, load_franchises, analyze_trade,
-    load_players_map, load_rosters, load_rollover,
-    load_auction_pool, load_team_caps, load_future_picks,
-    load_trade_value_model,
+    load_players_map, load_rosters, no_grade_report,
     # 3-way support: nav / production value for the net-value read, contract
     # parsing for the salary schedule, and the MFL "Last, First" formatter.
-    estimate_production_value, nav_player, _parse_contract, display_name,
+    _parse_contract, display_name,
     rookie_contract_line, with_provisional_banner,
 )
 from trade_roast_context import (
@@ -559,6 +557,25 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
 _GIF_TAG_RE = re.compile(r"\[GIF:\s*([^\]]+?)\s*\]\s*$", re.IGNORECASE | re.MULTILINE)
 
 
+HELD_TRADES_FILE = SCRIPT_DIR.parent / "data" / "held_trades_no_grade.json"
+
+
+def hold_no_grade(trade_txn: dict, report: str) -> None:
+    """Record a NO GRADE trade locally (bot log + held file). Never posts."""
+    print(f"[{datetime.now()}] {report}")
+    try:
+        held = json.loads(HELD_TRADES_FILE.read_text()) if HELD_TRADES_FILE.exists() else []
+    except Exception:
+        held = []
+    held.append({"timestamp": trade_txn.get("timestamp"), "franchise": trade_txn.get("franchise"),
+                 "franchise2": trade_txn.get("franchise2"), "held_at": datetime.now(timezone.utc).isoformat(),
+                 "report": report})
+    try:
+        HELD_TRADES_FILE.write_text(json.dumps(held, indent=1))
+    except Exception as exc:
+        print(f"[{datetime.now()}] could not write {HELD_TRADES_FILE}: {exc}")
+
+
 def _extract_gif_query(roast_text: str) -> tuple[str, str]:
     """Pull [GIF: ...] from end of roast. Returns (clean_roast, gif_query)."""
     m = _GIF_TAG_RE.search(roast_text)
@@ -676,14 +693,15 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # stage runs off-loop with a hard timeout (see _in_executor: 2026-07-11 hang).
     def _analyze_sync():
         franchises_ = load_franchises()
-        analysis_ = analyze_trade(
-            trade_txn,
-            load_players_map(), franchises_, load_rosters(), load_rollover(),
-            load_auction_pool(), load_team_caps(), load_future_picks(),
-            load_trade_value_model(),
-        )
+        analysis_ = analyze_trade(trade_txn, load_players_map(), franchises_, load_rosters())
         return franchises_, analysis_
     franchises, analysis = await _in_executor("analyze_trade", 180, _analyze_sync)
+
+    # Decision 3 (#1343): a failed valuation input means NO GRADE. Stop before
+    # the announcement, the thread and the roast-model call: nothing reaches Discord.
+    if analysis.no_grade:
+        hold_no_grade(trade_txn, no_grade_report(analysis))
+        return None
 
     # 2. Build announcement embed
     ts_int = int(trade_txn.get("timestamp", 0))
@@ -883,17 +901,12 @@ def build_multiway_summary(legs: list) -> dict:
     players_map = load_players_map()
     franchises = load_franchises()
     rosters = load_rosters()
-    rollover = load_rollover()
-    auction_pool = load_auction_pool()
-    team_caps = load_team_caps()
-    future_picks = load_future_picks()
-    tv_model = load_trade_value_model()
-
-    analyses = [
-        analyze_trade(leg, players_map, franchises, rosters, rollover,
-                      auction_pool, team_caps, future_picks, tv_model)
-        for leg in legs
-    ]
+    analyses = [analyze_trade(leg, players_map, franchises, rosters) for leg in legs]
+    no_grade_reports = [no_grade_report(an) for an in analyses if an.no_grade]
+    if no_grade_reports:
+        # NO GRADE on any leg: build nothing that could be posted.
+        return {"no_grade_reports": no_grade_reports,
+                "timestamp": max(int(l.get("timestamp", 0)) for l in legs)}
 
     from collections import OrderedDict
     order: list = []
@@ -968,11 +981,9 @@ def build_multiway_summary(legs: list) -> dict:
         d["gave"]["bb"] = max(0, net_bb)
         d["got"]["bb"] = max(0, -net_bb)
 
-        def _sv(side):
-            return (sum(nav_player(p) for p in side["players"])
-                    + sum(pk.estimated_value for pk in side["picks"])
-                    + side["bb"])
-        d["net_value"] = _sv(d["got"]) - _sv(d["gave"])
+        # The old net-value read priced players at "expected auction price",
+        # which silently became salary (#1343 decision 3). It is not shown.
+        d["net_value"] = None
 
     return {
         "franchises": fr,
@@ -985,6 +996,7 @@ def build_multiway_summary(legs: list) -> dict:
         "comment": next((l.get("comments", "") for l in legs), ""),
         "provisional_reasons": list(dict.fromkeys(
             r for an in analyses for r in an.provisional_reasons)),
+        "no_grade_reports": [],
     }
 
 
@@ -1116,10 +1128,7 @@ def build_multiway_context_text(summary: dict) -> str:
             _basis = "PROJECTED — not games played"
         ppg = (f", {round(p.expected_ppg, 1)} PPG ({_basis})"
                if p.expected_ppg else "")
-        adp = ""
-        if getattr(p, "adp_overall", 0):
-            adp = (f", ADP {p.position}{p.adp_pos_rank} / #{p.adp_overall} overall "
-                   f"({p.adp_sources}-source consensus)")
+        adp = ""   # ADP is not in valuation snapshot v1 (#1343 decision 3)
         cs = f", {p.contract_status}" if getattr(p, "contract_status", "") else ""
         return f"    - {display_name(p.name)} ({p.position}) — {sal}{ppg}{adp}{cs}"
 
@@ -1215,6 +1224,8 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
     # runs off-loop with a hard timeout — the 2026-07-11 frozen-loop lesson.
     def _prep():
         summary_ = build_multiway_summary(legs)
+        if summary_.get("no_grade_reports"):
+            return summary_, None, None
         ts_int = summary_["timestamp"]
         trade_iso = (datetime.fromtimestamp(ts_int, tz=timezone.utc).isoformat()
                      if ts_int else "")
@@ -1223,6 +1234,10 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
         return summary_, embed_, ctx_text_
     summary, announce_embed_dict, context_text = await _in_executor(
         "multiway prepare", 240, _prep)
+    if summary.get("no_grade_reports"):
+        hold_no_grade({"timestamp": summary["timestamp"], "franchise": "multiway", "franchise2": uuid},
+                      "\n\n".join(summary["no_grade_reports"]))
+        return {}
 
     order = summary["order"]
     fr = summary["franchises"]
@@ -1337,7 +1352,7 @@ def dry_run_multiway(uuid: str):
     print("\n=== NET PER-FRANCHISE ===")
     for fid in summary["order"]:
         d = summary["franchises"][fid]
-        print(f"\n{d['name']} ({fid})  [net_value={d['net_value']:,.0f}, "
+        print(f"\n{d['name']} ({fid})  [net_value={'n/a' if d['net_value'] is None else format(d['net_value'], ',.0f')}, "
               f"cap_space=${d['cap_space']:,}]")
         print("  GIVES:")
         for p in d["gave"]["players"]:
