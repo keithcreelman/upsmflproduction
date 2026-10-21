@@ -119,6 +119,61 @@ test("Outlook: the summary leads (champion, Hawk Tuah Bowl, byes, division winne
   });
   t.match(h, /Starts from the Week 6 standings: all 12 teams’ scores and All-Play match the Weekly and Full League views\./);
 });
+// #1370 gates 3 and 4: three separate answers per bracket, the final only from the simulation's pair counts; freshness up front.
+const esc = (x) => x.replace(/[$()]/g, "\\$&");
+function matchups(side) {
+  const by = {};
+  for (const [c, r, p] of DET6.standingsForecast.finalPairs[side]) {
+    const k = [c, r].sort().join("|");
+    by[k] = by[k] || { k, p: 0, wins: {} };
+    by[k].p += p; by[k].wins[c] = (by[k].wins[c] || 0) + p;
+  }
+  return Object.values(by).sort((a, b) => b.p - a.p || a.k.localeCompare(b.k));
+}
+test("summary: most likely champion, runner-up and final are separate answers; the final is the most common counted pairing", async () => {
+  const { h } = await page("view=forecast&year=2026");
+  const tiles = text(/<div class="fc-tiles">([\s\S]*?)<h3 class="sec-h">/.exec(h)[1]);
+  for (const [side, ck, rk, title] of [["ups", "titleOdds", "runnerUpOdds", "UPS Championship"], ["hawk", "hawkTitleOdds", "hawkRunnerUpOdds", "Hawk Tuah Bowl"]]) {
+    const top = (k) => Object.keys(D).sort((a, b) => D[b][k] - D[a][k] || a.localeCompare(b))[0];
+    const champ = side === "ups" ? SIM6.teams.slice().sort((a, b) => b.currentTitleOdds - a.currentTitleOdds)[0].franchiseId : top(ck);
+    const runner = top(rk), m = matchups(side)[0];
+    const [a, b] = m.k.split("|"), first = (m.wins[a] || 0) >= (m.wins[b] || 0) ? a : b, second = first === a ? b : a;
+    t.match(tiles, new RegExp(title + " " + esc(nameOf[champ]) + " " + pct(side === "ups" ? teams6[champ].currentTitleOdds : D[champ][ck]) + " most likely"), title + " champion");
+    t.match(tiles, new RegExp("Most likely runner-up: " + esc(nameOf[runner]) + " " + pct(D[runner][rk])), title + " runner-up = the highest runner-up odds");
+    t.match(tiles, new RegExp("Most likely final: " + esc(nameOf[first]) + " v " + esc(nameOf[second]) + " " + pct(m.p) + " of simulated seasons; " + esc(nameOf[first]) + " wins it " + pct(m.wins[first] / m.p)), title + " final = a counted pairing");
+  }
+  // Week 6's real numbers: the most likely UPS runner-up is the most likely champion too, so the two best single odds
+  // (C-Town and Pure Greatness) are NOT what the page calls the final; the counted C-Town v Pure Greatness pairing is.
+  t.equal(nameOf[Object.keys(D).sort((a, b) => D[b].runnerUpOdds - D[a].runnerUpOdds)[0]], "C-Town Chivalry");
+  t.match(tiles, /Most likely final: Pure Greatness v C-Town Chivalry 26%/);
+  t.ok(!/Projected final:|Finalist:/.test(tiles), "no final built from single-team odds");
+  // freshness: through which week, when it ran, which forecast the movement compares with
+  t.match(text(h), /Forecast through Week 6 Generated Oct 21, 10:06 AM ET · 10,000 simulated seasons Movement vs the Week 5 forecast \(generated Oct 1\d, [^)]+ ET\)/);
+  t.ok(h.indexOf("fc-fresh") < h.indexOf("fc-tiles"), "freshness above the summary");
+  const fin = text((await page("view=forecast&year=2026&fc=finals")).h);
+  for (const [side, title] of [["ups", "Most likely UPS finals"], ["hawk", "Most likely Hawk Tuah finals"]]) {
+    const rows = matchups(side).slice(0, 5).map((m) => {
+      const [a, b] = m.k.split("|"), first = (m.wins[a] || 0) >= (m.wins[b] || 0) ? a : b, second = first === a ? b : a;
+      return esc(nameOf[first]) + " v " + esc(nameOf[second]) + " " + esc(nameOf[first]) + " wins " + pct(m.wins[first] / m.p) + " " + pct(m.p);
+    });
+    t.match(fin, new RegExp(title + " Final Odds " + rows.join(" ")), title + ": the five most common pairings");
+  }
+  t.match(fin, /A matchup’s odds count both teams meeting in the final, either way\./);
+  const mv = text((await page("view=forecast&year=2026&fc=movement")).h);
+  t.match(mv, /The Week 5 forecast didn’t record finish places, runners-up or the Hawk Tuah Bowl, so those have no movement yet\./);
+  t.match(mv, /Forecast through Week 6/, "freshness on every Forecast view");
+});
+const NO_PAIRS = JSON.parse(JSON.stringify(DET6)); delete NO_PAIRS.standingsForecast.finalPairs;
+test("a forecast without pair counts names no final matchup; pairs that don't add up are never used", async () => {
+  let { h } = await page("view=forecast&year=2026", { ...PUBLISHED, "standings_forecast_2026_wk06.json": NO_PAIRS });
+  let tiles = text(/<div class="fc-tiles">([\s\S]*?)<h3 class="sec-h">/.exec(h)[1]);
+  t.ok(!/Most likely final:/.test(tiles));
+  t.match(tiles, /Final matchup odds weren’t recorded for this forecast\./);
+  const bad = JSON.parse(JSON.stringify(DET6)); bad.standingsForecast.finalPairs.ups[0][2] += 0.2;
+  ({ h } = await page("view=forecast&year=2026", { ...PUBLISHED, "standings_forecast_2026_wk06.json": bad }));
+  tiles = text(/<div class="fc-tiles">([\s\S]*?)<h3 class="sec-h">/.exec(h)[1]);
+  t.ok(/UPS Championship[\s\S]*Final matchup odds weren’t recorded/.test(tiles) && /Most likely final: Cleon/.test(tiles), "UPS pairs refused, Hawk Tuah pairs still shown");
+});
 test("Every place: 12 × 12 cells from the place counts; Finals: UPS and Hawk Tuah champion / runner-up / final", async () => {
   const { h } = await page("view=forecast&year=2026&fc=places");
   const rows = [...h.matchAll(/<div class="fp-row" role="row"><span class="fp-name" role="rowheader">([^<]*)<\/span>([\s\S]*?)<\/div>/g)];

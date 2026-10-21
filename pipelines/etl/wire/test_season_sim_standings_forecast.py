@@ -8,7 +8,8 @@ Divisions and Playoff Picture").
      division winners, all-play and records production's /api/standings showed for Week 6.
   2. The Hawk Tuah Bowl draws from its own random stream: every number published before it
      existed comes out the same, run for run.
-  3. The new counts agree with the old ones and with each other in every simulated season.
+  3. The new counts agree with the old ones and with each other in every simulated season, including
+     each final counted as a (champion, runner-up) pair (#1370 gate 3: the most likely matchup).
   4. The bracket re-seeds after round 1, as every season 2016-2025 did.
 
 Offline: a committed fixture of public MFL results, no MFL, D1 or network.
@@ -119,6 +120,27 @@ try:
 except AssertionError:
     refused = True
 check("a place count that disagrees with the playoff count stops the run", refused)
+check("the (champion, runner-up) pair counts change no draw: identical with and without the Hawk Tuah stream",
+      a0["_finals"]["ups"] == a1["_finals"]["ups"])
+for side, ck, rk in (("ups", "title", "runner"), ("hawk", "hawk_title", "hawk_runner")):
+    fp = out["finalPairs"][side]
+    check(side + ": every simulated season has exactly one final pair", abs(sum(p for _, _, p in fp) - 1) < 0.002
+          and sum(a1["_finals"][side].values()) == runs)
+    check(side + ": a team's champion pairs add up to its title odds, its runner-up pairs to its runner-up odds",
+          all(abs(sum(p for c, _, p in fp if c == f) - out["teams"][f]["titleOdds" if side == "ups" else "hawkTitleOdds"]) < 0.003
+              and abs(sum(p for _, r, p in fp if r == f) - out["teams"][f]["runnerUpOdds" if side == "ups" else "hawkRunnerUpOdds"]) < 0.003
+              for f in sf))
+    check(side + ": most common first, no team plays itself",
+          [p for _, _, p in fp] == sorted((p for _, _, p in fp), reverse=True) and all(c != r for c, r, _ in fp))
+bad_pairs = dict(a1, _finals={"ups": dict(a1["_finals"]["ups"]), "hawk": a1["_finals"]["hawk"]})
+k0 = next(iter(bad_pairs["_finals"]["ups"]))
+bad_pairs["_finals"]["ups"][k0] += 1
+try:
+    S.standings_forecast(bad_pairs, sf, runs, 5)
+    refused = False
+except AssertionError:
+    refused = True
+check("final pairs that disagree with the champion counts stop the run", refused)
 
 print("4. the bracket re-seeds after round 1")
 side = ["s1", "s2", "s3", "s4", "s5", "s6"]

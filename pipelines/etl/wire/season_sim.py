@@ -418,6 +418,9 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
     # own spread, and the all-play that lands at each finishing place.
     shape_by_finish = [0.0] * len(fids)
     champ_ap_rank = [0] * len(fids)
+    # Each simulated final as a (champion, runner-up) pair (#1370 gate 3: the most likely MATCHUP is a pair
+    # count, not the two best single-team odds). Counting draws nothing: the random streams are untouched.
+    finals = {"ups": {}, "hawk": {}}
     ap_var_sum = 0.0
     actual = actual or {}
     for _ in range(runs):
@@ -492,6 +495,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             h_champ, h_runner = bracket(hawk, player(rng_hawk), reg_end, end)
             agg[h_champ]["hawk_title"] += 1
             agg[h_runner]["hawk_runner"] += 1
+            finals["hawk"][(h_champ, h_runner)] = finals["hawk"].get((h_champ, h_runner), 0) + 1
 
         for i, f in enumerate(sorted(fids, key=lambda f: (-st[f]["ap_pct"], -st[f]["pf"]))):
             agg[f]["ap_rank"][i] += 1
@@ -505,6 +509,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             agg[f]["bye"] += 1
         agg[champ]["title"] += 1
         agg[runner]["runner"] += 1
+        finals["ups"][(champ, runner)] = finals["ups"].get((champ, runner), 0) + 1
         champ_ap_rank[sorted(fids, key=lambda f2: (-st[f2]["ap_pct"], -st[f2]["pf"])).index(champ)] += 1
         # Diagnostics (inert in production): one call per simulated season, so a
         # caller can ask what the CHAMPION's realized all-play looks like rather
@@ -517,6 +522,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             hook(st, champ, runner, seeds, drawn, set(dws))
     for f in fids:
         agg[f]["ap_samples"].sort()
+    agg["_finals"] = finals
     agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],
                      "champApRank": [x / runs for x in champ_ap_rank]}
     return agg, ap_var_sum / runs
@@ -1120,6 +1126,18 @@ def standings_forecast(agg, fids, runs, seed):
     for key in ("title", "runner", "hawk_title", "hawk_runner"):
         if sum(agg[f][key] for f in fids) != runs:
             raise AssertionError("season_sim: %s was not decided exactly once per season" % key)
+    finals = agg.get("_finals") or {}
+    pairs = {}
+    for side, champ_key, run_key in (("ups", "title", "runner"), ("hawk", "hawk_title", "hawk_runner")):
+        got = finals.get(side) or {}
+        # The pairs must BE the single-team counts: one final per season, each team's champion and runner-up
+        # seasons summing to its title and runner-up counts.
+        if sum(got.values()) != runs or any(
+                sum(n for (c, _), n in got.items() if c == f) != agg[f][champ_key]
+                or sum(n for (_, r), n in got.items() if r == f) != agg[f][run_key] for f in fids):
+            raise AssertionError("season_sim: %s final pairs disagree with the champion/runner-up counts" % side)
+        pairs[side] = [[c, r, round(n / runs, 4)]
+                       for (c, r), n in sorted(got.items(), key=lambda kv: (-kv[1], kv[0]))]
     teams = {}
     for f in fids:
         a = agg[f]
@@ -1137,6 +1155,10 @@ def standings_forecast(agg, fids, runs, seed):
         "bracket": "both sides: round 1 3v6 and 4v5 (week 15), the top seed meets the lowest seed left (week 16), "
                    "final week 17. Hawk Tuah games use random.Random(seed + %d)." % HAWK_SEED_OFFSET,
         "hawkSeed": seed + HAWK_SEED_OFFSET,
+        "finals": "finalPairs[side] = [champion, runner-up, share of simulated seasons] for every final that happened "
+                  "at least once, most common first; side ups = the UPS Championship, hawk = the Hawk Tuah Bowl. A "
+                  "matchup's share is its two orders added together.",
+        "finalPairs": pairs,
         "teams": teams,
     }
 
