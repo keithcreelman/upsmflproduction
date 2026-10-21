@@ -111,3 +111,40 @@ export function tradeEventWeeks(events) {
     .map((e) => Number(e.start_unix) || 0)
     .filter((n) => n > 0 && n <= WEEK_NUMBER_MAX))];
 }
+
+// ── THE RULE (Keith 2026-10-21, revised): "Trading closes at kickoff of the first NFL game in the NFL schedule week that
+// includes Thanksgiving Day." Deliberately the WEEK, not the day: it follows Wednesday, Thursday or any other day the NFL
+// gives that week's opener (2026: Week 12 opens Wed Nov 25 8:00 PM ET, GB @ LAR — a Thanksgiving Eve game). Read from the
+// official NFL schedule only, and FAIL CLOSED: no published schedule, no week whose games span Thanksgiving, more than
+// one such week, or a game in it without a kickoff time → "unresolved", never a guessed weekday.
+
+// The fourth Thursday of November, as an ET calendar date "YYYY-MM-DD".
+export function thanksgivingDateEt(season) {
+  const yr = parseInt(season, 10);
+  if (!(yr > 1900)) return "";
+  const firstDow = new Date(Date.UTC(yr, 10, 1)).getUTCDay();
+  const day = 1 + ((4 - firstDow + 7) % 7) + 21;
+  return `${yr}-11-${String(day).padStart(2, "0")}`;
+}
+
+// weeks: [{ week, kickoffs: [unix seconds, 0 = time not set] }] from MFL's nflSchedule (W=ALL).
+export function tradeDeadlineRule(season, weeks) {
+  const out = { state: "unresolved", source: "nfl_schedule", rule: "first kickoff of the NFL week that includes Thanksgiving Day",
+    thanksgiving_et: thanksgivingDateEt(season), nfl_week: null, start_unix: null, date_et: "", time_et: "", label: "", reason: "" };
+  if (!out.thanksgiving_et) { out.reason = "season_missing"; return out; }
+  const list = (Array.isArray(weeks) ? weeks : []).filter((w) => w && Array.isArray(w.kickoffs) && w.kickoffs.length);
+  if (!list.length) { out.reason = "nfl_schedule_unavailable"; return out; }
+  const spans = list.map((w) => {
+    const ks = w.kickoffs.map(Number);
+    const set = ks.filter((k) => k > 0);
+    return { week: Number(w.week), ks, first: set.length ? Math.min(...set) : 0,
+      from: set.length ? etParts(Math.min(...set)).date_et : "", to: set.length ? etParts(Math.max(...set)).date_et : "" };
+  });
+  const holds = spans.filter((s) => s.from && s.from <= out.thanksgiving_et && out.thanksgiving_et <= s.to);
+  if (!holds.length) { out.reason = "no_nfl_week_includes_thanksgiving"; return out; }
+  if (holds.length > 1) { out.reason = "more_than_one_nfl_week_includes_thanksgiving"; return out; }
+  const w = holds[0];
+  if (w.ks.some((k) => !(k > 0))) { out.reason = `week_${w.week}_has_a_game_without_a_kickoff_time`; return out; }
+  const et = etParts(w.first);
+  return { ...out, state: "resolved", nfl_week: w.week, start_unix: w.first, date_et: et.date_et, time_et: et.time_et, label: et.label };
+}

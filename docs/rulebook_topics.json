@@ -615,7 +615,7 @@
       "numbers": [
         {
           "label": "Deadline",
-          "value": "Thanksgiving Day, first kickoff"
+          "value": "Thanksgiving week, first kickoff"
         },
         {
           "label": "Cap money",
@@ -1122,9 +1122,9 @@
           "approx": false
         },
         {
-          "when": "Thu Nov 26",
+          "when": "Wed Nov 25",
           "what": "Trade deadline",
-          "detail": "Trading closes at kickoff of the first NFL game on Thanksgiving Day, 1:00 PM ET. Closed until the offseason. Remaining dues are due. Waivers still run, but nobody is trading you out of a hole.",
+          "detail": "Trading closes at kickoff of the first game of Thanksgiving week (Week 12), 8:00 PM ET: Green Bay at the Rams. Closed until the offseason. Remaining dues are due. Waivers still run, but nobody is trading you out of a hole.",
           "approx": false
         },
         {
@@ -1265,7 +1265,7 @@
           ],
           [
             "Trade deadline",
-            "Thu Nov 26, 1:00 PM ET (first Thanksgiving Day kickoff)",
+            "Wed Nov 25, 8:00 PM ET (Week 12's first kickoff, GB @ LAR)",
             "No trades until the offseason."
           ],
           [
@@ -1286,7 +1286,7 @@
         },
         {
           "label": "Trade deadline",
-          "value": "Thu Nov 26, 1 PM ET"
+          "value": "Wed Nov 25, 8 PM ET"
         },
         {
           "label": "1st missed nomination",

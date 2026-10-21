@@ -29,7 +29,7 @@ import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalend
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
-import { mflTradeLock, tradeEventWeeks, parseMflIcsStarts } from "./trade_deadline.js";
+import { mflTradeLock, tradeEventWeeks, parseMflIcsStarts, tradeDeadlineRule } from "./trade_deadline.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -2667,6 +2667,31 @@ async function readMflTradeLock(env, season, leagueId, opts = {}) {
   return { ...mflTradeLock(read.events, { nowUnix, icsStarts: read.ics }), upstream_status: read.status,
     verified_at_utc: new Date(read.at).toISOString(),       // when MFL was last read (the answer can be up to cacheMs old)
     source_url: `https://www48.myfantasyleague.com/${yr}/options?L=${lid}&O=123` };
+}
+
+// The trade deadline RULE for a season (trade_deadline.js tradeDeadlineRule): the first kickoff of the NFL week that
+// includes Thanksgiving Day, from the official NFL schedule (MFL nflSchedule W=ALL, public, edge-cached an hour). Only a
+// resolved answer is remembered; an unpublished schedule stays "unresolved" and is asked again next time.
+const _tradeDeadlineRuleMemo = new Map();
+async function readTradeDeadlineRule(season) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const memo = _tradeDeadlineRuleMemo.get(yr);
+  if (memo && Date.now() - memo.at < _NFL_KICKOFF_TTL_MS) return memo.rule;
+  let weeks = [];
+  try {
+    const res = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=nflSchedule&W=ALL&JSON=1`,
+      { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 3600 } });
+    const data = res.ok ? await res.json().catch(() => null) : null;
+    let ws = data && data.fullNflSchedule && data.fullNflSchedule.nflSchedule;
+    ws = Array.isArray(ws) ? ws : ws ? [ws] : [];
+    weeks = ws.map((w) => {
+      const ms = Array.isArray(w && w.matchup) ? w.matchup : w && w.matchup ? [w.matchup] : [];
+      return { week: parseInt(w && w.week, 10), kickoffs: ms.map((m) => parseInt(m && m.kickoff, 10) || 0) };
+    });
+  } catch (_) { weeks = []; }
+  const rule = tradeDeadlineRule(yr, weeks);
+  if (rule.state === "resolved") _tradeDeadlineRuleMemo.set(yr, { at: Date.now(), rule });
+  return rule;
 }
 
 // LAST kickoff of a week (the mirror of nflWeekFirstKickoffUnix above) — used
@@ -11093,6 +11118,23 @@ export default {
             url: `https://www48.myfantasyleague.com/${yearArg}/import?${params.toString()}`,
           };
         });
+        // The trade deadline rule (Keith 2026-10-21): kickoff of the first NFL game in the NFL schedule week that includes
+        // Thanksgiving Day. A TRADE event goes to MFL only at that instant as the official NFL schedule establishes it.
+        // FAIL CLOSED: while the schedule doesn't establish it, or the typed time differs, the TRADE event is HELD (not
+        // pushed) and the push reports it. &allow_off_rule=1 is the commissioner's explicit override.
+        const allowOffRule = String(url.searchParams.get("allow_off_rule") || "") === "1";
+        const tradeRule = planned.some((p) => p.event_type === "TRADE") ? await readTradeDeadlineRule(yearArg) : null;
+        for (const p of planned) {
+          if (p.event_type !== "TRADE") continue;
+          p.trade_rule = tradeRule;
+          p.matches_rule = tradeRule && tradeRule.state === "resolved" ? p.start_unix === tradeRule.start_unix : null;
+          if (!p.matches_rule && !p.already_exists && !allowOffRule) {
+            p.held = tradeRule && tradeRule.state === "resolved"
+              ? `differs_from_trade_deadline_rule (rule: ${tradeRule.label})`
+              : `trade_deadline_rule_unresolved (${(tradeRule && tradeRule.reason) || "unknown"})`;
+          }
+        }
+
         // Stale = existing managed-type events NOT matching any planned event (a
         // prior push at an old date). MFL API can't delete them — surface for
         // manual removal via the calendar page.
@@ -11156,6 +11198,7 @@ export default {
           const cookieHeader = mflCookieHeader(mflCookie);
           for (const p of planned) {
             if (p.already_exists) { mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, ok: true, skipped: true, note: "already on MFL calendar" }); continue; }
+            if (p.held) { mflResults.push({ field: p.field, event_type: p.event_type, label: p.label, start_at: p.start_at, ok: false, skipped: true, held: p.held, error: "not pushed: " + p.held }); continue; }
             let ok = false, status = 0, err = null;
             try {
               const res = await fetch(p.url, {
@@ -20585,6 +20628,12 @@ export default {
               verified_at_utc: tradeLock.verified_at_utc || null,
             },
           };
+          // The league rule's instant, for the commissioner's check only: owner-facing screens show MFL's lock (above).
+          const tradeRule = await readTradeDeadlineRule(season);
+          out.trade_rule = tradeRule;
+          out.trade_lock.matches_rule = tradeRule.state === "resolved" && tradeLock.start_unix
+            ? tradeLock.start_unix === tradeRule.start_unix && (tradeLock.events || []).filter((e) => !e.end_unix).length === 1
+            : null;
 
           // ── &kickoffs=1,3,5 → week_kickoffs: { "1": <unix>, "3": ..., "5": ... }
           //
