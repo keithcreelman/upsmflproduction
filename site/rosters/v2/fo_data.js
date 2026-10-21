@@ -67,7 +67,15 @@
     waiverAvailability: function () { return getJson(worker("/api/waivers/availability")); },
     waiverState: function () { return getJson(worker("/api/waivers/state", null, true)); },
     // MFL's held claims are the viewer's own: needs the viewer's MFL session (known:false otherwise, never "no claims").
-    waiverPending: function () { return getJson(worker("/api/waivers/pending", null, true)); }
+    waiverPending: function () { return getJson(worker("/api/waivers/pending", null, true)); },
+    // MFL's league calendar (its "No Trades Allowed" events are when MFL actually stops trades). MFL serves it
+    // only to a signed-in league member, so it rides the viewer's session like the claims read.
+    mflCalendar: function () {
+      return getJson(cfg.sessionQuery(mflExport("calendar"))).then(function (j) {
+        if (!mflOk(j)) throw new Error("MFL calendar needs an MFL sign-in");
+        return j;
+      });
+    }
   };
   // Week-keyed MFL reads: projections and the NFL schedule (opponent, kickoff) for one week.
   function weekSource(type) {
