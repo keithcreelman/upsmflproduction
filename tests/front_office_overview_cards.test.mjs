@@ -54,6 +54,9 @@ test("Lineup strength: four views, Overall + K + P, original view first; 'Contra
   t.ok(/var lsView = "above"/.test(SRC), "the original chart stays the default");
   t.ok(/LS\.ROWS\.map/.test(SRC) && /data-ls-view/.test(SRC), "rows from lineup_strength (ALL, positions, K, P) and a view control");
   t.ok(!/Contracts ending this season/.test(SRC) && !/expiringCard/.test(SRC), "card removed");
+  t.ok(/mine\.replacementSlots/.test(SRC) && /fo-ov-rep/.test(SRC), "replacement-filled slots are marked and named");
+  t.ok(/mine\.biggestNeed/.test(SRC) && !/TF\.teamSummary\(model, fid\)/.test(SRC), "Biggest need from the same owned-roster table");
+  t.ok(/league <b>median<\/b>/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About explains median (Above repl.) vs mean (Index)");
   for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "strengthCard(", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
 });
 

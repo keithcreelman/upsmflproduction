@@ -1083,6 +1083,7 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
 .fo-ov-bar-total { padding-bottom: 5px; margin-bottom: 5px; border-bottom: 1px solid var(--border); }
 .fo-ov-bar-total .fo-ov-bar-lbl, .fo-ov-bar-total .fo-ov-bar-val { color: var(--text); font-weight: 700; }
 .fo-ov-bar-minor { opacity: 0.7; }
+.fo-ov-rep { color: var(--warn); font-weight: 700; margin-left: 1px; }
 .fo-ls-views { margin: 0 0 8px; }
 /* Cap card: four lines; the first two open their ledgers. */
 .fo-ov-cap { display: grid; gap: 1px; }

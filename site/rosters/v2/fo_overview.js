@@ -218,7 +218,7 @@
   }
 
   var VIEW_TEXT = {
-    above: ["Above repl.", "Starters’ points a week above replacement, against the league median (season PPG)."],
+    above: ["Above repl.", "Your starters’ points a week above replacement, against the league median (season PPG)."],
     ppg: ["PPG", "Starters’ points a week (season PPG). Bars: against the league average."],
     index: ["Index", "Starters’ points a week as an index: 100 = league average."],
     rank: ["Rank", "Rank among the 12 teams by starters’ points a week."]
@@ -232,19 +232,25 @@
     var chips = '<div class="fo-subview-chips fo-ls-views" role="group" aria-label="Show lineup strength as">' + LS.VIEWS.map(function (v) {
       return '<button type="button" class="fo-subview-chip' + (v === lsView ? " active" : "") + '" data-ls-view="' + v + '" aria-pressed="' + (v === lsView) + '">' + H.esc(VIEW_TEXT[v][0]) + "</button>";
     }).join("") + "</div>";
+    var mine = table.teams[fid];
     var bars = LS.ROWS.map(function (r) {
       var c = LS.cell(table, fid, r, lsView);
       if (!c) return "";
       var w = Math.round(Math.abs(c.frac) * 50), pos = c.frac >= 0;
+      var nRep = mine[r].replacementStarters;
       var cls = r === "ALL" ? " fo-ov-bar-total" : (r === "PK" || r === "PN" ? " fo-ov-bar-minor" : "");
-      var tip = c.title + (r === "PK" || r === "PN" ? ". Kickers and punters are shown, never used for trade fits." : "");
-      return '<div class="fo-ov-bar' + cls + '" title="' + H.esc(tip) + '"><span class="fo-ov-bar-lbl">' + H.esc(LS.LABELS[r]) + '</span><span class="fo-ov-bar-track"><span class="fo-ov-bar-fill ' + (pos ? "pos" : "neg") +
+      var tip = c.title + (nRep ? ". Includes " + nRep + " replacement-filled slot" + (nRep === 1 ? "" : "s") + " (no available rostered player)" : "") +
+        (r === "PK" || r === "PN" ? ". Kickers and punters are shown, never used for trade fits." : "");
+      return '<div class="fo-ov-bar' + cls + '" title="' + H.esc(tip) + '"><span class="fo-ov-bar-lbl">' + H.esc(LS.LABELS[r]) + (nRep ? '<span class="fo-ov-rep" aria-label="includes a replacement-filled slot">*</span>' : "") +
+        '</span><span class="fo-ov-bar-track"><span class="fo-ov-bar-fill ' + (pos ? "pos" : "neg") +
         '" style="' + (pos ? "left:50%;" : "right:50%;") + "width:" + w + '%"></span></span><span class="fo-ov-bar-val">' + H.esc(c.text) + "</span></div>";
     }).join("");
-    var sum = TF.teamSummary(model, fid);
-    var need = sum.needs[0];
-    return card("Lineup strength vs the league", chips + '<p class="fo-ov-sub">' + H.esc(VIEW_TEXT[lsView][1]) + "</p>" + bars +
-      (need ? '<p class="fo-ov-sub">Biggest need: <b>' + need + "</b> (+" + H.fmt1(tm.need[need]) + " pts a week from a typical starter).</p>" : ""),
+    var repl = mine.replacementSlots.map(function (x) { return LS.LABELS[x.group] || x.group; });
+    var replNote = repl.length ? '<p class="fo-ov-sub">* No available rostered player for ' + H.esc(repl.join(", ")) +
+      " this week, so a replacement free agent’s points fill " + (repl.length === 1 ? "that slot" : "those slots") + ".</p>" : "";
+    var need = mine.biggestNeed;
+    return card("Lineup strength vs the league", chips + '<p class="fo-ov-sub">' + H.esc(VIEW_TEXT[lsView][1]) + "</p>" + bars + replNote +
+      (need ? '<p class="fo-ov-sub">Biggest need: <b>' + need + "</b> (+" + H.fmt1(mine.need[need]) + " pts a week from a typical starter).</p>" : ""),
       H.goLink("trades", "Trade finder"), "fo-ls");
   }
   var lsMemo = { model: null, table: null };
@@ -384,8 +390,11 @@
     H.setupAbout();
     H.registerAbout("overview",
       "<h3>Overview</h3><p>Only items that need you, each with a link to where you act. Lineup and bye checks use your best legal 18-player lineup by season points per MFL week. " +
-      "Strength = your starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), against the league median. " +
-      "PPG, Index (100 = league average) and Rank (1st–12th) read the same 12 best lineups; Overall is all 18 starting slots.</p>" +
+      "<b>Lineup strength</b> is built from each team’s own roster: the best legal 18-player lineup from its available rostered players. A replacement free agent fills a slot only when no rostered player can play it, and the card marks that row with *. " +
+      "Flex, SuperFlex and D-Flex starters count at their natural position, so the rows add up to Overall.</p>" +
+      "<p><b>Above repl.</b> (the default) = starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), compared with the league <b>median</b>: the middle team is 0. " +
+      "<b>Index</b> compares starters’ points a week with the league <b>mean</b> (average): 100 = average. <b>PPG</b> is the raw points a week; <b>Rank</b> is 1st–12th by PPG. " +
+      "The Trade finder still uses its own model, which lets a replacement free agent start wherever it outscores the roster, so its matrix can differ.</p>" +
       "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
     var el = document.getElementById("fo-overview-body");
     if (el && !el.__foLedger) {
