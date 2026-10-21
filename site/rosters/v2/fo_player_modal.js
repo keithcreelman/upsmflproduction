@@ -24,8 +24,12 @@
      there is shown only when the rank's own total equals the row's total;
      otherwise "—" with the reason (the rank table counts weeks the database
      is missing).
-   - "Highest-scoring season" = most total points among completed seasons,
-     by the totals in the table. No z-scores, no tiers, no APW.
+   - An earlier season whose UPS playoff weeks aren't all in the database
+     (and whose total MFL's own season summary doesn't confirm) is "Partial";
+     its Points/PPG stay visible, its ranks read "—†".
+   - "Highest-scoring season" = most total points among completed, non-partial
+     seasons. No z-scores, no tiers, no APW. Points/PPG round half-up through
+     the one shared formatter (season_scoring.js fmt1).
    - ONE Game Log schema for every season: Wk (P = UPS playoff week) · Pts
      (or why there is none) · Pos Rk · UPS status · Team, newest week first,
      with the season's coverage gaps said out loud.
@@ -76,10 +80,13 @@
       if (rec.round === 1) reasons.push("Round 1 pick");
       if (rec.season && season - rec.season >= 3) reasons.push("taxi window ended (" + rec.season + " draft)");
     }
+    // The worker's eligible flag ignores permanent promotion (both come from the roster record), so a promotion
+    // always wins: canon §B2 L351 — never eligible again. Only a DRAFT-record reason against the flag is a conflict.
+    var draftReasons = reasons.slice();
     if (p.taxiPermanentPromotion) reasons.push("permanently promoted");
     if (reasons.length) {
-      if (p.taxiEligible) {
-        return { eligible: null, text: "Unknown", note: "League records disagree: the roster record says eligible, the draft record says " + reasons[0] + ".", reasons: reasons };
+      if (p.taxiEligible && draftReasons.length) {
+        return { eligible: null, text: "Unknown", note: "League records disagree: the roster record says eligible, the draft record says " + draftReasons[0] + ".", reasons: reasons };
       }
       return { eligible: false, text: "Not eligible · " + reasons[0], note: reasons.length > 1 ? "Also: " + reasons.slice(1).join("; ") + "." : "", reasons: reasons };
     }
@@ -240,7 +247,11 @@
   }
 
   // ── Stats ──────────────────────────────────────────────────────────
-  function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
+  // Points and PPG use the ONE shared formatter (site/m/season_scoring.js: decimal half-up, 19.35 → 19.4),
+  // the same function the phone uses. It always loads first; without it the raw value shows, never a guess.
+  function shared() { return root.UPS_MOBILE_SEASON_SCORING || null; }
+  function fmt1(v) { var S = shared(); return S && S.fmt1 ? S.fmt1(v) : String(v); }
+  function round1(v) { var S = shared(); return S && S.round1 ? S.round1(v) : Number(v); }
   function comma1(v) { var t = fmt1(v).split("."); return t[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + t[1]; }
   // UPS season shape: 2021+ = Wks 1–14 regular season, 15–17 playoffs; earlier = 1–13 and 14–16.
   function upsWeeks(season) { return int(season) >= 2021 ? { reg: 14, last: 17 } : { reg: 13, last: 16 }; }
@@ -287,16 +298,35 @@
     return 1 + list.filter(function (x) { return x > v; }).length;
   }
 
+  // Is an earlier season's total complete? The league database copies MFL's posted scores exactly for regular
+  // weeks; it lacks playoff weeks before 2021 and free agents' playoff weeks 2021–2025 (#1307). A season with a
+  // UPS playoff week that has no row MAY be missing points → "Partial", unless MFL's own season summary (the rank
+  // basis) equals the row, which proves nothing is missing.
+  function seasonCoverage(yr, dbWeeks, basisSame) {
+    var shape = upsWeeks(yr), have = {}, missing = [];
+    (dbWeeks || []).forEach(function (w) { if (w && int(w.week) > 0) have[int(w.week)] = 1; });
+    for (var w = shape.reg + 1; w <= shape.last; w++) if (!have[w]) missing.push(w);
+    var partial = !basisSame && missing.length > 0 && yr <= 2025;
+    var span = missing.length ? (missing.length > 1 ? "Wks " + missing[0] + "–" + missing[missing.length - 1] : "Wk " + missing[0]) : "";
+    return { partial: partial, missing: partial ? missing : [],
+      note: !partial ? "" : (yr <= 2020
+        ? "Partial: playoff " + span + " aren’t in the league database for " + yr + ", so this total may be missing those weeks."
+        : "Partial: the league database has no row for playoff " + span + " (free agents’ playoff weeks weren’t loaded), so this total may be missing those weeks.") };
+  }
+
   // The season table: the current season from MFL (cur = { pts, games, ppg, rank, group, ptsRank }), earlier
-  // seasons from the database (career_summary rows). → newest first.
-  //   row: { season, current, games, pts, ppg, ptsRank, ppgRank, rankNote }
-  function seasonRows(career, cur, season) {
+  // seasons from the database (career_summary rows; weeklyBySeason = the bundle's weekly rows, for coverage).
+  //   row: { season, current, games, pts, ppg, ptsRank, ppgRank, partial, notes: [text] }
+  // A rank is shown only when it describes exactly the row: the rank's own total and MFL wks must equal the
+  // row's (so a rank is never computed from more weeks than the points shown), and a PPG rank needs half the
+  // season's weeks. Otherwise the cell is "—" with a reason in notes — never "unranked".
+  function seasonRows(career, cur, season, weeklyBySeason) {
     season = int(season);
     var rows = [];
     if (cur) {
       rows.push({ season: season, current: true, games: int(cur.games), pts: Number(cur.pts) || 0, ppg: cur.ppg,
-        ptsRank: cur.ptsRank ? cur.ptsRank.rank : null, ppgRank: cur.rank || null, group: str(cur.group), rankNote: "",
-        ppgNote: cur.rank ? "" : "Unranked: a PPG rank needs half the final weeks." });
+        ptsRank: cur.ptsRank ? cur.ptsRank.rank : null, ppgRank: cur.rank || null, group: str(cur.group), partial: false,
+        notes: cur.rank ? [] : [season + ": no PPG rank yet — it needs half the final weeks."] });
     }
     (career || []).forEach(function (c) {
       var yr = int(c.season);
@@ -304,39 +334,49 @@
       // PPG = the row's own total ÷ its MFL wks (not the database's separately rounded AVG), so the row,
       // the Game Log summary and the career line agree.
       var g = int(c.games_played), pts = Number(c.season_points) || 0;
-      var ppg = g ? pts / g : null;
       var hasBasis = c.rank_basis_points != null && c.rank_basis_games != null;
       var same = hasBasis && Math.abs(Number(c.rank_basis_points) - pts) < 0.05 && int(c.rank_basis_games) === g;
+      var cov = seasonCoverage(yr, (weeklyBySeason || {})[String(yr)], same);
       var half = Math.ceil(upsWeeks(yr).last / 2);
-      var note = !hasBasis ? "The league’s rank for this season can’t be checked against this total, so it isn’t shown."
-        : !same ? "The league’s rank counts " + comma1(c.rank_basis_points) + " pts over " + int(c.rank_basis_games) + " MFL wks, not the " + comma1(pts) + " over " + g + " shown, so it isn’t shown."
-        : "";
-      rows.push({ season: yr, current: false, games: g, pts: pts, ppg: ppg,
+      var notes = [];
+      if (cov.partial) notes.push(cov.note);
+      if (!same) {
+        notes.push(!hasBasis ? "No rank: the league’s rank for " + yr + " can’t be checked against this total."
+          : "No rank: the league’s " + yr + " rank counts " + comma1(c.rank_basis_points) + " pts over " + int(c.rank_basis_games) +
+            " MFL wks, not the " + comma1(pts) + " over " + g + " shown.");
+      } else if (g < half) {
+        notes.push("No PPG rank: it needs half the season’s weeks (" + half + " of " + upsWeeks(yr).last + "); " + g + " MFL wks.");
+      }
+      rows.push({ season: yr, current: false, games: g, pts: pts, ppg: g ? pts / g : null,
         ptsRank: same && int(c.pos_rank) > 0 ? int(c.pos_rank) : null,
         ppgRank: same && g >= half && int(c.pos_ppg_rank) > 0 ? int(c.pos_ppg_rank) : null,
-        group: str(c.pos_group), rankNote: note,
-        ppgNote: note || (g < half ? "A PPG rank needs half the season’s weeks (" + half + " of " + upsWeeks(yr).last + "); " + g + " MFL wks." : "") });
+        group: str(c.pos_group), partial: cov.partial, complete: same, notes: notes });
     });
     rows.sort(function (a, b) { return b.season - a.season; });
     return rows;
   }
-  // Career = every row of the table; highest-scoring season = most total points among COMPLETED seasons.
+  // Career = every row of the table (partial seasons included, and counted). Highest-scoring season = most
+  // total points among COMPLETED seasons that aren't partial: a partial total isn't compared with full ones.
   function careerSummary(rows) {
-    var g = 0, pts = 0, best = null;
+    var g = 0, pts = 0, best = null, partial = 0;
     (rows || []).forEach(function (r) {
       g += r.games; pts += r.pts;
-      if (!r.current && (!best || r.pts > best.pts)) best = r;
+      if (r.partial) partial += 1;
+      if (!r.current && !r.partial && (!best || r.pts > best.pts)) best = r;
     });
     var yrs = (rows || []).map(function (r) { return r.season; });
-    return { games: g, pts: Math.round(pts * 10) / 10, ppg: g ? pts / g : null, seasons: yrs.length,
+    var total = round1(pts);
+    return { games: g, pts: total, ppg: g ? total / g : null, seasons: yrs.length, partialSeasons: partial,
       first: yrs.length ? Math.min.apply(null, yrs) : null, last: yrs.length ? Math.max.apply(null, yrs) : null,
       best: best ? { season: best.season, pts: best.pts, ppg: best.ppg, games: best.games } : null };
   }
 
   // ── Game Log: one schema for every season ──────────────────────────
   // ctx: { season, current, ss (current season only), pid, groupOf, dbWeeks (bundle weekly rows for the season),
-  //        byeWeek (current season: the NFL team's bye, or 0) }
-  // → { rows: [{ week, playoff, pts, label, posRank, status, team }], games, pts, ppg, coverage: [text] }
+  //        byeWeek (current season: the NFL team's bye, or 0), complete (earlier season: MFL's own season summary
+  //        equals the database row, so a missing playoff week had no MFL score) }
+  // → { rows: [{ week, playoff, pts, label, posRank, status, team }], games, pts, ppg, partial, coverage: [text] }
+  // Status and team are only what the league database recorded; never inferred. No record → "not recorded".
   var STATUS = { starter: "Started", nonstarter: "Not started", fa: "Free agent" };
   function gameLog(ctx) {
     var season = int(ctx.season), shape = upsWeeks(season), db = {}, coverage = [];
@@ -356,7 +396,7 @@
         rows.push({ week: w, playoff: w > shape.reg, pts: v == null ? null : v,
           label: v != null ? (live[w] ? "in progress" : "") : (ctx.byeWeek && int(ctx.byeWeek) === w ? "BYE" : live[w] ? "not played yet" : "DNP"),
           posRank: v != null ? weekRank(ss, ctx.pid, w, ctx.groupOf) : null,
-          status: d ? (STATUS[str(d.status)] || str(d.status) || "—") : (w > synced ? "not synced yet" : "—"),
+          status: d ? (STATUS[str(d.status)] || str(d.status) || "not recorded") : (w > synced ? "not synced yet" : "not recorded"),
           team: d && str(d.status) !== "fa" ? str(d.roster_franchise_name) || "—" : "—" });
       });
       if (synced < (weeks[weeks.length - 1] || 0)) coverage.push("UPS status and team come from the league database, synced through " + (synced ? "Wk " + synced : "no week yet") + ".");
@@ -367,31 +407,32 @@
         var d = db[w], po = d ? int(d.is_reg) === 0 : w > shape.reg;
         var has = d && d.score != null && str(d.score) !== "";
         var label = has ? "" : d ? "no MFL score"
-          : !po ? "no MFL score"
+          : !po || ctx.complete ? "no MFL score"
           : season <= 2020 ? "not loaded" : "unknown";
         rows.push({ week: w, playoff: po, pts: has ? Number(d.score) : null, label: label,
           posRank: has && int(d.pos_rank) > 0 ? int(d.pos_rank) : null,
-          status: !d ? "—" : noRoster ? "not recorded" : (STATUS[str(d.status)] || str(d.status) || "—"),
+          status: !d || noRoster ? "not recorded" : (STATUS[str(d.status)] || str(d.status) || "not recorded"),
           team: !d || noRoster || str(d.status) === "fa" ? "—" : (str(d.roster_franchise_name) || "—") });
       }
-      if (season <= 2020) coverage.push("Playoff weeks " + (shape.reg + 1) + "–" + shape.last + " aren’t in the league database for " + season + " (#1307), so they read “not loaded”.");
-      else if (season <= 2025) coverage.push("Free agents’ playoff weeks aren’t in the league database for " + season + " (#1307): a playoff week with no row reads “unknown”.");
-      if (noRoster) coverage.push("UPS roster status and team aren’t recorded in the league database for 2012–2019, so they read “not recorded”, never “free agent”.");
+      var gap = rows.filter(function (r) { return r.label === "not loaded" || r.label === "unknown"; }).length;
+      if (gap && season <= 2020) coverage.push("Playoff weeks " + (shape.reg + 1) + "–" + shape.last + " aren’t in the league database for " + season + " (#1307): “not loaded”.");
+      else if (gap) coverage.push("Free agents’ playoff weeks aren’t in the league database for " + season + " (#1307): a playoff week with no row reads “unknown”.");
+      if (noRoster) coverage.push("Lineup records (UPS status and team) aren’t in the league database for 2012–2019: “not recorded”.");
     }
     // The summary is the season table's row, computed the same way: total rounded to 0.1, then ÷ MFL wks
-    // (season_scoring.js aggregate), so 116.1 over 6 reads 19.3 here, in the table and on the phone.
+    // (season_scoring.js aggregate), so 116.1 over 6 reads 19.4 here, in the table and on the phone.
     var games = 0, pts = 0;
     rows.forEach(function (r) { if (r.pts != null) { games += 1; pts += r.pts; } });
-    pts = Math.round(pts * 10) / 10;
+    pts = round1(pts);
     rows.sort(function (a, b) { return b.week - a.week; });   // newest week first, like the phone
-    return { rows: rows, games: games, pts: pts, ppg: games ? pts / games : null, coverage: coverage, failed: false };
+    return { rows: rows, games: games, pts: pts, ppg: games ? pts / games : null, partial: coverage.length > 0, coverage: coverage, failed: false };
   }
 
   var api = { upsDraftRecord: upsDraftRecord, upsDraftText: upsDraftText, taxiStatus: taxiStatus,
     nflDraftText: nflDraftText, heightText: heightText, weightText: weightText, bornText: bornText, plainText: plainText,
     writeSpec: writeSpec, WRITE_KINDS: WRITE_KINDS,
     fmt1: fmt1, comma1: comma1, upsWeeks: upsWeeks, pointsRank: pointsRank, weekRank: weekRank,
-    seasonRows: seasonRows, careerSummary: careerSummary, gameLog: gameLog };
+    round1: round1, seasonCoverage: seasonCoverage, seasonRows: seasonRows, careerSummary: careerSummary, gameLog: gameLog };
   root.UPS_FO_MODAL = Object.assign(root.UPS_FO_MODAL || {}, api);
   if (typeof module !== "undefined" && module.exports) module.exports = root.UPS_FO_MODAL;
 })(typeof window !== "undefined" ? window : this);

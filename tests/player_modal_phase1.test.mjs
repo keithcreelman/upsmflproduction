@@ -41,6 +41,17 @@ test("Dak Prescott: UPS Draft 2016 Rd 5 and a truthful taxi reason (window ended
   t.equal(both.taxi.note, "Also: permanently promoted.");
 });
 
+test("a permanent promotion wins over the worker's eligible flag (40 players on 2026-10-20 have both set)", () => {
+  // e.g. a 2025 Round 3 pick in the window: the worker flag ignores promotion; main showed "permanently promoted".
+  const rec = M.upsDraftRecord({ season: 2025, round: 3, pick: 4 }, { round: 3, year: 2025 }, true);
+  const t1 = M.taxiStatus({ taxiEligible: true, taxiPermanentPromotion: true, type: "Rookie-Draft" }, rec, 2026);
+  t.equal(t1.text, "Not eligible · permanently promoted");
+  t.equal(t1.eligible, false);
+  // A draft-record reason against the flag is still a real conflict.
+  const r1 = M.upsDraftRecord({ season: 2020, round: 3, pick: 1 }, { round: 0 }, true);
+  t.equal(M.taxiStatus({ taxiEligible: true, taxiPermanentPromotion: true }, r1, 2026).text, "Unknown");
+});
+
 test("Jacoby Brissett: not a UPS pick, and the taxi line says exactly that", () => {
   const b = bio("12616", FX.rosterRecord["12616"]);
   t.equal(b.draft, "Not a UPS Rookie Draft pick");
@@ -157,7 +168,7 @@ const QB = new Set(FX.qbIds), groupOf = (pid) => (QB.has(pid) ? "QB" : "");
 const stats = (pid) => {
   const line = F.season(ss, pid, groupOf, { last: 4 });
   const cur = { ...line, ptsRank: M.pointsRank(ss, pid, groupOf) };
-  const rows = M.seasonRows(FX.bundles[pid].career_summary, cur, 2026);
+  const rows = M.seasonRows(FX.bundles[pid].career_summary, cur, 2026, FX.bundles[pid].weekly_by_season);
   return { line, cur, rows, sum: M.careerSummary(rows) };
 };
 const log = (pid, season, team) => M.gameLog({ season, current: season === "2026", ss, pid, groupOf,
@@ -165,7 +176,7 @@ const log = (pid, season, team) => M.gameLog({ season, current: season === "2026
 
 test("2026 is one set of numbers: headline = season-table row = Game Log summary = the released phone sheet", () => {
   const want = { "12620": { pts: "141.4", ppg: "23.6", rank: "#14 QB", ptsRank: 10, l4: "20.1", l4rank: 17 },
-                 "12616": { pts: "116.1", ppg: "19.3", rank: "#21 QB", ptsRank: 16, l4: "21.5", l4rank: 16 } };
+                 "12616": { pts: "116.1", ppg: "19.4", rank: "#21 QB", ptsRank: 16, l4: "21.5", l4rank: 16 } };   // 116.1 ÷ 6 = 19.35 → 19.4 (half-up)
   for (const pid of Object.keys(want)) {
     const { line, cur, rows } = stats(pid), w = want[pid], r = rows[0], g = log(pid, "2026", pid === "12620" ? "DAL" : "ARI");
     t.equal(M.fmt1(line.pts), w.pts); t.equal(M.fmt1(line.ppg), w.ppg); t.equal(line.rankLabel, w.rank);
@@ -183,7 +194,8 @@ test("'Highest-scoring season' = most total points among completed seasons; no B
   t.deepEqual([dak.best.season, dak.best.pts], [2025, 409.3]);
   t.deepEqual([jb.best.season, jb.best.pts], [2025, 259.9]);
   t.deepEqual([dak.games, dak.pts, M.fmt1(dak.ppg)], [125, 2878.7, "23.0"], "career = every row of the table, 2026 included");
-  const rowsWithPartial = M.seasonRows([{ season: 2025, games_played: 1, season_points: 5 }], { pts: 999, games: 6, ppg: 166.5, rank: 1, group: "QB" }, 2026);
+  const rowsWithPartial = M.seasonRows([{ season: 2025, games_played: 1, season_points: 5 }], { pts: 999, games: 6, ppg: 166.5, rank: 1, group: "QB" }, 2026,
+    { 2025: [15, 16, 17].map((week) => ({ week })) });
   t.equal(M.careerSummary(rowsWithPartial).best.season, 2025, "an in-progress season is never the highest-scoring season");
   t.ok(/"Highest-scoring season"/.test(FO) && !/Best Season/.test(FO));
   t.ok(!/APW|win_chunks|leverage_coefs|Elite%/.test(chunks(FO).filter((c) => /^foStat|^renderStatsTab/.test(c.name)).map((c) => c.body).join("")), "no APW / Elite% in Stats");
@@ -193,10 +205,11 @@ test("earlier-season ranks show only when they describe the row's own total", ()
   const dak = stats("12620").rows, by = (y) => dak.find((r) => r.season === y);
   t.deepEqual([by(2025).ptsRank, by(2025).ppgRank], [4, 5], "409.3 over 16 = the rank table's total");
   t.deepEqual([by(2019).ptsRank, by(2019).ppgRank], [null, null], "2019: rank counts 361.1 over 15 (playoffs), row shows 308.2 over 12");
-  t.ok(/361\.1 pts over 15 MFL wks, not the 308\.2 over 12/.test(by(2019).rankNote));
+  t.ok(/361\.1 pts over 15 MFL wks, not the 308\.2 over 12/.test(by(2019).notes.join(" ")));
   t.deepEqual([by(2024).ptsRank, by(2024).ppgRank], [null, null], "2024: rank table's 245.7 over 14 ≠ 151.2 over 8");
   t.deepEqual([by(2020).ptsRank, by(2020).ppgRank], [29, null], "2020: 5 of 16 weeks is too few for a PPG rank");
-  t.ok(/needs half the season’s weeks \(8 of 16\)/.test(by(2020).ppgNote));
+  t.ok(/needs half the season’s weeks \(8 of 16\)/.test(by(2020).notes.join(" ")));
+  for (const r of dak) for (const n of r.notes) t.ok(!/\bunranked\b/i.test(n), "a note never calls — 'unranked': " + n);
   const noBasis = M.seasonRows([{ season: 2023, games_played: 16, season_points: 404.7, pos_rank: 3, pos_ppg_rank: 5 }], null, 2026)[0];
   t.equal(noBasis.ptsRank, null, "a bundle without the basis columns shows no rank (fails closed)");
 });
@@ -223,6 +236,45 @@ test("one Game Log schema for every season; no z-score or tiers; gaps are labell
   t.deepEqual(gl.sort(), ["foGameLogHtml", "renderGameLogTab"]);
   t.ok(!/z_score|week_tier|foGlTierClass|Elite|Neutral|Dud|"Tier"/.test(chunks(FO).filter((c) => /GameLog/.test(c.name)).map((c) => c.body).join("")));
   t.ok(!/\.fo-tier/.test(CSS), "tier badge styles removed");
+});
+
+test("historical partial data: totals stay visible, labelled Partial, never ranked or compared", () => {
+  const dak = stats("12620"), by = (y) => dak.rows.find((r) => r.season === y);
+  for (const y of [2016, 2017, 2018, 2019]) {
+    t.ok(by(y).partial, y + " (playoff weeks not loaded, MFL's summary counts more) is Partial");
+    t.ok(by(y).pts > 0 && by(y).ppg > 0, y + " keeps its known Points and PPG");
+    t.equal(by(y).ptsRank, null); t.equal(by(y).ppgRank, null);
+  }
+  t.equal(by(2020).partial, false, "2020: MFL's own summary equals the row (152.2 over 5), so nothing is missing");
+  t.equal(by(2025).partial, false, "2025: every playoff week has a row");
+  t.equal(by(2024).partial, true, "2024: no row for playoff Wks 15–17 and no confirming summary");
+  t.ok(/Partial: the league database has no row for playoff Wks 15–17/.test(by(2024).notes.join(" ")));
+  t.equal(dak.sum.partialSeasons, 5);
+  t.equal(dak.sum.best.season, 2025, "the highest-scoring season is chosen from complete seasons only");
+  // A partial season never wins the comparison even with more points.
+  const rows = M.seasonRows([{ season: 2019, games_played: 12, season_points: 999, rank_basis_points: 1100, rank_basis_games: 15 },
+    { season: 2023, games_played: 16, season_points: 404.7, rank_basis_points: 404.7, rank_basis_games: 16 }], null, 2026, { 2023: [15, 16, 17].map((week) => ({ week })) });
+  t.equal(M.careerSummary(rows).best.season, 2023);
+  // The Game Log agrees: a confirmed-complete season's missing playoff weeks had no MFL score; a partial one says so.
+  const g20 = M.gameLog({ season: "2020", current: false, dbWeeks: FX.bundles["12620"].weekly_by_season["2020"] || [], complete: true });
+  t.ok(g20.rows.filter((r) => r.playoff && r.pts == null).every((r) => r.label === "no MFL score") && !g20.coverage.some((c) => /Playoff weeks/.test(c)));
+  const g19 = M.gameLog({ season: "2019", current: false, dbWeeks: FX.bundles["12620"].weekly_by_season["2019"] || [], complete: false });
+  t.ok(g19.partial && g19.coverage.some((c) => /Lineup records/.test(c)) && g19.coverage.some((c) => /not loaded/.test(c)));
+  t.ok(g19.rows.every((r) => r.status === "not recorded"), "2019: no started/benched/free-agent status is inferred");
+  // The Stats tab: Partial and † are short tappable controls; the explanation sits in a closed disclosure.
+  const html = chunks(FO).find((c) => c.name === "foStatsHtml").body;
+  t.ok(/foNoteBtn\("Partial", key, "fo-partial"\)/.test(html) && /"—" \+ dag/.test(html) && /<details class="fo-stat-why" id="fo-stat-notes">/.test(html));
+  t.ok(!/rankLabel|unranked/.test(html), "the Stats tab never prints 'unranked'");
+});
+
+test("one rounding rule everywhere: decimal half-up through the shared formatter", () => {
+  t.equal(SS.fmt1(116.1 / 6), "19.4"); t.equal(SS.fmt1(19.35), "19.4"); t.equal(SS.fmt1(246.9 / 11), "22.4");
+  t.equal(SS.fmt1(-2.25), "-2.3"); t.equal(SS.fmt1(-0.04), "0.0"); t.equal(SS.fmt1(2878.7), "2878.7"); t.equal(SS.fmt1(null), "0.0");
+  t.equal(SS.round1(116.10000000000001), 116.1);
+  t.equal(F.fmt1(116.1 / 6), "19.4", "player_facts uses it"); t.equal(M.fmt1(116.1 / 6), "19.4", "the panel uses it");
+  t.equal(M.comma1(2878.65), "2,878.7");
+  t.ok(/function fmt1\(v\) \{ var SS = root\.UPS_MOBILE_SEASON_SCORING; return SS && SS\.fmt1 \? SS\.fmt1\(v\)/.test(read("site/shared/player_facts.js")));
+  t.ok(!/Math\.round\(\(Number\(v\) \|\| 0\) \* 10\) \/ 10/.test(read("site/rosters/v2/fo_player_modal.js") + read("site/shared/player_facts.js")), "no private Math.round formatter left");
 });
 
 test("Roster and Market open the same panel (one openSlideover)", () => {

@@ -4617,66 +4617,65 @@
     return { ss: ss, groupOf: groupOf, basis: F.basis(ss),
       line: ss && groupOf ? F.season(ss, p.id, groupOf, { last: 4 }) : null };
   }
-  function foStatCard(lbl, val, sub, title) {
-    return '<div class="fo-stat-card"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
-      '<span class="fo-stat-lbl">' + escapeHtml(lbl) + "</span>" +
-      '<span class="fo-stat-val">' + escapeHtml(val) + "</span>" +
-      '<span class="fo-stat-sub">' + escapeHtml(sub) + "</span></div>";
+  // One card system for the whole tab: the metric large, a small rank under it ONLY when that rank is fully
+  // supported, and the label in a higher-contrast footer. title = the hover/long-press explanation.
+  function foMetricCard(label, value, rank, title) {
+    return '<div class="fo-mcard"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
+      '<div class="fo-mcard-val">' + escapeHtml(value) + "</div>" +
+      (rank ? '<div class="fo-mcard-rank">' + escapeHtml(rank) + "</div>" : "") +
+      '<div class="fo-mcard-lbl">' + escapeHtml(label) + "</div></div>";
   }
-  function foRankText(rank, group) { return rank ? "#" + rank + (group ? " " + group : "") : "unranked"; }
+  // A short tappable control that opens the tab's notes at one line (no paragraph on the page).
+  function foNoteBtn(text, key, cls) {
+    return '<button type="button" class="fo-note-btn' + (cls ? " " + cls : "") + '" data-fo-note="' + escapeHtml(key) + '">' + escapeHtml(text) + "</button>";
+  }
   function foStatsHtml(p, bundle, facts) {
     var M = window.UPS_FO_MODAL;
     if (!M) return '<div class="fo-form-note err">Stats unavailable: the player-facts module didn’t load.</div>';
     var line = facts.line, yr = safeInt(SEASON, 0);
     var cur = line ? Object.assign({}, line, { ptsRank: M.pointsRank(facts.ss, p.id, facts.groupOf) }) : null;
     var career = (bundle && Array.isArray(bundle.career_summary)) ? bundle.career_summary : [];
-    var rows = M.seasonRows(career, cur, yr);
+    var rows = M.seasonRows(career, cur, yr, (bundle && bundle.weekly_by_season) || {});
     var sum = M.careerSummary(rows);
+    var g = line ? line.group : "";
     var html = "";
-    // 1. This season · 2. Last 4
+    // This season: Points · PPG · Last 4 (three matching cards). A rank shows only when MFL's scoring supports it.
     if (line) {
-      html += '<div class="fo-stat-group"><h3>This season · ' + yr + "</h3><div class=\"fo-stat-cards\">" +
-        foStatCard("Points", M.fmt1(line.pts), foRankText(cur.ptsRank && cur.ptsRank.rank, line.group) + " by points · " + line.weeks,
-          "Total-points rank among every player MFL scored at the position this season") +
-        foStatCard("PPG", line.ppg != null ? M.fmt1(line.ppg) : "—", line.rankLabel + " by PPG · " + line.games + " MFL wk" + (line.games === 1 ? "" : "s"),
-          "Points per MFL scored week (0.0 counts); a PPG rank needs half the final weeks") +
+      html += '<div class="fo-stat-group"><h3>This season · ' + yr + '</h3><div class="fo-mcards">' +
+        foMetricCard("Points", M.fmt1(line.pts), cur.ptsRank ? "#" + cur.ptsRank.rank + " " + g : "",
+          "Points " + line.weeks + "; rank by total points among every player MFL scored at the position") +
+        foMetricCard("PPG", line.ppg != null ? M.fmt1(line.ppg) : "—", line.rank ? "#" + line.rank + " " + g : "",
+          "Points per MFL scored week (" + line.games + " MFL wk" + (line.games === 1 ? "" : "s") + "); a PPG rank needs half the final weeks") +
+        foMetricCard("Last 4 PPG", line.last && line.last.ppg != null ? M.fmt1(line.last.ppg) : "—", line.last && line.last.rank ? "#" + line.last.rank + " " + g : "",
+          "Final weeks only (" + ((line.last && line.last.weeks) || "none yet") + "), ranked among players with at least 2 of the 4") +
         "</div></div>";
-      if (line.last) {
-        html += '<div class="fo-stat-group"><h3>Last 4</h3><div class="fo-stat-cards">' +
-          foStatCard("PPG", line.last.ppg != null ? M.fmt1(line.last.ppg) : "—",
-            foRankText(line.last.rank, line.group) + " over the last 4 · " + (line.last.weeks || "no final weeks"),
-            "Final weeks only, ranked the same way among players with at least 2 of the 4") +
-          "</div></div>";
-      }
     }
     html += '<p class="fo-basis' + (facts.basis.warn ? " warn" : "") + '">' + escapeHtml(facts.basis.text) + "</p>";
-    // 3. Career (every row of the table below)
-    if (rows.length) {
-      html += '<div class="fo-stat-group"><h3>Career</h3><div class="fo-stat-cards">' +
-        foStatCard("Points · PPG", M.comma1(sum.pts) + " · " + (sum.ppg != null ? M.fmt1(sum.ppg) : "—"),
-          sum.games + " MFL wks · " + sum.first + (sum.last !== sum.first ? "–" + sum.last : "") + (line ? "" : " · " + yr + " not included")) +
-        (sum.best ? foStatCard("Highest-scoring season", String(sum.best.season),
-          M.comma1(sum.best.pts) + " pts · " + (sum.best.ppg != null ? M.fmt1(sum.best.ppg) : "—") + " PPG",
-          "Most total points among completed seasons, by the totals in the table") : "") +
-        "</div></div>";
-    }
-    // Season table
     if (!rows.length) {
       return html + '<div class="fo-form-note">No UPS seasons for this player yet (or the history couldn’t load).</div>';
     }
-    var hidden = rows.filter(function (r) { return r.rankNote || r.ppgNote; });
+    // Career: Career points · Career PPG · Highest-scoring season (completed, non-partial seasons only).
+    html += '<div class="fo-stat-group"><h3>Career · ' + sum.first + (sum.last !== sum.first ? "–" + sum.last : "") + "</h3><div class=\"fo-mcards\">" +
+      foMetricCard("Career points", M.comma1(sum.pts), "", sum.games + " MFL wks" + (line ? "" : "; " + yr + " not included")) +
+      foMetricCard("Career PPG", sum.ppg != null ? M.fmt1(sum.ppg) : "—", "", "Career points ÷ " + sum.games + " MFL wks") +
+      foMetricCard("Highest-scoring season", sum.best ? M.comma1(sum.best.pts) : "—", sum.best ? String(sum.best.season) : "",
+        "Most total points in a completed season; partial seasons and " + yr + " aren’t compared") +
+      "</div>" + (sum.partialSeasons ? '<div class="fo-stat-foot">' + foNoteBtn("Includes " + sum.partialSeasons + " partial season" + (sum.partialSeasons === 1 ? "" : "s") + " †", "partial") + "</div>" : "") +
+      "</div>";
+    // Season table: 2026 first, every known total visible; Partial and —† open the notes.
+    var noted = rows.filter(function (r) { return r.notes && r.notes.length; });
     var body = rows.map(function (r) {
-      var mark = r.rankNote ? '<sup class="fo-rk-note" title="' + escapeHtml(r.rankNote) + '">†</sup>' : "";
-      var pmark = r.ppgNote ? '<sup class="fo-rk-note" title="' + escapeHtml(r.ppgNote) + '">†</sup>' : "";
+      var key = String(r.season), dag = r.notes && r.notes.length ? foNoteBtn("†", key, "fo-dag") : "";
       return "<tr" + (r.current ? ' class="fo-ch-current"' : "") + ">" +
-        "<td>" + r.season + (r.current ? ' <span class="fo-ch-now" title="This season, from MFL">now</span>' : "") + "</td>" +
+        "<td>" + r.season + (r.current ? ' <span class="fo-ch-now" title="This season, from MFL">now</span>' : "") +
+          (r.partial ? " " + foNoteBtn("Partial", key, "fo-partial") : "") + "</td>" +
         '<td class="num">' + r.games + "</td>" +
         '<td class="num">' + M.fmt1(r.pts) + "</td>" +
-        '<td class="num" style="color:var(--muted);">' + (r.ptsRank ? "#" + r.ptsRank : "—" + mark) + "</td>" +
+        '<td class="num" style="color:var(--muted);">' + (r.ptsRank ? "#" + r.ptsRank : "—" + dag) + "</td>" +
         '<td class="num">' + (r.ppg != null ? M.fmt1(r.ppg) : "—") + "</td>" +
-        '<td class="num" style="color:var(--muted);">' + (r.ppgRank ? "#" + r.ppgRank : "—" + pmark) + "</td></tr>";
+        '<td class="num" style="color:var(--muted);">' + (r.ppgRank ? "#" + r.ppgRank : "—" + dag) + "</td></tr>";
     }).join("");
-    var gaps = rows.some(function (r) { return !r.current && r.season <= 2025; });
+    var gaps = rows.some(function (r) { return r.partial; });
     return html +
       '<div style="overflow-x:auto;"><table class="fo-table fo-stat-table"><thead><tr>' +
       '<th>Yr</th><th class="num" title="MFL scored weeks: weeks MFL posted a score for this player, 0.0 included. Not NFL games played.">MFL Wks</th><th class="num">Pts</th>' +
@@ -4686,11 +4685,27 @@
       '<tr class="fo-stat-career"><td><strong>Career</strong></td><td class="num">' + sum.games + '</td><td class="num">' + M.comma1(sum.pts) +
       '</td><td class="num">—</td><td class="num">' + (sum.ppg != null ? M.fmt1(sum.ppg) : "—") + '</td><td class="num">—</td></tr>' +
       "</tbody></table></div>" +
-      (hidden.length ? '<details class="fo-stat-why"><summary>† Why some ranks are hidden (' + hidden.length + ")</summary><ul>" +
-        hidden.map(function (r) { return "<li><strong>" + r.season + "</strong>: " + escapeHtml(r.rankNote || r.ppgNote) + "</li>"; }).join("") + "</ul></details>" : "") +
-      '<p class="fo-basis">' + (line ? yr + ": MFL’s own scoring, the same numbers as the phone. " : "") +
-        "Earlier seasons: the league database. Points are MFL’s scores under each season’s own scoring rules, not today’s; the rules changed in several seasons (2012, 2016, 2018 and 2025 among them), so eras aren’t directly comparable." +
-        (gaps ? " Totals before 2026 miss weeks the league database doesn’t have: playoff weeks before 2021 and free agents’ playoff weeks 2021–2025 (#1307)." : "") + "</p>";
+      (noted.length ? '<details class="fo-stat-why" id="fo-stat-notes"><summary>† Notes (' + noted.length + ")</summary><ul>" +
+        noted.map(function (r) { return '<li data-fo-note-row="' + r.season + '"><strong>' + r.season + "</strong>: " + r.notes.map(escapeHtml).join(" ") + "</li>"; }).join("") +
+        (gaps ? '<li data-fo-note-row="partial">Partial seasons count toward career totals but aren’t used for the highest-scoring season or any rank.</li>' : "") +
+        "</ul></details>" : "") +
+      '<details class="fo-stat-why"><summary>How these numbers are built</summary><p>' + (line ? yr + ": MFL’s own scoring, the same numbers as the phone. " : "") +
+        "Earlier seasons: the league database. Points are MFL’s scores under each season’s own scoring rules, not today’s; the rules changed in several seasons (2012, 2016, 2018 and 2025 among them), so eras aren’t directly comparable. Points and PPG round half-up to one decimal." +
+        "</p></details>";
+  }
+  // Tapping "Partial", "†" or the partial-seasons line opens the notes at that season.
+  function foWireStatNotes(root) {
+    $$("[data-fo-note]", root).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var d = root.querySelector("#fo-stat-notes");
+        if (!d) return;
+        d.open = true;
+        var key = btn.getAttribute("data-fo-note");
+        $$("[data-fo-note-row]", d).forEach(function (li) { li.classList.toggle("on", li.getAttribute("data-fo-note-row") === key); });
+        var li = d.querySelector('[data-fo-note-row="' + key + '"]') || d;
+        if (li.scrollIntoView) li.scrollIntoView({ block: "nearest" });
+      });
+    });
   }
 
   async function renderStatsTab(p) {
@@ -4701,6 +4716,7 @@
     var bundle = got[0], facts = got[1];
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "stats") return; // user moved on
     body.innerHTML = foStatsHtml(p, bundle, facts);
+    foWireStatNotes(body);
   }
 
   // ── Game Log sub-tab inside slide-over (#1338 Phase 1) ──────────────
@@ -4717,8 +4733,11 @@
     var cur = String(safeInt(SEASON, 0)), isCur = String(season) === cur;
     var wbs = (bundle && bundle.weekly_by_season) || {};
     var team = safeStr(p.nflTeam).toUpperCase();
+    // An earlier season MFL's own season summary confirms (same total, same weeks) is complete: its missing
+    // playoff weeks had no MFL score. The Stats tab's rows decide this the same way.
+    var srow = isCur ? null : M.seasonRows((bundle && bundle.career_summary) || [], null, SEASON, wbs).filter(function (r) { return String(r.season) === String(season); })[0];
     var log = M.gameLog({ season: season, current: isCur, ss: facts && facts.ss, pid: p.id, groupOf: facts && facts.groupOf,
-      dbWeeks: wbs[String(season)] || [], byeWeek: isCur && byes ? safeInt(byes[team], 0) : 0 });
+      dbWeeks: wbs[String(season)] || [], byeWeek: isCur && byes ? safeInt(byes[team], 0) : 0, complete: !!(srow && srow.complete) });
     var head = isCur ? '<p class="fo-basis' + (facts && facts.basis.warn ? " warn" : "") + '">' + escapeHtml(facts ? facts.basis.text : "") + "</p>" : "";
     if (log.failed || !log.rows.length) {
       return head + '<p class="fo-form-note' + (log.failed ? " err" : "") + '">' + escapeHtml(log.coverage[0] || ("No MFL weeks for " + season + ".")) + "</p>";
@@ -4733,13 +4752,15 @@
         "<td>" + escapeHtml(r.status) + "</td>" +
         '<td class="small">' + escapeHtml(r.team) + "</td></tr>";
     }).join("");
+    var partialNote = log.coverage.length
+      ? '<details class="fo-gl-partial"><summary>Partial data</summary><ul>' + log.coverage.map(function (c) { return "<li>" + escapeHtml(c) + "</li>"; }).join("") + "</ul></details>"
+      : "";
     return head +
-      '<div class="fo-form-note" style="margin-bottom:8px;">' + season + ": " + log.games + " MFL wk" + (log.games === 1 ? "" : "s") + " · " +
-        M.fmt1(log.pts) + " pts · " + (log.ppg != null ? M.fmt1(log.ppg) : "—") + " PPG</div>" +
+      '<div class="fo-form-note fo-gl-sum">' + season + ": " + log.games + " MFL wk" + (log.games === 1 ? "" : "s") + " · " +
+        M.fmt1(log.pts) + " pts · " + (log.ppg != null ? M.fmt1(log.ppg) : "—") + " PPG" + (srow && srow.partial ? ' <span class="fo-partial-tag">Partial</span>' : "") + "</div>" + partialNote +
       '<div style="overflow-x:auto;"><table class="fo-table fo-gl-table"><thead><tr>' +
       '<th class="num">Wk</th><th class="num">Pts</th><th class="num" title="Rank that week among every player MFL scored at the position">Pos Rk</th><th>UPS status</th><th>Team</th>' +
       "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
-      (log.coverage.length ? '<ul class="fo-gl-coverage">' + log.coverage.map(function (c) { return "<li>" + escapeHtml(c) + "</li>"; }).join("") + "</ul>" : "") +
       '<p class="fo-basis"><span class="fo-gl-ptag">P</span> = UPS playoff week (Wks ' + (M.upsWeeks(season).reg + 1) + "–" + M.upsWeeks(season).last + ").</p>";
   }
   async function foByeWeeks() {
