@@ -239,6 +239,20 @@ def pick_tier_rates(rnd: int, slot: int) -> dict:
     return _half_band_rates(rnd, half)
 
 
+RATE_KEYS = ("smash_pct", "hit_pct", "contrib_pct", "bust_pct", "usable_pct")
+
+
+def pick_tier_rates_over(rnd: int, dist: dict) -> dict:
+    """Historical band rates for a future pick: each slot's band weighted by its
+    bracket probability (never a single predicted slot)."""
+    out = {k: 0.0 for k in RATE_KEYS}
+    for slot, p in dist.items():
+        rates = pick_tier_rates(rnd, slot)
+        for k in RATE_KEYS:
+            out[k] += p * float(rates.get(k, 0) or 0)
+    return {"band": f"R{rnd}, weighted by bracket odds", **out}
+
+
 def find_defending_champion(career_stats: dict) -> dict:
     """Find the most recent season's champion (final_finish=1).
     Returns {season, franchise_id, owner_name, team_name} or {} if none.
@@ -740,38 +754,33 @@ def build_trade_roast_context(trade_txn: dict,
     bb_a_to_b = b.salary_given  # BB from B to A
     bb_b_to_a = a.salary_given  # BB from A to B
 
-    # Pick detail builder — includes historical hit-rate band for expected-value framing.
-    # slot_confidence: 'high' when originating franchise's owner has 3+ seasons of
-    # consistent results; 'low' when owner has <3 seasons (Brian Cross types).
-    # The LLM should hedge slot predictions when confidence is low.
+    # Pick detail builder: historical hit-rate band for expected-value framing.
+    # A future pick carries bracket odds (pick_valuation.describe_pick_odds),
+    # never a predicted slot or a confidence claim (Keith 2026-10-20, #1343
+    # decision 2); a current-year pick carries its known slot.
     def pick_detail(pk, sender_fid: str = "") -> dict:
-        rates = pick_tier_rates(pk.round, getattr(pk, "predicted_slot", 0) or 0)
-        # Look up originating-franchise owner's tenure depth.
-        # PickInfo.original_owner is only set for picks acquired via prior trade.
-        # For "native" picks (a team trading their own draft slot), it's "" — fall
-        # back to the SENDER's fid since the sender's slot determines the pick.
-        raw_orig = (getattr(pk, "original_owner", "") or "").strip()
-        orig_fid = raw_orig.zfill(4) if raw_orig else (sender_fid or "").zfill(4)
-        orig_stats = career_stats.get(orig_fid, {})
-        orig_owner_seasons = orig_stats.get("owner", {}).get("seasons_count", 0)
-        if orig_owner_seasons >= 3:
-            slot_confidence = "high"
-        elif orig_owner_seasons >= 1:
-            slot_confidence = "low"
+        proj = getattr(pk, "projection", None)
+        if proj is not None and proj.slot is None:
+            rates = pick_tier_rates_over(pk.round, proj.dist)
+            slot = None
         else:
-            slot_confidence = "unknown"
+            slot = getattr(pk, "predicted_slot", 0) or None
+            rates = pick_tier_rates(pk.round, slot or 0)
         return {
             "year": pk.year,
             "round": pk.round,
-            "slot": getattr(pk, "predicted_slot", 0) or None,
-            "slot_confidence": slot_confidence,
-            "originating_owner_seasons": orig_owner_seasons,
+            "slot": slot,
+            "odds": pk.odds_text,
             "value": pk.estimated_value,
             "contract": rookie_contract_line(pk),  # R1 only; shown, never in the grade
             **rates,  # band, smash_pct, hit_pct, contrib_pct, bust_pct, usable_pct
         }
 
     context = {
+        "grade_status": {
+            "provisional": bool(analysis.provisional_reasons),
+            "reasons": list(analysis.provisional_reasons),
+        },
         "trade": {
             "timestamp": analysis.timestamp,
             "comments": analysis.comments,
@@ -837,36 +846,24 @@ def build_trade_roast_context(trade_txn: dict,
 
 
 def render_pick_line(pk: dict) -> str:
-    # Pick line with historical band hit-rates and slot-confidence flag.
-    # smash = elite/star outcome, hit = solid starter, contrib = depth, bust = no impact.
-    # slot_confidence: low → hedge predictions ("could land in 1.05-08 if their
-    # season trajectory holds"); high → assert the band.
-    slot = pk.get("slot")
-    confidence = pk.get("slot_confidence", "unknown")
-    owner_seasons = pk.get("originating_owner_seasons", 0)
-    if slot:
-        if confidence == "high":
-            slot_str = f" (predicted slot {slot}, HIGH confidence — originating owner has {owner_seasons} consistent seasons)"
-        elif confidence == "low":
-            slot_str = f" (predicted slot {slot}, LOW confidence — originating owner only has {owner_seasons} season(s) of data; treat slot as tentative)"
-        else:
-            slot_str = f" (predicted slot {slot}, confidence unknown)"
+    """One pick line for the roast prompt. A future pick shows its bracket odds
+    (both ranges); a current-year pick shows its slot. Never 'predicted slot N'
+    or a confidence claim (Keith 2026-10-20, #1343 decision 2)."""
+    if pk.get("odds"):
+        where = f" (bracket odds: {pk['odds']})"
+    elif pk.get("slot"):
+        where = f" (slot {pk['round']}.{int(pk['slot']):02d})"
     else:
-        slot_str = ""
+        where = ""
     band = pk.get("band", "")
-    smash = pk.get("smash_pct", 0)
-    hit = pk.get("hit_pct", 0)
-    contrib = pk.get("contrib_pct", 0)
-    bust = pk.get("bust_pct", 0)
-    usable = pk.get("usable_pct", 0)
     rates = ""
     if band:
         rates = (f" — historical band {band}: "
-                 f"smash {smash:.0%} / hit {hit:.0%} / "
-                 f"contrib {contrib:.0%} / bust {bust:.0%} / "
-                 f"usable {usable:.0%}")
+                 f"smash {pk.get('smash_pct', 0):.0%} / hit {pk.get('hit_pct', 0):.0%} / "
+                 f"contrib {pk.get('contrib_pct', 0):.0%} / bust {pk.get('bust_pct', 0):.0%} / "
+                 f"usable {pk.get('usable_pct', 0):.0%}")
     contract = f" — {pk['contract']}" if pk.get("contract") else ""
-    return (f"  - {pk['year']} Round {pk['round']} pick{slot_str}"
+    return (f"  - {pk['year']} Round {pk['round']} pick{where}"
             f" (est. value ${pk['value']:,}){rates}{contract}")
 
 
@@ -998,6 +995,11 @@ def context_to_prompt_text(ctx: dict) -> str:
     ln(f"\n=== GRADES ===")
     ln(f"{fa['franchise_name']}: {a['grade']} ({a['grade_score']:+.1f}%)")
     ln(f"{fb['franchise_name']}: {b['grade']} ({b['grade_score']:+.1f}%)")
+    status = ctx.get("grade_status") or {}
+    if status.get("provisional"):
+        ln("GRADE STATUS: PROVISIONAL, not final. Inputs the grader could not trust: "
+           + "; ".join(status.get("reasons") or []))
+        ln("Say plainly that these grades are provisional. Do not present them as final.")
 
     # Extension projections
     if ctx["extension_projections"]:

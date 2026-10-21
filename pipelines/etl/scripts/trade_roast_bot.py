@@ -36,7 +36,7 @@ from trade_grader import (
     # 3-way support: nav / production value for the net-value read, contract
     # parsing for the salary schedule, and the MFL "Last, First" formatter.
     estimate_production_value, nav_player, _parse_contract, display_name,
-    rookie_contract_line,
+    rookie_contract_line, with_provisional_banner,
 )
 from trade_roast_context import (
     build_trade_roast_context, context_to_prompt_text,
@@ -722,7 +722,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # 7. Post roast in thread (Message 2) — with a Reply button view attached
     roast_embed = discord.Embed(
         title="🔥 Roast",
-        description=roast_clean[:4096],
+        description=with_provisional_banner(roast_clean, analysis.provisional_reasons)[:4096],
         color=0x5865F2,
     )
     # Post WITHOUT view first so we know the msg id, then edit-in the view
@@ -983,6 +983,8 @@ def build_multiway_summary(legs: list) -> dict:
         "ledger": ledger,
         "timestamp": max(int(l.get("timestamp", 0)) for l in legs),
         "comment": next((l.get("comments", "") for l in legs), ""),
+        "provisional_reasons": list(dict.fromkeys(
+            r for an in analyses for r in an.provisional_reasons)),
     }
 
 
@@ -1078,6 +1080,10 @@ def build_multiway_context_text(summary: dict) -> str:
        "biggest winner and the team that came out worst, then the [GIF: ...] "
        "line. There is NO canonical grader letter for a three-team trade — judge "
        "each team's net haul yourself and assign a fair grade A+ through F.")
+    if summary.get("provisional_reasons"):
+        ln("GRADE STATUS: PROVISIONAL, not final. Inputs the grader could not trust: "
+           + "; ".join(summary["provisional_reasons"]))
+        ln("Say plainly that these grades are provisional. Do not present them as final.")
     ln("")
 
     dc = find_defending_champion(career_stats)
@@ -1121,8 +1127,9 @@ def build_multiway_context_text(summary: dict) -> str:
         orig_raw = (getattr(pk, "original_owner", "") or "").strip()
         oname = franchises.get(orig_raw.zfill(4) if orig_raw else "", "unknown")
         contract = rookie_contract_line(pk)
+        odds = f"; bracket odds: {pk.odds_text}" if pk.odds_text else ""
         return (f"    - {pk.year} Round {pk.round} pick (originally {oname}'s, "
-                f"est. value ${pk.estimated_value:,.0f})"
+                f"est. value ${pk.estimated_value:,.0f}{odds})"
                 + (f" — {contract}" if contract else ""))
 
     for fid in order:
@@ -1238,8 +1245,11 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
     print(f"[{datetime.now()}] 3-way roast generated ({len(roast_clean)} chars). "
           f"GIF query: {gif_query!r}")
 
-    roast_embed = discord.Embed(title="🔥 Roast", description=roast_clean[:4096],
-                                color=0x5865F2)
+    roast_embed = discord.Embed(
+        title="🔥 Roast",
+        description=with_provisional_banner(
+            roast_clean, summary.get("provisional_reasons") or [])[:4096],
+        color=0x5865F2)
     roast_msg = await thread.send(
         embed=roast_embed, allowed_mentions=discord.AllowedMentions.none())
     try:
