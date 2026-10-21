@@ -16,7 +16,7 @@ const CSS = read("site/rosters/v2/front_office.css");
 
 const ctx = { console }; ctx.window = ctx; vm.createContext(ctx);
 const plain = (x) => JSON.parse(JSON.stringify(x));   // vm-realm arrays → this realm, for deepEqual
-for (const f of ["site/m/season_scoring.js", "site/shared/player_facts.js", "site/rosters/v2/fo_player_modal.js"]) vm.runInContext(read(f), ctx, { filename: f });
+for (const f of ["site/m/season_scoring.js", "site/shared/player_facts.js", "site/shared/taxi_rule.js", "site/rosters/v2/fo_player_modal.js"]) vm.runInContext(read(f), ctx, { filename: f });
 const SS = ctx.UPS_MOBILE_SEASON_SCORING, F = ctx.UPS_PLAYER_FACTS, M = ctx.UPS_FO_MODAL;
 
 const HISTORY = {};   // front_office.js loadRookieDraftHistory: latest draft per player
@@ -47,9 +47,30 @@ test("a permanent promotion wins over the worker's eligible flag (40 players on 
   const t1 = M.taxiStatus({ taxiEligible: true, taxiPermanentPromotion: true, type: "Rookie-Draft" }, rec, 2026);
   t.equal(t1.text, "Not eligible · permanently promoted");
   t.equal(t1.eligible, false);
-  // A draft-record reason against the flag is still a real conflict.
+  // The worker's own verdict disagreeing with the draft history is a real conflict → Unknown.
   const r1 = M.upsDraftRecord({ season: 2020, round: 3, pick: 1 }, { round: 0 }, true);
-  t.equal(M.taxiStatus({ taxiEligible: true, taxiPermanentPromotion: true }, r1, 2026).text, "Unknown");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiStatus: { eligible: true, reason: "eligible", text: "Eligible · 3 of 3 call-ups left" } }, r1, 2026).text, "Unknown");
+  // ...but the worker's "no pick in its 3-draft index" never contradicts an older pick in the full history.
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiStatus: { eligible: false, reason: "no_recent_pick" } }, r1, 2026).text, "Not eligible · taxi window ended (2020 draft)");
+});
+
+test("taxi boundaries in the panel: 0–3 activations temporary (demotable), the 4th permanent; release ends it; a trade keeps it", () => {
+  const rec = M.upsDraftRecord({ season: 2025, round: 3, pick: 4 }, { round: 3, year: 2025 }, true);
+  for (const used of [0, 1, 2, 3]) {
+    const r = M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: used, taxiPermanentPromotion: false }, rec, 2026);
+    t.equal(r.eligible, true); t.equal(r.can_demote, true, used + " used: demote allowed"); t.equal(r.text, (3 - used) + " of 3 call-ups left · on the active roster");
+  }
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 4, taxiPermanentPromotion: true }, rec, 2026).text, "Not eligible · permanently promoted");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 1, taxiCallupsPending: 1 }, rec, 2026).can_demote, true, "a pending call-up never blocks a demote");
+  t.ok(/released since the draft/.test(M.taxiStatus({ type: "Vet-FAA" }, rec, 2026).text), "cut and re-acquired: not eligible");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft" }, rec, 2026).eligible, true, "traded: the Rookie-Draft contract carries over");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", isTaxi: true }, rec, 2026).can_demote, false, "already on taxi");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft" }, M.upsDraftRecord({ season: 2023, round: 3, pick: 4 }, { round: 0 }, true), 2026).text, "Not eligible · taxi window ended (2023 draft)");
+  // Move to Taxi follows the worker's verdict; the rule loads before the panel module, on the page and in the MFL embed.
+  t.ok(/p\.taxiStatus \? p\.taxiStatus\.can_demote === true :/.test(chunks(FO).find((c) => c.name === "renderActionsTab").body));
+  const html = read("site/rosters/v2/front_office.html"), loader = read("site/rosters/fo_embed_loader.js");
+  t.ok(html.indexOf("shared/taxi_rule.js") > 0 && html.indexOf("shared/taxi_rule.js") < html.indexOf("fo_player_modal.js"));
+  t.ok(loader.indexOf('"shared/taxi_rule.js"') > 0 && loader.indexOf('"shared/taxi_rule.js"') < loader.indexOf('"rosters/v2/fo_player_modal.js"'));
 });
 
 test("Jacoby Brissett: not a UPS pick, and the taxi line says exactly that", () => {

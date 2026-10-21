@@ -2853,7 +2853,9 @@
           taxiCallupsMax:          safeInt(p.taxi_callups_max, 0),
           taxiCallupsPending:      safeInt(p.taxi_callups_pending, 0),
           taxiPermanentPromotion: !!p.taxi_permanent_promotion,
-          taxiEligible:           !!p.taxi_eligible
+          taxiEligible:           !!p.taxi_eligible,
+          // The worker's ONE taxi verdict (worker/src/taxi_rule.js), when this worker sends it.
+          taxiStatus:             p.taxi_status || null
         };
       });
       // Capture the worker's per-team summary so the Cap Plan Summary
@@ -5210,7 +5212,8 @@
     if (p.isTaxi) moveBtns.push(`<button class="btn small" data-action="promote-taxi">Promote Taxi</button>`);
     // Move to Taxi: a taxi-eligible active rookie (§B2 — UPS R2-5, within the
     // 3-league-year window, not yet permanently promoted) can be demoted to taxi.
-    if (p.taxiEligible && !p.isTaxi && !p.isIr && !p.taxiPermanentPromotion) {
+    // Demote follows the ONE taxi verdict (canon §B2 / T2.4: allowed after each of the 3 temporary call-ups).
+    if (p.taxiStatus ? p.taxiStatus.can_demote === true : (p.taxiEligible && !p.isTaxi && !p.isIr && !p.taxiPermanentPromotion)) {
       moveBtns.push(`<button class="btn small" data-action="demote-taxi">Move to Taxi</button>`);
     }
     // Place on IR (§B3) — the inverse of Activate IR. Offered only to a player

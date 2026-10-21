@@ -7,11 +7,12 @@
      if they don't, or the file didn't load, the record is "unknown", never
      a guess. The UPS Draft line AND the taxi reason both read this record,
      so they can't contradict.
-   - Taxi reasons stay distinct (canon §A1 L97/104, §B2 L344/351/358/360):
-     not a UPS Rookie Draft pick · Round 1 pick · taxi window ended (3 league
-     years) · permanently promoted · no longer on the rookie-draft contract.
-     When league records disagree (the worker says eligible but the draft
-     record rules it out), the answer is "Unknown", never one side's claim.
+   - The taxi line is the ONE taxi rule (site/shared/taxi_rule.js, twin of
+     worker/src/taxi_rule.js; canon §A1 / §B2 / T2.4), fed the same UPS draft
+     record: not a pick · Round 1 · window ended (3 league years) · released
+     (re-acquiring doesn't restore it) · permanently promoted. Activations 1–3
+     are temporary (demotable after each); the 4th is permanent. When the
+     worker's own verdict disagrees, the answer is "Unknown".
    - NFL bio: missing data reads "Unknown" (or "Loading…"), never "Undrafted".
      MFL lists some drafted players' draft team as "FA"; that team is omitted.
 
@@ -68,39 +69,37 @@
     return "Unknown";
   }
 
-  // p: { taxiEligible, taxiPermanentPromotion, type, isTaxi, isIr, taxiCallupsMax, taxiCallupsUsed }; season = the league year.
+  // The taxi line = the ONE taxi rule (site/shared/taxi_rule.js, twin of the worker's worker/src/taxi_rule.js;
+  // canon §A1 / §B2 / T2.4): UPS Rookie Draft round/year from the SAME record as the UPS Draft line (the full
+  // 2012–2026 history, so an older pick reads "taxi window ended", never "not a pick"), Round 1 never, Round 2+
+  // for 3 league years, never released (still exactly Rookie-Draft), not permanently promoted (the roster
+  // record's flag: 4th activation, a marked call-up, or a prior season ended active). Activations 1–3 are
+  // temporary: demotion stays allowed after each. When the worker sent its own verdict (taxi_status) and it
+  // disagrees, the answer is "Unknown", never one side's claim.
+  // p: { type, isTaxi, isIr, taxiPermanentPromotion, taxiCallupsUsed, taxiCallupsPending, taxiStatus }; season = the league year.
   function taxiStatus(p, rec, season) {
-    season = int(season);
+    var R = root.UPS_TAXI_RULE;
+    if (!R) return { eligible: null, text: "Unknown", note: "The taxi rule didn’t load.", reasons: [] };
     if (!rec || rec.state === "unknown" || rec.state === "conflict") {
       return { eligible: null, text: "Unknown", note: (rec && rec.why) || "The UPS draft record couldn’t be confirmed.", reasons: [] };
     }
-    var reasons = [];
-    if (rec.state === "none") reasons.push("not a UPS Rookie Draft pick");
-    else {
-      if (rec.round === 1) reasons.push("Round 1 pick");
-      if (rec.season && season - rec.season >= 3) reasons.push("taxi window ended (" + rec.season + " draft)");
+    var v = R.taxiEligibility({
+      upsRound: rec.state === "pick" ? rec.round : 0, upsYear: rec.state === "pick" ? rec.season : 0, season: season,
+      contractStatus: p.type, isTaxi: !!p.isTaxi, isIr: !!p.isIr,
+      used: p.taxiCallupsUsed, pending: p.taxiCallupsPending, permanent: !!p.taxiPermanentPromotion,
+    });
+    var w = p.taxiStatus || null;
+    if (w && w.eligible != null && v.eligible != null && w.eligible !== v.eligible && w.reason !== "no_recent_pick") {
+      return { eligible: null, text: "Unknown", note: "League records disagree: the roster record says “" + str(w.text) + "”; the draft history gives “" + v.text + "”.", reasons: [] };
     }
-    // The worker's eligible flag ignores permanent promotion (both come from the roster record), so a promotion
-    // always wins: canon §B2 L351 — never eligible again. Only a DRAFT-record reason against the flag is a conflict.
-    var draftReasons = reasons.slice();
-    if (p.taxiPermanentPromotion) reasons.push("permanently promoted");
-    if (reasons.length) {
-      if (p.taxiEligible && draftReasons.length) {
-        return { eligible: null, text: "Unknown", note: "League records disagree: the roster record says eligible, the draft record says " + draftReasons[0] + ".", reasons: reasons };
-      }
-      return { eligible: false, text: "Not eligible · " + reasons[0], note: reasons.length > 1 ? "Also: " + reasons.slice(1).join("; ") + "." : "", reasons: reasons };
-    }
-    // A Round 2+ pick inside the window, never promoted.
-    if (p.taxiEligible) {
-      var max = int(p.taxiCallupsMax) || 3, used = int(p.taxiCallupsUsed), left = Math.max(0, max - used);
+    var reasons = (v.reasons || []).map(function (r) { return r.text; });
+    if (v.eligible === true) {
       var where = p.isTaxi ? "on taxi" : (p.isIr ? "on IR" : "on the active roster");
-      return { eligible: true, text: left + " of " + max + " call-ups left · " + where, reasons: [],
-        note: "Each completed week on the active roster uses one; the 4th makes the promotion permanent." + (!p.isTaxi && !p.isIr ? " This week counts once it is over." : "") };
+      return { eligible: true, text: v.callups_left + " of 3 call-ups left · " + where, reasons: [], can_demote: v.can_demote,
+        note: "Activations 1–3 are temporary: the player can return to taxi after each. The 4th is permanent." + (!p.isTaxi && !p.isIr ? " This week counts once it is over." : "") };
     }
-    if (!/^rookie-draft$/i.test(str(p.type))) {
-      return { eligible: false, text: "Not eligible · no longer on the rookie-draft contract", note: "Cut and reacquired, or re-signed (a trade keeps eligibility).", reasons: ["no longer on the rookie-draft contract"] };
-    }
-    return { eligible: false, text: "Not eligible · reason not recorded", note: "League records mark the player ineligible without a reason.", reasons: ["reason not recorded"] };
+    return { eligible: v.eligible, text: v.text, reasons: reasons, can_demote: false,
+      note: reasons.length > 1 ? "Also: " + reasons.slice(1).join("; ") + "." : "" };
   }
 
   // MFL players DETAILS → display text. state: "loading" | "error" | "ok".
