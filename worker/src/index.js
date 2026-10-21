@@ -29,7 +29,7 @@ import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalend
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
-import { mflTradeLock, tradeEventWeeks } from "./trade_deadline.js";
+import { mflTradeLock, tradeEventWeeks, parseMflIcsStarts } from "./trade_deadline.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -2626,8 +2626,8 @@ async function nflWeekFirstKickoffUnix(season, week) {
 
 // WHEN MFL STOPS ACCEPTING TRADES, for every owner-facing deadline (the Discord reminders, /api/league-events and,
 // through it, the phone Home chip, Team Operations and the MFL-page countdown widget). The rule lives in
-// trade_deadline.js (the earliest TRADE calendar event not yet ended; week-numbered events at that week's first
-// kickoff). This reads MFL's calendar with the worker's own session, read-only. opts.cacheMs keeps a good read for that
+// trade_deadline.js (the earliest TRADE calendar event not yet ended; week-numbered events where MFL's ICS export places
+// them). This reads MFL's calendar (and, when a week-numbered event exists, its ICS) with the worker's session, read-only. opts.cacheMs keeps a good read for that
 // long in this isolate (the state is recomputed against the clock on every call); a failed read is never remembered.
 const _mflTradeLockReads = new Map();
 async function readMflTradeLock(env, season, leagueId, opts = {}) {
@@ -2650,15 +2650,21 @@ async function readMflTradeLock(env, season, leagueId, opts = {}) {
       const data = await res.json().catch(() => null);
       if (!data || data.error) return fail("calendar_unreadable_" + (data && data.error ? "mfl_error" : "not_json"), res.status);
       const events = normalizeMflCalendar(data);
-      const kick = {};
-      for (const w of tradeEventWeeks(events)) kick[w] = await nflWeekFirstKickoffUnix(yr, w);
-      read = { at: Date.now(), events, kick, status: res.status };
-      if (events.length && !Object.values(kick).some((u) => !(u > 0))) _mflTradeLockReads.set(key, read);
+      let ics = {};
+      if (tradeEventWeeks(events).length) {
+        // MFL's own instant for each week-numbered event (it follows MFL if the NFL moves the week's first game).
+        const ir = await fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=ics&L=${lid}&_=${Date.now()}`,
+          { headers, cf: { cacheTtl: 0, cacheEverything: false } });
+        ics = ir.ok ? parseMflIcsStarts(await ir.text()) : {};
+      }
+      read = { at: Date.now(), events, ics, status: res.status };
+      const weekIds = events.filter((e) => e.event_type === "TRADE" && Number(e.start_unix) > 0 && Number(e.start_unix) <= 30).map((e) => e.id);
+      if (events.length && weekIds.every((id) => ics[id] > 0)) _mflTradeLockReads.set(key, read);
     } catch (e) {
       return fail("calendar_fetch_failed: " + String(e && e.message || e).slice(0, 120));
     }
   }
-  return { ...mflTradeLock(read.events, { nowUnix, weekKickoff: read.kick }), upstream_status: read.status,
+  return { ...mflTradeLock(read.events, { nowUnix, icsStarts: read.ics }), upstream_status: read.status,
     source_url: `https://www48.myfantasyleague.com/${yr}/options?L=${lid}&O=123` };
 }
 

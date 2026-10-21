@@ -1031,6 +1031,7 @@
     },
     {
       "key": "deadlines",
+      "live_trade_lock": true,
       "group": "season",
       "title": "Dates & Deadlines",
       "one_liner": "Four dates decide your season. Missed auction nominations are the only one that carries an automatic fine.",

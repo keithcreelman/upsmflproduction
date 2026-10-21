@@ -15,12 +15,18 @@
 //     "reject completely";
 //   - pending offers stay listed; trading reopens at the event's end (refused 2 s
 //     before it, accepted 1 s after);
-//   - a START_TIME that is a small number is an NFL WEEK: "13" is shown on the
-//     calendar as "No Trades Allowed starts at" Week 13's first kickoff.
+//   - a START_TIME that is a small number is an NFL WEEK: "12" is MFL's native
+//     "start of Week 12" event. MFL enforces it from that week's first kickoff
+//     (a Week-6 event refused trades on 2026-10-21; Week 6 had kicked off) and
+//     its ICS export (TYPE=ics) gives the instant MFL resolved it to
+//     (Week 12 → 2026-11-26T01:00:00Z = Wed Nov 25 8:00 PM ET);
+//   - a TRADE event with NO start time is accepted by the import and not
+//     enforced (trading stayed open); it is inert.
 //
 // So the deadline is the EARLIEST TRADE event that has not already ended. A
-// week-numbered event is placed at that week's first kickoff (the caller passes
-// nflWeekFirstKickoffUnix, the one implementation of "when does a week start").
+// week-numbered event is placed where MFL itself places it: the caller passes
+// MFL's ICS start for that event id (icsStarts) — MFL's read-back, so it follows
+// MFL if the NFL moves the week's first game.
 //
 // NO FAIL-OPEN. An empty calendar (what a failed login looks like) or a
 // week-numbered event whose kickoff can't be read returns state "unresolved"
@@ -54,8 +60,8 @@ export function etParts(unix) {
   };
 }
 
-// events: normalizeMflCalendar(...) rows. weekKickoff: { [week]: unix seconds, 0 = unreadable }.
-export function mflTradeLock(events, { nowUnix, weekKickoff = {} } = {}) {
+// events: normalizeMflCalendar(...) rows. icsStarts: { [event id]: unix seconds } from MFL's ICS export (parseMflIcsStarts).
+export function mflTradeLock(events, { nowUnix, icsStarts = {} } = {}) {
   const now = Number(nowUnix) || Math.floor(Date.now() / 1000);
   const all = Array.isArray(events) ? events : [];
   const out = { state: "unresolved", source: "mfl_calendar", start_unix: null, end_unix: null, event_id: "",
@@ -67,11 +73,12 @@ export function mflTradeLock(events, { nowUnix, weekKickoff = {} } = {}) {
   for (const e of trade) {
     const raw = Number(e.start_unix) || 0;
     const week = raw > 0 && raw <= WEEK_NUMBER_MAX ? raw : null;
-    const start = week ? Number(weekKickoff[week]) || 0 : raw;
+    const start = week ? Number(icsStarts[String(e.id || "")]) || 0 : raw;
     const end = Number(e.end_unix) || null;
+    if (!raw) { out.events.push({ id: String(e.id || ""), start_unix: null, end_unix: end, nfl_week: null, inert: true }); continue; }
     out.events.push({ id: String(e.id || ""), start_unix: start || null, end_unix: end, nfl_week: week });
     if (end && end <= now) continue;               // a blackout that already ended doesn't count
-    if (!(start > 0)) { out.reason = week ? `week_${week}_kickoff_unreadable` : "trade_event_without_start"; return out; }
+    if (!(start > 0)) { out.reason = `week_${week}_start_not_in_mfl_ics`; return out; }
     placed.push({ id: String(e.id || ""), start, end });
   }
   out.events.sort((a, b) => (a.start_unix || 0) - (b.start_unix || 0));
@@ -84,7 +91,20 @@ export function mflTradeLock(events, { nowUnix, weekKickoff = {} } = {}) {
     event_id: first.id, date_et: et.date_et, time_et: et.time_et, label: et.label, reason: "" };
 }
 
-// The week numbers a calendar's TRADE events refer to, so the caller looks up only those kickoffs.
+// MFL's ICS export → { event id: start, Unix seconds }. DTSTART is UTC ("20261126T010000"); UID is "<id>@myfantasyleague.com".
+export function parseMflIcsStarts(text) {
+  const out = {};
+  for (const block of String(text || "").split("BEGIN:VEVENT").slice(1)) {
+    const uid = /\nUID:(\d+)@/.exec("\n" + block.replace(/\r/g, ""));
+    const st = /\nDTSTART(?:;[^:\n]*)?:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?/.exec("\n" + block.replace(/\r/g, ""));
+    if (!uid || !st) continue;
+    const t = Date.UTC(+st[1], +st[2] - 1, +st[3], +st[4], +st[5], +st[6]) / 1000;
+    if (t > 0) out[uid[1]] = t;
+  }
+  return out;
+}
+
+// The week numbers a calendar's TRADE events refer to (when any are present, the caller reads MFL's ICS export).
 export function tradeEventWeeks(events) {
   return [...new Set((Array.isArray(events) ? events : [])
     .filter((e) => e && e.event_type === "TRADE")
