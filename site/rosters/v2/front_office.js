@@ -2779,7 +2779,9 @@
           taxiCallupsMax:          safeInt(p.taxi_callups_max, 0),
           taxiCallupsPending:      safeInt(p.taxi_callups_pending, 0),
           taxiPermanentPromotion: !!p.taxi_permanent_promotion,
-          taxiEligible:           !!p.taxi_eligible
+          taxiEligible:           !!p.taxi_eligible,
+          // The worker's one taxi verdict (worker/src/taxi_rule.js): eligible / why not, in owner-facing words.
+          taxiStatus:             p.taxi_status || null
         };
       });
       // Capture the worker's per-team summary so the Cap Plan Summary
@@ -4277,6 +4279,10 @@
   // week shows here once it is over. Keith 2026-09-17: "We need to add Taxi
   // Eligibility" (Kyle Monangai, promoted 9/13, was showing nothing).
   function bioTaxiEligibility(p) {
+    // The worker's verdict names the reason (Keith 2026-10-21): legacy 2025 promotion, permanent after three
+    // temporary call-ups, released, window ended, Round 1, or "Eligibility could not be confirmed".
+    var ts = p.taxiStatus;
+    if (ts && ts.eligible !== true && ts.text) return { text: ts.text, note: safeStr(ts.detail) };
     if (p.taxiPermanentPromotion) {
       return { text: "Not eligible · permanently promoted", note: "Used 4 call-ups, or was on an active roster at the end of a past season." };
     }

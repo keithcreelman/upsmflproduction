@@ -128,7 +128,8 @@
     ww_under_5k_exempt: { amt: "zero", why: "A one-year waiver deal under $5K carries no guarantee (canon §D2)." },
     ww_under_5k_earned_na: { amt: "zero", why: "A one-year waiver deal of $4K or less carries no guarantee; earned doesn’t apply (canon §6.C3)." },
     taxi_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." },
-    taxi_callup_exempt: { amt: "zero", why: "A taxi player on a temporary call-up, never permanently promoted, still carries no guarantee (canon §B2/§D2)." }
+    taxi_callup_exempt: { amt: "zero", why: "A taxi-eligible player cut after temporary call-ups, never permanently promoted: cap-free (canon §B2/§D2/T5.2)." },
+    taxi_eligible_exempt: { amt: "zero", why: "A taxi-eligible player cut from the active roster: cap-free, wherever he sits (canon T5.2/§D2). The release ends his taxi eligibility." }
   };
   // MFL's year schedule through the shared parser (site/shared/cap_math.js,
   // the same one Front Office uses: bare "Y1-11" tokens are $K too). Unexercised
