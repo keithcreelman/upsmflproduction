@@ -74,3 +74,19 @@ export function taxiEligibility(i = {}) {
     can_demote: !i.isTaxi && !i.isIr,
   });
 }
+
+// The CUT's verdict (Keith 2026-10-21, canon T5.2 / §D2: a cut is cap-free when the player is still taxi-eligible
+// immediately before it, wherever he sits). cut = the worker's _taxiCutContextMap inputs as of the cut
+// ({ season, upsRound, upsYear, draftKnown, used, pending, permanent, liveWeek }). liveWeek = his own game has kicked
+// off in the week under way with 3 activations used: that is his 4th activation ONLY if he was not on the taxi squad at
+// the cut (a taxi-squad week is never an activation). Only the original rookie-draft contract ("Rookie" is its pre-2026
+// spelling) can qualify — a release wipes it, a re-acquisition or an explicit MYAC / extension / restructure replaces it.
+// → true | false | null (unknown → the cut is held, never a guessed $0 or charge).
+export function taxiCutVerdict(cut, contractStatus, isTaxi) {
+  if (!/^rookie(-draft)?$/i.test(String(contractStatus == null ? "" : contractStatus).trim())) return false;
+  if (!cut || typeof cut !== "object") return null;
+  let permanent = cut.permanent;
+  if (!isTaxi && permanent === false && cut.liveWeek === true) permanent = true;
+  if (!isTaxi && permanent === false && cut.liveWeek === null) permanent = null;
+  return taxiEligibility({ ...cut, permanent, contractStatus: "Rookie-Draft", isTaxi: !!isTaxi }).eligible;
+}

@@ -51,6 +51,7 @@ const parseFn = grab('const _parseContractData =', 'return { tcv, cl, aav, cy, y
 const compFn = grab('const _computeDropPenalty =', 'return { ...ctx, guaranteed, penalty, basis: "guarantee_minus_earned", exempt: false, exempt_reason: "" };\n        };');
 const prelude = `
 import { applyFullYearRule, classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS } from "${new URL('../worker/src/fcfs_contract.js', import.meta.url).href}";
+import { taxiEligibility, taxiCutVerdict } from "${new URL('../worker/src/taxi_rule.js', import.meta.url).href}";
 const safeStr=(v)=>v==null?"":String(v);
 const safeInt=(v,d)=>{const n=Number(v);return Number.isFinite(n)?Math.trunc(n):(d||0);};
 const _s=(v)=>String(v==null?"":v).trim();
@@ -178,7 +179,7 @@ console.log('\n-- 11. IR continues accrual (no IR-specific branch in the formula
 
 console.log('\n-- 12. taxi: earned still reported, but penalty is exempt $0 --');
 {
-  const r = _computeDropPenalty({ ...stdContract(13000), isTaxi: true }, { dropDateIso: WEEK3_INPROGRESS, week1ThursdayIso: WK1, season: '2026', completedPayableWeeks: TWO_COMPLETED_WEEKS });
+  const r = _computeDropPenalty({ ...stdContract(13000), contractStatus: 'Rookie-Draft', isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false } }, { dropDateIso: WEEK3_INPROGRESS, week1ThursdayIso: WK1, season: '2026', completedPayableWeeks: TWO_COMPLETED_WEEKS });
   t('taxi penalty is exempt $0', r.penalty, 0);
   t('taxi basis is taxi_exempt', r.basis, 'taxi_exempt');
   t('taxi still reports a real earned figure (not suppressed to 0)', r.earned, 1529);

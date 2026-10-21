@@ -61,6 +61,12 @@ globalThis.fetch = async (input, init) => {
     const year = (u.pathname.match(/\/(\d{4})\//) || [])[1];
     const type = u.searchParams.get("TYPE");
     if (type === "nflSchedule") return json(nflSchedule(Number(u.searchParams.get("W"))));
+    // UPS Rookie Draft results (the taxi rule's window): Neal 2025 R3, Kyle 2025 R2, the call-up rookie 2026 R2.
+    if (type === "draftResults") {
+      if (year !== "2026" && MFL.priorSeasonsDown) return json({ error: "MFL down" }, 500);
+      const picks = { 2025: [["17046", "3"], ["17134", "2"]], 2026: [["17052", "2"], ["17075", "2"], ["17076", "2"], ["17077", "2"], ["17078", "2"]] }[year] || [];
+      return json({ draftResults: { draftUnit: { draftPick: picks.map(([player, round]) => ({ player, round })) } } });
+    }
     if (year !== "2026") return MFL.priorSeasonsDown ? json({ error: "MFL down" }, 500) : json({ error: "test: prior seasons come from the D1 cache" }, 500);
     if (type === "transactions") {
       const tt = u.searchParams.get("TRANS_TYPE");
@@ -193,8 +199,9 @@ test("A6. the cards read the ledger's numbers: Neal $2.4K ($4.5K − $2.1K), Kyl
     t.match(card(runs[k], "Kyle Williams"), /Cap Penalty: \$6K/, k);
     t.match(card(runs[k], "Taxi Callup"), /No Cap Penalty/, k);
   }
-  t.equal(announced(runs.onTime, "17052").pricing_inputs.taxi_never_promoted, true, "the call-up status came from the shared resolver");
-  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_never_promoted, null, "permanently promoted → no exemption");
+  t.equal(announced(runs.onTime, "17052").pricing_inputs.taxi_eligible_before_cut, true, "eligible immediately before the cut: the ONE taxi rule's answer");
+  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_eligible_before_cut, false, "permanently promoted → no exemption");
+  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_cut.permanent, true);
   t.deepEqual(DISCORD_CALLS, [], "a dry run never contacts Discord");
 });
 
@@ -223,8 +230,8 @@ test("C. call-up history unreadable (no cached 2025 rosters, MFL's prior seasons
     t.deepEqual([row.penalty_basis, row.penalty_amount], ["week_authority_unresolved", null], `${pid}: held by the ledger`);
     const a = announced(p, pid);
     t.equal(a.known, false, `${pid}: not priced on the card either`);
-    t.equal(a.pricing_inputs.taxi_never_promoted, "unresolved");
-    t.match(a.unknown_reason, /permanently promoted could not be read[\s\S]*NOT a \$0/);
+    t.equal(a.pricing_inputs.taxi_eligible_before_cut, null, `${pid}: eligibility unknown`);
+    t.match(a.unknown_reason, /still taxi-eligible could not be confirmed[\s\S]*NOT a \$0/);
     const c = card(p, name);
     t.match(c, /Cap penalty: unknown — needs review/, name);
     t.doesNotMatch(c, /No Cap Penalty|Cap Penalty: \$/, name);
@@ -238,8 +245,8 @@ test("D. the poster calls the ledger's helpers, not its own week count, acquisit
   const SRC = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
   const i = SRC.indexOf('if (path === "/admin/adds/post-discord" && request.method === "POST")');
   const POSTER = SRC.slice(i, SRC.indexOf("const apResults = [];", i));
-  t.match(POSTER, /_taxiNeverPromotedMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId, atUnix: ts \}\)/, "as of each claim's drop");
-  t.match(POSTER, /taxiNeverPromoted,\n/, "passed to the calculator as is (true | 'unresolved')");
+  t.match(POSTER, /_taxiCutContextMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId, atUnix: ts \}\)/, "as of each claim's drop");
+  t.match(POSTER, /taxiCut,\n/, "the taxi rule's inputs passed to the calculator as is");
   t.match(POSTER, /await _completedWeeksForDrop\(apSeason, apLeagueId, ts\)/);
   t.match(POSTER, /_acquisitionWeekAsOf\(apTxs, apSeason, dpid, ts\)/);
   t.doesNotMatch(POSTER, /resolveCompletedPayableWeeks\(|_acquisitionWeekMapFromTxs\(/, "no second week rule, no latest-add acquisition map");

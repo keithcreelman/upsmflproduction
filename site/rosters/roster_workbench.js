@@ -2263,10 +2263,14 @@
         earned: earned
       };
     }
-    if (player && player.isTaxi) {
+    // Cap-free cut protection follows TAXI ELIGIBILITY (the worker's one taxi verdict), not the roster slot (Keith
+    // 2026-10-21, canon T5.2 / §D2): eligible immediately before the cut → $0, on taxi, active or mid call-up. A row
+    // from an older worker without the verdict keeps the old taxi-slot estimate. The worker's priced row decides.
+    var taxiVerdict = player && player.taxiStatus ? player.taxiStatus : null;
+    if (taxiVerdict ? taxiVerdict.eligible === true : (player && player.isTaxi)) {
       return {
         amount: 0,
-        note: "Taxi players are shown with salary but do not project a current cap penalty.",
+        note: "Taxi-eligible: a cut is cap-free wherever the player sits (§D2 / T5.2), and the release ends taxi eligibility.",
         tcv: totalContractValue,
         guaranteed: guaranteed,
         currentYearSalary: currentYearSalary,

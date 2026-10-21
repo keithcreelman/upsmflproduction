@@ -9,7 +9,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
-import { taxiEligibility, taxiPermanent, TAXI_CALLUPS_MAX } from "../worker/src/taxi_rule.js";
+import { taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_CALLUPS_MAX } from "../worker/src/taxi_rule.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
@@ -88,6 +88,42 @@ test("already on taxi or IR: eligible, but there is nothing to demote", () => {
   t.equal(v({ isIr: true }).can_demote, false);
 });
 
+// ── The CUT (Keith 2026-10-21, canon T5.2 / §D2): cap-free iff still taxi-eligible immediately before it, wherever he sits ──
+const before = { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false };
+test("an eligible player's cut is cap-free from the TAXI SQUAD, the ACTIVE ROSTER or a TEMPORARY CALL-UP", () => {
+  t.equal(taxiCutVerdict(before, "Rookie-Draft", true), true, "cut from the taxi squad");
+  t.equal(taxiCutVerdict(before, "Rookie-Draft", false), true, "cut from the active roster, never on taxi");
+  for (const used of [1, 2, 3]) t.equal(taxiCutVerdict({ ...before, used }, "Rookie-Draft", false), true, "cut after " + used + " temporary call-up(s)");
+  t.equal(taxiCutVerdict(before, "Rookie", false), true, "the pre-2026 spelling of the entry contract");
+});
+
+test("after the release: a re-acquired player is never eligible again (and a trade is not a release)", () => {
+  for (const st of ["Rookie-FAA", "Vet-FAA", "Rookie-WW", "Vet-WW", "Vet-MYM", "Vet-Ext1"]) {
+    t.equal(taxiCutVerdict(before, st, false), false, "re-acquired as " + st);
+    t.equal(taxiCutVerdict(before, st, true), false, "re-acquired as " + st + ", even sitting on taxi");
+  }
+  t.equal(taxiCutVerdict({ ...before, used: 2 }, "Rookie-Draft", false), true, "traded: the Rookie-Draft contract and the call-ups follow him");
+});
+
+test("permanent promotion, an expired window, Round 1 and unreadable history never get the cap-free cut", () => {
+  t.equal(taxiCutVerdict({ ...before, used: 4, permanent: true }, "Rookie-Draft", false), false, "4th activation");
+  t.equal(taxiCutVerdict({ ...before, used: 1, permanent: true }, "Rookie-Draft", true), false, "marked / prior season ended active, even on taxi");
+  t.equal(taxiCutVerdict({ ...before, upsYear: 2023 }, "Rookie-Draft", true), false, "window ended, even on taxi");
+  t.equal(taxiCutVerdict({ ...before, upsRound: 1 }, "Rookie-Draft", false), false, "Round 1");
+  for (const c of [{ ...before, permanent: null }, { ...before, draftKnown: false }, null, undefined]) {
+    t.equal(taxiCutVerdict(c, "Rookie-Draft", false), null, "unknown → held: " + JSON.stringify(c));
+  }
+  t.equal(taxiCutVerdict(null, "Vet-FAA", true), false, "an unknown history never matters to a re-acquired player");
+});
+
+test("the week under way: his 4th activation only if he was NOT on the taxi squad at the cut", () => {
+  const third = { ...before, used: 3, liveWeek: true };
+  t.equal(taxiCutVerdict(third, "Rookie-Draft", false), false, "active when his game kicked off: the 4th activation, permanent");
+  t.equal(taxiCutVerdict(third, "Rookie-Draft", true), true, "on taxi: that week is not an activation");
+  t.equal(taxiCutVerdict({ ...third, liveWeek: null }, "Rookie-Draft", false), null, "schedule unreadable: held");
+  t.equal(taxiCutVerdict({ ...third, liveWeek: null }, "Rookie-Draft", true), true, "on taxi the schedule doesn't matter");
+});
+
 test("the browser twin is the same rule, byte for byte and on a grid", () => {
   const w = read("worker/src/taxi_rule.js"), s = read("site/shared/taxi_rule.js");
   const body = w.slice(w.indexOf("export const TAXI_CALLUPS_MAX")).replace(/export const /g, "const ").replace(/export function /g, "function ");
@@ -105,7 +141,7 @@ test("the browser twin is the same rule, byte for byte and on a grid", () => {
 
 test("every application path reads the one verdict", () => {
   const W = read("worker/src/index.js");
-  t.ok(/import \{ taxiEligibility, taxiPermanent \} from "\.\/taxi_rule\.js";/.test(W));
+  t.ok(/import \{ taxiEligibility, taxiPermanent, taxiCutVerdict \} from "\.\/taxi_rule\.js";/.test(W));
   t.ok(/taxi_status: taxiStatus,/.test(W) && /const isTaxiEligible = taxiStatus\.eligible === true;/.test(W), "/roster-workbench emits taxi_status; taxi_eligible is its answer");
   t.ok(/priorActive: taxiPriorActive\.size \? taxiPriorActive\.has\(playerId\) : null/.test(W), "roster-workbench: prior-season permanence, unknown when unreadable");
   // Demote write guard: same rule, full permanence predicate, fail closed.
