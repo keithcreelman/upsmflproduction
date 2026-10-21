@@ -392,7 +392,7 @@
       "<h3>Overview</h3><p>Only items that need you, each with a link to where you act. Lineup and bye checks use your best legal 18-player lineup by season points per MFL week. " +
       "<b>Lineup strength</b> is built from each team’s own roster: the best legal 18-player lineup from its available rostered players. A replacement free agent fills a slot only when no rostered player can play it, and the card marks that row with *. " +
       "Flex, SuperFlex and D-Flex starters count at their natural position, so the rows add up to Overall.</p>" +
-      "<p><b>Above repl.</b> (the default) = starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), compared with the league <b>median</b>: the middle team is 0. " +
+      "<p><b>Above repl.</b> (the default) = starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), compared with the league <b>median</b>: 0 = the middle of the 12 teams. " +
       "<b>Index</b> compares starters’ points a week with the league <b>mean</b> (average): 100 = average. <b>PPG</b> is the raw points a week; <b>Rank</b> is 1st–12th by PPG. " +
       "The Trade finder still uses its own model, which lets a replacement free agent start wherever it outscores the roster, so its matrix can differ.</p>" +
       "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
