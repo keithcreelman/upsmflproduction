@@ -2,9 +2,8 @@
 """The trade grader grades only on a valid valuation snapshot (Keith 2026-10-20, #1343 decision 3).
 
 data/valuation/trade_valuation_snapshot.json is the grader's one valuation
-input. It must rebuild byte for byte from committed inputs, and every check in
-valuation_snapshot.py must hold before a grade exists. Each invalid condition
-below is shown to stop all three things a grade feeds:
+input. Each invalid condition below is shown to stop all three things a grade
+feeds:
   the grade       analyze_trade returns NO GRADE: no letter, no score, and the
                   failed input named;
   the roast call  build_trade_roast_context raises NoGradeError before any
@@ -17,6 +16,23 @@ The old silent substitutes (built-in pick curve, $60/point, salary as auction
 price, ADP 999, the projection DB, career-file x.06) are banned from the grade
 path, and a snapshot's own values are shown to be the ones used.
 
+Two layers, so a weekly rebuild of the production snapshot never breaks the
+suite (Keith 2026-10-21):
+  PINNED    tests/fixtures/valuation_snapshot_2026-10-20/ is a frozen copy of
+            the 2026-10-20 / week 6 snapshot and every input it was built from,
+            in the repo's layout. Every fixed expectation (its date, week and
+            values, the Gride <-> Blake grades, each NO GRADE mutation, the
+            replay) runs on it. Its golden rebuild fails only if the
+            generator's output for the same inputs changes; refresh the
+            fixture deliberately then.
+  CONTRACT  the committed production snapshot, whatever week it holds:
+            schema, metadata, freshness fields, input checksums, internal
+            consistency and a byte-for-byte rebuild, all checked at the
+            snapshot's own as-of time. Today's clock is never used: in
+            production a stale snapshot is NO GRADE, not a red build.
+A simulated later week passes the contract and the whole module; a broken or
+stale snapshot still fails.
+
 Offline: no D1, no MFL, no network. The clock is pinned.
   python3 pipelines/etl/scripts/test_valuation_snapshot.py
 """
@@ -25,7 +41,10 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
+import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import types
@@ -42,14 +61,26 @@ import trade_grader as tg  # noqa: E402
 import valuation_snapshot as vs  # noqa: E402
 from replay_2026_trade_grades import REPLAY, grader_inputs  # noqa: E402
 
+SNAPSHOT_REL = Path("data") / "valuation" / "trade_valuation_snapshot.json"
+COEFFICIENTS_REL = Path("pipelines") / "etl" / "config" / "future_pick_inseason_coefficients.json"
+INPUTS_REL = Path("pipelines") / "etl" / "inputs" / "valuation"
+
+# PINNED: the frozen 2026-10-20 / week 6 snapshot and its inputs.
+PINNED_ROOT = REPO / "tests" / "fixtures" / "valuation_snapshot_2026-10-20"
+PINNED_SNAPSHOT = PINNED_ROOT / SNAPSHOT_REL
 AS_OF, GENERATED_AT = "2026-10-20", "2026-10-20T20:00:00Z"
 NOW = datetime(2026, 10, 21, 12, tzinfo=timezone.utc).timestamp()   # 1.5 days after the data
 DAY = 86400
-SNAP_BYTES = vs.SNAPSHOT_PATH.read_bytes()
+SNAP_BYTES = PINNED_SNAPSHOT.read_bytes()
 TRADES = {t["key"]: t for t in json.loads(REPLAY.read_text())["trades"]}
 GRIDE_BLAKE = "1791320240"   # 10-06: Gride's 2027 R1 + R3 for Hampton, Golden and Blake's 2027 R4
-STANDINGS = json.loads((REPO / "data" / "mfl-snapshots" / AS_OF / "leagueStandings.json").read_text())
+STANDINGS = json.loads((PINNED_ROOT / "data" / "mfl-snapshots" / AS_OF / "leagueStandings.json").read_text())
 GRADE_LETTERS = {"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"}
+
+# CONTRACT: the committed production snapshot. The environment variable points
+# a whole-module run at another repo-shaped tree (the replacement tests use it).
+CONTRACT_ROOT_ENV = "UPS_TEST_VALUATION_CONTRACT_ROOT"
+CONTRACT_ROOT = Path(os.environ.get(CONTRACT_ROOT_ENV) or REPO).resolve()
 
 
 def snapshot() -> dict:
@@ -68,25 +99,47 @@ def live_state(weeks: int = 6) -> "pv.SeasonState":
                           {r["id"]: float(r["pf"]) for r in rows}, "2026-10-20T09:05:00Z")
 
 
-def grade(snap=None, state=None, now=NOW, gave=None, path=None):
+def build_at(root: Path, as_of: str, generated_at: str, generator: dict | None = None) -> dict:
+    """build_valuation_snapshot.build on a repo-shaped tree: inputs, coefficients
+    and MFL folder all under `root`. The generator's identity is the committed
+    generator's (or `generator`), since `root` need not be a git checkout."""
+    root = Path(root).resolve()
+    if root == REPO.resolve() and generator is None:
+        return bvs.build(as_of, generated_at)
+    ident = generator or bvs.generator_identity(False)
+    saved = (bvs.REPO, bvs.INPUT_DIR, bvs.COEFFICIENTS, bvs.generator_identity)
+    bvs.REPO, bvs.INPUT_DIR, bvs.COEFFICIENTS = root, root / INPUTS_REL, root / COEFFICIENTS_REL
+    bvs.generator_identity = lambda allow_dirty=False: ident
+    try:
+        return bvs.build(as_of, generated_at)
+    finally:
+        bvs.REPO, bvs.INPUT_DIR, bvs.COEFFICIENTS, bvs.generator_identity = saved
+
+
+def grade(snap=None, state=None, now=NOW, gave=None, path=None, repo=None):
     """analyze_trade on the 10-06 Gride <-> Blake trade. gave: replace what each side gave.
-    snap=None reads the snapshot file at `path` the way the bot does."""
+    snap=None reads the snapshot file the way the bot does: `path`, else the tree's own.
+    repo: the tree the snapshot's inputs and coefficients come from (default: PINNED)."""
     t = TRADES[GRIDE_BLAKE]
     txn, rosters = grader_inputs(t)
     if gave:
         txn["franchise1_gave_up"], txn["franchise2_gave_up"] = gave
-    saved_adj, saved_path = tg.load_salary_adjustments, vs.SNAPSHOT_PATH
+    root = Path(repo) if repo is not None else PINNED_ROOT
+    saved = (tg.load_salary_adjustments, vs.SNAPSHOT_PATH, vs.REPO, pv.INSEASON_COEFFICIENTS, pv._COEFFICIENTS)
     tg.load_salary_adjustments = lambda: {}
-    if path is not None:
-        vs.SNAPSHOT_PATH = Path(path)
+    vs.SNAPSHOT_PATH = Path(path) if path is not None else root / SNAPSHOT_REL
+    vs.REPO = root
+    if (root / COEFFICIENTS_REL).exists():
+        pv.INSEASON_COEFFICIENTS, pv._COEFFICIENTS = root / COEFFICIENTS_REL, None
     try:
         return tg.analyze_trade(txn, {}, t["names"], rosters, season_state=state or live_state(),
                                 snapshot=snap, now=now)
     finally:
-        tg.load_salary_adjustments, vs.SNAPSHOT_PATH = saved_adj, saved_path
+        (tg.load_salary_adjustments, vs.SNAPSHOT_PATH, vs.REPO,
+         pv.INSEASON_COEFFICIENTS, pv._COEFFICIENTS) = saved
 
 
-def roast_context(snap=None, state=None, now=NOW, gave=None, path=None):
+def roast_context(snap=None, state=None, now=NOW, gave=None, path=None, repo=None):
     """build_trade_roast_context with its loaders faked; returns the error or the context."""
     import trade_roast_context as trc
     t = TRADES[GRIDE_BLAKE]
@@ -100,7 +153,7 @@ def roast_context(snap=None, state=None, now=NOW, gave=None, path=None):
     trc.load_rosters = lambda: rosters
     trc.load_career_stats = lambda: {}
     trc.load_discord_users = lambda: {}
-    trc.analyze_trade = lambda txn, *_a, **_k: grade(snap, state, now, gave, path)
+    trc.analyze_trade = lambda txn, *_a, **_k: grade(snap, state, now, gave, path, repo)
     trc.build_franchise_context = lambda *a, **k: built.append(a) or {}
     try:
         txn, _ = grader_inputs(t)
@@ -126,7 +179,7 @@ def load_fire_ab():
 FIRE = load_fire_ab()
 
 
-def fire(snap=None, state=None, now=NOW, gave=None, path=None):
+def fire(snap=None, state=None, now=NOW, gave=None, path=None, repo=None):
     """fire_one(send=True) with every outward step recorded instead of run."""
     t = TRADES[GRIDE_BLAKE]
     txn, rosters = grader_inputs(t)
@@ -141,7 +194,7 @@ def fire(snap=None, state=None, now=NOW, gave=None, path=None):
     FIRE.load_franchises = lambda: t["names"]
     FIRE.load_players_map = lambda: {}
     FIRE.load_rosters = lambda: rosters
-    FIRE.analyze_trade = lambda *_a, **_k: grade(snap, state, now, gave, path)
+    FIRE.analyze_trade = lambda *_a, **_k: grade(snap, state, now, gave, path, repo)
     for n in ("build_announcement_embed", "build_trade_roast_context", "generate_roast", "giphy_search",
               "discord_post_message", "discord_create_thread_from_message", "_discord_request"):
         setattr(FIRE, n, record(n))
@@ -152,32 +205,24 @@ def fire(snap=None, state=None, now=NOW, gave=None, path=None):
             setattr(FIRE, n, f)
 
 
-class Determinism(unittest.TestCase):
-    def test_rebuild_is_byte_identical(self):
-        snap = bvs.build(AS_OF, GENERATED_AT)
-        self.assertEqual(bvs.render(snap), SNAP_BYTES)
-        self.assertEqual(bvs.render(bvs.build(AS_OF, GENERATED_AT)), SNAP_BYTES)
+class PinnedDeterminism(unittest.TestCase):
+    """The frozen 10-20 fixture: fixed expectations live here, never on the production file."""
 
-    def test_provenance(self):
+    def test_golden_rebuild_from_pinned_inputs(self):
+        pinned_generator = snapshot()["generator"]
+        self.assertEqual(bvs.render(build_at(PINNED_ROOT, AS_OF, GENERATED_AT, pinned_generator)), SNAP_BYTES)
+        self.assertEqual(bvs.render(build_at(PINNED_ROOT, AS_OF, GENERATED_AT, pinned_generator)), SNAP_BYTES)
+
+    def test_pinned_provenance(self):
         snap = snapshot()
         self.assertEqual((snap["schema_version"], snap["model_version"], snap["season"], snap["as_of"]),
                          (vs.SCHEMA_VERSION, vs.MODEL_VERSION, 2026, AS_OF))
-        self.assertFalse(snap["generator"]["dirty"])
-        self.assertRegex(snap["generator"]["commit"], r"^[0-9a-f]{40}$")
-        self.assertEqual(snap["generator"]["path"], "pipelines/etl/scripts/build_valuation_snapshot.py")
+        self.assertEqual(snap["generator"]["commit"], "af9b6560872aa244b5df857afaeefb47df2a03ac")
         for inp in snap["inputs"]:
-            self.assertFalse(inp["path"].startswith("/"), inp)          # repo paths only, no Mac/iCloud paths
-            self.assertEqual(hashlib.sha256((REPO / inp["path"]).read_bytes()).hexdigest(), inp["sha256"])
-            self.assertRegex(inp["source_date"], r"^\d{4}-\d{2}-\d{2}$")
-        self.assertEqual(snap["counts"], {"franchises": 12, "picks": 36, "players": len(snap["players"])})
+            self.assertEqual(hashlib.sha256((PINNED_ROOT / inp["path"]).read_bytes()).hexdigest(), inp["sha256"])
+        self.assertEqual(snap["counts"], {"franchises": 12, "picks": 36, "players": 486})
         self.assertEqual(snap["season_state"]["weeks_completed"], 6)
-
-    def test_no_private_material(self):
-        text = SNAP_BYTES.decode() + "".join(
-            (REPO / i["path"]).read_text() for i in snapshot()["inputs"] if "valuation" in i["path"])
-        for banned in ("Library/Mobile Documents", "/Users/", "@", "cookie", "password", "token",
-                       "api_key", "http://", "https://", "prompt"):
-            self.assertNotIn(banned, text.lower() if banned.islower() else text, banned)
+        self.assertEqual(snap["content_sha256"], "84374cdb58c6224b8ec0ce731b5079a4aeb2335e0c9668e8dd764cd89e57baaf")
 
     def test_generator_refuses_uncommitted_changes(self):
         saved = bvs.subprocess
@@ -193,8 +238,9 @@ class Determinism(unittest.TestCase):
 
 
 class ValidGrade(unittest.TestCase):
-    def test_committed_snapshot_validates(self):
-        self.assertEqual(vs.validate_snapshot(snapshot(), now=NOW, league_season=2026, live_weeks_completed=6), [])
+    def test_pinned_snapshot_validates(self):
+        self.assertEqual(vs.validate_snapshot(snapshot(), now=NOW, league_season=2026, live_weeks_completed=6,
+                                              repo=PINNED_ROOT), [])
 
     def test_valid_grade(self):
         an = grade(snapshot())
@@ -379,12 +425,9 @@ class NoGradeBlocksEverything(unittest.TestCase):
                 path.parent.mkdir(parents=True)
                 if content is not None:
                     path.write_bytes(content)
-                saved = vs.REPO
-                vs.REPO = tmp                              # report the path the way the bot does
-                try:
-                    self.assert_no_grade({"snap": None, "path": path}, needle)
+                try:                                       # report the path the way the bot does
+                    self.assert_no_grade({"snap": None, "path": path, "repo": tmp}, needle)
                 finally:
-                    vs.REPO = saved
                     shutil.rmtree(tmp)
 
     def test_every_check_is_exercised(self):
@@ -540,11 +583,21 @@ class Replay(unittest.TestCase):
     zero-sum, and the decision 3 split adds up to the full grader."""
 
     def test_2026_replay_decision_3(self):
-        from replay_2026_trade_grades import d3_parts
-        parts = d3_parts()
+        from replay_2026_trade_grades import _SNAPS, d3_parts, replay
+        # Pinned: the as-of snapshots are built from the fixture's frozen inputs and
+        # coefficients (the MFL folders are dated history), so a later registry
+        # refresh can't move these numbers.
+        saved = (bvs.INPUT_DIR, bvs.COEFFICIENTS, pv.INSEASON_COEFFICIENTS, pv._COEFFICIENTS)
+        bvs.INPUT_DIR, bvs.COEFFICIENTS = PINNED_ROOT / INPUTS_REL, PINNED_ROOT / COEFFICIENTS_REL
+        pv.INSEASON_COEFFICIENTS, pv._COEFFICIENTS = PINNED_ROOT / COEFFICIENTS_REL, None
+        _SNAPS.clear()
+        try:
+            parts = d3_parts()
+            rows = replay()
+        finally:
+            bvs.INPUT_DIR, bvs.COEFFICIENTS, pv.INSEASON_COEFFICIENTS, pv._COEFFICIENTS = saved
+            _SNAPS.clear()
         self.assertEqual(len(parts), 54)
-        from replay_2026_trade_grades import replay
-        rows = replay()
         by = {(r["key"], r["fid"]): r for r in rows}
         self.assertFalse([r["key"] for r in rows if r["d3_no_grade"]])
         self.assertFalse([r["key"] for r in rows if r["d3_provisional"]])
@@ -562,6 +615,275 @@ class Replay(unittest.TestCase):
         # 10-06 in season: the two trades the parent review called out.
         self.assertEqual(by[("1791320211", "0006")]["d3"][1], "A")
         self.assertEqual(by[("1791320240", "0010")]["d3"][1], "A-")
+
+
+# ── CONTRACT: the committed production snapshot, whatever week it holds ──────
+CONTRACT_INPUTS = {"rosters", "standings", "snapshot_meta", "player_seasons", "player_ages",
+                   "player_registry", "rookie_outcomes", "franchise_history", "inseason_coefficients"}
+CONTRACT_KEYS = ("schema_version", "model_version", "season", "as_of", "generated_at", "generator", "inputs",
+                 "freshness", "season_state", "dollars_per_point", "pick_curve", "counts", "coverage",
+                 "players", "career", "content_sha256")
+MFL_INPUTS = ("rosters", "standings", "snapshot_meta")
+
+
+def contract_failures(root: Path, data: bytes | None = None, rebuild: bool = True) -> list:
+    """Everything a committed snapshot must satisfy, checked at its own as-of time.
+
+    root: a repo-shaped tree (the repo itself, or a test copy). data: snapshot
+    bytes to check instead of root's committed file. No date, week or value is
+    pinned; only internal consistency, the grader's limits and the generator."""
+    root = Path(root).resolve()
+    raw = (root / SNAPSHOT_REL).read_bytes() if data is None else data
+    try:
+        snap = json.loads(raw, object_pairs_hook=vs._no_duplicates)
+    except ValueError as exc:
+        return [f"not strict JSON: {exc}"]
+    missing = [k for k in CONTRACT_KEYS if k not in snap]
+    if missing:
+        return [f"missing metadata: {missing}"]
+    f = []
+    if snap["schema_version"] != vs.SCHEMA_VERSION:
+        f.append(f"schema version {snap['schema_version']!r}")
+    if snap["model_version"] != vs.MODEL_VERSION:
+        f.append(f"model version {snap['model_version']!r}")
+    try:
+        as_of = datetime.strptime(str(snap["as_of"]), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return f + [f"as_of {snap['as_of']!r} is not a date"]
+    try:
+        made = datetime.strptime(str(snap["generated_at"]), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        if made < as_of:
+            f.append("generated_at is before as_of")
+    except ValueError:
+        f.append(f"generated_at {snap['generated_at']!r} is not a UTC timestamp")
+    if snap["freshness"] != bvs.FRESHNESS or bvs.FRESHNESS != {
+            "in_season_max_age_days": vs.IN_SEASON_MAX_AGE_DAYS, "offseason_max_age_days": vs.OFFSEASON_MAX_AGE_DAYS,
+            "in_season_must_cover_latest_completed_week": True}:
+        f.append(f"freshness fields {snap['freshness']} differ from the grader's limits")
+    gen = snap["generator"]
+    if (gen.get("path") != "pipelines/etl/scripts/build_valuation_snapshot.py" or gen.get("dirty") is not False
+            or not re.fullmatch(r"[0-9a-f]{40}", str(gen.get("commit")))):
+        f.append(f"generator identity incomplete or dirty: {gen}")
+    names = [i.get("name") for i in snap["inputs"]]
+    if sorted(names) != sorted(CONTRACT_INPUTS):
+        f.append(f"inputs {sorted(names)} are not the snapshot's nine inputs")
+    mfl_dir = f"data/mfl-snapshots/{snap['as_of']}/"
+    for inp in snap["inputs"]:
+        name, rel = inp.get("name"), str(inp.get("path", ""))
+        if rel.startswith("/") or ".." in Path(rel).parts:
+            f.append(f"input {name} path {rel!r} is not repo-relative")
+            continue
+        if name in MFL_INPUTS and not rel.startswith(mfl_dir):
+            f.append(f"input {name} ({rel}) is not from {mfl_dir}")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(inp.get("source_date", ""))):
+            f.append(f"input {name} source_date {inp.get('source_date')!r} is not a date")
+        path = root / rel
+        if not path.exists():
+            f.append(f"input {name} ({rel}) is missing")
+        elif hashlib.sha256(path.read_bytes()).hexdigest() != inp.get("sha256"):
+            f.append(f"input {name} ({rel}) changed since the snapshot was built")
+    state = snap["season_state"]
+    standings = root / mfl_dir / "leagueStandings.json"
+    if state.get("source") != mfl_dir + "leagueStandings.json":
+        f.append(f"season_state source {state.get('source')!r} is not {mfl_dir}leagueStandings.json")
+    elif standings.exists() and state.get("weeks_completed") != bvs.weeks_completed(json.loads(standings.read_text())):
+        f.append(f"season_state says week {state.get('weeks_completed')}, but its standings say "
+                 f"{bvs.weeks_completed(json.loads(standings.read_text()))}")
+    meta = root / mfl_dir / "_snapshot_meta.json"
+    if meta.exists() and int(json.loads(meta.read_text())["season_year"]) != snap["season"]:
+        f.append(f"season {snap['season']} differs from its MFL snapshot's season")
+    counts, players, career = snap["counts"], snap["players"], snap["career"]
+    if counts.get("players") != len(players):
+        f.append(f"counts.players {counts.get('players')} != {len(players)} players")
+    if counts.get("franchises") != len(career) or len(career) != 12:
+        f.append(f"counts.franchises {counts.get('franchises')} vs {len(career)} career blocks (need 12)")
+    if counts.get("picks") != 36:
+        f.append(f"counts.picks {counts.get('picks')} != 36")
+    if sum((snap["coverage"].get("by_basis") or {}).values()) != len(players):
+        f.append("coverage.by_basis does not add up to the player count")
+    own_time = as_of.timestamp() + DAY + 3600              # an hour after its data's day ends
+    f += [f"validator: {x}" for x in vs.validate_snapshot(
+        snap, now=own_time, league_season=snap["season"],
+        live_weeks_completed=state.get("weeks_completed"), repo=root)]
+    if rebuild and not f and bvs.render(build_at(root, snap["as_of"], snap["generated_at"])) != raw:
+        f.append("does not rebuild byte for byte from its own as_of and generated_at "
+                 "with the committed generator and inputs")
+    return f
+
+
+def contract_snapshot() -> dict:
+    return json.loads((CONTRACT_ROOT / SNAPSHOT_REL).read_bytes())
+
+
+class CommittedSnapshotContract(unittest.TestCase):
+    """Whatever week is committed: never pinned to a date, week or value."""
+
+    def test_meets_the_contract(self):
+        self.assertEqual(contract_failures(CONTRACT_ROOT), [])
+
+    def test_valid_at_its_own_time_and_stale_after_the_limit(self):
+        snap = contract_snapshot()
+        weeks = snap["season_state"]["weeks_completed"]
+        own = datetime.strptime(snap["as_of"], "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() + DAY
+        limit = vs.IN_SEASON_MAX_AGE_DAYS if weeks >= 1 else vs.OFFSEASON_MAX_AGE_DAYS
+        check = lambda now, live: [str(x) for x in vs.validate_snapshot(  # noqa: E731
+            snap, now=now, league_season=snap["season"], live_weeks_completed=live, repo=CONTRACT_ROOT)]
+        self.assertEqual(check(own + (limit - 0.5) * DAY, weeks), [])
+        stale = check(own + (limit + 0.5) * DAY, weeks)
+        self.assertTrue(any("stale: built from data as of" in x and f"limit {limit} days" in x for x in stale), stale)
+        behind = check(own + 3600, weeks + 1)
+        self.assertTrue(any(f"but week {weeks + 1} is complete" in x for x in behind), behind)
+
+    def test_production_limits_unchanged(self):
+        self.assertEqual((vs.IN_SEASON_MAX_AGE_DAYS, vs.OFFSEASON_MAX_AGE_DAYS), (8, 14))
+        self.assertEqual(vs.NO_GRADE_HEADER, "VALUATION INPUTS UNAVAILABLE — NO GRADE")
+        self.assertEqual(vs.SNAPSHOT_PATH, REPO / SNAPSHOT_REL)
+
+    def test_no_private_material(self):
+        snap = contract_snapshot()
+        text = (CONTRACT_ROOT / SNAPSHOT_REL).read_text() + "".join(
+            (CONTRACT_ROOT / i["path"]).read_text() for i in snap["inputs"] if "valuation" in i["path"])
+        for banned in ("Library/Mobile Documents", "/Users/", "@", "cookie", "password", "token",
+                       "api_key", "http://", "https://", "prompt"):
+            self.assertNotIn(banned, text.lower() if banned.islower() else text, banned)
+
+
+def _bytes(mutate, seal=True) -> bytes:
+    snap = contract_snapshot()
+    mutate(snap)
+    return bvs.render(reseal(snap) if seal else snap)
+
+
+def _duplicate_first_player() -> bytes:
+    raw = (CONTRACT_ROOT / SNAPSHOT_REL).read_bytes()
+    start = raw.index(b"\n", raw.index(b'"players": {')) + 1
+    line = raw[start:raw.index(b"\n", start) + 1]
+    return raw[:start] + line + raw[start:]
+
+
+# name: (snapshot bytes, text the contract must report)
+CONTRACT_BREAKS = {
+    "hand edit, checksum not resealed": (lambda: _bytes(lambda s: s["players"][next(iter(s["players"]))].update(
+        ppg=99.0), seal=False), "content checksum does not match"),
+    "value edited and resealed": (lambda: _bytes(lambda s: s["dollars_per_point"].update(value=59.0)),
+                                  "does not rebuild byte for byte"),
+    "player count disagrees": (lambda: _bytes(lambda s: s["counts"].update(players=s["counts"]["players"] + 1)),
+                               "counts.players"),
+    "week disagrees with its standings": (lambda: _bytes(lambda s: s["season_state"].update(
+        weeks_completed=s["season_state"]["weeks_completed"] + 1)), "but its standings say"),
+    "input changed since the build": (lambda: _bytes(lambda s: s["inputs"][0].update(sha256="0" * 64)),
+                                      "changed since the snapshot was built"),
+    "input from another day's MFL folder": (lambda: _bytes(lambda s: next(
+        i for i in s["inputs"] if i["name"] == "rosters").update(path="data/mfl-snapshots/2026-10-19/rosters.json")),
+        "is not from data/mfl-snapshots/"),
+    "dirty generator": (lambda: _bytes(lambda s: s["generator"].update(dirty=True)), "generator identity"),
+    "weakened freshness": (lambda: _bytes(lambda s: s["freshness"].update(in_season_max_age_days=30)),
+                           "differ from the grader's limits"),
+    "missing metadata": (lambda: _bytes(lambda s: s.pop("generated_at")), "missing metadata: ['generated_at']"),
+    "wrong model": (lambda: _bytes(lambda s: s.update(model_version="trade-valuation-0")), "model version"),
+    "duplicate player id": (lambda: _duplicate_first_player(), "not strict JSON: duplicate key"),
+}
+
+
+class ContractCatchesBrokenSnapshots(unittest.TestCase):
+    def test_each_break_is_reported(self):
+        for name, (make, needle) in CONTRACT_BREAKS.items():
+            with self.subTest(name):
+                failures = contract_failures(CONTRACT_ROOT, data=make())
+                self.assertTrue(any(needle in x for x in failures), (needle, failures))
+
+
+def make_later_week(root: Path, as_of: str = "2026-10-27", weeks_added: int = 1) -> Path:
+    """A repo-shaped tree holding a valid snapshot a week after the pinned one: the
+    repo's current inputs and coefficients, plus a synthetic MFL folder (the 10-20
+    rosters; standings carried forward `weeks_added` weeks), built by the committed
+    generator exactly as a weekly rebuild would."""
+    root = Path(root).resolve()
+    for rel in [INPUTS_REL / p.name for p in (REPO / INPUTS_REL).glob("*.json")] + [COEFFICIENTS_REL]:
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO / rel, root / rel)
+    src, dst = PINNED_ROOT / "data" / "mfl-snapshots" / AS_OF, root / "data" / "mfl-snapshots" / as_of
+    dst.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src / "rosters.json", dst / "rosters.json")
+    meta = json.loads((src / "_snapshot_meta.json").read_text())
+    meta["snapshot_date_utc"] = as_of
+    (dst / "_snapshot_meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True))
+    standings = json.loads((src / "leagueStandings.json").read_text())
+    for row in standings["leagueStandings"]["franchise"]:
+        w, l, t = (int(x) for x in row["all_play_wlt"].split("-"))
+        row["all_play_wlt"] = f"{w + 6 * weeks_added}-{l + 5 * weeks_added}-{t}"
+        row["pf"] = f"{float(row['pf']) + 120.0 * weeks_added:.2f}"
+    (dst / "leagueStandings.json").write_text(json.dumps(standings, indent=2, sort_keys=True))
+    snap = build_at(root, as_of, f"{as_of}T20:00:00Z")
+    (root / SNAPSHOT_REL).parent.mkdir(parents=True, exist_ok=True)
+    (root / SNAPSHOT_REL).write_bytes(bvs.render(snap))
+    return root
+
+
+def run_module_with_contract_root(root: Path) -> subprocess.CompletedProcess:
+    env = dict(os.environ, **{CONTRACT_ROOT_ENV: str(root)})
+    return subprocess.run([sys.executable, str(Path(__file__).resolve())], env=env, cwd=str(REPO),
+                          capture_output=True, text=True, timeout=600)
+
+
+@unittest.skipIf(os.environ.get(CONTRACT_ROOT_ENV), "already running against a replacement snapshot")
+class LaterWeekReplacement(unittest.TestCase):
+    """Replacing the committed snapshot with a later valid week keeps the suite
+    green; a broken or stale one still fails."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="valuation-week7-")).resolve()
+        cls.week7 = make_later_week(cls.tmp / "week7")
+        cls.snap7 = json.loads((cls.week7 / SNAPSHOT_REL).read_bytes())
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_simulated_week_7_meets_the_contract(self):
+        self.assertEqual((self.snap7["as_of"], self.snap7["season_state"]["weeks_completed"]), ("2026-10-27", 7))
+        self.assertEqual(contract_failures(self.week7), [])
+
+    def test_week_7_grades_and_the_week_6_snapshot_is_refused(self):
+        now = datetime(2026, 10, 28, 12, tzinfo=timezone.utc).timestamp()
+        an = grade(None, live_state(7), now=now, repo=self.week7)
+        self.assertFalse(an.no_grade, an.no_grade_reasons)
+        self.assertTrue(an.valuation_as_of.startswith("2026-10-27"))
+        old = grade(snapshot(), live_state(7), now=now)
+        self.assertTrue(old.no_grade)
+        self.assertTrue(any("but week 7 is complete" in r for r in old.no_grade_reasons), old.no_grade_reasons)
+
+    def test_whole_module_passes_with_week_7_committed(self):
+        res = run_module_with_contract_root(self.week7)
+        self.assertEqual(res.returncode, 0, res.stdout[-3000:] + res.stderr[-3000:])
+        self.assertIn("OK", res.stderr)
+
+    def test_week_7_is_refused_once_stale(self):
+        # Production freshness is unchanged for any committed week: past 8 days in
+        # season (or once week 8 completes) the bot gets NO GRADE.
+        own = datetime(2026, 10, 28, tzinfo=timezone.utc).timestamp()
+        aged = grade(None, live_state(7), now=own + 8.5 * DAY, repo=self.week7)
+        self.assertTrue(aged.no_grade)
+        self.assertTrue(any("limit 8 days in season" in r for r in aged.no_grade_reasons), aged.no_grade_reasons)
+        behind = grade(None, live_state(8), now=own + DAY, repo=self.week7)
+        self.assertTrue(any("but week 8 is complete" in r for r in behind.no_grade_reasons), behind.no_grade_reasons)
+
+    def test_whole_module_fails_with_a_broken_week_committed(self):
+        for name, mutate, seal in (
+                ("internally inconsistent", lambda s: s["counts"].update(players=s["counts"]["players"] - 1), True),
+                ("edited without resealing", lambda s: s["dollars_per_point"].update(value=1.0), False),
+                ("input changed since the build", lambda s: s["inputs"][0].update(sha256="0" * 64), True)):
+            with self.subTest(name):
+                broken = self.tmp / f"broken-{name.replace(' ', '-')}"
+                shutil.copytree(self.week7, broken)
+                snap = json.loads((broken / SNAPSHOT_REL).read_bytes())
+                mutate(snap)
+                (broken / SNAPSHOT_REL).write_bytes(bvs.render(reseal(snap) if seal else snap))
+                self.assertNotEqual(contract_failures(broken), [])
+                res = run_module_with_contract_root(broken)
+                self.assertNotEqual(res.returncode, 0, name)
+                self.assertIn("CommittedSnapshotContract", res.stderr)
 
 
 if __name__ == "__main__":
