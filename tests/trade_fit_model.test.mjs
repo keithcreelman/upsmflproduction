@@ -128,6 +128,35 @@ test("sensitivity: a fit says whether it holds on the other values (last 4 weeks
   t.equal(TF.pairFits(m, "A", "B", { alt: altCold }).find((f) => f.give === "Aqb3").holdsOnAlt, false, "QB3 cold lately → doesn't hold");
 });
 
+test("owned roster (Keith 2026-10-21): a free agent never starts over an available rostered player; the old rule did", () => {
+  const a = base("A");
+  a.players.find((p) => p.pid === "Arb3")._v = 2; a.players.find((p) => p.pid === "Awr3")._v = 2;
+  const L = league([a], 6);                                   // every free agent at 6: better than A's two flex players
+  const m = TF.buildLeague(L);
+  t.equal(m.lineupRule, "owned", "owned is the default rule");
+  t.equal(m.teams.A.replacementStarts, 0, "no replacement starts: A's own RB3 and WR3 play the flex spots");
+  t.deepEqual([m.teams.A.best.slots.OF1, m.teams.A.best.slots.OF2].sort(), ["Arb3", "Awr3"], "flex = A's own players");
+  const old = TF.buildLeague(Object.assign({}, L, { lineupRule: "replacement" }));
+  t.ok(old.teams.A.replacementStarts >= 2, "the old rule started " + old.teams.A.replacementStarts + " free agents over them");
+  t.ok(m.teams.A.total < old.teams.A.total, "so the owned lineup is honestly weaker");
+});
+
+test("a swap that leaves a slot to a free agent is flagged (the * on the gain), with the slot", () => {
+  const a = base("A");
+  a.players.find((p) => p.pid === "Ate1")._v = 4;            // A's tight end is weak
+  a.players.push(Object.assign({ pid: "Awr4", pos: "WR", status: "ROSTER", chip: "", salary: 1000, _v: 12 }));
+  const b = base("B");                                        // B has ONE tight end (10) and a weak WR3
+  b.players.find((p) => p.pid === "Bwr3")._v = 3; b.players.find((p) => p.pid === "Brb3")._v = 3;
+  const m = TF.buildLeague(league([a, b], 3));
+  const fit = TF.pairFits(m, "A", "B", { limit: 5000 }).find((f) => f.give === "Awr4" && f.get === "Bte1");
+  t.ok(fit, "A's spare WR for B's only TE improves both lineups");
+  t.equal(fit.repA.length, 0, "A fills every slot itself after the swap");
+  t.equal(fit.repB.length, 1, "B would have no tight end left");
+  t.equal(fit.repB[0].group, "TE", "the flagged slot is B's TE");
+  t.equal(fit.repB[0].v, 3, "counted at the replacement tight end's points");
+  t.equal(m.teams.B.replacementSlots.length, 0, "today B fills its TE slot itself");
+});
+
 test("real league, 2026 after Week 6: every team builds, results are stable and plain", () => {
   const t0 = Date.now();
   const m = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, lineup: ctx.UPS_FRONT_OFFICE_LINEUP });
@@ -135,6 +164,10 @@ test("real league, 2026 after Week 6: every team builds, results are stable and 
   t.ok(ms < 3000, "whole league in " + ms + " ms");
   t.equal(m.order.length, 12, "12 teams");
   for (const fid of m.order) t.equal(Object.values(m.teams[fid].best.slots).filter(Boolean).length, 18, fid + ": 18 slots filled (wire fills holes)");
+  // Owned roster: Real Deal Creel starts no unowned RB, K or P (Keith 2026-10-21); the old rule credited it with three.
+  t.equal(m.teams["0008"].replacementStarts, 0, "0008 starts only its own players");
+  const old = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, lineup: ctx.UPS_FRONT_OFFICE_LINEUP, lineupRule: "replacement" });
+  t.equal(JSON.stringify(old.teams["0008"].best.starters.filter((x) => x.rep).map((x) => x.group).sort()), JSON.stringify(["PK", "PN", "RB"]), "the old rule's three unowned starters at RB, K and P");
   // Real Deal Creel (0008): biggest need is RB; Pure Greatness (0004) has Bucky Irving as surplus that 0008 starts.
   const s8 = TF.teamSummary(m, "0008");
   t.equal(s8.needs[0], "RB", "0008's biggest need is RB (" + m.teams["0008"].need.RB + " pts/wk)");

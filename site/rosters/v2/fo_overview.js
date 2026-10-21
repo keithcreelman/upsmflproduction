@@ -394,7 +394,7 @@
       "Flex, SuperFlex and D-Flex starters count at their natural position, so the rows add up to Overall.</p>" +
       "<p><b>Above repl.</b> (the default) = starters’ points a week above replacement (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP), compared with the league <b>median</b>: 0 = the middle of the 12 teams. " +
       "<b>Index</b> compares starters’ points a week with the league <b>mean</b> (average): 100 = average. <b>PPG</b> is the raw points a week; <b>Rank</b> is 1st–12th by PPG. " +
-      "The Trade finder still uses its own model, which lets a replacement free agent start wherever it outscores the roster, so its matrix can differ.</p>" +
+      "The Trade finder’s matrix reads the same lineups, so its position cells match the Above repl. view.</p>" +
       "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
     var el = document.getElementById("fo-overview-body");
     if (el && !el.__foLedger) {

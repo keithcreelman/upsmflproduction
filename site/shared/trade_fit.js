@@ -23,15 +23,24 @@
    never beats it overall. Kickers and punters barely predict (.2), so they
    never drive a fit.
 
-   EMPTY SLOTS cost what the waiver wire gives: replacement bodies are real
-   free agents — the 3rd best at QB/RB/WR/TE, 6th at K/P, 12th at DL/LB/DB —
-   the Wire forecast's tested setting (season_sim.py REPLACEMENT_RANK_BY_GROUP).
+   THE OWNED ROSTER (Keith 2026-10-21, Overview and Trade finder alike). A
+   team's lineup is built from ITS OWN available players. A replacement free
+   agent fills a slot ONLY when no available rostered player can play it, and
+   such a slot is flagged (rep: true; the screens mark it *). It never starts
+   because it outscores someone on the roster. Replacement bodies are real
+   free agents at the waiver-wire level — the 3rd best at QB/RB/WR/TE, 6th at
+   K/P, 12th at DL/LB/DB — the Wire forecast's tested setting (season_sim.py
+   REPLACEMENT_RANK_BY_GROUP). The old rule (a replacement competes with the
+   roster for every slot) is kept only as lineupRule "replacement", for the
+   before/after comparison; no screen uses it.
 
    STRENGTH at a position = the team's starters there (flex included), points
    a week above replacement. NEED = points a week the best lineup gains by
    adding the league's median starter at that position (handles Flex and
    SuperFlex with no special case). SURPLUS = a healthy player outside his
-   team's best lineup who would start for at least one other team.
+   team's best lineup who would start for at least one other team. The
+   Overview's Lineup strength (site/shared/lineup_strength.js) reads these
+   lineups, so both screens show the same numbers.
 */
 (function () {
   "use strict";
@@ -89,18 +98,36 @@
     return out;
   }
 
-  // Best legal lineup over `rows` ({id,pos,v}) plus replacement bodies. Returns {total, slots, byGroup, starters}.
-  function bestLineup(rows, repl, L) {
+  // Best legal lineup over `rows` ({id,pos,v}). Returns {total, slots, starters}; a starter filled at replacement
+  // level has rep: true (and slots[slot] = "REP:<group>:<i>").
+  //   rule "owned" (default): the rows fill every slot they can (the released engine: fixed slots first, then flex);
+  //     a slot still empty takes the best unused replacement body that slot accepts.
+  //   rule "replacement" (comparison only): replacement bodies join the pool and compete for every slot.
+  function bestLineup(rows, repl, L, rule) {
     var pool = rows.slice();
-    GROUPS.forEach(function (g) {
-      (repl[g] || []).forEach(function (v, i) { pool.push({ id: "REP:" + g + ":" + i, pos: g, v: v, rep: true }); });
-    });
+    if (rule === "replacement") {
+      GROUPS.forEach(function (g) {
+        (repl[g] || []).forEach(function (v, i) { pool.push({ id: "REP:" + g + ":" + i, pos: g, v: v, rep: true }); });
+      });
+    }
     var byId = {};
     pool.forEach(function (r) { byId[r.id] = r; });
     var slots = L.autoFillSlots(pool, function (r) { return r.v || 0; });
+    var used = {};
+    Object.keys(slots).forEach(function (k) { if (slots[k]) used[slots[k]] = 1; });
     var total = 0, starters = [];
     L.LINEUP_SLOTS.forEach(function (s) {
       var pid = slots[s.id];
+      if (!pid && rule !== "replacement") {
+        var best = null;
+        s.accepts.forEach(function (g) {
+          (repl[g] || []).forEach(function (v, i) {
+            var id = "REP:" + g + ":" + i;
+            if (!used[id] && (!best || v > best.v)) best = { id: id, pos: g, v: v, rep: true };
+          });
+        });
+        if (best) { used[best.id] = 1; byId[best.id] = best; slots[s.id] = pid = best.id; }
+      }
       if (!pid) { starters.push({ slot: s.id, pid: "", group: "", v: 0, empty: true }); return; }
       var r = byId[pid];
       total += r.v || 0;
@@ -126,10 +153,11 @@
     var values = input.values || {};
     var teams = input.teams || [];
     var repl = replacementLevels(input.freeAgents, values, L);
-    var model = { repl: repl, values: values, lineup: L, teams: {}, order: [], medians: {}, typical: {}, generatedFrom: input.basis || null };
+    var rule = input.lineupRule === "replacement" ? "replacement" : "owned";
+    var model = { repl: repl, values: values, lineup: L, lineupRule: rule, teams: {}, order: [], medians: {}, typical: {}, generatedFrom: input.basis || null };
     var startersByGroup = {};
     teams.forEach(function (t) {
-      var best = bestLineup(teamRows(t, values, L), repl, L);
+      var best = bestLineup(teamRows(t, values, L), repl, L, rule);
       var strength = {}, count = {};
       GROUPS.forEach(function (g) { strength[g] = 0; count[g] = 0; });
       best.starters.forEach(function (s) {
@@ -142,7 +170,8 @@
       best.starters.forEach(function (s) { if (s.pid) starterIds[s.pid] = s.slot; });
       model.teams[t.fid] = { fid: t.fid, name: t.name, team: t, best: best, total: best.total,
         strength: strength, starterCount: count, starterIds: starterIds,
-        replacementStarts: best.starters.filter(function (s) { return s.rep; }).length };
+        replacementStarts: best.starters.filter(function (s) { return s.rep; }).length,
+        replacementSlots: best.starters.filter(function (s) { return s.rep; }).map(function (s) { return { slot: s.slot, group: s.group, v: s.v }; }) };
       model.order.push(t.fid);
     });
     GROUPS.forEach(function (g) {
@@ -159,7 +188,7 @@
       tm.need = {};
       GROUPS.forEach(function (g) {
         var hyp = { id: "HYP:" + g, pos: g, v: model.typical[g] };
-        var with_ = bestLineup(teamRows(tm.team, values, L, null, [hyp]), repl, L).total;
+        var with_ = bestLineup(teamRows(tm.team, values, L, null, [hyp]), repl, L, rule).total;
         tm.need[g] = round1(Math.max(0, with_ - tm.total));
       });
     });
@@ -189,15 +218,30 @@
   function addGain(model, fid, player) {
     var tm = model.teams[fid];
     var row = { id: player.pid, pos: player.pos, v: num(model.values[player.pid]) || 0 };
-    return bestLineup(teamRows(tm.team, model.values, model.lineup, null, [row]), model.repl, model.lineup).total - tm.total;
+    return bestLineup(teamRows(tm.team, model.values, model.lineup, null, [row]), model.repl, model.lineup, model.lineupRule).total - tm.total;
   }
 
-  // Lineup change for team `fid` that sends `out` (pid) and receives `inPlayer` ({pid,pos}).
-  function swapGain(model, fid, outPid, inPlayer) {
+  // Team `fid`'s lineup after it sends `out` (pid) and receives `inPlayer` ({pid,pos}).
+  function swapLineup(model, fid, outPid, inPlayer) {
     var tm = model.teams[fid];
     var ex = {}; ex[outPid] = 1;
     var row = { id: inPlayer.pid, pos: inPlayer.pos, v: num(model.values[inPlayer.pid]) || 0 };
-    return bestLineup(teamRows(tm.team, model.values, model.lineup, ex, [row]), model.repl, model.lineup).total - tm.total;
+    return bestLineup(teamRows(tm.team, model.values, model.lineup, ex, [row]), model.repl, model.lineup, model.lineupRule);
+  }
+  function swapGain(model, fid, outPid, inPlayer) {
+    return swapLineup(model, fid, outPid, inPlayer).total - model.teams[fid].total;
+  }
+  // Slots the swap leaves to a replacement free agent that the team's lineup fills itself today (the * on a fit).
+  function newReplacementSlots(model, fid, lineup) {
+    var before = {};
+    model.teams[fid].best.starters.forEach(function (s) { if (s.rep) before[s.group] = (before[s.group] || 0) + 1; });
+    var out = [];
+    lineup.starters.forEach(function (s) {
+      if (!s.rep) return;
+      if (before[s.group]) { before[s.group] -= 1; return; }
+      out.push({ slot: s.slot, group: s.group, v: round1(s.v) });
+    });
+    return out;
   }
 
   function fitCandidates(model, fid) {
@@ -218,12 +262,13 @@
     var out = [];
     A.forEach(function (p) {
       B.forEach(function (q) {
-        var gA = swapGain(model, fidA, p.pid, q);
+        var luA = swapLineup(model, fidA, p.pid, q), gA = luA.total - model.teams[fidA].total;
         if (gA <= minGain) return;
-        var gB = swapGain(model, fidB, q.pid, p);
+        var luB = swapLineup(model, fidB, q.pid, p), gB = luB.total - model.teams[fidB].total;
         if (gB <= minGain) return;
         var fit = { give: p.pid, get: q.pid, giveGroup: model.lineup.posGroup(p.pos), getGroup: model.lineup.posGroup(q.pos),
-          gainA: round1(gA), gainB: round1(gB), mutual: round1(Math.min(gA, gB)) };
+          gainA: round1(gA), gainB: round1(gB), mutual: round1(Math.min(gA, gB)),
+          repA: newReplacementSlots(model, fidA, luA), repB: newReplacementSlots(model, fidB, luB) };
         var salP = num(p.salary) || 0, salQ = num(q.salary) || 0;
         var rA = num(room[fidA]), rB = num(room[fidB]);
         fit.capAfterA = rA == null ? null : rA - (salQ - salP);
@@ -256,14 +301,14 @@
       .sort(function (a, b) { return tm.need[b] - tm.need[a]; });
     return { fid: fid, total: round1(tm.total), vsMedianTotal: round1(tm.total - (model.medianTotal || 0)),
       strong: strong, needs: needs, surplus: tm.surplus.slice(0, opts.surplusLimit || 8),
-      replacementStarts: tm.replacementStarts };
+      replacementStarts: tm.replacementStarts, replacementSlots: tm.replacementSlots };
   }
 
   var api = {
     GROUPS: GROUPS, REPLACEMENT_RANK_BY_GROUP: REPLACEMENT_RANK_BY_GROUP, REP_DEPTH: REP_DEPTH,
     UNAVAILABLE_CHIPS: UNAVAILABLE_CHIPS, FIT_EXCLUDED_GROUPS: FIT_EXCLUDED_GROUPS,
     availableNow: availableNow, replacementLevels: replacementLevels, bestLineup: bestLineup,
-    buildLeague: buildLeague, pairFits: pairFits, teamSummary: teamSummary, swapGain: swapGain, addGain: addGain
+    buildLeague: buildLeague, pairFits: pairFits, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, addGain: addGain
   };
   if (typeof window !== "undefined") window.UPS_TRADE_FIT = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
