@@ -1184,3 +1184,12 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-flag.bad { color: #fecaca; border-color: rgba(248, 113, 113, 0.5); }
 .fo-tf-flag.warn { color: #fde68a; border-color: rgba(251, 191, 36, 0.45); }
 @media (max-width: 1100px) { .fo-tf-grid { grid-template-columns: 1fr; } .fo-tf-cols { grid-template-columns: 1fr; } }
+
+/* ── Draft picks + Activity (#1338) ── */
+.fo-pk-table { min-width: 640px; }
+.fo-pk-table th[scope="row"] { text-align: left; white-space: nowrap; font-weight: 600; }
+.fo-pk-moved { color: #fde68a; font-weight: 600; }
+.fo-pk-mine { color: #bfdbfe; background: rgba(91, 141, 255, 0.14); }
+.fo-act-grid { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); }
+@media (max-width: 1100px) { .fo-act-grid { grid-template-columns: 1fr; } }
+.fo-pk-table td { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
