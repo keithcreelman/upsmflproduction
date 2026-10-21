@@ -37,6 +37,18 @@ THE GUARD (every check fails closed)
   * After: account delta since the batch started, minus this batch, must be
     <= 3,000 (works across 00:00 UTC); otherwise no further batch that night.
 
+ONE ATTEMPT PER APPROVAL (Keith, 2026-10-21)
+  * `apply` consumes its approval before its first production read: an
+    attempt record is created atomically in ATTEMPT_DIR (a fixed path, not
+    under --artifacts) and is never deleted or reused. A preflight STOP, a
+    failed run, an automatic rollback or a crash all still consume it.
+  * A later attempt needs a NEW approval: a comment id greater than every
+    approval already recorded for that batch. Re-running with the same (or an
+    older) approval is refused that night and every night after.
+  * `rollback` approvals are single-use the same way and never reuse an apply
+    approval. `verify`, `preflight`, `panel-check` and `attempts` stay
+    read-only and need no approval.
+
 SUBCOMMANDS
   plan        --artifacts DIR --out PLAN.json         offline
   usage       [--batch-writes N]                      control-plane metrics only
@@ -45,6 +57,7 @@ SUBCOMMANDS
   verify      --plan P --artifacts DIR --batch ID --allow-prod-d1-read
   panel-check --plan P --batch ID --allow-prod-read
   rollback    --plan P --artifacts DIR --batch ID --execute --approval URL
+  attempts    --batch ID                              offline: the attempt ledger
 """
 from __future__ import annotations
 
@@ -80,7 +93,8 @@ OTHER_WRITES_ALLOWANCE = 3_000  # quiet-hour writes by other jobs while a batch 
 FORECAST_DAYS = 7               # complete UTC days, all after the changed-only writer (#1267)
 ANOMALY_MARGIN = 5_000          # an hour today this far above its 7-day max = unscheduled heavy job
 UPDATES_PER_COMMAND = 25
-PLAN_VERSION = 2
+PLAN_VERSION = 3
+ATTEMPT_DIR = Path.home() / ".ups_jobs" / "1307_src_weekly" / "attempts"   # fixed on purpose: see ONE ATTEMPT PER APPROVAL
 APPROVAL_RE = re.compile(r"^https://github\.com/keithcreelman/upsmflproduction/(issues|pull)/\d+#issuecomment-\d+$")
 LEAGUE_IDS = {2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191"}
 
@@ -393,6 +407,11 @@ def build_plan(artifacts: Path) -> dict:
     for r in new:
         after[(r["week"], r["player_id"])] = {c: r[c] for c in COLS}
     rec = json.loads((artifacts / "recon_2025_1a.json").read_text())
+    # PR #1372 holds these 2025 ranks back from /api/player-bundle (null + rank_pending) until the
+    # clean recount is approved; it must be live before 1A, so panel-check expects them held.
+    held = json.loads((artifacts / "rank_pending_2025.json").read_text())
+    examples = [{**ex, "rank_pending_fields": [k for k in ("pos_rank", "pos_ppg_rank") if ex["player_id"] in held[k]]}
+                for ex in rec["panel_examples"]]
     c_upd = len(load_jsonl(artifacts / "out" / "proposed" / "C_2025.jsonl"))
     batch_1a = {
         "batch": "1A", "status": "ready", "phases": ["B"], "season": 2025, "weeks": [15, 16, 17],
@@ -418,7 +437,10 @@ def build_plan(artifacts: Path) -> dict:
                       "ppg_showable": len(rec["ppg_after_ids"]), "ppg_sha256": ids_hash(rec["ppg_after_ids"])},
             "hidden_after": [h["player_id"] for h in rec["hidden"]],
         },
-        "panel_examples": rec["panel_examples"],
+        "panel_examples": examples,
+        "rank_pending_safeguard": {"pr": 1372, "pos_rank": len(held["pos_rank"]), "pos_ppg_rank": len(held["pos_ppg_rank"]),
+                                   "pos_rank_sha256": ids_hash(held["pos_rank"]),
+                                   "pos_ppg_rank_sha256": ids_hash(held["pos_ppg_rank"])},
         "rollback": "delete exactly the inserted keys (statement file 'rollback'); restore is checked "
                     "against the preimage hash",
         "local_replay": {"miniflare": meas["totals"], "before": meas["before"], "after_forward": meas["after_forward"],
@@ -430,6 +452,11 @@ def build_plan(artifacts: Path) -> dict:
         "daily_ceiling": DAILY_CEILING, "reset": "00:00 UTC daily (Cloudflare D1 pricing page); account-wide",
         "guard": "used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000",
         "window_utc": "start 22:05-23:30",
+        "attempt_lock": {"ledger": "~/.ups_jobs/1307_src_weekly/attempts/ (fixed path)",
+                         "rule": "one apply attempt per approval, consumed before the first production read and "
+                                 "never released (preflight STOP, failure, automatic rollback and crash included); "
+                                 "a later attempt needs a newer approval comment; rollback approvals are single-use "
+                                 "and never reuse an apply approval; verify stays read-only"},
         "batches": [batch_1a],
         "held": [{"batch": "1C", "status": "held", "phases": ["C"], "season": 2025, "rows_updated": c_upd,
                   "billed_writes": c_upd, "reason": "weekly rank tie convention is part of the rank-definition "
@@ -613,6 +640,47 @@ def approved(args) -> bool:
     return bool(args.execute) and bool(APPROVAL_RE.match(args.approval or ""))
 
 
+def approval_comment_id(url: str) -> int:
+    return int(url.rsplit("-", 1)[1])
+
+
+def attempts(batch: str) -> list:
+    """Every recorded attempt for a batch, oldest first, each with its outcomes."""
+    out = []
+    for f in sorted(ATTEMPT_DIR.glob(f"batch_{batch}_*.json")):
+        a = json.loads(f.read_text())
+        o = f.with_suffix(".outcome.jsonl")
+        a["outcomes"] = [json.loads(x) for x in o.read_text().splitlines() if x.strip()] if o.exists() else []
+        out.append(a)
+    return sorted(out, key=lambda a: a["approval_comment_id"])
+
+
+def consume_approval(batch: str, kind: str, approval: str, now: datetime) -> Path:
+    """Record that this approval has started its one attempt. Raises SystemExit
+    (nothing done) if it, or an older approval, is already recorded for the batch."""
+    cid = approval_comment_id(approval)
+    prior = attempts(batch)
+    used = [a for a in prior if a["approval_comment_id"] >= cid]
+    if used:
+        u = next((a for a in used if a["approval_comment_id"] == cid), used[-1])
+        raise SystemExit(f"STOP: approval {approval} cannot start an attempt: {u['kind']} attempt with approval "
+                         f"{u['approval']} began {u['started_utc']}. Another attempt needs a NEW approval "
+                         "comment from Keith. Nothing was done.")
+    ATTEMPT_DIR.mkdir(parents=True, exist_ok=True)
+    path = ATTEMPT_DIR / f"batch_{batch}_{kind}_{cid}.json"
+    rec = {"batch": batch, "kind": kind, "approval": approval, "approval_comment_id": cid,
+           "started_utc": iso(now), "night_utc": now.date().isoformat(), "pid": os.getpid()}
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o444)   # a concurrent second run fails here
+    with os.fdopen(fd, "w") as fh:
+        fh.write(json.dumps(rec) + "\n")
+    return path
+
+
+def attempt_outcome(path: Path, outcome: str, **detail) -> None:
+    with open(path.with_suffix(".outcome.jsonl"), "a") as fh:
+        fh.write(json.dumps({"at_utc": iso(utc_now()), "outcome": outcome, **detail}) + "\n")
+
+
 def cmd_apply(args) -> int:
     b = load_batch(args)
     if not approved(args):
@@ -620,12 +688,23 @@ def cmd_apply(args) -> int:
               "for this batch. Nothing was done.")
         return 0
     art = Path(args.artifacts)
+    lock = consume_approval(b["batch"], "apply", args.approval, utc_now())
+    try:
+        return _apply(args, b, art, lock)
+    except BaseException as e:
+        # Whatever happened, the approval stays consumed; record how it ended.
+        attempt_outcome(lock, "stopped", detail=str(e)[:500])
+        raise
+
+
+def _apply(args, b: dict, art: Path, lock: Path) -> int:
     facts = preflight(args, b)
     if facts["stops"]:
         facts.pop("hourly_at_start", None)
         print(json.dumps(facts, indent=1))
-        raise SystemExit("STOP: preflight failed; nothing written")
+        raise SystemExit("STOP: preflight failed; nothing written (this approval is now used)")
     started = utc_now()
+    attempt_outcome(lock, "writes_starting")
     before_since = writes_since(facts.pop("hourly_at_start"), started)
     log = art / "runs" / f"batch_{b['batch']}_{b['season']}_{started.strftime('%Y%m%dT%H%M%SZ')}.jsonl"
     log.parent.mkdir(exist_ok=True)
@@ -645,9 +724,11 @@ def cmd_apply(args) -> int:
         print(f"INVARIANT FAILED: {e}\nAutomatic rollback (authorized by the batch approval)...")
         r = restore(args, b, log)
         print(json.dumps(r))
+        attempt_outcome(lock, "automatic_rollback", invariant=str(e)[:500], **r)
         raise SystemExit("STOPPED and rolled back" if r["identical_to_preimage"]
                          else "STOPPED; rollback did NOT restore the preimage -- escalate to Keith")
     print(json.dumps({"writes": tot, "verify": v}))
+    attempt_outcome(lock, "verified", writes=tot)
     time.sleep(SETTLE_MINUTES * 60)
     after_since = writes_since(account_hourly_writes(), started)
     other = after_since - before_since - tot["rows_written"]
@@ -657,6 +738,7 @@ def cmd_apply(args) -> int:
     with open(log, "a") as lf:
         lf.write(json.dumps({"post": result, "verify": v}) + "\n")
     print(json.dumps(result))
+    attempt_outcome(lock, "post_check", **result)
     if not result["ok"]:
         raise SystemExit("STOP: account usage moved more than this batch explains; no further batch tonight")
     return 0
@@ -668,16 +750,28 @@ def cmd_rollback(args) -> int:
     if not approved(args):
         print("DRY: rollback writes production D1 and needs --execute and --approval <comment URL>. Nothing was done.")
         return 0
-    g = usage_report(b["rollback_reserve"], 0)
-    g.pop("_hourly")
-    if g["projected"] > g["ceiling"]:
-        raise SystemExit(f"STOP: rollback could breach the daily ceiling ({g['projected']:,})")
-    log = Path(args.artifacts) / "runs" / f"rollback_{b['batch']}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.jsonl"
-    log.parent.mkdir(exist_ok=True)
-    log.write_text(json.dumps({"approval": args.approval, "usage": g}) + "\n")
-    r = restore(args, b, log)
+    lock = consume_approval(b["batch"], "rollback", args.approval, utc_now())
+    try:
+        g = usage_report(b["rollback_reserve"], 0)
+        g.pop("_hourly")
+        if g["projected"] > g["ceiling"]:
+            raise SystemExit(f"STOP: rollback could breach the daily ceiling ({g['projected']:,})")
+        log = Path(args.artifacts) / "runs" / f"rollback_{b['batch']}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.jsonl"
+        log.parent.mkdir(exist_ok=True)
+        log.write_text(json.dumps({"approval": args.approval, "usage": g}) + "\n")
+        r = restore(args, b, log)
+    except BaseException as e:
+        attempt_outcome(lock, "stopped", detail=str(e)[:500])
+        raise
+    attempt_outcome(lock, "rolled_back", **r)
     print(json.dumps(r))
     return 0 if r["identical_to_preimage"] else 1
+
+
+def cmd_attempts(args) -> int:
+    """Offline: the attempt ledger for a batch (who approved, when it began, how it ended)."""
+    print(json.dumps({"ledger": str(ATTEMPT_DIR), "attempts": attempts(args.batch)}, indent=1))
+    return 0
 
 
 def cmd_panel_check(args) -> int:
@@ -693,11 +787,16 @@ def cmd_panel_check(args) -> int:
         row = next((r for r in bundle.get("career_summary") or [] if int(r.get("season") or 0) == b["season"]), None)
         got = row and [round(float(row["season_points"]), 1), int(row["games_played"]),
                        row.get("pos_rank"), row.get("pos_ppg_rank")]
-        want = [ex["after"][0], ex["after"][1], ex["stored_rank"][0], ex["stored_rank"][1]]
+        # A rank #1372 holds back comes as null with rank_pending naming it (proves the safeguard is live).
+        held = ex.get("rank_pending_fields", [])
+        want = [ex["after"][0], ex["after"][1], None if "pos_rank" in held else ex["stored_rank"][0],
+                None if "pos_ppg_rank" in held else ex["stored_rank"][1]]
+        pending = ((row or {}).get("rank_pending") or {}).get("fields") or []
         shows = bool(row) and abs(ex["rank_basis"][0] - got[0]) < 0.05 and ex["rank_basis"][1] == got[1]
-        good = got == want and shows == ex["shows_after"]
+        good = got == want and sorted(pending) == sorted(held) and shows == ex["shows_after"]
         ok &= good
         out.append({"player_id": ex["player_id"], "name": ex["name"], "got": got, "want": want,
+                    "rank_pending": pending, "expected_rank_pending": held,
                     "rank_shows": shows, "expected_shows": ex["shows_after"], "ok": good})
     print(json.dumps(out, indent=1))
     return 0 if ok else 1
@@ -720,6 +819,8 @@ def main(argv=None) -> int:
     u = sub.add_parser("usage")
     u.add_argument("--batch-writes", type=int, default=0)
     u.add_argument("--rollback-reserve", type=int, default=0)
+    a = sub.add_parser("attempts")
+    a.add_argument("--batch", required=True)
     for name in ("preflight", "apply", "verify", "rollback", "panel-check"):
         s = sub.add_parser(name)
         s.add_argument("--plan", required=True)
@@ -734,7 +835,8 @@ def main(argv=None) -> int:
             s.add_argument("--approval", default="")
     args = ap.parse_args(argv)
     return {"plan": cmd_plan, "usage": cmd_usage, "preflight": cmd_preflight, "apply": cmd_apply,
-            "verify": cmd_verify, "rollback": cmd_rollback, "panel-check": cmd_panel_check}[args.cmd](args)
+            "verify": cmd_verify, "rollback": cmd_rollback, "panel-check": cmd_panel_check,
+            "attempts": cmd_attempts}[args.cmd](args)
 
 
 if __name__ == "__main__":

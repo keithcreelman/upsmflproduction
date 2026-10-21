@@ -1,10 +1,12 @@
-# #1307 production execution runbook, v2: Batch 1A only (2026-10-21)
+# #1307 production execution runbook, v3: Batch 1A only (2026-10-21)
 
 **Status: NOT AUTHORIZED.**
 - Nothing in this runbook has run against production, and nothing is scheduled.
 - A write needs Keith's approval comment URL passed to `--approval`.
 
-**Plan v2** ([`2026-10-21-1307-execution-plan.json`](2026-10-21-1307-execution-plan.json), sha256 `46ee764f3cdf3af57324e440fb2bc3290d1348be16407d0e946c500d1028ff79`) follows Keith's 2026-10-21 revision: **authoritative scores are separated from disputed ranks.**
+**Plan v3** ([`2026-10-21-1307-execution-plan.json`](2026-10-21-1307-execution-plan.json), sha256 `804907211974c999f44667881c37930c8252fef1e3ca8b4932c9ae99c1355791`) follows Keith's 2026-10-21 revisions: **authoritative scores are separated from disputed ranks**, each approval starts **one attempt only** (§4a), and the post-run panel check expects the PR #1372 safeguard to be live (§8). The 1A statements are unchanged from v2 (`B_2025.json` sha256 `f499e9d2…`).
+
+**Before 1A can be approved:** PR #1372 (held 2025 ranks shown as “—”, never a number or 0) is merged and deployed on Keith's separate go, and the consumer-impact gates are re-run against production.
 
 | Batch | Status | What |
 |---|---|---|
@@ -40,11 +42,11 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
   | Measure | Today | After 1A | Of the newly showable: equal to a clean recount / differ |
   |---|---|---|---|
   | **Pts Rk** showable (2025, of 1,742) | 671 | **1,730** (+1,059) | 806 / **253** |
-  | **PPG Rk** showable (needs ≥ 9 of 17 wks) | 384 | **1,203** (+819) | 483 / **336** |
+  | **PPG Rk** showable (needs ≥ 9 of 17 wks) | 384 | **1,203** (+819) | 473 / **346** |
 
   - 1A writes **no** rank value. The values that become showable are the ones `src_pointssummary` already stores.
-  - The "differ" column is the known rank-table defect: dense ranks on unrounded floats, plus 12 corrected totals shifting the players near them. It is visible once the totals agree.
-  - If those values should stay hidden until the rank rebuild, #1353 (the other session's stack) needs a rule change; this write doesn't need one.
+  - The "differ" column is the known rank-table defect: dense ranks on unrounded floats, plus 12 corrected totals shifting the players near them. It is visible once the totals agree. Clean recount: dense rank within the positional group over every player in `src_pointssummary`, on MFL Wks 1–17 points and PPG, each rounded to 4 dp. (An earlier count of 336 divided a rounded total without rounding the PPG, so float noise split ties; corrected 2026-10-21.)
+  - **PR #1372 holds those values on every live screen:** 253 Pts Rk and 448 PPG Rk (PPG counted without the half-season rule, as live screens show it) come back from `/api/player-bundle` as `null` with `rank_pending`, and show as “—” with “Rank pending historical reconciliation”. It must be live before 1A runs.
 - **Phase C would add nothing to these counts:** ranks don't change totals.
 - **Still hidden after 1A: every unresolved 2025 player-season (12).** In each, MFL's total differs from the rank table's basis because of stat corrections after the table was built.
 
@@ -100,6 +102,13 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
 - **Calibration:** 1A's first statement is 80 rows (expected 320 billed). If production bills differently, the batch stops after that one statement. The automatic rollback then removes those 80 rows within the reserved 10,656, which needs about 320 at most. Local replay path 3 below demonstrates it.
 - **A batch that verifies successfully is never rolled back automatically.** A discretionary `rollback` needs its own approval URL. It also re-checks that the rollback fits under 90,000.
 
+## 4a. One attempt per approval (Keith, 2026-10-21)
+- `apply` **consumes its approval before its first production read.** It creates an attempt record atomically (`O_EXCL`) in `~/.ups_jobs/1307_src_weekly/attempts/`, a fixed path that `--artifacts` can't redirect. The record is never deleted or reused.
+- **Every outcome consumes it:** a preflight STOP (even "outside the window"), a failed run, an automatic rollback, a crash. Each outcome is appended beside the record.
+- **Another attempt needs a new explicit approval:** a comment id greater than every approval already recorded for the batch. The same approval, or an older one held in reserve, is refused that night and every night after, before any D1 or MFL call.
+- **Rollback approvals** are single-use the same way and can never be an apply approval.
+- **Still allowed without an approval** (read-only, idempotent): `verify`, `preflight`, `panel-check`, `usage`, and `attempts` (prints the ledger).
+
 ## 5. Writes, reads and timing for 1A
 | Item | Value |
 |---|---|
@@ -116,8 +125,8 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
 
 **Later batches** are not scheduled and not approved. Each will come with its own approval request after the rank review. With the rollback reserve, a typical night (30–55k used by 22:05) fits 1–2 batches.
 
-## 6. Local replay, from plan v2 (no network)
-**1. SQL replay.** Miniflare D1, the production schema and the 1,071-row 2025 snapshot.
+## 6. Local replay, from plan v3 (no network)
+**1. SQL replay.** Miniflare D1, the production schema and the 1,071-row 2025 snapshot. Re-run 2026-10-21 17:51 UTC from the reviewed statement file: identical to the stored measurement.
 - Forward writes **10,656** (0 read).
 - A re-run writes **0**.
 - Rollback restores the identical hash.
@@ -130,7 +139,14 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
 | Discretionary rollback | Back to the preimage `42e1ed4d…` (1,071 rows) |
 | Calibration billed 5 per row | Stopped after statement 1 (400 ≠ 320); automatic rollback to the preimage |
 | One row silently missing | After-state 3,734 ≠ 3,735; automatic rollback to the preimage |
-| Regular-season drift (one Dak 2025 score) | Preflight refused (670 / 383 ≠ 671 / 384); nothing written |
+| Regular-season drift (one Dak 2025 score) | Preflight refused (670 / 383 ≠ 671 / 384); nothing written; that approval is used |
+| Retry with the approval of the auto-rolled-back attempt, cause fixed | Refused before any D1 call: "needs a NEW approval" |
+| An older approval | Refused before any D1 call |
+| `rollback` with an apply approval | Refused before any D1 call |
+| A new approval | Clean apply, same results as the first path |
+| `verify` after all of the above, twice | Read-only, no approval needed; both pass |
+
+The ledger after the replay held one record per approval, each with its outcomes (`verified`, `rolled_back`, `automatic_rollback`, `stopped`).
 
 ## 7. Commands
 Run from a clean checkout of the PR #1363 head, for example its worktree. Never use the main checkout, which the Tuesday sync uses.
@@ -140,7 +156,7 @@ cd ~/Code/MFL/upsmflproduction/.claude/worktrees/1307-dry-run-d0f362
 ```bash
 shasum -a 256 docs/data_fixes/2026-10-21-1307-execution-plan.json
 ```
-The output must be `46ee764f3cdf3af57324e440fb2bc3290d1348be16407d0e946c500d1028ff79`.
+The output must be `804907211974c999f44667881c37930c8252fef1e3ca8b4932c9ae99c1355791`.
 ```bash
 export PLAN=docs/data_fixes/2026-10-21-1307-execution-plan.json ART=$HOME/.ups_jobs/1307_src_weekly
 ```
@@ -174,7 +190,12 @@ npx wrangler whoami
    python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py rollback --plan $PLAN --artifacts $ART --batch 1A --execute --approval <URL>
    ```
 
-Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight facts, and each statement's SHA-256 plus D1 meta.
+6. **The attempt ledger** (offline):
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py attempts --batch 1A
+   ```
+
+Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight facts, and each statement's SHA-256 plus D1 meta. The attempt ledger is `~/.ups_jobs/1307_src_weekly/attempts/`. A failed or stopped run is not retried that night: the next attempt needs a new approval comment from Keith.
 
 **Stop conditions:** any failed check in §3 stops the batch before writing. Any trigger in §4 stops it and rolls back. Two more stop the night, without a rollback, because the batch itself verified:
 - usage metrics unavailable (GraphQL rate-limits quick repeat calls);
@@ -182,7 +203,7 @@ Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight fact
 
 ## 8. Post-run player-panel verification
 1. **`verify`:** the after-state hash, then the full-season reconciliation. Exactly 1,730 Pts Rk / 1,203 PPG Rk showable, with the 12 hidden player-seasons listed above.
-2. **`panel-check`:** reads the live worker's `/api/player-bundle` for 8 players. Each player's 2025 `career_summary` row must equal:
+2. **`panel-check`:** reads the live worker's `/api/player-bundle` for 8 players. Each player's 2025 `career_summary` row must equal the table. A rank PR #1372 holds must come back `null` with `rank_pending` naming exactly that field, which also proves the safeguard is live:
 
    | Player | 2025 pts / wks after | Rank basis | Stored Pts Rk, PPG Rk | Rank shows under #1353 |
    |---|---|---|---|---|
@@ -190,8 +211,8 @@ Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight fact
    | 12616 Jacoby Brissett | 259.9 / 13 (unchanged) | 259.9 / 13 | 17, 17 | yes (already) |
    | 17039 Tyler Shough | 91.6 / 7 → 162.6 / 10 | 162.6 / 10 | 28, 29 | yes (new) |
    | 17424 Charlie Smyth | 11.6 / 2 → 60.5 / 5 | 60.5 / 5 | 31, 3 | Pts Rk yes; PPG Rk no (5 < 9 wks) |
-   | 14252 Michael Jackson | 91.6 / 13 → 132.3 / 16 | 132.3 / 16 | 21, 38 | yes (new) |
-   | 13307 Matt Milano | 36.5 / 9 → 74.0 / 12 | 74.0 / 12 | 46, 45 | yes (new); the clean PPG recount is 46 |
+   | 14252 Michael Jackson | 91.6 / 13 → 132.3 / 16 | 132.3 / 16 | 21, **null** (PPG Rk held by #1372) | Pts Rk yes; PPG Rk “—” |
+   | 13307 Matt Milano | 36.5 / 9 → 74.0 / 12 | 74.0 / 12 | 46, **null** (PPG Rk held by #1372) | Pts Rk yes; PPG Rk “—”; the clean PPG recount is 46 |
    | 16224 Myles Murphy | 50.0 / 13 → 87.0 / 16 | 87.0 / 16 | 41, 64 | yes (new) |
    | 12772 Eric Murray | 52.8 / 8 → 77.0 / 11 | 78.3 / 11 | 108, 72 | no (MFL stat correction) |
 
@@ -201,17 +222,18 @@ Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight fact
    - Authenticated FO behavior and real Safari are unverified.
    - 1A's new rows show no weekly Pos Rk in the Game Log until the rank review (§1).
 
-## 9. Approval request: Batch 1A only
-> **Approve #1307 Batch 1A:** phase B for 2025 Wks 15–17 only, from plan sha256 `46ee764f3cdf3af57324e440fb2bc3290d1348be16407d0e946c500d1028ff79` (PR #1363).
+## 9. Approval request: Batch 1A only (draft; posted on #1307 only after #1372 is live and the consumer gates pass against production)
+> **Approve #1307 Batch 1A:** phase B for 2025 Wks 15–17 only, from plan sha256 `804907211974c999f44667881c37930c8252fef1e3ca8b4932c9ae99c1355791` (PR #1363).
 > - **Rows:** insert 2,664 playoff-week score rows that MFL proves (free agent / taxi / IR; 0 NULL statuses). Weekly ranks are NULL; no rank value of any kind is written, and 1C is not included.
 > - **Writes:** **10,656**, plus 10,656 reserved for a same-day rollback. The guard requires usage + forecast + 21,312 ≤ 90,000.
 > - **Reads:** about 44.5k D1 reads, plus about 9.1k only if an auto-rollback runs; 6 MFL GETs; 8 panel GETs.
 > - **Window:** start 22:05–23:30 UTC on the first night after approval, only if every check passes.
 > - **Effect:**
 >   - 2025 Pts Rk showable goes from 671 to 1,730, and PPG Rk from 384 to 1,203.
->   - Of the newly showable stored values, 253 Pts Rk and 336 PPG Rk differ from a clean recount (the known rank-table defect).
+>   - Of the newly showable stored values, 253 Pts Rk and 448 PPG Rk (346 with at least half the season's weeks) differ from a clean recount (the known rank-table defect). PR #1372 shows each of them as “—” with “Rank pending historical reconciliation”, never as a number.
 >   - 12 player-seasons stay hidden.
 > - **Automatic rollback:** on any billing, invariant or reconciliation mismatch. It restores the 1,071-row preimage `42e1ed4d…`.
+> - **One attempt:** this approval starts one attempt. If it stops, fails or rolls back, it is used, and a retry needs a new approval.
 > - **What this does not approve:** a discretionary rollback after a verified run, 1C, and any other batch.
 
 Reply "approve batch 1A" on #1307. That reply's URL goes into `--approval`.

@@ -1,12 +1,16 @@
 {
  "issue": 1307,
  "dry_run_pr": 1363,
- "plan_version": 2,
+ "plan_version": 3,
  "scope": "authoritative score rows only; ranks held for the rank-definition review",
  "daily_ceiling": 90000,
  "reset": "00:00 UTC daily (Cloudflare D1 pricing page); account-wide",
  "guard": "used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000",
  "window_utc": "start 22:05-23:30",
+ "attempt_lock": {
+  "ledger": "~/.ups_jobs/1307_src_weekly/attempts/ (fixed path)",
+  "rule": "one apply attempt per approval, consumed before the first production read and never released (preflight STOP, failure, automatic rollback and crash included); a later attempt needs a newer approval comment; rollback approvals are single-use and never reuse an apply approval; verify stays read-only"
+ },
  "batches": [
   {
    "batch": "1A",
@@ -99,7 +103,8 @@
       4,
       5
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": []
     },
     {
      "player_id": "12616",
@@ -120,7 +125,8 @@
       17,
       17
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": []
     },
     {
      "player_id": "17039",
@@ -141,7 +147,8 @@
       28,
       29
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": []
     },
     {
      "player_id": "17424",
@@ -162,7 +169,8 @@
       31,
       3
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": []
     },
     {
      "player_id": "14252",
@@ -183,7 +191,10 @@
       21,
       38
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": [
+      "pos_ppg_rank"
+     ]
     },
     {
      "player_id": "13307",
@@ -204,7 +215,10 @@
       46,
       45
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": [
+      "pos_ppg_rank"
+     ]
     },
     {
      "player_id": "16224",
@@ -225,7 +239,8 @@
       41,
       64
      ],
-     "shows_after": true
+     "shows_after": true,
+     "rank_pending_fields": []
     },
     {
      "player_id": "12772",
@@ -246,9 +261,17 @@
       108,
       72
      ],
-     "shows_after": false
+     "shows_after": false,
+     "rank_pending_fields": []
     }
    ],
+   "rank_pending_safeguard": {
+    "pr": 1372,
+    "pos_rank": 253,
+    "pos_ppg_rank": 448,
+    "pos_rank_sha256": "2fc3796db118dbcfa64395c93fbccaafe0d24d8d4c4e90f811614a22e8af5742",
+    "pos_ppg_rank_sha256": "d72d02ec711a186e48a80d62952221faffb0e5555c5d470e33a40bc5649382f3"
+   },
    "rollback": "delete exactly the inserted keys (statement file 'rollback'); restore is checked against the preimage hash",
    "local_replay": {
     "miniflare": {

@@ -3,14 +3,17 @@
 
 The guard must refuse a batch that could push the account past 90,000 rows
 written in the UTC day, count every index entry, stop on the first statement
-whose D1 meta differs from the plan, and do nothing remote without its opt-in.
+whose D1 meta differs from the plan, do nothing remote without its opt-in, and
+let each approval start exactly one attempt.
 
 Usage:
   python3 pipelines/etl/scripts/test_run_1307_src_weekly_batches.py
 """
 import importlib.util
 import io
+import json
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
@@ -23,6 +26,10 @@ spec = importlib.util.spec_from_file_location("rb1307", HERE / "run_1307_src_wee
 rb = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rb)
 from lib.d1_io import build_insert  # noqa: E402
+
+# Never touch the real attempt ledger from a test.
+rb.ATTEMPT_DIR = Path(tempfile.mkdtemp(prefix="rb1307_test_")) / "attempts"
+APPROVAL = "https://github.com/keithcreelman/upsmflproduction/issues/1307#issuecomment-%d"
 
 NOW = datetime(2026, 10, 21, 22, 10, tzinfo=timezone.utc)
 
@@ -149,10 +156,9 @@ class NothingRemoteWithoutOptIn(unittest.TestCase):
                 self.assertIn("Nothing was done", out)
 
     def test_only_a_ready_batch_runs(self):
-        import json, tempfile
         rb.load_batch = self.saved[3]
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-            json.dump({"plan_version": 2, "batches": [{"batch": "1A", "status": "ready"}],
+            json.dump({"plan_version": rb.PLAN_VERSION, "batches": [{"batch": "1A", "status": "ready"}],
                        "held": [{"batch": "1C", "status": "held"}]}, f)
         for bid in ("1C", "2", "1B"):
             with self.assertRaises(SystemExit):
@@ -201,6 +207,137 @@ class AutomaticRollback(unittest.TestCase):
             self.assertEqual(calls, ["INSERT", "DELETE"])  # stopped after the first statement, then restored
         finally:
             rb.d1, rb.preflight, rb.season_playoff_rows, rb.statements, rb.load_batch, rb.account_hourly_writes = saved
+
+
+class OneAttemptPerApproval(unittest.TestCase):
+    """Keith 2026-10-21: an attempt consumes its approval whatever happens; another attempt needs a new approval."""
+    def setUp(self):
+        rb.ATTEMPT_DIR = Path(tempfile.mkdtemp(prefix="rb1307_test_")) / "attempts"
+        self.calls = []
+        self.saved = (rb.d1, rb.preflight, rb.season_playoff_rows, rb.statements, rb.load_batch,
+                      rb.usage_report, rb.verify)
+        ins = "INSERT INTO src_weekly (a) VALUES\n" + ",\n".join(["(1)"] * 80) + "\nON CONFLICT (a) DO NOTHING;"
+        self.billing = 5   # rows written per inserted row on the calibration statement
+        def fake_d1(sql, allow_write=False):
+            self.calls.append(sql.split()[0])
+            if sql.startswith("INSERT"):
+                return [{"meta": {"rows_written": 80 * self.billing, "changes": 80}}]
+            return [{"meta": {"rows_written": 1, "changes": 1}} for _ in sql.split(";\n") if _.strip()]
+        def fake_preflight(args, b, enforce_window=True):
+            self.calls.append("PREFLIGHT")
+            return {"stops": list(self.stops), "hourly_at_start": {}}
+        self.stops = []
+        rb.d1, rb.preflight = fake_d1, fake_preflight
+        rb.season_playoff_rows = lambda season: ([], 0)
+        rb.statements = lambda args, b, key: [ins] if key == "forward" else ["DELETE FROM src_weekly WHERE season = 2025 AND week = 15 AND player_id IN ('1');"]
+        rb.load_batch = lambda args: {"batch": "1A", "season": 2025, "billed_writes": 320, "rollback_reserve": 320,
+                                      "preimage": {"rows": 0, "sha256": rb.rows_hash([])}}
+        rb.usage_report = lambda forward=0, reserve=0, now=None: {"projected": 1, "ceiling": 90_000, "_hourly": {}}
+        self.art = tempfile.mkdtemp(prefix="rb1307_art_")
+
+    def tearDown(self):
+        (rb.d1, rb.preflight, rb.season_playoff_rows, rb.statements, rb.load_batch,
+         rb.usage_report, rb.verify) = self.saved
+
+    def run_cmd(self, fn, n):
+        with redirect_stdout(io.StringIO()):
+            try:
+                return fn(SimpleNamespace(plan="p", artifacts=self.art, batch="1A", execute=True, approval=APPROVAL % n))
+            except SystemExit as e:
+                return "exit: " + str(e)
+
+    def test_a_failed_run_and_its_automatic_rollback_consume_the_approval(self):
+        self.assertIn("rolled back", self.run_cmd(rb.cmd_apply, 9))
+        self.assertEqual(self.calls, ["PREFLIGHT", "INSERT", "DELETE"])
+        self.billing = 4   # even if the cause were fixed, the same approval cannot retry
+        out = self.run_cmd(rb.cmd_apply, 9)
+        self.assertIn("NEW approval", out)
+        self.assertIn("Nothing was done", out)
+        self.assertEqual(self.calls, ["PREFLIGHT", "INSERT", "DELETE"], "no production read or write on the retry")
+        (a,) = rb.attempts("1A")
+        self.assertEqual(a["approval_comment_id"], 9)
+        self.assertIn("automatic_rollback", [o["outcome"] for o in a["outcomes"]])
+
+    def test_a_preflight_stop_or_a_crash_still_consumes_it(self):
+        self.stops = ["outside the 22:05-23:30 UTC start window"]
+        self.assertIn("approval is now used", self.run_cmd(rb.cmd_apply, 20))
+        self.assertIn("NEW approval", self.run_cmd(rb.cmd_apply, 20))
+        def crash(args, b, enforce_window=True):
+            raise RuntimeError("network down")
+        rb.preflight = crash
+        with redirect_stdout(io.StringIO()), self.assertRaises(RuntimeError):
+            rb.cmd_apply(SimpleNamespace(plan="p", artifacts=self.art, batch="1A", execute=True, approval=APPROVAL % 21))
+        self.assertIn("NEW approval", self.run_cmd(rb.cmd_apply, 21))
+        self.assertEqual([o["outcome"] for o in rb.attempts("1A")[1]["outcomes"]], ["stopped"])
+
+    def test_another_attempt_needs_a_newer_approval(self):
+        self.run_cmd(rb.cmd_apply, 30)
+        self.assertIn("NEW approval", self.run_cmd(rb.cmd_apply, 29), "an older approval cannot be held in reserve")
+        n = len(self.calls)
+        self.billing = 4
+        rb.verify = lambda b: {"after_hash_ok": True, "reconciliation_ok": True, "reconciliation": {}}
+        rb.account_hourly_writes, saved = (lambda days=8: {}), rb.account_hourly_writes
+        rb.time.sleep, sleep = (lambda s: None), rb.time.sleep
+        try:
+            self.assertEqual(self.run_cmd(rb.cmd_apply, 31), 0, "a new approval starts a new attempt")
+        finally:
+            rb.account_hourly_writes, rb.time.sleep = saved, sleep
+        self.assertEqual(self.calls[n:], ["PREFLIGHT", "INSERT"])
+        self.assertEqual([a["approval_comment_id"] for a in rb.attempts("1A")], [30, 31])
+
+    def test_rollback_approvals_are_single_use_and_never_an_apply_approval(self):
+        self.billing = 4
+        rb.verify = lambda b: {"after_hash_ok": True, "reconciliation_ok": True, "reconciliation": {}}
+        rb.account_hourly_writes, saved = (lambda days=8: {}), rb.account_hourly_writes
+        rb.time.sleep, sleep = (lambda s: None), rb.time.sleep
+        try:
+            self.assertEqual(self.run_cmd(rb.cmd_apply, 40), 0)
+        finally:
+            rb.account_hourly_writes, rb.time.sleep = saved, sleep
+        self.assertIn("NEW approval", self.run_cmd(rb.cmd_rollback, 40), "the apply approval cannot roll back")
+        self.assertEqual(self.run_cmd(rb.cmd_rollback, 41), 0)
+        self.assertIn("NEW approval", self.run_cmd(rb.cmd_rollback, 41))
+        self.assertEqual([(a["kind"], a["approval_comment_id"]) for a in rb.attempts("1A")], [("apply", 40), ("rollback", 41)])
+
+    def test_two_runs_cannot_both_start(self):
+        rb.consume_approval("1A", "apply", APPROVAL % 50, NOW)
+        with self.assertRaises(SystemExit):
+            rb.consume_approval("1A", "apply", APPROVAL % 50, NOW)
+        # Even a racing run that slipped past the check cannot create the same record twice.
+        with self.assertRaises(FileExistsError):
+            rb.os.open(rb.ATTEMPT_DIR / "batch_1A_apply_50.json", rb.os.O_WRONLY | rb.os.O_CREAT | rb.os.O_EXCL)
+
+    def test_verify_and_the_ledger_stay_read_only_and_need_no_approval(self):
+        self.run_cmd(rb.cmd_apply, 60)
+        rb.verify = lambda b: {"after_hash_ok": True, "reconciliation_ok": True}
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(rb.cmd_verify(SimpleNamespace(plan="p", artifacts=self.art, batch="1A", allow_prod_d1_read=True)), 0)
+            self.assertEqual(rb.cmd_verify(SimpleNamespace(plan="p", artifacts=self.art, batch="1A", allow_prod_d1_read=True)), 0)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rb.cmd_attempts(SimpleNamespace(batch="1A"))
+        self.assertEqual(json.loads(out.getvalue())["attempts"][0]["approval_comment_id"], 60)
+
+
+class PanelCheckExpectsTheSafeguard(unittest.TestCase):
+    """After 1A the panel reads the live bundle; a rank PR #1372 holds must come back null with rank_pending."""
+    def test_held_rank_must_be_null_with_rank_pending(self):
+        ex = {"player_id": "13307", "name": "Milano, Matt", "after": [74.0, 12], "rank_basis": [74.0, 12],
+              "stored_rank": [46, 45], "shows_after": True, "rank_pending_fields": ["pos_ppg_rank"]}
+        saved = (rb.load_batch, rb.worker_bundle)
+        rb.load_batch = lambda args: {"season": 2025, "panel_examples": [ex]}
+        def run(row):
+            rb.worker_bundle = lambda pid: {"career_summary": [row]}
+            with redirect_stdout(io.StringIO()):
+                return rb.cmd_panel_check(SimpleNamespace(plan="p", batch="1A", allow_prod_read=True))
+        try:
+            held = {"season": 2025, "season_points": 74.0, "games_played": 12, "pos_rank": 46, "pos_ppg_rank": None,
+                    "rank_pending": {"fields": ["pos_ppg_rank"], "reason": "Rank pending historical reconciliation (#1307)"}}
+            self.assertEqual(run(held), 0)
+            self.assertEqual(run({**held, "pos_ppg_rank": 45, "rank_pending": None}), 1, "#1372 not live: fail")
+            self.assertEqual(run({**held, "pos_rank": None, "rank_pending": {"fields": ["pos_rank", "pos_ppg_rank"]}}), 1)
+        finally:
+            rb.load_batch, rb.worker_bundle = saved
 
 
 if __name__ == "__main__":
