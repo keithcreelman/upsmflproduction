@@ -306,21 +306,25 @@
     return n > 0 ? wins / n : 0;
   }
 
-  // ── 2. AP games back ─────────────────────────────────────────────────
-  // apGB per franchise_id relative to the seed-6 row's REGULAR-SEASON-ONLY
-  // AP wins-equivalent (apRecordForRow's 3-tier hierarchy — never a
-  // full-season field). Seeds 1-6 -> 0 unconditionally (a structural fact
-  // of their seed, not an AP computation). Everyone else -> max(0,
-  // seed6Wins - myWins), or null if either side's regular-season AP can't
-  // be resolved (no seed===6 row / incomplete weekly data) — never a
-  // value computed from contaminated full-season data.
+  // ── 2. AP games back ("WC Back") ─────────────────────────────────────
+  // apGB per franchise_id relative to the LAST WILD CARD's REGULAR-SEASON-
+  // ONLY AP wins-equivalent (apRecordForRow's 3-tier hierarchy — never a
+  // full-season field). A team outside the field is chasing the last wild
+  // card, never a division winner: the four division winners are protected,
+  // so the 6th seed is the wrong yardstick whenever it is a division winner
+  // (#1329, 2026 Week 6: Hawks showed -1 against Real Deal Creel). Seeds 1-6
+  // -> 0 unconditionally (a structural fact of their seed, not an AP
+  // computation). Everyone else -> max(0, lastWildCardWins - myWins), or
+  // null if either side's regular-season AP can't be resolved (no wild-card
+  // row / incomplete weekly data) — never a value computed from
+  // contaminated full-season data.
   // The WORKER's figure wins whenever the row carries one: rows[].ap_back
-  // (All-Play wins behind the sixth seed, ties count half — current season
-  // only; null for seeds 1-6). It is passed through as sent, including a
-  // negative value (an outside team with MORE All-Play wins than a sixth
-  // seed that is in the field as a division winner). The module's own
-  // arithmetic below runs only for a response without ap_back (recorded
-  // seasons, older workers), and nothing is ever re-ordered by either.
+  // (All-Play wins behind the last wild card, ties count half — current
+  // season only; null for seeds 1-6). A negative value can't come from the
+  // ladder; if one ever arrives (a worker older than this rule) it reads as
+  // unavailable (null), never as a number. The module's own arithmetic below
+  // runs only for a response without ap_back (recorded seasons, older
+  // workers), and nothing is ever re-ordered by either.
   function apGamesBack(rows, weeklyScores) {
     var list = Array.isArray(rows) ? rows : [];
     var out = {};
@@ -337,15 +341,19 @@
         var fid = pad4(r.franchise_id);
         if (seed >= 1 && seed <= 6) { out[fid] = 0; return; }
         var v = (r.ap_back === null) ? NaN : strictNum(r.ap_back);
-        out[fid] = isFiniteNum(v) ? v : null;
+        out[fid] = isFiniteNum(v) && v >= 0 ? v : null;
       });
       return out;
     }
-    var seed6 = null;
+    // The last wild card: the wild-card row with the lowest seed (seeds 3-6). No identifiable wild card -> unavailable.
+    var cutRow = null;
     for (var i = 0; i < list.length; i++) {
-      if (list[i] && Number(list[i].playoff_seed) === 6) { seed6 = list[i]; break; }
+      var cand = list[i];
+      if (!cand || statusForRow(cand) !== 'WC') continue;
+      var cs = Number(cand.playoff_seed);
+      if (cs >= 3 && cs <= 6 && (!cutRow || cs > Number(cutRow.playoff_seed))) cutRow = cand;
     }
-    if (!seed6) {
+    if (!cutRow) {
       list.forEach(function (r) { if (r) out[pad4(r.franchise_id)] = null; });
       return out;
     }
@@ -353,15 +361,15 @@
     // 'incomplete' status is never computed (and can never disagree)
     // per franchise; it applies identically to the whole league.
     var apTable = deriveRegSeasonApTable(weeklyScores, list.map(function (r) { return r && r.franchise_id; }));
-    var seed6Wins = apWinsEquiv(resolveApRecordWithTable(seed6, apTable));
+    var cutWins = apWinsEquiv(resolveApRecordWithTable(cutRow, apTable));
     list.forEach(function (r) {
       if (!r) return;
       var fid = pad4(r.franchise_id);
       var seed = Number(r.playoff_seed);
       if (seed >= 1 && seed <= 6) { out[fid] = 0; return; }
       var wins = apWinsEquiv(resolveApRecordWithTable(r, apTable));
-      if (seed6Wins == null || wins == null) { out[fid] = null; return; }
-      out[fid] = Math.max(0, round1(seed6Wins - wins));
+      if (cutWins == null || wins == null) { out[fid] = null; return; }
+      out[fid] = Math.max(0, round1(cutWins - wins));
     });
     return out;
   }
@@ -845,9 +853,9 @@
     if (!seeded) {
       var list = (Array.isArray(rows) ? rows : []).filter(Boolean);
       var gb = apGamesBack(list, weeklyScores)[pad4(row.franchise_id)];
-      var lead = (gb == null) ? 'Outside the top six — AP games back unavailable'
-        : (gb < 0 ? 'Outside the top six — ' + (-gb) + ' AP win' + (gb === -1 ? '' : 's') + ' ahead of the sixth seed'
-          : 'Outside the top six — ' + gb + ' AP win' + (gb === 1 ? '' : 's') + ' back');
+      // gb is All-Play wins behind the last wild card (named next); never negative, never against a division winner.
+      var lead = (gb == null || gb < 0) ? 'Outside the top six — AP games back unavailable'
+        : 'Outside the top six — ' + gb + ' AP win' + (gb === 1 ? '' : 's') + ' back';
       var text = lead + (rival && stepText ? '; behind ' + rival + ' (the last wild card) on ' + stepText : '') + '.';
       // The team directly above, when it isn't the last wild card already named: a division winner in the field
       // ahead of a better team is structural; another team outside the field is the next one to pass.

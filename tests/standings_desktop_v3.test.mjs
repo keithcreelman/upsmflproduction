@@ -143,7 +143,8 @@ test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 
   t.deepEqual(workerSeeds, ["0009", "0010", "0005", "0008", "0002", "0004"], "the fixture's worker seeds (independent read)");
   t.deepEqual(seedCards(p.raw), workerSeeds, "seed cards in the worker's order");
   t.equal(RESP_2026.regular_season.next_out, "0012");
-  t.match(p.html, /<b>Next out:<\/b> Hawks, 2 All-Play wins behind Pure Greatness \(6th\)\./);
+  // WC Back (#1329): behind the last wild card (here the 6th seed, Pure Greatness, is that wild card)
+  t.match(p.html, /<b>Next out:<\/b> Hawks, 2 All-Play wins behind Pure Greatness \(the last wild card\)\./);
   t.match(p.text, /Next team out Hawks/);
   t.match(p.html, /<b>If the season ended today, byes:<\/b> C-Town Chivalry and Blake Bombers\./);
   t.match(p.html, /<b>Tiebreak:<\/b> Real Deal Creel over CBP: same All-Play, a better H2H record \(9-4 vs 7-6\)\./);
@@ -238,9 +239,9 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   const c = RESP_2026.rows.find((r) => r.franchise_id === "0009").regular_season;
   t.equal(L.cell("0009", "PF/week"), c.pf_per_week.toFixed(1));
   t.equal(L.cell("0009", "PA/game"), c.pa_per_game.toFixed(1));
-  t.equal(L.cell("0012", "Back"), "2");
+  t.equal(L.cell("0012", "WC Back"), "2");
   // decision 2: no Playoffs column, no division column, no division under the team name (the Divisions tab has them)
-  t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
+  t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "WC Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
   for (const r of RESP_2026.rows) {
     t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner only, no division: " + r.franchise_id);
     if (r.division_name) t.ok(!L.cell(r.franchise_id, "Team").includes(r.division_name), "no division name under " + r.franchise_id);
@@ -294,14 +295,14 @@ test("Full League: the Scope control still works for historical use (Regular Sea
   const L = leagueTable(reg.raw);
   t.ok(L && L.rows.length === 12);
   t.match(reg.html, /<strong>Regular Season<\/strong> — weeks 1–14/);
-  t.ok(!L.heads.includes("Exp. W") && !L.heads.includes("Back"), "full-season-only columns hidden when scoped");
+  t.ok(!L.heads.includes("Exp. W") && !L.heads.includes("WC Back"), "full-season-only columns hidden when scoped");
 });
 test("Full League, finished season: Seed = the recorded seed, Fin = the recorded finish (default order), disclosures say recorded", async () => {
   const p = await page("view=league&year=2025", { env: ENV_2025 });
   const L = leagueTable(p.raw);
   t.deepEqual(L.rows.map((r) => Number(L.cell(r.fid, "Fin"))), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "recorded finish order");
   for (let n = 1; n <= 12; n++) t.equal(L.seed(F(n)), hLabel(n), "recorded seed " + n);
-  t.ok(!L.heads.includes("Back") && !/status-chip [a-z]+ projected/.test(p.raw), "no projected status or games-back for a finished season");
+  t.ok(!L.heads.includes("WC Back") && !/status-chip [a-z]+ projected/.test(p.raw), "no projected status or games-back for a finished season");
   t.match(p.html, /Seeds: the recorded final standings\./);
   t.match(p.html, /Recorded seed 2 · finished 1st — from the recorded final standings\./);
   t.ok(!/Seed \d+ — from the recorded final standings/.test(p.html), "the legacy recompute is never shown as a seed");

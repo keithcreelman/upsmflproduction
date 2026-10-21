@@ -183,7 +183,7 @@ check('apGamesBack and divisionRace both derive ONE shared apTable per call and 
   assert.ok(/function divisionRace\(rows, division, weeklyScores\)/.test(RACE_MODULE));
   const gbFn = extractBracedFn(RACE_MODULE, 'function apGamesBack(rows, weeklyScores) {');
   assert.ok(/var apTable = deriveRegSeasonApTable\(weeklyScores,/.test(gbFn));
-  assert.ok(/resolveApRecordWithTable\(seed6, apTable\)/.test(gbFn));
+  assert.ok(/resolveApRecordWithTable\(cutRow, apTable\)/.test(gbFn), 'the last wild card (#1329), from the same shared table');
   assert.ok(/resolveApRecordWithTable\(r, apTable\)/.test(gbFn));
   const drFn = extractBracedFn(RACE_MODULE, 'function divisionRace(rows, division, weeklyScores) {');
   assert.ok(/var apTable = deriveRegSeasonApTable\(weeklyScores,/.test(drFn));
