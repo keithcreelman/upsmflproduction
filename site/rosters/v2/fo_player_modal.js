@@ -9,10 +9,12 @@
      so they can't contradict.
    - The taxi line is the ONE taxi rule (site/shared/taxi_rule.js, twin of
      worker/src/taxi_rule.js; canon §A1 / §B2 / T2.4), fed the same UPS draft
-     record: not a pick · Round 1 · window ended (3 league years) · released
-     (re-acquiring doesn't restore it) · permanently promoted. Activations 1–3
-     are temporary (demotable after each); the 4th is permanent. When the
-     worker's own verdict disagrees, the answer is "Unknown".
+     record: not a pick · Round 1 selection · taxi window ended · released ·
+     active during 2025 (legacy promotion) · permanently promoted after three
+     temporary call-ups (Keith 2026-10-21). From 2026, activations 1–3 are
+     temporary (demotable after each, the third included); the next is
+     permanent. When the worker's own verdict disagrees, the answer is
+     "Unknown".
    - NFL bio: missing data reads "Unknown" (or "Loading…"), never "Undrafted".
      MFL lists some drafted players' draft team as "FA"; that team is omitted.
 
@@ -72,10 +74,11 @@
   // The taxi line = the ONE taxi rule (site/shared/taxi_rule.js, twin of the worker's worker/src/taxi_rule.js;
   // canon §A1 / §B2 / T2.4): UPS Rookie Draft round/year from the SAME record as the UPS Draft line (the full
   // 2012–2026 history, so an older pick reads "taxi window ended", never "not a pick"), Round 1 never, Round 2+
-  // for 3 league years, never released (still exactly Rookie-Draft), not permanently promoted (the roster
-  // record's flag: 4th activation, a marked call-up, or a prior season ended active). Activations 1–3 are
-  // temporary: demotion stays allowed after each. When the worker sent its own verdict (taxi_status) and it
-  // disagrees, the answer is "Unknown", never one side's claim.
+  // for 3 league years, never released (still exactly Rookie-Draft), not permanently promoted: the tracked
+  // rule (4th activation recorded from 2026, or a marked call-up) or the 2025 legacy rule (on an active roster
+  // or IR in any 2025 week — the worker's taxi_status.legacy_2025; no worker verdict → unknown from 2026).
+  // Activations 1–3 are temporary: demotion stays allowed after each. When the worker sent its own verdict
+  // (taxi_status) and it disagrees, the answer is "Unknown", never one side's claim.
   // p: { type, isTaxi, isIr, taxiPermanentPromotion, taxiCallupsUsed, taxiCallupsPending, taxiStatus }; season = the league year.
   function taxiStatus(p, rec, season) {
     var R = root.UPS_TAXI_RULE;
@@ -83,12 +86,15 @@
     if (!rec || rec.state === "unknown" || rec.state === "conflict") {
       return { eligible: null, text: "Unknown", note: (rec && rec.why) || "The UPS draft record couldn’t be confirmed.", reasons: [] };
     }
+    var w = p.taxiStatus || null;
+    // The roster record's permanent flag covers both rules; the legacy one is told apart so its reason shows.
+    var legacy = w && typeof w.legacy_2025 === "boolean" ? w.legacy_2025 : (w && w.legacy_2025 === null ? null : undefined);
     var v = R.taxiEligibility({
       upsRound: rec.state === "pick" ? rec.round : 0, upsYear: rec.state === "pick" ? rec.season : 0, season: season,
       contractStatus: p.type, isTaxi: !!p.isTaxi, isIr: !!p.isIr,
-      used: p.taxiCallupsUsed, pending: p.taxiCallupsPending, permanent: !!p.taxiPermanentPromotion,
+      used: p.taxiCallupsUsed, pending: p.taxiCallupsPending, permanent: legacy === true ? false : !!p.taxiPermanentPromotion,
+      legacy2025: legacy,
     });
-    var w = p.taxiStatus || null;
     if (w && w.eligible != null && v.eligible != null && w.eligible !== v.eligible && w.reason !== "no_recent_pick") {
       return { eligible: null, text: "Unknown", note: "League records disagree: the roster record says “" + str(w.text) + "”; the draft history gives “" + v.text + "”.", reasons: [] };
     }
@@ -96,10 +102,10 @@
     if (v.eligible === true) {
       var where = p.isTaxi ? "on taxi" : (p.isIr ? "on IR" : "on the active roster");
       return { eligible: true, text: v.callups_left + " of 3 call-ups left · " + where, reasons: [], can_demote: v.can_demote,
-        note: "Activations 1–3 are temporary: the player can return to taxi after each. The 4th is permanent." + (!p.isTaxi && !p.isIr ? " This week counts once it is over." : "") };
+        note: "Activations 1–3 are temporary: the player can return to taxi after each, the third included. The next promotion after all three is permanent." + (!p.isTaxi && !p.isIr ? " This week counts once it is over." : "") };
     }
     return { eligible: v.eligible, text: v.text, reasons: reasons, can_demote: false,
-      note: reasons.length > 1 ? "Also: " + reasons.slice(1).join("; ") + "." : "" };
+      note: reasons.length > 1 ? "Also: " + reasons.slice(1).join("; ") + "." : (v.detail ? v.detail.charAt(0).toUpperCase() + v.detail.slice(1) + "." : "") };
   }
 
   // MFL players DETAILS → display text. state: "loading" | "error" | "ok".

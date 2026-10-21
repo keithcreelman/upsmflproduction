@@ -33,39 +33,48 @@ const bio = (pid, rec, season = 2026, ok = true) => {
 test("Dak Prescott: UPS Draft 2016 Rd 5 and a truthful taxi reason (window ended), never 'not a UPS Rookie Draft pick'", () => {
   const b = bio("12620", FX.rosterRecord["12620"]);
   t.equal(b.draft, "2016 · Rd 5, Pick 6");
-  t.equal(b.taxi.text, "Not eligible · taxi window ended (2016 draft)");
+  t.equal(b.taxi.text, "Not eligible · taxi window ended");
+  t.ok(/2016 UPS Rookie Draft/.test(b.taxi.note), b.taxi.note);
   t.ok(!/not a UPS Rookie Draft pick/.test(b.taxi.text + b.taxi.note));
   // A permanently promoted pick whose window also ended keeps both reasons, distinct.
   const both = bio("12620", { ...FX.rosterRecord["12620"], taxiPermanentPromotion: true });
-  t.equal(both.taxi.text, "Not eligible · taxi window ended (2016 draft)");
-  t.equal(both.taxi.note, "Also: permanently promoted.");
+  t.equal(both.taxi.text, "Not eligible · taxi window ended");
+  t.equal(both.taxi.note, "Also: permanently promoted after three temporary call-ups.");
 });
 
 test("a permanent promotion wins over the worker's eligible flag (40 players on 2026-10-20 have both set)", () => {
   // e.g. a 2025 Round 3 pick in the window: the worker flag ignores promotion; main showed "permanently promoted".
   const rec = M.upsDraftRecord({ season: 2025, round: 3, pick: 4 }, { round: 3, year: 2025 }, true);
   const t1 = M.taxiStatus({ taxiEligible: true, taxiPermanentPromotion: true, type: "Rookie-Draft" }, rec, 2026);
-  t.equal(t1.text, "Not eligible · permanently promoted");
+  t.equal(t1.text, "Not eligible · permanently promoted after three temporary call-ups");
   t.equal(t1.eligible, false);
+  // The 2025 legacy rule (Keith 2026-10-21): the worker's legacy_2025 flag names it — even back on taxi.
+  const lg = M.taxiStatus({ type: "Rookie-Draft", isTaxi: true, taxiPermanentPromotion: true, taxiStatus: { eligible: false, reason: "legacy_2025", legacy_2025: true } }, rec, 2026);
+  t.equal(lg.text, "Not eligible · active during 2025 (legacy promotion)"); t.equal(lg.eligible, false);
+  // No worker verdict at all: from 2026 the 2025 record is unknown → never a guessed "eligible".
+  const none = M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 0, taxiPermanentPromotion: false }, rec, 2026);
+  t.equal(none.text, "Eligibility could not be confirmed"); t.equal(none.eligible, null); t.ok(!none.can_demote);
   // The worker's own verdict disagreeing with the draft history is a real conflict → Unknown.
   const r1 = M.upsDraftRecord({ season: 2020, round: 3, pick: 1 }, { round: 0 }, true);
   t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiStatus: { eligible: true, reason: "eligible", text: "Eligible · 3 of 3 call-ups left" } }, r1, 2026).text, "Unknown");
   // ...but the worker's "no pick in its 3-draft index" never contradicts an older pick in the full history.
-  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiStatus: { eligible: false, reason: "no_recent_pick" } }, r1, 2026).text, "Not eligible · taxi window ended (2020 draft)");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiStatus: { eligible: false, reason: "no_recent_pick" } }, r1, 2026).text, "Not eligible · taxi window ended");
 });
 
 test("taxi boundaries in the panel: 0–3 activations temporary (demotable), the 4th permanent; release ends it; a trade keeps it", () => {
   const rec = M.upsDraftRecord({ season: 2025, round: 3, pick: 4 }, { round: 3, year: 2025 }, true);
+  const W = { taxiStatus: { legacy_2025: false } };   // the worker's verdict: not a 2025 legacy promotion
   for (const used of [0, 1, 2, 3]) {
-    const r = M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: used, taxiPermanentPromotion: false }, rec, 2026);
+    const r = M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: used, taxiPermanentPromotion: false, ...W }, rec, 2026);
     t.equal(r.eligible, true); t.equal(r.can_demote, true, used + " used: demote allowed"); t.equal(r.text, (3 - used) + " of 3 call-ups left · on the active roster");
   }
-  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 4, taxiPermanentPromotion: true }, rec, 2026).text, "Not eligible · permanently promoted");
-  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 1, taxiCallupsPending: 1 }, rec, 2026).can_demote, true, "a pending call-up never blocks a demote");
-  t.ok(/released since the draft/.test(M.taxiStatus({ type: "Vet-FAA" }, rec, 2026).text), "cut and re-acquired: not eligible");
-  t.equal(M.taxiStatus({ type: "Rookie-Draft" }, rec, 2026).eligible, true, "traded: the Rookie-Draft contract carries over");
-  t.equal(M.taxiStatus({ type: "Rookie-Draft", isTaxi: true }, rec, 2026).can_demote, false, "already on taxi");
-  t.equal(M.taxiStatus({ type: "Rookie-Draft" }, M.upsDraftRecord({ season: 2023, round: 3, pick: 4 }, { round: 0 }, true), 2026).text, "Not eligible · taxi window ended (2023 draft)");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 4, taxiPermanentPromotion: true, ...W }, rec, 2026).text, "Not eligible · permanently promoted after three temporary call-ups");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", taxiCallupsUsed: 1, taxiCallupsPending: 1, ...W }, rec, 2026).can_demote, true, "a pending call-up never blocks a demote");
+  t.equal(M.taxiStatus({ type: "Vet-FAA", ...W }, rec, 2026).text, "Not eligible · released", "cut and re-acquired: not eligible");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", ...W }, rec, 2026).eligible, true, "traded: the Rookie-Draft contract carries over");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", isTaxi: true, ...W }, rec, 2026).can_demote, false, "already on taxi");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft", isIr: true, taxiCallupsUsed: 2, ...W }, rec, 2026).eligible, true, "on IR after two call-ups: still eligible");
+  t.equal(M.taxiStatus({ type: "Rookie-Draft" }, M.upsDraftRecord({ season: 2023, round: 3, pick: 4 }, { round: 0 }, true), 2026).text, "Not eligible · taxi window ended");
   // Move to Taxi follows the worker's verdict; the rule loads before the panel module, on the page and in the MFL embed.
   t.ok(/p\.taxiStatus \? p\.taxiStatus\.can_demote === true :/.test(chunks(FO).find((c) => c.name === "renderActionsTab").body));
   const html = read("site/rosters/v2/front_office.html"), loader = read("site/rosters/fo_embed_loader.js");
