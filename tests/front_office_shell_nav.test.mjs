@@ -87,7 +87,8 @@ test("About is a real dialog: labelled, focus moves in and returns, Esc closes, 
   t.ok(/role="dialog" aria-modal="true" aria-labelledby="fo-about-title"/.test(HTML));
   const about = sliceFn(HUB, "function setupAbout(");
   t.ok(/e\.key === "Escape"/.test(about) && /e\.key === "Tab"/.test(about), "Esc + focus trap");
-  t.ok(/panel\.focus\(\)/.test(sliceFn(HUB, "function openAbout(")) && /__opener\.focus\(\)/.test(sliceFn(HUB, "function closeAbout(")), "focus in, focus back");
+  t.ok(/openDialog\("About these numbers"/.test(sliceFn(HUB, "function openAbout(")), "About opens through the shared dialog (the cap ledgers use the same frame)");
+  t.ok(/panel\.focus\(\)/.test(sliceFn(HUB, "function openDialog(")) && /__opener\.focus\(\)/.test(sliceFn(HUB, "function closeAbout(")), "focus in, focus back");
 });
 
 test("a destination whose view isn't built says so; the ledger's own tabs are never overwritten", () => {
