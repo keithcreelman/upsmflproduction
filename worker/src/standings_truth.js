@@ -304,16 +304,19 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
   });
   poolReasons(f.byes, "bye");
   poolReasons(f.seeds3to6, "seeds3to6");
-  const cut = f.wildCards.length ? f.wildCards[f.wildCards.length - 1] : null;
-  const sixth = f.seeds3to6.length ? f.seeds3to6[f.seeds3to6.length - 1] : null;
+  const cut = f.wildCards.length ? f.wildCards[f.wildCards.length - 1] : null;   // the last wild card in the field
   f.outside.forEach((r) => { teams[r.franchise_id].seed_reason = cut ? reasonVs(r, cut, "outside") : { basis: "ladder", pool: "outside", step: null }; });
   addAbove();
 
-  // All-Play wins behind the 6th seed (ties count half); seeds 1-6 are null.
+  // ap_back ("WC Back"): All-Play wins behind the LAST WILD CARD (ties count half), the race a team outside the field
+  // is actually in. The four division winners are protected (a better All-Play record never takes a division winner's
+  // place), so the 6th seed is the wrong yardstick whenever it is a division winner: 2026 Week 6 measured Hawks against
+  // Real Deal Creel and showed -1 (#1329). Seeds 1-6 are null; no wild card, null. Every team outside is a non-winner
+  // the ladder put behind the wild cards, so the figure is never negative.
   const apWins = (fid) => tot.teams[fid].ap.w + 0.5 * tot.teams[fid].ap.t;
   for (const r of rows) {
     const t = teams[r.franchise_id];
-    t.ap_back = t.playoff_seed == null && sixth ? Math.round((apWins(sixth.franchise_id) - apWins(r.franchise_id)) * 10) / 10 : null;
+    t.ap_back = t.playoff_seed == null && cut ? Math.round((apWins(cut.franchise_id) - apWins(r.franchise_id)) * 10) / 10 : null;
   }
   const order = [...f.byes, ...f.seeds3to6, ...f.outside].map((r) => r.franchise_id);   // outside is already in ladder order
   order.forEach((fid, i) => { teams[fid].order_index = i; });

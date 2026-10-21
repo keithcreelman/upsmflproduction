@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.2",
-  "label": "Standings (preview build): seeds first with Hawk Tuah Bowl seeds and magic numbers; vertical brackets with a Tale of the Tape; older seasons whose brackets don't fit today's rounds listed by week with the recorded champion; a week whose scores disagree is the only one held back."
+  "build": "2026.10.20.3",
+  "label": "Standings: Back is All-Play wins behind the last wild card, never a protected division winner; 'Next out' names that wild card."
 }
