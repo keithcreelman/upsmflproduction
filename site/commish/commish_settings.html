@@ -2327,6 +2327,42 @@
     });
   }
 
+  // ── Trade lock (worker-owned, Keith 2026-10-21). The deadline is not a typed date: the rule is the NFL week that
+  // includes Thanksgiving, and the worker keeps MFL at ONE week-based "No Trades Allowed" event. This panel reads the
+  // worker's check (POST /admin/trade-lock/reconcile, report only) and can add the missing week lock; stale or duplicate
+  // locks are listed for deletion in MFL's own calendar (MFL's API can't delete them).
+  function tradeLockHtml() {
+    var r = AC.tradeLock, body;
+    if (!r) body = '<p class="fo-row-hint">Not checked yet.</p>';
+    else if (r.error && !r.plan) body = '<p class="fo-row-hint" style="color:#c0392b;">' + acEsc(r.error) + "</p>";
+    else {
+      var p = r.plan || {}, rule = r.rule || {}, lock = r.lock || {};
+      body = '<p><b>Rule:</b> first kickoff of the NFL week that includes Thanksgiving → ' +
+          (rule.state === "resolved" ? "Week " + acEsc(rule.nfl_week) + ", " + acEsc(rule.label) : "<i>waiting for the official NFL schedule (" + acEsc(rule.reason || "") + ")</i>") + "</p>" +
+        '<p><b>MFL enforces:</b> ' + acEsc(lock.label || "no trade lock") + (lock.state ? " (" + acEsc(lock.state) + ")" : "") + "</p>" +
+        '<p><b>Status:</b> ' + (p.aligned ? '<span style="color:#1e8449;">✔ aligned: one Week ' + acEsc(p.rule_week) + " lock</span>" : '<span style="color:#c0392b;">' + acEsc(p.status || "?") + "</span>") + "</p>" +
+        (p.remove && p.remove.length ? '<p><b>Delete on MFL’s League Calendar:</b> ' + p.remove.map(function (x) { return "#" + acEsc(x.id) + " " + acEsc(x.label) + " (" + acEsc(x.why) + ")"; }).join("; ") + "</p>" : "") +
+        (p.create ? '<button type="button" id="tl-create" class="fo-btn" style="padding:6px 14px;background:#c0392b;color:#fff;">Add the Week ' + acEsc(p.create.START_TIME) + " lock on MFL (" + (AC.pushTarget === "74598" ? "LIVE" : "test") + ")</button>" : "") +
+        (r.wrote ? '<p class="fo-row-hint">Write: ' + (r.wrote.ok ? "added" : "failed (" + acEsc(r.wrote.body || r.wrote.http) + ")") + "</p>" : "");
+    }
+    return '<div class="fo-card"><div class="fo-card-head"><h3>Trade lock (worker-owned)</h3></div>' + body +
+      '<button type="button" id="tl-check" class="fo-btn" style="padding:6px 14px;">🔍 Check MFL</button></div>';
+  }
+  function wireTradeLock(host) {
+    var base = function () { return apiUrl("/admin/trade-lock/reconcile") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent((AC.cfg && AC.cfg.season) || YEAR); };
+    var chk = document.getElementById("tl-check");
+    if (chk) chk.addEventListener("click", function () {
+      postJSON(base(), {}).then(function (r) { AC.tradeLock = r; paintAuctionCalendar(host); })
+        .catch(function (e) { AC.tradeLock = { error: e.message || String(e) }; paintAuctionCalendar(host); });
+    });
+    var mk = document.getElementById("tl-create");
+    if (mk) mk.addEventListener("click", function () {
+      if (AC.pushTarget === "74598" && !window.confirm("Add the week-based No Trades Allowed lock to the REAL league (74598) now?")) return;
+      postJSON(base() + "&write=1&force_write=1", {}).then(function (r) { AC.tradeLock = r; paintAuctionCalendar(host); })
+        .catch(function (e) { AC.tradeLock = { error: e.message || String(e) }; paintAuctionCalendar(host); });
+    });
+  }
+
   function paintAuctionCalendar(host) {
     var faa = (AC.cfg && AC.cfg.faa) || {};
     var savedAt = AC.cfg && AC.cfg.updated_at ? new Date(AC.cfg.updated_at).toLocaleString() : "never";
@@ -2429,7 +2465,7 @@
         '<button type="button" id="ac-preview" class="fo-btn" style="padding:8px 20px;">🔍 Preview</button>' +
         '<button type="button" id="ac-push" class="fo-btn" style="padding:8px 20px;background:' + (isTest ? "#b8860b" : "#c0392b") + ';color:#fff;">📤 Push' + (isTest ? " (test)" : " (LIVE)") + "</button>" +
         '<a class="fo-btn" href="https://' + acEsc(HOST) + "/" + acEsc(YEAR) + "/options?L=" + acEsc(AC.pushTarget) + '&O=110" target="_blank" rel="noopener" style="padding:8px 20px;text-decoration:none;">↗ MFL calendar</a>' +
-      "</div></div>" + previewHtml;
+      "</div></div>" + previewHtml + tradeLockHtml();
 
     // Save
     document.getElementById("ac-save").addEventListener("click", function () {
@@ -2485,6 +2521,7 @@
         renderAuctionCalendar();
       });
     });
+    wireTradeLock(host);
     // Preview (dryRun — no key, writes nothing)
     document.getElementById("ac-preview").addEventListener("click", function () {
       var u = apiUrl("/admin/auction/push-mfl-calendar") + "?L=" + encodeURIComponent(AC.pushTarget) + "&YEAR=" + encodeURIComponent(AC.cfg.season || YEAR);

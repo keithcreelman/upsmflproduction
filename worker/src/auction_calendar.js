@@ -21,7 +21,9 @@ function safeStr(v) { return String(v == null ? "" : v).trim(); }
 // The dates the commish fills in. Each value is a wall-clock "YYYY-MM-DDTHH:mm"
 // interpreted in America/New_York (ET) — no stored offset, DST-correct.
 export const AUCTION_CAL_FIELDS = [
-  { key: "trade_deadline_at", label: "Trade deadline",    help: "Kickoff of the first NFL game in the NFL week that includes Thanksgiving Day (2026: Nov 25 20:00, GB @ LAR). → MFL TRADE event + app calendar. The push holds it unless it matches the NFL schedule. Delete any older TRADE event on MFL first: the earliest one is what MFL enforces." },
+  // trade_deadline_at retired (Keith 2026-10-21): the trade deadline is not a typed date. The worker owns MFL's
+  // week-based TRADE lock (worker/src/trade_deadline.js planTradeLock, /admin/trade-lock/reconcile); a stored
+  // value is ignored.
   { key: "rookie_draft_at",   label: "Rookie draft",      help: "Rookie draft start. → MFL DRAFT_START + app calendar." },
   { key: "era_open_at",       label: "ERA opens",         help: "Expired Rookie Auction opens. → MFL AUCTION_START + app calendar." },
   { key: "era_close_at",      label: "ERA closes",        help: "ERA close (optional). → the ERA AUCTION_START END_TIME." },
@@ -217,7 +219,6 @@ export function buildCalendarEvents(cfg) {
       note,
     });
   };
-  const trade = val("trade_deadline_at", true);
   const rookie = val("rookie_draft_at", true);
   const eraOpen = val("era_open_at", true);
   const eraClose = val("era_close_at", false);
@@ -225,7 +226,6 @@ export function buildCalendarEvents(cfg) {
   const faaOpen = val("faa_open_at", true);
   const faaClose = val("faa_close_at", true);
 
-  add("trade_deadline_at", "TRADE", trade, null, "Trade deadline", "In-season trade deadline.");
   add("rookie_draft_at", "DRAFT_START", rookie, null, "Rookie draft", "Rookie draft start.");
   add("era_open_at", "AUCTION_START", eraOpen, eraClose, "ERA auction", "Expired Rookie Auction window.");
   add("faa_open_at", "AUCTION_START", faaOpen, faaClose, "FA Auction", "Free Agent Auction window.");
@@ -262,7 +262,6 @@ export function buildLeagueEventRows(cfg, seasonOverride) {
   const rows = [];
   const dateOf = (wall) => { const s = safeStr(wall); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null; };
   const add = (event, wall, description) => { const d = dateOf(wall); if (d) rows.push({ event, date: d, nfl_season: season, description }); };
-  add("ups_trade_deadline", f.trade_deadline_at, "In-season trade deadline");
   add("ups_rookie_draft", f.rookie_draft_at, "Rookie draft");
   add("ups_expired_rookie_auction_start", f.era_open_at, "Expired Rookie Auction opens");
   add("ups_fa_auction_start", f.faa_open_at, "Free Agent Auction opens");
@@ -291,7 +290,6 @@ export const REMINDER_FIELD_MAP = {
   faa_roster_lock_at:         "cut_deadline",
   faa_open_at:                "free_agent_auction",
   contract_deadline_at:       "contract_deadline",
-  trade_deadline_at:          "trade_deadline",
 };
 
 // Build the `overrides` argument for deadlineReminderCatalogForSeason(season, …)

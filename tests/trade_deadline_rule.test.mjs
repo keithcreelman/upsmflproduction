@@ -42,68 +42,120 @@ test("fail closed until the official schedule establishes it", () => {
   t.equal(thanksgivingDateEt(2027), "2027-11-25"); t.equal(thanksgivingDateEt(2028), "2028-11-23");
 });
 
-// ── Commish Settings push: the TRADE event goes to MFL only at the rule's instant ──
-const unixEt = (iso) => String(Math.floor(Date.parse(iso) / 1000));
-let IMPORTS = [], SCHEDULE_UP = true;
-const PROD = [
-  { id: "901", type: "TRADE", start_time: unixEt("2026-11-24T12:00:00-05:00") },
-  { id: "902", type: "TRADE", start_time: unixEt("2026-11-25T20:00:00-05:00") },
-  { id: "903", type: "TRADE", start_time: unixEt("2026-11-25T20:00:00-05:00") },
-];
-let CALENDAR = PROD;
+// ── The worker-owned lock: planTradeLock (pure) and /admin/trade-lock/reconcile against a fake MFL that behaves as the
+// test league did on 2026-10-21: import adds an event every time (no de-duplication, no update, no delete); week-based
+// events are stored as the week number and placed by MFL's ICS at that week's first kickoff.
+const { planTradeLock, mflTradeLock } = await import("../worker/src/trade_deadline.js");
+const RULE = tradeDeadlineRule(2026, W);
+const TUE = 1795539600;
+const absEv = (id, start) => ({ id, event_type: "TRADE", start_unix: start, end_unix: null });
+const wkEv = (id, week) => ({ id, event_type: "TRADE", start_unix: week, end_unix: null });
+
+test("plan: production today (Tue noon + Wed 8 PM twice) → add the Week-12 lock AND the commissioner deletes all three", () => {
+  const p = planTradeLock({ events: [absEv("901", TUE), absEv("902", WED_8PM), absEv("903", WED_8PM)], rule: RULE, nowUnix: 1792600000 });
+  t.equal(p.status, "needs_commissioner_cleanup"); t.equal(p.aligned, false);
+  t.equal(JSON.stringify(p.create), JSON.stringify({ EVENT_TYPE: "TRADE", START_TIME: "12" }));
+  t.equal(p.remove.map((r) => r.id + ":" + r.why).join(), "901:earlier_than_rule_is_in_force,902:not_the_rule_lock,903:not_the_rule_lock");
+  t.equal(p.effective_start_unix, TUE, "until Tue is deleted, Tue noon is what MFL enforces");
+});
+
+test("plan: exactly one week-12 lock that MFL places at the rule's kickoff → aligned; duplicates and stale locks are named", () => {
+  const ics = { "950": WED_8PM, "951": WED_8PM };
+  const ok = planTradeLock({ events: [wkEv("950", 12)], rule: RULE, icsStarts: ics, nowUnix: 1792600000 });
+  t.equal(ok.status, "aligned"); t.equal(ok.aligned, true); t.equal(ok.create, null); t.equal(ok.keep.id, "950");
+  const dup = planTradeLock({ events: [wkEv("951", 12), wkEv("950", 12)], rule: RULE, icsStarts: ics, nowUnix: 1792600000 });
+  t.equal(dup.keep.id, "950", "the oldest is kept"); t.equal(dup.remove.map((r) => r.id + ":" + r.why).join(), "951:duplicate"); t.equal(dup.create, null, "never a third");
+  const inert = planTradeLock({ events: [wkEv("950", 12), { id: "8554892", event_type: "TRADE", start_unix: null }, { id: "1", event_type: "TRADE", start_unix: 1790000000, end_unix: 1790000060 }],
+    rule: RULE, icsStarts: ics, nowUnix: 1792600000 });
+  t.equal(inert.aligned, true, "an inert (start-less) lock and an ended lock don't count"); t.equal(inert.inert.length, 1);
+  const moved = planTradeLock({ events: [wkEv("950", 12)], rule: RULE, icsStarts: { "950": WED_8PM + 3600 }, nowUnix: 1792600000 });
+  t.equal(moved.status, "mfl_places_week_elsewhere", "MFL's own placement must equal the NFL schedule's kickoff");
+  const blind = planTradeLock({ events: [absEv("901", TUE)], rule: tradeDeadlineRule(2027, []), nowUnix: 1792600000 });
+  t.equal(blind.status, "waiting_for_nfl_schedule"); t.equal(blind.create, null, "future season: nothing is created until the schedule exists");
+});
+
+// Fake MFL (calendar + ICS + import) and fake Discord for the route.
+let CAL2 = [], NEXT_ID = 960, IMPORTS2 = [], DMS = [], SCHED_UP2 = true;
+const icsOf = (evs) => evs.map((e) => {
+  const st = Number(e.start_time) <= 30 ? (Number(e.start_time) === 12 ? WED_8PM : 0) : Number(e.start_time);
+  const d = new Date(st * 1000).toISOString().replace(/[-:]/g, "").slice(0, 15);
+  return `BEGIN:VEVENT\r\nUID:${e.id}@myfantasyleague.com\r\nSUMMARY:No Trades Allowed\r\nDTSTART:${d}\r\nEND:VEVENT`;
+}).join("\r\n");
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === "string" ? input : input.url);
   const type = u.searchParams.get("TYPE");
   if (/myfantasyleague\.com$/.test(u.hostname) && u.pathname.endsWith("/export")) {
-    if (type === "calendar") return new Response(JSON.stringify({ calendar: { event: CALENDAR } }));
-    if (type === "nflSchedule") return SCHEDULE_UP ? new Response(JSON.stringify(SCHED)) : new Response("<html>not published</html>", { status: 200 });
+    if (type === "calendar") return new Response(JSON.stringify({ calendar: { event: [{ id: "10", type: "WAIVER_NONE", start_time: "1799200000" }, ...CAL2] } }));
+    if (type === "ics") return new Response("BEGIN:VCALENDAR\r\n" + icsOf(CAL2) + "\r\nEND:VCALENDAR");
+    if (type === "nflSchedule") return SCHED_UP2 ? new Response(JSON.stringify(SCHED)) : new Response("<html></html>");
   }
-  if (/myfantasyleague\.com$/.test(u.hostname) && u.pathname.endsWith("/import")) { IMPORTS.push(Object.fromEntries(u.searchParams)); return new Response("<status>OK</status>"); }
+  if (/myfantasyleague\.com$/.test(u.hostname) && u.pathname.endsWith("/import")) {
+    const f = Object.fromEntries(new URLSearchParams(init && init.body || ""));
+    IMPORTS2.push(f);
+    CAL2.push({ id: String(NEXT_ID++), type: f.EVENT_TYPE, start_time: f.START_TIME || "", end_time: f.END_TIME || "" });   // MFL adds, always
+    return new Response("<status>OK</status>");
+  }
+  if (u.hostname === "discord.com") {
+    if (/\/users\/@me\/channels$/.test(u.pathname)) return new Response(JSON.stringify({ id: "dm1" }));
+    if (/\/channels\/dm1\/messages$/.test(u.pathname)) { DMS.push(JSON.parse(init.body).content); return new Response(JSON.stringify({ id: "m" })); }
+  }
   throw new Error("test: unexpected network call " + u.href);
 };
-function league(tradeDeadlineAt, season = "2026") {
+function env2(write) {
   const db = makeD1({});
-  db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
-  db.raw.exec("CREATE TABLE league_events (event TEXT, date TEXT, nfl_season TEXT, description TEXT, source TEXT, UNIQUE(event, nfl_season))");
-  db.raw.prepare("INSERT INTO ups_settings VALUES ('auction_calendar', ?, '2026-08-06T11:51:58Z')").run(JSON.stringify({
-    season, faa: { trade_deadline_at: tradeDeadlineAt } }));
-  return { UPS_MFL_DB: db, MFL_COOKIE: "COMMISH", COMMISH_API_KEY: "admin", LEAGUE_ID: "74598" };
+  db.raw.exec("CREATE TABLE ups_bot_heartbeat (bot TEXT PRIMARY KEY, last_ts INTEGER, status TEXT, env TEXT)");
+  return { UPS_MFL_DB: db, MFL_COOKIE: "COMMISH", COMMISH_API_KEY: "admin", LEAGUE_ID: "74598", DISCORD_BOT_TOKEN: "bot",
+    COMMISH_DISCORD_USER_ID: "621530026831118346", TRADE_LOCK_RECONCILE_WRITE: write ? "1" : "0" };
 }
-async function push(env, qs, year = "2026") {
-  IMPORTS = [];
-  const res = await worker.fetch(new Request("https://w.test/admin/auction/push-mfl-calendar?L=74598&YEAR=" + year + "&APIKEY=admin" + (qs || ""), { method: "POST" }),
+async function reconcile(env, qs, year = "2026") {
+  const res = await worker.fetch(new Request("https://w.test/admin/trade-lock/reconcile?L=74598&YEAR=" + year + "&APIKEY=admin" + (qs || ""), { method: "POST" }),
     env, { waitUntil() {}, passThroughOnException() {} });
   return { status: res.status, json: await res.json() };
 }
-const tradeOf = (j) => (j.events || []).find((e) => e.event_type === "TRADE");
 
-test("push dry run: Commish Settings' Wed 11-25 20:00 IS the rule and is already on MFL → nothing new for the trade lock", async () => {
-  CALENDAR = PROD; SCHEDULE_UP = true;
-  const r = await push(league("2026-11-25T20:00"));
-  const tr = tradeOf(r.json);
-  t.equal(r.json.dryRun, true);
-  t.equal(tr.start_unix, WED_8PM); t.equal(tr.matches_rule, true); t.equal(tr.already_exists, true); t.ok(!tr.held);
-  t.equal(tr.trade_rule.label, "Wed, Nov 25, 8:00 PM ET");
-  t.ok(r.json.stale.some((s) => s.event_type === "TRADE" && Number(s.start_unix) === Number(PROD[0].start_time)), "the Tue noon event is reported stale (delete it on MFL)");
+test("route: report only reads (no import, no alert); write is refused while TRADE_LOCK_RECONCILE_WRITE is off", async () => {
+  CAL2 = [{ id: "901", type: "TRADE", start_time: String(TUE) }, { id: "902", type: "TRADE", start_time: String(WED_8PM) }, { id: "903", type: "TRADE", start_time: String(WED_8PM) }];
+  IMPORTS2 = []; DMS = []; SCHED_UP2 = true;
+  const r = await reconcile(env2(false));
+  t.equal(r.status, 200); t.equal(r.json.plan.status, "needs_commissioner_cleanup"); t.equal(r.json.lock.label, "Tue, Nov 24, 12:00 PM ET");
+  t.equal(IMPORTS2.length, 0); t.equal(DMS.length, 0);
+  t.equal((await reconcile(env2(false), "&write=1")).status, 409, "write off → refused");
 });
 
-test("push: a typed Thursday 1:00 PM is HELD, not pushed, even on commit; an unpublished schedule holds it too", async () => {
-  CALENDAR = [PROD[1]]; SCHEDULE_UP = true;
-  const thu = await push(league("2026-11-26T13:00"));
-  t.equal(tradeOf(thu.json).matches_rule, false);
-  t.match(tradeOf(thu.json).held, /^differs_from_trade_deadline_rule \(rule: Wed, Nov 25, 8:00 PM ET\)/);
-  const c = await push(league("2026-11-26T13:00"), "&commit=1");
-  t.equal(IMPORTS.filter((i) => i.EVENT_TYPE === "TRADE").length, 0, "no TRADE event sent to MFL");
-  t.ok(c.json.mfl.results.some((x) => x.event_type === "TRADE" && x.held), "the push reports the hold");
-  CALENDAR = []; SCHEDULE_UP = false;
-  const blind = await push(league("2027-11-24T20:00", "2027"), "", "2027");
-  t.match(tradeOf(blind.json).held, /^trade_deadline_rule_unresolved \(nfl_schedule_unavailable\)/, "2027 before the NFL schedule exists → held, never a guessed day");
-  await push(league("2027-11-24T20:00", "2027"), "&commit=1", "2027");
-  t.equal(IMPORTS.filter((i) => i.EVENT_TYPE === "TRADE").length, 0, "…and not pushed on commit");
-  SCHEDULE_UP = true; CALENDAR = [];
-  const ok = await push(league("2026-11-25T20:00"), "&commit=1");
-  t.equal(IMPORTS.filter((i) => i.EVENT_TYPE === "TRADE").map((i) => i.START_TIME).join(), String(WED_8PM), "at the rule's instant it is pushed");
-  t.ok(ok.json.mfl.results.some((x) => x.event_type === "TRADE" && x.ok && !x.skipped));
+test("route: write adds ONE Week-12 lock; a rerun adds nothing; Tue noon stays in force and the commissioner is told what to delete — once", async () => {
+  CAL2 = [{ id: "901", type: "TRADE", start_time: String(TUE) }]; IMPORTS2 = []; DMS = [];
+  const env = env2(true);
+  const a = await reconcile(env, "&write=1&alert=1");
+  t.equal(IMPORTS2.length, 1); t.equal(IMPORTS2[0].START_TIME, "12"); t.equal(IMPORTS2[0].EVENT_TYPE, "TRADE");
+  t.equal(a.json.wrote.ok, true); t.equal(a.json.plan.keep.week, 12);
+  t.equal(a.json.lock.label, "Tue, Nov 24, 12:00 PM ET", "adding Wednesday does not move MFL's deadline while Tuesday remains");
+  t.equal(a.json.plan.status, "needs_commissioner_cleanup"); t.equal(a.json.plan.remove.map((x) => x.id).join(), "901");
+  t.equal(DMS.length, 1); t.match(DMS[0], /Delete on MFL's League Calendar[^\n]*#901 Tue, Nov 24, 12:00 PM ET \(earlier_than_rule_is_in_force\)/);
+  const b = await reconcile(env, "&write=1&alert=1");
+  t.equal(IMPORTS2.length, 1, "rerun: no second import (the worker reads before it writes)");
+  t.equal(b.json.wrote, null); t.equal(DMS.length, 1, "same state → no repeat alert within a day");
+});
+
+test("route: after the commissioner deletes the stale lock → aligned at Wed Nov 25 8:00 PM ET, no alert; 2027 waits for the NFL schedule", async () => {
+  CAL2 = [{ id: "960", type: "TRADE", start_time: "12", end_time: "" }]; IMPORTS2 = []; DMS = [];
+  const r = await reconcile(env2(true), "&write=1&alert=1");
+  t.equal(r.json.plan.status, "aligned"); t.equal(r.json.lock.label, "Wed, Nov 25, 8:00 PM ET"); t.equal(IMPORTS2.length, 0); t.equal(DMS.length, 0);
+  SCHED_UP2 = false; CAL2 = [];
+  const f = await reconcile(env2(true), "&write=1&alert=1", "2027");
+  t.equal(f.json.plan.status, "waiting_for_nfl_schedule"); t.equal(IMPORTS2.length, 0, "no lock invented for 2027"); t.equal(DMS.length, 0);
+  SCHED_UP2 = true;
+});
+
+test("the Commish Settings push no longer plans or reports TRADE events; the hourly cron runs the reconcile before the reminders", async () => {
+  const fsx = await import("node:fs");
+  const IX = fsx.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
+  t.ok(/const MANAGED_TYPES = \["DRAFT_START", "AUCTION_START", "WAIVER_NONE"\];/.test(IX), "TRADE is not managed by the push");
+  const AC = fsx.readFileSync(new URL("../worker/src/auction_calendar.js", import.meta.url), "utf8");
+  t.ok(!/key: "trade_deadline_at"/.test(AC) && !/"TRADE", trade/.test(AC), "no typed trade deadline field, no TRADE push");
+  const iRec = IX.indexOf("TRADE_LOCK_RECONCILE_ENABLED || \"0\") === \"1\") {"), iRem = IX.indexOf("deadline-reminder sweep skipped — no COMMISH_API_KEY");
+  t.ok(iRec > 0 && iRec < iRem, "the reconcile is awaited before the reminder sweep in the hourly tick");
+  const WT = fsx.readFileSync(new URL("../worker/wrangler.toml", import.meta.url), "utf8");
+  t.ok(/TRADE_LOCK_RECONCILE_ENABLED = "0"/.test(WT) && /TRADE_LOCK_RECONCILE_WRITE = "0"/.test(WT), "both ship off");
 });
 
 await run("trade_deadline_rule");

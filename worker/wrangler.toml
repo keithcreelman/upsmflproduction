@@ -44,6 +44,12 @@ OTB_LIVE_MODE = "1"
 # DISCORD_DRAFT_CHANNEL_ID also resolves the split-brain (code had two fallbacks,
 # 1059… vs 1498…, so draft posts landed in different channels by code path).
 LEAGUE_ID = "74598"
+# Worker-owned trade lock (Keith 2026-10-21; /admin/trade-lock/reconcile, hourly before the deadline reminders).
+# ENABLED=1: check MFL hourly Aug–Dec and DM the commissioner when MFL isn't at exactly one week-based lock for the
+# NFL week that includes Thanksgiving. WRITE=1: also add that lock when none exists (MFL's API can't delete; stale
+# and duplicate locks are always the commissioner's cleanup). Both ship OFF.
+TRADE_LOCK_RECONCILE_ENABLED = "0"
+TRADE_LOCK_RECONCILE_WRITE = "0"
 COMMISH_DISCORD_USER_ID = "621530026831118346,1057654821638897715"
 DISCORD_DRAFT_CHANNEL_ID = "1059111651846131833"
 DISCORD_DRAFT_TEST_CHANNEL_ID = "1089538054236160010"
