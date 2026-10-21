@@ -30,9 +30,13 @@
       return Date.UTC(+o.year, +o.month - 1, +o.day);
     } catch (e) { return null; }
   }
+  // "Tue, Nov 24, 12:00 PM ET" in every browser (Safari's toLocaleString says "Tue, Nov 24 at 12:00 PM").
   function etLabel(ms) {
     try {
-      return new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+      var o = {};
+      new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
+        .formatToParts(new Date(ms)).forEach(function (x) { o[x.type] = x.value; });
+      return o.weekday + ", " + o.month + " " + o.day + ", " + o.hour + ":" + o.minute + " " + String(o.dayPeriod || "").toUpperCase() + " ET";
     } catch (e) { return new Date(ms).toISOString(); }
   }
   // When MFL stops accepting trades: its calendar's "No Trades Allowed" (TRADE) events that haven't ended; the

@@ -24,6 +24,7 @@ test("Trade deadline = MFL's first 'No Trades Allowed' (Tue Nov 24, 12:00 PM ET)
   const d = OV.tradeDeadlineFrom(CAL, ms("2026-10-20T20:00:00-04:00"));
   t.equal(d.state, "upcoming");
   t.equal(d.label, "Tue, Nov 24, 12:00 PM ET", "Eastern time, MFL's earliest TRADE event");
+  t.ok(/formatToParts/.test(SRC) && !/toLocaleString\("en-US", \{ timeZone: "America\/New_York", weekday/.test(SRC), "built from date parts: Safari's toLocaleString adds \"at\"");
   t.equal(d.days, 35, "Oct 20 → Nov 24 in Eastern calendar days");
   t.equal(d.events, 3, "three TRADE events read; the waiver event ignored");
   const after = OV.tradeDeadlineFrom(CAL, ms("2026-11-24T12:00:01-05:00"));
