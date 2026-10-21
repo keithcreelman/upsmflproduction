@@ -1,0 +1,72 @@
+/* UPS taxi eligibility, browser twin of worker/src/taxi_rule.js — the ONE rule (canon §A1, §B2, T2.4, §G14).
+   Same body, byte for byte (tests/taxi_rule.test.mjs). Attaches window.UPS_TAXI_RULE. Clients that have the
+   worker's /roster-workbench row read its taxi_status instead; the phone (which reads MFL rosters directly)
+   computes the same verdict here from the UPS draft index, the contract status and /api/taxi-callups. */
+(function (root) {
+  "use strict";
+  // ---- body: generated from worker/src/taxi_rule.js (keep in step; the test fails otherwise) ----
+  const TAXI_CALLUPS_MAX = 3;
+
+  // Permanent promotion. true / false, or null when an input is unknown (never a guessed "no").
+  function taxiPermanent({ used, marked, priorActive } = {}) {
+    if ((Number(used) || 0) >= 4 || Number(marked) === 1 || priorActive === true) return true;
+    if (used == null || priorActive == null) return null;
+    return false;
+  }
+
+  // i = { upsRound, upsYear, season, contractStatus, permanent (true | false | null = unknown), isTaxi, isIr,
+  //       used, pending, draftKnown (false = the draft record couldn't be read),
+  //       contractKnown (false = the roster's contract status couldn't be read),
+  //       windowIndexOnly (true = the caller's draft index holds only the last 3 drafts, so a player missing from it
+  //       may be an older pick: "no UPS Rookie Draft pick in the last 3 league years", never "not a pick") }
+  // → { eligible: true | false | null, reason, text, reasons, callups_used, callups_pending, callups_left,
+  //     permanent, can_demote, next_callup, next_callup_permanent }
+  function taxiEligibility(i = {}) {
+    const season = parseInt(i.season, 10) || 0;
+    const round = parseInt(i.upsRound, 10) || 0;
+    const year = parseInt(i.upsYear, 10) || 0;
+    const used = Math.max(0, parseInt(i.used, 10) || 0);
+    const pending = Math.max(0, parseInt(i.pending, 10) || 0);
+    const status = String(i.contractStatus == null ? "" : i.contractStatus).trim();
+    const permanent = i.permanent === true ? true : i.permanent === false ? false : null;
+    const out = {
+      eligible: false, reason: "", text: "", reasons: [],
+      callups_used: used, callups_pending: pending, callups_left: Math.max(0, TAXI_CALLUPS_MAX - used),
+      permanent, can_demote: false,
+      // The activation a promote from taxi would be; the 4th is permanent.
+      next_callup: used + pending + 1, next_callup_permanent: used + pending + 1 > TAXI_CALLUPS_MAX,
+    };
+    const unknown = (reason, text) => Object.assign(out, { eligible: null, reason, text: "Unknown · " + text, can_demote: false });
+    if (i.draftKnown === false) return unknown("draft_unreadable", "the UPS Rookie Draft record couldn't be read");
+    if (!round || !year) {
+      out.reasons.push(i.windowIndexOnly
+        ? { reason: "no_recent_pick", text: "no UPS Rookie Draft pick in the last 3 league years" }
+        : { reason: "not_ups_pick", text: "not a UPS Rookie Draft pick" });
+    } else {
+      if (round === 1) out.reasons.push({ reason: "round_1", text: "Round 1 pick" });
+      if (season && season - year >= 3) out.reasons.push({ reason: "window_ended", text: "taxi window ended (" + year + " draft)" });
+      // A contract other than the original Rookie-Draft one means "released" only INSIDE the window, for a Round 2+
+      // pick: outside it the rookie deal simply ran out (an expired contract, never a cut).
+      if (!out.reasons.length) {
+        if (i.contractKnown === false) return unknown("contract_unreadable", "the roster's contract couldn't be read");
+        if (!/^rookie-draft$/i.test(status)) {
+          out.reasons.push({ reason: "released", text: "released since the draft (re-acquiring doesn't restore it)" });
+        }
+      }
+    }
+    if (permanent === true) out.reasons.push({ reason: "permanently_promoted", text: "permanently promoted" });
+    if (out.reasons.length) {
+      return Object.assign(out, { eligible: false, reason: out.reasons[0].reason, text: "Not eligible · " + out.reasons[0].text });
+    }
+    if (permanent === null) return unknown("callups_unreadable", "the call-up history couldn't be read");
+    return Object.assign(out, {
+      eligible: true, reason: "eligible",
+      text: "Eligible · " + out.callups_left + " of " + TAXI_CALLUPS_MAX + " call-ups left",
+      can_demote: !i.isTaxi && !i.isIr,
+    });
+  }
+  // ---- end body ----
+  var api = { TAXI_CALLUPS_MAX: TAXI_CALLUPS_MAX, taxiPermanent: taxiPermanent, taxiEligibility: taxiEligibility };
+  root.UPS_TAXI_RULE = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : this);

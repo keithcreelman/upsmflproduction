@@ -577,37 +577,16 @@
     return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
   }
 
-  // taxiDemoteLikelyForbidden — client-side §B2 guard for the
-  // rule-transition cohort. The §B2 "3 call-ups → permanent" rule
-  // landed on 2026-05-08; any player who was on an active roster
-  // BEFORE the 2026 season is grandfathered into permanent-promotion
-  // because they used call-ups that pre-dated the tracking system
-  // (PR #246 backfill didn't catch the full cohort — Devin Neal,
-  // Kyle Williams, etc.).
-  //
-  // Rule (Keith 2026-05-19): if active AND acquired before season
-  // 2026 → block demote. Worker's taxi_callups_used + pending also
-  // honored as a definitive signal.
-  //
-  // SUNSET: this guard can be deleted in 2028. The youngest
-  // grandfathered cohort is the 2025 rookie draft (acquisition_year
-  // = 2025). Their 3-year taxi window expires after the 2027 season,
-  // so by the 2028 season none of them are taxi-eligible at all and
-  // the demote button is already hidden by the upstream taxiEligible
-  // check.
-  var TAXI_RULE_EFFECTIVE_SEASON = 2026;
-  function taxiDemoteLikelyForbidden(player) {
+  // Demote to Taxi follows the worker's ONE taxi verdict (worker/src/taxi_rule.js → /roster-workbench
+  // taxi_status.can_demote): UPS Rookie Draft Round 2+, inside the first 3 league years, never released, not
+  // permanently promoted, and not already on taxi or IR. Activations 1–3 are temporary call-ups, so demotion stays
+  // available after each of them (canon §B2 / T2.4). The old client-side guard, taxiDemoteLikelyForbidden(), hid
+  // the button once ANY call-up was used or pending — wrong after the 1st temporary call-up — and guessed at the
+  // pre-2026 cohort, which the worker now decides itself (a prior season ended active = permanent).
+  function taxiCanDemote(player) {
     if (!player) return false;
-    var usedOrPending = safeInt(player.taxiCallupsUsed, 0) + safeInt(player.taxiCallupsPending, 0);
-    if (usedOrPending > 0) return true;     // worker says they've burned ≥1
-    var acq = safeStr(player.acquisitionText || "");
-    var m = acq.match(/\((\d{4})\)\s*$/);
-    if (!m) return false;                    // unknown acquisition window → trust worker
-    var acquiredYear = safeInt(m[1], 0);
-    if (acquiredYear <= 0) return false;
-    if (acquiredYear >= TAXI_RULE_EFFECTIVE_SEASON) return false;   // post-rule join, worker is authoritative
-    if (!rookieLikeContractStatus(player.type)) return false;       // veterans not in scope
-    return true;                              // pre-rule active rookie → grandfathered permanent
+    if (player.taxiStatus) return player.taxiStatus.can_demote === true;
+    return false;   // an older worker without the verdict: no button (the server still gates every demote)
   }
 
   // §C5 restructure window + §C4 off-ladder extension window — shared with
@@ -5121,6 +5100,7 @@
       // visibility of the Demote To Taxi button + the "Taxi · N/3"
       // eligibility chip on non-taxi rookies.
       taxiEligible: !!(p.taxi_eligible || p.taxiEligible),
+      taxiStatus: p.taxi_status || p.taxiStatus || null,
       // espn_id from MFL TYPE=players&DETAILS=1; powers high-res
       // headshot rendering in the player modal (~350×254 ESPN PNG
       // vs MFL's pixelated 110×110 _thumb.jpg). Empty when the player
@@ -8229,21 +8209,15 @@
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
           );
-        } else if (!player.isIr && player.taxiEligible && !player.taxiPermanentPromotion && !taxiDemoteLikelyForbidden(player)) {
+        } else if (taxiCanDemote(player)) {
           // Demote to Taxi — appears for taxi-eligible non-taxi players
           // (R2-5 rookies in their 3-year window) who haven't been
           // permanently promoted. Worker enforces real rules: R1 blocked
           // (Q12), permanently-promoted blocked (Q10 follow-up).
           //
-          // Keith 2026-05-19: Devin Neal + Kyle Williams were promoted
-          // BEFORE the §B2 3-call-ups-then-permanent rule landed on
-          // 2026-05-08, and the backfill in PR #246 didn't catch them
-          // — worker still reports taxi_callups_used=0 + taxi_permanent
-          // _promotion=false, so the button was showing on rule-locked
-          // players. The taxiDemoteLikelyForbidden() guard adds a
-          // conservative client-side check (active rookie acquired in
-          // a prior season → almost certainly burned ≥1 call-up across
-          // the season boundary → block).
+          // (Devin Neal / Kyle Williams, Keith 2026-05-19: promoted before
+          // call-ups were tracked — the worker now marks a prior season
+          // ended active as permanent, so the verdict hides them.)
           actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="demote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Demote to Taxi</button>'
           );
@@ -9661,8 +9635,8 @@
       // others promoted before 2026-05-08 + missed by PR #246 backfill).
       // The chip was misleading owners into thinking they had unused
       // call-ups when in reality the players are grandfathered permanent.
-      // Restore when worker data is trustworthy across the full cohort
-      // — paired with the TAXI_RULE_EFFECTIVE_SEASON sunset in 2028.)
+      // The worker's taxi_status now decides that cohort (a prior season
+      // ended active = permanent), so the chip could return on it.)
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
       // "MFL has not said" — a fresh waiver/FCFS award carries a salary and
       // nothing else. Contract length, years left, AAV, TCV, guarantee and cap

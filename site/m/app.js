@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.20.3";
+  var BUILD = "2026.10.21.2";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -527,10 +527,13 @@
     var seasonInt = parseInt(curYear, 10);
     if (!(seasonInt > 0)) return Promise.resolve({});   // no season, no guess (#1237)
     var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
+    // A draft inside the 3-league-year taxi window that couldn't be read makes taxi eligibility UNKNOWN for
+    // everyone (a missing pick would read "not drafted"), never a guessed "no" or "yes": recorded as __ok.
+    var windowOk = true;
     var fetches = years.map(function (y) {
       return fetchJson(mflExportUrlForYear("draftResults", y))
-        .then(function (j) { return indexDraftPicks(j, y); })
-        .catch(function () { return {}; });
+        .then(function (j) { if (!j && y > seasonInt - 3) windowOk = false; return indexDraftPicks(j, y); })
+        .catch(function () { if (y > seasonInt - 3) windowOk = false; return {}; });
     });
     return Promise.all(fetches).then(function (maps) {
       // Merge — later years overwrite earlier, but a pid only appears
@@ -539,6 +542,7 @@
       maps.forEach(function (m) {
         Object.keys(m).forEach(function (pid) { merged[pid] = m[pid]; });
       });
+      Object.defineProperty(merged, "__ok", { value: windowOk, enumerable: false });
       return merged;
     });
   }
@@ -1239,9 +1243,11 @@
       // player-with-callups; empty entries (used=0) are omitted by the
       // worker. Failure → empty object → chips render as plain "Taxi"
       // (no degradation).
+      // A failed read is recorded (ok:false): permanent promotion is then UNKNOWN, so no Demote is offered —
+      // the old fallback (empty map) read every player as never promoted (rule_no_fail_open_guards).
       fetch(workerUrl("/api/taxi-callups"))
-        .then(function (r) { return r.ok ? r.json() : { players: {} }; })
-        .catch(function () { return { players: {} }; }),
+        .then(function (r) { return r.ok ? r.json() : { ok: false, players: {} }; })
+        .catch(function () { return { ok: false, players: {} }; }),
       // [17] the contract-ladder calendar (§C2 MYAC close + the Week 3 / Week 5
       // boundaries + NFL Week 1); [18] acquisition label/date map. Both gate
       // contract-action eligibility (front_office_actions.js). A missing
@@ -1327,6 +1333,7 @@
       state.historicalDraftByPid = results[15] || {};
       var taxiCallupsResp = results[16] || { players: {} };
       state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
+      state.taxiCallupsOk = !!(taxiCallupsResp && taxiCallupsResp.ok !== false && taxiCallupsResp.players);
       state.contractLadder = results[17] || emptyContractLadder();
       state.contractDeadline = state.contractLadder.contractDeadline || "";
       state.acquisitionByKey = results[18] || {};
@@ -3860,43 +3867,32 @@
       // contractStatus: the player's CURRENT contract label (rosterRow.contractStatus).
       // Optional param for back-compat with any caller not yet updated, but
       // every real caller now passes it — see the note below on why.
-      isTaxiEligibleFor: function (playerId, contractStatus) {
+      // Taxi eligibility = the ONE rule (site/shared/taxi_rule.js, twin of the worker's taxi_rule.js, canon §A1 /
+      // §B2 / T2.4): UPS Rookie Draft Round 2 or later (never the NFL round), inside the first 3 league years,
+      // never released (still exactly "Rookie-Draft": a cut wipes the contract and a re-acquisition writes a
+      // fresh one; a trade keeps it), not permanently promoted (4th activation, a marked call-up, or a prior
+      // season ended active — /api/taxi-callups). Activations 1–3 are temporary: demotion stays allowed.
+      // historicalDraftByPid is the merged UPS draft index of the last 3–4 drafts (windowIndexOnly).
+      // An unreadable draft index or call-up history makes the answer UNKNOWN → not eligible here, no Demote.
+      taxiStatusFor: function (playerId, contractStatus, isTaxi, isIr) {
+        var R = window.UPS_TAXI_RULE;
         var pid = String(playerId || "");
-        if (!pid) return false;
-        var callup = (state.taxiCallupsByPid || {})[pid];
-        if (callup && callup.permanent_promotion) return false;
-        // FAITHFUL MIRROR of the worker's taxi_eligible (isTaxiEligible in
-        // worker/src/index.js, the value desktop trusts verbatim): use the UPS
-        // ROOKIE DRAFT round/year (NOT the NFL round), Round 2 OR LATER, inside
-        // the 3-league-year window. `historicalDraftByPid` (results[15]) is the
-        // merged 3-year UPS draft index keyed by pid — the mobile equivalent of
-        // the worker's `upsDraftByPlayer`. Trey Benson is NFL R3 but UPS R1.10 →
-        // R1 NOT taxi-eligible (§A1); the old NFL-round check wrongly passed him.
-        // A player absent from the index has no UPS rookie-draft record → not
-        // draft-taxi-eligible. R6 (IDP-only since 2025) IS eligible — canon §B2
-        // "Round 2 or later" (ratified Keith 2026-07-17; the old `> 5` cap
-        // wrongly benched R6 rookies like A.J. Haulcy).
-        var ups = (state.historicalDraftByPid || {})[pid];
-        if (!ups) return false;
-        var draftYear = parseInt(ups.year, 10);
-        var draftRound = parseInt(ups.round, 10);
-        var currentSeason = parseInt(state.ctx && state.ctx.year, 10);
-        if (!draftYear || !currentSeason) return false;
-        if (!draftRound || draftRound < 2) return false;  // only R1 excluded; R2+ (incl. R6 IDP) taxi-eligible
-        if ((currentSeason - draftYear) >= 3) return false;
-        // Trade preserves eligibility; a CUT forfeits it permanently (Keith
-        // 2026-08-03: "if a player is traded they can be demoted...but once cut
-        // that player is no longer cap eligible"). MFL never rewrites
-        // contractStatus on a trade, but a drop wipes it and re-acquisition
-        // always assigns a fresh one — so anything other than exactly
-        // "Rookie-Draft" means the original entry contract is gone, no matter
-        // how recent the UPS draft record is. Mirrors the worker's
-        // stillOnEntryContract check. Found via a real case: Demetrius Knight
-        // (UPS R6 2025, drafted by Blake Bombers) was cut and bought back by a
-        // DIFFERENT team at the 2026 auction — now "Vet-FAA" — and this check
-        // hadn't noticed, because it only ever looked at draft history.
-        if (!/^rookie-draft$/i.test(safeStr(contractStatus))) return false;
-        return true;
+        if (!R || !pid) return null;
+        var ups = (state.historicalDraftByPid || {})[pid] || null;
+        var callup = (state.taxiCallupsByPid || {})[pid] || null;
+        var draftOk = !state.historicalDraftByPid || state.historicalDraftByPid.__ok !== false;
+        return R.taxiEligibility({
+          upsRound: ups ? parseInt(ups.round, 10) : 0, upsYear: ups ? parseInt(ups.year, 10) : 0,
+          season: parseInt(state.ctx && state.ctx.year, 10), contractStatus: contractStatus,
+          isTaxi: !!isTaxi, isIr: !!isIr, used: callup ? callup.used : 0, pending: callup ? callup.pending : 0,
+          draftKnown: draftOk && !!state.historicalDraftByPid, windowIndexOnly: true,
+          permanent: state.taxiCallupsOk === false ? null : !!(callup && callup.permanent_promotion),
+        });
+      },
+      isTaxiEligibleFor: function (playerId, contractStatus) {
+        var host = (this && this.taxiStatusFor) ? this : (window.UPS_MOBILE && window.UPS_MOBILE.data);
+        var st = host && host.taxiStatusFor ? host.taxiStatusFor(playerId, contractStatus, false, false) : null;
+        return !!(st && st.eligible === true);
       },
       // §B3 IR eligibility — the ONE copy on the mobile side.
       //

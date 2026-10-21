@@ -1,4 +1,5 @@
 import { handleHallRequest } from "./hall.js";
+import { taxiEligibility, taxiPermanent } from "./taxi_rule.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
@@ -15996,6 +15997,7 @@ export default {
           result.reason = "missing_inputs";
           return result;
         }
+        let rostersOk = false;
         try {
           const r = await fetch(
             `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`,
@@ -16003,6 +16005,7 @@ export default {
           );
           if (r.ok) {
             const data = await r.json();
+            rostersOk = !!(data && data.rosters);
             let franchises = data?.rosters?.franchise || [];
             if (!Array.isArray(franchises)) franchises = [franchises];
             outerRoster: for (const f of franchises) {
@@ -16062,49 +16065,26 @@ export default {
           result.reason = "draft_round_not_found";
         }
 
-        // ── §B2 eligibility verdict ───────────────────────────────────────
-        // FAIL CLOSED: no draft record found ⇒ not eligible. The lookup scans
-        // the last 5 draft years, so a genuine R2-R6 pick inside the 3-year
-        // window is always found; anything that isn't found either was never
-        // drafted (waiver / auction / dispersal / veteran) or is far outside
-        // the window. Both are ineligible, so "couldn't find it" and "isn't
-        // allowed" happen to agree here — but the reason string keeps them
-        // distinguishable if MFL's draftResults ever goes unreadable.
-        const yearsElapsed = result.draftYear ? (currentYear - result.draftYear) : null;
-        if (result.draftRound === null && !draftLookupOk) {
-          result.eligible = false;
-          result.reason = "draft_results_unreadable";
+        // ── §B2 eligibility verdict: the ONE rule (worker/src/taxi_rule.js) ─────────────
+        // FAIL CLOSED on anything unknown. The draft scan covers the last 5 drafts, so a genuine R2+ pick inside
+        // the 3-year window is always found; a player not found was never drafted or is far outside the window.
+        // Permanent promotion is checked by the caller (it needs D1); this verdict passes permanent=false.
+        const verdict = taxiEligibility({
+          upsRound: result.draftRound, upsYear: result.draftYear, season: currentYear,
+          contractStatus: result.contractStatus, permanent: false,
+          draftKnown: !(result.draftRound === null && !draftLookupOk), contractKnown: rostersOk,
+        });
+        result.verdict = verdict;
+        result.eligible = verdict.eligible === true;
+        if (!result.eligible) {
           result.ineligibleReason =
-            "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.";
-        } else if (result.draftRound === null) {
-          result.eligible = false;
-          result.ineligibleReason =
-            "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2).";
-        } else if (result.draftRound === 1) {
-          result.eligible = false;
-          result.ineligibleReason =
-            "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1).";
-        } else if (yearsElapsed === null || yearsElapsed >= 3) {
-          result.eligible = false;
-          result.ineligibleReason =
-            `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} (${yearsElapsed} league years ago) and has graduated (§B2).`;
-        } else if (!/^rookie-draft$/i.test(result.contractStatus)) {
-          // Trade preserves eligibility; a CUT forfeits it permanently, even if
-          // later re-acquired by any team (Keith 2026-08-03). MFL never
-          // rewrites contractStatus on a trade, but a drop wipes it and
-          // re-acquisition always assigns a fresh status — so a current status
-          // other than exactly "Rookie-Draft" means the original entry
-          // contract is gone. Found via a real case: Demetrius Knight (UPS R6
-          // 2025, drafted by Blake Bombers) was cut and bought back by Sex
-          // Manther at the 2026 auction for $1,000 — now "Vet-FAA" — and the
-          // eligibility check hadn't noticed, because it only looked at draft
-          // history. 8 players league-wide were in this exact state, all
-          // having changed teams via cut+re-acquisition, none merely traded.
-          result.eligible = false;
-          result.ineligibleReason =
-            `This player's rookie contract ended when they were dropped (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`;
-        } else {
-          result.eligible = true;
+            verdict.reason === "draft_unreadable" ? "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment."
+            : verdict.reason === "contract_unreadable" ? "Couldn't read this player's contract on MFL's rosters, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment."
+            : verdict.reason === "not_ups_pick" ? "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2)."
+            : verdict.reason === "round_1" ? "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1)."
+            : verdict.reason === "window_ended" ? `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} and has graduated (§B2).`
+            : verdict.reason === "released" ? `This player's rookie contract ended when they were released (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`
+            : verdict.text;
         }
         return result;
       };
@@ -48465,6 +48445,9 @@ const mflToSleeper = {};
         // the CPU blowup hotfixed in PR #243; this D1 lookup is the
         // permanent fix (issue #244 — Audit Phase 2A).
         const upsDraftByPlayer = {};
+        // Whether the draft index and the call-up table were actually READ: an unreadable source makes the
+        // taxi verdict "Unknown", never "not eligible" or "eligible" (rule_no_fail_open_guards).
+        let upsDraftOk = false, taxiCallupsOk = false;
         if (env.UPS_MFL_DB) {
           try {
             const seasonInt = parseInt(season, 10) || 0;
@@ -48488,6 +48471,7 @@ const mflToSleeper = {};
                   ups_year: yr,
                 };
               }
+              upsDraftOk = true;
             }
           } catch (e) {
             console.warn("[ups-draft-d1] lookup failed:", e?.message || String(e));
@@ -48525,9 +48509,11 @@ const mflToSleeper = {};
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
+                marked: Number(row?.marked || 0),
                 permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
+            taxiCallupsOk = true;
           } catch (e) {
             console.warn("[taxi-callup] D1 lookup failed:", e?.message || String(e));
           }
@@ -48759,10 +48745,21 @@ const mflToSleeper = {};
               // "Round 2 or later" / draft_round >= 2 (ratified Keith
               // 2026-07-17; the old `upsRound <= 5` cap wrongly benched R6
               // rookies like A.J. Haulcy, a 2026 R6.07 safety).
-              const isTaxiEligible =
-                inUpsWindow && upsRound >= 2 && stillOnEntryContract;
-
+              void inUpsWindow; void stillOnEntryContract;   // kept for the reasoning above; the rule lives in taxi_rule.js
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
+              // ONE verdict (worker/src/taxi_rule.js): draft round/year + window, release, permanent promotion
+              // (4th activation, a marked row, or a prior season ended active — an EMPTY prior-active set is how
+              // taxiPriorActivePids reports an unreadable MFL export, so it is unknown, not "nobody").
+              const taxiStatus = taxiEligibility({
+                upsRound, upsYear, season: currentSeason, contractStatus: type,
+                isTaxi, isIr, used: taxiCallup ? taxiCallup.used : 0, pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
+                draftKnown: upsDraftOk, windowIndexOnly: true,
+                permanent: !taxiCallupsOk ? null : taxiPermanent({
+                  used: taxiCallup ? taxiCallup.used : 0, marked: taxiCallup ? taxiCallup.marked : 0,
+                  priorActive: taxiPriorActive.size ? taxiPriorActive.has(playerId) : null,
+                }),
+              });
+              const isTaxiEligible = taxiStatus.eligible === true;
               return {
                 id: playerId,
                 order: idx,
@@ -48797,6 +48794,7 @@ const mflToSleeper = {};
                 taxi_callups_max: 3,
                 taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion) || taxiPriorActive.has(playerId),
                 taxi_eligible: isTaxiEligible,
+                taxi_status: taxiStatus,
                 ups_draft_round: upsRound || null,
                 ups_draft_year: upsYear || null,
               };
@@ -59199,31 +59197,45 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               gate: r1Gate,
             });
           }
-          // Permanent-promotion guard (canon §B2 + tracker Q10 follow-up).
-          // Once a player's 4th taxi call-up has flipped them to permanent
-          // promotion, they can never return to taxi. Reject the demote
-          // before any MFL write.
+          // Permanent-promotion guard (canon §B2 / T2.4 / §G14): the SAME predicate as /roster-workbench and the drop
+          // pricing (_taxiPermanentPromotion) — 4+ confirmed activations, a confirmed row marked became_permanent, or
+          // a prior season ended on an active / IR roster. Activations 1–3 are temporary: demotion stays allowed.
+          // FAIL CLOSED: if the call-up history or the prior-season rosters can't be read, nothing is written.
+          let permanentAnswer = null;
           if (env.UPS_MFL_DB) {
             try {
-              // Total confirmed (pending=0) callups across the 3yr window.
-              // Per canon §B2: 4+ = permanent promotion. Derived from row
-              // count, not the per-row became_permanent flag, so multi-
-              // year totals aggregate correctly.
               const permRow = await env.UPS_MFL_DB.prepare(
-                `SELECT SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used FROM ups_taxi_callups WHERE player_id = ?`
+                `SELECT SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
+                        MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END) AS marked
+                   FROM ups_taxi_callups WHERE player_id = ?`
               ).bind(playerId).first();
-              if (Number(permRow?.used || 0) >= 4) {
-                return jsonOut(400, {
-                  ok: false,
-                  error: "Player has been permanently promoted off taxi (4th call-up) — cannot return to taxi (league_context_v1.md §B2).",
-                  code: "TAXI_PERMANENTLY_PROMOTED",
-                  player_id: playerId,
-                  franchise_id: franchiseId,
-                });
-              }
+              const prior = await taxiPriorActivePids(env, "", leagueId, season);
+              permanentAnswer = taxiPermanent({
+                used: Number(permRow?.used || 0), marked: Number(permRow?.marked || 0),
+                priorActive: prior && prior.size ? prior.has(String(playerId)) : null,
+              });
             } catch (e) {
               console.warn("[taxi-callup] D1 permanent-promotion lookup failed:", e?.message || String(e));
+              permanentAnswer = null;
             }
+          }
+          if (permanentAnswer === true) {
+            return jsonOut(400, {
+              ok: false,
+              error: "Player has been permanently promoted off taxi — cannot return to taxi (league_context_v1.md §B2 / T2.4).",
+              code: "TAXI_PERMANENTLY_PROMOTED",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            });
+          }
+          if (permanentAnswer !== false) {
+            return jsonOut(503, {
+              ok: false,
+              error: "Couldn't confirm this player's call-up history, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.",
+              code: "TAXI_HISTORY_UNREADABLE",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            });
           }
         }
 
