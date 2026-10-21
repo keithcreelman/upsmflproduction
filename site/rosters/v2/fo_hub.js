@@ -146,9 +146,11 @@
     if (!TF || !ss || !f) return null;
     var teams = f.teams();
     var inj = d && d.injury ? d.injury() : null;
+    // Refresh the players index BEFORE keying: a model built in the instant before MFL's players list arrived
+    // (no free agents → no replacement level) must not be reused once it has (Overview kept stale strength).
+    playerIndex();
     var key = [ss.fetchedAt, idx.src ? 1 : 0, teams.length, teams.reduce(function (a, t) { return a + (t.players || []).length; }, 0), inj && inj.at || 0, n || 0].join("|");
     if (modelMemo[n || 0] && modelMemo[n || 0].key === key) return modelMemo[n || 0].model;
-    playerIndex();
     var model = TF.buildLeague({ teams: modelTeams(), values: values(n || 0), freeAgents: freeAgents() });
     modelMemo[n || 0] = { key: key, model: model };
     return model;

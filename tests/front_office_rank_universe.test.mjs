@@ -19,6 +19,7 @@ function page() {
   ctx.window = ctx;
   vm.runInContext(read(path.join(ROOT, "site/m/season_scoring.js")), ctx);
   vm.runInContext(read(path.join(ROOT, "site/m/front_office_lineup.js")), ctx);
+  vm.runInContext(read(path.join(ROOT, "site/shared/trade_fit.js")), ctx);
   vm.runInContext(read(process.env.PLAYER_FACTS_JS || path.join(ROOT, "site/shared/player_facts.js")), ctx);
   vm.runInContext(read(process.env.FO_HUB_JS || path.join(ROOT, "site/rosters/v2/fo_hub.js")), ctx);
   const SS = ctx.UPS_MOBILE_SEASON_SCORING;
@@ -77,6 +78,18 @@ test("if the players list can't be read, ranks stay blank rather than wrong", ()
   const line = p.H.seasonLine("12620", 4);
   t.equal(line.rank, null); t.equal(line.rankLabel, "—");
   t.ok(line.pts > 0, "points still show");
+});
+
+test("the league model is rebuilt once the players list arrives (no stale replacement level)", () => {
+  const p = page();
+  const before = p.H.leagueModel(0);
+  t.ok(before, "a model can be built from scores alone");
+  t.equal(before.repl.QB[0], 0, "no players list yet → no free agents → replacement level 0");
+  p.entries.players = { state: "ok", data: FX.players };
+  const after = p.H.leagueModel(0);
+  t.ok(after !== before, "a new model, not the cached one");
+  t.ok(after.repl.QB[0] > 0, "replacement QB from the free agents: " + after.repl.QB[0]);
+  t.ok(p.H.leagueModel(0) === after, "and that one is reused while nothing changes");
 });
 
 await run("front_office_rank_universe");
