@@ -1,0 +1,655 @@
+{
+ "issue": 1307,
+ "dry_run_pr": 1363,
+ "scope": "phases A + B + C; unproven fields NULL",
+ "daily_ceiling": 90000,
+ "reset": "00:00 UTC daily (Cloudflare D1 pricing page)",
+ "window_utc": "start 22:05-23:30",
+ "batches": [
+  {
+   "batch": 1,
+   "phases": [
+    "B",
+    "C"
+   ],
+   "season": 2025,
+   "weeks": [
+    15,
+    16,
+    17
+   ],
+   "rows_inserted": 2664,
+   "rows_updated": 630,
+   "billed_writes": 11286,
+   "statements": 664,
+   "statement_files_sha256": {
+    "statements/B_2025.json": "3d3322d6ea4048aeb4564cdaa301ada7366db9854bf0f253f1ad656e10d82b50",
+    "statements/C_2025.json": "4a95f044b5138a348f4d8f7c69df5b450bc55c1c49d759029cff3a10b2168cb1"
+   },
+   "reads": {
+    "preflight_d1": 1071,
+    "during_writes": 630,
+    "post_verify_d1": 3735,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 1071,
+    "sha256": "42e1ed4dcd50121febdd4dd11ea2d4541991600370ac68c264623d91b9acdff5"
+   },
+   "after": {
+    "rows": 3735,
+    "sha256": "85f152adf7a188d2d19e9ecd5e912a9f42df08b5363792d9caafa98cac8ce75c",
+    "null_status": 0
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 671,
+    "pts_rank_shown_after": 1730,
+    "ppg_rank_shown_before": 384,
+    "ppg_rank_shown_after": 1203,
+    "ranked_player_seasons": 1742
+   },
+   "rollback_rows_changed": 3294
+  },
+  {
+   "batch": 2,
+   "phases": [
+    "B",
+    "C"
+   ],
+   "season": 2024,
+   "weeks": [
+    15,
+    16,
+    17
+   ],
+   "rows_inserted": 2672,
+   "rows_updated": 615,
+   "billed_writes": 11303,
+   "statements": 649,
+   "statement_files_sha256": {
+    "statements/B_2024.json": "a71db858ea39bc7983d90af4ffd120dc3c056fea903e4a8c29739dbbf44d1a68",
+    "statements/C_2024.json": "e54117da5e7d518e99244ef46e37679dc67c918b25af6dd70171609620969131"
+   },
+   "reads": {
+    "preflight_d1": 1061,
+    "during_writes": 615,
+    "post_verify_d1": 3733,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 1061,
+    "sha256": "21c906484ce13368b63517bf832fbdf7618df92ca9011ea6ac1974cd39092c34"
+   },
+   "after": {
+    "rows": 3733,
+    "sha256": "370312507d637fa8550c79213ef166a33f5988feb2ac6059762844ae31365f8e",
+    "null_status": 0
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 692,
+    "pts_rank_shown_after": 1751,
+    "ppg_rank_shown_before": 398,
+    "ppg_rank_shown_after": 1211,
+    "ranked_player_seasons": 1758
+   },
+   "rollback_rows_changed": 3287
+  },
+  {
+   "batch": 3,
+   "phases": [
+    "B",
+    "C"
+   ],
+   "season": 2023,
+   "weeks": [
+    15,
+    16,
+    17
+   ],
+   "rows_inserted": 2694,
+   "rows_updated": 620,
+   "billed_writes": 11396,
+   "statements": 654,
+   "statement_files_sha256": {
+    "statements/B_2023.json": "3e1327580a05fc6bd2746ef73cfcbf59fe19d2a285c886e2a8c447b7756c42bc",
+    "statements/C_2023.json": "19ebb55f49872eb48d5c5a0c0788bc23ae0008e4ba18f31c5c01c0edb1a9709d"
+   },
+   "reads": {
+    "preflight_d1": 1069,
+    "during_writes": 620,
+    "post_verify_d1": 3763,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 1069,
+    "sha256": "a170ff8eba3ffa41f1be1166794feb0de6bde26fb2a73e40082236fdfb5b4eb4"
+   },
+   "after": {
+    "rows": 3763,
+    "sha256": "5f1318f8c56b7eaf4100e7b355ab3de7aaa60f5f2c06324283cb6bdd5b66698b",
+    "null_status": 0
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 675,
+    "pts_rank_shown_after": 1739,
+    "ppg_rank_shown_before": 393,
+    "ppg_rank_shown_after": 1225,
+    "ranked_player_seasons": 1743
+   },
+   "rollback_rows_changed": 3314
+  },
+  {
+   "batch": 4,
+   "phases": [
+    "B",
+    "C"
+   ],
+   "season": 2022,
+   "weeks": [
+    15,
+    16,
+    17
+   ],
+   "rows_inserted": 2613,
+   "rows_updated": 612,
+   "billed_writes": 11064,
+   "statements": 645,
+   "statement_files_sha256": {
+    "statements/B_2022.json": "65430d06af11d984fa03bfdb737c62ad096419174a47ee464e517c1c7198ed43",
+    "statements/C_2022.json": "28dc7148ee6f9afec49e61e1ef57dcc985396199c102887972f11384091baad7"
+   },
+   "reads": {
+    "preflight_d1": 1059,
+    "during_writes": 612,
+    "post_verify_d1": 3672,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 1059,
+    "sha256": "1d4be6464663658180b763b8d63c123d47801ab353834dd98f04f81fb0402a0c"
+   },
+   "after": {
+    "rows": 3672,
+    "sha256": "f8ea45e5160bb20b75103737e9f9856723a2dd1510ed080baad35dda8b6e084a",
+    "null_status": 0
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 692,
+    "pts_rank_shown_after": 1743,
+    "ppg_rank_shown_before": 388,
+    "ppg_rank_shown_after": 1212,
+    "ranked_player_seasons": 1743
+   },
+   "rollback_rows_changed": 3225
+  },
+  {
+   "batch": 5,
+   "phases": [
+    "B",
+    "C"
+   ],
+   "season": 2021,
+   "weeks": [
+    15,
+    16,
+    17
+   ],
+   "rows_inserted": 2749,
+   "rows_updated": 586,
+   "billed_writes": 11582,
+   "statements": 621,
+   "statement_files_sha256": {
+    "statements/B_2021.json": "1647a037197cba9737d215933688a628852030d8bec08efcb2001b5830cd03d4",
+    "statements/C_2021.json": "138b6423d6ec81c880c06fe7e0f4bb2e39262f8b2bfbc94c1aefb32d57495ddd"
+   },
+   "reads": {
+    "preflight_d1": 1031,
+    "during_writes": 586,
+    "post_verify_d1": 3780,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 1031,
+    "sha256": "d3bd24a5578e45f9c90749dfb04d486b56c142859f771a61fd199af67800fb0b"
+   },
+   "after": {
+    "rows": 3780,
+    "sha256": "0ac3c23404cecde652afecfca26b5a16a48a75bf794b5805b8b798513dd76d60",
+    "null_status": 24
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 637,
+    "pts_rank_shown_after": 1868,
+    "ppg_rank_shown_before": 353,
+    "ppg_rank_shown_after": 1222,
+    "ranked_player_seasons": 1868
+   },
+   "rollback_rows_changed": 3335
+  },
+  {
+   "batch": 6,
+   "phases": [
+    "A"
+   ],
+   "season": 2020,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3605,
+   "rows_updated": 0,
+   "billed_writes": 14420,
+   "statements": 46,
+   "statement_files_sha256": {
+    "statements/A_2020.json": "00affd3cfbf30038b626628121e93f9b2e548066fb302778c463996163f56d82"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3605,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3605,
+    "sha256": "7a657edc127e15650e43b85653623c7a4ce9dd83d0b422b394640ca957975fac",
+    "null_status": 51
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 343,
+    "pts_rank_shown_after": 1744,
+    "ppg_rank_shown_before": 86,
+    "ppg_rank_shown_after": 1250,
+    "ranked_player_seasons": 1744
+   },
+   "rollback_rows_changed": 3605
+  },
+  {
+   "batch": 7,
+   "phases": [
+    "A"
+   ],
+   "season": 2019,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3529,
+   "rows_updated": 0,
+   "billed_writes": 14116,
+   "statements": 45,
+   "statement_files_sha256": {
+    "statements/A_2019.json": "c5af98ea06eabe5c4191e80e668ad7f262983ee476248b87f70837d5919dbb9a"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3529,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3529,
+    "sha256": "144186aa358041f2cb766e5cf17e9b6dd7030a7293f25ab391ba75469a52229b",
+    "null_status": 0
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 323,
+    "pts_rank_shown_after": 1650,
+    "ppg_rank_shown_before": 94,
+    "ppg_rank_shown_after": 1206,
+    "ranked_player_seasons": 1650
+   },
+   "rollback_rows_changed": 3529
+  },
+  {
+   "batch": 8,
+   "phases": [
+    "A"
+   ],
+   "season": 2018,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3490,
+   "rows_updated": 0,
+   "billed_writes": 13960,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2018.json": "edba7f4ddd2607637e1f0561cd59ba7f4f2d6eceec4dc1ed5bd7add0aa2012a0"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3490,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3490,
+    "sha256": "08b54e7cd892d3b24e1b7cf45656457db05b1fa5a73658e48634f8c1c4048837",
+    "null_status": 0
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 311,
+    "pts_rank_shown_after": 1611,
+    "ppg_rank_shown_before": 68,
+    "ppg_rank_shown_after": 1183,
+    "ranked_player_seasons": 1611
+   },
+   "rollback_rows_changed": 3490
+  },
+  {
+   "batch": 9,
+   "phases": [
+    "A"
+   ],
+   "season": 2017,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3466,
+   "rows_updated": 0,
+   "billed_writes": 13864,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2017.json": "815574e99eda9d2a211d1ae7dbc6abc468e5e30e87785b9d3e879337ba86e769"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3466,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3466,
+    "sha256": "f94b9e924a9a345ed62a4d17e1206fa7c33082d5a8807b8af997fa242e90bb21",
+    "null_status": 1802
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 282,
+    "pts_rank_shown_after": 1575,
+    "ppg_rank_shown_before": 79,
+    "ppg_rank_shown_after": 1184,
+    "ranked_player_seasons": 1575
+   },
+   "rollback_rows_changed": 3466
+  },
+  {
+   "batch": 10,
+   "phases": [
+    "A"
+   ],
+   "season": 2016,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3473,
+   "rows_updated": 0,
+   "billed_writes": 13892,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2016.json": "34f28cc144ec3e0d41bc2a2c64492cb14534c60b8cd6740527e2d400b98558b7"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3473,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3473,
+    "sha256": "e151b7e61c0fab351d5e8094ce8aac45972f91b3782272ea565bdb8870c182ed",
+    "null_status": 1798
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 278,
+    "pts_rank_shown_after": 1580,
+    "ppg_rank_shown_before": 85,
+    "ppg_rank_shown_after": 1206,
+    "ranked_player_seasons": 1580
+   },
+   "rollback_rows_changed": 3473
+  },
+  {
+   "batch": 11,
+   "phases": [
+    "A"
+   ],
+   "season": 2015,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3469,
+   "rows_updated": 0,
+   "billed_writes": 13876,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2015.json": "3fc1d7fc78e7d1f24c7966b249e894387919308ef43e520538174500bcf9b042"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3469,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3469,
+    "sha256": "c49a9fce2a910f53818a36f8af651ae0187257981aa7817815e3fab98b8ea4fe",
+    "null_status": 1791
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 277,
+    "pts_rank_shown_after": 1571,
+    "ppg_rank_shown_before": 89,
+    "ppg_rank_shown_after": 1213,
+    "ranked_player_seasons": 1571
+   },
+   "rollback_rows_changed": 3469
+  },
+  {
+   "batch": 12,
+   "phases": [
+    "A"
+   ],
+   "season": 2014,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3466,
+   "rows_updated": 0,
+   "billed_writes": 13864,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2014.json": "6d544992519ab59f5e4aa3907d4c4a8cf9275222500689edaf2c41668e6bd187"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3466,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3466,
+    "sha256": "6a0ed57f466111a8e6041bfc51ea21f62446715b4be8e23ff06001dfd8498047",
+    "null_status": 1766
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 275,
+    "pts_rank_shown_after": 1564,
+    "ppg_rank_shown_before": 78,
+    "ppg_rank_shown_after": 1187,
+    "ranked_player_seasons": 1564
+   },
+   "rollback_rows_changed": 3466
+  },
+  {
+   "batch": 13,
+   "phases": [
+    "A"
+   ],
+   "season": 2013,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3461,
+   "rows_updated": 0,
+   "billed_writes": 13844,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2013.json": "da4ea1a224215b6bafd8d2120422c5baad4c55194621931538cafbb3d51125f8"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3461,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3461,
+    "sha256": "e2f2ef57a5a84bafd2a849ce53ef425b5a93e847cb67be924a62b567b3ef21ef",
+    "null_status": 1877
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 260,
+    "pts_rank_shown_after": 1532,
+    "ppg_rank_shown_before": 58,
+    "ppg_rank_shown_after": 1180,
+    "ranked_player_seasons": 1532
+   },
+   "rollback_rows_changed": 3461
+  },
+  {
+   "batch": 14,
+   "phases": [
+    "A"
+   ],
+   "season": 2012,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3445,
+   "rows_updated": 0,
+   "billed_writes": 13780,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2012.json": "47595dc61afc8c9b7fa3e8ec41b9a2fe52ec74523354c57558f98d631a12a761"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3445,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3445,
+    "sha256": "d259db0eeb2bca103b8eceae15011c52446a53ba6fc487cce9817c6a1e2c60ac",
+    "null_status": 2654
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 258,
+    "pts_rank_shown_after": 1537,
+    "ppg_rank_shown_before": 84,
+    "ppg_rank_shown_after": 1183,
+    "ranked_player_seasons": 1537
+   },
+   "rollback_rows_changed": 3445
+  },
+  {
+   "batch": 15,
+   "phases": [
+    "A"
+   ],
+   "season": 2011,
+   "weeks": [
+    14,
+    15,
+    16
+   ],
+   "rows_inserted": 3496,
+   "rows_updated": 0,
+   "billed_writes": 13984,
+   "statements": 44,
+   "statement_files_sha256": {
+    "statements/A_2011.json": "a82cba1e5a86cf94cf04efc329de5b5bc800a6c5a2b15fed761beaf6fe288c83"
+   },
+   "reads": {
+    "preflight_d1": 1,
+    "during_writes": 0,
+    "post_verify_d1": 3496,
+    "mfl_gets": 6
+   },
+   "preimage": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "after": {
+    "rows": 3496,
+    "sha256": "5affc462b6afb6ec40c63a422f56d4f1388caa99cae7f0a1ecac53491ec95e75",
+    "null_status": 2848
+   },
+   "reconciliation": {
+    "pts_rank_shown_before": 259,
+    "pts_rank_shown_after": 1547,
+    "ppg_rank_shown_before": 72,
+    "ppg_rank_shown_after": 1202,
+    "ranked_player_seasons": 1547
+   },
+   "rollback_rows_changed": 3496
+  }
+ ],
+ "totals": {
+  "billed_writes": 196231,
+  "rows_inserted": 48292,
+  "rows_updated": 3063
+ }
+}
