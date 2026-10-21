@@ -184,6 +184,18 @@ test("if the commish removes the Tue noon event on MFL, the reminders follow MFL
   t.match(tradePosts()[0].embed.description, /^Wednesday, November 25, 2026 at 8:00 PM ET/);
 });
 
+test("after production is corrected (ONE TRADE event, Wed 11-25 8:00 PM, Week 12's first kickoff): Wed 11-18 9 AM, Tue 11-24 9 AM, Wed 11-25 7 PM", async () => {
+  const L = freshLeague();
+  CAL.trade = [{ id: "902", type: "TRADE", start_time: unixEt("2026-11-25T20:00:00-05:00") }];
+  for (const t0 of ["2026-11-17T09:05:00-05:00", "2026-11-18T09:05:00-05:00", "2026-11-23T09:05:00-05:00", "2026-11-24T09:05:00-05:00",
+    "2026-11-25T18:05:00-05:00", "2026-11-25T19:05:00-05:00", "2026-11-25T20:05:00-05:00", "2026-11-26T12:05:00-05:00"]) { at(t0); await L.sweep(); }
+  t.deepEqual(tradePosts().map((p) => p.embed.title), ["Reminder: Trade Deadline in 1 Week", "Reminder: Trade Deadline in 24 Hours", "Reminder: Trade Deadline in 1 Hour"]);
+  t.deepEqual(tradePosts().map((p) => (p.embed.fields || []).find((f) => f.name === "Reminder Time").value),
+    ["Wednesday, November 18, 2026 at 9:00 AM ET", "Tuesday, November 24, 2026 at 9:00 AM ET", "Wednesday, November 25, 2026 at 7:00 PM ET"]);
+  t.ok(tradePosts().every((p) => p.embed.description.startsWith("Wednesday, November 25, 2026 at 8:00 PM ET")));
+  t.ok(!/Happy Thanksgiving/.test(text(tradePosts()[2].embed)), "Wednesday is not Thanksgiving Day");
+});
+
 test("a missed 11:05 tick: the 1-hour reminder is NOT sent at 12:05 — MFL has already closed trades", async () => {
   const L = freshLeague();
   at("2026-11-24T12:05:00-05:00");

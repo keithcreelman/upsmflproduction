@@ -35667,8 +35667,8 @@ const mflToSleeper = {};
             title: "Trade Deadline",
             // Date and time come from MFL's own calendar at send time (resolveTradeDeadlineKickoffEt); when it can't be read,
             // no trade-deadline reminder is sent. These two values are never used for a send.
-            deadline_date_et: "2026-11-26",
-            deadline_time_et: "13:00",
+            deadline_date_et: "2026-11-25",
+            deadline_time_et: "20:00",
             reminder_send_time_et: "09:00",
             summary: "MFL stops accepting trades at this time. Finish your deals before then.",
             reminder_offsets_days: [7, 1],

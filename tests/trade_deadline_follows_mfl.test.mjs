@@ -14,7 +14,7 @@ const worker = (await import("../worker/src/index.js")).default;
 const u = (isoEt) => Math.floor(Date.parse(isoEt) / 1000);
 const TUE_NOON = u("2026-11-24T12:00:00-05:00");
 const WED_8PM = u("2026-11-25T20:00:00-05:00");
-const THU_1PM = u("2026-11-26T13:00:00-05:00");            // first Thanksgiving Day kickoff, CHI @ DET (MFL Week 12)
+const THU_1PM = u("2026-11-26T13:00:00-05:00");            // CHI @ DET, Thanksgiving Day (not the deadline)
 const WK13_KICK = u("2026-12-03T20:15:00-05:00");
 const cal = (events) => normalizeMflCalendar({ calendar: { event: events } });
 const PROD = cal([                                         // production's MFL calendar, 2026-10-21 (public page)
@@ -38,10 +38,12 @@ test("the boundary, ±1 s, as MFL enforces it: open through the start second, cl
   t.equal(mflTradeLock(PROD, { nowUnix: TUE_NOON + 1 }).label, "Tue, Nov 24, 12:00 PM ET", "after the deadline it still names it");
 });
 
-test("after the reconciliation (one TRADE event at the first Thanksgiving Day kickoff) → Thu, Nov 26, 1:00 PM ET", () => {
-  const r = mflTradeLock(cal([{ id: "950", type: "TRADE", start_time: String(THU_1PM) }]), { nowUnix: u("2026-10-21T08:00:00-04:00") });
-  t.equal(r.label, "Thu, Nov 26, 1:00 PM ET"); t.equal(r.start_unix, 1795716000, "Unix 1795716000");
-  t.equal(etParts(1795716000).date_et, "2026-11-26");
+test("after production is corrected (one TRADE event at Week 12's first kickoff, GB @ LAR) → Wed, Nov 25, 8:00 PM ET", () => {
+  const fixed = cal([{ id: "902", type: "TRADE", start_time: String(WED_8PM) }]);
+  const r = mflTradeLock(fixed, { nowUnix: u("2026-10-21T08:00:00-04:00") });
+  t.equal(r.label, "Wed, Nov 25, 8:00 PM ET"); t.equal(r.start_unix, 1795654800, "Unix 1795654800");
+  t.equal(etParts(1795654800).date_et, "2026-11-25"); t.equal(etParts(1795654800).time_et, "20:00");
+  t.ok(THU_1PM > WED_8PM, "Thanksgiving Day's first game is later and is not the deadline");
 });
 
 test("a week-numbered event (MFL shows START_TIME 13 at Week 13's first kickoff) is placed there; unreadable → unresolved", () => {
