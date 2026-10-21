@@ -1145,3 +1145,16 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-bye-key { padding: 0 4px; border-radius: 3px; }
 .fo-bye-key.empty { color: #fecaca; background: rgba(239, 68, 68, 0.22); }
 .fo-bye-key.sub { color: #fcd34d; background: rgba(251, 191, 36, 0.12); }
+
+/* ── Market (#1338) ── */
+.fo-mk-controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 4px; }
+.fo-mk-search input { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; min-width: 220px; }
+.fo-mk-table { min-width: 980px; }
+.fo-av { display: inline-block; padding: 0 7px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; border: 1px solid var(--border); }
+.fo-av-now { color: #bbf7d0; background: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.45); }
+.fo-av-claim { color: #bfdbfe; background: rgba(91, 141, 255, 0.14); border-color: rgba(91, 141, 255, 0.5); }
+.fo-av-later { color: #fde68a; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.45); }
+.fo-av-locked { color: #fecaca; background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.45); }
+.fo-av-unknown { color: var(--muted); border-style: dashed; }
+.fo-av-rostered { color: var(--text); background: var(--panel-alt); font-weight: 500; }
+.fo-av-bait { color: #f5d0fe; background: rgba(217, 70, 239, 0.14); border-color: rgba(217, 70, 239, 0.45); }
