@@ -135,8 +135,8 @@ function leagueTable(raw) {
 }
 
 // ═══ Playoff Picture ═══
-test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 0010, 0005, 0008, 0002, 0004, then 0012 next out", async () => {
-  const p = await page("year=2026");
+test("Playoff Picture (?view=picture): its seeds are the worker's: 0009, 0010, 0005, 0008, 0002, 0004, then 0012 next out", async () => {
+  const p = await page("view=picture&year=2026");
   t.match(p.raw, /<button type="button" class="view-btn" role="tab" data-view="picture" aria-selected="true"/);
   t.equal((p.raw.match(/aria-selected="true"/g) || []).length, 1, "one selected tab");
   const workerSeeds = RESP_2026.rows.filter((r) => r.playoff_seed != null).map((r) => r.franchise_id);
@@ -161,7 +161,7 @@ test("Playoff Picture is the default tab, and its seeds are the worker's: 0009, 
   t.match(p.raw, /aria-label="down 2 since last week"/, "arrows carry words, not just a color");
 });
 test("Picture: projected chips, the bye line after seed 2 and the playoff line after seed 6; one-line reasons from race().whySeed", async () => {
-  const p = await page("year=2026");
+  const p = await page("view=picture&year=2026");
   const order = [...p.raw.matchAll(/data-fid="(\d{4})"|(First-round byes above)<\/li>|(Playoff line · H1–H6 play the Hawk Tuah Bowl)<\/li>/g)].map((m) => m[1] || m[2] || m[3]);
   const cards = order.filter((x) => /^\d{4}$/.test(x) || /First|Playoff/.test(x));
   t.deepEqual(cards.slice(0, 8), ["0009", "0010", "First-round byes above", "0005", "0008", "0002", "0004", "Playoff line · H1–H6 play the Hawk Tuah Bowl"]);
@@ -179,7 +179,7 @@ test("Picture: projected chips, the bye line after seed 2 and the playoff line a
   t.match(p.html, /<summary>About these numbers<\/summary>/);
 });
 test("Picture: division leaders in the worker's division order, with GB and the reason when a tie wasn't decided on record", async () => {
-  const p = await page("year=2026");
+  const p = await page("view=picture&year=2026");
   const panel = /<section class="panel"><h3>Division leaders<\/h3>([\s\S]*?)<\/section>/.exec(p.html)[1];
   const div03 = /Division 03<\/div>([\s\S]*?)<\/table>([\s\S]*?)(?=<div class="div-mini">|<div class="sub")/.exec(panel);
   const names = [...div03[1].matchAll(/<tr[^>]*><td>([^<]+)/g)].map((m) => m[1]);
@@ -190,18 +190,18 @@ test("Picture: division leaders in the worker's division order, with GB and the 
   t.ok(!/same H2H record, a better H2H record/.test(panel), "no reason line when the H2H record (PCT) decided it");
 });
 test("Picture: 'Seeds unavailable: <reason>' when the worker seeds nobody; preseason says so; a failed fetch offers a retry", async () => {
-  const bad = await page("year=2026", { env: ENV_BAD });
+  const bad = await page("view=picture&year=2026", { env: ENV_BAD });
   t.match(bad.html, /<b>Seeds unavailable: [^<]+\.<\/b> No team is ranked until the weekly results can be verified\./);
   t.equal(seedCards(bad.raw).length, 0, "no seed cards");
   t.ok(!/hunt-table/.test(bad.raw), "and no hunt table");
-  const pre = await page("year=2026", { env: ENV_PRE });
+  const pre = await page("view=picture&year=2026", { env: ENV_PRE });
   t.match(pre.html, /No games played yet\. Seeds start after Week 1\./);
   t.equal(seedCards(pre.raw).length, 0);
-  const down = await page("year=2026", { fetch: async () => ({ ok: false, status: 500, json: async () => ({}) }) });
+  const down = await page("view=picture&year=2026", { fetch: async () => ({ ok: false, status: 500, json: async () => ({}) }) });
   t.match(down.html, /Couldn’t load the 2026 standings\. <button type="button" class="retry-btn" data-retry="1">Try again<\/button>/);
 });
 test("Picture, finished season: the recorded final standings (finish, recorded seed, champions, division winners), never a draft-order claim", async () => {
-  const p = await page("year=2025", { env: ENV_2025 });
+  const p = await page("view=picture&year=2025", { env: ENV_2025 });
   t.match(p.html, /Recorded final standings\./);
   const rows = [...p.raw.matchAll(/<tr(?: class="you-row")?><td class="num"><strong>(\d+)<\/strong><\/td><td>([\s\S]*?)<\/td><td class="seed-col">([\s\S]*?)<\/td>/g)]
     .map((m) => ({ fin: Number(m[1]), team: text(m[2]).trim(), seed: seedNOf(m[3]), seedCell: m[3] }));
@@ -281,7 +281,7 @@ test("Full League Scored / Opponent: the shared module's scoredFaced numbers; Op
   t.match(faced.html, /data-show="opponent" aria-pressed="true">Opponent<\/button>/);
   // the old ?show=faced link still opens the Opponent columns
   t.deepEqual(leagueTable((await page("view=league&year=2026&show=faced")).raw).heads, Fc.heads);
-  const views = [faced, scored, await page("view=league&year=2026"), await page("year=2026"), await page("view=trends&year=2026&chart=pf"), await page("view=weekly&year=2026&wv=team")];
+  const views = [faced, scored, await page("view=league&year=2026"), await page("view=picture&year=2026"), await page("view=trends&year=2026&chart=pf"), await page("view=weekly&year=2026&wv=team")];
   for (const v of views) {
     t.ok(!/defen[cs]e/i.test(v.html), "never 'Defense' (in UPS, MFL's Defense = your IDP players' points)");
     t.ok(!/\bfaced\b/i.test(v.text), "'Faced' is now 'Opponent' on desktop");
@@ -485,13 +485,13 @@ test("fix (a): the embed loader's ?YEAR= opens that season (the page used to rea
 });
 test("fix (b): the page posts ups-standings-height after rendering, and the loader sizes ITS iframe from it", async () => {
   const check = async (src) => {
-    const p = await page("year=2026", { src, parent: true, contentHeight: 1480 });
+    const p = await page("view=picture&year=2026", { src, parent: true, contentHeight: 1480 });
     const m = p.messages.map((x) => x.msg).filter((x) => x && x.type === "ups-standings-height");
     t.ok(m.length >= 1, "a height message");
     t.equal(m[m.length - 1].height, 1482);
   };
   await catches("fix (b)", 'parent.postMessage({ type: "ups-standings-height", height: h + 2 }, "*");', "void parent;", check);
-  const noParent = await page("year=2026", { contentHeight: 1480 });
+  const noParent = await page("view=picture&year=2026", { contentHeight: 1480 });
   t.equal(noParent.messages.length, 0, "opened directly (no parent frame): nothing is posted");
   // the loader, run for real with a tiny DOM: the iframe URL carries both year spellings; a height message from the
   // iframe resizes it (min 400px); a message from any other window is ignored.
@@ -587,7 +587,7 @@ test("fix (f): a division's teams keep the worker's order (no re-sort by All-Pla
   // The division race left the team details (decision 2: Full League has no division information; the Picture's
   // Division leaders panel and the Divisions tab show each division). The order check moves to that panel.
   const check = async (src) => {
-    const p = await page("year=2026", { src });
+    const p = await page("view=picture&year=2026", { src });
     const panel = /<section class="panel"><h3>Division leaders<\/h3>([\s\S]*?)<\/section>/.exec(p.html)[1];
     const div03 = /Division 03<\/div>([\s\S]*?)<\/table>/.exec(panel)[1];
     const names = [...div03.matchAll(/<tr[^>]*><td>([^<]+)/g)].map((m) => m[1]);
@@ -623,7 +623,7 @@ test("History groups the older views as sub-tabs; old ?view= links still land on
   const b = await page("view=history&sub=bracket&year=2026");
   t.match(b.html, /PROJECTED · through Week 5 — chalk/, "the projected bracket banner (it used to throw on an undefined helper)");
   t.ok(!/Fetch failed|Something went wrong/.test(b.html));
-  const pic = await page("year=2026");
+  const pic = await page("view=picture&year=2026");
   t.ok(!/data-sub=/.test(pic.raw), "no History sub-tabs outside History");
 });
 test("Playoff bracket: its own season picker (decision 2), and a finished season's bracket checked against the recorded champions", async () => {
