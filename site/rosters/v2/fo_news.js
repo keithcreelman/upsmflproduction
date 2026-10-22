@@ -15,12 +15,18 @@
  *     that merely mentions him in its summary gets no icon and no row.
  *   - An outage never reads as "no news": a source down → "may be
  *     incomplete"; nothing answered → "unavailable" with a retry.
+ *   - Only READABLE stories are shown (Keith 2026-10-22): a headline we may
+ *     show in this setting, then source credit and approximate time. No
+ *     link-only cards, no generic "update" labels, no footer of MFL links.
  *   - MFL Player News (RotoWire / Dynasty League Football / FFToday) is the
  *     provider's licensed text. Inside MFL, the owner's browser reads the
- *     headline from MFL (site/shared/mfl_player_news.js) and it is shown with
- *     the provider's credit. On the standalone UPS site it shows the event
- *     label and "Read on MFL". Credits are shown exactly as the feed names
- *     them (RotoWire is never relabeled; Rotoworld is not a source).
+ *     headline from MFL (site/shared/mfl_player_news.js), so it is readable
+ *     and shown with the provider's credit. On the standalone UPS site it is
+ *     not readable: an MFL-only story is not shown as a card; one line says
+ *     how many MFL updates exist, with one link to the player's MFL page.
+ *   - The icon appears only when the popup will have a readable story.
+ *     Credits are shown exactly as the feed names them (RotoWire is never
+ *     relabeled; Rotoworld is not a source).
  *
  * Loaded lazily by front_office.js (foNewsReady) so the SHA-pinned embed
  * loader's fixed script list needs no change. Pure helpers are exported for
@@ -31,12 +37,6 @@
 
   var FRESH_SECONDS = 48 * 3600;
   var WINDOW_SECONDS = 8 * 86400;   // ~7 days of MFL updates, plus MFL's day rounding
-  var EVENT_LABEL = {
-    retirement: "Retirement", suspension: "Suspension", ir_return: "Return from IR", ir_move: "IR move",
-    season_ending: "Season-ending", designation: "Game status", practice: "Practice report",
-    starting_role: "Starting role", trade: "Trade", signing: "Signing", release: "Release",
-  };
-
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -73,12 +73,33 @@
     }).sort(function (a, b) { return (b.published_ts || 0) - (a.published_ts || 0); });
   }
 
-  // Icon level: "fresh" (≤ 48 h), "older" (in the window), or null.
+  // A story is readable here when it has a headline we may show in this
+  // setting: a publisher headline, or (inside MFL only) the headline MFL
+  // served to the owner's browser. Within the ~7-day window.
+  function textOf(it, inside) {
+    if (it.headline_policy !== "read_on_mfl") return it.headline || null;
+    return inside && it.mfl_text && it.mfl_text.headline ? it.mfl_text.headline : null;
+  }
+  function readableItems(view, pid, opts) {
+    var now = nowS(opts), inside = !!(opts && opts.insideMfl);
+    return primaryItems(view, pid).filter(function (it) {
+      return it.published_ts && now - it.published_ts <= WINDOW_SECONDS && !!textOf(it, inside);
+    });
+  }
+  // MFL updates we can't show here (standalone): counted, never carded.
+  function hiddenMfl(view, pid, opts) {
+    var now = nowS(opts), inside = !!(opts && opts.insideMfl);
+    return primaryItems(view, pid).filter(function (it) {
+      return it.headline_policy === "read_on_mfl" && it.published_ts && now - it.published_ts <= WINDOW_SECONDS && !textOf(it, inside);
+    });
+  }
+
+  // Icon level: "fresh" (≤ 48 h), "older" (in the window), or null — from
+  // READABLE stories only, so the icon never leads to a popup with nothing to read.
   function badgeLevel(view, pid, opts) {
-    var items = primaryItems(view, pid);
+    var items = readableItems(view, pid, opts);
     if (!items.length) return null;
-    var age = nowS(opts) - (items[0].published_ts || 0);
-    if (!items[0].published_ts || age > WINDOW_SECONDS) return null;
+    var age = nowS(opts) - items[0].published_ts;
     return age <= FRESH_SECONDS ? "fresh" : "older";
   }
 
@@ -98,25 +119,23 @@
     if (view.state === "unavailable") return { state: "unavailable", name: name, note: "News couldn't be loaded: no source answered, so this is not \"no news\".", items: [], links: links };
     if (view.state === "unknown_player") return { state: "unknown_player", name: name, note: "This player isn't in MFL's player list.", items: [], links: links };
     var down = (view.unavailable_sources || []).slice();
-    var items = primaryItems(view, pid).map(function (it) {
-      var mflLed = it.headline_policy === "read_on_mfl";
-      var text = mflLed ? (inside && it.mfl_text ? it.mfl_text.headline : null) : it.headline;
-      var credit = it.publisher + (it.via ? " via " + it.via : "");
+    var items = readableItems(view, pid, { now: now * 1000, insideMfl: inside }).map(function (it) {
       return {
         id: it.id,
-        fresh: (now - (it.published_ts || 0)) <= FRESH_SECONDS,
-        text: text,
-        label: text ? null : it.publisher + " update" + (EVENT_LABEL[it.event] ? " · " + EVENT_LABEL[it.event] : ""),
-        event: EVENT_LABEL[it.event] || null,
-        credit: credit,
+        fresh: (now - it.published_ts) <= FRESH_SECONDS,
+        text: textOf(it, inside),
+        credit: it.publisher + (it.via ? " via " + it.via : ""),
         time: ago(it.published_ts, it.published_precision, now),
         url: safeUrl(it.url),
-        linkText: mflLed ? "Read on MFL" : "Open story",
         also: (it.also_reported_by || []).map(function (a) {
-          return { credit: a.publisher + (a.via ? " via " + a.via : ""), url: safeUrl(a.url), text: inside && a.mfl_text ? a.mfl_text.headline : null };
+          return { credit: a.publisher + (a.via ? " via " + a.via : ""), url: safeUrl(a.url) };
         }),
       };
     });
+    var hidden = hiddenMfl(view, pid, { now: now * 1000, insideMfl: inside });
+    var provs = [];
+    hidden.forEach(function (it) { if (provs.indexOf(it.publisher) < 0) provs.push(it.publisher); });
+    var more = hidden.length ? { count: hidden.length, providers: provs, url: links.player } : null;
     var state, note = "";
     if (items.length) {
       state = "items";
@@ -124,25 +143,26 @@
     } else if (down.length) {
       state = "partial";
       note = "Nothing found for " + name + ", but some sources didn't answer (" + down.join(", ") + "). This list may be incomplete.";
+    } else if (more) {
+      state = "mfl_only";
+      note = "No story we can show here for " + name + " in the last ~7 days.";
     } else {
       state = "empty";
       note = "No stories about " + name + " in the last ~7 days.";
     }
-    return { state: state, name: name, note: note, items: items, links: links };
+    return { state: state, name: name, note: note, items: items, more: more, links: links };
   }
 
+  // One readable story: headline (links to the original), then credit and
+  // approximate time; other outlets that reported it, as linked credits.
   function itemHtml(m) {
-    var main = m.text != null ? esc(m.text) : esc(m.label);
     var head = m.url
-      ? '<a class="fo-nw-h" href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' + main + "</a>"
-      : '<span class="fo-nw-h">' + main + "</span>";
-    var meta = (m.event && m.text != null ? '<span class="fo-nw-ev">' + esc(m.event) + "</span> " : "") +
-      '<span class="fo-nw-credit">' + esc(m.credit) + "</span> · " + esc(m.time) +
-      (m.url ? ' · <a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' + esc(m.linkText) + " ↗</a>" : "");
+      ? '<a class="fo-nw-h" href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer">' + esc(m.text) + "</a>"
+      : '<span class="fo-nw-h">' + esc(m.text) + "</span>";
+    var meta = '<span class="fo-nw-credit">' + esc(m.credit) + "</span> · " + esc(m.time);
     var also = m.also.length ? '<div class="fo-nw-also">Also: ' + m.also.map(function (a) {
-      var t = esc(a.credit) + (a.text ? ": " + esc(a.text) : "");
-      return a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener noreferrer">' + t + "</a>" : t;
-    }).join(" · ") + "</div>" : "";
+      return a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener noreferrer">' + esc(a.credit) + "</a>" : esc(a.credit);
+    }).join(", ") + "</div>" : "";
     return '<li class="fo-nw-item' + (m.fresh ? " is-fresh" : "") + '">' + head + '<div class="fo-nw-meta">' + meta + "</div>" + also + "</li>";
   }
 
@@ -150,10 +170,12 @@
     var note = model.note ? '<div class="fo-nw-note fo-nw-note-' + esc(model.state) + '">' + esc(model.note) +
       (model.state === "unavailable" ? ' <button type="button" class="fo-nw-retry" data-fo-nw-retry>Try again</button>' : "") + "</div>" : "";
     var list = model.items.length ? '<ul class="fo-nw-list">' + model.items.map(itemHtml).join("") + "</ul>" : "";
-    var foot = '<div class="fo-nw-foot">' +
-      (model.links.player ? '<a href="' + esc(model.links.player) + '" target="_blank" rel="noopener noreferrer">MFL Player News for ' + esc(model.name) + " ↗</a>" : "") +
-      (model.links.all ? '<a href="' + esc(model.links.all) + '" target="_blank" rel="noopener noreferrer">See all MFL Player News ↗</a>' : "") + "</div>";
-    return note + list + foot;
+    // The only MFL link: when MFL has updates we can't show in this setting.
+    var more = model.more && model.more.url
+      ? '<div class="fo-nw-more">' + (model.items.length ? "Also on MFL: " : "MFL has ") + model.more.count + " " + esc(model.more.providers.join(" / ")) +
+        " update" + (model.more.count === 1 ? "" : "s") + (model.items.length ? "" : " about him") + '. <a href="' + esc(model.more.url) + '" target="_blank" rel="noopener noreferrer">Read on MFL ↗</a></div>'
+      : "";
+    return note + list + more;
   }
 
   function badgeHtml(pid, level, name) {
@@ -166,6 +188,7 @@
   // ── DOM / network (browser only) ───────────────────────────────────────────
   var CFG = { apiUrl: function (p) { return p; }, leagueId: "", season: "", fetch: null };
   var VIEWS = {};          // pid → view from the last roster read
+  var MFL_TEXT = {};       // inside MFL: article id → { headline } read by this browser from MFL
   var HEAD = null;         // feed-level fields of the last read
   var LOADED = false;
 
@@ -186,37 +209,52 @@
       return j;
     });
   }
+  // Inside MFL: one browser call to MFL per ≤ 100 players; the headlines are
+  // kept in memory only (MFL_TEXT) and attached by MFL article id.
+  function loadMflText(pids) {
+    if (!insideMfl()) return Promise.resolve();
+    var ids = pids.map(String).filter(Boolean), calls = [];
+    for (var i = 0; i < ids.length; i += 100) calls.push(root.UPS_MFL_NEWS.load(CFG.season, ids.slice(i, i + 100)));
+    return Promise.all(calls).then(function (rs) {
+      rs.forEach(function (r) { if (r && r.byArticle) Object.assign(MFL_TEXT, r.byArticle); });
+    });
+  }
+  function withText(view) {
+    if (!view || !view.items || !insideMfl()) return view;
+    return Object.assign({}, view, { items: root.UPS_MFL_NEWS.attachText(view.items, MFL_TEXT) });
+  }
   function loadRoster(pids) {
     var ids = (pids || []).map(String).filter(Boolean);
     var chunks = [];
     for (var i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));
-    return Promise.all(chunks.map(function (c) { return readFeed(c).catch(function () { return null; }); })).then(function (rs) {
+    return Promise.all([
+      Promise.all(chunks.map(function (c) { return readFeed(c).catch(function () { return null; }); })),
+      loadMflText(ids).catch(function () {}),
+    ]).then(function (both) {
+      var rs = both[0];
       VIEWS = {}; HEAD = null;
       rs.forEach(function (j) {
         if (!j) return;
         HEAD = HEAD || { feed_state: j.feed_state, sources: j.sources };
-        Object.keys(j.players).forEach(function (pid) { VIEWS[pid] = j.players[pid]; });
+        Object.keys(j.players).forEach(function (pid) { VIEWS[pid] = withText(j.players[pid]); });
       });
       LOADED = true;
       return VIEWS;
     });
   }
-  function rosterBadge(pid, name) { return badgeHtml(String(pid), badgeLevel(VIEWS[String(pid)], pid), name); }
-  function hasBadges() { return Object.keys(VIEWS).some(function (pid) { return !!badgeLevel(VIEWS[pid], pid); }); }
+  function rosterBadge(pid, name) { return badgeHtml(String(pid), badgeLevel(VIEWS[String(pid)], pid, { insideMfl: insideMfl() }), name); }
+  function hasBadges() { return Object.keys(VIEWS).some(function (pid) { return !!badgeLevel(VIEWS[pid], pid, { insideMfl: insideMfl() }); }); }
 
-  // Fetch one player's view (fresh read), then fill in MFL headlines when
-  // running inside MFL. Calls draw(model) once, and again if MFL text arrives.
+  // Fetch one player's view (fresh read). Inside MFL, wait for MFL's
+  // headlines for him (≤ 4 s) so the list is drawn once, with text; if MFL
+  // doesn't answer, his MFL updates are counted, not shown as cards.
   function loadModel(pid, name, draw) {
     var base = { name: name, leagueId: CFG.leagueId, season: CFG.season, insideMfl: insideMfl() };
-    return readFeed([String(pid)]).then(function (j) {
-      var view = j.players[String(pid)];
-      draw(listModel(view, pid, base));
-      if (!base.insideMfl || !view || !view.items || !view.items.some(function (it) { return it.via === "MFL" || (it.also_reported_by || []).some(function (a) { return a.via === "MFL"; }); })) return;
-      return root.UPS_MFL_NEWS.load(CFG.season, [String(pid)]).then(function (r) {
-        if (!r || !r.byArticle) return;   // MFL text unavailable: labels + links stay
-        var v2 = Object.assign({}, view, { items: root.UPS_MFL_NEWS.attachText(view.items, r.byArticle) });
-        draw(listModel(v2, pid, base));
-      });
+    var text = base.insideMfl
+      ? Promise.race([loadMflText([String(pid)]).catch(function () {}), new Promise(function (r) { setTimeout(r, 4000); })])
+      : Promise.resolve();
+    return Promise.all([readFeed([String(pid)]), text]).then(function (both) {
+      draw(listModel(withText(both[0].players[String(pid)]), pid, base));
     }).catch(function () { draw(listModel(null, pid, Object.assign(base, { failed: true }))); });
   }
 
@@ -282,13 +320,13 @@
     ".fo-nw-h{display:block;font-size:14px;font-weight:600;line-height:1.4;color:var(--text,#e8edf5);text-decoration:none;overflow-wrap:anywhere}",
     "a.fo-nw-h:hover{text-decoration:underline}",
     ".fo-nw-meta,.fo-nw-also{font-size:12px;color:var(--muted,#8a97ad);margin-top:4px;line-height:1.5;overflow-wrap:anywhere}",
-    ".fo-nw-meta a,.fo-nw-also a,.fo-nw-foot a{color:var(--accent,#5b8dff);text-decoration:none}",
-    ".fo-nw-ev{display:inline-block;font-size:11px;padding:0 7px;border-radius:999px;background:#22304a;color:#c2d3ee;margin-right:4px}",
+    ".fo-nw-meta a,.fo-nw-also a{color:var(--accent,#5b8dff);text-decoration:none}",
     ".fo-nw-note{font-size:13px;line-height:1.45;padding:10px 12px;border-radius:8px;background:var(--panel-alt,#1a2230);border-left:3px solid var(--muted,#8a97ad);margin-bottom:10px}",
     ".fo-nw-note-items,.fo-nw-note-partial{border-left-color:var(--warn,#fbbf24)}",
     ".fo-nw-note-unavailable{border-left-color:#f87171}",
     ".fo-nw-retry{margin-left:6px;min-height:32px;padding:4px 10px;border-radius:6px;border:1px solid var(--border,#2a3446);background:var(--panel,#141a26);color:var(--text,#e8edf5);cursor:pointer}",
-    ".fo-nw-foot{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;font-size:13px}",
+    ".fo-nw-more{font-size:12px;color:var(--muted,#8a97ad);margin-top:10px;line-height:1.5}",
+    ".fo-nw-more a{color:var(--accent,#5b8dff);text-decoration:none}",
     "@media (max-width:640px){.fo-nw-pop{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-height:85vh;border-radius:14px 14px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}.fo-nw-icon{min-width:32px;min-height:32px}}",
   ].join("\n");
   function injectCss() {
