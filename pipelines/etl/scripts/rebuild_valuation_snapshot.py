@@ -13,7 +13,8 @@ previous valid snapshot when a rebuild fails, and alert instead of ever grading 
              exit 0  rebuilt, or not due        exit 2  due but the new build failed (previous snapshot kept)
   check    Would the bot grade right now? Validates the committed snapshot exactly as trade_grader.analyze_trade
            does: its valuation_snapshot.validate_snapshot, with weeks completed from MFL's live leagueStandings
-           read by trade_grader.load_season_state.
+           read by trade_grader.load_season_state. `--ref origin/main` checks what is actually on that ref (in a
+           temporary worktree), so a rebuilt snapshot that was committed but never pushed is not "delivered".
              exit 0  the bot would grade        exit 3  the bot would return NO GRADE (reasons printed)
              exit 4  MFL's standings could not be read, so the check could not run
 
@@ -181,6 +182,26 @@ def do_check(*, now: datetime, season_state=None, path: Path | None = None, repo
     return {**base, "result": "ok", "exit": 0, "failures": []}
 
 
+def check_ref(ref: str, *, now: datetime, season_state=None, repo: Path | None = None) -> dict:
+    """do_check on the snapshot exactly as it is on `ref`, with that ref's inputs (temporary worktree)."""
+    import subprocess
+    repo = REPO if repo is None else Path(repo)
+    with tempfile.TemporaryDirectory(prefix="valuation-check-") as td:
+        wt = Path(td) / "tree"
+        add = subprocess.run(["git", "-C", str(repo), "worktree", "add", "--quiet", "--detach", str(wt), ref],
+                             capture_output=True, text=True)
+        if add.returncode != 0:
+            return {"result": "no_grade", "exit": 3, "ref": ref,
+                    "failures": [f"could not read {ref}: {add.stderr.strip()[:200]}"]}
+        try:
+            sha = subprocess.run(["git", "-C", str(wt), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+            st = do_check(now=now, season_state=season_state, path=wt / "data" / "valuation" / "trade_valuation_snapshot.json",
+                          repo=wt)
+            return {**st, "ref": ref, "ref_sha": sha}
+        finally:
+            subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)], capture_output=True)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -192,12 +213,15 @@ def main(argv=None):
     r.add_argument("--status-out", type=Path)
     c = sub.add_parser("check")
     c.add_argument("--now", help="UTC ISO time (default: now)")
+    c.add_argument("--ref", help="check the snapshot on this git ref (e.g. origin/main), not the working tree")
     c.add_argument("--status-out", type=Path)
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now.replace("Z", "+00:00")) if a.now else datetime.now(timezone.utc)
     if a.cmd == "rebuild":
         gen = a.generated_at or now.strftime("%Y-%m-%dT%H:%M:%SZ")
         st = do_rebuild(now=now, generated_at=gen, as_of=a.as_of, force=a.force)
+    elif a.ref:
+        st = check_ref(a.ref, now=now)
     else:
         st = do_check(now=now)
     st = {"command": a.cmd, "checked_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"), **st}

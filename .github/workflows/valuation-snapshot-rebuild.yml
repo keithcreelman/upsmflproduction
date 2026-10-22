@@ -51,6 +51,7 @@ jobs:
           echo "exit=$?" >> "$GITHUB_OUTPUT"
 
       - name: Commit a rebuilt snapshot
+        id: commit
         if: steps.rebuild.outputs.exit == '0'
         run: |
           set -euo pipefail
@@ -74,11 +75,15 @@ jobs:
           echo "Could not push the rebuilt snapshot." >&2
           exit 1
 
+      # Always runs (even after a failed push) and checks what is actually on origin/main, never the runner's
+      # local, possibly unpushed, snapshot.
       - name: Check what the bot would do now
         id: check
+        if: always()
         run: |
           set +e
-          python3 pipelines/etl/scripts/rebuild_valuation_snapshot.py check --status-out "$RUNNER_TEMP/check.json"
+          git fetch --quiet origin main
+          python3 pipelines/etl/scripts/rebuild_valuation_snapshot.py check --ref origin/main --status-out "$RUNNER_TEMP/check.json"
           echo "exit=$?" >> "$GITHUB_OUTPUT"
 
       - name: Alert (one issue labeled valuation-snapshot-alert)
@@ -86,6 +91,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REBUILD_EXIT: ${{ steps.rebuild.outputs.exit }}
+          COMMIT_OUTCOME: ${{ steps.commit.outcome }}
           CHECK_EXIT: ${{ steps.check.outputs.exit }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -95,8 +101,11 @@ jobs:
           OPEN=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number // empty')
           BODY="$RUNNER_TEMP/alert.md"
           python3 - "$RUNNER_TEMP" "$RUN_URL" > "$BODY" <<'PY'
-          import json, sys
+          import json, os, sys
           tmp, url = sys.argv[1], sys.argv[2]
+          if os.environ.get("COMMIT_OUTCOME") == "failure":
+              print("**The rebuilt snapshot was built but NOT pushed: origin/main still has the previous snapshot, "
+                    "so the bot does not have it.**\n")
           def read(name):
               try:
                   return json.load(open(f"{tmp}/{name}.json"))
@@ -123,6 +132,7 @@ jobs:
           ALERT=0
           [ "${REBUILD_EXIT:-0}" = "2" ] && ALERT=1
           [ "${CHECK_EXIT:-0}" = "3" ] && ALERT=1
+          [ "${COMMIT_OUTCOME:-}" = "failure" ] && ALERT=1
           if [ "$ALERT" = "1" ]; then
             if [ -n "$OPEN" ]; then
               gh issue comment "$OPEN" --body-file "$BODY"

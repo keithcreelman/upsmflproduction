@@ -234,5 +234,101 @@ class Workflow(unittest.TestCase):
         self.assertNotIn("CLOUDFLARE", y)
 
 
+class UnpushedSnapshot(unittest.TestCase):
+    """A rebuilt snapshot committed but never pushed is not delivered (Keith 2026-10-22): the health check reads
+    origin/main, and a failed push alerts."""
+
+    def git(self, *a):
+        import subprocess
+        env = {**__import__("os").environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        r = subprocess.run(["git", "-C", str(self.repo), *a], capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.strip()
+
+    def setUp(self):
+        self.td = tempfile.TemporaryDirectory(prefix=".valuation-unpushed-test-", dir=PINNED_ROOT)
+        self.repo = Path(self.td.name) / "repo"
+        shutil.copytree(PINNED_ROOT, self.repo, ignore=shutil.ignore_patterns(".valuation-*"))
+        self.git("init", "-q", "-b", "main")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "the 10-20 snapshot on main")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")             # what GitHub has
+        week7 = self.repo / "data" / "mfl-snapshots" / "2026-10-27"
+        shutil.copytree(self.repo / "data" / "mfl-snapshots" / BASE_DAY, week7)
+        (week7 / "leagueStandings.json").write_text(json.dumps(add_week(json.loads((week7 / "leagueStandings.json").read_text()))))
+        saved = (rb.bvs.REPO, rb.bvs.INPUT_DIR, rb.bvs.COEFFICIENTS)
+        rb.bvs.REPO = self.repo
+        rb.bvs.INPUT_DIR = self.repo / "pipelines" / "etl" / "inputs" / "valuation"
+        rb.bvs.COEFFICIENTS = self.repo / "pipelines" / "etl" / "config" / "future_pick_inseason_coefficients.json"
+        try:
+            st = rb.do_rebuild(now=utc("2026-10-27T16:00:00Z"), generated_at="2026-10-27T16:00:00Z",
+                               out=self.repo / "data" / "valuation" / "trade_valuation_snapshot.json",
+                               snapshots_dir=self.repo / "data" / "mfl-snapshots", repo=self.repo)
+        finally:
+            rb.bvs.REPO, rb.bvs.INPUT_DIR, rb.bvs.COEFFICIENTS = saved
+        self.assertEqual(st["result"], "rebuilt", st)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "data(valuation): week 7 (committed, push FAILED)")
+
+    def tearDown(self):
+        self.td.cleanup()
+
+    def test_health_check_reads_origin_main_not_the_unpushed_local_snapshot(self):
+        week7 = tg.SeasonState(2026, "in_season", weeks_completed=7)
+        now = utc("2026-10-27T17:00:00Z")
+        local = rb.check_ref("HEAD", now=now, season_state=week7, repo=self.repo)
+        self.assertEqual((local["result"], local["snapshot_weeks"]), ("ok", 7), local)
+        remote = rb.check_ref("origin/main", now=now, season_state=week7, repo=self.repo)
+        self.assertEqual((remote["result"], remote["exit"], remote["snapshot_weeks"]), ("no_grade", 3, 6), remote)
+        self.assertIn("but week 7 is complete", " ".join(remote["failures"]))
+        self.assertEqual(remote["ref_sha"], self.git("rev-parse", "origin/main"))
+        self.assertEqual(self.git("worktree", "list").count("\n"), 0)         # temporary worktree removed
+        missing = rb.check_ref("origin/nope", now=now, season_state=week7, repo=self.repo)
+        self.assertEqual(missing["exit"], 3)                                 # an unreadable ref is never "ok"
+
+    def test_workflow_checks_origin_main_even_after_a_failed_push(self):
+        import yaml
+        wf = yaml.safe_load(Workflow.WF.read_text())
+        steps = {s.get("name"): s for s in wf["jobs"]["rebuild-and-check"]["steps"]}
+        self.assertEqual(steps["Commit a rebuilt snapshot"]["id"], "commit")
+        check = steps["Check what the bot would do now"]
+        self.assertEqual(check["if"], "always()")
+        self.assertIn("check --ref origin/main", check["run"])
+        self.assertIn("git fetch --quiet origin main", check["run"])
+        alert = steps["Alert (one issue labeled valuation-snapshot-alert)"]
+        self.assertEqual(alert["env"]["COMMIT_OUTCOME"], "${{ steps.commit.outcome }}")
+
+    def _alert_step(self, commit_outcome, check_exit):
+        import os
+        import subprocess
+        import yaml
+        wf = yaml.safe_load(Workflow.WF.read_text())
+        script = next(s for s in wf["jobs"]["rebuild-and-check"]["steps"] if s.get("name", "").startswith("Alert"))["run"]
+        tmp = Path(self.td.name)
+        fakebin, calls = tmp / "bin", tmp / "gh_calls.log"
+        fakebin.mkdir(exist_ok=True)
+        (fakebin / "gh").write_text(f"#!/bin/sh\necho \"$*\" >> {calls}\nexit 0\n")
+        (fakebin / "gh").chmod(0o755)
+        (tmp / "rebuild.json").write_text(json.dumps({"result": "rebuilt", "why": "week 7 is complete", "failures": []}))
+        (tmp / "check.json").write_text(json.dumps({"result": "ok" if check_exit == "0" else "no_grade",
+                                                    "snapshot_as_of": "2026-10-20", "snapshot_weeks": 6,
+                                                    "live_weeks_completed": 7, "failures": []}))
+        calls.write_text("")
+        env = {**os.environ, "PATH": f"{fakebin}:{os.environ['PATH']}", "RUNNER_TEMP": str(tmp), "GH_TOKEN": "x",
+               "REBUILD_EXIT": "0", "COMMIT_OUTCOME": commit_outcome, "CHECK_EXIT": check_exit, "RUN_URL": "https://run"}
+        r = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
+        return r.returncode, calls.read_text(), (tmp / "alert.md").read_text() if (tmp / "alert.md").exists() else ""
+
+    def test_failed_push_opens_the_alert(self):
+        rc, calls, body = self._alert_step("failure", "0")
+        self.assertEqual(rc, 1)                                              # the run fails: GitHub emails
+        self.assertIn("issue create", calls)
+        self.assertIn("NOT pushed", body)
+        rc, calls, _ = self._alert_step("success", "0")
+        self.assertEqual(rc, 0)
+        self.assertNotIn("issue create", calls)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
