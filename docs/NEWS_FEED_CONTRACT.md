@@ -66,8 +66,8 @@ This is ONE normalized feed of outside NFL and player news. League News shows al
    - **Off MFL** (the phone app and standalone pages on github.io):
      - MFL's API refuses the browser call (verified: other origins get another host's `Access-Control-Allow-Origin`).
      - Those screens keep metadata + **read on MFL ↗**.
-     - They can also show **MFL's own page in a frame**: `news_articles?P=<pid>`, without `L=`. That's 169 KB with no league header; MFL sends no `X-Frame-Options` or CSP frame rule.
-     - Inside the frame, MFL serves its own headlines and summaries, so we copy nothing.
+     - Each player also links to MFL's page for him, and **See all MFL Player News ↗** opens the league page, `https://www48.myfantasyleague.com/{YEAR}/news_articles?L=74598&PLAYERS=A`.
+     - No MFL page is embedded (Keith 2026-10-22). MFL's pages could technically be framed (no `X-Frame-Options`), but the experience is links only.
 
 ### Permission to show provider text on UPS (searched 2026-10-22): none found
 
@@ -301,6 +301,6 @@ None of these screens change in this PR. Their integrations are separate and nee
 
 - **Approve this contract** (MFL as a metadata-and-link source).
 - **Inside MFL (Front Office embed):** approve showing provider headlines read by the owner's browser from MFL (`site/shared/mfl_player_news.js`). No UPS copy is made.
-- **Off MFL:** the "Open MFL Player News here" frame of MFL's own page, or link only.
+- **Off MFL:** event label + **Read on MFL ↗** per item, plus the player's MFL page and **See all MFL Player News ↗**. No embedded MFL page (Keith 2026-10-22).
 - **Ask MFL (FPL) for written permission** to show provider headlines/summaries on UPS's own site. A grant flips `headline_policy` to `display` for MFL items, with no contract change.
 - **Rolling history:** a separate decision. MFL already gives about 7 days per player.
