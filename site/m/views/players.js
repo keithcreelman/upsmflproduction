@@ -977,7 +977,8 @@
     return '<div class="ups-m-fa-basis' + (warn ? " warn" : "") + '">' + U.escapeHtml(txt) + '</div>';
   }
 
-  function fmt1(v) { return (Math.round((Number(v) || 0) * 10) / 10).toFixed(1); }
+  // The ONE shared points/PPG formatter (season_scoring.js, decimal half-up: 19.35 → 19.4).
+  function fmt1(v) { var S = window.UPS_MOBILE_SEASON_SCORING; return S ? S.fmt1(Number(v) || 0) : String(Number(v) || 0); }
   // "9:38 AM" for the time MFL's scores were read; "" when unknown.
   function clockLabel(ms) {
     if (!(ms > 0)) return "";

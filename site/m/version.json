@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.5",
-  "label": "Taxi: a call-up is a qualifying scoring week (active or IR), never a transaction; 2025 legacy rule from MFL weekly rosters."
+  "build": "2026.10.21.6",
+  "label": "Points and PPG round half-up to one decimal everywhere (19.35 reads 19.4), the same as the desktop Front Office."
 }
