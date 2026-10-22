@@ -17,9 +17,11 @@ checkout (~/Code/MFL/upsmflproduction):
   7. restart   `launchctl kickstart -k` the bot exactly once
   8. verify    a new pid, "Trade polling started" after the restart, a heartbeat from the new pid,
                and the snapshot's date and week as loaded by the bot's Python
-  9. held      the bot retries each held NO GRADE trade exactly once on its first poll with a
-               valid snapshot (held_trades.py). The exact held entries (full keys) are captured
-               before the restart; the cutover succeeds only if every one finishes "posted".
+  9. held      the bot retries each trade held because the snapshot was missing or stale exactly
+               once on its first poll with a valid snapshot (held_trades.py). Trades held for any
+               other cause are not retried; they are listed as needing a person. The exact
+               eligible entries (full keys) are captured before the restart; the cutover succeeds
+               only if every one finishes "posted".
                held_again, error, started-but-unfinished, missing or an unreadable file leave
                it in MANUAL REVIEW with the alert open. Nothing is attempted a second time.
 
@@ -591,10 +593,13 @@ class Cutover:
             if previous != target:
                 self.rollback_checkout(previous, "held-trades file failed just before the restart")
             raise
-        held_keys = [list(held_trades.key(e)) for e in held_trades.pending(entries)]
+        held_keys = [list(held_trades.key(e)) for e in held_trades.eligible(entries)]
+        not_eligible = [[*held_trades.key(e), e.get("cause") or "unrecorded"]
+                        for e in held_trades.not_eligible(entries)]
         stuck = [list(held_trades.key(e)) for e in held_trades.unfinished(entries)]
-        self.save_state(held_keys_at_restart=held_keys)
-        self.log(f"held trades before the restart: {len(held_keys)} pending {held_keys}; "
+        self.save_state(held_keys_at_restart=held_keys, held_not_eligible_at_restart=not_eligible)
+        self.log(f"held trades before the restart: {len(held_keys)} eligible (snapshot missing/stale) "
+                 f"{held_keys}; {len(not_eligible)} not eligible, never retried {not_eligible}; "
                  f"{len(stuck)} started-but-unfinished {stuck}")
         try:
             pid = self.restart_once(target)                               # 7 + 8
@@ -611,14 +616,15 @@ class Cutover:
                  f"(MFL counts week {check.get('live_weeks')})")
         held = self.reconcile_held(held_keys, stuck)                      # 9
         result = {"target": target, "previous": previous, "pid": pid, "as_of": check.get("as_of"),
-                  "weeks": check.get("weeks"), "held": held}
+                  "weeks": check.get("weeks"), "held": held, "held_not_eligible": not_eligible}
         if held["review"]:
             self.alert("held-review", "The snapshot reached the bot, but these held trades did not all finish "
                                       "as posted, so this cutover needs manual review (nothing is retried again "
                                       "automatically):\n" + "\n".join(f"- {k}: {o}" for k, o in held["outcomes"]))
             return {**result, "result": "manual_review"}
         self.resolve(f"Cutover succeeded: bot pid {pid} on {target[:8]}, snapshot as of {check.get('as_of')} "
-                     f"(week {check.get('weeks')}); held trades: {held['outcomes'] or 'none'}.")
+                     f"(week {check.get('weeks')}); held trades retried: {held['outcomes'] or 'none'}; "
+                     f"held for another cause, not retried (need a person): {len(not_eligible)}.")
         return {**result, "result": "cutover"}
 
     def _bot_commit(self) -> str:

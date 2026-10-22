@@ -593,13 +593,20 @@ def _ops_alert(stage: str, text: str) -> None:
         print(f"[{datetime.now()}] could not raise the Mac notification: {exc}")
 
 
-def hold_no_grade(trade_txn: dict, report: str) -> None:
-    """Record a NO GRADE trade durably (bot log + held file). Never posts. A trade held
-    again (its one retry was NO GRADE too) updates its entry; it is never added twice.
+def hold_no_grade(trade_txn: dict, report: str, reasons: list) -> None:
+    """Record a NO GRADE trade durably (bot log + held file) with its cause. Never posts. A
+    trade held again (its one retry was NO GRADE too) updates its entry; it is never added twice.
+    Only a hold caused by a missing or stale snapshot is retried automatically; any other cause
+    raises an operational alert once, here, and waits for a person (Keith 2026-10-22).
     Raises held_trades.HeldStateError if the hold could not be recorded: the caller must then
     NOT advance the cursor past this trade."""
     print(f"[{datetime.now()}] {report}")
-    held_trades.record_hold(trade_txn, report, HELD_TRADES_FILE)
+    cause = held_trades.classify(reasons)
+    entry = held_trades.record_hold(trade_txn, report, HELD_TRADES_FILE, cause=cause)
+    if cause not in held_trades.RETRY_CAUSES and "retry" not in entry:
+        _ops_alert("held-review", f"trade {held_trades.key(trade_txn)} is held as NO GRADE for a reason other "
+                                  f"than a missing or stale valuation snapshot, so it will not be retried "
+                                  f"automatically; it needs a person. Reasons: {'; '.join(map(str, reasons))[:300]}")
 
 
 def _snapshot_failures_now() -> list:
@@ -615,9 +622,10 @@ def _snapshot_failures_now() -> list:
 
 
 async def retry_held_trades(channel, trades: list) -> list:
-    """Retry each held NO GRADE trade exactly once, after the snapshot validates again
-    (the weekly cutover). Never reads or moves the cursor; marks each entry started
-    before its one attempt (held_trades.py)."""
+    """Retry each held NO GRADE trade whose cause was a missing or stale snapshot exactly once,
+    after the snapshot validates again (the weekly cutover). Trades held for any other cause are
+    never attempted (hold_no_grade alerted when it held them). Never reads or moves the cursor;
+    marks each entry started before its one attempt (held_trades.py)."""
     try:
         entries = held_trades.load(HELD_TRADES_FILE)
     except held_trades.HeldStateError as exc:
@@ -628,7 +636,7 @@ async def retry_held_trades(channel, trades: list) -> list:
         _ops_alert("held-review", f"{len(stuck)} held trade retry(ies) started but never finished "
                                   f"(a crash mid-retry): {[held_trades.key(e) for e in stuck]}. "
                                   f"Never retried automatically; check whether each was posted.")
-    todo = held_trades.pending(entries)
+    todo = held_trades.eligible(entries)             # snapshot missing/stale holds only
     if not todo:
         return []
     failures = await _in_executor("held-trade freshness check", 60, _snapshot_failures_now)
@@ -788,7 +796,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # Decision 3 (#1343): a failed valuation input means NO GRADE. Stop before
     # the announcement, the thread and the roast-model call: nothing reaches Discord.
     if analysis.no_grade:
-        hold_no_grade(trade_txn, no_grade_report(analysis))
+        hold_no_grade(trade_txn, no_grade_report(analysis), list(analysis.no_grade_reasons))
         return None
 
     # 2. Build announcement embed
@@ -995,6 +1003,7 @@ def build_multiway_summary(legs: list) -> dict:
     if no_grade_reports:
         # NO GRADE on any leg: build nothing that could be posted.
         return {"no_grade_reports": no_grade_reports,
+                "no_grade_reasons": [r for an in analyses for r in an.no_grade_reasons],
                 "timestamp": max(int(l.get("timestamp", 0)) for l in legs)}
 
     from collections import OrderedDict
@@ -1325,7 +1334,7 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
         "multiway prepare", 240, _prep)
     if summary.get("no_grade_reports"):
         hold_no_grade({"timestamp": summary["timestamp"], "franchise": "multiway", "franchise2": uuid},
-                      "\n\n".join(summary["no_grade_reports"]))
+                      "\n\n".join(summary["no_grade_reports"]), summary["no_grade_reasons"])
         return {}
 
     order = summary["order"]

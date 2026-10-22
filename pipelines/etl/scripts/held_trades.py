@@ -11,7 +11,17 @@ Fails closed (Keith 2026-10-22):
     bot may advance its cursor past the trade. If that fails the bot keeps the cursor where it
     is and raises an operational alert.
 
-Each held trade is retried exactly once, after the snapshot validates again:
+Only a trade held BECAUSE THE SNAPSHOT WAS MISSING OR STALE is retried automatically
+(Keith 2026-10-22). Each hold records its cause, classified from the NO GRADE reasons:
+  - snapshot_missing: the snapshot file was missing;
+  - snapshot_stale: every reason was the snapshot's own "stale:" check (too old, or behind the
+    weeks MFL counts as complete);
+  - other: anything else (a player or pick the snapshot cannot value, a corrupt or edited
+    snapshot, unreadable standings, an unrecognized reason). Never retried automatically: the
+    bot raises an operational alert when it holds one, and it waits for a person.
+An entry with no recorded cause is "other". Unrecognized always means not eligible.
+
+Each eligible held trade is retried exactly once, after the snapshot validates again:
   - only while the snapshot validates: a still-stale snapshot leaves every entry pending;
   - the entry is marked started BEFORE the attempt, so a crash mid-retry can never post it
     twice (at most once; a started-but-unfinished entry needs a person);
@@ -25,12 +35,19 @@ The cursor file is never read or written here.
 """
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 HELD_TRADES_FILE = SCRIPT_DIR.parent / "data" / "held_trades_no_grade.json"
+
+# The only causes retried automatically. valuation_snapshot.load_snapshot / validate_snapshot
+# word these reasons; test_bot_snapshot_cutover pins the exact strings they produce.
+RETRY_CAUSES = ("snapshot_missing", "snapshot_stale")
+_MISSING = re.compile(r"valuation snapshot \([^()]+\): file is missing")      # load_snapshot
+_STALE = "valuation snapshot: stale: "                                          # validate_snapshot
 
 
 class HeldStateError(RuntimeError):
@@ -99,18 +116,31 @@ def key(entry_or_txn: dict) -> tuple:
             str(entry_or_txn.get("franchise2")))
 
 
-def record_hold(trade_txn: dict, report: str, path: Path = None) -> dict:
-    """Durably hold a trade (or record that it was held again). Raises HeldStateError if the
-    hold could not be recorded: the caller must then NOT advance its cursor."""
+def classify(reasons) -> str:
+    """The cause of a NO GRADE from its reasons: snapshot_missing, snapshot_stale or other.
+    Eligible only if EVERY reason is the snapshot's own missing-file or stale check."""
+    reasons = [str(r) for r in (reasons or [])]
+    if len(reasons) == 1 and _MISSING.fullmatch(reasons[0]):
+        return "snapshot_missing"
+    if reasons and all(r.startswith(_STALE) for r in reasons):
+        return "snapshot_stale"
+    return "other"
+
+
+def record_hold(trade_txn: dict, report: str, path: Path = None, *, cause: str) -> dict:
+    """Durably hold a trade (or record that it was held again) with its cause (classify()).
+    Raises HeldStateError if the hold could not be recorded: the caller must then NOT advance
+    its cursor. A trade held again keeps the cause of its first hold; each hold logs its own."""
     entries = load(path)
     for e in entries:
         if key(e) == key(trade_txn):
-            e.setdefault("holds", []).append({"held_at": _now(), "report": report})
+            e.setdefault("holds", []).append({"held_at": _now(), "report": report, "cause": cause})
             e["report"] = report
             break
     else:
         e = {"timestamp": trade_txn.get("timestamp"), "franchise": trade_txn.get("franchise"),
-             "franchise2": trade_txn.get("franchise2"), "held_at": _now(), "report": report}
+             "franchise2": trade_txn.get("franchise2"), "held_at": _now(), "cause": cause,
+             "report": report}
         entries.append(e)
     save(entries, path)
     if not any(key(x) == key(trade_txn) for x in load(path)):
@@ -121,6 +151,17 @@ def record_hold(trade_txn: dict, report: str, path: Path = None) -> dict:
 def pending(entries: list) -> list:
     """Entries never retried."""
     return [e for e in entries if "retry" not in e]
+
+
+def eligible(entries: list) -> list:
+    """Never-retried entries held because the snapshot was missing or stale: the only ones the
+    bot retries automatically."""
+    return [e for e in pending(entries) if e.get("cause") in RETRY_CAUSES]
+
+
+def not_eligible(entries: list) -> list:
+    """Never-retried entries held for any other cause (or none recorded): they wait for a person."""
+    return [e for e in pending(entries) if e.get("cause") not in RETRY_CAUSES]
 
 
 def unfinished(entries: list) -> list:
@@ -159,13 +200,19 @@ def mark_finished(entry: dict, outcome: str, path: Path = None) -> dict:
 
 def retry_pending(*, validate, trades: list, grade_and_post, groups: dict | None = None,
                   path: Path = None, log=print) -> list:
-    """Retry each never-retried held trade once, only if the snapshot validates now.
+    """Retry each eligible held trade (snapshot missing or stale) once, only if the snapshot
+    validates now. Entries held for any other cause are never attempted.
 
     validate() -> list of failures (empty = the bot would grade now). trades: MFL's trade list.
     grade_and_post(entry, trade) -> "posted" | "held_again". Raises HeldStateError if the file
     cannot be trusted. Returns [(key, outcome)] for the entries attempted this call. (The bot
     runs the same steps around its async post: trade_roast_bot.retry_held_trades.)"""
-    todo = pending(load(path))
+    entries = load(path)
+    skipped = not_eligible(entries)
+    if skipped:
+        log(f"{len(skipped)} held trade(s) not eligible for automatic retry (need a person): "
+            f"{[(key(e), e.get('cause') or 'unrecorded') for e in skipped]}")
+    todo = eligible(entries)
     if not todo:
         return []
     failures = validate()
@@ -202,6 +249,8 @@ def main(argv=None) -> int:
         print(f"HELD-TRADES STATE ERROR: {exc}")
         return 2
     print(json.dumps({"file": str(HELD_TRADES_FILE), "entries": len(entries), "pending": [key(e) for e in pending(entries)],
+                      "eligible": [key(e) for e in eligible(entries)],
+                      "not_eligible": [(key(e), e.get("cause") or "unrecorded") for e in not_eligible(entries)],
                       "unfinished": [key(e) for e in unfinished(entries)],
                       "finished": [(key(e), e["retry"].get("outcome")) for e in entries
                                    if (e.get("retry") or {}).get("outcome")]}, indent=1))

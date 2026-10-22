@@ -189,9 +189,10 @@ class Env:
         self.ops.live_weeks = 7
         return self.publish({bc.SNAPSHOT: snap("2026-10-27", 7)}, "data(valuation): week 7")
 
-    def hold(self, *trades):
+    def hold(self, *trades, cause="snapshot_stale"):
         for t in trades:
-            held_trades.record_hold(t, "VALUATION INPUTS UNAVAILABLE — NO GRADE (stale)", self.checkout / HELD)
+            held_trades.record_hold(t, "VALUATION INPUTS UNAVAILABLE — NO GRADE (stale)", self.checkout / HELD,
+                                    cause=cause)
 
     def head(self):
         return sh(self.checkout, "rev-parse", "HEAD")
@@ -209,10 +210,10 @@ class Env:
 
 
 def bot_retries(outcome_for):
-    """The restarted bot's one retry of each pending held entry: outcome_for(key) -> outcome,
-    or "CRASH" (marked started, never finished)."""
+    """The restarted bot's one retry of each eligible held entry (as retry_held_trades):
+    outcome_for(key) -> outcome, or "CRASH" (marked started, never finished)."""
     def run(path):
-        for e in held_trades.pending(held_trades.load(path)):
+        for e in held_trades.eligible(held_trades.load(path)):
             held_trades.mark_started(e, path)
             o = outcome_for(held_trades.key(e))
             if o != "CRASH":
@@ -452,6 +453,21 @@ class Cutover(unittest.TestCase):
         self.assertEqual(res["result"], "manual_review")
         self.assertIn("never finished", res["held"]["outcomes"][0][1])
 
+    def test_a_hold_for_another_cause_is_listed_never_retried(self):
+        a, b = trade(1792900000, "0003", "0010"), trade(1792901000, "0004", "0002")
+        self.e.hold(a)
+        self.e.hold(b, cause="other")                                        # e.g. a player the snapshot lacks
+        self.e.week7()
+        self.e.ops.bot_retry = bot_retries(lambda k: "posted" if k == held_trades.key(a)
+                                           else self.fail(f"retried ineligible {k}"))
+        res = self.e.job.run()
+        self.assertEqual(res["result"], "cutover", res)
+        self.assertEqual(res["held"]["outcomes"], [(held_trades.key(a), "posted")])
+        self.assertEqual(res["held_not_eligible"], [[*held_trades.key(b), "other"]])
+        entries = held_trades.load(self.e.checkout / HELD)
+        self.assertEqual([held_trades.key(e) for e in held_trades.not_eligible(entries)], [held_trades.key(b)])
+        self.assertEqual(self.e.job.run()["result"], "up_to_date")           # still never attempted
+
     # ── 4. alert delivery is verified ──────────────────────────────────────
     def test_failed_issue_create_label_or_list_is_recorded_and_notified(self):
         for op in ("create", "label", "list"):
@@ -600,8 +616,8 @@ class HeldTrades(unittest.TestCase):
                                          log=NO_LOG)
 
     def test_a_trade_is_held_once(self):
-        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path)
-        held_trades.record_hold(self.trade, "NO GRADE: stale again", self.path)
+        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path, cause="snapshot_stale")
+        held_trades.record_hold(self.trade, "NO GRADE: stale again", self.path, cause="snapshot_stale")
         entries = held_trades.load(self.path)
         self.assertEqual(len(entries), 1)
         self.assertEqual(len(entries[0]["holds"]), 1)
@@ -611,7 +627,7 @@ class HeldTrades(unittest.TestCase):
         with self.assertRaises(held_trades.HeldStateError):
             held_trades.load(self.path)
         with self.assertRaises(held_trades.HeldStateError):
-            held_trades.record_hold(self.trade, "x", self.path)              # never creates it silently
+            held_trades.record_hold(self.trade, "x", self.path, cause="snapshot_stale")  # never creates it silently
         self.assertFalse(self.path.exists())
         self.path.write_text("{not json")
         with self.assertRaises(held_trades.HeldStateError):
@@ -627,13 +643,13 @@ class HeldTrades(unittest.TestCase):
         try:
             if not os.access(self.tmp, os.W_OK):
                 with self.assertRaises(held_trades.HeldStateError):
-                    held_trades.record_hold(self.trade, "x", self.path)
+                    held_trades.record_hold(self.trade, "x", self.path, cause="snapshot_stale")
                 self.assertEqual(held_trades.load(self.path), [])             # unchanged
         finally:
             self.tmp.chmod(0o755)
 
     def test_stale_snapshot_never_uses_up_the_retry(self):
-        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path)
+        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path, cause="snapshot_stale")
         posted = []
         out = self.retry([self.trade], lambda e, t: posted.append(t) or "posted",
                          validate=lambda: ["stale: week 7 is complete"])
@@ -641,7 +657,7 @@ class HeldTrades(unittest.TestCase):
         self.assertEqual(len(held_trades.pending(held_trades.load(self.path))), 1)
 
     def test_exactly_once_marked_before_the_attempt(self):
-        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path)
+        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path, cause="snapshot_stale")
         seen = []
 
         def post(entry, t):
@@ -654,7 +670,7 @@ class HeldTrades(unittest.TestCase):
         self.assertEqual(hashlib.sha256(self.cursor.read_bytes()).hexdigest(), cursor_before)
 
     def test_crash_after_started_before_finished_is_never_retried(self):
-        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path)
+        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path, cause="snapshot_stale")
 
         def crash(entry, t):
             raise SystemExit("the bot process died mid-retry")
@@ -667,17 +683,17 @@ class HeldTrades(unittest.TestCase):
         self.assertEqual(self.retry([self.trade], lambda *_: self.fail("retried twice")), [])
 
     def test_held_again_and_errors_are_recorded_not_retried(self):
-        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path)
+        held_trades.record_hold(self.trade, "NO GRADE: stale", self.path, cause="snapshot_stale")
 
         def still_no_grade(entry, t):
-            held_trades.record_hold(t, "NO GRADE: player missing", self.path)    # the bot's hold path
+            held_trades.record_hold(t, "NO GRADE: player missing", self.path, cause="other")  # the bot's hold path
             return "held_again"
         self.retry([self.trade], still_no_grade)
         e = held_trades.load(self.path)[0]
         self.assertEqual(e["retry"]["outcome"], "held_again")
         self.assertEqual(e["holds"][-1]["report"], "NO GRADE: player missing")   # the hold survived
         other = trade(1792950000, "0001", "0002")
-        held_trades.record_hold(other, "NO GRADE", self.path)
+        held_trades.record_hold(other, "NO GRADE", self.path, cause="snapshot_missing")
 
         def boom(entry, t):
             raise RuntimeError("discord down")
@@ -690,7 +706,7 @@ class HeldTrades(unittest.TestCase):
         held = trade(1792900000, "0003", "0010")
         same_second = trade(1792900000, "0001", "0005")                      # a different trade, same timestamp
         history = [trade(ts, "0006", "0007") for ts in (1774623376, 1791320240)]
-        held_trades.record_hold(held, "NO GRADE: stale", self.path)
+        held_trades.record_hold(held, "NO GRADE: stale", self.path, cause="snapshot_stale")
         self.assertIs(held_trades.find_trade({**held}, [same_second, *history, held]), held)
         graded = []
         self.retry([same_second, *history, held], lambda e, t: graded.append(t) or "posted")
@@ -700,12 +716,70 @@ class HeldTrades(unittest.TestCase):
         mw = {"timestamp": "1792900000", "franchise": "multiway", "franchise2": "uuid-1"}
         self.assertEqual(held_trades.find_trade(mw, [], {"uuid-1": ["leg1", "leg2"], "uuid-2": ["x"]}), ["leg1", "leg2"])
 
+    def test_only_a_missing_or_stale_snapshot_is_eligible_on_the_real_grader(self):
+        """Every NO GRADE the real grader produces (#1365 fixture), classified: only the snapshot
+        file missing, or the snapshot's own stale checks, may be retried automatically."""
+        import test_valuation_snapshot as T
+        expect = {"stale in season": "snapshot_stale", "stale offseason": "snapshot_stale",
+                  "missing the latest week": "snapshot_stale"}
+        for name, (mutate, overrides, _needle) in T.SNAPSHOT_MUTATIONS.items():
+            with self.subTest(name):
+                snap = T.snapshot()
+                if mutate:
+                    mutate(snap)
+                    T.reseal(snap)
+                an = T.grade(**{"snap": snap, **overrides})
+                self.assertTrue(an.no_grade)
+                self.assertEqual(held_trades.classify(an.no_grade_reasons), expect.get(name, "other"),
+                                 an.no_grade_reasons)
+        for name, (content, _needle) in T.FILE_CASES.items():
+            with self.subTest(name):
+                tmp = Path(tempfile.mkdtemp()).resolve()
+                path = tmp / "data" / "valuation" / "trade_valuation_snapshot.json"
+                path.parent.mkdir(parents=True)
+                if content is not None:
+                    path.write_bytes(content)
+                try:
+                    an = T.grade(snap=None, path=path, repo=tmp)
+                finally:
+                    shutil.rmtree(tmp)
+                self.assertEqual(held_trades.classify(an.no_grade_reasons),
+                                 "snapshot_missing" if name == "missing file" else "other", an.no_grade_reasons)
+        snap = T.snapshot()
+        snap["season"] = 2025
+        T.reseal(snap)
+        mixed = T.grade(snap=snap, now=T.NOW + 8 * T.DAY)                   # stale AND another failure
+        self.assertEqual(len(mixed.no_grade_reasons), 2, mixed.no_grade_reasons)
+        self.assertEqual(held_trades.classify(mixed.no_grade_reasons), "other")
+        for reasons in ([], None, ["valuation snapshot (x.json): a new check"], ["stale: no label"]):
+            self.assertEqual(held_trades.classify(reasons), "other", reasons)  # unrecognized: never eligible
+
+    def test_other_causes_and_entries_without_a_cause_are_never_retried(self):
+        stale, other = self.trade, trade(1792950000, "0001", "0002")
+        legacy = trade(1792960000, "0005", "0006")
+        held_trades.record_hold(stale, "NO GRADE: stale", self.path, cause="snapshot_stale")
+        held_trades.record_hold(other, "NO GRADE: player missing", self.path, cause="other")
+        entries = held_trades.load(self.path)
+        entries.append({"timestamp": legacy["timestamp"], "franchise": "0005", "franchise2": "0006",
+                        "held_at": "2026-10-21T00:00:00+00:00", "report": "NO GRADE"})   # no cause recorded
+        held_trades.save(entries, self.path)
+        graded = []
+        out = self.retry([stale, other, legacy], lambda e, t: graded.append(t) or "posted")
+        self.assertEqual((out, graded), ([(held_trades.key(stale), "posted")], [stale]))
+        left = held_trades.load(self.path)
+        self.assertEqual(sorted(held_trades.key(e) for e in held_trades.not_eligible(left)),
+                         sorted([held_trades.key(other), held_trades.key(legacy)]))
+        self.assertEqual(held_trades.eligible(left), [])
+        self.assertEqual(self.retry([stale, other, legacy], lambda *_: self.fail("retried")), [])
+        held_trades.record_hold(other, "NO GRADE: still missing", self.path, cause="snapshot_stale")
+        self.assertEqual(held_trades.load(self.path)[1]["cause"], "other")   # a later hold never upgrades it
+
     def test_a_held_trade_grades_after_cutover_on_the_real_grader(self):
         """The pinned 10-20 snapshot (#1365 fixture): stale under week 7 (stays held), then graded
         non-provisional when the snapshot is fresh."""
         import test_valuation_snapshot as T
         txn = T.grader_inputs(T.TRADES[T.GRIDE_BLAKE])[0]
-        held_trades.record_hold(txn, "NO GRADE: stale", self.path)
+        held_trades.record_hold(txn, "NO GRADE: stale", self.path, cause="snapshot_stale")
         stale = T.grade(T.snapshot(), T.live_state(7))
         self.assertTrue(stale.no_grade)
         self.assertEqual(self.retry([txn], lambda e, t: "posted", validate=lambda: list(stale.no_grade_reasons)), [])
@@ -765,6 +839,21 @@ class BotHook(unittest.TestCase):
             self.assertTrue(any(isinstance(n, ast.Break) for n in ast.walk(first)))
         self.assertIn("retry_held_trades", [c for _, c in self.calls(poll)])
         self.assertIn("return True", ast.unparse(self.fn("analyze_and_post")).splitlines()[-1])
+
+    def test_holds_record_their_cause_and_only_eligible_ones_are_retried(self):
+        hold = self.fn("hold_no_grade")
+        self.assertLess(self.first(hold, "classify"), self.first(hold, "record_hold"))
+        rec = next(n for n in ast.walk(hold) if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "record_hold")
+        self.assertEqual([k.arg for k in rec.keywords], ["cause"])
+        self.assertIn("RETRY_CAUSES", ast.unparse(hold))
+        self.assertIn("_ops_alert", [c for _, c in self.calls(hold)])           # another cause: a person is told
+        sites = [n for n in ast.walk(self.tree) if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "hold_no_grade"]
+        self.assertEqual(len(sites), 2)
+        self.assertTrue(all(len(n.args) == 3 for n in sites))                   # every hold passes its reasons
+        self.assertIn("'no_grade_reasons':", ast.unparse(self.fn("build_multiway_summary")))
+        retry = [c for _, c in self.calls(self.fn("retry_held_trades"))]
+        self.assertIn("eligible", retry)
+        self.assertNotIn("pending", retry)
 
     def test_ops_alert_is_durable_and_never_discord(self):
         src = ast.unparse(self.fn("_ops_alert"))
