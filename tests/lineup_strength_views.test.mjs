@@ -46,7 +46,7 @@ test("one calculation: every position value equals the Trade finder's (trade_fit
     for (const fid of tb.order) {
       for (const g of TF.GROUPS) {
         t.ok(close(tb.teams[fid][g].above, m.teams[fid].strength[g]), who + " " + fid + " " + g + " above replacement");
-        t.equal(LS.cell(tb, fid, g, "above").text.replace("−", "-").replace("+", ""), (Math.round(m.teams[fid].strength[g] * 10) / 10).toFixed(1).replace(/^-0\.0$/, "0.0"), who + " " + fid + " " + g + " shown Above Replacement = raw strength");
+        t.ok(Math.abs(Number(LS.cell(tb, fid, g, "above").text.replace("−", "-")) - m.teams[fid].strength[g]) <= 0.1 + 1e-9, who + " " + fid + " " + g + " shown Above Replacement = raw strength (within the 0.1 display rounding)");
         t.equal(tb.teams[fid].need[g], m.teams[fid].need[g], who + " " + fid + " " + g + " need");
       }
     }

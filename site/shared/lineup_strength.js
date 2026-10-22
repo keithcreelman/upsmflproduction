@@ -125,6 +125,21 @@
         c.rank = 1 + order.filter(function (o) { return teams[o][r].ppg > c.ppg + 1e-9; }).length;
       });
     });
+    // Shown values (tenths) that ADD UP: Overall rounds normally; the rows are rounded so their tenths sum to it
+    // (largest remainder), each within 0.1 of its true value. Keith 2026-10-21: every breakdown row reconciles to
+    // its displayed Overall after rounding.
+    order.forEach(function (fid) {
+      ["ppg", "above"].forEach(function (k) {
+        var t = teams[fid], parts = rows.filter(function (r) { return r !== "ALL"; });
+        var target = Math.round(t.ALL[k] * 10);
+        var base = parts.map(function (r) { var x = t[r][k] * 10; return { r: r, x: x, f: Math.floor(x + 1e-9) }; });
+        var left = target - base.reduce(function (a, b) { return a + b.f; }, 0);
+        base.slice().sort(function (a, b) { return (b.x - b.f) - (a.x - a.f) || b.x - a.x; })
+          .forEach(function (b, i) { if (i < left) b.f += 1; });
+        t.ALL[k + "Shown"] = target / 10;
+        base.forEach(function (b) { t[b.r][k + "Shown"] = b.f / 10; });
+      });
+    });
     // Each view's league-wide spread per row, so a bar shows where a team sits among the 12 in THAT row.
     rows.forEach(function (r) {
       var L = league[r];
@@ -143,7 +158,7 @@
     var avg = L.meanPpg != null ? (Math.round(L.meanPpg * 10) / 10).toFixed(1) : "—";
     if (view === "ppg") {
       var dev = L.meanPpg ? (c.ppg - L.meanPpg) / L.meanPpg * 100 : 0;
-      return { text: (Math.round(c.ppg * 10) / 10).toFixed(1), frac: clamp(dev / L.maxAbsIndexDev),
+      return { text: c.ppgShown.toFixed(1), frac: clamp(dev / L.maxAbsIndexDev),
         title: "Starters’ points a week; league average " + avg };
     }
     if (view === "index") {
@@ -155,7 +170,7 @@
       return { text: ordinal(c.rank), frac: n > 1 ? clamp((mid - c.rank) / (mid - 1)) : 0, title: ordinal(c.rank) + " of " + n + " by starters’ points a week" };
     }
     // Raw: the bar runs from 0 (replacement level) toward the largest amount any team has in this row.
-    var v = Math.round(c.above * 10) / 10;
+    var v = c.aboveShown;
     return { text: (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1), frac: clamp(c.above / L.maxAbsAbove),
       title: "Starters’ points a week above " + (table.by === "slot" ? "each slot’s" : "their position’s") + " replacement-level free agent (0 = replacement level)" };
   }

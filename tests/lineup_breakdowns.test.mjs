@@ -177,13 +177,31 @@ test("no player is ever counted twice, and both breakdowns reconcile to Overall 
   }
 });
 
+test("shown values reconcile: every breakdown's displayed rows add up to its displayed Overall (PPG and Above Replacement), each row within 0.1", () => {
+  const m = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, slots: SLOTS });
+  const tenths = (txt) => Math.round(Number(String(txt).replace("−", "-")) * 10);
+  let checked = 0;
+  for (const by of ["position", "slot"]) {
+    const tb = LS.build(m, { by });
+    for (const fid of m.order) for (const view of ["ppg", "above"]) {
+      const rows = tb.rows.filter((r) => r !== "ALL");
+      const total = sum(rows.map((r) => tenths(LS.cell(tb, fid, r, view).text)));
+      t.equal(total, tenths(LS.cell(tb, fid, "ALL", view).text), by + " " + fid + " " + view + ": shown rows add up to the shown Overall");
+      const raw = view === "ppg" ? "ppg" : "above";
+      t.equal(tenths(LS.cell(tb, fid, "ALL", view).text), Math.round(tb.teams[fid].ALL[raw] * 10), by + " " + fid + " " + view + ": Overall itself is plainly rounded");
+      for (const r of rows) t.ok(Math.abs(tenths(LS.cell(tb, fid, r, view).text) / 10 - tb.teams[fid][r][raw]) <= 0.1 + 1e-9, by + " " + fid + " " + r + " " + view + " within 0.1");
+      checked += 1;
+    }
+  }
+  t.equal(checked, 48, "12 teams × 2 breakdowns × 2 measures");
+});
+
 test("Overview By Position and the Trade finder return identical positional values (one calculation, MFL's slots)", () => {
   const m = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, slots: SLOTS });
   const tb = LS.build(m);
   for (const fid of m.order) for (const g of TF.GROUPS) {
     t.ok(close(tb.teams[fid][g].above, m.teams[fid].strength[g]), fid + " " + g + " above replacement = trade_fit strength");
-    const raw = Math.round(m.teams[fid].strength[g] * 10) / 10;
-    t.equal(LS.cell(tb, fid, g, "above").text, (raw > 0 ? "+" : raw < 0 ? "−" : "") + Math.abs(raw).toFixed(1), fid + " " + g + " Above Replacement shown = the raw strength the Trade finder shows");
+    t.ok(Math.abs(Number(LS.cell(tb, fid, g, "above").text.replace("−", "-")) - m.teams[fid].strength[g]) <= 0.1 + 1e-9, fid + " " + g + " Above Replacement shown = the raw strength (within 0.1 display rounding); the Trade finder prints this same cell");
     t.equal(tb.teams[fid].need[g], m.teams[fid].need[g], fid + " " + g + " need");
   }
   const sl = LS.build(m, { by: "slot" });
@@ -337,6 +355,9 @@ test("the Overview card: PPG first and selected, Above Replacement spelled out, 
   const posHtml = OV._strengthCard("0008", deps, "position", "ppg");
   t.ok(/Modeled lineup/.test(posHtml) && /Modeled lineup/.test(OV._strengthCard("0008", deps, "slot", "ppg")), "By Position and By Lineup Slot are labeled Modeled");
   t.equal(/class="fo-ov-bar-val">\+[\d.]+</.test(OV._strengthCard("0008", deps, "position", "above")), true, "Above Replacement shows a raw amount");
+  t.ok(/fo-ls-above-note">Overall here can differ from By Lineup Slot: each starter is measured against his own position’s baseline/.test(OV._strengthCard("0008", deps, "position", "above")), "By Position explains why its Overall can differ");
+  t.ok(/fo-ls-above-note">Overall here can differ from By Position: a Flex or Superflex starter is measured against the slot’s baseline/.test(OV._strengthCard("0008", deps, "slot", "above")), "By Lineup Slot explains why its Overall can differ");
+  t.ok(!/fo-ls-above-note/.test(OV._strengthCard("0008", deps, "slot", "ppg")), "only with Above Replacement (PPG, Rank and Index Overalls are identical)");
   deps.H.lineupSlotsState = () => "error";
   t.ok(/lineup settings couldn’t be read/.test(OV._strengthCard("0008", deps, "position", "ppg")), "MFL's settings unreadable → says so, no assumed slots");
 });

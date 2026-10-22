@@ -267,7 +267,11 @@
     var replNote = repl.length ? '<p class="fo-ov-sub">* No available rostered player for ' + H.esc(repl.join(", ")) +
       " this week, so a replacement free agent’s points fill " + (repl.length === 1 ? "that slot" : "those slots") + ".</p>" : "";
     var need = mine.biggestNeed;
-    return card("Lineup strength vs the league", byChips + chips + '<p class="fo-ov-sub">' + H.esc(BY_TEXT[lsBy][1] + " " + VIEW_TEXT[lsView][1]) + "</p>" + bars + replNote +
+    // Why Overall Above Replacement differs between the breakdowns (Keith 2026-10-21): shown wherever that measure is.
+    var aboveNote = lsView === "above" ? '<p class="fo-ov-sub fo-ls-above-note">' + H.esc(lsBy === "slot"
+      ? "Overall here can differ from By Position: a Flex or Superflex starter is measured against the slot’s baseline (the best replacement-level player the slot accepts), not his own position’s."
+      : "Overall here can differ from By Lineup Slot: each starter is measured against his own position’s baseline, while By Lineup Slot uses each Flex or Superflex slot’s eligible-player baseline.") + "</p>" : "";
+    return card("Lineup strength vs the league", byChips + chips + '<p class="fo-ov-sub">' + H.esc(BY_TEXT[lsBy][1] + " " + VIEW_TEXT[lsView][1]) + "</p>" + bars + aboveNote + replNote +
       (need ? '<p class="fo-ov-sub">Biggest need: <b>' + (LS.LABELS[need] || need) + "</b> (+" + H.fmt1(mine.need[need]) + " pts a week from a typical starter).</p>" : ""),
       H.goLink("trades", "Trade finder"), "fo-ls");
   }
@@ -478,7 +482,7 @@
       "<b>Lineup strength</b> is built from each team’s own roster: the best legal lineup, in the slots MFL’s lineup settings define, from its available rostered players. A replacement free agent fills a slot only when no rostered player can play it, and the card marks that row with *.</p>" +
       "<p><b>By Position</b> counts each starter at his own position (a TE in Flex is TE). <b>By Lineup Slot</b> shows the same lineup by slot: QB, RB, WR, TE, Flex, Superflex, DL, LB, DB, IDP Flex, K, P; a second TE who starts is Flex, a second QB is Superflex. Each starter counts once, and each breakdown’s rows add up to Overall. " +
       "Biggest need is always by position: that is the trade to look for.</p>" +
-      "<p><b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts. Rank and Index are the league-relative measures. " +
+      "<p><b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall. " +
       "<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average. The Trade finder’s matrix reads the same lineups, so its position cells match By Position, Above Replacement.</p>" +
       "<p><b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</p>" +
       "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
