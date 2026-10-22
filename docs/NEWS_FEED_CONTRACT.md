@@ -234,6 +234,37 @@ The example uses synthetic MFL article ids. Real MFL text is never shown, even h
   - Every practice / designation / IR pair on one player.
 - **Totals:** 7 stories merge MFL with a publisher, and 5 merge across MFL providers. The other MFL updates stand alone: 268 rostered players have news **only** from MFL.
 
+## Readable news: what an owner can actually read (2026-10-22)
+
+The Front Office popup (#1379) shows only **readable** stories: a headline we may show in that setting, then source credit and time. Link-only cards are not shown (Keith 2026-10-22).
+
+Recorded 2026-10-22 13:40 UTC, 479 rostered players, stories ≤ 7 days old:
+
+| Setting / sources | Players with readable news |
+|---|---|
+| Inside MFL (MFL headlines read by the owner's browser + 4 publishers) | **307** |
+| Standalone UPS site, today's 4 publishers | **30** |
+| … + FFToday's own RSS (`fftoday.com/rss/news.xml`, 21 items ≈ 6 days) | 38 |
+| … + ProFootballRumors team feeds (29 of 32 found, 15 items ≈ 2 weeks each) | 71 |
+| … + RotoWire's own RSS (`rotowire.com/rss/news.php?sport=NFL`, 5 items ≈ 31 h) | 34 |
+| … + all three | 79 |
+
+The three candidate feeds were fetched around 16:00 UTC, about 2.5 h after the rest, so these are estimates. Even with all three, Dak Prescott has nothing readable off MFL: his only recent story is RotoWire's, via MFL.
+
+**Gaps and what closes them:**
+
+| Gap | What closes it |
+|---|---|
+| Off MFL, MFL-only news (≈ 228 players with all three feeds added) | (a) MFL's (FPL's) written permission to show provider headlines on UPS's site, or (b) a RotoWire news-feed license. With neither, these stay "MFL has N updates. Read on MFL". |
+| Publisher windows are short (12–18 h for the main four) | Rolling history: keep headline + link for 7 days. This is the separate storage decision. It would lift standalone coverage without any new permission. |
+| Our own verified facts | A last-game stat line from the nflverse box score we already store, e.g. "Week 6 vs CAR: 288 pass yds, 2 TD". In our own words, it covers nearly every player who played. Not built; it needs a D1 read per popup and Keith's call on whether a stat line belongs in News. |
+| Rotoworld | Not a source; kept distinct from RotoWire. |
+
+**Source permissions to confirm before enabling:**
+- **FFToday and ProFootballRumors team feeds:** public RSS, same basis as our four publishers (headline + link, credited).
+- **RotoWire's own RSS:** public, but RotoWire actively enforces its data rights (Swish suit). Ask RotoWire first.
+- **MFL / FPL:** written permission for provider headlines on UPS's own site.
+
 ## Coverage (same recorded moment, 2026-10-22 13:40 UTC, 479 rostered players)
 
 | | Players with stories | Player–story links | Stories in the feed |
