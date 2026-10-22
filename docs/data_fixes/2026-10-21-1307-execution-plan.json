@@ -1,12 +1,17 @@
 {
  "issue": 1307,
  "dry_run_pr": 1363,
- "plan_version": 3,
+ "plan_version": 4,
  "scope": "authoritative score rows only; ranks held for the rank-definition review",
  "daily_ceiling": 90000,
  "reset": "00:00 UTC daily (Cloudflare D1 pricing page); account-wide",
  "guard": "used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000",
  "window_utc": "start 22:05-23:30",
+ "read_guard": {
+  "ceiling": 4500000,
+  "limit": 5000000,
+  "rule": "reads_used_today (GraphQL rowsRead, every D1 database, current UTC day) + reads_forecast_rest_of_day (7-day per-hour max) + read reserve <= 4,500,000; GraphQL must bracket `wrangler d1 info` 24 h totals (all databases) within 5%, or the batch stops before its first D1 read"
+ },
  "attempt_lock": {
   "ledger": "~/.ups_jobs/1307_src_weekly/attempts/ (fixed path)",
   "rule": "one apply attempt per approval, consumed before the first production read and never released (preflight STOP, failure, automatic rollback and crash included); a later attempt needs a newer approval comment; rollback approvals are single-use and never reuse an apply approval; verify stays read-only"
@@ -39,10 +44,15 @@
    },
    "reads": {
     "preflight_d1": 19604,
-    "during_writes": 0,
-    "post_verify_d1": 24932,
+    "during_writes_worst_case": 2664,
+    "apply_verify_d1": 24932,
+    "runbook_verify_d1": 24932,
+    "rollback_worst_case": 9061,
+    "panel_check_reserve": 40000,
+    "reserve_total": 121193,
     "mfl_gets": 6,
-    "panel_check_d1_bundle_gets": 8
+    "panel_check_d1_bundle_gets": 8,
+    "bundle_read_reserve_each": 5000
    },
    "preimage": {
     "rows": 1071,

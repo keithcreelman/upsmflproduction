@@ -231,8 +231,10 @@ class OneAttemptPerApproval(unittest.TestCase):
         rb.season_playoff_rows = lambda season: ([], 0)
         rb.statements = lambda args, b, key: [ins] if key == "forward" else ["DELETE FROM src_weekly WHERE season = 2025 AND week = 15 AND player_id IN ('1');"]
         rb.load_batch = lambda args: {"batch": "1A", "season": 2025, "billed_writes": 320, "rollback_reserve": 320,
+                                      "reads": {"reserve_total": 1_000, "rollback_worst_case": 100},
                                       "preimage": {"rows": 0, "sha256": rb.rows_hash([])}}
-        rb.usage_report = lambda forward=0, reserve=0, now=None: {"projected": 1, "ceiling": 90_000, "_hourly": {}}
+        rb.usage_report = lambda forward=0, reserve=0, now=None, read_reserve=0: {
+            "projected": 1, "ceiling": 90_000, "_hourly": {}, "reads": {"ok": True}, "cross_check": {"ok": True}}
         self.art = tempfile.mkdtemp(prefix="rb1307_art_")
 
     def tearDown(self):
@@ -338,6 +340,108 @@ class PanelCheckExpectsTheSafeguard(unittest.TestCase):
             self.assertEqual(run({**held, "pos_rank": None, "rank_pending": {"fields": ["pos_rank", "pos_ppg_rank"]}}), 1)
         finally:
             rb.load_batch, rb.worker_bundle = saved
+
+
+class ReadCapacity(unittest.TestCase):
+    """Keith 2026-10-22: account-wide reads, the whole batch's reads reserved, 90% of 5M, fail closed."""
+    def test_read_ceiling_is_ninety_percent_and_counts_every_reserved_read(self):
+        self.assertEqual(rb.READ_CEILING, 4_500_000)
+        self.assertTrue(rb.read_guard(4_000_000, 378_807, 121_193)["ok"])   # exactly 4,500,000
+        g = rb.read_guard(4_000_000, 378_807, 121_194)
+        self.assertFalse(g["ok"])
+        self.assertEqual(g["reads_unused_after_worst_case"], 5_000_000 - 4_500_001)
+
+    def test_reads_are_forecast_like_writes(self):
+        h = hourly(7, 50_000)
+        h[f"{(NOW - timedelta(days=3)):%Y-%m-%d}T23"] = 2_000_000     # a heavy recent hour counts
+        self.assertEqual(rb.forecast_rest_of_day(h, NOW), 50_000 + 2_000_000)
+        h[f"{(NOW - timedelta(days=9)):%Y-%m-%d}T22"] = 700_000_000   # older than 7 days: ignored
+        self.assertEqual(rb.forecast_rest_of_day(h, NOW), 2_050_000)
+
+    def test_plan_reserves_the_complete_read_budget(self):
+        b = json.loads((HERE.parents[2] / "docs/data_fixes/2026-10-21-1307-execution-plan.json").read_text())["batches"][0]
+        r = b["reads"]
+        parts = ("preflight_d1", "during_writes_worst_case", "apply_verify_d1", "runbook_verify_d1",
+                 "rollback_worst_case", "panel_check_reserve")
+        self.assertEqual(r["reserve_total"], sum(r[k] for k in parts))
+        self.assertEqual(r["panel_check_reserve"], 8 * rb.BUNDLE_READ_RESERVE)
+
+    def cross(self, info_reads, info_writes=24_000):
+        now = NOW
+        reads = {(now - timedelta(hours=i)).strftime("%Y-%m-%dT%H"): 200_000 for i in range(25)}
+        writes = {k: 1_000 for k in reads}
+        return rb.usage_cross_check(reads, writes, {"rows_read_24h": info_reads, "rows_written_24h": info_writes}, now)
+
+    def test_sources_must_agree_within_five_percent(self):
+        # GraphQL: lower 24 x 200k = 4.8M, upper 5.0M (the edge hour too).
+        self.assertTrue(self.cross(4_900_000)["ok"])
+        self.assertTrue(self.cross(4_560_000)["ok"])    # 5% under the lower bound
+        self.assertFalse(self.cross(4_550_000)["ok"])
+        self.assertFalse(self.cross(5_260_000)["ok"])   # beyond 5% over the upper bound
+        self.assertFalse(self.cross(0)["ok"], "a zero from `wrangler d1 info` is a disagreement")
+        self.assertFalse(self.cross(4_900_000, info_writes=0)["ok"], "writes are cross-checked too")
+
+    def test_preflight_stops_before_any_d1_read_on_bad_metrics(self):
+        saved = (rb.usage_report, rb.season_playoff_rows, rb.running_write_jobs)
+        def no_d1(*a, **k):
+            raise AssertionError("read D1 after a failed usage check")
+        rb.season_playoff_rows, rb.running_write_jobs = no_d1, (lambda: [])
+        b = {"batch": "1A", "season": 2025, "billed_writes": 10_656, "rollback_reserve": 10_656, "reads": {"reserve_total": 121_193}}
+        try:
+            for reads_ok, cross_ok, why in ((True, False, "disagree"), (False, True, "read ceiling")):
+                rb.usage_report = lambda forward=0, reserve=0, now=None, read_reserve=0: {
+                    "_hourly": {}, "projected": 1, "ceiling": 90_000, "in_window": True, "anomalous_hours_today": [],
+                    "reads": {"ok": reads_ok, "projected_reads": 5_000_000, "read_reserve": read_reserve, "read_ceiling": 4_500_000},
+                    "cross_check": {"ok": cross_ok}}
+                facts = rb.preflight(SimpleNamespace(artifacts=tempfile.mkdtemp()), b)
+                self.assertTrue(any(why in x for x in facts["stops"]), facts["stops"])
+        finally:
+            rb.usage_report, rb.season_playoff_rows, rb.running_write_jobs = saved
+
+    def test_a_metrics_failure_fails_closed(self):
+        saved = rb.urllib.request.urlopen
+        def down(*a, **k):
+            raise OSError("network down")
+        rb.urllib.request.urlopen = down
+        try:
+            with self.assertRaises(OSError):
+                rb.account_hourly_usage()
+        finally:
+            rb.urllib.request.urlopen = saved
+
+
+class SafeguardCheck(unittest.TestCase):
+    """The deployed bundle must hold exactly what the PR #1372 manifest says."""
+    manifest = {"season": 2025, "reason": "Rank pending historical reconciliation (#1307)",
+                "held": {"pos_rank": [{"player_id": "17086"}], "pos_ppg_rank": [{"player_id": "17086"}, {"player_id": "17124"}]},
+                "not_held_already_visible": {"pos_rank": ["11348"], "pos_ppg_rank": ["11348"]}}
+    stored = {"17086": {"pos_rank": 211, "pos_ppg_rank": 225}, "17124": {"pos_rank": 40, "pos_ppg_rank": 54},
+              "12620": {"pos_rank": 4, "pos_ppg_rank": 5}}
+
+    def bundle(self, row):
+        return {"career_summary": [{"season": 2025, **row}, {"season": 2024, "pos_rank": 9, "pos_ppg_rank": 9}]}
+
+    def test_held_and_controls(self):
+        r = self.manifest["reason"]
+        ok = lambda pid, row, **k: rb.safeguard_compare(pid, self.bundle(row), self.manifest, self.stored, **k)["ok"]
+        self.assertTrue(ok("17086", {"pos_rank": None, "pos_ppg_rank": None, "rank_pending": {"fields": ["pos_rank", "pos_ppg_rank"], "reason": r}}))
+        self.assertTrue(ok("17124", {"pos_rank": 40, "pos_ppg_rank": None, "rank_pending": {"fields": ["pos_ppg_rank"], "reason": r}}))
+        self.assertTrue(ok("12620", {"pos_rank": 4, "pos_ppg_rank": 5}))
+        self.assertFalse(ok("17124", {"pos_rank": 40, "pos_ppg_rank": 54}), "a held rank that shows")
+        self.assertFalse(ok("17124", {"pos_rank": None, "pos_ppg_rank": None, "rank_pending": {"fields": ["pos_rank", "pos_ppg_rank"], "reason": r}}), "an unheld rank hidden")
+        self.assertFalse(ok("17124", {"pos_rank": 40, "pos_ppg_rank": None, "rank_pending": {"fields": ["pos_ppg_rank"], "reason": "x"}}), "wrong reason")
+        self.assertFalse(ok("12620", {"pos_rank": 4, "pos_ppg_rank": 5, "rank_pending": {"fields": [], "reason": r}}), "a control marked pending")
+        # A held player with no weekly rows yet (pre-1A): both null, nothing to hold.
+        self.assertTrue(ok("17086", {"pos_rank": None, "pos_ppg_rank": None}, has_rows=False))
+        self.assertFalse(ok("17086", {"pos_rank": None, "pos_ppg_rank": None}))
+
+    def test_sample_is_deterministic_and_covers_every_kind(self):
+        m = json.loads((HERE.parents[2] / "docs/data_fixes/1307_rank_pending/manifest_2025.json").read_text())
+        s = rb.safeguard_sample(m)
+        self.assertEqual(s, rb.safeguard_sample(m))
+        for pid in ("17086", "16390", "17124", "12620", "12616", "17039", m["not_held_already_visible"]["pos_rank"][0]):
+            self.assertIn(pid, s)
+        self.assertLessEqual(len(s), 16)
 
 
 if __name__ == "__main__":

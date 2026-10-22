@@ -1,12 +1,22 @@
-# #1307 production execution runbook, v3: Batch 1A only (2026-10-21)
+# #1307 production execution runbook, v4: Batch 1A only (2026-10-22)
 
 **Status: NOT AUTHORIZED.**
 - Nothing in this runbook has run against production, and nothing is scheduled.
 - A write needs Keith's approval comment URL passed to `--approval`.
 
-**Plan v3** ([`2026-10-21-1307-execution-plan.json`](2026-10-21-1307-execution-plan.json), sha256 `804907211974c999f44667881c37930c8252fef1e3ca8b4932c9ae99c1355791`) follows Keith's 2026-10-21 revisions: **authoritative scores are separated from disputed ranks**, each approval starts **one attempt only** (§4a), and the post-run panel check expects the PR #1372 safeguard to be live (§8). The 1A statements are unchanged from v2 (`B_2025.json` sha256 `f499e9d2…`).
+**Plan v4** ([`2026-10-21-1307-execution-plan.json`](2026-10-21-1307-execution-plan.json), sha256 `dfdbd574a8e7b5c0f7dc92100abac70bbb4ee77fd4924ad97fa28aa498263fa5`) follows Keith's 2026-10-21/22 revisions:
+- **authoritative scores are separated from disputed ranks**;
+- each approval starts **one attempt only** (§4a);
+- the post-run panel check expects the PR #1372 safeguard to be live (§8);
+- an **account-wide read-capacity guard** reserves every read the batch can make (§3a). The 1A statements are unchanged from v2 (`B_2025.json` sha256 `f499e9d2…`).
 
-**Before 1A can be approved:** PR #1372 (held 2025 ranks shown as “—”, never a number or 0) is merged and deployed on Keith's separate go, and the consumer-impact gates are re-run against production.
+**Before 1A can return for approval (Keith 2026-10-22):**
+- ~~PR #1372 merged and deployed~~: done 2026-10-22 02:55 UTC.
+- Consumer gates re-run against the deployed worker: passed 2026-10-22 10:32 UTC (§8a).
+- The #1354 phone-boot investigation reconciles the 8.06M / 3.84M / 10.46M read measurements, confirms the authoritative usage source, and contains the leaderboard traffic.
+- Every gate passes.
+
+No request is posted, nothing is scheduled, and nothing runs without Keith's explicit approval.
 
 | Batch | Status | What |
 |---|---|---|
@@ -93,6 +103,28 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
 6. **Season reconciliation before the write equals the approved before-state.** The exact set of 2025 player-seasons whose Pts Rk / PPG Rk is showable today must be 671 / 384 (set hashes in the plan). This also proves D1's 2025 regular-season rows still match the dry run.
 7. **MFL's 2025 Wk 15–17 scores and lineups are unchanged** from the cached dry-run replies.
 
+## 3a. Read capacity (Keith, 2026-10-22; fails closed, checked before the first D1 read)
+- **The rule:** `reads_used_today + reads_forecast_rest_of_day + read_reserve ≤ 4,500,000` (90% of the 5,000,000 Free allowance).
+- **`reads_used_today`:** GraphQL `rowsRead`, summed over **every D1 database** in the account for the current UTC calendar day. It is the same control-plane source as the write guard and reads 0 D1 rows.
+- **`reads_forecast_rest_of_day`:** for each remaining UTC hour (the current one in full), that hour's maximum over the last 7 complete UTC days.
+- **`read_reserve`**, for 1A: **121,193**, made up of:
+  - preflight 19,604;
+  - writes, worst case 2,664 (a full re-run's reads; a first run measured 0);
+  - `apply`'s verification 24,932;
+  - the runbook `verify` 24,932;
+  - worst-case rollback 9,061 (7,990 deletes + the 1,071-row re-read);
+  - panel check 40,000 (8 bundles × 5,000 reserved; measured ≈ 400 each).
+- **Cross-check:** the GraphQL hourly totals for the last 24 h must bracket `wrangler d1 info` `rows_read_24h` and `rows_written_24h`, summed over every database (`wrangler d1 list`), within 5%.
+  - `d1 info` returned 0 once on 2026-10-22, seconds after a correct reading, so a disagreement is re-read once after 30 s.
+  - A second disagreement, or any failed metrics call, stops the batch.
+- **Not a usage source:** `wrangler d1 insights`. On 2026-10-22 it reported 11.29M reads for a 24 h in which GraphQL (4.97M–5.09M) and `d1 info` (4,933,658) agreed. #1354 owns that discrepancy.
+- **What the guard says today, measured:**
+  - **10-21:** read 4,526,410 (90.5% of 5M).
+  - **10-22:** 2.06M by 10:30 UTC.
+  - **The 7-day window still contains 10-15** (752.7M reads, the browser sweeps), so the forecast alone refuses 1A until 10-15 leaves the window on 10-23.
+  - **Even then,** a day like 10-21 projects about 4.78M used by 22:10 + 0.62M forecast + 0.12M reserve ≈ **5.52M**, which refuses (local replay R4).
+  - **So 1A fits only after the leaderboard traffic is contained** and reads return to about 2–3M a day (replay with a ≈2.3M day: 2.82M projected, passes).
+
 ## 4. Automatic rollback, authorized by the batch approval
 - **When it runs:** `apply` restores the preimage at once, with no further approval, when any of these happen:
   - **The billed count differs from plan.** Every statement is checked: an insert of n rows must report `rows_written = 4n` and `changes = n`. So is the batch total, 10,656.
@@ -117,21 +149,22 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
 | D1 reads, preflight | 19,604 (1,071 preimage + 16,791 season totals + 1,742 rank basis), by index SEARCH (`EXPLAIN`ed 2026-10-21) |
 | D1 reads during writes | 0 (measured) |
 | D1 reads, post-verify | 24,932 (3,735 after-state + 19,455 season totals + 1,742) |
-| D1 reads if auto-rollback runs | about 9,100 more (Miniflare: 7,990 + a 1,071 re-read) |
+| D1 reads if auto-rollback runs | 9,061 more (Miniflare: 7,990 + a 1,071 re-read) |
+| **D1 read reserve (all of the above, worst case)** | **121,193**, held under the 4.5M read ceiling with today's use and forecast (§3a) |
 | MFL GETs | 6 (6 s apart) |
-| Panel check | 8 worker `/api/player-bundle` GETs (per-player D1 reads; unmeasured) |
+| Panel check | 8 worker `/api/player-bundle` GETs (≈ 400 D1 rows each, from `wrangler d1 insights` per-query averages; 5,000 each reserved) |
 | Latest permissible start | **23:30 UTC.** Preflight takes about 1.5 min, 34 inserts about 2 min, verify about 0.5 min, and a worst-case auto-rollback about 1 min, so every write lands by about 23:35 UTC, before the 00:00 reset. The 12-minute settle check only reads, and its account delta is measured across midnight. |
 | Earliest start | 22:05 UTC on the first night after approval, and only if the guard passes. Tonight that is Wed 10-21 22:05 UTC. Wednesdays used about 35k by 22:00 last week, so the projection would be about 35k + 2.2k + 21.3k ≈ 58.5k. |
 
 **Later batches** are not scheduled and not approved. Each will come with its own approval request after the rank review. With the rollback reserve, a typical night (30–55k used by 22:05) fits 1–2 batches.
 
-## 6. Local replay, from plan v3 (no network)
+## 6. Local replay, from plan v4 (no network)
 **1. SQL replay.** Miniflare D1, the production schema and the 1,071-row 2025 snapshot. Re-run 2026-10-21 17:51 UTC from the reviewed statement file: identical to the stored measurement.
 - Forward writes **10,656** (0 read).
 - A re-run writes **0**.
 - Rollback restores the identical hash.
 
-**2. Executor end-to-end** (`apply` / `rollback`). This ran on a local SQLite stand-in for D1 holding all 2025 rows (archive regular weeks + snapshot playoff weeks + `src_pointssummary`), with cached metrics and MFL replies and the clock set to 22:10 UTC:
+**2. Executor end-to-end** (`apply` / `rollback`). This ran on a local SQLite stand-in for D1 holding all 2025 rows (archive regular weeks + snapshot playoff weeks + `src_pointssummary`), with cached MFL replies, real account-wide hourly metrics (GraphQL, 2026-10-12 to 10-22, later hours of 10-22 filled from 10-21), and the clock set to 2026-10-22 22:10 UTC. Paths 1–11 use a synthetic low-read day (10-15 replaced by the median day, every hour halved, ≈ 2.3M reads a day):
 
 | Path | Result |
 |---|---|
@@ -146,6 +179,11 @@ Phase C does **not** touch the season rank table (`src_pointssummary`), where th
 | A new approval | Clean apply, same results as the first path |
 | `verify` after all of the above, twice | Read-only, no approval needed; both pass |
 
+| R1: real reads (10-15 in the 7-day window) | Read guard refused (projected 56.7M); 0 D1 calls |
+| R2: `wrangler d1 info` returns 0, then 0 again on the re-read | Sources disagree; refused; 0 D1 calls |
+| R3: `wrangler d1 info` 8% above GraphQL | Refused; 0 D1 calls |
+| R4: a typical day like 10-21, no incident in the window | Read guard refused (≈ 4.78M + 0.62M + 0.12M = 5.52M); 0 D1 calls |
+
 The ledger after the replay held one record per approval, each with its outcomes (`verified`, `rolled_back`, `automatic_rollback`, `stopped`).
 
 ## 7. Commands
@@ -156,7 +194,7 @@ cd ~/Code/MFL/upsmflproduction/.claude/worktrees/1307-dry-run-d0f362
 ```bash
 shasum -a 256 docs/data_fixes/2026-10-21-1307-execution-plan.json
 ```
-The output must be `804907211974c999f44667881c37930c8252fef1e3ca8b4932c9ae99c1355791`.
+The output must be `dfdbd574a8e7b5c0f7dc92100abac70bbb4ee77fd4924ad97fa28aa498263fa5`.
 ```bash
 export PLAN=docs/data_fixes/2026-10-21-1307-execution-plan.json ART=$HOME/.ups_jobs/1307_src_weekly
 ```
@@ -165,7 +203,11 @@ npx wrangler whoami
 ```
 1. **Usage** (control plane only):
    ```bash
-   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py usage --batch-writes 10656 --rollback-reserve 10656
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py usage --batch-writes 10656 --rollback-reserve 10656 --read-reserve 121193
+   ```
+   Read-only consumer gate against the deployed worker (14 bundle GETs, about 6k reads; refuses if today's reads plus 70k would pass 4.5M, or if the sources disagree):
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py safeguard-check --allow-prod-read
    ```
 2. **Preflight** (read-only, any time; saves the preimage):
    ```bash
@@ -201,6 +243,16 @@ Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight fact
 - usage metrics unavailable (GraphQL rate-limits quick repeat calls);
 - an account delta, 12 minutes later, of more than this batch plus 3,000.
 
+## 8a. Consumer gate against the deployed #1372 worker (2026-10-22 10:32 UTC: PASSED)
+- **Sample:** `safeguard-check`'s deterministic 14 players:
+  - the named cases (Royals, McLaughlin, Carter, Jackson, Milano);
+  - the first, middle and last held ID of each field;
+  - the controls Dak, Brissett and Shough;
+  - the first already-visible, not-held ID.
+- **Result:** every 2025 row matched the manifest. Held fields are `null` with exactly the manifest's `rank_pending` fields and reason. Unheld fields equal the stored rank, and no other season carries `rank_pending`.
+- **Players with no weekly rows yet:** 21 of the 487 held players (e.g. 17432) have no 2025 src_weekly rows before 1A. Their bundle carries no stored rank yet (both null), so there is nothing to hold until 1A inserts their rows. `safeguard-check --after-batch` expects the post-1A state.
+- **Static consumers on main:** the same 6 screens plus the API, all covered by `tests/rank_pending_1307.test.mjs`. No new consumer of the bundle ranks.
+
 ## 8. Post-run player-panel verification
 1. **`verify`:** the after-state hash, then the full-season reconciliation. Exactly 1,730 Pts Rk / 1,203 PPG Rk showable, with the 12 hidden player-seasons listed above.
 2. **`panel-check`:** reads the live worker's `/api/player-bundle` for 8 players. Each player's 2025 `career_summary` row must equal the table. A rank PR #1372 holds must come back `null` with `rank_pending` naming exactly that field, which also proves the safeguard is live:
@@ -222,11 +274,11 @@ Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight fact
    - Authenticated FO behavior and real Safari are unverified.
    - 1A's new rows show no weekly Pos Rk in the Game Log until the rank review (§1).
 
-## 9. Approval request: Batch 1A only (draft; posted on #1307 only after #1372 is live and the consumer gates pass against production)
-> **Approve #1307 Batch 1A:** phase B for 2025 Wks 15–17 only, from plan sha256 `804907211974c999f44667881c37930c8252fef1e3ca8b4932c9ae99c1355791` (PR #1363).
+## 9. Approval request: Batch 1A only (DRAFT, not posted; waits for #1354 and every gate)
+> **Approve #1307 Batch 1A:** phase B for 2025 Wks 15–17 only, from plan sha256 `dfdbd574a8e7b5c0f7dc92100abac70bbb4ee77fd4924ad97fa28aa498263fa5` (PR #1363).
 > - **Rows:** insert 2,664 playoff-week score rows that MFL proves (free agent / taxi / IR; 0 NULL statuses). Weekly ranks are NULL; no rank value of any kind is written, and 1C is not included.
 > - **Writes:** **10,656**, plus 10,656 reserved for a same-day rollback. The guard requires usage + forecast + 21,312 ≤ 90,000.
-> - **Reads:** about 44.5k D1 reads, plus about 9.1k only if an auto-rollback runs; 6 MFL GETs; 8 panel GETs.
+> - **Reads:** **121,193** reserved (worst case, verification and rollback included; a clean run reads about 72k). The guard requires account-wide reads today + forecast + 121,193 ≤ 4,500,000, and GraphQL and `wrangler d1 info` must agree within 5%. Also 6 MFL GETs.
 > - **Window:** start 22:05–23:30 UTC on the first night after approval, only if every check passes.
 > - **Effect:**
 >   - 2025 Pts Rk showable goes from 671 to 1,730, and PPG Rk from 384 to 1,203.
