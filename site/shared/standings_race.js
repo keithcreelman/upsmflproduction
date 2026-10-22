@@ -374,6 +374,45 @@
     return out;
   }
 
+  // wildCardMargins(rows) -> { fid: { margin, vsFid, side, protectedByDivision } | null } (Keith 2026-10-22).
+  // A SIGNED distance to the wild-card line, in All-Play wins (ties count half), for EVERY team -- division
+  // winners included, so a seed won on a division title never hides how close the team is to the wild-card line.
+  //   The question for team X: "if X had to earn a wild card, where would it stand?" The pool is every team
+  //   that isn't a division winner, plus X. Two wild cards qualify, ranked by the league ladder (canon F.1:
+  //   All-Play %, then overall win %, then Points For; head-to-head is not used here).
+  //     X qualifies   -> margin = -(X's AP wins - the best team left out)       (negative: ahead by that many)
+  //     X misses      ->  margin = (the last qualifier's AP wins - X's AP wins) (positive: behind by that many)
+  //     0 = level on All-Play wins with the team at the line; side says which side of it the ladder puts X.
+  //   Current regular season only (rows[].regular_season); otherwise every value is null.
+  function wildCardMargins(rows) {
+    var list = (Array.isArray(rows) ? rows : []).filter(isRowObject);
+    var out = {};
+    var info = list.map(function (r) {
+      var rs = r.regular_season;
+      var ap = rs && rs.all_play, recd = rs && rs.record;
+      var w = ap ? strictNum(ap.w) : NaN, t = ap ? strictNum(ap.t) : NaN, n = ap ? strictNum(ap.w) + strictNum(ap.l) + strictNum(ap.t) : NaN;
+      var ok = isFiniteNum(w) && isFiniteNum(t) && isFiniteNum(n) && n > 0;
+      return ok ? { fid: pad4(r.franchise_id), dw: !!r.is_division_leader, apw: w + 0.5 * t, appct: (w + 0.5 * t) / n,
+        ovr: recd && isFiniteNum(strictNum(recd.pct)) ? strictNum(recd.pct) : 0,
+        pf: isFiniteNum(strictNum(rs.points_for)) ? strictNum(rs.points_for) : 0 } : null;
+    });
+    if (!list.length || info.some(function (x) { return !x; })) {
+      list.forEach(function (r) { out[pad4(r.franchise_id)] = null; });
+      return out;
+    }
+    function ladder(a, b) { return (b.appct - a.appct) || (b.ovr - a.ovr) || (b.pf - a.pf) || (a.fid < b.fid ? -1 : 1); }
+    var nonDw = info.filter(function (x) { return !x.dw; });
+    info.forEach(function (x) {
+      var pool = nonDw.filter(function (y) { return y.fid !== x.fid; }).concat([x]).sort(ladder);
+      var i = pool.indexOf(x);
+      if (pool.length < 3) { out[x.fid] = null; return; }
+      var inField = i < 2, other = inField ? pool[2] : pool[1];
+      var m = inField ? -(x.apw - other.apw) : (other.apw - x.apw);
+      out[x.fid] = { margin: round1(m) === 0 ? 0 : round1(m), vsFid: other.fid, side: inField ? 'in' : 'out', protectedByDivision: x.dw };
+    });
+    return out;
+  }
+
   // ── 3. Luck ──────────────────────────────────────────────────────────
   // Exact REGULAR-SEASON-ONLY Overall table for the WHOLE league, derived
   // once from weekly[] and reused by every franchise (mirrors
@@ -1925,6 +1964,58 @@
     }, nulls);
   }
 
+  // e2. scheduleStrength(payload) -> regular season only -> { status, problems, byFranchise: { fid: {
+  //      games, vsLeague, oppStrength, vsLeagueRank, oppStrengthRank } } } (Keith 2026-10-22).
+  //    Two numbers about who a team has played, each an index where 1.00 = league average:
+  //      vsLeague    = mean over your H2H games of (your opponent's score that week / the league's average score that
+  //                    week). What opponents actually put up against you: a high number is a run of opponents' good
+  //                    weeks. Partly schedule, partly luck; it is not proof that the schedule was hard.
+  //      oppStrength = mean over your games of the opponent's scoring index (its score / league average) in its OTHER
+  //                    regular-season weeks -- how good the teams you drew are, leaving out the weeks they played you.
+  //                    This is the schedule-difficulty number (null for an opponent with no other week yet).
+  //    Ranks share ties; 1 = the hardest (highest index).
+  function scheduleStrength(payload) {
+    var nulls = { byFranchise: null };
+    return safeView(function () {
+      var read = readSeasonWeeks(payload, true);
+      var scope = read.regularWeeks;
+      var st = scopeStatus(read, scope);
+      if (st.status === 'preseason') return viewResult(st, { byFranchise: {} });
+      if (st.status === 'ok' && !scope.length) st = { status: 'incomplete', problems: [{ code: 'no_regular_season_weeks' }] };
+      if (st.status !== 'ok') return viewResult(st, nulls);
+      var stats = {}, avg = {};
+      scope.forEach(function (w) {
+        stats[w] = weekStats(read, w);
+        var tot = 0;
+        read.order.forEach(function (f) { tot += stats[w][f].score; });
+        avg[w] = tot / read.order.length;
+      });
+      function idx(f, w) { return avg[w] > 0 ? stats[w][f].score / avg[w] : null; }
+      var out = {}, vsl = {}, str = {};
+      read.order.forEach(function (f) {
+        var g = 0, sumV = 0, nS = 0, sumS = 0;
+        scope.forEach(function (w) {
+          stats[w][f].games.forEach(function (game) {
+            var o = game.opp, v = idx(o, w);
+            if (v == null) return;
+            g++; sumV += v;
+            var oth = 0, k = 0;
+            scope.forEach(function (x) { if (x !== w) { var y = idx(o, x); if (y != null) { oth += y; k++; } } });
+            if (k) { sumS += oth / k; nS++; }
+          });
+        });
+        vsl[f] = g ? Math.round(1000 * sumV / g) / 1000 : null;
+        str[f] = nS ? Math.round(1000 * sumS / nS) / 1000 : null;
+        out[f] = { games: g, vsLeague: vsl[f], oppStrength: str[f], vsLeagueRank: null, oppStrengthRank: null };
+      });
+      read.order.forEach(function (f) {
+        out[f].vsLeagueRank = rankAmong(vsl, f, false);
+        out[f].oppStrengthRank = rankAmong(str, f, false);
+      });
+      return viewResult(st, { byFranchise: out });
+    }, nulls);
+  }
+
   // f. matchupTape(payload, fidA, fidB, extras) → the Tale of the Tape for one playoff or Hawk Tuah Bowl matchup.
   //    Descriptive only: it says which side has been stronger in each category and never predicts a winner.
   //    { status, problems, weeks: { regular: [..], last3: [..] }, a, b, meetings: [{ week, isPlayoff, aScore, bScore,
@@ -2434,6 +2525,7 @@
     // single franchise's division race on demand).
     statusForRow: statusForRow,
     apGamesBack: apGamesBack,
+    wildCardMargins: wildCardMargins,
     apWinsEquiv: apWinsEquiv,
     deriveRegSeasonApTable: deriveRegSeasonApTable,
     resolveApRecordWithTable: resolveApRecordWithTable,
@@ -2473,6 +2565,7 @@
     seasonWeeklyLeaders: seasonWeeklyLeaders,
     teamWeeklyHistory: teamWeeklyHistory,
     scoredFaced: scoredFaced,
+    scheduleStrength: scheduleStrength,
     // Playoff / Hawk Tuah Bowl matchup sheet (descriptive; never a prediction).
     matchupTape: matchupTape,
     ownerSeries: ownerSeries,
