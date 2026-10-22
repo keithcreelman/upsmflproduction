@@ -21,7 +21,7 @@ const SCHEMA = fs.readFileSync(path.join(ROOT, "tests/fixtures/player_weekly_box
 const SRC = fs.readFileSync(path.join(ROOT, "worker/src/index.js"), "utf8");
 await import("./fixtures/register_md_loader.mjs");
 const worker = (await import("../worker/src/index.js")).default;
-const { seasonTeamSnaps, TEAM_SNAPS_TTL_S } = await import("../worker/src/team_snaps_season.js");
+const { seasonTeamSnaps, coversPlayer, TEAM_SNAPS_TTL_S } = await import("../worker/src/team_snaps_season.js");
 const net = [];
 globalThis.fetch = async (u) => { net.push(String(u && u.url || u)); return new Response("offline", { status: 503 }); };
 
@@ -182,6 +182,51 @@ test("failure → original per-player join: the season read fails, or the cached
   cache.o.corrupt = true;                         // the stored body no longer parses
   const c = await view(d1, P.wr[0], { cache });
   t.equal(usedJoin(c), true); t.deepEqual(teamSnapsOf(c), oracle(d1, P.wr[2]));
+});
+
+// Codex #1380 MAT-1: a cached season table that PARSES but is short or malformed (e.g. built mid-refresh)
+// must not blank a player's team snaps. Unless it covers every (week, team) of his snap rows with a
+// well-formed entry, the route runs the original join, and his response stays byte-identical.
+const restore = (cache, fn) => { for (const [url, v] of cache.m) cache.m.set(url, { ...v, body: JSON.stringify(fn(JSON.parse(v.body))) }); };
+for (const [name, fn] of [
+  ["an empty table {}", () => ({})],
+  ["a table missing his week-2 game (2|MIA)", (m) => { delete m["2|MIA"]; return m; }],
+  ["his entry is a string", (m) => ({ ...m, "2|MIA": "x" })],
+  ["his entry has team_off as text", (m) => ({ ...m, "2|MIA": { team_off: "65", team_def: 66 } })],
+  ["his entry lacks team_def", (m) => ({ ...m, "2|MIA": { team_off: 65 } })],
+  ["the table is an array", () => []],
+  ["the table is null", () => null],
+]) {
+  test(`incomplete cached table → original join, same response: ${name}`, async () => {
+    const d1 = world(), cache = new EdgeCache();
+    const expected = await view(d1, P.wr[0]);                      // no edge cache: the original join
+    await view(d1, P.wr[0], { cache });                            // fills the cache with the real table
+    restore(cache, fn);
+    const v = await view(d1, P.wr[0], { cache });
+    t.equal(usedJoin(v), true); t.equal(usedSeason(v), false);     // the short table was read, then refused
+    t.equal(v.body, expected.body);
+    t.deepEqual(teamSnapsOf(v), oracle(d1, P.wr[2]));
+  });
+}
+test("a cached table that covers his games is used even if other teams are missing; a team-less player needs no entry", async () => {
+  const d1 = world(), cache = new EdgeCache();
+  const expected = await view(d1, P.wr[0]);
+  await view(d1, P.wr[0], { cache });
+  restore(cache, (m) => { delete m["2|BUF"]; delete m["3|BUF"]; return m; });   // not his games
+  const v = await view(d1, P.wr[0], { cache });
+  t.equal(usedJoin(v), false); t.equal(v.body, expected.body);
+  restore(cache, () => ({}));
+  const nt = await view(d1, P.nt[0], { cache }), ntLive = await view(d1, P.nt[0]);
+  t.equal(usedJoin(nt), false); t.equal(nt.body, ntLive.body); t.deepEqual(teamSnapsOf(nt), [[1, null, null, null]]);
+});
+test("coversPlayer: object with a well-formed entry for each non-null week|team, numbers or null only", () => {
+  const rows = [{ week: 1, team: "BUF" }, { week: 2, team: "MIA" }, { week: 3, team: null }];
+  t.equal(coversPlayer({ "1|BUF": { team_off: 60, team_def: null }, "2|MIA": { team_off: 65, team_def: 66 } }, rows), true);
+  t.equal(coversPlayer({ "1|BUF": { team_off: 60, team_def: null } }, rows), false);
+  t.equal(coversPlayer({ "1|BUF": { team_off: 60, team_def: null }, "2|MIA": { team_off: Infinity, team_def: 66 } }, rows), false);
+  t.equal(coversPlayer({}, [{ week: 3, team: null }]), true);
+  t.equal(coversPlayer({}, []), true);
+  for (const bad of [null, undefined, [], "x", 5]) t.equal(coversPlayer(bad, rows), false);
 });
 
 test("failure → still answered: the edge store rejects; the next view simply tries again", async () => {
