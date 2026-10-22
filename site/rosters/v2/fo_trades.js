@@ -118,7 +118,7 @@
     var aboveNote = view.measure === "above" ? " Overall Above Replacement can differ between By Position (each starter against his own position’s replacement level) and By Lineup Slot (each Flex or Superflex slot’s eligible-player baseline)." : "";
     return '<p class="fo-ov-sub">' + H.esc(BY_TEXT[view.by] + " " + MEASURE_TEXT[view.measure] + aboveNote) + "</p>" +
       '<div class="fo-table-scroll fo-tf-scroll"><table class="fo-table fo-tf-strength"><thead>' + head + "</thead><tbody>" + body + "</tbody></table></div>" +
-      '<p class="fo-basis">The same numbers as the Overview’s Lineup strength for the same view, for all 12 teams. Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. Tap a column to sort; <b>View</b> opens a team.</p>';
+      '<p class="fo-basis">The same numbers as the Overview’s Lineup strength for the same view, for all 12 teams. Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. Tap a column to sort; <b>View</b> opens a team. On a narrow screen, swipe the table sideways for each position.</p>';
   }
 
   // ── Starter Mix: recorded starts, a separate view ──────────────────

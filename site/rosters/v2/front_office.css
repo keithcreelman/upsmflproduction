@@ -1193,7 +1193,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 @media (max-width: 1100px) { .fo-tf-grid { grid-template-columns: 1fr; } .fo-tf-cols { grid-template-columns: 1fr; } }
 /* Trade finder: the all-team strength table and the team view (Keith 2026-10-22). On a phone the table scrolls inside
    its card with the team column pinned, and the team view stacks to one column. */
-.fo-tf-strength { min-width: 0; }
+/* The shared rule gives a scrolling table 820 px; the team view's small tables fit the phone instead. */
+.fo-table-scroll .fo-tf-pos, .fo-table-scroll .fo-tf-pickcmp { min-width: 0; }
 .fo-tf-strength th, .fo-tf-strength td { white-space: nowrap; }
 .fo-tf-strength .fo-tf-teamcol { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; font-weight: 600; box-shadow: 1px 0 0 var(--border); }
 .fo-tf-strength thead .fo-tf-teamcol { z-index: 2; }
