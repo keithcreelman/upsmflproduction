@@ -88,7 +88,7 @@ async function desktop(query, fetchOverride) {
   return plain(p.html());
 }
 test("desktop Playoff Picture, Week 6: In the hunt 'WC Back' 5 / 10 / 16 / 18 / 21 / 28; Next out names the last wild card, not the division winner", async () => {
-  const h = await desktop("year=2026");
+  const h = await desktop("view=picture&year=2026");
   t.match(h, /<th class="num" scope="col" title="All-Play wins behind the last wild card \(division winners are protected\)">WC Back<\/th>/);
   const hunt = [...h.matchAll(/<tr class="hunt-row[^"]*"[^>]*data-toggle="(\d{4})">([\s\S]*?)<\/tr>/g)].map((m) => [m[1], text([...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => c[1]).pop()).trim()]);
   t.deepEqual(hunt, outside.map((r) => [r.franchise_id, String(apWins(lastWC) - apWins(r))]));
@@ -98,7 +98,7 @@ test("desktop Playoff Picture, Week 6: In the hunt 'WC Back' 5 / 10 / 16 / 18 / 
 });
 test("desktop Full League, Week 6: the 'WC Back' column — — for the six in the field, the last-wild-card gap for the six outside", async () => {
   const h = await desktop("view=league&year=2026");
-  const tbl = /<table><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/.exec(h);
+  const tbl = /<table class="lg-table"><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/.exec(h);
   const heads = [...tbl[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]).trim());
   t.ok(heads.includes("WC Back") && !heads.includes("Back"), heads.join(", "));
   const col = heads.indexOf("WC Back");
@@ -113,7 +113,7 @@ test("desktop: a negative figure from an older worker is never shown (— instea
     const j = await r.json();
     return { ...r, json: async () => ({ ...j, rows: j.rows.map((x) => (x.franchise_id === "0012" ? { ...x, ap_back: -1 } : x)) }) };
   };
-  const h = await desktop("year=2026", fetch);
+  const h = await desktop("view=picture&year=2026", fetch);
   t.ok(!/>-1<|>−1</.test(h), "no negative cell");
   t.match(h, /<b>Next out:<\/b> Hawks\./);
   const hawks = /<tr class="hunt-row[^"]*"[^>]*data-toggle="0012">([\s\S]*?)<\/tr>/.exec(h)[1];
