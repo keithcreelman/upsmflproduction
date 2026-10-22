@@ -71,7 +71,30 @@
     var n = Number(s);
     return isFinite(n) ? n : null;
   }
-  function round1(n) { return Math.round(n * 10) / 10; }
+  // ONE rounding rule for points and PPG, phone and desktop (Keith 2026-10-21):
+  // standard decimal half-up to one place. 116.1 ÷ 6 = 19.35 must read 19.4,
+  // but in binary it is 19.349999…, so Math.round(v * 10) / 10 gave 19.3.
+  // Shifting the decimal point in the number's 12-significant-digit decimal
+  // text removes that binary noise first; halves then round away from zero
+  // (−2.25 → −2.3). round1 → a number, fmt1 → its one-decimal text.
+  function tenths(v) {
+    var a = Math.abs(v);
+    if (!(a >= 1e-6)) return 0;
+    var s = a.toPrecision(12);
+    return Math.round(/e/i.test(s) ? a * 10 : Number(s + "e1"));
+  }
+  function round1(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return 0;
+    var t = tenths(v);
+    return (v < 0 ? -t : t) / 10;
+  }
+  function fmt1(n) {
+    var v = Number(n);
+    if (!isFinite(v)) v = 0;
+    var t = tenths(v);
+    return (v < 0 && t > 0 ? "-" : "") + Math.floor(t / 10) + "." + (t % 10);
+  }
 
   // Mirror of worker deriveCompletedWeekFromLineupResolution. Keep in step.
   function completedWeekFrom(resolution) {
@@ -232,6 +255,8 @@
     build: build,
     completedWeekFrom: completedWeekFrom,
     rankMap: rankMap,
-    weeksLabel: weeksLabel
+    weeksLabel: weeksLabel,
+    round1: round1,
+    fmt1: fmt1
   };
 })();
