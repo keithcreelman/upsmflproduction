@@ -1,7 +1,7 @@
 // Overview cards (#1338): the Trade deadline card states when MFL actually stops trades (MFL's calendar, earliest
 // "No Trades Allowed" event, Eastern time) — never the league calendar's date as if it were MFL's; the Cap card
 // shows player salaries, adjustments, total allocated and cap space with two ledgers; Lineup strength offers four
-// views with Overall, K and P; "Contracts ending this season" is gone.
+// measures (PPG first) and three breakdowns with Overall, K and P; "Contracts ending this season" is gone.
 //   node tests/front_office_overview_cards.test.mjs
 //   FO_OVERVIEW_JS=<path> node tests/front_office_overview_cards.test.mjs   (defect check against another copy)
 import fs from "node:fs";
@@ -50,13 +50,16 @@ test("Cap card: player salaries, adjustments, total allocated, cap space; both l
   t.ok(/led\.capSnapshot\.salaryCap/.test(SRC) && /led\.capSnapshot\.adjTotal/.test(SRC), "each ledger is checked against the cap card");
 });
 
-test("Lineup strength: four views, Overall + K + P, original view first; 'Contracts ending this season' removed", () => {
-  t.ok(/var lsView = "above"/.test(SRC), "the original chart stays the default");
-  t.ok(/LS\.ROWS\.map/.test(SRC) && /data-ls-view/.test(SRC), "rows from lineup_strength (ALL, positions, K, P) and a view control");
+test("Lineup strength: PPG first and the default (Keith 2026-10-21), three breakdowns, Overall + K + P; 'Contracts ending this season' removed", () => {
+  t.ok(/var lsView = "ppg"/.test(SRC), "PPG is the default measure (supersedes Above Replacement)");
+  t.ok(/var lsBy = "position"/.test(SRC), "By Position is the default breakdown");
+  t.ok(/table\.rows\.map/.test(SRC) && /data-ls-view/.test(SRC) && /data-ls-by/.test(SRC), "rows from lineup_strength's table, a measure control and a breakdown control");
+  t.ok(/"Above Replacement"/.test(SRC) && !/"Above repl\."/.test(SRC), "the control spells out Above Replacement");
   t.ok(!/Contracts ending this season/.test(SRC) && !/expiringCard/.test(SRC), "card removed");
   t.ok(/mine\.replacementSlots/.test(SRC) && /fo-ov-rep/.test(SRC), "replacement-filled slots are marked and named");
   t.ok(/mine\.biggestNeed/.test(SRC) && !/TF\.teamSummary\(model, fid\)/.test(SRC), "Biggest need from the same owned-roster table");
-  t.ok(/league <b>median<\/b>/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About explains median (Above repl.) vs mean (Index)");
+  t.ok(/the raw points a week above replacement: Σ\(starter PPG − replacement-level PPG\)/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About: Above Replacement is raw (Keith 2026-10-21); Index is against the mean");
+  t.ok(!/Above Replacement[^"]*median/.test(SRC), "no median-centered value is labeled Above Replacement");
   for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "strengthCard(", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
 });
 
