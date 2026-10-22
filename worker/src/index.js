@@ -21179,10 +21179,11 @@ export default {
           const primaryCmp = canonicalCmp || standingsCmp;
 
           // 1) Identify division winners using the year-specific chain -- the same storedDivisionOrder /api/standings
-          //    uses, so the two routes name the same winners. Regular-season games are read only when the chain has
-          //    an H2H step (2010's PCT,PTS doesn't).
+          //    uses, so the two routes name the same winners. Regular-season games (<= ~472 rows, season index) are read
+          //    only for a recorded season whose chain has an H2H step (2010's PCT,PTS doesn't); the current season's
+          //    leaders are replaced below by seedCurrentSeason, which reads its own games.
           let regGamesRaw = [];
-          if (tokens.includes("H2H")) {
+          if (canonicalFinish && tokens.includes("H2H")) {
             try {
               const g = await db.prepare(
                 "SELECT franchise_id, opponent_franchise_id, team_score, opponent_score, is_playoff FROM src_schedule WHERE season = ? AND is_playoff = 0 AND COALESCE(team_score, 0) > 0"
