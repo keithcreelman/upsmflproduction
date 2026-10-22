@@ -21182,14 +21182,16 @@ export default {
           //    uses, so the two routes name the same winners. Regular-season games (<= ~472 rows, season index) are read
           //    only for a recorded season whose chain has an H2H step (2010's PCT,PTS doesn't); the current season's
           //    leaders are replaced below by seedCurrentSeason, which reads its own games.
+          // A failed read is reported (division_tiebreak_error), never silent: H2H would then be a tie for everyone.
           let regGamesRaw = [];
+          let divisionTiebreakError = null;
           if (canonicalFinish && tokens.includes("H2H")) {
             try {
               const g = await db.prepare(
                 "SELECT franchise_id, opponent_franchise_id, team_score, opponent_score, is_playoff FROM src_schedule WHERE season = ? AND is_playoff = 0 AND COALESCE(team_score, 0) > 0"
               ).bind(yr).all();
               regGamesRaw = g.results || [];
-            } catch (_) {}
+            } catch (e) { divisionTiebreakError = String((e && e.message) || e); }
           }
           const divOrder = storedDivisionOrder(rawRows, regGamesRaw, leagueMeta.standingsSort);
           const divisionWinnerIds = new Set();
@@ -21422,6 +21424,7 @@ export default {
             season_complete: seasonComplete,
             seeding_status: canonicalFinish ? "recorded_final_standings" : (current ? (current.status === "ok" ? "regular_season_ladder" : "unavailable") : "computed"),
             ...(current && current.status !== "ok" ? { seeding_problems: current.problems } : {}),
+            ...(divisionTiebreakError ? { division_tiebreak_error: divisionTiebreakError } : {}),
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
