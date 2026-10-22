@@ -160,6 +160,22 @@
     return e.state === "ok" && lineupSlots() ? "ok" : "error";
   }
 
+  // The Actual starter mix (site/shared/starter_mix.js) over every team's submitted lineups in completed weeks — one
+  // build shared by the Overview card and the Trade finder table. null until MFL's weekly lineups, players list, scores
+  // and lineup settings are all read.
+  var mixMemo = { key: "", mix: null };
+  function starterMix() {
+    var SM = root.UPS_STARTER_MIX, ss = scoring(), d = D(), f = FO(), slots = lineupSlots();
+    var e = d && d.get("weeklyResults"), pe = d && d.get("players");
+    if (!SM || !ss || !slots || !f || !e || e.state !== "ok" || !pe || pe.state !== "ok" || !ss.finalKnown) return null;
+    var key = [e.at, pe.at, ss.finalThrough, f.teams().length].join("|");
+    if (mixMemo.key !== key) {
+      mixMemo = { key: key, mix: SM.build({ weeklyResults: e.data, completedWeek: ss.finalThrough, slots: slots, groupOf: groupOf,
+        fids: f.teams().map(function (t) { return t.fid; }) }) };
+    }
+    return mixMemo.mix;
+  }
+
   // The league trade-fit model on season PPG (n = 0) or last-n-weeks values, rebuilt only when an input changed
   // (scores read, players read, rosters, injury read, MFL's lineup settings) — Overview and Trades share it.
   var modelMemo = {};
@@ -224,23 +240,33 @@
     openDialog("About these numbers", html + (section !== "*" && about["*"] ? '<hr class="fo-about-hr">' + about["*"] : ""));
   }
   // The About dialog's frame (focus trap, Escape, backdrop) for any read-only detail, e.g. the cap ledgers.
-  function openDialog(title, html) {
+  // opts (optional): { variant: "team" (a popup on desktop, a bottom sheet on phones), returnFocus: function () → the
+  // element to focus on close (the opener may have been re-rendered), onClose: function }. Focus stays inside the
+  // dialog (Tab wraps), Escape or the × closes it, and closing returns focus without scrolling the page.
+  function openDialog(title, html, opts) {
     var wrap = document.getElementById("fo-about"), body = document.getElementById("fo-about-body"), head = document.getElementById("fo-about-title");
     if (!wrap || !body) return;
+    opts = opts || {};
     if (head) head.textContent = title || "";
     body.innerHTML = html;
     setupAbout();
+    if (opts.variant) wrap.setAttribute("data-variant", opts.variant); else wrap.removeAttribute("data-variant");
     wrap.hidden = false;
     var panel = wrap.querySelector(".fo-about-panel");
-    var opener = document.activeElement;
-    wrap.__opener = opener;
-    if (panel) panel.focus();
+    if (panel) panel.scrollTop = 0;
+    wrap.__opener = document.activeElement;
+    wrap.__opts = opts;
+    if (panel) { try { panel.focus({ preventScroll: true }); } catch (e) { panel.focus(); } }
   }
   function closeAbout() {
     var wrap = document.getElementById("fo-about");
     if (!wrap || wrap.hidden) return;
     wrap.hidden = true;
-    if (wrap.__opener && wrap.__opener.focus) wrap.__opener.focus();
+    var opts = wrap.__opts || {};
+    wrap.__opts = null;
+    var target = (opts.returnFocus && opts.returnFocus()) || wrap.__opener;
+    if (target && target.focus) { try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); } }
+    if (opts.onClose) opts.onClose();
   }
   function setupAbout() {
     var btn = document.getElementById("fo-about-btn"), wrap = document.getElementById("fo-about");
@@ -255,7 +281,7 @@
       if (wrap.hidden) return;
       if (e.key === "Escape") { closeAbout(); return; }
       if (e.key === "Tab") { // keep focus inside the dialog
-        var f = wrap.querySelectorAll("button, [href], [tabindex]:not([tabindex='-1'])");
+        var f = Array.prototype.filter.call(wrap.querySelectorAll("button, [href], summary, [tabindex]:not([tabindex='-1'])"), function (x) { return x.offsetParent !== null || x === document.activeElement; });
         if (!f.length) return;
         var first = f[0], last = f[f.length - 1];
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -288,7 +314,7 @@
     registerView: registerView,
     esc: esc, pad4: pad4, fmt1: fmt1, signed1: signed1, money: money, clock: clock, dayLabel: dayLabel, asArray: asArray,
     playerIndex: playerIndex, rosterIndex: rosterIndex, teamName: teamName, groupOf: groupOf, displayName: displayName,
-    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf,
+    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf, starterMix: starterMix,
     playerButton: playerButton, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
     setFreshness: setFreshness, loading: loading, banner: banner,
     registerAbout: registerAbout, openAbout: openAbout, openDialog: openDialog, closeAbout: closeAbout, setupAbout: setupAbout

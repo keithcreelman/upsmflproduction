@@ -57,7 +57,8 @@ test("Lineup strength: PPG first and the default (Keith 2026-10-21), three break
   t.ok(/"Above Replacement"/.test(SRC) && !/"Above repl\."/.test(SRC), "the control spells out Above Replacement");
   t.ok(!/Contracts ending this season/.test(SRC) && !/expiringCard/.test(SRC), "card removed");
   t.ok(/mine\.replacementSlots/.test(SRC) && /fo-ov-rep/.test(SRC), "replacement-filled slots are marked and named");
-  t.ok(/mine\.biggestNeed/.test(SRC) && !/TF\.teamSummary\(model, fid\)/.test(SRC), "Biggest need from the same owned-roster table");
+  t.ok(/mine\.biggestGain/.test(SRC) && /TF\.additionDetail\(model, fid, g\)/.test(SRC) && !/TF\.teamSummary\(model, fid\)/.test(SRC), "Biggest lineup gain from the same owned-roster table, with where the addition would start");
+  t.ok(!/Biggest need/.test(SRC), "never labeled a need (Keith 2026-10-22)");
   t.ok(/the raw points a week above replacement: Σ\(starter PPG − replacement-level PPG\)/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About: Above Replacement is raw (Keith 2026-10-21); Index is against the mean");
   t.ok(!/Above Replacement[^"]*median/.test(SRC), "no median-centered value is labeled Above Replacement");
   for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "strengthCard(", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);

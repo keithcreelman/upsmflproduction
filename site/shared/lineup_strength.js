@@ -41,8 +41,10 @@
                the breakdowns when a Flex or Superflex starter's slot baseline
                differs from his position's.
      index     ppg ÷ the 12-team mean ppg × 100 (100 = league average).
-   NEED and the league's typical starter are trade_fit's own (model.teams[].need,
-   model.typical) and always by natural position: that is the trade to make.
+   LINEUP GAIN (trade_fit need: what one typical starter would add) and the
+   league's typical starter are trade_fit's own (model.teams[].need,
+   model.typical), always by natural position. It is a potential gain, not a
+   standing: STANDING is the row's PPG, rank and gap to the league average.
 */
 (function () {
   "use strict";
@@ -106,9 +108,11 @@
         if (s.rep) row[key].replacementStarters += 1;
         row.ALL.above += (s.v || 0) - base;
       });
+      // Lineup gain from one typical starter at each position (trade_fit need). Not a weakness measure — a top-ranked
+      // position can still gain through Flex — so it's named a gain everywhere (Keith 2026-10-22).
       row.need = {};
       POSITIONS.forEach(function (g) { row.need[g] = tm.need && tm.need[g] != null ? tm.need[g] : 0; });
-      row.biggestNeed = POSITIONS.filter(function (g) { return g !== "PK" && g !== "PN" && row.need[g] >= 1; })
+      row.biggestGain = POSITIONS.filter(function (g) { return g !== "PK" && g !== "PN" && row.need[g] >= 1; })
         .sort(function (a, b) { return row.need[b] - row.need[a]; })[0] || "";
       teams[fid] = row;
     });
@@ -150,6 +154,22 @@
       typical: (model && model.typical) || {}, slots: (model && model.slots ? model.slots.length : null), slotSource: (model && model.slotSource) || null };
   }
 
+  // The modeled starters at one natural position, best first: [{pid, v, slot, slotLabel, depth ("RB1", "RB2", or the
+  // flex slot's name), rep}]. Modeled depth from season PPG; MFL records who started, never an RB1/RB2 order.
+  function modeledStarters(model, fid, group) {
+    var slotById = {};
+    ((model && model.slots) || []).forEach(function (s) { slotById[s.id] = s; });
+    var list = ((model.teams[fid] && model.teams[fid].best.starters) || []).filter(function (s) { return s.group === group; })
+      .slice().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
+    var n = 0;
+    return list.map(function (s) {
+      var sl = slotById[s.slot] || {};
+      var fixed = sl && !sl.flex;
+      if (fixed) n += 1;
+      return { pid: s.pid, v: s.v || 0, slot: s.slot, slotLabel: sl.label || s.slot, depth: fixed ? (LABELS[group] || group) + n : (sl.label || s.slot), rep: !!s.rep };
+    });
+  }
+
   // One row of one team in one view → { text, frac (−1…1 for the bar), title }.
   function cell(table, fid, r, view) {
     var c = table.teams[fid] && table.teams[fid][r], L = table.league[r];
@@ -176,7 +196,7 @@
   }
   function clamp(x) { return !isFinite(x) ? 0 : Math.max(-1, Math.min(1, x)); }
 
-  var api = { ROWS: ROWS, POSITIONS: POSITIONS, SLOT_ORDER: SLOT_ORDER, LABELS: LABELS, VIEWS: VIEWS, BREAKDOWNS: BREAKDOWNS, build: build, slotRows: slotRows, cell: cell, ordinal: ordinal, mean: mean, median: median };
+  var api = { ROWS: ROWS, POSITIONS: POSITIONS, SLOT_ORDER: SLOT_ORDER, LABELS: LABELS, VIEWS: VIEWS, BREAKDOWNS: BREAKDOWNS, build: build, slotRows: slotRows, modeledStarters: modeledStarters, cell: cell, ordinal: ordinal, mean: mean, median: median };
   if (typeof window !== "undefined") window.UPS_LINEUP_STRENGTH = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })();
