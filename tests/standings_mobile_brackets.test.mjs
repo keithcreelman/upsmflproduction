@@ -82,7 +82,8 @@ test("UPS Playoffs, projected: rounds stacked top to bottom, byes, seeds, advanc
   t.match(p, /Round 1 Projected 3 HammerTime 🔨 ⏰ advances \(proj\.\) 6 Pure Greatness/);
   t.match(p, /Round 1 Projected 4 Real Deal Creel advances \(proj\.\) 5 CBP/);
   t.match(p, /First-round byes: 1 C-Town Chivalry · 2 Blake Bombers/);
-  t.match(p, /Semifinal Projected 1 C-Town Chivalry advances \(proj\.\) 4 Real Deal Creel winner of 4 v 5 \(projected\)/);
+  t.match(p, /Semifinal Projected 1 C-Town Chivalry advances \(proj\.\) 4 Real Deal Creel lowest seed left after Round 1 \(projected\)/, "round 2 re-seeds: the top seed gets the lowest seed left");
+  t.match(p, /Semifinal Projected 2 Blake Bombers advances \(proj\.\) 3 HammerTime 🔨 ⏰ other Round 1 winner \(projected\)/);
   t.match(p, /5th-place game · Round 1 losers Projected 5 CBP advances \(proj\.\) 6 Pure Greatness Winner 5th \(pick 1\.07\) · loser 6th \(pick 1\.08\)/, "the better seed is listed first");
   t.match(p, /Championship Projected 1 C-Town Chivalry advances \(proj\.\) 2 Blake Bombers Winner 1st \(pick 1\.12\) · loser 2nd \(pick 1\.11\)/);
   t.match(p, /3rd-place game · semifinal losers Projected .* Winner 3rd \(pick 1\.10\) · loser 4th \(pick 1\.09\)/);
