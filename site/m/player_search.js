@@ -311,7 +311,7 @@
     var p = pointsFor(r.pid);
     var rank = p ? '<span class="rk">' + U.escapeHtml(p.rankLabel) + "</span>" : "";
     var ppg = p && p.ppg != null
-      ? '<span class="ppg">' + (Math.round(p.ppg * 10) / 10).toFixed(1) + '<i>PPG</i></span>'
+      ? '<span class="ppg">' + (window.UPS_MOBILE_SEASON_SCORING ? window.UPS_MOBILE_SEASON_SCORING.fmt1(p.ppg) : String(p.ppg)) + '<i>PPG</i></span>'
       : '<span class="ppg none">—</span>';
     return '<button type="button" class="ups-m-psr-row" data-pid="' + U.escapeHtml(r.pid) + '">' +
       '<span class="pos ' + U.escapeHtml(r.group.toLowerCase()) + '">' + U.escapeHtml(r.group) + "</span>" +

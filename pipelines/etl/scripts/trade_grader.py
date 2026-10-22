@@ -33,9 +33,9 @@ from pick_valuation import (
     describe_pick_odds as _describe_pick_odds,
     SeasonState,
     dollars_per_point as _dpp,
-    probability_match as _prob_match,
+    ValuationUnavailable,
 )
-from projection import project_player_ppg as _project_ppg
+import valuation_snapshot as _vs
 
 GAMES_PER_SEASON = 17
 
@@ -173,9 +173,9 @@ def rookie_contract_line(pk: "PickInfo") -> str:
 
 
 def _salary_to_pts(dollars: float) -> float:
-    """Convert dollars to points-equivalent via the league's $/point rate."""
-    dpp = _dpp()
-    return dollars / dpp if dpp > 0 else dollars / 60.0
+    """Convert dollars to points-equivalent via the snapshot's $/point rate
+    (raises ValuationUnavailable if no snapshot is loaded; no default)."""
+    return dollars / _dpp()
 
 
 def _compute_side_value_pts(side: "TradeSide") -> dict:
@@ -236,17 +236,15 @@ def _compute_side_value_pts(side: "TradeSide") -> dict:
 # ── Paths ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
-ARTIFACTS_DIR = ETL_ROOT / "artifacts"
 CONFIG_DIR = ETL_ROOT / "config"
-
-AUCTION_POOL_CSV = ARTIFACTS_DIR / "early_projection_2026_auction_pool_values.csv"
-ROLLOVER_CSV = ARTIFACTS_DIR / "early_projection_2026_contract_rollover.csv"
-TEAM_CAP_CSV = ARTIFACTS_DIR / "early_projection_2026_team_cap.csv"
-TRADE_VALUE_MODEL = Path("/Users/keithcreelman/Documents/New project/site/trade-value/trade_value_model_2026.json")
+# Decision 3 (#1343): the early-projection CSVs, the iCloud trade-value model
+# and projection.py's yoy_signals.db overlay are retired. Every grade-affecting
+# valuation comes from valuation_snapshot (data/valuation/).
 
 # ── MFL API ────────────────────────────────────────────────────────────────
 LEAGUE_ID = "74598"
 MFL_BASE = "https://www48.myfantasyleague.com/2026/export"
+LEAGUE_SEASON = int(MFL_BASE.rstrip("/").split("/")[-2])
 
 
 def mfl_fetch(export_type: str, **params) -> dict:
@@ -270,31 +268,14 @@ class PlayerInfo:
     contract_info: str = ""
     contract_status: str = ""
     contract_year: int = 0
-    normalized_adp: float = 999.0
+    # From the valuation snapshot (decision 3); nothing else sets these.
     expected_ppg: float = 0.0
-    ppg_basis: str = ""            # human label for where expected_ppg came from
-    adp_overall: int = 0           # multi-source consensus overall rank (adp-board)
-    adp_pos_rank: int = 0          # positional rank within pos (adp-board)
-    adp_trend30: int = 0           # 30-day trend (positive = rising)
-    adp_sources: int = 0           # how many sources back the consensus
-    expected_points: float = 0.0
-    estimated_market_value: float = 0.0  # early projection Exp$
-    exp_price: float = 0.0  # trade value model auction_value_50 (the REAL Exp$)
-    ceil_price: float = 0.0  # trade value model auction_value_90
-    trade_value: float = 0.0  # trade value model TV score
-    quality_score: float = 0.0  # trade value model quality
-    surplus_score: float = 0.0  # trade value model surplus
+    ppg_basis: str = ""            # the snapshot's basis text for expected_ppg
     franchise_id: str = ""
     franchise_name: str = ""
-    # Projection overlay (forward-looking, from projection.py)
-    projected_ppg: float = 0.0          # overrides expected_ppg for grade math
+    projected_ppg: float = 0.0
     projection_age: Optional[int] = None
     projection_age_mult: float = 1.0
-    projection_prior_ppg: Optional[float] = None
-    projection_prior_trend: str = ""    # human-readable "18 -> 19 -> 21 PPG"
-    projection_breakout: bool = False   # internal flag, not displayed
-    projection_crash: bool = False      # internal flag, not displayed
-    projection_adp_velocity: Optional[float] = None  # internal only
 
 
 @dataclass
@@ -351,6 +332,17 @@ class TradeAnalysis:
     # Inputs the grade could not trust. Non-empty = the grade is PROVISIONAL and
     # must not be presented as final (Keith 2026-10-20, #1343 decision 2).
     provisional_reasons: list = field(default_factory=list)
+    # A grade-affecting input failed validation (#1343 decision 3). Non-empty =
+    # NO GRADE: no letter or score, no roast-model call, no Discord post.
+    no_grade_reasons: list = field(default_factory=list)
+    valuation_as_of: str = ""          # snapshot as_of and checksum prefix
+    regrade_label: str = ""            # set when the snapshot postdates the trade
+    # Display-only fields left out, with why (they never change the grade).
+    display_notes: list = field(default_factory=list)
+
+    @property
+    def no_grade(self) -> bool:
+        return bool(self.no_grade_reasons)
 
 
 def display_name(mfl_name: str) -> str:
@@ -359,10 +351,6 @@ def display_name(mfl_name: str) -> str:
         parts = mfl_name.split(",", 1)
         return f"{parts[1].strip()} {parts[0].strip()}"
     return mfl_name
-
-
-# ── Pick Value Table ───────────────────────────────────────────────────────
-PICK_VALUES = {1: 25000, 2: 12000, 3: 6000, 4: 3000, 5: 1000}
 
 
 # ── Loaders ────────────────────────────────────────────────────────────────
@@ -404,40 +392,7 @@ def load_rosters() -> dict:
     return out
 
 
-def load_auction_pool() -> dict:
-    """Return {player_id: row_dict} from auction pool CSV."""
-    out = {}
-    if not AUCTION_POOL_CSV.exists():
-        return out
-    with open(AUCTION_POOL_CSV) as f:
-        for row in csv.DictReader(f):
-            out[row["player_id"]] = row
-    return out
-
-
-def load_rollover() -> dict:
-    """Return {player_id: row_dict} from contract rollover CSV."""
-    out = {}
-    if not ROLLOVER_CSV.exists():
-        return out
-    with open(ROLLOVER_CSV) as f:
-        for row in csv.DictReader(f):
-            out[row["player_id"]] = row
-    return out
-
-
-def load_team_caps() -> dict:
-    """Return {franchise_id: row_dict}."""
-    out = {}
-    if not TEAM_CAP_CSV.exists():
-        return out
-    with open(TEAM_CAP_CSV) as f:
-        for row in csv.DictReader(f):
-            out[row["franchise_id"]] = row
-    return out
-
-
-def load_salary_adjustments() -> dict:
+def load_salary_adjustments() -> dict | None:
     """Return {franchise_id: sum_of_adjustments_signed}.
 
     Pulls MFL TYPE=salaryAdjustments. MFL convention: positive amount = adds
@@ -452,7 +407,7 @@ def load_salary_adjustments() -> dict:
     try:
         data = mfl_fetch("salaryAdjustments")
     except Exception:
-        return out
+        return None   # display-only: the caller says so instead of showing $0
     rows = data.get("salaryAdjustments", {}).get("salaryAdjustment", [])
     if isinstance(rows, dict):
         rows = [rows]
@@ -464,20 +419,6 @@ def load_salary_adjustments() -> dict:
             amt = 0
         if fid:
             out[fid] = out.get(fid, 0) + amt
-    return out
-
-
-def load_trade_value_model() -> dict:
-    """Return {player_id: player_dict} from the trade value model JSON."""
-    out = {}
-    if not TRADE_VALUE_MODEL.exists():
-        return out
-    with open(TRADE_VALUE_MODEL) as f:
-        data = json.load(f)
-    for p in data.get("players", []):
-        pid = str(p.get("player_id", ""))
-        if pid:
-            out[pid] = p
     return out
 
 
@@ -510,7 +451,7 @@ def future_pick_info(token: str, franchises: dict, season_state=None) -> "PickIn
         rnd = 1
     proj = _project_future_pick(owner, year_raw, rnd, season_state)
     if not str(token).count("_") >= 3:
-        proj.issues.append(f"future-pick token {token!r} is malformed")
+        proj.blocking.append(f"future-pick token {token!r} is malformed")
     pts = _points_over(proj.dist, rnd)
     slot = proj.slot or max(1, min(12, round(proj.average_slot)))
     return PickInfo(
@@ -586,11 +527,10 @@ def fetch_trades() -> list:
     return [t for t in txns if t.get("type") == "TRADE"]
 
 
-def enrich_player(player: PlayerInfo, rosters: dict, rollover: dict,
-                  auction_pool: dict, franchises: dict,
-                  tv_model: dict = None):
-    """Enrich a PlayerInfo with contract, projection, and Exp$ data."""
-    # Find which franchise has them and get contract info
+def enrich_player(player: PlayerInfo, rosters: dict, franchises: dict, snapshot: dict) -> None:
+    """Contract from MFL rosters; name, position and projected PPG from the
+    valuation snapshot. trade_coverage() has already refused players the
+    snapshot cannot value, so there is nothing to fall back to here."""
     for fid, roster in rosters.items():
         for p in roster:
             if p["id"] == player.player_id:
@@ -601,120 +541,15 @@ def enrich_player(player: PlayerInfo, rosters: dict, rollover: dict,
                 player.franchise_id = fid
                 player.franchise_name = franchises.get(fid, "")
                 break
-
-    # Trade Value Model (PRIMARY source for Exp$)
-    if tv_model:
-        tv = tv_model.get(player.player_id, {})
-        if tv:
-            player.exp_price = float(tv.get("auction_value_50", 0) or 0)
-            player.ceil_price = float(tv.get("auction_value_90", 0) or 0)
-            player.trade_value = float(tv.get("trade_value", 0) or 0)
-            player.quality_score = float(tv.get("quality_score", 0) or 0)
-            player.surplus_score = float(tv.get("surplus_score", 0) or 0)
-            player.normalized_adp = float(tv.get("normalized_adp", 999) or 999)
-            player.expected_ppg = float(tv.get("ppg", 0) or 0)
-
-    # Fallback: rollover data (ADP, expected points)
-    if player.exp_price == 0:
-        rv = rollover.get(player.player_id, {})
-        if rv:
-            player.normalized_adp = float(rv.get("normalized_adp", 999) or 999)
-            player.expected_ppg = float(rv.get("expected_reg_ppg", 0) or 0)
-            player.expected_points = float(rv.get("expected_reg_points", 0) or 0)
-
-        # Auction pool Exp$ (fallback if not in trade value model)
-        ap = auction_pool.get(player.player_id, {})
-        if ap:
-            player.estimated_market_value = float(ap.get("projected_perceived_value", 0) or 0)
-
-    # Forward-looking projection overlay: weighted 3yr PPG x age-position curve.
-    # Overrides the model's ppg for grade math if we have reliable history.
-    current_adp = player.normalized_adp if player.normalized_adp and player.normalized_adp < 900 else None
-    pr = _project_ppg(
-        player.player_id, player.position,
-        current_year=2026,
-        current_adp=current_adp,
-        fallback_ppg=player.expected_ppg or None,
-    )
-    proj = pr.get("projection_ppg")
-    comp = pr["components"]
-    sig = pr["signals"]
-    if proj is not None:
-        player.projected_ppg = proj
-        player.projection_age = comp.get("age")
-        player.projection_age_mult = comp.get("age_multiplier", 1.0)
-        player.projection_prior_ppg = comp.get("weighted_prior_ppg")
-        # Human-readable trend from recent seasons
-        trend_parts = comp.get("prior_components", [])
-        if trend_parts:
-            player.projection_prior_trend = " -> ".join(f"{p:.1f}" for _, p, _ in reversed(trend_parts))
-        player.projection_breakout = sig.get("breakout_candidate", False)
-        player.projection_crash = sig.get("crash_candidate", False)
-        player.projection_adp_velocity = sig.get("adp_velocity")
-        # Override the metric used in grade math with the blended projection.
-        player.expected_ppg = proj
-
-
-# ── Grading ────────────────────────────────────────────────────────────────
-#
-# The grading model uses "net asset value" (NAV) which accounts for both
-# the production value of a player AND the salary cost they carry.
-#
-# For a player: NAV = production_value - salary_burden
-#   - production_value = Exp$ from auction model (what they'd cost at auction)
-#                        or ADP-derived proxy if not in auction pool
-#   - salary_burden    = actual salary they carry on the receiving team's cap
-#
-# For picks: NAV = estimated dynasty pick value (pure asset, no salary cost)
-# For salary (BB): NAV = face value (cap relief / cap cost)
-#
-# A team that trades 2 picks ($37K value) for a player whose production
-# is worth $31K Exp$ but carries a $67K salary is LOSING value:
-#   Received: $31K production - $67K salary = -$36K NAV
-#   Gave up:  $37K in picks
-#   Net: -$73K
-
-def estimate_production_value(player: PlayerInfo, auction_pool: dict = None) -> float:
-    """Estimate what a player's production would cost at auction (Exp$).
-
-    Uses the trade value model's auction_value_50 as the primary source.
-    Falls back to early projection pool values or ADP interpolation.
-    """
-    # Primary: trade value model Exp$ (auction_value_50)
-    if player.exp_price > 0:
-        return player.exp_price
-
-    # Fallback: early projection auction pool value
-    if player.estimated_market_value > 0:
-        return player.estimated_market_value
-
-    # Final fallback
-    return max(player.salary, 1000)
-
-
-def nav_player(player: PlayerInfo, auction_pool: dict = None) -> float:
-    """Net Asset Value: production value minus salary burden."""
-    prod = estimate_production_value(player, auction_pool)
-    return prod - player.salary
-
-
-def nav_side(players: list, picks: list, salary_bb: int,
-             auction_pool: dict = None) -> float:
-    """Total NAV for one side of a trade (what you RECEIVED)."""
-    total = sum(nav_player(p, auction_pool) for p in players)
-    total += sum(pk.estimated_value for pk in picks)
-    total += salary_bb  # BB received = cap relief = positive
-    return total
-
-
-def nav_given(players: list, picks: list, salary_bb: int,
-              auction_pool: dict = None) -> float:
-    """Total value of what you GAVE UP."""
-    # Players you gave up: you lose their production but free their salary
-    total = sum(estimate_production_value(p, auction_pool) for p in players)
-    total += sum(pk.estimated_value for pk in picks)
-    total += salary_bb
-    return total
+    row = snapshot["players"][str(player.player_id)]
+    player.position = row["pos"]
+    if row.get("name") and (not player.name or player.name.startswith("ID:")):
+        player.name = row["name"]
+    player.expected_ppg = float(row["ppg"] or 0.0)
+    player.projected_ppg = player.expected_ppg
+    player.ppg_basis = row.get("basis_text") or row.get("basis", "")
+    player.projection_age = row.get("age")
+    player.projection_age_mult = row.get("age_mult", 1.0)
 
 
 def compute_grade(score: float) -> str:
@@ -739,49 +574,6 @@ def compute_grade(score: float) -> str:
 
 
 # ── Auction Pool Comparables ──────────────────────────────────────────────
-
-def find_comparables(player: PlayerInfo, auction_pool: dict,
-                     players_map: dict, tv_model: dict = None) -> list:
-    """Find free-agent auction pool players at the same position, sorted by Exp$.
-
-    Uses the trade value model as primary source for Exp$ values.
-    """
-    comps = []
-
-    if tv_model:
-        # Use trade value model for richer data
-        for pid, tv in tv_model.items():
-            if (tv.get("position") == player.position and
-                    tv.get("roster_status") == "free_agent" and
-                    float(tv.get("auction_value_50", 0) or 0) > 0):
-                comps.append({
-                    "name": tv.get("player_name", "Unknown"),
-                    "team": tv.get("nfl_team", ""),
-                    "exp_price": float(tv.get("auction_value_50", 0) or 0),
-                    "ceil_price": float(tv.get("auction_value_90", 0) or 0),
-                    "exp_ppg": float(tv.get("ppg", 0) or 0),
-                    "adp": float(tv.get("normalized_adp", 999) or 999),
-                    "trade_value": float(tv.get("trade_value", 0) or 0),
-                    "quality": float(tv.get("quality_score", 0) or 0),
-                })
-    else:
-        # Fallback to early projection auction pool
-        for pid, row in auction_pool.items():
-            if row["position"] == player.position:
-                pinfo = players_map.get(pid, {})
-                comps.append({
-                    "name": row.get("player_name", pinfo.get("name", "Unknown")),
-                    "team": row.get("nfl_team", ""),
-                    "exp_price": float(row.get("projected_perceived_value", 0) or 0),
-                    "exp_ppg": float(row.get("expected_reg_ppg", 0) or 0),
-                    "adp": float(row.get("normalized_adp", 999) or 999),
-                })
-
-    comps.sort(key=lambda x: -x["exp_price"])
-    return comps[:8]
-
-
-# ── Extension Calculator ──────────────────────────────────────────────────
 
 def calculate_extension(player: PlayerInfo, years: int = 2) -> dict:
     """Calculate extension terms per league rules (R-9.4)."""
@@ -823,7 +615,7 @@ def calculate_extension(player: PlayerInfo, years: int = 2) -> dict:
 
 # ── Discord Formatter ─────────────────────────────────────────────────────
 
-def format_discord_report(analysis: TradeAnalysis, comparables: dict,
+def format_discord_report(analysis: TradeAnalysis, comparables: dict = None,
                           extension_info: dict = None,
                           rosters: dict = None,
                           players_map: dict = None,
@@ -846,6 +638,12 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
     ln()
     ln(f"TRADE: {a.franchise_name} <-> {b.franchise_name}")
     ln(f"DATE: April 2026 (Pre-Auction Window)")
+    if analysis.valuation_as_of:
+        ln(f"VALUATIONS: repo valuation snapshot as of {analysis.valuation_as_of}")
+    if analysis.regrade_label:
+        ln(analysis.regrade_label)
+    for note in analysis.display_notes:
+        ln(f"NOTE: {note}")
     ln()
 
     # ── What each side gave up ─────────────────────────────────────────
@@ -876,7 +674,7 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             ln("==========================================================")
             ln(f"  Contract: {p.contract_info}")
             ln(f"  Current Salary: ${p.salary:,}")
-            ln(f"  ADP: {p.normalized_adp:.1f} | Exp PPG: {p.expected_ppg:.1f}")
+            ln(f"  Projected PPG: {p.expected_ppg:.1f} ({p.ppg_basis})")
             ln()
 
             # Extension projection if available
@@ -893,24 +691,8 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
                 ln()
     ln()
 
-    # ── Auction Pool Reality Check ─────────────────────────────────────
-    for p in all_players:
-        if p.position in comparables and p.salary > 0:
-            comps = comparables[p.position]
-            ln("==========================================================")
-            ln(f"  AUCTION POOL REALITY CHECK - {p.position}")
-            ln("==========================================================")
-            ln()
-            ln(f"  Available at auction for $0 in picks:")
-            ln(f"  {'Player':<25} {'Price':>10} {'PPG':>8} {'vs ' + display_name(p.name).split()[0]:>12}")
-            ln(f"  {'─'*25} {'─'*10} {'─'*8} {'─'*12}")
-            for c in comps[:6]:
-                delta = c["exp_ppg"] - p.expected_ppg
-                sign = "+" if delta > 0 else ""
-                ln(f"  {c['name']:<25} ${c['exp_price']:>9,.0f} {c['exp_ppg']:>8.1f} {sign}{delta:>10.1f}")
-            ln()
-            ln(f"  {display_name(p.name):<25} ${p.salary:>9,} {p.expected_ppg:>8.1f}    <-- TRADE")
-            ln()
+    ln("  Auction-price comparables: not in valuation snapshot v1 (decision 3),")
+    ln("  so none are shown. They never affected the grade.")
     ln()
 
     # ── Grades & Roasts ────────────────────────────────────────────────
@@ -984,11 +766,6 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             odds = f"\n        Bracket odds: {pk.odds_text}" if pk.odds_text else ""
             base = (f"      {pick_label(pk)} pick — est. {pk.expected_points:.0f} pts / 3yr "
                     f"(~{per_game:.1f} PPG avg){odds}{salary}")
-            if compare_pts and pk.predicted_slot and not pk.slot_is_projected:
-                label = f"{pk.round}.{pk.predicted_slot:02d}"
-                p = _prob_match(label, compare_pts)
-                if p > 0:
-                    return base + f"\n        -> {p:.0%} chance of matching this trade's player production"
             return base
 
         # Probability threshold: what's the opposing player asking the pick to match?
@@ -1000,8 +777,6 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             proj_note = ""
             if p.projected_ppg:
                 proj_note = f" | proj {p.projected_ppg:.1f} PPG"
-                if p.projection_prior_trend:
-                    proj_note += f" (prior: {p.projection_prior_trend})"
                 if p.projection_age and p.projection_age_mult != 1.0:
                     tag = "age-decline" if p.projection_age_mult < 1.0 else "young"
                     proj_note += f" [{tag} x{p.projection_age_mult:.2f}]"
@@ -1016,8 +791,6 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             proj_note = ""
             if p.projected_ppg:
                 proj_note = f" | proj {p.projected_ppg:.1f} PPG"
-                if p.projection_prior_trend:
-                    proj_note += f" (prior: {p.projection_prior_trend})"
                 if p.projection_age and p.projection_age_mult != 1.0:
                     tag = "age-decline" if p.projection_age_mult < 1.0 else "young"
                     proj_note += f" [{tag} x{p.projection_age_mult:.2f}]"
@@ -1087,18 +860,7 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             pick_descs = []
             for pk in side.picks_received:
                 per_game = (pk.expected_points / 3) / GAMES_PER_SEASON
-                # Probability of matching the opposing player (if any)
-                match_note = ""
-                if side.players_given and pk.predicted_slot and not pk.slot_is_projected:
-                    thr = max(
-                        (p.expected_ppg or 0) * GAMES_PER_SEASON * 3
-                        for p in side.players_given)
-                    label_str = f"{pk.round}.{pk.predicted_slot:02d}"
-                    prob = _prob_match(label_str, thr)
-                    if prob > 0:
-                        target_ppg = max(p.expected_ppg for p in side.players_given)
-                        match_note = f", {prob:.0%} chance to match {target_ppg:.1f} PPG"
-                pick_descs.append(f"{pick_label(pk)} pick (~{per_game:.1f} PPG avg{match_note})")
+                pick_descs.append(f"{pick_label(pk)} pick (~{per_game:.1f} PPG avg)")
             drivers.append((pick_pts,
                             f"+{pick_pts:>4.0f} pts  Picks: {'; '.join(pick_descs)}"))
         if v.get("salary_freed", 0) > 0:
@@ -1143,24 +905,6 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
             ln(f"      {desc}")
         ln()
 
-    # Market context — auction alternatives for traded players
-    if comparables:
-        ln("  MARKET CONTEXT:")
-        for side in (a, b):
-            for p in side.players_given:
-                pos_comps = comparables.get(p.position, [])
-                if not pos_comps:
-                    continue
-                better = [c for c in pos_comps if c.get("exp_ppg", 0) > p.expected_ppg]
-                if better:
-                    n = len(better)
-                    cheapest = min(better, key=lambda c: c.get("exp_price", 9e9))
-                    priciest = max(better, key=lambda c: c.get("exp_price", 0))
-                    ln(f"    {display_name(p.name)} ({p.position}, {p.expected_ppg:.1f} PPG) — "
-                       f"{n} FAs at auction with higher PPG (${cheapest['exp_price']:,.0f}-"
-                       f"${priciest['exp_price']:,.0f} range)")
-        ln()
-
     ln("==========================================================")
     ln("  UPS Analytics | League 74598")
     ln("==========================================================")
@@ -1171,8 +915,8 @@ def format_discord_report(analysis: TradeAnalysis, comparables: dict,
 
 # ── Roast Generator ───────────────────────────────────────────────────────
 
-def generate_roast_context(analysis: TradeAnalysis, comparables: dict,
-                           extension_info: dict) -> str:
+def generate_roast_context(analysis: TradeAnalysis, comparables: dict = None,
+                           extension_info: dict = None) -> str:
     """Build context string for Claude API roast generation."""
     a = analysis.side_a
     b = analysis.side_b
@@ -1195,16 +939,12 @@ def generate_roast_context(analysis: TradeAnalysis, comparables: dict,
         ctx.append("PROVISIONAL, not final: " + "; ".join(analysis.provisional_reasons))
 
     ctx.append(f"\n=== KEY NUMBERS ===")
+    extension_info = extension_info or {}
     for p in b.players_given:
         if p.player_id in extension_info:
             ext = extension_info[p.player_id]
             ctx.append(f"{p.name}: ${p.salary:,}/yr, {p.expected_ppg:.1f} PPG, "
                        f"extends to ${ext['total_commitment']:,} over {ext['total_years']}yr")
-        if p.position in comparables:
-            best = comparables[p.position][0] if comparables[p.position] else None
-            if best:
-                ctx.append(f"Best auction alternative: {best['name']} at "
-                           f"${best['exp_price']:,.0f} auction price, {best['exp_ppg']:.1f} PPG")
 
     ctx.append(f"\n=== ROSTER CONTEXT ===")
     ctx.append(f"{a.franchise_name}: Grade {a.grade}, cap ${a.cap_space:,} remaining")
@@ -1507,7 +1247,8 @@ def load_season_state(trade_ts: int, now: float | None = None) -> "SeasonState":
         return SeasonState(season, "offseason", as_of=str(int(now)))
     if trade_ts and now - int(trade_ts) > STANDINGS_MAX_LAG_SECONDS:
         hours = (now - int(trade_ts)) / 3600
-        return SeasonState(season, "unavailable",
+        # weeks_completed still tells the snapshot freshness check what is complete now.
+        return SeasonState(season, "unavailable", weeks_completed=weeks,
                            reason=(f"{season} standings were read {hours:.0f}h after the trade "
                                    f"and may include later weeks"))
     return SeasonState(season, "in_season", weeks_completed=weeks,
@@ -1568,66 +1309,113 @@ def grade_sides(side_a: "TradeSide", side_b: "TradeSide") -> None:
     side_b.grade = compute_grade(side_b.grade_score)
 
 
-def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
-                  rosters: dict, rollover: dict, auction_pool: dict,
-                  team_caps: dict, future_picks: dict,
-                  tv_model: dict = None, season_state=None) -> TradeAnalysis:
-    """Full analysis of a single trade transaction.
+DISPLAY_NOTES = (
+    "Auction-price estimates, free-agent comparables and team tiers are not in valuation "
+    "snapshot v1, so they are omitted. They never affected the grade.",
+    "ADP is not in valuation snapshot v1 and is omitted (rookies' PPG basis names their ADP rank).",
+)
 
-    season_state: the current season's standings as of the trade. When omitted
-    they are read from MFL now (see load_season_state).
+
+def _pick_failures(picks) -> list:
+    out = []
+    for pk in picks:
+        if pk.projection is not None:
+            out += [f"{pk.year or '?'} round {pk.round} pick ({pk.original_owner or 'unknown'}): {b}"
+                    for b in pk.projection.blocking]
+        elif not (1 <= pk.round <= 6 and 1 <= (pk.predicted_slot or 0) <= 12):
+            out.append(f"current-year pick round {pk.round} slot {pk.predicted_slot} is not a draft slot")
+    return out
+
+
+def no_grade_report(analysis: "TradeAnalysis") -> str:
+    """The owner-facing NO GRADE text ("" when the trade can be graded)."""
+    if not analysis.no_grade:
+        return ""
+    a, b = analysis.side_a, analysis.side_b
+    label = f"Trade {analysis.timestamp}: {a.franchise_name} <-> {b.franchise_name}"
+    return _vs.no_grade_message(analysis.no_grade_reasons, label)
+
+
+def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters: dict,
+                  *, season_state=None, snapshot=None, now: float | None = None) -> TradeAnalysis:
+    """Full analysis of a single trade transaction, or NO GRADE.
+
+    Grades only on the validated valuation snapshot (decision 3). Any failed
+    grade-affecting input (snapshot, freshness, checksums, coverage of a traded
+    player or pick, current-season standings a pick needs) returns an analysis
+    with no_grade_reasons and no letters or scores.
+
+    season_state: this season's standings as of the trade (read from MFL now
+    when omitted). snapshot: an already-loaded snapshot (replays and tests); it
+    is validated all the same. now: grading time (freshness).
     """
-
+    import time as _time
+    now = _time.time() if now is None else now
     fid_a = trade_txn["franchise"]
     fid_b = trade_txn["franchise2"]
     trade_ts = int(trade_txn.get("timestamp", 0) or 0)
-    if season_state is None and any(
-            tok.strip().startswith("FP_")
-            for key in ("franchise1_gave_up", "franchise2_gave_up")
-            for tok in (trade_txn.get(key) or "").split(",")):
-        season_state = load_season_state(trade_ts)
+    side_a = TradeSide(franchise_id=fid_a, franchise_name=franchises.get(fid_a, f"Franchise {fid_a}"))
+    side_b = TradeSide(franchise_id=fid_b, franchise_name=franchises.get(fid_b, f"Franchise {fid_b}"))
+    base = dict(timestamp=trade_ts, comments=trade_txn.get("comments", ""), side_a=side_a, side_b=side_b)
 
-    # Parse assets
+    if season_state is None:
+        season_state = load_season_state(trade_ts, now=now)
+    live_weeks = season_state.weeks_completed if season_state.status == "in_season" else None
+    if season_state.status == "unavailable" and season_state.weeks_completed:
+        live_weeks = season_state.weeks_completed
+    if snapshot is None:
+        snapshot, failures = _vs.load_for_grading(now=now, league_season=LEAGUE_SEASON,
+                                                  live_weeks_completed=live_weeks)
+    else:
+        failures = _vs.validate_snapshot(snapshot, now=now, league_season=LEAGUE_SEASON,
+                                         live_weeks_completed=live_weeks)
+        if failures:
+            from pick_valuation import clear_valuation
+            clear_valuation()
+        else:
+            from pick_valuation import use_snapshot
+            use_snapshot(snapshot)
+    if not failures and season_state.status == "unavailable" and live_weeks is None:
+        failures = [_vs.Failure("current-season standings",
+                                f"{season_state.reason or 'unavailable'}, so it cannot be confirmed that the "
+                                f"valuation snapshot covers the most recently completed week")]
+        from pick_valuation import clear_valuation
+        clear_valuation()
+    if failures:
+        return TradeAnalysis(**base, no_grade_reasons=[str(f) for f in failures])
+
     a_gave_players, a_gave_picks, a_gave_sal = parse_asset_string(
         trade_txn.get("franchise1_gave_up", ""), players_map, franchises, season_state)
     b_gave_players, b_gave_picks, b_gave_sal = parse_asset_string(
         trade_txn.get("franchise2_gave_up", ""), players_map, franchises, season_state)
+    reasons = [str(f) for f in _vs.trade_coverage(
+        snapshot, [p.player_id for p in a_gave_players + b_gave_players])]
+    reasons += _pick_failures(a_gave_picks + b_gave_picks)
+    side_a.players_given, side_a.picks_given, side_a.salary_given = a_gave_players, a_gave_picks, a_gave_sal
+    side_a.players_received, side_a.picks_received, side_a.salary_received = b_gave_players, b_gave_picks, b_gave_sal
+    side_b.players_given, side_b.picks_given, side_b.salary_given = b_gave_players, b_gave_picks, b_gave_sal
+    side_b.players_received, side_b.picks_received, side_b.salary_received = a_gave_players, a_gave_picks, a_gave_sal
+    if reasons:
+        from pick_valuation import clear_valuation
+        clear_valuation()          # NO GRADE leaves nothing loaded for a later caller
+        return TradeAnalysis(**base, no_grade_reasons=reasons)
 
-    # Enrich players
     for p in a_gave_players + b_gave_players:
-        enrich_player(p, rosters, rollover, auction_pool, franchises, tv_model)
+        enrich_player(p, rosters, franchises, snapshot)
 
-    # Build sides
-    side_a = TradeSide(
-        franchise_id=fid_a,
-        franchise_name=franchises.get(fid_a, f"Franchise {fid_a}"),
-        players_given=a_gave_players,
-        picks_given=a_gave_picks,
-        salary_given=a_gave_sal,
-        players_received=b_gave_players,
-        picks_received=b_gave_picks,
-        salary_received=b_gave_sal,
-    )
-    side_b = TradeSide(
-        franchise_id=fid_b,
-        franchise_name=franchises.get(fid_b, f"Franchise {fid_b}"),
-        players_given=b_gave_players,
-        picks_given=b_gave_picks,
-        salary_given=b_gave_sal,
-        players_received=a_gave_players,
-        picks_received=a_gave_picks,
-        salary_received=a_gave_sal,
-    )
-
-    # Cap context — includes MFL salary adjustments so cap_space matches MFL's
-    # league cap report (Keith 2026-05-22: trade-roast cap was showing $17K
-    # instead of $33K for Brian Cross because adjustments weren't included).
+    notes = list(DISPLAY_NOTES)
+    notes += [n for pk in a_gave_picks + b_gave_picks if pk.projection is not None for n in pk.projection.notes]
+    # Cap context (display): MFL salary adjustments so cap space matches MFL's
+    # league cap report (Keith 2026-05-22). A failed read is said, not zeroed.
     adjustments = load_salary_adjustments()
+    if adjustments is None:
+        notes.append("Cap space excludes salary adjustments: MFL salaryAdjustments could not be read.")
+        adjustments = {}
     for side in (side_a, side_b):
         if side.franchise_id in rosters:
             roster = rosters[side.franchise_id]
             total_sal = sum(_safe_int(p.get("salary", 0)) for p in roster
-                           if p.get("status") != "TAXI_SQUAD")
+                            if p.get("status") != "TAXI_SQUAD")
             adj = adjustments.get(side.franchise_id, 0)
             side.total_roster_salary = total_sal
             side.cap_adjustments = adj
@@ -1635,41 +1423,13 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict,
             # negative = subtracts from salary (adds cap).
             side.cap_space = 300000 - total_sal - adj
 
-    # Backfill expected_ppg from last season's actual MFL PPG for any traded
-    # player the projection artifacts missed — 0.0 PPG in the grade math values
-    # a real player's production at zero and blows out both grades.
-    _all_traded = side_a.players_given + side_b.players_given
-    if _all_traded:
-        _adp = fetch_adp_board()
-        for p in _all_traded:
-            a_ = _adp.get(str(p.player_id))
-            if a_:
-                p.adp_overall = a_["overall"]; p.adp_pos_rank = a_["pos_rank"]
-                p.adp_trend30 = a_["trend30"]; p.adp_sources = a_["sources"]
-        if any((p.expected_ppg or 0) == 0 for p in _all_traded):
-            _blend = fetch_weighted_ppg(_all_traded)
-            for p in _all_traded:
-                if (p.expected_ppg or 0) == 0:
-                    b_ = _blend.get(str(p.player_id))
-                    if b_:
-                        p.expected_ppg = b_["ppg"]
-                        p.ppg_basis = b_["basis"]
-                    elif p.adp_pos_rank:
-                        # No NFL seasons at all (rookie) — value him at what the
-                        # market's rank implies, never at a punitive 0.
-                        ppg_, basis_ = adp_implied_ppg(p.position, p.adp_pos_rank)
-                        if ppg_:
-                            p.expected_ppg = ppg_
-                            p.ppg_basis = basis_
-
     grade_sides(side_a, side_b)
-
     return TradeAnalysis(
-        timestamp=int(trade_txn.get("timestamp", 0)),
-        comments=trade_txn.get("comments", ""),
-        side_a=side_a,
-        side_b=side_b,
+        **base,
         provisional_reasons=provisional_reasons(side_a, side_b),
+        valuation_as_of=f"{snapshot['as_of']} ({snapshot['content_sha256'][:12]})",
+        regrade_label=_vs.regrade_label(snapshot, trade_ts),
+        display_notes=notes,
     )
 
 
@@ -1689,11 +1449,6 @@ def main():
     franchises = load_franchises()
     players_map = load_players_map()
     rosters = load_rosters()
-    rollover = load_rollover()
-    auction_pool = load_auction_pool()
-    team_caps = load_team_caps()
-    future_picks = load_future_picks()
-    tv_model = load_trade_value_model()
 
     trades = fetch_trades()
 
@@ -1718,18 +1473,11 @@ def main():
             print("No trades found", file=sys.stderr)
             sys.exit(1)
 
-    # Analyze
-    analysis = analyze_trade(trade, players_map, franchises, rosters,
-                             rollover, auction_pool, team_caps, future_picks,
-                             tv_model)
-
-    # Find comparables for all traded players
-    comparables = {}
+    analysis = analyze_trade(trade, players_map, franchises, rosters)
+    if analysis.no_grade:
+        print(no_grade_report(analysis))
+        sys.exit(2)
     all_players = analysis.side_a.players_given + analysis.side_b.players_given
-    for p in all_players:
-        if p.position and p.position not in comparables:
-            comparables[p.position] = find_comparables(
-                p, auction_pool, players_map, tv_model)
 
     # Extension projections
     extension_info = {}
@@ -1745,13 +1493,9 @@ def main():
                       file=sys.stderr)
 
     if args.roast_context:
-        print(generate_roast_context(analysis, comparables, extension_info))
+        print(generate_roast_context(analysis, None, extension_info))
     else:
-        report = format_discord_report(
-            analysis, comparables, extension_info,
-            rosters, players_map, franchises, auction_pool,
-        )
-        print(report)
+        print(format_discord_report(analysis, None, extension_info, rosters, players_map, franchises))
 
 
 if __name__ == "__main__":

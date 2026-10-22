@@ -1,0 +1,1102 @@
+{
+ "nar:ap6_jmar": {
+  "shown": "0–11",
+  "source": "MFL weeklyResults W6 (committed: wr6.json) (each score against the other eleven)",
+  "value": "0–11"
+ },
+ "nar:ap6_klin": {
+  "shown": "5–6",
+  "source": "MFL weeklyResults W6 (committed: wr6.json) (each score against the other eleven)",
+  "value": "5–6"
+ },
+ "nar:ap6_mann": {
+  "shown": "6–5",
+  "source": "MFL weeklyResults W6 (committed: wr6.json) (each score against the other eleven)",
+  "value": "6–5"
+ },
+ "nar:ap_bear": {
+  "shown": "56–10",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "56–10"
+ },
+ "nar:ap_blak": {
+  "shown": "44–22",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "44–22"
+ },
+ "nar:ap_emar": {
+  "shown": "46–20",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "46–20"
+ },
+ "nar:ap_jmar": {
+  "shown": "11–55",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "11–55"
+ },
+ "nar:ap_keit": {
+  "shown": "33–33",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "33–33"
+ },
+ "nar:ap_klin": {
+  "shown": "34–32",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "34–32"
+ },
+ "nar:ap_mann": {
+  "shown": "29–37",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "29–37"
+ },
+ "nar:bear_avg": {
+  "shown": "260.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): points for / 6",
+  "value": "260.8"
+ },
+ "nar:bear_avg_gap": {
+  "shown": "24.0",
+  "source": "derived: Bear's Weeks 1-6 average minus the next best",
+  "value": "24.0"
+ },
+ "nar:bear_duo": {
+  "shown": "59.1",
+  "source": "derived: McCaffrey + Smith-Njigba, Week 6",
+  "value": "59.1"
+ },
+ "nar:bear_w26": {
+  "shown": "53–2",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): Weeks 2-6 all-play",
+  "value": "53–2"
+ },
+ "nar:bear_w36": {
+  "shown": "43–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): Weeks 3-6 all-play",
+  "value": "43–1"
+ },
+ "nar:bear_w46": {
+  "shown": "32–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): Weeks 4-6 all-play (the Heat Check window)",
+  "value": "32–1"
+ },
+ "nar:ber": {
+  "shown": "26.7",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "26.7"
+ },
+ "nar:blak_avg": {
+  "shown": "236.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head): points for / 6",
+  "value": "236.8"
+ },
+ "nar:blak_swap_gain": {
+  "shown": "30.6",
+  "source": "derived: Smith + Shaheed minus Boston + McLaurin, Week 6",
+  "value": "30.6"
+ },
+ "nar:blake_cfpo": {
+  "shown": "89.3%",
+  "source": "cf_sim.json: same simulation, inputs and seed, McLaurin listed healthy",
+  "value": "89.3%"
+ },
+ "nar:blake_lu": {
+  "shown": "277.6",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "277.6"
+ },
+ "nar:blake_po_gap": {
+  "shown": "1.2",
+  "source": "cf_sim.json minus the Playoff Picture",
+  "value": "1.2"
+ },
+ "nar:blake_wk7": {
+  "shown": "247.6",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "247.6"
+ },
+ "nar:blake_wk7gap": {
+  "shown": "30.0",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "30.0"
+ },
+ "nar:blw_blak": {
+  "shown": "4 of 7",
+  "source": "Heat Check table: losses the best lineup would have won, of all losses",
+  "value": "4 of 7"
+ },
+ "nar:bw1_ap": {
+  "shown": "3–8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–8"
+ },
+ "nar:bw1_h2h": {
+  "shown": "1–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1–1"
+ },
+ "nar:bw1_rk": {
+  "shown": "9th",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "9th"
+ },
+ "nar:bw1_sc": {
+  "shown": "190.3",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "190.3"
+ },
+ "nar:bw2_ap": {
+  "shown": "10–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "10–1"
+ },
+ "nar:bw2_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw2_rk": {
+  "shown": "2nd",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "2nd"
+ },
+ "nar:bw2_sc": {
+  "shown": "281.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "281.8"
+ },
+ "nar:bw3_ap": {
+  "shown": "11–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "11–0"
+ },
+ "nar:bw3_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw3_rk": {
+  "shown": "1st",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1st"
+ },
+ "nar:bw3_sc": {
+  "shown": "254.8",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "254.8"
+ },
+ "nar:bw4_ap": {
+  "shown": "10–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "10–1"
+ },
+ "nar:bw4_h2h": {
+  "shown": "1–1",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1–1"
+ },
+ "nar:bw4_rk": {
+  "shown": "2nd",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "2nd"
+ },
+ "nar:bw4_sc": {
+  "shown": "289.9",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "289.9"
+ },
+ "nar:bw5_ap": {
+  "shown": "11–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "11–0"
+ },
+ "nar:bw5_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw5_rk": {
+  "shown": "1st",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1st"
+ },
+ "nar:bw5_sc": {
+  "shown": "280.5",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "280.5"
+ },
+ "nar:bw6_ap": {
+  "shown": "11–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "11–0"
+ },
+ "nar:bw6_h2h": {
+  "shown": "3–0",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "3–0"
+ },
+ "nar:bw6_rk": {
+  "shown": "1st",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "1st"
+ },
+ "nar:bw6_sc": {
+  "shown": "267.3",
+  "source": "D1 weekly team scores and games, Weeks 1-6 (committed: season_weeks.json); reconciled to MFL standings (all-play, points for, head-to-head)",
+  "value": "267.3"
+ },
+ "nar:bye_bear": {
+  "shown": "93.6%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "93.6%"
+ },
+ "nar:bye_blak": {
+  "shown": "20.8%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "20.8%"
+ },
+ "nar:bye_cutt": {
+  "shown": "30.8%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "30.8%"
+ },
+ "nar:bye_emar": {
+  "shown": "48.5%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "48.5%"
+ },
+ "nar:bye_whit": {
+  "shown": "3.4%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "3.4%"
+ },
+ "nar:chat_josh": {
+  "shown": "41",
+  "source": "D1 ups_discord_messages window Thu Oct 15 8:15 PM ET - Wed Oct 21 10:05 AM ET (owner posts, bots excluded)",
+  "value": "41"
+ },
+ "nar:chat_total": {
+  "shown": "163",
+  "source": "D1 ups_discord_messages window Thu Oct 15 8:15 PM ET - Wed Oct 21 10:05 AM ET",
+  "value": "163"
+ },
+ "nar:coleman": {
+  "shown": "16.7",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "16.7"
+ },
+ "nar:cros_hl": {
+  "shown": "209.5",
+  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable)",
+  "value": "209.5"
+ },
+ "nar:cros_inj_lu": {
+  "shown": "199.0",
+  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable)",
+  "value": "199.0"
+ },
+ "nar:cros_law_ber": {
+  "shown": "66.4",
+  "source": "derived: Lawrence plus Bernard, Week 6",
+  "value": "66.4"
+ },
+ "nar:cros_law_share": {
+  "shown": "19.7%",
+  "source": "derived: Lawrence / Cross's Week 6 score",
+  "value": "19.7%"
+ },
+ "nar:cros_nolaw": {
+  "shown": "170.0",
+  "source": "derived: Cross's started lineup, Lawrence replaced by the best legal bench option (hindsight)",
+  "value": "170.0"
+ },
+ "nar:cros_nolaw_blak": {
+  "shown": "8.0",
+  "source": "derived: Blake's Week 6 score minus Cross without Lawrence",
+  "value": "8.0"
+ },
+ "nar:cros_nolaw_gera": {
+  "shown": "4.4",
+  "source": "derived: Cross without Lawrence minus Gerardi's Week 6 score",
+  "value": "4.4"
+ },
+ "nar:cros_w7": {
+  "shown": "181.6",
+  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable); Week 7 byes removed",
+  "value": "181.6"
+ },
+ "nar:cros_w7_warren": {
+  "shown": "171.8",
+  "source": "injury_combined.py: validated best-legal-lineup algorithm, 2026 points per game; MFL injury feed Wed Oct 21 8:01 AM ET (Out/IR/IR-R/Doubtful/Suspended unavailable); Week 7 byes removed and Warren out",
+  "value": "171.8"
+ },
+ "nar:diggs": {
+  "shown": "17.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "17.0"
+ },
+ "nar:div_bear": {
+  "shown": "97.8%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "97.8%"
+ },
+ "nar:div_blak": {
+  "shown": "66.6%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "66.6%"
+ },
+ "nar:div_bous": {
+  "shown": "19.1%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "19.1%"
+ },
+ "nar:div_cutt": {
+  "shown": "37.6%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "37.6%"
+ },
+ "nar:div_emar": {
+  "shown": "62.3%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "62.3%"
+ },
+ "nar:div_keit": {
+  "shown": "79.7%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "79.7%"
+ },
+ "nar:div_whit": {
+  "shown": "32.7%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "32.7%"
+ },
+ "nar:djack": {
+  "shown": "1.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "1.0"
+ },
+ "nar:dog09": {
+  "shown": "0–9",
+  "source": "derived: Bousquet, Josh Martel and Keith Creelman against Bear, Klingenberg and Mannila, Week 6",
+  "value": "0–9"
+ },
+ "nar:dsmith": {
+  "shown": "21.1",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "21.1"
+ },
+ "nar:ec_lu1": {
+  "shown": "243.2",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "243.2"
+ },
+ "nar:ec_lu2": {
+  "shown": "239.0",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "239.0"
+ },
+ "nar:ec_ppg": {
+  "shown": "11.5",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "11.5"
+ },
+ "nar:ec_rep": {
+  "shown": "7.3",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "7.3"
+ },
+ "nar:emar_miss": {
+  "shown": "1.3",
+  "source": "derived: Eric Martel's best lineup minus Whitman's Week 6 score",
+  "value": "1.3"
+ },
+ "nar:emar_swap_gain": {
+  "shown": "23.6",
+  "source": "derived: Keenan Allen + Mason Taylor minus Juwan Johnson + Ladd McConkey, Week 6",
+  "value": "23.6"
+ },
+ "nar:emar_trio": {
+  "shown": "91.1",
+  "source": "derived: Stroud + Walker + Penix, Week 6",
+  "value": "91.1"
+ },
+ "nar:golden": {
+  "shown": "26.4",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "26.4"
+ },
+ "nar:golden_proj": {
+  "shown": "12.7",
+  "source": "Above and below expectations table (MFL projection saved before kickoff)",
+  "value": "12.7"
+ },
+ "nar:hc_bear": {
+  "shown": "32–1",
+  "source": "Heat Check table: All-Play, Weeks 4–6",
+  "value": "32–1"
+ },
+ "nar:hc_blak": {
+  "shown": "21–12",
+  "source": "Heat Check table: All-Play, Weeks 4–6",
+  "value": "21–12"
+ },
+ "nar:hc_jmar": {
+  "shown": "3–30",
+  "source": "Heat Check table: All-Play, Weeks 4–6",
+  "value": "3–30"
+ },
+ "nar:hc_klin": {
+  "shown": "16–17",
+  "source": "Heat Check table: All-Play, Weeks 4–6",
+  "value": "16–17"
+ },
+ "nar:hi6": {
+  "shown": "10–6",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "10–6"
+ },
+ "nar:hl_bear": {
+  "shown": "291.6",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "291.6"
+ },
+ "nar:hl_blak": {
+  "shown": "277.6",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "277.6"
+ },
+ "nar:hl_cutt": {
+  "shown": "273.1",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "273.1"
+ },
+ "nar:hl_whit": {
+  "shown": "243.2",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "243.2"
+ },
+ "nar:holani": {
+  "shown": "8.4",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "8.4"
+ },
+ "nar:jh_ppg": {
+  "shown": "19.8",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "19.8"
+ },
+ "nar:jh_rep": {
+  "shown": "13.3",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "13.3"
+ },
+ "nar:jjohnson": {
+  "shown": "0.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0.0"
+ },
+ "nar:josh_miss": {
+  "shown": "0.2",
+  "source": "derived: Mannila's score minus Josh Martel's best lineup",
+  "value": "0.2"
+ },
+ "nar:jsn": {
+  "shown": "29.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "29.0"
+ },
+ "nar:kallen": {
+  "shown": "17.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "17.0"
+ },
+ "nar:keit_drop": {
+  "shown": "109.8",
+  "source": "derived: Week 5 score minus Week 6 score",
+  "value": "109.8"
+ },
+ "nar:keit_trio": {
+  "shown": "57.2",
+  "source": "derived: Mayer + Okonkwo + Diggs, Week 6",
+  "value": "57.2"
+ },
+ "nar:keit_w5": {
+  "shown": "272.5",
+  "source": "Week 5 UPS Center as published (Elias-final)",
+  "value": "272.5"
+ },
+ "nar:klin_opp_bous": {
+  "shown": "188.3",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "188.3"
+ },
+ "nar:klin_opp_jmar": {
+  "shown": "198.7",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "198.7"
+ },
+ "nar:klin_opp_kc": {
+  "shown": "193.0",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "193.0"
+ },
+ "nar:law": {
+  "shown": "39.7",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "39.7"
+ },
+ "nar:left_blak": {
+  "shown": "42.6",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "42.6"
+ },
+ "nar:left_jmar": {
+  "shown": "47.8",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "47.8"
+ },
+ "nar:lloyd": {
+  "shown": "1.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "1.0"
+ },
+ "nar:lloyd_proj": {
+  "shown": "12.9",
+  "source": "Above and below expectations table (MFL projection saved before kickoff)",
+  "value": "12.9"
+ },
+ "nar:loss6_blak": {
+  "shown": "3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "3"
+ },
+ "nar:loss6_keit": {
+  "shown": "3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "3"
+ },
+ "nar:loss6_klin": {
+  "shown": "0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0"
+ },
+ "nar:loss6_mann": {
+  "shown": "0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0"
+ },
+ "nar:m_bear_jmar": {
+  "shown": "116.4",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "116.4"
+ },
+ "nar:m_cros_blak": {
+  "shown": "23.3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "23.3"
+ },
+ "nar:mann_nonab": {
+  "shown": "181.7",
+  "source": "derived: Mannila's started lineup, Nabers replaced by the best legal bench option (hindsight)",
+  "value": "181.7"
+ },
+ "nar:mann_nonab_min": {
+  "shown": "14.9",
+  "source": "derived: Mannila without Nabers minus the best of his three opponents",
+  "value": "14.9"
+ },
+ "nar:mann_stars": {
+  "shown": "23.9",
+  "source": "derived: Lamb + Robinson, Week 6",
+  "value": "23.9"
+ },
+ "nar:mann_w5_stars": {
+  "shown": "18.7",
+  "source": "Week 5 UPS Center as published: Lamb and Robinson combined for 18.7",
+  "value": "18.7"
+ },
+ "nar:maye": {
+  "shown": "32.4",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "32.4"
+ },
+ "nar:mayer": {
+  "shown": "22.2",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "22.2"
+ },
+ "nar:mc_ppg": {
+  "shown": "9.7",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "9.7"
+ },
+ "nar:mc_rkp": {
+  "shown": "50",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "50"
+ },
+ "nar:mcc": {
+  "shown": "30.1",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "30.1"
+ },
+ "nar:mcconkey": {
+  "shown": "2.9",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "2.9"
+ },
+ "nar:mclaurin_w6": {
+  "shown": "3.9",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "3.9"
+ },
+ "nar:mtaylor": {
+  "shown": "9.5",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "9.5"
+ },
+ "nar:n_flips": {
+  "shown": "6",
+  "source": "derived: games lost by a team whose best lineup beats the winner's actual score",
+  "value": "6"
+ },
+ "nar:n_games": {
+  "shown": "18",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "18"
+ },
+ "nar:n_zero": {
+  "shown": "6",
+  "source": "derived: starters who scored 0.2 or less in Week 6",
+  "value": "6"
+ },
+ "nar:nab": {
+  "shown": "33.9",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "33.9"
+ },
+ "nar:nacua": {
+  "shown": "14.4",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "14.4"
+ },
+ "nar:nacua_w5": {
+  "shown": "41.7",
+  "source": "Week 5 UPS Center as published (Elias-final)",
+  "value": "41.7"
+ },
+ "nar:nacua_w6_proj": {
+  "shown": "31.4",
+  "source": "Above and below expectations table (MFL projection saved before kickoff)",
+  "value": "31.4"
+ },
+ "nar:najee": {
+  "shown": "0.2",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0.2"
+ },
+ "nar:ocooper": {
+  "shown": "24.9",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "24.9"
+ },
+ "nar:okonkwo": {
+  "shown": "18.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "18.0"
+ },
+ "nar:opt_blak": {
+  "shown": "220.6",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "220.6"
+ },
+ "nar:opt_emar": {
+  "shown": "255.4",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "255.4"
+ },
+ "nar:opt_jmar": {
+  "shown": "198.7",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "198.7"
+ },
+ "nar:opt_keit": {
+  "shown": "193.0",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "193.0"
+ },
+ "nar:otton_w6": {
+  "shown": "2.1",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "2.1"
+ },
+ "nar:penix": {
+  "shown": "27.8",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "27.8"
+ },
+ "nar:pf_blak": {
+  "shown": "1,420.5",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "1,420.5"
+ },
+ "nar:pf_keit": {
+  "shown": "1,308.5",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "1,308.5"
+ },
+ "nar:pf_klin": {
+  "shown": "1,225.4",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "1,225.4"
+ },
+ "nar:pf_mann": {
+  "shown": "1,245.8",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "1,245.8"
+ },
+ "nar:po_bear": {
+  "shown": "99.8%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "99.8%"
+ },
+ "nar:po_blak": {
+  "shown": "88.1%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "88.1%"
+ },
+ "nar:po_bous": {
+  "shown": "21.2%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "21.2%"
+ },
+ "nar:po_cros": {
+  "shown": "2.1%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "2.1%"
+ },
+ "nar:po_cutt": {
+  "shown": "97.4%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "97.4%"
+ },
+ "nar:po_gera": {
+  "shown": "1.9%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "1.9%"
+ },
+ "nar:po_jmar": {
+  "shown": "1.2%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "1.2%"
+ },
+ "nar:po_keit": {
+  "shown": "80.8%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "80.8%"
+ },
+ "nar:po_klin": {
+  "shown": "44.1%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "44.1%"
+ },
+ "nar:po_mann": {
+  "shown": "9.6%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "9.6%"
+ },
+ "nar:po_whit": {
+  "shown": "56.9%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "56.9%"
+ },
+ "nar:quote:1561432958588686430": {
+  "shown": "Najee, you’re killing me. You don’t even have trois yards",
+  "source": "D1 ups_discord_messages (archived #the-coffee-shop), verbatim by message id 1561432958588686430",
+  "value": "Najee, you’re killing me. You don’t even have trois yards"
+ },
+ "nar:quote:1561433803342221474": {
+  "shown": "We’ve gotta have the worst collective rb rooms in the league",
+  "source": "D1 ups_discord_messages (archived #the-coffee-shop), verbatim by message id 1561433803342221474",
+  "value": "We’ve gotta have the worst collective rb rooms in the league"
+ },
+ "nar:quote:1561459943553630411": {
+  "shown": "Can we go back when Keith said Maye was bad at football???",
+  "source": "D1 ups_discord_messages (archived #the-coffee-shop), verbatim by message id 1561459943553630411",
+  "value": "Can we go back when Keith said Maye was bad at football???"
+ },
+ "nar:quote:1561522868435816449": {
+  "shown": "I have been on the couch all season long Bear .. I wanted to Promote Bernard from Taxi who had a pretty good day . Tucker has averaged 7 points a game !! All GOOD ..",
+  "source": "D1 ups_discord_messages (archived #the-coffee-shop), verbatim by message id 1561522868435816449",
+  "value": "I have been on the couch all season long Bear .. I wanted to Promote Bernard from Taxi who had a pretty good day . Tucker has averaged 7 points a game !! All GOOD .."
+ },
+ "nar:quote:1561522953680851149": {
+  "shown": "I didn’t trust devonta coming back and listened to some idp expert who had D’Marco Jackson as his lb3 this week. Shouldn’t have listened. Heading for 0-3",
+  "source": "D1 ups_discord_messages (archived #the-coffee-shop), verbatim by message id 1561522953680851149",
+  "value": "I didn’t trust devonta coming back and listened to some idp expert who had D’Marco Jackson as his lb3 this week. Shouldn’t have listened. Heading for 0-3"
+ },
+ "nar:r88": {
+  "shown": "8–8",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "8–8"
+ },
+ "nar:r97": {
+  "shown": "9–7",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "9–7"
+ },
+ "nar:rec_bear": {
+  "shown": "14–2",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "14–2"
+ },
+ "nar:rec_blak": {
+  "shown": "9–7",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "9–7"
+ },
+ "nar:rec_cros": {
+  "shown": "5–11",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "5–11"
+ },
+ "nar:rec_emar": {
+  "shown": "11–5",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "11–5"
+ },
+ "nar:rec_jmar": {
+  "shown": "3–13",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "3–13"
+ },
+ "nar:rec_keit": {
+  "shown": "9–7",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "9–7"
+ },
+ "nar:rec_klin": {
+  "shown": "9–7",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "9–7"
+ },
+ "nar:rec_mann": {
+  "shown": "9–7",
+  "source": "MFL leagueStandings (committed: st.json)",
+  "value": "9–7"
+ },
+ "nar:sc_bear": {
+  "shown": "267.3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "267.3"
+ },
+ "nar:sc_blak": {
+  "shown": "178.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "178.0"
+ },
+ "nar:sc_cros": {
+  "shown": "201.3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "201.3"
+ },
+ "nar:sc_cutt": {
+  "shown": "212.8",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "212.8"
+ },
+ "nar:sc_emar": {
+  "shown": "231.8",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "231.8"
+ },
+ "nar:sc_gera": {
+  "shown": "165.6",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "165.6"
+ },
+ "nar:sc_jmar": {
+  "shown": "150.9",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "150.9"
+ },
+ "nar:sc_keit": {
+  "shown": "162.7",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "162.7"
+ },
+ "nar:sc_klin": {
+  "shown": "184.4",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "184.4"
+ },
+ "nar:sc_mann": {
+  "shown": "198.9",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "198.9"
+ },
+ "nar:sc_whit": {
+  "shown": "254.1",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "254.1"
+ },
+ "nar:shaheed": {
+  "shown": "16.1",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "16.1"
+ },
+ "nar:sho": {
+  "shown": "35.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "35.0"
+ },
+ "nar:sims": {
+  "shown": "10,000",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "10,000"
+ },
+ "nar:skattebo": {
+  "shown": "0.0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0.0"
+ },
+ "nar:smith_ppg": {
+  "shown": "18.7",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "18.7"
+ },
+ "nar:stroud": {
+  "shown": "33.2",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "33.2"
+ },
+ "nar:supplied:blake": {
+  "shown": "I’m not sure either. Thank you bot for respecting me while I make my decision.",
+  "source": "supplied by the editor (Keith) 2026-10-21; not yet in the archived chat",
+  "value": "I’m not sure either. Thank you bot for respecting me while I make my decision."
+ },
+ "nar:supplied:commish": {
+  "shown": "@Shawn Blake — the bot is unsure of your pronouns. You may need to advise us if you go with They/Them or whatever the kids use these days. Sorry buddy, hate to see this on top of the McLaurin news.",
+  "source": "supplied by the editor (Keith) 2026-10-21; not yet in the archived chat",
+  "value": "@Shawn Blake — the bot is unsure of your pronouns. You may need to advise us if you go with They/Them or whatever the kids use these days. Sorry buddy, hate to see this on top of the McLaurin news."
+ },
+ "nar:svap_cros": {
+  "shown": "3 of 19",
+  "source": "Survival Line table (D1 history 2017-2025; docs/wire/auto/2026-wk06-ups-center)",
+  "value": "3 of 19"
+ },
+ "nar:svap_jmar": {
+  "shown": "2 of 17",
+  "source": "Survival Line table (D1 history 2017-2025; docs/wire/auto/2026-wk06-ups-center)",
+  "value": "2 of 17"
+ },
+ "nar:svw_cros": {
+  "shown": "1 of 14",
+  "source": "Survival Line table (D1 history 2017-2025; docs/wire/auto/2026-wk06-ups-center)",
+  "value": "1 of 14"
+ },
+ "nar:svw_jmar": {
+  "shown": "1 of 7",
+  "source": "Survival Line table (D1 history 2017-2025; docs/wire/auto/2026-wk06-ups-center)",
+  "value": "1 of 7"
+ },
+ "nar:title_bear": {
+  "shown": "32.5%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "32.5%"
+ },
+ "nar:title_cutt": {
+  "shown": "27.5%",
+  "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk06-ups-center, 10,000 seasons through Week 6)",
+  "value": "27.5%"
+ },
+ "nar:tw_ppg": {
+  "shown": "17.5",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "17.5"
+ },
+ "nar:tw_rep": {
+  "shown": "8.3",
+  "source": "injury_wk07.json: MFL playerScores W1-6 (league 74598 scoring), MFL injury feed Wed Oct 21 8:01 AM ET, nflverse",
+  "value": "8.3"
+ },
+ "nar:walker": {
+  "shown": "30.1",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "30.1"
+ },
+ "nar:whit_left": {
+  "shown": "19.9",
+  "source": "MFL weeklyResults W6 optimal lineup (reproduced by the legal-lineup solver in rewrite_facts.py)",
+  "value": "19.9"
+ },
+ "nar:whit_nosho": {
+  "shown": "244.0",
+  "source": "derived: Whitman's started lineup, Shough replaced by the best legal bench option (hindsight)",
+  "value": "244.0"
+ },
+ "nar:whit_nosho_emar": {
+  "shown": "12.2",
+  "source": "derived: Whitman without Shough minus Eric Martel's Week 6 score",
+  "value": "12.2"
+ },
+ "nar:wins6_blak": {
+  "shown": "0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0"
+ },
+ "nar:wins6_keit": {
+  "shown": "0",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "0"
+ },
+ "nar:wins6_klin": {
+  "shown": "3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "3"
+ },
+ "nar:wins6_mann": {
+  "shown": "3",
+  "source": "MFL weeklyResults W6 (committed: wr6.json)",
+  "value": "3"
+ },
+ "nar:wve_blak": {
+  "shown": "−2.0",
+  "source": "Heat Check table: head-to-head wins minus the wins each week's all-play rate predicts",
+  "value": "−2.0"
+ },
+ "nar:wve_keit": {
+  "shown": "+0.9",
+  "source": "Heat Check table: head-to-head wins minus the wins each week's all-play rate predicts",
+  "value": "+0.9"
+ },
+ "nar:wve_klin": {
+  "shown": "+0.4",
+  "source": "Heat Check table: head-to-head wins minus the wins each week's all-play rate predicts",
+  "value": "+0.4"
+ },
+ "nar:wve_mann": {
+  "shown": "+2.5",
+  "source": "Heat Check table: head-to-head wins minus the wins each week's all-play rate predicts",
+  "value": "+2.5"
+ },
+ "nar:wvea_blak": {
+  "shown": "2.0",
+  "source": "Heat Check table, absolute value",
+  "value": "2.0"
+ },
+ "nar:wvea_klin": {
+  "shown": "0.4",
+  "source": "Heat Check table, absolute value",
+  "value": "0.4"
+ },
+ "nar:wvea_mann": {
+  "shown": "2.5",
+  "source": "Heat Check table, absolute value",
+  "value": "2.5"
+ },
+ "nar:wvea_whit": {
+  "shown": "0.2",
+  "source": "Heat Check table, absolute value",
+  "value": "0.2"
+ }
+}
