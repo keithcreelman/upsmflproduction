@@ -372,7 +372,7 @@ class ReadCapacity(unittest.TestCase):
         writes = {k: 1_000 for k in reads}
         return rb.usage_cross_check(reads, writes, {"rows_read_24h": info_reads, "rows_written_24h": info_writes}, now)
 
-    def test_sources_must_agree_within_five_percent(self):
+    def test_rolling_24h_comparison_is_computed_for_the_diagnostic(self):
         # GraphQL: lower 24 x 200k = 4.8M, upper 5.0M (the edge hour too).
         self.assertTrue(self.cross(4_900_000)["ok"])
         self.assertTrue(self.cross(4_560_000)["ok"])    # 5% under the lower bound
@@ -381,22 +381,69 @@ class ReadCapacity(unittest.TestCase):
         self.assertFalse(self.cross(0)["ok"], "a zero from `wrangler d1 info` is a disagreement")
         self.assertFalse(self.cross(4_900_000, info_writes=0)["ok"], "writes are cross-checked too")
 
-    def test_preflight_stops_before_any_d1_read_on_bad_metrics(self):
+    def test_preflight_stops_before_any_d1_read_over_the_read_ceiling(self):
         saved = (rb.usage_report, rb.season_playoff_rows, rb.running_write_jobs)
         def no_d1(*a, **k):
-            raise AssertionError("read D1 after a failed usage check")
+            raise AssertionError("read D1")
         rb.season_playoff_rows, rb.running_write_jobs = no_d1, (lambda: [])
         b = {"batch": "1A", "season": 2025, "billed_writes": 10_656, "rollback_reserve": 10_656, "reads": {"reserve_total": 121_193}}
+        def usage(reads_ok, diag_ok):
+            return lambda forward=0, reserve=0, now=None, read_reserve=0: {
+                "_hourly": {}, "projected": 1, "ceiling": 90_000, "in_window": True, "anomalous_hours_today": [],
+                "reads": {"ok": reads_ok, "projected_reads": 5_000_000, "read_reserve": read_reserve, "read_ceiling": 4_500_000},
+                "rolling_24h_diagnostic": {"ok": diag_ok}}
         try:
-            for reads_ok, cross_ok, why in ((True, False, "disagree"), (False, True, "read ceiling")):
-                rb.usage_report = lambda forward=0, reserve=0, now=None, read_reserve=0: {
-                    "_hourly": {}, "projected": 1, "ceiling": 90_000, "in_window": True, "anomalous_hours_today": [],
-                    "reads": {"ok": reads_ok, "projected_reads": 5_000_000, "read_reserve": read_reserve, "read_ceiling": 4_500_000},
-                    "cross_check": {"ok": cross_ok}}
-                facts = rb.preflight(SimpleNamespace(artifacts=tempfile.mkdtemp()), b)
-                self.assertTrue(any(why in x for x in facts["stops"]), facts["stops"])
+            rb.usage_report = usage(False, True)
+            facts = rb.preflight(SimpleNamespace(artifacts=tempfile.mkdtemp()), b)
+            self.assertTrue(any("read ceiling" in x for x in facts["stops"]), facts["stops"])
+            # Rolling 24 h is diagnostic only: a disagreement does not stop; preflight goes on to read D1.
+            rb.usage_report = usage(True, False)
+            with self.assertRaisesRegex(AssertionError, "read D1"):
+                rb.preflight(SimpleNamespace(artifacts=tempfile.mkdtemp()), b)
         finally:
             rb.usage_report, rb.season_playoff_rows, rb.running_write_jobs = saved
+
+    def graphql(self, groups):
+        body = json.dumps({"data": {"viewer": {"accounts": [{"d1AnalyticsAdaptiveGroups": groups}]}}}).encode()
+        class R:
+            def read(self_inner): return body
+        return lambda *a, **k: R()
+
+    def test_only_the_exact_counter_may_decide(self):
+        saved = (rb.urllib.request.urlopen, rb.oauth_token)
+        rb.oauth_token = lambda: "t"
+        g = lambda si: {"sum": {"rowsWritten": 10, "rowsRead": 100}, "avg": {"sampleInterval": si},
+                        "dimensions": {"datetimeHour": "2026-10-22T05:00:00Z", "databaseId": "x"}}
+        try:
+            rb.urllib.request.urlopen = self.graphql([g(1), g(1.0)])
+            w, r = rb.account_hourly_usage()
+            self.assertEqual(r, {"2026-10-22T05": 200})
+            rb.urllib.request.urlopen = self.graphql([g(1), g(145)])
+            with self.assertRaisesRegex(SystemExit, "sampled"):
+                rb.account_hourly_usage()
+            rb.urllib.request.urlopen = self.graphql([])
+            with self.assertRaisesRegex(SystemExit, "no data"):
+                rb.account_hourly_usage()
+        finally:
+            rb.urllib.request.urlopen, rb.oauth_token = saved
+
+    def test_the_decision_uses_the_utc_day_not_the_rolling_24h(self):
+        saved = (rb.account_hourly_usage, rb.d1_info_24h)
+        now = NOW                                        # 22:10 UTC
+        reads = hourly(7, 10_000)
+        reads[f"{(now - timedelta(days=1)):%Y-%m-%d}T23"] = 4_000_000   # yesterday 23:00: inside the rolling 24 h only
+        for h in range(22):
+            reads[f"{now:%Y-%m-%d}T{h:02d}"] = 100_000   # today 2.2M by 22:00
+        rb.account_hourly_usage = lambda days=8: (hourly(7, 1_000), reads)
+        rb.d1_info_24h = lambda: {"rows_read_24h": 0, "rows_written_24h": 0, "databases": []}
+        try:
+            g = rb.usage_report(10_656, 10_656, now=now, read_reserve=121_193)
+            self.assertEqual(g["reads"]["reads_used_today"], 2_200_000)
+            self.assertFalse(g["rolling_24h_diagnostic"]["ok"])   # d1 info says 0: recorded, not decisive
+            self.assertEqual(g["reads"]["reads_forecast_rest_of_day"], 4_000_000 + 10_000)   # hour 23's 7-day max + hour 22
+            self.assertFalse(g["reads"]["ok"])   # 2.2M + 4.01M + 0.12M > 4.5M: decided on the UTC day + forecast
+        finally:
+            rb.account_hourly_usage, rb.d1_info_24h = saved
 
     def test_a_metrics_failure_fails_closed(self):
         saved = rb.urllib.request.urlopen

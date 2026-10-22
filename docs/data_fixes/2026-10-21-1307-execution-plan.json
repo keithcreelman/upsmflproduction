@@ -1,7 +1,7 @@
 {
  "issue": 1307,
  "dry_run_pr": 1363,
- "plan_version": 4,
+ "plan_version": 5,
  "scope": "authoritative score rows only; ranks held for the rank-definition review",
  "daily_ceiling": 90000,
  "reset": "00:00 UTC daily (Cloudflare D1 pricing page); account-wide",
@@ -10,7 +10,8 @@
  "read_guard": {
   "ceiling": 4500000,
   "limit": 5000000,
-  "rule": "reads_used_today (GraphQL rowsRead, every D1 database, current UTC day) + reads_forecast_rest_of_day (7-day per-hour max) + read reserve <= 4,500,000; GraphQL must bracket `wrangler d1 info` 24 h totals (all databases) within 5%, or the batch stops before its first D1 read"
+  "source": "exact account counter: GraphQL d1AnalyticsAdaptiveGroups, every D1 database, sampleInterval = 1 required (else STOP); never d1 insights / d1QueriesAdaptiveGroups",
+  "rule": "UTC billing day (resets 00:00 UTC): reads_used_today + reads_forecast_rest_of_day (per-hour max of the last 7 complete UTC days) + read reserve <= 4,500,000, checked before the first D1 read; rolling 24 h (GraphQL vs `wrangler d1 info`) is diagnostic only"
  },
  "attempt_lock": {
   "ledger": "~/.ups_jobs/1307_src_weekly/attempts/ (fixed path)",

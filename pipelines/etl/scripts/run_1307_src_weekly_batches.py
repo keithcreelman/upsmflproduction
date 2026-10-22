@@ -38,17 +38,18 @@ THE GUARD (every check fails closed)
     <= 3,000 (works across 00:00 UTC); otherwise no further batch that night.
 
 READ CAPACITY (Keith, 2026-10-22) -- alongside the write guard, every check fails closed
-  * reads_used_today (same GraphQL source, rowsRead, every D1 database, the
-    current UTC calendar day) + reads_forecast_rest_of_day (per remaining hour,
-    the max of the last 7 complete UTC days) + the batch's full read reserve
-    (preflight + writes + both verifications + worst-case rollback + panel
-    check) <= 4,500,000 (90% of the 5,000,000 Free allowance).
-  * Cross-check: the GraphQL hourly totals for the last 24 h must bracket
-    `wrangler d1 info` rows_read_24h / rows_written_24h summed over every
-    database (`wrangler d1 list`) within 5%; a failed or disagreeing source
-    stops the batch before its first D1 read. (`wrangler d1 insights` is not a
-    usage source here: it reported 11.29M for a 24 h in which both of these
-    agreed on ~4.9M; #1354 owns that discrepancy.)
+  * The source is the account's EXACT D1 counter: GraphQL d1AnalyticsAdaptiveGroups,
+    every D1 database, UTC-hour buckets. Every group must carry sampleInterval = 1;
+    a sampled group, a failed request or missing data stops the batch.
+    (`wrangler d1 insights` / d1QueriesAdaptiveGroups is SAMPLED and extrapolated;
+    it is never used here. #1354, 2026-10-22: its "145 runs" were 1 sample x 145.)
+  * The allowance is per UTC calendar day (resets 00:00 UTC):
+        reads_used_today + reads_forecast_rest_of_day + read_reserve <= 4,500,000
+    (90% of 5,000,000). Forecast = per remaining hour, the max of the last 7
+    complete UTC days (exact daily figures). Reserve = preflight + writes + both
+    verifications + worst-case rollback + panel check.
+  * Rolling 24 h (GraphQL and `wrangler d1 info`, all databases) is DIAGNOSTIC
+    ONLY: reported, never part of the decision.
 
 ONE ATTEMPT PER APPROVAL (Keith, 2026-10-21)
   * `apply` consumes its approval before its first production read: an
@@ -102,7 +103,7 @@ DAILY_CEILING = 90_000          # Free plan is 100,000/day; keep >= 10,000 unuse
 FREE_PLAN_LIMIT = 100_000
 READ_LIMIT = 5_000_000          # Free plan rows read per UTC day, account-wide
 READ_CEILING = 4_500_000        # 90% of it: projected reads above this refuse the batch
-USAGE_DISAGREEMENT = 0.05       # GraphQL vs `wrangler d1 info`: beyond 5% = metrics not trusted
+USAGE_DISAGREEMENT = 0.05       # rolling-24 h diagnostic only: GraphQL vs `wrangler d1 info` flagged beyond 5%
 BUNDLE_READ_RESERVE = 5_000     # per /api/player-bundle GET (measured ~400: insights avg 191 + 109 + small)
 WINDOW_START = (22, 5)          # UTC; a batch may START only inside the window
 WINDOW_LAST_START = (23, 30)
@@ -111,7 +112,7 @@ OTHER_WRITES_ALLOWANCE = 3_000  # quiet-hour writes by other jobs while a batch 
 FORECAST_DAYS = 7               # complete UTC days, all after the changed-only writer (#1267)
 ANOMALY_MARGIN = 5_000          # an hour today this far above its 7-day max = unscheduled heavy job
 UPDATES_PER_COMMAND = 25
-PLAN_VERSION = 4
+PLAN_VERSION = 5
 ATTEMPT_DIR = Path.home() / ".ups_jobs" / "1307_src_weekly" / "attempts"   # fixed on purpose: see ONE ATTEMPT PER APPROVAL
 APPROVAL_RE = re.compile(r"^https://github\.com/keithcreelman/upsmflproduction/(issues|pull)/\d+#issuecomment-\d+$")
 LEAGUE_IDS = {2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191"}
@@ -246,9 +247,9 @@ def read_guard(used: int, forecast: int, reserve: int, ceiling: int = READ_CEILI
 
 def usage_cross_check(hourly_reads: dict, hourly_writes: dict, info: dict, now: datetime,
                       tolerance: float = USAGE_DISAGREEMENT) -> dict:
-    """`wrangler d1 info`'s rolling 24 h must fall inside the GraphQL hourly sum for
-    the same span: lower = whole hours inside it, upper = also the hour it starts in;
-    each widened by `tolerance`. Anything else means the usage numbers can't be trusted."""
+    """DIAGNOSTIC ONLY (Keith 2026-10-22: the allowance is the UTC day; rolling 24 h never decides).
+    Does `wrangler d1 info`'s rolling 24 h fall inside the GraphQL hourly sum for the same span?
+    lower = whole hours inside it, upper = also the hour it starts in; each widened by `tolerance`."""
     start = now - timedelta(hours=24)
     edge, cur = start.strftime("%Y-%m-%dT%H"), now.strftime("%Y-%m-%dT%H")
     out = {"ok": True}
@@ -340,7 +341,7 @@ def account_hourly_usage(days: int = FORECAST_DAYS + 1) -> tuple[dict, dict]:
     end = utc_now().replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     q = ("query($a:String!,$s:Time!,$e:Time!){viewer{accounts(filter:{accountTag:$a}){"
          "d1AnalyticsAdaptiveGroups(limit:10000,filter:{datetimeHour_geq:$s,datetimeHour_lt:$e}){"
-         "sum{rowsWritten rowsRead} dimensions{datetimeHour databaseId}}}}}")
+         "sum{rowsWritten rowsRead} avg{sampleInterval} dimensions{datetimeHour databaseId}}}}}")
     body = json.dumps({"query": q, "variables": {"a": ACCOUNT_ID, "s": iso(end - timedelta(days=days)),
                                                   "e": iso(end)}}).encode()
     req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql", data=body,
@@ -349,8 +350,16 @@ def account_hourly_usage(days: int = FORECAST_DAYS + 1) -> tuple[dict, dict]:
     d = json.loads(urllib.request.urlopen(req, timeout=60).read())
     if d.get("errors") or not d.get("data"):
         raise SystemExit(f"STOP: usage metrics unavailable: {d.get('errors')}")
+    groups = d["data"]["viewer"]["accounts"][0]["d1AnalyticsAdaptiveGroups"]
+    if not groups:
+        raise SystemExit("STOP: usage metrics returned no data")
+    sampled = sorted({g["dimensions"]["datetimeHour"][:13] for g in groups
+                      if float((g.get("avg") or {}).get("sampleInterval") or 0) != 1})
+    if sampled:
+        raise SystemExit(f"STOP: usage counter is sampled (sampleInterval != 1) in hours {sampled[:5]}; "
+                         "only the exact counter may decide")
     out, reads = defaultdict(int), defaultdict(int)
-    for g in d["data"]["viewer"]["accounts"][0]["d1AnalyticsAdaptiveGroups"]:
+    for g in groups:
         out[g["dimensions"]["datetimeHour"][:13]] += int(g["sum"]["rowsWritten"])
         reads[g["dimensions"]["datetimeHour"][:13]] += int(g["sum"]["rowsRead"])
     return dict(out), dict(reads)
@@ -537,10 +546,11 @@ def build_plan(artifacts: Path) -> dict:
         "guard": "used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000",
         "window_utc": "start 22:05-23:30",
         "read_guard": {"ceiling": READ_CEILING, "limit": READ_LIMIT,
-                       "rule": "reads_used_today (GraphQL rowsRead, every D1 database, current UTC day) + "
-                               "reads_forecast_rest_of_day (7-day per-hour max) + read reserve <= 4,500,000; "
-                               "GraphQL must bracket `wrangler d1 info` 24 h totals (all databases) within 5%, "
-                               "or the batch stops before its first D1 read"},
+                       "source": "exact account counter: GraphQL d1AnalyticsAdaptiveGroups, every D1 database, "
+                                 "sampleInterval = 1 required (else STOP); never d1 insights / d1QueriesAdaptiveGroups",
+                       "rule": "UTC billing day (resets 00:00 UTC): reads_used_today + reads_forecast_rest_of_day "
+                               "(per-hour max of the last 7 complete UTC days) + read reserve <= 4,500,000, checked "
+                               "before the first D1 read; rolling 24 h (GraphQL vs `wrangler d1 info`) is diagnostic only"},
         "attempt_lock": {"ledger": "~/.ups_jobs/1307_src_weekly/attempts/ (fixed path)",
                          "rule": "one apply attempt per approval, consumed before the first production read and "
                                  "never released (preflight STOP, failure, automatic rollback and crash included); "
@@ -580,21 +590,19 @@ def statements(args, b: dict, key: str) -> list:
 
 def usage_report(forward: int = 0, reserve: int = 0, now: datetime | None = None, read_reserve: int = 0) -> dict:
     now = now or utc_now()
-    hourly, reads = account_hourly_usage()
-    info = d1_info_24h()
+    hourly, reads = account_hourly_usage()      # exact counter, UTC hours; raises (fail closed) otherwise
     g = guard(used_today(hourly, now), forward, reserve, forecast_rest_of_day(hourly, now))
     g["anomalous_hours_today"] = anomalous_hours_today(hourly, now)
     g["reads"] = read_guard(used_today(reads, now), forecast_rest_of_day(reads, now), read_reserve)
-    g["cross_check"] = usage_cross_check(reads, hourly, info, now)
-    if not g["cross_check"]["ok"]:
-        # `wrangler d1 info` has returned 0 for its 24 h counters on a call made seconds after a
-        # correct one (2026-10-22). Re-read it once; a second disagreement stops the batch.
-        time.sleep(30)
-        first = g["cross_check"]
-        g["cross_check"] = usage_cross_check(reads, hourly, d1_info_24h(), now)
-        g["cross_check"]["first_attempt"] = first
+    g["exact_daily_reads"] = {d: sum(v for k, v in reads.items() if k[:10] == d)
+                              for d in sorted({k[:10] for k in reads})}
+    # Rolling 24 h: diagnostic only. A `wrangler d1 info` failure is recorded, never a stop.
+    try:
+        g["rolling_24h_diagnostic"] = usage_cross_check(reads, hourly, d1_info_24h(), now)
+    except SystemExit as e:
+        g["rolling_24h_diagnostic"] = {"error": str(e)[:300]}
     g["writes_ok"] = g["ok"] and not g["anomalous_hours_today"]
-    g["ok"] = g["writes_ok"] and g["reads"]["ok"] and g["cross_check"]["ok"]
+    g["ok"] = g["writes_ok"] and g["reads"]["ok"]
     g.update({"now_utc": iso(now), "in_window": in_window(now), "next_window_utc": iso(next_window(now)),
               "_hourly": hourly})
     return g
@@ -615,9 +623,6 @@ def preflight(args, b: dict, enforce_window: bool = True) -> dict:
     g = usage_report(b["billed_writes"], b["rollback_reserve"], read_reserve=b["reads"]["reserve_total"])
     facts["hourly_at_start"] = g.pop("_hourly")
     facts["usage"] = g
-    if not g["cross_check"]["ok"]:
-        facts["stops"] = [f"usage sources disagree beyond {USAGE_DISAGREEMENT:.0%}: {g['cross_check']}"]
-        return facts
     if not g["reads"]["ok"]:
         facts["stops"] = [f"projected reads {g['reads']['projected_reads']:,} (incl. read reserve "
                           f"{g['reads']['read_reserve']:,}) > read ceiling {g['reads']['read_ceiling']:,}"]
@@ -864,8 +869,8 @@ def cmd_rollback(args) -> int:
         g.pop("_hourly")
         if g["projected"] > g["ceiling"]:
             raise SystemExit(f"STOP: rollback could breach the daily ceiling ({g['projected']:,})")
-        if not (g["reads"]["ok"] and g["cross_check"]["ok"]):
-            raise SystemExit(f"STOP: rollback read check failed: {g['reads']} {g['cross_check']}")
+        if not g["reads"]["ok"]:
+            raise SystemExit(f"STOP: rollback read check failed: {g['reads']}")
         log = Path(args.artifacts) / "runs" / f"rollback_{b['batch']}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}.jsonl"
         log.parent.mkdir(exist_ok=True)
         log.write_text(json.dumps({"approval": args.approval, "usage": g}) + "\n")
@@ -971,13 +976,12 @@ def cmd_safeguard_check(args) -> int:
     g = usage_report(0, 0, read_reserve=len(sample) * BUNDLE_READ_RESERVE)
     g.pop("_hourly")
     # A 14-GET gate (~400 rows each, 5,000 reserved) can't be what pushes a day over, so it needs
-    # today's reads + its own reserve under the ceiling and agreeing sources, not the batch's
-    # full-day forecast (that one applies to the batch itself, in preflight).
+    # today's exact reads + its own reserve under the ceiling, not the batch's full-day forecast
+    # (that one applies to the batch itself, in preflight).
     r = g["reads"]
-    gate_ok = r["reads_used_today"] + r["read_reserve"] <= r["read_ceiling"]
-    if not (gate_ok and g["cross_check"]["ok"]):
-        print(json.dumps({"reads": g["reads"], "cross_check": g["cross_check"]}, indent=1))
-        raise SystemExit("STOP: read capacity or usage cross-check failed; no bundle was fetched")
+    if r["reads_used_today"] + r["read_reserve"] > r["read_ceiling"]:
+        print(json.dumps({"reads": g["reads"]}, indent=1))
+        raise SystemExit("STOP: read capacity check failed; no bundle was fetched")
     out = [safeguard_compare(pid, worker_bundle(pid), manifest, stored, has_rows[pid]) for pid in sample]
     ok = all(x["ok"] for x in out)
     print(json.dumps({"manifest_inputs_sha256": manifest["inputs_sha256"], "bundle_gets": len(sample),
