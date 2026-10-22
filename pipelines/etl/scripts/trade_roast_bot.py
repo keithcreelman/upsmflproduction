@@ -563,14 +563,43 @@ _GIF_TAG_RE = re.compile(r"\[GIF:\s*([^\]]+?)\s*\]\s*$", re.IGNORECASE | re.MULT
 HELD_TRADES_FILE = held_trades.HELD_TRADES_FILE
 
 
-def hold_no_grade(trade_txn: dict, report: str) -> None:
-    """Record a NO GRADE trade locally (bot log + held file). Never posts. A trade held
-    again (its one retry was NO GRADE too) updates its entry; it is never added twice."""
-    print(f"[{datetime.now()}] {report}")
+OPS_ALERT_FILE = SUPPORT_DIR / "ops_alerts.json"
+OPS_NOTIFY_EVERY_SECONDS = 3600
+_ops_notified: dict = {}
+
+
+def _ops_alert(stage: str, text: str) -> None:
+    """An operational alert the commissioner must see: a durable local record (the cutover
+    job forwards it to a GitHub issue) and a Mac notification, at most hourly per stage.
+    Never Discord."""
+    print(f"[{datetime.now()}] OPS ALERT [{stage}] {text}")
+    if time.time() - _ops_notified.get((stage, text), 0) < OPS_NOTIFY_EVERY_SECONDS:
+        return                                         # already recorded and notified this hour
+    _ops_notified[(stage, text)] = time.time()
     try:
-        held_trades.record_hold(trade_txn, report, HELD_TRADES_FILE)
+        SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
+        alerts = json.loads(OPS_ALERT_FILE.read_text()) if OPS_ALERT_FILE.exists() else []
+        alerts.append({"at": datetime.now(timezone.utc).isoformat(), "stage": stage, "text": text,
+                       "forwarded": False})
+        tmp = OPS_ALERT_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(alerts[-200:], indent=1))
+        tmp.replace(OPS_ALERT_FILE)
     except Exception as exc:
-        print(f"[{datetime.now()}] could not record the held trade in {HELD_TRADES_FILE}: {exc}")
+        print(f"[{datetime.now()}] could not record the ops alert locally: {exc}")
+    try:
+        subprocess.run(["osascript", "-e", f"display notification {json.dumps(text[:200])} "
+                                           f"with title \"Trade bot: {stage}\""], timeout=10)
+    except Exception as exc:
+        print(f"[{datetime.now()}] could not raise the Mac notification: {exc}")
+
+
+def hold_no_grade(trade_txn: dict, report: str) -> None:
+    """Record a NO GRADE trade durably (bot log + held file). Never posts. A trade held
+    again (its one retry was NO GRADE too) updates its entry; it is never added twice.
+    Raises held_trades.HeldStateError if the hold could not be recorded: the caller must then
+    NOT advance the cursor past this trade."""
+    print(f"[{datetime.now()}] {report}")
+    held_trades.record_hold(trade_txn, report, HELD_TRADES_FILE)
 
 
 def _snapshot_failures_now() -> list:
@@ -590,10 +619,16 @@ async def retry_held_trades(channel, trades: list) -> list:
     (the weekly cutover). Never reads or moves the cursor; marks each entry started
     before its one attempt (held_trades.py)."""
     try:
-        todo = held_trades.pending(held_trades.load(HELD_TRADES_FILE))
-    except Exception as exc:
-        print(f"[{datetime.now()}] held trades unreadable, not retried: {exc}")
+        entries = held_trades.load(HELD_TRADES_FILE)
+    except held_trades.HeldStateError as exc:
+        _ops_alert("held-state", f"held trades cannot be read, so none were retried: {exc}")
         return []
+    stuck = held_trades.unfinished(entries)
+    if stuck:
+        _ops_alert("held-review", f"{len(stuck)} held trade retry(ies) started but never finished "
+                                  f"(a crash mid-retry): {[held_trades.key(e) for e in stuck]}. "
+                                  f"Never retried automatically; check whether each was posted.")
+    todo = held_trades.pending(entries)
     if not todo:
         return []
     failures = await _in_executor("held-trade freshness check", 60, _snapshot_failures_now)
@@ -601,26 +636,31 @@ async def retry_held_trades(channel, trades: list) -> list:
         print(f"[{datetime.now()}] {len(todo)} held trade(s) wait: the valuation snapshot does not "
               f"validate yet ({'; '.join(str(f) for f in failures)[:300]})")
         return []
-    by_ts = {str(t.get("timestamp")): t for t in trades}
     groups = group_multiway_legs(trades)
     done = []
-    for entry in todo:
-        multiway = entry.get("franchise") == "multiway"
-        found = groups.get(entry.get("franchise2")) if multiway else by_ts.get(str(entry.get("timestamp")))
-        if not found:
-            continue                                   # not in MFL's list right now: stays pending
-        held_trades.mark_started(entry, HELD_TRADES_FILE)     # BEFORE the attempt: at most once
-        try:
-            if multiway:
-                result = await analyze_and_post_multiway(channel, found, entry.get("franchise2"))
-            else:
-                result = await analyze_and_post(channel, found)
-            outcome = "posted" if result else "held_again"
-        except Exception as exc:
-            outcome = f"error: {exc.__class__.__name__}"
-        held_trades.mark_finished(entry, outcome, HELD_TRADES_FILE)
-        print(f"[{datetime.now()}] held trade {entry.get('timestamp')} retried once: {outcome}")
-        done.append((entry.get("timestamp"), outcome))
+    try:
+        for entry in todo:
+            multiway = entry.get("franchise") == "multiway"
+            found = held_trades.find_trade(entry, trades, groups)    # full key, never timestamp alone
+            if not found:
+                continue                               # not (uniquely) in MFL's list: stays pending
+            held_trades.mark_started(entry, HELD_TRADES_FILE)     # BEFORE the attempt: at most once
+            try:
+                if multiway:
+                    result = await analyze_and_post_multiway(channel, found, entry.get("franchise2"))
+                else:
+                    result = await analyze_and_post(channel, found)
+                outcome = "posted" if result else "held_again"
+            except held_trades.HeldStateError:
+                raise
+            except Exception as exc:
+                outcome = f"error: {exc.__class__.__name__}"
+            held_trades.mark_finished(entry, outcome, HELD_TRADES_FILE)
+            print(f"[{datetime.now()}] held trade {held_trades.key(entry)} retried once: {outcome}")
+            done.append((held_trades.key(entry), outcome))
+    except held_trades.HeldStateError as exc:
+        _ops_alert("held-state", f"a held-trade retry could not be recorded: {exc}. No further retries "
+                                 f"until the file is fixed; each started entry needs review.")
     return done
 
 
@@ -1634,6 +1674,12 @@ async def poll_for_trades():
                     # Advance the cursor past EVERY leg of the group at once.
                     max_leg_ts = max(int(l.get("timestamp", 0)) for l in legs)
                     save_last_trade_ts(max(ts, max_leg_ts))
+                except held_trades.HeldStateError as e:
+                    # NO GRADE, but the hold could not be recorded: keep the cursor, stop polling
+                    # this round, alert. Never "give up" past an unrecorded hold.
+                    _ops_alert("held-state", f"3-way {uuid} got NO GRADE but could not be recorded as held "
+                                             f"({e}). The cursor was NOT advanced.")
+                    break
                 except Exception as e:
                     n = _trade_attempts.get(uuid, 0) + 1
                     _trade_attempts[uuid] = n
@@ -1672,6 +1718,12 @@ async def poll_for_trades():
                 await analyze_and_post(channel, trade, ext_years, ext_player)
                 _trade_attempts.pop(ts, None)
                 save_last_trade_ts(ts)
+            except held_trades.HeldStateError as e:
+                # NO GRADE, but the hold could not be recorded: keep the cursor, stop polling this
+                # round, alert. Never "give up" past an unrecorded hold.
+                _ops_alert("held-state", f"trade ts={ts} got NO GRADE but could not be recorded as held "
+                                         f"({e}). The cursor was NOT advanced.")
+                break
             except Exception as e:
                 n = _trade_attempts.get(ts, 0) + 1
                 _trade_attempts[ts] = n

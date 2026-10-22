@@ -18,7 +18,15 @@ checkout (~/Code/MFL/upsmflproduction):
   8. verify    a new pid, "Trade polling started" after the restart, a heartbeat from the new pid,
                and the snapshot's date and week as loaded by the bot's Python
   9. held      the bot retries each held NO GRADE trade exactly once on its first poll with a
-               valid snapshot (held_trades.py); this job reports the outcome
+               valid snapshot (held_trades.py). The exact held entries (full keys) are captured
+               before the restart; the cutover succeeds only if every one finishes "posted".
+               held_again, error, started-but-unfinished, missing or an unreadable file leave
+               it in MANUAL REVIEW with the alert open. Nothing is attempted a second time.
+
+Fail closed (Keith 2026-10-22): a missing, unreadable or corrupt held-trades file stops the job
+before the pull. Every GitHub alert call is checked; if delivery fails the job writes
+alert_failures.json in its state folder, raises a Mac notification, and never reports success
+or closes the incident. The bot's own operational alerts (ops_alerts.json) are forwarded here.
 
 Stops without touching the running bot (and alerts, naming the stage) when the checkout is not
 on main, is dirty, is not a fast-forward, the bot's code changed on main (code needs a reviewed
@@ -51,6 +59,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import held_trades  # noqa: E402
 
 HOME = Path.home()
 SNAPSHOT = "data/valuation/trade_valuation_snapshot.json"
@@ -88,6 +99,12 @@ class Config:
     held_wait: int = 600
     repo_slug: str = "keithcreelman/upsmflproduction"
     dispatch_inputs: bool = True
+    dispatch_attempts_per_day: int = 4
+    ops_alert_file: Path = HOME / "Library/Application Support/ups-roast-bot/ops_alerts.json"
+
+    @property
+    def held_file(self) -> Path:
+        return self.checkout / "pipelines/etl/data/held_trades_no_grade.json"
 
 
 class Stop(Exception):
@@ -140,28 +157,57 @@ class Ops:
         return r.returncode, (summary[-1] if summary else r.stdout[-300:])
 
     def gh(self, *args) -> subprocess.CompletedProcess:
-        return subprocess.run(["gh", *args, "--repo", self.cfg.repo_slug], capture_output=True, text=True, timeout=60)
+        try:
+            return subprocess.run(["gh", *args, "--repo", self.cfg.repo_slug], capture_output=True, text=True,
+                                  timeout=60)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return subprocess.CompletedProcess(["gh", *args], 127, "", str(exc))
 
     def dispatch_daily_pull(self) -> bool:
         return self.gh("workflow", "run", "MFL daily snapshot", "--ref", self.cfg.branch).returncode == 0
 
-    def alert(self, stage: str, text: str) -> None:
-        title = f"Trade bot snapshot cutover stopped at stage: {stage}"
-        found = self.gh("issue", "list", "--label", ALERT_LABEL, "--state", "open", "--json", "number",
-                        "--jq", ".[0].number // empty").stdout.strip()
-        self.gh("label", "create", ALERT_LABEL, "--color", "B60205", "--force",
-                "--description", "Trade bot did not receive the valuation snapshot")
-        if found:
-            self.gh("issue", "comment", found, "--body", f"**{title}**\n\n{text}")
-        else:
-            self.gh("issue", "create", "--label", ALERT_LABEL, "--title", title, "--body", text)
+    def _open_issue(self) -> str | None:
+        """The open alert issue number, "" if none, None if GitHub could not be asked."""
+        r = self.gh("issue", "list", "--label", ALERT_LABEL, "--state", "open", "--json", "number",
+                    "--jq", ".[0].number // empty")
+        return r.stdout.strip() if r.returncode == 0 else None
 
-    def resolve(self, text: str) -> None:
-        found = self.gh("issue", "list", "--label", ALERT_LABEL, "--state", "open", "--json", "number",
-                        "--jq", ".[0].number // empty").stdout.strip()
+    def alert(self, stage: str, text: str) -> tuple:
+        """(delivered, why). Every gh call's result is checked."""
+        title = f"Trade bot snapshot cutover stopped at stage: {stage}"
+        lab = self.gh("label", "create", ALERT_LABEL, "--color", "B60205", "--force",
+                      "--description", "Trade bot did not receive the valuation snapshot")
+        if lab.returncode != 0:
+            return False, f"label: {lab.stderr.strip()[:200]}"
+        found = self._open_issue()
+        if found is None:
+            return False, "issue list failed"
         if found:
-            self.gh("issue", "comment", found, "--body", text)
-            self.gh("issue", "close", found)
+            r = self.gh("issue", "comment", found, "--body", f"**{title}**\n\n{text}")
+            return (r.returncode == 0, f"comment: {r.stderr.strip()[:200]}")
+        r = self.gh("issue", "create", "--label", ALERT_LABEL, "--title", title, "--body", text)
+        return (r.returncode == 0 and "/issues/" in r.stdout, f"create: {r.stderr.strip()[:200]}")
+
+    def resolve(self, text: str) -> tuple:
+        """(resolved, why): an open incident is commented on and closed, both checked."""
+        found = self._open_issue()
+        if found is None:
+            return False, "issue list failed"
+        if not found:
+            return True, "no open incident"
+        c = self.gh("issue", "comment", found, "--body", text)
+        if c.returncode != 0:
+            return False, f"comment: {c.stderr.strip()[:200]}"
+        x = self.gh("issue", "close", found)
+        return (x.returncode == 0, f"close: {x.stderr.strip()[:200]}")
+
+    def notify(self, title: str, text: str) -> bool:
+        """A Mac notification (the fallback when GitHub alerting fails)."""
+        try:
+            return subprocess.run(["osascript", "-e", f"display notification {json.dumps(text[:200])} "
+                                                      f"with title {json.dumps(title)}"], timeout=10).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
 
 
 # ── git helpers (the checkout and temporary worktrees) ─────────────────────
@@ -217,6 +263,8 @@ class Cutover:
         self.log_file = self.cfg.state_dir / "cutover.log"
         self._log = log
         self.lines = []
+        self.alert_failed = False
+        self.unresolved = False
 
     def log(self, msg: str) -> None:
         line = f"[{now_utc().strftime('%Y-%m-%dT%H:%M:%SZ')}] {msg}"
@@ -238,6 +286,75 @@ class Cutover:
         tmp.write_text(json.dumps(st, indent=1))
         os.replace(tmp, self.state_file)
 
+    def _append_json(self, path: Path, record: dict) -> None:
+        items = []
+        try:
+            items = json.loads(path.read_text()) if path.exists() else []
+        except (OSError, ValueError):
+            items = [{"note": "previous file unreadable; replaced"}]
+        items.append(record)
+        tmp = path.with_suffix(".tmp")
+        with open(tmp, "w") as fh:
+            fh.write(json.dumps(items[-500:], indent=1))
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+
+    def _delivery_failed(self, what: str, stage: str, text: str, why: str) -> None:
+        """GitHub alerting failed: a durable local record and a Mac notification."""
+        rec = {"at": now_utc().isoformat(), "what": what, "stage": stage, "why": why, "text": text[:2000]}
+        try:
+            self._append_json(self.cfg.state_dir / "alert_failures.json", rec)
+        except OSError as exc:
+            self.log(f"could not even write alert_failures.json: {exc}")
+        self.ops.notify(f"Trade bot cutover: {what} FAILED", f"stage {stage}: {text[:150]}")
+        self.log(f"ALERT DELIVERY FAILED ({what}, {why}); recorded in alert_failures.json and notified on this Mac")
+
+    def alert(self, stage: str, text: str) -> bool:
+        ok, why = self.ops.alert(stage, text)
+        if not ok:
+            self.alert_failed = True
+            self._delivery_failed("GitHub alert", stage, text, why)
+        return ok
+
+    def resolve(self, text: str) -> bool:
+        ok, why = self.ops.resolve(text)
+        if not ok:
+            self.unresolved = True
+            self._delivery_failed("closing the GitHub incident", "resolve", text, why)
+        return ok
+
+    def forward_bot_alerts(self) -> None:
+        """The bot's operational alerts (ops_alerts.json) become GitHub alerts; marked forwarded only
+        once delivery succeeded."""
+        f = self.cfg.ops_alert_file
+        if not f.exists():
+            return
+        try:
+            alerts = json.loads(f.read_text())
+        except (OSError, ValueError) as exc:
+            self._delivery_failed("reading the bot's ops alerts", "bot-ops", str(exc), "unreadable")
+            self.alert_failed = True
+            return
+        changed = False
+        for a in alerts:
+            if not a.get("forwarded"):
+                if self.alert(f"bot-{a.get('stage')}", f"The trade bot raised an operational alert at {a.get('at')}: "
+                                                       f"{a.get('text')}"):
+                    a["forwarded"], changed = True, True
+        if changed:
+            tmp = f.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(alerts, indent=1))
+            os.replace(tmp, f)
+
+    def held_snapshot(self) -> list:
+        """The held file, or Stop (never 'zero held trades')."""
+        try:
+            return held_trades.load(self.cfg.held_file)
+        except held_trades.HeldStateError as exc:
+            raise Stop("held-state", f"the held-trades file cannot be trusted ({exc}); nothing is pulled or "
+                                     f"restarted until it is fixed")
+
     def lock(self):
         fh = open(self.cfg.state_dir / "cutover.lock", "w")
         try:
@@ -257,6 +374,7 @@ class Cutover:
                                    f"after a rollback run `bot_snapshot_cutover.py recover`")
         if git(co, "status", "--porcelain", "--untracked-files=no"):
             raise Stop("dirty", "the bot checkout has tracked changes; it is never pulled over them")
+        self.held_snapshot()
         try:
             self.ops.fetch(co)
         except RuntimeError as exc:
@@ -272,11 +390,22 @@ class Cutover:
         today = now_utc().strftime("%Y-%m-%d")
         has_today = bool(git(self.cfg.checkout, "ls-tree", "--name-only", target, f"data/mfl-snapshots/{today}/",
                              check=False))
-        if live_weeks > covered and not has_today and self.state().get("dispatched_day") != today:
+        st = self.state()
+        tries = (st.get("dispatch_failures") or {}).get(today, 0)
+        if (live_weeks > covered and not has_today and st.get("dispatched_day") != today
+                and tries < self.cfg.dispatch_attempts_per_day):
             ok = self.ops.dispatch_daily_pull()
-            self.save_state(dispatched_day=today)
             self.log(f"inputs: MFL counts week {live_weeks}, the snapshot covers {covered}, and there is no "
-                     f"{today} MFL folder yet: dispatched the MFL daily snapshot workflow ({'ok' if ok else 'FAILED'})")
+                     f"{today} MFL folder yet: dispatching the MFL daily snapshot workflow: {'ok' if ok else 'FAILED'}")
+            if ok:
+                self.save_state(dispatched_day=today)       # recorded only once it succeeded
+            else:
+                self.save_state(dispatch_failures={today: tries + 1})
+                if st.get("dispatch_alerted_day") != today:
+                    self.save_state(dispatch_alerted_day=today)
+                    self.alert("inputs", f"Dispatching the MFL daily snapshot workflow failed (attempt {tries + 1} of "
+                                         f"{self.cfg.dispatch_attempts_per_day} today); later runs retry. Until the "
+                                         f"daily pull lands, the rebuild waits.")
 
     STALE_ALERT_HOURS = 6
 
@@ -297,7 +426,7 @@ class Cutover:
         hours = (now_utc() - datetime.fromisoformat(since)).total_seconds() / 3600
         if hours >= self.STALE_ALERT_HOURS and not st.get("stale_alerted"):
             self.save_state(stale_alerted=True)
-            self.ops.alert("stale", f"The bot has been unable to grade for {hours:.1f} h (trades are held as NO GRADE) "
+            self.alert("stale", f"The bot has been unable to grade for {hours:.1f} h (trades are held as NO GRADE) "
                                     f"and no newer snapshot has reached main: {'; '.join(v['failures'])[:400]}. "
                                     f"Check the Valuation snapshot rebuild workflow and the MFL daily snapshot.")
         return {**result, "bot_would_grade": False, "stale_hours": round(hours, 1)}
@@ -359,14 +488,22 @@ class Cutover:
             self.log("another cutover run holds the lock: nothing done")
             return {"result": "locked"}
         try:
-            return self._run()
+            self.forward_bot_alerts()
+            res = self._run()
         except Stop as exc:
             self.log(f"STOPPED at {exc.stage}: {exc.reason}")
-            self.ops.alert(exc.stage, self.alert_text(exc))
-            return {"result": "stopped", "stage": exc.stage, "reason": exc.reason}
+            self.alert(exc.stage, self.alert_text(exc))
+            res = {"result": "stopped", "stage": exc.stage, "reason": exc.reason}
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
             lock.close()
+        if self.alert_failed:
+            res["alert_delivery"] = "failed: see alert_failures.json"
+        if self.unresolved:
+            res["incident"] = "NOT closed: see alert_failures.json"
+            if res.get("result") == "cutover":
+                res["result"] = "cutover_unconfirmed"
+        return res
 
     def alert_text(self, exc: Stop) -> str:
         return (f"The trade bot did **not** receive a new valuation snapshot. Stage **{exc.stage}**: {exc.reason}\n\n"
@@ -448,7 +585,17 @@ class Cutover:
         if post.get("failures"):
             self.rollback_checkout(previous, "post-pull validation failed")
             raise Stop("validate", f"in the checkout: {'; '.join(post['failures'])[:400]}")
-        held_before = self._held_pending()
+        try:
+            entries = self.held_snapshot()                                # exact held set, before restart
+        except Stop:
+            if previous != target:
+                self.rollback_checkout(previous, "held-trades file failed just before the restart")
+            raise
+        held_keys = [list(held_trades.key(e)) for e in held_trades.pending(entries)]
+        stuck = [list(held_trades.key(e)) for e in held_trades.unfinished(entries)]
+        self.save_state(held_keys_at_restart=held_keys)
+        self.log(f"held trades before the restart: {len(held_keys)} pending {held_keys}; "
+                 f"{len(stuck)} started-but-unfinished {stuck}")
         try:
             pid = self.restart_once(target)                               # 7 + 8
         except Stop:
@@ -462,11 +609,17 @@ class Cutover:
                         snapshot_as_of=check.get("as_of"), snapshot_weeks=check.get("weeks"))
         self.log(f"restart: new pid {pid}; snapshot as of {check.get('as_of')} week {check.get('weeks')} "
                  f"(MFL counts week {check.get('live_weeks')})")
-        held = self._wait_for_held(held_before)                           # 9
-        self.ops.resolve(f"Cutover succeeded: bot pid {pid} on {target[:8]}, snapshot as of {check.get('as_of')} "
-                         f"(week {check.get('weeks')}).")
-        return {"result": "cutover", "target": target, "previous": previous, "pid": pid,
-                "as_of": check.get("as_of"), "weeks": check.get("weeks"), "held": held}
+        held = self.reconcile_held(held_keys, stuck)                      # 9
+        result = {"target": target, "previous": previous, "pid": pid, "as_of": check.get("as_of"),
+                  "weeks": check.get("weeks"), "held": held}
+        if held["review"]:
+            self.alert("held-review", "The snapshot reached the bot, but these held trades did not all finish "
+                                      "as posted, so this cutover needs manual review (nothing is retried again "
+                                      "automatically):\n" + "\n".join(f"- {k}: {o}" for k, o in held["outcomes"]))
+            return {**result, "result": "manual_review"}
+        self.resolve(f"Cutover succeeded: bot pid {pid} on {target[:8]}, snapshot as of {check.get('as_of')} "
+                     f"(week {check.get('weeks')}); held trades: {held['outcomes'] or 'none'}.")
+        return {**result, "result": "cutover"}
 
     def _bot_commit(self) -> str:
         try:
@@ -474,34 +627,37 @@ class Cutover:
         except (OSError, ValueError):
             return ""
 
-    def _held_file(self) -> Path:
-        return self.cfg.checkout / "pipelines/etl/data/held_trades_no_grade.json"
-
-    def _held_pending(self) -> int:
-        try:
-            return sum(1 for e in json.loads(self._held_file().read_text()) if "retry" not in e)
-        except (OSError, ValueError):
-            return 0
-
-    def _wait_for_held(self, pending_before: int) -> dict:
-        if not pending_before:
-            return {"pending_before": 0}
-        deadline = time.time() + self.cfg.held_wait
-        while time.time() < deadline and self._held_pending():
+    def reconcile_held(self, keys: list, stuck: list) -> dict:
+        """Wait for the bot's one retry of each exact held entry; success only if every one is
+        'posted'. Anything else (held_again, error, started-but-unfinished, missing, unreadable)
+        is manual review."""
+        deadline = time.time() + (self.cfg.held_wait if keys else 0)
+        entries = None
+        while True:
+            try:
+                entries = held_trades.load(self.cfg.held_file)
+                by = {held_trades.key(e): e for e in entries}
+                if all("outcome" in (by.get(tuple(k), {}).get("retry") or {}) for k in keys):
+                    break
+            except held_trades.HeldStateError:
+                entries = None
+            if time.time() >= deadline:
+                break
             time.sleep(5)
-        left = self._held_pending()
         outcomes = []
-        try:
-            outcomes = [(e.get("timestamp"), (e.get("retry") or {}).get("outcome"))
-                        for e in json.loads(self._held_file().read_text()) if "retry" in e]
-        except (OSError, ValueError):
-            pass
-        self.log(f"held trades: {pending_before} pending before the restart, {left} still pending; "
-                 f"retried: {outcomes}")
-        if left:
-            self.ops.alert("held", f"{left} held trade(s) were not retried within {self.cfg.held_wait}s of the "
-                                   f"cutover; the bot retries them on a later poll while the snapshot is valid.")
-        return {"pending_before": pending_before, "pending_after": left, "outcomes": outcomes}
+        if entries is None:
+            outcomes = [(tuple(k), "UNKNOWN: held-trades file unreadable") for k in keys] or [("file", "unreadable")]
+        else:
+            by = {held_trades.key(e): e for e in entries}
+            for k in keys:
+                e = by.get(tuple(k))
+                r = (e or {}).get("retry") or {}
+                outcomes.append((tuple(k), "MISSING from the file" if e is None else
+                                 r.get("outcome") or ("started, never finished" if r else "not attempted")))
+        outcomes += [(tuple(k), "started, never finished (before this cutover)") for k in stuck]
+        review = any(o != "posted" for _, o in outcomes)
+        self.log(f"held trades after the restart: {outcomes or 'none'}{' -> MANUAL REVIEW' if review else ''}")
+        return {"keys": keys, "outcomes": outcomes, "review": review}
 
     def rollback(self, to: str) -> dict:
         lock = self.lock()
@@ -541,7 +697,8 @@ def main(argv=None) -> int:
         return 0
     res = job.run() if a.cmd == "run" else job.rollback(a.to) if a.cmd == "rollback" else job.recover()
     print(json.dumps(res, indent=1, default=str))
-    return 0 if res.get("result") in ("cutover", "up_to_date", "no_new_snapshot", "locked", "rolled_back") else 1
+    ok = res.get("result") in ("cutover", "up_to_date", "no_new_snapshot", "locked", "rolled_back")
+    return 0 if ok and "alert_delivery" not in res else 1
 
 
 if __name__ == "__main__":
