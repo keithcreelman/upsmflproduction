@@ -5,6 +5,8 @@
  "throughWeek": 6,
  "wire": {
   "file": "season_sim_2026_live_wk06.json",
+  "sha256": "c70c8fc9a618f0691f58467834b0c25dbb1cf8f1edcd3bc5e4fc9263473e4176",
+  "published": "UPS Center Week 6, #1367 (6ad11736, 2026-10-21)",
   "generatedAtUtc": "2026-10-21T14:06:54Z",
   "runs": 10000,
   "seed": 20260911,
