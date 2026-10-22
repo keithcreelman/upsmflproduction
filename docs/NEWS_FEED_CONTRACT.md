@@ -1,199 +1,269 @@
 # Shared external news feed: contract `ups.news.v1`
 
-Phase 1 of #1356 (Keith, 2026-10-21). This is ONE normalized feed of outside NFL and player news. League News shows all of it. The player panel shows it filtered to one player. UPS Wire may later read it for editor leads, but nothing is written or published automatically. There are no AI summaries.
+Phase 1 of #1356, revised 2026-10-22 to include MFL Player News as a real source.
+
+This is ONE normalized feed of outside NFL and player news. League News shows all of it. The player panel shows it filtered to one player. UPS Wire may later read it for editor leads, but nothing is written or published automatically. There are no AI summaries.
 
 - **Builder:** `worker/src/news_feed.js`.
 - **Routes:** `GET /api/news-feed`, plus the legacy `GET /api/player-news` shape.
 - **Tests:** `tests/news_feed.test.mjs` and `pipelines/etl/scripts/test_build_sleeper_cache.py`.
 
-## What we may show
+## Sources
 
-| Shown | Never shown or stored |
-|---|---|
-| Headline, publisher, published time, link to the publisher | Article text, RSS summary or description, images |
-| Category (deterministic keywords) | MFL's RotoWire / FFToday / DLF headlines (MFL's API terms exclude third-party news) |
-| Canonical player ids (MFL, plus the ESPN and RotoWire ids MFL publishes) | Injury designations as news items (the shared injury resolver owns those) |
-| Each source's state, plus when it was fetched | |
-| A per-player **MFL Player News ↗** link (`news_articles?L=&P=`) | |
-
-The RSS summary is read **in memory only**, to find which players a story is about and to pick its category. It is then dropped. A test fails if a summary string appears anywhere in the output.
-
-**Approved sources:**
-- ProFootballRumors, ProFootballTalk, CBS Sports and Yahoo Sports. Each is publisher RSS published for syndication.
+| Source | What it is | Auth | Fields we keep and show |
+|---|---|---|---|
+| ProFootballRumors, ProFootballTalk, CBS Sports, Yahoo Sports | Publisher RSS, published for syndication | none | headline, publisher, time, link, category, event |
+| **MFL Player News** | MFL export `TYPE=playerProfile` (see below) | none (public) | **metadata only**: MFL player id, MFL article id, provider, approximate time, category, event, link to MFL's article page. **No headline, no text.** |
 
 **Removed sources:**
 - **ESPN `site.api`:** undocumented, and returned 0 items to the Worker.
-- **Reddit `r/nfl` JSON:** returns 403, and Reddit's Data API needs registration.
+- **Reddit `r/nfl` JSON:** returns 403, and its Data API needs registration.
+
+## MFL Player News: provenance (checked 2026-10-21 and 2026-10-22)
+
+1. **Route.** `GET https://api.myfantasyleague.com/{YEAR}/export?TYPE=playerProfile&P={id,id,…}&JSON=1`.
+   - The export is in MFL's documented API list, but the doc text mentions only DOB, ADP and height/weight. The `news` node isn't described.
+   - Per player it returns `news.article[] = { id, headline, published }`: at most 3 items, about the last 7 days. On 2026-10-22 the oldest item was 6 days old.
+   - A player with nothing new returns `news: {}`.
+   - MFL's own pages show the same items:
+     - `news_articles?L=&P=` (list);
+     - `view_news_article?L=&ID=` (full text, an exact "Published Mon Oct 19 10:18:44 a.m. ET 2026 (Rotowire)", and a link to the provider's page).
+
+   We read only the export; MFL's HTML pages are never scraped.
+2. **Public or authenticated.** Public. No cookie or API key: verified for the export and for MFL's two pages. No owner session is involved.
+3. **Whose content.** The provider's, named by the article id and credited on MFL's page:
+
+   | Article id | Provider |
+   |---|---|
+   | `rotowire643298` | RotoWire |
+   | `https…dynastyleaguefootball` | Dynasty League Football |
+   | `https…FFToday` | FFToday |
+
+   On 2026-10-22, for 479 rostered players, there were 538 items: 479 RotoWire, 42 Dynasty League Football, 17 FFToday.
+4. **What we may keep and show.**
+   - **Not licensed to us:**
+     - MFL's developer terms: MFL "can not make third party content (such as player news) available".
+     - MFL's site terms: no redistribution without FPL's written consent.
+   - **Treatment:** the headline and text are therefore treated as **licensed**. The headline is read in memory only, to set `event` and `category` and to dedupe, and is then dropped. It is never returned, stored, cached by us, or put in a preview.
+   - **What we show:** the provider ("RotoWire"), "via MFL", the approximate time, the category/event, and a link to MFL's article page, where MFL shows the text.
+   - **Not a news item:** injury *status* stays in the shared injury resolver (MFL `injuries` export).
+5. **Refresh, limits, failure.**
+   - **Refresh:** items appear as RotoWire posts them. On 2026-10-22 the newest was 11 h old at 13:40 UTC (an overnight lull). None of 15 sample players gained an item between 10-21 11:34 and 10-22 13:40 UTC.
+   - **Our cadence:** edge cache 30 min per 100-player chunk. That is 5 calls per refresh for 479 rostered players, ≤ 240 MFL calls a day per Cloudflare location.
+   - **Rate limits:** MFL throttles unregistered clients per IP and doesn't publish numbers. Registered clients get 2.5×. Over the limit returns **HTTP 429**, and MFL says don't retry.
+   - **Failure handling:**
+     - A failed or 429 chunk marks MFL `error`, or `incomplete` if only some chunks failed.
+     - A player MFL didn't answer for is `partial` (or `unavailable` when nothing answered), never "no recent items".
+     - A body with an `error` node counts as a failure.
+6. **Outside the signed-in MFL experience.**
+   - The provider's words **don't** leave MFL.
+   - Our feed, its cache, the legacy route and any preview carry only the metadata above.
+   - Reading the update means following the link to MFL's own page.
+   - Showing the headline in our UI would need MFL's written permission (decision below).
 
 ## Response: League News
 
 `GET /api/news-feed?L=74598&YEAR=2026[&limit=100][&category=injury]`
 
-Real example, from the recorded 2026-10-21 feeds (trimmed):
-
 ```json
 {
   "contract": "ups.news.v1",
-  "generated_at": "2026-10-21T11:33:00.000Z",
+  "generated_at": "2026-10-22T13:40:17.000Z",
   "feed_state": "ok",
-  "coverage": { "since_ts": 1792537265, "hours": 12.5 },
+  "coverage": { "since_ts": 1792623000, "hours": 12.6, "mfl": "each checked player's latest MFL updates (MFL keeps about 7 days, at most 3)" },
   "sources": [
-    { "id": "pfr", "publisher": "ProFootballRumors", "state": "ok", "http_status": 200, "items": 15,
-      "oldest_ts": 1792516679, "newest_ts": 1792555720, "fetched_at": "2026-10-21T11:33:00Z", "error": "" }
+    { "id": "pfr", "publisher": "ProFootballRumors", "state": "ok", "http_status": 200, "items": 15, "oldest_ts": 1792600000, "newest_ts": 1792660000, "fetched_at": "2026-10-22T13:40:17Z", "error": "" },
+    { "id": "mfl", "publisher": "MFL Player News", "state": "ok", "http_status": 200, "items": 538, "oldest_ts": 1792120000, "newest_ts": 1792630000, "fetched_at": "2026-10-22T13:40:17Z", "error": "", "players_checked": 479, "players_requested": 479 }
   ],
   "player_index": { "state": "ok", "players": 2280, "error": "", "aliases": "ok", "external_ids": "ok" },
   "cache": { "hit": false },
   "categories": ["retirement", "discipline", "injury", "transaction", "contract", "role", "performance", "other"],
-  "total_items": 115,
+  "total_items": 639,
   "items": [
     {
-      "id": "n_12fd9ee9446f89",
-      "story_id": "s_12fd9ee9446f89",
-      "headline": "NFLPA calls for \"full investigation\" into Jalen Hurts situation",
-      "publisher": "ProFootballTalk",
-      "source_id": "pft",
-      "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/nflpa-calls-for-full-investigation-into-jalen-hurts-situation",
-      "published_ts": 1792540921,
-      "published_at": "2026-10-21T00:02:01.000Z",
-      "fetched_at": "2026-10-21T11:33:00Z",
-      "category": "discipline",
-      "players": [
-        { "mfl_id": "14783", "espn_id": "4040715", "rotowire_id": "14416", "name": "Jalen Hurts",
-          "team": "PHI", "position": "QB", "match": "headline", "primary": true }
-      ],
+      "id": "n_1f86bad40302e8", "story_id": "s_1f86bad40302e8",
+      "headline": "Rams place Puka Nacua on injured reserve", "headline_policy": "display",
+      "publisher": "ProFootballRumors", "via": null, "source_id": "pfr", "mfl_article_id": null,
+      "url": "https://www.profootballrumors.com/…",
+      "published_ts": 1792669217, "published_at": "2026-10-22T11:40:17.000Z", "published_precision": "exact",
+      "fetched_at": "2026-10-22T13:40:17Z", "category": "injury", "event": "ir_move",
+      "players": [ { "mfl_id": "16211", "espn_id": "4426515", "rotowire_id": "16790", "name": "Puka Nacua", "team": "LAR", "position": "WR", "match": "headline", "primary": true } ],
       "also_reported_by": [
-        { "id": "n_19fcec4bec892e", "publisher": "Yahoo Sports",
-          "url": "https://sports.yahoo.com/articles/nflpa-calls-full-investigation-jalen-000201040.html", "published_ts": 1792540921 }
+        { "id": "n_…", "publisher": "RotoWire", "via": "MFL", "url": "https://www48.myfantasyleague.com/2026/view_news_article?L=74598&ID=rotowire…", "published_ts": 1792664000, "published_precision": "hour" }
       ]
+    },
+    {
+      "id": "n_0e2c7059059fc3", "story_id": "s_0e2c7059059fc3",
+      "headline": null, "headline_policy": "read_on_mfl",
+      "publisher": "RotoWire", "via": "MFL", "source_id": "mfl", "mfl_article_id": "rotowire990002",
+      "url": "https://www48.myfantasyleague.com/2026/view_news_article?L=74598&ID=rotowire990002",
+      "published_ts": 1792460417, "published_at": "2026-10-20T01:40:17.000Z", "published_precision": "day",
+      "fetched_at": "2026-10-22T13:40:17Z", "category": "injury", "event": "designation",
+      "players": [ { "mfl_id": "13635", "espn_id": "3915416", "rotowire_id": "12477", "name": "D.J. Moore", "team": "BUF", "position": "WR", "match": "mfl_id", "primary": true } ],
+      "also_reported_by": []
     }
   ],
-  "diagnostics": { "articles": 131, "unique_articles": 131, "stories": 115, "unresolved_name_mentions": 0, "players_indexed": 2280 }
+  "diagnostics": { "articles": 669, "rss_articles": 131, "mfl_articles": 538, "unique_articles": 664, "stories": 639, "unresolved_name_mentions": 0, "players_indexed": 2280 }
 }
 ```
 
+The example uses synthetic MFL article ids. Real MFL text is never shown, even here.
+
+### Item fields
+
+| Field | Meaning |
+|---|---|
+| `id` | Stable item id. Publisher: hash of the canonical URL. MFL: hash of `mfl:` + the article id (lower-cased). Neither the age ("5 hours" → "1 day") nor the provider's spelling changes it. |
+| `story_id` | `s_` + the lead item's id |
+| `headline` | Publisher headline, or **`null`** for an MFL-led story |
+| `headline_policy` | `display` (publisher), or `read_on_mfl` (licensed: show provider + event + link) |
+| `publisher` / `via` | Who wrote it / who it came through: `"RotoWire"` / `"MFL"`. Never relabeled. |
+| `url` | Publisher article, or MFL's `view_news_article` page |
+| `published_ts` / `published_precision` | `exact` for RSS. For MFL, `hour` or `day`: the midpoint of MFL's floored age ("1 day" = 24–48 h) |
+| `category` | Topic: retirement, discipline, injury, transaction, contract, role, performance, other |
+| `event` | What happened: `ir_move`, `ir_return`, `season_ending`, `designation`, `practice`, `starting_role`, `trade`, `signing`, `release`, `suspension`, `retirement`, `other` |
+| `players[].match` | `mfl_id` (MFL filed it under this player), `tag`, `headline`, or `summary` (a summary-only mention: not primary) |
+| `also_reported_by[]` | The same story from other outlets, each with its own `publisher` / `via` / link / time |
+
 ## Response: player filter
 
-`GET /api/news-feed?L=74598&YEAR=2026&pids=14783,13635[&limit=10]` returns the same header fields, plus:
+`GET /api/news-feed?L=74598&YEAR=2026&pids=14783,13635[&limit=10]` returns the header fields plus:
 
 ```json
 "players": {
-  "14783": {
-    "mfl_id": "14783",
-    "state": "items",
-    "mfl_news_url": "https://www48.myfantasyleague.com/2026/news_articles?L=74598&P=14783",
-    "coverage": { "since_ts": 1792537265, "hours": 12.5 },
-    "unavailable_sources": [],
-    "item_ids": ["n_1e8c627a2d1a85", "n_05844d66fa8e9f"],
-    "items": [ "…item shape above…" ]
+  "13635": {
+    "mfl_id": "13635", "state": "items",
+    "mfl_news_url": "https://www48.myfantasyleague.com/2026/news_articles?L=74598&P=13635",
+    "coverage": { "…": "…" }, "mfl_checked": true, "unavailable_sources": [],
+    "item_ids": ["n_0e2c7059059fc3"], "items": [ "…item shape above…" ]
   }
 }
 ```
 
-Items where the player is in the headline or an editor's tag (`primary: true`) come first. Summary-only mentions follow, newest first within each group.
+- **Every rostered player is checked with MFL.** For anyone else, the route makes one extra MFL call for those ids (cached separately).
+- **MFL Player News ↗** (`mfl_news_url`) is on every player, always.
 
-## States: an outage is never "no news"
+## States: an outage is never "no recent stories"
 
-| `feed_state` | Meaning | HTTP |
+**Feed** `feed_state`:
+
+| State | Meaning | HTTP |
 |---|---|---|
-| `ok` | every source answered with current items | 200 |
-| `partial` | at least one answered and at least one is `error` / `empty` / `stale` | 200 |
-| `unavailable` | no source answered | **503** (the body still carries the contract) |
+| `ok` | All 5 sources answered | 200 |
+| `partial` | At least one source answered and at least one didn't | 200 |
+| `unavailable` | Nothing answered | **503** (the body still carries the contract) |
 
-Source `state`:
+**Source** `state`:
 - `ok`
-- `error`: HTTP or network failure.
-- `empty`: answered with 0 items, or with an HTML error page.
-- `stale`: the newest item is more than 72 h old.
+- `error`
+- `empty`: an RSS feed with 0 items, or MFL with 0 items for ≥ 50 players.
+- `stale`: RSS newest item older than 72 h.
+- `incomplete`: some MFL chunks failed.
 
-Player `state`, exactly one of:
+**Player** `state`:
 
-| state | When | What a screen says |
-|---|---|---|
-| `items` | stories name this player | the list, plus the MFL link |
-| `no_recent_items` | **every** source answered, and none names him | "No headlines naming him in the last *N* h (since …)", plus the MFL link |
-| `partial` | no stories, and a source is down | "Some sources didn't answer (…); nothing from the rest", plus the MFL link |
-| `unavailable` | no source answered, or MFL's player list couldn't be read | "News couldn't be loaded. Reopen to retry", plus the MFL link |
-| `unknown_player` | id not in MFL's player list | "Not in MFL's player list" |
+| State | When |
+|---|---|
+| `items` | Something about him |
+| `no_recent_items` | Every RSS source answered **and MFL answered for this player**, and nothing is about him |
+| `partial` | Nothing found, and some source (MFL included) didn't answer for him |
+| `unavailable` | Nothing answered, or MFL's player list couldn't be read |
+| `unknown_player` | Not in MFL's player list |
 
-## Who a story is about (stable ids)
+## Who a story is about
 
-RSS carries no player ids, so each story is resolved **once**, against MFL's whole player list, to an MFL id:
+- **MFL items:** by the MFL player id MFL filed them under, only.
+  - The text's names, Sleeper aliases and third-party ids are never used. This holds even when they conflict: MFL lists Ryan Izzo's ESPN id on Tyler Conklin, and that id is reported as MFL's but never used to re-match.
+  - An article filed under two players (a trade) belongs to both.
+- **RSS items:** resolved once against MFL's whole player list to an MFL id:
+  - by full name only (initials, Jr./II and possessives normalized);
+  - same-name players need a team or position in the story, or the mention stays unresolved;
+  - nicknames come only from Sleeper rows joined **by id**.
+- **Sleeper job** (`scripts/build_sleeper_cache.py`): an id match needs ≥ 2 agreeing facts. This is unchanged from the first revision. (Today it only feeds the legacy status card and nicknames.)
 
-- **Full names only.** Never a last name alone, and never "first name anywhere plus last name anywhere".
-- **Normalized names.** Accents, punctuation, initials (`D.J.` = `DJ`), possessives and `Jr./Sr./II/III` are normalized.
-- **Same-name players.** When two players share a name (Justin Jefferson, WR MIN / LB CLE), a team or position named in the same story must pick one. Otherwise the mention stays unresolved and is counted in `diagnostics`.
-- **Editor tags.** An editor's `<category>` tag counts only when the whole tag is a player's name.
-- **Nicknames.** Sleeper's `full_name` supplies nicknames ("Kam Curl" for MFL's "Curl, Kamren"), but only for rows the Sleeper job joined **by RotoWire / ESPN id**.
+## Dedupe: one event once, different updates kept
 
-The Sleeper job's own MFL→Sleeper join (`scripts/build_sleeper_cache.py`) no longer trusts any single fact:
+1. **One item per article.** RSS: canonical URL. MFL: article id.
+2. **Never merged** (`conflicts`):
+   - two updates from the **same MFL provider** (each RotoWire update is its own);
+   - two **different specific events**, such as a practice report, a game designation and an IR move about the same injury.
+3. **Same story** = shares a primary player, and EITHER:
+   - **Same specific event:** within 24 h, or 12 h for practice reports, because Thursday's and Friday's are two updates. MFL's coarse ages are compared as ranges.
+   - **No conflicting events:** within 36 h, with ≥ 65% of the shorter headline's content words shared (names excluded).
 
-- **Candidates:** the Sleeper rows sharing MFL's RotoWire id, its ESPN id, or its full name + team.
-- **Acceptance:** a candidate is accepted only with **at least 2 agreeing facts**: an id, birthdate, name or team. A different position or a differing id counts against it.
-- **Why no single fact is trusted:** Sleeper's retired rows carry stale RotoWire ids that now belong to active players (6 found on 2026-10-21). MFL lists Ryan Izzo's ESPN id on Tyler Conklin. Birthdates disagree by days for about 40 real matches.
-- **Measured against the old name match:** 0 disagreements on the 1,771 players both match, 0 dropped, 498 added.
-- **Known miss:** John Parker Romo, a free-agent kicker, where only one fact agrees.
+   Stories about no player merge only on an identical headline.
+4. **Lead and credit.** A story is led by a publisher with a displayable headline when it has one. Every other outlet, MFL providers included, keeps its own credit in `also_reported_by`.
 
-## Dedupe
+### Real examples, recorded 2026-10-22 13:40 UTC
 
-- **One article = one `id`:** a hash of the canonical URL, with scheme, `www.`, query, fragment and trailing slash removed. It is the same across feeds, refreshes and feed order.
-- **One story = one item.** Copies count as the same story when they:
-  - share a primary player;
-  - were published within 36 h;
-  - share at least 65% of the shorter headline's content words (player names excluded).
+- **Kept as one story:**
+  - **Jalen Hurts, season-ending:** Dynasty League Football's and RotoWire's MFL updates.
+  - **Romeo Doubs, IR move:** FFToday's and Dynasty League Football's MFL updates.
+  - **Jacory Croskey-Merritt, IR:** FFToday + Dynasty League Football + RotoWire.
+  - **J.J. McCarthy, starting role:** CBS "Giants plan to start JJ McCarthy vs. Texans in Week 7" with PFT, plus RotoWire and Dynasty League Football via MFL.
+  - **Lamar Jackson, practice:** PFT "Rashod Bateman joins Lamar Jackson as limited participant Wednesday" with CBS, Yahoo and RotoWire via MFL.
+  - **Kyle Monangai, designation:** "ruled out" from a publisher plus RotoWire via MFL.
+- **Kept apart:**
+  - A second RotoWire McCarthy update ("confirmed to start"). It's the same provider as one already in the story, so it's its own item.
+  - Baker Mayfield's RotoWire "full practice Wednesday" vs a publisher's "status for Week 7 uncertain". Same provider rule again: a RotoWire update was already in that story.
+  - Every practice / designation / IR pair on one player.
+- **Totals:** 7 stories merge MFL with a publisher, and 5 merge across MFL providers. The other MFL updates stand alone: 268 rostered players have news **only** from MFL.
 
-  The earliest report leads, and the others are listed in `also_reported_by`. Stories about no player merge only on an identical headline.
-- **Stable `story_id`:** it comes from the lead item's id, so it survives refreshes.
+## Coverage (same recorded moment, 2026-10-22 13:40 UTC, 479 rostered players)
+
+| | Players with stories | Player–story links | Stories in the feed |
+|---|---|---|---|
+| Old live rule (before #1362) | 35 | 51 | — |
+| Phase 1 v1 (RSS only) | 39 | 59 | 119 |
+| **Revised (RSS + MFL)** | **307** | **584** | **639** |
 
 ## Cost
 
-Measured 2026-10-21. Local D1 runs use Miniflare's `rows_read` / `rows_written`, which matches production's 7,082 to within 0.1%.
+D1 numbers are measured locally with Miniflare's `rows_read` / `rows_written`, which matches production's 7,082 to within 0.1%.
 
 | | Before | After |
 |---|---|---|
-| D1 reads, one player panel open (legacy route) | about 1–2 rows (prod: 13 for 8 players) | 1 row per player (16 for 8: more players match now) |
+| D1 reads, one player panel open (legacy route) | ≈ 1–2 rows | 1 row per player |
 | D1 reads, `/api/news-feed` open | — | **0** on a cache hit (feed cached 10 min, 60 s when unavailable) |
-| D1 reads, nickname list | — | 2,269 rows per refresh, at most every 6 h per Cloudflare location |
-| D1 writes per day (Sleeper job) | **7,082** (delete + reinsert everything) | **654** measured day-over-day on the 1,771 known rows (≈ 840 scaled to 2,269); a same-day rerun writes **0** |
-| D1 writes, first run after merge (one-time remap) | — | 5,002 |
-| D1 reads per day (Sleeper job) | 0 | about 6,807 (change comparison) |
-| Outbound per feed rebuild | 6 feeds + 1 MFL | 4 feeds + 2 MFL, all edge-cached (RSS 1 h, MFL 24 h) |
-| CPU per feed rebuild | — | ~9 ms warm (node), once per 10 min per location |
+| D1 reads, nickname list | — | 2,269 per refresh, at most every 6 h per location |
+| D1 reads/writes for **MFL news** | — | **0**: nothing about it is stored in D1 |
+| D1 writes per day (Sleeper job) | 7,082 | 654 measured (≈ 840 scaled); 5,002 once on the first run |
+| Outbound per feed rebuild | 6 feeds + 1 MFL | 4 feeds + MFL rosters (5 min cache) + 5 MFL `playerProfile` (30 min cache) + 2 MFL `players` (24 h cache) |
+| CPU per feed rebuild | — | ≈ 8.5 ms warm + ≈ 2.5 ms player index, at most once per 10 min per location |
 
-## Consumers (inventory 2026-10-21) and how each uses this contract
+Over Cloudflare's free-plan 10 ms CPU limit on a rebuild. See "Risks".
 
-None of the screens below change in this PR. Their integrations are separate and need Keith's authorization. The legacy `/api/player-news` keeps every existing field.
+## Consumers (inventory) and how each uses the contract
 
-| # | Consumer | Loads when | Today | With `ups.news.v1` | Redundant → recommendation |
-|---|---|---|---|---|---|
-| 1 | Front Office News tab (`site/rosters/v2/front_office.js` `renderNewsTab`) | tab open | legacy route. **No `res.ok` check**, so an outage reads "No injury reports or news headlines" | `?pids=<pid>&limit=10`, render `state`, MFL link | **Fix belongs to the #1353 session** |
-| 2 | Front Office roster news flags (`front_office.js` ~3665) | FO roster render, in ≤40-pid chunks | flag = any status/headline item | headline flag from `?pids=` (≤50), or none | **Remove the status-derived flag** (the injury resolver already badges injuries); consider removing this boot-time news fetch |
-| 3 | Shared player popup (`site/shared/player_profile_master.js` `wireNewsAsync`) | popup open | legacy route; an HTTP error says "unavailable", a 200 with no items says "no news" | `?pids=`, `state` | — |
-| 4 | Phone player sheet (`site/m/player_sheet.js` `loadPlayerNews`) | News view open (**not at boot** ✓) | legacy route; already separates `null` from `[]` | `?pids=`, `state`; still no boot fetch | Correct the stale "playerProfile.news returns empty" comment |
-| 5 | Roster Workbench news flags (`site/rosters/roster_workbench.js` ~8660) | page render, in 50-pid batches | legacy route | — | **Remove** (legacy page; duplicates FO flags + injury resolver) |
-| 6 | Team Operations profile News (`site/team_operations/team_operations.js` ~3617) | profile open | legacy route; an outage reads "no news" | `?pids=`, `state` | — |
-| 7 | Team Operations "All Player News" panel (~4117) | disclosure open | fakes a league feed with ≤50-pid batches | League News (`/api/news-feed`, no pids) | **Replace with League News**; don't keep two feeds |
-| 8 | Rookie hub + Roster Workbench copy "RotoWire / ESPN feed coming in v2" | static text | promise we can't keep (RotoWire is not licensed for display) | — | **Remove the text** |
-| 9 | Worker cap-free retirement evidence (`_retirementNewsBatch`) | drop scan | legacy route via self-fetch | still the legacy route; matches `category === "retirement"` too (headlines have no body now); a 503 → `known:false` | Later: call the feed builder in-process |
-| 10 | Worker hourly news warmer (`scheduled`) | hourly cron | 6 URLs | the 4 approved URLs | — |
-| 11 | Sleeper cache job (`sleeper-cache-build.yml` → `scripts/build_sleeper_cache.py`) | daily cron | delete + reinsert, name + team | id + bio match, changed rows only | — |
-| 12 | UPS Wire (`pipelines/etl/wire/*`) | — | no news input | later: editor leads from `/api/news-feed` (read only, never auto-published) | — |
+None of these screens change in this PR. Their integrations are separate and need Keith's authorization. The legacy route keeps every field; MFL-led stories appear there with the neutral headline "RotoWire update (IR move): read it on MFL" and the MFL link.
 
-**Redundant once 1–7 move to the contract.**
+| # | Consumer | Loads when | With `ups.news.v1` | Redundant → recommendation |
+|---|---|---|---|---|
+| 1 | Front Office News tab (`site/rosters/v2/front_office.js`) | tab open | `?pids=`, render `state`, `headline_policy`, MFL link | Its missing `res.ok` check belongs to the #1353 session |
+| 2 | Front Office roster news flags | FO roster render | headline flag from `?pids=` or none | Remove the status-derived flag |
+| 3 | Shared player popup (`site/shared/player_profile_master.js`) | popup open | `?pids=`, `state` | — |
+| 4 | Phone player sheet (`site/m/player_sheet.js`) | News view open (not at boot) | `?pids=`, `state` | Fix the stale "playerProfile.news returns empty" comment (it returns news) |
+| 5 | Roster Workbench flags | page render | — | Remove |
+| 6 | Team Operations profile News | profile open | `?pids=`, `state` | — |
+| 7 | Team Operations "All Player News" | disclosure open | League News | Replace |
+| 8 | "RotoWire / ESPN feed coming in v2" copy | static | — | Remove the text |
+| 9 | Worker retirement evidence | drop scan | legacy route; matches `category === "retirement"` too | Later: in-process |
+| 10 | Hourly news warmer | hourly | the 4 RSS URLs (MFL is cached per chunk on demand) | — |
+| 11 | Sleeper cache job | daily | id + bio match, changed rows | — |
+| 12 | UPS Wire | — | later: editor leads (read-only) | — |
 
-- The legacy route's Sleeper `status` / `depth` items (they duplicate injury designations).
-- The Roster Workbench flags.
-- The Team Operations batch "All Player News".
-- `/api/player-news` itself, apart from the retirement leg (move that in-process).
+## Risks and not verified
 
-The recommendation is to remove these rather than maintain two feeds.
+- **CPU:** a feed rebuild costs ≈ 11 ms. On the Workers free plan (10 ms) it would need to move into the hourly cron. It's fine on the current paid plan.
+- **MFL:**
+  - It could throttle a busy Worker IP. Each failure shows as `partial`.
+  - Registering an MFL API client (2.5× limit) is an option.
+  - MFL's ages are floored, so an MFL item's time can be off by up to a day.
+- **Keyword rules:** `event` and `category` are keyword-based and can mislabel. A wrong event can split or merge a story that a person wouldn't.
+- **Not verified:** the live edge cache, real iPhone Safari, and authenticated MFL pages.
 
-## What this PR changes on merge (screens and jobs affected)
+## Decisions needed
 
-- **Every `/api/player-news` consumer (1–7, 9):**
-  - Headlines now come from the shared feed: deduped (Hurts went from 16 near-duplicate headlines to 10 stories) and with no excerpt text (`body` is `""`).
-  - More players match (A.J. Brown, C.J. Stroud, Marvin Harrison Jr., Kenneth Walker III, editor tags).
-  - A total outage returns **503**. The popup and phone then say "unavailable". The FO tab still says "no news" until its own fix (row 1).
-- **Retirement evidence (9):** a retirement story is also recognized by its category.
-- **Hourly warmer (10):** 4 fetches instead of 6.
-- **Sleeper job (11):** new matching and changed-row writes. The first run writes about 5,002 rows (one time), then about 650–840 a day.
-- **New `/api/news-feed`:** read-only, and nothing calls it yet.
+- **Approve this contract** (MFL as a metadata-and-link source).
+- **Ask MFL for written permission** to show provider headlines inside the league experience. That would turn `headline_policy` to `display` for MFL items.
+- **Rolling history:** a separate decision. MFL already gives about 7 days per player.

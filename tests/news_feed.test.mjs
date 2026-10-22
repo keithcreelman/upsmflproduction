@@ -33,7 +33,7 @@ function rss(items) {
     (i.description ? "<description><![CDATA[" + i.description + "]]></description>" : "") +
     "</item>").join("") + "</channel></rss>";
 }
-const recorded = (over = {}) => M.NEWS_SOURCES.map((s) => {
+const recorded = (over = {}) => M.RSS_SOURCES.map((s) => {
   const o = over[s.id];
   if (o && o.fail) return { source: s, ok: false, http_status: o.fail, body: "", fetched_at: FX.recorded_at, error: "HTTP " + o.fail };
   const items = o && o.items ? o.items : FX.feeds[s.id];
@@ -71,7 +71,7 @@ test("contract: recorded 2026-10-21 feeds → ok, every item carries only permit
   for (const s of feed.sources) t.equal(s.fetched_at, FX.recorded_at, "every source says when it was fetched");
   t.ok(feed.coverage.since_ts > 0 && feed.coverage.hours > 0, "the window every source covers is stated");
   t.equal(feed.diagnostics.articles, 131);
-  const KEYS = "also_reported_by,category,fetched_at,headline,id,players,published_at,published_ts,publisher,source_id,story_id,url";
+  const KEYS = "also_reported_by,category,event,fetched_at,headline,headline_policy,id,mfl_article_id,players,published_at,published_precision,published_ts,publisher,source_id,story_id,url,via";
   const PKEYS = "espn_id,match,mfl_id,name,position,primary,rotowire_id,team";
   for (const it of feed.items) {
     t.equal(Object.keys(it).sort().join(","), KEYS);
@@ -170,7 +170,7 @@ test("dedupe (mutation): reverting each rule is caught", async () => {
   await catches("no cross-publisher merge", [["export function sameStory(a, b) {\n", "export function sameStory(a, b) {\n  return false;\n"]], dedupeCheck);
   await catches("query string kept in the id", [["    return `https://${p.hostname.toLowerCase().replace(/^www\\./, \"\")}${path}`;", "    return `https://${p.hostname.toLowerCase().replace(/^www\\./, \"\")}${path}${p.search}`;"]], dedupeCheck);
   await catches("threshold too loose", [["  return inter / small >= 0.65;", "  return inter / small >= 0.2;"]], dedupeCheck);
-  await catches("no time window", [["  if (Math.abs((a.published_ts || 0) - (b.published_ts || 0)) > DEDUPE_WINDOW_SECONDS) return false;\n", ""]], dedupeCheck);
+  await catches("no time window", [["  if (gap > DEDUPE_WINDOW_SECONDS) return false;\n", ""]], dedupeCheck);
 });
 
 // ── 4. outages never read as "no news" ──────────────────────────────────────
@@ -207,7 +207,122 @@ test("states (mutation): reverting each rule is caught", async () => {
   await catches("outage read as no news", [["  else if (feed.feed_state === \"unavailable\") state = \"unavailable\";\n", ""]], statesCheck);
 });
 
-// ── 5. the routes ────────────────────────────────────────────────────────────
+// ── 5. MFL Player News ───────────────────────────────────────────────────────
+// Synthetic MFL replies: real MFL player ids, our own wording. (RotoWire's text is
+// licensed; none is committed.) Ages use MFL's own format ("N hours" / "N days").
+function profilesJson(pids, byPid) {
+  return { version: "1.0", playerProfiles: { playerProfile: pids.map((id) => ({ id, name: "x", player: { id }, news: byPid[id] ? { article: byPid[id] } : {} })) } };
+}
+const mflChunk = (pids, byPid, over = {}) => ({ source: M.MFL_SOURCE, ok: !over.fail, http_status: over.fail || 200, body: over.fail ? "" : JSON.stringify(profilesJson(pids, byPid)), fetched_at: FX.recorded_at, error: over.fail ? "HTTP " + over.fail : "", pids });
+const quiet = () => recorded({ pfr: { items: [{ title: "filler one", link: "https://f.test/1", pubDate: date(1) }] }, pft: { items: [{ title: "filler two", link: "https://f.test/2", pubDate: date(1) }] }, cbs: { items: [{ title: "filler three", link: "https://f.test/3", pubDate: date(1) }] }, yahoo: { items: [{ title: "filler four", link: "https://f.test/4", pubDate: date(1) }] } });
+const withRss = (items) => recorded({ pfr: { items }, pft: { items: [{ title: "filler two", link: "https://f.test/2", pubDate: date(1) }] }, cbs: { items: [{ title: "filler three", link: "https://f.test/3", pubDate: date(1) }] }, yahoo: { items: [{ title: "filler four", link: "https://f.test/4", pubDate: date(1) }] } });
+const OPTS = { year: 2026, leagueId: "74598" };
+const MARK = "LICENSED-TEXT-MARKER";
+
+const mflOnlyCheck = (mod) => {
+  const f = feedOf(mod, [...quiet(), mflChunk(["16211"], { "16211": [{ id: "rotowire990101", headline: "WR Puka Nacua: " + MARK + " six catches in win", published: "2 days" }] })], OPTS);
+  const v = mod.playerView(f, "16211", OPTS);
+  t.equal(v.state, "items", "an MFL-only update is kept");
+  const it = v.items[0];
+  t.deepEqual([it.headline, it.headline_policy, it.publisher, it.via, it.source_id, it.mfl_article_id], [null, "read_on_mfl", "RotoWire", "MFL", "mfl", "rotowire990101"]);
+  t.equal(it.url, "https://www48.myfantasyleague.com/2026/view_news_article?L=74598&ID=rotowire990101", "links to MFL's own article page");
+  t.deepEqual(it.players.map((p) => [p.mfl_id, p.match, p.primary]), [["16211", "mfl_id", true]]);
+  t.equal(it.published_precision, "day");
+  t.ok(it.published_ts < NOW - 48 * 3600 && it.published_ts > NOW - 72 * 3600, "'2 days' = 48–72 h before the fetch");
+  t.equal(v.mfl_news_url, "https://www48.myfantasyleague.com/2026/news_articles?L=74598&P=16211", "the MFL player link stays");
+};
+test("MFL: an MFL-only update is kept, metadata only, linked to MFL", () => mflOnlyCheck(M));
+
+const dupCheck = (mod) => {
+  const f = feedOf(mod, [...withRss([{ title: "Rams place Puka Nacua on injured reserve", link: "https://pfr.test/puka-ir", pubDate: date(2) }]),
+    mflChunk(["16211"], { "16211": [{ id: "rotowire990102", headline: "WR Puka Nacua: Lands on IR with ankle sprain", published: "3 hours" }] })], OPTS);
+  const v = mod.playerView(f, "16211", OPTS);
+  t.equal(v.items.length, 1, "MFL + PFR report of one IR move = one story");
+  t.equal(v.items[0].headline, "Rams place Puka Nacua on injured reserve", "led by the publisher whose headline we may show");
+  t.deepEqual(v.items[0].also_reported_by.map((a) => [a.publisher, a.via, a.published_precision]), [["RotoWire", "MFL", "hour"]], "RotoWire keeps its own credit");
+  t.equal(v.items[0].event, "ir_move");
+};
+test("MFL: the same event from MFL and an outside publisher is one story", () => dupCheck(M));
+
+const twoUpdatesCheck = (mod) => {
+  const f = feedOf(mod, [...withRss([{ title: "Saquon Barkley ruled out with hamstring injury", link: "https://pfr.test/sb-out", pubDate: date(8) }]),
+    mflChunk(["13604"], { "13604": [
+      { id: "rotowire990201", headline: "RB Saquon Barkley: Limited at practice Thursday", published: "2 days" },
+      { id: "rotowire990202", headline: "RB Saquon Barkley: Limited again at Friday practice", published: "1 day" },
+      { id: "rotowire990203", headline: "RB Saquon Barkley: Placed on IR with hamstring injury", published: "6 hours" },
+    ] })], OPTS);
+  const v = mod.playerView(f, "13604", OPTS);
+  const ev = v.items.map((i) => i.event).sort();
+  t.deepEqual(ev, ["designation", "ir_move", "practice", "practice"], "practice Thu, practice Fri, ruled out, IR move: four updates, none merged");
+};
+test("MFL: legitimate updates about one injury stay separate (practice ×2, designation, IR move)", () => twoUpdatesCheck(M));
+
+const idCheck = (mod) => {
+  // MFL filed it under 13675 (Tyler Conklin). The text names Ryan Izzo, MFL's
+  // ESPN id for 13675 is Izzo's, and a stray alias points "Tyler Conklin" at
+  // another player: the MFL id wins regardless.
+  const ids = new Map([["13675", { espn_id: "3915486", rotowire_id: "12809" }]]);
+  const f = feedOf(mod, [...quiet(), mflChunk(["13675"], { "13675": [{ id: "rotowire990301", headline: "TE Ryan Izzo: mentioned in a Tyler Conklin update", published: "5 hours" }] })],
+    { ...OPTS, ids, aliases: [...FX.sleeper_aliases, { mfl_id: "14783", name: "Tyler Conklin" }] });
+  const it = f.items.find((i) => i.mfl_article_id === "rotowire990301");
+  t.deepEqual(it.players.map((p) => [p.mfl_id, p.match]), [["13675", "mfl_id"]], "only the MFL id MFL filed it under");
+  t.equal(it.players[0].espn_id, "3915486", "MFL's own (conflicting) ESPN id is reported as MFL's, not used to re-match");
+  t.equal(mod.playerView(f, "14783").items.length, 0, "the alias doesn't pull it to another player");
+};
+test("MFL: matched by the authoritative MFL id despite a conflicting name / third-party id", () => idCheck(M));
+
+const outageCheck = (mod) => {
+  const mflDown = feedOf(mod, [...recorded(), mflChunk(["16211", "14783"], {}, { fail: 429 })], OPTS);
+  t.equal(mflDown.feed_state, "partial", "MFL down + publishers up = partial");
+  t.equal(mflDown.sources.find((s) => s.id === "mfl").state, "error");
+  t.equal(mod.playerView(mflDown, "16211").state, "partial", "Puka with MFL down is partial, never 'no recent items'");
+  t.equal(mod.playerView(mflDown, "14783").state, "items", "Hurts still has publisher stories");
+  const notAsked = feedOf(mod, [...recorded(), mflChunk(["14783"], {})], OPTS);
+  t.equal(mod.playerView(notAsked, "16211").state, "partial", "MFL wasn't asked about Puka: partial");
+  t.ok(mod.playerView(notAsked, "16211").unavailable_sources.includes("MFL Player News"));
+  const answered = feedOf(mod, [...recorded(), mflChunk(["16211"], {})], OPTS);
+  t.equal(mod.playerView(answered, "16211").state, "no_recent_items", "every source answered for Puka: no recent items");
+  const half = feedOf(mod, [...recorded(), mflChunk(["16211"], {}), mflChunk(["14783"], {}, { fail: 503 })], OPTS);
+  t.equal(half.sources.find((s) => s.id === "mfl").state, "incomplete", "one MFL chunk down = incomplete");
+  t.equal(half.feed_state, "partial");
+  const allDown = feedOf(mod, [...recorded({ pfr: { fail: 503 }, pft: { fail: 503 }, cbs: { fail: 503 }, yahoo: { fail: 503 } }), mflChunk(["16211"], {}, { fail: 503 })], OPTS);
+  t.equal(allDown.feed_state, "unavailable");
+  t.equal(mod.playerView(allDown, "16211").state, "unavailable");
+};
+test("MFL: down while publishers answer = partial; everything down = unavailable", () => outageCheck(M));
+
+const licensedCheck = (mod) => {
+  const f = feedOf(mod, [...withRss([{ title: "Rams place Puka Nacua on injured reserve", link: "https://pfr.test/puka-ir", pubDate: date(2) }]),
+    mflChunk(["16211", "14783"], { "16211": [{ id: "rotowire990401", headline: "WR Puka Nacua: " + MARK + " lands on IR", published: "3 hours" }], "14783": [{ id: "rotowire990402", headline: "QB Jalen Hurts: " + MARK + " out for the season", published: "1 day" }] })], OPTS);
+  for (const [label, out] of [["feed", mod.publicFeed(f)], ["player view", mod.playerView(f, "16211", OPTS)], ["legacy items", [...mod.legacyHeadlineItems(f, "16211"), ...mod.legacyHeadlineItems(f, "14783")]]]) {
+    t.ok(!JSON.stringify(out).includes(MARK), "no licensed text in " + label);
+  }
+  t.ok(!("_mfl_checked" in mod.publicFeed(f)), "internal fields are dropped");
+};
+test("MFL: licensed text never reaches public output (feed, player view, legacy, preview)", () => licensedCheck(M));
+
+const stableCheck = (mod) => {
+  const a = feedOf(mod, [...quiet(), mflChunk(["14783"], { "14783": [{ id: "rotowire990501", headline: "QB Jalen Hurts: update", published: "5 hours" }] })], OPTS);
+  const b = feedOf(mod, [...quiet(), mflChunk(["14783"], { "14783": [{ id: "RotoWire990501", headline: "QB Jalen Hurts: update (edited)", published: "1 day" }] })], OPTS);
+  const ia = a.items.find((i) => i.source_id === "mfl"), ib = b.items.find((i) => i.source_id === "mfl");
+  t.deepEqual([ia.id, ia.story_id], [ib.id, ib.story_id], "same article id → same item + story id, whatever its age or casing");
+  t.equal(ia.publisher, "RotoWire"); t.equal(ib.publisher, "RotoWire", "provider spelling is normalized");
+};
+test("MFL: stable ids when MFL's age or attribution spelling changes", () => stableCheck(M));
+
+test("MFL (mutation): reverting each rule is caught", async () => {
+  await catches("licensed headline emitted", [["      headline: lead.licensed ? null : lead.headline,", "      headline: lead.headline,"]], licensedCheck);
+  await catches("MFL item matched by name", [["    const players = [{ mfl_id: r.pid, match: \"mfl_id\", primary: true }];", "    const players = resolveStoryPlayers({ headline: r.headline, summary: \"\", tags: [] }, index).players;"]], idCheck);
+  await catches("same-provider updates merge", [["  if (a._provider && a._provider === b._provider) return false;\n", ""], ["  if (a._provider && a._provider === b._provider) return true;\n", ""]], twoUpdatesCheck);
+  await catches("different events merge", [["    if (ea !== eb) return false;                 // materially different updates\n", ""], ["  return SPECIFIC_EVENTS.has(ea) && SPECIFIC_EVENTS.has(eb) && ea !== eb;", "  return false;"]], twoUpdatesCheck);
+  await catches("MFL silence counted for a player MFL wasn't asked about", [["  if (mflSource && mflSource.state !== \"error\" && !mflChecked && !unavailable.includes(mflSource.publisher)) unavailable.push(mflSource.publisher);\n", ""]], outageCheck);
+  await catches("MFL outage ignored", [["  const okCount = sources.filter((s) => s.state === \"ok\").length;", "  const okCount = sources.filter((s) => s.state === \"ok\" || s.id === \"mfl\").length;"]], outageCheck);
+  await catches("id from the age", [["    const id = \"n_\" + hash53(\"mfl:\" + r.article_id.toLowerCase());", "    const id = \"n_\" + hash53(\"mfl:\" + r.article_id + r.published);"]], stableCheck);
+  await catches("MFL item not merged with a publisher", [["    if (gap <= (EVENT_WINDOW[ea] || EVENT_WINDOW_SECONDS)) return true;", "    if (gap < 0) return true;"]], dupCheck);
+  await catches("MFL-only update dropped", [["  for (const r of mflRaw) {", "  for (const r of []) {"]], mflOnlyCheck);
+});
+
+// ── 6. the routes ────────────────────────────────────────────────────────────
 const RealDate = Date;
 globalThis.Date = class extends RealDate {
   constructor(...a) { super(...(a.length ? a : [NOW * 1000])); }
@@ -217,12 +332,25 @@ await import("./fixtures/register_md_loader.mjs");
 const worker = (await import("../worker/src/index.js")).default;
 const FETCHED = [];
 let FEED_FAIL = new Set();
+const MFL_ASKED = [];
+const ROUTE_ROSTER = ["14783", "16211", "13635", "15001"];
+// Synthetic MFL Player News (our own wording on real ids — no provider text is committed).
+const ROUTE_MFL = {
+  "14783": [{ id: "rotowire990001", headline: "QB Jalen Hurts: LICENSED-ROUTE-MARKER out for the season", published: "1 day" }],
+  "13635": [{ id: "rotowire990002", headline: "WR DJ Moore: LICENSED-ROUTE-MARKER ruled out again", published: "2 days" }],
+};
 const json = (o, s) => new Response(JSON.stringify(o), { status: s || 200, headers: { "content-type": "application/json" } });
 globalThis.fetch = async (input) => {
   const u = new URL(typeof input === "string" ? input : input.url);
   FETCHED.push(u.href);
-  const src = M.NEWS_SOURCES.find((s) => s.url === u.href);
+  const src = M.RSS_SOURCES.find((s) => s.url === u.href);
   if (src) return FEED_FAIL.has(src.id) ? new Response("down", { status: 503 }) : new Response(rss(FX.feeds[src.id]), { status: 200, headers: { "content-type": "application/rss+xml" } });
+  if (/myfantasyleague\.com$/.test(u.hostname) && u.searchParams.get("TYPE") === "rosters") return json({ rosters: { franchise: [{ id: "0008", player: ROUTE_ROSTER.map((id) => ({ id })) }] } });
+  if (/myfantasyleague\.com$/.test(u.hostname) && u.searchParams.get("TYPE") === "playerProfile") {
+    if (FEED_FAIL.has("mfl")) return new Response("busy", { status: 429 });
+    MFL_ASKED.push(u.searchParams.get("P"));
+    return json(profilesJson(u.searchParams.get("P").split(","), ROUTE_MFL));
+  }
   if (/myfantasyleague\.com$/.test(u.hostname) && u.searchParams.get("TYPE") === "players") {
     const want = (u.searchParams.get("PLAYERS") || "").split(",").filter(Boolean);
     const rows = want.length ? PLAYERS.filter((p) => want.includes(p.id)) : PLAYERS;
@@ -256,10 +384,14 @@ test("route /api/player-news: legacy shape kept, headlines from the shared feed"
   t.ok(heads.length >= 5, "Hurts headlines: " + heads.length);
   for (const h of heads) {
     t.equal(h.body, "", "no article text");
-    t.ok(["PFR", "PFT", "CBS", "Yahoo"].includes(h.source), "legacy source label " + h.source);
+    t.ok(["PFR", "PFT", "CBS", "Yahoo", "RotoWire via MFL"].includes(h.source), "legacy source label " + h.source);
     for (const k of ["type", "source", "timestamp", "headline", "body", "url"]) t.ok(k in h, "legacy item." + k);
   }
-  t.deepEqual(body.items_by_pid["16211"], [], "Puka: nothing in the window");
+  t.deepEqual(body.items_by_pid["16211"], [], "Puka: nothing in the window, and MFL answered for him with no updates");
+  const mfl = hurts.find((i) => i.via === "MFL");
+  t.ok(mfl && /^RotoWire update \(season-ending\): read it on MFL$/.test(mfl.headline) && mfl.source === "RotoWire via MFL", "MFL update: neutral label, provider named, never the provider's text");
+  t.match(mfl.url, /view_news_article\?L=74598&ID=rotowire990001$/);
+  t.ok(!JSON.stringify(body).includes("LICENSED-ROUTE-MARKER"), "licensed text is not in the response");
   t.deepEqual(body.meta.player_state, { 14783: "items", 16211: "no_recent_items" });
   t.equal(body.meta.feed_state, "ok");
   t.equal(body.meta.mfl_news_url_by_pid["16211"], "https://www48.myfantasyleague.com/2026/news_articles?L=74598&P=16211");
@@ -275,7 +407,7 @@ test("route /api/player-news: every feed down → 503, meta says unavailable, Sl
   t.equal(body.meta.feed_state, "unavailable");
   t.deepEqual(body.meta.player_state, { 14783: "unavailable", 16211: "unavailable" });
   t.ok(body.items_by_pid["14783"].some((i) => i.type === "status"), "the D1 status card is still returned");
-  t.ok(body.meta.source_status.every((s) => s.state === "error" && s.http_status === 503));
+  t.ok(body.meta.source_status.every((s) => s.state === "error" && s.http_status === (s.id === "mfl" ? 429 : 503)), "each source says why (MFL: 429 rate limit)");
 });
 test("route /api/player-news: a Sleeper read failure is reported, not swallowed", async () => {
   FEED_FAIL = new Set();
