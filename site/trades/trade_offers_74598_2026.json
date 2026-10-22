@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-10-22T00:41:37.121Z",
+    "updated_at": "2026-10-22T00:44:42.832Z",
     "row_count": 68,
     "source": "worker-trade-offers"
   },
@@ -12667,7 +12667,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-10-21T23:40:11.068Z",
-      "updated_at": "2026-10-22T00:41:37.121Z",
+      "updated_at": "2026-10-22T00:44:42.832Z",
       "from_franchise_id": "0002",
       "to_franchise_id": "0006",
       "from_franchise_name": "CBP",
@@ -12676,11 +12676,11 @@
       "comment": "",
       "comments": "",
       "raw_comment": "",
-      "will_give_up": "16184,16696,FP_0002_2027_3",
-      "will_receive": "16175,15972,BB_7000",
+      "will_give_up": "16184,16696,17544,FP_0002_2027_3",
+      "will_receive": "15972,16175,BB_7000",
       "source": "trade-workbench-ui",
       "summary": {
-        "from_asset_count": 3,
+        "from_asset_count": 4,
         "to_asset_count": 2,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 7,
@@ -12688,10 +12688,10 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-10-22T00:41:33.462Z",
-        "source": "ups-trade-workbench",
+        "generated_at": "2026-10-22T00:44:38.559Z",
+        "source": "ups-mobile-trade-builder",
         "league_id": "74598",
-        "season": 2026,
+        "season": "2026",
         "teams": [
           {
             "role": "left",
@@ -12699,10 +12699,10 @@
             "franchise_name": "CBP",
             "selected_assets": [
               {
-                "asset_id": "player:16184",
+                "asset_id": "P_16184",
                 "type": "PLAYER",
                 "player_id": "16184",
-                "player_name": "Reed, Jayden",
+                "player_name": "Jayden Reed",
                 "description": null,
                 "position": "WR",
                 "nfl_team": "GBP",
@@ -12710,6 +12710,8 @@
                 "years": 1,
                 "contract_type": "Vet-Ext1",
                 "contract_info": "CL 1|TCV 15K|AAV 15K|Y1-15K|Ext: Bomb|GTD: 11.3K",
+                "contract_length": 1,
+                "already_extended_by_this_franchise": false,
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
@@ -12717,10 +12719,10 @@
                 "pick_slot": null
               },
               {
-                "asset_id": "player:16696",
+                "asset_id": "P_16696",
                 "type": "PLAYER",
                 "player_id": "16696",
-                "player_name": "Cooper, Edgerrin",
+                "player_name": "Edgerrin Cooper",
                 "description": null,
                 "position": "LB",
                 "nfl_team": "GBP",
@@ -12728,6 +12730,8 @@
                 "years": 1,
                 "contract_type": "Vet-FAA",
                 "contract_info": "CL 1| TCV 8K| AAV 8K",
+                "contract_length": 1,
+                "already_extended_by_this_franchise": false,
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
@@ -12735,16 +12739,36 @@
                 "pick_slot": null
               },
               {
-                "asset_id": "pick:FP_0002_2027_3",
+                "asset_id": "P_17544",
+                "type": "PLAYER",
+                "player_id": "17544",
+                "player_name": "Eli Stowers",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "PHI",
+                "salary": 5000,
+                "years": 3,
+                "contract_type": "Rookie-Draft",
+                "contract_info": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K, Y4-10K Option|GTD: 11.3K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "FP_0002_2027_3",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2027 3rd",
+                "description": "2027 R3",
                 "position": null,
                 "nfl_team": null,
                 "salary": 0,
                 "years": null,
-                "contract_type": "Pick",
+                "contract_type": null,
                 "contract_info": null,
                 "taxi": false,
                 "pick_key": "FP_0002_2027_3",
@@ -12755,8 +12779,8 @@
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 11,
-            "selected_non_taxi_salary_dollars": 23000
+            "traded_salary_adjustment_max_k": 999,
+            "selected_non_taxi_salary_dollars": 28000
           },
           {
             "role": "right",
@@ -12764,28 +12788,10 @@
             "franchise_name": "The Long Haulers",
             "selected_assets": [
               {
-                "asset_id": "player:16175",
-                "type": "PLAYER",
-                "player_id": "16175",
-                "player_name": "Johnson, Roschon",
-                "description": null,
-                "position": "RB",
-                "nfl_team": "CHI",
-                "salary": 4000,
-                "years": 2,
-                "contract_type": "Vet-FAA",
-                "contract_info": "CL 3| TCV 12K| AAV 4K| Y1-4K, Y2-4K, Y3-4K| GTD: 9K",
-                "taxi": false,
-                "pick_key": null,
-                "pick_season": null,
-                "pick_round": null,
-                "pick_slot": null
-              },
-              {
-                "asset_id": "player:15972",
+                "asset_id": "P_15972",
                 "type": "PLAYER",
                 "player_id": "15972",
-                "player_name": "Mason, Jordan",
+                "player_name": "Jordan Mason",
                 "description": null,
                 "position": "RB",
                 "nfl_team": "MIN",
@@ -12793,6 +12799,28 @@
                 "years": 2,
                 "contract_type": "Vet-Ext2-FL",
                 "contract_info": "CL 3| TCV 52K| AAV 24K| Y1-14, Y2-14, Y3-24| GTD: 39K| Ext: LH| restructure: 2025",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "P_16175",
+                "type": "PLAYER",
+                "player_id": "16175",
+                "player_name": "Roschon Johnson",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "CHI",
+                "salary": 4000,
+                "years": 2,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 3| TCV 12K| AAV 4K| Y1-4K, Y2-4K, Y3-4K| GTD: 9K",
+                "contract_length": 3,
+                "already_extended_by_this_franchise": false,
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
@@ -12802,7 +12830,7 @@
             ],
             "traded_salary_adjustment_dollars": 7000,
             "traded_salary_adjustment_k": 7,
-            "traded_salary_adjustment_max_k": 9,
+            "traded_salary_adjustment_max_k": 999,
             "selected_non_taxi_salary_dollars": 18000
           }
         ],
@@ -12813,91 +12841,11 @@
         "ui": {
           "left_team_id": "0002",
           "right_team_id": "0006"
-        },
-        "salary_reconciliation": {
-          "left": {
-            "franchise_id": "0002",
-            "franchise_name": "CBP",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 295500,
-            "salary_adjustment_total_dollars": 4000,
-            "outgoing_dollars": 11500,
-            "incoming_dollars": 11000,
-            "salary_trade_adjustment_dollars": -7000,
-            "net_salary_adjustment_dollars": -7500,
-            "new_salary_dollars": 288000,
-            "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 11,
-            "net_trade_salary_k": -7,
-            "net_cap_change_dollars": 7500,
-            "available_salary_before_dollars": 500,
-            "available_salary_after_dollars": 8000,
-            "over_cap_dollars": 0
-          },
-          "right": {
-            "franchise_id": "0006",
-            "franchise_name": "The Long Haulers",
-            "salary_cap_dollars": 300000,
-            "starting_salary_dollars": 256000,
-            "salary_adjustment_total_dollars": 3500,
-            "outgoing_dollars": 11000,
-            "incoming_dollars": 11500,
-            "salary_trade_adjustment_dollars": 7000,
-            "net_salary_adjustment_dollars": 7500,
-            "new_salary_dollars": 263500,
-            "trade_salary_adjustment_k": 7,
-            "trade_salary_adjustment_max_k": 9,
-            "net_trade_salary_k": 7,
-            "net_cap_change_dollars": -7500,
-            "available_salary_before_dollars": 40500,
-            "available_salary_after_dollars": 33000,
-            "over_cap_dollars": 0
-          },
-          "has_over_cap": false
-        },
-        "multi_year_salary_impact": {
-          "current_season": 2026,
-          "left_franchise_name": "CBP",
-          "right_franchise_name": "The Long Haulers",
-          "rows": [
-            {
-              "season": 2026,
-              "left_before_dollars": 295500,
-              "left_after_dollars": 288000,
-              "left_change_dollars": -7500,
-              "right_before_dollars": 256000,
-              "right_after_dollars": 263500,
-              "right_change_dollars": 7500
-            },
-            {
-              "season": 2027,
-              "left_before_dollars": 240000,
-              "left_after_dollars": 258000,
-              "left_change_dollars": 18000,
-              "right_before_dollars": 254000,
-              "right_after_dollars": 236000,
-              "right_change_dollars": -18000
-            },
-            {
-              "season": 2028,
-              "left_before_dollars": 31000,
-              "left_after_dollars": 59000,
-              "left_change_dollars": 28000,
-              "right_before_dollars": 83000,
-              "right_after_dollars": 55000,
-              "right_change_dollars": -28000
-            }
-          ]
-        },
-        "validation": {
-          "status": "ready",
-          "issues": []
-        },
-        "comment": ""
+        }
       },
       "twb_meta": null,
-      "mfl_trade_id": "1264",
-      "trade_id": "1264",
+      "mfl_trade_id": "1265",
+      "trade_id": "1265",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
