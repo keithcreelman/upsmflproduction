@@ -334,7 +334,7 @@
         ' <span class="fo-muted">(league ' + H.esc(parts(lg, rest)) + ")</span></div>");
     });
     if (amb.length) {
-      lines.push('<div class="fo-ls-flex" data-ls-flex="FLEXIBLE"><b>Flexible slots</b> <span class="fo-muted">(' + H.esc(amb.join(" + ")) + ", not a QB)</span>: " +
+      lines.unshift('<div class="fo-ls-flex" data-ls-flex="FLEXIBLE"><b>Flexible slots</b> <span class="fo-muted">(' + H.esc(amb.join(" + ")) + ", not a QB)</span>: " +
         H.esc(parts(t.mix.FLEXIBLE, "")) + ' <span class="fo-muted">(league ' + H.esc(parts(mix.league.mix.FLEXIBLE, "")) + ")</span></div>");
     }
     return lines.join("");
