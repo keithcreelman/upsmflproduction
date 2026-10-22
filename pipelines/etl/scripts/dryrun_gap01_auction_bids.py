@@ -1528,7 +1528,9 @@ def cmd_local_proof(args) -> int:
 ACCOUNT_ID = "ba1a1d492ec8a5485821eb8f0d5f32c2"
 FREE_PLAN_WRITES = 100_000      # per UTC day, account-wide (every D1 database)
 DAILY_WRITE_CEILING = 90_000    # the load starts only if the worst case stays at or under this
-READ_CEILING = 4_500_000        # 90% of the Free plan's 5,000,000 daily reads
+# Keith's condition is the WRITE budget. Reads stop the load only if they would cross the Free
+# plan's hard 5,000,000 a day; otherwise they are reported (the load reads ~10.5k to verify).
+READ_CEILING = 5_000_000
 LOAD_READS = 20_000             # post-load verify (~10.5k) + checks, rounded up
 WINDOW_START, WINDOW_LAST_START = (22, 5), (23, 30)   # UTC, the approved quiet window
 FORECAST_DAYS = 7
@@ -1536,6 +1538,7 @@ WRITE_HEAVY_WORKFLOWS = [
     "nflverse-stats-refresh.yml", "wc-rank-rebuild.yml", "mfl-daily-snapshot.yml", "nightly-builders.yml",
     "nightly-config-sync.yml", "contract-reconcile.yml", "ingest-projections.yml", "owner-career-stats.yml",
     "roster-anomaly-check.yml", "sleeper-cache-build.yml", "discord-chat-ingest.yml",
+    "leaderboard-current-season-rebuild.yml", "leaderboard-precompute.yml",
 ]
 WRITE_HEAVY_PROCESSES = ["upsmfl-live-season-sync", "upsmfl-ups-center-auto", "deadline_drop_2026",
                          "sync_live_weekly_scores_to_d1", "load_local_to_d1", "fetch_nflverse",
@@ -1581,17 +1584,23 @@ def account_hourly_usage(days: int = FORECAST_DAYS + 1) -> tuple[dict, dict]:
 
 
 def running_write_jobs() -> list:
+    """Write-heavy GitHub workflows in progress (run JSON carries only the display
+    name, so map it to the workflow file) and local write jobs. Fails closed."""
+    def gh(*a):
+        res = subprocess.run(["gh", *a], capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=60)
+        return json.loads(res.stdout) if res.returncode == 0 and res.stdout.strip() else None
     busy = []
     try:
-        res = subprocess.run(["gh", "run", "list", "--status", "in_progress", "--json", "workflowName,path",
-                              "--limit", "50"], capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=60)
-        runs = json.loads(res.stdout or "[]") if res.returncode == 0 else None
+        runs = gh("run", "list", "--status", "in_progress", "--json", "workflowName", "--limit", "50")
+        flows = gh("workflow", "list", "--all", "--json", "name,path", "--limit", "300")
     except Exception:
-        runs = None
-    if runs is None:
+        runs = flows = None
+    if runs is None or flows is None:
         busy.append("could not list GitHub runs (fail closed)")
     else:
-        busy += [r["path"] for r in runs if any((r.get("path") or "").endswith(x) for x in WRITE_HEAVY_WORKFLOWS)]
+        path_of = {f["name"]: f["path"] for f in flows}
+        busy += [path_of.get(r["workflowName"], r["workflowName"]) for r in runs
+                 if any(path_of.get(r["workflowName"], "").endswith(x) for x in WRITE_HEAVY_WORKFLOWS)]
     ps = subprocess.run(["ps", "-axo", "command"], capture_output=True, text=True).stdout
     busy += [x for x in WRITE_HEAVY_PROCESSES if x in ps]
     return busy
@@ -1614,7 +1623,7 @@ def preflight_decision(writes: dict, reads: dict, now: datetime, forward: int, b
     checks = {
         "in_window_22:05-23:30_utc": in_window,
         "writes_projected_le_ceiling": projected <= DAILY_WRITE_CEILING,
-        "reads_today_plus_load_le_ceiling": used_r + LOAD_READS <= READ_CEILING,
+        "reads_today_plus_load_le_free_limit": used_r + LOAD_READS <= READ_CEILING,
         "no_write_heavy_job_running": not busy,
     }
     return {"at_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "writes_used_today": used_w,
