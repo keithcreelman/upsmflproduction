@@ -130,6 +130,7 @@ const tds = (html) => [...html.matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g)].map((x)
   const c = vm.createContext({});
   c.window = c;
   vm.runInContext(sliceFn(app, "function safeStr(") + "\n" + sliceFn(app, "function escapeHtml(") + "\nthis.U = { escapeHtml: escapeHtml, safeStr: safeStr };", c);
+  vm.runInContext(read("site/m/season_scoring.js"), c);   // the sheet's shared half-up formatter (#1359)
   vm.runInContext(["function renderStatsBlock(", "function statRowHtml(", "function liveSeasonRow("].map((s) => sliceFn(sheet, s)).join("\n") +
     "\nthis.renderStatsBlock = renderStatsBlock;", c);
   const sheetFor = (pid, rows) => {
