@@ -1207,6 +1207,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-strength tr.fo-tf-sel .fo-tf-name { color: var(--accent); }
 .fo-tf-warn { color: var(--warn); }
 .fo-tf-team .fo-card-head { flex-wrap: wrap; gap: 6px 12px; }
+/* Grid columns may shrink below their content (a wide table scrolls inside its own box instead of widening the card). */
+.fo-tf-team .fo-tf-cols > div { min-width: 0; }
 .fo-tf-actions { display: inline-flex; gap: 10px; align-items: center; }
 .fo-tf-tag { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 8px; border: 1px solid var(--border); margin-left: 4px; }
 .fo-tf-tag.ok { color: #93c5fd; border-color: rgba(91, 141, 255, 0.5); } .fo-tf-tag.need { color: #fdba74; border-color: rgba(251, 146, 60, 0.5); }

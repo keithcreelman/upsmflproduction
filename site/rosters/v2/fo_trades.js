@@ -262,7 +262,7 @@
     var needs = groups.filter(function (g) { return !TF.FIT_EXCLUDED_GROUPS[g] && (tr.need[g] || 0) >= NEED_MIN; }).sort(function (a, b) { return tr.need[b] - tr.need[a]; });
     var posRows = groups.map(function (g) {
       var c = LS.cell(pos, f, g, "ppg"), a = LS.cell(pos, f, g, "above");
-      var tag = strong.indexOf(g) !== -1 ? ' <span class="fo-tf-tag ok">strong</span>' : (needs.indexOf(g) !== -1 ? ' <span class="fo-tf-tag need">needs help</span>' : "");
+      var tag = strong.indexOf(g) !== -1 ? ' <span class="fo-tf-tag ok" title="Strong: 1st–3rd in the league">strong</span>' : (needs.indexOf(g) !== -1 ? ' <span class="fo-tf-tag need" title="Needs help: a typical starter would add 1+ pts a week">need</span>' : "");
       return '<tr class="' + (TF.FIT_EXCLUDED_GROUPS[g] ? "fo-tf-kp" : "") + '"><th scope="row">' + gl(g) + tag + '</th><td class="num">' + H.esc(c.text) + '</td><td class="num">' + LS.ordinal(tr[g].rank) +
         '</td><td class="num">' + H.esc(a.text) + '</td><td class="num">' + ((tr.need[g] || 0) >= NEED_MIN ? "+" + H.fmt1(tr.need[g]) : "—") + "</td></tr>";
     }).join("");
