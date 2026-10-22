@@ -1427,7 +1427,7 @@
     .draft-cands { margin: 0; padding: 0; list-style: none; }
     .draft-cands li { margin: 1px 0; }
     .draft-owned { color: var(--teal); }
-    .tape-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 50; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 18px 10px; }
+    .tape-overlay { position: absolute; left: 0; right: 0; top: 0; background: rgba(0, 0, 0, 0.6); z-index: 50; display: flex; align-items: flex-start; justify-content: center; padding: 18px 10px; }
     .tape-box { background: var(--bg, #061a3a); border: 1px solid var(--line); border-radius: 10px; width: min(640px, 100%); padding: 12px 14px; position: relative; }
     .tape-box h3 { margin: 0 0 2px; font-size: 15px; padding-right: 34px; }
     .tape-close { position: absolute; top: 8px; right: 10px; font-size: 20px; background: none; border: 0; color: var(--text); cursor: pointer; }
@@ -1440,6 +1440,15 @@
     .hist-list li.now { color: var(--gold); font-weight: 700; }
     @media (max-width: 760px) {
       .pp-sides { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .draft-table thead { display: none; }
+      .draft-table, .draft-table tbody, .draft-table tr, .draft-table td { display: block; width: auto; }
+      .draft-table tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+      .draft-table td { border: 0; padding: 2px 4px; }
+      .draft-table td.slot { display: inline-block; margin-right: 6px; }
+      .draft-table td.slot + td { display: inline; }
+      .leaders-table .lw { display: none; }
     }
     @media (max-width: 400px) {
       .pp-rounds { grid-template-columns: minmax(0, 1fr); }
@@ -2508,7 +2517,7 @@
       + '<td class="v' + (edge === "a" ? " edge" : "") + '">' + a + '</td><td class="v' + (edge === "b" ? " edge" : "") + '">' + b + '</td></tr>';
   }
   function tapeVal(v, rank) { return (v == null ? "—" : fmtPts(v)) + (rank ? ' <span class="rk">' + ordinal(rank) + '</span>' : ''); }
-  function openTape(resp, a, b, kind, round, seeds) {
+  function openTape(resp, a, b, kind, round, seeds, trigger) {
     var M = window.UPS_STANDINGS_RACE;
     var t = M && M.matchupTape ? M.matchupTape(resp, a, b) : null;
     var by = rowsByFid(resp.rows), sl = String(seeds || "|").split("|");
@@ -2541,14 +2550,20 @@
     ov.addEventListener("click", function (ev) { if (ev.target === ov) close(); });
     ov.querySelector(".tape-close").addEventListener("click", close);
     document.addEventListener("keydown", onKey);
+    // Over the whole page, with the box at the button that opened it: inside MFL's frame (sized to the page) a
+    // fixed overlay would open at the top of a tall frame, off the screen the owner is looking at.
+    var docH = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    var at = trigger && trigger.getBoundingClientRect ? trigger.getBoundingClientRect().top + (window.scrollY || 0) - 60 : 10;
+    ov.style.minHeight = docH + "px";
+    ov.style.paddingTop = Math.max(10, Math.min(at, docH - 700)) + "px";
     document.body.appendChild(ov);
-    ov.querySelector(".tape-close").focus();
+    ov.querySelector(".tape-close").focus({ preventScroll: true });
   }
   function wireTape(scope, resp) {
     scope.querySelectorAll("[data-tape]").forEach(function (b) {
       b.addEventListener("click", function () {
         var p = b.getAttribute("data-tape").split("|");
-        openTape(resp, p[0], p[1], b.getAttribute("data-tape-kind"), b.getAttribute("data-tape-round"), b.getAttribute("data-tape-seeds"));
+        openTape(resp, p[0], p[1], b.getAttribute("data-tape-kind"), b.getAttribute("data-tape-round"), b.getAttribute("data-tape-seeds"), b);
       });
     });
   }
@@ -3300,7 +3315,7 @@
     }
     if (show === "opponent") {
       c("Opp. pts/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Points your opponents scored per head-to-head game");
-      c("Rank", "_paRank", true, function (r) { return r._paRank ? ordinal(r._paRank) : "—"; }, "1 = opponents scored the most points per game");
+      c("Rank", "_paRank", true, function (r) { return r._paRank ? ordinal(r._paRank) : "—"; }, "1 = opponents scored the most points per game", W);
       c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you", W);
       c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)", W);
       c("Opp. strength", "_oppStr", true, function (r) { return r._oppStr == null ? "—" : r._oppStr.toFixed(2) + '<span class="owner-sub">' + ordinal(r._oppStrRank) + ' hardest</span>'; }, "Schedule difficulty: your opponents’ scoring vs the league average in their OTHER weeks (1.00 = average)");
@@ -3709,15 +3724,15 @@
       return '<tr' + (VIEWER_FID && e.fid === VIEWER_FID ? ' class="you-row"' : '') + '><td>' + escapeHtml(nm(e.fid)) + '</td>'
         + '<td class="num">' + v.topWeeks + '</td><td class="num">' + v.top3 + '</td><td class="num">' + v.bottom3 + '</td>'
         + '<td class="num">' + fmtDec(v.avgRank, 1) + '</td>'
-        + '<td class="num">' + (cs ? fmtPts(cs.avg) : "—") + '</td><td class="num">' + (cs ? "±" + fmtPts(cs.sd) : "—") + '</td><td class="num">' + (v.bestRank || "—") + ' / ' + (v.worstRank || "—") + '</td>'
-        + '<td class="num">' + (v.highScore ? "W" + v.highScore.week + " " + fmtPts(v.highScore.score) : "—") + '</td>'
-        + '<td class="num">' + (v.lowScore ? "W" + v.lowScore.week + " " + fmtPts(v.lowScore.score) : "—") + '</td></tr>';
+        + '<td class="num">' + (cs ? fmtPts(cs.avg) : "—") + '</td><td class="num">' + (cs ? "±" + fmtPts(cs.sd) : "—") + '</td><td class="num lw">' + (v.bestRank || "—") + ' / ' + (v.worstRank || "—") + '</td>'
+        + '<td class="num lw">' + (v.highScore ? "W" + v.highScore.week + " " + fmtPts(v.highScore.score) : "—") + '</td>'
+        + '<td class="num lw">' + (v.lowScore ? "W" + v.lowScore.week + " " + fmtPts(v.lowScore.score) : "—") + '</td></tr>';
     }).join("");
     var tops = s.weeks.map(function (w) {
       return '<li><span class="wk">' + (w.isPlayoff ? "P" : "W") + w.week + '</span><span>' + escapeHtml((w.top_franchise_ids || []).map(nm).join(" & ")) + '</span><span>' + fmtPts(w.score) + (w.margin_over_second != null && w.margin_over_second > 0 ? ' <span class="dim">(+' + fmtPts(w.margin_over_second) + ')</span>' : '') + '</span></li>';
     }).join("");
     return '<h3 class="sec-h">Season leaders <span class="dim" style="font-weight:400">· ' + (all ? "all weeks" : "regular season") + '</span></h3>'
-      + '<div class="table-scroll" style="margin-bottom:18px"><table class="data-table leaders-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col" title="Weeks with the league’s top score">Top-score weeks</th><th class="num" scope="col">Top 3</th><th class="num" scope="col">Bottom 3</th><th class="num" scope="col" title="Average weekly scoring rank (1 best)">Avg rank</th><th class="num" scope="col" title="Average weekly score">Avg score</th><th class="num" scope="col" title="Weekly swing: the standard deviation of the weekly scores, the typical distance of a week from the team’s own average. Smaller = steadier. Read it with the average: steady and low is still low.">Swing</th><th class="num" scope="col">Best / worst rank</th><th class="num" scope="col">High week</th><th class="num" scope="col">Low week</th></tr></thead><tbody>' + trs + '</tbody></table></div>'
+      + '<div class="table-scroll" style="margin-bottom:18px"><table class="data-table leaders-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col" title="Weeks with the league’s top score">Top-score weeks</th><th class="num" scope="col">Top 3</th><th class="num" scope="col">Bottom 3</th><th class="num" scope="col" title="Average weekly scoring rank (1 best)">Avg rank</th><th class="num" scope="col" title="Average weekly score">Avg score</th><th class="num" scope="col" title="Weekly swing: the standard deviation of the weekly scores, the typical distance of a week from the team’s own average. Smaller = steadier. Read it with the average: steady and low is still low.">Swing</th><th class="num lw" scope="col">Best / worst rank</th><th class="num lw" scope="col">High week</th><th class="num lw" scope="col">Low week</th></tr></thead><tbody>' + trs + '</tbody></table></div>'
       + '<div style="max-width:560px"><h3 class="sec-h">Top score each week</h3><ol class="top-weeks">' + tops + '</ol></div>'
       + '<div class="note">Top 3 / Bottom 3 = weeks among the three highest / lowest scores · ties share a rank · Swing (±) = the standard deviation of the weekly scores: how far a typical week lands from the team’s own average. Smaller is steadier; read it next to Avg score, because a steady low scorer is still a low scorer · descriptive only; seeds come from the league ladder.</div>';
   }
