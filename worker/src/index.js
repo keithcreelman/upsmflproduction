@@ -72,6 +72,7 @@ import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedT
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
+import { seasonTeamSnaps } from "./team_snaps_season.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
@@ -20156,23 +20157,31 @@ export default {
           const base = { ok: true, season, mfl_id: pid, gsis_id: gsis, pfr_id: pfr, id_source: idSource,
                          box_through_week: cov && cov.w != null ? Number(cov.w) : null };
           if (!gsis) return statOk({ ...base, weeks: [] });
-          const [box, rz, sn, tsn] = await Promise.all([
-            db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
-            db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
-            pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ? ORDER BY week").bind(season, pfr).all()
+          // No ORDER BY on the three per-player reads: with it, D1's planner (no
+          // sqlite_stat1) walks the (season, week, …) primary key for the order and
+          // reads the WHOLE season — 6.6k + 1.8k + 8.7k rows per view — instead of
+          // the (gsis_id|pfr_id, season) player indexes (~4 rows each). The weeks
+          // are keyed and sorted below, so row order never mattered.
+          const edge = safeStr(url.searchParams.get("NO_CACHE")) !== "1" && typeof caches !== "undefined" ? caches.default : null;
+          const [box, rz, sn, seasonSnaps] = await Promise.all([
+            db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ?").bind(season, gsis).all(),
+            db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ?").bind(season, gsis).all(),
+            pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?").bind(season, pfr).all()
                 : Promise.resolve({ results: [] }),
-            // His team's offensive / defensive snaps in each of his games, read
-            // off the team's most-used player that game (max snaps / max share;
-            // exact when someone played 100%).
-            pfr ? db.prepare(
-              "SELECT s.week, s.team, " +
-              "CAST(ROUND(MAX(s.off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.off_snaps > 0 THEN s.off_snap_pct END), 0)) AS INTEGER) AS team_off, " +
-              "CAST(ROUND(MAX(s.def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.def_snaps > 0 THEN s.def_snap_pct END), 0)) AS INTEGER) AS team_def " +
-              "FROM nfl_player_snaps s JOIN (SELECT week, team FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?) p " +
-              "ON p.week = s.week AND p.team = s.team WHERE s.season = ? GROUP BY s.week, s.team"
-            ).bind(season, pfr, season).all() : Promise.resolve({ results: [] }),
+            pfr ? seasonTeamSnaps(db, season, ctx, edge) : Promise.resolve(null),
           ]);
-          const teamSnaps = {};
+          // His team's offensive / defensive snaps in each of his games: the
+          // season table (./team_snaps_season.js), else this per-player join —
+          // read off the team's most-used player that game (max snaps / max
+          // share; exact when someone played 100%).
+          const tsn = pfr && !seasonSnaps ? await db.prepare(
+            "SELECT s.week, s.team, " +
+            "CAST(ROUND(MAX(s.off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.off_snaps > 0 THEN s.off_snap_pct END), 0)) AS INTEGER) AS team_off, " +
+            "CAST(ROUND(MAX(s.def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.def_snaps > 0 THEN s.def_snap_pct END), 0)) AS INTEGER) AS team_def " +
+            "FROM nfl_player_snaps s JOIN (SELECT week, team FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?) p " +
+            "ON p.week = s.week AND p.team = s.team WHERE s.season = ? GROUP BY s.week, s.team"
+          ).bind(season, pfr, season).all() : null;
+          const teamSnaps = seasonSnaps || {};
           for (const r of (tsn && tsn.results) || []) teamSnaps[r.week + "|" + r.team] = r;
           const weeks = {};
           const at = (w) => (weeks[w] = weeks[w] || { week: Number(w), box: null, redzone: null, snaps: null });
