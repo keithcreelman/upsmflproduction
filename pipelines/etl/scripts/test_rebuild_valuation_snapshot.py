@@ -234,6 +234,24 @@ class Workflow(unittest.TestCase):
         self.assertNotIn("CLOUDFLARE", y)
 
 
+def workflow_step(name: str) -> list:
+    """The lines of one workflow step, by indentation (no YAML library: CI does not install one)."""
+    lines = Workflow.WF.read_text().splitlines()
+    start = next(i for i, l in enumerate(lines) if l.strip() == f"- name: {name}")
+    indent = len(lines[start]) - len(lines[start].lstrip())
+    end = next((j for j in range(start + 1, len(lines)) if lines[j].strip().startswith("- ")
+                and len(lines[j]) - len(lines[j].lstrip()) <= indent), len(lines))
+    return lines[start:end]
+
+
+def workflow_run_script(name: str) -> str:
+    """A step's `run: |` block, dedented."""
+    import textwrap
+    block = workflow_step(name)
+    i = next(k for k, l in enumerate(block) if l.strip() == "run: |")
+    return textwrap.dedent("\n".join(block[i + 1:])) + "\n"
+
+
 class UnpushedSnapshot(unittest.TestCase):
     """A rebuilt snapshot committed but never pushed is not delivered (Keith 2026-10-22): the health check reads
     origin/main, and a failed push alerts."""
@@ -288,23 +306,20 @@ class UnpushedSnapshot(unittest.TestCase):
         self.assertEqual(missing["exit"], 3)                                 # an unreadable ref is never "ok"
 
     def test_workflow_checks_origin_main_even_after_a_failed_push(self):
-        import yaml
-        wf = yaml.safe_load(Workflow.WF.read_text())
-        steps = {s.get("name"): s for s in wf["jobs"]["rebuild-and-check"]["steps"]}
-        self.assertEqual(steps["Commit a rebuilt snapshot"]["id"], "commit")
-        check = steps["Check what the bot would do now"]
-        self.assertEqual(check["if"], "always()")
-        self.assertIn("check --ref origin/main", check["run"])
-        self.assertIn("git fetch --quiet origin main", check["run"])
-        alert = steps["Alert (one issue labeled valuation-snapshot-alert)"]
-        self.assertEqual(alert["env"]["COMMIT_OUTCOME"], "${{ steps.commit.outcome }}")
+        commit = [l.strip() for l in workflow_step("Commit a rebuilt snapshot")]
+        self.assertIn("id: commit", commit)
+        check = [l.strip() for l in workflow_step("Check what the bot would do now")]
+        self.assertIn("if: always()", check)
+        run = workflow_run_script("Check what the bot would do now")
+        self.assertIn("check --ref origin/main", run)
+        self.assertIn("git fetch --quiet origin main", run)
+        alert = [l.strip() for l in workflow_step("Alert (one issue labeled valuation-snapshot-alert)")]
+        self.assertIn("COMMIT_OUTCOME: ${{ steps.commit.outcome }}", alert)
 
     def _alert_step(self, commit_outcome, check_exit):
         import os
         import subprocess
-        import yaml
-        wf = yaml.safe_load(Workflow.WF.read_text())
-        script = next(s for s in wf["jobs"]["rebuild-and-check"]["steps"] if s.get("name", "").startswith("Alert"))["run"]
+        script = workflow_run_script("Alert (one issue labeled valuation-snapshot-alert)")
         tmp = Path(self.td.name)
         fakebin, calls = tmp / "bin", tmp / "gh_calls.log"
         fakebin.mkdir(exist_ok=True)
