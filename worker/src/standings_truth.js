@@ -154,8 +154,9 @@ const KEY = { pct: (v) => Math.round(Number(v || 0) * 1e6), pts: (v) => Math.rou
 // MFL standingsSort tokens this league uses (league export, 2010-2026):
 //   PCT (overall win %), DIVPCT (division win %), H2H (record among the tied teams),
 //   PTS (season points for), ALL_PLAY_PCT, PWR (MFL power rating; not served by the
-//   export, so it cannot decide anything here and is reported when reached).
-// rows: [{ franchise_id, franchise_name, overall_pct, div_pct, pf_total, allplay_pct }]
+//   export, so for the live season it cannot decide anything and is reported when
+//   reached; a recorded season's stored pwr decides it when every tied row has one).
+// rows: [{ franchise_id, franchise_name, overall_pct, div_pct, pf_total, allplay_pct, pwr? }]
 // Returns { order: [rows best first], steps: [{ above, below, step }] } -- step names the
 // token that separated each adjacent pair ("name" = the deterministic fallback, not a rule).
 export function divisionOrder(rows, games, standingsSort) {
@@ -170,7 +171,8 @@ export function divisionOrder(rows, games, standingsSort) {
       const rec = recordAmong(group.map((r) => pad4(r.franchise_id)), games);
       return (r) => { const x = rec.get(pad4(r.franchise_id)); const n = x.w + x.l + x.t; return n ? KEY.pct(pct(x.w, x.l, x.t)) : KEY.pct(0.5); };
     }
-    return null;   // PWR or an unknown token
+    if (tok === "PWR" && group.every((r) => r.pwr != null && r.pwr !== "")) return (r) => KEY.pct(r.pwr);
+    return null;   // PWR without stored values, or an unknown token
   };
   const decided = new Map();   // "above|below" -> step
   const sortGroup = (group, i) => {
@@ -202,6 +204,34 @@ export function divisionOrder(rows, games, standingsSort) {
     steps.push({ above: a, below: b, step: decided.get(a + "|" + b) || null });
   }
   return { order, steps };
+}
+
+// Division order from STORED season rows (src_standings): what /api/standings and /api/playoff-bracket use for a
+// recorded season (2010-2025). Same divisionOrder as the live season: PCT = overall win %, PTS = the stored season
+// Points For (src_standings.pf), H2H = regular-season games among the tied teams, a tie when the season kept no game
+// pairings. Before 2026-10-22 both routes skipped H2H and /api/standings read PTS as the AVERAGE of the src_schedule
+// rows -- in 2010 those are playoff games only, which put the wrong team atop Division 00 (#1329, decision 5 C6+C9).
+//   rows  -- [{ franchise_id, franchise_name, division, h2h_pct, div_pct, pf_total, allplay_pct, pwr }]
+//   games -- src_schedule rows { franchise_id, opponent_franchise_id, team_score, opponent_score, is_playoff };
+//            only rows flagged exactly regular season count.
+// Returns Map franchise_id (4 digits) -> { division_rank, is_division_leader, step_vs_below }.
+export function storedDivisionOrder(rows, games, standingsSort) {
+  const reg = (games || []).filter((g) => playoffFlag(g.is_playoff) === 0).map((g) => ({
+    a: pad4(g.franchise_id), b: pad4(g.opponent_franchise_id), ts: Number(g.team_score) || 0, os: Number(g.opponent_score) || 0,
+  }));
+  const out = new Map();
+  const divs = [...new Set((rows || []).filter((r) => r.division != null).map((r) => String(r.division)))];
+  for (const d of divs) {
+    const group = rows.filter((r) => r.division != null && String(r.division) === d).map((r) => ({
+      franchise_id: pad4(r.franchise_id), franchise_name: r.franchise_name,
+      overall_pct: r.h2h_pct, div_pct: r.div_pct, pf_total: r.pf_total, allplay_pct: r.allplay_pct, pwr: r.pwr,
+    }));
+    const { order, steps } = divisionOrder(group, reg, standingsSort);
+    order.forEach((r, i) => out.set(r.franchise_id, {
+      division_rank: i + 1, is_division_leader: i === 0, step_vs_below: i < steps.length ? steps[i].step : null,
+    }));
+  }
+  return out;
 }
 
 // The current season's whole field, computed once for every route that seeds it
