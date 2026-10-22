@@ -11,8 +11,8 @@
 // stamp (scripts/load_local_to_d1.py): at most an hour.
 //
 // Failure: returns null whenever it can't stand behind a cached answer (no stamp, no edge cache,
-// a failed read). The route then runs the per-player join exactly as before, so the data never
-// changes; only the cost does.
+// a failed read), and the route checks coversPlayer() before using a table at all. Either way the
+// route then runs the per-player join exactly as before, so the data never changes; only the cost does.
 
 export const TEAM_SNAPS_TTL_S = 3600;
 const QUERY_VERSION = "1";   // bump when TEAM_SNAPS_SQL changes, so no old answer is served
@@ -22,6 +22,20 @@ const TEAM_SNAPS_SQL =
   "CAST(ROUND(MAX(off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN off_snaps > 0 THEN off_snap_pct END), 0)) AS INTEGER) AS team_off, " +
   "CAST(ROUND(MAX(def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN def_snaps > 0 THEN def_snap_pct END), 0)) AS INTEGER) AS team_def " +
   "FROM nfl_player_snaps WHERE season = ? GROUP BY week, team";
+
+// A season table answers for a player only when it is an object holding a well-formed entry for
+// every (week, team) of his snap rows. An empty {}, one built mid-refresh that lacks his game, or
+// any odd value fails, and the route runs the per-player join, so a short or malformed cache entry
+// can never blank his team snaps (Codex #1380 MAT-1).
+export function coversPlayer(map, snapRows) {
+  if (!map || typeof map !== "object" || Array.isArray(map)) return false;
+  const ok = (v) => v === null || (typeof v === "number" && Number.isFinite(v));
+  return (snapRows || []).every((r) => {
+    if (r.team == null) return true;   // the join never matched a team-less row either
+    const e = map[r.week + "|" + r.team];
+    return !!e && typeof e === "object" && ok(e.team_off) && ok(e.team_def);
+  });
+}
 
 // { "week|team": { team_off, team_def } } for the season, or null (caller reads per player).
 export async function seasonTeamSnaps(db, season, ctx, cache) {
