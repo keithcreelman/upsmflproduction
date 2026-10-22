@@ -22,7 +22,7 @@ Production D1 is shared and metered. Keith wants to return to Cloudflare's Free 
 - **Measure before shipping** a new or changed query: `rows_read` from `wrangler d1 execute ups-mfl-db --remote --json --command "…"` (meta) and `EXPLAIN QUERY PLAN`. Filter and join only on indexed columns. Over ~100k rows per run needs an index, a precompute or a stored copy, and a note in the PR.
 - **Write only what changed.** Don't rewrite finished seasons or unchanged rows; every upserted row and index entry counts as written.
 - **No production D1 by default** in tests or scripts. Production access is an explicit opt-in (the #1239 pattern).
-- **Check usage** with `python3 scripts/d1_usage.py [1h|1d]` (reads), and `wrangler d1 info ups-mfl-db` for total rows written: the per-query view can't see bulk `--file` imports.
+- **Check usage** with `python3 scripts/d1_usage.py`. The Free-plan budget is its exact account-wide counter for the current UTC day (resets 00:00 UTC). Its per-query list is Cloudflare's sampled estimate (one 1-in-145 sample read as "145 runs" in #1354): never add it up or quote it as usage.
 
 ## Reply format
 1. **Plain English:** what an owner will notice.
