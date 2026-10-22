@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.21.6",
-  "label": "Points and PPG round half-up to one decimal everywhere (19.35 reads 19.4), the same as the desktop Front Office."
+  "build": "2026.10.21.7",
+  "label": "Player sheet: a season rank held back pending the #1307 historical reconciliation shows — with a note, not 0."
 }

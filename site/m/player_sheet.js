@@ -390,6 +390,7 @@
       years = [live.season, live.season - 1, live.season - 2];
       ctx.curYearForLeaderboard = live.season;
     }
+    var pendingYears = [];
     var rows = years.map(function (y) {
       var c = careerByYear[y] || {};
       var s = seasonsByYear[y] || {};
@@ -408,7 +409,14 @@
         games = Number(c.games_played || 0);
         pts = Number(c.season_points || 0);
         ppg = Number(c.avg_ppg != null ? c.avg_ppg : (games > 0 ? pts / games : 0));
-        ppgRank = Number(c.pos_ppg_rank || 0);
+        // A rank the worker holds back until the #1307 recount comes as null
+        // with rank_pending: "—" and the note below, never 0.
+        if (c.rank_pending && c.rank_pending.fields && c.rank_pending.fields.indexOf("pos_ppg_rank") !== -1) {
+          ppgRank = "—";
+          pendingYears.push(y);
+        } else {
+          ppgRank = Number(c.pos_ppg_rank || 0);
+        }
       } else if (stats) {
         // The column is MFL SCORED WEEKS (0.0 included), like career_summary's
         // games_played and MFL's own AVG. The leaderboard's `games` is nflverse
@@ -442,7 +450,10 @@
         ? live.season + ": " + live.basis
         : (!seasonScoring || !seasonScoring.known)
           ? curYear + ": points unavailable — MFL's scoring could not be read"
-          : "No " + curYear + " MFL scores yet. Rows above are earlier seasons, each under its year.") + '</div>';
+          : "No " + curYear + " MFL scores yet. Rows above are earlier seasons, each under its year.") + '</div>' +
+      (pendingYears.length
+        ? '<div class="ups-m-stat-basis">' + pendingYears.join(", ") + " PPG Rk: Rank pending historical reconciliation.</div>"
+        : "");
   }
 
   // ── Game log (Stats tab, Keith 2026-10-10) ──
