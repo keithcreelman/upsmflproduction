@@ -1222,7 +1222,12 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-compare summary { cursor: pointer; color: var(--accent); font-size: 12px; }
 .fo-tf-pickcmp th, .fo-tf-pickcmp td { padding: 3px 8px; font-size: 12px; }
 .fo-tf-pickcmp tr.fo-tf-sel th { color: var(--accent); }
-@media (max-width: 600px) { .fo-tf-name { max-width: 104px; } .fo-tf-team .fo-tf-cols { gap: 8px; } }
+@media (max-width: 600px) {
+  .fo-tf-name { max-width: 104px; } .fo-tf-team .fo-tf-cols { gap: 8px; }
+  .fo-tf-pos th, .fo-tf-pos td, .fo-tf-pickcmp th, .fo-tf-pickcmp td { padding: 3px 4px; }
+  .fo-tf-pickcmp th[scope="row"] { white-space: normal; }
+  .fo-tf-tag { margin-left: 2px; padding: 0 3px; }
+}
 
 /* ── Draft picks + Activity (#1338) ── */
 .fo-pk-table { min-width: 640px; }

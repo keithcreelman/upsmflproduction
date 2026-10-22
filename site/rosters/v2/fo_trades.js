@@ -289,7 +289,7 @@
       '<div class="fo-tf-cols">' +
         '<div><h4>Strong</h4><p>' + (strong.length ? strong.map(function (g) { return "<b>" + gl(g) + "</b> (" + LS.ordinal(tr[g].rank) + ")"; }).join(", ") : "No position in the league’s top " + STRONG_RANK + ".") + "</p>" +
           "<h4>Needs help</h4><p>" + (needs.length ? needs.map(function (g) { return "<b>" + gl(g) + "</b> (+" + H.fmt1(tr.need[g]) + " pts/wk)"; }).join(", ") : "No position where a typical starter adds " + NEED_MIN + "+ pts/wk.") + "</p>" +
-          '<div class="fo-table-scroll"><table class="fo-table fo-tf-pos"><thead><tr><th scope="col">Pos</th><th scope="col" class="num">PPG</th><th scope="col" class="num">Rank</th><th scope="col" class="num" title="Above Replacement (raw)">Above Repl.</th><th scope="col" class="num" title="Points a week a typical (median) starter would add">Need</th></tr></thead><tbody>' + posRows + "</tbody></table></div>" +
+          '<div class="fo-table-scroll"><table class="fo-table fo-tf-pos"><thead><tr><th scope="col">Pos</th><th scope="col" class="num">PPG</th><th scope="col" class="num">Rank</th><th scope="col" class="num" title="Above Replacement (raw): points a week above replacement level">Above</th><th scope="col" class="num" title="Points a week a typical (median) starter would add">Need</th></tr></thead><tbody>' + posRows + "</tbody></table></div>" +
           '<p class="fo-basis">By Position, modeled lineup. Strong = 1st–' + STRONG_RANK + " in the league by starters’ PPG. Needs help = a typical (median) starter would add " + NEED_MIN + "+ pts a week. K and P are shown, never called strong or short.</p></div>" +
         "<div><h4>Cap</h4>" + capLine +
           "<h4>Future picks</h4>" + picksHtml(f) + "</div>" +
