@@ -167,13 +167,49 @@
 
   const apiUrl = (p) => WORKER_BASE + p;
 
+  // Player news (#1356) lives in fo_news.js, which reads the shared feed
+  // /api/news-feed (ups.news.v1). Loaded on demand from this file's asset base
+  // so the SHA-pinned embed loader's fixed script list needs no change.
+  // site/shared/mfl_player_news.js comes with it: inside MFL it lets the
+  // owner's browser read MFL Player News headlines from MFL itself.
+  const FO_NEWS_ASSET_V = "2026.10.22.1";
+  const __foScripts = {};
+  function loadScriptOnce(src) {
+    if (!__foScripts[src]) {
+      __foScripts[src] = new Promise(function (resolve, reject) {
+        const s = document.createElement("script");
+        s.src = src; s.async = true;
+        s.onload = function () { resolve(); };
+        s.onerror = function () { delete __foScripts[src]; reject(new Error("could not load " + src)); };
+        (document.head || document.body).appendChild(s);
+      });
+    }
+    return __foScripts[src];
+  }
+  let __foNewsP = null;
+  function foNewsReady() {
+    if (window.UPS_FO_NEWS && window.UPS_MFL_NEWS) return Promise.resolve(window.UPS_FO_NEWS.init({ apiUrl: apiUrl, leagueId: LEAGUE_ID, season: SEASON }));
+    if (!__foNewsP) {
+      __foNewsP = Promise.all([
+        loadScriptOnce(assetUrl("../../shared/mfl_player_news.js?v=" + FO_NEWS_ASSET_V)),
+        loadScriptOnce(assetUrl("fo_news.js?v=" + FO_NEWS_ASSET_V)),
+      ]).then(function () {
+        return window.UPS_FO_NEWS.init({ apiUrl: apiUrl, leagueId: LEAGUE_ID, season: SEASON });
+      }).catch(function (e) { __foNewsP = null; throw e; });
+    }
+    return __foNewsP;
+  }
+  function foPlayerName(pid) {
+    const p = allVisiblePlayers().find(function (x) { return String(x.id) === String(pid); });
+    return p ? p.name : "";
+  }
+
   // Mirror roster_workbench.js endpoint resolvers (byte-for-byte targets).
   const EP_ROSTER          = () => apiUrl("/roster-workbench");
   const EP_ROSTER_ACTION   = () => apiUrl("/roster-workbench/action");
   const EP_ADMIN_STATE     = () => apiUrl("/roster-workbench/admin-state");
   const EP_CONTRACT_UPDATE = () => apiUrl("/commish-contract-update");
   const EP_RESTRUCTURE     = () => apiUrl("/offer-restructure");
-  const EP_PLAYER_NEWS     = () => apiUrl("/api/player-news");
   const EP_PLAYER_BUNDLE   = () => apiUrl("/api/player-bundle");
   // Relative to this file's location (site/rosters/v2/) — fetches the
   // commish-maintained per-season acquisition lookup that feeds taxi
@@ -227,7 +263,6 @@
     // back Nov 8, 2026"); nothing in the §B3 gate reads it, and a missing entry
     // is never inferred to mean anything.
     nflStatusMeta: {},
-    newsFlags: {},      // pid -> "injury" | "news" when the player has a news item
     contractDeadline: null, // ISO date of the Sept contract deadline (league_events)
     // Sept contract deadline as a real unix instant (ms) — set from
     // contractDeadlineDateFO() in loadContractDeadline, alongside the ISO day
@@ -3386,7 +3421,7 @@
 
   // ── NFL game status + news flags (decorate roster rows) ─────────────
   // NFL game status (O/Q/D) comes straight from MFL's injuries export; the
-  // news flag from /api/player-news (same feed the News tab uses). Both load
+  // news icon from the shared feed /api/news-feed via fo_news.js. Both load
   // after the table first renders, then trigger one re-render.
   // Keys are the LOWERCASED status string exactly as MFL sends it. The second
   // group is the set observed live 2026-08-15 across 339 rows — "ir-pup",
@@ -3536,13 +3571,12 @@
         : "MFL's injury report has no designation on file for this player."
     };
   }
+  // News icon (fo_news.js): highlighted for a story ≤ 48 h old, quieter for
+  // an older one in the ~7-day window, nothing otherwise. Injury designations
+  // are NOT news: they stay on nflStatusBadge from MFL's injury report.
   function newsFlagBadge(pid) {
-    var f = STATE.newsFlags[String(pid)];
-    if (!f) return "";
-    // Injury/status → medical cross; news headline → newspaper. Clicking opens News.
-    var icon = f === "injury" ? "🏥" : "📰";
-    var title = f === "injury" ? "Injury / status news — click to open News" : "News headline — click to open News";
-    return ' <span class="fo-news-flag fo-news-flag-' + f + '" data-news-pid="' + escapeHtml(String(pid)) + '" title="' + title + '">' + icon + "</span>";
+    if (!window.UPS_FO_NEWS || !window.UPS_FO_NEWS.isLoaded()) return "";
+    return window.UPS_FO_NEWS.rosterBadge(pid, foPlayerName(pid));
   }
   // ── Cap-penalty SSOT fetch ──────────────────────────────────────────
   // ONE batched request per page load — /api/cap-penalty/preview with no
@@ -3664,27 +3698,16 @@
       STATE.nflStatusRows = null;
       STATE.nflStatusFeed = "error";
     }
-    // News flags. The /api/player-news endpoint resolves at most ~50 players per
-    // request, so a single all-roster call drops everyone past ~50 (Jalen Hurts
-    // had news but no flag). Chunk into ≤40-pid requests and merge.
+    // News icons: one read of the shared feed for the roster (fo_news.js
+    // chunks ≤ 50 ids per call). A failed read leaves no icons; the player's
+    // News tab / popup then says "unavailable", never "no news".
+    var newsIcons = false;
     try {
-      var chunks = [];
-      for (var ci = 0; ci < pids.length; ci += 40) chunks.push(pids.slice(ci, ci + 40));
-      var newsBase = apiUrl("/api/player-news") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON) + "&pids=";
-      var results = await Promise.all(chunks.map(function (c) {
-        return fetchJSON(newsBase + encodeURIComponent(c.join(","))).catch(function () { return null; });
-      }));
-      var flags = {};
-      results.forEach(function (news) {
-        var ibp = (news && news.items_by_pid) || {};
-        Object.keys(ibp).forEach(function (pid) {
-          var items = (ibp[pid] || []).filter(function (it) { return it && (it.type === "injury" || it.type === "status" || it.type === "headline"); });
-          if (items.length) flags[pid] = items.some(function (it) { return it.type === "injury" || it.type === "status"; }) ? "injury" : "news";
-        });
-      });
-      STATE.newsFlags = flags;
-    } catch (e) {}
-    if (Object.keys(STATE.nflStatus).length || Object.keys(STATE.newsFlags).length) renderRosterTable();
+      var N = await foNewsReady();
+      await N.loadRoster(pids);
+      newsIcons = N.hasBadges();
+    } catch (e) { console.warn("[fo] player news unavailable:", e && e.message); }
+    if (Object.keys(STATE.nflStatus).length || newsIcons) renderRosterTable();
     refreshOpenActionsTabForIndicators();
   }
 
@@ -4025,9 +4048,11 @@
       tr.addEventListener("click", function (e) {
         const pid = tr.dataset.pid; const fid = tr.dataset.fid;
         if (!pid) return;
-        // Clicking the news flag jumps straight to the News tab.
-        if (e.target && e.target.classList && e.target.classList.contains("fo-news-flag")) {
-          openSlideover(pid, fid, "news"); return;
+        // The news icon opens the player-news popup (a bottom sheet on a phone).
+        if (e.target && e.target.closest && e.target.closest("[data-fo-news-pid]")) {
+          e.stopPropagation();
+          foNewsReady().then(function (N) { N.open(pid, foPlayerName(pid)); }).catch(function (err) { console.warn("[fo] news popup:", err && err.message); });
+          return;
         }
         openSlideover(pid, fid);
       });
@@ -4891,91 +4916,23 @@
   }
 
   // ── News sub-tab inside slide-over ──────────────────────────────────
-  // Mirrors the master player modal's News feed: live /api/player-news
-  // (worker aggregates Sleeper injury/status + ESPN/Yahoo/PFT/CBS headlines).
-  // Depth-chart entries are excluded (roster info, not news — Keith 2026-05-13).
-  var __newsCache = {};
-  async function loadPlayerNews(pid) {
-    if (!pid) return null;
-    if (__newsCache[pid]) return __newsCache[pid];
-    try {
-      var res = await fetch(apiUrl("/api/player-news") + "?pids=" + encodeURIComponent(pid) +
-        "&L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON), { cache: "no-store" });
-      var data = await res.json();
-      __newsCache[pid] = data;
-      return data;
-    } catch (e) { return null; }
-  }
-  function foNewsItemClass(t) {
-    if (t === "injury" || t === "status") return "fo-news-injury";
-    if (t === "headline") return "fo-news-headline";
-    return "";
-  }
-  function foIsRealNews(it) { return !!it && (it.type === "injury" || it.type === "status" || it.type === "headline"); }
-  function foRenderNewsItem(it) {
-    var when = "";
-    if (it.timestamp) { try { when = new Date(Number(it.timestamp) * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch (e) {} }
-    var meta = (it.source ? escapeHtml(String(it.source)) : "") + (when ? " · " + when : "");
-    // DECODE, THEN ESCAPE — order is load-bearing and must not be swapped.
-    // The feed hands us prose that is ALREADY entity-encoded, so escapeHtml on
-    // its own re-encoded the ampersand and painted the raw token on screen:
-    //   "Falcons&#8217; James Pearce Jr." → "Falcons&amp;#8217; James Pearce Jr."
-    // decodeEntities() resolves it to a real apostrophe first; escapeHtml()
-    // still runs last, so anything markup-shaped in the feed is neutralised on
-    // the way out. NEVER hand the decoded string straight to innerHTML.
-    // Same fix, same order as team_operations.js (~3436 / ~3562).
-    var headlineText = decodeEntities(it.headline || "");
-    var bodyText = decodeEntities(it.body || "");
-    // escapeHtml() encodes & < > " ' but does NOT neutralise a URL SCHEME, so
-    // it alone would let a feed-supplied `javascript:...` through as a
-    // clickable same-origin script link. This feed is third-party and partly
-    // user-submitted. A non-http(s) url renders as plain text, not a link —
-    // the headline is never dropped.
-    var href = safeHttpUrl(it.url);
-    var headline = href
-      ? '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(headlineText) + "</a>"
-      : escapeHtml(headlineText);
-    return '<div class="fo-news-item ' + foNewsItemClass(it.type) + '">' +
-      '<div class="fo-news-headline">' + headline + "</div>" +
-      '<div class="fo-news-meta">' + meta + "</div>" +
-      (bodyText ? '<div class="fo-news-body">' + escapeHtml(bodyText) + "</div>" : "") + "</div>";
-  }
+  // The same chronological list as the roster icon's popup (fo_news.js, shared
+  // feed ups.news.v1). It shows stories only: the MFL injury designation is on
+  // the roster chip, never repeated here as "news".
   async function renderNewsTab(p) {
     var body = $("#fo-slideover-body");
     if (!body) return;
+    var current = function () { return STATE.slideoverPid === p.id && STATE.slideoverSubtab === "news"; };
     body.innerHTML = '<div class="fo-card-head"><h2 style="margin:0;">News</h2></div><div class="fo-form-note">Loading news…</div>';
-    var data = await loadPlayerNews(p.id);
-    if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "news") return; // user moved on
-    var raw = (data && data.items_by_pid && data.items_by_pid[String(p.id)]) || [];
-    var items = raw.filter(foIsRealNews);
-    // Newest first (consistent with the other sub-tabs).
-    items.sort(function (a, b) { return (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0); });
-    var feed;
-    if (items.length) {
-      feed = '<div class="fo-news-list">' + items.map(foRenderNewsItem).join("") + "</div>";
-    } else {
-      var hadDepth = raw.some(function (it) { return it && it.type === "depth"; });
-      feed = '<div class="fo-form-note">No injury reports or news headlines for this player.' +
-        (hadDepth ? " (Depth-chart position available — see Bio.)" : "") + "</div>";
+    try {
+      var N = await foNewsReady();
+      if (!current()) return; // user moved on
+      N.renderInto(body, p.id, p.name, current);
+    } catch (e) {
+      if (!current()) return;
+      body.innerHTML = '<div class="fo-card-head"><h2 style="margin:0;">News</h2></div>' +
+        '<div class="fo-form-note">News couldn\'t be loaded. This is not "no news". Reopen the tab to try again.</div>';
     }
-    var injuryNote = "";
-    if (p && (p.injuryStatus || p.injury_status)) {
-      // Same decode-then-escape order as foRenderNewsItem. Different upstream
-      // (MFL's own injury detail, not the news aggregator) but it renders in
-      // the SAME panel, and MFL's free-text detail field carries entity-encoded
-      // prose too — a panel that fixes the apostrophes in one paragraph and not
-      // the one above it reads like a rendering bug either way. escapeHtml
-      // still runs last.
-      var injDetail = decodeEntities(safeStr(p.injuryDetails || p.injury_details));
-      injuryNote = '<div class="fo-news-item fo-news-injury"><div class="fo-news-headline">MFL Injury · ' +
-        escapeHtml(decodeEntities(safeStr(p.injuryStatus || p.injury_status))) + "</div>" +
-        (injDetail ? '<div class="fo-news-body">' + escapeHtml(injDetail) + "</div>" : "") + "</div>";
-    }
-    body.innerHTML =
-      '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">News</h2>' +
-      '<span class="small" style="color:var(--muted); margin-left:auto;">Sleeper + ESPN/Yahoo/PFT/CBS</span></div>' +
-      (injuryNote ? '<div class="fo-news-list" style="margin-bottom:10px;">' + injuryNote + "</div>" : "") +
-      feed;
   }
 
   // ── Actions sub-tab inside slide-over ───────────────────────────────
