@@ -47,6 +47,12 @@ SUBCOMMANDS
                                              comment string appears in any output
   Then: node pipelines/etl/scripts/dryrun_gap01_measure_local_d1.mjs --out DIR
   (D1's own billed counters on a local Miniflare D1), and `report` again.
+  preflight   [--out DIR]                    read-only write-budget guard (Cloudflare's exact
+                                             account counter, quiet window, no write-heavy job)
+  verify-d1   [--out DIR] --allow-prod-d1    after an APPROVED load: SELECT both new tables and
+                                             reconcile them with the build (opt-in, ~10.5k reads)
+  This file never writes D1. An approved load runs the schema and forward SQL
+  by hand with `wrangler d1 execute`, outside this script.
 
 Raw MFL replies hold owner comments, so the cache and the build output default
 to ~/.ups_jobs/gap01_auction_bids/, outside the repository. Only the
@@ -66,7 +72,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -92,11 +98,11 @@ AUCTIONS_TABLE = "ups_hist_auctions"
 BIDS_TABLE = "ups_hist_auction_bids"
 AUCTION_COLS = ["season", "player_id", "started_at_unix", "league_id", "start_basis",
                 "split_reason", "opened_by_fid", "opening_bid", "last_bid_at_unix", "outcome",
-                "won_at_unix", "winner_fid", "winning_bid", "bid_count", "auction_kind",
-                "log_semantics", "source"]
+                "won_at_unix", "winner_fid", "winning_bid", "bid_count", "price_check", "caveat",
+                "auction_kind", "log_semantics", "source"]
 AUCTION_PK = ["season", "player_id", "started_at_unix"]
 BID_COLS = ["season", "player_id", "started_at_unix", "seq", "event", "fid", "amount",
-            "bid_at_unix", "forced", "forcing_fid"]
+            "amount_meaning", "amount_raw", "bid_at_unix", "forced", "forcing_fid"]
 BID_PK = ["season", "player_id", "started_at_unix", "seq"]
 INDEXES_PER_ROW = {AUCTIONS_TABLE: 1, BIDS_TABLE: 0}  # secondary indexes in the proposed schema
 INSERT_CHUNK_ROWS = 80
@@ -466,6 +472,8 @@ def build_season(cache: MflCache, season: int, use_o102: bool = True) -> dict:
                 "winner_fid": won["fid"] if won else None,
                 "winning_bid": won["amount"] if won else None,
                 "bid_count": len(evs),
+                "price_check": None,
+                "caveat": None,
                 "auction_kind": auction_kind(won["ts"] if won else started),
                 "log_semantics": log_semantics(season),
                 "source": "mfl_txlog",
@@ -478,8 +486,10 @@ def build_season(cache: MflCache, season: int, use_o102: bool = True) -> dict:
                 bids.append({
                     "season": season, "player_id": pid, "started_at_unix": started, "seq": i,
                     "event": "init" if x["type"] == "AUCTION_INIT" else "bid",
-                    "fid": x["fid"], "amount": x["amount"], "bid_at_unix": x["ts"],
-                    "forced": int(forced), "forcing_fid": forcer,
+                    "fid": x["fid"], "amount": x["amount"],
+                    "amount_meaning": "entered_max" if season <= 2016 else "price_after_bid",
+                    "amount_raw": (x["amount_raw"] if x["amount_raw"] and x["amount_raw"] != str(x["amount"]) else None),
+                    "bid_at_unix": x["ts"], "forced": int(forced), "forcing_fid": forcer,
                     "_forced_team_unresolved": forced and forcer is None,
                     "_forcer_resolved_by": how,
                     "_forcer_team": (fix_mojibake(FORCED_RE.match(x["comment"]).group("team")).strip()
@@ -488,9 +498,28 @@ def build_season(cache: MflCache, season: int, use_o102: bool = True) -> dict:
                     "_amount_raw": x["amount_raw"] if x["amount_unreadable"] else None,
                     "_has_owner_comment": bool(x["comment"]) and not forced,
                 })
+            mine = bids[len(bids) - len(evs):]
+            row["price_check"] = price_check(season, row, mine)
+            row["caveat"] = ";".join(c for c, on in (
+                ("start_unconfirmed", row["start_basis"] == "first_logged_bid"),
+                ("price_unexplained", row["price_check"] == "unexplained"),
+                ("unreadable_amount", any(b["_amount_unreadable"] for b in mine))) if on) or None
             auctions.append(row)
     return {"season": season, "counts": dict(counts), "auctions": auctions, "bids": bids,
             "has_init": has_init}
+
+
+def price_check(season: int, a: dict, evs: list[dict]) -> str:
+    """How MFL's price ties back to the logged rows (stored as price_check)."""
+    if a["outcome"] != "won":
+        return "none"
+    if season <= 2016:
+        return "proxy_replay" if replay_every_bid(evs) == (a["winner_fid"], a["winning_bid"]) else "unexplained"
+    last = evs[-1] if evs else None
+    rising = all(x["amount"] is not None and y["amount"] is not None and y["amount"] > x["amount"]
+                 for x, y in zip(evs, evs[1:]))
+    ok = bool(last and last["fid"] == a["winner_fid"] and last["amount"] == a["winning_bid"] and rising)
+    return "last_bid" if ok else "unexplained"
 
 
 # --------------------------------------------------------------------------
@@ -556,10 +585,10 @@ MANUAL_DIR = REPO_ROOT / "worker" / "migrations" / "manual"
 SCHEMA_SQL = MANUAL_DIR / "gap01_ups_hist_auction_bids.sql"
 ROLLBACK_SQL = MANUAL_DIR / "gap01_ups_hist_auction_bids_rollback.sql"
 NOT_NULL = {AUCTIONS_TABLE: ["season", "player_id", "started_at_unix", "league_id", "start_basis",
-                             "split_reason", "outcome", "bid_count", "auction_kind",
+                             "split_reason", "outcome", "bid_count", "price_check", "auction_kind",
                              "log_semantics", "source"],
             BIDS_TABLE: ["season", "player_id", "started_at_unix", "seq", "event", "fid",
-                         "bid_at_unix", "forced"]}
+                         "amount_meaning", "bid_at_unix", "forced"]}
 
 
 def stored(row: dict, cols: list[str]) -> tuple:
@@ -967,6 +996,16 @@ def cmd_build(args) -> int:
         "split_reasons": {sd["season"]: dict(Counter(f"{a['outcome']}:{a['split_reason']}" for a in sd["auctions"]))
                           for sd in seasons},
         "start_basis": {sd["season"]: dict(Counter(a["start_basis"] for a in sd["auctions"])) for sd in seasons},
+        "flags": {
+            "price_check": {sd["season"]: dict(Counter(a["price_check"] for a in sd["auctions"])) for sd in seasons},
+            "caveat": {sd["season"]: dict(Counter(c for a in sd["auctions"] for c in (a["caveat"] or "").split(";") if c))
+                       for sd in seasons},
+            "price_unexplained": [{"season": a["season"], "player": display_name(names, a["player_id"]),
+                                   "winner_fid": a["winner_fid"], "winning_bid": a["winning_bid"]}
+                                  for a in auctions if a["price_check"] == "unexplained"],
+            "amount_meaning": dict(Counter(b["amount_meaning"] for b in bids)),
+            "amount_raw_kept": sum(1 for b in bids if b["amount_raw"] is not None),
+        },
         "spot_checks": [{"name": n, "audit_said": said, "built": spot_check(seasons, arc, s, pid)}
                         for s, pid, n, said in SPOT_CHECKS],
         "quirks": {
@@ -1302,7 +1341,32 @@ def render_report(summary: dict, extra: dict) -> str:
       "the rename came after Aug 1, 2024. That supports an owner change during or after the FA auction, "
       "but it does not date it. The ruling is still pending.")
     w("")
-    w("## 8. What a load would write")
+    fl = summary.get("flags") or {}
+    if fl:
+        w("## 8. Flags stored with the rows")
+        w("")
+        w("So a story never states more than MFL's log supports, each row carries how much it can be trusted:")
+        w("")
+        w(f"- **`amount_meaning`** on every bid row: `entered_max` for 2014-2016 "
+          f"({fl['amount_meaning'].get('entered_max', 0):,} rows: the maximum the owner entered, **not a price**) "
+          f"and `price_after_bid` for 2017-2025 ({fl['amount_meaning'].get('price_after_bid', 0):,} rows). "
+          "The final price is always `ups_hist_auctions.winning_bid`, MFL's AUCTION_WON amount.")
+        w(f"- **`amount_raw`**: MFL's original amount text, kept on the {fl['amount_raw_kept']} rows where it is "
+          "not a plain integer ('40000.00', and the two '19000-4' rows whose `amount` is NULL).")
+        w("- **`price_check`** on every auction: `last_bid`, `proxy_replay`, `unexplained`, or `none` (no winner).")
+        w("- **`caveat`** on every auction a story must not state as fact: `start_unconfirmed`, "
+          "`price_unexplained`, `unreadable_amount`.")
+        w("")
+        w(md_table(["Season", "price_check", "caveat"],
+                   [(y, ", ".join(f"{k} {n}" for k, n in sorted(v.items())),
+                     ", ".join(f"{k} {n}" for k, n in sorted(fl["caveat"].get(y, {}).items())) or "none")
+                    for y, v in fl["price_check"].items()]))
+        w("")
+        w("`price_unexplained`: " + "; ".join(f"{x['season']} {x['player']} (MFL: {x['winner_fid']} at "
+                                             f"{money(x['winning_bid'])})" for x in fl["price_unexplained"])
+          + ". A story may say who won and the price MFL recorded, but not how the bidding produced it.")
+        w("")
+    w("## 9. What a load would write")
     w("")
     w("- **Schema:** `worker/migrations/manual/gap01_ups_hist_auction_bids.sql` (not applied). Two `WITHOUT ROWID` "
       "tables, one secondary index. Rollback: `gap01_ups_hist_auction_bids_rollback.sql` (drops both).")
@@ -1324,7 +1388,7 @@ def render_report(summary: dict, extra: dict) -> str:
       f"`{summary['fingerprints']['forward_sql_sha256'][:16]}…`. An approved run must rebuild from fresh MFL "
       "replies and match these, or stop.")
     w("")
-    w("## 9. Privacy")
+    w("## 10. Privacy")
     w("")
     w("- Comment text is never stored. MFL's forced note becomes `forced` + `forcing_fid`; any other comment is "
       "dropped at parse time. O=102's comments column is never parsed.")
@@ -1333,7 +1397,7 @@ def render_report(summary: dict, extra: dict) -> str:
     w("- `report` scans every output file, this report included, for every owner-written comment string "
       "MFL returned (2011-2025). It deletes the committed copy and fails if one is found.")
     w("")
-    w("## 10. Not proven here")
+    w("## 11. Not proven here")
     w("")
     w("- **No production write was made or tested.** Billed writes were measured on a local D1 only.")
     w("- **2016 auction starts** have no independent source (section 3).")
@@ -1456,6 +1520,175 @@ def cmd_local_proof(args) -> int:
         print(("PASS " if c["pass"] else "FAIL ") + c["name"])
     return 0 if res["pass"] else 1
 
+
+# --------------------------------------------------------------------------
+# Production preflight (read-only: Cloudflare analytics, GitHub, ps; 0 D1 rows)
+# --------------------------------------------------------------------------
+
+ACCOUNT_ID = "ba1a1d492ec8a5485821eb8f0d5f32c2"
+FREE_PLAN_WRITES = 100_000      # per UTC day, account-wide (every D1 database)
+DAILY_WRITE_CEILING = 90_000    # the load starts only if the worst case stays at or under this
+READ_CEILING = 4_500_000        # 90% of the Free plan's 5,000,000 daily reads
+LOAD_READS = 20_000             # post-load verify (~10.5k) + checks, rounded up
+WINDOW_START, WINDOW_LAST_START = (22, 5), (23, 30)   # UTC, the approved quiet window
+FORECAST_DAYS = 7
+WRITE_HEAVY_WORKFLOWS = [
+    "nflverse-stats-refresh.yml", "wc-rank-rebuild.yml", "mfl-daily-snapshot.yml", "nightly-builders.yml",
+    "nightly-config-sync.yml", "contract-reconcile.yml", "ingest-projections.yml", "owner-career-stats.yml",
+    "roster-anomaly-check.yml", "sleeper-cache-build.yml", "discord-chat-ingest.yml",
+]
+WRITE_HEAVY_PROCESSES = ["upsmfl-live-season-sync", "upsmfl-ups-center-auto", "deadline_drop_2026",
+                         "sync_live_weekly_scores_to_d1", "load_local_to_d1", "fetch_nflverse",
+                         "run_1307_src_weekly_batches"]
+
+
+def oauth_token() -> str:
+    cfg = Path.home() / ".wrangler" / "config" / "default.toml"
+    m = re.search(r'oauth_token\s*=\s*"([^"]+)"', cfg.read_text())
+    if not m:
+        raise SystemExit("STOP: no wrangler OAuth token; run `npx wrangler whoami` first")
+    return m.group(1)
+
+
+def account_hourly_usage(days: int = FORECAST_DAYS + 1) -> tuple[dict, dict]:
+    """({'YYYY-MM-DDTHH': rowsWritten}, {...: rowsRead}) summed over every D1 database.
+    The exact counter only: every group must carry sampleInterval = 1."""
+    end = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    iso = lambda d: d.strftime("%Y-%m-%dT%H:%M:%SZ")
+    q = ("query($a:String!,$s:Time!,$e:Time!){viewer{accounts(filter:{accountTag:$a}){"
+         "d1AnalyticsAdaptiveGroups(limit:10000,filter:{datetimeHour_geq:$s,datetimeHour_lt:$e}){"
+         "sum{rowsWritten rowsRead} avg{sampleInterval} dimensions{datetimeHour databaseId}}}}}")
+    body = json.dumps({"query": q, "variables": {"a": ACCOUNT_ID, "s": iso(end - timedelta(days=days)),
+                                                  "e": iso(end)}}).encode()
+    req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql", data=body,
+                                 headers={"Authorization": f"Bearer {oauth_token()}",
+                                          "Content-Type": "application/json"})
+    d = json.loads(urllib.request.urlopen(req, timeout=60).read())
+    if d.get("errors") or not d.get("data"):
+        raise SystemExit(f"STOP: usage metrics unavailable: {d.get('errors')}")
+    groups = d["data"]["viewer"]["accounts"][0]["d1AnalyticsAdaptiveGroups"]
+    if not groups:
+        raise SystemExit("STOP: usage metrics returned no data")
+    sampled = sorted({g["dimensions"]["datetimeHour"][:13] for g in groups
+                      if float((g.get("avg") or {}).get("sampleInterval") or 0) != 1})
+    if sampled:
+        raise SystemExit(f"STOP: usage counter is sampled in hours {sampled[:5]}; only the exact counter decides")
+    w, r = defaultdict(int), defaultdict(int)
+    for g in groups:
+        w[g["dimensions"]["datetimeHour"][:13]] += int(g["sum"]["rowsWritten"])
+        r[g["dimensions"]["datetimeHour"][:13]] += int(g["sum"]["rowsRead"])
+    return dict(w), dict(r)
+
+
+def running_write_jobs() -> list:
+    busy = []
+    try:
+        res = subprocess.run(["gh", "run", "list", "--status", "in_progress", "--json", "workflowName,path",
+                              "--limit", "50"], capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=60)
+        runs = json.loads(res.stdout or "[]") if res.returncode == 0 else None
+    except Exception:
+        runs = None
+    if runs is None:
+        busy.append("could not list GitHub runs (fail closed)")
+    else:
+        busy += [r["path"] for r in runs if any((r.get("path") or "").endswith(x) for x in WRITE_HEAVY_WORKFLOWS)]
+    ps = subprocess.run(["ps", "-axo", "command"], capture_output=True, text=True).stdout
+    busy += [x for x in WRITE_HEAVY_PROCESSES if x in ps]
+    return busy
+
+
+def preflight_decision(writes: dict, reads: dict, now: datetime, forward: int, busy: list) -> dict:
+    """Pure decision (unit-tested): today = the UTC billing day. Worst case = writes so
+    far + every remaining hour at its max over the last 7 complete days + this load."""
+    today = now.strftime("%Y-%m-%d")
+    keep = {(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, FORECAST_DAYS + 1)}
+    hour_max = defaultdict(int)
+    for k, v in writes.items():
+        if k[:10] in keep:
+            hour_max[int(k[11:13])] = max(hour_max[int(k[11:13])], v)
+    used_w = sum(v for k, v in writes.items() if k[:10] == today)
+    used_r = sum(v for k, v in reads.items() if k[:10] == today)
+    forecast = sum(hour_max[h] for h in range(now.hour, 24))
+    projected = used_w + forecast + forward
+    in_window = WINDOW_START <= (now.hour, now.minute) <= WINDOW_LAST_START
+    checks = {
+        "in_window_22:05-23:30_utc": in_window,
+        "writes_projected_le_ceiling": projected <= DAILY_WRITE_CEILING,
+        "reads_today_plus_load_le_ceiling": used_r + LOAD_READS <= READ_CEILING,
+        "no_write_heavy_job_running": not busy,
+    }
+    return {"at_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "writes_used_today": used_w,
+            "writes_forecast_rest_of_day": forecast, "load_writes": forward, "writes_projected": projected,
+            "write_ceiling": DAILY_WRITE_CEILING, "unused_after_worst_case": FREE_PLAN_WRITES - projected,
+            "reads_used_today": used_r, "load_reads": LOAD_READS, "read_ceiling": READ_CEILING,
+            "busy": busy, "checks": checks, "ok": all(checks.values())}
+
+
+def cmd_preflight(args, usage=account_hourly_usage, jobs=running_write_jobs) -> int:
+    summary = json.loads((Path(args.out) / "summary.json").read_text())
+    writes, reads = usage()
+    res = preflight_decision(writes, reads, datetime.now(timezone.utc), summary["billed_writes_estimate"], jobs())
+    (Path(args.out) / "preflight.json").write_text(json.dumps(res, indent=1))
+    print(json.dumps(res, indent=1))
+    print("PREFLIGHT PASS" if res["ok"] else "PREFLIGHT STOP")
+    return 0 if res["ok"] else 1
+
+
+# --------------------------------------------------------------------------
+# Post-load verification (opt-in SELECTs of the two new tables only)
+# --------------------------------------------------------------------------
+
+def verify_reads() -> list[tuple[str, str]]:
+    out = [("auctions", f"SELECT {', '.join(AUCTION_COLS)} FROM {AUCTIONS_TABLE}")]
+    for s in BID_SEASONS:  # one PRIMARY KEY seek per season keeps each reply small
+        out.append((f"bids_{s}", f"SELECT {', '.join(BID_COLS)} FROM {BIDS_TABLE} WHERE season = {s}"))
+    return out
+
+
+def cmd_verify_d1(args, runner=wrangler_json) -> int:
+    if not (args.allow_prod_d1 or os.environ.get(D1_OPT_IN_ENV) == "1"):
+        print("SKIPPED: production D1 read not opted in (pass --allow-prod-d1). Nothing was read.")
+        return 0
+    out = Path(args.out)
+    summary = json.loads((out / "summary.json").read_text())
+    built_a = [json.loads(x) for x in (out / "auctions.jsonl").read_text().splitlines()]
+    built_b = [json.loads(x) for x in (out / "bids.jsonl").read_text().splitlines()]
+    got_a, got_b, spent, plans = [], [], 0, {}
+    for name, sql in verify_reads():
+        plans[name] = [r.get("detail") for r in runner("EXPLAIN QUERY PLAN " + sql)[0]["results"]]
+        res = runner(sql)[0]
+        spent += int((res.get("meta") or {}).get("rows_read") or 0)
+        (got_a if name == "auctions" else got_b).extend(res["results"])
+    ta = lambda rows: [tuple(r[c] for c in AUCTION_COLS) for r in rows]
+    tb = lambda rows: [tuple(r[c] for c in BID_COLS) for r in rows]
+    key = lambda r: (r["season"], r["player_id"], r["started_at_unix"])
+    win = lambda rows: sorted(key(r) + (r["outcome"], r["winner_fid"], r["winning_bid"], r["won_at_unix"])
+                              for r in rows)
+    per = lambda rows: dict(sorted(Counter(r["season"] for r in rows).items()))
+    henry = lambda rows: sum(1 for b in rows if b["season"] == 2023 and b["player_id"] == "12626")
+    checks = {
+        "auction rows = build": (len(got_a), len(built_a)),
+        "bid rows = build": (len(got_b), len(built_b)),
+        "auctions per season = build": (per(got_a), per(built_a)),
+        "bids per season = build": (per(got_b), per(built_b)),
+        "auction identities = build": (sorted(map(key, got_a)), sorted(map(key, built_a))),
+        "winners, prices, close times = build": (win(got_a), win(built_a)),
+        "auctions fingerprint = dry run": (fingerprint(ta(got_a)), summary["fingerprints"][AUCTIONS_TABLE]),
+        "bids fingerprint = dry run": (fingerprint(tb(got_b)), summary["fingerprints"][BIDS_TABLE]),
+        "Henry 2023 rows = build (30 in the dry run)": (henry(got_b), henry(built_b)),
+    }
+    res = {"verified_at_utc": utc_now(), "rows_read": spent, "plans": plans,
+           "checks": {k: {"pass": a == b, "got": a if not isinstance(a, (list, dict)) or len(str(a)) < 400 else "…",
+                          "want": b if not isinstance(b, (list, dict)) or len(str(b)) < 400 else "…"}
+                      for k, (a, b) in checks.items()}}
+    res["pass"] = all(c["pass"] for c in res["checks"].values())
+    (out / "verify_d1.json").write_text(json.dumps(res, indent=1, default=str))
+    for k, c in res["checks"].items():
+        print(("PASS " if c["pass"] else "FAIL ") + k)
+    print(f"rows_read {spent}; {'VERIFIED' if res['pass'] else 'MISMATCH: stop and report'}")
+    return 0 if res["pass"] else 1
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1478,11 +1711,17 @@ def main(argv=None) -> int:
     r.add_argument("--out", type=Path, default=DEFAULT_ROOT / "build")
     r.add_argument("--cache", type=Path, default=DEFAULT_ROOT / "mfl")
     r.add_argument("--report-path", type=Path, default=None, help="also write the report here")
+    pf = sub.add_parser("preflight")
+    pf.add_argument("--out", type=Path, default=DEFAULT_ROOT / "build")
+    v = sub.add_parser("verify-d1")
+    v.add_argument("--out", type=Path, default=DEFAULT_ROOT / "build")
+    v.add_argument("--allow-prod-d1", action="store_true")
     lp = sub.add_parser("local-proof")
     lp.add_argument("--out", type=Path, default=DEFAULT_ROOT / "build")
     args = ap.parse_args(argv)
     return {"fetch-mfl": cmd_fetch_mfl, "extract-d1": cmd_extract_d1, "build": cmd_build,
-            "report": cmd_report, "local-proof": cmd_local_proof}[args.cmd](args)
+            "report": cmd_report, "local-proof": cmd_local_proof, "preflight": cmd_preflight,
+            "verify-d1": cmd_verify_d1}[args.cmd](args)
 
 
 if __name__ == "__main__":

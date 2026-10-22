@@ -216,6 +216,64 @@ class SyntheticSeason(unittest.TestCase):
             conn.execute(s)
         self.assertEqual(conn.total_changes, first, "re-running the load must change nothing")
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM ups_hist_auction_bids").fetchone()[0], 3)
+        self.assertEqual((a["price_check"], a["caveat"]), ("last_bid", None))
+        self.assertEqual({b["amount_meaning"] for b in sd["bids"]}, {"price_after_bid"})
+        self.assertEqual([b["amount_raw"] for b in sd["bids"]], [None, "2000.00", None])
+
+        # verify-d1 reconciles what a load wrote: here the "D1" is this local SQLite copy.
+        out = Path(self.tmp.name) / "build"
+        out.mkdir()
+        (out / "auctions.jsonl").write_text("".join(json.dumps(dict(zip(g.AUCTION_COLS, r))) + "\n" for r in a_rows))
+        (out / "bids.jsonl").write_text("".join(json.dumps(dict(zip(g.BID_COLS, r))) + "\n" for r in b_rows))
+        (out / "summary.json").write_text(json.dumps({"fingerprints": {
+            g.AUCTIONS_TABLE: g.fingerprint(a_rows), g.BIDS_TABLE: g.fingerprint(b_rows)}}))
+        conn.row_factory = sqlite3.Row
+
+        def runner(sql):
+            rows = [dict(r) for r in conn.execute(sql)]
+            if sql.startswith("EXPLAIN"):
+                rows = [{"detail": r["detail"]} for r in rows]
+            return [{"results": rows, "meta": {"rows_read": len(rows)}}]
+
+        args = type("A", (), {"allow_prod_d1": True, "out": out})()
+        self.assertEqual(g.cmd_verify_d1(args, runner=runner), 0)
+        conn.execute("UPDATE ups_hist_auctions SET winning_bid = 4000")
+        self.assertEqual(g.cmd_verify_d1(args, runner=runner), 1, "a changed price must fail verification")
+
+    def test_unexplained_price_is_flagged(self):
+        # Jamison Crowder 2016 shape: a logged rival bid above the winner's that MFL never honored.
+        a = {"outcome": "won", "winner_fid": "0008", "winning_bid": 4000}
+        evs = [{"fid": "0001", "amount": 3000, "_amount_raw": None}, {"fid": "0008", "amount": 3000, "_amount_raw": None},
+               {"fid": "0008", "amount": 4000, "_amount_raw": None}, {"fid": "0005", "amount": 5000, "_amount_raw": None}]
+        self.assertEqual(g.price_check(2016, a, evs), "unexplained")
+        self.assertEqual(g.price_check(2016, a, evs[:3]), "proxy_replay")
+        self.assertEqual(g.price_check(2016, {"outcome": "no_win"}, evs), "none")
+
+
+class Preflight(unittest.TestCase):
+    NOW = datetime(2026, 10, 22, 22, 10, tzinfo=g.timezone.utc)
+
+    def usage(self, today_per_hour, past_per_hour):
+        w = {}
+        for d in range(0, 8):
+            day = (self.NOW - g.timedelta(days=d)).strftime("%Y-%m-%d")
+            for h in range(24):
+                if d == 0 and h > self.NOW.hour:
+                    continue
+                w[f"{day}T{h:02d}"] = today_per_hour if d == 0 else past_per_hour
+        return w
+
+    def test_passes_in_window_with_headroom(self):
+        r = g.preflight_decision(self.usage(1000, 1000), {}, self.NOW, 12873, [])
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["writes_used_today"], 23000)
+        self.assertEqual(r["writes_forecast_rest_of_day"], 2000)
+
+    def test_stops_over_ceiling_outside_window_or_while_busy(self):
+        self.assertFalse(g.preflight_decision(self.usage(3500, 3500), {}, self.NOW, 12873, [])["ok"])
+        early = self.NOW.replace(hour=18)
+        self.assertFalse(g.preflight_decision(self.usage(100, 100), {}, early, 12873, [])["ok"])
+        self.assertFalse(g.preflight_decision(self.usage(100, 100), {}, self.NOW, 12873, ["nightly-builders.yml"])["ok"])
 
 
 class OfflineByDefault(unittest.TestCase):
@@ -240,6 +298,12 @@ class OfflineByDefault(unittest.TestCase):
         self.assertNotIn("PASSED", p.stdout)
         self.assertEqual(calls, [])
 
+    def test_gap01_verify_d1_default_reads_nothing(self):
+        p, calls = self.run_script("dryrun_gap01_auction_bids.py", "verify-d1")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn("SKIPPED", p.stdout)
+        self.assertEqual(calls, [])
+
     def test_gap16_d1_default_reads_nothing(self):
         p, calls = self.run_script("check_gap16_last_league_week.py", "d1")
         self.assertEqual(p.returncode, 0, p.stderr)
@@ -250,7 +314,7 @@ class OfflineByDefault(unittest.TestCase):
         src = (HERE / "dryrun_gap01_auction_bids.py").read_text()
         self.assertNotIn("--file", src)
         for verb in ("INSERT", "UPDATE", "DELETE", "DROP", "CREATE"):
-            self.assertFalse(any(sql.lstrip().upper().startswith(verb) for _, sql in g.D1_READS))
+            self.assertFalse(any(sql.lstrip().upper().startswith(verb) for _, sql in g.D1_READS + g.verify_reads()))
 
 
 if __name__ == "__main__":

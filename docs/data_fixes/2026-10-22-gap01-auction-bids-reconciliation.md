@@ -1,6 +1,6 @@
 # GAP-01 dry run: individual auction bids, 2014-2025
 
-Dry run generated 2026-10-22T17:27:58Z by `pipelines/etl/scripts/dryrun_gap01_auction_bids.py`. **Nothing was written to D1 or MFL.** The only production read was one budgeted SELECT of `ups_auction_history` plus a table-name check. No comment text appears in this report.
+Dry run generated 2026-10-22T17:58:22Z by `pipelines/etl/scripts/dryrun_gap01_auction_bids.py`. **Nothing was written to D1 or MFL.** The only production read was one budgeted SELECT of `ups_auction_history` plus a table-name check. No comment text appears in this report.
 
 ## Plain English
 
@@ -239,7 +239,33 @@ All four agree with the audit. Henry's "29 bids" are the rows after Keith's open
 - **Owner-written comments dropped** (count only, text never read into any output): 2015: 4, 2016: 2, 2017: 3, 2018: 7, 2019: 7, 2020: 18, 2021: 20, 2022: 3, 2023: 11, 2024: 3, 2025: 2.
 - **GAP-04 evidence (franchise 0006 in 2024).** MFL's forced notes call 0006 "The Main Event Mafia" (its 2023 name) from May 15 through Aug 1, 2024; MFL's league export now says "The Long Haulers". So the rename came after Aug 1, 2024. That supports an owner change during or after the FA auction, but it does not date it. The ruling is still pending.
 
-## 8. What a load would write
+## 8. Flags stored with the rows
+
+So a story never states more than MFL's log supports, each row carries how much it can be trusted:
+
+- **`amount_meaning`** on every bid row: `entered_max` for 2014-2016 (2,732 rows: the maximum the owner entered, **not a price**) and `price_after_bid` for 2017-2025 (5,333 rows). The final price is always `ups_hist_auctions.winning_bid`, MFL's AUCTION_WON amount.
+- **`amount_raw`**: MFL's original amount text, kept on the 15 rows where it is not a plain integer ('40000.00', and the two '19000-4' rows whose `amount` is NULL).
+- **`price_check`** on every auction: `last_bid`, `proxy_replay`, `unexplained`, or `none` (no winner).
+- **`caveat`** on every auction a story must not state as fact: `start_unconfirmed`, `price_unexplained`, `unreadable_amount`.
+
+| Season | price_check | caveat |
+|---|---|---|
+| 2014 | none 6, proxy_replay 213 | start_unconfirmed 6, unreadable_amount 2 |
+| 2015 | none 8, proxy_replay 183 | start_unconfirmed 8 |
+| 2016 | none 3, proxy_replay 182, unexplained 1 | price_unexplained 1, start_unconfirmed 186 |
+| 2017 | last_bid 193, none 1 | start_unconfirmed 1 |
+| 2018 | last_bid 240 | none |
+| 2019 | last_bid 223, none 1 | start_unconfirmed 1 |
+| 2020 | last_bid 175 | none |
+| 2021 | last_bid 189, none 3 | none |
+| 2022 | last_bid 204, none 2 | none |
+| 2023 | last_bid 183, none 3 | none |
+| 2024 | last_bid 199, none 6 | none |
+| 2025 | last_bid 184, none 2 | none |
+
+`price_unexplained`: 2016 Jamison Crowder (MFL: 0008 at $4,000). A story may say who won and the price MFL recorded, but not how the bidding produced it.
+
+## 9. What a load would write
 
 - **Schema:** `worker/migrations/manual/gap01_ups_hist_auction_bids.sql` (not applied). Two `WITHOUT ROWID` tables, one secondary index. Rollback: `gap01_ups_hist_auction_bids_rollback.sql` (drops both).
 - **Rows:** `ups_hist_auctions` 2,404; `ups_hist_auction_bids` 8,065; 132 upsert statements that skip unchanged rows.
@@ -255,15 +281,15 @@ All four agree with the audit. Henry's "29 bids" are the rows after Keith's open
 | verify_auctions_by_season | 22 | 4808 | SCAN ups_hist_auctions / USE TEMP B-TREE FOR GROUP BY |
 
 The two full scans are one-time post-load checks, not request paths.
-- **Fingerprints (sha256 over sorted rows):** `ups_hist_auctions` `377c3da924f11843…`, `ups_hist_auction_bids` `9452800b78f4a064…`, forward SQL `61a3c85b8b07b60d…`. An approved run must rebuild from fresh MFL replies and match these, or stop.
+- **Fingerprints (sha256 over sorted rows):** `ups_hist_auctions` `d5c505a14aa97c30…`, `ups_hist_auction_bids` `7afdf8099dae56eb…`, forward SQL `bdcebbe138eb77b8…`. An approved run must rebuild from fresh MFL replies and match these, or stop.
 
-## 9. Privacy
+## 10. Privacy
 
 - Comment text is never stored. MFL's forced note becomes `forced` + `forcing_fid`; any other comment is dropped at parse time. O=102's comments column is never parsed.
 - Raw MFL replies, the generated SQL and the row files stay in `~/.ups_jobs/gap01_auction_bids/`, outside the repository.
 - `report` scans every output file, this report included, for every owner-written comment string MFL returned (2011-2025). It deletes the committed copy and fails if one is found.
 
-## 10. Not proven here
+## 11. Not proven here
 
 - **No production write was made or tested.** Billed writes were measured on a local D1 only.
 - **2016 auction starts** have no independent source (section 3).

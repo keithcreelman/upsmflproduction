@@ -18,6 +18,10 @@
 --
 -- PRIVACY: no comment text. MFL's "<team> forced bid increase" note is
 -- stored only as forced = 1 + forcing_fid; owner-written comments are dropped.
+--
+-- Final price vs bids: the price is ups_hist_auctions.winning_bid (MFL's
+-- AUCTION_WON). In 2014-2016 a bid row's amount is the owner's entered maximum
+-- (amount_meaning = entered_max), so a top bid above the price is normal there.
 
 -- One row per auction, including bidding MFL never awarded (outcome = 'no_win':
 -- cancelled, or abandoned before MFL's lock closed it).
@@ -37,6 +41,15 @@ CREATE TABLE IF NOT EXISTS ups_hist_auctions (
   winner_fid        TEXT,
   winning_bid       INTEGER,           -- MFL AUCTION_WON amount (the price)
   bid_count         INTEGER NOT NULL,  -- INIT + BID rows in ups_hist_auction_bids
+  price_check       TEXT    NOT NULL,  -- how winning_bid ties back to the logged bids:
+                                       --   last_bid (2017+: the last row is the winner at the price)
+                                       --   proxy_replay (2014-2016: replaying MFL's proxy rules over the rows gives it)
+                                       --   unexplained (the rows do NOT reproduce MFL's price: Jamison Crowder 2016)
+                                       --   none (no_win)
+  caveat            TEXT,              -- NULL, or ';'-joined flags a story must not state as fact:
+                                       --   start_unconfirmed (start_basis = first_logged_bid)
+                                       --   price_unexplained (price_check = unexplained)
+                                       --   unreadable_amount (a row whose amount MFL wrote as text, e.g. '19000-4')
   auction_kind      TEXT    NOT NULL,  -- ERA (closes by June) | FAA (July on), as ups_auction_history
   log_semantics     TEXT    NOT NULL,  -- every_bid (2014-2016: every bid placed, at the bidder's entered maximum)
                                        -- | lead_changes (2017+: a bid that took the lead, or a forced proxy raise)
@@ -54,7 +67,10 @@ CREATE TABLE IF NOT EXISTS ups_hist_auction_bids (
   seq               INTEGER NOT NULL,  -- 1 = the opening bid
   event             TEXT    NOT NULL,  -- init | bid
   fid               TEXT    NOT NULL,  -- franchise MFL credits with the row
-  amount            INTEGER,           -- NULL only where MFL wrote an unreadable amount (2 rows in 2014: '19000-4')
+  amount            INTEGER,           -- MFL's amount; NULL only where MFL wrote an unreadable amount (2 rows in 2014: '19000-4')
+  amount_meaning    TEXT    NOT NULL,  -- entered_max (2014-2016: the maximum the owner entered; NOT a price)
+                                       -- | price_after_bid (2017+: the high bid once this row took effect)
+  amount_raw        TEXT,              -- MFL's amount text, kept only when it is not a plain integer ('40000.00', '19000-4')
   bid_at_unix       INTEGER NOT NULL,
   forced            INTEGER NOT NULL DEFAULT 0,  -- 1 = MFL raised this leader's proxy because a rival bid
   forcing_fid       TEXT,              -- the rival, resolved from MFL's team name; NULL if the name did not resolve

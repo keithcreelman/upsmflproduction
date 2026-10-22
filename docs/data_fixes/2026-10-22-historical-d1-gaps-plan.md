@@ -17,7 +17,7 @@ Written 2026-10-22, from the read-only gap audit of the same day (17 gaps: GAP-0
 
 | Gap | What is missing | Best source (does it exist?) | Owner | Depends on | Status |
 |---|---|---|---|---|---|
-| **GAP-01** auction bids 2014-2025 | every nomination and bid (8,065 rows) | MFL `AUCTION_INIT` / `AUCTION_BID` / `AUCTION_WON`: **yes**, complete | this PR | none | **Dry run done; reconciles. Awaiting Keith's go to load** |
+| **GAP-01** auction bids 2014-2025 | every nomination and bid (8,065 rows) | MFL `AUCTION_INIT` / `AUCTION_BID` / `AUCTION_WON`: **yes**, complete | this PR | none | **Go A given 10-22 (load only; CI green + write guard first)** |
 | **GAP-16** weeks past the season | June archive copies the final week into weeks 17-22 / 18-22 | n/a (a guard, not a load) | this PR | none | **Checked: D1 is clean; rule recorded** |
 | GAP-02 lost second auctions | 8 won auctions | MFL `AUCTION_WON`: **yes** | after GAP-01 | GAP-01 tables | 6 of 8 land with GAP-01 |
 | GAP-06 starter/bench 2012-2019 | lineup status (rows say `fa`) | MFL `weeklyResults` per week: **yes** | #1307 | #1307 plan v5 (#1363) | in #1307's plan |
@@ -45,7 +45,13 @@ Written 2026-10-22, from the read-only gap audit of the same day (17 gaps: GAP-0
   - 2014-2016: replaying MFL's proxy rules gives the winner and price for 578 of 579. The one exception is a bid MFL logged but did not honor.
   - Every season's difference from `ups_auction_history.total_bids` is explained.
 - **Load cost, measured on a local D1:** 12,873 rows written, about 13% of the Free plan's daily writes. A second run writes 0.
-- **Next:** Keith's go for the load (decision record on the PR).
+- **Ruling (Keith, 2026-10-22, on #1387):** option A, load 2014-2025, for GAP-01 only. Conditions:
+  - CI must be green on the exact PR head, and the write-budget guard must pass immediately before the load;
+  - 2014-2016 entered maximums stay distinct from the final price;
+  - the Crowder exception and the unconfirmed start times are flagged and never stated as fact;
+  - after the load, reconcile against the dry run and report the actual write count.
+  - The go does not cover a merge, other gaps, or any Discord post.
+- **Flags added for that ruling:** `amount_meaning` and `amount_raw` on each bid; `price_check` and `caveat` on each auction.
 
 ## GAP-16: stop at the league's last week
 
@@ -130,6 +136,8 @@ No write is needed for GAP-16 itself.
 ## GAP-10 / GAP-11: restructures and contracts (#1355)
 
 **Partial at best. The contract change gate applies:** canon, then a dry run, then Keith, then confirm.
+
+**Missing restructure history stays open (Keith, 2026-10-22).** An empty restructure record is not evidence of no restructure. No story, page or summary may say a player "had no restructures" because D1 holds none. Kyler Murray and Derrick Henry are the named examples. Until GAP-10 is closed, the only accurate wording is that the restructure history is incomplete.
 
 **GAP-10 (restructures):**
 - Sources:
