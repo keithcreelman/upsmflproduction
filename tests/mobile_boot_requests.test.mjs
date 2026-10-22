@@ -19,6 +19,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const APP = read("site/m/app.js");
 const PENALTY = read("site/m/front_office_penalty.js");
 const STATS = read("site/m/views/stats.js");
+const TAXI_RULE = read("site/shared/taxi_rule.js");   // the one taxi-eligibility rule app.js asks (#1364)
 const T0 = Date.parse("2026-10-20T23:00:00Z");
 const settle = async () => { for (let i = 0; i < 40; i++) await new Promise((r) => setImmediate(r)); };
 
@@ -102,6 +103,7 @@ async function phone(appSrc, { stored = {}, hash = "", penaltySrc = PENALTY } = 
     Event: class { constructor(type) { this.type = type; } }, CustomEvent: class { constructor(type, o) { this.type = type; this.detail = o && o.detail; } },
     setTimeout: (fn, ms) => { const h = setTimeout(fn, ms); if (h.unref) h.unref(); return h; }, clearTimeout, Promise, Date: FakeDate, console });
   ctx.window.window = ctx.window;
+  vm.runInContext(TAXI_RULE, ctx);
   vm.runInContext(appSrc, ctx);
   vm.runInContext(penaltySrc, ctx);
   const M = window.UPS_MOBILE;
@@ -362,8 +364,8 @@ const MUTATIONS = [
     find: "      // always tell the owner what window they're in.\n      null,", replace: "      fetchCapPenaltyPreview()," },
   { guard: "this season's draftResults is one shared read", scenario: "signedInBoot", file: "app",
     find: "fetchHistoricalDraftIndex(state.ctx.year, draftNow)", replace: "fetchHistoricalDraftIndex(state.ctx.year)" },
-  { guard: "taxi eligibility is no while the counts are unknown (fail closed)", scenario: "lazyOnOpen", file: "app",   // back to the old fail-open read
-    find: "        if (!state.taxiCallupsByPid) return false;\n        var callup = state.taxiCallupsByPid[pid];", replace: "        var callup = (state.taxiCallupsByPid || {})[pid];" },
+  { guard: "taxi eligibility is unknown (no) until the counts are read (fail closed)", scenario: "lazyOnOpen", file: "app",   // "not read yet" read as "read, never promoted"
+    find: "        var countsKnown = !!state.taxiCallupsByPid && state.taxiCallupsOk !== false;", replace: "        var countsKnown = state.taxiCallupsOk !== false;" },
   { guard: "a read in flight is shared", scenario: "sharedInFlight", file: "app",
     find: "      if (e.promise) return e.promise;\n", replace: "" },
   { guard: "the penalty module defers to the app's read", scenario: "sharedInFlight", file: "penalty",

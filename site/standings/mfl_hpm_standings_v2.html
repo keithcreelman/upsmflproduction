@@ -1968,7 +1968,7 @@
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
     ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
-    ["Back", "All-Play wins behind the 6th seed (ties count half)."],
+    ["WC Back", "All-Play wins behind the last wild card (ties count half). The four division winners are protected, so a team outside the field chases the last wild card, never a division winner; division winners and wild cards show —."],
     ["H1–H6", "The Hawk Tuah Bowl seeds: the six teams outside the playoff field (7th–12th)."],
     ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins."],
     ["Scored vs Opponent", "Scored is what your lineup put up; Opponent is what your opponents scored against you: schedule, not skill."],
@@ -2147,6 +2147,18 @@
   function statusOf(r) { return window.UPS_STANDINGS_RACE ? window.UPS_STANDINGS_RACE.statusForRow(r) : null; }
 
   // The 3-line summary (mobile's wording): byes; next out with All-Play wins back; the tiebreaks that decided places.
+  // WC Back: the worker's ap_back, All-Play wins behind the last wild card (never a division winner, #1329). A
+  // negative figure can't come from the ladder; one from an older worker reads as unavailable, never as a number.
+  function wcBackOf(r) {
+    var v = r ? r.ap_back : null;
+    return (v == null || !isFinite(Number(v)) || Number(v) < 0) ? null : Number(v);
+  }
+  // The last wild card in the field: the wild-card row with the lowest seed (the worker's playoff_status).
+  function lastWildCardOf(rows) {
+    var cut = null;
+    (rows || []).forEach(function (r) { if (r && statusOf(r) === "WC" && (!cut || Number(r.playoff_seed) > Number(cut.playoff_seed))) cut = r; });
+    return cut;
+  }
   function pictureSummaryHtml(resp, rows, final) {
     var by = rowsByFid(rows);
     var seeded = rows.filter(function (r) { return r.playoff_seed != null; });
@@ -2156,12 +2168,11 @@
     lines.push('<b>' + (final ? "Byes:" : "If the season ended today, byes:") + '</b> ' + escapeHtml(byes.join(" and ")) + ".");
     var rs = resp.regular_season || {};
     var out = rs.next_out ? by[pad4(rs.next_out)] : null;
-    var sixth = seeded.filter(function (r) { return Number(r.playoff_seed) === 6; })[0];
-    if (out && sixth && !final) {
-      var back = out.ap_back;
-      var backTxt = back == null ? "" : (back < 0
-        ? ", " + (-back) + " All-Play win" + (back === -1 ? "" : "s") + " ahead of " + nameOf(sixth) + " (6th), who is in the field as a division winner"
-        : ", " + back + " All-Play win" + (back === 1 ? "" : "s") + " behind " + nameOf(sixth) + " (6th)");
+    // Next out chases the last wild card (division winners are protected; their races are on the Divisions tab).
+    var cut = lastWildCardOf(seeded);
+    if (out && !final) {
+      var back = wcBackOf(out);
+      var backTxt = back == null || !cut ? "" : ", " + back + " All-Play win" + (back === 1 ? "" : "s") + " behind " + nameOf(cut) + " (the last wild card)";
       lines.push('<b>Next out:</b> ' + escapeHtml(nameOf(out) + backTxt) + ".");
     }
     var ties = [];
@@ -2212,12 +2223,12 @@
         + '<td class="num">' + recStr(recordOf(r)) + '</td>'
         + '<td class="num">' + recStr(allPlayOf(r)) + '</td>'
         + '<td class="num">' + fmtPct(allPlayOf(r) && allPlayOf(r).pct) + '</td>'
-        + '<td class="num">' + (r.ap_back == null ? "—" : escapeHtml(String(r.ap_back))) + '</td>'
+        + '<td class="num">' + (wcBackOf(r) == null ? "—" : escapeHtml(String(wcBackOf(r)))) + '</td>'
         + '</tr>'
         + '<tr hidden data-for="' + fid + '"><td colspan="6">' + teamDetailHtml(resp, race, sf, fid, null) + '</td></tr>';
     }).join("");
     return '<h3>In the hunt <span class="h-sub">· H1–H6' + (projected ? ', the Hawk Tuah Bowl seeds if the season ended today' : ', the Hawk Tuah Bowl seeds') + '</span></h3>'
-      + '<div class="table-scroll"><table class="data-table hunt-table"><thead><tr><th class="seed-col" scope="col" title="Hawk Tuah Bowl seed (7th–12th)">Seed</th><th scope="col">Team</th><th class="num" scope="col">H2H</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="All-Play wins behind the 6th seed">Back</th></tr></thead><tbody>' + trs + '</tbody></table></div>';
+      + '<div class="table-scroll"><table class="data-table hunt-table"><thead><tr><th class="seed-col" scope="col" title="Hawk Tuah Bowl seed (7th–12th)">Seed</th><th scope="col">Team</th><th class="num" scope="col">H2H</th><th class="num" scope="col">All-Play</th><th class="num" scope="col">AP %</th><th class="num" scope="col" title="All-Play wins behind the last wild card (division winners are protected)">WC Back</th></tr></thead><tbody>' + trs + '</tbody></table></div>';
   }
   // Division leaders: each division in the order of its leader's seed, teams in the worker's division order.
   function divisionLeadersHtml(resp, rows, final, magic) {
@@ -2275,7 +2286,7 @@
     var rr = race && race.byFranchise[pad4(out.franchise_id)];
     return '<section class="panel"><h3>Next team out</h3>'
       + '<div style="font-size:14px;font-weight:800">' + escapeHtml(nameOf(out)) + moveHtml(out.order_change) + '</div>'
-      + '<div class="psub">' + recStr(recordOf(out)) + ' · All-Play ' + recStr(allPlayOf(out)) + ' (' + fmtPct(allPlayOf(out) && allPlayOf(out).pct) + ')' + (out.ap_back != null ? ' · Back ' + escapeHtml(String(out.ap_back)) : '') + '</div>'
+      + '<div class="psub">' + recStr(recordOf(out)) + ' · All-Play ' + recStr(allPlayOf(out)) + ' (' + fmtPct(allPlayOf(out) && allPlayOf(out).pct) + ')' + (wcBackOf(out) != null ? ' · WC Back ' + escapeHtml(String(wcBackOf(out))) : '') + '</div>'
       + (rr && rr.whySeed && !rr.whySeed.blocked ? '<div style="margin-top:4px">' + escapeHtml(rr.whySeed.text) + '</div>' : '')
       + '</section>';
   }
@@ -2519,7 +2530,7 @@
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
     c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T");
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); });
-    if (ctx.current && !ctx.scoped) c("Back", "_back", true, function (r) { return r._back == null ? "—" : String(r._back); }, "All-Play wins behind the 6th seed");
+    if (ctx.current && !ctx.scoped) c("WC Back", "_back", true, function (r) { return r._back == null ? "—" : String(r._back); }, "All-Play wins behind the last wild card (division winners are protected)");
     c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For");
     c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)");
     c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game");
@@ -2579,7 +2590,7 @@
 
       r._ap = reg ? reg.all_play : { w: r.allplay_w, l: r.allplay_l, t: r.allplay_t, pct: r.allplay_pct };
       r._apPct = r._ap && r._ap.pct != null ? Number(r._ap.pct) : null;
-      r._back = (current && !scoped && o.ap_back != null) ? Number(o.ap_back) : null;
+      r._back = (current && !scoped) ? wcBackOf(o) : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
       else if (reg) { r._pf = reg.points_for; r._pfw = reg.pf_per_week; r._pag = reg.pa_per_game; }
       else { r._pf = r.pf_total != null ? r.pf_total : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null; }

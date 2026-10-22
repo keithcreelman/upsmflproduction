@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.20.3",
+  "build": "2026.10.22.1",
   "label": "Faster, lighter start: the app no longer loads the stats leaderboards, drop-penalty numbers or taxi call-up counts until a screen shows them; signed-out Sign-in loads nothing but the season."
 }

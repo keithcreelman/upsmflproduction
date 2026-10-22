@@ -72,6 +72,8 @@ const BASIS_LABELS = {
   one_year_under_5k_exempt: "1-year contract under $5K",
   ww_under_5k_exempt: "WW pickup at $4K or below",
   taxi_exempt: "Taxi squad (cap-free)",
+  taxi_callup_exempt: "Taxi-eligible after temporary call-ups (cap-free)",
+  taxi_eligible_exempt: "Taxi-eligible, cut from the active roster (cap-free)",
   tag_pre_auction_exempt: "Tagged player dropped before the auction deadline",
   guarantee_minus_earned: "75% guarantee minus earned-to-date",
   no_penalty_zero: "Earned already exceeds guarantee",

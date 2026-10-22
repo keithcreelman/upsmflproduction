@@ -148,7 +148,7 @@ function makeDb(calendar) {
     UNIQUE (season, league_id, player_id, dropped_at_unix))`);
   const subCols = "id INTEGER, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, submitted_at_utc TEXT, dry_run INTEGER";
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
-  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER)");
+  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, season TEXT, nfl_week INTEGER)");
   db.raw.exec("CREATE TABLE ups_faa_nom_penalties (penalty_id TEXT, season INTEGER, league_id TEXT, fid TEXT, et_day TEXT, offense_no INTEGER, amount_k INTEGER, applies_to_season INTEGER, voided INTEGER DEFAULT 0, posted_to_mfl INTEGER DEFAULT 0)");
   db.raw.exec("CREATE TABLE ups_bot_heartbeat (bot TEXT PRIMARY KEY, last_ts INTEGER, status TEXT, env TEXT)");
   setCalendar(db, calendar);

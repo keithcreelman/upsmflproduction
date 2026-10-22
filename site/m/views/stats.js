@@ -44,7 +44,8 @@
 
   function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
   function nn(v) { return (v == null || v === "" || isNaN(Number(v))) ? null : Number(v); }
-  function round1(v) { return Math.round(v * 10) / 10; }
+  // The ONE shared rounding (season_scoring.js, decimal half-up: 19.35 → 19.4).
+  function round1(v) { var S = window.UPS_MOBILE_SEASON_SCORING; return S ? S.round1(v) : v; }
 
   // nflverse position → MFL's set (DT|DE|LB|CB|S). Only used to DISPLAY a
   // stored-copy row's position when the worker sent no mfl_position.
@@ -638,7 +639,7 @@
     if (c.f === "pct") return Math.round(v * 100) + "%";
     // The player sheet's rounding (statRowHtml): round to tenths, then print —
     // so a worker sum like 59.400000000000006 can't read 14.9 here and 14.8 there.
-    if (c.f === "dec1") return round1(v).toFixed(1);
+    if (c.f === "dec1") return window.UPS_MOBILE_SEASON_SCORING ? window.UPS_MOBILE_SEASON_SCORING.fmt1(v) : String(v);
     if (c.f === "dec2") return v.toFixed(2);
     return String(Math.round(v));
   }
