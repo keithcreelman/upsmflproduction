@@ -1,194 +1,302 @@
-/* Front Office → Trades → Trade finder (#1338). Read-only discovery: where each
-   team is strong or short, who the logical partners are, and 1-for-1 swaps that
-   improve BOTH best lineups — never a fairness grade, never a proposal. Every
-   swap opens the ONE Trade War Room route (the Home button's) preloaded; the
-   owner builds and sends there.
+/* Front Office → Trades → Trade finder (#1338). Read-only: every team's lineup
+   strength side by side, and a team view with where it is strong and short, its
+   cap room and future picks, and bench players who would start elsewhere. It
+   never grades a trade, ranks partners, proposes a swap or sends anything
+   (Keith 2026-10-22: partner rankings and suggested swaps are held back until
+   they're improved).
 
-   Model: site/shared/trade_fit.js on season PPG per MFL-scored week (the
-   backtested default; method and evidence in docs/FRONT_OFFICE_TRADE_FIT.md).
-   Lineups are each team's OWNED roster (Keith 2026-10-21): a replacement free
-   agent fills only a slot the roster can't, marked *. The matrix cells come
-   from site/shared/lineup_strength.js on the same model object as the
-   Overview's Lineup strength, so the two screens show the same values.
-   Each fit also says whether it holds on the last 4 final weeks, and flags small
-   samples, IDP-only swaps and cap overages (the app refuses a trade that leaves
-   a team over the cap). Picks, contract years and age are shown, not scored.
+   THE TABLE IS THE OVERVIEW'S CARD FOR ALL 12 TEAMS. Same controls (By
+   Position / By Lineup Slot; PPG / Rank / Above Replacement / Index), same
+   default (By Position, PPG), and every cell is lineup_strength.cell() on the
+   same model object (H.leagueModel), so a team's number here equals the
+   Overview's for the same view. Starter Mix is a separate view: recorded starts
+   from the lineups submitted to MFL (site/shared/starter_mix.js via
+   H.starterMix), not the modeled lineup.
+
+   TEAM VIEW.
+     Strong / needs help: By Position ranks (1st–3rd = strong) and trade_fit's
+       need (points a week a typical starter would add; 1+ = needs help).
+     Cap room: the Front Office cap engine (UPS_FO.capFor), as on Overview.
+     Picks: MFL's futureDraftPicks, grouped by year and round. "Well stocked"
+       is said only when MFL's list for the year is complete (teams × rounds)
+       and that team's lineup-penalty forfeits were checked (today: the
+       viewer's own team, /api/franchise-assets) — otherwise the counts and the
+       league comparison are shown without the label.
+     Surplus: trade_fit's surplus (a healthy bench player who would start for
+       another team, with that team's lineup gain). Analysis only — it says
+       nothing about whether the owner would move the player.
 */
 (function (root) {
   "use strict";
 
   var H, FO, DATA, TF, LS;
-  var sel = { partner: "" };
-  var partnersMemo = { model: null, alt: null, me: "", list: null };
-  var tableMemo = { model: null, table: null };
-  var MATRIX_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"];
+  // Same defaults as the Overview's card (Keith 2026-10-21): By Position, PPG.
+  var view = { by: "position", measure: "ppg", sort: "ALL" };
+  var sel = { team: "" };
+  var tableMemo = { model: null, tables: {} };
   var GLABEL = { PK: "K", PN: "P" };
+  var BY = [["position", "By Position"], ["slot", "By Lineup Slot"], ["mix", "Starter Mix"]];
+  var MEASURES = [["ppg", "PPG"], ["rank", "Rank"], ["above", "Above Replacement"], ["index", "Index"]];
+  var MEASURE_TEXT = {
+    ppg: "Modeled starters’ points a week (season PPG).",
+    rank: "1st–12th among the league by those points a week.",
+    above: "Points a week above the replacement-level free agent (0 = replacement level).",
+    index: "Points a week ÷ the league average × 100 (100 = average)."
+  };
+  var BY_TEXT = {
+    position: "Modeled lineup, each starter at his own position (a TE in Flex counts as TE).",
+    slot: "Modeled lineup by the slot each starter fills in MFL’s lineup settings (a second TE is Flex, a second QB is Superflex)."
+  };
+  var STRONG_RANK = 3, NEED_MIN = 1;
 
+  function gl(g) { return GLABEL[g] || g; }
   function myFid() {
-    var me = FO.viewerFid(), s = FO.selectedTeam();
-    if (s && s !== "__all__") return s;
+    var me = FO.viewerFid();
     return me && FO.teams().some(function (t) { return t.fid === me; }) ? me : "";
   }
-  function models() {
-    var m = H.leagueModel(0);
-    var ss = H.scoring();
-    var alt = ss && ss.finalKnown ? H.leagueModel(4) : null;
-    return { m: m, alt: alt };
+  function strengthTable(m, by) {
+    if (tableMemo.model !== m) tableMemo = { model: m, tables: {} };
+    return tableMemo.tables[by] || (tableMemo.tables[by] = LS.build(m, { by: by }));
   }
-  function capRoom() {
-    var out = {};
-    FO.teams().forEach(function (t) { var c = FO.capFor(t.fid); out[t.fid] = c ? c.capSpace : null; });
-    return out;
+  function median(list) {
+    var a = list.slice().sort(function (x, y) { return x - y; });
+    if (!a.length) return null;
+    var k = Math.floor(a.length / 2);
+    return a.length % 2 ? a[k] : (a[k - 1] + a[k]) / 2;
   }
-  function baitMap() {
-    var e = DATA.get("tradeBait"), out = { players: {}, notes: {} };
+  function shade(frac) {
+    var a = Math.min(1, Math.abs(frac || 0));
+    return frac >= 0 ? "background: rgba(91,141,255," + (0.06 + a * 0.4).toFixed(2) + ")" : "background: rgba(245,158,11," + (0.06 + a * 0.4).toFixed(2) + ")";
+  }
+  function baitPlayers() {
+    var e = DATA.get("tradeBait"), out = {};
     if (!e || e.state !== "ok") return out;
     H.asArray(e.data.tradeBaits && e.data.tradeBaits.tradeBait).forEach(function (tb) {
-      var fid = H.pad4(tb.franchise_id);
-      out.notes[fid] = String(tb.inExchangeFor || "").trim();
-      String(tb.willGiveUp || "").split(",").forEach(function (id) { id = id.trim(); if (/^\d+$/.test(id)) out.players[id] = fid; });
+      String(tb.willGiveUp || "").split(",").forEach(function (id) { id = id.trim(); if (/^\d+$/.test(id)) out[id] = H.pad4(tb.franchise_id); });
     });
     return out;
   }
-
-  // Logical partners for my team: each other team's best mutual 1-for-1 gain (and how many such swaps exist).
-  function partners(m, alt, me) {
-    if (partnersMemo.model === m && partnersMemo.alt === alt && partnersMemo.me === me && partnersMemo.list) return partnersMemo.list;
-    var room = capRoom();
-    var list = m.order.filter(function (f) { return f !== me; }).map(function (f) {
-      var fits = TF.pairFits(m, me, f, { alt: alt, capRoom: room, limit: 50 });
-      var ok = fits.filter(function (x) { return !x.overCap; });
-      return { fid: f, fits: fits, best: ok[0] || fits[0] || null, count: ok.length };
-    }).sort(function (a, b) { return ((b.best ? b.best.mutual : 0) - (a.best ? a.best.mutual : 0)) || (b.count - a.count); });
-    partnersMemo = { model: m, alt: alt, me: me, list: list };
-    return list;
+  function chips(list, attr, current) {
+    return list.map(function (x) {
+      return '<button type="button" class="fo-subview-chip' + (x[0] === current ? " active" : "") + '" ' + attr + '="' + x[0] + '" aria-pressed="' + (x[0] === current) + '">' + H.esc(x[1]) + "</button>";
+    }).join("");
+  }
+  function viewButton(f, name) {
+    return '<button type="button" class="fo-tf-view" data-tf-view="' + H.esc(f) + '" aria-label="View ' + H.esc(name) + '"' + (sel.team === f ? ' aria-pressed="true"' : "") + ">View</button>";
   }
 
-  function cellStyle(v, max) {
-    var a = Math.min(1, Math.abs(v) / (max || 1));
-    return v >= 0 ? "background: rgba(91,141,255," + (0.08 + a * 0.42).toFixed(2) + ")" : "background: rgba(245,158,11," + (0.08 + a * 0.42).toFixed(2) + ")";
+  // ── The all-team strength table (modeled lineup) ───────────────────
+  // A sortable value for one cell: higher is better for every measure (rank is inverted).
+  function sortValue(c, measure) {
+    if (!c) return -Infinity;
+    if (measure === "rank") return -c.rank;
+    if (measure === "index") return c.index == null ? -Infinity : c.index;
+    return measure === "above" ? c.above : c.ppg;
+  }
+  function strengthHtml(m, me) {
+    var tb = strengthTable(m, view.by);
+    var cols = tb.rows;
+    if (cols.indexOf(view.sort) === -1) view.sort = "ALL";
+    var order = tb.order.slice().sort(function (a, b) {
+      return (sortValue(tb.teams[b][view.sort], view.measure) - sortValue(tb.teams[a][view.sort], view.measure)) || (m.teams[b].total - m.teams[a].total);
+    });
+    var head = '<tr><th scope="col" class="fo-tf-teamcol">Team</th>' + cols.map(function (r) {
+      return '<th scope="col" class="num' + (r === "PK" || r === "PN" ? " fo-tf-kp" : "") + '"><button type="button" class="fo-tf-sort' + (view.sort === r ? " on" : "") + '" data-tf-sort="' + r + '" title="Sort by ' + H.esc(tb.labels[r]) + '">' +
+        H.esc(tb.labels[r]) + (view.sort === r ? " ▾" : "") + "</button></th>";
+    }).join("") + '<th scope="col" title="Where a typical (median) starter would add the most points a week — by position in both breakdowns">Biggest need</th></tr>';
+    var body = order.map(function (f) {
+      var tr = tb.teams[f], name = m.teams[f].name;
+      return '<tr class="' + (f === me ? "fo-tf-me" : "") + (f === sel.team ? " fo-tf-sel" : "") + '" data-tf-team="' + H.esc(f) + '">' +
+        '<th scope="row" class="fo-tf-teamcol"><span class="fo-tf-name">' + H.esc(name) + (f === me ? ' <span class="fo-muted">(you)</span>' : "") + "</span>" + viewButton(f, name) + "</th>" +
+        cols.map(function (r) {
+          var c = LS.cell(tb, f, r, view.measure), n = tr[r].replacementStarters;
+          return '<td class="num fo-tf-cell' + (r === "ALL" ? " fo-tf-overall" : "") + (r === "PK" || r === "PN" ? " fo-tf-kp" : "") + '" data-tf-row="' + r + '" style="' + shade(c.frac) + '" title="' + H.esc(tb.labels[r] + ": " + c.title +
+            (n ? ". Includes " + n + " replacement-filled slot" + (n === 1 ? "" : "s") : "")) + '">' + H.esc(c.text) + (n ? '<span class="fo-ov-rep" aria-label="includes a replacement-filled slot">*</span>' : "") + "</td>";
+        }).join("") +
+        "<td>" + (tr.biggestNeed ? "<b>" + gl(tr.biggestNeed) + '</b> <span class="fo-muted">+' + H.fmt1(tr.need[tr.biggestNeed]) + "</span>" : '<span class="fo-muted">—</span>') + "</td></tr>";
+    }).join("");
+    var aboveNote = view.measure === "above" ? " Overall Above Replacement can differ between By Position (each starter against his own position’s replacement level) and By Lineup Slot (each Flex or Superflex slot’s eligible-player baseline)." : "";
+    return '<p class="fo-ov-sub">' + H.esc(BY_TEXT[view.by] + " " + MEASURE_TEXT[view.measure] + aboveNote) + "</p>" +
+      '<div class="fo-table-scroll fo-tf-scroll"><table class="fo-table fo-tf-strength"><thead>' + head + "</thead><tbody>" + body + "</tbody></table></div>" +
+      '<p class="fo-basis">The same numbers as the Overview’s Lineup strength for the same view, for all 12 teams. Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. Tap a column to sort; <b>View</b> opens a team.</p>';
   }
 
-  // The Overview's Lineup strength table on this same model (one calculation for both screens).
-  function strengthTable(m) {
-    if (tableMemo.model !== m) tableMemo = { model: m, table: LS.build(m) };
-    return tableMemo.table;
-  }
-  function repMark(n, label) {
-    return n ? '<span class="fo-ov-rep" aria-label="' + H.esc(label) + '">*</span>' : "";
-  }
-
-  function matrixHtml(m, me) {
-    var tb = strengthTable(m);
-    var max = 0;
-    m.order.forEach(function (f) { MATRIX_GROUPS.forEach(function (g) { max = Math.max(max, Math.abs(tb.teams[f][g].above)); }); });
-    var order = m.order.slice().sort(function (a, b) { return a === me ? -1 : b === me ? 1 : m.teams[b].total - m.teams[a].total; });
-    var head = '<tr><th scope="col">Team</th><th scope="col" class="num" title="All 18 starters: points a week above replacement (the Overview’s Overall row, By Position, Above Replacement)">Overall</th>' +
-      MATRIX_GROUPS.map(function (g) { return '<th scope="col" class="num' + (TF.FIT_EXCLUDED_GROUPS[g] ? " fo-tf-kp" : "") + '">' + (GLABEL[g] || g) + "</th>"; }).join("") + "</tr>";
+  // ── Starter Mix: recorded starts, a separate view ──────────────────
+  function mixHtml(m, me) {
+    var SM = root.UPS_STARTER_MIX, e = DATA.get("weeklyResults"), ss = H.scoring();
+    if (!e) { DATA.load("weeklyResults").then(rerender); return '<p class="fo-ov-empty">Reading the lineups MFL has on file…</p>'; }
+    if (e.state !== "ok") return H.banner("MFL’s weekly lineups couldn’t be read. Reload to retry.", "warn");
+    if (ss && !ss.finalKnown) return '<p class="fo-ov-empty">MFL hasn’t confirmed a completed week yet.</p>';
+    var mix = H.starterMix();
+    if (!mix || !SM) return '<p class="fo-ov-empty">Reading MFL’s players…</p>';
+    if (!mix.weeks.length) return '<p class="fo-ov-empty">No completed weeks yet.</p>';
+    var G = SM.GROUPS;
+    var wk = mix.weeks.length === 1 ? "Week 1" : "Weeks 1–" + mix.weeks[mix.weeks.length - 1];
+    var order = m.order.slice().sort(function (a, b) { return a === me ? -1 : b === me ? 1 : m.teams[a].name.localeCompare(m.teams[b].name); });
+    var sfQb = function (x) { var l = SM.mixList(x.SFLEX).filter(function (y) { return y.g === "QB"; })[0]; return x.SFLEX && x.SFLEX.total ? (l ? l.whole : 0) + "%" : "—"; };
+    var flexible = function (x) { return SM.mixList(x.FLEXIBLE).map(function (y) { return y.whole + "% " + SM.label(y.g); }).join(" · ") || "—"; };
     var rows = order.map(function (f) {
-      var tm = m.teams[f], tr = tb.teams[f];
-      // Mark a team's TOP two needs only: a strong-WR team whose Flex is weak gains from a WR too, but "needs WR" would mislead.
-      var topNeeds = TF.teamSummary(m, f).needs.slice(0, 2);
-      var surByG = {};
-      (tm.surplus || []).forEach(function (s) { surByG[s.group] = (surByG[s.group] || 0) + 1; });
-      return '<tr class="' + (f === me ? "fo-tf-me" : "") + (f === sel.partner ? " fo-tf-sel" : "") + '">' +
-        '<th scope="row">' + (f === me ? H.esc(tm.name) + ' <span class="fo-muted">(you)</span>'
-          : '<button type="button" class="fo-plink" data-tf-partner="' + H.esc(f) + '">' + H.esc(tm.name) + "</button>") + "</th>" +
-        '<td class="num fo-tf-cell" data-tf-row="ALL">' + H.esc(LS.cell(tb, f, "ALL", "above").text) + repMark(tr.ALL.replacementStarters, "includes a replacement-filled slot") + "</td>" +
-        MATRIX_GROUPS.map(function (g) {
-          var v = tr[g].above, need = tm.need[g], sur = surByG[g] || 0, nRep = tr[g].replacementStarters;
-          var text = LS.cell(tb, f, g, "above").text;
-          var title = (GLABEL[g] || g) + ": starters " + text + " pts/wk above replacement" + (need >= 1 ? "; needs +" + H.fmt1(need) + " from a typical starter" : "") +
-            (nRep ? "; " + nRep + " slot" + (nRep === 1 ? "" : "s") + " filled by a replacement free agent (no available rostered player)" : "") +
-            (sur ? "; " + sur + " bench player" + (sur === 1 ? "" : "s") + " would start elsewhere" : "");
-          return '<td class="num fo-tf-cell' + (TF.FIT_EXCLUDED_GROUPS[g] ? " fo-tf-kp" : "") + '" data-tf-row="' + g + '" style="' + cellStyle(v, max) + '" title="' + H.esc(title) + '">' + H.esc(text) + repMark(nRep, "includes a replacement-filled slot") +
-            (topNeeds.indexOf(g) !== -1 ? '<span class="fo-tf-need" aria-label="one of the top two needs">▼</span>' : "") +
-            (sur && !TF.FIT_EXCLUDED_GROUPS[g] ? '<span class="fo-tf-sur" aria-label="surplus">+' + sur + "</span>" : "") + "</td>";
-        }).join("") + "</tr>";
+      var t = mix.teams[f], name = m.teams[f].name;
+      if (!t) return "";
+      var ok = t.validWeeks.length;
+      return '<tr class="' + (f === me ? "fo-tf-me" : "") + (f === sel.team ? " fo-tf-sel" : "") + '"><th scope="row" class="fo-tf-teamcol"><span class="fo-tf-name">' + H.esc(name) + (f === me ? ' <span class="fo-muted">(you)</span>' : "") + "</span>" + viewButton(f, name) + "</th>" +
+        G.map(function (g) { return '<td class="num">' + (ok ? t.avg[g].toFixed(1) : "—") + "</td>"; }).join("") +
+        '<td class="num">' + (ok ? sfQb(t.mix) : "—") + "</td><td>" + (ok ? H.esc(flexible(t.mix)) : "—") + "</td>" +
+        '<td class="num' + (t.issues.length ? " fo-tf-warn" : "") + '" title="' + H.esc(t.issues.map(function (x) { return "Week " + x.week + ": " + x.text; }).join("; ")) + '">' + ok + " of " + t.weeks + "</td></tr>";
     }).join("");
-    return '<div class="fo-table-scroll"><table class="fo-table fo-tf-matrix"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>" +
-      '<p class="fo-basis">Cell = starters’ points a week above replacement at that position (Σ starter PPG − replacement-level PPG; 0 = replacement level): the same numbers as the Overview’s Lineup strength (By Position, Above Replacement). Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. <span class="fo-tf-need">▼</span> = one of the team’s two biggest needs (what a typical starter would add; 1+ pts/wk). <span class="fo-tf-sur">+n</span> = bench players who would start for another team (surplus). K and P are shown, never used for fits.</p>';
+    var lg = mix.league;
+    var leagueRow = '<tr class="fo-led-total"><th scope="row" class="fo-tf-teamcol">League</th>' + G.map(function (g) { return '<td class="num">' + (lg.avg[g] == null ? "—" : lg.avg[g].toFixed(1)) + "</td>"; }).join("") +
+      '<td class="num">' + sfQb(lg.mix) + "</td><td>" + H.esc(flexible(lg.mix)) + "</td><td></td></tr>";
+    var issues = order.filter(function (f) { return mix.teams[f] && mix.teams[f].issues.length; }).map(function (f) {
+      return H.esc(m.teams[f].name) + ": " + mix.teams[f].issues.map(function (x) { return "Week " + x.week + " — " + H.esc(x.text); }).join("; ");
+    });
+    return '<p class="fo-ls-actual"><b>Actual starter mix</b> · ' + H.esc(wk) + "</p>" +
+      '<p class="fo-ov-sub">Starters per week from the lineups submitted to MFL, by each player’s own position: what was started, not the modeled lineup. MFL records who started, not which slot: a second QB can only be Superflex, while extra RB/WR/TE starters count together as <b>Flexible slots</b> (Flex + Superflex when not a QB).</p>' +
+      '<div class="fo-table-scroll fo-tf-scroll"><table class="fo-table fo-tf-strength fo-tf-mix"><thead><tr><th scope="col" class="fo-tf-teamcol">Team</th>' +
+      G.map(function (g) { return '<th scope="col" class="num">' + SM.label(g) + "</th>"; }).join("") +
+      '<th scope="col" class="num" title="Share of Superflex starts that were a second QB">Superflex QB</th><th scope="col">Flexible slots</th><th scope="col" class="num" title="Weeks whose lineup filled every slot">Weeks</th></tr></thead><tbody>' +
+      rows + leagueRow + "</tbody></table></div>" +
+      (issues.length ? '<div class="fo-ls-issues"><b>Not counted:</b> ' + issues.join(" · ") + "</div>" : "");
   }
 
-  function playerRef(pid) {
-    var r = H.rosterIndex()[String(pid)];
-    if (!r) return { name: pid, pos: "", fid: "" };
-    return { name: r.p.name, pos: r.p.position, fid: r.fid, p: r.p, team: r.p.nflTeam };
+  // ── Team view ──────────────────────────────────────────────────────
+  // Future picks: { years: [{year, rounds:[1..R], complete, leagueTotal, expected, byFid:{fid:{count, byRound}}}], ok }.
+  function pickBook() {
+    var e = DATA.get("picks");
+    if (!e) return { state: "" };
+    if (e.state !== "ok") return { state: "error" };
+    var fr = H.asArray(e.data.futureDraftPicks && e.data.futureDraftPicks.franchise);
+    var teams = FO.teams().map(function (t) { return t.fid; });
+    var years = {};
+    fr.forEach(function (row) {
+      var fid = H.pad4(row.id);
+      H.asArray(row.futureDraftPick).forEach(function (p) {
+        var y = String(p.year), r = parseInt(p.round, 10);
+        if (!y || !(r >= 1)) return;
+        var Y = years[y] = years[y] || { year: y, rounds: {}, byFid: {}, leagueTotal: 0 };
+        Y.rounds[r] = 1; Y.leagueTotal += 1;
+        var b = Y.byFid[fid] = Y.byFid[fid] || { count: 0, byRound: {} };
+        b.count += 1;
+        (b.byRound[r] = b.byRound[r] || []).push(H.pad4(p.originalPickFor || fid));
+      });
+    });
+    var list = Object.keys(years).sort().map(function (y) {
+      var Y = years[y];
+      var rounds = Object.keys(Y.rounds).map(Number).sort(function (a, b) { return a - b; });
+      var maxR = rounds.length ? rounds[rounds.length - 1] : 0;
+      Y.rounds = []; for (var r = 1; r <= maxR; r++) Y.rounds.push(r);
+      Y.expected = teams.length * maxR;
+      Y.complete = Y.leagueTotal === Y.expected;
+      teams.forEach(function (f) { if (!Y.byFid[f]) Y.byFid[f] = { count: 0, byRound: {} }; });
+      return Y;
+    });
+    return { state: "ok", years: list, teams: teams };
   }
-  function ppgOf(pid) { var l = H.seasonLine(pid, 0); return l && l.ppg != null ? H.fmt1(l.ppg) + " PPG" + (l.games ? " · " + l.games + " wk" + (l.games === 1 ? "" : "s") : "") : "no MFL weeks"; }
-  function smallSample(pid) {
-    var ss = H.scoring(), l = H.seasonLine(pid, 0);
-    return ss && l && l.games < ss.rankMinimum(0);
+  // The viewer's own forfeits (the only team the Front Office checks; Activity does the same).
+  function forfeitsFor(f) {
+    var me = myFid();
+    if (!me || f !== me) return { known: false, marks: {} };
+    var fa = DATA.get("franchiseAssets", me);
+    if (!fa || fa.state !== "ok" || !fa.data || fa.data.forfeit_check !== "ok") return { known: false, marks: {} };
+    var marks = {};
+    H.asArray(fa.data.future_picks).forEach(function (p) { if (p && p.forfeited) marks[String(p.year) + "|" + H.pad4(p.original_fid || p.originalPickFor) + "|" + String(p.round)] = p.forfeit_label || "Forfeited"; });
+    return { known: true, marks: marks };
   }
-
-  function partnerHtml(m, alt, me, f, list) {
-    var tm = m.teams[f], mine = m.teams[me];
-    var sum = TF.teamSummary(m, f), mySum = TF.teamSummary(m, me);
-    var bait = baitMap();
-    var p = (list || []).filter(function (x) { return x.fid === f; })[0];
-    var fits = p ? p.fits : TF.pairFits(m, me, f, { alt: alt, capRoom: capRoom(), limit: 50 });
-    var room = FO.capFor(f), myRoom = FO.capFor(me);
-    var gl = function (g) { return GLABEL[g] || g; };
-    var strong = sum.strong.length ? sum.strong.map(function (g) { return "<b>" + gl(g) + "</b> (" + H.signed1(tm.vsMedian[g]) + " vs the league median)"; }).join(", ") : "nowhere clearly above the median";
-    var needs = sum.needs.length ? sum.needs.map(function (g) { return "<b>" + gl(g) + "</b> (+" + H.fmt1(tm.need[g]) + ")"; }).join(", ") : "no position with a 1+ pt/wk gap";
-    // What I could offer: my surplus that helps THEM; what they could offer: their surplus that helps ME.
-    var myOffer = (mine.surplus || []).map(function (s) { var g = s.gains.filter(function (x) { return x.fid === f; })[0]; return g ? { s: s, gain: g.gain } : null; }).filter(Boolean).sort(function (a, b) { return b.gain - a.gain; });
-    var theirOffer = (tm.surplus || []).map(function (s) { var g = s.gains.filter(function (x) { return x.fid === me; })[0]; return g ? { s: s, gain: g.gain } : null; }).filter(Boolean).sort(function (a, b) { return b.gain - a.gain; });
-    var offerList = function (arr, ownerFid, whoGains) {
-      if (!arr.length) return '<p class="fo-ov-empty">None on today’s numbers.</p>';
-      return '<ul class="fo-tf-list">' + arr.slice(0, 6).map(function (x) {
-        var r = playerRef(x.s.pid);
-        return "<li>" + H.playerButton(x.s.pid, ownerFid, r.name) + (r.p ? H.injuryChip(r.p) : "") + ' <span class="fo-muted">' + H.esc(r.pos) + " · " + H.esc(ppgOf(x.s.pid)) + "</span> — <b>+" + H.fmt1(x.gain) + "</b> pts/wk for " + whoGains +
-          (bait.players[x.s.pid] === ownerFid ? ' <span class="fo-av fo-av-bait">On the block</span>' : "") + "</li>";
-      }).join("") + "</ul>";
-    };
-    var fitRows = fits.slice(0, 12).map(function (x) {
-      var give = playerRef(x.give), get = playerRef(x.get);
-      var notes = [];
-      if (x.overCap) notes.push('<span class="fo-tf-flag bad" title="The app refuses a trade that leaves a team over the cap">over the cap</span>');
-      if (x.holdsOnAlt === false) notes.push('<span class="fo-tf-flag warn" title="On the last 4 final weeks at least one side no longer gains">not on last 4 wks</span>');
-      if (x.idpOnly) notes.push('<span class="fo-tf-flag" title="IDP production is the least predictable (backtest)">IDP only</span>');
-      if (smallSample(x.give) || smallSample(x.get)) notes.push('<span class="fo-tf-flag warn">small sample</span>');
-      if (bait.players[x.get] === f) notes.push('<span class="fo-av fo-av-bait">their block</span>');
-      if (bait.players[x.give] === me) notes.push('<span class="fo-av fo-av-bait">your block</span>');
-      var repTitle = function (list, who) {
-        return list.length ? who + " would need a replacement free agent at " + list.map(function (r) { return r.slot; }).join(", ") + " (no available rostered player left), counted at " + list.map(function (r) { return H.fmt1(r.v); }).join(", ") + " pts/wk" : "";
-      };
-      var yrs = function (r) { return r.p ? (r.p.years > 0 ? r.p.years + "y" : "exp") + " · " + H.money(r.p.salary) : ""; };
-      var url = FO.warRoomUrl({ twb_left_team: me, twb_right_team: f, twb_give: x.give, twb_get: x.get });
-      return "<tr>" +
-        "<td>" + H.playerButton(x.give, me, give.name) + (give.p ? H.injuryChip(give.p) : "") + '<div class="fo-muted fo-perf-sub">' + H.esc(give.pos) + " · " + H.esc(ppgOf(x.give)) + " · " + H.esc(yrs(give)) + "</div></td>" +
-        "<td>" + H.playerButton(x.get, f, get.name) + (get.p ? H.injuryChip(get.p) : "") + '<div class="fo-muted fo-perf-sub">' + H.esc(get.pos) + " · " + H.esc(ppgOf(x.get)) + " · " + H.esc(yrs(get)) + "</div></td>" +
-        '<td class="num"' + (x.repA.length ? ' title="' + H.esc(repTitle(x.repA, "You")) + '"' : "") + "><b>+" + H.fmt1(x.gainA) + "</b>" + repMark(x.repA.length, "your lineup would include a replacement free agent") + "</td>" +
-        '<td class="num"' + (x.repB.length ? ' title="' + H.esc(repTitle(x.repB, "They")) + '"' : "") + ">+" + H.fmt1(x.gainB) + repMark(x.repB.length, "their lineup would include a replacement free agent") + "</td>" +
-        '<td class="num">' + (x.capAfterA == null ? "—" : H.esc(H.money(x.capAfterA))) + '<div class="fo-muted fo-perf-sub">them ' + (x.capAfterB == null ? "—" : H.esc(H.money(x.capAfterB))) + "</div></td>" +
-        "<td>" + notes.join(" ") + "</td>" +
-        '<td><a class="fo-go" href="' + H.esc(url) + '" target="_top" title="Opens the Trade War Room with this swap loaded. Nothing is sent until you send it there.">War Room ↗</a></td></tr>';
+  // Is this team unusually well stocked? Said only on complete data with forfeits checked.
+  function pickStock(book, f) {
+    var totals = book.teams.map(function (x) { return tot(book, x); });
+    var earlyCounts = book.teams.map(function (x) { return early(book, x); });
+    var i = book.teams.indexOf(f);
+    var med = median(totals), medEarly = median(earlyCounts);
+    var mine = totals[i], mineEarly = earlyCounts[i];
+    var complete = book.years.length > 0 && book.years.every(function (Y) { return Y.complete; });
+    var ff = forfeitsFor(f);
+    var high = mine >= med + 2 && mine >= med * 1.5;
+    var rank = 1 + totals.filter(function (x) { return x > mine; }).length;
+    return { total: mine, early: mineEarly, median: med, medianEarly: medEarly, min: Math.min.apply(null, totals), max: Math.max.apply(null, totals), rank: rank,
+      complete: complete, forfeitsKnown: ff.known, high: high, wellStocked: high && complete && ff.known };
+  }
+  function picksHtml(f) {
+    var book = pickBook();
+    if (!book.state) return '<p class="fo-ov-empty">Reading MFL’s future picks…</p>';
+    if (book.state === "error") return H.banner("MFL’s future picks couldn’t be read.", "warn");
+    if (!book.years.length) return '<p class="fo-ov-empty">MFL lists no future picks.</p>';
+    var ff = forfeitsFor(f);
+    var grid = book.years.map(function (Y) {
+      var b = Y.byFid[f];
+      return '<div class="fo-tf-pickyear"><div class="fo-tf-pickyr"><b>' + H.esc(Y.year) + "</b> · " + b.count + " pick" + (b.count === 1 ? "" : "s") + "</div>" + Y.rounds.map(function (r) {
+        var list = b.byRound[r] || [];
+        return '<div class="fo-tf-pickrd"><span class="fo-tf-rd">R' + r + "</span> " + (list.length ? list.map(function (orig) {
+          var fk = ff.marks[Y.year + "|" + orig + "|" + r];
+          return '<span class="fo-tf-pick">' + (orig === f ? "Own" : "via " + H.esc(H.teamName(orig))) + (fk ? ' <span class="fo-tf-flag bad" title="' + H.esc(fk) + '">forfeited</span>' : "") + "</span>";
+        }).join(" ") : '<span class="fo-muted">—</span>') + "</div>";
+      }).join("") + (Y.complete ? "" : '<p class="fo-basis warn">MFL’s ' + H.esc(Y.year) + " list has " + Y.leagueTotal + " of " + Y.expected + " picks (" + book.teams.length + " teams × " + Y.rounds.length + " rounds), so these are the known picks only.</p>") + "</div>";
     }).join("");
-    var picks = DATA.get("picks");
-    var theirPicks = "";
-    if (picks && picks.state === "ok") {
-      var row = H.asArray(picks.data.futureDraftPicks && picks.data.futureDraftPicks.franchise).filter(function (x) { return x.id === f; })[0];
-      theirPicks = H.asArray(row && row.futureDraftPick).sort(function (a, b) { return (a.year - b.year) || (a.round - b.round); })
-        .map(function (pk) { return pk.year + " R" + pk.round + (pk.originalPickFor !== f ? " (via " + H.teamName(pk.originalPickFor) + ")" : ""); }).join(", ");
-    }
-    var note = bait.notes[f];
-    return '<div class="fo-card fo-tf-partner">' +
-      '<div class="fo-card-head"><h2>' + H.esc(tm.name) + "</h2>" +
-      '<a class="fo-go" href="' + H.esc(FO.warRoomUrl({ twb_left_team: me, twb_right_team: f })) + '" target="_top">Open War Room with ' + H.esc(tm.name) + " ↗</a></div>" +
+    var s = pickStock(book, f);
+    var verdict;
+    if (s.wellStocked) verdict = "<b>Well stocked:</b> " + s.total + " picks, " + (s.rank === 1 ? "the most in the league" : H.esc(rankWord(s.rank)) + " in the league") + " (league median " + fmtN(s.median) + ").";
+    else if (s.high && !s.complete) verdict = s.total + " known picks against a league median of " + fmtN(s.median) + ". MFL’s pick list is incomplete, so this isn’t called well stocked.";
+    else if (s.high && !s.forfeitsKnown) verdict = s.total + " picks listed by MFL against a league median of " + fmtN(s.median) + ". Lineup-penalty forfeits are only checked for your own team, so this isn’t called well stocked.";
+    else verdict = s.total + " picks (league median " + fmtN(s.median) + ", range " + s.min + "–" + s.max + ").";
+    var compare = '<details class="fo-tf-compare"><summary>Compare all teams’ picks</summary><div class="fo-table-scroll"><table class="fo-table fo-tf-pickcmp"><thead><tr><th scope="col">Team</th>' +
+      book.years.map(function (Y) { return '<th scope="col" class="num">' + H.esc(Y.year) + "</th>"; }).join("") + '<th scope="col" class="num">R1–R2</th><th scope="col" class="num">Total</th></tr></thead><tbody>' +
+      book.teams.slice().sort(function (a, b) { return tot(book, b) - tot(book, a) || H.teamName(a).localeCompare(H.teamName(b)); }).map(function (x) {
+        return '<tr class="' + (x === f ? "fo-tf-sel" : "") + '"><th scope="row">' + H.esc(H.teamName(x)) + "</th>" + book.years.map(function (Y) { return '<td class="num">' + Y.byFid[x].count + "</td>"; }).join("") +
+          '<td class="num">' + early(book, x) + '</td><td class="num"><b>' + tot(book, x) + "</b></td></tr>";
+      }).join("") + "</tbody></table></div><p class=\"fo-basis\">Picks MFL lists for each future year. League median " + fmtN(s.median) + " (R1–R2: " + fmtN(s.medianEarly) +
+      "). “Well stocked” = at least 2 more than the median and 1.5× it, said only when MFL’s list is complete and the team’s lineup-penalty forfeits were checked.</p></details>";
+    return grid + '<p class="fo-tf-verdict">' + verdict + "</p>" + compare;
+  }
+  function tot(book, x) { return book.years.reduce(function (a, Y) { return a + Y.byFid[x].count; }, 0); }
+  function early(book, x) { return book.years.reduce(function (a, Y) { return a + (Y.byFid[x].byRound[1] || []).length + (Y.byFid[x].byRound[2] || []).length; }, 0); }
+  function fmtN(n) { return n == null ? "—" : (Math.round(n * 10) / 10).toString(); }
+  function rankWord(n) { return LS.ordinal(n); }
+
+  function teamHtml(m, f) {
+    var tm = m.teams[f];
+    if (!tm) return "";
+    var pos = strengthTable(m, "position");
+    var tr = pos.teams[f], n = pos.order.length;
+    var groups = LS.POSITIONS;
+    var strong = groups.filter(function (g) { return !TF.FIT_EXCLUDED_GROUPS[g] && tr[g].rank <= STRONG_RANK; }).sort(function (a, b) { return tr[a].rank - tr[b].rank; });
+    var needs = groups.filter(function (g) { return !TF.FIT_EXCLUDED_GROUPS[g] && (tr.need[g] || 0) >= NEED_MIN; }).sort(function (a, b) { return tr.need[b] - tr.need[a]; });
+    var posRows = groups.map(function (g) {
+      var c = LS.cell(pos, f, g, "ppg"), a = LS.cell(pos, f, g, "above");
+      var tag = strong.indexOf(g) !== -1 ? ' <span class="fo-tf-tag ok">strong</span>' : (needs.indexOf(g) !== -1 ? ' <span class="fo-tf-tag need">needs help</span>' : "");
+      return '<tr class="' + (TF.FIT_EXCLUDED_GROUPS[g] ? "fo-tf-kp" : "") + '"><th scope="row">' + gl(g) + tag + '</th><td class="num">' + H.esc(c.text) + '</td><td class="num">' + LS.ordinal(tr[g].rank) +
+        '</td><td class="num">' + H.esc(a.text) + '</td><td class="num">' + ((tr.need[g] || 0) >= NEED_MIN ? "+" + H.fmt1(tr.need[g]) : "—") + "</td></tr>";
+    }).join("");
+    var cap = FO.capFor(f);
+    var capLine = cap ? '<div class="fo-ov-cap"><div class="fo-ov-capline space ' + (cap.capSpace < 0 ? "neg" : "pos") + '"><span>Cap room</span><span class="fo-ov-capnum">' + H.esc(H.money(cap.capSpace)) + "</span></div>" +
+      '<div class="fo-ov-capline"><span>Total allocated</span><span class="fo-ov-capnum">' + H.esc(H.money(cap.capAlloc)) + ' <span class="fo-ov-of">of ' + H.esc(H.money(FO.capCeiling)) + "</span></span></div></div>"
+      : '<p class="fo-ov-empty">Cap not loaded.</p>';
+    var bait = baitPlayers();
+    var surplus = (tm.surplus || []).slice(0, 8).map(function (s) {
+      var r = H.rosterIndex()[String(s.pid)];
+      var name = r ? r.p.name : s.pid, p = r ? r.p : null;
+      var line = H.seasonLine(s.pid, 0);
+      var helps = s.gains.slice(0, 3).map(function (x) { return H.esc(H.teamName(x.fid)) + " <b>+" + H.fmt1(x.gain) + "</b>"; }).join(", ") + (s.gains.length > 3 ? ' <span class="fo-muted">+' + (s.gains.length - 3) + " more</span>" : "");
+      return "<li>" + H.playerButton(s.pid, f, H.displayName(name)) + (p ? H.injuryChip(p) : "") + ' <span class="fo-muted">' + H.esc(gl(s.group)) + (line && line.ppg != null ? " · " + H.fmt1(line.ppg) + " PPG" : "") + "</span>" +
+        (bait[s.pid] === f ? ' <span class="fo-av fo-av-bait" title="Listed by the owner on MFL’s trading block">On MFL trading block</span>' : "") +
+        '<div class="fo-perf-sub">Would start for ' + s.teamsHelped + " team" + (s.teamsHelped === 1 ? "" : "s") + ": " + helps + "</div></li>";
+    }).join("");
+    var me = myFid();
+    return '<div class="fo-card fo-tf-team" id="fo-tf-team">' +
+      '<div class="fo-card-head"><h2>' + H.esc(tm.name) + (f === me ? ' <span class="fo-muted">(you)</span>' : "") + "</h2>" +
+      '<span class="fo-tf-actions"><a class="fo-go" href="' + H.esc(FO.warRoomUrl(me && me !== f ? { twb_left_team: me, twb_right_team: f } : { twb_left_team: f })) + '" target="_top">Trade War Room ↗</a> ' +
+      '<button type="button" class="fo-go" data-tf-close="1">Close ✕</button></span></div>' +
+      '<p class="fo-ov-sub">Modeled lineup: ' + H.esc(LS.cell(pos, f, "ALL", "ppg").text) + " pts a week, " + LS.ordinal(tr.ALL.rank) + " of " + n + ".</p>" +
       '<div class="fo-tf-cols">' +
-        '<div><h4>They look strong at</h4><p>' + strong + "</p><h4>They need</h4><p>" + needs + "</p>" +
-          "<h4>Cap and picks</h4><p>" + (room ? "Cap room " + H.esc(H.money(room.capSpace)) : "Cap room unknown") + (theirPicks ? " · Picks: " + H.esc(theirPicks) : "") + "</p>" +
-          (note ? '<h4>Their trade-block note</h4><p class="fo-tf-note">' + H.esc(note) + "</p>" : "") + "</div>" +
-        "<div><h4>You could offer (your surplus that helps them)</h4>" + offerList(myOffer, me, "them") +
-          "<h4>They could offer (their surplus that helps you)</h4>" + offerList(theirOffer, f, "you") + "</div>" +
+        '<div><h4>Strong</h4><p>' + (strong.length ? strong.map(function (g) { return "<b>" + gl(g) + "</b> (" + LS.ordinal(tr[g].rank) + ")"; }).join(", ") : "No position in the league’s top " + STRONG_RANK + ".") + "</p>" +
+          "<h4>Needs help</h4><p>" + (needs.length ? needs.map(function (g) { return "<b>" + gl(g) + "</b> (+" + H.fmt1(tr.need[g]) + " pts/wk)"; }).join(", ") : "No position where a typical starter adds " + NEED_MIN + "+ pts/wk.") + "</p>" +
+          '<div class="fo-table-scroll"><table class="fo-table fo-tf-pos"><thead><tr><th scope="col">Pos</th><th scope="col" class="num">PPG</th><th scope="col" class="num">Rank</th><th scope="col" class="num" title="Above Replacement (raw)">Above Repl.</th><th scope="col" class="num" title="Points a week a typical (median) starter would add">Need</th></tr></thead><tbody>' + posRows + "</tbody></table></div>" +
+          '<p class="fo-basis">By Position, modeled lineup. Strong = 1st–' + STRONG_RANK + " in the league by starters’ PPG. Needs help = a typical (median) starter would add " + NEED_MIN + "+ pts a week. K and P are shown, never called strong or short.</p></div>" +
+        "<div><h4>Cap</h4>" + capLine +
+          "<h4>Future picks</h4>" + picksHtml(f) + "</div>" +
       "</div>" +
-      '<h4 class="fo-tf-h">Swaps that improve both lineups</h4>' +
-      (fitRows ? '<div class="fo-table-scroll"><table class="fo-table fo-tf-fits"><thead><tr><th scope="col">You give</th><th scope="col">You get</th>' +
-        '<th scope="col" class="num" title="Your best lineup, points a week, after the swap minus before">Your gain</th><th scope="col" class="num" title="Their best lineup, points a week">Their gain</th>' +
-        '<th scope="col" class="num" title="Cap room after the swap (MFL formula); over the cap is refused by the app">Cap after</th><th scope="col">Checks</th><th scope="col"></th></tr></thead><tbody>' + fitRows + "</tbody></table></div>"
-        : '<p class="fo-ov-empty">No 1-for-1 swap improves both lineups on today’s numbers.</p>') +
-      '<p class="fo-basis">A swap is listed when both best legal lineups gain points a week (season PPG). <span class="fo-ov-rep">*</span> on a gain = after the swap that team has no available rostered player for a slot, so a replacement free agent’s points fill it (hover for the slot). It says nothing about fairness, contract value, age or picks; those are shown, not scored. Nothing here sends an offer.</p>' +
+      '<h4 class="fo-tf-h">Possible roster surplus <span class="fo-muted">(analysis)</span></h4>' +
+      (surplus ? '<ul class="fo-tf-list">' + surplus + "</ul>" : '<p class="fo-ov-empty">No bench player who would start for another team on today’s numbers.</p>') +
+      '<p class="fo-basis">Analysis, not an offer: healthy bench players outside this team’s modeled lineup who would start for another team on season PPG, with how many points a week that team’s lineup would gain. It says nothing about whether the owner would move them; “On MFL trading block” appears only where the owner listed the player on MFL.</p>' +
       "</div>";
   }
 
@@ -205,22 +313,18 @@
     var slotState = H.lineupSlotsState();
     if (!slotState) { H.loading(el, "Reading MFL’s lineup settings…"); return; }
     if (slotState === "error") { el.innerHTML = H.banner("MFL’s lineup settings couldn’t be read, so the Trade finder is off. Reload to retry.", "warn"); return; }
-    var mm = models(), m = mm.m;
+    var m = H.leagueModel(0);
     if (!m) { H.loading(el, "Building the league model…"); return; }
     var me = myFid();
+    if (sel.team && !m.teams[sel.team]) sel.team = "";
     var F = root.UPS_PLAYER_FACTS, basis = F ? F.basis(ss) : { text: "" };
-    var head = '<div class="fo-card"><div class="fo-card-head"><h2>Trade finder</h2>' +
-      '<span class="small fo-muted">Discovery, not a fairness grade · values = season PPG per MFL week</span></div>' +
-      '<p class="fo-basis">' + H.esc(basis.text) + "</p>" + matrixHtml(m, me) + "</div>";
-    if (!me) { el.innerHTML = head + H.banner("Pick a team (Roster → Team) to see partners and swaps for it.", "info"); return; }
-    var list = partners(m, mm.alt, me);
-    if (!sel.partner || sel.partner === me) sel.partner = list[0] ? list[0].fid : "";
-    var partnersHtml = '<div class="fo-card"><h3 class="fo-tf-h">Logical partners for ' + H.esc(H.teamName(me)) + '</h3><ol class="fo-tf-partners">' + list.map(function (x) {
-      var b = x.best;
-      return '<li class="' + (x.fid === sel.partner ? "sel" : "") + '"><button type="button" class="fo-plink" data-tf-partner="' + H.esc(x.fid) + '">' + H.esc(H.teamName(x.fid)) + "</button>" +
-        ' <span class="fo-muted">' + (b ? x.count + " swap" + (x.count === 1 ? "" : "s") + " · best +" + H.fmt1(b.gainA) + " / +" + H.fmt1(b.gainB) + " pts/wk" : "no mutual swap") + "</span></li>";
-    }).join("") + "</ol></div>";
-    el.innerHTML = head + '<div class="fo-tf-grid">' + partnersHtml + (sel.partner ? partnerHtml(m, mm.alt, me, sel.partner, list) : "") + "</div>";
+    var controls = '<div class="fo-subview-chips fo-ls-by" role="group" aria-label="View">' + chips(BY, "data-tf-by", view.by) + "</div>" +
+      (view.by === "mix" ? "" : '<div class="fo-subview-chips fo-ls-views" role="group" aria-label="Measure">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div>");
+    el.innerHTML = '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
+      '<span class="small fo-muted">Trade finder · values = season PPG per MFL week</span></div>' +
+      '<p class="fo-basis">' + H.esc(basis.text) + "</p>" + controls +
+      (view.by === "mix" ? mixHtml(m, me) : strengthHtml(m, me)) + "</div>" +
+      (sel.team ? teamHtml(m, sel.team) : "");
     H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
   }
 
@@ -229,16 +333,24 @@
     if (!el || el.__tfWired) return;
     el.__tfWired = true;
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-tf-partner]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-view],[data-tf-close]") : null;
       if (!t) return;
-      sel.partner = t.getAttribute("data-tf-partner");
+      if (t.hasAttribute("data-tf-by")) view.by = t.getAttribute("data-tf-by");
+      else if (t.hasAttribute("data-tf-measure")) view.measure = t.getAttribute("data-tf-measure");
+      else if (t.hasAttribute("data-tf-sort")) view.sort = t.getAttribute("data-tf-sort");
+      else if (t.hasAttribute("data-tf-close")) sel.team = "";
+      else sel.team = t.getAttribute("data-tf-view");
       render();
-      var pc = document.querySelector(".fo-tf-partner");
-      if (pc && pc.scrollIntoView) pc.scrollIntoView({ block: "nearest" });
+      if (t.hasAttribute("data-tf-view")) {
+        var pc = document.getElementById("fo-tf-team");
+        if (pc && pc.scrollIntoView) pc.scrollIntoView({ block: "start" });
+      }
     });
   }
   function load() {
     ["scores", "players", "league", "tradeBait", "picks"].forEach(function (k) { DATA.load(k).then(rerender); });
+    var me = FO.viewerFid();
+    if (me) DATA.load("franchiseAssets", me).then(rerender);
   }
   function rerender() {
     var a = document.querySelector(".fo-section.active");
@@ -246,18 +358,18 @@
   }
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("trades");
-  root.UPS_FO_TRADES = { _sel: sel };
+  // Test seam: the view state and the team view's pick and stock logic.
+  root.UPS_FO_TRADES = { _view: view, _sel: sel, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); } };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA; TF = root.UPS_TRADE_FIT; LS = root.UPS_LINEUP_STRENGTH;
     if (!H || !FO || !DATA || !TF || !LS) return;
     wire();
     H.registerAbout("trades", "<h3>Trade finder</h3>" +
-      "<p><b>Discovery, not a fairness grade.</b> It shows where each team is strong or short and which one-for-one swaps would improve <b>both</b> teams’ best legal lineups. It never proposes, sends or messages anything; the War Room links open the one Trade War Room with the swap loaded.</p><ul>" +
-      "<li><b>Value</b> = season points per MFL-scored week (MFL’s own scoring). In a 2022–2025 backtest it ranked whole lineups better than the last 3–4 weeks (rank correlation .70 vs .62). RotoWire projections did better for offense but aren’t served to the app yet.</li>" +
-      "<li><b>Best legal lineup</b> = the league’s 18 slots (QB, 2 RB, 2 WR, TE, 2 Flex, SuperFlex, K, P, 2 DL, 2 LB, 2 DB, D-Flex), filled from the team’s <b>own available rostered players</b>. A free agent fills a slot only when no rostered player can play it, at replacement level (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at DL/LB/DB), and is marked <b>*</b>. A free agent never starts because he outscores someone on the roster. A swap’s gain is marked * when it would leave a slot to a free agent.</li>" +
-      "<li><b>Strength</b> = starters’ points a week above replacement (Σ starter PPG − replacement-level PPG): the same numbers as the Overview’s Lineup strength (By Position, Above Replacement), from the same lineups. <b>Need</b> = points a week a typical (median) starter would add. <b>Surplus</b> = a healthy bench player who would start for another team.</li>" +
-      "<li><b>Checks</b>: whether the swap still works on the last 4 final weeks; small samples; IDP-only (the least predictable); cap room after (over the cap is refused by the app).</li>" +
-      "<li>Not scored: contract length, salary value, age, draft picks, dynasty value. Kickers and punters never drive a swap (they barely predict).</li></ul>");
+      "<p><b>Every team’s lineup strength side by side, and a closer look at any team.</b> It doesn’t grade trades, rank partners or suggest swaps, and it never sends anything.</p><ul>" +
+      "<li><b>The table</b> is the Overview’s Lineup strength card for all 12 teams, with the same controls and the same numbers for the same view: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
+      "<li><b>Starter Mix</b> is separate: the starts recorded in the lineups owners submitted to MFL, not the modeled lineup.</li>" +
+      "<li><b>View</b> opens a team: where it is strong (1st–3rd by position) and needs help (a typical starter would add 1+ pts a week), its cap room, its future picks by year and round with a league comparison, and bench players who would start for other teams. “Well stocked” is said only when MFL’s pick list is complete and the team’s lineup-penalty forfeits were checked. The surplus list is analysis, not a sign the owner would move anyone.</li>" +
+      "<li>Not scored: contract length, salary value, age, dynasty value. Kickers and punters are shown, never called strong or short.</li></ul>");
   });
   document.addEventListener("fo:tab", function (e) { if (H && e.detail && e.detail.section === "trades") { render(); load(); } });
   document.addEventListener("fo:injury", rerender);

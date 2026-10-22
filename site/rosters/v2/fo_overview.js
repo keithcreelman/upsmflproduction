@@ -282,17 +282,6 @@
   }
 
   // Actual starter mix: the lineups the team submitted in completed weeks (not the strength model).
-  var mixMemo = { key: "", mix: null };
-  function starterMix() {
-    var SM = root.UPS_STARTER_MIX, ss = H.scoring(), e = DATA.get("weeklyResults"), slots = H.lineupSlots(), pe = DATA.get("players");
-    if (!SM || !ss || !slots || !e || e.state !== "ok" || !pe || pe.state !== "ok" || !ss.finalKnown) return null;
-    var key = [e.at, pe.at, ss.finalThrough, FO.teams().length].join("|");
-    if (mixMemo.key !== key) {
-      mixMemo = { key: key, mix: SM.build({ weeklyResults: e.data, completedWeek: ss.finalThrough, slots: slots, groupOf: H.playerGroup,
-        fids: FO.teams().map(function (t) { return t.fid; }) }) };
-    }
-    return mixMemo.mix;
-  }
   function pct(n) { return n + "%"; }
   function starterMixHtml(fid) {
     var SM = root.UPS_STARTER_MIX, e = DATA.get("weeklyResults"), ss = H.scoring();
@@ -301,7 +290,7 @@
     if (ss && !ss.finalKnown) return '<p class="fo-ov-empty">MFL hasn’t confirmed a completed week yet.</p>';
     var pe = DATA.get("players");
     if (pe && pe.state === "error") return H.banner("MFL’s players list couldn’t be read, so starters’ positions are unknown. Reload to retry.", "warn");
-    var mix = starterMix();
+    var mix = H.starterMix();
     if (!mix) return '<p class="fo-ov-empty">Reading MFL’s players…</p>';
     var t = mix.teams[fid];
     if (!t || !mix.weeks.length) return '<p class="fo-ov-empty">No completed weeks yet.</p>';

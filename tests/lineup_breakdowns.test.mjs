@@ -331,7 +331,9 @@ test("the Overview card: PPG first and selected, Above Replacement spelled out, 
   const entries = { weeklyResults: { state: "ok", at: 1, data: WEEKLY }, players: { state: "ok", at: 1 } };
   const deps = {
     H: { esc, fmt1: (v) => (Math.round(v * 10) / 10).toFixed(1), banner: (x) => x, goLink: () => "", leagueModel: () => m, lineupSlots: () => SLOTS, lineupSlotsState: () => "ok",
-      scoring: () => ss, playerGroup: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; } },
+      scoring: () => ss, playerGroup: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; },
+      starterMix: () => SM.build({ weeklyResults: WEEKLY, completedWeek: 6, slots: SLOTS, groupOf: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; },
+        fids: FX.teams.map((x) => x.fid) }) },
     FO: { teams: () => FX.teams },
     DATA: { get: (k) => entries[k] || null, load: () => ({ then() {} }) }
   };

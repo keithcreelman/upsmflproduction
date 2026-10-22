@@ -1191,6 +1191,35 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-flag.bad { color: #fecaca; border-color: rgba(248, 113, 113, 0.5); }
 .fo-tf-flag.warn { color: #fde68a; border-color: rgba(251, 191, 36, 0.45); }
 @media (max-width: 1100px) { .fo-tf-grid { grid-template-columns: 1fr; } .fo-tf-cols { grid-template-columns: 1fr; } }
+/* Trade finder: the all-team strength table and the team view (Keith 2026-10-22). On a phone the table scrolls inside
+   its card with the team column pinned, and the team view stacks to one column. */
+.fo-tf-strength { min-width: 0; }
+.fo-tf-strength th, .fo-tf-strength td { white-space: nowrap; }
+.fo-tf-strength .fo-tf-teamcol { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; font-weight: 600; box-shadow: 1px 0 0 var(--border); }
+.fo-tf-strength thead .fo-tf-teamcol { z-index: 2; }
+.fo-tf-name { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.fo-tf-view { margin-left: 6px; padding: 2px 8px; font: inherit; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; vertical-align: middle; }
+.fo-tf-view[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.fo-tf-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.fo-tf-sort.on { color: var(--text); font-weight: 700; }
+.fo-tf-overall { font-weight: 700; }
+.fo-tf-strength tr.fo-tf-me th, .fo-tf-strength tr.fo-tf-me td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+.fo-tf-strength tr.fo-tf-sel .fo-tf-name { color: var(--accent); }
+.fo-tf-warn { color: var(--warn); }
+.fo-tf-team .fo-card-head { flex-wrap: wrap; gap: 6px 12px; }
+.fo-tf-actions { display: inline-flex; gap: 10px; align-items: center; }
+.fo-tf-tag { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 8px; border: 1px solid var(--border); margin-left: 4px; }
+.fo-tf-tag.ok { color: #93c5fd; border-color: rgba(91, 141, 255, 0.5); } .fo-tf-tag.need { color: #fdba74; border-color: rgba(251, 146, 60, 0.5); }
+.fo-tf-pos th, .fo-tf-pos td { padding: 3px 6px; font-size: 12px; }
+.fo-tf-pickyear { margin: 4px 0 8px; font-size: 13px; }
+.fo-tf-pickrd { padding: 2px 0; }
+.fo-tf-rd { display: inline-block; min-width: 26px; color: var(--muted); font-weight: 700; }
+.fo-tf-pick { display: inline-block; margin-right: 8px; }
+.fo-tf-verdict { font-size: 13px; margin: 6px 0; }
+.fo-tf-compare summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+.fo-tf-pickcmp th, .fo-tf-pickcmp td { padding: 3px 8px; font-size: 12px; }
+.fo-tf-pickcmp tr.fo-tf-sel th { color: var(--accent); }
+@media (max-width: 600px) { .fo-tf-name { max-width: 104px; } .fo-tf-team .fo-tf-cols { gap: 8px; } }
 
 /* ── Draft picks + Activity (#1338) ── */
 .fo-pk-table { min-width: 640px; }

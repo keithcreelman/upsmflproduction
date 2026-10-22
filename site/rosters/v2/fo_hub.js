@@ -160,6 +160,22 @@
     return e.state === "ok" && lineupSlots() ? "ok" : "error";
   }
 
+  // The Actual starter mix (site/shared/starter_mix.js) over every team's submitted lineups in completed weeks — one
+  // build shared by the Overview card and the Trade finder table. null until MFL's weekly lineups, players list, scores
+  // and lineup settings are all read.
+  var mixMemo = { key: "", mix: null };
+  function starterMix() {
+    var SM = root.UPS_STARTER_MIX, ss = scoring(), d = D(), f = FO(), slots = lineupSlots();
+    var e = d && d.get("weeklyResults"), pe = d && d.get("players");
+    if (!SM || !ss || !slots || !f || !e || e.state !== "ok" || !pe || pe.state !== "ok" || !ss.finalKnown) return null;
+    var key = [e.at, pe.at, ss.finalThrough, f.teams().length].join("|");
+    if (mixMemo.key !== key) {
+      mixMemo = { key: key, mix: SM.build({ weeklyResults: e.data, completedWeek: ss.finalThrough, slots: slots, groupOf: groupOf,
+        fids: f.teams().map(function (t) { return t.fid; }) }) };
+    }
+    return mixMemo.mix;
+  }
+
   // The league trade-fit model on season PPG (n = 0) or last-n-weeks values, rebuilt only when an input changed
   // (scores read, players read, rosters, injury read, MFL's lineup settings) — Overview and Trades share it.
   var modelMemo = {};
@@ -288,7 +304,7 @@
     registerView: registerView,
     esc: esc, pad4: pad4, fmt1: fmt1, signed1: signed1, money: money, clock: clock, dayLabel: dayLabel, asArray: asArray,
     playerIndex: playerIndex, rosterIndex: rosterIndex, teamName: teamName, groupOf: groupOf, displayName: displayName,
-    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf,
+    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf, starterMix: starterMix,
     playerButton: playerButton, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
     setFreshness: setFreshness, loading: loading, banner: banner,
     registerAbout: registerAbout, openAbout: openAbout, openDialog: openDialog, closeAbout: closeAbout, setupAbout: setupAbout
