@@ -1,5 +1,5 @@
 import { handleHallRequest } from "./hall.js";
-import { NEWS_SOURCES, RSS_SOURCES, MFL_SOURCE, MFL_CHUNK, mflProfileUrl, NEWS_CATEGORIES, buildFeed, playerView, legacyHeadlineItems, mflNewsUrl, publicFeed } from "./news_feed.js";
+import { NEWS_SOURCES, RSS_SOURCES, MFL_SOURCE, MFL_CHUNK, mflProfileUrl, NEWS_CATEGORIES, normalizeSource, assembleFeed, buildPlayerIndex, serializeIndex, indexFromSerialized, playerView, legacyHeadlineItems, mflNewsUrl, publicFeed } from "./news_feed.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
@@ -22137,9 +22137,90 @@ export default {
           return { state: "error", rows: [], cached: false };
         }
       };
+      // MFL's player list (24 h edge cache): names for items and the index.
+      const _newsPlayers = async (yr) => {
+        try {
+          const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&JSON=1`, {
+            cf: { cacheTtl: 86400, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          if (!r.ok) return { state: "error", rows: [], error: `HTTP ${r.status}` };
+          const d = await r.json();
+          let arr = (d && d.players && d.players.player) || [];
+          if (!Array.isArray(arr)) arr = [arr];
+          return { state: arr.length ? "ok" : "empty", rows: arr, error: "" };
+        } catch (e) {
+          return { state: "error", rows: [], error: String((e && e.message) || e).slice(0, 160) };
+        }
+      };
+      // The player name index (MFL list + id-joined nicknames) is the same for
+      // every part: built once in its own invocation, cached 6 h, only parsed
+      // by the parts and the merge.
+      const _buildNewsIndex = async (yr) => {
+        const [players, aliases] = await Promise.all([_newsPlayers(yr), _newsAliases()]);
+        const index = buildPlayerIndex(players.rows, aliases.rows);
+        return { state: players.state, error: players.error, aliases: aliases.state, ...serializeIndex(index) };
+      };
+      const _getNewsIndex = async (yr, noCache) => {
+        let o = null;
+        if (env.SELF && typeof env.SELF.fetch === "function") {
+          try {
+            const r = await env.SELF.fetch(new Request(new URL(`/api/news-feed/index?YEAR=${encodeURIComponent(yr)}` + (noCache ? "&NO_CACHE=1" : ""), url.origin).toString()));
+            if (r.ok) o = await r.json();
+          } catch (e) { console.error("[news-feed] index fetch failed:", e && e.message); }
+        }
+        if (!o) o = await _buildNewsIndex(yr);
+        return { state: o.state, error: o.error || "", aliases: o.aliases, index: indexFromSerialized(o) };
+      };
+      // ONE part of the feed: one RSS source, or one chunk of ≤100 MFL players.
+      // Each part is its own Worker invocation (via env.SELF → the part route
+      // below), so the Free plan's 10 ms CPU budget applies per part, not to
+      // the whole feed. A part holds no licensed text (news_feed.js).
+      const _newsPart = async (yr, lid, kind, key) => {
+        const nowS = Math.floor(Date.now() / 1000);
+        const fetchedAtOf = (r) => {
+          const age = Number(r.headers.get("age") || 0);
+          return new Date((nowS - (Number.isFinite(age) ? age : 0)) * 1000).toISOString();
+        };
+        const grab = async (u, opts, extra) => {
+          try {
+            const r = await fetch(u, opts);
+            const fetchedAt = fetchedAtOf(r);
+            if (!r.ok) return { ok: false, http_status: r.status, body: "", fetched_at: fetchedAt, error: `HTTP ${r.status}`, ...extra };
+            return { ok: true, http_status: r.status, body: await r.text(), fetched_at: fetchedAt, error: "", ...extra };
+          } catch (e) {
+            return { ok: false, http_status: 0, body: "", fetched_at: new Date(nowS * 1000).toISOString(), error: String((e && e.message) || e).slice(0, 160), ...extra };
+          }
+        };
+        if (kind === "mfl") {
+          const pids = key;
+          const [entry, idx] = await Promise.all([grab(mflProfileUrl(yr, pids), {
+            cf: { cacheTtl: 1800, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker (news-feed)", "Accept": "application/json" },
+          }, { source: MFL_SOURCE, pids }), _getNewsIndex(yr)]);
+          return normalizeSource(entry, { nameOf: (pid) => (idx.index.players.get(pid) || {}).name || "", now: nowS, year: yr, leagueId: lid });
+        }
+        const src = RSS_SOURCES.find((s) => s.id === key);
+        if (!src) return null;
+        const [entry, idx] = await Promise.all([grab(src.url, { ..._newsFetchOpts, redirect: "follow" }, { source: src }), _getNewsIndex(yr)]);
+        const part = normalizeSource(entry, { index: idx.index, nameOf: (pid) => (idx.index.players.get(pid) || {}).name || "", now: nowS, year: yr, leagueId: lid });
+        part.player_index = { state: idx.state, aliases: idx.aliases };
+        return part;
+      };
+      const _newsPartUrl = (yr, lid, kind, key) => `/api/news-feed/part?YEAR=${encodeURIComponent(yr)}&L=${encodeURIComponent(lid)}&kind=${kind}&` +
+        (kind === "mfl" ? `pids=${encodeURIComponent(key.join(","))}` : `id=${encodeURIComponent(key)}`);
+      const _getNewsPart = async (yr, lid, kind, key, noCache) => {
+        if (env.SELF && typeof env.SELF.fetch === "function") {
+          try {
+            const r = await env.SELF.fetch(new Request(new URL(_newsPartUrl(yr, lid, kind, key) + (noCache ? "&NO_CACHE=1" : ""), url.origin).toString()));
+            if (r.ok) return await r.json();
+          } catch (e) {
+            console.error("[news-feed] part fetch failed:", kind, e && e.message);
+          }
+        }
+        return _newsPart(yr, lid, kind, key);   // tests / no SELF binding / part route down
+      };
       const _loadNewsFeed = async (yr, lid, opts = {}) => {
         const extra = [...new Set((opts.extraPids || []).map((p) => safeStr(p).replace(/\D/g, "")).filter(Boolean))].sort();
-        const CK = new Request(`https://ups.internal/cache/news-feed/v2?YEAR=${encodeURIComponent(yr)}&L=${encodeURIComponent(lid)}&extra=${encodeURIComponent(extra.join(","))}`);
+        const CK = new Request(`https://ups.internal/cache/news-feed/v3?YEAR=${encodeURIComponent(yr)}&L=${encodeURIComponent(lid)}&extra=${encodeURIComponent(extra.join(","))}`);
         if (!opts.noCache) {
           try {
             const hit = await caches.default.match(CK);
@@ -22147,78 +22228,38 @@ export default {
           } catch (_) {}
         }
         const nowS = Math.floor(Date.now() / 1000);
-        const fetchedAtOf = (r) => {
-          const age = Number(r.headers.get("age") || 0);
-          return new Date((nowS - (Number.isFinite(age) ? age : 0)) * 1000).toISOString();
-        };
-        const fetchedP = Promise.all(RSS_SOURCES.map(async (s) => {
-          try {
-            const r = await fetch(s.url, { ..._newsFetchOpts, redirect: "follow" });
-            const fetchedAt = fetchedAtOf(r);
-            if (!r.ok) return { source: s, ok: false, http_status: r.status, body: "", fetched_at: fetchedAt, error: `HTTP ${r.status}` };
-            return { source: s, ok: true, http_status: r.status, body: await r.text(), fetched_at: fetchedAt, error: "" };
-          } catch (e) {
-            return { source: s, ok: false, http_status: 0, body: "", fetched_at: new Date(nowS * 1000).toISOString(), error: String((e && e.message) || e).slice(0, 160) };
-          }
-        }));
-        // MFL Player News for every rostered player (+ extra). A roster read
-        // that fails still asks MFL about `extra`; the players MFL didn't
-        // answer for read "partial", never "no recent items".
-        const mflP = (async () => {
-          let pids = [...extra];
-          try {
-            const r = await fetch(`https://www48.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=rosters&L=${encodeURIComponent(lid)}&JSON=1`, {
-              cf: { cacheTtl: 300, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
-            });
-            if (r.ok) {
-              const d = await r.json();
-              let frs = (d && d.rosters && d.rosters.franchise) || [];
-              if (!Array.isArray(frs)) frs = [frs];
-              for (const fr of frs) {
-                let pl = (fr && fr.player) || [];
-                if (!Array.isArray(pl)) pl = [pl];
-                for (const p of pl) { const id = safeStr(p && p.id); if (id) pids.push(id); }
-              }
-            }
-          } catch (_) {}
-          pids = [...new Set(pids)].sort();
-          const chunks = [];
-          for (let i = 0; i < pids.length; i += MFL_CHUNK) chunks.push(pids.slice(i, i + MFL_CHUNK));
-          return Promise.all(chunks.map(async (chunk) => {
-            try {
-              const r = await fetch(mflProfileUrl(yr, chunk), {
-                cf: { cacheTtl: 1800, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker (news-feed)", "Accept": "application/json" },
-              });
-              const fetchedAt = fetchedAtOf(r);
-              if (!r.ok) return { source: MFL_SOURCE, ok: false, http_status: r.status, body: "", fetched_at: fetchedAt, error: `HTTP ${r.status}`, pids: chunk };
-              return { source: MFL_SOURCE, ok: true, http_status: r.status, body: await r.text(), fetched_at: fetchedAt, error: "", pids: chunk };
-            } catch (e) {
-              return { source: MFL_SOURCE, ok: false, http_status: 0, body: "", fetched_at: new Date(nowS * 1000).toISOString(), error: String((e && e.message) || e).slice(0, 160), pids: chunk };
-            }
-          }));
-        })();
-        const playersP = (async () => {
-          try {
-            const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&JSON=1`, {
-              cf: { cacheTtl: 86400, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
-            });
-            if (!r.ok) return { state: "error", rows: [], error: `HTTP ${r.status}` };
+        // Every rostered player (+ extra) is checked with MFL. A roster read
+        // that fails still asks MFL about `extra`; players MFL wasn't asked
+        // about read "partial", never "no recent items".
+        let pids = [...extra];
+        try {
+          const r = await fetch(`https://www48.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=rosters&L=${encodeURIComponent(lid)}&JSON=1`, {
+            cf: { cacheTtl: 300, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          if (r.ok) {
             const d = await r.json();
-            let arr = (d && d.players && d.players.player) || [];
-            if (!Array.isArray(arr)) arr = [arr];
-            return { state: arr.length ? "ok" : "empty", rows: arr, error: "" };
-          } catch (e) {
-            return { state: "error", rows: [], error: String((e && e.message) || e).slice(0, 160) };
+            let frs = (d && d.rosters && d.rosters.franchise) || [];
+            if (!Array.isArray(frs)) frs = [frs];
+            for (const fr of frs) {
+              let pl = (fr && fr.player) || [];
+              if (!Array.isArray(pl)) pl = [pl];
+              for (const p of pl) { const id = safeStr(p && p.id); if (id) pids.push(id); }
+            }
           }
-        })();
-        const [fetched, mflChunks, players, aliases] = await Promise.all([fetchedP, mflP, playersP, _newsAliases()]);
-        const feed = buildFeed([...fetched, ...mflChunks], { mflPlayers: players.rows, aliases: aliases.rows, now: nowS, year: yr, leagueId: lid });
+        } catch (_) {}
+        pids = [...new Set(pids)].sort();
+        const chunks = [];
+        for (let i = 0; i < pids.length; i += MFL_CHUNK) chunks.push(pids.slice(i, i + MFL_CHUNK));
+        const idx = await _getNewsIndex(yr, opts.noCache);   // warm the shared index before the parts read it
+        const parts = await Promise.all([...RSS_SOURCES.map((s) => _getNewsPart(yr, lid, "rss", s.id, opts.noCache)), ...chunks.map((c) => _getNewsPart(yr, lid, "mfl", c, opts.noCache))]);
+        const meta = idx.index.players;
+        const feed = assembleFeed(parts.filter(Boolean), { players: meta, now: nowS });
         // ESPN / RotoWire ids for the players actually in the feed (one MFL read).
-        const pids = [...new Set(feed.items.flatMap((it) => it.players.map((p) => p.mfl_id)))];
-        let idsState = pids.length ? "error" : "ok";
-        if (pids.length) {
+        const inFeed = [...new Set(feed.items.flatMap((it) => it.players.map((p) => p.mfl_id)))];
+        let idsState = inFeed.length ? "error" : "ok";
+        if (inFeed.length) {
           try {
-            const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(pids.join(","))}&JSON=1`, {
+            const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(inFeed.join(","))}&JSON=1`, {
               cf: { cacheTtl: 86400, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
             });
             if (r.ok) {
@@ -22236,10 +22277,11 @@ export default {
         }
         // Without MFL's player list no story can be tied to a player: a player
         // view must then say "unavailable", never "no recent items".
-        feed.player_index = { state: players.state, players: feed.diagnostics.players_indexed, error: players.error, aliases: aliases.state, external_ids: idsState };
+        const idxState = idx.state === "ok" && meta.size ? "ok" : (idx.state || "error");
+        feed.player_index = { state: idxState, players: meta.size, error: idx.error, aliases: idx.aliases, external_ids: idsState };
         feed.cache = { hit: false };
         try {
-          const ttl = feed.feed_state === "unavailable" || players.state !== "ok" ? 60 : 600;
+          const ttl = feed.feed_state === "unavailable" || idxState !== "ok" ? 60 : 600;
           ctx.waitUntil(caches.default.put(CK, new Response(JSON.stringify(feed), {
             headers: { "content-type": "application/json", "cache-control": `max-age=${ttl}` },
           })));
@@ -22260,6 +22302,42 @@ export default {
         if (!known && v.state !== "items") v.state = "unavailable";
         return v;
       };
+
+      // ── GET /api/news-feed/index — the shared player name index (internal) ──
+      if (path === "/api/news-feed/index" && request.method === "GET") {
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const IK = new Request(`https://ups.internal/cache/news-index/v1?YEAR=${encodeURIComponent(yr)}`);
+        if (safeStr(url.searchParams.get("NO_CACHE")) !== "1") {
+          try { const hit = await caches.default.match(IK); if (hit) return hit; } catch (_) {}
+        }
+        const o = await _buildNewsIndex(yr);
+        const res = new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json", "cache-control": `max-age=${o.state === "ok" ? 21600 : 60}`, ...corsHeaders } });
+        try { ctx.waitUntil(caches.default.put(IK, res.clone())); } catch (_) {}
+        return res;
+      }
+
+      // ── GET /api/news-feed/part — one normalized source (internal) ──
+      // Called by _loadNewsFeed through env.SELF so each source is its own
+      // invocation (CPU budget per part). Read-only; holds no licensed text.
+      // Cached 10 min (MFL chunks 30 min; 60 s when the source failed).
+      if (path === "/api/news-feed/part" && request.method === "GET") {
+        const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "") || "74598";
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const kind = safeStr(url.searchParams.get("kind")) === "mfl" ? "mfl" : "rss";
+        const key = kind === "mfl"
+          ? safeStr(url.searchParams.get("pids")).split(",").map((s) => s.replace(/\D/g, "")).filter(Boolean).slice(0, MFL_CHUNK)
+          : safeStr(url.searchParams.get("id"));
+        if (kind === "mfl" ? !key.length : !RSS_SOURCES.some((s) => s.id === key)) return jsonOut(400, { error: "kind=rss&id=<source> or kind=mfl&pids=<ids>" });
+        const PK = new Request(`https://ups.internal/cache/news-part/v1?${_newsPartUrl(yr, lid, kind, key).split("?")[1]}`);
+        if (safeStr(url.searchParams.get("NO_CACHE")) !== "1") {
+          try { const hit = await caches.default.match(PK); if (hit) return hit; } catch (_) {}
+        }
+        const part = await _newsPart(yr, lid, kind, key);
+        const ttl = part.status.state === "ok" ? (kind === "mfl" ? 1800 : 600) : 60;
+        const res = new Response(JSON.stringify(part), { status: 200, headers: { "content-type": "application/json", "cache-control": `max-age=${ttl}`, ...corsHeaders } });
+        try { ctx.waitUntil(caches.default.put(PK, res.clone())); } catch (_) {}
+        return res;
+      }
 
       // ── GET /api/news-feed — League News + player filter (ups.news.v1) ──
       //   /api/news-feed?L=74598&YEAR=2026[&limit=100][&category=injury]

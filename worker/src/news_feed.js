@@ -214,6 +214,22 @@ export function buildPlayerIndex(mflPlayers, aliases) {
   return { byKey, players };
 }
 
+// The index is the same for every part, so it is built once (its own
+// invocation), cached as JSON, and only parsed by the parts.
+export function serializeIndex(index) {
+  return {
+    k: [...index.byKey].map(([key, set]) => [key, [...set]]),
+    p: [...index.players].map(([pid, m]) => [pid, m.name, m.team, m.position]),
+  };
+}
+export function indexFromSerialized(o) {
+  const byKey = new Map();
+  for (const [key, pids] of (o && o.k) || []) byKey.set(key, new Set(pids));
+  const players = new Map();
+  for (const [pid, name, team, position] of (o && o.p) || []) players.set(pid, { mfl_id: pid, name, team, position });
+  return { byKey, players };
+}
+
 // Every full-name mention in `text`, longest match first at each position.
 function scanNames(normText, index) {
   const toks = normText.split(" ").filter(Boolean);
@@ -414,22 +430,42 @@ export function conflicts(a, b) {
 }
 
 // ── the feed ─────────────────────────────────────────────────────────────────
-// fetched: RSS → [{ source: <RSS_SOURCES entry>, ok, http_status, body, fetched_at (ISO), error }]
-//          MFL → one entry PER CHUNK: { source: MFL_SOURCE, ok, http_status, body (JSON), fetched_at, error, pids: [...] }
-// opts: { mflPlayers, aliases, ids: Map(pid → {espn_id, rotowire_id}), now (unix s), year, leagueId }
-export function buildFeed(fetched, opts) {
-  const now = Number(opts.now) || Math.floor(Date.now() / 1000);
-  const index = opts.index || buildPlayerIndex(opts.mflPlayers, opts.aliases);
-  const year = opts.year || "", leagueId = opts.leagueId || "";
-  const sources = [];
-  const raw = [];
-  let unresolvedMentions = 0;
-  for (const f of fetched.filter((x) => x.source.kind !== "mfl")) {
-    const s = f.source;
-    const st = { id: s.id, publisher: s.publisher, state: "error", http_status: f.http_status || 0, items: 0, oldest_ts: null, newest_ts: null, fetched_at: f.fetched_at || null, error: f.error || "" };
-    if (f.ok) {
+// Two steps, so no single Worker invocation needs more than a few ms of CPU
+// (the Free plan allows 10 ms per invocation):
+//   normalizeSource(entry) — ONE RSS source or ONE MFL chunk → a "part":
+//     its source status + records. JSON-safe and cacheable. An MFL record
+//     carries NO licensed text: its headline is reduced in memory to event,
+//     category and hashed words (for dedupe) and then dropped.
+//   assembleFeed(parts) — merges the parts: one record per article, clusters
+//     stories, builds items and states.
+// buildFeed() runs both in one call (tests, previews, small builds).
+
+const hashWords = (set) => [...set].map((w) => hash53("w:" + w).slice(-8));
+
+// entry: RSS → { source, ok, http_status, body, fetched_at, error }
+//        MFL → { source: MFL_SOURCE, ok, http_status, body, fetched_at, error, pids }
+// ctx:   { index (RSS: name resolution), nameOf(pid) (MFL: the player's name), now, year, leagueId }
+export function normalizeSource(entry, ctx) {
+  const now = Number(ctx.now) || Math.floor(Date.now() / 1000);
+  const s = entry.source;
+  const st = { id: s.id, publisher: s.publisher, state: "error", http_status: entry.http_status || 0, items: 0, oldest_ts: null, newest_ts: null, fetched_at: entry.fetched_at || null, error: entry.error || "" };
+  const records = [];
+  let unresolved = 0;
+  const nameTokens = (players) => {
+    const set = new Set();
+    for (const p of players) for (const w of normName(ctx.nameOf(p.mfl_id)).split(" ")) if (w) set.add(w);
+    return set;
+  };
+  const finish = (r, players, headline) => {
+    const toks = contentTokens(headline, nameTokens(players));
+    r.tok = hashWords(toks);
+    r.nh = hash53("h:" + normName(headline));
+    records.push(r);
+  };
+  if (s.kind !== "mfl") {
+    if (entry.ok) {
       let parsed = [];
-      try { parsed = parseRss(f.body); } catch (e) { st.error = "parse failed: " + String((e && e.message) || e).slice(0, 120); }
+      try { parsed = parseRss(entry.body); } catch (e) { st.error = "parse failed: " + String((e && e.message) || e).slice(0, 120); }
       const dated = parsed.map((p) => p.published_ts).filter((t) => t > 0);
       st.items = parsed.length;
       st.oldest_ts = dated.length ? Math.min(...dated) : null;
@@ -437,44 +473,84 @@ export function buildFeed(fetched, opts) {
       if (!parsed.length) { st.state = "empty"; st.error = st.error || "feed answered with no items"; }
       else if (st.newest_ts && now - st.newest_ts > STALE_SOURCE_SECONDS) { st.state = "stale"; st.error = "newest item is older than 72 hours"; }
       else st.state = "ok";
-      for (const p of parsed) raw.push({ ...p, source: s, fetched_at: f.fetched_at || null });
+      for (const p of parsed) {
+        const res = resolveStoryPlayers(p, ctx.index);
+        unresolved += res.unresolved;
+        finish({
+          id: itemId(p.url, s.id, p.headline), licensed: false, headline: p.headline,
+          publisher: s.publisher, via: null, source_id: s.id, mfl_article_id: null,
+          url: canonicalUrl(p.url) ? String(p.url).trim() : "",
+          published_ts: p.published_ts || null, published_precision: p.published_ts ? "exact" : null, min_ts: null, max_ts: null,
+          fetched_at: entry.fetched_at || null,
+          category: classify(p.headline, p.summary), event: eventOf(p.headline, p.summary),
+          players: res.players, provider: null,
+        }, res.players, p.headline);
+      }
     }
-    sources.push(st);
+    return { kind: "rss", source_id: s.id, status: st, records, checked: [], requested: [], unresolved };
   }
+  // MFL chunk
+  const checked = [];
+  if (entry.ok) {
+    let byPid = null;
+    try { byPid = parseMflProfiles(entry.body); } catch (e) { st.error = String((e && e.message) || e).slice(0, 120); }
+    if (byPid) {
+      st.state = "ok";
+      const fetchedTs = entry.fetched_at ? Math.floor(Date.parse(entry.fetched_at) / 1000) : now;
+      for (const [pid, arts] of byPid) {
+        checked.push(pid);
+        for (const a of arts) {
+          const age = parseMflAge(a.published, fetchedTs);
+          const prov = mflProvider(a.article_id);
+          const players = [{ mfl_id: pid, match: "mfl_id", primary: true }];
+          // The id comes from MFL's article id ONLY: neither the age ("1 day"
+          // → "2 days") nor the provider's spelling can change it.
+          finish({
+            id: "n_" + hash53("mfl:" + a.article_id.toLowerCase()), licensed: true, headline: null,
+            publisher: prov.name, via: "MFL", source_id: MFL_SOURCE.id, mfl_article_id: a.article_id,
+            url: ctx.year && ctx.leagueId ? mflArticleUrl(ctx.year, ctx.leagueId, a.article_id) : "",
+            published_ts: age ? age.ts : null, published_precision: age ? age.precision : null, min_ts: age ? age.min_ts : null, max_ts: age ? age.max_ts : null,
+            fetched_at: entry.fetched_at || null,
+            category: classify(a.headline, ""), event: eventOf(a.headline, ""),
+            players, provider: "mfl:" + prov.id,
+          }, players, a.headline);   // the licensed headline is dropped here
+        }
+      }
+    }
+  }
+  return { kind: "mfl", source_id: MFL_SOURCE.id, status: st, records, checked, requested: entry.pids || [], unresolved: 0 };
+}
 
-  // MFL: every chunk must answer for the source to be "ok". The pids MFL
-  // answered for are the only players whose MFL silence means "nothing new".
-  const mflChunks = fetched.filter((x) => x.source.kind === "mfl");
+// parts: [normalizeSource(...)] ; opts: { players: Map(pid → {name, team, position}), ids: Map(pid → {espn_id, rotowire_id}), now, playersIndexed }
+export function assembleFeed(parts, opts) {
+  const now = Number(opts.now) || Math.floor(Date.now() / 1000);
+  const playerMeta = opts.players || new Map();
+  const sources = [];
+  for (const p of parts.filter((x) => x.kind === "rss")) sources.push(p.status);
+  const mflParts = parts.filter((x) => x.kind === "mfl");
   const mflChecked = new Set();
-  const mflRaw = [];
-  if (mflChunks.length) {
+  if (mflParts.length) {
     const st = { id: MFL_SOURCE.id, publisher: MFL_SOURCE.publisher, state: "error", http_status: 0, items: 0, oldest_ts: null, newest_ts: null, fetched_at: null, error: "", players_checked: 0, players_requested: 0 };
     let okChunks = 0;
     const errors = [];
-    for (const c of mflChunks) {
-      st.players_requested += (c.pids || []).length;
-      st.http_status = st.http_status || c.http_status || 0;
-      if (!c.ok) { errors.push(c.error || `HTTP ${c.http_status}`); if (c.http_status) st.http_status = c.http_status; continue; }
-      let byPid;
-      try { byPid = parseMflProfiles(c.body); } catch (e) { errors.push(String((e && e.message) || e).slice(0, 120)); continue; }
+    for (const p of mflParts) {
+      st.players_requested += p.requested.length;
+      if (!st.http_status || p.status.state !== "ok") st.http_status = p.status.http_status || st.http_status;
+      if (p.status.state !== "ok") { errors.push(p.status.error || `HTTP ${p.status.http_status}`); continue; }
       okChunks += 1;
-      st.fetched_at = st.fetched_at && st.fetched_at < (c.fetched_at || "") ? st.fetched_at : c.fetched_at;
-      const fetchedTs = c.fetched_at ? Math.floor(Date.parse(c.fetched_at) / 1000) : now;
-      for (const [pid, arts] of byPid) {
-        mflChecked.add(pid);
-        for (const a of arts) mflRaw.push({ ...a, pid, age: parseMflAge(a.published, fetchedTs), fetched_at: c.fetched_at || null });
-      }
+      st.fetched_at = st.fetched_at && st.fetched_at < (p.status.fetched_at || "") ? st.fetched_at : p.status.fetched_at;
+      for (const pid of p.checked) mflChecked.add(pid);
+      st.items += p.records.length;
     }
-    const dated = mflRaw.map((r) => r.age && r.age.ts).filter(Boolean);
-    st.items = mflRaw.length;
+    const dated = mflParts.flatMap((p) => p.records.map((r) => r.published_ts)).filter(Boolean);
     st.oldest_ts = dated.length ? Math.min(...dated) : null;
     st.newest_ts = dated.length ? Math.max(...dated) : null;
     st.players_checked = mflChecked.size;
     st.error = errors.slice(0, 3).join("; ");
-    if (okChunks === mflChunks.length && mflChecked.size) st.state = "ok";
+    if (okChunks === mflParts.length && mflChecked.size) st.state = "ok";
     else if (okChunks) st.state = "incomplete";
     else st.state = "error";
-    if (st.state === "ok" && !mflRaw.length && mflChecked.size >= 50) { st.state = "empty"; st.error = "no news for any of " + mflChecked.size + " players"; }
+    if (st.state === "ok" && !st.items && mflChecked.size >= 50) { st.state = "empty"; st.error = "no news for any of " + mflChecked.size + " players"; }
     sources.push(st);
   }
   const okCount = sources.filter((s) => s.state === "ok").length;
@@ -482,74 +558,32 @@ export function buildFeed(fetched, opts) {
 
   // One record per article (RSS: canonical URL; MFL: MFL's article id).
   const byId = new Map();
-  const nameTokensOf = (players) => {
-    const set = new Set();
-    for (const p of players) { const m = index.players.get(p.mfl_id); if (m) for (const w of normName(m.name).split(" ")) set.add(w); }
-    return set;
-  };
-  for (const r of raw) {
-    const id = itemId(r.url, r.source.id, r.headline);
-    if (byId.has(id)) continue;
-    const res = resolveStoryPlayers(r, index);
-    unresolvedMentions += res.unresolved;
-    const nameTokens = nameTokensOf(res.players);
-    byId.set(id, {
-      id, licensed: false,
-      headline: r.headline,
-      publisher: r.source.publisher, via: null,
-      source_id: r.source.id,
-      url: canonicalUrl(r.url) ? String(r.url).trim() : "",
-      published_ts: r.published_ts || null, published_precision: r.published_ts ? "exact" : null,
-      fetched_at: r.fetched_at,
-      category: classify(r.headline, r.summary),
-      event: eventOf(r.headline, r.summary),
-      players: res.players,
-      _nameTokens: nameTokens,
-      _normHeadline: normName(r.headline),
-      _tokens: contentTokens(r.headline, nameTokens),
-      _primary: new Set(res.players.filter((p) => p.primary).map((p) => p.mfl_id)),
-    });
-  }
-  for (const r of mflRaw) {
-    // The id comes from MFL's article id ONLY: neither the age ("1 day" →
-    // "2 days") nor the provider's spelling can change it.
-    const id = "n_" + hash53("mfl:" + r.article_id.toLowerCase());
-    if (byId.has(id)) {
-      // One MFL article filed under two players (a trade): both keep it.
-      const rec = byId.get(id);
-      if (!rec.players.some((p) => p.mfl_id === r.pid)) { rec.players.push({ mfl_id: r.pid, match: "mfl_id", primary: true }); rec._primary.add(r.pid); }
-      continue;
+  let articles = 0, rssArticles = 0, mflArticles = 0, unresolved = 0;
+  for (const p of parts) {
+    unresolved += p.unresolved || 0;
+    for (const r0 of p.records) {
+      articles += 1;
+      if (p.kind === "mfl") mflArticles += 1; else rssArticles += 1;
+      const prev = byId.get(r0.id);
+      if (prev) {
+        // One MFL article filed under two players (a trade): both keep it.
+        for (const q of r0.players) if (!prev.players.some((x) => x.mfl_id === q.mfl_id)) { prev.players.push({ ...q }); if (q.primary) prev._primary.add(q.mfl_id); }
+        continue;
+      }
+      const r = { ...r0, players: r0.players.map((q) => ({ ...q })) };
+      r._tokens = new Set(r.tok);
+      r._normHeadline = r.nh;
+      r._primary = new Set(r.players.filter((q) => q.primary).map((q) => q.mfl_id));
+      r._provider = r.provider || null;
+      r._min_ts = r.min_ts; r._max_ts = r.max_ts;
+      byId.set(r.id, r);
     }
-    const prov = mflProvider(r.article_id);
-    const players = [{ mfl_id: r.pid, match: "mfl_id", primary: true }];
-    const nameTokens = nameTokensOf(players);
-    byId.set(id, {
-      id, licensed: true,
-      headline: r.headline,                      // in memory only — never emitted
-      publisher: prov.name, via: "MFL",
-      source_id: MFL_SOURCE.id,
-      mfl_article_id: r.article_id,
-      url: year && leagueId ? mflArticleUrl(year, leagueId, r.article_id) : "",
-      published_ts: r.age ? r.age.ts : null, published_precision: r.age ? r.age.precision : null,
-      fetched_at: r.fetched_at,
-      category: classify(r.headline, ""),
-      event: eventOf(r.headline, ""),
-      players,
-      _provider: "mfl:" + prov.id,
-      _min_ts: r.age ? r.age.min_ts : null, _max_ts: r.age ? r.age.max_ts : null,
-      _nameTokens: nameTokens,
-      _normHeadline: normName(r.headline),
-      _tokens: contentTokens(r.headline, nameTokens),
-      _primary: new Set([r.pid]),
-    });
   }
 
-  // Cluster copies of one story. The earliest report leads, except that a
-  // story with a displayable (publisher) headline is led by one.
+  // Cluster copies of one story. Candidates come from an index by primary
+  // player (or by headline for stories about no player).
   const order = new Map(NEWS_SOURCES.map((s, i) => [s.id, i]));
   const recs = [...byId.values()].sort((a, b) => (a.published_ts || Infinity) - (b.published_ts || Infinity) || order.get(a.source_id) - order.get(b.source_id) || (a.id < b.id ? -1 : 1));
-  // Candidates come from an index by primary player (or by headline for
-  // stories about no player), so a 650-story build stays well under 10 ms.
   const stories = [];
   const byPlayer = new Map(), byHeadline = new Map();
   for (const r of recs) {
@@ -564,7 +598,7 @@ export function buildFeed(fetched, opts) {
     if (!r._primary.size) { const l = byHeadline.get(r._normHeadline) || []; if (!l.includes(lead)) l.push(lead); byHeadline.set(r._normHeadline, l); }
   }
   const ids = opts.ids || new Map();
-  const ref = (m) => ({ id: m.id, publisher: m.publisher, via: m.via, url: m.url, published_ts: m.published_ts, published_precision: m.published_precision });
+  const ref = (m) => ({ id: m.id, publisher: m.publisher, via: m.via, mfl_article_id: m.mfl_article_id || null, url: m.url, published_ts: m.published_ts, published_precision: m.published_precision });
   const items = stories.map((s) => {
     const lead = s._members.find((m) => !m.licensed) || s._members[0];
     const players = [];
@@ -575,7 +609,6 @@ export function buildFeed(fetched, opts) {
     .map(({ lead, members, players }) => ({
       id: lead.id,
       story_id: "s_" + lead.id.slice(2),
-      // Licensed text never leaves this function.
       headline: lead.licensed ? null : lead.headline,
       headline_policy: lead.licensed ? "read_on_mfl" : "display",
       publisher: lead.publisher,
@@ -590,7 +623,7 @@ export function buildFeed(fetched, opts) {
       category: lead.category,
       event: lead.event,
       players: players.map((p) => {
-        const meta = index.players.get(p.mfl_id) || {};
+        const meta = playerMeta.get(p.mfl_id) || {};
         const x = ids.get(p.mfl_id) || {};
         return { mfl_id: p.mfl_id, espn_id: x.espn_id || null, rotowire_id: x.rotowire_id || null, name: meta.name || "", team: meta.team || "", position: meta.position || "", match: p.match, primary: p.primary };
       }),
@@ -600,7 +633,6 @@ export function buildFeed(fetched, opts) {
   const okRss = sources.filter((s) => s.id !== MFL_SOURCE.id && s.state === "ok" && s.oldest_ts);
   // The window every answering RSS source covers: the LATEST of their oldest items.
   const since = okRss.length ? Math.max(...okRss.map((s) => s.oldest_ts)) : null;
-  const rssOk = sources.filter((s) => s.id !== MFL_SOURCE.id).every((s) => s.state === "ok");
   return {
     contract: NEWS_CONTRACT,
     generated_at: new Date(now * 1000).toISOString(),
@@ -608,11 +640,30 @@ export function buildFeed(fetched, opts) {
     coverage: { since_ts: since, hours: since ? Math.round(((now - since) / 3600) * 10) / 10 : null, mfl: "each checked player's latest MFL updates (MFL keeps about 7 days, at most 3)" },
     sources,
     items,
-    diagnostics: { articles: raw.length + mflRaw.length, rss_articles: raw.length, mfl_articles: mflRaw.length, unique_articles: byId.size, stories: items.length, unresolved_name_mentions: unresolvedMentions, players_indexed: index.players.size },
-    // internal: dropped by the routes before responding
+    diagnostics: { articles, rss_articles: rssArticles, mfl_articles: mflArticles, unique_articles: byId.size, stories: items.length, unresolved_name_mentions: unresolved, players_indexed: opts.playersIndexed || playerMeta.size },
+    // internal: dropped by publicFeed() before any route responds
     _mfl_checked: [...mflChecked],
-    _rss_ok: rssOk,
   };
+}
+
+export function playerMetaMap(mflPlayers) {
+  const m = new Map();
+  for (const p of mflPlayers || []) {
+    const pid = String((p && p.id) || "");
+    if (!pid || TEAM_UNIT_POS.has(String(p.position || ""))) continue;
+    const raw = String(p.name || "");
+    m.set(pid, { name: raw.includes(",") ? raw.split(",").map((x) => x.trim()).reverse().join(" ") : raw.trim(), team: String(p.team || "").toUpperCase(), position: String(p.position || "") });
+  }
+  return m;
+}
+
+// fetched: RSS entries and MFL chunk entries (see normalizeSource).
+// opts: { mflPlayers, aliases, ids, now, year, leagueId } (or a prebuilt `index`)
+export function buildFeed(fetched, opts) {
+  const index = opts.index || buildPlayerIndex(opts.mflPlayers, opts.aliases);
+  const ctx = { index, nameOf: (pid) => (index.players.get(pid) || {}).name || "", now: opts.now, year: opts.year, leagueId: opts.leagueId };
+  const parts = fetched.map((e) => normalizeSource(e, ctx));
+  return assembleFeed(parts, { players: index.players, ids: opts.ids, now: opts.now, playersIndexed: index.players.size });
 }
 
 // One player's view of the feed. `limit` keeps the most recent items; primary

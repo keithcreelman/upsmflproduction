@@ -56,10 +56,35 @@ This is ONE normalized feed of outside NFL and player news. League News shows al
      - A player MFL didn't answer for is `partial` (or `unavailable` when nothing answered), never "no recent items".
      - A body with an `error` node counts as a failure.
 6. **Outside the signed-in MFL experience.**
-   - The provider's words **don't** leave MFL.
-   - Our feed, its cache, the legacy route and any preview carry only the metadata above.
-   - Reading the update means following the link to MFL's own page.
-   - Showing the headline in our UI would need MFL's written permission (decision below).
+   - **UPS servers never carry the provider's words.** The Worker, its caches, the legacy route and any public preview hold only the metadata above.
+   - **Inside MFL, the owner still sees the text:**
+     - The Front Office embed and the HPM modules run **in the league's own page on `*.myfantasyleague.com`**.
+     - From there the owner's browser asks MFL directly: `site/shared/mfl_player_news.js` calls `TYPE=playerProfile` and attaches each headline to its `ups.news.v1` item **by MFL article id**.
+     - MFL allows this. Its API echoes an MFL origin in `Access-Control-Allow-Origin` (with credentials); verified 2026-10-22 from `Origin: https://www48.myfantasyleague.com`.
+     - MFL's developer page forbids API calls by JavaScript only "from web pages outside the myfantasyleague.com domain".
+     - The text goes MFL → owner, on MFL's site.
+   - **Off MFL** (the phone app and standalone pages on github.io):
+     - MFL's API refuses the browser call (verified: other origins get another host's `Access-Control-Allow-Origin`).
+     - Those screens keep metadata + **read on MFL ↗**.
+     - They can also show **MFL's own page in a frame**: `news_articles?P=<pid>`, without `L=`. That's 169 KB with no league header; MFL sends no `X-Frame-Options` or CSP frame rule.
+     - Inside the frame, MFL serves its own headlines and summaries, so we copy nothing.
+
+### Permission to show provider text on UPS (searched 2026-10-22): none found
+
+| Source | What it says |
+|---|---|
+| [MFL Developers Program](https://api.myfantasyleague.com/2026/api_info) | MFL "can not make third party content (such as player news) available". JavaScript API calls are forbidden only from pages outside `myfantasyleague.com`, and "calls from within league pages" are named as normal use. |
+| [MFL Terms of Service](https://home.myfantasyleague.com/terms.html) | Distributing site content to third parties, "including through another website", needs "the express prior written consent of FPL"; no screen scraping |
+| [MFL Acceptable Use Policy](https://home.myfantasyleague.com/use.html) | No unauthorized copying of copyrighted material. Nothing on framing or linking. |
+| [MFL developer API overview](https://home.myfantasyleague.com/features/developers-api/), [RotoWire on MFL](https://home.myfantasyleague.com/rotowire.html) | RotoWire is an MFL partner. No statement that its news is offered to third-party developers. |
+| [RotoWire v. Swish Analytics](https://www.rotowire.com/swish-lawsuit/) | RotoWire sues over unlicensed scraping and use of its data, so it treats its news as licensed |
+
+RotoWire's own terms page wasn't reachable (404).
+
+**Result:**
+- Showing RotoWire / DLF / FFToday headlines or summaries **on UPS's own site** needs written permission from MFL (FPL), or a feed license from the providers.
+- Showing them **inside MFL's pages**, delivered by MFL to the owner's browser, matches how MFL's API is meant to be used.
+- MFL's page shows the text publicly, but that is MFL's license, not one extended to us.
 
 ## Response: League News
 
@@ -229,9 +254,12 @@ D1 numbers are measured locally with Miniflare's `rows_read` / `rows_written`, w
 | D1 reads/writes for **MFL news** | — | **0**: nothing about it is stored in D1 |
 | D1 writes per day (Sleeper job) | 7,082 | 654 measured (≈ 840 scaled); 5,002 once on the first run |
 | Outbound per feed rebuild | 6 feeds + 1 MFL | 4 feeds + MFL rosters (5 min cache) + 5 MFL `playerProfile` (30 min cache) + 2 MFL `players` (24 h cache) |
-| CPU per feed rebuild | — | ≈ 8.5 ms warm + ≈ 2.5 ms player index, at most once per 10 min per location |
+| CPU per Worker invocation | — | Split into separate invocations through the Worker's own `SELF` binding: 1 name index (cached 6 h), 4 RSS parts and ≤ 5 MFL parts (cached 10 / 30 min), and 1 merge (cached 10 min). Warm: **2.0–4.6 ms** each. A fresh isolate's first call: 7–12.7 ms (fresh node process, an upper-bound proxy). |
 
-Over Cloudflare's free-plan 10 ms CPU limit on a rebuild. See "Risks".
+**CPU on the Free plan.**
+- **The limit:** Cloudflare's limit is 10 ms per invocation. Each isolate "has some built-in flexibility" for infrequent overruns, and only consistent overruns are terminated (Error 1102) ([limits](https://developers.cloudflare.com/workers/platform/limits/)).
+- **Before the split:** one rebuild needed about 11 ms warm on every rebuild.
+- **After the split:** every steady-state invocation is under 5 ms. Only an isolate's first call (one-time compilation) runs over, which is the infrequent case Cloudflare allows for.
 
 ## Consumers (inventory) and how each uses the contract
 
@@ -254,7 +282,7 @@ None of these screens change in this PR. Their integrations are separate and nee
 
 ## Risks and not verified
 
-- **CPU:** a feed rebuild costs ≈ 11 ms. On the Workers free plan (10 ms) it would need to move into the hourly cron. It's fine on the current paid plan.
+- **CPU:** a fresh isolate's first call can run past 10 ms (one-time compilation, up to ~12.7 ms in the node proxy). Steady state is 2–5 ms per invocation. If production shows `exceededCpu` on the Free plan, the parts move to a GitHub Actions job that writes one R2 object (no CPU cap there).
 - **MFL:**
   - It could throttle a busy Worker IP. Each failure shows as `partial`.
   - Registering an MFL API client (2.5× limit) is an option.
@@ -262,8 +290,17 @@ None of these screens change in this PR. Their integrations are separate and nee
 - **Keyword rules:** `event` and `category` are keyword-based and can mislabel. A wrong event can split or merge a story that a person wouldn't.
 - **Not verified:** the live edge cache, real iPhone Safari, and authenticated MFL pages.
 
+## Internal routes (read-only, no licensed text)
+
+- `GET /api/news-feed/index?YEAR=`: the name index, built once and cached 6 h.
+- `GET /api/news-feed/part?kind=rss&id=pfr` or `?kind=mfl&pids=…`: one normalized source. MFL records carry hashed words for dedupe, never the headline.
+
+`/api/news-feed` calls these through `env.SELF`. Without the binding (tests), it builds them in-process. Both paths give an identical feed (tested).
+
 ## Decisions needed
 
 - **Approve this contract** (MFL as a metadata-and-link source).
-- **Ask MFL for written permission** to show provider headlines inside the league experience. That would turn `headline_policy` to `display` for MFL items.
+- **Inside MFL (Front Office embed):** approve showing provider headlines read by the owner's browser from MFL (`site/shared/mfl_player_news.js`). No UPS copy is made.
+- **Off MFL:** the "Open MFL Player News here" frame of MFL's own page, or link only.
+- **Ask MFL (FPL) for written permission** to show provider headlines/summaries on UPS's own site. A grant flips `headline_policy` to `display` for MFL items, with no contract change.
 - **Rolling history:** a separate decision. MFL already gives about 7 days per player.

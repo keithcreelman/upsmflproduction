@@ -310,16 +310,33 @@ const stableCheck = (mod) => {
 };
 test("MFL: stable ids when MFL's age or attribution spelling changes", () => stableCheck(M));
 
+test("split build: parts round-tripped through JSON give the same feed; a cached MFL part holds no licensed text", () => {
+  const index = M.buildPlayerIndex(PLAYERS, FX.sleeper_aliases);
+  const entries = [...recorded(), mflChunk(["16211", "14783", "13635"], { "16211": [{ id: "rotowire990601", headline: "WR Puka Nacua: " + MARK + " lands on IR", published: "3 hours" }], "14783": [{ id: "rotowire990602", headline: "QB Jalen Hurts: " + MARK + " out for the season", published: "1 day" }] })];
+  const ctx = { index, nameOf: (pid) => (index.players.get(pid) || {}).name || "", now: NOW, ...OPTS };
+  const parts = entries.map((e) => JSON.parse(JSON.stringify(M.normalizeSource(e, ctx))));
+  const mflPart = parts.find((p) => p.kind === "mfl");
+  t.ok(!JSON.stringify(mflPart).includes(MARK), "the cacheable MFL part carries no licensed text");
+  t.ok(mflPart.records.every((r) => r.headline === null && Array.isArray(r.tok)), "only hashed words for dedupe");
+  const split = M.assembleFeed(parts, { players: index.players, now: NOW });
+  const whole = M.buildFeed(entries, { index, now: NOW, ...OPTS });
+  t.deepEqual(split.items.map((i) => [i.id, i.story_id, i.also_reported_by.length]), whole.items.map((i) => [i.id, i.story_id, i.also_reported_by.length]), "same stories, same ids");
+  t.equal(split.feed_state, whole.feed_state);
+});
+
 test("MFL (mutation): reverting each rule is caught", async () => {
-  await catches("licensed headline emitted", [["      headline: lead.licensed ? null : lead.headline,", "      headline: lead.headline,"]], licensedCheck);
-  await catches("MFL item matched by name", [["    const players = [{ mfl_id: r.pid, match: \"mfl_id\", primary: true }];", "    const players = resolveStoryPlayers({ headline: r.headline, summary: \"\", tags: [] }, index).players;"]], idCheck);
+  // Licensed text has two guards (never put in a record; never emitted); both reverted together must leak.
+  await catches("licensed headline kept and emitted", [
+    ["id: \"n_\" + hash53(\"mfl:\" + a.article_id.toLowerCase()), licensed: true, headline: null,", "id: \"n_\" + hash53(\"mfl:\" + a.article_id.toLowerCase()), licensed: true, headline: a.headline,"],
+    ["      headline: lead.licensed ? null : lead.headline,", "      headline: lead.headline,"]], licensedCheck);
+  await catches("MFL item matched by name", [["          const players = [{ mfl_id: pid, match: \"mfl_id\", primary: true }];", "          const players = resolveStoryPlayers({ headline: a.headline, summary: \"\", tags: [] }, ctx.index).players;"]], idCheck);
   await catches("same-provider updates merge", [["  if (a._provider && a._provider === b._provider) return false;\n", ""], ["  if (a._provider && a._provider === b._provider) return true;\n", ""]], twoUpdatesCheck);
   await catches("different events merge", [["    if (ea !== eb) return false;                 // materially different updates\n", ""], ["  return SPECIFIC_EVENTS.has(ea) && SPECIFIC_EVENTS.has(eb) && ea !== eb;", "  return false;"]], twoUpdatesCheck);
   await catches("MFL silence counted for a player MFL wasn't asked about", [["  if (mflSource && mflSource.state !== \"error\" && !mflChecked && !unavailable.includes(mflSource.publisher)) unavailable.push(mflSource.publisher);\n", ""]], outageCheck);
   await catches("MFL outage ignored", [["  const okCount = sources.filter((s) => s.state === \"ok\").length;", "  const okCount = sources.filter((s) => s.state === \"ok\" || s.id === \"mfl\").length;"]], outageCheck);
-  await catches("id from the age", [["    const id = \"n_\" + hash53(\"mfl:\" + r.article_id.toLowerCase());", "    const id = \"n_\" + hash53(\"mfl:\" + r.article_id + r.published);"]], stableCheck);
+  await catches("id from the age", [["id: \"n_\" + hash53(\"mfl:\" + a.article_id.toLowerCase()),", "id: \"n_\" + hash53(\"mfl:\" + a.article_id + a.published),"]], stableCheck);
   await catches("MFL item not merged with a publisher", [["    if (gap <= (EVENT_WINDOW[ea] || EVENT_WINDOW_SECONDS)) return true;", "    if (gap < 0) return true;"]], dupCheck);
-  await catches("MFL-only update dropped", [["  for (const r of mflRaw) {", "  for (const r of []) {"]], mflOnlyCheck);
+  await catches("MFL-only update dropped", [["        for (const a of arts) {\n          const age = parseMflAge(a.published, fetchedTs);", "        for (const a of []) {\n          const age = parseMflAge(a.published, fetchedTs);"]], mflOnlyCheck);
 });
 
 // ── 6. the routes ────────────────────────────────────────────────────────────
@@ -442,6 +459,25 @@ test("route /api/news-feed: League News + player filter; one D1 read (aliases), 
   const down = await get(env, "/api/news-feed?L=74598&YEAR=2026&pids=16211");
   t.equal(down.status, 503);
   t.equal(down.body.players["16211"].state, "unavailable");
+});
+
+test("route /api/news-feed: through env.SELF each source is its own invocation; same feed as in-process", async () => {
+  FEED_FAIL = new Set();
+  const plain = await get({ UPS_MFL_DB: makeDb() }, "/api/news-feed?L=74598&YEAR=2026&limit=300");
+  const calls = [];
+  const env = { UPS_MFL_DB: makeDb() };
+  env.SELF = { fetch: async (req) => { const u = new URL(req.url); calls.push(u.pathname + "?" + u.searchParams.get("kind") + ":" + (u.searchParams.get("id") || u.searchParams.get("pids"))); return worker.fetch(req, env, { waitUntil() {}, passThroughOnException() {} }); } };
+  const viaSelf = await get(env, "/api/news-feed?L=74598&YEAR=2026&limit=300");
+  const partCalls = calls.filter((c) => c.startsWith("/api/news-feed/part"));
+  t.equal(partCalls.length, 5, "4 RSS parts + 1 MFL chunk (4 rostered players), each its own invocation");
+  t.ok(calls.some((c) => c.startsWith("/api/news-feed/index")), "the shared name index is its own invocation");
+  t.ok(calls.every((c) => /^\/api\/news-feed\/(part|index)/.test(c)), "nothing else goes through SELF");
+  t.ok(partCalls.some((c) => /\?mfl:/.test(c)) && partCalls.filter((c) => /\?rss:/.test(c)).length === 4);
+  t.deepEqual(viaSelf.body.items.map((i) => i.id), plain.body.items.map((i) => i.id), "identical items");
+  t.equal(viaSelf.body.feed_state, plain.body.feed_state);
+  const part = await get(env, "/api/news-feed/part?L=74598&YEAR=2026&kind=mfl&pids=14783,13635");
+  t.equal(part.status, 200);
+  t.ok(!JSON.stringify(part.body).includes("LICENSED-ROUTE-MARKER"), "the part route returns no licensed text");
 });
 
 await run("news_feed");
