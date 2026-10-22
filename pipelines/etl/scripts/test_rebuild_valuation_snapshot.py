@@ -316,34 +316,102 @@ class UnpushedSnapshot(unittest.TestCase):
         alert = [l.strip() for l in workflow_step("Alert (one issue labeled valuation-snapshot-alert)")]
         self.assertIn("COMMIT_OUTCOME: ${{ steps.commit.outcome }}", alert)
 
-    def _alert_step(self, commit_outcome, check_exit):
+    def _alert_step(self, commit_outcome="success", check_exit="0", rebuild_exit="0", open_issue=None):
+        """Run the workflow's alert step (its own bash) against a fake gh. None = the output is missing."""
         import os
         import subprocess
         script = workflow_run_script("Alert (one issue labeled valuation-snapshot-alert)")
         tmp = Path(self.td.name)
         fakebin, calls = tmp / "bin", tmp / "gh_calls.log"
         fakebin.mkdir(exist_ok=True)
-        (fakebin / "gh").write_text(f"#!/bin/sh\necho \"$*\" >> {calls}\nexit 0\n")
+        (fakebin / "gh").write_text(
+            "#!/bin/sh\n"
+            f"echo \"$*\" >> {calls}\n"
+            "case \"$1 $2\" in \"issue list\") [ -n \"$FAKE_OPEN\" ] && echo \"$FAKE_OPEN\" ;; esac\n"
+            "exit 0\n")
         (fakebin / "gh").chmod(0o755)
         (tmp / "rebuild.json").write_text(json.dumps({"result": "rebuilt", "why": "week 7 is complete", "failures": []}))
         (tmp / "check.json").write_text(json.dumps({"result": "ok" if check_exit == "0" else "no_grade",
                                                     "snapshot_as_of": "2026-10-20", "snapshot_weeks": 6,
                                                     "live_weeks_completed": 7, "failures": []}))
+        (tmp / "alert.md").unlink(missing_ok=True)
         calls.write_text("")
         env = {**os.environ, "PATH": f"{fakebin}:{os.environ['PATH']}", "RUNNER_TEMP": str(tmp), "GH_TOKEN": "x",
-               "REBUILD_EXIT": "0", "COMMIT_OUTCOME": commit_outcome, "CHECK_EXIT": check_exit, "RUN_URL": "https://run"}
+               "COMMIT_OUTCOME": commit_outcome, "RUN_URL": "https://run", "FAKE_OPEN": open_issue or ""}
+        for k, v in (("REBUILD_EXIT", rebuild_exit), ("CHECK_EXIT", check_exit)):
+            env.pop(k, None)
+            if v is not None:
+                env[k] = v
         r = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
-        return r.returncode, calls.read_text(), (tmp / "alert.md").read_text() if (tmp / "alert.md").exists() else ""
+        body = (tmp / "alert.md").read_text() if (tmp / "alert.md").exists() else ""
+        return r.returncode, calls.read_text(), body, r.stdout
 
     def test_failed_push_opens_the_alert(self):
-        rc, calls, body = self._alert_step("failure", "0")
+        rc, calls, body, _ = self._alert_step("failure", "0")
         self.assertEqual(rc, 1)                                              # the run fails: GitHub emails
         self.assertIn("issue create", calls)
         self.assertIn("NOT pushed", body)
-        rc, calls, _ = self._alert_step("success", "0")
+        rc, calls, _, _ = self._alert_step("success", "0")
         self.assertEqual(rc, 0)
         self.assertNotIn("issue create", calls)
 
+    def test_every_failure_alerts_and_never_closes_an_open_incident(self):
+        """Fail closed (Keith 2026-10-22): rebuild != 0, check not in (0, 4), or a missing output alerts; an open
+        incident gets a comment and stays open."""
+        cases = {
+            "rebuild exit 1": dict(rebuild_exit="1", commit_outcome="skipped"),
+            "rebuild exit 2": dict(rebuild_exit="2", commit_outcome="skipped"),
+            "rebuild exit 127": dict(rebuild_exit="127", commit_outcome="skipped"),
+            "rebuild output missing": dict(rebuild_exit=None, commit_outcome="skipped"),
+            "check exit 1": dict(check_exit="1"),
+            "check exit 3 (NO GRADE)": dict(check_exit="3"),
+            "check exit 5": dict(check_exit="5"),
+            "check exit 6 (fetch failed)": dict(check_exit="6"),
+            "check output missing": dict(check_exit=None),
+            "push failed": dict(commit_outcome="failure"),
+        }
+        for name, kw in cases.items():
+            for open_issue in (None, "7"):
+                with self.subTest(name, open_issue=open_issue):
+                    rc, calls, body, _ = self._alert_step(open_issue=open_issue, **kw)
+                    self.assertEqual(rc, 1, (name, calls))
+                    self.assertNotIn("issue close", calls)
+                    self.assertIn("issue comment 7" if open_issue else "issue create", calls)
+                    if kw.get("rebuild_exit") is None and "rebuild_exit" in kw:
+                        self.assertIn("rebuild step produced no result", body)
+                    if "check_exit" in kw and kw["check_exit"] is None:
+                        self.assertIn("check step produced no result", body)
+                    if kw.get("check_exit") == "6":
+                        self.assertIn("origin/main could not be refreshed", body)
+
+    def test_healthy_run_closes_and_exit_4_only_warns(self):
+        rc, calls, _, _ = self._alert_step(open_issue="7")                  # 0 / success / 0
+        self.assertEqual(rc, 0)
+        self.assertIn("issue close 7", calls)
+        self.assertNotIn("issue create", calls)
+        for open_issue in (None, "7"):
+            rc, calls, _, out = self._alert_step(check_exit="4", open_issue=open_issue)
+            self.assertEqual(rc, 0)                                          # a warning, not a failed run
+            self.assertNotIn("issue create", calls)
+            self.assertNotIn("issue close", calls)                           # a warning never closes an incident
+            self.assertIn("::warning::", out)
+
+    def test_failed_fetch_never_checks_the_stale_ref(self):
+        """The check step's own bash, in a repository whose origin cannot be fetched."""
+        import os
+        import subprocess
+        repo = Path(self.td.name) / "nofetch"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+        out, tmp = repo / "github_output", Path(self.td.name) / "rt"
+        tmp.mkdir()
+        r = subprocess.run(["bash", "-c", workflow_run_script("Check what the bot would do now")], cwd=repo,
+                           env={**os.environ, "GITHUB_OUTPUT": str(out), "RUNNER_TEMP": str(tmp)}, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(out.read_text().strip().splitlines(), ["exit=6"])   # never the ref check's own exit
+        st = json.loads((tmp / "check.json").read_text())
+        self.assertEqual(st["result"], "fetch_failed")
+        self.assertIn("could not be refreshed", st["failures"][0])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

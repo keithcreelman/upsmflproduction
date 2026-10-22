@@ -80,9 +80,14 @@ jobs:
       - name: Check what the bot would do now
         id: check
         if: always()
+        # exit 6 = origin/main could not be refreshed: the stale remote-tracking ref is never checked.
         run: |
           set +e
-          git fetch --quiet origin main
+          if ! git fetch --quiet origin main; then
+            python3 -c 'import json, sys; json.dump({"result": "fetch_failed", "exit": 6, "failures": ["origin/main could not be refreshed (git fetch failed), so the snapshot on it was not checked"]}, open(sys.argv[1], "w"))' "$RUNNER_TEMP/check.json"
+            echo "exit=6" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           python3 pipelines/etl/scripts/rebuild_valuation_snapshot.py check --ref origin/main --status-out "$RUNNER_TEMP/check.json"
           echo "exit=$?" >> "$GITHUB_OUTPUT"
 
@@ -106,6 +111,16 @@ jobs:
           if os.environ.get("COMMIT_OUTCOME") == "failure":
               print("**The rebuilt snapshot was built but NOT pushed: origin/main still has the previous snapshot, "
                     "so the bot does not have it.**\n")
+          rx, cx = os.environ.get("REBUILD_EXIT", ""), os.environ.get("CHECK_EXIT", "")
+          if rx == "":
+              print("**The rebuild step produced no result (it crashed or never ran).**\n")
+          elif rx != "0":
+              print(f"**The rebuild step exited {rx}.**\n")
+          if cx == "":
+              print("**The check step produced no result (it crashed or never ran), so nothing confirms the bot can grade.**\n")
+          elif cx not in ("0", "3", "4"):
+              print(f"**The check step exited {cx}{' (origin/main could not be refreshed)' if cx == '6' else ''}, so nothing "
+                    f"confirms the bot can grade.**\n")
           def read(name):
               try:
                   return json.load(open(f"{tmp}/{name}.json"))
@@ -115,7 +130,8 @@ jobs:
           print(f"Run: {url}\n")
           if c:
               head = {"ok": "The bot would grade a trade now.", "no_grade": "**The bot would return NO GRADE for a trade now.**",
-                      "unknown": "Could not check: MFL's standings could not be read."}.get(c.get("result"), c.get("result"))
+                      "unknown": "Could not check: MFL's standings could not be read.",
+                      "fetch_failed": "**Could not check: origin/main could not be refreshed.**"}.get(c.get("result"), c.get("result"))
               print(f"{head} Snapshot as of {c.get('snapshot_as_of')} (through week {c.get('snapshot_weeks')}); "
                     f"MFL shows week {c.get('live_weeks_completed')} complete.")
               for f in c.get("failures") or []:
@@ -129,9 +145,11 @@ jobs:
           print("\nManual rebuild: python3 pipelines/etl/scripts/build_valuation_snapshot.py --as-of <YYYY-MM-DD> "
                 "--generated-at <UTC time>, commit data/valuation/trade_valuation_snapshot.json, then fast-forward the bot's checkout.")
           PY
+          # Fail closed: a missing output is a failure, never 0. Rebuild: only 0 is healthy. Check: only 0 is
+          # healthy, 4 (MFL unreadable) is a warning; anything else (3 NO GRADE, 6 fetch failed, 1, 5, ...) alerts.
           ALERT=0
-          [ "${REBUILD_EXIT:-0}" = "2" ] && ALERT=1
-          [ "${CHECK_EXIT:-0}" = "3" ] && ALERT=1
+          [ "${REBUILD_EXIT:-missing}" != "0" ] && ALERT=1
+          case "${CHECK_EXIT:-missing}" in 0|4) ;; *) ALERT=1 ;; esac
           [ "${COMMIT_OUTCOME:-}" = "failure" ] && ALERT=1
           if [ "$ALERT" = "1" ]; then
             if [ -n "$OPEN" ]; then
@@ -141,10 +159,12 @@ jobs:
             fi
             exit 1
           fi
-          if [ -n "$OPEN" ] && [ "${CHECK_EXIT:-0}" = "0" ]; then
+          # Close only on a fully healthy run (an exit-4 warning never closes an incident).
+          if [ -n "$OPEN" ] && [ "${REBUILD_EXIT:-missing}" = "0" ] && [ "${CHECK_EXIT:-missing}" = "0" ] \
+             && [ "${COMMIT_OUTCOME:-}" != "failure" ]; then
             gh issue comment "$OPEN" --body "Healthy again: the bot would grade a trade now. $RUN_URL"
             gh issue close "$OPEN"
           fi
-          if [ "${CHECK_EXIT:-0}" = "4" ]; then
+          if [ "${CHECK_EXIT:-missing}" = "4" ]; then
             echo "::warning::MFL's standings could not be read; the NO GRADE check did not run."
           fi
