@@ -32,6 +32,7 @@ Written 2026-10-22, from the read-only gap audit of the same day (17 gaps: GAP-0
 | GAP-04 franchise 0006 in 2024 | owner on each date | Keith's ruling; MFL owner history needs a commissioner read | #1329 | GAP-05 | ruling pending; new evidence below |
 | GAP-05 owner registry | one display name per (season, franchise) | `src_standings` + Keith's ruling on co-owner names | #1329 | ruling | ruling pending |
 | GAP-14 playoff finishes | approved corrections C1-C5 not executed | MFL brackets: **yes** | #1329 | #1329 execution go | plan posted 10-22 |
+| GAP-18 rookie-draft starts (June `View_RookieDraft`) | start counts show 0 for players who started; `games_started` wrong | weekly lineups (June `weeklyresults`; MFL `weeklyResults` for 2010 / 2012 playoffs): **yes** | #1307 | GAP-06, GAP-17 | plan only |
 | GAP-12 auction bids 2011-2013 | every bid | **does not exist at MFL** (verified 10-22: 0 INIT, 0 BID rows) | none | forum / email archive (not on this machine) | not recoverable from MFL |
 | GAP-13 regular-season pairings 2010-2019 (except 2012) | who played whom | **does not exist at MFL** | #1329 (C5 only) | none | not recoverable |
 
@@ -139,6 +140,12 @@ No write is needed for GAP-16 itself.
 
 **Missing restructure history stays open (Keith, 2026-10-22).** An empty restructure record is not evidence of no restructure. No story, page or summary may say a player "had no restructures" because D1 holds none. Kyler Murray and Derrick Henry are the named examples. Until GAP-10 is closed, the only accurate wording is that the restructure history is incomplete.
 
+**Rule (Keith, 2026-10-22): write "not yet located" until a dated source exists.** Open cases, pointers only (the private sources are listed below, and their text never enters the repo):
+- D.J. Moore 2023: MFL shows $25K/$76K becoming $61K/$40K before Week 1; undated. Leads are in the private Discord export and in a private message to the commissioner.
+- Kyler Murray 2023: MFL shows $25K becoming $23K plus two added years before Week 1; undated. His 2024 restructures are posted in the private Discord contract export (2 posts: Jul 29 and Aug 31, 2024).
+- The Henry auction window (Jul 29-Aug 4, 2023): the private 2023 FA Auction Discord thread holds 2 restructure mentions (Jul 30 and Aug 4); neither is dated in any contract record.
+- Sources to mine: the Discord export (`data/discord-archives`, private), the local xlsx form logs (2019-2021; 2022-03 to 2023-03), and the forum contract threads (2012-2017).
+
 **GAP-10 (restructures):**
 - Sources:
   - the 2022-23 contract form log (ends March 2023);
@@ -160,7 +167,21 @@ No write is needed for GAP-16 itself.
 - MFL's league export now names it "The Long Haulers";
 - so the rename came after Aug 1, 2024. That fits an owner change during or after the FA auction, but it does not date it.
 
+**GAP-04 ruling (Keith, 2026-10-22, relayed from the deep-cuts session):** Cross replaced Lima in August 2024. Credit transactions after the handoff to Cross; the season-level record stays with Lima. The exact handoff day still has to be fixed. **2022 has the same problem:** ownership of 0002/0005 changed in August 2022 (ending Aug 9; new owners from Aug 13), yet the 2022 standings and transactions name the earlier owners. That needs the same kind of ruling; it is a ruling item, not a backfill.
+
 **GAP-05 (owner registry):** needs Keith's ruling on co-owner display names. Then one display name per (season, franchise) that every history page and story resolves through.
+
+## GAP-18: rookie-draft starts
+
+The June archive's `View_RookieDraft` shows 0 starts for players who started (2015 class: Tevin Coleman 15 starts in 2015-17, Devin Funchess 9), and its `games_started` is wrong. Count starts from weekly lineups. Missing D1 lineup status (GAP-06) must never be read as zero starts. **Verify by:** starts per player-season = starter rows in weekly lineups.
+
+## Sources not available here
+
+- the league email archive (not on this machine);
+- MFL message boards, 2012 on (need an authenticated read);
+- the original Slack export (only a re-authored, mostly undated Discord re-import exists);
+- MFL's detailed scoring report (returned 403 on 2026-10-22);
+- the 2011 league manifesto and the 2010 rules (cited, never archived).
 
 ## GAP-12 / GAP-13: no source record
 
