@@ -47,8 +47,10 @@ SUBCOMMANDS
                                              comment string appears in any output
   Then: node pipelines/etl/scripts/dryrun_gap01_measure_local_d1.mjs --out DIR
   (D1's own billed counters on a local Miniflare D1), and `report` again.
-  preflight   [--out DIR]                    read-only write-budget guard (Cloudflare's exact
-                                             account counter, quiet window, no write-heavy job)
+  preflight   [--out DIR]                    read-only budget guard: writes <= 90,000 and reads
+                                             <= 4,500,000 projected for the UTC day (Cloudflare's
+                                             exact account counter + 7-day hourly forecast + this
+                                             load), quiet window, no write-heavy job running
   verify-d1   [--out DIR] --allow-prod-d1    after an APPROVED load: SELECT both new tables and
                                              reconcile them with the build (opt-in, ~10.5k reads)
   This file never writes D1. An approved load runs the schema and forward SQL
@@ -1528,10 +1530,11 @@ def cmd_local_proof(args) -> int:
 ACCOUNT_ID = "ba1a1d492ec8a5485821eb8f0d5f32c2"
 FREE_PLAN_WRITES = 100_000      # per UTC day, account-wide (every D1 database)
 DAILY_WRITE_CEILING = 90_000    # the load starts only if the worst case stays at or under this
-# Keith's condition is the WRITE budget. Reads stop the load only if they would cross the Free
-# plan's hard 5,000,000 a day; otherwise they are reported (the load reads ~10.5k to verify).
-READ_CEILING = 5_000_000
-LOAD_READS = 20_000             # post-load verify (~10.5k) + checks, rounded up
+FREE_PLAN_READS = 5_000_000     # per UTC day, account-wide
+READ_CEILING = 4_500_000        # Keith 2026-10-22: the conservative 90% ceiling, never the 5M hard limit
+# The load's own reads: verify-d1 re-reads 2,404 auctions + 8,065 bids (10,482 rows_read on a
+# local D1, 13 queries); the schema and the empty-table upserts read ~0. Rounded up with margin.
+LOAD_READS = 12_000
 WINDOW_START, WINDOW_LAST_START = (22, 5), (23, 30)   # UTC, the approved quiet window
 FORECAST_DAYS = 7
 WRITE_HEAVY_WORKFLOWS = [
@@ -1606,30 +1609,41 @@ def running_write_jobs() -> list:
     return busy
 
 
-def preflight_decision(writes: dict, reads: dict, now: datetime, forward: int, busy: list) -> dict:
-    """Pure decision (unit-tested): today = the UTC billing day. Worst case = writes so
-    far + every remaining hour at its max over the last 7 complete days + this load."""
-    today = now.strftime("%Y-%m-%d")
+def hourly_max(hourly: dict, now: datetime) -> dict:
+    """{UTC hour: the most that hour reached} over the last FORECAST_DAYS complete UTC days."""
     keep = {(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, FORECAST_DAYS + 1)}
-    hour_max = defaultdict(int)
-    for k, v in writes.items():
+    out = defaultdict(int)
+    for k, v in hourly.items():
         if k[:10] in keep:
-            hour_max[int(k[11:13])] = max(hour_max[int(k[11:13])], v)
+            out[int(k[11:13])] = max(out[int(k[11:13])], v)
+    return out
+
+
+def preflight_decision(writes: dict, reads: dict, now: datetime, forward: int, busy: list) -> dict:
+    """Pure decision (unit-tested) on the UTC billing day, for writes AND reads:
+    used so far today + every remaining hour (the current one in full) at its max over the
+    last 7 complete days (the allowance for everyone else's traffic) + this load's own rows."""
+    today = now.strftime("%Y-%m-%d")
+    w_max, r_max = hourly_max(writes, now), hourly_max(reads, now)
     used_w = sum(v for k, v in writes.items() if k[:10] == today)
     used_r = sum(v for k, v in reads.items() if k[:10] == today)
-    forecast = sum(hour_max[h] for h in range(now.hour, 24))
-    projected = used_w + forecast + forward
+    fc_w = sum(w_max[h] for h in range(now.hour, 24))
+    fc_r = sum(r_max[h] for h in range(now.hour, 24))
+    proj_w, proj_r = used_w + fc_w + forward, used_r + fc_r + LOAD_READS
     in_window = WINDOW_START <= (now.hour, now.minute) <= WINDOW_LAST_START
     checks = {
         "in_window_22:05-23:30_utc": in_window,
-        "writes_projected_le_ceiling": projected <= DAILY_WRITE_CEILING,
-        "reads_today_plus_load_le_free_limit": used_r + LOAD_READS <= READ_CEILING,
+        "writes_projected_le_90000": proj_w <= DAILY_WRITE_CEILING,
+        "reads_projected_le_4500000": proj_r <= READ_CEILING,
         "no_write_heavy_job_running": not busy,
     }
-    return {"at_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "writes_used_today": used_w,
-            "writes_forecast_rest_of_day": forecast, "load_writes": forward, "writes_projected": projected,
-            "write_ceiling": DAILY_WRITE_CEILING, "unused_after_worst_case": FREE_PLAN_WRITES - projected,
-            "reads_used_today": used_r, "load_reads": LOAD_READS, "read_ceiling": READ_CEILING,
+    return {"at_utc": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "writes": {"used_today": used_w, "forecast_rest_of_day": fc_w, "this_load": forward,
+                       "projected": proj_w, "ceiling": DAILY_WRITE_CEILING,
+                       "unused_after_worst_case": FREE_PLAN_WRITES - proj_w},
+            "reads": {"used_today": used_r, "forecast_rest_of_day": fc_r, "this_load": LOAD_READS,
+                      "projected": proj_r, "ceiling": READ_CEILING,
+                      "unused_after_worst_case": FREE_PLAN_READS - proj_r},
             "busy": busy, "checks": checks, "ok": all(checks.values())}
 
 

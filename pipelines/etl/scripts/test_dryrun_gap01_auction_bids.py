@@ -264,16 +264,26 @@ class Preflight(unittest.TestCase):
         return w
 
     def test_passes_in_window_with_headroom(self):
-        r = g.preflight_decision(self.usage(1000, 1000), {}, self.NOW, 12873, [])
+        r = g.preflight_decision(self.usage(1000, 1000), self.usage(100_000, 100_000), self.NOW, 12873, [])
         self.assertTrue(r["ok"], r)
-        self.assertEqual(r["writes_used_today"], 23000)
-        self.assertEqual(r["writes_forecast_rest_of_day"], 2000)
+        self.assertEqual(r["writes"]["used_today"], 23000)
+        self.assertEqual(r["writes"]["forecast_rest_of_day"], 2000)
+        self.assertEqual(r["reads"]["projected"], 2_300_000 + 200_000 + g.LOAD_READS)
 
-    def test_stops_over_ceiling_outside_window_or_while_busy(self):
-        self.assertFalse(g.preflight_decision(self.usage(3500, 3500), {}, self.NOW, 12873, [])["ok"])
+    def test_stops_over_either_ceiling_outside_window_or_while_busy(self):
+        quiet = self.usage(100, 100)
+        self.assertFalse(g.preflight_decision(self.usage(3500, 3500), quiet, self.NOW, 12873, [])["ok"])
+        r = g.preflight_decision(quiet, self.usage(190_000, 190_000), self.NOW, 12873, [])
+        self.assertFalse(r["checks"]["reads_projected_le_4500000"], r["reads"])  # 4.38M + 0.38M forecast
+        spike = self.usage(100_000, 100_000)
+        spike[(self.NOW - g.timedelta(days=7)).strftime("%Y-%m-%d") + "T23"] = 2_500_000  # one bad hour last week
+        self.assertFalse(g.preflight_decision(quiet, spike, self.NOW, 12873, [])["ok"])
         early = self.NOW.replace(hour=18)
-        self.assertFalse(g.preflight_decision(self.usage(100, 100), {}, early, 12873, [])["ok"])
-        self.assertFalse(g.preflight_decision(self.usage(100, 100), {}, self.NOW, 12873, ["nightly-builders.yml"])["ok"])
+        self.assertFalse(g.preflight_decision(quiet, quiet, early, 12873, [])["ok"])
+        self.assertFalse(g.preflight_decision(quiet, quiet, self.NOW, 12873, ["nightly-builders.yml"])["ok"])
+
+    def test_read_ceiling_is_the_conservative_one(self):
+        self.assertEqual(g.READ_CEILING, 4_500_000)
 
 
 class OfflineByDefault(unittest.TestCase):
