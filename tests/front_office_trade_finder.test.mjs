@@ -27,7 +27,8 @@ const unesc = (x) => String(x).replace(/&quot;/g, '"').replace(/&gt;/g, ">").rep
 // The real view (and the Overview card) on the 2026 Week-6 league, with a minimal hub. opts: {viewer, picks, forfeitOk}.
 function page(opts = {}) {
   const listeners = {};
-  const el = { innerHTML: "", addEventListener() {} };
+  const el = { innerHTML: "", addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
+  const dialog = { open: null };
   const ctx = vm.createContext({ document: { addEventListener(n, f) { (listeners[n] = listeners[n] || []).push(f); },
     getElementById: (id) => (id === "fo-trades-body" ? el : null), querySelector: () => null }, Intl, Date });
   ctx.window = ctx;
@@ -50,7 +51,8 @@ function page(opts = {}) {
     asArray: (x) => (x == null ? [] : Array.isArray(x) ? x : [x]), pad4: (x) => String(x).padStart(4, "0"), esc,
     fmt1: (v) => (Math.round(Number(v) * 10) / 10).toFixed(1), money: (v) => "$" + Number(v).toLocaleString("en-US"), displayName: (n) => n,
     teamName: (f) => (FX.teams.find((x) => x.fid === f) || {}).name || f, rosterIndex: () => rost, seasonLine: (pid) => ({ ppg: FX.values[pid] }),
-    playerButton: (pid, fid, label) => '<button data-fo-player="' + esc(pid) + '">' + esc(label) + "</button>", injuryChip: () => "", goLink: () => "" };
+    playerButton: (pid, fid, label) => '<button data-fo-player="' + esc(pid) + '">' + esc(label) + "</button>", injuryChip: () => "", goLink: () => "",
+    openDialog: (title, html, opts) => { dialog.open = { title, html, opts }; } };
   const FO = { viewerFid: () => viewer, teams: () => FX.teams, capCeiling: 300000,
     capFor: (f) => ({ capSpace: FX.capRoom[f], capAlloc: 300000 - FX.capRoom[f] }), warRoomUrl: (o) => "#war-room?" + Object.entries(o).map(([k, v]) => k + "=" + v).join("&") };
   const DATA = { get: (k, a) => entries[a != null ? k + ":" + a : k] || null, load: () => ({ then() {} }) };
@@ -61,7 +63,8 @@ function page(opts = {}) {
   vm.runInContext(read(path.join(ROOT, "site/rosters/v2/fo_overview.js")), ctx);
   const TR = ctx.UPS_FO_TRADES;
   const show = (state) => { Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
-  return { ctx, TF, LS, SM, model, slots, mix, show, TR, H, FO, DATA, OV: ctx.UPS_FO_OVERVIEW };
+  const team = (f) => TR._teamHtml(f);
+  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, OV: ctx.UPS_FO_OVERVIEW };
 }
 // The strength table → { fid: { row: text } } (team id from the View button).
 function readTable(html) {
@@ -129,18 +132,87 @@ test("Starter Mix is a separate view of recorded starts, with no strength measur
   p.show({ view: { by: "position" } });
 });
 
-test("View team: strong (1st–3rd) and needs help (1+ pts/wk) from the same By Position table; cap room as on Overview", () => {
+test("View opens a popup (a bottom sheet on phones), not a card at the bottom; closing returns focus and clears the selection", () => {
   const p = page();
-  const html = p.show({ team: "0008" });
+  const before = p.show({});
+  p.TR._openTeam("0008");
+  t.ok(p.dialog.open, "the hub dialog opened");
+  t.equal(p.dialog.open.opts.variant, "team", "team variant (a popup on desktop, a bottom sheet under 600 px)");
+  t.equal(p.dialog.open.title, "Real Deal Creel (you)");
+  t.ok(/data-tf-team-view="0008"/.test(p.dialog.open.html), "the team view is the dialog body");
+  t.equal(p.TR._sel.team, "0008", "row marked selected");
+  t.ok(typeof p.dialog.open.opts.returnFocus === "function", "focus returns to that team's View button (looked up fresh, the table may have re-rendered)");
+  p.dialog.open.opts.onClose();
+  t.equal(p.TR._sel.team, "", "closing clears the selection");
+  t.ok(!/id="fo-tf-team"/.test(before) && !/scrollIntoView/.test(SRC), "no team card on the page and no scrolling to one");
+  t.ok(/@media \(max-width: 600px\) \{\s*\.fo-about\[data-variant="team"\] \{ align-items: flex-end;/.test(CSS), "bottom sheet on phones");
+  const HUB = read(path.join(ROOT, "site/rosters/v2/fo_hub.js"));
+  t.ok(/e\.key === "Escape"/.test(HUB) && /keep focus inside the dialog/.test(HUB) && /preventScroll: true/.test(HUB), "Escape closes, Tab stays inside, focus returns without scrolling");
+});
+
+test("standing is separate from lineup gain: PPG, league average, gap and rank — never 'needs help'", () => {
+  const p = page();
   const tb = p.LS.build(p.model);
-  const strong = p.LS.POSITIONS.filter((g) => !p.TF.FIT_EXCLUDED_GROUPS[g] && tb.teams["0008"][g].rank <= 3);
-  const needs = p.LS.POSITIONS.filter((g) => !p.TF.FIT_EXCLUDED_GROUPS[g] && tb.teams["0008"].need[g] >= 1);
-  const part = html.slice(html.indexOf('id="fo-tf-team"'));
-  for (const g of strong) t.ok(new RegExp("<b>" + g + "</b> \\(" + p.LS.ordinal(tb.teams["0008"][g].rank) + "\\)").test(part), "strong: " + g);
-  for (const g of needs) t.ok(new RegExp("<b>" + g + "</b> \\(\\+" + (Math.round(tb.teams["0008"].need[g] * 10) / 10).toFixed(1)).test(part), "needs help: " + g);
-  t.ok(part.includes("$" + FX.capRoom["0008"].toLocaleString("en-US")), "cap room = the cap engine's");
-  t.ok(/data-tf-close/.test(part), "can be closed");
-  p.show({ team: "" });
+  for (const f of p.model.order) {
+    const html = p.team(f), tr = tb.teams[f];
+    t.ok(!/needs help|Needs help|biggest need|Biggest need/.test(html), f + ": no 'needs help' / 'need' label");
+    for (const g of ["QB", "RB", "WR", "TE", "DL", "LB", "DB"]) {
+      const row = html.slice(html.indexOf('data-tf-pos="' + g + '"'), html.indexOf("</tr>", html.indexOf('data-tf-pos="' + g + '"')));
+      const avg = tb.league[g].meanPpg, gap = tr[g].ppg - avg;
+      t.ok(row.includes('<td class="num">' + (Math.round(tr[g].ppg * 10) / 10).toFixed(1) + '</td><td class="num">' + (Math.round(avg * 10) / 10).toFixed(1) + "</td>"), f + " " + g + ": PPG and league average");
+      t.ok(row.includes(">" + p.LS.ordinal(tr[g].rank) + "</td>"), f + " " + g + ": rank");
+      const tag = tr[g].rank <= 3 ? "Top 3" : tr[g].rank >= 10 ? "Bottom 3" : "";
+      t.equal(/Top 3|Bottom 3/.test(row) ? row.match(/Top 3|Bottom 3/)[0] : "", tag, f + " " + g + ": standing tag from rank only");
+      t.ok(Math.abs(gap) < 0.05 || row.includes((gap > 0 ? "+" : "−") + Math.abs(Math.round(gap * 10) / 10).toFixed(1)), f + " " + g + ": gap to the league average");
+    }
+  }
+});
+
+test("one addition, modeled: the typical starter's PPG, where he'd start, who'd leave, lineup before → after", () => {
+  const p = page();
+  const tb = p.LS.build(p.model);
+  let checked = 0, flexFromTop = 0;
+  for (const f of p.model.order) {
+    const html = p.team(f);
+    for (const g of ["QB", "RB", "WR", "TE", "DL", "LB", "DB"]) {
+      const gain = tb.teams[f].need[g];
+      if (gain < 1) continue;
+      const d = p.TF.additionDetail(p.model, f, g);
+      t.equal(Math.round(d.gain * 10) / 10, gain, f + " " + g + ": the detail's gain is the table's");
+      t.ok(Math.abs(d.after - d.before - d.gain) < 1e-9 && d.starts, f + " " + g + ": after − before = gain; he starts");
+      t.equal(d.leaves.length, 1, f + " " + g + ": exactly one starter leaves the lineup");
+      const s = "A typical " + g + " (" + (Math.round(d.typical * 10) / 10).toFixed(1) + " PPG, the league’s median starting " + g + ") would start at " + d.slotLabel;
+      if (html.indexOf("<b>" + g + " +" + gain.toFixed(1) + " pts/wk</b>") !== -1) {
+        t.ok(html.includes(esc(s)), f + " " + g + ": where he'd start");
+        t.ok(html.includes("Lineup " + (Math.round(d.before * 10) / 10).toFixed(1) + " → " + (Math.round(d.after * 10) / 10).toFixed(1) + " pts a week (+" + gain.toFixed(1) + ")"), f + " " + g + ": before → after");
+        if (tb.teams[f][g].rank <= 3) { flexFromTop += 1; t.ok(html.includes("ranks " + p.LS.ordinal(tb.teams[f][g].rank) + " — the gain comes from the " + esc(d.slotLabel) + " spot"), f + " " + g + ": a top-ranked position's gain is explained by its slot"); }
+        checked += 1;
+      }
+    }
+  }
+  t.ok(checked >= 12, checked + " gains described");
+  t.ok(flexFromTop >= 1, "at least one top-3 position with a gain (the Flex case) is explained, not called weak");
+});
+
+test("positions expand to their modeled starters (RB1, RB2, Flex…), labeled as modeled — not MFL-recorded slots", () => {
+  const p = page();
+  const html = p.team("0008");
+  for (const g of ["QB", "RB", "WR", "DL", "LB", "DB"]) {
+    const list = p.LS.modeledStarters(p.model, "0008", g);
+    t.ok(list.length >= 1, g + " has modeled starters");
+    t.ok(html.includes('data-tf-pos="' + g + '" aria-expanded="false" aria-controls="fo-tf-pos-' + g + '"'), g + ": a collapsed toggle");
+    t.ok(new RegExp('id="fo-tf-pos-' + g + '" hidden').test(html), g + ": detail row hidden until tapped");
+    t.equal(list.filter((x) => /\d$/.test(x.depth)).map((x) => x.depth).join(","), Array.from({ length: list.filter((x) => /\d$/.test(x.depth)).length }, (_, i) => g + (i + 1)).join(","), g + ": fixed slots numbered by PPG");
+    for (let i = 1; i < list.length; i++) t.ok(list[i - 1].v >= list[i].v, g + ": best first");
+  }
+  const rb = p.LS.modeledStarters(p.model, "0008", "RB");
+  t.ok(rb.length >= 2 && rb[0].depth === "RB1" && rb[1].depth === "RB2", "RB1 and RB2");
+  t.ok(/an order by season PPG, not slots MFL recorded/.test(html) && /Starter Mix shows the lineups actually submitted/.test(html), "modeled depth vs actual starts, said plainly");
+});
+
+test("cap room as on Overview", () => {
+  const p = page();
+  t.ok(p.team("0008").includes("$" + FX.capRoom["0008"].toLocaleString("en-US")), "cap room = the cap engine's");
 });
 
 test("future picks: grouped by year and round, every MFL pick once; the comparison table is visible", () => {
@@ -151,11 +223,9 @@ test("future picks: grouped by year and round, every MFL pick once; the comparis
   t.ok(book.years[0].complete, "2027: 60 of 60 (12 × 5)");
   const listed = PICKS.futureDraftPicks.franchise.reduce((a, f) => a + [].concat(f.futureDraftPick || []).length, 0);
   t.equal(sum(book.teams.map((f) => book.years[0].byFid[f].count)), listed, "every MFL pick counted once");
-  const html = p.show({ team: "0001" });
-  const part = html.slice(html.indexOf('id="fo-tf-team"'));
+  const part = p.team("0001");
   for (const r of [1, 2, 3, 4, 5]) t.ok(part.includes('<span class="fo-tf-rd">R' + r + "</span>"), "round " + r + " row");
   t.ok(/Compare all teams’ picks/.test(part) && (part.match(/<tr class="[^"]*"><th scope="row">/g) || []).length >= 12, "the 12-team comparison is in the view");
-  p.show({ team: "" });
 });
 
 test("'well stocked' only on complete data with forfeits checked; otherwise the counts without the label", () => {
@@ -164,11 +234,11 @@ test("'well stocked' only on complete data with forfeits checked; otherwise the 
   let s = other.TR._pickStock(other.TR._pickBook(), "0007");
   t.equal(s.total, 11); t.equal(s.median, 4.5); t.ok(s.high, "high by the rule (≥ median + 2 and ≥ 1.5×)");
   t.equal(s.wellStocked, false, "not the viewer's team: forfeits unchecked → not called well stocked");
-  t.ok(/Lineup-penalty forfeits are only checked for your own team, so this isn’t called well stocked/.test(other.show({ team: "0007" })));
+  t.ok(/Lineup-penalty forfeits are only checked for your own team, so this isn’t called well stocked/.test(other.team("0007")));
   const own = page({ viewer: "0007" });
   s = own.TR._pickStock(own.TR._pickBook(), "0007");
   t.equal(s.wellStocked, true, "the viewer's own team, forfeits checked, complete list → well stocked");
-  t.ok(/<b>Well stocked:<\/b> 11 picks, the most in the league \(league median 4\.5\)/.test(own.show({ team: "0007" })));
+  t.ok(/<b>Well stocked:<\/b> 11 picks, the most in the league \(league median 4\.5\)/.test(own.team("0007")));
   const noCheck = page({ viewer: "0007", forfeitOk: false });
   t.equal(noCheck.TR._pickStock(noCheck.TR._pickBook(), "0007").wellStocked, false, "forfeit check unavailable → not asserted");
   // An incomplete list: drop one pick from another team.
@@ -178,15 +248,14 @@ test("'well stocked' only on complete data with forfeits checked; otherwise the 
   const book = inc.TR._pickBook();
   t.equal(book.years[0].complete, false, "59 of 60 → incomplete");
   t.equal(inc.TR._pickStock(book, "0007").wellStocked, false, "incomplete → never 'well stocked'");
-  const html = inc.show({ team: "0007" });
+  const html = inc.team("0007");
   t.ok(/list has 59 of 60 picks \(12 teams × 5 rounds\), so these are the known picks only/.test(html) && /MFL’s pick list is incomplete, so this isn’t called well stocked/.test(html));
 });
 
 test("roster surplus: labeled analysis, each gain is trade_fit's for that other team, no offer language", () => {
   const p = page();
   const fid = p.model.order.find((f) => (p.model.teams[f].surplus || []).length);
-  const html = p.show({ team: fid });
-  const part = html.slice(html.indexOf('id="fo-tf-team"'));
+  const part = p.team(fid);
   t.ok(/Possible roster surplus <span class="fo-muted">\(analysis\)<\/span>/.test(part), "titled as analysis");
   t.ok(/Analysis, not an offer/.test(part) && /says nothing about whether the owner would move them/.test(part), "not a claim the owner is offering");
   const s = p.model.teams[fid].surplus[0];
@@ -196,6 +265,47 @@ test("roster surplus: labeled analysis, each gain is trade_fit's for that other 
     t.ok(part.includes(esc(p.H.teamName(g.fid)) + " <b>+" + g.gain.toFixed(1) + "</b>"), "shown: " + g.fid);
   }
   t.ok(!/they could offer|you could offer|available for trade/i.test(part), "no offer claims");
+});
+
+test("Biggest gain column: a gain, not a weakness, with the addition's sentence in its tooltip; the League average row is the reference", () => {
+  const p = page();
+  const html = p.show({ view: { by: "position", measure: "ppg", sort: "ALL" } });
+  t.ok(/>Biggest gain<\/th>/.test(html) && !/Biggest need/.test(html), "column named Biggest gain");
+  t.ok(/A potential gain, not a weakness/.test(html), "header says so");
+  const tb = p.LS.build(p.model);
+  const row = html.slice(html.indexOf('data-tf-team="0008"'), html.indexOf("</tr>", html.indexOf('data-tf-team="0008"')));
+  const g = tb.teams["0008"].biggestGain;
+  t.ok(row.includes("<b>" + g + '</b> <span class="fo-muted">+' + tb.teams["0008"].need[g].toFixed(1)), "0008: " + g + " +" + tb.teams["0008"].need[g]);
+  t.ok(/title="A typical \w+ \([\d.]+ PPG, the league’s median starting \w+\) would start at [^"]+Lineup [\d.]+ → [\d.]+ pts a week/.test(row), "tooltip: where he'd start and the lineup before → after");
+  const foot = html.slice(html.indexOf("<tfoot>"), html.indexOf("</tfoot>"));
+  t.ok(/League average<\/th>/.test(foot) && foot.includes('<td class="num">' + (Math.round(tb.league.ALL.meanPpg * 10) / 10).toFixed(1) + "</td>"), "PPG: the league-average row (outside the sorted body)");
+  const idx = p.show({ view: { measure: "index" } });
+  const ifoot = idx.slice(idx.indexOf("<tfoot>"), idx.indexOf("</tfoot>"));
+  t.ok(/League average = 100<\/th>/.test(ifoot) && (ifoot.match(/<td class="num">100<\/td>/g) || []).length === tb.rows.length, "Index: the reference row reads 100 in every column");
+  t.ok(/Index: 100 = the league average for that column \(the bottom row\)/.test(idx), "and the note says what 100 means");
+  t.ok(!/background: rgba/.test(html), "calmer: no colored cell fills");
+  p.show({ view: { measure: "ppg" } });
+});
+
+test("Starter Mix: columns sort, the league average row stays apart, and the Flexible-slots share has a stated denominator", () => {
+  const p = page();
+  const html = p.show({ view: { by: "mix", mixSort: "TE" } });
+  const order = [...html.matchAll(/<tbody>[\s\S]*?<\/tbody>/g)][0][0].match(/data-tf-team="(\d{4})"/g).map((x) => x.slice(14, 18));
+  const te = order.map((f) => p.mix.teams[f].avg.TE);
+  t.equal(te.join(","), te.slice().sort((a, b) => b - a).join(","), "sorted by TE per week, most first");
+  t.ok(/<tfoot><tr class="fo-tf-ref"><th scope="row" class="fo-tf-teamcol">League average<\/th>/.test(html), "league average in the footer, never sorted into the teams");
+  for (const f of p.model.order) {
+    const F = p.mix.teams[f].mix.FLEXIBLE;
+    if (!F.total) continue;
+    const share = (F.by.TE || 0) / F.total * 100;
+    const shown = p.SM.mixList(F).find((x) => x.g === "TE");
+    t.ok(!shown || Math.abs(shown.whole - share) < 1, f + ": TE share " + (shown ? shown.whole : 0) + "% = " + (F.by.TE || 0) + " of " + F.total + " extra RB/WR/TE starts");
+    t.ok(html.includes('title="Of ' + F.total + " extra RB/WR/TE starts: "), f + ": the cell's tooltip gives the counts");
+  }
+  const ham = p.mix.teams["0005"].mix.FLEXIBLE;
+  t.equal(ham.by.TE + "/" + ham.total, "8/14", "HammerTime: 8 of 14 extra starts were a TE (57%)");
+  t.ok(/beyond the 2 RB, 2 WR and 1 TE slots/.test(html), "the denominator is explained on screen");
+  p.show({ view: { by: "position", mixSort: "" } });
 });
 
 test("phone: the table scrolls in its card with the team column pinned; the team view stacks", () => {

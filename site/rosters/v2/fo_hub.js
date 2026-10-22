@@ -240,23 +240,33 @@
     openDialog("About these numbers", html + (section !== "*" && about["*"] ? '<hr class="fo-about-hr">' + about["*"] : ""));
   }
   // The About dialog's frame (focus trap, Escape, backdrop) for any read-only detail, e.g. the cap ledgers.
-  function openDialog(title, html) {
+  // opts (optional): { variant: "team" (a popup on desktop, a bottom sheet on phones), returnFocus: function () → the
+  // element to focus on close (the opener may have been re-rendered), onClose: function }. Focus stays inside the
+  // dialog (Tab wraps), Escape or the × closes it, and closing returns focus without scrolling the page.
+  function openDialog(title, html, opts) {
     var wrap = document.getElementById("fo-about"), body = document.getElementById("fo-about-body"), head = document.getElementById("fo-about-title");
     if (!wrap || !body) return;
+    opts = opts || {};
     if (head) head.textContent = title || "";
     body.innerHTML = html;
     setupAbout();
+    if (opts.variant) wrap.setAttribute("data-variant", opts.variant); else wrap.removeAttribute("data-variant");
     wrap.hidden = false;
     var panel = wrap.querySelector(".fo-about-panel");
-    var opener = document.activeElement;
-    wrap.__opener = opener;
-    if (panel) panel.focus();
+    if (panel) panel.scrollTop = 0;
+    wrap.__opener = document.activeElement;
+    wrap.__opts = opts;
+    if (panel) { try { panel.focus({ preventScroll: true }); } catch (e) { panel.focus(); } }
   }
   function closeAbout() {
     var wrap = document.getElementById("fo-about");
     if (!wrap || wrap.hidden) return;
     wrap.hidden = true;
-    if (wrap.__opener && wrap.__opener.focus) wrap.__opener.focus();
+    var opts = wrap.__opts || {};
+    wrap.__opts = null;
+    var target = (opts.returnFocus && opts.returnFocus()) || wrap.__opener;
+    if (target && target.focus) { try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); } }
+    if (opts.onClose) opts.onClose();
   }
   function setupAbout() {
     var btn = document.getElementById("fo-about-btn"), wrap = document.getElementById("fo-about");
@@ -271,7 +281,7 @@
       if (wrap.hidden) return;
       if (e.key === "Escape") { closeAbout(); return; }
       if (e.key === "Tab") { // keep focus inside the dialog
-        var f = wrap.querySelectorAll("button, [href], [tabindex]:not([tabindex='-1'])");
+        var f = Array.prototype.filter.call(wrap.querySelectorAll("button, [href], summary, [tabindex]:not([tabindex='-1'])"), function (x) { return x.offsetParent !== null || x === document.activeElement; });
         if (!f.length) return;
         var first = f[0], last = f[f.length - 1];
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }

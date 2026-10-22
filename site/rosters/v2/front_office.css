@@ -1037,6 +1037,13 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
   position: relative; max-width: 720px; width: 100%; max-height: 84vh; overflow: auto; outline: none;
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0 20px 18px; color: var(--text);
 }
+/* Team popup (Trade finder → View): wider on desktop; a bottom sheet on phones (Keith 2026-10-22). */
+.fo-about[data-variant="team"] .fo-about-panel { max-width: 880px; }
+@media (max-width: 600px) {
+  .fo-about[data-variant="team"] { align-items: flex-end; padding: 0; }
+  .fo-about[data-variant="team"] .fo-about-panel { max-width: none; max-height: 88vh; border-radius: 14px 14px 0 0; border-bottom: 0; padding: 0 14px 20px; }
+  .fo-about[data-variant="team"] .fo-about-head::before { content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--border); }
+}
 .fo-about-head { display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--panel); padding: 14px 0 8px; }
 .fo-about-head h2 { margin: 0; font-size: 17px; }
 .fo-about-body h3 { font-size: 14px; margin: 12px 0 4px; }
@@ -1204,8 +1211,16 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .fo-tf-sort.on { color: var(--text); font-weight: 700; }
 .fo-tf-overall { font-weight: 700; }
-.fo-tf-strength tr.fo-tf-me th, .fo-tf-strength tr.fo-tf-me td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
-.fo-tf-strength tr.fo-tf-sel .fo-tf-name { color: var(--accent); }
+/* Calmer table (Keith 2026-10-22): no cell fills. Your row = bold name; the open team = an accent bar and a soft row
+   tint; the sorted column = a faint column tint; the league-average row sits apart at the bottom. */
+.fo-tf-strength tr.fo-tf-me .fo-tf-name { font-weight: 800; }
+.fo-tf-strength tr.fo-tf-sel th, .fo-tf-strength tr.fo-tf-sel td { background: var(--accent-soft); }
+.fo-tf-strength tr.fo-tf-sel .fo-tf-teamcol { box-shadow: inset 3px 0 0 var(--accent), 1px 0 0 var(--border); }
+.fo-tf-strength tr.fo-tf-sel .fo-tf-name { color: var(--text); }
+.fo-tf-strength td.fo-tf-sorted, .fo-tf-strength th.fo-tf-sorted { background: rgba(127, 127, 127, 0.07); }
+.fo-tf-strength tr.fo-tf-sel td.fo-tf-sorted { background: var(--accent-soft); }
+.fo-tf-strength tfoot .fo-tf-ref th, .fo-tf-strength tfoot .fo-tf-ref td { border-top: 2px solid var(--border); color: var(--muted); font-style: italic; font-weight: 600; }
+.fo-tf-strength tbody tr { cursor: default; }
 .fo-tf-warn { color: var(--warn); }
 .fo-tf-team .fo-card-head { flex-wrap: wrap; gap: 6px 12px; }
 /* Grid columns may shrink below their content (a wide table scrolls inside its own box instead of widening the card). */
@@ -1214,6 +1229,13 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-tag { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 8px; border: 1px solid var(--border); margin-left: 4px; }
 .fo-tf-tag.ok { color: #93c5fd; border-color: rgba(91, 141, 255, 0.5); } .fo-tf-tag.need { color: #fdba74; border-color: rgba(251, 146, 60, 0.5); }
 .fo-tf-pos th, .fo-tf-pos td { padding: 3px 6px; font-size: 12px; }
+.fo-tf-expand { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; font-weight: 600; }
+.fo-tf-caret { display: inline-block; width: 10px; color: var(--muted); }
+.fo-tf-posdetail td { background: var(--panel-alt); }
+.fo-tf-depthlist { list-style: none; margin: 2px 0; padding: 0 0 0 14px; }
+.fo-tf-depthlist li { padding: 2px 0; text-transform: none; letter-spacing: 0; }
+.fo-tf-depth { display: inline-block; min-width: 64px; color: var(--muted); font-weight: 700; }
+.fo-tf-gains li { padding: 4px 0; }
 .fo-tf-pickyear { margin: 4px 0 8px; font-size: 13px; }
 .fo-tf-pickrd { padding: 2px 0; }
 .fo-tf-rd { display: inline-block; min-width: 26px; color: var(--muted); font-weight: 700; }

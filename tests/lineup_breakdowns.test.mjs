@@ -205,7 +205,7 @@ test("Overview By Position and the Trade finder return identical positional valu
     t.equal(tb.teams[fid].need[g], m.teams[fid].need[g], fid + " " + g + " need");
   }
   const sl = LS.build(m, { by: "slot" });
-  for (const fid of m.order) t.equal(sl.teams[fid].biggestNeed, tb.teams[fid].biggestNeed, fid + ": Biggest need stays by natural position in the slot view");
+  for (const fid of m.order) t.equal(sl.teams[fid].biggestGain, tb.teams[fid].biggestGain, fid + ": Biggest lineup gain stays by natural position in the slot view");
 });
 
 test("a replacement free agent appears only for a slot the roster genuinely can't fill", () => {
@@ -330,7 +330,7 @@ test("the Overview card: PPG first and selected, Above Replacement spelled out, 
   const ss = { finalKnown: true, finalThrough: 6, fetchedAt: 1 };
   const entries = { weeklyResults: { state: "ok", at: 1, data: WEEKLY }, players: { state: "ok", at: 1 } };
   const deps = {
-    H: { esc, fmt1: (v) => (Math.round(v * 10) / 10).toFixed(1), banner: (x) => x, goLink: () => "", leagueModel: () => m, lineupSlots: () => SLOTS, lineupSlotsState: () => "ok",
+    H: { esc, fmt1: (v) => (Math.round(v * 10) / 10).toFixed(1), banner: (x) => x, displayName: (n) => n, rosterIndex: () => Object.fromEntries(FX.teams.flatMap((x) => x.players.map((p) => [p.pid, { fid: x.fid, p: { name: p.name } }]))), goLink: () => "", leagueModel: () => m, lineupSlots: () => SLOTS, lineupSlotsState: () => "ok",
       scoring: () => ss, playerGroup: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; },
       starterMix: () => SM.build({ weeklyResults: WEEKLY, completedWeek: 6, slots: SLOTS, groupOf: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; },
         fids: FX.teams.map((x) => x.fid) }) },
@@ -346,7 +346,9 @@ test("the Overview card: PPG first and selected, Above Replacement spelled out, 
   const bySlot = OV._strengthCard("0008", deps, "slot", "above");
   t.equal([...bySlot.matchAll(/data-ls-row="(\w+)"/g)].map((x) => x[1]).join(","), "ALL,QB,RB,WR,TE,FLEX,SFLEX,DL,LB,DB,DFLEX,PK,PN", "By Lineup Slot rows");
   t.ok(/>Superflex</.test(bySlot) && />IDP Flex</.test(bySlot), "slot labels");
-  t.ok(/Biggest need: <b>/.test(bySlot) || !m.teams["0008"].need, "Biggest need still shown (by position)");
+  t.ok(/Biggest lineup gain: <b>\w+ \+[\d.]+<\/b> pts a week\. A typical \w+ \([\d.]+ PPG, the league’s median starting \w+\) would start at /.test(bySlot), "Biggest lineup gain: where a typical starter would start (by position, in either breakdown)");
+  t.ok(/\(\d+\.\d → \d+\.\d\)\. A gain, not a weakness: \w+ ranks \d+(st|nd|rd|th) by position\./.test(bySlot), "lineup before → after, and the position's standing");
+  t.ok(!/Biggest need|needs help/i.test(bySlot), "never called a need");
   const mixHtml = OV._strengthCard("0008", deps, "mix");
   t.ok(/<b>Actual starter mix<\/b> · Weeks 1–6 · 6 of 6 weeks counted/.test(mixHtml), "labeled Actual starter mix, with the weeks counted");
   t.ok(!/data-ls-view/.test(mixHtml), "no strength measures on the actual mix");

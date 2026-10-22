@@ -49,7 +49,10 @@
    slot.
 
    STRENGTH at a position = the team's starters there (flex included), points
-   a week above replacement. NEED = points a week the best lineup gains by
+   a week above replacement. NEED (shown as "lineup gain", Keith 2026-10-22:
+   it is NOT a weakness or a deficit — a team ranked 1st at WR can still gain
+   when a typical WR would take a Flex spot; additionDetail says where he'd
+   start and who'd leave the lineup) = points a week the best lineup gains by
    adding the league's median starter at that position (handles Flex and
    SuperFlex with no special case). SURPLUS = a healthy player outside his
    team's best lineup who would start for at least one other team. The
@@ -330,6 +333,26 @@
     return model;
   }
 
+  // What one typical starter at `g` would do to `fid`'s modeled lineup: where he'd start, who'd leave the lineup, the
+  // lineup before and after. { group, typical, before, after, gain, slot, slotLabel, leaves:[{pid, group, v, slot,
+  // rep}], starts: bool }. gain = model.teams[fid].need[g] (same computation, unrounded here).
+  function additionDetail(model, fid, g) {
+    var tm = model.teams[fid];
+    var hyp = { id: "HYP:" + g, pos: g, v: model.typical[g] };
+    var after = bestLineup(teamRows(tm.team, model.values, model.lineup, null, [hyp]), model.repl, model.lineup, model.lineupRule, model.slots);
+    var slotById = {};
+    (model.slots || []).forEach(function (s) { slotById[s.id] = s; });
+    var key = function (s) { return s.rep ? "REP:" + s.slot : s.pid; };
+    var afterKeys = {}, beforeKeys = {};
+    after.starters.forEach(function (s) { afterKeys[key(s)] = 1; });
+    tm.best.starters.forEach(function (s) { beforeKeys[key(s)] = 1; });
+    var hypStart = after.starters.filter(function (s) { return s.pid === hyp.id; })[0];
+    var leaves = tm.best.starters.filter(function (s) { return !afterKeys[key(s)]; })
+      .map(function (s) { return { pid: s.pid, group: s.group, v: s.v, slot: s.slot, slotLabel: (slotById[s.slot] || {}).label || s.slot, rep: !!s.rep }; });
+    return { group: g, typical: model.typical[g], before: tm.total, after: after.total, gain: Math.max(0, after.total - tm.total),
+      starts: !!hypStart, slot: hypStart ? hypStart.slot : "", slotLabel: hypStart ? ((slotById[hypStart.slot] || {}).label || hypStart.slot) : "", leaves: leaves };
+  }
+
   function addGain(model, fid, player) {
     var tm = model.teams[fid];
     var row = { id: player.pid, pos: player.pos, v: num(model.values[player.pid]) || 0 };
@@ -424,7 +447,7 @@
     UNAVAILABLE_CHIPS: UNAVAILABLE_CHIPS, FIT_EXCLUDED_GROUPS: FIT_EXCLUDED_GROUPS,
     availableNow: availableNow, replacementLevels: replacementLevels, bestLineup: bestLineup,
     deriveSlots: deriveSlots, fillSlots: fillSlots, slotBaseline: slotBaseline, SLOT_ROW: SLOT_ROW,
-    buildLeague: buildLeague, pairFits: pairFits, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, addGain: addGain
+    buildLeague: buildLeague, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, addGain: addGain
   };
   if (typeof window !== "undefined") window.UPS_TRADE_FIT = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
