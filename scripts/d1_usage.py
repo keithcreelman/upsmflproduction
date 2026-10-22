@@ -28,7 +28,7 @@ figures are never substituted); 2 = bad arguments.
 
 Reads no D1 rows: Cloudflare's analytics API and the D1 control plane (`wrangler d1 list`).
 """
-import argparse, json, os, re, subprocess, sys, urllib.error, urllib.request
+import argparse, json, math, os, re, subprocess, sys, urllib.error, urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -184,17 +184,40 @@ def _err(resp):
     return None
 
 
+class NotExact(Exception):
+    """An exact-counter group that cannot be trusted as an unsampled count."""
+
+
+def _number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
 def _span(groups, names, start, end):
-    dbs, max_si = [], 1.0
+    """Every group must say, explicitly, that it is unsampled (sampleInterval exactly 1) and carry real
+    counts. Anything missing, null or odd raises NotExact: a default here would be a fail-open guard."""
+    dbs = []
     for g in groups:
-        s, si = g["sum"], float((g.get("avg") or {}).get("sampleInterval") or 1)
-        max_si = max(max_si, si)
-        dbs.append({"database_id": g["dimensions"]["databaseId"], "name": names.get(g["dimensions"]["databaseId"]),
+        dims = g.get("dimensions") if isinstance(g, dict) else None
+        db = dims.get("databaseId") if isinstance(dims, dict) else None
+        if not db:
+            raise NotExact("a group has no databaseId")
+        avg = g.get("avg")
+        si = avg.get("sampleInterval") if isinstance(avg, dict) else None
+        if not _number(si):
+            raise NotExact(f"database {db}: no sampling interval reported ({si!r})")
+        if si != 1:
+            raise NotExact(f"database {db}: sampling interval {si:g}, not 1 (the counter came back sampled)")
+        s = g.get("sum") if isinstance(g.get("sum"), dict) else {}
+        for k in ("rowsRead", "rowsWritten"):
+            if not _number(s.get(k)) or s[k] < 0:
+                raise NotExact(f"database {db}: {k} is not a count ({s.get(k)!r})")
+        dbs.append({"database_id": db, "name": names.get(db),
                     "rows_read": int(s["rowsRead"]), "rows_written": int(s["rowsWritten"]),
-                    "read_queries": int(s.get("readQueries") or 0), "write_queries": int(s.get("writeQueries") or 0)})
+                    "read_queries": int(s["readQueries"]) if _number(s.get("readQueries")) else 0,
+                    "write_queries": int(s["writeQueries"]) if _number(s.get("writeQueries")) else 0})
     dbs.sort(key=lambda d: -d["rows_read"])
     acct = {k: sum(d[k] for d in dbs) for k in ("rows_read", "rows_written", "read_queries", "write_queries")}
-    return {"start_utc": iso(start), "end_utc": iso(end), "account": acct, "databases": dbs, "max_sample_interval": max_si}
+    return {"start_utc": iso(start), "end_utc": iso(end), "account": acct, "databases": dbs, "max_sample_interval": 1}
 
 
 def interpret_exact(resp, now, names):
@@ -208,13 +231,12 @@ def interpret_exact(resp, now, names):
     out = {**base, "status": "ok"}
     for key in ("utc_day", "previous_utc_day", "rolling_24h"):
         groups = acc.get(key)
-        if groups is None:
+        if not isinstance(groups, list):
             return {**base, "error": f"response is missing {key}"}
-        out[key] = _span(groups, names, *w[key])
-    sampled = [k for k in ("utc_day", "previous_utc_day", "rolling_24h") if out[k]["max_sample_interval"] > 1]
-    if sampled:
-        return {**base, "error": "the counter came back sampled (sampleInterval > 1 in " + ", ".join(sampled)
-                + "), so it is not exact"}
+        try:
+            out[key] = _span(groups, names, *w[key])
+        except NotExact as ex:
+            return {**base, "error": f"{key}: {ex}, so it is not an exact count"}
     if not out["rolling_24h"]["databases"]:
         return {**base, "error": "the counter returned no data for the last 24 hours (every D1 account has "
                 "cron traffic), so it cannot be trusted"}

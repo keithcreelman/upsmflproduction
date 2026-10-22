@@ -143,6 +143,41 @@ for (const [name, resp] of [
   });
 }
 
+// Codex #1377 MAT-1: a group must SAY it is unsampled. A missing, null, zero or odd sampleInterval used to
+// default to 1 and pass as exact; now any such group, in any span, makes usage UNKNOWN (exit 3, no budget go).
+const recorded = () => load("2026-10-22T024131_1d_leaderboard_1_in_145.json");
+const group = (fx, span) => fx.exact_response.data.viewer.accounts[0][span][0];
+for (const [name, mutate] of [
+  ["no sampleInterval", (g) => { delete g.avg.sampleInterval; }],
+  ["sampleInterval null", (g) => { g.avg.sampleInterval = null; }],
+  ["sampleInterval 0", (g) => { g.avg.sampleInterval = 0; }],
+  ["sampleInterval \"1\" (a string)", (g) => { g.avg.sampleInterval = "1"; }],
+  ["sampleInterval true", (g) => { g.avg.sampleInterval = true; }],
+  ["sampleInterval 1.5", (g) => { g.avg.sampleInterval = 1.5; }],
+  ["no avg at all", (g) => { delete g.avg; }],
+  ["rowsRead missing", (g) => { delete g.sum.rowsRead; }],
+  ["rowsRead null", (g) => { g.sum.rowsRead = null; }],
+  ["no databaseId", (g) => { delete g.dimensions.databaseId; }],
+]) {
+  for (const span of ["utc_day", "previous_utc_day", "rolling_24h"]) {
+    test(`recorded counter, ${span} group with ${name} → usage UNKNOWN, exit 3, no budget go`, () => {
+      const fx = recorded(); mutate(group(fx, span));
+      const { status, json, text } = cli(fx);
+      t.equal(status, 3); t.equal(json.exact.status, "unknown"); t.match(json.exact.error, new RegExp(`^${span}: `));
+      t.equal(json.budget.status, "unknown"); t.equal(json.budget.ok, false); t.equal(json.budget.reads, null);
+      t.match(text, /USAGE UNKNOWN/); t.doesNotMatch(text, /of 5,000,000/);
+    });
+  }
+}
+test("recorded counter: sampleInterval 1 and 1.0 are both an explicit 1 (accepted)", () => {
+  for (const v of [1, 1.0]) {
+    const fx = recorded();
+    for (const span of ["utc_day", "previous_utc_day", "rolling_24h"]) group(fx, span).avg.sampleInterval = v;
+    const { status, json } = cli(fx);
+    t.equal(status, 0); t.equal(json.exact.status, "ok"); t.equal(json.budget.reads.used, 1_071_653);
+  }
+});
+
 test("several D1 databases: the budget is account-wide; each database is listed as database-specific", () => {
   const B = "84ba2435-6a7a-49df-8df6-137b73ad11ff", C = "00000000-0000-0000-0000-00000000000c";
   const { status, json, text } = cli(fixture({
