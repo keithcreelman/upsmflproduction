@@ -2078,7 +2078,7 @@
     ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["WC Back", "Signed distance to the wild-card line in All-Play wins (ties count half), for every team, as if it had to earn a wild card: the two best teams that aren’t division winners qualify (All-Play %, then H2H record, then Points For). Positive = that many behind the last wild card; negative = that many ahead of the first team out; 0 = level with the team at the line (the ladder decides). A division winner’s seed doesn’t hide it: a + number means the division title is what keeps it in."],
-    ["Opp. strength", "How good the teams you played are: each opponent’s scoring vs the league average in its OTHER weeks (1.00 = average). Faced vs league = what opponents actually scored against you vs that week’s league average; that one is partly luck, so it isn’t proof of a hard schedule."],
+    ["Opp. strength", "How good the teams you played are: each opponent’s scoring vs the league average in its OTHER weeks (1.00 = average). Opp. vs league = what opponents actually scored against you vs that week’s league average; that one is partly luck, so it isn’t proof of a hard schedule."],
     ["All-time rank", "This season’s All-Play % against every team-season since 2010 through the same number of weeks (12 teams every season, so every week is 11 results). Rank 1 = best; ties share a rank; percentile = share of other team-seasons below, ties counting half."],
     ["H1–H6", "The Hawk Tuah Bowl seeds: the six teams outside the playoff field (7th–12th)."],
     ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins."],
@@ -2471,10 +2471,8 @@
     }
     return { champ: t.slice(0, 6).map(e), hawk: t.slice(6).map(function (x, j) { return e(x, j + 6); }) };
   }
-  function drawPlayoffOutlook(host, resp, final) {
-    var slot = host.querySelector("#ppBracket"), dslot = host.querySelector("#ppDraft");
-    if (!slot) return;
-    return ppForecast(resp).then(function (fc) {
+  // fc: undefined = the Forecast is still loading; null = none available; else ppForecast's answer.
+  function ppOutlookHtml(resp, final, fc) {
       var today = ppTodaySides(resp);
       var proj = fc && fc.model ? ppProjSides(fc.model) : null;
       var mode = state.ppMode === "proj" && proj ? "proj" : "today";
@@ -2498,10 +2496,18 @@
           + '<div class="pp-sides">' + ppSideHtml("UPS Championship · projected seeds", proj.champ, "proj", false, ups ? champLine(ups, fu) : '')
           + ppSideHtml("Hawk Tuah Bowl · projected seeds", proj.hawk, "proj", true, hawkT ? '<div class="pp-champ">Most likely Hawk Tuah Bowl champion: <b>' + escapeHtml(hawkT.name) + '</b> ' + fcPct(hawkT.hawk) + '</div>' + (fh ? '<div class="pp-champ">Most likely final: <b>' + escapeHtml(fh.a.name) + '</b> v <b>' + escapeHtml(fh.b.name) + '</b> ' + fcPct(fh.p) + '</div>' : '') : '') + '</div>';
       }
-      var why = !fc ? 'No UPS Wire forecast is available for ' + state.year + ' yet, so only today’s bracket is shown.'
+      var why = fc === undefined ? 'Loading the UPS Wire Forecast for the projected bracket…'
+        : !fc ? 'No UPS Wire forecast is available for ' + state.year + ' yet, so only today’s bracket is shown.'
         : fc.refused ? 'The Forecast isn’t used: its starting scores differ from these standings (' + escapeHtml(fc.refused[0]) + ').'
         : !proj ? 'The ' + 'Week ' + fc.cur.throughWeek + ' Forecast didn’t record finishing places, so there’s no projected bracket.' : '';
-      slot.innerHTML = '<h3 class="sec-h">' + state.year + ' playoff bracket</h3>' + sw + html + (why ? '<div class="note">' + why + '</div>' : '');
+      return '<h3 class="sec-h">' + state.year + ' playoff bracket</h3>' + sw + html + (why ? '<div class="note">' + why + '</div>' : '');
+  }
+  function drawPlayoffOutlook(host, resp, final) {
+    if (!host.querySelector) return Promise.resolve();
+    return ppForecast(resp).then(function (fc) {
+      var slot = host.querySelector("#ppBracket"), dslot = host.querySelector("#ppDraft");
+      if (!slot) return;
+      slot.innerHTML = ppOutlookHtml(resp, final, fc);
       slot.querySelectorAll("[data-pp]").forEach(function (b) {
         b.addEventListener("click", function () { if (b.disabled) return; state.ppMode = b.getAttribute("data-pp"); drawPlayoffOutlook(host, resp, final); });
       });
@@ -2537,7 +2543,7 @@
         + tapeRow("Highest week", tapeVal(c(A).high.value, c(A).high.rank), tapeVal(c(B).high.value, c(B).high.rank), e.high)
         + tapeRow("Median week", tapeVal(c(A).median.value, c(A).median.rank), tapeVal(c(B).median.value, c(B).median.rank), e.median)
         + tapeRow("Lowest week", tapeVal(c(A).low.value, c(A).low.rank), tapeVal(c(B).low.value, c(B).low.rank), e.low)
-        + tapeRow("Points faced per H2H game", tapeVal(A.faced.perGame, null), tapeVal(B.faced.perGame, null), null, "schedule, not skill")
+        + tapeRow("Opponent points per H2H game", tapeVal(A.faced.perGame, null), tapeVal(B.faced.perGame, null), null, "schedule, not skill")
         + '</tbody></table><div class="note">Gold = the stronger side in that category so far; ranks are among all 12 teams, regular season. The phone app’s Tale of the Tape also shows offense / IDP points and the owners’ head-to-head history.</div>';
     }
     var ov = document.createElement("div");
@@ -2769,7 +2775,8 @@
     var right = '<div class="pic-col">' + divisionLeadersHtml(resp, rows, final, magic) + nextOutHtml(resp, race, rows) + '</div>';
     var details = '<details class="pp-more"' + (state.ppMore ? ' open' : '') + '><summary>Seeds, races and tiebreaks</summary>'
       + pictureSummaryHtml(resp, rows, final) + '<div class="pic-grid">' + left + right + '</div></details>';
-    host.innerHTML = bar + '<div id="ppBracket"><div class="note">Loading the bracket…</div></div><div id="ppDraft"></div>' + details + tkoFootnote(resp);
+    host.innerHTML = bar + '<div id="ppBracket">' + ppOutlookHtml(resp, final, undefined) + '</div><div id="ppDraft"></div>' + details + tkoFootnote(resp);
+    if (host.querySelector) { var first = host.querySelector("#ppBracket"); if (first) wireTape(first, resp); }
     var more = host.querySelector(".pp-more");
     if (more) more.addEventListener("toggle", function () { state.ppMore = more.open; notifyHeight(); });
     wireToggles(host);
@@ -3319,7 +3326,7 @@
       c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you", W);
       c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)", W);
       c("Opp. strength", "_oppStr", true, function (r) { return r._oppStr == null ? "—" : r._oppStr.toFixed(2) + '<span class="owner-sub">' + ordinal(r._oppStrRank) + ' hardest</span>'; }, "Schedule difficulty: your opponents’ scoring vs the league average in their OTHER weeks (1.00 = average)");
-      c("Faced vs league", "_vsLg", true, function (r) { return r._vsLg == null ? "—" : r._vsLg.toFixed(2); }, "What opponents scored against you vs the league average that week (1.00 = average). Partly luck: not proof of a hard schedule", W);
+      c("Opp. vs league", "_vsLg", true, function (r) { return r._vsLg == null ? "—" : r._vsLg.toFixed(2); }, "What opponents scored against you vs the league average that week (1.00 = average). Partly luck: not proof of a hard schedule", W);
       return cols;
     }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
