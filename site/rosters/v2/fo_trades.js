@@ -81,9 +81,9 @@
   function matrixHtml(m, me) {
     var tb = strengthTable(m);
     var max = 0;
-    m.order.forEach(function (f) { MATRIX_GROUPS.forEach(function (g) { max = Math.max(max, Math.abs(tb.teams[f][g].vsMedian)); }); });
+    m.order.forEach(function (f) { MATRIX_GROUPS.forEach(function (g) { max = Math.max(max, Math.abs(tb.teams[f][g].above)); }); });
     var order = m.order.slice().sort(function (a, b) { return a === me ? -1 : b === me ? 1 : m.teams[b].total - m.teams[a].total; });
-    var head = '<tr><th scope="col">Team</th><th scope="col" class="num" title="All 18 starters: points a week above replacement, minus the league median (the Overview’s Overall row, By Position)">Overall</th>' +
+    var head = '<tr><th scope="col">Team</th><th scope="col" class="num" title="All 18 starters: points a week above replacement (the Overview’s Overall row, By Position, Above Replacement)">Overall</th>' +
       MATRIX_GROUPS.map(function (g) { return '<th scope="col" class="num' + (TF.FIT_EXCLUDED_GROUPS[g] ? " fo-tf-kp" : "") + '">' + (GLABEL[g] || g) + "</th>"; }).join("") + "</tr>";
     var rows = order.map(function (f) {
       var tm = m.teams[f], tr = tb.teams[f];
@@ -96,9 +96,9 @@
           : '<button type="button" class="fo-plink" data-tf-partner="' + H.esc(f) + '">' + H.esc(tm.name) + "</button>") + "</th>" +
         '<td class="num fo-tf-cell" data-tf-row="ALL">' + H.esc(LS.cell(tb, f, "ALL", "above").text) + repMark(tr.ALL.replacementStarters, "includes a replacement-filled slot") + "</td>" +
         MATRIX_GROUPS.map(function (g) {
-          var v = tr[g].vsMedian, need = tm.need[g], sur = surByG[g] || 0, nRep = tr[g].replacementStarters;
+          var v = tr[g].above, need = tm.need[g], sur = surByG[g] || 0, nRep = tr[g].replacementStarters;
           var text = LS.cell(tb, f, g, "above").text;
-          var title = (GLABEL[g] || g) + ": starters " + text + " pts/wk vs the median" + (need >= 1 ? "; needs +" + H.fmt1(need) + " from a typical starter" : "") +
+          var title = (GLABEL[g] || g) + ": starters " + text + " pts/wk above replacement" + (need >= 1 ? "; needs +" + H.fmt1(need) + " from a typical starter" : "") +
             (nRep ? "; " + nRep + " slot" + (nRep === 1 ? "" : "s") + " filled by a replacement free agent (no available rostered player)" : "") +
             (sur ? "; " + sur + " bench player" + (sur === 1 ? "" : "s") + " would start elsewhere" : "");
           return '<td class="num fo-tf-cell' + (TF.FIT_EXCLUDED_GROUPS[g] ? " fo-tf-kp" : "") + '" data-tf-row="' + g + '" style="' + cellStyle(v, max) + '" title="' + H.esc(title) + '">' + H.esc(text) + repMark(nRep, "includes a replacement-filled slot") +
@@ -107,7 +107,7 @@
         }).join("") + "</tr>";
     }).join("");
     return '<div class="fo-table-scroll"><table class="fo-table fo-tf-matrix"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>" +
-      '<p class="fo-basis">Cell = starters’ points a week above replacement at that position, minus the league median: the same numbers as the Overview’s Lineup strength (By Position, Above Replacement). Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. <span class="fo-tf-need">▼</span> = one of the team’s two biggest needs (what a typical starter would add; 1+ pts/wk). <span class="fo-tf-sur">+n</span> = bench players who would start for another team (surplus). K and P are shown, never used for fits.</p>';
+      '<p class="fo-basis">Cell = starters’ points a week above replacement at that position (Σ starter PPG − replacement-level PPG; 0 = replacement level): the same numbers as the Overview’s Lineup strength (By Position, Above Replacement). Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. <span class="fo-tf-need">▼</span> = one of the team’s two biggest needs (what a typical starter would add; 1+ pts/wk). <span class="fo-tf-sur">+n</span> = bench players who would start for another team (surplus). K and P are shown, never used for fits.</p>';
   }
 
   function playerRef(pid) {
@@ -129,7 +129,7 @@
     var fits = p ? p.fits : TF.pairFits(m, me, f, { alt: alt, capRoom: capRoom(), limit: 50 });
     var room = FO.capFor(f), myRoom = FO.capFor(me);
     var gl = function (g) { return GLABEL[g] || g; };
-    var strong = sum.strong.length ? sum.strong.map(function (g) { return "<b>" + gl(g) + "</b> (" + H.signed1(tm.vsMedian[g]) + ")"; }).join(", ") : "nowhere clearly above the median";
+    var strong = sum.strong.length ? sum.strong.map(function (g) { return "<b>" + gl(g) + "</b> (" + H.signed1(tm.vsMedian[g]) + " vs the league median)"; }).join(", ") : "nowhere clearly above the median";
     var needs = sum.needs.length ? sum.needs.map(function (g) { return "<b>" + gl(g) + "</b> (+" + H.fmt1(tm.need[g]) + ")"; }).join(", ") : "no position with a 1+ pt/wk gap";
     // What I could offer: my surplus that helps THEM; what they could offer: their surplus that helps ME.
     var myOffer = (mine.surplus || []).map(function (s) { var g = s.gains.filter(function (x) { return x.fid === f; })[0]; return g ? { s: s, gain: g.gain } : null; }).filter(Boolean).sort(function (a, b) { return b.gain - a.gain; });
@@ -255,7 +255,7 @@
       "<p><b>Discovery, not a fairness grade.</b> It shows where each team is strong or short and which one-for-one swaps would improve <b>both</b> teams’ best legal lineups. It never proposes, sends or messages anything; the War Room links open the one Trade War Room with the swap loaded.</p><ul>" +
       "<li><b>Value</b> = season points per MFL-scored week (MFL’s own scoring). In a 2022–2025 backtest it ranked whole lineups better than the last 3–4 weeks (rank correlation .70 vs .62). RotoWire projections did better for offense but aren’t served to the app yet.</li>" +
       "<li><b>Best legal lineup</b> = the league’s 18 slots (QB, 2 RB, 2 WR, TE, 2 Flex, SuperFlex, K, P, 2 DL, 2 LB, 2 DB, D-Flex), filled from the team’s <b>own available rostered players</b>. A free agent fills a slot only when no rostered player can play it, at replacement level (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at DL/LB/DB), and is marked <b>*</b>. A free agent never starts because he outscores someone on the roster. A swap’s gain is marked * when it would leave a slot to a free agent.</li>" +
-      "<li><b>Strength</b> = starters’ points a week above replacement, minus the league median: the same numbers as the Overview’s Lineup strength (By Position, Above Replacement), from the same lineups. <b>Need</b> = points a week a typical (median) starter would add. <b>Surplus</b> = a healthy bench player who would start for another team.</li>" +
+      "<li><b>Strength</b> = starters’ points a week above replacement (Σ starter PPG − replacement-level PPG): the same numbers as the Overview’s Lineup strength (By Position, Above Replacement), from the same lineups. <b>Need</b> = points a week a typical (median) starter would add. <b>Surplus</b> = a healthy bench player who would start for another team.</li>" +
       "<li><b>Checks</b>: whether the swap still works on the last 4 final weeks; small samples; IDP-only (the least predictable); cap room after (over the cap is refused by the app).</li>" +
       "<li>Not scored: contract length, salary value, age, draft picks, dynasty value. Kickers and punters never drive a swap (they barely predict).</li></ul>");
   });

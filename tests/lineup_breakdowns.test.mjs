@@ -1,9 +1,11 @@
 // Overview → Lineup strength breakdowns (#1338, Keith 2026-10-21). One modeled owned-roster lineup per team, in the
 // slots MFL's league settings define, shown By Position (the Trade finder's numbers) and By Lineup Slot (the same
 // lineup by the slot each starter fills: a second TE is Flex, a second QB is Superflex); every starter counts once and
-// each breakdown reconciles to Overall. Slot baselines come from slot-eligible free agents. Starter Mix is the ACTUAL
-// lineups submitted to MFL in completed weeks, by natural position; an incomplete or invalid week is named and left
-// out, never averaged in silently.
+// each breakdown reconciles to Overall. Above Replacement is RAW (Σ starter PPG − replacement-level PPG; Keith
+// 2026-10-21, never centered on the median), with slot baselines from slot-eligible free agents. Starter Mix is the
+// ACTUAL lineups submitted to MFL in completed weeks, by natural position: MFL records no slots, so only provable slot
+// use is attributed (a second QB = Superflex, an extra IDP = IDP Flex) and extra RB/WR/TE count as Flexible slots;
+// points never assign a slot. An incomplete or invalid week is named and left out, never averaged in silently.
 //   node tests/lineup_breakdowns.test.mjs
 //   TRADE_FIT_JS=<path> LINEUP_STRENGTH_JS=<path> STARTER_MIX_JS=<path> node tests/lineup_breakdowns.test.mjs   (defect check)
 import fs from "node:fs";
@@ -108,6 +110,26 @@ test("a second TE wins a Flex spot: TE By Position, Flex By Lineup Slot, once in
   t.ok(close(pos.teams.A.TE.above, (12 - 5) + (10 - 5)), "By Position keeps TE's own baseline (5)");
 });
 
+test("raw Above Replacement, exactly: fixed slot = PPG − its position's replacement; Flex = PPG − best RB/WR/TE replacement; Superflex = PPG − best QB/RB/WR/TE replacement", () => {
+  // Replacement levels here: QB 10, RB 7, WR 8, TE 5. Extras TE 12 (holds TE1), TE 10, RB 11, WR 9, QB 5.
+  const m = league([["A", [["TE", 12], ["RB", 11], ["WR", 9], ["QB", 5]]], ["B", []]]);
+  t.equal(JSON.stringify([m.repl.QB[0], m.repl.RB[0], m.repl.WR[0], m.repl.TE[0]]), "[10,7,8,5]");
+  const pos = LS.build(m), slot = LS.build(m, { by: "slot" });
+  const cell = (tb, r) => LS.cell(tb, "A", r, "above").text;
+  t.equal(cell(slot, "QB"), "+10.0", "QB slot: 20 − 10");
+  t.equal(cell(slot, "RB"), "+15.0", "RB slots: (15 − 7) + (14 − 7)");
+  t.equal(cell(slot, "WR"), "+13.0", "WR slots: (16 − 8) + (13 − 8)");
+  t.equal(cell(slot, "TE"), "+7.0", "TE slot: 12 − 5");
+  t.equal(cell(slot, "FLEX"), "+5.0", "Flex slots: (11 − 8) + (10 − 8), WR's 8 being the best RB/WR/TE replacement");
+  t.equal(cell(slot, "SFLEX"), "−1.0", "Superflex: 9 − 10, QB's 10 being the best QB/RB/WR/TE replacement (negative = below replacement)");
+  t.equal(cell(pos, "TE"), "+12.0", "By Position, TE: (12 − 5) + (10 − 5)");
+  t.equal(cell(pos, "WR"), "+14.0", "By Position, WR: (16 − 8) + (13 − 8) + (9 − 8)");
+  t.ok(close(slot.teams.A.ALL.above, sum(slot.rows.filter((r) => r !== "ALL").map((r) => slot.teams.A[r].above))), "slot rows add up to Overall above replacement");
+  t.ok(close(pos.teams.A.ALL.above - slot.teams.A.ALL.above, (8 - 5) + (8 - 7) + (10 - 8)),
+    "Overall differs between breakdowns only by the baseline gaps of the Flex/Superflex starters (TE 5→8, RB 7→8, WR 8→10)");
+  t.ok(!("vsMedian" in pos.teams.A.TE), "no median-centered value in the table");
+});
+
 test("a QB wins Superflex: QB By Position, Superflex By Lineup Slot", () => {
   const m = league([["A", [["QB", 18], ["RB", 11], ["WR", 12], ["TE", 4]]], ["B", []]]);
   const qb2 = m.teams.A.team.players.find((p) => p.pos === "QB" && m.values[p.pid] === 18).pid;
@@ -160,7 +182,8 @@ test("Overview By Position and the Trade finder return identical positional valu
   const tb = LS.build(m);
   for (const fid of m.order) for (const g of TF.GROUPS) {
     t.ok(close(tb.teams[fid][g].above, m.teams[fid].strength[g]), fid + " " + g + " above replacement = trade_fit strength");
-    t.equal(Math.round(tb.teams[fid][g].vsMedian * 10) / 10, m.teams[fid].vsMedian[g], fid + " " + g + " vs median = the Trade finder's cell");
+    const raw = Math.round(m.teams[fid].strength[g] * 10) / 10;
+    t.equal(LS.cell(tb, fid, g, "above").text, (raw > 0 ? "+" : raw < 0 ? "−" : "") + Math.abs(raw).toFixed(1), fid + " " + g + " Above Replacement shown = the raw strength the Trade finder shows");
     t.equal(tb.teams[fid].need[g], m.teams[fid].need[g], fid + " " + g + " need");
   }
   const sl = LS.build(m, { by: "slot" });
@@ -211,13 +234,33 @@ test("actual starter mix: averages over completed weeks give fractional starters
   t.ok(close(a.avg.WR, 3.6), "WR: (3+3+4+4+4)/5 = 3.6");
   t.ok(close(a.avg.QB, 2), "QB: 2 a week (Superflex QB every week)");
   t.ok(close(sum(SM.GROUPS.map((g) => a.avg[g])), 18), "the weekly totals reconcile to the 18 required starters");
-  t.equal(JSON.stringify(SM.mixList(a.mix.FLEX).map((x) => [x.g, x.n])), JSON.stringify([["WR", 8], ["RB", 2]]), "Flex: WR 8 of 10 starts, RB 2 of 10");
-  t.ok(close(SM.mixList(a.mix.FLEX)[0].pct, 80), "Flex: 80% WR · 20% RB");
+  t.equal(JSON.stringify(SM.mixList(a.mix.FLEXIBLE).map((x) => [x.g, x.n])), JSON.stringify([["WR", 8], ["RB", 2]]), "Flexible slots: WR 8 of 10 extra starts, RB 2");
+  t.ok(close(SM.mixList(a.mix.FLEXIBLE)[0].pct, 80), "Flexible slots: 80% WR · 20% RB");
+  t.equal(Object.keys(a.mix.FLEX.by).length, 0, "nothing is attributed to Flex itself: an extra RB/WR could be in Flex or Superflex");
   const thirds = SM.mixList({ total: 3, by: { WR: 1, RB: 1, TE: 1 } });
   t.equal(sum(thirds.map((x) => x.whole)), 100, "shown whole percents always add to 100 (34/33/33, never 99)");
   const sixths = SM.mixList({ total: 6, by: { QB: 4, RB: 1, WR: 1 } });
   t.equal(sixths.map((x) => x.g + " " + x.whole).join(", "), "QB 67, RB 17, WR 16", "4 of 6 shows 67%, not 66% (equal remainders go to the larger share)");
-  t.equal(SM.mixList(a.mix.SFLEX).map((x) => x.g + " " + x.pct).join(","), "QB 100", "Superflex: 100% QB");
+  t.equal(SM.mixList(a.mix.SFLEX).map((x) => x.g + " " + x.pct).join(","), "QB 100", "Superflex: 100% QB (a second QB can only be Superflex)");
+  t.equal(SM.mixList(a.mix.DFLEX).map((x) => x.g + " " + x.pct).join(","), "DB 100", "IDP Flex: the extra DB (the only IDP Flex slot)");
+});
+
+test("ambiguous Flex/Superflex starters: QB share of Superflex is proven, extra RB/WR/TE are pooled as Flexible slots, points never assign a slot", () => {
+  const qbWeek = BASE.concat([["q2", 13], ["r3", 10], ["t2", 4], ["b3", 3]]);     // second QB → Superflex; RB + TE extras → Flexible
+  const noQbWeek = BASE.concat([["r3", 10], ["w3", 8], ["t2", 4], ["b3", 3]]);   // no second QB: Superflex holds one of RB/WR/TE, unknown which
+  const json = { allWeeklyResults: { weeklyResults: [wk(1, { "0001": qbWeek }), wk(2, { "0001": noQbWeek })] } };
+  const mix = SM.build({ weeklyResults: json, completedWeek: 2, slots: SLOTS, groupOf: grp });
+  const a = mix.teams["0001"];
+  t.equal(SM.mixList(a.mix.SFLEX).map((x) => (x.g || "not attributable") + " " + x.whole).join(", "), "QB 50, not attributable 50", "Superflex: 50% QB · 50% non-QB (inside Flexible slots)");
+  t.equal(SM.mixList(a.mix.FLEXIBLE).map((x) => x.g + " " + x.n).join(", "), "RB 2, TE 2, WR 1", "Flexible slots: 2 RB, 2 TE, 1 WR extra starts");
+  t.equal(a.mix.FLEXIBLE.total + (a.mix.SFLEX.by.QB || 0), a.mix.FLEX.total + a.mix.SFLEX.total, "Flexible + Superflex QBs = every Flex and Superflex start (2 weeks × 3)");
+  t.equal(JSON.stringify(mix.ambiguousRows.sort()), JSON.stringify(["FLEX", "SFLEX"]), "the ambiguous slots are named");
+  // Same lineups, different points: nothing changes (points are never read).
+  const flip = JSON.parse(JSON.stringify(json));
+  flip.allWeeklyResults.weeklyResults.forEach((w) => w.matchup.forEach((m) => m.franchise.forEach((f) => f.player.forEach((p, i) => (p.score = String(100 - i))))));
+  t.equal(JSON.stringify(SM.build({ weeklyResults: flip, completedWeek: 2, slots: SLOTS, groupOf: grp }).teams), JSON.stringify(mix.teams), "different points, same Starter Mix");
+  const src = read(process.env.STARTER_MIX_JS || path.join(ROOT, "site/shared/starter_mix.js"));
+  t.ok(!/\.score\b/.test(src.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "")), "starter_mix.js reads no score");
 });
 
 test("an incomplete or invalid week is named and left out — never silently averaged", () => {
@@ -255,7 +298,11 @@ test("real league, Weeks 1–6 (Week 7 in progress is not read): every lineup is
   t.equal([rdc.avg.QB, rdc.avg.RB, rdc.avg.WR, rdc.avg.TE].map((x) => x.toFixed(2)).join(" "), "2.00 2.17 3.67 1.17", "Real Deal Creel: QB 2.0, RB 2.2, WR 3.7, TE 1.2");
   t.equal(SM.mixList(rdc.mix.SFLEX).map((x) => x.g).join(","), "QB", "Real Deal Creel: Superflex always a QB");
   const ham = mix.teams["0005"];
-  t.equal(SM.mixList(ham.mix.FLEX)[0].g, "TE", "HammerTime: Flex mostly TE");
+  t.equal(SM.mixList(ham.mix.FLEXIBLE)[0].g, "TE", "HammerTime: Flexible slots mostly TE");
+  for (const fid of Object.keys(mix.teams)) {
+    const x = mix.teams[fid].mix;
+    t.equal(x.FLEXIBLE.total + (x.SFLEX.by.QB || 0), x.FLEX.total + x.SFLEX.total, fid + ": Flexible + Superflex QBs = 18 Flex/Superflex starts");
+  }
   t.ok(close(SM.mixList(ham.mix.SFLEX).find((x) => x.g === "QB").pct, 400 / 6), "HammerTime: Superflex 67% QB");
 });
 
@@ -284,7 +331,12 @@ test("the Overview card: PPG first and selected, Above Replacement spelled out, 
   t.ok(/<b>Actual starter mix<\/b> · Weeks 1–6 · 6 of 6 weeks counted/.test(mixHtml), "labeled Actual starter mix, with the weeks counted");
   t.ok(!/data-ls-view/.test(mixHtml), "no strength measures on the actual mix");
   t.ok(/data-ls-flex="SFLEX"><b>Superflex:<\/b> 100% QB/.test(mixHtml), "Real Deal Creel Superflex: 100% QB");
-  t.ok(/<b>Flex:<\/b> 84% WR · 8% RB · 8% TE/.test(mixHtml), "Flex composition: 10, 1 and 1 of 12 starts, shown in whole percents that add to 100");
+  t.ok(/data-ls-flex="FLEXIBLE"><b>Flexible slots<\/b> <span class="fo-muted">\(Flex \+ Superflex, not a QB\)<\/span>: 84% WR · 8% RB · 8% TE/.test(mixHtml), "Flexible slots: 10, 1 and 1 of 12 extra starts, in whole percents that add to 100");
+  t.ok(!/data-ls-flex="FLEX"/.test(mixHtml), "no Flex-only line: MFL's record can't separate Flex from Superflex for RB/WR/TE");
+  t.ok(!/lowest-scoring/.test(mixHtml), "no score-based slot assignment");
+  const posHtml = OV._strengthCard("0008", deps, "position", "ppg");
+  t.ok(/Modeled lineup/.test(posHtml) && /Modeled lineup/.test(OV._strengthCard("0008", deps, "slot", "ppg")), "By Position and By Lineup Slot are labeled Modeled");
+  t.equal(/class="fo-ov-bar-val">\+[\d.]+</.test(OV._strengthCard("0008", deps, "position", "above")), true, "Above Replacement shows a raw amount");
   deps.H.lineupSlotsState = () => "error";
   t.ok(/lineup settings couldn’t be read/.test(OV._strengthCard("0008", deps, "position", "ppg")), "MFL's settings unreadable → says so, no assumed slots");
 });

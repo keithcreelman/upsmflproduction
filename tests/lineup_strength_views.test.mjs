@@ -1,6 +1,6 @@
 // Overview → Lineup strength (#1338): one table over the 12 teams' OWNED-roster lineups (Keith 2026-10-21: a
 // replacement free agent fills a slot only when no available rostered player can play it) serves four views —
-// above replacement vs the league median (default), PPG, Index (100 = league mean) and Rank — with Overall = all
+// PPG (default), Rank, Above Replacement (raw: Σ starter PPG − replacement PPG, Keith 2026-10-21) and Index (100 = league mean) — with Overall = all
 // 18 required starting slots (weighted by points, never an average of rows) and K and P rows. The table reads the
 // trade-fit model's own lineups (Keith 2026-10-21: the Trade finder uses the same calculation), so the Overview and
 // the Trade finder show the same values; the old replacement-filled rule (lineupRule "replacement") is built only
@@ -41,12 +41,12 @@ test("Overall is every required starting slot: 18 starters, its PPG = the whole 
   }
 });
 
-test("one calculation: every position value equals the Trade finder's (trade_fit strength, vs-median and need)", () => {
+test("one calculation: every position value equals the Trade finder's (trade_fit strength = raw above replacement, and need)", () => {
   for (const [tb, m, who] of [[table, model, "owned"], [modelTable, oldModel, "old rule"]]) {
     for (const fid of tb.order) {
       for (const g of TF.GROUPS) {
         t.ok(close(tb.teams[fid][g].above, m.teams[fid].strength[g]), who + " " + fid + " " + g + " above replacement");
-        t.equal(Math.round(tb.teams[fid][g].vsMedian * 10) / 10, m.teams[fid].vsMedian[g], who + " " + fid + " " + g + " vs median");
+        t.equal(LS.cell(tb, fid, g, "above").text.replace("−", "-").replace("+", ""), (Math.round(m.teams[fid].strength[g] * 10) / 10).toFixed(1).replace(/^-0\.0$/, "0.0"), who + " " + fid + " " + g + " shown Above Replacement = raw strength");
         t.equal(tb.teams[fid].need[g], m.teams[fid].need[g], who + " " + fid + " " + g + " need");
       }
     }

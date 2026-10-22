@@ -223,12 +223,12 @@
   var VIEW_TEXT = {
     ppg: ["PPG", "Modeled starters’ points a week (season PPG). Bars: against the league average."],
     rank: ["Rank", "1st–12th among the league by the same points a week."],
-    above: ["Above Replacement", "Points a week above the replacement free agent, against the league median (0 = the middle team)."],
+    above: ["Above Replacement", "Points a week above the replacement-level free agent: Σ(starter PPG − replacement PPG). 0 = replacement level."],
     index: ["Index", "Points a week ÷ the league average × 100 (100 = average)."]
   };
   var BY_TEXT = {
-    position: ["By Position", "Each starter at his own position: a TE in Flex counts as TE."],
-    slot: ["By Lineup Slot", "The same lineup by the slot each starter fills in MFL’s lineup settings: a second TE is Flex, a second QB is Superflex."],
+    position: ["By Position", "Modeled lineup, each starter at his own position: a TE in Flex counts as TE."],
+    slot: ["By Lineup Slot", "Modeled lineup by the slot each starter fills in MFL’s lineup settings: a second TE is Flex, a second QB is Superflex."],
     mix: ["Starter Mix", ""]
   };
   function strengthCard(fid, TF) {
@@ -303,7 +303,7 @@
     if (!t || !mix.weeks.length) return '<p class="fo-ov-empty">No completed weeks yet.</p>';
     var wkLabel = mix.weeks.length === 1 ? "Week 1" : "Weeks 1–" + mix.weeks[mix.weeks.length - 1];
     var head = '<p class="fo-ls-actual"><b>Actual starter mix</b> · ' + H.esc(wkLabel) + " · " + t.validWeeks.length + " of " + t.weeks + " weeks counted</p>" +
-      '<p class="fo-ov-sub">Starters per week from the lineups submitted to MFL, by each player’s own position. This is what was started, not the modeled lineup in By Position and By Lineup Slot.</p>';
+      '<p class="fo-ov-sub">Starters per week from the lineups submitted to MFL, by each player’s own position. This is what was started; By Position and By Lineup Slot are the modeled lineup.</p>';
     if (!t.validWeeks.length) {
       return head + issuesHtml(t) + '<p class="fo-ov-empty">No complete lineup to average.</p>';
     }
@@ -314,27 +314,30 @@
     var lsum = SM.GROUPS.reduce(function (a, g) { return a + (mix.league.avg[g] || 0); }, 0);
     var table = '<table class="fo-table fo-ls-mix"><thead><tr><th scope="col">Position</th><th scope="col" class="num">Per week</th><th scope="col" class="num">League</th></tr></thead><tbody>' +
       rows + '<tr class="fo-led-total"><th scope="row">Starters</th><td class="num">' + sum.toFixed(1) + '</td><td class="num fo-muted">' + lsum.toFixed(1) + "</td></tr></tbody></table>";
-    var LS = root.UPS_LINEUP_STRENGTH;
-    var flex = mix.flexRows.map(function (r) {
-      var mine = SM.mixList(t.mix[r]), lg = SM.mixList(mix.league.mix[r]);
-      var parts = r === "SFLEX" ? qbSplit(mine) : mine.map(function (x) { return pct(x.whole) + " " + SM.label(x.g); });
-      var lparts = r === "SFLEX" ? qbSplit(lg) : lg.map(function (x) { return pct(x.whole) + " " + SM.label(x.g); });
-      return '<div class="fo-ls-flex" data-ls-flex="' + r + '"><b>' + H.esc(LS.LABELS[r] || r) + ":</b> " + H.esc(parts.join(" · ") || "—") +
-        ' <span class="fo-muted">(league ' + H.esc(lparts.join(" · ") || "—") + ")</span></div>";
-    }).join("");
+    var flex = flexLines(mix, t);
     return head + table + flex + issuesHtml(t) +
-      '<p class="fo-ov-sub">Each week’s starters are placed the way the model places its lineup: fixed slots take the week’s top scorer at the position, then Flex. When no second QB starts, Superflex holds the lowest-scoring extra RB/WR/TE.</p>';
+      '<p class="fo-ov-sub">MFL records who started, not which slot each starter filled. A second QB can only be Superflex (Flex doesn’t take a QB) and an extra DL/LB/DB can only be IDP Flex; an extra RB, WR or TE could be in Flex or Superflex, so those count together as <b>Flexible slots</b>. Points are never used to assign a slot.</p>';
   }
-  // Superflex: QB vs non-QB, with the non-QB positions named.
-  function qbSplit(list) {
-    var SM = root.UPS_STARTER_MIX;
-    var qb = list.filter(function (x) { return x.g === "QB"; })[0];
-    var other = list.filter(function (x) { return x.g !== "QB"; });
-    var otherPct = other.reduce(function (a, x) { return a + x.whole; }, 0);
-    var out = [];
-    if (qb) out.push(pct(qb.whole) + " QB");
-    if (other.length) out.push(pct(otherPct) + " non-QB (" + other.map(function (x) { return SM.label(x.g); }).join("/") + ")");
-    return out;
+  // The actual mix's slot lines: rows MFL's record proves (Superflex QBs, IDP Flex) and Flexible slots for the rest.
+  function flexLines(mix, t) {
+    var SM = root.UPS_STARTER_MIX, LS = root.UPS_LINEUP_STRENGTH;
+    function parts(row, ofWhat) {
+      return SM.mixList(row).map(function (x) { return pct(x.whole) + " " + (x.g ? SM.label(x.g) : ofWhat); }).join(" · ") || "—";
+    }
+    var lines = [];
+    var amb = mix.ambiguousRows.map(function (r) { return LS.LABELS[r] || r; });
+    mix.flexRows.forEach(function (r) {
+      var row = t.mix[r], lg = mix.league.mix[r];
+      if (!Object.keys(row.by).length && !Object.keys(lg.by).length) return;   // nothing in this row is provable: it's all Flexible
+      var rest = r === "SFLEX" ? "non-QB (in Flexible slots)" : "in Flexible slots";
+      lines.push('<div class="fo-ls-flex" data-ls-flex="' + r + '"><b>' + H.esc(LS.LABELS[r] || r) + ":</b> " + H.esc(parts(row, rest)) +
+        ' <span class="fo-muted">(league ' + H.esc(parts(lg, rest)) + ")</span></div>");
+    });
+    if (amb.length) {
+      lines.push('<div class="fo-ls-flex" data-ls-flex="FLEXIBLE"><b>Flexible slots</b> <span class="fo-muted">(' + H.esc(amb.join(" + ")) + ", not a QB)</span>: " +
+        H.esc(parts(t.mix.FLEXIBLE, "")) + ' <span class="fo-muted">(league ' + H.esc(parts(mix.league.mix.FLEXIBLE, "")) + ")</span></div>");
+    }
+    return lines.join("");
   }
   function issuesHtml(t) {
     if (!t.issues.length) return "";
@@ -475,9 +478,9 @@
       "<b>Lineup strength</b> is built from each team’s own roster: the best legal lineup, in the slots MFL’s lineup settings define, from its available rostered players. A replacement free agent fills a slot only when no rostered player can play it, and the card marks that row with *.</p>" +
       "<p><b>By Position</b> counts each starter at his own position (a TE in Flex is TE). <b>By Lineup Slot</b> shows the same lineup by slot: QB, RB, WR, TE, Flex, Superflex, DL, LB, DB, IDP Flex, K, P; a second TE who starts is Flex, a second QB is Superflex. Each starter counts once, and each breakdown’s rows add up to Overall. " +
       "Biggest need is always by position: that is the trade to look for.</p>" +
-      "<p><b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = points a week above the replacement free agent (the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; for a Flex or Superflex slot, the best of those the slot accepts), compared with the league <b>median</b>: 0 = the middle of the 12 teams. " +
+      "<p><b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts. Rank and Index are the league-relative measures. " +
       "<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average. The Trade finder’s matrix reads the same lineups, so its position cells match By Position, Above Replacement.</p>" +
-      "<p><b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position, plus who filled Flex and Superflex. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</p>" +
+      "<p><b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</p>" +
       "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
     var el = document.getElementById("fo-overview-body");
     if (el && !el.__foLedger) {

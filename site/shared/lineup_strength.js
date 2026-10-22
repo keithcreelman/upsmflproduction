@@ -29,15 +29,17 @@
    MEASURES, all per row, all over the same 12 lineups:
      ppg       (PPG, the default) starters' points per week (Σ PPG).
      rank      1st–12th by ppg (ties share the better rank).
-     above     (Above Replacement) starters' PPG above the applicable
-               replacement baseline, MINUS the league median of that (0 = the
-               middle team; trade_fit strength / vsMedian). By Position the
-               baseline is the starter's own position's replacement free
-               agent. By Lineup Slot it is the slot's: the best replacement-level
-               free agent the slot accepts (Flex from RB/WR/TE, Superflex from
-               QB/RB/WR/TE; trade_fit slotBaseline). So Overall above
-               replacement can differ between the breakdowns when a Flex or
-               Superflex starter's slot baseline differs from his position's.
+     above     (Above Replacement, Keith 2026-10-21: the RAW amount, never
+               centered on the league median; Rank and Index are the
+               league-relative measures) Σ over the row's starters of
+               (starter PPG − his replacement-level PPG) = trade_fit strength.
+               By Position the replacement level is the starter's own
+               position's replacement free agent. By Lineup Slot it is the
+               slot's: the best replacement-level free agent the slot accepts
+               (Flex from RB/WR/TE, Superflex from QB/RB/WR/TE; trade_fit
+               slotBaseline). So Overall above replacement can differ between
+               the breakdowns when a Flex or Superflex starter's slot baseline
+               differs from his position's.
      index     ppg ÷ the 12-team mean ppg × 100 (100 = league average).
    NEED and the league's typical starter are trade_fit's own (model.teams[].need,
    model.typical) and always by natural position: that is the trade to make.
@@ -114,12 +116,11 @@
     rows.forEach(function (r) {
       var ppgs = order.map(function (fid) { return teams[fid][r].ppg; });
       var aboves = order.map(function (fid) { return teams[fid][r].above; });
-      league[r] = { meanPpg: mean(ppgs), medianAbove: median(aboves), n: order.length };
+      league[r] = { meanPpg: mean(ppgs), meanAbove: mean(aboves), n: order.length };
     });
     order.forEach(function (fid) {
       rows.forEach(function (r) {
         var c = teams[fid][r], L = league[r];
-        c.vsMedian = c.above - (L.medianAbove || 0);
         c.index = L.meanPpg ? c.ppg / L.meanPpg * 100 : null;
         c.rank = 1 + order.filter(function (o) { return teams[o][r].ppg > c.ppg + 1e-9; }).length;
       });
@@ -127,7 +128,7 @@
     // Each view's league-wide spread per row, so a bar shows where a team sits among the 12 in THAT row.
     rows.forEach(function (r) {
       var L = league[r];
-      L.maxAbsVsMedian = Math.max.apply(null, order.map(function (fid) { return Math.abs(teams[fid][r].vsMedian); }).concat([1e-9]));
+      L.maxAbsAbove = Math.max.apply(null, order.map(function (fid) { return Math.abs(teams[fid][r].above); }).concat([1e-9]));
       L.maxAbsIndexDev = Math.max.apply(null, order.map(function (fid) { var x = teams[fid][r].index; return x == null ? 0 : Math.abs(x - 100); }).concat([1e-9]));
     });
     return { population: (model && model.lineupRule) || "owned", by: by, rows: rows, labels: LABELS, order: order.slice(), teams: teams, league: league,
@@ -153,9 +154,10 @@
       var mid = (n + 1) / 2;
       return { text: ordinal(c.rank), frac: n > 1 ? clamp((mid - c.rank) / (mid - 1)) : 0, title: ordinal(c.rank) + " of " + n + " by starters’ points a week" };
     }
-    var v = Math.round(c.vsMedian * 10) / 10;
-    return { text: (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1), frac: clamp(c.vsMedian / L.maxAbsVsMedian),
-      title: (table.by === "slot" ? "Points a week above the slot’s replacement free agent" : "Points a week above replacement") + ", minus the league median (0 = the middle team)" };
+    // Raw: the bar runs from 0 (replacement level) toward the largest amount any team has in this row.
+    var v = Math.round(c.above * 10) / 10;
+    return { text: (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1), frac: clamp(c.above / L.maxAbsAbove),
+      title: "Starters’ points a week above " + (table.by === "slot" ? "each slot’s" : "their position’s") + " replacement-level free agent (0 = replacement level)" };
   }
   function clamp(x) { return !isFinite(x) ? 0 : Math.max(-1, Math.min(1, x)); }
 

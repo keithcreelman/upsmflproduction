@@ -58,7 +58,8 @@ test("Lineup strength: PPG first and the default (Keith 2026-10-21), three break
   t.ok(!/Contracts ending this season/.test(SRC) && !/expiringCard/.test(SRC), "card removed");
   t.ok(/mine\.replacementSlots/.test(SRC) && /fo-ov-rep/.test(SRC), "replacement-filled slots are marked and named");
   t.ok(/mine\.biggestNeed/.test(SRC) && !/TF\.teamSummary\(model, fid\)/.test(SRC), "Biggest need from the same owned-roster table");
-  t.ok(/league <b>median<\/b>/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About explains median (Above Replacement) vs mean (Index)");
+  t.ok(/the raw points a week above replacement: Σ\(starter PPG − replacement-level PPG\)/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About: Above Replacement is raw (Keith 2026-10-21); Index is against the mean");
+  t.ok(!/Above Replacement[^"]*median/.test(SRC), "no median-centered value is labeled Above Replacement");
   for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "strengthCard(", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
 });
 
