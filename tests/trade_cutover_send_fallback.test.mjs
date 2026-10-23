@@ -61,7 +61,7 @@ function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const lines = DESK_SRC.split("\n");
   const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3970, "async function replayOutbox(criteria)", 4004);
   const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4261, "async function submitOfferToQueue()", 4334);
-  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8326, "var tw2s = { listStatus:", 8354);
+  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8454, "var tw2s = { listStatus:", 8482);
   const code = fjr + "\n" + gates + "\n" + movs;
   const bridge = bridgeFetch(env);
   const resolveStaged2WayApiUrl = () => `https://worker.test/api/trades/2way?MFL_USER_ID=${token}&L=74598&YEAR=2026`;
