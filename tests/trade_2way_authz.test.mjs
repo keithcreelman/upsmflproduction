@@ -167,6 +167,33 @@ test("PROPOSE: a failed D1 audit write is reported honestly (NOT_PERSISTED), nev
   t.doesNotMatch(r.text, /D1_ERROR|simulated/);
 });
 
+// P0 S3: the rosters export failing must never skip the §A6 cap-money check or the ownership check.
+const outboxRows = (env) => { try { return env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM twb_trade_outbox").get().n; } catch (_) { return 0; } };
+const withCapMoney = (k) => { const p = proposal("0001", "0002"); p.payload.teams[0].traded_salary_adjustment_k = k; p.payload.teams[0].traded_salary_adjustment_dollars = k * 1000; return p; };
+test("PROPOSE (fail closed): rosters export down + cap money on a side → 503 cap_money_check_unavailable; no tradeProposal, no outbox row", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.exportFail = { rosters: 502 };
+  const r = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: withCapMoney(1) });
+  t.equal(r.status, 503, r.text.slice(0, 200)); t.equal(r.json.code, "cap_money_check_unavailable");
+  t.match(r.json.message, /Couldn't verify this trade with MFL right now, so it wasn't sent/);
+  t.equal(mfl.writes("tradeProposal").length, 0); t.equal(mfl.st.pending.length, 0); t.equal(outboxRows(env), 0);
+});
+test("PROPOSE (fail closed): rosters export down + no cap money → 503 ownership_check_unavailable; no tradeProposal, no outbox row", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.exportFail = { rosters: 502 };
+  const r = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: withCapMoney(0) });
+  t.equal(r.status, 503, r.text.slice(0, 200)); t.equal(r.json.code, "ownership_check_unavailable");
+  t.equal(mfl.writes("tradeProposal").length, 0); t.equal(mfl.st.pending.length, 0); t.equal(outboxRows(env), 0);
+});
+test("PROPOSE: cap money is measured on LIVE salary only — a client-supplied salary for a player not on the live roster unlocks nothing", async () => {
+  const { env, mfl } = fresh();
+  const p = withCapMoney(10);
+  p.payload.teams[0].selected_assets = [asset(14056, 5000), asset(99999, 40000)];   // 99999 is on no live roster
+  const r = await callWorker(env, "POST", `/api/trades/proposals?${Q}&MFL_USER_ID=tok-B`, { body: p });
+  t.equal(r.status, 400, r.text.slice(0, 200)); t.equal(r.json.code, "TRADE_CAP_MONEY_50PCT"); t.equal(r.json.max_allowed_k, 2, "only 14056's live $5,000 counts");
+  t.equal(mfl.writes("tradeProposal").length, 0);
+});
+
 // ═════════════════════════════ POST /api/trades/proposals/action ═════════════════════════════
 test("ACTION: no session is refused and nothing is written (no commissioner-cookie fallback)", async () => {
   const { env, mfl } = fresh();
