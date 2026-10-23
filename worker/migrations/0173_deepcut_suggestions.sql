@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS ups_deepcut_suggestions (
   details TEXT,                           -- what the owner remembers
   status TEXT NOT NULL DEFAULT 'new',
   category TEXT,
-  reviewer_notes TEXT
+  reviewer_notes TEXT,
+  rounds INTEGER NOT NULL DEFAULT 0       -- follow-up rounds the owner has added (max 3)
 );
 CREATE INDEX IF NOT EXISTS idx_deepcut_suggestions_user ON ups_deepcut_suggestions (discord_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_deepcut_suggestions_status ON ups_deepcut_suggestions (status, created_at);
+-- The worker also creates this table on first use (ensureSchema), so the button works before this file is applied by hand; both are IF NOT EXISTS.

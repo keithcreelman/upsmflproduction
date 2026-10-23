@@ -23,7 +23,7 @@ import {
   handleWireReplyComponent,
   handleWireReplyModal,
 } from "./discord_wire_reply.js";
-import { isDeepCutButton, isDeepCutModal, handleDeepCutButton, handleDeepCutModal } from "./discord_deepcut_suggest.js";
+import { isDeepCutButton, isDeepCutModal, isDeepCutMoreButton, isDeepCutMoreModal, handleDeepCutButton, handleDeepCutModal, handleDeepCutMoreButton, handleDeepCutMoreModal } from "./discord_deepcut_suggest.js";
 import { handleTradeThinkButton } from "./trade_dm.js";
 import { handle3WayButton } from "./trade_3way.js";
 import { handleTherapyCommand, isTherapyModal, handleTherapyModal } from "./discord_therapy.js";
@@ -213,6 +213,14 @@ export async function handleDiscordInteraction(request, env, ctx) {
         return ephemeralReply(`Suggest button failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
+    if (isDeepCutMoreButton(customId)) {
+      try {
+        return await handleDeepCutMoreButton(interaction, env);
+      } catch (e) {
+        console.log(`[deepcut-more] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`That button failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
     // 3-way trade buttons ("tr3:accept|decline:<id>") — checked before "tr:".
     if (customId.startsWith("tr3:")) {
       try {
@@ -274,6 +282,14 @@ export async function handleDiscordInteraction(request, env, ctx) {
       } catch (e) {
         console.log(`[wire-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
         return ephemeralReply(`Challenge modal failed: ${e && e.message ? e.message : "unknown error"}`);
+      }
+    }
+    if (isDeepCutMoreModal(customId)) {
+      try {
+        return await handleDeepCutMoreModal(interaction, env, ctx);
+      } catch (e) {
+        console.log(`[deepcut-more-modal] EXCEPTION: ${e && e.message} ${e && e.stack}`);
+        return ephemeralReply(`Suggestion failed: ${e && e.message ? e.message : "unknown error"}`);
       }
     }
     if (isDeepCutModal(customId)) {
