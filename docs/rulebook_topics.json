@@ -357,6 +357,7 @@
     },
     {
       "key": "acquiring",
+      "live_trade_lock": true,
       "group": "moves",
       "title": "Getting Players",
       "one_liner": "Seven ways onto your roster, each setting a different salary and contract length.",
@@ -422,7 +423,7 @@
           ],
           [
             "Trade",
-            "Offseason to Thanksgiving",
+            "Until MFL's trade lock",
             "Unchanged",
             "Inherited as-is"
           ],
@@ -598,9 +599,10 @@
     },
     {
       "key": "trades",
+      "live_trade_lock": true,
       "group": "moves",
       "title": "Trades",
-      "one_liner": "Open from season's end to Thanksgiving. Contracts move as-is. No vetoes.",
+      "one_liner": "Open from season's end until MFL's trade lock. Contracts move as-is. No vetoes.",
       "today": [
         "The window opens the second the season ends. There's no cooling-off period and no waiting for the offseason to formally begin.",
         "Cap money is measured against your own outgoing salary, not out of a shared pot, so the two sides of a deal routinely have very different ceilings on how much cash they can move. Work out your own number before you promise anybody anything.",
@@ -615,7 +617,7 @@
       "numbers": [
         {
           "label": "Deadline",
-          "value": "Thanksgiving"
+          "value": "See MFL calendar"
         },
         {
           "label": "Cap money",
@@ -1036,7 +1038,7 @@
       "title": "Dates & Deadlines",
       "one_liner": "Four dates decide your season. Missed auction nominations are the only one that carries an automatic fine.",
       "today": [
-        "Four dates decide your season and the rest is texture. Memorial Day weekend you get your rookies. Late July you spend your money. September locks your contracts. Thanksgiving closes trading.",
+        "Four dates decide your season and the rest is texture. Memorial Day weekend you get your rookies. Late July you spend your money. September locks your contracts. MFL's league calendar closes trading.",
         "September is the one people underestimate. It isn't only the contract deadline. It's the day your roster ceiling drops from 35 to 30, taxi demotions close, and every extension you meant to get round to expires quietly, without anyone tapping you on the shoulder first.",
         "Almost nothing on this page costs you money. Miss one of these and a door just closes: whatever you wanted to do is gone until next year, and nobody says a word about it.",
         "Nominations are the exception worth budgeting for. Those fines come off your salary cap rather than out of your pocket, which sounds gentler and isn't, because cap is the thing you actually need in August.",
