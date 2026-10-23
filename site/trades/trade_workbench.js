@@ -1492,20 +1492,10 @@
       );
     }
     if (mflUserId) out.MFL_USER_ID = mflUserId;
-
-    var apiKey = "";
-    try {
-      apiKey = safeStr(
-        (params ? params.get("APIKEY") : "") ||
-        (params ? params.get("apikey") : "") ||
-        window.APIKEY ||
-        window.apiKey ||
-        ""
-      );
-    } catch (e) {
-      apiKey = safeStr(window.APIKEY || window.apiKey || "");
-    }
-    if (apiKey) out.APIKEY = apiKey;
+    // Never forward an APIKEY from the page (query string or window.APIKEY) into worker requests:
+    // the MFL page's own key is not the worker's admin key, an owner is identified by MFL_USER_ID,
+    // and a key in a URL ends up in logs, history and error text. (MFL_USER_ID must stay in the
+    // query: the worker reads it only there.)
     return out;
   }
 
