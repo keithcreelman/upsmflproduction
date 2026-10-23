@@ -38545,7 +38545,7 @@ const mflToSleeper = {};
       // not a 403: both inbox clients read any 401/403 as "signed out", and with MFL
       // lockout off an owner can legitimately have another team selected. A proven
       // commissioner keeps today's "acting as" view of the named team.
-      //   ownTeam -- the proven owner is reading their own franchise: only then may the
+      //   ownTeam -- the proven owner named their own franchise: only then may the
       //              reminder cleanup run and the 5-minute stored-offer fallback fire.
       const tradeReadDeny = (r) => {
         const signedOut = r.code === "unauthenticated";
@@ -38578,6 +38578,10 @@ const mflToSleeper = {};
         // declaredFid "": an owner naming another team is SCOPED below, not refused.
         const auth = await tradeCaller(null, "", { allowAdminKey: false });
         if (!auth.ok) return { deny: tradeReadDeny(auth) };
+        // No franchise named (e.g. the rookie draft hub poll): exactly today's
+        // answer -- the caller's own MFL list unfiltered, no incoming/outgoing
+        // split, no reminder cleanup, no stored-offer fallback.
+        if (!requested) return { franchiseId: "", ownTeam: false, scopedToProven: false };
         const sessionFid = padFranchiseId(auth.caller.sessionFid);
         const commishActing = !!(auth.caller.isCommish && requested && requested !== sessionFid);
         const franchiseId = commishActing ? requested : sessionFid;

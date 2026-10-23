@@ -592,6 +592,42 @@ test("READS: /api/trades/proposals/<id> naming another team is scoped the same w
   t.equal(r.json.proposal.from_franchise_id, "0001");
 });
 
+// A read that names NO franchise (the rookie draft hub's poll) answers exactly as it did before the identity
+// gate: the caller's own MFL list, unfiltered, with no incoming/outgoing split, no reminder cleanup and no
+// stored-offer fallback. The response keys below are the ones the pre-gate worker returned (main 7b243a64).
+const NO_FID_KEYS = ["counts", "franchise_id", "generated_at", "incoming", "league_id", "offers", "ok", "outgoing", "pending_lookup", "proposals", "season", "server", "source"];
+test("READS: naming NO franchise keeps today's answer — unfiltered own list, no split, no cleanup, no stored fallback, no D1 write", async () => {
+  const { env, mfl } = readsWorld();
+  tid(mfl, "0001", "0002"); tid(mfl, "0003", "0001");
+  seedDm(env, "9005", "0002", "0001");                                  // the caller's own reminder, absent from the live list
+  const docReads = [];
+  const undo = serveStoredOffers([storedOffer("s-a1", "0001", "0003", minsAgo(1))]);
+  const served = globalThis.fetch;
+  globalThis.fetch = async (u, i) => { if (/github\.io|githubusercontent|api\.github\.com/.test(String(u))) docReads.push(String(u)); return served(u, i); };
+  const changes = () => env.UPS_MFL_DB.raw.prepare("SELECT total_changes() AS n").get().n;
+  const before = { rows: dmRowsJson(env), changes: changes() };
+  try {
+    for (const p of ["/trade-offers", "/api/trades/proposals"]) {
+      const r = await callWorker(env, "GET", `${p}?${Q}&MFL_USER_ID=tok-B`);
+      t.equal(r.status, 200, p);
+      t.deepEqual(Object.keys(r.json).sort(), NO_FID_KEYS, p);
+      t.equal(r.json.franchise_id, "", p);
+      t.deepEqual(r.json.incoming, [], p); t.deepEqual(r.json.outgoing, [], p);
+      t.deepEqual(fidsOf(r.json.proposals), ["0001>0002", "0003>0001"], p);
+      t.deepEqual(fidsOf(r.json.offers), ["0001>0002", "0003>0001"], p);
+      t.equal([...r.json.proposals, ...r.json.offers].some((o) => o.source === "stored_only" || o.proposal_id === "s-a1"), false, `${p}: no stored-offer fallback rows`);
+      t.equal(r.json.pending_lookup.stored_only_outgoing + r.json.pending_lookup.stored_only_incoming, 0, p);
+    }
+    const one = await callWorker(env, "GET", `/api/trades/proposals/${mfl.st.pending[1].trade_id}?${Q}&MFL_USER_ID=tok-B`);
+    t.equal(one.status, 200); t.equal(one.json.franchise_id, ""); t.equal(one.json.scoped_to_proven, undefined);
+  } finally { globalThis.fetch = served; undo(); }
+  t.equal(dmRowsJson(env), before.rows); t.equal(changes(), before.changes, "no D1 write");
+  t.deepEqual(dmState(env, "9005"), { state: "active", resolved_reason: null });
+  // The offers doc is still read once per request, as before the gate: pending rows are enriched from it
+  // (normalizePendingProposal's stored match). That read predates this change and is not the fallback.
+  t.equal(docReads.length, 3, `offers-doc reads: ${docReads.length}`);
+});
+
 test("READS: signed out stays 401 'sign in' on every read spelling, and the admin key does not open them", async () => {
   const { env, mfl } = readsWorld();
   for (const p of ["/trade-offers", "/api/trades/proposals", "/api/trades/proposals/2001"]) {
