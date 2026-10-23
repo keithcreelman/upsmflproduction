@@ -1492,20 +1492,10 @@
       );
     }
     if (mflUserId) out.MFL_USER_ID = mflUserId;
-
-    var apiKey = "";
-    try {
-      apiKey = safeStr(
-        (params ? params.get("APIKEY") : "") ||
-        (params ? params.get("apikey") : "") ||
-        window.APIKEY ||
-        window.apiKey ||
-        ""
-      );
-    } catch (e) {
-      apiKey = safeStr(window.APIKEY || window.apiKey || "");
-    }
-    if (apiKey) out.APIKEY = apiKey;
+    // Never forward an APIKEY from the page (query string or window.APIKEY) into worker requests:
+    // the MFL page's own key is not the worker's admin key, an owner is identified by MFL_USER_ID,
+    // and a key in a URL ends up in logs, history and error text. (MFL_USER_ID must stay in the
+    // query: the worker reads it only there.)
     return out;
   }
 
@@ -1564,7 +1554,9 @@
 
   async function fetchJson(url) {
     var res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status + " for " + url);
+    // Status only: the request URL carries the owner's MFL_USER_ID (and any APIKEY), and this
+    // message is shown on the page by showError(), so it must never include the URL.
+    if (!res.ok) { var httpErr = new Error("HTTP " + res.status); httpErr.status = res.status; throw httpErr; }
     return res.json();
   }
 
@@ -3566,35 +3558,10 @@
           return;
         }
       }
-      var reviewPayload = null;
-      if (normalizedAction === "ACCEPT") {
-        reviewPayload = buildTradePayload();
-        if (reviewPayload && typeof reviewPayload === "object") {
-          var reviewExtReqs = Array.isArray(reviewPayload.extension_requests) ? reviewPayload.extension_requests : [];
-          var actionExtReqs = actionPayload && Array.isArray(actionPayload.extension_requests)
-            ? actionPayload.extension_requests
-            : [];
-          if (reviewExtReqs.length && !actionExtReqs.length) {
-            if (!actionPayload || typeof actionPayload !== "object") {
-              actionPayload = {};
-            } else {
-              actionPayload = clone(actionPayload);
-            }
-            actionPayload.extension_requests = clone(reviewExtReqs);
-          }
-          if (actionPayload && typeof actionPayload === "object") {
-            if (!safeStr(actionPayload.comment) && safeStr(reviewPayload.comment)) {
-              actionPayload.comment = safeStr(reviewPayload.comment);
-            }
-            if (!safeStr(actionPayload.comments) && safeStr(reviewPayload.comments)) {
-              actionPayload.comments = safeStr(reviewPayload.comments);
-            }
-            if (!safeStr(actionPayload.raw_comment) && safeStr(reviewPayload.raw_comment)) {
-              actionPayload.raw_comment = safeStr(reviewPayload.raw_comment);
-            }
-          }
-        }
-      }
+      // An accept carries ONLY the offer's own terms (its payload, extension requests and comment as
+      // MFL holds them). The builder's current draft is never merged in: an unrelated draft extension
+      // would otherwise ride along and the worker refuses the whole accept as a mismatch
+      // (worker/src/trade_accept_integrity.js compareClaims), so the owner could not accept at all.
       var offerRawCommentText = safeStr(
         offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes
       );
@@ -3604,9 +3571,7 @@
       }
       var explicitOfferExtensionRequests = [];
       if (normalizedAction === "ACCEPT") {
-        if (reviewPayload && Array.isArray(reviewPayload.extension_requests) && reviewPayload.extension_requests.length) {
-          explicitOfferExtensionRequests = clone(reviewPayload.extension_requests);
-        } else if (actionPayload && Array.isArray(actionPayload.extension_requests) && actionPayload.extension_requests.length) {
+        if (actionPayload && Array.isArray(actionPayload.extension_requests) && actionPayload.extension_requests.length) {
           explicitOfferExtensionRequests = clone(actionPayload.extension_requests);
         } else if (offerMeta && Array.isArray(offerMeta.ext) && offerMeta.ext.length) {
           explicitOfferExtensionRequests = clone(offerMeta.ext);
@@ -3641,7 +3606,6 @@
       if (normalizedAction === "ACCEPT") {
         try {
           console.log("[TWB][accept][request]", {
-            url: actionUrl,
             league_id: body.league_id,
             season: body.season,
             trade_id: body.trade_id,
@@ -3703,27 +3667,20 @@
         setSubmitStatus(okText, acceptTone);
         showFeedbackModal(acceptTitle, okText, acceptTone);
         setAcceptDebug(res && res.accept_debug ? res.accept_debug : null);
-        if (res && res.accept_debug) {
-          try {
-            console.log("[TWB][accept][debug]", res.accept_debug);
-          } catch (e0) {
-            // noop
-          }
-        }
         try {
           var afterRefreshRes = await triggerAfterTradeRefresh({
             trade_id: safeStr(res && res.trade_id)
           });
           if (afterRefreshRes && afterRefreshRes.ok === false) {
-            console.warn("[TWB] After-trade refresh hook returned non-ok payload:", afterRefreshRes);
+            console.warn("[TWB] After-trade refresh hook returned a non-ok answer.");
           }
         } catch (afterRefreshErr) {
-          console.warn("[TWB] After-trade refresh hook failed:", afterRefreshErr);
+          logTradeRequestFailure("[TWB] After-trade refresh hook failed:", afterRefreshErr);
         }
         try {
           await refreshWorkbenchDataAfterTrade();
         } catch (refreshErr) {
-          console.error("[TWB] Post-accept roster refresh failed:", refreshErr);
+          logTradeRequestFailure("[TWB] Post-accept roster refresh failed:", refreshErr);
           setSubmitStatus(okText + " Roster refresh failed; reload page.", "warn");
         }
       } else {
@@ -3744,25 +3701,8 @@
       if (normalizedAction === "ACCEPT") {
         var debugFromErr = err && err.data && err.data.accept_debug ? err.data.accept_debug : null;
         setAcceptDebug(debugFromErr);
-        if (debugFromErr) {
-          try {
-            console.log("[TWB][accept][debug][error]", debugFromErr);
-          } catch (e00) {
-            // noop
-          }
-        }
       }
-      try {
-        console.error("[TWB] Offer action failed diagnostics:", {
-          action: normalizedAction,
-          message: err && err.message,
-          status: err && err.status,
-          data: err && err.data,
-          responseText: err && err.responseText
-        });
-      } catch (e) {
-        // noop
-      }
+      logTradeRequestFailure("[TWB] Offer action " + normalizedAction + " failed:", err);
       var errCode = safeStr(err && err.data && err.data.code);
       if (normalizedAction === "ACCEPT" && (errCode === "execution_unconfirmed" || errCode === "execution_in_progress")) {
         // We could not confirm what MFL did — and the accept was NOT sent again. Not "failed", not "accepted".
@@ -4004,6 +3944,17 @@
       if (safeStr(list[i] && list[i].id) === safeStr(offerId)) return list[i];
     }
     return null;
+  }
+
+  // Console diagnostics for a failed trade request: label, HTTP status and the worker's error code
+  // ONLY. Never the request URL (it carries MFL_USER_ID/APIKEY), the trade message, or the
+  // response body (the worker echoes the offer comment and accept_debug back in it).
+  function logTradeRequestFailure(label, err) {
+    try {
+      console.warn(label, "status " + safeStr(err && err.status) + (err && err.data && err.data.code ? " code " + safeStr(err.data.code) : ""));
+    } catch (e) {
+      // noop
+    }
   }
 
   async function fetchJsonRequest(url, options) {
@@ -4405,7 +4356,6 @@
       var extensionLines = buildExtensionSummaryLines(payload);
       var finalMessage = composeTradeMessage(userMessage, extensionLines);
       payload.comment = finalMessage;
-      console.log("[TWB] Final message sent to MFL:", finalMessage);
       var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
       var body = {
         league_id: safeStr(state.data.meta.league_id),
@@ -4455,13 +4405,8 @@
         (res && res.comment) ||
         (res && res.message)
       );
-      console.log("[TWB] Submit response message echo:", echoedMessage);
       if (finalMessage && (!echoedMessage || echoedMessage.indexOf(finalMessage) === -1)) {
-        console.error("[TWB] Comment verification failed. MFL echo did not contain the submitted message.", {
-          sent: finalMessage,
-          echoed: echoedMessage,
-          response: res
-        });
+        console.warn("[TWB] Comment verification failed: MFL's echo did not contain the submitted message.");
       }
       var mflTradeId = safeStr((res.mfl || {}).trade_id);
       resetTrade({
@@ -4499,22 +4444,104 @@
         renderSummary();
         return;
       }
-      try {
-        console.error("[TWB] Submit failed diagnostics:", {
-          message: err && err.message,
-          status: err && err.status,
-          data: err && err.data,
-          responseText: err && err.responseText
-        });
-      } catch (e) {
-        // noop
-      }
+      logTradeRequestFailure("[TWB] Submit failed:", err);
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
       state.submit.canRetry = !!state.submit.lastRequestBody;
     } finally {
       state.submit.busy = false;
       renderSummary();
     }
+  }
+
+  // ── Retry: never send the same offer twice ──
+  // A send whose answer was lost (timeout, dropped connection, 5xx after MFL already took it) may
+  // have reached MFL. Before resending, Retry reloads this team's outgoing offers and looks for
+  // one with the same partner, the same assets each way, and the same cap money in dollars. A
+  // match means the first send landed: nothing is sent again. If the list can't be loaded (or the
+  // offer can't be compared), Retry REFUSES rather than risk a duplicate offer (fail closed).
+  // Token rules mirror the worker's /trade-offers create (worker/src/index.js
+  // playerTokenFromAsset / pickTokenFromAsset / blindBidTokenFromDollars).
+  function retryTokenFromAsset(asset) {
+    if (!asset) return "";
+    if (safeStr(asset.type).toUpperCase() === "PICK") {
+      var candidates = [asset.pick_key, asset.token, asset.pick, safeStr(asset.asset_id).replace(/^pick:/i, ""), asset.description];
+      for (var i = 0; i < candidates.length; i += 1) {
+        var up = safeStr(candidates[i]).toUpperCase();
+        var m = up.match(/\b(DP_[0-9]{2}_[0-9]{2}|FP_[0-9]{4}_[0-9]{4}_[0-9]+)\b/);
+        if (m && m[1]) return m[1];
+      }
+      return "";
+    }
+    var direct = safeStr(asset.player_id).replace(/\D/g, "");
+    if (direct) return direct;
+    var viaAssetId = safeStr(asset.asset_id).match(/player:([0-9]+)/i);
+    if (viaAssetId && viaAssetId[1]) return viaAssetId[1];
+    return safeStr(asset.asset_id).replace(/\D/g, "");
+  }
+
+  // { from, to, give:[tokens], receive:[tokens], giveCapDollars, receiveCapDollars } for a create
+  // body, or null when any asset can't be turned into the token MFL holds.
+  function retryOfferFingerprintFromBody(body) {
+    var payload = body && body.payload;
+    var teams = (payload && payload.teams) || [];
+    var fromFid = pad4(body && body.from_franchise_id);
+    var toFid = pad4(body && body.to_franchise_id);
+    var mine = null, theirs = null;
+    for (var i = 0; i < teams.length; i += 1) {
+      if (pad4(teams[i] && teams[i].franchise_id) === fromFid) mine = teams[i];
+      else if (pad4(teams[i] && teams[i].franchise_id) === toFid) theirs = teams[i];
+    }
+    if (!fromFid || !toFid || !mine || !theirs) return null;
+    function tokensOf(side) {
+      var out = [];
+      var assets = side.selected_assets || [];
+      for (var j = 0; j < assets.length; j += 1) {
+        var tok = retryTokenFromAsset(assets[j]);
+        if (!tok) return null;
+        if (out.indexOf(tok) === -1) out.push(tok);
+      }
+      return out.sort();
+    }
+    var give = tokensOf(mine), receive = tokensOf(theirs);
+    if (!give || !receive) return null;
+    var netK = safeInt(mine.traded_salary_adjustment_k, 0) - safeInt(theirs.traded_salary_adjustment_k, 0);
+    return { from: fromFid, to: toFid, give: give, receive: receive, giveCapDollars: Math.max(0, netK) * 1000, receiveCapDollars: Math.max(0, -netK) * 1000 };
+  }
+
+  function retryOfferSide(csv) {
+    var tokens = [], capDollars = 0;
+    safeStr(csv).split(",").forEach(function (raw) {
+      var up = safeStr(raw).toUpperCase();
+      if (!up) return;
+      if (up.indexOf("BB_") === 0) { var n = Number(up.slice(3)); if (isFinite(n)) capDollars += n; return; }
+      var tok = /^P_\d+$/.test(up) ? up.slice(2) : up;
+      if (tokens.indexOf(tok) === -1) tokens.push(tok);
+    });
+    return { tokens: tokens.sort(), capDollars: Math.round(capDollars) };
+  }
+
+  function retryOfferMatches(offer, fp) {
+    if (!offer || !fp) return false;
+    if (pad4(offer.to_franchise_id) !== fp.to) return false;
+    if (offer.from_franchise_id && pad4(offer.from_franchise_id) !== fp.from) return false;
+    var give = retryOfferSide(offer.will_give_up), receive = retryOfferSide(offer.will_receive);
+    return give.tokens.join(",") === fp.give.join(",") && receive.tokens.join(",") === fp.receive.join(",") &&
+      give.capDollars === Math.round(fp.giveCapDollars) && receive.capDollars === Math.round(fp.receiveCapDollars);
+  }
+
+  // { offer } when the first send already reached MFL, { offer:null } when it provably did not,
+  // { unavailable:true } when that can't be told.
+  async function findLandedOutgoingOffer(body) {
+    var fp = retryOfferFingerprintFromBody(body);
+    if (!fp) return { unavailable: true };
+    if (pad4(getActiveFranchiseId()) !== fp.from) return { unavailable: true };
+    await refreshBannerOffers(true);
+    if (state.offers.errorKind || !state.offers.key) return { unavailable: true };
+    var list = state.offers.offered || [];
+    for (var i = 0; i < list.length; i += 1) {
+      if (retryOfferMatches(list[i], fp)) return { offer: list[i] };
+    }
+    return { offer: null };
   }
 
   async function retryLastSubmitRequest() {
@@ -4526,15 +4553,47 @@
     }
 
     state.submit.busy = true;
-    setSubmitStatus("Retrying submit to MFL…", "");
+    setSubmitStatus("Checking whether your offer already reached MFL…", "");
     renderSummary();
     try {
       var body = state.submit.lastRequestBody;
-      var res = await fetchJsonRequest(state.submit.lastRequestUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
+      var landed = await findLandedOutgoingOffer(body);
+      if (landed.unavailable) {
+        setSubmitStatus("Couldn't check whether your offer already reached MFL, so it was NOT sent again. Check your Offered trades, then try Retry again.", "warn");
+        state.submit.canRetry = true;
+        return;
+      }
+      if (landed.offer) {
+        var landedTradeId = getOfferTradeId(landed.offer);
+        resetTrade({ resetPartnerTeam: true, resetMessage: true, resetExtensions: true, resetSalary: true });
+        state.submit.lastRequestBody = null;
+        state.submit.lastRequestUrl = "";
+        state.submit.canRetry = false;
+        var alreadyMessage = "Already reached MFL" + (landedTradeId ? " (Trade ID " + landedTradeId + ")" : "") + ". It was not sent again.";
+        setSubmitStatus(alreadyMessage, "good");
+        showFeedbackModal("Offer Already Sent", alreadyMessage, "good");
+        initTeamSelectors();
+        rerender();
+        return;
+      }
+      setSubmitStatus("Retrying submit to MFL…", "");
+      renderSummary();
+      // The same create path as Send: loaded-contract block, cap-overage acknowledgment and the
+      // cutover staging fallback all apply to a retry too.
+      var res = await submitTradeCreateWithGates(state.submit.lastRequestUrl, body, safeStr(body.from_franchise_id));
+      if (res && res.staged) {
+        resetTrade({ resetPartnerTeam: true, resetMessage: true, resetExtensions: true, resetSalary: true });
+        state.submit.lastRequestBody = null;
+        state.submit.lastRequestUrl = "";
+        state.submit.canRetry = false;
+        var retryStagedMessage = "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
+        setSubmitStatus(retryStagedMessage, "good");
+        showFeedbackModal("Offer Staged", retryStagedMessage, "good");
+        initTeamSelectors();
+        refresh2WayStagedList();
+        rerender();
+        return;
+      }
       var sentMessage = safeStr(body.comment || body.message);
       var echoedMessage = safeStr(
         (res && res.proposal && res.proposal.comments) ||
@@ -4542,13 +4601,8 @@
         (res && res.comment) ||
         (res && res.message)
       );
-      console.log("[TWB] Retry response message echo:", echoedMessage);
       if (sentMessage && (!echoedMessage || echoedMessage.indexOf(sentMessage) === -1)) {
-        console.error("[TWB] Retry comment verification failed.", {
-          sent: sentMessage,
-          echoed: echoedMessage,
-          response: res
-        });
+        console.warn("[TWB] Retry comment verification failed: MFL's echo did not contain the submitted message.");
       }
       var mflTradeId = safeStr((res.mfl || {}).trade_id);
       resetTrade({
@@ -4583,16 +4637,12 @@
       await refreshBannerOffers(true);
       rerender();
     } catch (err) {
-      try {
-        console.error("[TWB] Retry failed diagnostics:", {
-          message: err && err.message,
-          status: err && err.status,
-          data: err && err.data,
-          responseText: err && err.responseText
-        });
-      } catch (e) {
-        // noop
+      if (err && err.__declinedStaging) {
+        setSubmitStatus("Not sent.", "");
+        renderSummary();
+        return;
       }
+      logTradeRequestFailure("[TWB] Retry failed:", err);
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
       state.submit.canRetry = !!state.submit.lastRequestBody;
     } finally {
@@ -8097,9 +8147,13 @@
     // informational here (3-way creation itself is unchanged; it never took a create-time
     // loaded-contract selection and still doesn't -- the real gate stays exactly where it
     // already was, post-creation via the accept-review/detail flows).
-    var pre = await tw2sRunPreSendPreview(tw3.aFid, previewMovements, tw3BuildExtensionRequests());
-    if (!pre.proceed) return;
+    // Lock the button BEFORE the awaited preview: a second click during the check used to start a
+    // second send (two POSTs = two 3-way trades). "Go back" unlocks it; nothing was sent.
+    var sending = tw3;
     tw3.submitting = true; tw3SetStatus("Sending…", "info"); render3WayPanel();
+    var pre = await tw2sRunPreSendPreview(tw3.aFid, previewMovements, tw3BuildExtensionRequests());
+    if (tw3 !== sending) return;   // the builder was closed during the check: send nothing
+    if (!pre.proceed) { tw3.submitting = false; tw3SetStatus("", ""); render3WayPanel(); return; }
     var bodyObj = {
       league_id: ctx.leagueId, season: ctx.season,
       initiator: { fid: pad4(tw3.aFid), name: tw3NameOf(tw3.aFid) },
@@ -8897,7 +8951,7 @@
       postParentHeight(true);
     } catch (err) {
       showError(err);
-      console.error("Trade War Room load failed", err);
+      console.error("Trade War Room load failed:", safeStr(err && err.status ? "HTTP " + err.status : (err && err.code) || "error"));
       postParentHeight(true);
     }
   }
