@@ -7,6 +7,7 @@
 // authority (admin key or a proven commissioner session).
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, callWorker, workerFetch, quiet, COMMISH_COOKIE, ADMIN_KEY } from "./fixtures/worker_harness.mjs";
+import { applyMigrations } from "./fixtures/d1_sqlite.mjs";
 
 const restoreConsole = quiet();
 
@@ -476,6 +477,131 @@ test("READS return only the owner's own pending trades", async () => {
   const r = await callWorker(env, "GET", `/api/trades/proposals?${Q}&franchise_id=0001&MFL_USER_ID=tok-B`);
   t.equal(r.status, 200);
   t.equal((r.json.outgoing || []).length + (r.json.incoming || []).length, 1);
+});
+
+// ═════════════════════════════ READS are scoped to the PROVEN franchise ═════════════════════════════
+// The franchise named on a read is a request, not identity. An owner naming another team gets a 200 with
+// THEIR OWN lists (`scoped_to_proven: true`) — not a 403, which both inbox clients would read as "signed out".
+// Only an owner reading their own proven franchise runs the reminder cleanup and the 5-minute stored fallback.
+function readsWorld(over) {
+  const w = fresh(over);
+  applyMigrations(w.env.UPS_MFL_DB, ["0076_trade_offer_dm.sql", "0102_trade_sentinel.sql"]);
+  return w;
+}
+const seedDm = (env, trade_id, from, to) => env.UPS_MFL_DB.raw.prepare(
+  `INSERT INTO trade_offer_dm (trade_id, league_id, season, from_franchise_id, to_franchise_id, created_at_utc, state)
+   VALUES (?, '74598', '2026', ?, ?, '2026-10-20T10:00:00Z', 'active')`).run(trade_id, from, to);
+const dmState = (env, trade_id) => ({ ...env.UPS_MFL_DB.raw.prepare("SELECT state, resolved_reason FROM trade_offer_dm WHERE trade_id=?").get(trade_id) });
+const dmRowsJson = (env) => JSON.stringify(env.UPS_MFL_DB.raw.prepare("SELECT * FROM trade_offer_dm ORDER BY trade_id").all());
+// The stored offers doc (site/trades/trade_offers_<L>_<YEAR>.json) is served from GitHub Pages; the harness gives it these rows.
+function serveStoredOffers(offers) {
+  const real = globalThis.fetch;
+  globalThis.fetch = async (u, i) => (/github\.io\/upsmflproduction\/trades\/trade_offers_74598_2026\.json/.test(String(u))
+    ? { ok: true, status: 200, headers: new Headers({ "content-type": "application/json" }), json: async () => ({ offers }), text: async () => JSON.stringify({ offers }) }
+    : real(u, i));
+  return () => { globalThis.fetch = real; };
+}
+const minsAgo = (m) => new Date(Date.now() - m * 60 * 1000).toISOString();
+const storedOffer = (id, from, to, createdAt) => ({ id, status: "PENDING", from_franchise_id: from, to_franchise_id: to, created_at: createdAt, message: "", will_give_up: "14056", will_receive: "13100" });
+const fidsOf = (rows) => (rows || []).map((o) => `${o.from_franchise_id}>${o.to_franchise_id}`).sort();
+
+test("READS: an owner naming ANOTHER team gets 200 with their OWN lists (scoped_to_proven), and that team's reminders are untouched", async () => {
+  const { env, mfl } = readsWorld();
+  tid(mfl, "0001", "0002"); tid(mfl, "0001", "0003"); tid(mfl, "0002", "0003");
+  seedDm(env, "9001", "0003", "0002");                                  // the named team's active reminder, absent from A's MFL list
+  for (const p of ["/trade-offers", "/api/trades/proposals"]) {
+    const r = await callWorker(env, "GET", `${p}?${Q}&franchise_id=0002&FRANCHISE_ID=0002&MFL_USER_ID=tok-B`);
+    t.equal(r.status, 200, p); t.equal(r.json.ok, true, p);
+    t.equal(r.json.franchise_id, "0001", p); t.equal(r.json.scoped_to_proven, true, p);
+    t.ok(Array.isArray(r.json.incoming) && Array.isArray(r.json.outgoing) && Array.isArray(r.json.offers) && Array.isArray(r.json.proposals), p);
+    t.deepEqual(fidsOf(r.json.outgoing), ["0001>0002", "0001>0003"], p);
+    t.deepEqual(r.json.incoming, [], p);
+    t.ok([...r.json.offers, ...r.json.proposals].every((o) => o.from_franchise_id === "0001" || o.to_franchise_id === "0001"), p);
+  }
+  t.deepEqual(dmState(env, "9001"), { state: "active", resolved_reason: null });
+  noCommishCookie(mfl);
+});
+
+test("READS: an owner reading their OWN team is not marked scoped, and their absent reminder is resolved (behavior kept)", async () => {
+  const { env, mfl } = readsWorld();
+  const live = tid(mfl, "0002", "0001");
+  seedDm(env, live, "0002", "0001");                                    // still live → stays active
+  seedDm(env, "9002", "0003", "0001");                                  // gone from A's live list → resolved
+  const r = await callWorker(env, "GET", `/trade-offers?${Q}&franchise_id=0001&MFL_USER_ID=tok-B`);
+  t.equal(r.status, 200); t.equal(r.json.franchise_id, "0001"); t.equal(r.json.scoped_to_proven, undefined);
+  t.equal(r.json.incoming.length, 1);
+  t.deepEqual(dmState(env, live), { state: "active", resolved_reason: null });
+  t.deepEqual(dmState(env, "9002"), { state: "resolved", resolved_reason: "not_pending_live" });
+});
+
+test("READS: the 5-minute stored fallback only ever shows the proven owner's own offers", async () => {
+  const { env } = readsWorld();                                         // A's (0001) MFL pending list is empty
+  const undo = serveStoredOffers([
+    storedOffer("s-bc", "0002", "0003", minsAgo(1)),                    // another team's fresh offer
+    storedOffer("s-a1", "0001", "0002", minsAgo(1)),                    // A's own, 1 minute old
+    storedOffer("s-a6", "0001", "0003", minsAgo(6)),                    // A's own, 6 minutes old (outside the window)
+  ]);
+  try {
+    const named = await callWorker(env, "GET", `/trade-offers?${Q}&franchise_id=0002&MFL_USER_ID=tok-B`);
+    t.equal(named.status, 200); t.equal(named.json.scoped_to_proven, true);
+    const all = [...named.json.incoming, ...named.json.outgoing, ...named.json.offers, ...named.json.proposals];
+    t.equal(all.some((o) => o.proposal_id === "s-bc"), false, "another team's stored offer is never returned");
+    t.deepEqual(named.json.outgoing.map((o) => o.proposal_id), ["s-a1"], "A's own 1-minute-old offer is shown, the 6-minute one is not");
+    const own = await callWorker(env, "GET", `/api/trades/proposals?${Q}&franchise_id=0001&MFL_USER_ID=tok-B`);
+    t.deepEqual(own.json.outgoing.map((o) => o.proposal_id), ["s-a1"]);
+    t.deepEqual(own.json.incoming, []);
+  } finally { undo(); }
+});
+
+test("READS: a commissioner acting as a team keeps that view (200), but runs no reminder cleanup and no stored fallback for it", async () => {
+  const { env, mfl } = readsWorld();
+  seedDm(env, "9003", "0002", "0001");
+  const undo = serveStoredOffers([storedOffer("s-01", "0001", "0002", minsAgo(1))]);
+  try {
+    const r = await callWorker(env, "GET", `/trade-offers?${Q}&franchise_id=0001&MFL_USER_ID=tok-commish`);
+    t.equal(r.status, 200); t.equal(r.json.franchise_id, "0001"); t.equal(r.json.scoped_to_proven, undefined);
+    t.equal([...r.json.incoming, ...r.json.outgoing].some((o) => o.proposal_id === "s-01"), false);
+  } finally { undo(); }
+  t.deepEqual(dmState(env, "9003"), { state: "active", resolved_reason: null });
+  t.equal(mfl.st.exports.filter((e) => e.type === "pendingTrades" && e.cookie === COMMISH_COOKIE).length, 0);
+});
+
+test("READS: an MFL identity outage is 503 identity_unavailable — no pendingTrades call, no D1 write", async () => {
+  const { env, mfl } = readsWorld({ mfl: { myleaguesDown: true } });
+  seedDm(env, "9004", "0002", "0001");
+  const before = dmRowsJson(env);
+  for (const p of ["/trade-offers", "/api/trades/proposals", "/api/trades/proposals/2001"]) {
+    const r = await callWorker(env, "GET", `${p}?${Q}&franchise_id=0001&MFL_USER_ID=tok-B`);
+    t.equal(r.status, 503, p); t.equal(r.json.ok, false, p); t.equal(r.json.code, "identity_unavailable", p);
+    t.equal(r.json.pending_lookup && r.json.pending_lookup.missing_owner_session, false, p);
+  }
+  t.equal(mfl.st.exports.filter((e) => e.type === "pendingTrades").length, 0);
+  t.equal(dmRowsJson(env), before);
+});
+
+test("READS: /api/trades/proposals/<id> naming another team is scoped the same way", async () => {
+  const { env, mfl } = readsWorld();
+  const undo = serveStoredOffers([storedOffer("s-bc", "0002", "0003", minsAgo(1))]);
+  try {
+    const other = await callWorker(env, "GET", `/api/trades/proposals/s-bc?${Q}&franchise_id=0002&MFL_USER_ID=tok-B`);
+    t.equal(other.status, 404, "another team's stored offer is not returned"); t.equal(other.json.proposal, undefined);
+  } finally { undo(); }
+  const mine = tid(mfl, "0001", "0003");
+  const r = await callWorker(env, "GET", `/api/trades/proposals/${mine}?${Q}&franchise_id=0002&MFL_USER_ID=tok-B`);
+  t.equal(r.status, 200); t.equal(r.json.franchise_id, "0001"); t.equal(r.json.scoped_to_proven, true);
+  t.equal(r.json.proposal.from_franchise_id, "0001");
+});
+
+test("READS: signed out stays 401 'sign in' on every read spelling, and the admin key does not open them", async () => {
+  const { env, mfl } = readsWorld();
+  for (const p of ["/trade-offers", "/api/trades/proposals", "/api/trades/proposals/2001"]) {
+    const r = await callWorker(env, "GET", `${p}?${Q}&franchise_id=0001`);
+    t.equal(r.status, 401, p); t.equal(r.json.ok, false, p);
+    t.equal(r.json.pending_lookup.error, "missing_owner_session_mfl_user_id", p);
+    const admin = await callWorker(env, "GET", `${p}?${Q}&franchise_id=0001&APIKEY=${ADMIN_KEY}`);
+    t.equal(admin.status, 401, `${p} admin key`);
+  }
+  t.equal(mfl.st.exports.filter((e) => e.type === "pendingTrades").length, 0);
 });
 
 // ═════════════════════════════ the owner-triggered after-trade refresh still reaches its admin-only steps ═════════════════════════════
