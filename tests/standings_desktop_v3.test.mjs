@@ -180,7 +180,8 @@ test("Picture: projected chips, the bye line after seed 2 and the playoff line a
   t.ok(p.html.indexOf("2026 playoff bracket") < p.html.indexOf("Seeds, races and tiebreaks"), "the bracket comes first");
   t.match(p.html, /<span class="pp-label today">If the season ended today<\/span>/);
   t.match(p.html, /Not a prediction: no game is decided\./);
-  t.match(p.html, /data-tape="0005\|0002"[^>]*>Tale of the Tape<\/button>/, "3 v 6 opens the Tale of the Tape");
+  t.match(p.html, /data-tape="0005\|0004"[^>]*data-tape-seeds="3\|6"[^>]*>Tale of the Tape<\/button>/, "3 v 6 opens the Tale of the Tape");
+  t.match(p.html, /data-tape="0008\|0002"[^>]*data-tape-seeds="4\|5"/, "4 v 5 too");
   t.match(p.html, /v the lowest seed left after Round 1/);
   t.match(p.html, /<details class="pp-more"><summary>Seeds, races and tiebreaks<\/summary>/);
   t.ok(!/See the projected bracket/.test(p.html), "no teaser link: the bracket is on the page");
