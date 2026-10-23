@@ -18,6 +18,7 @@ import { settle } from "./fixtures/fake_dom.mjs";
 const restore = quiet();
 const require = createRequire(import.meta.url);
 const SHARED_VIEW = require("../site/shared/trade_3way_view.js");
+const SHARED_RULES = require("../site/shared/trade_rules.js");   // the page loads it before trade_workbench.js (window.UPS_TRADE_RULES)
 const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const APP_SRC = read("site/m/app.js"), TRADE_SRC = read("site/m/views/trade.js"), DESK_SRC = read("site/trades/trade_workbench.js");
 const WORKER = "https://upsmflproduction.keith-creelman.workers.dev";
@@ -195,7 +196,7 @@ async function bootDesktop(w, { token, fid, override }) {
   const els = {};
   const getEl = (id) => (els[id] = els[id] || simpleEl());
   const doc = { readyState: "complete", cookie: "", getElementById: getEl, querySelector: () => simpleEl(), querySelectorAll: () => [], createElement: () => simpleEl(), addEventListener() {}, body: simpleEl(), documentElement: simpleEl(), head: simpleEl() };
-  const win = { location: { href: loc.href, search: loc.search, origin: loc.origin, pathname: loc.pathname, hash: "" }, addEventListener() {}, removeEventListener() {}, parent: { postMessage() {} }, postMessage() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {}, removeItem() {} }, sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} }, requestAnimationFrame: (f) => setTimeout(f, 0), setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, history: { replaceState() {} }, innerWidth: 1280, scrollTo() {}, UPS_TRADE_3WAY: SHARED_VIEW };
+  const win = { location: { href: loc.href, search: loc.search, origin: loc.origin, pathname: loc.pathname, hash: "" }, addEventListener() {}, removeEventListener() {}, parent: { postMessage() {} }, postMessage() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {}, removeItem() {} }, sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} }, requestAnimationFrame: (f) => setTimeout(f, 0), setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, history: { replaceState() {} }, innerWidth: 1280, scrollTo() {}, UPS_TRADE_3WAY: SHARED_VIEW, UPS_TRADE_RULES: SHARED_RULES };
   const sb = { window: win, document: doc, fetch: fetchImpl, console: { log() {}, warn() {}, error() {}, info() {} }, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, URL, URLSearchParams, Promise, JSON, Math, Date, Object, Array, String, Number, Boolean, RegExp, Error, encodeURIComponent, decodeURIComponent, isFinite, isNaN, parseInt, parseFloat, Map, Set, Symbol, navigator: { clipboard: {} }, requestAnimationFrame: (f) => setTimeout(f, 0), ResizeObserver: class { observe() {} disconnect() {} }, MutationObserver: class { observe() {} disconnect() {} }, Intl, TextEncoder, atob, btoa, structuredClone, localStorage: win.localStorage, sessionStorage: win.sessionStorage, location: win.location, UPS_TRADE_3WAY: SHARED_VIEW };
   win.fetch = fetchImpl; sb.self = win; vm.createContext(sb);
   vm.runInContext(DESK_SRC, sb, { filename: "site/trades/trade_workbench.js" });

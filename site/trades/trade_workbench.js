@@ -4792,7 +4792,7 @@
     if (!assetHasActiveCurrentContract(asset)) return 0;
     var salary = safeInt(asset.salary, 0);
     if (salary <= 0) return 0;
-    if (assetCountsAsCurrentIr(asset)) return Math.round(salary * 0.5);
+    if (assetCountsAsCurrentIr(asset)) return window.UPS_TRADE_RULES.irCapHit(salary);
     return salary;
   }
 
@@ -4854,7 +4854,7 @@
 
   function getTradeSalaryMaxK(teamId) {
     var totals = getTeamTotals(teamId);
-    return Math.floor(safeInt(totals.selectedNonTaxiSalary, 0) / 2000);
+    return window.UPS_TRADE_RULES.capMoneyMaxK(safeInt(totals.selectedNonTaxiSalary, 0));
   }
 
   function getNetTradeSalaryK(teamId) {
@@ -5586,8 +5586,8 @@
 
     var leftNetChange = -leftNetSalaryAdjustment;
     var rightNetChange = -rightNetSalaryAdjustment;
-    var leftOverCap = leftAvailableAfter != null && leftAvailableAfter < 0 ? Math.abs(leftAvailableAfter) : 0;
-    var rightOverCap = rightAvailableAfter != null && rightAvailableAfter < 0 ? Math.abs(rightAvailableAfter) : 0;
+    var leftOverCap = leftAvailableAfter != null && window.UPS_TRADE_RULES.isOverCap(-leftAvailableAfter, 0) ? Math.abs(leftAvailableAfter) : 0;   // −room = $ past the cap
+    var rightOverCap = rightAvailableAfter != null && window.UPS_TRADE_RULES.isOverCap(-rightAvailableAfter, 0) ? Math.abs(rightAvailableAfter) : 0;
 
     return {
       left: {
@@ -7624,7 +7624,7 @@
       var a = byId[aid];
       if (a && a.type === "PLAYER" && !a.taxi) sum += safeInt(a.salary, 0);
     });
-    return Math.floor(sum / 2000);
+    return window.UPS_TRADE_RULES.capMoneyMaxK(sum);
   }
   // The §A6-clamped cap the giver actually sends to dest (stored value capped by
   // the live max — re-clamps automatically when the routed players change).
