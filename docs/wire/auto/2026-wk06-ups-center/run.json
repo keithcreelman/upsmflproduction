@@ -1,0 +1,202 @@
+{
+ "id": "2026-wk06-ups-center",
+ "season": 2026,
+ "week": 6,
+ "builtAtUtc": "2026-10-21T14:05:45Z",
+ "code": "9e3960fc72332922ffff0178adc6f3ea421516f0",
+ "timing": {
+  "finalAt": 1792473300,
+  "deadline": 1792685700
+ },
+ "forecast": {
+  "simFile": "season_sim_2026_live_wk06.json",
+  "previewFile": "week_preview_2026_wk07.json",
+  "sim": {
+   "throughWeek": 6,
+   "runs": 10000,
+   "seed": 20260911,
+   "generatedAtUtc": "2026-10-21T14:06:54Z",
+   "teams": {
+    "0009": {
+     "po": 0.9981,
+     "bye": 0.9357,
+     "div": 0.9779,
+     "title": 0.3249,
+     "division": "03"
+    },
+    "0004": {
+     "po": 0.9739,
+     "bye": 0.3082,
+     "div": 0.3763,
+     "title": 0.2751,
+     "division": "00"
+    },
+    "0005": {
+     "po": 0.97,
+     "bye": 0.4852,
+     "div": 0.6227,
+     "title": 0.1644,
+     "division": "00"
+    },
+    "0010": {
+     "po": 0.8807,
+     "bye": 0.2081,
+     "div": 0.6666,
+     "title": 0.1196,
+     "division": "01"
+    },
+    "0002": {
+     "po": 0.569,
+     "bye": 0.034,
+     "div": 0.3266,
+     "title": 0.0303,
+     "division": "01"
+    },
+    "0012": {
+     "po": 0.4408,
+     "bye": 0.0106,
+     "div": 0.0159,
+     "title": 0.0291,
+     "division": "03"
+    },
+    "0008": {
+     "po": 0.8083,
+     "bye": 0.0152,
+     "div": 0.7968,
+     "title": 0.0402,
+     "division": "02"
+    },
+    "0011": {
+     "po": 0.0961,
+     "bye": 0.0023,
+     "div": 0.0062,
+     "title": 0.007,
+     "division": "03"
+    },
+    "0001": {
+     "po": 0.2116,
+     "bye": 0.0005,
+     "div": 0.1915,
+     "title": 0.0069,
+     "division": "02"
+    },
+    "0006": {
+     "po": 0.0207,
+     "bye": 0.0002,
+     "div": 0.001,
+     "title": 0.0006,
+     "division": "00"
+    },
+    "0003": {
+     "po": 0.0186,
+     "bye": 0.0,
+     "div": 0.0068,
+     "title": 0.0015,
+     "division": "01"
+    },
+    "0007": {
+     "po": 0.0122,
+     "bye": 0.0,
+     "div": 0.0117,
+     "title": 0.0004,
+     "division": "02"
+    }
+   }
+  },
+  "preview": {
+   "week": 7,
+   "throughWeek": 6,
+   "generatedAtUtc": "2026-10-21T14:02:43Z",
+   "runs": 10000,
+   "seed": 20260911,
+   "inputsAtUtc": "2026-10-21T14:02:43Z",
+   "scenarioTotals": {
+    "0001": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 2116,
+     "division": 1915,
+     "bye": 5
+    },
+    "0002": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 5690,
+     "division": 3266,
+     "bye": 340
+    },
+    "0003": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 186,
+     "division": 68,
+     "bye": 0
+    },
+    "0004": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 9739,
+     "division": 3763,
+     "bye": 3082
+    },
+    "0005": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 9700,
+     "division": 6227,
+     "bye": 4852
+    },
+    "0006": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 207,
+     "division": 10,
+     "bye": 2
+    },
+    "0007": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 122,
+     "division": 117,
+     "bye": 0
+    },
+    "0008": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 8083,
+     "division": 7968,
+     "bye": 152
+    },
+    "0009": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 9981,
+     "division": 9779,
+     "bye": 9357
+    },
+    "0010": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 8807,
+     "division": 6666,
+     "bye": 2081
+    },
+    "0011": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 961,
+     "division": 62,
+     "bye": 23
+    },
+    "0012": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 4408,
+     "division": 159,
+     "bye": 106
+    }
+   }
+  }
+ },
+ "why": "Recorded inputs for ups_center_check.py (the post-build check reads these, never live feeds)."
+}

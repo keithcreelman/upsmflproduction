@@ -34,7 +34,7 @@ function headers(html) {
 
 test("control: a readable season renders the Regular Season table; Full Season has no Playoffs column", async () => {
   const html = await page(makeEnv({ 1: 0, 2: 0, 15: 1 }), "view=overall&year=2026&scope=regular");
-  t.ok(/<table>/.test(html), "the scoped table renders");
+  t.ok(/<table class="lg-table">/.test(html), "the scoped table renders");
   t.ok(!/can't be computed/.test(html));
   const full = await page(makeEnv({ 1: 0, 2: 0, 15: 1 }), "view=overall&year=2026");
   t.ok(headers(full).includes("H2H") && !headers(full).includes("Playoffs"), "the H2H record, no Playoffs column: " + headers(full).join(", "));
@@ -45,10 +45,10 @@ test("weekly query FAILS: the scoped views refuse (no 0-0 table); Full Season st
     for (const scope of ["regular", "playoffs", "custom"]) {
       const html = await page(failing(makeEnv({ 1: 0, 2: 0, 15: 1 }), needle), "view=overall&year=2026&scope=" + scope);
       t.match(html, /standings for 2026 can't be computed: the weekly results couldn't be read\. Full Season is unaffected\./, label + " / " + scope);
-      t.ok(!/<table>/.test(html), label + " / " + scope + ": no table built from nothing");
+      t.ok(!/<table class="lg-table">/.test(html), label + " / " + scope + ": no table built from nothing");
     }
     const full = await page(failing(makeEnv({ 1: 0, 2: 0, 15: 1 }), needle), "view=overall&year=2026");
-    t.ok(/<table>/.test(full), label + ": Full Season renders from the standings rows");
+    t.ok(/<table class="lg-table">/.test(full), label + ": Full Season renders from the standings rows");
     t.ok(!headers(full).includes("Playoffs") && !/Playoff records show/.test(full), label + ": no playoff record anywhere, so none reads as a confident 0-0");
     const div = await page(failing(makeEnv({ 1: 0, 2: 0, 15: 1 }), needle), "view=divisions&year=2026&scope=regular");
     t.match(div, /Regular Season division standings for 2026 can't be computed/, label + ": divisions refuse too");
@@ -60,12 +60,12 @@ test("UNFLAGGED weeks (po null from the worker): scoped views refuse; playoff re
   const html = await page(env, "view=overall&year=2026&scope=regular");
   t.match(html, /can't be computed: some weekly results aren't marked regular season or playoff/);
   const full = await page(makeEnv({ 1: 0, 2: null, 3: "x", 15: 1 }), "view=overall&year=2026");
-  t.ok(/<table>/.test(full) && !headers(full).includes("Playoffs"), "Full Season renders, with no playoff record to get wrong");
+  t.ok(/<table class="lg-table">/.test(full) && !headers(full).includes("Playoffs"), "Full Season renders, with no playoff record to get wrong");
 });
 
 test("a genuinely EMPTY season ([] / [], no error) is trusted: the scoped table renders — that IS 0-0", async () => {
   const html = await page(makeEnv({}), "view=overall&year=2026&scope=regular");
-  t.ok(/<table>/.test(html)); t.ok(!/can't be computed/.test(html));
+  t.ok(/<table class="lg-table">/.test(html)); t.ok(!/can't be computed/.test(html));
 });
 
 await run("standings_weekly_fail_closed_client");

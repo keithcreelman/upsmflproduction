@@ -411,7 +411,7 @@
     var n = Math.abs(s);
     return (s < 0 ? "Favored by " : "Underdog by ") + (Math.round(n * 10) / 10);
   }
-  function fmtAvg(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
+  function fmtAvg(v) { var S = window.UPS_MOBILE_SEASON_SCORING; return v == null ? "—" : S ? S.fmt1(v) : String(v); }   // shared half-up
 
   // ── Injury status (Keith 2026-10-13: "I need to see a player's injury status"; rules
   // 2026-10-14) ──

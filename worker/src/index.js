@@ -1,4 +1,6 @@
 import { handleHallRequest } from "./hall.js";
+import { taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON } from "./taxi_rule.js";
+import { applyRankPending } from "./rank_pending.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
@@ -116,85 +118,94 @@ async function resolveAuctionBiddingChannelId(env) {
   ).replace(/\D/g, "");
 }
 
-// Pids that ENDED a PRIOR season on a NON-taxi roster (active/IR) — i.e. were
-// promoted off the taxi squad before the current season. Per canon §B2 ("once
-// permanently promoted, NEVER re-eligible for taxi"), these players are NOT
-// taxi-demote-eligible even if they never accrued 4 logged call-ups — closing
-// the pre-tracker gap that left R2-5 rookies promoted in a prior year wrongly
-// showing "Demote to Taxi" on BOTH desktop (/roster-workbench taxi_eligible)
-// and mobile (/api/taxi-callups permanent_promotion). Checks the 2 prior
-// seasons (the taxi window minus the current year). Prior-season rosters are
-// frozen, so the result is cached in D1 (ups_settings) per season.
-async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
-  const cur = parseInt(currentSeason, 10) || 0;
-  if (!cur || !env || !env.UPS_MFL_DB) return new Set();
-  const cacheKey = "taxi_prior_active_" + cur;
-  try {
-    await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
-    const cached = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(cacheKey).first();
-    if (cached && cached.value) {
-      const arr = JSON.parse(cached.value);
-      // Only trust a NON-empty cache — an empty array almost always means a
-      // transient fetch failure poisoned the cache; recompute instead.
+// The 2025 LEGACY rule (Keith 2026-09-17, restated 2026-10-21; canon §B2). UPS did not reliably track temporary
+// call-ups in 2025, so a Round 2+ UPS Rookie Draft pick whose window covered 2025 (the 2023–2025 drafts) and who is
+// DOCUMENTED on an active roster or IR in ANY week of 2025 is permanently promoted — even if he finished 2025 back on
+// taxi. A one-time rule for that season: it never rolls forward. From 2026 the recorded call-ups decide, and ending a
+// season on an active roster or IR does not, by itself, make anyone permanent (this replaces taxiPriorActivePids,
+// which treated "ended ANY prior season active or on IR" as permanent).
+//
+// SOURCE: MFL's draftResults for 2023–2025 (UPS rounds) and its historical weekly rosters for 2025,
+// TYPE=rosters&W=1..17 — a player listed there as ROSTER or INJURED_RESERVE was on that team's active roster or IR
+// that week. Both exports are public. 2025 is frozen, so the answer is computed once and kept in ups_settings (one
+// row read per call after that). → Set of pids, or null when ANY export didn't answer: never
+// cached, and every caller treats null as unknown and fails closed — never a guessed "nobody".
+const TAXI_LEGACY_2025_CACHE_KEY = "taxi_legacy_active_2025_v1";
+const TAXI_LEGACY_2025_WEEKS = 17;   // UPS weeks 1–17 (the regular season and the playoffs)
+async function taxiLegacy2025Pids(env, leagueId) {
+  const db = env && env.UPS_MFL_DB;
+  if (db) {
+    try {
+      const cached = await db.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(TAXI_LEGACY_2025_CACHE_KEY).first();
+      const arr = cached && cached.value ? JSON.parse(cached.value) : null;
       if (Array.isArray(arr) && arr.length > 0) return new Set(arr.map(String));
-    }
-  } catch (e) { /* fall through to recompute */ }
-  // Fetch MFL DIRECTLY (a worker can't reliably fetch its own hostname). Browser
-  // UA so MFL's bot filter doesn't 1010 us. Both exports are public (no APIKEY).
+    } catch (_) { /* fall through to recompute */ }
+  }
+  const lg = encodeURIComponent(String(leagueId || "74598").replace(/\D/g, "") || "74598");
   const UA = { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" } };
-  // Phase 1 — recent R2+ UPS draftees (Round 2 or later — R6 IDP included, only
-  // R1 excluded per §B2) are the ONLY players the taxi window can apply to, so
-  // restrict to them (keeps the set to a handful of rookies instead of flagging
-  // every veteran who was merely on an active roster).
-  const recentRookies = new Set();
-  for (const y of [cur - 1, cur - 2]) {
-    if (y < 2011) continue;
+  const arrOf = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+  const getJson = async (url) => {
     try {
-      const dr = await fetch(`https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`, UA);
-      const dj = await dr.json().catch(() => ({}));
-      let unit = dj && dj.draftResults && dj.draftResults.draftUnit;
-      if (Array.isArray(unit)) unit = unit[0];
-      let picks = (unit && unit.draftPick) || [];
-      if (!Array.isArray(picks)) picks = [picks];
-      for (const pk of picks) {
-        const round = parseInt(pk && pk.round, 10);
+      const r = await fetch(url, UA);
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch (_) { return null; }
+  };
+  // 1. Round 2+ picks of the drafts whose window covered 2025.
+  const rookies = new Set();
+  for (const y of [TAXI_LEGACY_SEASON - 2, TAXI_LEGACY_SEASON - 1, TAXI_LEGACY_SEASON]) {
+    const dj = await getJson(`https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${lg}&JSON=1`);
+    if (!(dj && dj.draftResults)) return null;
+    for (const unit of arrOf(dj.draftResults.draftUnit)) {
+      for (const pk of arrOf(unit && unit.draftPick)) {
         const pid = String((pk && pk.player) || "").replace(/\D/g, "");
-        if (pid && round >= 2) recentRookies.add(pid);
+        if (pid && (parseInt(pk && pk.round, 10) || 0) >= 2) rookies.add(pid);
       }
-    } catch (e) { /* skip the draft we couldn't fetch */ }
+    }
   }
-  // Phase 2 — of those rookies, who ENDED a prior season on a NON-taxi roster
-  // (ROSTER/INJURED_RESERVE) = promoted off taxi before the current season.
+  if (!rookies.size) return null;
+  // 2. Of those, everyone on an active roster or IR in any 2025 week.
   const out = new Set();
-  for (const y of [cur - 1, cur - 2]) {
-    if (y < 2011) continue;
-    try {
-      const r = await fetch(`https://www48.myfantasyleague.com/${y}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, UA);
-      const j = await r.json().catch(() => ({}));
-      let franchises = (j && j.rosters && j.rosters.franchise) || [];
-      if (!Array.isArray(franchises)) franchises = [franchises];
-      for (const fr of franchises) {
-        let players = (fr && fr.player) || [];
-        if (!Array.isArray(players)) players = [players];
-        for (const p of players) {
-          const pid = String((p && p.id) || "").replace(/\D/g, "");
-          if (!pid || !recentRookies.has(pid)) continue;   // only recent R2-5 rookies
-          const status = String((p && p.status) || "").toUpperCase();
-          if (status.includes("TAXI")) continue;           // on taxi that year → NOT promoted
-          out.add(pid);
-        }
+  for (let w = 1; w <= TAXI_LEGACY_2025_WEEKS; w += 1) {
+    const j = await getJson(`https://www48.myfantasyleague.com/${TAXI_LEGACY_SEASON}/export?TYPE=rosters&L=${lg}&W=${w}&JSON=1`);
+    const franchises = arrOf(j && j.rosters && j.rosters.franchise);
+    if (!franchises.length) return null;
+    for (const fr of franchises) {
+      for (const p of arrOf(fr && fr.player)) {
+        const pid = String((p && p.id) || "").replace(/\D/g, "");
+        const status = String((p && p.status) || "").toUpperCase();
+        if (pid && rookies.has(pid) && (status === "ROSTER" || status === "INJURED_RESERVE")) out.add(pid);
       }
-    } catch (e) { /* skip the season we couldn't fetch */ }
+    }
   }
-  if (out.size > 0) {
+  if (!out.size) return null;   // 2025 had such players; none found means the exports said nothing usable
+  if (db) {
     try {
-      await env.UPS_MFL_DB.prepare(
+      await db.prepare(
         "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
-      ).bind(cacheKey, JSON.stringify(Array.from(out)), new Date().toISOString()).run();
-    } catch (e) { /* cache write best-effort */ }
+      ).bind(TAXI_LEGACY_2025_CACHE_KEY, JSON.stringify(Array.from(out).sort()), new Date().toISOString()).run();
+    } catch (_) { /* cache write best-effort */ }
   }
   return out;
 }
+// The 2025 legacy answer for one player in a season's taxi decision: false before the tracked rule (2026) and for a
+// pick whose window didn't cover 2025 (upsYear outside 2023–2025: a 2026 pick wasn't in the league yet); otherwise
+// true / false / null (unreadable). Every caller scopes it the same way, so an unreadable 2025 record makes only the
+// players it could decide unknown.
+const _taxiLegacyFor = (legacySet, pid, season, upsYear) => {
+  if ((parseInt(season, 10) || 0) < TAXI_TRACKED_FROM_SEASON) return false;
+  const y = parseInt(upsYear, 10) || 0;
+  if (y && (y < TAXI_LEGACY_SEASON - 2 || y > TAXI_LEGACY_SEASON)) return false;
+  return legacySet ? legacySet.has(String(pid)) : null;
+};
+// Only call-ups recorded from the tracked rule's first season count (2024–2025 backfill rows don't: 2025 is the
+// legacy rule's, and nothing before it is). Used inside every call-up count's CASE.
+const TAXI_TRACKED_SQL = `CAST(season AS INTEGER) >= ${TAXI_TRACKED_FROM_SEASON}`;
+// A call-up is a QUALIFYING SCORING WEEK, never a transaction (Keith 2026-10-21): the player was active — or on IR —
+// for an official UPS scoring week (syncTaxiCallupWeeks records one row per player-week from MFL's weekly record).
+// Every "used" count therefore counts DISTINCT recorded weeks, so several moves in one week can never use more than
+// one call-up, and a promote click that never became an active week (pending, superseded) never counts.
+const TAXI_USED_WEEKS_SQL = `COUNT(DISTINCT CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} AND nfl_week IS NOT NULL THEN season || '-' || nfl_week END)`;
 
 // ── Taxi call-up WEEKS, counted from MFL's own weekly rosters (canon §B2) ────
 //
@@ -338,20 +349,21 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     .map((p) => String(p.id)));
   const counts = await db.prepare(
     `SELECT player_id,
-            SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
-            MAX(CASE WHEN pending = 0 THEN callup_index ELSE 0 END) AS max_idx
+            ${TAXI_USED_WEEKS_SQL} AS used,
+            MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN callup_index ELSE 0 END) AS max_idx
        FROM ups_taxi_callups GROUP BY player_id`
   ).all();
   const usedBy = new Map();
   for (const r of arr(counts && counts.results)) {
     usedBy.set(String(r.player_id), Math.max(Number(r.used) || 0, Number(r.max_idx) || 0));
   }
-  const priorActive = await taxiPriorActivePids(env, "", lg, String(yr));
+  const legacy2025 = await taxiLegacy2025Pids(env, lg);
+  if (!legacy2025) return { ok: false, error: "legacy_2025_unreadable", message: "Could not read MFL's 2025 weekly rosters (the 2025 legacy rule needs them); nothing was counted." };
   const universe = new Set();
   let excludedPermanent = 0;
   for (const pid of drafted) {
     if (!onEntryContract.has(pid)) continue;
-    if ((usedBy.get(pid) || 0) >= 4 || priorActive.has(pid)) { excludedPermanent++; continue; }
+    if ((usedBy.get(pid) || 0) >= 4 || legacy2025.has(pid)) { excludedPermanent++; continue; }
     universe.add(pid);
   }
 
@@ -3417,7 +3429,7 @@ const _nflWeekForUnix = (unixSec, year) => {
 // season) are absent → the caller treats them as continuing (acquisitionWeek 1,
 // eligible 17). Trades are excluded on purpose — see the block comment below.
 // (A taxi call-up's cap-free cut — which players still have it, and what an unreadable call-up history does — is
-// _taxiPermanentPromotion / _taxiNeverPromotedMap, under "Taxi call-up status" below.)
+// _taxiPermanentPromotion / _taxiCutContextMap, under "Taxi call-up status" below.)
 // ── A CONTRACT CHANGE THE DAILY SNAPSHOT CANNOT HAVE SEEN ────────────────
 // /admin/drops/scan-and-record prices a drop from the R2 roster snapshot
 // (taken once a day, 09:05 UTC) on or before the drop. A MYAC, extension, MYM
@@ -3472,84 +3484,133 @@ const _contractSubmittedBetween = async (env, { season, leagueId, playerId, fran
 // The same gap priced Devin Neal's 2026-09-17 cut at $0 (3 call-ups in 2025, then IR at season end).
 //
 // Permanent (no cap-free cut) when ANY of:
-//   - 4 or more confirmed call-ups (canon §B2: the 4th activation makes it permanent);
-//   - a confirmed call-up row marked became_permanent;
-//   - on an active or IR roster at the end of a prior season (taxiPriorActivePids; Keith 2026-09-17:
-//     every rookie active at any point in 2025 is already permanent).
+//   - 4 or more call-ups recorded from 2026 on (canon §B2: the next promotion after all three is permanent);
+//   - a recorded call-up row marked became_permanent;
+//   - the 2025 legacy rule: on an active roster or IR in any week of 2025 (taxiLegacy2025Pids; Keith 2026-09-17,
+//     restated 2026-10-21). Ending a season on an active roster or IR is NOT, by itself, permanent.
 // /api/taxi-callups and /roster-workbench use this same predicate. The contract test — an explicit
 // MYAC / extension / restructure also ends it — is in _computeDropPenaltyRaw, which sees the contract.
-const _taxiPermanentPromotion = (used, markedPermanent, priorActive) =>
-  (Number(used) || 0) >= 4 || Number(markedPermanent) === 1 || priorActive === true;
+const _taxiPermanentPromotion = (used, markedPermanent, legacy2025) =>
+  (Number(used) || 0) >= 4 || Number(markedPermanent) === 1 || legacy2025 === true;
 
-// → { [pid]: true | "unresolved" }. true = 1–3 call-ups and not permanent: a taxi player whose cut is
-// still cap-free. "unresolved" = the call-up table, the prior-season rosters or (for the week under way)
-// the schedule or his NFL team could not be read, so that is NOT known — the calculator holds the cut
-// unpriced, never a guessed $0 and never a guessed charge (rule_no_fail_open_guards). A player absent
-// from the map has no call-up history or is permanent: the normal formula applies.
+// ── Taxi-eligible cut: the ONE taxi rule, as of the cut (Keith 2026-10-21, canon T5.2 / §D2 / §B2) ──────────
+// Cap-free cut protection follows TAXI ELIGIBILITY, not the roster slot: if the shared resolver
+// (worker/src/taxi_rule.js) says the player is still eligible IMMEDIATELY BEFORE the cut, the cut is cap-free
+// whether he is on the taxi squad, on the active roster, in a temporary call-up, or anywhere else that has not
+// ended his eligibility. The completed release then ends his eligibility for good (a re-acquisition writes a new
+// contract status), so a later cut is priced normally; a trade is not a release, and his call-up history follows
+// him (ups_taxi_callups is read by player, across franchises).
 //
-// THE WEEK UNDER WAY (Keith 2026-10-16: "a call-up week counts from lineup lock"). Canon §B2: a week is
-// used when he is on the active roster or IR when rosters and lineups lock, and the 4th makes him
-// permanent. The weekly counter (syncTaxiCallupWeeks) writes a week only after the week is OVER, so from
-// his game's kickoff until that row lands, a player on his 4th active week still read "3 used" and his cut
-// was priced as a free taxi cut. ctx.atUnix = the PRICING INSTANT (the drop, or now for a preview): when
-// it is set, a candidate on his 3rd call-up whose OWN NFL team has kicked off in the week under way at that
-// instant is permanent — unless that season-week is already one of his confirmed rows (never counted
-// twice). Whether he was on taxi at that instant is the caller's isTaxi (a taxi cut is exempt before this
-// is read). IR counts; a bye week (no game that week, or an NFL free agent) is never a call-up week — the weekly
-// counter skips it too (Keith 2026-10-16).
-const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
+// → { [pid]: { season, upsRound, upsYear, draftKnown, used, pending, permanent, legacy2025 } }, the resolver's inputs
+// AS OF ctx.atUnix (the cut, or now for a preview), for EVERY id. _computeDropPenaltyRaw adds the pre-cut contract
+// status and asks taxiEligibility(). permanent = the tracked rule, true | false | null (unknown: the call-up table or
+// — for the week under way — the schedule / his NFL team couldn't be read); legacy2025 = the 2025 legacy rule,
+// true | false | null (MFL's 2025 weekly rosters couldn't be read); draftKnown = false when a
+// UPS Rookie Draft inside the 3-league-year window couldn't be read. Unknown → the cut is HELD unpriced, never a
+// guessed $0 and never a guessed charge (rule_no_fail_open_guards).
+//
+// THE WEEK UNDER WAY (Keith 2026-10-16: "a call-up week counts from lineup lock"). Canon §B2: a week is used when
+// he is on the active roster or IR when rosters and lineups lock, and the 4th makes him permanent. The weekly
+// counter (syncTaxiCallupWeeks) writes a week only after the week is OVER, so from his game's kickoff until that
+// row lands, a player on his 4th active week still read "3 used". When ctx.atUnix is set, a candidate with 3
+// confirmed activations whose OWN NFL team has kicked off in the week under way is permanent — unless that
+// season-week is already one of his confirmed rows (never counted twice). IR counts; a bye week (no game that
+// week, or an NFL free agent) is never an activation week — the weekly counter skips it too (Keith 2026-10-16).
+const _UPS_LEAGUE_ID_BY_SEASON = { 2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191" };
+const _upsDraftRoundsMemo = new Map();
+// UPS Rookie Draft round by player for one season, from MFL draftResults (public; edge-cached an hour, and kept for
+// the isolate's life once read). null when MFL doesn't answer — never cached, so the next read retries.
+const _upsDraftRoundsForSeason = (season, leagueId) => {
+  const key = season + "|" + leagueId;
+  if (_upsDraftRoundsMemo.has(key)) return _upsDraftRoundsMemo.get(key);
+  const p = (async () => {
+    try {
+      const L = _UPS_LEAGUE_ID_BY_SEASON[season] || leagueId;
+      const r = await fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=draftResults&L=${encodeURIComponent(L)}&JSON=1`,
+        { cf: { cacheTtl: 3600, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j || !j.draftResults) return null;
+      const byPid = {};
+      let units = j.draftResults.draftUnit || [];
+      if (!Array.isArray(units)) units = [units];
+      for (const u of units) {
+        let picks = (u && (u.draftPick || u.pick)) || [];
+        if (!Array.isArray(picks)) picks = [picks];
+        for (const dp of picks) {
+          const pid = String((dp && dp.player) || "").replace(/\D/g, "");
+          const round = parseInt(dp && dp.round, 10) || 0;
+          if (pid && round) byPid[pid] = round;
+        }
+      }
+      return byPid;
+    } catch (_) { return null; }
+  })();
+  _upsDraftRoundsMemo.set(key, p);
+  p.then((v) => { if (!v) _upsDraftRoundsMemo.delete(key); });
+  return p;
+};
+const _taxiCutContextMap = async (env, playerIds, ctx) => {
   const out = {};
   const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
   if (!ids.length) return out;
-  const unresolvedAll = () => { for (const id of ids) out[id] = "unresolved"; return out; };
-  if (!env || !env.UPS_MFL_DB) return unresolvedAll();
-  const counted = {};
-  try {
-    // D1 caps bound parameters at 100 per statement; chunk well under it.
-    const chunkSize = 80;
-    for (let i = 0; i < ids.length; i += chunkSize) {
-      const chunk = ids.slice(i, i + chunkSize);
-      const placeholders = chunk.map(() => "?").join(",");
-      const rows = await env.UPS_MFL_DB.prepare(
-        `SELECT player_id,
-                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
-                MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END) AS marked
-           FROM ups_taxi_callups
-          WHERE player_id IN (${placeholders})
-          GROUP BY player_id`
-      ).bind(...chunk).all();
-      for (const row of rows?.results || []) {
-        const pid = String(row?.player_id || "");
-        if (pid && Number(row?.used || 0) > 0) counted[pid] = { used: Number(row.used), marked: Number(row.marked || 0) };
-      }
-    }
-  } catch (_) {
-    return unresolvedAll();
-  }
-  const candidates = Object.keys(counted).filter((pid) => !_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, false));
-  if (!candidates.length) return out;
-  const season = String((ctx && ctx.season) || "").replace(/\D/g, "");
+  const season = parseInt(String((ctx && ctx.season) || "").replace(/\D/g, ""), 10) || 0;
   const leagueId = String((ctx && ctx.leagueId) || "74598").replace(/\D/g, "") || "74598";
-  let priorActive = null;
-  try {
-    priorActive = season ? await taxiPriorActivePids(env, "", leagueId, season) : null;
-  } catch (_) { priorActive = null; }
-  // An EMPTY set is how taxiPriorActivePids reports an unreadable MFL export (it never caches one), so it
-  // is not "nobody was promoted": the candidates' cuts stay unpriced until the rosters can be read.
-  if (!priorActive || !priorActive.size) {
-    for (const pid of candidates) out[pid] = "unresolved";
-    return out;
+  // 1. The UPS Rookie Draft window: the drafts of this league year and the two before it.
+  const windowSeasons = [season, season - 1, season - 2].filter((y) => y >= 2011);
+  const drafts = await Promise.all(windowSeasons.map((y) => _upsDraftRoundsForSeason(y, leagueId)));
+  const draftKnown = season > 0 && drafts.every((d) => d !== null);
+  const pickOf = (pid) => {
+    for (let i = 0; i < windowSeasons.length; i += 1) {
+      const round = drafts[i] && drafts[i][pid];
+      if (round) return { upsRound: round, upsYear: windowSeasons[i] };
+    }
+    return { upsRound: 0, upsYear: 0 };
+  };
+  // 2. Confirmed activations by player (all franchises: a trade carries them).
+  const counted = {};
+  let d1Ok = !!(env && env.UPS_MFL_DB);
+  if (d1Ok) {
+    try {
+      const chunkSize = 80;   // D1 caps bound parameters at 100 per statement
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const rows = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id,
+                  ${TAXI_USED_WEEKS_SQL} AS used,
+                  MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END) AS marked
+             FROM ups_taxi_callups
+            WHERE player_id IN (${chunk.map(() => "?").join(",")})
+            GROUP BY player_id`
+        ).bind(...chunk).all();
+        for (const row of rows?.results || []) {
+          const pid = String(row?.player_id || "");
+          if (pid) counted[pid] = { used: Number(row.used || 0), marked: Number(row.marked || 0) };
+        }
+      }
+    } catch (_) { d1Ok = false; }
   }
-  for (const pid of candidates) {
-    if (!_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, priorActive.has(pid))) out[pid] = true;
+  for (const pid of ids) {
+    const c = counted[pid] || { used: 0, marked: 0 };
+    out[pid] = { season, ...pickOf(pid), draftKnown, used: c.used, pending: 0,
+      permanent: d1Ok ? taxiPermanent({ used: c.used, marked: c.marked, legacy2025: false }) : null,
+      legacy2025: false };
   }
-  // The week under way can only turn a 3rd call-up into the 4th: nobody else's answer depends on it.
+  // 3. The 2025 legacy rule (Keith 2026-09-17 / 2026-10-21): on an active roster or IR in any week of 2025. It only
+  //    matters, from 2026 on, to a Round 2+ pick of a draft whose window covered 2025 (a later pick wasn't there).
+  const candidates = season >= TAXI_TRACKED_FROM_SEASON
+    ? ids.filter((pid) => out[pid].upsRound >= 2 && out[pid].upsYear >= TAXI_LEGACY_SEASON - 2 && out[pid].upsYear <= TAXI_LEGACY_SEASON)
+    : [];
+  if (candidates.length) {
+    let legacy2025 = null;
+    try { legacy2025 = await taxiLegacy2025Pids(env, leagueId); } catch (_) { legacy2025 = null; }
+    for (const pid of candidates) out[pid].legacy2025 = _taxiLegacyFor(legacy2025, pid, season, out[pid].upsYear);
+  }
+  // 4. The week under way can only turn a 3rd activation into the 4th.
   const at = Number(ctx && ctx.atUnix) || 0;
-  const onThird = Object.keys(out).filter((pid) => out[pid] === true && counted[pid].used + 1 >= 4);
+  const onThird = ids.filter((pid) => out[pid].upsRound >= 2 && out[pid].permanent === false && out[pid].legacy2025 === false && out[pid].used + 1 >= 4);
   if (!(at > 0) || !onThird.length || !season) return out;
-  const hold = () => { for (const pid of onThird) out[pid] = "unresolved"; return out; };
-  // The week under way at the instant: the latest week whose first game has kicked off (weeks 1–17, the
-  // weeks the counter counts).
+  const hold = () => { for (const pid of onThird) out[pid].liveWeek = null; return out; };
   let week = 0;
   for (let w = 1; w <= 18; w += 1) {
     let ko = 0;
@@ -3564,18 +3625,18 @@ const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
     const rows = await env.UPS_MFL_DB.prepare(
       `SELECT player_id FROM ups_taxi_callups
         WHERE season = ? AND nfl_week = ? AND pending = 0 AND player_id IN (${onThird.map(() => "?").join(",")})`
-    ).bind(season, week, ...onThird).all();
+    ).bind(String(season), week, ...onThird).all();
     already = new Set((rows?.results || []).map((r) => String(r?.player_id || "")));
   } catch (_) { return hold(); }
-  const teams = await _taxiPlayerNflTeams(season, onThird.filter((pid) => !already.has(pid)));
-  const kickoffs = await nflWeekKickoffsByTeam(season, week);
+  const teams = await _taxiPlayerNflTeams(String(season), onThird.filter((pid) => !already.has(pid)));
+  const kickoffs = await nflWeekKickoffsByTeam(String(season), week);
   for (const pid of onThird) {
     if (already.has(pid)) continue;                        // this week is already one of his rows
-    if (!teams || !Object.keys(kickoffs).length) { out[pid] = "unresolved"; continue; }
+    if (!teams || !Object.keys(kickoffs).length) { out[pid].liveWeek = null; continue; }
     const team = teams[pid];
-    if (team === undefined) { out[pid] = "unresolved"; continue; }   // not in MFL's answer: unknown
+    if (team === undefined) { out[pid].liveWeek = null; continue; }   // not in MFL's answer: unknown
     const ko = Number(kickoffs[team]) || 0;                 // no game this week (bye, NFL free agent): not an active week
-    if (ko > 0 && ko <= at && _taxiPermanentPromotion(counted[pid].used + 1, counted[pid].marked, false)) delete out[pid];
+    if (ko > 0 && ko <= at) out[pid].liveWeek = true;
   }
   return out;
 };
@@ -3755,45 +3816,34 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
           }
           return { ...r, eligibleWeeks: null, earned: null, currentYearEarned: null };
         };
-        const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
+        const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiCut }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
-          // A taxi cut is $0 whatever was earned, so it is priced even when the completed weeks could not be read — but then
-          // this year's earned is UNKNOWN, not the prior years alone: null, never a partial figure stored as earned_to_date.
+          // A taxi-eligible cut is $0 whatever was earned, so it is priced even when the completed weeks could not be read —
+          // but then this year's earned is UNKNOWN, not the prior years alone: null, never a partial figure stored as earned_to_date.
           const taxiEarned = ctx.weekAuthorityUnresolved ? { earned: null, currentYearEarned: null } : {};
-          // Exemption checks (priority order):
-          // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
-          if (isTaxi) {
-            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
-          }
-          // 1a. Taxi player mid-CALL-UP. `isTaxi` above is MFL's roster status
-          // at drop time, so during a temporary call-up it reads false and the
-          // exemption was skipped entirely — the player fell through to the
-          // standard 75% formula. Canon §D2 and §B2 are explicit that the
-          // cap-free cut survives call-ups: the exemption ends at PERMANENT
-          // promotion (the 4th activation), not the moment he is activated.
-          // A stamped "CL 3| TCV 6K| AAV 2K" rookie cut during his call-up week
-          // was being charged floor(6000 × 0.75) = $4,500 against a promised $0.
-          //
-          // `taxiNeverPromoted` is supplied by the caller from ups_taxi_callups
-          // (has confirmed call-up history AND permanent_promotion is false).
-          // It is deliberately NOT defaulted true: a player with no call-up
-          // history at all must not be exempted, so an absent value means "not
-          // a taxi call-up case" and this branch is skipped.
-          // Only on his ROOKIE ENTRY contract: an explicit MYAC / extension / restructure also makes the
-          // promotion permanent (canon §B2), and that changes the contract status. "Rookie" is the pre-2026
-          // spelling of "Rookie-Draft" (the contract status vocabulary changed in 2026).
+          // 1. TAXI-ELIGIBLE CUT (Keith 2026-10-21; canon T5.2 / §D2 / §B2). Cap-free protection follows taxi
+          //    ELIGIBILITY, not the roster slot: if the ONE taxi rule (worker/src/taxi_rule.js) says the player was still
+          //    eligible immediately before the cut, the cut is cap-free — on the taxi squad, on the active roster, during a
+          //    temporary call-up, anywhere that hasn't ended his eligibility. `taxiCut` = _taxiCutContextMap's inputs as of
+          //    the cut; this adds the pre-cut contract status. Only the ORIGINAL rookie-draft contract can qualify ("Rookie"
+          //    is its pre-2026 spelling): a release wipes it and a re-acquisition writes a new one, and an explicit MYAC /
+          //    extension / restructure replaces it — so every other contract is priced normally, wherever he sits.
+          //    Unknown (draft, call-up history or prior-season rosters unreadable) → HELD, never a guessed $0 or charge.
           const onEntryContract = /^rookie(-draft)?$/i.test(_s(contractStatus));
-          if (taxiNeverPromoted === "unresolved" && onEntryContract) {
-            // Whether he was ever permanently promoted could not be read (the call-up table or the prior-season
-            // rosters). HELD like any other unresolved authority: re-priced by /admin/drops/scan-and-record once
-            // it can be read, and shown "under review" — never a guessed $0, never a guessed charge.
-            return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
-                     hold_reason: "taxi_history_unresolved",
-                     needs_review: true, review_reason: "Whether this taxi player was ever permanently promoted could not be read "
-                       + "(call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
-          }
-          if (taxiNeverPromoted === true && onEntryContract) {
-            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
+          if (onEntryContract && (taxiCut || isTaxi)) {
+            const eligible = taxiCutVerdict(taxiCut, contractStatus, isTaxi);
+            if (eligible === true) {
+              const where = isTaxi ? "on the taxi squad" : (Number(taxiCut.used) > 0 ? "after temporary call-ups (never permanently promoted)" : "on the active roster");
+              return { ...ctx, ...taxiEarned, penalty: 0, basis: isTaxi ? "taxi_exempt" : (Number(taxiCut.used) > 0 ? "taxi_callup_exempt" : "taxi_eligible_exempt"),
+                       exempt: true, exempt_reason: "Taxi-eligible player cut " + where + ": cap-free (§D2 / T5.2). The release ends his taxi eligibility." };
+            }
+            if (eligible === null) {
+              return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
+                       hold_reason: "taxi_history_unresolved",
+                       needs_review: true, review_reason: "Whether this player was still taxi-eligible could not be confirmed "
+                         + "(UPS draft results, call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
+            }
+            // Not eligible (Round 1, window ended, permanently promoted): the normal formula below.
           }
 
           // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
@@ -15457,7 +15507,8 @@ export default {
 
             const career = careerRes.results || [];
             if (career.length) {
-              bundle.career_summary = career;
+              // Season ranks still pending the clean recount come back null (#1307).
+              bundle.career_summary = career.map((row) => applyRankPending(pid, row));
               d1Satisfied = true;
               // Always attach leverage coefs when we have career data so
               // the client can compute Win Chunks Normalized per row
@@ -16042,6 +16093,7 @@ export default {
           result.reason = "missing_inputs";
           return result;
         }
+        let rostersOk = false;
         try {
           const r = await fetch(
             `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`,
@@ -16049,6 +16101,7 @@ export default {
           );
           if (r.ok) {
             const data = await r.json();
+            rostersOk = !!(data && data.rosters);
             let franchises = data?.rosters?.franchise || [];
             if (!Array.isArray(franchises)) franchises = [franchises];
             outerRoster: for (const f of franchises) {
@@ -16108,49 +16161,27 @@ export default {
           result.reason = "draft_round_not_found";
         }
 
-        // ── §B2 eligibility verdict ───────────────────────────────────────
-        // FAIL CLOSED: no draft record found ⇒ not eligible. The lookup scans
-        // the last 5 draft years, so a genuine R2-R6 pick inside the 3-year
-        // window is always found; anything that isn't found either was never
-        // drafted (waiver / auction / dispersal / veteran) or is far outside
-        // the window. Both are ineligible, so "couldn't find it" and "isn't
-        // allowed" happen to agree here — but the reason string keeps them
-        // distinguishable if MFL's draftResults ever goes unreadable.
-        const yearsElapsed = result.draftYear ? (currentYear - result.draftYear) : null;
-        if (result.draftRound === null && !draftLookupOk) {
-          result.eligible = false;
-          result.reason = "draft_results_unreadable";
+        // ── §B2 eligibility verdict: the ONE rule (worker/src/taxi_rule.js) ─────────────
+        // FAIL CLOSED on anything unknown. The draft scan covers the last 5 drafts, so a genuine R2+ pick inside
+        // the 3-year window is always found; a player not found was never drafted or is far outside the window.
+        // Permanent promotion is checked by the caller (it needs D1); this verdict passes permanent=false.
+        const verdict = taxiEligibility({
+          upsRound: result.draftRound, upsYear: result.draftYear, season: currentYear,
+          // Permanence (the tracked rule and the 2025 legacy rule) is the permanent-promotion guard's, after this gate.
+          contractStatus: result.contractStatus, permanent: false, legacy2025: false,
+          draftKnown: !(result.draftRound === null && !draftLookupOk), contractKnown: rostersOk,
+        });
+        result.verdict = verdict;
+        result.eligible = verdict.eligible === true;
+        if (!result.eligible) {
           result.ineligibleReason =
-            "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.";
-        } else if (result.draftRound === null) {
-          result.eligible = false;
-          result.ineligibleReason =
-            "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2).";
-        } else if (result.draftRound === 1) {
-          result.eligible = false;
-          result.ineligibleReason =
-            "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1).";
-        } else if (yearsElapsed === null || yearsElapsed >= 3) {
-          result.eligible = false;
-          result.ineligibleReason =
-            `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} (${yearsElapsed} league years ago) and has graduated (§B2).`;
-        } else if (!/^rookie-draft$/i.test(result.contractStatus)) {
-          // Trade preserves eligibility; a CUT forfeits it permanently, even if
-          // later re-acquired by any team (Keith 2026-08-03). MFL never
-          // rewrites contractStatus on a trade, but a drop wipes it and
-          // re-acquisition always assigns a fresh status — so a current status
-          // other than exactly "Rookie-Draft" means the original entry
-          // contract is gone. Found via a real case: Demetrius Knight (UPS R6
-          // 2025, drafted by Blake Bombers) was cut and bought back by Sex
-          // Manther at the 2026 auction for $1,000 — now "Vet-FAA" — and the
-          // eligibility check hadn't noticed, because it only looked at draft
-          // history. 8 players league-wide were in this exact state, all
-          // having changed teams via cut+re-acquisition, none merely traded.
-          result.eligible = false;
-          result.ineligibleReason =
-            `This player's rookie contract ended when they were dropped (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`;
-        } else {
-          result.eligible = true;
+            verdict.reason === "draft_unreadable" ? "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment."
+            : verdict.reason === "contract_unreadable" ? "Couldn't read this player's contract on MFL's rosters, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment."
+            : verdict.reason === "not_ups_pick" ? "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2)."
+            : verdict.reason === "round_1" ? "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1)."
+            : verdict.reason === "window_ended" ? `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} and has graduated (§B2).`
+            : verdict.reason === "released" ? `This player's rookie contract ended when they were released (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`
+            : verdict.text;
         }
         return result;
       };
@@ -16626,11 +16657,12 @@ export default {
         // aggregate correctly. Per canon §B2: "On the 4th activation,
         // the call-up becomes permanent." Total weeks across the 3-year
         // window — not weeks in a single season.
+        // Only call-ups recorded from 2026 count (TAXI_TRACKED_SQL); 2025 is the legacy rule's (below).
         const selectClause =
           `SELECT player_id,
-                  SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                  AS used,
-                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)            AS pending_count,
-                  MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                           AS marked
+                  ${TAXI_USED_WEEKS_SQL}                AS used,
+                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_count,
+                  MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END)  AS marked
              FROM ups_taxi_callups`;
         const out = {};
         try {
@@ -16656,6 +16688,8 @@ export default {
                   pending: Number(row?.pending_count || 0),
                   max: 3,
                   permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                  tracked_permanent: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                  legacy_2025: false,
                 };
               }
             }
@@ -16672,31 +16706,37 @@ export default {
                 pending: Number(row?.pending_count || 0),
                 max: 3,
                 permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                tracked_permanent: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                legacy_2025: false,
               };
             }
           }
         } catch (e) {
           return jsonOut(200, { ok: false, error: e?.message || String(e), players: {} });
         }
-        // §B2 — also flag players who ended a PRIOR season on a non-taxi roster
-        // as permanently promoted (even with zero call-up rows), so mobile's
-        // taxi-eligibility gate (which reads permanent_promotion from here)
-        // excludes them — matching the desktop /roster-workbench behavior.
-        try {
-          const tcOrigin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
-          const tcLeague = safeStr(url.searchParams.get("L") || L || "74598");
-          const tcSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
-          const priorActive = await taxiPriorActivePids(env, tcOrigin, tcLeague, tcSeason);
-          priorActive.forEach((pid) => {
-            if (out[pid]) out[pid].permanent_promotion = true;
-            else out[pid] = { used: 0, pending: 0, max: 3, permanent_promotion: true };
-          });
-          // Respect the optional ?player_ids= narrowing filter.
-          if (playerIds && playerIds.length) {
-            const allow = new Set(playerIds);
-            Object.keys(out).forEach((pid) => { if (!allow.has(pid)) delete out[pid]; });
+        // §B2 2025 legacy rule (Keith 2026-09-17 / 2026-10-21) — a Round 2+ pick on an active roster or IR in any
+        // week of 2025 is permanently promoted, even with no call-up rows (legacy_2025; permanent_promotion keeps
+        // meaning "tracked OR legacy" for older clients; tracked_permanent is the tracked rule alone). FAILS CLOSED:
+        // if MFL's 2025 rosters can't be read the answer is ok:false, so every client reads eligibility as unknown.
+        const tcLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const tcSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        if ((parseInt(tcSeason, 10) || 0) >= TAXI_TRACKED_FROM_SEASON) {
+          let legacy2025 = null;
+          try { legacy2025 = await taxiLegacy2025Pids(env, tcLeague); } catch (_) { legacy2025 = null; }
+          if (!legacy2025) {
+            return jsonOut(200, { ok: false, error: "legacy_2025_unreadable", message: "Couldn't read MFL's 2025 rosters (the 2025 legacy rule needs them).", players: {} });
           }
-        } catch (e) { /* prior-active augmentation is best-effort */ }
+          legacy2025.forEach((pid) => {
+            if (!out[pid]) out[pid] = { used: 0, pending: 0, max: 3, permanent_promotion: false, tracked_permanent: false };
+            out[pid].legacy_2025 = true;
+            out[pid].permanent_promotion = true;
+          });
+        }
+        // Respect the optional ?player_ids= narrowing filter.
+        if (playerIds && playerIds.length) {
+          const allow = new Set(playerIds);
+          Object.keys(out).forEach((pid) => { if (!allow.has(pid)) delete out[pid]; });
+        }
         return jsonOut(200, { ok: true, players: out });
       }
 
@@ -16938,8 +16978,9 @@ export default {
       // Q20 (tracker): pending=1 rows in ups_taxi_callups represent
       // owner clicks awaiting NFL-week certification. This endpoint
       // walks them, fetches weeklyresults for the relevant week, and:
-      //   - Player appears in active lineup that week → flip pending=0,
-      //     compute callup_index, flip became_permanent if index >= 4.
+      //   - Player appears in active lineup that week → left for the weekly
+      //     count (syncTaxiCallupWeeks), the ONE writer of call-up weeks; a
+      //     week it already holds marks the click superseded (pending=2).
       //   - Player was demoted before the week locked OR doesn't appear
       //     in weeklyresults → DELETE the row (call-up didn't count).
       //
@@ -17073,36 +17114,11 @@ export default {
               out.cleared.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "week_already_counted" });
               continue;
             }
-            // Player was active for the week — confirm. callup_index =
-            // max confirmed index + 1; became_permanent on 4th.
-            const indexRow = await env.UPS_MFL_DB.prepare(
-              `SELECT COALESCE(MAX(callup_index), 0) AS max_idx
-                 FROM ups_taxi_callups
-                WHERE player_id = ? AND pending = 0`
-            ).bind(rPlayerId).first();
-            const nextIndex = Number(indexRow?.max_idx || 0) + 1;
-            const newPermanent = nextIndex >= 4 ? 1 : 0;
-            if (!dryRun) {
-              try {
-                await env.UPS_MFL_DB.prepare(
-                  `UPDATE ups_taxi_callups
-                      SET pending = 0,
-                          callup_index = ?,
-                          became_permanent = ?
-                    WHERE id = ?`
-                ).bind(nextIndex, newPermanent, rid).run();
-              } catch (e) {
-                out.errors.push({ id: rid, reason: "confirm_update_failed", detail: e?.message || String(e) });
-                continue;
-              }
-            }
-            out.confirmed.push({
-              id: rid,
-              player_id: rPlayerId,
-              week: weekToCheck,
-              callup_index: nextIndex,
-              became_permanent: newPermanent === 1,
-            });
+            // Listed for the week, but not (yet) one of the weekly count's rows. The confirm pass never charges a call-up
+            // itself (Keith 2026-10-21: a call-up is a qualifying scoring week — active or on IR, never a bye — and ONE
+            // writer records it): syncTaxiCallupWeeks charges the week from MFL's weekly record and then supersedes
+            // this click. Nothing is written here.
+            out.skipped.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "weekly_count_decides" });
           }
           out.totals = {
             confirmed: out.confirmed.length,
@@ -46961,7 +46977,7 @@ const mflToSleeper = {};
           });
         }
         // Taxi call-up status of every player these claims DROPPED, from the resolver the drop ledger prices with
-        // (_taxiNeverPromotedMap), AS OF EACH CLAIM'S DROP (a call-up week counts from his game's kickoff), so one
+        // (_taxiCutContextMap), AS OF EACH CLAIM'S DROP (a call-up week counts from his game's kickoff), so one
         // answer per run instant. true | "unresolved" is passed to the calculator as is: "unresolved" holds the cut
         // unpriced, and the card reads "unknown — needs review", never $0.
         const apDropPids = new Set();
@@ -46971,7 +46987,7 @@ const mflToSleeper = {};
         }
         const apTaxiByInstant = new Map();
         const apTaxiAt = async (pid, ts) => {
-          if (!apTaxiByInstant.has(ts)) apTaxiByInstant.set(ts, _taxiNeverPromotedMap(env, [...apDropPids], { season: apSeason, leagueId: apLeagueId, atUnix: ts }));
+          if (!apTaxiByInstant.has(ts)) apTaxiByInstant.set(ts, _taxiCutContextMap(env, [...apDropPids], { season: apSeason, leagueId: apLeagueId, atUnix: ts }));
           return (await apTaxiByInstant.get(ts))[pid];
         };
 
@@ -47308,18 +47324,18 @@ const mflToSleeper = {};
                 //     walks kickoff to kickoff otherwise, so a retried, replayed or late post priced a Thursday-
                 //     morning cut one week short ($2,500 for Neal's).
                 //   - acquisition week: of the contract this drop ENDED (_acquisitionWeekAsOf), not the latest add.
-                //   - taxi call-up status: _taxiNeverPromotedMap's answer, passed as is.
+                //   - taxi call-up status: _taxiCutContextMap's answer, passed as is.
                 const dropDateIso = new Date(ts * 1000).toISOString();
                 const weekAuthority = await _completedWeeksForDrop(apSeason, apLeagueId, ts);
                 const acquisitionWeek = _acquisitionWeekAsOf(apTxs, apSeason, dpid, ts);
-                const taxiNeverPromoted = await apTaxiAt(dpid, ts);
+                const taxiCut = await apTaxiAt(dpid, ts);
                 const calc = _computeDropPenalty({
                   contractStatus: preDrop.contract_status,
                   salary: preDrop.salary,
                   contractInfo: preDrop.contract_info,
                   contractYear: preDrop.contract_year,
                   isTaxi: preDrop.is_taxi,
-                  taxiNeverPromoted,
+                  taxiCut,
                 }, {
                   season: apSeason,
                   dropDateIso,
@@ -47331,7 +47347,9 @@ const mflToSleeper = {};
                   completed_payable_weeks: weekAuthority.weeks,
                   weeks_source: weekAuthority.source,
                   acquisition_week: acquisitionWeek || null,
-                  taxi_never_promoted: taxiNeverPromoted === undefined ? null : taxiNeverPromoted,
+                  // The taxi rule's inputs as of this cut and its answer (cap-free iff eligible immediately before it).
+                  taxi_cut: taxiCut === undefined ? null : taxiCut,
+                  taxi_eligible_before_cut: taxiCutVerdict(taxiCut, preDrop.contract_status, !!preDrop.is_taxi),
                   contract_source: preDrop.contract_source,
                 };
                 if (DROP_UNPRICED_BASES.has(safeStr(calc.basis))) {
@@ -48496,6 +48514,9 @@ const mflToSleeper = {};
         // the CPU blowup hotfixed in PR #243; this D1 lookup is the
         // permanent fix (issue #244 — Audit Phase 2A).
         const upsDraftByPlayer = {};
+        // Whether the draft index and the call-up table were actually READ: an unreadable source makes the
+        // taxi verdict "Unknown", never "not eligible" or "eligible" (rule_no_fail_open_guards).
+        let upsDraftOk = false, taxiCallupsOk = false;
         if (env.UPS_MFL_DB) {
           try {
             const seasonInt = parseInt(season, 10) || 0;
@@ -48519,6 +48540,7 @@ const mflToSleeper = {};
                   ups_year: yr,
                 };
               }
+              upsDraftOk = true;
             }
           } catch (e) {
             console.warn("[ups-draft-d1] lookup failed:", e?.message || String(e));
@@ -48543,9 +48565,9 @@ const mflToSleeper = {};
             // sidestep it entirely.
             const rows = await env.UPS_MFL_DB.prepare(
               `SELECT player_id,
-                      SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
-                      SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
-                      MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                         AS marked
+                      ${TAXI_USED_WEEKS_SQL}                AS used,
+                      SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_count,
+                      MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END)  AS marked
                  FROM ups_taxi_callups
                 GROUP BY player_id`
             ).all();
@@ -48556,19 +48578,21 @@ const mflToSleeper = {};
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
+                marked: Number(row?.marked || 0),
                 permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
+            taxiCallupsOk = true;
           } catch (e) {
             console.warn("[taxi-callup] D1 lookup failed:", e?.message || String(e));
           }
         }
 
-        // §B2 once-promoted-never-taxi: players who ended a prior season on a
-        // non-taxi roster are permanently promoted even without 4 logged
-        // call-ups (the pre-tracker gap). Computed once per load (cached in D1).
-        const rwOrigin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
-        const taxiPriorActive = await taxiPriorActivePids(env, rwOrigin, leagueId, season);
+        // §B2 2025 legacy rule: a Round 2+ pick on an active roster or IR in any week of 2025 is permanently promoted
+        // (Keith 2026-09-17 / 2026-10-21). null = MFL's 2025 rosters couldn't be read → unknown, never "nobody".
+        // Computed once and kept in D1 (2025 is frozen).
+        let taxiLegacy2025 = null;
+        try { taxiLegacy2025 = await taxiLegacy2025Pids(env, leagueId); } catch (_) { taxiLegacy2025 = null; }
 
         const extRowsNormalized = remapExtensionPreviewRowsToCurrentOwners(
           extRes.rows || [],
@@ -48790,10 +48814,21 @@ const mflToSleeper = {};
               // "Round 2 or later" / draft_round >= 2 (ratified Keith
               // 2026-07-17; the old `upsRound <= 5` cap wrongly benched R6
               // rookies like A.J. Haulcy, a 2026 R6.07 safety).
-              const isTaxiEligible =
-                inUpsWindow && upsRound >= 2 && stillOnEntryContract;
-
+              void inUpsWindow; void stillOnEntryContract;   // kept for the reasoning above; the rule lives in taxi_rule.js
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
+              // ONE verdict (worker/src/taxi_rule.js): draft round/year + window, release, permanent promotion
+              // (the tracked rule: 4th activation recorded from 2026, or a marked row) and the 2025 legacy rule.
+              const taxiLegacy = _taxiLegacyFor(taxiLegacy2025, playerId, currentSeason, upsYear);
+              const taxiStatus = taxiEligibility({
+                upsRound, upsYear, season: currentSeason, contractStatus: type,
+                isTaxi, isIr, used: taxiCallup ? taxiCallup.used : 0, pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
+                draftKnown: upsDraftOk, windowIndexOnly: true,
+                permanent: !taxiCallupsOk ? null : taxiPermanent({
+                  used: taxiCallup ? taxiCallup.used : 0, marked: taxiCallup ? taxiCallup.marked : 0, legacy2025: false,
+                }),
+                legacy2025: taxiLegacy,
+              });
+              const isTaxiEligible = taxiStatus.eligible === true;
               return {
                 id: playerId,
                 order: idx,
@@ -48826,8 +48861,9 @@ const mflToSleeper = {};
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
                 taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
                 taxi_callups_max: 3,
-                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion) || taxiPriorActive.has(playerId),
+                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion) || taxiLegacy === true,
                 taxi_eligible: isTaxiEligible,
+                taxi_status: taxiStatus,
                 ups_draft_round: upsRound || null,
                 ups_draft_year: upsYear || null,
               };
@@ -50819,10 +50855,10 @@ const mflToSleeper = {};
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
-                // The call-up status the recorder priced with (_taxiNeverPromotedMap), as of THIS drop (a call-up week counts
+                // The call-up status the recorder priced with (_taxiCutContextMap), as of THIS drop (a call-up week counts
                 // from his game's kickoff). Without it a recompute re-priced a taxi call-up's $0 cut by the normal formula and
                 // wrote that charge; "unresolved" leaves the row untouched (week_authority_unresolved → skipped below).
-                taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [safeStr(r.player_id)], { season: rs, leagueId, atUnix: Number(r.dropped_at_unix) || 0 }))[safeStr(r.player_id)],
+                taxiCut: (await _taxiCutContextMap(env, [safeStr(r.player_id)], { season: rs, leagueId, atUnix: Number(r.dropped_at_unix) || 0 }))[safeStr(r.player_id)],
               }, { season: rs, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
                    acquisitionWeek: _acquisitionWeekAsOf(sc.txs, rs, r.player_id, Number(r.dropped_at_unix) || 0),
                    acquisitionWeekUnresolved: sc.acqUnresolved });
@@ -54287,7 +54323,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractYear: h.pre_drop_contract_year,
               isTaxi: Number(h.pre_drop_taxi) === 1,
               // As of ITS drop, in ITS season (prior rosters; a call-up week counts from his game's kickoff).
-              taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [pid], { season: hSeason, leagueId, atUnix: dropUnix }))[pid],
+              taxiCut: (await _taxiCutContextMap(env, [pid], { season: hSeason, leagueId, atUnix: dropUnix }))[pid],
             }, { dropDateIso: safeStr(h.dropped_at_iso), season: hSeason, acquisitionWeek: hAcqWk,
                  acquisitionWeekUnresolved: acq.unresolved, completedPayableWeeks: hWeeks.weeks });
             if (rp.basis === "week_authority_unresolved") {
@@ -54424,7 +54460,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // status, which reads false for a taxi player dropped mid-call-up and
         // silently costs him the §D2 exemption. Read per NEW drop, as of that drop (a call-up week counts from his
         // game's kickoff), so an already-recorded drop costs no read.
-        const scanTaxiAt = async (pid, ts) => (await _taxiNeverPromotedMap(env, [pid], { season: targetSeason, leagueId, atUnix: ts }))[String(pid)];
+        const scanTaxiAt = async (pid, ts) => (await _taxiCutContextMap(env, [pid], { season: targetSeason, leagueId, atUnix: ts }))[String(pid)];
 
         // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
         // after Labor Day" is a day late). Resolved once for the whole scan.
@@ -54474,7 +54510,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-                taxiNeverPromoted: await scanTaxiAt(drop.pid, drop.ts),
+                taxiCut: await scanTaxiAt(drop.pid, drop.ts),
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: _acquisitionWeekAsOf(acqTxs, targetSeason, drop.pid, drop.ts),
                    acquisitionWeekUnresolved: acqWeekUnresolved,
                    week1ThursdayIso: scanWeek1Iso || undefined,
@@ -55399,7 +55435,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             }
           }
           // As of the previewed cut — now, or the ?drop_date= what-if: a call-up week counts from his game's kickoff.
-          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids, { season: pvSeason, leagueId: pvLeague, atUnix: pvDropTs });
+          const pvTaxiCut = await _taxiCutContextMap(env, pvAllPids, { season: pvSeason, leagueId: pvLeague, atUnix: pvDropTs });
           const penaltyFor = (pl) => {
             const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
@@ -55408,7 +55444,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractInfo: safeStr(pl.contractInfo),
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
-              taxiNeverPromoted: pvTaxiNeverPromoted[pid],
+              taxiCut: pvTaxiCut[pid],
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
             const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk, acquisitionWeekUnresolved: pvAcqSource === "unresolved" });
@@ -59235,31 +59271,46 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               gate: r1Gate,
             });
           }
-          // Permanent-promotion guard (canon §B2 + tracker Q10 follow-up).
-          // Once a player's 4th taxi call-up has flipped them to permanent
-          // promotion, they can never return to taxi. Reject the demote
-          // before any MFL write.
+          // Permanent-promotion guard (canon §B2 / T2.4 / §G14): the SAME predicate as /roster-workbench and the drop
+          // pricing (_taxiPermanentPromotion) — 4+ activations recorded from 2026, a recorded row marked
+          // became_permanent, or the 2025 legacy rule (on an active roster or IR in any 2025 week). Activations 1–3
+          // are temporary: demotion stays allowed, after the third too. Ending a season active is not permanent.
+          // FAIL CLOSED: if the call-up history or the 2025 rosters can't be read, nothing is written.
+          let permanentAnswer = null;
           if (env.UPS_MFL_DB) {
             try {
-              // Total confirmed (pending=0) callups across the 3yr window.
-              // Per canon §B2: 4+ = permanent promotion. Derived from row
-              // count, not the per-row became_permanent flag, so multi-
-              // year totals aggregate correctly.
               const permRow = await env.UPS_MFL_DB.prepare(
-                `SELECT SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used FROM ups_taxi_callups WHERE player_id = ?`
+                `SELECT ${TAXI_USED_WEEKS_SQL} AS used,
+                        MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END) AS marked
+                   FROM ups_taxi_callups WHERE player_id = ?`
               ).bind(playerId).first();
-              if (Number(permRow?.used || 0) >= 4) {
-                return jsonOut(400, {
-                  ok: false,
-                  error: "Player has been permanently promoted off taxi (4th call-up) — cannot return to taxi (league_context_v1.md §B2).",
-                  code: "TAXI_PERMANENTLY_PROMOTED",
-                  player_id: playerId,
-                  franchise_id: franchiseId,
-                });
-              }
+              const legacy2025 = await taxiLegacy2025Pids(env, leagueId);
+              permanentAnswer = taxiPermanent({
+                used: Number(permRow?.used || 0), marked: Number(permRow?.marked || 0),
+                legacy2025: _taxiLegacyFor(legacy2025, playerId, season, r1Gate.draftYear),
+              });
             } catch (e) {
               console.warn("[taxi-callup] D1 permanent-promotion lookup failed:", e?.message || String(e));
+              permanentAnswer = null;
             }
+          }
+          if (permanentAnswer === true) {
+            return jsonOut(400, {
+              ok: false,
+              error: "Player has been permanently promoted off taxi — cannot return to taxi (league_context_v1.md §B2 / T2.4).",
+              code: "TAXI_PERMANENTLY_PROMOTED",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            });
+          }
+          if (permanentAnswer !== false) {
+            return jsonOut(503, {
+              ok: false,
+              error: "Couldn't confirm this player's call-up history, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.",
+              code: "TAXI_HISTORY_UNREADABLE",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            });
           }
         }
 
@@ -59595,9 +59646,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           try {
             const countRow = await env.UPS_MFL_DB.prepare(
               `SELECT
-                  SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS confirmed,
-                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END) AS pending_open,
-                  (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4) AS permanent
+                  ${TAXI_USED_WEEKS_SQL} AS confirmed,
+                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_open,
+                  (${TAXI_USED_WEEKS_SQL} >= 4) AS permanent
                  FROM ups_taxi_callups WHERE player_id = ?`
             ).bind(playerId).first();
             const confirmedCount = Number(countRow?.confirmed || 0);

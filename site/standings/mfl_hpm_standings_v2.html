@@ -1268,6 +1268,39 @@
     .retry-btn, .link-btn { background: transparent; border: 1px solid var(--teal); color: var(--teal); border-radius: 5px; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; margin-left: 8px; }
     .link-btn { margin: 8px 0 0; }
     .pic-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+    /* Forecast */
+    .fc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .fc-tile { background: rgba(5, 24, 52, 0.55); border: 1px solid var(--line); border-top: 3px solid var(--gold); border-radius: 8px; padding: 10px 12px; font-size: 12px; min-width: 0; }
+    .fc-tile.hawk { border-top-color: var(--warn); }
+    .fc-tile h3 { margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+    .fc-tile.hawk h3 { color: var(--warn); }
+    .fc-big { font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+    .fc-line { margin-top: 5px; overflow-wrap: anywhere; line-height: 1.4; }
+    .fc-sub { color: var(--muted); font-size: 11px; margin-top: 3px; line-height: 1.45; overflow-wrap: anywhere; }
+    .fc-pct { color: var(--teal); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .fc-div { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    .fc-dim { color: var(--muted); font-size: 11px; }
+    .fc-likely { white-space: nowrap; }
+    .fc-likely-sub { display: none; font-size: 11px; color: var(--text); margin-top: 2px; }
+    .fc-delta { font-size: 11px; font-weight: 800; white-space: nowrap; color: var(--muted); }
+    .fc-delta.up { color: #7cd992; }
+    .fc-delta.down { color: var(--warn); }
+    table.fc-table th, table.fc-table td { padding: 6px 6px; }
+    table.fc-table tr.fc-cut > td { border-bottom: 2px solid var(--warn); }
+    .fc-finals .panel { margin-bottom: 0; }
+    .fc-recon { margin-top: 12px; }
+    .fc-fresh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid var(--teal); background: rgba(5, 24, 52, 0.55); border-radius: 6px; font-size: 12px; color: var(--muted); }
+    .fc-fresh b { font-size: 15px; color: var(--text); letter-spacing: 0.01em; }
+    .fc-fresh span { overflow-wrap: anywhere; }
+    .fc-pairs td:first-child { overflow-wrap: anywhere; }
+    .fp-grid { display: flex; flex-direction: column; gap: 2px; }
+    .fp-row { display: grid; grid-template-columns: minmax(110px, 1.7fr) repeat(12, minmax(0, 1fr)); gap: 2px; align-items: center; }
+    .fp-name { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 6px; }
+    .fp-h { text-align: center; font-size: 10px; font-weight: 800; color: var(--gold); }
+    .fp-h.hawk { color: var(--warn); }
+    .fp-cell { text-align: center; font-size: 11px; line-height: 1; padding: 6px 0; border-radius: 3px; font-variant-numeric: tabular-nums; min-width: 0; }
+    .fp-cell.mode { outline: 2px solid var(--teal); outline-offset: -2px; font-weight: 800; }
+    .fp-cell.zero { background: rgba(255, 255, 255, 0.04); color: var(--dim); }
     .pic-col h3, .panel h3, h3.sec-h { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
     .pic-col h3 .h-sub, .panel h3 .h-sub { color: var(--muted); font-weight: 600; letter-spacing: 0.02em; text-transform: none; }
     ol.seed-list { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1365,7 +1398,24 @@
     @media (max-width: 900px) {
       .pic-grid { grid-template-columns: minmax(0, 1fr); }
     }
+    .lg-narrow-note { display: none; }
     @media (max-width: 560px) {
+      .fc-wide, .lg-wide, table.fc-table th.fc-likely, table.fc-table td.fc-likely { display: none; }
+      .fc-likely-sub { display: block; }
+      .lg-narrow-note { display: block; }
+      th, td { padding: 6px 4px; }
+      .seed-cell { grid-template-columns: 20px auto; column-gap: 3px; }
+      .status-chip small { display: none; }   /* "proj.": the note under the table says seeds are projected */
+    }
+    @media (max-width: 400px) {
+      .lg-table .team-logo { display: none; }
+      .lg-table th { letter-spacing: 0.02em; font-size: 10px; white-space: normal; }
+      .lg-table .seed-cell { grid-template-columns: auto; row-gap: 2px; justify-items: start; }   /* seed above its chip */
+      .fp-row { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+      .fp-row .fp-name { grid-column: 1 / -1; padding-top: 4px; }
+      .fp-head .fp-name { display: none; }
+      .fp-cell { font-size: 10px; padding: 5px 0; }
+      table.fc-table th, table.fc-table td { padding: 5px 3px; }
       .wrap { padding: 8px; }
       .head { padding: 10px 12px; }
       .body { padding: 12px; }
@@ -1382,7 +1432,7 @@
       <header class="head">
         <div>
           <div class="title">UPS Standings</div>
-          <div class="sub">Playoff picture · divisions · weekly scores · league history</div>
+          <div class="sub">Full league · divisions · playoff picture · forecast · league history</div>
           <div class="hist-warn" id="histWarn" role="status" hidden>
             <strong>Heads up:</strong> historical data is still being reviewed for accuracy and may not be fully correct yet.
           </div>
@@ -1429,12 +1479,14 @@
   var WORKER_BASE = qs.get("worker") || "https://upsmflproduction.keith-creelman.workers.dev";
   var FIRST_YEAR = 2010;
   var ERA_FIRST = 2011;
-  // Standings v3 (desktop, 2026-10-17): six tabs, Playoff Picture first. The older single-level views live on as
-  // History sub-tabs; old ?view= links (overall, bracket, eras, ...) still land on the right place.
+  // Standings v3 (desktop): seven tabs, Full League first (Keith 2026-10-21: "Make Full League the default and first
+  // Standings view"), then Forecast after the Playoff Picture. The older single-level views live on as History
+  // sub-tabs; old ?view= links (overall, bracket, eras, ...) still land on the right place.
   var TABS = [
-    { id: "picture",   label: "Playoff Picture" },
-    { id: "divisions", label: "Divisions" },
     { id: "league",    label: "Full League" },
+    { id: "divisions", label: "Divisions" },
+    { id: "picture",   label: "Playoff Picture" },
+    { id: "forecast",  label: "Forecast" },
     { id: "weekly",    label: "Weekly" },
     { id: "trends",    label: "Trends" },
     { id: "history",   label: "History" }
@@ -1452,7 +1504,7 @@
     if (v === "overall") return { view: "league", sub: null };
     if (isHistoryView(v)) return { view: "history", sub: v };
     if (TABS.some(function (t) { return t.id === v; })) return { view: v, sub: null };
-    return { view: "picture", sub: null };
+    return { view: "league", sub: null };
   }
 
   // Default to the PRIOR season until NFL Week 1 of the current year
@@ -1492,6 +1544,7 @@
     heat: qs.get("hm") === "table" ? "table" : "heat",                     // Weekly heat map: colored grid or plain table
     team: qs.get("team") ? pad4(qs.get("team")) : null,                    // Trends: the highlighted team; Weekly: Team by week
     chart: ({ seed: 1, ap: 1, pf: 1 })[qs.get("chart")] ? qs.get("chart") : null,   // Trends: the chart shown (null = the season's default)
+    fcview: ({ outlook: 1, places: 1, finals: 1, movement: 1 })[qs.get("fc")] ? qs.get("fc") : "outlook",   // Forecast sub-view
     histGroup: qs.get("group") === "slot" ? "slot" : "owner",             // Historical Finishes rows
     divisions: { sortKey: "allplay_pct", sortDir: "desc" },
     scope: qs.get("scope") || "full",      // full | regular | playoffs | custom
@@ -1607,6 +1660,7 @@
         hm: state.view === "weekly" && state.wview === "heat" && state.heat === "table" ? "table" : null,
         team: (state.view === "trends" || (state.view === "weekly" && state.wview === "team")) && state.team ? state.team : null,
         chart: state.view === "trends" && state.chart ? state.chart : null,
+        fc: state.view === "forecast" && state.fcview !== "outlook" ? state.fcview : null,
         group: state.view === "history" && state.sub === "historical" && state.histGroup === "slot" ? "slot" : null,
         era: state.view === "history" && state.sub === "eras" ? String(state.eraSelected || "all") : null,
         champ: state.view === "history" && state.sub === "hallOfChamps" ? String(state.champSelected || "all") : null
@@ -1777,6 +1831,7 @@
     if (v === "picture")        p = renderPicture(host);
     else if (v === "divisions") p = renderDivisions(host);
     else if (v === "league")    p = renderLeague(host);
+    else if (v === "forecast")  p = renderForecast(host);
     else if (v === "weekly")    p = renderWeekly(host);
     else if (v === "trends")    p = renderTrends(host);
     else {
@@ -2388,6 +2443,363 @@
   }
 
   // ────────────────────────────────────────────────────────────────────────
+  // Forecast (Keith 2026-10-21) — the UPS Wire's own season simulation, never a second model
+  //   pipelines/etl/wire/season_sim.py --through-week N writes site/wire/data/season_sim_<year>_live_wkNN.json (the
+  // UPS Center's forecast): division, playoff, bye and title odds and projected All-Play from 10,000 simulated
+  // seasons. Its standingsForecast block counts the SAME seasons by full-league place (1-6 = seeds, 7-12 = H1-H6), UPS
+  // runner-up and Hawk Tuah Bowl; Week 6's predates the block and ships beside it (standings_forecast_<year>_wk06.json,
+  // tied to that exact run). Static files from GitHub Pages: no worker call, no D1.
+  //   The page uses the newest forecast at or before the last completed week, compares it with the one before, and
+  // refuses (fails closed) when the forecast's starting scores differ from the weekly scores the other views use.
+  // ────────────────────────────────────────────────────────────────────────
+  var WIRE_DATA = qs.get("wiredata") || "https://keithcreelman.github.io/upsmflproduction/wire/data/";
+  var FC_VIEWS = [["outlook", "Outlook"], ["places", "Every place"], ["finals", "Finals"], ["movement", "Movement"]];
+  function wk2(n) { return (n < 10 ? "0" : "") + n; }
+  function fetchWire(name) {
+    var key = "wire|" + name;
+    if (Object.prototype.hasOwnProperty.call(state.cache, key)) return Promise.resolve(state.cache[key]);
+    return fetch(WIRE_DATA + name, { credentials: "omit", mode: "cors" }).then(function (r) {
+      if (r.status === 404) return null;                       // not published (yet): a normal answer
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (j) { state.cache[key] = j; return j; });
+  }
+  // The newest Wire forecast for season y at or before week w, or null.
+  function newestForecast(y, w) {
+    if (!(w >= 1)) return Promise.resolve(null);
+    return fetchWire("season_sim_" + y + "_live_wk" + wk2(w) + ".json").then(function (j) {
+      if (j && Number(j.season) === y && Number(j.throughWeek) === w && Array.isArray(j.teams)) return j;
+      return newestForecast(y, w - 1);
+    });
+  }
+  function validDetail(d, sim) {
+    if (!d || !d.teams) return false;
+    return (sim.teams || []).every(function (t) {
+      var x = d.teams[t.franchiseId];
+      return x && Array.isArray(x.place) && x.place.length === sim.teams.length;
+    });
+  }
+  // → { detail, why }: the place / runner-up / Hawk Tuah counts of this exact run, or null and the reason.
+  function forecastDetail(sim) {
+    if (sim.standingsForecast) return Promise.resolve(validDetail(sim.standingsForecast, sim) ? { detail: sim.standingsForecast } : { detail: null, why: "they’re incomplete in this forecast" });
+    return fetchWire("standings_forecast_" + sim.season + "_wk" + wk2(sim.throughWeek) + ".json").then(function (c) {
+      if (!c) return { detail: null, why: "this forecast didn’t record them" };
+      var w = c.wire || {};
+      var same = w.generatedAtUtc === sim.generatedAtUtc && w.runs === sim.runs && w.seed === sim.seed
+        && sim.teams.every(function (t) {
+          var o = (w.teams || {})[t.franchiseId];
+          return !!o && o[0] === t.currentPlayoffOdds && o[1] === t.currentByeOdds && o[2] === t.currentDivisionOdds && o[3] === t.currentTitleOdds;
+        });
+      if (!same) return { detail: null, why: "their file belongs to a different run of this forecast" };
+      return validDetail(c.standingsForecast, sim) ? { detail: c.standingsForecast } : { detail: null, why: "they’re incomplete in this forecast" };
+    }, function () { return { detail: null, why: "their file couldn’t be loaded" }; });
+  }
+  // The forecast must start where the standings are, from the same weekly scores Full League and Weekly use: every
+  // team's All-Play W-L-T through its last week (for the current week, also the Full League totals) and every H2H
+  // result of that week. → { hard: [...], corrections: [...] }. Any hard difference refuses the forecast. A score that
+  // changed after the run (a stat correction) without changing any of those results is a correction, shown in a note.
+  function forecastReconcile(sim, resp) {
+    var W = Number(sim.throughWeek), by = {}, out = [], corr = [];
+    var rowsBy = rowsByFid(resp.rows);
+    var fids = sim.teams.map(function (t) { return pad4(t.franchiseId); });
+    function hard(msg) { return { hard: [msg], corrections: [] }; }
+    if (fids.length !== (resp.rows || []).length || fids.some(function (f) { return !rowsBy[f]; })) return hard("the forecast’s teams aren’t this season’s teams");
+    if (!Array.isArray(resp.weeklyScores) || !Array.isArray(resp.weekly)) return hard("the weekly scores couldn’t be read");
+    resp.weeklyScores.forEach(function (s) {
+      if (s && Number(s.po) === 0 && Number(s.w) >= 1 && Number(s.w) <= W) (by[s.w] = by[s.w] || {})[pad4(s.fid)] = Number(s.ts);
+    });
+    for (var w = 1; w <= W; w++) {
+      if (!by[w] || fids.some(function (f) { return !(by[w][f] >= 0); })) return hard("Week " + w + "’s scores are incomplete");
+    }
+    var simScore = {};
+    sim.teams.forEach(function (t) { simScore[pad4(t.franchiseId)] = Number(t.weekScore); });
+    var current = W === Number((resp.regular_season || {}).through_week);
+    sim.teams.forEach(function (t) {
+      var f = pad4(t.franchiseId), aw = 0, al = 0, at = 0;
+      for (var k = 1; k <= W; k++) {
+        fids.forEach(function (g) {
+          if (g === f) return;
+          if (by[k][f] > by[k][g]) aw++; else if (by[k][f] < by[k][g]) al++; else at++;
+        });
+      }
+      var name = nameOf(rowsBy[f]);
+      if (aw !== t.currentApWins || al !== t.currentApLosses || at !== t.currentApTies) out.push(name + ": All-Play " + rec(aw, al, at) + " here, " + rec(t.currentApWins, t.currentApLosses, t.currentApTies) + " in the forecast");
+      if (Math.abs(by[W][f] - simScore[f]) > 0.051) corr.push(name + " Week " + W + ": " + simScore[f].toFixed(1) + " → " + by[W][f].toFixed(1));
+      var r = rowsBy[f];
+      if (current && (r.allplay_w !== aw || r.allplay_l !== al || r.allplay_t !== at)) out.push(name + ": Full League All-Play " + rec(r.allplay_w, r.allplay_l, r.allplay_t) + ", weekly scores " + rec(aw, al, at));
+    });
+    // Week W's H2H results under the forecast's scores must be the standings' results.
+    resp.weekly.forEach(function (g) {
+      if (!g || Number(g.w) !== W || Number(g.po) !== 0) return;
+      var a = pad4(g.fid), b = pad4(g.opp);
+      if (!(a in simScore) || !(b in simScore)) return;
+      var here = Math.sign(Number(g.ts) - Number(g.os)), there = Math.sign(simScore[a] - simScore[b]);
+      if (here !== there && a < b) out.push(nameOf(rowsBy[a]) + " v " + nameOf(rowsBy[b]) + ", Week " + W + ": the result differs");
+    });
+    return { hard: out, corrections: out.length ? [] : corr };
+  }
+  function fcPct(p) {
+    if (p == null || isNaN(p)) return "—";
+    if (p >= 1) return "100%";
+    if (p >= 0.995) return ">99%";
+    if (p <= 0) return "0%";
+    if (p < 0.005) return "<1%";
+    return Math.round(p * 100) + "%";
+  }
+  // Change in percentage points, with words for screen readers.
+  function fcDelta(now, before) {
+    if (now == null || before == null) return '<span class="fc-delta">—</span>';
+    var d = Math.round((now - before) * 100);
+    if (!d) return '<span class="fc-delta" aria-label="no change">0</span>';
+    return '<span class="fc-delta ' + (d > 0 ? "up" : "down") + '" aria-label="' + (d > 0 ? "up " : "down ") + Math.abs(d) + ' points">' + (d > 0 ? "▲" : "▼") + Math.abs(d) + '</span>';
+  }
+  function placeLabel(i) { return i < 6 ? "Seed " + (i + 1) : "H" + (i - 5); }
+  function fcWhen(sim) {
+    try {
+      return new Date(sim.generatedAtUtc).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
+    } catch (e) { return String(sim.generatedAtUtc); }
+  }
+  function fcRunText(sim) {
+    return "Through Week " + sim.throughWeek + " · " + Number(sim.runs).toLocaleString("en-US") + " simulated seasons · run " + fcWhen(sim);
+  }
+  // Freshness, up front on every Forecast view (#1370 gate 4): which week it's through, when it ran, and which earlier
+  // forecast the movement compares with.
+  function fcFreshHtml(sim, prev) {
+    return '<div class="fc-fresh" role="status"><b>Forecast through Week ' + escapeHtml(sim.throughWeek) + '</b>'
+      + '<span>Generated ' + escapeHtml(fcWhen(sim)) + ' · ' + Number(sim.runs).toLocaleString("en-US") + ' simulated seasons</span>'
+      + '<span>' + (prev ? 'Movement vs the Week ' + escapeHtml(prev.throughWeek) + ' forecast (generated ' + escapeHtml(fcWhen(prev)) + ')' : 'No earlier forecast to measure movement against') + '</span></div>';
+  }
+  var FC_ABOUT = [
+    ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
+    ["Played weeks", "Weeks already played are the real scores. Each later week is simulated from current rosters and projections, with every team’s projected edge cut by 30% toward the league average."],
+    ["Seeding", "The Standings rules: division winners by MFL’s division order, the two best get byes, then All-Play %, H2H record and Points For."],
+    ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
+    ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
+    ["Movement", "Change in percentage points since the previous published forecast."],
+    ["Can’t see", "Future trades, waiver moves and owners’ lineup choices."]
+  ];
+  function fcBarHtml(sim, controls) {
+    var dl = FC_ABOUT.concat([["This run", fcRunText(sim) + " · random seed " + sim.seed]]);
+    return '<div class="view-bar">' + (controls || '')
+      + '<details class="about"><summary>How the forecast works</summary><dl>'
+      + dl.map(function (it) { return '<dt>' + escapeHtml(it[0]) + '</dt><dd>' + escapeHtml(it[1]) + '</dd>'; }).join("")
+      + '</dl></details></div>';
+  }
+  function fcNavHtml() {
+    return '<div class="seg" role="group" aria-label="Forecast view"><span class="seg-label">Show:</span>'
+      + FC_VIEWS.map(function (v) {
+        return '<button type="button" class="mode-btn" data-fcview="' + v[0] + '" aria-pressed="' + (state.fcview === v[0] ? "true" : "false") + '">' + v[1] + '</button>';
+      }).join("") + '</div>';
+  }
+  function renderForecast(host) {
+    return fetchD1("/api/standings", state.year).then(function (resp) {
+      if (!resp || !resp.ok) return showFailure(host, "the " + state.year + " standings");
+      var rs = resp.regular_season || {};
+      var st = seasonStateOf(resp);
+      if (st === "final" || isFinishedSeason(resp)) {
+        host.innerHTML = '<div class="banner" role="status">The ' + state.year + ' season is finished, so there’s nothing left to forecast. <button type="button" class="link-btn" data-goto="bracket">See the ' + state.year + ' bracket →</button></div>';
+        wireGoto(host);
+        return;
+      }
+      if (resp.preseason || !(Number(rs.through_week) >= 1)) {
+        host.innerHTML = '<div class="banner" role="status">The forecast starts once Week 1 is final.</div>';
+        return;
+      }
+      var W = Number(rs.through_week);
+      return newestForecast(state.year, W).then(function (cur) {
+        if (!cur) { host.innerHTML = '<div class="err-box" role="status"><b>No UPS Wire forecast has been published for ' + state.year + ' yet.</b><span class="psub">It’s published with each week’s UPS Center.</span></div>'; return; }
+        return Promise.all([newestForecast(state.year, Number(cur.throughWeek) - 1), forecastDetail(cur)]).then(function (got) {
+          drawForecast(host, resp, cur, got[0], got[1]);
+        });
+      }, function () { showFailure(host, "the UPS Wire forecast"); });
+    }, function () { showFailure(host, "the " + state.year + " standings"); }).catch(drawFailed(host));
+  }
+  function forecastModel(resp, cur, prev, det) {
+    var rowsBy = rowsByFid(resp.rows), prevBy = {};
+    ((prev && prev.teams) || []).forEach(function (t) { prevBy[pad4(t.franchiseId)] = t; });
+    var D = det.detail;
+    var teams = cur.teams.map(function (t) {
+      var f = pad4(t.franchiseId), r = rowsBy[f], d = D ? D.teams[t.franchiseId] : null;
+      var mode = null;
+      if (d) d.place.forEach(function (p, i) { if (mode == null || p > d.place[mode]) mode = i; });
+      return {
+        fid: f, row: r, name: nameOf(r), division: r.division, divName: divisionLabel(r),
+        po: t.currentPlayoffOdds, bye: t.currentByeOdds, div: t.currentDivisionOdds, title: t.currentTitleOdds,
+        projAp: t.projectedEndingApPct, curAp: t.currentApPct, apP10: t.apP10, apP90: t.apP90,
+        runner: d ? d.runnerUpOdds : null, hawk: d ? d.hawkTitleOdds : null, hawkRunner: d ? d.hawkRunnerUpOdds : null,
+        place: d ? d.place : null, exp: d ? d.expectedPlace : null, mode: mode, prev: prevBy[f] || null
+      };
+    });
+    // Expected order: average finishing place (the Wire's projected All-Play breaks a tie). Without place counts the
+    // Wire's own order (projected All-Play) stands in, and the page says so.
+    teams.sort(function (a, b) {
+      if (a.exp != null && b.exp != null && a.exp !== b.exp) return a.exp - b.exp;
+      return (b.projAp - a.projAp) || a.fid.localeCompare(b.fid);
+    });
+    return { teams: teams, hasDetail: !!D, prevWeek: prev ? Number(prev.throughWeek) : null, prevHasDetail: !!(prev && prev.standingsForecast),
+      finals: D ? { ups: finalMatchups(D.finalPairs, "ups", teams), hawk: finalMatchups(D.finalPairs, "hawk", teams) } : { ups: null, hawk: null } };
+  }
+  // The simulation's (champion, runner-up) pair counts → matchups (both orders added), most common first, or null when
+  // this forecast didn't record them or they don't add up (#1370 gate 3: a matchup is only claimed from these counts).
+  function finalMatchups(pairsBySide, side, teams) {
+    var pairs = pairsBySide && pairsBySide[side], by = {}, total = 0, byFid = {};
+    teams.forEach(function (t) { byFid[t.fid] = t; });
+    if (!Array.isArray(pairs) || !pairs.length) return null;
+    for (var i = 0; i < pairs.length; i++) {
+      var x = pairs[i];
+      if (!Array.isArray(x) || x.length !== 3) return null;
+      var c = pad4(x[0]), r = pad4(x[1]), p = Number(x[2]);
+      if (!byFid[c] || !byFid[r] || c === r || !(p > 0)) return null;
+      var k = [c, r].sort().join("|");
+      var e = by[k] = by[k] || { teams: [c, r].sort(), p: 0, wins: {} };
+      e.p += p; e.wins[c] = (e.wins[c] || 0) + p; total += p;
+    }
+    if (Math.abs(total - 1) > 0.01) return null;
+    return Object.keys(by).map(function (k) {
+      var e = by[k], a = e.teams[0], b = e.teams[1];
+      var first = (e.wins[a] || 0) >= (e.wins[b] || 0) ? a : b;       // the side that wins it more often first
+      return { a: byFid[first], b: byFid[first === a ? b : a], p: e.p, aWins: (e.wins[first] || 0) / e.p };
+    }).sort(function (x, y) { return (y.p - x.p) || (x.a.fid + x.b.fid).localeCompare(y.a.fid + y.b.fid); });
+  }
+  function topBy(teams, key, n, skip) {
+    return teams.filter(function (t) { return t[key] != null && (!skip || skip.indexOf(t.fid) < 0); })
+      .slice().sort(function (a, b) { return (b[key] - a[key]) || a.fid.localeCompare(b.fid); }).slice(0, n);
+  }
+  function fcName(t) { return '<b class="fc-team">' + escapeHtml(t.name) + '</b>'; }
+  // The owner-facing summary: who is likely to win each bracket, the projected final, byes and division winners.
+  // Most likely champion, most likely runner-up and most likely final are three separate answers (#1370 gate 3): the
+  // final is the most common (champion, runner-up) pairing the simulation counted, never the two best single odds.
+  function fcBracketTile(title, cls, champ, champSub, runner, finals) {
+    var html = '<div class="fc-tile' + cls + '"><h3>' + title + '</h3>'
+      + '<div class="fc-big">' + fcName(champ.t) + ' <span class="fc-pct">' + fcPct(champ.p) + '</span></div><div class="fc-sub">' + champSub + '</div>';
+    if (runner) html += '<div class="fc-line">Most likely runner-up: ' + fcName(runner.t) + ' <span class="fc-pct">' + fcPct(runner.p) + '</span></div>';
+    if (finals && finals.length) {
+      var f = finals[0];
+      html += '<div class="fc-line">Most likely final: ' + fcName(f.a) + ' v ' + fcName(f.b) + ' <span class="fc-pct">' + fcPct(f.p) + '</span></div>'
+        + '<div class="fc-sub">of simulated seasons; ' + escapeHtml(f.a.name) + ' wins it ' + fcPct(f.aWins) + ' of the time</div>';
+    } else if (runner) {
+      html += '<div class="fc-sub">Final matchup odds weren’t recorded for this forecast.</div>';
+    }
+    return html + '</div>';
+  }
+  function fcTilesHtml(m) {
+    var T = m.teams, tiles = [];
+    function top(key) { var t = topBy(T, key, 1)[0]; return t ? { t: t, p: t[key] } : null; }
+    tiles.push(fcBracketTile("UPS Championship", "", top("title"), "most likely champion", m.hasDetail ? top("runner") : null, m.finals.ups));
+    if (m.hasDetail) tiles.push(fcBracketTile("Hawk Tuah Bowl", " hawk", top("hawk"), "most likely Hawk Tuah Bowl champion (pick 1.01)", top("hawkRunner"), m.finals.hawk));
+    var byes = topBy(T, "bye", 2);
+    tiles.push('<div class="fc-tile"><h3>First-round byes</h3>' + byes.map(function (t) {
+      return '<div class="fc-line">' + fcName(t) + ' <span class="fc-pct">' + fcPct(t.bye) + '</span></div>';
+    }).join("") + '<div class="fc-sub">the two most likely</div></div>');
+    var divs = {};
+    T.forEach(function (t) { (divs[t.division] = divs[t.division] || []).push(t); });
+    tiles.push('<div class="fc-tile"><h3>Division winners</h3>' + Object.keys(divs).sort().map(function (d) {
+      var w = topBy(divs[d], "div", 1)[0];
+      return '<div class="fc-line"><span class="fc-div">' + escapeHtml(w.divName) + '</span> ' + fcName(w) + ' <span class="fc-pct">' + fcPct(w.div) + '</span></div>';
+    }).join("") + '</div>');
+    return '<div class="fc-tiles">' + tiles.join("") + '</div>';
+  }
+  function fcOutlookHtml(m) {
+    var trs = m.teams.map(function (t, i) {
+      var you = VIEWER_FID && t.fid === VIEWER_FID;
+      var likely = t.mode != null ? escapeHtml(placeLabel(t.mode)) + ' <span class="fc-dim">' + fcPct(t.place[t.mode]) + '</span>' : '—';
+      // the top-six line only on the order of average finish: without place counts the order isn't a finish order
+      var line = i === 5 && m.hasDetail ? ' class="fc-cut' + (you ? ' you-row' : '') + '"' : (you ? ' class="you-row"' : '');
+      return '<tr' + line + ' data-fid="' + t.fid + '"><td class="num">' + (i + 1) + '</td>'
+        + '<td>' + escapeHtml(t.name) + '<span class="owner-sub">' + escapeHtml(t.divName) + '</span>'
+        + (m.hasDetail ? '<span class="fc-likely-sub">Most likely ' + likely + '</span></td><td class="fc-likely">' + likely + '</td>' : '</td>')
+        + '<td class="num"><b>' + fcPct(t.po) + '</b></td>'
+        + '<td class="num fc-wide">' + fcPct(t.bye) + '</td>'
+        + '<td class="num fc-wide">' + fcPct(t.div) + '</td>'
+        + '<td class="num">' + fcPct(t.title) + '</td>'
+        + '<td class="num">' + (t.prev ? fcDelta(t.po, t.prev.currentPlayoffOdds) : '—') + '</td></tr>';
+    }).join("");
+    var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "No earlier forecast to compare with.";
+    return '<h3 class="sec-h">Projected final standings</h3>'
+      + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="' + (m.hasDetail ? 'Expected place: the average finish over every simulated season' : 'Order of projected All-Play %') + '">Proj</th><th scope="col">Team</th>' + (m.hasDetail ? '<th class="fc-likely" scope="col" title="The single most likely finish">Most likely</th>' : '') + '<th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
+      + '<div class="note">' + (m.hasDetail ? "Proj = order of average finish (1–6 seeds, then H1–H6); the line marks the top six. " : "Ordered by projected All-Play %. ") + escapeHtml(since) + '</div>';
+  }
+  function fcPlacesHtml(m) {
+    var head = '<div class="fp-row fp-head" aria-hidden="true"><span class="fp-name"></span>'
+      + m.teams.map(function (t, i) { return '<span class="fp-h' + (i >= 6 ? " hawk" : "") + '">' + (i < 6 ? (i + 1) : "H" + (i - 5)) + '</span>'; }).join("") + '</div>';
+    var rows = m.teams.map(function (t) {
+      return '<div class="fp-row" role="row"><span class="fp-name" role="rowheader">' + escapeHtml(t.name) + '</span>'
+        + t.place.map(function (p, i) {
+          var a = p > 0 ? 0.1 + 0.8 * Math.min(1, p / 0.6) : 0;
+          var bg = !a ? "" : ' style="background:' + (i < 6 ? "rgba(231,190,89," : "rgba(255,138,101,") + a.toFixed(2) + ")" + (a > 0.55 ? ";color:#061a3a" : "") + '"';
+          return '<span class="fp-cell' + (i === t.mode ? " mode" : "") + (p > 0 ? "" : " zero") + '" role="cell" aria-label="' + escapeHtml(placeLabel(i)) + ': ' + fcPct(p) + '"' + bg + '>'
+            + (p > 0 ? (p < 0.005 ? "·" : Math.round(p * 100)) : "0") + '</span>';
+        }).join("") + '</div>';
+    }).join("");
+    return '<h3 class="sec-h">Every finish, every team <span class="h-sub">· % of simulated seasons</span></h3>'
+      + '<div class="fp-grid" role="table" aria-label="Chance of each finishing place">' + head + rows + '</div>'
+      + '<div class="note">1–6 are playoff seeds (1–2 byes); H1–H6 are the Hawk Tuah Bowl seeds. Each row and each column adds to 100 (· = under 1%; 0 = never). The outlined cell is the most likely finish.</div>';
+  }
+  function fcFinalsHtml(m) {
+    function table(title, champKey, runKey, champLabel) {
+      var rows = m.teams.slice().sort(function (a, b) { return ((b[champKey] - a[champKey]) || (b[runKey] - a[runKey])) || a.fid.localeCompare(b.fid); });
+      return '<section class="panel"><h3>' + title + '</h3><table class="data-table fc-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">' + champLabel + '</th><th class="num" scope="col">Runner-up</th><th class="num" scope="col">Final</th></tr></thead><tbody>'
+        + rows.map(function (t) {
+          return '<tr><td>' + escapeHtml(t.name) + '</td><td class="num"><b>' + fcPct(t[champKey]) + '</b></td><td class="num">' + fcPct(t[runKey]) + '</td><td class="num">' + fcPct((t[champKey] || 0) + (t[runKey] || 0)) + '</td></tr>';
+        }).join("") + '</tbody></table></section>';
+    }
+    function pairs(title, list) {
+      if (!list) return '';
+      return '<section class="panel"><h3>' + title + '</h3><table class="data-table fc-table fc-pairs"><thead><tr><th scope="col">Final</th><th class="num" scope="col">Odds</th></tr></thead><tbody>'
+        + list.slice(0, 5).map(function (f) {
+          return '<tr><td>' + escapeHtml(f.a.name) + ' v ' + escapeHtml(f.b.name) + '<span class="owner-sub">' + escapeHtml(f.a.name) + ' wins ' + fcPct(f.aWins) + '</span></td><td class="num"><b>' + fcPct(f.p) + '</b></td></tr>';
+        }).join("") + '</tbody></table></section>';
+    }
+    var pairHtml = m.finals.ups || m.finals.hawk ? '<div class="pic-grid fc-finals">' + pairs("Most likely UPS finals", m.finals.ups) + pairs("Most likely Hawk Tuah finals", m.finals.hawk) + '</div>' : '';
+    return '<div class="pic-grid fc-finals">' + table("UPS Championship", "title", "runner", "Champion") + table("Hawk Tuah Bowl", "hawk", "hawkRunner", "Champion") + '</div>'
+      + pairHtml
+      + '<div class="note">Final = reaches the Week 17 final (champion + runner-up). A matchup’s odds count both teams meeting in the final, either way. The Hawk Tuah Bowl champion picks 1.01.</div>';
+  }
+  function fcMovementHtml(m) {
+    if (!m.prevWeek) return '<div class="banner" role="status">No earlier forecast to compare with.</div>';
+    var rows = m.teams.slice().sort(function (a, b) {
+      return ((b.po - b.prev.currentPlayoffOdds) - (a.po - a.prev.currentPlayoffOdds)) || a.fid.localeCompare(b.fid);
+    });
+    function cell(now, before) { return '<td class="num">' + fcPct(now) + ' ' + fcDelta(now, before) + '</td>'; }
+    return '<h3 class="sec-h">Since the Week ' + m.prevWeek + ' forecast</h3>'
+      + '<table class="data-table fc-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th></tr></thead><tbody>'
+      + rows.map(function (t) {
+        var p = t.prev;
+        return '<tr><td>' + escapeHtml(t.name) + '</td>' + cell(t.po, p.currentPlayoffOdds) + '<td class="num fc-wide">' + fcPct(t.bye) + ' ' + fcDelta(t.bye, p.currentByeOdds) + '</td><td class="num fc-wide">' + fcPct(t.div) + ' ' + fcDelta(t.div, p.currentDivisionOdds) + '</td>' + cell(t.title, p.currentTitleOdds) + '</tr>';
+      }).join("") + '</tbody></table>'
+      + '<div class="note">Sorted by the change in playoff odds. ▲▼ = percentage points since Week ' + m.prevWeek + '.'
+      + (m.prevHasDetail ? '' : ' The Week ' + m.prevWeek + ' forecast didn’t record finish places, runners-up or the Hawk Tuah Bowl, so those have no movement yet.') + '</div>';
+  }
+  function drawForecast(host, resp, cur, prev, det) {
+    var W = Number((resp.regular_season || {}).through_week);
+    var recon = forecastReconcile(cur, resp), bad = recon.hard;
+    if (bad.length) {
+      host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, "") + '<div class="err-box" role="alert"><b>The Week ' + cur.throughWeek + ' forecast doesn’t start from these standings, so it isn’t shown.</b>'
+        + '<span class="psub">' + escapeHtml(bad.slice(0, 3).join(" · ") + (bad.length > 3 ? " · and " + (bad.length - 3) + " more" : "")) + '</span></div>';
+      return;
+    }
+    var m = forecastModel(resp, cur, prev, det);
+    var view = state.fcview;
+    if (!m.hasDetail && (view === "places" || view === "finals")) view = "outlook";
+    var stale = Number(cur.throughWeek) < W
+      ? '<div class="err-box fc-stale" role="status"><b>This is the Week ' + cur.throughWeek + ' forecast; Week ' + W + ' is final.</b><span class="psub">The Week ' + W + ' forecast is published with the Week ' + W + ' UPS Center.</span></div>' : '';
+    var missing = m.hasDetail ? '' : '<div class="err-box" role="status"><b>Finish places, runners-up and the Hawk Tuah Bowl aren’t available for this forecast</b><span class="psub">because ' + escapeHtml(det.why || "they weren’t recorded") + '. Playoff, bye, division and title odds are shown.</span></div>';
+    var body;
+    if (view === "places") body = fcPlacesHtml(m);
+    else if (view === "finals") body = fcFinalsHtml(m);
+    else if (view === "movement") body = fcMovementHtml(m);
+    else body = fcTilesHtml(m) + fcOutlookHtml(m);
+    var reconNote = recon.corrections.length
+      ? 'Starts from the Week ' + cur.throughWeek + ' standings. It ran before a stat correction (' + recon.corrections.join("; ") + '); no win, loss or All-Play result changed.'
+      : 'Starts from the Week ' + cur.throughWeek + ' standings: all ' + cur.teams.length + ' teams’ scores and All-Play match the Weekly' + (Number(cur.throughWeek) === W ? ' and Full League' : '') + ' views.';
+    host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, fcNavHtml()) + stale + missing + body + '<div class="note fc-recon">' + escapeHtml(reconNote) + '</div>';
+    host.querySelectorAll("[data-fcview]").forEach(function (b) {
+      b.disabled = !m.hasDetail && (b.getAttribute("data-fcview") === "places" || b.getAttribute("data-fcview") === "finals");
+      b.addEventListener("click", function () { state.fcview = b.getAttribute("data-fcview"); pushQs(); drawForecast(host, resp, cur, prev, det); notifyHeight(); });
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
   // Full League (the former Overall view) — Scope for historical use
   // ────────────────────────────────────────────────────────────────────────
   // ── Scoped standings (Full / Regular / Playoffs / Custom) ───────────────
@@ -2494,8 +2906,10 @@
   // Column sets for the Show control. Scored = what each lineup put up; Opponent = what opponents scored (schedule, not
   // skill — never called a defense: in UPS, MFL's IDP points are scored by your own players); Overall = the standings.
   // No division columns here (#1329 decision 2: the Divisions tab has them).
+  // cls "lg-wide": a secondary column, hidden at phone widths (≤560px) so the table never scrolls sideways.
   function leagueColumns(show, ctx) {
     var cols = [];
+    var W = "lg-wide";
     function c(label, key, num, cell, title, cls) { cols.push({ label: label, key: key, num: num, cell: cell, title: title, cls: cls }); }
     var raceData = ctx.raceData, resp = ctx.resp;
     // One Seed cell: the seed (H1-H6 outside the field) and, in season, the BYE / DIV / WC chip beside it. projected =
@@ -2511,32 +2925,32 @@
         + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span>';
     });
     if (show === "scored") {
-      c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For");
+      c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For", W);
       c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)");
       c("PF rank", "_pfRank", true, function (r) { return r._pfRank ? ordinal(r._pfRank) : "—"; }, "1 = most Points For");
-      c("Avg wk rank", "_avgRank", true, function (r) { return fmtDec(r._avgRank, 1); }, "Average weekly scoring rank (1 = highest score that week)");
-      c("Best week", "_best", true, function (r) { return r._bestW ? "W" + r._bestW.week + " " + fmtPts(r._bestW.score) : "—"; });
-      c("Worst week", "_worst", true, function (r) { return r._worstW ? "W" + r._worstW.week + " " + fmtPts(r._worstW.score) : "—"; });
-      c("Last 3 avg rank", "_l3Rank", true, function (r) { return fmtDec(r._l3Rank, 1); }, "Average weekly scoring rank over the last three regular-season weeks (descriptive)");
+      c("Avg wk rank", "_avgRank", true, function (r) { return fmtDec(r._avgRank, 1); }, "Average weekly scoring rank (1 = highest score that week)", W);
+      c("Best week", "_best", true, function (r) { return r._bestW ? "W" + r._bestW.week + " " + fmtPts(r._bestW.score) : "—"; }, null, W);
+      c("Worst week", "_worst", true, function (r) { return r._worstW ? "W" + r._worstW.week + " " + fmtPts(r._worstW.score) : "—"; }, null, W);
+      c("Last 3 avg rank", "_l3Rank", true, function (r) { return fmtDec(r._l3Rank, 1); }, "Average weekly scoring rank over the last three regular-season weeks (descriptive)", W);
       return cols;
     }
     if (show === "opponent") {
       c("Opp. pts/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Points your opponents scored per head-to-head game");
       c("Rank", "_paRank", true, function (r) { return r._paRank ? ordinal(r._paRank) : "—"; }, "1 = opponents scored the most points per game");
-      c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you");
-      c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)");
+      c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you", W);
+      c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)", W);
       return cols;
     }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
-    c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T");
+    c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); });
     if (ctx.current && !ctx.scoped) c("WC Back", "_back", true, function (r) { return r._back == null ? "—" : String(r._back); }, "All-Play wins behind the last wild card (division winners are protected)");
-    c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For");
-    c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)");
-    c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game");
+    c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For", W);
+    c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)", W);
+    c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game", W);
     if (!ctx.scoped) {
-      c("Exp. W", "_xw", true, function (r) { return fmtDec(r._xw, 1); }, "Expected wins: for each game, the share of the league you outscored that week");
-      c("Luck", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + fmtSigned(r._luck) + '</span>'; }, "Schedule luck: actual wins minus expected wins");
+      c("Exp. W", "_xw", true, function (r) { return fmtDec(r._xw, 1); }, "Expected wins: for each game, the share of the league you outscored that week", W);
+      c("Luck", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + fmtSigned(r._luck) + '</span>'; }, "Schedule luck: actual wins minus expected wins", W);
     }
     return cols;
   }
@@ -2628,7 +3042,7 @@
     }
     var cols = leagueColumns(state.show, ctx);
     var head = '<tr>' + cols.map(function (col) {
-      var th = col.key ? sortableHeader(col.label, col.key, sortHdrs, col.num ? "num" : null, col.title) : '<th scope="col"' + (col.title ? ' title="' + escapeHtml(col.title) + '"' : '') + '>' + escapeHtml(col.label) + '</th>';
+      var th = col.key ? sortableHeader(col.label, col.key, sortHdrs, col.num ? "num" : null, col.title) : '<th class="" scope="col"' + (col.title ? ' title="' + escapeHtml(col.title) + '"' : '') + '>' + escapeHtml(col.label) + '</th>';
       return col.cls ? th.replace('<th class="', '<th class="' + col.cls + ' ') : th;
     }).join("") + '</tr>';
     var colCount = cols.length;
@@ -2638,7 +3052,7 @@
       var isYou = VIEWER_FID && fid === VIEWER_FID;
       var rowAttrs = (isYou ? ' class="you-row race-row"' : ' class="race-row"')
         + (!scoped ? ' tabindex="0" role="button" aria-expanded="false" data-fid="' + fid + '"' : '');
-      bodyParts.push('<tr' + rowAttrs + '>' + cols.map(function (col) { return '<td' + (col.num ? ' class="num"' : (col.cls ? ' class="' + col.cls + '"' : '')) + '>' + col.cell(r) + '</td>'; }).join("") + '</tr>');
+      bodyParts.push('<tr' + rowAttrs + '>' + cols.map(function (col) { var k = (col.num ? "num" : "") + (col.num && col.cls ? " " : "") + (col.cls || ""); return '<td' + (k ? ' class="' + k + '"' : '') + '>' + col.cell(r) + '</td>'; }).join("") + '</tr>');
       if (!scoped) bodyParts.push(buildDisclosureHtml(resp, raceData, sf, fid, colCount, { finished: finished, fin: fins ? fins[fid] : null }).replace('<tr class="disclosure-row">', '<tr class="disclosure-row" hidden data-for="' + fid + '">'));
       if (canonicalSeedOrder && showRace) {
         if (Number(r.playoff_seed) === 2) bodyParts.push('<tr class="seed-divider"><td colspan="' + colCount + '"></td></tr>');
@@ -2660,7 +3074,8 @@
     var colNote = state.show === "opponent"
       ? '<p class="col-note"><strong>Opponent: schedule, not skill.</strong> What your opponents scored against you in the regular season; rank 1 = opponents scored the most per game.</p>'
       : (state.show === "scored" ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>' : '');
-    host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + tkoFootnote(resp) + DEFERRED_NOTE;
+    noteBits.push('<div class="note lg-narrow-note">On a narrow screen the main columns show; a wider window adds the rest.</div>');
+    host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table class="lg-table"><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + tkoFootnote(resp) + DEFERRED_NOTE;
     wireSortClicks(host, state.overall, function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
     wireDisclosureToggles(host);
     wireWeekByWeek(host);

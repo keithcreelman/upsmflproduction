@@ -1514,8 +1514,16 @@
   }
   function taxiAction(action, pid, name) {
     var verb = action === "promote_taxi" ? "Promote" : "Demote";
+    // The worker's taxi verdict says which activation a promote would be; the 4th is permanent (canon §B2 / T2.4).
+    var p = myRwbPlayers().find(function (x) { return String(x.id) === String(pid); }) || {};
+    var ts = p.taxi_status || null;
+    var nth = ts ? ts.next_callup : null;
     var msg = action === "promote_taxi"
-      ? "Promote " + name + " to your active roster?\n\nEach taxi player gets 3 call-ups; the 4th makes the promotion PERMANENT (no longer cap-free to cut). Demoting before the next NFL week locks does not burn a call-up."
+      ? "Promote " + name + " to your active roster?\n\n" +
+        (ts && ts.next_callup_permanent
+          ? "All 3 temporary call-ups are used. If he is active (or on IR) for a scoring week, that week makes the promotion PERMANENT — he can never return to taxi and is no longer cap-free to cut."
+          : (nth ? "If he is active (or on IR) for a scoring week, that week uses call-up " + nth + " of 3 (temporary: you can demote after the week). " : "") + "Each taxi player gets 3 temporary call-ups; a 4th scoring week is permanent.") +
+        " A call-up is a scoring week, not a move: sending him back to taxi before his game uses nothing."
       : "Send " + name + " to your taxi squad?\n\nTaxi salary is off-cap. Demoting before the next NFL week locks does not burn a call-up.";
     if (!window.confirm(msg)) return;
     STATE.taxiBusy = pid; STATE.message = null; rerender();
@@ -1541,7 +1549,8 @@
     if (!STATE.rwb || !STATE.rwb.loaded) { el.innerHTML = '<div class="gd-stub">Loading taxi squad…</div>'; return; }
     var players = myRwbPlayers();
     var onTaxi = players.filter(function (p) { return p.is_taxi; }).sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
-    var eligible = players.filter(function (p) { return p.taxi_eligible && !p.is_taxi && !p.is_ir && !p.taxi_permanent_promotion; })
+    // The worker's ONE taxi verdict (worker/src/taxi_rule.js): demotable after each of the 3 temporary call-ups.
+    var eligible = players.filter(function (p) { return p.taxi_status ? p.taxi_status.can_demote === true : (p.taxi_eligible && !p.is_taxi && !p.is_ir && !p.taxi_permanent_promotion); })
       .sort(function (a, b) { return (b.salary || 0) - (a.salary || 0); });
 
     function row(p, action) {
@@ -1564,7 +1573,7 @@
       '<div class="gd-note">Manage your taxi squad right here. Taxi salary is real money but <strong>does not</strong> count against the cap. Each taxi player gets <strong>3 call-ups</strong>; the 4th makes the promotion permanent (League rule §B2).</div>' +
       (STATE.message ? '<div class="gd-msg ' + esc(STATE.message.kind) + '">' + esc(STATE.message.text) + '</div>' : '') +
       bucket("On the Taxi Squad — call up to active", onTaxi, "promote_taxi", "No players on your taxi squad.") +
-      bucket("Eligible to send to Taxi", eligible, "demote_taxi", "No active rookies are taxi-eligible (UPS draft R2–5, within 3 league years, not permanently promoted).");
+      bucket("Eligible to send to Taxi", eligible, "demote_taxi", "No active rookies are taxi-eligible (UPS Rookie Draft Round 2 or later, within 3 league years, never released, not permanently promoted).");
 
     el.querySelectorAll(".gd-taxi-btn").forEach(function (b) {
       b.addEventListener("click", function () { taxiAction(b.getAttribute("data-act"), b.getAttribute("data-pid"), b.getAttribute("data-name")); });

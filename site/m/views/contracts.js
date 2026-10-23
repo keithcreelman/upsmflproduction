@@ -61,7 +61,10 @@
       var used = callup ? U.safeInt(callup.used, 0) : 0;
       var pending = callup ? U.safeInt(callup.pending, 0) : 0;
       var max = callup ? U.safeInt(callup.max, 3) || 3 : 3;
-      if (isTaxiNow) {
+      if (isTaxiNow && DATA.taxiCallupsKnown && !DATA.taxiCallupsKnown()) {
+        // Counts not read yet (or unreadable): plain "Taxi", never "0/3".
+        out.push('<span class="badge tx">Taxi</span>');
+      } else if (isTaxiNow) {
         // Canon §B2 — always show the counter on taxi players (Keith
         // 2026-05-18) so the remaining budget is visible at a glance.
         var label = "Taxi · " + used + "/" + max;
@@ -1007,6 +1010,8 @@
   // ── Taxi + IR bucket helpers ────────────────────────────────────────
   // Per-player call-up counter chip ("N/3 call-ups", +pending). Canon §B2.
   function callupChip(pid) {
+    // Counts not read yet (or unreadable): no number, never "0/3".
+    if (DATA.taxiCallupsKnown && !DATA.taxiCallupsKnown()) return '<span class="chip">call-ups —</span>';
     var c = DATA.taxiCallupsFor && DATA.taxiCallupsFor(pid);
     var used = c ? U.safeInt(c.used, 0) : 0;
     var pending = c ? U.safeInt(c.pending, 0) : 0;
@@ -1191,6 +1196,9 @@
   function render(mount, subParts) {
     var sub = (subParts && subParts[0]) || "roster";
     if (sub === "lineup") return renderLineupStub(mount);
+    // Taxi chips and the demote list need the call-up counts, which the app no
+    // longer reads at boot: one shared request per app load (app.js lazyRead).
+    if (DATA.ensureTaxiCallups) DATA.ensureTaxiCallups();
     if (sub === "taxi") return renderTaxi(mount);
     if (sub === "ir") return renderIr(mount);
     if (sub === "contracts") return renderContractsHub(mount, subParts[1]);
@@ -1207,4 +1215,11 @@
   M.components.capHero = renderCapHero;
 
   M.route.registerView("myteam", render);
+
+  // The call-up counts landed after My Team opened: repaint it so the chips and
+  // the demote list stop reading "—" (only while My Team is still on screen).
+  if (window.addEventListener) window.addEventListener("ups-taxi-callups-ready", function () {
+    var parts = String(M.route.currentRoute() || "").split("/");
+    if (parts[0] === "myteam" && parts[1] !== "lineup") M.route.renderRoute();
+  });
 })();

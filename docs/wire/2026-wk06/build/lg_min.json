@@ -1,0 +1,85 @@
+{
+ "divisions": {
+  "count": "4",
+  "division": [
+   {
+    "id": "00",
+    "name": "Outlast PG Time"
+   },
+   {
+    "name": "LEGION OF BOOM",
+    "id": "01"
+   },
+   {
+    "name": "Maddie Mondays",
+    "id": "02"
+   },
+   {
+    "id": "03",
+    "name": "DOG POUND 4 LIFE"
+   }
+  ]
+ },
+ "franchises": [
+  {
+   "id": "0001",
+   "name": "L.A. Looks",
+   "division": "02"
+  },
+  {
+   "id": "0002",
+   "name": "CBP",
+   "division": "01"
+  },
+  {
+   "id": "0003",
+   "name": "Gride",
+   "division": "01"
+  },
+  {
+   "id": "0004",
+   "name": "Pure Greatness",
+   "division": "00"
+  },
+  {
+   "id": "0005",
+   "name": "HammerTime \ud83d\udd28 \u23f0",
+   "division": "00"
+  },
+  {
+   "id": "0006",
+   "name": "The Long Haulers",
+   "division": "00"
+  },
+  {
+   "id": "0007",
+   "name": "Sex Manther",
+   "division": "02"
+  },
+  {
+   "id": "0008",
+   "name": "Real Deal Creel",
+   "division": "02"
+  },
+  {
+   "id": "0009",
+   "name": "C-Town Chivalry",
+   "division": "03"
+  },
+  {
+   "id": "0010",
+   "name": "Blake Bombers",
+   "division": "01"
+  },
+  {
+   "id": "0011",
+   "name": "Cleon Ca$h",
+   "division": "03"
+  },
+  {
+   "id": "0012",
+   "name": "Hawks",
+   "division": "03"
+  }
+ ]
+}

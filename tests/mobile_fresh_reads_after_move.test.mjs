@@ -26,6 +26,8 @@ const sliceFn = (src, sig) => {
   throw new Error("unbalanced: " + sig);
 };
 const FRESH_BLOCK = cut(APP, "  var FRESH_READ_MS =", "  function mflExportUrl(type, extra) {");
+// reloadData also drops the reads a screen asked for (app.js lazyRead) and counts owner refreshes.
+const LAZY_BLOCK = cut(APP, "  var LAZY_RETRY_MS =", "  function lazyEvent(") + "\n  var refreshGen = 0;\n";
 
 function load() {
   const clock = { now: 1792170000000 };
@@ -36,7 +38,7 @@ function load() {
   ctx.workerUrl = (p) => "https://w.test" + p;
   ctx.loads = 0;
   ctx.loadAllData = () => { ctx.loads++; return "loaded"; };
-  vm.runInContext(FRESH_BLOCK + "\n" + sliceFn(APP, "function mflExportUrl(") + "\n" + sliceFn(APP, "function mflExportUrlForYear(") + "\n" +
+  vm.runInContext(FRESH_BLOCK + "\n" + LAZY_BLOCK + sliceFn(APP, "function mflExportUrl(") + "\n" + sliceFn(APP, "function mflExportUrlForYear(") + "\n" +
     sliceFn(APP, "function reloadData(") + "\nthis.api = { mflExportUrl, reloadData };", ctx);
   return { ...ctx.api, clock, ctx };
 }
@@ -78,7 +80,7 @@ test("every move's reload goes through reloadData: IR / taxi / drop / claim / tr
   t.match(APP, /reloadData: reloadData/, "UPS_MOBILE.actions.reloadData is this function");
   const sheet = fs.readFileSync(path.join(ROOT, "site/m/player_sheet.js"), "utf8");
   t.match(sheet, /\(placing \? "Placed on IR" : "Activated from IR"\), "ok"\);\s*\n\s*return window\.UPS_MOBILE\.actions\.reloadData\(\)/, "the IR move reloads through it");
-  t.match(sliceFn(APP, "function installPullToRefresh("), /reloadData\(\)\.then/, "pull-to-refresh reloads through it");
+  t.match(sliceFn(APP, "function installPullToRefresh("), /reloadData\(\{ refresh: true \}\)\.then/, "pull-to-refresh reloads through it (as an owner refresh)");
 });
 
 test("the worker passes `_` through to MFL, so a fresh read is a distinct 60-second cache key", () => {
