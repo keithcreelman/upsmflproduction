@@ -215,13 +215,18 @@ test("every application path reads the one verdict", () => {
   t.ok(/p\.taxi_status \? p\.taxi_status\.can_demote === true/.test(GD) && /next_callup_permanent/.test(GD) && !/UPS draft R2–5/.test(GD));
   // Phone: the twin, fail closed on unreadable call-up history.
   const APP = read("site/m/app.js"), IDX = read("site/m/index.html");
-  t.ok(/window\.UPS_TAXI_RULE/.test(APP) && /permanent: state\.taxiCallupsOk === false \? null/.test(APP) && /windowIndexOnly: true/.test(APP));
-  t.ok(/legacy2025: state\.taxiCallupsOk === false \? null : !!\(callup && callup\.legacy_2025\)/.test(APP), "phone: the 2025 legacy flag, unknown when the read failed");
+  // #1354: the call-up counts are read when My Team or a player sheet opens (ensureTaxiCallups), so "not read yet"
+  // is unknown too, exactly like a failed read (countsKnown).
+  t.ok(/var countsKnown = !!state\.taxiCallupsByPid && state\.taxiCallupsOk !== false;/.test(APP), "phone: counts known only once read, and read OK");
+  t.ok(/window\.UPS_TAXI_RULE/.test(APP) && /permanent: !countsKnown \? null/.test(APP) && /windowIndexOnly: true/.test(APP));
+  t.ok(/legacy2025: !countsKnown \? null : !!\(callup && callup\.legacy_2025\)/.test(APP), "phone: the 2025 legacy flag, unknown when the read failed or hasn't happened");
   t.ok(/error: "legacy_2025_unreadable"/.test(W), "/api/taxi-callups fails closed (ok:false) when the 2025 record can't be read");
   // Front Office bio line: the worker's reason.
   const FO = read("site/rosters/v2/front_office.js");
   t.ok(/taxiStatus:\s+p\.taxi_status \|\| null/.test(FO) && /if \(ts && ts\.eligible !== true && ts\.text\) return \{ text: ts\.text/.test(FO), "Front Office shows the verdict's reason");
-  t.ok(/return r\.ok \? r\.json\(\) : \{ ok: false, players: \{\} \}/.test(APP), "a failed /api/taxi-callups read is recorded, not read as 'nobody promoted'");
+  const TAXI_READ = APP.slice(APP.indexOf("function ensureTaxiCallups()"), APP.indexOf("function ensureTaxiCallups()") + 1600);
+  t.ok(/if \(!r\.ok\) throw new Error/.test(TAXI_READ) && /j\.ok === false\) throw/.test(TAXI_READ) && /if \(isCurrent\(\)\) state\.taxiCallupsOk = false;/.test(TAXI_READ),
+    "a failed /api/taxi-callups read is recorded (taxiCallupsOk = false), not read as 'nobody promoted'");
   t.ok(IDX.indexOf("../shared/taxi_rule.js") > 0 && IDX.indexOf("../shared/taxi_rule.js") < IDX.indexOf("./app.js"), "the phone loads the rule before app.js");
 });
 
