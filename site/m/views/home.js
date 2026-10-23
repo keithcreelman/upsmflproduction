@@ -323,7 +323,8 @@
         '<span class="ups-m-cal-ic">' + ic(nm.icon, { size: 18 }) + '</span>' +
         '<span class="ups-m-cal-date"><span class="d">' + U.escapeHtml(prettyDate(e.date)) + '</span>' +
           '<span class="w">' + U.escapeHtml(whenFor(e)) + '</span></span>' +
-        '<span class="ups-m-cal-body"><span class="ups-m-cal-evt">' + U.escapeHtml(nm.label + (etTime(e) ? " · " + etTime(e) : "")) + '</span>' +
+        '<span class="ups-m-cal-body"><span class="ups-m-cal-evt">' + U.escapeHtml(nm.label) +
+          (etTime(e) ? '<span class="ups-m-cal-time">' + U.escapeHtml(etTime(e)) + '</span>' : '') + '</span>' +
           '<span class="ups-m-cal-go">' + (tone === "now" ? "Open now" : "Open") + '</span></span>' +
       '</a>';
     }).join("") + '</div>';
