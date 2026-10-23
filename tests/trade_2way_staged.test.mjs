@@ -5,7 +5,9 @@
 // every acceptance and before execution; a satisfied conditional-drop selection means
 // "awaiting review," never permission for an automatic MFL write.
 //
-// installDiscordRecorder() below THROWS on any fetch() that isn't to discord.com — outside the
+// installDiscordRecorder() below THROWS on any fetch() that isn't to discord.com (apart from three
+// read-only MFL exports — rosters, futureDraftPicks, draftResults — that the asset-integrity gate
+// reads; any MFL import, i.e. a write, still throws) — outside the
 // UNCLEAR ACCEPT section at the end, TRADE_2WAY_STAGING_EXECUTE is never set to "1" in this
 // file, so execute2Way takes the DRY-RUN branch and never reaches executeCommishTwoPartyTrade's
 // real myfantasyleague.com fetch() at all. Any test that somehow DID reach a real MFL call would
@@ -306,6 +308,65 @@ test("HTTP: only the proven viewer can create as their own team -- a proven sess
   t.equal(resp.status, 403);
   const j = await resp.json();
   t.equal(j.code, "forbidden");
+});
+
+// ═══════════════════════ P0 S3 + S4: fail closed on create; asset integrity at accept ═══════════════════════
+const postCreate = async (env, body) => {
+  const url = new URL("https://worker.test/api/trades/2way?MFL_USER_ID=tok-A");
+  const request = new Request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const ctx = ctxWait();
+  const resp = await handle2WayStagedHttp({
+    request, url, path: url.pathname, env, ctx, corsHeaders: {},
+    defaultLeagueId: "74598", defaultSeason: "2026", browserMflUserId: "tok-A", cookieMflUserId: "",
+    deps: { detectFranchise: async (tok) => (tok === "tok-A" ? { franchise_id: FR.A, franchise_name: "Real Deal Creel" } : { error: "HTTP 401" }), commishFids: () => [] },
+  });
+  await ctx.flush();
+  return { status: resp.status, json: await resp.json() };
+};
+const stagedCount = (env) => env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_2way_trades").get().n;
+
+test("CREATE (fail closed): cap money + rosters export down → 503 cap_money_check_unavailable, nothing staged, no DM; without cap money the same outage still stages (201)", async () => {
+  const env = makeEnv();
+  discord.resetMfl({ fail: { rosters: 502 } }); discord.reset();
+  try {
+    const withCap = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k: 1 }] });
+    t.equal(withCap.status, 503, JSON.stringify(withCap.json)); t.equal(withCap.json.code, "cap_money_check_unavailable");
+    t.equal(stagedCount(env), 0); t.equal(discord.messages().length, 0);
+    const noCap = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k: 0 }] });
+    t.equal(noCap.status, 201, JSON.stringify(noCap.json)); t.equal(stagedCount(env), 1);
+  } finally { discord.resetMfl(); }
+});
+
+test("CREATE: a round-6 pick, or a pick beyond the current year + 1, is refused (409 pick_not_tradeable) and nothing is staged", async () => {
+  const env = makeEnv();
+  for (const tok of ["FP_2027_6_0008", "FP_0008_2028_1", "DP_2026_6_3"]) {
+    const r = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614", tok], cap_k: 0 }] });
+    t.equal(r.status, 409, `${tok}: ${JSON.stringify(r.json)}`); t.equal(r.json.code, "pick_not_tradeable");
+  }
+  t.equal(stagedCount(env), 0);
+});
+
+test("ACCEPT: an asset no longer with its sender is refused BEFORE consent is recorded (409 asset_ownership_mismatch); nothing moves", async () => {
+  const env = makeEnv();
+  const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  discord.resetMfl({ rosters: { "0008": [{ id: "16193", salary: 5000 }], "0001": [{ id: "16614", salary: 5000 }] } });   // 16614 has since moved to 0001
+  try {
+    const x = await accept2WayTrade(env, ctxWait(), created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    t.equal(x.ok, false); t.equal(x.http, 409); t.equal(x.code, "asset_ownership_mismatch"); t.match(x.message, /wasn't recorded/);
+    const row = env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(created.id);
+    t.equal(row.to_state, "pending", "consent not recorded"); t.equal(row.status, "collecting");
+  } finally { discord.resetMfl(); }
+});
+
+test("ACCEPT: rosters export down is not a verdict — the accept is recorded and the trade is HELD as unavailable (never executes)", async () => {
+  const env = makeEnv();
+  const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  discord.resetMfl({ fail: { rosters: 502 } });
+  try {
+    const x = await accept2WayTrade(env, ctxWait(), created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    t.equal(x.ok, true); t.equal(x.accepted, true); t.equal(x.executing, false); t.equal(x.held, true); t.equal(x.kind, "unavailable");
+    t.equal(env.UPS_MFL_DB.raw.prepare("SELECT status FROM ups_2way_trades WHERE id=?").get(created.id).status, "collecting");
+  } finally { discord.resetMfl(); }
 });
 
 // ═══════════════════════ UNCLEAR ACCEPT (live execution, fake MFL): ask MFL, never re-send ═══════════════════════

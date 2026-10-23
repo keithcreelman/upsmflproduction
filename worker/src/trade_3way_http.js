@@ -14,12 +14,13 @@
 // worker's configured league) and MUST agree with any league_id in the body; every trade is
 // scoped to that (league, season).
 
-import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance } from "./trade_3way.js";
+import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance, movementPickViolations, PICK_NOT_TRADEABLE_MSG } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
+const CAP_MONEY_UNAVAILABLE_MSG = "Couldn't verify this trade with MFL right now, so it wasn't sent. Try again in a moment.";
 
 const CREATE_MESSAGES = {
   "3way_disabled": "3-way trades aren't turned on right now.",
@@ -184,6 +185,12 @@ export async function handle3WayHttp(a) {
       }
     }
   }
+  // SEND — canon §A6 (P0 S4): no round-6 pick and no pick beyond the current year + 1 — the same rule and code as the two-team accept.
+  {
+    const pickMoves = Array.isArray(body.movements) && body.movements.length ? body.movements : (Array.isArray(body.legs) ? body.legs : []);
+    const picksBad = movementPickViolations(pickMoves, season);
+    if (picksBad.length) return fail(409, "pick_not_tradeable", PICK_NOT_TRADEABLE_MSG, { violations: picksBad });
+  }
   // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). (Legs carry the same tokens.)
   {
     const sendMoves = Array.isArray(body.movements) && body.movements.length ? body.movements : (Array.isArray(body.legs) ? body.legs : []);
@@ -196,6 +203,8 @@ export async function handle3WayHttp(a) {
     movements: body.movements, legs: body.legs, notes: body.notes, extension_requests: body.extension_requests,
   });
   if (created.ok) return out(201, { ok: true, id: created.id });
+  // The §A6 cap-money check couldn't read MFL (P0 S3): 503, nothing stored, nothing sent. Every other create error stays 400.
+  if (created.code === "cap_money_check_unavailable") return fail(503, created.code, CAP_MONEY_UNAVAILABLE_MSG);
   const known = CREATE_MESSAGES[created.error];
   // create3WayTrade's catch-all returns the raw exception text — never show that to an owner.
   const message = created.code === "TRADE_CAP_MONEY_50PCT" ? safeStr(created.error) : (known || "Couldn't create the 3-way trade.");

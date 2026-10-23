@@ -39646,11 +39646,25 @@ const mflToSleeper = {};
           // could bypass. We resolve live non-taxi salary per side from
           // the rosters export and reject any side whose traded_salary_
           // adjustment_k exceeds half the summed selected non-taxi salary.
-          try {
-            const tradesRostersRes = await mflExportJsonWithRetryAsViewer(
-              season, leagueId, "rosters", {}, { useCookie: true }
-            );
-            if (tradesRostersRes.ok) {
+          // FAIL CLOSED (P0 S3): when any side carries cap money and the rosters export can't be
+          // read, the offer is not sent (503 cap_money_check_unavailable) -- the rule is never
+          // skipped because MFL was slow. A side with no cap money is unaffected by this check.
+          const proposeUnverifiableMsg = "Couldn't verify this trade with MFL right now, so it wasn't sent. Try again in a moment.";
+          const proposeCapSides = asArray(payload?.teams).filter((team) => padFranchiseId(team?.franchise_id) && Number(team?.traded_salary_adjustment_k || 0) > 0);
+          if (proposeCapSides.length) {
+            let tradesRostersRes = null;
+            try {
+              tradesRostersRes = await mflExportJsonWithRetryAsViewer(
+                season, leagueId, "rosters", {}, { useCookie: true }
+              );
+            } catch (e) {
+              console.warn("[trade-cap-50pct] rosters read failed:", e?.message || String(e));
+              tradesRostersRes = null;
+            }
+            if (!tradesRostersRes || !tradesRostersRes.ok) {
+              return jsonOut(503, { ok: false, code: "cap_money_check_unavailable", error_type: "cap_money_check_unavailable", error: proposeUnverifiableMsg, message: proposeUnverifiableMsg });
+            }
+            {
               const liveSalaryByFp = {};
               const liveTaxiByFp = {};
               const franchises = asArray(
@@ -39679,12 +39693,10 @@ const mflToSleeper = {};
                   if (!pid) continue;
                   const key = `${fidSide}|${pid}`;
                   if (liveTaxiByFp[key]) continue;
-                  // Prefer live salary lookup; fall back to client-
-                  // supplied salary if the player isn't in the live
-                  // roster snapshot (e.g., post-trade race).
-                  const livePay = liveSalaryByFp[key];
-                  const fallback = Number(a?.salary) || 0;
-                  sumNonTaxiDollars += (livePay > 0 ? livePay : fallback);
+                  // Live salary only. A player missing from the live roster counts $0
+                  // (the client's own salary figure is never used); the ownership check
+                  // below refuses such a player anyway.
+                  sumNonTaxiDollars += Number(liveSalaryByFp[key]) || 0;
                 }
                 const maxK = Math.floor(sumNonTaxiDollars / 2000);
                 if (tradedK > maxK) {
@@ -39704,11 +39716,6 @@ const mflToSleeper = {};
                 }
               }
             }
-          } catch (e) {
-            console.warn("[trade-cap-50pct] backstop check failed:", e?.message || String(e));
-            // Fail-open: don't block legitimate submits if the lookup
-            // crashes. The client-side check + commish manual review
-            // remain in place.
           }
 
           const proposalAssets = buildTradeProposalAssetLists(payload);
@@ -39726,11 +39733,22 @@ const mflToSleeper = {};
           // asset.franchise_id) matches a live rosters entry. If any asset
           // is on the WRONG franchise per live MFL, return a clear 400
           // listing the mismatched assets.
-          try {
-            const ownershipRostersRes = await mflExportJsonWithRetryAsViewer(
-              season, leagueId, "rosters", {}, { useCookie: true }
-            );
-            if (ownershipRostersRes.ok) {
+          // FAIL CLOSED (P0 S3): if the rosters export can't be read, ownership can't be
+          // verified, so the offer is not sent (503 ownership_check_unavailable).
+          {
+            let ownershipRostersRes = null;
+            try {
+              ownershipRostersRes = await mflExportJsonWithRetryAsViewer(
+                season, leagueId, "rosters", {}, { useCookie: true }
+              );
+            } catch (e) {
+              console.warn("[trade-ownership] rosters read failed:", e?.message || String(e));
+              ownershipRostersRes = null;
+            }
+            if (!ownershipRostersRes || !ownershipRostersRes.ok) {
+              return jsonOut(503, { ok: false, code: "ownership_check_unavailable", error_type: "ownership_check_unavailable", error: proposeUnverifiableMsg, message: proposeUnverifiableMsg });
+            }
+            {
               const liveOwnerByPid = {};
               const ownFranchises = asArray(
                 ownershipRostersRes.data?.rosters?.franchise ||
@@ -39784,11 +39802,6 @@ const mflToSleeper = {};
                 });
               }
             }
-          } catch (e) {
-            console.warn("[trade-ownership] check failed (fail-open):", e?.message || String(e));
-            // Fail-open: don't block on lookup errors. MFL submit will
-            // still catch genuine ownership issues; this is belt-and-
-            // suspenders for the stale-cache case.
           }
 
           if (!proposalAssets.isValid) {
