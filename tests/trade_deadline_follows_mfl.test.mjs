@@ -143,7 +143,7 @@ test("owner-facing readers: the MFL-page countdown, the phone Home calendar and 
   const etTime = new Function("U", HM.match(/function etTime\(e\) \{[\s\S]*?\n  \}/)[0] + "; return etTime;")({ safeStr: (x) => (x == null ? "" : String(x)) });
   t.equal(etTime({ time_et: "12:00" }), "12:00 PM ET"); t.equal(etTime({ time_et: "13:00" }), "1:00 PM ET"); t.equal(etTime({ time_et: "20:00" }), "8:00 PM ET");
   t.equal(etTime({}), "", "rows without a time are unchanged");
-  t.ok(/nm\.label \+ \(etTime\(e\)/.test(HM) && /whenFor\(ctx\.next\) \+ \(etTime\(ctx\.next\)/.test(HM), "Home: calendar row and the Events tile show the time");
+  t.ok(/ups-m-cal-time/.test(HM) && /U\.escapeHtml\(etTime\(e\)\)/.test(HM) && /whenFor\(ctx\.next\) \+ \(etTime\(ctx\.next\)/.test(HM), "Home: calendar row and the Events tile show the time");
   const TO = fs.readFileSync(new URL("../site/team_operations/team_operations.js", import.meta.url), "utf8");
   t.ok(/time: etTimeLabel\(ev\.time_et\)/.test(TO) && /tops-cal-t/.test(TO), "Team Operations: the calendar and 'inside a week' rows show the time");
   const IX = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
