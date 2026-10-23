@@ -90,15 +90,19 @@ test("h. follow-up rounds: the right prompt set, appended to the row, owner-only
   t.deepEqual(modal.data.components.map((r) => r.components[0].custom_id), ["owners", "moves", "moment", "aftermath", "other"]);
   const stranger = await body(await M.handleDeepCutMoreButton(click("43"), env));
   t.match(stranger.data.content, /can't find that suggestion/);
+  // after the first round the button opens ONE open box, not the same canned form again
+  await M.handleDeepCutMoreModal({ data: { custom_id: `dc_more_modal:${id}`, components: [{ components: [{ custom_id: "owners", value: "Team 0" }] }] }, member: { user: { id: "42" } } }, env, null);
+  const again = await body(await M.handleDeepCutMoreButton(click("42"), env));
+  t.deepEqual(again.data.components.map((r) => r.components[0].custom_id), ["free"]); t.equal(again.data.components[0].components[0].label, "Add more details");
   const submit = (uid, answers) => ({ data: { custom_id: `dc_more_modal:${id}`, components: Object.entries(answers).map(([k, v]) => ({ components: [{ custom_id: k, value: v }] })) }, member: { user: { id: uid } } });
-  for (let i = 1; i <= M.MAX_ROUNDS; i++) {
-    const r = await body(await M.handleDeepCutMoreModal(submit("42", { owners: "Team " + i, moment: "Week " + i }), env, null));
+  for (let i = 2; i <= M.MAX_ROUNDS; i++) {
+    const r = await body(await M.handleDeepCutMoreModal(submit("42", { free: "Team " + i }), env, null));
     t.equal(r.data.flags, 64);
     t.equal(r.data.components.length, i < M.MAX_ROUNDS ? 1 : 0);
   }
   const row = DB.raw.prepare("SELECT details, rounds FROM ups_deepcut_suggestions WHERE id = ?").get(id);
-  t.equal(row.rounds, M.MAX_ROUNDS); t.match(row.details, /\[Round 1\]/); t.match(row.details, /Team 3/); t.match(row.details, /Who owned him\? Team 1/);
-  const capped = await body(await M.handleDeepCutMoreModal(submit("42", { owners: "Team 4" }), env, null));
+  t.equal(row.rounds, M.MAX_ROUNDS); t.match(row.details, /\[Round 1\]/); t.match(row.details, /Team 3/); t.match(row.details, /Who owned him\? Team 0/);
+  const capped = await body(await M.handleDeepCutMoreModal(submit("42", { free: "Team 4" }), env, null));
   t.match(capped.data.content, /all the follow-up rounds/); t.doesNotMatch(DB.raw.prepare("SELECT details FROM ups_deepcut_suggestions WHERE id = ?").get(id).details, /Team 4/);
   const hijack = await body(await M.handleDeepCutMoreModal(submit("43", { owners: "evil" }), env, null));
   t.match(hijack.data.content, /can't find that suggestion/);

@@ -168,6 +168,17 @@ export async function handleDeepCutMoreButton(interaction, env) {
   const row = await loadOwned(env, id, u.id);
   if (!row) return ephemeralReply("I can't find that suggestion. Tap Suggest a deep cut to start a new one.");
   if (Number(row.rounds) >= MAX_ROUNDS) return ephemeralReply("That's all the follow-up rounds for this one. It's with the commissioner now.");
+  // First time: the canned prompts (a player set or an event set). After that: one open box, so it is never the same form twice.
+  if (Number(row.rounds) >= 1) {
+    return jsonResponse({
+      type: INTERACTION_RESPONSE.MODAL,
+      data: {
+        custom_id: `${MORE_MODAL_PREFIX}${row.id}`,
+        title: String(row.subject).slice(0, 45),
+        components: [textInput("free", "Add more details", TEXT_INPUT_STYLE.PARAGRAPH, 1500, "Anything else you remember.", true)],
+      },
+    });
+  }
   const set = promptSet(`${row.subject} ${row.details}`);
   return jsonResponse({
     type: INTERACTION_RESPONSE.MODAL,
@@ -187,11 +198,15 @@ export async function handleDeepCutMoreModal(interaction, env, ctx) {
   const row = await loadOwned(env, id, u.id);
   if (!row) return ephemeralReply("I can't find that suggestion. Tap Suggest a deep cut to start a new one.");
   if (Number(row.rounds) >= MAX_ROUNDS) return ephemeralReply("That's all the follow-up rounds for this one. It's with the commissioner now.");
-  const set = promptSet(`${row.subject} ${row.details}`);
   const lines = [];
-  for (const [key, label] of set) {
-    const v = extractTextInput(interaction, key).slice(0, 800);
-    if (v) lines.push(`${label} ${v}`);
+  if (Number(row.rounds) >= 1) {
+    const v = extractTextInput(interaction, "free").slice(0, 1500);
+    if (v) lines.push(v);
+  } else {
+    for (const [key, label] of promptSet(`${row.subject} ${row.details}`)) {
+      const v = extractTextInput(interaction, key).slice(0, 800);
+      if (v) lines.push(`${label} ${v}`);
+    }
   }
   if (!lines.length) return ephemeralReply("You didn't add anything that time. Tap Add more details when you're ready.");
   const add = `\n\n[Round ${Number(row.rounds) + 1}]\n${lines.join("\n")}`;
