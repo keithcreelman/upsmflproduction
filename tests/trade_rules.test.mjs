@@ -82,9 +82,17 @@ test("every caller uses the shared rule and keeps no copy of the arithmetic", ()
   for (const [f, src] of [["trade_3way.js", m3], ["trade_accept_integrity.js", ai], ["cap_math.js", cm]]) t.doesNotMatch(code(src), /\/ 2000\)|\* 0\.5\b|\* IR_RELIEF_RATE/, f);
   const desk = read("site/trades/trade_workbench.js");
   t.doesNotMatch(code(desk), /\/ 2000\)|salary \* 0\.5/, "the War Room keeps no copy");
-  t.equal((desk.match(/window\.UPS_TRADE_RULES\.capMoneyMaxK\(/g) || []).length, 2, "2-team getTradeSalaryMaxK + 3-team tw3MovementMaxCapK");
-  t.equal((desk.match(/window\.UPS_TRADE_RULES\.irCapHit\(salary\)/g) || []).length, 1, "getAssetCurrentCapHitDollars");
-  t.equal((desk.match(/window\.UPS_TRADE_RULES\.isOverCap\(-(left|right)AvailableAfter, 0\)/g) || []).length, 2, "the reconciliation's over-cap flags");
+  t.equal((desk.match(/tradeRules\(\)\.capMoneyMaxK\(/g) || []).length, 2, "2-team getTradeSalaryMaxK + 3-team tw3MovementMaxCapK");
+  t.equal((desk.match(/tradeRules\(\)\.irCapHit\(salary\)/g) || []).length, 1, "getAssetCurrentCapHitDollars");
+  t.equal((desk.match(/tradeRules\(\)\.isOverCap\(-(left|right)AvailableAfter, 0\)/g) || []).length, 2, "the reconciliation's over-cap flags");
+  t.equal((desk.match(/window\.UPS_TRADE_RULES\./g) || []).length, 0, "read only through the lazy tradeRules() accessor, never captured at load");
+  t.equal((desk.match(/tradeRules\(\)\./g) || []).length, 5);
+  // every send path refuses while the rules are missing (fail closed)
+  for (const f of ["submitOfferToQueue", "submitStagedOfferToQueue", "tw3Submit"]) {
+    const at = desk.indexOf(`async function ${f}() {`);
+    t.match(desk.slice(at, at + 200), /\n    if \(!tradeRulesReadyToSend\(\)\) return;\n/, `${f} checks the rules first`);
+  }
+  t.match(desk, /if \(!state\.data\.teams\.length\) throw new Error\("No teams in data payload\."\);\n      await waitForTradeRules\(8000\);/, "boot waits (bounded) for a requested copy");
   const html = read("site/trades/trade_workbench.html");
   const at = (s) => html.indexOf(s);
   t.ok(at("../shared/trade_rules.js?v=") > 0 && at("../shared/trade_rules.js?v=") < at("./trade_workbench.js?v="), "the page loads the shared rules before trade_workbench.js");
@@ -131,10 +139,18 @@ test("GOLDEN War Room: getTradeSalaryMaxK, tw3 max, cap hits and the full salary
   t.deepEqual(last2, [[300000, 0], [300001, 1]], "exactly at the cap: not over; $1 past it: over by $1");
 });
 
-test("the War Room without the shared script fails loudly (no silent second copy)", () => {
+const UNAVAILABLE = "The trade rules didn't load. Reload the page to continue; no offer can be sent until then.";
+test("the War Room without the shared script fails closed (no silent second copy)", () => {
   let err = null;
   try { warRoomSnapshot({ rulesSrc: null }); } catch (e) { err = e; }
-  t.ok(err && /UPS_TRADE_RULES|undefined/.test(String(err)), "missing window.UPS_TRADE_RULES throws instead of guessing");
+  t.ok(err, "a rule lookup throws instead of guessing");
+  t.equal(err && err.message, UNAVAILABLE);
+});
+
+test("the War Room's rules arriving LATE (an older cached page; the copy it requested comes in): refused before, golden after", () => {
+  const late = warRoomSnapshot({ lateRulesSrc: RULES_SRC });
+  t.deepEqual(late.before, { maxKError: UNAVAILABLE, irHitError: UNAVAILABLE }, "before it arrives: no cap-money max, no IR cap hit — not a substitute value");
+  t.equal(JSON.stringify(late.snapshot), JSON.stringify(GOLDEN.war_room), "after it arrives: byte-identical to the pre-change snapshot");
 });
 
 // ───────────────────────────── 5. preserved differences ─────────────────────────────

@@ -189,21 +189,24 @@ function simpleEl() {
   const dummy = () => new Proxy(function () {}, { get: (_, k) => (k === "length" ? 0 : k === "style" ? {} : k === "value" ? "" : k === Symbol.toPrimitive ? () => "" : dummy()), apply: () => dummy(), set: () => true });
   return new Proxy(target, { get: (o, k) => (k in o ? o[k] : dummy()), set: (o, k, v) => { o[k] = v; return true; } });
 }
-async function bootDesktop(w, { token, fid, override }) {
+// rules: false = an older cached page that never loaded ../shared/trade_rules.js; scriptSrc = document.currentScript.src;
+// during(ctx) runs right after the script executes, before boot settles (to deliver or fail the requested copy).
+async function bootDesktop(w, { token, fid, override, rules = true, scriptSrc, during }) {
   const loc = new URL(`https://keithcreelman.github.io/upsmflproduction/trades/trade_workbench.html?embed=1&L=74598&YEAR=2026&FRANCHISE_ID=${fid}${token ? "&MFL_USER_ID=" + token : ""}&api=` + encodeURIComponent(WORKER + "/trade-workbench"));
   const base = clientFetch(w, override);
   const fetchImpl = async (u, i) => (new URL(String(u)).hostname === "keithcreelman.github.io" ? resp(404, "") : base(u, i));
   const els = {};
   const getEl = (id) => (els[id] = els[id] || simpleEl());
-  const doc = { readyState: "complete", cookie: "", getElementById: getEl, querySelector: () => simpleEl(), querySelectorAll: () => [], createElement: () => simpleEl(), addEventListener() {}, body: simpleEl(), documentElement: simpleEl(), head: simpleEl() };
-  const win = { location: { href: loc.href, search: loc.search, origin: loc.origin, pathname: loc.pathname, hash: "" }, addEventListener() {}, removeEventListener() {}, parent: { postMessage() {} }, postMessage() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {}, removeItem() {} }, sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} }, requestAnimationFrame: (f) => setTimeout(f, 0), setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, history: { replaceState() {} }, innerWidth: 1280, scrollTo() {}, UPS_TRADE_3WAY: SHARED_VIEW, UPS_TRADE_RULES: SHARED_RULES };
+  const doc = { readyState: "complete", cookie: "", getElementById: getEl, querySelector: () => simpleEl(), querySelectorAll: () => [], createElement: () => simpleEl(), addEventListener() {}, body: simpleEl(), documentElement: simpleEl(), head: simpleEl(), currentScript: scriptSrc ? { src: scriptSrc } : null };
+  const win = { location: { href: loc.href, search: loc.search, origin: loc.origin, pathname: loc.pathname, hash: "" }, addEventListener() {}, removeEventListener() {}, parent: { postMessage() {} }, postMessage() {}, matchMedia: () => ({ matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {}, removeItem() {} }, sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} }, requestAnimationFrame: (f) => setTimeout(f, 0), setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, history: { replaceState() {} }, innerWidth: 1280, scrollTo() {}, UPS_TRADE_3WAY: SHARED_VIEW, ...(rules ? { UPS_TRADE_RULES: SHARED_RULES } : {}) };
   const sb = { window: win, document: doc, fetch: fetchImpl, console: { log() {}, warn() {}, error() {}, info() {} }, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {}, URL, URLSearchParams, Promise, JSON, Math, Date, Object, Array, String, Number, Boolean, RegExp, Error, encodeURIComponent, decodeURIComponent, isFinite, isNaN, parseInt, parseFloat, Map, Set, Symbol, navigator: { clipboard: {} }, requestAnimationFrame: (f) => setTimeout(f, 0), ResizeObserver: class { observe() {} disconnect() {} }, MutationObserver: class { observe() {} disconnect() {} }, Intl, TextEncoder, atob, btoa, structuredClone, localStorage: win.localStorage, sessionStorage: win.sessionStorage, location: win.location, UPS_TRADE_3WAY: SHARED_VIEW };
   win.fetch = fetchImpl; sb.self = win; vm.createContext(sb);
   vm.runInContext(DESK_SRC, sb, { filename: "site/trades/trade_workbench.js" });
+  if (during) during({ doc, win, sb });
   await settle(90);
   const text = (id) => els[id] && els[id].textContent;
   const listText = (id) => (els[id] ? els[id].children.map((c) => `${c.textContent}`).join(" | ") : "");
-  return { api: win.upsTradeWorkbench, els, offeredCount: () => text("twbOfferedCount"), receivedCount: () => text("twbReceivedCount"), offeredList: () => listText("twbOfferedList"), offeredKinds: () => (els.twbOfferedList ? els.twbOfferedList.children.map((c) => c.attrs["data-inbox-state"] || c.attrs["data-action"] || "").join(",") : ""), refresh: async () => { await win.upsTradeWorkbench.refreshBannerOffers(true); await settle(30); } };
+  return { api: win.upsTradeWorkbench, doc, win, els, offeredCount: () => text("twbOfferedCount"), receivedCount: () => text("twbReceivedCount"), offeredList: () => listText("twbOfferedList"), offeredKinds: () => (els.twbOfferedList ? els.twbOfferedList.children.map((c) => c.attrs["data-inbox-state"] || c.attrs["data-action"] || "").join(",") : ""), refresh: async () => { await win.upsTradeWorkbench.refreshBannerOffers(true); await settle(30); } };
 }
 
 test("DESKTOP: an authenticated owner with an empty inbox → counts 0 and 'No pending trades'", async () => {
@@ -261,6 +264,67 @@ test("DESKTOP: an owner with real offers sees the real counts (the states never 
   const w = world(); w.mfl.addPending({ offeringteam: "0001", offeredto: "0002", will_give_up: "14056,", will_receive: "13100," });
   const d = await bootDesktop(w, { token: "tok-B", fid: "0001" });
   t.equal(d.offeredCount(), "1"); t.equal(d.receivedCount(), "0"); t.equal(d.api.state.offers.error, "");
+});
+
+// ═══════════ desktop: an older cached page that never loaded the shared trade rules (Trade Builder P1) ═══════════
+// GitHub Pages serves the NEW trade_workbench.js whatever ?v= an old cached trade_workbench.html asks for, and that old
+// page has no <script src="../shared/trade_rules.js">. The War Room requests it itself and never guesses without it.
+const RULES_SRC = read("site/shared/trade_rules.js");
+const OLD_PAGE_SCRIPT = "https://keithcreelman.github.io/upsmflproduction/trades/trade_workbench.js?v=20261012b";
+const injectedRules = (doc) => doc.head.children.filter((c) => /shared\/trade_rules\.js/.test(String(c.src || "")));
+const sends = (w) => w.log.filter((r) => r.method === "POST" && /trade-offers|\/api\/trades/.test(r.path));
+const RELOAD = /The trade rules didn&#39;t load\. Reload the page to continue; no offer can be sent until then\./;
+
+test("DESKTOP (old cached page): the War Room injects shared/trade_rules.js beside itself, same ?v= stamp; once it arrives the War Room boots normally", async () => {
+  const w = world();
+  let tag = null;
+  const d = await bootDesktop(w, { token: "tok-B", fid: "0001", rules: false, scriptSrc: OLD_PAGE_SCRIPT, during: ({ doc, sb }) => {
+    const tags = injectedRules(doc);
+    t.equal(tags.length, 1, "exactly one script tag requested");
+    tag = tags[0];
+    t.equal(tag.src, "https://keithcreelman.github.io/upsmflproduction/shared/trade_rules.js?v=20261012b");
+    t.equal(tag.async, false);
+    vm.runInContext(RULES_SRC, sb, { filename: "site/shared/trade_rules.js (injected)" });   // the request completes
+    tag.onload();
+  } });
+  t.ok(d.api, "War Room booted");
+  t.equal(d.win.UPS_TRADE_RULES.capMoneyMaxK(9999), 4);
+  t.equal(d.offeredCount(), "0");
+  t.doesNotMatch(String(d.els.twbBoard && d.els.twbBoard.innerHTML), RELOAD, "no reload error");
+  t.equal(injectedRules(d.doc).length, 1, "no second request");
+});
+
+test("DESKTOP (old cached page): if the rules never arrive, the War Room shows its load error asking to reload and nothing can be sent", async () => {
+  const w = world();
+  const d = await bootDesktop(w, { token: "tok-B", fid: "0001", rules: false, scriptSrc: OLD_PAGE_SCRIPT, during: ({ doc }) => injectedRules(doc)[0].onerror() });
+  t.equal(d.win.UPS_TRADE_RULES, undefined);
+  t.match(d.els.twbBoard.innerHTML, /Could not load Trade War Room data\./);
+  t.match(d.els.twbBoard.innerHTML, RELOAD);
+  t.equal(d.api, undefined, "boot stopped: no War Room API, no offer loaded");
+  const click = d.els.twbSubmitOfferBtn.__l && d.els.twbSubmitOfferBtn.__l.click;
+  t.ok(click, "the Send button is wired");
+  let threw = null;
+  try { click(); } catch (e) { threw = e; }
+  await settle(30);
+  t.ok(threw && /trade rules didn't load/.test(threw.message), "Send stops at the missing rules instead of computing anything");
+  t.equal(sends(w).length, 0, "no offer was sent");
+});
+
+test("DESKTOP: if the rules go missing after boot, every send path refuses and shows the reload error (no substitute arithmetic)", async () => {
+  const w = world();
+  const d = await bootDesktop(w, { token: "tok-B", fid: "0001" });
+  t.ok(d.api);
+  delete d.win.UPS_TRADE_RULES;
+  await d.api.submitOfferToQueue();
+  t.equal(d.api.state.submit.message, "The trade rules didn't load. Reload the page to continue; no offer can be sent until then.");
+  t.equal(d.api.state.submit.tone, "bad");
+  t.match(d.els.twbBoard.innerHTML, RELOAD);
+  await d.api.submitStagedOfferToQueue();
+  let threw = null;
+  try { d.api.rerender(); } catch (e) { threw = e; }
+  t.ok(threw && threw.code === "trade_rules_unavailable", "a render that needs a rule throws instead of guessing");
+  await settle(30);
+  t.equal(sends(w).length, 0, "nothing was sent");
 });
 
 await run("trade_inbox_states");

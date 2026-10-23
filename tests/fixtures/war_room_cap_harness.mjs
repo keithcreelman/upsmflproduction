@@ -26,6 +26,9 @@ const FUNCS = [
   "sumTeamCommittedSalary", "resolveTeamAvailableSalaryDollars", "resolveTeamSalaryAdjustmentTotalDollars", "buildSalaryReconciliation",
   "tw3PickToken", "tw3IsTradeable", "tw3TeamAssets", "tw3MovementMaxCapK",
 ];
+// The lazy shared-rules accessor (added with the move; absent from the pre-change source the golden was recorded on).
+const RULES_ACCESSOR = ["tradeRulesScriptUrl", "settleTradeRulesWaiters", "requestTradeRulesIfMissing", "tradeRules"];
+const RULES_VARS = [/^  var TRADE_RULES_UNAVAILABLE = .*;$/m, /^  var tradeRulesLoad = .*;$/m];
 
 const P = (id, salary, years, extra) => ({ type: "PLAYER", asset_id: "player:" + id, player_id: id, salary, years, taxi: false, ...(extra || {}) });
 
@@ -56,8 +59,12 @@ export const WAR_ROOM_SCENARIOS = [
   ["0003", "0002", [], ["2005"], 0, 0],   // $1 over
 ];
 
-/** @param rulesSrc site/shared/trade_rules.js source to load first (null = none, as before the change). */
-export function warRoomSnapshot({ workbenchSrc = read("site/trades/trade_workbench.js"), rulesSrc = null } = {}) {
+/**
+ * @param rulesSrc      site/shared/trade_rules.js source to load first (null = none: the page didn't load it).
+ * @param lateRulesSrc  load it only AFTER a first rule lookup (an older cached page; the copy the War Room requests arrives
+ *                      later). Returns { before: what that first lookup did, snapshot } instead of the snapshot.
+ */
+export function warRoomSnapshot({ workbenchSrc = read("site/trades/trade_workbench.js"), rulesSrc = null, lateRulesSrc = null } = {}) {
   const fn = extractor(workbenchSrc);
   const ctx = { Object, Math, String, JSON, Array, isFinite, parseInt };
   ctx.window = ctx;
@@ -68,9 +75,20 @@ export function warRoomSnapshot({ workbenchSrc = read("site/trades/trade_workben
     "function resolvePickMeta(a){ return { round: a.pick_round, year: a.pick_season, token: '' }; }",
     "var state = { data: null, selections: {}, extensions: {}, collapsed: {}, tradeSalaryK: {}, leftTeamId: '', rightTeamId: '' };",
     "var tw3 = { give: {}, cap: {} };",
+    ...RULES_VARS.map((re) => (workbenchSrc.match(re) || [""])[0]),
+    ...RULES_ACCESSOR.filter((n) => workbenchSrc.includes(`function ${n}(`)).map(fn),
     ...FUNCS.map(fn),
   ].join("\n"), ctx);
   const run = (code) => vm.runInContext(code, ctx);
+  let before = null;
+  if (lateRulesSrc) {
+    run("state.data = " + JSON.stringify(WAR_ROOM_FIXTURE) + "; state.leftTeamId = '0001'; state.rightTeamId = '0002'; state.selections = { '0001': { 'player:1002': true } };");
+    before = {};
+    try { before.maxK = run("getTradeSalaryMaxK('0001')"); } catch (e) { before.maxKError = String(e && e.message); }
+    try { before.irHit = run(`getAssetCurrentCapHitDollars(${JSON.stringify(WAR_ROOM_FIXTURE.teams[0].assets[1])})`); } catch (e) { before.irHitError = String(e && e.message); }
+    vm.runInContext(lateRulesSrc, ctx, { filename: "site/shared/trade_rules.js (arrived late)" });
+    run("state.selections = {};");
+  }
   const out = { assets: {}, scenarios: [] };
   run("state.data = " + JSON.stringify(WAR_ROOM_FIXTURE) + ";");
   for (const team of WAR_ROOM_FIXTURE.teams) for (const a of team.assets) {
@@ -98,5 +116,6 @@ export function warRoomSnapshot({ workbenchSrc = read("site/trades/trade_workben
     })()`);
     out.scenarios.push(JSON.parse(JSON.stringify(snap)));
   }
-  return JSON.parse(JSON.stringify(out));
+  const snapshot = JSON.parse(JSON.stringify(out));
+  return lateRulesSrc ? { before, snapshot } : snapshot;
 }
