@@ -753,6 +753,13 @@ export async function create3WayTrade(env, ctx, spec) {
     if (![A, B, C].every((f) => franchiseAllowed(env, f))) return { ok: false, error: "not_in_allowlist" };
 
     const [aIds, bIds, cIds] = await Promise.all([resolveDiscordUserIds(env, A), resolveDiscordUserIds(env, B), resolveDiscordUserIds(env, C)]);
+    // P0 S6: the HTTP layer's idempotency key is taken HERE — after every validation above (whose refusals are never cached) and
+    // immediately before the INSERT + DMs. A non-null answer means "don't create": a replay of the original response, an in-progress /
+    // unknown first attempt, a reused key, or an unreachable key table. Nothing is inserted and no DM is sent.
+    if (typeof spec?.beforeInsert === "function") {
+      const stop = await spec.beforeInsert();
+      if (stop) return { ok: false, idemReply: stop };
+    }
     const id = newId();
     await env.UPS_MFL_DB.prepare(
       `INSERT INTO ups_3way_trades
