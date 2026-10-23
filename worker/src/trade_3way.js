@@ -35,6 +35,7 @@ import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./t
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
+import { capMoneyMaxK } from "./trade_rules.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -297,7 +298,7 @@ export function movementCapMaxK(movement, salaryByFp, taxiByFp) {
     if (taxiByFp[key]) continue;             // taxi salary doesn't count
     sum += Number(salaryByFp[key]) || 0;
   }
-  return Math.floor(sum / 2000);
+  return capMoneyMaxK(sum);
 }
 
 // ─────────────── post-trade salary cap (HARD) + roster counts (advisory) ───────────────
