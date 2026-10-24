@@ -5,7 +5,7 @@ import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
-import { seedCurrentSeason } from "./standings_truth.js";
+import { seedCurrentSeason, storedDivisionOrder } from "./standings_truth.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -20965,35 +20965,16 @@ export default {
           let current = null;
           if (recordedSeason) {
             standingsBasis = "recorded_final_standings";
-            // Division leaders by the season's MFL standingsSort, read off src_standings (H2H skipped). Unchanged.
-            const cmpDesc2 = (a, b) => (Number(b || 0) - Number(a || 0));
-            const tokens = (leagueMeta.standingsSort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
-              .split(",").map((tk) => tk.trim().toUpperCase()).filter(Boolean);
-            const tokenToField = { PCT: "h2h_pct", DIVPCT: "div_pct", PTS: "pf", ALL_PLAY_PCT: "allplay_pct", PWR: "pwr" };
-            const sortFn = (a, b) => {
-              for (const tk of tokens) {
-                const field = tokenToField[tk];
-                if (!field) continue;
-                const d = cmpDesc2(a[field], b[field]);
-                if (d !== 0) return d;
-              }
-              return 0;
-            };
-            const byDiv = new Map();
-            for (const r of rows) {
-              if (r.division == null) continue;
-              const k = String(r.division);
-              if (!byDiv.has(k)) byDiv.set(k, []);
-              byDiv.get(k).push(r);
-            }
+            // Division leaders by the season's MFL standingsSort on the stored season rows: PTS = stored season Points
+            // For (pf_total, not the per-game `pf` shown in the table), H2H = regular-season games among the tied teams.
+            const divOrder = storedDivisionOrder(rows, weeklyRaw, leagueMeta.standingsSort);
             const divisionWinnerIds = new Set();
-            for (const [, group] of byDiv.entries()) {
-              group.sort(sortFn);
-              group.forEach((r, i) => {
-                r.is_division_leader = (i === 0);
-                r.division_rank = i + 1;
-                if (i === 0) divisionWinnerIds.add(String(r.franchise_id));
-              });
+            for (const r of rows) {
+              const d = divOrder.get(String(r.franchise_id).padStart(4, "0"));
+              if (!d) continue;
+              r.is_division_leader = d.is_division_leader;
+              r.division_rank = d.division_rank;
+              if (d.is_division_leader) divisionWinnerIds.add(String(r.franchise_id));
             }
             const field = modernField(rows, divisionWinnerIds, legacyStandingsTiebreak);
             const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
@@ -21113,7 +21094,8 @@ export default {
                     s.h2h_pct,
                     s.div_pct,
                     s.pf,
-                    s.pf AS pf_total
+                    s.pf AS pf_total,
+                    s.pwr
                FROM src_standings s
                LEFT JOIN src_franchises f
                  ON f.season = s.season AND f.franchise_id = s.franchise_id
@@ -21196,22 +21178,29 @@ export default {
           // Use canonical when available; else fall back to computed sort.
           const primaryCmp = canonicalCmp || standingsCmp;
 
-          // 1) Identify division winners using the year-specific chain.
-          const byDiv = new Map();
-          for (const r of rawRows) {
-            const k = r.division == null ? "_NA" : String(r.division);
-            if (!byDiv.has(k)) byDiv.set(k, []);
-            byDiv.get(k).push(r);
+          // 1) Identify division winners using the year-specific chain -- the same storedDivisionOrder /api/standings
+          //    uses, so the two routes name the same winners. Regular-season games (<= ~472 rows, season index) are read
+          //    only for a recorded season whose chain has an H2H step (2010's PCT,PTS doesn't); the current season's
+          //    leaders are replaced below by seedCurrentSeason, which reads its own games.
+          // A failed read is reported (division_tiebreak_error), never silent: H2H would then be a tie for everyone.
+          let regGamesRaw = [];
+          let divisionTiebreakError = null;
+          if (canonicalFinish && tokens.includes("H2H")) {
+            try {
+              const g = await db.prepare(
+                "SELECT franchise_id, opponent_franchise_id, team_score, opponent_score, is_playoff FROM src_schedule WHERE season = ? AND is_playoff = 0 AND COALESCE(team_score, 0) > 0"
+              ).bind(yr).all();
+              regGamesRaw = g.results || [];
+            } catch (e) { divisionTiebreakError = String((e && e.message) || e); }
           }
+          const divOrder = storedDivisionOrder(rawRows, regGamesRaw, leagueMeta.standingsSort);
           const divisionWinnerIds = new Set();
-          for (const [divKey, group] of byDiv.entries()) {
-            if (divKey === "_NA") continue;
-            const sorted = group.slice().sort(standingsCmp);
-            for (let i = 0; i < sorted.length; i++) {
-              sorted[i].is_division_leader = (i === 0);
-              sorted[i].division_rank = i + 1;
-              if (i === 0) divisionWinnerIds.add(String(sorted[i].franchise_id));
-            }
+          for (const r of rawRows) {
+            const d = divOrder.get(String(r.franchise_id).padStart(4, "0"));
+            if (!d) continue;
+            r.is_division_leader = d.is_division_leader;
+            r.division_rank = d.division_rank;
+            if (d.is_division_leader) divisionWinnerIds.add(String(r.franchise_id));
           }
           // Conference rank (1 = best by standingsSort within the conference).
           // Used for conference-era playoff seeding (2011-2016 in UPS).
@@ -21435,6 +21424,7 @@ export default {
             season_complete: seasonComplete,
             seeding_status: canonicalFinish ? "recorded_final_standings" : (current ? (current.status === "ok" ? "regular_season_ladder" : "unavailable") : "computed"),
             ...(current && current.status !== "ok" ? { seeding_problems: current.problems } : {}),
+            ...(divisionTiebreakError ? { division_tiebreak_error: divisionTiebreakError } : {}),
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
