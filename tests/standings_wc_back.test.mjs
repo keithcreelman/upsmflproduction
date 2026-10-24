@@ -96,14 +96,25 @@ test("desktop Playoff Picture, Week 6: In the hunt 'WC Back' 5 / 10 / 16 / 18 / 
   t.ok(!/ahead of Real Deal Creel|\(6th\)|behind the 6th seed/.test(h), "no division-winner yardstick anywhere");
   t.match(h, /· WC Back 5<\/div>/, "the Next team out panel");
 });
-test("desktop Full League, Week 6: the 'WC Back' column — — for the six in the field, the last-wild-card gap for the six outside", async () => {
+test("desktop Full League, Week 6: the 'WC Back' column is signed for every team (Keith 2026-10-22)", async () => {
   const h = await desktop("view=league&year=2026");
   const tbl = /<table class="lg-table"><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/.exec(h);
   const heads = [...tbl[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]).trim());
   t.ok(heads.includes("WC Back") && !heads.includes("Back"), heads.join(", "));
   const col = heads.indexOf("WC Back");
   const rows = [...tbl[2].matchAll(/<tr class="(?:you-row )?race-row"[^>]*data-fid="(\d{4})">([\s\S]*?)<\/tr>/g)].map((m) => [m[1], text([...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)][col][1]).trim()]);
-  t.deepEqual(rows, RESP6.rows.map((r) => [r.franchise_id, r.playoff_seed == null ? String(apWins(lastWC) - apWins(r)) : "—"]));
+  // Keith 2026-10-22: signed, for every team, as if it had to earn a wild card. Recomputed here from the rows alone:
+  // the pool = every non-division-winner plus the team; two wild cards by the ladder (All-Play %, H2H %, PF).
+  const nonDw = RESP6.rows.filter((r) => !r.is_division_leader);
+  const lad = (a, b) => (b.regular_season.all_play.pct - a.regular_season.all_play.pct) || (b.regular_season.record.pct - a.regular_season.record.pct) || (b.regular_season.points_for - a.regular_season.points_for);
+  const signed = (r) => {
+    const pool = nonDw.filter((x) => x.franchise_id !== r.franchise_id).concat([r]).sort(lad);
+    const i = pool.indexOf(r), m = i < 2 ? apWins(pool[2]) - apWins(r) : apWins(pool[1]) - apWins(r);
+    return m > 0 ? "+" + m : m < 0 ? "−" + Math.abs(m) : "0";
+  };
+  t.deepEqual(rows, RESP6.rows.map((r) => [r.franchise_id, signed(r)]));
+  // The six outside: the same gap as before, now with a +; the old figure is the worker's ap_back.
+  RESP6.rows.filter((r) => r.playoff_seed == null).forEach((r) => t.equal(rows.find((x) => x[0] === r.franchise_id)[1], "+" + (apWins(lastWC) - apWins(r))));
 });
 test("desktop: a negative figure from an older worker is never shown (— instead), and Next out then gives no number", async () => {
   const real = workerFetch(callWorker, ENV6);

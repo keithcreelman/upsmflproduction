@@ -174,8 +174,17 @@ test("Picture: projected chips, the bye line after seed 2 and the playoff line a
   t.equal(why, "Seed 4: behind HammerTime on All-Play %. Ahead of CBP on H2H record (same All-Play %).");
   t.match(card8, /9-4 · All-Play 32-23 \(58\.2%\)/, "record and All-Play from the worker's regular_season");
   t.match(p.text, /Through Week 5 of 14 · final scores/, "freshness: through which week");
-  t.match(p.html, /<section class="panel"><h3>Bracket <span class="h-sub">· projected<\/span><\/h3>/, "the bracket link is labeled projected");
-  t.match(p.html, /data-goto="bracket">See the projected bracket →<\/button>/);
+  // Keith 2026-10-22: the bracket leads (today's seeds, labeled; the Forecast's projection behind its own button), every
+  // Round 1 game opens the Tale of the Tape, and the seed cards above sit behind "Seeds, races and tiebreaks".
+  t.match(p.html, /<h3 class="sec-h">2026 playoff bracket<\/h3>/);
+  t.ok(p.html.indexOf("2026 playoff bracket") < p.html.indexOf("Seeds, races and tiebreaks"), "the bracket comes first");
+  t.match(p.html, /<span class="pp-label today">If the season ended today<\/span>/);
+  t.match(p.html, /Not a prediction: no game is decided\./);
+  t.match(p.html, /data-tape="0005\|0004"[^>]*data-tape-seeds="3\|6"[^>]*>Tale of the Tape<\/button>/, "3 v 6 opens the Tale of the Tape");
+  t.match(p.html, /data-tape="0008\|0002"[^>]*data-tape-seeds="4\|5"/, "4 v 5 too");
+  t.match(p.html, /v the lowest seed left after Round 1/);
+  t.match(p.html, /<details class="pp-more"><summary>Seeds, races and tiebreaks<\/summary>/);
+  t.ok(!/See the projected bracket/.test(p.html), "no teaser link: the bracket is on the page");
   t.match(p.html, /<summary>About these numbers<\/summary>/);
 });
 test("Picture: division leaders in the worker's division order, with GB and the reason when a tie wasn't decided on record", async () => {
@@ -200,26 +209,10 @@ test("Picture: 'Seeds unavailable: <reason>' when the worker seeds nobody; prese
   const down = await page("view=picture&year=2026", { fetch: async () => ({ ok: false, status: 500, json: async () => ({}) }) });
   t.match(down.html, /Couldn’t load the 2026 standings\. <button type="button" class="retry-btn" data-retry="1">Try again<\/button>/);
 });
-test("Picture, finished season: the recorded final standings (finish, recorded seed, champions, division winners), never a draft-order claim", async () => {
+test("Picture, finished season: the season's bracket; champions and the rest of the record live in History (Keith 2026-10-22)", async () => {
   const p = await page("view=picture&year=2025", { env: ENV_2025 });
-  t.match(p.html, /Recorded final standings\./);
-  const rows = [...p.raw.matchAll(/<tr(?: class="you-row")?><td class="num"><strong>(\d+)<\/strong><\/td><td>([\s\S]*?)<\/td><td class="seed-col">([\s\S]*?)<\/td>/g)]
-    .map((m) => ({ fin: Number(m[1]), team: text(m[2]).trim(), seed: seedNOf(m[3]), seedCell: m[3] }));
-  t.deepEqual(rows.map((r) => r.fin), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "recorded finish order");
-  // recorded seeds 7-12 read H1-H6; a division winner's DIV chip sits in the same aligned Seed cell (not projected)
-  t.equal(rows[6].seed, "H3", "finish 7 = recorded seed 9 = H3");
-  t.match(p.raw, /<td class="seed-col"><span class="seed-cell"><span class="seed-n">\d<\/span><span class="status-chip div" title="Division winner" aria-label="Playoff status: Division winner">DIV<\/span><\/span><\/td>/, "a DIV chip beside the recorded seed");
-  t.ok(!/<span class="tag">DIV<\/span>/.test(p.raw), "no separate DIV tag on the team name from 2014 on");
-  const legacy = (await callWorker(ENV_2025, "GET", "/api/standings?year=2025")).json;
-  const nm = (fid) => legacy.rows.find((r) => r.franchise_id === fid).franchise_name;   // the season's MFL names
-  t.ok(rows[0].team.startsWith("🏆 " + nm("0002")), "finish 1 = the UPS champion: " + rows[0].team);
-  t.equal(rows[0].seed, "2", "the RECORDED seed (regular_season_finish), not /api/standings' legacy recompute");
-  t.notEqual(legacy.rows.find((r) => r.franchise_id === "0002").playoff_seed, 2, "control: the legacy recompute disagrees here");
-  t.ok(rows[6].team.startsWith("🚽 " + nm("0009")), "finish 7 = the Hawk Tuah Bowl champion: " + rows[6].team);
-  t.match(p.html, new RegExp("<b>UPS champion:<\\/b> " + nm("0002").replace(/[$()]/g, "\\$&")));
-  t.match(p.html, new RegExp("<b>Hawk Tuah Bowl champion:<\\/b> " + nm("0009").replace(/[$()]/g, "\\$&")));
-  t.match(p.html, /<b>Division winners:<\/b> /);
-  t.ok(!/draft order|\bpicks?\b/i.test(p.text), "finish order is not draft order");
+  t.match(p.html, /<span class="bb-title">2025 playoff bracket<\/span>/, "the 2025 bracket, with its season picker");
+  t.ok(!/<b>UPS champion:<\/b>|Recorded final standings\./.test(p.html), "no champions panel or final-standings table here");
   t.ok(!/if the season ended today|proj\./.test(noAbout(p.html)), "nothing projected about a finished season");
 });
 
@@ -239,7 +232,7 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   const c = RESP_2026.rows.find((r) => r.franchise_id === "0009").regular_season;
   t.equal(L.cell("0009", "PF/week"), c.pf_per_week.toFixed(1));
   t.equal(L.cell("0009", "PA/game"), c.pa_per_game.toFixed(1));
-  t.equal(L.cell("0012", "WC Back"), "2");
+  t.equal(L.cell("0012", "WC Back"), "+2", "signed: + = behind the last wild card (Keith 2026-10-22)");
   // decision 2: no Playoffs column, no division column, no division under the team name (the Divisions tab has them)
   t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "WC Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
   for (const r of RESP_2026.rows) {
@@ -271,7 +264,7 @@ test("Full League Scored / Opponent: the shared module's scoredFaced numbers; Op
   t.match(scored.html, /<strong>Scored<\/strong> — what each lineup put up in the regular season\. Descriptive/);
   const faced = await page("view=league&year=2026&show=opponent");
   const Fc = leagueTable(faced.raw);
-  t.deepEqual(Fc.heads, ["Seed", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close H2H games"]);
+  t.deepEqual(Fc.heads, ["Seed", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close H2H games", "Opp. strength", "Opp. vs league"]);
   for (const r of RESP_2026.rows) {
     const f = sf.byFranchise[r.franchise_id].faced;
     t.equal(Fc.cell(r.franchise_id, "Opp. pts/game"), f.paPerGame.toFixed(1));
