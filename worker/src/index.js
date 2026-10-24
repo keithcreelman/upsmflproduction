@@ -15,7 +15,7 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours, resolveDiscordUserIds, dmAll } from "./trade_dm.js";
-import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./trade_3way.js";
+import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing, ledgerFor } from "./trade_3way.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
 const TWR_RELEASE = "trade-war-room-2026-09-25.3";
@@ -39478,10 +39478,18 @@ const mflToSleeper = {};
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
         const id = safeStr(body?.id);
         if (!id) return jsonOut(400, { ok: false, error: "Missing id." });
-        const rowNow = await env.UPS_MFL_DB.prepare("SELECT status, failure_reason, mfl_trade_ids FROM ups_3way_trades WHERE id=?").bind(id).first();
+        const rowNow = await env.UPS_MFL_DB.prepare("SELECT league_id, season, status, failure_reason, mfl_trade_ids FROM ups_3way_trades WHERE id=?").bind(id).first();
         if (!rowNow) return jsonOut(404, { ok: false, error: "3-way not found." });
         if (safeStr(rowNow.status) !== "failed") return jsonOut(400, { ok: false, error: `Not retryable — status is '${safeStr(rowNow.status)}', expected 'failed'.` });
         if (safeStr(rowNow.mfl_trade_ids)) return jsonOut(409, { ok: false, error: `PARTIAL — some legs already landed (${safeStr(rowNow.mfl_trade_ids)}). Manual reconciliation needed; not auto-retrying to avoid double execution.` });
+        // The execution ledger decides: only a trade PROVABLY never executed (not_executed / blocked_cap / no row) may run again. An
+        // `executing` row is an unconfirmed leg (it may have landed) — re-running it could execute it twice. Unreadable ⇒ refuse.
+        let retryLed = null;
+        try { retryLed = await ledgerFor(env).read({ leagueId: safeStr(rowNow.league_id), season: safeStr(rowNow.season), execKey: id }); }
+        catch (e) { return jsonOut(503, { ok: false, error: `Execution ledger unreadable — not retrying: ${safeStr(e?.message || e)}` }); }
+        if (retryLed && ![EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP].includes(retryLed.state)) {
+          return jsonOut(409, { ok: false, code: "not_retryable_execution_state", execution_state: retryLed.state, error: `Not retryable — the execution ledger says '${retryLed.state}'. A leg may already have executed; check MFL and reconcile by hand.` });
+        }
         // Flip back to 'executing' so execute3Way (which no-ops unless executing) runs.
         await env.UPS_MFL_DB.prepare("UPDATE ups_3way_trades SET status='executing', failure_reason=NULL, updated_at_utc=? WHERE id=?").bind(new Date().toISOString(), id).run();
         const out = await execute3Way(env, id);
