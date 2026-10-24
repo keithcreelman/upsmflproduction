@@ -304,8 +304,45 @@
     return h;
   }
 
+  // The current season's trade deadline is MFL's own lock (worker trade_lock on /api/league-events, read at boot), so a
+  // topic marked live_trade_lock shows when MFL actually stops accepting trades; the written value is only the fallback.
+  var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function liveTradeLock() {
+    var le = M.state && M.state.leagueEvents, lk = le && le.trade_lock;
+    if (!lk || (lk.state !== "upcoming" && lk.state !== "closed")) return null;
+    var d = String(lk.date_et || "").match(/^(\d{4})-(\d{2})-(\d{2})$/), tm = String(lk.time_et || "").match(/^(\d{1,2}):(\d{2})$/);
+    if (!d || !tm) return null;
+    var dow = DOW[new Date(Date.UTC(+d[1], +d[2] - 1, +d[3])).getUTCDay()];
+    var h = parseInt(tm[1], 10);
+    var day = dow + " " + MON[+d[2] - 1] + " " + parseInt(d[3], 10), time = (h % 12 || 12) + ":" + tm[2] + " " + (h < 12 ? "AM" : "PM") + " ET";
+    var closed = lk.state === "closed" || Date.now() / 1000 > Number(lk.start_unix);
+    return { day: day, time: time, closed: closed, text: (closed ? "Passed: " : "") + day + ", " + time };
+  }
+  function withLiveTradeLock(t) {
+    var lk = t && t.live_trade_lock ? liveTradeLock() : null;
+    if (!lk) return t;
+    var c = JSON.parse(JSON.stringify(t));
+    if (c.key === "trades") {
+      c.one_liner = "Open from season's end until " + lk.text + ". Contracts move as-is. No vetoes.";
+      (c.numbers || []).forEach(function (n) { if (/^deadline$/i.test(n.label)) n.value = lk.text; });
+    }
+    if (c.key === "deadlines" && c.today && c.today[0]) {
+      c.today[0] = c.today[0].replace("MFL's league calendar closes trading.", "MFL's league calendar closes trading at " + lk.text + ".");
+    }
+    (c.numbers || []).forEach(function (n) { if (/^trade deadline$/i.test(n.label)) n.value = lk.text; });
+    (c.timeline || []).forEach(function (e) {
+      if (/^trade deadline$/i.test(e.what)) { e.when = lk.day; e.approx = false; e.detail = "MFL stops accepting trades at " + lk.time + (lk.closed ? " (passed)" : "") + ". " + String(e.detail || "").replace(/^[^.]*\.\s*/, ""); }
+    });
+    ((c.table && c.table.rows) || []).forEach(function (r) {
+      if (/^trade deadline$/i.test(r[0])) r[1] = lk.text + " (MFL's league calendar)";
+      if (c.key === "acquiring" && /^trade$/i.test(r[0])) r[1] = "Until " + lk.text;
+    });
+    return c;
+  }
+
   function renderTopic(data, key) {
-    var t = (data.topics || []).filter(function (x) { return x.key === key; })[0];
+    var t = withLiveTradeLock((data.topics || []).filter(function (x) { return x.key === key; })[0]);
     if (!t) return renderIndex(data);
 
     var h = '<button class="ups-m-rb-back" data-rb-topic="">‹ All topics</button>' +
