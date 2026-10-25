@@ -52,6 +52,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
+import { sendLineupCorrectionDm } from "./lineup_correction.js";
 import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking, alertBookingSkips, previewStandingRule } from "./lineup_rulings.js";
 import { checkForfeitedPicks, reconcileForfeitedPicks, selectForfeitedPick, markForfeitedPicks } from "./lineup_forfeits.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
@@ -58297,6 +58298,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // GET  /admin/lineup/thread-check?week=        the stored Week N thread, verified (read-only)
       // GET  /admin/lineup/auto-preview?week=        dry run of the standing rule (read-only, no mention)
       // POST /admin/lineup/notice                   { fid, week, confirm: "post" }
+      // POST /admin/lineup/correction-dm            { fid, week, player_id, confirm: "send" }  preview without confirm
       // POST /admin/lineup/sanction-verify          { fid, week }  assessed → applied only when MFL shows it
       // POST /admin/lineup/forfeit-select           { fid, week, pick_choice }  choose among several qualifying picks
       if ((path === "/admin/lineup/cases" || path === "/admin/lineup/notice-preview" || path === "/admin/lineup/thread-check" || path === "/admin/lineup/auto-preview") && request.method === "GET") {
@@ -58373,7 +58375,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         });
         return jsonOut(200, r);
       }
-      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify" || path === "/admin/lineup/forfeit-select")
+      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify" || path === "/admin/lineup/forfeit-select" || path === "/admin/lineup/correction-dm")
           && request.method === "POST") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -58404,6 +58406,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"post\" to post. Read GET /admin/lineup/notice-preview first." });
             }
             const r = await postLineupNotice(env, { season, leagueId, fid, week, resolveMentions: resolveFranchiseMentions });
+            return jsonOut(r.ok ? 200 : 409, r);
+          }
+          if (lineupAction === "correction-dm") {
+            // Narrow, audited correction for a stale pre-kickoff DM (lineup_correction.js).
+            // Preview unless the literal word is sent; a Discord write needs it.
+            const r = await sendLineupCorrectionDm(env, { season, leagueId, fid, week, playerId: safeStr(body.player_id), send: safeStr(body.confirm) === "send" });
             return jsonOut(r.ok ? 200 : 409, r);
           }
           if (lineupAction === "forfeit-select") {
