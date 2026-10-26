@@ -3381,8 +3381,11 @@
   // The extra reads a Full League view needs before it draws: MFL's offensive / defensive split for Scoring, the odds for Overall.
   function leagueExtras(resp) {
     if (state.show === "scored") return loadOffDef(state.year);
-    if (state.show === "overall" && !isFinishedSeason(resp)) {
-      return loadOverallOdds(resp).then(function (o) { state.po = o; }, function () { state.po = null; });
+    if (state.show === "overall") {
+      // Overall's PF/Wk uses the same MFL totals as Scoring (one cached read, shared), so the two views agree.
+      var mfl = loadOffDef(state.year);
+      if (isFinishedSeason(resp)) return mfl;
+      return Promise.all([mfl, loadOverallOdds(resp).then(function (o) { state.po = o; }, function () { state.po = null; })]);
     }
     return Promise.resolve();
   }
@@ -3539,7 +3542,7 @@
     var M0 = window.UPS_STANDINGS_RACE;
     var wcm = (current && !scoped && M0 && M0.wildCardMargins) ? M0.wildCardMargins(resp.rows || []) : null;
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
-    var od = (state.show === "scored" && !scoped) ? mflScoringOf((state.offDef || {})[String(state.year)]) : null;
+    var od = (!scoped && (state.show === "scored" || state.show === "overall")) ? mflScoringOf((state.offDef || {})[String(state.year)]) : null;
     var poRaw = (state.show === "overall" && current && !scoped && magicSeasonOf(resp) && state.po && state.po.key === state.year + "|" + Number((resp.regular_season || {}).through_week)) ? state.po : null;
     var po = poRaw && (poRaw.sim || poRaw.mg) ? poRaw : null;
     var poTeams = {};
@@ -3590,6 +3593,7 @@
       r._opf = odv ? odv.op : null; r._dpf = odv ? odv.dp : null;
       r._opfw = odv && regWeeks ? odv.op / regWeeks : null; r._dpfw = odv && regWeeks ? odv.dp / regWeeks : null;
       if (odv && odv.pp != null) r._ppf = odv.pp;
+      if (odv && regWeeks) r._pfw = odv.pf / regWeeks;   // the same PF/Wk in Overall and Scoring: MFL's total over the completed regular weeks
       if (state.show === "scored") {
         r._pf = s ? s.scored.pf : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null;
         if (odv) { r._pf = odv.pf; r._pfw = regWeeks ? odv.pf / regWeeks : null; }
@@ -3658,6 +3662,7 @@
       ? '<p class="col-note"><strong>Scoring</strong>: regular-season points from MFL’s league standings: total, offensive players, defensive players, and potential (the best possible lineup). Weekly figures divide by completed weeks.' + odNoteText(od, odDiffs) + '</p>'
       : '';
     if (!scoped && state.show === "overall") {
+      if (odDiffs) noteBits.push('<div class="note">PF/Wk uses MFL’s current totals, which include stat corrections the synced standings don’t have yet for ' + odDiffs + (odDiffs === 1 ? ' team' : ' teams') + '.</div>');
       if (current && !resp.preseason) noteBits.push('<div class="note"><strong>Division GB</strong> = H2H games behind the division leader. <strong>WC GB</strong> = All-Play wins behind the last wild card (division winners are protected); — = holding a playoff spot.</div>');
       if (poRaw) noteBits.push(poNoteHtml(poRaw, resp));
       if (histRanks) noteBits.push('<div class="note"><strong>All-Time AP Rank</strong> = this season’s All-Play % against every team-season since 2010 through the same week; ties share a rank.</div>');

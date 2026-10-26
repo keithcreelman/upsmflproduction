@@ -331,6 +331,30 @@ test("Scoring, 2025 (finished): the franchise 0008 example reconciles exactly: P
   for (const f of MFL25.leagueStandings.franchise) t.ok(Math.abs(Number(f.op) + Number(f.dp) - Number(f.pf)) < 0.15, "reconciles " + f.id);
   t.ok(!/MFL’s current totals differ/.test(p.text), "2025 matches the recorded standings exactly");
 });
+test("PF/Wk is the same number in Full League Overall and Scoring for every team (MFL's total over the same completed weeks); Blake Bombers 236.5 in both", async () => {
+  const f = mkFetch6(MFL26);
+  const ov = table((await league("view=league&year=2026", { fetch: f })).raw), sc = table((await league("view=league&year=2026&show=scored", { fetch: f })).raw);
+  const ls = Object.fromEntries(MFL26.leagueStandings.franchise.map((x) => [x.id, x]));
+  for (const r of R) {
+    t.equal(ov.cell(r.franchise_id, "PF/Wk"), sc.cell(r.franchise_id, "PF/Wk"), nameOf[r.franchise_id]);
+    t.equal(ov.cell(r.franchise_id, "PF/Wk"), (Number(ls[r.franchise_id].pf) / 6).toFixed(1));
+  }
+  t.equal(ov.cell("0010", "PF/Wk"), "236.5"); t.equal(sc.cell("0010", "PF/Wk"), "236.5");
+  t.equal(r0010synced(), "236.8", "the synced standings alone said 236.8");
+  // nothing else in the table moved: seed order, H2H, All-Play, AP %, GBs, Playoff %
+  const base = table((await league("view=league&year=2026")).raw);
+  t.deepEqual(ov.order, base.order, "seed order unchanged");
+  for (const col of ["H2H", "Div W-L", "Division GB", "WC GB", "Playoff %", "AP", "AP %", "All-Time AP Rank"]) for (const r of R) t.equal(ov.cell(r.franchise_id, col), base.cell(r.franchise_id, col), col + " " + r.franchise_id);
+  t.match((await league("view=league&year=2026", { fetch: f })).text, /PF\/Wk uses MFL’s current totals, which include stat corrections the synced standings don’t have yet for 3 teams\./);
+  // no MFL data → the synced figure, as before
+  const fb = table((await league("view=league&year=2026")).raw);
+  t.equal(fb.cell("0010", "PF/Wk"), "236.8");
+  // the denominator is the completed regular weeks in both views: 14 for a finished season
+  const f25 = mkFetch6(MFL25, { "2025": S2025 });
+  const o25 = table((await league("view=league&year=2025", { fetch: f25 })).raw), s25 = table((await league("view=league&year=2025&show=scored", { fetch: f25 })).raw);
+  t.equal(o25.cell("0008", "PF/Wk"), (2912 / 14).toFixed(1)); t.equal(s25.cell("0008", "PF/Wk"), (2912 / 14).toFixed(1));
+});
+function r0010synced() { return (R.find((r) => r.franchise_id === "0010").pf_total / 6).toFixed(1); }
 test("Scoring sorts on every column, including the MFL-sourced ones", async () => {
   const ids = R.map((r) => r.franchise_id), ls = Object.fromEntries(MFL26.leagueStandings.franchise.map((f) => [f.id, f]));
   for (const [key, field] of [["_pf", "pf"], ["_opf", "op"], ["_dpf", "dp"], ["_ppf", "pp"]]) {
