@@ -1406,7 +1406,7 @@
       .pic-grid { grid-template-columns: minmax(0, 1fr); }
     }
     .lg-narrow-note { display: none; }
-    .sos-sub { display: block; }
+    .hist-flag { color: var(--gold); margin-left: 2px; }
     /* Playoff Picture: bracket first (Keith 2026-10-22). */
     .pp-switch { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
     .pp-label { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 4px; padding: 2px 7px; margin-left: 6px; vertical-align: 2px; }
@@ -1785,7 +1785,7 @@
     return '<th class="sortable' + (align === "num" ? " num" : "") + '" data-sort-key="' + escapeHtml(key) + '" data-sort-active="' + active + '" data-sort-dir="' + sortState.sortDir + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + ' scope="col">' + escapeHtml(label) + '</th>';
   }
   // Keys whose natural first click is ascending (names, seeds, finishes, ranks where 1 is best).
-  var ASC_FIRST = { owner_name: 1, franchise_name: 1, division: 1, division_name: 1, seed: 1, fin: 1, _pfRank: 1, _avgRank: 1, _l3Rank: 1, _paRank: 1, _back: 1 };
+  var ASC_FIRST = { owner_name: 1, franchise_name: 1, division: 1, division_name: 1, seed: 1, fin: 1, _pfRank: 1, _avgRank: 1, _l3Rank: 1, _paRank: 1, _back: 1, _divGBs: 1, _wcGB: 1 };
   function wireSortClicks(host, sortState, rerender) {
     host.querySelectorAll("th.sortable").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -2114,11 +2114,11 @@
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
     ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
-    ["WC Back", "Signed distance to the wild-card line in All-Play wins (ties count half), for every team, as if it had to earn a wild card: the two best teams that aren’t division winners qualify (All-Play %, then H2H record, then Points For). Positive = that many behind the last wild card; negative = that many ahead of the first team out; 0 = level with the team at the line (the ladder decides). A division winner’s seed doesn’t hide it: a + number means the division title is what keeps it in."],
-    ["SoS", "Strength of schedule. 1st of 12 = hardest schedule so far; tied teams share a rank. Based on how your opponents scored in their other games. It doesn’t affect playoff seeds."],
-    ["All-Time AP %", "This season’s All-Play % against every team-season since 2010 through the same number of weeks (12 teams every season, so every week is 11 results). Rank 1 = best; ties share a rank; percentile = share of other team-seasons below, ties counting half."],
+    ["Division GB · WC GB", "Division GB: H2H games behind your division leader (the leader shows —). WC GB: All-Play wins behind the last wild card, with the four division winners protected; — means you hold a playoff spot. Seeds are decided by All-Play, so the wild-card race is counted in All-Play too."],
+    ["Div W-L", "Your H2H record against the other teams in your own division (five games against each rival)."],
+    ["All-Time AP %", "The current owner’s career All-Play %: every completed season since 2010 under that owner’s name, all wins ÷ all games. † = includes 2010–2017, where scores and owner identities are still under review (#1329)."],
     ["H1–H6", "The Hawk Tuah Bowl seeds: the six teams outside the playoff field (7th–12th)."],
-    ["Luck Factor", "Actual H2H wins minus expected H2H wins. Expected: for each game, the share of the league you outscored that week. + = more wins than expected, − = fewer."],
+    ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins (shown in each team’s details)."],
     ["Scored", "What your lineup put up in the regular season. The points your opponents scored are in PA/game and in each team’s details."],
     ["Weekly rank", "The order of that week’s scores (1 = highest; ties share a rank)."],
     ["Projected vs final", "Until the regular season ends, seeds and BYE / DIV / WC say where teams would be if the season ended today."],
@@ -2774,7 +2774,7 @@
       + '<div class="psub" style="margin-top:6px">This season: ' + mine.map(function (m) { return escapeHtml(nameOf(m.r)) + ' ' + ordinal(m.k.rank) + (m.k.tied ? ' (tied)' : ''); }).slice(0, 6).join(" · ") + ' … of ' + (mine[0] ? mine[0].k.of : 0) + ' team-seasons.</div>'
       + '<h3 style="margin-top:12px">Best full regular seasons <span class="h-sub">· a separate comparison: finished seasons only</span></h3>'
       + '<ol class="hist-list">' + full.slice(0, 5).map(li).join("") + '</ol>'
-      + '<div class="note">Rank = place by All-Play % (ties share a rank) among every team-season through the same week; percentile (in the All-time column’s tooltip) = share of the other team-seasons below, ties counting half. Every season had 12 teams, so a week is 11 results for everyone; 2010–2020 had 13 regular-season weeks and 2021 on 14, so a week past 13 compares 2021 on only. Team and owner names are as stored in the league history tables, where some 2011–2017 names and owner identities are still under review (#1329).</div></section>';
+      + '<div class="note">Rank = place by All-Play % (ties share a rank) among every team-season through the same week; percentile = share of the other team-seasons below, ties counting half. Every season had 12 teams, so a week is 11 results for everyone; 2010–2020 had 13 regular-season weeks and 2021 on 14, so a week past 13 compares 2021 on only. Team and owner names are as stored in the league history tables, where some 2011–2017 names and owner identities are still under review (#1329).</div></section>';
   }
   function renderPicture(host) {
     return fetchD1("/api/standings", state.year).then(function (resp) {
@@ -3329,27 +3329,59 @@
   // Column sets for the Show control. Scored = what each lineup put up; Opponent = what opponents scored (schedule, not
   // skill — never called a defense: in UPS, MFL's IDP points are scored by your own players); Overall = the standings.
   // No division columns here (#1329 decision 2: the Divisions tab has them).
-  // Strength of schedule (#1388, Keith 2026-10-26): ONE rank, never the index. 1st = hardest; teams that share a rank
-  // are marked T-. The shared module's scheduleStrength() decides (its fail-closed status too); a rank that can't be
-  // computed shows — and is never replaced by points faced.
-  // Luck Factor: signed, one decimal; a zero (after rounding) is a plain 0.0.
-  function luckText(v) {
-    if (v == null || !isFinite(Number(v))) return "—";
-    var n = Math.round(Number(v) * 10) / 10;
-    return n === 0 ? "0.0" : fmtSigned(n);
+  // Desktop wide Full League Overall (Keith 2026-10-26/27): Seed | Team | H2H | Div W-L | Division GB | WC GB | AP | AP % |
+  // All-Time AP % | PF/Wk. The strength-of-schedule rank and Luck Factor are NOT shown here (their calculations stay in the
+  // shared module for a future analytics page).
+  function ownerKey(n) { return String(n == null ? "" : n).trim().replace(/\s+/g, " ").toLowerCase(); }
+  // All-Time AP % = the CURRENT OWNER's career All-Play: every completed season in the history file whose stored owner name
+  // is this owner's name, wins and ties summed over every game (never an average of season percentages). Names are matched
+  // as stored; the 2010-2017 owner identities are still under review (#1329), so a career that includes those seasons is
+  // marked and is not presented as verified.
+  function ownerCareers(resp, hist) {
+    if (!hist || !hist.seasons) return null;
+    var cur = Number(state.year), by = {};
+    Object.keys(hist.seasons).forEach(function (y) {
+      if (Number(y) >= cur) return;
+      var S = hist.seasons[y];
+      Object.keys(S.franchises).forEach(function (f) {
+        var x = S.franchises[f], a = x.ap && x.ap[x.ap.length - 1], k = ownerKey(x.owner);
+        if (!a || !k) return;
+        var o = by[k] = by[k] || { w: 0, l: 0, t: 0, years: [] };
+        o.w += a[0]; o.l += a[1]; o.t += a[2]; o.years.push(Number(y));
+      });
+    });
+    var out = {};
+    (resp.rows || []).forEach(function (r) {
+      var o = by[ownerKey(r.owner_name)], g = o ? o.w + o.l + o.t : 0;
+      out[pad4(r.franchise_id)] = g ? { w: o.w, l: o.l, t: o.t, pct: (o.w + 0.5 * o.t) / g, years: o.years.slice().sort(), review: o.years.some(function (y) { return y <= 2017; }) } : null;
+    });
+    return out;
   }
-  function sosText(r) { return r._sosRank == null ? "—" : (r._sosTie ? "T-" : "") + ordinal(r._sosRank); }
-  function sosLineHtml(r, ctx) {
-    if (!ctx.sos || !ctx.sos.on) return "";
-    return '<span class="owner-sub sos-sub">SoS: ' + (r._sosRank == null ? "—" : sosText(r) + " of " + ctx.sos.n) + '</span>';
+  function yearSpans(years) {
+    var out = [], a = null, b = null;
+    years.concat([null]).forEach(function (y) {
+      if (a != null && y === b + 1) { b = y; return; }
+      if (a != null) out.push(a === b ? String(a) : a + "–" + b);
+      a = b = y;
+    });
+    return out.join(", ");
   }
-  function sosNoteHtml(ctx, ss) {
-    if (!ctx.sos || !ctx.sos.on) return "";
-    if (!ctx.sos.ok) {
-      return '<p class="col-note sos-note" role="status"><strong>SoS —.</strong> The schedule-strength rank isn’t shown because ' + escapeHtml(sfReason(ss)) + '. It is never replaced by the points your opponents scored.'
-        + (problemsText(ss) ? '<span class="psub">' + escapeHtml(problemsText(ss)) + '</span>' : '') + '</p>';
-    }
-    return '<p class="col-note sos-note"><strong>SoS = strength of schedule.</strong> 1st of ' + ctx.sos.n + ' = hardest schedule ' + (ctx.finished ? "this season" : "so far") + '; tied teams share a rank. Based on how your opponents scored in their other games. This does not affect playoff seeds.</p>';
+  function careerCellHtml(r) {
+    var c = r._career;
+    if (!c) return '<span title="No completed season found under this owner name">—</span>';
+    var tip = "Career All-Play, " + c.years.length + (c.years.length === 1 ? " season" : " seasons") + " (" + yearSpans(c.years) + "): " + rec(c.w, c.l, c.t)
+      + (c.review ? ". Includes 2010–2017: 2010 weekly scores and the 2011–2017 owner identities are still under review (#1329); not verified." : ". Matched by owner name.");
+    return '<span title="' + escapeHtml(tip) + '">' + fmtPct(c.pct) + (c.review ? '<sup class="hist-flag">†</sup>' : "") + '</span>';
+  }
+  // Division GB for a finished season, from the recorded records and the recorded division leader (the worker sends none).
+  function finishedDivGB(rows) {
+    var lead = {}, out = {};
+    rows.forEach(function (r) { if (r.is_division_leader && lead[r.division] == null) lead[r.division] = r; });
+    rows.forEach(function (r) {
+      var l = lead[r.division];
+      out[pad4(r.franchise_id)] = l ? ((l.h2h_w - r.h2h_w) + (r.h2h_l - l.h2h_l)) / 2 : null;
+    });
+    return out;
   }
   // cls "lg-wide": a secondary column, hidden at phone widths (≤560px) so the table never scrolls sideways.
   function leagueColumns(show, ctx) {
@@ -3367,8 +3399,7 @@
     c("Team", "franchise_name", false, function (r) {
       return (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + tkoMark(r)
         + moveHtml(ctx.finished ? null : r.order_change)
-        + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span>'
-        + sosLineHtml(r, ctx);
+        + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + (show === "overall" && r.division_name ? " · " + escapeHtml(r.division_name) : "") + '</span>';
     });
     if (show === "scored") {
       c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For", W);
@@ -3381,15 +3412,15 @@
       return cols;
     }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
-    // Desktop wide view (Keith 2026-10-26): Seed | Team | H2H | AP | AP % | All-Time AP % | PF/Wk | Luck Factor. Nothing else
-    // (no cumulative PF, PA/game, Exp. W, WC Back or Schedule column; the SoS rank lives in the Team cell).
+    if (!ctx.scoped) {
+      c("Div W-L", "_divPct", false, function (r) { return r._div ? rec(r._div.w, r._div.l, r._div.t) : "—"; }, "H2H record against opponents in your own division");
+      c("Division GB", "_divGBs", true, function (r) { return r._divGB == null ? "—" : fmtDec(r._divGB, 1); }, "H2H games behind the division leader (the leader shows —; a team level on record but behind on the tiebreakers shows 0.0)", W);
+      if (ctx.current) c("WC GB", "_wcGB", true, function (r) { return r._wcGB == null ? "—" : fmtDec(r._wcGB, 1); }, "All-Play wins behind the last wild card (division winners are protected). — = holding a playoff spot. Based on All-Play, the same as the seeds", W);
+    }
     c("AP", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T: your score against every other team, every week", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); }, "Regular-season All-Play %: the share of the league you beat each week");
-    if (ctx.current && !ctx.scoped && ctx.hist) c("All-Time AP %", "_histRank", true, function (r) { return r._hist ? '<span title="' + r._hist.pctile + 'th percentile">' + ordinal(r._hist.rank) + (r._hist.tied ? "=" : "") + '</span><span class="owner-sub">of ' + r._hist.of + '</span>' : "—"; }, "All-Play % rank among every team-season since 2010 through the same week (percentile in the tooltip)", W);
+    if (ctx.current && !ctx.scoped && ctx.careers) c("All-Time AP %", "_careerPct", true, careerCellHtml, "The current owner’s career All-Play % over completed seasons (all wins ÷ all games), matched by owner name. † = includes 2010–2017, still under review", W);
     c("PF/Wk", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per completed scoring week (total Points For ÷ weeks played)", W);
-    if (!ctx.scoped) {
-      c("Luck Factor", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + luckText(r._luckExact != null ? r._luckExact : r._luck) + '</span>'; }, "Actual H2H wins minus expected H2H wins (expected = each game's All-Play share that week). + = more wins than expected, − = fewer", W);
-    }
     return cols;
   }
   function showControlHtml() {
@@ -3427,11 +3458,9 @@
     var sfOk = sf.status === "ok";
     var M0 = window.UPS_STANDINGS_RACE;
     var wcm = (current && !scoped && M0 && M0.wildCardMargins) ? M0.wildCardMargins(resp.rows || []) : null;
-    var ss = (M0 && M0.scheduleStrength) ? M0.scheduleStrength(resp) : { status: "unavailable" };
-    var ssOk = ss.status === "ok";
-    // The SoS rank belongs to Overall, over the regular season: hidden in Playoffs / Custom scope and before any game.
-    var sosOn = state.show === "overall" && (state.scope === "full" || state.scope === "regular") && ss.status !== "preseason" && !resp.preseason;
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
+    var careers = (current && !scoped && state.apHistory) ? ownerCareers(resp, state.apHistory) : null;
+    var finGB = finished ? finishedDivGB(resp.rows || []) : null;
     // One Seed column, one source per season: the worker's playoff_seed for the current season; the recorded
     // regular-season seed (/api/historical-finishes) for a finished one. Never /api/playoff-bracket.
     baseRows.forEach(function (r) {
@@ -3451,15 +3480,23 @@
       r._apPct = r._ap && r._ap.pct != null ? Number(r._ap.pct) : null;
       r._wcm = (current && !scoped && wcm) ? wcm[fid] : null;
       r._back = r._wcm ? r._wcm.margin : null;
-      var ssv = ssOk ? ss.byFranchise[fid] : null;
-      r._sosRank = (sosOn && ssv && ssv.oppStrengthRank != null) ? ssv.oppStrengthRank : null;
+      // Division W-L / GB (the 2010 division standings are withheld: under review, #1329 C6/C9 and #1378)
+      var divHold = finished && Number(state.year) === 2010;
+      var dv = divHold ? null : (reg && reg.division) ? reg.division : (o.div_w != null ? { w: o.div_w, l: o.div_l, t: 0 } : null);
+      r._div = dv;
+      r._divPct = dv && (dv.w + dv.l + dv.t) ? (dv.w + 0.5 * dv.t) / (dv.w + dv.l + dv.t) : null;
+      var gbNum = finished ? (finGB ? finGB[fid] : null) : (typeof o.division_games_back === "number" && isFinite(o.division_games_back) ? o.division_games_back : null);
+      var noGB = divHold || (!finished && resp.preseason);
+      r._divGB = (noGB || o.is_division_leader || gbNum == null) ? null : gbNum;
+      r._divGBs = noGB || gbNum == null ? null : (o.is_division_leader ? -1 : gbNum);
+      r._wcGB = (current && !scoped && !resp.preseason) ? wcBackOf(o) : null;
+      r._career = careers ? careers[fid] : null; r._careerPct = r._career ? r._career.pct : null;
       r._hist = histRanks ? histRanks[fid] : null; r._histRank = r._hist ? r._hist.rank : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
       else if (reg) { r._pf = reg.points_for; r._pfw = reg.pf_per_week; r._pag = reg.pa_per_game; }
       else { r._pf = r.pf_total != null ? r.pf_total : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null; }
       r._xw = s ? s.overall.expectedWins : null;
       r._luck = s ? s.overall.luck : null;
-      r._luckExact = s ? s.overall.luckExact : null;
       if (state.show === "scored") {
         r._pf = s ? s.scored.pf : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null;
       }
@@ -3480,11 +3517,7 @@
     // they can never mislead when the table is sorted some other way.
     var canonicalSeedOrder = sortHdrs.sortKey === "seed" && sortHdrs.sortDir === "asc";
     var showRace = !scoped && !!raceData && current;
-    var sosCount = {};
-    baseRows.forEach(function (r) { if (r._sosRank != null) sosCount[r._sosRank] = (sosCount[r._sosRank] || 0) + 1; });
-    baseRows.forEach(function (r) { r._sosTie = r._sosRank != null && sosCount[r._sosRank] > 1; });
-    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, hist: !!histRanks,
-      sos: { on: sosOn, ok: ssOk, n: (resp.rows || []).length } };
+    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, careers: careers };
     var bar = viewBarHtml(resp, showControlHtml());
     var noteBits = [];
     // Scored needs every regular-season week: anything short of 'ok' is an explanation, never a table.
@@ -3527,7 +3560,13 @@
     if (!scoped && state.show === "overall" && !sfOk && sf.status !== "preseason") noteBits.push('<div class="note">Expected wins and luck show —: ' + escapeHtml(sfReason(sf)) + '.</div>');
     var colNote = state.show === "scored"
       ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>'
-      : sosNoteHtml(ctx, ss);
+      : '';
+    if (!scoped && state.show === "overall") {
+      if (current && !resp.preseason) noteBits.push('<div class="note"><strong>Division GB</strong> = H2H games behind the division leader. <strong>WC GB</strong> = All-Play wins behind the last wild card (division winners are protected); — = holding a playoff spot.</div>');
+      if (careers) noteBits.push('<div class="note"><strong>All-Time AP %</strong> = the current owner’s career All-Play % (all wins ÷ all games) over completed seasons since 2010, matched by owner name. † = includes 2010–2017, where 2010 weekly scores and owner identities are still under review (#1329): not verified. — = no completed season found under that name.</div>');
+      if (finished && Number(state.year) === 2010) noteBits.push('<div class="note">Div W-L and Division GB aren’t shown for 2010: its division standings are still under review (#1329 C6/C9, #1378).</div>');
+      else if (finished && Number(state.year) >= 2011 && Number(state.year) <= 2013) noteBits.push('<div class="note">Div W-L and Division GB for ' + state.year + ' come from stored standings that an open correction (#1329 C7) still touches: unverified.</div>');
+    }
     noteBits.push('<div class="note lg-narrow-note">On a narrow screen the main columns show; a wider window adds the rest.</div>');
     var histPanel = (state.show === "overall" && histRanks) ? allTimePanelHtml(resp, state.apHistory, histRanks) : "";
     host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table class="lg-table"><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + histPanel + tkoFootnote(resp) + DEFERRED_NOTE;

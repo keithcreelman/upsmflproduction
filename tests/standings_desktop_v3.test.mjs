@@ -231,15 +231,14 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.ok(!/Avg PF|Avg PA/.test(p.html));
   const c = RESP_2026.rows.find((r) => r.franchise_id === "0009").regular_season;
   t.equal(L.cell("0009", "PF/Wk"), c.pf_per_week.toFixed(1));
-  // decision 2: no Playoffs column, no division column, no division under the team name (the Divisions tab has them)
-  t.deepEqual(["Seed", "Team", "H2H", "AP", "AP %", "PF/Wk", "Luck Factor"], L.heads, "the desktop wide Overall column set (Keith 2026-10-26; All-Time AP % joins after AP % once the history file loads)");
+  // decision 2 (no Playoffs column, no standalone division column) still holds; the division NAME now sits under the team name (Keith 2026-10-27)
+  t.deepEqual(["Seed", "Team", "H2H", "Div W-L", "Division GB", "WC GB", "AP", "AP %", "PF/Wk"], L.heads, "the desktop wide Overall column set (All-Time AP % joins after AP % once the history file loads: standings_full_league_overall)");
   for (const r of RESP_2026.rows) {
-    t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s*SoS: [^\s]+( of \d+)?/, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner (+ its SoS line) only, no division: " + r.franchise_id);
-    if (r.division_name) t.ok(!L.cell(r.franchise_id, "Team").includes(r.division_name), "no division name under " + r.franchise_id);
+    t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner (+ division name when the standings carry one): " + r.franchise_id);
   }
   t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><\/div>/);
   t.ok(!/data-show="opponent"/.test(p.html), "no separate Opponent choice (#1388, Keith 2026-10-26)");
-  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="7">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
+  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="9">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
   // a team's details: the seed sentence, the scoring tiles and a link to Weekly → Team by week; no week-by-week table
   // ("will be absurd by week 14") and no division race
   const dis = /<tr class="disclosure-row" hidden data-for="0009">([\s\S]*?)<\/td><\/tr>/.exec(p.raw)[1];
