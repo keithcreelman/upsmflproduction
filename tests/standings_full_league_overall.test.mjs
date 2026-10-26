@@ -229,6 +229,14 @@ test("All-Time AP Rank = this season's All-Play % ranked against every team-seas
 const ENV5 = loadSeason(makeWorkerEnv({}), recorded2026(REC));
 const RESP5 = (await callWorker(ENV5, "GET", "/api/standings?year=2026")).json;
 const MFLLS = json("./fixtures/mfl_2026_wk5_league_standings.json");
+function mkFetch6(ls, years = {}) {
+  const real = mkFetch({ years });
+  return async (url) => {
+    const u = new URL(url);
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "leagueStandings") return { ok: true, status: 200, json: async () => ls };
+    return real(url);
+  };
+}
 function mkFetch5({ ls = MFLLS, years = {} } = {}) {
   const real = workerFetch(callWorker, ENV5);
   return async (url) => {
@@ -282,10 +290,63 @@ test("Scoring: offensive / defensive points show — and say why when MFL's two 
   let p = await league("view=league&year=2026&show=scored", { fetch: mkFetch5({ ls: bad }) });
   let L = table(p.raw);
   for (const r of RESP5.rows) { t.equal(L.cell(r.franchise_id, "Offensive PF"), "—"); t.equal(L.cell(r.franchise_id, "Defensive PF/Wk"), "—"); t.ok(L.cell(r.franchise_id, "PF") !== "—" && L.cell(r.franchise_id, "Potential PF") !== "—"); }
-  t.match(p.text, /Offensive and defensive points show — because MFL’s two totals don’t add up to the weekly scores\./);
+  t.match(p.text, /MFL’s offensive and defensive totals don’t add up to its points total, so the offensive and defensive columns show —\./);
   p = await league("view=league&year=2026&show=scored", { fetch: mkFetch5({ ls: null }) });
-  t.match(p.text, /Offensive and defensive points show — because MFL’s split isn’t available for this season\./);
+  t.match(p.text, /MFL’s league standings aren’t available for this season, so the offensive and defensive columns show —\./);
   t.equal(table(p.raw).cell("0009", "Offensive PF"), "—");
+});
+const MFL26 = json("./fixtures/mfl_2026_league_standings_2026-10-26.json");
+const MFL25 = json("./fixtures/mfl_2025_league_standings.json");
+test("Scoring takes pf / op / dp / pp straight from MFL's league standings, even when the synced weekly standings lag a stat correction; the note says how many teams differ", async () => {
+  const p = await league("view=league&year=2026&show=scored", { fetch: mkFetch6(MFL26) });
+  const L = table(p.raw);
+  t.deepEqual(L.heads, ["Seed", "Team", "PF", "PF/Wk", "Offensive PF", "Offensive PF/Wk", "Defensive PF", "Defensive PF/Wk", "Potential PF"]);
+  const num = (txt) => Number(txt.replace(/,/g, ""));
+  const ls = Object.fromEntries(MFL26.leagueStandings.franchise.map((f) => [f.id, f]));
+  const weeks = new Set(RESP6.weeklyScores.filter((x) => x.po === 0).map((x) => x.w)).size;
+  t.equal(weeks, 6);
+  let differing = 0;
+  for (const r of R) {
+    const f = r.franchise_id, m = ls[f];
+    t.equal(num(L.cell(f, "PF")), Number(m.pf), "PF " + f);
+    t.ok(Math.abs(num(L.cell(f, "PF/Wk")) - Number(m.pf) / weeks) < 0.051, "PF/Wk " + f);
+    t.equal(num(L.cell(f, "Offensive PF")), Number(m.op), "Offensive PF " + f);
+    t.ok(Math.abs(num(L.cell(f, "Offensive PF/Wk")) - Number(m.op) / weeks) < 0.051, "Offensive PF/Wk " + f);
+    t.equal(num(L.cell(f, "Defensive PF")), Number(m.dp), "Defensive PF " + f);
+    t.ok(Math.abs(num(L.cell(f, "Defensive PF/Wk")) - Number(m.dp) / weeks) < 0.051, "Defensive PF/Wk " + f);
+    t.equal(num(L.cell(f, "Potential PF")), Number(m.pp), "Potential PF " + f);
+    t.ok(Math.abs(Number(m.op) + Number(m.dp) - Number(m.pf)) < 0.15, "offense + defense = PF " + f);
+    if (Math.abs(Number(m.pf) - r.pf_total) > 0.15) differing++;
+  }
+  t.equal(differing, 3, "three teams carry stat corrections the synced standings don't have yet");
+  t.match(p.text, /MFL’s current totals differ from the synced weekly scores for 3 teams \(later stat corrections\); the figures here are MFL’s\./);
+});
+test("Scoring, 2025 (finished): the franchise 0008 example reconciles exactly: PF 2,912.0 = Offensive 2,141.0 + Defensive 771.0; Potential 3,217.5; per-week figures divide by the 14 completed weeks", async () => {
+  const p = await league("view=league&year=2025&show=scored", { fetch: mkFetch6(MFL25, { "2025": S2025 }) });
+  const L = table(p.raw);
+  t.deepEqual([L.cell("0008", "PF"), L.cell("0008", "Offensive PF"), L.cell("0008", "Defensive PF"), L.cell("0008", "Potential PF")], ["2,912.0", "2,141.0", "771.0", "3,217.5"]);
+  t.equal(L.cell("0008", "PF/Wk"), (2912 / 14).toFixed(1));
+  t.equal(L.cell("0008", "Offensive PF/Wk"), (2141 / 14).toFixed(1));
+  t.equal(L.cell("0008", "Defensive PF/Wk"), (771 / 14).toFixed(1));
+  for (const f of MFL25.leagueStandings.franchise) t.ok(Math.abs(Number(f.op) + Number(f.dp) - Number(f.pf)) < 0.15, "reconciles " + f.id);
+  t.ok(!/MFL’s current totals differ/.test(p.text), "2025 matches the recorded standings exactly");
+});
+test("Scoring sorts on every column, including the MFL-sourced ones", async () => {
+  const ids = R.map((r) => r.franchise_id), ls = Object.fromEntries(MFL26.leagueStandings.franchise.map((f) => [f.id, f]));
+  for (const [key, field] of [["_pf", "pf"], ["_opf", "op"], ["_dpf", "dp"], ["_ppf", "pp"]]) {
+    const o = table((await league("view=league&year=2026&show=scored", { fetch: mkFetch6(MFL26), pageSrc: sortedBy(PAGE_SOURCE, key, "desc") })).raw).order;
+    t.deepEqual(o, ids.slice().sort((a, b) => Number(ls[b][field]) - Number(ls[a][field]) || ids.indexOf(a) - ids.indexOf(b)), key);
+  }
+});
+test("Full League Overall carries no historical All-Play sections ('How strong is 2026 so far?', 'Best full regular seasons'); the All-Time AP Rank column stays", async () => {
+  const p = await league("view=league&year=2026");
+  t.ok(!/How strong is|Best full regular seasons|hist-list|every team-season through the same week; percentile/i.test(p.raw), "both sections and their footnotes are gone");
+  t.ok(!/<section class="panel"/.test(p.raw.slice(p.raw.indexOf('class="lg-table"'))), "no panel under the table");
+  const L = table(p.raw);
+  t.ok(L.heads.includes("All-Time AP Rank"));
+  t.equal(L.cell("0009", "All-Time AP Rank"), "T-3rd of 204");
+  t.match(PAGE_SOURCE, /function allTimePanelHtml\(resp, hist, ranks\)/, "the calculation is kept");
+  t.ok(!/schedule, not skill/.test(p.raw), "no editorial text");
 });
 test("Scoring: Seed order is the worker's; sortable by every points column", async () => {
   const L = table((await league("view=league&year=2026&show=scored", { fetch: mkFetch5() })).raw);

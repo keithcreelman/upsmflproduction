@@ -2235,7 +2235,7 @@
     var rr = race && race.byFranchise ? race.byFranchise[fid] : null;
     var why = opts.why === false ? "" : (opts.finished ? recordedWhyHtml(opts.fin) : whySeedHtml(rr ? rr.whySeed : null));
     return '<div class="team-detail">' + why + scoringTilesHtml(sf, fid)
-      + '<div class="detail-foot"><span>Regular season. Opponent points are schedule, not skill.</span>'
+      + '<div class="detail-foot">'
       + '<button type="button" class="link-btn" data-wbw="' + fid + '">Week by week →</button></div></div>';
   }
   function buildDisclosureHtml(resp, race, sf, fid, colCount, opts) {
@@ -2591,7 +2591,7 @@
         + tapeRow("Highest week", tapeVal(c(A).high.value, c(A).high.rank), tapeVal(c(B).high.value, c(B).high.rank), e.high)
         + tapeRow("Median week", tapeVal(c(A).median.value, c(A).median.rank), tapeVal(c(B).median.value, c(B).median.rank), e.median)
         + tapeRow("Lowest week", tapeVal(c(A).low.value, c(A).low.rank), tapeVal(c(B).low.value, c(B).low.rank), e.low)
-        + tapeRow("Opponent points per H2H game", tapeVal(A.faced.perGame, null), tapeVal(B.faced.perGame, null), null, "schedule, not skill")
+        + tapeRow("Opponent points per H2H game", tapeVal(A.faced.perGame, null), tapeVal(B.faced.perGame, null), null, null)
         + '</tbody></table><div class="note">Gold = the stronger side in that category so far; ranks are among all 12 teams, regular season. The phone app’s Tale of the Tape also shows offense / IDP points and the owners’ head-to-head history.</div>';
     }
     var ov = document.createElement("div");
@@ -3396,27 +3396,29 @@
     if (Number(year) < 2017) { state.offDef[y] = null; return Promise.resolve(null); }
     return fetchD1("/api/mfl-export?TYPE=leagueStandings&L=74598&YEAR=" + encodeURIComponent(y) + "&JSON=1", null).then(function (j) {
       var fr = j && j.leagueStandings && j.leagueStandings.franchise, m = {};
-      (Array.isArray(fr) ? fr : fr ? [fr] : []).forEach(function (x) { if (x && x.id != null) m[pad4(x.id)] = { op: x.op, dp: x.dp }; });
+      (Array.isArray(fr) ? fr : fr ? [fr] : []).forEach(function (x) { if (x && x.id != null) m[pad4(x.id)] = { pf: x.pf, op: x.op, dp: x.dp, pp: x.pp }; });
       state.offDef[y] = Object.keys(m).length ? m : null;
       return state.offDef[y];
     }, function () { state.offDef[y] = null; return null; });
   }
-  // → { status: "ok" | "missing" | "mismatch", byFid }
-  function offDefOf(sf, raw) {
-    if (!raw || sf.status !== "ok") return { status: "missing", byFid: null };
-    var out = {}, status = "ok";
-    Object.keys(sf.byFranchise).forEach(function (f) {
-      var e = raw[f], op = e ? parseFloat(e.op) : NaN, dp = e ? parseFloat(e.dp) : NaN;
-      if (!isFinite(op) || !isFinite(dp)) { if (status === "ok") status = "missing"; return; }
-      if (Math.abs(Math.round(op * 100) + Math.round(dp * 100) - Math.round(sf.byFranchise[f].scored.pf * 100)) > 15) { status = "mismatch"; return; }
-      out[f] = { op: op, dp: dp };
+  // Scoring's numbers are MFL's own leagueStandings fields (pf, op, dp, pp), read together so they agree with each other: used
+  // only when every team has all of pf / op / dp and offense + defense add up to PF (within 0.15). → { status, byFid }
+  function mflScoringOf(raw) {
+    if (!raw) return { status: "missing", byFid: null };
+    var out = {}, status = "ok", n = 0;
+    Object.keys(raw).forEach(function (f) {
+      n++;
+      var e = raw[f], pf = parseFloat(e.pf), op = parseFloat(e.op), dp = parseFloat(e.dp), pp = parseFloat(e.pp);
+      if (!isFinite(pf) || !isFinite(op) || !isFinite(dp)) { if (status === "ok") status = "missing"; return; }
+      if (Math.abs(Math.round(op * 100) + Math.round(dp * 100) - Math.round(pf * 100)) > 15) { status = "mismatch"; return; }
+      out[f] = { pf: pf, op: op, dp: dp, pp: isFinite(pp) ? pp : null };
     });
-    return status === "ok" ? { status: "ok", byFid: out } : { status: status, byFid: null };
+    return n && status === "ok" ? { status: "ok", byFid: out } : { status: n ? status : "missing", byFid: null };
   }
-  function odNoteText(od) {
-    if (!od || od.status === "ok") return "";
-    return od.status === "mismatch" ? " Offensive and defensive points show — because MFL’s two totals don’t add up to the weekly scores."
-      : " Offensive and defensive points show — because MFL’s split isn’t available for this season.";
+  function odNoteText(od, diffs) {
+    if (od && od.status === "ok") return diffs ? " MFL’s current totals differ from the synced weekly scores for " + diffs + (diffs === 1 ? " team" : " teams") + " (later stat corrections); the figures here are MFL’s." : "";
+    return od && od.status === "mismatch" ? " MFL’s offensive and defensive totals don’t add up to its points total, so the offensive and defensive columns show —."
+      : " MFL’s league standings aren’t available for this season, so the offensive and defensive columns show —.";
   }
   // Column sets for the Show control. Scored = what each lineup put up; Opponent = what opponents scored (schedule, not
   // skill — never called a defense: in UPS, MFL's IDP points are scored by your own players); Overall = the standings.
@@ -3537,7 +3539,7 @@
     var M0 = window.UPS_STANDINGS_RACE;
     var wcm = (current && !scoped && M0 && M0.wildCardMargins) ? M0.wildCardMargins(resp.rows || []) : null;
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
-    var od = (state.show === "scored" && !scoped) ? offDefOf(sf, (state.offDef || {})[String(state.year)]) : null;
+    var od = (state.show === "scored" && !scoped) ? mflScoringOf((state.offDef || {})[String(state.year)]) : null;
     var poRaw = (state.show === "overall" && current && !scoped && magicSeasonOf(resp) && state.po && state.po.key === state.year + "|" + Number((resp.regular_season || {}).through_week)) ? state.po : null;
     var po = poRaw && (poRaw.sim || poRaw.mg) ? poRaw : null;
     var poTeams = {};
@@ -3587,8 +3589,10 @@
       var odv = od && od.byFid ? od.byFid[fid] : null;
       r._opf = odv ? odv.op : null; r._dpf = odv ? odv.dp : null;
       r._opfw = odv && regWeeks ? odv.op / regWeeks : null; r._dpfw = odv && regWeeks ? odv.dp / regWeeks : null;
+      if (odv && odv.pp != null) r._ppf = odv.pp;
       if (state.show === "scored") {
         r._pf = s ? s.scored.pf : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null;
+        if (odv) { r._pf = odv.pf; r._pfw = regWeeks ? odv.pf / regWeeks : null; }
       }
       r._pfRank = s ? s.scored.pfRank : null; r._avgRank = s ? s.scored.avgWeeklyRank : null;
       r._bestW = s ? s.scored.highWeek : null; r._worstW = s ? s.scored.lowWeek : null;
@@ -3611,7 +3615,7 @@
     var bar = viewBarHtml(resp, showControlHtml());
     var noteBits = [];
     // Scored needs every regular-season week: anything short of 'ok' is an explanation, never a table.
-    if (state.show === "scored" && !sfOk) {
+    if (state.show === "scored" && !sfOk && !(od && od.status === "ok")) {
       host.innerHTML = bar + '<div class="err-box" role="alert"><b>Scoring isn’t shown:</b> ' + escapeHtml(sfReason(sf)) + '.'
         + (problemsText(sf) ? '<span class="psub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div>';
       wireShow(host, resp, fins, finsError);
@@ -3648,8 +3652,10 @@
     else noteBits.push('<div class="note">' + (meta.last_regular_season_week ? 'Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + ').' : '') + seedNote + '</div>');
     if (!scoped && state.show === "overall" && finished) noteBits.push('<div class="note">W-L-T, All-Play and PF are the season’s recorded totals; PF/week, PA/game, expected wins and luck cover the regular season.</div>');
     if (!scoped && state.show === "overall" && !sfOk && sf.status !== "preseason") noteBits.push('<div class="note">Expected wins and luck show —: ' + escapeHtml(sfReason(sf)) + '.</div>');
+    var odDiffs = 0;
+    if (od && od.status === "ok") (resp.rows || []).forEach(function (r) { var m = od.byFid[pad4(r.franchise_id)]; if (m && r.pf_total != null && Math.abs(m.pf - Number(r.pf_total)) > 0.15) odDiffs++; });
     var colNote = state.show === "scored"
-      ? '<p class="col-note"><strong>Scoring</strong> — points each lineup produced in the regular season, and the most it could have produced (Potential PF). Descriptive: seeds use All-Play %, H2H record, then season Points For.' + odNoteText(od) + '</p>'
+      ? '<p class="col-note"><strong>Scoring</strong>: regular-season points from MFL’s league standings: total, offensive players, defensive players, and potential (the best possible lineup). Weekly figures divide by completed weeks.' + odNoteText(od, odDiffs) + '</p>'
       : '';
     if (!scoped && state.show === "overall") {
       if (current && !resp.preseason) noteBits.push('<div class="note"><strong>Division GB</strong> = H2H games behind the division leader. <strong>WC GB</strong> = All-Play wins behind the last wild card (division winners are protected); — = holding a playoff spot.</div>');
@@ -3659,7 +3665,7 @@
       else if (finished && Number(state.year) >= 2011 && Number(state.year) <= 2013) noteBits.push('<div class="note">Div W-L and Division GB for ' + state.year + ' come from stored standings that an open correction (#1329 C7) still touches: unverified.</div>');
     }
     noteBits.push('<div class="note lg-narrow-note">On a narrow screen the main columns show; a wider window adds the rest.</div>');
-    var histPanel = (state.show === "overall" && histRanks) ? allTimePanelHtml(resp, state.apHistory, histRanks) : "";
+    var histPanel = "";   // "How strong is <season> so far?" and "Best full regular seasons" are off this page (kept: allTimePanelHtml; for League History)
     host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table class="lg-table"><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + histPanel + tkoFootnote(resp) + DEFERRED_NOTE;
     wireSortClicks(host, state.overall, function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
     wireDisclosureToggles(host);
@@ -4226,7 +4232,7 @@
       aria: "Scatter of each team’s Points For per week against the points its opponents scored per game, with league-average lines; the table below lists the same numbers." });
     var tC = '<table class="data-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">PF/week</th><th class="num" scope="col">PF rank</th><th class="num" scope="col">Opp. pts/game</th><th class="num" scope="col">Opponent rank (1 = most)</th></tr></thead><tbody>'
       + c.slice().sort(function (p, q) { return q.x - p.x; }).map(function (p) { return '<tr><td>' + escapeHtml(p.name) + '</td><td class="num">' + fmtPts(p.x) + '</td><td class="num">' + ordinal(p.pfRank) + '</td><td class="num">' + fmtPts(p.y) + '</td><td class="num">' + ordinal(p.paRank) + '</td></tr>'; }).join("") + '</tbody></table>';
-    return chartFigure("Points For vs opponents’ points", "Right = scored more per week; up = opponents scored more per game. Opponent points are schedule, not skill. Regular season.", svgC, shapeLegendHtml(!finished), tC);
+    return chartFigure("Points For vs opponents’ points", "Right = scored more per week; up = opponents scored more per game. Regular season.", svgC, shapeLegendHtml(!finished), tC);
   }
 
   // ────────────────────────────────────────────────────────────────────────

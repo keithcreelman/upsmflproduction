@@ -259,7 +259,7 @@ test("Full League Scoring: the shared module's scoredFaced numbers; old Opponent
   const s9 = sf.byFranchise["0009"].scored;
   t.equal(S.cell("0009", "PF").replace(/,/g, ""), s9.pf.toFixed(1));
   t.equal(S.cell("0009", "PF/Wk"), s9.pfPerWeek.toFixed(1));
-  t.match(scored.html, /<strong>Scoring<\/strong> — points each lineup produced in the regular season/);
+  t.match(scored.html, /<strong>Scoring<\/strong>: regular-season points from MFL’s league standings: total, offensive players, defensive players, and potential/);
   // #1388: there is no Opponent view any more; the two old links open Overall, where the SoS rank lives
   const overall = await page("view=league&year=2026");
   for (const old of ["opponent", "faced"]) {
@@ -443,7 +443,8 @@ test("Trends: ONE chart at a time, picked with the Chart control (seed order by 
   t.match(figs[1], /Above the line = record better than scoring \(schedule luck\)\./);
   t.match(figs[1], />All-Play %<\/text>/); t.match(figs[1], />Record %<\/text>/); t.match(figs[1], /record = All-Play<\/text>/);
   t.match(figs[2], />Points For per week<\/text>/); t.match(figs[2], />Opponents’ points per game<\/text>/);
-  t.match(figs[2], /Opponent points are schedule, not skill\./);
+  t.ok(!/schedule, not skill/.test(figs[2]), "no editorial line in the chart caption");
+  t.match(figs[2], /Right = scored more per week; up = opponents scored more per game\. Regular season\./);
   // status by shape and words, not color alone
   t.match(figs[1], /<circle class="dot out"/); t.match(figs[1], /<circle class="dot in"/);
   t.match(figs[1], /Outside the field<\/span>/);
