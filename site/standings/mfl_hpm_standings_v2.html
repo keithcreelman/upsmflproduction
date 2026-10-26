@@ -451,9 +451,10 @@
     }
     .div-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(580px, 100%), 1fr));
       gap: 16px;
     }
+    .div-grid > .div-card { min-width: 0; }
     .div-grid + .conf-header { margin-top: 24px; }
     .div-card {
       background: linear-gradient(180deg, rgba(26, 34, 48, 0.6), rgba(20, 26, 38, 0.6));
@@ -1535,10 +1536,7 @@
       <header class="head">
         <div>
           <div class="title">UPS Standings</div>
-          <div class="sub">Full league · divisions · playoff picture · forecast · league history</div>
-          <div class="hist-warn" id="histWarn" role="status" hidden>
-            <strong>Heads up:</strong> historical data is still being reviewed for accuracy and may not be fully correct yet.
-          </div>
+          <div class="sub">Full league · divisions · playoff picture · forecast · weekly · trends</div>
         </div>
         <div class="controls">
           <label class="year-picker">Season <select id="yearSel"></select></label>
@@ -1592,8 +1590,7 @@
     { id: "picture",   label: "Playoff Picture" },
     { id: "forecast",  label: "Forecast" },
     { id: "weekly",    label: "Weekly" },
-    { id: "trends",    label: "Trends" },
-    { id: "history",   label: "History" }
+    { id: "trends",    label: "Trends" }
   ];
   var HISTORY_VIEWS = [
     { id: "bracket",      label: "Playoff Bracket" },
@@ -1606,7 +1603,9 @@
   function isHistoryView(id) { return HISTORY_VIEWS.some(function (h) { return h.id === id; }); }
   function tabFromQuery(v) {
     if (v === "overall") return { view: "league", sub: null };
+    // History has no tab for now (Keith 2026-10-27); its views and old ?view= links stay as they were, ready for the History pass.
     if (isHistoryView(v)) return { view: "history", sub: v };
+    if (v === "history") return { view: "history", sub: null };
     if (TABS.some(function (t) { return t.id === v; })) return { view: v, sub: null };
     return { view: "league", sub: null };
   }
@@ -1644,7 +1643,7 @@
     show: ({ scored: "scored", scoring: "scored", opponent: "overall", faced: "overall", overall: "overall" })[qs.get("show")] || "overall",
     // Weekly sub-views: one week · season leaders · heat map · one team week by week (?week=season, the old Season
     // button, opens the leaders)
-    wview: ({ week: 1, leaders: 1, heat: 1, team: 1 })[qs.get("wv")] ? qs.get("wv") : (qs.get("week") === "season" ? "leaders" : "week"),
+    wview: ({ week: 1, leaders: 1, heat: 1, team: 1 })[qs.get("wv")] ? qs.get("wv") : (qs.get("week") && qs.get("week") !== "season" ? "week" : "leaders"),
     week: parseInt(qs.get("week"), 10) || null,                            // Weekly: the week shown
     weeklyAll: qs.get("wkall") === "1",                                    // Weekly leaders / heat map: include playoff weeks
     heat: qs.get("hm") === "table" ? "table" : "heat",                     // Weekly heat map: colored grid or plain table
@@ -1760,7 +1759,7 @@
       } else { u.searchParams.delete("scope"); u.searchParams.delete("cs"); u.searchParams.delete("ce"); }
       var keep = {
         show: state.view === "league" && state.show !== "overall" ? state.show : null,
-        wv: state.view === "weekly" && state.wview !== "week" ? state.wview : null,
+        wv: state.view === "weekly" && state.wview !== "leaders" ? state.wview : null,
         week: state.view === "weekly" && state.wview === "week" && state.week ? String(state.week) : null,
         wkall: state.view === "weekly" && (state.wview === "leaders" || state.wview === "heat") && state.weeklyAll ? "1" : null,
         hm: state.view === "weekly" && state.wview === "heat" && state.heat === "table" ? "table" : null,
@@ -1927,8 +1926,6 @@
     renderSubNav();
     var scopePicker = el("scopePicker");
     if (scopePicker) scopePicker.style.display = (state.view === "league" || state.view === "divisions") ? "" : "none";
-    var warn = el("histWarn");
-    if (warn) warn.hidden = !(state.view === "history" || state.year < new Date().getUTCFullYear());
     var seq = ++renderSeq;
     var body = el("body");
     body.innerHTML = '<div id="view' + seq + '"><div class="loading" role="status">Loading…</div></div>';
@@ -2487,7 +2484,6 @@
       + '<div class="psub">Round 1' + (final ? '' : ' if the season ended today') + ':</div>'
       + '<ul><li>' + t(3) + ' v ' + t(6) + '</li><li>' + t(4) + ' v ' + t(5) + '</li></ul>'
       + '<div class="psub">' + t(1) + ' plays the 4–5 winner; ' + t(2) + ' plays the 3–6 winner.</div>'
-      + '<button type="button" class="link-btn" data-goto="bracket">' + (final ? 'See the bracket →' : 'See the projected bracket →') + '</button>'
       + '</section>';
   }
 
@@ -2538,56 +2534,20 @@
     var hawk = outside.map(function (r, i) { return { fid: pad4(r.franchise_id), name: nameOf(r), label: "H" + (i + 1), sub: "" }; });
     return { champ: champ.every(Boolean) ? champ : null, hawk: hawk.length === 6 ? hawk : null };
   }
-  function ppProjSides(model) {
-    var t = model.teams;   // the Forecast's projected order: average finishing place
-    if (!model.hasDetail || t.length !== 12) return null;
-    function e(x, i) {
-      var p = x.place ? x.place[i] : null;
-      var sub = (p != null ? "this seed in " + fcPct(p) : "") + (i < 6 ? " · playoffs " + fcPct(x.po) : " · H1–H6 " + fcPct(1 - x.po));
-      return { fid: x.fid, name: x.name, label: i < 6 ? String(i + 1) : "H" + (i - 5), sub: escapeHtml(sub) };
-    }
-    return { champ: t.slice(0, 6).map(e), hawk: t.slice(6).map(function (x, j) { return e(x, j + 6); }) };
-  }
-  // fc: undefined = the Forecast is still loading; null = none available; else ppForecast's answer.
-  function ppOutlookHtml(resp, final, fc) {
-      var today = ppTodaySides(resp);
-      var proj = fc && fc.model ? ppProjSides(fc.model) : null;
-      var mode = state.ppMode === "proj" && proj ? "proj" : "today";
-      var W = Number((resp.regular_season || {}).through_week);
-      var sw = '<div class="pp-switch" role="group" aria-label="Which bracket"><span class="seg-label">Bracket:</span>'
-        + '<button type="button" class="mode-btn" data-pp="today" aria-pressed="' + (mode === "today") + '">If the season ended today</button>'
-        + '<button type="button" class="mode-btn" data-pp="proj" aria-pressed="' + (mode === "proj") + '"' + (proj ? '' : ' disabled') + '>Projected · ' + (fc && fc.cur ? 'Week ' + fc.cur.throughWeek + ' Forecast' : 'Forecast') + '</button></div>';
-      var html;
-      if (mode === "today") {
-        html = '<div class="pp-head"><span class="pp-label today">If the season ended today</span> Seeds from the standings through Week ' + W + (final ? ' (final)' : '') + '. Not a prediction: no game is decided.</div>'
-          + '<div class="pp-sides">' + ppSideHtml("UPS Championship · seeds 1–6", today.champ, "today", false) + ppSideHtml("Hawk Tuah Bowl · H1–H6", today.hawk, "today", true) + '</div>';
-      } else {
-        var m = fc.model, cur = fc.cur;
-        var ups = topBy(m.teams, "title", 1)[0], hawkT = topBy(m.teams, "hawk", 1)[0];
-        var fu = m.finals.ups && m.finals.ups[0], fh = m.finals.hawk && m.finals.hawk[0];
-        var champLine = function (c, f) {
-          return '<div class="pp-champ">Most likely champion: <b>' + escapeHtml(c.name) + '</b> ' + fcPct(c.title) + '</div>'
-            + (f ? '<div class="pp-champ">Most likely final: <b>' + escapeHtml(f.a.name) + '</b> v <b>' + escapeHtml(f.b.name) + '</b> ' + fcPct(f.p) + '</div>' : '');
-        };
-        html = '<div class="pp-head"><span class="pp-label proj">Projected · not final</span> Seeds in the order of average finish across ' + Number(cur.runs || 10000).toLocaleString("en-US") + ' simulated seasons in the UPS Wire’s Week ' + cur.throughWeek + ' Forecast (generated ' + escapeHtml(fcWhen(cur)) + '). Each team shows how often it lands on that seed. It updates with each week’s Forecast.</div>'
-          + '<div class="pp-sides">' + ppSideHtml("UPS Championship · projected seeds", proj.champ, "proj", false, ups ? champLine(ups, fu) : '')
-          + ppSideHtml("Hawk Tuah Bowl · projected seeds", proj.hawk, "proj", true, hawkT ? '<div class="pp-champ">Most likely Hawk Tuah Bowl champion: <b>' + escapeHtml(hawkT.name) + '</b> ' + fcPct(hawkT.hawk) + '</div>' + (fh ? '<div class="pp-champ">Most likely final: <b>' + escapeHtml(fh.a.name) + '</b> v <b>' + escapeHtml(fh.b.name) + '</b> ' + fcPct(fh.p) + '</div>' : '') : '') + '</div>';
-      }
-      var why = fc === undefined ? 'Loading the UPS Wire Forecast for the projected bracket…'
-        : !fc ? 'No UPS Wire forecast is available for ' + state.year + ' yet, so only today’s bracket is shown.'
-        : fc.refused ? 'The Forecast isn’t used: its starting scores differ from these standings (' + escapeHtml(fc.refused[0]) + ').'
-        : !proj ? 'The ' + 'Week ' + fc.cur.throughWeek + ' Forecast didn’t record finishing places, so there’s no projected bracket.' : '';
-      return '<h3 class="sec-h">' + state.year + ' playoff bracket</h3>' + sw + html + (why ? '<div class="note">' + why + '</div>' : '');
+  // Playoff Picture bracket (Keith 2026-10-27): one bracket, from today's actual seeds. The Forecast tab owns projections.
+  function ppOutlookHtml(resp, final) {
+    var today = ppTodaySides(resp);
+    var W = Number((resp.regular_season || {}).through_week);
+    var html = '<div class="pp-head"><span class="pp-label today">If the season ended today</span> Seeds from the standings through Week ' + W + (final ? ' (final)' : '') + '. Not a prediction: no game is decided.</div>'
+      + '<div class="pp-sides">' + ppSideHtml("UPS Championship · seeds 1–6", today.champ, "today", false) + ppSideHtml("Hawk Tuah Bowl · H1–H6", today.hawk, "today", true) + '</div>';
+    return '<h3 class="sec-h">' + state.year + ' playoff bracket</h3>' + html;
   }
   function drawPlayoffOutlook(host, resp, final) {
     if (!host.querySelector) return Promise.resolve();
     return ppForecast(resp).then(function (fc) {
       var slot = host.querySelector("#ppBracket"), dslot = host.querySelector("#ppDraft");
       if (!slot) return;
-      slot.innerHTML = ppOutlookHtml(resp, final, fc);
-      slot.querySelectorAll("[data-pp]").forEach(function (b) {
-        b.addEventListener("click", function () { if (b.disabled) return; state.ppMode = b.getAttribute("data-pp"); drawPlayoffOutlook(host, resp, final); });
-      });
+      slot.innerHTML = ppOutlookHtml(resp, final);
       wireTape(slot, resp);
       if (dslot && !dslot.getAttribute("data-done")) drawDraftOutlook(dslot, resp, fc);
       notifyHeight();
@@ -2852,7 +2812,7 @@
     var right = '<div class="pic-col">' + divisionLeadersHtml(resp, rows, final, magic) + nextOutHtml(resp, race, rows) + '</div>';
     var details = '<details class="pp-more"' + (state.ppMore ? ' open' : '') + '><summary>Seeds, races and tiebreaks</summary>'
       + pictureSummaryHtml(resp, rows, final) + '<div class="pic-grid">' + left + right + '</div></details>';
-    host.innerHTML = bar + '<div id="ppBracket">' + ppOutlookHtml(resp, final, undefined) + '</div><div id="ppDraft"></div>' + details + tkoFootnote(resp);
+    host.innerHTML = bar + '<div id="ppBracket">' + ppOutlookHtml(resp, final) + '</div><div id="ppDraft"></div>' + details + tkoFootnote(resp);
     if (host.querySelector) { var first = host.querySelector("#ppBracket"); if (first) wireTape(first, resp); }
     var more = host.querySelector(".pp-more");
     if (more) more.addEventListener("toggle", function () { state.ppMore = more.open; notifyHeight(); });
@@ -2899,7 +2859,7 @@
       + (y >= 2011 ? '<div style="margin-top:4px"><b>Hawk Tuah Bowl champion:</b> ' + (hawk ? escapeHtml(nameOf(hawk)) : "—") + '</div>' : '<div class="psub" style="margin-top:4px">2010’s toilet bracket had the loser advance, so no Hawk Tuah Bowl champion is marked.</div>')
       + (divWinners.length ? '<div style="margin-top:8px"><b>Division winners:</b> ' + divWinners.map(function (r) { return escapeHtml(nameOf(r)); }).join(", ") + '</div>' : '')
       + '</section>'
-      + '<section class="panel"><h3>More</h3><button type="button" class="link-btn" data-goto="bracket">See the ' + y + ' bracket →</button></section></div>';
+      + '</div>';
     host.innerHTML = bar + '<div class="summary-card" role="status"><b>Recorded final standings.</b> The ' + y + ' season is complete.</div>'
       + '<div class="pic-grid">' + left + right + '</div>';
     wireGoto(host);
@@ -3060,7 +3020,7 @@
       var rs = resp.regular_season || {};
       var st = seasonStateOf(resp);
       if (st === "final" || isFinishedSeason(resp)) {
-        host.innerHTML = '<div class="banner" role="status">The ' + state.year + ' season is finished, so there’s nothing left to forecast. <button type="button" class="link-btn" data-goto="bracket">See the ' + state.year + ' bracket →</button></div>';
+        host.innerHTML = '<div class="banner" role="status">The ' + state.year + ' season is finished, so there’s nothing left to forecast.</div>';
         wireGoto(host);
         return;
       }
@@ -3549,7 +3509,7 @@
   }
   function showControlHtml() {
     return '<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:</span>'
-      + [["scored", "Scoring"], ["overall", "Overall"]].map(function (s) {
+      + [["overall", "Overall"], ["scored", "Scoring"]].map(function (s) {
         return '<button type="button" class="mode-btn" data-show="' + s[0] + '" aria-pressed="' + (state.show === s[0] ? "true" : "false") + '">' + s[1] + '</button>';
       }).join("") + '</div>';
   }
@@ -3859,7 +3819,7 @@
       drawWeekly(host, resp);
     }, function () { showFailure(host, "the " + state.year + " standings"); }).catch(drawFailed(host));
   }
-  var WEEKLY_VIEWS = [["week", "One week"], ["leaders", "Season leaders"], ["heat", "Heat map"], ["team", "Team by week"]];
+  var WEEKLY_VIEWS = [["leaders", "Season Leaders"], ["week", "One Week"], ["team", "Team by Week"], ["heat", "Heat Map"]];
   function weeklyNavHtml() {
     return '<div class="seg" role="group" aria-label="Weekly view"><span class="seg-label">Show:</span>'
       + WEEKLY_VIEWS.map(function (v) {
