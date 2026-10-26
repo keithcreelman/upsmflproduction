@@ -153,10 +153,9 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   t.ok(!/Seeds derived AP % → Overall PCT → PF/.test(html), "the old stale note is gone");
   // v3 (Standings desktop): "Avg PF / Avg PA" were per-GAME averages in multi-game weeks; they are now PF per week and
   // PA per game, labeled, and the games-back figure is the worker's ap_back ("Back").
-  t.match(html, /<th[^>]*>PF\/week<\/th>/, "PF per week, labeled");
-  t.match(html, /<th[^>]*>PA\/game<\/th>/, "PA per game, labeled");
+  t.match(html, /<th[^>]*>PF\/Wk<\/th>/, "PF per week, labeled (the desktop wide view's PF/Wk, Keith 2026-10-26)");
+  t.ok(!/<th[^>]*>PA\/game<\/th>/.test(html), "PA/game is no longer a Full League column");
   t.ok(!/Avg PF|Avg PA/.test(html), "the per-game Avg PF / Avg PA labels are gone");
-  t.match(html, /<th[^>]*title="Signed: \+ = All-Play wins behind the last wild card; − = ahead of the first team out; 0 = at the line\. Every team, as if it had to earn a wild card\."[^>]*>WC Back<\/th>/, "the signed wild-card margin beside it (Keith 2026-10-22)");
 });
 test("desktop: weekly results unreadable → race values '—' with a note; nothing shows a confident playoff record (#1201)", async () => {
   const p = loadStandingsPage({ query: "view=overall&year=2026", fetch: workerFetch(callWorker, makeLadderSeason({ failWeekly: true })) });
