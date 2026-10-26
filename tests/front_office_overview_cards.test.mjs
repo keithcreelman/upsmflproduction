@@ -55,6 +55,8 @@ test("Overview: no Lineup strength card (Keith 2026-10-26); Draft picks takes it
   t.ok(/var side = picksCard\(fid\);/.test(SRC), "the side column starts with Draft picks, where the strength card was");
   t.ok(!/Contracts ending this season/.test(SRC) && !/expiringCard/.test(SRC), "card removed");
   t.ok(!/Biggest need/.test(SRC), "never labeled a need (Keith 2026-10-22)");
+  t.ok(!/likely starters on a bye|startersOut/.test(SRC), "no 'N likely starters on a bye' alert on the Overview (Keith 2026-10-26)");
+  t.ok(/no eligible player for " \+ H\.esc\(labels\.join\(", "\)\) \+ " \(an empty lineup slot\)\./.test(SRC) && (SRC.match(/an empty lineup slot/g) || []).length === 1, "the empty-lineup-slot alert stays, once (no second shortage message)");
   t.ok(/Lineup strength for every team is in Trade finder/.test(SRC), "About points to Trade finder");
   for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
 });

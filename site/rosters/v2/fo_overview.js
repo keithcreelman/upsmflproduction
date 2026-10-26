@@ -175,8 +175,6 @@
         if (w.empty.length) {
           var labels = Object.keys(w.emptyGroups).map(function (g) { return w.emptyGroups[g] + " " + g; });
           out.list.push(item("bad", "<b>Week " + w.week + "</b>: no eligible player for " + H.esc(labels.join(", ")) + " (an empty lineup slot).", H.goLink("bye", "Bye planner")));
-        } else if (w.startersOut.length >= 3) {
-          out.list.push(item("warn", "<b>Week " + w.week + "</b>: " + w.startersOut.length + " likely starters on a bye (−" + H.fmt1(w.cost) + " pts vs full strength).", H.goLink("bye", "Bye planner")));
         }
       });
     }
