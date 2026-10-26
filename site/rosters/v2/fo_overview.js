@@ -157,7 +157,7 @@
       plan = BP.plan({ players: mine.players, values: vals, byeWeekByTeam: BP.byesFromMfl(byesEntry.data),
         fromWeek: wk, toWeek: Math.min(17, wk + 2), currentWeek: wk });
     }
-    // Likely starters with an injury designation (best lineup by season PPG).
+    // Players in the best lineup by season PPG who carry an injury designation (the selection is unchanged; the alert no longer calls them starters).
     if (plan && team) {
       var hurt = [];
       Object.keys(plan.fullStarters).forEach(function (pid) {
@@ -166,7 +166,7 @@
         var chip = H.injuryChip(p);
         if (chip) hurt.push(H.playerButton(p.id, fid, H.displayName(p.name)) + chip);
       });
-      if (hurt.length) out.list.push(item("warn", "Likely starters with an injury designation: " + hurt.join(", "), H.goLink("roster", "Players")));
+      if (hurt.length) out.list.push(item("warn", "Check injury status before setting your lineup: " + hurt.join(", "), H.goLink("roster", "Players")));
       var disagree = team.players.filter(function (p) { var r = FO.injury(p); return r && r.warning; });
       if (disagree.length) out.list.push(item("warn", "Injury sources disagree for " + disagree.map(function (p) { return H.playerButton(p.id, fid, H.displayName(p.name)); }).join(", ") + ".", ""));
     }
