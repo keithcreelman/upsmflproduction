@@ -1407,7 +1407,7 @@
     }
     .lg-narrow-note { display: none; }
     /* Full League: columns take the room their content needs; they are not spread across the page (Keith 2026-10-27) */
-    table.lg-table { width: auto; min-width: 640px; }
+    table.lg-table { width: max-content; min-width: 640px; }   /* max-content, not auto: auto stretches the table to the whole row */
     .lg-table th, .lg-table td { padding: 7px 11px; }
     .lg-table th.team-col, .lg-table td.team-col { min-width: 250px; }
     .lg-table th.seed-col, .lg-table td.seed-col { padding-right: 16px; }
