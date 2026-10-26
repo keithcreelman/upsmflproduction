@@ -21,7 +21,7 @@ function page(query) {
 }
 
 test("One week: Week 14 (the default for a finished season) is ranked; Week 17 says what's wrong and that the other weeks are fine", async () => {
-  const p14 = page("view=weekly&year=2025"); await settle();
+  const p14 = page("view=weekly&year=2025&wv=week"); await settle();
   const h14 = text(p14.html());
   t.match(h14, /Week 14 top score:/);
   t.ok(!/Week 14 can’t be shown|Week 14 couldn’t be verified/.test(h14));

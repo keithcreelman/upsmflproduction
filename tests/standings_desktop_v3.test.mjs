@@ -236,7 +236,7 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   for (const r of RESP_2026.rows) {
     t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner (+ division name when the standings carry one): " + r.franchise_id);
   }
-  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scoring<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><\/div>/);
+  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><button[^>]*data-show="scored"[^>]*>Scoring<\/button><\/div>/);   // Overall first, and the default (Keith 2026-10-27)
   t.ok(!/data-show="opponent"/.test(p.html), "no separate Opponent choice (#1388, Keith 2026-10-26)");
   t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="10">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
   // a team's details: the seed sentence, the scoring tiles and a link to Weekly → Team by week; no week-by-week table
@@ -345,7 +345,7 @@ test("Weekly Week 5: top score C-Town Chivalry 280.5, +8.0 over Real Deal Creel;
   t.match(p.html, /<span class="wp-label">Regular season<\/span><button[^>]*data-week="1"[^>]*>1<\/button>[\s\S]*data-week="5" aria-pressed="true"/);
   t.ok(!/data-week="6"/.test(p.html), "only completed weeks");
   // decision 2: one thing at a time — the Weekly sub-views, One week by default
-  t.match(p.html, /<div class="seg" role="group" aria-label="Weekly view"><span class="seg-label">Show:<\/span><button type="button" class="mode-btn" data-wview="week" aria-pressed="true">One week<\/button><button type="button" class="mode-btn" data-wview="leaders" aria-pressed="false">Season leaders<\/button><button type="button" class="mode-btn" data-wview="heat" aria-pressed="false">Heat map<\/button><button type="button" class="mode-btn" data-wview="team" aria-pressed="false">Team by week<\/button><\/div>/);
+  t.match(p.html, /<div class="seg" role="group" aria-label="Weekly view"><span class="seg-label">Show:<\/span><button type="button" class="mode-btn" data-wview="leaders" aria-pressed="false">Season Leaders<\/button><button type="button" class="mode-btn" data-wview="week" aria-pressed="true">One Week<\/button><button type="button" class="mode-btn" data-wview="team" aria-pressed="false">Team by Week<\/button><button type="button" class="mode-btn" data-wview="heat" aria-pressed="false">Heat Map<\/button><\/div>/);
   t.ok(!/<table class="heat">|leaders-table|wbw-table/.test(p.raw), "no other Weekly visual on this page");
 });
 test("Weekly Season leaders, then the heat map on its own page: every cell is the rank (with a table toggle), inside its own box", async () => {
@@ -379,7 +379,7 @@ test("Weekly Season leaders, then the heat map on its own page: every cell is th
   t.equal(lead[2], String(weeks.filter((w) => rank(w, "0009") === 1).length), "top-score weeks");
 });
 test("Weekly: playoff weeks are labeled separately from the regular season", async () => {
-  const p = await page("view=weekly&year=2025", { env: ENV_2025 });
+  const p = await page("view=weekly&year=2025&wv=week", { env: ENV_2025 });
   t.match(p.html, /<span class="wp-label">Regular season<\/span><button[^>]*data-week="1"[^>]*>1<\/button><span class="wp-label">Playoffs<\/span><button[^>]*data-week="2" aria-pressed="false" aria-label="Playoff week 2">P2<\/button>/);
   const po = await page("view=weekly&year=2025&week=3", { env: ENV_2025 });
   t.match(po.html, /<b>Playoff week 3 top score:<\/b>/);
@@ -604,7 +604,7 @@ test("fix (g): the Full League seed comes from /api/standings for the current se
 // ═══ History sub-tabs ═══
 test("History groups the older views as sub-tabs; old ?view= links still land on them", async () => {
   const p = await page("view=eras&year=2026", { env: ENV_HIST });
-  t.match(p.raw, /data-view="history" aria-selected="true"/);
+  t.ok(!/data-view="history"/.test(p.raw), "History has no tab (Keith 2026-10-27); the views and old links stay for the History pass");
   for (const s of ["bracket", "draftOrder", "hallOfChamps", "historical", "eras", "divPower"]) t.match(p.raw, new RegExp('data-sub="' + s + '"'));
   t.match(p.raw, /data-sub="eras" aria-pressed="true"/);
   const b = await page("view=history&sub=bracket&year=2026");
