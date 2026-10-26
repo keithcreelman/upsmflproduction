@@ -1405,6 +1405,7 @@
       .pic-grid { grid-template-columns: minmax(0, 1fr); }
     }
     .lg-narrow-note { display: none; }
+    .sos-sub { display: none; }
     /* Playoff Picture: bracket first (Keith 2026-10-22). */
     .pp-switch { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
     .pp-label { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 4px; padding: 2px 7px; margin-left: 6px; vertical-align: 2px; }
@@ -1467,6 +1468,7 @@
       .fc-wide, .lg-wide, table.fc-table th.fc-likely, table.fc-table td.fc-likely { display: none; }
       .fc-likely-sub { display: block; }
       .lg-narrow-note { display: block; }
+      .sos-sub { display: block; }
       th, td { padding: 6px 4px; }
       .seed-cell { grid-template-columns: 20px auto; column-gap: 3px; }
       .status-chip small { display: none; }   /* "proj.": the note under the table says seeds are projected */
@@ -1622,7 +1624,9 @@
     year: yearFromQuery() || defaultSeasonForToday(),
     overall: { sortKey: null, sortDir: "asc" },   // Full League sort; null = the default order for the season
     // Full League columns: Scored · Opponent · Overall (?show=faced, the old name, still opens Opponent)
-    show: ({ scored: "scored", opponent: "opponent", faced: "opponent", overall: "overall" })[qs.get("show")] || "overall",
+    // (#1388, Keith 2026-10-26: no separate Opponent view; old ?show=opponent / ?show=faced links open Overall, where the
+    // strength-of-schedule rank now lives)
+    show: ({ scored: "scored", opponent: "overall", faced: "overall", overall: "overall" })[qs.get("show")] || "overall",
     // Weekly sub-views: one week · season leaders · heat map · one team week by week (?week=season, the old Season
     // button, opens the leaders)
     wview: ({ week: 1, leaders: 1, heat: 1, team: 1 })[qs.get("wv")] ? qs.get("wv") : (qs.get("week") === "season" ? "leaders" : "week"),
@@ -1781,7 +1785,7 @@
     return '<th class="sortable' + (align === "num" ? " num" : "") + '" data-sort-key="' + escapeHtml(key) + '" data-sort-active="' + active + '" data-sort-dir="' + sortState.sortDir + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + ' scope="col">' + escapeHtml(label) + '</th>';
   }
   // Keys whose natural first click is ascending (names, seeds, finishes, ranks where 1 is best).
-  var ASC_FIRST = { owner_name: 1, franchise_name: 1, division: 1, division_name: 1, seed: 1, fin: 1, _pfRank: 1, _avgRank: 1, _l3Rank: 1, _paRank: 1, _back: 1 };
+  var ASC_FIRST = { owner_name: 1, franchise_name: 1, division: 1, division_name: 1, seed: 1, fin: 1, _pfRank: 1, _avgRank: 1, _l3Rank: 1, _paRank: 1, _back: 1, _sosRank: 1 };
   function wireSortClicks(host, sortState, rerender) {
     host.querySelectorAll("th.sortable").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -2111,11 +2115,11 @@
     ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["WC Back", "Signed distance to the wild-card line in All-Play wins (ties count half), for every team, as if it had to earn a wild card: the two best teams that aren’t division winners qualify (All-Play %, then H2H record, then Points For). Positive = that many behind the last wild card; negative = that many ahead of the first team out; 0 = level with the team at the line (the ladder decides). A division winner’s seed doesn’t hide it: a + number means the division title is what keeps it in."],
-    ["Opp. strength", "How good the teams you played are: each opponent’s scoring vs the league average in its OTHER weeks (1.00 = average). Opp. vs league = what opponents actually scored against you vs that week’s league average; that one is partly luck, so it isn’t proof of a hard schedule."],
+    ["SoS", "Strength of schedule. 1st of 12 = hardest schedule so far; tied teams share a rank. Based on how your opponents scored in their other games. It doesn’t affect playoff seeds."],
     ["All-time rank", "This season’s All-Play % against every team-season since 2010 through the same number of weeks (12 teams every season, so every week is 11 results). Rank 1 = best; ties share a rank; percentile = share of other team-seasons below, ties counting half."],
     ["H1–H6", "The Hawk Tuah Bowl seeds: the six teams outside the playoff field (7th–12th)."],
     ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins."],
-    ["Scored vs Opponent", "Scored is what your lineup put up; Opponent is what your opponents scored against you: schedule, not skill."],
+    ["Scored", "What your lineup put up in the regular season. The points your opponents scored are in PA/game and in each team’s details."],
     ["Weekly rank", "The order of that week’s scores (1 = highest; ties share a rank)."],
     ["Projected vs final", "Until the regular season ends, seeds and BYE / DIV / WC say where teams would be if the season ended today."],
     ["Recorded seasons", "Finished seasons show the recorded final standings: the finish after the playoffs and, from 2014, the recorded regular-season seed."]
@@ -3325,6 +3329,22 @@
   // Column sets for the Show control. Scored = what each lineup put up; Opponent = what opponents scored (schedule, not
   // skill — never called a defense: in UPS, MFL's IDP points are scored by your own players); Overall = the standings.
   // No division columns here (#1329 decision 2: the Divisions tab has them).
+  // Strength of schedule (#1388, Keith 2026-10-26): ONE rank, never the index. 1st = hardest; teams that share a rank
+  // are marked T-. The shared module's scheduleStrength() decides (its fail-closed status too); a rank that can't be
+  // computed shows — and is never replaced by points faced.
+  function sosText(r) { return r._sosRank == null ? "—" : (r._sosTie ? "T-" : "") + ordinal(r._sosRank); }
+  function sosLineHtml(r, ctx) {
+    if (!ctx.sos || !ctx.sos.on) return "";
+    return '<span class="owner-sub sos-sub">SoS: ' + (r._sosRank == null ? "—" : sosText(r) + " of " + ctx.sos.n) + '</span>';
+  }
+  function sosNoteHtml(ctx, ss) {
+    if (!ctx.sos || !ctx.sos.on) return "";
+    if (!ctx.sos.ok) {
+      return '<p class="col-note sos-note" role="status"><strong>SoS —.</strong> The schedule-strength rank isn’t shown because ' + escapeHtml(sfReason(ss)) + '. It is never replaced by the points your opponents scored.'
+        + (problemsText(ss) ? '<span class="psub">' + escapeHtml(problemsText(ss)) + '</span>' : '') + '</p>';
+    }
+    return '<p class="col-note sos-note"><strong>SoS = strength of schedule.</strong> 1st of ' + ctx.sos.n + ' = hardest schedule ' + (ctx.finished ? "this season" : "so far") + '; tied teams share a rank. Based on how your opponents scored in their other games. This does not affect playoff seeds.</p>';
+  }
   // cls "lg-wide": a secondary column, hidden at phone widths (≤560px) so the table never scrolls sideways.
   function leagueColumns(show, ctx) {
     var cols = [];
@@ -3341,7 +3361,8 @@
     c("Team", "franchise_name", false, function (r) {
       return (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + tkoMark(r)
         + moveHtml(ctx.finished ? null : r.order_change)
-        + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span>';
+        + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + '</span>'
+        + sosLineHtml(r, ctx);
     });
     if (show === "scored") {
       c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For", W);
@@ -3353,15 +3374,6 @@
       c("Last 3 avg rank", "_l3Rank", true, function (r) { return fmtDec(r._l3Rank, 1); }, "Average weekly scoring rank over the last three regular-season weeks (descriptive)", W);
       return cols;
     }
-    if (show === "opponent") {
-      c("Opp. pts/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Points your opponents scored per head-to-head game");
-      c("Rank", "_paRank", true, function (r) { return r._paRank ? ordinal(r._paRank) : "—"; }, "1 = opponents scored the most points per game", W);
-      c("Opp. vs usual", "_ovu", true, function (r) { return fmtSigned(r._ovu); }, "How far above (+) or below (−) their own average your opponents scored against you", W);
-      c("Close H2H games", "_closeW", true, function (r) { return r._close ? recStr(r._close) : "—"; }, "H2H games decided by fewer than 10 points (your record in them)", W);
-      c("Opp. strength", "_oppStr", true, function (r) { return r._oppStr == null ? "—" : r._oppStr.toFixed(2) + '<span class="owner-sub">' + ordinal(r._oppStrRank) + ' hardest</span>'; }, "Schedule difficulty: your opponents’ scoring vs the league average in their OTHER weeks (1.00 = average)");
-      c("Opp. vs league", "_vsLg", true, function (r) { return r._vsLg == null ? "—" : r._vsLg.toFixed(2); }, "What opponents scored against you vs the league average that week (1.00 = average). Partly luck: not proof of a hard schedule", W);
-      return cols;
-    }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
     c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); });
@@ -3370,6 +3382,7 @@
     c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For", W);
     c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)", W);
     c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game", W);
+    if (ctx.sos && ctx.sos.on) c("Schedule", "_sosRank", true, function (r) { return sosText(r); }, "Strength of schedule: 1st = hardest so far; T- = tied. Click to sort hardest first.", W);
     if (!ctx.scoped) {
       c("Exp. W", "_xw", true, function (r) { return fmtDec(r._xw, 1); }, "Expected wins: for each game, the share of the league you outscored that week", W);
       c("Luck", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + fmtSigned(r._luck) + '</span>'; }, "Schedule luck: actual wins minus expected wins", W);
@@ -3378,7 +3391,7 @@
   }
   function showControlHtml() {
     return '<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:</span>'
-      + [["scored", "Scored"], ["opponent", "Opponent"], ["overall", "Overall"]].map(function (s) {
+      + [["scored", "Scored"], ["overall", "Overall"]].map(function (s) {
         return '<button type="button" class="mode-btn" data-show="' + s[0] + '" aria-pressed="' + (state.show === s[0] ? "true" : "false") + '">' + s[1] + '</button>';
       }).join("") + '</div>';
   }
@@ -3413,6 +3426,8 @@
     var wcm = (current && !scoped && M0 && M0.wildCardMargins) ? M0.wildCardMargins(resp.rows || []) : null;
     var ss = (M0 && M0.scheduleStrength) ? M0.scheduleStrength(resp) : { status: "unavailable" };
     var ssOk = ss.status === "ok";
+    // The SoS rank belongs to Overall, over the regular season: hidden in Playoffs / Custom scope and before any game.
+    var sosOn = state.show === "overall" && (state.scope === "full" || state.scope === "regular") && ss.status !== "preseason" && !resp.preseason;
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
     // One Seed column, one source per season: the worker's playoff_seed for the current season; the recorded
     // regular-season seed (/api/historical-finishes) for a finished one. Never /api/playoff-bracket.
@@ -3434,14 +3449,14 @@
       r._wcm = (current && !scoped && wcm) ? wcm[fid] : null;
       r._back = r._wcm ? r._wcm.margin : null;
       var ssv = ssOk ? ss.byFranchise[fid] : null;
-      r._oppStr = ssv ? ssv.oppStrength : null; r._oppStrRank = ssv ? ssv.oppStrengthRank : null; r._vsLg = ssv ? ssv.vsLeague : null;
+      r._sosRank = (sosOn && ssv && ssv.oppStrengthRank != null) ? ssv.oppStrengthRank : null;
       r._hist = histRanks ? histRanks[fid] : null; r._histRank = r._hist ? r._hist.rank : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
       else if (reg) { r._pf = reg.points_for; r._pfw = reg.pf_per_week; r._pag = reg.pa_per_game; }
       else { r._pf = r.pf_total != null ? r.pf_total : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null; }
       r._xw = s ? s.overall.expectedWins : null;
       r._luck = s ? s.overall.luck : null;
-      if (state.show === "scored" || state.show === "opponent") {
+      if (state.show === "scored") {
         r._pf = s ? s.scored.pf : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null;
       }
       r._pfRank = s ? s.scored.pfRank : null; r._avgRank = s ? s.scored.avgWeeklyRank : null;
@@ -3461,12 +3476,16 @@
     // they can never mislead when the table is sorted some other way.
     var canonicalSeedOrder = sortHdrs.sortKey === "seed" && sortHdrs.sortDir === "asc";
     var showRace = !scoped && !!raceData && current;
-    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, hist: !!histRanks };
+    var sosCount = {};
+    baseRows.forEach(function (r) { if (r._sosRank != null) sosCount[r._sosRank] = (sosCount[r._sosRank] || 0) + 1; });
+    baseRows.forEach(function (r) { r._sosTie = r._sosRank != null && sosCount[r._sosRank] > 1; });
+    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, hist: !!histRanks,
+      sos: { on: sosOn, ok: ssOk, n: (resp.rows || []).length } };
     var bar = viewBarHtml(resp, showControlHtml());
     var noteBits = [];
-    // Scored / Opponent need every regular-season week: anything short of 'ok' is an explanation, never a table.
-    if ((state.show === "scored" || state.show === "opponent") && !sfOk) {
-      host.innerHTML = bar + '<div class="err-box" role="alert"><b>' + (state.show === "scored" ? "Scored" : "Opponent") + ' isn’t shown:</b> ' + escapeHtml(sfReason(sf)) + '.'
+    // Scored needs every regular-season week: anything short of 'ok' is an explanation, never a table.
+    if (state.show === "scored" && !sfOk) {
+      host.innerHTML = bar + '<div class="err-box" role="alert"><b>Scored isn’t shown:</b> ' + escapeHtml(sfReason(sf)) + '.'
         + (problemsText(sf) ? '<span class="psub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div>';
       wireShow(host, resp, fins, finsError);
       return;
@@ -3502,9 +3521,9 @@
     else noteBits.push('<div class="note">' + (meta.last_regular_season_week ? 'Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + ').' : '') + seedNote + '</div>');
     if (!scoped && state.show === "overall" && finished) noteBits.push('<div class="note">W-L-T, All-Play and PF are the season’s recorded totals; PF/week, PA/game, expected wins and luck cover the regular season.</div>');
     if (!scoped && state.show === "overall" && !sfOk && sf.status !== "preseason") noteBits.push('<div class="note">Expected wins and luck show —: ' + escapeHtml(sfReason(sf)) + '.</div>');
-    var colNote = state.show === "opponent"
-      ? '<p class="col-note"><strong>Opponent: schedule, not skill.</strong> What your opponents scored against you in the regular season; rank 1 = opponents scored the most per game. <strong>Opp. strength</strong> is the schedule-difficulty number: how your opponents scored against the league in their other weeks (1.00 = average, 1.05 = opponents who score 5% above average). Points allowed alone mix in luck: a strong lineup can face a cold opponent.</p>'
-      : (state.show === "scored" ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>' : '');
+    var colNote = state.show === "scored"
+      ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>'
+      : sosNoteHtml(ctx, ss);
     noteBits.push('<div class="note lg-narrow-note">On a narrow screen the main columns show; a wider window adds the rest.</div>');
     var histPanel = (state.show === "overall" && histRanks) ? allTimePanelHtml(resp, state.apHistory, histRanks) : "";
     host.innerHTML = bar + colNote + '<div style="overflow-x:auto"><table class="lg-table"><thead>' + head + '</thead><tbody>' + bodyParts.join("") + '</tbody></table></div>' + noteBits.join("") + histPanel + tkoFootnote(resp) + DEFERRED_NOTE;

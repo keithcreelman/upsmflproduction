@@ -234,13 +234,14 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.equal(L.cell("0009", "PA/game"), c.pa_per_game.toFixed(1));
   t.equal(L.cell("0012", "WC Back"), "+2", "signed: + = behind the last wild card (Keith 2026-10-22)");
   // decision 2: no Playoffs column, no division column, no division under the team name (the Divisions tab has them)
-  t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "WC Back", "PF", "PF/week", "PA/game", "Exp. W", "Luck"], L.heads, "the Overall column set");
+  t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "WC Back", "PF", "PF/week", "PA/game", "Schedule", "Exp. W", "Luck"], L.heads, "the Overall column set (Schedule = strength-of-schedule rank, #1388)");
   for (const r of RESP_2026.rows) {
-    t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner only, no division: " + r.franchise_id);
+    t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s*SoS: [^\s]+( of \d+)?/, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner (+ its SoS line) only, no division: " + r.franchise_id);
     if (r.division_name) t.ok(!L.cell(r.franchise_id, "Team").includes(r.division_name), "no division name under " + r.franchise_id);
   }
-  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="opponent"[^>]*>Opponent<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button>/);
-  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="11">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
+  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><\/div>/);
+  t.ok(!/data-show="opponent"/.test(p.html), "no separate Opponent choice (#1388, Keith 2026-10-26)");
+  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="12">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
   // a team's details: the seed sentence, the scoring tiles and a link to Weekly → Team by week; no week-by-week table
   // ("will be absurd by week 14") and no division race
   const dis = /<tr class="disclosure-row" hidden data-for="0009">([\s\S]*?)<\/td><\/tr>/.exec(p.raw)[1];
@@ -251,7 +252,7 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.ok(!/Week-by-week|Division race|<th[^>]*>Games<\/th>|<th[^>]*>GB<\/th>/.test(dis), "no week-by-week table and no division race in the details");
   t.ok(p.urls.every((u) => !u.startsWith("/api/playoff-bracket")), "the current season's seeds never come from /api/playoff-bracket");
 });
-test("Full League Scored / Opponent: the shared module's scoredFaced numbers; Opponent is 'schedule, not skill', never 'Faced' or 'Defense'", async () => {
+test("Full League Scored: the shared module's scoredFaced numbers; old Opponent / Faced links open Overall; never 'Faced' or 'Defense'", async () => {
   const RACE = (() => { const w = {}; new Function("window", fs.readFileSync(new URL("../site/shared/standings_race.js", import.meta.url), "utf8"))(w); return w.UPS_STANDINGS_RACE; })();
   const sf = RACE.scoredFaced(RESP_2026);
   t.equal(sf.status, "ok");
@@ -262,19 +263,15 @@ test("Full League Scored / Opponent: the shared module's scoredFaced numbers; Op
   t.equal(S.cell("0009", "PF rank"), "1st");
   t.equal(S.cell("0009", "Best week"), "W" + s9.highWeek.week + " " + s9.highWeek.score.toFixed(1));
   t.match(scored.html, /<strong>Scored<\/strong> — what each lineup put up in the regular season\. Descriptive/);
-  const faced = await page("view=league&year=2026&show=opponent");
-  const Fc = leagueTable(faced.raw);
-  t.deepEqual(Fc.heads, ["Seed", "Team", "Opp. pts/game", "Rank", "Opp. vs usual", "Close H2H games", "Opp. strength", "Opp. vs league"]);
-  for (const r of RESP_2026.rows) {
-    const f = sf.byFranchise[r.franchise_id].faced;
-    t.equal(Fc.cell(r.franchise_id, "Opp. pts/game"), f.paPerGame.toFixed(1));
-    t.match(Fc.cell(r.franchise_id, "Rank"), new RegExp("^" + f.paRank + "(st|nd|rd|th)$"));
+  // #1388: there is no Opponent view any more; the two old links open Overall, where the SoS rank lives
+  const overall = await page("view=league&year=2026");
+  for (const old of ["opponent", "faced"]) {
+    const o = await page("view=league&year=2026&show=" + old);
+    t.deepEqual(leagueTable(o.raw).heads, leagueTable(overall.raw).heads, "?show=" + old + " opens Overall");
+    t.match(o.html, /data-show="overall" aria-pressed="true">Overall<\/button>/);
   }
-  t.match(faced.html, /<strong>Opponent: schedule, not skill\.<\/strong>/);
-  t.match(faced.html, /data-show="opponent" aria-pressed="true">Opponent<\/button>/);
-  // the old ?show=faced link still opens the Opponent columns
-  t.deepEqual(leagueTable((await page("view=league&year=2026&show=faced")).raw).heads, Fc.heads);
-  const views = [faced, scored, await page("view=league&year=2026"), await page("view=picture&year=2026"), await page("view=trends&year=2026&chart=pf"), await page("view=weekly&year=2026&wv=team")];
+  for (const r of RESP_2026.rows) t.equal(leagueTable(overall.raw).cell(r.franchise_id, "PA/game"), sf.byFranchise[r.franchise_id].faced.paPerGame.toFixed(1), "points faced stay in PA/game: " + r.franchise_id);
+  const views = [overall, scored, await page("view=picture&year=2026"), await page("view=trends&year=2026&chart=pf"), await page("view=weekly&year=2026&wv=team")];
   for (const v of views) {
     t.ok(!/defen[cs]e/i.test(v.html), "never 'Defense' (in UPS, MFL's Defense = your IDP players' points)");
     t.ok(!/\bfaced\b/i.test(v.text), "'Faced' is now 'Opponent' on desktop");

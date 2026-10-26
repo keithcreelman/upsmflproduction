@@ -45,7 +45,7 @@ test("Team by week: Weeks 1-16 listed; P17 says it can't be shown and why", asyn
   t.match(h, new RegExp("P17 Can’t be shown: " + WHY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   t.match(h, /P16 \d+\.\d/, "Week 16 still shows its score");
 });
-test("Full League Scored / Opponent cover the regular season, so 2025 now shows them", async () => {
+test("Full League Scored covers the regular season, so 2025 shows it", async () => {
   const p = page("view=league&year=2025&show=scored"); await settle();
   const h = text(p.html());
   t.ok(!/couldn’t be verified/.test(h));
