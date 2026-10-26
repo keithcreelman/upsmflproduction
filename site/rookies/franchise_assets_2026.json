@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-25T13:55:10.275782+00:00",
+    "generated_at_utc": "2026-10-26T16:18:18.007558+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -113,7 +113,7 @@
           "salary": 7000,
           "contract_year": 3,
           "contract_status": "Vet-ERA",
-          "roster_status": "INJURED_RESERVE",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
@@ -309,18 +309,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15589",
-          "display": "Cody White",
-          "player_id": "15589",
-          "position": "WR",
-          "nfl_team": "LVR",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16650",
           "display": "Dallas Turner",
           "player_id": "16650",
@@ -341,7 +329,7 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-MYM",
-          "roster_status": "INJURED_RESERVE",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
@@ -1931,6 +1919,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_13189",
+          "display": "Evan Engram",
+          "player_id": "13189",
+          "position": "TE",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4057,18 +4057,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16390",
-          "display": "Jaleel McLaughlin",
-          "player_id": "16390",
-          "position": "RB",
-          "nfl_team": "CLE",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16212",
           "display": "Michael Mayer",
           "player_id": "16212",
@@ -4269,6 +4257,18 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15452",
+          "display": "Talanoa Hufanga",
+          "player_id": "15452",
+          "position": "S",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },

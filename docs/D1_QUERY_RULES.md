@@ -44,7 +44,7 @@
   - **Rollback switch:** `D1WRITER_ALWAYS_UPDATE=1` restores the old behavior.
   - **Other writers:** any writer that doesn't use `D1Writer` must do the same itself.
 - **Don't rewrite finished seasons or whole reference tables** on a schedule. Limit refreshes to the current season and to rows that changed.
-- **Bulk `--file` imports are invisible to `wrangler d1 insights`** (and therefore to `scripts/d1_usage.py`). Use `wrangler d1 info ups-mfl-db` (`rows_written_24h`) for the real total.
+- **Bulk `--file` imports are invisible to `wrangler d1 insights`** and to `scripts/d1_usage.py`'s per-query list. The exact counter at the top of `scripts/d1_usage.py` includes them.
 
 ## Tests and scripts
 - **No production D1 by default.**
@@ -54,7 +54,13 @@
 - **Never glob-run `test_*.py` and assume it's offline.** It has posted to Discord before (#1233) and read production before (#1239).
 
 ## Checking usage
-- `python3 scripts/d1_usage.py`: last hour, projected to a day, with the biggest readers named.
-- `python3 scripts/d1_usage.py 1d`: the last day. One unusual event can dominate it.
-- `npx wrangler d1 info ups-mfl-db`: `rows_read_24h` / `rows_written_24h`, including imports.
-- `npx wrangler d1 insights ups-mfl-db --timePeriod 1d --sort-type sum --sort-by reads --json`: per query (excludes imports).
+- **`python3 scripts/d1_usage.py [1h|6h|12h|1d|7d]`** (`--json` for scripts; reads no D1 rows).
+  - **Budget: the exact counter only.** Rows read and written for the current UTC billing day, summed over every D1 database in the account. Free limits reset at 00:00 UTC.
+  - **Exact source:** Cloudflare's `d1AnalyticsAdaptiveGroups`, the same data as `wrangler d1 info` and the dashboard.
+  - **Rolling 24 h is diagnostic only.** It spans two billing days, so it is never shown as a percentage of the daily limit.
+  - **Exit codes:** 0 under the limit; 4 at or over it; 3 when the exact counter can't be read or comes back sampled. Exit 3 means usage is unknown: fail closed.
+  - **Query diagnosis is sampled.** The window argument picks its span. It sends the query `wrangler d1 insights` sends, adding the sampling interval.
+    - Cloudflare keeps 1 query in N and multiplies it by N. Rows resting on fewer than 5 stored queries are marked `!! THIN`.
+    - On 2026-10-21, one 50,750-row leaderboard query at 1 in 145 printed as "145 runs, 7,358,750 rows" (#1354).
+    - Never add these rows up or quote them as usage.
+- `npx wrangler d1 info ups-mfl-db`: a rolling 24 h for one database (control plane).
