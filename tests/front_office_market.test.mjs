@@ -71,4 +71,13 @@ test("the Market only reads: bids/adds hand off to the phone app, trades to the 
   t.ok(/ranked\(a\) !== ranked\(b\)/.test(SRC), "PPG sort puts ranked players first (phone rule)");
 });
 
+test("launch revision (Keith 2026-10-26): no 'Claim now' chip, no Contract column for free agents, no 'On the block' chip inside the On the block view", () => {
+  t.ok(/if \(st\.cls === "claim"\) return '<span class="fo-muted"/.test(SRC), "a claimable free agent shows the named run as plain text, not a Claim now chip");
+  t.ok(/var showContract = view\.scope !== "fa" && view\.scope !== "later";/.test(SRC) && /\(showContract \? th\("salary", "Contract"/.test(SRC) && /\(showContract \? '<td class="num">' \+ \(r\.p \?/.test(SRC), "the Contract header and cells only where rostered players can be listed");
+  t.ok(/colspan="' \+ \(showContract \? 11 : 10\)/.test(SRC), "the empty-state row spans the visible columns");
+  t.ok(/r\.bait && r\.bait === r\.fid && view\.scope !== "bait"/.test(SRC), "the On the block chip is dropped inside the On the block view only");
+  t.ok(/\["bait", "On the block"\], \["rostered", "Other teams"\]/.test(SRC), "the On the block and Other teams filters stay as they are");
+  t.equal(MK.statusFor({ code: "waivers", eligible_run_label: "Thursday's run, Oct 22 at 9:00 AM ET" }).sub, "Thu Oct 22 run", "the run name is still produced for the plain-text cell");
+});
+
 await run("front_office_market");

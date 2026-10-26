@@ -21,7 +21,7 @@
   var H, FO, DATA;
   var colset = "perf";
   var sort = { key: "", dir: -1 };
-  var byeView = { scope: "starters", pos: "ALL", week: null };
+  var byeView = { pos: "ALL", week: null };   // whole roster only (Keith 2026-10-26): no starters-only scope
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
   var SLOT_LABEL = { QB1: "QB", RB1: "RB", RB2: "RB", WR1: "WR", WR2: "WR", TE1: "TE", OF1: "Flex", OF2: "Flex", SF1: "SuperFlex",
     PK1: "K", PN1: "P", DL1: "DL", DL2: "DL", LB1: "LB", LB2: "LB", DB1: "DB", DB2: "DB", DF1: "D-Flex" };
@@ -281,14 +281,13 @@
 
     var wsel = plan.weeks.filter(function (w) { return w.week === byeView.week; })[0] || plan.weeks[0];
     var outRows = wsel.out.filter(function (o) {
-      if (byeView.scope === "starters" && !o.starter) return false;
       if (byeView.pos !== "ALL") { var p = nameOf[o.pid]; var L = root.UPS_FRONT_OFFICE_LINEUP; if (!p || L.posGroup(p.pos) !== byeView.pos) return false; }
       return true;
     });
     var outHtml = outRows.length ? '<ul class="fo-bye-out">' + outRows.map(function (o) {
       var p = nameOf[o.pid];
       return "<li>" + H.playerButton(o.pid, fid, p ? p.name : o.pid) + ' <span class="fo-muted">' + H.esc((p ? p.pos + " · " + p.nflTeam : "")) + "</span> — " + H.esc(REASON[o.reason] || o.reason) + (o.starter ? ' <span class="fo-slot fo-slot-start">likely starter</span>' : "") + "</li>";
-    }).join("") + "</ul>" : '<p class="fo-ov-empty">' + (byeView.scope === "starters" ? "No likely starters are out." : "Nobody is out.") + "</p>";
+    }).join("") + "</ul>" : '<p class="fo-ov-empty">' + "Nobody is out." + "</p>";
     var opts = "";
     if (wsel.empty.length) {
       var lines = Object.keys(wsel.options).filter(function (g) { return wsel.options[g] && wsel.options[g].length; }).map(function (g) {
@@ -304,9 +303,6 @@
 
     el.innerHTML =
       '<div class="fo-card"><div class="fo-card-head"><h2>Bye planner · ' + H.esc(H.teamName(fid)) + "</h2>" +
-      '<div class="fo-subview-chips" role="group" aria-label="Scope">' +
-        '<button type="button" class="fo-subview-chip' + (byeView.scope === "starters" ? " active" : "") + '" data-bye-scope="starters" aria-pressed="' + (byeView.scope === "starters") + '">Likely starters</button>' +
-        '<button type="button" class="fo-subview-chip' + (byeView.scope === "all" ? " active" : "") + '" data-bye-scope="all" aria-pressed="' + (byeView.scope === "all") + '">Whole roster</button></div>' +
       '<label class="fo-field fo-inline">Position <select data-bye-pos>' + ["ALL"].concat(GROUP_ORDER).map(function (g) { return '<option value="' + g + '"' + (g === byeView.pos ? " selected" : "") + ">" + (g === "ALL" ? "All" : g === "PK" ? "K" : g === "PN" ? "P" : g) + "</option>"; }).join("") + "</select></label></div>" +
       '<p class="fo-basis">Slots you can fill / slots required (best lineup by season PPG). <span class="fo-bye-key empty">red</span> empty slot · <span class="fo-bye-key sub">amber</span> a bench player starts · column top = points a week lost to byes and absences.</p>' +
       (plan.shortWeeks.length ? H.banner("Lineup shortage in Week " + plan.shortWeeks.join(", ") + ".", "warn") : "") +
@@ -319,10 +315,9 @@
     if (!el || el.__byeWired) return;
     el.__byeWired = true;
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-bye-week],[data-bye-scope]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-bye-week]") : null;
       if (!t) return;
       if (t.hasAttribute("data-bye-week")) byeView.week = parseInt(t.getAttribute("data-bye-week"), 10);
-      if (t.hasAttribute("data-bye-scope")) byeView.scope = t.getAttribute("data-bye-scope");
       renderBye();
     });
     el.addEventListener("change", function (e) {

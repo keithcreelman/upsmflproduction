@@ -57,4 +57,10 @@ test("no write and no other season: the screen only reads", () => {
   t.ok(/options, not recommendations/.test(SRC), "free agents for a short week are called options");
 });
 
+test("Bye planner shows the whole roster only: no Likely starters view or scope control (Keith 2026-10-26)", () => {
+  const SRC_R = fs.readFileSync(path.join(ROOT, "site/rosters/v2/fo_roster.js"), "utf8");
+  t.ok(!/>Likely starters</.test(SRC_R) && !/data-bye-scope/.test(SRC_R) && !/byeView\.scope/.test(SRC_R) && !/No likely starters are out/.test(SRC_R), "the Likely starters button, its handler and its filter are gone");
+  t.ok(/Nobody is out\./.test(SRC_R) && /data-bye-week/.test(SRC_R) && /data-bye-pos/.test(SRC_R), "who's-out list, week and position controls stay");
+});
+
 await run("front_office_roster_performance");
