@@ -1414,6 +1414,9 @@
     .lg-table td.num { white-space: nowrap; }
     .po-badge { display: inline-block; min-width: 20px; text-align: center; font-weight: 800; font-size: 12px; border-radius: 4px; padding: 1px 6px; cursor: help; }
     .po-badge.po-x { background: rgba(125, 232, 217, 0.14); border: 1px solid rgba(125, 232, 217, 0.5); color: var(--teal); }
+    .po-badge.po-lock { background: var(--gold); border: 1px solid var(--gold); color: #1b1a14; }
+    .po-badge.po-z { background: rgba(231, 190, 89, 0.28); border: 1px solid var(--gold); color: var(--gold); }
+    .po-badge.po-e { background: transparent; border: 1px solid var(--border); color: var(--muted, #8a8f99); }
     .po-badge.po-y { background: var(--champ-bg); border: 1px solid rgba(231, 190, 89, 0.55); color: var(--gold); }
     .po-sub { text-align: right; }
     .lg-table th.team-col, .lg-table td.team-col { min-width: 225px; }
@@ -1568,6 +1571,7 @@
   </div>
 
 <script src="../shared/standings_race.js"></script>
+<script src="../shared/standings_clinch.js"></script>
 <script>
 (function () {
   "use strict";
@@ -2058,6 +2062,31 @@
     if (!magicSeasonOf(resp) || !R || !R.magicNumbers) return null;
     var m = R.magicNumbers(resp, sched || null);
     return m && m.status === "ok" ? m : null;
+  }
+  // Clinch letters (Keith 2026-10-27, Phase 2): X / Y / Z / E and locked seeds from the validated engine (standings_clinch.js).
+  // A letter is shown only when it holds in every possible finish. Reads only what is already loaded: the standings rows and,
+  // for the division races, MFL's schedule (the same read the division numbers use); no schedule means no Y / Z / E / lock.
+  function clinchOf(resp, sched) {
+    var C = window.UPS_STANDINGS_CLINCH, R = window.UPS_STANDINGS_RACE;
+    if (!magicSeasonOf(resp) || !C || !C.analyze) return null;
+    var rs = resp.regular_season || {}, k = Number(rs.through_week), last = Number(rs.last_regular_season_week), rows = resp.rows || [], n = rows.length;
+    if (!(k >= 1) || !(last > k) || n < 8) return null;
+    var teams = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i], g = r && r.regular_season, rec = g && g.record, ap = g && g.all_play;
+      if (!rec || !ap || r.division == null || ap.w + ap.l + ap.t !== (n - 1) * k) return null;
+      teams.push({ fid: pad4(r.franchise_id), division: String(r.division), h2h: { w: rec.w, l: rec.l, t: rec.t }, ap: { w: ap.w, l: ap.l, t: ap.t } });
+    }
+    var games = null;
+    if (sched && R && R.scheduleGameCounts) {
+      var cn = R.scheduleGameCounts(sched, last, teams.map(function (x) { return x.fid; }));
+      if (cn.status === "ok" && teams.every(function (x) {
+        var played = 0; for (var w = 1; w <= k; w++) played += cn.byWeek[w][x.fid] || 0;
+        return played === x.h2h.w + x.h2h.l + x.h2h.t;
+      })) games = cn.total;
+    }
+    var res = C.analyze({ teams: teams, h2hGames: games, apGamesLeft: (n - 1) * (last - k), byes: 2, wildCards: 2 });
+    return res && res.status === "ok" ? { byFid: res.byFid, schedule: !!games } : null;
   }
   var MAGIC_REASON = {
     schedule_unavailable: "MFL’s schedule couldn’t be read, so it isn’t shown.",
@@ -3346,9 +3375,11 @@
     var W = Number((resp.regular_season || {}).through_week);
     var sched = scheduleFor(state.year).then(function (j) {
       var slow = !!(j && j.slow), mg = null;
+      var cl = null;
       try { mg = magicOf(resp, slow ? null : j); } catch (e) { mg = null; }
-      return { mg: mg, mgWhy: mg ? null : (slow ? "MFL’s schedule hasn’t arrived yet" : "MFL’s schedule couldn’t be read") };
-    }, function () { return { mg: null, mgWhy: "MFL’s schedule couldn’t be read" }; });
+      try { cl = clinchOf(resp, slow ? null : j); } catch (e) { cl = null; }
+      return { mg: mg, cl: cl, mgWhy: mg ? null : (slow ? "MFL’s schedule hasn’t arrived yet" : "MFL’s schedule couldn’t be read") };
+    }, function () { return { mg: null, cl: null, mgWhy: "MFL’s schedule couldn’t be read" }; });
     var fc = newestForecast(state.year, W).then(function (sim) {
       if (!sim) return { sim: null, why: "no forecast has been published for " + state.year + " yet" };
       if (Number(sim.throughWeek) !== W) return { sim: null, why: "the Week " + W + " forecast isn’t published yet (the newest is Week " + sim.throughWeek + ")" };
@@ -3357,25 +3388,36 @@
       return { sim: sim, why: null };
     }, function () { return { sim: null, why: "the forecast couldn’t be loaded" }; });
     return Promise.all([sched, fc]).then(function (g) {
-      return { key: state.year + "|" + W, sim: g[1].sim, why: g[1].why, mg: g[0].mg, mgWhy: g[0].mgWhy };
+      return { key: state.year + "|" + W, sim: g[1].sim, why: g[1].why, mg: g[0].mg, cl: g[0].cl, mgWhy: g[0].mgWhy };
     });
   }
   function odds(p) { return p == null ? "—" : p >= 0.995 ? ">99%" : (p > 0 && p < 0.005) ? "<1%" : Math.round(p * 100) + "%"; }
-  var PO_TIP = { X: "Clinched a playoff spot.", Y: "Clinched the division. The first-round byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed yet." };
+  // Highest applicable designation only: locked seed > Z > Y > X; E stands alone. Each holds in every possible finish.
+  var PO_TIP = {
+    X: "Clinched a playoff spot.",
+    Y: "Clinched the division. The first-round byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed yet.",
+    Z: "Clinched a first-round bye (seed 1 or 2).",
+    E: "Eliminated from every playoff path: no division title and no wild card are possible."
+  };
+  function poTip(label) { return /^[1-6]$/.test(label) ? "Seed " + label + " is locked: it can no longer change." : PO_TIP[label]; }
   function poCellHtml(r) {
-    var main = r._poClinch
-      ? '<span class="po-badge po-' + r._poClinch.toLowerCase() + '" title="' + escapeHtml(PO_TIP[r._poClinch]) + '">' + r._poClinch + '</span>'
+    var L = r._poClinch, lock = L && /^[1-6]$/.test(L);
+    var main = L
+      ? '<span class="po-badge po-' + (lock ? "lock" : L.toLowerCase()) + '" title="' + escapeHtml(poTip(L)) + '">' + (lock ? "#" + L : L) + '</span>'
       : escapeHtml(odds(r._poP));
-    var sub = (r._poBye != null && r._poBye > 0) ? '<span class="owner-sub po-sub">' + escapeHtml(odds(r._poBye)) + ' Bye</span>' : "";
+    // Bye % stays beneath while a bye is still open: a plain percentage, X, or Y.
+    var open = !L || L === "X" || L === "Y";
+    var sub = (open && r._poBye != null && r._poBye > 0) ? '<span class="owner-sub po-sub">' + escapeHtml(odds(r._poBye)) + ' Bye</span>' : "";
     return main + sub;
   }
   function poNoteHtml(po, resp) {
     var bits = [];
     if (po.sim) bits.push('<strong>Playoff %</strong> = the UPS Wire forecast’s chance of making the playoffs (through Week ' + escapeHtml(po.sim.throughWeek) + ', generated ' + escapeHtml(fcWhen(po.sim)) + '), with the chance of a first-round bye beneath.');
     else bits.push('<strong>Playoff %</strong> shows no percentage because ' + escapeHtml(po.why || "the forecast isn’t available") + '.');
-    if (po.mg) bits.push('<strong>X</strong> = clinched a playoff spot. <strong>Y</strong> = clinched the division (the byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed). A percentage is never a clinch.');
-    else bits.push('X and Y aren’t shown because ' + escapeHtml(po.mgWhy || "the schedule isn’t available") + '.');
-    if (po.mg && po.mg.division && po.mg.division.status !== "ok") bits.push('Y isn’t shown because ' + escapeHtml(MAGIC_REASON[po.mg.division.reason] ? "the division race needs MFL’s schedule, which couldn’t be read" : "the division race can’t be checked right now") + '.');
+    if (po.cl || po.mg) {
+      bits.push('Only the highest applies: <strong>#1–#6</strong> = that exact seed is locked · <strong>Z</strong> = clinched a first-round bye · <strong>Y</strong> = clinched the division (a bye is not guaranteed yet: the byes go to the two best division winners by All-Play %) · <strong>X</strong> = clinched a playoff spot. <strong>E</strong> = eliminated from every playoff path (no division title, no wild card). Each is true in every possible finish, ties counted against the team; a percentage is never a clinch, so a letter can come late but never wrong.');
+      if (po.cl && !po.cl.schedule) bits.push('Y, Z, E and locked seeds need MFL’s schedule for the division races, which isn’t available, so they aren’t shown.');
+    } else bits.push('Clinch letters aren’t shown because ' + escapeHtml(po.mgWhy || "the schedule isn’t available") + '.');
     return '<div class="note">' + bits.join(" ") + '</div>';
   }
   // The extra reads a Full League view needs before it draws: MFL's offensive / defensive split for Scoring, the odds for Overall.
@@ -3497,7 +3539,7 @@
       c("Div W-L", "_divPct", false, function (r) { return r._div ? rec(r._div.w, r._div.l, r._div.t) : "—"; }, "H2H record against opponents in your own division");
       c("Division GB", "_divGBs", true, function (r) { return r._divGB == null ? "—" : fmtDec(r._divGB, 1); }, "H2H games behind the division leader (the leader shows —; a team level on record but behind on the tiebreakers shows 0.0)", W);
       if (ctx.current) c("WC GB", "_wcGB", true, function (r) { return r._wcGB == null ? "—" : fmtDec(r._wcGB, 1); }, "All-Play wins behind the last wild card (division winners are protected). — = holding a playoff spot. Based on All-Play, the same as the seeds", W);
-      if (ctx.po) c("Playoff %", "_poSort", true, poCellHtml, "Chance of making the playoffs (UPS Wire forecast), with the chance of a first-round bye beneath. X = clinched a playoff spot · Y = clinched the division. A percentage is never a clinch.");
+      if (ctx.po) c("Playoff %", "_poSort", true, poCellHtml, "Chance of making the playoffs (UPS Wire forecast), with the chance of a first-round bye beneath. #1–#6 = exact seed locked · Z = clinched a bye · Y = clinched the division · X = clinched a spot · E = eliminated. A percentage is never a clinch.");
     }
     c("AP", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T: your score against every other team, every week", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); }, "Regular-season All-Play %: the share of the league you beat each week");
@@ -3544,7 +3586,7 @@
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
     var od = (!scoped && (state.show === "scored" || state.show === "overall")) ? mflScoringOf((state.offDef || {})[String(state.year)]) : null;
     var poRaw = (state.show === "overall" && current && !scoped && magicSeasonOf(resp) && state.po && state.po.key === state.year + "|" + Number((resp.regular_season || {}).through_week)) ? state.po : null;
-    var po = poRaw && (poRaw.sim || poRaw.mg) ? poRaw : null;
+    var po = poRaw && (poRaw.sim || poRaw.mg || poRaw.cl) ? poRaw : null;
     var poTeams = {};
     if (po && po.sim) po.sim.teams.forEach(function (x) { poTeams[pad4(x.franchiseId)] = x; });
     var regWeeks = Array.isArray(resp.weeklyScores) ? Object.keys(resp.weeklyScores.reduce(function (a, x) { if (x && Number(x.po) === 0) a[x.w] = 1; return a; }, {})).length : 0;
@@ -3579,9 +3621,10 @@
       r._divGBs = noGB || gbNum == null ? null : (o.is_division_leader ? -1 : gbNum);
       r._wcGB = (current && !scoped && !resp.preseason) ? wcBackOf(o) : null;
       var pe = po && po.mg ? po.mg.byFid[fid] : null, px = poTeams[fid];
-      r._poClinch = pe ? (pe.clinchedDivision ? "Y" : pe.clinchedSpot ? "X" : null) : null;
+      var pcl = po && po.cl ? po.cl.byFid[fid] : null;
+      r._poClinch = pcl ? pcl.label : (pe ? (pe.clinchedDivision ? "Y" : pe.clinchedSpot ? "X" : null) : null);
       r._poP = px ? px.currentPlayoffOdds : null; r._poBye = px ? px.currentByeOdds : null;
-      r._poSort = r._poClinch === "Y" ? 3 : r._poClinch === "X" ? 2 : r._poP;
+      r._poSort = !r._poClinch ? r._poP : r._poClinch === "E" ? -1 : r._poClinch === "X" ? 2 : r._poClinch === "Y" ? 3 : r._poClinch === "Z" ? 4 : 11 - Number(r._poClinch);
       r._hist = histRanks ? histRanks[fid] : null; r._histRank = r._hist ? r._hist.rank : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
       else if (reg) { r._pf = reg.points_for; r._pfw = reg.pf_per_week; r._pag = reg.pa_per_game; }
