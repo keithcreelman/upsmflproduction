@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.22.1",
-  "label": "Standings: the playoff bracket re-seeds after Round 1 (the top seed meets the lowest seed left), one rule with the Forecast."
+  "build": "2026.10.22.2",
+  "label": "Faster, lighter start: the app no longer loads the stats leaderboards, drop-penalty numbers or taxi call-up counts until a screen shows them; signed-out Sign-in loads nothing but the season."
 }

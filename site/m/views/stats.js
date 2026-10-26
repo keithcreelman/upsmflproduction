@@ -343,14 +343,25 @@
     return c && c.leagueId ? "&L=" + encodeURIComponent(c.leagueId) : "";
   }
   function srGroup(tab) { return tab.id === "PN" ? "PN" : tab.id; }
+  // A side-load already in flight is shared, not started again (a quick tab
+  // switch re-renders before the first answer lands). Keyed by its URL shape.
+  var sidePending = {};
+  function sideShared(key, start) {
+    if (sidePending[key]) return sidePending[key];
+    var p = start();
+    sidePending[key] = p;
+    var done = function () { if (sidePending[key] === p) delete sidePending[key]; };
+    p.then(done, done);
+    return p;
+  }
   function loadStarterRates(yr, tab) {
     var g = srGroup(tab), k = yr + "|" + g;
     srSeason = yr;
     if (srMap[k]) return Promise.resolve(srMap[k]);
-    return fetch(API.workerUrl("/api/player-starter-rates?season=" + encodeURIComponent(yr) + "&group=" + g + leagueParam()), { mode: "cors", credentials: "omit" })
+    return sideShared("sr|" + k, function () { return fetch(API.workerUrl("/api/player-starter-rates?season=" + encodeURIComponent(yr) + "&group=" + g + leagueParam()), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { srMap[k] = j && j.ok ? j : { players: {}, failed: true }; return srMap[k]; })
-      .catch(function () { srMap[k] = { players: {}, failed: true }; return srMap[k]; });
+      .catch(function () { srMap[k] = { players: {}, failed: true }; return srMap[k]; }); });
   }
   function srFor(grp) { return srMap[srSeason + "|" + grp] || null; }
   function srRec(r) { var m = srFor(r.grp); return (m && m.players && m.players[pidKey(r.pid)]) || null; }
@@ -367,14 +378,14 @@
   function loadEpa(yr) {
     if (epaMap && epaSeason === yr) return Promise.resolve(epaMap);
     epaSeason = yr;
-    return fetch(API.workerUrl("/api/player-epa?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
+    return sideShared("epa|" + yr, function () { return fetch(API.workerUrl("/api/player-epa?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         epaMap = (j && j.by_gsis) || {}; epaThrough = (j && j.through_week && j.through_week[yr]) || null;
         epaDef = j && j.definitions && j.definitions[yr] != null ? j.definitions[yr] : null;
         return epaMap;
       })
-      .catch(function () { epaMap = {}; epaDef = null; return epaMap; });
+      .catch(function () { epaMap = {}; epaDef = null; return epaMap; }); });
   }
   function epaRawM(r) { var e = epaMap && r.gsis && epaMap[String(r.gsis)]; if (!e) return null; if (r.grp === "QB") return e.pass; if (r.grp === "RB") return e.rush; return e.rec; }
   function epaRecM(r) { var x = epaRawM(r); if (!x) return null; var n = (x.plays != null ? x.plays : x.tgt) || 0; var min = r.grp === "QB" ? 50 : (r.grp === "RB" ? 25 : 20); return n >= min ? x : null; }
@@ -385,18 +396,18 @@
   function loadRoutes(yr) {
     if (rtMap && rtSeason === yr) return Promise.resolve(rtMap);
     rtSeason = yr;
-    return fetch(API.workerUrl("/api/player-routes?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
+    return sideShared("rt|" + yr, function () { return fetch(API.workerUrl("/api/player-routes?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { rtMap = (j && j.by_gsis) || {}; return rtMap; })
-      .catch(function () { rtMap = {}; return rtMap; });
+      .catch(function () { rtMap = {}; return rtMap; }); });
   }
   function loadNgs(yr) {
     if (ngsMap && ngsSeason === yr) return Promise.resolve(ngsMap);
     ngsSeason = yr;
-    return fetch(API.workerUrl("/api/player-ngs?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
+    return sideShared("ngs|" + yr, function () { return fetch(API.workerUrl("/api/player-ngs?seasons=" + encodeURIComponent(yr)), { mode: "cors", credentials: "omit" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { ngsMap = (j && j.by_gsis) || {}; return ngsMap; })
-      .catch(function () { ngsMap = {}; return ngsMap; });
+      .catch(function () { ngsMap = {}; return ngsMap; }); });
   }
   function rtRec(r) { return (rtMap && r.gsis && rtMap[String(r.gsis)]) || null; }
   function ngsRecMob(r) { return (ngsMap && r.gsis && ngsMap[String(r.gsis)]) || null; }
@@ -407,8 +418,12 @@
 
   // The latest season with leaderboard rows — the season the OTHER Stats tabs
   // (Pts Agst, Sched) default to. The Players list's own season is basis().season.
+  // That comes from the app's stats leaderboards, which are read only when a
+  // screen needs them (app.js ensureAdvancedStats): until they land this is 0
+  // ("not known yet") and render() waits for it, rather than guessing a year.
   function curSeason() {
     if (season) return season;
+    if (D().advancedStatsKnown && !D().advancedStatsKnown()) return 0;
     var ly = (D().getAdvancedStatsLatestYear && D().getAdvancedStatsLatestYear()) || 0;
     season = ly || (new Date().getUTCFullYear() - 1);
     return season;
@@ -513,16 +528,36 @@
    * board at impact 7 inside a 36-way tie and left ~350 scoring IDPs with "—".
    * A worker without paging sends no next_offset: that is one page, and if it
    * came back full the list is marked capped (the notes say so). */
-  var PAGE = 500, MAX_PAGES = 12;
+  /* One board per position group and season, read once (phone boot requests,
+   * 2026-10-20):
+   *   - in flight: a second render (a tab tap, an app event repainting the
+   *     route) shares the first read instead of starting another;
+   *   - answered: kept, so a filter change or leaving and coming back to Stats
+   *     asks nothing again; a different season or group is its own read;
+   *   - pull-to-refresh / Refresh data / sign-out drop every copy (the app's
+   *     refreshGen moves), and the next render asks again;
+   *   - failed (HTTP or network): not kept as an answer — it used to be stored
+   *     as an empty board for the rest of the session. Renders in the next
+   *     LOAD_RETRY_MS reuse the failure; the next one after that asks once more. */
+  var PAGE = 500, MAX_PAGES = 12, LOAD_RETRY_MS = 30 * 1000;
+  var inflight = {}, failedAt = {}, cacheGen = null;
+  function dropIfRefreshed() {
+    var g = D().refreshGen ? D().refreshGen() : 0;
+    if (g === cacheGen) return;
+    cacheGen = g; cache = {}; metaCache = {}; inflight = {}; failedAt = {};
+  }
   function load(alias, yr) {
+    dropIfRefreshed();
     var key = alias + "|" + yr;
     if (cache[key]) return Promise.resolve(cache[key]);
+    if (inflight[key]) return inflight[key];
+    if (failedAt[key] && Date.now() - failedAt[key] < LOAD_RETRY_MS) return Promise.resolve([]);
     var base = "/api/advanced-stats-leaderboard?season=" + encodeURIComponent(yr) +
       "&pos=" + encodeURIComponent(alias) + "&min_games=1&limit=" + PAGE;
-    var rows = [], first = null, capped = false;
+    var rows = [], first = null, capped = false, gen = cacheGen;
     function page(offset, n) {
       return fetch(API.workerUrl(base + (offset ? "&offset=" + offset : "")), { mode: "cors", credentials: "omit" })
-        .then(function (r) { return r.ok ? r.json() : { rows: [] }; })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(function (j) {
           var got = (j && j.rows) || [];
           if (!first) first = j || {};
@@ -533,8 +568,10 @@
           return rows;
         });
     }
-    return page(0, 0)
+    var p = page(0, 0)
       .then(function () {
+        if (gen !== cacheGen) return rows;   // dropped by a refresh while in flight: not this load's copy
+        delete inflight[key]; delete failedAt[key];
         cache[key] = rows;
         var cov = first && first.source_coverage;
         var covWk = (cov && cov.week) || (first && first.built_for_week) || null, fin = first && first.finalized_through_week;
@@ -550,7 +587,15 @@
         };
         return rows;
       })
-      .catch(function () { cache[key] = []; metaCache[key] = { count: 0, limit: PAGE, capped: false, readAt: Date.now(), failed: true }; return []; });
+      .catch(function () {
+        if (gen !== cacheGen) return [];
+        delete inflight[key];
+        failedAt[key] = Date.now();
+        metaCache[key] = { count: 0, limit: PAGE, capped: false, readAt: Date.now(), failed: true };
+        return [];
+      });
+    inflight[key] = p;
+    return p;
   }
 
   // League sub-tab bar (same pattern as league.js/auction.js, with Stats).
@@ -2693,7 +2738,17 @@
     function fillColumns() {
       if (view.inner === "players" && view.tab === tab.id) repaintList();
     }
+    dropIfRefreshed();
     var b = basis(), yr = b.season;
+    if (!yr) {
+      // Stored basis, and the app's leaderboards haven't said yet which season
+      // is the latest with rows (curSeason): ask, and draw the list when they land.
+      mount.innerHTML = subTabs("stats") + innerSwitch() + '<div class="ups-m-loading">Loading stats…</div>';
+      settleChrome(mount); bindInner(mount);
+      waitingForSeason = true;
+      if (D().ensureAdvancedStats) D().ensureAdvancedStats();
+      return;
+    }
     loadStarterRates(yr, tab).then(fillColumns);
     // Status is always THIS season's (a stored prior-season list still shows today's status).
     if (window.UPS_MOBILE_PLAYER_STATUS) window.UPS_MOBILE_PLAYER_STATUS.load(ctxYear() || yr).then(fillColumns);
@@ -2712,6 +2767,15 @@
     settleChrome(mount); bindInner(mount);
     load(tab.alias, yr).then(function () { if (view.tab === tab.id && view.inner === "players") paint(mount); });
   }
+
+  // The app's leaderboards landed while the Players list was waiting for its
+  // season (render's !yr branch): draw it now, if Stats is still on screen.
+  var waitingForSeason = false;
+  if (window.addEventListener) window.addEventListener("ups-advanced-stats-ready", function () {
+    if (!waitingForSeason) return;
+    waitingForSeason = false;
+    if (/^(league\/)?stats/.test(String(M.route.currentRoute() || "")) && view.inner === "players") M.route.renderRoute();
+  });
 
   M.statsView = { render: render, ptsAgstDefaults: { window: FPA_DEFAULT_WINDOW, colorK: FPA_COLOR_K } };
   M.route.registerView("stats", render);

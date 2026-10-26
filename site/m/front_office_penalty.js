@@ -361,6 +361,11 @@
     // If app.js already owns the batch for this season there's nothing to do.
     var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
     if (s && s.capPenaltyByPid) return;
+    // app.js reads the batch when a screen that shows a penalty opens, once per
+    // app load (ensureCapPenaltyPreview — one shared request). Ask it rather
+    // than starting a second, identical read of our own.
+    var data = window.UPS_MOBILE && window.UPS_MOBILE.data;
+    if (data && data.ensureCapPenaltyPreview) { data.ensureCapPenaltyPreview(); return; }
     __mCapLoading = true;
     // League id comes from the live app context — hardcoding 74598 broke the
     // preview for any other league (test league L=25625 included).
