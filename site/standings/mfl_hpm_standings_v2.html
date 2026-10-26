@@ -1406,7 +1406,7 @@
       .pic-grid { grid-template-columns: minmax(0, 1fr); }
     }
     .lg-narrow-note { display: none; }
-    .sos-sub { display: none; }
+    .sos-sub { display: block; }
     /* Playoff Picture: bracket first (Keith 2026-10-22). */
     .pp-switch { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
     .pp-label { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 4px; padding: 2px 7px; margin-left: 6px; vertical-align: 2px; }
@@ -1469,7 +1469,6 @@
       .fc-wide, .lg-wide, table.fc-table th.fc-likely, table.fc-table td.fc-likely { display: none; }
       .fc-likely-sub { display: block; }
       .lg-narrow-note { display: block; }
-      .sos-sub { display: block; }
       th, td { padding: 6px 4px; }
       .seed-cell { grid-template-columns: 20px auto; column-gap: 3px; }
       .status-chip small { display: none; }   /* "proj.": the note under the table says seeds are projected */
@@ -1786,7 +1785,7 @@
     return '<th class="sortable' + (align === "num" ? " num" : "") + '" data-sort-key="' + escapeHtml(key) + '" data-sort-active="' + active + '" data-sort-dir="' + sortState.sortDir + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + ' scope="col">' + escapeHtml(label) + '</th>';
   }
   // Keys whose natural first click is ascending (names, seeds, finishes, ranks where 1 is best).
-  var ASC_FIRST = { owner_name: 1, franchise_name: 1, division: 1, division_name: 1, seed: 1, fin: 1, _pfRank: 1, _avgRank: 1, _l3Rank: 1, _paRank: 1, _back: 1, _sosRank: 1 };
+  var ASC_FIRST = { owner_name: 1, franchise_name: 1, division: 1, division_name: 1, seed: 1, fin: 1, _pfRank: 1, _avgRank: 1, _l3Rank: 1, _paRank: 1, _back: 1 };
   function wireSortClicks(host, sortState, rerender) {
     host.querySelectorAll("th.sortable").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -2117,9 +2116,9 @@
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["WC Back", "Signed distance to the wild-card line in All-Play wins (ties count half), for every team, as if it had to earn a wild card: the two best teams that aren’t division winners qualify (All-Play %, then H2H record, then Points For). Positive = that many behind the last wild card; negative = that many ahead of the first team out; 0 = level with the team at the line (the ladder decides). A division winner’s seed doesn’t hide it: a + number means the division title is what keeps it in."],
     ["SoS", "Strength of schedule. 1st of 12 = hardest schedule so far; tied teams share a rank. Based on how your opponents scored in their other games. It doesn’t affect playoff seeds."],
-    ["All-time rank", "This season’s All-Play % against every team-season since 2010 through the same number of weeks (12 teams every season, so every week is 11 results). Rank 1 = best; ties share a rank; percentile = share of other team-seasons below, ties counting half."],
+    ["All-Time AP %", "This season’s All-Play % against every team-season since 2010 through the same number of weeks (12 teams every season, so every week is 11 results). Rank 1 = best; ties share a rank; percentile = share of other team-seasons below, ties counting half."],
     ["H1–H6", "The Hawk Tuah Bowl seeds: the six teams outside the playoff field (7th–12th)."],
-    ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins."],
+    ["Luck Factor", "Actual H2H wins minus expected H2H wins. Expected: for each game, the share of the league you outscored that week. + = more wins than expected, − = fewer."],
     ["Scored", "What your lineup put up in the regular season. The points your opponents scored are in PA/game and in each team’s details."],
     ["Weekly rank", "The order of that week’s scores (1 = highest; ties share a rank)."],
     ["Projected vs final", "Until the regular season ends, seeds and BYE / DIV / WC say where teams would be if the season ended today."],
@@ -3333,6 +3332,12 @@
   // Strength of schedule (#1388, Keith 2026-10-26): ONE rank, never the index. 1st = hardest; teams that share a rank
   // are marked T-. The shared module's scheduleStrength() decides (its fail-closed status too); a rank that can't be
   // computed shows — and is never replaced by points faced.
+  // Luck Factor: signed, one decimal; a zero (after rounding) is a plain 0.0.
+  function luckText(v) {
+    if (v == null || !isFinite(Number(v))) return "—";
+    var n = Math.round(Number(v) * 10) / 10;
+    return n === 0 ? "0.0" : fmtSigned(n);
+  }
   function sosText(r) { return r._sosRank == null ? "—" : (r._sosTie ? "T-" : "") + ordinal(r._sosRank); }
   function sosLineHtml(r, ctx) {
     if (!ctx.sos || !ctx.sos.on) return "";
@@ -3376,17 +3381,14 @@
       return cols;
     }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
-    c("All-Play", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T", W);
-    c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); });
-    if (ctx.current && !ctx.scoped) c("WC Back", "_back", true, function (r) { return wcMarginText(r._wcm); }, "Signed: + = All-Play wins behind the last wild card; − = ahead of the first team out; 0 = at the line. Every team, as if it had to earn a wild card.");
-    if (ctx.current && !ctx.scoped && ctx.hist) c("All-time", "_histRank", true, function (r) { return r._hist ? '<span title="' + r._hist.pctile + 'th percentile">' + ordinal(r._hist.rank) + (r._hist.tied ? "=" : "") + '</span><span class="owner-sub">of ' + r._hist.of + '</span>' : "—"; }, "All-Play % rank among every team-season since 2010 through the same week", W);
-    c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, ctx.finished && !ctx.scoped ? "The season’s recorded Points For" : "Points For", W);
-    c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)", W);
-    c("PA/game", "_pag", true, function (r) { return fmtPts(r._pag); }, "Opponents’ points per head-to-head game", W);
-    if (ctx.sos && ctx.sos.on) c("Schedule", "_sosRank", true, function (r) { return sosText(r); }, "Strength of schedule: 1st = hardest so far; T- = tied. Click to sort hardest first.", W);
+    // Desktop wide view (Keith 2026-10-26): Seed | Team | H2H | AP | AP % | All-Time AP % | PF/Wk | Luck Factor. Nothing else
+    // (no cumulative PF, PA/game, Exp. W, WC Back or Schedule column; the SoS rank lives in the Team cell).
+    c("AP", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T: your score against every other team, every week", W);
+    c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); }, "Regular-season All-Play %: the share of the league you beat each week");
+    if (ctx.current && !ctx.scoped && ctx.hist) c("All-Time AP %", "_histRank", true, function (r) { return r._hist ? '<span title="' + r._hist.pctile + 'th percentile">' + ordinal(r._hist.rank) + (r._hist.tied ? "=" : "") + '</span><span class="owner-sub">of ' + r._hist.of + '</span>' : "—"; }, "All-Play % rank among every team-season since 2010 through the same week (percentile in the tooltip)", W);
+    c("PF/Wk", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per completed scoring week (total Points For ÷ weeks played)", W);
     if (!ctx.scoped) {
-      c("Exp. W", "_xw", true, function (r) { return fmtDec(r._xw, 1); }, "Expected wins: for each game, the share of the league you outscored that week", W);
-      c("Luck", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + fmtSigned(r._luck) + '</span>'; }, "Schedule luck: actual wins minus expected wins", W);
+      c("Luck Factor", "_luck", true, function (r) { return '<span class="' + (r._luck != null && Math.abs(r._luck) >= 1 ? (r._luck > 0 ? "luck-pos" : "luck-neg") : "") + '">' + luckText(r._luckExact != null ? r._luckExact : r._luck) + '</span>'; }, "Actual H2H wins minus expected H2H wins (expected = each game's All-Play share that week). + = more wins than expected, − = fewer", W);
     }
     return cols;
   }
@@ -3457,6 +3459,7 @@
       else { r._pf = r.pf_total != null ? r.pf_total : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null; }
       r._xw = s ? s.overall.expectedWins : null;
       r._luck = s ? s.overall.luck : null;
+      r._luckExact = s ? s.overall.luckExact : null;
       if (state.show === "scored") {
         r._pf = s ? s.scored.pf : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null;
       }

@@ -1,4 +1,4 @@
-// Strength-of-schedule rank in Full League Overall (#1388 Opponent pass, Keith 2026-10-26: "Remove the separate Opponent choice
+// Strength-of-schedule rank in Full League Overall (#1388 Opponent pass, Keith 2026-10-26; the desktop wide view is then fixed at eight columns, so the rank lives in the Team cell and is not a column: "Remove the separate Opponent choice
 // from Full League. In Full League Overall, show strength of schedule as a rank, with 1st meaning hardest schedule so far.
 // Show ties explicitly ... compact `SoS: T-9th of 12` line in the Team cell; on desktop, one sortable Schedule column ...
 // the short explanation and an unavailable state ... Do not show the index values by default or add an advanced toggle.").
@@ -86,23 +86,18 @@ test("the independent definition reproduces the recorded Week 6 groups: Gride 1s
   t.deepEqual(norm(byLabel["T-9th"]), ["Blake Bombers", "HammerTime", "Real Deal Creel"]);
   t.deepEqual(norm(byLabel["12th"]), ["C-Town Chivalry"]);
 });
-test("Overall: one sortable Schedule column and a 'SoS: T-9th of 12' line under each owner; both show the same rank, ties marked", async () => {
+test("Overall: a 'SoS: T-9th of 12' line under each owner for all 12 teams (ties marked); the desktop wide view is exactly Seed | Team | H2H | AP | AP % | PF/Wk | Luck Factor", async () => {
   const p = await league("view=league&year=2026");
   const L = table(p.raw);
-  t.deepEqual(L.heads, ["Seed", "Team", "H2H", "All-Play", "AP %", "WC Back", "PF", "PF/week", "PA/game", "Schedule", "Exp. W", "Luck"]);
+  t.deepEqual(L.heads, ["Seed", "Team", "H2H", "AP", "AP %", "PF/Wk", "Luck Factor"]);
   t.equal(L.rows.length, 12);
   for (const r of L.rows) {
     const want = SOS6.label[r.fid];
-    t.equal(L.cell(r.fid, "Schedule"), want, nameOf[r.fid] + " Schedule column");
     t.match(L.raw(r.fid, "Team"), new RegExp('<span class="owner-sub sos-sub">SoS: ' + want + " of 12</span>"), nameOf[r.fid] + " Team-cell line");
-    // after the owner line, never replacing the name or the owner
     t.match(L.raw(r.fid, "Team"), /<span class="owner-sub">[^<]*<\/span><span class="owner-sub sos-sub">/, "the SoS line follows the owner");
     t.ok(L.cell(r.fid, "Team").startsWith(nameOf[r.fid].replace(/\s+/g, " ")), "name intact");
   }
-  // a header you can click: hardest first on the first click
-  t.match(L.heads.join("|"), /Schedule/);
-  t.match(p.raw, /<th class="lg-wide sortable num" data-sort-key="_sosRank"[^>]*title="Strength of schedule: 1st = hardest so far; T- = tied\. Click to sort hardest first\."[^>]*>Schedule<\/th>/);
-  t.match(PAGE_SOURCE, /var ASC_FIRST = \{[^}]*_sosRank: 1 \}/, "first click sorts ascending = 1st (hardest) first");
+  t.ok(!/Schedule<\/th>/.test(p.raw), "no Schedule column");
 });
 test("only the rank: no index values, no Opponent choice, no advanced toggle, nothing else from the old Opponent view", async () => {
   const p = await league("view=league&year=2026");
@@ -111,8 +106,7 @@ test("only the rank: no index values, no Opponent choice, no advanced toggle, no
   t.equal((p.raw.match(/data-show="[a-z]+"/g) || []).join(","), 'data-show="scored",data-show="overall"');
   for (const gone of ["Opp. strength", "Opp. vs league", "Opp. vs usual", "Opp. pts/game", "Close H2H games", "hardest</span>"]) t.ok(!p.raw.includes(gone), gone + " is gone from the page");
   t.ok(!/advanced|Advanced|show index|Show index/.test(p.html), "no advanced toggle");
-  for (const r of L.rows) t.ok(!/\d\.\d\d/.test(L.cell(r.fid, "Schedule")) && !/\d\.\d\d/.test(/sos-sub">([^<]*)/.exec(L.raw(r.fid, "Team"))[1]), "no index value for " + nameOf[r.fid]);
-  t.equal(L.cell("0009", "PA/game"), RESP6.rows.find((r) => r.franchise_id === "0009").regular_season.pa_per_game.toFixed(1), "opponents' points stay in PA/game, unchanged");
+  for (const r of L.rows) t.ok(!/\d\.\d\d/.test(/sos-sub">([^<]*)/.exec(L.raw(r.fid, "Team"))[1]), "no index value for " + nameOf[r.fid]);
 });
 test("the explanation appears once, next to the through-week line; Scored and the other tabs carry no SoS", async () => {
   const p = await league("view=league&year=2026");
@@ -124,24 +118,17 @@ test("the explanation appears once, next to the through-week line; Scored and th
   t.ok(!/sos-sub|sos-note|Schedule<\/th>/.test(scored.raw), "Scored is untouched");
   for (const v of ["view=divisions&year=2026", "view=picture&year=2026", "view=weekly&year=2026", "view=trends&year=2026"]) t.ok(!/sos-sub|sos-note/.test((await league(v)).raw), v);
 });
-test("sorted by Schedule: hardest first, tied teams together, the seed order inside a tie; the old Opponent / Faced links open Overall", async () => {
-  const src = PAGE_SOURCE.replace('overall: { sortKey: null, sortDir: "asc" }', 'overall: { sortKey: "_sosRank", sortDir: "asc" }');
-  t.ok(src !== PAGE_SOURCE, "the test page sorts by Schedule from the start");
-  const p = await league("view=league&year=2026", { pageSrc: src });
-  const order = table(p.raw).rows.map((r) => r.fid);
-  const seedOrder = RESP6.rows.map((r) => r.franchise_id);
-  const expected = seedOrder.slice().sort((a, b) => SOS6.rank[a] - SOS6.rank[b] || seedOrder.indexOf(a) - seedOrder.indexOf(b));
-  t.deepEqual(order, expected);
-  t.deepEqual(order.map((f) => SOS6.label[f]), expected.map((f) => SOS6.label[f]));
+test("the old Opponent / Faced links open Overall", async () => {
+  const overall = await league("view=league&year=2026");
   for (const old of ["opponent", "faced"]) {
     const o = await league("view=league&year=2026&show=" + old);
-    t.deepEqual(table(o.raw).heads, table((await league("view=league&year=2026")).raw).heads, "?show=" + old + " → Overall");
+    t.deepEqual(table(o.raw).heads, table(overall.raw).heads, "?show=" + old + " → Overall");
   }
 });
 test("scope: shown for Full Season and Regular Season; hidden for Playoffs and Custom weeks (the rank is a regular-season measure)", async () => {
   for (const [q, on] of [["", true], ["&scope=regular", true], ["&scope=playoffs", false], ["&scope=custom&cs=2&ce=4", false]]) {
     const p = await league("view=league&year=2026" + q);
-    t.equal(/sos-sub|sos-note/.test(p.raw) || />Schedule<\/th>/.test(p.raw), on, "scope " + (q || "full") + (on ? " shows" : " hides") + " SoS");
+    t.equal(/sos-sub|sos-note/.test(p.raw), on, "scope " + (q || "full") + (on ? " shows" : " hides") + " SoS");
   }
 });
 test("unavailable: weekly results that can't be read give 'SoS —' and a reason, never a rank and never points faced in its place", async () => {
@@ -156,7 +143,6 @@ test("unavailable: weekly results that can't be read give 'SoS —' and a reason
   const L = table(p.raw);
   t.ok(L, "the table still renders");
   for (const r of L.rows) {
-    t.equal(L.cell(r.fid, "Schedule"), "—", nameOf[r.fid]);
     t.match(L.raw(r.fid, "Team"), /<span class="owner-sub sos-sub">SoS: —<\/span>/);
   }
   t.match(p.text, /SoS —\. The schedule-strength rank isn’t shown because the weekly results couldn’t be read\. It is never replaced by the points your opponents scored\./);
@@ -187,20 +173,45 @@ test("finished season (2025 recorded): the same rank over the regular season, wo
   const p = await league("view=league&year=2025", { fetch });
   const L = table(p.raw);
   t.ok(L && L.rows.length === 12);
-  t.ok(L.heads.includes("Schedule") && L.heads.includes("Fin"));
+  t.ok(L.heads.includes("Fin") && !L.heads.includes("Schedule"));
   for (const r of L.rows) {
-    t.equal(L.cell(r.fid, "Schedule"), want.label[r.fid], r.fid);
     t.match(L.raw(r.fid, "Team"), new RegExp("SoS: " + want.label[r.fid] + " of 12"));
   }
   t.match(p.text, /1st of 12 = hardest schedule this season; tied teams share a rank\./);
 });
 
-// ═══ phones: the layout contract (the real 320 / 375 screenshots are in the preview) ═══
-test("phone widths: the Schedule column hides (lg-wide) and the Team-cell line shows; on desktop the line is hidden", () => {
-  t.match(PAGE_SOURCE, /\.sos-sub \{ display: none; \}/);
-  const off = PAGE_SOURCE.indexOf(".fc-wide, .lg-wide"), on = PAGE_SOURCE.indexOf(".sos-sub { display: block; }");
-  t.ok(off > 0 && on > off && on - off < 300, "inside the same phone block as the hidden Schedule column");
-  t.match(PAGE_SOURCE, /@media \(max-width: 560px\) \{\s*\.fc-wide, \.lg-wide/, "that block is the 560px media query");
+// ═══ Luck Factor (Keith 2026-10-26) ═══
+test("Luck Factor = actual H2H wins − expected H2H wins (each game's All-Play share that week); signed, one decimal, 0.0 when level; Expected Wins is not a column", async () => {
+  const p = await league("view=league&year=2026");
+  const L = table(p.raw);
+  t.ok(!L.heads.includes("Exp. W") && !L.heads.includes("Luck"));
+  const sc = RESP6.weeklyScores.filter((x) => x.po === 0);
+  const fmt = (v) => { const n = Math.round(v * 10) / 10; return n === 0 ? "0.0" : (n > 0 ? "+" : "\u2212") + Math.abs(n).toFixed(1); };
+  const seen = new Set();
+  for (const r of RESP6.rows) {
+    let actual = 0, expected = 0;
+    for (const g of RESP6.weekly.filter((x) => x.po === 0 && x.fid === r.franchise_id)) {
+      actual += g.ts > g.os ? 1 : g.ts === g.os ? 0.5 : 0;
+      const wk = sc.filter((x) => x.w === g.w), mine = wk.find((x) => x.fid === r.franchise_id).ts;
+      const w = wk.filter((x) => x.fid !== r.franchise_id && mine > x.ts).length, tt = wk.filter((x) => x.fid !== r.franchise_id && mine === x.ts).length;
+      expected += (w + 0.5 * tt) / (wk.length - 1);
+    }
+    const want = fmt(actual - expected);
+    seen.add(want);
+    t.equal(L.cell(r.franchise_id, "Luck Factor"), want, nameOf[r.franchise_id] + ": " + actual + " wins, " + expected.toFixed(2) + " expected");
+  }
+  t.ok([...seen].some((x) => x.startsWith("+")) && [...seen].some((x) => x.startsWith("\u2212")), "both signs occur in Week 6");
+});
+test("PF/Wk = Points For per completed week, one decimal; the cumulative PF column is gone", async () => {
+  const p = await league("view=league&year=2026");
+  const L = table(p.raw);
+  t.ok(!L.heads.includes("PF") && !L.heads.includes("PA/game") && !L.heads.includes("WC Back"));
+  const sc = RESP6.weeklyScores.filter((x) => x.po === 0);
+  const weeks = new Set(sc.map((x) => x.w)).size;
+  for (const r of RESP6.rows) {
+    const total = sc.filter((x) => x.fid === r.franchise_id).reduce((a, x) => a + x.ts, 0);
+    t.ok(Math.abs(Number(L.cell(r.franchise_id, "PF/Wk")) - total / weeks) < 0.051, nameOf[r.franchise_id]);
+  }
 });
 
 await run("standings_sos_rank_desktop");

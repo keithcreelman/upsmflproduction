@@ -1943,6 +1943,9 @@
             record: withPct(rec), ap: withPct(ap),
             expectedWins: others > 0 ? ratio2(ewNum, 2 * others) : null,
             luck: others > 0 ? ratio2((2 * rec.w + rec.t) * others - ewNum, 2 * others) : null,
+            // luckExact: the same difference before the hundredths rounding, so a display that shows one decimal rounds ONCE
+            // (2.5455 shows +2.5; rounding 2.55 again would show +2.6).
+            luckExact: others > 0 ? Math.round(1e6 * ((2 * rec.w + rec.t) * others - ewNum) / (2 * others)) / 1e6 : null,
             pf: pfC[f] / 100, paPerGame: paPerGame
           }
         };

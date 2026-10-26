@@ -217,7 +217,7 @@ test("Picture, finished season: the season's bracket; champions and the rest of 
 });
 
 // ═══ Full League ═══
-test("Full League: the worker's seed order by default, ONE Seed column (from /api/standings), PF per week and PA per game", async () => {
+test("Full League: the worker's seed order by default, ONE Seed column (from /api/standings), PF per week", async () => {
   const p = await page("view=league&year=2026");
   const L = leagueTable(p.raw);
   t.ok(L, "the table renders");
@@ -227,21 +227,19 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   // the seed number and its BYE / DIV / WC chip share one aligned cell (decision 2)
   t.match(L.rawCell("0009", "Seed"), /^<span class="seed-cell"><span class="seed-n">1<\/span><span class="status-chip bye projected"/);
   t.match(L.rawCell("0012", "Seed"), /^<span class="seed-cell"><span class="seed-n hawk" title="Hawk Tuah Bowl seed H1 \(7th\)">H1<\/span><span><\/span><\/span>$/);
-  t.ok(L.heads.includes("PF/week") && L.heads.includes("PA/game"), "labeled per week / per game");
+  t.ok(L.heads.includes("PF/Wk") && !L.heads.includes("PA/game") && !L.heads.includes("PF"), "PF/Wk replaces cumulative Points For; PA/game is gone from the wide view");
   t.ok(!/Avg PF|Avg PA/.test(p.html));
   const c = RESP_2026.rows.find((r) => r.franchise_id === "0009").regular_season;
-  t.equal(L.cell("0009", "PF/week"), c.pf_per_week.toFixed(1));
-  t.equal(L.cell("0009", "PA/game"), c.pa_per_game.toFixed(1));
-  t.equal(L.cell("0012", "WC Back"), "+2", "signed: + = behind the last wild card (Keith 2026-10-22)");
+  t.equal(L.cell("0009", "PF/Wk"), c.pf_per_week.toFixed(1));
   // decision 2: no Playoffs column, no division column, no division under the team name (the Divisions tab has them)
-  t.deepEqual(["Seed", "Team", "H2H", "All-Play", "AP %", "WC Back", "PF", "PF/week", "PA/game", "Schedule", "Exp. W", "Luck"], L.heads, "the Overall column set (Schedule = strength-of-schedule rank, #1388)");
+  t.deepEqual(["Seed", "Team", "H2H", "AP", "AP %", "PF/Wk", "Luck Factor"], L.heads, "the desktop wide Overall column set (Keith 2026-10-26; All-Time AP % joins after AP % once the history file loads)");
   for (const r of RESP_2026.rows) {
     t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s*SoS: [^\s]+( of \d+)?/, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner (+ its SoS line) only, no division: " + r.franchise_id);
     if (r.division_name) t.ok(!L.cell(r.franchise_id, "Team").includes(r.division_name), "no division name under " + r.franchise_id);
   }
   t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><\/div>/);
   t.ok(!/data-show="opponent"/.test(p.html), "no separate Opponent choice (#1388, Keith 2026-10-26)");
-  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="12">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
+  t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="7">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
   // a team's details: the seed sentence, the scoring tiles and a link to Weekly → Team by week; no week-by-week table
   // ("will be absurd by week 14") and no division race
   const dis = /<tr class="disclosure-row" hidden data-for="0009">([\s\S]*?)<\/td><\/tr>/.exec(p.raw)[1];
@@ -270,7 +268,6 @@ test("Full League Scored: the shared module's scoredFaced numbers; old Opponent 
     t.deepEqual(leagueTable(o.raw).heads, leagueTable(overall.raw).heads, "?show=" + old + " opens Overall");
     t.match(o.html, /data-show="overall" aria-pressed="true">Overall<\/button>/);
   }
-  for (const r of RESP_2026.rows) t.equal(leagueTable(overall.raw).cell(r.franchise_id, "PA/game"), sf.byFranchise[r.franchise_id].faced.paPerGame.toFixed(1), "points faced stay in PA/game: " + r.franchise_id);
   const views = [overall, scored, await page("view=picture&year=2026"), await page("view=trends&year=2026&chart=pf"), await page("view=weekly&year=2026&wv=team")];
   for (const v of views) {
     t.ok(!/defen[cs]e/i.test(v.html), "never 'Defense' (in UPS, MFL's Defense = your IDP players' points)");
@@ -285,7 +282,7 @@ test("Full League: the Scope control still works for historical use (Regular Sea
   const L = leagueTable(reg.raw);
   t.ok(L && L.rows.length === 12);
   t.match(reg.html, /<strong>Regular Season<\/strong> — weeks 1–14/);
-  t.ok(!L.heads.includes("Exp. W") && !L.heads.includes("WC Back"), "full-season-only columns hidden when scoped");
+  t.ok(!L.heads.includes("Luck Factor"), "full-season-only columns hidden when scoped");
 });
 test("Full League, finished season: Seed = the recorded seed, Fin = the recorded finish (default order), disclosures say recorded", async () => {
   const p = await page("view=league&year=2025", { env: ENV_2025 });
