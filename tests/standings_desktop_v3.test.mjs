@@ -236,7 +236,7 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   for (const r of RESP_2026.rows) {
     t.equal(L.cell(r.franchise_id, "Team").replace(/[▲▼]\d+/g, "").replace(/\s+/g, " ").trim(), [r.franchise_name, r.owner_name].filter(Boolean).join(" "), "team + owner (+ division name when the standings carry one): " + r.franchise_id);
   }
-  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scored<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><\/div>/);
+  t.match(p.html, /<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:<\/span><button[^>]*data-show="scored"[^>]*>Scoring<\/button><button[^>]*data-show="overall" aria-pressed="true">Overall<\/button><\/div>/);
   t.ok(!/data-show="opponent"/.test(p.html), "no separate Opponent choice (#1388, Keith 2026-10-26)");
   t.match(p.html, /<tr class="seed-divider hawk-divider"><td colspan="9">Playoff line · H1–H6 play the Hawk Tuah Bowl<\/td><\/tr>/);
   // a team's details: the seed sentence, the scoring tiles and a link to Weekly → Team by week; no week-by-week table
@@ -249,17 +249,17 @@ test("Full League: the worker's seed order by default, ONE Seed column (from /ap
   t.ok(!/Week-by-week|Division race|<th[^>]*>Games<\/th>|<th[^>]*>GB<\/th>/.test(dis), "no week-by-week table and no division race in the details");
   t.ok(p.urls.every((u) => !u.startsWith("/api/playoff-bracket")), "the current season's seeds never come from /api/playoff-bracket");
 });
-test("Full League Scored: the shared module's scoredFaced numbers; old Opponent / Faced links open Overall; never 'Faced' or 'Defense'", async () => {
+test("Full League Scoring: the shared module's scoredFaced numbers; old Opponent / Faced links open Overall; never 'Faced' or 'Defense'", async () => {
   const RACE = (() => { const w = {}; new Function("window", fs.readFileSync(new URL("../site/shared/standings_race.js", import.meta.url), "utf8"))(w); return w.UPS_STANDINGS_RACE; })();
   const sf = RACE.scoredFaced(RESP_2026);
   t.equal(sf.status, "ok");
   const scored = await page("view=league&year=2026&show=scored");
   const S = leagueTable(scored.raw);
-  t.deepEqual(S.heads, ["Seed", "Team", "PF", "PF/week", "PF rank", "Avg wk rank", "Best week", "Worst week", "Last 3 avg rank"]);
+  t.deepEqual(S.heads, ["Seed", "Team", "PF", "PF/Wk", "Offensive PF", "Offensive PF/Wk", "Defensive PF", "Defensive PF/Wk", "Potential PF"]);
   const s9 = sf.byFranchise["0009"].scored;
-  t.equal(S.cell("0009", "PF rank"), "1st");
-  t.equal(S.cell("0009", "Best week"), "W" + s9.highWeek.week + " " + s9.highWeek.score.toFixed(1));
-  t.match(scored.html, /<strong>Scored<\/strong> — what each lineup put up in the regular season\. Descriptive/);
+  t.equal(S.cell("0009", "PF").replace(/,/g, ""), s9.pf.toFixed(1));
+  t.equal(S.cell("0009", "PF/Wk"), s9.pfPerWeek.toFixed(1));
+  t.match(scored.html, /<strong>Scoring<\/strong> — points each lineup produced in the regular season/);
   // #1388: there is no Opponent view any more; the two old links open Overall, where the SoS rank lives
   const overall = await page("view=league&year=2026");
   for (const old of ["opponent", "faced"]) {

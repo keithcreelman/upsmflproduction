@@ -1,9 +1,9 @@
 // Desktop wide Full League Overall (#1388, Keith 2026-10-26/27): Seed | Team | H2H | Div W-L | Division GB | WC GB | AP | AP % |
-// All-Time AP % | PF/Wk. The REAL /api/standings route (worker harness) on the recorded 2026 season through Week 6 (the
+// All-Time AP Rank | PF/Wk, and the Scoring view (PF, PF/Wk, offensive / defensive PF and PF/Wk, Potential PF). The REAL /api/standings route (worker harness) on the recorded 2026 season through Week 6 (the
 // standings_wc_back recording) and on the recorded 2025 season → the REAL desktop page, with the history file served as GitHub
 // Pages would. Every expected value is worked out HERE from the response's own rows / games or from the history file, never read
 // back from the page: division W-L from the division-flagged games, GB from the H2H records, the wild-card gap from All-Play
-// wins, the career percentage from the file's own season totals matched by owner name.
+// wins, the all-time rank from the history file's own season totals, Scoring from MFL's op / dp / pp.
 //   node scripts/safe_tests/run.mjs --only standings_full_league_overall
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
@@ -97,10 +97,10 @@ function career(owner, hist = HIST, year = 2026) {
 }
 
 // ═══ the layout ═══
-test("in season: exactly Seed | Team | H2H | Div W-L | Division GB | WC GB | AP | AP % | All-Time AP % | PF/Wk; Team = name, then 'Owner · Division'", async () => {
+test("in season: exactly Seed | Team | H2H | Div W-L | Division GB | WC GB | AP | AP % | All-Time AP Rank | PF/Wk; Team = name, then 'Owner · Division'", async () => {
   const p = await league("view=league&year=2026");
   const L = table(p.raw);
-  t.deepEqual(L.heads, ["Seed", "Team", "H2H", "Div W-L", "Division GB", "WC GB", "AP", "AP %", "All-Time AP %", "PF/Wk"]);
+  t.deepEqual(L.heads, ["Seed", "Team", "H2H", "Div W-L", "Division GB", "WC GB", "AP", "AP %", "All-Time AP Rank", "PF/Wk"]);
   t.equal(L.rows.length, 12);
   t.deepEqual(L.order, seedOrder, "the worker's seed order, untouched");
   for (const r of R) {
@@ -118,10 +118,10 @@ test("removed from this view: SoS, Luck Factor, Exp. W, cumulative PF, PA/game, 
   // the calculations stay in the shared module for a later analytics page
   t.equal(RACE.scheduleStrength(RESP6).status, "ok");
   t.ok(Object.values(RACE.scoredFaced(RESP6).byFranchise).every((x) => x.overall.luck != null && x.overall.expectedWins != null && x.faced.paPerGame != null));
-  // and Scored still has its own PF / PF/week
+  // and Scoring still has its own PF / PF/Wk
   const scored = table((await league("view=league&year=2026&show=scored")).raw);
-  t.deepEqual(scored.heads, ["Seed", "Team", "PF", "PF/week", "PF rank", "Avg wk rank", "Best week", "Worst week", "Last 3 avg rank"]);
-  t.ok(!/ · /.test(text(scored.raw("0009", "Team"))), "Scored's Team cell is unchanged (owner only)");
+  t.deepEqual(scored.heads, ["Seed", "Team", "PF", "PF/Wk", "Offensive PF", "Offensive PF/Wk", "Defensive PF", "Defensive PF/Wk", "Potential PF"]);
+  t.ok(!/ · /.test(text(scored.raw("0009", "Team"))), "Scoring's Team cell is unchanged (owner only)");
 });
 
 // ═══ Div W-L, Division GB, WC GB ═══
@@ -177,49 +177,111 @@ test("sorting: Div W-L by division win % (best first); Division GB ascending wit
   t.match(PAGE_SOURCE, /var ASC_FIRST = \{[^}]*_divGBs: 1, _wcGB: 1 \}/, "a first click on either GB header sorts ascending");
 });
 
-// ═══ All-Time AP % = the current owner's career ═══
-test("All-Time AP % = the owner's career All-Play over completed seasons (wins and games summed, matched by owner name), not the franchise slot's", async () => {
-  const L = table((await league("view=league&year=2026")).raw);
-  const seen = {};
-  for (const r of R) {
-    const c = career(r.owner_name);
-    const want = c ? (c.pct * 100).toFixed(1) + "%" + (c.review ? " †" : "") : "—";
-    t.equal(L.cell(r.franchise_id, "All-Time AP %"), want, r.owner_name + " (" + (c ? c.years.length : 0) + " seasons)");
-    seen[r.owner_name] = want;
-    if (c) {
-      const tip = /title="([^"]*)"/.exec(L.raw(r.franchise_id, "All-Time AP %"))[1];
-      t.match(plain(tip), new RegExp("Career All-Play, " + c.years.length + " season"), "tooltip carries the seasons count");
-      t.match(plain(tip), new RegExp(c.w + "-" + c.l + (c.t ? "-" + c.t : "")), "and the career record");
-      t.equal(/review|under review/.test(plain(tip)), c.review, "the review flag follows 2010-2017");
-    }
+// ═══ All-Time AP Rank (the historical ranking restored, Keith 2026-10-27) ═══
+function allTime(year = 2026, W = 6) {
+  const pool = [];
+  for (const [y, S] of Object.entries(HIST.seasons)) {
+    if (Number(y) >= year || S.regularWeeks < W) continue;
+    for (const x of Object.values(S.franchises)) { const a = x.ap[W - 1]; pool.push({ pct: (a[0] + 0.5 * a[2]) / (a[0] + a[1] + a[2]) }); }
   }
-  // owners whose slot had other owners earlier are NOT credited with that history
-  t.equal(seen["Eric Martel"], "61.5%", "Eric Martel: his own 3 seasons (slot 0005's all-time figure is 44.2%)");
-  t.equal(seen["Brian Cross"], "39.0%", "Brian Cross: his one season");
-  t.ok(/†/.test(seen["Bear Dunn"]) && !/†/.test(seen["Eric Martel"]) && !/†/.test(seen["Brian Cross"]), "† only where 2010–2017 seasons are included");
-  t.match(text(L.raw("0009", "All-Time AP %")), /^\d\d\.\d% †$/);
-});
-test("career maths: wins and ties summed over all games (not an average of season percentages); the current season and unnamed owners are excluded", async () => {
-  const mk = (owner, ap) => ({ team: "T", owner, ap });
-  const hist = { schema: 1, seasons: {
-    "2020": { regularWeeks: 1, teams: 2, franchises: { "0009": mk("Bear Dunn", [[1, 1, 0]]), "0001": mk("Other", [[0, 2, 0]]) } },
-    "2021": { regularWeeks: 1, teams: 2, franchises: { "0009": mk("Bear Dunn", [[9, 1, 0]]) } },
-    "2026": { regularWeeks: 1, teams: 2, franchises: { "0009": mk("Bear Dunn", [[11, 0, 0]]) } } } };
-  const L = table((await league("view=league&year=2026", { hist })).raw);
-  // (1 + 9) / (2 + 10) = 83.3%, not the mean of 50% and 90% (70%); the 2026 entry is ignored; later seasons only (no †: no 2010-2017)
-  t.equal(L.cell("0009", "All-Time AP %"), "83.3%");
-  t.match(plain(/title="([^"]*)"/.exec(L.raw("0009", "All-Time AP %"))[1]), /2 seasons \(2020–2021\): 10-2/);
-  t.equal(L.cell("0012", "All-Time AP %"), "—", "an owner name with no completed season shows —, not a made-up history");
-  t.match((await league("view=league&year=2026", { hist })).text, /— = no completed season found under that name/);
-  const none = await league("view=league&year=2026", { hist: null });
-  t.ok(!table(none.raw).heads.includes("All-Time AP %"), "no history file → no column (never zeros)");
-  const byCareer = await league("view=league&year=2026", { pageSrc: sortedBy(PAGE_SOURCE, "_careerPct", "desc") });
-  const want = seedOrder.slice().sort((a, b) => ((career(R.find((r) => r.franchise_id === b).owner_name) || { pct: -1 }).pct) - ((career(R.find((r) => r.franchise_id === a).owner_name) || { pct: -1 }).pct) || seedOrder.indexOf(a) - seedOrder.indexOf(b));
-  t.deepEqual(table(byCareer.raw).order, want, "sortable by the career percentage");
-});
-test("the note says what † means and that owner identities are unverified", async () => {
+  const now = R.map((r) => { const ap = r.regular_season.all_play; return { fid: r.franchise_id, pct: (ap.w + 0.5 * ap.t) / (ap.w + ap.l + ap.t) }; });
+  const all = pool.concat(now), key = (x) => Math.round(x.pct * 1e6);
+  const out = {};
+  for (const x of now) { let better = 0, same = 0; for (const y of all) { if (y === x) continue; if (key(y) > key(x)) better++; else if (key(y) === key(x)) same++; } out[x.fid] = { rank: better + 1, of: all.length, tied: same > 0 }; }
+  return out;
+}
+const ord = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
+test("All-Time AP Rank = this season's All-Play % ranked against every team-season since 2010 through the same week: '3rd of 204', ties T-; no percentile, no career %", async () => {
   const p = await league("view=league&year=2026");
-  t.match(p.text, /All-Time AP % = the current owner’s career All-Play % \(all wins ÷ all games\) over completed seasons since 2010, matched by owner name\. † = includes 2010–2017, where 2010 weekly scores and owner identities are still under review \(#1329\): not verified\./);
+  const L = table(p.raw);
+  const want = allTime();
+  for (const r of R) {
+    const w = want[r.franchise_id];
+    t.equal(L.cell(r.franchise_id, "All-Time AP Rank"), (w.tied ? "T-" : "") + ord(w.rank) + " of " + w.of, nameOf[r.franchise_id]);
+  }
+  t.equal(want["0009"].of, 204, "16 completed seasons x 12 teams + this season's 12");
+  t.ok(!L.heads.includes("All-Time AP %"), "the header names a rank, not a percentage");
+  t.ok(!/percentile|career All-Play|†/i.test(L.cell("0009", "All-Time AP Rank") + L.raw("0009", "All-Time AP Rank")), "no percentile and no career percentage in the cell");
+  t.ok(!/percentile/i.test(p.text.replace(/<details[\s\S]*$/, "")), "no percentile wording on the page");
+  // the owner-career calculation is kept for a later analytics page
+  t.match(PAGE_SOURCE, /function ownerCareers\(resp, hist\)/);
+  // sortable, best rank first
+  const byRank = await league("view=league&year=2026", { pageSrc: sortedBy(PAGE_SOURCE, "_histRank", "asc") });
+  t.deepEqual(table(byRank.raw).order, seedOrder.slice().sort((a, b) => want[a].rank - want[b].rank || seedOrder.indexOf(a) - seedOrder.indexOf(b)));
+  // no history file → no column (never zeros)
+  const none = await league("view=league&year=2026", { hist: null });
+  t.ok(!table(none.raw).heads.includes("All-Time AP Rank"));
+  t.match(p.text, /All-Time AP Rank = this season’s All-Play % against every team-season since 2010 through the same week; ties share a rank\./);
+});
+
+// ═══ Scoring (renamed from Scored): points production, total / offensive / defensive, and potential ═══
+const ENV5 = loadSeason(makeWorkerEnv({}), recorded2026(REC));
+const RESP5 = (await callWorker(ENV5, "GET", "/api/standings?year=2026")).json;
+const MFLLS = json("./fixtures/mfl_2026_wk5_league_standings.json");
+function mkFetch5({ ls = MFLLS, years = {} } = {}) {
+  const real = workerFetch(callWorker, ENV5);
+  return async (url) => {
+    const u = new URL(url);
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "leagueStandings") {
+      const y = u.searchParams.get("YEAR");
+      return ls && (years[y] !== undefined ? years[y] : true) ? { ok: true, status: 200, json: async () => ls } : { ok: false, status: 404, json: async () => ({}) };
+    }
+    if (url === HIST_URL) return { ok: true, status: 200, json: async () => HIST };
+    const r = await real(url);
+    if (u.pathname !== "/api/standings") return r;
+    const j = await r.json();
+    // The harness D1 holds no potential points (src_standings.pp is NULL). In production pp is MFL's potential total, and it
+    // equals the sum of the team's weekly optimal scores (checked on the 2026 Week 5 read: 1454.6 both ways), so the rows get it that way.
+    j.rows.forEach((x) => { x.pp = Math.round(10 * j.weeklyScores.filter((w) => w.fid === x.franchise_id && w.po === 0).reduce((a, w) => a + w.opt, 0)) / 10; });
+    return { ...r, json: async () => j };
+  };
+}
+const weeks5 = new Set(RESP5.weeklyScores.filter((x) => x.po === 0).map((x) => x.w)).size;
+const LS5 = Object.fromEntries(MFLLS.leagueStandings.franchise.map((f) => [f.id, f]));
+test("Scoring: PF | PF/Wk | Offensive PF | Offensive PF/Wk | Defensive PF | Defensive PF/Wk | Potential PF; the Show control says Scoring; ?show=scored and ?show=scoring both open it", async () => {
+  const p = await league("view=league&year=2026&show=scoring", { fetch: mkFetch5() });
+  const L = table(p.raw);
+  t.deepEqual(L.heads, ["Seed", "Team", "PF", "PF/Wk", "Offensive PF", "Offensive PF/Wk", "Defensive PF", "Defensive PF/Wk", "Potential PF"]);
+  t.match(p.raw, /data-show="scored" aria-pressed="true">Scoring<\/button>/);
+  t.ok(!/>Scored</.test(p.raw), "the old name is gone");
+  t.deepEqual(table((await league("view=league&year=2026&show=scored", { fetch: mkFetch5() })).raw).heads, L.heads);
+  t.equal(weeks5, 5);
+  const num = (txt) => Number(txt.replace(/,/g, ""));
+  for (const r of RESP5.rows) {
+    const f = r.franchise_id, ls = LS5[f];
+    t.ok(Math.abs(num(L.cell(f, "PF")) - r.pf_total) < 0.051, "PF " + f);
+    t.ok(Math.abs(num(L.cell(f, "PF/Wk")) - r.pf_total / weeks5) < 0.051, "PF/Wk " + f);
+    t.ok(Math.abs(num(L.cell(f, "Offensive PF")) - Number(ls.op)) < 0.051, "Offensive PF " + f);
+    t.ok(Math.abs(num(L.cell(f, "Offensive PF/Wk")) - Number(ls.op) / weeks5) < 0.051, "Offensive PF/Wk " + f);
+    t.ok(Math.abs(num(L.cell(f, "Defensive PF")) - Number(ls.dp)) < 0.051, "Defensive PF " + f);
+    t.ok(Math.abs(num(L.cell(f, "Defensive PF/Wk")) - Number(ls.dp) / weeks5) < 0.051, "Defensive PF/Wk " + f);
+    t.ok(Math.abs(num(L.cell(f, "Potential PF")) - RESP5.weeklyScores.filter((w) => w.fid === f && w.po === 0).reduce((a, w) => a + w.opt, 0)) < 0.051, "Potential PF " + f + " = the sum of the weekly optimal scores (MFL's potential points)");
+    t.ok(Math.abs(Number(ls.op) + Number(ls.dp) - r.pf_total) < 0.15, "offense + defense add up to PF " + f);
+  }
+});
+test("Scoring: removed rankings and trends (PF rank, average weekly rank, best / worst week, last 3 weeks) are not shown, and the calculations remain", async () => {
+  const L = table((await league("view=league&year=2026&show=scored", { fetch: mkFetch5() })).raw);
+  for (const gone of ["PF rank", "Avg wk rank", "Best week", "Worst week", "Last 3 avg rank", "PF/week"]) t.ok(!L.heads.includes(gone), gone);
+  const sf = RACE.scoredFaced(RESP5).byFranchise["0009"].scored;
+  t.ok(sf.pfRank != null && sf.avgWeeklyRank != null && sf.highWeek && sf.lowWeek && sf.last3, "scoredFaced still computes all five");
+  t.ok(!/Offensive Potential|Defensive Potential/.test(L.raw("0009", "Potential PF")) && !L.heads.some((h) => /Potential/.test(h) && h !== "Potential PF"), "no offensive / defensive potential columns (they would need a new calculation)");
+});
+test("Scoring: offensive / defensive points show — and say why when MFL's two totals don't add up, aren't available, or the season predates 2017", async () => {
+  const bad = JSON.parse(JSON.stringify(MFLLS)); bad.leagueStandings.franchise[0].op = String(Number(bad.leagueStandings.franchise[0].op) + 25);
+  let p = await league("view=league&year=2026&show=scored", { fetch: mkFetch5({ ls: bad }) });
+  let L = table(p.raw);
+  for (const r of RESP5.rows) { t.equal(L.cell(r.franchise_id, "Offensive PF"), "—"); t.equal(L.cell(r.franchise_id, "Defensive PF/Wk"), "—"); t.ok(L.cell(r.franchise_id, "PF") !== "—" && L.cell(r.franchise_id, "Potential PF") !== "—"); }
+  t.match(p.text, /Offensive and defensive points show — because MFL’s two totals don’t add up to the weekly scores\./);
+  p = await league("view=league&year=2026&show=scored", { fetch: mkFetch5({ ls: null }) });
+  t.match(p.text, /Offensive and defensive points show — because MFL’s split isn’t available for this season\./);
+  t.equal(table(p.raw).cell("0009", "Offensive PF"), "—");
+});
+test("Scoring: Seed order is the worker's; sortable by every points column", async () => {
+  const L = table((await league("view=league&year=2026&show=scored", { fetch: mkFetch5() })).raw);
+  t.deepEqual(L.order, RESP5.rows.map((r) => r.franchise_id));
+  const byOpf = await league("view=league&year=2026&show=scored", { fetch: mkFetch5(), pageSrc: sortedBy(PAGE_SOURCE, "_opf", "desc") });
+  const ids = RESP5.rows.map((r) => r.franchise_id);
+  t.deepEqual(table(byOpf.raw).order, ids.slice().sort((a, b) => Number(LS5[b].op) - Number(LS5[a].op) || ids.indexOf(a) - ids.indexOf(b)));
 });
 
 // ═══ finished season, scope ═══

@@ -1406,7 +1406,11 @@
       .pic-grid { grid-template-columns: minmax(0, 1fr); }
     }
     .lg-narrow-note { display: none; }
-    .hist-flag { color: var(--gold); margin-left: 2px; }
+    /* Full League: columns take the room their content needs; they are not spread across the page (Keith 2026-10-27) */
+    table.lg-table { width: auto; min-width: 640px; }
+    .lg-table th, .lg-table td { padding: 7px 11px; }
+    .lg-table th.team-col, .lg-table td.team-col { min-width: 250px; }
+    .lg-table th.seed-col, .lg-table td.seed-col { padding-right: 16px; }
     /* Playoff Picture: bracket first (Keith 2026-10-22). */
     .pp-switch { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; }
     .pp-label { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 4px; padding: 2px 7px; margin-left: 6px; vertical-align: 2px; }
@@ -1623,10 +1627,10 @@
     sub: startTab.sub || (isHistoryView(qs.get("sub")) ? qs.get("sub") : "bracket"),   // the History sub-tab
     year: yearFromQuery() || defaultSeasonForToday(),
     overall: { sortKey: null, sortDir: "asc" },   // Full League sort; null = the default order for the season
-    // Full League columns: Scored · Opponent · Overall (?show=faced, the old name, still opens Opponent)
+    // Full League views: Scoring (?show=scored, the old name, still works) · Overall; ?show=opponent / ?show=faced open Overall
     // (#1388, Keith 2026-10-26: no separate Opponent view; old ?show=opponent / ?show=faced links open Overall, where the
     // strength-of-schedule rank now lives)
-    show: ({ scored: "scored", opponent: "overall", faced: "overall", overall: "overall" })[qs.get("show")] || "overall",
+    show: ({ scored: "scored", scoring: "scored", opponent: "overall", faced: "overall", overall: "overall" })[qs.get("show")] || "overall",
     // Weekly sub-views: one week · season leaders · heat map · one team week by week (?week=season, the old Season
     // button, opens the leaders)
     wview: ({ week: 1, leaders: 1, heat: 1, team: 1 })[qs.get("wv")] ? qs.get("wv") : (qs.get("week") === "season" ? "leaders" : "week"),
@@ -2116,10 +2120,10 @@
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["Division GB · WC GB", "Division GB: H2H games behind your division leader (the leader shows —). WC GB: All-Play wins behind the last wild card, with the four division winners protected; — means you hold a playoff spot. Seeds are decided by All-Play, so the wild-card race is counted in All-Play too."],
     ["Div W-L", "Your H2H record against the other teams in your own division (five games against each rival)."],
-    ["All-Time AP %", "The current owner’s career All-Play %: every completed season since 2010 under that owner’s name, all wins ÷ all games. † = includes 2010–2017, where scores and owner identities are still under review (#1329)."],
+    ["All-Time AP Rank", "This season’s All-Play % ranked against every team-season since 2010 through the same number of weeks (12 teams every season, so every week is 11 results). 1st = best; ties share a rank."],
     ["H1–H6", "The Hawk Tuah Bowl seeds: the six teams outside the playoff field (7th–12th)."],
     ["Expected wins · luck", "Expected wins: for each game, the share of the league you outscored that week. Luck = actual wins minus expected wins (shown in each team’s details)."],
-    ["Scored", "What your lineup put up in the regular season. The points your opponents scored are in PA/game and in each team’s details."],
+    ["Scoring", "Points your lineup produced in the regular season: total, offensive-player and defensive-player (IDP) points, per completed week, and the potential (best possible lineup) total."],
     ["Weekly rank", "The order of that week’s scores (1 = highest; ties share a rank)."],
     ["Projected vs final", "Until the regular season ends, seeds and BYE / DIV / WC say where teams would be if the season ended today."],
     ["Recorded seasons", "Finished seasons show the recorded final standings: the finish after the playoffs and, from 2014, the recorded regular-season seed."]
@@ -2774,7 +2778,7 @@
       + '<div class="psub" style="margin-top:6px">This season: ' + mine.map(function (m) { return escapeHtml(nameOf(m.r)) + ' ' + ordinal(m.k.rank) + (m.k.tied ? ' (tied)' : ''); }).slice(0, 6).join(" · ") + ' … of ' + (mine[0] ? mine[0].k.of : 0) + ' team-seasons.</div>'
       + '<h3 style="margin-top:12px">Best full regular seasons <span class="h-sub">· a separate comparison: finished seasons only</span></h3>'
       + '<ol class="hist-list">' + full.slice(0, 5).map(li).join("") + '</ol>'
-      + '<div class="note">Rank = place by All-Play % (ties share a rank) among every team-season through the same week; percentile = share of the other team-seasons below, ties counting half. Every season had 12 teams, so a week is 11 results for everyone; 2010–2020 had 13 regular-season weeks and 2021 on 14, so a week past 13 compares 2021 on only. Team and owner names are as stored in the league history tables, where some 2011–2017 names and owner identities are still under review (#1329).</div></section>';
+      + '<div class="note">Rank = place by All-Play % (ties share a rank) among every team-season through the same week. Every season had 12 teams, so a week is 11 results for everyone; 2010–2020 had 13 regular-season weeks and 2021 on 14, so a week past 13 compares 2021 on only. Team and owner names are as stored in the league history tables, where some 2011–2017 names and owner identities are still under review (#1329).</div></section>';
   }
   function renderPicture(host) {
     return fetchD1("/api/standings", state.year).then(function (resp) {
@@ -3326,6 +3330,38 @@
     return out;
   }
 
+  // Scoring: offensive-player and defensive-player (IDP) points are MFL's own leagueStandings op / dp, read through the worker's
+  // export proxy (the phone app's rule): used only when every team has both and they add up to its regular-season Points
+  // For (within 0.15); otherwise they show — and the note says why. 2010-2016 were a different MFL league.
+  function loadOffDef(year) {
+    var y = String(year);
+    state.offDef = state.offDef || {};
+    if (Object.prototype.hasOwnProperty.call(state.offDef, y)) return Promise.resolve(state.offDef[y]);
+    if (Number(year) < 2017) { state.offDef[y] = null; return Promise.resolve(null); }
+    return fetchD1("/api/mfl-export?TYPE=leagueStandings&L=74598&YEAR=" + encodeURIComponent(y) + "&JSON=1", null).then(function (j) {
+      var fr = j && j.leagueStandings && j.leagueStandings.franchise, m = {};
+      (Array.isArray(fr) ? fr : fr ? [fr] : []).forEach(function (x) { if (x && x.id != null) m[pad4(x.id)] = { op: x.op, dp: x.dp }; });
+      state.offDef[y] = Object.keys(m).length ? m : null;
+      return state.offDef[y];
+    }, function () { state.offDef[y] = null; return null; });
+  }
+  // → { status: "ok" | "missing" | "mismatch", byFid }
+  function offDefOf(sf, raw) {
+    if (!raw || sf.status !== "ok") return { status: "missing", byFid: null };
+    var out = {}, status = "ok";
+    Object.keys(sf.byFranchise).forEach(function (f) {
+      var e = raw[f], op = e ? parseFloat(e.op) : NaN, dp = e ? parseFloat(e.dp) : NaN;
+      if (!isFinite(op) || !isFinite(dp)) { if (status === "ok") status = "missing"; return; }
+      if (Math.abs(Math.round(op * 100) + Math.round(dp * 100) - Math.round(sf.byFranchise[f].scored.pf * 100)) > 15) { status = "mismatch"; return; }
+      out[f] = { op: op, dp: dp };
+    });
+    return status === "ok" ? { status: "ok", byFid: out } : { status: status, byFid: null };
+  }
+  function odNoteText(od) {
+    if (!od || od.status === "ok") return "";
+    return od.status === "mismatch" ? " Offensive and defensive points show — because MFL’s two totals don’t add up to the weekly scores."
+      : " Offensive and defensive points show — because MFL’s split isn’t available for this season.";
+  }
   // Column sets for the Show control. Scored = what each lineup put up; Opponent = what opponents scored (schedule, not
   // skill — never called a defense: in UPS, MFL's IDP points are scored by your own players); Overall = the standings.
   // No division columns here (#1329 decision 2: the Divisions tab has them).
@@ -3357,22 +3393,6 @@
     });
     return out;
   }
-  function yearSpans(years) {
-    var out = [], a = null, b = null;
-    years.concat([null]).forEach(function (y) {
-      if (a != null && y === b + 1) { b = y; return; }
-      if (a != null) out.push(a === b ? String(a) : a + "–" + b);
-      a = b = y;
-    });
-    return out.join(", ");
-  }
-  function careerCellHtml(r) {
-    var c = r._career;
-    if (!c) return '<span title="No completed season found under this owner name">—</span>';
-    var tip = "Career All-Play, " + c.years.length + (c.years.length === 1 ? " season" : " seasons") + " (" + yearSpans(c.years) + "): " + rec(c.w, c.l, c.t)
-      + (c.review ? ". Includes 2010–2017: 2010 weekly scores and the 2011–2017 owner identities are still under review (#1329); not verified." : ". Matched by owner name.");
-    return '<span title="' + escapeHtml(tip) + '">' + fmtPct(c.pct) + (c.review ? '<sup class="hist-flag">†</sup>' : "") + '</span>';
-  }
   // Division GB for a finished season, from the recorded records and the recorded division leader (the worker sends none).
   function finishedDivGB(rows) {
     var lead = {}, out = {};
@@ -3400,15 +3420,15 @@
       return (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="" onerror="this.style.display=\'none\'">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + tkoMark(r)
         + moveHtml(ctx.finished ? null : r.order_change)
         + '<span class="owner-sub">' + escapeHtml(r.owner_name || "") + (show === "overall" && r.division_name ? " · " + escapeHtml(r.division_name) : "") + '</span>';
-    });
+    }, null, "team-col");
     if (show === "scored") {
-      c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For", W);
-      c("PF/week", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per week (one score a week)");
-      c("PF rank", "_pfRank", true, function (r) { return r._pfRank ? ordinal(r._pfRank) : "—"; }, "1 = most Points For");
-      c("Avg wk rank", "_avgRank", true, function (r) { return fmtDec(r._avgRank, 1); }, "Average weekly scoring rank (1 = highest score that week)", W);
-      c("Best week", "_best", true, function (r) { return r._bestW ? "W" + r._bestW.week + " " + fmtPts(r._bestW.score) : "—"; }, null, W);
-      c("Worst week", "_worst", true, function (r) { return r._worstW ? "W" + r._worstW.week + " " + fmtPts(r._worstW.score) : "—"; }, null, W);
-      c("Last 3 avg rank", "_l3Rank", true, function (r) { return fmtDec(r._l3Rank, 1); }, "Average weekly scoring rank over the last three regular-season weeks (descriptive)", W);
+      c("PF", "_pf", true, function (r) { return fmtCommas(r._pf, 1); }, "Regular-season Points For");
+      c("PF/Wk", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per completed week");
+      c("Offensive PF", "_opf", true, function (r) { return fmtCommas(r._opf, 1); }, "Points scored by offensive players (MFL’s own offensive-player total)");
+      c("Offensive PF/Wk", "_opfw", true, function (r) { return fmtPts(r._opfw); }, "Offensive points per completed week");
+      c("Defensive PF", "_dpf", true, function (r) { return fmtCommas(r._dpf, 1); }, "Points scored by defensive players (MFL’s IDP total)");
+      c("Defensive PF/Wk", "_dpfw", true, function (r) { return fmtPts(r._dpfw); }, "Defensive points per completed week");
+      c("Potential PF", "_ppf", true, function (r) { return fmtCommas(r._ppf, 1); }, "The most the lineup could have scored: MFL’s potential points (best possible lineup each week)");
       return cols;
     }
     c("H2H", "_recPct", false, function (r) { return recStr(r._rec); }, ctx.current && !ctx.scoped ? "Regular-season H2H record" : "H2H record");
@@ -3419,21 +3439,22 @@
     }
     c("AP", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T: your score against every other team, every week", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); }, "Regular-season All-Play %: the share of the league you beat each week");
-    if (ctx.current && !ctx.scoped && ctx.careers) c("All-Time AP %", "_careerPct", true, careerCellHtml, "The current owner’s career All-Play % over completed seasons (all wins ÷ all games), matched by owner name. † = includes 2010–2017, still under review", W);
+    if (ctx.current && !ctx.scoped && ctx.hist) c("All-Time AP Rank", "_histRank", true, function (r) { return r._hist ? (r._hist.tied ? "T-" : "") + ordinal(r._hist.rank) + " of " + r._hist.of : "—"; }, "This season’s All-Play % ranked against every team-season since 2010 through the same week (ties share a rank)", W);
     c("PF/Wk", "_pfw", true, function (r) { return fmtPts(r._pfw); }, "Points For per completed scoring week (total Points For ÷ weeks played)", W);
     return cols;
   }
   function showControlHtml() {
     return '<div class="seg" role="group" aria-label="Columns"><span class="seg-label">Show:</span>'
-      + [["scored", "Scored"], ["overall", "Overall"]].map(function (s) {
+      + [["scored", "Scoring"], ["overall", "Overall"]].map(function (s) {
         return '<button type="button" class="mode-btn" data-show="' + s[0] + '" aria-pressed="' + (state.show === s[0] ? "true" : "false") + '">' + s[1] + '</button>';
       }).join("") + '</div>';
   }
   function renderLeague(host) {
     return fetchD1("/api/standings", state.year).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
-      if (!isFinishedSeason(resp)) return loadApHistory().then(function () { drawLeague(host, resp, null, null); });
-      return loadFinishes(state.year).then(function (fins) { drawLeague(host, resp, fins, null); },
+      var needOd = state.show === "scored" ? loadOffDef(state.year) : Promise.resolve();
+      if (!isFinishedSeason(resp)) return Promise.all([loadApHistory(), needOd]).then(function () { drawLeague(host, resp, null, null); });
+      return Promise.all([loadFinishes(state.year), needOd]).then(function (g) { drawLeague(host, resp, g[0], null); },
         function () { drawLeague(host, resp, null, "the recorded final standings couldn’t be loaded"); });
     }, function () { showFailure(host, "the " + state.year + " standings"); }).catch(drawFailed(host));
   }
@@ -3459,7 +3480,8 @@
     var M0 = window.UPS_STANDINGS_RACE;
     var wcm = (current && !scoped && M0 && M0.wildCardMargins) ? M0.wildCardMargins(resp.rows || []) : null;
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
-    var careers = (current && !scoped && state.apHistory) ? ownerCareers(resp, state.apHistory) : null;
+    var od = (state.show === "scored" && !scoped) ? offDefOf(sf, (state.offDef || {})[String(state.year)]) : null;
+    var regWeeks = Array.isArray(resp.weeklyScores) ? Object.keys(resp.weeklyScores.reduce(function (a, x) { if (x && Number(x.po) === 0) a[x.w] = 1; return a; }, {})).length : 0;
     var finGB = finished ? finishedDivGB(resp.rows || []) : null;
     // One Seed column, one source per season: the worker's playoff_seed for the current season; the recorded
     // regular-season seed (/api/historical-finishes) for a finished one. Never /api/playoff-bracket.
@@ -3490,13 +3512,16 @@
       r._divGB = (noGB || o.is_division_leader || gbNum == null) ? null : gbNum;
       r._divGBs = noGB || gbNum == null ? null : (o.is_division_leader ? -1 : gbNum);
       r._wcGB = (current && !scoped && !resp.preseason) ? wcBackOf(o) : null;
-      r._career = careers ? careers[fid] : null; r._careerPct = r._career ? r._career.pct : null;
       r._hist = histRanks ? histRanks[fid] : null; r._histRank = r._hist ? r._hist.rank : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
       else if (reg) { r._pf = reg.points_for; r._pfw = reg.pf_per_week; r._pag = reg.pa_per_game; }
       else { r._pf = r.pf_total != null ? r.pf_total : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null; }
       r._xw = s ? s.overall.expectedWins : null;
       r._luck = s ? s.overall.luck : null;
+      r._ppf = (!scoped && o.pp != null && isFinite(Number(o.pp))) ? Number(o.pp) : null;
+      var odv = od && od.byFid ? od.byFid[fid] : null;
+      r._opf = odv ? odv.op : null; r._dpf = odv ? odv.dp : null;
+      r._opfw = odv && regWeeks ? odv.op / regWeeks : null; r._dpfw = odv && regWeeks ? odv.dp / regWeeks : null;
       if (state.show === "scored") {
         r._pf = s ? s.scored.pf : null; r._pfw = s ? s.scored.pfPerWeek : null; r._pag = s ? s.faced.paPerGame : null;
       }
@@ -3517,12 +3542,12 @@
     // they can never mislead when the table is sorted some other way.
     var canonicalSeedOrder = sortHdrs.sortKey === "seed" && sortHdrs.sortDir === "asc";
     var showRace = !scoped && !!raceData && current;
-    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, careers: careers };
+    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, hist: !!histRanks, od: od };
     var bar = viewBarHtml(resp, showControlHtml());
     var noteBits = [];
     // Scored needs every regular-season week: anything short of 'ok' is an explanation, never a table.
     if (state.show === "scored" && !sfOk) {
-      host.innerHTML = bar + '<div class="err-box" role="alert"><b>Scored isn’t shown:</b> ' + escapeHtml(sfReason(sf)) + '.'
+      host.innerHTML = bar + '<div class="err-box" role="alert"><b>Scoring isn’t shown:</b> ' + escapeHtml(sfReason(sf)) + '.'
         + (problemsText(sf) ? '<span class="psub">' + escapeHtml(problemsText(sf)) + '</span>' : '') + '</div>';
       wireShow(host, resp, fins, finsError);
       return;
@@ -3559,11 +3584,11 @@
     if (!scoped && state.show === "overall" && finished) noteBits.push('<div class="note">W-L-T, All-Play and PF are the season’s recorded totals; PF/week, PA/game, expected wins and luck cover the regular season.</div>');
     if (!scoped && state.show === "overall" && !sfOk && sf.status !== "preseason") noteBits.push('<div class="note">Expected wins and luck show —: ' + escapeHtml(sfReason(sf)) + '.</div>');
     var colNote = state.show === "scored"
-      ? '<p class="col-note"><strong>Scored</strong> — what each lineup put up in the regular season. Descriptive: seeds use All-Play %, H2H record, then season Points For.</p>'
+      ? '<p class="col-note"><strong>Scoring</strong> — points each lineup produced in the regular season, and the most it could have produced (Potential PF). Descriptive: seeds use All-Play %, H2H record, then season Points For.' + odNoteText(od) + '</p>'
       : '';
     if (!scoped && state.show === "overall") {
       if (current && !resp.preseason) noteBits.push('<div class="note"><strong>Division GB</strong> = H2H games behind the division leader. <strong>WC GB</strong> = All-Play wins behind the last wild card (division winners are protected); — = holding a playoff spot.</div>');
-      if (careers) noteBits.push('<div class="note"><strong>All-Time AP %</strong> = the current owner’s career All-Play % (all wins ÷ all games) over completed seasons since 2010, matched by owner name. † = includes 2010–2017, where 2010 weekly scores and owner identities are still under review (#1329): not verified. — = no completed season found under that name.</div>');
+      if (histRanks) noteBits.push('<div class="note"><strong>All-Time AP Rank</strong> = this season’s All-Play % against every team-season since 2010 through the same week; ties share a rank.</div>');
       if (finished && Number(state.year) === 2010) noteBits.push('<div class="note">Div W-L and Division GB aren’t shown for 2010: its division standings are still under review (#1329 C6/C9, #1378).</div>');
       else if (finished && Number(state.year) >= 2011 && Number(state.year) <= 2013) noteBits.push('<div class="note">Div W-L and Division GB for ' + state.year + ' come from stored standings that an open correction (#1329 C7) still touches: unverified.</div>');
     }
@@ -3582,7 +3607,10 @@
   }
   function wireShow(host, resp, fins, finsError) {
     host.querySelectorAll("[data-show]").forEach(function (b) {
-      b.addEventListener("click", function () { state.show = b.getAttribute("data-show"); pushQs(); drawLeague(host, resp, fins, finsError); notifyHeight(); });
+      b.addEventListener("click", function () {
+        state.show = b.getAttribute("data-show"); pushQs();
+        (state.show === "scored" ? loadOffDef(state.year) : Promise.resolve()).then(function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
+      });
     });
   }
 
