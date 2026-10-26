@@ -30,12 +30,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from trade_grader import (
     fetch_trades, load_franchises, analyze_trade,
-    load_players_map, load_rosters, load_rollover,
-    load_auction_pool, load_team_caps, load_future_picks,
-    load_trade_value_model,
+    load_players_map, load_rosters, no_grade_report,
+    load_season_state, LEAGUE_SEASON,
     # 3-way support: nav / production value for the net-value read, contract
     # parsing for the salary schedule, and the MFL "Last, First" formatter.
-    estimate_production_value, nav_player, _parse_contract, display_name,
+    _parse_contract, display_name,
+    rookie_contract_line, with_provisional_banner,
 )
 from trade_roast_context import (
     build_trade_roast_context, context_to_prompt_text,
@@ -54,6 +54,8 @@ from content_engine import (
     generate_trade_roast, classify_reply, generate_clap_back,
     log_value_signal, log_data_error, save_to_archive,
 )
+import held_trades  # noqa: E402
+import valuation_snapshot as _vs  # noqa: E402
 
 # ── Config ─────────────────────────────────────────────────────────────────
 # Channel routing — env-driven, test by default. Set DISCORD_TRADE_CHANNEL_ID
@@ -558,6 +560,118 @@ async def _run_clap_back(reply_text: str, replier_user_id: int, replier_name: st
 _GIF_TAG_RE = re.compile(r"\[GIF:\s*([^\]]+?)\s*\]\s*$", re.IGNORECASE | re.MULTILINE)
 
 
+HELD_TRADES_FILE = held_trades.HELD_TRADES_FILE
+
+
+OPS_ALERT_FILE = SUPPORT_DIR / "ops_alerts.json"
+OPS_NOTIFY_EVERY_SECONDS = 3600
+_ops_notified: dict = {}
+
+
+def _ops_alert(stage: str, text: str) -> None:
+    """An operational alert the commissioner must see: a durable local record (the cutover
+    job forwards it to a GitHub issue) and a Mac notification, at most hourly per stage.
+    Never Discord."""
+    print(f"[{datetime.now()}] OPS ALERT [{stage}] {text}")
+    if time.time() - _ops_notified.get((stage, text), 0) < OPS_NOTIFY_EVERY_SECONDS:
+        return                                         # already recorded and notified this hour
+    _ops_notified[(stage, text)] = time.time()
+    try:
+        SUPPORT_DIR.mkdir(parents=True, exist_ok=True)
+        alerts = json.loads(OPS_ALERT_FILE.read_text()) if OPS_ALERT_FILE.exists() else []
+        alerts.append({"at": datetime.now(timezone.utc).isoformat(), "stage": stage, "text": text,
+                       "forwarded": False})
+        tmp = OPS_ALERT_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(alerts[-200:], indent=1))
+        tmp.replace(OPS_ALERT_FILE)
+    except Exception as exc:
+        print(f"[{datetime.now()}] could not record the ops alert locally: {exc}")
+    try:
+        subprocess.run(["osascript", "-e", f"display notification {json.dumps(text[:200])} "
+                                           f"with title \"Trade bot: {stage}\""], timeout=10)
+    except Exception as exc:
+        print(f"[{datetime.now()}] could not raise the Mac notification: {exc}")
+
+
+def hold_no_grade(trade_txn: dict, report: str, reasons: list) -> None:
+    """Record a NO GRADE trade durably (bot log + held file) with its cause. Never posts. A
+    trade held again (its one retry was NO GRADE too) updates its entry; it is never added twice.
+    Only a hold caused by a missing or stale snapshot is retried automatically; any other cause
+    raises an operational alert once, here, and waits for a person (Keith 2026-10-22).
+    Raises held_trades.HeldStateError if the hold could not be recorded: the caller must then
+    NOT advance the cursor past this trade."""
+    print(f"[{datetime.now()}] {report}")
+    cause = held_trades.classify(reasons)
+    entry = held_trades.record_hold(trade_txn, report, HELD_TRADES_FILE, cause=cause)
+    if cause not in held_trades.RETRY_CAUSES and "retry" not in entry:
+        _ops_alert("held-review", f"trade {held_trades.key(trade_txn)} is held as NO GRADE for a reason other "
+                                  f"than a missing or stale valuation snapshot, so it will not be retried "
+                                  f"automatically; it needs a person. Reasons: {'; '.join(map(str, reasons))[:300]}")
+
+
+def _snapshot_failures_now() -> list:
+    """What analyze_trade would refuse right now: the valuation snapshot against MFL's
+    live standings (sync: MFL read; run off-loop)."""
+    state = load_season_state(0)
+    if state.status == "unavailable" and not state.weeks_completed:
+        return [state.reason or "MFL leagueStandings unavailable"]
+    live = state.weeks_completed if (state.status == "in_season" or state.weeks_completed) else None
+    _snap, failures = _vs.load_for_grading(now=time.time(), league_season=LEAGUE_SEASON,
+                                           live_weeks_completed=live)
+    return failures
+
+
+async def retry_held_trades(channel, trades: list) -> list:
+    """Retry each held NO GRADE trade whose cause was a missing or stale snapshot exactly once,
+    after the snapshot validates again (the weekly cutover). Trades held for any other cause are
+    never attempted (hold_no_grade alerted when it held them). Never reads or moves the cursor;
+    marks each entry started before its one attempt (held_trades.py)."""
+    try:
+        entries = held_trades.load(HELD_TRADES_FILE)
+    except held_trades.HeldStateError as exc:
+        _ops_alert("held-state", f"held trades cannot be read, so none were retried: {exc}")
+        return []
+    stuck = held_trades.unfinished(entries)
+    if stuck:
+        _ops_alert("held-review", f"{len(stuck)} held trade retry(ies) started but never finished "
+                                  f"(a crash mid-retry): {[held_trades.key(e) for e in stuck]}. "
+                                  f"Never retried automatically; check whether each was posted.")
+    todo = held_trades.eligible(entries)             # snapshot missing/stale holds only
+    if not todo:
+        return []
+    failures = await _in_executor("held-trade freshness check", 60, _snapshot_failures_now)
+    if failures:
+        print(f"[{datetime.now()}] {len(todo)} held trade(s) wait: the valuation snapshot does not "
+              f"validate yet ({'; '.join(str(f) for f in failures)[:300]})")
+        return []
+    groups = group_multiway_legs(trades)
+    done = []
+    try:
+        for entry in todo:
+            multiway = entry.get("franchise") == "multiway"
+            found = held_trades.find_trade(entry, trades, groups)    # full key, never timestamp alone
+            if not found:
+                continue                               # not (uniquely) in MFL's list: stays pending
+            held_trades.mark_started(entry, HELD_TRADES_FILE)     # BEFORE the attempt: at most once
+            try:
+                if multiway:
+                    result = await analyze_and_post_multiway(channel, found, entry.get("franchise2"))
+                else:
+                    result = await analyze_and_post(channel, found)
+                outcome = "posted" if result else "held_again"
+            except held_trades.HeldStateError:
+                raise
+            except Exception as exc:
+                outcome = f"error: {exc.__class__.__name__}"
+            held_trades.mark_finished(entry, outcome, HELD_TRADES_FILE)
+            print(f"[{datetime.now()}] held trade {held_trades.key(entry)} retried once: {outcome}")
+            done.append((held_trades.key(entry), outcome))
+    except held_trades.HeldStateError as exc:
+        _ops_alert("held-state", f"a held-trade retry could not be recorded: {exc}. No further retries "
+                                 f"until the file is fixed; each started entry needs review.")
+    return done
+
+
 def _extract_gif_query(roast_text: str) -> tuple[str, str]:
     """Pull [GIF: ...] from end of roast. Returns (clean_roast, gif_query)."""
     m = _GIF_TAG_RE.search(roast_text)
@@ -675,14 +789,15 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # stage runs off-loop with a hard timeout (see _in_executor: 2026-07-11 hang).
     def _analyze_sync():
         franchises_ = load_franchises()
-        analysis_ = analyze_trade(
-            trade_txn,
-            load_players_map(), franchises_, load_rosters(), load_rollover(),
-            load_auction_pool(), load_team_caps(), load_future_picks(),
-            load_trade_value_model(),
-        )
+        analysis_ = analyze_trade(trade_txn, load_players_map(), franchises_, load_rosters())
         return franchises_, analysis_
     franchises, analysis = await _in_executor("analyze_trade", 180, _analyze_sync)
+
+    # Decision 3 (#1343): a failed valuation input means NO GRADE. Stop before
+    # the announcement, the thread and the roast-model call: nothing reaches Discord.
+    if analysis.no_grade:
+        hold_no_grade(trade_txn, no_grade_report(analysis), list(analysis.no_grade_reasons))
+        return None
 
     # 2. Build announcement embed
     ts_int = int(trade_txn.get("timestamp", 0))
@@ -721,7 +836,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     # 7. Post roast in thread (Message 2) — with a Reply button view attached
     roast_embed = discord.Embed(
         title="🔥 Roast",
-        description=roast_clean[:4096],
+        description=with_provisional_banner(roast_clean, analysis.provisional_reasons)[:4096],
         color=0x5865F2,
     )
     # Post WITHOUT view first so we know the msg id, then edit-in the view
@@ -810,6 +925,7 @@ async def analyze_and_post(channel: discord.TextChannel, trade_txn: dict,
     print(f"[{datetime.now()}] Posted to #{channel.name} (env={ROAST_BOT_ENV}, "
           f"announcement={announce_msg.id}, thread={thread.id}, "
           f"roast={roast_msg.id}, gif={gif_msg.id if gif_msg else 'none'})")
+    return True
 
 
 # Legacy build_report_block() + split_message() helpers removed in v9 — the
@@ -882,17 +998,13 @@ def build_multiway_summary(legs: list) -> dict:
     players_map = load_players_map()
     franchises = load_franchises()
     rosters = load_rosters()
-    rollover = load_rollover()
-    auction_pool = load_auction_pool()
-    team_caps = load_team_caps()
-    future_picks = load_future_picks()
-    tv_model = load_trade_value_model()
-
-    analyses = [
-        analyze_trade(leg, players_map, franchises, rosters, rollover,
-                      auction_pool, team_caps, future_picks, tv_model)
-        for leg in legs
-    ]
+    analyses = [analyze_trade(leg, players_map, franchises, rosters) for leg in legs]
+    no_grade_reports = [no_grade_report(an) for an in analyses if an.no_grade]
+    if no_grade_reports:
+        # NO GRADE on any leg: build nothing that could be posted.
+        return {"no_grade_reports": no_grade_reports,
+                "no_grade_reasons": [r for an in analyses for r in an.no_grade_reasons],
+                "timestamp": max(int(l.get("timestamp", 0)) for l in legs)}
 
     from collections import OrderedDict
     order: list = []
@@ -967,11 +1079,9 @@ def build_multiway_summary(legs: list) -> dict:
         d["gave"]["bb"] = max(0, net_bb)
         d["got"]["bb"] = max(0, -net_bb)
 
-        def _sv(side):
-            return (sum(nav_player(p) for p in side["players"])
-                    + sum(pk.estimated_value for pk in side["picks"])
-                    + side["bb"])
-        d["net_value"] = _sv(d["got"]) - _sv(d["gave"])
+        # The old net-value read priced players at "expected auction price",
+        # which silently became salary (#1343 decision 3). It is not shown.
+        d["net_value"] = None
 
     return {
         "franchises": fr,
@@ -982,6 +1092,9 @@ def build_multiway_summary(legs: list) -> dict:
         "ledger": ledger,
         "timestamp": max(int(l.get("timestamp", 0)) for l in legs),
         "comment": next((l.get("comments", "") for l in legs), ""),
+        "provisional_reasons": list(dict.fromkeys(
+            r for an in analyses for r in an.provisional_reasons)),
+        "no_grade_reports": [],
     }
 
 
@@ -1077,6 +1190,10 @@ def build_multiway_context_text(summary: dict) -> str:
        "biggest winner and the team that came out worst, then the [GIF: ...] "
        "line. There is NO canonical grader letter for a three-team trade — judge "
        "each team's net haul yourself and assign a fair grade A+ through F.")
+    if summary.get("provisional_reasons"):
+        ln("GRADE STATUS: PROVISIONAL, not final. Inputs the grader could not trust: "
+           + "; ".join(summary["provisional_reasons"]))
+        ln("Say plainly that these grades are provisional. Do not present them as final.")
     ln("")
 
     dc = find_defending_champion(career_stats)
@@ -1109,18 +1226,18 @@ def build_multiway_context_text(summary: dict) -> str:
             _basis = "PROJECTED — not games played"
         ppg = (f", {round(p.expected_ppg, 1)} PPG ({_basis})"
                if p.expected_ppg else "")
-        adp = ""
-        if getattr(p, "adp_overall", 0):
-            adp = (f", ADP {p.position}{p.adp_pos_rank} / #{p.adp_overall} overall "
-                   f"({p.adp_sources}-source consensus)")
+        adp = ""   # ADP is not in valuation snapshot v1 (#1343 decision 3)
         cs = f", {p.contract_status}" if getattr(p, "contract_status", "") else ""
         return f"    - {display_name(p.name)} ({p.position}) — {sal}{ppg}{adp}{cs}"
 
     def render_pick(pk) -> str:
         orig_raw = (getattr(pk, "original_owner", "") or "").strip()
         oname = franchises.get(orig_raw.zfill(4) if orig_raw else "", "unknown")
+        contract = rookie_contract_line(pk)
+        odds = f"; bracket odds: {pk.odds_text}" if pk.odds_text else ""
         return (f"    - {pk.year} Round {pk.round} pick (originally {oname}'s, "
-                f"est. value ${pk.estimated_value:,.0f})")
+                f"est. value ${pk.estimated_value:,.0f}{odds})"
+                + (f" — {contract}" if contract else ""))
 
     for fid in order:
         d = fr[fid]
@@ -1205,6 +1322,8 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
     # runs off-loop with a hard timeout — the 2026-07-11 frozen-loop lesson.
     def _prep():
         summary_ = build_multiway_summary(legs)
+        if summary_.get("no_grade_reports"):
+            return summary_, None, None
         ts_int = summary_["timestamp"]
         trade_iso = (datetime.fromtimestamp(ts_int, tz=timezone.utc).isoformat()
                      if ts_int else "")
@@ -1213,6 +1332,10 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
         return summary_, embed_, ctx_text_
     summary, announce_embed_dict, context_text = await _in_executor(
         "multiway prepare", 240, _prep)
+    if summary.get("no_grade_reports"):
+        hold_no_grade({"timestamp": summary["timestamp"], "franchise": "multiway", "franchise2": uuid},
+                      "\n\n".join(summary["no_grade_reports"]), summary["no_grade_reasons"])
+        return {}
 
     order = summary["order"]
     fr = summary["franchises"]
@@ -1235,8 +1358,11 @@ async def analyze_and_post_multiway(channel: discord.TextChannel, legs: list,
     print(f"[{datetime.now()}] 3-way roast generated ({len(roast_clean)} chars). "
           f"GIF query: {gif_query!r}")
 
-    roast_embed = discord.Embed(title="🔥 Roast", description=roast_clean[:4096],
-                                color=0x5865F2)
+    roast_embed = discord.Embed(
+        title="🔥 Roast",
+        description=with_provisional_banner(
+            roast_clean, summary.get("provisional_reasons") or [])[:4096],
+        color=0x5865F2)
     roast_msg = await thread.send(
         embed=roast_embed, allowed_mentions=discord.AllowedMentions.none())
     try:
@@ -1324,7 +1450,7 @@ def dry_run_multiway(uuid: str):
     print("\n=== NET PER-FRANCHISE ===")
     for fid in summary["order"]:
         d = summary["franchises"][fid]
-        print(f"\n{d['name']} ({fid})  [net_value={d['net_value']:,.0f}, "
+        print(f"\n{d['name']} ({fid})  [net_value={'n/a' if d['net_value'] is None else format(d['net_value'], ',.0f')}, "
               f"cap_space=${d['cap_space']:,}]")
         print("  GIVES:")
         for p in d["gave"]["players"]:
@@ -1557,6 +1683,12 @@ async def poll_for_trades():
                     # Advance the cursor past EVERY leg of the group at once.
                     max_leg_ts = max(int(l.get("timestamp", 0)) for l in legs)
                     save_last_trade_ts(max(ts, max_leg_ts))
+                except held_trades.HeldStateError as e:
+                    # NO GRADE, but the hold could not be recorded: keep the cursor, stop polling
+                    # this round, alert. Never "give up" past an unrecorded hold.
+                    _ops_alert("held-state", f"3-way {uuid} got NO GRADE but could not be recorded as held "
+                                             f"({e}). The cursor was NOT advanced.")
+                    break
                 except Exception as e:
                     n = _trade_attempts.get(uuid, 0) + 1
                     _trade_attempts[uuid] = n
@@ -1595,6 +1727,12 @@ async def poll_for_trades():
                 await analyze_and_post(channel, trade, ext_years, ext_player)
                 _trade_attempts.pop(ts, None)
                 save_last_trade_ts(ts)
+            except held_trades.HeldStateError as e:
+                # NO GRADE, but the hold could not be recorded: keep the cursor, stop polling this
+                # round, alert. Never "give up" past an unrecorded hold.
+                _ops_alert("held-state", f"trade ts={ts} got NO GRADE but could not be recorded as held "
+                                         f"({e}). The cursor was NOT advanced.")
+                break
             except Exception as e:
                 n = _trade_attempts.get(ts, 0) + 1
                 _trade_attempts[ts] = n
@@ -1607,6 +1745,10 @@ async def poll_for_trades():
                         f"{MAX_TRADE_ATTEMPTS} attempts (last error: {e}). "
                         f"Cursor advanced — no roast was posted for this trade.")
                 break  # retry (or skip) next poll; keep trades in order
+
+        # Held NO GRADE trades get their one retry once the snapshot validates again.
+        # The cursor is not touched: they were already behind it.
+        await retry_held_trades(channel, trades)
 
     except Exception as e:
         msg = str(e)

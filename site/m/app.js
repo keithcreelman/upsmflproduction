@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.10.21.2";
+  var BUILD = "2026.10.26.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -291,6 +291,9 @@
     advancedStatsByPid: null,  // map for the most recent year with real leaderboard data (FA browser display)
     advancedStatsByYear: null, // { [year]: { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } }
     advancedStatsLatestYear: 0, // most recent season with rows; equals ctx.year during the season, ctx.year-1 in offseason
+    advancedStatsReadAt: 0,    // ms epoch the leaderboards landed (0 = not read yet — ensureAdvancedStats)
+    taxiCallupsByPid: null,    // /api/taxi-callups players map; null = not read yet / unreadable (ensureTaxiCallups)
+    taxiCallupsOk: null,       // true = that read worked; false = it failed; null = not read yet. Only true counts as known.
     rookieProspects: null,     // site/rookies/rookie_prospects_<year>.json rows
     draftResults: null,        // /api/mfl-export?TYPE=draftResults
     historicalDraftByPid: null, // { [pid]: { year, round, pick } } — past 3 years for taxi salary derivation
@@ -523,14 +526,20 @@
   // draftResults (the taxi-eligibility window) and merging. Used to
   // derive salary for trade-acquired taxi players whose `drafted` field
   // only carries the trade year, not the original pick.
-  function fetchHistoricalDraftIndex(curYear) {
+  // curYearRead: this season's draftResults read when the caller already has
+  // one in flight (loadAllData), so the same export isn't requested twice.
+  function fetchHistoricalDraftIndex(curYear, curYearRead) {
     var seasonInt = parseInt(curYear, 10);
     if (!(seasonInt > 0)) return Promise.resolve({});   // no season, no guess (#1237)
     var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
+    // A draft inside the 3-league-year taxi window that couldn't be read makes taxi eligibility UNKNOWN for
+    // everyone (a missing pick would read "not drafted"), never a guessed "no" or "yes": recorded as __ok.
+    var windowOk = true;
     var fetches = years.map(function (y) {
-      return fetchJson(mflExportUrlForYear("draftResults", y))
-        .then(function (j) { return indexDraftPicks(j, y); })
-        .catch(function () { return {}; });
+      var read = (y === seasonInt && curYearRead) ? curYearRead : fetchJson(mflExportUrlForYear("draftResults", y));
+      return read
+        .then(function (j) { if (!j && y > seasonInt - 3) windowOk = false; return indexDraftPicks(j, y); })
+        .catch(function () { if (y > seasonInt - 3) windowOk = false; return {}; });
     });
     return Promise.all(fetches).then(function (maps) {
       // Merge — later years overwrite earlier, but a pid only appears
@@ -539,6 +548,7 @@
       maps.forEach(function (m) {
         Object.keys(m).forEach(function (pid) { merged[pid] = m[pid]; });
       });
+      Object.defineProperty(merged, "__ok", { value: windowOk, enumerable: false });
       return merged;
     });
   }
@@ -605,48 +615,59 @@
   // sending pos=RB returns HTTP 400. We fetch by alias and bucket-then-rank
   // by row.position so each player's posRank is within their own position.
   var LEADERBOARD_ALIASES = ["qb", "skill", "idp", "kicker"];
-  // Fetch one season's leaderboard across all alias groups. Returns a
-  // pid-keyed map of { mfl_points, mfl_ppg, games, pos, posRank }.
+  // Fetch one season's leaderboard across all alias groups. Returns
+  // { map, failed }: map is pid-keyed { mfl_points, mfl_ppg, games, pos, posRank };
+  // failed counts the alias reads that errored (HTTP or network). A failed alias
+  // still contributes no rows, as before, but the read is reported as failed so
+  // ensureAdvancedStats can retry it instead of keeping the gap for the session.
+  // Each board that DID answer is kept (lbBoards, dropped with the leaderboard
+  // copy — see dropLazyReads), so a retry asks again only for the ones that failed.
+  var lbBoards = {};   // board URL → rows
   function fetchAdvancedStatsLeaderboardForSeason(seasonInt) {
+    var failed = 0;
     var fetches = LEADERBOARD_ALIASES.map(function (pos) {
       var url = workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(seasonInt) +
                           "&pos=" + encodeURIComponent(pos) + "&min_games=1");
+      if (lbBoards[url]) return Promise.resolve(lbBoards[url]);
       return fetch(url, { mode: "cors", credentials: "omit" })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) { return (j && Array.isArray(j.rows)) ? j.rows : []; })
-        .catch(function () { return []; });
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (j) { var rows = (j && Array.isArray(j.rows)) ? j.rows : []; lbBoards[url] = rows; return rows; })
+        .catch(function () { failed += 1; return []; });
     });
-    return Promise.all(fetches).then(buildLeaderboardMap);
+    return Promise.all(fetches).then(function (arrays) {
+      return { map: buildLeaderboardMap(arrays), failed: failed };
+    });
   }
 
   // Fetch a 4-year window of leaderboards (curYear + 3 prior) so the player
   // sheet's year-by-year table has real games/pts/PPG/rank for the last 3
   // real seasons even during the offseason when curYear has no rows yet.
   //
-  // Returns { byYear: { [year]: pidMap }, latestYearWithData: <int> }.
+  // Returns { byYear: { [year]: pidMap }, latestYearWithData: <int>, ok }.
   // - byYear preserves per-year keys verbatim (no silent aliasing — earlier
   //   versions copied byYear[curYear] = byYear[curYear-1] in preseason,
   //   which caused the player sheet to render two identical rows. See the
   //   2026-05-16 bug fix.)
   // - latestYearWithData lets the FA browser fall back to prior-season
   //   ranks without conflating years.
+  // - ok is false when any of the 16 reads failed (see ensureAdvancedStats).
   function fetchAdvancedStatsLeaderboard(year) {
     var seasonInt = parseInt(year, 10);
-    if (!(seasonInt > 0)) return Promise.resolve({ byYear: {}, latestYearWithData: 0 });   // no season, no guess (#1237)
+    if (!(seasonInt > 0)) return Promise.resolve({ byYear: {}, latestYearWithData: 0, ok: false });   // no season, no guess (#1237)
     var years = [seasonInt, seasonInt - 1, seasonInt - 2, seasonInt - 3];
     var fetches = years.map(function (y) {
       return fetchAdvancedStatsLeaderboardForSeason(y).then(function (m) {
-        return { year: y, map: m };
+        return { year: y, map: m.map, failed: m.failed };
       });
     });
     return Promise.all(fetches).then(function (results) {
-      var byYear = {};
-      results.forEach(function (r) { byYear[r.year] = r.map; });
+      var byYear = {}, failed = 0;
+      results.forEach(function (r) { byYear[r.year] = r.map; failed += r.failed; });
       var latest = seasonInt;
       while (latest >= seasonInt - 3 && (!byYear[latest] || Object.keys(byYear[latest]).length === 0)) {
         latest--;
       }
-      return { byYear: byYear, latestYearWithData: latest };
+      return { byYear: byYear, latestYearWithData: latest, ok: failed === 0 };
     });
   }
 
@@ -949,34 +970,150 @@
   // the drop picker, the player-sheet Drop label, the waiver conditional-drop
   // list. site/m/front_office_penalty.js reads state.capPenaltyByPid first and
   // only falls back to its local estimate when this hasn't landed (offline /
-  // worker down). Fetched once per load; fail-open to {} so a worker blip never
-  // blocks boot. (Keith: the owner-facing preview must equal the actual charge.)
+  // worker down). Read by the screens that show a penalty (ensureCapPenaltyPreview
+  // below), not at boot; a failed read leaves {} so a worker blip never blocks a
+  // screen. (Keith: the owner-facing preview must equal the actual charge.)
   //
   // state.capPenaltyMeta records how that read went, so a screen can say WHY a
   // number is missing instead of guessing one: null = not back yet, status
   // "ok" with the worker's own calculated_at + earned_through_week (the last
   // completed week its "earned" counts), or status "error". The player sheet's
-  // contract block cites both.
+  // contract block cites both. Returns { players, meta }; the caller stores them.
   function fetchCapPenaltyPreview() {
     var url = workerUrl("/api/cap-penalty/preview") +
       "?L=" + encodeURIComponent(state.ctx.leagueId) +
       "&YEAR=" + encodeURIComponent(state.ctx.year);
+    var failed = function () { return { players: {}, meta: { status: "error", readAt: Date.now() } }; };
     return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         if (j && j.ok && j.players) {
-          state.capPenaltyMeta = {
+          return { players: j.players, meta: {
             status: "ok", readAt: Date.now(),
             calculatedAt: safeStr(j.calculated_at),
             earnedThroughWeek: j.earned_through_week == null ? null : Number(j.earned_through_week),
             season: safeStr(j.season)
-          };
-          return j.players;
+          } };
         }
-        state.capPenaltyMeta = { status: "error", readAt: Date.now() };
-        return {};
+        return failed();
       })
-      .catch(function () { state.capPenaltyMeta = { status: "error", readAt: Date.now() }; return {}; });
+      .catch(failed);
+  }
+
+  // ---------- Reads a screen asks for (phone boot requests, 2026-10-20) ----------
+  // Three reads used to run at EVERY app load, the signed-out Sign-in screen included, and again on every
+  // pull-to-refresh and after every move, whether or not anything on screen showed them: the stats leaderboards
+  // (16 /api/advanced-stats-leaderboard calls: this season and the 3 before it × qb/skill/idp/kicker), the
+  // drop-penalty batch (/api/cap-penalty/preview) and the taxi call-up counts (/api/taxi-callups). Home shows none
+  // of them. Now the screen that shows one asks for it:
+  //   leaderboards   the player sheet's Stats tab; Stats when MFL's scoring can't be used; the Players market
+  //                  before MFL has posted a score this season          → ensureAdvancedStats()
+  //   penalty batch  the player sheet; the Players market (claims and their drop pickers) → ensureCapPenaltyPreview()
+  //   taxi call-ups  My Team; the player sheet                             → ensureTaxiCallups()
+  // Rules (lazyRead):
+  //   - In flight: a second caller shares the first request.
+  //   - Answered: kept for this app load. Going back to a screen or switching tabs asks nothing again.
+  //   - Refresh: pull-to-refresh and Refresh data drop every copy, and the next screen that needs one asks again.
+  //     The reload after a move drops the penalty batch and the taxi counts (a move can change both) and asks for
+  //     them again at once if this load had read them; the leaderboards are kept (a move doesn't change stats).
+  //     Sign-out drops everything. The key carries league and season, so another league or season never shares.
+  //   - Failed: kept as a failure for LAZY_RETRY_MS only, so screens repainting in that time don't ask again; the
+  //     next screen that needs it after that asks once more, and a pull-to-refresh asks at once.
+  var LAZY_RETRY_MS = 30 * 1000;
+  var lazyReads = {};    // "name|league|season" → { promise, ok, failedAt }
+  function lazyKey(name) { return name + "|" + state.ctx.leagueId + "|" + state.ctx.year; }
+  // load(isCurrent) → Promise<ok>. It stores its own answer, only while isCurrent() (its copy wasn't dropped
+  // while it was in flight), and never rejects.
+  function lazyRead(name, load) {
+    var key = lazyKey(name), e = lazyReads[key];
+    if (e) {
+      if (e.promise) return e.promise;
+      if (e.ok || Date.now() - e.failedAt < LAZY_RETRY_MS) return Promise.resolve(e.ok);
+    }
+    var entry = { promise: null, ok: false, failedAt: 0 };
+    lazyReads[key] = entry;
+    var isCurrent = function () { return lazyReads[key] === entry; };
+    entry.promise = Promise.resolve()
+      .then(function () { return load(isCurrent); })
+      .then(function (ok) { return !!ok; }, function () { return false; })
+      .then(function (ok) {
+        entry.promise = null;
+        entry.ok = ok;
+        if (!ok) entry.failedAt = Date.now();
+        return ok;
+      });
+    return entry.promise;
+  }
+  // Drops the named copies (all of them without names). Returns the names this load had asked for.
+  function dropLazyReads(names) {
+    var had = [];
+    Object.keys(lazyReads).forEach(function (key) {
+      var name = key.split("|")[0];
+      if (names && names.indexOf(name) < 0) return;
+      if (had.indexOf(name) < 0) had.push(name);
+      delete lazyReads[key];
+    });
+    if (!names || names.indexOf("leaderboard") >= 0) lbBoards = {};
+    return had;
+  }
+  function lazyEvent(type) { try { window.dispatchEvent(new Event(type)); } catch (_) {} }
+
+  function ensureAdvancedStats() {
+    if (!state.ctx.year) return Promise.resolve(false);
+    return lazyRead("leaderboard", function (isCurrent) {
+      return fetchAdvancedStatsLeaderboard(state.ctx.year).then(function (res) {
+        if (!isCurrent()) return res.ok;
+        // results[10] used to be this, read at boot. Older callers (FA browser)
+        // read state.advancedStatsByPid, which points at the latest year that
+        // actually has data — so the FA list still shows meaningful PPG ranks
+        // during the offseason without conflating year labels.
+        state.advancedStatsByYear = res.byYear || {};
+        state.advancedStatsLatestYear = res.latestYearWithData || 0;
+        state.advancedStatsByPid = state.advancedStatsLatestYear
+          ? (state.advancedStatsByYear[state.advancedStatsLatestYear] || {})
+          : {};
+        state.advancedStatsReadAt = Date.now();
+        lazyEvent("ups-advanced-stats-ready");
+        return res.ok;
+      });
+    });
+  }
+  function ensureCapPenaltyPreview() {
+    if (!state.ctx.year) return Promise.resolve(false);
+    return lazyRead("capPenalty", function (isCurrent) {
+      return fetchCapPenaltyPreview().then(function (res) {
+        if (!isCurrent()) return res.meta.status === "ok";
+        state.capPenaltyByPid = res.players;
+        state.capPenaltyMeta = res.meta;
+        // Repaint anything already on screen that was showing a fallback
+        // penalty estimate before the authoritative batch landed.
+        lazyEvent("ups-cap-penalty-ready");
+        return res.meta.status === "ok";
+      });
+    });
+  }
+  // Taxi call-up counter (canon §B2 + tracker Q10). One row per player with
+  // call-ups; empty entries (used=0) are omitted by the worker. Until it is
+  // read (or when it can't be), state.taxiCallupsByPid stays null = UNKNOWN:
+  // chips show no count and isTaxiEligibleFor says no, never "0 used".
+  function ensureTaxiCallups() {
+    return lazyRead("taxiCallups", function (isCurrent) {
+      return fetch(workerUrl("/api/taxi-callups"), { mode: "cors", credentials: "omit" })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (j) {
+          if (!j || !j.players || typeof j.players !== "object" || j.ok === false) throw new Error("no players");
+          if (!isCurrent()) return true;
+          state.taxiCallupsByPid = j.players;
+          state.taxiCallupsOk = true;
+          lazyEvent("ups-taxi-callups-ready");
+          return true;
+        })
+        .catch(function (err) {
+          // Unreadable: permanent promotion stays UNKNOWN (taxiStatusFor → no Demote), never "no call-ups".
+          if (isCurrent()) state.taxiCallupsOk = false;
+          throw err;
+        });
+    });
   }
 
   function buildLeaderboardMap(perAliasArrays) {
@@ -1217,7 +1354,11 @@
     // players on or off rosters (waiverAvailabilityFor).
     state.rostersReadAt = Date.now();
     // The season first (from MFL, #1237): every read below uses state.ctx.year.
-    var p = fetchSeason().then(function () { return Promise.all([
+    var p = fetchSeason().then(function () {
+      // This season's draftResults is ALSO the newest year of the taxi draft
+      // index: one request, shared (it used to be read twice per load).
+      var draftNow = fetchJson(mflExportUrl("draftResults"));
+      return Promise.all([
       fetchJson(mflExportUrl("league")),
       fetchJson(mflExportUrl("rosters")),
       fetchJson(mflExportUrl("salaries")),
@@ -1228,32 +1369,32 @@
       fetchTagTracking(),
       fetchTagSubmissions(),
       fetchSalaryAdjustmentReport(state.ctx.year),
-      fetchAdvancedStatsLeaderboard(state.ctx.year),
+      // [10] was the 16 stats leaderboards. No screen on a boot path shows
+      // them; the screens that do ask (ensureAdvancedStats).
+      null,
       fetchRookieProspects(state.ctx.year),
-      fetchJson(mflExportUrl("draftResults")),
+      draftNow,
       fetch(workerUrl("/api/league-events?season=" + encodeURIComponent(state.ctx.year) + "&from=today&limit=30"))
         .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
       fetchMe(),
-      fetchHistoricalDraftIndex(state.ctx.year),
-      // Taxi call-up counter (canon §B2 + tracker Q10). One row per
-      // player-with-callups; empty entries (used=0) are omitted by the
-      // worker. Failure → empty object → chips render as plain "Taxi"
-      // (no degradation).
-      fetch(workerUrl("/api/taxi-callups"))
-        .then(function (r) { return r.ok ? r.json() : { players: {} }; })
-        .catch(function () { return { players: {} }; }),
+      fetchHistoricalDraftIndex(state.ctx.year, draftNow),
+      // [16] was the taxi call-up counts: My Team and the player sheet ask
+      // (ensureTaxiCallups).
+      null,
       // [17] the contract-ladder calendar (§C2 MYAC close + the Week 3 / Week 5
       // boundaries + NFL Week 1); [18] acquisition label/date map. Both gate
-      // contract-action eligibility (front_office_actions.js). A missing
-      // boundary is UNRESOLVED, not open — see fetchContractCalendar.
+      // contract-action eligibility (front_office_actions.js), which Home's
+      // attention queue counts. A missing boundary is UNRESOLVED, not open —
+      // see fetchContractCalendar.
       fetchContractCalendar(state.ctx.year),
       fetchAcquisitionLookup(state.ctx.year),
       fetchInjuries(),
-      // [20] authoritative drop cap-penalties (batch). [21] waiver window —
-      // both READ-only and fail-open; the waiver READ routes stay live even
+      // [20] was the drop-penalty batch: the player sheet and the Players
+      // market ask (ensureCapPenaltyPreview). [21] waiver window (Home's waiver
+      // card) — READ-only and fail-open; the waiver READ routes stay live even
       // when the WAIVERS_INAPP_ENABLED write flag is dark, so the UI can
       // always tell the owner what window they're in.
-      fetchCapPenaltyPreview(),
+      null,
       fetchWaiverState(true).catch(function () { return null; }),
       // [22] LIVE waiver/FA acquisitions from MFL's own transaction log. The
       // static lookup at [18] is regenerated by hand (the 2026 file was built
@@ -1310,23 +1451,11 @@
       state.optimisticTagSubmissions = stillPending;
       state.tagSubmissions = canonical.concat(stillPending);
       state.salaryAdjustmentReport = results[9] || [];
-      // results[10] is now { byYear, latestYearWithData } from the
-      // expanded leaderboard fetcher. Older callers (FA browser) read
-      // state.advancedStatsByPid which points at the latest year that
-      // actually has data — so the FA list still shows meaningful PPG
-      // ranks during the offseason without conflating year labels.
-      var leaderboardResult = results[10] || { byYear: {}, latestYearWithData: 0 };
-      state.advancedStatsByYear = leaderboardResult.byYear || {};
-      state.advancedStatsLatestYear = leaderboardResult.latestYearWithData || 0;
-      state.advancedStatsByPid = state.advancedStatsLatestYear
-        ? (state.advancedStatsByYear[state.advancedStatsLatestYear] || {})
-        : {};
+      // results[10] (leaderboards) and [16] (taxi call-ups): see ensureAdvancedStats / ensureTaxiCallups.
       state.rookieProspects = results[11] || [];
       state.draftResults = results[12] || null;
       state.leagueEvents = results[13] || null;
       state.historicalDraftByPid = results[15] || {};
-      var taxiCallupsResp = results[16] || { players: {} };
-      state.taxiCallupsByPid = (taxiCallupsResp && taxiCallupsResp.players) || {};
       state.contractLadder = results[17] || emptyContractLadder();
       state.contractDeadline = state.contractLadder.contractDeadline || "";
       state.acquisitionByKey = results[18] || {};
@@ -1352,10 +1481,7 @@
           if (injuriesResp.payload) state.injuryStore.put(injuriesResp.payload, { season: state.ctx.year });
         }
       } catch (_) { /* a store failure must never break boot; the scoreboard then shows no designation */ }
-      state.capPenaltyByPid = results[20] || {};
-      // Repaint anything already on screen that was showing a fallback
-      // penalty estimate before the authoritative batch landed.
-      try { window.dispatchEvent(new Event("ups-cap-penalty-ready")); } catch (_) {}
+      // results[20] (drop-penalty batch): see ensureCapPenaltyPreview.
       parseLeague();
       resolveViewerFranchise(results[14]);
       // reconcileWaiverPlanAfterRun() also runs the instant fetchWaiverState
@@ -1393,7 +1519,11 @@
 
   // Re-fetch league data after a roster mutation. Same shape as loadAllData
   // but skips the franchise resolution (we already know the viewer).
-  function reloadData() {
+  // opts.refresh: the owner asked for fresh data (pull-to-refresh, Refresh data),
+  // not the reload after a move — see the refresh rule at lazyRead.
+  var refreshGen = 0;   // bumped by every owner-asked refresh and by sign-out; views drop their own copies on a change
+  function reloadData(opts) {
+    var ownerRefresh = !!(opts && opts.refresh);
     freshReadsUntil = Date.now() + FRESH_READ_MS;   // the reload after a move reads the roster fresh (see mflExportUrl)
     state.loadingPromise = null;
     state.loaded = false;
@@ -1408,7 +1538,18 @@
     if (window.UPS_MOBILE && window.UPS_MOBILE.sheet && window.UPS_MOBILE.sheet.clearCache) {
       window.UPS_MOBILE.sheet.clearCache();
     }
-    return loadAllData();
+    if (ownerRefresh) refreshGen += 1;
+    // A move can change drop penalties and call-up counts, so those copies go, and if this load had read them they
+    // are asked for again alongside the reload. Until they land they read as "not back yet", never the pre-move
+    // numbers. An owner refresh also drops the leaderboards; the next screen that needs them asks again.
+    var had = dropLazyReads(ownerRefresh ? null : ["capPenalty", "taxiCallups"]);
+    var redoCap = had.indexOf("capPenalty") >= 0, redoTaxi = had.indexOf("taxiCallups") >= 0;
+    if (redoCap) { state.capPenaltyByPid = null; state.capPenaltyMeta = null; }
+    if (redoTaxi) { state.taxiCallupsByPid = null; state.taxiCallupsOk = null; }
+    var load = loadAllData();
+    if (redoCap) ensureCapPenaltyPreview();
+    if (redoTaxi) ensureTaxiCallups();
+    return load;
   }
 
   function parseLeague() {
@@ -3207,6 +3348,40 @@
       '</div>';
   }
 
+  // Can this visitor be anyone at all? These are exactly the sources
+  // resolveViewerFranchise() reads: /api/me (which can only answer for a saved
+  // MFL session — without one it answers configured:false and calls nobody),
+  // the remembered team, and MFL's own cookies. With none of them the viewer
+  // resolves to no team and no commish, i.e. the Sign-in card.
+  function hasIdentityHint() {
+    if (getStoredMflUserId()) return true;
+    try { if (window.localStorage && window.localStorage.getItem("rdh_my_fid")) return true; } catch (e) {}
+    return !!(readCookie("MFL_LAST_LOGIN_FRANCHISE_ID") || readCookie("MFL_USER_ID"));
+  }
+  // The signed-out Sign-in card. Its only read is the active season (MFL via
+  // the worker, no D1): the "Sign in with MFL" link opens that season's league.
+  function renderSignedOut(main) {
+    main.innerHTML = renderSkeletonForRoute("");
+    updateHeader();
+    fetchSeason().then(function () {
+      if (state.loaded || UNGATED_ROUTES[currentRoute().split("/")[0]] || hasIdentityHint()) return;   // moved on
+      renderFranchisePicker(main);
+      updateHeader();
+    }, function (e) { renderLoadFailure(main, e); });
+  }
+  var UNGATED_ROUTES = { more: 1, scores: 1 };
+  function renderLoadFailure(main, e) {
+    if (e && e.seasonUnresolved) {
+      // #1237: no season, no data, no guess. Try again asks the worker again.
+      main.innerHTML = '<div class="ups-m-error" role="alert" id="ups-m-season-fail">' + escapeHtml(e.message) +
+        '<div style="margin-top:10px"><button type="button" class="ups-m-lineup-tool" id="ups-m-season-retry">Try again</button></div></div>';
+      var again = document.getElementById("ups-m-season-retry");
+      if (again) again.addEventListener("click", function () { state.loadingPromise = null; renderRoute(); });
+      return;
+    }
+    main.innerHTML = '<div class="ups-m-error">Failed to load: ' + escapeHtml(e && e.message || String(e)) + '</div>';
+  }
+
   function renderRoute() {
     var route = currentRoute();
     updateNavActive(route);
@@ -3219,25 +3394,6 @@
       main.innerHTML = '<div class="ups-m-stub"><h3>Coming soon</h3><div>' + escapeHtml(top) + '</div></div>';
       return;
     }
-    if (!state.loaded) {
-      main.innerHTML = renderSkeletonForRoute(top);
-      // Embed mode's Close/fallback affordance must not wait on data load --
-      // the nav is already hidden by boot() the instant embed=1 is seen, so
-      // without this the user has zero way out during the load window.
-      if (state.ctx.embed) updateHeader();
-      loadAllData().then(function () { renderRoute(); }).catch(function (e) {
-        if (e && e.seasonUnresolved) {
-          // #1237: no season, no data, no guess. Try again asks the worker again.
-          main.innerHTML = '<div class="ups-m-error" role="alert" id="ups-m-season-fail">' + escapeHtml(e.message) +
-            '<div style="margin-top:10px"><button type="button" class="ups-m-lineup-tool" id="ups-m-season-retry">Try again</button></div></div>';
-          var again = document.getElementById("ups-m-season-retry");
-          if (again) again.addEventListener("click", function () { state.loadingPromise = null; renderRoute(); });
-          return;
-        }
-        main.innerHTML = '<div class="ups-m-error">Failed to load: ' + escapeHtml(e && e.message || String(e)) + '</div>';
-      });
-      return;
-    }
     // Franchise gate: the roster/contract views genuinely need to know WHOSE
     // team they are acting on. LIVE SCORING DOES NOT -- it is a league-wide
     // scoreboard, it carries its own team picker, and it falls back to a real
@@ -3246,7 +3402,20 @@
     // franchise picker, or worse the plain "Sign in" card, instead of the
     // scores -- while every number needed to draw that board had already
     // loaded.
-    var UNGATED = { more: 1, scores: 1 };
+    var UNGATED = UNGATED_ROUTES;
+    if (!state.loaded) {
+      // Signed out (phone boot requests, 2026-10-20): with no identity at all, every gated route ends on the
+      // Sign-in card, so nothing is loaded for it but the season its MFL link names. It used to run the whole app
+      // load first (about 38 requests, 16 of them stats leaderboards) and then show the card anyway.
+      if (!UNGATED[top] && !hasIdentityHint()) { renderSignedOut(main); return; }
+      main.innerHTML = renderSkeletonForRoute(top);
+      // Embed mode's Close/fallback affordance must not wait on data load --
+      // the nav is already hidden by boot() the instant embed=1 is seen, so
+      // without this the user has zero way out during the load window.
+      if (state.ctx.embed) updateHeader();
+      loadAllData().then(function () { renderRoute(); }).catch(function (e) { renderLoadFailure(main, e); });
+      return;
+    }
     if (!state.viewerFranchiseId && !UNGATED[top]) {
       renderFranchisePicker(main);
       updateHeader();
@@ -3334,6 +3503,17 @@
     state.viewerFranchiseId = "";
     state.viewerFranchise = null;
     state.meConfigured = false;
+    // Nothing read for (or as) this owner outlives the sign-out: their trade
+    // offers and notes, their MFL-held claims, the commish flag, and every copy
+    // a screen asked for this session (see lazyRead). The league-wide exports
+    // stay; the next owner's own reads come with their sign-in.
+    state.tradeOffers = null;
+    state.tradeBaitNotes = null;
+    state.waiverPending = null;
+    state.isCommish = false;
+    state.realFranchiseId = "";
+    dropLazyReads();
+    refreshGen += 1;
     renderRoute();
   }
 
@@ -3506,7 +3686,7 @@
         refreshBtn.disabled = true;
         var originalText = refreshBtn.textContent;
         refreshBtn.textContent = "Refreshing…";
-        reloadData().then(function () {
+        reloadData({ refresh: true }).then(function () {
           refreshBtn.textContent = "✓ Refreshed";
           renderRoute();
           setTimeout(function () {
@@ -3567,7 +3747,7 @@
       if (ready && !busy) {
         busy = true;
         ind.classList.add("show", "spin");
-        reloadData().then(function () {
+        reloadData({ refresh: true }).then(function () {
           renderRoute();
         }).catch(function () {}).then(function () {
           setTimeout(function () {
@@ -3667,7 +3847,10 @@
   function boot() {
     registerServiceWorker();
     detectContext();
-    window.addEventListener("ups-cap-penalty-ready", function () { try { renderRoute(); } catch (_) {} });
+    // ups-cap-penalty-ready / ups-taxi-callups-ready / ups-advanced-stats-ready
+    // now land after a screen asked (see lazyRead), so each screen that shows
+    // them repaints itself (player sheet, Players overlays, My Team, Stats) —
+    // a whole-route repaint here would reset the scroll under an open sheet.
     window.addEventListener("hashchange", function () {
       // The waiver overlays are appended to #ups-m-app, a SIBLING of the
       // #ups-m-main that renderRoute() repaints — so navigating (Android Back,
@@ -3860,43 +4043,39 @@
       // contractStatus: the player's CURRENT contract label (rosterRow.contractStatus).
       // Optional param for back-compat with any caller not yet updated, but
       // every real caller now passes it — see the note below on why.
-      isTaxiEligibleFor: function (playerId, contractStatus) {
+      // Taxi eligibility = the ONE rule (site/shared/taxi_rule.js, twin of the worker's taxi_rule.js, canon §A1 /
+      // §B2 / T2.4): UPS Rookie Draft Round 2 or later (never the NFL round), inside the first 3 league years,
+      // never released (still exactly "Rookie-Draft": a cut wipes the contract and a re-acquisition writes a
+      // fresh one; a trade keeps it), not permanently promoted — the tracked rule (4th activation recorded from 2026,
+      // or a marked call-up: tracked_permanent) or the 2025 legacy rule (on an active roster or IR in any 2025 week:
+      // legacy_2025), both from /api/taxi-callups. Activations 1–3 are temporary: demotion stays allowed, after the
+      // third too. An older worker without those flags: permanent_promotion stands for both.
+      // historicalDraftByPid is the merged UPS draft index of the last 3–4 drafts (windowIndexOnly).
+      // An unreadable draft index or call-up history makes the answer UNKNOWN → not eligible here, no Demote.
+      taxiStatusFor: function (playerId, contractStatus, isTaxi, isIr) {
+        var R = window.UPS_TAXI_RULE;
         var pid = String(playerId || "");
-        if (!pid) return false;
-        var callup = (state.taxiCallupsByPid || {})[pid];
-        if (callup && callup.permanent_promotion) return false;
-        // FAITHFUL MIRROR of the worker's taxi_eligible (isTaxiEligible in
-        // worker/src/index.js, the value desktop trusts verbatim): use the UPS
-        // ROOKIE DRAFT round/year (NOT the NFL round), Round 2 OR LATER, inside
-        // the 3-league-year window. `historicalDraftByPid` (results[15]) is the
-        // merged 3-year UPS draft index keyed by pid — the mobile equivalent of
-        // the worker's `upsDraftByPlayer`. Trey Benson is NFL R3 but UPS R1.10 →
-        // R1 NOT taxi-eligible (§A1); the old NFL-round check wrongly passed him.
-        // A player absent from the index has no UPS rookie-draft record → not
-        // draft-taxi-eligible. R6 (IDP-only since 2025) IS eligible — canon §B2
-        // "Round 2 or later" (ratified Keith 2026-07-17; the old `> 5` cap
-        // wrongly benched R6 rookies like A.J. Haulcy).
-        var ups = (state.historicalDraftByPid || {})[pid];
-        if (!ups) return false;
-        var draftYear = parseInt(ups.year, 10);
-        var draftRound = parseInt(ups.round, 10);
-        var currentSeason = parseInt(state.ctx && state.ctx.year, 10);
-        if (!draftYear || !currentSeason) return false;
-        if (!draftRound || draftRound < 2) return false;  // only R1 excluded; R2+ (incl. R6 IDP) taxi-eligible
-        if ((currentSeason - draftYear) >= 3) return false;
-        // Trade preserves eligibility; a CUT forfeits it permanently (Keith
-        // 2026-08-03: "if a player is traded they can be demoted...but once cut
-        // that player is no longer cap eligible"). MFL never rewrites
-        // contractStatus on a trade, but a drop wipes it and re-acquisition
-        // always assigns a fresh one — so anything other than exactly
-        // "Rookie-Draft" means the original entry contract is gone, no matter
-        // how recent the UPS draft record is. Mirrors the worker's
-        // stillOnEntryContract check. Found via a real case: Demetrius Knight
-        // (UPS R6 2025, drafted by Blake Bombers) was cut and bought back by a
-        // DIFFERENT team at the 2026 auction — now "Vet-FAA" — and this check
-        // hadn't noticed, because it only ever looked at draft history.
-        if (!/^rookie-draft$/i.test(safeStr(contractStatus))) return false;
-        return true;
+        if (!R || !pid) return null;
+        var ups = (state.historicalDraftByPid || {})[pid] || null;
+        var callup = (state.taxiCallupsByPid || {})[pid] || null;
+        // The call-up counts are read when My Team or a player sheet opens (ensureTaxiCallups), not at boot:
+        // until they land, or when they can't be read, permanent promotion is UNKNOWN, never "not promoted".
+        var countsKnown = !!state.taxiCallupsByPid && state.taxiCallupsOk !== false;
+        var draftOk = !state.historicalDraftByPid || state.historicalDraftByPid.__ok !== false;
+        return R.taxiEligibility({
+          upsRound: ups ? parseInt(ups.round, 10) : 0, upsYear: ups ? parseInt(ups.year, 10) : 0,
+          season: parseInt(state.ctx && state.ctx.year, 10), contractStatus: contractStatus,
+          isTaxi: !!isTaxi, isIr: !!isIr, used: callup ? callup.used : 0, pending: callup ? callup.pending : 0,
+          draftKnown: draftOk && !!state.historicalDraftByPid, windowIndexOnly: true,
+          permanent: !countsKnown ? null
+            : !!(callup && (callup.tracked_permanent != null ? callup.tracked_permanent : callup.permanent_promotion)),
+          legacy2025: !countsKnown ? null : !!(callup && callup.legacy_2025),
+        });
+      },
+      isTaxiEligibleFor: function (playerId, contractStatus) {
+        var host = (this && this.taxiStatusFor) ? this : (window.UPS_MOBILE && window.UPS_MOBILE.data);
+        var st = host && host.taxiStatusFor ? host.taxiStatusFor(playerId, contractStatus, false, false) : null;
+        return !!(st && st.eligible === true);
       },
       // §B3 IR eligibility — the ONE copy on the mobile side.
       //
@@ -4002,6 +4181,18 @@
         return state.advancedStatsByPid || {};
       },
       getAdvancedStatsLatestYear: function () { return state.advancedStatsLatestYear || 0; },
+      // Reads a screen asks for when it opens (see lazyRead): one shared
+      // request per app load; each resolves true when its answer is in state.
+      ensureAdvancedStats: ensureAdvancedStats,
+      ensureCapPenaltyPreview: ensureCapPenaltyPreview,
+      ensureTaxiCallups: ensureTaxiCallups,
+      // Have the leaderboards been read this session? Until then the getters
+      // above return nothing, which is "not read yet", not "no rows".
+      advancedStatsKnown: function () { return !!state.advancedStatsReadAt; },
+      taxiCallupsKnown: function () { return !!state.taxiCallupsByPid && state.taxiCallupsOk !== false; },
+      // Bumped by pull-to-refresh / Refresh data and by sign-out: a view that
+      // keeps its own copies drops them when this changes.
+      refreshGen: function () { return refreshGen; },
       getRookieProspects: function () { return state.rookieProspects || []; },
       tradeBaitEntries: function () { return _tradeBaitEntries(); },
       describeTradeBaitToken: function (token) {

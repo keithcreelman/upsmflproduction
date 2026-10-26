@@ -61,6 +61,12 @@ globalThis.fetch = async (input, init) => {
     const year = (u.pathname.match(/\/(\d{4})\//) || [])[1];
     const type = u.searchParams.get("TYPE");
     if (type === "nflSchedule") return json(nflSchedule(Number(u.searchParams.get("W"))));
+    // UPS Rookie Draft results (the taxi rule's window): Neal 2025 R3, Kyle 2025 R2, the call-up rookie 2026 R2.
+    if (type === "draftResults") {
+      if (year !== "2026" && MFL.priorSeasonsDown) return json({ error: "MFL down" }, 500);
+      const picks = { 2025: [["17046", "3"], ["17134", "2"]], 2026: [["17052", "2"], ["17075", "2"], ["17076", "2"], ["17077", "2"], ["17078", "2"]] }[year] || [];
+      return json({ draftResults: { draftUnit: { draftPick: picks.map(([player, round]) => ({ player, round })) } } });
+    }
     if (year !== "2026") return MFL.priorSeasonsDown ? json({ error: "MFL down" }, 500) : json({ error: "test: prior seasons come from the D1 cache" }, 500);
     if (type === "transactions") {
       const tt = u.searchParams.get("TRANS_TYPE");
@@ -95,10 +101,13 @@ function makeDb({ priorActiveCached }) {
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
   db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT, nfl_week INTEGER)");
   const callups = { "17046": 3, "17134": 1, "17052": 2 };
-  for (const [pid, n] of Object.entries(callups)) for (let i = 0; i < n; i++) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending) VALUES (?, 0)").run(pid);
-  // taxiPriorActivePids' own D1 cache: who ended 2025 on an active / IR roster. Absent → it reads MFL's 2025/2024 exports.
+  // Devin Neal's 3 and Kyle Williams' 1 were 2025 call-ups (the 2025 legacy rule decides them, not the count); the taxi
+  // call-up rookie's 2 are 2026's, the tracked rule.
+  const seasonOf = { "17046": "2025", "17134": "2025", "17052": "2026" };
+  for (const [pid, n] of Object.entries(callups)) for (let i = 0; i < n; i++) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending, season, nfl_week) VALUES (?, 0, ?, ?)").run(pid, seasonOf[pid], i + 1);
+  // taxiLegacy2025Pids' own D1 cache: who was on an active roster or IR in some 2025 week. Absent → it reads MFL's 2025 exports.
   db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
-  if (priorActiveCached) db.raw.prepare("INSERT INTO ups_settings (key, value) VALUES ('taxi_prior_active_2026', ?)").run(JSON.stringify(["17134", "17046"]));
+  if (priorActiveCached) db.raw.prepare("INSERT INTO ups_settings (key, value) VALUES ('taxi_legacy_active_2025_v1', ?)").run(JSON.stringify(["17134", "17046"]));
   applyMigrations(db, ["0112_ups_add_events.sql"]);
   for (const [fid, pid] of [["0005", "20001"], ["0007", "20002"], ["0003", "20003"]]) {
     db.raw.prepare(`INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
@@ -193,8 +202,10 @@ test("A6. the cards read the ledger's numbers: Neal $2.4K ($4.5K − $2.1K), Kyl
     t.match(card(runs[k], "Kyle Williams"), /Cap Penalty: \$6K/, k);
     t.match(card(runs[k], "Taxi Callup"), /No Cap Penalty/, k);
   }
-  t.equal(announced(runs.onTime, "17052").pricing_inputs.taxi_never_promoted, true, "the call-up status came from the shared resolver");
-  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_never_promoted, null, "permanently promoted → no exemption");
+  t.equal(announced(runs.onTime, "17052").pricing_inputs.taxi_eligible_before_cut, true, "eligible immediately before the cut: the ONE taxi rule's answer");
+  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_eligible_before_cut, false, "permanently promoted → no exemption");
+  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_cut.legacy2025, true, "on an active roster in 2025: the legacy promotion");
+  t.equal(announced(runs.onTime, "17134").pricing_inputs.taxi_cut.permanent, false, "his one 2025 call-up row is not a tracked call-up");
   t.deepEqual(DISCORD_CALLS, [], "a dry run never contacts Discord");
 });
 
@@ -211,24 +222,27 @@ test("B. the drop scan is down until Tue 9/22 (Week 2 complete by then): it book
 });
 
 // ═════════ C. the taxi call-up history cannot be read ═════════
-test("C. call-up history unreadable (no cached 2025 rosters, MFL's prior seasons down): the ledger HOLDS all three; every card says 'unknown — needs review', never $0", async () => {
+test("C. the 2025 record unreadable (no cached 2025 rosters, MFL's 2025 exports down): the ledger HOLDS the two 2025 picks; every card says 'unknown — needs review', never $0 — and the 2026 pick, whom 2025 can't decide, is still priced", async () => {
   const dbC = makeDb({ priorActiveCached: false }), envC = makeEnv(dbC);
   NOW = RealDate.parse("2026-09-17T13:06:00Z"); MFL.priorSeasonsDown = true;
   const p = await poster(envC);
   const s = await scan(envC);
   MFL.priorSeasonsDown = false;
   t.equal(p.status, 200, p.text.slice(0, 400)); t.equal(s.status, 200, s.text.slice(0, 400));
-  for (const [pid, name] of [["17046", "Devin Neal"], ["17134", "Kyle Williams"], ["17052", "Taxi Callup"]]) {
+  for (const [pid, name] of [["17046", "Devin Neal"], ["17134", "Kyle Williams"]]) {
     const row = ledger(dbC, pid);
     t.deepEqual([row.penalty_basis, row.penalty_amount], ["week_authority_unresolved", null], `${pid}: held by the ledger`);
     const a = announced(p, pid);
     t.equal(a.known, false, `${pid}: not priced on the card either`);
-    t.equal(a.pricing_inputs.taxi_never_promoted, "unresolved");
-    t.match(a.unknown_reason, /permanently promoted could not be read[\s\S]*NOT a \$0/);
+    t.equal(a.pricing_inputs.taxi_eligible_before_cut, null, `${pid}: eligibility unknown`);
+    t.match(a.unknown_reason, /still taxi-eligible could not be confirmed[\s\S]*NOT a \$0/);
     const c = card(p, name);
     t.match(c, /Cap penalty: unknown — needs review/, name);
     t.doesNotMatch(c, /No Cap Penalty|Cap Penalty: \$/, name);
   }
+  // A 2026 pick wasn't in the league in 2025: the legacy rule can't apply to him, so its record isn't needed.
+  t.equal(announced(p, "17052").pricing_inputs.taxi_eligible_before_cut, true, "2026 pick: eligible, 2 tracked call-ups");
+  t.equal(ledger(dbC, "17052").penalty_amount, 0, "2026 pick: cap-free");
   t.deepEqual(DISCORD_CALLS, []);
 });
 
@@ -238,8 +252,8 @@ test("D. the poster calls the ledger's helpers, not its own week count, acquisit
   const SRC = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
   const i = SRC.indexOf('if (path === "/admin/adds/post-discord" && request.method === "POST")');
   const POSTER = SRC.slice(i, SRC.indexOf("const apResults = [];", i));
-  t.match(POSTER, /_taxiNeverPromotedMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId, atUnix: ts \}\)/, "as of each claim's drop");
-  t.match(POSTER, /taxiNeverPromoted,\n/, "passed to the calculator as is (true | 'unresolved')");
+  t.match(POSTER, /_taxiCutContextMap\(env, \[\.\.\.apDropPids\], \{ season: apSeason, leagueId: apLeagueId, atUnix: ts \}\)/, "as of each claim's drop");
+  t.match(POSTER, /taxiCut,\n/, "the taxi rule's inputs passed to the calculator as is");
   t.match(POSTER, /await _completedWeeksForDrop\(apSeason, apLeagueId, ts\)/);
   t.match(POSTER, /_acquisitionWeekAsOf\(apTxs, apSeason, dpid, ts\)/);
   t.doesNotMatch(POSTER, /resolveCompletedPayableWeeks\(|_acquisitionWeekMapFromTxs\(/, "no second week rule, no latest-add acquisition map");
@@ -259,7 +273,8 @@ test("E. 3rd call-up, cut Sunday 9 AM: preview, drop ledger and waiver card give
   const added = [["0005", "20101", "17075"], ["0007", "20102", "17076"], ["0003", "20103", "17077"], ["0010", "20104", "17078"]];
   for (const [fid, add, drop] of added) TXS.push({ type: "BBID_WAIVER", franchise: fid, timestamp: String(SUN), transaction: `${add},|1000|${drop},` });
   const db = makeDb({ priorActiveCached: true }), env = makeEnv(db);
-  for (const [, , pid] of added) for (let i = 0; i < 3; i += 1) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending) VALUES (?, 0)").run(pid);
+  // Three recorded qualifying weeks each — any three other than Week 2, the week under way (only the count matters here).
+  for (const [, , pid] of added) for (let i = 0; i < 3; i += 1) db.raw.prepare("INSERT INTO ups_taxi_callups (player_id, pending, season, nfl_week) VALUES (?, 0, '2026', ?)").run(pid, 15 + i);
   for (const [fid, add] of added) {
     db.raw.prepare(`INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
       source, bid_dollars, acquisition_week, detected_at_utc) VALUES ('2026', '74598', ?, ?, ?, ?, ?, ?, 'bbid', 1000, 2, ?)`)

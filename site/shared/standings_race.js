@@ -374,6 +374,45 @@
     return out;
   }
 
+  // wildCardMargins(rows) -> { fid: { margin, vsFid, side, protectedByDivision } | null } (Keith 2026-10-22).
+  // A SIGNED distance to the wild-card line, in All-Play wins (ties count half), for EVERY team -- division
+  // winners included, so a seed won on a division title never hides how close the team is to the wild-card line.
+  //   The question for team X: "if X had to earn a wild card, where would it stand?" The pool is every team
+  //   that isn't a division winner, plus X. Two wild cards qualify, ranked by the league ladder (canon F.1:
+  //   All-Play %, then overall win %, then Points For; head-to-head is not used here).
+  //     X qualifies   -> margin = -(X's AP wins - the best team left out)       (negative: ahead by that many)
+  //     X misses      ->  margin = (the last qualifier's AP wins - X's AP wins) (positive: behind by that many)
+  //     0 = level on All-Play wins with the team at the line; side says which side of it the ladder puts X.
+  //   Current regular season only (rows[].regular_season); otherwise every value is null.
+  function wildCardMargins(rows) {
+    var list = (Array.isArray(rows) ? rows : []).filter(isRowObject);
+    var out = {};
+    var info = list.map(function (r) {
+      var rs = r.regular_season;
+      var ap = rs && rs.all_play, recd = rs && rs.record;
+      var w = ap ? strictNum(ap.w) : NaN, t = ap ? strictNum(ap.t) : NaN, n = ap ? strictNum(ap.w) + strictNum(ap.l) + strictNum(ap.t) : NaN;
+      var ok = isFiniteNum(w) && isFiniteNum(t) && isFiniteNum(n) && n > 0;
+      return ok ? { fid: pad4(r.franchise_id), dw: !!r.is_division_leader, apw: w + 0.5 * t, appct: (w + 0.5 * t) / n,
+        ovr: recd && isFiniteNum(strictNum(recd.pct)) ? strictNum(recd.pct) : 0,
+        pf: isFiniteNum(strictNum(rs.points_for)) ? strictNum(rs.points_for) : 0 } : null;
+    });
+    if (!list.length || info.some(function (x) { return !x; })) {
+      list.forEach(function (r) { out[pad4(r.franchise_id)] = null; });
+      return out;
+    }
+    function ladder(a, b) { return (b.appct - a.appct) || (b.ovr - a.ovr) || (b.pf - a.pf) || (a.fid < b.fid ? -1 : 1); }
+    var nonDw = info.filter(function (x) { return !x.dw; });
+    info.forEach(function (x) {
+      var pool = nonDw.filter(function (y) { return y.fid !== x.fid; }).concat([x]).sort(ladder);
+      var i = pool.indexOf(x);
+      if (pool.length < 3) { out[x.fid] = null; return; }
+      var inField = i < 2, other = inField ? pool[2] : pool[1];
+      var m = inField ? -(x.apw - other.apw) : (other.apw - x.apw);
+      out[x.fid] = { margin: round1(m) === 0 ? 0 : round1(m), vsFid: other.fid, side: inField ? 'in' : 'out', protectedByDivision: x.dw };
+    });
+    return out;
+  }
+
   // ── 3. Luck ──────────────────────────────────────────────────────────
   // Exact REGULAR-SEASON-ONLY Overall table for the WHOLE league, derived
   // once from weekly[] and reused by every franchise (mirrors
@@ -901,14 +940,16 @@
   // asks "who wins a projected/actual GAME between two already-seeded
   // teams" — seed 1..12 is trusted input, not derived here.
   //
-  // BRACKET TOPOLOGY (verified against real, live /api/playoff-bracket
-  // data for a completed season — 2025 — not assumed): each 6-team side
+  // BRACKET TOPOLOGY (#1370 gate 2: MFL's own brackets, every 6-team side
+  // 2014-2025, tests/fixtures/bracket_reseed_vectors.json): each 6-team side
   // (seeds 1-6 for the UPS championship side, 7-12 for the Hawk Tuah Bowl
-  // side, using within-side relative positions 1-6) is a standard
-  // single-elimination bracket with the top 2 byed to the semifinal
-  // round:
+  // side, using within-side relative positions 1-6) is single elimination
+  // with the top 2 byed to the semifinal round, RE-SEEDED after round 1:
   //   Round 1 (week 1 of 3 playoff weeks):  3 vs 6,  4 vs 5
-  //   Semis   (week 2): 1 vs winner(4v5),  2 vs winner(3v6)
+  //   Semis   (week 2): 1 vs the LOWEST seed left,  2 vs the other winner
+  //     (a fixed "1 vs winner of 4/5" path is wrong whenever 6 beats 3:
+  //     2014, 2016, 2017, 2022; H6 in 2016 and 2021). The UPS Wire season
+  //     simulation (season_sim.bracket) plays the same rule.
   //   Placement (week 2, the other game — the two R1 LOSERS play each
   //     other for the lower two of the six positions)
   //   Final   (week 3): winner(semi1) vs winner(semi2)
@@ -980,26 +1021,57 @@
     if (!b) return a;
     return Number(a.seed) < Number(b.seed) ? a : b;
   }
-  function chalkLoser(a, b) {
-    if (!a || !b) return null;
-    return chalkWinner(a, b) === a ? b : a;
+  // THE round-2 rule, shared by every bracket on desktop and phone (#1370
+  // gate 2): the side's top seed meets the LOWEST seed left after round 1
+  // (the larger seed number), the second seed meets the other winner.
+  // survivors = the two round-1 winners (seed entries); either missing →
+  // null (round 2 isn't set until both round-1 games are decided).
+  function reseedRoundTwo(top, second, survivors) {
+    var a = survivors && survivors[0], b = survivors && survivors[1];
+    if (!top || !second || !a || !b) return null;
+    var low = Number(a.seed) > Number(b.seed) ? a : b;
+    return [[top, low], [second, low === a ? b : a]];
   }
-  function chalkGame(a, b) {
-    return { a: a, b: b, winner: chalkWinner(a, b), loser: chalkLoser(a, b), scoreA: null, scoreB: null, pending: false, projected: true };
-  }
-  // Builds one 6-team side's full bracket topology (see the module
-  // comment above) entirely by chalk. `base` = 0 for the UPS
-  // championship side (seeds 1-6), 6 for the Hawk Tuah Bowl side (7-12).
-  function chalkBracketSide(bySeedNum, base) {
+  // One 6-team side's full bracket from any game decider: decide(a, b)
+  // returns the winning entry, or null while that game is undecided. `base`
+  // = 0 for the UPS championship side (seeds 1-6), 6 for the Hawk Tuah Bowl
+  // side (7-12). Undecided games leave later slots empty (a: null / b: null)
+  // instead of guessing.
+  function resolveBracketSide(bySeedNum, base, decide) {
     function s(n) { return bySeedNum[base + n]; }
-    var r1a = chalkGame(s(3), s(6));
-    var r1b = chalkGame(s(4), s(5));
-    var semi1 = chalkGame(s(1), r1b.winner);
-    var semi2 = chalkGame(s(2), r1a.winner);
-    var placement = chalkGame(r1a.loser, r1b.loser);
-    var finalGame = chalkGame(semi1.winner, semi2.winner);
-    var thirdGame = chalkGame(semi1.loser, semi2.loser);
+    function game(a, b) {
+      var w = a && b ? decide(a, b) : null;
+      var winner = w === a || w === b ? w : null;
+      return { a: a || null, b: b || null, winner: winner, loser: winner ? (winner === a ? b : a) : null, scoreA: null, scoreB: null, pending: !winner, projected: true };
+    }
+    var r1a = game(s(3), s(6));
+    var r1b = game(s(4), s(5));
+    var pairs = reseedRoundTwo(s(1), s(2), [r1a.winner, r1b.winner]);
+    var semi1 = pairs ? game(pairs[0][0], pairs[0][1]) : game(s(1), null);
+    var semi2 = pairs ? game(pairs[1][0], pairs[1][1]) : game(s(2), null);
+    var placement = game(r1a.loser, r1b.loser);
+    var finalGame = game(semi1.winner, semi2.winner);
+    var thirdGame = game(semi1.loser, semi2.loser);
     return { r1: [r1a, r1b], semis: [semi1, semi2], placement: placement, final: finalGame, third: thirdGame };
+  }
+  // The projected side: the shared resolver with chalk deciding every game.
+  function chalkBracketSide(bySeedNum, base) {
+    return resolveBracketSide(bySeedNum, base, chalkWinner);
+  }
+  // Does an ACTUAL side's round 2 follow the re-seeding rule? Given the
+  // side's decided round-1 games and its round-2 games (classified from real
+  // results), compare the real pairings with reseedRoundTwo(). → { ok, checked }
+  // checked false when round 1 isn't fully decided or round 2 isn't set yet.
+  function reseedCheck(side, top, second) {
+    var r1 = side && side.r1 ? side.r1 : [];
+    var semis = side && side.semis ? side.semis : [];
+    if (r1.length !== 2 || semis.length !== 2 || !r1[0].winner || !r1[1].winner) return { ok: true, checked: false };
+    var want = reseedRoundTwo(top, second, [r1[0].winner, r1[1].winner]);
+    if (!want) return { ok: true, checked: false };
+    function key(x, y) { return [pad4(x.franchise_id), pad4(y.franchise_id)].sort().join('-'); }
+    var have = {};
+    semis.forEach(function (g) { if (g && g.a && g.b) have[key(g.a, g.b)] = true; });
+    return { ok: !!(have[key(want[0][0], want[0][1])] && have[key(want[1][0], want[1][1])]), checked: true };
   }
   // ── F5 (Phase II-A2 correction pass) — one GAME's natural identity is
   // (week, sorted franchise-id pair), regardless of how many perspective
@@ -1204,7 +1276,8 @@
   //   conference, the 2011-2013 conference brackets) · 'incomplete' (no decided final) · 'champion_mismatch' (the
   //   drawn champion isn't the recorded one) · 'seeds_unreadable' (the season's seeds don't validate — 2013 has two
   //   teams at seed 7 — so the games are split by recorded finish, 1-6 and 7-12, from opts.matchups, with no seed
-  //   numbers). With no recorded finish to check against, the side draws as before (reason 'unverified').
+  //   numbers) · 'path_mismatch' (today's Round 1, but Round 2 didn't follow the re-seeding rule, reseedCheck).
+  //   With no recorded finish to check against, the side draws as before (reason 'unverified').
   //   A Round 1 of exactly today's pairs (3 v 6 and 4 v 5; H3 v H6 and H4 v H5) is never treated as a conference
   //   bracket, even in a season that had conferences.
   function verifyActualSide(result, sideKey, seedsRaw, opts) {
@@ -1259,6 +1332,13 @@
         return a && b && a.conference_id != null && a.conference_id !== '' && a.conference_id === b.conference_id;
       });
       if (intra) { out.reason = 'conference_format'; return out; }
+    }
+    if (todaysRound1) {
+      // Round 2 must follow the shared re-seeding rule (#1370 gate 2); a side that doesn't is listed by week.
+      var tops = seeds.filter(function (x) { var n = strictNum(x.seed); return n === (hawk ? 7 : 1) || n === (hawk ? 8 : 2); })
+        .sort(function (x, y) { return strictNum(x.seed) - strictNum(y.seed); })
+        .map(function (x) { return { seed: strictNum(x.seed), franchise_id: pad4(x.franchise_id) }; });
+      if (tops.length === 2 && !reseedCheck(side, tops[0], tops[1]).ok) { out.reason = 'path_mismatch'; return out; }
     }
     var drawn = side && side.final && side.final.winner ? pad4(side.final.winner.franchise_id) : null;
     if (!out.recordedChampion) { out.draw = !!drawn; out.reason = drawn ? 'unverified' : 'incomplete'; return out; }
@@ -1863,6 +1943,9 @@
             record: withPct(rec), ap: withPct(ap),
             expectedWins: others > 0 ? ratio2(ewNum, 2 * others) : null,
             luck: others > 0 ? ratio2((2 * rec.w + rec.t) * others - ewNum, 2 * others) : null,
+            // luckExact: the same difference before the hundredths rounding, so a display that shows one decimal rounds ONCE
+            // (2.5455 shows +2.5; rounding 2.55 again would show +2.6).
+            luckExact: others > 0 ? Math.round(1e6 * ((2 * rec.w + rec.t) * others - ewNum) / (2 * others)) / 1e6 : null,
             pf: pfC[f] / 100, paPerGame: paPerGame
           }
         };
@@ -1881,6 +1964,58 @@
       var by = {};
       read.order.forEach(function (f) { by[f] = { scored: acc[f].scored, faced: acc[f].faced, overall: acc[f].overall }; });
       return viewResult(st, { byFranchise: by });
+    }, nulls);
+  }
+
+  // e2. scheduleStrength(payload) -> regular season only -> { status, problems, byFranchise: { fid: {
+  //      games, vsLeague, oppStrength, vsLeagueRank, oppStrengthRank } } } (Keith 2026-10-22).
+  //    Two numbers about who a team has played, each an index where 1.00 = league average:
+  //      vsLeague    = mean over your H2H games of (your opponent's score that week / the league's average score that
+  //                    week). What opponents actually put up against you: a high number is a run of opponents' good
+  //                    weeks. Partly schedule, partly luck; it is not proof that the schedule was hard.
+  //      oppStrength = mean over your games of the opponent's scoring index (its score / league average) in its OTHER
+  //                    regular-season weeks -- how good the teams you drew are, leaving out the weeks they played you.
+  //                    This is the schedule-difficulty number (null for an opponent with no other week yet).
+  //    Ranks share ties; 1 = the hardest (highest index).
+  function scheduleStrength(payload) {
+    var nulls = { byFranchise: null };
+    return safeView(function () {
+      var read = readSeasonWeeks(payload, true);
+      var scope = read.regularWeeks;
+      var st = scopeStatus(read, scope);
+      if (st.status === 'preseason') return viewResult(st, { byFranchise: {} });
+      if (st.status === 'ok' && !scope.length) st = { status: 'incomplete', problems: [{ code: 'no_regular_season_weeks' }] };
+      if (st.status !== 'ok') return viewResult(st, nulls);
+      var stats = {}, avg = {};
+      scope.forEach(function (w) {
+        stats[w] = weekStats(read, w);
+        var tot = 0;
+        read.order.forEach(function (f) { tot += stats[w][f].score; });
+        avg[w] = tot / read.order.length;
+      });
+      function idx(f, w) { return avg[w] > 0 ? stats[w][f].score / avg[w] : null; }
+      var out = {}, vsl = {}, str = {};
+      read.order.forEach(function (f) {
+        var g = 0, sumV = 0, nS = 0, sumS = 0;
+        scope.forEach(function (w) {
+          stats[w][f].games.forEach(function (game) {
+            var o = game.opp, v = idx(o, w);
+            if (v == null) return;
+            g++; sumV += v;
+            var oth = 0, k = 0;
+            scope.forEach(function (x) { if (x !== w) { var y = idx(o, x); if (y != null) { oth += y; k++; } } });
+            if (k) { sumS += oth / k; nS++; }
+          });
+        });
+        vsl[f] = g ? Math.round(1000 * sumV / g) / 1000 : null;
+        str[f] = nS ? Math.round(1000 * sumS / nS) / 1000 : null;
+        out[f] = { games: g, vsLeague: vsl[f], oppStrength: str[f], vsLeagueRank: null, oppStrengthRank: null };
+      });
+      read.order.forEach(function (f) {
+        out[f].vsLeagueRank = rankAmong(vsl, f, false);
+        out[f].oppStrengthRank = rankAmong(str, f, false);
+      });
+      return viewResult(st, { byFranchise: out });
     }, nulls);
   }
 
@@ -2393,6 +2528,7 @@
     // single franchise's division race on demand).
     statusForRow: statusForRow,
     apGamesBack: apGamesBack,
+    wildCardMargins: wildCardMargins,
     apWinsEquiv: apWinsEquiv,
     deriveRegSeasonApTable: deriveRegSeasonApTable,
     resolveApRecordWithTable: resolveApRecordWithTable,
@@ -2412,6 +2548,9 @@
     // Phase II-A2 — projected bracket / draft order / mobile Playoffs mode.
     validateBracketSeeds: validateBracketSeeds,
     chalkBracketSide: chalkBracketSide,
+    reseedRoundTwo: reseedRoundTwo,
+    resolveBracketSide: resolveBracketSide,
+    reseedCheck: reseedCheck,
     classifySideGamesFromMatchups: classifySideGamesFromMatchups,
     assignFinishesAndPicks: assignFinishesAndPicks,
     projectChalkBracket: projectChalkBracket,
@@ -2429,6 +2568,7 @@
     seasonWeeklyLeaders: seasonWeeklyLeaders,
     teamWeeklyHistory: teamWeeklyHistory,
     scoredFaced: scoredFaced,
+    scheduleStrength: scheduleStrength,
     // Playoff / Hawk Tuah Bowl matchup sheet (descriptive; never a prediction).
     matchupTape: matchupTape,
     ownerSeries: ownerSeries,

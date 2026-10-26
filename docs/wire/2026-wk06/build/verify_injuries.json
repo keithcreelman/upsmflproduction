@@ -1,0 +1,862 @@
+[
+ {
+  "check": "inj:17102:rk1 league rank 11",
+  "ok": true,
+  "detail": "11"
+ },
+ {
+  "check": "inj:17102:rk2 league rank 12",
+  "ok": true,
+  "detail": "12"
+ },
+ {
+  "check": "inj:17102:ppg PPG 17.5",
+  "ok": true,
+  "detail": "17.5"
+ },
+ {
+  "check": "inj:17102:g games 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:17102:rkp position rank 6",
+  "ok": true,
+  "detail": "6"
+ },
+ {
+  "check": "inj:17102:w4 week score",
+  "ok": true,
+  "detail": "12.0"
+ },
+ {
+  "check": "inj:17102:w5 week score",
+  "ok": true,
+  "detail": "25.9"
+ },
+ {
+  "check": "inj:17102:lu1 healthy lineup 209.5",
+  "ok": true,
+  "detail": "209.5"
+ },
+ {
+  "check": "inj:17102:lu2 lineup without 200.3",
+  "ok": true,
+  "detail": "200.3"
+ },
+ {
+  "check": "inj:17102:drop drop 9.2",
+  "ok": true,
+  "detail": "9.199999999999989"
+ },
+ {
+  "check": "inj:17121:rk1 league rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:17121:ppg PPG 13.0",
+  "ok": true,
+  "detail": "13.0"
+ },
+ {
+  "check": "inj:17121:g games 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:17121:rkp position rank 10",
+  "ok": true,
+  "detail": "10"
+ },
+ {
+  "check": "inj:17121:lu1 healthy lineup 241.5",
+  "ok": true,
+  "detail": "241.5"
+ },
+ {
+  "check": "inj:17121:lu2 lineup without 232.6",
+  "ok": true,
+  "detail": "232.6"
+ },
+ {
+  "check": "inj:17121:drop drop 8.9",
+  "ok": true,
+  "detail": "8.900000000000006"
+ },
+ {
+  "check": "inj:14783:rk1 league rank 11",
+  "ok": true,
+  "detail": "11"
+ },
+ {
+  "check": "inj:14783:rk2 league rank 12",
+  "ok": true,
+  "detail": "12"
+ },
+ {
+  "check": "inj:14783:ppg PPG 19.8",
+  "ok": true,
+  "detail": "19.84"
+ },
+ {
+  "check": "inj:14783:g games 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:14783:rkp position rank 19",
+  "ok": true,
+  "detail": "19"
+ },
+ {
+  "check": "inj:14783:w4 week score",
+  "ok": true,
+  "detail": "16.2"
+ },
+ {
+  "check": "inj:14783:w5 week score",
+  "ok": true,
+  "detail": "17.0"
+ },
+ {
+  "check": "inj:14783:lu1 healthy lineup 209.5",
+  "ok": true,
+  "detail": "209.5"
+ },
+ {
+  "check": "inj:14783:lu2 lineup without 203.0",
+  "ok": true,
+  "detail": "203.0"
+ },
+ {
+  "check": "inj:14783:drop drop 6.5",
+  "ok": true,
+  "detail": "6.5"
+ },
+ {
+  "check": "inj:17032:rk1 league rank 8",
+  "ok": true,
+  "detail": "8"
+ },
+ {
+  "check": "inj:17032:rk2 league rank 10",
+  "ok": true,
+  "detail": "10"
+ },
+ {
+  "check": "inj:17032:ppg PPG 18.7",
+  "ok": true,
+  "detail": "18.65"
+ },
+ {
+  "check": "inj:17032:g games 2",
+  "ok": true,
+  "detail": "2"
+ },
+ {
+  "check": "inj:17032:rkp position rank 36",
+  "ok": true,
+  "detail": "36"
+ },
+ {
+  "check": "inj:17032:lu1 healthy lineup 224.5",
+  "ok": true,
+  "detail": "224.5"
+ },
+ {
+  "check": "inj:17032:lu2 lineup without 218.0",
+  "ok": true,
+  "detail": "218.0"
+ },
+ {
+  "check": "inj:17032:drop drop 6.5",
+  "ok": true,
+  "detail": "6.5"
+ },
+ {
+  "check": "inj:17066:rk1 league rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:17066:ppg PPG 16.2",
+  "ok": true,
+  "detail": "16.18"
+ },
+ {
+  "check": "inj:17066:g games 4",
+  "ok": true,
+  "detail": "4"
+ },
+ {
+  "check": "inj:17066:rkp position rank 18",
+  "ok": true,
+  "detail": "18"
+ },
+ {
+  "check": "inj:17066:w4 week score",
+  "ok": true,
+  "detail": "30.4"
+ },
+ {
+  "check": "inj:17066:lu1 healthy lineup 241.5",
+  "ok": true,
+  "detail": "241.5"
+ },
+ {
+  "check": "inj:17066:lu2 lineup without 235.2",
+  "ok": true,
+  "detail": "235.2"
+ },
+ {
+  "check": "inj:17066:drop drop 6.3",
+  "ok": true,
+  "detail": "6.300000000000011"
+ },
+ {
+  "check": "inj:11671:rk1 league rank 9",
+  "ok": true,
+  "detail": "9"
+ },
+ {
+  "check": "inj:11671:rk2 league rank 10",
+  "ok": true,
+  "detail": "10"
+ },
+ {
+  "check": "inj:11671:ppg PPG 16.0",
+  "ok": true,
+  "detail": "16.0"
+ },
+ {
+  "check": "inj:11671:g games 6",
+  "ok": true,
+  "detail": "6"
+ },
+ {
+  "check": "inj:11671:rkp position rank 15",
+  "ok": true,
+  "detail": "15"
+ },
+ {
+  "check": "inj:11671:w4 week score",
+  "ok": true,
+  "detail": "13.4"
+ },
+ {
+  "check": "inj:11671:w5 week score",
+  "ok": true,
+  "detail": "29.5"
+ },
+ {
+  "check": "inj:11671:w6 week score",
+  "ok": true,
+  "detail": "13.0"
+ },
+ {
+  "check": "inj:11671:lu1 healthy lineup 221.8",
+  "ok": true,
+  "detail": "221.8"
+ },
+ {
+  "check": "inj:11671:lu2 lineup without 216.7",
+  "ok": true,
+  "detail": "216.7"
+ },
+ {
+  "check": "inj:11671:drop drop 5.1",
+  "ok": true,
+  "detail": "5.100000000000023"
+ },
+ {
+  "check": "inj:13593:rk1 league rank 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:13593:ppg PPG 24.3",
+  "ok": true,
+  "detail": "24.27"
+ },
+ {
+  "check": "inj:13593:g games 4",
+  "ok": true,
+  "detail": "4"
+ },
+ {
+  "check": "inj:13593:rkp position rank 20",
+  "ok": true,
+  "detail": "20"
+ },
+ {
+  "check": "inj:13593:w4 week score",
+  "ok": true,
+  "detail": "23.6"
+ },
+ {
+  "check": "inj:13593:lu1 healthy lineup 273.1",
+  "ok": true,
+  "detail": "273.1"
+ },
+ {
+  "check": "inj:13593:lu2 lineup without 268.7",
+  "ok": true,
+  "detail": "268.7"
+ },
+ {
+  "check": "inj:13593:drop drop 4.4",
+  "ok": true,
+  "detail": "4.400000000000034"
+ },
+ {
+  "check": "inj:16696:rk1 league rank 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:16696:rk2 league rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:16696:ppg PPG 11.5",
+  "ok": true,
+  "detail": "11.5"
+ },
+ {
+  "check": "inj:16696:g games 4",
+  "ok": true,
+  "detail": "4"
+ },
+ {
+  "check": "inj:16696:rkp position rank 24",
+  "ok": true,
+  "detail": "24"
+ },
+ {
+  "check": "inj:16696:w4 week score",
+  "ok": true,
+  "detail": "15.5"
+ },
+ {
+  "check": "inj:16696:lu1 healthy lineup 243.2",
+  "ok": true,
+  "detail": "243.2"
+ },
+ {
+  "check": "inj:16696:lu2 lineup without 239.0",
+  "ok": true,
+  "detail": "239.0"
+ },
+ {
+  "check": "inj:16696:drop drop 4.2",
+  "ok": true,
+  "detail": "4.199999999999989"
+ },
+ {
+  "check": "inj:14136:rk1 league rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:14136:ppg PPG 14.1",
+  "ok": true,
+  "detail": "14.06"
+ },
+ {
+  "check": "inj:14136:g games 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:14136:rkp position rank 32",
+  "ok": true,
+  "detail": "32"
+ },
+ {
+  "check": "inj:14136:w4 week score",
+  "ok": true,
+  "detail": "19.8"
+ },
+ {
+  "check": "inj:14136:w5 week score",
+  "ok": true,
+  "detail": "3.8"
+ },
+ {
+  "check": "inj:14136:lu1 healthy lineup 241.5",
+  "ok": true,
+  "detail": "241.5"
+ },
+ {
+  "check": "inj:14136:lu2 lineup without 237.3",
+  "ok": true,
+  "detail": "237.3"
+ },
+ {
+  "check": "inj:14136:drop drop 4.2",
+  "ok": true,
+  "detail": "4.199999999999989"
+ },
+ {
+  "check": "inj:15253:rk1 league rank 6",
+  "ok": true,
+  "detail": "6"
+ },
+ {
+  "check": "inj:15253:rk2 league rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:15253:ppg PPG 10.2",
+  "ok": true,
+  "detail": "10.23"
+ },
+ {
+  "check": "inj:15253:g games 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:15253:rkp position rank 47",
+  "ok": true,
+  "detail": "47"
+ },
+ {
+  "check": "inj:15253:lu1 healthy lineup 242.6",
+  "ok": true,
+  "detail": "242.6"
+ },
+ {
+  "check": "inj:15253:lu2 lineup without 238.4",
+  "ok": true,
+  "detail": "238.4"
+ },
+ {
+  "check": "inj:15253:drop drop 4.2",
+  "ok": true,
+  "detail": "4.199999999999989"
+ },
+ {
+  "check": "inj:15972:rk1 league rank 11",
+  "ok": true,
+  "detail": "11"
+ },
+ {
+  "check": "inj:15972:ppg PPG 12.3",
+  "ok": true,
+  "detail": "12.3"
+ },
+ {
+  "check": "inj:15972:g games 1",
+  "ok": true,
+  "detail": "1"
+ },
+ {
+  "check": "inj:15972:rkp position rank 81",
+  "ok": true,
+  "detail": "81"
+ },
+ {
+  "check": "inj:15972:lu1 healthy lineup 209.5",
+  "ok": true,
+  "detail": "209.5"
+ },
+ {
+  "check": "inj:15972:lu2 lineup without 205.5",
+  "ok": true,
+  "detail": "205.5"
+ },
+ {
+  "check": "inj:15972:drop drop 4.0",
+  "ok": true,
+  "detail": "4.0"
+ },
+ {
+  "check": "inj:16194:rk1 league rank 12",
+  "ok": true,
+  "detail": "12"
+ },
+ {
+  "check": "inj:16194:ppg PPG 13.1",
+  "ok": true,
+  "detail": "13.07"
+ },
+ {
+  "check": "inj:16194:g games 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:16194:rkp position rank 72",
+  "ok": true,
+  "detail": "72"
+ },
+ {
+  "check": "inj:16194:lu1 healthy lineup 203.1",
+  "ok": true,
+  "detail": "203.1"
+ },
+ {
+  "check": "inj:16194:lu2 lineup without 199.3",
+  "ok": true,
+  "detail": "199.3"
+ },
+ {
+  "check": "inj:16194:drop drop 3.8",
+  "ok": true,
+  "detail": "3.799999999999983"
+ },
+ {
+  "check": "inj:17472:rk1 league rank 8",
+  "ok": true,
+  "detail": "8"
+ },
+ {
+  "check": "inj:17472:rk2 league rank 9",
+  "ok": true,
+  "detail": "9"
+ },
+ {
+  "check": "inj:17472:ppg PPG 10.2",
+  "ok": true,
+  "detail": "10.22"
+ },
+ {
+  "check": "inj:17472:g games 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:17472:rkp position rank 33",
+  "ok": true,
+  "detail": "33"
+ },
+ {
+  "check": "inj:17472:w4 week score",
+  "ok": true,
+  "detail": "6.9"
+ },
+ {
+  "check": "inj:17472:w5 week score",
+  "ok": true,
+  "detail": "2.2"
+ },
+ {
+  "check": "inj:17472:lu1 healthy lineup 224.5",
+  "ok": true,
+  "detail": "224.5"
+ },
+ {
+  "check": "inj:17472:lu2 lineup without 220.9",
+  "ok": true,
+  "detail": "220.9"
+ },
+ {
+  "check": "inj:17472:drop drop 3.6",
+  "ok": true,
+  "detail": "3.5999999999999943"
+ },
+ {
+  "check": "inj:15452:rk1 league rank 2",
+  "ok": true,
+  "detail": "2"
+ },
+ {
+  "check": "inj:15452:ppg PPG 10.8",
+  "ok": true,
+  "detail": "10.78"
+ },
+ {
+  "check": "inj:15452:g games 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:15452:rkp position rank 15",
+  "ok": true,
+  "detail": "15"
+ },
+ {
+  "check": "inj:15452:w4 week score",
+  "ok": true,
+  "detail": "4.2"
+ },
+ {
+  "check": "inj:15452:w5 week score",
+  "ok": true,
+  "detail": "6.1"
+ },
+ {
+  "check": "inj:15452:lu1 healthy lineup 277.6",
+  "ok": true,
+  "detail": "277.6"
+ },
+ {
+  "check": "inj:15452:lu2 lineup without 274.5",
+  "ok": true,
+  "detail": "274.5"
+ },
+ {
+  "check": "inj:15452:drop drop 3.1",
+  "ok": true,
+  "detail": "3.1000000000000227"
+ },
+ {
+  "check": "inj:11675:rk1 league rank 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:11675:ppg PPG 18.7",
+  "ok": true,
+  "detail": "18.7"
+ },
+ {
+  "check": "inj:11675:g games 6",
+  "ok": true,
+  "detail": "6"
+ },
+ {
+  "check": "inj:11675:rkp position rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:11675:w4 week score",
+  "ok": true,
+  "detail": "7.6"
+ },
+ {
+  "check": "inj:11675:w5 week score",
+  "ok": true,
+  "detail": "22.9"
+ },
+ {
+  "check": "inj:11675:w6 week score",
+  "ok": true,
+  "detail": "7.5"
+ },
+ {
+  "check": "inj:11675:lu1 healthy lineup 273.1",
+  "ok": true,
+  "detail": "273.1"
+ },
+ {
+  "check": "inj:11675:lu2 lineup without 270.9",
+  "ok": true,
+  "detail": "270.9"
+ },
+ {
+  "check": "inj:11675:drop drop 2.2",
+  "ok": true,
+  "detail": "2.2000000000000455"
+ },
+ {
+  "check": "inj:13714:rk1 league rank 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:13714:ppg PPG 8.1",
+  "ok": true,
+  "detail": "8.1"
+ },
+ {
+  "check": "inj:13714:g games 3",
+  "ok": true,
+  "detail": "3"
+ },
+ {
+  "check": "inj:13714:rkp position rank 73",
+  "ok": true,
+  "detail": "73"
+ },
+ {
+  "check": "inj:13714:lu1 healthy lineup 273.1",
+  "ok": true,
+  "detail": "273.1"
+ },
+ {
+  "check": "inj:13714:lu2 lineup without 272.6",
+  "ok": true,
+  "detail": "272.6"
+ },
+ {
+  "check": "inj:13714:drop drop 0.5",
+  "ok": true,
+  "detail": "0.5"
+ },
+ {
+  "check": "inj:13635:rk1 league rank 7",
+  "ok": true,
+  "detail": "7"
+ },
+ {
+  "check": "inj:13635:ppg PPG 10.3",
+  "ok": true,
+  "detail": "10.28"
+ },
+ {
+  "check": "inj:13635:g games 4",
+  "ok": true,
+  "detail": "4"
+ },
+ {
+  "check": "inj:13635:rkp position rank 70",
+  "ok": true,
+  "detail": "70"
+ },
+ {
+  "check": "inj:13635:w4 week score",
+  "ok": true,
+  "detail": "2.9"
+ },
+ {
+  "check": "inj:13635:lu1 healthy lineup 241.5",
+  "ok": true,
+  "detail": "241.5"
+ },
+ {
+  "check": "inj:13635:lu2 lineup without 241.1",
+  "ok": true,
+  "detail": "241.1"
+ },
+ {
+  "check": "inj:13635:drop drop 0.4",
+  "ok": true,
+  "detail": "0.4000000000000057"
+ },
+ {
+  "check": "inj:17256:rk1 league rank 12",
+  "ok": true,
+  "detail": "12"
+ },
+ {
+  "check": "inj:17256:ppg PPG 9.4",
+  "ok": true,
+  "detail": "9.42"
+ },
+ {
+  "check": "inj:17256:g games 5",
+  "ok": true,
+  "detail": "5"
+ },
+ {
+  "check": "inj:17256:rkp position rank 35",
+  "ok": true,
+  "detail": "35"
+ },
+ {
+  "check": "inj:17256:w4 week score",
+  "ok": true,
+  "detail": "7.0"
+ },
+ {
+  "check": "inj:17256:w5 week score",
+  "ok": true,
+  "detail": "15.0"
+ },
+ {
+  "check": "inj:17256:lu1 healthy lineup 203.1",
+  "ok": true,
+  "detail": "203.1"
+ },
+ {
+  "check": "inj:17256:lu2 lineup without 203.0",
+  "ok": true,
+  "detail": "203.0"
+ },
+ {
+  "check": "inj:17256:drop drop 0.1",
+  "ok": true,
+  "detail": "0.09999999999999432"
+ },
+ {
+  "check": "inj:15779:rk1 league rank 8",
+  "ok": true,
+  "detail": "8"
+ },
+ {
+  "check": "inj:15779:ppg PPG 10.1",
+  "ok": true,
+  "detail": "10.05"
+ },
+ {
+  "check": "inj:15779:g games 6",
+  "ok": true,
+  "detail": "6"
+ },
+ {
+  "check": "inj:15779:rkp position rank 40",
+  "ok": true,
+  "detail": "40"
+ },
+ {
+  "check": "inj:15779:w4 week score",
+  "ok": true,
+  "detail": "24.8"
+ },
+ {
+  "check": "inj:15779:w5 week score",
+  "ok": true,
+  "detail": "2.8"
+ },
+ {
+  "check": "inj:15779:w6 week score",
+  "ok": true,
+  "detail": "11.4"
+ },
+ {
+  "check": "inj:15779:lu1 healthy lineup 224.5",
+  "ok": true,
+  "detail": "224.5"
+ },
+ {
+  "check": "inj:15779:lu2 lineup without 224.5",
+  "ok": true,
+  "detail": "224.5"
+ },
+ {
+  "check": "inj:15779:drop drop 0.0",
+  "ok": true,
+  "detail": "0.0"
+ },
+ {
+  "check": "McLaurin is outside Blake's best healthy lineup",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Blake's healthy lineup 277.6 a week, the same without McLaurin",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Blake's best Week 7 lineup 247.6 (byes and MFL Out/IR removed)",
+  "ok": true,
+  "detail": "247.6"
+ },
+ {
+  "check": "Brock Purdy is the only quarterback available to Blake in Week 7",
+  "ok": true,
+  "detail": "['Purdy, Brock']"
+ },
+ {
+  "check": "McLaurin 2026 line: 9.7 a game in 5 games",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "McLaurin MFL status Out, knee, expected Feb 15, 2027",
+  "ok": true,
+  "detail": ""
+ },
+ {
+  "check": "Washington is not in the Week 7 official-report data as fetched",
+  "ok": true,
+  "detail": ""
+ }
+]

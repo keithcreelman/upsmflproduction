@@ -804,14 +804,14 @@
     var hawk = sideKey === "hawk", proj = kind === "projected";
     var w1 = weeks[0], w2 = weeks[1], w3 = weeks[2];
     var r1 = side.r1 || [], semis = side.semis || [];
-    function feederText(g) { return g && g.a && g.b ? "winner of " + seedText(g.a.seed, sideKey) + " v " + seedText(g.b.seed, sideKey) + " (projected)" : ""; }
+    // Round 2 re-seeds (the shared reseedRoundTwo): the top seed gets the lowest seed left, seed 2 the other winner.
+    function feederText(i) { return i === 0 ? "lowest seed left after Round 1 (projected)" : "other Round 1 winner (projected)"; }
     var r1Html = r1.length ? r1.map(function (g) { return bkGameHtml(g, { kind: kind, sideKey: sideKey, title: "Round 1", week: w1 }); }).join("") : bkEmpty("Round 1 games appear once MFL sets them.");
     var byeHtml = (byes && byes.length) ? '<div class="ups-m-bk-byes"><b>First-round byes:</b> ' + byes.map(function (e) {
       return '<span class="seed">' + U.escapeHtml(seedText(e.seed, sideKey)) + '</span> ' + U.escapeHtml(e.franchise_name || e.franchise_id);
     }).join(" · ") + '</div>' : "";
-    // Projected semifinals: seed 1 meets the winner of 4 v 5, seed 2 the winner of 3 v 6 (the shared chalk bracket).
     var semiHtml = semis.length ? semis.map(function (g, i) {
-      return bkGameHtml(g, { kind: kind, sideKey: sideKey, title: "Semifinal", week: w2, srcB: proj ? feederText(i === 0 ? r1[1] : r1[0]) : "" });
+      return bkGameHtml(g, { kind: kind, sideKey: sideKey, title: "Semifinal", week: w2, srcB: proj ? feederText(i) : "" });
     }).join("") : bkEmpty("Set after Week " + w1 + "’s games.");
     var placeHtml = side.placement ? bkGameHtml(side.placement, { kind: kind, sideKey: sideKey, title: "5th-place game · Round 1 losers", week: w2, minor: true, decides: decidesLine(sideKey, "placement") }) : "";
     var finalHtml = side.final ? bkGameHtml(side.final, { kind: kind, sideKey: sideKey, title: hawk ? "Hawk Tuah Bowl final" : "Championship", week: w3, decides: decidesLine(sideKey, "final") }) : bkEmpty("Set after Week " + w2 + "’s games.");

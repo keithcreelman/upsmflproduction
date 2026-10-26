@@ -143,7 +143,7 @@ test("owner-facing readers: the MFL-page countdown, the phone Home calendar and 
   const etTime = new Function("U", HM.match(/function etTime\(e\) \{[\s\S]*?\n  \}/)[0] + "; return etTime;")({ safeStr: (x) => (x == null ? "" : String(x)) });
   t.equal(etTime({ time_et: "12:00" }), "12:00 PM ET"); t.equal(etTime({ time_et: "13:00" }), "1:00 PM ET"); t.equal(etTime({ time_et: "20:00" }), "8:00 PM ET");
   t.equal(etTime({}), "", "rows without a time are unchanged");
-  t.ok(/nm\.label \+ \(etTime\(e\)/.test(HM) && /whenFor\(ctx\.next\) \+ \(etTime\(ctx\.next\)/.test(HM), "Home: calendar row and the Events tile show the time");
+  t.ok(/ups-m-cal-time/.test(HM) && /U\.escapeHtml\(etTime\(e\)\)/.test(HM) && /whenFor\(ctx\.next\) \+ \(etTime\(ctx\.next\)/.test(HM), "Home: calendar row and the Events tile show the time");
   const TO = fs.readFileSync(new URL("../site/team_operations/team_operations.js", import.meta.url), "utf8");
   t.ok(/time: etTimeLabel\(ev\.time_et\)/.test(TO) && /tops-cal-t/.test(TO), "Team Operations: the calendar and 'inside a week' rows show the time");
   const IX = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");
@@ -157,12 +157,15 @@ test("Rules (the deadlines topic) and the phone/Team Ops calendars read MFL's lo
   const RJ = fs.readFileSync(new URL("../site/m/views/rules.js", import.meta.url), "utf8");
   const topics = JSON.parse(fs.readFileSync(new URL("../docs/rulebook_topics.json", import.meta.url), "utf8")).topics;
   const dl = topics.find((x) => x.key === "deadlines");
+  const trades = topics.find((x) => x.key === "trades");
+  const acquiring = topics.find((x) => x.key === "acquiring");
   t.equal(dl.live_trade_lock, true, "the deadlines topic is marked live");
-  const live = (lock, nowMs) => {
+  t.ok(trades.live_trade_lock && acquiring.live_trade_lock, "the trade and acquiring topics read the same live lock");
+  const live = (lock, nowMs, topic = dl) => {
     const ctx = vm.createContext({ Date: class extends Date { static now() { return nowMs; } }, JSON, String, Number, parseInt });
     ctx.window = ctx; ctx.UPS_M = { state: { leagueEvents: { trade_lock: lock } } };
     vm.runInContext("var M = window.UPS_M;\n" + RJ.match(/var MON = [\s\S]*?\n  function renderTopic/)[0].replace(/\n  function renderTopic$/, "") + "\nwindow.f = withLiveTradeLock;", ctx);
-    return ctx.f(dl);
+    return ctx.f(topic);
   };
   const wed = { state: "upcoming", date_et: "2026-11-25", time_et: "20:00", start_unix: WED_8PM };
   const a = live(wed, (WED_8PM - 3600) * 1000);
@@ -170,9 +173,16 @@ test("Rules (the deadlines topic) and the phone/Team Ops calendars read MFL's lo
   t.equal(a.timeline.find((e) => /trade deadline/i.test(e.what)).when, "Wed Nov 25");
   t.ok(/^MFL stops accepting trades at 8:00 PM ET\. /.test(a.timeline.find((e) => /trade deadline/i.test(e.what)).detail));
   t.equal(a.table.rows.find((r) => /trade deadline/i.test(r[0]))[1], "Wed Nov 25, 8:00 PM ET (MFL's league calendar)");
+  t.ok(a.today[0].includes("Wed Nov 25, 8:00 PM ET"), "deadlines prose also names the live time");
+  const tradeTopic = live(wed, (WED_8PM - 3600) * 1000, trades);
+  t.ok(tradeTopic.one_liner.includes("Wed Nov 25, 8:00 PM ET"), "Trades summary names the live time");
+  t.equal(tradeTopic.numbers.find((n) => /^deadline$/i.test(n.label)).value, "Wed Nov 25, 8:00 PM ET");
+  t.equal(live(wed, (WED_8PM - 3600) * 1000, acquiring).table.rows.find((r) => /^trade$/i.test(r[0]))[1], "Until Wed Nov 25, 8:00 PM ET");
   t.equal(live(wed, (WED_8PM + 1) * 1000).numbers.find((n) => /trade deadline/i.test(n.label)).value, "Passed: Wed Nov 25, 8:00 PM ET", "one second after: passed");
   t.equal(live({ state: "unresolved" }, Date.now()).numbers.find((n) => /trade deadline/i.test(n.label)).value,
     dl.numbers.find((n) => /trade deadline/i.test(n.label)).value, "no lock read → the written value");
+  t.ok(!/Thanksgiving/.test([dl.today[0], trades.one_liner, trades.numbers[0].value,
+    acquiring.table.rows.find((r) => /^trade$/i.test(r[0]))[1]].join(" ")), "unresolved lock has no false fixed deadline");
   const HM = fs.readFileSync(new URL("../site/m/views/home.js", import.meta.url), "utf8");
   t.ok(/if \(t > 0 && Date\.now\(\) \/ 1000 > t\) return "passed";/.test(HM) && /whenFor\(e\)/.test(HM), "Home: passed at MFL's instant");
   const TO = fs.readFileSync(new URL("../site/team_operations/team_operations.js", import.meta.url), "utf8");

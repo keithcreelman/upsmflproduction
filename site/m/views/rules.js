@@ -323,11 +323,21 @@
     var lk = t && t.live_trade_lock ? liveTradeLock() : null;
     if (!lk) return t;
     var c = JSON.parse(JSON.stringify(t));
+    if (c.key === "trades") {
+      c.one_liner = "Open from season's end until " + lk.text + ". Contracts move as-is. No vetoes.";
+      (c.numbers || []).forEach(function (n) { if (/^deadline$/i.test(n.label)) n.value = lk.text; });
+    }
+    if (c.key === "deadlines" && c.today && c.today[0]) {
+      c.today[0] = c.today[0].replace("MFL's league calendar closes trading.", "MFL's league calendar closes trading at " + lk.text + ".");
+    }
     (c.numbers || []).forEach(function (n) { if (/^trade deadline$/i.test(n.label)) n.value = lk.text; });
     (c.timeline || []).forEach(function (e) {
       if (/^trade deadline$/i.test(e.what)) { e.when = lk.day; e.approx = false; e.detail = "MFL stops accepting trades at " + lk.time + (lk.closed ? " (passed)" : "") + ". " + String(e.detail || "").replace(/^[^.]*\.\s*/, ""); }
     });
-    ((c.table && c.table.rows) || []).forEach(function (r) { if (/^trade deadline$/i.test(r[0])) r[1] = lk.text + " (MFL's league calendar)"; });
+    ((c.table && c.table.rows) || []).forEach(function (r) {
+      if (/^trade deadline$/i.test(r[0])) r[1] = lk.text + " (MFL's league calendar)";
+      if (c.key === "acquiring" && /^trade$/i.test(r[0])) r[1] = "Until " + lk.text;
+    });
     return c;
   }
 
