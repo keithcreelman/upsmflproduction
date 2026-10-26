@@ -33,7 +33,7 @@
 
 import {
   LINEUP_LADDER, lineupLadderRung, voidLineupViolation, recomputeLineupOffenses,
-  injuryHistoryForWeek, noticeMarkUnix, saturdayCapUnix, INJURY_NOTICE_SECONDS, REQUIRED_STARTERS,
+  injuryHistoryForWeek, statusEntryAsOf, noticeMarkUnix, saturdayCapUnix, INJURY_NOTICE_SECONDS, REQUIRED_STARTERS,
 } from "./lineup_compliance.js";
 import { weekSchedule, playerIndex, byeTeams, weekStartersFromResults, finalKickoffUnix, runLineupBooking } from "./lineup_wiring.js";
 import { getFeatureFlag } from "./feature_flags.js";
@@ -104,16 +104,10 @@ export function etLabel(unix) {
 const etSeen = (u) => { const p = etParts(u); return `${p.wd} ${p.mon} ${p.day} at ${p.time} ET`; };   // "Fri Oct 9 at 5:05 PM ET"
 const etWhen = (u) => { const p = etParts(u); return `${p.wd} ${p.mon} ${p.day}, ${p.time}`; };        // "Sat Oct 10, 1:00 PM"
 
-// The status in effect at `at`, WITH the instant it was first seen.
-export function statusEntryAsOf(history, at) {
-  let best = null;
-  for (const h of (history || [])) {
-    const seen = Number(h && h.first_seen_unix) || 0;
-    if (!seen || seen > at) continue;
-    if (!best || seen > best.first_seen_unix) best = { status: _s(h.status).toUpperCase(), first_seen_unix: seen };
-  }
-  return best;
-}
+// The status in effect at `at`, WITH the instant it was first seen. One
+// implementation, shared with the evaluator (lineup_compliance.js), so a
+// cleared designation reads the same in the DM, the booking and the ruling.
+export { statusEntryAsOf };
 
 // ── the ladder, in words ────────────────────────────────────────────────────
 
