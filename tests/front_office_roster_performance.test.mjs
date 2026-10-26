@@ -60,6 +60,8 @@ test("no write and no other season: the screen only reads", () => {
 test("Bye planner shows the whole roster only: no Likely starters view or scope control (Keith 2026-10-26)", () => {
   const SRC_R = fs.readFileSync(path.join(ROOT, "site/rosters/v2/fo_roster.js"), "utf8");
   t.ok(!/>Likely starters</.test(SRC_R) && !/data-bye-scope/.test(SRC_R) && !/byeView\.scope/.test(SRC_R) && !/No likely starters are out/.test(SRC_R), "the Likely starters button, its handler and its filter are gone");
+  t.ok(!/likely starter|Likely starter|startersOut|concentration|\bheavy\b/.test(SRC_R.replace(/function likelySlots[\s\S]*?\n  }\n/, "")), "no likely-starter tag, 'three or more likely starters' line or heavy-week hint in the Bye planner (Keith 2026-10-26)");
+  t.ok(/plan\.worst\.empty\.length \? plan\.worst\.week : week/.test(SRC_R) && /w\.empty\.length \? " short" : ""/.test(SRC_R) && /Lineup shortage in Week/.test(SRC_R), "the lineup-shortage calculation and its warning stay");
   t.ok(/Nobody is out\./.test(SRC_R) && /data-bye-week/.test(SRC_R) && /data-bye-pos/.test(SRC_R), "who's-out list, week and position controls stay");
 });
 

@@ -260,10 +260,10 @@
     var fas = H.freeAgents();
     var plan = BP.plan({ players: team.players, values: H.values(0), byeWeekByTeam: byes, fromWeek: week, toWeek: 17, currentWeek: week, freeAgents: fas });
     var nameOf = {}; team.players.forEach(function (p) { nameOf[p.pid] = p; });
-    if (byeView.week == null || byeView.week < week) byeView.week = (plan.worst && (plan.worst.empty.length || plan.worst.startersOut.length) ? plan.worst.week : week);
+    if (byeView.week == null || byeView.week < week) byeView.week = (plan.worst && plan.worst.empty.length ? plan.worst.week : week);
 
     var weeksHead = plan.weeks.map(function (w) {
-      var hot = w.empty.length ? " short" : (w.startersOut.length >= 3 ? " heavy" : "");
+      var hot = w.empty.length ? " short" : "";
       return '<th scope="col" class="fo-bye-wk' + hot + (w.week === byeView.week ? " sel" : "") + '"><button type="button" data-bye-week="' + w.week + '" aria-pressed="' + (w.week === byeView.week) + '">Wk ' + w.week +
         '<span class="fo-bye-cost">' + (w.cost > 0.05 ? "−" + H.fmt1(w.cost) : "·") + "</span></button></th>";
     }).join("");
@@ -286,7 +286,7 @@
     });
     var outHtml = outRows.length ? '<ul class="fo-bye-out">' + outRows.map(function (o) {
       var p = nameOf[o.pid];
-      return "<li>" + H.playerButton(o.pid, fid, p ? p.name : o.pid) + ' <span class="fo-muted">' + H.esc((p ? p.pos + " · " + p.nflTeam : "")) + "</span> — " + H.esc(REASON[o.reason] || o.reason) + (o.starter ? ' <span class="fo-slot fo-slot-start">likely starter</span>' : "") + "</li>";
+      return "<li>" + H.playerButton(o.pid, fid, p ? p.name : o.pid) + ' <span class="fo-muted">' + H.esc((p ? p.pos + " · " + p.nflTeam : "")) + "</span> — " + H.esc(REASON[o.reason] || o.reason) + "</li>";
     }).join("") + "</ul>" : '<p class="fo-ov-empty">' + "Nobody is out." + "</p>";
     var opts = "";
     if (wsel.empty.length) {
@@ -299,14 +299,12 @@
         (lines ? '<ul class="fo-bye-out">' + lines + "</ul>" : '<p class="fo-ov-empty">No free agent with a game fits these slots.</p>') +
         '<p class="fo-muted fo-perf-sub">Waiver timing for each is on the phone app’s Market (bids) and in Market here.</p>';
     }
-    var concentration = plan.weeks.filter(function (w) { return w.startersOut.length >= 3; }).map(function (w) { return "Wk " + w.week + " (" + w.startersOut.length + ")"; });
 
     el.innerHTML =
       '<div class="fo-card"><div class="fo-card-head"><h2>Bye planner · ' + H.esc(H.teamName(fid)) + "</h2>" +
       '<label class="fo-field fo-inline">Position <select data-bye-pos>' + ["ALL"].concat(GROUP_ORDER).map(function (g) { return '<option value="' + g + '"' + (g === byeView.pos ? " selected" : "") + ">" + (g === "ALL" ? "All" : g === "PK" ? "K" : g === "PN" ? "P" : g) + "</option>"; }).join("") + "</select></label></div>" +
       '<p class="fo-basis">Slots you can fill / slots required (best lineup by season PPG). <span class="fo-bye-key empty">red</span> empty slot · <span class="fo-bye-key sub">amber</span> a bench player starts · column top = points a week lost to byes and absences.</p>' +
       (plan.shortWeeks.length ? H.banner("Lineup shortage in Week " + plan.shortWeeks.join(", ") + ".", "warn") : "") +
-      (concentration.length ? '<p class="fo-basis">Three or more likely starters on a bye: ' + H.esc(concentration.join(", ")) + ".</p>" : "") +
       '<div class="fo-table-scroll"><table class="fo-table fo-bye-grid"><thead><tr><th scope="col">Slots</th>' + weeksHead + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>" +
       '<div class="fo-card"><h3 class="fo-bye-h">Week ' + wsel.week + ": who’s out</h3>" + outHtml + opts + "</div>";
   }
