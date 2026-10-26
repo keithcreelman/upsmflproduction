@@ -19,6 +19,10 @@ const REC = json("./fixtures/standings_2026_wk5.json");
 const WK6 = json("./fixtures/standings_2026_wk6_week.json");
 const S2025 = fs.readFileSync(new URL("./fixtures/standings_2025_recorded.json", import.meta.url), "utf8");
 const HIST = json("../site/standings/allplay_history.json");
+const SIM6 = json("./fixtures/wire_season_sim_2026_live_wk06.json");
+const SIM5 = json("../site/wire/data/season_sim_2026_live_wk05.json");
+const SCHED = fs.readFileSync(new URL("./fixtures/mfl_2026_schedule.json", import.meta.url), "utf8");
+const WIRE_URL = "https://keithcreelman.github.io/upsmflproduction/wire/data/";
 mfl.st.league = { standingsSort: REC.standingsSort };
 const RACE = (() => { const w = {}; new Function("window", fs.readFileSync(new URL("../site/shared/standings_race.js", import.meta.url), "utf8"))(w); return w.UPS_STANDINGS_RACE; })();
 const plain = (html) => html.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -38,9 +42,14 @@ const nameOf = Object.fromEntries(R.map((r) => [r.franchise_id, r.franchise_name
 const seedOrder = R.map((r) => r.franchise_id);
 
 // fetch = the real worker, with optional edits to /api/standings (edit(json, year)), a different history file, or a year → payload map
-function mkFetch({ edit, hist = HIST, years = {} } = {}) {
+function mkFetch({ edit, hist = HIST, years = {}, wire = { "season_sim_2026_live_wk06.json": SIM6 }, schedule = "ok", reads } = {}) {
   const real = workerFetch(callWorker, ENV6);
   return async (url) => {
+    if (url.startsWith(WIRE_URL)) { const name = url.slice(WIRE_URL.length); if (reads) reads.push(name); return wire[name] ? { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(wire[name])) } : { ok: false, status: 404, json: async () => ({}) }; }
+    if (new URL(url).pathname === "/api/mfl-export" && new URL(url).searchParams.get("TYPE") === "schedule") {
+      if (schedule === "fail") return { ok: false, status: 502, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => JSON.parse(SCHED) };
+    }
     if (url === HIST_URL) return hist ? { ok: true, status: 200, json: async () => hist } : { ok: false, status: 404, json: async () => ({}) };
     const u = new URL(url);
     if (u.pathname === "/api/standings" && years[u.searchParams.get("year")]) return { ok: true, status: 200, json: async () => JSON.parse(years[u.searchParams.get("year")]) };
@@ -53,6 +62,8 @@ function mkFetch({ edit, hist = HIST, years = {} } = {}) {
 }
 async function league(query, opts = {}) {
   const p = loadStandingsPage({ query, fetch: opts.fetch || mkFetch(opts), pageSrc: opts.pageSrc });
+  // magic: edit what the shared module's magicNumbers returns, to exercise the display states the Week 6 standings can't reach yet
+  if (opts.magic) { const M = p.ctx.window.UPS_STANDINGS_RACE, orig = M.magicNumbers; M.magicNumbers = (a, b) => opts.magic(orig(a, b)); }
   await new Promise((r) => setTimeout(r, 300));
   await settle();
   const raw = p.html();
@@ -97,10 +108,10 @@ function career(owner, hist = HIST, year = 2026) {
 }
 
 // ═══ the layout ═══
-test("in season: exactly Seed | Team | H2H | Div W-L | Division GB | WC GB | AP | AP % | All-Time AP Rank | PF/Wk; Team = name, then 'Owner · Division'", async () => {
+test("in season: exactly Seed | Team | H2H | Div W-L | Division GB | WC GB | Playoff % | AP | AP % | All-Time AP Rank | PF/Wk; Team = name, then 'Owner · Division'", async () => {
   const p = await league("view=league&year=2026");
   const L = table(p.raw);
-  t.deepEqual(L.heads, ["Seed", "Team", "H2H", "Div W-L", "Division GB", "WC GB", "AP", "AP %", "All-Time AP Rank", "PF/Wk"]);
+  t.deepEqual(L.heads, ["Seed", "Team", "H2H", "Div W-L", "Division GB", "WC GB", "Playoff %", "AP", "AP %", "All-Time AP Rank", "PF/Wk"]);
   t.equal(L.rows.length, 12);
   t.deepEqual(L.order, seedOrder, "the worker's seed order, untouched");
   for (const r of R) {
@@ -282,6 +293,83 @@ test("Scoring: Seed order is the worker's; sortable by every points column", asy
   const byOpf = await league("view=league&year=2026&show=scored", { fetch: mkFetch5(), pageSrc: sortedBy(PAGE_SOURCE, "_opf", "desc") });
   const ids = RESP5.rows.map((r) => r.franchise_id);
   t.deepEqual(table(byOpf.raw).order, ids.slice().sort((a, b) => Number(LS5[b].op) - Number(LS5[a].op) || ids.indexOf(a) - ids.indexOf(b)));
+});
+
+// ═══ Playoff % (Phase 1): the Forecast's odds, plus the existing X / Y clinch checks ═══
+const odds = (p) => (p >= 0.995 ? ">99%" : p > 0 && p < 0.005 ? "<1%" : Math.round(p * 100) + "%");
+const simBy = Object.fromEntries(SIM6.teams.map((x) => [x.franchiseId, x]));
+const clinch = (byFid) => (m) => ({ ...m, byFid: { ...m.byFid, ...Object.fromEntries(Object.entries(byFid).map(([f, v]) => [f, { ...(m.byFid[f] || {}), ...v }])) } });
+test("Playoff % = the Forecast tab's own odds for every team (playoff % with the bye % beneath); a rounded near-100% is '>99%', never a clinch", async () => {
+  const p = await league("view=league&year=2026");
+  const L = table(p.raw);
+  t.equal(L.heads[L.heads.indexOf("WC GB") + 1], "Playoff %", "right after WC GB");
+  for (const r of R) {
+    const x = simBy[r.franchise_id], cell = L.raw(r.franchise_id, "Playoff %");
+    t.equal(text(cell).split(" ")[0], odds(x.currentPlayoffOdds), nameOf[r.franchise_id] + " playoff %");
+    t.equal(x.currentByeOdds > 0 ? plain(/po-sub">([^<]*)</.exec(cell)[1]) : null, x.currentByeOdds > 0 ? odds(x.currentByeOdds) + " Bye" : null, nameOf[r.franchise_id] + " bye %");
+    t.ok(!/po-badge/.test(cell), "no designation without a mathematical clinch: " + nameOf[r.franchise_id]);
+  }
+  t.equal(L.cell("0009", "Playoff %"), ">99% 94% Bye", "C-Town: 99.8% is not 100% and not a clinch");
+  t.equal(L.cell("0003", "Playoff %"), "2%", "no bye line when the bye odds are 0");
+  // the very numbers the Forecast tab shows
+  const fc = await league("view=forecast&year=2026");
+  t.ok(fc.text.includes("Through Week 6") && SIM6.teams.length === 12);
+  t.match(p.text, /Playoff % = the UPS Wire forecast’s chance of making the playoffs \(through Week 6, generated [^)]*\), with the chance of a first-round bye beneath\./);
+});
+test("real clinch logic at Week 6: nobody has clinched anything yet, so no X or Y shows", async () => {
+  const L = table((await league("view=league&year=2026")).raw);
+  for (const r of R) t.ok(!/po-badge/.test(L.raw(r.franchise_id, "Playoff %")), r.franchise_id);
+  const m = RACE.magicNumbers(RESP6, JSON.parse(SCHED));
+  t.equal(m.status, "ok");
+  t.ok(Object.values(m.byFid).every((e) => !e.clinchedDivision && !e.clinchedSpot));
+});
+test("X and Y: the highest one shows (Y over X), with the bye % still beneath where it means something; the legend explains them and that Y is not a bye", async () => {
+  const p = await league("view=league&year=2026", { magic: clinch({ "0009": { clinchedDivision: true, clinchedSpot: true }, "0004": { clinchedSpot: true }, "0010": { clinchedSpot: true } }) });
+  const L = table(p.raw);
+  t.match(L.raw("0009", "Playoff %"), /^<span class="po-badge po-y" title="Clinched the division\. The first-round byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed yet\.">Y<\/span><span class="owner-sub po-sub">94% Bye<\/span>$/);
+  t.match(L.raw("0004", "Playoff %"), /^<span class="po-badge po-x" title="Clinched a playoff spot\.">X<\/span><span class="owner-sub po-sub">31% Bye<\/span>$/);
+  t.equal(L.cell("0005", "Playoff %"), "97% 49% Bye", "HammerTime, not clinched: still a percentage");
+  t.ok(!/X|Y/.test(L.cell("0005", "Playoff %")));
+  t.match(p.text, /X = clinched a playoff spot\. Y = clinched the division \(the byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed\)\. A percentage is never a clinch\./);
+  // sorting: Y first, then X, then the percentages
+  const byPo = await league("view=league&year=2026", { magic: clinch({ "0009": { clinchedDivision: true }, "0004": { clinchedSpot: true } }), pageSrc: sortedBy(PAGE_SOURCE, "_poSort", "desc") });
+  const order = table(byPo.raw).order;
+  t.equal(order[0], "0009"); t.equal(order[1], "0004");
+  const rest = seedOrder.filter((f) => f !== "0009" && f !== "0004").sort((a, b) => simBy[b].currentPlayoffOdds - simBy[a].currentPlayoffOdds || seedOrder.indexOf(a) - seedOrder.indexOf(b));
+  t.deepEqual(order.slice(2), rest);
+});
+test("a stale or non-reconciling forecast shows NO percentage (—), while independently verified X / Y still show", async () => {
+  const m = clinch({ "0009": { clinchedDivision: true, clinchedSpot: true } });
+  const stale = await league("view=league&year=2026", { wire: { "season_sim_2026_live_wk05.json": SIM5 }, magic: m });
+  let L = table(stale.raw);
+  t.equal(L.cell("0009", "Playoff %"), "Y");
+  t.equal(L.cell("0005", "Playoff %"), "—");
+  for (const r of R) t.ok(!/%/.test(L.cell(r.franchise_id, "Playoff %")), "no percentage for " + r.franchise_id);
+  t.match(stale.text, /Playoff % shows no percentage because the Week 6 forecast isn’t published yet \(the newest is Week 5\)\./);
+  const g = RESP6.weekly.find((x) => x.w === 6 && x.po === 0 && x.ts !== x.os);
+  const flip = JSON.parse(JSON.stringify(SIM6)); const A = flip.teams.find((x) => x.franchiseId === g.fid), Bt = flip.teams.find((x) => x.franchiseId === g.opp);
+  [A.weekScore, Bt.weekScore] = [Bt.weekScore, A.weekScore];
+  const bad = await league("view=league&year=2026", { wire: { "season_sim_2026_live_wk06.json": flip } });
+  L = table(bad.raw);
+  t.ok(!L || !L.heads.includes("Playoff %") || R.every((r) => !/%/.test(L.cell(r.franchise_id, "Playoff %"))), "no percentage from a forecast that doesn't start from these standings");
+  t.match(bad.text, /the Week 6 forecast doesn’t start from these standings/);
+  const none = await league("view=league&year=2026", { wire: {} });
+  t.match(none.text, /no forecast has been published for 2026 yet/);
+});
+test("no schedule: Y isn't shown (and the note says so), nothing is claimed, and the forecast percentages still are", async () => {
+  const p = await league("view=league&year=2026", { schedule: "fail" });
+  const L = table(p.raw);
+  t.equal(L.cell("0009", "Playoff %"), ">99% 94% Bye");
+  t.match(p.text, /Y isn’t shown because the division race needs MFL’s schedule, which couldn’t be read\./);
+  t.ok(!/po-badge/.test(p.raw), "and nothing is claimed without it");
+});
+test("Playoff % appears only for the season in progress: not in Scoring, a scoped view, a finished season or the preseason", async () => {
+  for (const q of ["&show=scored", "&scope=regular", "&scope=playoffs"]) {
+    const L = table((await league("view=league&year=2026" + q, { fetch: q === "&show=scored" ? mkFetch5() : undefined })).raw);
+    t.ok(!L.heads.includes("Playoff %"), q);
+  }
+  const fin = await league("view=league&year=2025", { years: { "2025": S2025 } });
+  t.ok(!table(fin.raw).heads.includes("Playoff %"));
 });
 
 // ═══ finished season, scope ═══

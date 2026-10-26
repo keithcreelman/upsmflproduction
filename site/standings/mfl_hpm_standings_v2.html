@@ -1412,6 +1412,10 @@
     .lg-table th { letter-spacing: 0.04em; }
     .lg-table th.num { white-space: normal; line-height: 1.25; width: 1px; }   /* a long header (Offensive PF/Wk) wraps to two lines instead of widening its column */
     .lg-table td.num { white-space: nowrap; }
+    .po-badge { display: inline-block; min-width: 20px; text-align: center; font-weight: 800; font-size: 12px; border-radius: 4px; padding: 1px 6px; cursor: help; }
+    .po-badge.po-x { background: rgba(125, 232, 217, 0.14); border: 1px solid rgba(125, 232, 217, 0.5); color: var(--teal); }
+    .po-badge.po-y { background: var(--champ-bg); border: 1px solid rgba(231, 190, 89, 0.55); color: var(--gold); }
+    .po-sub { text-align: right; }
     .lg-table th.team-col, .lg-table td.team-col { min-width: 225px; }
     .lg-table th.seed-col, .lg-table td.seed-col { padding-right: 8px; }
     /* Playoff Picture: bracket first (Keith 2026-10-22). */
@@ -3333,6 +3337,55 @@
     return out;
   }
 
+  // Playoff % (Keith 2026-10-27, Phase 1): the UPS Wire forecast's playoff and first-round-bye odds (the Forecast tab's own file and
+  // its freshness / reconciliation check), plus the deterministic clinch checks already in the shared module (magicNumbers):
+  // X = clinched a playoff spot, Y = clinched the division. A rounded 100% is never a clinch, and a stale or non-reconciling
+  // forecast shows no percentage at all. → { sim, why, mg, mgWhy }
+  function loadOverallOdds(resp) {
+    if (!magicSeasonOf(resp)) return Promise.resolve(null);
+    var W = Number((resp.regular_season || {}).through_week);
+    var sched = scheduleFor(state.year).then(function (j) {
+      var slow = !!(j && j.slow), mg = null;
+      try { mg = magicOf(resp, slow ? null : j); } catch (e) { mg = null; }
+      return { mg: mg, mgWhy: mg ? null : (slow ? "MFL’s schedule hasn’t arrived yet" : "MFL’s schedule couldn’t be read") };
+    }, function () { return { mg: null, mgWhy: "MFL’s schedule couldn’t be read" }; });
+    var fc = newestForecast(state.year, W).then(function (sim) {
+      if (!sim) return { sim: null, why: "no forecast has been published for " + state.year + " yet" };
+      if (Number(sim.throughWeek) !== W) return { sim: null, why: "the Week " + W + " forecast isn’t published yet (the newest is Week " + sim.throughWeek + ")" };
+      var rc = forecastReconcile(sim, resp);
+      if (rc.hard.length) return { sim: null, why: "the Week " + W + " forecast doesn’t start from these standings" };
+      return { sim: sim, why: null };
+    }, function () { return { sim: null, why: "the forecast couldn’t be loaded" }; });
+    return Promise.all([sched, fc]).then(function (g) {
+      return { key: state.year + "|" + W, sim: g[1].sim, why: g[1].why, mg: g[0].mg, mgWhy: g[0].mgWhy };
+    });
+  }
+  function odds(p) { return p == null ? "—" : p >= 0.995 ? ">99%" : (p > 0 && p < 0.005) ? "<1%" : Math.round(p * 100) + "%"; }
+  var PO_TIP = { X: "Clinched a playoff spot.", Y: "Clinched the division. The first-round byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed yet." };
+  function poCellHtml(r) {
+    var main = r._poClinch
+      ? '<span class="po-badge po-' + r._poClinch.toLowerCase() + '" title="' + escapeHtml(PO_TIP[r._poClinch]) + '">' + r._poClinch + '</span>'
+      : escapeHtml(odds(r._poP));
+    var sub = (r._poBye != null && r._poBye > 0) ? '<span class="owner-sub po-sub">' + escapeHtml(odds(r._poBye)) + ' Bye</span>' : "";
+    return main + sub;
+  }
+  function poNoteHtml(po, resp) {
+    var bits = [];
+    if (po.sim) bits.push('<strong>Playoff %</strong> = the UPS Wire forecast’s chance of making the playoffs (through Week ' + escapeHtml(po.sim.throughWeek) + ', generated ' + escapeHtml(fcWhen(po.sim)) + '), with the chance of a first-round bye beneath.');
+    else bits.push('<strong>Playoff %</strong> shows no percentage because ' + escapeHtml(po.why || "the forecast isn’t available") + '.');
+    if (po.mg) bits.push('<strong>X</strong> = clinched a playoff spot. <strong>Y</strong> = clinched the division (the byes go to the two best division winners by All-Play %, so a bye isn’t guaranteed). A percentage is never a clinch.');
+    else bits.push('X and Y aren’t shown because ' + escapeHtml(po.mgWhy || "the schedule isn’t available") + '.');
+    if (po.mg && po.mg.division && po.mg.division.status !== "ok") bits.push('Y isn’t shown because ' + escapeHtml(MAGIC_REASON[po.mg.division.reason] ? "the division race needs MFL’s schedule, which couldn’t be read" : "the division race can’t be checked right now") + '.');
+    return '<div class="note">' + bits.join(" ") + '</div>';
+  }
+  // The extra reads a Full League view needs before it draws: MFL's offensive / defensive split for Scoring, the odds for Overall.
+  function leagueExtras(resp) {
+    if (state.show === "scored") return loadOffDef(state.year);
+    if (state.show === "overall" && !isFinishedSeason(resp)) {
+      return loadOverallOdds(resp).then(function (o) { state.po = o; }, function () { state.po = null; });
+    }
+    return Promise.resolve();
+  }
   // Scoring: offensive-player and defensive-player (IDP) points are MFL's own leagueStandings op / dp, read through the worker's
   // export proxy (the phone app's rule): used only when every team has both and they add up to its regular-season Points
   // For (within 0.15); otherwise they show — and the note says why. 2010-2016 were a different MFL league.
@@ -3439,6 +3492,7 @@
       c("Div W-L", "_divPct", false, function (r) { return r._div ? rec(r._div.w, r._div.l, r._div.t) : "—"; }, "H2H record against opponents in your own division");
       c("Division GB", "_divGBs", true, function (r) { return r._divGB == null ? "—" : fmtDec(r._divGB, 1); }, "H2H games behind the division leader (the leader shows —; a team level on record but behind on the tiebreakers shows 0.0)", W);
       if (ctx.current) c("WC GB", "_wcGB", true, function (r) { return r._wcGB == null ? "—" : fmtDec(r._wcGB, 1); }, "All-Play wins behind the last wild card (division winners are protected). — = holding a playoff spot. Based on All-Play, the same as the seeds", W);
+      if (ctx.po) c("Playoff %", "_poSort", true, poCellHtml, "Chance of making the playoffs (UPS Wire forecast), with the chance of a first-round bye beneath. X = clinched a playoff spot · Y = clinched the division. A percentage is never a clinch.");
     }
     c("AP", null, false, function (r) { return recStr(r._ap); }, "Regular-season All-Play W-L-T: your score against every other team, every week", W);
     c("AP %", "_apPct", true, function (r) { return fmtPct(r._ap && r._ap.pct); }, "Regular-season All-Play %: the share of the league you beat each week");
@@ -3455,7 +3509,7 @@
   function renderLeague(host) {
     return fetchD1("/api/standings", state.year).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
-      var needOd = state.show === "scored" ? loadOffDef(state.year) : Promise.resolve();
+      var needOd = leagueExtras(resp);
       if (!isFinishedSeason(resp)) return Promise.all([loadApHistory(), needOd]).then(function () { drawLeague(host, resp, null, null); });
       return Promise.all([loadFinishes(state.year), needOd]).then(function (g) { drawLeague(host, resp, g[0], null); },
         function () { drawLeague(host, resp, null, "the recorded final standings couldn’t be loaded"); });
@@ -3484,6 +3538,10 @@
     var wcm = (current && !scoped && M0 && M0.wildCardMargins) ? M0.wildCardMargins(resp.rows || []) : null;
     var histRanks = (current && !scoped && state.apHistory) ? allTimeRanks(resp, state.apHistory) : null;
     var od = (state.show === "scored" && !scoped) ? offDefOf(sf, (state.offDef || {})[String(state.year)]) : null;
+    var poRaw = (state.show === "overall" && current && !scoped && magicSeasonOf(resp) && state.po && state.po.key === state.year + "|" + Number((resp.regular_season || {}).through_week)) ? state.po : null;
+    var po = poRaw && (poRaw.sim || poRaw.mg) ? poRaw : null;
+    var poTeams = {};
+    if (po && po.sim) po.sim.teams.forEach(function (x) { poTeams[pad4(x.franchiseId)] = x; });
     var regWeeks = Array.isArray(resp.weeklyScores) ? Object.keys(resp.weeklyScores.reduce(function (a, x) { if (x && Number(x.po) === 0) a[x.w] = 1; return a; }, {})).length : 0;
     var finGB = finished ? finishedDivGB(resp.rows || []) : null;
     // One Seed column, one source per season: the worker's playoff_seed for the current season; the recorded
@@ -3515,6 +3573,10 @@
       r._divGB = (noGB || o.is_division_leader || gbNum == null) ? null : gbNum;
       r._divGBs = noGB || gbNum == null ? null : (o.is_division_leader ? -1 : gbNum);
       r._wcGB = (current && !scoped && !resp.preseason) ? wcBackOf(o) : null;
+      var pe = po && po.mg ? po.mg.byFid[fid] : null, px = poTeams[fid];
+      r._poClinch = pe ? (pe.clinchedDivision ? "Y" : pe.clinchedSpot ? "X" : null) : null;
+      r._poP = px ? px.currentPlayoffOdds : null; r._poBye = px ? px.currentByeOdds : null;
+      r._poSort = r._poClinch === "Y" ? 3 : r._poClinch === "X" ? 2 : r._poP;
       r._hist = histRanks ? histRanks[fid] : null; r._histRank = r._hist ? r._hist.rank : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
       else if (reg) { r._pf = reg.points_for; r._pfw = reg.pf_per_week; r._pag = reg.pa_per_game; }
@@ -3545,7 +3607,7 @@
     // they can never mislead when the table is sorted some other way.
     var canonicalSeedOrder = sortHdrs.sortKey === "seed" && sortHdrs.sortDir === "asc";
     var showRace = !scoped && !!raceData && current;
-    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, hist: !!histRanks, od: od };
+    var ctx = { resp: resp, raceData: raceData, showRace: showRace, finished: finished, current: current, scoped: scoped, wk: wk, hist: !!histRanks, od: od, po: po };
     var bar = viewBarHtml(resp, showControlHtml());
     var noteBits = [];
     // Scored needs every regular-season week: anything short of 'ok' is an explanation, never a table.
@@ -3591,6 +3653,7 @@
       : '';
     if (!scoped && state.show === "overall") {
       if (current && !resp.preseason) noteBits.push('<div class="note"><strong>Division GB</strong> = H2H games behind the division leader. <strong>WC GB</strong> = All-Play wins behind the last wild card (division winners are protected); — = holding a playoff spot.</div>');
+      if (poRaw) noteBits.push(poNoteHtml(poRaw, resp));
       if (histRanks) noteBits.push('<div class="note"><strong>All-Time AP Rank</strong> = this season’s All-Play % against every team-season since 2010 through the same week; ties share a rank.</div>');
       if (finished && Number(state.year) === 2010) noteBits.push('<div class="note">Div W-L and Division GB aren’t shown for 2010: its division standings are still under review (#1329 C6/C9, #1378).</div>');
       else if (finished && Number(state.year) >= 2011 && Number(state.year) <= 2013) noteBits.push('<div class="note">Div W-L and Division GB for ' + state.year + ' come from stored standings that an open correction (#1329 C7) still touches: unverified.</div>');
@@ -3612,7 +3675,7 @@
     host.querySelectorAll("[data-show]").forEach(function (b) {
       b.addEventListener("click", function () {
         state.show = b.getAttribute("data-show"); pushQs();
-        (state.show === "scored" ? loadOffDef(state.year) : Promise.resolve()).then(function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
+        leagueExtras(resp).then(function () { drawLeague(host, resp, fins, finsError); notifyHeight(); });
       });
     });
   }
