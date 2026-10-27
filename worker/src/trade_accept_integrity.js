@@ -10,28 +10,17 @@
 //
 // Pure functions only. index.js supplies the closures that need MFL / D1 (token building, exports).
 
-import { capMoneyMaxK } from "./trade_rules.js";
+import { capMoneyMaxK, normalizeTradeToken, tradeTokenSet } from "./trade_rules.js";
 
 function s(v) { return String(v == null ? "" : v).trim(); }
 function pad4(v) { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }
 function arr(v) { return Array.isArray(v) ? v : v == null ? [] : [v]; }
 
 // ── tokens ──────────────────────────────────────────────────────────────────────────
-// MFL token forms: 14056 (player) · FP_<origFid>_<year>_<round> · DP_<round0>_<slot0> · BB_<dollars>
-export function normalizeToken(t) {
-  let x = s(t).toUpperCase();
-  if (!x) return "";
-  const bb = /^BB_(.+)$/.exec(x);
-  if (bb) { const n = Number(bb[1].replace(/,/g, "")); return Number.isFinite(n) ? `BB_${n}` : x; }
-  if (/^P_\d+$/.test(x)) x = x.slice(2);
-  const dp = /^DP_(\d+)_(\d+)$/.exec(x);          // DP_00_03 and DP_0_3 are the same pick
-  if (dp) return `DP_${Number(dp[1])}_${Number(dp[2])}`;
-  return x;
-}
-export function tokenSet(list) {
-  const src = Array.isArray(list) ? list : s(list).split(/\s*,\s*/);
-  return [...new Set(src.map(normalizeToken).filter(Boolean))].sort();
-}
+// Keep the old export for existing callers; the shared module owns the implementation.
+export { normalizeTradeToken as normalizeToken };
+export { tradeTokenSet as tokenSet };
+const tokenSet = tradeTokenSet;
 const sameSet = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**

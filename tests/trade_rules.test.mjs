@@ -16,7 +16,9 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 await import("./fixtures/register_md_loader.mjs");
-const { capMoneyMaxK, irCapHit, isOverCap, IR_RELIEF_RATE } = await import("../worker/src/trade_rules.js");
+const { capMoneyMaxK, irCapHit, isOverCap, parseAssetToken, normalizeTradeToken, tradeTokenSet, IR_RELIEF_RATE } = await import("../worker/src/trade_rules.js");
+const { parseAssetToken: parse3WayAssetToken } = await import("../worker/src/trade_3way_model.js");
+const { normalizeToken: normalizeAcceptToken, tokenSet: acceptTokenSet } = await import("../worker/src/trade_accept_integrity.js");
 const { currentCapHit, IR_RELIEF_RATE: CAP_MATH_IR_RATE } = await import("../worker/src/cap_math.js");
 const { movementCapMaxK } = await import("../worker/src/trade_3way.js");
 const { capMoneyViolations } = await import("../worker/src/trade_accept_integrity.js");
@@ -40,7 +42,7 @@ test("the browser twin is the worker module, byte for byte (same check as tests/
   t.equal(twinBody.trim(), body.trim(), "regenerate site/shared/trade_rules.js: node scripts/generate_shared_trade_rules.mjs");
   t.equal(sharedBody(w), body.trimEnd(), "the generator and this test strip the same way");
   t.equal(s, render(w), "the whole twin file is exactly what the generator writes");
-  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap"], "the twin exposes every export");
+  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap", "normalizeTradeToken", "parseAssetToken", "tradeTokenSet"], "the twin exposes every export");
   t.ok(/root\.UPS_TRADE_RULES = api;/.test(s) && /module\.exports = api/.test(s), "window.UPS_TRADE_RULES + module.exports");
   t.doesNotMatch(code(w), /\bfetch\(|\benv\b|document\.|window\./, "the worker module is pure: no fetch, env or DOM");
   t.doesNotMatch(w, /^import /m, "and imports nothing (the twin can't)");
@@ -54,6 +56,51 @@ test("the twin computes the same as the worker module on a grid", () => {
     for (const c of [0, 1000, 300000]) t.equal(TWIN.isOverCap(x, c), isOverCap(x, c));
   }
   t.equal(TWIN.IR_RELIEF_RATE, IR_RELIEF_RATE);
+});
+
+test("three-team asset tokens keep the existing parser result in worker and browser", () => {
+  const cases = [
+    ["P_16614", { token: "P_16614", kind: "player", player_id: "16614" }],
+    ["FP_0005_2027_1", { token: "FP_0005_2027_1", kind: "pick", pick: { year: 2027, round: 1, slot: null, original_fid: "0005" } }],
+    ["FP_2027_1_0005", { token: "FP_2027_1_0005", kind: "pick", pick: { year: 2027, round: 1, slot: null, original_fid: "0005" } }],
+    ["DP_2026_1_4", { token: "DP_2026_1_4", kind: "pick", pick: { year: 2026, round: 1, slot: 4, original_fid: "" } }],
+    ["BB_16000", { token: "BB_16000", kind: "cap", cap_k: 16 }],
+    [" BB_1500 ", { token: "BB_1500", kind: "cap", cap_k: 2 }],
+    ["P_bad", { token: "P_bad", kind: "unknown" }],
+    ["DP_2026_1", { token: "DP_2026_1", kind: "unknown" }],
+    ["16614", { token: "16614", kind: "unknown" }],
+    [null, { token: null, kind: "unknown" }],
+  ];
+  for (const [input, expected] of cases) {
+    t.deepEqual(parseAssetToken(input), expected);
+    t.deepEqual(parse3WayAssetToken(input), expected);
+    t.deepEqual(TWIN.parseAssetToken(input), expected);
+  }
+});
+
+test("two-team MFL token normalization stays identical through the old export and browser twin", () => {
+  const cases = [
+    [" P_14056 ", "14056"], ["14056", "14056"],
+    ["fp_0005_2027_1", "FP_0005_2027_1"],
+    ["DP_00_03", "DP_0_3"], ["BB_2,000", "BB_2000"],
+    ["BB_1.5", "BB_1.5"], ["BB_bad", "BB_BAD"],
+    ["", ""], [null, ""],
+  ];
+  for (const [input, expected] of cases) {
+    t.equal(normalizeTradeToken(input), expected);
+    t.equal(normalizeAcceptToken(input), expected);
+    t.equal(TWIN.normalizeTradeToken(input), expected);
+  }
+  const setCases = [
+    ["P_14056, 14056, DP_00_03, DP_0_3, BB_2000", ["14056", "BB_2000", "DP_0_3"]],
+    [["P_14056", "14056", "DP_00_03", "BB_2000"], ["14056", "BB_2000", "DP_0_3"]],
+    [null, []],
+  ];
+  for (const [input, expected] of setCases) {
+    t.deepEqual(tradeTokenSet(input), expected);
+    t.deepEqual(acceptTokenSet(input), expected);
+    t.deepEqual(TWIN.tradeTokenSet(input), expected);
+  }
 });
 
 // ───────────────────────────── 2. the rules ─────────────────────────────
@@ -77,7 +124,9 @@ test("every caller uses the shared rule and keeps no copy of the arithmetic", ()
   const cm = read("worker/src/cap_math.js"), m3 = read("worker/src/trade_3way.js"), ai = read("worker/src/trade_accept_integrity.js"), ca = read("worker/src/trade_cap_authority.js");
   t.match(cm, /import \{ IR_RELIEF_RATE, irCapHit \} from "\.\/trade_rules\.js";/); t.match(cm, /if \(p\.ir\) return irCapHit\(amt\);/);
   t.match(m3, /import \{ capMoneyMaxK \} from "\.\/trade_rules\.js";/); t.match(m3, /return capMoneyMaxK\(sum\);/);
-  t.match(ai, /import \{ capMoneyMaxK \} from "\.\/trade_rules\.js";/); t.match(ai, /const maxDollars = capMoneyMaxK\(nonTaxi\) \* 1000;/);
+  t.match(ai, /import \{ capMoneyMaxK, normalizeTradeToken, tradeTokenSet \} from "\.\/trade_rules\.js";/); t.match(ai, /const maxDollars = capMoneyMaxK\(nonTaxi\) \* 1000;/);
+  t.match(ai, /export \{ normalizeTradeToken as normalizeToken \};/, "the old accept-integrity import path still exports the shared parser");
+  t.match(ai, /export \{ tradeTokenSet as tokenSet \};/, "the old accept-integrity token-set path still exports the shared set");
   t.match(ca, /import \{ isOverCap \} from "\.\/trade_rules\.js";/); t.match(ca, /if \(isOverCap\(st\.after, L\.cap\)\) violations\.push\(/);
   for (const [f, src] of [["trade_3way.js", m3], ["trade_accept_integrity.js", ai], ["cap_math.js", cm]]) t.doesNotMatch(code(src), /\/ 2000\)|\* 0\.5\b|\* IR_RELIEF_RATE/, f);
   const desk = read("site/trades/trade_workbench.js");
