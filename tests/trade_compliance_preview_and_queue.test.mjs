@@ -110,6 +110,8 @@ test("PREVIEW: the commissioner can preview any pair without being a party to it
 
 test("PREVIEW VERDICT: a sound-looking draft is provisional, shows the live MFL lock, and never writes", async () => {
   const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
   mfl.st.exportBody = { calendar: { calendar: { event: [{ id: "901", type: "TRADE", start_time: "1795654800" }] } } };
   const body = { league_id: "74598", season: "2026", from_franchise_id: "0001", movements: [{ from: "0001", to: "0002", asset_tokens: ["P_14056"] }] };
   const r = await callWorker(env, "POST", `/api/trades/compliance-preview?${Q}&MFL_USER_ID=tok-B`, { body });
