@@ -38,6 +38,36 @@
     return out.sort(function (a, b) { return a.year === b.year ? a.round - b.round : a.year < b.year ? -1 : 1; });
   }
 
+  // ── Pre-trade extension: the shared rule (shared/pretrade_extension.js), fed this player's own contract ──
+  var extMemo = {};
+  function extAsset(p) {
+    var info = String(p.special || ""), cl = /(?:^|\|)\s*CL\s*(\d+)/i.exec(info);
+    return { type: "PLAYER", position: p.position, salary: p.salary, years: p.years, contract_type: p.type, contract_info: info,
+      contract_length: cl ? parseInt(cl[1], 10) : 0, taxi: !!p.isTaxi };
+  }
+  function extensionOptions(item) {
+    var X = root.UPS_PRETRADE_EXT, pid = String(item.token || "").replace(/^P_/, "");
+    var p = playerRec(item.from, pid);
+    if (!X || !p) return [];
+    var key = item.from + "|" + pid + "|" + p.years + "|" + p.salary + "|" + p.type + "|" + p.special;
+    return extMemo[key] || (extMemo[key] = X.buildSyntheticExtensionOptions(extAsset(p)));
+  }
+  function y1(o) { var X = root.UPS_PRETRADE_EXT, y = X ? X.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars : {}; return y["1"] != null ? y["1"] : null; }
+  function extImpacts(draft) {
+    var X = root.UPS_PRETRADE_EXT, out = [];
+    draft.items.forEach(function (i) {
+      var key = (draft.ext || {})[i.from + "|" + i.token]; if (!key) return;
+      var o = extensionOptions(i).filter(function (x) { return x.option_key === key; })[0], p = playerRec(i.from, pidOf(i.token));
+      if (!o || !p) return;
+      var y = X.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars, ks = Object.keys(y).sort(function (a, b) { return a - b; });
+      var money = function (d) { var v = Math.round(d / 100) / 10; return "$" + (v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)) + "K"; };
+      out.push({ name: p.name, from: i.from, to: i.to, current: p.years + " yr left · " + money(p.salary) + (p.type && p.type !== "-" ? " · " + p.type : ""),
+        proposed: o.new_contract_length + " yr · " + ks.map(function (n) { return money(y[n]); }).join(" then ") + " · total " + money(o.new_TCV) + " · " + (o.new_contract_status || ""),
+        added: ks.slice(1).reduce(function (a, n) { return a + y[n]; }, 0), pid: pidOf(i.token) });
+    });
+    return out;
+  }
+
   // ── Impact: the Front Office's own engines, never a second reading of the rules ──
   function teamOf(fid) { return FO.teams().filter(function (t) { return t.fid === fid; })[0]; }
   function playerRec(fid, pid) { var t = teamOf(fid); return t ? (t.players || []).filter(function (p) { return String(p.id) === String(pid); })[0] : null; }
@@ -53,7 +83,14 @@
       draft.items.forEach(function (i) {
         var pid = pidOf(i.token); if (!pid) return;
         if (i.from === f) { var p = playerRec(f, pid); if (p) send.push({ salary: p.salary, hit: FO.capHit(p), isTaxi: !!p.isTaxi, isIr: !!p.isIr, loaded: FO.isLoaded(p) }); }
-        if (i.to === f) { var q = playerRec(i.from, pid); if (q) recv.push({ salary: q.salary, isTaxi: !!q.isTaxi, isIr: !!q.isIr, loaded: FO.isLoaded(q) }); }
+        if (i.to === f) {
+          var q = playerRec(i.from, pid);
+          if (q) {
+            var ek = (draft.ext || {})[i.from + "|" + i.token], eo = ek ? extensionOptions(i).filter(function (x) { return x.option_key === ek; })[0] : null;
+            // An accepted pre-trade extension resets the current-year salary to its own Y1 and arrives with the extension's own loaded status (worker rule).
+            recv.push({ salary: eo && y1(eo) != null ? y1(eo) : q.salary, isTaxi: !!q.isTaxi, isIr: !!q.isIr, loaded: eo ? (eo.loaded_indicator === "NONE" ? false : true) : FO.isLoaded(q) });
+          }
+        }
       });
       ms.forEach(function (m) { if (m.from === f) sentK += m.cap_k; if (m.to === f) gotK += m.cap_k; });
       out[f] = { r: I.capImpact({ ceiling: FO.capCeiling, capAlloc: snap.capAlloc, activeN: snap.activeN, taxiN: snap.taxiN, irN: snap.irN, loadedN: snap.loadedN, activeMax: snap.activeMax, activeMin: snap.activeMin, taxiMax: snap.taxiMax }, send, recv, sentK, gotK) };
@@ -96,7 +133,7 @@
     });
     return { state: "ok", teams: teamsOut };
   }
-  function impact(draft) { return { cap: capImpacts(draft), lineup: lineupImpacts(draft) }; }
+  function impact(draft) { return { cap: capImpacts(draft), lineup: lineupImpacts(draft), ext: extImpacts(draft) }; }
 
   function preview(body) {
     var c = cfg();
@@ -114,6 +151,8 @@
       assets: function (fid) { return { players: playersOf(fid), picks: picksOf(fid) }; },
       ctx: { leagueId: DATA.config().leagueId, season: DATA.config().season, viewerFid: FO.viewerFid() },
       impact: impact,
+      extensionOptions: extensionOptions,
+      playerLink: function (pid, fid, label) { return H.playerButton ? H.playerButton(pid, fid, label) : "<b>" + label + "</b>"; },
       preview: preview,
       sources: c.sources,
       // No send(): see the header. The notice is what the owner reads on the Review step.

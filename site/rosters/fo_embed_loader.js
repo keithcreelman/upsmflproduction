@@ -15,7 +15,7 @@
   // front_office.html shell and injects it) and reads MFL's login cookie for the
   // viewer franchise, so no ?franchise_id= is needed inside the embed.
 
-  var BUILD = "2026.10.27.1";
+  var BUILD = "2026.10.27.4";
   if (window.__ups_fo_embed_loader === BUILD) {
     if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
     return;
@@ -249,6 +249,7 @@
       "rosters/v2/fo_roster.js",
       "rosters/v2/fo_market.js",
       "shared/trade_rules.js",
+      "shared/pretrade_extension.js",
       "shared/trade_impact.js",
       "shared/trade_builder_core.js",
       "shared/trade_builder_view.js",

@@ -41,7 +41,8 @@ test("gaps: empty, cap money alone, one team, unknown token, three teams", () =>
   assert.equal(C.gaps(moneyOnly)[0].code, "no_assets");
   assert.equal(C.signature(moneyOnly, ctx) !== "", true);
   assert.deepEqual(C.gaps(twoTeam()), []);
-  const bad = C.addItem(C.emptyDraft(["0003", "0007"]), { from: "0003", to: "0007", token: "XX_1" });
+  let bad = C.addItem(C.emptyDraft(["0003", "0007"]), { from: "0003", to: "0007", token: "XX_1" });
+  bad = C.addItem(bad, { from: "0007", to: "0003", token: "P_5" });
   assert.equal(C.gaps(bad)[0].code, "unknown_asset");
 });
 
@@ -52,8 +53,7 @@ test("three-team ring is accepted structurally; a fourth team is refused", () =>
   d = C.addItem(d, { from: "0011", to: "0003", token: "P_3" });
   assert.deepEqual(C.gaps(d), []);
   assert.equal(C.parties(d).length, 3);
-  d = C.addItem(d, { from: "0011", to: "0015", token: "P_4" });
-  assert.equal(C.gaps(d).some((g) => g.code === "too_many_teams"), true);
+  assert.equal(C.gaps(C.withTeams(d, ["0003", "0007", "0011", "0015"])).some((g) => g.code === "too_many_teams"), true);
 });
 
 test("removing a team drops its assets and cap money", () => {
@@ -89,7 +89,7 @@ test("readiness: never sendable, every server status maps, failures never read a
   assert.equal(C.readiness([], "done", { ok: true, verdict: { status: "needs_acknowledgment", reasons: [] } }).state, "needs_ack");
   for (const bad of [null, {}, { ok: false }, { ok: true }, { ok: true, verdict: "x" }]) assert.equal(C.readiness([], "done", bad).state, "unavailable");
   assert.equal(C.readiness([], "checking").state, "checking");
-  assert.equal(C.readiness([{ code: "no_assets", message: "m" }], "done", prov).state, "draft");
+  assert.equal(C.readiness([{ code: "no_assets", message: "m" }], "done", prov).state, "none");
 });
 
 test("lock view: unresolved or missing never shows a time", () => {
@@ -130,4 +130,65 @@ test("send plan carries the checked movements and a trimmed, capped note; kind f
 test("summary lines name who sends what to whom, with cap money", () => {
   const lines = C.summary(C.setCapK(twoTeam(), "0003", "0007", 4), (f) => ({ "0003": "Owls", "0007": "Foxes" })[f]);
   assert.match(lines.find((l) => l.from === "0003").text, /^Owls sends WR One, Taxi guy, \$4K cap money to Foxes$/);
+});
+
+test("structure: one-sided is INCOMPLETE; both sides sending is complete; one asset anywhere is not enough", () => {
+  const empty = C.emptyDraft(["0003", "0007"]);
+  assert.equal(C.gaps(empty)[0].code, "no_assets");
+  const oneSided = C.addItem(empty, { from: "0003", to: "0007", token: "P_1" });
+  const g = C.gaps(oneSided, (f) => ({ "0003": "Owls", "0007": "Foxes" })[f]);
+  assert.deepEqual(g.map((x) => x.code), ["side_empty"]);
+  assert.match(g[0].message, /^Foxes has not selected/);
+  assert.deepEqual(C.gaps(C.addItem(oneSided, { from: "0007", to: "0003", token: "P_2" })), []);
+  // only me chosen (no partner) with an asset: incomplete, not fine
+  const solo = C.addItem(C.emptyDraft(["0003"]), { from: "0003", to: "0007", token: "P_1" });
+  assert.equal(C.gaps(solo).some((x) => x.code === "choose_team"), true);
+});
+
+test("three teams: every selected team must take part; a team that neither sends nor receives is idle", () => {
+  let d = C.emptyDraft(["0003", "0007", "0011"]);
+  d = C.addItem(d, { from: "0003", to: "0007", token: "P_1" });
+  assert.deepEqual(C.gaps(d).map((x) => x.code + ":" + x.fid), ["team_idle:0011"]);
+  d = C.addItem(d, { from: "0011", to: "0003", token: "P_2" });
+  assert.deepEqual(C.gaps(d), []);
+});
+
+test("readiness: empty = No trade proposed; incomplete = Incomplete trade; neither can ever read a server answer", () => {
+  const prov = { ok: true, verdict: { status: "provisional", send_ready: false, reasons: [], trade_lock: { state: "upcoming", label: "x" } } };
+  const none = C.readiness(C.gaps(C.emptyDraft(["0003", "0007"])), "done", prov);
+  assert.equal(none.label, "No trade proposed"); assert.equal(none.canAttempt, false); assert.equal(none.lock, null);
+  const inc = C.readiness(C.gaps(C.addItem(C.emptyDraft(["0003", "0007"]), { from: "0003", to: "0007", token: "P_1" })), "done", prov);
+  assert.equal(inc.label, "Incomplete trade"); assert.equal(inc.state, "incomplete"); assert.equal(inc.canAttempt, false); assert.equal(inc.lock, null);
+  assert.equal(C.readiness([], "idle").canAttempt, false);
+});
+
+test("readiness: calculated blocks beat a provisional server answer; calculated acknowledgments upgrade it; neither is ever positive", () => {
+  const prov = { ok: true, verdict: { status: "provisional", reasons: [] } };
+  const b = C.readiness([], "done", prov, { blocked: ["Foxes would have 6 loaded contracts (the limit is 5): blocked."], ack: [] });
+  assert.equal(b.state, "blocked"); assert.equal(b.canAttempt, false); assert.match(b.reasons[0].text, /6 loaded/);
+  const a = C.readiness([], "done", prov, { blocked: [], ack: ["Owls would be $2K over the cap."] });
+  assert.equal(a.state, "needs_ack"); assert.equal(a.canAttempt, true);
+  assert.equal(C.readiness([], "done", prov, { blocked: [], ack: [] }).state, "provisional");
+});
+
+test("a SAMPLE trade lock is always labeled as sample, never as the live calendar", () => {
+  assert.match(C.lockView({ state: "upcoming", label: "Wed", sample: true }).text, /^SAMPLE DATA, not the live trade calendar: Trades close Wed/);
+  assert.doesNotMatch(C.lockView({ state: "upcoming", label: "Wed" }).text, /SAMPLE/);
+});
+
+test("pre-trade extension choices: stored per player, dropped with the player, in the signature, and become the War Room's request row", () => {
+  let d = twoTeam();
+  const opts = (i) => (i.token === "P_1234" ? [{ option_key: "1YR|NONE", extension_term: "1YR", loaded_indicator: "NONE", preview_contract_info_string: "CL 2| TCV 5K", new_contract_status: "EXT1", new_contract_length: 2, new_TCV: 5000, new_aav_current: 1000, new_aav_future: 4000 }] : []);
+  const sig0 = C.signature(d, ctx);
+  d = C.setExt(d, "0003", "P_1234", "1YR|NONE");
+  assert.notEqual(C.signature(d, ctx), sig0);
+  const rows = C.extensionRequests(d, opts);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].player_id, rows[0].from_franchise_id, rows[0].to_franchise_id, rows[0].option_key, rows[0].applies_to_acquirer], ["1234", "0003", "0007", "1YR|NONE", true]);
+  assert.equal(C.sendPlan(d, ctx, "", rows).extension_requests.length, 1);
+  assert.equal(C.request(d, ctx, rows).extension_requests[0].new_aav_future, 4000);
+  assert.match(C.summary(d, (f) => f)[0].text, /with a 1-year pre-trade extension/);
+  assert.equal(C.extensionRequests(C.setExt(d, "0003", "P_1234", "9YR|NONE"), opts).length, 0);       // no such option: dropped
+  assert.equal(Object.keys(C.removeItem(d, "P_1234", "0003").ext).length, 0);                         // player removed: choice removed
+  assert.equal(Object.keys(C.setExt(d, "0003", "P_NOT_THERE", "1YR|NONE").ext).length, 1);           // unselected player: ignored
 });

@@ -179,9 +179,9 @@
       Object.keys(byDay).map(function (d) { return '<h4 class="fo-tf-h">' + H.esc(d) + '</h4><ul class="fo-tf-list">' + byDay[d].map(function (l) { return "<li>" + l.html + "</li>"; }).join("") + "</ul>"; }).join("");
     el.innerHTML = '<div class="fo-tf-grid fo-act-grid">' +
       '<div class="fo-card"><h3 class="fo-tf-h">Claims MFL holds' + (me ? " for " + H.esc(H.teamName(me)) : "") + "</h3>" + claimsHtml(me) + "</div>" +
-      '<div class="fo-card"><div class="fo-card-head"><h2>Recent moves</h2><div class="fo-subview-chips" role="group" aria-label="Whose moves">' +
+      '<div class="fo-card"><div class="fo-card-head"><h2>Recent moves</h2><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-mv">Show moves for</div><div class="fo-subview-chips fo-choice" role="group" aria-labelledby="fo-lbl-mv">' +
         '<button type="button" class="fo-subview-chip' + (moves.scope === "mine" ? " active" : "") + '" data-mv-scope="mine" aria-pressed="' + (moves.scope === "mine") + '">My team</button>' +
-        '<button type="button" class="fo-subview-chip' + (moves.scope === "league" ? " active" : "") + '" data-mv-scope="league" aria-pressed="' + (moves.scope === "league") + '">League</button></div></div>' +
+        '<button type="button" class="fo-subview-chip' + (moves.scope === "league" ? " active" : "") + '" data-mv-scope="league" aria-pressed="' + (moves.scope === "league") + '">League</button></div></div></div>' +
         '<p class="fo-basis">Last 14 days from MFL’s transaction log: adds, drops, waiver awards, trades, IR and taxi moves. Contract submissions are in Contracts &amp; Cap → Contract log.</p>' + movesHtml + "</div></div>";
   }
   function wire() {

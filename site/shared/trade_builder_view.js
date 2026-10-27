@@ -9,6 +9,8 @@
      mount(el, { teams:[{fid,name,abbrev?}], ctx:{leagueId,season,viewerFid},
                  assets(fid) -> {players:[{id,name,pos,salary,years,type,taxi,ir}], picks:[{token,label}]},
                  impact(draft) -> { cap:{fid:{r}}|null, lineup:{state,message,teams:{fid:{...}}} },
+                 extensionOptions(item) -> [option] (the shared pre-trade extension rule; [] = not eligible),
+                 playerLink(pid, fid, label) -> html (opens the Front Office player panel),
                  preview(body) -> Promise<json>, send(plan)? , sendNotice, sources:{data,verdict}, warRoomUrl?, debounceMs }) */
 (function (root) {
   "use strict";
@@ -26,14 +28,35 @@
     var delay = opt.debounceMs == null ? 600 : opt.debounceMs;
     var S = opt.sources || {};
     var draft = C.emptyDraft([me]);
-    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", confirm: false, sent: null, open: {}, q: {} };
+    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", confirm: false, sent: null, open: {}, q: {}, memo: { sig: "", imp: null } };
     var info = {}; teams.forEach(function (t) { info[C.pad4(t.fid)] = t; });
     function nm(f) { return (info[f] && info[f].name) || "Team " + f; }
     function others() { return draft.teams.filter(function (f) { return f !== me; }); }
-    function readiness() { return C.readiness(C.gaps(draft), st.phase, st.resp); }
+    function gapsNow() { return C.gaps(draft, nm); }
+    function extOpts(item) { return opt.extensionOptions ? (opt.extensionOptions(item) || []) : []; }
+    // The page's own cap / loaded-contract / lineup math, computed once per draft state (and again when data refreshes).
+    function impactNow() {
+      if (!others().length || !draft.items.length) return null;
+      var key = JSON.stringify([draft.teams, draft.items.map(function (i) { return [i.from, i.to, i.token]; }), draft.capK, draft.ext]);
+      if (st.memo.sig !== key || !st.memo.imp) st.memo = { sig: key, imp: opt.impact(draft) };
+      return st.memo.imp;
+    }
+    function calcFlags(imp) {
+      var out = { blocked: [], ack: [] };
+      if (!imp || !imp.cap) return out;
+      draft.teams.forEach(function (f) {
+        var c = imp.cap[f]; if (!c) return;
+        if (c.r.overCap) out.ack.push(nm(f) + " would be " + k(c.r.after.alloc - c.r.ceiling) + " over the cap: the owner must acknowledge the exact figure before it can be sent.");
+        if (c.r.loadedOver) out.blocked.push(nm(f) + " would have " + c.r.after.loaded + " loaded contracts (the limit is " + c.r.loadedMax + ").");
+      });
+      return out;
+    }
+    function readiness() { return C.readiness(gapsNow(), st.phase, st.resp, calcFlags(impactNow())); }
+    function extReqs() { return C.extensionRequests(draft, extOpts); }
 
     function changed() {
       var gaps = C.gaps(draft), sig = gaps.length ? "" : C.signature(draft, ctx);
+      st.memo = { sig: "", imp: null };
       clearTimeout(st.timer);
       st.seq++;                          // any answer still in flight is now stale
       st.confirm = false; st.sent = null;
@@ -41,7 +64,7 @@
       st.phase = "checking"; st.resp = null; render();
       var mine = st.seq;
       st.timer = setTimeout(function () {
-        Promise.resolve().then(function () { return opt.preview(C.request(draft, ctx)); }).then(function (j) { return j; }, function () { return null; })
+        Promise.resolve().then(function () { return opt.preview(C.request(draft, ctx, extReqs())); }).then(function (j) { return j; }, function () { return null; })
           .then(function (j) { if (mine !== st.seq) return; st.phase = "done"; st.resp = j; render(); });
       }, delay);
     }
@@ -49,10 +72,11 @@
     function playerOf(fid, tok) { var a = opt.assets(fid) || { players: [] }; return a.players.filter(function (x) { return "P_" + x.id === tok; })[0]; }
 
     // ── Trade proposal ────────────────────────────────────────────────
+    function pname(p, fid) { return opt.playerLink ? opt.playerLink(p.id, fid, p.name) : "<b>" + esc(p.name) + "</b>"; }
     function contractLine(p) { return [p.years != null ? p.years + " yr" : "", p.type || "", p.taxi ? "taxi" : "", p.ir ? "IR" : ""].filter(Boolean).join(" · "); }
     function itemRow(i, withControls) {
       var p = /^P_/.test(i.token) ? playerOf(i.from, i.token) : null;
-      var cells = p ? '<td><b>' + esc(p.name) + '</b> <span class="fo-muted">' + esc(p.pos) + '</span></td><td class="num">' + k(p.salary) + '</td><td>' + esc(contractLine(p)) + "</td>"
+      var cells = p ? '<td>' + pname(p, i.from) + ' <span class="fo-muted">' + esc(p.pos) + '</span></td><td class="num">' + k(p.salary) + '</td><td>' + esc(contractLine(p)) + "</td>"
         : '<td><b>' + esc(i.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-muted">no salary</td>';
       var ctl = "";
       if (withControls) {
@@ -60,7 +84,20 @@
           return '<option value="' + f + '"' + (i.to === f ? " selected" : "") + ">to " + esc(nm(f)) + "</option>"; }).join("") + "</select> " : "") +
           '<button type="button" class="btn secondary small" data-tok="' + esc(i.token) + '" data-from="' + i.from + '" aria-label="Remove ' + esc(i.label) + '">Remove</button></td>';
       }
-      return "<tr>" + cells + ctl + "</tr>";
+      return "<tr>" + cells + ctl + "</tr>" + (withControls && p ? extensionRow(i, p) : "");
+    }
+    // ── Pre-trade extension (a SCENARIO: nothing is saved to the player's contract) ──
+    function extCompare(i, p, o) {
+      var Xt = root.UPS_PRETRADE_EXT, y = Xt ? Xt.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars : {}, ys = Object.keys(y).sort(function (a, b) { return a - b; }).map(function (n) { return k(y[n]); });
+      return '<span class="fo-tb-cur">Current: ' + esc(p.years) + ' yr left · ' + k(p.salary) + (p.type ? " · " + esc(p.type) : "") + '</span> → <span class="fo-tb-prop">Proposed: ' + esc(o.new_contract_length) + " yr · " + ys.join(" then ") + " · total " + k(o.new_TCV) + " · " + esc(o.new_contract_status || "") + "</span>";
+    }
+    function extensionRow(i, p) {
+      var opts = extOpts(i); if (!opts.length) return "";
+      var chosen = (draft.ext || {})[i.from + "|" + i.token] || "", o = opts.filter(function (x) { return x.option_key === chosen; })[0];
+      return '<tr class="fo-tb-extrow"><td colspan="4"><label class="fo-tb-ext"><span>Pre-trade extension for ' + esc(p.name) + ' <span class="fo-tf-tag ok">Eligible</span> <span class="fo-muted">(a scenario in this trade; his contract is not changed)</span></span>' +
+        '<select data-ext="' + esc(i.token) + '" data-from="' + i.from + '" aria-label="Pre-trade extension for ' + esc(p.name) + '"><option value="">No extension</option>' + opts.map(function (x) {
+          return '<option value="' + esc(x.option_key) + '"' + (chosen === x.option_key ? " selected" : "") + ">" + esc(x.extension_term.replace("YR", "-year")) + " extension: " + esc(x.new_contract_length) + " yr, total " + k(x.new_TCV) + "</option>"; }).join("") + "</select></label>" +
+        (o ? '<p class="fo-tb-extline">' + extCompare(i, p, o) + "</p>" : "") + "</td></tr>";
     }
     function listTable(rows, empty, cols) {
       return rows ? '<div class="fo-table-scroll fo-tb-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Asset</th><th class="num">Salary</th><th>Contract</th>' + (cols ? "<th></th>" : "") + "</tr></thead><tbody>" + rows + "</tbody></table></div>" : '<p class="fo-ov-empty">' + empty + "</p>";
@@ -72,7 +109,8 @@
       var a = opt.assets(f) || { players: [], picks: [] };
       var q = (st.q[f] || "").toLowerCase();
       var rows = a.players.filter(function (p) { return !q || (p.name + " " + p.pos).toLowerCase().indexOf(q) !== -1; }).map(function (p) {
-        return '<tr><td><b>' + esc(p.name) + '</b> <span class="fo-muted">' + esc(p.pos) + '</span></td><td class="num">' + k(p.salary) + "</td><td>" + esc(contractLine(p)) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name) + "</td></tr>";
+        var eligible = extOpts({ from: f, token: "P_" + p.id, label: p.name }).length > 0;
+        return '<tr><td>' + pname(p, f) + ' <span class="fo-muted">' + esc(p.pos) + '</span>' + (eligible ? ' <span class="fo-tf-tag ok" title="Eligible for a pre-trade extension under the league rule">Extension eligible</span>' : "") + '</td><td class="num">' + k(p.salary) + "</td><td>" + esc(contractLine(p)) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name) + "</td></tr>";
       }).concat(a.picks.filter(function (p) { return !q || p.label.toLowerCase().indexOf(q) !== -1; }).map(function (p) {
         return '<tr><td><b>' + esc(p.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-muted">no salary</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, p.token, f), p.token, f, p.label) + "</td></tr>";
       })).join("");
@@ -127,8 +165,14 @@
       }).join("");
       return '<div class="fo-table-scroll"><table class="fo-table fo-tb-table fo-tb-cmp"><thead><tr><th></th>' + cols.map(function (f) { return '<th class="num">' + esc(nm(f)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
         rows.map(function (r) { return '<tr><th scope="row">' + r[0] + "</th>" + cell(r[1]) + "</tr>"; }).join("") + "</tbody></table></div>" +
-        (flags ? '<ul class="fo-tb-flags">' + flags + "</ul>" : "") +
+        (flags ? '<ul class="fo-tb-flags">' + flags + "</ul>" : "") + extTable(imp) +
         '<p class="fo-basis">Same cap engine as the Overview: taxi $0, IR 50% on the sending side; a traded player arrives active at his full salary; cap money is charged to the sender and credited to the receiver this season only. The server check is the authority.</p>';
+    }
+    function extTable(imp) {
+      var list = (imp && imp.ext) || []; if (!list.length) return "";
+      return '<h4>Pre-trade extensions in this trade <span class="fo-muted">(scenario only; nothing is saved)</span></h4><div class="fo-table-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Player</th><th>Current contract</th><th>Proposed contract</th><th class="num">Added future years</th></tr></thead><tbody>' +
+        list.map(function (e) { return "<tr><td><b>" + esc(e.name) + '</b> <span class="fo-muted">' + esc(nm(e.from)) + " → " + esc(nm(e.to)) + "</span></td><td>" + esc(e.current) + "</td><td>" + esc(e.proposed) + '</td><td class="num">' + (e.added ? "+" + k(e.added) : "—") + "</td></tr>"; }).join("") +
+        '</tbody></table></div><p class="fo-basis">This season’s salary is not repriced by the extension; the extra years are added at the new rate and go with him to the receiving team. The server prices the real extension itself and re-checks it when the offer is made and when it is accepted.</p>';
     }
     function lineupSection(imp) {
       var L = imp && imp.lineup;
@@ -153,23 +197,41 @@
       }).join("") + '</div><p class="fo-basis">Modeled lineup from the Trade finder: each team’s best legal lineup by season points a week (MFL’s scores), same slots and replacement level. It is not a projection and is not MFL’s submitted lineup.</p>';
     }
     function validationSection(imp) {
-      var r = readiness(), calc = [];
-      if (imp && imp.cap) draft.teams.forEach(function (f) { var c = imp.cap[f]; if (c && c.r.overCap) calc.push(nm(f) + ": over the cap, needs an acknowledgment"); if (c && c.r.loadedOver) calc.push(nm(f) + ": over five loaded contracts"); });
-      var rs = r.reasons.map(function (x) { return "<li>" + esc(x.text) + "</li>"; }).join("");
-      var gaps = C.gaps(draft);
-      var stages = [
-        ["Structure", gaps.length ? "Not finished: " + gaps[0].message : "Complete: at least one asset, two or three teams"],
-        ["Calculated here", calc.length ? calc.join("; ") : (imp && imp.cap ? "No cap or loaded-contract problem found" : "Waiting for cap data")],
-        ["Server check", r.state === "draft" ? "Not run yet" : r.state === "checking" ? "Checking with MFL…" : r.label],
-        ["Still required", "The other owner’s acceptance, then MFL’s own confirmation"]
-      ];
-      return '<div class="fo-tb-verdict fo-tb-' + r.state + '" aria-live="polite"><p class="fo-tb-pill">' + esc(r.label) + "</p>" + (rs ? "<ul>" + rs + "</ul>" : "") +
-        (r.lock ? '<p class="fo-tb-lock fo-tb-' + r.lock.tone + '">' + esc(r.lock.text) + "</p>" : "") + "</div>" +
-        '<dl class="fo-tb-stages">' + stages.map(function (s) { return "<dt>" + esc(s[0]) + "</dt><dd>" + esc(s[1]) + "</dd>"; }).join("") + "</dl>" +
-        '<p class="fo-basis">' + src("verdict", S.verdict || "Server check") + ' “Looks fine so far” means the trade passes the checks run before sending. It is not an acceptance: sending runs more checks, the other owner must accept, and MFL decides.</p>';
+      var gaps = gapsNow(), r = readiness(), calc = gaps.length ? { blocked: [], ack: [] } : calcFlags(imp);
+      var ext = extReqs().length;
+      var head = '<div class="fo-tb-verdict fo-tb-' + r.state + '" aria-live="polite"><p class="fo-tb-pill">' + esc(r.label) + "</p>" +
+        (r.state === "provisional" ? '<p class="fo-muted">Passed the checks that have run. See each step below: this is not an acceptance.</p>' : "") + "</div>";
+      var block = function (title, tag, body) { return '<div class="fo-tb-vstep"><h4>' + esc(title) + (tag ? " " + tag : "") + "</h4>" + body + "</div>"; };
+      var li = function (arr) { return arr.length ? "<ul>" + arr.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : ""; };
+      // 1 Structure
+      var structure = gaps.length ? '<p class="fo-tb-state">' + (gaps[0].code === "no_assets" ? "No trade proposed" : "Incomplete") + "</p>" + li(gaps.map(function (g) { return g.message; })) : '<p class="fo-tb-state ok">Complete</p><p class="fo-muted">Every team takes part and the assets are readable.</p>';
+      // 2 Financial compliance (calculated here)
+      var fin;
+      if (gaps.length) fin = '<p class="fo-muted">Not evaluated: the trade is not complete yet.</p>';
+      else if (!imp || !imp.cap) fin = '<p class="fo-muted">Not evaluated: cap data is not loaded yet.</p>';
+      else {
+        var lines = draft.teams.map(function (f) { var c = imp.cap[f]; if (!c) return nm(f) + ": not calculated"; var q = c.r;
+          return nm(f) + ": cap " + (q.overCap ? "OVER by " + k(q.after.alloc - q.ceiling) : "ok, " + k(q.after.space) + " space") + "; loaded contracts " + (q.after.loaded == null ? "can’t be counted here" : q.after.loaded + " of " + q.loadedMax + (q.loadedOver ? " (over)" : "")); });
+        fin = '<p class="fo-tb-state ' + (calc.blocked.length ? "bad" : calc.ack.length ? "warn" : "ok") + '">' + (calc.blocked.length ? "A limit would be broken" : calc.ack.length ? "Needs an acknowledgment" : "No cap or loaded-contract problem found") + "</p>" + li(lines);
+      }
+      // 3 Server validation
+      var srv;
+      if (gaps.length) srv = '<p class="fo-muted">Not run: a trade is only sent to the check once it is complete.</p>';
+      else if (st.phase === "checking" || st.phase === "idle") srv = '<p class="fo-tb-state">Checking…</p>';
+      else srv = '<p class="fo-tb-state ' + ({ provisional: "ok", needs_ack: "warn", blocked: "bad" }[r.state] || "warn") + '">' + esc(r.label) + "</p>" + li(r.reasons.filter(function (x) { return x.code !== "calculated_block" && x.code !== "calculated_ack"; }).map(function (x) { return x.text; })) +
+        (r.lock ? '<p class="fo-tb-lock fo-tb-' + r.lock.tone + '">' + esc(r.lock.text) + "</p>" : "");
+      // 4 Approval requirements
+      var need = [];
+      if (calc.ack.length || r.state === "needs_ack") need.push("An over-the-cap acknowledgment from the affected owner, for the exact figure.");
+      if (ext) need.push("The server prices and re-checks the pre-trade extension" + (ext > 1 ? "s" : "") + " when the offer is made and again when it is accepted.");
+      need.push("The other owner" + (others().length > 1 ? "s" : "") + " must accept the offer.");
+      need.push("MFL records the trade and makes the final decision.");
+      return head + '<div class="fo-tb-vsteps">' +
+        block("1 Structure", "", structure) + block("2 Financial compliance", src("calc", "Calculated here"), fin) +
+        block("3 Server validation", gaps.length ? "" : src("verdict", S.verdict || "Server check"), srv) + block("4 Approval requirements", "", li(need)) + "</div>";
     }
     function impactCard() {
-      var imp = others().length ? opt.impact(draft) : null;
+      var imp = impactNow();
       return '<div class="fo-card"><div class="fo-card-head"><h2>Trade impact</h2><span class="small">' + src("calc", "Calculated from the rosters above") + "</span></div>" +
         '<div class="fo-tb-impact"><section><h3>Salary cap and contracts</h3>' + capSection(imp) + "</section>" +
         "<section><h3>Lineup impact</h3>" + lineupSection(imp) + "</section>" +
@@ -178,25 +240,22 @@
 
     // ── Review and send ───────────────────────────────────────────────
     function reviewCard() {
-      var r = readiness();
+      var r = readiness(), gaps = gapsNow();
       var lines = C.summary(draft, nm).map(function (l) { return "<li>" + esc(l.text) + "</li>"; }).join("");
       var off = opt.send ? "" : '<p class="fo-banner warn" role="status">' + esc(opt.sendNotice || "Sending is not available here.") + "</p>";
       var confirm = "";
       if (st.confirm) confirm = '<div class="fo-banner info fo-tb-confirm" role="alertdialog" aria-label="Confirm sending"><p><b>Send this offer to ' + esc(others().map(nm).join(" and ")) + '?</b> An offer that has been sent can’t be pulled back from here.</p>' +
         '<button type="button" class="btn secondary" data-go="cancel-send">Cancel</button> <button type="button" class="btn" data-go="confirm-send">Yes, send</button></div>';
       var result = st.sent ? '<p class="fo-banner ' + (st.sent.ok ? "info" : "warn") + '" role="status">' + esc(st.sent.message) + "</p>" : "";
+      var wait = gaps.length ? "Review opens once the trade is complete (see Validation above)." : !r.canAttempt ? "Available once the server’s check comes back looking fine or only needing an acknowledgment, and nothing calculated here blocks it." : "";
       return '<div class="fo-card"><div class="fo-card-head"><h2>Review and send</h2></div>' +
-        (draft.items.length ? '<ul class="fo-tb-sum">' + lines + "</ul>" : '<p class="fo-ov-empty">Build a trade above to review it.</p>') +
-        '<label class="fo-tb-note">Note to the other owner' + (others().length > 1 ? "s" : "") + ' (optional)<textarea data-note maxlength="500" placeholder="' + esc((opt.note && opt.note.placeholder) || "Say why this works for both teams") + '">' + esc(st.note) + "</textarea></label>" +
-        off + confirm + result +
-        '<p class="fo-tb-actions"><button type="button" class="btn" data-go="send"' + (r.canAttempt && !st.confirm ? "" : " disabled") + ">Send offer</button> " +
-        (r.canAttempt ? "" : '<span class="fo-muted">Available once the server says the trade looks fine or only needs an acknowledgment.</span>') + "</p>" +
+        (gaps.length ? '<p class="fo-ov-empty">' + (draft.items.length ? "Finish the trade above to review it." : "Build a trade above to review it.") + "</p>" : '<ul class="fo-tb-sum">' + lines + "</ul>") +
+        '<label class="fo-tb-note">Note to the other owner' + (others().length > 1 ? "s" : "") + ' (optional)<textarea data-note maxlength="500"' + (gaps.length ? " disabled" : "") + ' placeholder="' + esc((opt.note && opt.note.placeholder) || "Say why this works for both teams") + '">' + esc(st.note) + "</textarea></label>" +
+        (gaps.length ? "" : off + confirm + result) +
+        '<p class="fo-tb-actions"><button type="button" class="btn" data-go="send"' + (r.canAttempt && !st.confirm ? "" : " disabled") + ">Send offer</button> " + (wait ? '<span class="fo-muted">' + esc(wait) + "</span>" : "") + "</p>" +
         (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> (optional; not needed to finish a trade here)</p>' : "") + "</div>";
     }
 
-    // Replacing the markup blurs a focused field, which can fire its `change` handler and call render() again mid-write.
-    // A nested call is deferred to just after the current one, never run inside it.
-    var rendering = false, again = false;
     function render() {
       if (rendering) { again = true; return; }
       rendering = true;
@@ -223,7 +282,7 @@
           else {
             st.sent = { ok: false, message: "Sending…" };
             var mine = st.seq;
-            Promise.resolve().then(function () { return opt.send(C.sendPlan(draft, ctx, st.note)); }).then(function (r) { return r || { ok: false, message: "No answer. Nothing is confirmed." }; }, function () { return { ok: false, message: "The send did not go through. Nothing is confirmed." }; })
+            Promise.resolve().then(function () { return opt.send(C.sendPlan(draft, ctx, st.note, extReqs())); }).then(function (r) { return r || { ok: false, message: "No answer. Nothing is confirmed." }; }, function () { return { ok: false, message: "The send did not go through. Nothing is confirmed." }; })
               .then(function (r) { if (mine !== st.seq) return; st.sent = r; render(); });
           }
         }
@@ -251,12 +310,14 @@
       } else if (t.hasAttribute("data-dest")) {
         var tok = t.getAttribute("data-dest"), from = t.getAttribute("data-from"), old = draft.items.filter(function (i) { return i.token === tok && i.from === from; })[0];
         draft = C.removeItem(draft, tok, from); draft = C.addItem(draft, { from: from, to: t.value, token: tok, label: old.label, salary: old.salary, taxi: old.taxi }); changed();
+      } else if (t.hasAttribute("data-ext")) {
+        draft = C.setExt(draft, t.getAttribute("data-from"), t.getAttribute("data-ext"), t.value); changed();
       } else if (t.hasAttribute("data-cap-from")) {
         draft = C.setCapK(draft, t.getAttribute("data-cap-from"), t.getAttribute("data-cap-to"), t.value); changed();
       }
     });
     render();
-    return { refresh: render, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp, sent: st.sent }; } };
+    return { refresh: function () { st.memo = { sig: "", imp: null }; render(); }, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp, sent: st.sent }; } };
   }
 
   var api = { mount: mount };

@@ -264,9 +264,16 @@
 
     var weeksHead = plan.weeks.map(function (w) {
       var hot = w.empty.length ? " short" : "";
-      return '<th scope="col" class="fo-bye-wk' + hot + (w.week === byeView.week ? " sel" : "") + '"><button type="button" data-bye-week="' + w.week + '" aria-pressed="' + (w.week === byeView.week) + '">Wk ' + w.week +
-        '<span class="fo-bye-cost">' + (w.cost > 0.05 ? "−" + H.fmt1(w.cost) : "·") + "</span></button></th>";
+      // The grid's column heads are plain text (a click still selects the week); the labeled choice above the grid is the control.
+      return '<th scope="col" class="fo-bye-wk' + hot + (w.week === byeView.week ? " sel" : "") + '" data-bye-week="' + w.week + '">Wk ' + w.week +
+        '<span class="fo-bye-cost">' + (w.cost > 0.05 ? "−" + H.fmt1(w.cost) : "·") + "</span></th>";
     }).join("");
+    var weekChoice = '<div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-bye">Week to inspect</div>' +
+      '<div class="fo-subview-chips fo-choice fo-choice-weeks" role="group" aria-labelledby="fo-lbl-bye">' + plan.weeks.map(function (w) {
+        return '<button type="button" class="fo-subview-chip' + (w.week === byeView.week ? " active" : "") + '" data-bye-week="' + w.week + '" aria-pressed="' + (w.week === byeView.week) + '"' +
+          (w.empty.length ? ' title="Lineup shortage this week"' : "") + ">Wk " + w.week +
+          '<span class="fo-choice-sub">' + (w.empty.length ? "short" : (w.cost > 0.05 ? "−" + H.fmt1(w.cost) : "·")) + "</span></button>";
+      }).join("") + "</div></div>";
     var rows = ROWS.filter(function (r) { return byeView.pos === "ALL" || ROW_GROUPS[r.label].indexOf(byeView.pos) !== -1; }).map(function (r) {
       var cells = plan.weeks.map(function (w) {
         var need = r.slots.length, empty = r.slots.filter(function (sid) { return w.empty.indexOf(sid) !== -1; }).length;
@@ -304,6 +311,7 @@
       '<div class="fo-card"><div class="fo-card-head"><h2>Bye planner · ' + H.esc(H.teamName(fid)) + "</h2>" +
       '<label class="fo-field fo-inline">Position <select data-bye-pos>' + ["ALL"].concat(GROUP_ORDER).map(function (g) { return '<option value="' + g + '"' + (g === byeView.pos ? " selected" : "") + ">" + (g === "ALL" ? "All" : g === "PK" ? "K" : g === "PN" ? "P" : g) + "</option>"; }).join("") + "</select></label></div>" +
       '<p class="fo-basis">Slots you can fill / slots required (best lineup by season PPG). <span class="fo-bye-key empty">red</span> empty slot · <span class="fo-bye-key sub">amber</span> a bench player starts · column top = points a week lost to byes and absences.</p>' +
+      weekChoice +
       (plan.shortWeeks.length ? H.banner("Lineup shortage in Week " + plan.shortWeeks.join(", ") + ".", "warn") : "") +
       '<div class="fo-table-scroll"><table class="fo-table fo-bye-grid"><thead><tr><th scope="col">Slots</th>' + weeksHead + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>" +
       '<div class="fo-card"><h3 class="fo-bye-h">Week ' + wsel.week + ": who’s out</h3>" + outHtml + opts + "</div>";

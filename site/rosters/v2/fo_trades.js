@@ -38,7 +38,7 @@
   // Trades has two views: the Trade builder (default; fo_trade_builder.js) and the Trade finder (unchanged).
   var mode = "builder";
   var MODES = [["builder", "Trade builder"], ["finder", "Trade finder"]];
-  function modeChips() { return '<div class="fo-subview-chips fo-tf-mode" role="group" aria-label="Trades view">' + chips(MODES, "data-tf-mode", mode) + "</div>"; }
+  function modeChips() { return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-trmode">Trades view</div><div class="fo-subview-chips fo-choice fo-tf-mode" role="group" aria-labelledby="fo-lbl-trmode">' + chips(MODES, "data-tf-mode", mode) + "</div></div></div>"; }
   var tableMemo = { model: null, tables: {} };
   var GLABEL = { PK: "K", PN: "P" };
   var BY = [["position", "By Position"], ["slot", "By Lineup Slot"], ["mix", "Starter Mix"]];
@@ -422,8 +422,10 @@
     if (!m) { H.loading(el, "Building the league model…"); return; }
     var me = myFid();
     var F = root.UPS_PLAYER_FACTS, basis = F ? F.basis(ss) : { text: "" };
-    var controls = '<div class="fo-subview-chips fo-ls-by" role="group" aria-label="View">' + chips(BY, "data-tf-by", view.by) + "</div>" +
-      (view.by === "mix" ? "" : '<div class="fo-subview-chips fo-ls-views" role="group" aria-label="Measure">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div>");
+    var controls = '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tfby">Compare by</div>' +
+      '<div class="fo-subview-chips fo-choice fo-ls-by" role="group" aria-labelledby="fo-lbl-tfby">' + chips(BY, "data-tf-by", view.by) + "</div></div>" +
+      (view.by === "mix" ? "" : '<div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tfms">Measure</div>' +
+        '<div class="fo-subview-chips fo-choice fo-ls-views" role="group" aria-labelledby="fo-lbl-tfms">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div></div>") + "</div>";
     // Re-rendering keeps the scroll position of the table box (sorting or a data refresh never jumps the table).
     var box = el.querySelector(".fo-tf-scroll"), sx = box ? box.scrollLeft : 0;
     el.innerHTML = modeChips() + '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
