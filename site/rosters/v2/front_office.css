@@ -203,6 +203,8 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 /* Horizontal scroll container for the wide roster table. */
 .fo-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .fo-table-scroll .fo-table { min-width: 820px; }
+/* Cap plan: the wide league table scrolls inside its card at 1024px instead of widening the page. */
+#fo-cap-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .fo-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .fo-table th, .fo-table td {
   padding: 8px 10px; text-align: left;
@@ -846,20 +848,10 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 .fo-bio-avatar { width: 76px; height: 76px; border-radius: 12px; background: rgba(255,255,255,0.06) center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; color: var(--muted, #8a93a0); flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
 .fo-bio-name { font-size: 18px; font-weight: 700; line-height: 1.2; }
 
-/* Stats sub-tab — headline strip + season scoring table */
-.fo-stat-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
-.fo-stat-card { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
-.fo-stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.fo-stat-val { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.1; }
-.fo-stat-sub { font-size: 11px; color: var(--muted); }
+/* Stats sub-tab — season scoring table (cards: .fo-mcard below) */
 .fo-stat-career td { border-top: 2px solid var(--border); font-weight: 600; }
 
-/* Game Log sub-tab — week tier badges + playoff annotation */
-.fo-tier { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-.fo-tier.elite { background: rgba(74,222,128,0.15); color: var(--ok); }
-.fo-tier.plus { background: rgba(91,141,255,0.15); color: var(--accent); }
-.fo-tier.neutral { background: rgba(138,151,173,0.12); color: var(--muted); }
-.fo-tier.dud { background: rgba(248,113,113,0.15); color: var(--err); }
+/* Game Log sub-tab — playoff annotation */
 .fo-gl-ptag { color: var(--accent); font-weight: 700; font-size: 10px; }
 .fo-gl-po td { background: rgba(91,141,255,0.06); }
 
@@ -994,3 +986,393 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 }
 .fo-root .fo-cap-planonly strong { color: var(--text); font-weight: 600; }
 
+
+/* ── Injury chip + "sources disagree" box (#1338: shared resolver, #1311 vocabulary) ── */
+.fo-inj {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; line-height: 16px; letter-spacing: 0.3px; vertical-align: 1px;
+  border: 1px solid transparent;
+}
+.fo-inj.upf-inj-q   { color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.4); }
+.fo-inj.upf-inj-d   { color: #fb923c; background: rgba(251, 146, 60, 0.12); border-color: rgba(251, 146, 60, 0.45); }
+.fo-inj.upf-inj-out { color: #f87171; background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.45); }
+.fo-inj.upf-inj-res { color: #fca5a5; background: rgba(248, 113, 113, 0.2); border-color: rgba(248, 113, 113, 0.55); }
+.fo-inj.upf-inj-ho  { color: #c4b5fd; background: rgba(196, 181, 253, 0.12); border-color: rgba(196, 181, 253, 0.4); }
+.upf-inj-warning {
+  margin-top: 8px; padding: 6px 10px; border-radius: 6px; font-size: 12px; line-height: 1.45;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.55); color: var(--text);
+}
+.upf-inj-warning strong { color: #f87171; display: block; margin-bottom: 2px; }
+.fo-basis { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.fo-basis.warn { color: var(--warn); }
+
+/* ── Shell (#1338): header tools, second chip row, About dialog ── */
+.fo-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fo-header-tools { display: flex; align-items: center; gap: 10px; }
+.fo-freshness { font-size: 11px; color: var(--muted); }
+span.fo-version-badge { cursor: default; }
+nav.fo-subtabs .fo-subtab-link {
+  color: var(--accent); font-size: 12px; font-weight: 600; text-decoration: none; padding: 4px 10px; margin-left: auto;
+  border: 1px solid var(--accent-soft); border-radius: 14px; white-space: nowrap;
+}
+nav.fo-subtabs .fo-subtab-link:hover, nav.fo-subtabs .fo-subtab-link:focus-visible { border-color: var(--accent); }
+nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
+.fo-root button:focus-visible, .fo-root a:focus-visible, .fo-root select:focus-visible, .fo-root input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.fo-about[hidden] { display: none; }
+.fo-about { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; }
+.fo-about-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
+.fo-about-panel {
+  position: relative; max-width: 720px; width: 100%; max-height: 84vh; overflow: auto; outline: none;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0 20px 18px; color: var(--text);
+}
+/* Team popup (Trade finder → View): wider on desktop; a bottom sheet on phones (Keith 2026-10-22). */
+.fo-about[data-variant="team"] .fo-about-panel { max-width: 880px; }
+@media (max-width: 600px) {
+  .fo-about[data-variant="team"] { align-items: flex-end; padding: 0; }
+  .fo-about[data-variant="team"] .fo-about-panel { max-width: none; max-height: 88vh; border-radius: 14px 14px 0 0; border-bottom: 0; padding: 0 14px 20px; }
+  .fo-about[data-variant="team"] .fo-about-head::before { content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--border); }
+}
+.fo-about-head { display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--panel); padding: 14px 0 8px; }
+.fo-about-head h2 { margin: 0; font-size: 17px; }
+.fo-about-body h3 { font-size: 14px; margin: 12px 0 4px; }
+.fo-about-body p, .fo-about-body li { font-size: 13px; color: var(--text); }
+.fo-about-body ul { padding-left: 18px; margin: 4px 0; }
+.fo-about-hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0 4px; }
+.fo-banner { margin: 8px 0; padding: 7px 11px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border); background: var(--panel-alt); }
+.fo-banner.warn { border-color: rgba(251, 191, 36, 0.5); color: var(--warn); }
+.fo-banner.info { color: var(--muted); }
+.fo-plink { background: none; border: 0; padding: 0; color: var(--text); font: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 2px; }
+.fo-plink:hover { color: var(--accent); text-decoration-color: var(--accent); }
+.fo-go { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.fo-go:hover { text-decoration: underline; }
+
+/* ── Overview ── */
+.fo-ov-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.fo-ov-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.fo-ov-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.fo-ov-card h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; }
+.fo-ov-stats { display: flex; gap: 18px; flex-wrap: wrap; }
+.fo-ov-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fo-ov-val.fo-ov-small { font-size: 13px; font-weight: 600; padding-top: 5px; }
+.fo-ov-val.pos { color: var(--ok); } .fo-ov-val.neg { color: var(--err); }
+.fo-ov-of { font-size: 13px; color: var(--muted); font-weight: 500; }
+.fo-ov-lbl { font-size: 11px; color: var(--muted); }
+.fo-ov-foot { margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+.fo-ov-list { list-style: none; margin: 0; padding: 0; }
+.fo-ov-item { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.fo-ov-item:first-child { border-top: 0; }
+.fo-ov-text { flex: 1; }
+.fo-ov-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; transform: translateY(-1px); background: var(--muted); }
+.sev-bad .fo-ov-dot { background: var(--err); } .sev-warn .fo-ov-dot { background: var(--warn); } .sev-info .fo-ov-dot { background: var(--accent); }
+.fo-ov-info .fo-ov-item { color: var(--muted); font-size: 12px; }
+.fo-ov-empty { color: var(--muted); font-size: 13px; margin: 4px 0; }
+.fo-ov-sub { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+.fo-ov-via { color: var(--muted); font-size: 11px; }
+.fo-ov-bar { display: grid; grid-template-columns: 68px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
+.fo-ov-bar-lbl { color: var(--muted); font-weight: 600; }
+.fo-ov-bar-track { position: relative; height: 10px; background: var(--panel-alt); border-radius: 3px; }
+.fo-ov-bar-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); opacity: 0.6; }
+.fo-ov-bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.fo-ov-bar-fill.pos { background: #5b8dff; } .fo-ov-bar-fill.neg { background: #f59e0b; }
+.fo-ov-bar-val { text-align: right; font-variant-numeric: tabular-nums; }
+.fo-ov-bar-total { padding-bottom: 5px; margin-bottom: 5px; border-bottom: 1px solid var(--border); }
+.fo-ov-bar-total .fo-ov-bar-lbl, .fo-ov-bar-total .fo-ov-bar-val { color: var(--text); font-weight: 700; }
+.fo-ov-bar-minor { opacity: 0.7; }
+.fo-ov-rep { color: var(--warn); font-weight: 700; margin-left: 1px; }
+.fo-ls-views, .fo-ls-by { margin: 0 0 8px; flex-wrap: wrap; }
+.fo-ls-by .fo-subview-chip { font-weight: 600; }
+.fo-ls-views .fo-subview-chip { padding: 4px 10px; }
+.fo-ls-actual { margin: 0 0 2px; font-size: 13px; }
+.fo-ls-mix { margin: 4px 0 8px; font-size: 12px; }
+.fo-ls-mix th, .fo-ls-mix td { padding: 2px 6px; }
+.fo-ls-flex { font-size: 12px; margin: 3px 0; }
+.fo-ls-issues { font-size: 12px; margin: 6px 0; color: var(--warn); }
+/* Cap card: four lines; the first two open their ledgers. */
+.fo-ov-cap { display: grid; gap: 1px; }
+.fo-ov-capline { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px; width: 100%; padding: 3px 0; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; }
+/* An amount never clips (#1375): if label + amount don't fit on one line, the amount wraps under it, right-aligned. */
+.fo-ov-capnum { font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
+button.fo-ov-capline { cursor: pointer; }
+button.fo-ov-capline .fo-ov-capnum { color: var(--accent); font-weight: 600; }
+button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible span:first-child { text-decoration: underline; }
+.fo-ov-capline.total { margin-top: 3px; padding-top: 6px; border-top: 1px solid var(--border); font-weight: 600; }
+.fo-ov-capline.space .fo-ov-capnum { font-size: 20px; font-weight: 700; }
+.fo-ov-capline.space.pos .fo-ov-capnum { color: var(--ok); } .fo-ov-capline.space.neg .fo-ov-capnum { color: var(--err); }
+/* Cap ledgers (in the About dialog frame). */
+.fo-led { width: 100%; margin: 4px 0 8px; }
+.fo-led th, .fo-led td { padding: 4px 6px; text-align: left; font-weight: 400; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--text); background: none; }
+.fo-led td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fo-led-head th { padding-top: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.fo-led-note { margin-left: 6px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.fo-led-sub th, .fo-led-sub td { border-top: 1px solid var(--border); font-weight: 600; }
+.fo-led-total th, .fo-led-total td { border-top: 2px solid var(--border); font-weight: 700; font-size: 14px; }
+.fo-led-round th { font-style: italic; color: var(--muted); }
+.fo-led-check { font-size: 12px; margin: 4px 0 10px; } .fo-led-check.ok { color: var(--ok); } .fo-led-check.bad { color: var(--err); }
+.fo-led-players { width: 100%; margin: 4px 0 8px; font-size: 12px; }
+/* Notes inside a dialog stay small and muted (the dialog's paragraph style would otherwise enlarge them). */
+.fo-about-body p.fo-basis, .fo-about-body .fo-perf-sub { font-size: 11.5px; color: var(--muted); }
+.fo-about-body p.fo-ov-sub { font-size: 12.5px; }
+.fo-about-body details { margin: 4px 0; } .fo-about-body summary { cursor: pointer; font-size: 13px; }
+@media (max-width: 1100px) { .fo-ov-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Phone widths (#1375): one card per row, so the Cap card's amounts have the full width (they clipped at 375 px). */
+@media (max-width: 600px) { .fo-ov-row { grid-template-columns: 1fr; } }
+@media (max-width: 820px) { .fo-ov-grid { grid-template-columns: 1fr; } }
+
+/* ── Roster → Performance (#1338) ── */
+.fo-perf-wrap[hidden], #fo-contract-table-wrap[hidden] { display: none; }
+.fo-perf-table { min-width: 860px; }
+.fo-perf-table th { white-space: nowrap; }
+.fo-th-sort { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+.fo-th-sort:hover { color: var(--text); }
+.fo-perf-player .fo-plink { font-weight: 600; text-decoration: none; }
+.fo-perf-sub { font-size: 11px; }
+.fo-muted { color: var(--muted); }
+.fo-bye { color: var(--warn); font-weight: 700; font-size: 11px; letter-spacing: 0.4px; }
+.fo-slot { display: inline-block; padding: 0 7px; border-radius: 10px; font-size: 11px; line-height: 18px; border: 1px solid var(--border); white-space: nowrap; }
+.fo-slot-start { color: #bfdbfe; border-color: rgba(91, 141, 255, 0.5); background: rgba(91, 141, 255, 0.12); }
+.fo-slot-bench { color: var(--muted); }
+.fo-slot-off { color: var(--muted); border-style: dashed; }
+
+/* ── Bye planner (#1338) ── */
+.fo-inline { display: inline-flex; align-items: center; gap: 6px; flex-direction: row; font-size: 12px; color: var(--muted); }
+.fo-inline select { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
+.fo-bye-grid { min-width: 720px; }
+.fo-bye-grid th[scope="row"] { text-align: left; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.fo-bye-wk { color: var(--muted); font-weight: 700; text-align: center; }
+.fo-bye-wk .fo-bye-cost { display: block; }
+.fo-bye-wk.sel { color: var(--text); background: var(--accent-soft); }
+.fo-bye-wk.short { color: var(--err); }
+.fo-bye-wk.heavy { color: var(--warn); }
+.fo-bye-cost { font-size: 10px; font-weight: 500; color: var(--muted); }
+.fo-bye-cell { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
+.fo-bye-cell.ok { color: var(--muted); }
+.fo-bye-cell.sub { color: #fcd34d; background: rgba(251, 191, 36, 0.08); }
+.fo-bye-cell.empty { color: #fecaca; background: rgba(239, 68, 68, 0.22); font-weight: 700; }
+.fo-bye-cell.sel { outline: 1px solid var(--accent-soft); outline-offset: -1px; }
+.fo-bye-out { list-style: none; padding: 0; margin: 6px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; font-size: 13px; }
+.fo-bye-h { margin: 10px 0 4px; font-size: 13px; }
+.fo-bye-key { padding: 0 4px; border-radius: 3px; }
+.fo-bye-key.empty { color: #fecaca; background: rgba(239, 68, 68, 0.22); }
+.fo-bye-key.sub { color: #fcd34d; background: rgba(251, 191, 36, 0.12); }
+
+/* ── Market (#1338) ── */
+.fo-mk-controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 4px; }
+.fo-mk-search input { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; min-width: 220px; }
+.fo-mk-table { min-width: 980px; }
+.fo-av { display: inline-block; padding: 0 7px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; border: 1px solid var(--border); }
+.fo-av-now { color: #bbf7d0; background: rgba(74, 222, 128, 0.14); border-color: rgba(74, 222, 128, 0.45); }
+.fo-av-claim { color: #bfdbfe; background: rgba(91, 141, 255, 0.14); border-color: rgba(91, 141, 255, 0.5); }
+.fo-av-later { color: #fde68a; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.45); }
+.fo-av-locked { color: #fecaca; background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.45); }
+.fo-av-unknown { color: var(--muted); border-style: dashed; }
+.fo-av-rostered { color: var(--text); background: var(--panel-alt); font-weight: 500; }
+.fo-av-bait { color: #f5d0fe; background: rgba(217, 70, 239, 0.14); border-color: rgba(217, 70, 239, 0.45); }
+
+/* ── Trade finder (#1338) ── */
+.fo-tf-matrix { min-width: 900px; }
+.fo-tf-matrix th[scope="row"] { text-align: left; white-space: nowrap; font-weight: 600; }
+.fo-tf-matrix tr.fo-tf-me th, .fo-tf-matrix tr.fo-tf-me td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+.fo-tf-matrix tr.fo-tf-sel th { color: var(--accent); }
+.fo-tf-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fo-tf-kp { opacity: 0.55; }
+.fo-tf-need { color: #fb923c; font-size: 10px; margin-left: 3px; }
+.fo-tf-sur { color: #93c5fd; font-size: 10px; margin-left: 3px; font-weight: 700; }
+.fo-tf-grid { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.fo-tf-partners { margin: 0; padding-left: 20px; font-size: 13px; }
+.fo-tf-partners li { padding: 4px 0; }
+.fo-tf-partners li.sel .fo-plink { color: var(--accent); font-weight: 700; }
+.fo-tf-h { margin: 12px 0 6px; font-size: 13px; }
+.fo-tf-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; font-size: 13px; }
+.fo-tf-cols h4 { margin: 8px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.fo-tf-cols p { margin: 0 0 6px; }
+.fo-tf-list { list-style: none; padding: 0; margin: 0 0 6px; }
+.fo-tf-list li { padding: 3px 0; }
+.fo-tf-note { color: var(--muted); font-style: italic; }
+.fo-tf-fits { min-width: 820px; }
+.fo-tf-flag { display: inline-block; padding: 0 6px; border-radius: 9px; font-size: 10px; line-height: 16px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.fo-tf-flag.bad { color: #fecaca; border-color: rgba(248, 113, 113, 0.5); }
+.fo-tf-flag.warn { color: #fde68a; border-color: rgba(251, 191, 36, 0.45); }
+@media (max-width: 1100px) { .fo-tf-grid { grid-template-columns: 1fr; } .fo-tf-cols { grid-template-columns: 1fr; } }
+/* Trade finder: the all-team strength table and the team view (Keith 2026-10-22). On a phone the table scrolls inside
+   its card with the team column pinned, and the team view stacks to one column. */
+/* The shared rule gives a scrolling table 820 px; the team view's small tables fit the phone instead. */
+.fo-table-scroll .fo-tf-pos, .fo-table-scroll .fo-tf-pickcmp { min-width: 0; }
+.fo-tf-strength th, .fo-tf-strength td { white-space: nowrap; }
+.fo-tf-strength .fo-tf-teamcol { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; font-weight: 600; box-shadow: 1px 0 0 var(--border); }
+.fo-tf-strength thead .fo-tf-teamcol { z-index: 2; }
+.fo-tf-name { display: inline-block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.fo-tf-view { margin-left: 6px; padding: 2px 8px; font: inherit; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; vertical-align: middle; }
+.fo-tf-view[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.fo-tf-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.fo-tf-sort.on { color: var(--text); font-weight: 700; }
+.fo-tf-overall { font-weight: 700; }
+/* Calmer table (Keith 2026-10-22): no cell fills. Your row = bold name; the open team = an accent bar and a soft row
+   tint; the sorted column = a faint column tint; the league-average row sits apart at the bottom. */
+.fo-tf-strength tr.fo-tf-me .fo-tf-name { font-weight: 800; }
+.fo-tf-strength tr.fo-tf-sel th, .fo-tf-strength tr.fo-tf-sel td { background: var(--accent-soft); }
+.fo-tf-strength tr.fo-tf-sel .fo-tf-teamcol { box-shadow: inset 3px 0 0 var(--accent), 1px 0 0 var(--border); }
+.fo-tf-strength tr.fo-tf-sel .fo-tf-name { color: var(--text); }
+.fo-tf-strength td.fo-tf-sorted, .fo-tf-strength th.fo-tf-sorted { background: rgba(127, 127, 127, 0.07); }
+.fo-tf-strength tr.fo-tf-sel td.fo-tf-sorted { background: var(--accent-soft); }
+.fo-tf-strength tfoot .fo-tf-ref th, .fo-tf-strength tfoot .fo-tf-ref td { border-top: 2px solid var(--border); color: var(--muted); font-style: italic; font-weight: 600; }
+.fo-tf-strength tbody tr { cursor: default; }
+.fo-tf-warn { color: var(--warn); }
+.fo-tf-team .fo-card-head { flex-wrap: wrap; gap: 6px 12px; }
+/* Grid columns may shrink below their content (a wide table scrolls inside its own box instead of widening the card). */
+.fo-tf-team .fo-tf-cols > div { min-width: 0; }
+.fo-tf-actions { display: inline-flex; gap: 10px; align-items: center; }
+.fo-tf-tag { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 8px; border: 1px solid var(--border); margin-left: 4px; }
+.fo-tf-tag.ok { color: #93c5fd; border-color: rgba(91, 141, 255, 0.5); } .fo-tf-tag.need { color: #fdba74; border-color: rgba(251, 146, 60, 0.5); }
+.fo-tf-pos th, .fo-tf-pos td { padding: 3px 6px; font-size: 12px; }
+.fo-tf-expand { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; font-weight: 600; }
+.fo-tf-caret { display: inline-block; width: 10px; color: var(--muted); }
+.fo-tf-posdetail td { background: var(--panel-alt); }
+.fo-tf-depthlist { list-style: none; margin: 2px 0; padding: 0 0 0 14px; }
+.fo-tf-depthlist li { padding: 2px 0; text-transform: none; letter-spacing: 0; }
+.fo-tf-depth { display: inline-block; min-width: 64px; color: var(--muted); font-weight: 700; }
+.fo-tf-gains li { padding: 4px 0; }
+.fo-tf-pickyear { margin: 4px 0 8px; font-size: 13px; }
+.fo-tf-pickrd { padding: 2px 0; }
+.fo-tf-rd { display: inline-block; min-width: 26px; color: var(--muted); font-weight: 700; }
+.fo-tf-pick { display: inline-block; margin-right: 8px; }
+.fo-tf-verdict { font-size: 13px; margin: 6px 0; }
+.fo-tf-compare summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+.fo-tf-pickcmp th, .fo-tf-pickcmp td { padding: 3px 8px; font-size: 12px; }
+.fo-tf-pickcmp tr.fo-tf-sel th { color: var(--accent); }
+@media (max-width: 600px) {
+  .fo-tf-name { max-width: 104px; } .fo-tf-team .fo-tf-cols { gap: 8px; }
+  .fo-tf-pos th, .fo-tf-pos td, .fo-tf-pickcmp th, .fo-tf-pickcmp td { padding: 3px 4px; }
+  .fo-tf-pickcmp th[scope="row"] { white-space: normal; }
+  .fo-tf-tag { margin-left: 2px; padding: 0 3px; }
+}
+
+/* ── Draft picks + Activity (#1338) ── */
+.fo-pk-table { min-width: 640px; }
+.fo-pk-table th[scope="row"] { text-align: left; white-space: nowrap; font-weight: 600; }
+.fo-pk-moved { color: #fde68a; font-weight: 600; }
+.fo-pk-mine { color: #bfdbfe; background: rgba(91, 141, 255, 0.14); }
+.fo-act-grid { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); }
+@media (max-width: 1100px) { .fo-act-grid { grid-template-columns: 1fr; } }
+.fo-pk-table td { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Player modal Phase 1 (#1338): short action rows, write confirmation, unresolved rows ── */
+.fo-action-row-ctrl { flex-wrap: wrap; justify-content: flex-end; }
+.fo-act-more, .fo-act-why { margin-top: 3px; font-size: 11px; color: var(--muted); }
+.fo-act-why { display: inline-block; }
+.fo-act-more summary, .fo-act-why summary { cursor: pointer; color: var(--accent); width: max-content; }
+.fo-act-more > div, .fo-act-why > div { margin-top: 3px; max-width: 46ch; }
+@media (max-width: 520px) {
+  .fo-action-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .fo-action-row-ctrl { justify-content: flex-start; }
+}
+.fo-confirm-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.fo-confirm {
+  width: min(440px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); font-size: 13px;
+}
+.fo-confirm.danger { border-color: rgba(248, 113, 113, 0.6); }
+.fo-confirm h3 { margin: 0 0 10px; font-size: 16px; }
+.fo-confirm dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 10px; margin: 0; }
+.fo-confirm dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; padding-top: 2px; }
+.fo-confirm dd { margin: 0; }
+.fo-confirm-notes { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+.fo-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+@media (max-width: 400px) { .fo-confirm dl { grid-template-columns: 1fr; gap: 0 0; } .fo-confirm dd { margin-bottom: 6px; } }
+.fo-unres {
+  display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 9px;
+  font-size: 10px; line-height: 16px; white-space: nowrap; cursor: help;
+  color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45);
+}
+.fo-stat-group h3 { margin: 10px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.fo-stat-table { margin-top: 10px; }
+/* One metric-card system (Stats): big number, small supported rank, high-contrast label footer. */
+.fo-mcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
+.fo-mcard { display: flex; flex-direction: column; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; min-width: 0; }
+.fo-mcard-val { font-size: clamp(15px, 4.6vw, 22px); font-weight: 800; color: var(--text); line-height: 1.1; padding: 10px 10px 8px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fo-mcard-rank { font-size: 11px; font-weight: 600; color: var(--accent); margin-top: -5px; padding: 0 10px 8px; }
+.fo-mcard-lbl { margin-top: auto; padding: 5px 10px; font-size: 11px; font-weight: 600; line-height: 1.25; color: var(--text); background: rgba(255, 255, 255, 0.07); border-top: 1px solid var(--border); }
+@media (max-width: 400px) { .fo-mcards { gap: 6px; } .fo-mcard-val { padding: 8px 8px 6px; } .fo-mcard-rank { padding: 0 8px 6px; } .fo-mcard-lbl { padding: 4px 8px; font-size: 10px; } }
+.fo-stat-foot { margin: 2px 0 8px; }
+.fo-note-btn { background: transparent; border: 0; padding: 0 2px; font: inherit; font-size: 11px; color: var(--warn); cursor: pointer; }
+.fo-note-btn.fo-partial, .fo-partial-tag { display: inline-block; padding: 0 6px; border-radius: 9px; line-height: 16px; font-size: 10px; color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45); }
+.fo-note-btn.fo-dag { font-weight: 700; }
+.fo-stat-why, .fo-gl-partial { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.fo-stat-why summary, .fo-gl-partial summary { cursor: pointer; color: var(--accent); width: max-content; }
+.fo-stat-why ul, .fo-gl-partial ul { padding-left: 18px; margin: 4px 0; }
+.fo-stat-why p { margin: 4px 0; }
+.fo-stat-why li.on { color: var(--text); }
+.fo-gl-sum { margin-bottom: 4px; }
+.fo-gl-partial { margin-bottom: 8px; }
+
+/* ── View choices (Keith 2026-10-27): Direction A, the wider screen-first font, Market wraps to rows ───────────────
+   Applies to the groups that choose WHAT the screen shows: Roster columns / Group players, Market Browse players,
+   Trade finder Compare by / Measure, Cap plan view, Recent moves. Filters (position chips, team, search) keep their
+   own small, quiet style under "Filter the list". Selected = solid blue + a check mark + heavier weight (never color alone).
+   The font stack is used only by these controls and their labels; a device without Verdana falls through to the page font. */
+:root { --fo-choice-font: Verdana, "DejaVu Sans", Geneva, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --fo-focus: #fbbf24; }
+.fo-choice-group { min-width: 0; }
+.fo-choice-label {
+  font-family: var(--fo-choice-font); font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 6px;
+}
+.fo-root .fo-choice {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; width: fit-content; max-width: 100%;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 12px;
+}
+.fo-root .fo-choice .fo-subview-chip {
+  flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; min-width: 44px; padding: 8px 14px; border-radius: 9px;
+  font-family: var(--fo-choice-font); font-size: 14px; font-weight: 600; line-height: 1.2; white-space: normal; text-align: center;
+  color: var(--text); background: #1f293a; border: 1px solid #3a475e; cursor: pointer;
+}
+.fo-root .fo-choice .fo-subview-chip:hover { background: #27334a; color: var(--text); }
+.fo-root .fo-choice .fo-subview-chip.active,
+.fo-root .fo-choice .fo-subview-chip[aria-pressed="true"] {
+  background: var(--accent); color: #07101f; border-color: #a9c2ff; font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.fo-root .fo-choice .fo-subview-chip.active::before,
+.fo-root .fo-choice .fo-subview-chip[aria-pressed="true"]::before { content: "✓"; font-weight: 800; }
+.fo-root .fo-choice .fo-subview-chip:focus-visible { outline: 3px solid var(--fo-focus); outline-offset: 2px; }
+.fo-choice-row { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 8px 0 12px; }
+.fo-card-head .fo-choice-group { align-self: flex-end; }
+.fo-mk-controls .fo-choice-group { flex: 1 1 100%; }
+.fo-choice-filters {
+  flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+  border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;
+}
+.fo-choice-filters .fo-choice-label { flex: 0 0 100%; margin: 0 0 -4px; }
+.fo-choice-filters .fo-pos-chip { font-size: 13px; }
+.fo-choice-group + p { margin-top: 10px; }
+@media (max-width: 560px) {
+  .fo-mk-controls .fo-mk-search { flex: 1 1 100%; }
+  .fo-mk-controls .fo-mk-search input { min-width: 0; width: 100%; }
+  .fo-root .fo-choice { width: 100%; }
+  .fo-root .fo-choice-wrap .fo-subview-chip { flex: 1 1 calc(50% - 6px); }
+}
+
+/* Week choice in the Bye planner: the cost (or "short") sits under the week. The grid heads are text now. */
+.fo-root .fo-choice .fo-subview-chip .fo-choice-sub { flex: 0 0 100%; font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.85; }
+.fo-root .fo-choice-weeks .fo-subview-chip { flex: 0 1 calc(20% - 6px); flex-wrap: wrap; row-gap: 0; padding: 6px 4px; }
+.fo-root .fo-choice-weeks { margin-bottom: 10px; }
+.fo-root .fo-choice-weeks .fo-subview-chip { white-space: nowrap; }
+.fo-basis + .fo-choice-group { margin-top: 12px; }
+@media (max-width: 560px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(25% - 6px); } }
+@media (max-width: 360px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(33.3% - 6px); } }
+.fo-bye-grid th.fo-bye-wk { cursor: pointer; }
+
+/* Market status on a phone: the Status column would sit half off-screen, so each row says it under the player's name instead. */
+.fo-root .fo-mk-statusline { display: none; }
+@media (max-width: 560px) {
+  .fo-root .fo-mk-col-status { display: none; }
+  .fo-root .fo-mk-statusline { display: block; margin-top: 4px; font-size: 12px; line-height: 1.3; }
+  .fo-root .fo-mk-statusline .fo-perf-sub { margin-top: 2px; }
+}
