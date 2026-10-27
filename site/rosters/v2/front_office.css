@@ -1328,7 +1328,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-team > header h3 { margin: 0; font-size: 15px; }
 .fo-tb-table td.fo-tb-ctl { text-align: right; white-space: nowrap; }
 .fo-tb-table tbody tr { cursor: default; }
-.fo-tb-scroll .fo-table { min-width: 0; }
+.fo-tb .fo-table-scroll .fo-table { min-width: 0; }  /* FO's wide-table min-width must not stretch these small tables */
+.fo-tb-cmp td, .fo-tb-cmp th { padding: 6px 8px; }
 .fo-tb-pick { max-height: 260px; overflow-y: auto; }
 .fo-tb-cap { margin-top: 10px; }
 .fo-tb-roster { margin-top: 12px; }
