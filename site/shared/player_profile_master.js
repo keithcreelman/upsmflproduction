@@ -116,13 +116,14 @@
   // (not years played). cy=1 means LAST year of contract; cy=0 means
   // expired. Verified 2026-05-14 by sampling 15 multi-year vets in
   // UPS L=74598. Same convention as src_contracts.contract_year in D1.
+  // 0 = expired (MFL said 0), null = MFL sent no contractYear (unknown). It
+  // used to fall back to the contract LENGTH, so an expired 3-year deal read
+  // "Yrs Remain 3"; the phone sheet says "Expired" (#1338 parity).
   function yearsRemain(sal, info) {
-    info = info || parseContractInfo(sal && sal.contractInfo);
-    var cy = parseInt(sal && sal.contractYear, 10) || 0;
-    var len = info.length;
-    if (cy > 0) return cy;
-    if (len > 0) return len;
-    return 0;
+    var raw = sal ? String(sal.contractYear == null ? "" : sal.contractYear).trim() : "";
+    if (raw === "") return null;
+    var cy = parseInt(raw, 10);
+    return isFinite(cy) && cy >= 0 ? cy : null;
   }
   function earnedToDate(sal, info) {
     var m = capMath();
@@ -334,6 +335,14 @@
       ' .upm-modal .upm-season-table th, .upm-modal .upm-season-table td { padding: 4px 6px; font-size: 11px; }' +
     ' }',
     /* Player news feed (inside the News tab). */
+    '.upm-modal .upm-inj-chip { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 10px; font-weight: 700; line-height: 16px; border: 1px solid transparent; margin-right: 6px; }',
+    '.upm-modal .upm-inj-chip.upf-inj-q { color: #fbbf24; background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.4); }',
+    '.upm-modal .upm-inj-chip.upf-inj-d { color: #fb923c; background: rgba(251,146,60,0.12); border-color: rgba(251,146,60,0.45); }',
+    '.upm-modal .upm-inj-chip.upf-inj-out { color: #f87171; background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.45); }',
+    '.upm-modal .upm-inj-chip.upf-inj-res { color: #fca5a5; background: rgba(248,113,113,0.2); border-color: rgba(248,113,113,0.55); }',
+    '.upm-modal .upm-inj-chip.upf-inj-ho { color: #c4b5fd; background: rgba(196,181,253,0.12); border-color: rgba(196,181,253,0.4); }',
+    '.upm-modal .upf-inj-warning { margin: 6px 0; padding: 6px 10px; border-radius: 6px; font-size: 12px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.55); }',
+    '.upm-modal .upf-inj-warning strong { color: #f87171; display: block; }',
     '.upm-modal .upm-news-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }',
     '.upm-modal .upm-news-item { padding: 10px 12px; background: #1a2230; border-radius: 6px; border-left: 3px solid #2a3446; }',
     '.upm-modal .upm-news-item.is-injury { border-left-color: #fbbf24; }',
@@ -700,7 +709,7 @@
         + '<div class="upm-salary-card"><span class="lbl">TCV</span><span class="val">' + (tcv > 0 ? fmtUsdFull(tcv) : "—") + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">' + (aav > 0 ? fmtUsdFull(aav) : "—") + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Salary</span><span class="val">' + (salary > 0 ? fmtUsdFull(salary) : "—") + '</span></div>'
-        + '<div class="upm-salary-card"><span class="lbl">Yrs Remain</span><span class="val">' + (yrsRem > 0 ? yrsRem : "—") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">Yrs Remain</span><span class="val">' + (yrsRem > 0 ? yrsRem : (yrsRem === 0 ? "Expired" : "—")) + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Earned</span><span class="val">' + (fullYearRule ? "Full-year rule" : (wwEarnedNa ? "Not applicable" : (earned > 0 ? fmtUsdFull(earned) : "$0"))) + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Cap Penalty</span><span class="val">' + (penalty == null ? "—" : (penalty > 0 ? fmtUsdFull(penalty) : "$0")) + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Acquire Date</span><span class="val" style="font-size:13px;">' + escapeHtml(acqDate) + '</span></div>'
@@ -741,12 +750,14 @@
     }
 
     // ── League status block ───────────────────────────────────────────────
-    var hasMeaningfulStatus = bundle.is_free_agent || bundle.is_not_rostered || cr.team_name;
-    var hasInjury = inj.status && !bundle.is_free_agent && !bundle.is_not_rostered;
+    var hasMeaningfulStatus = bundle.is_free_agent || bundle.is_not_rostered || bundle.fa_check_error || bundle.live_roster_error || cr.team_name;
     var hasAcq = !bundle.is_free_agent && !bundle.is_not_rostered && add.datetime_et;
     var hasMeaningfulTier = hist.tier && hist.tier !== "Unclassified";
     var leagueStatusHtml = "";
-    if (hasMeaningfulStatus || hasInjury || hasAcq || hasMeaningfulTier) {
+    // The block always renders: its Injury row is filled (or kept hidden) by wireInjuryAsync for any player.
+    // With nothing else to say, the block stays hidden until that row shows.
+    var onlyInjury = !(hasMeaningfulStatus || hasAcq || hasMeaningfulTier);
+    {
       var rows = [];
       if (bundle.is_free_agent) {
         rows.push('<div><span class="lbl">Status</span><span style="color:#fbbf24;font-weight:600">Free Agent</span></div>');
@@ -755,16 +766,21 @@
         rows.push('<div><span class="lbl">Waivers</span><span class="upm-avail small muted" data-upm-avail-pid="' +
           escapeHtml(String(pid)) + '" data-upm-avail-team="' + escapeHtml(String(nflTeam || pp.team || "").toUpperCase()) +
           '">Checking when he can be claimed…</span></div>');
+      } else if (bundle.fa_check_error || bundle.live_roster_error) {
+        // The worker couldn't read MFL's free agents or rosters: unknown, never "free" or "retired" (phone rule, #1338).
+        rows.push('<div><span class="lbl">Status</span><span class="muted" style="font-weight:600">Ownership unknown</span> <span class="small muted">(couldn’t read MFL’s rosters)</span></div>');
       } else if (bundle.is_not_rostered) {
-        rows.push('<div><span class="lbl">Status</span><span class="muted" style="font-weight:600">Not on any roster</span> <span class="small muted">(retired / out of league)</span></div>');
+        rows.push('<div><span class="lbl">Status</span><span class="muted" style="font-weight:600">Not on any roster</span> <span class="small muted">(not on MFL’s free-agent list either)</span></div>');
       } else if (cr.team_name) {
         rows.push('<div><span class="lbl">Owner</span>' + escapeHtml(cr.team_name) + '</div>');
         if (cr.status) rows.push('<div><span class="lbl">Roster</span>' + escapeHtml(cr.status) + '</div>');
       }
-      if (hasInjury) {
-        rows.push('<div><span class="lbl">Injury</span><span style="color:#fbbf24">' + escapeHtml(inj.status)
-          + (inj.details ? " — " + escapeHtml(inj.details) : "") + '</span></div>');
-      }
+      // Injury: filled by wireInjuryAsync with the shared resolver's chip, "sources disagree" box and lines
+      // (site/shared/injury_status.js, the phone sheet's words, #1311 / #1338). MFL's own designation from the
+      // bundle stands in until that read lands, marked as this page's read.
+      rows.push('<div class="upm-inj-row" style="display:none"><span class="lbl">Injury</span><span class="upm-inj" data-upm-inj-pid="' +
+        escapeHtml(String(pid)) + '" data-upm-inj-team="' + escapeHtml(String(nflTeam || pp.team || "").toUpperCase()) +
+        '" data-upm-inj-mfl="' + escapeHtml(String(inj.status || "")) + '" data-upm-inj-det="' + escapeHtml(String(inj.details || "")) + '"></span></div>');
       if (hasAcq) {
         rows.push('<div><span class="lbl">Acquired</span>' + escapeHtml(add.method || "")
           + (add.salary ? " $" + Number(add.salary).toLocaleString() : "")
@@ -776,7 +792,8 @@
           + (hist.best_ep_rate != null ? " · Best E+P " + (hist.best_ep_rate * 100).toFixed(0) + "%" : "")
           + '</div>');
       }
-      leagueStatusHtml = '<div class="profile-block"><h4>League Status</h4><div class="profile-kv">' + rows.join("") + '</div></div>';
+      leagueStatusHtml = '<div class="profile-block upm-league-status"' + (onlyInjury ? ' data-upm-only-inj="1" style="display:none"' : "") +
+        '><h4>League Status</h4><div class="profile-kv">' + rows.join("") + '</div></div>';
     }
 
     // ── Contract history table (D1 contract_history) ──────────────────────
@@ -1842,8 +1859,11 @@
     }
     var sourceLabel = item.source ? escapeHtml(String(item.source)) : "";
     var meta = sourceLabel + (when ? " · " + when : "");
-    var headline = item.url
-      ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.headline || "") + '</a>'
+    // Third-party feed: only an http(s) link becomes clickable (a javascript: URL
+    // would run on the MFL page). The Front Office and the phone already do this.
+    var safeUrl = /^https?:\/\//i.test(String(item.url || "").trim()) ? String(item.url).trim() : "";
+    var headline = safeUrl
+      ? '<a href="' + escapeHtml(safeUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.headline || "") + '</a>'
       : escapeHtml(item.headline || "");
     return '<div class="upm-news-item ' + newsItemClassForType(item.type) + '">'
       + '<div class="upm-news-headline">' + headline + '</div>'
@@ -1923,6 +1943,59 @@
         if (!el.parentNode) return;
         el.textContent = "Availability could not be confirmed — the waiver check didn't load (" +
           (err && err.message ? err.message : String(err)) + ").";
+      });
+  }
+
+  // ── Injury: the ONE resolver every surface uses (#1311), loaded on demand ──
+  // The popup runs on MFL pages, Home and Stats, which don't all load the shared
+  // scripts; they come from GitHub Pages (the canonical CDN) the first time a
+  // popup needs them. One /api/player-status read per 5 minutes (its TTL).
+  var PAGES_ROOT = "https://keithcreelman.github.io/upsmflproduction/";
+  var sharedLoads = {};
+  function ensureShared(globalName, path) {
+    if (window[globalName]) return Promise.resolve(true);
+    if (sharedLoads[path]) return sharedLoads[path];
+    sharedLoads[path] = new Promise(function (resolve) {
+      var sc = document.createElement("script");
+      sc.src = PAGES_ROOT + path;
+      sc.async = true;
+      sc.onload = function () { resolve(!!window[globalName]); };
+      sc.onerror = function () { resolve(false); };
+      (document.head || document.documentElement).appendChild(sc);
+    });
+    return sharedLoads[path];
+  }
+  var injuryLoader = null;
+  function wireInjuryAsync(body, ctx, pid) {
+    var el = body.querySelector("[data-upm-inj-pid]");
+    if (!el || !pid) return;
+    var row = el.closest ? el.closest(".upm-inj-row") : el.parentNode;
+    var team = el.getAttribute("data-upm-inj-team") || "";
+    var apiBase = (ctx.apiBase || "").replace(/\/+$/, "");
+    Promise.all([ensureShared("UPSInjuryStatus", "shared/injury_status.js"), ensureShared("UPS_PLAYER_FACTS", "shared/player_facts.js")])
+      .then(function (ok) {
+        var IS = window.UPSInjuryStatus, F = window.UPS_PLAYER_FACTS;
+        if (!ok[0] || !ok[1] || !IS || !F) return;
+        if (!injuryLoader) {
+          injuryLoader = IS.createLoader(function (season) {
+            return apiBase + "/api/player-status?season=" + encodeURIComponent(season) + (ctx.leagueId ? "&L=" + encodeURIComponent(ctx.leagueId) : "");
+          });
+        }
+        var fb = F.fallbackFromMfl(el.getAttribute("data-upm-inj-mfl"), el.getAttribute("data-upm-inj-det"));
+        var paint = function () {
+          if (!el.parentNode) return;
+          var res = F.injury(injuryLoader.read(), pid, team, fb);
+          var chip = F.chipHtml(res, escapeHtml, "upm-inj-chip");
+          var warn = F.warningHtml(res, escapeHtml);
+          var lines = (res.lines || []).map(function (l) { return '<div class="small muted">' + escapeHtml(l) + "</div>"; }).join("");
+          el.innerHTML = (chip || '<span class="small muted">No designation</span>') + warn + lines;
+          var show = !!(res.chips.length || res.warning);
+          if (row) row.style.display = show ? "" : "none";
+          var block = el.closest ? el.closest("[data-upm-only-inj]") : null;
+          if (block) block.style.display = show ? "" : "none";
+        };
+        paint();
+        injuryLoader.load(String(ctx.year || new Date().getFullYear()), paint);
       });
   }
 
@@ -2511,6 +2584,7 @@
       // returns. Defensive: skip silently if pid is empty.
       wireNewsAsync(bodyContent, ctx, pid);
       wireAvailabilityAsync(bodyContent, ctx, pid);
+      wireInjuryAsync(bodyContent, ctx, pid);
     }).catch(function (err) {
       if (bodyEl.getAttribute("data-upm-pid") !== pidAtFire) return;   // a newer profile opened over this one
       var bodyContent = bodyEl.querySelector("#upm-profile-body")
