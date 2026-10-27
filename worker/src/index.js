@@ -15,6 +15,7 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours, resolveDiscordUserIds, dmAll } from "./trade_dm.js";
+import { summarizeExtensionMaster } from "./extension_history.js";
 import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./trade_3way.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
@@ -60142,6 +60143,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         let extensionMasterPlayerSet = new Set();      // per #1, current season only
         let extensionMasterFranchisePairSet = new Set(); // per #2, only contracts STILL ACTIVE in current season
         let extensionMasterRowCount = 0;
+        // Did the extension-history read succeed? On a failed read the route still behaves as before (empty sets, nothing blocked), but now SAYS so,
+        // so a client that must not guess (the Front Office trade builder) can tell "nobody extended him" from "history unavailable".
+        let extensionHistoryOk = false;
         try {
           // The contract_end_year filter (added in migration 0073) is
           // critical: once an extension contract expires AND the player
@@ -60149,30 +60153,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // RESETS. Without this filter we'd block PG from extending
           // Bosa in 2026 just because PG extended him in 2023 (long
           // since expired). Per Keith 2026-05-24.
-          const currentSeasonInt = safeInt(season, 0);
           const masterRes = await env.UPS_MFL_DB.prepare(
             `SELECT season, franchise_id, player_id, contract_end_year
              FROM ups_extension_master WHERE league_id = ?`
           ).bind(leagueId).all();
-          for (const row of asArray(masterRes?.results)) {
-            const pid = String(row?.player_id || "").replace(/\D/g, "");
-            const fid = padFranchiseId(row?.franchise_id || "");
-            if (!pid) continue;
-            // Per-season player set (for preview-row pruning, Bijan class)
-            if (String(row?.season) === String(season)) {
-              extensionMasterPlayerSet.add(pid);
-            }
-            // Per-franchise pair set — only include if contract is STILL
-            // ACTIVE in the current season (contract_end_year >= current
-            // season). Players whose extension contract has already
-            // expired and gone through FA are eligible for re-extension
-            // by their original extender if re-acquired.
-            const endYear = safeInt(row?.contract_end_year, 0);
-            if (fid && currentSeasonInt > 0 && endYear >= currentSeasonInt) {
-              extensionMasterFranchisePairSet.add(fid + "|" + pid);
-            }
-          }
+          const hist = summarizeExtensionMaster(asArray(masterRes?.results), season, padFranchiseId);
+          for (const x of hist.playerSet) extensionMasterPlayerSet.add(x);
+          for (const x of hist.pairSet) extensionMasterFranchisePairSet.add(x);
           extensionMasterRowCount = extensionMasterPlayerSet.size;
+          extensionHistoryOk = true;      // the read worked: an absent already_extended_by_this_franchise now means "not extended"
         } catch (e) {
           console.warn("[trade-workbench] ups_extension_master read failed:", e?.message || String(e));
         }
@@ -60366,6 +60355,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               extension_preview_rows: Array.isArray(extRowsNormalized.rows) ? extRowsNormalized.rows.length : 0,
               extension_preview_rows_owner_remapped: safeInt(extRowsNormalized.remapped_count, 0),
               extension_master_players: extensionMasterRowCount,
+              extension_history_ok: extensionHistoryOk,
               extension_master_franchise_pairs: extensionMasterFranchisePairSet.size,
               extension_preview_rows_pruned_already_extended: prunedRowCount,
               extension_preview_rows_dropped_unpriceable: extPricingDropped,
