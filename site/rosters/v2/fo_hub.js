@@ -144,20 +144,36 @@
     return out;
   }
 
+  // The league's lineup slots from MFL's own settings (export TYPE=league → starters). null until read; the
+  // model is never built on assumed slots, so a failed read shows as such (lineupSlotsState).
+  var slotsMemo = { src: null, slots: null };
+  function lineupSlots() {
+    var TF = root.UPS_TRADE_FIT, d = D(), e = d && d.get("league");
+    if (!TF || !e || e.state !== "ok") return null;
+    if (slotsMemo.src !== e.data) slotsMemo = { src: e.data, slots: TF.deriveSlots(e.data.league.starters) };
+    return slotsMemo.slots;
+  }
+  // "" (reading) | "ok" | "error" (unreadable, or settings the slots can't express).
+  function lineupSlotsState() {
+    var d = D(), e = d && d.get("league");
+    if (!e) return "";
+    return e.state === "ok" && lineupSlots() ? "ok" : "error";
+  }
+
   // The league trade-fit model on season PPG (n = 0) or last-n-weeks values, rebuilt only when an input changed
-  // (scores read, players read, rosters, injury read) — Overview and Trades share it.
+  // (scores read, players read, rosters, injury read, MFL's lineup settings) — Overview and Trades share it.
   var modelMemo = {};
   function leagueModel(n) {
-    var TF = root.UPS_TRADE_FIT, ss = scoring(), f = FO(), d = D();
-    if (!TF || !ss || !f) return null;
+    var TF = root.UPS_TRADE_FIT, ss = scoring(), f = FO(), d = D(), slots = lineupSlots();
+    if (!TF || !ss || !f || !slots) return null;
     var teams = f.teams();
     var inj = d && d.injury ? d.injury() : null;
     // Refresh the players index BEFORE keying: a model built in the instant before MFL's players list arrived
     // (no free agents → no replacement level) must not be reused once it has (Overview kept stale strength).
     playerIndex();
-    var key = [ss.fetchedAt, idx.src ? 1 : 0, teams.length, teams.reduce(function (a, t) { return a + (t.players || []).length; }, 0), inj && inj.at || 0, n || 0].join("|");
+    var key = [ss.fetchedAt, slotsMemo.src ? 1 : 0, idx.src ? 1 : 0, teams.length, teams.reduce(function (a, t) { return a + (t.players || []).length; }, 0), inj && inj.at || 0, n || 0].join("|");
     if (modelMemo[n || 0] && modelMemo[n || 0].key === key) return modelMemo[n || 0].model;
-    var model = TF.buildLeague({ teams: modelTeams(), values: values(n || 0), freeAgents: freeAgents() });
+    var model = TF.buildLeague({ teams: modelTeams(), values: values(n || 0), freeAgents: freeAgents(), slots: slots });
     modelMemo[n || 0] = { key: key, model: model };
     return model;
   }
@@ -272,7 +288,7 @@
     registerView: registerView,
     esc: esc, pad4: pad4, fmt1: fmt1, signed1: signed1, money: money, clock: clock, dayLabel: dayLabel, asArray: asArray,
     playerIndex: playerIndex, rosterIndex: rosterIndex, teamName: teamName, groupOf: groupOf, displayName: displayName,
-    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel,
+    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf,
     playerButton: playerButton, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
     setFreshness: setFreshness, loading: loading, banner: banner,
     registerAbout: registerAbout, openAbout: openAbout, openDialog: openDialog, closeAbout: closeAbout, setupAbout: setupAbout

@@ -52,7 +52,7 @@ function renderMatrix(teams) {
   const fmt1 = (v) => (Math.round(Number(v) * 10) / 10).toFixed(1);
   ctx.UPS_FO_HUB = { registerView() {}, registerAbout() {}, wireClicks() {}, loading() {}, banner: (m) => m, setFreshness() {}, clock: () => "",
     scoring: () => ({ seasonWeeks: [1, 2, 3, 4, 5, 6], finalKnown: false, fetchedAt: 1, rankMinimum: () => 3 }),
-    leagueModel: (n) => (n ? null : model), asArray: (x) => (x == null ? [] : Array.isArray(x) ? x : [x]), pad4: (x) => String(x).padStart(4, "0"),
+    leagueModel: (n) => (n ? null : model), lineupSlotsState: () => "ok", asArray: (x) => (x == null ? [] : Array.isArray(x) ? x : [x]), pad4: (x) => String(x).padStart(4, "0"),
     esc, fmt1, signed1: (v) => { const n = Math.round(Number(v) * 10) / 10; return (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1); },
     money: (v) => "$" + v, teamName: (f) => (T.find((t) => t.fid === f) || {}).name || f, rosterIndex: () => ({}), seasonLine: () => null,
     playerButton: (pid, fid, label) => esc(label), injuryChip: () => "" };

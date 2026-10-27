@@ -25,7 +25,8 @@ function page() {
   const SS = ctx.UPS_MOBILE_SEASON_SCORING;
   const ss = SS.build(FX.playerScoresAll, { completedWeek: SS.completedWeekFrom(FX.lineup_week), season: 2026 });
   ss.season = 2026;
-  const entries = { scores: { state: "ok", data: ss } };
+  const STARTERS = JSON.parse(read(path.join(ROOT, "tests/fixtures/mfl_league_starters_74598_2026.json"))).starters;
+  const entries = { scores: { state: "ok", data: ss }, league: { state: "ok", data: { league: { starters: STARTERS } } } };
   ctx.UPS_FO_DATA = { get: (k) => entries[k] || null };
   // One team: Prescott (#14 QB league-wide), Penix (#20), Brissett (#21). Cousins (#7) is not on it.
   const teams = [{ fid: "0008", name: "Real Deal Creel", players: [
@@ -83,13 +84,26 @@ test("if the players list can't be read, ranks stay blank rather than wrong", ()
 test("the league model is rebuilt once the players list arrives (no stale replacement level)", () => {
   const p = page();
   const before = p.H.leagueModel(0);
-  t.ok(before, "a model can be built from scores alone");
+  t.ok(before, "a model can be built from scores (and MFL's lineup settings) alone");
   t.equal(before.repl.QB[0], 0, "no players list yet → no free agents → replacement level 0");
   p.entries.players = { state: "ok", data: FX.players };
   const after = p.H.leagueModel(0);
   t.ok(after !== before, "a new model, not the cached one");
   t.ok(after.repl.QB[0] > 0, "replacement QB from the free agents: " + after.repl.QB[0]);
   t.ok(p.H.leagueModel(0) === after, "and that one is reused while nothing changes");
+});
+
+test("the league model is never built on assumed slots: it waits for MFL's lineup settings, and an unreadable read is an error", () => {
+  const p = page();
+  const lg = p.entries.league;
+  delete p.entries.league;
+  t.equal(p.H.leagueModel(0), null, "no MFL settings yet → no model");
+  t.equal(p.H.lineupSlotsState(), "", "reading");
+  p.entries.league = { state: "error", data: null };
+  t.equal(p.H.leagueModel(0), null); t.equal(p.H.lineupSlotsState(), "error", "unreadable → error, never the engine's default slots");
+  p.entries.league = lg;
+  const m = p.H.leagueModel(0);
+  t.ok(m && m.slotSource === "mfl" && m.slots.length === 18, "with MFL's settings: 18 slots from MFL");
 });
 
 await run("front_office_rank_universe");
