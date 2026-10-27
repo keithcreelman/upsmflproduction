@@ -10,6 +10,7 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 const HTML = read("site/rosters/v2/front_office.html"), CSS = read("site/rosters/v2/front_office.css");
+const RO = read("site/rosters/v2/fo_roster.js");
 const MK = read("site/rosters/v2/fo_market.js"), TF = read("site/rosters/v2/fo_trades.js"), ACT = read("site/rosters/v2/fo_activity.js");
 
 test("every named choice group has a visible label and names itself by it (aria-labelledby)", () => {
@@ -21,6 +22,9 @@ test("every named choice group has a visible label and names itself by it (aria-
     [TF, 'id="fo-lbl-tfby">Compare by', 'aria-labelledby="fo-lbl-tfby"'],
     [TF, 'id="fo-lbl-tfms">Measure', 'aria-labelledby="fo-lbl-tfms"'],
     [ACT, 'id="fo-lbl-mv">Show moves for', 'aria-labelledby="fo-lbl-mv"'],
+    [HTML, 'id="fo-lbl-tag">Tagging view', 'aria-labelledby="fo-lbl-tag"'],
+    [HTML, 'id="fo-lbl-clog">Contract log view', 'aria-labelledby="fo-lbl-clog"'],
+    [RO, 'id="fo-lbl-bye">Week to inspect', 'aria-labelledby="fo-lbl-bye"'],
   ];
   for (const [src, label, ref] of groups) { t.ok(src.includes(label), label); t.ok(src.includes(ref), ref); t.ok(/fo-choice/.test(src.slice(src.indexOf(ref) - 160, src.indexOf(ref) + 40)), label + ": styled as a choice control"); }
 });
@@ -64,10 +68,20 @@ test("Market on a phone: each row's status sits under the player's name (the Sta
   t.ok(/\.fo-root \.fo-mk-statusline \{ display: none; \}/.test(CSS) && /@media \(max-width: 560px\) \{\s*\.fo-root \.fo-mk-col-status \{ display: none; \}\s*\.fo-root \.fo-mk-statusline \{ display: block;/.test(CSS), "desktop keeps the column; phones swap it for the under-name line");
 });
 
+test("Tagging view, Contract log view and Bye planner weeks use the same control style; behavior hooks unchanged", () => {
+  for (const a of ['data-subview="players"', 'data-subview="breakdown"', 'data-subview="log"', 'data-subview="glossary"']) t.ok(HTML.includes(a), a);
+  t.ok(/<div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-tag">/.test(HTML) && /<div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-clog">/.test(HTML), "both are .fo-choice groups (the same JS still drives them)");
+  t.ok(/fo-subview-chips fo-choice fo-choice-weeks/.test(RO) && /data-bye-week="' \+ w\.week \+ '" aria-pressed="' \+ \(w\.week === byeView\.week\)/.test(RO), "week choice: same data-bye-week handler, aria-pressed, selected = active");
+  t.ok(/<th scope="col" class="fo-bye-wk' \+ hot \+ \(w\.week === byeView\.week \? " sel" : ""\) \+ '" data-bye-week=/.test(RO), "a click on a grid week head still selects the week");
+  t.ok(/\(w\.empty\.length \? "short"/.test(RO), "a short week says so in words, not only color");
+  t.ok(/\.fo-root \.fo-choice-weeks \.fo-subview-chip \{ flex: 0 1 calc\(20% - 6px\)/.test(CSS) && /flex: 1 1 calc\(25% - 6px\)/.test(CSS), "weeks wrap to rows: 5 across on a wide screen, 4 on a phone");
+});
+
 test("version stamps changed with the files that changed", () => {
   for (const f of ["fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
-  for (const f of ["front_office.css", "fo_market.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.3"), f + " (changed again by the Market choices revision)");
-  t.ok(/var BUILD = "2026\.10\.27\.3";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
+  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.4"), f + " (extended to Tagging, Contract log, Bye weeks)");
+  t.ok(/var BUILD = "2026\.10\.27\.4";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");

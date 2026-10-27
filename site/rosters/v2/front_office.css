@@ -1140,10 +1140,11 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-inline select { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
 .fo-bye-grid { min-width: 720px; }
 .fo-bye-grid th[scope="row"] { text-align: left; color: var(--muted); font-weight: 600; white-space: nowrap; }
-.fo-bye-wk button { background: none; border: 0; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; width: 100%; }
-.fo-bye-wk.sel button { color: var(--text); background: var(--accent-soft); }
-.fo-bye-wk.short button { color: var(--err); }
-.fo-bye-wk.heavy button { color: var(--warn); }
+.fo-bye-wk { color: var(--muted); font-weight: 700; text-align: center; }
+.fo-bye-wk .fo-bye-cost { display: block; }
+.fo-bye-wk.sel { color: var(--text); background: var(--accent-soft); }
+.fo-bye-wk.short { color: var(--err); }
+.fo-bye-wk.heavy { color: var(--warn); }
 .fo-bye-cost { font-size: 10px; font-weight: 500; color: var(--muted); }
 .fo-bye-cell { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
 .fo-bye-cell.ok { color: var(--muted); }
@@ -1357,6 +1358,13 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
   .fo-root .fo-choice { width: 100%; }
   .fo-root .fo-choice-wrap .fo-subview-chip { flex: 1 1 calc(50% - 6px); }
 }
+
+/* Week choice in the Bye planner: the cost (or "short") sits under the week. The grid heads are text now. */
+.fo-root .fo-choice .fo-subview-chip .fo-choice-sub { flex: 0 0 100%; font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.85; }
+.fo-root .fo-choice-weeks .fo-subview-chip { flex: 0 1 calc(20% - 6px); flex-wrap: wrap; row-gap: 0; padding: 6px 4px; }
+.fo-root .fo-choice-weeks { margin-bottom: 10px; }
+@media (max-width: 560px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(25% - 6px); } }
+.fo-bye-grid th.fo-bye-wk { cursor: pointer; }
 
 /* Market status on a phone: the Status column would sit half off-screen, so each row says it under the player's name instead. */
 .fo-root .fo-mk-statusline { display: none; }
