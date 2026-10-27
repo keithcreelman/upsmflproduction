@@ -245,6 +245,15 @@ test("earlier-season ranks show only when they describe the row's own total", ()
   t.equal(noBasis.ptsRank, null, "a bundle without the basis columns shows no rank (fails closed)");
 });
 
+test("a season rank held for the #1307 recount shows — with that reason, never a number or the generic note (main #1372 kept in the new table)", () => {
+  const held = M.seasonRows([{ season: 2025, games_played: 16, season_points: 300, rank_basis_points: 300, rank_basis_games: 16, pos_rank: null, pos_ppg_rank: null, pos_group: "WR", rank_pending: { fields: ["pos_rank", "pos_ppg_rank"] } }], null, 2026)[0];
+  t.deepEqual([held.ptsRank, held.ppgRank], [null, null], "no rank number");
+  t.ok(/2025 Pts Rk, PPG Rk: Rank pending historical reconciliation\./.test(held.notes.join(" ")), "the reason is the recount");
+  t.ok(!/can’t be checked|No rank:/.test(held.notes.join(" ")), "not the generic 'can't be checked' note");
+  const ptsOnly = M.seasonRows([{ season: 2025, games_played: 16, season_points: 300, rank_basis_points: 300, rank_basis_games: 16, pos_rank: 9, pos_ppg_rank: 7, pos_group: "WR", rank_pending: { fields: ["pos_rank"] } }], null, 2026)[0];
+  t.deepEqual([ptsOnly.ptsRank, ptsOnly.ppgRank], [null, 7], "only the held field is withheld");
+});
+
 test("one Game Log schema for every season; no z-score or tiers; gaps are labelled, not blank", () => {
   const cur = log("12620", "2026", "DAL"), y25 = log("12620", "2025"), y19 = log("12620", "2019");
   const keys = (g) => JSON.stringify(Object.keys(g.rows[0]).sort());

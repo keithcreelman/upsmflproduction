@@ -1,9 +1,12 @@
 import { handleHallRequest } from "./hall.js";
 import { auctionResultsIndex, resolveEventContracts, cleanDrops } from "./player_transaction_contracts.js";
+import { taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON } from "./taxi_rule.js";
+import { applyRankPending } from "./rank_pending.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
-import { seedLadder, modernField, legacyStandingsTiebreak } from "./seeding.js";
+import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
+import { seedCurrentSeason } from "./standings_truth.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -29,6 +32,7 @@ import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalend
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
 import { FAA_NOMS_REQUIRED, FAA_NOMS_MAX, etDayKey, etDayBounds, faaWindowAt, faaWindowStateFromCount, faaNomSchedule } from "./auction_windows.js";
 import { buildLeagueEvents, contractLadderStage } from "./league_events_ladder.js";
+import { mflTradeLock, tradeEventWeeks, parseMflIcsStarts } from "./trade_deadline.js";
 import { runFaNightlyJob } from "./auction_nudge.js";
 import { commishVerdictOverride } from "./discord_rule_proposal.js";
 import {
@@ -50,6 +54,7 @@ import {
   composeLineupDm, lineupLadderLabel, normalizeInjuryStatus,
 } from "./lineup_compliance.js";
 import { runLineupDmSweep, runLineupBooking, runLineupBookingFastPath, runLineupSaturdayAnnounce } from "./lineup_wiring.js";
+import { sendLineupCorrectionDm } from "./lineup_correction.js";
 import { listLineupCases, recordLineupRuling, previewLineupNotice, postLineupNotice, verifyLineupSanction, verifyInjuryThread, runLineupAutoPublish, alertMassBooking, alertBookingSkips, previewStandingRule } from "./lineup_rulings.js";
 import { checkForfeitedPicks, reconcileForfeitedPicks, selectForfeitedPick, markForfeitedPicks } from "./lineup_forfeits.js";
 import { checkMymEligibility, MYM_MAX_PER_SEASON, MYM_WINDOW_DAYS } from "./mym_guard.js";
@@ -69,6 +74,7 @@ import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedT
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus, cachedIdMapLoader } from "./player_status.js";
+import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
@@ -115,85 +121,94 @@ async function resolveAuctionBiddingChannelId(env) {
   ).replace(/\D/g, "");
 }
 
-// Pids that ENDED a PRIOR season on a NON-taxi roster (active/IR) — i.e. were
-// promoted off the taxi squad before the current season. Per canon §B2 ("once
-// permanently promoted, NEVER re-eligible for taxi"), these players are NOT
-// taxi-demote-eligible even if they never accrued 4 logged call-ups — closing
-// the pre-tracker gap that left R2-5 rookies promoted in a prior year wrongly
-// showing "Demote to Taxi" on BOTH desktop (/roster-workbench taxi_eligible)
-// and mobile (/api/taxi-callups permanent_promotion). Checks the 2 prior
-// seasons (the taxi window minus the current year). Prior-season rosters are
-// frozen, so the result is cached in D1 (ups_settings) per season.
-async function taxiPriorActivePids(env, origin, leagueId, currentSeason) {
-  const cur = parseInt(currentSeason, 10) || 0;
-  if (!cur || !env || !env.UPS_MFL_DB) return new Set();
-  const cacheKey = "taxi_prior_active_" + cur;
-  try {
-    await env.UPS_MFL_DB.prepare("CREATE TABLE IF NOT EXISTS ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)").run();
-    const cached = await env.UPS_MFL_DB.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(cacheKey).first();
-    if (cached && cached.value) {
-      const arr = JSON.parse(cached.value);
-      // Only trust a NON-empty cache — an empty array almost always means a
-      // transient fetch failure poisoned the cache; recompute instead.
+// The 2025 LEGACY rule (Keith 2026-09-17, restated 2026-10-21; canon §B2). UPS did not reliably track temporary
+// call-ups in 2025, so a Round 2+ UPS Rookie Draft pick whose window covered 2025 (the 2023–2025 drafts) and who is
+// DOCUMENTED on an active roster or IR in ANY week of 2025 is permanently promoted — even if he finished 2025 back on
+// taxi. A one-time rule for that season: it never rolls forward. From 2026 the recorded call-ups decide, and ending a
+// season on an active roster or IR does not, by itself, make anyone permanent (this replaces taxiPriorActivePids,
+// which treated "ended ANY prior season active or on IR" as permanent).
+//
+// SOURCE: MFL's draftResults for 2023–2025 (UPS rounds) and its historical weekly rosters for 2025,
+// TYPE=rosters&W=1..17 — a player listed there as ROSTER or INJURED_RESERVE was on that team's active roster or IR
+// that week. Both exports are public. 2025 is frozen, so the answer is computed once and kept in ups_settings (one
+// row read per call after that). → Set of pids, or null when ANY export didn't answer: never
+// cached, and every caller treats null as unknown and fails closed — never a guessed "nobody".
+const TAXI_LEGACY_2025_CACHE_KEY = "taxi_legacy_active_2025_v1";
+const TAXI_LEGACY_2025_WEEKS = 17;   // UPS weeks 1–17 (the regular season and the playoffs)
+async function taxiLegacy2025Pids(env, leagueId) {
+  const db = env && env.UPS_MFL_DB;
+  if (db) {
+    try {
+      const cached = await db.prepare("SELECT value FROM ups_settings WHERE key = ?").bind(TAXI_LEGACY_2025_CACHE_KEY).first();
+      const arr = cached && cached.value ? JSON.parse(cached.value) : null;
       if (Array.isArray(arr) && arr.length > 0) return new Set(arr.map(String));
-    }
-  } catch (e) { /* fall through to recompute */ }
-  // Fetch MFL DIRECTLY (a worker can't reliably fetch its own hostname). Browser
-  // UA so MFL's bot filter doesn't 1010 us. Both exports are public (no APIKEY).
+    } catch (_) { /* fall through to recompute */ }
+  }
+  const lg = encodeURIComponent(String(leagueId || "74598").replace(/\D/g, "") || "74598");
   const UA = { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" } };
-  // Phase 1 — recent R2+ UPS draftees (Round 2 or later — R6 IDP included, only
-  // R1 excluded per §B2) are the ONLY players the taxi window can apply to, so
-  // restrict to them (keeps the set to a handful of rookies instead of flagging
-  // every veteran who was merely on an active roster).
-  const recentRookies = new Set();
-  for (const y of [cur - 1, cur - 2]) {
-    if (y < 2011) continue;
+  const arrOf = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+  const getJson = async (url) => {
     try {
-      const dr = await fetch(`https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${encodeURIComponent(leagueId)}&JSON=1`, UA);
-      const dj = await dr.json().catch(() => ({}));
-      let unit = dj && dj.draftResults && dj.draftResults.draftUnit;
-      if (Array.isArray(unit)) unit = unit[0];
-      let picks = (unit && unit.draftPick) || [];
-      if (!Array.isArray(picks)) picks = [picks];
-      for (const pk of picks) {
-        const round = parseInt(pk && pk.round, 10);
+      const r = await fetch(url, UA);
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch (_) { return null; }
+  };
+  // 1. Round 2+ picks of the drafts whose window covered 2025.
+  const rookies = new Set();
+  for (const y of [TAXI_LEGACY_SEASON - 2, TAXI_LEGACY_SEASON - 1, TAXI_LEGACY_SEASON]) {
+    const dj = await getJson(`https://api.myfantasyleague.com/${y}/export?TYPE=draftResults&L=${lg}&JSON=1`);
+    if (!(dj && dj.draftResults)) return null;
+    for (const unit of arrOf(dj.draftResults.draftUnit)) {
+      for (const pk of arrOf(unit && unit.draftPick)) {
         const pid = String((pk && pk.player) || "").replace(/\D/g, "");
-        if (pid && round >= 2) recentRookies.add(pid);
+        if (pid && (parseInt(pk && pk.round, 10) || 0) >= 2) rookies.add(pid);
       }
-    } catch (e) { /* skip the draft we couldn't fetch */ }
+    }
   }
-  // Phase 2 — of those rookies, who ENDED a prior season on a NON-taxi roster
-  // (ROSTER/INJURED_RESERVE) = promoted off taxi before the current season.
+  if (!rookies.size) return null;
+  // 2. Of those, everyone on an active roster or IR in any 2025 week.
   const out = new Set();
-  for (const y of [cur - 1, cur - 2]) {
-    if (y < 2011) continue;
-    try {
-      const r = await fetch(`https://www48.myfantasyleague.com/${y}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, UA);
-      const j = await r.json().catch(() => ({}));
-      let franchises = (j && j.rosters && j.rosters.franchise) || [];
-      if (!Array.isArray(franchises)) franchises = [franchises];
-      for (const fr of franchises) {
-        let players = (fr && fr.player) || [];
-        if (!Array.isArray(players)) players = [players];
-        for (const p of players) {
-          const pid = String((p && p.id) || "").replace(/\D/g, "");
-          if (!pid || !recentRookies.has(pid)) continue;   // only recent R2-5 rookies
-          const status = String((p && p.status) || "").toUpperCase();
-          if (status.includes("TAXI")) continue;           // on taxi that year → NOT promoted
-          out.add(pid);
-        }
+  for (let w = 1; w <= TAXI_LEGACY_2025_WEEKS; w += 1) {
+    const j = await getJson(`https://www48.myfantasyleague.com/${TAXI_LEGACY_SEASON}/export?TYPE=rosters&L=${lg}&W=${w}&JSON=1`);
+    const franchises = arrOf(j && j.rosters && j.rosters.franchise);
+    if (!franchises.length) return null;
+    for (const fr of franchises) {
+      for (const p of arrOf(fr && fr.player)) {
+        const pid = String((p && p.id) || "").replace(/\D/g, "");
+        const status = String((p && p.status) || "").toUpperCase();
+        if (pid && rookies.has(pid) && (status === "ROSTER" || status === "INJURED_RESERVE")) out.add(pid);
       }
-    } catch (e) { /* skip the season we couldn't fetch */ }
+    }
   }
-  if (out.size > 0) {
+  if (!out.size) return null;   // 2025 had such players; none found means the exports said nothing usable
+  if (db) {
     try {
-      await env.UPS_MFL_DB.prepare(
+      await db.prepare(
         "INSERT INTO ups_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at"
-      ).bind(cacheKey, JSON.stringify(Array.from(out)), new Date().toISOString()).run();
-    } catch (e) { /* cache write best-effort */ }
+      ).bind(TAXI_LEGACY_2025_CACHE_KEY, JSON.stringify(Array.from(out).sort()), new Date().toISOString()).run();
+    } catch (_) { /* cache write best-effort */ }
   }
   return out;
 }
+// The 2025 legacy answer for one player in a season's taxi decision: false before the tracked rule (2026) and for a
+// pick whose window didn't cover 2025 (upsYear outside 2023–2025: a 2026 pick wasn't in the league yet); otherwise
+// true / false / null (unreadable). Every caller scopes it the same way, so an unreadable 2025 record makes only the
+// players it could decide unknown.
+const _taxiLegacyFor = (legacySet, pid, season, upsYear) => {
+  if ((parseInt(season, 10) || 0) < TAXI_TRACKED_FROM_SEASON) return false;
+  const y = parseInt(upsYear, 10) || 0;
+  if (y && (y < TAXI_LEGACY_SEASON - 2 || y > TAXI_LEGACY_SEASON)) return false;
+  return legacySet ? legacySet.has(String(pid)) : null;
+};
+// Only call-ups recorded from the tracked rule's first season count (2024–2025 backfill rows don't: 2025 is the
+// legacy rule's, and nothing before it is). Used inside every call-up count's CASE.
+const TAXI_TRACKED_SQL = `CAST(season AS INTEGER) >= ${TAXI_TRACKED_FROM_SEASON}`;
+// A call-up is a QUALIFYING SCORING WEEK, never a transaction (Keith 2026-10-21): the player was active — or on IR —
+// for an official UPS scoring week (syncTaxiCallupWeeks records one row per player-week from MFL's weekly record).
+// Every "used" count therefore counts DISTINCT recorded weeks, so several moves in one week can never use more than
+// one call-up, and a promote click that never became an active week (pending, superseded) never counts.
+const TAXI_USED_WEEKS_SQL = `COUNT(DISTINCT CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} AND nfl_week IS NOT NULL THEN season || '-' || nfl_week END)`;
 
 // ── Taxi call-up WEEKS, counted from MFL's own weekly rosters (canon §B2) ────
 //
@@ -337,20 +352,21 @@ async function syncTaxiCallupWeeks(env, season, leagueId, opts) {
     .map((p) => String(p.id)));
   const counts = await db.prepare(
     `SELECT player_id,
-            SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
-            MAX(CASE WHEN pending = 0 THEN callup_index ELSE 0 END) AS max_idx
+            ${TAXI_USED_WEEKS_SQL} AS used,
+            MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN callup_index ELSE 0 END) AS max_idx
        FROM ups_taxi_callups GROUP BY player_id`
   ).all();
   const usedBy = new Map();
   for (const r of arr(counts && counts.results)) {
     usedBy.set(String(r.player_id), Math.max(Number(r.used) || 0, Number(r.max_idx) || 0));
   }
-  const priorActive = await taxiPriorActivePids(env, "", lg, String(yr));
+  const legacy2025 = await taxiLegacy2025Pids(env, lg);
+  if (!legacy2025) return { ok: false, error: "legacy_2025_unreadable", message: "Could not read MFL's 2025 weekly rosters (the 2025 legacy rule needs them); nothing was counted." };
   const universe = new Set();
   let excludedPermanent = 0;
   for (const pid of drafted) {
     if (!onEntryContract.has(pid)) continue;
-    if ((usedBy.get(pid) || 0) >= 4 || priorActive.has(pid)) { excludedPermanent++; continue; }
+    if ((usedBy.get(pid) || 0) >= 4 || legacy2025.has(pid)) { excludedPermanent++; continue; }
     universe.add(pid);
   }
 
@@ -2623,6 +2639,51 @@ async function nflWeekFirstKickoffUnix(season, week) {
   return earliest;
 }
 
+// WHEN MFL STOPS ACCEPTING TRADES, for every owner-facing deadline (the Discord reminders, /api/league-events and,
+// through it, the phone Home chip, Team Operations and the MFL-page countdown widget). The rule lives in
+// trade_deadline.js (the earliest TRADE calendar event not yet ended; week-numbered events where MFL's ICS export places
+// them). This reads MFL's calendar (and, when a week-numbered event exists, its ICS) with the worker's session, read-only. opts.cacheMs keeps a good read for that
+// long in this isolate (the state is recomputed against the clock on every call); a failed read is never remembered.
+const _mflTradeLockReads = new Map();
+async function readMflTradeLock(env, season, leagueId, opts = {}) {
+  const yr = String(season || "").replace(/\D/g, "");
+  const lid = String(leagueId || "").replace(/\D/g, "") || "74598";
+  const nowUnix = Number(opts.nowUnix) || Math.floor(Date.now() / 1000);
+  const fail = (reason, status) => ({ ...mflTradeLock([], { nowUnix }), reason, upstream_status: status || 0 });
+  if (!yr) return fail("season_missing");
+  const key = `${yr}|${lid}`;
+  let read = _mflTradeLockReads.get(key);
+  if (!read || !(opts.cacheMs > 0) || Date.now() - read.at > opts.cacheMs) {
+    read = null;
+    try {
+      const headers = { "User-Agent": "upsmflproduction-worker", Accept: "application/json" };
+      const ck = String(env && env.MFL_COOKIE || "").trim();
+      if (ck) headers.Cookie = mflCookieHeader(ck);
+      const res = await fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=calendar&L=${lid}&JSON=1&_=${Date.now()}`,
+        { headers, cf: { cacheTtl: 0, cacheEverything: false } });
+      if (!res.ok) return fail(`calendar_unreadable_http_${res.status}`, res.status);
+      const data = await res.json().catch(() => null);
+      if (!data || data.error) return fail("calendar_unreadable_" + (data && data.error ? "mfl_error" : "not_json"), res.status);
+      const events = normalizeMflCalendar(data);
+      let ics = {};
+      if (tradeEventWeeks(events).length) {
+        // MFL's own instant for each week-numbered event (it follows MFL if the NFL moves the week's first game).
+        const ir = await fetch(`https://api.myfantasyleague.com/${yr}/export?TYPE=ics&L=${lid}&_=${Date.now()}`,
+          { headers, cf: { cacheTtl: 0, cacheEverything: false } });
+        ics = ir.ok ? parseMflIcsStarts(await ir.text()) : {};
+      }
+      read = { at: Date.now(), events, ics, status: res.status };
+      const weekIds = events.filter((e) => e.event_type === "TRADE" && Number(e.start_unix) > 0 && Number(e.start_unix) <= 30).map((e) => e.id);
+      if (events.length && weekIds.every((id) => ics[id] > 0)) _mflTradeLockReads.set(key, read);
+    } catch (e) {
+      return fail("calendar_fetch_failed: " + String(e && e.message || e).slice(0, 120));
+    }
+  }
+  return { ...mflTradeLock(read.events, { nowUnix, icsStarts: read.ics }), upstream_status: read.status,
+    verified_at_utc: new Date(read.at).toISOString(),       // when MFL was last read (the answer can be up to cacheMs old)
+    source_url: `https://www48.myfantasyleague.com/${yr}/options?L=${lid}&O=123` };
+}
+
 // LAST kickoff of a week (the mirror of nflWeekFirstKickoffUnix above) — used
 // by resolveCurrentLineupWeek to tell "week N is fully over" from "week N is
 // still in progress". Separate cache/key so a first-kickoff lookup elsewhere
@@ -3371,7 +3432,7 @@ const _nflWeekForUnix = (unixSec, year) => {
 // season) are absent → the caller treats them as continuing (acquisitionWeek 1,
 // eligible 17). Trades are excluded on purpose — see the block comment below.
 // (A taxi call-up's cap-free cut — which players still have it, and what an unreadable call-up history does — is
-// _taxiPermanentPromotion / _taxiNeverPromotedMap, under "Taxi call-up status" below.)
+// _taxiPermanentPromotion / _taxiCutContextMap, under "Taxi call-up status" below.)
 // ── A CONTRACT CHANGE THE DAILY SNAPSHOT CANNOT HAVE SEEN ────────────────
 // /admin/drops/scan-and-record prices a drop from the R2 roster snapshot
 // (taken once a day, 09:05 UTC) on or before the drop. A MYAC, extension, MYM
@@ -3426,84 +3487,133 @@ const _contractSubmittedBetween = async (env, { season, leagueId, playerId, fran
 // The same gap priced Devin Neal's 2026-09-17 cut at $0 (3 call-ups in 2025, then IR at season end).
 //
 // Permanent (no cap-free cut) when ANY of:
-//   - 4 or more confirmed call-ups (canon §B2: the 4th activation makes it permanent);
-//   - a confirmed call-up row marked became_permanent;
-//   - on an active or IR roster at the end of a prior season (taxiPriorActivePids; Keith 2026-09-17:
-//     every rookie active at any point in 2025 is already permanent).
+//   - 4 or more call-ups recorded from 2026 on (canon §B2: the next promotion after all three is permanent);
+//   - a recorded call-up row marked became_permanent;
+//   - the 2025 legacy rule: on an active roster or IR in any week of 2025 (taxiLegacy2025Pids; Keith 2026-09-17,
+//     restated 2026-10-21). Ending a season on an active roster or IR is NOT, by itself, permanent.
 // /api/taxi-callups and /roster-workbench use this same predicate. The contract test — an explicit
 // MYAC / extension / restructure also ends it — is in _computeDropPenaltyRaw, which sees the contract.
-const _taxiPermanentPromotion = (used, markedPermanent, priorActive) =>
-  (Number(used) || 0) >= 4 || Number(markedPermanent) === 1 || priorActive === true;
+const _taxiPermanentPromotion = (used, markedPermanent, legacy2025) =>
+  (Number(used) || 0) >= 4 || Number(markedPermanent) === 1 || legacy2025 === true;
 
-// → { [pid]: true | "unresolved" }. true = 1–3 call-ups and not permanent: a taxi player whose cut is
-// still cap-free. "unresolved" = the call-up table, the prior-season rosters or (for the week under way)
-// the schedule or his NFL team could not be read, so that is NOT known — the calculator holds the cut
-// unpriced, never a guessed $0 and never a guessed charge (rule_no_fail_open_guards). A player absent
-// from the map has no call-up history or is permanent: the normal formula applies.
+// ── Taxi-eligible cut: the ONE taxi rule, as of the cut (Keith 2026-10-21, canon T5.2 / §D2 / §B2) ──────────
+// Cap-free cut protection follows TAXI ELIGIBILITY, not the roster slot: if the shared resolver
+// (worker/src/taxi_rule.js) says the player is still eligible IMMEDIATELY BEFORE the cut, the cut is cap-free
+// whether he is on the taxi squad, on the active roster, in a temporary call-up, or anywhere else that has not
+// ended his eligibility. The completed release then ends his eligibility for good (a re-acquisition writes a new
+// contract status), so a later cut is priced normally; a trade is not a release, and his call-up history follows
+// him (ups_taxi_callups is read by player, across franchises).
 //
-// THE WEEK UNDER WAY (Keith 2026-10-16: "a call-up week counts from lineup lock"). Canon §B2: a week is
-// used when he is on the active roster or IR when rosters and lineups lock, and the 4th makes him
-// permanent. The weekly counter (syncTaxiCallupWeeks) writes a week only after the week is OVER, so from
-// his game's kickoff until that row lands, a player on his 4th active week still read "3 used" and his cut
-// was priced as a free taxi cut. ctx.atUnix = the PRICING INSTANT (the drop, or now for a preview): when
-// it is set, a candidate on his 3rd call-up whose OWN NFL team has kicked off in the week under way at that
-// instant is permanent — unless that season-week is already one of his confirmed rows (never counted
-// twice). Whether he was on taxi at that instant is the caller's isTaxi (a taxi cut is exempt before this
-// is read). IR counts; a bye week (no game that week, or an NFL free agent) is never a call-up week — the weekly
-// counter skips it too (Keith 2026-10-16).
-const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
+// → { [pid]: { season, upsRound, upsYear, draftKnown, used, pending, permanent, legacy2025 } }, the resolver's inputs
+// AS OF ctx.atUnix (the cut, or now for a preview), for EVERY id. _computeDropPenaltyRaw adds the pre-cut contract
+// status and asks taxiEligibility(). permanent = the tracked rule, true | false | null (unknown: the call-up table or
+// — for the week under way — the schedule / his NFL team couldn't be read); legacy2025 = the 2025 legacy rule,
+// true | false | null (MFL's 2025 weekly rosters couldn't be read); draftKnown = false when a
+// UPS Rookie Draft inside the 3-league-year window couldn't be read. Unknown → the cut is HELD unpriced, never a
+// guessed $0 and never a guessed charge (rule_no_fail_open_guards).
+//
+// THE WEEK UNDER WAY (Keith 2026-10-16: "a call-up week counts from lineup lock"). Canon §B2: a week is used when
+// he is on the active roster or IR when rosters and lineups lock, and the 4th makes him permanent. The weekly
+// counter (syncTaxiCallupWeeks) writes a week only after the week is OVER, so from his game's kickoff until that
+// row lands, a player on his 4th active week still read "3 used". When ctx.atUnix is set, a candidate with 3
+// confirmed activations whose OWN NFL team has kicked off in the week under way is permanent — unless that
+// season-week is already one of his confirmed rows (never counted twice). IR counts; a bye week (no game that
+// week, or an NFL free agent) is never an activation week — the weekly counter skips it too (Keith 2026-10-16).
+const _UPS_LEAGUE_ID_BY_SEASON = { 2011: "40832", 2012: "37227", 2013: "42721", 2014: "30590", 2015: "29015", 2016: "27191" };
+const _upsDraftRoundsMemo = new Map();
+// UPS Rookie Draft round by player for one season, from MFL draftResults (public; edge-cached an hour, and kept for
+// the isolate's life once read). null when MFL doesn't answer — never cached, so the next read retries.
+const _upsDraftRoundsForSeason = (season, leagueId) => {
+  const key = season + "|" + leagueId;
+  if (_upsDraftRoundsMemo.has(key)) return _upsDraftRoundsMemo.get(key);
+  const p = (async () => {
+    try {
+      const L = _UPS_LEAGUE_ID_BY_SEASON[season] || leagueId;
+      const r = await fetch(`https://www48.myfantasyleague.com/${season}/export?TYPE=draftResults&L=${encodeURIComponent(L)}&JSON=1`,
+        { cf: { cacheTtl: 3600, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j || !j.draftResults) return null;
+      const byPid = {};
+      let units = j.draftResults.draftUnit || [];
+      if (!Array.isArray(units)) units = [units];
+      for (const u of units) {
+        let picks = (u && (u.draftPick || u.pick)) || [];
+        if (!Array.isArray(picks)) picks = [picks];
+        for (const dp of picks) {
+          const pid = String((dp && dp.player) || "").replace(/\D/g, "");
+          const round = parseInt(dp && dp.round, 10) || 0;
+          if (pid && round) byPid[pid] = round;
+        }
+      }
+      return byPid;
+    } catch (_) { return null; }
+  })();
+  _upsDraftRoundsMemo.set(key, p);
+  p.then((v) => { if (!v) _upsDraftRoundsMemo.delete(key); });
+  return p;
+};
+const _taxiCutContextMap = async (env, playerIds, ctx) => {
   const out = {};
   const ids = (playerIds || []).map((id) => String(id || "").replace(/\D/g, "")).filter(Boolean);
   if (!ids.length) return out;
-  const unresolvedAll = () => { for (const id of ids) out[id] = "unresolved"; return out; };
-  if (!env || !env.UPS_MFL_DB) return unresolvedAll();
-  const counted = {};
-  try {
-    // D1 caps bound parameters at 100 per statement; chunk well under it.
-    const chunkSize = 80;
-    for (let i = 0; i < ids.length; i += chunkSize) {
-      const chunk = ids.slice(i, i + chunkSize);
-      const placeholders = chunk.map(() => "?").join(",");
-      const rows = await env.UPS_MFL_DB.prepare(
-        `SELECT player_id,
-                SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used,
-                MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END) AS marked
-           FROM ups_taxi_callups
-          WHERE player_id IN (${placeholders})
-          GROUP BY player_id`
-      ).bind(...chunk).all();
-      for (const row of rows?.results || []) {
-        const pid = String(row?.player_id || "");
-        if (pid && Number(row?.used || 0) > 0) counted[pid] = { used: Number(row.used), marked: Number(row.marked || 0) };
-      }
-    }
-  } catch (_) {
-    return unresolvedAll();
-  }
-  const candidates = Object.keys(counted).filter((pid) => !_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, false));
-  if (!candidates.length) return out;
-  const season = String((ctx && ctx.season) || "").replace(/\D/g, "");
+  const season = parseInt(String((ctx && ctx.season) || "").replace(/\D/g, ""), 10) || 0;
   const leagueId = String((ctx && ctx.leagueId) || "74598").replace(/\D/g, "") || "74598";
-  let priorActive = null;
-  try {
-    priorActive = season ? await taxiPriorActivePids(env, "", leagueId, season) : null;
-  } catch (_) { priorActive = null; }
-  // An EMPTY set is how taxiPriorActivePids reports an unreadable MFL export (it never caches one), so it
-  // is not "nobody was promoted": the candidates' cuts stay unpriced until the rosters can be read.
-  if (!priorActive || !priorActive.size) {
-    for (const pid of candidates) out[pid] = "unresolved";
-    return out;
+  // 1. The UPS Rookie Draft window: the drafts of this league year and the two before it.
+  const windowSeasons = [season, season - 1, season - 2].filter((y) => y >= 2011);
+  const drafts = await Promise.all(windowSeasons.map((y) => _upsDraftRoundsForSeason(y, leagueId)));
+  const draftKnown = season > 0 && drafts.every((d) => d !== null);
+  const pickOf = (pid) => {
+    for (let i = 0; i < windowSeasons.length; i += 1) {
+      const round = drafts[i] && drafts[i][pid];
+      if (round) return { upsRound: round, upsYear: windowSeasons[i] };
+    }
+    return { upsRound: 0, upsYear: 0 };
+  };
+  // 2. Confirmed activations by player (all franchises: a trade carries them).
+  const counted = {};
+  let d1Ok = !!(env && env.UPS_MFL_DB);
+  if (d1Ok) {
+    try {
+      const chunkSize = 80;   // D1 caps bound parameters at 100 per statement
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const rows = await env.UPS_MFL_DB.prepare(
+          `SELECT player_id,
+                  ${TAXI_USED_WEEKS_SQL} AS used,
+                  MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END) AS marked
+             FROM ups_taxi_callups
+            WHERE player_id IN (${chunk.map(() => "?").join(",")})
+            GROUP BY player_id`
+        ).bind(...chunk).all();
+        for (const row of rows?.results || []) {
+          const pid = String(row?.player_id || "");
+          if (pid) counted[pid] = { used: Number(row.used || 0), marked: Number(row.marked || 0) };
+        }
+      }
+    } catch (_) { d1Ok = false; }
   }
-  for (const pid of candidates) {
-    if (!_taxiPermanentPromotion(counted[pid].used, counted[pid].marked, priorActive.has(pid))) out[pid] = true;
+  for (const pid of ids) {
+    const c = counted[pid] || { used: 0, marked: 0 };
+    out[pid] = { season, ...pickOf(pid), draftKnown, used: c.used, pending: 0,
+      permanent: d1Ok ? taxiPermanent({ used: c.used, marked: c.marked, legacy2025: false }) : null,
+      legacy2025: false };
   }
-  // The week under way can only turn a 3rd call-up into the 4th: nobody else's answer depends on it.
+  // 3. The 2025 legacy rule (Keith 2026-09-17 / 2026-10-21): on an active roster or IR in any week of 2025. It only
+  //    matters, from 2026 on, to a Round 2+ pick of a draft whose window covered 2025 (a later pick wasn't there).
+  const candidates = season >= TAXI_TRACKED_FROM_SEASON
+    ? ids.filter((pid) => out[pid].upsRound >= 2 && out[pid].upsYear >= TAXI_LEGACY_SEASON - 2 && out[pid].upsYear <= TAXI_LEGACY_SEASON)
+    : [];
+  if (candidates.length) {
+    let legacy2025 = null;
+    try { legacy2025 = await taxiLegacy2025Pids(env, leagueId); } catch (_) { legacy2025 = null; }
+    for (const pid of candidates) out[pid].legacy2025 = _taxiLegacyFor(legacy2025, pid, season, out[pid].upsYear);
+  }
+  // 4. The week under way can only turn a 3rd activation into the 4th.
   const at = Number(ctx && ctx.atUnix) || 0;
-  const onThird = Object.keys(out).filter((pid) => out[pid] === true && counted[pid].used + 1 >= 4);
+  const onThird = ids.filter((pid) => out[pid].upsRound >= 2 && out[pid].permanent === false && out[pid].legacy2025 === false && out[pid].used + 1 >= 4);
   if (!(at > 0) || !onThird.length || !season) return out;
-  const hold = () => { for (const pid of onThird) out[pid] = "unresolved"; return out; };
-  // The week under way at the instant: the latest week whose first game has kicked off (weeks 1–17, the
-  // weeks the counter counts).
+  const hold = () => { for (const pid of onThird) out[pid].liveWeek = null; return out; };
   let week = 0;
   for (let w = 1; w <= 18; w += 1) {
     let ko = 0;
@@ -3518,18 +3628,18 @@ const _taxiNeverPromotedMap = async (env, playerIds, ctx) => {
     const rows = await env.UPS_MFL_DB.prepare(
       `SELECT player_id FROM ups_taxi_callups
         WHERE season = ? AND nfl_week = ? AND pending = 0 AND player_id IN (${onThird.map(() => "?").join(",")})`
-    ).bind(season, week, ...onThird).all();
+    ).bind(String(season), week, ...onThird).all();
     already = new Set((rows?.results || []).map((r) => String(r?.player_id || "")));
   } catch (_) { return hold(); }
-  const teams = await _taxiPlayerNflTeams(season, onThird.filter((pid) => !already.has(pid)));
-  const kickoffs = await nflWeekKickoffsByTeam(season, week);
+  const teams = await _taxiPlayerNflTeams(String(season), onThird.filter((pid) => !already.has(pid)));
+  const kickoffs = await nflWeekKickoffsByTeam(String(season), week);
   for (const pid of onThird) {
     if (already.has(pid)) continue;                        // this week is already one of his rows
-    if (!teams || !Object.keys(kickoffs).length) { out[pid] = "unresolved"; continue; }
+    if (!teams || !Object.keys(kickoffs).length) { out[pid].liveWeek = null; continue; }
     const team = teams[pid];
-    if (team === undefined) { out[pid] = "unresolved"; continue; }   // not in MFL's answer: unknown
+    if (team === undefined) { out[pid].liveWeek = null; continue; }   // not in MFL's answer: unknown
     const ko = Number(kickoffs[team]) || 0;                 // no game this week (bye, NFL free agent): not an active week
-    if (ko > 0 && ko <= at && _taxiPermanentPromotion(counted[pid].used + 1, counted[pid].marked, false)) delete out[pid];
+    if (ko > 0 && ko <= at) out[pid].liveWeek = true;
   }
   return out;
 };
@@ -3709,45 +3819,34 @@ const _acquisitionWeekAsOf = (txs, year, pid, atUnix) => {
           }
           return { ...r, eligibleWeeks: null, earned: null, currentYearEarned: null };
         };
-        const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiNeverPromoted }, opts) => {
+        const _computeDropPenaltyRaw = ({ contractStatus, salary, contractInfo, contractYear, isTaxi, taxiCut }, opts) => {
           const ctx = _parseContractData({ contractInfo, salary, contractYear }, opts || {});
-          // A taxi cut is $0 whatever was earned, so it is priced even when the completed weeks could not be read — but then
-          // this year's earned is UNKNOWN, not the prior years alone: null, never a partial figure stored as earned_to_date.
+          // A taxi-eligible cut is $0 whatever was earned, so it is priced even when the completed weeks could not be read —
+          // but then this year's earned is UNKNOWN, not the prior years alone: null, never a partial figure stored as earned_to_date.
           const taxiEarned = ctx.weekAuthorityUnresolved ? { earned: null, currentYearEarned: null } : {};
-          // Exemption checks (priority order):
-          // 1. Taxi squad — 0% guarantee while not permanently promoted (§D2).
-          if (isTaxi) {
-            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_exempt", exempt: true, exempt_reason: "Player on TAXI_SQUAD at drop time (§D2)." };
-          }
-          // 1a. Taxi player mid-CALL-UP. `isTaxi` above is MFL's roster status
-          // at drop time, so during a temporary call-up it reads false and the
-          // exemption was skipped entirely — the player fell through to the
-          // standard 75% formula. Canon §D2 and §B2 are explicit that the
-          // cap-free cut survives call-ups: the exemption ends at PERMANENT
-          // promotion (the 4th activation), not the moment he is activated.
-          // A stamped "CL 3| TCV 6K| AAV 2K" rookie cut during his call-up week
-          // was being charged floor(6000 × 0.75) = $4,500 against a promised $0.
-          //
-          // `taxiNeverPromoted` is supplied by the caller from ups_taxi_callups
-          // (has confirmed call-up history AND permanent_promotion is false).
-          // It is deliberately NOT defaulted true: a player with no call-up
-          // history at all must not be exempted, so an absent value means "not
-          // a taxi call-up case" and this branch is skipped.
-          // Only on his ROOKIE ENTRY contract: an explicit MYAC / extension / restructure also makes the
-          // promotion permanent (canon §B2), and that changes the contract status. "Rookie" is the pre-2026
-          // spelling of "Rookie-Draft" (the contract status vocabulary changed in 2026).
+          // 1. TAXI-ELIGIBLE CUT (Keith 2026-10-21; canon T5.2 / §D2 / §B2). Cap-free protection follows taxi
+          //    ELIGIBILITY, not the roster slot: if the ONE taxi rule (worker/src/taxi_rule.js) says the player was still
+          //    eligible immediately before the cut, the cut is cap-free — on the taxi squad, on the active roster, during a
+          //    temporary call-up, anywhere that hasn't ended his eligibility. `taxiCut` = _taxiCutContextMap's inputs as of
+          //    the cut; this adds the pre-cut contract status. Only the ORIGINAL rookie-draft contract can qualify ("Rookie"
+          //    is its pre-2026 spelling): a release wipes it and a re-acquisition writes a new one, and an explicit MYAC /
+          //    extension / restructure replaces it — so every other contract is priced normally, wherever he sits.
+          //    Unknown (draft, call-up history or prior-season rosters unreadable) → HELD, never a guessed $0 or charge.
           const onEntryContract = /^rookie(-draft)?$/i.test(_s(contractStatus));
-          if (taxiNeverPromoted === "unresolved" && onEntryContract) {
-            // Whether he was ever permanently promoted could not be read (the call-up table or the prior-season
-            // rosters). HELD like any other unresolved authority: re-priced by /admin/drops/scan-and-record once
-            // it can be read, and shown "under review" — never a guessed $0, never a guessed charge.
-            return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
-                     hold_reason: "taxi_history_unresolved",
-                     needs_review: true, review_reason: "Whether this taxi player was ever permanently promoted could not be read "
-                       + "(call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
-          }
-          if (taxiNeverPromoted === true && onEntryContract) {
-            return { ...ctx, ...taxiEarned, penalty: 0, basis: "taxi_callup_exempt", exempt: true, exempt_reason: "Taxi player on a temporary call-up, never permanently promoted (§D2/§B2)." };
+          if (onEntryContract && (taxiCut || isTaxi)) {
+            const eligible = taxiCutVerdict(taxiCut, contractStatus, isTaxi);
+            if (eligible === true) {
+              const where = isTaxi ? "on the taxi squad" : (Number(taxiCut.used) > 0 ? "after temporary call-ups (never permanently promoted)" : "on the active roster");
+              return { ...ctx, ...taxiEarned, penalty: 0, basis: isTaxi ? "taxi_exempt" : (Number(taxiCut.used) > 0 ? "taxi_callup_exempt" : "taxi_eligible_exempt"),
+                       exempt: true, exempt_reason: "Taxi-eligible player cut " + where + ": cap-free (§D2 / T5.2). The release ends his taxi eligibility." };
+            }
+            if (eligible === null) {
+              return { ...ctx, guaranteed: null, penalty: null, basis: "week_authority_unresolved", exempt: false, exempt_reason: "",
+                       hold_reason: "taxi_history_unresolved",
+                       needs_review: true, review_reason: "Whether this player was still taxi-eligible could not be confirmed "
+                         + "(UPS draft results, call-up history or prior-season rosters unavailable), so this cut is not priced yet. HELD — NOT a $0." };
+            }
+            // Not eligible (Round 1, window ended, permanently promoted): the normal formula below.
           }
 
           // 1.4 UNSTAMPED CONTRACT — refuse to price it. NOT an exemption.
@@ -15425,7 +15524,8 @@ export default {
 
             const career = careerRes.results || [];
             if (career.length) {
-              bundle.career_summary = career;
+              // Season ranks still pending the clean recount come back null (#1307).
+              bundle.career_summary = career.map((row) => applyRankPending(pid, row));
               d1Satisfied = true;
               // Always attach leverage coefs when we have career data so
               // the client can compute Win Chunks Normalized per row
@@ -16010,6 +16110,7 @@ export default {
           result.reason = "missing_inputs";
           return result;
         }
+        let rostersOk = false;
         try {
           const r = await fetch(
             `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`,
@@ -16017,6 +16118,7 @@ export default {
           );
           if (r.ok) {
             const data = await r.json();
+            rostersOk = !!(data && data.rosters);
             let franchises = data?.rosters?.franchise || [];
             if (!Array.isArray(franchises)) franchises = [franchises];
             outerRoster: for (const f of franchises) {
@@ -16076,49 +16178,27 @@ export default {
           result.reason = "draft_round_not_found";
         }
 
-        // ── §B2 eligibility verdict ───────────────────────────────────────
-        // FAIL CLOSED: no draft record found ⇒ not eligible. The lookup scans
-        // the last 5 draft years, so a genuine R2-R6 pick inside the 3-year
-        // window is always found; anything that isn't found either was never
-        // drafted (waiver / auction / dispersal / veteran) or is far outside
-        // the window. Both are ineligible, so "couldn't find it" and "isn't
-        // allowed" happen to agree here — but the reason string keeps them
-        // distinguishable if MFL's draftResults ever goes unreadable.
-        const yearsElapsed = result.draftYear ? (currentYear - result.draftYear) : null;
-        if (result.draftRound === null && !draftLookupOk) {
-          result.eligible = false;
-          result.reason = "draft_results_unreadable";
+        // ── §B2 eligibility verdict: the ONE rule (worker/src/taxi_rule.js) ─────────────
+        // FAIL CLOSED on anything unknown. The draft scan covers the last 5 drafts, so a genuine R2+ pick inside
+        // the 3-year window is always found; a player not found was never drafted or is far outside the window.
+        // Permanent promotion is checked by the caller (it needs D1); this verdict passes permanent=false.
+        const verdict = taxiEligibility({
+          upsRound: result.draftRound, upsYear: result.draftYear, season: currentYear,
+          // Permanence (the tracked rule and the 2025 legacy rule) is the permanent-promotion guard's, after this gate.
+          contractStatus: result.contractStatus, permanent: false, legacy2025: false,
+          draftKnown: !(result.draftRound === null && !draftLookupOk), contractKnown: rostersOk,
+        });
+        result.verdict = verdict;
+        result.eligible = verdict.eligible === true;
+        if (!result.eligible) {
           result.ineligibleReason =
-            "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.";
-        } else if (result.draftRound === null) {
-          result.eligible = false;
-          result.ineligibleReason =
-            "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2).";
-        } else if (result.draftRound === 1) {
-          result.eligible = false;
-          result.ineligibleReason =
-            "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1).";
-        } else if (yearsElapsed === null || yearsElapsed >= 3) {
-          result.eligible = false;
-          result.ineligibleReason =
-            `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} (${yearsElapsed} league years ago) and has graduated (§B2).`;
-        } else if (!/^rookie-draft$/i.test(result.contractStatus)) {
-          // Trade preserves eligibility; a CUT forfeits it permanently, even if
-          // later re-acquired by any team (Keith 2026-08-03). MFL never
-          // rewrites contractStatus on a trade, but a drop wipes it and
-          // re-acquisition always assigns a fresh status — so a current status
-          // other than exactly "Rookie-Draft" means the original entry
-          // contract is gone. Found via a real case: Demetrius Knight (UPS R6
-          // 2025, drafted by Blake Bombers) was cut and bought back by Sex
-          // Manther at the 2026 auction for $1,000 — now "Vet-FAA" — and the
-          // eligibility check hadn't noticed, because it only looked at draft
-          // history. 8 players league-wide were in this exact state, all
-          // having changed teams via cut+re-acquisition, none merely traded.
-          result.eligible = false;
-          result.ineligibleReason =
-            `This player's rookie contract ended when they were dropped (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`;
-        } else {
-          result.eligible = true;
+            verdict.reason === "draft_unreadable" ? "Couldn't read the UPS Rookie Draft results from MFL, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment."
+            : verdict.reason === "contract_unreadable" ? "Couldn't read this player's contract on MFL's rosters, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment."
+            : verdict.reason === "not_ups_pick" ? "No UPS Rookie Draft record for this player — only players selected in the Rookie Draft (Round 2+) are taxi-eligible (§B2)."
+            : verdict.reason === "round_1" ? "Round 1 rookies must stay on the active roster — taxi demotion not permitted (§A1 Round 1)."
+            : verdict.reason === "window_ended" ? `Taxi eligibility is the first 3 LEAGUE years; this player was drafted in ${result.draftYear} and has graduated (§B2).`
+            : verdict.reason === "released" ? `This player's rookie contract ended when they were released (current contract: ${result.contractStatus || "unknown"}) — taxi eligibility does not carry over to a re-acquisition (§B2).`
+            : verdict.text;
         }
         return result;
       };
@@ -16594,11 +16674,12 @@ export default {
         // aggregate correctly. Per canon §B2: "On the 4th activation,
         // the call-up becomes permanent." Total weeks across the 3-year
         // window — not weeks in a single season.
+        // Only call-ups recorded from 2026 count (TAXI_TRACKED_SQL); 2025 is the legacy rule's (below).
         const selectClause =
           `SELECT player_id,
-                  SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                  AS used,
-                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)            AS pending_count,
-                  MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                           AS marked
+                  ${TAXI_USED_WEEKS_SQL}                AS used,
+                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_count,
+                  MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END)  AS marked
              FROM ups_taxi_callups`;
         const out = {};
         try {
@@ -16624,6 +16705,8 @@ export default {
                   pending: Number(row?.pending_count || 0),
                   max: 3,
                   permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                  tracked_permanent: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                  legacy_2025: false,
                 };
               }
             }
@@ -16640,31 +16723,37 @@ export default {
                 pending: Number(row?.pending_count || 0),
                 max: 3,
                 permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                tracked_permanent: _taxiPermanentPromotion(row?.used, row?.marked, false),
+                legacy_2025: false,
               };
             }
           }
         } catch (e) {
           return jsonOut(200, { ok: false, error: e?.message || String(e), players: {} });
         }
-        // §B2 — also flag players who ended a PRIOR season on a non-taxi roster
-        // as permanently promoted (even with zero call-up rows), so mobile's
-        // taxi-eligibility gate (which reads permanent_promotion from here)
-        // excludes them — matching the desktop /roster-workbench behavior.
-        try {
-          const tcOrigin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
-          const tcLeague = safeStr(url.searchParams.get("L") || L || "74598");
-          const tcSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
-          const priorActive = await taxiPriorActivePids(env, tcOrigin, tcLeague, tcSeason);
-          priorActive.forEach((pid) => {
-            if (out[pid]) out[pid].permanent_promotion = true;
-            else out[pid] = { used: 0, pending: 0, max: 3, permanent_promotion: true };
-          });
-          // Respect the optional ?player_ids= narrowing filter.
-          if (playerIds && playerIds.length) {
-            const allow = new Set(playerIds);
-            Object.keys(out).forEach((pid) => { if (!allow.has(pid)) delete out[pid]; });
+        // §B2 2025 legacy rule (Keith 2026-09-17 / 2026-10-21) — a Round 2+ pick on an active roster or IR in any
+        // week of 2025 is permanently promoted, even with no call-up rows (legacy_2025; permanent_promotion keeps
+        // meaning "tracked OR legacy" for older clients; tracked_permanent is the tracked rule alone). FAILS CLOSED:
+        // if MFL's 2025 rosters can't be read the answer is ok:false, so every client reads eligibility as unknown.
+        const tcLeague = safeStr(url.searchParams.get("L") || L || "74598");
+        const tcSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        if ((parseInt(tcSeason, 10) || 0) >= TAXI_TRACKED_FROM_SEASON) {
+          let legacy2025 = null;
+          try { legacy2025 = await taxiLegacy2025Pids(env, tcLeague); } catch (_) { legacy2025 = null; }
+          if (!legacy2025) {
+            return jsonOut(200, { ok: false, error: "legacy_2025_unreadable", message: "Couldn't read MFL's 2025 rosters (the 2025 legacy rule needs them).", players: {} });
           }
-        } catch (e) { /* prior-active augmentation is best-effort */ }
+          legacy2025.forEach((pid) => {
+            if (!out[pid]) out[pid] = { used: 0, pending: 0, max: 3, permanent_promotion: false, tracked_permanent: false };
+            out[pid].legacy_2025 = true;
+            out[pid].permanent_promotion = true;
+          });
+        }
+        // Respect the optional ?player_ids= narrowing filter.
+        if (playerIds && playerIds.length) {
+          const allow = new Set(playerIds);
+          Object.keys(out).forEach((pid) => { if (!allow.has(pid)) delete out[pid]; });
+        }
         return jsonOut(200, { ok: true, players: out });
       }
 
@@ -16906,8 +16995,9 @@ export default {
       // Q20 (tracker): pending=1 rows in ups_taxi_callups represent
       // owner clicks awaiting NFL-week certification. This endpoint
       // walks them, fetches weeklyresults for the relevant week, and:
-      //   - Player appears in active lineup that week → flip pending=0,
-      //     compute callup_index, flip became_permanent if index >= 4.
+      //   - Player appears in active lineup that week → left for the weekly
+      //     count (syncTaxiCallupWeeks), the ONE writer of call-up weeks; a
+      //     week it already holds marks the click superseded (pending=2).
       //   - Player was demoted before the week locked OR doesn't appear
       //     in weeklyresults → DELETE the row (call-up didn't count).
       //
@@ -17041,36 +17131,11 @@ export default {
               out.cleared.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "week_already_counted" });
               continue;
             }
-            // Player was active for the week — confirm. callup_index =
-            // max confirmed index + 1; became_permanent on 4th.
-            const indexRow = await env.UPS_MFL_DB.prepare(
-              `SELECT COALESCE(MAX(callup_index), 0) AS max_idx
-                 FROM ups_taxi_callups
-                WHERE player_id = ? AND pending = 0`
-            ).bind(rPlayerId).first();
-            const nextIndex = Number(indexRow?.max_idx || 0) + 1;
-            const newPermanent = nextIndex >= 4 ? 1 : 0;
-            if (!dryRun) {
-              try {
-                await env.UPS_MFL_DB.prepare(
-                  `UPDATE ups_taxi_callups
-                      SET pending = 0,
-                          callup_index = ?,
-                          became_permanent = ?
-                    WHERE id = ?`
-                ).bind(nextIndex, newPermanent, rid).run();
-              } catch (e) {
-                out.errors.push({ id: rid, reason: "confirm_update_failed", detail: e?.message || String(e) });
-                continue;
-              }
-            }
-            out.confirmed.push({
-              id: rid,
-              player_id: rPlayerId,
-              week: weekToCheck,
-              callup_index: nextIndex,
-              became_permanent: newPermanent === 1,
-            });
+            // Listed for the week, but not (yet) one of the weekly count's rows. The confirm pass never charges a call-up
+            // itself (Keith 2026-10-21: a call-up is a qualifying scoring week — active or on IR, never a bye — and ONE
+            // writer records it): syncTaxiCallupWeeks charges the week from MFL's weekly record and then supersedes
+            // this click. Nothing is written here.
+            out.skipped.push({ id: rid, player_id: rPlayerId, week: weekToCheck, reason: "weekly_count_decides" });
           }
           out.totals = {
             confirmed: out.confirmed.length,
@@ -19524,6 +19589,9 @@ export default {
           // week: matchups incl. double/triple-headers, per-player scores,
           // W/L results). liveScoring is current-week-only; this is the rest.
           "weeklyResults",
+          // leagueStandings — keyless season standings; the Standings matchup sheet reads each team's offensive-player
+          // ("op") and IDP ("dp") points from it (#1329). Public and read-only, like weeklyResults.
+          "leagueStandings",
           // User-specific endpoints: MUST go to api.myfantasyleague.com
           // (MFL rejects them on shards). Authenticate with the per-user
           // APIKEY param read from window._apiKey_ in the browser. See
@@ -20150,23 +20218,32 @@ export default {
           const base = { ok: true, season, mfl_id: pid, gsis_id: gsis, pfr_id: pfr, id_source: idSource,
                          box_through_week: cov && cov.w != null ? Number(cov.w) : null };
           if (!gsis) return statOk({ ...base, weeks: [] });
-          const [box, rz, sn, tsn] = await Promise.all([
-            db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
-            db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ? ORDER BY week").bind(season, gsis).all(),
-            pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ? ORDER BY week").bind(season, pfr).all()
+          // No ORDER BY on the three per-player reads: with it, D1's planner (no
+          // sqlite_stat1) walks the (season, week, …) primary key for the order and
+          // reads the WHOLE season — 6.6k + 1.8k + 8.7k rows per view — instead of
+          // the (gsis_id|pfr_id, season) player indexes (~4 rows each). The weeks
+          // are keyed and sorted below, so row order never mattered.
+          const edge = safeStr(url.searchParams.get("NO_CACHE")) !== "1" && typeof caches !== "undefined" ? caches.default : null;
+          const [box, rz, sn, seasonSnaps] = await Promise.all([
+            db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ?").bind(season, gsis).all(),
+            db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ?").bind(season, gsis).all(),
+            pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?").bind(season, pfr).all()
                 : Promise.resolve({ results: [] }),
-            // His team's offensive / defensive snaps in each of his games, read
-            // off the team's most-used player that game (max snaps / max share;
-            // exact when someone played 100%).
-            pfr ? db.prepare(
-              "SELECT s.week, s.team, " +
-              "CAST(ROUND(MAX(s.off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.off_snaps > 0 THEN s.off_snap_pct END), 0)) AS INTEGER) AS team_off, " +
-              "CAST(ROUND(MAX(s.def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.def_snaps > 0 THEN s.def_snap_pct END), 0)) AS INTEGER) AS team_def " +
-              "FROM nfl_player_snaps s JOIN (SELECT week, team FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?) p " +
-              "ON p.week = s.week AND p.team = s.team WHERE s.season = ? GROUP BY s.week, s.team"
-            ).bind(season, pfr, season).all() : Promise.resolve({ results: [] }),
+            pfr ? seasonTeamSnaps(db, season, ctx, edge) : Promise.resolve(null),
           ]);
-          const teamSnaps = {};
+          // His team's offensive / defensive snaps in each of his games: the
+          // season table (./team_snaps_season.js) when it covers every one of
+          // his games, else this per-player join — read off the team's most-used
+          // player that game (max snaps / max share; exact when someone played 100%).
+          const seasonOk = !!seasonSnaps && coversPlayer(seasonSnaps, sn && sn.results);
+          const tsn = pfr && !seasonOk ? await db.prepare(
+            "SELECT s.week, s.team, " +
+            "CAST(ROUND(MAX(s.off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.off_snaps > 0 THEN s.off_snap_pct END), 0)) AS INTEGER) AS team_off, " +
+            "CAST(ROUND(MAX(s.def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.def_snaps > 0 THEN s.def_snap_pct END), 0)) AS INTEGER) AS team_def " +
+            "FROM nfl_player_snaps s JOIN (SELECT week, team FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?) p " +
+            "ON p.week = s.week AND p.team = s.team WHERE s.season = ? GROUP BY s.week, s.team"
+          ).bind(season, pfr, season).all() : null;
+          const teamSnaps = seasonOk ? seasonSnaps : {};
           for (const r of (tsn && tsn.results) || []) teamSnaps[r.week + "|" + r.team] = r;
           const weeks = {};
           const at = (w) => (weeks[w] = weeks[w] || { week: Number(w), box: null, redzone: null, snaps: null });
@@ -20526,12 +20603,15 @@ export default {
               WHERE nfl_season = ?
               ORDER BY date ASC`
           ).bind(season).all();
+          // The trade deadline row is MFL's own trade lock, read with the worker's session (5-minute isolate memo).
+          const tradeLock = await readMflTradeLock(env, season, L || "74598", { cacheMs: 5 * 60 * 1000 });
           const built = await buildLeagueEvents({
             rows: res.results || [],
             season,
             from: fromParam,
             limit: lim,
             kickoffFor: nflWeekFirstKickoffUnix,
+            tradeLock,
           });
           const out = {
             ok: true,
@@ -20539,6 +20619,13 @@ export default {
             events: built.events,
             preseason_ladder: built.ladder,
             preseason_ladder_basis: "mfl_nflSchedule_first_kickoff (Week 3 = MYM, Week 5 = Extension); stored league_events row is the marked fallback",
+            // When MFL stops accepting trades: the earliest "No Trades Allowed" event on MFL's calendar not yet ended.
+            trade_lock: {
+              state: tradeLock.state, start_unix: tradeLock.start_unix, end_unix: tradeLock.end_unix,
+              date_et: tradeLock.date_et || null, time_et: tradeLock.time_et || null, label: tradeLock.label || null,
+              events: tradeLock.events, reason: tradeLock.reason || "", source: "mfl_calendar",
+              verified_at_utc: tradeLock.verified_at_utc || null,
+            },
           };
 
           // ── &kickoffs=1,3,5 → week_kickoffs: { "1": <unix>, "3": ..., "5": ... }
@@ -20891,23 +20978,81 @@ export default {
               conference_name: (divEntry && divEntry.conference_id) ? (leagueMeta.conferences[divEntry.conference_id] || null) : null,
             };
           });
-          // Mark division leaders using the year-specific MFL `standingsSort`
-          // chain (e.g. 2011 was PCT,DIVPCT,PTS,H2H,PWR; 2014+ moved H2H
-          // before PTS). The pairwise H2H step requires schedule data we
-          // don't have at this layer — those ties fall through to PTS / AP%.
-          const cmpDesc2 = (a, b) => (Number(b || 0) - Number(a || 0));
-          const sortFnFromStandingsSort = (sortStr) => {
-            const tokens = (sortStr || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
-              .split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
-            const tokenToField = {
-              PCT: "h2h_pct",
-              DIVPCT: "div_pct",
-              PTS: "pf",
-              ALL_PLAY_PCT: "allplay_pct",
-              PWR: "pwr",
-              // H2H requires pairwise data — skipped in this comparator.
-            };
-            return (a, b) => {
+          // Which path seeds this season:
+          //   recorded -- a finished season with recorded final standings (2010-2025). Unchanged here: its order and
+          //               seeds are the pre-2026-10-08 ones, and changing historical seed records is a separate decision.
+          //   preseason -- nothing played: no leaders, no seeds (a 0-0 table ranks nobody).
+          //   current  -- seeded ONLY from the regular-season weekly rows (worker/src/standings_truth.js), the same
+          //               computation /api/playoff-bracket uses. If those rows can't be trusted there are no seeds at
+          //               all, and the response says what's wrong. (2026-10-17: the live sync folds playoff weeks into
+          //               src_standings, so its totals would have moved the seeds during the playoffs.)
+          let recordedSeason = false;
+          try {
+            const fr = await db.prepare(
+              "SELECT 1 AS x FROM src_final_standings WHERE season = ? LIMIT 1"
+            ).bind(yr).first();
+            recordedSeason = !!(fr && fr.x);
+          } catch (_) {}
+
+          // `po` (playoff flag) is 1 or 0 ONLY when D1 holds exactly 1 or 0. Anything
+          // else (NULL, a stray value) is sent as null, never guessed as regular
+          // season: the standings race module (site/shared/standings_race.js) fails
+          // closed on an unrecognized flag, and it can only do that if it sees it.
+          const poFlag = (v) => (v === 1 || v === "1") ? 1 : (v === 0 || v === "0") ? 0 : null;
+          // A failed query is sent as null + an error, never as an empty array:
+          // an empty array means "nothing played yet", which a reader may show as 0-0.
+          const weeklyErrors = {};
+          // Per-week matchup rows (played games only) so the client can compute
+          // scoped standings — Full / Regular / Playoffs / Custom — over any week
+          // range. See docs/STANDINGS_SCOPE_BUILD.md.
+          let weeklyRaw = null;
+          try {
+            const wk = await db.prepare(
+              "SELECT week, franchise_id, team_score, opponent_franchise_id, opponent_score, is_divisional, is_playoff " +
+              "FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
+            ).bind(yr).all();
+            weeklyRaw = wk.results || [];
+          } catch (e) { weeklyErrors.weekly = String((e && e.message) || e); }
+          const weekly = weeklyRaw && weeklyRaw.map((r) => ({
+            w: Number(r.week) || 0,
+            fid: String(r.franchise_id || "").padStart(4, "0"),
+            ts: Number(r.team_score) || 0,
+            opp: String(r.opponent_franchise_id || "").padStart(4, "0"),
+            os: Number(r.opponent_score) || 0,
+            div: Number(r.is_divisional) === 1 ? 1 : 0,
+            po: poFlag(r.is_playoff),
+          }));
+          // EVERY franchise's weekly score (incl. playoff byes — a team scores even
+          // with no H2H matchup), + optimal points for efficiency. This is what
+          // all-play and scoped scoring should use so counts are consistent.
+          let weeklyScoresRaw = null;
+          try {
+            const ws = await db.prepare(
+              "SELECT week, franchise_id, team_score, team_opt_pts, is_playoff " +
+              "FROM src_franchise_weekly_score WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
+            ).bind(yr).all();
+            weeklyScoresRaw = ws.results || [];
+          } catch (e) { weeklyErrors.weeklyScores = String((e && e.message) || e); }
+          const weeklyScores = weeklyScoresRaw && weeklyScoresRaw.map((r) => ({
+            w: Number(r.week) || 0,
+            fid: String(r.franchise_id || "").padStart(4, "0"),
+            ts: Number(r.team_score) || 0,
+            opt: Number(r.team_opt_pts) || 0,
+            po: poFlag(r.is_playoff),
+          }));
+
+          const seasonMeta = (metaRs.results && metaRs.results[0]) || null;
+          const lastRegWeek = seasonMeta && Number(seasonMeta.last_regular_season_week) > 0 ? Number(seasonMeta.last_regular_season_week) : null;
+          let standingsBasis;
+          let current = null;
+          if (recordedSeason) {
+            standingsBasis = "recorded_final_standings";
+            // Division leaders by the season's MFL standingsSort, read off src_standings (H2H skipped). Unchanged.
+            const cmpDesc2 = (a, b) => (Number(b || 0) - Number(a || 0));
+            const tokens = (leagueMeta.standingsSort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
+              .split(",").map((tk) => tk.trim().toUpperCase()).filter(Boolean);
+            const tokenToField = { PCT: "h2h_pct", DIVPCT: "div_pct", PTS: "pf", ALL_PLAY_PCT: "allplay_pct", PWR: "pwr" };
+            const sortFn = (a, b) => {
               for (const tk of tokens) {
                 const field = tokenToField[tk];
                 if (!field) continue;
@@ -20916,132 +21061,80 @@ export default {
               }
               return 0;
             };
-          };
-          const sortFn = sortFnFromStandingsSort(leagueMeta.standingsSort);
-          const byDiv = new Map();
-          for (const r of rows) {
-            if (r.division == null) continue;
-            const k = String(r.division);
-            if (!byDiv.has(k)) byDiv.set(k, []);
-            byDiv.get(k).push(r);
-          }
-          const divisionWinnerIds = new Set();
-          for (const [, group] of byDiv.entries()) {
-            group.sort(sortFn);
-            group.forEach((r, i) => {
-              r.is_division_leader = (i === 0);
-              r.division_rank = i + 1;
-              if (i === 0) divisionWinnerIds.add(String(r.franchise_id));
+            const byDiv = new Map();
+            for (const r of rows) {
+              if (r.division == null) continue;
+              const k = String(r.division);
+              if (!byDiv.has(k)) byDiv.set(k, []);
+              byDiv.get(k).push(r);
+            }
+            const divisionWinnerIds = new Set();
+            for (const [, group] of byDiv.entries()) {
+              group.sort(sortFn);
+              group.forEach((r, i) => {
+                r.is_division_leader = (i === 0);
+                r.division_rank = i + 1;
+                if (i === 0) divisionWinnerIds.add(String(r.franchise_id));
+              });
+            }
+            const field = modernField(rows, divisionWinnerIds, legacyStandingsTiebreak);
+            const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
+            field.byes.forEach((r, i) => { r.playoff_seed = i + 1; r.playoff_status = "bye"; r.is_wild_card = false; });
+            field.seeds3to6.forEach((r, i) => {
+              r.playoff_seed = i + 3;
+              r.playoff_status = wildCardIds.has(String(r.franchise_id)) ? "wild_card" : "division_winner";
+              r.is_wild_card = wildCardIds.has(String(r.franchise_id));
             });
+            field.outside.forEach((r) => { r.playoff_seed = null; r.playoff_status = "non_playoff"; r.is_wild_card = false; });
+            rows.forEach((r) => { r.seed_reason = { basis: "recorded_final_standings" }; });
+            rows.sort((a, b) => {
+              const sa = a.playoff_seed, sb = b.playoff_seed;
+              if (sa != null && sb != null) return sa - sb;
+              if (sa != null) return -1;
+              if (sb != null) return 1;
+              return legacyStandingsTiebreak(a, b);
+            });
+          } else if (preseason) {
+            standingsBasis = "preseason";
+            rows.forEach((r) => {
+              Object.assign(r, { is_division_leader: false, division_rank: null, playoff_seed: null, playoff_status: null, is_wild_card: false, seed_reason: { basis: "preseason" } });
+            });
+          } else {
+            current = (weeklyRaw && weeklyScoresRaw)
+              ? seedCurrentSeason({
+                  franchises: rows.map((r) => ({ franchise_id: r.franchise_id, franchise_name: r.franchise_name, division: r.division })),
+                  weeklyScores: weeklyScoresRaw, games: weeklyRaw, lastRegularSeasonWeek: lastRegWeek,
+                  standingsSort: leagueMeta.standingsSort, ladder: { seedLadderSteps, modernField },
+                })
+              : { status: "incomplete", problems: [{ code: "weekly_unreadable", errors: weeklyErrors }], problem_count: 1, throughWeek: null, lastRegularSeasonWeek: lastRegWeek, complete: false, order: [], teams: {} };
+            // Season rows exist but no weekly rows: contradictory, never "preseason".
+            if (current.status === "preseason") {
+              current = { ...current, status: "incomplete", problems: [{ code: "standings_without_weekly_rows" }], problem_count: 1 };
+            }
+            if (current.status === "ok") {
+              standingsBasis = "regular_season_ladder";
+              const idx = {};
+              for (const r of rows) {
+                const tm = current.teams[String(r.franchise_id).padStart(4, "0")];
+                Object.assign(r, tm);
+                idx[r.franchise_id] = tm.order_index;
+                delete r.order_index;
+              }
+              rows.sort((a, b) => idx[a.franchise_id] - idx[b.franchise_id]);
+            } else {
+              standingsBasis = "unavailable";
+              rows.forEach((r) => {
+                Object.assign(r, { is_division_leader: false, division_rank: null, playoff_seed: null, playoff_status: "unavailable", is_wild_card: false, seed_reason: { basis: "unavailable" } });
+              });
+              rows.sort((a, b) => String(a.franchise_name || "").localeCompare(String(b.franchise_name || "")));
+            }
           }
 
-          // Playoff-seed annotation (canon §F.1/§F.2, worker/src/seeding.js):
-          // the standings page mirrors the playoff bracket. Division winners
-          // always make the field; seeds 1-2 = the two best division winners;
-          // seeds 3-6 = the other division winners + 2 wild cards; everyone
-          // else follows. Every list is ordered All-Play % → Overall → season
-          // Points For → head-to-head (2026-10-08: this used to break ties on
-          // the per-game PF average before Overall). Seasons with recorded final
-          // standings keep their previous order (legacyStandingsTiebreak): a
-          // change to historical seed records is a separate decision.
-          let recordedSeason = false;
-          try {
-            const fr = await db.prepare(
-              "SELECT 1 AS x FROM src_final_standings WHERE season = ? LIMIT 1"
-            ).bind(yr).first();
-            recordedSeason = !!(fr && fr.x);
-          } catch (_) {}
-          let regGames = [];
-          if (!recordedSeason) {
-            try {
-              const gRs = await db.prepare(
-                `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
-                   FROM src_schedule
-                  WHERE season = ? AND COALESCE(is_playoff, 0) = 0
-                    AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
-              ).bind(yr).all();
-              regGames = gRs.results || [];
-            } catch (_) {}
-          }
-          const seedTiebreak = recordedSeason ? legacyStandingsTiebreak : seedLadder(rows, regGames);
-          const field = modernField(rows, divisionWinnerIds, seedTiebreak);
-          const topTwoDW = field.byes;
-          const wildCardIds = new Set(field.wildCards.map((r) => String(r.franchise_id)));
-          const seeds3to6 = field.seeds3to6;
-          const nonPlayoff = field.outside;
-
-          topTwoDW.forEach((r, i) => {
-            r.playoff_seed = i + 1;
-            r.playoff_status = "bye";
-            r.is_wild_card = false;
-          });
-          seeds3to6.forEach((r, i) => {
-            r.playoff_seed = i + 3;
-            r.playoff_status = wildCardIds.has(String(r.franchise_id)) ? "wild_card" : "division_winner";
-            r.is_wild_card = wildCardIds.has(String(r.franchise_id));
-          });
-          nonPlayoff.forEach((r) => {
-            r.playoff_seed = null;
-            r.playoff_status = "non_playoff";
-            r.is_wild_card = false;
-          });
-
-          // Final sort for the standings page: playoff seeds 1-6 in order,
-          // then non-playoff teams by the same ladder. Matches what the
-          // bracket renders so the standings page is self-consistent.
-          rows.sort((a, b) => {
-            const sa = a.playoff_seed;
-            const sb = b.playoff_seed;
-            if (sa != null && sb != null) return sa - sb;
-            if (sa != null) return -1;
-            if (sb != null) return 1;
-            return seedTiebreak(a, b);
-          });
-
-          // Season-complete heuristic: any Week 17 playoff row in src_schedule.
-          let seasonComplete = false;
-          try {
-            const wkR = await db.prepare(
-              "SELECT 1 AS x FROM src_schedule WHERE season = ? AND is_playoff = 1 AND week = 17 LIMIT 1"
-            ).bind(yr).first();
-            seasonComplete = !!(wkR && wkR.x);
-          } catch (_) {}
-          // Per-week matchup rows (played games only) so the client can compute
-          // scoped standings — Full / Regular / Playoffs / Custom — over any week
-          // range. See docs/STANDINGS_SCOPE_BUILD.md.
-          let weekly = [];
-          try {
-            const wk = await db.prepare(
-              "SELECT week, franchise_id, team_score, opponent_franchise_id, opponent_score, is_divisional, is_playoff " +
-              "FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
-            ).bind(yr).all();
-            weekly = (wk.results || []).map((r) => ({
-              w: Number(r.week) || 0,
-              fid: String(r.franchise_id || "").padStart(4, "0"),
-              ts: Number(r.team_score) || 0,
-              opp: String(r.opponent_franchise_id || "").padStart(4, "0"),
-              os: Number(r.opponent_score) || 0,
-              div: Number(r.is_divisional) === 1 ? 1 : 0,
-              po: Number(r.is_playoff) === 1 ? 1 : 0,
-            }));
-          } catch (_) {}
-          // EVERY franchise's weekly score (incl. playoff byes — a team scores even
-          // with no H2H matchup), + optimal points for efficiency. This is what
-          // all-play and scoped scoring should use so counts are consistent.
-          let weeklyScores = [];
-          try {
-            const ws = await db.prepare(
-              "SELECT week, franchise_id, team_score, team_opt_pts, is_playoff " +
-              "FROM src_franchise_weekly_score WHERE season = ? AND COALESCE(team_score, 0) > 0 ORDER BY week"
-            ).bind(yr).all();
-            weeklyScores = (ws.results || []).map((r) => ({
-              w: Number(r.week) || 0,
-              fid: String(r.franchise_id || "").padStart(4, "0"),
-              ts: Number(r.team_score) || 0,
-              opt: Number(r.team_opt_pts) || 0,
-              po: Number(r.is_playoff) === 1 ? 1 : 0,
-            }));
-          } catch (_) {}
+          // Season complete: a game in the final playoff week (meta: last regular week + playoff weeks; the 2010-2020
+          // seasons ended in Week 16, so a hard-coded Week 17 left them "in season" forever).
+          const finalWeek = lastRegWeek && seasonMeta && Number(seasonMeta.playoff_weeks) > 0
+            ? lastRegWeek + Number(seasonMeta.playoff_weeks) : 17;
+          const seasonComplete = !!(weeklyRaw && weeklyRaw.some((r) => poFlag(r.is_playoff) === 1 && Number(r.week) === finalWeek));
           return new Response(JSON.stringify({
             ok: true,
             year: yr,
@@ -21051,9 +21144,17 @@ export default {
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
+            standings_basis: standingsBasis,
+            regular_season: current ? {
+              status: current.status, through_week: current.throughWeek,
+              last_regular_season_week: current.lastRegularSeasonWeek, complete: current.complete,
+              next_out: current.next_out || null, problems: current.problems, problem_count: current.problem_count,
+              seed_by_week: current.seed_by_week || null,
+            } : null,
             rows,
             weekly,
             weeklyScores,
+            ...(Object.keys(weeklyErrors).length ? { weekly_errors: weeklyErrors } : {}),
             takeovers: takeoversForYear,
           }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
         } catch (e) {
@@ -21209,25 +21310,10 @@ export default {
             }
           }
 
-          // 2) Wild card pool: non-division-winners ranked by the canon §F.1
-          //    ladder, All-Play % → Overall → Points For → head-to-head
-          //    (worker/src/seeding.js, shared with /api/standings). `h2h_pct`
-          //    in src_standings is the overall regular-season record despite
-          //    the column name.
-          let regGames = [];
-          try {
-            const gRs = await db.prepare(
-              `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
-                 FROM src_schedule
-                WHERE season = ? AND COALESCE(is_playoff, 0) = 0
-                  AND COALESCE(team_score, 0) > 0 AND COALESCE(opponent_score, 0) > 0`
-            ).bind(yr).all();
-            regGames = gRs.results || [];
-          } catch (_) {}
-          const seedCmp = seedLadder(rawRows, regGames);
-          const modern = modernField(rawRows, divisionWinnerIds, seedCmp);
-          const wildCards = modern.wildCards;
-          const wildCardIds = new Set(wildCards.map((r) => String(r.franchise_id)));
+          // 2) The current season (no recorded finishes) is seeded below by the SAME computation /api/standings
+          //    uses (worker/src/standings_truth.js): regular-season weekly rows only, MFL standingsSort for the
+          //    division winners, then the canon §F.1 ladder. Recorded seasons use their recorded finishes.
+          let current = null;
 
           // 3) Determine playoff field. Two paths:
           //    (a) Conference era (has_conferences true, 2011-2013 in UPS):
@@ -21316,11 +21402,45 @@ export default {
             champSeeds = championshipTeams.slice().sort(standingsCmp);
             hawkSeeds  = consolationTeams.slice().sort(standingsCmp);
           } else {
-            // Modern era without canonical: 4 DW + 2 WC, every list on the
-            // §F.1 ladder (it used to skip Overall here). Seeds 7-12 follow the
-            // same ladder so the Hawktuah side matches the standings page.
-            champSeeds = modern.byes.concat(modern.seeds3to6);
-            hawkSeeds = modern.outside;
+            // Modern era, current season: 4 DW + 2 WC on the §F.1 ladder, seeds 7-12 on the same ladder (the
+            // Hawktuah side matches the standings page). If the weekly rows can't be trusted there is NO bracket
+            // seeding at all -- seeding_status says why -- rather than seeds from totals that may include playoffs.
+            let weeklyScoresRaw = null, gamesRaw = null;
+            try {
+              const [wsR, gR] = await Promise.all([
+                db.prepare("SELECT week, franchise_id, team_score, is_playoff FROM src_franchise_weekly_score WHERE season = ? AND COALESCE(team_score, 0) > 0").bind(yr).all(),
+                db.prepare("SELECT week, franchise_id, opponent_franchise_id, team_score, opponent_score, is_playoff FROM src_schedule WHERE season = ? AND COALESCE(team_score, 0) > 0").bind(yr).all(),
+              ]);
+              weeklyScoresRaw = wsR.results || []; gamesRaw = gR.results || [];
+            } catch (_) {}
+            const metaRow = await db.prepare("SELECT last_regular_season_week FROM src_league_season_meta WHERE season = ?").bind(yr).first();
+            current = (weeklyScoresRaw && gamesRaw)
+              ? seedCurrentSeason({
+                  franchises: rawRows.map((r) => ({ franchise_id: r.franchise_id, franchise_name: r.franchise_name, division: r.division })),
+                  weeklyScores: weeklyScoresRaw, games: gamesRaw,
+                  lastRegularSeasonWeek: metaRow && metaRow.last_regular_season_week,
+                  standingsSort: leagueMeta.standingsSort, ladder: { seedLadderSteps, modernField },
+                })
+              : { status: "incomplete", problems: [{ code: "weekly_unreadable" }], problem_count: 1, order: [], teams: {} };
+            if (current.status === "preseason" && rawRows.length) current = { ...current, status: "incomplete", problems: [{ code: "standings_without_weekly_rows" }], problem_count: 1 };
+            if (current.status === "ok") {
+              const byFid = new Map(rawRows.map((r) => [String(r.franchise_id).padStart(4, "0"), r]));
+              divisionWinnerIds.clear();
+              for (const [fid, tm] of Object.entries(current.teams)) {
+                const r = byFid.get(fid);
+                r.is_division_leader = tm.is_division_leader;
+                r.division_rank = tm.division_rank;
+                r.regular_season = tm.regular_season;
+                r.seed_reason = tm.seed_reason;
+                if (tm.is_division_leader) divisionWinnerIds.add(String(r.franchise_id));
+              }
+              const ordered = current.order.map((fid) => byFid.get(fid));
+              champSeeds = ordered.slice(0, 6);
+              hawkSeeds = ordered.slice(6);
+            } else {
+              champSeeds = [];
+              hawkSeeds = [];
+            }
           }
 
           // 4) Assemble the final seed list with metadata.
@@ -21395,6 +21515,8 @@ export default {
             playoff_weeks: playoffWeeks,
             has_final_standings: hasFS,
             season_complete: seasonComplete,
+            seeding_status: canonicalFinish ? "recorded_final_standings" : (current ? (current.status === "ok" ? "regular_season_ladder" : "unavailable") : "computed"),
+            ...(current && current.status !== "ok" ? { seeding_problems: current.problems } : {}),
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,
@@ -23560,6 +23682,9 @@ const mflToSleeper = {};
           const respLower = String(proposeResp).toLowerCase();
           if (/duplicate/.test(respLower)) {
             hint = "MFL says this trade is already proposed but we couldn't find a matching pending offer to accept. Check Commissioner → Trades → Pending Trades in MFL and either accept manually or cancel the duplicate before retrying.";
+          } else if (/according to your league calendar/.test(respLower)) {
+            // MFL's own refusal while a "No Trades Allowed" calendar event is in force (verified on the test league 2026-10-21).
+            hint = "MFL's league calendar has stopped trades (the trade deadline: a \"No Trades Allowed\" event is in force).";
           } else if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
             hint = "Likely cause: MFL Commissioner Lockout is enabled. Disable in League → Commissioner Tools → Lockout to allow API trade writes.";
           } else if (/deadline|past|closed/.test(respLower)) {
@@ -23678,7 +23803,9 @@ const mflToSleeper = {};
         let acceptHint = "";
         if (!acceptOk) {
           const respLower = String(acceptResp).toLowerCase();
-          if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
+          if (/according to your league calendar/.test(respLower)) {
+            acceptHint = "MFL's league calendar has stopped trades (the trade deadline: a \"No Trades Allowed\" event is in force).";
+          } else if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
             acceptHint = "Likely cause: MFL Commissioner Lockout is enabled — propose succeeded but accept was rejected. Disable lockout in League → Commissioner Tools.";
           } else if (/already|duplicate/.test(respLower)) {
             acceptHint = "Likely cause: trade was already accepted (duplicate accept). Check MFL trade history.";
@@ -35426,83 +35553,43 @@ const mflToSleeper = {};
           )
         );
 
-      const resolveTradeDeadlineKickoffEt = async (season) => {
+      // WHEN MFL STOPS ACCEPTING TRADES, read from MFL itself (Keith 2026-10-09: "owner-facing reminders must accurately
+      // state when MFL will actually stop accepting trades"; 2026-10-21: every owner-facing deadline shows MFL's actual
+      // enforcement time). readMflTradeLock / trade_deadline.js: the earliest TRADE ("No Trades Allowed") event on MFL's
+      // calendar that has not ended. (2026: Tue 11-24 12:00 PM plus Wed 11-25 8:00 PM twice → Tue noon.)
+      //
+      // This replaced a resolver that read ESPN's scoreboard for Thanksgiving Day and called the first game the deadline
+      // (Thu 11-26 1:00 PM), overriding both the commish calendar and MFL. Nothing here guesses: a calendar that can't be
+      // read, or holds no TRADE event, returns fallback_used = true with no date, and the caller sends no trade-deadline
+      // reminder that sweep (it retries next sweep) rather than state a time MFL may not honour.
+      const resolveTradeDeadlineKickoffEt = async (season, leagueId) => {
         const seasonKey = safeStr(season);
-        const configured =
-          ((DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline && typeof (DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline === "object")
-            ? (DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline
-            : {};
-        const thanksgivingDate = thanksgivingDateKey(seasonKey) || safeStr(configured.deadline_date_et);
-        const fallbackTimeEt = safeStr(configured.deadline_time_et || "13:00");
-        const checkedAtUtc = new Date().toISOString();
-        const datesParam = thanksgivingDate ? thanksgivingDate.replace(/-/g, "") : "";
-        const sourceUrl = datesParam
-          ? `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${encodeURIComponent(datesParam)}`
-          : "";
-        const fallback = {
+        const lid = safeStr(leagueId || L || "74598");
+        const lock = await readMflTradeLock(env, seasonKey, lid);
+        const resolved = (lock.state === "upcoming" || lock.state === "closed") && lock.date_et && lock.time_et;
+        const out = {
           season: safeInt(seasonKey, 0),
-          deadline_date_et: thanksgivingDate,
-          deadline_time_et: fallbackTimeEt,
-          fallback_used: true,
-          source: "configured_fallback",
-          source_url: sourceUrl,
-          checked_at_utc: checkedAtUtc,
+          deadline_date_et: resolved ? lock.date_et : "",
+          deadline_time_et: resolved ? lock.time_et : "",
+          fallback_used: !resolved,
+          source: "mfl_calendar",
+          source_url: lock.source_url || `https://www48.myfantasyleague.com/${encodeURIComponent(seasonKey)}/options?L=${encodeURIComponent(lid)}&O=123`,
+          checked_at_utc: new Date().toISOString(),
           event_name: "",
-          event_id: "",
-          event_date_utc: "",
-          upstream_status: 0,
-          upstream_error: "",
+          event_id: resolved ? lock.event_id : "",
+          event_date_utc: resolved ? new Date(lock.start_unix * 1000).toISOString() : "",
+          mfl_trade_events: (lock.events || []).map((e) => {
+            const et = e.start_unix ? etDateTimeFromIso(new Date(e.start_unix * 1000).toISOString()) : {};
+            return { id: e.id, start_unix: e.start_unix, end_unix: e.end_unix, nfl_week: e.nfl_week, date_et: et.date_key || "", time_et: et.time_et || "" };
+          }),
+          upstream_status: safeInt(lock.upstream_status, 0),
+          upstream_error: resolved ? "" : (lock.reason || lock.state),
         };
-        if (!sourceUrl) return fallback;
-        try {
-          const res = await fetch(sourceUrl, {
-            headers: {
-              "User-Agent": "upsmflproduction-worker",
-              "Cache-Control": "no-store",
-            },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          fallback.upstream_status = safeInt(res.status, 0);
-          if (!res.ok) {
-            fallback.upstream_error = `http_${res.status}`;
-            return fallback;
-          }
-          const data = await res.json();
-          const events = Array.isArray(data?.events) ? data.events : [];
-          if (!events.length) {
-            fallback.upstream_error = "no_events";
-            return fallback;
-          }
-          const first = events
-            .filter((row) => safeStr(row?.date))
-            .sort((a, b) => String(a?.date || "").localeCompare(String(b?.date || "")))[0];
-          if (!first) {
-            fallback.upstream_error = "no_event_dates";
-            return fallback;
-          }
-          const resolved = etDateTimeFromIso(first.date);
-          if (!safeStr(resolved.date_key) || !safeStr(resolved.time_et)) {
-            fallback.upstream_error = "unresolved_event_time";
-            return fallback;
-          }
-          return {
-            season: safeInt(seasonKey, 0),
-            deadline_date_et: safeStr(resolved.date_key),
-            deadline_time_et: safeStr(resolved.time_et),
-            fallback_used: false,
-            source: "espn_scoreboard",
-            source_url: sourceUrl,
-            checked_at_utc: checkedAtUtc,
-            event_name: safeStr(first?.name || ""),
-            event_id: safeStr(first?.id || ""),
-            event_date_utc: safeStr(first?.date || ""),
-            upstream_status: safeInt(res.status, 0),
-            upstream_error: "",
-          };
-        } catch (e) {
-          fallback.upstream_error = `fetch_failed: ${e?.message || String(e)}`;
-          return fallback;
+        if (resolved) {
+          const n = out.mfl_trade_events.length;
+          out.event_name = `MFL "No Trades Allowed" (${n} TRADE event${n === 1 ? "" : "s"} on the calendar; the earliest applies)`;
         }
+        return out;
       };
 
       const tradeDeadlineResolutionChanged = (previous, next) => {
@@ -35533,16 +35620,15 @@ const mflToSleeper = {};
         const prev = previous && typeof previous === "object" ? previous : {};
         const next = current && typeof current === "object" ? current : {};
         return {
-          title: `Trade Deadline Auto-Updated for ${safeStr(season)}`,
+          title: `Trade Deadline Reminders Updated for ${safeStr(season)}`,
           color: 0x103a71,
-          description: "Thanksgiving kickoff is official, so the trade deadline reminder schedule has been updated automatically.",
+          description: "The trade-deadline reminders now state when MFL stops accepting trades: the earliest \"No Trades Allowed\" event on MFL's league calendar.",
           fields: [
             {
               name: "Previous Deadline",
-              value: formatPlainDateTimeLabelEt(
-                safeStr(prev.deadline_date_et || thanksgivingDateKey(season)),
-                safeStr(prev.deadline_time_et || "13:00")
-              ),
+              value: safeStr(prev.deadline_date_et)
+                ? formatPlainDateTimeLabelEt(safeStr(prev.deadline_date_et), safeStr(prev.deadline_time_et || "13:00"))
+                : "(none recorded)",
               inline: false,
             },
             {
@@ -35629,10 +35715,12 @@ const mflToSleeper = {};
           },
           trade_deadline: {
             title: "Trade Deadline",
-            deadline_date_et: "2026-11-26",
-            deadline_time_et: "13:00",
+            // Date and time come from MFL's own calendar at send time (resolveTradeDeadlineKickoffEt); when it can't be read,
+            // no trade-deadline reminder is sent. These two values are never used for a send.
+            deadline_date_et: "2026-11-25",
+            deadline_time_et: "20:00",
             reminder_send_time_et: "09:00",
-            summary: "Finish the last deals before Thanksgiving kickoff shuts the market down.",
+            summary: "MFL stops accepting trades at this time. Finish your deals before then.",
             reminder_offsets_days: [7, 1],
             reminder_offsets_hours: [1],
           },
@@ -35825,6 +35913,14 @@ const mflToSleeper = {};
             // Day-based reminders degrade gracefully when late; these do not.
             if (triggerDateEt !== targetDate) continue;
             if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
+            // …and never once the deadline itself has passed: a "1 hour left" posted after the window closed is false
+            // (a missed 11:05 tick used to send it at 12:05 for a noon deadline).
+            {
+              const dlDate = safeStr(event.deadline_date_et);
+              const dlParts = parseEtTimeParts(event.deadline_time_et, 23, 59);
+              if (dlDate && (targetDate > dlDate || (targetDate === dlDate
+                  && minutesOfDayEt(nowEt.hour, nowEt.minute) >= minutesOfDayEt(dlParts.hour, dlParts.minute)))) continue;
+            }
             const reminderKey = buildDeadlineReminderKey({
               season,
               eventKey: event.event_key,
@@ -35987,6 +36083,7 @@ const mflToSleeper = {};
               name: "What This Covers",
               value:
                 safeStr(reminder?.event_key) === "trade_deadline" && safeStr(reminder?.reminder_code) === "1_hour"
+                  && safeStr(reminder?.deadline_date_et) === thanksgivingDateKey(safeStr(reminder?.season || safeStr(reminder?.deadline_date_et).slice(0, 4)))
                   ? `${safeStr(reminder?.summary || "Deadline reminder")}\nHappy Thanksgiving.`
                   : safeStr(reminder?.summary || "Deadline reminder"),
               inline: false,
@@ -46906,7 +47003,7 @@ const mflToSleeper = {};
           });
         }
         // Taxi call-up status of every player these claims DROPPED, from the resolver the drop ledger prices with
-        // (_taxiNeverPromotedMap), AS OF EACH CLAIM'S DROP (a call-up week counts from his game's kickoff), so one
+        // (_taxiCutContextMap), AS OF EACH CLAIM'S DROP (a call-up week counts from his game's kickoff), so one
         // answer per run instant. true | "unresolved" is passed to the calculator as is: "unresolved" holds the cut
         // unpriced, and the card reads "unknown — needs review", never $0.
         const apDropPids = new Set();
@@ -46916,7 +47013,7 @@ const mflToSleeper = {};
         }
         const apTaxiByInstant = new Map();
         const apTaxiAt = async (pid, ts) => {
-          if (!apTaxiByInstant.has(ts)) apTaxiByInstant.set(ts, _taxiNeverPromotedMap(env, [...apDropPids], { season: apSeason, leagueId: apLeagueId, atUnix: ts }));
+          if (!apTaxiByInstant.has(ts)) apTaxiByInstant.set(ts, _taxiCutContextMap(env, [...apDropPids], { season: apSeason, leagueId: apLeagueId, atUnix: ts }));
           return (await apTaxiByInstant.get(ts))[pid];
         };
 
@@ -47253,18 +47350,18 @@ const mflToSleeper = {};
                 //     walks kickoff to kickoff otherwise, so a retried, replayed or late post priced a Thursday-
                 //     morning cut one week short ($2,500 for Neal's).
                 //   - acquisition week: of the contract this drop ENDED (_acquisitionWeekAsOf), not the latest add.
-                //   - taxi call-up status: _taxiNeverPromotedMap's answer, passed as is.
+                //   - taxi call-up status: _taxiCutContextMap's answer, passed as is.
                 const dropDateIso = new Date(ts * 1000).toISOString();
                 const weekAuthority = await _completedWeeksForDrop(apSeason, apLeagueId, ts);
                 const acquisitionWeek = _acquisitionWeekAsOf(apTxs, apSeason, dpid, ts);
-                const taxiNeverPromoted = await apTaxiAt(dpid, ts);
+                const taxiCut = await apTaxiAt(dpid, ts);
                 const calc = _computeDropPenalty({
                   contractStatus: preDrop.contract_status,
                   salary: preDrop.salary,
                   contractInfo: preDrop.contract_info,
                   contractYear: preDrop.contract_year,
                   isTaxi: preDrop.is_taxi,
-                  taxiNeverPromoted,
+                  taxiCut,
                 }, {
                   season: apSeason,
                   dropDateIso,
@@ -47276,7 +47373,9 @@ const mflToSleeper = {};
                   completed_payable_weeks: weekAuthority.weeks,
                   weeks_source: weekAuthority.source,
                   acquisition_week: acquisitionWeek || null,
-                  taxi_never_promoted: taxiNeverPromoted === undefined ? null : taxiNeverPromoted,
+                  // The taxi rule's inputs as of this cut and its answer (cap-free iff eligible immediately before it).
+                  taxi_cut: taxiCut === undefined ? null : taxiCut,
+                  taxi_eligible_before_cut: taxiCutVerdict(taxiCut, preDrop.contract_status, !!preDrop.is_taxi),
                   contract_source: preDrop.contract_source,
                 };
                 if (DROP_UNPRICED_BASES.has(safeStr(calc.basis))) {
@@ -48441,6 +48540,9 @@ const mflToSleeper = {};
         // the CPU blowup hotfixed in PR #243; this D1 lookup is the
         // permanent fix (issue #244 — Audit Phase 2A).
         const upsDraftByPlayer = {};
+        // Whether the draft index and the call-up table were actually READ: an unreadable source makes the
+        // taxi verdict "Unknown", never "not eligible" or "eligible" (rule_no_fail_open_guards).
+        let upsDraftOk = false, taxiCallupsOk = false;
         if (env.UPS_MFL_DB) {
           try {
             const seasonInt = parseInt(season, 10) || 0;
@@ -48464,6 +48566,7 @@ const mflToSleeper = {};
                   ups_year: yr,
                 };
               }
+              upsDraftOk = true;
             }
           } catch (e) {
             console.warn("[ups-draft-d1] lookup failed:", e?.message || String(e));
@@ -48488,9 +48591,9 @@ const mflToSleeper = {};
             // sidestep it entirely.
             const rows = await env.UPS_MFL_DB.prepare(
               `SELECT player_id,
-                      SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END)                                AS used,
-                      SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END)          AS pending_count,
-                      MAX(CASE WHEN pending = 0 THEN became_permanent ELSE 0 END)                         AS marked
+                      ${TAXI_USED_WEEKS_SQL}                AS used,
+                      SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_count,
+                      MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END)  AS marked
                  FROM ups_taxi_callups
                 GROUP BY player_id`
             ).all();
@@ -48501,19 +48604,21 @@ const mflToSleeper = {};
                 used: Number(row?.used || 0),
                 pending: Number(row?.pending_count || 0),
                 max: 3,
+                marked: Number(row?.marked || 0),
                 permanent_promotion: _taxiPermanentPromotion(row?.used, row?.marked, false),
               };
             }
+            taxiCallupsOk = true;
           } catch (e) {
             console.warn("[taxi-callup] D1 lookup failed:", e?.message || String(e));
           }
         }
 
-        // §B2 once-promoted-never-taxi: players who ended a prior season on a
-        // non-taxi roster are permanently promoted even without 4 logged
-        // call-ups (the pre-tracker gap). Computed once per load (cached in D1).
-        const rwOrigin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
-        const taxiPriorActive = await taxiPriorActivePids(env, rwOrigin, leagueId, season);
+        // §B2 2025 legacy rule: a Round 2+ pick on an active roster or IR in any week of 2025 is permanently promoted
+        // (Keith 2026-09-17 / 2026-10-21). null = MFL's 2025 rosters couldn't be read → unknown, never "nobody".
+        // Computed once and kept in D1 (2025 is frozen).
+        let taxiLegacy2025 = null;
+        try { taxiLegacy2025 = await taxiLegacy2025Pids(env, leagueId); } catch (_) { taxiLegacy2025 = null; }
 
         const extRowsNormalized = remapExtensionPreviewRowsToCurrentOwners(
           extRes.rows || [],
@@ -48735,10 +48840,21 @@ const mflToSleeper = {};
               // "Round 2 or later" / draft_round >= 2 (ratified Keith
               // 2026-07-17; the old `upsRound <= 5` cap wrongly benched R6
               // rookies like A.J. Haulcy, a 2026 R6.07 safety).
-              const isTaxiEligible =
-                inUpsWindow && upsRound >= 2 && stillOnEntryContract;
-
+              void inUpsWindow; void stillOnEntryContract;   // kept for the reasoning above; the rule lives in taxi_rule.js
               const taxiCallup = taxiCallupsByPlayer[playerId] || null;
+              // ONE verdict (worker/src/taxi_rule.js): draft round/year + window, release, permanent promotion
+              // (the tracked rule: 4th activation recorded from 2026, or a marked row) and the 2025 legacy rule.
+              const taxiLegacy = _taxiLegacyFor(taxiLegacy2025, playerId, currentSeason, upsYear);
+              const taxiStatus = taxiEligibility({
+                upsRound, upsYear, season: currentSeason, contractStatus: type,
+                isTaxi, isIr, used: taxiCallup ? taxiCallup.used : 0, pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
+                draftKnown: upsDraftOk, windowIndexOnly: true,
+                permanent: !taxiCallupsOk ? null : taxiPermanent({
+                  used: taxiCallup ? taxiCallup.used : 0, marked: taxiCallup ? taxiCallup.marked : 0, legacy2025: false,
+                }),
+                legacy2025: taxiLegacy,
+              });
+              const isTaxiEligible = taxiStatus.eligible === true;
               return {
                 id: playerId,
                 order: idx,
@@ -48771,8 +48887,9 @@ const mflToSleeper = {};
                 taxi_callups_used: taxiCallup ? taxiCallup.used : 0,
                 taxi_callups_pending: taxiCallup ? (taxiCallup.pending || 0) : 0,
                 taxi_callups_max: 3,
-                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion) || taxiPriorActive.has(playerId),
+                taxi_permanent_promotion: !!(taxiCallup && taxiCallup.permanent_promotion) || taxiLegacy === true,
                 taxi_eligible: isTaxiEligible,
+                taxi_status: taxiStatus,
                 ups_draft_round: upsRound || null,
                 ups_draft_year: upsYear || null,
               };
@@ -50764,10 +50881,10 @@ const mflToSleeper = {};
                 contractInfo: r.pre_drop_contract_info,
                 contractYear: r.pre_drop_contract_year,
                 isTaxi: Number(r.pre_drop_taxi) === 1,
-                // The call-up status the recorder priced with (_taxiNeverPromotedMap), as of THIS drop (a call-up week counts
+                // The call-up status the recorder priced with (_taxiCutContextMap), as of THIS drop (a call-up week counts
                 // from his game's kickoff). Without it a recompute re-priced a taxi call-up's $0 cut by the normal formula and
                 // wrote that charge; "unresolved" leaves the row untouched (week_authority_unresolved → skipped below).
-                taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [safeStr(r.player_id)], { season: rs, leagueId, atUnix: Number(r.dropped_at_unix) || 0 }))[safeStr(r.player_id)],
+                taxiCut: (await _taxiCutContextMap(env, [safeStr(r.player_id)], { season: rs, leagueId, atUnix: Number(r.dropped_at_unix) || 0 }))[safeStr(r.player_id)],
               }, { season: rs, dropDateIso: r.dropped_at_iso, completedPayableWeeks: rcWeekAuthority.weeks,
                    acquisitionWeek: _acquisitionWeekAsOf(sc.txs, rs, r.player_id, Number(r.dropped_at_unix) || 0),
                    acquisitionWeekUnresolved: sc.acqUnresolved });
@@ -54232,7 +54349,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractYear: h.pre_drop_contract_year,
               isTaxi: Number(h.pre_drop_taxi) === 1,
               // As of ITS drop, in ITS season (prior rosters; a call-up week counts from his game's kickoff).
-              taxiNeverPromoted: (await _taxiNeverPromotedMap(env, [pid], { season: hSeason, leagueId, atUnix: dropUnix }))[pid],
+              taxiCut: (await _taxiCutContextMap(env, [pid], { season: hSeason, leagueId, atUnix: dropUnix }))[pid],
             }, { dropDateIso: safeStr(h.dropped_at_iso), season: hSeason, acquisitionWeek: hAcqWk,
                  acquisitionWeekUnresolved: acq.unresolved, completedPayableWeeks: hWeeks.weeks });
             if (rp.basis === "week_authority_unresolved") {
@@ -54369,7 +54486,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // status, which reads false for a taxi player dropped mid-call-up and
         // silently costs him the §D2 exemption. Read per NEW drop, as of that drop (a call-up week counts from his
         // game's kickoff), so an already-recorded drop costs no read.
-        const scanTaxiAt = async (pid, ts) => (await _taxiNeverPromotedMap(env, [pid], { season: targetSeason, leagueId, atUnix: ts }))[String(pid)];
+        const scanTaxiAt = async (pid, ts) => (await _taxiCutContextMap(env, [pid], { season: targetSeason, leagueId, atUnix: ts }))[String(pid)];
 
         // Real Week-1 boundary (2026 opens Wednesday; the derived "Thursday
         // after Labor Day" is a day late). Resolved once for the whole scan.
@@ -54419,7 +54536,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 contractInfo: preDrop.contract_info,
                 contractYear: preDrop.contract_year,
                 isTaxi: preDrop.is_taxi,
-                taxiNeverPromoted: await scanTaxiAt(drop.pid, drop.ts),
+                taxiCut: await scanTaxiAt(drop.pid, drop.ts),
               }, { dropDateIso: dropIso, season: targetSeason, acquisitionWeek: _acquisitionWeekAsOf(acqTxs, targetSeason, drop.pid, drop.ts),
                    acquisitionWeekUnresolved: acqWeekUnresolved,
                    week1ThursdayIso: scanWeek1Iso || undefined,
@@ -55344,7 +55461,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             }
           }
           // As of the previewed cut — now, or the ?drop_date= what-if: a call-up week counts from his game's kickoff.
-          const pvTaxiNeverPromoted = await _taxiNeverPromotedMap(env, pvAllPids, { season: pvSeason, leagueId: pvLeague, atUnix: pvDropTs });
+          const pvTaxiCut = await _taxiCutContextMap(env, pvAllPids, { season: pvSeason, leagueId: pvLeague, atUnix: pvDropTs });
           const penaltyFor = (pl) => {
             const pid = safeStr(pl.id).replace(/\D/g, "");
             const input = {
@@ -55353,7 +55470,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               contractInfo: safeStr(pl.contractInfo),
               contractYear: safeStr(pl.contractYear),
               isTaxi: safeStr(pl.status) === "TAXI_SQUAD",
-              taxiNeverPromoted: pvTaxiNeverPromoted[pid],
+              taxiCut: pvTaxiCut[pid],
             };
             const acqWk = pvAcqWhatIf != null ? Number(pvAcqWhatIf) : pvAcqMap[pid];
             const r = _computeDropPenalty(input, { ...pvOpts, acquisitionWeek: acqWk, acquisitionWeekUnresolved: pvAcqSource === "unresolved" });
@@ -56283,12 +56400,14 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
-        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
+        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season, leagueId);
         // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
-        // base overrides; the MFL-derived trade-deadline resolution still wins for
-        // trade_deadline specifically, since it is computed from the real kickoff
-        // time rather than typed in. Anything the commish has not set falls through
-        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        // base overrides; for trade_deadline the date and time come from MFL's own
+        // calendar (the earliest TRADE event — when MFL actually stops accepting
+        // trades), never from the commish field or a guess. When MFL's calendar
+        // can't be read, the trade_deadline reminder is left out of this sweep.
+        // Anything the commish has not set falls through to the hardcoded
+        // DEADLINE_REMINDER_CALENDAR.
         //
         // On a read failure we deliberately fall back to the hardcoded calendar
         // rather than skipping the sweep: an empty override set still sends the
@@ -56301,6 +56420,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         } catch (e) {
           console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
         }
+        // (a strict boolean test: safeInt(false, 1) is 1, which is why the persist / notify checks below never fire.)
+        const tradeDeadlineResolved = tradeDeadlineResolution.fallback_used === false;
+        if (!tradeDeadlineResolved) {
+          console.error(`[deadline-reminders] trade_deadline reminder WITHHELD for ${season}: MFL's calendar trade lock unresolved (${safeStr(tradeDeadlineResolution.upstream_error) || "unknown"}) — retried next sweep`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
           ...calendarOverrides,
           trade_deadline: {
@@ -56308,12 +56432,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
-        });
+        }).filter((row) => tradeDeadlineResolved || safeStr(row.event_key) !== "trade_deadline");
         if (!catalog.length) {
           return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
         }
         const eventKey = safeStr(body.event_key || body.eventKey || url.searchParams.get("event_key") || "contract_deadline");
         const reminderCode = safeStr(body.reminder_code || body.reminderCode || url.searchParams.get("reminder_code") || "one_week");
+        if (eventKey === "trade_deadline" && !tradeDeadlineResolved) {
+          return jsonOut(409, { ok: false, error: "trade_deadline_unresolved",
+            message: "MFL's calendar trade lock could not be read, so there is no trade-deadline time to state.", trade_deadline_resolution: tradeDeadlineResolution });
+        }
         const sentKeys = new Set();
         const triggerDateEtOverride =
           safeStr(body.trigger_date_et || body.triggerDateEt || "") ||
@@ -56479,28 +56607,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           doc.meta && typeof doc.meta.trade_deadline_resolution === "object"
             ? doc.meta.trade_deadline_resolution
             : {};
-        const fetchedTradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
-        const previousOfficialTradeDeadlineResolution =
-          safeInt(previousTradeDeadlineResolution.fallback_used, 1) === 0 &&
-          safeStr(previousTradeDeadlineResolution.deadline_date_et) &&
-          safeStr(previousTradeDeadlineResolution.deadline_time_et)
-            ? previousTradeDeadlineResolution
-            : null;
-        const tradeDeadlineResolution =
-          safeInt(fetchedTradeDeadlineResolution.fallback_used, 1) === 1 && previousOfficialTradeDeadlineResolution
-            ? {
-                ...previousOfficialTradeDeadlineResolution,
-                checked_at_utc: safeStr(fetchedTradeDeadlineResolution.checked_at_utc || new Date().toISOString()),
-                upstream_status: safeInt(fetchedTradeDeadlineResolution.upstream_status, 0),
-                upstream_error: safeStr(fetchedTradeDeadlineResolution.upstream_error || ""),
-                source_url: safeStr(fetchedTradeDeadlineResolution.source_url || previousOfficialTradeDeadlineResolution.source_url || ""),
-              }
-            : fetchedTradeDeadlineResolution;
+        // MFL's calendar as read NOW. An earlier resolution is never reused: a stale time is exactly the wrong-time reminder this
+        // replaced, so an unreadable calendar withholds the trade-deadline reminder (retried next sweep) instead.
+        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season, leagueId);
         // Commish-editable calendar (ups_settings 'auction_calendar') supplies the
-        // base overrides; the MFL-derived trade-deadline resolution still wins for
-        // trade_deadline specifically, since it is computed from the real kickoff
-        // time rather than typed in. Anything the commish has not set falls through
-        // to the hardcoded DEADLINE_REMINDER_CALENDAR.
+        // base overrides; for trade_deadline the date and time come from MFL's own
+        // calendar (the earliest TRADE event — when MFL actually stops accepting
+        // trades), never from the commish field or a guess. When MFL's calendar
+        // can't be read, the trade_deadline reminder is left out of this sweep.
+        // Anything the commish has not set falls through to the hardcoded
+        // DEADLINE_REMINDER_CALENDAR.
         //
         // On a read failure we deliberately fall back to the hardcoded calendar
         // rather than skipping the sweep: an empty override set still sends the
@@ -56513,6 +56629,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         } catch (e) {
           console.error(`[deadline-reminders] calendar override read failed, using hardcoded calendar: ${e && e.message}`);
         }
+        // (a strict boolean test: safeInt(false, 1) is 1, which is why the persist / notify checks below never fire.)
+        const tradeDeadlineResolved = tradeDeadlineResolution.fallback_used === false;
+        if (!tradeDeadlineResolved) {
+          console.error(`[deadline-reminders] trade_deadline reminder WITHHELD for ${season}: MFL's calendar trade lock unresolved (${safeStr(tradeDeadlineResolution.upstream_error) || "unknown"}) — retried next sweep`);
+        }
         const catalog = deadlineReminderCatalogForSeason(season, {
           ...calendarOverrides,
           trade_deadline: {
@@ -56520,7 +56641,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
             deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
           },
-        });
+        }).filter((row) => tradeDeadlineResolved || safeStr(row.event_key) !== "trade_deadline");
         if (!catalog.length) {
           return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
         }
@@ -56640,6 +56761,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           count_sent: newRows.length,
           spacing_seconds: spacingSeconds,
           trade_deadline_resolution: tradeDeadlineResolution,
+          trade_deadline_reminder_withheld: !tradeDeadlineResolved,
           trade_deadline_resolution_changed: tradeResolutionChanged,
           trade_deadline_resolution_persisted: tradeResolutionPersist,
           trade_deadline_resolution_dm: resolutionDmResults,
@@ -58237,6 +58359,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // GET  /admin/lineup/thread-check?week=        the stored Week N thread, verified (read-only)
       // GET  /admin/lineup/auto-preview?week=        dry run of the standing rule (read-only, no mention)
       // POST /admin/lineup/notice                   { fid, week, confirm: "post" }
+      // POST /admin/lineup/correction-dm            { fid, week, player_id, confirm: "send" }  preview without confirm
       // POST /admin/lineup/sanction-verify          { fid, week }  assessed → applied only when MFL shows it
       // POST /admin/lineup/forfeit-select           { fid, week, pick_choice }  choose among several qualifying picks
       if ((path === "/admin/lineup/cases" || path === "/admin/lineup/notice-preview" || path === "/admin/lineup/thread-check" || path === "/admin/lineup/auto-preview") && request.method === "GET") {
@@ -58313,7 +58436,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         });
         return jsonOut(200, r);
       }
-      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify" || path === "/admin/lineup/forfeit-select")
+      if ((path === "/admin/lineup/rule" || path === "/admin/lineup/notice" || path === "/admin/lineup/sanction-verify" || path === "/admin/lineup/forfeit-select" || path === "/admin/lineup/correction-dm")
           && request.method === "POST") {
         const denied = await commishSettingsGate();
         if (denied) return denied;
@@ -58344,6 +58467,12 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               return jsonOut(400, { ok: false, error: "confirm_required", message: "Send confirm:\"post\" to post. Read GET /admin/lineup/notice-preview first." });
             }
             const r = await postLineupNotice(env, { season, leagueId, fid, week, resolveMentions: resolveFranchiseMentions });
+            return jsonOut(r.ok ? 200 : 409, r);
+          }
+          if (lineupAction === "correction-dm") {
+            // Narrow, audited correction for a stale pre-kickoff DM (lineup_correction.js).
+            // Preview unless the literal word is sent; a Discord write needs it.
+            const r = await sendLineupCorrectionDm(env, { season, leagueId, fid, week, playerId: safeStr(body.player_id), send: safeStr(body.confirm) === "send" });
             return jsonOut(r.ok ? 200 : 409, r);
           }
           if (lineupAction === "forfeit-select") {
@@ -59175,31 +59304,46 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               gate: r1Gate,
             });
           }
-          // Permanent-promotion guard (canon §B2 + tracker Q10 follow-up).
-          // Once a player's 4th taxi call-up has flipped them to permanent
-          // promotion, they can never return to taxi. Reject the demote
-          // before any MFL write.
+          // Permanent-promotion guard (canon §B2 / T2.4 / §G14): the SAME predicate as /roster-workbench and the drop
+          // pricing (_taxiPermanentPromotion) — 4+ activations recorded from 2026, a recorded row marked
+          // became_permanent, or the 2025 legacy rule (on an active roster or IR in any 2025 week). Activations 1–3
+          // are temporary: demotion stays allowed, after the third too. Ending a season active is not permanent.
+          // FAIL CLOSED: if the call-up history or the 2025 rosters can't be read, nothing is written.
+          let permanentAnswer = null;
           if (env.UPS_MFL_DB) {
             try {
-              // Total confirmed (pending=0) callups across the 3yr window.
-              // Per canon §B2: 4+ = permanent promotion. Derived from row
-              // count, not the per-row became_permanent flag, so multi-
-              // year totals aggregate correctly.
               const permRow = await env.UPS_MFL_DB.prepare(
-                `SELECT SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS used FROM ups_taxi_callups WHERE player_id = ?`
+                `SELECT ${TAXI_USED_WEEKS_SQL} AS used,
+                        MAX(CASE WHEN pending = 0 AND ${TAXI_TRACKED_SQL} THEN became_permanent ELSE 0 END) AS marked
+                   FROM ups_taxi_callups WHERE player_id = ?`
               ).bind(playerId).first();
-              if (Number(permRow?.used || 0) >= 4) {
-                return jsonOut(400, {
-                  ok: false,
-                  error: "Player has been permanently promoted off taxi (4th call-up) — cannot return to taxi (league_context_v1.md §B2).",
-                  code: "TAXI_PERMANENTLY_PROMOTED",
-                  player_id: playerId,
-                  franchise_id: franchiseId,
-                });
-              }
+              const legacy2025 = await taxiLegacy2025Pids(env, leagueId);
+              permanentAnswer = taxiPermanent({
+                used: Number(permRow?.used || 0), marked: Number(permRow?.marked || 0),
+                legacy2025: _taxiLegacyFor(legacy2025, playerId, season, r1Gate.draftYear),
+              });
             } catch (e) {
               console.warn("[taxi-callup] D1 permanent-promotion lookup failed:", e?.message || String(e));
+              permanentAnswer = null;
             }
+          }
+          if (permanentAnswer === true) {
+            return jsonOut(400, {
+              ok: false,
+              error: "Player has been permanently promoted off taxi — cannot return to taxi (league_context_v1.md §B2 / T2.4).",
+              code: "TAXI_PERMANENTLY_PROMOTED",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            });
+          }
+          if (permanentAnswer !== false) {
+            return jsonOut(503, {
+              ok: false,
+              error: "Couldn't confirm this player's call-up history, so taxi eligibility can't be confirmed. Nothing was changed — try again in a moment.",
+              code: "TAXI_HISTORY_UNREADABLE",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            });
           }
         }
 
@@ -59535,9 +59679,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           try {
             const countRow = await env.UPS_MFL_DB.prepare(
               `SELECT
-                  SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) AS confirmed,
-                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL THEN 1 ELSE 0 END) AS pending_open,
-                  (SUM(CASE WHEN pending = 0 THEN 1 ELSE 0 END) >= 4) AS permanent
+                  ${TAXI_USED_WEEKS_SQL} AS confirmed,
+                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND ${TAXI_TRACKED_SQL} THEN 1 ELSE 0 END) AS pending_open,
+                  (${TAXI_USED_WEEKS_SQL} >= 4) AS permanent
                  FROM ups_taxi_callups WHERE player_id = ?`
             ).bind(playerId).first();
             const confirmedCount = Number(countRow?.confirmed || 0);

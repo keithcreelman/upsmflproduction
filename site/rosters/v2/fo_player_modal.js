@@ -344,8 +344,14 @@
       var cov = seasonCoverage(yr, (weeklyBySeason || {})[String(yr)], same);
       var half = Math.ceil(upsWeeks(yr).last / 2);
       var notes = [];
+      // A season rank held back until the #1307 recount (worker: rank null + rank_pending.fields): "—" with that reason,
+      // never a number and never the generic "can't be checked" note (#1372, ported into this table).
+      var pend = (c.rank_pending && Array.isArray(c.rank_pending.fields)) ? c.rank_pending.fields : [];
+      var pendPts = pend.indexOf("pos_rank") !== -1, pendPpg = pend.indexOf("pos_ppg_rank") !== -1;
       if (cov.partial) notes.push(cov.note);
-      if (!same) {
+      if (pend.length) {
+        notes.push(yr + " " + pend.map(function (k) { return k === "pos_rank" ? "Pts Rk" : k === "pos_ppg_rank" ? "PPG Rk" : k; }).join(", ") + ": Rank pending historical reconciliation.");
+      } else if (!same) {
         notes.push(!hasBasis ? "No rank: the league’s rank for " + yr + " can’t be checked against this total."
           : "No rank: the league’s " + yr + " rank counts " + comma1(c.rank_basis_points) + " pts over " + int(c.rank_basis_games) +
             " MFL wks, not the " + comma1(pts) + " over " + g + " shown.");
@@ -353,8 +359,8 @@
         notes.push("No PPG rank: it needs half the season’s weeks (" + half + " of " + upsWeeks(yr).last + "); " + g + " MFL wks.");
       }
       rows.push({ season: yr, current: false, games: g, pts: pts, ppg: g ? pts / g : null,
-        ptsRank: same && int(c.pos_rank) > 0 ? int(c.pos_rank) : null,
-        ppgRank: same && g >= half && int(c.pos_ppg_rank) > 0 ? int(c.pos_ppg_rank) : null,
+        ptsRank: same && !pendPts && int(c.pos_rank) > 0 ? int(c.pos_rank) : null,
+        ppgRank: same && !pendPpg && g >= half && int(c.pos_ppg_rank) > 0 ? int(c.pos_ppg_rank) : null,
         group: str(c.pos_group), partial: cov.partial, complete: same, notes: notes });
     });
     rows.sort(function (a, b) { return b.season - a.season; });
