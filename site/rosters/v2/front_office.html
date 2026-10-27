@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../../m/icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="../../m/icons/favicon-16.png">
 <link rel="apple-touch-icon" href="../../m/icons/apple-touch-icon-180.png">
-<link rel="stylesheet" href="front_office.css?v=2026.10.27.1">
+<link rel="stylesheet" href="front_office.css?v=2026.10.27.4">
 </head>
 <!-- .fo-root carries FO's page-level styling (dark surface, fonts, box-sizing).
      Scoped via this class so the same CSS is safe when injected into MFL's page
@@ -179,14 +179,16 @@
     <div class="fo-card">
       <div class="fo-card-head">
         <h2>Roster</h2>
-        <div class="fo-subview-chips" id="fo-colset" role="group" aria-label="Columns">
+        <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-colset">Roster columns</div>
+        <div class="fo-subview-chips fo-choice" id="fo-colset" role="group" aria-labelledby="fo-lbl-colset">
           <button type="button" class="fo-subview-chip active" data-colset="perf" aria-pressed="true" title="MFL points, PPG, rank, next game, projection, bye">Performance</button>
           <button type="button" class="fo-subview-chip" data-colset="contract" aria-pressed="false" title="Contract terms, guarantee, earned salary and drop penalty">Contract</button>
-        </div>
-        <div class="fo-subview-chips" id="fo-group-toggle" role="tablist" aria-label="Roster grouping">
+        </div></div>
+        <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-group">Group players</div>
+        <div class="fo-subview-chips fo-choice" id="fo-group-toggle" role="tablist" aria-labelledby="fo-lbl-group">
           <button type="button" class="fo-subview-chip" data-group="flat">Flat</button>
           <button type="button" class="fo-subview-chip active" data-group="position">By Position</button>
-        </div>
+        </div></div>
         <span class="small" id="fo-roster-summary">Loading…</span>
       </div>
       <p class="fo-row-hint">Click a player for actions, stats, game log, contract history and news.</p>
@@ -222,10 +224,11 @@
   <!-- ── CAP PLAN TAB ──────────────────────────────────────────────── -->
   <section class="fo-section" data-section="cap">
     <div class="fo-card">
-      <div class="fo-subview-chips" role="tablist" aria-label="Cap Plan view">
+      <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-capview">Cap plan view</div>
+      <div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-capview">
         <button type="button" class="fo-subview-chip active" data-subview="summary">Summary</button>
         <button type="button" class="fo-subview-chip" data-subview="detail">Detail (by team)</button>
-      </div>
+      </div></div>
       <p class="small" id="fo-cap-horizon" style="color:var(--muted); margin: 8px 0 0;">
         Projections cover the current season + 2 future years. Extension previews are layered on for any player in their final year (canon §C4 eligibility).
       </p>
@@ -236,10 +239,11 @@
   <!-- ── TAGGING TAB (stub for this checkpoint) ───────────────────── -->
   <section class="fo-section" data-section="tag">
     <div class="fo-card">
-      <div class="fo-subview-chips" role="tablist" aria-label="Tagging view">
+      <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tag">Tagging view</div>
+      <div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-tag">
         <button type="button" class="fo-subview-chip active" data-subview="players">Eligible Players</button>
         <button type="button" class="fo-subview-chip" data-subview="breakdown">Calc Breakdown</button>
-      </div>
+      </div></div>
       <p class="small" id="fo-tag-meta" style="color:var(--muted); margin: 8px 0 0;">Loading tag plan…</p>
     </div>
     <div id="fo-tag-body"></div>
@@ -302,10 +306,11 @@
 
   <!-- ── CONTRACT LOG TAB (read-only, D1-sourced) ──────────────────── -->
   <section class="fo-section" data-section="contractlog">
-    <div class="fo-subview-chips" role="tablist" aria-label="Contract log view" style="margin-bottom:14px;">
+    <div class="fo-choice-group" style="margin-bottom:14px;"><div class="fo-choice-label" id="fo-lbl-clog">Contract log view</div>
+    <div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-clog">
       <button type="button" class="fo-subview-chip active" data-subview="log">Contract Log</button>
       <button type="button" class="fo-subview-chip" data-subview="glossary">Glossary</button>
-    </div>
+    </div></div>
     <div class="fo-card">
       <div id="fo-contractlog-body"></div>
     </div>
@@ -370,10 +375,10 @@
 <script src="../../shared/player_profile_master.js?v=2026.10.27.1"></script>
 <script src="fo_hub.js?v=2026.10.27.1"></script>
 <script src="fo_overview.js?v=2026.10.27.1"></script>
-<script src="fo_roster.js?v=2026.10.27.1"></script>
-<script src="fo_market.js?v=2026.10.27.1"></script>
-<script src="fo_trades.js?v=2026.10.27.1"></script>
-<script src="fo_activity.js?v=2026.10.27.1"></script>
+<script src="fo_roster.js?v=2026.10.27.4"></script>
+<script src="fo_market.js?v=2026.10.27.3"></script>
+<script src="fo_trades.js?v=2026.10.27.2"></script>
+<script src="fo_activity.js?v=2026.10.27.2"></script>
 <script src="../../shared/taxi_rule.js?v=2026.10.21.5"></script>
 <script src="fo_player_modal.js?v=2026.10.27.1"></script>
 <script src="front_office.js?v=2026.10.27.v1.41.3"></script>

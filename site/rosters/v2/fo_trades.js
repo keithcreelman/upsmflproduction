@@ -417,8 +417,10 @@
     if (!m) { H.loading(el, "Building the league model…"); return; }
     var me = myFid();
     var F = root.UPS_PLAYER_FACTS, basis = F ? F.basis(ss) : { text: "" };
-    var controls = '<div class="fo-subview-chips fo-ls-by" role="group" aria-label="View">' + chips(BY, "data-tf-by", view.by) + "</div>" +
-      (view.by === "mix" ? "" : '<div class="fo-subview-chips fo-ls-views" role="group" aria-label="Measure">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div>");
+    var controls = '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tfby">Compare by</div>' +
+      '<div class="fo-subview-chips fo-choice fo-ls-by" role="group" aria-labelledby="fo-lbl-tfby">' + chips(BY, "data-tf-by", view.by) + "</div></div>" +
+      (view.by === "mix" ? "" : '<div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tfms">Measure</div>' +
+        '<div class="fo-subview-chips fo-choice fo-ls-views" role="group" aria-labelledby="fo-lbl-tfms">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div></div>") + "</div>";
     // Re-rendering keeps the scroll position of the table box (sorting or a data refresh never jumps the table).
     var box = el.querySelector(".fo-tf-scroll"), sx = box ? box.scrollLeft : 0;
     el.innerHTML = '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +

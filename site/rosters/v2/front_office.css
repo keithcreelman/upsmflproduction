@@ -1140,10 +1140,11 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-inline select { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
 .fo-bye-grid { min-width: 720px; }
 .fo-bye-grid th[scope="row"] { text-align: left; color: var(--muted); font-weight: 600; white-space: nowrap; }
-.fo-bye-wk button { background: none; border: 0; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; width: 100%; }
-.fo-bye-wk.sel button { color: var(--text); background: var(--accent-soft); }
-.fo-bye-wk.short button { color: var(--err); }
-.fo-bye-wk.heavy button { color: var(--warn); }
+.fo-bye-wk { color: var(--muted); font-weight: 700; text-align: center; }
+.fo-bye-wk .fo-bye-cost { display: block; }
+.fo-bye-wk.sel { color: var(--text); background: var(--accent-soft); }
+.fo-bye-wk.short { color: var(--err); }
+.fo-bye-wk.heavy { color: var(--warn); }
 .fo-bye-cost { font-size: 10px; font-weight: 500; color: var(--muted); }
 .fo-bye-cell { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
 .fo-bye-cell.ok { color: var(--muted); }
@@ -1310,3 +1311,68 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-stat-why li.on { color: var(--text); }
 .fo-gl-sum { margin-bottom: 4px; }
 .fo-gl-partial { margin-bottom: 8px; }
+
+/* ── View choices (Keith 2026-10-27): Direction A, the wider screen-first font, Market wraps to rows ───────────────
+   Applies to the groups that choose WHAT the screen shows: Roster columns / Group players, Market Browse players,
+   Trade finder Compare by / Measure, Cap plan view, Recent moves. Filters (position chips, team, search) keep their
+   own small, quiet style under "Filter the list". Selected = solid blue + a check mark + heavier weight (never color alone).
+   The font stack is used only by these controls and their labels; a device without Verdana falls through to the page font. */
+:root { --fo-choice-font: Verdana, "DejaVu Sans", Geneva, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --fo-focus: #fbbf24; }
+.fo-choice-group { min-width: 0; }
+.fo-choice-label {
+  font-family: var(--fo-choice-font); font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 6px;
+}
+.fo-root .fo-choice {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; width: fit-content; max-width: 100%;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 12px;
+}
+.fo-root .fo-choice .fo-subview-chip {
+  flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; min-width: 44px; padding: 8px 14px; border-radius: 9px;
+  font-family: var(--fo-choice-font); font-size: 14px; font-weight: 600; line-height: 1.2; white-space: normal; text-align: center;
+  color: var(--text); background: #1f293a; border: 1px solid #3a475e; cursor: pointer;
+}
+.fo-root .fo-choice .fo-subview-chip:hover { background: #27334a; color: var(--text); }
+.fo-root .fo-choice .fo-subview-chip.active,
+.fo-root .fo-choice .fo-subview-chip[aria-pressed="true"] {
+  background: var(--accent); color: #07101f; border-color: #a9c2ff; font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.fo-root .fo-choice .fo-subview-chip.active::before,
+.fo-root .fo-choice .fo-subview-chip[aria-pressed="true"]::before { content: "✓"; font-weight: 800; }
+.fo-root .fo-choice .fo-subview-chip:focus-visible { outline: 3px solid var(--fo-focus); outline-offset: 2px; }
+.fo-choice-row { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 8px 0 12px; }
+.fo-card-head .fo-choice-group { align-self: flex-end; }
+.fo-mk-controls .fo-choice-group { flex: 1 1 100%; }
+.fo-choice-filters {
+  flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+  border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;
+}
+.fo-choice-filters .fo-choice-label { flex: 0 0 100%; margin: 0 0 -4px; }
+.fo-choice-filters .fo-pos-chip { font-size: 13px; }
+.fo-choice-group + p { margin-top: 10px; }
+@media (max-width: 560px) {
+  .fo-mk-controls .fo-mk-search { flex: 1 1 100%; }
+  .fo-mk-controls .fo-mk-search input { min-width: 0; width: 100%; }
+  .fo-root .fo-choice { width: 100%; }
+  .fo-root .fo-choice-wrap .fo-subview-chip { flex: 1 1 calc(50% - 6px); }
+}
+
+/* Week choice in the Bye planner: the cost (or "short") sits under the week. The grid heads are text now. */
+.fo-root .fo-choice .fo-subview-chip .fo-choice-sub { flex: 0 0 100%; font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.85; }
+.fo-root .fo-choice-weeks .fo-subview-chip { flex: 0 1 calc(20% - 6px); flex-wrap: wrap; row-gap: 0; padding: 6px 4px; }
+.fo-root .fo-choice-weeks { margin-bottom: 10px; }
+.fo-root .fo-choice-weeks .fo-subview-chip { white-space: nowrap; }
+.fo-basis + .fo-choice-group { margin-top: 12px; }
+@media (max-width: 560px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(25% - 6px); } }
+@media (max-width: 360px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(33.3% - 6px); } }
+.fo-bye-grid th.fo-bye-wk { cursor: pointer; }
+
+/* Market status on a phone: the Status column would sit half off-screen, so each row says it under the player's name instead. */
+.fo-root .fo-mk-statusline { display: none; }
+@media (max-width: 560px) {
+  .fo-root .fo-mk-col-status { display: none; }
+  .fo-root .fo-mk-statusline { display: block; margin-top: 4px; font-size: 12px; line-height: 1.3; }
+  .fo-root .fo-mk-statusline .fo-perf-sub { margin-top: 2px; }
+}
