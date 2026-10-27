@@ -49,12 +49,18 @@
     idx = { src: src, byPid: out };
     return out;
   }
-  // { pid: { fid, teamName, p } } for every rostered player Front Office loaded (all 12 teams).
+  // { pid: { fid, teamName, p } } for every rostered player Front Office loaded (all 12 teams); rebuilt only when the
+  // rosters change (a reload after a move replaces the array).
+  var rIdx = { src: null, n: -1, byPid: {} };
   function rosterIndex() {
-    var f = FO(), out = {};
-    ((f && f.teams()) || []).forEach(function (t) {
+    var f = FO(), teams = (f && f.teams()) || [];
+    var n = teams.reduce(function (a, t) { return a + (t.players || []).length; }, 0);
+    if (rIdx.src === teams && rIdx.n === n) return rIdx.byPid;
+    var out = {};
+    teams.forEach(function (t) {
       (t.players || []).forEach(function (p) { out[String(p.id)] = { fid: t.fid, teamName: t.name, p: p }; });
     });
+    rIdx = { src: teams, n: n, byPid: out };
     return out;
   }
   function teamName(fid) {
