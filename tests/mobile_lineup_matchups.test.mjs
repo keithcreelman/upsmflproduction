@@ -113,6 +113,7 @@ function boot(opts) {
   if (!opts.noStatus) vm.runInContext("(function () { var M = window.UPS_MOBILE, U = M.util, API = M.api, DATA = M.data;\n" + PSTAT_SRC + "\n})();", c);
   vm.runInContext(read("site/m/front_office_lineup.js"), c);
   vm.runInContext(read("site/shared/live_scoring.js"), c);
+  vm.runInContext(read("site/m/season_scoring.js"), c);   // the page loads it first (index.html): the shared points formatter
   vm.runInContext(LINEUP, c);
   vm.runInContext("var M = window.UPS_MOBILE, U = M.util; function intel() { return M.lineupIntel || null; }" +
     "function projLabel() { return 'Wk 6 proj'; }\n" + sliceFn(PLAYERS, "function faIntelHtml(") + "\nthis.faIntelHtml = faIntelHtml;", c);

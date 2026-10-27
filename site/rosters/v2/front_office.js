@@ -2846,7 +2846,9 @@
           taxiCallupsMax:          safeInt(p.taxi_callups_max, 0),
           taxiCallupsPending:      safeInt(p.taxi_callups_pending, 0),
           taxiPermanentPromotion: !!p.taxi_permanent_promotion,
-          taxiEligible:           !!p.taxi_eligible
+          taxiEligible:           !!p.taxi_eligible,
+          // The worker's one taxi verdict (worker/src/taxi_rule.js): eligible / why not, in owner-facing words.
+          taxiStatus:             p.taxi_status || null
         };
       });
       // Capture the worker's per-team summary so the Cap Plan Summary
@@ -4397,6 +4399,10 @@
   // week shows here once it is over. Keith 2026-09-17: "We need to add Taxi
   // Eligibility" (Kyle Monangai, promoted 9/13, was showing nothing).
   function bioTaxiEligibility(p) {
+    // The worker's verdict names the reason (Keith 2026-10-21): legacy 2025 promotion, permanent after three
+    // temporary call-ups, released, window ended, Round 1, or "Eligibility could not be confirmed".
+    var ts = p.taxiStatus;
+    if (ts && ts.eligible !== true && ts.text) return { text: ts.text, note: safeStr(ts.detail) };
     if (p.taxiPermanentPromotion) {
       return { text: "Not eligible · permanently promoted", note: "Used 4 call-ups, or was on an active roster at the end of a past season." };
     }
@@ -4612,6 +4618,20 @@
   // numbers are identical across modules (no drift — see cap_math lesson).
   function foNumComma(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
   function foStatRank(r) { return (r == null || r <= 0) ? "—" : "#" + r; }
+  // A season rank held back until the #1307 recount: null + rank_pending {fields}
+  // from the bundle. The cell shows "—" with this note, never a number.
+  var FO_RANK_PENDING_NOTE = "Rank pending historical reconciliation";
+  var FO_RANK_PENDING_LABEL = { pos_rank: "Pts Rk", pos_ppg_rank: "PPG Rk" };
+  function foRankPendingAttr(c, k) {
+    var f = c && c.rank_pending && c.rank_pending.fields;
+    return (f && f.indexOf(k) !== -1) ? ' title="' + FO_RANK_PENDING_NOTE + '"' : "";
+  }
+  function foRankPendingNoteHtml(career) {
+    var lines = career.filter(function (c) { return c && c.rank_pending && c.rank_pending.fields; }).map(function (c) {
+      return escapeHtml(String(c.season)) + " " + c.rank_pending.fields.map(function (k) { return FO_RANK_PENDING_LABEL[k] || k; }).join(", ");
+    });
+    return lines.length ? '<p class="fo-form-note" style="margin-top:6px;">' + lines.join("; ") + ": " + FO_RANK_PENDING_NOTE + ".</p>" : "";
+  }
 
   function foStatHeadlineHtml(career, lev) {
     var tot = { g: 0, pts: 0, apw: 0 };
@@ -4659,9 +4679,9 @@
         "<td>" + escapeHtml(String(c.season)) + "</td>" +
         '<td class="num">' + g + "</td>" +
         '<td class="num">' + (c.season_points != null ? Number(c.season_points).toFixed(0) : "—") + "</td>" +
-        '<td class="num" style="color:var(--muted);">' + foStatRank(c.pos_rank) + "</td>" +
+        '<td class="num" style="color:var(--muted);"' + foRankPendingAttr(c, "pos_rank") + ">" + foStatRank(c.pos_rank) + "</td>" +
         '<td class="num">' + (c.avg_ppg != null ? Number(c.avg_ppg).toFixed(1) : "—") + "</td>" +
-        '<td class="num" style="color:var(--muted);">' + foStatRank(c.pos_ppg_rank) + "</td>" +
+        '<td class="num" style="color:var(--muted);"' + foRankPendingAttr(c, "pos_ppg_rank") + ">" + foStatRank(c.pos_ppg_rank) + "</td>" +
         '<td class="num" style="color:var(--ok);">' + (c.elite_pct != null ? Number(c.elite_pct).toFixed(0) + "%" : "—") + "</td>" +
         '<td class="num">' + apwCell + "</td>" +
         "</tr>";
@@ -4685,6 +4705,7 @@
       '<td class="num" style="color:var(--ok);">' + el.toFixed(0) + "%</td>" +
       '<td class="num">' + (wcOk ? tot.apw.toFixed(1) : '<span style="color:var(--muted);">—</span>') + "</td>" +
       "</tr></tbody></table></div>" +
+      foRankPendingNoteHtml(career) +
       (wcOk ? "" : '<p class="fo-form-note" style="margin-top:6px;">APW shows "—" when it isn\'t available for that season.</p>');
   }
 
