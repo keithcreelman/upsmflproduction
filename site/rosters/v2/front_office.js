@@ -2669,6 +2669,7 @@
       selectedTeam: function () { return STATE.selectedTeamId || "__all__"; },
       warRoomUrl: warRoomUrl,
       leagueEvents: function () { return STATE.leagueEvents || null; },
+      tradeLock: function () { return STATE.tradeLock || null; },
       extensionDeadline: function (p) { try { return extensionDeadlineForPlayer(p); } catch (e) { return null; } },
       escapeHtml: escapeHtml, fmtUSD: fmtUSD
     };
@@ -3862,6 +3863,9 @@
       var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50&kickoffs=1,3,5");
       var evs = (data && data.events) || [];
       STATE.leagueEvents = evs;
+      // When MFL stops accepting trades: the worker's read of MFL's own lock (worker/src/trade_deadline.js), the one
+      // source every app surface uses — the Overview's Trade deadline card reads it.
+      STATE.tradeLock = (data && data.trade_lock) || null;
       try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e) {}
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
