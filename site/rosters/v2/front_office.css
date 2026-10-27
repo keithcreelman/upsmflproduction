@@ -1352,6 +1352,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-choice-filters .fo-pos-chip { font-size: 13px; }
 .fo-choice-group + p { margin-top: 10px; }
 @media (max-width: 560px) {
+  .fo-mk-controls .fo-mk-search { flex: 1 1 100%; }
+  .fo-mk-controls .fo-mk-search input { min-width: 0; width: 100%; }
   .fo-root .fo-choice { width: 100%; }
   .fo-root .fo-choice-wrap .fo-subview-chip { flex: 1 1 calc(50% - 6px); }
 }

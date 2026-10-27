@@ -55,6 +55,10 @@ test("style: Direction A, 44 px targets, 14 px wider font on the controls only, 
   t.ok(ratio("#e8edf5", "#1f293a") >= 4.5, "unselected text contrast " + ratio("#e8edf5", "#1f293a").toFixed(1) + ":1");
 });
 
+test("Market search no longer pokes past its card on a phone", () => {
+  t.ok(/\.fo-mk-controls \.fo-mk-search input \{ min-width: 0; width: 100%; \}/.test(CSS));
+});
+
 test("version stamps changed with the files that changed", () => {
   for (const f of ["front_office.css", "fo_market.js", "fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
   t.ok(/var BUILD = "2026\.10\.27\.2";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
